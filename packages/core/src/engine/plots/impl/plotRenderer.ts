@@ -26,7 +26,6 @@ import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
-import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
@@ -60,6 +59,8 @@ interface LineProjection {
   readonly plot: LineSeriesPlot
   readonly points: ReadonlyMap<number, Point>
   readonly lines: readonly LineBatch[]
+  /** 点为世界 x 与价格 y，由后端按帧变换还原；此时 points 不保留点表。 */
+  readonly dataSpace: boolean
 }
 
 /** 柱状图与柱形图的投影结果：几何相同，只有柱宽来源不同。 */
@@ -121,6 +122,9 @@ interface PlotGeometry {
 
 const MARKER_BAR_GAP = 4
 
+/** 未被填充引用的线不保留点表，统一复用一个空表。 */
+const EMPTY_POINTS: ReadonlyMap<number, Point> = new Map()
+
 /** 相对定位锚定的 bar 极值；时间轴数据没有 OHLC，只有 price。 */
 function barAnchorPrice(bar: PrimitiveRenderContext['data'][number], above: boolean): number {
   if (!('close' in bar)) return bar.price
@@ -169,19 +173,44 @@ function barValue(plot: ScalarPlot, index: number): number | undefined {
   return value === undefined || !Number.isFinite(value) ? undefined : value
 }
 
-/** 把 K 线下标投影到屏幕 X；该下标不在绘图区时返回 null。 */
+/** 把 K 线下标投影到屏幕 X；内联查表并预计算外推步长，避免每个点分配参数对象。 */
 function projectX(index: number, context: PrimitiveRenderContext): number | null {
-  return logicalIndexToScreenX({
-    index,
-    visibleRange: {
-      start: context.range.start,
-      end: context.range.start + context.kLineCenters.length,
-    },
-    centers: context.kLineCenters,
-    scrollLeft: 0,
-    dpr: context.dpr,
-    fallbackStep: context.kWidth + context.kGap,
-  })
+  const centers = context.kLineCenters
+  if (!Number.isFinite(index) || centers.length === 0) return null
+  const start = context.range.start
+  const offset = index - start
+  const center = centers[offset]
+  const dpr = context.dpr
+  if (Number.isFinite(center)) return Math.round(center! * dpr) / dpr
+  const lower = Math.floor(offset)
+  if (lower >= 0 && lower + 1 < centers.length) {
+    const left = centers[lower]!,
+      right = centers[lower + 1]!
+    return Math.round((left + (right - left) * (offset - lower)) * dpr) / dpr
+  }
+  // 视口外的索引按首/末中心与槽位步长线性外推，语义与 logicalIndexToScreenX 一致。
+  const step =
+    centers.length >= 2
+      ? index < start
+        ? centers[1]! - centers[0]!
+        : centers[centers.length - 1]! - centers[centers.length - 2]!
+      : context.kWidth + context.kGap
+  if (!Number.isFinite(step) || step === 0) return null
+  const originIndex = index < start ? start : start + centers.length - 1
+  const originCenter = index < start ? centers[0]! : centers[centers.length - 1]!
+  return Math.round((originCenter + (index - originIndex) * step) * dpr) / dpr
+}
+
+/** 数据空间折线：x 保留世界坐标，y 保留价格，屏幕坐标由后方按轴变换还原。 */
+function projectDataPoint(
+  plot: LineSeriesPlot,
+  index: number,
+  context: PrimitiveRenderContext,
+): Point | undefined {
+  const value = barValue(plot, index)
+  if (value === undefined) return undefined
+  const x = projectX(index, context)
+  return x === null ? undefined : { x, y: value }
 }
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
@@ -212,9 +241,15 @@ function projectMarkerPoint(
   return y !== undefined && Number.isFinite(y) ? { x, y } : undefined
 }
 
-/** 仅遍历当前视口与超出行情长度的未来序列，不扫描中间的不可见历史。 */
-function* plotIndices(plot: Plot, context: PrimitiveRenderContext): Iterable<number> {
-  for (let index = context.range.start; index < context.range.end; index++) yield index
+/** 只遍历视口附近的点，不扫描中间的不可见历史；margin 由需要缓存的折线单独开启。 */
+function* plotIndices(
+  plot: Plot,
+  context: PrimitiveRenderContext,
+  margin = 0,
+): Iterable<number> {
+  // 折线左右各留半屏：纯滚动时点集不变，几何缓存才能命中，避免每帧重新三角化。
+  for (let index = Math.max(0, context.range.start - margin); index < context.range.end + margin; index++)
+    yield index
   for (
     let index = Math.max(context.range.end, context.data.length);
     index < plot.data.length + plot.offset;
@@ -223,14 +258,20 @@ function* plotIndices(plot: Plot, context: PrimitiveRenderContext): Iterable<num
     yield index
 }
 
+/** 折线的投影边距：半屏，足够覆盖纯滚动而不会把整段历史重新三角化。 */
+function lineMargin(context: PrimitiveRenderContext): number {
+  return Math.max(2, Math.ceil(context.kLineCenters.length / 2))
+}
+
 /** 逐 bar 投影并收集有点位的下标。 */
 function projectPoints(
   plot: Plot,
   context: PrimitiveRenderContext,
   project: (index: number) => Point | undefined,
+  margin = 0,
 ): Map<number, Point> {
   const points = new Map<number, Point>()
-  for (const index of plotIndices(plot, context)) {
+  for (const index of plotIndices(plot, context, margin)) {
     const point = project(index)
     if (point) points.set(index, point)
   }
@@ -246,21 +287,22 @@ function isStepPlot(plot: Plot): boolean {
 function buildLineSegments(
   plot: LineSeriesPlot,
   context: PrimitiveRenderContext,
-  points: ReadonlyMap<number, Point>,
+  getPoint: (index: number) => Point | undefined,
+  margin: number,
 ): LineBatch[] {
   const lines: LineBatch[] = []
   const stepped = isStepPlot(plot)
   let segment: Point[] = []
   let color = plot.color
   let previous: Point | undefined
-  let previousIndex = context.range.start - 1
-  for (const index of plotIndices(plot, context)) {
+  let previousIndex = context.range.start - margin - 1
+  for (const index of plotIndices(plot, context, margin)) {
     if (index !== previousIndex + 1) {
       segment = []
       previous = undefined
     }
     previousIndex = index
-    const point = points.get(index)
+    const point = getPoint(index)
     if (!point) {
       if (plot.kind === 'linebr' || plot.kind === 'steplinebr') {
         segment = []
@@ -321,7 +363,12 @@ function buildColumnRects(
 }
 
 /** 投影单个 Plot；每种 kind 只构建自己绘制所需的数据。 */
-function projectPlot(plot: Plot, context: PrimitiveRenderContext): PlotProjection {
+function projectPlot(
+  plot: Plot,
+  context: PrimitiveRenderContext,
+  needsPoints: boolean,
+  dataSpace: boolean,
+): PlotProjection {
   switch (plot.kind) {
     case 'candle':
     case 'bar':
@@ -330,10 +377,49 @@ function projectPlot(plot: Plot, context: PrimitiveRenderContext): PlotProjectio
     case 'linebr':
     case 'stepline':
     case 'steplinebr': {
-      const points = projectPoints(plot, context, (index) =>
-        projectPricePoint(plot, index, context),
+      const margin = lineMargin(context)
+      // 数据空间：几何与滚动、价格轴无关，滚动和缩放只改 uniform。
+      if (dataSpace)
+        return {
+          kind: 'line',
+          plot,
+          dataSpace: true,
+          points: EMPTY_POINTS,
+          lines: buildLineSegments(
+            plot,
+            context,
+            (index) => projectDataPoint(plot, index, context),
+            margin,
+          ),
+        }
+      // 只有被填充引用的线才需要按下标保留点；其余线在单遍构建里直接投影，
+      // 省掉每帧一个 Map 和第二次遍历。
+      if (!needsPoints)
+        return {
+          kind: 'line',
+          plot,
+          dataSpace: false,
+          points: EMPTY_POINTS,
+          lines: buildLineSegments(
+            plot,
+            context,
+            (index) => projectPricePoint(plot, index, context),
+            margin,
+          ),
+        }
+      const points = projectPoints(
+        plot,
+        context,
+        (index) => projectPricePoint(plot, index, context),
+        margin,
       )
-      return { kind: 'line', plot, points, lines: buildLineSegments(plot, context, points) }
+      return {
+        kind: 'line',
+        plot,
+        dataSpace: false,
+        points,
+        lines: buildLineSegments(plot, context, (index) => points.get(index), margin),
+      }
     }
     case 'histogram':
     case 'columns': {
@@ -449,15 +535,31 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
-function collectGeometry(state: PlotRenderState, context: PrimitiveRenderContext): PlotGeometry {
-  const plots = state.plots.map((plot) => projectPlot(plot, context))
+function collectGeometry(
+  state: PlotRenderState,
+  context: PrimitiveRenderContext,
+  dataSpace: boolean,
+): PlotGeometry {
+  // 填充只按 id 引用两端，先收集引用集合，未被引用的线不必保留点表。
+  const filled = new Set<string>()
+  for (const fill of state.fills) {
+    filled.add(fill.from)
+    filled.add(fill.to)
+  }
+  const plots = state.plots.map((plot) =>
+    projectPlot(plot, context, filled.has(plot.id), dataSpace),
+  )
   const byId = new Map(plots.map((projection) => [projection.plot.id, projection]))
   return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
 }
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
 export function paintPlots(state: PlotRenderState, context: PrimitiveRenderContext): void {
-  paintGeometry(state, context, collectGeometry(state, context))
+  paintGeometry(
+    state,
+    context,
+    collectGeometry(state, context, isDataSpaceLayer(state, context)),
+  )
 }
 
 /** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
@@ -467,12 +569,17 @@ function paintGeometry(
   geometry: PlotGeometry,
 ): void {
   const commands: PaintPrimitive[] = []
-  const screen = (path: PrimitivePath) =>
-    path.map((point) => ({ x: point.x - context.scrollLeft, y: point.y }))
+  // 折线与填充保留世界坐标，滚动量由原语携带并在后端一次扣除，避免逐点复制。
+  const offsetX = context.scrollLeft
   for (const fill of geometry.fills)
     if (fill.fill.visible)
       for (const band of fill.bands) {
-        commands.push({ kind: 'fill', paths: band.polygons.map(screen), color: band.color })
+        commands.push({
+          kind: 'fill',
+          paths: band.polygons,
+          color: band.color,
+          offsetX,
+        })
       }
   for (const guide of state.guides) {
     const y = context.pane.yAxis.priceToY(guide.value)
@@ -497,12 +604,15 @@ function paintGeometry(
         for (const line of projection.lines)
           commands.push({
             kind: 'stroke',
-            paths: [screen(line.points)],
+            paths: [line.points],
             color: line.color,
             width: line.width,
             dash: projection.plot.dash,
             cap: 'round',
             join: 'round',
+            ...(projection.dataSpace
+              ? { dataSpace: true }
+              : { offsetX: context.scrollLeft }),
           })
         break
       case 'histogram':
@@ -606,6 +716,39 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
   }
 }
 
+/** 折线指标是否全部可按数据空间缓存：只有纯折线且没有填充引用时才成立。 */
+function isDataSpaceLayer(state: PlotRenderState, context: PrimitiveRenderContext): boolean {
+  if (context.dataTransform === undefined || state.fills.length > 0) return false
+  return state.plots.every(
+    (plot) =>
+      plot.kind === 'line' ||
+      plot.kind === 'linebr' ||
+      plot.kind === 'stepline' ||
+      plot.kind === 'steplinebr',
+  )
+}
+
+/** 数据空间折线与滚动、价格轴无关；可见窗口按半屏分桶，桶内复用同一批几何。 */
+function createDataRevision(
+  context: PrimitiveRenderContext,
+  inputs: readonly unknown[],
+): ProjectionRevision {
+  const bucket = Math.max(1, lineMargin(context))
+  return {
+    inputs: [
+      ...inputs,
+      context.data.length,
+      Math.floor(context.range.start / bucket),
+      Math.floor(context.range.end / bucket),
+      context.kWidth,
+      context.kGap,
+      context.kWidthPx,
+      context.dpr,
+    ],
+    centers: [],
+  }
+}
+
 /** 所有普通指标共用同一 Layer 工厂，实例只提供 Plot 数据。 */
 export function createPlotLayer(
   definitionId: string,
@@ -621,9 +764,17 @@ export function createPlotLayer(
     draw(context) {
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
+      const dataSpace = isDataSpaceLayer(state, context)
       const geometry = retained.read(
-        createProjectionRevision(context, [state.plots, state.fills, context.data, context.theme]),
-        () => collectGeometry(state, context),
+        dataSpace
+          ? createDataRevision(context, [state.plots, state.fills, context.data, context.theme])
+          : createProjectionRevision(context, [
+              state.plots,
+              state.fills,
+              context.data,
+              context.theme,
+            ]),
+        () => collectGeometry(state, context, dataSpace),
       )
       paintGeometry(state, context, geometry)
     },

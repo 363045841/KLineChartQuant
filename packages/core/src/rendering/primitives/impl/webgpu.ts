@@ -6,11 +6,19 @@ import {
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
 import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
 import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
-import { INSTANCE_FLOATS, MESH_FLOATS, MESH_WGSL, SHAPE_WGSL } from './shaders.js'
+import {
+  INSTANCE_FLOATS,
+  MESH_FLOATS,
+  MESH_WGSL,
+  SEGMENT_FLOATS,
+  SEGMENT_WGSL,
+  SHAPE_WGSL,
+} from './shaders.js'
 
 /**
  * 绑定一个画布的设备。
@@ -27,9 +35,13 @@ function createDevice(
   const context = canvas.getContext('webgpu')
   if (!context || !('configure' in context)) throw new Error('Primitive WebGPU unavailable')
   context.configure({ device, format, alphaMode: 'premultiplied' })
-  const sampleCount = direct ? 1 : 4
+  // 与 WebGL 的 context antialias 对齐：两种目标都走 4x MSAA，否则细斜线会明显锯齿。
+  const sampleCount = 4
   const meshModule = device.createShaderModule({ code: MESH_WGSL })
   const shapeModule = device.createShaderModule({ code: SHAPE_WGSL })
+  const segmentModule = device.createShaderModule({ code: SEGMENT_WGSL })
+  /** 段实例的屏幕变换：世界 x 偏移与价格 → 屏幕 y 的线性映射。 */
+  const segmentData = new Float32Array(4)
   const blend: GPUBlendState = {
     color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
     alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
@@ -101,7 +113,44 @@ function createDevice(
     parityMask = pipeline('parityMask'),
     cover = pipeline('cover'),
     parityCover = pipeline('parityCover')
-  const uniform = device.createBuffer({ size: 16, usage: GPU_BUFFER_UNIFORM | GPU_BUFFER_COPY_DST })
+  /** 解析式描边：每段一个实例，覆盖率在片元着色器按距离算，不再三角化。 */
+  const segmentPipeline = device.createRenderPipeline({
+    layout: shapePipelineLayout,
+    vertex: {
+      module: segmentModule,
+      entryPoint: 'vs',
+      buffers: [
+        {
+          arrayStride: SEGMENT_FLOATS * 4,
+          stepMode: 'instance',
+          attributes: [
+            { shaderLocation: 0, offset: 0, format: 'float32x2' },
+            { shaderLocation: 1, offset: 8, format: 'float32x2' },
+            { shaderLocation: 2, offset: 16, format: 'float32' },
+            { shaderLocation: 3, offset: 20, format: 'float32x4' },
+            { shaderLocation: 4, offset: 36, format: 'float32' },
+          ],
+        },
+      ],
+    },
+    fragment: {
+      module: segmentModule,
+      entryPoint: 'fs',
+      targets: [{ format, blend }],
+    },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    multisample: { count: sampleCount },
+    depthStencil: {
+      format: 'depth24plus-stencil8',
+      depthWriteEnabled: false,
+      depthCompare: 'always',
+      stencilReadMask: 0xff,
+      stencilWriteMask: 0xff,
+      stencilFront: { compare: 'always', passOp: 'keep' },
+      stencilBack: { compare: 'always', passOp: 'keep' },
+    },
+  })
+  const uniform = device.createBuffer({ size: 32, usage: GPU_BUFFER_UNIFORM | GPU_BUFFER_COPY_DST })
   const bind = device.createBindGroup({
     layout: shapeLayout,
     entries: [{ binding: 0, resource: { buffer: uniform } }],
@@ -114,24 +163,22 @@ function createDevice(
   let color: GPUTexture | undefined
   let depth: GPUTexture | undefined
   let meshBuffer: GPUBuffer | undefined, instanceBuffer: GPUBuffer | undefined
+  let segmentBuffer: GPUBuffer | undefined
   let meshCapacity = 0,
-    instanceCapacity = 0
+    instanceCapacity = 0,
+    segmentCapacity = 0
   let targetWidth = 0,
     targetHeight = 0
   const meshTracker = new UploadTracker(),
-    instanceTracker = new UploadTracker()
+    instanceTracker = new UploadTracker(),
+    segmentTracker = new UploadTracker()
   return {
-    render(batch, width, height, dpr, clear = true) {
+    render(batch, width, height, dpr, clear = true, transform) {
       // 离屏目标只增不减；可见表面由 Pane 负责尺寸，直接沿用。
       const nextWidth = direct ? canvas.width : Math.max(width, targetWidth)
       const nextHeight = direct ? canvas.height : Math.max(height, targetHeight)
       if (nextWidth <= 0 || nextHeight <= 0) throw new Error('Primitive WebGPU target unavailable')
-      if (
-        depth === undefined ||
-        targetWidth !== nextWidth ||
-        targetHeight !== nextHeight ||
-        (!direct && color === undefined)
-      ) {
+      if (!color || targetWidth !== nextWidth || targetHeight !== nextHeight) {
         color?.destroy()
         depth?.destroy()
         targetWidth = nextWidth
@@ -139,13 +186,13 @@ function createDevice(
         if (!direct) {
           canvas.width = targetWidth
           canvas.height = targetHeight
-          color = device.createTexture({
-            size: [targetWidth, targetHeight],
-            format,
-            sampleCount: 4,
-            usage: GPU_TEXTURE_RENDER_ATTACHMENT,
-          })
         }
+        color = device.createTexture({
+          size: [targetWidth, targetHeight],
+          format,
+          sampleCount,
+          usage: GPU_TEXTURE_RENDER_ATTACHMENT,
+        })
         depth = device.createTexture({
           size: [targetWidth, targetHeight],
           format: 'depth24plus-stencil8',
@@ -190,8 +237,11 @@ function createDevice(
       const instances = upload(batch.instances, instanceTracker, instanceBuffer, instanceCapacity)
       instanceBuffer = instances.buffer
       instanceCapacity = instances.capacity
+      const segments = upload(batch.segments, segmentTracker, segmentBuffer, segmentCapacity)
+      segmentBuffer = segments.buffer
+      segmentCapacity = segments.capacity
       if (
-        batch.instances.length &&
+        (batch.instances.length || batch.segments.length) &&
         (viewportWidth !== width || viewportHeight !== height || viewportDpr !== dpr)
       ) {
         viewport.set([width / dpr, height / dpr, dpr, 0])
@@ -202,24 +252,30 @@ function createDevice(
         metrics.uploads++
         metrics.uploadedBytes += viewport.byteLength
       }
+      // 段实例的数据空间变换每帧只写一次；render pass 打开后不允许再写缓冲。
+      if (batch.segments.length) {
+        segmentData.set([
+          transform ? transform.offsetX : 0,
+          transform ? transform.yScale : 1,
+          transform ? transform.yOffset : 0,
+          0,
+        ])
+        device.queue.writeBuffer(uniform, 16, segmentData)
+        metrics.uploads++
+        metrics.uploadedBytes += segmentData.byteLength
+      }
       const encoder = device.createCommandEncoder()
       const current = context.getCurrentTexture().createView()
       const pass = encoder.beginRenderPass({
         colorAttachments: [
-          direct
-            ? {
-                view: current,
-                clearValue: { r: 0, g: 0, b: 0, a: 0 },
-                loadOp: clear ? 'clear' : 'load',
-                storeOp: 'store',
-              }
-            : {
-                view: color!.createView(),
-                resolveTarget: current,
-                clearValue: { r: 0, g: 0, b: 0, a: 0 },
-                loadOp: 'clear',
-                storeOp: 'discard',
-              },
+          {
+            view: color!.createView(),
+            resolveTarget: current,
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            loadOp: clear ? 'clear' : 'load',
+            // 可见表面在增量帧保留 MSAA 目标；解析始终把整张结果写回 canvas。
+            storeOp: direct ? 'store' : 'discard',
+          },
         ],
         depthStencilAttachment: {
           view: depth!.createView(),
@@ -253,11 +309,16 @@ function createDevice(
           pass.setBindGroup(0, bind)
           pass.draw(6, draw.count, 0, draw.first)
           metrics.drawCalls++
+        } else if (draw.kind === 'segments') {
+          select(segmentPipeline, segmentBuffer!)
+          pass.setBindGroup(0, bind)
+          pass.draw(6, draw.count, 0, draw.first)
+          metrics.drawCalls++
         } else if (draw.kind === 'direct') {
           select(directPipeline, meshBuffer)
           pass.draw(draw.count, 1, draw.first)
           metrics.drawCalls++
-        } else {
+        } else if (draw.kind === 'stencil') {
           select(draw.evenodd ? parityMask : mask, meshBuffer)
           pass.draw(draw.count, 1, draw.first)
           select(draw.evenodd ? parityCover : cover, meshBuffer)
@@ -275,10 +336,12 @@ function createDevice(
     dispose() {
       meshBuffer?.destroy()
       instanceBuffer?.destroy()
+      segmentBuffer?.destroy()
       uniform.destroy()
       color?.destroy()
       depth?.destroy()
       context.unconfigure()
+      // 可见画布的尺寸归 Pane 所有；只有离屏目标在释放时归零后备存储。
       if (!direct) canvas.width = canvas.height = 1
     },
   }
@@ -294,7 +357,7 @@ function createSurface(
   let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
   return {
     canvas,
-    paint(primitives, dpr, clear) {
+    paint(primitives, dpr, clear, transform) {
       try {
         const document = canvas.ownerDocument
         if (!document) return false
@@ -302,10 +365,10 @@ function createSurface(
         const width = canvas.width,
           height = canvas.height
         if (width <= 0 || height <= 0) return false
-        preparer ??= createPrimitivePreparer(createColorResolver(document))
-        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr)
+        preparer ??= createPrimitivePreparer(createColorResolver(document), { segments: true })
+        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr, transform)
         target ??= createDevice(device, format, canvas, true)
-        target.render(batch, width, height, dpr, clear)
+        target.render(batch, width, height, dpr, clear, transform)
         return true
       } catch {
         target?.dispose()
@@ -329,6 +392,7 @@ export function createWebGPUPrimitiveBackend(
   const composite = createGpuPrimitiveBackend(
     (target) => createDevice(device, format, target.createElement('canvas'), false),
     document ? createDevice(device, format, document.createElement('canvas'), false) : undefined,
+    { segments: true },
   )
   return {
     ...composite,

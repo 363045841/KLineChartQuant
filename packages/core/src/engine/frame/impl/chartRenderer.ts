@@ -1125,6 +1125,16 @@ export class ChartRenderer {
 
       // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
+      // 数据空间折线的每帧映射：x 平移来自滚动，y 映射来自当前价格轴（仅线性轴）。
+      const yOffset = pane.yAxis.priceToY(0)
+      const yScale = pane.yAxis.priceToY(1) - yOffset
+      const dataTransform =
+        pane.yAxis.getScaleType() === ScaleType.Linear &&
+        Number.isFinite(yScale) &&
+        Number.isFinite(yOffset) &&
+        yScale !== 0
+          ? { offsetX: vp.scrollLeft, yScale, yOffset }
+          : undefined
       const context: RenderContext = {
         countdown: countdown ?? undefined,
         ctx: mainCtx!,
@@ -1146,6 +1156,7 @@ export class ChartRenderer {
         comparisonProjection: comparisonProjection ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
+        dataTransform,
         kWidth: opt.kWidth,
         kGap: opt.kGap,
         dpr: vp.dpr,
@@ -1254,10 +1265,8 @@ export class ChartRenderer {
       legendContexts.push(context)
 
       const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
-      // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端为 undefined，走 2D 合成。
-      const gpuSurface = sceneRenderer.primitives.createSurface
-        ? (renderer.getMainGpuSurface(sceneRenderer) ?? undefined)
-        : undefined
+      // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端返回 null 并清掉旧表面。
+      const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
       // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
         framePanes.push({

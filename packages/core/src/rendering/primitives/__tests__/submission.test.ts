@@ -14,7 +14,7 @@ describe('primitive submission', () => {
     const paint = vi.fn(() => success)
     const backend: PrimitiveBackend = { paint, dispose() {} }
     primitiveSink(backend)(target, commands, 1.25)
-    expect(paint).toHaveBeenCalledExactlyOnceWith(target, commands, 1.25)
+    expect(paint).toHaveBeenCalledExactlyOnceWith(target, commands, 1.25, undefined)
     expect(target.fillRect).toHaveBeenCalledTimes(success ? 0 : 1)
     expect(target.arc).toHaveBeenCalledTimes(success ? 0 : 1)
   })

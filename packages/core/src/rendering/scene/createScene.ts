@@ -6,6 +6,7 @@
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
 import { createPrimitiveComposer, type PrimitiveComposer } from '../primitives/impl/composer.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePaint, PrimitiveSurface } from '../primitives/types.js'
 import type {
@@ -95,18 +96,22 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
     // 可见 GPU 表面按 pane 累积；帧末一次直出，不产生拷贝。
-    const surfaces = new Map<PrimitiveSurface, { primitives: PaintPrimitive[]; dpr: number }>()
+    const surfaces = new Map<
+      PrimitiveSurface,
+      { primitives: PaintPrimitive[]; dpr: number; transform?: DataTransform }
+    >()
     /** 几何写可见表面，文字仍走它上方的 2D 目标；两者顺序保持不变。 */
     const submitToSurface = (
       surface: PrimitiveSurface,
       composer: PrimitiveComposer,
       primitives: readonly PaintPrimitive[],
       dpr: number,
+      transform?: DataTransform,
     ): void => {
       let entry = surfaces.get(surface)
       for (const primitive of primitives) {
         if (primitive.kind === 'text') {
-          composer.submit([primitive], dpr)
+          composer.submit([primitive], dpr, transform)
           continue
         }
         if (!entry) {
@@ -114,6 +119,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           surfaces.set(surface, entry)
         }
         entry.dpr = dpr
+        entry.transform = transform
         entry.primitives.push(primitive)
       }
     }
@@ -157,7 +163,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           const context: PrimitiveDrawContext<TFrame> = {
             ...withoutContext(pane.context as TFrame),
             primitives: surface
-              ? (primitives, dpr) => submitToSurface(surface, composer, primitives, dpr)
+              ? (primitives, dpr, transform) =>
+                  submitToSurface(surface, composer, primitives, dpr, transform)
               : composer.submit,
             measureContext: target,
             paneId: pane.paneId,
@@ -200,11 +207,11 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         const dpr = entry?.dpr ?? pane.dpr ?? 1
         const batch = entry?.primitives
         if (entry || pane.clear) {
-          if (!surface.paint(batch ?? [], dpr, pane.clear) && batch?.length) {
+          if (!surface.paint(batch ?? [], dpr, pane.clear, entry?.transform) && batch?.length) {
             const main = pane.targets.main
             if (main) {
               const composer = composerFor(main, pane.renderer)
-              composer.submit(batch, dpr)
+              composer.submit(batch, dpr, entry?.transform)
               composer.flush()
             }
           }

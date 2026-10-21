@@ -2,6 +2,7 @@
 import type { PaintPrimitive, PrimitiveBackend, PrimitiveMetrics } from '../types.js'
 import { paintCanvasPrimitives } from './canvas.js'
 import { createColorResolver } from './colors.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import { createPrimitivePreparer, type GeometryPrimitive, type PreparedBatch } from './prepare.js'
 
 export interface DeviceMetrics {
@@ -18,6 +19,7 @@ export interface PrimitiveDevice {
     dpr: number,
     /** false 时只清 stencil，保留上一帧颜色（可见表面的增量帧）。 */
     clear?: boolean,
+    transform?: DataTransform,
   ): { canvas: HTMLCanvasElement; metrics: DeviceMetrics }
   waitForIdle(): Promise<void>
   dispose(): void
@@ -92,6 +94,7 @@ function coverage(primitives: readonly PaintPrimitive[]): number {
 export function createGpuPrimitiveBackend(
   create: (document: Document) => PrimitiveDevice,
   initialDevice?: PrimitiveDevice,
+  options: { segments?: boolean } = {},
 ): PrimitiveBackend {
   let device: PrimitiveDevice | undefined = initialDevice
   let preparer: ReturnType<typeof createPrimitivePreparer> | undefined
@@ -99,12 +102,12 @@ export function createGpuPrimitiveBackend(
   let disposed = false
   let metrics = emptyMetrics()
   return {
-    paint(target, primitives, dpr) {
+    paint(target, primitives, dpr, dataTransform) {
       if (disposed) return false
       metrics = emptyMetrics()
       metrics.primitives = primitives.length
       if (primitives.every((primitive) => primitive.kind === 'text')) {
-        paintCanvasPrimitives(target, primitives, dpr)
+        paintCanvasPrimitives(target, primitives, dpr, dataTransform)
         return true
       }
       // 非默认合成、阴影或滤镜不能按整批组合作等价变换，统一交给 Canvas 保持原语语义。
@@ -137,7 +140,7 @@ export function createGpuPrimitiveBackend(
       try {
         const document = target.canvas.ownerDocument
         if (!document) return false
-        preparer ??= createPrimitivePreparer(createColorResolver(document))
+        preparer ??= createPrimitivePreparer(createColorResolver(document), options)
         const mixed = primitives.some((primitive) => primitive.kind === 'text')
         let destination = target
         if (mixed) {
@@ -155,7 +158,7 @@ export function createGpuPrimitiveBackend(
         const flush = (): void => {
           if (!geometry.length) return
           const prepareStart = performance.now()
-          const batch = preparer!.prepare(geometry, width, height, dpr)
+          const batch = preparer!.prepare(geometry, width, height, dpr, dataTransform)
           metrics.prepareMs += performance.now() - prepareStart
           metrics.culled += batch.culled
           metrics.geometryBuilds += batch.geometryBuilds
@@ -163,7 +166,7 @@ export function createGpuPrimitiveBackend(
           if (batch.draws.length) {
             device ??= create(document)
             const renderStart = performance.now()
-            const result = device.render(batch, width, height, dpr)
+            const result = device.render(batch, width, height, dpr, true, dataTransform)
             metrics.renderMs += performance.now() - renderStart
             metrics.drawCalls += result.metrics.drawCalls
             metrics.uploads += result.metrics.uploads
@@ -188,7 +191,7 @@ export function createGpuPrimitiveBackend(
         for (const primitive of primitives) {
           if (primitive.kind === 'text') {
             flush()
-            paintCanvasPrimitives(destination, [primitive], dpr)
+            paintCanvasPrimitives(destination, [primitive], dpr, dataTransform)
           } else geometry.push(primitive)
         }
         flush()

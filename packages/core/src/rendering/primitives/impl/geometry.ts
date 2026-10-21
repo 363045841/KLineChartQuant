@@ -3,6 +3,11 @@ import type { PaintPrimitive, PrimitivePath, PrimitivePoint } from '../types.js'
 
 type Stroke = Extract<PaintPrimitive, { kind: 'stroke' }>
 const TAU = Math.PI * 2
+/**
+ * 视为共线的转角阈值（sin 值，约 1.15°）。
+ * 低于该角度的圆角连接在屏幕上不可见，跳过可为平滑折线省掉每顶点一个圆。
+ */
+const COLLINEAR_JOIN_EPSILON = 0.02
 const unitCircles = new Map<number, Float64Array>()
 
 /** 按物理像素误差细分圆，避免放大与高 DPR 下出现明显棱角。 */
@@ -109,8 +114,7 @@ export function dashPath(
   return result
 }
 
-/** 归一化闭合轮廓方向，使描边组成面的 nonzero 并集不会相互抵消。 */
-function positive(path: PrimitivePath): PrimitivePath {
+/** 归一化闭合轮廓方向，使描边组成面的 nonzero 并集不会相互抵消。 */function positive(path: PrimitivePath): PrimitivePath {
   let area = 0
   for (let i = 0; i < path.length; i++) {
     const a = path[i]!,
@@ -168,18 +172,21 @@ export function strokePaths(stroke: Stroke, dpr: number): PrimitivePath[] {
         const a = vertices[(i - 1 + vertices.length) % vertices.length]!,
           b = vertices[i]!,
           c = vertices[(i + 1) % vertices.length]!
-        if (join === 'round') {
-          result.push(circlePath(b.x, b.y, half, dpr))
-          continue
-        }
         const al = Math.hypot(b.x - a.x, b.y - a.y),
           bl = Math.hypot(c.x - b.x, c.y - b.y)
+        if (al === 0 || bl === 0) continue
         const ux = (b.x - a.x) / al,
           uy = (b.y - a.y) / al
         const vx = (c.x - b.x) / bl,
           vy = (c.y - b.y) / bl
         const cross = ux * vy - uy * vx
-        if (Math.abs(cross) < 1e-10) continue
+        // 近共线折点在圆角下不可见：跳过可以避免每个顶点生成一个圆，
+        // 平滑折线的三角化开销因此从 O(顶点数 × 圆) 降到 O(顶点数)。
+        if (Math.abs(cross) < COLLINEAR_JOIN_EPSILON) continue
+        if (join === 'round') {
+          result.push(circlePath(b.x, b.y, half, dpr))
+          continue
+        }
         const side = cross > 0 ? -1 : 1
         const p = { x: b.x - uy * half * side, y: b.y + ux * half * side }
         const q = { x: b.x - vy * half * side, y: b.y + vx * half * side }

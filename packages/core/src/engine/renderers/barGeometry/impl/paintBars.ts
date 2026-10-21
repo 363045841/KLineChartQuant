@@ -3,7 +3,6 @@ import type { PrimitiveRenderContext } from '@/foundation/plugin/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { WorldRectBatch } from '../types.js'
-import { projectBarBatches } from './projectBars.js'
 
 /**
  * 世界坐标只投影一次，量化后的整数物理像素回算逻辑像素后整批提交。
@@ -17,10 +16,18 @@ export function projectBarPrimitives(
   dpr: number,
 ): PaintPrimitive[] {
   const commands: PaintPrimitive[] = []
-  for (const batch of projectBarBatches(batches, scrollLeft, dpr)) {
+  const scrollPx = Math.round(scrollLeft * dpr)
+  for (const batch of batches) {
     if (batch.count <= 0) continue
     const data = new Float64Array(batch.count * 4)
-    for (let index = 0; index < data.length; index++) data[index] = batch.buf[index]! / dpr
+    // 一次量化直接写入最终坐标，跳过中间 Float32 批次和第二遍除法。
+    for (let index = 0; index < data.length; index += 4) {
+      const source = index
+      data[index] = (Math.round(batch.buf[source]! * dpr) - scrollPx) / dpr
+      data[index + 1] = Math.round(batch.buf[source + 1]! * dpr) / dpr
+      data[index + 2] = Math.max(1, Math.round(batch.buf[source + 2]! * dpr)) / dpr
+      data[index + 3] = Math.max(1, Math.round(batch.buf[source + 3]! * dpr)) / dpr
+    }
     commands.push({ kind: 'rects', data, color: batch.color })
   }
   return commands

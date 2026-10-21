@@ -1,9 +1,11 @@
 /** 有序合批准备：提前剔除、缓存几何、实例化基础形状，复用 CPU 连续缓冲。 */
 import type { PaintPrimitive, PrimitivePath } from '../types.js'
 import { FloatArena } from './buffers.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import { type CachedGeometry, GeometryCache, type PrimitiveBounds } from './cache.js'
 import type { ColorResolver, PrimitiveColor } from './colors.js'
 import { pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
+import { SEGMENT_FLOATS } from './shaders.js'
 
 export type GeometryPrimitive = Exclude<PaintPrimitive, { kind: 'text' }>
 
@@ -12,6 +14,8 @@ const INSTANCE_FLOATS = 16
 export type PreparedDraw =
   | { kind: 'instances'; first: number; count: number }
   | { kind: 'direct'; first: number; count: number }
+  /** 解析式描边：count 为线段实例数，每段 6 个顶点在着色器里展开。 */
+  | { kind: 'segments'; first: number; count: number }
   | {
       kind: 'stencil'
       first: number
@@ -23,6 +27,7 @@ export type PreparedDraw =
 export interface PreparedBatch {
   vertices: Float32Array
   instances: Float32Array
+  segments: Float32Array
   draws: PreparedDraw[]
   culled: number
   geometryBuilds: number
@@ -48,7 +53,7 @@ function convex(path: PrimitivePath): boolean {
 }
 
 /** 求原始包围盒，描边按 miter 上限扩展；GPU 裁剪前就排除完全不可见对象。 */
-function bounds(primitive: GeometryPrimitive, dpr: number): PrimitiveBounds {
+function bounds(primitive: GeometryPrimitive, dpr: number, offsetX = 0): PrimitiveBounds {
   let left = Infinity,
     right = -Infinity,
     top = Infinity,
@@ -91,7 +96,12 @@ function bounds(primitive: GeometryPrimitive, dpr: number): PrimitiveBounds {
         (primitive.width / 2) *
         ((primitive.join ?? 'miter') === 'miter' ? (primitive.miterLimit ?? 10) : 1)
   }
-  return { left: left - expand, top: top - expand, right: right + expand, bottom: bottom + expand }
+  return {
+    left: left - expand - offsetX,
+    top: top - expand,
+    right: right + expand - offsetX,
+    bottom: bottom + expand,
+  }
 }
 
 /** 用共享几何函数构建一次 tessellation，颜色和平移不参与几何失效。 */
@@ -128,11 +138,24 @@ function buildGeometry(
   return { positions, direct, bounds: { left, right, top, bottom } }
 }
 
+/** 解析式描边只接管不透明实线、圆角连接与端帽的开放折线；其余保留三角化。 */
+function segmentizable(stroke: Extract<GeometryPrimitive, { kind: 'stroke' }>): boolean {
+  if (!(stroke.width > 0) || stroke.closed === true) return false
+  if (stroke.dash?.some((value) => value > 0)) return false
+  if ((stroke.join ?? 'miter') !== 'round' || (stroke.cap ?? 'butt') !== 'round') return false
+  return stroke.paths.every((path) => path.length >= 2)
+}
+
 /** 创建后端级准备器；缓存和容量在全部 paint 调用之间保留。 */
-export function createPrimitivePreparer(resolveColor: ColorResolver) {
+export function createPrimitivePreparer(
+  resolveColor: ColorResolver,
+  options: { segments?: boolean } = {},
+) {
+  const segmentStrokes = options.segments === true
   const geometryCache = new GeometryCache()
   const mesh = new FloatArena(),
-    instances = new FloatArena()
+    instances = new FloatArena(),
+    segmentArena = new FloatArena()
   const draws: PreparedDraw[] = []
   return {
     prepare(
@@ -140,10 +163,13 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
       width: number,
       height: number,
       dpr: number,
+      transform?: DataTransform,
     ): PreparedBatch {
       mesh.reset()
       instances.reset()
+      segmentArena.reset()
       draws.length = 0
+      geometryCache.beginBatch()
       let culled = 0,
         geometryBuilds = 0,
         geometryHits = 0
@@ -245,7 +271,48 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
           }
           continue
         }
-        const box = bounds(primitive, dpr)
+        const offsetX =
+          primitive.kind === 'stroke' || primitive.kind === 'fill' ? (primitive.offsetX ?? 0) : 0
+        if (segmentStrokes && primitive.kind === 'stroke') {
+          const color = resolveColor(primitive.color)
+          // 数据空间折线只在缓冲里保留世界坐标与价格，滚动和轴缩放都改 uniform；
+          // 其余描边仍在这里一次扣除横向偏移。
+          const dataSpace = primitive.dataSpace === true && transform !== undefined
+          // 不透明实线不需要 stencil：宽、端帽和圆角连接都由着色器按距离还原，
+          // 顶点层面只保留折点，指标线数量增加时不再放大三角化与上传成本。
+          if (color[3] === 1 && segmentizable(primitive)) {
+            flush()
+            const first = segmentArena.length / SEGMENT_FLOATS
+            let count = 0
+            const half = primitive.width / 2
+            const shift = dataSpace ? 0 : offsetX
+            for (const path of primitive.paths)
+              for (let i = 1; i < path.length; i++) {
+                const a = path[i - 1]!,
+                  b = path[i]!
+                // 退化线段没有方向，着色器无法展开。
+                if (a.x === b.x && a.y === b.y) continue
+                segmentArena.reserve(SEGMENT_FLOATS)
+                segmentArena.write(a.x - shift)
+                segmentArena.write(a.y)
+                segmentArena.write(b.x - shift)
+                segmentArena.write(b.y)
+                segmentArena.write(half)
+                for (const component of color) segmentArena.write(component)
+                // 数据空间标记随实例进入着色器，避免绘制中途改 uniform。
+                segmentArena.write(dataSpace ? 1 : 0)
+                count++
+              }
+            if (count > 0) {
+              const last = draws.at(-1)
+              if (last?.kind === 'segments') last.count += count
+              else draws.push({ kind: 'segments', first, count })
+            }
+            continue
+          }
+        }
+        // 解析式描边逐段处理，包围盒只服务三角化与实例的剔除。
+        const box = bounds(primitive, dpr, offsetX)
         if (
           box.right < 0 ||
           box.bottom < 0 ||
@@ -304,13 +371,17 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
         if (!geometry.positions.length) continue
         const color = resolveColor(primitive.color),
           opacity = primitive.kind === 'fill' ? (primitive.opacity ?? 1) : 1
-        if (geometry.direct) {
+        /**
+         * 不透明描边直接栅格化三角形：轮廓之间重叠不会改变颜色，因此不需要 stencil，
+         * 也就不会为整条线段的包围盒铺一次全幅 cover（多指标时的主要填充开销）。
+         */
+        if (geometry.direct || (primitive.kind === 'stroke' && color[3] === 1)) {
           flush()
           const first = mesh.length / 6
           mesh.reserve(geometry.positions.length * 3)
           for (let i = 0; i < geometry.positions.length; i += 2)
             vertex(
-              geometry.positions[i]! + cached.x,
+              geometry.positions[i]! + cached.x - offsetX,
               geometry.positions[i + 1]! + cached.y,
               color,
               opacity,
@@ -322,9 +393,9 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
         } else {
           const evenodd = primitive.kind === 'fill' && primitive.fillRule === 'evenodd'
           const actual = {
-            left: geometry.bounds.left + cached.x,
+            left: geometry.bounds.left + cached.x - offsetX,
             top: geometry.bounds.top + cached.y,
-            right: geometry.bounds.right + cached.x,
+            right: geometry.bounds.right + cached.x - offsetX,
             bottom: geometry.bounds.bottom + cached.y,
           }
           const overlaps =
@@ -337,7 +408,7 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
             )
           if (pending.length && (overlaps || parity !== evenodd)) flush()
           parity = evenodd
-          pending.push({ geometry, x: cached.x, y: cached.y, color, opacity })
+          pending.push({ geometry, x: cached.x - offsetX, y: cached.y, color, opacity })
           pendingBounds = pendingBounds
             ? {
                 left: Math.min(pendingBounds.left, actual.left),
@@ -352,6 +423,7 @@ export function createPrimitivePreparer(resolveColor: ColorResolver) {
       return {
         vertices: mesh.view(),
         instances: instances.view(),
+        segments: segmentArena.view(),
         draws,
         culled,
         geometryBuilds,

@@ -362,11 +362,20 @@ export interface RenderDataContext {
   displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
 }
 
+/** 数据空间 → 屏幕的线性变换：x 减去 offsetX，y 乘以 yScale 再加 yOffset。 */
+export interface DataTransform {
+  offsetX: number
+  yScale: number
+  yOffset: number
+}
+
 /** 渲染几何子契约：Pane、视口、K 线位置与缩放。 */
 export interface RenderGeometryContext {
   pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number
+  /** 数据空间原语（世界 x、价格 y）的每帧变换；非线性轴不提供。 */
+  dataTransform?: DataTransform
   kWidth: number
   kGap: number
   dpr: number

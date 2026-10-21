@@ -1,4 +1,6 @@
 /** 有序屏幕原语契约：几何使用逻辑像素，绘制目标保留调用方的裁剪与合成状态。 */
+import type { DataTransform } from '../../foundation/plugin/types.js'
+
 export type PrimitivePoint = Readonly<{ x: number; y: number }>
 export type PrimitivePath = readonly PrimitivePoint[]
 
@@ -35,6 +37,8 @@ export type PaintPrimitive =
       color: string
       opacity?: number
       fillRule?: CanvasFillRule
+      /** 世界坐标的横向平移量；后端在绘制时统一扣除，路径本身保持不变。 */
+      offsetX?: number
     }
   | {
       kind: 'stroke'
@@ -47,6 +51,10 @@ export type PaintPrimitive =
       cap?: CanvasLineCap
       join?: CanvasLineJoin
       miterLimit?: number
+      /** 世界坐标的横向平移量；后端在绘制时统一扣除，路径本身保持不变。 */
+      offsetX?: number
+      /** 点为数据空间（世界 x、价格 y），由帧变换还原屏幕坐标；仅解析式描边支持。 */
+      dataSpace?: boolean
     }
   | {
       kind: 'text'
@@ -68,6 +76,7 @@ export interface PrimitiveBackend {
     target: CanvasRenderingContext2D,
     primitives: readonly PaintPrimitive[],
     dpr: number,
+    transform?: DataTransform,
   ): boolean
   /** 最近一次完整提交的实际开销；不在绘制过程中同步等待 GPU。 */
   getMetrics?(): Readonly<PrimitiveMetrics>
@@ -84,7 +93,12 @@ export interface PrimitiveBackend {
 /** 可见 GPU 表面的直出入口；`clear` 表示本帧是否先清空整张表面。 */
 export interface PrimitiveSurface {
   readonly canvas: HTMLCanvasElement
-  paint(primitives: readonly PaintPrimitive[], dpr: number, clear: boolean): boolean
+  paint(
+    primitives: readonly PaintPrimitive[],
+    dpr: number,
+    clear: boolean,
+    transform?: DataTransform,
+  ): boolean
   dispose(): void
 }
 
@@ -108,7 +122,12 @@ export type PrimitiveSink = (
   target: CanvasRenderingContext2D,
   primitives: readonly PaintPrimitive[],
   dpr: number,
+  transform?: DataTransform,
 ) => void
 
 /** 目标已由合成器绑定的提交入口：只增量绘制的图层只能拿到这个，拿不到 ctx。 */
-export type PrimitivePaint = (primitives: readonly PaintPrimitive[], dpr: number) => void
+export type PrimitivePaint = (
+  primitives: readonly PaintPrimitive[],
+  dpr: number,
+  transform?: DataTransform,
+) => void

@@ -17,13 +17,30 @@ interface Entry {
   source: Float64Array
   geometry: CachedGeometry
   bytes: number
+  /** 最近一次使用它的批号；本批使用的条目不参与淘汰。 */
+  batch: number
 }
 
-/** 缓存只保留 CPU 几何，不绑定 GPU 资源；LRU 同时限制条目和总字节数。 */
+/** 单条折线的展开几何可达数百 KB，多个主图指标共享同一批时 8 MiB 会持续抖动。 */
+const MAX_BYTES = 64 * 1024 * 1024
+const MAX_ENTRIES = 1024
+
+/**
+ * 缓存只保留 CPU 几何，不绑定 GPU 资源；LRU 同时限制条目和总字节数。
+ *
+ * 淘汰按批进行：一次 prepare 内用到的条目全部保留，避免同一帧里先构建的几何
+ * 被后构建的几何挤出缓存，导致下一帧又全部重建。
+ */
 export class GeometryCache {
   private entries = new Map<string, Entry>()
   private bytes = 0
   private bits = new DataView(new ArrayBuffer(8))
+  private batch = 0
+
+  /** 开始一批（一次 prepare 调用）：本批新建/命中的条目在本批内不会被淘汰。 */
+  beginBatch(): void {
+    this.batch += 1
+  }
 
   /** 同源平移复用；精确源坐标比较使可变数组的修改立即失效。 */
   read(
@@ -71,6 +88,7 @@ export class GeometryCache {
         if (!same) break
       }
     if (same) {
+      existing!.batch = this.batch
       this.entries.delete(key)
       this.entries.set(key, existing!)
       return { geometry: existing!.geometry, hit: true, x, y }
@@ -93,15 +111,22 @@ export class GeometryCache {
       this.bytes -= existing.bytes
       this.entries.delete(key)
     }
-    if (bytes <= 8 * 1024 * 1024) {
-      this.entries.set(key, { style, source, geometry, bytes })
+    if (bytes <= MAX_BYTES) {
+      this.entries.set(key, { style, source, geometry, bytes, batch: this.batch })
       this.bytes += bytes
-      while (this.entries.size > 256 || this.bytes > 8 * 1024 * 1024) {
-        const oldest = this.entries.keys().next().value!
-        this.bytes -= this.entries.get(oldest)!.bytes
-        this.entries.delete(oldest)
-      }
+      this.trim()
     }
     return { geometry, hit: false, x, y }
+  }
+
+  /** 淘汰本批之外的旧条目；本批条目全部保留，宁可暂时超出预算。 */
+  private trim(): void {
+    for (const key of this.entries.keys()) {
+      if (this.entries.size <= MAX_ENTRIES && this.bytes <= MAX_BYTES) return
+      const entry = this.entries.get(key)!
+      if (entry.batch === this.batch) continue
+      this.bytes -= entry.bytes
+      this.entries.delete(key)
+    }
   }
 }

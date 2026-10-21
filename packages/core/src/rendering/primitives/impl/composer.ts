@@ -6,6 +6,7 @@
  * 会被套上错误的坐标系或透明度。
  */
 import type { PaintPrimitive, PrimitivePaint, PrimitiveSink } from '../types.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 
 export interface PrimitiveComposer {
   /** 交给纯增量图层的提交入口：目标由 Scene 选定，且不允许改动目标状态。 */
@@ -71,15 +72,25 @@ export function createPrimitiveComposer(
   let pending: PaintPrimitive[] = []
   let pendingState: ComposedState | null = null
   let pendingDpr = 1
+  let pendingTransform: DataTransform | undefined
 
-  /** 追加一批纯增量原语；目标级状态变化前先落盘。 */
-  const compose = (primitives: readonly PaintPrimitive[], dpr: number): void => {
+  /** 追加一批纯增量原语；目标级状态或数据变换变化前先落盘。 */
+  const compose = (
+    primitives: readonly PaintPrimitive[],
+    dpr: number,
+    transform?: DataTransform,
+  ): void => {
     if (primitives.length === 0) return
     const state = readState(target)
-    if (pendingState !== null && (pendingDpr !== dpr || !sameState(pendingState, state))) flush()
+    if (
+      pendingState !== null &&
+      (pendingDpr !== dpr || pendingTransform !== transform || !sameState(pendingState, state))
+    )
+      flush()
     if (pendingState === null) {
       pendingState = state
       pendingDpr = dpr
+      pendingTransform = transform
     }
     for (const primitive of primitives) pending.push(primitive)
   }
@@ -90,8 +101,10 @@ export function createPrimitiveComposer(
     const batch = pending
     const state = pendingState
     const dpr = pendingDpr
+    const transform = pendingTransform
     pending = []
     pendingState = null
+    pendingTransform = undefined
     target.save()
     target.setTransform(state.transform)
     target.globalAlpha = state.alpha
@@ -101,7 +114,7 @@ export function createPrimitiveComposer(
     target.shadowOffsetX = state.shadowOffsetX
     target.shadowOffsetY = state.shadowOffsetY
     try {
-      submit(target, batch, dpr)
+      submit(target, batch, dpr, transform)
     } finally {
       target.restore()
     }
@@ -110,8 +123,8 @@ export function createPrimitiveComposer(
   return {
     flush,
     submit: compose,
-    sink(_target, primitives, dpr) {
-      compose(primitives, dpr)
+    sink(_target, primitives, dpr, transform) {
+      compose(primitives, dpr, transform)
     },
   }
 }

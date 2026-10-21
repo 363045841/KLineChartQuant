@@ -8,7 +8,7 @@ import type { PrimitiveBackend, PrimitivePath, PrimitiveSink } from '../types.js
  * save/restore；旋转文字是唯一会改变坐标系的图元，单独包裹。外层声明的合成、
  * 阴影与裁剪保持调用方语义。
  */
-export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
+export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, _dpr, transform) => {
   if (primitives.length === 0) return
   const baseAlpha = ctx.globalAlpha
   ctx.save()
@@ -83,7 +83,7 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
       }
       case 'fill': {
         ctx.beginPath()
-        appendPaths(ctx, primitive.paths, true)
+        appendPaths(ctx, primitive.paths, true, primitive.offsetX ?? 0)
         ctx.fillStyle = primitive.color
         ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.fill(primitive.fillRule ?? 'nonzero')
@@ -92,7 +92,16 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
       }
       case 'stroke': {
         ctx.beginPath()
-        appendPaths(ctx, primitive.paths, primitive.closed === true)
+        // 数据空间描边（世界 x、价格 y）在这里按帧变换还原屏幕坐标。
+        const dataSpace = primitive.dataSpace === true && transform !== undefined
+        appendPaths(
+          ctx,
+          primitive.paths,
+          primitive.closed === true,
+          dataSpace ? transform.offsetX : (primitive.offsetX ?? 0),
+          dataSpace ? transform.yScale : 1,
+          dataSpace ? transform.yOffset : 0,
+        )
         ctx.strokeStyle = primitive.color
         ctx.lineWidth = primitive.width
         ctx.lineCap = primitive.cap ?? 'butt'
@@ -108,19 +117,22 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives) => {
   ctx.restore()
 }
 
-/** 把多轮廓路径写入当前路径对象。 */
+/** 把多轮廓路径写入当前路径对象；平移与价格映射只在写入时应用，不改动原路径。 */
 function appendPaths(
   ctx: CanvasRenderingContext2D,
   paths: readonly PrimitivePath[],
   close: boolean,
+  offsetX = 0,
+  yScale = 1,
+  yOffset = 0,
 ): void {
   for (const path of paths) {
     const first = path[0]
     if (!first) continue
-    ctx.moveTo(first.x, first.y)
+    ctx.moveTo(first.x - offsetX, first.y * yScale + yOffset)
     for (let index = 1; index < path.length; index++) {
       const point = path[index]!
-      ctx.lineTo(point.x, point.y)
+      ctx.lineTo(point.x - offsetX, point.y * yScale + yOffset)
     }
     if (close) ctx.closePath()
   }

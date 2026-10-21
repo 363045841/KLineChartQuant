@@ -1,5 +1,6 @@
 /** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
 import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
@@ -9,6 +10,9 @@ import {
   MESH_FLOATS,
   MESH_FRAGMENT_GLSL,
   MESH_VERTEX_GLSL,
+  SEGMENT_FLOATS,
+  SEGMENT_FRAGMENT_GLSL,
+  SEGMENT_VERTEX_GLSL,
   SHAPE_FRAGMENT_GLSL,
   SHAPE_VERTEX_GLSL,
 } from './shaders.js'
@@ -52,6 +56,7 @@ function program(gl: WebGL2RenderingContext, vertex: string, fragment: string): 
 function createDevice(
   canvas: HTMLCanvasElement,
   preserveDrawingBuffer: boolean,
+  direct = false,
 ): PrimitiveDevice {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
@@ -63,17 +68,24 @@ function createDevice(
   if (!gl) throw new Error('Primitive WebGL unavailable')
   const meshProgram = program(gl, MESH_VERTEX_GLSL, MESH_FRAGMENT_GLSL)
   const shapeProgram = program(gl, SHAPE_VERTEX_GLSL, SHAPE_FRAGMENT_GLSL)
+  const segmentProgram = program(gl, SEGMENT_VERTEX_GLSL, SEGMENT_FRAGMENT_GLSL)
   const meshBuffer = gl.createBuffer(),
-    instanceBuffer = gl.createBuffer()
+    instanceBuffer = gl.createBuffer(),
+    segmentBuffer = gl.createBuffer()
   const meshVao = gl.createVertexArray(),
-    shapeVao = gl.createVertexArray()
-  if (!meshBuffer || !instanceBuffer || !meshVao || !shapeVao)
+    shapeVao = gl.createVertexArray(),
+    segmentVao = gl.createVertexArray()
+  if (!meshBuffer || !instanceBuffer || !segmentBuffer || !meshVao || !shapeVao || !segmentVao)
     throw new Error('Primitive WebGL allocation failed')
   const meshTracker = new UploadTracker(),
-    instanceTracker = new UploadTracker()
+    instanceTracker = new UploadTracker(),
+    segmentTracker = new UploadTracker()
   let meshCapacity = 0,
-    instanceCapacity = 0
-  const viewport = gl.getUniformLocation(shapeProgram, 'viewport')
+    instanceCapacity = 0,
+    segmentCapacity = 0
+  const viewport = gl.getUniformLocation(shapeProgram, 'viewport'),
+    segmentViewport = gl.getUniformLocation(segmentProgram, 'viewport'),
+    segmentData = gl.getUniformLocation(segmentProgram, 'data')
   gl.bindVertexArray(meshVao)
   gl.bindBuffer(gl.ARRAY_BUFFER, meshBuffer)
   for (const [name, count, offset] of [
@@ -93,8 +105,22 @@ function createDevice(
     gl.enableVertexAttribArray(location)
     gl.vertexAttribDivisor(location, 1)
   }
+  // 折线段实例布局与 vertex shader 的显式 location 一一对应。
+  gl.bindVertexArray(segmentVao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, segmentBuffer)
+  for (const [location, count, offset] of [
+    [0, 2, 0],
+    [1, 2, 8],
+    [2, 1, 16],
+    [3, 4, 20],
+    [4, 1, 36],
+  ] as const) {
+    gl.enableVertexAttribArray(location)
+    gl.vertexAttribPointer(location, count, gl.FLOAT, false, SEGMENT_FLOATS * 4, offset)
+    gl.vertexAttribDivisor(location, 1)
+  }
   return {
-    render(batch, width, height, dpr, clear = true) {
+    render(batch, width, height, dpr, clear = true, transform) {
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
       // 目标只增不减：多 pane 交替绘制不会每帧重分配 drawing buffer。
       if (canvas.width < width) canvas.width = width
@@ -123,6 +149,7 @@ function createDevice(
       }
       meshCapacity = upload(meshBuffer, batch.vertices, meshTracker, meshCapacity)
       instanceCapacity = upload(instanceBuffer, batch.instances, instanceTracker, instanceCapacity)
+      segmentCapacity = upload(segmentBuffer, batch.segments, segmentTracker, segmentCapacity)
       gl.viewport(0, 0, width, height)
       gl.colorMask(true, true, true, true)
       gl.stencilMask(0xff)
@@ -136,9 +163,32 @@ function createDevice(
       gl.disable(gl.SCISSOR_TEST)
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-      let active: 'mesh' | 'shape' | undefined
+      let active: 'mesh' | 'shape' | 'segments' | undefined
+      let segmentTransform: DataTransform | undefined
       for (const draw of batch.draws) {
-        if (draw.kind === 'instances') {
+        if (draw.kind === 'segments') {
+          const dataSpace = transform !== undefined
+          if (active !== 'segments') {
+            gl.useProgram(segmentProgram)
+            gl.bindVertexArray(segmentVao)
+            gl.uniform4f(segmentViewport, width / dpr, height / dpr, dpr, 0)
+            active = 'segments'
+            segmentTransform = undefined
+          }
+          // 数据空间折线的轴/滚动变换只改 uniform，滚动与轴缩放都不重写顶点缓冲。
+          if (segmentTransform !== transform) {
+            gl.uniform3f(
+              segmentData,
+              dataSpace ? transform!.offsetX : 0,
+              dataSpace ? transform!.yScale : 1,
+              dataSpace ? transform!.yOffset : 0,
+            )
+            segmentTransform = transform
+          }
+          gl.disable(gl.STENCIL_TEST)
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, draw.count)
+          metrics.drawCalls++
+        } else if (draw.kind === 'instances') {
           if (active !== 'shape') {
             gl.useProgram(shapeProgram)
             gl.bindVertexArray(shapeVao)
@@ -198,12 +248,16 @@ function createDevice(
     dispose() {
       gl.deleteBuffer(meshBuffer)
       gl.deleteBuffer(instanceBuffer)
+      gl.deleteBuffer(segmentBuffer)
       gl.deleteVertexArray(meshVao)
       gl.deleteVertexArray(shapeVao)
+      gl.deleteVertexArray(segmentVao)
       gl.deleteProgram(meshProgram)
       gl.deleteProgram(shapeProgram)
+      gl.deleteProgram(segmentProgram)
       gl.getExtension('WEBGL_lose_context')?.loseContext()
-      canvas.width = canvas.height = 1
+      // 可见画布的尺寸归 Pane 所有；只有离屏目标在释放时归零后备存储。
+      if (!direct) canvas.width = canvas.height = 1
     },
   }
 }
@@ -214,7 +268,7 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
   let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
   return {
     canvas,
-    paint(primitives, dpr, clear) {
+    paint(primitives, dpr, clear, transform) {
       try {
         const document = canvas.ownerDocument
         if (!document) return false
@@ -223,10 +277,10 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
         const width = canvas.width,
           height = canvas.height
         if (width <= 0 || height <= 0) return false
-        preparer ??= createPrimitivePreparer(createColorResolver(document))
-        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr)
-        device ??= createDevice(canvas, true)
-        device.render(batch, width, height, dpr, clear)
+        preparer ??= createPrimitivePreparer(createColorResolver(document), { segments: true })
+        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr, transform)
+        device ??= createDevice(canvas, true, true)
+        device.render(batch, width, height, dpr, clear, transform)
         return true
       } catch {
         device?.dispose()
@@ -243,8 +297,10 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
 
 /** 延迟创建离屏资源；无图形或全在屏幕外的批次不创建 GPU surface。 */
 export function createWebGLPrimitiveBackend(): PrimitiveBackend {
-  const composite = createGpuPrimitiveBackend((document) =>
-    createDevice(document.createElement('canvas'), false),
+  const composite = createGpuPrimitiveBackend(
+    (document) => createDevice(document.createElement('canvas'), false),
+    undefined,
+    { segments: true },
   )
   return { ...composite, createSurface }
 }

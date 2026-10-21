@@ -85,22 +85,41 @@ export class PaneRenderer {
   }
 
   /**
-   * 返回主图带的可见 GPU 表面，首次需要时创建画布并定尺寸。
-   * 后端不提供直出能力（Canvas）或 pane 无表面工厂时返回 null，调用方回落 2D 合成。
+   * 返回主图带的可见 GPU 表面；切换后端时重建画布。
+   *
+   * 一个 canvas 只能有一种上下文类型，WebGL → WebGPU 不能复用同一张画布，
+   * 必须丢弃旧画布后重新创建，否则新后端的 `getContext` 会返回 null。
    */
   getMainGpuSurface(backend: Renderer): PrimitiveSurface | null {
     const create = backend.primitives.createSurface
-    if (!create) return null
+    // 后端不再支持直出（如切到 Canvas）时，必须移除旧 GPU 画布，否则它会残留在
+    // 2D 主画布下面，透明区域露出上一帧的旧像素。
+    if (!create) {
+      this.mainSurface?.dispose()
+      this.mainSurface = null
+      this.mainSurfaceOwner = null
+      releaseCanvas(this.dom.mainGpuCanvas)
+      this.dom = { ...this.dom, mainGpuCanvas: undefined }
+      return null
+    }
+    const ownerChanged = this.mainSurfaceOwner !== null && this.mainSurfaceOwner !== backend
+    if (ownerChanged) {
+      this.mainSurface?.dispose()
+      this.mainSurface = null
+      this.mainSurfaceOwner = null
+      releaseCanvas(this.dom.mainGpuCanvas)
+      this.dom = { ...this.dom, mainGpuCanvas: undefined }
+    }
     if (!this.dom.mainGpuCanvas && this.surfaces) {
       this.dom = { ...this.dom, mainGpuCanvas: this.surfaces.createMainGpuCanvas() }
-      this.applyMetrics()
     }
     const canvas = this.dom.mainGpuCanvas
     if (!canvas) return null
     if (this.mainSurface && this.mainSurfaceOwner === backend) return this.mainSurface
-    this.mainSurface?.dispose()
     this.mainSurfaceOwner = backend
     this.mainSurface = create(canvas)
+    // 新画布（或切换后端后的画布）按当前布局定尺寸，否则会以 1×1 呈现。
+    this.applyMetrics()
     return this.mainSurface
   }
 

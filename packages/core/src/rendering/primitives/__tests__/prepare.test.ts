@@ -82,6 +82,69 @@ describe('ordered primitive batching', () => {
     ).toEqual(['instances', 'direct', 'instances'])
   })
 
+  it('prepares opaque round strokes as segment instances when the device supports analytic coverage', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 10 },
+          { x: 40, y: 20 },
+          { x: 70, y: 15 },
+        ],
+      ],
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      color: 'red',
+    }
+    const result = prepare.prepare([stroke], 100, 100, 1)
+    expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    expect(result.vertices).toHaveLength(0)
+    expect(result.segments).toHaveLength(2 * 10)
+    expect(Array.from(result.segments.slice(0, 5))).toEqual([10, 10, 40, 20, 1])
+  })
+
+  it('applies the primitive offset once when writing segment instances', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 10 },
+          { x: 40, y: 10 },
+        ],
+      ],
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      color: 'red',
+      offsetX: 4,
+    }
+    const result = prepare.prepare([stroke], 100, 100, 1)
+    expect(Array.from(result.segments.slice(0, 4))).toEqual([6, 10, 36, 10])
+  })
+
+  it('keeps translucent or dashed round strokes on the tessellated path', () => {
+    const translucent = createPrimitivePreparer(() => [1, 0, 0, 0.5], { segments: true })
+    const opaque = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke = (): Extract<GeometryPrimitive, { kind: 'stroke' }> => ({
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 10 },
+          { x: 40, y: 10 },
+        ],
+      ],
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      color: 'red',
+    })
+    expect(translucent.prepare([stroke()], 100, 100, 1).segments).toHaveLength(0)
+    expect(opaque.prepare([{ ...stroke(), dash: [4, 2] }], 100, 100, 1).segments).toHaveLength(0)
+  })
+
   it('combines disjoint stencil masks but never unions overlapping independent fills', () => {
     const fill = (x: number): GeometryPrimitive => ({
       kind: 'fill',

@@ -39,6 +39,7 @@ describe('createDrawingLayer', () => {
         scope === 'committed' ? drawingCtx : overlayCtx,
         [expect.objectContaining({ kind: 'circle', strokeWidth: 1 })],
         1,
+        undefined,
       )
       expect(drawingCtx.fill).not.toHaveBeenCalled()
       expect(overlayCtx.fill).not.toHaveBeenCalled()

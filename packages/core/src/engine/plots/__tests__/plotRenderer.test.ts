@@ -61,11 +61,20 @@ describe('Plot renderer', () => {
       sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
     })
     expect(submit).toHaveBeenCalledExactlyOnceWith(ctx, [
-      expect.objectContaining({ kind: 'fill' }),
-      expect.objectContaining({ kind: 'stroke', paths: [[{ x: -5, y: 10 }, { x: 5, y: 20 }]] }),
+      expect.objectContaining({ kind: 'fill', offsetX: 10 }),
+      expect.objectContaining({
+        kind: 'stroke',
+        paths: [
+          [
+            { x: 5, y: 10 },
+            { x: 15, y: 20 },
+          ],
+        ],
+        offsetX: 10,
+      }),
       expect.objectContaining({ kind: 'circle', x: -5, y: 30 }),
       expect.objectContaining({ kind: 'circle', x: 5, y: 40 }),
-    ], 1)
+    ], 1, undefined)
     expect(ctx.stroke).not.toHaveBeenCalled()
     expect(ctx.fill).not.toHaveBeenCalled()
   })
