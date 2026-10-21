@@ -194,6 +194,8 @@ export class ChartIndicatorManager {
   private projectedPaneRatios: Readonly<Record<string, number>> | null = null
   /** 已投影到 renderStates 的展示版本；展示变化只重建投影。 */
   private projectedPresentationRevision = -1
+  /** destroy 后不再发起计算，也不把 Worker 的拆除错误当作运行期失败。 */
+  private destroyed = false
 
   // ========== 计算与投影运行时 ==========
   private currentData: KLineData[] = []
@@ -707,7 +709,7 @@ export class ChartIndicatorManager {
 
   /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
   private requestCompute(): void {
-    if (!this.hasData) return
+    if (this.destroyed || !this.hasData) return
     // 仅当实例尚无已提交结果时标记为计算中：已有结果的重算不显示加载圈，避免闪烁。
     const pending: string[] = []
     for (const instance of this.deps.indicator.readonly.instances.peek()) {
@@ -739,6 +741,8 @@ export class ChartIndicatorManager {
 
   /** 计算失败时把 Worker 执行器降级为 inline，并重试当前数据。 */
   private handleCalculationError(error: unknown): void {
+    // destroy 会拆除 Worker，未完成的计算随之 reject；这是取消，不是运行期故障。
+    if (this.destroyed) return
     console.error('[ChartIndicatorManager] Indicator calculation failed:', error)
     const active = this.executorHolder.active
     if (active === this.inlineExecutor) return
@@ -1248,6 +1252,7 @@ export class ChartIndicatorManager {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.disposeDefinitionSubscription()
     this.disposeProjection?.()
     this.disposeProjection = null
