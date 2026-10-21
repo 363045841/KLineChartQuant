@@ -71,6 +71,7 @@
     "test:packages": "pnpm -r test",
     "test:scripts": "node --test scripts/__tests__/rolldown-thread-env.test.mjs scripts/__tests__/vite-dev.test.mjs",
     "bench": "node bench/run.mjs",
+    "bench:report": "node bench/report.mjs",
     "docs:generate": "node scripts/generate-readmes.mjs && pnpm docs:script:generate",
     "docs:check": "node scripts/generate-readmes.mjs --check && pnpm docs:script:check",
     "docs:script:generate": "node packages/script/scripts/generate-api-docs.mjs",
