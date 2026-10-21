@@ -113,7 +113,7 @@ type FrameContext = {
   /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
   /** 当前模式对应的强类型行情数据。 */
-  data: ChartSeriesDatum[]
+  data: readonly ChartSeriesDatum[]
   /** 与本帧主序列快照对应的提交版本。 */
   dataRevision: number
   /** 五日分时供所有 renderer 和交互共享的帧级几何。 */
@@ -707,7 +707,7 @@ export class ChartRenderer {
     const vp = cached ? cached.viewport : this.peekViewport()
     if (!vp) return null
 
-    const internalData = [...this.deps.getDataManager().getRenderData()]
+    const internalData = this.deps.getDataManager().getRenderData()
     if (internalData.length === 0) return null
 
     const projection = this.deps.viewport.readonly.viewSnapshot.peek()
@@ -741,7 +741,7 @@ export class ChartRenderer {
       ? cached.visiblePriceExtrema
       : projection.hasPriceSeries
         ? computeVisiblePriceExtrema(
-            internalData as KLineData[],
+            internalData as readonly KLineData[],
             range,
             kLineCenters,
             vp.scrollLeft,

@@ -5,6 +5,13 @@ import type { IndicatorTimelineProjection } from '../types.js'
 /** 未指定展示映射的独立调用保留原始坐标。 */
 export function identityIndicatorIndex(index: number): number { return index }
 
+/** 全局冻结恒等单例：复用恒等投影，避免重复分配。 */
+const IDENTITY_PROJECTION: IndicatorTimelineProjection = Object.freeze({
+  identity: true,
+  projectIndex: (index: number): number => (Number.isFinite(index) ? index : Number.NaN),
+  projectArray: <T>(values: readonly T[]): readonly (T | undefined)[] => values,
+})
+
 /** 用计算快照和展示快照建立双向索引；分时展示沿用同分钟对齐规则。 */
 export function createIndicatorTimelineProjection(
   source: readonly number[],
@@ -12,6 +19,7 @@ export function createIndicatorTimelineProjection(
   byMinute: boolean,
 ): IndicatorTimelineProjection {
   const identity = source.length === target.length && source.every((time, index) => time === target[index])
+  if (identity) return IDENTITY_PROJECTION
   /** K 线精确匹配时间戳；分时才按分钟聚合。 */
   const key = (time: number): number => byMinute ? Math.floor(time / 60_000) : time
   const sourceByTime = new Map(source.map((time, index) => [key(time), index]))
@@ -21,7 +29,6 @@ export function createIndicatorTimelineProjection(
   /** 只在计算范围外保持相对边界的槽位距离；范围内缺失的 bar 不伪造位置。 */
   function projectIndex(index: number): number {
     if (!Number.isFinite(index)) return Number.NaN
-    if (identity) return index
     if (source.length === 0) return Number.NaN
     if (index < 0) {
       const first = targetIndices[0]
@@ -44,7 +51,6 @@ export function createIndicatorTimelineProjection(
     projectIndex,
     /** 保留样式、标签、锚点等非序列数组，仅调用方明确声明的数据列参与重排。 */
     projectArray<T>(values: readonly T[]): readonly (T | undefined)[] {
-      if (identity) return values
       return sourceIndices.map((index) => index === undefined ? undefined : values[index])
     },
   }
