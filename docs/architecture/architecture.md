@@ -179,11 +179,13 @@ flowchart TB
   非重入地推进帧快照。
 - `prepareFrameData` 从 viewport 派生可见范围与 K 线几何，`sealFrameGeometry` 在绘制前
   封存本帧几何，交互命中与屏幕图形同代。
-- `Scene` / `Layer` 按 paneRole / role / z 排序分发 paint；Layer role 分为
+- `Scene` / `Layer` 按 pane / role / z 排序分发 paint；Layer role 分为
   background、primary、indicator、component、drawing、overlay。
-- 业务层只依赖统一 `Renderer` 契约（`drawInstances` / `drawLines`），由
+- 业务层只依赖统一 `Renderer` 契约（`primitives` 原语后端），由
   `RendererHost` 决定实际后端：WebGPU → WebGL2 → Canvas2D 自动降级，
   GPU 返回 `false` 时业务层必须完整执行 Canvas2D fallback。
+- Layer 分两类：`draw-list` 拿不到 ctx，只提交原语，可与相邻图层合并成一次合成；
+  `context` 保留 ctx，Scene 在其前后立即合成。
 - DPR 以物理像素执行、逻辑像素输入，DPR 的唯一来源是 viewport state。
 
 ### 3.6 插件子系统
@@ -212,9 +214,9 @@ flowchart TB
 
 1. 输入（缩放、滚动、数据变更）调用 `scheduleDraw(level)`。
 2. `FrameTransaction` 封存输入 → `prepareFrameData` 生成几何快照 → `sealFrameGeometry`。
-3. 按 pane 执行 `Scene.paintPane`，Layer 通过统一 `Renderer` 绘制；
-   GPU 路径失败时业务层回退 Canvas2D。
-4. `Renderer.endFrame()` 结束帧（WebGPU 每帧单次 `queue.submit`），随后绘制时间轴层。
+3. `Scene.paint` 按 pane 分发 Layer：每个绘制目标一个合成器，连续图层累积成一批，
+   帧末一次落盘；GPU 路径失败时整批回退 Canvas2D。
+4. 随后绘制时间轴层。
 
 ### 4.3 交互
 

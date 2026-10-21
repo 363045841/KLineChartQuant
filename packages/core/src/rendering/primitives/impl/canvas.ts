@@ -142,9 +142,9 @@ function appendPaths(
 export function createCanvasPrimitiveBackend(): PrimitiveBackend {
   let disposed = false
   return {
-    paint(target, primitives, dpr) {
+    paint(target, primitives, dpr, transform) {
       if (disposed) return false
-      paintCanvasPrimitives(target, primitives, dpr)
+      paintCanvasPrimitives(target, primitives, dpr, transform)
       return true
     },
     dispose() {

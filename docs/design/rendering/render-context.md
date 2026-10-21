@@ -11,7 +11,7 @@
 | 子契约 | 职责 |
 | --- | --- |
 | `RenderDataContext` | 序列数据、数据视图、时间解析、对比数据、月/日键值 |
-| `RenderGeometryContext` | Pane、视口、K 线位置与宽度、缩放级别 |
+| `RenderGeometryContext` | Pane、视口、K 线位置与宽度、缩放级别、数据空间变换 |
 | `RenderAxisContext` | 本帧待绘制的轴标签与范围带、Y 轴刻度 |
 | `RenderOverlayContext` | 十字线索引、标记器、绘图帧投影 |
 | `RenderIndicatorContext` | 指标帧快照、Scene Renderer |

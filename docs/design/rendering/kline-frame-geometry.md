@@ -15,12 +15,13 @@
 
 ## 屏幕投影与物理像素
 
-世界坐标投影到屏幕 X 坐标时统一执行 `round((worldX - scrollLeft) * dpr) / dpr`。滚动偏移必须先扣除，再进行物理像素对齐；Canvas2D、交互投影与 GPU shader 遵循同一顺序，禁止先对齐世界坐标再平移，否则分数滚动量和非整数 DPR 下会产生相位差。
+世界坐标投影到屏幕 X 坐标时执行 `(round(worldX * dpr) - round(scrollLeft * dpr)) / dpr`：世界坐标与滚动量**分别**对齐到物理像素后再相减。禁止对 `worldX - scrollLeft` 整体取整——那样每个点的舍入方向会随滚动变化，屏幕相位会抖动，几何缓存也会每帧失效。Canvas2D、交互投影与 GPU 后端遵循同一顺序。
 
 K 线实体在世界坐标中按物理像素网格生成，但滚动偏移可能使其在屏幕坐标中再次落到半像素。`projectWorldRectToScreen` 是世界矩形 X 边界进入屏幕前的唯一 CPU 投影规则：左右边界分别吸附，再保证至少一个物理像素宽度。
 
 - Canvas2D 与 WebGL 共用该函数；WebGPU 在 shader 内执行等价的顶点投影，因为该阶段必须在 GPU 执行。
-- WebGL 后端不得在顶点着色器中依赖大世界坐标与 `scrollLeft` 的减法精度。矩形实例在 CPU 双精度空间按统一投影规则转换为视口局部坐标后上传，shader 仅处理小坐标；顶点 shader 同时声明 `highp float`，确保仍使用世界坐标的折线在移动 GPU 上保持足够精度。
+- GPU 后端不得在顶点着色器中依赖大世界坐标与 `scrollLeft` 的减法精度。矩形实例在 CPU 双精度空间按统一投影规则转换为视口局部坐标后上传，shader 仅处理小坐标；顶点 shader 同时声明 `highp float`，确保仍使用世界坐标的折线在移动 GPU 上保持足够精度。
+- 公共原语契约把横向偏移挂在图元上（`offsetX`），由后端在绘制时统一扣除；数据空间折线改由 `DataTransform` uniform 还原，滚动与轴缩放不重写顶点缓冲。
 - `kWidthPx` 作为帧级几何的一部分进入 `RenderGeometryContext`。Candle renderer 只消费该结果，不重新计算 K 线物理宽度。
 
 ## 实体、量柱与影线宽度
@@ -64,4 +65,4 @@ K 线实体在世界坐标中按物理像素网格生成，但滚动偏移可能
 - `interaction.dpr.test.ts` 验证十字线按封存中心点选择并吸附。
 - `gridLines.mode.test.ts` 验证月份分界线使用帧级中心点。
 - `logicalIndexToScreenX.test.ts` 验证分数滚动量和非整数 DPR 下的屏幕物理像素投影。
-- `webglRenderer.test.ts` 验证大世界坐标在上传 WebGL 前转换为视口局部物理像素坐标。
+- `primitives/__tests__/prepare.test.ts` 验证图元的屏幕外剔除、平移归一化的几何缓存与解析式描边的偏移处理。

@@ -8,13 +8,13 @@
 | --- | --- |
 | StateKernel | viewport、zoom、data、pane、drawing、主题与设置的唯一业务状态 |
 | ChartViewportManager | ResizeObserver、原生 scroll 与 DOM 适配 |
-| ChartPaneLayout / PaneRenderer | 可见 Canvas 的 DOM、尺寸、显示状态与释放 |
+| ChartPaneLayout / PaneRenderer | 可见 Canvas 的 DOM、尺寸、显示状态与释放；主图带 GPU 直出画布 |
 | ChartRenderer | 帧事务、几何封存、目标清屏、Pane 上下文、轴标签与图例 |
-| Scene | 图层过滤、合成目标、目标内排序、后端注入与绘制异常隔离 |
+| Scene | 图层过滤、合成目标、目标内排序、后端注入、帧内合成器与绘制异常隔离 |
 | RendererHost | 后端创建、切换、降级、设备丢失与释放 |
-| Renderer / primitives | 同一套有序原语的实际执行、GPU 私有资源与失败回退 |
+| Renderer / primitives | 同一套有序原语的实际执行、GPU 私有资源、可选可见直出表面与失败回退 |
 
-后端没有直接参与 DOM 堆叠的可见画布。可见像素全部位于 Pane、坐标轴、时间轴、十字线等明确所有者持有的原生 Canvas 中。
+可见画布全部有明确所有者：Pane（主图带 2D 主画布、主图带 GPU 直出画布、drawing、overlay）、坐标轴、时间轴、十字线。后端不自行参与 DOM 堆叠；它只在 Pane 提供的画布上建立直出表面，画布的挂载、定位与尺寸都由 Pane 决定。
 
 ## 初始化与生命周期
 
@@ -22,7 +22,9 @@ Chart 使用注入的 RendererHost；直接同步构造时尝试 WebGL 后使用
 
 Host runtime 变化只写回 renderer 状态并请求 All 帧，不挂载、移除或调整可见画布。ChartRenderer 每次读取 Host 当前执行器，不缓存旧 Renderer。Pane 尺寸只在绘制帧内提交，随后同帧重画；后端离屏目标在 paint 时跟随可见目标的尺寸。
 
-销毁先停止调度、等待插件卸载和释放业务订阅，再销毁 Scene、Pane 和后端。WebGPU device 与原语设备由同一个 Renderer 释放。不存在独立可见 GPU 画布的清理或截图分支。
+主图带直出画布由 Pane 创建、定位与定尺寸：后端切换时旧画布必须丢弃重建，一个 canvas 只能有一种上下文类型，WebGL → WebGPU 不能复用同一张画布。
+
+销毁先停止调度、等待插件卸载和释放业务订阅，再销毁 Scene、Pane 和后端。WebGPU device 与原语设备由同一个 Renderer 释放。可见 GPU 画布是 Pane 的资源，随 Pane 一起释放；截图读的是合成后的原生像素，没有 GPU 纹理读回分支。
 
 ## 单帧链路
 
@@ -37,8 +39,10 @@ Chart.scheduleDraw
   → Scene.paint
       → pane / role / visible 过滤
       → 合成层带排序，再按目标内 z 稳定排序
-      → 注入 ctx 与 sceneRenderer，逐 Layer save / paint / restore
-          → 公共原语执行并合成到 ctx，或原生 Canvas 绘制
+      → draw-list 图层只提交原语（绘制上下文里没有 ctx）
+      → context 图层注入 ctx，逐 Layer save / paint / restore
+      → 每目标一个合成器：连续图层累积成一批，帧末一次落盘
+          → 有可见 GPU 表面时几何直写该表面，否则离屏渲染后合成到 ctx
   → 统一绘制坐标轴标签、图例、时间轴与十字线
   → 完成同帧截图请求
 ```
@@ -67,7 +71,9 @@ ResizeObserver 优先使用 device-pixel-content-box；DPR 经过有效性处理
 
 z 只在同一目标内决定叠放，相同 z 保留注册顺序。不能通过把 main 图层的 z 改大来跨越 drawing 或 overlay 层带。这个规则与浏览器 DOM 层序一致。
 
-每个 `FramePaint` 提供 `targets` 和当前 `renderer`。Scene 先选择目标，未分配的 drawing 目标跳过绘制，再把目标写入 `Layer.paint` 的 `context.ctx`。业务 Layer 不绕开 Scene 选择其他绘图区画布。Scene 在 finally 中恢复 Canvas 状态，单个图层异常不会中断同 Pane 的其他图层。
+main 目标内部还有两段叠放：GPU 直出画布与 2D 主画布同为 z = 0，DOM 顺序上 GPU 画布在前，因此几何在下、文字与 `ctx` 图层在上。
+
+每个 `FramePaint` 提供 `targets` 和当前 `renderer`。Scene 先选择目标，未分配的 drawing 目标跳过绘制。`kind: 'draw-list'` 的图层绘制上下文里没有 `ctx`，只能提交原语；`kind: 'context'`（缺省）的图层拿到 `context.ctx`，Scene 在它前后立即合成，保证自带裁剪与坐标系语义。业务 Layer 不绕开 Scene 选择其他绘图区画布。Scene 在 finally 中恢复 Canvas 状态，单个图层异常不会中断同 Pane 的其他图层。
 
 坐标轴和时间轴有独立表面与轴标签接口；十字线使用图表级独立表面。它们不通过额外 GPU DOM 层来改变行情或 drawing 的遮挡。
 
@@ -87,11 +93,13 @@ Renderer 只提供：
 - 必需的 `primitives`：公共原语后端。
 - `dispose()`：释放同一执行器拥有的资源。
 
-公共命令是 fill、stroke、circle、rect、text。蜡烛与 Plot 的矩形共用 `barGeometry/impl/paintBars.ts`；drawing 只把投影映射成这些命令。业务层不创建 shader、buffer 或 pipeline。
+公共命令是 fill、stroke、circle、rect、text，以及同色矩形的 `rects` 批次。蜡烛与 Plot 的矩形共用 `barGeometry/impl/paintBars.ts`；drawing 只把投影映射成这些命令。业务层不创建 shader、buffer 或 pipeline。
 
-`PrimitiveBackend.paint(target, commands, dpr)` 返回 true 表示该批完成；false 保证可见目标未被半批结果污染。统一提交器失败后把整批 Canvas 命令写入同一 target，业务层没有各自的 GPU/Canvas 双路径。
+`PrimitiveBackend.paint(target, primitives, dpr, transform)` 返回 true 表示该批完成；false 保证可见目标未被半批结果污染。统一提交器失败后把整批 Canvas 命令写入同一 target，业务层没有各自的 GPU/Canvas 双路径。
 
-Canvas 直接解释命令。GPU 在私有离屏目标执行有序几何，完成后按图层顺序合成到 target。文字直接用 Canvas；图文交错是提交边界，混合批次使用私有 staging 保证原子回退，不能为了合批把所有文字挪到最后。
+Scene 为每个绘制目标建立一个合成器：连续输出原语的图层累积成一批，帧末统一落盘，每个目标每帧只做一次离屏渲染与合成；目标级状态（仿射变换、透明度、合成模式、阴影、滤镜）变化时才切段，并按提交时记录的状态重放。成本因此随目标数增长，与图层数量无关。
+
+Canvas 直接解释命令。GPU 在私有离屏目标执行有序几何，完成后合成到 target；后端实现了 `createSurface` 时，主图带的几何直接写入 Pane 的可见画布，省掉离屏目标与 Canvas 侧的整张拷贝。文字直接用 Canvas；图文交错是提交边界，混合批次使用私有 staging 保证原子回退，不能为了合批把所有文字挪到最后。
 
 目标默认具有 DPR 缩放。额外仿射变换、非默认混合、阴影或滤镜使用 Canvas 解释器，不能先按错误坐标剔除再套变换。
 
@@ -101,7 +109,13 @@ Canvas 直接解释命令。GPU 在私有离屏目标执行有序几何，完成
 
 简单直线、胶囊和小型凸形使用连续顶点直绘。复杂路径以有向三角扇累计 stencil winding，再 cover；支持凹形、自交、多轮廓与 evenodd。复杂描边展开为同向轮廓，避免交点重复混合。只有相邻、填充规则一致且包围盒不相交的复杂对象才合并 mask/cover。
 
-完全在屏幕外的对象在 tessellation 前剔除。几何缓存归一化平移，按样式、DPR 和精确坐标快照判断失效，同时限制条目和字节数。颜色独立缓存，常见 hex 直接解码，其他 CSS 颜色由浏览器解析一次后复用。
+完全在屏幕外的对象在 tessellation 前剔除。几何缓存归一化平移，按样式、DPR 和精确坐标快照判断失效，同时限制条目和字节数（1024 条 / 64 MiB）；淘汰按批进行，同一批用到的条目不参与淘汰，避免同帧自挤导致下帧全量重建。颜色独立缓存，常见 hex 直接解码，其他 CSS 颜色由浏览器解析一次后复用。
+
+不透明描边直接以三角形绘制，不走 stencil：stencil 需要为每条折线按包围盒铺一次 cover，全宽指标线等于每帧多出若干次全幅填充。半透明描边保留 stencil，避免接缝重复混合。
+
+不透明、实线、圆角连接与端帽的开放折线使用解析式描边（`segments`）：每段 10 个 float，6 个顶点在 vertex shader 里扩成胶囊，覆盖率在片元着色器按到线段的距离计算。虚线、miter/butt 端帽与闭合路径仍走三角化。
+
+纯折线指标在数据空间缓存：几何保留世界 x 与价格 y，滚动与轴缩放只改 `DataTransform` uniform，不重新三角化也不重写顶点缓冲。缓存按半屏分桶，纯滚动时桶不变即命中；世界坐标与滚动量分别对齐到物理像素，否则逐点舍入方向随滚动变化会让缓存每帧失效。
 
 CPU 缓冲按容量增长，GPU buffer 复用连续布局；未变化时跳过上传，变化时每类数据每段最多上传一个连续区间。此优化不改变整层绘制范围。
 
@@ -127,7 +141,7 @@ Chart.captureFrame 请求完整帧，并在帧完成位置调用捕获函数。`
 
 第三方通过 `useRenderer(layer)` 注册 Layer，通过完整 id 查询或移除。Scene 拥有已接纳 Layer 的释放责任；外部数据变化后调用 requestRender。插件仍由 PluginHost 管理安装与卸载。
 
-新增图形先投影为现有命令；只有公共契约无法表达且多个图形受益时才增加原语。新增后端实现同一 PrimitiveBackend，接入 Host 工厂并验证原子失败、DPR、透明顺序和资源释放，不增加可见 DOM 表面或业务专用绘制分支。
+新增图形先投影为现有命令；只有公共契约无法表达且多个图形受益时才增加原语。新增后端实现同一 PrimitiveBackend，接入 Host 工厂并验证原子失败、DPR、透明顺序和资源释放，不增加业务专用绘制分支；需要直出能力时只实现 `createSurface`，画布的挂载、定位与尺寸仍由 Pane 负责。
 
 core 单测覆盖事务、目标选择与排序、几何、缓存、失败回退、后端生命周期、DPR 和拖拽。jsdom 只提供 Canvas，不伪造始终成功的 GPU。`bench/primitives.html` 在真实三后端检查四种 DPR 像素、合批计数、完整 Chart 遮挡、热切换和截图一致性。
 

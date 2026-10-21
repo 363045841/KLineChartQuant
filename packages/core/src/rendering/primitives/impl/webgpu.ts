@@ -23,8 +23,9 @@ import {
 /**
  * 绑定一个画布的设备。
  *
- * @param direct true 表示画布本身就是可见表面：单采样、直接写 current texture，
- *   保留上一帧内容时用 loadOp=load；false 表示离屏目标：4x MSAA 后 resolve。
+ * @param direct true 表示画布本身就是可见表面；false 表示离屏目标。
+ *   两者都用 4x MSAA 颜色纹理渲染再 resolve 到画布的 current texture，
+ *   可见表面保留上一帧内容时用 loadOp=load。
  */
 function createDevice(
   device: GPUDevice,
@@ -347,7 +348,7 @@ function createDevice(
   }
 }
 
-/** 直接写入可见画布的 WebGPU 表面；单采样、不 resolve、不拷贝。 */
+/** 直接写入可见画布的 WebGPU 表面；仍走 4x MSAA 目标再 resolve 到画布，省掉的是 Canvas 侧的整张拷贝。 */
 function createSurface(
   device: GPUDevice,
   format: GPUTextureFormat,

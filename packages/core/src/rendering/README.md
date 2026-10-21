@@ -10,11 +10,13 @@
 
 ## 合成契约
 
-Pane 持有原生 Canvas 目标。Scene 将 background/primary/indicator/component 分配到 main，drawing 分配到正式图元目标，overlay 分配到动态目标。三个目标按 `SCENE_TARGET_Z` 堆叠，同一目标内按 z 稳定排序。DOM 布局消费相同常量。
+Pane 持有原生 Canvas 目标。Scene 将 background/primary/indicator/component 分配到 main，drawing 分配到正式图元目标，overlay 分配到动态目标。三个目标按 `SCENE_TARGET_Z` 堆叠，同一目标内按 z 稳定排序。DOM 布局消费相同常量。main 目标内部再分两段：GPU 直出画布在下，2D 主画布在上。
 
-`Layer.paint(context)` 的 `context.ctx` 已由 Scene 选择；Layer 不自行选择其他绘图区画布。Scene 用 save/restore 隔离每个 Layer。坐标轴保持自己的原生表面和轴标签契约。
+`Layer.paint(context)` 的目标由 Scene 选择：`kind: 'draw-list'` 的图层拿不到 `context.ctx`，只能提交原语；`kind: 'context'`（缺省）的图层拿到完整 ctx，Scene 在其前后立即合成。Layer 不自行选择其他绘图区画布。坐标轴保持自己的原生表面和轴标签契约。
 
-`Renderer` 只提供 `caps.name`、必需的 `primitives` 和 `dispose()`。没有可见 GPU surface，也没有第二套 buffer/pipeline 或帧绘制 API。GPU Canvas 与 MSAA 纹理仅为后端私有离屏资源，按有序批次合成到指定目标。Canvas 文字保持原始绘制顺序，失败由公共提交入口完整回退到同一目标。
+Scene 为每个绘制目标建立一个合成器：连续图层累积成一批，帧末一次落盘。成本随目标数增长，与图层数量无关。
+
+`Renderer` 只提供 `caps.name`、必需的 `primitives` 和 `dispose()`，没有第二套 buffer/pipeline 或帧绘制 API。后端实现 `createSurface` 时为主图带提供可见 GPU 直出表面，画布由 Pane 拥有；否则 GPU Canvas 与 MSAA 纹理仅为后端私有离屏资源，按有序批次合成到指定目标。Canvas 文字保持原始绘制顺序，失败由公共提交入口完整回退到同一目标。
 
 ## 后端与像素
 

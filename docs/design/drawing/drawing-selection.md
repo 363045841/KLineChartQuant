@@ -24,7 +24,7 @@
 
 ## 渲染
 
-绘图渲染统一通过 `projectDrawingsForFrame(store, definitions, context)` 生成每 Pane 的 `DrawingFrameProjection`。投影包含 primitives、X/Y 轴标签和范围带；它在 `ChartRenderer` 调用 `scene.paintPane` 前完成。所有 renderer 只读该结果，禁止在 `draw()` 中修改 `RenderContext` 传递轴装饰数据。
+绘图渲染统一通过 `projectDrawingsForFrame(store, definitions, context)` 生成每 Pane 的 `DrawingFrameProjection`。投影包含 primitives、X/Y 轴标签和范围带；它在 `ChartRenderer` 调用 `scene.paint` 前完成。所有 renderer 只读该结果，禁止在 `draw()` 中修改 `RenderContext` 传递轴装饰数据。
 
 `DrawingStore` 读取选中 id 集合，绘制层对集合内的全部图元应用选中样式。选中图元的坐标轴标签和范围带也逐个投影。
 
@@ -48,4 +48,4 @@ Vue Browser Bridge 将其转换为 `drawing-selection` ContextItem。该项只�
 
 ## 取舍
 
-当前绘图 primitive 后端是 Canvas2D；框选不单独接入指标/K 线使用的 GPU 批绘制路径，避免为临时交互引入第二套绘图协议。未来绘图 primitive 的后端升级会自动覆盖框选，无需改变交互逻辑。
+绘图与框选共用同一套公共原语提交入口，当前落在 drawing 层的 2D 画布上（不是主图带的 GPU 直出表面）；框选不单独引入第二套绘图协议。绘图 primitive 的目标升级会自动覆盖框选，无需改变交互逻辑。

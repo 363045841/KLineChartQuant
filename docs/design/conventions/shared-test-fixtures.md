@@ -25,8 +25,7 @@
 | `engine/data/__tests__/helpers/chartDataManagerTestKit.ts` | `createMockViewport` / `createMockDataDependencies` / `createMockChartDataManager` / `createTestDocument` / `createChartDom` |
 | `data/__tests__/helpers/depthTestKit.ts` | `createFakeDepthSource` / `createFakeHeatmapController` |
 | `data/provider/__tests__/helpers/providerTestKit.ts` | `createMockMarketDataProvider` + `DEFAULT_SOURCE_CAPABILITIES` |
-| `rendering/render/__tests__/helpers/rendererTestKit.ts` | `createMockSurfaceBackend` / `createMockSharedWebGLSurface` / `createMockRenderer` |
-| `rendering/render/__tests__/helpers/webgpuTestKit.ts` | `createMockWebGPU` |
+| `rendering/render/__tests__/helpers/rendererTestKit.ts` | `createMockRenderer`（后端只暴露 `primitives` 后端） |
 | `vue/src/__tests__/_mockController.ts` | `createMockChartController` / `createMockApp` / `createTestSignal` |
 | `vue/src/composables/__tests__/testSymbols.ts` | `makeSearchableSymbol` / `TEST_SYMBOLS` |
 | `vue/src/composables/__tests__/_aggregationSourceFixtures.ts` | `source` / `createOnlineProbe` / `createOfflineProbe` / `registerProvider` |
@@ -49,7 +48,7 @@
 2. **测试只声明差异**：入参是 `Partial<...>`（`pane` 允许只声明 `yAxis` 子集），其余走默认值。用例不再内联强转。
 3. **DOM / 框架类型是唯一例外**：`CanvasRenderingContext2D` 成员上百，无法完整实现，只在 `createMockCanvasContext` 内保留一处集中强转；其余 DOM / 框架 stub（`HTMLElement`、`PointerEvent`、WebGL context、WebGPU `GPU`/`GPUDevice`、Vue `App`）同理只允许在夹具内出现。
 4. **可观测性内建**：`createMockCanvasContext` 记录 `strokeLineWidths` / `strokedPaths` / `dashedPaths`，并带最小 `canvas.width`；状态类替身（`PluginHost` 共享状态、绘图选择集合与工具状态）由内存变量承载，替换原先每个用例手写的 store。
-5. **含私有字段的 class 视为 DOM 同类**：`SharedWebGLSurface`（私有 MSAA 字段）、`ViewportStateModule` 与 `ChartDataManager`（私有状态、成员过多）无法结构化满足，替身内部保留唯一一处集中强转，并对消费方暴露 class 类型 / 只读信号接口。
+5. **含私有字段的 class 视为 DOM 同类**：`ViewportStateModule` 与 `ChartDataManager`（私有状态、成员过多）无法结构化满足，替身内部保留唯一一处集中强转，并对消费方暴露 class 类型 / 只读信号接口。
 6. **spy 签名与被测接口一致**：`vi.fn` 的形参按生产签名声明，`mock.calls[i][j]` 保持类型；不写 `ReturnType<typeof vi.fn>`（vitest 5 下其含构造签名、不可调用）。
 
 ## 边界
