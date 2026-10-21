@@ -8,9 +8,9 @@
 
 {{include:_features.zh-CN.md}}
 
-{{include:_script.zh-CN.md}}
-
 {{include:_performance.zh-CN.md}}
+
+{{include:_script.zh-CN.md}}
 
 {{include:_data-sources.zh-CN.md}}
 
