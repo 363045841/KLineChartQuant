@@ -15,6 +15,7 @@ import {
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { paintPlots } from '../impl/plotRenderer.js'
 import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
@@ -571,6 +572,73 @@ describe('Plot renderer', () => {
     expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(ctx.fillStyle).toBe('#00897b26')
     expect(ctx.globalAlpha).toBe(1)
+  })
+
+  it('位移填充按 Plot.data 下标取色，颜色分界与未来槽位都对得上', () => {
+    const submit = vi.fn<
+      (context: unknown, commands: readonly PaintPrimitive[], dpr: number) => boolean
+    >(() => true)
+    paint(
+      {
+        series: [
+          { id: 'a', field: 'a', color: () => 'blue', offset: () => 2 },
+          { id: 'b', field: 'b', color: () => 'blue', offset: () => 2 },
+        ],
+        fills: [
+          {
+            id: 'cloud',
+            from: 'a',
+            to: 'b',
+            color: (_colors, from, to) =>
+              from !== undefined && to !== undefined && from > to ? 'red' : 'green',
+          },
+        ],
+      },
+      [{ a: 1, b: 5 }, { a: 2, b: 4 }, { a: 3, b: 3 }, { a: 4, b: 2 }, { a: 5, b: 1 }],
+      {},
+      {
+        range: { start: 0, end: 8 },
+        kLineCenters: [-5, 5, 15, 25, 35, 45, 55, 65],
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    const spans = submit.mock.calls[0]![1]
+      .filter((command) => command.kind === 'fill')
+      .map((command) => {
+        const xs = command.paths.flat().map((point) => point.x)
+        return [command.color, Math.min(...xs), Math.max(...xs)]
+      })
+    // 源 bar 2 处相交，显示位置后移 2 格：绿色到 35，红色从 35 一直续到未来槽位 55。
+    expect(spans).toEqual([
+      ['green', 15, 35],
+      ['red', 35, 55],
+    ])
+  })
+
+  it('填充图层在数据空间投影，提交 band 与 dataSpace 标记', () => {
+    const submit = vi.fn<
+      (context: unknown, commands: readonly PaintPrimitive[], dpr: number) => boolean
+    >(() => true)
+    paint(
+      {
+        series: [
+          { id: 'a', field: 'a', color: () => 'blue' },
+          { id: 'b', field: 'b', color: () => 'blue' },
+        ],
+        fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
+      },
+      [{ a: 1, b: 3 }, { a: 2, b: 4 }],
+      {},
+      {
+        dataTransform: { offsetX: 10, yScale: 2, yOffset: 5 },
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    const fill = submit.mock.calls[0]![1].find((command) => command.kind === 'fill')
+    if (!fill || fill.kind !== 'fill') throw new Error('缺少填充原语')
+    expect(fill).toMatchObject({ band: true, dataSpace: true })
+    // y 保留价格，未预先乘 yScale / 加 yOffset。
+    expect(fill.paths[0]!.map((point) => point.y)).toEqual([1, 2, 4, 3])
   })
 
   it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {

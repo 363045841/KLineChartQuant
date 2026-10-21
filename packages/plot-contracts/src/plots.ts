@@ -229,7 +229,7 @@ export interface PlotFill {
   readonly from: string
   readonly to: string
   readonly visible: boolean
-  /** 按图表 bar 下标保存颜色；null 表示该 bar 不填充。 */
+  /** 按图表 bar 下标保存颜色，与 Plot.data 对齐且不含 offset；null 表示该 bar 不填充。 */
   readonly colors: readonly (string | null)[]
 }
 

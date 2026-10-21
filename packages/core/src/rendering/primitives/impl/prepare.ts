@@ -1,11 +1,11 @@
 /** 有序合批准备：提前剔除、缓存几何、实例化基础形状，复用 CPU 连续缓冲。 */
-import type { PaintPrimitive, PrimitivePath } from '../types.js'
-import { FloatArena } from './buffers.js'
 import type { DataTransform } from '@/foundation/plugin/types.js'
+import type { PaintPrimitive, PrimitivePath, PrimitivePoint } from '../types.js'
+import { FloatArena } from './buffers.js'
 import { type CachedGeometry, GeometryCache, type PrimitiveBounds } from './cache.js'
 import type { ColorResolver, PrimitiveColor } from './colors.js'
-import { pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
-import { SEGMENT_FLOATS } from './shaders.js'
+import { bandTriangles, pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
+import { MESH_FLOATS, SEGMENT_FLOATS } from './shaders.js'
 
 export type GeometryPrimitive = Exclude<PaintPrimitive, { kind: 'text' }>
 
@@ -24,11 +24,20 @@ export type PreparedDraw =
       coverCount: number
       evenodd: boolean
     }
+
+/** 数据空间填充的一次顶点写入范围；整段可直接跳到上一帧的位置。 */
+interface FillSpan {
+  readonly start: number
+  readonly floats: number
+  readonly draw: PreparedDraw
+}
 export interface PreparedBatch {
   vertices: Float32Array
   instances: Float32Array
   segments: Float32Array
   draws: PreparedDraw[]
+  /** 本批各类缓冲是否被重写；false 表示可直接复用上一帧的 GPU 内容。 */
+  changed: { vertices: boolean; instances: boolean; segments: boolean }
   culled: number
   geometryBuilds: number
   geometryHits: number
@@ -110,17 +119,20 @@ function buildGeometry(
   paths: PrimitivePath[],
   dpr: number,
 ): CachedGeometry {
-  let direct = false,
-    outlines: readonly PrimitivePath[]
+  let direct = false
+  let triangles: PrimitivePoint[]
   if (primitive.kind === 'stroke') {
     const simple = simpleStrokePath({ ...primitive, paths }, dpr)
     direct = simple !== null
-    outlines = simple ?? strokePaths({ ...primitive, paths }, dpr)
+    triangles = pathTriangles(simple ?? strokePaths({ ...primitive, paths }, dpr))
+  } else if (primitive.band === true) {
+    // 带子由上下两条等长链组成：按段展开成零重叠条带，避免扇形三角化互相覆盖。
+    triangles = paths.flatMap((path) => bandTriangles(path))
+    direct = true
   } else {
-    outlines = paths
+    triangles = pathTriangles(paths)
     direct = paths.length === 1 && convex(paths[0]!)
   }
-  const triangles = pathTriangles(outlines)
   const positions = new Float64Array(triangles.length * 2)
   let left = Infinity,
     right = -Infinity,
@@ -146,6 +158,54 @@ function segmentizable(stroke: Extract<GeometryPrimitive, { kind: 'stroke' }>): 
   return stroke.paths.every((path) => path.length >= 2)
 }
 
+/** 判断两段描边是否产出完全相同的实例数据：路径按引用比较，样式按值比较。 */
+function sameStroke(
+  a: Extract<GeometryPrimitive, { kind: 'stroke' }>,
+  b: Extract<GeometryPrimitive, { kind: 'stroke' }>,
+): boolean {
+  if (
+    a.color !== b.color ||
+    a.width !== b.width ||
+    a.closed !== b.closed ||
+    a.cap !== b.cap ||
+    a.join !== b.join ||
+    a.miterLimit !== b.miterLimit ||
+    a.dashOffset !== b.dashOffset ||
+    a.offsetX !== b.offsetX ||
+    a.dataSpace !== b.dataSpace ||
+    a.paths.length !== b.paths.length
+  )
+    return false
+  const dashA = a.dash,
+    dashB = b.dash
+  if (dashA !== dashB) {
+    if (!dashA || !dashB || dashA.length !== dashB.length) return false
+    for (let i = 0; i < dashA.length; i++) if (dashA[i] !== dashB[i]) return false
+  }
+  // 投影层会复用同一批点数组；引用相同即可跳过整段实例重写。
+  for (let i = 0; i < a.paths.length; i++) if (a.paths[i] !== b.paths[i]) return false
+  return true
+}
+
+/** 判断两段填充是否产出完全相同的顶点：路径按引用比较，样式按值比较。 */
+function sameFill(
+  a: Extract<GeometryPrimitive, { kind: 'fill' }>,
+  b: Extract<GeometryPrimitive, { kind: 'fill' }>,
+): boolean {
+  if (
+    a.color !== b.color ||
+    a.opacity !== b.opacity ||
+    a.fillRule !== b.fillRule ||
+    a.band !== b.band ||
+    a.dataSpace !== b.dataSpace ||
+    a.paths.length !== b.paths.length
+  )
+    return false
+  // 投影层只在数据或窗口分桶变化时重新分配路径；引用相同即可整段复用。
+  for (let i = 0; i < a.paths.length; i++) if (a.paths[i] !== b.paths[i]) return false
+  return true
+}
+
 /** 创建后端级准备器；缓存和容量在全部 paint 调用之间保留。 */
 export function createPrimitivePreparer(
   resolveColor: ColorResolver,
@@ -157,6 +217,9 @@ export function createPrimitivePreparer(
     instances = new FloatArena(),
     segmentArena = new FloatArena()
   const draws: PreparedDraw[] = []
+  let lastPrimitives: readonly GeometryPrimitive[] | undefined
+  let lastSegments: Array<{ start: number; count: number } | undefined> = []
+  let lastFills: Array<FillSpan | undefined> = []
   return {
     prepare(
       primitives: readonly GeometryPrimitive[],
@@ -169,6 +232,14 @@ export function createPrimitivePreparer(
       instances.reset()
       segmentArena.reset()
       draws.length = 0
+      // 上一次调用的段布局用于复用；本次写入记录到新的数组，结束后再替换。
+      const previousSegments = lastSegments
+      const currentSegments: Array<{ start: number; count: number } | undefined> = []
+      const previousFills = lastFills
+      const currentFills: Array<FillSpan | undefined> = []
+      let wroteVertices = false,
+        wroteInstances = false,
+        wroteSegments = false
       geometryCache.beginBatch()
       let culled = 0,
         geometryBuilds = 0,
@@ -184,21 +255,33 @@ export function createPrimitivePreparer(
       }> = []
       let pendingBounds: PrimitiveBounds | undefined
       let parity = false
+      /** 最近一段可继续合并的直绘；数据空间带子独占 draw，不能被后续原语并进去。 */
+      let directRun: PreparedDraw | undefined
       /** 顶点颜色直接携带，不因颜色变化而拆分兼容的直绘批次。 */
-      function vertex(x: number, y: number, color: PrimitiveColor, opacity: number): void {
-        mesh.write((x / viewportWidth) * 2 - 1)
-        mesh.write(1 - (y / viewportHeight) * 2)
+      function vertex(
+        x: number,
+        y: number,
+        color: PrimitiveColor,
+        opacity: number,
+        mode = 0,
+      ): void {
+        wroteVertices = true
+        // 顶点保留逻辑像素：屏幕几何原样写入，数据空间几何由着色器先变换再归一化。
+        mesh.write(x)
+        mesh.write(y)
         mesh.write(color[0])
         mesh.write(color[1])
         mesh.write(color[2])
         mesh.write(color[3] * opacity)
+        // mode=1 表示顶点是数据空间（世界 x、价格 y），由着色器按帧变换还原。
+        mesh.write(mode)
       }
       /** 不相交的相邻 stencil 对象可以先累计 mask，再统一 cover；相交对象强制保持独立顺序。 */
       function flush(): void {
         if (!pending.length) return
-        const first = mesh.length / 6
+        const first = mesh.length / MESH_FLOATS
         for (const item of pending) {
-          mesh.reserve(item.geometry.positions.length * 3)
+          mesh.reserve((item.geometry.positions.length / 2) * MESH_FLOATS)
           for (let i = 0; i < item.geometry.positions.length; i += 2)
             vertex(
               item.geometry.positions[i]! + item.x,
@@ -214,7 +297,7 @@ export function createPrimitivePreparer(
             y = Math.max(0, box.top + item.y)
           const right = Math.min(viewportWidth, box.right + item.x),
             bottom = Math.min(viewportHeight, box.bottom + item.y)
-          mesh.reserve(36)
+          mesh.reserve(6 * MESH_FLOATS)
           vertex(x, y, item.color, item.opacity)
           vertex(right, y, item.color, item.opacity)
           vertex(right, bottom, item.color, item.opacity)
@@ -233,7 +316,8 @@ export function createPrimitivePreparer(
         pending.length = 0
         pendingBounds = undefined
       }
-      for (const primitive of primitives) {
+      for (let primitiveIndex = 0; primitiveIndex < primitives.length; primitiveIndex++) {
+        const primitive = primitives[primitiveIndex]!
         // 矩形批次自带逐矩形裁剪，不做整批包围盒；省掉一次全量扫描。
         if (primitive.kind === 'rects') {
           flush()
@@ -252,6 +336,7 @@ export function createPrimitivePreparer(
               continue
             }
             instances.reserve(INSTANCE_FLOATS)
+            wroteInstances = true
             instances.write(x + width / 2)
             instances.write(y + height / 2)
             instances.write(width / 2)
@@ -271,8 +356,16 @@ export function createPrimitivePreparer(
           }
           continue
         }
-        const offsetX =
-          primitive.kind === 'stroke' || primitive.kind === 'fill' ? (primitive.offsetX ?? 0) : 0
+        const dataSpace =
+          primitive.kind === 'fill' &&
+          primitive.band === true &&
+          primitive.dataSpace === true &&
+          transform !== undefined
+        const offsetX = dataSpace
+          ? transform!.offsetX
+          : primitive.kind === 'stroke' || primitive.kind === 'fill'
+            ? (primitive.offsetX ?? 0)
+            : 0
         if (segmentStrokes && primitive.kind === 'stroke') {
           const color = resolveColor(primitive.color)
           // 数据空间折线只在缓冲里保留世界坐标与价格，滚动和轴缩放都改 uniform；
@@ -282,6 +375,27 @@ export function createPrimitivePreparer(
           // 顶点层面只保留折点，指标线数量增加时不再放大三角化与上传成本。
           if (color[3] === 1 && segmentizable(primitive)) {
             flush()
+            // 同一批原语在滚动/轴缩放时引用不变：直接跳过实例重写，只推进游标。
+            const previous = lastPrimitives?.[primitiveIndex]
+            const cached = previousSegments[primitiveIndex]
+            if (
+              cached &&
+              previous?.kind === 'stroke' &&
+              sameStroke(previous, primitive) &&
+              segmentArena.length === cached.start
+            ) {
+              segmentArena.skip(cached.count * SEGMENT_FLOATS)
+              currentSegments[primitiveIndex] = cached
+              const last = draws.at(-1)
+              if (last?.kind === 'segments') last.count += cached.count
+              else
+                draws.push({
+                  kind: 'segments',
+                  first: cached.start / SEGMENT_FLOATS,
+                  count: cached.count,
+                })
+              continue
+            }
             const first = segmentArena.length / SEGMENT_FLOATS
             let count = 0
             const half = primitive.width / 2
@@ -304,6 +418,8 @@ export function createPrimitivePreparer(
                 count++
               }
             if (count > 0) {
+              wroteSegments = true
+              currentSegments[primitiveIndex] = { start: first * SEGMENT_FLOATS, count }
               const last = draws.at(-1)
               if (last?.kind === 'segments') last.count += count
               else draws.push({ kind: 'segments', first, count })
@@ -312,13 +428,15 @@ export function createPrimitivePreparer(
           }
         }
         // 解析式描边逐段处理，包围盒只服务三角化与实例的剔除。
-        const box = bounds(primitive, dpr, offsetX)
+        // 数据空间带子由 uniform 变换，不能按价格 y 做屏幕包围盒剔除。
+        const box = dataSpace ? undefined : bounds(primitive, dpr, offsetX)
         if (
-          box.right < 0 ||
-          box.bottom < 0 ||
-          box.left > viewportWidth ||
-          box.top > viewportHeight ||
-          box.right < box.left
+          box &&
+          (box.right < 0 ||
+            box.bottom < 0 ||
+            box.left > viewportWidth ||
+            box.top > viewportHeight ||
+            box.right < box.left)
         ) {
           culled++
           continue
@@ -343,6 +461,7 @@ export function createPrimitivePreparer(
           const strokeWidth = primitive.strokeColor ? (primitive.strokeWidth ?? 1) : 0
           const first = instances.length / 16
           instances.reserve(16)
+          wroteInstances = true
           instances.write(centerX)
           instances.write(centerY)
           instances.write(halfWidth)
@@ -371,25 +490,57 @@ export function createPrimitivePreparer(
         if (!geometry.positions.length) continue
         const color = resolveColor(primitive.color),
           opacity = primitive.kind === 'fill' ? (primitive.opacity ?? 1) : 1
+        // 数据空间带子的路径与样式不变时，直接跳到上一帧写好的顶点段。
+        const reusable = dataSpace && primitive.kind === 'fill'
+        const previousFill = reusable ? previousFills[primitiveIndex] : undefined
+        const previousPrimitive = reusable ? lastPrimitives?.[primitiveIndex] : undefined
+        if (
+          previousFill &&
+          previousPrimitive?.kind === 'fill' &&
+          primitive.kind === 'fill' &&
+          sameFill(previousPrimitive, primitive) &&
+          mesh.length === previousFill.start
+        ) {
+          flush()
+          mesh.skip(previousFill.floats)
+          draws.push(previousFill.draw)
+          currentFills[primitiveIndex] = previousFill
+          continue
+        }
         /**
          * 不透明描边直接栅格化三角形：轮廓之间重叠不会改变颜色，因此不需要 stencil，
          * 也就不会为整条线段的包围盒铺一次全幅 cover（多指标时的主要填充开销）。
          */
         if (geometry.direct || (primitive.kind === 'stroke' && color[3] === 1)) {
           flush()
-          const first = mesh.length / 6
-          mesh.reserve(geometry.positions.length * 3)
+          const first = mesh.length / MESH_FLOATS
+          mesh.reserve((geometry.positions.length / 2) * MESH_FLOATS)
+          const shift = dataSpace ? 0 : offsetX
           for (let i = 0; i < geometry.positions.length; i += 2)
             vertex(
-              geometry.positions[i]! + cached.x - offsetX,
+              geometry.positions[i]! + cached.x - shift,
               geometry.positions[i + 1]! + cached.y,
               color,
               opacity,
+              dataSpace ? 1 : 0,
             )
-          const last = draws.at(-1),
-            count = geometry.positions.length / 2
-          if (last?.kind === 'direct') last.count += count
-          else draws.push({ kind: 'direct', first, count })
+          const count = geometry.positions.length / 2
+          const draw: PreparedDraw = { kind: 'direct', first, count }
+          // 数据空间带子独占一个 draw，复用才能精确跳回同一段顶点。
+          if (dataSpace) {
+            draws.push(draw)
+            directRun = undefined
+            currentFills[primitiveIndex] = {
+              start: first * MESH_FLOATS,
+              floats: count * MESH_FLOATS,
+              draw,
+            }
+          } else if (directRun && draws.at(-1) === directRun) {
+            directRun.count += count
+          } else {
+            draws.push(draw)
+            directRun = draw
+          }
         } else {
           const evenodd = primitive.kind === 'fill' && primitive.fillRule === 'evenodd'
           const actual = {
@@ -420,11 +571,19 @@ export function createPrimitivePreparer(
         }
       }
       flush()
+      lastPrimitives = primitives
+      lastSegments = currentSegments
+      lastFills = currentFills
       return {
         vertices: mesh.view(),
         instances: instances.view(),
         segments: segmentArena.view(),
         draws,
+        changed: {
+          vertices: wroteVertices,
+          instances: wroteInstances,
+          segments: wroteSegments,
+        },
         culled,
         geometryBuilds,
         geometryHits,

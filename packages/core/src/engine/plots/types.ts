@@ -61,7 +61,7 @@ export interface PlotFillSpec {
   readonly from: string
   readonly to: string
   readonly show?: string
-  /** 每个图表 bar 求值一次；用户从边界值决定颜色，null 留空。 */
+  /** 每个图表 bar 求值一次，下标与 Plot.data 对齐且不含 offset；用户从边界值决定颜色，null 留空。 */
   readonly color: (
     colors: ColorTokens,
     from: number | undefined,

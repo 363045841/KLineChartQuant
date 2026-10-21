@@ -145,6 +145,31 @@ describe('ordered primitive batching', () => {
     expect(opaque.prepare([{ ...stroke(), dash: [4, 2] }], 100, 100, 1).segments).toHaveLength(0)
   })
 
+  it('reuses unchanged segment instances instead of rewriting the buffer', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: Extract<GeometryPrimitive, { kind: 'stroke' }> = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 10 },
+          { x: 40, y: 20 },
+          { x: 70, y: 15 },
+        ],
+      ],
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      color: 'red',
+    }
+    const first = prepare.prepare([stroke], 100, 100, 1)
+    expect(first.changed.segments).toBe(true)
+    // 新包装对象但复用同一批点数组：应跳过实例重写，只复用上一批内容。
+    const repeated = prepare.prepare([{ ...stroke }], 100, 100, 1)
+    expect(repeated.changed.segments).toBe(false)
+    expect(repeated.draws).toEqual(first.draws)
+    expect(Array.from(repeated.segments)).toEqual(Array.from(first.segments))
+  })
+
   it('combines disjoint stencil masks but never unions overlapping independent fills', () => {
     const fill = (x: number): GeometryPrimitive => ({
       kind: 'fill',
@@ -169,6 +194,44 @@ describe('ordered primitive batching', () => {
     expect(changed.geometryHits).toBe(1)
     expect(changed.vertices[4]).toBe(1)
     expect(changed.vertices[5]).toBe(0.5)
+  })
+
+  it('band fills draw directly and reuse their vertices across transforms', () => {
+    const prepare = preparer()
+    const cloud = [
+      [
+        { x: 0, y: 10 },
+        { x: 10, y: 10 },
+        { x: 20, y: 20 },
+        { x: 20, y: 40 },
+        { x: 10, y: 40 },
+        { x: 0, y: 40 },
+      ],
+    ]
+    const fill: Extract<PaintPrimitive, { kind: 'fill' }> = {
+      kind: 'fill',
+      paths: cloud,
+      color: 'red',
+      band: true,
+      dataSpace: true,
+    }
+    const first = prepare.prepare([fill], 100, 100, 1, {
+      offsetX: 30,
+      yScale: 1,
+      yOffset: 0,
+    })
+    expect(first.draws).toEqual([{ kind: 'direct', first: 0, count: 12 }])
+    // 世界 x 不烘焙滚动量；mode=1 让着色器在绘制时应用变换。
+    expect(first.vertices[0]).toBe(0)
+    expect(first.vertices[1]).toBe(10)
+    expect(first.vertices[6]).toBe(1)
+    const second = prepare.prepare([fill], 100, 100, 1, {
+      offsetX: 50,
+      yScale: 2,
+      yOffset: 10,
+    })
+    expect(second.draws).toEqual(first.draws)
+    expect(second.changed.vertices).toBe(false)
   })
 })
 

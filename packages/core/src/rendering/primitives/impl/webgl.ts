@@ -84,6 +84,8 @@ function createDevice(
     instanceCapacity = 0,
     segmentCapacity = 0
   const viewport = gl.getUniformLocation(shapeProgram, 'viewport'),
+    meshViewport = gl.getUniformLocation(meshProgram, 'viewport'),
+    meshData = gl.getUniformLocation(meshProgram, 'data'),
     segmentViewport = gl.getUniformLocation(segmentProgram, 'viewport'),
     segmentData = gl.getUniformLocation(segmentProgram, 'data')
   gl.bindVertexArray(meshVao)
@@ -91,6 +93,7 @@ function createDevice(
   for (const [name, count, offset] of [
     ['position', 2, 0],
     ['color', 4, 8],
+    ['mode', 1, 24],
   ] as const) {
     const location = gl.getAttribLocation(meshProgram, name)
     gl.enableVertexAttribArray(location)
@@ -147,9 +150,15 @@ function createDevice(
         }
         return capacity
       }
-      meshCapacity = upload(meshBuffer, batch.vertices, meshTracker, meshCapacity)
-      instanceCapacity = upload(instanceBuffer, batch.instances, instanceTracker, instanceCapacity)
-      segmentCapacity = upload(segmentBuffer, batch.segments, segmentTracker, segmentCapacity)
+      meshCapacity = batch.changed.vertices
+        ? upload(meshBuffer, batch.vertices, meshTracker, meshCapacity)
+        : meshCapacity
+      instanceCapacity = batch.changed.instances
+        ? upload(instanceBuffer, batch.instances, instanceTracker, instanceCapacity)
+        : instanceCapacity
+      segmentCapacity = batch.changed.segments
+        ? upload(segmentBuffer, batch.segments, segmentTracker, segmentCapacity)
+        : segmentCapacity
       gl.viewport(0, 0, width, height)
       gl.colorMask(true, true, true, true)
       gl.stencilMask(0xff)
@@ -212,6 +221,14 @@ function createDevice(
           if (active !== 'mesh') {
             gl.useProgram(meshProgram)
             gl.bindVertexArray(meshVao)
+            gl.uniform4f(meshViewport, width / dpr, height / dpr, dpr, 0)
+            // 屏幕顶点 mode=0 不受影响；数据空间带子在这里按帧还原。
+            gl.uniform3f(
+              meshData,
+              transform?.offsetX ?? 0,
+              transform?.yScale ?? 1,
+              transform?.yOffset ?? 0,
+            )
             active = 'mesh'
           }
           if (draw.kind === 'direct') {
@@ -285,6 +302,8 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
       } catch {
         device?.dispose()
         device = null
+        // 新设备没有上一批 GPU 内容，必须让准备器重新写入而不是复用。
+        preparer = null
         return false
       }
     },

@@ -37,6 +37,10 @@ export type PaintPrimitive =
       color: string
       opacity?: number
       fillRule?: CanvasFillRule
+      /** 路径是上下两条等长链组成的带子，按条带三角化并跳过 stencil。 */
+      band?: boolean
+      /** 路径为数据空间（世界 x、价格 y），由帧变换还原屏幕坐标；仅带子支持。 */
+      dataSpace?: boolean
       /** 世界坐标的横向平移量；后端在绘制时统一扣除，路径本身保持不变。 */
       offsetX?: number
     }

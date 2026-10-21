@@ -203,6 +203,8 @@ export function createGpuPrimitiveBackend(
       } catch {
         device?.dispose()
         device = undefined
+        // 复用缓存只对原设备有效；设备重建后必须重新写入全部缓冲。
+        preparer = undefined
         return false
       }
     },

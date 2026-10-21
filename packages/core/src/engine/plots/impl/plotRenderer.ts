@@ -112,6 +112,8 @@ interface OhlcProjection {
 interface FillProjection {
   readonly fill: PlotFill
   readonly bands: readonly FillBand[]
+  /** 路径为世界 x 与价格 y，由帧变换还原屏幕坐标。 */
+  readonly dataSpace: boolean
 }
 
 /** 一帧可复用的全部重放数据。 */
@@ -379,19 +381,26 @@ function projectPlot(
     case 'steplinebr': {
       const margin = lineMargin(context)
       // 数据空间：几何与滚动、价格轴无关，滚动和缩放只改 uniform。
-      if (dataSpace)
+      if (dataSpace) {
+        // 被填充引用的线必须保留点表，填充带与折线共用同一份数据空间坐标。
+        const points = needsPoints
+          ? projectPoints(plot, context, (index) => projectDataPoint(plot, index, context), margin)
+          : EMPTY_POINTS
         return {
           kind: 'line',
           plot,
           dataSpace: true,
-          points: EMPTY_POINTS,
+          points,
           lines: buildLineSegments(
             plot,
             context,
-            (index) => projectDataPoint(plot, index, context),
+            needsPoints
+              ? (index) => points.get(index)
+              : (index) => projectDataPoint(plot, index, context),
             margin,
           ),
         }
+      }
       // 只有被填充引用的线才需要按下标保留点；其余线在单遍构建里直接投影，
       // 省掉每帧一个 Map 和第二次遍历。
       if (!needsPoints)
@@ -518,16 +527,22 @@ function markerAppearance(
 }
 
 /** 解析填充端点；id 引用已由 validatePlotFills 校验，缺失即契约违规。 */
-function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>): FillProjection {
+function resolveFill(
+  fill: PlotFill,
+  byId: ReadonlyMap<string, PlotProjection>,
+  dataSpace: boolean,
+): FillProjection {
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
   return {
     fill,
+    dataSpace,
     bands: buildFillBands(
       from.points,
       to.points,
       fill.colors,
+      from.plot.offset,
       isStepPlot(from.plot),
       isStepPlot(to.plot),
     ),
@@ -550,7 +565,7 @@ function collectGeometry(
     projectPlot(plot, context, filled.has(plot.id), dataSpace),
   )
   const byId = new Map(plots.map((projection) => [projection.plot.id, projection]))
-  return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
+  return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId, dataSpace)) }
 }
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
@@ -578,7 +593,8 @@ function paintGeometry(
           kind: 'fill',
           paths: band.polygons,
           color: band.color,
-          offsetX,
+          band: true,
+          ...(fill.dataSpace ? { dataSpace: true } : { offsetX }),
         })
       }
   for (const guide of state.guides) {
@@ -716,9 +732,9 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
   }
 }
 
-/** 折线指标是否全部可按数据空间缓存：只有纯折线且没有填充引用时才成立。 */
+/** 折线指标是否全部可按数据空间缓存；填充带与折线共用同一套数据空间坐标。 */
 function isDataSpaceLayer(state: PlotRenderState, context: PrimitiveRenderContext): boolean {
-  if (context.dataTransform === undefined || state.fills.length > 0) return false
+  if (context.dataTransform === undefined) return false
   return state.plots.every(
     (plot) =>
       plot.kind === 'line' ||

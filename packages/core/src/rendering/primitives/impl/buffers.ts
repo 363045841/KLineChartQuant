@@ -26,6 +26,12 @@ export class FloatArena {
   reset(): void {
     this.length = 0
   }
+
+  /** 复用上一批内容：只推进游标，不重写存储。 */
+  skip(additional: number): void {
+    this.reserve(additional)
+    this.length += additional
+  }
 }
 
 export interface UploadRange {

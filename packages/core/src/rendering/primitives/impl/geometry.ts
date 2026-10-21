@@ -209,6 +209,27 @@ export function pathTriangles(paths: readonly PrimitivePath[]): PrimitivePoint[]
   return points
 }
 
+/**
+ * 带状轮廓按段展开成零重叠的条带三角形：前一半是上边，后一半是下边（逆序）。
+ * 扇形三角化在这种长条上会互相覆盖，fill rate 随点数超线性增长。
+ *
+ * @param path 上边链接上下边逆序链组成的闭合带子
+ * @returns 每段两个三角形的顶点序列；非带子形状退回扇形三角化
+ */
+export function bandTriangles(path: PrimitivePath): PrimitivePoint[] {
+  const half = path.length >>> 1
+  if (path.length % 2 !== 0 || half < 2) return pathTriangles([path])
+  const points: PrimitivePoint[] = []
+  for (let i = 0; i < half - 1; i++) {
+    const upperLeft = path[i]!
+    const upperRight = path[i + 1]!
+    const lowerRight = path[path.length - 2 - i]!
+    const lowerLeft = path[path.length - 1 - i]!
+    points.push(upperLeft, upperRight, lowerRight, upperLeft, lowerRight, lowerLeft)
+  }
+  return points
+}
+
 /** 单条直线无需 stencil；圆端帽生成一个完整胶囊轮廓，避免半透明端帽重叠。 */
 export function simpleStrokePath(stroke: Stroke, dpr: number): PrimitivePath[] | null {
   const path = stroke.paths[0]

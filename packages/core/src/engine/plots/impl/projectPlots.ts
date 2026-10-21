@@ -184,14 +184,10 @@ function buildSeriesPlots(
     const from = plots.find((plot) => plot.id === fill.from)
     const to = plots.find((plot) => plot.id === fill.to)
     if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
-    const count = Math.max(from.data.length + from.offset, to.data.length + to.offset)
+    // 颜色与 Plot.data 同下标保存；显示位移由渲染器在取样时扣除。
+    const count = Math.max(from.data.length, to.data.length)
     const fillColors = Array.from({ length: count }, (_, index) =>
-      fill.color(
-        colors,
-        from.data[index - from.offset]?.value,
-        to.data[index - to.offset]?.value,
-        index,
-      ),
+      fill.color(colors, from.data[index]?.value, to.data[index]?.value, index),
     )
     return createFill(
       {

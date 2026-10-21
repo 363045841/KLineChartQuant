@@ -51,7 +51,6 @@ function createDevice(
     entries: [{ binding: 0, visibility: 3, buffer: { type: 'uniform' } }],
   })
   const shapePipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [shapeLayout] })
-  const meshPipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [] })
   /** 同一网格布局覆盖直绘、winding mask 和 cover，切换不重新绑定 buffer。 */
   const pipeline = (
     mode: 'shape' | 'direct' | 'mask' | 'parityMask' | 'cover' | 'parityCover',
@@ -68,9 +67,10 @@ function createDevice(
       : [
           { shaderLocation: 0, offset: 0, format: 'float32x2' },
           { shaderLocation: 1, offset: 8, format: 'float32x4' },
+          { shaderLocation: 2, offset: 24, format: 'float32' },
         ]
     return device.createRenderPipeline({
-      layout: shape ? shapePipelineLayout : meshPipelineLayout,
+      layout: shapePipelineLayout,
       vertex: {
         module: shape ? shapeModule : meshModule,
         entryPoint: 'vs',
@@ -232,17 +232,23 @@ function createDevice(
         }
         return { buffer: buffer!, capacity }
       }
-      const mesh = upload(batch.vertices, meshTracker, meshBuffer, meshCapacity)
+      const mesh = batch.changed.vertices
+        ? upload(batch.vertices, meshTracker, meshBuffer, meshCapacity)
+        : { buffer: meshBuffer!, capacity: meshCapacity }
       meshBuffer = mesh.buffer
       meshCapacity = mesh.capacity
-      const instances = upload(batch.instances, instanceTracker, instanceBuffer, instanceCapacity)
+      const instances = batch.changed.instances
+        ? upload(batch.instances, instanceTracker, instanceBuffer, instanceCapacity)
+        : { buffer: instanceBuffer!, capacity: instanceCapacity }
       instanceBuffer = instances.buffer
       instanceCapacity = instances.capacity
-      const segments = upload(batch.segments, segmentTracker, segmentBuffer, segmentCapacity)
+      const segments = batch.changed.segments
+        ? upload(batch.segments, segmentTracker, segmentBuffer, segmentCapacity)
+        : { buffer: segmentBuffer!, capacity: segmentCapacity }
       segmentBuffer = segments.buffer
       segmentCapacity = segments.capacity
       if (
-        (batch.instances.length || batch.segments.length) &&
+        (batch.instances.length || batch.segments.length || batch.vertices.length) &&
         (viewportWidth !== width || viewportHeight !== height || viewportDpr !== dpr)
       ) {
         viewport.set([width / dpr, height / dpr, dpr, 0])
@@ -253,8 +259,8 @@ function createDevice(
         metrics.uploads++
         metrics.uploadedBytes += viewport.byteLength
       }
-      // 段实例的数据空间变换每帧只写一次；render pass 打开后不允许再写缓冲。
-      if (batch.segments.length) {
+      // 段实例与数据空间网格共用同一份变换；屏幕网格的 mode=0 会忽略它。
+      if (batch.segments.length || batch.vertices.length) {
         segmentData.set([
           transform ? transform.offsetX : 0,
           transform ? transform.yScale : 1,
@@ -317,12 +323,15 @@ function createDevice(
           metrics.drawCalls++
         } else if (draw.kind === 'direct') {
           select(directPipeline, meshBuffer)
+          pass.setBindGroup(0, bind)
           pass.draw(draw.count, 1, draw.first)
           metrics.drawCalls++
         } else if (draw.kind === 'stencil') {
           select(draw.evenodd ? parityMask : mask, meshBuffer)
+          pass.setBindGroup(0, bind)
           pass.draw(draw.count, 1, draw.first)
           select(draw.evenodd ? parityCover : cover, meshBuffer)
+          pass.setBindGroup(0, bind)
           pass.draw(draw.coverCount, 1, draw.coverFirst)
           metrics.drawCalls += 2
         }
@@ -374,6 +383,8 @@ function createSurface(
       } catch {
         target?.dispose()
         target = null
+        // 新设备没有上一批 GPU 内容，必须让准备器重新写入而不是复用。
+        preparer = null
         return false
       }
     },

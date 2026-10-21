@@ -83,7 +83,16 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, _dpr, tran
       }
       case 'fill': {
         ctx.beginPath()
-        appendPaths(ctx, primitive.paths, true, primitive.offsetX ?? 0)
+        // 数据空间带子（世界 x、价格 y）在这里按帧变换还原屏幕坐标。
+        const dataSpace = primitive.dataSpace === true && transform !== undefined
+        appendPaths(
+          ctx,
+          primitive.paths,
+          true,
+          dataSpace ? transform.offsetX : (primitive.offsetX ?? 0),
+          dataSpace ? transform.yScale : 1,
+          dataSpace ? transform.yOffset : 0,
+        )
         ctx.fillStyle = primitive.color
         ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.fill(primitive.fillRule ?? 'nonzero')

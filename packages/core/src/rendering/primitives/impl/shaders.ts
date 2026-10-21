@@ -1,10 +1,15 @@
-/** 原语 shader 的共享布局常量；网格每顶点 6 float，形状每实例 16 float。 */
-export const MESH_FLOATS = 6
+/** 原语 shader 的共享布局常量；网格每顶点 7 float（含数据空间标记），形状每实例 16 float。 */
+export const MESH_FLOATS = 7
 export const INSTANCE_FLOATS = 16
 
 export const MESH_VERTEX_GLSL = `#version 300 es
-in vec2 position; in vec4 color; out vec4 tint;
-void main(){ gl_Position=vec4(position,0.,1.); tint=color; }`
+in vec2 position; in vec4 color; in float mode; out vec4 tint;
+uniform vec4 viewport; uniform vec3 data;
+void main(){
+  vec2 point=vec2(position.x-data.x*mode,mix(position.y,position.y*data.y+data.z,mode));
+  gl_Position=vec4(point.x/viewport.x*2.-1.,1.-point.y/viewport.y*2.,0.,1.);
+  tint=color;
+}`
 export const MESH_FRAGMENT_GLSL = `#version 300 es
 precision highp float; in vec4 tint; out vec4 outputColor;
 void main(){ outputColor=vec4(tint.rgb*tint.a,tint.a); }`
@@ -132,9 +137,14 @@ struct Vertex {
 }`
 
 export const MESH_WGSL = `
+struct Viewport { size:vec4f, data:vec4f }
+@group(0) @binding(0) var<uniform> viewport:Viewport;
 struct Vertex { @builtin(position) position:vec4f, @location(0) color:vec4f }
-@vertex fn vs(@location(0) position:vec2f,@location(1) color:vec4f)->Vertex {
-  var out:Vertex;out.position=vec4f(position,0.,1.);out.color=color;return out;
+@vertex fn vs(@location(0) position:vec2f,@location(1) color:vec4f,@location(2) mode:f32)->Vertex {
+  var out:Vertex;
+  let point=vec2f(position.x-viewport.data.x*mode,mix(position.y,position.y*viewport.data.y+viewport.data.z,mode));
+  out.position=vec4f(point.x/viewport.size.x*2.-1.,1.-point.y/viewport.size.y*2.,0.,1.);
+  out.color=color;return out;
 }
 @fragment fn fs(in:Vertex)->@location(0) vec4f { return vec4f(in.color.rgb*in.color.a,in.color.a); }`
 export const SHAPE_WGSL = `
