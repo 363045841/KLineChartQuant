@@ -244,13 +244,13 @@ function projectMarkerPoint(
 }
 
 /** 只遍历视口附近的点，不扫描中间的不可见历史；margin 由需要缓存的折线单独开启。 */
-function* plotIndices(
-  plot: Plot,
-  context: PrimitiveRenderContext,
-  margin = 0,
-): Iterable<number> {
+function* plotIndices(plot: Plot, context: PrimitiveRenderContext, margin = 0): Iterable<number> {
   // 折线左右各留半屏：纯滚动时点集不变，几何缓存才能命中，避免每帧重新三角化。
-  for (let index = Math.max(0, context.range.start - margin); index < context.range.end + margin; index++)
+  for (
+    let index = Math.max(0, context.range.start - margin);
+    index < context.range.end + margin;
+    index++
+  )
     yield index
   for (
     let index = Math.max(context.range.end, context.data.length);
@@ -471,7 +471,10 @@ function overrideColor(color: string | undefined, fallback: string): string {
 }
 
 /** 统一构建标记；相对定位过滤 0，绝对坐标保留 0。 */
-function projectMarkers(plot: MarkerProjection['plot'], context: PrimitiveRenderContext): MarkerProjection {
+function projectMarkers(
+  plot: MarkerProjection['plot'],
+  context: PrimitiveRenderContext,
+): MarkerProjection {
   const points = new Map<number, MarkerPoint>()
   const appearance = markerAppearance(plot, context)
   for (const index of plotIndices(plot, context)) {
@@ -570,11 +573,7 @@ function collectGeometry(
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
 export function paintPlots(state: PlotRenderState, context: PrimitiveRenderContext): void {
-  paintGeometry(
-    state,
-    context,
-    collectGeometry(state, context, isDataSpaceLayer(state, context)),
-  )
+  paintGeometry(state, context, collectGeometry(state, context, isDataSpaceLayer(state, context)))
 }
 
 /** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
@@ -626,16 +625,21 @@ function paintGeometry(
             dash: projection.plot.dash,
             cap: 'round',
             join: 'round',
-            ...(projection.dataSpace
-              ? { dataSpace: true }
-              : { offsetX: context.scrollLeft }),
+            ...(projection.dataSpace ? { dataSpace: true } : { offsetX: context.scrollLeft }),
           })
         break
       case 'histogram':
       case 'columns':
       case 'candle':
       case 'bar':
-        commands.push(...projectBarPrimitives(projection.rects, context.scrollLeft, context.dpr))
+        commands.push(
+          ...projectBarPrimitives(
+            projection.rects,
+            context.scrollLeft,
+            context.dpr,
+            context.paneWidth,
+          ),
+        )
         break
       case 'points':
         for (const [index, point] of projection.points)

@@ -318,7 +318,8 @@ export function createPrimitivePreparer(
       }
       for (let primitiveIndex = 0; primitiveIndex < primitives.length; primitiveIndex++) {
         const primitive = primitives[primitiveIndex]!
-        // 矩形批次自带逐矩形裁剪，不做整批包围盒；省掉一次全量扫描。
+        // 矩形批次自带逐矩形裁剪，不做整批包围盒；图表投影端已按视口裁剪，
+        // 这里保留逐根判定兜住其他生产者的原始批次。
         if (primitive.kind === 'rects') {
           flush()
           const data = primitive.data
