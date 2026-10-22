@@ -5,8 +5,13 @@
 import type { KLineData } from '@/controllers/types.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
 import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
-import type { BarAggregation } from '../../provider/types.js'
-import type { LiveBar, LiveBarsFrame, LiveBarsStatus, LiveBarsStream } from '../types.js'
+import type {
+  LiveBar,
+  LiveBarsFrame,
+  LiveBarsRequest,
+  LiveBarsStatus,
+  LiveBarsStream,
+} from '../types.js'
 
 export type {
   LiveBar,
@@ -17,7 +22,7 @@ export type {
   LiveBarsStream,
 } from '../types.js'
 
-/** 单连接固定订阅一个数据源的 (symbol, period, barAggregation)；切换任一维度均断开重连。 */
+/** 单连接固定订阅一个序列身份；请求内任一维度变化都需要断开重连。 */
 export class BarsLiveSource implements LiveBarsStream {
   private es: EventSource | null = null
   private frameCbs = new Set<(frame: LiveBarsFrame) => void>()
@@ -26,10 +31,8 @@ export class BarsLiveSource implements LiveBarsStream {
   private destroyed = false
 
   constructor(
-    readonly sourceId: string,
-    readonly symbol: string,
-    readonly period: string,
-    readonly barAggregation: BarAggregation,
+    private readonly sourceId: string,
+    private readonly request: LiveBarsRequest,
     private readonly baseUrl: string,
     private readonly esFactory?: (url: string) => EventSource,
   ) {}
@@ -58,7 +61,17 @@ export class BarsLiveSource implements LiveBarsStream {
     this.disconnect()
     this.emitStatus('connecting')
 
-    const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?symbol=${encodeURIComponent(this.symbol)}&period=${encodeURIComponent(this.period)}&barAggregation=${encodeURIComponent(this.barAggregation)}`
+    // 身份参数按可用性发送：symbol 不唯一时服务端优先按 instrumentId 精确定位。
+    const params = new URLSearchParams({
+      symbol: this.request.symbol,
+      period: this.request.period,
+      barAggregation: this.request.barAggregation,
+    })
+    if (this.request.instrumentId !== undefined)
+      params.set('instrumentId', this.request.instrumentId)
+    if (this.request.exchange !== undefined) params.set('exchange', this.request.exchange)
+    if (this.request.adjustment !== undefined) params.set('adjustment', this.request.adjustment)
+    const url = `${this.baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(this.sourceId)}/stream?${params.toString()}`
     const factory = this.esFactory ?? ((target: string) => new EventSource(target))
     this.es = factory(url)
 

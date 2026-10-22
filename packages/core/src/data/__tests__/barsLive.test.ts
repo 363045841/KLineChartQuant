@@ -2,7 +2,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { DataBuffer } from '../buffer/impl/dataBuffer'
-import { BarsLiveSource, type LiveBar, RealtimeBarsConnector } from '../live/impl/barsLive'
+import {
+  BarsLiveSource,
+  type LiveBar,
+  type LiveBarsRequest,
+  RealtimeBarsConnector,
+} from '../live/impl/barsLive'
 
 /** K 线 fixture 入参：timestamp/close 必填，确有差异的 OHLCV 字段可按需覆盖。 */
 type BarOverrides = Pick<LiveBar, 'timestamp' | 'close'> &
@@ -36,13 +41,11 @@ class FakeEventSource {
   }
 }
 
-function createSource() {
+function createSource(request: Partial<LiveBarsRequest> = {}) {
   const instances: FakeEventSource[] = []
   const source = new BarsLiveSource(
     'mt5',
-    'XAUUSD',
-    '4h',
-    'original',
+    { symbol: 'XAUUSD', period: '4h', barAggregation: 'original', ...request },
     'http://127.0.0.1:8090',
     (url) => {
       const es = new FakeEventSource(url)
@@ -72,6 +75,24 @@ describe('BarsLiveSource', () => {
 
     expect(statuses).toEqual(['connecting', 'connected'])
     expect(frames).toEqual([{ type: 'snapshot', symbol: 'XAUUSD', period: '4h', bars: [] }])
+    source.disconnect()
+  })
+
+  it('forwards exact instrument identity and adjustment', () => {
+    const { source, instances } = createSource({
+      symbol: '000001',
+      period: 'daily',
+      instrumentId: 'gotdx:index:1:000001',
+      exchange: 'SH',
+      adjustment: 'hfq',
+    })
+    source.connect()
+    // 裸 symbol 可能歧义；身份与复权必须原样到达 connector。
+    const url = new URL(instances[0]!.url)
+    expect(url.searchParams.get('instrumentId')).toBe('gotdx:index:1:000001')
+    expect(url.searchParams.get('exchange')).toBe('SH')
+    expect(url.searchParams.get('adjustment')).toBe('hfq')
+    expect(url.searchParams.get('symbol')).toBe('000001')
     source.disconnect()
   })
 

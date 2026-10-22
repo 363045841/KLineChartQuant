@@ -30,9 +30,9 @@ import {
 import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
-  supportsRawTradeStream,
   type MarketRuntimeDependencies,
   type ReadyMarketSession,
+  supportsRawTradeStream,
 } from '../types.js'
 import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
 
@@ -302,14 +302,20 @@ export class MarketRuntime implements IndicatorMarketData {
       binding.stream.destroy()
     }
     for (const [key, target] of targets) {
-      if (this.live.has(key) || !target.capabilities.liveBars) continue
-      const provider = this.registry.get(target.instrument.sourceId)
-      if (provider?.liveBars === undefined)
-        throw new Error(`数据源声明实时 K 线但没有提供接口：${target.instrument.sourceId}`)
-      const stream = provider.liveBars.createStream({
+      // 源声明是前提，品种可显式关闭（Connector 只对部分市场提供实时流）。
+      if (this.live.has(key) || target.capabilities.liveBars !== true) continue
+      if (target.instrument.capabilities.liveBars === false) continue
+      // 能力位已在 probe 入库时与实现对齐；这里只做绑定，失败不得抛穿状态通知链。
+      const liveBars = this.registry.get(target.instrument.sourceId)?.liveBars
+      if (liveBars === undefined) continue
+      const stream = liveBars.createStream({
         symbol: target.instrument.symbol,
         period: target.selection.period,
         barAggregation: target.selection.barAggregation,
+        // 与 /bars 使用同一份已解析身份，避免服务端按裸 symbol 猜测或静默降级复权。
+        instrumentId: target.instrument.id,
+        exchange: target.instrument.exchange,
+        adjustment: target.selection.adjustment,
       })
       const connector = new RealtimeBarsConnector(
         {

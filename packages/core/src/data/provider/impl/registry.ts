@@ -13,6 +13,23 @@ import type {
 } from '../types.js'
 import { isFilterableAssetClass } from '../types.js'
 
+/**
+ * 能力入库前与前端实际实现对齐。
+ *
+ * probe 声明的能力是跨仓库契约，connector 可能先于前端升级。声明了 `liveBars`
+ * 却没有流工厂时，在入库处降级并明确报错，而不是把契约漂移留给运行时的状态通知链。
+ */
+function alignCapabilities(
+  provider: MarketDataProvider,
+  capabilities: SourceCapabilities | undefined,
+): SourceCapabilities | undefined {
+  if (capabilities?.liveBars !== true || provider.liveBars !== undefined) return capabilities
+  console.error(
+    `[MarketDataProviderRegistry] source "${provider.source.id}" declares liveBars but provides no stream implementation; live bars disabled`,
+  )
+  return { ...capabilities, liveBars: false }
+}
+
 /** 判断源级能力是否满足请求。 */
 function supportsCapability(
   capabilities: SourceCapabilities | undefined,
@@ -179,7 +196,8 @@ export class MarketDataProviderRegistry {
   }
 
   setCapabilities(sourceId: string, capabilities: SourceCapabilities | undefined): void {
-    this.getRequired(sourceId).source.capabilities = capabilities
+    const provider = this.getRequired(sourceId)
+    provider.source.capabilities = alignCapabilities(provider, capabilities)
   }
   getCapabilities(sourceId: string): SourceCapabilities | undefined {
     return this.getRequired(sourceId).source.capabilities
