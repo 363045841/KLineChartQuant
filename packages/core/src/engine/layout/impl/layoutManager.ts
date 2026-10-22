@@ -76,6 +76,8 @@ export class LayoutManager implements LayoutApi {
   private readonly errorSignal = createSignal<string | null>(null)
   private timer: ReturnType<typeof setTimeout> | undefined
   private coalescedTimer: ReturnType<typeof setTimeout> | undefined
+  /** 最近一次高频变化的时间；检查触发时据此判断是否已静止。 */
+  private coalescedAt = 0
   private applying = false
   private disposed = false
   private lastConfiguration = ''
@@ -282,16 +284,29 @@ export class LayoutManager implements LayoutApi {
   }
 
   /**
-   * 高频来源（视口逐帧滚动、缩放）只登记待检查，静止后比较一次配置；
-   * 否则每帧都要导出并序列化整份布局。离开页面、销毁与补写前会先完成待检查。
+   * 高频来源（视口逐帧滚动、缩放）只登记待检查，静止后比较一次配置。
+   *
+   * 每帧都 clear + set 定时器纯属浪费：这里记下最近一次变化时间，已经排定的检查
+   * 按剩余时间自行续排。滚动期间定时器操作从每帧一次降到每个静止窗口一次。
    */
   scheduleCoalescedAutoSave(): void {
     if (this.applying || this.disposed) return
-    clearTimeout(this.coalescedTimer)
+    this.coalescedAt = Date.now()
+    if (this.coalescedTimer !== undefined) return
+    this.armCoalescedCheck(COALESCED_CHECK_IDLE_MS)
+  }
+
+  /** 排定一次静止检查；触发时若期间仍有变化，只续排剩余时间，不重新计满窗口。 */
+  private armCoalescedCheck(delay: number): void {
     this.coalescedTimer = setTimeout(() => {
+      const remaining = COALESCED_CHECK_IDLE_MS - (Date.now() - this.coalescedAt)
+      if (remaining > 0) {
+        this.armCoalescedCheck(remaining)
+        return
+      }
       this.coalescedTimer = undefined
       this.scheduleAutoSave()
-    }, COALESCED_CHECK_IDLE_MS)
+    }, delay)
   }
 
   /** 立即执行尚未到期的合并检查。 */
