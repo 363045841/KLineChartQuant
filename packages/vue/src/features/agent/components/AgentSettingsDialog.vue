@@ -790,7 +790,14 @@
     border-bottom: 1px solid var(--klc-color-ui-border);
     border-radius: 0;
     background: transparent;
-    box-shadow: none;
+    transition: border-color var(--klc-motion-dur-fast, 160ms)
+      var(--klc-motion-ease-out, ease-out);
+  }
+
+  /* 聚焦只提亮底线，不画四周框、不加外发光。 */
+  .connection .form-control:focus,
+  .connection :deep(.base-textarea:focus) {
+    border-bottom-color: var(--klc-color-ui-border-strong);
   }
 
   .connection .form-control {
@@ -803,14 +810,6 @@
     --base-textarea-border: 0;
 
     padding: var(--klc-space-4, 4px) 2px;
-  }
-
-  /* 聚焦只点亮底线，不出现外发光或边框变色。 */
-  .connection .form-control:focus,
-  .connection :deep(.base-textarea:focus-visible) {
-    border-bottom-color: var(--klc-color-ui-accent);
-    outline: 0;
-    box-shadow: none;
   }
 
   .field input::placeholder {
@@ -1189,14 +1188,13 @@
     background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 11px;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+    transition: border-color var(--klc-motion-dur-fast, 160ms)
+      var(--klc-motion-ease-out, ease-out);
   }
 
+  /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
   .models__search:focus {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent);
+    border-color: var(--klc-color-ui-border-strong);
   }
 
   .models__search:disabled {

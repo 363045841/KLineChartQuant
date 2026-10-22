@@ -130,12 +130,6 @@
     background: transparent;
   }
 
-  /* 输入本身无边框，焦点由整组搜索控件负责，内嵌样式也不会被弹窗裁剪。 */
-  .search-field:focus-within {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: -2px;
-  }
-
   .search-field__icon {
     flex: 0 0 auto;
     display: flex;

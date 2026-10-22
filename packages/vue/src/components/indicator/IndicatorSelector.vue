@@ -12,20 +12,17 @@
       @update:open="!$event && closeMenu()"
     >
       <template #tabs>
-        <div class="selector-toolbar">
-          <SearchField
-            class="selector-search"
-            :model-value="searchQuery"
-            placeholder="搜索指标名称..."
-            aria-label="搜索指标"
-            autofocus
-            variant="flush"
-            @update:model-value="controller.setSearchQuery"
-          />
+        <ModalSearchBar
+          :model-value="searchQuery"
+          placeholder="搜索指标名称..."
+          aria-label="搜索指标"
+          autofocus
+          @update:model-value="controller.setSearchQuery"
+        >
           <BaseButton v-if="section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
             新建脚本
           </BaseButton>
-        </div>
+        </ModalSearchBar>
       </template>
 
       <div class="selector-content">
@@ -197,8 +194,8 @@
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BasePopover from '@vue-src/components/common/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useIndicatorCatalog } from '@vue-src/composables/indicator/useIndicatorCatalog.js'
@@ -371,18 +368,6 @@
 </script>
 
 <style scoped>
-  .selector-toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-    padding-inline-end: var(--klc-space-16, 16px);
-  }
-
-  .selector-search {
-    flex: 1;
-    min-width: 0;
-  }
-
   .indicator-selector {
     display: none;
   }
@@ -652,5 +637,4 @@
 
 </style>
 
-<style scoped src="../common/search-toolbar.css"></style>
 <style scoped src="../common/header-row.css"></style>

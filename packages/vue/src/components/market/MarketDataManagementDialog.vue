@@ -13,14 +13,12 @@
     @update:open="!$event && emit('close')"
   >
     <template #tabs>
-      <div class="source-toolbar">
-        <SearchField
-          v-model="searchQuery"
-          placeholder="搜索数据源..."
-          aria-label="搜索数据源"
-          variant="flush"
-          autofocus
-        />
+      <ModalSearchBar
+        v-model="searchQuery"
+        placeholder="搜索数据源..."
+        aria-label="搜索数据源"
+        autofocus
+      >
         <BaseTooltip content="重新检测" placement="bottom" trigger-display="contents">
           <button
             type="button"
@@ -33,7 +31,7 @@
             <IconTablerRefresh aria-hidden="true" />
           </button>
         </BaseTooltip>
-      </div>
+      </ModalSearchBar>
     </template>
 
     <div class="source-body">
@@ -135,7 +133,7 @@
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
   import { useMarketDataManagement } from '@vue-src/composables/market/useMarketDataManagement.js'
   import { ref, useSlots, watch } from 'vue'
@@ -202,7 +200,6 @@
     justify-content: center;
     width: 26px;
     height: 26px;
-    margin-right: var(--klc-space-12, 12px);
     padding: 0;
     border: 0;
     border-radius: var(--klc-radius-xs, 4px);
@@ -319,11 +316,13 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     background: var(--klc-color-ui-surface);
-    transition: border-color var(--klc-motion-dur-fast, 160ms) ease;
+    transition: border-color var(--klc-motion-dur-fast, 160ms)
+      var(--klc-motion-ease-out, ease-out);
   }
 
+  /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
   .source-endpoint:focus-within {
-    border-color: var(--klc-color-ui-accent);
+    border-color: var(--klc-color-ui-border-strong);
   }
 
   .source-endpoint--readonly {
@@ -495,5 +494,4 @@
   }
 </style>
 
-<style scoped src="../common/search-toolbar.css"></style>
 <style scoped src="../common/control-cluster.css"></style>

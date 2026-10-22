@@ -585,20 +585,12 @@
     font-size: 13px;
     outline: none;
     box-sizing: border-box;
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
     font-variant-numeric: tabular-nums;
   }
 
   .rule-form-input::placeholder {
     color: var(--klc-color-ui-muted);
     opacity: 0.7;
-  }
-
-  .rule-form-input:focus {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
   /* 隐藏原生 number 步进器，改由自定义 stepper 提供加减 */
@@ -624,14 +616,6 @@
     background: var(--klc-color-ui-input);
     overflow: hidden;
     box-sizing: border-box;
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
-  }
-
-  .rule-form-stepper:focus-within {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
   .rule-form-stepper-field {
@@ -652,11 +636,6 @@
     border-radius: 0;
     background: transparent;
     text-align: center;
-  }
-
-  .rule-form-stepper .rule-form-input:focus {
-    border-color: var(--klc-color-ui-border);
-    box-shadow: none;
   }
 
   .rule-form-stepper-field .rule-form-input {

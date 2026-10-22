@@ -86,6 +86,7 @@
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
+          @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
           <a

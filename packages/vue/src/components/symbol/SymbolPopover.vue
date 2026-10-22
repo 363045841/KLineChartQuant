@@ -16,17 +16,15 @@
       <div class="symbol-popover__filters">
         <slot name="tabs" />
       </div>
-      <div class="symbol-popover__search">
-        <SearchField
-          ref="searchField"
-          v-model="search"
-          :placeholder="searchPlaceholder"
-          :aria-label="searchAriaLabel"
-          variant="flush"
-          autofocus
-        />
+      <ModalSearchBar
+        ref="searchBar"
+        v-model="search"
+        :placeholder="searchPlaceholder"
+        :aria-label="searchAriaLabel"
+        autofocus
+      >
         <AggregationSourceButton @click="emit('manageSources')" />
-      </div>
+      </ModalSearchBar>
     </template>
     <slot name="body" />
   </BaseModal>
@@ -34,7 +32,7 @@
 
 <script setup lang="ts">
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import { nextTick, useTemplateRef, watch } from 'vue'
   import AggregationSourceButton from './AggregationSourceButton.vue'
 
@@ -68,13 +66,13 @@
     (e: 'manageSources'): void
   }>()
 
-  const searchField = useTemplateRef<InstanceType<typeof SearchField>>('searchField')
+  const searchBar = useTemplateRef<InstanceType<typeof ModalSearchBar>>('searchBar')
 
   // showModal() 后把焦点放到搜索框（dialog 默认聚焦第一个可聚焦元素，即关闭按钮）。
   watch(
     () => props.show,
     (open) => {
-      if (open) void nextTick(() => requestAnimationFrame(() => searchField.value?.focus()))
+      if (open) void nextTick(() => requestAnimationFrame(() => searchBar.value?.focus()))
     },
     { immediate: true },
   )
@@ -103,10 +101,4 @@
   .symbol-popover__filters :deep(.base-tabs__indicator) {
     bottom: 6px;
   }
-
-  .symbol-popover__search :deep(.source-button) {
-    margin-right: var(--klc-space-12, 12px);
-  }
 </style>
-
-<style scoped src="../common/search-toolbar.css"></style>

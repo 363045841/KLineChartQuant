@@ -91,9 +91,8 @@
     font: inherit;
     font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: var(--klc-text-copy-13-line-height, 18px);
-    transition:
-      border-color var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
-      box-shadow var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out);
+    /* 聚焦不画边框或焦点环，光标即提示。 */
+    outline: none;
   }
 
   .base-textarea--sm {
@@ -108,20 +107,8 @@
     color: var(--klc-color-ui-muted);
   }
 
-  .base-textarea:focus {
-    border-color: var(--klc-color-ui-focus);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-focus) 24%, transparent);
-    outline: 0;
-  }
-
   .base-textarea:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .base-textarea {
-      transition: none;
-    }
   }
 </style>

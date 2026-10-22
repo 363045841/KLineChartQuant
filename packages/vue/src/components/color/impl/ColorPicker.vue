@@ -261,6 +261,8 @@
     background: var(--klc-color-ui-input);
     color: var(--klc-color-ui-text);
     font: inherit;
+    /* 聚焦不画边框或焦点环，光标即提示。 */
+    outline: none;
   }
   .color-picker__actions { margin-top: 10px; }
   .color-picker__action {
@@ -276,7 +278,9 @@
   .color-picker__trigger:hover, .color-picker__action:hover {
     background: var(--klc-color-ui-hover);
   }
-  button:focus-visible, input:focus-visible, .color-picker__plane:focus-visible {
+  button:focus-visible,
+  .color-picker__slider-row input:focus-visible,
+  .color-picker__plane:focus-visible {
     outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;
   }

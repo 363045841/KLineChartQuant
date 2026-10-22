@@ -245,6 +245,24 @@
       </BaseTooltip>
     </div>
 
+    <span class="left-toolbar__divider"></span>
+
+    <div class="left-toolbar__group left-toolbar__group--bottom">
+      <BaseTooltip content="命令面板" command="palette.open">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          aria-label="命令面板"
+          @click="emit('openCommandPalette')"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerCommand class="tool-icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
+    </div>
+
   </nav>
 
   <Teleport :to="teleportTarget">
@@ -309,6 +327,7 @@
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerCode from '~icons/tabler/code'
+  import IconTablerCommand from '~icons/tabler/command'
   import IconTablerEqual from '~icons/tabler/equal'
   import IconTablerEraser from '~icons/tabler/eraser'
   import IconTablerEye from '~icons/tabler/eye'
@@ -411,6 +430,7 @@
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
     (e: 'setAllDrawingsVisible', visible: boolean): void
+    (e: 'openCommandPalette'): void
   }>()
 
   const props = withDefaults(
@@ -650,6 +670,11 @@
     flex-direction: column;
     align-items: center;
     gap: 4px;
+  }
+
+  /* 命令面板固定在工具栏底部；内容溢出时 auto margin 归零，不挤占上方工具。 */
+  .left-toolbar__group--bottom {
+    margin-top: auto;
   }
 
   .left-toolbar__divider {

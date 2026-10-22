@@ -244,14 +244,6 @@
     border-radius: var(--param-control-radius);
     overflow: hidden;
     background: var(--klc-color-ui-control-background);
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .input-wrapper:focus-within {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent);
   }
 
   .input-wrapper .stepper-btn {
@@ -297,14 +289,8 @@
     text-align: left;
     font-weight: 500;
     background: var(--klc-color-ui-control-background);
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  input[type='text'].param-input:focus {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent);
+    /* 聚焦不画边框或焦点环，光标即提示。 */
+    outline: none;
   }
 
   /* 布尔参数 */

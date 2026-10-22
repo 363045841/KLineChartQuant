@@ -13,15 +13,14 @@
     :body-scrollable="false"
   >
     <div class="command-palette" @keydown="onKeydown">
-      <div class="command-palette__search">
-        <SearchField
-          ref="searchField"
-          v-model="query"
-          placeholder="搜索命令…"
-          aria-label="搜索命令"
-          variant="flush"
-          autofocus
-        />
+      <ModalSearchBar
+        ref="searchBar"
+        v-model="query"
+        placeholder="搜索命令…"
+        aria-label="搜索命令"
+        :top-border="false"
+        autofocus
+      >
         <slot name="search-actions">
           <BaseTooltip content="快捷键设置" placement="bottom">
             <button
@@ -34,7 +33,7 @@
             </button>
           </BaseTooltip>
         </slot>
-      </div>
+      </ModalSearchBar>
       <div
         class="command-palette__list"
         role="listbox"
@@ -77,7 +76,7 @@
   } from '@363045841yyt/klinechart-core'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
   import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
@@ -101,7 +100,7 @@
   const query = ref('')
   const activeIndex = ref(-1)
   const keyboardNavigation = ref(false)
-  const searchField = useTemplateRef<InstanceType<typeof SearchField>>('searchField')
+  const searchBar = useTemplateRef<InstanceType<typeof ModalSearchBar>>('searchBar')
 
   /** 当前查询下的命令结果（已按得分排序）。 */
   const results = computed<ReadonlyArray<CommandMatch>>(() => {
@@ -116,7 +115,7 @@
       query.value = ''
       activeIndex.value = -1
       keyboardNavigation.value = false
-      void nextTick(() => requestAnimationFrame(() => searchField.value?.focus()))
+      void nextTick(() => requestAnimationFrame(() => searchBar.value?.focus()))
     },
   )
 
@@ -199,14 +198,6 @@
     min-height: 0;
   }
 
-  .command-palette__search {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
-  }
-
   .command-palette__settings {
     display: inline-flex;
     align-items: center;
@@ -214,7 +205,6 @@
     flex: 0 0 auto;
     width: 28px;
     height: 28px;
-    margin-right: var(--klc-space-8, 8px);
     padding: 0;
     border: 0;
     border-radius: var(--klc-radius-sm, 6px);
