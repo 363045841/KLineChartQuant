@@ -20,6 +20,7 @@ import type {
   PlotRenderState,
   PlotSpec,
 } from '../types.js'
+import { queryPlotBounds } from './plotBoundsIndex.js'
 import { isPlotCollection } from './readPlotState.js'
 
 /** 读取计算结果的具名字段，不猜测或转换数值。 */
@@ -259,35 +260,19 @@ function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
 /**
  * 取一根 Plot 在可见范围内的价格上下界；范围内没有有效数值时返回 undefined。
  * histogram / columns 从 baseline 起算，基线一并计入边界。
+ *
+ * 区间极值走块索引（`queryPlotBounds`），滚动时不逐根扫描；offset 与 OHLC 的
+ * `showLast` 裁剪仍在这里换算成数据下标。
  */
 function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
   const start = Math.max(isOhlcPlot(plot) ? ohlcPlotStart(plot) : 0, range.start - plot.offset)
   const end = Math.min(plot.data.length, range.end - plot.offset)
-  let min = Infinity
-  let max = -Infinity
-  let hasValues = false
-  if (isOhlcPlot(plot)) {
-    for (let index = start; index < end; index++) {
-      const point = plot.data[index]
-      if (!point) continue
-      hasValues = true
-      min = Math.min(min, point.low)
-      max = Math.max(max, point.high)
-    }
-    return hasValues ? { min, max } : undefined
-  }
-  for (let index = start; index < end; index++) {
-    const value = plot.data[index]?.value
-    if (value === undefined || !Number.isFinite(value)) continue
-    hasValues = true
-    min = Math.min(min, value)
-    max = Math.max(max, value)
-  }
-  if (!hasValues) return undefined
+  const bounds = queryPlotBounds(plot, start, end)
+  if (!bounds) return undefined
   if (plot.kind === 'histogram' || plot.kind === 'columns') {
-    return { min: Math.min(min, plot.baseline), max: Math.max(max, plot.baseline) }
+    return { min: Math.min(bounds.min, plot.baseline), max: Math.max(bounds.max, plot.baseline) }
   }
-  return { min, max }
+  return bounds
 }
 
 /** 缺省边界直接采用值域，否则按声明模式应用边界。 */
