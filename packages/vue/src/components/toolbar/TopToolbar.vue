@@ -96,6 +96,7 @@
         <template #source-management><slot name="source-management" /></template>
       </MarketDataManagementDialog>
     </div>
+    <div class="top-toolbar__actions" role="group" aria-label="布局与图表操作">
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
     </div>
@@ -169,6 +170,7 @@
           <IconTablerSettings class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+    </div>
     </div>
     <div v-if="$slots.end" class="top-toolbar__host"><slot name="end" /></div>
   </div>
@@ -411,6 +413,22 @@
     display: none;
   }
 
+  /* 固定操作不能把行情控件挤到零宽；两组都保留独立可滚动区域，键盘聚焦自动显露控件。 */
+  .top-toolbar__actions {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 50%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .top-toolbar__actions::-webkit-scrollbar {
+    display: none;
+  }
+
   .top-toolbar__item {
     position: relative;
     flex: 0 0 auto;
@@ -495,7 +513,6 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    margin-left: auto;
     border-left: 1px solid var(--klc-color-ui-border);
     padding-left: 4px;
   }

@@ -134,7 +134,7 @@
   /* 手柄覆盖面板顶边，不参与高度分配。 */
   .script-output__resize-handle { position: absolute; inset: -1px 0 auto; z-index: 1; height: 2px; cursor: ns-resize; touch-action: none; user-select: none; background: transparent; }
   .script-output__resize-handle:hover { background: var(--klc-brand-accent-text); }
-  .script-output__resize-handle:focus-visible { outline: none; }
+  .script-output__resize-handle:focus-visible { outline: 2px solid var(--klc-color-ui-focus); outline-offset: 0; background: var(--klc-color-ui-focus); }
   .script-output__toolbar, .script-output__actions { display: flex; align-items: center; }
   .script-output__toolbar { justify-content: space-between; min-height: 32px; padding: 0 var(--klc-space-16, 16px); background: var(--klc-color-ui-control-background); }
   .script-output__actions { gap: var(--klc-space-4, 4px); }

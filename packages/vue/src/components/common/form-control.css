@@ -1,20 +1,37 @@
 /* 弹窗表单控件的共享外观：输入框、文本域与下拉的统一尺寸、边框、文字与交互底色。 */
 .form-control {
   width: 100%;
-  height: 34px;
+  height: var(--klc-density-default, 32px);
   box-sizing: border-box;
-  padding: 0 10px;
+  padding: 0 var(--klc-space-12, 12px);
   border: 1px solid var(--klc-color-ui-border);
-  border-radius: 8px;
+  border-radius: var(--klc-radius-sm, 6px);
   outline: none;
   color: var(--klc-color-ui-text);
   background: var(--klc-color-ui-input);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--klc-text-13-font-size, 13px);
   transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    background-color var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
+    border-color var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
+    box-shadow var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out);
+}
+
+.form-control::placeholder,
+.form-control-inline-name::placeholder {
+  color: var(--klc-color-ui-muted);
+}
+
+/* 清除原生 outline 后由共享控件提供焦点环；布局命名、绘图模板和 Agent 共用。 */
+.form-control:focus,
+.form-control-inline-name:focus {
+  border-color: var(--klc-color-ui-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-focus) 24%, transparent);
+}
+
+.form-control[aria-invalid="true"],
+.form-control-inline-name[aria-invalid="true"] {
+  border-color: var(--klc-color-ui-danger);
 }
 
 .form-control:disabled {
@@ -36,4 +53,10 @@
   background: var(--klc-color-ui-input);
   font: inherit;
   font-size: var(--klc-text-12-font-size, 12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-control {
+    transition: none;
+  }
 }

@@ -113,11 +113,11 @@
     min-width: 0;
     align-items: center;
     gap: 6px;
-    height: 34px;
-    padding: 0 10px;
+    height: var(--klc-density-default, 32px);
+    padding: 0 var(--klc-space-12, 12px);
     box-sizing: border-box;
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
+    border-radius: var(--klc-radius-sm, 6px);
     background: var(--klc-color-ui-control-background);
   }
 
@@ -128,6 +128,12 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  /* 输入本身无边框，焦点由整组搜索控件负责，内嵌样式也不会被弹窗裁剪。 */
+  .search-field:focus-within {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: -2px;
   }
 
   .search-field__icon {
@@ -174,9 +180,16 @@
     cursor: pointer;
   }
 
-  .search-field__clear:hover {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
+  @media (hover: hover) and (pointer: fine) {
+    .search-field__clear:hover {
+      background: var(--klc-color-ui-hover);
+      color: var(--klc-color-ui-text);
+    }
+  }
+
+  .search-field__clear:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 1px;
   }
 
   .search-field__clear svg {

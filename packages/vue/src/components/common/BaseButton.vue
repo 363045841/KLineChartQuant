@@ -68,18 +68,26 @@
     font-weight: 500;
   }
 
-  .base-button:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
+  @media (hover: hover) and (pointer: fine) {
+    .base-button:hover:not(:disabled) {
+      background: var(--klc-color-ui-hover);
+      color: var(--klc-color-ui-text);
+    }
   }
 
   .base-button:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;
   }
 
   .base-button:disabled {
     opacity: 0.45;
     cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-button {
+      transition: none;
+    }
   }
 </style>

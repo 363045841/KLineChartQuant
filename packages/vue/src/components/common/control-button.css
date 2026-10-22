@@ -9,7 +9,7 @@
   height: calc(12px + 2 * var(--klc-spacing-sm));
   padding: 0 var(--klc-spacing-sm);
   border: 1px solid var(--control-button-border, var(--klc-color-ui-border));
-  border-radius: 8px;
+  border-radius: var(--klc-radius-md, 8px);
   background: var(--control-button-background, var(--klc-color-ui-control-background));
   color: var(--control-button-color, var(--klc-color-ui-text));
   font-family: var(--klc-typography-font-family);
@@ -24,10 +24,16 @@
     box-shadow var(--klc-motion-duration-moderate) ease;
 }
 
-.control-button:hover:not(:disabled),
 .control-button[aria-expanded="true"]:not(:disabled) {
   border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
   background: var(--control-button-active-background, var(--klc-color-ui-hover));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .control-button:hover:not(:disabled) {
+    border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
+    background: var(--control-button-active-background, var(--klc-color-ui-hover));
+  }
 }
 
 .control-button:focus-visible {

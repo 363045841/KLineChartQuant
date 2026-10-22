@@ -132,7 +132,7 @@
       draggable: true,
       width: 'min(92vw, 400px)',
       maxWidth: '',
-      maxHeight: 'min(600px, calc(100vh - 48px))',
+      maxHeight: 'min(600px, calc(100dvh - 48px))',
       overlayPadding: 'var(--klc-space-24, 24px)',
       bodyPadding: 'var(--klc-space-16, 16px)',
       bodyScrollable: true,
@@ -176,7 +176,7 @@
     maxWidth: props.maxWidth
       ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
       : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,
-    maxHeight: `min(${props.maxHeight}, calc(100vh - ${props.overlayPadding} - ${props.overlayPadding}))`,
+    maxHeight: `min(${props.maxHeight}, calc(100dvh - ${props.overlayPadding} - ${props.overlayPadding}))`,
   }))
 
   async function openDialog(): Promise<void> {
@@ -414,6 +414,8 @@
     letter-spacing: var(--klc-text-label-16-letter-spacing, normal);
     white-space: nowrap;
     text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .base-header-right {
@@ -530,7 +532,7 @@
     .base-modal {
       min-width: 0;
       width: 100%;
-      max-height: calc(100vh - var(--klc-space-24, 24px));
+      max-height: calc(100dvh - var(--klc-space-24, 24px));
     }
   }
 </style>
