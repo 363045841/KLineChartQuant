@@ -7,7 +7,10 @@
  * 页面只暴露确定性的测试 API，编排、硬件采样与落盘由 run.mjs 完成。
  */
 
-import type { PrimitiveBackend, PaintPrimitive } from '../../packages/core/src/rendering/primitives/types'
+import type {
+  PaintPrimitive,
+  PrimitiveBackend,
+} from '../../packages/core/src/rendering/primitives/types'
 import { createCanvas2DRenderer } from '../../packages/core/src/rendering/render/backend/createCanvas2DRenderer'
 import { createWebGLRenderer } from '../../packages/core/src/rendering/render/backend/createWebGLRenderer'
 import { createWebGPURenderer } from '../../packages/core/src/rendering/render/backend/createWebGPURenderer'
@@ -20,6 +23,8 @@ type ScenarioOptions = {
   backend: BackendName
   lineProfile: LineProfile
   visibleBars: number
+  /** 分辨率预设名，原样回写到结果行，便于按档位分组。 */
+  resolution: string
   width: number
   height: number
   dpr: number
@@ -32,6 +37,7 @@ type ScenarioResult = {
   effectiveBackend: string
   lineProfile: LineProfile
   visibleBars: number
+  resolution: string
   width: number
   height: number
   dpr: number
@@ -123,7 +129,10 @@ const ICHIMOKU_SHIFT = 26
 function seriesFor(
   profile: LineProfile,
   colors: readonly string[],
-): { series: Series[]; cloud?: { spanA: Array<number | undefined>; spanB: Array<number | undefined> } } {
+): {
+  series: Series[]
+  cloud?: { spanA: Array<number | undefined>; spanB: Array<number | undefined> }
+} {
   if (profile !== 'ichimoku') {
     const count = profile === 'lines3' ? 3 : 12
     return {
@@ -175,11 +184,7 @@ function cachedSeries(
 }
 
 /** 只投影可见窗口 + 半屏余量，和应用的分桶投影一致。 */
-function buildStrokes(
-  series: readonly Series[],
-  start: number,
-  end: number,
-): PaintPrimitive[] {
+function buildStrokes(series: readonly Series[], start: number, end: number): PaintPrimitive[] {
   return series.map(({ value, color }) => {
     const points: Array<{ x: number; y: number }> = []
     for (let index = Math.max(0, start); index < Math.min(TOTAL_BARS, end); index += 1) {
@@ -348,7 +353,6 @@ async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
   const margin = Math.max(1, Math.floor(visibleBars / 2))
   const windowBars = visibleBars + margin * 2
   let windowStart = -1
-  let cloudPoints: Array<{ x: number; y: number }> = []
   const initializationMs = performance.now() - started
   const cpuFramePreparationMs: number[] = []
   const cpuFrameMs: number[] = []
@@ -372,18 +376,16 @@ async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
         windowStart = startBar
         const strokes = buildStrokes(series, startBar, startBar + windowBars)
         for (let line = 0; line < strokes.length; line += 1) primitives[2 + line] = strokes[line]!
-        if (cloud) {
-          cloudPoints = cloudPath(cloud.spanA, cloud.spanB, startBar, windowBars)
-        }
-      }
-      if (cloud && cloudIndex >= 0) {
-        primitives[cloudIndex] = {
-          kind: 'fill',
-          paths: [cloudPoints],
-          color: '#818cf8',
-          opacity: 0.18,
-          band: true,
-          dataSpace: true,
+        // 云带只在窗口分桶变化时重建：路径数组引用不变，后端才能复用几何与 Path2D 缓存。
+        if (cloud && cloudIndex >= 0) {
+          primitives[cloudIndex] = {
+            kind: 'fill',
+            paths: [cloudPath(cloud.spanA, cloud.spanB, startBar, windowBars)],
+            color: '#818cf8',
+            opacity: 0.18,
+            band: true,
+            dataSpace: true,
+          }
         }
       }
       const transform = {
@@ -421,6 +423,7 @@ async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
       effectiveBackend: renderer.caps.name,
       lineProfile: options.lineProfile,
       visibleBars,
+      resolution: options.resolution,
       width,
       height,
       dpr,

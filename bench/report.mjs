@@ -2,9 +2,10 @@
  * 基准数据流水线：跑完整矩阵后生成全部图表。
  *
  * 用法：
- *   pnpm bench:report                 # 单轮全矩阵 + 异常点自动补测 + 全部图
- *   pnpm bench:report --charts-only   # 只重画已有 CSV
- *   pnpm bench:report --bars=1200     # 额外参数原样转给 run.mjs
+ *   pnpm bench:report                          # 单轮全矩阵 + 异常点自动补测 + 全部图
+ *   pnpm bench:report --charts-only            # 只重画已有 CSV
+ *   pnpm bench:report --bars=1200              # 额外参数原样转给 run.mjs
+ *   pnpm bench:report --resolutions=1080p,2k   # 同时测多个分辨率
  *
  * 单点重跑仍直接用 `node bench/run.mjs --bars=...`；结果按场景合并，不会清空其他点。
  */
@@ -43,7 +44,7 @@ if (!chartsOnly) {
 
 stage('diagnostic charts')
 run('uv', ['run', join('bench', 'plot.py')])
-stage('promo chart')
+stage('promo charts')
 run('uv', ['run', join('bench', 'promo.py')])
-stage('promo chart (ichimoku)')
+stage('promo charts (ichimoku)')
 run('uv', ['run', join('bench', 'promo.py'), '--profile=ichimoku'])

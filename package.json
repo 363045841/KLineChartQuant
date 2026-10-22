@@ -71,6 +71,8 @@
     "test:packages": "pnpm -r test",
     "test:scripts": "node --test scripts/__tests__/rolldown-thread-env.test.mjs scripts/__tests__/vite-dev.test.mjs",
     "bench": "node bench/run.mjs",
+    "bench:1080p": "node bench/run.mjs --resolutions=1080p",
+    "bench:2k": "node bench/run.mjs --resolutions=2k",
     "bench:report": "node bench/report.mjs",
     "docs:generate": "node scripts/generate-readmes.mjs && pnpm docs:script:generate",
     "docs:check": "node scripts/generate-readmes.mjs --check && pnpm docs:script:check",

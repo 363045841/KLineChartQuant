@@ -5,10 +5,11 @@
 """渲染基准的宣传图：突出帧率与帧生成时间。
 
 用法：
-    uv run bench/promo.py [csv 路径] [--profile ichimoku]
+    uv run bench/promo.py [csv 路径] [--profile ichimoku] [--resolution 1080p]
 
-默认读取 bench/results/render-bench-local.csv，输出同名 -promo.png；
-指定 --profile 时只画该场景，输出同名 -promo-<profile>.png。
+默认读取 bench/results/render-bench-local.csv，为每个分辨率档位各出一张：
+default 档沿用 -promo.png，其他档位为 -promo-<resolution>.png；
+--resolution 只画指定档位，--profile 只画指定场景并追加 -<profile>。
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ PANEL = "#111a2e"
 TEXT = "#e2e8f0"
 MUTED = "#94a3b8"
 GRID = "#1e293b"
+DEFAULT_RESOLUTION = "default"
 SERIES = {
     "canvas2d": {"color": "#64748b", "label": "Canvas2D", "marker": "o"},
     "webgl2": {"color": "#22d3ee", "label": "WebGL2", "marker": "s"},
@@ -50,23 +52,45 @@ def value(row: dict[str, str] | None, key: str) -> float | None:
         return None
 
 
-def main() -> None:
-    root = Path(__file__).resolve().parent
-    parser = argparse.ArgumentParser(description="渲染基准宣传图")
-    parser.add_argument(
-        "source",
-        nargs="?",
-        type=Path,
-        default=root / "results" / "render-bench-local.csv",
-    )
-    parser.add_argument("--profile", choices=PROFILES, default=None)
-    args = parser.parse_args()
-    source = args.source
-    profiles = (args.profile,) if args.profile else PROFILES
-    rows = read_rows(source)
-    if not rows:
-        raise SystemExit(f"no benchmark rows in {source}")
+def resolution_of(row: dict[str, str]) -> str:
+    """结果行所属的分辨率；旧 CSV 没有该列，统一按 default 处理。"""
+    return row.get("resolution") or DEFAULT_RESOLUTION
 
+
+def geometry_of(row: dict[str, str]) -> tuple[int, int] | None:
+    """画布 CSS 尺寸，用于图注；旧 CSV 缺少该列时返回 None。"""
+    try:
+        return int(float(row["width"])), int(float(row["height"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def area_of(size: tuple[int, int] | None) -> int:
+    return 0 if size is None else size[0] * size[1]
+
+
+def resolution_label(name: str, size: tuple[int, int] | None) -> str:
+    """分辨率标注：预设名 + CSS 尺寸，让 2k 这类简称不至于含糊。"""
+    return name if size is None else f"{name} · {size[0]}×{size[1]}"
+
+
+def render(
+    source: Path,
+    rows: list[dict[str, str]],
+    profiles: tuple[str, ...],
+    resolution: str,
+    size: tuple[int, int] | None,
+) -> Path:
+    """画一个分辨率档位的宣传图并落盘。
+
+    @param source     读取的 CSV，输出写在其同目录
+    @param rows       该档位的行
+    @param profiles   要绘制的指标线场景
+    @param resolution 分辨率预设名
+    @param size       画布 CSS 尺寸，仅用于图注
+
+    @returns 生成的 PNG 路径
+    """
     # (backend, profile) -> bars -> row
     data: dict[tuple[str, str], dict[int, dict[str, str]]] = {}
     for row in rows:
@@ -105,16 +129,6 @@ def main() -> None:
             f"{min(gpu_paints):.2f}–{max(gpu_paints):.2f} ms" if gpu_paints else "n/a"
         )
 
-    plt.rcParams.update(
-        {
-            "font.family": "DejaVu Sans",
-            "text.color": TEXT,
-            "axes.labelcolor": MUTED,
-            "xtick.color": MUTED,
-            "ytick.color": MUTED,
-        }
-    )
-
     fig = plt.figure(figsize=(12.5, 7.2), facecolor=BG)
     fig.text(
         0.055,
@@ -128,7 +142,8 @@ def main() -> None:
     fig.text(
         0.055,
         0.895,
-        f"Up to {headline_bars:,} visible bars · {hero_label} · one scroll frame per sample · 4× MSAA",
+        f"Up to {headline_bars:,} visible bars · {hero_label} · "
+        f"{resolution_label(resolution, size)} · one scroll frame per sample · no MSAA · analytic AA",
         fontsize=10.5,
         color=MUTED,
         ha="left",
@@ -170,9 +185,7 @@ def main() -> None:
     time_axis.set_xlabel(f"{budget:.1f} ms budget · lower is better", fontsize=9)
     time_axis.set_xscale("log")
     time_axis.set_xticks(bars_all)
-    time_axis.set_xticklabels(
-        [f"{bars:,}" for bars in bars_all], rotation=0, fontsize=8
-    )
+    time_axis.set_xticklabels([f"{bars:,}" for bars in bars_all], rotation=0, fontsize=8)
     time_axis.minorticks_off()
     time_axis.set_xlim(bars_all[0] * 0.72, bars_all[-1] * 1.55)
     max_paint = max(
@@ -322,10 +335,66 @@ def main() -> None:
         ha="left",
     )
 
-    suffix = f"-promo-{profiles[0]}" if len(profiles) == 1 else "-promo"
-    target = source.with_name(f"{source.stem}{suffix}.png")
+    # default 沿用历史文件名；其他档位在 -promo 后带上分辨率，避免互相覆盖。
+    resolution_suffix = "" if resolution == DEFAULT_RESOLUTION else f"-{resolution}"
+    profile_suffix = f"-{profiles[0]}" if len(profiles) == 1 else ""
+    target = source.with_name(f"{source.stem}-promo{resolution_suffix}{profile_suffix}.png")
     fig.savefig(target, dpi=200, facecolor=BG)
-    print(f"wrote {target}")
+    plt.close(fig)
+    return target
+
+
+def main() -> None:
+    root = Path(__file__).resolve().parent
+    parser = argparse.ArgumentParser(description="渲染基准宣传图")
+    parser.add_argument(
+        "source",
+        nargs="?",
+        type=Path,
+        default=root / "results" / "render-bench-local.csv",
+    )
+    parser.add_argument("--profile", choices=PROFILES, default=None)
+    parser.add_argument(
+        "--resolution",
+        default=None,
+        help="只画指定分辨率档位；默认 CSV 中每个档位各出一张",
+    )
+    args = parser.parse_args()
+    source = args.source
+    profiles = (args.profile,) if args.profile else PROFILES
+    rows = read_rows(source)
+    if not rows:
+        raise SystemExit(f"no benchmark rows in {source}")
+
+    geometry = {resolution_of(row): geometry_of(row) for row in rows}
+    available = sorted(geometry, key=lambda name: (area_of(geometry[name]), name))
+    if args.resolution:
+        if args.resolution not in available:
+            raise SystemExit(
+                f"resolution {args.resolution} not in {source}; available: {', '.join(available)}"
+            )
+        targets = [args.resolution]
+    else:
+        targets = available
+
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "text.color": TEXT,
+            "axes.labelcolor": MUTED,
+            "xtick.color": MUTED,
+            "ytick.color": MUTED,
+        }
+    )
+    for resolution in targets:
+        target = render(
+            source,
+            [row for row in rows if resolution_of(row) == resolution],
+            profiles,
+            resolution,
+            geometry[resolution],
+        )
+        print(f"wrote {target}")
 
 
 if __name__ == "__main__":
