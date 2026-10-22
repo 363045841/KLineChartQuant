@@ -223,6 +223,10 @@
     symbols: computed(() => props.symbols),
     search: computed(() => props.search),
     sourceFilter: activeSourceTab,
+    // 默认范围只含已启用、在线且可搜索的源；离线源不发必然失败的网络请求。
+    defaultSources: computed(() =>
+      sourceTabs.value.filter((tab) => tab.id !== 'all').map((tab) => tab.id),
+    ),
   })
 
   function togglePopup() {

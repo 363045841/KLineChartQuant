@@ -82,6 +82,30 @@ describe('useSymbolSearch', () => {
     expect(state.results.value.map((item) => item.symbol)).toEqual(['AAPL', 'AMZN'])
   })
 
+  // 验证未选择具体 Tab 时使用默认源范围，且范围变化会重新搜索。
+  it('forwards the default source scope when no tab is selected', async () => {
+    const query = ref('600')
+    const search = vi.fn<SymbolSearchFn<SearchableSymbol>>().mockResolvedValue([])
+    const defaultSources = ref<ReadonlyArray<string>>(['gotdx'])
+    useSymbolSearch({
+      query,
+      symbols: ref<ReadonlyArray<SearchableSymbol>>([]),
+      search: ref(search),
+      defaultSources,
+    })
+
+    await vi.advanceTimersByTimeAsync(250)
+    expect(search).toHaveBeenLastCalledWith('600', 20, expect.any(AbortSignal), ['gotdx'])
+
+    defaultSources.value = ['gotdx', 'binance']
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(search).toHaveBeenLastCalledWith('600', 20, expect.any(AbortSignal), [
+      'gotdx',
+      'binance',
+    ])
+  })
+
   // 验证旧搜索响应不会覆盖已经发出的新查询。
   it('ignores an older response that resolves after a newer query', async () => {
     const first = deferred<ReadonlyArray<SearchableSymbol>>()

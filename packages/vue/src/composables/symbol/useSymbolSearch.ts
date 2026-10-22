@@ -40,6 +40,8 @@ interface UseSymbolSearchOptions<T extends SearchableSymbol> {
   search: MaybeRefOrGetter<SymbolSearchFn<T> | undefined>
   /** 当前选中的聚合源；all 或未传表示不过滤 */
   sourceFilter?: MaybeRefOrGetter<string | 'all' | undefined>
+  /** 未选择具体源 Tab 时的默认搜索范围；省略表示由 search 实现决定。 */
+  defaultSources?: MaybeRefOrGetter<ReadonlyArray<string> | undefined>
   limit?: number
   debounceMs?: number
 }
@@ -124,8 +126,9 @@ export function useSymbolSearch<T extends SearchableSymbol>(options: UseSymbolSe
     const search = toValue(options.search)
     if (!query || !search) return
 
+    // 选中具体源时只查该源；否则使用调用方给定的默认范围，避免向离线源发请求。
     const source = activeSourceFilter()
-    const sources = source ? [source] : undefined
+    const sources = source ? [source] : toValue(options.defaultSources)
 
     timer = setTimeout(async () => {
       const controller = new AbortController()
@@ -149,7 +152,12 @@ export function useSymbolSearch<T extends SearchableSymbol>(options: UseSymbolSe
   }
 
   watch(
-    [options.query, () => toValue(options.search), () => toValue(options.sourceFilter)],
+    [
+      options.query,
+      () => toValue(options.search),
+      () => toValue(options.sourceFilter),
+      () => toValue(options.defaultSources),
+    ],
     scheduleSearch,
     { immediate: true },
   )

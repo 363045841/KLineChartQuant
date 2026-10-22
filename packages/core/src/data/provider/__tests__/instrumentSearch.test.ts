@@ -49,6 +49,17 @@ describe('searchInstruments', () => {
     expect(secondSearch).toHaveBeenCalledOnce()
   })
 
+  it('treats an explicit empty source list as no searchable source', async () => {
+    const registry = new MarketDataProviderRegistry()
+    const search = vi.fn()
+    registry.register(createMockMarketDataProvider({ sourceId: 'first', search }))
+
+    await expect(
+      searchInstruments(registry, { keyword: '600519', limit: 10, sourceIds: [] }),
+    ).resolves.toEqual([])
+    expect(search).not.toHaveBeenCalled()
+  })
+
   it('rejects unavailable source IDs with the enabled catalog source IDs needed to retry', async () => {
     const registry = new MarketDataProviderRegistry()
     registry.register(createMockMarketDataProvider({ sourceId: 'first', search: vi.fn() }))
