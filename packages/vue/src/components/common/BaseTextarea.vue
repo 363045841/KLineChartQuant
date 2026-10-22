@@ -108,9 +108,9 @@
     color: var(--klc-color-ui-muted);
   }
 
-  .base-textarea:focus-visible {
-    border-color: var(--klc-color-ui-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
+  .base-textarea:focus {
+    border-color: var(--klc-color-ui-focus);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-focus) 24%, transparent);
     outline: 0;
   }
 

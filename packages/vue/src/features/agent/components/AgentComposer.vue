@@ -182,6 +182,12 @@
     background: var(--klc-color-agent-composer-input-background);
   }
 
+  /* 文本框为 bare 样式，组合控件负责焦点，避免清除子元素 ring 后没有任何提示。 */
+  .composer__input:focus-within {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 2px;
+  }
+
   /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。 */
   .composer__textarea {
     --base-textarea-padding-block: var(--composer-inset);

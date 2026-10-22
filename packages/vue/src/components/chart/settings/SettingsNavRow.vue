@@ -3,7 +3,7 @@
   点击后由调用方打开对应的子面板。
 -->
 <template>
-  <div class="settings-item nav-item" @click="emit('select')">
+  <button type="button" class="settings-item nav-item" @click="emit('select')">
     <span><slot /></span>
     <svg
       viewBox="0 0 24 24"
@@ -13,10 +13,11 @@
       width="16"
       height="16"
       class="nav-arrow"
+      aria-hidden="true"
     >
       <path d="M9 18l6-6-6-6" />
     </svg>
-  </div>
+  </button>
 </template>
 
 <script setup lang="ts">
@@ -28,21 +29,31 @@
 <style scoped>
   /* 导航项交互优化 */
   .settings-item.nav-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: start;
     cursor: pointer;
   }
 
-  .settings-item.nav-item:hover {
-    background-color: var(--klc-color-ui-hover);
+  .settings-item.nav-item:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: -2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .settings-item.nav-item:hover {
+      background-color: var(--klc-color-ui-hover);
+    }
+    .nav-item:hover .nav-arrow {
+      transform: translateX(2px);
+    }
   }
 
   .nav-arrow {
     color: var(--klc-color-ui-muted);
     transition: transform var(--klc-motion-duration-fast) ease;
     flex-shrink: 0;
-  }
-
-  .nav-item:hover .nav-arrow {
-    transform: translateX(2px);
   }
 
   @media (prefers-reduced-motion: reduce) {

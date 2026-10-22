@@ -101,7 +101,14 @@
   }
 
   .toggle-switch input:focus-visible + .toggle-switch__track {
-      outline: 2px solid var(--toggle-switch-focus-color, var(--klc-color-axis-text));
+      outline: 2px solid var(--toggle-switch-focus-color, var(--klc-color-ui-focus));
     outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toggle-switch__track,
+    .toggle-switch__thumb {
+      transition: none;
+    }
   }
 </style>

@@ -197,6 +197,7 @@
 
 <style scoped>
   .message__editor { position: relative; padding-bottom: 32px; }
+  .message__editor:focus-within { outline: 2px solid var(--klc-color-ui-focus); outline-offset: 4px; border-radius: var(--klc-radius-sm, 6px); }
   /* BaseTextarea 负责自增高；编辑态贴合气泡，无内边距与边框。 */
   .message__edit-input {
     --base-textarea-padding-block: 0px;
@@ -211,7 +212,7 @@
     font-size: 13px;
     line-height: 1.52;
   }
-  .message__edit-input:focus-visible { box-shadow: none; outline: none; }
+  .message__edit-input:focus { box-shadow: none; outline: none; }
   .message__editor-actions {
     position: absolute;
     right: 0;
