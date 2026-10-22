@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { computed, createSignal, effect, selectSignal } from '../foundation/reactivity/signal'
+import {
+  batch,
+  computed,
+  createSignal,
+  effect,
+  selectSignal,
+} from '../foundation/reactivity/signal'
 
 describe('createSignal', () => {
   it('reads initial value', () => {
@@ -44,6 +50,44 @@ describe('createSignal', () => {
     ran.mockClear()
     a.set(2)
     expect(ran).not.toHaveBeenCalled()
+  })
+
+  it('isolates a throwing subscriber so the rest still receive the change', () => {
+    const s = createSignal(0)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      s.subscribe(() => {
+        throw new Error('subscriber failed')
+      })
+      const later = vi.fn()
+      s.subscribe(later)
+      expect(() => s.set(1)).not.toThrow()
+      expect(later).toHaveBeenCalledTimes(1)
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
+
+  it('isolates a throwing subscriber inside batch', () => {
+    const a = createSignal(0)
+    const b = createSignal(0)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      a.subscribe(() => {
+        throw new Error('batch subscriber failed')
+      })
+      const later = vi.fn()
+      b.subscribe(later)
+      expect(() =>
+        batch(() => {
+          a.set(1)
+          b.set(1)
+        }),
+      ).not.toThrow()
+      expect(later).toHaveBeenCalledTimes(1)
+    } finally {
+      errorLog.mockRestore()
+    }
   })
 
   it('safe under listener self-unsubscribe during notify', () => {

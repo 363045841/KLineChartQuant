@@ -96,6 +96,21 @@ let batchDepth = 0
 const pendingBatch = new Set<() => void>()
 
 /**
+ * 通知单个订阅者，并隔离它的异常。
+ *
+ * 状态通知是所有消费者的公共总线：一个订阅者失败不能让其余消费者
+ * 收不到已经提交的状态，否则界面会表现为"数据已到但整页停摆"。
+ * 异常集中上报而不向外穿透；订阅者自身的半成品状态由订阅者负责。
+ */
+function notify(listener: () => void): void {
+  try {
+    listener()
+  } catch (error) {
+    console.error('[reactivity] subscriber error:', error)
+  }
+}
+
+/**
  * 创建一个 writable signal（别名：writableRef）。
  *
  * @param initial - 初始值
@@ -122,7 +137,7 @@ export function createSignal<T>(initial: T): WritableSignal<T> {
       for (const listener of subscribers) pendingBatch.add(listener)
     } else {
       // copy to allow listener self-unsubscribe during notify
-      for (const listener of [...subscribers]) listener()
+      for (const listener of [...subscribers]) notify(listener)
     }
   }
 
@@ -229,7 +244,7 @@ export function batch<T>(fn: () => T): T {
       while (pendingBatch.size > 0) {
         const toNotify = [...pendingBatch]
         pendingBatch.clear()
-        for (const listener of toNotify) listener()
+        for (const listener of toNotify) notify(listener)
       }
     }
     batchDepth--
