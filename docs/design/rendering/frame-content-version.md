@@ -4,6 +4,6 @@ ChartRenderer 在帧事务 derive 阶段分别比较主层与交互层的上一�
 
 主层输入变化时绘制 All；仅交互层输入变化时复用缓存几何，绘制 Overlay 并保留主画布。显式 Overlay 请求始终绘制，覆盖临时预览等无法稳定编码的输入。resize 和视图切换清除几何及帧版本；无数据时清空画布。异步指标计算完成后以投影 Map 身份失效主层。
 
-WebGL 上下文启用 `preserveDrawingBuffer`，使 MSAA resolve 到可见画布后的内容在跳帧期间继续显示。WebGPU 在跳帧时不获取下一张 swapchain texture；仅 Overlay 绘制且无 GPU 图元时不提交新纹理。WebGPU 后端仍需在真实浏览器中检查设备丢失、页面遮挡恢复及仅 Overlay 帧的展示行为。
+WebGL 上下文启用 `preserveDrawingBuffer`，使写入可见画布的内容在跳帧期间继续显示。WebGPU 在跳帧时不获取下一张 swapchain texture；仅 Overlay 绘制且无 GPU 图元时不提交新纹理。WebGPU 后端仍需在真实浏览器中检查设备丢失、页面遮挡恢复及仅 Overlay 帧的展示行为。
 
 Scene 的 Layer 自有可变状态未提供统一 revision。外部 Layer 如果在版本输入不变时自行修改私有内容，当前主层判据无法识别；此类 Layer 应将内容变化纳入版本输入。后续若增加 Layer 内容版本，应统一纳入主层版本判据。

@@ -1,6 +1,7 @@
 /** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
-import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
+
 import type { DataTransform } from '@/foundation/plugin/types.js'
+import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
@@ -50,6 +51,9 @@ function program(gl: WebGL2RenderingContext, vertex: string, fragment: string): 
 /**
  * 绑定一个画布的设备。
  *
+ * 关闭 context 级 MSAA：描边与形状由片元着色器按距离算覆盖率，矩形批次已量化到
+ * 物理像素，多采样只会让全目标为少数三角化边缘付数倍采样成本。
+ *
  * @param canvas 离屏目标或可见表面
  * @param preserveDrawingBuffer 可见表面需要保留像素供截图读取，离屏目标不需要
  */
@@ -60,7 +64,7 @@ function createDevice(
 ): PrimitiveDevice {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
-    antialias: true,
+    antialias: false,
     stencil: true,
     premultipliedAlpha: true,
     preserveDrawingBuffer,
@@ -295,7 +299,13 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
           height = canvas.height
         if (width <= 0 || height <= 0) return false
         preparer ??= createPrimitivePreparer(createColorResolver(document), { segments: true })
-        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr, transform)
+        const batch = preparer.prepare(
+          primitives as GeometryPrimitive[],
+          width,
+          height,
+          dpr,
+          transform,
+        )
         device ??= createDevice(canvas, true, true)
         device.render(batch, width, height, dpr, clear, transform)
         return true

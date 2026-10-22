@@ -1,4 +1,6 @@
-/** WebGPU 有序合批设备：共享宿主 device、复用上传资源与 MSAA 目标，文字不进入 GPU。 */
+/** WebGPU 有序合批设备：共享宿主 device、复用上传资源与目标纹理，文字不进入 GPU。 */
+
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_UNIFORM,
@@ -6,7 +8,6 @@ import {
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
 import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
-import type { DataTransform } from '@/foundation/plugin/types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
@@ -24,7 +25,9 @@ import {
  * 绑定一个画布的设备。
  *
  * @param direct true 表示画布本身就是可见表面；false 表示离屏目标。
- *   两者都用 4x MSAA 颜色纹理渲染再 resolve 到画布的 current texture，
+ *   两者都直接渲染到画布的 current texture，不创建多采样目标、不做 resolve：
+ *   描边与形状由片元着色器按距离算覆盖率（解析 AA），矩形批次已量化到物理像素，
+ *   只有三角化路径的边缘依赖采样；再开 MSAA 等于让全目标为少数边缘付 4 倍采样。
  *   可见表面保留上一帧内容时用 loadOp=load。
  */
 function createDevice(
@@ -36,8 +39,6 @@ function createDevice(
   const context = canvas.getContext('webgpu')
   if (!context || !('configure' in context)) throw new Error('Primitive WebGPU unavailable')
   context.configure({ device, format, alphaMode: 'premultiplied' })
-  // 与 WebGL 的 context antialias 对齐：两种目标都走 4x MSAA，否则细斜线会明显锯齿。
-  const sampleCount = 4
   const meshModule = device.createShaderModule({ code: MESH_WGSL })
   const shapeModule = device.createShaderModule({ code: SHAPE_WGSL })
   const segmentModule = device.createShaderModule({ code: SEGMENT_WGSL })
@@ -88,7 +89,6 @@ function createDevice(
         targets: [{ format, blend, writeMask: mask ? 0 : 0xf }],
       },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
-      multisample: { count: sampleCount },
       depthStencil: {
         format: 'depth24plus-stencil8',
         depthWriteEnabled: false,
@@ -140,7 +140,6 @@ function createDevice(
       targets: [{ format, blend }],
     },
     primitive: { topology: 'triangle-list', cullMode: 'none' },
-    multisample: { count: sampleCount },
     depthStencil: {
       format: 'depth24plus-stencil8',
       depthWriteEnabled: false,
@@ -160,8 +159,7 @@ function createDevice(
   let viewportWidth = 0,
     viewportHeight = 0,
     viewportDpr = 0
-  /** 离屏目标的多采样颜色纹理；可见表面直接渲染到 current texture。 */
-  let color: GPUTexture | undefined
+  /** 离屏目标的深度/模板纹理；颜色直接写 current texture。 */
   let depth: GPUTexture | undefined
   let meshBuffer: GPUBuffer | undefined, instanceBuffer: GPUBuffer | undefined
   let segmentBuffer: GPUBuffer | undefined
@@ -179,8 +177,7 @@ function createDevice(
       const nextWidth = direct ? canvas.width : Math.max(width, targetWidth)
       const nextHeight = direct ? canvas.height : Math.max(height, targetHeight)
       if (nextWidth <= 0 || nextHeight <= 0) throw new Error('Primitive WebGPU target unavailable')
-      if (!color || targetWidth !== nextWidth || targetHeight !== nextHeight) {
-        color?.destroy()
+      if (!depth || targetWidth !== nextWidth || targetHeight !== nextHeight) {
         depth?.destroy()
         targetWidth = nextWidth
         targetHeight = nextHeight
@@ -188,16 +185,9 @@ function createDevice(
           canvas.width = targetWidth
           canvas.height = targetHeight
         }
-        color = device.createTexture({
-          size: [targetWidth, targetHeight],
-          format,
-          sampleCount,
-          usage: GPU_TEXTURE_RENDER_ATTACHMENT,
-        })
         depth = device.createTexture({
           size: [targetWidth, targetHeight],
           format: 'depth24plus-stencil8',
-          sampleCount,
           usage: GPU_TEXTURE_RENDER_ATTACHMENT,
         })
       }
@@ -276,12 +266,11 @@ function createDevice(
       const pass = encoder.beginRenderPass({
         colorAttachments: [
           {
-            view: color!.createView(),
-            resolveTarget: current,
+            // 颜色直接写画布纹理；没有多采样目标，也就不需要 resolve。
+            view: current,
             clearValue: { r: 0, g: 0, b: 0, a: 0 },
             loadOp: clear ? 'clear' : 'load',
-            // 可见表面在增量帧保留 MSAA 目标；解析始终把整张结果写回 canvas。
-            storeOp: direct ? 'store' : 'discard',
+            storeOp: 'store',
           },
         ],
         depthStencilAttachment: {
@@ -348,7 +337,6 @@ function createDevice(
       instanceBuffer?.destroy()
       segmentBuffer?.destroy()
       uniform.destroy()
-      color?.destroy()
       depth?.destroy()
       context.unconfigure()
       // 可见画布的尺寸归 Pane 所有；只有离屏目标在释放时归零后备存储。
@@ -357,7 +345,7 @@ function createDevice(
   }
 }
 
-/** 直接写入可见画布的 WebGPU 表面；仍走 4x MSAA 目标再 resolve 到画布，省掉的是 Canvas 侧的整张拷贝。 */
+/** 直接写入可见画布的 WebGPU 表面；几何直接写画布纹理，省掉 Canvas 侧的整张拷贝。 */
 function createSurface(
   device: GPUDevice,
   format: GPUTextureFormat,
@@ -376,7 +364,13 @@ function createSurface(
           height = canvas.height
         if (width <= 0 || height <= 0) return false
         preparer ??= createPrimitivePreparer(createColorResolver(document), { segments: true })
-        const batch = preparer.prepare(primitives as GeometryPrimitive[], width, height, dpr, transform)
+        const batch = preparer.prepare(
+          primitives as GeometryPrimitive[],
+          width,
+          height,
+          dpr,
+          transform,
+        )
         target ??= createDevice(device, format, canvas, true)
         target.render(batch, width, height, dpr, clear, transform)
         return true

@@ -16,7 +16,7 @@ Pane 持有原生 Canvas 目标。Scene 将 background/primary/indicator/compone
 
 Scene 为每个绘制目标建立一个合成器：连续图层累积成一批，帧末一次落盘。成本随目标数增长，与图层数量无关。
 
-`Renderer` 只提供 `caps.name`、必需的 `primitives` 和 `dispose()`，没有第二套 buffer/pipeline 或帧绘制 API。后端实现 `createSurface` 时为主图带提供可见 GPU 直出表面，画布由 Pane 拥有；否则 GPU Canvas 与 MSAA 纹理仅为后端私有离屏资源，按有序批次合成到指定目标。Canvas 文字保持原始绘制顺序，失败由公共提交入口完整回退到同一目标。
+`Renderer` 只提供 `caps.name`、必需的 `primitives` 和 `dispose()`，没有第二套 buffer/pipeline 或帧绘制 API。后端实现 `createSurface` 时为主图带提供可见 GPU 直出表面，画布由 Pane 拥有；否则 GPU Canvas 与深度/模板纹理仅为后端私有离屏资源，按有序批次合成到指定目标。目标级 MSAA 关闭，描边与形状的 AA 由解析覆盖率承担。Canvas 文字保持原始绘制顺序，失败由公共提交入口完整回退到同一目标。
 
 ## 后端与像素
 
