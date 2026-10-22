@@ -1,5 +1,5 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { InstrumentDescriptor } from '../../types'
 import { createMarketDataProvider } from '../impl/provider'
 import type {
@@ -58,6 +58,85 @@ function createProvider(transport: MarketDataTransport) {
 }
 
 describe('createMarketDataProvider', () => {
+  // 探测更新后直接消费当前能力，不把首个响应的数字冻结为前端常量。
+  it('uses a changed runtime source limit on the next request', async () => {
+    let maxBarsPerRequest = 798
+    const transport = fakeTransport({
+      probe: async () => ({
+        status: 'online',
+        checkedAt: 1,
+        capabilities: {
+          assetClasses: ['stock'],
+          bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
+        },
+      }),
+    })
+    const fetchBars = vi.spyOn(transport, 'fetchBars')
+    const provider = createProvider(transport)
+    for (const limit of [798, 100, 1500]) {
+      maxBarsPerRequest = limit
+      await provider.probe()
+      await provider.bars!.fetch({
+        instrument,
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 3099,
+      })
+      expect(fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ limit }), undefined)
+    }
+  })
+
+  // 大视口、缩放与旧布局均须遵守当前源声明的单页上限，不限制整批历史目标。
+  it.each([
+    { requested: 1, sourceLimit: 798, instrumentLimit: undefined, expected: 1 },
+    { requested: 798, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
+    { requested: 799, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
+    { requested: 3099, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
+    { requested: 5000, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
+    { requested: 3099, sourceLimit: undefined, instrumentLimit: 500, expected: 500 },
+    { requested: 3099, sourceLimit: 798, instrumentLimit: 200, expected: 200 },
+    { requested: 3099, sourceLimit: undefined, instrumentLimit: undefined, expected: 3099 },
+  ])(
+    'requests $expected bars for $requested with source $sourceLimit / instrument $instrumentLimit',
+    async ({ requested, sourceLimit, instrumentLimit, expected }) => {
+      const transport = fakeTransport({
+        probe: async () => ({
+          status: 'online',
+          checkedAt: 1,
+          capabilities: {
+            assetClasses: ['stock'],
+            bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest: sourceLimit },
+          },
+        }),
+      })
+      const fetchBars = vi.spyOn(transport, 'fetchBars')
+      const provider = createProvider(transport)
+      await provider.probe()
+      const signal = new AbortController().signal
+      const beforeTimestamp = 1709794800000
+      await provider.bars!.fetch({
+        instrument: {
+          ...instrument,
+          capabilities: {
+            ...instrument.capabilities,
+            bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest: instrumentLimit },
+          },
+        },
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: requested,
+        beforeTimestamp,
+        signal,
+      })
+      expect(fetchBars).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: expected, beforeTimestamp }),
+        signal,
+      )
+    },
+  )
+
   // 验证探测成功时透传状态并附带耗时
   it('reports probe online with latency', async () => {
     const provider = createProvider(fakeTransport())

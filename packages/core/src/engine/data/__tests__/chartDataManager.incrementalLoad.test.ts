@@ -1,11 +1,15 @@
 /** ChartDataManager 左侧增量加载测试：历史回补、游标推进、提示刷新与并发去重。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createMarketDataProvider } from '@/data/provider/protocol/impl/provider'
+import type { MarketDataTransport } from '@/data/provider/protocol/types'
+
 import type { ChartDataManager } from '../chartDataManager'
 import {
   createTestChartDataManager,
   createTestDocument,
   createTestProvider,
+  instrumentFor,
   MS_PER_DAY,
   makeBarsPage,
   makeKLine,
@@ -28,6 +32,73 @@ describe('ChartDataManager incremental load', () => {
     manager = null
     unregisterTestProvider()
     vi.unstubAllGlobals()
+  })
+
+  // 源级单页能力约束旧品种快照；短页继续推进真实游标，直到源明确声明耗尽。
+  it('continues protocol-limited pages without treating the first short page as exhausted', async () => {
+    const instrument = instrumentFor('sh.600000')
+    const start = Date.now() - 6 * MS_PER_DAY
+    const dataset = Array.from({ length: 6 }, (_, index) => makeKLine(start + index * MS_PER_DAY))
+    const maxBarsPerRequest = 2
+    const fetchBars = vi.fn<MarketDataTransport['fetchBars']>(async (query) => {
+      if (query.limit > maxBarsPerRequest) {
+        throw new Error('transport request exceeds source capability')
+      }
+      const items = dataset
+        .filter(
+          (bar) => query.beforeTimestamp === undefined || bar.timestamp < query.beforeTimestamp,
+        )
+        .slice(-query.limit)
+      return {
+        instrumentId: instrument.id,
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        timezone: 'Asia/Shanghai',
+        items,
+        olderData: items[0] === dataset[0] ? 'exhausted' : 'available',
+      }
+    })
+    const provider = createMarketDataProvider({
+      source: { id: 'test', displayName: 'Test' },
+      transport: {
+        probe: async () => ({
+          status: 'online',
+          checkedAt: 1,
+          capabilities: {
+            assetClasses: ['stock'],
+            bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
+          },
+        }),
+        searchInstruments: async () => ({ items: [instrument] }),
+        fetchBars,
+        fetchTimeShare: async () => {
+          throw new Error('time share is not declared')
+        },
+      },
+    })
+    await provider.probe()
+    registerTestProvider(provider)
+    manager = createTestChartDataManager(document, {
+      viewport: { scrollLeft: 0 },
+      onBarsReady: () => manager?.checkVisibleRangeGap(),
+    }).manager
+    manager.setSymbols([makeTestSymbolSpec(instrument.symbol)])
+
+    await vi.waitFor(() => expect(manager!.getData()).toHaveLength(dataset.length))
+    expect(fetchBars).toHaveBeenCalledTimes(3)
+    expect(fetchBars.mock.calls.map(([query]) => query.limit)).toEqual([2, 2, 2])
+    expect(fetchBars.mock.calls.map(([query]) => query.beforeTimestamp)).toEqual([
+      undefined,
+      dataset[4]!.timestamp,
+      dataset[2]!.timestamp,
+    ])
+    expect(manager.getData().map((bar) => bar.timestamp)).toEqual(
+      dataset.map((bar) => bar.timestamp),
+    )
+    expect(manager.dataBuffer.olderData).toBe('exhausted')
+    manager.checkVisibleRangeGap()
+    expect(fetchBars).toHaveBeenCalledTimes(3)
   })
 
   it('loads history when the left buffer is visible, regardless of the raw index range', async () => {

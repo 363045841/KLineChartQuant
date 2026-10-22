@@ -187,6 +187,16 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
       async fetch(query: BarQuery) {
         assertCapability(query.instrument, 'bars')
         const timeZone = getInstrumentTimeZone(query.instrument)
+        let limit = query.limit
+        // 源探测约束也覆盖旧布局中的品种快照；品种可进一步收紧单页上限。
+        for (const capability of [
+          runtimeSource.capabilities?.bars,
+          query.instrument.capabilities.bars,
+        ]) {
+          if (capability?.maxBarsPerRequest !== undefined) {
+            limit = Math.min(limit, capability.maxBarsPerRequest)
+          }
+        }
         const result = await transport.fetchBars(
           {
             sourceId: source.id,
@@ -199,7 +209,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
             period: query.period,
             adjustment: query.adjustment,
             barAggregation: query.barAggregation,
-            limit: query.limit,
+            limit,
             ...(query.beforeTimestamp === undefined
               ? {}
               : { beforeTimestamp: query.beforeTimestamp }),

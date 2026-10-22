@@ -124,6 +124,8 @@ export type ProviderRef = Readonly<Record<string, string | number | boolean>>
 export interface BarCapability {
   periods: ReadonlyArray<KLinePeriod>
   adjustments: ReadonlyArray<KLineAdjustment>
+  /** Connector 单次请求的最大根数；批量历史目标由调用方沿游标补齐。 */
+  maxBarsPerRequest?: number
 }
 
 /** 多日分时接口可一次查询的交易日范围。 */
