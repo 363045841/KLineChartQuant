@@ -155,7 +155,14 @@ export function createWorkerIndicatorCalculationExecutor(input: {
       if (disposed) return
       disposed = true
       input.worker.postMessage({ type: 'dispose' })
-      fail(new Error('Indicator Worker executor is disposed'))
+      // 销毁不是计算失败：放行就绪等待者，由 setData/execute 的 disposed 检查终止。
+      // 直接拒绝共享的 readyPromise 时若没有等待者，会变成未处理 Promise。
+      readyResolve?.()
+      readyResolve = null
+      readyReject = null
+      const error = new Error('Indicator Worker executor is disposed')
+      for (const request of pending.values()) request.reject(error)
+      pending.clear()
       input.worker.terminate()
     },
   }
