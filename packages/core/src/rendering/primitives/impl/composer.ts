@@ -5,14 +5,16 @@
  * 透明度、合成模式、阴影与滤镜属于目标级状态，变化前必须先落盘，否则后画的原语
  * 会被套上错误的坐标系或透明度。
  */
-import type { PaintPrimitive, PrimitivePaint, PrimitiveSink } from '../types.js'
+
 import type { DataTransform } from '@/foundation/plugin/types.js'
+import type { PaintPrimitive, PrimitivePaint, PrimitiveSink } from '../types.js'
 
 export interface PrimitiveComposer {
-  /** 交给纯增量图层的提交入口：目标由 Scene 选定，且不允许改动目标状态。 */
+  /**
+   * 唯一提交入口：目标已由 Scene 绑定，图层不能另行选择输出画布。
+   * 纯增量图层与仍持有 ctx 的图层共用同一形状，避免两种调用约定并存。
+   */
   readonly submit: PrimitivePaint
-  /** 带目标的提交入口，保留给仍持有 ctx 的图层。 */
-  readonly sink: PrimitiveSink
   /** 立即合成待提交内容；Scene 在帧末与非合批层前后调用。 */
   flush(): void
 }
@@ -120,11 +122,5 @@ export function createPrimitiveComposer(
     }
   }
 
-  return {
-    flush,
-    submit: compose,
-    sink(_target, primitives, dpr, transform) {
-      compose(primitives, dpr, transform)
-    },
-  }
+  return { flush, submit: compose }
 }

@@ -3,19 +3,14 @@
  *
  * 与 `types.ts` 的分工：本文件只有运行时装配，类型契约全部在 `types.ts`。
  */
+
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
 import { createPrimitiveComposer, type PrimitiveComposer } from '../primitives/impl/composer.js'
-import type { DataTransform } from '@/foundation/plugin/types.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
-import type { PaintPrimitive, PrimitivePaint, PrimitiveSurface } from '../primitives/types.js'
-import type {
-  Layer,
-  LayerPaint,
-  PrimitiveDrawContext,
-  Scene,
-  SceneFrame,
-} from './types.js'
+import type { PaintPrimitive, PrimitiveSurface } from '../primitives/types.js'
+import type { Layer, LayerPaint, PrimitiveDrawContext, Scene, SceneFrame } from './types.js'
 import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
 
 /**
@@ -185,9 +180,9 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           ctx: target,
           paneId: pane.paneId,
           clear: pane.clear,
-          // 本帧渲染后端与带目标提交入口由 Scene 注入。
+          // 本帧渲染后端与目标已绑定的提交入口由 Scene 注入。
           sceneRenderer: pane.renderer,
-          primitives: composer.sink,
+          primitives: composer.submit,
         }
         target.save()
         try {

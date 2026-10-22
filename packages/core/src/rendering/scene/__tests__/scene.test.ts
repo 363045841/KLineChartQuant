@@ -19,6 +19,7 @@ import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendere
 import { createScene } from '../createScene'
 import {
   type ContextLayer,
+  type DrawListLayer,
   LAYER_PANE_GLOBAL,
   type Layer,
   type LayerPaint,
@@ -132,6 +133,62 @@ describe('createScene', () => {
       expect(target?.restore).toHaveBeenCalledOnce()
       expect(target?.clearRect).not.toHaveBeenCalled()
     }
+  })
+
+  it('injects the same target-bound primitives submitter into ctx and draw-list layers', () => {
+    const scene = createScene<FrameStub>()
+    const renderer = createMockRenderer()
+    const main = createMockCanvasContext()
+    const input: SceneFrame = {
+      panes: [
+        {
+          paneId: 'main',
+          context: { tag: 'main' },
+          renderer,
+          targets: { main, drawing: null, overlay: null },
+          frameNumber: 0,
+          deltaMs: 0,
+          clear: false,
+        },
+      ],
+    }
+    const circle = (x: number) =>
+      ({ kind: 'circle', x, y: 0, radius: 1, color: '#ffffff' }) as const
+    const contextLayer: ContextLayer<FrameStub> = {
+      id: 'context',
+      role: 'primary',
+      pane: 'main',
+      z: 0,
+      visible: true,
+      paint(context) {
+        context.primitives!([circle(1)], 1)
+      },
+      dispose() {},
+    }
+    const drawListLayer: DrawListLayer<FrameStub> = {
+      id: 'draw-list',
+      role: 'primary',
+      pane: 'main',
+      z: 1,
+      visible: true,
+      kind: 'draw-list',
+      paint(context) {
+        context.primitives!([circle(2)], 1)
+      },
+      dispose() {},
+    }
+    scene.addLayer(contextLayer)
+    scene.addLayer(drawListLayer)
+    scene.paint(input)
+
+    // 两种图层都必须以 (primitives, dpr) 调用，目标由 Scene 绑定；传错形状会抛 not iterable。
+    expect(renderer.primitives.paint).toHaveBeenCalledTimes(2)
+    const [firstTarget, firstBatch] = renderer.primitives.paint.mock.calls[0]!
+    expect(firstTarget).toBe(main)
+    expect(firstBatch).toEqual([circle(1)])
+    const [secondTarget, secondBatch] = renderer.primitives.paint.mock.calls[1]!
+    expect(secondTarget).toBe(main)
+    expect(secondBatch).toEqual([circle(2)])
   })
 
   it('addLayer then getLayer round-trips by id', () => {

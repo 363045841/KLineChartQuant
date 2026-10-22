@@ -4,7 +4,7 @@ import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import type { Layer } from '@/rendering/scene/types.js'
+import type { Layer, LayerPaint } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
 import { createDefaultPrimitiveRendererSet } from './primitiveRendererSet.js'
@@ -28,7 +28,7 @@ function renderPrimitives(
 
 /** 一层一次提交，保留 primitive 的原始顺序和该层独立的合成目标。 */
 function paintProjection(
-  context: RenderContext,
+  context: LayerPaint<RenderContext>,
   primitives: ReadonlyArray<DrawingPrimitive>,
   custom?: PrimitiveRendererSet,
 ): void {

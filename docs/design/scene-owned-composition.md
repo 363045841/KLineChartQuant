@@ -10,6 +10,8 @@ Scene 还为每个目标注入帧内合成器（`primitives`）：`kind: 'draw-l
 
 `draw-list` 图层的绘制上下文不含 `ctx`，只能提交纯增量原语，所以"不改裁剪/坐标系"是编译期约束而不是约定。
 
+两类图层收到的 `primitives` 形状相同：目标已由 Scene 绑定，只接收 `(primitives, dpr, transform)`，图层不能另行选择输出画布。此前给 `context` 图层注入的是带 `target` 首参的 `PrimitiveSink`，而统一提交入口按 `PrimitivePaint` 调用，结果 `commands` 被当成 target 丢弃、`dpr` 被当成原语批次遍历并抛 `primitives is not iterable`。现在只有 `PrimitiveComposer.submit` 一个入口，两种图层共用同一调用约定。
+
 ## 主图带直出
 
 GPU 后端的每个 pane 拥有一张可见的主图带画布（`mainGpuCanvas`），纯增量图层的几何直接写入它，**不再经过 Canvas 侧的整张 `drawImage`**；文本仍写到其上方的 2D 主画布，`ctx` 图层也留在那里。由此形成固定的三段叠放：

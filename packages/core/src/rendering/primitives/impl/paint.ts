@@ -15,7 +15,8 @@ export function primitiveSink(backend?: PrimitiveBackend): PrimitiveSink {
 /**
  * 提交一批原语。
  *
- * 纯增量图层只拿到 `primitives`（目标已绑定）；仍持有 ctx 的图层走立即提交。
+ * `primitives` 恒为 Scene 绑定目标的提交器，纯增量图层与带 ctx 的图层调用方式一致；
+ * 只有脱离 Scene 的直接绘制（测试、独立渲染）才回落到 sceneRenderer + ctx。
  * 两者都没有说明调用方绕过了绘制契约，直接报错而不是静默丢图。
  */
 export function submitPrimitives(

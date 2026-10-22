@@ -108,8 +108,8 @@ export type LayerPaint<TFrame> = TFrame & {
   clear?: boolean
   /** 本帧渲染后端；由 Scene 注入，直接绘制（测试）时可缺省。 */
   sceneRenderer?: Renderer
-  /** 本帧合成到该目标的原语提交器（带目标）；Scene 注入。 */
-  primitives?: import('../primitives/types.js').PrimitiveSink
+  /** 本帧已绑定输出目标的原语提交器；Scene 注入，图层不得另行选择画布。 */
+  primitives?: import('../primitives/types.js').PrimitivePaint
 }
 
 /**
