@@ -101,7 +101,7 @@ describe('ordered primitive batching', () => {
     const result = prepare.prepare([stroke], 100, 100, 1)
     expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
     expect(result.vertices).toHaveLength(0)
-    // 每段 14 个 float：起点、终点、前一点、后一点、半宽、颜色、数据空间标记。
+    // 每段 14 个 float：四个点、半宽、颜色、标志位。
     expect(result.segments).toHaveLength(2 * 14)
     const [first, second] = [0, 14].map((offset) =>
       Array.from(result.segments.slice(offset, offset + 14)),
@@ -111,6 +111,31 @@ describe('ordered primitive batching', () => {
     // 共享折点必须写成同一组端点：角平分面由两侧分别算出，只有入参一致才互补。
     expect(second!.slice(4, 6)).toEqual(first!.slice(0, 2))
     expect(first!.slice(6, 8)).toEqual(second!.slice(2, 4))
+  })
+
+  it('prepares miter strokes as quads that share their joint cut exactly', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 20 },
+          { x: 40, y: 20 },
+          { x: 40, y: 50 },
+        ],
+      ],
+      width: 4,
+      color: 'red',
+    }
+    const result = prepare.prepare([stroke], 100, 100, 1)
+    expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    expect(result.segments).toHaveLength(2 * 14)
+    const quads = [0, 14].map((offset) => Array.from(result.segments.slice(offset, offset + 14)))
+    // 四边形自带线宽：半宽写 0、标志位只带凸四边形区域（bit1）。
+    expect(quads[0]!.slice(8)).toEqual([0, 1, 0, 0, 1, 2])
+    // 第一段的终点切边与第二段的起点切边逐值相同，说明两个四边形恰好拼接。
+    expect(quads[0]!.slice(2, 4)).toEqual(quads[1]!.slice(0, 2))
+    expect(quads[0]!.slice(4, 6)).toEqual(quads[1]!.slice(6, 8))
   })
 
   it('points segment instances at the nearest distinct neighbour so duplicate points keep joins valid', () => {

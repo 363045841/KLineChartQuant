@@ -285,6 +285,36 @@ function checkBatchSemantics(name: string, backend: PrimitiveBackend): void {
     fringe.every((value) => Math.abs(value - fringe[0]!) <= 1 && value >= 210 && value <= 245),
     `${name}: segment join coverage is not a union (${fringe.join('/')})`,
   )
+
+  // 尖角/平头描边走凸四边形区域：斜边必须有过渡像素，而不是纯像素台阶。
+  ctx.clearRect(0, 0, 100, 100)
+  check(
+    backend.paint(
+      ctx,
+      [
+        {
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 5, y: 55 },
+              { x: 85, y: 15 },
+            ],
+          ],
+          width: 3,
+          color: '#ff0000',
+        },
+      ],
+      1,
+    ),
+    `${name}: diagonal stroke failed`,
+  )
+  const diagonal = ctx.getImageData(0, 0, 100, 100).data
+  let partial = 0
+  for (let offset = 3; offset < diagonal.length; offset += 4) {
+    const value = diagonal[offset]!
+    if (value > 0 && value < 250) partial++
+  }
+  check(partial > 40, `${name}: diagonal stroke is not antialiased (${partial})`)
 }
 }
 
