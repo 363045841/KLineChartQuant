@@ -50,7 +50,6 @@ function createAverageDefinition(): Pick<IndicatorMetadata, 'name' | 'runtime'> 
     name: 'average',
     runtime: {
       defaultParams: { period: 3 },
-      computeKey: 'testAverage',
       compute: (data, config) => {
         const period = (config as { period: number }).period
         return data.map((_, index) => {
@@ -99,7 +98,6 @@ describe('createIndicatorQuery', () => {
       name: 'dual',
       runtime: {
         defaultParams: {},
-        computeKey: 'testDual',
         compute: (data) =>
           data.map((bar, index) => ({
             first: bar.close,
@@ -121,14 +119,13 @@ describe('createIndicatorQuery', () => {
 | 1970-01-01 08:00 | 2 | 2 | up |`)
   })
 
-  it('uses the Structure formatter instead of rejecting non-aligned results', async () => {
+  it('formats non-aligned results through the common table output', async () => {
     const dataState = createDataState()
     publishBars(dataState, createBars(3))
     const definition: Pick<IndicatorMetadata, 'name' | 'runtime'> = {
       name: 'structure',
       runtime: {
         defaultParams: {},
-        computeKey: 'testStructure',
         outputAlignment: 'aggregate',
         compute: () => ({
           trend: 'up',
@@ -142,9 +139,11 @@ describe('createIndicatorQuery', () => {
       resolveDefinition: () => definition,
     })
 
-    await expect(query.queryIndicator({ definitionId: 'structure' })).resolves.toBe(`Structure
-趋势：向上
-BOS 向上 5 @ 1970-01-01 08:00`)
+    await expect(query.queryIndicator({ definitionId: 'structure' })).resolves.toBe(`structure
+
+| trend | swings | events |
+| --- | --- | --- |
+| up | [0] | [1] |`)
   })
 
   it('retries with the latest market data when data changes during calculation', async () => {
@@ -155,7 +154,6 @@ BOS 向上 5 @ 1970-01-01 08:00`)
       name: 'latest',
       runtime: {
         defaultParams: {},
-        computeKey: 'testLatest',
         compute: (data) => {
           calculationCount++
           if (calculationCount === 1) publishBars(dataState, createBars(3, 10_000))
@@ -297,7 +295,6 @@ BOS 向上 5 @ 1970-01-01 08:00`)
       name: 'churn',
       runtime: {
         defaultParams: {},
-        computeKey: 'testChurn',
         compute: (data) => {
           calculationCount++
           publishBars(dataState, createBars(data.length + 1, calculationCount * 10_000))

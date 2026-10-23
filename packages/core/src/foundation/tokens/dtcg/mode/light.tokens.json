@@ -33,12 +33,6 @@
     "tooltipBorder": { "$type": "color", "$value": "{light.color.tooltipBorder}" },
     "heatmapColdest": { "$type": "color", "$value": "{light.color.heatmapColdest}" },
     "heatmapHottest": { "$type": "color", "$value": "{light.color.heatmapHottest}" },
-    "volumeProfileFill": { "$type": "color", "$value": "{light.color.volumeProfileFill}" },
-    "volumeProfilePoc": { "$type": "color", "$value": "{light.color.volumeProfilePoc}" },
-    "volumeProfileValueArea": {
-      "$type": "color",
-      "$value": "{light.color.volumeProfileValueArea}"
-    },
     "footprintCell": {
       "bid": { "$type": "color", "$value": "{light.color.footprintCell.bid}" },
       "ask": { "$type": "color", "$value": "{light.color.footprintCell.ask}" },
@@ -183,22 +177,6 @@
     },
     "lastPriceLabel": {
       "bg": { "$type": "color", "$value": "{light.color.lastPriceLabel.bg}" }
-    },
-    "structure": {
-      "hh": { "$type": "color", "$value": "{light.color.structure.hh}" },
-      "hl": { "$type": "color", "$value": "{light.color.structure.hl}" },
-      "lh": { "$type": "color", "$value": "{light.color.structure.lh}" },
-      "ll": { "$type": "color", "$value": "{light.color.structure.ll}" },
-      "choch": { "$type": "color", "$value": "{light.color.structure.choch}" },
-      "bos": { "$type": "color", "$value": "{light.color.structure.bos}" }
-    },
-    "zones": {
-      "fvgBullFill": { "$type": "color", "$value": "{light.color.zones.fvgBullFill}" },
-      "fvgBearFill": { "$type": "color", "$value": "{light.color.zones.fvgBearFill}" },
-      "fvgBullBorder": { "$type": "color", "$value": "{light.color.zones.fvgBullBorder}" },
-      "fvgBearBorder": { "$type": "color", "$value": "{light.color.zones.fvgBearBorder}" },
-      "obBullFill": { "$type": "color", "$value": "{light.color.zones.obBullFill}" },
-      "obBearFill": { "$type": "color", "$value": "{light.color.zones.obBearFill}" }
     },
     "referenceLine": {
       "neutral": { "$type": "color", "$value": "{light.color.referenceLine.neutral}" }

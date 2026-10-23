@@ -18,6 +18,7 @@ const entries = [
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },
   { file: 'drawing.ts', exportName: 'DRAWING_PRELUDE' },
   { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE' },
+  { file: 'pivot.ts', exportName: 'PIVOT_PRELUDE' },
 ]
 
 const compilerOptions = {
@@ -60,20 +61,20 @@ function compile(fileName, source) {
 export async function generateRuntimeSources({ check = false } = {}) {
   const declarations = []
   // 公共 API 在宿主是模块，在 VM 是全局脚本；仅移除模块边界，不维护第二份实现。
-  const sharedLineSource = (await Promise.all(['drawingObject.ts', 'lineApi.ts'].map((file) => readFile(new URL(`../plot-contracts/src/${file}`, packageRoot), 'utf8')))).join('\n')
-  const sharedFile = ts.createSourceFile('lineApi.ts', sharedLineSource, ts.ScriptTarget.Latest, true)
+  const sharedDrawingSource = (await Promise.all(['drawingObject.ts', 'drawingApi.ts', 'lineApi.ts', 'boxApi.ts', 'labelApi.ts'].map((file) => readFile(new URL(`../plot-contracts/src/${file}`, packageRoot), 'utf8')))).join('\n')
+  const sharedFile = ts.createSourceFile('drawingApi.ts', sharedDrawingSource, ts.ScriptTarget.Latest, true)
   const removals = []
   for (const statement of sharedFile.statements) {
-    if (ts.isImportDeclaration(statement)) removals.push([statement.getStart(sharedFile), statement.end])
+    if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) removals.push([statement.getStart(sharedFile), statement.end])
     for (const modifier of statement.modifiers ?? []) {
       if (modifier.kind === ts.SyntaxKind.ExportKeyword) removals.push([modifier.getStart(sharedFile), modifier.end])
     }
   }
-  let sharedGlobalSource = sharedLineSource
+  let sharedGlobalSource = sharedDrawingSource
   for (const [start, end] of removals.sort((a, b) => b[0] - a[0])) {
     sharedGlobalSource = sharedGlobalSource.slice(0, start) + sharedGlobalSource.slice(end)
   }
-  declarations.push(`export const LINE_API_PRELUDE = ${JSON.stringify(compile('lineApi.ts', sharedGlobalSource))}`)
+  declarations.push(`export const DRAWING_API_PRELUDE = ${JSON.stringify(compile('drawingApi.ts', sharedGlobalSource))}`)
   for (const entry of entries) {
     const source = await readFile(new URL(`src/quickjs/runtime/${entry.file}`, packageRoot), 'utf8')
     declarations.push(

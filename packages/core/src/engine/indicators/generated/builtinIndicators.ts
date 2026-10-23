@@ -10,18 +10,6 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
   readonly load: () => Promise<IndicatorDefinitionClass>
 }> = [
   {
-    descriptor: {"name":"structure","kind":"indicator","displayName":"Structure","category":"main","defaultPaneId":"sub_Structure","allowMainPane":true,"defaultParams":{"leftWindow":5,"rightWindow":2,"breakoutSource":"close"},"defaultOptions":{"showSwingLabels":true,"showBOS":true,"showCHOCH":true,"showProvisional":true}},
-    load: () => import('../../renderers/Indicator/structure.js').then((module) => module.StructureIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"volumeProfile","kind":"indicator","displayName":"VP","category":"volume","defaultPaneId":"sub_VolumeProfile","defaultParams":{"bins":24,"lookback":100,"valueAreaPercent":70},"defaultOptions":{"showPOC":true,"showValueArea":true}},
-    load: () => import('../../renderers/Indicator/volumeProfile.js').then((module) => module.VolumeProfileIndicatorDefinition),
-  },
-  {
-    descriptor: {"name":"zones","kind":"indicator","displayName":"Zones","category":"main","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"obLookback":20},"defaultOptions":{"showFVG":true,"showOB":true,"showFilledZones":true}},
-    load: () => import('../../renderers/Indicator/zones.js').then((module) => module.ZonesDefinition),
-  },
-  {
     descriptor: {"name":"extremaMarkers","kind":"system","displayName":"极值标记","category":"main","defaultPaneId":"main","dataViews":["kline"]},
     load: () => import('../../renderers/extremaMarkers.js').then((module) => module.ExtremaMarkersIndicatorDefinition),
   },

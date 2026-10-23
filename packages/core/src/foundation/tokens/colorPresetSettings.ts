@@ -34,7 +34,6 @@ export type ColorPresetKey = keyof Pick<
   | 'tooltipBg'
   | 'tooltipText'
   | 'tooltipBorder'
-  | 'volumeProfilePoc'
   | 'alertActive'
   | 'alertTriggered'
   | 'alertMuted'
@@ -115,7 +114,6 @@ export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
   { key: 'tooltipText', label: '提示文字', group: 'interaction' },
   { key: 'tooltipBorder', label: '提示边框', group: 'interaction' },
 
-  { key: 'volumeProfilePoc', label: '成交量 POC', group: 'interaction' },
   { key: 'alertActive', label: '活动警报', group: 'interaction' },
   { key: 'alertTriggered', label: '触发警报', group: 'interaction' },
   { key: 'alertMuted', label: '静音警报', group: 'interaction' },

@@ -76,7 +76,6 @@ export type {
   SpaceStep,
   SpaceTokens,
   SpacingTokens,
-  StructureColors,
   TagBgColors,
   TextColors,
   TextCopyStep,
@@ -90,5 +89,4 @@ export type {
   UiColors,
   WMSRColors,
   ZIndexTokens,
-  ZonesColors,
 } from './types.js'

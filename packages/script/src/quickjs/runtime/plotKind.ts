@@ -92,6 +92,11 @@ declare enum xloc {
   bar_time = "bar_time",
 }
 
+/** 价格文字锚点；其他定位方式待公共绘图模型支持后再开放。 */
+declare enum yloc {
+  price = "price",
+}
+
 /**
  * @summary 数据源
  *

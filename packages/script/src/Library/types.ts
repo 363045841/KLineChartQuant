@@ -60,6 +60,10 @@ export type TechnicalAnalysisLibrary = {
    * @returns 最低值序列；[0] 取当前窗口的结果。
    */
   lowest(source: Series, length: number): Series
+  /** 确认后的摆动高点；结果出现在右侧窗口完成的 bar，无摆点为 NaN。 */
+  pivothigh(source: Series, leftbars: number, rightbars: number): Series
+  /** 确认后的摆动低点；并列极值取更靠右的 bar。 */
+  pivotlow(source: Series, leftbars: number, rightbars: number): Series
   /**
    * 最近 length 根 K 线最高值相对当前 K 线的偏移，负值或 0。
    * @summary 最高值偏移

@@ -60,9 +60,6 @@ export const darkTheme: Theme = {
     tooltipBorder: darkInterfaceColors.border,
     heatmapColdest: '#0E1116',
     heatmapHottest: '#80B7FF',
-    volumeProfileFill: '#6B727A66',
-    volumeProfilePoc: '#FFA94D',
-    volumeProfileValueArea: '#4A9EFF33',
     // 足迹图专用红/灰配色：Bid 红、Ask 中性灰，不随涨跌约定翻转。
     footprintCell: {
       bid: '#d64b4b',
@@ -213,22 +210,6 @@ export const darkTheme: Theme = {
     },
     lastPriceLabel: {
       bg: 'rgba(60, 50, 55, 0.98)',
-    },
-    structure: {
-      hh: '#4ade80',
-      hl: '#22c55e',
-      lh: '#f87171',
-      ll: '#ef4444',
-      choch: '#a78bfa',
-      bos: '#fbbf24',
-    },
-    zones: {
-      fvgBullFill: 'rgba(74, 222, 128, 0.20)',
-      fvgBearFill: 'rgba(248, 113, 113, 0.20)',
-      fvgBullBorder: 'rgba(74, 222, 128, 0.8)',
-      fvgBearBorder: 'rgba(248, 113, 113, 0.8)',
-      obBullFill: 'rgba(74, 222, 128, 0.35)',
-      obBearFill: 'rgba(248, 113, 113, 0.35)',
     },
     referenceLine: {
       neutral: 'rgba(255, 255, 255, 0.3)',

@@ -37,7 +37,8 @@ import {
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
-  LINE_API_PRELUDE,
+  DRAWING_API_PRELUDE,
+  PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
@@ -203,6 +204,9 @@ function runWithContext(
       },
     )
     mountParams(vm, options.params)
+    const barCountHandle = vm.newFunction('__barCount', () => vm.newNumber(bars.length))
+    vm.setProp(vm.global, '__barCount', barCountHandle)
+    barCountHandle.dispose()
     const execution =
       options.requestExecution === undefined ? EMPTY_REQUEST_EXECUTION : options.requestExecution
     evalOrThrow(
@@ -223,8 +227,9 @@ function runWithContext(
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
-    evalOrThrow(vm, LINE_API_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, DRAWING_API_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, DRAWING_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, PIVOT_PRELUDE, 'compile', timeout).dispose()
     for (const library of options.libraries ?? []) {
       evalOrThrow(vm, library.source, 'compile', timeout).dispose()
       evalOrThrow(

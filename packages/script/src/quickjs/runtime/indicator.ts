@@ -151,7 +151,9 @@ function numberInput(value: number, options?: NumberInputOptions): InputDef<numb
   return { ...options, default: value }
 }
 
-let __definition: ScriptIndicatorDeclaration | undefined
+/** 创建限额在声明边界完成归一化，后续消费不重复补默认值。 */
+type NormalizedIndicatorDeclaration = ScriptIndicatorDeclaration & Required<Pick<ScriptIndicatorDeclaration, 'max_lines_count' | 'max_boxes_count' | 'max_labels_count'>>
+let __definition: NormalizedIndicatorDeclaration | undefined
 const __inputs: QuickJSScriptDefinition['inputs'] = {}
 
 /** 编译器生成的输入注册入口，默认值由唯一的类型工厂校验。 */
@@ -176,14 +178,12 @@ function defineIndicator(definition: ScriptIndicatorDeclaration): void {
   if (__definition) throw new TypeError('每个脚本文件只能声明一个指标')
   if (!definition || typeof definition.onBar !== 'function')
     throw new TypeError('指标需要 onBar 函数')
-  if (
-    definition.max_lines_count !== undefined &&
-    (!Number.isInteger(definition.max_lines_count) ||
-      definition.max_lines_count < 1 ||
-      definition.max_lines_count > 500)
-  )
-    throw new RangeError('max_lines_count 必须是 1..500 的整数')
-  __definition = definition
+  __definition = {
+    ...definition,
+    max_lines_count: drawingCount(definition.max_lines_count),
+    max_boxes_count: drawingCount(definition.max_boxes_count),
+    max_labels_count: drawingCount(definition.max_labels_count),
+  }
 }
 
 /** 返回元数据快照，不把 VM 函数或序列传回宿主。 */
@@ -196,6 +196,8 @@ function __metadata(): QuickJSScriptDefinition {
     position: __definition.position,
     format: __definition.format,
     max_lines_count: __definition.max_lines_count,
+    max_boxes_count: __definition.max_boxes_count,
+    max_labels_count: __definition.max_labels_count,
     inputs: __inputs,
   }
 }

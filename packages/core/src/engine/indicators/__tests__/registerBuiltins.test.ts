@@ -15,8 +15,6 @@ describe('builtin indicator registration', () => {
     expect(new Set(definitions.map((definition) => definition.name)).size).toBe(definitions.length)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
-        'volumeProfile',
-        'zones',
         'extremaMarkers',
         'lastPriceLine',
         'lastPriceLabelRegistrar',
@@ -75,9 +73,9 @@ describe('builtin indicator registration', () => {
     }
   })
 
-  it('registers visible state composer metadata for structure indicators', () => {
+  it('keeps script indicators out of the Core native catalog', () => {
     for (const id of ['STRUCTURE', 'ZONES', 'VOLUME_PROFILE']) {
-      expect(getRegisteredIndicatorDefinition(id)?.customState?.compose).toBeTypeOf('function')
+      expect(getRegisteredIndicatorDefinition(id)).toBeUndefined()
     }
   })
 })

@@ -13,6 +13,7 @@ import {
 import { createFibRetracementDefinition } from './fibRetracement.js'
 import { createInfoLineDefinition } from './infoLine.js'
 import { createRectangleDefinition } from './rectangle.js'
+import { createLabelDefinition } from './label.js'
 import { createSingleAnchorLineDefinition } from './singleAnchorLine.js'
 import { createTwoPointLineDefinition } from './twoPointLine.js'
 
@@ -23,6 +24,7 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
   registry.register(createTwoPointLineDefinition('extended-line', 'both'))
   registry.register(createFibRetracementDefinition())
   registry.register(createRectangleDefinition())
+  registry.register(createLabelDefinition())
   registry.register(createArrowDefinition())
   registry.register(createSingleAnchorLineDefinition('horizontal-line'))
   registry.register(createSingleAnchorLineDefinition('horizontal-ray'))

@@ -70,7 +70,6 @@ import {
 } from './instances/assembly/indicatorInstancePipeline.js'
 import {
   createInstanceCalculationDefinitions,
-  serializeInstanceCalculationDefinitions,
 } from './instances/assembly/instanceDefinitionCatalog.js'
 import {
   createIndicatorCalculationKey,
@@ -81,17 +80,13 @@ import {
 } from './instances/domain/instanceModel.js'
 import {
   createInlineIndicatorCalculationExecutor,
-  createWorkerIndicatorCalculationExecutor,
   type InlineIndicatorCalculationExecutor,
-  type WorkerIndicatorCalculationExecutor,
 } from './instances/execution/instanceCalculationExecutors.js'
 import {
   createInstanceCalculationScheduler,
-  type IndicatorCalculationExecutor,
 } from './instances/execution/instanceCalculationScheduler.js'
 import {
   composeInstanceRenderState,
-  computeInstanceMainIndicatorPriceRange,
 } from './stateComposer.js'
 import { createIndicatorTimelineProjection, projectIndicatorCollection } from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
@@ -101,10 +96,6 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kGap: number
 }
 
-/** 可被 inline 降级替换的执行器持有者；调度器通过它间接调用当前执行器。 */
-interface IndicatorExecutorHolder {
-  active: IndicatorCalculationExecutor & { dispose?: () => void }
-}
 
 function mainIndicatorProjectionKey(
   params: Readonly<Record<string, number | boolean | string>>,
@@ -178,9 +169,7 @@ export interface IndicatorDependencies {
 export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private readonly pipeline: IndicatorInstancePipeline
-  private readonly executorHolder: IndicatorExecutorHolder
   private readonly inlineExecutor: InlineIndicatorCalculationExecutor
-  private readonly workerExecutor: WorkerIndicatorCalculationExecutor | null
   /** 取消订阅按需装配事件。 */
   private readonly disposeDefinitionSubscription: () => void
   private readonly calculationScheduler: ReturnType<typeof createInstanceCalculationScheduler>
@@ -306,14 +295,11 @@ export class ChartIndicatorManager {
       onCalculationPlanChanged: () => this.requestCompute(),
     })
 
-    // 执行器：Worker 可用时优先，异步失败在 handleCalculationError 中降级 inline。
+    // 计算经注册定义委派；Script 服务管理自己的 Worker，不创建平行执行链路。
     this.inlineExecutor = createInlineIndicatorCalculationExecutor(
       createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
       deps.getMarketData,
     )
-    this.executorHolder = { active: this.inlineExecutor }
-    this.workerExecutor = this.tryCreateWorkerExecutor()
-    if (this.workerExecutor) this.executorHolder.active = this.workerExecutor
     // 新增与更新是不同意图；替换定义后必须丢弃旧计算器与结果缓存并重新计算。
     this.disposeDefinitionSubscription = onIndicatorDefinitionChanged(({ type, definition }) => {
       if (type === 'remove') {
@@ -323,18 +309,14 @@ export class ChartIndicatorManager {
           else this.deps.subPaneOps.remove(instance.paneId)
         }
         this.inlineExecutor.removeDefinitions([definition.name])
-        this.workerExecutor?.removeDefinitions([definition.name])
         return
       }
       const inline = createInstanceCalculationDefinitions([definition])
-      const serialized = serializeInstanceCalculationDefinitions([definition])
       if (type === 'create') {
         this.inlineExecutor.addDefinitions(inline)
-        this.workerExecutor?.addDefinitions(serialized)
         return
       }
       this.inlineExecutor.updateDefinitions(inline)
-      this.workerExecutor?.updateDefinitions(serialized)
       const revision = this.pipeline.snapshot().calculationRevision
       this.syncPipeline(this.deps.indicator.readonly.instances.peek())
       if (revision === this.pipeline.snapshot().calculationRevision) this.requestCompute()
@@ -342,31 +324,7 @@ export class ChartIndicatorManager {
 
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
-      executor: {
-        setData: async (data, revision) => {
-          await this.inlineExecutor.setData(data, revision)
-          if (this.executorHolder.active !== this.inlineExecutor)
-            await this.executorHolder.active.setData(data, revision)
-        },
-        execute: async (plan, revision) => {
-          this.deps.getMarketData?.().retain(new Set(plan.tasks.map((task) => task.calculationKey)))
-          const active = this.executorHolder.active
-          if (active === this.inlineExecutor) return active.execute(plan, revision)
-          const inlineTasks = plan.tasks.filter(
-            (task) => !getRegisteredIndicatorDefinition(task.definitionId)?.runtime?.computeKey,
-          )
-          const workerTasks = plan.tasks.filter(
-            (task) => getRegisteredIndicatorDefinition(task.definitionId)?.runtime?.computeKey,
-          )
-          const [inline, worker] = await Promise.all([
-            inlineTasks.length
-              ? this.inlineExecutor.execute({ ...plan, tasks: inlineTasks }, revision)
-              : [],
-            workerTasks.length ? active.execute({ ...plan, tasks: workerTasks }, revision) : [],
-          ])
-          return [...inline, ...worker]
-        },
-      },
+      executor: this.inlineExecutor,
       onCommit: ({ pool }) => this.applyCommittedPool(pool),
       onError: (error) => this.handleCalculationError(error),
     })
@@ -600,26 +558,6 @@ export class ChartIndicatorManager {
     return presentation
   }
 
-  /** 尝试创建 Worker 执行器；环境不支持时返回 null 交给 inline。 */
-  private tryCreateWorkerExecutor(): WorkerIndicatorCalculationExecutor | null {
-    if (typeof Worker === 'undefined') return null
-    try {
-      const worker = new Worker(
-        new URL('./instances/worker/instanceIndicator.worker.js', import.meta.url),
-        { type: 'module' },
-      )
-      return createWorkerIndicatorCalculationExecutor({
-        worker,
-        definitions: serializeInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
-      })
-    } catch (error) {
-      console.warn(
-        '[ChartIndicatorManager] Indicator Worker unavailable, using inline executor',
-        error,
-      )
-      return null
-    }
-  }
 
   /** 注册实例状态读取与实例目录服务，供 renderer / 图例消费。 */
   private registerPluginServices(): void {
@@ -739,16 +677,10 @@ export class ChartIndicatorManager {
     this.onResultsAppliedCallback?.()
   }
 
-  /** 计算失败时把 Worker 执行器降级为 inline，并重试当前数据。 */
+  /** 调度错误直接报告，不切换执行链路或重试另一份实现。 */
   private handleCalculationError(error: unknown): void {
-    // destroy 会拆除 Worker，未完成的计算随之 reject；这是取消，不是运行期故障。
     if (this.destroyed) return
     console.error('[ChartIndicatorManager] Indicator calculation failed:', error)
-    const active = this.executorHolder.active
-    if (active === this.inlineExecutor) return
-    this.executorHolder.active = this.inlineExecutor
-    active.dispose?.()
-    this.requestCompute()
   }
 
   /** 设置计算结果应用完毕回调，用于串联 Alert 等管线。 */
@@ -766,26 +698,16 @@ export class ChartIndicatorManager {
 
   /** 主图已启用实例的价格范围，用于主图 pane 缩放。 */
   getMainIndicatorPriceRange(): { min: number; max: number } | null {
-    const pool = this.resultPool
-    if (!pool) return null
     const visibleStates = this.getRenderStatesSnapshot()
     let min = Infinity
     let max = -Infinity
     for (const instance of this.pipeline.snapshot().instances.values()) {
       // 主图实例固定落在 main pane；paneId 不参与计算身份。
       if (instance.paneId !== 'main' || !visibleStates.has(instance.instanceId)) continue
-      const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
-      const result = pool.results.get(instance.instanceId)
-      if (!metadata || !result) continue
-      const plotState = this.renderStates.get(instance.instanceId)
-      const range = isPlotRenderState(plotState)
-        ? plotState.visibleMin <= plotState.visibleMax
-          ? { min: plotState.visibleMin, max: plotState.visibleMax }
-          : null
-        : computeInstanceMainIndicatorPriceRange(metadata, result, this.visibleRange)
-      if (!range) continue
-      min = Math.min(min, range.min)
-      max = Math.max(max, range.max)
+      const state = visibleStates.get(instance.instanceId)
+      if (!isPlotRenderState(state) || state.visibleMin > state.visibleMax) continue
+      min = Math.min(min, state.visibleMin)
+      max = Math.max(max, state.visibleMax)
     }
     return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
   }
@@ -839,7 +761,6 @@ export class ChartIndicatorManager {
         this.visibleRange,
         timestamp,
         colors,
-        timeline.projectIndex,
       )
       if (state === undefined) continue
       if (isPlotRenderState(state) && metadata.plots) {
@@ -1257,7 +1178,6 @@ export class ChartIndicatorManager {
     this.disposeProjection?.()
     this.disposeProjection = null
     this.deps.runRendererTransaction(() => this.subPaneManager.clear(this.subPaneCtx))
-    this.executorHolder.active.dispose?.()
     this.onResultsAppliedCallback = null
   }
 }

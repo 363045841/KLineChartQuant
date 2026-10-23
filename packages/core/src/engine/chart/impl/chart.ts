@@ -1080,7 +1080,6 @@ export class Chart {
       bar,
       indicators,
       rollingVolume,
-      volumeProfile: undefined,
       orderBook: undefined,
       footprint: undefined,
     }

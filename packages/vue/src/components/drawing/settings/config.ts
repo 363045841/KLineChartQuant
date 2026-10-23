@@ -12,6 +12,7 @@ import infoLine from './info-line.json'
 import parallelChannel from './parallel-channel.json'
 import ray from './ray.json'
 import rectangle from './rectangle.json'
+import label from './label.json'
 import regressionChannel from './regression-channel.json'
 import trendLine from './trend-line.json'
 import verticalLine from './vertical-line.json'
@@ -59,6 +60,7 @@ export const drawingSettingsConfigs: Record<DrawingObject['kind'], DrawingSettin
   'extended-line': parseDrawingSettingsConfig('extended-line', extendedLine),
   'fib-retracement': parseDrawingSettingsConfig('fib-retracement', fibRetracement),
   rectangle: parseDrawingSettingsConfig('rectangle', rectangle),
+  label: parseDrawingSettingsConfig('label', label),
   arrow: parseDrawingSettingsConfig('arrow', arrow),
   'horizontal-line': parseDrawingSettingsConfig('horizontal-line', horizontalLine),
   'horizontal-ray': parseDrawingSettingsConfig('horizontal-ray', horizontalRay),

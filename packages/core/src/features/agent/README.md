@@ -47,7 +47,6 @@ agent/
 │   └── indicator/
 │       ├── indicatorQuery.ts              # 保留既有入参的查询编排与纯计算调用
 │       ├── indicatorTextFormatter.ts      # 专用转义器注册与 Markdown 降级选择
-│       ├── indicatorSemanticFormatters.ts # Structure、Zones、Volume Profile 专用文本
 │       └── indicatorMarkdownFormatter.ts  # 未注册结果的通用 Markdown 表格
 ├── __tests__/                             # agent 模块测试
 └── README.md

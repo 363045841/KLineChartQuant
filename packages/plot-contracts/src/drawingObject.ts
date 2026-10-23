@@ -39,6 +39,7 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
     labels,
     anchors: input.anchors.map((anchor) => ({ ...anchor })),
     style: { ...input.style },
+    ...(input.text === undefined ? {} : { text: { ...input.text } }),
   }
 }
 

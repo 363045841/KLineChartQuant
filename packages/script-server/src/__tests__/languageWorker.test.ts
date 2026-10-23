@@ -151,11 +151,11 @@ describe('script language service', () => {
     expect(result?.from).toBe(editing.length - 2)
     expect(result?.options.map((option) => option.label)).toContain('sma')
 
-    const invalid = 'const label = "text"; label - 1'
+    const invalid = 'const message = "text"; message - 1'
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: invalid })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
       expect.objectContaining({
-        from: invalid.indexOf('label - 1'),
+        from: invalid.indexOf('message - 1'),
         message: expect.stringContaining('arithmetic operation'),
       }),
     ])
