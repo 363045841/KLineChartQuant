@@ -22,7 +22,7 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/lastPrice.js').then((module) => module.LastPriceLabelRegistrarIndicatorDefinition),
   },
   {
-    descriptor: {"name":"lastPriceLine","kind":"system","displayName":"最新价虚线","category":"main","defaultPaneId":"main","dataViews":["kline"]},
+    descriptor: {"name":"lastPriceLine","kind":"system","displayName":"最新价点虚线","category":"main","defaultPaneId":"main","dataViews":["kline"]},
     load: () => import('../../renderers/lastPrice.js').then((module) => module.LastPriceLineIndicatorDefinition),
   },
   {

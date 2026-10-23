@@ -1,4 +1,4 @@
-/** 最新价 label 注册与虚线 Layer 工厂（overlay 层，绘制到主图）。 */
+/** 最新价 label 注册与点虚线 Layer 工厂（overlay 层，绘制到主图）。 */
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
@@ -90,8 +90,11 @@ export class LastPriceLabelRegistrarIndicatorDefinition {
   static rendererFactory = createLastPriceLabelLayer
 }
 
+/** 点虚线样式：1 个点 + 3 个间隔，圆头线帽让短划呈现为点。 */
+const LAST_PRICE_LINE_DASH = [1, 3]
+
 /**
- * 最新价虚线 Layer（绘制虚线）。
+ * 最新价点虚线 Layer（绘制点虚线）。
  */
 export function createLastPriceLineLayer(): Layer<RenderContext> {
   return {
@@ -124,7 +127,8 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
 
       ctx.strokeStyle = info.isUp ? colors.candleUpBorder : colors.candleDownBorder
       ctx.lineWidth = 1
-      ctx.setLineDash([4, 3])
+      ctx.lineCap = 'round'
+      ctx.setLineDash(LAST_PRICE_LINE_DASH)
       ctx.beginPath()
       const yy = (Math.floor(y * dpr) + 0.5) / dpr
       ctx.moveTo(Math.round(startX * dpr) / dpr, yy)
@@ -140,7 +144,7 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
 
 @Indicator({
   name: 'lastPriceLine',
-  displayName: '最新价虚线',
+  displayName: '最新价点虚线',
   category: 'main',
   defaultPaneId: 'main',
   dataViews: [ChartDataViewId.KLine],
