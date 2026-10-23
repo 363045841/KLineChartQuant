@@ -12,6 +12,6 @@ export function createDrawingObject(id: string, locked?: boolean): DrawingObject
     ...(locked === undefined ? {} : { locked }),
     anchors: [],
     params: {},
-    style: {},
+    style: { stroke: '#2962ff' },
   }
 }

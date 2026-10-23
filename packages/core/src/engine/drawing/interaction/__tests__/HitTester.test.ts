@@ -87,8 +87,10 @@ function createDisjointChannelFixture() {
 describe('HitTester', () => {
   it('excludes indicator drawings from pointer and label interaction', () => {
     const drawing = createFillFixture('parallel-channel', [
-      { time: 1000, price: 10 }, { time: 2000, price: 20 },
-      { time: 1000, price: 30 }, { time: 2000, price: 40 },
+      { time: 1000, price: 10 },
+      { time: 2000, price: 20 },
+      { time: 1000, price: 30 },
+      { time: 2000, price: 40 },
     ])
     drawing.ownerId = 'indicator'
     const tester = new HitTester()
@@ -103,7 +105,7 @@ describe('HitTester', () => {
       visible: true,
       anchors: [{ id: 'anchor', type: 'vertical', time: 1_000, price: 20 }],
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
 
     expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({
@@ -124,7 +126,7 @@ describe('HitTester', () => {
       ],
       labels: { line: { 3: { text: '50% text', position: 'center' } }, area: {} },
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
 
     // 第 3 条线（50%）中点在 y=90，上侧法线偏移 6px 后为 y=84，再加 paneTop=30。
@@ -154,7 +156,7 @@ describe('HitTester', () => {
         { id: 'b', type: 'point', time: 2_000, price: 140 },
       ],
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
 
     // 指针落在原始两锚点中点：命中锚点应仍在原线段法线外侧，而非延长线上。
@@ -177,7 +179,7 @@ describe('HitTester', () => {
       ],
       labels: { line: {}, area: { 0: { text: '区域文本', position: 'center' } } },
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
 
     expect(new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())).toMatchObject({
@@ -205,7 +207,7 @@ describe('HitTester', () => {
       ],
       labels: { line: { 0: { text: 'Settings dialog label', position: 'start' } }, area: {} },
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
     const tester = new HitTester()
     // More than 18px from the start anchor, but inside the drawn text.
@@ -228,7 +230,7 @@ describe('HitTester', () => {
       ],
       labels: { line: {}, area: { 0: { text: 'Long rectangle label', position: 'end' } } },
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
     expect(new HitTester().findLabelTarget(60, 90, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'area-text',
@@ -309,7 +311,7 @@ describe('HitTester', () => {
         ...anchor,
       })),
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
   }
 
@@ -385,7 +387,7 @@ describe('HitTester', () => {
       ],
       labels: { line: { 2: { text: '边文本', position: 'center' } }, area: {} },
       params: {},
-      style: {},
+      style: { stroke: '#2962ff' },
     }
 
     // 指针落在底边文字锚点上，区域中心（距 4px）也在热点半径内：line 优先。

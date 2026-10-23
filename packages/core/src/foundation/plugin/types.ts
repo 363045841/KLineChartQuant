@@ -550,7 +550,7 @@ export type PointPrimitive = {
   point: Point
   role?: PointRole
   text?: PrimitiveTextAttachment
-  style?: DrawingStyle
+  style: DrawingStyle
 }
 
 export type LinePrimitive = {
@@ -560,7 +560,7 @@ export type LinePrimitive = {
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
   text?: PrimitiveTextAttachment
-  style?: DrawingStyle
+  style: DrawingStyle
 }
 
 export type AreaPrimitive = {
@@ -568,7 +568,7 @@ export type AreaPrimitive = {
   points: Point[]
   closed: boolean
   text?: PrimitiveTextAttachment
-  style?: DrawingStyle
+  style: DrawingStyle
 }
 
 export type TextPrimitive = {
@@ -577,7 +577,7 @@ export type TextPrimitive = {
   text: string
   align?: 'left' | 'center' | 'right'
   baseline?: 'top' | 'middle' | 'bottom'
-  style?: DrawingStyle
+  style: DrawingStyle
 }
 
 /** 箭头图元：由渲染器作为一个整体绘制轴线和实心箭头头部。 */
@@ -588,7 +588,7 @@ export type ArrowPrimitive = {
   headLength?: number
   headAngle?: number
   text?: PrimitiveTextAttachment
-  style?: DrawingStyle
+  style: DrawingStyle
 }
 
 export type DrawingPrimitive =

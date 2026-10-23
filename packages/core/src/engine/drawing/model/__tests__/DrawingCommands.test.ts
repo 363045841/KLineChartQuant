@@ -16,6 +16,7 @@ describe('DrawingCommands', () => {
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 9 }],
+      style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
     })
 
     commands.update({ ...drawing, style: { ...drawing.style, strokeWidth: 2 } })
@@ -39,7 +40,7 @@ describe('DrawingCommands', () => {
         anchors: [],
         labels: { line: {}, area: {} },
         params: {},
-        style: {},
+        style: { stroke: '#2962ff' },
       }),
     ).toBeNull()
     expect(commands.updateBatch(['missing'], { visible: false })).toEqual([])

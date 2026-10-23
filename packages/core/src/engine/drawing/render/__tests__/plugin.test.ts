@@ -21,7 +21,13 @@ describe('createDrawingLayer', () => {
       const overlayCtx = createMockCanvasContext()
       const paint = vi.fn(() => true)
       const projection = {
-        primitives: [{ kind: 'point', point: { x: 10, y: 20 } } satisfies DrawingPrimitive],
+        primitives: [
+          {
+            kind: 'point',
+            point: { x: 10, y: 20 },
+            style: { stroke: '#f00' },
+          } satisfies DrawingPrimitive,
+        ],
         yAxisRanges: [],
         xAxisRanges: [],
       }
@@ -56,7 +62,13 @@ describe('createDrawingLayer', () => {
       drawingCtx,
       overlayCtx,
       drawingProjection: {
-        primitives: [{ kind: 'point', point: { x: 10, y: 20 } } satisfies DrawingPrimitive],
+        primitives: [
+          {
+            kind: 'point',
+            point: { x: 10, y: 20 },
+            style: { stroke: '#f00' },
+          } satisfies DrawingPrimitive,
+        ],
         yAxisRanges: [],
         xAxisRanges: [],
       },
@@ -79,7 +91,7 @@ describe('createDrawingLayer', () => {
 
     expect(point).toHaveBeenCalledWith(
       scope === 'committed' ? drawingCtx : overlayCtx,
-      { kind: 'point', point: { x: 10, y: 20 } },
+      { kind: 'point', point: { x: 10, y: 20 }, style: { stroke: '#f00' } },
       1,
     )
   })
@@ -104,6 +116,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
           a: { x: 10, y: 20 },
           b: { x: 90, y: 20 },
           showEndpoints: false,
+          style: { stroke: '#f00' },
           text: { text: '标签', position },
         },
         { left: 0, top: 0, right: 100, bottom: 100 },
@@ -122,7 +135,13 @@ describe('createDefaultPrimitiveRendererSet', () => {
 
     renderers.text(
       ctx,
-      { kind: 'text', point: { x: 10, y: 20 }, text: '第一行\\n第二行文字', baseline: 'top' },
+      {
+        kind: 'text',
+        point: { x: 10, y: 20 },
+        text: '第一行\\n第二行文字',
+        baseline: 'top',
+        style: { stroke: '#f00' },
+      },
       1,
     )
 
@@ -142,6 +161,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
         a: { x: 10, y: 20 },
         b: { x: 90, y: 20 },
         showEndpoints: false,
+        style: { stroke: '#f00' },
         text: { text: '第一行\\n第二行', position: 'center' },
       },
       { left: 0, top: 0, right: 100, bottom: 100 },

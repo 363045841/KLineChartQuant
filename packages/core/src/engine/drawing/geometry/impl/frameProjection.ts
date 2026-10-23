@@ -16,7 +16,7 @@ import {
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
@@ -211,7 +211,7 @@ function projectAxisDecorations(
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return
-  const color = style.stroke ?? DEFAULT_DRAWING_STROKE
+  const color = style.stroke
   const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
   const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
   const series = context.data

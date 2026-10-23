@@ -1,4 +1,7 @@
 /** 手绘与脚本共用的对象、坐标、样式和 Pine 风格 line API 契约。 */
+import type { Color } from './color.js'
+
+/** 线型：实线、虚线与箭头；手绘和 line API 共用。 */
 export const LineStyle = {
   /** @summary 实线 */
   style_solid: 'solid',
@@ -41,13 +44,16 @@ export const xloc = {
 } as const
 export type LineXLoc = (typeof xloc)[keyof typeof xloc]
 export type DrawingStyle = {
-  stroke?: string
+  /** 线条颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  stroke: Color | (string & {})
   strokeWidth?: number
   strokeStyle?: LineStyle
-  fill?: string
+  /** 填充颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  fill?: Color | (string & {})
   fillOpacity?: number
   pointRadius?: number
-  textColor?: string
+  /** 标签文字颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  textColor?: Color | (string & {})
   fontSize?: number
 }
 export type DrawingLabelPosition = 'start' | 'center' | 'end'
@@ -145,7 +151,7 @@ export interface LineFactory {
    * | `second_point` | 终点；规则同起点 |
    * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | CSS 颜色，默认 Color.Blue |
+   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
    * | `style` | 线型或箭头，默认 line.style_solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
@@ -158,7 +164,7 @@ export interface LineFactory {
     second_point: ChartPoint,
     xloc?: LineXLoc,
     extend?: LineExtend,
-    color?: string,
+    color?: Color | (string & {}),
     style?: LineStyle,
     width?: number,
   ): LineRef
@@ -174,7 +180,7 @@ export interface LineFactory {
    * | `y2` | 终点价格 |
    * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | CSS 颜色，默认 Color.Blue |
+   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
    * | `style` | 线型或箭头，默认 line.style_solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
@@ -189,7 +195,7 @@ export interface LineFactory {
     y2: number,
     xloc?: LineXLoc,
     extend?: LineExtend,
-    color?: string,
+    color?: Color | (string & {}),
     style?: LineStyle,
     width?: number,
   ): LineRef
@@ -263,10 +269,10 @@ export interface DrawingLineApi {
    */
   set_y2(id: LineRef, y: number): void
   /**
-   * 设置线段颜色，支持 CSS 颜色值。
+   * 设置线段颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。
    * @summary 设置颜色
    */
-  set_color(id: LineRef, color: string): void
+  set_color(id: LineRef, color: Color | (string & {})): void
   /**
    * 设置线型，包括实线、虚线和箭头。
    * @summary 设置线型
@@ -348,7 +354,7 @@ export interface DrawingObjectStore {
 export interface DrawingLineContext {
   readonly paneId: string
   readonly ownerId?: string
-  readonly defaultColor: string
+  readonly defaultColor: Color | (string & {})
   readonly maxLines: number
   /** 当前已执行的 K 线根数（bar_index + 1）；用于校验 bar_index 坐标的范围。 */
   readonly barCount: number

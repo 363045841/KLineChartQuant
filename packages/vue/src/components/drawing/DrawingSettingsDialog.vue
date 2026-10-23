@@ -88,7 +88,6 @@
 </template>
 
 <script setup lang="ts">
-  import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
   import type {
     DrawingLabelPosition,
     DrawingObject,
@@ -137,7 +136,7 @@
   const templateFields = computed(() => templateStyleFields(props.editableStyleKeys))
   const textTarget = computed(() => config.value.text[0] ?? null)
   function drawingColorValue(field: DrawingColorField): string {
-    return props.drawing.style[field] ?? props.drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
+    return props.drawing.style[field] ?? props.drawing.style.stroke
   }
   const tabs = computed(() => [
     { id: 'style' as const, label: '样式' },

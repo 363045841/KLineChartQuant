@@ -1,8 +1,8 @@
 /**
  * 脚本绘图的常用色；与 PlotKind / ShapeSize 一样是共享契约，由 Script 包生成成 VM 全局枚举。
  *
- * 这些是固定色值，不随主题变化。需要别的颜色时照旧在 `color` 里直接写 CSS 颜色字符串，
- * 契约的 `color?: string` 不因此收窄。
+ * 这些是固定色值，不随主题变化。图形颜色参数的类型是 `Color | (string & {})`：
+ * 常用色可用 `Color.Red`，需要别的颜色时照旧直接写 CSS 颜色字符串。
  */
 
 /**
@@ -53,4 +53,12 @@ export const Color = {
   White: '#ffffff',
   /** @summary 黑 */
   Black: '#000000',
-} satisfies Record<string, string>
+} as const satisfies Record<string, string>
+
+/**
+ * 常用色的字面量联合。
+ *
+ * 颜色参数的类型为 `Color | (string & {})`：既接受常用色，也接受任意 CSS 颜色值
+ * （包括 `Color.Teal + '80'` 这类带 alpha 的拼接结果）。
+ */
+export type Color = (typeof Color)[keyof typeof Color]

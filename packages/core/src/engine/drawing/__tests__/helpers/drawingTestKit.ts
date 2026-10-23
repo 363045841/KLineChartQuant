@@ -79,7 +79,6 @@ export function createFlatLineDrawing(overrides: Partial<DrawingObject> = {}): D
       { id: 'h1', type: 'point', time: 500, price: 60 },
       { id: 'h2', type: 'point', time: 1_000, price: 60 },
     ],
-    style: {},
     ...overrides,
   })
 }
@@ -97,7 +96,6 @@ export function createDisjointChannelDrawing(
       { id: 'p2', type: 'point', time: 1_000, price: 20 },
       { id: 'p3', type: 'point', time: 500, price: 60 },
     ],
-    style: {},
     ...overrides,
   })
 }
@@ -115,7 +113,6 @@ export function createParallelChannelDrawing(
       { id: 'c', type: 'point', time: 500, price: 60 },
       { id: 'd', type: 'point', time: 1_000, price: 100 },
     ],
-    style: {},
     ...overrides,
   })
 }

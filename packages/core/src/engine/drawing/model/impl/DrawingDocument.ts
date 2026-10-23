@@ -5,7 +5,7 @@ import { applyDrawingPatch, createDrawingObjectApi } from '@363045841yyt/klinech
 import type { TradingDate } from '@/data/provider/types.js'
 import { DRAWING_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch } from '@/foundation/reactivity/signal.js'
-import { DEFAULT_DRAWING_FILL_OPACITY, DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
+import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import type { DrawingDocumentSnapshot } from '../../history/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
@@ -55,16 +55,13 @@ export class DrawingDocument {
   /** 将公共图形服务绑定到 Kernel 仓库；用户选择和历史策略不进入公共图形层。 */
   constructor(private readonly dependencies: DrawingDocumentDependencies) {
     const state = dependencies.drawingState
-    this.objects = createDrawingObjectApi(
-      {
-        list: () => state.readonly.drawings.peek(),
-        replace: (drawings) => {
-          state.actions.commitDocument(drawings, state.readonly.selectedDrawingIds.peek())
-        },
-        nextId: () => `drawing-${generateUUID()}`,
+    this.objects = createDrawingObjectApi({
+      list: () => state.readonly.drawings.peek(),
+      replace: (drawings) => {
+        state.actions.commitDocument(drawings, state.readonly.selectedDrawingIds.peek())
       },
-      DEFAULT_DRAWING_STROKE,
-    )
+      nextId: () => `drawing-${generateUUID()}`,
+    })
   }
 
   /** 用户创建事务同时选择新图元；导入和历史恢复不隐式改变选择。 */

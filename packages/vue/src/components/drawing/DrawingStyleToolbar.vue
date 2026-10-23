@@ -1,9 +1,9 @@
 <template>
   <CanvasToolbar>
-    <BaseTooltip v-if="canEdit('stroke')" content="颜色" placement="top" trigger-display="contents">
+    <BaseTooltip v-if="style && canEdit('stroke')" content="颜色" placement="top" trigger-display="contents">
       <ColorPicker
         label="颜色"
-        :model-value="style.stroke ?? DEFAULT_DRAWING_STROKE"
+        :model-value="style.stroke"
         @update:model-value="onColorChange"
       />
     </BaseTooltip>
@@ -13,7 +13,7 @@
         trigger-class="control-button--sm"
         @select="(_groupId, value) => onWidthChange(Number(value))">
         <template #trigger>
-          <span class="selection-menu__value">{{ style.strokeWidth ?? 1 }}px</span>
+          <span class="selection-menu__value">{{ style?.strokeWidth ?? 1 }}px</span>
           <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
         </template>
       </DropMenu>
@@ -154,7 +154,6 @@
 </template>
 
 <script setup lang="ts">
-  import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
   import type {
     DrawingLabelPosition,
     DrawingObject,
@@ -236,7 +235,7 @@
   onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
   /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
-  const style = computed(() => props.drawings[0]?.style ?? {})
+  const style = computed(() => props.drawings[0]?.style ?? null)
   const widthGroups = computed<DropMenuGroup[]>(() => [
     {
       id: 'width',
@@ -244,7 +243,7 @@
       items: widthOptions.map((option) => ({
         id: option.value,
         label: option.label,
-        active: Number(option.value) === (style.value.strokeWidth ?? 1),
+        active: Number(option.value) === (style.value?.strokeWidth ?? 1),
       })),
     },
   ])
@@ -255,13 +254,13 @@
       items: styleOptions.map((option) => ({
         id: option.value,
         label: option.label,
-        active: option.value === (style.value.strokeStyle ?? 'solid'),
+        active: option.value === (style.value?.strokeStyle ?? 'solid'),
       })),
     },
   ])
   const selectedStyleLabel = computed(
     () =>
-      styleOptions.find((option) => option.value === (style.value.strokeStyle ?? 'solid'))?.label,
+      styleOptions.find((option) => option.value === (style.value?.strokeStyle ?? 'solid'))?.label,
   )
 
   /** 从菜单选项中解析线型，再提交类型明确的样式变更。 */

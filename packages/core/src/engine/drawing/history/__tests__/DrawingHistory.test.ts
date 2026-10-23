@@ -7,7 +7,12 @@ function fixture() {
 }
 
 function addLine(commands: ReturnType<typeof fixture>['commands'], price = 10) {
-  return commands.create({ kind: 'horizontal-line', paneId: 'main', anchors: [{ price }] })
+  return commands.create({
+    kind: 'horizontal-line',
+    paneId: 'main',
+    anchors: [{ price }],
+    style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
+  })
 }
 
 describe('drawing history', () => {

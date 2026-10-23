@@ -37,6 +37,7 @@ describe('DrawingInteractionController placement', () => {
         { timestamp: 500, price: 100 },
         { timestamp: 1_500, price: 120 },
       ],
+      style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
     })
   })
 
@@ -58,6 +59,7 @@ describe('DrawingInteractionController placement', () => {
       kind: 'vertical-line',
       paneId: 'main',
       anchors: [{ timestamp: 1, futureOffset: 3, price: 10 }],
+      style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
     })
   })
 
@@ -217,6 +219,7 @@ describe('DrawingInteractionController horizontal anchors', () => {
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
+      style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
     })
   })
 })

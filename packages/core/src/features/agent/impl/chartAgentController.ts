@@ -171,6 +171,19 @@ const DrawingStyleToolParameters = Type.Partial(
     fontSize: Type.Number({ exclusiveMinimum: 0 }),
   }),
 )
+/** 创建时的完整样式：stroke 必填，其余字段按需覆盖；更新 patch 仍沿用可选样式。 */
+const DrawingCreateStyleToolParameters = Type.Object({
+  stroke: AgentDrawingColorToolParameter,
+  strokeWidth: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+  strokeStyle: Type.Optional(
+    Type.Union([Type.Literal('solid'), Type.Literal('dashed'), Type.Literal('dotted')]),
+  ),
+  fill: Type.Optional(AgentDrawingColorToolParameter),
+  fillOpacity: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+  pointRadius: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+  textColor: Type.Optional(AgentDrawingColorToolParameter),
+  fontSize: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+})
 const DrawingLabelToolParameters = Type.Object(
   {
     text: Type.String({ description: '标签文本。使用字面量 \\n 作为唯一换行控制码。' }),
@@ -195,7 +208,7 @@ const DrawingCreateToolParameters = Type.Object({
   kind: DrawingKindToolParameter,
   paneId: Type.String({ minLength: 1 }),
   anchors: Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 }),
-  style: Type.Optional(DrawingStyleToolParameters),
+  style: DrawingCreateStyleToolParameters,
   labels: Type.Optional(DrawingLabelsToolParameters),
   visible: Type.Optional(Type.Boolean()),
   locked: Type.Optional(Type.Boolean()),

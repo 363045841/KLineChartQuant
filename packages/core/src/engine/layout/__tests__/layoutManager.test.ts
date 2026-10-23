@@ -106,7 +106,7 @@ function createDrawing(): DrawingObject {
       { id: 'end', type: 'point', time: 1_700_086_400_000, price: 12 },
     ],
     params: {},
-    style: {},
+    style: { stroke: '#2962ff' },
   }
 }
 

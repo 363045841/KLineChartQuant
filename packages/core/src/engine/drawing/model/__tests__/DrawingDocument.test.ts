@@ -4,11 +4,15 @@ import { describe, expect, it } from 'vitest'
 import { createDrawingDocumentFixture as createDocument } from '../../__tests__/helpers/drawingDocumentFixture'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 
+/** 文档创建用例共用的完整样式；颜色由调用方在上游给出，文档层不补默认。 */
+const CREATE_DRAWING_STYLE = { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' } as const
+
 describe('DrawingDocument', () => {
   it('creates a horizontal line from price without requiring chart data at an anchor time', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 9 }],
@@ -21,6 +25,7 @@ describe('DrawingDocument', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'parallel-channel',
       paneId: 'main',
       anchors: [
@@ -43,6 +48,7 @@ describe('DrawingDocument', () => {
     const { state, document } = createDocument()
 
     const first = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 9 }],
@@ -50,6 +56,7 @@ describe('DrawingDocument', () => {
     expect(state.readonly.selectedDrawingIds.peek()).toEqual([first.id])
 
     const second = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
@@ -61,6 +68,7 @@ describe('DrawingDocument', () => {
     const { state, document } = createDocument()
 
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -82,6 +90,7 @@ describe('DrawingDocument', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -97,6 +106,7 @@ describe('DrawingDocument', () => {
   it('normalizes label newlines when updating and importing drawings', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -124,6 +134,7 @@ describe('DrawingDocument', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -138,6 +149,7 @@ describe('DrawingDocument', () => {
   it('creates a drawing from trading-date anchors using the stored bar timestamp', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -155,6 +167,7 @@ describe('DrawingDocument', () => {
   it('updates a drawing by id without replacing unrelated drawings', () => {
     const { document } = createDocument()
     const first = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -163,6 +176,7 @@ describe('DrawingDocument', () => {
       ],
     })
     const second = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'ray',
       paneId: 'main',
       anchors: [
@@ -185,6 +199,7 @@ describe('DrawingDocument', () => {
 
     expect(() =>
       document.createDrawing({
+        style: CREATE_DRAWING_STYLE,
         kind: 'trend-line',
         paneId: 'main',
         anchors: [{ timestamp: 1_000, price: 10 }],
@@ -192,6 +207,7 @@ describe('DrawingDocument', () => {
     ).toThrow('requires exactly 2 anchors')
     expect(() =>
       document.createDrawing({
+        style: CREATE_DRAWING_STYLE,
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
@@ -202,6 +218,7 @@ describe('DrawingDocument', () => {
     ).toThrow('No chart data exists')
     expect(() =>
       document.createDrawing({
+        style: CREATE_DRAWING_STYLE,
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
@@ -218,6 +235,7 @@ describe('DrawingDocument', () => {
 
     expect(() =>
       document.createDrawing({
+        style: CREATE_DRAWING_STYLE,
         kind: 'horizontal-line',
         paneId: 'unknown',
         anchors: [{ timestamp: 1_000, price: 10 }],
@@ -228,6 +246,7 @@ describe('DrawingDocument', () => {
   it('removes selected drawings atomically', () => {
     const { state, document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ timestamp: 1_000, price: 10 }],
@@ -242,6 +261,7 @@ describe('DrawingDocument', () => {
   it('commits multiple drag updates atomically', () => {
     const { document } = createDocument()
     const first = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -250,6 +270,7 @@ describe('DrawingDocument', () => {
       ],
     })
     const second = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
@@ -362,11 +383,13 @@ describe('DrawingDocument', () => {
   it('removes a batch and clears every removed id from the selection', () => {
     const { state, document } = createDocument()
     const first = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
     })
     const second = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 11 }],
@@ -381,6 +404,7 @@ describe('DrawingDocument', () => {
   it('commits resolved drag anchors without converting them through the external input model', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
@@ -393,6 +417,7 @@ describe('DrawingDocument', () => {
   it('locks only anchor changes, drag and removal while keeping every other edit writable', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
@@ -432,11 +457,13 @@ describe('DrawingDocument', () => {
   it('updates locked targets together with the rest in a batch', () => {
     const { document } = createDocument()
     const locked = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
     })
     const free = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 11 }],
@@ -453,6 +480,7 @@ describe('DrawingDocument', () => {
   it('global lock freezes movement without touching each drawing own locked or blocking removal', () => {
     const { state, document } = createDocument()
     const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
       kind: 'horizontal-line',
       paneId: 'main',
       anchors: [{ price: 10 }],
@@ -498,7 +526,7 @@ describe('DrawingDocument', () => {
         visible: true,
         anchors: [],
         params: {},
-        style: {},
+        style: { stroke: '#2962ff' },
       },
     ])
 

@@ -39,6 +39,7 @@ declare function __count(): number
 type DrawingObject = import('@363045841yyt/klinechart-plot-contracts').DrawingObject
 type DrawingLineApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLineApi
 type ChartPoint = import('@363045841yyt/klinechart-plot-contracts').ChartPoint
+type ScriptColor = import('@363045841yyt/klinechart-plot-contracts').Color
 declare const createDrawingLineApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingLineApi
 
 /** 宿主注入：上报当前 K 线的绘图点。 */
@@ -68,7 +69,7 @@ type ScriptFillOptions = import('../../editor/types.js').ScriptFillOptions
 declare function __fill(
   from: string,
   to: string,
-  color: string | null,
+  color: ScriptColor | (string & {}) | null,
   title?: string,
   options?: ScriptFillOptions,
 ): void

@@ -51,6 +51,28 @@ describe('共享脚本语义会话', () => {
     expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2345]))
   })
 
+  it('颜色参数在类型上接受 Color 枚举，同时保留任意 CSS 颜色', () => {
+    const session = createScriptLanguageSession()
+    const source = `defineIndicator({ name: 'ColorApi', position: Position.Main, onBar() {
+      const id = line.new(bar_index, close[0], bar_index + 1, high[0], xloc.bar_index, extend.none, Color.Red)
+      line.set_color(id, Color.Green)
+      const lineRef = plot.Line(close[0], 'line', { color: Color.Teal + '80', textColor: Color.Gray })
+      plot.Candle(open, high, low, close, 'candles', { color: null, wickColor: Color.Gray, borderColor: '#123456' })
+      plot.Arrow(close[1] - close[0], 'arrow', { colorUp: Color.Green, colorDown: Color.Red })
+      fill(lineRef, plot.Line(close[0], 'other'), Color.Blue)
+    } })`
+    const conversion = session.updateSource(source)
+    expect(diagnosticCodes(session)).toEqual([])
+
+    // 类型提示必须点出 Color 枚举，而不是退化成 string。
+    const quickInfo = session.environment.languageService.getQuickInfoAtPosition(
+      SCRIPT_SOURCE_FILE,
+      conversion.toGenerated(source.indexOf('color: Color.Teal')),
+    )
+    const display = (quickInfo?.displayParts ?? []).map((part) => part.text).join('')
+    expect(display).toContain('Color | (string & {})')
+  })
+
   it('title 是 defineIndicator 的合法展示名', () => {
     const session = createScriptLanguageSession()
     session.updateSource(

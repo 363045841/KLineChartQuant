@@ -24,6 +24,10 @@ line 对象显式保存 xloc，坐标解析按坐标语义分派，不按指标�
 
 ownerId 存在即禁用选择、锚点、拖拽、框选和标签编辑。用户文档、持久化与撤销只管理用户对象，指标重算不写入用户历史。locked 保留用户绘图的移动锁定语义。
 
+## 颜色与默认值归属
+
+颜色由创建入口决定一次：脚本 `line.new` 使用 `Color.Blue`，手绘工具在 `drawingToolStyle()` 给出完整样式，Plot 在 `PlotCollector` 补齐默认色。`DrawingStyle.stroke` 是必需字段，`DrawingObjectInput`、`CreateDrawingInput` 与 `DrawingPrimitive` 都必须携带完整样式；公共对象服务、文档模型、帧投影和 renderer 直接读取，不存在第二套默认色或绘制期回退。`fill` / `textColor` 保留为显式覆盖，缺省跟随 `stroke`，这是模型语义而不是默认值。
+
 ## 执行与限额
 
 line.all 按创建顺序提供只读引用快照。默认保留 50 条，通过 max_lines_count 配置到 500；超限回收最旧对象。重复删除无操作，已删除对象数值读取返回 NaN。get_price 只接受 bar_index，按无限直线计算，与 extend 无关；垂直线返回 NaN。

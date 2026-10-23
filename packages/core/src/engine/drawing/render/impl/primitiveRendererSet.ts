@@ -1,7 +1,7 @@
 /** drawing 投影到公共屏幕原语；不持有 Canvas 状态或后端资源。 */
 import { type Point, pointInRect } from '@/foundation/geometry/index.js'
 import { type DrawingStyle, POINT_ROLE } from '@/foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
+import { DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
 import { paintCanvasPrimitives } from '@/rendering/primitives/impl/canvas.js'
 import type { PaintPrimitive, PrimitiveSink } from '@/rendering/primitives/types.js'
 import {
@@ -13,9 +13,19 @@ import { resolveAreaLabelLayout, resolveLineLabelLayout } from '../../geometry/i
 import { extendLineToViewport } from '../../geometry/impl/lineClipping.js'
 import type { PrimitiveRendererSet } from '../types.js'
 
+/** 填充色是显式覆盖；未设置时跟随主描边色。 */
+function inheritedFill(style: DrawingStyle): string {
+  return style.fill ?? style.stroke
+}
+
+/** 文字色是显式覆盖；未设置时跟随主描边色。 */
+function inheritedTextColor(style: DrawingStyle): string {
+  return style.textColor ?? style.stroke
+}
+
 /** 图元线型只作用于线身，锚点和箭头翼保持实线。 */
-function line(a: Point, b: Point, style: DrawingStyle | undefined, dpr: number): PaintPrimitive {
-  const width = style?.strokeWidth ?? 1
+function line(a: Point, b: Point, style: DrawingStyle, dpr: number): PaintPrimitive {
+  const width = style.strokeWidth ?? 1
   const align = width <= 1 ? 0.5 / dpr : 0
   return {
     kind: 'stroke',
@@ -25,23 +35,18 @@ function line(a: Point, b: Point, style: DrawingStyle | undefined, dpr: number):
         { x: b.x + align, y: b.y + align },
       ],
     ],
-    color: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    color: style.stroke,
     width,
-    dash: style?.strokeStyle === 'dashed' ? [6, 4] : style?.strokeStyle === 'dotted' ? [2, 3] : [],
+    dash: style.strokeStyle === 'dashed' ? [6, 4] : style.strokeStyle === 'dotted' ? [2, 3] : [],
   }
 }
 
 /** 锚点的填充与描边作为同一实例提交，多个选中对象共享基础形状批次。 */
-function anchor(
-  point: Point,
-  style: DrawingStyle | undefined,
-  dpr: number,
-  handle = false,
-): PaintPrimitive[] {
-  const radius = Math.max(style?.pointRadius ?? 4, 1 / dpr)
+function anchor(point: Point, style: DrawingStyle, dpr: number, handle = false): PaintPrimitive[] {
+  const radius = Math.max(style.pointRadius ?? 4, 1 / dpr)
   const paint = {
     color: DRAWING_ANCHOR_FILL,
-    strokeColor: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    strokeColor: style.stroke,
     strokeWidth: 1,
   }
   return [
@@ -64,13 +69,13 @@ function text(
   value: string,
   x: number,
   y: number,
-  style: DrawingStyle | undefined,
+  style: DrawingStyle,
   align: CanvasTextAlign,
   baseline: CanvasTextBaseline,
   rotation?: number,
 ): PaintPrimitive[] {
   const lines = value.split('\\n')
-  const size = style?.fontSize ?? 12,
+  const size = style.fontSize ?? 12,
     lineHeight = size * 1.2,
     height = lines.length * lineHeight
   const top = baseline === 'top' ? 0 : baseline === 'middle' ? -height / 2 : -height
@@ -82,7 +87,7 @@ function text(
       x,
       y: rotation === undefined ? y + offset : y,
       font: `${size}px sans-serif`,
-      color: style?.textColor ?? style?.stroke ?? DEFAULT_DRAWING_STROKE,
+      color: inheritedTextColor(style),
       align,
       baseline: 'top',
       rotation,
@@ -101,7 +106,7 @@ function lineText(
     align?: CanvasTextAlign
     baseline?: CanvasTextBaseline
   },
-  style?: DrawingStyle,
+  style: DrawingStyle,
 ): PaintPrimitive[] {
   const layout = resolveLineLabelLayout(a, b, attachment.position)
   return text(
@@ -116,11 +121,11 @@ function lineText(
 }
 
 /** 以尖端为中心产生开放箭头翼。 */
-function wing(point: Point, angle: number, length: number, style?: DrawingStyle): PaintPrimitive {
+function wing(point: Point, angle: number, length: number, style: DrawingStyle): PaintPrimitive {
   return {
     kind: 'stroke',
-    width: style?.strokeWidth ?? 1,
-    color: style?.stroke ?? DEFAULT_DRAWING_STROKE,
+    width: style.strokeWidth ?? 1,
+    color: style.stroke,
     paths: [
       [
         {
@@ -168,8 +173,8 @@ export function createDefaultPrimitiveRendererSet(
       const commands = [line(clipped.a, clipped.b, primitive.style, dpr)]
       if (primitive.text)
         commands.push(...lineText(primitive.a, primitive.b, primitive.text, primitive.style))
-      const style = primitive.style?.strokeStyle
-      const length = Math.max(8, (primitive.style?.strokeWidth ?? 1) * 3)
+      const style = primitive.style.strokeStyle
+      const length = Math.max(8, (primitive.style.strokeWidth ?? 1) * 3)
       const { angle } = arrowHead(clipped.a, clipped.b, length)
       if (style === 'arrow_left' || style === 'arrow_both')
         commands.push(wing(clipped.a, angle + Math.PI, length, primitive.style))
@@ -187,8 +192,8 @@ export function createDefaultPrimitiveRendererSet(
         {
           kind: 'fill',
           paths: [primitive.points],
-          color: primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE,
-          opacity: primitive.style?.fillOpacity ?? 1,
+          color: inheritedFill(primitive.style),
+          opacity: primitive.style.fillOpacity ?? 1,
         },
       ]
       if (primitive.text) {
@@ -238,7 +243,7 @@ export function createDefaultPrimitiveRendererSet(
         {
           kind: 'fill',
           paths: [[primitive.end, head.left, head.right]],
-          color: primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE,
+          color: inheritedFill(primitive.style),
         },
       ]
       if (primitive.text)

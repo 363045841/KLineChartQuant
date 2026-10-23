@@ -75,7 +75,7 @@ function emitPlot(
 function fill(
   from: PlotRef,
   to: PlotRef,
-  color: string | null,
+  color: ScriptColor | (string & {}) | null,
   title?: string,
   options?: ScriptFillOptions,
 ): void {
@@ -176,7 +176,12 @@ function defineIndicator(definition: ScriptIndicatorDeclaration): void {
   if (__definition) throw new TypeError('每个脚本文件只能声明一个指标')
   if (!definition || typeof definition.onBar !== 'function')
     throw new TypeError('指标需要 onBar 函数')
-  if (definition.max_lines_count !== undefined && (!Number.isInteger(definition.max_lines_count) || definition.max_lines_count < 1 || definition.max_lines_count > 500))
+  if (
+    definition.max_lines_count !== undefined &&
+    (!Number.isInteger(definition.max_lines_count) ||
+      definition.max_lines_count < 1 ||
+      definition.max_lines_count > 500)
+  )
     throw new RangeError('max_lines_count 必须是 1..500 的整数')
   __definition = definition
 }

@@ -2,8 +2,6 @@
  * 绘图模板与图元之间的映射：可保存字段解析、模板抓取与应用。
  */
 
-import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
-
 import type { DrawingStyleKey } from '../../model/types.js'
 import type { DrawingObject } from '../../types.js'
 import type { DrawingTemplate, TemplateStyle, TemplateStyleKey } from '../types.js'
@@ -27,9 +25,8 @@ export function captureTemplateStyle(
   fields: ReadonlyArray<TemplateStyleKey>,
 ): TemplateStyle {
   const style: TemplateStyle = {}
-  if (fields.includes('stroke')) style.stroke = drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
-  if (fields.includes('fill'))
-    style.fill = drawing.style.fill ?? drawing.style.stroke ?? DEFAULT_DRAWING_STROKE
+  if (fields.includes('stroke')) style.stroke = drawing.style.stroke
+  if (fields.includes('fill')) style.fill = drawing.style.fill ?? drawing.style.stroke
   if (fields.includes('strokeWidth') && drawing.style.strokeWidth !== undefined)
     style.strokeWidth = drawing.style.strokeWidth
   if (fields.includes('strokeStyle') && drawing.style.strokeStyle !== undefined)

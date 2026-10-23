@@ -50,7 +50,7 @@ declare enum Color {
   Black = "#000000",
 }
 
-/** 手绘与脚本共用的对象、坐标、样式和 Pine 风格 line API 契约。 */
+/** 线型：实线、虚线与箭头；手绘和 line API 共用。 */
 declare enum LineStyle {
   /** @summary 实线 */
   style_solid = "solid",

@@ -1,5 +1,7 @@
 /** 标记 Plot 的形状、位置、尺寸和方向样式；宿主、VM 与编辑器共用契约。 */
 
+import type { Color } from './color.js'
+
 export type ShapeStyle =
   | 'xcross'
   | 'cross'
@@ -106,8 +108,8 @@ export interface MarkerOptions {
   readonly location?: ShapeLocation
   /** 标记旁的附加文字；不填则不显示附加文字。 */
   readonly text?: string
-  /** 标记附加文字的颜色，支持 CSS 颜色值；默认与图形颜色一致。 */
-  readonly textColor?: string
+  /** 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 */
+  readonly textColor?: Color | (string & {})
 }
 
 /** 固定形状标记的专属样式。 */
@@ -124,10 +126,10 @@ export interface CharOptions extends MarkerOptions {
 
 /** 数值箭头的方向颜色；箭头长度由 Plot 公共的 size 决定。 */
 export interface ArrowOptions {
-  /** 正值向上箭头的颜色，支持 CSS 颜色值；默认使用 color。 */
-  readonly colorUp?: string
-  /** 负值向下箭头的颜色，支持 CSS 颜色值；默认使用 color。 */
-  readonly colorDown?: string
+  /** 正值向上箭头的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认使用 color。 */
+  readonly colorUp?: Color | (string & {})
+  /** 负值向下箭头的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认使用 color。 */
+  readonly colorDown?: Color | (string & {})
 }
 
 /** 校验跨 VM 边界的形状枚举。 */

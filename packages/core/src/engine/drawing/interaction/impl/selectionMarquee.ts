@@ -1,6 +1,7 @@
 /** 绘图框选会话的几何命中与临时 primitive 投影。 */
-import type { DrawingViewportPort } from '@/controllers/types.js'
+
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
+import type { DrawingViewportPort } from '@/controllers/types.js'
 import { rectFromPoints, segmentIntersectsRect } from '@/foundation/geometry/index.js'
 import type { DrawingPrimitive } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -38,7 +39,7 @@ export function createSelectionMarqueePrimitives(
       kind: 'area',
       points: [topLeft, topRight, bottomRight, bottomLeft],
       closed: true,
-      style: { fill: colors.selectionFill, fillOpacity: 0.15 },
+      style: { stroke: colors.selectionStroke, fill: colors.selectionFill, fillOpacity: 0.15 },
     },
     { kind: 'line', a: topLeft, b: topRight, style: borderStyle },
     { kind: 'line', a: topRight, b: bottomRight, style: borderStyle },

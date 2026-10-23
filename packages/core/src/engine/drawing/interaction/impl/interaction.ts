@@ -26,6 +26,7 @@ import type {
 import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types.js'
 import { AnchorCollector } from './AnchorCollector.js'
 import { DragHandler } from './DragHandler.js'
+import { drawingToolStyle } from './drawingToolStyle.js'
 import { HitTester } from './HitTester.js'
 import { PreviewRenderer } from './PreviewRenderer.js'
 import { drawingIntersectsSelectionMarquee, hasSelectionMarqueeArea } from './selectionMarquee.js'
@@ -507,10 +508,11 @@ export class DrawingInteractionController {
           ? { price: anchor.price }
           : {
               timestamp: anchor.time,
-              futureOffset: anchor.futureOffset,
+              ...(anchor.futureOffset === undefined ? {} : { futureOffset: anchor.futureOffset }),
               price: anchor.price,
             },
       ),
+      style: drawingToolStyle(),
     })
   }
 }

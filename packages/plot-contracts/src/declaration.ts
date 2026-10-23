@@ -4,6 +4,7 @@
  * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
+import type { Color } from './color.js'
 import type { Format } from './format.js'
 import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape.js'
 
@@ -11,12 +12,12 @@ import type { ArrowOptions, CharOptions, ShapeOptions, ShapeSize } from './shape
 export interface PlotStyleBase {
   /** 图例名称；不填则取 name。 */
   readonly label?: string
-  /** 图形颜色，支持 CSS 颜色值；可为每根 K 线设置不同颜色。 */
-  readonly color?: string
+  /** 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 */
+  readonly color?: Color | (string & {})
   /** 数值格式档位；缺省继承指标级 format，用于图例数值显示。 */
   readonly format?: Format
-  /** 标记附加文字的颜色，支持 CSS 颜色值；默认与图形颜色一致。 */
-  readonly textColor?: string
+  /** 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 */
+  readonly textColor?: Color | (string & {})
   /** 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 */
   readonly offset?: number
   /** 是否显示图形；不填则显示。 */
@@ -118,15 +119,18 @@ export interface OhlcPlotOptions {
   readonly visible?: boolean
   readonly offset?: number
   readonly showLast?: number
-  readonly color?: string | null
+  /** 实体颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。 */
+  readonly color?: Color | (string & {}) | null
   /** 数值格式档位；缺省继承指标级 format，用于图例数值显示。 */
   readonly format?: Format
 }
 
 /** 蜡烛实体、影线和边框可独立着色。 */
 export interface CandlePlotOptions extends OhlcPlotOptions {
-  readonly wickColor?: string | null
-  readonly borderColor?: string | null
+  /** 影线颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。 */
+  readonly wickColor?: Color | (string & {}) | null
+  /** 边框颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。 */
+  readonly borderColor?: Color | (string & {}) | null
 }
 
 /** 美国线的竖线和左右短横线共用颜色。 */
@@ -162,8 +166,8 @@ export interface PlotFillDeclaration {
   readonly from: string
   /** 结束 Plot 的 name。 */
   readonly to: string
-  /** 当前 bar 的 CSS 颜色，透明度由颜色携带；null 表示不填充。 */
-  readonly color: string | null
+  /** 当前 bar 的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，透明度由颜色携带；null 表示不填充。 */
+  readonly color: Color | (string & {}) | null
   /** 是否显示填充；不填则显示。 */
   readonly visible?: boolean
 }

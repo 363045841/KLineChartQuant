@@ -1,23 +1,19 @@
 /** 公共图形构造入口：手绘文档和脚本 API 统一补齐对象与样式。 */
-import type { DrawingObject, DrawingObjectStore, DrawingPatch } from './drawing.js'
+import type { DrawingObject, DrawingObjectStore, DrawingPatch, DrawingStyle } from './drawing.js'
 
-/** 对象构造输入；所有默认值只在公共对象服务补齐。 */
+/** 对象构造输入；可见性、参数与样式由调用方在上游给全，构造层不补默认值。 */
 export type DrawingObjectInput = Omit<DrawingObject, 'visible' | 'params' | 'style'> & {
   readonly visible?: boolean
   readonly params?: Record<string, unknown>
-  readonly style?: DrawingObject['style']
+  readonly style: DrawingStyle
 }
 
 /** 复制调用方的锚点和样式，避免图形模型持有可变输入引用。 */
-export function createDrawingObject(
-  input: DrawingObjectInput,
-  defaultColor: string,
-): DrawingObject {
+export function createDrawingObject(input: DrawingObjectInput): DrawingObject {
   return snapshotDrawingObject({
     ...input,
     visible: input.visible ?? true,
     params: input.params ?? {},
-    style: { stroke: defaultColor, strokeWidth: 1, strokeStyle: 'solid', ...input.style },
   })
 }
 
@@ -72,7 +68,7 @@ function cloneDrawingValue(value: unknown): unknown {
 }
 
 /** 图形操作的唯一入口；选择、历史和实例生命周期由仓库所属的应用层管理。 */
-export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: string) {
+export function createDrawingObjectApi(store: DrawingObjectStore) {
   /** 查询当前唯一状态源。 */
   function get(id: string): DrawingObject | undefined {
     return store.list().find((drawing) => drawing.id === id)
@@ -89,7 +85,7 @@ export function createDrawingObjectApi(store: DrawingObjectStore, defaultColor: 
     const drawings = inputs.map((input) => {
       if (ids.has(input.id)) throw new TypeError(`Duplicate drawing ID: ${input.id}`)
       ids.add(input.id)
-      return createDrawingObject(input, defaultColor)
+      return createDrawingObject(input)
     })
     store.replace([...current, ...drawings])
     return store.list().slice(-drawings.length)

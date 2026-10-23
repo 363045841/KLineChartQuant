@@ -501,6 +501,7 @@ describe('createChartAgentController', () => {
           { tradingDate: '2026-09-01', price: 10 },
           { tradingDate: '2026-09-02', price: 12 },
         ],
+        style: { stroke: AGENT_DRAWING_COLOR_VALUES[0] },
         labels: { line: { 0: { text: '初始趋势', position: 'center' } }, area: {} },
       },
       { signal, progress: () => undefined },
@@ -564,7 +565,12 @@ describe('createChartAgentController', () => {
     await expect(
       create.execute(
         fixture.controller,
-        { kind: 'horizontal-line', paneId: 'main', anchors: [{ price: 9 }] },
+        {
+          kind: 'horizontal-line',
+          paneId: 'main',
+          anchors: [{ price: 9 }],
+          style: { stroke: AGENT_DRAWING_COLOR_VALUES[0] },
+        },
         { signal, progress: () => undefined },
       ),
     ).resolves.toMatchObject({ kind: 'horizontal-line', anchors: [{ timestamp: null, price: 9 }] })

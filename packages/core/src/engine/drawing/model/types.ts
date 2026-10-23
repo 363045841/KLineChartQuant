@@ -48,7 +48,8 @@ export interface CreateDrawingInput {
   readonly kind: DrawingKind
   readonly paneId: string
   readonly anchors: ReadonlyArray<DrawingAnchorCommandInput>
-  readonly style?: Partial<DrawingStyle>
+  /** 完整样式；颜色等取值由调用方（工具或脚本 API）在上游决定。 */
+  readonly style: DrawingStyle
   readonly params?: Readonly<Record<string, unknown>>
   readonly labels?: DrawingLabels
   readonly visible?: boolean
