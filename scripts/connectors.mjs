@@ -3,9 +3,8 @@
  *
  * 数据源后端（connector）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connector.mjs` 复用。
  * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、mt5（别名 m）、
- * ths（别名 t）、all（全部）。
- * `all` 不含 mt5 与 ths：前者依赖 Windows + 已登录的 MT5 (Exness) 终端，
- * 后者依赖同花顺 API Key，均仅显式启动。
+ * ths（别名 t）、ctp、all（全部）。
+ * `all` 不含 mt5、ths 与 ctp：这些后端需要本地终端或显式账号配置。
  */
 
 import { spawn } from 'node:child_process'
@@ -64,6 +63,18 @@ const CONNECTORS = {
     // 未配置时 probe 返回 degraded；故不纳入 `all`，仅显式启动
     includeInAll: false,
   },
+  ctp: {
+    label: 'ctp（SimNow / OpenCTP 连接诊断与原始行情录制，:8093）',
+    logLabel: 'ctp',
+    logColor: LOG_COLORS.ctp,
+    dir: 'KCQ-CTP-connector',
+    cmd: 'uv',
+    args: ['run', '--frozen', '--no-sync', 'python', './server.py'],
+    // 需要本地账号及原生库；当前阶段仅诊断和录制，不声明 K 线能力。
+    includeInAll: false,
+    installHint:
+      '请先运行 pnpm setup:backends 克隆 KCQ-CTP-connector，再在该目录执行 uv sync --frozen --link-mode copy',
+  },
 }
 
 const CONNECTOR_NAMES = Object.keys(CONNECTORS)
@@ -86,6 +97,7 @@ const ALIASES = {
   m: 'mt5',
   ths: 'ths',
   t: 'ths',
+  ctp: 'ctp',
 }
 
 // 解析用户输入的名称列表，返回去重后的标准 connector 名称数组
@@ -100,7 +112,7 @@ function resolveConnectors(names) {
     const target = ALIASES[key]
     if (!target) {
       console.error(
-        `  ✗ 未知 connector：${raw}（可用：gotdx / binance / baostock / mt5 / ths / all）`,
+        `  ✗ 未知 connector：${raw}（可用：${[...CONNECTOR_NAMES, 'all'].join(' / ')}）`,
       )
       continue
     }
@@ -116,7 +128,10 @@ export function startConnectors(names) {
     const conn = CONNECTORS[name]
     const cwd = path.join(PARENT, conn.dir)
     if (!fs.existsSync(cwd)) {
-      console.error(`  ✗ 未找到 ${conn.dir}，请先运行 pnpm setup:backends 克隆数据源后端`)
+      const hint = conn.installHint
+        ? conn.installHint
+        : '请先运行 pnpm setup:backends 克隆数据源后端'
+      console.error(`  ✗ 未找到 ${conn.dir}，${hint}`)
       continue
     }
     console.log(`  • 启动 ${conn.label}（${cwd}）`)

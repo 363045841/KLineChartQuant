@@ -181,6 +181,12 @@ KLineChart requires a market data backend. Supported data sources:
 
 Backend repos live alongside this one (outside the monorepo).
 
+CTP is available as an explicit **connection diagnostic and raw snapshot recorder**:
+`pnpm connector ctp` / `pnpm dev -c ctp` (port 8093, local credentials required).
+`pnpm setup:backends` clones the sibling [KCQ-CTP-connector](https://github.com/TsekaLuk/KCQ-CTP-connector).
+Run `uv sync --frozen --link-mode copy` in its directory before starting it; CTP is excluded from `all`.
+Offline checks require no account. Upstream login and chart bars remain unverified. See [CTP setup](../../docs/data-sources/ctp.zh-CN.md).
+
 ### One-Command Dev Startup
 
 Clone the data-source backends first (idempotent: skips directories that already exist):
@@ -193,7 +199,7 @@ Then run `pnpm dev` with a `-c` argument to start the frontend and the selected 
 
 ```bash
 pnpm dev                      # frontend only (Vite dev server)
-pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 / ths excluded)
+pnpm dev -c all               # frontend + all backends (gotdx + binance + baostock; mt5 / ths / ctp excluded)
 pnpm dev -c gotdx baostock    # frontend + selected backends
 pnpm dev -c mt5               # frontend + MT5 local terminal (Windows + logged-in MT5 terminal)
 pnpm dev -c ths               # frontend + THS daily bars (needs THS_API_KEY or ths.api_key in config.json)
@@ -213,14 +219,14 @@ pnpm dev:ths                  # frontend + THS daily bars
 pnpm dev:lan:all              # frontend (0.0.0.0) + all backends
 ```
 
-Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, `[mt5]`, and `[ths]`.
+Parallel process logs stay in one terminal and are separated by colored source prefixes: `[vite]`, `[gotdx]`, `[binance]`, `[baostock]`, `[mt5]`, `[ths]`, and `[ctp]`.
 
 In Windows PowerShell, run `node scripts/dev.mjs -c gotdx` (or use the other `-c` arguments above) to finish shutdown logs before the next prompt after Ctrl+C. `pnpm dev` adds a pnpm process that also receives Ctrl+C; the child script cannot control when pnpm prints `[ELIFECYCLE]`.
 
 Backend only (no frontend):
 
 ```bash
-pnpm connector                # all backends (mt5 / ths excluded)
+pnpm connector                # all backends (mt5 / ths / ctp excluded)
 pnpm connector gotdx          # gotdx (Tongdaxin) :8080
 pnpm connector binance        # binance (Binance spot K-line & trades) :8091
 pnpm connector baostock       # BaoStock / TradingView :8000
@@ -230,7 +236,7 @@ pnpm connector ths            # THS daily bars :8092 (needs THS_API_KEY or ths.a
 
 For backend only with the same shutdown ordering, run `node scripts/start-connector.mjs gotdx`.
 
-After `pnpm setup:backends`, no extra setup is needed. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
+CTP requires the explicit dependency setup described above. The dev server proxies `/api/stock` → `:8000` (Baostock-Tradingview-Connector) and `/api/public` → `:8080` (GoTDX-Connector).
 
 
 ## 🚀 Quick Start

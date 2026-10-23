@@ -16,6 +16,7 @@ export const LOG_COLORS = {
   baostock: ANSI.cyan,
   mt5: ANSI.blue,
   ths: ANSI.softGreen,
+  ctp: ANSI.cyan,
 }
 
 /** 根据输出环境生成固定宽度前缀，非 TTY 或 NO_COLOR 环境自动禁用颜色。 */
