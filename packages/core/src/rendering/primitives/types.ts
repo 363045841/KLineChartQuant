@@ -135,3 +135,14 @@ export type PrimitivePaint = (
   dpr: number,
   transform?: DataTransform,
 ) => void
+
+/** 单个绘制目标的合批契约：图层只提交原语，上屏时机由合成器决定。 */
+export interface PrimitiveComposer {
+  /**
+   * 唯一提交入口：目标已由 Scene 绑定，图层不能另行选择输出画布。
+   * 纯增量图层与仍持有 ctx 的图层共用同一形状，避免两种调用约定并存。
+   */
+  readonly submit: PrimitivePaint
+  /** 立即合成待提交内容；Scene 在帧末与非合批层前后调用。 */
+  flush(): void
+}

@@ -7,9 +7,9 @@
 import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
-import { createPrimitiveComposer, type PrimitiveComposer } from '../primitives/impl/composer.js'
+import { createPrimitiveComposer } from '../primitives/impl/composer.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
-import type { PaintPrimitive, PrimitiveSurface } from '../primitives/types.js'
+import type { PaintPrimitive, PrimitiveComposer, PrimitiveSurface } from '../primitives/types.js'
 import type { Layer, LayerPaint, PrimitiveDrawContext, Scene, SceneFrame } from './types.js'
 import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
 
