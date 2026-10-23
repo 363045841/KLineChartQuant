@@ -37,57 +37,89 @@ void main(){
   outputColor=stroke+fill*(1.-stroke.a);
 }`
 
-/** 折线段实例的 float 数：起点、终点、半宽、颜色、数据空间标记。 */
-export const SEGMENT_FLOATS = 10
+/** 折线段实例的 float 数：起点、终点、前一点、后一点、半宽、颜色、数据空间标记。 */
+export const SEGMENT_FLOATS = 14
 
 /**
- * 解析式描边：每个实例是一段折线，顶点只负责把胶囊扩到覆盖范围，
+ * 解析式描边：每个实例是一段折线，顶点只负责把四边形扩到相邻三段 capsule 的包围盒，
  * 覆盖率在片元着色器里按到线段的距离算，不再为每段和每个折点生成三角形。
  */
 export const SEGMENT_VERTEX_GLSL = `#version 300 es
 layout(location=0) in vec2 start;
 layout(location=1) in vec2 end;
-layout(location=2) in float halfWidth;
-layout(location=3) in vec4 color;
-layout(location=4) in float mode;
+layout(location=2) in vec2 prev;
+layout(location=3) in vec2 next;
+layout(location=4) in float halfWidth;
+layout(location=5) in vec4 color;
+layout(location=6) in float mode;
 uniform vec4 viewport;
 uniform vec3 data;
 out vec2 world;
 flat out vec2 segStart;
 flat out vec2 segEnd;
+flat out vec2 segPrev;
+flat out vec2 segNext;
+flat out vec2 bisStart;
+flat out vec2 bisEnd;
 flat out float segHalf;
 flat out vec4 tint;
+// 端点归属平面的法线：相邻两段共用同一个角平分面，各占一半，重叠像素只混合一次。
+// 该端没有相邻段时返回零向量（不裁剪）；180° 折返没有角平分面，改用与两段都垂直的方向，
+// 相邻两段算出同一个值，归属仍然互补。
+vec2 bisector(vec2 a,vec2 b,vec2 c){
+  vec2 d0=b-a,d1=c-b;
+  float l0=length(d0),l1=length(d1);
+  if(l0<=0.||l1<=0.) return vec2(0.);
+  vec2 u0=d0/l0,u1=d1/l1;
+  vec2 sum=u0+u1;
+  float total=length(sum);
+  return total>1e-4?sum/total:normalize(u0-u1);
+}
 void main(){
   // mode=1 表示实例是数据空间（世界 x、价格 y）；0 表示已经是屏幕坐标。
   vec2 a=vec2(start.x-data.x*mode,mix(start.y,start.y*data.y+data.z,mode));
   vec2 b=vec2(end.x-data.x*mode,mix(end.y,end.y*data.y+data.z,mode));
-  vec2 delta=b-a;
-  float len=length(delta);
-  vec2 direction=len>0.?delta/len:vec2(1.,0.);
-  vec2 normal=vec2(-direction.y,direction.x);
-  float feather=1./viewport.z;
-  float extent=halfWidth+feather;
-  float along=(gl_VertexID==1||gl_VertexID==2||gl_VertexID==4)?1.:-1.;
-  float across=(gl_VertexID==2||gl_VertexID==4||gl_VertexID==5)?1.:-1.;
-  vec2 point=mix(a-direction*extent,b+direction*extent,along*.5+.5)+normal*(across*extent);
+  vec2 p=vec2(prev.x-data.x*mode,mix(prev.y,prev.y*data.y+data.z,mode));
+  vec2 n=vec2(next.x-data.x*mode,mix(next.y,next.y*data.y+data.z,mode));
+  // 相邻段的距离也参与覆盖率，四边形必须盖住三段 capsule；按轴对齐包围盒展开最省顶点计算。
+  float extent=halfWidth+1./viewport.z;
+  vec2 low=min(min(a,b),min(p,n))-extent;
+  vec2 high=max(max(a,b),max(p,n))+extent;
+  float along=(gl_VertexID==1||gl_VertexID==2||gl_VertexID==4)?1.:0.;
+  float across=(gl_VertexID==2||gl_VertexID==4||gl_VertexID==5)?1.:0.;
+  vec2 point=mix(low,high,vec2(along,across));
   world=point;
   gl_Position=vec4(point.x/viewport.x*2.-1.,1.-point.y/viewport.y*2.,0.,1.);
-  segStart=a;segEnd=b;segHalf=halfWidth;tint=color;
+  segStart=a;segEnd=b;segPrev=p;segNext=n;segHalf=halfWidth;tint=color;
+  bisStart=bisector(p,a,b);bisEnd=bisector(a,b,n);
 }`
 export const SEGMENT_FRAGMENT_GLSL = `#version 300 es
 precision highp float;
 in vec2 world;
 flat in vec2 segStart;
 flat in vec2 segEnd;
+flat in vec2 segPrev;
+flat in vec2 segNext;
+flat in vec2 bisStart;
+flat in vec2 bisEnd;
 flat in float segHalf;
 flat in vec4 tint;
 uniform vec4 viewport;
 out vec4 outputColor;
-void main(){
-  vec2 delta=segEnd-segStart;
+// 到线段的距离；退化段退化成点，端帽仍然是圆。
+float capsule(vec2 point,vec2 a,vec2 b){
+  vec2 delta=b-a;
   float squared=dot(delta,delta);
-  float t=squared>0.?clamp(dot(world-segStart,delta)/squared,0.,1.):0.;
-  float distance=length(world-(segStart+delta*t));
+  float t=squared>0.?clamp(dot(point-a,delta)/squared,0.,1.):0.;
+  return length(point-(a+delta*t));
+}
+void main(){
+  // 每个像素只归一个实例：末端取角平分面背面（含平面本身），起始端严格取正面，
+  // 法线为零向量表示该端没有相邻段，不裁剪。两段共享的圆盘因此不会被混合两次。
+  if(dot(world-segEnd,bisEnd)>0.) discard;
+  if(dot(bisStart,bisStart)>0.&&dot(world-segStart,bisStart)<=0.) discard;
+  // 覆盖率取本段与相邻两段的并集距离：拐角圆盘不会再叠出一圈硬边小结。
+  float distance=min(capsule(world,segPrev,segStart),min(capsule(world,segStart,segEnd),capsule(world,segEnd,segNext)));
   float pixel=1./viewport.z;
   float coverage=clamp((segHalf+.5*pixel-distance)/pixel,0.,1.);
   float alpha=tint.a*coverage;
@@ -103,33 +135,53 @@ struct Vertex {
   @location(0) world:vec2f,
   @location(1) @interpolate(flat) start:vec2f,
   @location(2) @interpolate(flat) end:vec2f,
-  @location(3) @interpolate(flat) halfWidth:f32,
-  @location(4) @interpolate(flat) tint:vec4f,
+  @location(3) @interpolate(flat) prev:vec2f,
+  @location(4) @interpolate(flat) next:vec2f,
+  @location(5) @interpolate(flat) bisStart:vec2f,
+  @location(6) @interpolate(flat) bisEnd:vec2f,
+  @location(7) @interpolate(flat) halfWidth:f32,
+  @location(8) @interpolate(flat) tint:vec4f,
+}
+fn bisector(a:vec2f,b:vec2f,c:vec2f)->vec2f {
+  let d0=b-a;let d1=c-b;
+  let l0=length(d0);let l1=length(d1);
+  if(l0<=0.||l1<=0.){return vec2f(0.);}
+  let u0=d0/l0;let u1=d1/l1;
+  let sum=u0+u1;
+  let total=length(sum);
+  return select(normalize(u0-u1),sum/total,total>1e-4);
 }
 @vertex fn vs(@builtin(vertex_index) index:u32,
   @location(0) startPoint:vec2f,@location(1) endPoint:vec2f,
-  @location(2) halfWidth:f32,@location(3) color:vec4f,@location(4) mode:f32)->Vertex {
+  @location(2) prevPoint:vec2f,@location(3) nextPoint:vec2f,
+  @location(4) halfWidth:f32,@location(5) color:vec4f,@location(6) mode:f32)->Vertex {
   let start=vec2f(startPoint.x-viewport.data.x*mode,mix(startPoint.y,startPoint.y*viewport.data.y+viewport.data.z,mode));
   let end=vec2f(endPoint.x-viewport.data.x*mode,mix(endPoint.y,endPoint.y*viewport.data.y+viewport.data.z,mode));
-  let delta=end-start;
-  let len=length(delta);
-  let direction=select(vec2f(1.,0.),delta/len,len>0.);
-  let normal=vec2f(-direction.y,direction.x);
-  let feather=1./viewport.size.z;
-  let extent=halfWidth+feather;
-  let along=select(-1.,1.,index==1u||index==2u||index==4u);
-  let across=select(-1.,1.,index==2u||index==4u||index==5u);
-  let point=mix(start-direction*extent,end+direction*extent,along*.5+.5)+normal*(across*extent);
+  let prev=vec2f(prevPoint.x-viewport.data.x*mode,mix(prevPoint.y,prevPoint.y*viewport.data.y+viewport.data.z,mode));
+  let next=vec2f(nextPoint.x-viewport.data.x*mode,mix(nextPoint.y,nextPoint.y*viewport.data.y+viewport.data.z,mode));
+  let extent=halfWidth+1./viewport.size.z;
+  let low=min(min(start,end),min(prev,next))-vec2f(extent);
+  let high=max(max(start,end),max(prev,next))+vec2f(extent);
+  let along=select(0.,1.,index==1u||index==2u||index==4u);
+  let across=select(0.,1.,index==2u||index==4u||index==5u);
+  let point=mix(low,high,vec2f(along,across));
   var out:Vertex;
   out.position=vec4f(point.x/viewport.size.x*2.-1.,1.-point.y/viewport.size.y*2.,0.,1.);
-  out.world=point;out.start=start;out.end=end;out.halfWidth=halfWidth;out.tint=color;
+  out.world=point;out.start=start;out.end=end;out.prev=prev;out.next=next;
+  out.bisStart=bisector(prev,start,end);out.bisEnd=bisector(start,end,next);
+  out.halfWidth=halfWidth;out.tint=color;
   return out;
 }
-@fragment fn fs(in:Vertex)->@location(0) vec4f {
-  let delta=in.end-in.start;
+fn capsule(point:vec2f,a:vec2f,b:vec2f)->f32 {
+  let delta=b-a;
   let squared=dot(delta,delta);
-  let t=select(0.,clamp(dot(in.world-in.start,delta)/squared,0.,1.),squared>0.);
-  let distance=length(in.world-(in.start+delta*t));
+  let t=select(0.,clamp(dot(point-a,delta)/squared,0.,1.),squared>0.);
+  return length(point-(a+delta*t));
+}
+@fragment fn fs(in:Vertex)->@location(0) vec4f {
+  if(dot(in.world-in.end,in.bisEnd)>0.){discard;}
+  if(dot(in.bisStart,in.bisStart)>0.&&dot(in.world-in.start,in.bisStart)<=0.){discard;}
+  let distance=min(capsule(in.world,in.prev,in.start),min(capsule(in.world,in.start,in.end),capsule(in.world,in.end,in.next)));
   let pixel=1./viewport.size.z;
   let coverage=clamp((in.halfWidth+.5*pixel-distance)/pixel,0.,1.);
   let alpha=in.tint.a*coverage;

@@ -407,11 +407,32 @@ export function createPrimitivePreparer(
                   b = path[i]!
                 // 退化线段没有方向，着色器无法展开。
                 if (a.x === b.x && a.y === b.y) continue
+                // 相邻段的真实端点参与并集距离与角平分面；重复点没有方向，取最近的不同点。
+                let prev = a
+                for (let j = i - 2; j >= 0; j--) {
+                  const point = path[j]!
+                  if (point.x !== a.x || point.y !== a.y) {
+                    prev = point
+                    break
+                  }
+                }
+                let next = b
+                for (let j = i + 1; j < path.length; j++) {
+                  const point = path[j]!
+                  if (point.x !== b.x || point.y !== b.y) {
+                    next = point
+                    break
+                  }
+                }
                 segmentArena.reserve(SEGMENT_FLOATS)
                 segmentArena.write(a.x - shift)
                 segmentArena.write(a.y)
                 segmentArena.write(b.x - shift)
                 segmentArena.write(b.y)
+                segmentArena.write(prev.x - shift)
+                segmentArena.write(prev.y)
+                segmentArena.write(next.x - shift)
+                segmentArena.write(next.y)
                 segmentArena.write(half)
                 for (const component of color) segmentArena.write(component)
                 // 数据空间标记随实例进入着色器，避免绘制中途改 uniform。

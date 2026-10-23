@@ -118,9 +118,11 @@ function createDevice(
   for (const [location, count, offset] of [
     [0, 2, 0],
     [1, 2, 8],
-    [2, 1, 16],
-    [3, 4, 20],
-    [4, 1, 36],
+    [2, 2, 16],
+    [3, 2, 24],
+    [4, 1, 32],
+    [5, 4, 36],
+    [6, 1, 52],
   ] as const) {
     gl.enableVertexAttribArray(location)
     gl.vertexAttribPointer(location, count, gl.FLOAT, false, SEGMENT_FLOATS * 4, offset)

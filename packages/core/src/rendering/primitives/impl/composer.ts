@@ -43,7 +43,7 @@ function readState(target: CanvasRenderingContext2D): ComposedState {
   }
 }
 
-/** 两个快照是否可以用同一批合成。 */
+/** 两个快照是否可以用同一批合成, 若改变则需 flush 上屏 */
 function sameState(left: ComposedState, right: ComposedState): boolean {
   return (
     left.transform.a === right.transform.a &&

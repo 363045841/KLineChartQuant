@@ -261,6 +261,31 @@ function checkBatchSemantics(name: string, backend: PrimitiveBackend): void {
   ctx.clearRect(0, 0, 100, 100)
   check(backend.paint(ctx, [line], 1), `${name}: mutable path second draw failed`)
   check(pixel(35, 35)[3] === 0 && pixel(35, 55)[3]! > 0, `${name}: stale geometry after mutation`)
+
+  // 解析式描边的并集：折角圆盘与两端圆帽在同样的距离上必须给出同样的覆盖率。
+  // 旧实现让相邻两段各画一次共享圆盘（2c−c²），这三个点会一起饱和到 ≈253。
+  const corner: PaintPrimitive = {
+    kind: 'stroke',
+    paths: [
+      [
+        { x: 10, y: 30 },
+        { x: 40, y: 30 },
+        { x: 40, y: 60 },
+      ],
+    ],
+    width: 4,
+    cap: 'round',
+    join: 'round',
+    color: '#ff0000',
+  }
+  ctx.clearRect(0, 0, 100, 100)
+  check(backend.paint(ctx, [corner], 1), `${name}: segment stroke failed`)
+  const fringe = [pixel(10, 28)[3]!, pixel(40, 28)[3]!, pixel(40, 61)[3]!]
+  check(
+    fringe.every((value) => Math.abs(value - fringe[0]!) <= 1 && value >= 210 && value <= 245),
+    `${name}: segment join coverage is not a union (${fringe.join('/')})`,
+  )
+}
 }
 
 /** 故障注入使用真实 Canvas 验证图文混合后半段失败不会污染可见目标。 */
