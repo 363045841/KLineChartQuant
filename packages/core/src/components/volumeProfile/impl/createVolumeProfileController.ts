@@ -3,11 +3,8 @@
  *
  * Mirrors the dispose-guard pattern from `createIndicatorSelectorController`
  * so React/Vue/Angular adapters bridge identically. The controller is pure
- * data — no DOM, no rendering, no canvas. It plays the same role as
- * `src/core/indicators/volumeProfileState.ts` (the maintainer's legacy state
- * module) but with the new reactive contract; the legacy state file and the
- * legacy renderer at `src/core/renderers/Indicator/volumeProfile.ts` are
- * intentionally NOT touched (per branch policy).
+ * data — no DOM, no rendering, no canvas. This standalone component controller
+ * does not register a chart indicator. Chart VP is defined by the Script package.
  *
  * Flow on `ingest`:
  *   1. Walk the bars once to learn `[minLow, maxHigh]`.

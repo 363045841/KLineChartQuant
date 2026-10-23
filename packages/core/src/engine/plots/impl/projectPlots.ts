@@ -355,17 +355,32 @@ function plotRange(
   accumulateDrawingBounds(bounds, drawings, range)
   const padding =
     bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
+  // 柱体基线构成可见值域边界时固定该侧；跨基线的数据仍在两侧正常留白。
+  const baselines = plots.filter(
+    (plot) =>
+      isRangeSource(plot, fillSources) &&
+      (plot.kind === 'histogram' || plot.kind === 'columns') &&
+      plotValueBounds(plot, range) !== undefined,
+  )
+  const pinMin = baselines.some(
+    (plot) =>
+      (plot.kind === 'histogram' || plot.kind === 'columns') && plot.baseline === bounds.min,
+  )
+  const pinMax = baselines.some(
+    (plot) =>
+      (plot.kind === 'histogram' || plot.kind === 'columns') && plot.baseline === bounds.max,
+  )
   return {
     visibleMin: bounds.min,
     visibleMax: bounds.max,
     valueMin: resolveBound(
-      bounds.min - padding,
+      bounds.min - (pinMin ? 0 : padding),
       definition.range?.min,
       definition.range?.mode,
       'min',
     ),
     valueMax: resolveBound(
-      bounds.max + padding,
+      bounds.max + (pinMax ? 0 : padding),
       definition.range?.max,
       definition.range?.mode,
       'max',

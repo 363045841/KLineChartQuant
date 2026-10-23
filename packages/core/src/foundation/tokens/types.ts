@@ -254,26 +254,6 @@ export interface FootprintCellColors {
   readonly text: ColorValue
 }
 
-/** Structure (SMC) indicator — HH/HL/LH/LL/CHoCH/BOS. */
-export interface StructureColors {
-  readonly hh: ColorValue
-  readonly hl: ColorValue
-  readonly lh: ColorValue
-  readonly ll: ColorValue
-  readonly choch: ColorValue
-  readonly bos: ColorValue
-}
-
-/** Zones / FVG / Order-Block indicator colours. */
-export interface ZonesColors {
-  readonly fvgBullFill: ColorValue
-  readonly fvgBearFill: ColorValue
-  readonly fvgBullBorder: ColorValue
-  readonly fvgBearBorder: ColorValue
-  readonly obBullFill: ColorValue
-  readonly obBearFill: ColorValue
-}
-
 /** 通用 UI 颜色：表面、输入、边框、文字与状态色，框架与业务组件共用。 */
 export interface UiColors {
   readonly background: ColorValue
@@ -374,9 +354,6 @@ export interface ColorTokens {
   // Footprint / heatmap / volume profile (specialised components)
   readonly heatmapColdest: ColorValue
   readonly heatmapHottest: ColorValue
-  readonly volumeProfileFill: ColorValue
-  readonly volumeProfilePoc: ColorValue
-  readonly volumeProfileValueArea: ColorValue
   /** 足迹图横条与数字的专用配色；使用独立红/灰约定，不随涨跌方向翻转。 */
   readonly footprintCell: FootprintCellColors
 
@@ -423,8 +400,6 @@ export interface ColorTokens {
   readonly pivot: PivotColors
   readonly label: LabelColors
   readonly lastPriceLabel: LastPriceLabelColors
-  readonly structure: StructureColors
-  readonly zones: ZonesColors
   readonly referenceLine: ReferenceLineColors
   readonly wmsrGrid: ColorValue
   readonly ui: UiColors

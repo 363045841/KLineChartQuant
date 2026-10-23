@@ -5,12 +5,11 @@ import { createColorResolver } from './colors.js'
 import type { DataTransform } from '@/foundation/plugin/types.js'
 import { createPrimitivePreparer, type GeometryPrimitive, type PreparedBatch } from './prepare.js'
 
-export interface DeviceMetrics {
-  drawCalls: number
-  uploads: number
-  uploadedBytes: number
-  submissions: number
-}
+/** 设备侧计数是公开指标 `PrimitiveMetrics` 的切片，字段类型只在那里定义一次。 */
+export type DeviceMetrics = Pick<
+  PrimitiveMetrics,
+  'drawCalls' | 'uploads' | 'uploadedBytes' | 'submissions'
+>
 export interface PrimitiveDevice {
   render(
     batch: PreparedBatch,

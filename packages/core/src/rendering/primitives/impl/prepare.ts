@@ -5,7 +5,8 @@ import { FloatArena } from './buffers.js'
 import { type CachedGeometry, GeometryCache, type PrimitiveBounds } from './cache.js'
 import type { ColorResolver, PrimitiveColor } from './colors.js'
 import { bandTriangles, pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
-import { MESH_FLOATS, SEGMENT_FLOATS } from './shaders.js'
+import { MESH_FLOATS, SEGMENT_FLAGS, SEGMENT_FLOATS } from './shaders.js'
+import { emitStrokePolygons, STROKE_REGION, strokeRegion } from './strokeRegions.js'
 
 export type GeometryPrimitive = Exclude<PaintPrimitive, { kind: 'text' }>
 
@@ -148,14 +149,6 @@ function buildGeometry(
     bottom = Math.max(bottom, point.y)
   }
   return { positions, direct, bounds: { left, right, top, bottom } }
-}
-
-/** 解析式描边只接管不透明实线、圆角连接与端帽的开放折线；其余保留三角化。 */
-function segmentizable(stroke: Extract<GeometryPrimitive, { kind: 'stroke' }>): boolean {
-  if (!(stroke.width > 0) || stroke.closed === true) return false
-  if (stroke.dash?.some((value) => value > 0)) return false
-  if ((stroke.join ?? 'miter') !== 'round' || (stroke.cap ?? 'butt') !== 'round') return false
-  return stroke.paths.every((path) => path.length >= 2)
 }
 
 /** 判断两段描边是否产出完全相同的实例数据：路径按引用比较，样式按值比较。 */
@@ -372,9 +365,10 @@ export function createPrimitivePreparer(
           // 数据空间折线只在缓冲里保留世界坐标与价格，滚动和轴缩放都改 uniform；
           // 其余描边仍在这里一次扣除横向偏移。
           const dataSpace = primitive.dataSpace === true && transform !== undefined
-          // 不透明实线不需要 stencil：宽、端帽和圆角连接都由着色器按距离还原，
-          // 顶点层面只保留折点，指标线数量增加时不再放大三角化与上传成本。
-          if (color[3] === 1 && segmentizable(primitive)) {
+          // 不透明描边的宽度、端帽与连接都由着色器按距离还原；半透明描边在共享切边上
+          // 会二次混合，仍走三角化与 stencil。
+          const region = color[3] === 1 ? strokeRegion(primitive) : null
+          if (region !== null) {
             flush()
             // 同一批原语在滚动/轴缩放时引用不变：直接跳过实例重写，只推进游标。
             const previous = lastPrimitives?.[primitiveIndex]
@@ -401,23 +395,66 @@ export function createPrimitivePreparer(
             let count = 0
             const half = primitive.width / 2
             const shift = dataSpace ? 0 : offsetX
-            for (const path of primitive.paths)
-              for (let i = 1; i < path.length; i++) {
-                const a = path[i - 1]!,
-                  b = path[i]!
-                // 退化线段没有方向，着色器无法展开。
-                if (a.x === b.x && a.y === b.y) continue
+            const flags =
+              (dataSpace ? SEGMENT_FLAGS.dataSpace : 0) +
+              (region === STROKE_REGION.polygon ? SEGMENT_FLAGS.polygon : 0)
+            if (region === STROKE_REGION.capsule) {
+              for (const path of primitive.paths)
+                for (let i = 1; i < path.length; i++) {
+                  const a = path[i - 1]!,
+                    b = path[i]!
+                  // 退化线段没有方向，着色器无法展开。
+                  if (a.x === b.x && a.y === b.y) continue
+                  // 相邻段的真实端点参与并集距离与角平分面；重复点没有方向，取最近的不同点。
+                  let prev = a
+                  for (let j = i - 2; j >= 0; j--) {
+                    const point = path[j]!
+                    if (point.x !== a.x || point.y !== a.y) {
+                      prev = point
+                      break
+                    }
+                  }
+                  let next = b
+                  for (let j = i + 1; j < path.length; j++) {
+                    const point = path[j]!
+                    if (point.x !== b.x || point.y !== b.y) {
+                      next = point
+                      break
+                    }
+                  }
+                  segmentArena.reserve(SEGMENT_FLOATS)
+                  segmentArena.write(a.x - shift)
+                  segmentArena.write(a.y)
+                  segmentArena.write(b.x - shift)
+                  segmentArena.write(b.y)
+                  segmentArena.write(prev.x - shift)
+                  segmentArena.write(prev.y)
+                  segmentArena.write(next.x - shift)
+                  segmentArena.write(next.y)
+                  segmentArena.write(half)
+                  for (const component of color) segmentArena.write(component)
+                  // 数据空间标记与区域种类共用一个标志位字段，避免中途改 uniform。
+                  segmentArena.write(flags)
+                  count++
+                }
+            } else {
+              // 四边形互不重叠，自带线宽，半宽写 0、数据空间标记恒为 0。
+              emitStrokePolygons(primitive, (corner0, corner1, corner2, corner3) => {
                 segmentArena.reserve(SEGMENT_FLOATS)
-                segmentArena.write(a.x - shift)
-                segmentArena.write(a.y)
-                segmentArena.write(b.x - shift)
-                segmentArena.write(b.y)
-                segmentArena.write(half)
+                segmentArena.write(corner0.x - shift)
+                segmentArena.write(corner0.y)
+                segmentArena.write(corner1.x - shift)
+                segmentArena.write(corner1.y)
+                segmentArena.write(corner2.x - shift)
+                segmentArena.write(corner2.y)
+                segmentArena.write(corner3.x - shift)
+                segmentArena.write(corner3.y)
+                segmentArena.write(0)
                 for (const component of color) segmentArena.write(component)
-                // 数据空间标记随实例进入着色器，避免绘制中途改 uniform。
-                segmentArena.write(dataSpace ? 1 : 0)
+                segmentArena.write(flags)
                 count++
-              }
+              })
+            }
             if (count > 0) {
               wroteSegments = true
               currentSegments[primitiveIndex] = { start: first * SEGMENT_FLOATS, count }

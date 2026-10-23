@@ -33,9 +33,6 @@
     "tooltipBorder": { "$type": "color", "$value": "{dark.color.tooltipBorder}" },
     "heatmapColdest": { "$type": "color", "$value": "{dark.color.heatmapColdest}" },
     "heatmapHottest": { "$type": "color", "$value": "{dark.color.heatmapHottest}" },
-    "volumeProfileFill": { "$type": "color", "$value": "{dark.color.volumeProfileFill}" },
-    "volumeProfilePoc": { "$type": "color", "$value": "{dark.color.volumeProfilePoc}" },
-    "volumeProfileValueArea": { "$type": "color", "$value": "{dark.color.volumeProfileValueArea}" },
     "footprintCell": {
       "bid": { "$type": "color", "$value": "{dark.color.footprintCell.bid}" },
       "ask": { "$type": "color", "$value": "{dark.color.footprintCell.ask}" },
@@ -180,22 +177,6 @@
     },
     "lastPriceLabel": {
       "bg": { "$type": "color", "$value": "{dark.color.lastPriceLabel.bg}" }
-    },
-    "structure": {
-      "hh": { "$type": "color", "$value": "{dark.color.structure.hh}" },
-      "hl": { "$type": "color", "$value": "{dark.color.structure.hl}" },
-      "lh": { "$type": "color", "$value": "{dark.color.structure.lh}" },
-      "ll": { "$type": "color", "$value": "{dark.color.structure.ll}" },
-      "choch": { "$type": "color", "$value": "{dark.color.structure.choch}" },
-      "bos": { "$type": "color", "$value": "{dark.color.structure.bos}" }
-    },
-    "zones": {
-      "fvgBullFill": { "$type": "color", "$value": "{dark.color.zones.fvgBullFill}" },
-      "fvgBearFill": { "$type": "color", "$value": "{dark.color.zones.fvgBearFill}" },
-      "fvgBullBorder": { "$type": "color", "$value": "{dark.color.zones.fvgBullBorder}" },
-      "fvgBearBorder": { "$type": "color", "$value": "{dark.color.zones.fvgBearBorder}" },
-      "obBullFill": { "$type": "color", "$value": "{dark.color.zones.obBullFill}" },
-      "obBearFill": { "$type": "color", "$value": "{dark.color.zones.obBearFill}" }
     },
     "referenceLine": {
       "neutral": { "$type": "color", "$value": "{dark.color.referenceLine.neutral}" }

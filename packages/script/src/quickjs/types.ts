@@ -53,6 +53,10 @@ export interface QuickJSScriptDefinition {
   readonly format?: Format
   /** 可保留的 line 对象数；默认 50，范围 1..500。 */
   readonly max_lines_count?: number
+  /** 可保留的 Box 数量；默认值与范围由公共 drawing 契约管理。 */
+  readonly max_boxes_count?: number
+  /** 可保留的 Label 数量。 */
+  readonly max_labels_count?: number
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 

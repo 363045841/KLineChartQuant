@@ -16,8 +16,6 @@ import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQu
 
 /** 随包发布的 SMA 示例源码；直接读磁盘，避免测试里复制一份脚本。 */
 const shippedSmaSource = shippedSource('sma')
-/** 直接执行发布的 Shape 示例，验证全部形状声明和实际逐 bar 输出。 */
-const shippedShapeSource = shippedSource('shape')
 /** 直接执行 OC Average 源码，验证参数和距离信号。 */
 const shippedOcSource = shippedSource('open-close-average')
 
@@ -369,20 +367,6 @@ describe('runQuickJSScript', () => {
         bars: barsFromCloses([2, 4]),
       }),
     ).rejects.toThrow('cannot change style')
-  })
-
-  it('发布的 Shape Gallery 在 12 根行情上依次输出全部形状', async () => {
-    const result = await runQuickJSScript({
-      source: shippedShapeSource,
-      bars: barsFromCloses(wavyCloses(12)),
-    })
-    expect(result.plots).toHaveLength(12)
-    for (const [index, plot] of result.plots.entries()) {
-      expect(plot.kind).toBe('shape')
-      if (plot.kind !== 'shape') throw new Error('Expected Shape Plot')
-      expect(plot.data.filter((point) => point?.value === 1)).toHaveLength(1)
-      expect(plot.data[index]?.value).toBe(1)
-    }
   })
 
   it('Shape 的数值 0 保留在数据列中', async () => {

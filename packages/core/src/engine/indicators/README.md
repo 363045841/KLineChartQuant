@@ -16,7 +16,7 @@
 StateKernel.data + StateKernel.indicator（配置 SSOT）
   -> ChartIndicatorManager（把 Kernel 实例单向投影为计算实例）
   -> IndicatorCalculationPlan（按 calculationKey 去重）
-  -> IndicatorCalculationExecutor（Worker 优先，失败降级 inline）
+  -> IndicatorCalculationExecutor（调用注册定义的唯一计算端口）
   -> 任务输出展开为 instanceId 结果池（IndicatorResultPool）
   -> composeInstanceRenderState（逐 instanceId 生成投影）
   -> createRenderStateReader().get(instanceId)
@@ -27,7 +27,7 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 
 - 注册指标元数据、运行时 calculator、renderer 和状态投影规则。
 - 以 `calculationKey` 为去重身份生成计算计划，以 `instanceId` 保存计算结果。
-- 选择 Worker 或 inline 执行器，并处理过期请求、错误和降级。
+- 委派注册定义计算，并处理过期请求与错误；Script Worker 由 Script 服务管理。
 - 把结果池按 `instanceId` 投影为帧级渲染状态，并注册实例相关插件服务。
 - 管理主图/副图实例及其与 pane 布局的协作。
 
@@ -43,19 +43,16 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 ```text
 indicators/
 ├── chartIndicatorManager.ts     # 指标实例和副图 pane 的高层业务操作、执行器选择、服务注册与渲染投影
-├── indicatorRuntime.ts          # Worker 端 computeKey → calculator 映射（CALCULATOR_MAP / createWorkerCompute）
 ├── indicatorMetadata.ts         # 指标定义契约与运行时描述符
 ├── indicatorDefinitionRegistry.ts # 内置/扩展定义的全局声明注册表与别名解析（@Indicator 装饰器）
 ├── registerBuiltins.ts          # 内置指标定义装配
 ├── stateComposer.ts             # 按 instanceId 的渲染状态投影（composeInstanceRenderState 等）
 ├── visibleStateComposers.ts     # 可见区极值、padding、latestValues 等派生投影
 ├── instances/                   # 实例优先指标链路（CRUD、计算计划、执行、投影），分层见其 README
-├── calculators/                 # 纯计算函数，不读取 Chart、DOM 或 PluginHost
-├── state/                       # 各指标 renderer 所需的状态类型与 EMPTY_* 常量
-└── __tests__/                   # 注册、调度、投影和 calculator 测试
+└── __tests__/                   # 注册、调度与投影测试；技术指标算法在 Script 包测试
 ```
 
-`instances/` 内部按 `domain / api / execution / worker / assembly` 分层，依赖方向单向向下，
+`instances/` 内部按 `domain / api / execution / assembly` 分层，依赖方向单向向下，
 详细职责见 [`instances/README.md`](./instances/README.md)。
 
 ## 身份模型
@@ -82,11 +79,10 @@ indicators/
 每次计算按以下规则执行：
 
 1. 从当前实例快照构造 `IndicatorCalculationPlan`，相同 `calculationKey` 的实例合并为一个任务。
-2. `createInstanceCalculationScheduler` 记录 `requestId`，优先用模块 Worker 执行器，构造失败或异步失败时
-   切换为 inline 执行器并重试当前数据。
+2. `createInstanceCalculationScheduler` 记录 `requestId`，通过定义的计算端口执行任务；Script 定义由 Script 服务委派到 Worker。
 3. 执行器对每个去重任务调用 calculator，产出 `IndicatorCalculationOutput`。
 4. `expandIndicatorCalculationOutputs` 把任务输出展开为按 `instanceId` 索引的 `IndicatorResultPool`。
-5. 仅当 `requestId` 仍是最新、且实例 `calculationRevision` 未变化时提交；过期响应被丢弃，inline 再失败只记录日志。
+5. 仅当 `requestId` 仍是最新、且实例 `calculationRevision` 未变化时提交；过期响应被丢弃，失败明确报告，不切换执行链路。
 
 分时视图下结果池会先按 `displayTimestamps` 投影到展示时间轴，再生成渲染状态。
 

@@ -74,26 +74,6 @@ export function withAsiaMarketColors(theme: Theme): Theme {
         barDownLight: theme.colors.macd.barUpLight,
       },
 
-      // ── Nested: SMC structure (HH/HL = bull, LH/LL = bear) ──
-      structure: {
-        ...theme.colors.structure,
-        hh: theme.colors.structure.ll,
-        ll: theme.colors.structure.hh,
-        hl: theme.colors.structure.lh,
-        lh: theme.colors.structure.hl,
-      },
-
-      // ── Nested: Zones / FVG / Order Block ──
-      zones: {
-        ...theme.colors.zones,
-        fvgBullFill: theme.colors.zones.fvgBearFill,
-        fvgBearFill: theme.colors.zones.fvgBullFill,
-        fvgBullBorder: theme.colors.zones.fvgBearBorder,
-        fvgBearBorder: theme.colors.zones.fvgBullBorder,
-        obBullFill: theme.colors.zones.obBearFill,
-        obBearFill: theme.colors.zones.obBullFill,
-      },
-
       // ── Nested: CCI overbought (bull) / oversold (bear) ──
       cci: {
         ...theme.colors.cci,

@@ -11,6 +11,7 @@ import {
 import { createFibRetracementDefinition } from '../impl/definitions/fibRetracement'
 import { createInfoLineDefinition } from '../impl/definitions/infoLine'
 import { createRectangleDefinition } from '../impl/definitions/rectangle'
+import { createLabelDefinition } from '../impl/definitions/label'
 
 function context(): DrawingComputeContext {
   return {
@@ -66,6 +67,25 @@ describe('new drawing tools', () => {
     expect(geometry.primitives.filter((primitive) => primitive.kind === 'line')).toHaveLength(4)
     const area = geometry.primitives.find((primitive) => primitive.kind === 'area')
     expect(area?.style?.fillOpacity).toBe(0.1)
+  })
+
+  it('extends Box fill and horizontal edges together without a false viewport border', () => {
+    const geometry = createRectangleDefinition().compute({ ...drawing('rectangle'), extend: 'right', style: { stroke: '#2962ff', fill: '#2962ff80', fillOpacity: 1 } }, context())
+    const area = geometry.primitives.find((primitive) => primitive.kind === 'area')
+    expect(area?.points).toEqual([{ x: 20, y: 100 }, { x: 800, y: 100 }, { x: 800, y: 160 }, { x: 20, y: 160 }])
+    expect(area?.style.fillOpacity).toBe(1)
+    const lines = geometry.primitives.filter((primitive) => primitive.kind === 'line')
+    expect(lines).toHaveLength(3)
+    expect(lines.filter((primitive) => primitive.a.x === primitive.b.x).map((primitive) => primitive.a.x)).toEqual([20])
+  })
+
+  it('renders borderless Box text and single-anchor Label using common text primitives', () => {
+    const text = { value: 'FVG', color: '#123456', size: 11, align: 'center', verticalAlign: 'middle' } satisfies NonNullable<ResolvedDrawingObject['text']>
+    const box = createRectangleDefinition().compute({ ...drawing('rectangle'), text, style: { stroke: '#123456', strokeWidth: 0 } }, context())
+    expect(box.primitives.map((primitive) => primitive.kind)).toEqual(['area', 'text'])
+    expect(box.primitives[1]).toMatchObject({ point: { x: 70, y: 130 }, text: 'FVG', style: { textColor: '#123456', fontSize: 11 } })
+    const label = createLabelDefinition().compute({ ...drawing('label'), anchors: [drawing('label').anchors[0]!], text }, context())
+    expect(label.primitives).toMatchObject([{ kind: 'text', point: { x: 20, y: 100 }, text: 'FVG' }])
   })
 
   it('draws an arrow as one dedicated primitive', () => {

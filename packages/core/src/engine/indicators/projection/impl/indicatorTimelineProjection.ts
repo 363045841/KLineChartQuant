@@ -2,9 +2,6 @@
 import { isOhlcPlot, type DrawingObject, type Plot, type PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorTimelineProjection } from '../types.js'
 
-/** 未指定展示映射的独立调用保留原始坐标。 */
-export function identityIndicatorIndex(index: number): number { return index }
-
 /** 全局冻结恒等单例：复用恒等投影，避免重复分配。 */
 const IDENTITY_PROJECTION: IndicatorTimelineProjection = Object.freeze({
   identity: true,

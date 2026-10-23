@@ -621,7 +621,8 @@ describe('BrowserAgentBridge', () => {
       bridge.debugTool('drawing_create', {
         kind: 'horizontal-line',
         paneId: 'main',
-        anchors: [{ time: '2026-09-02', price: 9 }],
+        anchors: [{ price: 9 }],
+        style: { stroke: '#4A90D9' },
       }),
     ).resolves.toMatchObject({ summary: 'Tool completed.' })
     expect(drawingCommands.create).toHaveBeenCalledOnce()

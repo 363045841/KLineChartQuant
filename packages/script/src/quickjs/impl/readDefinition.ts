@@ -300,12 +300,12 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   }
   return {
     name: value.name,
+    ...(typeof value.max_lines_count === 'number' ? { max_lines_count: value.max_lines_count } : {}),
+    ...(typeof value.max_boxes_count === 'number' ? { max_boxes_count: value.max_boxes_count } : {}),
+    ...(typeof value.max_labels_count === 'number' ? { max_labels_count: value.max_labels_count } : {}),
     ...(typeof value.title === 'string' ? { title: value.title } : {}),
     ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,
-    ...(typeof value.max_lines_count === 'number'
-      ? { max_lines_count: value.max_lines_count }
-      : {}),
     ...(isFormat(value.format) ? { format: value.format } : {}),
     inputs: readInputs(value.inputs),
   }

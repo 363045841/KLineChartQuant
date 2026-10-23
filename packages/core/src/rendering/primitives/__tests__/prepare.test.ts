@@ -101,8 +101,64 @@ describe('ordered primitive batching', () => {
     const result = prepare.prepare([stroke], 100, 100, 1)
     expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
     expect(result.vertices).toHaveLength(0)
-    expect(result.segments).toHaveLength(2 * 10)
-    expect(Array.from(result.segments.slice(0, 5))).toEqual([10, 10, 40, 20, 1])
+    // 每段 14 个 float：四个点、半宽、颜色、标志位。
+    expect(result.segments).toHaveLength(2 * 14)
+    const [first, second] = [0, 14].map((offset) =>
+      Array.from(result.segments.slice(offset, offset + 14)),
+    )
+    expect(first).toEqual([10, 10, 40, 20, 10, 10, 70, 15, 1, 1, 0, 0, 1, 0])
+    expect(second).toEqual([40, 20, 70, 15, 10, 10, 70, 15, 1, 1, 0, 0, 1, 0])
+    // 共享折点必须写成同一组端点：角平分面由两侧分别算出，只有入参一致才互补。
+    expect(second!.slice(4, 6)).toEqual(first!.slice(0, 2))
+    expect(first!.slice(6, 8)).toEqual(second!.slice(2, 4))
+  })
+
+  it('prepares miter strokes as quads that share their joint cut exactly', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 20 },
+          { x: 40, y: 20 },
+          { x: 40, y: 50 },
+        ],
+      ],
+      width: 4,
+      color: 'red',
+    }
+    const result = prepare.prepare([stroke], 100, 100, 1)
+    expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    expect(result.segments).toHaveLength(2 * 14)
+    const quads = [0, 14].map((offset) => Array.from(result.segments.slice(offset, offset + 14)))
+    // 四边形自带线宽：半宽写 0、标志位只带凸四边形区域（bit1）。
+    expect(quads[0]!.slice(8)).toEqual([0, 1, 0, 0, 1, 2])
+    // 第一段的终点切边与第二段的起点切边逐值相同，说明两个四边形恰好拼接。
+    expect(quads[0]!.slice(2, 4)).toEqual(quads[1]!.slice(0, 2))
+    expect(quads[0]!.slice(4, 6)).toEqual(quads[1]!.slice(6, 8))
+  })
+
+  it('points segment instances at the nearest distinct neighbour so duplicate points keep joins valid', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      paths: [
+        [
+          { x: 10, y: 10 },
+          { x: 40, y: 10 },
+          { x: 40, y: 10 },
+          { x: 70, y: 10 },
+        ],
+      ],
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      color: 'red',
+    }
+    const result = prepare.prepare([stroke], 100, 100, 1)
+    expect(result.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    // 重复点没有方向，第二段的前一点必须回退到 10，角平分面才不会退化成零向量。
+    expect(Array.from(result.segments.slice(14, 22))).toEqual([40, 10, 70, 10, 10, 10, 70, 10])
   })
 
   it('applies the primitive offset once when writing segment instances', () => {

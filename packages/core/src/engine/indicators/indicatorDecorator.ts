@@ -53,7 +53,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getRendererName?: IndicatorRendererNameResolver
   /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
   getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
-  customState?: IndicatorMetadata['customState']
   runtime?: IndicatorRuntimeDescriptor<T>
   presentation?: IndicatorPresentationDescriptor
   getTitleInfo?: GetTitleInfoFn
@@ -107,17 +106,11 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
               ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
               : null)
 
-        // runtime.configKey 默认等于 name
-        const runtime = config.runtime && {
-          ...config.runtime,
-          configKey: config.runtime.configKey ?? config.name,
-        }
-
         metadata = {
           ...config,
           getRendererName,
           getScaleRendererName,
-          runtime,
+          runtime: config.runtime,
           rendererFactory,
           scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
           paneIdField: config.paneIdField,

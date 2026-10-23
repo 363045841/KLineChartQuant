@@ -71,7 +71,7 @@ describe('createIndicatorTextFormatter', () => {
 | 1970-01-01 08:00 | 5 |`)
   })
 
-  it('uses the Zones formatter for interval results', () => {
+  it('formats interval results through the common table output', () => {
     const formatter = createIndicatorTextFormatter()
 
     expect(
@@ -84,12 +84,15 @@ describe('createIndicatorTextFormatter', () => {
           'zones',
         ),
       ),
-    ).toBe(`Zones
-FVG_BULL 10-12 有效 @ 1970-01-01 08:00
-OB_BEAR 13-15 已触及 @ 1970-01-01 08:00`)
+    ).toBe(`zones
+
+| date | kind | low | high | endDate |
+| --- | --- | --- | --- | --- |
+| 1970-01-01 08:00 | FVG_BULL | 10 | 12 | - |
+| 1970-01-01 08:00 | OB_BEAR | 13 | 15 | 1970-01-01 08:00 |`)
   })
 
-  it('uses the Volume Profile formatter for distribution results', () => {
+  it('formats aggregate results without a native indicator special case', () => {
     const formatter = createIndicatorTextFormatter()
 
     expect(
@@ -108,10 +111,10 @@ OB_BEAR 13-15 已触及 @ 1970-01-01 08:00`)
           'volumeProfile',
         ),
       ),
-    ).toBe(`Volume Profile
-POC：12
-价值区：10-14
-总量：100
-高量区：11-12, 10-11`)
+    ).toBe(`volumeProfile
+
+| poc | val | vah | totalVolume | bins |
+| --- | --- | --- | --- | --- |
+| 12 | 10 | 14 | 100 | [2] |`)
   })
 })

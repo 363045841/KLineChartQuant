@@ -129,6 +129,14 @@ function __almaSeries(
 }
 
 defineLibrary('ta', {
+  /** 右侧窗口完成后才确认高点，不读取未来数据。 */
+  pivothigh(source: Series, leftbars: number, rightbars: number): Series {
+    return __pivotSeries(source, leftbars, rightbars, true)
+  },
+  /** 与高点共用极值和并列处理规则。 */
+  pivotlow(source: Series, leftbars: number, rightbars: number): Series {
+    return __pivotSeries(source, leftbars, rightbars, false)
+  },
   /** MACD 按输入与周期组合缓存，柱体返回未翻倍的 DIF-DEA，绘图倍率由脚本决定。 */
   macd(
     source: Series,

@@ -42,191 +42,241 @@
 - [xloc](#api-33)
 - [xloc.bar_index](#api-34)
 - [xloc.bar_time](#api-35)
-- [DataSource](#api-36)
-- [DataSource.Binance](#api-37)
-- [DataSource.Gotdx](#api-38)
-- [DataSource.BaoStock](#api-39)
-- [DataSource.TradingView](#api-40)
-- [DataSource.MT5](#api-41)
-- [DataSource.THS](#api-42)
-- [DataSource.Mock](#api-43)
-- [Timeframe](#api-44)
-- [Timeframe.Minute1](#api-45)
-- [Timeframe.Minute5](#api-46)
-- [Timeframe.Minute15](#api-47)
-- [Timeframe.Minute30](#api-48)
-- [Timeframe.Hour1](#api-49)
-- [Timeframe.Hour4](#api-50)
-- [Timeframe.Day](#api-51)
-- [Timeframe.Week](#api-52)
-- [Timeframe.Month1](#api-53)
-- [Timeframe.Month3](#api-54)
-- [Timeframe.Month12](#api-55)
-- [PlotKind](#api-56)
-- [PlotKind.Line](#api-57)
-- [PlotKind.LineBR](#api-58)
-- [PlotKind.StepLine](#api-59)
-- [PlotKind.StepLineBR](#api-60)
-- [PlotKind.Histogram](#api-61)
-- [PlotKind.Columns](#api-62)
-- [PlotKind.Points](#api-63)
-- [PlotKind.Shape](#api-64)
-- [PlotKind.Char](#api-65)
-- [PlotKind.Arrow](#api-66)
-- [PlotKind.Candle](#api-67)
-- [PlotKind.Bar](#api-68)
-- [Format](#api-69)
-- [Format.Price](#api-70)
-- [Format.Volume](#api-71)
-- [Format.Percent](#api-72)
-- [Format.Mintick](#api-73)
-- [ShapeStyle](#api-74)
-- [ShapeStyle.XCross](#api-75)
-- [ShapeStyle.Cross](#api-76)
-- [ShapeStyle.Circle](#api-77)
-- [ShapeStyle.Square](#api-78)
-- [ShapeStyle.Diamond](#api-79)
-- [ShapeStyle.TriangleUp](#api-80)
-- [ShapeStyle.TriangleDown](#api-81)
-- [ShapeStyle.ArrowUp](#api-82)
-- [ShapeStyle.ArrowDown](#api-83)
-- [ShapeStyle.LabelUp](#api-84)
-- [ShapeStyle.LabelDown](#api-85)
-- [ShapeStyle.Flag](#api-86)
-- [ShapeLocation](#api-87)
-- [ShapeLocation.AboveBar](#api-88)
-- [ShapeLocation.BelowBar](#api-89)
-- [ShapeLocation.Top](#api-90)
-- [ShapeLocation.Bottom](#api-91)
-- [ShapeLocation.Absolute](#api-92)
-- [ShapeSize](#api-93)
-- [ShapeSize.Auto](#api-94)
-- [ShapeSize.Tiny](#api-95)
-- [ShapeSize.Small](#api-96)
-- [ShapeSize.Normal](#api-97)
-- [ShapeSize.Large](#api-98)
-- [ShapeSize.Huge](#api-99)
-- [console](#api-100)
-- [console.log](#api-101)
-- [console.info](#api-102)
-- [console.warn](#api-103)
-- [console.error](#api-104)
-- [console.debug](#api-105)
-- [open](#api-106)
-- [high](#api-107)
-- [low](#api-108)
-- [close](#api-109)
-- [volume](#api-110)
-- [time](#api-111)
-- [bar_index](#api-112)
-- [bar_index.toString](#api-113)
-- [bar_index.toFixed](#api-114)
-- [bar_index.toExponential](#api-115)
-- [bar_index.toPrecision](#api-116)
-- [bar_index.valueOf](#api-117)
-- [bar_index.toLocaleString](#api-118)
-- [line](#api-119)
-- [line.style_solid](#api-120)
-- [line.style_dashed](#api-121)
-- [line.style_dotted](#api-122)
-- [line.style_arrow_left](#api-123)
-- [line.style_arrow_right](#api-124)
-- [line.style_arrow_both](#api-125)
-- [line.new](#api-126)
-- [line.all](#api-127)
-- [line.set_xy1](#api-128)
-- [line.set_xy2](#api-129)
-- [line.set_x1](#api-130)
-- [line.set_y1](#api-131)
-- [line.set_x2](#api-132)
-- [line.set_y2](#api-133)
-- [line.set_color](#api-134)
-- [line.set_style](#api-135)
-- [line.set_width](#api-136)
-- [line.set_extend](#api-137)
-- [line.get_x1](#api-138)
-- [line.get_y1](#api-139)
-- [line.get_x2](#api-140)
-- [line.get_y2](#api-141)
-- [line.get_color](#api-142)
-- [line.get_style](#api-143)
-- [line.get_width](#api-144)
-- [line.get_extend](#api-145)
-- [line.get_price](#api-146)
-- [line.copy](#api-147)
-- [line.delete](#api-148)
-- [chart](#api-149)
-- [chart.point](#api-150)
-- [chart.point.new](#api-151)
-- [chart.point.now](#api-152)
-- [chart.point.from_index](#api-153)
-- [chart.point.from_time](#api-154)
-- [chart.point.copy](#api-155)
-- [ta](#api-156)
-- [ta.rising](#api-157)
-- [ta.falling](#api-158)
-- [ta.change](#api-159)
-- [ta.sma](#api-160)
-- [ta.sum](#api-161)
-- [ta.highest](#api-162)
-- [ta.lowest](#api-163)
-- [ta.highestbars](#api-164)
-- [ta.lowestbars](#api-165)
-- [ta.rma](#api-166)
-- [ta.swma](#api-167)
-- [ta.alma](#api-168)
-- [ta.stddev](#api-169)
-- [ta.ema](#api-170)
-- [ta.dema](#api-171)
-- [ta.tema](#api-172)
-- [ta.t3](#api-173)
-- [ta.trima](#api-174)
-- [ta.macd](#api-175)
-- [ta.wma](#api-176)
-- [ta.hma](#api-177)
-- [ta.linreg](#api-178)
-- [ta.cci](#api-179)
-- [ta.vwma](#api-180)
-- [ta.rsi](#api-181)
-- [ta.stoch](#api-182)
-- [ta.atr](#api-183)
-- [ta.supertrend](#api-184)
-- [ta.mom](#api-185)
-- [ta.roc](#api-186)
-- [ta.cmo](#api-187)
-- [ta.crossover](#api-188)
-- [ta.crossunder](#api-189)
-- [Position](#api-190)
-- [Position.Main](#api-191)
-- [Position.Sub](#api-192)
-- [input](#api-193)
-- [input.int](#api-194)
-- [input.float](#api-195)
-- [input.bool](#api-196)
-- [input.string](#api-197)
-- [input.timeframe](#api-198)
-- [defineIndicator](#api-199)
-- [derive](#api-200)
-- [plot](#api-201)
-- [plot.Line](#api-202)
-- [plot.LineBR](#api-203)
-- [plot.StepLine](#api-204)
-- [plot.StepLineBR](#api-205)
-- [plot.Histogram](#api-206)
-- [plot.Columns](#api-207)
-- [plot.Point](#api-208)
-- [plot.Shape](#api-209)
-- [plot.Char](#api-210)
-- [plot.Arrow](#api-211)
-- [plot.Candle](#api-212)
-- [plot.Bar](#api-213)
-- [fill](#api-214)
-- [defineLibrary](#api-215)
-- [importLibrary](#api-216)
-- [request](#api-217)
-- [request.security](#api-218)
-- [syminfo](#api-219)
-- [syminfo.tickerid](#api-220)
+- [yloc](#api-36)
+- [yloc.price](#api-37)
+- [DataSource](#api-38)
+- [DataSource.Binance](#api-39)
+- [DataSource.Gotdx](#api-40)
+- [DataSource.BaoStock](#api-41)
+- [DataSource.TradingView](#api-42)
+- [DataSource.MT5](#api-43)
+- [DataSource.THS](#api-44)
+- [DataSource.Mock](#api-45)
+- [Timeframe](#api-46)
+- [Timeframe.Minute1](#api-47)
+- [Timeframe.Minute5](#api-48)
+- [Timeframe.Minute15](#api-49)
+- [Timeframe.Minute30](#api-50)
+- [Timeframe.Hour1](#api-51)
+- [Timeframe.Hour4](#api-52)
+- [Timeframe.Day](#api-53)
+- [Timeframe.Week](#api-54)
+- [Timeframe.Month1](#api-55)
+- [Timeframe.Month3](#api-56)
+- [Timeframe.Month12](#api-57)
+- [PlotKind](#api-58)
+- [PlotKind.Line](#api-59)
+- [PlotKind.LineBR](#api-60)
+- [PlotKind.StepLine](#api-61)
+- [PlotKind.StepLineBR](#api-62)
+- [PlotKind.Histogram](#api-63)
+- [PlotKind.Columns](#api-64)
+- [PlotKind.Points](#api-65)
+- [PlotKind.Shape](#api-66)
+- [PlotKind.Char](#api-67)
+- [PlotKind.Arrow](#api-68)
+- [PlotKind.Candle](#api-69)
+- [PlotKind.Bar](#api-70)
+- [Format](#api-71)
+- [Format.Price](#api-72)
+- [Format.Volume](#api-73)
+- [Format.Percent](#api-74)
+- [Format.Mintick](#api-75)
+- [ShapeStyle](#api-76)
+- [ShapeStyle.XCross](#api-77)
+- [ShapeStyle.Cross](#api-78)
+- [ShapeStyle.Circle](#api-79)
+- [ShapeStyle.Square](#api-80)
+- [ShapeStyle.Diamond](#api-81)
+- [ShapeStyle.TriangleUp](#api-82)
+- [ShapeStyle.TriangleDown](#api-83)
+- [ShapeStyle.ArrowUp](#api-84)
+- [ShapeStyle.ArrowDown](#api-85)
+- [ShapeStyle.LabelUp](#api-86)
+- [ShapeStyle.LabelDown](#api-87)
+- [ShapeStyle.Flag](#api-88)
+- [ShapeLocation](#api-89)
+- [ShapeLocation.AboveBar](#api-90)
+- [ShapeLocation.BelowBar](#api-91)
+- [ShapeLocation.Top](#api-92)
+- [ShapeLocation.Bottom](#api-93)
+- [ShapeLocation.Absolute](#api-94)
+- [ShapeSize](#api-95)
+- [ShapeSize.Auto](#api-96)
+- [ShapeSize.Tiny](#api-97)
+- [ShapeSize.Small](#api-98)
+- [ShapeSize.Normal](#api-99)
+- [ShapeSize.Large](#api-100)
+- [ShapeSize.Huge](#api-101)
+- [console](#api-102)
+- [console.log](#api-103)
+- [console.info](#api-104)
+- [console.warn](#api-105)
+- [console.error](#api-106)
+- [console.debug](#api-107)
+- [box](#api-108)
+- [box.new](#api-109)
+- [box.all](#api-110)
+- [box.set_left](#api-111)
+- [box.set_top](#api-112)
+- [box.set_right](#api-113)
+- [box.set_bottom](#api-114)
+- [box.set_lefttop](#api-115)
+- [box.set_rightbottom](#api-116)
+- [box.set_top_left_point](#api-117)
+- [box.set_bottom_right_point](#api-118)
+- [box.set_xloc](#api-119)
+- [box.set_extend](#api-120)
+- [box.set_bgcolor](#api-121)
+- [box.set_border_color](#api-122)
+- [box.set_border_width](#api-123)
+- [box.set_border_style](#api-124)
+- [box.set_text](#api-125)
+- [box.set_text_color](#api-126)
+- [box.set_text_size](#api-127)
+- [box.set_text_halign](#api-128)
+- [box.set_text_valign](#api-129)
+- [box.get_left](#api-130)
+- [box.get_top](#api-131)
+- [box.get_right](#api-132)
+- [box.get_bottom](#api-133)
+- [box.copy](#api-134)
+- [box.delete](#api-135)
+- [label](#api-136)
+- [label.style_none](#api-137)
+- [label.new](#api-138)
+- [label.all](#api-139)
+- [label.set_x](#api-140)
+- [label.set_y](#api-141)
+- [label.set_xy](#api-142)
+- [label.set_text](#api-143)
+- [label.set_textcolor](#api-144)
+- [label.set_size](#api-145)
+- [label.set_textalign](#api-146)
+- [label.get_x](#api-147)
+- [label.get_y](#api-148)
+- [label.get_text](#api-149)
+- [label.copy](#api-150)
+- [label.delete](#api-151)
+- [barstate](#api-152)
+- [barstate.islast](#api-153)
+- [open](#api-154)
+- [high](#api-155)
+- [low](#api-156)
+- [close](#api-157)
+- [volume](#api-158)
+- [time](#api-159)
+- [bar_index](#api-160)
+- [bar_index.toString](#api-161)
+- [bar_index.toFixed](#api-162)
+- [bar_index.toExponential](#api-163)
+- [bar_index.toPrecision](#api-164)
+- [bar_index.valueOf](#api-165)
+- [bar_index.toLocaleString](#api-166)
+- [line](#api-167)
+- [line.style_solid](#api-168)
+- [line.style_dashed](#api-169)
+- [line.style_dotted](#api-170)
+- [line.style_arrow_left](#api-171)
+- [line.style_arrow_right](#api-172)
+- [line.style_arrow_both](#api-173)
+- [line.new](#api-174)
+- [line.all](#api-175)
+- [line.set_xy1](#api-176)
+- [line.set_xy2](#api-177)
+- [line.set_x1](#api-178)
+- [line.set_y1](#api-179)
+- [line.set_x2](#api-180)
+- [line.set_y2](#api-181)
+- [line.set_color](#api-182)
+- [line.set_style](#api-183)
+- [line.set_width](#api-184)
+- [line.set_extend](#api-185)
+- [line.get_x1](#api-186)
+- [line.get_y1](#api-187)
+- [line.get_x2](#api-188)
+- [line.get_y2](#api-189)
+- [line.get_color](#api-190)
+- [line.get_style](#api-191)
+- [line.get_width](#api-192)
+- [line.get_extend](#api-193)
+- [line.get_price](#api-194)
+- [line.copy](#api-195)
+- [line.delete](#api-196)
+- [chart](#api-197)
+- [chart.point](#api-198)
+- [chart.point.new](#api-199)
+- [chart.point.now](#api-200)
+- [chart.point.from_index](#api-201)
+- [chart.point.from_time](#api-202)
+- [chart.point.copy](#api-203)
+- [ta](#api-204)
+- [ta.rising](#api-205)
+- [ta.falling](#api-206)
+- [ta.change](#api-207)
+- [ta.sma](#api-208)
+- [ta.sum](#api-209)
+- [ta.highest](#api-210)
+- [ta.lowest](#api-211)
+- [ta.pivothigh](#api-212)
+- [ta.pivotlow](#api-213)
+- [ta.highestbars](#api-214)
+- [ta.lowestbars](#api-215)
+- [ta.rma](#api-216)
+- [ta.swma](#api-217)
+- [ta.alma](#api-218)
+- [ta.stddev](#api-219)
+- [ta.ema](#api-220)
+- [ta.dema](#api-221)
+- [ta.tema](#api-222)
+- [ta.t3](#api-223)
+- [ta.trima](#api-224)
+- [ta.macd](#api-225)
+- [ta.wma](#api-226)
+- [ta.hma](#api-227)
+- [ta.linreg](#api-228)
+- [ta.cci](#api-229)
+- [ta.vwma](#api-230)
+- [ta.rsi](#api-231)
+- [ta.stoch](#api-232)
+- [ta.atr](#api-233)
+- [ta.supertrend](#api-234)
+- [ta.mom](#api-235)
+- [ta.roc](#api-236)
+- [ta.cmo](#api-237)
+- [ta.crossover](#api-238)
+- [ta.crossunder](#api-239)
+- [Position](#api-240)
+- [Position.Main](#api-241)
+- [Position.Sub](#api-242)
+- [input](#api-243)
+- [input.int](#api-244)
+- [input.float](#api-245)
+- [input.bool](#api-246)
+- [input.string](#api-247)
+- [input.timeframe](#api-248)
+- [defineIndicator](#api-249)
+- [derive](#api-250)
+- [plot](#api-251)
+- [plot.Line](#api-252)
+- [plot.LineBR](#api-253)
+- [plot.StepLine](#api-254)
+- [plot.StepLineBR](#api-255)
+- [plot.Histogram](#api-256)
+- [plot.Columns](#api-257)
+- [plot.Point](#api-258)
+- [plot.Shape](#api-259)
+- [plot.Char](#api-260)
+- [plot.Arrow](#api-261)
+- [plot.Candle](#api-262)
+- [plot.Bar](#api-263)
+- [fill](#api-264)
+- [defineLibrary](#api-265)
+- [importLibrary](#api-266)
+- [request](#api-267)
+- [request.security](#api-268)
+- [syminfo](#api-269)
+- [syminfo.tickerid](#api-270)
 
 ## 全局 API
 
@@ -600,6 +650,24 @@ xloc.bar_time = "bar_time"
 
 <a id="api-36"></a>
 
+### yloc
+
+```ts
+yloc: typeof yloc
+```
+
+价格文字锚点；其他定位方式待公共绘图模型支持后再开放。
+
+<a id="api-37"></a>
+
+### yloc.price
+
+```ts
+yloc.price = "price"
+```
+
+<a id="api-38"></a>
+
 ### DataSource
 
 ```ts
@@ -610,7 +678,7 @@ DataSource: typeof DataSource
 
 内置数据源身份；指定后严格路由，不做跨来源回退。
 
-<a id="api-37"></a>
+<a id="api-39"></a>
 
 ### DataSource.Binance
 
@@ -620,7 +688,7 @@ DataSource.Binance = "binance"
 
 **@summary** 币安
 
-<a id="api-38"></a>
+<a id="api-40"></a>
 
 ### DataSource.Gotdx
 
@@ -630,7 +698,7 @@ DataSource.Gotdx = "gotdx"
 
 **@summary** 通达信
 
-<a id="api-39"></a>
+<a id="api-41"></a>
 
 ### DataSource.BaoStock
 
@@ -640,7 +708,7 @@ DataSource.BaoStock = "baostock"
 
 **@summary** 证券宝
 
-<a id="api-40"></a>
+<a id="api-42"></a>
 
 ### DataSource.TradingView
 
@@ -650,7 +718,7 @@ DataSource.TradingView = "tradingview"
 
 **@summary** TradingView
 
-<a id="api-41"></a>
+<a id="api-43"></a>
 
 ### DataSource.MT5
 
@@ -660,7 +728,7 @@ DataSource.MT5 = "mt5"
 
 **@summary** MetaTrader 5
 
-<a id="api-42"></a>
+<a id="api-44"></a>
 
 ### DataSource.THS
 
@@ -670,7 +738,7 @@ DataSource.THS = "ths"
 
 **@summary** 同花顺
 
-<a id="api-43"></a>
+<a id="api-45"></a>
 
 ### DataSource.Mock
 
@@ -680,7 +748,7 @@ DataSource.Mock = "mock"
 
 **@summary** 模拟数据
 
-<a id="api-44"></a>
+<a id="api-46"></a>
 
 ### Timeframe
 
@@ -695,7 +763,7 @@ Timeframe: typeof Timeframe
 取值是周期短写法，只登记图表已支持的周期；需要新周期时先扩 `KLinePeriod`，
 再在这里登记对应写法，宿主侧 `requestPeriod` 不接受未登记的值。
 
-<a id="api-45"></a>
+<a id="api-47"></a>
 
 ### Timeframe.Minute1
 
@@ -705,7 +773,7 @@ Timeframe.Minute1 = "1"
 
 **@summary** 1 分钟
 
-<a id="api-46"></a>
+<a id="api-48"></a>
 
 ### Timeframe.Minute5
 
@@ -715,7 +783,7 @@ Timeframe.Minute5 = "5"
 
 **@summary** 5 分钟
 
-<a id="api-47"></a>
+<a id="api-49"></a>
 
 ### Timeframe.Minute15
 
@@ -725,7 +793,7 @@ Timeframe.Minute15 = "15"
 
 **@summary** 15 分钟
 
-<a id="api-48"></a>
+<a id="api-50"></a>
 
 ### Timeframe.Minute30
 
@@ -735,7 +803,7 @@ Timeframe.Minute30 = "30"
 
 **@summary** 30 分钟
 
-<a id="api-49"></a>
+<a id="api-51"></a>
 
 ### Timeframe.Hour1
 
@@ -745,7 +813,7 @@ Timeframe.Hour1 = "60"
 
 **@summary** 1 小时
 
-<a id="api-50"></a>
+<a id="api-52"></a>
 
 ### Timeframe.Hour4
 
@@ -755,7 +823,7 @@ Timeframe.Hour4 = "240"
 
 **@summary** 4 小时
 
-<a id="api-51"></a>
+<a id="api-53"></a>
 
 ### Timeframe.Day
 
@@ -765,7 +833,7 @@ Timeframe.Day = "D"
 
 **@summary** 日线
 
-<a id="api-52"></a>
+<a id="api-54"></a>
 
 ### Timeframe.Week
 
@@ -775,7 +843,7 @@ Timeframe.Week = "W"
 
 **@summary** 周线
 
-<a id="api-53"></a>
+<a id="api-55"></a>
 
 ### Timeframe.Month1
 
@@ -785,7 +853,7 @@ Timeframe.Month1 = "M"
 
 **@summary** 月线
 
-<a id="api-54"></a>
+<a id="api-56"></a>
 
 ### Timeframe.Month3
 
@@ -795,7 +863,7 @@ Timeframe.Month3 = "3M"
 
 **@summary** 季线
 
-<a id="api-55"></a>
+<a id="api-57"></a>
 
 ### Timeframe.Month12
 
@@ -805,7 +873,7 @@ Timeframe.Month12 = "12M"
 
 **@summary** 年线
 
-<a id="api-56"></a>
+<a id="api-58"></a>
 
 ### PlotKind
 
@@ -817,7 +885,7 @@ PlotKind: typeof PlotKind
 
 脚本 `plot.*` 的图形种类；取值与 Plot 声明的 `kind` 完全一致。
 
-<a id="api-57"></a>
+<a id="api-59"></a>
 
 ### PlotKind.Line
 
@@ -827,7 +895,7 @@ PlotKind.Line = "line"
 
 **@summary** 折线
 
-<a id="api-58"></a>
+<a id="api-60"></a>
 
 ### PlotKind.LineBR
 
@@ -837,7 +905,7 @@ PlotKind.LineBR = "linebr"
 
 **@summary** 断线折线
 
-<a id="api-59"></a>
+<a id="api-61"></a>
 
 ### PlotKind.StepLine
 
@@ -847,7 +915,7 @@ PlotKind.StepLine = "stepline"
 
 **@summary** 阶梯线
 
-<a id="api-60"></a>
+<a id="api-62"></a>
 
 ### PlotKind.StepLineBR
 
@@ -857,7 +925,7 @@ PlotKind.StepLineBR = "steplinebr"
 
 **@summary** 断线阶梯线
 
-<a id="api-61"></a>
+<a id="api-63"></a>
 
 ### PlotKind.Histogram
 
@@ -867,7 +935,7 @@ PlotKind.Histogram = "histogram"
 
 **@summary** 柱状图
 
-<a id="api-62"></a>
+<a id="api-64"></a>
 
 ### PlotKind.Columns
 
@@ -877,7 +945,7 @@ PlotKind.Columns = "columns"
 
 **@summary** 柱形图
 
-<a id="api-63"></a>
+<a id="api-65"></a>
 
 ### PlotKind.Points
 
@@ -887,7 +955,7 @@ PlotKind.Points = "points"
 
 **@summary** 散点
 
-<a id="api-64"></a>
+<a id="api-66"></a>
 
 ### PlotKind.Shape
 
@@ -897,7 +965,7 @@ PlotKind.Shape = "shape"
 
 **@summary** 形状标记
 
-<a id="api-65"></a>
+<a id="api-67"></a>
 
 ### PlotKind.Char
 
@@ -907,7 +975,7 @@ PlotKind.Char = "char"
 
 **@summary** 字符标记
 
-<a id="api-66"></a>
+<a id="api-68"></a>
 
 ### PlotKind.Arrow
 
@@ -917,7 +985,7 @@ PlotKind.Arrow = "arrow"
 
 **@summary** 箭头
 
-<a id="api-67"></a>
+<a id="api-69"></a>
 
 ### PlotKind.Candle
 
@@ -927,7 +995,7 @@ PlotKind.Candle = "candle"
 
 **@summary** 蜡烛图
 
-<a id="api-68"></a>
+<a id="api-70"></a>
 
 ### PlotKind.Bar
 
@@ -937,7 +1005,7 @@ PlotKind.Bar = "bar"
 
 **@summary** 美国线
 
-<a id="api-69"></a>
+<a id="api-71"></a>
 
 ### Format
 
@@ -956,7 +1024,7 @@ Format: typeof Format
 | `Format.Percent` | `3.45%`、`-12.30%` |
 | `Format.Mintick` | `1234.5678901` |
 
-<a id="api-70"></a>
+<a id="api-72"></a>
 
 ### Format.Price
 
@@ -966,7 +1034,7 @@ Format.Price = "price"
 
 **@summary** 价格
 
-<a id="api-71"></a>
+<a id="api-73"></a>
 
 ### Format.Volume
 
@@ -976,7 +1044,7 @@ Format.Volume = "volume"
 
 **@summary** 成交量
 
-<a id="api-72"></a>
+<a id="api-74"></a>
 
 ### Format.Percent
 
@@ -986,7 +1054,7 @@ Format.Percent = "percent"
 
 **@summary** 百分比
 
-<a id="api-73"></a>
+<a id="api-75"></a>
 
 ### Format.Mintick
 
@@ -996,7 +1064,7 @@ Format.Mintick = "mintick"
 
 **@summary** 最小变动单位
 
-<a id="api-74"></a>
+<a id="api-76"></a>
 
 ### ShapeStyle
 
@@ -1008,7 +1076,7 @@ ShapeStyle: typeof ShapeStyle
 
 固定形状标记可选的外形；缺省使用 XCross。
 
-<a id="api-75"></a>
+<a id="api-77"></a>
 
 ### ShapeStyle.XCross
 
@@ -1018,7 +1086,7 @@ ShapeStyle.XCross = "xcross"
 
 **@summary** X 叉
 
-<a id="api-76"></a>
+<a id="api-78"></a>
 
 ### ShapeStyle.Cross
 
@@ -1028,7 +1096,7 @@ ShapeStyle.Cross = "cross"
 
 **@summary** 十字
 
-<a id="api-77"></a>
+<a id="api-79"></a>
 
 ### ShapeStyle.Circle
 
@@ -1038,7 +1106,7 @@ ShapeStyle.Circle = "circle"
 
 **@summary** 圆
 
-<a id="api-78"></a>
+<a id="api-80"></a>
 
 ### ShapeStyle.Square
 
@@ -1048,7 +1116,7 @@ ShapeStyle.Square = "square"
 
 **@summary** 方形
 
-<a id="api-79"></a>
+<a id="api-81"></a>
 
 ### ShapeStyle.Diamond
 
@@ -1058,7 +1126,7 @@ ShapeStyle.Diamond = "diamond"
 
 **@summary** 菱形
 
-<a id="api-80"></a>
+<a id="api-82"></a>
 
 ### ShapeStyle.TriangleUp
 
@@ -1068,7 +1136,7 @@ ShapeStyle.TriangleUp = "triangleup"
 
 **@summary** 上三角
 
-<a id="api-81"></a>
+<a id="api-83"></a>
 
 ### ShapeStyle.TriangleDown
 
@@ -1078,7 +1146,7 @@ ShapeStyle.TriangleDown = "triangledown"
 
 **@summary** 下三角
 
-<a id="api-82"></a>
+<a id="api-84"></a>
 
 ### ShapeStyle.ArrowUp
 
@@ -1088,7 +1156,7 @@ ShapeStyle.ArrowUp = "arrowup"
 
 **@summary** 上箭头
 
-<a id="api-83"></a>
+<a id="api-85"></a>
 
 ### ShapeStyle.ArrowDown
 
@@ -1098,7 +1166,7 @@ ShapeStyle.ArrowDown = "arrowdown"
 
 **@summary** 下箭头
 
-<a id="api-84"></a>
+<a id="api-86"></a>
 
 ### ShapeStyle.LabelUp
 
@@ -1108,7 +1176,7 @@ ShapeStyle.LabelUp = "labelup"
 
 **@summary** 上标签
 
-<a id="api-85"></a>
+<a id="api-87"></a>
 
 ### ShapeStyle.LabelDown
 
@@ -1118,7 +1186,7 @@ ShapeStyle.LabelDown = "labeldown"
 
 **@summary** 下标签
 
-<a id="api-86"></a>
+<a id="api-88"></a>
 
 ### ShapeStyle.Flag
 
@@ -1128,7 +1196,7 @@ ShapeStyle.Flag = "flag"
 
 **@summary** 旗形
 
-<a id="api-87"></a>
+<a id="api-89"></a>
 
 ### ShapeLocation
 
@@ -1140,7 +1208,7 @@ ShapeLocation: typeof ShapeLocation
 
 标记相对 K 线的位置；缺省在 K 线上方，Absolute 表示按价格定位。
 
-<a id="api-88"></a>
+<a id="api-90"></a>
 
 ### ShapeLocation.AboveBar
 
@@ -1150,7 +1218,7 @@ ShapeLocation.AboveBar = "abovebar"
 
 **@summary** 上方
 
-<a id="api-89"></a>
+<a id="api-91"></a>
 
 ### ShapeLocation.BelowBar
 
@@ -1160,7 +1228,7 @@ ShapeLocation.BelowBar = "belowbar"
 
 **@summary** 下方
 
-<a id="api-90"></a>
+<a id="api-92"></a>
 
 ### ShapeLocation.Top
 
@@ -1170,7 +1238,7 @@ ShapeLocation.Top = "top"
 
 **@summary** 顶部
 
-<a id="api-91"></a>
+<a id="api-93"></a>
 
 ### ShapeLocation.Bottom
 
@@ -1180,7 +1248,7 @@ ShapeLocation.Bottom = "bottom"
 
 **@summary** 底部
 
-<a id="api-92"></a>
+<a id="api-94"></a>
 
 ### ShapeLocation.Absolute
 
@@ -1190,7 +1258,7 @@ ShapeLocation.Absolute = "absolute"
 
 **@summary** 按价格定位
 
-<a id="api-93"></a>
+<a id="api-95"></a>
 
 ### ShapeSize
 
@@ -1214,7 +1282,7 @@ ShapeSize: typeof ShapeSize
 px 为逻辑像素；箭头实际高度随数值幅度变化，最短为最大高度的 10%。
 Columns 不接受 size，柱宽随 K 线间距自动调整。
 
-<a id="api-94"></a>
+<a id="api-96"></a>
 
 ### ShapeSize.Auto
 
@@ -1224,7 +1292,7 @@ ShapeSize.Auto = "auto"
 
 **@summary** 自动
 
-<a id="api-95"></a>
+<a id="api-97"></a>
 
 ### ShapeSize.Tiny
 
@@ -1234,7 +1302,7 @@ ShapeSize.Tiny = "tiny"
 
 **@summary** 极小
 
-<a id="api-96"></a>
+<a id="api-98"></a>
 
 ### ShapeSize.Small
 
@@ -1244,7 +1312,7 @@ ShapeSize.Small = "small"
 
 **@summary** 小
 
-<a id="api-97"></a>
+<a id="api-99"></a>
 
 ### ShapeSize.Normal
 
@@ -1254,7 +1322,7 @@ ShapeSize.Normal = "normal"
 
 **@summary** 常规
 
-<a id="api-98"></a>
+<a id="api-100"></a>
 
 ### ShapeSize.Large
 
@@ -1264,7 +1332,7 @@ ShapeSize.Large = "large"
 
 **@summary** 大
 
-<a id="api-99"></a>
+<a id="api-101"></a>
 
 ### ShapeSize.Huge
 
@@ -1274,7 +1342,7 @@ ShapeSize.Huge = "huge"
 
 **@summary** 特大
 
-<a id="api-100"></a>
+<a id="api-102"></a>
 
 ### console
 
@@ -1284,7 +1352,7 @@ console: { log(...values: unknown[]): void; info(...values: unknown[]): void; wa
 
 输出到编辑器底部的“输出”面板；支持多个参数和对象。
 
-<a id="api-101"></a>
+<a id="api-103"></a>
 
 ### console.log
 
@@ -1292,7 +1360,7 @@ console: { log(...values: unknown[]): void; info(...values: unknown[]): void; wa
 console.log(...values: unknown[]): void
 ```
 
-<a id="api-102"></a>
+<a id="api-104"></a>
 
 ### console.info
 
@@ -1300,7 +1368,7 @@ console.log(...values: unknown[]): void
 console.info(...values: unknown[]): void
 ```
 
-<a id="api-103"></a>
+<a id="api-105"></a>
 
 ### console.warn
 
@@ -1308,7 +1376,7 @@ console.info(...values: unknown[]): void
 console.warn(...values: unknown[]): void
 ```
 
-<a id="api-104"></a>
+<a id="api-106"></a>
 
 ### console.error
 
@@ -1316,7 +1384,7 @@ console.warn(...values: unknown[]): void
 console.error(...values: unknown[]): void
 ```
 
-<a id="api-105"></a>
+<a id="api-107"></a>
 
 ### console.debug
 
@@ -1324,7 +1392,382 @@ console.error(...values: unknown[]): void
 console.debug(...values: unknown[]): void
 ```
 
-<a id="api-106"></a>
+<a id="api-108"></a>
+
+### box
+
+```ts
+box: DrawingBoxApi
+```
+
+创建、修改、读取和删除矩形；位置参数顺序与 Pine box.new 一致。
+
+<a id="api-109"></a>
+
+### box.new
+
+```ts
+box.new(left: number, top: number, right: number, bottom: number, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
+box.new(top_left: ChartPoint, bottom_right: ChartPoint, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
+```
+
+<a id="api-110"></a>
+
+### box.all
+
+```ts
+box.all: readonly BoxRef[]
+```
+
+<a id="api-111"></a>
+
+### box.set_left
+
+```ts
+box.set_left(id: BoxRef, left: number): void
+```
+
+<a id="api-112"></a>
+
+### box.set_top
+
+```ts
+box.set_top(id: BoxRef, top: number): void
+```
+
+<a id="api-113"></a>
+
+### box.set_right
+
+```ts
+box.set_right(id: BoxRef, right: number): void
+```
+
+<a id="api-114"></a>
+
+### box.set_bottom
+
+```ts
+box.set_bottom(id: BoxRef, bottom: number): void
+```
+
+<a id="api-115"></a>
+
+### box.set_lefttop
+
+```ts
+box.set_lefttop(id: BoxRef, left: number, top: number): void
+```
+
+<a id="api-116"></a>
+
+### box.set_rightbottom
+
+```ts
+box.set_rightbottom(id: BoxRef, right: number, bottom: number): void
+```
+
+<a id="api-117"></a>
+
+### box.set_top_left_point
+
+```ts
+box.set_top_left_point(id: BoxRef, point: ChartPoint): void
+```
+
+<a id="api-118"></a>
+
+### box.set_bottom_right_point
+
+```ts
+box.set_bottom_right_point(id: BoxRef, point: ChartPoint): void
+```
+
+<a id="api-119"></a>
+
+### box.set_xloc
+
+```ts
+box.set_xloc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void
+```
+
+<a id="api-120"></a>
+
+### box.set_extend
+
+```ts
+box.set_extend(id: BoxRef, extend: LineExtend): void
+```
+
+<a id="api-121"></a>
+
+### box.set_bgcolor
+
+```ts
+box.set_bgcolor(id: BoxRef, color: Color | (string & {})): void
+```
+
+<a id="api-122"></a>
+
+### box.set_border_color
+
+```ts
+box.set_border_color(id: BoxRef, color: Color | (string & {})): void
+```
+
+<a id="api-123"></a>
+
+### box.set_border_width
+
+```ts
+box.set_border_width(id: BoxRef, width: number): void
+```
+
+<a id="api-124"></a>
+
+### box.set_border_style
+
+```ts
+box.set_border_style(id: BoxRef, style: BoxBorderStyle): void
+```
+
+<a id="api-125"></a>
+
+### box.set_text
+
+```ts
+box.set_text(id: BoxRef, text: string): void
+```
+
+<a id="api-126"></a>
+
+### box.set_text_color
+
+```ts
+box.set_text_color(id: BoxRef, color: Color | (string & {})): void
+```
+
+<a id="api-127"></a>
+
+### box.set_text_size
+
+```ts
+box.set_text_size(id: BoxRef, size: number): void
+```
+
+<a id="api-128"></a>
+
+### box.set_text_halign
+
+```ts
+box.set_text_halign(id: BoxRef, align: DrawingText["align"]): void
+```
+
+<a id="api-129"></a>
+
+### box.set_text_valign
+
+```ts
+box.set_text_valign(id: BoxRef, align: DrawingText["verticalAlign"]): void
+```
+
+<a id="api-130"></a>
+
+### box.get_left
+
+```ts
+box.get_left(id: BoxRef): number
+```
+
+<a id="api-131"></a>
+
+### box.get_top
+
+```ts
+box.get_top(id: BoxRef): number
+```
+
+<a id="api-132"></a>
+
+### box.get_right
+
+```ts
+box.get_right(id: BoxRef): number
+```
+
+<a id="api-133"></a>
+
+### box.get_bottom
+
+```ts
+box.get_bottom(id: BoxRef): number
+```
+
+<a id="api-134"></a>
+
+### box.copy
+
+```ts
+box.copy(id: BoxRef): BoxRef | null
+```
+
+<a id="api-135"></a>
+
+### box.delete
+
+```ts
+box.delete(id: BoxRef | null): void
+```
+
+<a id="api-136"></a>
+
+### label
+
+```ts
+label: DrawingLabelApi
+```
+
+在历史 bar 的价格位置创建纯文字标签，支持 label.style_none。
+
+<a id="api-137"></a>
+
+### label.style_none
+
+```ts
+label.style_none: "none"
+```
+
+<a id="api-138"></a>
+
+### label.new
+
+```ts
+label.new(x: number, y: number, text?: string, xloc?: LineXLoc, yloc?: "price", color?: Color | (string & {}), style?: "none", textcolor?: Color | (string & {}), size?: number, textalign?: DrawingText["align"]): LabelRef
+```
+
+<a id="api-139"></a>
+
+### label.all
+
+```ts
+label.all: readonly LabelRef[]
+```
+
+<a id="api-140"></a>
+
+### label.set_x
+
+```ts
+label.set_x(id: LabelRef, x: number): void
+```
+
+<a id="api-141"></a>
+
+### label.set_y
+
+```ts
+label.set_y(id: LabelRef, y: number): void
+```
+
+<a id="api-142"></a>
+
+### label.set_xy
+
+```ts
+label.set_xy(id: LabelRef, x: number, y: number): void
+```
+
+<a id="api-143"></a>
+
+### label.set_text
+
+```ts
+label.set_text(id: LabelRef, text: string): void
+```
+
+<a id="api-144"></a>
+
+### label.set_textcolor
+
+```ts
+label.set_textcolor(id: LabelRef, color: Color | (string & {})): void
+```
+
+<a id="api-145"></a>
+
+### label.set_size
+
+```ts
+label.set_size(id: LabelRef, size: number): void
+```
+
+<a id="api-146"></a>
+
+### label.set_textalign
+
+```ts
+label.set_textalign(id: LabelRef, align: DrawingText["align"]): void
+```
+
+<a id="api-147"></a>
+
+### label.get_x
+
+```ts
+label.get_x(id: LabelRef): number
+```
+
+<a id="api-148"></a>
+
+### label.get_y
+
+```ts
+label.get_y(id: LabelRef): number
+```
+
+<a id="api-149"></a>
+
+### label.get_text
+
+```ts
+label.get_text(id: LabelRef): string | null
+```
+
+<a id="api-150"></a>
+
+### label.copy
+
+```ts
+label.copy(id: LabelRef): LabelRef | null
+```
+
+<a id="api-151"></a>
+
+### label.delete
+
+```ts
+label.delete(id: LabelRef | null): void
+```
+
+<a id="api-152"></a>
+
+### barstate
+
+```ts
+barstate: { readonly islast: boolean; }
+```
+
+当前执行 bar 是否是本次数据的最后一根。
+
+<a id="api-153"></a>
+
+### barstate.islast
+
+```ts
+barstate.islast: boolean
+```
+
+<a id="api-154"></a>
 
 ### open
 
@@ -1332,7 +1775,7 @@ console.debug(...values: unknown[]): void
 open: ScriptSeries
 ```
 
-<a id="api-107"></a>
+<a id="api-155"></a>
 
 ### high
 
@@ -1340,7 +1783,7 @@ open: ScriptSeries
 high: ScriptSeries
 ```
 
-<a id="api-108"></a>
+<a id="api-156"></a>
 
 ### low
 
@@ -1348,7 +1791,7 @@ high: ScriptSeries
 low: ScriptSeries
 ```
 
-<a id="api-109"></a>
+<a id="api-157"></a>
 
 ### close
 
@@ -1356,7 +1799,7 @@ low: ScriptSeries
 close: ScriptSeries
 ```
 
-<a id="api-110"></a>
+<a id="api-158"></a>
 
 ### volume
 
@@ -1364,7 +1807,7 @@ close: ScriptSeries
 volume: ScriptSeries
 ```
 
-<a id="api-111"></a>
+<a id="api-159"></a>
 
 ### time
 
@@ -1372,7 +1815,7 @@ volume: ScriptSeries
 time: ScriptSeries
 ```
 
-<a id="api-112"></a>
+<a id="api-160"></a>
 
 ### bar_index
 
@@ -1382,7 +1825,7 @@ bar_index: number
 
 当前 K 线索引，从 0 开始。
 
-<a id="api-113"></a>
+<a id="api-161"></a>
 
 ### bar_index.toString
 
@@ -1394,7 +1837,7 @@ Returns a string representation of an object.
 
 **@param** radix Specifies a radix for converting numeric values to strings. This value is only used for numbers.
 
-<a id="api-114"></a>
+<a id="api-162"></a>
 
 ### bar_index.toFixed
 
@@ -1406,7 +1849,7 @@ Returns a string representing a number in fixed-point notation.
 
 **@param** fractionDigits Number of digits after the decimal point. Must be in the range 0 - 20, inclusive.
 
-<a id="api-115"></a>
+<a id="api-163"></a>
 
 ### bar_index.toExponential
 
@@ -1418,7 +1861,7 @@ Returns a string containing a number represented in exponential notation.
 
 **@param** fractionDigits Number of digits after the decimal point. Must be in the range 0 - 20, inclusive.
 
-<a id="api-116"></a>
+<a id="api-164"></a>
 
 ### bar_index.toPrecision
 
@@ -1430,7 +1873,7 @@ Returns a string containing a number represented either in exponential or fixed-
 
 **@param** precision Number of significant digits. Must be in the range 1 - 21, inclusive.
 
-<a id="api-117"></a>
+<a id="api-165"></a>
 
 ### bar_index.valueOf
 
@@ -1440,7 +1883,7 @@ bar_index.valueOf(): number
 
 Returns the primitive value of the specified object.
 
-<a id="api-118"></a>
+<a id="api-166"></a>
 
 ### bar_index.toLocaleString
 
@@ -1459,7 +1902,7 @@ Converts a number to a string by using the current or specified locale.
 
 **@param** options An object that contains one or more properties that specify comparison options.
 
-<a id="api-119"></a>
+<a id="api-167"></a>
 
 ### line
 
@@ -1476,67 +1919,67 @@ const id = line.new(bar_index, low[0], bar_index + 5, high[0])
 line.set_color(id, Color.Red)
 ```
 
-<a id="api-120"></a>
+<a id="api-168"></a>
 
 ### line.style_solid
 
 ```ts
-line.style_solid: LineStyle
+line.style_solid: "solid"
 ```
 
 **@summary** 实线
 
-<a id="api-121"></a>
+<a id="api-169"></a>
 
 ### line.style_dashed
 
 ```ts
-line.style_dashed: LineStyle
+line.style_dashed: "dashed"
 ```
 
 **@summary** 虚线
 
-<a id="api-122"></a>
+<a id="api-170"></a>
 
 ### line.style_dotted
 
 ```ts
-line.style_dotted: LineStyle
+line.style_dotted: "dotted"
 ```
 
 **@summary** 点线
 
-<a id="api-123"></a>
+<a id="api-171"></a>
 
 ### line.style_arrow_left
 
 ```ts
-line.style_arrow_left: LineStyle
+line.style_arrow_left: "arrow_left"
 ```
 
 **@summary** 左箭头
 
-<a id="api-124"></a>
+<a id="api-172"></a>
 
 ### line.style_arrow_right
 
 ```ts
-line.style_arrow_right: LineStyle
+line.style_arrow_right: "arrow_right"
 ```
 
 **@summary** 右箭头
 
-<a id="api-125"></a>
+<a id="api-173"></a>
 
 ### line.style_arrow_both
 
 ```ts
-line.style_arrow_both: LineStyle
+line.style_arrow_both: "arrow_both"
 ```
 
 **@summary** 双箭头
 
-<a id="api-126"></a>
+<a id="api-174"></a>
 
 ### line.new
 
@@ -1549,7 +1992,7 @@ line.new(x1: number, y1: number, x2: number, y2: number, xloc?: LineXLoc, extend
 
 **@summary** 绘制线段
 
-<a id="api-127"></a>
+<a id="api-175"></a>
 
 ### line.all
 
@@ -1561,7 +2004,7 @@ line.all: readonly LineRef[]
 
 **@summary** 全部线段
 
-<a id="api-128"></a>
+<a id="api-176"></a>
 
 ### line.set_xy1
 
@@ -1573,7 +2016,7 @@ line.set_xy1(id: LineRef, x: number, y: number): void
 
 **@summary** 设置起点
 
-<a id="api-129"></a>
+<a id="api-177"></a>
 
 ### line.set_xy2
 
@@ -1585,7 +2028,7 @@ line.set_xy2(id: LineRef, x: number, y: number): void
 
 **@summary** 设置终点
 
-<a id="api-130"></a>
+<a id="api-178"></a>
 
 ### line.set_x1
 
@@ -1597,7 +2040,7 @@ line.set_x1(id: LineRef, x: number): void
 
 **@summary** 设置起点 X
 
-<a id="api-131"></a>
+<a id="api-179"></a>
 
 ### line.set_y1
 
@@ -1609,7 +2052,7 @@ line.set_y1(id: LineRef, y: number): void
 
 **@summary** 设置起点价格
 
-<a id="api-132"></a>
+<a id="api-180"></a>
 
 ### line.set_x2
 
@@ -1621,7 +2064,7 @@ line.set_x2(id: LineRef, x: number): void
 
 **@summary** 设置终点 X
 
-<a id="api-133"></a>
+<a id="api-181"></a>
 
 ### line.set_y2
 
@@ -1633,7 +2076,7 @@ line.set_y2(id: LineRef, y: number): void
 
 **@summary** 设置终点价格
 
-<a id="api-134"></a>
+<a id="api-182"></a>
 
 ### line.set_color
 
@@ -1645,7 +2088,7 @@ line.set_color(id: LineRef, color: Color | (string & {})): void
 
 **@summary** 设置颜色
 
-<a id="api-135"></a>
+<a id="api-183"></a>
 
 ### line.set_style
 
@@ -1657,7 +2100,7 @@ line.set_style(id: LineRef, style: LineStyle): void
 
 **@summary** 设置线型
 
-<a id="api-136"></a>
+<a id="api-184"></a>
 
 ### line.set_width
 
@@ -1669,7 +2112,7 @@ line.set_width(id: LineRef, width: number): void
 
 **@summary** 设置线宽
 
-<a id="api-137"></a>
+<a id="api-185"></a>
 
 ### line.set_extend
 
@@ -1681,7 +2124,7 @@ line.set_extend(id: LineRef, extend: LineExtend): void
 
 **@summary** 设置延伸
 
-<a id="api-138"></a>
+<a id="api-186"></a>
 
 ### line.get_x1
 
@@ -1693,7 +2136,7 @@ line.get_x1(id: LineRef): number
 
 **@summary** 起点 X
 
-<a id="api-139"></a>
+<a id="api-187"></a>
 
 ### line.get_y1
 
@@ -1705,7 +2148,7 @@ line.get_y1(id: LineRef): number
 
 **@summary** 起点价格
 
-<a id="api-140"></a>
+<a id="api-188"></a>
 
 ### line.get_x2
 
@@ -1717,7 +2160,7 @@ line.get_x2(id: LineRef): number
 
 **@summary** 终点 X
 
-<a id="api-141"></a>
+<a id="api-189"></a>
 
 ### line.get_y2
 
@@ -1729,7 +2172,7 @@ line.get_y2(id: LineRef): number
 
 **@summary** 终点价格
 
-<a id="api-142"></a>
+<a id="api-190"></a>
 
 ### line.get_color
 
@@ -1741,7 +2184,7 @@ line.get_color(id: LineRef): string | null
 
 **@summary** 颜色
 
-<a id="api-143"></a>
+<a id="api-191"></a>
 
 ### line.get_style
 
@@ -1753,7 +2196,7 @@ line.get_style(id: LineRef): LineStyle | null
 
 **@summary** 线型
 
-<a id="api-144"></a>
+<a id="api-192"></a>
 
 ### line.get_width
 
@@ -1765,7 +2208,7 @@ line.get_width(id: LineRef): number
 
 **@summary** 线宽
 
-<a id="api-145"></a>
+<a id="api-193"></a>
 
 ### line.get_extend
 
@@ -1777,7 +2220,7 @@ line.get_extend(id: LineRef): LineExtend | null
 
 **@summary** 延伸方向
 
-<a id="api-146"></a>
+<a id="api-194"></a>
 
 ### line.get_price
 
@@ -1789,7 +2232,7 @@ line.get_price(id: LineRef, x: number): number
 
 **@summary** 求价格
 
-<a id="api-147"></a>
+<a id="api-195"></a>
 
 ### line.copy
 
@@ -1801,7 +2244,7 @@ line.copy(id: LineRef): LineRef | null
 
 **@summary** 复制线段
 
-<a id="api-148"></a>
+<a id="api-196"></a>
 
 ### line.delete
 
@@ -1813,7 +2256,7 @@ line.delete(id: LineRef | null): void
 
 **@summary** 删除线段
 
-<a id="api-149"></a>
+<a id="api-197"></a>
 
 ### chart
 
@@ -1823,7 +2266,7 @@ chart: { readonly point: { "new"(time: number, index: number, price: number): Ch
 
 chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引用。
 
-<a id="api-150"></a>
+<a id="api-198"></a>
 
 ### chart.point
 
@@ -1831,7 +2274,7 @@ chart.point 坐标工厂；line.new 会复制坐标，不保留 point 对象引�
 chart.point: { "new"(time: number, index: number, price: number): ChartPoint; now(price: number): ChartPoint; from_index(index: number, price: number): ChartPoint; from_time(time: number, price: number): ChartPoint; copy(point: ChartPoint): ChartPoint; }
 ```
 
-<a id="api-151"></a>
+<a id="api-199"></a>
 
 ### chart.point.new
 
@@ -1841,7 +2284,7 @@ chart.point.new(time: number, index: number, price: number): ChartPoint
 
 用时间戳、bar 索引和价格构造 point；xloc 决定 line.new 读取哪个字段。
 
-<a id="api-152"></a>
+<a id="api-200"></a>
 
 ### chart.point.now
 
@@ -1851,7 +2294,7 @@ chart.point.now(price: number): ChartPoint
 
 当前 K 线的 point，索引取 bar_index。
 
-<a id="api-153"></a>
+<a id="api-201"></a>
 
 ### chart.point.from_index
 
@@ -1861,7 +2304,7 @@ chart.point.from_index(index: number, price: number): ChartPoint
 
 只带 bar 索引的 point，用于 xloc.bar_index。
 
-<a id="api-154"></a>
+<a id="api-202"></a>
 
 ### chart.point.from_time
 
@@ -1871,7 +2314,7 @@ chart.point.from_time(time: number, price: number): ChartPoint
 
 只带毫秒时间戳的 point，用于 xloc.bar_time。
 
-<a id="api-155"></a>
+<a id="api-203"></a>
 
 ### chart.point.copy
 
@@ -1881,7 +2324,7 @@ chart.point.copy(point: ChartPoint): ChartPoint
 
 复制 point，得到独立值对象。
 
-<a id="api-156"></a>
+<a id="api-204"></a>
 
 ### ta
 
@@ -1892,7 +2335,7 @@ ta: TechnicalAnalysisLibrary
 内建技术分析库
 序列结果用 [0] 取当前值、[1] 取上一根值，例如 ta.sma(close, 20)[0]。
 
-<a id="api-157"></a>
+<a id="api-205"></a>
 
 ### ta.rising
 
@@ -1910,7 +2353,7 @@ ta.rising(source: Series, length: number): boolean
 
 **@returns** 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
 
-<a id="api-158"></a>
+<a id="api-206"></a>
 
 ### ta.falling
 
@@ -1928,7 +2371,7 @@ ta.falling(source: Series, length: number): boolean
 
 **@returns** 满足时为 true；当前值为 NaN 或没有有效历史值时为 false，历史 NaN 忽略。
 
-<a id="api-159"></a>
+<a id="api-207"></a>
 
 ### ta.change
 
@@ -1946,7 +2389,7 @@ ta.change(source: Series, length?: number): Series
 
 **@returns** 差值序列；历史不足或任一端为 NaN 时为 NaN。
 
-<a id="api-160"></a>
+<a id="api-208"></a>
 
 ### ta.sma
 
@@ -1964,7 +2407,7 @@ ta.sma(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值，完整窗口之前为 NaN。
 
-<a id="api-161"></a>
+<a id="api-209"></a>
 
 ### ta.sum
 
@@ -1982,7 +2425,7 @@ ta.sum(source: Series, length: number): Series
 
 **@returns** 求和序列；[0] 取当前窗口结果，完整窗口之前为 NaN。
 
-<a id="api-162"></a>
+<a id="api-210"></a>
 
 ### ta.highest
 
@@ -2000,7 +2443,7 @@ ta.highest(source: Series, length: number): Series
 
 **@returns** 最高值序列；[0] 取当前窗口的结果。
 
-<a id="api-163"></a>
+<a id="api-211"></a>
 
 ### ta.lowest
 
@@ -2018,7 +2461,27 @@ ta.lowest(source: Series, length: number): Series
 
 **@returns** 最低值序列；[0] 取当前窗口的结果。
 
-<a id="api-164"></a>
+<a id="api-212"></a>
+
+### ta.pivothigh
+
+```ts
+ta.pivothigh(source: Series, leftbars: number, rightbars: number): Series
+```
+
+确认后的摆动高点；结果出现在右侧窗口完成的 bar，无摆点为 NaN。
+
+<a id="api-213"></a>
+
+### ta.pivotlow
+
+```ts
+ta.pivotlow(source: Series, leftbars: number, rightbars: number): Series
+```
+
+确认后的摆动低点；并列极值取更靠右的 bar。
+
+<a id="api-214"></a>
 
 ### ta.highestbars
 
@@ -2036,7 +2499,7 @@ ta.highestbars(source: Series, length: number): Series
 
 **@returns** 偏移序列；并列最高取更早一根，完整窗口之前为 NaN。
 
-<a id="api-165"></a>
+<a id="api-215"></a>
 
 ### ta.lowestbars
 
@@ -2054,7 +2517,7 @@ ta.lowestbars(source: Series, length: number): Series
 
 **@returns** 偏移序列；并列最低取更早一根，完整窗口之前为 NaN。
 
-<a id="api-166"></a>
+<a id="api-216"></a>
 
 ### ta.rma
 
@@ -2072,7 +2535,7 @@ Wilder 平滑均线（RMA），alpha = 1 / length，以首个完整窗口 SMA �
 
 **@returns** 均线序列；完整窗口之前为 NaN。
 
-<a id="api-167"></a>
+<a id="api-217"></a>
 
 ### ta.swma
 
@@ -2088,7 +2551,7 @@ ta.swma(source: Series): Series
 
 **@returns** 均线序列；前 3 根为 NaN。
 
-<a id="api-168"></a>
+<a id="api-218"></a>
 
 ### ta.alma
 
@@ -2112,7 +2575,7 @@ Arnaud Legoux 均线（ALMA），高斯权重中心位于 offset × (length − 
 
 **@returns** 均线序列；完整窗口之前为 NaN。
 
-<a id="api-169"></a>
+<a id="api-219"></a>
 
 ### ta.stddev
 
@@ -2130,7 +2593,7 @@ ta.stddev(source: Series, length: number): Series
 
 **@returns** 标准差序列；[0] 取当前窗口结果，完整窗口之前为 NaN。
 
-<a id="api-170"></a>
+<a id="api-220"></a>
 
 ### ta.ema
 
@@ -2148,7 +2611,7 @@ ta.ema(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-171"></a>
+<a id="api-221"></a>
 
 ### ta.dema
 
@@ -2166,7 +2629,7 @@ ta.dema(source: Series, length: number): Series
 
 **@returns** DEMA 序列，前 2×(length−1) 根为 NaN。
 
-<a id="api-172"></a>
+<a id="api-222"></a>
 
 ### ta.tema
 
@@ -2184,7 +2647,7 @@ ta.tema(source: Series, length: number): Series
 
 **@returns** TEMA 序列，前 3×(length−1) 根为 NaN。
 
-<a id="api-173"></a>
+<a id="api-223"></a>
 
 ### ta.t3
 
@@ -2204,7 +2667,7 @@ Tillson T3，以六层 EMA 及成交量因子系数组合平滑价格。
 
 **@returns** T3 序列，前 6×(length−1) 根为 NaN；周期 1 时等于输入。
 
-<a id="api-174"></a>
+<a id="api-224"></a>
 
 ### ta.trima
 
@@ -2222,7 +2685,7 @@ ta.trima(source: Series, length: number): Series
 
 **@returns** TRIMA 序列，前 length−1 根为 NaN。
 
-<a id="api-175"></a>
+<a id="api-225"></a>
 
 ### ta.macd
 
@@ -2244,7 +2707,7 @@ MACD，快慢 EMA 与信号 EMA 均以首个有效值初始化，从该位置逐
 
 **@returns** [DIF, DEA, DIF-DEA] 三个序列；柱体不翻倍，NaN 处留空，后续有效值重新初始化。
 
-<a id="api-176"></a>
+<a id="api-226"></a>
 
 ### ta.wma
 
@@ -2262,7 +2725,7 @@ ta.wma(source: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-177"></a>
+<a id="api-227"></a>
 
 ### ta.hma
 
@@ -2280,7 +2743,7 @@ Hull 移动平均，组合 WMA(2×WMA(source, floor(length/2))−WMA(source, len
 
 **@returns** 均线序列，完整组合窗口之前为 NaN。
 
-<a id="api-178"></a>
+<a id="api-228"></a>
 
 ### ta.linreg
 
@@ -2300,7 +2763,7 @@ ta.linreg(source: Series, length: number, offset?: number): Series
 
 **@returns** 回归值序列；完整窗口之前为 NaN。
 
-<a id="api-179"></a>
+<a id="api-229"></a>
 
 ### ta.cci
 
@@ -2318,7 +2781,7 @@ ta.cci(source: Series, length: number): Series
 
 **@returns** CCI 序列；窗口不足为 NaN，平均绝对偏差为零时为 0。
 
-<a id="api-180"></a>
+<a id="api-230"></a>
 
 ### ta.vwma
 
@@ -2338,7 +2801,7 @@ ta.vwma(source: Series, volume: Series, length: number): Series
 
 **@returns** 均线序列；[0] 取当前值。
 
-<a id="api-181"></a>
+<a id="api-231"></a>
 
 ### ta.rsi
 
@@ -2356,7 +2819,7 @@ ta.rsi(source: Series, length: number): Series
 
 **@returns** RSI 序列，范围 0–100；[0] 取当前值，完整窗口之前为 NaN。
 
-<a id="api-182"></a>
+<a id="api-232"></a>
 
 ### ta.stoch
 
@@ -2378,7 +2841,7 @@ ta.stoch(source: Series, high: Series, low: Series, length: number): Series
 
 **@returns** 随机指标序列，范围 0–100；完整窗口之前为 NaN，零幅窗口输出 50。
 
-<a id="api-183"></a>
+<a id="api-233"></a>
 
 ### ta.atr
 
@@ -2394,7 +2857,7 @@ ta.atr(length: number): Series
 
 **@returns** ATR 序列；第一根真实波幅为 high-low，完整窗口之前为 NaN。
 
-<a id="api-184"></a>
+<a id="api-234"></a>
 
 ### ta.supertrend
 
@@ -2412,7 +2875,7 @@ Supertrend，保留原生指标的上涨初始方向与 ATR 通道递推规则�
 
 **@returns** [趋势线序列, 方向序列]；-1 为上涨、1 为下跌，预热期间两者均为 NaN。
 
-<a id="api-185"></a>
+<a id="api-235"></a>
 
 ### ta.mom
 
@@ -2430,7 +2893,7 @@ ta.mom(source: Series, length?: number): Series
 
 **@returns** 差值序列，按数值轴绘制；历史不足时为 NaN。
 
-<a id="api-186"></a>
+<a id="api-236"></a>
 
 ### ta.roc
 
@@ -2448,7 +2911,7 @@ ta.roc(source: Series, length?: number): Series
 
 **@returns** 百分比变化序列；历史不足或基准为 0 时为 NaN。
 
-<a id="api-187"></a>
+<a id="api-237"></a>
 
 ### ta.cmo
 
@@ -2466,7 +2929,7 @@ Chande 动量振荡器：100 × (涨幅和 − 跌幅和) / (涨幅和 + 跌幅�
 
 **@returns** CMO 序列，范围 -100–100；完整窗口之前为 NaN，平盘（分母为零）为 0。
 
-<a id="api-188"></a>
+<a id="api-238"></a>
 
 ### ta.crossover
 
@@ -2484,7 +2947,7 @@ ta.crossover(left: Series, right: Series): boolean
 
 **@returns** 发生上穿时为 true。
 
-<a id="api-189"></a>
+<a id="api-239"></a>
 
 ### ta.crossunder
 
@@ -2502,7 +2965,7 @@ ta.crossunder(left: Series, right: Series): boolean
 
 **@returns** 发生下穿时为 true。
 
-<a id="api-190"></a>
+<a id="api-240"></a>
 
 ### Position
 
@@ -2519,7 +2982,7 @@ Position: typeof PositionEnum
 | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
 | `Position.Sub` | 独立副图 |
 
-<a id="api-191"></a>
+<a id="api-241"></a>
 
 ### Position.Main
 
@@ -2531,7 +2994,7 @@ Position.Main = "main"
 
 **@summary** 主图
 
-<a id="api-192"></a>
+<a id="api-242"></a>
 
 ### Position.Sub
 
@@ -2543,7 +3006,7 @@ Position.Sub = "sub"
 
 **@summary** 副图
 
-<a id="api-193"></a>
+<a id="api-243"></a>
 
 ### input
 
@@ -2553,7 +3016,7 @@ input: ScriptInput
 
 输入参数：int / float 支持范围和步长，bool 显示开关，string 支持下拉选项。
 
-<a id="api-194"></a>
+<a id="api-244"></a>
 
 ### input.int
 
@@ -2565,7 +3028,7 @@ input.int(value: number, options?: NumberInputOptions): number
 
 **@summary** 整数
 
-<a id="api-195"></a>
+<a id="api-245"></a>
 
 ### input.float
 
@@ -2577,7 +3040,7 @@ input.float(value: number, options?: NumberInputOptions): number
 
 **@summary** 浮点数
 
-<a id="api-196"></a>
+<a id="api-246"></a>
 
 ### input.bool
 
@@ -2589,7 +3052,7 @@ input.bool(value: boolean, options?: InputOptions): boolean
 
 **@summary** 开关
 
-<a id="api-197"></a>
+<a id="api-247"></a>
 
 ### input.string
 
@@ -2601,7 +3064,7 @@ input.string(value: string, options?: StringInputOptions): string
 
 **@summary** 字符串
 
-<a id="api-198"></a>
+<a id="api-248"></a>
 
 ### input.timeframe
 
@@ -2613,7 +3076,7 @@ input.timeframe(value: Timeframe, options?: TimeframeInputOptions): Timeframe
 
 **@summary** 目标周期
 
-<a id="api-199"></a>
+<a id="api-249"></a>
 
 ### defineIndicator
 
@@ -2624,7 +3087,7 @@ defineIndicator(definition: ScriptIndicatorDeclaration): void
 定义一个指标。
 顶层代码只执行一次，顶层变量跨 bar 保留（等价 Pine 的 var）；逐根计算写在 onBar 内。
 
-<a id="api-200"></a>
+<a id="api-250"></a>
 
 ### derive
 
@@ -2637,7 +3100,7 @@ key 必须稳定且区分输入与参数；同 key 复用首次注册的回调�
 回调用 offset 读取输入历史，用 self[offset + 1] 读取自身上一根；历史越界返回 NaN。
 不要捕获当前 bar 的数值快照，应捕获 Series 并按 offset 取值。
 
-<a id="api-201"></a>
+<a id="api-251"></a>
 
 ### plot
 
@@ -2659,7 +3122,7 @@ plot: ScriptPlot
 | `plot.Char` | 字符标记 | 数值或布尔条件；false 留空，absolute 定位时数值为价格 |
 | `plot.Arrow` | 箭头 | 正负决定方向，绝对值决定长度 |
 
-<a id="api-202"></a>
+<a id="api-252"></a>
 
 ### plot.Line
 
@@ -2671,7 +3134,7 @@ plot.Line(value: number | null, name: string, options?: PlotStyleOptions<"line">
 
 **@summary** 折线
 
-<a id="api-203"></a>
+<a id="api-253"></a>
 
 ### plot.LineBR
 
@@ -2683,7 +3146,7 @@ plot.LineBR(value: number | null, name: string, options?: PlotStyleOptions<"line
 
 **@summary** 断线折线
 
-<a id="api-204"></a>
+<a id="api-254"></a>
 
 ### plot.StepLine
 
@@ -2695,7 +3158,7 @@ plot.StepLine(value: number | null, name: string, options?: PlotStyleOptions<"st
 
 **@summary** 阶梯线
 
-<a id="api-205"></a>
+<a id="api-255"></a>
 
 ### plot.StepLineBR
 
@@ -2707,7 +3170,7 @@ plot.StepLineBR(value: number | null, name: string, options?: PlotStyleOptions<"
 
 **@summary** 断线阶梯线
 
-<a id="api-206"></a>
+<a id="api-256"></a>
 
 ### plot.Histogram
 
@@ -2719,7 +3182,7 @@ plot.Histogram(value: number | null, name: string, options?: PlotStyleOptions<"h
 
 **@summary** 柱状图(定宽)
 
-<a id="api-207"></a>
+<a id="api-257"></a>
 
 ### plot.Columns
 
@@ -2731,7 +3194,7 @@ plot.Columns(value: number | null, name: string, options?: PlotStyleOptions<"col
 
 **@summary** 柱形图(跟随缩放)
 
-<a id="api-208"></a>
+<a id="api-258"></a>
 
 ### plot.Point
 
@@ -2743,7 +3206,7 @@ plot.Point(value: number | null, name: string, options?: PlotStyleOptions<"point
 
 **@summary** 散点
 
-<a id="api-209"></a>
+<a id="api-259"></a>
 
 ### plot.Shape
 
@@ -2755,7 +3218,7 @@ plot.Shape(value: number | boolean | null, name: string, options?: PlotStyleOpti
 
 **@summary** 形状标记
 
-<a id="api-210"></a>
+<a id="api-260"></a>
 
 ### plot.Char
 
@@ -2767,7 +3230,7 @@ plot.Char(value: number | boolean | null, name: string, options?: PlotStyleOptio
 
 **@summary** 字符标记
 
-<a id="api-211"></a>
+<a id="api-261"></a>
 
 ### plot.Arrow
 
@@ -2779,7 +3242,7 @@ plot.Arrow(value: number | null, name: string, options?: PlotStyleOptions<"arrow
 
 **@summary** 箭头
 
-<a id="api-212"></a>
+<a id="api-262"></a>
 
 ### plot.Candle
 
@@ -2791,7 +3254,7 @@ plot.Candle(open: number | null, high: number | null, low: number | null, close:
 
 **@summary** 蜡烛图
 
-<a id="api-213"></a>
+<a id="api-263"></a>
 
 ### plot.Bar
 
@@ -2803,7 +3266,7 @@ plot.Bar(open: number | null, high: number | null, low: number | null, close: nu
 
 **@summary** 美国线(OHLC)
 
-<a id="api-214"></a>
+<a id="api-264"></a>
 
 ### fill
 
@@ -2820,7 +3283,7 @@ fill(from: PlotRef, to: PlotRef, color: Color | (string & {}) | null, title?: st
 | `color` | 当前 bar 的颜色，支持 CSS 颜色值，常用色可用 `Color` 枚举，透明度由颜色携带 |
 | `title` | 填充标识；不填则按 from/to 生成 |
 
-<a id="api-215"></a>
+<a id="api-265"></a>
 
 ### defineLibrary
 
@@ -2830,7 +3293,7 @@ defineLibrary<T extends object>(name: string, members: T): Readonly<T>
 
 注册一个库，其成员同时绑定到同名全局对象。
 
-<a id="api-216"></a>
+<a id="api-266"></a>
 
 ### importLibrary
 
@@ -2840,7 +3303,7 @@ importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
 
 读取已注册的库，内置名称由统一库类型目录提供。
 
-<a id="api-217"></a>
+<a id="api-267"></a>
 
 ### request
 
@@ -2850,7 +3313,7 @@ request: ScriptRequest
 
 获取指定品种周期的数据；`syminfo.tickerid` 是当前图表品种。
 
-<a id="api-218"></a>
+<a id="api-268"></a>
 
 ### request.security
 
@@ -2877,7 +3340,7 @@ request.security<T extends RequestValue | Series | readonly (RequestValue | Seri
 const [o, h, l, c] = request.security(syminfo.tickerid, Timeframe.Hour1, () => [open, high, low, close] as const)
 ```
 
-<a id="api-219"></a>
+<a id="api-269"></a>
 
 ### syminfo
 
@@ -2887,7 +3350,7 @@ syminfo: { readonly tickerid: string; }
 
 当前图表品种信息；`tickerid` 可直接传给 `request.security`。
 
-<a id="api-220"></a>
+<a id="api-270"></a>
 
 ### syminfo.tickerid
 
@@ -2903,181 +3366,199 @@ syminfo.tickerid: string
 - [Series.at](#type-3)
 - [LineRef](#type-4)
 - [LineRef.id](#type-5)
-- [ScriptParameters](#type-6)
-- [DrawingLineApi](#type-7)
-- [LineStyle](#type-8)
-- [LineFactory](#type-9)
-- [Color](#type-10)
-- [LineExtend](#type-11)
+- [BoxRef](#type-6)
+- [BoxRef.id](#type-7)
+- [LabelRef](#type-8)
+- [LabelRef.id](#type-9)
+- [DrawingBoxApi](#type-10)
+- [BoxFactory](#type-11)
 - [ChartPoint](#type-12)
 - [ChartPoint.index](#type-13)
 - [ChartPoint.time](#type-14)
 - [ChartPoint.price](#type-15)
-- [TechnicalAnalysisLibrary](#type-16)
-- [Position](#type-17)
-- [ScriptInput](#type-18)
-- [NumberInputOptions](#type-19)
-- [NumberInputOptions.min](#type-20)
-- [NumberInputOptions.max](#type-21)
-- [NumberInputOptions.step](#type-22)
-- [NumberInputOptions.title](#type-23)
-- [InputOptions](#type-24)
-- [StringInputOptions](#type-25)
-- [StringInputOptions.options](#type-26)
-- [Timeframe](#type-27)
-- [TimeframeInputOptions](#type-28)
-- [TimeframeInputOptions.options](#type-29)
-- [ScriptIndicatorDeclaration](#type-30)
-- [ScriptIndicatorDeclaration.onBar](#type-31)
-- [ScriptIndicatorDeclaration.name](#type-32)
-- [ScriptIndicatorDeclaration.format](#type-33)
-- [ScriptIndicatorDeclaration.title](#type-34)
-- [ScriptIndicatorDeclaration.info](#type-35)
-- [ScriptIndicatorDeclaration.position](#type-36)
-- [ScriptIndicatorDeclaration.max_lines_count](#type-37)
-- [ScriptPlot](#type-38)
-- [PlotStyleOptions](#type-39)
-- [PlotStyleOptions.label](#type-40)
-- [PlotStyleOptions.color](#type-41)
-- [PlotStyleOptions.format](#type-42)
-- [PlotStyleOptions.offset](#type-43)
-- [PlotStyleOptions.visible](#type-44)
-- [PlotRef](#type-45)
-- [PlotRef.name](#type-46)
-- [CandlePlotOptions](#type-47)
-- [CandlePlotOptions.wickColor](#type-48)
-- [CandlePlotOptions.borderColor](#type-49)
-- [CandlePlotOptions.label](#type-50)
-- [CandlePlotOptions.visible](#type-51)
-- [CandlePlotOptions.offset](#type-52)
-- [CandlePlotOptions.showLast](#type-53)
-- [CandlePlotOptions.color](#type-54)
-- [CandlePlotOptions.format](#type-55)
-- [BarPlotOptions](#type-56)
-- [ScriptFillOptions](#type-57)
-- [ScriptFillOptions.visible](#type-58)
-- [LibraryModules](#type-59)
-- [LibraryModules.ta](#type-60)
-- [LibraryModules](#type-61)
-- [ScriptRequest](#type-62)
-- [RequestValue](#type-63)
-- [SecurityOptions](#type-64)
-- [SecurityOptions.source](#type-65)
-- [SecurityOptions.calcBarsCount](#type-66)
-- [SecurityOptions.gaps](#type-67)
-- [RequestResult](#type-68)
-- [LineXLoc](#type-69)
-- [QuickJSScriptDefinition](#type-70)
-- [QuickJSScriptDefinition.name](#type-71)
-- [QuickJSScriptDefinition.title](#type-72)
-- [QuickJSScriptDefinition.info](#type-73)
-- [QuickJSScriptDefinition.position](#type-74)
-- [QuickJSScriptDefinition.format](#type-75)
-- [QuickJSScriptDefinition.max_lines_count](#type-76)
-- [QuickJSScriptDefinition.inputs](#type-77)
-- [PlotDeclaration](#type-78)
-- [PlotDeclaration.kind](#type-79)
-- [PlotDeclaration.name](#type-80)
-- [PlotDeclaration.label](#type-81)
-- [PlotDeclaration.color](#type-82)
-- [PlotDeclaration.format](#type-83)
-- [PlotDeclaration.offset](#type-84)
-- [PlotDeclaration.visible](#type-85)
-- [OhlcPlotOptions](#type-86)
-- [DataSource](#type-87)
-- [Format](#type-88)
-- [InputSchema](#type-89)
-- [ScriptParamValue](#type-90)
-- [ScalarPlotDeclaration](#type-91)
-- [ScalarPlotDeclaration.kind](#type-92)
-- [ScalarPlotDeclaration.name](#type-93)
-- [ScalarPlotDeclaration.label](#type-94)
-- [ScalarPlotDeclaration.color](#type-95)
-- [ScalarPlotDeclaration.format](#type-96)
-- [ScalarPlotDeclaration.textColor](#type-97)
-- [ScalarPlotDeclaration.offset](#type-98)
-- [ScalarPlotDeclaration.visible](#type-99)
-- [ScalarPlotDeclaration.size](#type-100)
-- [OhlcPlotDeclaration](#type-101)
-- [OhlcPlotDeclaration.name](#type-102)
-- [OhlcPlotDeclaration.kind](#type-103)
-- [InputDef](#type-104)
-- [InputDef.default](#type-105)
-- [InputDef.options](#type-106)
-- [InputDef.min](#type-107)
-- [InputDef.max](#type-108)
-- [InputDef.step](#type-109)
-- [LinePlotDeclaration](#type-110)
-- [LinePlotDeclaration.kind](#type-111)
-- [LinePlotDeclaration.dash](#type-112)
-- [LinePlotDeclaration.name](#type-113)
-- [LinePlotDeclaration.label](#type-114)
-- [LinePlotDeclaration.color](#type-115)
-- [LinePlotDeclaration.format](#type-116)
-- [LinePlotDeclaration.textColor](#type-117)
-- [LinePlotDeclaration.offset](#type-118)
-- [LinePlotDeclaration.visible](#type-119)
-- [LinePlotDeclaration.size](#type-120)
-- [LineBRPlotDeclaration](#type-121)
-- [LineBRPlotDeclaration.kind](#type-122)
-- [LineBRPlotDeclaration.dash](#type-123)
-- [LineBRPlotDeclaration.name](#type-124)
-- [LineBRPlotDeclaration.label](#type-125)
-- [LineBRPlotDeclaration.color](#type-126)
-- [LineBRPlotDeclaration.format](#type-127)
-- [LineBRPlotDeclaration.textColor](#type-128)
-- [LineBRPlotDeclaration.offset](#type-129)
-- [LineBRPlotDeclaration.visible](#type-130)
-- [LineBRPlotDeclaration.size](#type-131)
-- [StepLinePlotDeclaration](#type-132)
-- [StepLinePlotDeclaration.kind](#type-133)
-- [StepLineBRPlotDeclaration](#type-134)
-- [StepLineBRPlotDeclaration.kind](#type-135)
-- [HistogramPlotDeclaration](#type-136)
-- [HistogramPlotDeclaration.kind](#type-137)
-- [HistogramPlotDeclaration.baseline](#type-138)
-- [HistogramPlotDeclaration.size](#type-139)
-- [HistogramPlotDeclaration.name](#type-140)
-- [HistogramPlotDeclaration.label](#type-141)
-- [HistogramPlotDeclaration.color](#type-142)
-- [HistogramPlotDeclaration.format](#type-143)
-- [HistogramPlotDeclaration.textColor](#type-144)
-- [HistogramPlotDeclaration.offset](#type-145)
-- [HistogramPlotDeclaration.visible](#type-146)
-- [ColumnsPlotDeclaration](#type-147)
-- [ColumnsPlotDeclaration.kind](#type-148)
-- [ColumnsPlotDeclaration.baseline](#type-149)
-- [ColumnsPlotDeclaration.size](#type-150)
-- [PointsPlotDeclaration](#type-151)
-- [PointsPlotDeclaration.kind](#type-152)
-- [ShapePlotDeclaration](#type-153)
-- [ShapePlotDeclaration.kind](#type-154)
-- [ShapePlotDeclaration.style](#type-155)
-- [ShapePlotDeclaration.location](#type-156)
-- [ShapePlotDeclaration.text](#type-157)
-- [CharPlotDeclaration](#type-158)
-- [CharPlotDeclaration.kind](#type-159)
-- [CharPlotDeclaration.char](#type-160)
-- [ArrowPlotDeclaration](#type-161)
-- [ArrowPlotDeclaration.kind](#type-162)
-- [ArrowPlotDeclaration.colorUp](#type-163)
-- [ArrowPlotDeclaration.colorDown](#type-164)
-- [CandlePlotDeclaration](#type-165)
-- [CandlePlotDeclaration.name](#type-166)
-- [CandlePlotDeclaration.kind](#type-167)
-- [BarPlotDeclaration](#type-168)
-- [BarPlotDeclaration.name](#type-169)
-- [BarPlotDeclaration.kind](#type-170)
-- [PlotDeclarationBase](#type-171)
-- [ShapeSize](#type-172)
-- [ShapeOptions](#type-173)
-- [ShapeOptions.textColor](#type-174)
-- [CharOptions](#type-175)
-- [ArrowOptions](#type-176)
-- [PlotStyleBase](#type-177)
-- [MarkerOptions](#type-178)
-- [ShapeStyle](#type-179)
-- [ShapeLocation](#type-180)
+- [LineXLoc](#type-16)
+- [LineExtend](#type-17)
+- [Color](#type-18)
+- [BoxBorderStyle](#type-19)
+- [DrawingText](#type-20)
+- [DrawingText.value](#type-21)
+- [DrawingText.color](#type-22)
+- [DrawingText.size](#type-23)
+- [DrawingText.align](#type-24)
+- [DrawingText.verticalAlign](#type-25)
+- [DrawingLabelApi](#type-26)
+- [ScriptParameters](#type-27)
+- [DrawingLineApi](#type-28)
+- [LineFactory](#type-29)
+- [LineStyle](#type-30)
+- [TechnicalAnalysisLibrary](#type-31)
+- [Position](#type-32)
+- [ScriptInput](#type-33)
+- [NumberInputOptions](#type-34)
+- [NumberInputOptions.min](#type-35)
+- [NumberInputOptions.max](#type-36)
+- [NumberInputOptions.step](#type-37)
+- [NumberInputOptions.title](#type-38)
+- [InputOptions](#type-39)
+- [StringInputOptions](#type-40)
+- [StringInputOptions.options](#type-41)
+- [Timeframe](#type-42)
+- [TimeframeInputOptions](#type-43)
+- [TimeframeInputOptions.options](#type-44)
+- [ScriptIndicatorDeclaration](#type-45)
+- [ScriptIndicatorDeclaration.onBar](#type-46)
+- [ScriptIndicatorDeclaration.name](#type-47)
+- [ScriptIndicatorDeclaration.format](#type-48)
+- [ScriptIndicatorDeclaration.title](#type-49)
+- [ScriptIndicatorDeclaration.info](#type-50)
+- [ScriptIndicatorDeclaration.position](#type-51)
+- [ScriptIndicatorDeclaration.max_lines_count](#type-52)
+- [ScriptIndicatorDeclaration.max_boxes_count](#type-53)
+- [ScriptIndicatorDeclaration.max_labels_count](#type-54)
+- [ScriptPlot](#type-55)
+- [PlotStyleOptions](#type-56)
+- [PlotStyleOptions.label](#type-57)
+- [PlotStyleOptions.color](#type-58)
+- [PlotStyleOptions.format](#type-59)
+- [PlotStyleOptions.offset](#type-60)
+- [PlotStyleOptions.visible](#type-61)
+- [PlotRef](#type-62)
+- [PlotRef.name](#type-63)
+- [CandlePlotOptions](#type-64)
+- [CandlePlotOptions.wickColor](#type-65)
+- [CandlePlotOptions.borderColor](#type-66)
+- [CandlePlotOptions.label](#type-67)
+- [CandlePlotOptions.visible](#type-68)
+- [CandlePlotOptions.offset](#type-69)
+- [CandlePlotOptions.showLast](#type-70)
+- [CandlePlotOptions.color](#type-71)
+- [CandlePlotOptions.format](#type-72)
+- [BarPlotOptions](#type-73)
+- [ScriptFillOptions](#type-74)
+- [ScriptFillOptions.visible](#type-75)
+- [LibraryModules](#type-76)
+- [LibraryModules.ta](#type-77)
+- [LibraryModules](#type-78)
+- [ScriptRequest](#type-79)
+- [RequestValue](#type-80)
+- [SecurityOptions](#type-81)
+- [SecurityOptions.source](#type-82)
+- [SecurityOptions.calcBarsCount](#type-83)
+- [SecurityOptions.gaps](#type-84)
+- [RequestResult](#type-85)
+- [QuickJSScriptDefinition](#type-86)
+- [QuickJSScriptDefinition.name](#type-87)
+- [QuickJSScriptDefinition.title](#type-88)
+- [QuickJSScriptDefinition.info](#type-89)
+- [QuickJSScriptDefinition.position](#type-90)
+- [QuickJSScriptDefinition.format](#type-91)
+- [QuickJSScriptDefinition.max_lines_count](#type-92)
+- [QuickJSScriptDefinition.max_boxes_count](#type-93)
+- [QuickJSScriptDefinition.max_labels_count](#type-94)
+- [QuickJSScriptDefinition.inputs](#type-95)
+- [PlotDeclaration](#type-96)
+- [PlotDeclaration.kind](#type-97)
+- [PlotDeclaration.name](#type-98)
+- [PlotDeclaration.label](#type-99)
+- [PlotDeclaration.color](#type-100)
+- [PlotDeclaration.format](#type-101)
+- [PlotDeclaration.offset](#type-102)
+- [PlotDeclaration.visible](#type-103)
+- [OhlcPlotOptions](#type-104)
+- [DataSource](#type-105)
+- [Format](#type-106)
+- [InputSchema](#type-107)
+- [ScriptParamValue](#type-108)
+- [ScalarPlotDeclaration](#type-109)
+- [ScalarPlotDeclaration.kind](#type-110)
+- [ScalarPlotDeclaration.name](#type-111)
+- [ScalarPlotDeclaration.label](#type-112)
+- [ScalarPlotDeclaration.color](#type-113)
+- [ScalarPlotDeclaration.format](#type-114)
+- [ScalarPlotDeclaration.textColor](#type-115)
+- [ScalarPlotDeclaration.offset](#type-116)
+- [ScalarPlotDeclaration.visible](#type-117)
+- [ScalarPlotDeclaration.size](#type-118)
+- [OhlcPlotDeclaration](#type-119)
+- [OhlcPlotDeclaration.name](#type-120)
+- [OhlcPlotDeclaration.kind](#type-121)
+- [InputDef](#type-122)
+- [InputDef.default](#type-123)
+- [InputDef.options](#type-124)
+- [InputDef.min](#type-125)
+- [InputDef.max](#type-126)
+- [InputDef.step](#type-127)
+- [LinePlotDeclaration](#type-128)
+- [LinePlotDeclaration.kind](#type-129)
+- [LinePlotDeclaration.dash](#type-130)
+- [LinePlotDeclaration.name](#type-131)
+- [LinePlotDeclaration.label](#type-132)
+- [LinePlotDeclaration.color](#type-133)
+- [LinePlotDeclaration.format](#type-134)
+- [LinePlotDeclaration.textColor](#type-135)
+- [LinePlotDeclaration.offset](#type-136)
+- [LinePlotDeclaration.visible](#type-137)
+- [LinePlotDeclaration.size](#type-138)
+- [LineBRPlotDeclaration](#type-139)
+- [LineBRPlotDeclaration.kind](#type-140)
+- [LineBRPlotDeclaration.dash](#type-141)
+- [LineBRPlotDeclaration.name](#type-142)
+- [LineBRPlotDeclaration.label](#type-143)
+- [LineBRPlotDeclaration.color](#type-144)
+- [LineBRPlotDeclaration.format](#type-145)
+- [LineBRPlotDeclaration.textColor](#type-146)
+- [LineBRPlotDeclaration.offset](#type-147)
+- [LineBRPlotDeclaration.visible](#type-148)
+- [LineBRPlotDeclaration.size](#type-149)
+- [StepLinePlotDeclaration](#type-150)
+- [StepLinePlotDeclaration.kind](#type-151)
+- [StepLineBRPlotDeclaration](#type-152)
+- [StepLineBRPlotDeclaration.kind](#type-153)
+- [HistogramPlotDeclaration](#type-154)
+- [HistogramPlotDeclaration.kind](#type-155)
+- [HistogramPlotDeclaration.baseline](#type-156)
+- [HistogramPlotDeclaration.size](#type-157)
+- [HistogramPlotDeclaration.name](#type-158)
+- [HistogramPlotDeclaration.label](#type-159)
+- [HistogramPlotDeclaration.color](#type-160)
+- [HistogramPlotDeclaration.format](#type-161)
+- [HistogramPlotDeclaration.textColor](#type-162)
+- [HistogramPlotDeclaration.offset](#type-163)
+- [HistogramPlotDeclaration.visible](#type-164)
+- [ColumnsPlotDeclaration](#type-165)
+- [ColumnsPlotDeclaration.kind](#type-166)
+- [ColumnsPlotDeclaration.baseline](#type-167)
+- [ColumnsPlotDeclaration.size](#type-168)
+- [PointsPlotDeclaration](#type-169)
+- [PointsPlotDeclaration.kind](#type-170)
+- [ShapePlotDeclaration](#type-171)
+- [ShapePlotDeclaration.kind](#type-172)
+- [ShapePlotDeclaration.style](#type-173)
+- [ShapePlotDeclaration.location](#type-174)
+- [ShapePlotDeclaration.text](#type-175)
+- [CharPlotDeclaration](#type-176)
+- [CharPlotDeclaration.kind](#type-177)
+- [CharPlotDeclaration.char](#type-178)
+- [ArrowPlotDeclaration](#type-179)
+- [ArrowPlotDeclaration.kind](#type-180)
+- [ArrowPlotDeclaration.colorUp](#type-181)
+- [ArrowPlotDeclaration.colorDown](#type-182)
+- [CandlePlotDeclaration](#type-183)
+- [CandlePlotDeclaration.name](#type-184)
+- [CandlePlotDeclaration.kind](#type-185)
+- [BarPlotDeclaration](#type-186)
+- [BarPlotDeclaration.name](#type-187)
+- [BarPlotDeclaration.kind](#type-188)
+- [PlotDeclarationBase](#type-189)
+- [ShapeSize](#type-190)
+- [ShapeOptions](#type-191)
+- [ShapeOptions.textColor](#type-192)
+- [CharOptions](#type-193)
+- [ArrowOptions](#type-194)
+- [PlotStyleBase](#type-195)
+- [MarkerOptions](#type-196)
+- [ShapeStyle](#type-197)
+- [ShapeLocation](#type-198)
 
 <a id="type-0"></a>
 
@@ -3144,116 +3625,94 @@ LineRef.id: string
 
 <a id="type-6"></a>
 
-### ScriptParameters
+### BoxRef
 
 ```ts
-interface ScriptParameters {
+export interface BoxRef {
+    readonly id: string;
 }
 ```
 
-编辑器从当前 inputs 推导并合并具体参数。
+Box 对象引用，仅在所属运行中有效。
 
 <a id="type-7"></a>
 
-### DrawingLineApi
+### BoxRef.id
 
 ```ts
-export interface DrawingLineApi {
-    readonly style_solid: LineStyle;
-    readonly style_dashed: LineStyle;
-    readonly style_dotted: LineStyle;
-    readonly style_arrow_left: LineStyle;
-    readonly style_arrow_right: LineStyle;
-    readonly style_arrow_both: LineStyle;
-    readonly new: LineFactory;
-    readonly all: readonly LineRef[];
-    set_xy1(id: LineRef, x: number, y: number): void;
-    set_xy2(id: LineRef, x: number, y: number): void;
-    set_x1(id: LineRef, x: number): void;
-    set_y1(id: LineRef, y: number): void;
-    set_x2(id: LineRef, x: number): void;
-    set_y2(id: LineRef, y: number): void;
-    set_color(id: LineRef, color: Color | (string & {})): void;
-    set_style(id: LineRef, style: LineStyle): void;
-    set_width(id: LineRef, width: number): void;
-    set_extend(id: LineRef, extend: LineExtend): void;
-    get_x1(id: LineRef): number;
-    get_y1(id: LineRef): number;
-    get_x2(id: LineRef): number;
-    get_y2(id: LineRef): number;
-    get_color(id: LineRef): string | null;
-    get_style(id: LineRef): LineStyle | null;
-    get_width(id: LineRef): number;
-    get_extend(id: LineRef): LineExtend | null;
-    get_price(id: LineRef, x: number): number;
-    copy(id: LineRef): LineRef | null;
-    delete(id: LineRef | null): void;
-}
+BoxRef.id: string
 ```
-
-脚本和原生调用方共用的完整 line API。
-
-线段跨 bar 保留，新建和修改只能在 onBar 内调用；引用只在本次运行内有效，
-重算后旧引用失效，需要继续操作时从 line.all 或新的结果重新获取。
-线段删除或回收后，set_* 不生效，get_* 返回 NaN 或 null。
-
-| 用法 | 含义 |
-| --- | --- |
-| `line.new(...)` | 绘制线段，超出 max_lines_count 时回收最旧 |
-| `line.set_*` | 修改端点、颜色、线型、线宽或延伸 |
-| `line.get_*` | 读取对应属性；已删除返回 NaN 或 null |
-| `line.get_price(id, x)` | 按线段所在直线求价格，只支持 bar_index |
-| `line.copy` / `line.delete` | 复制为新线段 / 删除线段 |
 
 <a id="type-8"></a>
 
-### LineStyle
+### LabelRef
 
 ```ts
-export type LineStyle = (typeof LineStyle)[keyof typeof LineStyle];
-```
-
-线型：实线、虚线与箭头；手绘和 line API 共用。
-
-<a id="type-9"></a>
-
-### LineFactory
-
-```ts
-export interface LineFactory {
-    (first_point: ChartPoint, second_point: ChartPoint, xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number): LineRef;
-    (x1: number, y1: number, x2: number, y2: number, xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number): LineRef;
+export interface LabelRef {
+    readonly id: string;
 }
 ```
 
-line.new 的重载：用 chart.point 端点或直接给出起止点的 X / Y 绘制线段。
+Label 对象引用，仅在所属运行中有效。
+
+<a id="type-9"></a>
+
+### LabelRef.id
+
+```ts
+LabelRef.id: string
+```
 
 <a id="type-10"></a>
 
-### Color
+### DrawingBoxApi
 
 ```ts
-export type Color = (typeof Color)[keyof typeof Color];
+export interface DrawingBoxApi {
+    readonly new: BoxFactory;
+    readonly all: readonly BoxRef[];
+    set_left(id: BoxRef, left: number): void;
+    set_top(id: BoxRef, top: number): void;
+    set_right(id: BoxRef, right: number): void;
+    set_bottom(id: BoxRef, bottom: number): void;
+    set_lefttop(id: BoxRef, left: number, top: number): void;
+    set_rightbottom(id: BoxRef, right: number, bottom: number): void;
+    set_top_left_point(id: BoxRef, point: ChartPoint): void;
+    set_bottom_right_point(id: BoxRef, point: ChartPoint): void;
+    set_xloc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void;
+    set_extend(id: BoxRef, extend: LineExtend): void;
+    set_bgcolor(id: BoxRef, color: Color | (string & {})): void;
+    set_border_color(id: BoxRef, color: Color | (string & {})): void;
+    set_border_width(id: BoxRef, width: number): void;
+    set_border_style(id: BoxRef, style: BoxBorderStyle): void;
+    set_text(id: BoxRef, text: string): void;
+    set_text_color(id: BoxRef, color: Color | (string & {})): void;
+    set_text_size(id: BoxRef, size: number): void;
+    set_text_halign(id: BoxRef, align: DrawingText['align']): void;
+    set_text_valign(id: BoxRef, align: DrawingText['verticalAlign']): void;
+    get_left(id: BoxRef): number;
+    get_top(id: BoxRef): number;
+    get_right(id: BoxRef): number;
+    get_bottom(id: BoxRef): number;
+    copy(id: BoxRef): BoxRef | null;
+    delete(id: BoxRef | null): void;
+}
 ```
 
-常用色的字面量联合。
-
-颜色参数的类型为 `Color | (string & {})`：既接受常用色，也接受任意 CSS 颜色值
-（包括 `Color.Teal + '80'` 这类带 alpha 的拼接结果）。
-
-**@summary** 常用色
-
-常用色：色相顺序取自 Material Design 400 色阶，中性色单独取值。
-
-脚本里用 `Color.Red` 即可，取值与同名字面量完全一致。
+跨 bar 保留的矩形对象；复用手绘 rectangle 模型。
 
 <a id="type-11"></a>
 
-### LineExtend
+### BoxFactory
 
 ```ts
-export type LineExtend = (typeof extend)[keyof typeof extend];
+export interface BoxFactory {
+    (left: number, top: number, right: number, bottom: number, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef;
+    (top_left: ChartPoint, bottom_right: ChartPoint, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef;
+}
 ```
+
+Pine 风格 Box 创建重载；可选参数顺序与 Pine 相同。
 
 <a id="type-12"></a>
 
@@ -3301,6 +3760,219 @@ ChartPoint.price: number
 
 <a id="type-16"></a>
 
+### LineXLoc
+
+```ts
+export type LineXLoc = (typeof xloc)[keyof typeof xloc];
+```
+
+<a id="type-17"></a>
+
+### LineExtend
+
+```ts
+export type LineExtend = (typeof extend)[keyof typeof extend];
+```
+
+<a id="type-18"></a>
+
+### Color
+
+```ts
+export type Color = (typeof Color)[keyof typeof Color];
+```
+
+常用色的字面量联合。
+
+颜色参数的类型为 `Color | (string & {})`：既接受常用色，也接受任意 CSS 颜色值
+（包括 `Color.Teal + '80'` 这类带 alpha 的拼接结果）。
+
+**@summary** 常用色
+
+常用色：色相顺序取自 Material Design 400 色阶，中性色单独取值。
+
+脚本里用 `Color.Red` 即可，取值与同名字面量完全一致。
+
+<a id="type-19"></a>
+
+### BoxBorderStyle
+
+```ts
+export type BoxBorderStyle = 'solid' | 'dashed' | 'dotted';
+```
+
+Box 的边框不包含箭头。
+
+<a id="type-20"></a>
+
+### DrawingText
+
+```ts
+export interface DrawingText {
+    value: string;
+    color: Color | (string & {});
+    size: number;
+    align: 'left' | 'center' | 'right';
+    verticalAlign: 'top' | 'middle' | 'bottom';
+}
+```
+
+对象文字样式；创建 API 负责补齐，渲染器只消费。
+
+<a id="type-21"></a>
+
+### DrawingText.value
+
+```ts
+DrawingText.value: string
+```
+
+<a id="type-22"></a>
+
+### DrawingText.color
+
+```ts
+DrawingText.color: Color | (string & {})
+```
+
+<a id="type-23"></a>
+
+### DrawingText.size
+
+```ts
+DrawingText.size: number
+```
+
+<a id="type-24"></a>
+
+### DrawingText.align
+
+```ts
+DrawingText.align: "left" | "right" | "center"
+```
+
+<a id="type-25"></a>
+
+### DrawingText.verticalAlign
+
+```ts
+DrawingText.verticalAlign: "top" | "middle" | "bottom"
+```
+
+<a id="type-26"></a>
+
+### DrawingLabelApi
+
+```ts
+export interface DrawingLabelApi {
+    readonly style_none: 'none';
+    readonly new: (x: number, y: number, text?: string, xloc?: LineXLoc, yloc?: 'price', color?: Color | (string & {}), style?: 'none', textcolor?: Color | (string & {}), size?: number, textalign?: DrawingText['align']) => LabelRef;
+    readonly all: readonly LabelRef[];
+    set_x(id: LabelRef, x: number): void;
+    set_y(id: LabelRef, y: number): void;
+    set_xy(id: LabelRef, x: number, y: number): void;
+    set_text(id: LabelRef, text: string): void;
+    set_textcolor(id: LabelRef, color: Color | (string & {})): void;
+    set_size(id: LabelRef, size: number): void;
+    set_textalign(id: LabelRef, align: DrawingText['align']): void;
+    get_x(id: LabelRef): number;
+    get_y(id: LabelRef): number;
+    get_text(id: LabelRef): string | null;
+    copy(id: LabelRef): LabelRef | null;
+    delete(id: LabelRef | null): void;
+}
+```
+
+第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。
+
+<a id="type-27"></a>
+
+### ScriptParameters
+
+```ts
+interface ScriptParameters {
+}
+```
+
+编辑器从当前 inputs 推导并合并具体参数。
+
+<a id="type-28"></a>
+
+### DrawingLineApi
+
+```ts
+export interface DrawingLineApi {
+    readonly style_solid: typeof LineStyle.style_solid;
+    readonly style_dashed: typeof LineStyle.style_dashed;
+    readonly style_dotted: typeof LineStyle.style_dotted;
+    readonly style_arrow_left: typeof LineStyle.style_arrow_left;
+    readonly style_arrow_right: typeof LineStyle.style_arrow_right;
+    readonly style_arrow_both: typeof LineStyle.style_arrow_both;
+    readonly new: LineFactory;
+    readonly all: readonly LineRef[];
+    set_xy1(id: LineRef, x: number, y: number): void;
+    set_xy2(id: LineRef, x: number, y: number): void;
+    set_x1(id: LineRef, x: number): void;
+    set_y1(id: LineRef, y: number): void;
+    set_x2(id: LineRef, x: number): void;
+    set_y2(id: LineRef, y: number): void;
+    set_color(id: LineRef, color: Color | (string & {})): void;
+    set_style(id: LineRef, style: LineStyle): void;
+    set_width(id: LineRef, width: number): void;
+    set_extend(id: LineRef, extend: LineExtend): void;
+    get_x1(id: LineRef): number;
+    get_y1(id: LineRef): number;
+    get_x2(id: LineRef): number;
+    get_y2(id: LineRef): number;
+    get_color(id: LineRef): string | null;
+    get_style(id: LineRef): LineStyle | null;
+    get_width(id: LineRef): number;
+    get_extend(id: LineRef): LineExtend | null;
+    get_price(id: LineRef, x: number): number;
+    copy(id: LineRef): LineRef | null;
+    delete(id: LineRef | null): void;
+}
+```
+
+脚本和原生调用方共用的完整 line API。
+
+线段跨 bar 保留，新建和修改只能在 onBar 内调用；引用只在本次运行内有效，
+重算后旧引用失效，需要继续操作时从 line.all 或新的结果重新获取。
+线段删除或回收后，set_* 不生效，get_* 返回 NaN 或 null。
+
+| 用法 | 含义 |
+| --- | --- |
+| `line.new(...)` | 绘制线段，超出 max_lines_count 时回收最旧 |
+| `line.set_*` | 修改端点、颜色、线型、线宽或延伸 |
+| `line.get_*` | 读取对应属性；已删除返回 NaN 或 null |
+| `line.get_price(id, x)` | 按线段所在直线求价格，只支持 bar_index |
+| `line.copy` / `line.delete` | 复制为新线段 / 删除线段 |
+
+<a id="type-29"></a>
+
+### LineFactory
+
+```ts
+export interface LineFactory {
+    (first_point: ChartPoint, second_point: ChartPoint, xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number): LineRef;
+    (x1: number, y1: number, x2: number, y2: number, xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number): LineRef;
+}
+```
+
+line.new 的重载：用 chart.point 端点或直接给出起止点的 X / Y 绘制线段。
+
+<a id="type-30"></a>
+
+### LineStyle
+
+```ts
+export type LineStyle = (typeof LineStyle)[keyof typeof LineStyle];
+```
+
+线型：实线、虚线与箭头；手绘和 line API 共用。
+
+<a id="type-31"></a>
+
 ### TechnicalAnalysisLibrary
 
 ```ts
@@ -3312,6 +3984,8 @@ export type TechnicalAnalysisLibrary = {
     sum(source: Series, length: number): Series;
     highest(source: Series, length: number): Series;
     lowest(source: Series, length: number): Series;
+    pivothigh(source: Series, leftbars: number, rightbars: number): Series;
+    pivotlow(source: Series, leftbars: number, rightbars: number): Series;
     highestbars(source: Series, length: number): Series;
     lowestbars(source: Series, length: number): Series;
     rma(source: Series, length: number): Series;
@@ -3350,7 +4024,7 @@ export type TechnicalAnalysisLibrary = {
 
 技术分析库公开接口。
 
-<a id="type-17"></a>
+<a id="type-32"></a>
 
 ### Position
 
@@ -3365,7 +4039,7 @@ export enum Position {
 
 指标渲染位置；脚本声明、编辑器与宿主共用同一组取值。
 
-<a id="type-18"></a>
+<a id="type-33"></a>
 
 ### ScriptInput
 
@@ -3381,7 +4055,7 @@ export interface ScriptInput {
 
 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。
 
-<a id="type-19"></a>
+<a id="type-34"></a>
 
 ### NumberInputOptions
 
@@ -3395,7 +4069,7 @@ export interface NumberInputOptions extends InputOptions {
 
 数值输入的范围与步长。
 
-<a id="type-20"></a>
+<a id="type-35"></a>
 
 ### NumberInputOptions.min
 
@@ -3403,7 +4077,7 @@ export interface NumberInputOptions extends InputOptions {
 NumberInputOptions.min?: number | undefined
 ```
 
-<a id="type-21"></a>
+<a id="type-36"></a>
 
 ### NumberInputOptions.max
 
@@ -3411,7 +4085,7 @@ NumberInputOptions.min?: number | undefined
 NumberInputOptions.max?: number | undefined
 ```
 
-<a id="type-22"></a>
+<a id="type-37"></a>
 
 ### NumberInputOptions.step
 
@@ -3419,7 +4093,7 @@ NumberInputOptions.max?: number | undefined
 NumberInputOptions.step?: number | undefined
 ```
 
-<a id="type-23"></a>
+<a id="type-38"></a>
 
 ### NumberInputOptions.title
 
@@ -3429,7 +4103,7 @@ NumberInputOptions.title?: string | undefined
 
 参数面板中的显示名；不填则显示参数名。
 
-<a id="type-24"></a>
+<a id="type-39"></a>
 
 ### InputOptions
 
@@ -3441,7 +4115,7 @@ export interface InputOptions {
 
 输入参数的公共展示选项。
 
-<a id="type-25"></a>
+<a id="type-40"></a>
 
 ### StringInputOptions
 
@@ -3453,7 +4127,7 @@ export interface StringInputOptions extends InputOptions {
 
 字符串输入可通过 options 渲染下拉选择。
 
-<a id="type-26"></a>
+<a id="type-41"></a>
 
 ### StringInputOptions.options
 
@@ -3461,7 +4135,7 @@ export interface StringInputOptions extends InputOptions {
 StringInputOptions.options?: readonly string[] | undefined
 ```
 
-<a id="type-27"></a>
+<a id="type-42"></a>
 
 ### Timeframe
 
@@ -3476,7 +4150,7 @@ export type Timeframe = (typeof Timeframe)[keyof typeof Timeframe];
 取值是周期短写法，只登记图表已支持的周期；需要新周期时先扩 `KLinePeriod`，
 再在这里登记对应写法，宿主侧 `requestPeriod` 不接受未登记的值。
 
-<a id="type-28"></a>
+<a id="type-43"></a>
 
 ### TimeframeInputOptions
 
@@ -3488,7 +4162,7 @@ export interface TimeframeInputOptions extends InputOptions {
 
 周期输入的 options 只允许 Timeframe 中登记的周期。
 
-<a id="type-29"></a>
+<a id="type-44"></a>
 
 ### TimeframeInputOptions.options
 
@@ -3496,7 +4170,7 @@ export interface TimeframeInputOptions extends InputOptions {
 TimeframeInputOptions.options?: readonly Timeframe[] | undefined
 ```
 
-<a id="type-30"></a>
+<a id="type-45"></a>
 
 ### ScriptIndicatorDeclaration
 
@@ -3508,7 +4182,7 @@ export interface ScriptIndicatorDeclaration extends Omit<QuickJSScriptDefinition
 
 完整脚本的声明与逐 bar 执行回调。
 
-<a id="type-31"></a>
+<a id="type-46"></a>
 
 ### ScriptIndicatorDeclaration.onBar
 
@@ -3518,7 +4192,7 @@ ScriptIndicatorDeclaration.onBar(): void
 
 逐根 K 线调用一次
 
-<a id="type-32"></a>
+<a id="type-47"></a>
 
 ### ScriptIndicatorDeclaration.name
 
@@ -3528,7 +4202,7 @@ ScriptIndicatorDeclaration.name: string
 
 稳定身份与选择器短名；注册身份由宿主维护。
 
-<a id="type-33"></a>
+<a id="type-48"></a>
 
 ### ScriptIndicatorDeclaration.format
 
@@ -3538,7 +4212,7 @@ ScriptIndicatorDeclaration.format?: Format | undefined
 
 指标级数值格式；驱动副图轴与图例显示，缺省按价格。
 
-<a id="type-34"></a>
+<a id="type-49"></a>
 
 ### ScriptIndicatorDeclaration.title
 
@@ -3548,7 +4222,7 @@ ScriptIndicatorDeclaration.title?: string | undefined
 
 指标选择器/图例显示的长名称；缺省用 name。
 
-<a id="type-35"></a>
+<a id="type-50"></a>
 
 ### ScriptIndicatorDeclaration.info
 
@@ -3558,7 +4232,7 @@ ScriptIndicatorDeclaration.info?: string | undefined
 
 指标选择器里的说明文本；缺省不展示说明。
 
-<a id="type-36"></a>
+<a id="type-51"></a>
 
 ### ScriptIndicatorDeclaration.position
 
@@ -3573,7 +4247,7 @@ ScriptIndicatorDeclaration.position: Position
 | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
 | `Position.Sub` | 独立副图 |
 
-<a id="type-37"></a>
+<a id="type-52"></a>
 
 ### ScriptIndicatorDeclaration.max_lines_count
 
@@ -3583,7 +4257,27 @@ ScriptIndicatorDeclaration.max_lines_count?: number | undefined
 
 可保留的 line 对象数；默认 50，范围 1..500。
 
-<a id="type-38"></a>
+<a id="type-53"></a>
+
+### ScriptIndicatorDeclaration.max_boxes_count
+
+```ts
+ScriptIndicatorDeclaration.max_boxes_count?: number | undefined
+```
+
+可保留的 Box 数量；默认值与范围由公共 drawing 契约管理。
+
+<a id="type-54"></a>
+
+### ScriptIndicatorDeclaration.max_labels_count
+
+```ts
+ScriptIndicatorDeclaration.max_labels_count?: number | undefined
+```
+
+可保留的 Label 数量。
+
+<a id="type-55"></a>
 
 ### ScriptPlot
 
@@ -3606,7 +4300,7 @@ export interface ScriptPlot {
 
 当前 K 线绘图入口；name 必填，null 留空；单值方法返回 PlotRef，OHLC 方法返回 void。
 
-<a id="type-39"></a>
+<a id="type-56"></a>
 
 ### PlotStyleOptions
 
@@ -3618,7 +4312,7 @@ export type PlotStyleOptions<K extends PlotDeclaration['kind']> = Omit<Extract<P
 
 从共享声明提取对应图形的样式选项，类型由方法名确定。
 
-<a id="type-40"></a>
+<a id="type-57"></a>
 
 ### PlotStyleOptions.label
 
@@ -3628,7 +4322,7 @@ PlotStyleOptions.label?: (Extract<LinePlotDeclaration, { kind: K; }> | Extract<L
 
 图例名称；不填则取 name。
 
-<a id="type-41"></a>
+<a id="type-58"></a>
 
 ### PlotStyleOptions.color
 
@@ -3639,7 +4333,7 @@ PlotStyleOptions.color?: (Extract<LinePlotDeclaration, { kind: K; }> | Extract<L
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 实体颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。
 
-<a id="type-42"></a>
+<a id="type-59"></a>
 
 ### PlotStyleOptions.format
 
@@ -3649,7 +4343,7 @@ PlotStyleOptions.format?: (Extract<LinePlotDeclaration, { kind: K; }> | Extract<
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-43"></a>
+<a id="type-60"></a>
 
 ### PlotStyleOptions.offset
 
@@ -3659,7 +4353,7 @@ PlotStyleOptions.offset?: (Extract<LinePlotDeclaration, { kind: K; }> | Extract<
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-44"></a>
+<a id="type-61"></a>
 
 ### PlotStyleOptions.visible
 
@@ -3669,7 +4363,7 @@ PlotStyleOptions.visible?: (Extract<LinePlotDeclaration, { kind: K; }> | Extract
 
 是否显示图形；不填则显示。
 
-<a id="type-45"></a>
+<a id="type-62"></a>
 
 ### PlotRef
 
@@ -3681,7 +4375,7 @@ export interface PlotRef {
 
 plot.* 返回的绘图句柄；fill 借它引用两个 Plot。
 
-<a id="type-46"></a>
+<a id="type-63"></a>
 
 ### PlotRef.name
 
@@ -3691,7 +4385,7 @@ PlotRef.name: string
 
 句柄所属 Plot 的 name。
 
-<a id="type-47"></a>
+<a id="type-64"></a>
 
 ### CandlePlotOptions
 
@@ -3704,7 +4398,7 @@ export interface CandlePlotOptions extends OhlcPlotOptions {
 
 蜡烛实体、影线和边框可独立着色。
 
-<a id="type-48"></a>
+<a id="type-65"></a>
 
 ### CandlePlotOptions.wickColor
 
@@ -3714,7 +4408,7 @@ CandlePlotOptions.wickColor?: Color | (string & {}) | null | undefined
 
 影线颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。
 
-<a id="type-49"></a>
+<a id="type-66"></a>
 
 ### CandlePlotOptions.borderColor
 
@@ -3724,7 +4418,7 @@ CandlePlotOptions.borderColor?: Color | (string & {}) | null | undefined
 
 边框颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。
 
-<a id="type-50"></a>
+<a id="type-67"></a>
 
 ### CandlePlotOptions.label
 
@@ -3732,7 +4426,7 @@ CandlePlotOptions.borderColor?: Color | (string & {}) | null | undefined
 CandlePlotOptions.label?: string | undefined
 ```
 
-<a id="type-51"></a>
+<a id="type-68"></a>
 
 ### CandlePlotOptions.visible
 
@@ -3740,7 +4434,7 @@ CandlePlotOptions.label?: string | undefined
 CandlePlotOptions.visible?: boolean | undefined
 ```
 
-<a id="type-52"></a>
+<a id="type-69"></a>
 
 ### CandlePlotOptions.offset
 
@@ -3748,7 +4442,7 @@ CandlePlotOptions.visible?: boolean | undefined
 CandlePlotOptions.offset?: number | undefined
 ```
 
-<a id="type-53"></a>
+<a id="type-70"></a>
 
 ### CandlePlotOptions.showLast
 
@@ -3756,7 +4450,7 @@ CandlePlotOptions.offset?: number | undefined
 CandlePlotOptions.showLast?: number | undefined
 ```
 
-<a id="type-54"></a>
+<a id="type-71"></a>
 
 ### CandlePlotOptions.color
 
@@ -3766,7 +4460,7 @@ CandlePlotOptions.color?: Color | (string & {}) | null | undefined
 
 实体颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。
 
-<a id="type-55"></a>
+<a id="type-72"></a>
 
 ### CandlePlotOptions.format
 
@@ -3776,7 +4470,7 @@ CandlePlotOptions.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-56"></a>
+<a id="type-73"></a>
 
 ### BarPlotOptions
 
@@ -3787,7 +4481,7 @@ export interface BarPlotOptions extends OhlcPlotOptions {
 
 美国线的竖线和左右短横线共用颜色。
 
-<a id="type-57"></a>
+<a id="type-74"></a>
 
 ### ScriptFillOptions
 
@@ -3799,7 +4493,7 @@ export interface ScriptFillOptions {
 
 fill 第 5 个参数的可选样式；title 缺省时按 from/to 生成填充标识。
 
-<a id="type-58"></a>
+<a id="type-75"></a>
 
 ### ScriptFillOptions.visible
 
@@ -3809,7 +4503,7 @@ ScriptFillOptions.visible?: boolean | undefined
 
 是否绘制填充；不填则绘制。
 
-<a id="type-59"></a>
+<a id="type-76"></a>
 
 ### LibraryModules
 
@@ -3821,7 +4515,7 @@ export interface LibraryModules {
 库的类型目录，由宿主按库名补充，不负责运行时加载。
 内置库的类型目录。
 
-<a id="type-60"></a>
+<a id="type-77"></a>
 
 ### LibraryModules.ta
 
@@ -3829,7 +4523,7 @@ export interface LibraryModules {
 LibraryModules.ta: TechnicalAnalysisLibrary
 ```
 
-<a id="type-61"></a>
+<a id="type-78"></a>
 
 ### LibraryModules
 
@@ -3842,7 +4536,7 @@ interface LibraryModules {
 库的类型目录，由宿主按库名补充，不负责运行时加载。
 内置库的类型目录。
 
-<a id="type-62"></a>
+<a id="type-79"></a>
 
 ### ScriptRequest
 
@@ -3854,7 +4548,7 @@ export interface ScriptRequest {
 
 跨品种、跨周期取数入口，等价于 Pine 的 request.security。
 
-<a id="type-63"></a>
+<a id="type-80"></a>
 
 ### RequestValue
 
@@ -3862,7 +4556,7 @@ export interface ScriptRequest {
 export type RequestValue = number | string | boolean | null | readonly RequestValue[];
 ```
 
-<a id="type-64"></a>
+<a id="type-81"></a>
 
 ### SecurityOptions
 
@@ -3874,7 +4568,7 @@ export interface SecurityOptions {
 }
 ```
 
-<a id="type-65"></a>
+<a id="type-82"></a>
 
 ### SecurityOptions.source
 
@@ -3884,7 +4578,7 @@ SecurityOptions.source?: DataSource | undefined
 
 目标来源的 sourceId；仅当请求品种与图表品种不同时必须显式指定。
 
-<a id="type-66"></a>
+<a id="type-83"></a>
 
 ### SecurityOptions.calcBarsCount
 
@@ -3894,7 +4588,7 @@ SecurityOptions.calcBarsCount?: number | undefined
 
 图表历史起点之前额外加载的目标周期预热根数，缺省 300。
 
-<a id="type-67"></a>
+<a id="type-84"></a>
 
 ### SecurityOptions.gaps
 
@@ -3904,7 +4598,7 @@ SecurityOptions.gaps?: "off" | "on" | undefined
 
 缺口策略：`off` 延续最近可用结果，`on` 只在新目标结果出现时输出，其余点留空。
 
-<a id="type-68"></a>
+<a id="type-85"></a>
 
 ### RequestResult
 
@@ -3914,15 +4608,7 @@ export type RequestResult<T> = T extends Series ? number : T extends readonly un
 } : T;
 ```
 
-<a id="type-69"></a>
-
-### LineXLoc
-
-```ts
-export type LineXLoc = (typeof xloc)[keyof typeof xloc];
-```
-
-<a id="type-70"></a>
+<a id="type-86"></a>
 
 ### QuickJSScriptDefinition
 
@@ -3934,13 +4620,15 @@ export interface QuickJSScriptDefinition {
     readonly position: Position;
     readonly format?: Format;
     readonly max_lines_count?: number;
+    readonly max_boxes_count?: number;
+    readonly max_labels_count?: number;
     readonly inputs: InputSchema<Record<string, ScriptParamValue>>;
 }
 ```
 
 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。
 
-<a id="type-71"></a>
+<a id="type-87"></a>
 
 ### QuickJSScriptDefinition.name
 
@@ -3950,7 +4638,7 @@ QuickJSScriptDefinition.name: string
 
 稳定身份与选择器短名；注册身份由宿主维护。
 
-<a id="type-72"></a>
+<a id="type-88"></a>
 
 ### QuickJSScriptDefinition.title
 
@@ -3960,7 +4648,7 @@ QuickJSScriptDefinition.title?: string | undefined
 
 指标选择器/图例显示的长名称；缺省用 name。
 
-<a id="type-73"></a>
+<a id="type-89"></a>
 
 ### QuickJSScriptDefinition.info
 
@@ -3970,7 +4658,7 @@ QuickJSScriptDefinition.info?: string | undefined
 
 指标选择器里的说明文本；缺省不展示说明。
 
-<a id="type-74"></a>
+<a id="type-90"></a>
 
 ### QuickJSScriptDefinition.position
 
@@ -3985,7 +4673,7 @@ QuickJSScriptDefinition.position: Position
 | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
 | `Position.Sub` | 独立副图 |
 
-<a id="type-75"></a>
+<a id="type-91"></a>
 
 ### QuickJSScriptDefinition.format
 
@@ -3995,7 +4683,7 @@ QuickJSScriptDefinition.format?: Format | undefined
 
 指标级数值格式；驱动副图轴与图例显示，缺省按价格。
 
-<a id="type-76"></a>
+<a id="type-92"></a>
 
 ### QuickJSScriptDefinition.max_lines_count
 
@@ -4005,7 +4693,27 @@ QuickJSScriptDefinition.max_lines_count?: number | undefined
 
 可保留的 line 对象数；默认 50，范围 1..500。
 
-<a id="type-77"></a>
+<a id="type-93"></a>
+
+### QuickJSScriptDefinition.max_boxes_count
+
+```ts
+QuickJSScriptDefinition.max_boxes_count?: number | undefined
+```
+
+可保留的 Box 数量；默认值与范围由公共 drawing 契约管理。
+
+<a id="type-94"></a>
+
+### QuickJSScriptDefinition.max_labels_count
+
+```ts
+QuickJSScriptDefinition.max_labels_count?: number | undefined
+```
+
+可保留的 Label 数量。
+
+<a id="type-95"></a>
 
 ### QuickJSScriptDefinition.inputs
 
@@ -4013,7 +4721,7 @@ QuickJSScriptDefinition.max_lines_count?: number | undefined
 QuickJSScriptDefinition.inputs: InputSchema<Record<string, ScriptParamValue>>
 ```
 
-<a id="type-78"></a>
+<a id="type-96"></a>
 
 ### PlotDeclaration
 
@@ -4021,7 +4729,7 @@ QuickJSScriptDefinition.inputs: InputSchema<Record<string, ScriptParamValue>>
 export type PlotDeclaration = ScalarPlotDeclaration | OhlcPlotDeclaration;
 ```
 
-<a id="type-79"></a>
+<a id="type-97"></a>
 
 ### PlotDeclaration.kind
 
@@ -4036,7 +4744,7 @@ PlotDeclaration.kind: "line" | "linebr" | "stepline" | "steplinebr" | "histogram
 绘图类型：字符标记。
 绘图类型：数值箭头，正负决定方向，绝对值决定长度。
 
-<a id="type-80"></a>
+<a id="type-98"></a>
 
 ### PlotDeclaration.name
 
@@ -4046,7 +4754,7 @@ PlotDeclaration.name: string
 
 绘图名称，相同名称的数据会画在同一条线或同一组标记中。
 
-<a id="type-81"></a>
+<a id="type-99"></a>
 
 ### PlotDeclaration.label
 
@@ -4056,7 +4764,7 @@ PlotDeclaration.label?: string | undefined
 
 图例名称；不填则取 name。
 
-<a id="type-82"></a>
+<a id="type-100"></a>
 
 ### PlotDeclaration.color
 
@@ -4067,7 +4775,7 @@ PlotDeclaration.color?: Color | (string & {}) | null | undefined
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 实体颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，null 隐藏该部分。
 
-<a id="type-83"></a>
+<a id="type-101"></a>
 
 ### PlotDeclaration.format
 
@@ -4077,7 +4785,7 @@ PlotDeclaration.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-84"></a>
+<a id="type-102"></a>
 
 ### PlotDeclaration.offset
 
@@ -4087,7 +4795,7 @@ PlotDeclaration.offset?: number | undefined
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-85"></a>
+<a id="type-103"></a>
 
 ### PlotDeclaration.visible
 
@@ -4097,7 +4805,7 @@ PlotDeclaration.visible?: boolean | undefined
 
 是否显示图形；不填则显示。
 
-<a id="type-86"></a>
+<a id="type-104"></a>
 
 ### OhlcPlotOptions
 
@@ -4114,7 +4822,7 @@ export interface OhlcPlotOptions {
 
 四价格图形的调用样式；颜色允许逐 bar 变化，null 隐藏对应部分。
 
-<a id="type-87"></a>
+<a id="type-105"></a>
 
 ### DataSource
 
@@ -4126,7 +4834,7 @@ export type DataSource = (typeof DataSource)[keyof typeof DataSource];
 
 内置数据源身份；指定后严格路由，不做跨来源回退。
 
-<a id="type-88"></a>
+<a id="type-106"></a>
 
 ### Format
 
@@ -4145,7 +4853,7 @@ export type Format = (typeof Format)[keyof typeof Format];
 | `Format.Percent` | `3.45%`、`-12.30%` |
 | `Format.Mintick` | `1234.5678901` |
 
-<a id="type-89"></a>
+<a id="type-107"></a>
 
 ### InputSchema
 
@@ -4157,7 +4865,7 @@ export type InputSchema<P> = {
 
 输入声明表：键即参数名，P 为解析后的参数值类型。
 
-<a id="type-90"></a>
+<a id="type-108"></a>
 
 ### ScriptParamValue
 
@@ -4167,7 +4875,7 @@ export type ScriptParamValue = number | string | boolean;
 
 可以在脚本中作为 `params` 读取的输入值。
 
-<a id="type-91"></a>
+<a id="type-109"></a>
 
 ### ScalarPlotDeclaration
 
@@ -4177,7 +4885,7 @@ export type ScalarPlotDeclaration = LinePlotDeclaration | LineBRPlotDeclaration 
 
 声明的 Plot：按 kind 区分各图形及其专用字段。
 
-<a id="type-92"></a>
+<a id="type-110"></a>
 
 ### ScalarPlotDeclaration.kind
 
@@ -4192,7 +4900,7 @@ ScalarPlotDeclaration.kind: "line" | "linebr" | "stepline" | "steplinebr" | "his
 绘图类型：字符标记。
 绘图类型：数值箭头，正负决定方向，绝对值决定长度。
 
-<a id="type-93"></a>
+<a id="type-111"></a>
 
 ### ScalarPlotDeclaration.name
 
@@ -4202,7 +4910,7 @@ ScalarPlotDeclaration.name: string
 
 绘图名称，相同名称的数据会画在同一条线或同一组标记中。
 
-<a id="type-94"></a>
+<a id="type-112"></a>
 
 ### ScalarPlotDeclaration.label
 
@@ -4212,7 +4920,7 @@ ScalarPlotDeclaration.label?: string | undefined
 
 图例名称；不填则取 name。
 
-<a id="type-95"></a>
+<a id="type-113"></a>
 
 ### ScalarPlotDeclaration.color
 
@@ -4222,7 +4930,7 @@ ScalarPlotDeclaration.color?: Color | (string & {}) | undefined
 
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 
-<a id="type-96"></a>
+<a id="type-114"></a>
 
 ### ScalarPlotDeclaration.format
 
@@ -4232,7 +4940,7 @@ ScalarPlotDeclaration.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-97"></a>
+<a id="type-115"></a>
 
 ### ScalarPlotDeclaration.textColor
 
@@ -4242,7 +4950,7 @@ ScalarPlotDeclaration.textColor?: Color | (string & {}) | undefined
 
 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。
 
-<a id="type-98"></a>
+<a id="type-116"></a>
 
 ### ScalarPlotDeclaration.offset
 
@@ -4252,7 +4960,7 @@ ScalarPlotDeclaration.offset?: number | undefined
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-99"></a>
+<a id="type-117"></a>
 
 ### ScalarPlotDeclaration.visible
 
@@ -4262,7 +4970,7 @@ ScalarPlotDeclaration.visible?: boolean | undefined
 
 是否显示图形；不填则显示。
 
-<a id="type-100"></a>
+<a id="type-118"></a>
 
 ### ScalarPlotDeclaration.size
 
@@ -4275,7 +4983,7 @@ ScalarPlotDeclaration.size?: number | ShapeSize | undefined
 具体尺寸见 ShapeSize 的档位对照表。
 固定逻辑像素柱宽，或 Size 档位；默认 1px。
 
-<a id="type-101"></a>
+<a id="type-119"></a>
 
 ### OhlcPlotDeclaration
 
@@ -4283,7 +4991,7 @@ ScalarPlotDeclaration.size?: number | ShapeSize | undefined
 export type OhlcPlotDeclaration = CandlePlotDeclaration | BarPlotDeclaration;
 ```
 
-<a id="type-102"></a>
+<a id="type-120"></a>
 
 ### OhlcPlotDeclaration.name
 
@@ -4291,7 +4999,7 @@ export type OhlcPlotDeclaration = CandlePlotDeclaration | BarPlotDeclaration;
 OhlcPlotDeclaration.name: string
 ```
 
-<a id="type-103"></a>
+<a id="type-121"></a>
 
 ### OhlcPlotDeclaration.kind
 
@@ -4299,7 +5007,7 @@ OhlcPlotDeclaration.name: string
 OhlcPlotDeclaration.kind: "candle" | "bar"
 ```
 
-<a id="type-104"></a>
+<a id="type-122"></a>
 
 ### InputDef
 
@@ -4315,7 +5023,7 @@ export interface InputDef<T> extends InputOptions {
 
 单个输入参数的声明，由 input() 工厂产出。
 
-<a id="type-105"></a>
+<a id="type-123"></a>
 
 ### InputDef.default
 
@@ -4325,7 +5033,7 @@ InputDef.default: T
 
 默认值，同时决定参数在面板中的编辑类型。
 
-<a id="type-106"></a>
+<a id="type-124"></a>
 
 ### InputDef.options
 
@@ -4333,7 +5041,7 @@ InputDef.default: T
 InputDef.options?: readonly string[] | undefined
 ```
 
-<a id="type-107"></a>
+<a id="type-125"></a>
 
 ### InputDef.min
 
@@ -4341,7 +5049,7 @@ InputDef.options?: readonly string[] | undefined
 InputDef.min?: number | undefined
 ```
 
-<a id="type-108"></a>
+<a id="type-126"></a>
 
 ### InputDef.max
 
@@ -4349,7 +5057,7 @@ InputDef.min?: number | undefined
 InputDef.max?: number | undefined
 ```
 
-<a id="type-109"></a>
+<a id="type-127"></a>
 
 ### InputDef.step
 
@@ -4357,7 +5065,7 @@ InputDef.max?: number | undefined
 InputDef.step?: number | undefined
 ```
 
-<a id="type-110"></a>
+<a id="type-128"></a>
 
 ### LinePlotDeclaration
 
@@ -4370,7 +5078,7 @@ export interface LinePlotDeclaration extends PlotDeclarationBase {
 
 普通折线及其样式，跨空值连接有效点。
 
-<a id="type-111"></a>
+<a id="type-129"></a>
 
 ### LinePlotDeclaration.kind
 
@@ -4380,7 +5088,7 @@ LinePlotDeclaration.kind: "line"
 
 绘图类型：折线。
 
-<a id="type-112"></a>
+<a id="type-130"></a>
 
 ### LinePlotDeclaration.dash
 
@@ -4390,7 +5098,7 @@ LinePlotDeclaration.dash?: readonly number[] | undefined
 
 虚线的线段与间隔长度，单位为逻辑像素；不填或填空数组则画实线。
 
-<a id="type-113"></a>
+<a id="type-131"></a>
 
 ### LinePlotDeclaration.name
 
@@ -4400,7 +5108,7 @@ LinePlotDeclaration.name: string
 
 绘图名称，相同名称的数据会画在同一条线或同一组标记中。
 
-<a id="type-114"></a>
+<a id="type-132"></a>
 
 ### LinePlotDeclaration.label
 
@@ -4410,7 +5118,7 @@ LinePlotDeclaration.label?: string | undefined
 
 图例名称；不填则取 name。
 
-<a id="type-115"></a>
+<a id="type-133"></a>
 
 ### LinePlotDeclaration.color
 
@@ -4420,7 +5128,7 @@ LinePlotDeclaration.color?: Color | (string & {}) | undefined
 
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 
-<a id="type-116"></a>
+<a id="type-134"></a>
 
 ### LinePlotDeclaration.format
 
@@ -4430,7 +5138,7 @@ LinePlotDeclaration.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-117"></a>
+<a id="type-135"></a>
 
 ### LinePlotDeclaration.textColor
 
@@ -4440,7 +5148,7 @@ LinePlotDeclaration.textColor?: Color | (string & {}) | undefined
 
 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。
 
-<a id="type-118"></a>
+<a id="type-136"></a>
 
 ### LinePlotDeclaration.offset
 
@@ -4450,7 +5158,7 @@ LinePlotDeclaration.offset?: number | undefined
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-119"></a>
+<a id="type-137"></a>
 
 ### LinePlotDeclaration.visible
 
@@ -4460,7 +5168,7 @@ LinePlotDeclaration.visible?: boolean | undefined
 
 是否显示图形；不填则显示。
 
-<a id="type-120"></a>
+<a id="type-138"></a>
 
 ### LinePlotDeclaration.size
 
@@ -4472,7 +5180,7 @@ LinePlotDeclaration.size?: ShapeSize | undefined
 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度。
 具体尺寸见 ShapeSize 的档位对照表。
 
-<a id="type-121"></a>
+<a id="type-139"></a>
 
 ### LineBRPlotDeclaration
 
@@ -4484,7 +5192,7 @@ export interface LineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'kind'>
 
 断线折线及其样式，空值处断开。
 
-<a id="type-122"></a>
+<a id="type-140"></a>
 
 ### LineBRPlotDeclaration.kind
 
@@ -4492,7 +5200,7 @@ export interface LineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'kind'>
 LineBRPlotDeclaration.kind: "linebr"
 ```
 
-<a id="type-123"></a>
+<a id="type-141"></a>
 
 ### LineBRPlotDeclaration.dash
 
@@ -4502,7 +5210,7 @@ LineBRPlotDeclaration.dash?: readonly number[] | undefined
 
 虚线的线段与间隔长度，单位为逻辑像素；不填或填空数组则画实线。
 
-<a id="type-124"></a>
+<a id="type-142"></a>
 
 ### LineBRPlotDeclaration.name
 
@@ -4512,7 +5220,7 @@ LineBRPlotDeclaration.name: string
 
 绘图名称，相同名称的数据会画在同一条线或同一组标记中。
 
-<a id="type-125"></a>
+<a id="type-143"></a>
 
 ### LineBRPlotDeclaration.label
 
@@ -4522,7 +5230,7 @@ LineBRPlotDeclaration.label?: string | undefined
 
 图例名称；不填则取 name。
 
-<a id="type-126"></a>
+<a id="type-144"></a>
 
 ### LineBRPlotDeclaration.color
 
@@ -4532,7 +5240,7 @@ LineBRPlotDeclaration.color?: Color | (string & {}) | undefined
 
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 
-<a id="type-127"></a>
+<a id="type-145"></a>
 
 ### LineBRPlotDeclaration.format
 
@@ -4542,7 +5250,7 @@ LineBRPlotDeclaration.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-128"></a>
+<a id="type-146"></a>
 
 ### LineBRPlotDeclaration.textColor
 
@@ -4552,7 +5260,7 @@ LineBRPlotDeclaration.textColor?: Color | (string & {}) | undefined
 
 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。
 
-<a id="type-129"></a>
+<a id="type-147"></a>
 
 ### LineBRPlotDeclaration.offset
 
@@ -4562,7 +5270,7 @@ LineBRPlotDeclaration.offset?: number | undefined
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-130"></a>
+<a id="type-148"></a>
 
 ### LineBRPlotDeclaration.visible
 
@@ -4572,7 +5280,7 @@ LineBRPlotDeclaration.visible?: boolean | undefined
 
 是否显示图形；不填则显示。
 
-<a id="type-131"></a>
+<a id="type-149"></a>
 
 ### LineBRPlotDeclaration.size
 
@@ -4584,7 +5292,7 @@ LineBRPlotDeclaration.size?: ShapeSize | undefined
 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度。
 具体尺寸见 ShapeSize 的档位对照表。
 
-<a id="type-132"></a>
+<a id="type-150"></a>
 
 ### StepLinePlotDeclaration
 
@@ -4596,7 +5304,7 @@ export interface StepLinePlotDeclaration extends Omit<LinePlotDeclaration, 'kind
 
 阶梯线声明，在相邻有效点的水平中点跳变，跨空值连接。
 
-<a id="type-133"></a>
+<a id="type-151"></a>
 
 ### StepLinePlotDeclaration.kind
 
@@ -4604,7 +5312,7 @@ export interface StepLinePlotDeclaration extends Omit<LinePlotDeclaration, 'kind
 StepLinePlotDeclaration.kind: "stepline"
 ```
 
-<a id="type-134"></a>
+<a id="type-152"></a>
 
 ### StepLineBRPlotDeclaration
 
@@ -4616,7 +5324,7 @@ export interface StepLineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'ki
 
 断线阶梯线声明，空值处断开。
 
-<a id="type-135"></a>
+<a id="type-153"></a>
 
 ### StepLineBRPlotDeclaration.kind
 
@@ -4624,7 +5332,7 @@ export interface StepLineBRPlotDeclaration extends Omit<LinePlotDeclaration, 'ki
 StepLineBRPlotDeclaration.kind: "steplinebr"
 ```
 
-<a id="type-136"></a>
+<a id="type-154"></a>
 
 ### HistogramPlotDeclaration
 
@@ -4638,7 +5346,7 @@ export interface HistogramPlotDeclaration extends Omit<PlotDeclarationBase, 'siz
 
 柱状图及其样式。
 
-<a id="type-137"></a>
+<a id="type-155"></a>
 
 ### HistogramPlotDeclaration.kind
 
@@ -4648,7 +5356,7 @@ HistogramPlotDeclaration.kind: "histogram"
 
 绘图类型：柱状图。
 
-<a id="type-138"></a>
+<a id="type-156"></a>
 
 ### HistogramPlotDeclaration.baseline
 
@@ -4658,7 +5366,7 @@ HistogramPlotDeclaration.baseline?: number | undefined
 
 柱状图的起始基线值；不填则取 0。
 
-<a id="type-139"></a>
+<a id="type-157"></a>
 
 ### HistogramPlotDeclaration.size
 
@@ -4668,7 +5376,7 @@ HistogramPlotDeclaration.size?: number | ShapeSize | undefined
 
 固定逻辑像素柱宽，或 Size 档位；默认 1px。
 
-<a id="type-140"></a>
+<a id="type-158"></a>
 
 ### HistogramPlotDeclaration.name
 
@@ -4678,7 +5386,7 @@ HistogramPlotDeclaration.name: string
 
 绘图名称，相同名称的数据会画在同一条线或同一组标记中。
 
-<a id="type-141"></a>
+<a id="type-159"></a>
 
 ### HistogramPlotDeclaration.label
 
@@ -4688,7 +5396,7 @@ HistogramPlotDeclaration.label?: string | undefined
 
 图例名称；不填则取 name。
 
-<a id="type-142"></a>
+<a id="type-160"></a>
 
 ### HistogramPlotDeclaration.color
 
@@ -4698,7 +5406,7 @@ HistogramPlotDeclaration.color?: Color | (string & {}) | undefined
 
 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。
 
-<a id="type-143"></a>
+<a id="type-161"></a>
 
 ### HistogramPlotDeclaration.format
 
@@ -4708,7 +5416,7 @@ HistogramPlotDeclaration.format?: Format | undefined
 
 数值格式档位；缺省继承指标级 format，用于图例数值显示。
 
-<a id="type-144"></a>
+<a id="type-162"></a>
 
 ### HistogramPlotDeclaration.textColor
 
@@ -4718,7 +5426,7 @@ HistogramPlotDeclaration.textColor?: Color | (string & {}) | undefined
 
 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。
 
-<a id="type-145"></a>
+<a id="type-163"></a>
 
 ### HistogramPlotDeclaration.offset
 
@@ -4728,7 +5436,7 @@ HistogramPlotDeclaration.offset?: number | undefined
 
 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。
 
-<a id="type-146"></a>
+<a id="type-164"></a>
 
 ### HistogramPlotDeclaration.visible
 
@@ -4738,7 +5446,7 @@ HistogramPlotDeclaration.visible?: boolean | undefined
 
 是否显示图形；不填则显示。
 
-<a id="type-147"></a>
+<a id="type-165"></a>
 
 ### ColumnsPlotDeclaration
 
@@ -4752,7 +5460,7 @@ export interface ColumnsPlotDeclaration extends Omit<PlotDeclarationBase, 'size'
 
 自动柱宽随 K 线间距缩放，不支持 size。
 
-<a id="type-148"></a>
+<a id="type-166"></a>
 
 ### ColumnsPlotDeclaration.kind
 
@@ -4760,7 +5468,7 @@ export interface ColumnsPlotDeclaration extends Omit<PlotDeclarationBase, 'size'
 ColumnsPlotDeclaration.kind: "columns"
 ```
 
-<a id="type-149"></a>
+<a id="type-167"></a>
 
 ### ColumnsPlotDeclaration.baseline
 
@@ -4768,7 +5476,7 @@ ColumnsPlotDeclaration.kind: "columns"
 ColumnsPlotDeclaration.baseline?: number | undefined
 ```
 
-<a id="type-150"></a>
+<a id="type-168"></a>
 
 ### ColumnsPlotDeclaration.size
 
@@ -4776,7 +5484,7 @@ ColumnsPlotDeclaration.baseline?: number | undefined
 ColumnsPlotDeclaration.size?: undefined
 ```
 
-<a id="type-151"></a>
+<a id="type-169"></a>
 
 ### PointsPlotDeclaration
 
@@ -4788,7 +5496,7 @@ export interface PointsPlotDeclaration extends PlotDeclarationBase {
 
 点图 Plot 声明；散点直径由公共 size 决定。
 
-<a id="type-152"></a>
+<a id="type-170"></a>
 
 ### PointsPlotDeclaration.kind
 
@@ -4798,7 +5506,7 @@ PointsPlotDeclaration.kind: "points"
 
 绘图类型：散点。
 
-<a id="type-153"></a>
+<a id="type-171"></a>
 
 ### ShapePlotDeclaration
 
@@ -4810,7 +5518,7 @@ export interface ShapePlotDeclaration extends PlotDeclarationBase, ShapeOptions 
 
 形状标记及其样式。
 
-<a id="type-154"></a>
+<a id="type-172"></a>
 
 ### ShapePlotDeclaration.kind
 
@@ -4820,7 +5528,7 @@ ShapePlotDeclaration.kind: "shape"
 
 绘图类型：固定形状标记。
 
-<a id="type-155"></a>
+<a id="type-173"></a>
 
 ### ShapePlotDeclaration.style
 
@@ -4830,7 +5538,7 @@ ShapePlotDeclaration.style?: ShapeStyle | undefined
 
 标记形状；不填则使用 ShapeStyle.XCross。
 
-<a id="type-156"></a>
+<a id="type-174"></a>
 
 ### ShapePlotDeclaration.location
 
@@ -4840,7 +5548,7 @@ ShapePlotDeclaration.location?: ShapeLocation | undefined
 
 标记位置；默认在 K 线上方，ShapeLocation.Absolute 表示绘制在 value 指定的价格处。
 
-<a id="type-157"></a>
+<a id="type-175"></a>
 
 ### ShapePlotDeclaration.text
 
@@ -4850,7 +5558,7 @@ ShapePlotDeclaration.text?: string | undefined
 
 标记旁的附加文字；不填则不显示附加文字。
 
-<a id="type-158"></a>
+<a id="type-176"></a>
 
 ### CharPlotDeclaration
 
@@ -4862,7 +5570,7 @@ export interface CharPlotDeclaration extends PlotDeclarationBase, CharOptions {
 
 字符标记声明。
 
-<a id="type-159"></a>
+<a id="type-177"></a>
 
 ### CharPlotDeclaration.kind
 
@@ -4872,7 +5580,7 @@ CharPlotDeclaration.kind: "char"
 
 绘图类型：字符标记。
 
-<a id="type-160"></a>
+<a id="type-178"></a>
 
 ### CharPlotDeclaration.char
 
@@ -4882,7 +5590,7 @@ CharPlotDeclaration.char?: string | undefined
 
 要绘制的单个 Unicode 字符；不填则显示 ★，填空字符串则只显示附加文字。
 
-<a id="type-161"></a>
+<a id="type-179"></a>
 
 ### ArrowPlotDeclaration
 
@@ -4894,7 +5602,7 @@ export interface ArrowPlotDeclaration extends PlotDeclarationBase, ArrowOptions 
 
 数值箭头声明。
 
-<a id="type-162"></a>
+<a id="type-180"></a>
 
 ### ArrowPlotDeclaration.kind
 
@@ -4904,7 +5612,7 @@ ArrowPlotDeclaration.kind: "arrow"
 
 绘图类型：数值箭头，正负决定方向，绝对值决定长度。
 
-<a id="type-163"></a>
+<a id="type-181"></a>
 
 ### ArrowPlotDeclaration.colorUp
 
@@ -4914,7 +5622,7 @@ ArrowPlotDeclaration.colorUp?: Color | (string & {}) | undefined
 
 正值向上箭头的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认使用 color。
 
-<a id="type-164"></a>
+<a id="type-182"></a>
 
 ### ArrowPlotDeclaration.colorDown
 
@@ -4924,7 +5632,7 @@ ArrowPlotDeclaration.colorDown?: Color | (string & {}) | undefined
 
 负值向下箭头的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认使用 color。
 
-<a id="type-165"></a>
+<a id="type-183"></a>
 
 ### CandlePlotDeclaration
 
@@ -4935,7 +5643,7 @@ export interface CandlePlotDeclaration extends CandlePlotOptions {
 }
 ```
 
-<a id="type-166"></a>
+<a id="type-184"></a>
 
 ### CandlePlotDeclaration.name
 
@@ -4943,7 +5651,7 @@ export interface CandlePlotDeclaration extends CandlePlotOptions {
 CandlePlotDeclaration.name: string
 ```
 
-<a id="type-167"></a>
+<a id="type-185"></a>
 
 ### CandlePlotDeclaration.kind
 
@@ -4951,7 +5659,7 @@ CandlePlotDeclaration.name: string
 CandlePlotDeclaration.kind: "candle"
 ```
 
-<a id="type-168"></a>
+<a id="type-186"></a>
 
 ### BarPlotDeclaration
 
@@ -4962,7 +5670,7 @@ export interface BarPlotDeclaration extends BarPlotOptions {
 }
 ```
 
-<a id="type-169"></a>
+<a id="type-187"></a>
 
 ### BarPlotDeclaration.name
 
@@ -4970,7 +5678,7 @@ export interface BarPlotDeclaration extends BarPlotOptions {
 BarPlotDeclaration.name: string
 ```
 
-<a id="type-170"></a>
+<a id="type-188"></a>
 
 ### BarPlotDeclaration.kind
 
@@ -4978,7 +5686,7 @@ BarPlotDeclaration.name: string
 BarPlotDeclaration.kind: "bar"
 ```
 
-<a id="type-171"></a>
+<a id="type-189"></a>
 
 ### PlotDeclarationBase
 
@@ -4990,7 +5698,7 @@ export interface PlotDeclarationBase extends PlotStyleBase {
 
 声明式 Plot 的公共信息。
 
-<a id="type-172"></a>
+<a id="type-190"></a>
 
 ### ShapeSize
 
@@ -5014,7 +5722,7 @@ export type ShapeSize = 'auto' | 'tiny' | 'small' | 'normal' | 'large' | 'huge';
 px 为逻辑像素；箭头实际高度随数值幅度变化，最短为最大高度的 10%。
 Columns 不接受 size，柱宽随 K 线间距自动调整。
 
-<a id="type-173"></a>
+<a id="type-191"></a>
 
 ### ShapeOptions
 
@@ -5026,7 +5734,7 @@ export interface ShapeOptions extends MarkerOptions {
 
 固定形状标记的专属样式。
 
-<a id="type-174"></a>
+<a id="type-192"></a>
 
 ### ShapeOptions.textColor
 
@@ -5036,7 +5744,7 @@ ShapeOptions.textColor?: Color | (string & {}) | undefined
 
 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。
 
-<a id="type-175"></a>
+<a id="type-193"></a>
 
 ### CharOptions
 
@@ -5048,7 +5756,7 @@ export interface CharOptions extends MarkerOptions {
 
 字符标记；空字符可只显示附加文字。
 
-<a id="type-176"></a>
+<a id="type-194"></a>
 
 ### ArrowOptions
 
@@ -5061,7 +5769,7 @@ export interface ArrowOptions {
 
 数值箭头的方向颜色；箭头长度由 Plot 公共的 size 决定。
 
-<a id="type-177"></a>
+<a id="type-195"></a>
 
 ### PlotStyleBase
 
@@ -5079,7 +5787,7 @@ export interface PlotStyleBase {
 
 声明式 Plot 的公共样式。
 
-<a id="type-178"></a>
+<a id="type-196"></a>
 
 ### MarkerOptions
 
@@ -5093,7 +5801,7 @@ export interface MarkerOptions {
 
 Shape 与 Char 的共享样式；相对位置过滤零值，absolute 把 value 当价格。
 
-<a id="type-179"></a>
+<a id="type-197"></a>
 
 ### ShapeStyle
 
@@ -5105,7 +5813,7 @@ export type ShapeStyle = 'xcross' | 'cross' | 'circle' | 'square' | 'diamond' | 
 
 固定形状标记可选的外形；缺省使用 XCross。
 
-<a id="type-180"></a>
+<a id="type-198"></a>
 
 ### ShapeLocation
 

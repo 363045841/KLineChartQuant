@@ -73,6 +73,7 @@ export type DrawingKind =
   | 'extended-line'
   | 'fib-retracement'
   | 'rectangle'
+  | 'label'
   | 'arrow'
   | 'horizontal-line'
   | 'horizontal-ray'
@@ -107,6 +108,86 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   /** line API 声明的绝对坐标单位；手绘的 bar 身份锚点由 anchors 自身表达。 */
   xloc?: LineXLoc
   extend?: LineExtend
+  /** Box 和 Label 的文字由公共 Text 图元绘制。 */
+  text?: DrawingText
+}
+
+/** 对象文字样式；创建 API 负责补齐，渲染器只消费。 */
+export interface DrawingText {
+  value: string
+  color: Color | (string & {})
+  size: number
+  align: 'left' | 'center' | 'right'
+  verticalAlign: 'top' | 'middle' | 'bottom'
+}
+
+/** Box 的边框不包含箭头。 */
+export type BoxBorderStyle = 'solid' | 'dashed' | 'dotted'
+/** Box 对象引用，仅在所属运行中有效。 */
+export interface BoxRef { readonly id: string }
+/** Label 对象引用，仅在所属运行中有效。 */
+export interface LabelRef { readonly id: string }
+/** Pine 风格 Box 创建重载；可选参数顺序与 Pine 相同。 */
+export interface BoxFactory {
+  (left: number, top: number, right: number, bottom: number, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
+  (top_left: ChartPoint, bottom_right: ChartPoint, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
+}
+/** 跨 bar 保留的矩形对象；复用手绘 rectangle 模型。 */
+export interface DrawingBoxApi {
+  readonly new: BoxFactory
+  readonly all: readonly BoxRef[]
+  set_left(id: BoxRef, left: number): void
+  set_top(id: BoxRef, top: number): void
+  set_right(id: BoxRef, right: number): void
+  set_bottom(id: BoxRef, bottom: number): void
+  set_lefttop(id: BoxRef, left: number, top: number): void
+  set_rightbottom(id: BoxRef, right: number, bottom: number): void
+  set_top_left_point(id: BoxRef, point: ChartPoint): void
+  set_bottom_right_point(id: BoxRef, point: ChartPoint): void
+  set_xloc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void
+  set_extend(id: BoxRef, extend: LineExtend): void
+  set_bgcolor(id: BoxRef, color: Color | (string & {})): void
+  set_border_color(id: BoxRef, color: Color | (string & {})): void
+  set_border_width(id: BoxRef, width: number): void
+  set_border_style(id: BoxRef, style: BoxBorderStyle): void
+  set_text(id: BoxRef, text: string): void
+  set_text_color(id: BoxRef, color: Color | (string & {})): void
+  set_text_size(id: BoxRef, size: number): void
+  set_text_halign(id: BoxRef, align: DrawingText['align']): void
+  set_text_valign(id: BoxRef, align: DrawingText['verticalAlign']): void
+  get_left(id: BoxRef): number
+  get_top(id: BoxRef): number
+  get_right(id: BoxRef): number
+  get_bottom(id: BoxRef): number
+  copy(id: BoxRef): BoxRef | null
+  delete(id: BoxRef | null): void
+}
+/** 第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。 */
+export interface DrawingLabelApi {
+  readonly style_none: 'none'
+  readonly new: (x: number, y: number, text?: string, xloc?: LineXLoc, yloc?: 'price', color?: Color | (string & {}), style?: 'none', textcolor?: Color | (string & {}), size?: number, textalign?: DrawingText['align']) => LabelRef
+  readonly all: readonly LabelRef[]
+  set_x(id: LabelRef, x: number): void
+  set_y(id: LabelRef, y: number): void
+  set_xy(id: LabelRef, x: number, y: number): void
+  set_text(id: LabelRef, text: string): void
+  set_textcolor(id: LabelRef, color: Color | (string & {})): void
+  set_size(id: LabelRef, size: number): void
+  set_textalign(id: LabelRef, align: DrawingText['align']): void
+  get_x(id: LabelRef): number
+  get_y(id: LabelRef): number
+  get_text(id: LabelRef): string | null
+  copy(id: LabelRef): LabelRef | null
+  delete(id: LabelRef | null): void
+}
+/** 价格文字锚点；其他定位方式待公共绘图模型支持后再开放。 */
+export const yloc = { price: 'price' } as const
+/** Box 和 Label 的运行上下文，限额在声明时归一化。 */
+export interface DrawingObjectContext {
+  readonly paneId: string
+  readonly ownerId?: string
+  readonly barCount: number
+  readonly maxObjects: number
 }
 /**
  * 声明式修改：undefined 表示不修改，style 按字段合并而不是整体替换。
@@ -217,17 +298,17 @@ export interface LineFactory {
  */
 export interface DrawingLineApi {
   /** @summary 实线 */
-  readonly style_solid: LineStyle
+  readonly style_solid: typeof LineStyle.style_solid
   /** @summary 虚线 */
-  readonly style_dashed: LineStyle
+  readonly style_dashed: typeof LineStyle.style_dashed
   /** @summary 点线 */
-  readonly style_dotted: LineStyle
+  readonly style_dotted: typeof LineStyle.style_dotted
   /** @summary 左箭头 */
-  readonly style_arrow_left: LineStyle
+  readonly style_arrow_left: typeof LineStyle.style_arrow_left
   /** @summary 右箭头 */
-  readonly style_arrow_right: LineStyle
+  readonly style_arrow_right: typeof LineStyle.style_arrow_right
   /** @summary 双箭头 */
-  readonly style_arrow_both: LineStyle
+  readonly style_arrow_both: typeof LineStyle.style_arrow_both
   /**
    * 绘制线段；两个重载分别接受 chart.point 端点与起止点的 X / Y。
    * @summary 绘制线段

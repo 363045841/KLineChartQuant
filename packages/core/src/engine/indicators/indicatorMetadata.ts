@@ -15,7 +15,6 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import type { IndicatorPlotDefinition } from '../plots/types.js'
-import type { IndicatorRenderEntryOf, IndicatorStateName } from './indicatorContracts.js'
 
 /** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
@@ -76,48 +75,6 @@ export type IndicatorAuxiliaryRendererNameResolver = (
 
 export type ScaleRendererFactory = (options: IndicatorScaleRendererOptions) => Layer<RenderContext>
 
-export interface IndicatorVisibleRange {
-  start: number
-  end: number
-}
-
-export interface IndicatorPriceRange {
-  min: number
-  max: number
-}
-
-/**
- * 单个实例渲染条目读取入口。第二个参数是类型选择键（`IndicatorStateName`），
- * 只用于从渲染状态契约派生条目类型，不参与运行时查找。
- */
-export function readIndicatorSeriesEntry<K extends IndicatorStateName>(
-  entry: unknown,
-  _configKey: K,
-): IndicatorRenderEntryOf<K>
-/** 读取调用方自行约束结构的领域输出条目。 */
-export function readIndicatorSeriesEntry<T>(entry: unknown, _configKey: string): T
-export function readIndicatorSeriesEntry(entry: unknown, _configKey: string): unknown {
-  return entry
-}
-
-export type IndicatorPriceRangeComputer = (
-  entry: unknown,
-  visibleRange: IndicatorVisibleRange,
-) => IndicatorPriceRange | null
-
-export type IndicatorRenderStateComposer = (
-  entry: unknown,
-  visibleRange: IndicatorVisibleRange,
-  timestamp: number,
-  projectIndex: (index: number) => number,
-) => unknown
-
-/** 领域输出的专用投影和价格范围；普通数值序列使用 Plot。 */
-export interface IndicatorCustomStateDescriptor {
-  compose: IndicatorRenderStateComposer
-  computePriceRange?: IndicatorPriceRangeComputer
-}
-
 /**
  * 标题值项：颜色 + 数值 + 标签
  */
@@ -169,11 +126,7 @@ export interface IndicatorInputDef {
 
 /**
  * 指标计算描述符
- * 描述每个指标的计算逻辑，供 IndicatorRuntime 驱动
- *
- * - 主线程：直接调用 compute
- * - Worker：用 computeKey 从 calculators 模块映射到实际函数
- * - 自定义运行时指标：无 computeKey，仅主线程 inline 运行
+ * 描述指标的计算端口；Script 定义将计算委派给 Script 服务管理的 Worker。
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
@@ -184,22 +137,16 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
-  /** configSnapshot 中的 key，默认等于 name（如 'macd'） */
-  configKey?: string
-  /** paneId 在 configSnapshot 中的 key（如 'macdPaneId'），可省略 */
-  paneIdKey?: string
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
   inputDefs?: Readonly<Record<string, IndicatorInputDef>>
-  /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
+  /** 注册定义的唯一计算端口。 */
   compute: (
     data: KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
-  /** Worker 端计算键名，映射到 calculators 模块的导出 */
-  computeKey?: string
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'
 }
@@ -215,7 +162,7 @@ export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unk
 export interface IndicatorMetadata<T = unknown> {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
-  /** 普通指标统一声明 Plot；专用输出使用自己的 composer。 */
+  /** 序列和绘图对象统一声明公共 Plot 输出。 */
   plots?: IndicatorPlotDefinition
   /**
    * 指标唯一标识
@@ -311,8 +258,6 @@ export interface IndicatorMetadata<T = unknown> {
 
   /** 不创建 renderer 实例地解析副图坐标轴 plugin 名称；无坐标轴时返回 null。 */
   getScaleRendererName: IndicatorAuxiliaryRendererNameResolver
-
-  customState?: IndicatorCustomStateDescriptor
 
   /**
    * 计算描述符（可选）

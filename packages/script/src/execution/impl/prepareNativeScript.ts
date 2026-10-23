@@ -12,7 +12,8 @@ import {
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
-  LINE_API_PRELUDE,
+  DRAWING_API_PRELUDE,
+  PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
@@ -78,8 +79,9 @@ export function prepareNativeScript(
         ${REQUEST_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
-        ${LINE_API_PRELUDE}
+        ${DRAWING_API_PRELUDE}
         ${DRAWING_PRELUDE}
+        ${PIVOT_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
         ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
@@ -116,6 +118,7 @@ export function prepareNativeScript(
       },
       /** 当前已经处理的行情数量。 */
       __count: () => index + 1,
+      __barCount: () => bars.length,
       /** 采集数值点；保留与 QuickJS 相同的无穷值诊断。 */
       __plot(kind: unknown, value: unknown, name: unknown, options: unknown) {
         requireBar('plot')

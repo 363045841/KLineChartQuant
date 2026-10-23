@@ -5,6 +5,7 @@ import type { DrawingKind, PersistedDrawingAnchor } from '../../types.js'
 /** 图元创建时用户输入的锚点数。 */
 export function getDrawingInputAnchorCount(kind: DrawingKind): 1 | 2 | 3 {
   switch (kind) {
+    case 'label':
     case 'horizontal-line':
     case 'horizontal-ray':
     case 'vertical-line':

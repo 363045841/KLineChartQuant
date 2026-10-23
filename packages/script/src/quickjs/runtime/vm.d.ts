@@ -36,6 +36,13 @@ declare function __read(field: string, offset: number): number
 
 /** 宿主注入：已推进的 K 线条数。 */
 declare function __count(): number
+/** 宿主注入的本次数据总根数，仅供末根判断。 */
+declare function __barCount(): number
+type DrawingBoxApi = import('@363045841yyt/klinechart-plot-contracts').DrawingBoxApi
+type DrawingLabelApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLabelApi
+declare const createDrawingBoxApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingBoxApi
+declare const createDrawingLabelApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingLabelApi
+declare const drawingCount: typeof import('@363045841yyt/klinechart-plot-contracts').drawingCount
 type DrawingObject = import('@363045841yyt/klinechart-plot-contracts').DrawingObject
 type DrawingLineApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLineApi
 type ChartPoint = import('@363045841yyt/klinechart-plot-contracts').ChartPoint

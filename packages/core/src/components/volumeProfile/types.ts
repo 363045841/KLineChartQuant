@@ -6,10 +6,8 @@
  * accumulation zones (POC), the 70% Value Area (VAH/VAL — CME convention),
  * and developing support/resistance.
  *
- * This module owns the **data model + math only**. Rendering belongs to the
- * `@klinechart-quant/core` Renderer/Scene layer (or the maintainer's legacy
- * renderer at `src/core/renderers/Indicator/volumeProfile.ts`, which is kept
- * untouched per branch policy).
+ * This standalone component owns its data model and math only; consumers own
+ * rendering. It is independent of the chart VP indicator in the Script package.
  *
  * See `computeShader.wgsl.md` for the planned WebGPU compute path of the
  * heavy `binBarToBuckets` work.

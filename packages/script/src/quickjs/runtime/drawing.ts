@@ -1,18 +1,31 @@
 /** VM drawing 入口：公共 line API 直接产出公共 DrawingObject。 */
 let __drawingObjects: readonly DrawingObject[] = []
 let __drawingSequence = 0
-const line: DrawingLineApi = createDrawingLineApi({
+const __drawingStore = {
   list: () => __drawingObjects,
-  replace: (drawings) => {
-    if (__count() === 0) throw new TypeError('line 只能在 onBar 中创建或修改')
+  replace: (drawings: readonly DrawingObject[]) => {
+    if (__count() === 0) throw new TypeError('drawing 只能在 onBar 中创建或修改')
     __drawingObjects = drawings
   },
-  nextId: () => `line-${++__drawingSequence}`,
-}, {
+  nextId: () => `drawing-${++__drawingSequence}`,
+}
+const line: DrawingLineApi = createDrawingLineApi(__drawingStore, {
   paneId: '', ownerId: 'script', defaultColor: Color.Blue,
-  get maxLines() { return __definition?.max_lines_count ?? 50 },
+  get maxLines() { return __definition!.max_lines_count },
   get barCount() { return __count() },
 })
+const box: DrawingBoxApi = createDrawingBoxApi(__drawingStore, {
+  paneId: '', ownerId: 'script',
+  get maxObjects() { return __definition!.max_boxes_count },
+  get barCount() { return __count() },
+})
+const label: DrawingLabelApi = createDrawingLabelApi(__drawingStore, {
+  paneId: '', ownerId: 'script',
+  get maxObjects() { return __definition!.max_labels_count },
+  get barCount() { return __count() },
+})
+/** Pine 的末根判断，历史计算只在最后一根构建固定回看分布。 */
+const barstate = Object.freeze({ get islast() { return __count() > 0 && __count() === __barCount() } })
 /** 当前 bar 的标量索引。 */
 Object.defineProperty(globalThis, 'bar_index', { get: () => __count() - 1 })
 /** chart.point 工厂返回值对象，创建线时复制。 */
@@ -25,4 +38,4 @@ const chart = Object.freeze({ point: Object.freeze({
 }) })
 /** 只输出值快照，不泄露 Map 和运行时引用。 */
 function __drawingSnapshot(): readonly DrawingObject[] { return __drawingObjects }
-Object.assign(globalThis, { line, chart })
+Object.assign(globalThis, { line, box, label, chart, barstate })

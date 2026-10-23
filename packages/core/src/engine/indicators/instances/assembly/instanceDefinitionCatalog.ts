@@ -1,7 +1,6 @@
 /** 将已注册的指标 metadata 映射为新执行器使用的计算定义。 */
 import type { IndicatorMetadata } from '../../indicatorMetadata.js'
 import type { IndicatorCalculationDefinition } from '../execution/instanceCalculationRuntime.js'
-import type { SerializedIndicatorCalculationDefinition } from '../worker/instanceWorkerProtocol.js'
 
 /**
  * 创建 inline 计算定义。
@@ -21,25 +20,6 @@ export function createInstanceCalculationDefinitions(
       createCompute: runtime.createCompute,
     }
     definitions.push(Object.freeze(definition))
-  }
-  return Object.freeze(definitions)
-}
-
-/** 创建 Worker 初始化所需的纯描述；不暴露 pane、样式或旧 configKey。 */
-export function serializeInstanceCalculationDefinitions(
-  metadata: Iterable<IndicatorMetadata>,
-): readonly SerializedIndicatorCalculationDefinition[] {
-  const definitions: SerializedIndicatorCalculationDefinition[] = []
-  for (const item of metadata) {
-    const runtime = item.runtime
-    if (!runtime?.computeKey) continue
-    definitions.push(
-      Object.freeze({
-        definitionId: item.name,
-        computeKey: runtime.computeKey,
-        outputAlignment: runtime.outputAlignment,
-      }),
-    )
   }
   return Object.freeze(definitions)
 }

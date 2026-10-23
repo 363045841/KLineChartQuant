@@ -8,7 +8,7 @@ import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series as ScriptSeries } from '../series/types.js'
 import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 import type { ScriptRequest } from '../request/types.js'
-import type { DrawingLineApi, ChartPoint, LineRef as ScriptLineRef, Color } from '@363045841yyt/klinechart-plot-contracts'
+import type { DrawingLineApi, DrawingBoxApi, DrawingLabelApi, ChartPoint, LineRef as ScriptLineRef, BoxRef as ScriptBoxRef, LabelRef as ScriptLabelRef, Color } from '@363045841yyt/klinechart-plot-contracts'
 
 declare global {
   /** 输出到编辑器底部的“输出”面板；支持多个参数和对象。 */
@@ -25,6 +25,15 @@ declare global {
 
   /** line.new 返回的线段引用；只在本次运行内有效，用于为接收引用的函数标注参数。 */
   type LineRef = ScriptLineRef
+  /** 矩形与标签的运行内引用。 */
+  type BoxRef = ScriptBoxRef
+  type LabelRef = ScriptLabelRef
+  /** 创建、修改、读取和删除矩形；位置参数顺序与 Pine box.new 一致。 */
+  const box: DrawingBoxApi
+  /** 在历史 bar 的价格位置创建纯文字标签，支持 label.style_none。 */
+  const label: DrawingLabelApi
+  /** 当前执行 bar 是否是本次数据的最后一根。 */
+  const barstate: { readonly islast: boolean }
 
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
