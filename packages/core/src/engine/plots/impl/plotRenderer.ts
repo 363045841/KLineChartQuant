@@ -59,8 +59,6 @@ interface LineProjection {
   readonly plot: LineSeriesPlot
   readonly points: ReadonlyMap<number, Point>
   readonly lines: readonly LineBatch[]
-  /** 点为世界 x 与价格 y，由后端按帧变换还原；此时 points 不保留点表。 */
-  readonly dataSpace: boolean
 }
 
 /** 柱状图与柱形图的投影结果：几何相同，只有柱宽来源不同。 */
@@ -112,8 +110,6 @@ interface OhlcProjection {
 interface FillProjection {
   readonly fill: PlotFill
   readonly bands: readonly FillBand[]
-  /** 路径为世界 x 与价格 y，由帧变换还原屏幕坐标。 */
-  readonly dataSpace: boolean
 }
 
 /** 一帧可复用的全部重放数据。 */
@@ -201,18 +197,6 @@ function projectX(index: number, context: PrimitiveRenderContext): number | null
   const originIndex = index < start ? start : start + centers.length - 1
   const originCenter = index < start ? centers[0]! : centers[centers.length - 1]!
   return Math.round((originCenter + (index - originIndex) * step) * dpr) / dpr
-}
-
-/** 数据空间折线：x 保留世界坐标，y 保留价格，屏幕坐标由后方按轴变换还原。 */
-function projectDataPoint(
-  plot: LineSeriesPlot,
-  index: number,
-  context: PrimitiveRenderContext,
-): Point | undefined {
-  const value = barValue(plot, index)
-  if (value === undefined) return undefined
-  const x = projectX(index, context)
-  return x === null ? undefined : { x, y: value }
 }
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
@@ -369,7 +353,6 @@ function projectPlot(
   plot: Plot,
   context: PrimitiveRenderContext,
   needsPoints: boolean,
-  dataSpace: boolean,
 ): PlotProjection {
   switch (plot.kind) {
     case 'candle':
@@ -380,34 +363,12 @@ function projectPlot(
     case 'stepline':
     case 'steplinebr': {
       const margin = lineMargin(context)
-      // 数据空间：几何与滚动、价格轴无关，滚动和缩放只改 uniform。
-      if (dataSpace) {
-        // 被填充引用的线必须保留点表，填充带与折线共用同一份数据空间坐标。
-        const points = needsPoints
-          ? projectPoints(plot, context, (index) => projectDataPoint(plot, index, context), margin)
-          : EMPTY_POINTS
-        return {
-          kind: 'line',
-          plot,
-          dataSpace: true,
-          points,
-          lines: buildLineSegments(
-            plot,
-            context,
-            needsPoints
-              ? (index) => points.get(index)
-              : (index) => projectDataPoint(plot, index, context),
-            margin,
-          ),
-        }
-      }
       // 只有被填充引用的线才需要按下标保留点；其余线在单遍构建里直接投影，
       // 省掉每帧一个 Map 和第二次遍历。
       if (!needsPoints)
         return {
           kind: 'line',
           plot,
-          dataSpace: false,
           points: EMPTY_POINTS,
           lines: buildLineSegments(
             plot,
@@ -425,7 +386,6 @@ function projectPlot(
       return {
         kind: 'line',
         plot,
-        dataSpace: false,
         points,
         lines: buildLineSegments(plot, context, (index) => points.get(index), margin),
       }
@@ -530,17 +490,12 @@ function markerAppearance(
 }
 
 /** 解析填充端点；id 引用已由 validatePlotFills 校验，缺失即契约违规。 */
-function resolveFill(
-  fill: PlotFill,
-  byId: ReadonlyMap<string, PlotProjection>,
-  dataSpace: boolean,
-): FillProjection {
+function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>): FillProjection {
   const from = byId.get(fill.from)
   const to = byId.get(fill.to)
   if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
   return {
     fill,
-    dataSpace,
     bands: buildFillBands(
       from.points,
       to.points,
@@ -553,27 +508,21 @@ function resolveFill(
 }
 
 /** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
-function collectGeometry(
-  state: PlotRenderState,
-  context: PrimitiveRenderContext,
-  dataSpace: boolean,
-): PlotGeometry {
+function collectGeometry(state: PlotRenderState, context: PrimitiveRenderContext): PlotGeometry {
   // 填充只按 id 引用两端，先收集引用集合，未被引用的线不必保留点表。
   const filled = new Set<string>()
   for (const fill of state.fills) {
     filled.add(fill.from)
     filled.add(fill.to)
   }
-  const plots = state.plots.map((plot) =>
-    projectPlot(plot, context, filled.has(plot.id), dataSpace),
-  )
+  const plots = state.plots.map((plot) => projectPlot(plot, context, filled.has(plot.id)))
   const byId = new Map(plots.map((projection) => [projection.plot.id, projection]))
-  return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId, dataSpace)) }
+  return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
 }
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
 export function paintPlots(state: PlotRenderState, context: PrimitiveRenderContext): void {
-  paintGeometry(state, context, collectGeometry(state, context, isDataSpaceLayer(state, context)))
+  paintGeometry(state, context, collectGeometry(state, context))
 }
 
 /** 用一帧几何绘制填充、参考线和 Plot；几何已由调用方投影完成。 */
@@ -583,7 +532,7 @@ function paintGeometry(
   geometry: PlotGeometry,
 ): void {
   const commands: PaintPrimitive[] = []
-  // 折线与填充保留世界坐标，滚动量由原语携带并在后端一次扣除，避免逐点复制。
+  // 描边算法按屏幕像素计算线宽与连接；价格在投影阶段转换，后端只扣除横向滚动。
   const offsetX = context.scrollLeft
   for (const fill of geometry.fills)
     if (fill.fill.visible)
@@ -593,7 +542,7 @@ function paintGeometry(
           paths: band.polygons,
           color: band.color,
           band: true,
-          ...(fill.dataSpace ? { dataSpace: true } : { offsetX }),
+          offsetX,
         })
       }
   for (const guide of state.guides) {
@@ -625,7 +574,7 @@ function paintGeometry(
             dash: projection.plot.dash,
             cap: 'round',
             join: 'round',
-            ...(projection.dataSpace ? { dataSpace: true } : { offsetX: context.scrollLeft }),
+            offsetX,
           })
         break
       case 'histogram':
@@ -736,39 +685,6 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
   }
 }
 
-/** 折线指标是否全部可按数据空间缓存；填充带与折线共用同一套数据空间坐标。 */
-function isDataSpaceLayer(state: PlotRenderState, context: PrimitiveRenderContext): boolean {
-  if (context.dataTransform === undefined) return false
-  return state.plots.every(
-    (plot) =>
-      plot.kind === 'line' ||
-      plot.kind === 'linebr' ||
-      plot.kind === 'stepline' ||
-      plot.kind === 'steplinebr',
-  )
-}
-
-/** 数据空间折线与滚动、价格轴无关；可见窗口按半屏分桶，桶内复用同一批几何。 */
-function createDataRevision(
-  context: PrimitiveRenderContext,
-  inputs: readonly unknown[],
-): ProjectionRevision {
-  const bucket = Math.max(1, lineMargin(context))
-  return {
-    inputs: [
-      ...inputs,
-      context.data.length,
-      Math.floor(context.range.start / bucket),
-      Math.floor(context.range.end / bucket),
-      context.kWidth,
-      context.kGap,
-      context.kWidthPx,
-      context.dpr,
-    ],
-    centers: [],
-  }
-}
-
 /** 所有普通指标共用同一 Layer 工厂，实例只提供 Plot 数据。 */
 export function createPlotLayer(
   definitionId: string,
@@ -784,17 +700,9 @@ export function createPlotLayer(
     draw(context) {
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
-      const dataSpace = isDataSpaceLayer(state, context)
       const geometry = retained.read(
-        dataSpace
-          ? createDataRevision(context, [state.plots, state.fills, context.data, context.theme])
-          : createProjectionRevision(context, [
-              state.plots,
-              state.fills,
-              context.data,
-              context.theme,
-            ]),
-        () => collectGeometry(state, context, dataSpace),
+        createProjectionRevision(context, [state.plots, state.fills, context.data, context.theme]),
+        () => collectGeometry(state, context),
       )
       paintGeometry(state, context, geometry)
     },

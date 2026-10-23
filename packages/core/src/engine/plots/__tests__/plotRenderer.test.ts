@@ -50,6 +50,50 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it('有数据变换时仍在上层将折线价格投影为屏幕坐标', () => {
+    const submit = vi.fn(() => true)
+    const transform = { offsetX: 10, yScale: 10, yOffset: 0 }
+    const { ctx } = paint(
+      { series: [{ id: 'comparison', color: () => 'yellow' }] },
+      [4.25, 4.5],
+      {},
+      {
+        dataTransform: transform,
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    expect(submit).toHaveBeenCalledExactlyOnceWith(
+      ctx,
+      [
+        expect.objectContaining({
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 5, y: 42.5 },
+              { x: 15, y: 45 },
+            ],
+          ],
+          offsetX: 10,
+        }),
+      ],
+      1,
+      transform,
+    )
+  })
+
+  it.each([
+    { values: [10, 100], min: 0, max: 105 },
+    { values: [-100, -10], min: -105, max: 0 },
+    { values: [-100, 100], min: -110, max: 110 },
+  ])('柱体基线边界保留单侧留白：$values', ({ values, min, max }) => {
+    const { state } = paint(
+      { series: [{ id: 'vol', kind: 'columns', color: () => 'blue' }] },
+      values,
+    )
+    expect(state.valueMin).toBe(min)
+    expect(state.valueMax).toBe(max)
+  })
+
   it('submits fill, line and points in one ordered backend batch', () => {
     const submit = vi.fn(() => true)
     const { ctx } = paint(
@@ -646,7 +690,7 @@ describe('Plot renderer', () => {
     ])
   })
 
-  it('填充图层在数据空间投影，提交 band 与 dataSpace 标记', () => {
+  it('填充与折线共享屏幕投影，数据变换不会重复应用', () => {
     const submit = vi.fn<
       (context: unknown, commands: readonly PaintPrimitive[], dpr: number) => boolean
     >(() => true)
@@ -670,9 +714,12 @@ describe('Plot renderer', () => {
     )
     const fill = submit.mock.calls[0]![1].find((command) => command.kind === 'fill')
     if (!fill || fill.kind !== 'fill') throw new Error('缺少填充原语')
-    expect(fill).toMatchObject({ band: true, dataSpace: true })
-    // y 保留价格，未预先乘 yScale / 加 yOffset。
-    expect(fill.paths[0]!.map((point) => point.y)).toEqual([1, 2, 4, 3])
+    expect(fill).toMatchObject({ band: true, offsetX: 10 })
+    expect(fill).not.toHaveProperty('dataSpace')
+    expect(fill.paths[0]!.map((point) => point.y)).toEqual([10, 20, 40, 30])
+    const strokes = submit.mock.calls[0]![1].filter((command) => command.kind === 'stroke')
+    expect(strokes).toHaveLength(2)
+    for (const stroke of strokes) expect(stroke).not.toHaveProperty('dataSpace')
   })
 
   it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {
