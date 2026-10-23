@@ -20,4 +20,4 @@ abovebar/belowbar 使用 offset 后目标 K 线的 high/low；分时数据使用
 
 默认采用 xcross、abovebar、auto。尺寸使用 CSS 像素，DPR 由现有画布变换统一处理。auto 使用固定默认尺寸；本实现覆盖绘图语义，不承诺 TradingView 私有字体和尺寸的像素级一致。
 
-手动验证：在脚本编辑器运行 packages/script/scripts/shape.ts，使用实际行情检查 12 种形状、文字、滚动和缩放；将调用 location 改为 top/bottom/absolute 验证定位。自动测试覆盖 VM 到收集器、纯 Shape 绘制、na 表示（false 与 NaN 不绘制、0 会绘制）、价格范围、offset、文字颜色和滚动缓存。
+手动验证：在脚本编辑器用 `plot.Shape` 遍历 `ShapeStyle` 的 12 种形状，使用实际行情检查文字、滚动和缩放；将调用 location 改为 top/bottom/absolute 验证定位。自动测试覆盖 VM 到收集器、纯 Shape 绘制、na 表示（false 与 NaN 不绘制、0 会绘制）、价格范围、offset、文字颜色和滚动缓存。
