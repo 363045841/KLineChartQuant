@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** 验证设备分类、窗口共享、输入能力更新和监听释放。 */
+/** 验证设备分类、同步兜底、窗口共享、输入能力更新和监听释放。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDeviceEnvironment, getDeviceType } from '../impl/deviceEnvironment.js'
 
@@ -41,14 +41,18 @@ afterEach(() => {
 
 describe('设备环境', () => {
   it.each([
-    ['Mozilla/5.0 (iPhone) Mobile', 5, 'mobile'],
-    ['Mozilla/5.0 (Linux; Android 14) Mobile', 5, 'mobile'],
-    ['Mozilla/5.0 (Linux; Android 14)', 5, 'tablet'],
-    ['Mozilla/5.0 (iPad)', 5, 'tablet'],
-    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 5, 'tablet'],
-    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 0, 'desktop'],
-    ['Mozilla/5.0 (Windows NT 10.0)', 10, 'desktop'],
-  ])('识别 %s（触点 %i）为 %s', (ua, touches, expected) => {
+    ['Mozilla/5.0 (iPhone) Mobile', 5, false, 'mobile'],
+    ['Mozilla/5.0 (Linux; Android 14) Mobile', 5, false, 'mobile'],
+    ['Mozilla/5.0 (Linux; Android 14)', 5, false, 'tablet'],
+    ['Mozilla/5.0 (iPad)', 5, false, 'tablet'],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 5, false, 'tablet'],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 0, false, 'desktop'],
+    ['Mozilla/5.0 (Windows NT 10.0)', 10, false, 'desktop'],
+    ['Mozilla/5.0 (X11; Linux x86_64) Chrome/126 Safari/537.36', 5, true, 'tablet'],
+    ['Mozilla/5.0 (X11; Linux x86_64) Chrome/126 Safari/537.36', 5, false, 'desktop'],
+    ['Mozilla/5.0 (Windows NT 10.0)', 10, true, 'desktop'],
+  ])('识别 %s（触点 %i，粗指针 %s）为 %s', (ua, touches, coarse, expected) => {
+    isCoarsePointer = coarse
     setDevice(ua, touches)
     expect(getDeviceType()).toBe(expected)
   })
@@ -66,6 +70,11 @@ describe('设备环境', () => {
     setDevice('Mozilla/5.0 (Windows NT 10.0)', 10)
     const environment = getDeviceEnvironment()
     expect(getDeviceEnvironment()).toBe(environment)
+    expect(environment.peek()).toEqual({
+      deviceType: 'desktop',
+      isCoarsePointer: false,
+      resolved: true,
+    })
     const listener = vi.fn()
     const removeResize = vi.spyOn(window, 'removeEventListener')
     const stopFirst = environment.subscribe(listener)
@@ -73,7 +82,11 @@ describe('设备环境', () => {
     try {
       isCoarsePointer = true
       pointer.dispatchEvent(new Event('change'))
-      expect(environment.peek()).toEqual({ deviceType: 'desktop', isCoarsePointer: true })
+      expect(environment.peek()).toEqual({
+        deviceType: 'desktop',
+        isCoarsePointer: true,
+        resolved: true,
+      })
       expect(listener).toHaveBeenCalledOnce()
       stopFirst()
       expect(pointer.removeEventListener).not.toHaveBeenCalled()

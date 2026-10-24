@@ -22,9 +22,25 @@ vi.mock('@363045841yyt/klinechart-script-server', () => ({
   },
 }))
 
+let isCoarsePointer = false
+const pointer = {
+  get matches(): boolean {
+    return isCoarsePointer
+  },
+  media: '(pointer: coarse)',
+  onchange: null,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  addListener: vi.fn(),
+  removeListener: vi.fn(),
+  dispatchEvent: vi.fn(() => false),
+} satisfies MediaQueryList
+
 /** 通过浏览器设备信息驱动共享状态，编辑器不接收测试专用开关。 */
-function setDevice(userAgent: string): void {
+function setDevice(userAgent: string, touches = 0, coarse = false): void {
+  isCoarsePointer = coarse
   vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(userAgent)
+  Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: touches })
   window.dispatchEvent(new Event('resize'))
 }
 
@@ -38,10 +54,21 @@ function mountEditor() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  isCoarsePointer = false
   language.initialize.mockResolvedValue([])
+  Reflect.deleteProperty(window.navigator, 'userAgentData')
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => pointer),
+  )
 })
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  Reflect.deleteProperty(window.navigator, 'maxTouchPoints')
+  Reflect.deleteProperty(window.navigator, 'userAgentData')
+})
 
 describe('Script 编辑器设备策略', () => {
   it('问题 Tab 读取真实编辑器诊断，点击定位代码，诊断清除后同步归零', async () => {
@@ -72,10 +99,15 @@ describe('Script 编辑器设备策略', () => {
       wrapper.unmount()
     }
   })
-  it.each(['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)'])(
-    '移动设备 %s 保留编辑并跳过语言服务',
-    async (ua) => {
-      setDevice(ua)
+  it.each([
+    ['Mozilla/5.0 (iPhone) Mobile', 5, false],
+    ['Mozilla/5.0 (Linux; Android 14)', 5, false],
+    ['Mozilla/5.0 (iPad)', 5, false],
+    ['Mozilla/5.0 (X11; Linux x86_64) Chrome/126 Safari/537.36', 5, true],
+  ])(
+    '非桌面设备 %s 保留编辑并跳过语言服务',
+    async (ua, touches, coarse) => {
+      setDevice(ua, touches, coarse)
       const wrapper = mountEditor()
       try {
         await flushPromises()

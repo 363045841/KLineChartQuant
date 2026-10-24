@@ -46,7 +46,10 @@ export function useCodeMirror(
     instance.focus()
   }
   const device = useDeviceEnvironment()
-  const languageEnabled = computed(() => device.value.deviceType === 'desktop')
+  // formFactors 结算前不启动 Worker，避免把平板误当成桌面后再销毁。
+  const languageEnabled = computed(
+    () => device.value.resolved && device.value.deviceType === 'desktop',
+  )
   const languageReady = shallowRef(false)
   const formatAvailable = computed(
     () => languageEnabled.value && languageReady.value && editable.value && !languageError.value,
