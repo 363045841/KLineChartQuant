@@ -37,6 +37,17 @@ export interface ScriptSignatureProvider {
 
 /** 编辑器对语言服务 Worker 的查询契约。 */
 export interface ScriptLanguageWorker extends ReturnType<typeof createWorker> {
+  getNavigation(path: string, source: string, position: number, kind: 'definition' | 'declaration' | 'typeDefinition' | 'implementation'): ScriptNavigationTarget[]
+  renameSymbol(path: string, source: string, position: number, name: string): TextChange[]
   formatDocument(path: string, source: string): TextChange[]
   getSignatureHelp(path: string, position: number): ScriptSignatureHelp | null
+}
+
+/** 跳转结果携带目标原文，外部声明可在宿主中只读查看。 */
+export interface ScriptNavigationTarget {
+  readonly path: string
+  readonly source: string
+  readonly from: number
+  readonly to: number
+  readonly current: boolean
 }

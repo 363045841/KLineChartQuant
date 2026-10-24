@@ -40,6 +40,14 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
   innerWorker.addEventListener('error', handleError)
   innerWorker.addEventListener('messageerror', handleMessageError)
   return {
+    /** 显式携带原文，避免同步插件的防抖使查询落在旧版本上。 */
+    getNavigation(source: string, position: number, kind: 'definition' | 'declaration' | 'typeDefinition' | 'implementation') {
+      return worker.getNavigation(SCRIPT_EDITOR_FILE, source, position, kind)
+    },
+    /** 返回原文上的全部改名编辑，由宿主以一次可撤销事务写入。 */
+    renameSymbol(source: string, position: number, name: string) {
+      return worker.renameSymbol(SCRIPT_EDITOR_FILE, source, position, name)
+    },
     /** 复用独立语言 Worker 格式化当前原文。 */
     formatDocument(source: string) {
       return worker.formatDocument(SCRIPT_EDITOR_FILE, source)

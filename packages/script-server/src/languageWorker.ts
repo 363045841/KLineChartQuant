@@ -71,6 +71,60 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
   }
   return {
     ...worker,
+    /** 同步最新草稿后查询，当前文件的位置必须从虚拟文档映射回原文。 */
+    getNavigation(path, source, position, kind) {
+      session.updateSource(source)
+      const service = worker.getEnv().languageService
+      const pos = mapping().toGenerated(position)
+      const definitions = kind === 'typeDefinition'
+        ? service.getTypeDefinitionAtPosition(path, pos)
+        : kind === 'implementation'
+          ? service.getImplementationAtPosition(path, pos)
+          : kind === 'declaration'
+            ? declarationsAtPosition(service, path, pos)
+            : service.getDefinitionAtPosition(path, pos)
+      return (definitions ?? []).map((definition) => {
+        const current = definition.fileName === path
+        const start = definition.textSpan.start
+        const end = start + definition.textSpan.length
+        const target = worker.getEnv().getSourceFile(definition.fileName)
+        if (!target) throw new Error(`无法读取声明文件：${definition.fileName}`)
+        return {
+          path: definition.fileName,
+          source: current ? source : target.text,
+          from: current ? mapping().toSource(start) : start,
+          to: current ? mapping().toSource(end) : end,
+          current,
+        }
+      })
+    },
+    /** 重命名仅修改可编辑的当前原文，拒绝涉及外部文件的部分改名。 */
+    renameSymbol(path, source, position, name) {
+      session.updateSource(source)
+      const service = worker.getEnv().languageService
+      const pos = mapping().toGenerated(position)
+      const info = service.getRenameInfo(path, pos)
+      if (!info.canRename) throw new Error(info.localizedErrorMessage)
+      const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.Standard, name)
+      if (scanner.scan() !== ts.SyntaxKind.Identifier || scanner.scan() !== ts.SyntaxKind.EndOfFileToken) throw new Error('请输入有效的标识符')
+      const locations = service.findRenameLocations(path, pos, false, false, true)
+      if (!locations?.length) throw new Error('没有可重命名的位置')
+      if (locations.some((location) => location.fileName !== path)) {
+        throw new Error('该符号涉及只读声明文件，无法重命名')
+      }
+      const edits = locations.map((location) => {
+        const start = mapping().toSource(location.textSpan.start)
+        const end = mapping().toSource(location.textSpan.start + location.textSpan.length)
+        return {
+          span: { start, length: end - start },
+          newText: `${location.prefixText ?? ''}${name}${location.suffixText ?? ''}`,
+        }
+      })
+      // 多个生成位置可能映射到同一原文，去重后按源码顺序应用。
+      return edits.filter((edit, index) => edits.findIndex((other) =>
+        other.span.start === edit.span.start && other.span.length === edit.span.length) === index)
+        .sort((a, b) => a.span.start - b.span.start)
+    },
     /** 格式化原始脚本，查询后恢复语义文档，避免把序列转换代码写入草稿。 */
     formatDocument(path, source) {
       const env = worker.getEnv()
@@ -220,4 +274,20 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
       return { text, activeParameter }
     },
   }
+}
+
+/** 声明查询停在当前符号（包括别名）的声明，定义查询则由 TS 继续解析别名。 */
+function declarationsAtPosition(service: ts.LanguageService, path: string, position: number) {
+  const program = service.getProgram()
+  const file = program?.getSourceFile(path)
+  if (!program || !file) return []
+  /** 找到光标所在的最内层语法节点。 */
+  function nodeAt(node: ts.Node): ts.Node {
+    return ts.forEachChild(node, (child) => child.getStart(file) <= position && position < child.end ? nodeAt(child) : undefined) ?? node
+  }
+  const symbol = program.getTypeChecker().getSymbolAtLocation(nodeAt(file))
+  return (symbol?.declarations ?? []).map((declaration) => {
+    const node = ts.getNameOfDeclaration(declaration) ?? declaration
+    return { fileName: node.getSourceFile().fileName, textSpan: { start: node.getStart(), length: node.getWidth() } }
+  })
 }

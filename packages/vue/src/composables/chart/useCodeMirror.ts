@@ -11,6 +11,7 @@ import { computed, type Ref, shallowRef, watch } from 'vue'
 import { useDeviceEnvironment } from '../useDeviceEnvironment.js'
 import { scriptEditorSetup } from './scriptEditor/impl/editorSetup.js'
 import { scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
+import { scriptEditorContextMenu } from './scriptEditor/impl/editorContextMenu.js'
 import type { ScriptEditorProblem } from './scriptEditor/types.js'
 
 /** 在 host 元素上挂载编辑器，并把文档变化写回 value。 */
@@ -103,6 +104,7 @@ export function useCodeMirror(
             scriptEditorSetup,
             javascript({ typescript: true }),
             scriptEditorTheme,
+            scriptEditorContextMenu(() => languageSupport, () => editable.value),
             EditorState.tabSize.of(2),
             editing.of([
               EditorState.readOnly.of(!editable.value),
