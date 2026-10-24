@@ -1,6 +1,6 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
-import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
+import { createKLineData, createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -86,39 +86,64 @@ function createFlatLineDrawing(id: string): DrawingObject {
 }
 
 /** 用单个图元跑一次帧投影，selected 决定其是否被选中。 */
-function projectSingleDrawing(drawing: DrawingObject, selected: boolean): DrawingFrameProjection {
+function projectSingleDrawing(
+  drawing: DrawingObject,
+  selected: boolean,
+  context: RenderContext = createContext(),
+): DrawingFrameProjection {
   const store = new DrawingStore({
     drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
     selectedDrawingIds$: createSignal<ReadonlyArray<string>>(selected ? [drawing.id] : []),
   })
   const definitions = new DrawingDefinitionRegistry()
   registerDefaultDrawingDefinitions(definitions)
-  return projectDrawingsForFrame(store, definitions, createContext())
+  return projectDrawingsForFrame(store, definitions, context)
+}
+
+/** 10 根 K 线的上下文；可见区间由用例指定，用于验证投影裁剪。 */
+function createRangeContext(range: { start: number; end: number }): RenderContext {
+  return createMockRenderContext({ data: createKLineData(10), range })
 }
 
 describe('projectDrawingsForFrame', () => {
   it('projects timestamp positions between bars through the shared continuous X axis', () => {
-    const drawing = createTrendDrawing({ ownerId: 'indicator', xloc: 'bar_time', anchors: [
-      { id: 'a', time: 1500, price: 10 }, { id: 'b', time: 2000, price: 20 },
-    ] })
+    const drawing = createTrendDrawing({
+      ownerId: 'indicator',
+      xloc: 'bar_time',
+      anchors: [
+        { id: 'a', time: 1500, price: 10 },
+        { id: 'b', time: 2000, price: 20 },
+      ],
+    })
     expect(linePrimitives(projectSingleDrawing(drawing, false).primitives)).toMatchObject([
       { a: { x: 20, y: 90 }, b: { x: 30, y: 80 } },
     ])
   })
   it('projects indicator index anchors with no handles even if selected', () => {
-    const drawing = createTrendDrawing({ ownerId: 'indicator', extend: 'left', anchors: [
-      { id: 'a', logicalIndex: 0, price: 10 }, { id: 'b', logicalIndex: 3, price: 20 },
-    ] })
+    const drawing = createTrendDrawing({
+      ownerId: 'indicator',
+      extend: 'left',
+      anchors: [
+        { id: 'a', logicalIndex: 0, price: 10 },
+        { id: 'b', logicalIndex: 3, price: 20 },
+      ],
+    })
     const projection = projectSingleDrawing(drawing, true)
-    expect(linePrimitives(projection.primitives)).toMatchObject([{ a: { x: 10, y: 90 }, extend: 'left', showEndpoints: false }])
+    expect(linePrimitives(projection.primitives)).toMatchObject([
+      { a: { x: 10, y: 90 }, extend: 'left', showEndpoints: false },
+    ])
     expect(pointPrimitives(projection.primitives)).toHaveLength(0)
     expect(projection.yAxisRanges).toHaveLength(0)
   })
 
   it('retains na objects without projecting invalid coordinates', () => {
-    const drawing = createTrendDrawing({ ownerId: 'indicator', anchors: [
-      { id: 'a', logicalIndex: Number.NaN, price: 10 }, { id: 'b', logicalIndex: 1, price: 20 },
-    ] })
+    const drawing = createTrendDrawing({
+      ownerId: 'indicator',
+      anchors: [
+        { id: 'a', logicalIndex: Number.NaN, price: 10 },
+        { id: 'b', logicalIndex: 1, price: 20 },
+      ],
+    })
     expect(projectSingleDrawing(drawing, false).primitives).toHaveLength(0)
   })
   it('registers selected drawing axis labels into the frame collectors without mutating ranges', () => {
@@ -524,4 +549,113 @@ describe('projectDrawingsForFrame', () => {
       expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
     },
   )
+})
+
+describe('projectDrawingsForFrame range culling', () => {
+  /** 可见索引区间 5..8；左右两侧各多留一根 K 线。 */
+  const visibleRange = { start: 5, end: 8 }
+
+  /** 逻辑索引锚定的单锚点标签。 */
+  function labelAt(index: number): DrawingObject {
+    return createDrawingObject({
+      id: `label-${index}`,
+      kind: 'label',
+      anchors: [{ id: 'a', type: 'point', logicalIndex: index, price: 10 }],
+      text: { value: 'HH', color: '#ef5350', size: 11, align: 'center', verticalAlign: 'middle' },
+    })
+  }
+
+  /** 两个逻辑索引锚定的两锚点图元。 */
+  function drawingBetween(
+    kind: DrawingKind,
+    start: number,
+    end: number,
+    extend?: 'left' | 'right' | 'both',
+  ): DrawingObject {
+    return createDrawingObject({
+      id: `${kind}-${start}-${end}`,
+      kind,
+      extend,
+      anchors: [
+        { id: 'a', type: 'point', logicalIndex: start, price: 10 },
+        { id: 'b', type: 'point', logicalIndex: end, price: 20 },
+      ],
+    })
+  }
+
+  it('keeps labels inside the range plus one margin bar and drops the rest', () => {
+    const project = (index: number) =>
+      projectSingleDrawing(labelAt(index), false, createRangeContext(visibleRange)).primitives
+
+    expect(project(6)).toHaveLength(1)
+    expect(project(5)).toHaveLength(1)
+    // range.end 为开区间，多留的一根是 8。
+    expect(project(8)).toHaveLength(1)
+    expect(project(4)).toHaveLength(1)
+    expect(project(3)).toHaveLength(0)
+    expect(project(9)).toHaveLength(0)
+    expect(project(20)).toHaveLength(0)
+  })
+
+  it('keeps a bounded drawing that crosses the range and drops one wholly outside', () => {
+    const crossing = drawingBetween('trend-line', 1, 20)
+    const outside = drawingBetween('trend-line', 1, 2)
+
+    expect(
+      linePrimitives(
+        projectSingleDrawing(crossing, false, createRangeContext(visibleRange)).primitives,
+      ),
+    ).toHaveLength(1)
+    expect(
+      projectSingleDrawing(outside, false, createRangeContext(visibleRange)).primitives,
+    ).toHaveLength(0)
+  })
+
+  it('culls a vertical line outside the range but keeps an infinite horizontal line', () => {
+    const vertical = createDrawingObject({
+      id: 'vertical',
+      kind: 'vertical-line',
+      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
+    })
+    const horizontal = createDrawingObject({
+      id: 'horizontal',
+      kind: 'horizontal-line',
+      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
+    })
+
+    expect(
+      projectSingleDrawing(vertical, false, createRangeContext(visibleRange)).primitives,
+    ).toHaveLength(0)
+    expect(
+      projectSingleDrawing(horizontal, false, createRangeContext(visibleRange)).primitives,
+    ).toHaveLength(1)
+  })
+
+  it('keeps a ray extending into the range and culls one extending away from it', () => {
+    const fromLeft = createDrawingObject({
+      id: 'ray-left',
+      kind: 'horizontal-ray',
+      anchors: [{ id: 'a', type: 'point', logicalIndex: 1, price: 10 }],
+    })
+    const fromRight = createDrawingObject({
+      id: 'ray-right',
+      kind: 'horizontal-ray',
+      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
+    })
+
+    expect(
+      projectSingleDrawing(fromLeft, false, createRangeContext(visibleRange)).primitives.length,
+    ).toBeGreaterThan(0)
+    expect(
+      projectSingleDrawing(fromRight, false, createRangeContext(visibleRange)).primitives,
+    ).toHaveLength(0)
+  })
+
+  it('keeps a rectangle that extends into the range from outside it', () => {
+    const rectangle = drawingBetween('rectangle', 1, 2, 'right')
+
+    expect(
+      projectSingleDrawing(rectangle, false, createRangeContext(visibleRange)).primitives.length,
+    ).toBeGreaterThan(0)
+  })
 })

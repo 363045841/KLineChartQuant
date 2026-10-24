@@ -5,20 +5,24 @@
  * 本模块只增加当前帧已解析坐标和图形计算接口，不再重复定义领域模型。
  */
 
-import type { Point } from '../../foundation/geometry/types.js'
 import type {
+  DrawingKind,
   DrawingObject,
   PersistedDrawingAnchor,
-  DrawingKind,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type {
-  DrawingPrimitive, PaneInfo,
-} from '../../foundation/plugin/types.js'
+import type { Point } from '../../foundation/geometry/types.js'
+import type { DrawingPrimitive, PaneInfo } from '../../foundation/plugin/types.js'
 import type { KLineData } from '../../foundation/types/price.js'
 
 export type {
-  DrawingAnchorType, DrawingKind, DrawingLabel, DrawingLabelIndex, DrawingLabels,
-  DrawingWorkspaceId, DrawingObject, PersistedDrawingAnchor,
+  DrawingAnchorType,
+  DrawingKind,
+  DrawingLabel,
+  DrawingLabelIndex,
+  DrawingLabels,
+  DrawingObject,
+  DrawingWorkspaceId,
+  PersistedDrawingAnchor,
 } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 当前帧或交互会话使用的已解析锚点；用户文档持久化时间，脚本结果可以显式使用索引。 */
@@ -60,9 +64,20 @@ export type DrawingComputeContext = {
   toScreen(anchor: ResolvedDrawingAnchor): Point
 }
 
+/**
+ * 图元在逻辑索引轴上的水平范围；null 表示该侧无界。
+ * 帧投影据此跳过视口外图元，避免为不可见图元计算几何。
+ */
+export type DrawingHorizontalExtent = {
+  readonly start: number | null
+  readonly end: number | null
+}
+
 export interface DrawingDefinition<TParams = Record<string, unknown>> {
   kind: DrawingKind
   minAnchors: number
   maxAnchors: number
+  /** 水平索引范围；投影阶段先裁剪再计算几何。 */
+  extent(drawing: ResolvedDrawingObject<TParams>): DrawingHorizontalExtent
   compute(drawing: ResolvedDrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
 }

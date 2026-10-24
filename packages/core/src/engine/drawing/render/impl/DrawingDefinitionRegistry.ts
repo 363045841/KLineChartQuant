@@ -2,10 +2,12 @@
  * 图形定义注册表：按 DrawingKind 注册并解析几何计算定义。
  */
 
+import { UNBOUNDED_DRAWING_EXTENT } from '../../geometry/impl/drawingExtent.js'
 import type {
   DrawingComputeContext,
   DrawingDefinition,
   DrawingGeometry,
+  DrawingHorizontalExtent,
   DrawingKind,
   ResolvedDrawingObject,
 } from '../../types.js'
@@ -22,6 +24,13 @@ export class DrawingDefinitionRegistry {
   /** 按 kind 取回图形定义；未注册返回 undefined。 */
   get(kind: DrawingKind): DrawingDefinition | undefined {
     return this.definitions.get(kind)
+  }
+
+  /** 图元的水平索引范围；未注册定义无法判断，按整轴可见处理。 */
+  extent(drawing: ResolvedDrawingObject): DrawingHorizontalExtent {
+    const definition = this.get(drawing.kind)
+    if (!definition) return UNBOUNDED_DRAWING_EXTENT
+    return definition.extent(drawing)
   }
 
   /** 对已解析图元执行几何计算；未注册定义返回 null。 */

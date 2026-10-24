@@ -2,12 +2,24 @@
  * 通道类图形定义：平行通道、平滑顶底、不相交通道与回归通道。
  */
 
+import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
 import { buildFillPolygon } from '@/engine/drawing/geometry/impl/fillRegions.js'
 import { computeRegressionChannel } from '@/engine/drawing/geometry/impl/regressionChannel.js'
-import type { DrawingDefinition, ResolvedDrawingAnchor } from '@/engine/drawing/types.js'
+import type {
+  DrawingDefinition,
+  ResolvedDrawingAnchor,
+  ResolvedDrawingObject,
+} from '@/engine/drawing/types.js'
 import { midpoint } from '@/foundation/geometry/index.js'
 import type { LinePrimitive } from '@/foundation/plugin/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
+
+/** 通道的水平延长语义来自 params.extend；未声明时不延长。 */
+function channelExtend(drawing: ResolvedDrawingObject): LinePrimitive['extend'] {
+  const extend = drawing.params.extend
+  if (extend === 'left' || extend === 'right' || extend === 'both') return extend
+  return 'none'
+}
 
 /** 将锚点逻辑索引解析为 seriesData 下标；无效索引返回 null。 */
 function getAnchorDataIndex(anchor: ResolvedDrawingAnchor, data: KLineData[]): number | null {
@@ -23,6 +35,7 @@ export function createParallelChannelDefinition(): DrawingDefinition {
     kind: 'parallel-channel',
     minAnchors: 4,
     maxAnchors: 4,
+    extent: (drawing) => anchorExtent(drawing.anchors, channelExtend(drawing)),
     compute(drawing, context) {
       const [first, second, third, fourth] = drawing.anchors
       if (!first || !second || !third || !fourth) return { primitives: [] }
@@ -64,6 +77,7 @@ export function createFlatLineDefinition(): DrawingDefinition {
     kind: 'flat-line',
     minAnchors: 4,
     maxAnchors: 4,
+    extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [first, second, third, fourth] = drawing.anchors
       if (!first || !second || !third || !fourth) return { primitives: [] }
@@ -95,6 +109,7 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
     kind: 'disjoint-channel',
     minAnchors: 4,
     maxAnchors: 4,
+    extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [firstStart, firstEnd, secondEnd, secondStart] = drawing.anchors
       if (!firstStart || !firstEnd || !secondEnd || !secondStart) return { primitives: [] }
@@ -128,6 +143,7 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
     kind: 'regression-channel',
     minAnchors: 2,
     maxAnchors: 2,
+    extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [first, second] = drawing.anchors
       if (!first || !second) return { primitives: [] }

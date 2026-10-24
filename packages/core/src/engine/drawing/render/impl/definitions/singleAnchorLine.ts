@@ -2,6 +2,7 @@
  * 单锚点线图形定义：水平线 / 水平射线 / 垂直线 / 十字线。
  */
 
+import { UNBOUNDED_DRAWING_EXTENT } from '@/engine/drawing/geometry/impl/drawingExtent.js'
 import type { DrawingDefinition, DrawingKind } from '@/engine/drawing/types.js'
 import { POINT_ROLE, PRIMITIVE_KIND } from '@/foundation/plugin/index.js'
 
@@ -11,6 +12,14 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
     kind,
     minAnchors: 1,
     maxAnchors: 1,
+    extent(drawing) {
+      // 水平线与十字线横跨整条索引轴；水平射线向右无界；垂直线只占一个槽位。
+      if (kind === 'horizontal-line' || kind === 'cross-line') return UNBOUNDED_DRAWING_EXTENT
+      const [anchor] = drawing.anchors
+      if (!anchor || !Number.isFinite(anchor.index)) return UNBOUNDED_DRAWING_EXTENT
+      if (kind === 'horizontal-ray') return { start: anchor.index, end: null }
+      return { start: anchor.index, end: anchor.index }
+    },
     compute(drawing, context) {
       const [anchor] = drawing.anchors
       if (!anchor) return { primitives: [] }

@@ -27,6 +27,7 @@ import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
+import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
 import { getVerticalHandleLines } from './lines.js'
 import { drawingTimeIndex } from './timeCoordinate.js'
@@ -294,7 +295,7 @@ function projectAxisDecorations(
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
 }
 
-/** 按 scope 投影当前 Pane 图元并收集轴标签；缺省生成正式图元与会话覆盖的合成视图。 */
+/** 按 scope 投影当前 Pane 图元并收集轴标签；先按可见索引区间裁掉视口外图元。 */
 export function projectDrawingsForFrame(
   store: DrawingStore,
   definitions: DrawingDefinitionRegistry,
@@ -324,6 +325,8 @@ export function projectDrawingsForFrame(
   for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
     const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
     if (!hasResolvableTimeAnchors(drawing)) continue
+    // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
+    if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) continue
     const geometry = definitions.compute(drawing, {
       pane: context.pane,
       visibleData,
