@@ -360,6 +360,7 @@
       @create-copy="createScriptCopy"
       :title="scriptEditorTitle"
       :detachable="scriptEditorWindowSupported"
+      :theme="chartTheme"
       @save="saveScriptEditor"
       @open-window="openScriptEditorWindow"
     />
@@ -1080,7 +1081,7 @@
   } = scriptEditorSession
 
   const { supported: scriptEditorWindowSupported, open: detachScriptEditorWindow } =
-    useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+    useScriptEditorWindow(scriptEditorSession, chartWrapperRef, chartTheme)
 
   const scriptEditorTitle = computed(() =>
     scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',

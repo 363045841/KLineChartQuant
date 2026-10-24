@@ -20,6 +20,8 @@ export interface DetachedEditorSnapshot extends DetachedEditorDraft {
   saving: boolean
   saved: boolean
   error: string | null
+  /** 宿主图表的有效主题，跨窗口后仍需与标签页保持一致。 */
+  theme: 'light' | 'dark'
 }
 
 export type DetachedEditorCommand = DetachedEditorDraft & {

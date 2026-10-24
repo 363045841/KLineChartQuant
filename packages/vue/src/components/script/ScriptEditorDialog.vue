@@ -19,6 +19,7 @@
       :saving="saving"
       :error="error"
       :detachable="detachable"
+      :theme="theme"
       @update:source="emit('update:source', $event)"
       @update:trusted="emit('update:trusted', $event)"
       @open-window="emit('open-window')"
@@ -61,6 +62,8 @@
       title?: string
       /** 是否提供「在新窗口打开」入口。 */
       detachable?: boolean
+      /** 当前图表的有效主题，决定语法高亮配色。 */
+      theme: 'light' | 'dark'
     }>(),
     { title: '编辑脚本', saved: false, error: null, detachable: false, saving: false },
   )

@@ -51,6 +51,16 @@
             <IconTablerWindowMaximize aria-hidden="true" />
           </button>
         </BaseTooltip>
+        <BaseTooltip v-else-if="returnable" content="返回标签页" placement="bottom">
+          <button
+            type="button"
+            class="script-workspace__icon-button"
+            aria-label="返回标签页"
+            @click="emit('return')"
+          >
+            <IconTablerWindowMaximize aria-hidden="true" />
+          </button>
+        </BaseTooltip>
         <BaseTooltip content="设置" placement="bottom">
           <button type="button" class="script-workspace__icon-button" aria-label="设置">
             <IconTablerSettings aria-hidden="true" />
@@ -92,8 +102,12 @@
       error?: string | null
       /** 是否提供「在新窗口打开」入口；已在独立窗口内时为 false。 */
       detachable?: boolean
+      /** 当前图表的有效主题，决定语法高亮配色。 */
+      theme: 'light' | 'dark'
+      /** 独立窗口中显示「返回标签页」入口。 */
+      returnable?: boolean
     }>(),
-    { error: null, detachable: false, saving: false, logs: () => [] },
+    { error: null, detachable: false, saving: false, returnable: false, logs: () => [] },
   )
 
   const emit = defineEmits<{
@@ -102,6 +116,7 @@
     'open-window': []
     'create-copy': []
     'clear-output': []
+    return: []
   }>()
 
   const editorHost = useTemplateRef<HTMLElement>('editorHost')
@@ -117,7 +132,7 @@
     revealProblem,
     formatAvailable,
     formatDocument,
-  } = useCodeMirror(editorHost, source, (next) => emit('update:source', next), editable)
+  } = useCodeMirror(editorHost, source, (next) => emit('update:source', next), editable, computed(() => props.theme))
   const problems = computed<readonly ScriptEditorProblem[]>(() => [
     ...diagnostics.value,
     ...[languageError.value, props.error].flatMap((message) =>
@@ -144,7 +159,7 @@
     align-items: center;
     gap: var(--klc-space-12, 12px);
     padding: var(--klc-space-4, 4px) var(--klc-space-16, 16px);
-    background: var(--klc-color-ui-control-background);
+    background: var(--klc-color-ui-card);
     border-bottom: 1px solid var(--klc-color-ui-border);
     font-size: var(--klc-text-label-12-font-size, 12px);
   }

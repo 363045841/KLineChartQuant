@@ -47,7 +47,7 @@ function mountSession() {
     setup() {
       const session = useScriptEditor(undefined)
       session.openBlank()
-      const detached = useScriptEditorWindow(session, ref(document.body))
+      const detached = useScriptEditorWindow(session, ref(document.body), ref<'light' | 'dark'>('dark'))
       state = { session, detached }
       return () => h('div')
     },

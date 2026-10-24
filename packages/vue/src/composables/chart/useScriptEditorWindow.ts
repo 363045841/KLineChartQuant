@@ -28,10 +28,12 @@ export interface ScriptEditorWindowSession {
  *
  * @param session 编辑会话，独立窗口只读取它的草稿并写回保存结果
  * @param styleHost 图表宿主元素：独立页面从宿主同步主题变量和外部样式
+ * @param theme 图表当前有效主题，独立窗口的语法高亮与标签页保持一致
  */
 export function useScriptEditorWindow(
   session: ScriptEditorSession,
   styleHost: Readonly<Ref<HTMLElement | null>>,
+  theme: Readonly<Ref<'light' | 'dark'>>,
 ): ScriptEditorWindowSession {
   const supported = supportsDetachedWindow()
   let detached: DetachedWindow | null = null
@@ -50,6 +52,7 @@ export function useScriptEditorWindow(
       saved: session.saved.value,
       error: session.error.value,
       logs: session.logs.value,
+      theme: theme.value,
     }
   }
 
@@ -125,6 +128,7 @@ export function useScriptEditorWindow(
       session.error,
       session.name,
       session.logs,
+      theme,
     ],
     () => detached?.update(snapshot()),
     { flush: 'post' },

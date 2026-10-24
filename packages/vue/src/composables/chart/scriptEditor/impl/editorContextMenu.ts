@@ -2,7 +2,7 @@
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
-import { scriptEditorTheme } from './editorTheme.js'
+import { scriptEditorHighlight, scriptEditorTheme } from './editorTheme.js'
 
 type LanguageSupport = ReturnType<typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport>
 type NavigationKind = Parameters<LanguageSupport['getNavigation']>[2]
@@ -21,7 +21,11 @@ const SHORTCUTS = {
 }
 
 /** 菜单使用 Popover 顶层，避免编辑器滚动容器和弹窗裁切。 */
-export function scriptEditorContextMenu(support: () => LanguageSupport | undefined, editable: () => boolean) {
+export function scriptEditorContextMenu(
+  support: () => LanguageSupport | undefined,
+  editable: () => boolean,
+  theme: () => 'light' | 'dark',
+) {
   return [contextMenuTheme, ViewPlugin.define((view) => {
     const document = view.dom.ownerDocument
     const panel = document.createElement('div')
@@ -52,6 +56,7 @@ export function scriptEditorContextMenu(support: () => LanguageSupport | undefin
       status.setAttribute('role', 'status')
       status.textContent = text
       panel.append(status)
+      fit()
     }
 
     /** 创建整行菜单按钮，操作失败时给出可见提示。 */
@@ -122,7 +127,7 @@ export function scriptEditorContextMenu(support: () => LanguageSupport | undefin
       preview = new EditorView({ parent: host, state: EditorState.create({
         doc: target.source,
         selection: { anchor: target.from, head: target.to },
-        extensions: [javascript({ typescript: true }), scriptEditorTheme, EditorState.readOnly.of(true), EditorView.editable.of(false)],
+        extensions: [javascript({ typescript: true }), scriptEditorTheme, scriptEditorHighlight(theme()), EditorState.readOnly.of(true), EditorView.editable.of(false)],
       }) })
       preview.dispatch({ effects: EditorView.scrollIntoView(target.from, { y: 'center' }) })
       fit()
@@ -361,7 +366,9 @@ const contextMenuTheme = EditorView.theme({
   '.cm-script-context-menu button:disabled': { opacity: '0.5', cursor: 'default' },
   '.cm-script-menu-shortcut': { color: 'var(--klc-color-ui-muted)', fontSize: '0.9em', whiteSpace: 'nowrap' },
   '.cm-script-context-menu [role=separator]': { borderTop: '1px solid var(--klc-color-ui-border)' },
-  '.cm-script-menu-status': { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
+  '.cm-script-menu-status': {
+    padding: '8px 12px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: '20px',
+  },
   '.cm-script-menu-status:empty': { display: 'none' },
   /* 重命名只有输入框本身：移除浮层背景与阴影，不再叠加任何包裹容器。 */
   '.cm-script-context-menu--bare': {

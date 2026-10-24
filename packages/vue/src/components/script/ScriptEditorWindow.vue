@@ -1,4 +1,4 @@
-<!-- 独立窗口中的脚本编辑器：工作区 + 返回标签页/保存，自身不再承载弹窗。 -->
+<!-- 独立窗口中的脚本编辑器：工作区承载返回入口与保存，自身不再承载弹窗。 -->
 <template>
   <div class="script-editor-window">
     <ScriptEditorWorkspace
@@ -10,13 +10,15 @@
       :saving="saving"
       :error="error"
       :detachable="false"
+      :theme="theme"
+      :returnable="true"
       @update:source="emit('update:source', $event)"
       @update:trusted="emit('update:trusted', $event)"
       @create-copy="emit('create-copy')"
+      @return="emit('return')"
     />
-    <div class="script-editor-window__footer">
-      <BaseButton @click="emit('return')">返回标签页</BaseButton>
-      <BaseButton v-if="identity === 'user'" variant="primary" :disabled="saving" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
+    <div v-if="identity === 'user'" class="script-editor-window__footer">
+      <BaseButton variant="primary" :disabled="saving" :aria-label="saved ? '已保存' : '保存'" @click="emit('save')">
         <IconTablerCheck v-if="saved" class="script-editor-window__save-icon" aria-hidden="true" />
         <span v-else>保存</span>
       </BaseButton>
@@ -47,6 +49,8 @@
       saved?: boolean
       /** 当前页面的文档 body：内部浮层的 Teleport 目标。 */
       container: HTMLElement
+      /** 宿主图表的有效主题，决定语法高亮配色。 */
+      theme: 'light' | 'dark'
     }>(),
     { error: null, saved: false, saving: false },
   )

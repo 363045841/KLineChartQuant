@@ -10,7 +10,7 @@ import { EditorView } from 'codemirror'
 import { computed, type Ref, shallowRef, watch } from 'vue'
 import { useDeviceEnvironment } from '../useDeviceEnvironment.js'
 import { scriptEditorSetup } from './scriptEditor/impl/editorSetup.js'
-import { scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
+import { scriptEditorHighlight, scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
 import { scriptEditorContextMenu } from './scriptEditor/impl/editorContextMenu.js'
 import type { ScriptEditorProblem } from './scriptEditor/types.js'
 
@@ -20,6 +20,7 @@ export function useCodeMirror(
   value: Ref<string>,
   onChange: (next: string) => void,
   editable: Readonly<Ref<boolean>>,
+  theme: Readonly<Ref<'light' | 'dark'>>,
 ): {
   view: Ref<EditorView | null>
   languageLoading: Ref<boolean>
@@ -56,6 +57,8 @@ export function useCodeMirror(
     () => languageEnabled.value && languageReady.value && editable.value && !languageError.value,
   )
   const editing = new Compartment()
+  // 主题切换只替换高亮样式，文档、选区与语言服务都保持不变。
+  const highlighting = new Compartment()
   let languageSupport:
     | ReturnType<
         typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport
@@ -104,7 +107,8 @@ export function useCodeMirror(
             scriptEditorSetup,
             javascript({ typescript: true }),
             scriptEditorTheme,
-            scriptEditorContextMenu(() => languageSupport, () => editable.value),
+            highlighting.of(scriptEditorHighlight(theme.value)),
+            scriptEditorContextMenu(() => languageSupport, () => editable.value, () => theme.value),
             EditorState.tabSize.of(2),
             editing.of([
               EditorState.readOnly.of(!editable.value),
@@ -200,6 +204,9 @@ export function useCodeMirror(
   )
 
   // 外部以程序方式修改 value 时同步进文档，避免与用户输入互相覆盖。
+  watch(theme, (next) => {
+    view.value?.dispatch({ effects: highlighting.reconfigure(scriptEditorHighlight(next)) })
+  })
   watch(editable, (next) => {
     view.value?.dispatch({
       effects: editing.reconfigure([EditorState.readOnly.of(!next), EditorView.editable.of(next)]),

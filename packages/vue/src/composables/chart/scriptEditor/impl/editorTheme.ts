@@ -1,10 +1,14 @@
-/** CodeMirror 界面消费图表 Token，语法高亮使用官方 One Dark 配色。 */
+/** CodeMirror 界面消费图表 Token；语法高亮按有效主题在 One Dark 与 Basic Light 间切换。 */
 import { syntaxHighlighting } from '@codemirror/language'
+import type { Extension } from '@codemirror/state'
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
+import { basicLightHighlightStyle } from 'cm6-theme-basic-light'
 
-/** 与 script-server（AGPL）各自声明同一 One Dark 组合，避免 Apache 包依赖 AGPL 包。 */
-const scriptSyntaxHighlighting = syntaxHighlighting(oneDarkHighlightStyle)
+/** 深色沿用 One Dark，浅色使用 Basic Light；框体颜色始终由 Token 变量控制。 */
+export function scriptEditorHighlight(theme: 'light' | 'dark'): Extension {
+  return syntaxHighlighting(theme === 'dark' ? oneDarkHighlightStyle : basicLightHighlightStyle)
+}
 
 /**
  * 脚本提示框框体的尺寸约束：参数提示与 hover 提示是两种 DOM 形态，声明只有这一份。
@@ -210,4 +214,4 @@ const editorTheme = EditorView.theme({
 })
 
 /** 编辑器共享样式扩展，CSS 变量变更时无需重建文档或视图。 */
-export const scriptEditorTheme = [editorTheme, scriptSyntaxHighlighting]
+export const scriptEditorTheme = editorTheme

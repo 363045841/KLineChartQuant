@@ -169,5 +169,6 @@ export function useScriptEditorPanels(
     resize,
     stopResize,
     resizeWithKeyboard,
+    updateBounds,
   }
 }

@@ -55,7 +55,7 @@ describe('Script 编辑器的 Client Hints 门控', () => {
     setDesktopDevice()
     language.initialize.mockResolvedValue([])
     const wrapper = mount(ScriptEditorWorkspace, {
-      props: { source: 'const value = 1', identity: 'user', trusted: false },
+      props: { source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
       attachTo: document.body,
     })
     try {

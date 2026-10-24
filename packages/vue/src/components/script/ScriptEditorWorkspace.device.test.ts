@@ -47,7 +47,7 @@ function setDevice(userAgent: string, touches = 0, coarse = false): void {
 /** 创建具有真实编辑视图的用户脚本工作区。 */
 function mountEditor() {
   return mount(ScriptEditorWorkspace, {
-    props: { source: 'const value = 1', identity: 'user', trusted: false },
+    props: { source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
     attachTo: document.body,
   })
 }
