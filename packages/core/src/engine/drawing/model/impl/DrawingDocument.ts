@@ -60,6 +60,15 @@ export class DrawingDocument {
       replace: (drawings) => {
         state.actions.commitDocument(drawings, state.readonly.selectedDrawingIds.peek())
       },
+      /** 追加与回收合并成一次文档快照提交，避免创建和选择之间出现中间状态。 */
+      append: (drawings, removeIds) => {
+        const removed = new Set(removeIds)
+        const current = state.readonly.drawings.peek().filter((drawing) => !removed.has(drawing.id))
+        state.actions.commitDocument(
+          [...current, ...drawings],
+          state.readonly.selectedDrawingIds.peek(),
+        )
+      },
       nextId: () => `drawing-${generateUUID()}`,
     })
   }

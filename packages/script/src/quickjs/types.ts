@@ -51,7 +51,7 @@ export interface QuickJSScriptDefinition {
   readonly position: Position
   /** 指标级数值格式；驱动副图轴与图例显示，缺省按价格。 */
   readonly format?: Format
-  /** 可保留的 line 对象数；默认 50，范围 1..500。 */
+  /** 可保留的 line 对象数；默认 50，范围 1..2000。 */
   readonly max_lines_count?: number
   /** 可保留的 Box 数量；默认值与范围由公共 drawing 契约管理。 */
   readonly max_boxes_count?: number

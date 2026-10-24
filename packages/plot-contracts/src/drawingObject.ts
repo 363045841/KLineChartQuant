@@ -88,7 +88,7 @@ export function createDrawingObjectApi(store: DrawingObjectStore) {
       ids.add(input.id)
       return createDrawingObject(input)
     })
-    store.replace([...current, ...drawings])
+    store.append(drawings, removeIds)
     return store.list().slice(-drawings.length)
   }
   /** 批量替换共享单对象规则，任一身份不匹配时整批拒绝。 */

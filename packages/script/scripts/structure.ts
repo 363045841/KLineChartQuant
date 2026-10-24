@@ -11,9 +11,12 @@ function mark(index: number, price: number, text: string, color: string): void {
 }
 
 defineIndicator({
-  name: 'Structure', title: '市场结构', position: Position.Main,
+  name: 'Structure',
+  title: '市场结构',
+  position: Position.Main,
   info: '确认摆动点的 HH/HL/LH/LL，以及收盘首次突破的 BOS 和反向 CHoCH。',
-  max_lines_count: 200, max_labels_count: 400,
+  max_lines_count: 2000,
+  max_labels_count: 2000,
   onBar() {
     const leftBars = input.int(5, { title: '左窗口', min: 1, max: 50 })
     const rightBars = input.int(2, { title: '确认窗口', min: 1, max: 50 })
@@ -27,12 +30,24 @@ defineIndicator({
     const index = bar_index - rightBars
     if (Number.isFinite(pivotHigh)) {
       swingHigh = { index, price: pivotHigh }
-      if (showSwings) mark(index, pivotHigh, Number.isNaN(previousHigh) ? 'H' : pivotHigh > previousHigh ? 'HH' : 'LH', bearColor)
+      if (showSwings)
+        mark(
+          index,
+          pivotHigh,
+          Number.isNaN(previousHigh) ? 'H' : pivotHigh > previousHigh ? 'HH' : 'LH',
+          bearColor,
+        )
       previousHigh = pivotHigh
     }
     if (Number.isFinite(pivotLow)) {
       swingLow = { index, price: pivotLow }
-      if (showSwings) mark(index, pivotLow, Number.isNaN(previousLow) ? 'L' : pivotLow > previousLow ? 'HL' : 'LL', bullColor)
+      if (showSwings)
+        mark(
+          index,
+          pivotLow,
+          Number.isNaN(previousLow) ? 'L' : pivotLow > previousLow ? 'HL' : 'LL',
+          bullColor,
+        )
       previousLow = pivotLow
     }
     const up = swingHigh !== null && close[0] > swingHigh.price
@@ -43,8 +58,22 @@ defineIndicator({
     const reversal = trend !== 0 && trend !== direction
     if (reversal ? showCHoCH : showBOS) {
       const color = up ? bullColor : bearColor
-      line.new(level.index, level.price, bar_index, level.price, xloc.bar_index, extend.none, color, line.style_dashed)
-      mark(Math.floor((level.index + bar_index) / 2), level.price, reversal ? 'CHoCH' : 'BOS', color)
+      line.new(
+        level.index,
+        level.price,
+        bar_index,
+        level.price,
+        xloc.bar_index,
+        extend.none,
+        color,
+        line.style_dashed,
+      )
+      mark(
+        Math.floor((level.index + bar_index) / 2),
+        level.price,
+        reversal ? 'CHoCH' : 'BOS',
+        color,
+      )
     }
     trend = direction
     if (up) swingHigh = null

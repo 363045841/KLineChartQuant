@@ -583,79 +583,67 @@ describe('projectDrawingsForFrame range culling', () => {
     })
   }
 
-  it('keeps labels inside the range plus one margin bar and drops the rest', () => {
-    const project = (index: number) =>
-      projectSingleDrawing(labelAt(index), false, createRangeContext(visibleRange)).primitives
+  /** 单锚点图元；索引决定它落在可见区间的哪一侧。 */
+  function anchorAt(kind: DrawingKind, index: number): DrawingObject {
+    return createDrawingObject({
+      id: `${kind}-${index}`,
+      kind,
+      anchors: [{ id: 'a', type: 'point', logicalIndex: index, price: 10 }],
+    })
+  }
 
-    expect(project(6)).toHaveLength(1)
-    expect(project(5)).toHaveLength(1)
-    // range.end 为开区间，多留的一根是 8。
-    expect(project(8)).toHaveLength(1)
-    expect(project(4)).toHaveLength(1)
-    expect(project(3)).toHaveLength(0)
-    expect(project(9)).toHaveLength(0)
-    expect(project(20)).toHaveLength(0)
+  /** 单个图元在当前可见区间下的图元列表。 */
+  function project(drawing: DrawingObject): ReadonlyArray<DrawingPrimitive> {
+    return projectSingleDrawing(drawing, false, createRangeContext(visibleRange)).primitives
+  }
+
+  it.each([
+    { index: 6, visible: true },
+    { index: 4, visible: true },
+    { index: 3, visible: false },
+    { index: 8, visible: true },
+    { index: 9, visible: false },
+  ])('label at index $index is visible: $visible', ({ index, visible }) => {
+    expect(project(labelAt(index))).toHaveLength(visible ? 1 : 0)
   })
 
   it('keeps a bounded drawing that crosses the range and drops one wholly outside', () => {
     const crossing = drawingBetween('trend-line', 1, 20)
     const outside = drawingBetween('trend-line', 1, 2)
 
-    expect(
-      linePrimitives(
-        projectSingleDrawing(crossing, false, createRangeContext(visibleRange)).primitives,
-      ),
-    ).toHaveLength(1)
-    expect(
-      projectSingleDrawing(outside, false, createRangeContext(visibleRange)).primitives,
-    ).toHaveLength(0)
+    expect(linePrimitives(project(crossing))).toHaveLength(1)
+    expect(project(outside)).toHaveLength(0)
   })
 
-  it('culls a vertical line outside the range but keeps an infinite horizontal line', () => {
-    const vertical = createDrawingObject({
-      id: 'vertical',
-      kind: 'vertical-line',
-      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
-    })
-    const horizontal = createDrawingObject({
-      id: 'horizontal',
-      kind: 'horizontal-line',
-      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
-    })
+  const extentCases: ReadonlyArray<{ label: string; drawing: DrawingObject; visible: boolean }> = [
+    {
+      label: 'an infinite horizontal line',
+      drawing: anchorAt('horizontal-line', 20),
+      visible: true,
+    },
+    {
+      label: 'a vertical line outside the range',
+      drawing: anchorAt('vertical-line', 20),
+      visible: false,
+    },
+    {
+      label: 'a ray extending into the range',
+      drawing: anchorAt('horizontal-ray', 1),
+      visible: true,
+    },
+    {
+      label: 'a ray extending away from the range',
+      drawing: anchorAt('horizontal-ray', 20),
+      visible: false,
+    },
+    {
+      label: 'a rectangle extending into the range',
+      drawing: drawingBetween('rectangle', 1, 2, 'right'),
+      visible: true,
+    },
+  ]
 
-    expect(
-      projectSingleDrawing(vertical, false, createRangeContext(visibleRange)).primitives,
-    ).toHaveLength(0)
-    expect(
-      projectSingleDrawing(horizontal, false, createRangeContext(visibleRange)).primitives,
-    ).toHaveLength(1)
-  })
-
-  it('keeps a ray extending into the range and culls one extending away from it', () => {
-    const fromLeft = createDrawingObject({
-      id: 'ray-left',
-      kind: 'horizontal-ray',
-      anchors: [{ id: 'a', type: 'point', logicalIndex: 1, price: 10 }],
-    })
-    const fromRight = createDrawingObject({
-      id: 'ray-right',
-      kind: 'horizontal-ray',
-      anchors: [{ id: 'a', type: 'point', logicalIndex: 20, price: 10 }],
-    })
-
-    expect(
-      projectSingleDrawing(fromLeft, false, createRangeContext(visibleRange)).primitives.length,
-    ).toBeGreaterThan(0)
-    expect(
-      projectSingleDrawing(fromRight, false, createRangeContext(visibleRange)).primitives,
-    ).toHaveLength(0)
-  })
-
-  it('keeps a rectangle that extends into the range from outside it', () => {
-    const rectangle = drawingBetween('rectangle', 1, 2, 'right')
-
-    expect(
-      projectSingleDrawing(rectangle, false, createRangeContext(visibleRange)).primitives.length,
-    ).toBeGreaterThan(0)
+  it.each(extentCases)('$label is projected: $visible', ({ drawing, visible }) => {
+    expect(project(drawing).length > 0).toBe(visible)
   })
 })

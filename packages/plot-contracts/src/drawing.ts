@@ -124,13 +124,43 @@ export interface DrawingText {
 /** Box 的边框不包含箭头。 */
 export type BoxBorderStyle = 'solid' | 'dashed' | 'dotted'
 /** Box 对象引用，仅在所属运行中有效。 */
-export interface BoxRef { readonly id: string }
+export interface BoxRef {
+  readonly id: string
+}
 /** Label 对象引用，仅在所属运行中有效。 */
-export interface LabelRef { readonly id: string }
+export interface LabelRef {
+  readonly id: string
+}
 /** Pine 风格 Box 创建重载；可选参数顺序与 Pine 相同。 */
 export interface BoxFactory {
-  (left: number, top: number, right: number, bottom: number, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
-  (top_left: ChartPoint, bottom_right: ChartPoint, border_color?: Color | (string & {}), border_width?: number, border_style?: BoxBorderStyle, extend?: LineExtend, xloc?: LineXLoc, bgcolor?: Color | (string & {}), text?: string, text_size?: number, text_color?: Color | (string & {})): BoxRef
+  (
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+    border_color?: Color | (string & {}),
+    border_width?: number,
+    border_style?: BoxBorderStyle,
+    extend?: LineExtend,
+    xloc?: LineXLoc,
+    bgcolor?: Color | (string & {}),
+    text?: string,
+    text_size?: number,
+    text_color?: Color | (string & {}),
+  ): BoxRef
+  (
+    top_left: ChartPoint,
+    bottom_right: ChartPoint,
+    border_color?: Color | (string & {}),
+    border_width?: number,
+    border_style?: BoxBorderStyle,
+    extend?: LineExtend,
+    xloc?: LineXLoc,
+    bgcolor?: Color | (string & {}),
+    text?: string,
+    text_size?: number,
+    text_color?: Color | (string & {}),
+  ): BoxRef
 }
 /** 跨 bar 保留的矩形对象；复用手绘 rectangle 模型。 */
 export interface DrawingBoxApi {
@@ -165,7 +195,18 @@ export interface DrawingBoxApi {
 /** 第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。 */
 export interface DrawingLabelApi {
   readonly style_none: 'none'
-  readonly new: (x: number, y: number, text?: string, xloc?: LineXLoc, yloc?: 'price', color?: Color | (string & {}), style?: 'none', textcolor?: Color | (string & {}), size?: number, textalign?: DrawingText['align']) => LabelRef
+  readonly new: (
+    x: number,
+    y: number,
+    text?: string,
+    xloc?: LineXLoc,
+    yloc?: 'price',
+    color?: Color | (string & {}),
+    style?: 'none',
+    textcolor?: Color | (string & {}),
+    size?: number,
+    textalign?: DrawingText['align'],
+  ) => LabelRef
   readonly all: readonly LabelRef[]
   set_x(id: LabelRef, x: number): void
   set_y(id: LabelRef, y: number): void
@@ -430,6 +471,8 @@ export interface DrawingObjectStore {
   list(): readonly DrawingObject[]
   /** 完整快照原子提交；用户文档和 VM 都不暴露零散的写入路径。 */
   replace(drawings: readonly DrawingObject[]): void
+  /** 原子追加一批对象并删除指定 ID；文档一次快照提交，VM 原地写入。 */
+  append(drawings: readonly DrawingObject[], removeIds: readonly string[]): void
   nextId(): string
 }
 export interface DrawingLineContext {

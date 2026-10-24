@@ -4255,7 +4255,7 @@ ScriptIndicatorDeclaration.position: Position
 ScriptIndicatorDeclaration.max_lines_count?: number | undefined
 ```
 
-可保留的 line 对象数；默认 50，范围 1..500。
+可保留的 line 对象数；默认 50，范围 1..2000。
 
 <a id="type-53"></a>
 
@@ -4691,7 +4691,7 @@ QuickJSScriptDefinition.format?: Format | undefined
 QuickJSScriptDefinition.max_lines_count?: number | undefined
 ```
 
-可保留的 line 对象数；默认 50，范围 1..500。
+可保留的 line 对象数；默认 50，范围 1..2000。
 
 <a id="type-93"></a>
 
