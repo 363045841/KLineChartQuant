@@ -8,6 +8,8 @@
  * Lc 60 and UI Lc 45, the APCA levels that roughly map to 4.5:1 and 3:1
  * (craft-principles CP 5, S25).
  */
+
+import { SCRIPT_COLOR_ALIASES } from '@363045841yyt/klinechart-plot-contracts'
 import Color from 'colorjs.io'
 import { THEME_PRESETS } from '../presets/impl/themePresets.js'
 import type { ThemePresetId } from '../presets/types.js'
@@ -71,6 +73,10 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ui('colors.ui.accent', 'colors.ui.background'),
   ui('colors.ui.borderStrong', 'colors.ui.background'),
   ui('foundation.brand.accent', 'colors.ui.background', 'brand accent on background'),
+  // 脚本 Color 别名逐个当图形色使用，主题必须让每个别名在画布上都可读。
+  ...SCRIPT_COLOR_ALIASES.map((alias) =>
+    ui(`colors.scriptPalette.${alias}`, 'colors.chartBackground', `script ${alias}`),
+  ),
 ]
 
 export interface AuditRow {

@@ -2,8 +2,8 @@
  * Tests for `themeToCssVars` / `toCssDeclarationBlock`.
  *
  * Acceptance criteria:
- *   1. Every theme key (colors × 32 + palette × 10 + spacing × 9
- *      + typography × 9 + motion × 5 = 65) maps to a CSS variable.
+ *   1. Every theme key (color leaves including palette / scriptPalette families
+ *      + spacing + typography + motion) maps to a CSS variable.
  *   2. Variable names follow `--klc-{family}-{kebab-key}` exactly.
  *   3. Camel→kebab transform is correct on edge cases (single-letter,
  *      already-kebab, trailing digits).

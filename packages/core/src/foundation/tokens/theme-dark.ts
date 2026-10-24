@@ -93,6 +93,27 @@ export const darkTheme: Theme = {
       i10: '#9AA0A6', // neutral gray
       indicatorAtr: '#F59E0B',
     },
+    // 脚本 Color 枚举别名的主题取值。18 个别名按深色画布单独调亮度，与 chartBackground 的非文字对比度均不低于 3:1；脚本侧只写别名，具体色值由宿主解析。
+    scriptPalette: {
+      red: '#E7766D', // 红
+      deepOrange: '#EE752E', // 深橙
+      orange: '#E27E0C', // 橙
+      amber: '#BF9005', // 琥珀
+      yellow: '#AA9809', // 黄
+      lime: '#84A329', // 青柠
+      lightGreen: '#6AA73F', // 浅绿
+      green: '#32AD51', // 绿
+      teal: '#18AA99', // 蓝绿
+      cyan: '#1AA6B9', // 青
+      lightBlue: '#13A0E6', // 浅蓝
+      blue: '#4D9AF1', // 蓝
+      indigo: '#8692E1', // 靛蓝
+      purple: '#BC80DA', // 紫
+      pink: '#EA6DA3', // 粉
+      brown: '#B78F78', // 棕
+      blueGray: '#859AAA', // 蓝灰
+      gray: '#989898', // 灰
+    },
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
       primary: darkInterfaceColors.text,

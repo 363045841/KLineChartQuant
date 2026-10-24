@@ -31,6 +31,10 @@ export { darkFoundation, foundationTokens, lightFoundation } from './foundation.
 export { mergeTheme } from './mergeTheme.js'
 export { findThemePreset, THEME_PRESETS } from './presets/impl/themePresets.js'
 export { DEFAULT_THEME_PRESET, type ThemePreset, type ThemePresetId } from './presets/types.js'
+export {
+  createScriptColorResolver,
+  type ScriptColorResolver,
+} from './scriptColorResolver.js'
 export { resolveTheme, resolveThemeColors, withAsiaMarketColors } from './theme-china.js'
 export { darkTheme } from './theme-dark.js'
 export { lightTheme } from './theme-light.js'
@@ -73,6 +77,7 @@ export type {
   PriceColors,
   RadiusTokens,
   RSIColors,
+  ScriptColorPalette,
   SpaceStep,
   SpaceTokens,
   SpacingTokens,

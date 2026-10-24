@@ -292,16 +292,16 @@ Color: typeof Color
 
 **@summary** 常用色
 
-常用色：色相顺序取自 Material Design 400 色阶，中性色单独取值。
+常用色：主题色别名 + 白 / 黑两个绝对色。
 
-脚本里用 `Color.Red` 即可，取值与同名字面量完全一致。
+脚本里用 `Color.Red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
 
 <a id="api-1"></a>
 
 ### Color.Red
 
 ```ts
-Color.Red = "#ef5350"
+Color.Red = "@red"
 ```
 
 **@summary** 红
@@ -311,7 +311,7 @@ Color.Red = "#ef5350"
 ### Color.DeepOrange
 
 ```ts
-Color.DeepOrange = "#ff7043"
+Color.DeepOrange = "@deepOrange"
 ```
 
 **@summary** 深橙
@@ -321,7 +321,7 @@ Color.DeepOrange = "#ff7043"
 ### Color.Orange
 
 ```ts
-Color.Orange = "#ffa726"
+Color.Orange = "@orange"
 ```
 
 **@summary** 橙
@@ -331,7 +331,7 @@ Color.Orange = "#ffa726"
 ### Color.Amber
 
 ```ts
-Color.Amber = "#ffca28"
+Color.Amber = "@amber"
 ```
 
 **@summary** 琥珀
@@ -341,7 +341,7 @@ Color.Amber = "#ffca28"
 ### Color.Yellow
 
 ```ts
-Color.Yellow = "#ffee58"
+Color.Yellow = "@yellow"
 ```
 
 **@summary** 黄
@@ -351,7 +351,7 @@ Color.Yellow = "#ffee58"
 ### Color.Lime
 
 ```ts
-Color.Lime = "#d4e157"
+Color.Lime = "@lime"
 ```
 
 **@summary** 青柠
@@ -361,7 +361,7 @@ Color.Lime = "#d4e157"
 ### Color.LightGreen
 
 ```ts
-Color.LightGreen = "#9ccc65"
+Color.LightGreen = "@lightGreen"
 ```
 
 **@summary** 浅绿
@@ -371,7 +371,7 @@ Color.LightGreen = "#9ccc65"
 ### Color.Green
 
 ```ts
-Color.Green = "#66bb6a"
+Color.Green = "@green"
 ```
 
 **@summary** 绿
@@ -381,7 +381,7 @@ Color.Green = "#66bb6a"
 ### Color.Teal
 
 ```ts
-Color.Teal = "#26a69a"
+Color.Teal = "@teal"
 ```
 
 **@summary** 蓝绿
@@ -391,7 +391,7 @@ Color.Teal = "#26a69a"
 ### Color.Cyan
 
 ```ts
-Color.Cyan = "#26c6da"
+Color.Cyan = "@cyan"
 ```
 
 **@summary** 青
@@ -401,7 +401,7 @@ Color.Cyan = "#26c6da"
 ### Color.LightBlue
 
 ```ts
-Color.LightBlue = "#29b6f6"
+Color.LightBlue = "@lightBlue"
 ```
 
 **@summary** 浅蓝
@@ -411,7 +411,7 @@ Color.LightBlue = "#29b6f6"
 ### Color.Blue
 
 ```ts
-Color.Blue = "#42a5f5"
+Color.Blue = "@blue"
 ```
 
 **@summary** 蓝
@@ -421,7 +421,7 @@ Color.Blue = "#42a5f5"
 ### Color.Indigo
 
 ```ts
-Color.Indigo = "#5c6bc0"
+Color.Indigo = "@indigo"
 ```
 
 **@summary** 靛蓝
@@ -431,7 +431,7 @@ Color.Indigo = "#5c6bc0"
 ### Color.Purple
 
 ```ts
-Color.Purple = "#ab47bc"
+Color.Purple = "@purple"
 ```
 
 **@summary** 紫
@@ -441,7 +441,7 @@ Color.Purple = "#ab47bc"
 ### Color.Pink
 
 ```ts
-Color.Pink = "#ec407a"
+Color.Pink = "@pink"
 ```
 
 **@summary** 粉
@@ -451,7 +451,7 @@ Color.Pink = "#ec407a"
 ### Color.Brown
 
 ```ts
-Color.Brown = "#8d6e63"
+Color.Brown = "@brown"
 ```
 
 **@summary** 棕
@@ -461,7 +461,7 @@ Color.Brown = "#8d6e63"
 ### Color.BlueGray
 
 ```ts
-Color.BlueGray = "#78909c"
+Color.BlueGray = "@blueGray"
 ```
 
 **@summary** 蓝灰
@@ -471,7 +471,7 @@ Color.BlueGray = "#78909c"
 ### Color.Gray
 
 ```ts
-Color.Gray = "#808080"
+Color.Gray = "@gray"
 ```
 
 **@summary** 灰
@@ -3835,9 +3835,9 @@ export type Color = (typeof Color)[keyof typeof Color];
 
 **@summary** 常用色
 
-常用色：色相顺序取自 Material Design 400 色阶，中性色单独取值。
+常用色：主题色别名 + 白 / 黑两个绝对色。
 
-脚本里用 `Color.Red` 即可，取值与同名字面量完全一致。
+脚本里用 `Color.Red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
 
 <a id="type-19"></a>
 

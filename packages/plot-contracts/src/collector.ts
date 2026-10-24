@@ -5,6 +5,7 @@
  * Plot 按首次出现的 name 建立条目，类型取调用处，缺省为折线；
  * 填充按名称登记边界，颜色写入对应 bar 的序列。
  */
+import { Color } from './color.js'
 import type {
   ArrowPlotDeclaration,
   CharPlotDeclaration,
@@ -43,8 +44,8 @@ import {
 } from './plots.js'
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
-/** Plot 默认颜色。 */
-export const DEFAULT_PLOT_COLOR = '#2196f3'
+/** Plot 默认颜色：跟随主题的蓝，脚本不写颜色时由宿主解析成当前主题色值。 */
+export const DEFAULT_PLOT_COLOR: Color = Color.Blue
 /** 折线默认虚线样式（实线）。 */
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */

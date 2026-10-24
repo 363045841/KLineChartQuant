@@ -10,6 +10,7 @@ import {
   type RenderContext,
 } from '@/foundation/plugin'
 import { createSignal } from '@/foundation/reactivity/signal'
+import { lightTheme } from '@/foundation/tokens/index.js'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'
@@ -645,5 +646,20 @@ describe('projectDrawingsForFrame range culling', () => {
 
   it.each(extentCases)('$label is projected: $visible', ({ drawing, visible }) => {
     expect(project(drawing).length > 0).toBe(visible)
+  })
+
+  it('resolves script color aliases on drawing styles', () => {
+    const drawing = createTrendDrawing({ style: { stroke: '@red', strokeWidth: 1 } })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const projection = projectDrawingsForFrame(store, definitions, createContext())
+    // 投影后渲染端只见到主题色值，别名不会漏进 primitive。
+    expect(linePrimitives(projection.primitives)[0]!.style.stroke).toBe(
+      lightTheme.colors.scriptPalette.red,
+    )
   })
 })

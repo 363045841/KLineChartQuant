@@ -17,6 +17,8 @@
  * host app. The contract is the chart canvas surface.
  */
 
+import type { ScriptColorAlias } from '@363045841yyt/klinechart-plot-contracts'
+
 /**
  * Concrete color value. Always a CSS color string — `#rrggbb`, `#rrggbbaa`,
  * `rgb(...)`, `rgba(...)`, or named CSS color. Themes typically use 6- or
@@ -60,6 +62,14 @@ export interface IndicatorPalette {
   readonly i10: ColorValue
   readonly indicatorAtr: ColorValue
 }
+
+/**
+ * 脚本 `Color` 枚举别名的主题取值。
+ *
+ * 键集合直接取自 plot-contracts 的别名联合：每个别名都必须有值，多一个少一个
+ * 都会在编译期暴露。脚本写入别名，宿主在投影渲染状态时换成这里的色值。
+ */
+export type ScriptColorPalette = Record<ScriptColorAlias, ColorValue>
 
 /**
  * Semantic color roles every renderable surface element claims.
@@ -377,6 +387,9 @@ export interface ColorTokens {
 
   // Indicator palette (composes ColorTokens)
   readonly palette: IndicatorPalette
+
+  // 脚本 Color 枚举别名的主题取值
+  readonly scriptPalette: ScriptColorPalette
 
   // ── Legacy indicator colours (from engine/theme/colors) ──
   readonly text: TextColors

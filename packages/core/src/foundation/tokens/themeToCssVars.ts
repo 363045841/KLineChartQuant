@@ -14,6 +14,7 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
  *   colors.background                        `--klc-color-background`
  *   colors.candleUpBody                      `--klc-color-candle-up-body`
  *   colors.palette.i1                        `--klc-color-palette-i1`
+ *   colors.scriptPalette.red                 `--klc-color-script-palette-red`
  *   spacing.md                               `--klc-spacing-md`
  *   typography.fontFamily                    `--klc-typography-font-family`
  *   typography.fontWeightRegular             `--klc-typography-font-weight-regular`

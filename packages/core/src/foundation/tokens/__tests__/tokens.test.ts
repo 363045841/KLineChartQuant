@@ -16,6 +16,7 @@
  *      per family, deep on `colors.palette`, and never mutates inputs.
  */
 
+import { SCRIPT_COLOR_ALIASES } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -87,6 +88,8 @@ describe('theme parity', () => {
 
   it.each([
     ['colors', (t: Theme) => t.colors],
+    ['colors.palette', (t: Theme) => t.colors.palette],
+    ['colors.scriptPalette', (t: Theme) => t.colors.scriptPalette],
     ['spacing', (t: Theme) => t.spacing],
     ['typography', (t: Theme) => t.typography],
     ['motion', (t: Theme) => t.motion],
@@ -94,8 +97,7 @@ describe('theme parity', () => {
     expect(keysSorted(pick(lightTheme))).toEqual(keysSorted(pick(darkTheme)))
   })
 
-  it('palette has the same i1..i10 keys in both themes', () => {
-    expect(keysSorted(lightTheme.colors.palette)).toEqual(keysSorted(darkTheme.colors.palette))
+  it('palette has the documented i1..i10 slots', () => {
     expect(keysSorted(lightTheme.colors.palette)).toEqual([
       'i1',
       'i10',
@@ -109,6 +111,10 @@ describe('theme parity', () => {
       'i9',
       'indicatorAtr',
     ])
+  })
+
+  it('script palette covers every Color alias', () => {
+    expect(keysSorted(lightTheme.colors.scriptPalette)).toEqual([...SCRIPT_COLOR_ALIASES].sort())
   })
 })
 

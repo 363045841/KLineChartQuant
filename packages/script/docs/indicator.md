@@ -185,7 +185,11 @@ onBar() {
 `Color.LightBlue`、`Color.Blue`、`Color.Indigo`、`Color.Purple`、`Color.Pink`、`Color.Brown`、
 `Color.BlueGray`；中性色为 `Color.Gray`、`Color.White`、`Color.Black`。
 
-枚举是固定色值，不随主题变化；其他颜色直接写字符串，例如 `color: '#808080'`。
+前 18 个是主题色别名：脚本只声明要哪个色相，具体色值由图表按当前 light / dark 主题取，
+画布换主题后同一份输出自动换成对应的可读色值，不需要改脚本。
+`Color.White` / `Color.Black` 是绝对色，用于文字和彩色底块上的叠加，不随主题变化。
+需要透明度时在别名后拼两位十六进制 alpha，例如 `Color.Teal + '80'`；
+其他颜色直接写字符串，例如 `color: '#808080'`。
 
 ### 填充
 

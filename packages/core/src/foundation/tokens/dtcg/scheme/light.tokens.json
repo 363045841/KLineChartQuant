@@ -408,6 +408,163 @@
           }
         }
       },
+      "scriptPalette": {
+        "$description": "脚本 Color 枚举别名的主题取值。18 个别名按浅色画布单独调亮度，与 chartBackground 的非文字对比度均不低于 3:1；脚本侧只写别名，具体色值由宿主解析。",
+        "red": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8745, 0.2706, 0.2314],
+            "hex": "#DF453B"
+          },
+          "$description": "红"
+        },
+        "deepOrange": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8157, 0.3412, 0.0667],
+            "hex": "#D05711"
+          },
+          "$description": "深橙"
+        },
+        "orange": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.7294, 0.4078, 0.0392],
+            "hex": "#BA680A"
+          },
+          "$description": "橙"
+        },
+        "amber": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6157, 0.4667, 0.0157],
+            "hex": "#9D7704"
+          },
+          "$description": "琥珀"
+        },
+        "yellow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.5529, 0.4902, 0.0275],
+            "hex": "#8D7D07"
+          },
+          "$description": "黄"
+        },
+        "lime": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.4235, 0.5255, 0.1294],
+            "hex": "#6C8621"
+          },
+          "$description": "青柠"
+        },
+        "lightGreen": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.3451, 0.5373, 0.2039],
+            "hex": "#588934"
+          },
+          "$description": "浅绿"
+        },
+        "green": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1608, 0.5569, 0.2627],
+            "hex": "#298E43"
+          },
+          "$description": "绿"
+        },
+        "teal": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0784, 0.5451, 0.4941],
+            "hex": "#148B7E"
+          },
+          "$description": "蓝绿"
+        },
+        "cyan": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.0863, 0.5373, 0.6], "hex": "#168999" },
+          "$description": "青"
+        },
+        "lightBlue": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0588, 0.5176, 0.749],
+            "hex": "#0F84BF"
+          },
+          "$description": "浅蓝"
+        },
+        "blue": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0902, 0.4784, 0.9255],
+            "hex": "#177AEC"
+          },
+          "$description": "蓝"
+        },
+        "indigo": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.3961, 0.4549, 0.851],
+            "hex": "#6574D9"
+          },
+          "$description": "靛蓝"
+        },
+        "purple": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6588, 0.3569, 0.8118],
+            "hex": "#A85BCF"
+          },
+          "$description": "紫"
+        },
+        "pink": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8863, 0.2118, 0.502],
+            "hex": "#E23680"
+          },
+          "$description": "粉"
+        },
+        "brown": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6314, 0.4471, 0.3412],
+            "hex": "#A17257"
+          },
+          "$description": "棕"
+        },
+        "blueGray": {
+          "$type": "color",
+          "$value": { "colorSpace": "srgb", "components": [0.4, 0.502, 0.5765], "hex": "#668093" },
+          "$description": "蓝灰"
+        },
+        "gray": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.4863, 0.4863, 0.4863],
+            "hex": "#7C7C7C"
+          },
+          "$description": "灰"
+        }
+      },
       "text": {
         "$description": "── Legacy indicator colours (from engine/theme/colors) ──",
         "primary": { "$type": "color", "$value": "{light.interface.text}" },

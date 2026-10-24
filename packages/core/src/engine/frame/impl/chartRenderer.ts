@@ -1041,6 +1041,10 @@ export class ChartRenderer {
       ...this.drawingStore.getCommittedPaintVersion(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
       this.deps.getIndicatorManager().indicatorsComputed.peek(),
+      // 图元颜色按主题解析，主题、涨跌约定或配色覆盖变化都必须使图元层失效。
+      this.deps.theme$.peek(),
+      this.getSettings().isAsiaMarket,
+      this.getSettings().colorPresetSettings,
     ]
     const drawingChanged = !this.sameVersion(this.paintedDrawingVersion, drawingVersion)
 

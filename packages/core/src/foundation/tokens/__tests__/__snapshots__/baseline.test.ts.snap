@@ -60,6 +60,24 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-palette-i9: #60A5FA;
   --klc-color-palette-i10: #9AA0A6;
   --klc-color-palette-indicator-atr: #F59E0B;
+  --klc-color-script-palette-red: #E7766D;
+  --klc-color-script-palette-deep-orange: #EE752E;
+  --klc-color-script-palette-orange: #E27E0C;
+  --klc-color-script-palette-amber: #BF9005;
+  --klc-color-script-palette-yellow: #AA9809;
+  --klc-color-script-palette-lime: #84A329;
+  --klc-color-script-palette-light-green: #6AA73F;
+  --klc-color-script-palette-green: #32AD51;
+  --klc-color-script-palette-teal: #18AA99;
+  --klc-color-script-palette-cyan: #1AA6B9;
+  --klc-color-script-palette-light-blue: #13A0E6;
+  --klc-color-script-palette-blue: #4D9AF1;
+  --klc-color-script-palette-indigo: #8692E1;
+  --klc-color-script-palette-purple: #BC80DA;
+  --klc-color-script-palette-pink: #EA6DA3;
+  --klc-color-script-palette-brown: #B78F78;
+  --klc-color-script-palette-blue-gray: #859AAA;
+  --klc-color-script-palette-gray: #989898;
   --klc-color-text-primary: #DCE0E8;
   --klc-color-text-secondary: #ACB2BE;
   --klc-color-text-tertiary: #838A98;
@@ -222,7 +240,7 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 ## Indicator palette
 
-| Slot | Value | Ratio vs BG |
+| Slot | Value | Ratio vs surface |
 |---|---|---|
 | i1 | #4A9EFF | 6.57 |
 | i2 | #FFB95A | 10.63 |
@@ -234,7 +252,30 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | i8 | #A78BFA | 6.65 |
 | i9 | #60A5FA | 7.12 |
 | i10 | #9AA0A6 | 6.85 |
-| indicatorAtr | #F59E0B | 8.42 |"
+| indicatorAtr | #F59E0B | 8.42 |
+
+## Script color palette
+
+| Slot | Value | Ratio vs surface |
+|---|---|---|
+| red | #E7766D | 6.21 |
+| deepOrange | #EE752E | 6.22 |
+| orange | #E27E0C | 6.22 |
+| amber | #BF9005 | 6.21 |
+| yellow | #AA9809 | 6.21 |
+| lime | #84A329 | 6.25 |
+| lightGreen | #6AA73F | 6.21 |
+| green | #32AD51 | 6.23 |
+| teal | #18AA99 | 6.25 |
+| cyan | #1AA6B9 | 6.20 |
+| lightBlue | #13A0E6 | 6.20 |
+| blue | #4D9AF1 | 6.21 |
+| indigo | #8692E1 | 6.21 |
+| purple | #BC80DA | 6.24 |
+| pink | #EA6DA3 | 6.22 |
+| brown | #B78F78 | 6.21 |
+| blueGray | #859AAA | 6.20 |
+| gray | #989898 | 6.27 |"
 `;
 
 exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
@@ -297,6 +338,24 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-palette-i9: #2D7FF9;
   --klc-color-palette-i10: #6E6E6E;
   --klc-color-palette-indicator-atr: #d97706;
+  --klc-color-script-palette-red: #DF453B;
+  --klc-color-script-palette-deep-orange: #D05711;
+  --klc-color-script-palette-orange: #BA680A;
+  --klc-color-script-palette-amber: #9D7704;
+  --klc-color-script-palette-yellow: #8D7D07;
+  --klc-color-script-palette-lime: #6C8621;
+  --klc-color-script-palette-light-green: #588934;
+  --klc-color-script-palette-green: #298E43;
+  --klc-color-script-palette-teal: #148B7E;
+  --klc-color-script-palette-cyan: #168999;
+  --klc-color-script-palette-light-blue: #0F84BF;
+  --klc-color-script-palette-blue: #177AEC;
+  --klc-color-script-palette-indigo: #6574D9;
+  --klc-color-script-palette-purple: #A85BCF;
+  --klc-color-script-palette-pink: #E23680;
+  --klc-color-script-palette-brown: #A17257;
+  --klc-color-script-palette-blue-gray: #668093;
+  --klc-color-script-palette-gray: #7C7C7C;
   --klc-color-text-primary: #242426;
   --klc-color-text-secondary: #606066;
   --klc-color-text-tertiary: #76767C;
@@ -459,7 +518,7 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 ## Indicator palette
 
-| Slot | Value | Ratio vs BG |
+| Slot | Value | Ratio vs surface |
 |---|---|---|
 | i1 | #0072B2 | 4.76 |
 | i2 | #E69F00 | 2.07 |
@@ -471,5 +530,28 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | i8 | #7C3AED | 5.23 |
 | i9 | #2D7FF9 | 3.50 |
 | i10 | #6E6E6E | 4.68 |
-| indicatorAtr | #d97706 | 2.93 |"
+| indicatorAtr | #d97706 | 2.93 |
+
+## Script color palette
+
+| Slot | Value | Ratio vs surface |
+|---|---|---|
+| red | #DF453B | 3.82 |
+| deepOrange | #D05711 | 3.82 |
+| orange | #BA680A | 3.80 |
+| amber | #9D7704 | 3.80 |
+| yellow | #8D7D07 | 3.80 |
+| lime | #6C8621 | 3.80 |
+| lightGreen | #588934 | 3.82 |
+| green | #298E43 | 3.82 |
+| teal | #148B7E | 3.84 |
+| cyan | #168999 | 3.80 |
+| lightBlue | #0F84BF | 3.80 |
+| blue | #177AEC | 3.83 |
+| indigo | #6574D9 | 3.82 |
+| purple | #A85BCF | 3.81 |
+| pink | #E23680 | 3.80 |
+| brown | #A17257 | 3.81 |
+| blueGray | #668093 | 3.80 |
+| gray | #7C7C7C | 3.83 |"
 `;

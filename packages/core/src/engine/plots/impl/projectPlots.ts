@@ -11,14 +11,23 @@ import {
   validatePlotFills,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
+import {
+  type ColorTokens,
+  createScriptColorResolver,
+  type ScriptColorResolver,
+} from '@/foundation/tokens/index.js'
 import type {
+  ArrowPlot,
+  CharPlot,
   IndicatorPlotDefinition,
+  OhlcPlot,
+  OhlcPlotPoint,
   Plot,
   PlotFill,
   PlotPoint,
   PlotRenderState,
   PlotSpec,
+  ShapePlot,
 } from '../types.js'
 import { queryPlotBounds } from './plotBoundsIndex.js'
 import { isPlotCollection } from './readPlotState.js'
@@ -56,7 +65,7 @@ export function projectPlots(
 ): PlotRenderState {
   const collection = definition.source === 'collection'
   const { plots, fills } = collection
-    ? readCollectionPlots(raw)
+    ? readCollectionPlots(raw, createScriptColorResolver(colors))
     : buildSeriesPlots(definition, raw, params, colors)
   // 生产端与投影端各校验一次填充边界，绘制端不再重复。
   validatePlotFills(plots, fills)
@@ -84,10 +93,104 @@ export function projectPlots(
   }
 }
 
-/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口。 */
-function readCollectionPlots(raw: unknown): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
+/** 集合里除 OHLC、箭头和标记之外的图形；颜色解析只关心公共色与逐点颜色。 */
+type ScalarColorPlot = Exclude<Plot, OhlcPlot | ShapePlot | CharPlot | ArrowPlot>
+
+/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口，颜色同时换成主题色值。 */
+function readCollectionPlots(
+  raw: unknown,
+  resolveColor: ScriptColorResolver,
+): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
   if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
-  return { plots: raw.plots, fills: raw.fills }
+  return {
+    plots: raw.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
+    fills: raw.fills.map((fill) => resolveFillColors(fill, resolveColor)),
+  }
+}
+
+/** 绘图点只替换显式给出的颜色，缺省继续沿用所在 Plot 的颜色。 */
+function resolvePointColors(point: PlotPoint, resolve: ScriptColorResolver): PlotPoint {
+  return {
+    value: point.value,
+    ...(point.color === undefined ? {} : { color: resolve(point.color) }),
+    ...(point.textColor === undefined ? {} : { textColor: resolve(point.textColor) }),
+  }
+}
+
+/** OHLC 点用 null 表示该 bar 不绘制，null 不参与颜色解析。 */
+function resolveOhlcPointColors(point: OhlcPlotPoint, resolve: ScriptColorResolver): OhlcPlotPoint {
+  return {
+    ...point,
+    color: point.color === null ? null : resolve(point.color),
+    wickColor: point.wickColor === null ? null : resolve(point.wickColor),
+    borderColor: point.borderColor === null ? null : resolve(point.borderColor),
+  }
+}
+
+/** 按图形类别分流：折线与柱状共用一套颜色字段，OHLC、箭头、标记各有专属字段。 */
+function resolvePlotColors(plot: Plot, resolve: ScriptColorResolver): Plot {
+  if (isOhlcPlot(plot)) return resolveOhlcColors(plot, resolve)
+  if (plot.kind === 'arrow') return resolveArrowColors(plot, resolve)
+  if (plot.kind === 'shape' || plot.kind === 'char') return resolveMarkerColors(plot, resolve)
+  return resolveScalarColors(plot, resolve)
+}
+
+/** OHLC 只有图形色，逐 bar 的实体、影线和边框色各自独立。 */
+function resolveOhlcColors(plot: OhlcPlot, resolve: ScriptColorResolver): OhlcPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolveOhlcPointColors(point, resolve),
+    ),
+  }
+}
+
+/** 箭头的上下方向色决定图形颜色，公共色供图例使用。 */
+function resolveArrowColors(plot: ArrowPlot, resolve: ScriptColorResolver): ArrowPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    colorUp: resolve(plot.colorUp),
+    colorDown: resolve(plot.colorDown),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 形状与字符标记额外带文字色。 */
+function resolveMarkerColors(
+  plot: ShapePlot | CharPlot,
+  resolve: ScriptColorResolver,
+): ShapePlot | CharPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    textColor: resolve(plot.textColor),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 折线、阶梯线、柱状与散点只有公共色与逐点颜色。 */
+function resolveScalarColors(plot: ScalarColorPlot, resolve: ScriptColorResolver): ScalarColorPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 填充按 bar 存色，null 表示该 bar 不填充。 */
+function resolveFillColors(fill: PlotFill, resolve: ScriptColorResolver): PlotFill {
+  return {
+    ...fill,
+    colors: fill.colors.map((color) => (color === null ? null : resolve(color))),
+  }
 }
 
 /** 从计算结果的数组字段构建 Plot 与填充；样式与填充默认值统一由契约补齐。 */

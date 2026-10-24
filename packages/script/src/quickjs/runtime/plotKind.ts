@@ -3,47 +3,47 @@
 /**
  * @summary 常用色
  *
- * 常用色：色相顺序取自 Material Design 400 色阶，中性色单独取值。
+ * 常用色：主题色别名 + 白 / 黑两个绝对色。
  *
- * 脚本里用 `Color.Red` 即可，取值与同名字面量完全一致。
+ * 脚本里用 `Color.Red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
  */
 declare enum Color {
   /** @summary 红 */
-  Red = "#ef5350",
+  Red = "@red",
   /** @summary 深橙 */
-  DeepOrange = "#ff7043",
+  DeepOrange = "@deepOrange",
   /** @summary 橙 */
-  Orange = "#ffa726",
+  Orange = "@orange",
   /** @summary 琥珀 */
-  Amber = "#ffca28",
+  Amber = "@amber",
   /** @summary 黄 */
-  Yellow = "#ffee58",
+  Yellow = "@yellow",
   /** @summary 青柠 */
-  Lime = "#d4e157",
+  Lime = "@lime",
   /** @summary 浅绿 */
-  LightGreen = "#9ccc65",
+  LightGreen = "@lightGreen",
   /** @summary 绿 */
-  Green = "#66bb6a",
+  Green = "@green",
   /** @summary 蓝绿 */
-  Teal = "#26a69a",
+  Teal = "@teal",
   /** @summary 青 */
-  Cyan = "#26c6da",
+  Cyan = "@cyan",
   /** @summary 浅蓝 */
-  LightBlue = "#29b6f6",
+  LightBlue = "@lightBlue",
   /** @summary 蓝 */
-  Blue = "#42a5f5",
+  Blue = "@blue",
   /** @summary 靛蓝 */
-  Indigo = "#5c6bc0",
+  Indigo = "@indigo",
   /** @summary 紫 */
-  Purple = "#ab47bc",
+  Purple = "@purple",
   /** @summary 粉 */
-  Pink = "#ec407a",
+  Pink = "@pink",
   /** @summary 棕 */
-  Brown = "#8d6e63",
+  Brown = "@brown",
   /** @summary 蓝灰 */
-  BlueGray = "#78909c",
+  BlueGray = "@blueGray",
   /** @summary 灰 */
-  Gray = "#808080",
+  Gray = "@gray",
   /** @summary 白 */
   White = "#ffffff",
   /** @summary 黑 */

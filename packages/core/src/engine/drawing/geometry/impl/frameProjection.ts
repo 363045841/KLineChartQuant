@@ -16,7 +16,11 @@ import {
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import {
+  createScriptColorResolver,
+  resolveThemeColors,
+  type ScriptColorResolver,
+} from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
@@ -93,6 +97,16 @@ function resolveDrawingForFrame(
       // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
       return { ...anchor, index: baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0) }
     }),
+  }
+}
+
+/** 解析图元样式里的颜色：脚本别名换成当前主题色值，缺省的可选颜色保持缺省。 */
+function resolveDrawingStyle(style: DrawingStyle, resolve: ScriptColorResolver): DrawingStyle {
+  return {
+    ...style,
+    stroke: resolve(style.stroke),
+    ...(style.fill === undefined ? {} : { fill: resolve(style.fill) }),
+    ...(style.textColor === undefined ? {} : { textColor: resolve(style.textColor) }),
   }
 }
 
@@ -322,8 +336,14 @@ export function projectDrawingsForFrame(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
+  const resolveColor = createScriptColorResolver(themeColors)
   for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
-    const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
+    const frameDrawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
+    // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
+    const drawing: ResolvedDrawingObject = {
+      ...frameDrawing,
+      style: resolveDrawingStyle(frameDrawing.style, resolveColor),
+    }
     if (!hasResolvableTimeAnchors(drawing)) continue
     // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
     if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) continue

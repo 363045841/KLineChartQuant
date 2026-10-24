@@ -2,6 +2,7 @@
 import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { isPlotRenderState } from '@/engine/plots/impl/readPlotState.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
 import type {
   IndicatorParameters,
@@ -66,6 +67,7 @@ describe('Plot instance projection', () => {
       definition.presentation?.defaultOptions ?? {},
       { start: 0, end: 300 },
       1,
+      resolveThemeColors('light'),
     )
     expect(state).toMatchObject({ kind: 'plots' })
     if (!isPlotRenderState(state)) throw new TypeError('Missing Plot output')

@@ -98,6 +98,27 @@ export const lightTheme: Theme = {
       i10: '#6E6E6E', // neutral gray
       indicatorAtr: '#d97706',
     },
+    // 脚本 Color 枚举别名的主题取值。18 个别名按浅色画布单独调亮度，与 chartBackground 的非文字对比度均不低于 3:1；脚本侧只写别名，具体色值由宿主解析。
+    scriptPalette: {
+      red: '#DF453B', // 红
+      deepOrange: '#D05711', // 深橙
+      orange: '#BA680A', // 橙
+      amber: '#9D7704', // 琥珀
+      yellow: '#8D7D07', // 黄
+      lime: '#6C8621', // 青柠
+      lightGreen: '#588934', // 浅绿
+      green: '#298E43', // 绿
+      teal: '#148B7E', // 蓝绿
+      cyan: '#168999', // 青
+      lightBlue: '#0F84BF', // 浅蓝
+      blue: '#177AEC', // 蓝
+      indigo: '#6574D9', // 靛蓝
+      purple: '#A85BCF', // 紫
+      pink: '#E23680', // 粉
+      brown: '#A17257', // 棕
+      blueGray: '#668093', // 蓝灰
+      gray: '#7C7C7C', // 灰
+    },
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
       primary: lightInterfaceColors.text,

@@ -107,6 +107,16 @@ const TRACKED_ROLES: ReadonlyArray<TrackedRole> = [
   { role: 'mtfOverlay', threshold: 3 },
 ]
 
+/** 色板表格：色值一律按给定表面度量，脚本别名与指标色板共用同一张表。 */
+function paletteSection<T extends object>(title: string, entries: T, surface: string): string[] {
+  const lines = ['', `## ${title}`, '', '| Slot | Value | Ratio vs surface |', '|---|---|---|']
+  for (const [slot, value] of Object.entries(entries)) {
+    const ratio = contrast(hexBase(value), surface)
+    lines.push(`| ${slot} | ${value} | ${ratio === null ? 'n/a' : ratio.toFixed(2)} |`)
+  }
+  return lines
+}
+
 function buildContrastReport(theme: typeof lightTheme): string {
   const lines: string[] = []
   lines.push(`# Theme contrast — ${theme.name}`)
@@ -126,18 +136,15 @@ function buildContrastReport(theme: typeof lightTheme): string {
       `| ${role} | ${hexBase(value)} | ${surfaceKey} | ${ratio} | ${threshold.toFixed(1)}:1 | ${pass} |`,
     )
   }
-  const bg = hexBase(theme.colors.background)
-  // Palette is a separate section — informational only, no fixed floor.
-  lines.push('')
-  lines.push('## Indicator palette')
-  lines.push('')
-  lines.push('| Slot | Value | Ratio vs BG |')
-  lines.push('|---|---|---|')
-  for (const [k, v] of Object.entries(theme.colors.palette)) {
-    const r = contrast(hexBase(v), bg)
-    const ratio = r === null ? 'n/a' : r.toFixed(2)
-    lines.push(`| ${k} | ${v} | ${ratio} |`)
-  }
+  lines.push(
+    ...paletteSection('Indicator palette', theme.colors.palette, hexBase(theme.colors.background)),
+    // 脚本别名直接画在 K 线区上，因此按画布背景度量。
+    ...paletteSection(
+      'Script color palette',
+      theme.colors.scriptPalette,
+      hexBase(theme.colors.chartBackground),
+    ),
+  )
   return lines.join('\n')
 }
 

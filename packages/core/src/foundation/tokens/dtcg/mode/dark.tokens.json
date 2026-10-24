@@ -63,6 +63,26 @@
       "i10": { "$type": "color", "$value": "{dark.color.palette.i10}" },
       "indicatorAtr": { "$type": "color", "$value": "{dark.color.palette.indicatorAtr}" }
     },
+    "scriptPalette": {
+      "red": { "$type": "color", "$value": "{dark.color.scriptPalette.red}" },
+      "deepOrange": { "$type": "color", "$value": "{dark.color.scriptPalette.deepOrange}" },
+      "orange": { "$type": "color", "$value": "{dark.color.scriptPalette.orange}" },
+      "amber": { "$type": "color", "$value": "{dark.color.scriptPalette.amber}" },
+      "yellow": { "$type": "color", "$value": "{dark.color.scriptPalette.yellow}" },
+      "lime": { "$type": "color", "$value": "{dark.color.scriptPalette.lime}" },
+      "lightGreen": { "$type": "color", "$value": "{dark.color.scriptPalette.lightGreen}" },
+      "green": { "$type": "color", "$value": "{dark.color.scriptPalette.green}" },
+      "teal": { "$type": "color", "$value": "{dark.color.scriptPalette.teal}" },
+      "cyan": { "$type": "color", "$value": "{dark.color.scriptPalette.cyan}" },
+      "lightBlue": { "$type": "color", "$value": "{dark.color.scriptPalette.lightBlue}" },
+      "blue": { "$type": "color", "$value": "{dark.color.scriptPalette.blue}" },
+      "indigo": { "$type": "color", "$value": "{dark.color.scriptPalette.indigo}" },
+      "purple": { "$type": "color", "$value": "{dark.color.scriptPalette.purple}" },
+      "pink": { "$type": "color", "$value": "{dark.color.scriptPalette.pink}" },
+      "brown": { "$type": "color", "$value": "{dark.color.scriptPalette.brown}" },
+      "blueGray": { "$type": "color", "$value": "{dark.color.scriptPalette.blueGray}" },
+      "gray": { "$type": "color", "$value": "{dark.color.scriptPalette.gray}" }
+    },
     "text": {
       "primary": { "$type": "color", "$value": "{dark.color.text.primary}" },
       "secondary": { "$type": "color", "$value": "{dark.color.text.secondary}" },
