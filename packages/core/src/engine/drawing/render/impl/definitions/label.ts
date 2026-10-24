@@ -1,6 +1,7 @@
 /** 价格标签定义：对象文字直接投影为公共 Text 图元。 */
 
 import { UNBOUNDED_DRAWING_EXTENT } from '@/engine/drawing/geometry/impl/drawingExtent.js'
+import { resolvePointLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 
 /** 单锚点纯文字标签，与其它绘图对象共用坐标投影。 */
@@ -18,14 +19,15 @@ export function createLabelDefinition(): DrawingDefinition {
       const anchor = drawing.anchors[0]
       const text = drawing.text
       if (!anchor || !text || text.value === '') return { primitives: [] }
+      const layout = resolvePointLabelLayout(context.toScreen(anchor), text)
       return {
         primitives: [
           {
             kind: 'text',
-            point: context.toScreen(anchor),
+            point: layout.point,
             text: text.value,
-            align: text.align,
-            baseline: text.verticalAlign,
+            align: layout.align,
+            baseline: layout.baseline,
             style: { ...drawing.style, textColor: text.color, fontSize: text.size },
           },
         ],

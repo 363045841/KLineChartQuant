@@ -5,9 +5,24 @@ let swingHigh: { index: number; price: number } | null = null
 let swingLow: { index: number; price: number } | null = null
 let trend = 0
 
-/** 在任意历史价格位置放置文字，直接使用公共 Label API。 */
-function mark(index: number, price: number, text: string, color: string): void {
-  label.new(index, price, text, xloc.bar_index, yloc.price, color, label.style_none, color, 11)
+/** 标签相对锚点的垂直偏移（逻辑像素）：高点与突破位浮在上方，低点压在下方。 */
+const LABEL_OFFSET = 8
+
+/** 在任意历史价格位置放置文字，直接使用公共 Label API；offsetY 正数向上。 */
+function mark(index: number, price: number, text: string, color: string, offsetY: number): void {
+  label.new(
+    index,
+    price,
+    text,
+    xloc.bar_index,
+    yloc.price,
+    color,
+    label.style_none,
+    color,
+    11,
+    'center',
+    offsetY,
+  )
 }
 
 defineIndicator({
@@ -36,6 +51,7 @@ defineIndicator({
           pivotHigh,
           Number.isNaN(previousHigh) ? 'H' : pivotHigh > previousHigh ? 'HH' : 'LH',
           bearColor,
+          LABEL_OFFSET,
         )
       previousHigh = pivotHigh
     }
@@ -47,6 +63,7 @@ defineIndicator({
           pivotLow,
           Number.isNaN(previousLow) ? 'L' : pivotLow > previousLow ? 'HL' : 'LL',
           bullColor,
+          -LABEL_OFFSET,
         )
       previousLow = pivotLow
     }
@@ -73,6 +90,7 @@ defineIndicator({
         level.price,
         reversal ? 'CHoCH' : 'BOS',
         color,
+        LABEL_OFFSET,
       )
     }
     trend = direction

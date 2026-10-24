@@ -3,6 +3,7 @@
  */
 
 import { fibLevelLines } from '@/engine/drawing/geometry/impl/fibLevels.js'
+import { resolveFibLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 import { defineTwoAnchorDrawing } from './twoAnchor.js'
 
@@ -18,9 +19,8 @@ export function createFibRetracementDefinition(): DrawingDefinition {
       },
       {
         kind: 'text' as const,
-        point: { x: level.right + 4, y: level.y },
+        ...resolveFibLabelLayout(level.right, level.y),
         text: `${(level.ratio * 100).toFixed(1)}%`,
-        baseline: 'middle' as const,
         style: drawing.style,
       },
     ]),

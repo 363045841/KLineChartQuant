@@ -119,6 +119,8 @@ export interface DrawingText {
   size: number
   align: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
+  /** 垂直像素偏移；正数向上，0 表示贴合锚点。点标签与 Box 文字消费。 */
+  offsetY?: number
 }
 
 /** Box 的边框不包含箭头。 */
@@ -195,6 +197,25 @@ export interface DrawingBoxApi {
 /** 第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。 */
 export interface DrawingLabelApi {
   readonly style_none: 'none'
+  /**
+   * 绘制价格锚点标签。
+   * @summary 绘制标签
+   *
+   * | 参数 | 含义 |
+   * | --- | --- |
+   * | `x` / `y` | 锚点；x 按 xloc 读取，y 为价格 |
+   * | `text` | 文本，默认空字符串 |
+   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根 |
+   * | `yloc` | 目前只支持价格锚点（yloc.price） |
+   * | `color` | 文字颜色，默认 Color.Blue |
+   * | `style` | 只支持无背景样式（label.style_none） |
+   * | `textcolor` | 文字颜色，默认 Color.Black |
+   * | `size` | 字号，正整数逻辑像素，默认 12 |
+   * | `textalign` | 水平对齐，默认 center |
+   * | `offsetY` | 垂直偏移，逻辑像素，正数向上，默认 0 |
+   *
+   * 返回标签引用；超过 max_labels_count 时最旧的标签被回收。
+   */
   readonly new: (
     x: number,
     y: number,
@@ -206,6 +227,7 @@ export interface DrawingLabelApi {
     textcolor?: Color | (string & {}),
     size?: number,
     textalign?: DrawingText['align'],
+    offsetY?: number,
   ) => LabelRef
   readonly all: readonly LabelRef[]
   set_x(id: LabelRef, x: number): void
@@ -215,9 +237,19 @@ export interface DrawingLabelApi {
   set_textcolor(id: LabelRef, color: Color | (string & {})): void
   set_size(id: LabelRef, size: number): void
   set_textalign(id: LabelRef, align: DrawingText['align']): void
+  /**
+   * 设置垂直偏移；逻辑像素，正数向上。
+   * @summary 设置垂直偏移
+   */
+  set_yoffset(id: LabelRef, offsetY: number): void
   get_x(id: LabelRef): number
   get_y(id: LabelRef): number
   get_text(id: LabelRef): string | null
+  /**
+   * 读取垂直偏移；标签已删除返回 0。
+   * @summary 垂直偏移
+   */
+  get_yoffset(id: LabelRef): number
   copy(id: LabelRef): LabelRef | null
   delete(id: LabelRef | null): void
 }

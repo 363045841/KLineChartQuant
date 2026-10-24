@@ -1,6 +1,7 @@
 /** 手绘矩形与脚本 Box 的公共定义，填充与真实边界分别裁剪。 */
 
 import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
+import { resolveRectLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
 import { rectangleGeometry } from '@/engine/drawing/geometry/impl/rectangleGeometry.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 import type { DrawingPrimitive } from '@/foundation/plugin/types.js'
@@ -63,25 +64,13 @@ export function createRectangleDefinition(): DrawingDefinition {
       }
       const text = drawing.text
       if (text && text.value !== '') {
+        const layout = resolveRectLabelLayout(topLeft, topRight, bottomLeft, text)
         primitives.push({
           kind: 'text',
-          point: {
-            x:
-              text.align === 'left'
-                ? topLeft.x
-                : text.align === 'right'
-                  ? topRight.x
-                  : (topLeft.x + topRight.x) / 2,
-            y:
-              text.verticalAlign === 'top'
-                ? topLeft.y
-                : text.verticalAlign === 'bottom'
-                  ? bottomLeft.y
-                  : (topLeft.y + bottomLeft.y) / 2,
-          },
+          point: layout.point,
           text: text.value,
-          align: text.align,
-          baseline: text.verticalAlign,
+          align: layout.align,
+          baseline: layout.baseline,
           style: { ...drawing.style, textColor: text.color, fontSize: text.size },
         })
       }

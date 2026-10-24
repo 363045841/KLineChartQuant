@@ -34,6 +34,22 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     expect(result.drawings?.[2]).toMatchObject({ kind: 'label', text: { value: 'HH', size: 11 } })
   })
 
+  it('stores a label vertical offset and updates it in place', async () => {
+    const result = await run(`
+      defineIndicator({ name: 'Offsets', position: Position.Main, onBar() {
+        const shifted = label.new(0, 20, 'CHoCH', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11, 'center', 8)
+        if (label.get_yoffset(shifted) !== 8) throw new Error('offset mismatch')
+        label.set_yoffset(shifted, -3)
+        if (label.get_yoffset(shifted) !== -3) throw new Error('offset update mismatch')
+        const plain = label.new(0, 30, 'HH', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11)
+        if (label.get_yoffset(plain) !== 0) throw new Error('default offset mismatch')
+      } })`, barsFromCloses([10]))
+    expect(result.drawings).toMatchObject([
+      { kind: 'label', text: { value: 'CHoCH', offsetY: -3 } },
+      { kind: 'label', text: { value: 'HH' } },
+    ])
+  })
+
   it('counts and evicts each object kind separately; deleted references stay deleted', async () => {
     const result = await run(`
       defineIndicator({ name: 'Limits', position: Position.Main, max_boxes_count: 1, max_labels_count: 1, max_lines_count: 1, onBar() {
