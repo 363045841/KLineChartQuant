@@ -17,51 +17,15 @@ import {
   createMockCanvasContext,
 } from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
-import { plotRenderer } from '../../plots/impl/plotDefinition.js'
 import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
-import { Indicator } from '../indicatorDecorator.js'
-import {
-  getRegisteredIndicatorDefinition,
-  registerIndicatorDefinition,
-} from '../indicatorDefinitionRegistry.js'
-import { IndicatorKind } from '../indicatorMetadata.js'
+import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
 import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 import { registerPlotIndicator, updatePlotIndicator } from '../registerPlotIndicator.js'
 import { createTestData } from './helpers/instanceTestKit'
-
-/**
- * 用引擎自身能力注册一个产出 Plot 的外部指标，等价于脚本适配层做的事：
- * 外部来源只提供 Plot 数据，渲染交给引擎。
- */
-function registerExternalPlotIndicator(config: {
-  name: string
-  category: 'main' | 'sub'
-  compute: (data: KLineData[], params: IndicatorParameters) => PlotCollection
-}): void {
-  const paneId = config.category === 'main' ? 'main' : `sub_${config.name}`
-  const decorate = Indicator({
-    name: config.name,
-    displayName: config.name,
-    kind: IndicatorKind.Indicator,
-    category: config.category,
-    defaultPaneId: paneId,
-    allowMainPane: config.category === 'main',
-    mainPane:
-      config.category === 'main'
-        ? { toActiveConfig: (params, active) => (active ? params : null) }
-        : undefined,
-    plots: { source: 'collection', series: [] },
-    runtime: { defaultParams: { factor: 1 }, compute: config.compute },
-  })
-  class ExternalPlotDefinition {
-    static rendererFactory = plotRenderer(config.name)
-  }
-  decorate(ExternalPlotDefinition)
-  registerIndicatorDefinition(ExternalPlotDefinition)
-}
+import { registerPlotIndicatorFixture } from './helpers/plotIndicatorTestKit'
 
 /** 读取数字参数；缺省或类型不符时回落到 1。 */
 function numberOf(params: IndicatorParameters, key: string): number {
@@ -71,7 +35,7 @@ function numberOf(params: IndicatorParameters, key: string): number {
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
-  registerExternalPlotIndicator({
+  registerPlotIndicatorFixture({
     name: 'PlotClose',
     category: 'main',
     compute: (data, params) => ({
@@ -91,7 +55,7 @@ beforeAll(async () => {
       fills: [],
     }),
   })
-  registerExternalPlotIndicator({
+  registerPlotIndicatorFixture({
     name: 'PlotVolume',
     category: 'sub',
     compute: (data) => ({
@@ -168,7 +132,7 @@ describe('ChartIndicatorManager', () => {
     '异步重算期间 %s 指标始终按原始时间身份对齐，连续补历史不累计错位',
     async (category) => {
       const name = `Timeline_${category}`
-      registerExternalPlotIndicator({
+      registerPlotIndicatorFixture({
         name,
         category: category === 'main' ? 'main' : 'sub',
         compute: (data) => ({
@@ -284,7 +248,7 @@ describe('ChartIndicatorManager', () => {
           ],
         }),
       )
-      registerExternalPlotIndicator({
+      registerPlotIndicatorFixture({
         name,
         category: category === 'main' ? 'main' : 'sub',
         compute,
@@ -398,7 +362,6 @@ describe('ChartIndicatorManager', () => {
     )
     expect(ctx.stroke).toHaveBeenCalled()
     manager.updateMainIndicatorParams('script_editable_plot', { period: 9 })
-    manager.setActiveMainIndicators(['script_editable_plot'])
     expect(manager.indicatorsComputed()[0]?.id).toBe(id)
   })
   it('主图脚本改名后保留已启用实例与参数，并刷新实例标签', () => {
@@ -415,15 +378,18 @@ describe('ChartIndicatorManager', () => {
 
     registerPlotIndicator(source('Old Script Name'))
     expect(manager.addIndicator(scriptId, { factor: 3 })).toBe(scriptId)
+    const beforeRename = manager.indicatorsComputed().find(
+      (entry) => entry.definitionId === scriptId,
+    )
 
     updatePlotIndicator(source('New Script Name'))
 
     // 改名不重建实例，已启用状态与参数保留。
     expect(manager.isMainIndicatorActive(scriptId)).toBe(true)
-    expect(manager.getMainIndicatorParams(scriptId)).toEqual({ factor: 3 })
-    // 实例的规范 ID 不变，展示标签随展示名刷新。
+    // 实例身份不变，参数保留，展示标签随展示名刷新。
     const instance = manager.indicatorsComputed().find((entry) => entry.definitionId === scriptId)
-    expect(instance?.definitionId).toBe(scriptId)
+    expect(instance?.id).toBe(beforeRename?.id)
+    expect(instance?.params).toEqual({ factor: 3 })
     expect(instance?.label).toBe('New Script Name')
   })
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {

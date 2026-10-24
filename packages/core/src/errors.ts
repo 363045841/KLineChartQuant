@@ -284,11 +284,6 @@ export const AVWAP_ERROR_CODES = {
   ANCHOR_OUT_OF_RANGE: 'AVWAP_ANCHOR_OUT_OF_RANGE',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
 
-// indicators（各指标共享的入参校验失败）；供 features/indicators 引用。
-export const INDICATOR_ERROR_CODES = {
-  INVALID_PARAM: 'INDICATOR_INVALID_PARAM',
-} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
-
 // orderBookHeatmap（盘口热力图）；供 orderBookHeatmap 引用。
 export const HEATMAP_ERROR_CODES = {
   CONFIG_INVALID: 'HEATMAP_CONFIG_INVALID',

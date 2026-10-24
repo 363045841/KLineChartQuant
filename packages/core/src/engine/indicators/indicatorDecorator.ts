@@ -70,9 +70,9 @@ export type IndicatorDefinitionClass = {
  * 标准类装饰器：只声明元数据，类初始化不修改全局目录；装配入口负责注册。
  *
  * 使用方式：
- * @Indicator({ name: 'ma', ... })
- * class MADefinition {
- *   static rendererFactory = plotRenderer('ma')
+ * @Indicator({ name: 'customOverlay', ... })
+ * class CustomOverlayDefinition {
+ *   static rendererFactory = createOverlayLayer
  * }
  */
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {

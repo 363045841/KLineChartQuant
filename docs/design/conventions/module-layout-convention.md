@@ -58,7 +58,7 @@ data/
 - 新增 `GENERIC_ERROR_CODES`（`INVALID_PARAM` / `INVALID_STATE` / `DISPOSED` / `NOT_REGISTERED`），供入参与生命周期类错误统一引用；`SUBPANE_ERROR_CODES` 的两个值改为引用它。
 - fetch 族（`FETCH_FAILED` / `FETCH_ABORTED` / `UNSUPPORTED_CAPABILITY` / `INSTRUMENT_NOT_FOUND`）在 `provider/impl/router.ts`、`provider/protocol/impl/provider.ts`、`provider/impl/instrumentSearch.ts`、`live/impl/barsLive.ts` 改为 `ERROR_CODES.*`。
 - 通用码在 17 个生产文件（scale / input / rendering / engine / foundation / data 等）改为 `GENERIC_ERROR_CODES.*`；测试断言保留字面量。
-- 领域族具名常量（`SCALE_ERROR_CODES` / `FOOTPRINT_ERROR_CODES` / `AVWAP_ERROR_CODES` / `INDICATOR_ERROR_CODES` / `HEATMAP_ERROR_CODES` / `MTF_ERROR_CODES` / `CHART_TYPE_ERROR_CODES` / `REPLAY_ERROR_CODES` / `DEPTH_ERROR_CODES`）已补齐，对应调用点全部改为引用常量。
+- 领域族具名常量（`SCALE_ERROR_CODES` / `FOOTPRINT_ERROR_CODES` / `AVWAP_ERROR_CODES` / `HEATMAP_ERROR_CODES` / `MTF_ERROR_CODES` / `CHART_TYPE_ERROR_CODES` / `REPLAY_ERROR_CODES` / `DEPTH_ERROR_CODES`）已补齐，对应调用点全部改为引用常量。
 
 未纳入：`MarketDataErrorCode`（`errorCode()` 的返回值）是 data 层独立领域词汇，不是 `KLineChartError` 码；`protocol/types.ts` 的 `SOURCE_REJECTION_CODES` 是「可流转错误码集合」的定义本身；`errors-help.ts` 的 `HINTS` 是「码 → 恢复提示」定义表；测试断言保留字面量。
 

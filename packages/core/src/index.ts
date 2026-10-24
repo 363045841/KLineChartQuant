@@ -63,7 +63,6 @@ export * from './features/agent/index.js'
 // ── Batch 4: Independent business features ────────────────────────────────
 export * from './features/alerts/index.js'
 export * from './features/chartTypes/index.js'
-export * from './features/indicators/index.js'
 // ── Batch 2: Framework-agnostic foundation ────────────────────────────────
 export * from './features/input/index.js'
 export * from './features/replay/index.js'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 验证指标实现按需加载：目录同步可用且不加载实现，添加只加载自身模块，
+ * 验证指标目录与实现的分离：宿主注册的定义直接进入目录，内置实现按需加载，
  * 布局恢复在写入状态前加载其指标，静态目录与实现元数据一致。
  */
 import 'fake-indexeddb/auto'
@@ -10,6 +10,7 @@ import {
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
 import { BUILTIN_INDICATOR_MANIFEST } from '@/engine/indicators/generated/builtinIndicators'
 import {
   clearRegisteredIndicatorDefinitionsForTest,
@@ -17,7 +18,6 @@ import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
 } from '@/engine/indicators/indicatorDefinitionRegistry'
-import { IndicatorKind } from '@/engine/indicators/indicatorMetadata'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
 import { allIndicatorDefinitions } from '../indicatorDefinitionCatalog'
 
@@ -32,11 +32,6 @@ beforeAll(() => {
     })
   }
 })
-
-/** 用户可添加的内置指标名称（不含系统定义）。 */
-const userIndicatorNames = BUILTIN_INDICATOR_MANIFEST.filter(
-  (entry) => entry.descriptor.kind === IndicatorKind.Indicator,
-).map((entry) => entry.descriptor.name)
 
 beforeEach(async () => {
   // 每个用例使用独立的布局归档，避免前一用例的自动保存参与恢复。
@@ -57,11 +52,16 @@ afterEach(() => {
 })
 
 describe('indicator catalog without implementations', () => {
-  it('lists every indicator for the picker without loading any module', () => {
-    const catalog = allIndicatorDefinitions()
-    expect(catalog).toHaveLength(userIndicatorNames.length)
+  it('lists host-registered indicators without loading builtin implementations', () => {
+    registerPlotIndicatorFixture({
+      name: 'LateRegisteredFixture',
+      category: 'sub',
+      compute: () => ({ plots: [], fills: [] }),
+    })
+    expect(allIndicatorDefinitions().map((definition) => definition.id)).toEqual([
+      'LateRegisteredFixture',
+    ])
     expect(loads.size).toBe(0)
-    expect(getRegisteredIndicatorDefinitions()).toEqual([])
   })
 })
 

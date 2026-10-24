@@ -54,8 +54,8 @@ interface IndicatorRenderStateReader {
 
 `IndicatorInstance.presentation` 保存定义声明的展示配置（`presentation.defaultOptions` 的键），由 `ChartIndicatorManager` 从 Kernel 实例参数单向提取，不进入 `calculationKey`。
 
-投影时 `createInstanceSeriesEntry` 把展示配置合入 renderer 读取的 `params`，并按 `presentation.selectSeriesKeys` 过滤可见序列、生成 `enabledPeriods`；`computePriceRange` 仍使用只含计算参数的条目，保证主图价格范围不受可见性切换影响。`presentationRevision` 变化只重建投影，不触发计算。
+投影时 `composeInstanceRenderState` 把展示配置合入 renderer 读取的 `params`，Plot 投影由 `plots/impl/projectPlots.ts` 完成；价格范围与绘制读取同一份 Plot 结果。`presentationRevision` 变化只重建投影，不触发计算。
 
 ## 边界
 
-渲染读取只认 `instanceId`：不保留按 `stateKey` 读取的兼容分支，也不以 `instanceId -> stateKey` 反向映射作过渡。`stateComposer.ts` 提供 `composeInstanceRenderState` 投影入口，`visibleStateComposers.ts` 是指标定义的可见区投影实现。
+渲染读取只认 `instanceId`：不保留按 `stateKey` 读取的兼容分支，也不以 `instanceId -> stateKey` 反向映射作过渡。`stateComposer.ts` 提供 `composeInstanceRenderState` 投影入口。

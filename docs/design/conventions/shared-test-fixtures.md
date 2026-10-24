@@ -31,12 +31,11 @@
 | `vue/src/composables/__tests__/_aggregationSourceFixtures.ts` | `source` / `createOnlineProbe` / `createOfflineProbe` / `registerProvider` |
 | `vue/src/features/agent/__tests__/_agentProviderFixtures.ts` | `providerModelCatalogResponse` / `stubProviderModelCatalog` / `createOpenAiCompatibleFetchStub` |
 | `vue/src/features/agent/__tests__/_testChartAgent.ts` | `createTestChartAgent` / `createTestChartAgentContext` |
-| `engine/indicators/__tests__/__fixtures__/synthetic.ts` | `fromCloses` / `createRisingTrend` |
+| `engine/indicators/__tests__/helpers/plotIndicatorTestKit.ts` | `registerPlotIndicatorFixture` |
 | `engine/state/__tests__/helpers/createTestChartStateKernel.ts` | `createTestChartStateKernel` |
 | `engine/state/__tests__/helpers/createViewportStateDeps.ts` | `createViewportStateDeps` |
 | `features/chartTypes/__tests__/helpers/createOhlcvBar.ts` | `createOhlcvBar` |
 | `features/alerts/__tests__/helpers/marketSnapshot.ts` | `createMarketSnapshot` |
-| `features/indicators/__tests__/helpers/sequences.ts` | `ramp` / `constant` |
 | `components/anchoredVwap/__tests__/helpers/createAvwapBar.ts` | `createAvwapBar` |
 | `components/mtfOverlay/__tests__/helpers/createBaseBar.ts` | `createBaseBar` |
 | `components/orderBookHeatmap/__tests__/helpers/createOrderBookDelta.ts` | `createOrderBookDelta` |

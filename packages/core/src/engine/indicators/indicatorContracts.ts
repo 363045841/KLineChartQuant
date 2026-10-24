@@ -1,7 +1,6 @@
 /** 系统指标身份和第三方定义名称；绘图状态由公共 Plot 契约表达。 */
 
 export interface AuxiliaryIndicatorContracts {
-  volume: unknown
   timeShare: unknown
   fiveDayTimeShare: unknown
   lastPriceLine: unknown

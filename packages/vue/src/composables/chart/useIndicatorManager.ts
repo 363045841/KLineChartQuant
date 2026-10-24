@@ -103,14 +103,12 @@ export function useIndicatorManager(
   function getDefaultParams(
     indicatorId: SubIndicatorType,
   ): Record<string, number | boolean | string> {
-    if (indicatorId === 'VOLUME') return {}
     // 静态目录即可给出默认参数，无需加载指标实现。
     const defaults = getIndicatorDescriptor(indicatorId)?.defaultParams
     return defaults ? ({ ...defaults } as Record<string, number | boolean | string>) : {}
   }
 
   function isSubPaneIndicator(id: string): boolean {
-    if (id === 'VOLUME') return true
     const def = getIndicatorDescriptor(id)
     return !!def && def.category !== 'main'
   }
@@ -126,7 +124,7 @@ export function useIndicatorManager(
   }
 
   async function addSubPane(
-    indicatorId: SubIndicatorType = 'VOLUME',
+    indicatorId: SubIndicatorType,
     params?: Record<string, number | boolean | string>,
   ): Promise<boolean> {
     const controller = ctrl.value

@@ -60,10 +60,7 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
-import {
-  createIndicatorInstanceId,
-  createMainIndicatorInstanceId,
-} from './instances/api/instanceIdentity.js'
+import { createIndicatorInstanceId } from './instances/api/instanceIdentity.js'
 import {
   createIndicatorInstancePipeline,
   type IndicatorInstancePipeline,
@@ -851,21 +848,6 @@ export class ChartIndicatorManager {
     return true
   }
 
-  toggleMainIndicator(indicatorId: string, enabled: boolean): void {
-    if (enabled) {
-      this.enableMainIndicator(indicatorId)
-    } else {
-      this.disableMainIndicator(indicatorId)
-    }
-  }
-
-  getActiveMainIndicators(): string[] {
-    return this.deps.indicator.readonly.instances
-      .peek()
-      .filter((instance) => instance.role === 'main')
-      .map((instance) => instance.indicatorId)
-  }
-
   /** 移动用户主图实例的 Legend 顺序，保留实例身份和计算参数。 */
   moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean {
     const instances = this.deps.indicator.readonly.instances
@@ -934,18 +916,6 @@ export class ChartIndicatorManager {
     if (!id || !this.getMainIndicatorInstance(id)) return
 
     this.deps.indicator.actions.setMainParams(id, params)
-  }
-
-  getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    const id = resolveIndicatorDefinitionId(indicatorId)
-    const params = (id ? this.getMainIndicatorInstance(id)?.params : undefined) as
-      | Readonly<Record<string, number | boolean | string>>
-      | undefined
-    return params ? { ...params } : null
-  }
-
-  clearMainIndicators(): void {
-    this.deps.indicator.actions.clearMain()
   }
 
   private reconcileMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
@@ -1037,33 +1007,6 @@ export class ChartIndicatorManager {
       instanceId: instance.instanceId,
       definition,
     })
-  }
-
-  /**
-   * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
-   * 状态一次 replaceAllMain，再做 renderer side effects，避免逐条中间态。
-   */
-  setActiveMainIndicators(indicators: string[]): void {
-    const newIds = indicators
-      .map((indicatorId) => resolveIndicatorDefinitionId(indicatorId))
-      .filter(
-        (id): id is string =>
-          id !== undefined && ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id),
-      )
-    const instances: IndicatorInstanceSpec[] = newIds.map((id) => {
-      const existing = this.getMainIndicatorInstance(id)
-      return {
-        instanceId: existing ? existing.instanceId : createMainIndicatorInstanceId(id),
-        indicatorId: id,
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        params: existing
-          ? { ...existing.params }
-          : { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}) },
-      }
-    })
-    this.deps.indicator.actions.replaceAllMain(instances)
   }
 
   getSubPaneEntries(): SubPaneEntry[] {

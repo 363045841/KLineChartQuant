@@ -261,7 +261,7 @@ export interface IndicatorMetadata<T = unknown> {
 
   /**
    * 计算描述符（可选）
-   * 提供后，IndicatorRuntime 可据此自动调度计算，无需手写展开
+   * 提供后，实例计算链路据此调度计算，无需手写展开
    */
   runtime?: IndicatorRuntimeDescriptor
 

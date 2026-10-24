@@ -1,9 +1,12 @@
 # Indicators 指标模块
 
-`packages/core/src/engine/indicators/` 负责技术指标的注册、实例管理、异步计算、结果池提交和可见范围投影。
+`packages/core/src/engine/indicators/` 负责系统指标的注册、实例管理、异步计算、结果池提交和可见范围投影。
 它位于行情数据与指标 renderer 之间：消费 StateKernel 的实例配置快照，计算结果保存在按 `instanceId` 索引的
 实例结果池；renderer 只在帧内通过 `IndicatorRenderStateReader.get(instanceId)` 读取已提交的渲染投影，
 不直接依赖 Worker 或 PluginHost。
+
+纯逐 bar 数值指标全部位于 Script 包（`packages/script/scripts/*.ts`）；Core 只保留需要自定义 Layer、
+坐标轴或分时数据源的 `kind: system` 定义。
 
 完整契约见
 [`docs/design/indicator/indicator-instance-state.md`](../../../../../docs/design/indicator/indicator-instance-state.md)
@@ -25,7 +28,7 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 
 本目录负责：
 
-- 注册指标元数据、运行时 calculator、renderer 和状态投影规则。
+- 注册指标元数据、运行时计算端口、renderer 和状态投影规则。
 - 以 `calculationKey` 为去重身份生成计算计划，以 `instanceId` 保存计算结果。
 - 委派注册定义计算，并处理过期请求与错误；Script Worker 由 Script 服务管理。
 - 把结果池按 `instanceId` 投影为帧级渲染状态，并注册实例相关插件服务。
@@ -47,7 +50,6 @@ indicators/
 ├── indicatorDefinitionRegistry.ts # 内置/扩展定义的全局声明注册表与别名解析（@Indicator 装饰器）
 ├── registerBuiltins.ts          # 内置指标定义装配
 ├── stateComposer.ts             # 按 instanceId 的渲染状态投影（composeInstanceRenderState 等）
-├── visibleStateComposers.ts     # 可见区极值、padding、latestValues 等派生投影
 ├── instances/                   # 实例优先指标链路（CRUD、计算计划、执行、投影），分层见其 README
 └── __tests__/                   # 注册、调度与投影测试；技术指标算法在 Script 包测试
 ```
@@ -61,13 +63,13 @@ indicators/
 
 | 标识              | 含义                                       | 是否进入 calculator |
 | ----------------- | ------------------------------------------ | ------------------- |
-| `definitionId`    | 指标定义类型，例如 `MACD`、`RSI`           | 是（解析 metadata） |
+| `definitionId`    | 指标定义类型，例如内置脚本 `MACD`、`RSI`   | 是（解析 metadata） |
 | `instanceId`      | 图表上的一次启用实例                       | 否                  |
 | `calculationKey`  | `definitionId + 计算参数 + 计算上下文`     | 是（去重身份）      |
 | `paneId`          | 实例所在绘图区的布局身份                   | 否                  |
 
 同一 `definitionId` 可以有多个 `instanceId`，各自使用独立参数计算。`calculationKey` 不含 `paneId`、
-样式或 `instanceId`，因此同一 `MA(20)` 放在两个 pane 只计算一次，但仍是两个独立实例，拥有各自的渲染投影。
+样式或 `instanceId`，因此同一组参数放在两个 pane 只计算一次，但仍是两个独立实例，拥有各自的渲染投影。
 渲染只认 `instanceId`，`paneId` 只决定投影落在哪个 pane，不参与状态寻址。
 
 ## 计算与提交
@@ -80,15 +82,15 @@ indicators/
 
 1. 从当前实例快照构造 `IndicatorCalculationPlan`，相同 `calculationKey` 的实例合并为一个任务。
 2. `createInstanceCalculationScheduler` 记录 `requestId`，通过定义的计算端口执行任务；Script 定义由 Script 服务委派到 Worker。
-3. 执行器对每个去重任务调用 calculator，产出 `IndicatorCalculationOutput`。
+3. 执行器对每个去重任务调用定义的计算端口，产出 `IndicatorCalculationOutput`。
 4. `expandIndicatorCalculationOutputs` 把任务输出展开为按 `instanceId` 索引的 `IndicatorResultPool`。
 5. 仅当 `requestId` 仍是最新、且实例 `calculationRevision` 未变化时提交；过期响应被丢弃，失败明确报告，不切换执行链路。
 
 分时视图下结果池会先按 `displayTimestamps` 投影到展示时间轴，再生成渲染状态。
 
-指标定义把 calculator 参数放在 `runtime.defaultParams`，把 `show*` 等展示开关放在
-`presentation.defaultOptions`。展示变更只重建 `renderStates`，不触发计算。MA、RSI 等多序列指标始终计算
-完整结果，可见序列由 `presentation.selectSeriesKeys` 在投影阶段选择。
+指标定义把计算参数放在 `runtime.defaultParams`，把 `show*` 等展示开关放在
+`presentation.defaultOptions`。展示变更只重建 `renderStates`，不触发计算。多序列指标始终计算
+完整结果，逐线显隐由 Plot 声明的 `show` 输入在投影阶段解析。
 
 ## 结果池与投影
 
@@ -98,12 +100,9 @@ indicators/
 - `results`：`Map<instanceId, IndicatorSeriesResult>`，图表与 Agent 共享的业务结果事实源。
 - `dataRevision` / `instanceRevision`：结果对应的行情版本与实例计算版本。
 
-`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, presentation, visibleRange, timestamp)`
-逐实例把结果投影为 renderer 状态：展示配置合入 renderer 读取的 `params`，并按
-`presentation.selectSeriesKeys` 过滤可见序列；随后优先使用 `mainPane.composeRenderState`，否则使用
-`visibleState.compose`。
-`visibleStateComposers.ts` 提供基于当前可见范围的极值、padding 等通用 composer。
-
+`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, presentation, visibleRange, timestamp, colors)`
+逐实例把结果投影为公共 Plot 状态：展示配置合入 renderer 读取的 `params`，Plot 投影由
+`plots/impl/projectPlots.ts` 完成；未声明 `plots` 的定义不产生渲染状态。
 提交完成后 `renderStates` 是按 `instanceId` 索引的只读投影；可见范围变化只重算投影，不触发 Worker，
 也不改变业务结果版本。
 
@@ -139,32 +138,24 @@ interface IndicatorRenderStateReader {
 
 ## 新增或修改指标
 
-1. 在 `calculators/` 编写纯计算函数；输入为行情与已解析参数，不能依赖 Chart、DOM 或全局渲染状态。
-2. 在 `state/` 定义 renderer 状态类型与 `EMPTY_*` 常量。
-3. 在内置定义装配中声明 `IndicatorMetadata`：类别、默认 pane、renderer factory、runtime descriptor、
-   `outputAlignment` 与 `visibleState.compose`。
-4. 为需要可见范围缩放的指标补充或复用 `visibleStateComposers.ts` 中的 composer。
-5. 在 `engine/renderers/Indicator/` 实现绘制；通过注入的 `instanceId` 读取帧级投影，不持有计算缓存。
-6. 覆盖 calculator、注册、调度、结果池展开和渲染投影测试。
+1. 纯数值指标写在 Script 包：在 `packages/script/scripts/` 新增 `defineIndicator` 文件，数值测试也放在 Script 包。
+2. 需要自定义 Layer、坐标轴或分时数据源的指标才在 Core 声明 `@Indicator` 定义类。
+3. 定义类声明 `category`、`defaultPaneId`、`rendererFactory`、`dataViews`；需要计算时再补 `runtime` 与 `plots`。
+4. 新增或修改 `@Indicator` 定义后运行 `pnpm indicators:generate`，自动更新 `generated/builtinIndicators.ts`。
+5. 在 `engine/renderers/` 实现绘制；通过注入的 `instanceId` 读取帧级投影，不持有计算缓存。
+6. 覆盖注册、调度、结果池展开和渲染投影测试。
 
 ## 测试
 
 核心测试位于本目录 `__tests__/`：
 
-- `registerBuiltins.test.ts` / `indicatorDefinitionRegistry.test.ts`：内置定义装配、元数据、别名与定义注册。
+- `registerBuiltins.test.ts` / `indicatorDefinitionRegistry.test.ts`：system 定义装配、元数据与注册。
 - `chartIndicatorManager.test.ts`：Kernel 实例投影、调度接线与帧级结果读取。
-- `instanceCalculationScheduler.test.ts` / `instanceCalculationRuntime.test.ts`：去重计划、请求门控、降级与结果池展开。
-- `stateComposer.test.ts`：逐实例的渲染状态投影。
-- 其余按指标命名的测试：各 calculator 的数值和边界条件。
+- `instanceCalculationScheduler.test.ts` / `instanceCalculationRuntime.test.ts`：去重计划、请求门控与结果池展开。
+- `stateComposer.test.ts`：实例结果到 Plot 状态的投影。
+- `projection/`：计算时间轴到展示时间轴的投影。
 
-运行 Core 指标相关全量测试：
-
-```bash
-pnpm --filter @363045841yyt/klinechart-core test
-```
-：各 calculator 的数值和边界条件。
-
-运行 Core 指标相关全量测试：
+指标数值测试位于 Script 包。运行 Core 指标相关测试：
 
 ```bash
 pnpm --filter @363045841yyt/klinechart-core test

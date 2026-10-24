@@ -5,8 +5,8 @@
 把 core 中「纯逐 bar 数值序列」类内置指标改为脚本指标（`packages/script/scripts/*.ts`），
 删除对应的原生定义、calculator、renderer 与 state 契约：一个指标只有一处实现。
 
-非目标：结构类（`structure`/`zones`）、成交分布定义（`volumeProfile`）、
-以及 `kind: system` 的系统定义不参与迁移。
+非目标：`kind: system` 的系统定义（分时、最新价、极值标记等渲染型定义）不参与迁移。
+结构类与成交分布定义已在 Box/Label 批次（#333）完成脚本化。
 
 ## 目录契约
 
@@ -68,7 +68,8 @@
 | ZLEMA（已迁移） | `zlema` | 零滞后源用 `derive` 组合，EMA 交给 `ta.ema`，不新增 TA 原语 |
 | KAMA / VIDYA / LSMA（已迁移） | `kama` `vidya` `lsma` | KAMA 用 `derive` + `ta.sum`；VIDYA 用 `ta.cmo`；LSMA 用 `ta.linreg` |
 | Fisher 与 StochRSI（已迁移） | `fisher` `stochRSI` | Fisher 用 `derive` + `ta.highest/lowest` + 顶层递推；StochRSI 用 `ta.rsi` + `ta.highest/lowest` + `ta.sma` |
-| 不迁移 | `volumeProfile` `structure` `zones`、5 个 system 定义 | 需要新 plot 图元或额外数据源 |
+| 已迁移（Box/Label 批次） | `structure` `zones` `volumeProfile` | 依赖 Box/Label 绘图 API 与解析式描边 |
+| 保留 | 5 个 system 定义 | 需要自定义 Layer 与分时数据源 |
 
 ## 落地切片（每片独立可测）
 

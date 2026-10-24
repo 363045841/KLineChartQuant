@@ -34,41 +34,6 @@ export class ChartIndicatorFacade {
     return this.deps.manager.disableMainIndicator(id)
   }
 
-  /** 设置主图指标启用状态。 */
-  toggleMain(id: string, enabled: boolean): void {
-    this.deps.manager.toggleMainIndicator(id, enabled)
-  }
-
-  /** 返回当前启用的主图指标 ID。 */
-  getActiveMain(): string[] {
-    return this.deps.manager.getActiveMainIndicators()
-  }
-
-  /** 判断主图指标是否启用。 */
-  isMainActive(id: string): boolean {
-    return this.deps.manager.isMainIndicatorActive(id)
-  }
-
-  /** 更新已启用主图指标的参数。 */
-  updateMainParams(id: string, params: Record<string, number | boolean | string>): void {
-    this.deps.manager.updateMainIndicatorParams(id, params)
-  }
-
-  /** 返回已启用主图指标的参数。 */
-  getMainParams(id: string): Record<string, number | boolean | string> | null {
-    return this.deps.manager.getMainIndicatorParams(id)
-  }
-
-  /** 清除所有主图指标。 */
-  clearMain(): void {
-    this.deps.manager.clearMainIndicators()
-  }
-
-  /** 兼容导入路径，直接替换主图指标集合。 */
-  setActiveMain(indicators: string[]): void {
-    this.deps.manager.setActiveMainIndicators(indicators)
-  }
-
   /** 添加主图或副图指标实例。 */
   add(definitionId: string, params?: Record<string, unknown>): string | null {
     return this.deps.manager.addIndicator(definitionId, params)

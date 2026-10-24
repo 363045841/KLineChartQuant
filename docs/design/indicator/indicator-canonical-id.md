@@ -40,7 +40,7 @@
 - `indicatorDefinitionRegistry`：新增 `resolveCanonicalIndicatorId`，规范 ID 解析函数改走它；`updateIndicatorDefinition` 允许脚本改展示名并清理旧别名。
 - `registerPlotIndicator`：内部 name = `id ?? name`。
 - `indicatorCatalog`：`Indicator.id = resolveCanonicalIndicatorId(def)`；`findIndicator` 兼容内部 name/别名输入。
-- `ChartIndicatorManager`：主图白名单、默认参数、`addIndicator`/`removeIndicator`/`updateParams`、`setActiveMainIndicators` 全部基于规范 ID。
+- `ChartIndicatorManager`：主图白名单、默认参数、`addIndicator`/`removeIndicator`/`updateParams` 全部基于规范 ID。
 - `indicatorState`：主图实例不再 `toUpperCase()`；`restoreWorkspaces` 将历史快照的实例 ID 解析为规范 ID（持久化数据边界）。
 - `scheduler`：volume 实例匹配改用规范 ID。
 - `createChartController`：`resolveSubPaneIndicatorId`、`replacePaneContent` 使用规范 ID；`catalog` 由 `allIndicatorDefinitions()` 从注册表派生，删除硬编码目录。

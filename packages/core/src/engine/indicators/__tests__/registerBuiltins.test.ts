@@ -5,23 +5,29 @@ import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
 } from '../indicatorDefinitionRegistry'
+import { IndicatorKind } from '../indicatorMetadata'
 import { loadBuiltinIndicators } from '../registerBuiltins'
+
+/** Core 只保留系统定义；纯数值指标全部由 Script 包提供。 */
+const SYSTEM_INDICATOR_NAMES = [
+  'extremaMarkers',
+  'fiveDayTimeShare',
+  'lastPriceLabelRegistrar',
+  'lastPriceLine',
+  'timeShare',
+]
 
 beforeAll(loadBuiltinIndicators)
 
 describe('builtin indicator registration', () => {
-  it('explicitly registers all builtin definitions with decorator metadata', () => {
+  it('explicitly registers every system definition with decorator metadata', () => {
     const definitions = getRegisteredIndicatorDefinitions()
-    expect(new Set(definitions.map((definition) => definition.name)).size).toBe(definitions.length)
-    expect(definitions.map((definition) => definition.name)).toEqual(
-      expect.arrayContaining([
-        'extremaMarkers',
-        'lastPriceLine',
-        'lastPriceLabelRegistrar',
-        'timeShare',
-        'fiveDayTimeShare',
-      ]),
+    expect(definitions.map((definition) => definition.name).sort()).toEqual(
+      [...SYSTEM_INDICATOR_NAMES].sort(),
     )
+    for (const definition of definitions) {
+      expect(definition.kind, definition.name).toBe(IndicatorKind.System)
+    }
   })
 
   it('shares concurrent initialization without replacing registered definitions', async () => {
@@ -31,25 +37,6 @@ describe('builtin indicator registration', () => {
     expect(reloaded).toHaveLength(definitions.length)
     for (const definition of definitions) {
       expect(getRegisteredIndicatorDefinition(definition.name)).toBe(definition)
-    }
-  })
-
-  it('keeps calculator params and presentation options disjoint', () => {
-    for (const definition of getRegisteredIndicatorDefinitions()) {
-      const runtime = definition.runtime
-      if (!runtime) continue
-      const calculationKeys = new Set(Object.keys(runtime.defaultParams))
-      expect(
-        [...calculationKeys].filter((name) => name.startsWith('show')),
-        definition.name,
-      ).toEqual([])
-      if (!definition.presentation) continue
-      expect(
-        Object.keys(definition.presentation.defaultOptions).filter((name) =>
-          calculationKeys.has(name),
-        ),
-        definition.name,
-      ).toEqual([])
     }
   })
 
@@ -70,12 +57,6 @@ describe('builtin indicator registration', () => {
         ids.add(layer.id)
       }
       expect(ids.size, definition.name).toBe(panes.length)
-    }
-  })
-
-  it('keeps script indicators out of the Core native catalog', () => {
-    for (const id of ['STRUCTURE', 'ZONES', 'VOLUME_PROFILE']) {
-      expect(getRegisteredIndicatorDefinition(id)).toBeUndefined()
     }
   })
 })
