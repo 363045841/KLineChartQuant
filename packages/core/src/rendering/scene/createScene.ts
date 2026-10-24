@@ -95,7 +95,13 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       PrimitiveSurface,
       { primitives: PaintPrimitive[]; dpr: number; transform?: DataTransform }
     >()
-    /** 几何写可见表面，文字仍走它上方的 2D 目标；两者顺序保持不变。 */
+    /**
+     * 几何写可见表面，文字仍走它上方的 2D 目标。
+     *
+     * 文字与几何分属两个 DOM 层，相对顺序由层序决定而非提交顺序；同一次提交的
+     * 文字因此可以累积成一批交给合成器，既保持文字之间的先后顺序，也不必逐条
+     * 读取目标状态。
+     */
     const submitToSurface = (
       surface: PrimitiveSurface,
       composer: PrimitiveComposer,
@@ -104,9 +110,10 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       transform?: DataTransform,
     ): void => {
       let entry = surfaces.get(surface)
+      const text: PaintPrimitive[] = []
       for (const primitive of primitives) {
         if (primitive.kind === 'text') {
-          composer.submit([primitive], dpr, transform)
+          text.push(primitive)
           continue
         }
         if (!entry) {
@@ -117,6 +124,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         entry.transform = transform
         entry.primitives.push(primitive)
       }
+      if (text.length > 0) composer.submit(text, dpr, transform)
     }
     /** 取（或建立）目标合成器；后端由 pane 提供，目标由 Scene 选定。 */
     const composerFor = (

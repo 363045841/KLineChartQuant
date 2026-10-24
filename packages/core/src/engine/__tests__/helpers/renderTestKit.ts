@@ -40,11 +40,17 @@ export interface MockCanvasContext extends CanvasRenderingContext2D {
   dashedPaths: Array<Array<{ x: number; y: number }>>
 }
 
+/** Canvas2D stub 的差异项；GPU 后端用例需要 ownerDocument 与画布物理尺寸。 */
+export interface MockCanvasContextOptions {
+  readonly canvas?: { width: number; height: number; ownerDocument: Document | null }
+}
+
 /**
  * 构造绘制路径可观测的 Canvas2D stub。
  * 所有绘图方法均为 vi.fn；stroke 会记录 lineWidth 与路径，供绘制序列断言。
+ * 目标画布默认是 800×600 的物理尺寸；GPU 后端用例可传入物理尺寸与 ownerDocument。
  */
-export function createMockCanvasContext(): MockCanvasContext {
+export function createMockCanvasContext(options: MockCanvasContextOptions = {}): MockCanvasContext {
   let path: Array<{ x: number; y: number }> = []
   let lineDash: number[] = []
   const strokeLineWidths: number[] = []
@@ -54,7 +60,7 @@ export function createMockCanvasContext(): MockCanvasContext {
 
   const ctx = {
     // 部分渲染器通过 ctx.canvas.width 读取画布尺寸，这里给出最小可用画布描述。
-    canvas: { width: 800, height: 600 },
+    canvas: options.canvas ?? { width: 800, height: 600 },
     save: vi.fn(),
     restore: vi.fn(),
     translate: vi.fn(),

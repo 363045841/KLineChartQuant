@@ -8,7 +8,7 @@ Plot 与 drawing 原先分别调用 Canvas API，GPU 只覆盖矩形和实线。
 
 各批次先在隔离 GPU 目标上绘制，完整成功后合成到 Scene 指定画布。这保留主图、正式 drawing 与 session 的清屏、裁剪和层级语义，也保证一批失败时能完整回退。`Renderer.primitives` 是唯一且必需的后端绘制能力；旧的可见 surface 契约、旧 buffer/pipeline API 和旧行情绘制链路已经删除，主图带的可见直出表面改由 `PrimitiveBackend.createSurface` 提供，详见 `scene-owned-composition.md`。
 
-后续优化已改为基础形状实例化、几何与颜色缓存、连续缓冲复用和有序合批，详见 `primitive-batching-and-reuse.md`。文字按产品要求直接由 Canvas 绘制，不再上传 GPU 字形纹理。图文交错时必须保留原始顺序，Canvas 文字会形成 GPU 提交边界。此变更不扩展到坐标轴、十字线及第三方自定义 Canvas 插件，也不实现局部重绘。
+后续优化已改为基础形状实例化、几何与颜色缓存、连续缓冲复用和有序合批，详见 `primitive-batching-and-reuse.md`。文字按产品要求直接由 Canvas 绘制，不再上传 GPU 字形纹理。含文字的批次整批交给 Canvas 单次重放，图文交错顺序与 Canvas 后端一致，也不为每段文字做一次整画布合成。此变更不扩展到坐标轴、十字线及第三方自定义 Canvas 插件，也不实现局部重绘。
 
 验证需覆盖 dash 跨折点、凹形与孔洞、交叉透明填充、旋转多行文字、非整数 DPR、正式层/预览层隔离、整批失败回退和后端资源释放，并通过真实浏览器检查三后端像素。
 

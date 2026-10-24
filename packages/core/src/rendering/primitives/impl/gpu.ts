@@ -1,8 +1,9 @@
-/** GPU 原语调度：整批准备与原子合成，文字直接由 Canvas 绘制并作为有序边界。 */
+/** GPU 原语调度：纯几何整批准备并一次合成，含文字的批次整批交给 Canvas 单次重放。 */
+
+import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { PaintPrimitive, PrimitiveBackend, PrimitiveMetrics } from '../types.js'
 import { paintCanvasPrimitives } from './canvas.js'
 import { createColorResolver } from './colors.js'
-import type { DataTransform } from '@/foundation/plugin/types.js'
 import { createPrimitivePreparer, type GeometryPrimitive, type PreparedBatch } from './prepare.js'
 
 /** 设备侧计数是公开指标 `PrimitiveMetrics` 的切片，字段类型只在那里定义一次。 */
@@ -47,8 +48,13 @@ function emptyMetrics(): PrimitiveMetrics {
   }
 }
 
+/** 文字只能由 Canvas 解释，其余原语都可由 GPU 后端准备与合成。 */
+function isGeometryPrimitive(primitive: PaintPrimitive): primitive is GeometryPrimitive {
+  return primitive.kind !== 'text'
+}
+
 /** 估算本批在逻辑像素上的覆盖面积，用于判断离屏合成是否值得。 */
-function coverage(primitives: readonly PaintPrimitive[]): number {
+function coverage(primitives: readonly GeometryPrimitive[]): number {
   let area = 0
   for (const primitive of primitives) {
     switch (primitive.kind) {
@@ -64,9 +70,6 @@ function coverage(primitives: readonly PaintPrimitive[]): number {
           area += Math.abs(data[offset + 2]! * data[offset + 3]!)
         break
       }
-      case 'text':
-        area += primitive.font.length * 8
-        break
       default: {
         let left = Infinity,
           top = Infinity,
@@ -80,8 +83,7 @@ function coverage(primitives: readonly PaintPrimitive[]): number {
             bottom = Math.max(bottom, point.y)
           }
         const expand = primitive.kind === 'stroke' ? primitive.width : 0
-        if (right > left && bottom > top)
-          area += (right - left + expand) * (bottom - top + expand)
+        if (right > left && bottom > top) area += (right - left + expand) * (bottom - top + expand)
         break
       }
     }
@@ -89,7 +91,17 @@ function coverage(primitives: readonly PaintPrimitive[]): number {
   return area
 }
 
-/** 不跨文字重排几何；混合批次使用复用 staging 保证后半批失败时可完整回退。 */
+/**
+ * 创建 GPU 原语后端。
+ *
+ * 文字必须与同批几何保持原始交错顺序，而 GPU 合成按整张目标进行：若在每段文字处
+ * 各做一次离屏渲染与整张合成，文字数量会把整画布拷贝放大成 O(n)。因此含文字的批次
+ * 整批交给 Canvas 单次重放；只有纯几何批次进入离屏渲染，每批只合成一次。
+ *
+ * @param create 按需创建离屏设备；首次真正绘制时才分配 GPU 资源
+ * @param initialDevice 已创建的共享设备；与 `create` 二选一
+ * @param options 准备器选项；GPU 后端开启解析式描边
+ */
 export function createGpuPrimitiveBackend(
   create: (document: Document) => PrimitiveDevice,
   initialDevice?: PrimitiveDevice,
@@ -97,7 +109,6 @@ export function createGpuPrimitiveBackend(
 ): PrimitiveBackend {
   let device: PrimitiveDevice | undefined = initialDevice
   let preparer: ReturnType<typeof createPrimitivePreparer> | undefined
-  let staging: CanvasRenderingContext2D | null = null
   let disposed = false
   let metrics = emptyMetrics()
   return {
@@ -105,10 +116,12 @@ export function createGpuPrimitiveBackend(
       if (disposed) return false
       metrics = emptyMetrics()
       metrics.primitives = primitives.length
-      if (primitives.every((primitive) => primitive.kind === 'text')) {
+      if (primitives.length === 0) return true
+      if (primitives.some((primitive) => primitive.kind === 'text')) {
         paintCanvasPrimitives(target, primitives, dpr, dataTransform)
         return true
       }
+      const geometry = primitives.filter(isGeometryPrimitive)
       // 非默认合成、阴影或滤镜不能按整批组合作等价变换，统一交给 Canvas 保持原语语义。
       if (
         target.globalAlpha !== 1 ||
@@ -135,69 +148,29 @@ export function createGpuPrimitiveBackend(
       if (width <= 0 || height <= 0) return false
       // 覆盖面积近乎为零时，整张离屏渲染与合成为纯开销。
       const canvasArea = (width / dpr) * (height / dpr)
-      if (coverage(primitives) < canvasArea * MIN_GPU_COVERAGE) return false
+      if (coverage(geometry) < canvasArea * MIN_GPU_COVERAGE) return false
       try {
         const document = target.canvas.ownerDocument
         if (!document) return false
         preparer ??= createPrimitivePreparer(createColorResolver(document), options)
-        const mixed = primitives.some((primitive) => primitive.kind === 'text')
-        let destination = target
-        if (mixed) {
-          if (!staging) staging = document.createElement('canvas').getContext('2d')
-          if (!staging) return false
-          if (staging.canvas.width !== width) staging.canvas.width = width
-          if (staging.canvas.height !== height) staging.canvas.height = height
-          staging.setTransform(1, 0, 0, 1, 0, 0)
-          staging.clearRect(0, 0, width, height)
-          staging.scale(dpr, dpr)
-          destination = staging
-        }
-        const geometry: GeometryPrimitive[] = []
-        /** 一个连续几何段一次准备和提交；只有混合批次的私有 staging 会在此时改变。 */
-        const flush = (): void => {
-          if (!geometry.length) return
-          const prepareStart = performance.now()
-          const batch = preparer!.prepare(geometry, width, height, dpr, dataTransform)
-          metrics.prepareMs += performance.now() - prepareStart
-          metrics.culled += batch.culled
-          metrics.geometryBuilds += batch.geometryBuilds
-          metrics.geometryHits += batch.geometryHits
-          if (batch.draws.length) {
-            device ??= create(document)
-            const renderStart = performance.now()
-            const result = device.render(batch, width, height, dpr, true, dataTransform)
-            metrics.renderMs += performance.now() - renderStart
-            metrics.drawCalls += result.metrics.drawCalls
-            metrics.uploads += result.metrics.uploads
-            metrics.uploadedBytes += result.metrics.uploadedBytes
-            metrics.submissions += result.metrics.submissions
-            // 设备目标可能大于本目标，只取左上角 width × height 区域。
-            destination.drawImage(
-              result.canvas,
-              0,
-              0,
-              width,
-              height,
-              0,
-              0,
-              width / dpr,
-              height / dpr,
-            )
-            metrics.compositions++
-          }
-          geometry.length = 0
-        }
-        for (const primitive of primitives) {
-          if (primitive.kind === 'text') {
-            flush()
-            paintCanvasPrimitives(destination, [primitive], dpr, dataTransform)
-          } else geometry.push(primitive)
-        }
-        flush()
-        if (mixed) {
-          target.drawImage(destination.canvas, 0, 0, width / dpr, height / dpr)
-          metrics.compositions++
-        }
+        const prepareStart = performance.now()
+        const batch = preparer.prepare(geometry, width, height, dpr, dataTransform)
+        metrics.prepareMs += performance.now() - prepareStart
+        metrics.culled += batch.culled
+        metrics.geometryBuilds += batch.geometryBuilds
+        metrics.geometryHits += batch.geometryHits
+        if (!batch.draws.length) return true
+        device ??= create(document)
+        const renderStart = performance.now()
+        const result = device.render(batch, width, height, dpr, true, dataTransform)
+        metrics.renderMs += performance.now() - renderStart
+        metrics.drawCalls += result.metrics.drawCalls
+        metrics.uploads += result.metrics.uploads
+        metrics.uploadedBytes += result.metrics.uploadedBytes
+        metrics.submissions += result.metrics.submissions
+        // 设备目标可能大于本目标，只取左上角 width × height 区域。
+        target.drawImage(result.canvas, 0, 0, width, height, 0, 0, width / dpr, height / dpr)
+        metrics.compositions++
         return true
       } catch {
         device?.dispose()
@@ -218,8 +191,6 @@ export function createGpuPrimitiveBackend(
       device?.dispose()
       device = undefined
       preparer = undefined
-      if (staging) staging.canvas.width = staging.canvas.height = 1
-      staging = null
     },
   }
 }

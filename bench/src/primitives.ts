@@ -316,58 +316,67 @@ function checkBatchSemantics(name: string, backend: PrimitiveBackend): void {
   }
   check(partial > 40, `${name}: diagonal stroke is not antialiased (${partial})`)
 }
-}
 
-/** 故障注入使用真实 Canvas 验证图文混合后半段失败不会污染可见目标。 */
+/** 故障注入使用真实 Canvas 验证纯几何批次失败不污染可见目标，文字批次不进入 GPU。 */
 function checkAtomicFallback(): void {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 40
   const target = canvas.getContext('2d', { willReadFrequently: true })!
   target.fillStyle = '#00ff00'
   target.fillRect(0, 0, 40, 40)
-  let renders = 0
-  const backend = createGpuPrimitiveBackend((document) => ({
-    render() {
-      if (++renders === 2) throw new Error('Injected second-segment failure')
-      const image = document.createElement('canvas')
-      image.width = image.height = 40
-      const context = image.getContext('2d')!
-      context.fillStyle = '#ff0000'
-      context.fillRect(0, 0, 40, 40)
-      return {
-        canvas: image,
-        metrics: { drawCalls: 1, uploads: 1, uploadedBytes: 64, submissions: 1 },
-      }
-    },
-    async waitForIdle() {},
-    dispose() {},
-  }))
+  let created = 0
+  const backend = createGpuPrimitiveBackend(() => {
+    created++
+    return {
+      render() {
+        throw new Error('Injected device failure')
+      },
+      async waitForIdle() {},
+      dispose() {},
+    }
+  })
+  // 纯几何批次失败时整批回退，可见目标必须保持原像素。
   check(
     !backend.paint(
       target,
       [
         { kind: 'circle', x: 10, y: 10, radius: 5, color: '#ff0000' },
+        { kind: 'circle', x: 20, y: 20, radius: 5, color: '#ff0000' },
+      ],
+      1,
+    ),
+    'Failed geometry batch should report failure',
+  )
+  const pixel = target.getImageData(10, 10, 1, 1).data
+  check(
+    pixel[0] === 0 && pixel[1] === 255 && pixel[2] === 0,
+    'Failed geometry batch polluted visible target',
+  )
+  // 含文字的批次整批由 Canvas 单次重放，不得再创建设备或分段合成。
+  check(
+    backend.paint(
+      target,
+      [
+        { kind: 'circle', x: 30, y: 30, radius: 5, color: '#ff0000' },
         {
           kind: 'text',
           text: 'A',
-          x: 10,
-          y: 10,
+          x: 4,
+          y: 4,
           font: '12px sans-serif',
           color: '#000000',
           align: 'left',
           baseline: 'top',
         },
-        { kind: 'circle', x: 20, y: 20, radius: 5, color: '#ff0000' },
+        { kind: 'circle', x: 30, y: 10, radius: 5, color: '#ff0000' },
       ],
       1,
     ),
-    'Mixed batch should fail atomically',
+    'Text batch should be replayed by Canvas',
   )
-  const pixel = target.getImageData(10, 10, 1, 1).data
-  check(
-    pixel[0] === 0 && pixel[1] === 255 && pixel[2] === 0,
-    'Failed mixed batch polluted visible target',
-  )
+  check(created === 1, 'Text batch created a GPU device')
+  const textPixel = target.getImageData(30, 30, 1, 1).data
+  check(textPixel[0] === 255 && textPixel[1] === 0, 'Text batch lost its geometry')
   backend.dispose()
 }
 
