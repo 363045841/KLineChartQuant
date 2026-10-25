@@ -11,7 +11,7 @@ import {
 import { releaseProxy, wrap } from 'comlink'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from './types.js'
 import { renderScriptHover } from './renderScriptHover.js'
-import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker&inline'
+import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker'
 import { scriptSignatureHelp } from './scriptSignatureHelp.js'
 
 /** 为当前编辑器创建服务；dispose 在初始化尚未结束时也能终止 Worker。 */

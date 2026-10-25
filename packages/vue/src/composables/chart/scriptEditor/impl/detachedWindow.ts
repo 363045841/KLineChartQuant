@@ -3,13 +3,20 @@
  *
  * 新窗口执行独立页面，宿主仅管理消息通道、窗口生命周期和主题镜像。
  */
-import editorPage from 'virtual:klinechart-script-editor-page'
 import {
   type DetachedEditorConnection,
   type DetachedEditorEvent,
   type DetachedEditorSnapshot,
   SCRIPT_EDITOR_WINDOW_CHANNEL,
 } from '../windowTypes.js'
+
+/** 页面资源清单；清单本身也按需加载，首屏不为未打开的编辑器付出代价。 */
+type EditorPageAssets = typeof import('virtual:klinechart-script-editor-page')['default']
+
+/** 真正打开窗口时才取页面资源，dev 下不再随首屏构建整套编辑器页。 */
+async function loadEditorPage(): Promise<EditorPageAssets> {
+  return (await import('virtual:klinechart-script-editor-page')).default
+}
 
 /** 独立编辑器窗口的初始尺寸（px）。 */
 const DETACHED_WINDOW_SIZE = { width: 760, height: 560 } as const
@@ -123,7 +130,6 @@ export function openDetachedWindow(
     editorWindow.close()
   }
   window.addEventListener('pagehide', dispose)
-  // 先启动基础编辑器；语言服务仍在 useCodeMirror 中异步加载，不阻塞首屏。
   editorWindow.document.open()
   editorWindow.document.write(
     '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body></body></html>',
@@ -132,18 +138,34 @@ export function openDetachedWindow(
   const base = editorWindow.document.createElement('base')
   base.href = document.baseURI
   editorWindow.document.head.prepend(base)
-  for (const href of editorPage.styles) {
-    const link = editorWindow.document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = new URL(href, document.baseURI).href
-    editorWindow.document.head.append(link)
-  }
   stopMirroring = mirrorDocumentShell(document, editorWindow.document, styleHost)
-  const script = editorWindow.document.createElement('script')
-  script.type = 'module'
-  script.src = new URL(editorPage.script, document.baseURI).href
-  script.addEventListener('error', () => fail(new Error('独立编辑器入口加载失败')), { once: true })
-  editorWindow.document.body.append(script)
+
+  /** 资源清单到位后再注入样式与入口；等待期间窗口只显示空白文档。 */
+  async function mountEditorPage(): Promise<void> {
+    let page: EditorPageAssets
+    try {
+      page = await loadEditorPage()
+    } catch (error) {
+      if (!disposed) fail(error instanceof Error ? error : new Error('独立编辑器资源加载失败'))
+      return
+    }
+    if (disposed) return
+    for (const href of page.styles) {
+      const link = editorWindow.document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = new URL(href, document.baseURI).href
+      editorWindow.document.head.append(link)
+    }
+    const script = editorWindow.document.createElement('script')
+    script.type = 'module'
+    script.src = new URL(page.script, document.baseURI).href
+    script.addEventListener('error', () => fail(new Error('独立编辑器入口加载失败')), {
+      once: true,
+    })
+    editorWindow.document.body.append(script)
+  }
+
+  void mountEditorPage()
   editorWindow.focus()
   return {
     window: editorWindow,

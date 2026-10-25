@@ -1,36 +1,24 @@
-/** 对最终页面内嵌的真实语言 Worker 做回归测试，防止源码测试通过而打包带入旧声明。 */
+/** 对最终页面产物的真实语言 Worker 做回归测试，防止源码测试通过而打包带入旧声明。 */
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import { Worker } from 'node:worker_threads'
 import { SCRIPT_SOURCE_FILE } from '@363045841yyt/klinechart-script/language'
-import ts from 'typescript'
 import { buildScriptEditorPage } from './script-editor-page-plugin.mjs'
 
 const serverRequire = createRequire(new URL('../../script-server/package.json', import.meta.url))
 const { wrap, releaseProxy } = serverRequire('comlink')
 const nodeEndpoint = serverRequire('comlink/dist/umd/node-adapter.js')
 
-/** 从 Vite inline Worker 的字符串字面量读取实际执行源码，交给 TS 正确还原转义。 */
+/** 语言 Worker 是独立产物文件，直接按名字取源码，不再从页面脚本里反解字符串。 */
 function languageWorkerSource(page) {
-  let source
-  for (const file of page.files) {
-    if (!file.name.endsWith('.js') || typeof file.source !== 'string') continue
-    const program = ts.createSourceFile(file.name, file.source, ts.ScriptTarget.Latest)
-    function visit(node) {
-      if (
-        ts.isStringLiteral(node) &&
-        node.text.includes('/editor/globals.d.ts') &&
-        node.text.includes('postMessage')
-      ) {
-        source = node.text
-      }
-      if (!source) ts.forEachChild(node, visit)
-    }
-    visit(program)
-    if (source) return source
+  const worker = page.files.find(
+    (file) => file.name.endsWith('.js') && /(^|\/)scriptLanguage\.worker-/.test(file.name),
+  )
+  if (!worker || typeof worker.source !== 'string') {
+    throw new Error('独立编辑器产物中没有找到语言 Worker')
   }
-  throw new Error('独立编辑器产物中没有找到语言 Worker')
+  return worker.source
 }
 
 /** 在线程中补齐 Comlink 使用的浏览器消息接口，执行未经改写的 Worker 产物。 */

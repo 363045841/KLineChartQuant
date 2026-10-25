@@ -7,6 +7,8 @@ import dts from 'vite-plugin-dts'
  * 宿主依赖保持 external，由 App 侧统一提供，避免重复打包。
  */
 export default defineConfig({
+  // 语言 Worker 作为独立产物随包发布，URL 必须是模块相对路径，宿主才能按自身部署位置解析。
+  base: './',
   plugins: [
     dts({
       tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)),

@@ -1,4 +1,5 @@
 /** 为独立编辑器生成页面资源，基础编辑器与按需语言服务分别加载。 */
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import babel from 'vite-plugin-babel'
 import vue from '@vitejs/plugin-vue'
@@ -53,9 +54,37 @@ function createSourceAliases() {
   ]
 }
 
+/**
+ * 语言 Worker 由 Vite 的独立子构建打包，产物里拿不到模块清单，
+ * 只能按它仅有的两个源码根判定；其余依赖一律由主构建的模块清单给出。
+ */
+const workerSourceRoots = [
+  path.join(repoRoot, 'packages/script/src'),
+  path.join(repoRoot, 'packages/script-server/src'),
+]
+
+/**
+ * 收集嵌套构建的模块文件路径，供 dev 精确判断哪些改动需要重建编辑器页。
+ * @param outputs 嵌套构建的输出
+ * @returns 绝对路径集合
+ */
+function collectModules(outputs) {
+  const modules = new Set()
+  for (const output of outputs) {
+    for (const item of output.output) {
+      if (item.type !== 'chunk') continue
+      for (const id of Object.keys(item.modules)) {
+        if (!id.startsWith('\0')) modules.add(path.resolve(id))
+      }
+    }
+  }
+  return modules
+}
+
 /** 构建独立模块图；保留语言服务的动态导入，使首屏不等待 LSP 下载和解析。 */
 export async function buildScriptEditorPage() {
   const result = await build({
+    base: './',
     configFile: false,
     root: packageRoot,
     logLevel: 'warn',
@@ -95,15 +124,25 @@ export async function buildScriptEditorPage() {
     }
   }
   if (!script) throw new Error('独立脚本编辑器构建没有生成入口')
-  return { script, styles, files }
+  return { script, styles, files, modules: collectModules(outputs) }
 }
 
 /** 页面资源随库发布；开发服务器直接提供同一模块图，宿主无需额外配置路由。 */
 export function scriptEditorPagePlugin() {
   let bundle
   let devServer
+  /** 当前产物依赖的模块文件；只有命中它们才需要丢弃缓存重建。 */
+  let dependencies = new Set()
   const devFiles = new Map()
   const resourcePath = '__klinechart-script-editor/'
+
+  /** 判断变更文件是否属于编辑器页的真实依赖。 */
+  function isDependency(filename) {
+    const resolved = path.resolve(filename)
+    if (dependencies.has(resolved)) return true
+    return workerSourceRoots.some((root) => resolved.startsWith(`${root}${path.sep}`))
+  }
+
   return {
     name: 'klinechart:script-editor-page',
     configureServer(server) {
@@ -120,9 +159,10 @@ export function scriptEditorPagePlugin() {
       })
     },
     handleHotUpdate(context) {
-      const filename = context.file.replaceAll('\\', '/')
-      if (!watchedSourceRoots.some((root) => filename.startsWith(root))) return
+      // 未构建过就没有产物可失效；无关文件不再触发整页重建。
+      if (!bundle || !isDependency(context.file)) return
       bundle = undefined
+      dependencies = new Set()
       const module = context.server.moduleGraph.getModuleById(resolvedId)
       if (module) return [...context.modules, module]
     },
@@ -131,7 +171,17 @@ export function scriptEditorPagePlugin() {
     },
     async load(id) {
       if (id !== resolvedId) return
-      bundle ??= buildScriptEditorPage()
+      // 构建失败不缓存，避免一次偶发错误让编辑器页在本次 dev 会话里永久不可用。
+      bundle ??= buildScriptEditorPage().then(
+        (built) => {
+          dependencies = built.modules
+          return built
+        },
+        (error) => {
+          bundle = undefined
+          throw error
+        },
+      )
       const page = await bundle
       const urls = new Map()
       for (const file of page.files) {
