@@ -34,6 +34,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* 窄屏不做压缩：按钮保持 26px，宽度不够时交给父级 overflow-x 横向滚动。 */
+    flex: 0 0 auto;
     height: 26px;
     padding: 0 10px;
     border: none;
