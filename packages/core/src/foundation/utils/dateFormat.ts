@@ -1,3 +1,4 @@
+/** 图表显示时间的统一格式化层：按显示时区产出轴标签与十字线文本。 */
 export type DisplayTimeZoneSetting = 'UTC' | 'local'
 
 export type AxisDateLabel = { text: string; isYear: boolean }
@@ -6,6 +7,8 @@ type Timestamped = { timestamp: number }
 export interface DisplayTimeFormatter {
   readonly timeZone: string
   formatDate(timestamp: number): string
+  /** 十字线时间签：周几在日期之前（如 `周三 2026-08-19`）。 */
+  formatDateWithWeekday(timestamp: number): string
   formatDateTime(timestamp: number): string
   formatAxisMonthOrYear(timestamp: number): AxisDateLabel
   formatAxisDay(timestamp: number): AxisDateLabel
@@ -46,7 +49,10 @@ export function resolveDisplayTimeZone(setting: DisplayTimeZoneSetting): string 
 export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatter {
   const dateFormatter = createPartsFormatter(timeZone)
   const dateTimeFormatter = createPartsFormatter(timeZone, true)
+  // 周几只用于十字线时间签，与日期共用同一显示时区。
+  const weekdayFormatter = new Intl.DateTimeFormat('zh-CN', { timeZone, weekday: 'short' })
   const dateCache = new Map<number, string>()
+  const dateWithWeekdayCache = new Map<number, string>()
   const dateTimeCache = new Map<number, string>()
   const monthAxisCache = new Map<number, AxisDateLabel>()
   const dayAxisCache = new Map<number, AxisDateLabel>()
@@ -55,6 +61,12 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
 
   const partsAt = (timestamp: number, withTime = false): DateParts =>
     readParts(withTime ? dateTimeFormatter : dateFormatter, timestamp)
+
+  const formatDateAt = (timestamp: number): string =>
+    getOrCreate(dateCache, timestamp, DATE_CACHE_LIMIT, () => {
+      const { year, month, day } = partsAt(timestamp)
+      return `${year}-${month}-${day}`
+    })
 
   const indexFor = (data: ReadonlyArray<Timestamped>): KeyIndex => {
     const cached = keyIndexes.get(data)
@@ -115,10 +127,10 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
 
   return {
     timeZone,
-    formatDate(timestamp) {
-      return getOrCreate(dateCache, timestamp, DATE_CACHE_LIMIT, () => {
-        const { year, month, day } = partsAt(timestamp)
-        return `${year}-${month}-${day}`
+    formatDate: formatDateAt,
+    formatDateWithWeekday(timestamp) {
+      return getOrCreate(dateWithWeekdayCache, timestamp, DATE_CACHE_LIMIT, () => {
+        return `${weekdayFormatter.format(timestamp)} ${formatDateAt(timestamp)}`
       })
     },
     formatDateTime(timestamp) {

@@ -23,6 +23,16 @@ describe('display time formatter', () => {
     expect(newYork.getMonthBoundaries(data)).toEqual([0, 1])
   })
 
+  it('prefixes the weekday for crosshair labels in the same display zone', () => {
+    const utc = createDisplayTimeFormatter('UTC')
+    const newYork = createDisplayTimeFormatter('America/New_York')
+    const timestamp = Date.parse('2025-02-01T00:30:00Z')
+
+    expect(utc.formatDateWithWeekday(timestamp)).toBe('周六 2025-02-01')
+    // 周几与日期同时按显示时区换算，不允许一边 UTC 一边本地。
+    expect(newYork.formatDateWithWeekday(timestamp)).toBe('周五 2025-01-31')
+  })
+
   it('handles DST through Intl without offset arithmetic', () => {
     const formatter = createDisplayTimeFormatter('America/New_York')
     expect(formatter.formatDateTime(Date.parse('2025-03-09T06:30:00Z'))).toBe('2025-03-09 01:30')

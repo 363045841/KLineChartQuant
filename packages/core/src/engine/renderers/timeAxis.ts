@@ -35,13 +35,17 @@ function formatTradingDateLabel(tradingDate: string): string {
   return tradingDate.slice(5)
 }
 
-/** 分时/普通 K 线共用的十字线时间文本：分时走市场时段 HH:mm。 */
+/**
+ * 分时/普通 K 线共用的十字线时间文本。
+ *
+ * 分时走市场时段 HH:mm；其余周期在日期前带周几，日期与周几使用同一显示时区。
+ */
 function formatCrosshairTime(context: RenderContext, timestamp: number): string {
   return isTimeSharePeriod(context.period)
     ? getMarketSessionTimeFormatter(
         context.marketSession?.timeZone ?? ASHARE_MARKET_SESSION.timeZone,
       ).formatAxisTime(timestamp)
-    : context.displayTimeFormatter.formatDate(timestamp)
+    : context.displayTimeFormatter.formatDateWithWeekday(timestamp)
 }
 
 /**

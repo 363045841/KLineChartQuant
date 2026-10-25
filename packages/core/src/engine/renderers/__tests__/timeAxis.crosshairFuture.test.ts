@@ -90,7 +90,7 @@ describe('timeAxis draw 越界十字签接线', () => {
 
     const labels = context.axisLabels.forSurface('xCrosshair').labels
     expect(labels).toHaveLength(1)
-    expect(labels[0]?.text).toBe(context.displayTimeFormatter.formatDate(last + 60_000))
+    expect(labels[0]?.text).toBe(context.displayTimeFormatter.formatDateWithWeekday(last + 60_000))
     expect(labels[0]?.pos).toBe(context.paneWidth)
   })
 
@@ -107,7 +107,7 @@ describe('timeAxis draw 越界十字签接线', () => {
     const text = context.axisLabels.forSurface('xCrosshair').labels[0]?.text
     expect(text).toBe(
       expected === 'real'
-        ? context.displayTimeFormatter.formatDate(data[data.length - 1]!.timestamp)
+        ? context.displayTimeFormatter.formatDateWithWeekday(data[data.length - 1]!.timestamp)
         : expected,
     )
   })
