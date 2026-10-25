@@ -489,9 +489,24 @@
     flex-shrink: 0;
   }
 
-  /* Footer 按钮悬浮只保留下划线：去掉背景高亮，下划线由文字下方从中间向两侧展开。 */
-  .base-footer :deep(.base-button) {
+  /* Footer 动作只保留文字：悬浮不出底色，下划线由文字下方从中间向两侧展开。 */
+  .base-footer :deep(.base-button),
+  .base-footer :deep(.control-button) {
     position: relative;
+  }
+
+  /*
+    Footer 里的下拉触发器同样是文本动作：用 control-button 暴露的变量清掉底色、边框与聚焦阴影。
+    变量靠继承生效，不与 control-button 的状态选择器比特异性。
+  */
+  .base-footer :deep(.control-button) {
+    --control-button-border: transparent;
+    --control-button-background: transparent;
+    --control-button-active-border: transparent;
+    --control-button-active-background: transparent;
+    --control-button-focus-border: transparent;
+    --control-button-focus-background: transparent;
+    --control-button-focus-shadow: none;
   }
 
   .base-footer :deep(.base-button:hover:not(:disabled)) {
@@ -504,7 +519,8 @@
     left 50% + 静态 translate 让宽度从中心向两侧生长，长度等于文字宽度（按钮内容区）。
     线高 1px、离按钮下缘 5px：与文字留出间距的同时不贴着按钮下缘。
   */
-  .base-footer :deep(.base-button)::after {
+  .base-footer :deep(.base-button)::after,
+  .base-footer :deep(.control-button)::after {
     content: '';
     position: absolute;
     left: 50%;
@@ -516,13 +532,18 @@
     transition: width var(--klc-motion-dur-fast, 160ms) ease;
   }
 
+  /* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
   .base-footer :deep(.base-button:not(:disabled):hover)::after,
-  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after {
+  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after,
+  .base-footer :deep(.control-button:not(:disabled):hover)::after,
+  .base-footer :deep(.control-button:not(:disabled):focus-visible)::after,
+  .base-footer :deep(.control-button[aria-expanded='true'])::after {
     width: calc(100% - 2 * var(--klc-space-8, 8px));
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .base-footer :deep(.base-button)::after {
+    .base-footer :deep(.base-button)::after,
+    .base-footer :deep(.control-button)::after {
       transition: none;
     }
   }

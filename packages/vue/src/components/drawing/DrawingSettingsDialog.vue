@@ -320,10 +320,26 @@
     width: 100%;
   }
 
-  .template-actions :deep(.drawing-template-menu-trigger) {
-    height: 28px;
-    padding: 0 10px;
-    font-size: 13px;
+  /* 模板下拉触发器按 Footer 文本动作呈现：度量对齐 `BaseButton size="sm"`（保存为模板），不再有按钮盒子。 */
+  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger) {
+    height: var(--base-button-height, 28px);
+    padding: 0 var(--klc-space-8, 8px);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
+    font-weight: 400;
+    line-height: 1.2;
+    transition: color var(--klc-motion-dur-fast, 160ms) ease;
+  }
+
+  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger:hover:not(:disabled)),
+  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger[aria-expanded='true']) {
+    color: var(--klc-color-ui-text);
+  }
+
+  /* control-button 的聚焦提示是边框与底色，清掉后按 BaseButton 的描边补齐键盘焦点。 */
+  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger:focus-visible) {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 2px;
   }
 
 </style>
