@@ -57,6 +57,17 @@ describe('独立主题维度', () => {
     }
   })
 
+  it.each(THEME_PRESETS)('$id 的十字线标签按面板取色，深色下不反相成亮块', (preset) => {
+    const light = preset.schemes.light.colors
+    const dark = preset.schemes.dark.colors
+    // 标签是轴上的控件：浅色用前景底 + 背景字，深色用控件底 + 前景字，
+    // 两种模式都保持暗底浅字，不允许把深色主题反相成近白底块。
+    expect(light.crosshairLabelBg).toBe(light.foreground)
+    expect(light.crosshairLabelText).toBe(light.background)
+    expect(dark.crosshairLabelBg).toBe(dark.ui.controlBackground)
+    expect(dark.crosshairLabelText).toBe(dark.foreground)
+  })
+
   it('Pro 默认深色完整复用项目原版，浅色保留 Paper 基底', () => {
     expect(normalizeSettings().theme).toBe('dark')
     // resolveTheme 只额外挂载 v2 foundation；Theme 四个族仍完整复用原版对象。

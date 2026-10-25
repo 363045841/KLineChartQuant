@@ -5,6 +5,12 @@ import type { ThemePresetId, VisualPalette } from '../types.js'
 
 /** 基于深浅主题生成风格变体；间距、字号、字族与动效一律沿用基础主题。 */
 export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePresetId): Theme {
+  // 十字线标签是轴上的交互控件，不是反相强调块：深色下用控件底色配前景文字，
+  // 浅色下用前景底色配背景文字，与基础主题的语义保持一致，避免近白底块压在深色轴上。
+  const crosshairChip =
+    base.name === 'dark'
+      ? { crosshairLabelBg: p.input, crosshairLabelText: p.text }
+      : { crosshairLabelBg: p.text, crosshairLabelText: p.background }
   const theme: Theme = {
     ...base,
     name: `${id}-${base.name}`,
@@ -22,8 +28,7 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
       selectionStroke: p.accent,
       selectionFill: `${p.accent}26`,
       crosshairLine: p.muted,
-      crosshairLabelBg: p.text,
-      crosshairLabelText: p.background,
+      ...crosshairChip,
       tooltipBg: p.surface,
       tooltipText: p.text,
       tooltipBorder: p.borderStrong,
