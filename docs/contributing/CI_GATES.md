@@ -20,8 +20,9 @@ required, update the table here in the same PR.
 
 ### Package test scheduling
 
-`pnpm test:packages:ci` runs every workspace `test` script without topological
-sorting. Package builds still run in dependency order before this step: tests
+`pnpm test:packages:ci` runs workspace `test` scripts without topological
+sorting, then runs `script-chart` on its own. Package builds still run in
+dependency order before this step: tests
 can consume built workspace exports, but do not need another package's tests
 to finish first. Each package keeps its own Vitest configuration and file isolation.
 
@@ -30,14 +31,21 @@ workers. This caps file workers at six; the two Vitest host processes are
 additional. The modest overcommit on the four-vCPU CI runners accommodates
 worker startup, imports and I/O. Increasing package concurrency or worker counts
 can instead slow the suites down and trigger the script tests' existing timeouts.
+`script-chart` executes the complete built-in script catalog inside its existing
+five-second test deadline. It runs after the parallel phase so that this CPU-heavy
+test does not compete with core transforms or other script execution. It remains
+part of the same required gate, with the same worker cap, isolation and timeout.
 Re-evaluate both limits together when the runner size or test workload changes.
 
 The Node 22 and Node 24 jobs both run the complete package suite. For a local
-comparison, set `TZ=Asia/Shanghai` and use the same machine and cache conditions:
+comparison, set `TZ=Asia/Shanghai`, use the same machine and clear the Vitest
+caches before each run so both commands start cold:
 
 ```bash
-pnpm test:packages --fsModuleCache=false     # existing dependency-ordered baseline
-pnpm test:packages:ci --fsModuleCache=false  # bounded scheduling without dependency waits
+pnpm test:packages --clearCache
+pnpm test:packages     # existing dependency-ordered baseline
+pnpm test:packages --clearCache
+pnpm test:packages:ci  # bounded scheduling, followed by script-chart
 ```
 
 Compare the package-test step's elapsed time, test-file/test counts and exit
