@@ -5,15 +5,19 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 已提交的不可变脚本文档；id 是图表定义身份。 */
-export interface ScriptDocument {
+interface ScriptDocumentFields {
   /** 宿主保存的信任状态，不能由脚本声明自行授予。 */
   readonly trusted: boolean
   readonly identity: 'builtin' | 'user'
   readonly id: string
   readonly revision: number
   readonly source: string
-  readonly definition: IndicatorSourceDefinition
 }
+
+export type ScriptDocument = ScriptDocumentFields & (
+  | { readonly kind: 'indicator'; readonly definition: IndicatorSourceDefinition }
+  | { readonly kind: 'library'; readonly definition: { readonly name: string } }
+)
 
 /** 工厂初始化 VM 并恢复文档；读取同步，写入等待持久化事务。 */
 export interface ScriptService {

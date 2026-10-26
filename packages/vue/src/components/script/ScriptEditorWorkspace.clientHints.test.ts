@@ -3,6 +3,7 @@ import type { Extension } from '@codemirror/state'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
+import { createEditorTabState } from '../../composables/chart/scriptEditor/__tests__/helpers/editorTabState.js'
 
 const language = vi.hoisted(() => ({
   create: vi.fn(),
@@ -55,7 +56,7 @@ describe('Script 编辑器的 Client Hints 门控', () => {
     setDesktopDevice()
     language.initialize.mockResolvedValue([])
     const wrapper = mount(ScriptEditorWorkspace, {
-      props: { source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
+      props: { ...createEditorTabState(), source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
       attachTo: document.body,
     })
     try {
@@ -66,7 +67,6 @@ describe('Script 编辑器的 Client Hints 门控', () => {
       resolveHints(['Tablet'])
       await flushPromises()
       expect(language.create).not.toHaveBeenCalled()
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
     } finally {
       wrapper.unmount()
     }

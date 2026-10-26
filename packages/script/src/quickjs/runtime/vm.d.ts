@@ -34,8 +34,7 @@ type QuickJSScriptDefinition = import('../../quickjs/types.js').QuickJSScriptDef
 /** 宿主注入：按字段与偏移读取行情，历史不足返回 NaN。 */
 declare function __read(field: string, offset: number): number
 
-/** 宿主注入：已推进的 K 线条数。 */
-declare function __count(): number
+// __count 由 runtime-internals.d.ts 声明，运行时与内置库展示共用同一签名。
 /** 宿主注入的本次数据总根数，仅供末根判断。 */
 declare function __barCount(): number
 type DrawingBoxApi = import('@363045841yyt/klinechart-plot-contracts').DrawingBoxApi

@@ -15,9 +15,20 @@ const NAVIGATION: ReadonlyArray<readonly [NavigationKind, string]> = [
   ['implementation', '转到实现'],
 ]
 
+type ClipboardAction = 'copy' | 'paste' | 'cut'
+
 const SHORTCUTS = {
   definition: 'F12', declaration: 'Mod+Shift+F12', typeDefinition: 'Mod+Alt+F12',
   implementation: 'Mod+F12', rename: 'F2', copy: 'Mod+C', paste: 'Mod+V', cut: 'Mod+X',
+  format: 'Shift+Alt+F',
+}
+
+/** F12 修饰键位：1 = Mod，2 = Shift，4 = Alt；未列出的组合不导航。 */
+const F12_NAVIGATION: Readonly<Record<number, NavigationKind>> = {
+  0: 'definition',
+  1: 'implementation',
+  3: 'declaration',
+  5: 'typeDefinition',
 }
 
 /** 菜单使用 Popover 顶层，避免编辑器滚动容器和弹窗裁切。 */
@@ -25,6 +36,8 @@ export function scriptEditorContextMenu(
   support: () => LanguageSupport | undefined,
   editable: () => boolean,
   theme: () => 'light' | 'dark',
+  formatAvailable: () => boolean,
+  format: () => Promise<void>,
 ) {
   return [contextMenuTheme, ViewPlugin.define((view) => {
     const document = view.dom.ownerDocument
@@ -59,6 +72,11 @@ export function scriptEditorContextMenu(
       fit()
     }
 
+    /** 判断快捷键展示与 Mod 含义是否使用 Mac 平台。 */
+    function isMac(): boolean {
+      return /Mac|iPhone|iPad/.test(document.defaultView?.navigator.platform ?? '')
+    }
+
     /** 创建整行菜单按钮，操作失败时给出可见提示。 */
     function button(label: string, action: () => void | Promise<void>, disabled = false, shortcut = '', disabledReason = ''): HTMLButtonElement {
       const element = document.createElement('button')
@@ -67,7 +85,7 @@ export function scriptEditorContextMenu(
       if (shortcut) {
         const hint = document.createElement('span')
         hint.className = 'cm-script-menu-shortcut'
-        hint.textContent = shortcut.replace('Mod', /Mac|iPhone|iPad/.test(document.defaultView?.navigator.platform ?? '') ? '⌘' : 'Ctrl')
+        hint.textContent = shortcut.replace('Mod', isMac() ? '⌘' : 'Ctrl')
         element.append(hint)
       }
       element.disabled = disabled
@@ -220,7 +238,7 @@ export function scriptEditorContextMenu(
     }
 
     /** 剪贴板读写使用编辑器所属窗口，异步完成前保留原始选区与文档。 */
-    async function clipboard(action: 'copy' | 'cut' | 'paste'): Promise<void> {
+    async function clipboard(action: ClipboardAction): Promise<void> {
       const api = document.defaultView?.navigator.clipboard
       if (!api) throw new Error('当前环境无法访问剪贴板')
       const original = view.state.doc
@@ -261,6 +279,9 @@ export function scriptEditorContextMenu(
       for (const [kind, label] of NAVIGATION) button(label, () => navigate(kind), !support(), SHORTCUTS[kind])
       const renameBlocked = !support() ? '语言服务正在加载' : !editable() ? '内置脚本只读，创建副本后可重命名' : ''
       button('重命名', rename, Boolean(renameBlocked), SHORTCUTS.rename, renameBlocked)
+      const formatBlocked = !editable() ? '内置脚本只读，创建副本后可格式化' : !formatAvailable() ? '语言服务正在加载' : ''
+      // 格式化只影响当前文档，完成后关闭菜单并把焦点交回编辑器。
+      button('格式化文档', async () => { await format(); close(true) }, Boolean(formatBlocked), SHORTCUTS.format, formatBlocked)
       const separator = document.createElement('div')
       separator.setAttribute('role', 'separator')
       panel.append(separator)
@@ -275,49 +296,71 @@ export function scriptEditorContextMenu(
       if (event instanceof KeyboardEvent) panel.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
     }
 
-    /** 菜单键盘导航和关闭不交给编辑器或宿主弹窗。 */
-    function keydown(event: KeyboardEvent): void {
-      const mac = /Mac|iPhone|iPad/.test(document.defaultView?.navigator.platform ?? '')
-      const mod = mac ? event.metaKey : event.ctrlKey
-      const otherMod = mac ? event.ctrlKey : event.metaKey
-      if (panel.matches(':popover-open') && panel.getAttribute('role') === 'menu' && mod && !otherMod && !event.shiftKey && !event.altKey) {
-        const action = event.key.toLowerCase() === 'c' ? 'copy' : event.key.toLowerCase() === 'v' ? 'paste' : event.key.toLowerCase() === 'x' ? 'cut' : null
-        if (action) {
-          event.preventDefault()
-          event.stopPropagation()
-          const empty = view.state.selection.ranges.every((range) => range.empty)
-          if ((action !== 'copy' && !editable()) || (action !== 'paste' && empty)) return
-          const current = generation
-          void clipboard(action).catch((error: unknown) => {
-            if (current === generation) message(error instanceof Error ? error.message : String(error))
-          })
-          return
-        }
+    /** 菜单打开时接管 Mod+C/V/X，避免编辑器先处理剪贴板。 */
+    function handleClipboardShortcut(event: KeyboardEvent, mod: boolean, otherMod: boolean): boolean {
+      if (!panel.matches(':popover-open') || panel.getAttribute('role') !== 'menu' || !mod || otherMod || event.shiftKey || event.altKey) return false
+      const key = event.key.toLowerCase()
+      const action: ClipboardAction | null = key === 'c' ? 'copy' : key === 'v' ? 'paste' : key === 'x' ? 'cut' : null
+      if (!action) return false
+      event.preventDefault()
+      event.stopPropagation()
+      const empty = view.state.selection.ranges.every((range) => range.empty)
+      if ((action !== 'copy' && !editable()) || (action !== 'paste' && empty)) return true
+      const current = generation
+      void clipboard(action).catch((error: unknown) => {
+        if (current === generation) message(error instanceof Error ? error.message : String(error))
+      })
+      return true
+    }
+
+    /** 把 F12 组合解析成导航类型，其他按键返回 null。 */
+    function navigationKind(event: KeyboardEvent, mod: boolean): NavigationKind | null {
+      if (event.key !== 'F12') return null
+      // 位掩码：1 = Mod，2 = Shift，4 = Alt；未列出的组合不映射。
+      const modifiers = (mod ? 1 : 0) + (event.shiftKey ? 2 : 0) + (event.altKey ? 4 : 0)
+      return F12_NAVIGATION[modifiers] ?? null
+    }
+
+    /** F12 系列与 F2 只在焦点不在菜单内时生效。 */
+    function handleLanguageShortcut(event: KeyboardEvent, mod: boolean, otherMod: boolean): boolean {
+      if (panel.contains(event.target instanceof Node ? event.target : null) || otherMod) return false
+      const kind = navigationKind(event, mod)
+      if (kind && support()) {
+        open(event)
+        void navigate(kind).catch((error: unknown) => message(error instanceof Error ? error.message : String(error)))
+        return true
       }
-      if (!panel.contains(event.target instanceof Node ? event.target : null) && !otherMod) {
-        const kind = event.key === 'F12'
-          ? !mod && !event.shiftKey && !event.altKey ? 'definition'
-            : mod && event.shiftKey && !event.altKey ? 'declaration'
-              : mod && event.altKey && !event.shiftKey ? 'typeDefinition'
-                : mod && !event.altKey && !event.shiftKey ? 'implementation' : null
-          : null
-        if (kind && support()) {
-          open(event)
-          void navigate(kind).catch((error: unknown) => message(error instanceof Error ? error.message : String(error)))
-          return
-        }
-        if (event.key === 'F2' && !mod && !event.altKey && !event.shiftKey && support() && editable()) {
-          open(event)
-          rename()
-          return
-        }
+      if (event.key === 'F2' && !mod && !event.altKey && !event.shiftKey && support() && editable()) {
+        open(event)
+        rename()
+        return true
       }
-      if (!panel.matches(':popover-open')) {
-        if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) open(event)
+      return false
+    }
+
+    /** 菜单未打开时接管格式化快捷键；语言服务不可用时也阻止浏览器默认行为。 */
+    function handleFormatShortcut(event: KeyboardEvent, mod: boolean, otherMod: boolean): boolean {
+      if (!event.shiftKey || !event.altKey || mod || otherMod || event.key.toLowerCase() !== 'f') return false
+      if (formatAvailable()) {
+        event.preventDefault()
+        event.stopPropagation()
+        void format().catch((error: unknown) => message(error instanceof Error ? error.message : String(error)))
+      }
+      return true
+    }
+
+    /** 已打开菜单内的 Escape、Tab 和方向键导航。 */
+    function handleMenuNavigation(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        close(true)
         return
       }
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); return }
-      if (event.key === 'Tab') { close(true); return }
+      if (event.key === 'Tab') {
+        close(true)
+        return
+      }
       if (panel.getAttribute('role') !== 'menu' || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
       event.preventDefault()
       event.stopPropagation()
@@ -325,6 +368,21 @@ export function scriptEditorContextMenu(
       const index = buttons.findIndex((element) => element === document.activeElement)
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
       buttons[next]?.focus()
+    }
+
+    /** 菜单键盘导航和关闭不交给编辑器或宿主弹窗。 */
+    function keydown(event: KeyboardEvent): void {
+      const mac = isMac()
+      const mod = mac ? event.metaKey : event.ctrlKey
+      const otherMod = mac ? event.ctrlKey : event.metaKey
+      if (handleClipboardShortcut(event, mod, otherMod)) return
+      if (handleLanguageShortcut(event, mod, otherMod)) return
+      if (!panel.matches(':popover-open')) {
+        if (handleFormatShortcut(event, mod, otherMod)) return
+        if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) open(event)
+        return
+      }
+      handleMenuNavigation(event)
     }
 
     /** 点击面板外关闭，保持编辑器选区不因菜单按钮而丢失。 */

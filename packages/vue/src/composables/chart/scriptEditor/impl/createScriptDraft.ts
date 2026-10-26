@@ -6,10 +6,10 @@ import type { ScriptSourceStore } from '../types.js'
 type SourceEdit = { start: number; end: number; text: string }
 
 /** 为新建脚本或官方副本生成不与现有文档冲突的名称。 */
-export function uniqueScriptName(store: ScriptSourceStore, base: string): string {
+export function uniqueScriptName(store: Pick<ScriptSourceStore, 'read'> | undefined, base: string, reserved: readonly string[] = []): string {
   let name = base
   let suffix = 2
-  while (store.read(name)) name = `${base} ${suffix++}`
+  while (store?.read(name) || reserved.includes(name)) name = `${base} ${suffix++}`
   return name
 }
 
@@ -72,4 +72,9 @@ export async function createCopySource(source: string, name: string): Promise<st
 /** 新建脚本提供可直接保存的独立声明。 */
 export function createBlankSource(name: string): string {
   return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  position: Position.Sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
+}
+
+/** 库模板仅公开可复用函数，不生成指标或绘图入口。 */
+export function createLibrarySource(name: string): string {
+  return `// 用户自定义库\ndefineLibrary(${JSON.stringify(name)}, {\n  /** 平滑价格序列。 */\n  smooth(source: Series, length: number): Series {\n    return ta.sma(source, length)\n  },\n})\n`
 }

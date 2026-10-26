@@ -347,7 +347,18 @@
       @confirm="handleSettingsChange({ ...chartSettings, ...$event }); footprintSettingsOpen = false"
     />
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
-    <ScriptEditorDialog
+    <ScriptEditorHost
+      mode="dialog"
+      :tabs="scriptEditorSession.tabs.value"
+      :active-tab-id="scriptEditorSession.activeTabId.value"
+      @select-tab="scriptEditorSession.selectTab($event)"
+      @close-tab="scriptEditorSession.closeTab($event)"
+      :kind="scriptEditorSession.kind.value"
+      :documents="scriptEditorSession.documents.value"
+      :libraries="scriptEditorSession.libraries.value"
+      @create-script="scriptEditorSession.openBlank($event)"
+      @open-script="scriptEditorSession.openFor($event)"
+      @refresh-documents="scriptEditorSession.refreshDocuments()"
       v-model:open="scriptEditorOpen"
       v-model:source="scriptEditorSource"
       v-model:trusted="scriptEditorTrusted"
@@ -436,7 +447,7 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import ScriptEditorDialog from '@vue-src/components/script/ScriptEditorDialog.vue'
+  import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'

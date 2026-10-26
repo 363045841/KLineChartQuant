@@ -10,7 +10,7 @@ import {
   openDetachedWindow,
   supportsDetachedWindow,
 } from './scriptEditor/impl/detachedWindow.js'
-import type { DetachedEditorEvent, DetachedEditorSnapshot } from './scriptEditor/windowTypes.js'
+import type { DetachedEditorCommand, DetachedEditorEvent, DetachedEditorNavigationCommand, DetachedEditorSnapshot } from './scriptEditor/windowTypes.js'
 import type { ScriptEditorSession } from './useScriptEditor.js'
 
 /** 独立窗口会话的状态与操作。 */
@@ -43,6 +43,11 @@ export function useScriptEditorWindow(
   /** 快照只包含跨窗口可克隆的数据，不共享 Vue 引用或语言服务实例。 */
   function snapshot(): DetachedEditorSnapshot {
     return {
+      tabs: session.tabs.value,
+      activeTabId: session.activeTabId.value,
+      kind: session.kind.value,
+      documents: session.documents.value,
+      libraries: session.libraries.value,
       title: session.name.value ? `编辑脚本 · ${session.name.value}` : title,
       source: session.source.value,
       trusted: session.trusted.value,
@@ -56,17 +61,51 @@ export function useScriptEditorWindow(
     }
   }
 
+  /** 把当前标签的草稿写回会话；迟到文本或切换到其他标签时返回 false。 */
+  function applyDraft(window: DetachedWindow, message: DetachedEditorCommand): boolean {
+    if (message.editVersion < editVersion) return false
+    editVersion = message.editVersion
+    if (message.activeTabId !== session.activeTabId.value) {
+      window.update(snapshot())
+      return false
+    }
+    session.source.value = message.source
+    session.trusted.value = message.trusted
+    return true
+  }
+
+  /** 判断消息是否只是标签导航，命令类继续走保存/复制/返回。 */
+  function isNavigation(message: DetachedEditorCommand): message is DetachedEditorNavigationCommand {
+    return message.type === 'select-tab' || message.type === 'close-tab' || message.type === 'create-script' || message.type === 'open-script'
+  }
+
+  /** 在独立窗口内切换标签；结果同步回宿主，避免两处会话分叉。 */
+  function navigate(message: DetachedEditorNavigationCommand): void {
+    if (message.type === 'select-tab') session.selectTab(message.id)
+    else if (message.type === 'close-tab') session.closeTab(message.id)
+    else if (message.type === 'create-script') session.openBlank(message.kind)
+    else session.openFor(message.id)
+  }
+
   /** 按端口消息顺序接收草稿，保存与返回始终使用命令携带的最新文本。 */
   function onMessage(message: DetachedEditorEvent): void {
-    if (message.type === 'ready' || !detached) return
+    const window = detached
+    if (message.type === 'ready' || !window) return
+    if (message.type === 'refresh-documents') {
+      session.refreshDocuments()
+      return
+    }
     if (message.type === 'clear-output') {
       session.clearOutput()
       return
     }
-    if (message.editVersion < editVersion) return
-    editVersion = message.editVersion
-    session.source.value = message.source
-    session.trusted.value = message.trusted
+    if (!applyDraft(window, message)) return
+    if (isNavigation(message)) {
+      navigate(message)
+      session.open.value = false
+      window.update(snapshot())
+      return
+    }
     if (message.type === 'save') void session.save()
     else if (message.type === 'create-copy') void session.createCopy()
     else if (message.type === 'return') returnToDialog()
@@ -128,6 +167,11 @@ export function useScriptEditorWindow(
       session.error,
       session.name,
       session.logs,
+      session.kind,
+      session.documents,
+      session.libraries,
+      session.tabs,
+      session.activeTabId,
       theme,
     ],
     () => detached?.update(snapshot()),

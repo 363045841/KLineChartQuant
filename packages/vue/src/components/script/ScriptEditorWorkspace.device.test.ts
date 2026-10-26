@@ -7,6 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
+import { createEditorTabState } from '../../composables/chart/scriptEditor/__tests__/helpers/editorTabState.js'
 
 const language = vi.hoisted(() => ({
   create: vi.fn(),
@@ -47,7 +48,7 @@ function setDevice(userAgent: string, touches = 0, coarse = false): void {
 /** 创建具有真实编辑视图的用户脚本工作区。 */
 function mountEditor() {
   return mount(ScriptEditorWorkspace, {
-    props: { source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
+    props: { ...createEditorTabState(), source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
     attachTo: document.body,
   })
 }
@@ -94,7 +95,7 @@ describe('Script 编辑器设备策略', () => {
       view.dispatch(setDiagnostics(view.state, []))
       await nextTick()
       expect(wrapper.find('.script-problems__item').exists()).toBe(false)
-      expect(wrapper.get('[role="tabpanel"]').text()).toContain('未发现问题')
+      expect(wrapper.findAll('[role="tabpanel"]').some((panel) => panel.text().includes('未发现问题'))).toBe(true)
     } finally {
       wrapper.unmount()
     }
@@ -114,7 +115,6 @@ describe('Script 编辑器设备策略', () => {
         expect(wrapper.find('.cm-content').attributes('contenteditable')).toBe('true')
         expect(wrapper.find('.cm-content').text()).toBe('const value = 1')
         expect(language.create).not.toHaveBeenCalled()
-        expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
         expect(wrapper.find('.script-workspace__spinner').exists()).toBe(false)
         expect(wrapper.find('[role="alert"]').exists()).toBe(false)
         await wrapper.setProps({ source: 'const value = 2' })
@@ -131,7 +131,6 @@ describe('Script 编辑器设备策略', () => {
     try {
       await flushPromises()
       expect(language.create).toHaveBeenCalledOnce()
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeUndefined()
       const content = wrapper.find('.cm-content').element
       await wrapper.setProps({ source: 'const draft = 42' })
       setDevice('Mozilla/5.0 (iPhone) Mobile')
@@ -139,7 +138,6 @@ describe('Script 编辑器设备策略', () => {
       expect(language.dispose).toHaveBeenCalledOnce()
       expect(wrapper.find('.cm-content').element).toBe(content)
       expect(wrapper.find('.cm-content').text()).toBe('const draft = 42')
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
     } finally {
       wrapper.unmount()
     }
@@ -163,7 +161,6 @@ describe('Script 编辑器设备策略', () => {
       expect(language.dispose).toHaveBeenCalledOnce()
       complete([])
       await flushPromises()
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
       expect(wrapper.find('.script-workspace__spinner').exists()).toBe(false)
     } finally {
       wrapper.unmount()

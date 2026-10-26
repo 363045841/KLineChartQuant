@@ -65,6 +65,20 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-muted)',
   },
   '.cm-foldGutter .cm-gutterElement:hover svg': { color: 'var(--klc-color-ui-text)' },
+  // CodeMirror 默认折叠占位符是固定浅灰，必须用主题变量覆盖，否则深色模式下会发白。
+  '.cm-foldPlaceholder': {
+    backgroundColor: 'var(--klc-color-ui-control-background)',
+    border: '1px solid var(--klc-color-ui-border)',
+    borderRadius: 'var(--klc-radius-xs, 4px)',
+    color: 'var(--klc-color-ui-muted)',
+    margin: '0 1px',
+    padding: '0 1px',
+    cursor: 'pointer',
+  },
+  '.cm-foldPlaceholder:hover': {
+    backgroundColor: 'var(--klc-color-ui-hover)',
+    color: 'var(--klc-color-ui-text)',
+  },
   '.cm-activeLine': {
     backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-text) 4%, transparent)',
   },

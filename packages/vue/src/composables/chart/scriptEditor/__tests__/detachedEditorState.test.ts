@@ -2,10 +2,12 @@
 import { describe, expect, it } from 'vitest'
 import { createDetachedEditorState } from '../impl/detachedEditorState.js'
 import type { DetachedEditorCommand, DetachedEditorSnapshot } from '../windowTypes.js'
+import { createEditorTabState } from './helpers/editorTabState.js'
 
 /** 生成宿主首次交接给新页面的已保存草稿。 */
 function initialSnapshot(): DetachedEditorSnapshot {
   return {
+    ...createEditorTabState(),
     title: '编辑脚本',
     source: 'const a = 1',
     trusted: true,
@@ -57,6 +59,7 @@ describe('独立编辑器草稿', () => {
         source: 'const latest = 42',
         trusted: true,
         editVersion: 2,
+        activeTabId: 'test-tab',
       })
     },
   )

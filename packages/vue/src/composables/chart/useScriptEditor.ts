@@ -1,208 +1,245 @@
-/**
- * 脚本编辑器会话：管理打开状态、当前脚本与草稿。
- *
- * 源码由宿主提供的仓库管理；编辑器只持有当前草稿，不维护第二份注册表。
- */
-
+/** 多文档编辑会话：标签页持有各自草稿，当前编辑字段只投影活动标签。 */
 import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
-import { onScopeDispose, type Ref, ref, shallowRef, watch } from 'vue'
-import {
-  createBlankSource,
-  createCopySource,
-  uniqueScriptName,
-} from './scriptEditor/impl/createScriptDraft.js'
-import type { ScriptIdentity, ScriptSourceStore } from './scriptEditor/types.js'
+import { computed, onScopeDispose, type Ref, ref, shallowRef, watch } from 'vue'
+import { createBlankSource, createCopySource, createLibrarySource, uniqueScriptName } from './scriptEditor/impl/createScriptDraft.js'
+import type { ScriptEditorDocument, ScriptEditorTab, ScriptIdentity, ScriptSourceStore } from './scriptEditor/types.js'
 
-/** 一个图表实例持有的编辑器会话状态与操作。 */
+/** 文档草稿和已提交基线归同一个标签，切换时不复制当前编辑字段。 */
+interface EditorDraft {
+  id: string
+  definitionId: string | null
+  name: string | null
+  title: string
+  kind: 'indicator' | 'library'
+  identity: ScriptIdentity
+  source: string
+  trusted: boolean
+  revision: number | null
+  baselineSource: string
+  baselineTrusted: boolean
+  saved: boolean
+  error: string | null
+}
+
+/** 一个图表的编辑标签、当前草稿投影与仓库操作。 */
 export interface ScriptEditorSession {
+  readonly tabs: Readonly<Ref<readonly ScriptEditorTab[]>>
+  readonly activeTabId: Ref<string | null>
+  selectTab(id: string): void
+  closeTab(id: string): void
+  readonly kind: Readonly<Ref<'indicator' | 'library'>>
+  readonly documents: Ref<readonly ScriptEditorDocument[]>
+  readonly libraries: Readonly<Ref<readonly { name: string; source: string }[]>>
+  refreshDocuments(): void
   readonly logs: Ref<readonly LogEvent[]>
   clearOutput(): void
-  /** 最近提交的显示名称，独立于框架生成的身份。 */
-  readonly name: Ref<string | null>
-  readonly identity: Ref<ScriptIdentity>
+  readonly name: Readonly<Ref<string | null>>
+  readonly identity: Readonly<Ref<ScriptIdentity>>
   readonly saving: Ref<boolean>
-  /** 从当前内置源码创建独立的用户草稿。 */
   createCopy(): Promise<void>
-  /** 编辑器是否打开。 */
   readonly open: Ref<boolean>
-  /** 当前编辑的脚本所属指标定义 id。 */
-  readonly definitionId: Ref<string | null>
-  /** 草稿源码，编辑期间不写回注册表。 */
+  readonly definitionId: Readonly<Ref<string | null>>
   readonly source: Ref<string>
-  /** 当前源码的信任草稿；随保存一并提交。 */
   readonly trusted: Ref<boolean>
-  /** 保存校验失败时的可读错误。 */
-  readonly error: Ref<string | null>
-  /** 最近一次保存是否成功；草稿再次变化或重新打开时复位。 */
-  readonly saved: Ref<boolean>
-  /** 打开编辑器并载入该指标的当前源码。 */
-  openFor(definitionId: string): void
-  /** 打开编辑器并留空源码，用于新建脚本。 */
-  openBlank(): void
-  /** 关闭编辑器并清空当前脚本身份。 */
+  readonly error: Readonly<Ref<string | null>>
+  readonly saved: Readonly<Ref<boolean>>
+  openFor(id: string): void
+  openBlank(kind?: 'indicator' | 'library'): void
   close(): void
-  /** 把草稿写回注册表。 */
   save(): Promise<void>
 }
 
-/** 创建脚本编辑器会话；每个图表实例独立，不共享开关状态。 */
+/** 判断草稿是否还没有提交，含未保存的新建文档。 */
+function isDirty(draft: EditorDraft): boolean {
+  return draft.definitionId === null || draft.source !== draft.baselineSource || draft.trusted !== draft.baselineTrusted
+}
+
+/** 草稿字段默认值只写一次；新建和打开文件只声明差异，避免结构漂移。 */
+type DraftSeed = Pick<EditorDraft, 'id' | 'title' | 'kind' | 'source'> & Partial<Omit<EditorDraft, 'id' | 'title' | 'kind' | 'source'>>
+
+function createDraft(seed: DraftSeed): EditorDraft {
+  return {
+    definitionId: null,
+    name: null,
+    trusted: false,
+    identity: 'user',
+    revision: null,
+    baselineSource: '',
+    baselineTrusted: false,
+    saved: false,
+    error: null,
+    ...seed,
+  }
+}
+
+/** 创建会话；关闭编辑器不丢弃标签，显式关闭标签才移除草稿。 */
 export function useScriptEditor(store: ScriptSourceStore | undefined): ScriptEditorSession {
   const open = ref(false)
-  const definitionId = ref<string | null>(null)
+  const saving = ref(false)
+  const activeTabId = ref<string | null>(null)
+  const drafts = shallowRef<readonly EditorDraft[]>([])
+  const current = computed(() => drafts.value.find((item) => item.id === activeTabId.value))
+  const documents = shallowRef<readonly ScriptEditorDocument[]>([])
+  // 内置库的类型由编译器契约提供，编辑器只同步用户库，避免重复声明 ta。
+  const libraries = computed(() => documents.value.filter((item) => item.kind === 'library' && item.identity === 'user').map((item) => ({ name: item.definition.name, source: item.source })))
+  const tabs = computed<readonly ScriptEditorTab[]>(() => drafts.value.map((item) => ({ id: item.id, definitionId: item.definitionId, title: item.title, kind: item.kind, dirty: isDirty(item) })))
+  let sequence = 0
+
+  /** 按标签身份更新不可变草稿，异步保存结果不落到其他文件。 */
+  function update(id: string, changes: Partial<EditorDraft>): void {
+    drafts.value = drafts.value.map((item) => item.id === id ? { ...item, ...changes } : item)
+  }
+  const definitionId = computed(() => current.value?.definitionId ?? null)
+  const name = computed(() => current.value?.name ?? null)
+  const kind = computed(() => current.value?.kind ?? 'indicator')
+  const identity = computed(() => current.value?.identity ?? 'builtin')
+  const error = computed(() => current.value?.error ?? null)
+  const saved = computed(() => current.value?.saved === true)
+  const source = computed({
+    get: () => current.value?.source ?? '',
+    set(value: string) {
+      const draft = current.value
+      if (draft && draft.source !== value) update(draft.id, { source: value, trusted: false, saved: false })
+    },
+  })
+  const trusted = computed({
+    get: () => current.value?.trusted === true,
+    set(value: boolean) {
+      const draft = current.value
+      if (draft && draft.trusted !== value) update(draft.id, { trusted: value, saved: false })
+    },
+  })
   const logs = shallowRef<readonly LogEvent[]>([])
   let unsubscribeOutput: (() => void) | undefined
-  watch(
-    definitionId,
-    (id) => {
-      unsubscribeOutput?.()
-      unsubscribeOutput = undefined
-      logs.value = []
-      if (id !== null)
-        unsubscribeOutput = store?.output?.subscribe(id, (events) => {
-          logs.value = events
-        })
-    },
-    { flush: 'sync' },
-  )
+  watch(definitionId, (id) => {
+    unsubscribeOutput?.()
+    unsubscribeOutput = undefined
+    logs.value = []
+    if (id !== null) unsubscribeOutput = store?.output?.subscribe(id, (events) => { logs.value = events })
+  }, { flush: 'sync' })
   onScopeDispose(() => unsubscribeOutput?.())
-  const name = ref<string | null>(null)
-  const source = ref('')
-  const trusted = ref(false)
-  const error = ref<string | null>(null)
-  const saved = ref(false)
-  const identity = ref<ScriptIdentity>('user')
-  const saving = ref(false)
-  let revision: number | null = null
 
-  // 草稿一旦变化即回到「未保存」，勾标只在最近一次成功保存后保持。
-  watch(
-    [source, trusted],
-    () => {
-      saved.value = false
-    },
-    { flush: 'sync' },
-  )
+  /** 目录刷新时仅同步未改动文档，脏草稿仍保留原版本以进行并发检查。 */
+  function refreshDocuments(): void {
+    documents.value = store ? store.list() : []
+    drafts.value = drafts.value.map((draft) => {
+      const document = documents.value.find((item) => item.id === draft.definitionId)
+      if (!document || isDirty(draft) || document.revision === draft.revision) return draft
+      return { ...draft, source: document.source, baselineSource: document.source, trusted: document.trusted, baselineTrusted: document.trusted, revision: document.revision, name: document.definition.name, title: document.definition.name }
+    })
+  }
 
-  // 信任仅属于当前源码，编辑后必须由用户重新授予。
-  watch(
-    source,
-    () => {
-      trusted.value = false
-    },
-    { flush: 'sync' },
-  )
+  /** 名称同时避开已提交文件和未保存标签。 */
+  function uniqueName(base: string): string {
+    return uniqueScriptName(store, base, drafts.value.map((item) => item.title))
+  }
+
+  /** 新草稿分配会话内稳定标签身份，保存后也不改变标签键。 */
+  function addDraft(nextKind: 'indicator' | 'library', title: string, text: string): void {
+    const draft = createDraft({ id: `draft_${++sequence}`, title, kind: nextKind, source: text })
+    drafts.value = [...drafts.value, draft]
+    activeTabId.value = draft.id
+    open.value = true
+  }
+
+  /** 已提交文档转成编辑草稿；缺失文档保留只读身份与可见错误。 */
+  function draftFromDocument(documentId: string, document: ScriptEditorDocument | undefined, fallbackId: string): EditorDraft {
+    const source = document?.source ?? ''
+    const trusted = document?.trusted === true
+    return createDraft({
+      id: `draft_${++sequence}`,
+      definitionId: documentId,
+      name: document?.definition.name ?? null,
+      title: document?.definition.name ?? fallbackId,
+      kind: document?.kind ?? 'indicator',
+      identity: document?.identity ?? 'builtin',
+      source,
+      trusted,
+      revision: document?.revision ?? null,
+      baselineSource: source,
+      baselineTrusted: trusted,
+      error: document ? null : '此文件没有可编辑的脚本文档',
+    })
+  }
 
   return {
-    logs,
+    tabs, activeTabId, kind, documents, libraries, refreshDocuments, logs, name, identity, saving, open, definitionId, source, trusted, error, saved,
     clearOutput() {
-      const id = definitionId.value
-      if (id !== null) store?.output?.clear(id)
+      if (definitionId.value !== null) store?.output?.clear(definitionId.value)
       logs.value = []
     },
-    name,
-    identity,
-    saving,
-    open,
-    definitionId,
-    source,
-    trusted,
-    error,
-    saved,
+    selectTab(id) {
+      if (!saving.value && drafts.value.some((item) => item.id === id)) activeTabId.value = id
+    },
+    closeTab(id) {
+      if (saving.value) return
+      const index = drafts.value.findIndex((item) => item.id === id)
+      if (index < 0) return
+      drafts.value = drafts.value.filter((item) => item.id !== id)
+      if (activeTabId.value === id) activeTabId.value = drafts.value[Math.min(index, drafts.value.length - 1)]?.id ?? null
+    },
     openFor(id) {
       if (saving.value) return
-      error.value = null
-      saved.value = false
+      refreshDocuments()
       const document = store?.read(id)
-      definitionId.value = document?.id ?? id
-      name.value = document?.definition.name ?? null
-      identity.value = document?.identity ?? 'builtin'
-      source.value = document?.source ?? ''
-      trusted.value = document?.trusted === true
-      revision = document?.revision ?? null
-      if (!document) error.value = '此指标没有可编辑的脚本文档'
+      const documentId = document ? document.id : id
+      const existing = drafts.value.find((item) => item.definitionId === documentId)
+      if (existing) activeTabId.value = existing.id
+      else {
+        const draft = draftFromDocument(documentId, document, id)
+        drafts.value = [...drafts.value, draft]
+        activeTabId.value = draft.id
+      }
       open.value = true
     },
-    openBlank() {
+    openBlank(nextKind = 'indicator') {
       if (saving.value) return
-      identity.value = 'user'
-      definitionId.value = null
-      name.value = null
-      error.value = null
-      saved.value = false
-      source.value = store ? createBlankSource(uniqueScriptName(store, '我的脚本')) : ''
-      trusted.value = false
-      revision = null
-      open.value = true
+      refreshDocuments()
+      const title = uniqueName(nextKind === 'library' ? 'myLibrary' : '我的脚本')
+      addDraft(nextKind, title, store ? nextKind === 'library' ? createLibrarySource(title) : createBlankSource(title) : '')
     },
     close() {
       if (saving.value) return
       open.value = false
-      definitionId.value = null
-      name.value = null
-      error.value = null
-      saved.value = false
-      revision = null
-      trusted.value = false
+      activeTabId.value = null
     },
     async createCopy() {
-      if (!store || identity.value !== 'builtin' || !definitionId.value) return
+      const draft = current.value
+      if (!store || !draft || draft.kind !== 'indicator' || draft.identity !== 'builtin' || !draft.definitionId || saving.value) return
       try {
-        const originalId = definitionId.value
-        const copyName = uniqueScriptName(store, `${name.value} 副本`)
-        const copy = await createCopySource(source.value, copyName)
-        if (definitionId.value !== originalId || identity.value !== 'builtin') return
-        source.value = copy
-        trusted.value = false
-        definitionId.value = null
-        name.value = null
-        revision = null
-        identity.value = 'user'
-        error.value = null
-        saved.value = false
+        const title = uniqueName(`${draft.name} 副本`)
+        const copy = await createCopySource(draft.source, title)
+        if (current.value?.id === draft.id) {
+          const wasOpen = open.value
+          addDraft('indicator', title, copy)
+          open.value = wasOpen
+        }
       } catch (failure) {
-        error.value = failure instanceof Error ? failure.message : String(failure)
+        update(draft.id, { error: failure instanceof Error ? failure.message : String(failure) })
       }
     },
     async save() {
-      if (saving.value) return
-      // 没有脚本身份即新建；保存后回填 id，后续保存转为更新。
-      if (!store) {
-        error.value = '此环境没有可编辑的脚本服务'
-        saved.value = false
-        return
-      }
-      if (identity.value !== 'user') {
-        error.value = '内置脚本只读，请创建副本'
-        return
-      }
+      const draft = current.value
+      if (saving.value || !draft) return
+      if (!store) { update(draft.id, { error: '此环境没有可编辑的脚本服务', saved: false }); return }
+      if (draft.identity !== 'user') { update(draft.id, { error: '内置脚本只读，请创建副本' }); return }
       try {
         saving.value = true
-        const submittedSource = source.value
-        const submittedTrusted = trusted.value
-        if (definitionId.value === null) {
-          const created = await store.create(submittedSource, submittedTrusted)
-          definitionId.value = created.id
-          name.value = created.definition.name
-          revision = created.revision
-        } else {
-          if (revision === null) throw new Error('此指标没有可编辑的脚本文档')
-          const document = await store.update(
-            definitionId.value,
-            submittedSource,
-            revision,
-            submittedTrusted,
-          )
-          name.value = document.definition.name
-          revision = document.revision
-        }
-        error.value = null
-        saved.value = source.value === submittedSource && trusted.value === submittedTrusted
+        const document = draft.definitionId === null
+          ? await store.create(draft.source, draft.trusted)
+          : await store.update(draft.definitionId, draft.source, requireRevision(draft), draft.trusted)
+        const latest = drafts.value.find((item) => item.id === draft.id)
+        update(draft.id, { definitionId: document.id, name: document.definition.name, title: document.definition.name, kind: document.kind, revision: document.revision, baselineSource: draft.source, baselineTrusted: draft.trusted, saved: latest?.source === draft.source && latest?.trusted === draft.trusted, error: null })
+        refreshDocuments()
       } catch (failure) {
-        error.value = failure instanceof Error ? failure.message : String(failure)
-        saved.value = false
-      } finally {
-        saving.value = false
-      }
+        update(draft.id, { error: failure instanceof Error ? failure.message : String(failure), saved: false })
+      } finally { saving.value = false }
     },
   }
+}
+
+/** 已保存文件必须携带读取时的修订号，不能绕过乐观并发检查。 */
+function requireRevision(draft: EditorDraft): number {
+  if (draft.revision === null) throw new Error('此文件没有可编辑的脚本文档')
+  return draft.revision
 }

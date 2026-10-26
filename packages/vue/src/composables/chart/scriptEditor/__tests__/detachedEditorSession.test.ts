@@ -121,11 +121,12 @@ describe('独立编辑器宿主交接', () => {
     const opening = context.detached.open('新建脚本')
     context.resolveReady()
     await opening
-    context.receive({ type: 'draft', source: 'newer', trusted: false, editVersion: 2 })
-    context.receive({ type: 'draft', source: 'older', trusted: true, editVersion: 1 })
+    const activeTabId = context.session.activeTabId.value
+    context.receive({ type: 'draft', activeTabId, source: 'newer', trusted: false, editVersion: 2 })
+    context.receive({ type: 'draft', activeTabId, source: 'older', trusted: true, editVersion: 1 })
     expect(context.session.source.value).toBe('newer')
     expect(context.session.trusted.value).toBe(false)
-    context.receive({ type: 'return', source: 'final', trusted: true, editVersion: 3 })
+    context.receive({ type: 'return', activeTabId, source: 'final', trusted: true, editVersion: 3 })
     await nextTick()
     expect(context.session.source.value).toBe('final')
     expect(context.session.trusted.value).toBe(true)
@@ -133,12 +134,30 @@ describe('独立编辑器宿主交接', () => {
     expect(context.dispose).toHaveBeenCalledOnce()
   })
 
+  it('标签导航携带离开前的最终输入，旧标签消息不覆盖新标签', async () => {
+    const context = mountSession()
+    const first = context.session.activeTabId.value
+    context.session.openBlank('library')
+    const second = context.session.activeTabId.value!
+    const opening = context.detached.open('编辑脚本')
+    context.resolveReady()
+    await opening
+    context.receive({ type: 'select-tab', id: first!, activeTabId: second, source: 'library final', trusted: false, editVersion: 1 })
+    expect(context.session.activeTabId.value).toBe(first)
+    context.receive({ type: 'draft', activeTabId: second, source: 'late library', trusted: true, editVersion: 2 })
+    expect(context.session.source.value).toBe('')
+    context.receive({ type: 'select-tab', id: second, activeTabId: first, source: 'indicator final', trusted: false, editVersion: 3 })
+    expect(context.session.source.value).toBe('library final')
+    await nextTick()
+    expect(context.dispose).not.toHaveBeenCalled()
+  })
+
   it('保存直接提交消息中的最新草稿，并将实际会话错误反馈给新页面', async () => {
     const context = mountSession()
     const opening = context.detached.open('新建脚本')
     context.resolveReady()
     await opening
-    context.receive({ type: 'save', source: 'latest', trusted: false, editVersion: 1 })
+    context.receive({ type: 'save', activeTabId: context.session.activeTabId.value, source: 'latest', trusted: false, editVersion: 1 })
     await flushPromises()
     expect(context.session.source.value).toBe('latest')
     expect(context.update).toHaveBeenLastCalledWith(

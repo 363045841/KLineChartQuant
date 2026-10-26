@@ -2,7 +2,7 @@
 import { createApp, defineComponent, h } from 'vue'
 import '@fontsource/jetbrains-mono/400.css'
 import '@vue-src/styles/scrollbar.css'
-import ScriptEditorWindow from '@vue-src/components/script/ScriptEditorWindow.vue'
+import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
 import {
   type DetachedEditorConnection,
   type DetachedEditorEvent,
@@ -37,7 +37,8 @@ function connect(event: MessageEvent<DetachedEditorConnection>): void {
       defineComponent({
         setup() {
           return () =>
-            h(ScriptEditorWindow, {
+            h(ScriptEditorHost, {
+              mode: 'window',
               ...state.snapshot.value,
               container: document.body,
               'onUpdate:source': state.updateSource,
@@ -45,6 +46,11 @@ function connect(event: MessageEvent<DetachedEditorConnection>): void {
               onSave: () => state.command('save'),
               onClearOutput: () => send({ type: 'clear-output' }),
               onCreateCopy: () => state.command('create-copy'),
+              onCreateScript: (kind: 'indicator' | 'library') => state.navigate({ type: 'create-script', kind }),
+              onOpenScript: (id: string) => state.navigate({ type: 'open-script', id }),
+              onSelectTab: (id: string) => state.navigate({ type: 'select-tab', id }),
+              onCloseTab: (id: string) => state.navigate({ type: 'close-tab', id }),
+              onRefreshDocuments: () => send({ type: 'refresh-documents' }),
               onReturn: () => state.command('return'),
             })
         },

@@ -24,12 +24,13 @@ export const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
 /** 用户源码与外部库经过同一套序列、输入和 TypeScript 转换。 */
 export function compileSources(source: string, libraries: readonly QuickJSLibrary[] = []) {
   return {
-    source: compileScript(source),
+    source: compileScript(source, libraries),
     libraries: [
-      ...builtinLibraries,
+      // 展示源码不进入 VM，只传执行需要的 name/source。
+      ...builtinLibraries.map(({ name, source }) => ({ name, source })),
       ...libraries.map((library) => ({
         name: library.name,
-        source: compileScript(library.source),
+        source: `(() => {\n${compileScript(library.source, libraries)}\n})();`,
       })),
     ],
   }

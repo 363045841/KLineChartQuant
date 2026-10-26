@@ -17,6 +17,41 @@ const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
 vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('ScriptService', () => {
+  it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
+    const persistence = createScriptPersistence()
+    const scripts = await createScriptService([], { persistence })
+    const base = await scripts.create(`const helper = 2; defineLibrary('serviceBase', { scale(source: Series): Series { return ta.sma(source, helper) } })`)
+    const library = await scripts.create(`const helper = importLibrary('serviceBase'); defineLibrary('serviceStats', { smooth(source: Series): Series { return helper.scale(source) } })`)
+    const indicator = await scripts.create(`const stats = importLibrary('serviceStats'); defineIndicator({ name: 'LibraryConsumer', position: Position.Sub, onBar() { plot.Line(stats.smooth(close) + 1, 'smooth') } })`, true)
+    const bars = [2, 4, 8].map((close, timestamp) => ({ timestamp, open: close, high: close, low: close, close }))
+    /** 通过图表正式计算入口检查依赖快照与序列当前值转换。 */
+    async function values() {
+      return getRegisteredIndicatorDefinition(indicator.id)!.runtime!.compute(bars, {})
+    }
+    expect(base.kind).toBe('library')
+    expect(getIndicatorDescriptor(base.id)).toBeUndefined()
+    expect(await values()).toMatchObject({ plots: [{ data: [undefined, { value: 4 }, { value: 7 }] }] })
+    await expect(scripts.remove(base.id, 1)).rejects.toThrow('仍被引用')
+    await expect(scripts.update(base.id, `const stats = importLibrary('serviceStats'); defineLibrary('serviceBase', { scale: stats.smooth })`, 1)).rejects.toThrow('循环依赖')
+    await expect(scripts.update(base.id, `throw new Error('库初始化失败'); defineLibrary('serviceBase', {})`, 1)).rejects.toThrow('库初始化失败')
+    await expect(scripts.update(base.id, `defineLibrary('serviceBase', { other() { return 1 } })`, 1)).rejects.toThrow('scale')
+    expect(scripts.read(base.id)?.revision).toBe(1)
+    const next = await scripts.update(base.id, base.source.replace('helper = 2', 'helper = 1'), 1)
+    expect(await values()).toMatchObject({ plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }] })
+    removeScriptIndicatorDefinition(indicator.id)
+    scripts.dispose()
+    const restored = await createScriptService([], { persistence })
+    try {
+      expect(restored.read(base.id)).toEqual(next)
+      expect(await values()).toMatchObject({ plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }] })
+      expect(restored.read(indicator.id)?.revision).toBe(indicator.revision + 1)
+      await restored.remove(indicator.id, indicator.revision + 1)
+      await restored.remove(library.id, library.revision)
+      await restored.remove(base.id, next.revision)
+    } finally {
+      restored.dispose()
+    }
+  })
   it('内置脚本使用原生引擎，用户保存信任选择后切换实际执行后端', async () => {
     const engineSource = `defineIndicator({ name: 'ServiceEngine', position: 'main', onBar() { plot.Line(typeof WebAssembly === 'object' ? 1 : 0, 'native') } })`
     const scripts = await createScriptService([], { builtinSources: [engineSource] })
@@ -34,6 +69,15 @@ describe('ScriptService', () => {
       const revoked = await scripts.update(trusted.id, trusted.source, trusted.revision, false)
       expect(await compute(created.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
       await scripts.remove(revoked.id, revoked.revision)
+      const library = await scripts.create(`defineLibrary('engineLibrary', { value(): number { return 1 } })`)
+      const consumer = await scripts.create(`const library = importLibrary('engineLibrary'); defineIndicator({ name: 'LibraryEngine', position: Position.Main, onBar() { plot.Line(typeof globalThis === 'object' && 'WebAssembly' in globalThis ? library.value() : 0, 'native') } })`, true)
+      expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
+      const trustedLibrary = await scripts.update(library.id, library.source, library.revision, true)
+      expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 1 }] }] })
+      const changedLibrary = await scripts.update(library.id, library.source.replace('return 1', 'return 2'), trustedLibrary.revision)
+      expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
+      await scripts.remove(consumer.id, scripts.read(consumer.id)!.revision)
+      await scripts.remove(library.id, changedLibrary.revision)
     } finally {
       scripts.dispose()
     }

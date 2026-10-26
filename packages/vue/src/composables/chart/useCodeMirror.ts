@@ -5,7 +5,8 @@
  */
 import { javascript } from '@codemirror/lang-javascript'
 import { forEachDiagnostic, setDiagnosticsEffect } from '@codemirror/lint'
-import { Compartment, EditorState, Transaction } from '@codemirror/state'
+import { openSearchPanel } from '@codemirror/search'
+import { Compartment, EditorState, type Extension, Transaction } from '@codemirror/state'
 import { EditorView } from 'codemirror'
 import { computed, type Ref, shallowRef, watch } from 'vue'
 import { useDeviceEnvironment } from '../useDeviceEnvironment.js'
@@ -21,6 +22,9 @@ export function useCodeMirror(
   onChange: (next: string) => void,
   editable: Readonly<Ref<boolean>>,
   theme: Readonly<Ref<'light' | 'dark'>>,
+  libraries: Readonly<Ref<readonly { name: string; source: string }[]>>,
+  documentKey: Readonly<Ref<string | null>>,
+  openKeys: Readonly<Ref<readonly string[]>>,
 ): {
   view: Ref<EditorView | null>
   languageLoading: Ref<boolean>
@@ -29,11 +33,16 @@ export function useCodeMirror(
   revealProblem(problem: ScriptEditorProblem): void
   formatAvailable: Readonly<Ref<boolean>>
   formatDocument(): Promise<void>
+  searchDocument(): void
 } {
   const view = shallowRef<EditorView | null>(null)
   const languageLoading = shallowRef(false)
   const languageError = shallowRef<string | null>(null)
   const diagnostics = shallowRef<readonly ScriptEditorProblem[]>([])
+  /** 使用 CodeMirror 原生查找面板，保留快捷键和当前文档查找状态。 */
+  function searchDocument(): void {
+    if (view.value) openSearchPanel(view.value)
+  }
 
   /** 从问题列表定位当前文档范围，即使只读也允许选中和滚动。 */
   function revealProblem(problem: ScriptEditorProblem): void {
@@ -99,22 +108,24 @@ export function useCodeMirror(
     (element, _previous, onCleanup) => {
       if (!element) return
       const language = new Compartment()
-      const instance = new EditorView({
-        parent: element,
-        state: EditorState.create({
+      let languageExtensions: Extension = []
+      const states = new Map<string, { state: EditorState; scrollTop: number; scrollLeft: number }>()
+      let shownKey = documentKey.value
+      /** 每个标签独立创建状态，撤销历史和选区不会跨文件串用。 */
+      const createState = () => EditorState.create({
           doc: value.value,
           extensions: [
             scriptEditorSetup,
             javascript({ typescript: true }),
             scriptEditorTheme,
             highlighting.of(scriptEditorHighlight(theme.value)),
-            scriptEditorContextMenu(() => languageSupport, () => editable.value, () => theme.value),
+            scriptEditorContextMenu(() => languageSupport, () => editable.value, () => theme.value, () => formatAvailable.value, formatDocument),
             EditorState.tabSize.of(2),
             editing.of([
               EditorState.readOnly.of(!editable.value),
               EditorView.editable.of(editable.value),
             ]),
-            language.of([]),
+             language.of(languageExtensions),
             EditorView.updateListener.of((update) => {
               if (update.docChanged && editable.value) onChange(update.state.doc.toString())
               // 读取 CodeMirror 已接收、已映射到当前文档的诊断，不另起一轮 LSP 查询。
@@ -140,9 +151,27 @@ export function useCodeMirror(
               }
             }),
           ],
-        }),
-      })
+        })
+      const instance = new EditorView({ parent: element, state: createState() })
       view.value = instance
+      const stopDocuments = watch([documentKey, value], ([key, text]) => {
+        if (key !== shownKey) {
+          if (shownKey && openKeys.value.includes(shownKey)) states.set(shownKey, { state: instance.state, scrollTop: instance.scrollDOM.scrollTop, scrollLeft: instance.scrollDOM.scrollLeft })
+          shownKey = key
+          const cached = key ? states.get(key) : undefined
+          instance.setState(cached?.state.doc.toString() === text ? cached.state : createState())
+          instance.dispatch({ effects: [editing.reconfigure([EditorState.readOnly.of(!editable.value), EditorView.editable.of(editable.value)]), highlighting.reconfigure(scriptEditorHighlight(theme.value)), language.reconfigure(languageExtensions), setDiagnosticsEffect.of([])] })
+          instance.scrollDOM.scrollTop = cached?.scrollTop ?? 0
+          instance.scrollDOM.scrollLeft = cached?.scrollLeft ?? 0
+          diagnostics.value = []
+          void languageSupport?.updateSource(text).catch((error: unknown) => { languageError.value = error instanceof Error ? error.message : String(error) })
+        } else if (instance.state.doc.toString() !== text) {
+          instance.dispatch({ changes: { from: 0, to: instance.state.doc.length, insert: text }, annotations: Transaction.addToHistory.of(false) })
+        }
+      })
+      const stopClosed = watch(openKeys, (keys) => {
+        for (const key of states.keys()) if (!keys.includes(key)) states.delete(key)
+      })
       // 服务独立于视图启停；移动设备在动态 import 前退出，保留基本编辑和高亮。
       const stopLanguage = watch(
         languageEnabled,
@@ -156,6 +185,7 @@ export function useCodeMirror(
             if (!active) return
             disposeLanguage?.()
             languageSupport = undefined
+            languageExtensions = []
             languageReady.value = false
             languageLoading.value = false
             instance.dispatch({ effects: language.reconfigure([]) })
@@ -170,10 +200,11 @@ export function useCodeMirror(
               if (!active) return
               const support = createScriptLanguageSupport(showLanguageError)
               disposeLanguage = support.dispose
-              const extensions = await support.initialize(() => instance.state.doc.toString())
+              const extensions = await support.initialize(() => instance.state.doc.toString(), libraries.value)
               if (!active) return
               languageSupport = support
               languageReady.value = true
+              languageExtensions = extensions
               instance.dispatch({ effects: language.reconfigure(extensions) })
             })
             .catch(showLanguageError)
@@ -183,6 +214,7 @@ export function useCodeMirror(
           cleanup(() => {
             active = false
             languageSupport = undefined
+            languageExtensions = []
             languageReady.value = false
             languageLoading.value = false
             disposeLanguage?.()
@@ -193,6 +225,8 @@ export function useCodeMirror(
         { immediate: true, flush: 'sync' },
       )
       onCleanup(() => {
+        stopDocuments()
+        stopClosed()
         stopLanguage()
         instance.destroy()
         view.value = null
@@ -207,17 +241,15 @@ export function useCodeMirror(
   watch(theme, (next) => {
     view.value?.dispatch({ effects: highlighting.reconfigure(scriptEditorHighlight(next)) })
   })
+  watch(libraries, (next) => {
+    void languageSupport?.setLibraries(next).catch((error: unknown) => {
+      languageError.value = error instanceof Error ? error.message : String(error)
+    })
+  })
   watch(editable, (next) => {
     view.value?.dispatch({
       effects: editing.reconfigure([EditorState.readOnly.of(!next), EditorView.editable.of(next)]),
     })
-  })
-  watch(value, (next) => {
-    const instance = view.value
-    if (!instance) return
-    const current = instance.state.doc.toString()
-    if (current === next) return
-    instance.dispatch({ changes: { from: 0, to: current.length, insert: next } })
   })
 
   return {
@@ -228,5 +260,6 @@ export function useCodeMirror(
     revealProblem,
     formatAvailable,
     formatDocument,
+    searchDocument,
   }
 }

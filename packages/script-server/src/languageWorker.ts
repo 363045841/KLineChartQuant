@@ -71,6 +71,11 @@ export function createScriptLanguageWorker(): ScriptLanguageWorker {
   }
   return {
     ...worker,
+    /** 动态库目录与编译器复用同一个语义会话。 */
+    setLibraries(libraries) {
+      session.setLibraries(libraries)
+      session.updateSource(session.source)
+    },
     /** 同步最新草稿后查询，当前文件的位置必须从虚拟文档映射回原文。 */
     getNavigation(path, source, position, kind) {
       session.updateSource(source)

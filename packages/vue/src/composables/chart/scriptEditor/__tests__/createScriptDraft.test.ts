@@ -15,11 +15,12 @@ defineIndicator({
 })`
 
 /** 只实现 read 的最小仓库；create/update 在本用例中不会被调用。 */
-function storeWith(names: readonly string[]): ScriptSourceStore {
+function storeWith(names: readonly string[]): Pick<ScriptSourceStore, 'read'> {
   return {
     read: (id) =>
       names.includes(id)
         ? {
+            kind: 'indicator',
             id,
             definition: { name: id },
             source: '',
@@ -28,9 +29,6 @@ function storeWith(names: readonly string[]): ScriptSourceStore {
             trusted: false,
           }
         : undefined,
-    create: () => Promise.reject(new Error('unused')),
-    update: () => Promise.reject(new Error('unused')),
-    remove: () => Promise.reject(new Error('unused')),
   }
 }
 

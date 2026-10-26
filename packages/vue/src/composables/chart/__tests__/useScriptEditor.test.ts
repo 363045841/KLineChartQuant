@@ -72,7 +72,32 @@ describe('useScriptEditor', () => {
     await editor.save()
     expect(editor.saved.value).toBe(true)
     const created = scripts.read('我的脚本')!
-    await scripts.remove(created.id, created.revision)
+    const indicatorTab = editor.activeTabId.value!
+    editor.source.value += '\n// 指标未保存的修改'
+    editor.trusted.value = true
+    editor.openBlank('library')
+    expect(editor.kind.value).toBe('library')
+    expect(editor.source.value).toContain('defineLibrary')
+    await editor.save()
+    expect(editor.saved.value).toBe(true)
+    const library = scripts.read('myLibrary')!
+    const libraryTab = editor.activeTabId.value!
+    expect(editor.documents.value.some((item) => item.id === library.id)).toBe(true)
+    editor.openFor(library.id)
+    expect(editor.kind.value).toBe('library')
+    expect(editor.source.value).toBe(library.source)
+    editor.openFor(created.id)
+    expect(editor.tabs.value).toHaveLength(2)
+    expect(editor.activeTabId.value).toBe(indicatorTab)
+    expect(editor.source.value).toContain('指标未保存的修改')
+    expect(editor.trusted.value).toBe(true)
+    expect(editor.saved.value).toBe(false)
+    await editor.save()
+    expect(editor.tabs.value.find((tab) => tab.id === indicatorTab)?.dirty).toBe(false)
+    editor.closeTab(indicatorTab)
+    expect(editor.activeTabId.value).toBe(libraryTab)
+    await scripts.remove(library.id, library.revision)
+    await scripts.remove(created.id, created.revision + 1)
   })
   it('重命名后可连续保存和重新打开，错误及过期草稿不覆盖已提交文档', async () => {
     const scripts = await createScriptService()
@@ -103,6 +128,10 @@ describe('useScriptEditor', () => {
     expect(scripts.read(initial.id)?.revision).toBe(3)
     editor.close()
     expect(editor.definitionId.value).toBeNull()
+    editor.openFor(initial.id)
+    // 关闭编辑器保留标签草稿；显式关闭标签后才重新读取仓库版本。
+    expect(editor.source.value).toBe('defineIndicator(')
+    editor.closeTab(editor.activeTabId.value!)
     editor.openFor(initial.id)
     expect(editor.source.value).toContain('Editor Renamed')
     await scripts.remove(initial.id, 3)

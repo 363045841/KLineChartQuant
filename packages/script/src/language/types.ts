@@ -1,6 +1,7 @@
 /** 序列语法转换的文本与位置契约；所有偏移均使用 UTF-16。 */
 
 import type { VirtualTypeScriptEnvironment } from '@typescript/vfs'
+import type { QuickJSLibrary } from '../quickjs/types.js'
 
 /** 在原始源码某一位置插入的编译文本。 */
 export interface ScriptInsertion {
@@ -29,5 +30,6 @@ export interface ScriptLanguageSession {
   readonly environment: VirtualTypeScriptEnvironment
   readonly source: string
   readonly conversion: ScriptConversion | undefined
+  setLibraries(libraries: readonly QuickJSLibrary[]): void
   updateSource(source: string): ScriptConversion
 }

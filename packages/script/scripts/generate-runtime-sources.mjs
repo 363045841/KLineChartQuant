@@ -17,7 +17,7 @@ const entries = [
   { file: 'rolling.ts', exportName: 'ROLLING_PRELUDE' },
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },
   { file: 'drawing.ts', exportName: 'DRAWING_PRELUDE' },
-  { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE' },
+  { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE', rawExportName: 'TA_LIBRARY_TYPES_SOURCE' },
   { file: 'pivot.ts', exportName: 'PIVOT_PRELUDE' },
 ]
 
@@ -60,6 +60,14 @@ function compile(fileName, source) {
  */
 export async function generateRuntimeSources({ check = false } = {}) {
   const declarations = []
+  // 内置库展示源码需要运行时内部声明与公开契约别名，执行仍使用编译后的 JS。
+  const packageName = JSON.parse(
+    await readFile(new URL('package.json', packageRoot), 'utf8'),
+  ).name
+  const runtimeInternalSource = await readFile(
+    new URL('src/quickjs/runtime/runtime-internals.d.ts', packageRoot),
+    'utf8',
+  )
   // 公共 API 在宿主是模块，在 VM 是全局脚本；仅移除模块边界，不维护第二份实现。
   const sharedDrawingSource = (await Promise.all(['drawingObject.ts', 'drawingApi.ts', 'lineApi.ts', 'boxApi.ts', 'labelApi.ts'].map((file) => readFile(new URL(`../plot-contracts/src/${file}`, packageRoot), 'utf8')))).join('\n')
   const sharedFile = ts.createSourceFile('drawingApi.ts', sharedDrawingSource, ts.ScriptTarget.Latest, true)
@@ -80,6 +88,15 @@ export async function generateRuntimeSources({ check = false } = {}) {
     declarations.push(
       `export const ${entry.exportName} = ${JSON.stringify(compile(entry.file, source))}`,
     )
+    // 内置库另外保留带类型的原始源码，仅供编辑器展示。
+    if (entry.rawExportName) {
+      const display = [
+        `import type { TechnicalAnalysisLibrary } from '${packageName}/Library/types.js'`,
+        runtimeInternalSource.trim(),
+        source,
+      ].join('\n\n')
+      declarations.push(`export const ${entry.rawExportName} = ${JSON.stringify(display)}`)
+    }
   }
   const runtimeChanged = writeGeneratedFile(
     runtimeOutput,

@@ -15,8 +15,18 @@ export interface ScriptEditorProblem {
 /** 编辑器只用于用户脚本源码；未指定归属时按只读处理。 */
 export type ScriptIdentity = 'builtin' | 'user'
 
+/** 标签页只读摘要；源码和保存版本由编辑会话独立持有。 */
+export interface ScriptEditorTab {
+  readonly id: string
+  readonly definitionId: string | null
+  readonly title: string
+  readonly kind: 'indicator' | 'library'
+  readonly dirty: boolean
+}
+
 /** 编辑器读取或提交的脚本文档。 */
 export interface ScriptEditorDocument {
+  readonly kind: 'indicator' | 'library'
   readonly trusted: boolean
   readonly id: string
   readonly definition: { readonly name: string }
@@ -27,6 +37,7 @@ export interface ScriptEditorDocument {
 
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {
+  list(): readonly ScriptEditorDocument[]
   /** 宿主支持脚本运行输出时提供；纯源码仓库可以省略。 */
   readonly output?: ScriptOutputSource
   read(id: string): ScriptEditorDocument | undefined

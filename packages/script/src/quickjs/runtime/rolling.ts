@@ -1,13 +1,5 @@
 /** TA 内部滑动窗口：按历史顺序推进，复用累计状态并缓存每根结果。 */
 
-/** 单个窗口的增删与聚合；index 为绝对 K 线下标。 */
-interface RollingWindow {
-  push(value: number, index: number): void
-  remove(value: number, index: number): void
-  /** currentIndex 为当前求值下标，仅偏移类窗口使用。 */
-  value(currentIndex: number): number
-}
-
 /** 创建缓存窗口序列；跳读时迭代补齐历史，历史查询直接命中派生缓存。 */
 function __rollingSeries(
   key: string,

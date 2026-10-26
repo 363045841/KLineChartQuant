@@ -40,6 +40,14 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
   innerWorker.addEventListener('error', handleError)
   innerWorker.addEventListener('messageerror', handleMessageError)
   return {
+    /** 标签切换后同步当前文件，保留同一个语言 Worker。 */
+    updateSource(source: string) {
+      return worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: source })
+    },
+    /** 库保存后更新类型，后续查询仍走原有语言服务。 */
+    async setLibraries(libraries: readonly { name: string; source: string }[]) {
+      await worker.setLibraries(libraries)
+    },
     /** 显式携带原文，避免同步插件的防抖使查询落在旧版本上。 */
     getNavigation(source: string, position: number, kind: 'definition' | 'declaration' | 'typeDefinition' | 'implementation') {
       return worker.getNavigation(SCRIPT_EDITOR_FILE, source, position, kind)
@@ -53,11 +61,12 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
       return worker.formatDocument(SCRIPT_EDITOR_FILE, source)
     },
     /** 初始化后返回服务扩展，现有文档由调用方在挂载前传入。 */
-    async initialize(getSource: () => string): Promise<Extension> {
+    async initialize(getSource: () => string, libraries: readonly { name: string; source: string }[] = []): Promise<Extension> {
       await Promise.race([
         (async () => {
           await worker.initialize()
           if (disposed) return
+          await worker.setLibraries(libraries)
           await worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: getSource() })
         })(),
         failed,

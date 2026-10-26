@@ -37,6 +37,7 @@ export interface ScriptSignatureProvider {
 
 /** 编辑器对语言服务 Worker 的查询契约。 */
 export interface ScriptLanguageWorker extends ReturnType<typeof createWorker> {
+  setLibraries(libraries: readonly { name: string; source: string }[]): void
   getNavigation(path: string, source: string, position: number, kind: 'definition' | 'declaration' | 'typeDefinition' | 'implementation'): ScriptNavigationTarget[]
   renameSymbol(path: string, source: string, position: number, name: string): TextChange[]
   formatDocument(path: string, source: string): TextChange[]

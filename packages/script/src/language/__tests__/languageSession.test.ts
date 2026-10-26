@@ -124,4 +124,21 @@ describe('共享脚本语义会话', () => {
     session.updateSource(source)
     expect(diagnosticCodes(session)).toEqual([])
   })
+
+  it('动态库保留成员补全与 Series 返回类型，库修改和删除清除旧类型', () => {
+    const session = createScriptLanguageSession()
+    session.setLibraries([{ name: 'stats', source: `defineLibrary('stats', { smooth(source: Series): Series { return ta.sma(source, 2) } })` }])
+    const source = `const stats = importLibrary('stats'); const result = stats.smooth(close) + 1`
+    expect(session.updateSource(source).code).toContain('(stats.smooth(close))[0]')
+    expect(diagnosticCodes(session)).toEqual([])
+    const completionSource = `const stats = importLibrary('stats'); stats.`
+    const conversion = session.updateSource(completionSource)
+    const completions = session.environment.languageService.getCompletionsAtPosition(SCRIPT_SOURCE_FILE, conversion.toGenerated(completionSource.length), {})
+    expect(completions?.entries.map((entry) => entry.name)).toContain('smooth')
+    session.setLibraries([{ name: 'stats', source: `defineLibrary('stats', { smooth(source: Series): number { return source[0] } })` }])
+    expect(session.updateSource(source).code).not.toContain('(stats.smooth(close))[0]')
+    session.setLibraries([])
+    session.updateSource(source)
+    expect(diagnosticCodes(session)).toContain(2345)
+  })
 })
