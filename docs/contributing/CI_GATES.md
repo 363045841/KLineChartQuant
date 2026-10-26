@@ -9,7 +9,7 @@ required, update the table here in the same PR.
 
 | Gate                          | Tool                          | Scope             | State    | Promotion blocker                                                                |
 |-------------------------------|-------------------------------|-------------------|----------|----------------------------------------------------------------------------------|
-| Package unit tests            | `pnpm -r test` (vitest)       | All workspaces    | REQUIRED | —                                                                                |
+| Package unit tests            | `pnpm test:packages:ci` (vitest) | All workspaces | REQUIRED | —                                                                                |
 | Legacy root vitest suite      | `./node_modules/.bin/vitest`  | Root `src/`       | NOT WIRED| Root `src/` was removed when the code moved into `packages/`, so the root run finds no tests and no workflow invokes it. |
 | Bundle size budgets           | `size-limit`                  | core/react/vue/ng | WARN     | Budgets are still pre-build measurements off `src/index.ts`; core currently reports ~242 kB against a 30 kB limit. |
 | Publish hygiene (exports/types/main) | `publint --strict`     | core/react/vue/ng | WARN     | publint needs `dist/` to verify file existence under `pkg.exports`.              |
@@ -17,6 +17,32 @@ required, update the table here in the same PR.
 | UI token gates  | `pnpm lint:ui` (stylelint, bulk suppressions) | `packages/vue/src` | WARN (temporarily demoted) | The tokens-v2 adaptation of the Vue components is incomplete. `stylelint-suppressions.json` still lists the pre-reorg flat component paths (`packages/vue/src/components/<File>.vue`), which the semantic folder move invalidated, so recorded debt resurfaces as new violations on top of the ones still being added. Restore REQUIRED once the tokens are applied and the suppression baseline is re-recorded. |
 | Per-package build             | `pnpm -r build` (tsc)         | All workspaces    | WARN     | The recursive run also targets `packages/desktop-electron` (`electron-builder`) and `examples/angular-universal` (`ng build`, fails outside its own workspace), so it is not a library gate. The publishable packages are built by the test job instead. |
 | Coverage threshold            | `@vitest/coverage-v8`         | Root              | NOT WIRED| Intentionally deferred until Round 1E lands real engine code worth covering.     |
+
+### Package test scheduling
+
+`pnpm test:packages:ci` runs every workspace `test` script without topological
+sorting. Package builds still run in dependency order before this step: tests
+can consume built workspace exports, but do not need another package's tests
+to finish first. Each package keeps its own Vitest configuration and file isolation.
+
+The command limits concurrency to two packages, each with at most three Vitest
+workers. This caps file workers at six; the two Vitest host processes are
+additional. The modest overcommit on the four-vCPU CI runners accommodates
+worker startup, imports and I/O. Increasing package concurrency or worker counts
+can instead slow the suites down and trigger the script tests' existing timeouts.
+Re-evaluate both limits together when the runner size or test workload changes.
+
+The Node 22 and Node 24 jobs both run the complete package suite. For a local
+comparison, set `TZ=Asia/Shanghai` and use the same machine and cache conditions:
+
+```bash
+pnpm test:packages --fsModuleCache=false     # existing dependency-ordered baseline
+pnpm test:packages:ci --fsModuleCache=false  # bounded scheduling without dependency waits
+```
+
+Compare the package-test step's elapsed time, test-file/test counts and exit
+status. Workflow totals include runner queueing and unrelated gates. The normal
+`pnpm test:packages` command remains available for dependency-ordered local runs.
 
 ### attw profile
 
@@ -102,6 +128,7 @@ it had to go live before the packages could be called correct.
 
 ```bash
 pnpm test:packages     # workspace tests
+pnpm test:packages:ci  # same tests, with bounded CI scheduling
 pnpm size:packages     # bundle budgets
 pnpm lint:publish      # publint --strict, every publishable package
 pnpm lint:types        # attw (esm-only profile), every publishable package

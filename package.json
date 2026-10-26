@@ -69,6 +69,7 @@
     "type-check:tests": "vue-tsc --noEmit -p tsconfig.vitest.json",
     "test:unit": "vitest",
     "test:packages": "pnpm -r test",
+    "test:packages:ci": "pnpm -r --no-sort --workspace-concurrency=2 test --maxWorkers=3",
     "test:scripts": "node --test scripts/__tests__/rolldown-thread-env.test.mjs scripts/__tests__/vite-dev.test.mjs",
     "bench": "node bench/run.mjs",
     "bench:1080p": "node bench/run.mjs --resolutions=1080p",
