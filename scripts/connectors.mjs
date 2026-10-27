@@ -17,10 +17,11 @@ import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PARENT = path.resolve(__dirname, '..', '..')
 
-// 各 connector 的启动命令
+// 各 connector 的启动命令；名称取对象键，desc 与 port 供统一的启动行模板渲染
 const CONNECTORS = {
   gotdx: {
-    label: 'gotdx（通达信，:8080）',
+    desc: '通达信',
+    port: 8080,
     logLabel: 'gotdx',
     logColor: LOG_COLORS.gotdx,
     dir: 'GoTDX-Connector',
@@ -28,7 +29,8 @@ const CONNECTORS = {
     args: ['run', './services/tdx-api'],
   },
   binance: {
-    label: 'binance（现货 K 线与逐笔成交，:8091）',
+    desc: '现货 K 线与逐笔成交',
+    port: 8091,
     logLabel: 'binance',
     logColor: LOG_COLORS.binance,
     dir: 'Binance-Connector',
@@ -36,7 +38,8 @@ const CONNECTORS = {
     args: ['run', './cmd/binance-connector'],
   },
   baostock: {
-    label: 'baostock / tradingview（:8000）',
+    desc: 'BaoStock / TradingView',
+    port: 8000,
     logLabel: 'baostock',
     logColor: LOG_COLORS.baostock,
     dir: 'Baostock-Tradingview-Connector',
@@ -44,7 +47,8 @@ const CONNECTORS = {
     args: ['run', 'python', './server.py'],
   },
   mt5: {
-    label: 'mt5（本地终端，:8090）',
+    desc: '本地终端',
+    port: 8090,
     logLabel: 'mt5',
     logColor: LOG_COLORS.mt5,
     dir: 'KCQ-MT5-connector',
@@ -54,7 +58,8 @@ const CONNECTORS = {
     includeInAll: false,
   },
   ths: {
-    label: 'ths（同花顺 A股/指数/ETF/期货/期权 日线，:8092）',
+    desc: '同花顺 A股/指数/ETF/期货/期权 日线',
+    port: 8092,
     logLabel: 'ths',
     logColor: LOG_COLORS.ths,
     dir: 'KCQ-THS-connector',
@@ -109,6 +114,18 @@ function resolveConnectors(names) {
   return [...resolved]
 }
 
+/**
+ * 统一的启动行：`start 名称（描述 :端口） 后端目录`。
+ *
+ * @param {string} name connector 的规范名称（对象键），同时作为显示名
+ * @param {{ desc: string, port: number }} conn connector 定义，读取描述与端口
+ * @param {string} cwd 后端目录的绝对路径
+ * @returns {string} 带缩进与项目符号的一行文本
+ */
+function formatStartupLine(name, conn, cwd) {
+  return `  • start ${name}（${conn.desc} :${conn.port}） ${cwd}`
+}
+
 // 启动解析后的 connector，返回子进程列表（已跳过未安装的目录）
 export function startConnectors(names) {
   const children = []
@@ -119,7 +136,7 @@ export function startConnectors(names) {
       console.error(`  ✗ 未找到 ${conn.dir}，请先运行 pnpm setup:backends 克隆数据源后端`)
       continue
     }
-    console.log(`  • 启动 ${conn.label}（${cwd}）`)
+    console.log(formatStartupLine(name, conn, cwd))
     const child = spawn(conn.cmd, conn.args, {
       cwd,
       stdio: ['inherit', 'pipe', 'pipe'],
