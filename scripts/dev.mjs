@@ -7,6 +7,7 @@
  *   node scripts/dev.mjs -c all                 # 开发服务器 + 全部 connector
  *   node scripts/dev.mjs -c gotdx baostock      # 开发服务器 + 指定的 connector
  *   node scripts/dev.mjs -c mt5                 # MT5 本地终端后端（不在 all 内，需显式指定）
+ *   node scripts/dev.mjs -c ctp                 # CTP 连接诊断 / 原始录制（不在 all 内，需本地账号配置）
  *   node scripts/dev.mjs -c tdx                 # 支持别名（tdx / g / b / bnb / m / all）
  *   node scripts/dev.mjs --lan -c all           # 开发服务器绑定 0.0.0.0（局域网可访问）
  *

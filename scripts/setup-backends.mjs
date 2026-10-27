@@ -3,7 +3,7 @@
  *
  * 一次性安装数据源后端：将 GoTDX-Connector（gotdx）、Binance-Connector（binance）、
  * Baostock-Tradingview-Connector（baostock / tradingview）、KCQ-MT5-connector（mt5）
- * 与 KCQ-THS-connector（ths）克隆到本仓库的同级目录，供
+ * 、KCQ-THS-connector（ths）与 KCQ-CTP-connector（ctp）克隆到本仓库的同级目录，供
  * `pnpm dev -c <name>` / `pnpm connector <name>` 直接使用。
  * 幂等：目标目录已存在时跳过克隆，不会重复拉取。
  *
@@ -52,11 +52,20 @@ const BACKENDS = [
     purpose:
       '同花顺（A 股/指数/ETF/期货/期权）**日线**行情后端，FastAPI 默认端口 8092，启动命令：`pnpm connector ths`（需配置 THS_API_KEY 或 ~/.cloudtrade/config.json 的 ths.api_key）',
   },
+  {
+    name: 'KCQ-CTP-connector',
+    repo: 'https://github.com/TsekaLuk/KCQ-CTP-connector.git',
+    purpose:
+      'CTP 连接诊断与原始行情录制，默认端口 8093；克隆后先在该目录运行 `uv sync --frozen --link-mode copy`，再运行 `pnpm connector ctp`（实际登录需 SimNow / OpenCTP 账号）',
+  },
 ]
 
 // 完成后的启动命令与说明
 const COMMANDS = [
-  { command: 'pnpm dev -c all', comment: '# Vite 开发服务器 + 全部 connector（不含 mt5）' },
+  {
+    command: 'pnpm dev -c all',
+    comment: '# Vite 开发服务器 + 全部 connector（不含 mt5 / ths / ctp）',
+  },
   { command: 'pnpm dev -c gotdx baostock', comment: '# 前端 + 指定的 connector' },
   { command: 'pnpm connector binance', comment: '# 仅 Binance 现货行情后端（K 线 / 逐笔成交）' },
   { command: 'pnpm connector baostock', comment: '# 仅 BaoStock / TradingView 后端' },
@@ -67,6 +76,10 @@ const COMMANDS = [
   {
     command: 'pnpm connector ths',
     comment: '# 仅同花顺日线后端（需 THS_API_KEY 或 config.json 的 ths.api_key）',
+  },
+  {
+    command: 'pnpm connector ctp',
+    comment: '# 仅 CTP 诊断与录制（先在后端目录 uv sync，真实登录需本地账号配置）',
   },
 ]
 
@@ -114,5 +127,5 @@ for (const { command, comment } of COMMANDS) {
 }
 
 console.log(
-  `\n${paint('要求本机已安装 git，以及 Go（>=1.21）与 uv/Python 3.12（后端首次运行时会自动下载依赖）。', ANSI.dim)}`,
+  `\n${paint('要求本机已安装 git，以及 Go（>=1.21）与 uv/Python 3.12；CTP 首次运行前需显式 uv sync，其他后端按各自说明准备依赖。', ANSI.dim)}`,
 )

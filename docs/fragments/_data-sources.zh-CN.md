@@ -14,6 +14,12 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 
 后端仓库与本仓库同级（不在 monorepo 内）。
 
+CTP 当前提供**连接诊断与原始快照录制**：`pnpm connector ctp` / `pnpm dev -c ctp`
+（:8093，真实登录需本地账号配置）。`pnpm setup:backends` 会克隆同级
+[KCQ-CTP-connector](https://github.com/TsekaLuk/KCQ-CTP-connector)，首次启动前在后端目录执行
+`uv sync --frozen --link-mode copy`。CTP 不纳入 `all`；无账号也可运行离线自检。
+上游登录尚未验证，K 线能力待真实数据验证后开放，见 [CTP 接入说明]({{root}}docs/data-sources/ctp.zh-CN.md)。
+
 ### 一条命令启动开发环境
 
 先安装数据源后端：
@@ -26,7 +32,7 @@ pnpm setup:backends
 
 ```bash
 pnpm dev                      # 仅前端（Vite 开发服务器）
-pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5 / ths）
+pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5 / ths / ctp）
 pnpm dev -c gotdx baostock    # 前端 + 指定的后端
 pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 (Exness) 终端）
 pnpm dev -c ths               # 前端 + 同花顺日线（需 THS_API_KEY 或 config.json 的 ths.api_key）
@@ -46,14 +52,14 @@ pnpm dev:ths                  # 前端 + 同花顺日线
 pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 ```
 
-并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`、`[ths]`。
+并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`、`[ths]`、`[ctp]`。
 
 Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后才显示新提示符，请直接运行 `node scripts/dev.mjs -c gotdx`（其他 `-c` 参数同上）。`pnpm dev` 会额外启动一个 pnpm 进程，它自己也会收到 Ctrl+C，无法由子脚本控制它何时输出 `[ELIFECYCLE]`。
 
 仅启动后端（不带前端）：
 
 ```bash
-pnpm connector                # 全部后端（不含 mt5 / ths）
+pnpm connector                # 全部后端（不含 mt5 / ths / ctp）
 pnpm connector gotdx          # gotdx 通达信（:8080）
 pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
 pnpm connector baostock       # BaoStock / TradingView（:8000）
@@ -63,4 +69,4 @@ pnpm connector ths            # 同花顺日线（:8092，需 THS_API_KEY 或 co
 
 仅启动后端且需要相同的退出顺序时，运行 `node scripts/start-connector.mjs gotdx`。
 
-执行 `pnpm setup:backends` 后无需任何额外配置。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
+CTP 需要按上文显式准备依赖。开发服务器代理 `/api/stock` → `:8000`（Baostock-Tradingview-Connector）、`/api/public` → `:8080`（GoTDX-Connector）。
