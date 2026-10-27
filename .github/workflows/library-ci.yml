@@ -102,8 +102,10 @@ jobs:
       - name: Type-check tests (pnpm type-check:tests) [REQUIRED]
         run: pnpm type-check:tests
 
-      - name: Run package tests (pnpm -r test)
-        run: pnpm test:packages
+      # 测试不依赖其他包的测试结果；限制包与 worker 并发，避免取消排序后抢占过多资源。
+      # script-chart 最后独占 runner，避免真实脚本执行与其他包争抢 CPU 后超时。
+      - name: Run package tests (pnpm test:packages:ci)
+        run: pnpm test:packages:ci
 
       - name: Type-resolution check (attw) [REQUIRED]
         run: pnpm lint:types
