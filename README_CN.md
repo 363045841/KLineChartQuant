@@ -99,7 +99,6 @@ flowchart TB
         Bn["Binance-Connector<br/>Binance 现货 K 线 / 逐笔成交 :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
-        Th["KCQ-THS-connector<br/>同花顺日线 :8092"]
     end
 
     UI --> VuePkg
@@ -123,7 +122,6 @@ flowchart TB
     Bn -->|行情数据| Data
     Bs -->|行情数据| Data
     Mt -->|"行情数据 + SSE"| Data
-    Th -->|"行情数据（日线）"| Data
     Kernel --> Data
     Kernel --> Pipe
 ```
@@ -134,7 +132,7 @@ flowchart TB
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
 - **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
-  （gotdx / BaoStock / TradingView / MT5 / 同花顺 THS / mock）与 Binance 现货 K 线 / 逐笔成交。
+  （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 绑定** — `@363045841yyt/klinechart-react` 的 `KLineChart` 直接挂载 Core（仅客户端加载，
@@ -257,7 +255,6 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 | `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
-| `ths` | 同花顺（A 股 / 指数 / ETF / 期货 / 期权）**日线**，由 `KCQ-THS-connector` 提供 | [同花顺 THS](docs/data-sources/ths.zh-CN.md) |
 | `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
 
 后端仓库与本仓库同级（不在 monorepo 内）。
@@ -274,11 +271,10 @@ pnpm setup:backends
 
 ```bash
 pnpm dev                      # 仅前端（Vite 开发服务器）
-pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5 / ths）
+pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock，不含 mt5）
 pnpm dev -c gotdx baostock    # 前端 + 指定的后端
 pnpm dev -c mt5               # 前端 + MT5 本地终端（Windows + 已登录 MT5 (Exness) 终端）
-pnpm dev -c ths               # 前端 + 同花顺日线（需 THS_API_KEY 或 config.json 的 ths.api_key）
-pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / m / t / all）
+pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / m / all）
 pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
 ```
 
@@ -290,23 +286,21 @@ pnpm dev:g                    # 前端 + gotdx 通达信
 pnpm dev:b                    # 前端 + BaoStock / TradingView
 pnpm dev:bnb                  # 前端 + Binance 现货行情
 pnpm dev:mt5                  # 前端 + MT5 本地终端
-pnpm dev:ths                  # 前端 + 同花顺日线
 pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 ```
 
-并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`、`[ths]`。
+并行进程的日志集中在同一终端，并用彩色来源前缀区分：`[vite]`、`[gotdx]`、`[binance]`、`[baostock]`、`[mt5]`。
 
 Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后才显示新提示符，请直接运行 `node scripts/dev.mjs -c gotdx`（其他 `-c` 参数同上）。`pnpm dev` 会额外启动一个 pnpm 进程，它自己也会收到 Ctrl+C，无法由子脚本控制它何时输出 `[ELIFECYCLE]`。
 
 仅启动后端（不带前端）：
 
 ```bash
-pnpm connector                # 全部后端（不含 mt5 / ths）
+pnpm connector                # 全部后端（不含 mt5）
 pnpm connector gotdx          # gotdx 通达信（:8080）
 pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
 pnpm connector baostock       # BaoStock / TradingView（:8000）
 pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
-pnpm connector ths            # 同花顺日线（:8092，需 THS_API_KEY 或 config.json 的 ths.api_key）
 ```
 
 仅启动后端且需要相同的退出顺序时，运行 `node scripts/start-connector.mjs gotdx`。
