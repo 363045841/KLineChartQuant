@@ -74,6 +74,8 @@ export interface PlotGuide {
   readonly value: number
   readonly color: (colors: ColorTokens) => string
   readonly dash?: readonly number[]
+  /** 线宽，逻辑像素；缺省 1。 */
+  readonly width?: number
 }
 
 export interface IndicatorPlotDefinition {
@@ -103,5 +105,13 @@ export interface PlotRenderState extends PlotCollection {
     readonly value: number
     readonly color: string
     readonly dash: readonly number[]
+    readonly width: number
+  }[]
+  /** 两条水平线之间的整幅填充；价格已解析，颜色已换成主题值。 */
+  readonly guideFills: readonly {
+    readonly from: number
+    readonly to: number
+    readonly color: string
+    readonly visible: boolean
   }[]
 }

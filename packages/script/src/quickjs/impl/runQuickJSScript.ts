@@ -34,10 +34,10 @@ import {
 import { requestExecutionSource } from '../../request/impl/requestExecutionSource.js'
 import type { RequestValue, ScriptRequestContext, SecurityRequest } from '../../request/types.js'
 import {
+  DRAWING_API_PRELUDE,
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
-  DRAWING_API_PRELUDE,
   PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
@@ -50,7 +50,7 @@ import {
   type QuickJSScriptDefinition,
   type ScriptParamValue,
 } from '../types.js'
-import { readDefinition, readFillCall, readPlotCall } from './readDefinition.js'
+import { readDefinition, readFillCall, readHLineCall, readPlotCall } from './readDefinition.js'
 import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
 
 /** 共享的 WASM 模块类型。 */
@@ -178,6 +178,8 @@ function runWithContext(
   vm.runtime.setMaxStackSize(512 * 1024)
   // 宿主游标决定 __read 相对哪根 K 线；逐 bar 推进。
   const cursor = { index: -1 }
+  // 采集器在顶层源码之前就绪：hline 在顶层声明，plot/fill 仍只允许在 onBar 内。
+  collector = new PlotCollector({ barCount: bars.length })
   const values: RequestValue[] = []
   let failure: Error | undefined
 
@@ -247,7 +249,6 @@ function runWithContext(
       metadata.dispose()
     }
     if (failure) throw failure
-    collector = new PlotCollector({ barCount: bars.length })
     const requestsHandle = evalOrThrow(vm, '__requests', 'compile', timeout)
     const requests: readonly SecurityRequest[] = vm.dump(requestsHandle)
     requestsHandle.dispose()
@@ -353,24 +354,47 @@ function mountHostFunctions(
   vm.setProp(vm.global, '__plot', plot)
   plot.dispose()
 
+  const hline = vm.newFunction('__hline', (priceHandle, optionsHandle) => {
+    const active = getCollector()
+    // 与 plot 相反：hline 是图表级声明，只允许在顶层执行一次。
+    if (!active || cursor.index >= 0) {
+      onError(new ScriptExecutionError('compile', 'hline 只能在文件顶层声明'))
+      return vm.undefined
+    }
+    const id = active.onHLine(readHLineCall(vm.dump(priceHandle), vm.dump(optionsHandle)))
+    return vm.newString(id)
+  })
+  vm.setProp(vm.global, '__hline', hline)
+  hline.dispose()
+
   const fill = vm.newFunction(
     '__fill',
     (fromHandle, toHandle, colorHandle, titleHandle, optionsHandle) => {
       const collector = getCollector()
-      if (!collector || cursor.index < 0) {
-        onError(new ScriptExecutionError('compile', 'fill 只能在 onBar 中调用'))
+      if (!collector) {
+        onError(new ScriptExecutionError('compile', 'fill 缺少运行态'))
         return vm.undefined
       }
-      collector.onFill(
-        readFillCall(
-          vm.dump(fromHandle),
-          vm.dump(toHandle),
-          vm.dump(colorHandle),
-          vm.dump(titleHandle),
-          vm.dump(optionsHandle),
-        ),
-        cursor.index,
+      const call = readFillCall(
+        vm.dump(fromHandle),
+        vm.dump(toHandle),
+        vm.dump(colorHandle),
+        vm.dump(titleHandle),
+        vm.dump(optionsHandle),
       )
+      if (call.kind === 'plot') {
+        if (cursor.index < 0) {
+          onError(new ScriptExecutionError('compile', 'fill 只能在 onBar 中调用'))
+          return vm.undefined
+        }
+        collector.onFill(call.declaration, cursor.index)
+      } else {
+        if (cursor.index >= 0) {
+          onError(new ScriptExecutionError('compile', 'hline 填充只能在文件顶层声明'))
+          return vm.undefined
+        }
+        collector.onHLineFill(call.from, call.to, call.color, call.title, call.visible)
+      }
       return vm.undefined
     },
   )

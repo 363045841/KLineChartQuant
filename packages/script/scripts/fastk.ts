@@ -1,4 +1,8 @@
 // 快速随机指标，完整窗口内最高最低价相同时取中值 50。
+// 超买/超卖参考线是图表级声明，不参与数据列与数值范围。
+for (const level of [80, 50, 20])
+  hline(level, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+
 defineIndicator({
   name: 'FASTK',
   title: '快速随机指标',
@@ -10,12 +14,5 @@ defineIndicator({
       label: 'FASTK',
       color: Color.Orange,
     })
-    for (const level of [80, 50, 20]) {
-      plot.Line(level, 'guide' + level, {
-        label: String(level),
-        color: Color.Gray,
-        dash: [4, 4],
-      })
-    }
   },
 })

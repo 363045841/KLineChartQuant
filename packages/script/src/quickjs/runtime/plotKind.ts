@@ -208,6 +208,20 @@ declare enum Format {
 }
 
 /**
+ * @summary 水平线线型
+ *
+ * `hline` 的线型档位；与 Pine 的 `hline.style_*` 对应。
+ */
+declare enum HLineStyle {
+  /** @summary 实线 */
+  style_solid = "solid",
+  /** @summary 虚线 */
+  style_dashed = "dashed",
+  /** @summary 点线 */
+  style_dotted = "dotted",
+}
+
+/**
  * @summary 标记形状
  *
  * 固定形状标记可选的外形；缺省使用 XCross。

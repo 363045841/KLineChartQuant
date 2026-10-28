@@ -58,18 +58,28 @@ function isTrackedDeclaration(declaration, files) {
   )
 }
 
+/** 引用节点：类型引用、继承实参与类型查询。 */
+function isReferenceNode(node) {
+  return (
+    ts.isTypeReferenceNode(node) ||
+    ts.isExpressionWithTypeArguments(node) ||
+    ts.isTypeQueryNode(node)
+  )
+}
+
+/** 解析引用节点指向的真实符号，跟随 import 别名。 */
+function resolveReference(checker, node) {
+  const symbol = checker.getSymbolAtLocation(referenceName(node))
+  if (symbol?.flags & ts.SymbolFlags.Alias) return checker.getAliasedSymbol(symbol)
+  return symbol
+}
+
 /** 跟随类型引用与继承声明，收集泛型、条件类型和映射类型的依赖。 */
 function createReferenceCollector({ checker, files, referencedTypes }) {
   /** 递归收集单个语法树里的类型引用。 */
   function collect(node) {
-    if (
-      ts.isTypeReferenceNode(node) ||
-      ts.isExpressionWithTypeArguments(node) ||
-      ts.isTypeQueryNode(node)
-    ) {
-      let symbol = checker.getSymbolAtLocation(referenceName(node))
-      if (symbol?.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol)
-      for (const declaration of symbol?.declarations ?? []) {
+    if (isReferenceNode(node)) {
+      for (const declaration of resolveReference(checker, node)?.declarations ?? []) {
         if (isTrackedDeclaration(declaration, files)) referencedTypes.add(declaration)
       }
     }
@@ -134,6 +144,12 @@ function isExpandableNamespace(declaration, checker) {
   )
 }
 
+/** 符号是否还需要展开匿名子对象：调用签名、已访问过的类型与不可展开声明都不再下钻。 */
+function isExpandableSymbol(type, signatures, ancestors, declaration, checker) {
+  if (signatures.length || ancestors.has(type)) return false
+  return isExpandableNamespace(declaration, checker)
+}
+
 /** 展开脚本命名空间与嵌套对象，Series 等实例类型留在相关类型中说明。 */
 function createApiWalker({ checker, format, section, collectReferences }) {
   /** 输出一个符号并按需递归其匿名子对象。 */
@@ -149,8 +165,7 @@ function createApiWalker({ checker, format, section, collectReferences }) {
       format,
     )
     section(name, signature, symbol)
-    if (signatures.length || ancestors.has(type) || !isExpandableNamespace(declaration, checker))
-      return
+    if (!isExpandableSymbol(type, signatures, ancestors, declaration, checker)) return
     const next = new Set([...ancestors, type])
     for (const member of type.getProperties()) api(member, `${name}.${member.getName()}`, next)
   }
@@ -167,23 +182,51 @@ function collectEnumApi(statement, checker, api) {
   }
 }
 
+/** 变量声明：每个名字都是一个脚本可见的全局入口。 */
+function collectVariableStatement(statement, checker, api) {
+  for (const variable of statement.declarationList.declarations) {
+    const symbol = checker.getSymbolAtLocation(variable.name)
+    if (symbol) api(symbol, symbol.getName())
+  }
+}
+
+/** 单条非变量声明：函数直接展开，类型别名只收集引用，其余进入相关类型。 */
+function collectDeclaration(declaration, checker, api, collectReferences, referencedTypes) {
+  const symbol = checker.getSymbolAtLocation(declaration.name)
+  if (!symbol) return
+  if (ts.isFunctionDeclaration(declaration)) api(symbol, symbol.getName())
+  else if (ts.isTypeAliasDeclaration(declaration)) collectReferences(declaration)
+  else referencedTypes.add(declaration)
+}
+
 /** 入口 declare global 内声明的变量、函数与类型。 */
 function collectModuleDeclarations(declarations, checker, api, collectReferences, referencedTypes) {
   for (const declaration of declarations) {
     if (ts.isVariableStatement(declaration)) {
-      for (const variable of declaration.declarationList.declarations) {
-        const symbol = checker.getSymbolAtLocation(variable.name)
-        if (symbol) api(symbol, symbol.getName())
-      }
+      collectVariableStatement(declaration, checker, api)
       continue
     }
     if (!declaration.name) continue
-    const symbol = checker.getSymbolAtLocation(declaration.name)
-    if (!symbol) continue
-    if (ts.isFunctionDeclaration(declaration)) api(symbol, symbol.getName())
-    else if (ts.isTypeAliasDeclaration(declaration)) collectReferences(declaration)
-    else referencedTypes.add(declaration)
+    collectDeclaration(declaration, checker, api, collectReferences, referencedTypes)
   }
+}
+
+/** 文件内的全局枚举：枚举名与成员都是脚本可见的常量。 */
+function collectFileEnums(file, checker, api) {
+  if (ts.isExternalModule(file)) return
+  for (const statement of file.statements) {
+    if (ts.isEnumDeclaration(statement)) collectEnumApi(statement, checker, api)
+  }
+}
+
+/** 入口文件里所有 declare global 块的语句列表。 */
+function globalStatementsOf(file) {
+  const statements = []
+  for (const statement of file.statements) {
+    if (ts.isModuleDeclaration(statement) && statement.body && ts.isModuleBlock(statement.body))
+      statements.push(...statement.body.statements)
+  }
+  return statements
 }
 
 /** 扫描全局声明与枚举，得到脚本作者可用的 API 列表。 */
@@ -200,26 +243,15 @@ function collectGlobalApi({
   const globals = program.getSourceFile(entry)
   if (!globals) throw new Error('缺少 Script 全局声明')
   for (const file of program.getSourceFiles()) {
-    if (!(file.fileName in files)) continue
-    for (const statement of file.statements) {
-      if (ts.isEnumDeclaration(statement) && !ts.isExternalModule(file))
-        collectEnumApi(statement, checker, api)
-      if (
-        file !== globals ||
-        !ts.isModuleDeclaration(statement) ||
-        !statement.body ||
-        !ts.isModuleBlock(statement.body)
-      )
-        continue
-      collectModuleDeclarations(
-        statement.body.statements,
-        checker,
-        api,
-        collectReferences,
-        referencedTypes,
-      )
-    }
+    if (file.fileName in files) collectFileEnums(file, checker, api)
   }
+  collectModuleDeclarations(
+    globalStatementsOf(globals),
+    checker,
+    api,
+    collectReferences,
+    referencedTypes,
+  )
 }
 
 /** 渲染被引用类型及其成员；已完成或入口别名直接跳过。 */

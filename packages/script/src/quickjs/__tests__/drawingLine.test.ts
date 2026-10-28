@@ -1,14 +1,16 @@
 /** 两种执行后端共用的 line 行为测试，覆盖对象生命周期与 Pine 坐标语义。 */
 import { describe, expect, it } from 'vitest'
-import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { BACKENDS } from '../../__tests__/backends.js'
+import { barsFromCloses, plotById } from '../../__tests__/marketData.js'
 
-const bars: Bar[] = [10, 20, 30].map((close, index) => ({ time: 1000 + index * 1000, open: close, high: close + 1, low: close - 1, close, volume: 1 }))
-const backends = [
-  { name: 'QuickJS', run: (source: string) => runQuickJSScript({ source, bars }) },
-  { name: 'native', run: async (source: string) => prepareNativeScript(source).run(bars) },
-]
+const bars = barsFromCloses([10, 20, 30], { spread: 1 }).map((bar, index) => ({
+  ...bar,
+  time: 1000 + index * 1000,
+}))
+const backends = BACKENDS.map(({ name, prepare }) => ({
+  name,
+  run: async (source: string) => prepare(source).run(bars),
+}))
 
 describe.each(backends)('line API ($name)', ({ run }) => {
   it('shares one mutable line across bars and copies independently', async () => {
@@ -38,10 +40,18 @@ describe.each(backends)('line API ($name)', ({ run }) => {
       }});
     `)
     expect(result.drawings).toHaveLength(2)
-    expect(result.drawings?.[0]).toMatchObject({ kind: 'trend-line', extend: 'both', style: { strokeWidth: 3, strokeStyle: 'arrow_both' }, anchors: [{ logicalIndex: 0, price: 10 }, { logicalIndex: 2, price: 30 }] })
+    expect(result.drawings?.[0]).toMatchObject({
+      kind: 'trend-line',
+      extend: 'both',
+      style: { strokeWidth: 3, strokeStyle: 'arrow_both' },
+      anchors: [
+        { logicalIndex: 0, price: 10 },
+        { logicalIndex: 2, price: 30 },
+      ],
+    })
     expect(result.drawings?.[1]?.anchors[1]?.price).toBe(99)
-    expect(result.plots.find((p) => p.id === 'price')?.data[2]).toMatchObject({ value: 50 })
-    expect(result.plots.find((p) => p.id === 'coords')?.data[2]).toMatchObject({ value: 42 })
+    expect(plotById(result, 'price').data[2]).toMatchObject({ value: 50 })
+    expect(plotById(result, 'coords').data[2]).toMatchObject({ value: 42 })
   })
 
   it('supports chart.point overloads, timestamp coordinates and all six styles', async () => {
@@ -70,23 +80,31 @@ describe.each(backends)('line API ($name)', ({ run }) => {
   })
 
   it('rejects get_price for timestamp lines', async () => {
-    await expect(run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
+    await expect(
+      run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
       const id = line.new(time[0], 10, time[0] + 1000, 20, xloc.bar_time);
       line.get_price(id, 1);
-    }});`)).rejects.toThrow('get_price')
+    }});`),
+    ).rejects.toThrow('get_price')
   })
 
   it('rejects bar_index coordinates outside the loaded window', async () => {
-    await expect(run(`defineIndicator({ name: 'past', position: Position.Main, onBar() {
+    await expect(
+      run(`defineIndicator({ name: 'past', position: Position.Main, onBar() {
       line.new(-1, 10, 1, 20);
-    }});`)).rejects.toThrow('bar_index')
+    }});`),
+    ).rejects.toThrow('bar_index')
     // 时间戳误用默认 xloc：万亿级数值远超未来槽位上限。
-    await expect(run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
+    await expect(
+      run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
       line.new(time[0], 10, time[0] + 1000, 20);
-    }});`)).rejects.toThrow('bar_index')
-    await expect(run(`defineIndicator({ name: 'future', position: Position.Main, onBar() {
+    }});`),
+    ).rejects.toThrow('bar_index')
+    await expect(
+      run(`defineIndicator({ name: 'future', position: Position.Main, onBar() {
       line.new(bar_index, 10, bar_index + 501, 20);
-    }});`)).rejects.toThrow('bar_index')
+    }});`),
+    ).rejects.toThrow('bar_index')
   })
 
   it('accepts future bar_index coordinates within the slot limit', async () => {

@@ -128,4 +128,23 @@ describe('projectPlots — script colors', () => {
     expect(candles.data[0]!.wickColor).toBeNull()
     expect(candles.data[0]!.borderColor).toBe('#000000')
   })
+
+  it('maps hline declarations to theme-resolved guides', () => {
+    const state = project({
+      plots: [],
+      fills: [],
+      hlines: [
+        { id: '0', price: 70, color: '@gray', dash: [4, 4], width: 2 },
+        { id: '1', price: 30, color: '#123456', dash: [], width: 1 },
+      ],
+      hlineFills: [{ id: 'zone', from: '0', to: '1', color: '@teal26', visible: true }],
+    })
+    expect(state.guides).toEqual([
+      { value: 70, color: palette.gray, dash: [4, 4], width: 2 },
+      { value: 30, color: '#123456', dash: [], width: 1 },
+    ])
+    expect(state.guideFills).toEqual([
+      { from: 70, to: 30, color: `${palette.teal}26`, visible: true },
+    ])
+  })
 })

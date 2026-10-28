@@ -1,15 +1,9 @@
 /** 使用完整脚本和已有行情构造验证双后端的跨周期计算与隔离。 */
-import { beforeAll, describe, expect, it } from 'vitest'
-import { barsFromCloses } from '../../__tests__/marketData.js'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
+import { describe, expect, it } from 'vitest'
+import { BACKENDS } from '../../__tests__/backends.js'
+import { barsFromCloses, plotById } from '../../__tests__/marketData.js'
 
-beforeAll(preloadQuickJS)
-
-describe.each([
-  { name: 'Native', prepare: prepareNativeScript },
-  { name: 'QuickJS', prepare: prepareQuickJSScript },
-])('$name Request', ({ prepare }) => {
+describe.each(BACKENDS)('$name Request', ({ prepare }) => {
   it('目标周期独立计算均线，并按实际时间戳对齐', () => {
     const script = prepare(`defineIndicator({name:'Request',position:Position.Main,onBar(){
       const length = input.int(2)
@@ -26,8 +20,7 @@ describe.each([
       {},
       { symbol: 'BTCUSDT', snapshots: [{ id: '0', bars: target }] },
     )
-    const plot = result.plots[0]
-    if (plot?.kind !== 'line') throw new Error('Missing line')
+    const plot = plotById(result, 'ma')
     expect(plot.data.map((point) => point?.value)).toEqual([
       undefined,
       undefined,
@@ -66,5 +59,15 @@ describe.each([
       expect(() =>
         prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
       ).toThrow()
+  })
+
+  it('拒绝参数个数不足或过多的请求', () => {
+    for (const body of [
+      `request.security('BTCUSDT','60')`,
+      `request.security('BTCUSDT','60',()=>close,{},'extra')`,
+    ])
+      expect(() =>
+        prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
+      ).toThrow('request.security 需要品种、周期、回调和可选选项')
   })
 })

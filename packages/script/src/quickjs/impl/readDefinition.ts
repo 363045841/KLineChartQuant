@@ -1,5 +1,9 @@
 /** 校验从 QuickJS 跨边界读取的指标元数据，不信任用户脚本的对象结构。 */
 import {
+  Color,
+  type HLine,
+  HLineStyle,
+  hLineDash,
   isFormat,
   isPlotKind,
   isShapeLocation,
@@ -157,19 +161,22 @@ function isOptionalColor(value: unknown): boolean {
   return value === undefined || value === null || typeof value === 'string'
 }
 
+/** OHLC 不允许声明的字段：尺寸、基线、标记定位与文字色。 */
+const OHLC_FORBIDDEN_FIELDS = ['size', 'baseline', 'location', 'textColor'] as const
+
+/** 可选整数字段；给出时必须为整数，并可要求大于下界。 */
+function isIntegerField(value: unknown, minimum?: number): boolean {
+  if (value === undefined) return true
+  if (typeof value !== 'number' || !Number.isInteger(value)) return false
+  return minimum === undefined || value > minimum
+}
+
 /** OHLC 无尺寸、基线或标记定位；只保留公共显示元数据。 */
 function isOhlcFields(value: Record<string, unknown>): boolean {
   return (
-    value.size === undefined &&
-    value.baseline === undefined &&
-    value.location === undefined &&
-    value.textColor === undefined &&
-    (value.offset === undefined ||
-      (typeof value.offset === 'number' && Number.isInteger(value.offset))) &&
-    (value.showLast === undefined ||
-      (typeof value.showLast === 'number' &&
-        Number.isInteger(value.showLast) &&
-        value.showLast > 0))
+    OHLC_FORBIDDEN_FIELDS.every((field) => value[field] === undefined) &&
+    isIntegerField(value.offset) &&
+    isIntegerField(value.showLast, 0)
   )
 }
 
@@ -204,8 +211,13 @@ function isFill(value: unknown): value is PlotFillDeclaration {
   )
 }
 
-/** 校验 fill 调用；from/to 由句柄提供，title 作为填充名称，缺省按 from/to 生成。 */
-export function readFillCall(
+/** 无效 fill：统一作为运行期错误拒绝。 */
+function invalidFill(): never {
+  throw new ScriptExecutionError('run', '无效 fill 调用参数')
+}
+
+/** 校验 Plot 之间的填充调用；from/to 由句柄的 name 提供。 */
+function readPlotFillCall(
   from: unknown,
   to: unknown,
   color: unknown,
@@ -216,7 +228,7 @@ export function readFillCall(
     options !== undefined &&
     (!isRecord(options) || Object.keys(options).some((key) => key !== 'visible'))
   ) {
-    throw new ScriptExecutionError('run', '无效 fill 调用参数')
+    invalidFill()
   }
   const declaration = {
     ...options,
@@ -225,8 +237,105 @@ export function readFillCall(
     to,
     color,
   }
-  if (!isFill(declaration)) throw new ScriptExecutionError('run', '无效 fill 调用参数')
+  if (!isFill(declaration)) invalidFill()
   return declaration
+}
+
+/** Plot 句柄；fill 借 name 引用整列。 */
+function isPlotRef(value: unknown): value is { readonly name: string } {
+  return isRecord(value) && typeof value.name === 'string'
+}
+
+/** 水平线句柄；fill 借 id 引用整条线。 */
+function isHLineRef(value: unknown): value is { readonly hline: string } {
+  return isRecord(value) && typeof value.hline === 'string'
+}
+
+/** 两条水平线之间的填充：单色、整幅宽度，不按 bar 变化。 */
+function readHLineFillCall(
+  from: { readonly hline: string },
+  to: { readonly hline: string },
+  color: unknown,
+  title: unknown,
+  options: unknown,
+): FillCall {
+  if (
+    options !== undefined &&
+    (!isRecord(options) || Object.keys(options).some((key) => key !== 'visible'))
+  ) {
+    invalidFill()
+  }
+  if (color !== null && typeof color !== 'string') invalidFill()
+  if (title !== undefined && typeof title !== 'string') invalidFill()
+  const visible = !(isRecord(options) && options.visible === false)
+  return { kind: 'hline', from: from.hline, to: to.hline, color, title, visible }
+}
+
+/** fill 的两种语义：两个 Plot 之间的逐 bar 填充，或两条水平线之间的整幅填充。 */
+export type FillCall =
+  | { readonly kind: 'plot'; readonly declaration: PlotFillDeclaration }
+  | {
+      readonly kind: 'hline'
+      readonly from: string
+      readonly to: string
+      readonly color: string | null
+      readonly title: string | undefined
+      readonly visible: boolean
+    }
+
+/** 按句柄种类分派 fill；混合句柄与未知句柄直接拒绝。 */
+export function readFillCall(
+  from: unknown,
+  to: unknown,
+  color: unknown,
+  title: unknown,
+  options: unknown,
+): FillCall {
+  if (isPlotRef(from) && isPlotRef(to))
+    return {
+      kind: 'plot',
+      declaration: readPlotFillCall(from.name, to.name, color, title, options),
+    }
+  if (isHLineRef(from) && isHLineRef(to)) return readHLineFillCall(from, to, color, title, options)
+  invalidFill()
+}
+
+/** hline 允许的字段；未知字段直接拒绝，避免拼写错误静默生效。 */
+const HLINE_OPTION_KEYS = new Set(['title', 'color', 'linestyle', 'linewidth'])
+
+/** hline 非法：统一作为编译错误拒绝。 */
+function invalidHLine(): never {
+  throw new ScriptExecutionError('compile', '无效 hline 调用参数')
+}
+
+/** 线型收窄；非枚举值一律拒绝。 */
+function isHLineStyle(value: unknown): value is HLineStyle {
+  return Object.values(HLineStyle).some((style) => style === value)
+}
+
+/** 读取 hline 调用；价格必须有限，样式按契约默认值归一化；id 由采集器分配。 */
+export function readHLineCall(price: unknown, options: unknown): Omit<HLine, 'id'> {
+  if (typeof price !== 'number' || !Number.isFinite(price))
+    throw new ScriptExecutionError('compile', 'hline 的 price 必须是有限数值')
+  const declaration = options === undefined ? {} : isRecord(options) ? options : invalidHLine()
+  for (const key of Object.keys(declaration)) if (!HLINE_OPTION_KEYS.has(key)) invalidHLine()
+  if (declaration.title !== undefined && typeof declaration.title !== 'string') invalidHLine()
+  if (declaration.color !== undefined && typeof declaration.color !== 'string') invalidHLine()
+  if (declaration.linestyle !== undefined && !isHLineStyle(declaration.linestyle)) invalidHLine()
+  if (
+    declaration.linewidth !== undefined &&
+    (typeof declaration.linewidth !== 'number' ||
+      !Number.isFinite(declaration.linewidth) ||
+      declaration.linewidth <= 0)
+  )
+    invalidHLine()
+  const style = isHLineStyle(declaration.linestyle) ? declaration.linestyle : HLineStyle.style_solid
+  return {
+    price,
+    color: typeof declaration.color === 'string' ? declaration.color : Color.Blue,
+    dash: hLineDash(style),
+    width: typeof declaration.linewidth === 'number' ? declaration.linewidth : 1,
+  }
 }
 
 /** 声明级字段通过校验后可直接读取的输入形状。 */
@@ -258,26 +367,43 @@ function isDefinitionBase(value: unknown): value is DefinitionBase {
   )
 }
 
+/** 输入声明的可选字段与类型；新增字段只需登记一行。 */
+const INPUT_OPTIONAL_FIELDS = [
+  ['title', 'string'],
+  ['min', 'number'],
+  ['max', 'number'],
+  ['step', 'number'],
+] as const
+
+/** min/max/step 三个可选数值字段；缺省字段不写入声明。 */
+function readNumberFields(declaration: Record<string, unknown>): {
+  min?: number
+  max?: number
+  step?: number
+} {
+  const result: { min?: number; max?: number; step?: number } = {}
+  for (const field of ['min', 'max', 'step'] as const)
+    if (typeof declaration[field] === 'number') result[field] = declaration[field]
+  return result
+}
+
+/** 输入声明非法：统一以编译错误拒绝。 */
+function invalidInput(key: string): never {
+  throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
+}
+
 /** 读取单个输入声明；非法字段直接作为编译错误拒绝。 */
 function readInput(key: string, declaration: unknown): ScriptInputDeclaration {
-  if (
-    !isRecord(declaration) ||
-    !isParam(declaration.default) ||
-    !optional(declaration.title, 'string') ||
-    !optional(declaration.min, 'number') ||
-    !optional(declaration.max, 'number') ||
-    !optional(declaration.step, 'number') ||
-    !isOptionsValid(declaration.options, declaration.default)
-  ) {
-    throw new ScriptExecutionError('compile', `无效输入参数：${key}`)
+  if (!isRecord(declaration) || !isParam(declaration.default)) invalidInput(key)
+  for (const [field, kind] of INPUT_OPTIONAL_FIELDS) {
+    if (!optional(declaration[field], kind)) invalidInput(key)
   }
+  if (!isOptionsValid(declaration.options, declaration.default)) invalidInput(key)
   return {
     default: declaration.default,
     ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
     ...(isOptionsList(declaration.options) ? { options: declaration.options } : {}),
-    ...(typeof declaration.min === 'number' ? { min: declaration.min } : {}),
-    ...(typeof declaration.max === 'number' ? { max: declaration.max } : {}),
-    ...(typeof declaration.step === 'number' ? { step: declaration.step } : {}),
+    ...readNumberFields(declaration),
   }
 }
 
@@ -300,9 +426,15 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   }
   return {
     name: value.name,
-    ...(typeof value.max_lines_count === 'number' ? { max_lines_count: value.max_lines_count } : {}),
-    ...(typeof value.max_boxes_count === 'number' ? { max_boxes_count: value.max_boxes_count } : {}),
-    ...(typeof value.max_labels_count === 'number' ? { max_labels_count: value.max_labels_count } : {}),
+    ...(typeof value.max_lines_count === 'number'
+      ? { max_lines_count: value.max_lines_count }
+      : {}),
+    ...(typeof value.max_boxes_count === 'number'
+      ? { max_boxes_count: value.max_boxes_count }
+      : {}),
+    ...(typeof value.max_labels_count === 'number'
+      ? { max_labels_count: value.max_labels_count }
+      : {}),
     ...(typeof value.title === 'string' ? { title: value.title } : {}),
     ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,

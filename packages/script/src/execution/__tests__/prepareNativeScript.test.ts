@@ -1,16 +1,15 @@
 /** 验证原生后端与 QuickJS 的数值、绘图契约及每次调用的状态隔离。 */
 
-import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { Color, isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
+import { describe, expect, it } from 'vitest'
+import { BACKENDS } from '../../__tests__/backends.js'
 import { barsFromCloses, wavyCloses } from '../../__tests__/marketData.js'
 import { builtinScriptSources } from '../../quickjs/generated/builtinScripts.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
+import { prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
 import { prepareNativeScript } from '../impl/prepareNativeScript.js'
 
 describe('原生脚本后端', () => {
-  beforeAll(preloadQuickJS)
-
-  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 输出两种阶梯线并保留样式与 fill 句柄', (prepare) => {
+  it.each(BACKENDS)('执行器 $name 输出两种阶梯线并保留样式与 fill 句柄', ({ prepare }) => {
     const prepared = prepare(`defineIndicator({ name: 'Steps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0] === 3 ? NaN : close[0]
       const joined = plot.StepLine(value, 'joined')
@@ -21,8 +20,21 @@ describe('原生脚本后端', () => {
     } })`)
     const result = prepared.run(barsFromCloses([1, 2, 3, 4]))
     expect(result.plots).toEqual([
-      expect.objectContaining({ id: 'joined', kind: 'stepline', dash: [], offset: 0, visible: true }),
-      expect.objectContaining({ id: 'broken', kind: 'steplinebr', dash: [4, 2], offset: 1, size: 'large', visible: false }),
+      expect.objectContaining({
+        id: 'joined',
+        kind: 'stepline',
+        dash: [],
+        offset: 0,
+        visible: true,
+      }),
+      expect.objectContaining({
+        id: 'broken',
+        kind: 'steplinebr',
+        dash: [4, 2],
+        offset: 1,
+        size: 'large',
+        visible: false,
+      }),
     ])
     for (const plot of result.plots) {
       if (isOhlcPlot(plot)) throw new Error('Expected step Plot')
@@ -39,7 +51,7 @@ describe('原生脚本后端', () => {
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
   })
 
-  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 保留折线空值与连接策略', (prepare) => {
+  it.each(BACKENDS)('执行器 $name 保留折线空值与连接策略', ({ prepare }) => {
     const prepared = prepare(`defineIndicator({ name: 'Gaps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0]
       const joined = plot.Line(value, 'joined')
@@ -58,7 +70,7 @@ describe('原生脚本后端', () => {
     }
   })
 
-  it.each([prepareNativeScript, prepareQuickJSScript])('执行器 %s 校验 LineBR 样式及整列类型一致性', (prepare) => {
+  it.each(BACKENDS)('执行器 $name 校验 LineBR 样式及整列类型一致性', ({ prepare }) => {
     const invalid = prepare(`defineIndicator({ name: 'InvalidGaps', position: 'main', onBar() {
       plot.LineBR(close[0], 'line', { dash: 'invalid' })
     } })`)
@@ -79,6 +91,8 @@ describe('原生脚本后端', () => {
       const expected = sandbox.run(bars)
       const actual = native.run(bars)
       expect(actual.fills).toEqual(expected.fills)
+      expect(actual.hlines).toEqual(expected.hlines)
+      expect(actual.hlineFills).toEqual(expected.hlineFills)
       expect(actual.plots).toHaveLength(expected.plots.length)
       actual.plots.forEach((plot, index) => {
         const reference = expected.plots[index]!
@@ -101,6 +115,19 @@ describe('原生脚本后端', () => {
       )
     },
   )
+
+  it.each(BACKENDS)('执行器 $name 只接受顶层 hline 声明', ({ prepare }) => {
+    const script = prepare(`hline(70, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+defineIndicator({ name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 'close') } })`)
+    expect(script.run(barsFromCloses([1])).hlines).toEqual([
+      { id: '0', price: 70, color: Color.Gray, dash: [4, 4], width: 1 },
+    ])
+    expect(() =>
+      prepare(`defineIndicator({ name: 'Bad', position: 'sub', onBar() { hline(70) } })`).run(
+        barsFromCloses([1]),
+      ),
+    ).toThrow('文件顶层')
+  })
 
   it('复用外部库、参数和行情 API，每次调用重新初始化状态，不写入宿主全局', () => {
     const source = `

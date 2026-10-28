@@ -16,25 +16,33 @@ it('Request 编译只使用 VFS，不读取宿主 ts.sys', () => {
     {},
   )
   expect(browserTs.sys).toBeUndefined()
-  const source = readFileSync(
-    new URL('../../quickjs/impl/compileScriptRequests.ts', import.meta.url),
-    'utf8',
-  )
-  const compiled = browserTs.transpileModule(source, {
-    compilerOptions: {
-      module: browserTs.ModuleKind.CommonJS,
-      target: browserTs.ScriptTarget.ES2022,
-      esModuleInterop: true,
+  /** 把编译期模块转成浏览器可执行的 CommonJS，不引入宿主 ts.sys。 */
+  function transpile(file: string): string {
+    return browserTs.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), {
+      compilerOptions: {
+        module: browserTs.ModuleKind.CommonJS,
+        target: browserTs.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+    }).outputText
+  }
+  // 共享的编译期规则模块只依赖 typescript，先在同一个沙箱里求值。
+  const ast = runInNewContext(`${transpile('../../quickjs/impl/scriptCompileAst.ts')}\n;exports`, {
+    exports: {},
+    require(name: string) {
+      if (name === 'typescript') return browserTs
+      throw new Error(`Unexpected compiler import: ${name}`)
     },
-  }).outputText
+  })
   const compile: typeof compileScriptRequests = runInNewContext(
-    `${compiled}\n;exports.compileScriptRequests`,
+    `${transpile('../../quickjs/impl/compileScriptRequests.ts')}\n;exports.compileScriptRequests`,
     {
       exports: {},
       require(name: string) {
         if (name === 'typescript') return browserTs
         if (name === '@typescript/vfs') return vfs
         if (name === '../../errors.js') return errors
+        if (name === './scriptCompileAst.js') return ast
         throw new Error(`Unexpected compiler import: ${name}`)
       },
     },

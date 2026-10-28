@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { generateEditorResources } from './generate-editor-resources.mjs'
 import { generateRuntimeSources } from './generate-runtime-sources.mjs'
 import { generateScriptEnums } from './generate-script-enums.mjs'
+import { reloadAfter, watchFiles } from './lib/vite-watch.mjs'
 
 const scriptRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(scriptRoot, '../..')
@@ -69,19 +70,12 @@ export function contractResourcesPlugin() {
         if (running || !isInput(filename)) return
         running = true
         try {
-          if (await regenerate()) server.ws.send({ type: 'full-reload' })
-        } catch (error) {
-          server.config.logger.error(String(error))
-          server.ws.send({ type: 'error', err: { message: String(error), stack: '' } })
+          await reloadAfter(server, regenerate)
         } finally {
           running = false
         }
       }
-      const handler = (filename) => void refresh(filename)
-      for (const event of ['add', 'change', 'unlink']) server.watcher.on(event, handler)
-      server.httpServer?.once('close', () => {
-        for (const event of ['add', 'change', 'unlink']) server.watcher.off(event, handler)
-      })
+      watchFiles(server, (filename) => void refresh(filename))
     },
   }
 }

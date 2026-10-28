@@ -21,6 +21,7 @@ import type {
   StepLineBRPlotDeclaration,
   StepLinePlotDeclaration,
 } from './declaration.js'
+import type { HLine, HLineFill } from './hline.js'
 import {
   type ArrowPlot,
   type CharPlot,
@@ -64,6 +65,8 @@ export class PlotCollector {
   private readonly barCount: number
   private readonly fills = new Map<string, CollectedFill>()
   private readonly entries = new Map<string, CollectedPlot | CollectedOhlcPlot>()
+  private readonly hlines: HLine[] = []
+  private readonly hlineFills: HLineFill[] = []
 
   /** 登记 bar 数量；Plot 条目在首次输出时按 name 建立，填充由 onFill 登记。 */
   constructor(options: PlotCollectorOptions) {
@@ -120,6 +123,31 @@ export class PlotCollector {
     entry.data[barIndex] = point !== null && Number.isFinite(point.value) ? point : undefined
   }
 
+  /** 登记图表级水平线并返回本轮运行内的句柄 id；hline 只在文件顶层声明。 */
+  onHLine(line: Omit<HLine, 'id'>): string {
+    const id = String(this.hlines.length)
+    this.hlines.push({ ...line, id })
+    return id
+  }
+
+  /**
+   * 登记两条水平线之间的整幅填充。
+   * id 缺省按 from/to 生成；颜色为 null 表示显式不绘制。
+   */
+  onHLineFill(
+    from: string,
+    to: string,
+    color: string | null,
+    title: string | undefined,
+    visible: boolean,
+  ): void {
+    const ids = new Set(this.hlines.map((line) => line.id))
+    if (!ids.has(from) || !ids.has(to))
+      throw new TypeError(`Unknown hline fill source: ${title ?? `${from}-${to}`}`)
+    if (color === null) return
+    this.hlineFills.push({ id: title ?? `${from}-${to}`, from, to, color, visible })
+  }
+
   /** 产出 PlotCollection：Plot 按首次出现顺序输出，再补齐填充。 */
   collect(): PlotCollection {
     const plots = [...this.entries.values()].map(
@@ -132,7 +160,7 @@ export class PlotCollector {
       createFill(declaration, colors),
     )
     validatePlotFills(plots, fills)
-    return { plots, fills }
+    return { plots, fills, hlines: this.hlines, hlineFills: this.hlineFills }
   }
 
   /** 采集完整 OHLC；颜色写入逐点数据，整列元数据在一次运行内固定。 */

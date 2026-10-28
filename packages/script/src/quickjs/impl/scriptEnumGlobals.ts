@@ -8,17 +8,18 @@
 
 import {
   Color,
-  LineStyle,
-  extend,
-  xloc,
-  yloc,
   DataSource,
+  extend,
   Format,
+  HLineStyle,
+  LineStyle,
   PlotKind,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
   Timeframe,
+  xloc,
+  yloc,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { Position } from '../types.js'
 
@@ -27,6 +28,7 @@ export const SCRIPT_ENUM_GLOBALS = {
   DataSource,
   Color,
   LineStyle,
+  HLineStyle,
   extend,
   xloc,
   yloc,

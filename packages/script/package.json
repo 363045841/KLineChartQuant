@@ -46,11 +46,12 @@
   "scripts": {
     "build": "node scripts/generate-script-enums.mjs && tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm build",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/__tests__/generate-api-docs.test.mjs scripts/__tests__/generate-script-enums.test.mjs",
     "test:watch": "vitest",
     "test:worker": "pnpm build && node --test scripts/test-worker.mjs",
     "coverage": "vitest run --coverage",
-    "lint:publish": "publint --strict ."
+    "lint:publish": "publint --strict .",
+    "test:docs": "node --test scripts/__tests__/generate-api-docs.test.mjs scripts/__tests__/generate-script-enums.test.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

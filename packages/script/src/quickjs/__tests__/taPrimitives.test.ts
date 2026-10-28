@@ -1,12 +1,9 @@
 /** 验证新增 TA 原语的窗口、偏移、权重、预热与无效参数。 */
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { BACKENDS } from '../../__tests__/backends.js'
 import { barsFromCloses, plotValues, scriptSource } from '../../__tests__/marketData.js'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../impl/runQuickJSScript.js'
 
-describe.each([prepareNativeScript, prepareQuickJSScript])('TA 新增原语 %s', (prepare) => {
-  beforeAll(preloadQuickJS)
-
+describe.each(BACKENDS)('TA 新增原语 $name', ({ prepare }) => {
   it('highestbars/lowestbars 返回负偏移，并列极值与 Pine 一致取更早一根', () => {
     const prepared = prepare(
       scriptSource(`

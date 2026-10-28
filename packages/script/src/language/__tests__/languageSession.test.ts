@@ -48,7 +48,8 @@ describe('共享脚本语义会话', () => {
       const candle = plot.Candle(open, high, low, close, 'candles')
       fill(candle, plot.Line(close, 'line'), Color.Blue)
     } })`)
-    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2345]))
+    // 2353 = Bar 不接受 wickColor；2769 = fill 的重载都不接受 void 句柄。
+    expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2769]))
   })
 
   it('颜色参数在类型上接受 Color 枚举，同时保留任意 CSS 颜色', () => {
@@ -127,15 +128,29 @@ describe('共享脚本语义会话', () => {
 
   it('动态库保留成员补全与 Series 返回类型，库修改和删除清除旧类型', () => {
     const session = createScriptLanguageSession()
-    session.setLibraries([{ name: 'stats', source: `defineLibrary('stats', { smooth(source: Series): Series { return ta.sma(source, 2) } })` }])
+    session.setLibraries([
+      {
+        name: 'stats',
+        source: `defineLibrary('stats', { smooth(source: Series): Series { return ta.sma(source, 2) } })`,
+      },
+    ])
     const source = `const stats = importLibrary('stats'); const result = stats.smooth(close) + 1`
     expect(session.updateSource(source).code).toContain('(stats.smooth(close))[0]')
     expect(diagnosticCodes(session)).toEqual([])
     const completionSource = `const stats = importLibrary('stats'); stats.`
     const conversion = session.updateSource(completionSource)
-    const completions = session.environment.languageService.getCompletionsAtPosition(SCRIPT_SOURCE_FILE, conversion.toGenerated(completionSource.length), {})
+    const completions = session.environment.languageService.getCompletionsAtPosition(
+      SCRIPT_SOURCE_FILE,
+      conversion.toGenerated(completionSource.length),
+      {},
+    )
     expect(completions?.entries.map((entry) => entry.name)).toContain('smooth')
-    session.setLibraries([{ name: 'stats', source: `defineLibrary('stats', { smooth(source: Series): number { return source[0] } })` }])
+    session.setLibraries([
+      {
+        name: 'stats',
+        source: `defineLibrary('stats', { smooth(source: Series): number { return source[0] } })`,
+      },
+    ])
     expect(session.updateSource(source).code).not.toContain('(stats.smooth(close))[0]')
     session.setLibraries([])
     session.updateSource(source)

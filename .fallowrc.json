@@ -56,6 +56,21 @@
     "css-dead-surface": "off",
     "css-selector-complexity": "off"
   },
+  "health": {
+    "thresholdOverrides": [
+      {
+        "files": [
+          "packages/script/src/__tests__/**",
+          "packages/script/src/**/__tests__/**",
+          "packages/script/scripts/__tests__/**"
+        ],
+        "maxCyclomatic": 30,
+        "maxCognitive": 60,
+        "maxCrap": 100,
+        "reason": "参考实现与表驱动断言属于测试基础设施，不进运行时复杂度预算；产品代码仍按原阈值"
+      }
+    ]
+  },
   "rulePacks": [],
   "boundaries": {
     "zones": [

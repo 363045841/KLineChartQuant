@@ -1,6 +1,6 @@
 /** 脚本虚拟程序专用声明资源，不参与宿主 TypeScript 程序。 */
 /// <reference path="../quickjs/runtime/plotKind.ts" />
-import type { InputDef, InputOptions } from '@363045841yyt/klinechart-plot-contracts'
+import type { HLineOptions, HLineRef, InputDef, InputOptions } from '@363045841yyt/klinechart-plot-contracts'
 import type { LibraryModules } from '../contracts/library.js'
 import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { Position as PositionEnum } from '../quickjs/types.js'
@@ -137,6 +137,31 @@ declare global {
     title?: string,
     options?: ScriptFillOptions,
   ): void
+  /**
+   * 声明两条水平参考线之间的填充区域；整幅宽度、单色，不随 bar 变化。
+   * 只能在文件顶层调用，两个句柄都必须来自 hline。
+   */
+  function fill(
+    from: HLineRef,
+    to: HLineRef,
+    color: Color | (string & {}) | null,
+    title?: string,
+    options?: ScriptFillOptions,
+  ): void
+  /**
+   * 图表级水平参考线：固定价格、贯穿整幅宽度，不占用逐 bar 数据列。
+   *
+   * 只能在文件顶层声明；颜色、线型与线宽在整轮运行内固定，不随 bar 变化。
+   *
+   * ```ts
+   * hline(70, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+   * ```
+   *
+   * @param price 水平线价格
+   * @param options 标题、颜色、线型与线宽
+   * @returns 句柄；可交给 fill 与另一条水平线围出带状区域
+   */
+  function hline(price: number, options?: HLineOptions): HLineRef
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
   function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */

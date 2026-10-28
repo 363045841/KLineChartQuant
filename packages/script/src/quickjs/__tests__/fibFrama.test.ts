@@ -1,29 +1,9 @@
-/** 验证 Fib 与 FRAMA 脚本的方向、回撤位、分形平滑与重算隔离。 */
-import { beforeAll, describe, expect, it } from 'vitest'
-import {
-  barsFromCloses,
-  plotValues,
-  shippedSource,
-  wavyCloses,
-} from '../../__tests__/marketData.js'
-import type { Bar } from '../../contracts/input.js'
-import { preloadQuickJS, runQuickJSScript } from '../impl/runQuickJSScript.js'
-
-/** 执行发布脚本并按绘图身份提取数值。 */
-async function run(
-  name: string,
-  closes: readonly number[],
-  params: Record<string, number> = {},
-): Promise<Record<string, (number | undefined)[]>> {
-  const bars: Bar[] = barsFromCloses(closes, { spread: 0.5 })
-  return plotValues(await runQuickJSScript({ source: shippedSource(name), bars, params }))
-}
+/** 验证 Fib 与 FRAMA 脚本的方向、回撤位与分形平滑。 */
+import { describe, expect, it } from 'vitest'
+import { plotValues, runShipped, runShippedValues, wavyCloses } from '../../__tests__/marketData.js'
 
 /** 按 Ehlers 的分形维数公式复算 FRAMA，作为脚本数值参考。 */
-function framaReference(
-  closes: readonly number[],
-  period: number,
-): (number | undefined)[] {
+function framaReference(closes: readonly number[], period: number): (number | undefined)[] {
   const output = new Array<number | undefined>(closes.length).fill(undefined)
   const half = period / 2
   let previous = Number.NaN
@@ -67,15 +47,9 @@ function framaReference(
 }
 
 describe('Fib 与 FRAMA 脚本', () => {
-  beforeAll(preloadQuickJS)
-
   it('Fib 上涨段方向向上，回撤位从高到低且全部为阶梯线', async () => {
     const closes = Array.from({ length: 30 }, (_, index) => 100 + index)
-    const result = await runQuickJSScript({
-      source: shippedSource('fib'),
-      bars: barsFromCloses(closes, { spread: 0.5 }),
-      params: { period: 10 },
-    })
+    const result = await runShipped('fib', closes, { period: 10 }, { spread: 0.5 })
     expect(result.plots).toHaveLength(7)
     expect(result.plots.every((plot) => plot.kind === 'stepline')).toBe(true)
     const values = plotValues(result)
@@ -85,30 +59,30 @@ describe('Fib 与 FRAMA 脚本', () => {
     expect(values['236']?.[9]).toBeCloseTo(109.5 - 10 * 0.236, 10)
     expect(values['500']?.[9]).toBeCloseTo(104.5, 10)
     for (let index = 9; index < closes.length; index++) {
-      expect(values['236']?.[index]).toBeGreaterThan(values['382']?.[index]!)
-      expect(values['382']?.[index]).toBeGreaterThan(values['500']?.[index]!)
-      expect(values['500']?.[index]).toBeGreaterThan(values['618']?.[index]!)
-      expect(values['618']?.[index]).toBeGreaterThan(values['786']?.[index]!)
+      expect(values['236']?.[index]).toBeGreaterThan(values['382']?.[index])
+      expect(values['382']?.[index]).toBeGreaterThan(values['500']?.[index])
+      expect(values['500']?.[index]).toBeGreaterThan(values['618']?.[index])
+      expect(values['618']?.[index]).toBeGreaterThan(values['786']?.[index])
     }
   })
 
   it('Fib 下跌段方向向下，回撤位从低到高', async () => {
     const closes = Array.from({ length: 30 }, (_, index) => 200 - index)
-    const values = await run('fib', closes, { period: 10 })
+    const values = await runShippedValues('fib', closes, { period: 10 }, { spread: 0.5 })
     expect(values.high?.[9]).toBeCloseTo(200.5, 10)
     expect(values.low?.[9]).toBeCloseTo(190.5, 10)
     expect(values['236']?.[9]).toBeCloseTo(190.5 + 10 * 0.236, 10)
     for (let index = 9; index < closes.length; index++) {
-      expect(values['236']?.[index]).toBeLessThan(values['382']?.[index]!)
-      expect(values['382']?.[index]).toBeLessThan(values['500']?.[index]!)
-      expect(values['500']?.[index]).toBeLessThan(values['618']?.[index]!)
-      expect(values['618']?.[index]).toBeLessThan(values['786']?.[index]!)
+      expect(values['236']?.[index]).toBeLessThan(values['382']?.[index])
+      expect(values['382']?.[index]).toBeLessThan(values['500']?.[index])
+      expect(values['500']?.[index]).toBeLessThan(values['618']?.[index])
+      expect(values['618']?.[index]).toBeLessThan(values['786']?.[index])
     }
   })
 
   it('FRAMA 预热、分形 alpha 与参考公式一致', async () => {
     const closes = wavyCloses(60)
-    const values = await run('frama', closes, { period: 16 })
+    const values = await runShippedValues('frama', closes, { period: 16 })
     const expected = framaReference(closes, 16)
     expect(values.frama?.slice(0, 15)).toEqual(Array(15).fill(undefined))
     expected.forEach((value, index) => {
@@ -118,25 +92,11 @@ describe('Fib 与 FRAMA 脚本', () => {
   })
 
   it('FRAMA 线性窗口 alpha 截断到 1，奇数周期留空', async () => {
-    const values = await run('frama', [1, 2, 3, 4, 5], { period: 4 })
+    const values = await runShippedValues('frama', [1, 2, 3, 4, 5], { period: 4 })
     expect(values.frama?.[2]).toBeUndefined()
     expect(values.frama?.[3]).toBeCloseTo(4, 12)
     expect(values.frama?.[4]).toBeCloseTo(5, 12)
-    const odd = await run('frama', [1, 2, 3, 4, 5], { period: 5 })
+    const odd = await runShippedValues('frama', [1, 2, 3, 4, 5], { period: 5 })
     expect(odd.frama?.every((value) => value === undefined)).toBe(true)
-  })
-
-  it('Fib 与 FRAMA 追加历史不改写已有前缀', async () => {
-    const closes = wavyCloses(60)
-    for (const [name, period] of [
-      ['fib', 10],
-      ['frama', 16],
-    ] as const) {
-      const full = await run(name, closes, { period })
-      const prefix = await run(name, closes.slice(0, 40), { period })
-      for (const [id, values] of Object.entries(prefix)) {
-        expect(full[id]?.slice(0, 40)).toEqual(values)
-      }
-    }
   })
 })

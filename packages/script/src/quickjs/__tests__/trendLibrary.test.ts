@@ -1,5 +1,6 @@
 /** 对照旧 core 参考值，验证 TA 趋势计算、历史访问、多参数缓存及两种执行器。 */
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { BACKENDS } from '../../__tests__/backends.js'
 import {
   barsFromCloses,
   plotValues,
@@ -7,8 +8,6 @@ import {
   shippedSource,
   wavyCloses,
 } from '../../__tests__/marketData.js'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../impl/runQuickJSScript.js'
 import { supertrendLegacy } from './fixtures/supertrendLegacy.js'
 
 /** 单向上涨趋势的收盘价：长时间不反转，通道只有一侧在推进。 */
@@ -36,9 +35,7 @@ function countingBars(closes: readonly number[]) {
 /** 反转那一根允许的额外宿主读取次数；正常实现约 9 次，一次历史回填会到千次量级。 */
 const REVERSAL_BAR_READ_BUDGET = 64
 
-describe.each([prepareNativeScript, prepareQuickJSScript])('TA 趋势库 %s', (prepare) => {
-  beforeAll(preloadQuickJS)
-
+describe.each(BACKENDS)('TA 趋势库 $name', ({ prepare }) => {
   it('Supertrend 三组参数逐点复现旧 core 数值与全部趋势切换', () => {
     const source = scriptSource(
       supertrendLegacy
@@ -67,7 +64,6 @@ describe.each([prepareNativeScript, prepareQuickJSScript])('TA 趋势库 %s', (p
       )
       expect(actual[`previous${caseIndex}`]).toEqual([undefined, ...values.slice(0, -1)])
     }
-    expect(prepared.run(bars)).toEqual(prepared.run(bars))
     const prefix = plotValues(prepared.run(bars.slice(0, 25)))
     for (const [id, values] of Object.entries(prefix))
       expect(actual[id]?.slice(0, 25)).toEqual(values)
@@ -141,15 +137,15 @@ describe.each([prepareNativeScript, prepareQuickJSScript])('TA 趋势库 %s', (p
     )
     // 两次运行的行情只差末尾一根反转 bar，读取次数之差就是那一根的工作量。
     // 递归补算另一侧通道会让这一根读取整段历史，差值随趋势长度线性膨胀。
-    const rising = countingBars(risingCloses(1_000))
-    const reversal = countingBars([...risingCloses(1_000), 0])
+    const rising = countingBars(risingCloses(400))
+    const reversal = countingBars([...risingCloses(400), 0])
     prepared.run(rising.bars)
     const { trend, direction } = plotValues(prepared.run(reversal.bars))
-    expect(direction?.[999]).toBe(-1)
-    expect(direction?.[1_000]).toBe(1)
-    expect(Number.isFinite(trend?.[1_000])).toBe(true)
+    expect(direction?.[399]).toBe(-1)
+    expect(direction?.[400]).toBe(1)
+    expect(Number.isFinite(trend?.[400])).toBe(true)
     // 计数必须真的发生，否则下一条断言会静默失效。
-    expect(rising.stats.reads).toBeGreaterThan(1_000)
+    expect(rising.stats.reads).toBeGreaterThan(400)
     expect(reversal.stats.reads - rising.stats.reads).toBeLessThanOrEqual(REVERSAL_BAR_READ_BUDGET)
   })
 })

@@ -1,4 +1,8 @@
 // Wilder RSI 三线；6/12/24 是周期族平行多线，可逐条隐藏，计算全部走 ta.rsi。
+// 超买/超卖参考线是图表级声明，不参与数据列与数值范围。
+for (const level of [80, 50, 20])
+  hline(level, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+
 defineIndicator({
   name: 'RSI',
   title: '相对强弱指标',
@@ -21,13 +25,6 @@ defineIndicator({
       plot.LineBR(shown[index] ? ta.rsi(close, period) : null, 'rsi' + (index + 1), {
         label: 'RSI' + period,
         color: colors[index]!,
-      })
-    }
-    for (const level of [80, 50, 20]) {
-      plot.Line(level, 'guide' + level, {
-        label: String(level),
-        color: Color.Gray,
-        dash: [4, 4],
       })
     }
   },

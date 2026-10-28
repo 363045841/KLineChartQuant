@@ -5,6 +5,8 @@
  * 而它不依赖任何包。这样两个包互不认识，同时绘图数据只有这一处定义。
  */
 
+import type { HLine, HLineFill } from './hline.js'
+
 /** 单个有效绘图点；脚本的 null 和无效数值在采集时转为列中的缺省位置。 */
 export interface PlotPoint {
   value: number
@@ -237,5 +239,9 @@ export interface PlotFill {
 export interface PlotCollection {
   readonly plots: readonly Plot[]
   readonly fills: readonly PlotFill[]
+  /** 脚本 hline 声明的图表级水平线；旧版生产端可能没有该字段。 */
+  readonly hlines?: readonly HLine[]
+  /** 两条水平线之间的整幅填充；与 hlines 的 id 对应。 */
+  readonly hlineFills?: readonly HLineFill[]
   readonly drawings?: readonly import('./drawing.js').DrawingObject[]
 }

@@ -52,7 +52,7 @@ defineIndicator({
     plot.Point(sar, 'sar', {
       label: 'SAR',
       color: rising ? Color.Teal : Color.Red,
-      size: ShapeSize.Small,
+      size: ShapeSize.Tiny,
     })
   },
 })

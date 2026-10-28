@@ -8,9 +8,23 @@ const resources = await collectEditorResources()
 const markdown = renderScriptApi(resources)
 
 test('覆盖全局 API、嵌套对象、技术分析、绘图、枚举与相关选项', () => {
-  for (const name of ['open', 'defineIndicator', 'derive', 'fill', 'input.int', 'ta.sma',
-    'plot.Line', 'request.security', 'chart.point.new', 'line.new', 'Position.Main',
-    'Timeframe.Hour1', 'Color.Red', 'Series.at', 'SecurityOptions.gaps']) {
+  for (const name of [
+    'open',
+    'defineIndicator',
+    'derive',
+    'fill',
+    'input.int',
+    'ta.sma',
+    'plot.Line',
+    'request.security',
+    'chart.point.new',
+    'line.new',
+    'Position.Main',
+    'Timeframe.Hour1',
+    'Color.Red',
+    'Series.at',
+    'SecurityOptions.gaps',
+  ]) {
     assert.ok(markdown.includes(`### ${name}\n`), `缺少 ${name}`)
   }
   assert.ok(!markdown.includes('### OutputSink\n'))
@@ -18,14 +32,17 @@ test('覆盖全局 API、嵌套对象、技术分析、绘图、枚举与相关�
   assert.match(markdown, /\*\*@returns\*\*/)
   assert.match(markdown, /const \[o, h, l, c\] = request\.security/)
   assert.ok(!markdown.includes('import("'))
-  assert.match(markdown, /Color\.Red = "#ef5350"/)
+  assert.match(markdown, /Color\.Red = "@red"/)
   assert.match(markdown, /Timeframe\.Hour1 = "60"/)
   assert.equal([...markdown.matchAll(/^### Series$/gm)].length, 1)
 })
 
 test('修改真实契约注释后直接反映到 Markdown，无需先生成编辑器资源', () => {
   const files = { ...resources.files }
-  files[resources.entry] = files[resources.entry].replace('当前 K 线索引，从 0 开始。', '文档注释同步验证。')
+  files[resources.entry] = files[resources.entry].replace(
+    '当前 K 线索引，从 0 开始。',
+    '文档注释同步验证。',
+  )
   const updated = renderScriptApi({ ...resources, files })
   assert.match(updated, /文档注释同步验证。/)
   assert.ok(!updated.includes('当前 K 线索引，从 0 开始。'))

@@ -545,6 +545,23 @@ function paintGeometry(
           offsetX,
         })
       }
+  for (const band of state.guideFills) {
+    if (!band.visible) continue
+    const fromY = context.pane.yAxis.priceToY(band.from)
+    const toY = context.pane.yAxis.priceToY(band.to)
+    if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue
+    const top = Math.min(fromY, toY)
+    const height = Math.abs(fromY - toY)
+    if (height <= 0) continue
+    commands.push({
+      kind: 'rect',
+      x: 0,
+      y: top,
+      width: context.paneWidth,
+      height,
+      color: band.color,
+    })
+  }
   for (const guide of state.guides) {
     const y = context.pane.yAxis.priceToY(guide.value)
     if (!Number.isFinite(y)) continue
@@ -557,7 +574,7 @@ function paintGeometry(
         ],
       ],
       color: guide.color,
-      width: 1,
+      width: guide.width,
       dash: guide.dash,
     })
   }

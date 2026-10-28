@@ -1,24 +1,13 @@
 /** 验证完整脚本在两种后端的 OHLC 输出、缺值和独立着色语义。 */
 import { Color, DEFAULT_PLOT_COLOR } from '@363045841yyt/klinechart-plot-contracts'
-import { beforeAll, describe, expect, it } from 'vitest'
-import { barsFromCloses } from '../../__tests__/marketData.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
-import { prepareNativeScript } from '../impl/prepareNativeScript.js'
+import { describe, expect, it } from 'vitest'
+import { BACKENDS } from '../../__tests__/backends.js'
+import { barsFromCloses, scriptSource } from '../../__tests__/marketData.js'
 
-beforeAll(preloadQuickJS)
-
-/** 为调用片段补上完整指标声明，保留真实编译和逐 bar 执行链路。 */
-function source(body: string): string {
-  return `defineIndicator({ name: 'OHLC', position: 'main', onBar() { ${body} } })`
-}
-
-describe.each([
-  { name: 'Native', prepare: prepareNativeScript },
-  { name: 'QuickJS', prepare: prepareQuickJSScript },
-])('$name OHLC plots', ({ prepare }) => {
+describe.each(BACKENDS)('$name OHLC plots', ({ prepare }) => {
   it('四价格归一化、逐 bar 独立颜色及不同 Plot 的输出顺序', () => {
     const script = prepare(
-      source(`
+      scriptSource(`
       plot.Line(close, 'line')
       plot.Candle(open, low, high, close, 'candles', {
         color: close >= open ? Color.Green : Color.Red,
@@ -51,7 +40,7 @@ describe.each([
 
   it('缺少任意一个价格则整根留空，0 有效，无穷值留空', () => {
     const result = prepare(
-      source(`
+      scriptSource(`
       plot.Candle(0, 0, 0, 0, 'zero')
       plot.Candle(null, high, low, close, 'null')
       plot.Bar(open, NaN, low, close, 'nan')
@@ -74,7 +63,7 @@ describe.each([
 
   it('null 隐藏实体且不影响单独传入的影线和边框颜色', () => {
     const result = prepare(
-      source(`plot.Candle(open, high, low, close, 'hollow', {
+      scriptSource(`plot.Candle(open, high, low, close, 'hollow', {
       color: null, wickColor: Color.Gray, borderColor: Color.Blue,
     })`),
     ).run(barsFromCloses([10]))
@@ -95,14 +84,14 @@ describe.each([
     `plot.Candle(1, 2, 0, 2, 'same'); plot.Bar(1, 2, 0, 2, 'same')`,
     `plot.Candle(1, 2, 0, 2, 'candles'); const line = plot.Line(1, 'line'); fill({name:'candles'}, line, Color.Blue)`,
   ])('拒绝非法调用：%s', (body) => {
-    expect(() => prepare(source(body)).run(barsFromCloses([10]))).toThrow()
+    expect(() => prepare(scriptSource(body)).run(barsFromCloses([10]))).toThrow()
   })
 
   it('禁止在声明阶段绘图，不返回 fill 句柄', () => {
-    expect(() => prepare(`plot.Bar(1, 2, 0, 2, 'bad'); ${source('')}`)).toThrow()
+    expect(() => prepare(`plot.Bar(1, 2, 0, 2, 'bad'); ${scriptSource('')}`)).toThrow()
     expect(() =>
       prepare(
-        source(`
+        scriptSource(`
       const candle = plot.Candle(open, high, low, close, 'candles')
       if (candle !== undefined) throw new Error('Unexpected PlotRef')
     `),
@@ -111,7 +100,9 @@ describe.each([
   })
 
   it('同名 OHLC 的整列样式在一次运行中必须固定', () => {
-    const script = prepare(source(`plot.Bar(open, high, low, close, 'bars', { showLast: close })`))
+    const script = prepare(
+      scriptSource(`plot.Bar(open, high, low, close, 'bars', { showLast: close })`),
+    )
     expect(() => script.run(barsFromCloses([1, 2]))).toThrow('cannot change style')
   })
 })

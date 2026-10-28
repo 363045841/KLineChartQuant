@@ -16,8 +16,7 @@ function __windowSeries(source: Series, length: number, kind: WindowKind): Serie
   return __rollingSeries(`window:${kind}:${__seriesId(source)}:${length}`, source, length, () => {
     if (kind === 'highestbars' || kind === 'lowestbars')
       return __extremeWindow(length, kind === 'highestbars', true)
-    if (kind === 'highest' || kind === 'lowest')
-      return __extremeWindow(length, kind === 'highest')
+    if (kind === 'highest' || kind === 'lowest') return __extremeWindow(length, kind === 'highest')
     return __sumWindow(kind === 'sma' ? length : 1)
   })
 }
@@ -126,6 +125,30 @@ function __almaSeries(
       return sum / norm
     },
   )
+}
+
+/**
+ * Wilder 平滑序列：首个完整窗口取简单平均初始化，之后按 (prev*(length-1)+change)/length 递推。
+ * @param key 派生缓存键
+ * @param source 变化来源序列
+ * @param length 平滑周期
+ * @param direction 1 取上涨增益，-1 取下跌损失
+ * @returns 平滑后的序列，完整窗口之前为 NaN
+ */
+function __wilderSmoothing(key: string, source: Series, length: number, direction: 1 | -1): Series {
+  /** 单根 bar 的带符号变化；direction 决定计入增益还是损失。 */
+  const change = (offset: number): number => direction * (source.at(offset) - source.at(offset + 1))
+  return __deriveOnce(key, (self, offset) => {
+    if (offset + length + 1 > __count()) return Number.NaN
+    if (offset + length + 2 <= __count()) {
+      const previous = self.at(offset + 1)
+      if (!Number.isNaN(previous))
+        return (previous * (length - 1) + Math.max(change(offset), 0)) / length
+    }
+    let total = 0
+    for (let step = 0; step < length; step++) total += Math.max(change(offset + step), 0)
+    return total / length
+  })
 }
 
 defineLibrary('ta', {
@@ -291,8 +314,7 @@ defineLibrary('ta', {
     __checkLength(length)
     if (!Number.isFinite(offset) || offset < 0 || offset > 1)
       throw new RangeError('ALMA offset 必须在 0 到 1 之间')
-    if (!Number.isFinite(sigma) || sigma <= 0)
-      throw new RangeError('ALMA sigma 必须是有限正数')
+    if (!Number.isFinite(sigma) || sigma <= 0) throw new RangeError('ALMA sigma 必须是有限正数')
     return __almaSeries(source, length, offset, sigma, floor)
   },
 
@@ -395,25 +417,22 @@ defineLibrary('ta', {
   linreg(source: Series, length: number, offset: number = 0): Series {
     __checkLength(length)
     if (!Number.isSafeInteger(offset)) throw new RangeError('LINREG offset 必须是整数')
-    return __deriveOnce(
-      `linreg:${__seriesId(source)}:${length}:${offset}`,
-      (_self, barOffset) => {
-        if (barOffset + length > __count()) return Number.NaN
-        if (length === 1) return source.at(barOffset)
-        const center = (length - 1) / 2
-        let mean = 0
-        for (let step = 0; step < length; step++) mean += source.at(barOffset + length - 1 - step)
-        mean /= length
-        let numerator = 0
-        let denominator = 0
-        for (let x = 0; x < length; x++) {
-          const dx = x - center
-          numerator += dx * (source.at(barOffset + length - 1 - x) - mean)
-          denominator += dx * dx
-        }
-        return mean + (numerator / denominator) * (length - 1 - offset - center)
-      },
-    )
+    return __deriveOnce(`linreg:${__seriesId(source)}:${length}:${offset}`, (_self, barOffset) => {
+      if (barOffset + length > __count()) return Number.NaN
+      if (length === 1) return source.at(barOffset)
+      const center = (length - 1) / 2
+      let mean = 0
+      for (let step = 0; step < length; step++) mean += source.at(barOffset + length - 1 - step)
+      mean /= length
+      let numerator = 0
+      let denominator = 0
+      for (let x = 0; x < length; x++) {
+        const dx = x - center
+        numerator += dx * (source.at(barOffset + length - 1 - x) - mean)
+        denominator += dx * dx
+      }
+      return mean + (numerator / denominator) * (length - 1 - offset - center)
+    })
   },
 
   /** CCI 的偏差相对于当前窗口均值，不能用各历史 bar 的均值代替；平盘（偏差为零）输出 0。 */
@@ -446,41 +465,15 @@ defineLibrary('ta', {
     })
   },
 
-  /** Wilder RSI 序列，窗口内无下跌（含平盘）为 100。 */
+  /**
+   * Wilder RSI 序列，窗口内无下跌（含平盘）为 100。
+   */
   rsi(source: Series, length: number): Series {
     __checkLength(length)
     const id = __seriesId(source)
     // Wilder RSI 需要 length+1 个价格；前 length 个变化做 SMA 初始化，之后按平滑系数递推。
-    const gain = __deriveOnce(`rsi-gain:${id}:${length}`, (self, offset) => {
-      if (offset + length + 1 > __count()) return Number.NaN
-      if (offset + length + 2 <= __count()) {
-        const previous = self.at(offset + 1)
-        if (!Number.isNaN(previous)) {
-          const change = source.at(offset) - source.at(offset + 1)
-          return (previous * (length - 1) + Math.max(change, 0)) / length
-        }
-      }
-      let total = 0
-      for (let step = 0; step < length; step++) {
-        total += Math.max(source.at(offset + step) - source.at(offset + step + 1), 0)
-      }
-      return total / length
-    })
-    const loss = __deriveOnce(`rsi-loss:${id}:${length}`, (self, offset) => {
-      if (offset + length + 1 > __count()) return Number.NaN
-      if (offset + length + 2 <= __count()) {
-        const previous = self.at(offset + 1)
-        if (!Number.isNaN(previous)) {
-          const change = source.at(offset + 1) - source.at(offset)
-          return (previous * (length - 1) + Math.max(change, 0)) / length
-        }
-      }
-      let total = 0
-      for (let step = 0; step < length; step++) {
-        total += Math.max(source.at(offset + step + 1) - source.at(offset + step), 0)
-      }
-      return total / length
-    })
+    const gain = __wilderSmoothing(`rsi-gain:${id}:${length}`, source, length, 1)
+    const loss = __wilderSmoothing(`rsi-loss:${id}:${length}`, source, length, -1)
     return __deriveOnce(`rsi:${id}:${length}`, (_self, offset) => {
       const up = gain.at(offset)
       const down = loss.at(offset)

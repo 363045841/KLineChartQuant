@@ -62,23 +62,35 @@ declare function __plot(
 /** 调用处的样式选项，与编辑器共用契约。 */
 type ScriptPlotOptions = import('../../editor/types.js').ScriptPlotOptions
 
+/** 水平参考线的调用样式，与编辑器共用契约。 */
+type HLineOptions = import('@363045841yyt/klinechart-plot-contracts').HLineOptions
+
+/** OHLC 方法的公共样式选项；蜡烛与美国线各自在其上追加字段。 */
+type CandlePlotOptions = import('@363045841yyt/klinechart-plot-contracts').CandlePlotOptions
+
 /** 绘图方法对象，与编辑器共用契约。 */
 type ScriptPlot = import('../../editor/types.js').ScriptPlot
 
 /** plot.* 返回的绘图句柄，与编辑器共用契约。 */
 type PlotRef = import('../../editor/types.js').PlotRef
 
+/** hline 返回的水平线句柄。 */
+type HLineRef = import('@363045841yyt/klinechart-plot-contracts').HLineRef
+
 /** fill 的可选样式，与编辑器共用契约。 */
 type ScriptFillOptions = import('../../editor/types.js').ScriptFillOptions
 
-/** 宿主注入：登记两个 Plot 之间的填充。 */
+/** 宿主注入：登记两个 Plot 或两条水平线之间的填充。 */
 declare function __fill(
-  from: string,
-  to: string,
+  from: PlotRef | HLineRef,
+  to: PlotRef | HLineRef,
   color: ScriptColor | (string & {}) | null,
   title?: string,
   options?: ScriptFillOptions,
 ): void
+
+/** 宿主注入：登记图表级水平线并返回句柄 id；只允许在文件顶层调用。 */
+declare function __hline(price: number, options?: HLineOptions): string
 
 /** 宿主注入：脚本参数，键为 inputs 中声明的参数名。 */
 declare const params: Record<string, ScriptParamValue>

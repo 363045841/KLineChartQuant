@@ -1,4 +1,8 @@
 // KDJ：K 为窗口 RSV，D 为 K 的 m 周期均值，J = 3K - 2D。
+// 超买/超卖参考线是图表级声明，不参与数据列与数值范围。
+for (const level of [80, 50, 20])
+  hline(level, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+
 defineIndicator({
   name: 'KDJ',
   title: 'KDJ',
@@ -13,12 +17,5 @@ defineIndicator({
     plot.LineBR(ready ? k : null, 'k', { label: 'K', color: Color.Orange })
     plot.Line(d, 'd', { label: 'D', color: Color.Blue })
     plot.LineBR(ready ? 3 * k - 2 * d : null, 'j', { label: 'J', color: Color.Purple })
-    for (const level of [80, 50, 20]) {
-      plot.Line(level, 'guide' + level, {
-        label: String(level),
-        color: Color.Gray,
-        dash: [4, 4],
-      })
-    }
   },
 })

@@ -983,4 +983,36 @@ describe('Plot renderer', () => {
     expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 15)).toBe(true)
   })
+
+  it('hline 带状填充按价格区间铺满整幅宽度', () => {
+    const { ctx } = paint(
+      { source: 'collection', series: [] },
+      {
+        plots: [
+          {
+            kind: 'line',
+            id: 'value',
+            label: 'VALUE',
+            color: '#ffffff',
+            data: [{ value: 10 }, { value: 20 }],
+            visible: true,
+            offset: 0,
+            size: ShapeSize.Auto,
+            dash: [],
+          },
+        ],
+        fills: [],
+        hlines: [
+          { id: '0', price: 12, color: 'gray', dash: [], width: 1 },
+          { id: '1', price: 18, color: 'gray', dash: [], width: 1 },
+        ],
+        hlineFills: [{ id: 'zone', from: '0', to: '1', color: 'teal', visible: true }],
+      },
+    )
+    const rects = vi.mocked(ctx.fillRect).mock.calls
+    expect(rects).toHaveLength(1)
+    expect(rects[0]?.[0]).toBe(0)
+    expect(rects[0]?.[2]).toBeGreaterThan(0)
+    expect(rects[0]?.[3]).toBeGreaterThan(0)
+  })
 })

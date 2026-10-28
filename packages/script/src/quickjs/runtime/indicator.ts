@@ -1,60 +1,59 @@
 /** VM 内指标 SDK：声明入口、参数默认值与逐 bar 输出。 */
 
-/** 按方法类型输出当前 K 线；name 标识整列，单值方法返回句柄，OHLC 方法仅输出四价格。 */
+/** 单值绘图方法名；OHLC 方法不参与种类映射。 */
+type ScalarPlotMethod = Exclude<keyof ScriptPlot, 'Candle' | 'Bar'>
+
+/** 绘图方法的种类与值语义；booleanValue 表示该方法接受布尔条件。 */
+interface PlotMethodSpec {
+  readonly kind: PlotKind
+  readonly booleanValue?: boolean
+}
+
+/** 方法表是绘图门面与值校验的唯一来源：新增图形只需在这里登记一次。 */
+const PLOT_METHOD_SPECS = {
+  Line: { kind: PlotKind.Line },
+  LineBR: { kind: PlotKind.LineBR },
+  StepLine: { kind: PlotKind.StepLine },
+  StepLineBR: { kind: PlotKind.StepLineBR },
+  Histogram: { kind: PlotKind.Histogram },
+  Columns: { kind: PlotKind.Columns },
+  Point: { kind: PlotKind.Points },
+  Shape: { kind: PlotKind.Shape, booleanValue: true },
+  Char: { kind: PlotKind.Char, booleanValue: true },
+  Arrow: { kind: PlotKind.Arrow },
+} satisfies Record<ScalarPlotMethod, PlotMethodSpec>
+
+/** 单值绘图方法共用同一实现，只绑定自己的种类与值语义。 */
+function scalarPlotMethod(spec: PlotMethodSpec) {
+  return (value: number | boolean | null, name: string, options?: ScriptPlotOptions): PlotRef =>
+    emitPlot(spec, value, name, options)
+}
+
+/** 按方法类型输出当前 K 线；name 标识整列，单值方法返回句柄，OHLC 方法与参考线返回 void 或句柄列表。 */
 const plot: ScriptPlot = {
-  /** 输出普通折线点，跨空值连接。 */
-  Line(value, name, options) {
-    return emitPlot(PlotKind.Line, value, name, options)
-  },
-  /** 输出断线折线点，空值处断开。 */
-  LineBR(value, name, options) {
-    return emitPlot(PlotKind.LineBR, value, name, options)
-  },
-  /** 输出阶梯线点，跨空值连接。 */
-  StepLine(value, name, options) {
-    return emitPlot(PlotKind.StepLine, value, name, options)
-  },
-  /** 输出断线阶梯线点，空值处断开。 */
-  StepLineBR(value, name, options) {
-    return emitPlot(PlotKind.StepLineBR, value, name, options)
-  },
-  /** 输出柱状图值。 */
-  Histogram(value, name, options) {
-    return emitPlot(PlotKind.Histogram, value, name, options)
-  },
-  /** 输出随 K 线间距缩放的柱状图。 */
-  Columns(value, name, options) {
-    return emitPlot(PlotKind.Columns, value, name, options)
-  },
-  /** 输出散点。 */
-  Point(value, name, options) {
-    return emitPlot(PlotKind.Points, value, name, options)
-  },
-  /** 输出形状标记。 */
-  Shape(value, name, options) {
-    return emitPlot(PlotKind.Shape, value, name, options)
-  },
-  /** 输出字符标记。 */
-  Char(value, name, options) {
-    return emitPlot(PlotKind.Char, value, name, options)
-  },
-  /** 输出数值箭头。 */
-  Arrow(value, name, options) {
-    return emitPlot(PlotKind.Arrow, value, name, options)
-  },
+  Line: scalarPlotMethod(PLOT_METHOD_SPECS.Line),
+  LineBR: scalarPlotMethod(PLOT_METHOD_SPECS.LineBR),
+  StepLine: scalarPlotMethod(PLOT_METHOD_SPECS.StepLine),
+  StepLineBR: scalarPlotMethod(PLOT_METHOD_SPECS.StepLineBR),
+  Histogram: scalarPlotMethod(PLOT_METHOD_SPECS.Histogram),
+  Columns: scalarPlotMethod(PLOT_METHOD_SPECS.Columns),
+  Point: scalarPlotMethod(PLOT_METHOD_SPECS.Point),
+  Shape: scalarPlotMethod(PLOT_METHOD_SPECS.Shape),
+  Char: scalarPlotMethod(PLOT_METHOD_SPECS.Char),
+  Arrow: scalarPlotMethod(PLOT_METHOD_SPECS.Arrow),
   /** 输出完整蜡烛 OHLC，统一交给宿主校验、归一化和采集。 */
   Candle(open, high, low, close, name, options) {
-    __plot(PlotKind.Candle, { open, high, low, close }, name, options)
+    emitOhlcPlot(PlotKind.Candle, open, high, low, close, name, options)
   },
   /** 输出完整美国线 OHLC，与蜡烛共用数据语义。 */
   Bar(open, high, low, close, name, options) {
-    __plot(PlotKind.Bar, { open, high, low, close }, name, options)
+    emitOhlcPlot(PlotKind.Bar, open, high, low, close, name, options)
   },
 }
 
-/** 校验绘图名称、绘图值并传给宿主；null 留空，布尔标记收敛成数值，返回绘图句柄。 */
+/** 校验绘图名称与绘图值并传给宿主；null 留空，布尔标记收敛成数值，返回绘图句柄。 */
 function emitPlot(
-  kind: PlotKind,
+  spec: PlotMethodSpec,
   value: number | boolean | null,
   name: string,
   options?: ScriptPlotOptions,
@@ -63,23 +62,47 @@ function emitPlot(
   if (
     value !== null &&
     typeof value !== 'number' &&
-    !((kind === PlotKind.Shape || kind === PlotKind.Char) && typeof value === 'boolean')
+    !(spec.booleanValue && typeof value === 'boolean')
   )
     throw new TypeError('plot value 需要数值或 null，shape 和 char 也可以使用布尔条件')
   // kind 由宿主按共享契约校验，这里只负责把 JS 值收敛成数值列。
-  __plot(kind, toPlotValue(value), name, options)
+  __plot(spec.kind, toPlotValue(value), name, options)
   return { name }
 }
 
-/** 输出当前 bar 的填充颜色；null 留空，颜色和透明度完全由调用方决定。 */
+/** OHLC 方法共用入口：四价格整体交给宿主校验与采集。 */
+function emitOhlcPlot(
+  kind: PlotKind,
+  open: number | null,
+  high: number | null,
+  low: number | null,
+  close: number | null,
+  name: string,
+  options?: CandlePlotOptions,
+): void {
+  __plot(kind, { open, high, low, close }, name, options)
+}
+
+/** 输出当前 bar 的填充颜色；两条 Plot 或两条水平线之间，null 留空。 */
 function fill(
-  from: PlotRef,
-  to: PlotRef,
+  from: PlotRef | HLineRef,
+  to: PlotRef | HLineRef,
   color: ScriptColor | (string & {}) | null,
   title?: string,
   options?: ScriptFillOptions,
 ): void {
-  __fill(from.name, to.name, color, title, options)
+  __fill(from, to, color, title, options)
+}
+
+/**
+ * 图表级水平参考线：固定价格、贯穿整幅宽度，不占用逐 bar 数据列。
+ * 只能在文件顶层声明；样式在整轮运行内固定，颜色与线宽不随 bar 变化。
+ * @param price 水平线价格
+ * @param options 标题、颜色、线型与线宽
+ * @returns 句柄；可交给 fill 与另一条水平线围出带状区域
+ */
+function hline(price: number, options?: HLineOptions): HLineRef {
+  return { hline: __hline(price, options) }
 }
 
 /** 布尔条件成立记 1，否则主动留空；数值和 null 原样跨越 VM 边界。 */
@@ -112,47 +135,67 @@ const inputFactories = {
   /** 创建字符串输入。 */
   string(value: string, options?: StringInputOptions) {
     if (typeof value !== 'string') throw new TypeError('input.string 需要字符串默认值')
-    if (
-      options?.options &&
-      (!options.options.length ||
-        !options.options.every((item) => typeof item === 'string') ||
-        !options.options.includes(value))
+    requireOptionList(
+      options?.options,
+      (item) => typeof item === 'string',
+      value,
+      'input.string 的 options 必须是包含默认值的非空字符串列表',
     )
-      throw new TypeError('input.string 的 options 必须是包含默认值的非空字符串列表')
     return { ...options, default: value }
   },
   /** 创建目标周期输入；默认值和选项都必须是 Timeframe 中登记的周期。 */
   timeframe(value: Timeframe, options?: TimeframeInputOptions) {
     const periods: readonly string[] = Object.values(Timeframe)
     if (!periods.includes(value)) throw new TypeError('input.timeframe 需要 Timeframe 中登记的周期')
-    if (
-      options?.options &&
-      (!options.options.length ||
-        !options.options.every((item) => periods.includes(item)) ||
-        !options.options.includes(value))
+    requireOptionList(
+      options?.options,
+      (item) => typeof item === 'string' && periods.includes(item),
+      value,
+      'input.timeframe 的 options 必须是包含默认值的周期列表',
     )
-      throw new TypeError('input.timeframe 的 options 必须是包含默认值的周期列表')
     return { ...options, default: value }
   },
 }
 
+/** 下拉选项必须非空、逐项合法且包含默认值；未声明选项时不校验。 */
+function requireOptionList(
+  options: readonly unknown[] | undefined,
+  isValid: (item: unknown) => boolean,
+  value: unknown,
+  message: string,
+): void {
+  if (options === undefined) return
+  if (!options.length || !options.every(isValid) || !options.includes(value))
+    throw new TypeError(message)
+}
+
+/** 数值输入的校验规则；任意一条失败即拒绝，提示统一在 numberInput 给出。 */
+const NUMBER_INPUT_RULES: readonly ((
+  value: number,
+  options: NumberInputOptions | undefined,
+) => boolean)[] = [
+  (value) => Number.isFinite(value),
+  (_value, options) =>
+    [options?.min, options?.max, options?.step].every(
+      (item) => item === undefined || Number.isFinite(item),
+    ),
+  (_value, options) => options?.step === undefined || options.step > 0,
+  (value, options) => options?.min === undefined || value >= options.min,
+  (value, options) => options?.max === undefined || value <= options.max,
+]
+
 /** 校验数值默认值、边界和步长，声明由宿主传给参数面板。 */
 function numberInput(value: number, options?: NumberInputOptions): InputDef<number> {
-  if (
-    !Number.isFinite(value) ||
-    ![options?.min, options?.max, options?.step].every(
-      (item) => item === undefined || Number.isFinite(item),
-    ) ||
-    (options?.step !== undefined && options.step <= 0) ||
-    (options?.min !== undefined && value < options.min) ||
-    (options?.max !== undefined && value > options.max)
-  )
+  if (!NUMBER_INPUT_RULES.every((rule) => rule(value, options)))
     throw new TypeError('数值输入需要有限默认值、有效范围和正数步长')
   return { ...options, default: value }
 }
 
 /** 创建限额在声明边界完成归一化，后续消费不重复补默认值。 */
-type NormalizedIndicatorDeclaration = ScriptIndicatorDeclaration & Required<Pick<ScriptIndicatorDeclaration, 'max_lines_count' | 'max_boxes_count' | 'max_labels_count'>>
+type NormalizedIndicatorDeclaration = ScriptIndicatorDeclaration &
+  Required<
+    Pick<ScriptIndicatorDeclaration, 'max_lines_count' | 'max_boxes_count' | 'max_labels_count'>
+  >
 let __definition: NormalizedIndicatorDeclaration | undefined
 const __inputs: QuickJSScriptDefinition['inputs'] = {}
 
@@ -209,4 +252,15 @@ function __onBar(): void {
 }
 
 // 裸标识符和 globalThis 成员指向同一份 VM 对象，不修改宿主全局。
-Object.assign(globalThis, { open, high, low, close, volume, time, plot, fill, defineIndicator })
+Object.assign(globalThis, {
+  open,
+  high,
+  low,
+  close,
+  volume,
+  time,
+  plot,
+  fill,
+  hline,
+  defineIndicator,
+})

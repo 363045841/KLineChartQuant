@@ -6,6 +6,7 @@ import {
   isOhlcPlot,
   isPricePlot,
   ohlcPlotStart,
+  type PlotCollection,
   PlotKind,
   type ShapeSize,
   validatePlotFills,
@@ -64,8 +65,10 @@ export function projectPlots(
   colors: ColorTokens,
 ): PlotRenderState {
   const collection = definition.source === 'collection'
-  const { plots, fills } = collection
-    ? readCollectionPlots(raw, createScriptColorResolver(colors))
+  const rawCollection = collection ? readCollection(raw) : undefined
+  const resolveColor = createScriptColorResolver(colors)
+  const { plots, fills } = rawCollection
+    ? readCollectionPlots(rawCollection, resolveColor)
     : buildSeriesPlots(definition, raw, params, colors)
   // 生产端与投影端各校验一次填充边界，绘制端不再重复。
   validatePlotFills(plots, fills)
@@ -75,37 +78,66 @@ export function projectPlots(
     params,
     plots,
     fills,
-    drawings: collection && isPlotCollection(raw) ? raw.drawings : undefined,
-    ...plotRange(
-      definition,
-      plots,
-      fills,
-      range,
-      collection && isPlotCollection(raw) ? raw.drawings : undefined,
-    ),
-    guides: collection
-      ? []
+    drawings: rawCollection?.drawings,
+    ...plotRange(definition, plots, fills, range, rawCollection?.drawings),
+    guides: rawCollection
+      ? readCollectionHlines(rawCollection, resolveColor)
       : (definition.guides ?? []).map((guide) => ({
           value: guide.value,
           color: guide.color(colors),
           dash: guide.dash ?? [4, 4],
+          width: guide.width ?? 1,
         })),
+    guideFills: rawCollection ? readCollectionGuideFills(rawCollection, resolveColor) : [],
   }
 }
 
 /** 集合里除 OHLC、箭头和标记之外的图形；颜色解析只关心公共色与逐点颜色。 */
 type ScalarColorPlot = Exclude<Plot, OhlcPlot | ShapePlot | CharPlot | ArrowPlot>
 
+/** 集合型指标必须返回合法 PlotCollection；非法结构在这里统一拒绝。 */
+function readCollection(raw: unknown): PlotCollection {
+  if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
+  return raw
+}
+
 /** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口，颜色同时换成主题色值。 */
 function readCollectionPlots(
-  raw: unknown,
+  collection: PlotCollection,
   resolveColor: ScriptColorResolver,
 ): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
-  if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
   return {
-    plots: raw.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
-    fills: raw.fills.map((fill) => resolveFillColors(fill, resolveColor)),
+    plots: collection.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
+    fills: collection.fills.map((fill) => resolveFillColors(fill, resolveColor)),
   }
+}
+
+/** 脚本 hline 转为渲染层参考线：价格映射 value，颜色换成当前主题值。 */
+function readCollectionHlines(
+  collection: PlotCollection,
+  resolve: ScriptColorResolver,
+): { value: number; color: string; dash: readonly number[]; width: number }[] {
+  return (collection.hlines ?? []).map((line) => ({
+    value: line.price,
+    color: resolve(line.color),
+    dash: line.dash,
+    width: line.width,
+  }))
+}
+
+/** 水平线填充转为价格区间；引用的 id 必须指向本轮声明的水平线。 */
+function readCollectionGuideFills(
+  collection: PlotCollection,
+  resolve: ScriptColorResolver,
+): { from: number; to: number; color: string; visible: boolean }[] {
+  const prices = new Map((collection.hlines ?? []).map((line) => [line.id, line.price]))
+  return (collection.hlineFills ?? []).map((fill) => {
+    const from = prices.get(fill.from)
+    const to = prices.get(fill.to)
+    if (from === undefined || to === undefined)
+      throw new TypeError(`Unknown hline fill source: ${fill.id}`)
+    return { from, to, color: resolve(fill.color), visible: fill.visible }
+  })
 }
 
 /** 绘图点只替换显式给出的颜色，缺省继续沿用所在 Plot 的颜色。 */
