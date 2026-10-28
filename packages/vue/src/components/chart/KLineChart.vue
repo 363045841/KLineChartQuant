@@ -353,10 +353,12 @@
       :active-tab-id="scriptEditorSession.activeTabId.value"
       @select-tab="scriptEditorSession.selectTab($event)"
       @close-tab="scriptEditorSession.closeTab($event)"
+      @move-tab="scriptEditorSession.moveTab"
       :kind="scriptEditorSession.kind.value"
       :documents="scriptEditorSession.documents.value"
+      :folders="scriptEditorSession.folders.value"
       :libraries="scriptEditorSession.libraries.value"
-      @create-script="scriptEditorSession.openBlank($event)"
+      @tree-action="scriptEditorSession.applyTreeAction"
       @open-script="scriptEditorSession.openFor($event)"
       @refresh-documents="scriptEditorSession.refreshDocuments()"
       v-model:open="scriptEditorOpen"
@@ -368,6 +370,9 @@
       :saved="scriptEditorSaved"
       :identity="scriptEditorIdentity"
       :saving="scriptEditorSaving"
+      :executing="scriptEditorSession.executing.value"
+      @run="scriptEditorSession.run()"
+      @add-to-chart="scriptEditorSession.addToChart()"
       @create-copy="createScriptCopy"
       :title="scriptEditorTitle"
       :detachable="scriptEditorWindowSupported"
@@ -1074,7 +1079,10 @@
   /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
-  const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+  const scriptEditorSession = useScriptEditor(
+    inject(SCRIPT_SOURCE_STORE_KEY, undefined),
+    controller,
+  )
   const {
     open: scriptEditorOpen,
     source: scriptEditorSource,

@@ -73,6 +73,28 @@ function createHarness() {
 }
 
 describe('比较品种与 Request 共用行情', () => {
+  it.each([false, true])(
+    '临时计算不受指标 retain 取消，结束后释放独占 Buffer（失败=%s）',
+    async (fail) => {
+      const { runtime, cache, data, selectionFor } = createHarness()
+      try {
+        const task = runtime.withContext(data, async (market) => {
+          await market.loadBars({ symbol: 'CMP', timeframe: 'D', source: 'test', calcBarsCount: 2 })
+          runtime.retain(new Set())
+          expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
+          if (fail) throw new Error('temporary failure')
+          return 42
+        })
+        if (fail) await expect(task).rejects.toThrow('temporary failure')
+        else await expect(task).resolves.toBe(42)
+        expect(cache.repository.getBars(selectionFor('CMP'))).toBeUndefined()
+      } finally {
+        runtime.dispose()
+        cache.destroy()
+      }
+    },
+  )
+
   it.each(['comparison-first', 'request-first'])(
     '%s：最后使用者退出才释放 Buffer',
     async (order) => {

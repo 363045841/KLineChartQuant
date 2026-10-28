@@ -11,10 +11,12 @@
         :active-tab-id="activeTabId"
         @select-tab="emit('select-tab', $event)"
         @close-tab="emit('close-tab', $event)"
+        @move-tab="(id, targetId) => emit('move-tab', id, targetId)"
         :kind="kind"
         :documents="documents"
+        :folders="folders"
         :libraries="libraries"
-        @create-script="emit('create-script', $event)"
+        @tree-action="emit('tree-action', $event)"
         @open-script="emit('open-script', $event)"
         @refresh-documents="emit('refresh-documents')"
         :logs="logs"
@@ -22,6 +24,9 @@
         :trusted="trusted"
         :identity="identity"
         :saving="saving"
+        :executing="executing"
+        @run="emit('run')"
+        @add-to-chart="emit('add-to-chart')"
         :saved="saved"
         :error="error"
         :detachable="mode === 'dialog' && detachable"
@@ -41,7 +46,13 @@
 <script setup lang="ts">
   import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import type { ScriptEditorDocument, ScriptEditorTab, ScriptIdentity } from '@vue-src/composables/chart/scriptEditor/types.js'
+  import type {
+    ScriptEditorDocument,
+    ScriptEditorFolder,
+    ScriptEditorTab,
+    ScriptIdentity,
+    ScriptTreeAction,
+  } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { computed } from 'vue'
   import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
@@ -58,11 +69,13 @@
       activeTabId: string | null
       kind?: 'indicator' | 'library'
       documents?: readonly ScriptEditorDocument[]
+      folders?: readonly ScriptEditorFolder[]
       libraries?: readonly { name: string; source: string }[]
       logs?: readonly LogEvent[]
       trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
+      executing?: 'run' | 'add-to-chart' | null
       /** 最近一次保存是否成功。 */
       saved?: boolean
       /** 宿主保存校验的错误；与语言服务的错误在工作区内合并展示。 */
@@ -82,6 +95,7 @@
       title: '编辑脚本',
       kind: 'indicator',
       documents: () => [],
+      folders: () => [],
       libraries: () => [],
       logs: () => [],
       error: null,
@@ -94,13 +108,16 @@
   const emit = defineEmits<{
     'select-tab': [id: string]
     'close-tab': [id: string]
-    'create-script': [kind: 'indicator' | 'library']
+    'move-tab': [id: string, targetId: string]
+    'tree-action': [action: ScriptTreeAction]
     'open-script': [id: string]
     'refresh-documents': []
     'update:open': [value: boolean]
     'update:source': [value: string]
     'update:trusted': [value: boolean]
     save: []
+    run: []
+    'add-to-chart': []
     'open-window': []
     'create-copy': []
     'clear-output': []

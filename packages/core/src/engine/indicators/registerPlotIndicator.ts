@@ -5,14 +5,12 @@
  * Plot Layer，并落入指标目录，使 core 成为纯粹的消费者，不必接触生产方的模型。
  */
 import {
-  type Bar,
   Format,
   type IndicatorDefinition,
   type InputDef,
   type InputSchema,
   resolveInputDefaults,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { KLineData } from '../../foundation/types/price.js'
 import { plotRenderer } from '../plots/impl/plotDefinition.js'
 import { createPlotTitleInfo } from '../plots/impl/plotTitleInfo.js'
 import { formatPlotValue } from '../plots/impl/plotValueFormat.js'
@@ -28,18 +26,7 @@ import {
   IndicatorKind,
   type ScaleRendererFactory,
 } from './indicatorMetadata.js'
-
-/** 把 core 行情映射为中立 Bar。 */
-function toBar(bar: KLineData): Bar {
-  return {
-    time: bar.timestamp,
-    open: bar.open,
-    high: bar.high,
-    low: bar.low,
-    close: bar.close,
-    volume: bar.volume ?? 0,
-  }
-}
+import { toPlotBar } from './plotBars.js'
 
 /** 提取参数展示声明；默认值与类型仍由 defaultParams 提供，两处不重复存默认值。 */
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
@@ -123,8 +110,7 @@ function createPlotIndicatorDefinition<P>(
       revision: definition.document?.revision,
       defaultParams: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
-      compute: (data, params: P, market) =>
-        definition.compute(data.map(toBar), params, market),
+      compute: (data, params: P, market) => definition.compute(data.map(toPlotBar), params, market),
     },
   })
   class PlotIndicatorDefinition {

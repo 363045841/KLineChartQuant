@@ -98,6 +98,24 @@ export class MarketRuntime implements IndicatorMarketData {
   >()
   private readonly requestAborts = new Map<string, AbortController>()
   private requestRevision = 0
+  private readonly temporaryOwners = new Set<string>()
+  private retainedOwners: ReadonlySet<string> = new Set()
+  private temporarySequence = 0
+
+  /** 临时计算共享图表行情需求，结束后释放自己的订阅与请求。 */
+  async withContext<T>(
+    bars: readonly KLineData[],
+    compute: (market: IndicatorMarketContext) => Promise<T>,
+  ): Promise<T> {
+    const owner = `temporary_${++this.temporarySequence}`
+    this.temporaryOwners.add(owner)
+    try {
+      return await compute(this.context(owner, bars))
+    } finally {
+      this.temporaryOwners.delete(owner)
+      this.retain(this.retainedOwners)
+    }
+  }
 
   /** 行情依赖版本参与现有指标缓存身份。 */
   get revision(): number {
@@ -165,13 +183,15 @@ export class MarketRuntime implements IndicatorMarketData {
 
   /** 计算计划移除最后使用者时取消查询并关闭连接。 */
   retain(owners: ReadonlySet<string>): void {
+    this.retainedOwners = owners
+    const activeOwners = new Set([...owners, ...this.temporaryOwners])
     for (const [owner, abort] of this.requestAborts) {
-      if (owners.has(owner)) continue
+      if (activeOwners.has(owner)) continue
       abort.abort()
       this.requestAborts.delete(owner)
     }
     for (const demand of this.barDemands.values())
-      for (const owner of demand.owners) if (!owners.has(owner)) demand.owners.delete(owner)
+      for (const owner of demand.owners) if (!activeOwners.has(owner)) demand.owners.delete(owner)
     this.releaseUnusedBars()
     this.reconcileBarStreams()
   }

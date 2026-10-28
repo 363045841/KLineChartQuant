@@ -31,6 +31,8 @@ export interface IndicatorSourceDocument {
   readonly identity: 'builtin' | 'user'
   readonly revision: number
   readonly source: string
+  /** 用户在文件树中的所属目录；'' 表示分组根。 */
+  readonly folder: string
   readonly definition: IndicatorSourceDefinition
 }
 

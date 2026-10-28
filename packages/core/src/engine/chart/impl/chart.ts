@@ -102,6 +102,7 @@ import {
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { toPlotBar } from '../../indicators/plotBars.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
@@ -1004,6 +1005,19 @@ export class Chart {
   /** 返回图表与 Agent 共用的实例级行情缓存。 */
   getMarketDataCache(): MarketDataCache {
     return this.dataManager.marketDataCache
+  }
+
+  /** 对当前行情快照执行一次计算，不注册指标或创建 Pane。 */
+  withIndicatorData<T>(
+    compute: (
+      bars: readonly import('@363045841yyt/klinechart-plot-contracts').Bar[],
+      market: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const bars = this.data.peek()
+    return this.dataManager.withIndicatorMarketContext(bars, (market) =>
+      compute(bars.map(toPlotBar), market),
+    )
   }
 
   /** 捕获当前 K 线视图的视口锚点，供布局文档持久化。 */

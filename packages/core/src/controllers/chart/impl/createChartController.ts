@@ -263,6 +263,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
     leftAxisEffectiveWidth: chart.leftAxisEffectiveWidth,
     data: chart.data,
+    withIndicatorData: (compute) => chart.withIndicatorData(compute),
     dataLoading: chart.loading,
     dataError: chart.dataError,
     marketDataCacheStats: chart.getMarketDataCache().stats,

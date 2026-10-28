@@ -4,7 +4,9 @@ export { createScriptService } from './scripts/impl/createScriptService.js'
 export type {
   SavedScript,
   ScriptDocument,
+  ScriptFolder,
   ScriptPersistence,
   ScriptService,
   ScriptServiceOptions,
+  ScriptWorkspace,
 } from './scripts/types.js'

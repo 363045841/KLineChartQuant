@@ -61,35 +61,58 @@
           <IconTablerSearch aria-hidden="true" />
           <input v-model="query" type="search" placeholder="搜索文件…" aria-label="搜索指标和库" />
         </label>
-        <div class="script-files__tree">
-          <div v-for="group in fileGroups" :key="group.kind" class="script-files__folder">
-            <div class="script-files__folder-button">
-              <button type="button" class="script-files__folder-toggle" :aria-expanded="group.expanded" @click="folders[group.kind] = !folders[group.kind]">
-                <IconTablerChevronDown v-if="group.expanded" aria-hidden="true" /><IconTablerChevronRight v-else aria-hidden="true" />
-                <IconTablerFolder aria-hidden="true" /><span>{{ group.label }}</span>
-              </button>
-              <button type="button" class="script-files__folder-add" :aria-label="`新建${group.label}`" :title="`新建${group.label}`" :disabled="saving" @click="emit('create-script', group.kind)">
-                <IconTablerPlus aria-hidden="true" />
-              </button>
-            </div>
-            <ul v-show="group.expanded" class="script-files__list">
-              <li v-for="file in group.files" :key="file.id">
-                <button type="button" class="script-files__file" :class="{ 'is-active': file.tabId === activeTabId }" :disabled="saving" :title="file.readonly ? `${file.name}.ts · 内置，只读` : `${file.name}.ts`" :aria-current="file.tabId === activeTabId ? 'page' : undefined" @click="file.tabId ? emit('select-tab', file.tabId) : emit('open-script', file.id)">
-                  <IconTablerFileCode aria-hidden="true" /><span class="script-files__filename">{{ file.name }}.ts</span><span v-if="file.dirty" aria-label="未保存">●</span><IconTablerLock v-else-if="file.readonly" aria-label="只读" />
+        <div ref="treeHost" class="script-files__tree">
+          <ul class="script-files__list">
+            <li v-for="row in rows" :key="row.key">
+              <div v-if="row.type === 'folder'" class="script-files__folder-button">
+                <button
+                  type="button"
+                  class="script-files__dir"
+                  :style="{ '--script-tree-depth': row.depth }"
+                  :aria-expanded="row.expanded"
+                  :disabled="saving"
+                  @click="activate(row)"
+                  @contextmenu="openContextMenu($event, row)"
+                >
+                  <IconTablerChevronDown v-if="row.expanded" aria-hidden="true" /><IconTablerChevronRight v-else aria-hidden="true" />
+                  <IconTablerFolder aria-hidden="true" /><span class="script-files__filename">{{ row.name }}</span>
                 </button>
-              </li>
-              <li v-if="!group.files.length" class="script-files__empty">暂无文件</li>
-            </ul>
-          </div>
-          <p v-if="!fileGroups.length" class="script-files__empty" role="status">未找到匹配文件</p>
+                <button
+                  type="button"
+                  class="script-files__folder-add"
+                  :aria-label="`在${row.name}中新建文件`"
+                  :title="`在${row.name}中新建文件`"
+                  :disabled="saving"
+                  @click="emit('tree-action', { type: 'create-file', kind: row.kind, folder: row.path })"
+                >
+                  <IconTablerPlus aria-hidden="true" />
+                </button>
+              </div>
+              <button
+                v-else
+                type="button"
+                class="script-files__file"
+                :class="{ 'is-active': row.tabId === activeTabId }"
+                :style="{ '--script-tree-depth': row.depth }"
+                :disabled="saving"
+                :title="row.readonly ? `${row.name}.ts · 内置，只读` : `${row.name}.ts`"
+                :aria-current="row.tabId === activeTabId ? 'page' : undefined"
+                @click="activate(row)"
+                @contextmenu="openContextMenu($event, row)"
+              >
+                <span class="script-files__filename">{{ row.name }}.ts</span><ScriptDirtyIndicator v-if="row.dirty" /><IconTablerLock v-else-if="row.readonly" aria-label="只读" />
+              </button>
+            </li>
+            <li v-if="!rows.length" class="script-files__empty" role="status">未找到匹配文件</li>
+          </ul>
         </div>
       </nav>
       <div class="script-workspace__main">
         <div class="script-tabs-bar">
           <div ref="tabsHost" class="script-tabs" role="tablist" aria-label="已打开的脚本">
-            <div v-for="tab in tabs" :key="tab.id" class="script-tabs__item" :class="{ 'is-active': tab.id === activeTabId }" @auxclick="onTabAuxClick($event, tab.id)">
+            <div v-for="tab in tabs" :key="tab.id" class="script-tabs__item" :class="{ 'is-active': tab.id === activeTabId, 'is-dragging': tab.id === draggedTabId, 'is-drop-target': tab.id === dropTargetId }" :draggable="!saving" @dragstart="onTabDragStart($event, tab.id)" @dragover="onTabDragOver($event, tab.id)" @drop="onTabDrop($event, tab.id)" @dragend="endTabDrag" @auxclick="onTabAuxClick($event, tab.id)">
               <button :id="`${workspaceId}-${tab.id}`" type="button" role="tab" :aria-controls="`${workspaceId}-code`" :aria-selected="tab.id === activeTabId" :tabindex="tab.id === activeTabId ? 0 : -1" :disabled="saving" class="script-tabs__select" @click="emit('select-tab', tab.id)" @keydown="onTabKeydown($event, tab.id)">
-                <IconTablerFileCode aria-hidden="true" /><span>{{ tab.title }}.ts</span><span v-if="tab.dirty" aria-label="未保存">●</span>
+                <ScriptDirtyIndicator v-if="tab.dirty" class="script-tabs__dirty" /><span class="script-tabs__title">{{ tab.title }}.ts</span>
               </button>
               <button type="button" class="script-tabs__close" :aria-label="`关闭 ${tab.title}`" :disabled="saving" @click="requestClose(tab.id)"><IconTablerX aria-hidden="true" /></button>
             </div>
@@ -105,13 +128,21 @@
               <button type="button" class="script-tabs__confirmation-action script-tabs__discard script-underline-action" :disabled="saving" @click="discard">放弃更改</button>
             </div>
           </div>
+          <div class="script-quick-actions" role="group" aria-label="脚本快捷操作">
+            <BaseTooltip :content="executing === 'run' ? '运行中…' : '运行代码'" placement="bottom">
+              <button type="button" class="script-workspace__icon-button" aria-label="运行代码" :disabled="!activeTabId || kind !== 'indicator' || saving || !!executing" :aria-busy="executing === 'run'" @click="emit('run')"><LoadingSpinner v-if="executing === 'run'" :size="16" /><IconTablerPlayerPlay v-else aria-hidden="true" /></button>
+            </BaseTooltip>
+            <BaseTooltip content="添加到图表" placement="bottom">
+              <button type="button" class="script-workspace__icon-button" aria-label="添加到图表" :disabled="!activeTabId || kind !== 'indicator' || saving || !!executing" :aria-busy="executing === 'add-to-chart'" @click="emit('add-to-chart')"><LoadingSpinner v-if="executing === 'add-to-chart'" :size="16" /><IconTablerPlus v-else aria-hidden="true" /></button>
+            </BaseTooltip>
+          </div>
         </div>
         <div v-if="activeTabId && identity === 'builtin'" class="script-workspace__readonly">
           内置{{ kind === 'library' ? '库' : '脚本' }}只读<template v-if="kind !== 'library'">，请<button type="button" class="script-workspace__readonly-link script-underline-action" @click="emit('create-copy')">创建副本</button>后编辑</template>
         </div>
         <div v-show="activeTabId" :id="`${workspaceId}-code`" ref="editorHost" class="script-editor" role="tabpanel" :aria-labelledby="activeTabId ? `${workspaceId}-${activeTabId}` : undefined" aria-label="脚本代码" />
         <div v-if="!activeTabId" class="script-workspace__empty">从左侧打开文件，或用目录行右侧的 + 新建指标和库</div>
-        <ScriptEditorPanels v-show="activeTabId" :logs="logs" :problems="problems" :editor-host="editorHost" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
+        <ScriptEditorPanels v-show="activeTabId" :logs="logs" :problems="problems" :editor-host="editorHost" :running="executing === 'run'" :execution-error="error" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
       </div>
     </div>
   </div>
@@ -121,30 +152,33 @@
   import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
+  import { useScriptEditorNavigation } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorNavigation.js'
   import type {
+    ScriptEditorDocument,
+    ScriptEditorFolder,
     ScriptEditorProblem,
+    ScriptEditorTab,
     ScriptIdentity,
+    ScriptTreeAction,
   } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCodeMirror } from '@vue-src/composables/chart/useCodeMirror.js'
   import { computed, useId, useTemplateRef } from 'vue'
-  import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
-  import ScriptEditorPanels from './ScriptEditorPanels.vue'
-  import IconTablerShield from '~icons/tabler/shield'
-  import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
+  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerCheck from '~icons/tabler/check'
-  import IconTablerPlus from '~icons/tabler/plus'
-  import type { ScriptEditorDocument } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import type { ScriptEditorTab } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import { useScriptEditorNavigation } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorNavigation.js'
-  import IconTablerLayoutSidebar from '~icons/tabler/layout-sidebar'
-  import IconTablerSearch from '~icons/tabler/search'
-  import IconTablerFolder from '~icons/tabler/folder'
-  import IconTablerFileCode from '~icons/tabler/file-code'
   import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
+  import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
+  import IconTablerFolder from '~icons/tabler/folder'
+  import IconTablerLayoutSidebar from '~icons/tabler/layout-sidebar'
   import IconTablerLock from '~icons/tabler/lock'
+  import IconTablerPlayerPlay from '~icons/tabler/player-play'
+  import IconTablerPlus from '~icons/tabler/plus'
+  import IconTablerSearch from '~icons/tabler/search'
+  import IconTablerShield from '~icons/tabler/shield'
+  import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
   import IconTablerX from '~icons/tabler/x'
-  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
+  import ScriptDirtyIndicator from './ScriptDirtyIndicator.vue'
+  import ScriptEditorPanels from './ScriptEditorPanels.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -154,11 +188,13 @@
       activeTabId: string | null
       kind?: 'indicator' | 'library'
       documents?: readonly ScriptEditorDocument[]
+      folders?: readonly ScriptEditorFolder[]
       libraries?: readonly { name: string; source: string }[]
       logs?: readonly LogEvent[]
       trusted: boolean
       identity: ScriptIdentity
       saving?: boolean
+      executing?: 'run' | 'add-to-chart' | null
       /** 最近一次保存是否成功；成功时保存按钮显示勾图标。 */
       saved?: boolean
       /** 宿主保存校验的错误；与语言服务的错误合并展示。 */
@@ -170,18 +206,32 @@
       /** 独立窗口中显示「返回标签页」入口。 */
       returnable?: boolean
     }>(),
-    { kind: 'indicator', documents: () => [], libraries: () => [], error: null, detachable: false, saving: false, saved: false, returnable: false, logs: () => [] },
+    {
+      kind: 'indicator',
+      documents: () => [],
+      folders: () => [],
+      libraries: () => [],
+      error: null,
+      detachable: false,
+      saving: false,
+      saved: false,
+      returnable: false,
+      logs: () => [],
+    },
   )
 
   const emit = defineEmits<{
     'select-tab': [id: string]
     'close-tab': [id: string]
-    'create-script': [kind: 'indicator' | 'library']
+    'move-tab': [id: string, targetId: string]
+    'tree-action': [action: ScriptTreeAction]
     'open-script': [id: string]
     'refresh-documents': []
     'update:source': [value: string]
     'update:trusted': [value: boolean]
     save: []
+    run: []
+    'add-to-chart': []
     'open-window': []
     'create-copy': []
     'clear-output': []
@@ -191,19 +241,58 @@
   const editorHost = useTemplateRef<HTMLElement>('editorHost')
   const workspaceId = useId()
   const tabsHost = useTemplateRef<HTMLElement>('tabsHost')
-  const { explorerOpen, query, folders, groups: fileGroups, pendingClose, closingTab, requestClose, onTabAuxClick, discard, onTabKeydown } = useScriptEditorNavigation(() => props.documents, () => props.tabs, (id) => emit('select-tab', id), (id) => emit('close-tab', id), tabsHost, () => props.activeTabId)
+  const treeHost = useTemplateRef<HTMLElement>('treeHost')
+  const {
+    explorerOpen,
+    query,
+    rows,
+    pendingClose,
+    closingTab,
+    requestClose,
+    onTabAuxClick,
+    discard,
+    onTabKeydown,
+    activate,
+    toggle,
+    openContextMenu,
+    draggedTabId,
+    dropTargetId,
+    onTabDragStart,
+    onTabDragOver,
+    onTabDrop,
+    endTabDrag,
+  } = useScriptEditorNavigation({
+    documents: () => props.documents,
+    folders: () => props.folders,
+    tabs: () => props.tabs,
+    activeTabId: () => props.activeTabId,
+    select: (id) => emit('select-tab', id),
+    close: (id) => emit('close-tab', id),
+    move: (id, targetId) => emit('move-tab', id, targetId),
+    openFile: (id) => emit('open-script', id),
+    apply: (action) => emit('tree-action', action),
+    writable: () => !props.saving && !props.executing,
+    tabsHost,
+    treeHost,
+  })
   const source = computed({
     get: () => props.source,
     set: (value) => emit('update:source', value),
   })
-  const editable = computed(() => props.activeTabId !== null && props.identity === 'user' && !props.saving)
-  const {
-    languageLoading,
-    languageError,
-    diagnostics,
-    revealProblem,
-    searchDocument,
-  } = useCodeMirror(editorHost, source, (next) => emit('update:source', next), editable, computed(() => props.theme), computed(() => props.libraries), computed(() => props.activeTabId), computed(() => props.tabs.map((tab) => tab.id)))
+  const editable = computed(
+    () => props.activeTabId !== null && props.identity === 'user' && !props.saving,
+  )
+  const { languageLoading, languageError, diagnostics, revealProblem, searchDocument } =
+    useCodeMirror(
+      editorHost,
+      source,
+      (next) => emit('update:source', next),
+      editable,
+      computed(() => props.theme),
+      computed(() => props.libraries),
+      computed(() => props.activeTabId),
+      computed(() => props.tabs.map((tab) => tab.id)),
+    )
   const problems = computed<readonly ScriptEditorProblem[]>(() => [
     ...diagnostics.value,
     ...[languageError.value, props.error].flatMap((message) =>
@@ -261,11 +350,16 @@
   .script-files__list { margin: 0; padding: 0; list-style: none; }
   /* 文件行与目录行共用同一套行基础样式，差异只保留宽度和缩进。 */
   .script-files__folder-button { display: flex; align-items: center; padding-right: var(--klc-space-4, 4px); }
-  .script-files__folder-toggle,
-  .script-files__file { display: flex; align-items: center; gap: var(--klc-space-4, 4px); min-height: 28px; padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px); border: 0; background: transparent; color: var(--klc-color-ui-text); font: inherit; text-align: left; cursor: pointer; }
-  .script-files__folder-toggle { flex: 1; min-width: 0; }
-  .script-files__file { width: 100%; padding-left: var(--klc-space-24, 24px); }
-  .script-files__folder-toggle:hover, .script-files__file:hover, .script-files__file.is-active { background: var(--klc-color-ui-hover); }
+  /* 目录行共用行基础样式；border-box 保证 width:100% 不因缩进溢出。 */
+  .script-files__dir,
+  .script-files__file { display: flex; align-items: center; box-sizing: border-box; gap: var(--klc-space-4, 4px); width: 100%; min-height: 28px; padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px); border: 0; background: transparent; color: var(--klc-color-ui-text); font: inherit; text-align: left; cursor: pointer; }
+  /* 层级缩进：depth 由行模型给出，根目录为 0。 */
+  .script-files__dir,
+  .script-files__file {
+    padding-left: calc(var(--klc-space-8, 8px) + var(--script-tree-depth, 0) * var(--klc-space-16, 16px));
+  }
+  .script-files__dir { flex: 1; min-width: 0; }
+  .script-files__folder-button:hover, .script-files__dir:hover, .script-files__file:hover, .script-files__file.is-active { background: var(--klc-color-ui-hover); }
   .script-files__filename { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* 每类目录右侧直接新建，替代数量展示；入口常驻，不依赖悬浮。 */
   .script-files__folder-add { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--klc-radius-sm, 4px); background: transparent; color: var(--klc-color-ui-muted); cursor: pointer; }
@@ -276,18 +370,28 @@
   .script-files svg, .script-tabs svg { width: 14px; height: 14px; flex-shrink: 0; }
   /* 标签栏之外的浮层定位基准，避免 100% 落在整个编辑区高度上。 */
   .script-tabs-bar {
+    display: flex;
     position: relative;
     z-index: 10;
     flex-shrink: 0;
   }
-  .script-tabs { display: flex; min-height: 32px; overflow-x: auto; border-bottom: 1px solid var(--klc-color-ui-border); background: var(--klc-color-ui-card); }
-  .script-tabs__item { display: flex; flex-shrink: 0; max-width: 240px; border-right: 1px solid var(--klc-color-ui-border); border-bottom: 2px solid transparent; }
+  .script-tabs { display: flex; flex: 1; min-width: 0; min-height: 32px; overflow-x: auto; border-bottom: 1px solid var(--klc-color-ui-border); background: var(--klc-color-ui-card); }
+  .script-quick-actions { display: flex; flex-shrink: 0; align-items: center; gap: var(--klc-space-4); padding: 0 var(--klc-space-4); border-bottom: 1px solid var(--klc-color-ui-border); background: var(--klc-color-ui-card); }
+  .script-quick-actions .script-workspace__icon-button { width: 24px; height: 24px; }
+  .script-quick-actions .script-workspace__icon-button svg { width: 16px; height: 16px; }
+  .script-tabs__item { --script-tab-gutter: 20px; position: relative; display: flex; flex-shrink: 0; max-width: 240px; border-right: 1px solid var(--klc-color-ui-border); border-bottom: 2px solid transparent; }
   .script-tabs__item.is-active { border-bottom-color: var(--klc-brand-accent-text); background: var(--klc-color-ui-surface); }
+  .script-tabs__item.is-dragging { opacity: 0.5; }
+  .script-tabs__item.is-drop-target { box-shadow: inset 2px 0 var(--klc-brand-accent-text); }
   .script-tabs__select, .script-tabs__close { display: flex; align-items: center; justify-content: center; gap: var(--klc-space-8, 8px); border: 0; background: transparent; color: var(--klc-color-ui-muted); font: inherit; font-size: var(--klc-text-label-12-font-size, 12px); cursor: pointer; }
-  .script-tabs__select { min-width: 0; padding: var(--klc-space-8, 8px); }
-  .script-tabs__select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 两侧操作脱离文字布局，对称留白保证文件名始终在整个标签内居中；操作图标居中于各自的留白区。 */
+  .script-tabs__select { flex: 1; min-width: 0; padding: var(--klc-space-8, 8px) var(--script-tab-gutter); }
+  .script-tabs__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+  .script-tabs__dirty { position: absolute; left: calc((var(--script-tab-gutter) - 8px) / 2); top: 50%; transform: translateY(-50%); }
   .script-tabs__item.is-active .script-tabs__select { color: var(--klc-color-ui-text); }
-  .script-tabs__close { padding: var(--klc-space-4, 4px); }
+  .script-tabs__close { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: var(--script-tab-gutter); height: 100%; padding: 0; opacity: 0; pointer-events: none; }
+  .script-tabs__item:hover .script-tabs__close,
+  .script-tabs__item:has(:focus-visible) .script-tabs__close { opacity: 1; pointer-events: auto; }
   .script-tabs__close:hover { background: var(--klc-color-ui-hover); color: var(--klc-color-ui-text); }
   .script-tabs__confirmation {
     position: absolute;
