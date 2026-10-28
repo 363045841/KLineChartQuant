@@ -5,11 +5,13 @@ import {
   getRegisteredIndicatorDefinition,
   removeScriptIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
+import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
+import type { ScriptWorkspace } from '../types.js'
 
 const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
   onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
@@ -17,33 +19,115 @@ const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
 vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('ScriptService', () => {
+  it.each([false, true])(
+    '直接运行草稿复用库与 Request，输出不注册或保存指标，失败后可重跑（trusted=%s）',
+    async (trusted) => {
+      const persistence = { load: async () => null, save: vi.fn(async () => true) }
+      const scripts = await createScriptService(
+        [
+          {
+            name: 'debugLibrary',
+            source: `defineLibrary('debugLibrary', { value(n: number): number { return n + 1 } })`,
+          },
+        ],
+        { persistence },
+      )
+      const bars = [{ time: 1, open: 10, high: 10, low: 10, close: 10, volume: 1 }]
+      const market = { symbol: 'TEST', loadBars: vi.fn(async () => bars) }
+      const debugSource = `const lib = importLibrary('debugLibrary'); defineIndicator({ name: 'DebugOnly', position: Position.Sub, onBar() { const other = request.security(syminfo.tickerid, Timeframe.Day, () => close); console.log(lib.value(other)); plot.Line(other, 'other') } })`
+      let events: readonly LogEvent[] = []
+      const unsubscribe = scripts.output.subscribe('debug-tab', (next) => {
+        events = next
+      })
+      try {
+        const options = { source: debugSource, trusted, outputId: 'debug-tab', bars, market }
+        await scripts.run(options)
+        expect(events.map((event) => event.message)).toEqual(['11'])
+        expect(market.loadBars).toHaveBeenCalledWith(
+          expect.objectContaining({ symbol: 'TEST', timeframe: 'D' }),
+        )
+        expect(getIndicatorDescriptor('DebugOnly')).toBeUndefined()
+        expect(scripts.list().some((item) => item.definition.name === 'DebugOnly')).toBe(false)
+        expect(persistence.save).not.toHaveBeenCalled()
+        await expect(
+          scripts.run({
+            ...options,
+            source: debugSource.replace(
+              'console.log(lib.value(other))',
+              `console.log('before failure'); throw new Error('debug failed')`,
+            ),
+          }),
+        ).rejects.toThrow('debug failed')
+        expect(events.map((event) => event.message)).toContain('before failure')
+        await scripts.run(options)
+        expect(events.map((event) => event.message)).toEqual(['11'])
+      } finally {
+        unsubscribe()
+        scripts.dispose()
+      }
+    },
+  )
+
   it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
     const persistence = createScriptPersistence()
     const scripts = await createScriptService([], { persistence })
-    const base = await scripts.create(`const helper = 2; defineLibrary('serviceBase', { scale(source: Series): Series { return ta.sma(source, helper) } })`)
-    const library = await scripts.create(`const helper = importLibrary('serviceBase'); defineLibrary('serviceStats', { smooth(source: Series): Series { return helper.scale(source) } })`)
-    const indicator = await scripts.create(`const stats = importLibrary('serviceStats'); defineIndicator({ name: 'LibraryConsumer', position: Position.Sub, onBar() { plot.Line(stats.smooth(close) + 1, 'smooth') } })`, true)
-    const bars = [2, 4, 8].map((close, timestamp) => ({ timestamp, open: close, high: close, low: close, close }))
+    const base = await scripts.create(
+      `const helper = 2; defineLibrary('serviceBase', { scale(source: Series): Series { return ta.sma(source, helper) } })`,
+    )
+    const library = await scripts.create(
+      `const helper = importLibrary('serviceBase'); defineLibrary('serviceStats', { smooth(source: Series): Series { return helper.scale(source) } })`,
+    )
+    const indicator = await scripts.create(
+      `const stats = importLibrary('serviceStats'); defineIndicator({ name: 'LibraryConsumer', position: Position.Sub, onBar() { plot.Line(stats.smooth(close) + 1, 'smooth') } })`,
+      true,
+    )
+    const bars = [2, 4, 8].map((close, timestamp) => ({
+      timestamp,
+      open: close,
+      high: close,
+      low: close,
+      close,
+    }))
     /** 通过图表正式计算入口检查依赖快照与序列当前值转换。 */
     async function values() {
       return getRegisteredIndicatorDefinition(indicator.id)!.runtime!.compute(bars, {})
     }
     expect(base.kind).toBe('library')
     expect(getIndicatorDescriptor(base.id)).toBeUndefined()
-    expect(await values()).toMatchObject({ plots: [{ data: [undefined, { value: 4 }, { value: 7 }] }] })
+    expect(await values()).toMatchObject({
+      plots: [{ data: [undefined, { value: 4 }, { value: 7 }] }],
+    })
     await expect(scripts.remove(base.id, 1)).rejects.toThrow('仍被引用')
-    await expect(scripts.update(base.id, `const stats = importLibrary('serviceStats'); defineLibrary('serviceBase', { scale: stats.smooth })`, 1)).rejects.toThrow('循环依赖')
-    await expect(scripts.update(base.id, `throw new Error('库初始化失败'); defineLibrary('serviceBase', {})`, 1)).rejects.toThrow('库初始化失败')
-    await expect(scripts.update(base.id, `defineLibrary('serviceBase', { other() { return 1 } })`, 1)).rejects.toThrow('scale')
+    await expect(
+      scripts.update(
+        base.id,
+        `const stats = importLibrary('serviceStats'); defineLibrary('serviceBase', { scale: stats.smooth })`,
+        1,
+      ),
+    ).rejects.toThrow('循环依赖')
+    await expect(
+      scripts.update(
+        base.id,
+        `throw new Error('库初始化失败'); defineLibrary('serviceBase', {})`,
+        1,
+      ),
+    ).rejects.toThrow('库初始化失败')
+    await expect(
+      scripts.update(base.id, `defineLibrary('serviceBase', { other() { return 1 } })`, 1),
+    ).rejects.toThrow('scale')
     expect(scripts.read(base.id)?.revision).toBe(1)
     const next = await scripts.update(base.id, base.source.replace('helper = 2', 'helper = 1'), 1)
-    expect(await values()).toMatchObject({ plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }] })
+    expect(await values()).toMatchObject({
+      plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }],
+    })
     removeScriptIndicatorDefinition(indicator.id)
     scripts.dispose()
     const restored = await createScriptService([], { persistence })
     try {
       expect(restored.read(base.id)).toEqual(next)
-      expect(await values()).toMatchObject({ plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }] })
+      expect(await values()).toMatchObject({
+        plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }],
+      })
       expect(restored.read(indicator.id)?.revision).toBe(indicator.revision + 1)
       await restored.remove(indicator.id, indicator.revision + 1)
       await restored.remove(library.id, library.revision)
@@ -52,6 +136,136 @@ describe('ScriptService', () => {
       restored.dispose()
     }
   })
+  it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
+    let saved: ScriptWorkspace | null = null
+    const persistence = {
+      load: async () => saved,
+      save: async (workspace: ScriptWorkspace) => {
+        saved = workspace
+        return true
+      },
+    }
+    const scripts = await createScriptService([], { persistence })
+    try {
+      await expect(scripts.createFolder({ kind: 'indicator', path: '策略/均线' })).rejects.toThrow(
+        '文件夹不存在',
+      )
+      await scripts.createFolder({ kind: 'indicator', path: '策略' })
+      await scripts.createFolder({ kind: 'indicator', path: '策略/均线' })
+      expect(scripts.listFolders()).toEqual([
+        { kind: 'indicator', path: '策略' },
+        { kind: 'indicator', path: '策略/均线' },
+      ])
+      await expect(scripts.create(source, false, '不存在')).rejects.toThrow('文件夹不存在')
+      const document = await scripts.create(
+        source.replace('ServiceAverage', 'FolderAverage'),
+        false,
+        '策略/均线',
+      )
+      expect(document.folder).toBe('策略/均线')
+      await expect(scripts.createFolder({ kind: 'indicator', path: '策略/均线' })).rejects.toThrow(
+        '已存在',
+      )
+      await expect(scripts.createFolder({ kind: 'indicator', path: '策略//均线' })).rejects.toThrow(
+        '文件夹名称无效',
+      )
+    } finally {
+      scripts.dispose()
+    }
+    removeScriptIndicatorDefinition('FolderAverage')
+    const restored = await createScriptService([], { persistence })
+    try {
+      expect(restored.listFolders()).toEqual([
+        { kind: 'indicator', path: '策略' },
+        { kind: 'indicator', path: '策略/均线' },
+      ])
+      expect(restored.read('FolderAverage')?.folder).toBe('策略/均线')
+      await restored.remove('FolderAverage', 1)
+    } finally {
+      restored.dispose()
+    }
+  })
+
+  it('删除文件夹级联删除内容，目录外仍引用的库阻止删除', async () => {
+    let saved: ScriptWorkspace | null = null
+    const persistence = {
+      load: async () => saved,
+      save: async (workspace: ScriptWorkspace) => {
+        saved = workspace
+        return true
+      },
+    }
+    const scripts = await createScriptService([], { persistence })
+    try {
+      await scripts.createFolder({ kind: 'library', path: '工具' })
+      const library = await scripts.create(
+        `defineLibrary('folderLibrary', { value(): number { return 1 } })`,
+        true,
+        '工具',
+      )
+      const consumer = await scripts.create(
+        `const tools = importLibrary('folderLibrary'); defineIndicator({ name: 'FolderConsumer', position: Position.Sub, onBar() { plot.Line(tools.value(), 'v') } })`,
+        true,
+      )
+      await expect(scripts.removeFolder({ kind: 'library', path: '工具' })).rejects.toThrow(
+        '仍被引用',
+      )
+      expect(scripts.read(library.id)).toBeDefined()
+      await scripts.remove(consumer.id, consumer.revision)
+      expect(await scripts.removeFolder({ kind: 'library', path: '工具' })).toEqual({
+        documentIds: [library.id],
+        folders: [{ kind: 'library', path: '工具' }],
+      })
+      expect(scripts.listFolders()).toEqual([])
+      expect(scripts.read(library.id)).toBeUndefined()
+    } finally {
+      scripts.dispose()
+    }
+  })
+
+  it('目录操作先提交持久化，失败保留原目录与文档，成功返回实际删除范围', async () => {
+    let saved: ScriptWorkspace | null = null
+    let writable = true
+    const scripts = await createScriptService([], {
+      persistence: {
+        load: async () => saved,
+        save: async (workspace) => {
+          if (!writable) return false
+          saved = workspace
+          return true
+        },
+      },
+    })
+    try {
+      await scripts.createFolder({ kind: 'library', path: '工具' })
+      await scripts.createFolder({ kind: 'library', path: '工具/计算' })
+      const document = await scripts.create(
+        `defineLibrary('transactionLibrary', { value(): number { return 1 } })`,
+        false,
+        '工具/计算',
+      )
+      const before = saved
+      const beforeFolders = scripts.listFolders()
+      writable = false
+      await expect(scripts.createFolder({ kind: 'library', path: '新目录' })).rejects.toThrow(
+        '保存失败',
+      )
+      await expect(scripts.removeFolder({ kind: 'library', path: '工具' })).rejects.toThrow(
+        '保存失败',
+      )
+      expect(saved).toBe(before)
+      expect(scripts.listFolders()).toEqual(beforeFolders)
+      expect(scripts.read(document.id)).toEqual(document)
+      writable = true
+      const result = await scripts.removeFolder({ kind: 'library', path: '工具' })
+      expect(result).toEqual({ documentIds: [document.id], folders: beforeFolders })
+      expect(scripts.listFolders()).toEqual([])
+      expect(scripts.read(document.id)).toBeUndefined()
+    } finally {
+      scripts.dispose()
+    }
+  })
+
   it('内置脚本使用原生引擎，用户保存信任选择后切换实际执行后端', async () => {
     const engineSource = `defineIndicator({ name: 'ServiceEngine', position: 'main', onBar() { plot.Line(typeof WebAssembly === 'object' ? 1 : 0, 'native') } })`
     const scripts = await createScriptService([], { builtinSources: [engineSource] })
@@ -69,12 +283,26 @@ describe('ScriptService', () => {
       const revoked = await scripts.update(trusted.id, trusted.source, trusted.revision, false)
       expect(await compute(created.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
       await scripts.remove(revoked.id, revoked.revision)
-      const library = await scripts.create(`defineLibrary('engineLibrary', { value(): number { return 1 } })`)
-      const consumer = await scripts.create(`const library = importLibrary('engineLibrary'); defineIndicator({ name: 'LibraryEngine', position: Position.Main, onBar() { plot.Line(typeof globalThis === 'object' && 'WebAssembly' in globalThis ? library.value() : 0, 'native') } })`, true)
+      const library = await scripts.create(
+        `defineLibrary('engineLibrary', { value(): number { return 1 } })`,
+      )
+      const consumer = await scripts.create(
+        `const library = importLibrary('engineLibrary'); defineIndicator({ name: 'LibraryEngine', position: Position.Main, onBar() { plot.Line(typeof globalThis === 'object' && 'WebAssembly' in globalThis ? library.value() : 0, 'native') } })`,
+        true,
+      )
       expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
-      const trustedLibrary = await scripts.update(library.id, library.source, library.revision, true)
+      const trustedLibrary = await scripts.update(
+        library.id,
+        library.source,
+        library.revision,
+        true,
+      )
       expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 1 }] }] })
-      const changedLibrary = await scripts.update(library.id, library.source.replace('return 1', 'return 2'), trustedLibrary.revision)
+      const changedLibrary = await scripts.update(
+        library.id,
+        library.source.replace('return 1', 'return 2'),
+        trustedLibrary.revision,
+      )
       expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })
       await scripts.remove(consumer.id, scripts.read(consumer.id)!.revision)
       await scripts.remove(library.id, changedLibrary.revision)
@@ -106,11 +334,12 @@ describe('ScriptService', () => {
     const initial = await scripts.create(source.replace('ServiceAverage', 'TrustedAverage'), true)
     expect(initial.trusted).toBe(true)
     expect(getRegisteredIndicatorDefinition(initial.id)?.document?.trusted).toBe(true)
-    expect(await persistence.load()).toContainEqual({
+    expect((await persistence.load())?.scripts ?? []).toContainEqual({
       id: initial.id,
       source: initial.source,
       revision: 1,
       trusted: true,
+      folder: '',
     })
     removeScriptIndicatorDefinition(initial.id)
     const restored = await createScriptService([], { persistence })
@@ -118,11 +347,12 @@ describe('ScriptService', () => {
     const revoked = await restored.update(initial.id, initial.source, 1, false)
     expect(revoked.trusted).toBe(false)
     expect(getRegisteredIndicatorDefinition(initial.id)?.document?.trusted).toBe(false)
-    expect(await persistence.load()).toContainEqual({
+    expect((await persistence.load())?.scripts ?? []).toContainEqual({
       id: initial.id,
       source: initial.source,
       revision: 2,
       trusted: false,
+      folder: '',
     })
     await expect(restored.update(initial.id, initial.source, 1, true)).rejects.toThrow('重新打开')
     expect(restored.read(initial.id)?.trusted).toBe(false)
@@ -191,7 +421,7 @@ describe('ScriptService', () => {
     const initial = await scripts.create(source.replace('ServiceAverage', 'FailedSaveAverage'))
     const failed = await createScriptService([], {
       persistence: {
-        load: async () => [],
+        load: async () => null,
         save: async () => {
           throw new Error('磁盘写入失败')
         },
@@ -208,11 +438,12 @@ describe('ScriptService', () => {
       ),
     ).resolves.toMatchObject({ plots: [{ id: 'average', data: [{ value: 15 }] }] })
     expect(getIndicatorDescriptor('FailedRename')).toBeUndefined()
-    expect(await persistence.load()).toContainEqual({
+    expect((await persistence.load())?.scripts ?? []).toContainEqual({
       id: initial.id,
       source: initial.source,
       revision: initial.revision,
       trusted: false,
+      folder: '',
     })
     const results = await Promise.allSettled([
       scripts.update(initial.id, initial.source.replace('input.int(2)', 'input.int(4)'), 1),
@@ -233,7 +464,7 @@ describe('ScriptService', () => {
     await expect(scripts.update(builtin.id, builtin.source, 1)).rejects.toThrow('内置脚本只读')
     await expect(scripts.remove(builtin.id, 1)).rejects.toThrow('内置脚本只读')
     expect(() => removeScriptIndicatorDefinition(builtin.id)).toThrow()
-    expect(await persistence.load()).toEqual([])
+    expect(await persistence.load()).toEqual({ scripts: [], folders: [] })
   })
 
   it('单个快照完成 CRUD，更新不新增身份，过期版本或错误源码不覆盖', async () => {

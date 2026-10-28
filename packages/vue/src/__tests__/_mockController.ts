@@ -223,6 +223,9 @@ export function createMockChartController(
     appendData: (next) => data.set([...data.peek(), ...next]),
     updateData: (next) => data.set(next),
     getData: () => data.peek(),
+    withIndicatorData: async () => {
+      throw new Error('测试图表未配置临时计算行情')
+    },
     getZoomLevelCount: () => 10,
     setSymbols: () => {},
     registerSymbols: () => {},

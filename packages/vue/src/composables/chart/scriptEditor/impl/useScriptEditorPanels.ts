@@ -11,6 +11,8 @@ export function useScriptEditorPanels(
   panelHost: Readonly<Ref<HTMLElement | null>>,
   logs: () => readonly LogEvent[],
   editorHost: () => HTMLElement | null,
+  running: () => boolean,
+  executionError: () => string | null,
 ) {
   const expanded = ref(true)
   const activePanel = ref<'output' | 'problems'>('output')
@@ -35,6 +37,17 @@ export function useScriptEditorPanels(
     activePanel.value = panel
     expanded.value = true
   }
+
+  // 快捷运行主动展开输出，执行失败则展示已有问题面板。
+  watch(running, (value) => {
+    if (value) {
+      follow = true
+      selectPanel('output')
+    }
+  })
+  watch(executionError, (message) => {
+    if (message) selectPanel('problems')
+  })
 
   /** Tab 支持左右方向键、Home 和 End，并把焦点移到所选标签。 */
   function onTabKeyDown(event: KeyboardEvent): void {

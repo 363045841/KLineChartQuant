@@ -67,8 +67,8 @@
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import { useScriptEditorPanels } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorPanels.js'
-  import { useSlidingTabIndicator } from '@vue-src/composables/ui/useSlidingTabIndicator.js'
   import type { ScriptEditorProblem } from '@vue-src/composables/chart/scriptEditor/types.js'
+  import { useSlidingTabIndicator } from '@vue-src/composables/ui/useSlidingTabIndicator.js'
   import { computed, useId, useTemplateRef } from 'vue'
   import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerChevronUp from '~icons/tabler/chevron-up'
@@ -82,8 +82,10 @@
       problems?: readonly ScriptEditorProblem[]
       /** 编辑区元素；输出面板据此预留高度，不再按 CSS 类名识别兄弟节点。 */
       editorHost?: HTMLElement | null
+      running?: boolean
+      executionError?: string | null
     }>(),
-    { problems: () => [], editorHost: null },
+    { problems: () => [], editorHost: null, running: false, executionError: null },
   )
   const emit = defineEmits<{ clear: []; 'reveal-problem': [problem: ScriptEditorProblem] }>()
   /** 日志一次性算好展示字段，模板不再重复解析时间。 */
@@ -130,6 +132,8 @@
     panelHost,
     () => props.logs,
     () => props.editorHost,
+    () => props.running,
+    () => props.executionError,
   )
   const { indicatorStyle } = useSlidingTabIndicator(tabsRef, () => activePanel.value)
 

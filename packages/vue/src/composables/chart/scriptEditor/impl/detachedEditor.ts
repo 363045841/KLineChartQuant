@@ -3,6 +3,7 @@ import { createApp, defineComponent, h } from 'vue'
 import '@fontsource/jetbrains-mono/400.css'
 import '@vue-src/styles/scrollbar.css'
 import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
+import type { ScriptTreeAction } from '../types.js'
 import {
   type DetachedEditorConnection,
   type DetachedEditorEvent,
@@ -44,12 +45,17 @@ function connect(event: MessageEvent<DetachedEditorConnection>): void {
               'onUpdate:source': state.updateSource,
               'onUpdate:trusted': state.updateTrusted,
               onSave: () => state.command('save'),
+              onRun: () => state.command('run'),
+              onAddToChart: () => state.command('add-to-chart'),
               onClearOutput: () => send({ type: 'clear-output' }),
               onCreateCopy: () => state.command('create-copy'),
-              onCreateScript: (kind: 'indicator' | 'library') => state.navigate({ type: 'create-script', kind }),
+              onTreeAction: (action: ScriptTreeAction) =>
+                state.navigate({ type: 'tree-action', action }),
               onOpenScript: (id: string) => state.navigate({ type: 'open-script', id }),
               onSelectTab: (id: string) => state.navigate({ type: 'select-tab', id }),
               onCloseTab: (id: string) => state.navigate({ type: 'close-tab', id }),
+              onMoveTab: (id: string, targetId: string) =>
+                state.navigate({ type: 'move-tab', id, targetId }),
               onRefreshDocuments: () => send({ type: 'refresh-documents' }),
               onReturn: () => state.command('return'),
             })

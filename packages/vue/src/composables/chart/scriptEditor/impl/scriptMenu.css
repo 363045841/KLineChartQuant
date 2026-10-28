@@ -1,0 +1,146 @@
+/* 编辑器与文件目录共用的脚本右键菜单样式；使用主题变量，不依赖编辑器作用域。 */
+.klc-script-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  min-width: 180px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  border: 0;
+  border-radius: var(--klc-radius-xs, 4px);
+  background: var(--klc-color-ui-input);
+  color: var(--klc-color-ui-text);
+  box-shadow: var(--klc-elevation-2);
+  font-family: var(--klc-typography-font-family);
+  font-size: var(--klc-text-12-font-size, 12px);
+}
+
+.klc-script-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 12px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.klc-script-menu button:hover:not(:disabled),
+.klc-script-menu button:focus-visible {
+  background: var(--klc-color-ui-hover);
+  outline: none;
+}
+
+.klc-script-menu button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.klc-script-menu-shortcut {
+  color: var(--klc-color-ui-muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.klc-script-menu [role="separator"] {
+  border-top: 1px solid var(--klc-color-ui-border);
+}
+
+.klc-script-menu-status {
+  padding: 8px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 20px;
+}
+
+.klc-script-menu-status:empty {
+  display: none;
+}
+
+/* 命名输入只有输入框本身：移除浮层背景与阴影，不再叠加任何包裹容器。 */
+.klc-script-menu--bare {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.klc-script-input {
+  box-sizing: border-box;
+  display: block;
+  width: min(220px, calc(100vw - 32px));
+  height: 28px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: var(--klc-radius-xs, 4px);
+  background: var(--klc-color-ui-surface);
+  color: var(--klc-color-ui-text);
+  font: inherit;
+  outline: none;
+}
+
+.klc-script-menu--bare .klc-script-menu-status {
+  padding: 4px 2px 0;
+  color: var(--klc-color-ui-danger-text);
+}
+
+.klc-script-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: min(640px, 80vw);
+  min-height: 36px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--klc-color-ui-border);
+}
+
+.klc-script-preview-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--klc-color-ui-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: var(--klc-text-12-font-size, 12px);
+}
+
+.klc-script-menu .klc-script-preview-close {
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--klc-radius-xs, 4px);
+  color: var(--klc-color-ui-muted);
+}
+
+.klc-script-menu .klc-script-preview-close:hover,
+.klc-script-menu .klc-script-preview-close:focus-visible {
+  color: var(--klc-color-ui-text);
+  background: var(--klc-color-ui-hover);
+}
+
+.klc-script-preview-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.klc-script-definition-preview {
+  width: min(640px, 80vw);
+  height: min(360px, 50dvh);
+}
