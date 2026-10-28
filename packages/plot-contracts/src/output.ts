@@ -1,4 +1,16 @@
 /** 脚本输出的可克隆契约，供执行器、宿主服务和编辑器共同消费。 */
+import type { Bar } from './bar.js'
+import type { IndicatorMarketContext } from './market.js'
+
+/** 当前草稿的一次调试执行，不注册或持久化指标。 */
+export interface ScriptRunOptions {
+  readonly outputId: string
+  readonly source: string
+  readonly trusted: boolean
+  readonly bars: readonly Bar[]
+  readonly market: IndicatorMarketContext
+}
+
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug'
 
 /** 一次 console 调用；顶层输出的 barIndex 为 -1。 */

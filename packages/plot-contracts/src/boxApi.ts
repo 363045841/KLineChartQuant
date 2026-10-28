@@ -1,6 +1,6 @@
 /** Pine 风格 Box API；两个对角锚点直接写公共 rectangle 对象。 */
 import { Color } from './color.js'
-import type { BoxBorderStyle, BoxFactory, BoxRef, ChartPoint, DrawingBoxApi, DrawingObjectContext, DrawingObjectStore, DrawingText, LineExtend, LineXLoc } from './drawing.js'
+import type { BoxBorderStyle, BoxFactory, BoxOptions, BoxRef, ChartPoint, DrawingBoxApi, DrawingObjectContext, DrawingObjectStore, DrawingText, LineExtend, LineXLoc } from './drawing.js'
 import { extend, xloc } from './drawing.js'
 import { checkedDrawingMember, createOwnedDrawingApi, drawingAnchor, drawingAnchorX, drawingWidth } from './drawingApi.js'
 
@@ -38,7 +38,7 @@ export function createDrawingBoxApi(store: DrawingObjectStore, context: DrawingO
     background: Color | (string & {}) = Color.Blue,
     content = '',
     size = 12,
-    textColor: Color | (string & {}) = Color.Black,
+    textColor?: Color | (string & {}),
   ): BoxRef {
     checkedDrawingMember(stroke, ['solid', 'dashed', 'dotted'], 'border_style')
     checkedDrawingMember(extension, Object.values(extend), 'extend')
@@ -65,11 +65,12 @@ export function createDrawingBoxApi(store: DrawingObjectStore, context: DrawingO
         strokeStyle: stroke,
         fill: background,
         fillOpacity: 1,
+        // 未指定文字颜色时跟随描边，由渲染端的 textColor ?? stroke 处理。
+        ...(textColor === undefined ? {} : { textColor }),
+        fontSize: drawingWidth(size),
       },
       text: {
         value: content,
-        color: textColor,
-        size: drawingWidth(size),
         align: 'center',
         verticalAlign: 'middle',
       },
@@ -79,10 +80,29 @@ export function createDrawingBoxApi(store: DrawingObjectStore, context: DrawingO
   type Args = [number, number, number, number, ...Tail] | [ChartPoint, ChartPoint, ...Tail]
   /** 对整个参数元组收窄，避免用断言绕过重载契约。 */
   function coordinates(args: Args): args is [number, number, number, number, ...Tail] { return typeof args[0] === 'number' }
+  /** 选项对象与位置参数汇入同一构造；未写字段交给 createPoints 的默认值。 */
+  function fromOptions(options: BoxOptions): BoxRef {
+    const { left, top, right, bottom, ...rest } = options
+    return createPoints(
+      { index: left, time: left, price: top },
+      { index: right, time: right, price: bottom },
+      rest.borderColor,
+      rest.borderWidth,
+      rest.borderStyle,
+      rest.extend,
+      rest.xloc,
+      rest.backgroundColor,
+      rest.text,
+      rest.textSize,
+      rest.textColor,
+    )
+  }
   function create(left: number, top: number, right: number, bottom: number, ...tail: Tail): BoxRef
   function create(first: ChartPoint, second: ChartPoint, ...tail: Tail): BoxRef
-  /** Pine 的位置参数顺序保持不变。 */
-  function create(...args: Args): BoxRef {
+  function create(options: BoxOptions): BoxRef
+  /** Pine 的位置参数顺序保持不变，选项对象形态走同一套构造。 */
+  function create(...args: Args | [BoxOptions]): BoxRef {
+    if (args.length === 1) return fromOptions(args[0])
     if (coordinates(args)) {
       const [left, top, right, bottom, ...tail] = args
       return createPoints({ index: left, time: left, price: top }, { index: right, time: right, price: bottom }, ...tail)
@@ -112,8 +132,8 @@ export function createDrawingBoxApi(store: DrawingObjectStore, context: DrawingO
     set_border_width: (id: BoxRef, width: number) => api.style(id, { strokeWidth: drawingWidth(width, 0) }),
     set_border_style: (id: BoxRef, stroke: BoxBorderStyle) => api.style(id, { strokeStyle: checkedDrawingMember<BoxBorderStyle>(stroke, ['solid', 'dashed', 'dotted'], 'border_style') }),
     set_text: (id: BoxRef, value: string) => text(id, { value }),
-    set_text_color: (id: BoxRef, color: Color | (string & {})) => text(id, { color }),
-    set_text_size: (id: BoxRef, size: number) => text(id, { size: drawingWidth(size) }),
+    set_text_color: (id: BoxRef, color: Color | (string & {})) => api.style(id, { textColor: color }),
+    set_text_size: (id: BoxRef, size: number) => api.style(id, { fontSize: drawingWidth(size) }),
     set_text_halign: (id: BoxRef, align: DrawingText['align']) => text(id, { align: checkedDrawingMember<DrawingText['align']>(align, ['left', 'center', 'right'], 'text_halign') }),
     set_text_valign: (id: BoxRef, verticalAlign: DrawingText['verticalAlign']) => text(id, { verticalAlign: checkedDrawingMember<DrawingText['verticalAlign']>(verticalAlign, ['top', 'middle', 'bottom'], 'text_valign') }),
     get_left: (id: BoxRef) => { const value = api.get(id); return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN },

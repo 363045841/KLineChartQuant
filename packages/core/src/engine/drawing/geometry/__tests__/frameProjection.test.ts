@@ -120,6 +120,21 @@ describe('projectDrawingsForFrame', () => {
       { a: { x: 20, y: 90 }, b: { x: 30, y: 80 } },
     ])
   })
+  it('resolves script color aliases in drawing text through the active theme', () => {
+    const drawing = createDrawingObject({
+      id: 'label',
+      kind: 'label',
+      anchors: [{ id: 'a', logicalIndex: 0, price: 10 }],
+      style: { stroke: '#2962ff', textColor: '@red', fontSize: 11 },
+      text: { value: 'HH', align: 'center', verticalAlign: 'middle' },
+    })
+    const primitive = projectSingleDrawing(drawing, false).primitives.find(
+      (item) => item.kind === 'text',
+    )
+    // 文字颜色和字号只来自样式，别名在这里统一解析成主题色值。
+    expect(primitive?.style.textColor).toBe(lightTheme.colors.scriptPalette.red)
+    expect(primitive?.style.fontSize).toBe(11)
+  })
   it('projects indicator index anchors with no handles even if selected', () => {
     const drawing = createTrendDrawing({
       ownerId: 'indicator',
@@ -562,7 +577,8 @@ describe('projectDrawingsForFrame range culling', () => {
       id: `label-${index}`,
       kind: 'label',
       anchors: [{ id: 'a', type: 'point', logicalIndex: index, price: 10 }],
-      text: { value: 'HH', color: '#ef5350', size: 11, align: 'center', verticalAlign: 'middle' },
+      style: { stroke: '#ef5350', fontSize: 11 },
+      text: { value: 'HH', align: 'center', verticalAlign: 'middle' },
     })
   }
 

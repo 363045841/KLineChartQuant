@@ -10,7 +10,12 @@ import {
   openDetachedWindow,
   supportsDetachedWindow,
 } from './scriptEditor/impl/detachedWindow.js'
-import type { DetachedEditorCommand, DetachedEditorEvent, DetachedEditorNavigationCommand, DetachedEditorSnapshot } from './scriptEditor/windowTypes.js'
+import type {
+  DetachedEditorCommand,
+  DetachedEditorEvent,
+  DetachedEditorNavigationCommand,
+  DetachedEditorSnapshot,
+} from './scriptEditor/windowTypes.js'
 import type { ScriptEditorSession } from './useScriptEditor.js'
 
 /** 独立窗口会话的状态与操作。 */
@@ -47,6 +52,7 @@ export function useScriptEditorWindow(
       activeTabId: session.activeTabId.value,
       kind: session.kind.value,
       documents: session.documents.value,
+      folders: session.folders.value,
       libraries: session.libraries.value,
       title: session.name.value ? `编辑脚本 · ${session.name.value}` : title,
       source: session.source.value,
@@ -54,6 +60,7 @@ export function useScriptEditorWindow(
       editVersion,
       identity: session.identity.value,
       saving: session.saving.value,
+      executing: session.executing.value,
       saved: session.saved.value,
       error: session.error.value,
       logs: session.logs.value,
@@ -75,15 +82,24 @@ export function useScriptEditorWindow(
   }
 
   /** 判断消息是否只是标签导航，命令类继续走保存/复制/返回。 */
-  function isNavigation(message: DetachedEditorCommand): message is DetachedEditorNavigationCommand {
-    return message.type === 'select-tab' || message.type === 'close-tab' || message.type === 'create-script' || message.type === 'open-script'
+  function isNavigation(
+    message: DetachedEditorCommand,
+  ): message is DetachedEditorNavigationCommand {
+    return (
+      message.type === 'select-tab' ||
+      message.type === 'close-tab' ||
+      message.type === 'move-tab' ||
+      message.type === 'open-script' ||
+      message.type === 'tree-action'
+    )
   }
 
   /** 在独立窗口内切换标签；结果同步回宿主，避免两处会话分叉。 */
   function navigate(message: DetachedEditorNavigationCommand): void {
     if (message.type === 'select-tab') session.selectTab(message.id)
     else if (message.type === 'close-tab') session.closeTab(message.id)
-    else if (message.type === 'create-script') session.openBlank(message.kind)
+    else if (message.type === 'move-tab') session.moveTab(message.id, message.targetId)
+    else if (message.type === 'tree-action') void session.applyTreeAction(message.action)
     else session.openFor(message.id)
   }
 
@@ -107,6 +123,8 @@ export function useScriptEditorWindow(
       return
     }
     if (message.type === 'save') void session.save()
+    else if (message.type === 'run') void session.run()
+    else if (message.type === 'add-to-chart') void session.addToChart()
     else if (message.type === 'create-copy') void session.createCopy()
     else if (message.type === 'return') returnToDialog()
   }
@@ -163,12 +181,14 @@ export function useScriptEditorWindow(
       session.trusted,
       session.identity,
       session.saving,
+      session.executing,
       session.saved,
       session.error,
       session.name,
       session.logs,
       session.kind,
       session.documents,
+      session.folders,
       session.libraries,
       session.tabs,
       session.activeTabId,

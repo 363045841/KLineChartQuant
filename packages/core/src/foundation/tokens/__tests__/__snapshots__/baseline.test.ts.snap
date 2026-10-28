@@ -78,6 +78,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-script-palette-brown: #B78F78;
   --klc-color-script-palette-blue-gray: #859AAA;
   --klc-color-script-palette-gray: #989898;
+  --klc-color-script-palette-foreground: #DCE0E8;
   --klc-color-text-primary: #DCE0E8;
   --klc-color-text-secondary: #ACB2BE;
   --klc-color-text-tertiary: #838A98;
@@ -275,7 +276,8 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | pink | #EA6DA3 | 6.22 |
 | brown | #B78F78 | 6.21 |
 | blueGray | #859AAA | 6.20 |
-| gray | #989898 | 6.27 |"
+| gray | #989898 | 6.27 |
+| foreground | #DCE0E8 | 13.67 |"
 `;
 
 exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
@@ -356,6 +358,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-script-palette-brown: #A17257;
   --klc-color-script-palette-blue-gray: #668093;
   --klc-color-script-palette-gray: #7C7C7C;
+  --klc-color-script-palette-foreground: #242426;
   --klc-color-text-primary: #242426;
   --klc-color-text-secondary: #606066;
   --klc-color-text-tertiary: #76767C;
@@ -553,5 +556,6 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | pink | #E23680 | 3.80 |
 | brown | #A17257 | 3.81 |
 | blueGray | #668093 | 3.80 |
-| gray | #7C7C7C | 3.83 |"
+| gray | #7C7C7C | 3.83 |
+| foreground | #242426 | 14.23 |"
 `;

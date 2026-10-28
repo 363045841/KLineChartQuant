@@ -57,6 +57,8 @@ export const Color = {
   BlueGray: '@blueGray',
   /** @summary 灰 */
   Gray: '@gray',
+  /** @summary 前景 */
+  Foreground: '@foreground',
   /** @summary 白 */
   White: '#ffffff',
   /** @summary 黑 */

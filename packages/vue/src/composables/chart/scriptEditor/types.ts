@@ -1,6 +1,6 @@
 /** 脚本编辑器与宿主的源码仓库契约；不依赖 script 包，保持图表包的 Apache 边界。 */
 
-import type { ScriptOutputSource } from '@363045841yyt/klinechart-plot-contracts'
+import type { ScriptOutputSource, ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import type { Diagnostic } from '@codemirror/lint'
 import type { InjectionKey } from 'vue'
 
@@ -22,6 +22,8 @@ export interface ScriptEditorTab {
   readonly title: string
   readonly kind: 'indicator' | 'library'
   readonly dirty: boolean
+  /** 未保存草稿的落盘目录；已提交文档以仓库记录为准。 */
+  readonly folder: string
 }
 
 /** 编辑器读取或提交的脚本文档。 */
@@ -33,16 +35,83 @@ export interface ScriptEditorDocument {
   readonly source: string
   readonly revision: number
   readonly identity: ScriptIdentity
+  /** 所属文件夹路径，'' 表示分组根。 */
+  readonly folder: string
 }
+
+/** 文件树中的文件夹；路径按脚本类型隔离。 */
+export interface ScriptEditorFolder {
+  readonly kind: 'indicator' | 'library'
+  readonly path: string
+}
+
+/** 文件行指向已保存文档或未保存标签，禁止用同一个字符串混淆两种身份。 */
+export type ScriptTreeFileTarget =
+  | { readonly kind: 'document'; readonly documentId: string }
+  | { readonly kind: 'draft'; readonly tabId: string }
+
+/** 文件树只有文件夹与文件；分组根是 path 为 '' 的文件夹。 */
+export type ScriptTreeRow =
+  | {
+      readonly type: 'folder'
+      readonly key: string
+      readonly kind: ScriptEditorFolder['kind']
+      readonly path: string
+      readonly name: string
+      readonly depth: number
+      readonly expanded: boolean
+    }
+  | {
+      readonly type: 'file'
+      readonly key: string
+      readonly kind: ScriptEditorFolder['kind']
+      readonly target: ScriptTreeFileTarget
+      readonly name: string
+      readonly folder: string
+      readonly depth: number
+      readonly tabId: string | null
+      readonly readonly: boolean
+      readonly dirty: boolean
+    }
+
+/** 文件树动作：目录与文件操作共用一份判别联合，跨组件只传这一种消息。 */
+export type ScriptTreeAction =
+  | {
+      readonly type: 'create-file'
+      readonly kind: 'indicator' | 'library'
+      readonly folder: string
+    }
+  | {
+      readonly type: 'create-folder'
+      readonly kind: 'indicator' | 'library'
+      readonly path: string
+    }
+  | {
+      readonly type: 'remove-folder'
+      readonly kind: 'indicator' | 'library'
+      readonly path: string
+    }
+  | { readonly type: 'copy-file'; readonly id: string }
+  | { readonly type: 'delete-file'; readonly id: string }
 
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {
   list(): readonly ScriptEditorDocument[]
+  listFolders(): readonly ScriptEditorFolder[]
+  /** 创建一个空文件夹；路径用 / 表达层级。 */
+  createFolder(folder: ScriptEditorFolder): Promise<void>
+  /** 删除文件夹及其内容。 */
+  removeFolder(folder: ScriptEditorFolder): Promise<{
+    readonly documentIds: readonly string[]
+    readonly folders: readonly ScriptEditorFolder[]
+  }>
   /** 宿主支持脚本运行输出时提供；纯源码仓库可以省略。 */
   readonly output?: ScriptOutputSource
+  /** 提供执行能力的宿主复用同一脚本服务；纯源码仓库可省略。 */
+  run?(options: ScriptRunOptions): Promise<void>
   read(id: string): ScriptEditorDocument | undefined
   /** 提交一个新脚本，返回分配的稳定 id 与首个版本号。 */
-  create(source: string, trusted?: boolean): Promise<ScriptEditorDocument>
+  create(source: string, trusted?: boolean, folder?: string): Promise<ScriptEditorDocument>
   update(
     id: string,
     source: string,

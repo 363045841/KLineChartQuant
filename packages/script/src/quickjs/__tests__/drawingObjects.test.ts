@@ -49,7 +49,39 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
       anchors: [{ price: 25 }, { logicalIndex: 1 }],
       text: { value: 'copy' },
     })
-    expect(result.drawings?.[2]).toMatchObject({ kind: 'label', text: { value: 'HH', size: 11 } })
+    expect(result.drawings?.[2]).toMatchObject({
+      kind: 'label',
+      text: { value: 'HH' },
+      style: { fontSize: 11 },
+    })
+  })
+
+  it('creates the same object from positional and options forms', async () => {
+    const result = await run(
+      `
+      defineIndicator({ name: 'Options', position: Position.Main, onBar() {
+        if (bar_index !== 0) return
+        label.new(1, 20, 'A', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11, 'center', 8)
+        label.new({ x: 1, y: 20, text: 'A', color: Color.Red, textColor: Color.Red, size: 11, offsetY: 8 })
+        box.new(0, 20, 1, 10, Color.Red, 0, line.style_solid, extend.none, xloc.bar_index, '#ff000040', 'FVG', 11, Color.Blue)
+        box.new({ left: 0, top: 20, right: 1, bottom: 10, borderColor: Color.Red, borderWidth: 0, backgroundColor: '#ff000040', text: 'FVG', textSize: 11, textColor: Color.Blue })
+        line.new(0, 10, 1, 20, xloc.bar_index, extend.none, Color.Blue, line.style_dashed, 2)
+        line.new({ x1: 0, y1: 10, x2: 1, y2: 20, color: Color.Blue, style: line.style_dashed, width: 2 })
+      } })`,
+      barsFromCloses([10, 11, 12]),
+    )
+    // 两种形态只在生成的 id 上不同，其余字段必须完全一致。
+    const stripIds = (drawing: unknown): unknown =>
+      JSON.parse(JSON.stringify(drawing, (key, value) => (key === 'id' ? undefined : value)))
+    const drawings = result.drawings ?? []
+    expect(drawings).toHaveLength(6)
+    for (const [positional, options] of [
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ] as const) {
+      expect(stripIds(drawings[options])).toEqual(stripIds(drawings[positional]))
+    }
   })
 
   it('stores a label vertical offset and updates it in place', async () => {
@@ -206,12 +238,15 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   })
 })
 
-describe('drawing indicator editor contracts', () => {
-  it.each(['structure', 'zones', 'volume-profile'])('%s has no editor type errors', (name) => {
-    const session = createScriptLanguageSession()
-    session.updateSource(shippedSource(name))
-    const diagnostics =
-      session.environment.languageService.getSemanticDiagnostics(SCRIPT_SOURCE_FILE)
-    expect(diagnostics.map((diagnostic) => diagnostic.messageText)).toEqual([])
-  })
+describe('内置脚本的编辑器类型契约', () => {
+  it.each(['structure', 'zones', 'volume-profile', 'mpr', 'mfs', 'bis', 'mdd'])(
+    '%s has no editor type errors',
+    (name) => {
+      const session = createScriptLanguageSession()
+      session.updateSource(shippedSource(name))
+      const diagnostics =
+        session.environment.languageService.getSemanticDiagnostics(SCRIPT_SOURCE_FILE)
+      expect(diagnostics.map((diagnostic) => diagnostic.messageText)).toEqual([])
+    },
+  )
 })

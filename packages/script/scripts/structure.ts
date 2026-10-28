@@ -24,19 +24,7 @@ const LABEL_OFFSET = 8
 
 /** 在任意历史价格位置放置文字，直接使用公共 Label API；offsetY 正数向上。 */
 function mark(index: number, price: number, text: string, color: string, offsetY: number): void {
-  label.new(
-    index,
-    price,
-    text,
-    xloc.bar_index,
-    yloc.price,
-    color,
-    label.style_none,
-    color,
-    11,
-    'center',
-    offsetY,
-  )
+  label.new({ x: index, y: price, text, color, size: 11, offsetY })
 }
 
 /** 摆动点相对前一个同向点的标签。 */
@@ -93,16 +81,14 @@ function drawBreak(
   reversal: boolean,
 ): void {
   const color = direction === 1 ? config.bullColor : config.bearColor
-  line.new(
-    point.index,
-    point.price,
-    bar_index,
-    point.price,
-    xloc.bar_index,
-    extend.none,
+  line.new({
+    x1: point.index,
+    y1: point.price,
+    x2: bar_index,
+    y2: point.price,
     color,
-    line.style_dashed,
-  )
+    style: line.style_dashed,
+  })
   mark(
     Math.floor((point.index + bar_index) / 2),
     point.price,

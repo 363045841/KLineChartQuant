@@ -21,6 +21,51 @@ function __windowSeries(source: Series, length: number, kind: WindowKind): Serie
   })
 }
 
+/**
+ * 窗口内的最大子段和（Kadane）：按时间顺序扫描，累计值转负时从当前根重新开始。
+ * @param source 有符号数据序列
+ * @param length 窗口长度，包含当前根
+ * @param offset 相对当前根的偏移，0 表示当前根
+ * @returns [子段和, 起点偏移, 终点偏移]；偏移为负且起点更早，窗口不足或含 NaN 时三者均为 NaN
+ */
+function __maxsumAt(
+  source: Series,
+  length: number,
+  offset: number,
+): readonly [number, number, number] {
+  if (offset + length > __count()) return [Number.NaN, Number.NaN, Number.NaN]
+  const oldest = offset + length - 1
+  let best = -Infinity
+  let bestStart = oldest
+  let bestEnd = oldest
+  let running = 0
+  let runningStart = oldest
+  for (let step = oldest; step >= offset; step--) {
+    const value = source.at(step)
+    if (Number.isNaN(value)) return [Number.NaN, Number.NaN, Number.NaN]
+    // 以 step 结尾的最优段：延续已有累计值，或从本根重新开始。
+    if (running <= 0) {
+      running = value
+      runningStart = step
+    } else {
+      running += value
+    }
+    if (running > best) {
+      best = running
+      bestStart = runningStart
+      bestEnd = step
+    }
+  }
+  return [best, offset - bestStart, offset - bestEnd]
+}
+
+/** 最大子段和的单个输出分量；三个分量各自缓存，共享同一份扫描实现。 */
+function __maxsumSeries(source: Series, length: number, part: 0 | 1 | 2): Series {
+  return __deriveOnce(`maxsum:${part}:${__seriesId(source)}:${length}`, (_self, offset) =>
+    __maxsumAt(source, length, offset)[part],
+  )
+}
+
 /** 间距类算法：只比较当前值与 length 根之前的值，不要求完整窗口。 */
 function __differenceSeries(
   kind: 'mom' | 'roc',
@@ -257,6 +302,16 @@ defineLibrary('ta', {
   sum(source: Series, length: number): Series {
     __checkLength(length)
     return __windowSeries(source, length, 'sum')
+  },
+
+  /** 窗口内累计值最大的连续区间；返回 [子段和, 起点偏移, 终点偏移]，偏移为负。 */
+  maxsum(source: Series, length: number): readonly [Series, Series, Series] {
+    __checkLength(length)
+    return [
+      __maxsumSeries(source, length, 0),
+      __maxsumSeries(source, length, 1),
+      __maxsumSeries(source, length, 2),
+    ]
   },
 
   /** 窗口最高值序列。 */

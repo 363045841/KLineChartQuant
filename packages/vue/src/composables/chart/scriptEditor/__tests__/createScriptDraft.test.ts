@@ -27,6 +27,7 @@ function storeWith(names: readonly string[]): Pick<ScriptSourceStore, 'read'> {
             revision: 1,
             identity: 'user',
             trusted: false,
+            folder: '',
           }
         : undefined,
   }
@@ -44,7 +45,7 @@ describe('createScriptDraft', () => {
 
   it('声明不是对象或缺少 name 时明确失败', async () => {
     await expect(createCopySource('defineIndicator(42)', 'X')).rejects.toThrow('必须是对象')
-    await expect(createCopySource('const value = 1', 'X')).rejects.toThrow('未找到指标名称声明')
+    await expect(createCopySource('const value = 1', 'X')).rejects.toThrow('未找到脚本名称声明')
   })
 
   it('名称占用时递增后缀，新建草稿是可保存的完整声明', () => {

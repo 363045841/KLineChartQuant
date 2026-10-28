@@ -1,6 +1,10 @@
 /** 新窗口即时持有编辑草稿，宿主消息只确认已处理的版本，避免输入依赖跨窗口往返。 */
 import { shallowRef } from 'vue'
-import type { DetachedEditorCommand, DetachedEditorNavigation, DetachedEditorSnapshot } from '../windowTypes.js'
+import type {
+  DetachedEditorCommand,
+  DetachedEditorNavigation,
+  DetachedEditorSnapshot,
+} from '../windowTypes.js'
 
 /** 创建本地编辑状态及命令出口；迟到的确认不能覆盖更晚的输入。 */
 export function createDetachedEditorState(
@@ -10,7 +14,9 @@ export function createDetachedEditorState(
   const snapshot = shallowRef(initial)
 
   /** 命令始终携带最新草稿，保存和返回无需等待上一条编辑消息被确认。 */
-  function command(type: 'draft' | 'save' | 'create-copy' | 'return'): void {
+  function command(
+    type: 'draft' | 'save' | 'run' | 'add-to-chart' | 'create-copy' | 'return',
+  ): void {
     const { source, trusted, editVersion, activeTabId } = snapshot.value
     send({ type, source, trusted, editVersion, activeTabId })
   }
@@ -28,7 +34,8 @@ export function createDetachedEditorState(
     /** 只接受已追上本地输入版本的宿主确认。 */
     apply(next: DetachedEditorSnapshot) {
       if (next.editVersion < snapshot.value.editVersion) {
-        if (next.activeTabId === snapshot.value.activeTabId) snapshot.value = { ...snapshot.value, logs: next.logs }
+        if (next.activeTabId === snapshot.value.activeTabId)
+          snapshot.value = { ...snapshot.value, logs: next.logs }
         return
       }
       snapshot.value = next
