@@ -127,19 +127,15 @@ describe('迁移的内置指标', () => {
     zones: ['showFvg', 'showOb'],
   }
 
-  it(
-    '逐线/逐元素开关只出现在登记过的脚本里',
-    () => {
-      for (const name of builtinScriptNames()) {
-        const switches = Object.keys(
-          readQuickJSScriptDefinitionSync(shippedSource(name)).inputs,
-        ).filter((key) => key.startsWith('show'))
-        expect(switches, name).toEqual(VISIBILITY_SWITCHES[name] ?? [])
-      }
-    },
-    // 这条用例逐个编译全部内置脚本，CI 上会超过 vitest 默认的 5 秒。
-    30_000,
-  )
+  // 这条用例逐个编译全部内置脚本，CI 上会超过 vitest 默认的 5 秒。
+  it('逐线/逐元素开关只出现在登记过的脚本里', () => {
+    for (const name of builtinScriptNames()) {
+      const switches = Object.keys(
+        readQuickJSScriptDefinitionSync(shippedSource(name)).inputs,
+      ).filter((key) => key.startsWith('show'))
+      expect(switches, name).toEqual(VISIBILITY_SWITCHES[name] ?? [])
+    }
+  }, 30_000)
 
   it('RSI 的逐线开关只隐藏对应那条线', async () => {
     const data = barsFromCloses(wavyCloses(40))
