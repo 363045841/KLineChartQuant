@@ -1,6 +1,6 @@
 /** 公共 Line API：与 Box/Label 共用坐标、归属和生命周期操作。 */
 import type { Color } from './color.js'
-import type { ChartPoint, DrawingLineApi, DrawingLineContext, DrawingObjectStore, LineExtend, LineRef, LineXLoc } from './drawing.js'
+import type { ChartPoint, DrawingLineApi, DrawingLineContext, DrawingObjectStore, LineExtend, LineOptions, LineRef, LineXLoc } from './drawing.js'
 import { extend, LineStyle, xloc } from './drawing.js'
 import { checkedDrawingMember, createOwnedDrawingApi, drawingAnchor, drawingAnchorX, drawingWidth } from './drawingApi.js'
 export { DRAWING_FUTURE_BARS } from './drawingApi.js'
@@ -19,8 +19,7 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
   type Tail = [xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number]
   type Args = [number, number, number, number, ...Tail] | [ChartPoint, ChartPoint, ...Tail]
   /** 整体收窄参数元组，使两个公开重载保持类型安全。 */
-  function coordinates(args: Args): args is [number, number, number, number, ...Tail] { return typeof args[0] === 'number' }
-  /** 两种重载使用同一对象构造规则。 */
+  function coordinates(args: Args): args is [number, number, number, number, ...Tail] { return typeof args[0] === 'number' }  /** 两种重载使用同一对象构造规则。 */
   function points(
     first: ChartPoint,
     second: ChartPoint,
@@ -54,8 +53,21 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
   }
   function create(x1: number, y1: number, x2: number, y2: number, ...tail: Tail): LineRef
   function create(first: ChartPoint, second: ChartPoint, ...tail: Tail): LineRef
-  /** 复制 chart.point 值，后续修改 point 不影响图形。 */
-  function create(...args: Args): LineRef {
+  function create(options: LineOptions): LineRef
+  /** 复制 chart.point 值，后续修改 point 不影响图形；选项对象走同一套构造。 */
+  function create(...args: Args | [LineOptions]): LineRef {
+    if (args.length === 1) {
+      const { x1, y1, x2, y2, ...rest } = args[0]
+      return points(
+        { index: x1, time: x1, price: y1 },
+        { index: x2, time: x2, price: y2 },
+        rest.xloc,
+        rest.extend,
+        rest.color,
+        rest.style,
+        rest.width,
+      )
+    }
     if (coordinates(args)) {
       const [x1, y1, x2, y2, ...tail] = args
       if (typeof y1 !== 'number' || typeof x2 !== 'number' || typeof y2 !== 'number') throw new TypeError('line.new 需要四个坐标')

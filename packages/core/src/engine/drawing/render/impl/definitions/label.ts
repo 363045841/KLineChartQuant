@@ -28,7 +28,7 @@ export function createLabelDefinition(): DrawingDefinition {
             text: text.value,
             align: layout.align,
             baseline: layout.baseline,
-            style: { ...drawing.style, textColor: text.color, fontSize: text.size },
+            style: drawing.style,
           },
         ],
       }

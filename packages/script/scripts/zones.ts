@@ -28,19 +28,17 @@ function addZone(
 ): void {
   if (zones.length === config.maxZones) box.delete(zones.shift()!.id)
   const fill = bull ? config.bullFill : config.bearFill
-  const id = box.new(
+  const id = box.new({
     left,
     top,
-    bar_index,
+    right: bar_index,
     bottom,
-    fill,
-    0,
-    line.style_solid,
-    extend.none,
-    xloc.bar_index,
-    fill,
-    title,
-  )
+    borderColor: fill,
+    borderWidth: 0,
+    backgroundColor: fill,
+    text: title,
+    textColor: Color.Foreground,
+  })
   zones.push({ id, bull, high: top, low: bottom, active: true })
 }
 

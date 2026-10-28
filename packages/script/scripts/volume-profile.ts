@@ -98,18 +98,15 @@ function drawProfile(
     if (span === 0) continue
     const inValueArea = config.showValueArea && index >= lower && index <= upper
     const color = inValueArea ? config.areaColor : config.profileColor
-    box.new(
-      layout.left,
-      layout.bottom + (index + 1) * layout.step,
-      layout.left + span,
-      layout.bottom + index * layout.step,
-      color,
-      0,
-      line.style_solid,
-      extend.none,
-      xloc.bar_index,
-      color,
-    )
+    box.new({
+      left: layout.left,
+      top: layout.bottom + (index + 1) * layout.step,
+      right: layout.left + span,
+      bottom: layout.bottom + index * layout.step,
+      borderColor: color,
+      borderWidth: 0,
+      backgroundColor: color,
+    })
   }
 }
 
@@ -123,31 +120,33 @@ function drawLevels(
 ): void {
   if (config.showPoc) {
     const poc = layout.bottom + (peak + 0.5) * layout.step
-    line.new(layout.left, poc, bar_index, poc, xloc.bar_index, extend.none, config.pocColor)
+    line.new({
+      x1: layout.left,
+      y1: poc,
+      x2: bar_index,
+      y2: poc,
+      color: config.pocColor,
+    })
   }
   if (!config.showValueArea) return
   const valueLow = layout.bottom + lower * layout.step
   const valueHigh = layout.bottom + (upper + 1) * layout.step
-  line.new(
-    layout.left,
-    valueLow,
-    bar_index,
-    valueLow,
-    xloc.bar_index,
-    extend.none,
-    config.levelColor,
-    line.style_dashed,
-  )
-  line.new(
-    layout.left,
-    valueHigh,
-    bar_index,
-    valueHigh,
-    xloc.bar_index,
-    extend.none,
-    config.levelColor,
-    line.style_dashed,
-  )
+  line.new({
+    x1: layout.left,
+    y1: valueLow,
+    x2: bar_index,
+    y2: valueLow,
+    color: config.levelColor,
+    style: line.style_dashed,
+  })
+  line.new({
+    x1: layout.left,
+    y1: valueHigh,
+    x2: bar_index,
+    y2: valueHigh,
+    color: config.levelColor,
+    style: line.style_dashed,
+  })
 }
 
 defineIndicator({

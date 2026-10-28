@@ -568,6 +568,11 @@
             "hex": "#989898"
           },
           "$description": "灰"
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{dark.interface.text}",
+          "$description": "前景：深色主题为浅色文字"
         }
       },
       "text": {

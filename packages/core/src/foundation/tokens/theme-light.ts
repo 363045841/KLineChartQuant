@@ -118,6 +118,7 @@ export const lightTheme: Theme = {
       brown: '#A17257', // 棕
       blueGray: '#668093', // 蓝灰
       gray: '#7C7C7C', // 灰
+      foreground: lightInterfaceColors.text, // 前景：浅色主题为深色文字
     },
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {

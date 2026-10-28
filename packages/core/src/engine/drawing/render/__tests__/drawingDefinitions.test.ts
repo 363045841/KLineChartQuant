@@ -98,13 +98,15 @@ describe('new drawing tools', () => {
   it('renders borderless Box text and single-anchor Label using common text primitives', () => {
     const text = {
       value: 'FVG',
-      color: '#123456',
-      size: 11,
       align: 'center',
       verticalAlign: 'middle',
     } satisfies NonNullable<ResolvedDrawingObject['text']>
     const box = createRectangleDefinition().compute(
-      { ...drawing('rectangle'), text, style: { stroke: '#123456', strokeWidth: 0 } },
+      {
+        ...drawing('rectangle'),
+        text,
+        style: { stroke: '#123456', strokeWidth: 0, textColor: '#123456', fontSize: 11 },
+      },
       context(),
     )
     expect(box.primitives.map((primitive) => primitive.kind)).toEqual(['area', 'text'])

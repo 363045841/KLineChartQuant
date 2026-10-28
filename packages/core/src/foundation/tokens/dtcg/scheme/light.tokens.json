@@ -563,6 +563,11 @@
             "hex": "#7C7C7C"
           },
           "$description": "灰"
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{light.interface.text}",
+          "$description": "前景：浅色主题为深色文字"
         }
       },
       "text": {

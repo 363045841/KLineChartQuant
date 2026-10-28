@@ -81,7 +81,8 @@
       "pink": { "$type": "color", "$value": "{dark.color.scriptPalette.pink}" },
       "brown": { "$type": "color", "$value": "{dark.color.scriptPalette.brown}" },
       "blueGray": { "$type": "color", "$value": "{dark.color.scriptPalette.blueGray}" },
-      "gray": { "$type": "color", "$value": "{dark.color.scriptPalette.gray}" }
+      "gray": { "$type": "color", "$value": "{dark.color.scriptPalette.gray}" },
+      "foreground": { "$type": "color", "$value": "{dark.color.scriptPalette.foreground}" }
     },
     "text": {
       "primary": { "$type": "color", "$value": "{dark.color.text.primary}" },

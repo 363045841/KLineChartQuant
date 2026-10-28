@@ -4,7 +4,9 @@ import type {
   DrawingLabelApi,
   DrawingObjectContext,
   DrawingObjectStore,
+  DrawingStyle,
   DrawingText,
+  LabelOptions,
   LabelRef,
   LineXLoc,
 } from './drawing.js'
@@ -51,46 +53,107 @@ export function createDrawingLabelApi(
     const value = api.get(id)
     if (value?.text) api.update(id, { text: { ...value.text, ...patch } })
   }
+  /** 修改图元样式；对象已删除时忽略。 */
+  function styleOf(id: LabelRef, patch: Partial<DrawingStyle>): void {
+    if (api.get(id)) api.style(id, patch)
+  }
+  /** 两种调用形态共用的构造；参数在入口处归一。 */
+  function createLabel(
+    x: number,
+    y: number,
+    content: string,
+    mode: LineXLoc,
+    color: Color | (string & {}),
+    textcolor: Color | (string & {}) | undefined,
+    size: number,
+    align: DrawingText['align'],
+    offsetY: number,
+  ): LabelRef {
+    checkedDrawingMember(align, ['left', 'center', 'right'], 'textalign')
+    const id = store.nextId()
+    return api.insert({
+      id,
+      kind: 'label',
+      paneId: context.paneId,
+      ownerId: context.ownerId,
+      visible: true,
+      params: {},
+      xloc: mode,
+      anchors: [drawingAnchor(`${id}:0`, x, y, mode, context.barCount)],
+      style: {
+        stroke: color,
+        ...(textcolor === undefined ? {} : { textColor: textcolor }),
+        fontSize: drawingWidth(size),
+      },
+      text: {
+        value: content,
+        align,
+        verticalAlign: 'middle',
+        offsetY: checkedOffsetY(offsetY),
+      },
+    })
+  }
+  type Tail = [
+    text?: string,
+    mode?: LineXLoc,
+    location?: 'price',
+    color?: Color | (string & {}),
+    style?: 'none',
+    textcolor?: Color | (string & {}),
+    size?: number,
+    align?: DrawingText['align'],
+    offsetY?: number,
+  ]
+  function create(
+    x: number,
+    y: number,
+    text?: string,
+    mode?: LineXLoc,
+    location?: 'price',
+    color?: Color | (string & {}),
+    style?: 'none',
+    textcolor?: Color | (string & {}),
+    size?: number,
+    align?: DrawingText['align'],
+    offsetY?: number,
+  ): LabelRef
+  function create(options: LabelOptions): LabelRef
+  /** 位置参数保留 Pine 顺序；选项对象形态走同一套构造。 */
+  function create(...args: [LabelOptions] | [number, number, ...Tail]): LabelRef {
+    if (args.length === 1) {
+      const {
+        x,
+        y,
+        text = '',
+        xloc: mode = xloc.bar_index,
+        color = Color.Blue,
+        textColor,
+        size = 12,
+        align = 'center',
+        offsetY = 0,
+      } = args[0]
+      return createLabel(x, y, text, mode, color, textColor, size, align, offsetY)
+    }
+    const [
+      x,
+      y,
+      content = '',
+      mode = xloc.bar_index,
+      location = 'price',
+      color = Color.Blue,
+      style = 'none',
+      textcolor,
+      size = 12,
+      align = 'center',
+      offsetY = 0,
+    ] = args
+    checkedDrawingMember(location, ['price'], 'yloc')
+    checkedDrawingMember(style, ['none'], 'label style')
+    return createLabel(x, y, content, mode, color, textcolor, size, align, offsetY)
+  }
   return Object.freeze({
     style_none: 'none',
-    /** 第一版开放 price/style_none，其余 Pine 标签样式不做隐式降级。 */
-    new(
-      x: number,
-      y: number,
-      content = '',
-      mode: LineXLoc = xloc.bar_index,
-      location: 'price' = 'price',
-      color: Color | (string & {}) = Color.Blue,
-      style: 'none' = 'none',
-      textcolor: Color | (string & {}) = Color.Black,
-      size = 12,
-      align: DrawingText['align'] = 'center',
-      offsetY = 0,
-    ): LabelRef {
-      checkedDrawingMember(location, ['price'], 'yloc')
-      checkedDrawingMember(style, ['none'], 'label style')
-      checkedDrawingMember(align, ['left', 'center', 'right'], 'textalign')
-      const id = store.nextId()
-      return api.insert({
-        id,
-        kind: 'label',
-        paneId: context.paneId,
-        ownerId: context.ownerId,
-        visible: true,
-        params: {},
-        xloc: mode,
-        anchors: [drawingAnchor(`${id}:0`, x, y, mode, context.barCount)],
-        style: { stroke: color },
-        text: {
-          value: content,
-          color: textcolor,
-          size: drawingWidth(size),
-          align,
-          verticalAlign: 'middle',
-          offsetY: checkedOffsetY(offsetY),
-        },
-      })
-    },
+    new: create,
     get all() {
       return api.all()
     },
@@ -98,8 +161,8 @@ export function createDrawingLabelApi(
     set_y: (id: LabelRef, y: number) => coordinate(id, undefined, y),
     set_xy: coordinate,
     set_text: (id: LabelRef, value: string) => text(id, { value }),
-    set_textcolor: (id: LabelRef, color: Color | (string & {})) => text(id, { color }),
-    set_size: (id: LabelRef, size: number) => text(id, { size: drawingWidth(size) }),
+    set_textcolor: (id: LabelRef, color: Color | (string & {})) => styleOf(id, { textColor: color }),
+    set_size: (id: LabelRef, size: number) => styleOf(id, { fontSize: drawingWidth(size) }),
     set_textalign: (id: LabelRef, align: DrawingText['align']) =>
       text(id, {
         align: checkedDrawingMember<DrawingText['align']>(
