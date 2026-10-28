@@ -1,6 +1,13 @@
 /** 验证 Fib 与 FRAMA 脚本的方向、回撤位与分形平滑。 */
 import { describe, expect, it } from 'vitest'
-import { plotValues, runShipped, runShippedValues, wavyCloses } from '../../__tests__/marketData.js'
+import {
+  plotValues,
+  requireValues,
+  runShipped,
+  runShippedValues,
+  type ScriptResult,
+  wavyCloses,
+} from '../../__tests__/marketData.js'
 
 /** 按 Ehlers 的分形维数公式复算 FRAMA，作为脚本数值参考。 */
 function framaReference(closes: readonly number[], period: number): (number | undefined)[] {
@@ -47,6 +54,23 @@ function framaReference(closes: readonly number[], period: number): (number | un
 }
 
 describe('Fib 与 FRAMA 脚本', () => {
+  /** 回撤位在每根 bar 上必须保持严格单调；缺失点直接失败，不把 undefined 混进比较。 */
+  function expectRetracementOrder(
+    result: ScriptResult,
+    ids: readonly string[],
+    ascending: boolean,
+  ): void {
+    const series = ids.map((id) => requireValues(result, id))
+    for (let index = 9; index < series[0]!.length; index++) {
+      for (let order = 1; order < series.length; order++) {
+        const previous = series[order - 1]![index]!
+        const current = series[order]![index]!
+        if (ascending) expect(current).toBeGreaterThan(previous)
+        else expect(current).toBeLessThan(previous)
+      }
+    }
+  }
+
   it('Fib 上涨段方向向上，回撤位从高到低且全部为阶梯线', async () => {
     const closes = Array.from({ length: 30 }, (_, index) => 100 + index)
     const result = await runShipped('fib', closes, { period: 10 }, { spread: 0.5 })
@@ -58,26 +82,17 @@ describe('Fib 与 FRAMA 脚本', () => {
     expect(values.low?.[9]).toBeCloseTo(99.5, 10)
     expect(values['236']?.[9]).toBeCloseTo(109.5 - 10 * 0.236, 10)
     expect(values['500']?.[9]).toBeCloseTo(104.5, 10)
-    for (let index = 9; index < closes.length; index++) {
-      expect(values['236']?.[index]).toBeGreaterThan(values['382']?.[index])
-      expect(values['382']?.[index]).toBeGreaterThan(values['500']?.[index])
-      expect(values['500']?.[index]).toBeGreaterThan(values['618']?.[index])
-      expect(values['618']?.[index]).toBeGreaterThan(values['786']?.[index])
-    }
+    expectRetracementOrder(result, ['236', '382', '500', '618', '786'], false)
   })
 
   it('Fib 下跌段方向向下，回撤位从低到高', async () => {
     const closes = Array.from({ length: 30 }, (_, index) => 200 - index)
-    const values = await runShippedValues('fib', closes, { period: 10 }, { spread: 0.5 })
+    const result = await runShipped('fib', closes, { period: 10 }, { spread: 0.5 })
+    const values = plotValues(result)
     expect(values.high?.[9]).toBeCloseTo(200.5, 10)
     expect(values.low?.[9]).toBeCloseTo(190.5, 10)
     expect(values['236']?.[9]).toBeCloseTo(190.5 + 10 * 0.236, 10)
-    for (let index = 9; index < closes.length; index++) {
-      expect(values['236']?.[index]).toBeLessThan(values['382']?.[index])
-      expect(values['382']?.[index]).toBeLessThan(values['500']?.[index])
-      expect(values['500']?.[index]).toBeLessThan(values['618']?.[index])
-      expect(values['618']?.[index]).toBeLessThan(values['786']?.[index])
-    }
+    expectRetracementOrder(result, ['236', '382', '500', '618', '786'], true)
   })
 
   it('FRAMA 预热、分形 alpha 与参考公式一致', async () => {
