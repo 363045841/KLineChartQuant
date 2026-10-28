@@ -12,6 +12,12 @@ export interface ScriptFolder {
   readonly path: string
 }
 
+/** 已提交的目录删除结果，编辑器据此清理标签和未保存草稿。 */
+export interface ScriptFolderRemoval {
+  readonly documentIds: readonly string[]
+  readonly folders: readonly ScriptFolder[]
+}
+
 /** 已提交的不可变脚本文档；id 是图表定义身份。 */
 interface ScriptDocumentFields {
   /** 宿主保存的信任状态，不能由脚本声明自行授予。 */
@@ -38,7 +44,7 @@ export interface ScriptService {
   create(source: string, trusted?: boolean, folder?: string): Promise<ScriptDocument>
   createFolder(folder: ScriptFolder): Promise<void>
   /** 删除文件夹及其内部文档；仍被目录外脚本引用的库会阻止删除。 */
-  removeFolder(folder: ScriptFolder): Promise<void>
+  removeFolder(folder: ScriptFolder): Promise<ScriptFolderRemoval>
   listFolders(): readonly ScriptFolder[]
   read(id: string): ScriptDocument | undefined
   list(): readonly ScriptDocument[]

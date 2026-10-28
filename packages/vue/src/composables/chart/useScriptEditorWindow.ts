@@ -188,6 +188,7 @@ export function useScriptEditorWindow(
       session.logs,
       session.kind,
       session.documents,
+      session.folders,
       session.libraries,
       session.tabs,
       session.activeTabId,

@@ -65,16 +65,8 @@ export interface ScriptEditorSession {
   readonly saved: Readonly<Ref<boolean>>
   openFor(id: string): void
   openBlank(kind?: 'indicator' | 'library', folder?: string): void
-  /** 在指定目录新建空文件夹。 */
-  createFolder(kind: 'indicator' | 'library', path: string): Promise<void>
-  /** 删除文件夹及其内容，并关闭被删除文档的标签。 */
-  removeFolder(kind: 'indicator' | 'library', path: string): Promise<void>
-  /** 文件树的唯一动作入口，按动作分派到上述操作。 */
-  applyTreeAction(action: ScriptTreeAction): void | Promise<void>
-  /** 复制脚本文档到同一目录并打开副本。 */
-  copyDocument(id: string): Promise<void>
-  /** 删除用户脚本文档，同时关闭其标签。 */
-  deleteDocument(id: string): Promise<void>
+  /** 文件树操作的唯一入口；统一维护忙碌状态和可展示的失败原因。 */
+  applyTreeAction(action: ScriptTreeAction): Promise<void>
   close(): void
   save(): Promise<void>
   readonly executing: Ref<'run' | 'add-to-chart' | null>
@@ -119,6 +111,7 @@ export function useScriptEditor(
 ): ScriptEditorSession {
   const open = ref(false)
   const saving = ref(false)
+  const treeError = ref<string | null>(null)
   const executing = ref<'run' | 'add-to-chart' | null>(null)
   const sessionId = generateUUID()
   const activeTabId = ref<string | null>(null)
@@ -152,7 +145,7 @@ export function useScriptEditor(
   const name = computed(() => current.value?.name ?? null)
   const kind = computed(() => current.value?.kind ?? 'indicator')
   const identity = computed(() => current.value?.identity ?? 'builtin')
-  const error = computed(() => current.value?.error ?? null)
+  const error = computed(() => treeError.value ?? current.value?.error ?? null)
   const saved = computed(() => current.value?.saved === true)
   const source = computed({
     get: () => current.value?.source ?? '',
@@ -371,85 +364,73 @@ export function useScriptEditor(
     )
   }
 
-  /** 新建空文件夹。 */
-  async function createFolder(nextKind: 'indicator' | 'library', path: string): Promise<void> {
-    if (!store) throw new Error('此环境没有可编辑的脚本服务')
-    if (saving.value) throw new Error('正在保存，请稍后重试')
-    await store.createFolder({ kind: nextKind, path })
-    refreshDocuments()
-  }
-
-  /** 删除目录子树，并关闭被删除文档的标签。 */
-  async function removeFolder(nextKind: 'indicator' | 'library', path: string): Promise<void> {
-    if (!store) throw new Error('此环境没有可编辑的脚本服务')
-    if (saving.value) throw new Error('正在保存，请稍后重试')
-    const prefix = `${path}/`
-    // 目录内文档随目录删除，先按同一规则收集受影响的标签。
-    const removed = new Set(
-      store
-        .list()
-        .filter(
-          (item) =>
-            item.kind === nextKind &&
-            item.identity === 'user' &&
-            (item.folder === path || item.folder.startsWith(prefix)),
-        )
-        .map((item) => item.id),
-    )
-    await store.removeFolder({ kind: nextKind, path })
-    const index = drafts.value.findIndex(
-      (item) => item.definitionId !== null && removed.has(item.definitionId),
-    )
-    drafts.value = drafts.value.filter(
-      (item) => item.definitionId === null || !removed.has(item.definitionId),
-    )
-    if (activeTabId.value !== null && !drafts.value.some((item) => item.id === activeTabId.value)) {
+  /** 仓库提交成功后才清理会话；文件与目录删除共用标签选择规则。 */
+  function removeDrafts(matches: (draft: EditorDraft) => boolean): void {
+    const activeIndex = drafts.value.findIndex((draft) => draft.id === activeTabId.value)
+    drafts.value = drafts.value.filter((draft) => !matches(draft))
+    if (!drafts.value.some((draft) => draft.id === activeTabId.value))
       activeTabId.value =
-        drafts.value[Math.max(0, Math.min(index, drafts.value.length - 1))]?.id ?? null
+        drafts.value[Math.max(0, Math.min(activeIndex, drafts.value.length - 1))]?.id ?? null
+  }
+
+  /** 动作是通知，结果通过会话状态反馈，两个窗口不再各自解释异步失败。 */
+  async function applyTreeAction(action: ScriptTreeAction): Promise<void> {
+    if (saving.value || executing.value !== null) return
+    treeError.value = null
+    if (action.type === 'create-file') {
+      openBlank(action.kind, action.folder)
+      return
     }
-    refreshDocuments()
-  }
-
-  /** 复制文档到同一目录并打开副本。 */
-  async function copyDocument(id: string): Promise<void> {
-    if (!store) throw new Error('此环境没有可编辑的脚本服务')
-    if (saving.value) throw new Error('正在保存，请稍后重试')
-    const document = store.read(id)
-    if (!document) throw new Error('脚本不存在')
-    const title = uniqueName(`${document.definition.name} 副本`)
-    const copy = await store.create(
-      await createCopySource(document.source, title),
-      document.trusted,
-      document.folder,
-    )
-    refreshDocuments()
-    openDocument(copy.id)
-  }
-
-  /** 删除用户文档并关闭其标签。 */
-  async function deleteDocument(id: string): Promise<void> {
-    if (!store) throw new Error('此环境没有可编辑的脚本服务')
-    if (saving.value) throw new Error('正在保存，请稍后重试')
-    const document = store.read(id)
-    if (!document) throw new Error('脚本不存在')
-    if (document.identity !== 'user') throw new Error('内置脚本只读，无法删除')
-    const index = drafts.value.findIndex((item) => item.definitionId === id)
-    drafts.value = drafts.value.filter((item) => item.definitionId !== id)
-    if (activeTabId.value !== null && !drafts.value.some((item) => item.id === activeTabId.value)) {
-      activeTabId.value =
-        drafts.value[Math.max(0, Math.min(index, drafts.value.length - 1))]?.id ?? null
+    saving.value = true
+    let copiedId: string | undefined
+    try {
+      if (!store) throw new Error('此环境没有可编辑的脚本服务')
+      switch (action.type) {
+        case 'create-folder':
+          await store.createFolder({ kind: action.kind, path: action.path })
+          break
+        case 'remove-folder': {
+          const removed = await store.removeFolder({ kind: action.kind, path: action.path })
+          const ids = new Set(removed.documentIds)
+          const paths = new Set(removed.folders.map((folder) => folder.path))
+          removeDrafts((draft) =>
+            draft.definitionId !== null
+              ? ids.has(draft.definitionId)
+              : draft.kind === action.kind && paths.has(draft.folder),
+          )
+          break
+        }
+        case 'copy-file': {
+          const document = store.read(action.id)
+          if (!document) throw new Error('脚本不存在')
+          const title = uniqueName(`${document.definition.name} 副本`)
+          const copy = await store.create(
+            await createCopySource(document.source, title),
+            document.trusted,
+            document.folder,
+          )
+          copiedId = copy.id
+          break
+        }
+        case 'delete-file': {
+          const document = store.read(action.id)
+          if (!document) throw new Error('脚本不存在')
+          await store.remove(document.id, document.revision)
+          removeDrafts((draft) => draft.definitionId === document.id)
+          break
+        }
+      }
+      refreshDocuments()
+    } catch (failure) {
+      treeError.value = failure instanceof Error ? failure.message : String(failure)
+    } finally {
+      saving.value = false
     }
-    await store.remove(id, document.revision)
-    refreshDocuments()
-  }
-
-  /** 文件树唯一动作入口：组件只声明动作，分派与状态更新留在会话。 */
-  function applyTreeAction(action: ScriptTreeAction): void | Promise<void> {
-    if (action.type === 'create-file') return openBlank(action.kind, action.folder)
-    if (action.type === 'create-folder') return createFolder(action.kind, action.path)
-    if (action.type === 'remove-folder') return removeFolder(action.kind, action.path)
-    if (action.type === 'copy-file') return copyDocument(action.id)
-    return deleteDocument(action.id)
+    if (copiedId) {
+      const wasOpen = open.value
+      openDocument(copiedId)
+      open.value = wasOpen
+    }
   }
 
   return {
@@ -503,10 +484,6 @@ export function useScriptEditor(
       openDocument(id)
     },
     openBlank,
-    createFolder,
-    removeFolder,
-    copyDocument,
-    deleteDocument,
     applyTreeAction,
     close() {
       if (saving.value) return

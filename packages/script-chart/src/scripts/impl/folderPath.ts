@@ -14,3 +14,14 @@ export function normalizeFolderPath(path: string): string {
   }
   return segments.join('/')
 }
+
+/** 返回父目录，一级目录的父目录为根路径。 */
+export function parentFolderPath(path: string): string {
+  const separator = path.lastIndexOf('/')
+  return separator < 0 ? '' : path.slice(0, separator)
+}
+
+/** 目录包含自身及所有下级目录，不匹配仅有相同名称前缀的兄弟目录。 */
+export function isWithinFolder(path: string, folder: string): boolean {
+  return path === folder || path.startsWith(`${folder}/`)
+}

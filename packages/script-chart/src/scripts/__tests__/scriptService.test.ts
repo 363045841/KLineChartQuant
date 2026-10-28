@@ -147,8 +147,15 @@ describe('ScriptService', () => {
     }
     const scripts = await createScriptService([], { persistence })
     try {
+      await expect(scripts.createFolder({ kind: 'indicator', path: '策略/均线' })).rejects.toThrow(
+        '文件夹不存在',
+      )
+      await scripts.createFolder({ kind: 'indicator', path: '策略' })
       await scripts.createFolder({ kind: 'indicator', path: '策略/均线' })
-      expect(scripts.listFolders()).toEqual([{ kind: 'indicator', path: '策略/均线' }])
+      expect(scripts.listFolders()).toEqual([
+        { kind: 'indicator', path: '策略' },
+        { kind: 'indicator', path: '策略/均线' },
+      ])
       await expect(scripts.create(source, false, '不存在')).rejects.toThrow('文件夹不存在')
       const document = await scripts.create(
         source.replace('ServiceAverage', 'FolderAverage'),
@@ -168,7 +175,10 @@ describe('ScriptService', () => {
     removeScriptIndicatorDefinition('FolderAverage')
     const restored = await createScriptService([], { persistence })
     try {
-      expect(restored.listFolders()).toEqual([{ kind: 'indicator', path: '策略/均线' }])
+      expect(restored.listFolders()).toEqual([
+        { kind: 'indicator', path: '策略' },
+        { kind: 'indicator', path: '策略/均线' },
+      ])
       expect(restored.read('FolderAverage')?.folder).toBe('策略/均线')
       await restored.remove('FolderAverage', 1)
     } finally {
@@ -202,9 +212,55 @@ describe('ScriptService', () => {
       )
       expect(scripts.read(library.id)).toBeDefined()
       await scripts.remove(consumer.id, consumer.revision)
-      await scripts.removeFolder({ kind: 'library', path: '工具' })
+      expect(await scripts.removeFolder({ kind: 'library', path: '工具' })).toEqual({
+        documentIds: [library.id],
+        folders: [{ kind: 'library', path: '工具' }],
+      })
       expect(scripts.listFolders()).toEqual([])
       expect(scripts.read(library.id)).toBeUndefined()
+    } finally {
+      scripts.dispose()
+    }
+  })
+
+  it('目录操作先提交持久化，失败保留原目录与文档，成功返回实际删除范围', async () => {
+    let saved: ScriptWorkspace | null = null
+    let writable = true
+    const scripts = await createScriptService([], {
+      persistence: {
+        load: async () => saved,
+        save: async (workspace) => {
+          if (!writable) return false
+          saved = workspace
+          return true
+        },
+      },
+    })
+    try {
+      await scripts.createFolder({ kind: 'library', path: '工具' })
+      await scripts.createFolder({ kind: 'library', path: '工具/计算' })
+      const document = await scripts.create(
+        `defineLibrary('transactionLibrary', { value(): number { return 1 } })`,
+        false,
+        '工具/计算',
+      )
+      const before = saved
+      const beforeFolders = scripts.listFolders()
+      writable = false
+      await expect(scripts.createFolder({ kind: 'library', path: '新目录' })).rejects.toThrow(
+        '保存失败',
+      )
+      await expect(scripts.removeFolder({ kind: 'library', path: '工具' })).rejects.toThrow(
+        '保存失败',
+      )
+      expect(saved).toBe(before)
+      expect(scripts.listFolders()).toEqual(beforeFolders)
+      expect(scripts.read(document.id)).toEqual(document)
+      writable = true
+      const result = await scripts.removeFolder({ kind: 'library', path: '工具' })
+      expect(result).toEqual({ documentIds: [document.id], folders: beforeFolders })
+      expect(scripts.listFolders()).toEqual([])
+      expect(scripts.read(document.id)).toBeUndefined()
     } finally {
       scripts.dispose()
     }

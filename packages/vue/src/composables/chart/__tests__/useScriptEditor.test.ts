@@ -98,25 +98,72 @@ describe('useScriptEditor', () => {
     const scope = effectScope()
     const editor = scope.run(() => useScriptEditor(scripts))!
     try {
-      await editor.createFolder('indicator', '策略')
+      await editor.applyTreeAction({ type: 'create-folder', kind: 'indicator', path: '策略' })
       expect(editor.folders.value).toEqual([{ kind: 'indicator', path: '策略' }])
       editor.openBlank('indicator', '策略')
       editor.source.value = `defineIndicator({ name: 'FolderScript', position: Position.Sub, onBar() {} })`
       await editor.save()
       expect(scripts.read('FolderScript')?.folder).toBe('策略')
-      await editor.copyDocument('FolderScript')
+      await editor.applyTreeAction({ type: 'copy-file', id: 'FolderScript' })
       const copy = scripts.read('FolderScript 副本')!
       expect(copy.folder).toBe('策略')
-      await editor.deleteDocument(copy.id)
+      await editor.applyTreeAction({ type: 'delete-file', id: copy.id })
       expect(scripts.read(copy.id)).toBeUndefined()
       expect(editor.tabs.value.some((tab) => tab.definitionId === copy.id)).toBe(false)
-      await expect(editor.createFolder('indicator', '策略')).rejects.toThrow('已存在')
-      await editor.deleteDocument('FolderScript')
-      expect(scripts.read('FolderScript')).toBeUndefined()
-      await editor.createFolder('indicator', '策略/子目录')
+      await editor.applyTreeAction({ type: 'create-folder', kind: 'indicator', path: '策略' })
+      expect(editor.error.value).toContain('已存在')
+      await editor.applyTreeAction({
+        type: 'create-folder',
+        kind: 'indicator',
+        path: '策略/子目录',
+      })
       expect(editor.folders.value).toHaveLength(2)
-      await editor.removeFolder('indicator', '策略')
+      editor.openBlank('indicator', '策略/子目录')
+      const childDraft = editor.activeTabId.value!
+      editor.openBlank('library')
+      const outsideDraft = editor.activeTabId.value!
+      await editor.applyTreeAction({ type: 'remove-folder', kind: 'indicator', path: '策略' })
       expect(editor.folders.value).toEqual([])
+      expect(scripts.read('FolderScript')).toBeUndefined()
+      expect(editor.tabs.value.map((tab) => tab.id)).toEqual([outsideDraft])
+      expect(editor.tabs.value.some((tab) => tab.id === childDraft)).toBe(false)
+      expect(editor.activeTabId.value).toBe(outsideDraft)
+    } finally {
+      scope.stop()
+      scripts.dispose()
+    }
+  })
+
+  it('删除提交失败保留标签和未保存源码，错误由统一动作入口反馈', async () => {
+    let writable = true
+    const scripts = await createScriptService([], {
+      persistence: {
+        load: async () => null,
+        save: async () => writable,
+      },
+    })
+    const scope = effectScope()
+    const editor = scope.run(() => useScriptEditor(scripts))!
+    try {
+      editor.openBlank('library')
+      editor.source.value = `defineLibrary('deleteFailureLibrary', { value(): number { return 1 } })`
+      await editor.save()
+      const id = editor.definitionId.value!
+      const tab = editor.activeTabId.value
+      editor.source.value += '\n// unsaved'
+      const draft = editor.source.value
+      writable = false
+      await editor.applyTreeAction({ type: 'delete-file', id })
+      expect(editor.error.value).toContain('保存失败')
+      expect(editor.activeTabId.value).toBe(tab)
+      expect(editor.source.value).toBe(draft)
+      expect(editor.tabs.value[0]?.dirty).toBe(true)
+      expect(scripts.read(id)).toBeDefined()
+      writable = true
+      await editor.applyTreeAction({ type: 'delete-file', id })
+      expect(editor.error.value).toBeNull()
+      expect(editor.tabs.value).toEqual([])
+      expect(scripts.read(id)).toBeUndefined()
     } finally {
       scope.stop()
       scripts.dispose()

@@ -30,7 +30,7 @@ import type {
   ScriptWorkspace,
 } from '../types.js'
 import { createScriptOutput } from './createScriptOutput.js'
-import { normalizeFolderPath } from './folderPath.js'
+import { isWithinFolder, normalizeFolderPath, parentFolderPath } from './folderPath.js'
 import { createScriptPersistence } from './scriptPersistence.js'
 
 /** 应用级脚本服务：启动恢复源码，读写统一经过 core 定义仓库。 */
@@ -319,7 +319,10 @@ export async function createScriptService(
       throw new Error(`脚本名称已存在：${name}`)
   }
   /** 持久化完成后才发布运行定义；保存失败保留当前版本。 */
-  async function persist(documents: readonly ScriptDocument[]): Promise<void> {
+  async function persist(
+    documents: readonly ScriptDocument[],
+    nextFolders: readonly ScriptFolder[] = [...folders.values()],
+  ): Promise<void> {
     const workspace: ScriptWorkspace = {
       scripts: documents
         .filter((item) => item.identity === 'user')
@@ -330,7 +333,7 @@ export async function createScriptService(
           trusted,
           folder,
         })),
-      folders: [...folders.values()],
+      folders: nextFolders,
     }
     if (!(await persistence.save(workspace))) {
       throw new Error('用户脚本保存失败')
@@ -338,8 +341,12 @@ export async function createScriptService(
   }
   try {
     // 先恢复文件夹，再恢复库和指标；文档只能落在已恢复的目录中。
-    for (const folder of restored?.folders ?? []) {
+    const restoredFolders = [...(restored?.folders ?? [])].sort(
+      (a, b) => a.path.split('/').length - b.path.split('/').length,
+    )
+    for (const folder of restoredFolders) {
       const path = normalizeFolderPath(folder.path)
+      requireFolder(folder.kind, parentFolderPath(path))
       folders.set(folderKey(folder.kind, path), Object.freeze({ kind: folder.kind, path }))
     }
     const restoredDocuments = restored?.scripts ?? []
@@ -450,12 +457,11 @@ export async function createScriptService(
         const path = normalizeFolderPath(folder.path)
         const key = folderKey(folder.kind, path)
         if (!folders.has(key)) throw new Error(`文件夹不存在：${path}`)
-        const prefix = `${path}/`
         const removed = list().filter(
           (item) =>
             item.identity === 'user' &&
             item.kind === folder.kind &&
-            (item.folder === path || item.folder.startsWith(prefix)),
+            isWithinFolder(item.folder, path),
         )
         const removedIds = new Set(removed.map((item) => item.id))
         const catalog = libraryCatalog(list())
@@ -474,14 +480,18 @@ export async function createScriptService(
           throw new Error(
             `文件夹仍被引用：${outside.map((item) => item.definition.name).join('、')}`,
           )
-        for (const [folderEntryKey, record] of folders) {
-          if (
-            record.kind === folder.kind &&
-            (record.path === path || record.path.startsWith(prefix))
-          )
-            folders.delete(folderEntryKey)
-        }
-        await persist(list().filter((item) => !removedIds.has(item.id)))
+        const removedFolders = [...folders].filter(
+          ([, record]) => record.kind === folder.kind && isWithinFolder(record.path, path),
+        )
+        const removedKeys = new Set(removedFolders.map(([entryKey]) => entryKey))
+        await persist(
+          list().filter((item) => !removedIds.has(item.id)),
+          [...folders]
+            .filter(([entryKey]) => !removedKeys.has(entryKey))
+            .map(([, record]) => record),
+        )
+        for (const entryKey of removedKeys) folders.delete(entryKey)
+        const releasedHandles: string[] = []
         for (const item of removed) {
           if (item.kind === 'library') libraryDocuments.delete(item.id)
           else removeScriptIndicatorDefinition(item.id)
@@ -489,8 +499,13 @@ export async function createScriptService(
           const handle = handles.get(item.id)
           if (handle) {
             handles.delete(item.id)
-            await worker.release(handle)
+            releasedHandles.push(handle)
           }
+        }
+        await Promise.allSettled(releasedHandles.map((handle) => worker.release(handle)))
+        return {
+          documentIds: [...removedIds],
+          folders: removedFolders.map(([, record]) => record),
         }
       })
     },
@@ -500,14 +515,10 @@ export async function createScriptService(
         const path = normalizeFolderPath(folder.path)
         const key = folderKey(folder.kind, path)
         if (folders.has(key)) throw new Error(`文件夹已存在：${path}`)
-        folders.set(key, Object.freeze({ kind: folder.kind, path }))
-        // 写入失败时回滚内存目录，避免界面出现无法恢复的文件夹。
-        try {
-          await persist(list())
-        } catch (error) {
-          folders.delete(key)
-          throw error
-        }
+        requireFolder(folder.kind, parentFolderPath(path))
+        const record = Object.freeze({ kind: folder.kind, path })
+        await persist(list(), [...folders.values(), record])
+        folders.set(key, record)
       })
     },
     read,

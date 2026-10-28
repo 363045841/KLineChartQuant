@@ -45,6 +45,35 @@ export interface ScriptEditorFolder {
   readonly path: string
 }
 
+/** 文件行指向已保存文档或未保存标签，禁止用同一个字符串混淆两种身份。 */
+export type ScriptTreeFileTarget =
+  | { readonly kind: 'document'; readonly documentId: string }
+  | { readonly kind: 'draft'; readonly tabId: string }
+
+/** 文件树只有文件夹与文件；分组根是 path 为 '' 的文件夹。 */
+export type ScriptTreeRow =
+  | {
+      readonly type: 'folder'
+      readonly key: string
+      readonly kind: ScriptEditorFolder['kind']
+      readonly path: string
+      readonly name: string
+      readonly depth: number
+      readonly expanded: boolean
+    }
+  | {
+      readonly type: 'file'
+      readonly key: string
+      readonly kind: ScriptEditorFolder['kind']
+      readonly target: ScriptTreeFileTarget
+      readonly name: string
+      readonly folder: string
+      readonly depth: number
+      readonly tabId: string | null
+      readonly readonly: boolean
+      readonly dirty: boolean
+    }
+
 /** 文件树动作：目录与文件操作共用一份判别联合，跨组件只传这一种消息。 */
 export type ScriptTreeAction =
   | {
@@ -72,7 +101,10 @@ export interface ScriptSourceStore {
   /** 创建一个空文件夹；路径用 / 表达层级。 */
   createFolder(folder: ScriptEditorFolder): Promise<void>
   /** 删除文件夹及其内容。 */
-  removeFolder(folder: ScriptEditorFolder): Promise<void>
+  removeFolder(folder: ScriptEditorFolder): Promise<{
+    readonly documentIds: readonly string[]
+    readonly folders: readonly ScriptEditorFolder[]
+  }>
   /** 宿主支持脚本运行输出时提供；纯源码仓库可以省略。 */
   readonly output?: ScriptOutputSource
   /** 提供执行能力的宿主复用同一脚本服务；纯源码仓库可省略。 */

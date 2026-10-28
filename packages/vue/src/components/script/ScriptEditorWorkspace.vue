@@ -141,7 +141,7 @@
           内置{{ kind === 'library' ? '库' : '脚本' }}只读<template v-if="kind !== 'library'">，请<button type="button" class="script-workspace__readonly-link script-underline-action" @click="emit('create-copy')">创建副本</button>后编辑</template>
         </div>
         <div v-show="activeTabId" :id="`${workspaceId}-code`" ref="editorHost" class="script-editor" role="tabpanel" :aria-labelledby="activeTabId ? `${workspaceId}-${activeTabId}` : undefined" aria-label="脚本代码" />
-        <div v-if="!activeTabId" class="script-workspace__empty">从左侧打开文件，或用目录行右侧的 + 新建指标和库</div>
+        <div v-if="!activeTabId" class="script-workspace__empty"><p v-if="error" role="alert">{{ error }}</p>从左侧打开文件，或用目录行右侧的 + 新建指标和库</div>
         <ScriptEditorPanels v-show="activeTabId" :logs="logs" :problems="problems" :editor-host="editorHost" :running="executing === 'run'" :execution-error="error" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
       </div>
     </div>
@@ -253,7 +253,6 @@
     discard,
     onTabKeydown,
     activate,
-    toggle,
     openContextMenu,
     draggedTabId,
     dropTargetId,

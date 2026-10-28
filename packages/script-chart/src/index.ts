@@ -5,6 +5,7 @@ export type {
   SavedScript,
   ScriptDocument,
   ScriptFolder,
+  ScriptFolderRemoval,
   ScriptPersistence,
   ScriptService,
   ScriptServiceOptions,
