@@ -1,17 +1,21 @@
-/** 文件夹路径的唯一校验：所有写入与读取边界共用这一份规则。 */
+/**
+ * 文件夹路径的唯一规则：脚本仓库、持久化和文件树共用同一份实现。
+ *
+ * 路径以 / 分隔，'' 表示分组根。
+ */
 
 /**
  * 规范化文件夹路径。
  *
- * @param path 以 / 分隔的层级路径
+ * @param path 以 / 分隔的层级路径；'' 表示分组根，本身合法
  * @returns 去掉逐段空白后的规范路径
  * @throws 任一段为空或首尾带空白时拒绝
  */
 export function normalizeFolderPath(path: string): string {
+  if (path === '') return ''
   const segments = path.split('/')
-  if (!segments.length || segments.some((segment) => !segment || segment !== segment.trim())) {
+  if (segments.some((segment) => !segment || segment !== segment.trim()))
     throw new Error(`文件夹名称无效：${path}`)
-  }
   return segments.join('/')
 }
 

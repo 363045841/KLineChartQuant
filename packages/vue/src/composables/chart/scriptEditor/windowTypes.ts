@@ -32,7 +32,12 @@ export interface DetachedEditorSnapshot extends DetachedEditorDraft {
   saving: boolean
   executing?: 'run' | 'add-to-chart' | null
   saved: boolean
+  /** 当前标签保存/复制失败。 */
   error: string | null
+  /** 当前标签调试或添加失败；面板据此切换到问题页。 */
+  executionError: string | null
+  /** 文件树操作失败；只展示在目录区域。 */
+  treeError: string | null
   /** 宿主图表的有效主题，跨窗口后仍需与标签页保持一致。 */
   theme: 'light' | 'dark'
 }

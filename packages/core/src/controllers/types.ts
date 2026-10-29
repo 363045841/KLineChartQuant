@@ -8,6 +8,7 @@
  * Mutation methods are imperative — adapters call them in event handlers.
  */
 
+import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import type {
   AssetClass,
   InstrumentCapabilities,
@@ -401,10 +402,7 @@ export type IndicatorLoadingMode = 'on-demand' | 'all'
 export interface ChartController extends DrawingChartAdapter, ChartRendererAccess, LayoutApi {
   /** 一次临时指标计算，共享当前行情与 Request 上下文，完成后释放行情使用权。 */
   withIndicatorData<T>(
-    compute: (
-      bars: readonly import('@363045841yyt/klinechart-plot-contracts').Bar[],
-      market: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    ) => Promise<T>,
+    compute: (bars: readonly Bar[], market: IndicatorMarketContext) => Promise<T>,
   ): Promise<T>
   /** 在完整绘制帧结束时同步调用捕获函数，返回其异步合成结果。 */
   captureFrame<T>(

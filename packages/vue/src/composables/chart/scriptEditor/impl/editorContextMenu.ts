@@ -3,7 +3,8 @@ import { javascript } from '@codemirror/lang-javascript'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
 import { scriptEditorHighlight, scriptEditorTheme } from './editorTheme.js'
-import { createScriptMenu } from './scriptMenu.js'
+import { errorText } from './errorText.js'
+import { createScriptMenu, isMacPlatform } from './scriptMenu.js'
 
 type LanguageSupport = ReturnType<
   typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport
@@ -62,16 +63,10 @@ export function scriptEditorContextMenu(
       })
       const panel = menu.element
 
-      /** 关闭菜单并恢复编辑器焦点。 */
-      function close(restoreFocus = false): void {
-        menu.close()
-        if (restoreFocus) view.focus()
-      }
-
       /** 同文件直接选中目标；外部声明在可关闭的只读代码视图中展示。 */
       function reveal(target: Target): void {
         if (target.current) {
-          close()
+          menu.close()
           view.dispatch({
             selection: { anchor: target.from, head: target.to },
             effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
@@ -104,7 +99,7 @@ export function scriptEditorContextMenu(
         path.setAttribute('d', 'M6 6l12 12M6 18L18 6')
         icon.append(path)
         dismiss.append(icon)
-        dismiss.addEventListener('click', () => close(true))
+        dismiss.addEventListener('click', () => menu.close())
         header.append(title, dismiss)
         panel.append(header)
         const host = document.createElement('div')
@@ -156,7 +151,6 @@ export function scriptEditorContextMenu(
           menu.button(`${target.path}:${line}`, () => reveal(target))
         }
         menu.fit()
-        panel.querySelector('button')?.focus()
       }
 
       /** 输入新名称后，一次提交所有引用修改，允许整体撤销。 */
@@ -183,7 +177,7 @@ export function scriptEditorContextMenu(
               })),
               annotations: Transaction.userEvent.of('input.rename'),
             })
-            close(true)
+            menu.close()
           },
         })
       }
@@ -213,7 +207,7 @@ export function scriptEditorContextMenu(
             scrollIntoView: true,
           })
         }
-        close(true)
+        menu.close()
       }
 
       /** 右键命中已有选区时保留选区，其他位置将光标移动到点击处。 */
@@ -265,7 +259,7 @@ export function scriptEditorContextMenu(
           '格式化文档',
           async () => {
             await format()
-            close(true)
+            menu.close()
           },
           { disabled: Boolean(formatBlocked), reason: formatBlocked, shortcut: SHORTCUTS.format },
         )
@@ -283,8 +277,6 @@ export function scriptEditorContextMenu(
           shortcut: SHORTCUTS.cut,
         })
         menu.fit()
-        if (event instanceof KeyboardEvent)
-          panel.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
       }
 
       /** 菜单打开时接管 Mod+C/V/X，避免编辑器先处理剪贴板。 */
@@ -312,8 +304,7 @@ export function scriptEditorContextMenu(
         if ((action !== 'copy' && !editable()) || (action !== 'paste' && empty)) return true
         const current = menu.generation
         void clipboard(action).catch((error: unknown) => {
-          if (current === menu.generation)
-            menu.message(error instanceof Error ? error.message : String(error))
+          if (current === menu.generation) menu.message(errorText(error))
         })
         return true
       }
@@ -337,9 +328,7 @@ export function scriptEditorContextMenu(
         const kind = navigationKind(event, mod)
         if (kind && support()) {
           open(event)
-          void navigate(kind).catch((error: unknown) =>
-            menu.message(error instanceof Error ? error.message : String(error)),
-          )
+          void navigate(kind).catch((error: unknown) => menu.message(errorText(error)))
           return true
         }
         if (
@@ -368,26 +357,21 @@ export function scriptEditorContextMenu(
         if (formatAvailable()) {
           event.preventDefault()
           event.stopPropagation()
-          void format().catch((error: unknown) =>
-            menu.message(error instanceof Error ? error.message : String(error)),
-          )
+          void format().catch((error: unknown) => menu.message(errorText(error)))
         }
         return true
       }
 
-      /** 菜单键盘导航和关闭不交给编辑器或宿主弹窗。 */
+      /** 菜单自己的键盘导航由菜单处理，这里只接住菜单外的快捷键。 */
       function keydown(event: KeyboardEvent): void {
-        const mac = /Mac|iPhone|iPad/.test(document.defaultView?.navigator.platform ?? '')
+        const mac = isMacPlatform(document)
         const mod = mac ? event.metaKey : event.ctrlKey
         const otherMod = mac ? event.ctrlKey : event.metaKey
         if (handleClipboardShortcut(event, mod, otherMod)) return
         if (handleLanguageShortcut(event, mod, otherMod)) return
-        if (!menu.isOpen) {
-          if (handleFormatShortcut(event, mod, otherMod)) return
-          if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) open(event)
-          return
-        }
-        menu.handleKeydown(event)
+        if (menu.isOpen) return
+        if (handleFormatShortcut(event, mod, otherMod)) return
+        if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) open(event)
       }
 
       view.dom.addEventListener('contextmenu', open)

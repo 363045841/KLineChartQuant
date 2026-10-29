@@ -1,5 +1,4 @@
 /** 多文档编辑会话：标签页持有各自草稿，当前编辑字段只投影活动标签。 */
-
 import { generateUUID } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
@@ -10,6 +9,18 @@ import {
   createLibrarySource,
   uniqueScriptName,
 } from './scriptEditor/impl/createScriptDraft.js'
+import { errorText } from './scriptEditor/impl/errorText.js'
+import {
+  createDraft,
+  type EditorDraft,
+  isDirty,
+  neighborId,
+  patchDrafts,
+  syncWithDocuments,
+  toTabs,
+} from './scriptEditor/impl/scriptDrafts.js'
+import { addDraftToChart, runDraft } from './scriptEditor/impl/scriptExecution.js'
+import { type DroppedTreeItems, performTreeAction } from './scriptEditor/impl/scriptTreeActions.js'
 import type {
   ScriptEditorDocument,
   ScriptEditorFolder,
@@ -18,26 +29,6 @@ import type {
   ScriptSourceStore,
   ScriptTreeAction,
 } from './scriptEditor/types.js'
-
-/** 文档草稿和已提交基线归同一个标签，切换时不复制当前编辑字段。 */
-interface EditorDraft {
-  id: string
-  definitionId: string | null
-  name: string | null
-  title: string
-  kind: 'indicator' | 'library'
-  identity: ScriptIdentity
-  source: string
-  trusted: boolean
-  revision: number | null
-  baselineSource: string
-  baselineTrusted: boolean
-  saved: boolean
-  error: string | null
-  outputId: string | null
-  /** 新建草稿的落盘目录；已提交文档以仓库记录为准。 */
-  folder: string
-}
 
 /** 一个图表的编辑标签、当前草稿投影与仓库操作。 */
 export interface ScriptEditorSession {
@@ -61,7 +52,12 @@ export interface ScriptEditorSession {
   readonly definitionId: Readonly<Ref<string | null>>
   readonly source: Ref<string>
   readonly trusted: Ref<boolean>
+  /** 当前标签保存/复制等操作失败；与代码诊断分开，写入问题列表。 */
   readonly error: Readonly<Ref<string | null>>
+  /** 当前标签调试或添加失败；与 error 一起构成当前文档的失败，编辑源码后清空。 */
+  readonly executionError: Readonly<Ref<string | null>>
+  /** 文件树操作失败；只由目录区域展示，不混入代码问题。 */
+  readonly treeError: Readonly<Ref<string | null>>
   readonly saved: Readonly<Ref<boolean>>
   openFor(id: string): void
   openBlank(kind?: 'indicator' | 'library', folder?: string): void
@@ -74,34 +70,10 @@ export interface ScriptEditorSession {
   addToChart(): Promise<void>
 }
 
-/** 判断草稿是否还没有提交，含未保存的新建文档。 */
-function isDirty(draft: EditorDraft): boolean {
-  return (
-    draft.definitionId === null ||
-    draft.source !== draft.baselineSource ||
-    draft.trusted !== draft.baselineTrusted
-  )
-}
-
-/** 草稿字段默认值只写一次；新建和打开文件只声明差异，避免结构漂移。 */
-type DraftSeed = Pick<EditorDraft, 'id' | 'title' | 'kind' | 'source'> &
-  Partial<Omit<EditorDraft, 'id' | 'title' | 'kind' | 'source'>>
-
-function createDraft(seed: DraftSeed): EditorDraft {
-  return {
-    definitionId: null,
-    name: null,
-    trusted: false,
-    identity: 'user',
-    revision: null,
-    baselineSource: '',
-    baselineTrusted: false,
-    saved: false,
-    error: null,
-    outputId: null,
-    folder: '',
-    ...seed,
-  }
+/** 已保存文件必须携带读取时的修订号，不能绕过乐观并发检查。 */
+function requireRevision(draft: EditorDraft): number {
+  if (draft.revision === null) throw new Error('此文件没有可编辑的脚本文档')
+  return draft.revision
 }
 
 /** 创建会话；关闭编辑器不丢弃标签，显式关闭标签才移除草稿。 */
@@ -125,41 +97,41 @@ export function useScriptEditor(
       .filter((item) => item.kind === 'library' && item.identity === 'user')
       .map((item) => ({ name: item.definition.name, source: item.source })),
   )
-  const tabs = computed<readonly ScriptEditorTab[]>(() =>
-    drafts.value.map((item) => ({
-      id: item.id,
-      definitionId: item.definitionId,
-      title: item.title,
-      kind: item.kind,
-      dirty: isDirty(item),
-      folder: item.folder,
-    })),
-  )
+  const tabs = computed(() => toTabs(drafts.value))
   let sequence = 0
 
   /** 按标签身份更新不可变草稿，异步保存结果不落到其他文件。 */
   function update(id: string, changes: Partial<EditorDraft>): void {
-    drafts.value = drafts.value.map((item) => (item.id === id ? { ...item, ...changes } : item))
+    drafts.value = patchDrafts(drafts.value, id, changes)
   }
   const definitionId = computed(() => current.value?.definitionId ?? null)
   const name = computed(() => current.value?.name ?? null)
   const kind = computed(() => current.value?.kind ?? 'indicator')
   const identity = computed(() => current.value?.identity ?? 'builtin')
-  const error = computed(() => treeError.value ?? current.value?.error ?? null)
+  const error = computed(() => current.value?.error ?? null)
+  const executionError = computed(() => current.value?.executionError ?? null)
   const saved = computed(() => current.value?.saved === true)
   const source = computed({
     get: () => current.value?.source ?? '',
     set(value: string) {
       const draft = current.value
       if (draft && draft.source !== value)
-        update(draft.id, { source: value, trusted: false, saved: false })
+        // 编辑即作废旧内容的保存与执行结论。
+        update(draft.id, {
+          source: value,
+          trusted: false,
+          saved: false,
+          error: null,
+          executionError: null,
+        })
     },
   })
   const trusted = computed({
     get: () => current.value?.trusted === true,
     set(value: boolean) {
       const draft = current.value
-      if (draft && draft.trusted !== value) update(draft.id, { trusted: value, saved: false })
+      if (draft && draft.trusted !== value)
+        update(draft.id, { trusted: value, saved: false, executionError: null })
     },
   })
   const logs = shallowRef<readonly LogEvent[]>([])
@@ -184,25 +156,19 @@ export function useScriptEditor(
   )
   onScopeDispose(() => unsubscribeOutput?.())
 
+  /** 仓库只在有服务时可用；缺服务时给出可展示的原因。 */
+  function requireStore(): ScriptSourceStore {
+    if (!store) throw new Error('此环境没有可编辑的脚本服务')
+    return store
+  }
+
   /** 目录刷新时仅同步未改动文档，脏草稿仍保留原版本以进行并发检查。 */
   function refreshDocuments(): void {
     documents.value = store ? store.list() : []
     folders.value = store ? store.listFolders() : []
-    drafts.value = drafts.value.map((draft) => {
-      const document = documents.value.find((item) => item.id === draft.definitionId)
-      if (!document || isDirty(draft) || document.revision === draft.revision) return draft
-      return {
-        ...draft,
-        source: document.source,
-        baselineSource: document.source,
-        trusted: document.trusted,
-        baselineTrusted: document.trusted,
-        revision: document.revision,
-        name: document.definition.name,
-        title: document.definition.name,
-        folder: document.folder,
-      }
-    })
+    drafts.value = syncWithDocuments(drafts.value, documents.value)
+    // 目录重新读取即视为树状态已同步，上一次失败的提示不再保留。
+    treeError.value = null
   }
 
   /** 名称同时避开已提交文件和未保存标签。 */
@@ -239,22 +205,31 @@ export function useScriptEditor(
     document: ScriptEditorDocument | undefined,
     fallbackId: string,
   ): EditorDraft {
-    const source = document?.source ?? ''
-    const trusted = document?.trusted === true
+    const id = `draft_${++sequence}`
+    if (!document) {
+      return createDraft({
+        id,
+        definitionId: documentId,
+        title: fallbackId,
+        kind: 'indicator',
+        identity: 'builtin',
+        source: '',
+        error: '此文件没有可编辑的脚本文档',
+      })
+    }
     return createDraft({
-      id: `draft_${++sequence}`,
+      id,
       definitionId: documentId,
-      name: document?.definition.name ?? null,
-      title: document?.definition.name ?? fallbackId,
-      kind: document?.kind ?? 'indicator',
-      identity: document?.identity ?? 'builtin',
-      source,
-      trusted,
-      revision: document?.revision ?? null,
-      baselineSource: source,
-      baselineTrusted: trusted,
-      folder: document?.folder ?? '',
-      error: document ? null : '此文件没有可编辑的脚本文档',
+      name: document.definition.name,
+      title: document.definition.name,
+      kind: document.kind,
+      identity: document.identity,
+      source: document.source,
+      trusted: document.trusted,
+      revision: document.revision,
+      baselineSource: document.source,
+      baselineTrusted: document.trusted,
+      folder: document.folder,
     })
   }
 
@@ -274,39 +249,46 @@ export function useScriptEditor(
     open.value = true
   }
 
+  /** 新建走 create，已提交文档带修订号 update。 */
+  function commitDraft(
+    service: ScriptSourceStore,
+    draft: EditorDraft,
+  ): Promise<ScriptEditorDocument> {
+    if (draft.definitionId === null)
+      return service.create(draft.source, draft.trusted, draft.folder)
+    return service.update(draft.definitionId, draft.source, requireRevision(draft), draft.trusted)
+  }
+
+  /** 提交结果只回写发起操作的草稿；期间的新输入保持未保存。 */
+  function applyCommitted(draft: EditorDraft, document: ScriptEditorDocument): void {
+    const latest = drafts.value.find((item) => item.id === draft.id)
+    update(draft.id, {
+      definitionId: document.id,
+      name: document.definition.name,
+      title: document.definition.name,
+      kind: document.kind,
+      folder: document.folder,
+      revision: document.revision,
+      baselineSource: draft.source,
+      baselineTrusted: draft.trusted,
+      saved: latest?.source === draft.source && latest?.trusted === draft.trusted,
+      error: null,
+    })
+  }
+
   /** 保存和添加到图表共用提交过程，并把结果绑定到发起操作的草稿。 */
   async function persistDraft(draft: EditorDraft, force = false): Promise<ScriptEditorDocument> {
-    if (!store) throw new Error('此环境没有可编辑的脚本服务')
+    const service = requireStore()
     if (!force && draft.definitionId !== null && !isDirty(draft)) {
-      const document = store.read(draft.definitionId)
+      const document = service.read(draft.definitionId)
       if (!document) throw new Error('此文件没有可编辑的脚本文档')
       return document
     }
     if (draft.identity !== 'user') throw new Error('内置脚本只读，请创建副本')
     saving.value = true
     try {
-      const document =
-        draft.definitionId === null
-          ? await store.create(draft.source, draft.trusted, draft.folder)
-          : await store.update(
-              draft.definitionId,
-              draft.source,
-              requireRevision(draft),
-              draft.trusted,
-            )
-      const latest = drafts.value.find((item) => item.id === draft.id)
-      update(draft.id, {
-        definitionId: document.id,
-        name: document.definition.name,
-        title: document.definition.name,
-        kind: document.kind,
-        folder: document.folder,
-        revision: document.revision,
-        baselineSource: draft.source,
-        baselineTrusted: draft.trusted,
-        saved: latest?.source === draft.source && latest?.trusted === draft.trusted,
-        error: null,
-      })
+      const document = await commitDraft(service, draft)
+      applyCommitted(draft, document)
       refreshDocuments()
       return document
     } finally {
@@ -314,38 +296,38 @@ export function useScriptEditor(
     }
   }
 
+  /** 保存或执行进行中时不再接受新的编辑动作。 */
+  function busy(): boolean {
+    return saving.value || executing.value !== null
+  }
+
+  /** 当前图表；未挂载时由执行函数给出可展示原因。 */
+  function currentChart(): ChartController | null {
+    return controller ? controller.value : null
+  }
+
   /** 两个快捷操作共享状态、错误反馈与当前图表；调试只执行草稿，添加才提交定义。 */
   async function execute(action: 'run' | 'add-to-chart'): Promise<void> {
     const draft = current.value
-    if (!draft || draft.kind !== 'indicator' || saving.value || executing.value !== null) return
+    if (!draft || draft.kind !== 'indicator' || busy()) return
     executing.value = action
-    update(draft.id, { error: null })
+    update(draft.id, { executionError: null })
     try {
-      const chart = controller?.value
-      if (!chart) throw new Error('当前图表尚未就绪')
       if (action === 'run') {
-        if (!store?.run || !store.output) throw new Error('此环境没有脚本运行服务')
-        const run = store.run.bind(store)
-        const debugOutputId = `${sessionId}:${draft.id}`
-        update(draft.id, { outputId: debugOutputId })
-        await chart.withIndicatorData((bars, market) =>
-          run({
-            outputId: debugOutputId,
-            source: draft.source,
-            trusted: draft.trusted,
-            bars,
-            market,
-          }),
-        )
+        await runDraft({
+          chart: currentChart(),
+          store,
+          sessionId,
+          draft,
+          onOutputId: (next) => update(draft.id, { outputId: next }),
+        })
       } else {
-        const document = await persistDraft(draft)
-        if (!chart.indicators.peek().some((item) => item.definitionId === document.id)) {
-          if (chart.addIndicator(document.id) === null) throw new Error('添加指标到图表失败')
-        }
-        update(draft.id, { outputId: document.id })
+        await addDraftToChart(currentChart(), draft, persistDraft, (document) =>
+          update(draft.id, { outputId: document.id }),
+        )
       }
     } catch (failure) {
-      update(draft.id, { error: failure instanceof Error ? failure.message : String(failure) })
+      update(draft.id, { executionError: errorText(failure) })
     } finally {
       executing.value = null
     }
@@ -369,67 +351,43 @@ export function useScriptEditor(
     const activeIndex = drafts.value.findIndex((draft) => draft.id === activeTabId.value)
     drafts.value = drafts.value.filter((draft) => !matches(draft))
     if (!drafts.value.some((draft) => draft.id === activeTabId.value))
-      activeTabId.value =
-        drafts.value[Math.max(0, Math.min(activeIndex, drafts.value.length - 1))]?.id ?? null
+      activeTabId.value = neighborId(drafts.value, activeIndex)
+  }
+
+  /** 仓库删除成功后同步标签：已保存文档按定义 id 匹配，草稿按目录匹配。 */
+  function dropTabs(items: DroppedTreeItems): void {
+    const { documentIds, folder } = items
+    removeDrafts((draft) => {
+      if (draft.definitionId !== null) return documentIds.has(draft.definitionId)
+      return folder !== undefined && draft.kind === folder.kind && folder.paths.has(draft.folder)
+    })
   }
 
   /** 动作是通知，结果通过会话状态反馈，两个窗口不再各自解释异步失败。 */
   async function applyTreeAction(action: ScriptTreeAction): Promise<void> {
-    if (saving.value || executing.value !== null) return
-    treeError.value = null
+    if (busy()) return
     if (action.type === 'create-file') {
       openBlank(action.kind, action.folder)
       return
     }
     saving.value = true
-    let copiedId: string | undefined
     try {
-      if (!store) throw new Error('此环境没有可编辑的脚本服务')
-      switch (action.type) {
-        case 'create-folder':
-          await store.createFolder({ kind: action.kind, path: action.path })
-          break
-        case 'remove-folder': {
-          const removed = await store.removeFolder({ kind: action.kind, path: action.path })
-          const ids = new Set(removed.documentIds)
-          const paths = new Set(removed.folders.map((folder) => folder.path))
-          removeDrafts((draft) =>
-            draft.definitionId !== null
-              ? ids.has(draft.definitionId)
-              : draft.kind === action.kind && paths.has(draft.folder),
-          )
-          break
-        }
-        case 'copy-file': {
-          const document = store.read(action.id)
-          if (!document) throw new Error('脚本不存在')
-          const title = uniqueName(`${document.definition.name} 副本`)
-          const copy = await store.create(
-            await createCopySource(document.source, title),
-            document.trusted,
-            document.folder,
-          )
-          copiedId = copy.id
-          break
-        }
-        case 'delete-file': {
-          const document = store.read(action.id)
-          if (!document) throw new Error('脚本不存在')
-          await store.remove(document.id, document.revision)
-          removeDrafts((draft) => draft.definitionId === document.id)
-          break
-        }
-      }
+      await performTreeAction({
+        action,
+        store,
+        uniqueName,
+        dropDocument: dropTabs,
+        openDocument(id) {
+          const wasOpen = open.value
+          openDocument(id)
+          open.value = wasOpen
+        },
+      })
       refreshDocuments()
     } catch (failure) {
-      treeError.value = failure instanceof Error ? failure.message : String(failure)
+      treeError.value = errorText(failure)
     } finally {
       saving.value = false
-    }
-    if (copiedId) {
-      const wasOpen = open.value
-      openDocument(copiedId)
-      open.value = wasOpen
     }
   }
 
@@ -450,6 +408,8 @@ export function useScriptEditor(
     source,
     trusted,
     error,
+    treeError,
+    executionError,
     saved,
     executing,
     run: () => execute('run'),
@@ -477,8 +437,7 @@ export function useScriptEditor(
       const index = drafts.value.findIndex((item) => item.id === id)
       if (index < 0) return
       drafts.value = drafts.value.filter((item) => item.id !== id)
-      if (activeTabId.value === id)
-        activeTabId.value = drafts.value[Math.min(index, drafts.value.length - 1)]?.id ?? null
+      if (activeTabId.value === id) activeTabId.value = neighborId(drafts.value, index)
     },
     openFor(id) {
       openDocument(id)
@@ -496,42 +455,22 @@ export function useScriptEditor(
       try {
         const title = uniqueName(`${draft.name} 副本`)
         const copy = await createCopySource(draft.source, title)
-        if (current.value?.id === draft.id) {
-          const wasOpen = open.value
-          addDraft(draft.kind, title, copy, draft.folder)
-          open.value = wasOpen
-        }
+        if (current.value?.id !== draft.id) return
+        const wasOpen = open.value
+        addDraft(draft.kind, title, copy, draft.folder)
+        open.value = wasOpen
       } catch (failure) {
-        update(draft.id, { error: failure instanceof Error ? failure.message : String(failure) })
+        update(draft.id, { error: errorText(failure) })
       }
     },
     async save() {
       const draft = current.value
-      if (saving.value || executing.value !== null || !draft) return
-      if (!store) {
-        update(draft.id, { error: '此环境没有可编辑的脚本服务', saved: false })
-        return
-      }
-      if (draft.identity !== 'user') {
-        update(draft.id, { error: '内置脚本只读，请创建副本' })
-        return
-      }
+      if (busy() || !draft) return
       try {
         await persistDraft(draft, true)
       } catch (failure) {
-        update(draft.id, {
-          error: failure instanceof Error ? failure.message : String(failure),
-          saved: false,
-        })
-      } finally {
-        saving.value = false
+        update(draft.id, { error: errorText(failure), saved: false })
       }
     },
   }
-}
-
-/** 已保存文件必须携带读取时的修订号，不能绕过乐观并发检查。 */
-function requireRevision(draft: EditorDraft): number {
-  if (draft.revision === null) throw new Error('此文件没有可编辑的脚本文档')
-  return draft.revision
 }

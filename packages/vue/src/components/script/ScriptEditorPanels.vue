@@ -83,9 +83,10 @@
       /** 编辑区元素；输出面板据此预留高度，不再按 CSS 类名识别兄弟节点。 */
       editorHost?: HTMLElement | null
       running?: boolean
-      executionError?: string | null
+      /** 当前标签的保存或执行失败；只有它能切换问题页，目录错误不在此列。 */
+      documentError?: string | null
     }>(),
-    { problems: () => [], editorHost: null, running: false, executionError: null },
+    { problems: () => [], editorHost: null, running: false, documentError: null },
   )
   const emit = defineEmits<{ clear: []; 'reveal-problem': [problem: ScriptEditorProblem] }>()
   /** 日志一次性算好展示字段，模板不再重复解析时间。 */
@@ -133,7 +134,7 @@
     () => props.logs,
     () => props.editorHost,
     () => props.running,
-    () => props.executionError,
+    () => props.documentError,
   )
   const { indicatorStyle } = useSlidingTabIndicator(tabsRef, () => activePanel.value)
 

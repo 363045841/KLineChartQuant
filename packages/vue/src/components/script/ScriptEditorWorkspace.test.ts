@@ -48,6 +48,32 @@ describe('ScriptEditorWorkspace', () => {
     }
   })
 
+  it('目录错误只留在目录区域，当前文档失败才展开问题页', async () => {
+    const wrapper = mount(ScriptEditorWorkspace, {
+      props: {
+        ...createEditorTabState(),
+        source: '// draft',
+        identity: 'user',
+        trusted: false,
+        theme: 'dark',
+      },
+    })
+    try {
+      const problemsTab = () => wrapper.get('[data-panel="problems"]').attributes('aria-selected')
+      expect(problemsTab()).toBe('false')
+
+      await wrapper.setProps({ treeError: '文件夹仍被引用：均线' })
+      expect(wrapper.get('.script-files__error').text()).toContain('文件夹仍被引用')
+      // 目录操作失败不冒充代码问题，也不抢走底部面板。
+      expect(problemsTab()).toBe('false')
+
+      await wrapper.setProps({ executionError: '脚本运行失败' })
+      expect(problemsTab()).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('右侧快捷操作只展示图标，运行和添加独立发出命令，库与执行中禁用', async () => {
     const wrapper = mount(ScriptEditorWorkspace, {
       props: {

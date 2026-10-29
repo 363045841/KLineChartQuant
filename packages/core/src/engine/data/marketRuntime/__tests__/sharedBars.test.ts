@@ -95,6 +95,39 @@ describe('比较品种与 Request 共用行情', () => {
     },
   )
 
+  it('临时租约与计划租约互不回收，结束后只释放自己', async () => {
+    const { runtime, cache, data, selectionFor } = createHarness()
+    try {
+      const planOwner = 'plan-task'
+      runtime.retain(new Set([planOwner]))
+      await runtime
+        .context(planOwner, data)
+        .loadBars({ symbol: 'CMP', timeframe: 'D', source: 'test', calcBarsCount: 2 })
+      expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
+
+      await runtime.withContext(data, async (temporary) => {
+        await temporary.loadBars({
+          symbol: 'CMP',
+          timeframe: 'D',
+          source: 'test',
+          calcBarsCount: 2,
+        })
+        // 计划重复提交快照只能回收自己的租约。
+        runtime.retain(new Set([planOwner]))
+        expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
+      })
+
+      // 临时租约退出后计划仍需要这份行情。
+      expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
+
+      runtime.retain(new Set())
+      expect(cache.repository.getBars(selectionFor('CMP'))).toBeUndefined()
+    } finally {
+      runtime.dispose()
+      cache.destroy()
+    }
+  })
+
   it.each(['comparison-first', 'request-first'])(
     '%s：最后使用者退出才释放 Buffer',
     async (order) => {
