@@ -9,6 +9,8 @@
  *
  * 不是绘制管线的一部分。绘制由 ChartRenderer 完成，Chart 仅负责代理调用并维护 runtimeProjection（批量投影）屏障。
  */
+
+import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
 
 import {
@@ -1009,10 +1011,7 @@ export class Chart {
 
   /** 对当前行情快照执行一次计算，不注册指标或创建 Pane。 */
   withIndicatorData<T>(
-    compute: (
-      bars: readonly import('@363045841yyt/klinechart-plot-contracts').Bar[],
-      market: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    ) => Promise<T>,
+    compute: (bars: readonly Bar[], market: IndicatorMarketContext) => Promise<T>,
   ): Promise<T> {
     const bars = this.data.peek()
     return this.dataManager.withIndicatorMarketContext(bars, (market) =>

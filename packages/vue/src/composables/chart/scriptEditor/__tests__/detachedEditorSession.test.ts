@@ -216,7 +216,9 @@ describe('独立编辑器宿主交接', () => {
     expect(context.update).toHaveBeenLastCalledWith(
       expect.objectContaining({
         source: 'latest draft',
-        error: '此环境没有可编辑的脚本服务',
+        // 目录失败走独立通道，不冒充当前草稿的保存错误。
+        treeError: '此环境没有可编辑的脚本服务',
+        error: null,
         saving: false,
       }),
     )

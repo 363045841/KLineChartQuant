@@ -85,6 +85,9 @@ function needsRebind(current: TradeBinding | null, target: TradeTarget): boolean
   )
 }
 
+/** 租约来源：计划快照可以回收自己声明的租约，临时计算只由自身生命周期释放。 */
+type OwnerSource = 'plan' | 'temporary'
+
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
 export class MarketRuntime implements IndicatorMarketData {
   private readonly registry: MarketDataProviderRegistry
@@ -98,22 +101,22 @@ export class MarketRuntime implements IndicatorMarketData {
   >()
   private readonly requestAborts = new Map<string, AbortController>()
   private requestRevision = 0
-  private readonly temporaryOwners = new Set<string>()
-  private retainedOwners: ReadonlySet<string> = new Set()
+  /** 行情租约的唯一事实：key → 来源。请求与需求条目只是它的投影。 */
+  private readonly owners = new Map<string, OwnerSource>()
   private temporarySequence = 0
 
-  /** 临时计算共享图表行情需求，结束后释放自己的订阅与请求。 */
+  /** 临时计算持有一份租约，结束后只释放自己的请求与需求。 */
   async withContext<T>(
     bars: readonly KLineData[],
     compute: (market: IndicatorMarketContext) => Promise<T>,
   ): Promise<T> {
     const owner = `temporary_${++this.temporarySequence}`
-    this.temporaryOwners.add(owner)
+    this.owners.set(owner, 'temporary')
     try {
       return await compute(this.context(owner, bars))
     } finally {
-      this.temporaryOwners.delete(owner)
-      this.retain(this.retainedOwners)
+      this.owners.delete(owner)
+      this.sweep()
     }
   }
 
@@ -181,17 +184,23 @@ export class MarketRuntime implements IndicatorMarketData {
     })
   }
 
-  /** 计算计划移除最后使用者时取消查询并关闭连接。 */
-  retain(owners: ReadonlySet<string>): void {
-    this.retainedOwners = owners
-    const activeOwners = new Set([...owners, ...this.temporaryOwners])
+  /** 执行计划的全量快照：只增删计划自己拥有的租约，临时计算不受影响。 */
+  retain(planOwners: ReadonlySet<string>): void {
+    for (const [owner, source] of this.owners)
+      if (source === 'plan' && !planOwners.has(owner)) this.owners.delete(owner)
+    for (const owner of planOwners) this.owners.set(owner, 'plan')
+    this.sweep()
+  }
+
+  /** 把请求与需求投影对齐到租约集合，再回收无引用的 Buffer 与连接。 */
+  private sweep(): void {
     for (const [owner, abort] of this.requestAborts) {
-      if (activeOwners.has(owner)) continue
+      if (this.owners.has(owner)) continue
       abort.abort()
       this.requestAborts.delete(owner)
     }
     for (const demand of this.barDemands.values())
-      for (const owner of demand.owners) if (!activeOwners.has(owner)) demand.owners.delete(owner)
+      for (const owner of demand.owners) if (!this.owners.has(owner)) demand.owners.delete(owner)
     this.releaseUnusedBars()
     this.reconcileBarStreams()
   }

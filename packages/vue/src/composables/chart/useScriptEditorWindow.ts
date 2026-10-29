@@ -63,6 +63,8 @@ export function useScriptEditorWindow(
       executing: session.executing.value,
       saved: session.saved.value,
       error: session.error.value,
+      executionError: session.executionError.value,
+      treeError: session.treeError.value,
       logs: session.logs.value,
       theme: theme.value,
     }
@@ -103,30 +105,39 @@ export function useScriptEditorWindow(
     else session.openFor(message.id)
   }
 
-  /** 按端口消息顺序接收草稿，保存与返回始终使用命令携带的最新文本。 */
-  function onMessage(message: DetachedEditorEvent): void {
-    const window = detached
-    if (message.type === 'ready' || !window) return
-    if (message.type === 'refresh-documents') {
-      session.refreshDocuments()
-      return
-    }
-    if (message.type === 'clear-output') {
-      session.clearOutput()
-      return
-    }
-    if (!applyDraft(window, message)) return
-    if (isNavigation(message)) {
-      navigate(message)
-      session.open.value = false
-      window.update(snapshot())
-      return
-    }
+  /** 会话级消息不携带草稿，直接执行。 */
+  function applySessionMessage(
+    message: Extract<DetachedEditorEvent, { type: 'refresh-documents' | 'clear-output' }>,
+  ): void {
+    if (message.type === 'refresh-documents') session.refreshDocuments()
+    else session.clearOutput()
+  }
+
+  /** 命令类消息转成会话操作，结果通过快照回传。 */
+  function applyCommand(message: DetachedEditorEvent): void {
     if (message.type === 'save') void session.save()
     else if (message.type === 'run') void session.run()
     else if (message.type === 'add-to-chart') void session.addToChart()
     else if (message.type === 'create-copy') void session.createCopy()
     else if (message.type === 'return') returnToDialog()
+  }
+
+  /** 按端口消息顺序接收草稿，保存与返回始终使用命令携带的最新文本。 */
+  function onMessage(message: DetachedEditorEvent): void {
+    const window = detached
+    if (message.type === 'ready' || !window) return
+    if (message.type === 'refresh-documents' || message.type === 'clear-output') {
+      applySessionMessage(message)
+      return
+    }
+    if (!applyDraft(window, message)) return
+    if (!isNavigation(message)) {
+      applyCommand(message)
+      return
+    }
+    navigate(message)
+    session.open.value = false
+    window.update(snapshot())
   }
 
   /** 释放新窗口与样式镜像；不改动编辑会话状态。 */
@@ -184,6 +195,8 @@ export function useScriptEditorWindow(
       session.executing,
       session.saved,
       session.error,
+      session.executionError,
+      session.treeError,
       session.name,
       session.logs,
       session.kind,

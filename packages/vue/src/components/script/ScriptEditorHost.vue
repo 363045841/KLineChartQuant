@@ -29,6 +29,8 @@
         @add-to-chart="emit('add-to-chart')"
         :saved="saved"
         :error="error"
+        :execution-error="executionError"
+        :tree-error="treeError"
         :detachable="mode === 'dialog' && detachable"
         :returnable="mode === 'window'"
         :theme="theme"
@@ -80,6 +82,10 @@
       saved?: boolean
       /** 宿主保存校验的错误；与语言服务的错误在工作区内合并展示。 */
       error?: string | null
+      /** 调试或添加到图表的失败；底部面板据此切换问题页。 */
+      executionError?: string | null
+      /** 文件树操作失败；展示在目录区域。 */
+      treeError?: string | null
       /** 弹窗标题；独立窗口沿用页面标题。 */
       title?: string
       /** 弹窗是否提供「在新窗口打开」入口。 */
@@ -99,6 +105,8 @@
       libraries: () => [],
       logs: () => [],
       error: null,
+      executionError: null,
+      treeError: null,
       detachable: false,
       saving: false,
       saved: false,

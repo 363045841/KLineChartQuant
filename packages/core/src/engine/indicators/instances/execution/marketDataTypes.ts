@@ -5,5 +5,6 @@ import type { KLineData } from '@/foundation/types/price.js'
 export interface IndicatorMarketData {
   readonly revision: number
   context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext
+  /** 提交当前计划的全部租约；只回收计划自己拥有、本次未声明的 key。 */
   retain(owners: ReadonlySet<string>): void
 }

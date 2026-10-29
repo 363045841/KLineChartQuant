@@ -12,7 +12,7 @@ export function useScriptEditorPanels(
   logs: () => readonly LogEvent[],
   editorHost: () => HTMLElement | null,
   running: () => boolean,
-  executionError: () => string | null,
+  documentError: () => string | null,
 ) {
   const expanded = ref(true)
   const activePanel = ref<'output' | 'problems'>('output')
@@ -38,14 +38,14 @@ export function useScriptEditorPanels(
     expanded.value = true
   }
 
-  // 快捷运行主动展开输出，执行失败则展示已有问题面板。
+  // 快捷运行主动展开输出；当前文档保存或执行失败时展示问题面板。
   watch(running, (value) => {
     if (value) {
       follow = true
       selectPanel('output')
     }
   })
-  watch(executionError, (message) => {
+  watch(documentError, (message) => {
     if (message) selectPanel('problems')
   })
 

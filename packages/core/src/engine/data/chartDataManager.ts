@@ -1,4 +1,5 @@
 /** 行情协调器：管理 Repository、数据加载与各视图的数据投影。 */
+import type { IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import {
   type CustomDataSource,
   FIVE_DAY_TIME_SHARE_DAYS,
@@ -168,9 +169,7 @@ export class ChartDataManager {
   /** 临时计算的行情使用权也由唯一市场运行模块管理。 */
   withIndicatorMarketContext<T>(
     bars: readonly KLineData[],
-    compute: (
-      market: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    ) => Promise<T>,
+    compute: (market: IndicatorMarketContext) => Promise<T>,
   ): Promise<T> {
     return this.marketRuntime.withContext(bars, compute)
   }

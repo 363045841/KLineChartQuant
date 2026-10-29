@@ -49,7 +49,7 @@
 
 .klc-script-menu-shortcut {
   color: var(--klc-color-ui-muted);
-  font-size: 0.9em;
+  font-size: var(--klc-text-12-font-size, 12px);
   white-space: nowrap;
 }
 

@@ -365,6 +365,8 @@
       v-model:source="scriptEditorSource"
       v-model:trusted="scriptEditorTrusted"
       :error="scriptEditorError"
+      :execution-error="scriptEditorExecutionError"
+      :tree-error="scriptEditorTreeError"
       :logs="scriptEditorLogs"
       @clear-output="clearScriptEditorOutput"
       :saved="scriptEditorSaved"
@@ -1088,6 +1090,8 @@
     source: scriptEditorSource,
     trusted: scriptEditorTrusted,
     error: scriptEditorError,
+    executionError: scriptEditorExecutionError,
+    treeError: scriptEditorTreeError,
     logs: scriptEditorLogs,
     clearOutput: clearScriptEditorOutput,
     saved: scriptEditorSaved,

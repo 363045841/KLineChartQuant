@@ -33,6 +33,7 @@ describe('useScriptEditor', () => {
       editor.source.value = `defineIndicator({ name: 'EditorDebug', position: Position.Sub, onBar() { console.log(close[0]) } })`
       await editor.run()
       expect(editor.error.value).toBeNull()
+      expect(editor.executionError.value).toBeNull()
       expect(editor.logs.value.map((event) => event.message)).toEqual(['10'])
       expect(editor.definitionId.value).toBeNull()
       expect(add).not.toHaveBeenCalled()
@@ -56,6 +57,29 @@ describe('useScriptEditor', () => {
       expect(add).toHaveBeenCalledTimes(1)
       expect(scripts.read(id)?.revision).toBe(1)
       await scripts.remove(id, 1)
+    } finally {
+      scope.stop()
+      scripts.dispose()
+    }
+  })
+
+  it('调试失败只写执行通道，编辑源码后旧结论作废', async () => {
+    const scripts = await createScriptService([], {
+      persistence: { load: async () => null, save: async () => true },
+    })
+    const chart = createMockChartController()
+    const scope = effectScope()
+    const editor = scope.run(() => useScriptEditor(scripts, shallowRef(chart)))!
+    try {
+      vi.spyOn(chart, 'withIndicatorData').mockRejectedValue(new Error('脚本运行失败'))
+      editor.openBlank()
+      await editor.run()
+      expect(editor.executionError.value).toBe('脚本运行失败')
+      // 执行失败不进入保存/目录操作通道，避免底部面板把 IO 错误当代码问题。
+      expect(editor.error.value).toBeNull()
+      expect(editor.treeError.value).toBeNull()
+      editor.source.value = '// 修改后旧结论作废'
+      expect(editor.executionError.value).toBeNull()
     } finally {
       scope.stop()
       scripts.dispose()
@@ -111,7 +135,7 @@ describe('useScriptEditor', () => {
       expect(scripts.read(copy.id)).toBeUndefined()
       expect(editor.tabs.value.some((tab) => tab.definitionId === copy.id)).toBe(false)
       await editor.applyTreeAction({ type: 'create-folder', kind: 'indicator', path: '策略' })
-      expect(editor.error.value).toContain('已存在')
+      expect(editor.treeError.value).toContain('已存在')
       await editor.applyTreeAction({
         type: 'create-folder',
         kind: 'indicator',
@@ -154,14 +178,14 @@ describe('useScriptEditor', () => {
       const draft = editor.source.value
       writable = false
       await editor.applyTreeAction({ type: 'delete-file', id })
-      expect(editor.error.value).toContain('保存失败')
+      expect(editor.treeError.value).toContain('保存失败')
       expect(editor.activeTabId.value).toBe(tab)
       expect(editor.source.value).toBe(draft)
       expect(editor.tabs.value[0]?.dirty).toBe(true)
       expect(scripts.read(id)).toBeDefined()
       writable = true
       await editor.applyTreeAction({ type: 'delete-file', id })
-      expect(editor.error.value).toBeNull()
+      expect(editor.treeError.value).toBeNull()
       expect(editor.tabs.value).toEqual([])
       expect(scripts.read(id)).toBeUndefined()
     } finally {

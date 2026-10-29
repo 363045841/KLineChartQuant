@@ -16,6 +16,8 @@ function initialSnapshot(): DetachedEditorSnapshot {
     saving: false,
     saved: true,
     error: null,
+    executionError: null,
+    treeError: null,
     logs: [],
     theme: 'dark',
   }

@@ -84,18 +84,12 @@ function menuEntries(row: ScriptTreeRow, menu: ScriptMenu, actions: MenuActions)
 
 export function useScriptTreeMenu(actions: MenuActions) {
   let menu: ScriptMenu | undefined
-  function onKeydown(event: KeyboardEvent): void {
-    menu?.handleKeydown(event)
-  }
   function openContextMenu(event: MouseEvent, row: ScriptTreeRow): void {
     event.preventDefault()
     event.stopPropagation()
     const host = actions.treeHost.value
     if (!host) return
-    if (!menu) {
-      menu = createScriptMenu(host.ownerDocument, { host })
-      menu.element.addEventListener('keydown', onKeydown)
-    }
+    if (!menu) menu = createScriptMenu(host.ownerDocument, { host })
     menu.open(event.clientX, event.clientY)
     menu.element.setAttribute('aria-label', '脚本文件菜单')
     for (const entry of menuEntries(row, menu, actions)) {
@@ -104,7 +98,6 @@ export function useScriptTreeMenu(actions: MenuActions) {
     }
   }
   onScopeDispose(() => {
-    menu?.element.removeEventListener('keydown', onKeydown)
     menu?.destroy()
   })
   return { openContextMenu }
