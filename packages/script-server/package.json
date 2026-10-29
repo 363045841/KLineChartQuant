@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-script-server",
-  "version": "0.0.0",
+  "version": "0.11.0-alpha.10",
   "description": "AGPL TypeScript language service behind the KLineChartQuant script editor: completions, hover, linting, signature help and formatting.",
   "license": "AGPL-3.0-or-later",
   "repository": {

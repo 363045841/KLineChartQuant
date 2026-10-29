@@ -10,7 +10,6 @@ import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 import { contractResourcesPlugin } from '../script/scripts/contract-resources-plugin.mjs'
-import { scriptEditorPagePlugin } from './scripts/script-editor-page-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
@@ -32,7 +31,6 @@ const vueResolverPlugin = {
 
 export default defineConfig({
   plugins: [
-    scriptEditorPagePlugin(),
     contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     vueResolverPlugin,

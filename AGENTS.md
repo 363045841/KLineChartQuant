@@ -44,13 +44,15 @@ pnpm workspace at `packages/*`;Node `^20.19.0 || >=22.12.0`,pnpm 11.x.可以发�
 | `packages/script` | `@363045841yyt/klinechart-script` |
 | `packages/script-server` | `@363045841yyt/klinechart-script-server` |
 | `packages/script-chart` | `@363045841yyt/klinechart-script-chart` |
+| `packages/script-editor` | `@363045841yyt/klinechart-script-editor` |
 | `packages/core` | `@363045841yyt/klinechart-core` |
 | `packages/agent-runtime` | `@363045841yyt/klinechart-agent-runtime` |
 | `packages/vue` | `@363045841yyt/klinechart` |
+| `packages/web-component` | `@363045841yyt/klinechart-web-component` |
 | `packages/react` | `@363045841yyt/klinechart-react` |
 | `packages/angular` | `@363045841yyt/klinechart-angular` |
 
-`pnpm build:packages` 按 plot-contracts → script → script-server → core → script-chart → agent-runtime → vue 的顺序构建,顺序不可颠倒:框架包通过 `workspace:` 协议依赖 core 与 agent-runtime,vue 还把 agent-runtime 声明为 `peerDependencies`.react,angular 不在该命令内,各自单独构建.vue 的 build 先 `vite build` 再跑 `build:wc`(web component,`BUILD_TARGET=web-component`).
+`pnpm build:packages` 按 plot-contracts → script → script-server → core → script-chart → agent-runtime → vue → script-editor → web-component 的顺序构建,顺序不可颠倒:框架包通过 `workspace:` 协议依赖 core 与 agent-runtime,vue 还把 agent-runtime 声明为 `peerDependencies`.script-editor 与 web-component 都复用 vue 包的源码,分别产出独立编辑器页与单文件自定义元素,因此必须排在 vue 之后.react,angular 不在该命令内,各自单独构建.
 
 ## README Generation
 

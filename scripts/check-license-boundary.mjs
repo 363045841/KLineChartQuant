@@ -5,6 +5,8 @@
  * 唯一允许的方向是 AGPL 包引用 Apache 包，以及图表包可选地动态加载
  * klinechart-script-server（AGPL，未安装时编辑器退化为纯文本）。
  *
+ * 例外只给「只读元数据做展示」的文件：开源致谢把包名当数据列出来，不构成引用关系。
+ *
  * 用法：node scripts/check-license-boundary.mjs
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -16,10 +18,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 /** Apache-2.0 一侧的包：发布物里不允许出现任何 AGPL module specifier。 */
 const APACHE_PACKAGES = ['plot-contracts', 'core', 'agent-runtime', 'vue', 'react', 'angular']
 
-/** Apache 包唯一允许引用的 AGPL 包：可选的语言服务。 */
-const FORBIDDEN_SOURCE = /@363045841yyt\/klinechart-script(?!-server)/
+/**
+ * 豁免文件（相对仓库根，正斜杠）：只把 AGPL 包名当展示文本读取 package.json，
+ * 既不 import 其入口也不打包其代码，因此不计入边界违规。
+ */
+const DISPLAY_ONLY_FILES = new Set(['packages/vue/src/credits/openSourceCredits.ts'])
+
+/** Apache 包唯一允许引用的 AGPL 包：可选的语言服务与独立编辑器页。 */
+const FORBIDDEN_SOURCE = /@363045841yyt\/klinechart-script(?!-(server|editor))/
 const FORBIDDEN_BUNDLED =
-  /(?:require|import)\(\s*["'`]@363045841yyt\/klinechart-script(?!-server)/
+  /(?:require|import)\(\s*["'`]@363045841yyt\/klinechart-script(?!-(server|editor))/
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.vue'])
 const BUNDLE_EXTENSIONS = new Set(['.js', '.cjs'])
@@ -48,12 +56,19 @@ function collectFiles(dir, extensions, { skipTests = false } = {}) {
   return found
 }
 
+/** 仓库相对路径统一用正斜杠，豁免清单才能跨平台匹配。 */
+function repoPath(file) {
+  return path.relative(repoRoot, file).split(path.sep).join('/')
+}
+
 /** 返回目录下所有命中正则的文件与首个命中行。 */
 function scan(files, pattern) {
   const hits = []
   for (const file of files) {
+    const relative = repoPath(file)
+    if (DISPLAY_ONLY_FILES.has(relative)) continue
     const match = pattern.exec(readFileSync(file, 'utf8'))
-    if (match) hits.push({ file: path.relative(repoRoot, file), snippet: match[0] })
+    if (match) hits.push({ file: relative, snippet: match[0] })
   }
   return hits
 }

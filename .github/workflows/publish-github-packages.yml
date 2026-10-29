@@ -78,7 +78,14 @@ jobs:
             trap - EXIT
           }
 
-          # 发布顺序同 npm：core -> agent-runtime -> vue。
+          # 发布顺序同 npm：plot-contracts -> script -> script-server -> core
+          # -> agent-runtime -> script-chart -> vue -> script-editor -> web-component。react / angular 暂不发布。
+          publish_gh_package plot-contracts
+          publish_gh_package script
+          publish_gh_package script-server
           publish_gh_package core
           publish_gh_package agent-runtime
+          publish_gh_package script-chart
           publish_gh_package vue
+          publish_gh_package script-editor
+          publish_gh_package web-component

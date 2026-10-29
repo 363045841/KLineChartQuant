@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.11.0-alpha.9",
+  "version": "0.11.0-alpha.10",
   "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
   "license": "Apache-2.0",
   "repository": {
@@ -24,16 +24,6 @@
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./web-component": {
-      "import": {
-        "types": "./dist/web-component.d.ts",
-        "default": "./dist/web-component.js"
       }
     },
     "./style.css": "./dist/index.css"
@@ -41,22 +31,22 @@
   "files": [
     "dist",
     "src",
-    "!src/**/__tests__/**"
+    "!src/**/__tests__/**",
+    "!src/assets/fonts/*.ttf"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "dev": "node ../../scripts/vite-dev.mjs --config preview/vite.config.ts",
-    "build": "vite build && pnpm build:wc",
-    "build:wc": "cross-env BUILD_TARGET=web-component vite build",
+    "build": "node scripts/build-font-subset.mjs && vite build",
     "postbuild": "node scripts/postbuild.mjs",
     "test": "vitest run",
-    "test:editor-page": "node --test scripts/test-script-editor-page.mjs",
     "test:watch": "vitest",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "font:subset": "node scripts/build-font-subset.mjs"
   },
   "size-limit": [
     {
@@ -73,11 +63,15 @@
   "peerDependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:^",
     "@363045841yyt/klinechart-core": "workspace:^",
+    "@363045841yyt/klinechart-script-editor": "workspace:^",
     "@363045841yyt/klinechart-script-server": "workspace:^",
     "vue": "^3.4.0"
   },
   "peerDependenciesMeta": {
     "@363045841yyt/klinechart-script-server": {
+      "optional": true
+    },
+    "@363045841yyt/klinechart-script-editor": {
       "optional": true
     }
   },
@@ -85,21 +79,21 @@
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart-script-chart": "workspace:*",
+    "@363045841yyt/klinechart-script-editor": "workspace:*",
     "@363045841yyt/klinechart-script-server": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.5",
     "@size-limit/preset-small-lib": "^13.1.1",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/test-utils": "^2.5.1",
-    "cross-env": "^10.1.0",
     "fake-indexeddb": "^6.2.6",
     "happy-dom": "^21.0.3",
     "jsdom": "^30.1.3",
     "publint": "^0.3.25",
     "size-limit": "^13.1.1",
+    "subset-font": "^2.9.0",
     "unplugin-icons": "^24.0.0",
     "vite": "^8.3.4",
     "vite-plugin-babel": "^1.7.3",
-    "vite-plugin-css-injected-by-js": "^5.0.2",
     "vite-plugin-dts": "^5.1.2",
     "vitest": "^5.0.5",
     "vue": "^3.5.44"

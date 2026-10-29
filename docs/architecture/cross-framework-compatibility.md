@@ -77,82 +77,74 @@ Key points:
 - `customElements.define('kline-chart', ...)` registers the public tag.
 - The entry also exports the element class so bundlers can import and register it deterministically.
 
-The Vue package exposes the Web Component through `package.json`:
+The Web Component is published as its own package, `@363045841yyt/klinechart-web-component`, so
+projects that never use the Custom Element do not download the standalone bundle:
 
 ```json
 {
+  "name": "@363045841yyt/klinechart-web-component",
   "exports": {
-    "./web-component": {
-      "import": {
-        "types": "./dist/web-component.d.ts",
-        "default": "./dist/web-component.js"
-      }
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./dist/index.js"
     }
   }
 }
 ```
 
-Consumers can import `@363045841yyt/klinechart/web-component` once, then use `<kline-chart>` wherever the browser supports Custom Elements.
+Consumers can import `@363045841yyt/klinechart-web-component` once, then use `<kline-chart>` wherever the browser supports Custom Elements.
 
 ## 5. Build Configuration
 
-`packages/vue/vite.config.ts` switches between a normal Vue library build and a Web Component build with `BUILD_TARGET=web-component`:
+The two deliverables now live in two packages with one build each. `packages/vue/vite.config.ts` is a plain library build (`vue` stays external); `packages/web-component/vite.config.ts` bundles the same source into a single-file Custom Element:
 
 ```ts
-const isWC = process.env.BUILD_TARGET === 'web-component'
-
+// packages/vue/vite.config.ts
 export default defineConfig({
-  plugins: [
-    vue({ customElement: isWC }),
-    Icons({ compiler: 'vue3', autoInstall: true }),
-    ...(isWC ? [cssInjectedByJs()] : [dts(...)])
-  ],
+  plugins: [vue(), Icons(...), dts(...)],
   build: {
     target: 'esnext',
-    emptyOutDir: !isWC,
-    cssCodeSplit: !isWC,
-    lib: isWC
-      ? {
-          entry: './src/web-component.ts',
-          name: 'KLineChartWC',
-          formats: ['es'],
-          fileName: () => 'web-component.js',
-        }
-      : {
-          entry: './src/index.ts',
-          name: 'KlineChart',
-          formats: ['es', 'cjs'],
-          fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
-        },
+    emptyOutDir: true,
+    lib: { entry: './src/index.ts', name: 'KlineChart', formats: ['es'] },
     rolldownOptions: {
-      external: isWC
-        ? []
-        : ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
-      output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
+      external: ['vue', /@363045841yyt\/klinechart-core/, /@363045841yyt\/klinechart-agent-runtime/],
     },
+  },
+})
+```
+
+```ts
+// packages/web-component/vite.config.ts
+export default defineConfig({
+  plugins: [vue({ customElement: true }), cssInjectedByJs()],
+  build: {
+    target: 'esnext',
+    cssCodeSplit: false,
+    lib: { entry: './src/index.ts', name: 'KLineChartWC', formats: ['es'] },
+    rolldownOptions: { external: [/@363045841yyt\/klinechart-script/], output: { inlineDynamicImports: true } },
   },
 })
 ```
 
 The important build decisions are:
 
-- **Normal Vue package** externalizes `vue`, `@363045841yyt/klinechart-core`, and `@363045841yyt/klinechart-agent-runtime`, emits ESM/CJS, and generates declaration files. The agent runtime stays a `peerDependency` instead of being bundled, so its types resolve to the published package entry rather than a workspace source path.
-- **Web Component package** bundles its runtime dependencies into one ESM file, emits `dist/web-component.js`, and inlines dynamic imports.
+- **Vue package** externalizes `vue`, `@363045841yyt/klinechart-core`, and `@363045841yyt/klinechart-agent-runtime`, emits ESM only, and generates declaration files. The agent runtime stays a `peerDependency` instead of being bundled, so its types resolve to the published package entry rather than a workspace source path.
+- **Web Component package** builds from the Vue package's source, bundles its runtime dependencies into one ESM file, emits `dist/index.js`, and inlines dynamic imports.
 - `cssInjectedByJs()` is enabled only for the Web Component build so component styles travel with the element instead of requiring a separate stylesheet import.
-- `emptyOutDir: !isWC` prevents the Web Component build from deleting files produced by the normal library build.
-- `inlineDynamicImports: true` makes the Custom Element easier to consume from host apps.
+- `inlineDynamicImports: true` makes the Custom Element easier to consume from host apps, at the cost of one large file.
+- Splitting the two deliverables into two packages means each `dist` is produced by exactly one build, so the script-editor page is not duplicated.
+- The detached editor page is built by `@363045841yyt/klinechart-script-editor` (AGPL) and loaded at runtime by URL, so neither Apache package ever bundles AGPL code.
 
 The package scripts reflect that split:
 
 ```json
 {
-  "build": "vite build && pnpm build:wc",
-  "build:wc": "cross-env BUILD_TARGET=web-component vite build",
-  "postbuild": "node scripts/postbuild.mjs"
+  "packages/vue": { "build": "vite build", "postbuild": "node scripts/postbuild.mjs" },
+  "packages/web-component": { "build": "vite build" }
 }
 ```
 
-`scripts/postbuild.mjs` rewrites the `.vue` module specifiers in the emitted declarations to `.vue.js` (TypeScript cannot resolve a bare `.vue` specifier, but it does map `X.vue.js` onto the emitted `X.vue.d.ts`) and writes the CJS declaration copy for the `require` condition.
+`scripts/postbuild.mjs` rewrites the `.vue` module specifiers in the emitted declarations to `.vue.js` (TypeScript cannot resolve a bare `.vue` specifier, but it does map `X.vue.js` onto the emitted `X.vue.d.ts`).
 
 ## 6. Passing Data Across the DOM Boundary
 
@@ -251,7 +243,7 @@ Regular has two realistic integration paths.
 
 The fastest Regular integration is to consume the existing Web Component:
 
-1. Import `@363045841yyt/klinechart/web-component` once at app startup or inside the Regular package entry.
+1. Import `@363045841yyt/klinechart-web-component` once at app startup or inside the Regular package entry.
 2. Render `<kline-chart>` from a Regular component.
 3. Reflect primitive props such as `initialZoomLevel`, `zoomLevels`, and `isFullscreen` as attributes.
 4. Register DOM listeners for `zoom-level-change` and `toggle-fullscreen`, then remove them during component teardown.

@@ -13,16 +13,17 @@ UI 框架，通过统一的 `ChartController` 对外暴露只读信号（Readonl
 Vue / React / Angular 绑定层只负责容器挂载、输入事件转发与响应式桥接。AI Agent 通过与 UI
 相同的 `@Tool` 原语直接驱动图表，共享同一状态源，是项目的一等公民。
 
-React 绑定（`@363045841yyt/klinechart-react`）的 `KLineChartWC` 直接封装由 Vue 包打包的
-`<kline-chart>` Web Component（`@363045841yyt/klinechart/web-component`），因此 React 的
-UI 接入路径是 Vue → Web Component → 控制器，而不是独立的原生 UI。
+React 绑定（`@363045841yyt/klinechart-react`）的 `KLineChartWC` 直接封装由
+`@363045841yyt/klinechart-web-component` 提供的 `<kline-chart>` 自定义元素（独立发布的单文件产物），
+因此 React 的 UI 接入路径是 Web Component → 控制器，而不是独立的原生 UI。
 
 ```mermaid
 flowchart TB
     subgraph app["UI 层 / 框架绑定"]
         UI["UI 层"]
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Vue Web Component 封装）"]
+        WCPkg["@363045841yyt/klinechart-web-component<br/>&lt;kline-chart&gt; 自定义元素"]
+        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Web Component 封装）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
         Agent["AI Agent"]
         AgentRt["@363045841yyt/klinechart-agent-runtime"]
@@ -50,7 +51,8 @@ flowchart TB
     UI --> VuePkg
     UI --> ReactPkg
     UI --> AngularPkg
-    VuePkg -->|"Web Component 接入"| ReactPkg
+    VuePkg -->|"源码是 WC 的构建输入"| WCPkg
+    WCPkg --> ReactPkg
     Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
@@ -95,7 +97,9 @@ flowchart TB
 |---|---|---|---|
 | Core engine | `packages/core` | 无头图表引擎 + 控制器 | `@363045841yyt/klinechart-core` |
 | Vue bindings | `packages/vue` | Vue 3 组件 + 组合式函数 | `@363045841yyt/klinechart` |
-| React bindings | `packages/react` | React 绑定：`KLineChartWC` 经 Vue 打包的 `<kline-chart>` Web Component 接入 | `@363045841yyt/klinechart-react` |
+| Web Component | `packages/web-component` | 单文件 `<kline-chart>` 自定义元素，供非 Vue 宿主使用 | `@363045841yyt/klinechart-web-component` |
+| Script editor page | `packages/script-editor` | 独立编辑器窗口的自包含页面（AGPL），由图表包按需加载 | `@363045841yyt/klinechart-script-editor` |
+| React bindings | `packages/react` | React 绑定：`KLineChartWC` 经 `<kline-chart>` Web Component 接入 | `@363045841yyt/klinechart-react` |
 | Angular bindings | `packages/angular` | Angular 绑定 | `@363045841yyt/klinechart-angular` |
 | Agent runtime | `packages/agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | `@363045841yyt/klinechart-agent-runtime` |
 | Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布） | — |

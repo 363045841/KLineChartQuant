@@ -10,7 +10,8 @@ flowchart TB
     subgraph app["UI 层 / 框架绑定"]
         UI["UI 层"]
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart（直连 Core）· KLineChartWC（Vue Web Component）"]
+        WCPkg["@363045841yyt/klinechart-web-component<br/>&lt;kline-chart&gt; 自定义元素"]
+        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart（直连 Core）· KLineChartWC（Web Component）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
         Agent["AI Agent"]
         AgentRt["@363045841yyt/klinechart-agent-runtime"]
@@ -37,7 +38,8 @@ flowchart TB
     UI --> VuePkg
     UI --> ReactPkg
     UI --> AngularPkg
-    VuePkg -->|"Web Component 接入"| ReactPkg
+    VuePkg -->|"源码是 WC 的构建输入"| WCPkg
+    WCPkg --> ReactPkg
     Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
@@ -69,8 +71,8 @@ flowchart TB
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 绑定** — `@363045841yyt/klinechart-react` 的 `KLineChart` 直接挂载 Core（仅客户端加载，
-  不含 Vue 运行时）；`KLineChartWC` 渲染由 Vue 包打包、带完整 UI 的 `<kline-chart>` 自定义元素
-  （`@363045841yyt/klinechart/web-component`）。
+  不含 Vue 运行时）；`KLineChartWC` 渲染带完整 UI 的 `<kline-chart>` 自定义元素，由
+  `@363045841yyt/klinechart-web-component` 提供，是独立发布的单文件产物。
 - **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
   `@Tool` 注册的原语——与 UI 使用同一入口。
 

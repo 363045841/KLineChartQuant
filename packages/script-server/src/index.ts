@@ -1,12 +1,12 @@
 /**
- * klinechart-script-server 公共入口。
+ * klinechart-script-server 的公共入口。
  *
- * 只导出脚本编辑器所需的 TypeScript 语言服务与类型契约；图表包通过动态 import
- * 加载本模块，未安装本包时编辑器退化为无补全的纯文本编辑器。
+ * 只包含脚本编辑器需要的 TypeScript 语言服务与来源改写，图表包通过动态 import
+ * 按需加载本模块，未安装时编辑器退化为无补全的纯文本编辑。
  */
 
 export { createScriptLanguageSupport } from './languageSupport.js'
-export { SCRIPT_EDITOR_FILE } from './types.js'
+export { rewriteScriptIdentity } from './rewriteScriptIdentity.js'
 export type {
   ScriptCodeView,
   ScriptLanguageWorker,
@@ -14,3 +14,4 @@ export type {
   ScriptSignatureProvider,
   ScriptTextRange,
 } from './types.js'
+export { SCRIPT_EDITOR_FILE } from './types.js'

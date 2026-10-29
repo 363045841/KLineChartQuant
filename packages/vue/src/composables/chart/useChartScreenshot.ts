@@ -42,18 +42,13 @@ const WATERMARK_BRAND_FONT_TOKEN = '--klc-font-family-brand'
 const WATERMARK_NAME_FONT_TOKEN = '--klc-font-family-brand-cjk'
 /** FontFace 注册名，必须与 --klc-font-family-brand-cjk 的首选族一致。 */
 const WATERMARK_CJK_FONT_FAMILY = 'HarmonyOS Sans'
-let harmonyFontPromise: Promise<FontFace> | undefined
+let harmonyFontPromise: Promise<readonly FontFace[]> | undefined
 
-/** 首次截图时加载随包提供的 HarmonyOS Sans 中文字体，后续复用字体。 */
-function loadHarmonyFont(): Promise<FontFace> {
-  if (!harmonyFontPromise) {
-    const fontUrl = new URL('../../assets/fonts/HarmonyOS_Sans_SC_Medium.ttf', import.meta.url)
-    const font = new FontFace(WATERMARK_CJK_FONT_FAMILY, `url("${fontUrl.href}")`, {
-      weight: String(WATERMARK_NAME_FONT_WEIGHT),
-    })
-    document.fonts.add(font)
-    harmonyFontPromise = font.load()
-  }
+/** 首次截图时等待随包字体就绪；字体由 fonts.css 的 @font-face 注册，这里不重复嵌入字形。 */
+function loadHarmonyFont(): Promise<readonly FontFace[]> {
+  harmonyFontPromise ??= document.fonts.load(
+    `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px "${WATERMARK_CJK_FONT_FAMILY}"`,
+  )
   return harmonyFontPromise
 }
 

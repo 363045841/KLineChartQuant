@@ -18,7 +18,6 @@ import {
 } from '../../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
-import { scriptEditorPagePlugin } from '../scripts/script-editor-page-plugin.mjs'
 
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
@@ -37,6 +36,8 @@ const decoratorTransform = babel({
 const root = fileURLToPath(new URL('../../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
 const vueSrc = `${root}/packages/vue/src`
+// 独立编辑器页是预构建产物：dev 直接读它的 dist，避免把 AGPL 源码拉进预览构建。
+const scriptEditorSrc = `${root}/packages/script-editor/src`
 
 /**
  * 把 workspace 源码目录整树加入 watcher，使 root 外源码获得与 root 内一致的目录监听。
@@ -71,7 +72,6 @@ export default defineConfig({
     },
   },
   plugins: [
-    scriptEditorPagePlugin(),
     contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),
@@ -87,7 +87,7 @@ export default defineConfig({
     alias: [
       { find: /^@vue-src\//, replacement: `${vueSrc}/` },
       ...createCoreSourceAliases(coreSrc),
-      ...createWorkspaceSourceAliases(root, { exclude: [coreSrc, vueSrc] }),
+      ...createWorkspaceSourceAliases(root, { exclude: [coreSrc, vueSrc, scriptEditorSrc] }),
     ],
   },
 })

@@ -14,8 +14,8 @@
   "typography": {
     "fontFamily": {
       "$type": "fontFamily",
-      "$value": "inherit",
-      "$description": "不指定字体，DOM 界面继承宿主页面字体。"
+      "$value": ["HarmonyOS Sans", "system-ui", "sans-serif"],
+      "$description": "中文与拉丁统一用随包字体：系统 generic 族能覆盖中文时会把后面的字体挤掉，排第一才能真正生效。"
     },
     "fontFamilyMono": {
       "$type": "fontFamily",

@@ -1,5 +1,6 @@
-// vue 包发布产物后处理：修正声明文件里的 .vue specifier，并生成 CJS 声明副本。
-import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+// vue 包发布产物后处理：修正声明文件里的 .vue specifier。
+// 本包只发 ESM，没有 CJS 声明副本要生成。
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const DIST = 'dist'
@@ -24,11 +25,4 @@ function rewriteVueSpecifiers(dir) {
   }
 }
 
-// 为 exports.require 条件提供 CJS 声明副本，内容与 ESM 声明一致。
-function copyCjsDeclaration() {
-  const esm = join(DIST, 'index.d.ts')
-  if (existsSync(esm)) copyFileSync(esm, join(DIST, 'index.d.cts'))
-}
-
 rewriteVueSpecifiers(DIST)
-copyCjsDeclaration()

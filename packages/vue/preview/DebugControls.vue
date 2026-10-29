@@ -34,26 +34,6 @@
           <path d="M3 16v3a2 2 0 0 0 2 2h3" />
         </svg>
       </button>
-      <button
-        :class="{ 'is-active': customDataActive }"
-        @click="emit('toggle-custom-data')"
-        :title="customDataActive ? '切换到 Fetcher 数据源' : '切换到自定义数据源'"
-      >
-        <svg
-          class="debug-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <ellipse cx="12" cy="5" rx="9" ry="3" />
-          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-        </svg>
-      </button>
     </div>
     <div class="debug-right">
       <span class="version-badge">{{ version }}</span>
@@ -93,16 +73,11 @@
 <script setup lang="ts">
   import { VERSION, CORE_VERSION } from '../src/version'
 
-  defineProps<{
-    customDataActive: boolean
-  }>()
-
   const version = `Vue@${VERSION}-Core@${CORE_VERSION}`
 
   const emit = defineEmits<{
     'open-modal': []
     'toggle-embed-size': []
-    'toggle-custom-data': []
   }>()
 </script>
 

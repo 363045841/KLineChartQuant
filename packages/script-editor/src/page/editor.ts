@@ -1,18 +1,18 @@
-/** 独立窗口入口：在当前 Window 内挂载 Vue、CodeMirror 和语言 Worker。 */
-import { createApp, defineComponent, h } from 'vue'
-import '@fontsource/jetbrains-mono/400.css'
-import '@vue-src/styles/scrollbar.css'
-import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
-import type { ScriptTreeAction } from '../types.js'
+/** 独立编辑器窗口：在当前 Window 内构建 Vue、CodeMirror 与语言 Worker。 */
+import type { ScriptTreeAction } from '@vue-src/composables/chart/scriptEditor/types.js'
 import {
   type DetachedEditorConnection,
   type DetachedEditorEvent,
   type DetachedEditorSnapshot,
   SCRIPT_EDITOR_WINDOW_CHANNEL,
-} from '../windowTypes.js'
-import { createDetachedEditorState } from './detachedEditorState.js'
+} from '@vue-src/composables/chart/scriptEditor/windowTypes.js'
+import { createDetachedEditorState } from '@vue-src/composables/chart/scriptEditor/impl/detachedEditorState.js'
+import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
+import '@fontsource/jetbrains-mono/400.css'
+import '@vue-src/styles/scrollbar.css'
+import { createApp, defineComponent, h } from 'vue'
 
-/** 仅接受打开本窗口的宿主传入的专用通道，后续草稿不通过全局 message 广播。 */
+/** 只接受能打开本窗口的父页面通过专属通道发来的草稿，不通过全局 message 广播。 */
 function connect(event: MessageEvent<DetachedEditorConnection>): void {
   if (event.source !== window.opener || event.origin !== window.location.origin) return
   if (event.data?.channel !== SCRIPT_EDITOR_WINDOW_CHANNEL || !event.ports[0]) return
@@ -21,7 +21,7 @@ function connect(event: MessageEvent<DetachedEditorConnection>): void {
   let editor: ReturnType<typeof createDetachedEditorState> | undefined
   let app: ReturnType<typeof createApp> | undefined
 
-  /** 草稿由消息端口按顺序发送，输入和补全不等待宿主返回。 */
+  /** 把草稿以外的消息端口按顺序投递，避免竞态等待。 */
   function send(message: DetachedEditorEvent): void {
     port.postMessage(message)
   }

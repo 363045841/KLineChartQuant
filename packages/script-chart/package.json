@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-script-chart",
-  "version": "0.0.0",
+  "version": "0.11.0-alpha.10",
   "description": "Bridge that registers KLineChartQuant script indicators as chart indicators.",
   "license": "AGPL-3.0-or-later",
   "repository": {
