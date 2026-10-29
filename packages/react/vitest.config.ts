@@ -14,7 +14,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@\//, replacement: `${repoSrc}/` },
-      { find: '@363045841yyt/klinechart/web-component', replacement: webComponentStub },
+      { find: '@363045841yyt/klinechart-web-component', replacement: webComponentStub },
     ],
   },
 })

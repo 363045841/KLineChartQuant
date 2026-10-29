@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-script",
-  "version": "0.0.0",
+  "version": "0.11.0-alpha.10",
   "description": "Deterministic, data-source- and render-agnostic time-series script engine for KLineChartQuant. Scripts are written in plain TypeScript.",
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -44,7 +44,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node scripts/generate-script-enums.mjs && tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json",
+    "build": "node scripts/generate-script-enums.mjs && tsc -p tsconfig.runtime.json && node scripts/generate-runtime-sources.mjs && node scripts/generate-editor-resources.mjs && tsc -p tsconfig.build.json && node scripts/build-worker.mjs",
     "prepublishOnly": "pnpm build",
     "test": "vitest run && node --test scripts/__tests__/generate-api-docs.test.mjs scripts/__tests__/generate-script-enums.test.mjs",
     "test:watch": "vitest",

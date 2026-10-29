@@ -78,17 +78,36 @@ jobs:
             rm -rf "$pack_dir"
           }
 
-          # 发布顺序：core -> agent-runtime -> vue。
-          # vue 把 core / agent-runtime 声明为 peerDependency（workspace:^ → ^${TAG}），
-          # 必须先发布前两者，否则 vue 的 peer 范围指向 npm 上尚不存在的版本。
+          # 发布顺序按依赖图拓扑排：plot-contracts -> script -> script-server -> core
+          # -> agent-runtime -> script-chart -> vue -> script-editor -> web-component。
+          # pnpm pack 会把 workspace: 协议解析成具体版本，被依赖的包没先发出去，后续包在 npm 上
+          # 就会声明一个不存在的版本。react / angular 暂不发布，故 build:packages 已覆盖全部待发包。
+          echo "====== 开始发布 Plot Contracts 包 ======"
+          publish_package plot-contracts
+
+          echo "====== 开始发布 Script 包 ======"
+          publish_package script
+
+          echo "====== 开始发布 Script Server 包 ======"
+          publish_package script-server
+
           echo "====== 开始发布 Core 包 ======"
           publish_package core
 
           echo "====== 开始发布 Agent Runtime 包 ======"
           publish_package agent-runtime
 
+          echo "====== 开始发布 Script Chart 包 ======"
+          publish_package script-chart
+
           echo "====== 开始发布 Vue 包 ======"
           publish_package vue
+
+          echo "====== 开始发布 Script Editor 包 ======"
+          publish_package script-editor
+
+          echo "====== 开始发布 Web Component 包 ======"
+          publish_package web-component
 
       - name: Generate release notes
         id: notes

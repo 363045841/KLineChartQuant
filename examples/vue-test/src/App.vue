@@ -2,7 +2,6 @@
   <div class="app-container" :data-theme="currentTheme">
     <KlineChart
       :settings="chartSettings"
-      :custom-data="customData"
       @theme-change="(t: 'light' | 'dark') => (currentTheme = t)"
     >
       <template #kline-tooltip="{ hoverData, upColor, downColor }">
@@ -72,13 +71,11 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
 
   const chartSettings: ChartSettings = {
     showGridLines: true,

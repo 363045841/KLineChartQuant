@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import { Worker } from 'node:worker_threads'
 import { SCRIPT_SOURCE_FILE } from '@363045841yyt/klinechart-script/language'
-import { buildScriptEditorPage } from './script-editor-page-plugin.mjs'
+import { buildEditorPage } from './build-page.mjs'
 
 const serverRequire = createRequire(new URL('../../script-server/package.json', import.meta.url))
 const { wrap, releaseProxy } = serverRequire('comlink')
@@ -61,7 +61,7 @@ async function startWorker(source) {
 }
 
 test('独立页面的最终 Worker 提供 Series 补全及只读序列类型', { timeout: 30000 }, async () => {
-  const page = await buildScriptEditorPage()
+  const page = await buildEditorPage()
   // 独立页面不能依赖主包入口的全局 CSS；检查最终输出的样式资源。
   const css = page.files
     .filter((file) => page.styles.includes(file.name))

@@ -195,7 +195,7 @@
   --klc-spacing-xl: 24px;
   --klc-spacing-xxl: 32px;
   --klc-spacing-xxxl: 64px;
-  --klc-typography-font-family: inherit;
+  --klc-typography-font-family: 'HarmonyOS Sans', system-ui, sans-serif;
   --klc-typography-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   --klc-typography-font-size-sm: 10px;
   --klc-typography-font-size-md: 12px;

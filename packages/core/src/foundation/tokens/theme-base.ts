@@ -14,7 +14,8 @@ export const spacing: SpacingTokens = {
 }
 
 export const typography: TypographyTokens = {
-  fontFamily: 'inherit', // 不指定字体，DOM 界面继承宿主页面字体。
+  // 中文与拉丁统一用随包字体：系统 generic 族能覆盖中文时会把后面的字体挤掉，排第一才能真正生效。
+  fontFamily: "'HarmonyOS Sans', system-ui, sans-serif",
   // 代码、版本号、数字等优先使用 JetBrains Mono，缺失时回退系统等宽字体。
   fontFamilyMono:
     "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",

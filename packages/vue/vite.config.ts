@@ -1,28 +1,22 @@
+/**
+ * vue 包（普通库入口）构建配置。
+ *
+ * 自定义元素那份交付形态在 @363045841yyt/klinechart-web-component，独立编辑器页在
+ * @363045841yyt/klinechart-script-editor；本包只有单入口，两样都不在此打包。
+ */
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import dts from 'vite-plugin-dts'
 import Icons from 'unplugin-icons/vite'
-import cssInjectedByJs from 'vite-plugin-css-injected-by-js'
-import { scriptEditorPagePlugin } from './scripts/script-editor-page-plugin.mjs'
-
-const isWC = process.env.BUILD_TARGET === 'web-component'
+import { defineConfig } from 'vite'
+import dts from 'vite-plugin-dts'
 
 export default defineConfig({
   plugins: [
-    scriptEditorPagePlugin(),
-    vue({ customElement: isWC }),
+    vue(),
     Icons({ compiler: 'vue3', autoInstall: true }),
-    ...(isWC
-      ? [cssInjectedByJs({
-          // 独立页面的样式必须留在资源目录，由子窗口加载，不能注入宿主后删除。
-          cssAssetsFilterFunction: (asset) => !asset.fileName.startsWith('assets/script-editor/'),
-        })]
-      : [
-          dts({
-            tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)),
-          }),
-        ]),
+    dts({
+      tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)),
+    }),
   ],
 
   resolve: {
@@ -31,31 +25,22 @@ export default defineConfig({
 
   build: {
     target: 'esnext',
-    emptyOutDir: !isWC,
-    cssCodeSplit: !isWC,
-    lib: isWC
-      ? {
-          entry: fileURLToPath(new URL('./src/web-component-with-sources.ts', import.meta.url)),
-          name: 'KLineChartWC',
-          formats: ['es'],
-          fileName: () => 'web-component.js',
-        }
-      : {
-          entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-          name: 'KlineChart',
-          formats: ['es', 'cjs'],
-          fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
-        },
+    emptyOutDir: true,
+    // lib 模式默认把样式合成一个以库名命名的文件；这里按 chunk 切分，产物名固定为 index.css。
+    cssCodeSplit: true,
+    lib: {
+      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      name: 'KlineChart',
+      formats: ['es'],
+      fileName: () => 'index.js',
+    },
     rolldownOptions: {
-      external: isWC
-        ? [/@363045841yyt\/klinechart-script/]
-        : [
-            'vue',
-            /@363045841yyt\/klinechart-core/,
-            /@363045841yyt\/klinechart-agent-runtime/,
-            /@363045841yyt\/klinechart-script/,
-          ],
-      output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
+      external: [
+        'vue',
+        /@363045841yyt\/klinechart-core/,
+        /@363045841yyt\/klinechart-agent-runtime/,
+        /@363045841yyt\/klinechart-script/,
+      ],
     },
   },
 })

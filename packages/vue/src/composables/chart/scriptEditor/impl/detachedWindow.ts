@@ -10,12 +10,13 @@ import {
   SCRIPT_EDITOR_WINDOW_CHANNEL,
 } from '../windowTypes.js'
 
-/** 页面资源清单；清单本身也按需加载，首屏不为未打开的编辑器付出代价。 */
-type EditorPageAssets = typeof import('virtual:klinechart-script-editor-page')['default']
+/** 页面资源清单由 AGPL 的独立包提供，本包只在打开窗口时按需向它索取。 */
+type EditorPageAssets = import('@363045841yyt/klinechart-script-editor').ScriptEditorPageAssets
 
-/** 真正打开窗口时才取页面资源，dev 下不再随首屏构建整套编辑器页。 */
+/** 真正打开窗口时才去取页面资源；未安装该包时按加载失败处理。 */
 async function loadEditorPage(): Promise<EditorPageAssets> {
-  return (await import('virtual:klinechart-script-editor-page')).default
+  const { loadScriptEditorPageAssets } = await import('@363045841yyt/klinechart-script-editor')
+  return loadScriptEditorPageAssets()
 }
 
 /** 独立编辑器窗口的初始尺寸（px）。 */

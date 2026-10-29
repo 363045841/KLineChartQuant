@@ -3,3 +3,14 @@
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/outfit/latin-600.css";
+
+/* 中文界面字体：单一字重 Medium，由 --klc-typography-font-family 的第二种字体命中。
+   子集由 scripts/build-font-subset.mjs 生成（GBK 一级汉字 + 界面用字），生僻字回退系统字体。
+   协议要求随包保留授权文件，见 assets/fonts/HarmonyOS-Sans-LICENSE.txt。 */
+@font-face {
+  font-family: "HarmonyOS Sans";
+  src: url("../assets/fonts/HarmonyOS_Sans_SC_Subset.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+}

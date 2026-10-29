@@ -64,7 +64,7 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(fu
   // Vue Custom Element 在模块加载时访问 customElements，只能在客户端 effect 中加载。
   useEffect(() => {
     let mounted = true
-    void import('@363045841yyt/klinechart/web-component').then(() => {
+    void import('@363045841yyt/klinechart-web-component').then(() => {
       if (mounted) setRegistered(true)
     })
     return () => {
