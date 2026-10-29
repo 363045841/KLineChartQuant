@@ -57,6 +57,9 @@ function createSourceAliases() {
 /**
  * 构建页面产物。
  *
+ * 页面必须是「入口 + 样式」两个文件：宿主用 `new URL('./assets/editor.js', import.meta.url)`
+ * 复制资源时只会复制这一个文件，不会跟随它的相对 import。所以这里把 chunk 与 Worker 全部内联。
+ *
  * @returns {Promise<{ script: string, styles: string[], files: Array<{ name: string, source: string | Uint8Array }> }>}
  */
 export async function buildEditorPage() {
@@ -65,7 +68,21 @@ export async function buildEditorPage() {
     configFile: false,
     root: packageRoot,
     logLevel: 'warn',
-    plugins: [contractResourcesPlugin(), decoratorTransform, vue(), Icons({ compiler: 'vue3' })],
+    plugins: [
+      contractResourcesPlugin(),
+      // Worker 必须以 base64 内联：宿主只复制 editor.js 这一个文件，不会跟随相对资源。
+      {
+        name: 'inline-worker',
+        enforce: 'pre',
+        async resolveId(source, importer) {
+          if (!source.endsWith('?worker')) return null
+          return this.resolve(`${source}&inline`, importer, { skipSelf: true })
+        },
+      },
+      decoratorTransform,
+      vue(),
+      Icons({ compiler: 'vue3' }),
+    ],
     resolve: { alias: createSourceAliases() },
     worker: { format: 'es' },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
@@ -76,6 +93,7 @@ export async function buildEditorPage() {
       lib: { entry, formats: ['es'] },
       rolldownOptions: {
         output: {
+          inlineDynamicImports: true,
           entryFileNames: PAGE_SCRIPT,
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: (asset) => {
