@@ -40,6 +40,11 @@ export default defineConfig({
         /@363045841yyt\/klinechart-core/,
         /@363045841yyt\/klinechart-agent-runtime/,
         /@363045841yyt\/klinechart-script/,
+        // CodeMirror 必须与消费端共用同一份实例：script-server 的语言服务把外部化的
+        // @codemirror/state 扩展对象传回编辑器，两副本会让 instanceof 校验失败。
+        'codemirror',
+        /^@codemirror\//,
+        /^@lezer\//,
       ],
     },
   },
