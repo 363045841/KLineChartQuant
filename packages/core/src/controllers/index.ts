@@ -142,7 +142,7 @@ export {
   gotdxMarketDataProvider,
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
-  mockMarketDataProvider,
+  createMockDataSource,
   mt5MarketDataProvider,
   ORIGINAL_BAR_AGGREGATION,
   RealtimeBarsConnector,

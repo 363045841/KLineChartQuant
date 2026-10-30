@@ -68,3 +68,5 @@ const unregister = host.registerDataSource(source)
 公开类型集中在 `data/provider/types.ts`。`registeredDataSource.ts` 只做 Provider 接口翻译、取消和回调资格管理，不缓存行情、不操作 Buffer。`MarketDataContext` 注册和释放，`MarketDataCache` 管历史分页及重查，`MarketRuntime` 管订阅使用权、增量写入和重查期间的事件顺序。Buffer 只保存事实和发布变更。
 
 隔离消费验收也注册数据源，实际验证历史查询、末根更新、新根追加、脚本运行和卸载释放，不使用旁路数组注入。
+
+内置 mock 同样实现此接口：`host.registerDataSource(createMockDataSource())`。每个实例独立持有 `MOCK-100` 与 `MOCK-10000` 的历史，历史页遵守数量及排他游标约束；实时订阅只调用 `observer.update(bar)`。注销来源或释放宿主会停止计时器。两组历史均截止当前 UTC 日，不生成未来 K 线。

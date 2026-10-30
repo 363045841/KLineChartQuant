@@ -125,7 +125,7 @@ export {
 
 export { KlineWorkbench }
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
-export { createBuiltinMarketDataContext } from '@363045841yyt/klinechart-core/market-data/sources'
+export { createBuiltinMarketDataContext, createMockDataSource } from '@363045841yyt/klinechart-core/market-data/sources'
 export type { MarketDataConfiguration } from '@363045841yyt/klinechart-core/market-data'
 export type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 export { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'

@@ -4,7 +4,7 @@ import type { MarketDataConfiguration } from '../../../management/types.js'
 import { createBaostockMarketDataProvider } from './baostock.js'
 import { createBinanceMarketDataProvider } from './binance.js'
 import { createGotdxMarketDataProvider } from './gotdx.js'
-import { mockMarketDataProvider } from './mock.js'
+import { createMockDataSource } from './mock.js'
 import { createMt5MarketDataProvider } from './mt5.js'
 import { createThsMarketDataProvider } from './ths.js'
 import { createTradingviewMarketDataProvider } from './tradingview.js'
@@ -24,7 +24,7 @@ export function createBuiltinMarketDataContext(
     createBinanceMarketDataProvider,
   ])
     registry.register(create(registry))
-  registry.register({ ...mockMarketDataProvider, source: { ...mockMarketDataProvider.source } })
+  context.registerDataSource(createMockDataSource())
   if (configuration) context.restore(configuration)
   return context
 }
