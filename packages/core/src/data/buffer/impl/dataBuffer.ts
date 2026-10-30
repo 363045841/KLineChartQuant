@@ -143,6 +143,24 @@ export class DataBuffer implements KLineBuffer {
     if (!this.disposed) this.loadingSignal.set(loading)
   }
 
+  /** 修正已加载历史，不改变序列身份和历史覆盖状态。 */
+  correctBar(bar: KLineData): void {
+    if (this.disposed) return
+    this.store.correctBar(bar)
+    this.errorSignal.set(null)
+  }
+
+  /** 失效重查提交完整查询结果，不改变品种身份。 */
+  replaceData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
+    if (this.disposed) return
+    this.olderDataStatus = olderData
+    this.currentTimezone = timezone
+    this.calendar.clear()
+    this.store.setInlineData([...data])
+    this.errorSignal.set(null)
+    this.loadingSignal.set(false)
+  }
+
   /** 发布缓存查询错误。 */
   setError(error: string | null): void {
     if (!this.disposed) {

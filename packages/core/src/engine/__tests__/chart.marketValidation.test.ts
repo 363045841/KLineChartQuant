@@ -27,7 +27,7 @@ describe('Chart market validation boundaries', () => {
   beforeEach(() => {
     restoreDom = installChartDomStubs()
     chart = new Chart(createChartDom(1000, 600), options)
-    chart.applyCustomData({ symbol: '01810', market: 'HK', period: 'daily', data: [] })
+    chart.setSymbols([{ symbol: '01810', market: 'HK', period: 'daily', source: 'session-fixture', incremental: false }])
   })
   afterEach(async () => {
     await chart.destroy()
@@ -52,9 +52,9 @@ describe('Chart market validation boundaries', () => {
       view: ChartDataViewId.TimeShare,
     },
     {
-      name: 'fetcher reset',
+      name: 'symbol selection',
       run: (target: Chart) =>
-        target.resetToFetcher({ ...target.symbols.peek()[0]!, period: TIME_SHARE_PERIOD }),
+        target.setSymbols([{ ...target.symbols.peek()[0]!, period: TIME_SHARE_PERIOD }]),
       view: ChartDataViewId.TimeShare,
     },
   ])('configures HK session through $name', ({ run, view }) => {
@@ -63,32 +63,24 @@ describe('Chart market validation boundaries', () => {
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
   })
 
-  it('does not resolve a session for a non-timeshare fetcher reset', () => {
+  it('does not resolve a session for a non-timeshare selection', () => {
     const session = vi.spyOn(chart['_timeShareMode'], 'setMarketSession')
-    chart.resetToFetcher({ ...chart.symbols.peek()[0]!, market: 'FUTURES', period: 'daily' })
+    chart.setSymbols([{ ...chart.symbols.peek()[0]!, market: 'FUTURES', period: 'daily' }])
     expect(session).not.toHaveBeenCalled()
   })
 
-  it('rejects unknown custom-data market before applying data', () => {
+  it('rejects unknown timeshare market before changing the selection', () => {
     const before = chart.symbols.peek()
     expect(() =>
-      chart.applyCustomData({
+      chart.setSymbols([{
         symbol: 'IF2608',
         market: 'FUTURES',
         period: TIME_SHARE_PERIOD,
-        data: [],
-      }),
+        source: 'session-fixture',
+      }]),
     ).toThrow('Market session is not registered: FUTURES')
     expect(chart.symbols.peek()).toBe(before)
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
   })
 
-  it('rejects timeshare input to the K-line custom-data API without changing state', () => {
-    const before = chart.symbols.peek()
-    expect(() =>
-      chart.applyCustomData({ symbol: '01810', market: 'HK', period: TIME_SHARE_PERIOD, data: [] }),
-    ).toThrow('invalid K-line period')
-    expect(chart.symbols.peek()).toBe(before)
-    expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
-  })
 })

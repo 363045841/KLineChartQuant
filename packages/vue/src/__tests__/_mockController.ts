@@ -119,7 +119,7 @@ export function createMockChartController(
     visibleFrom: 0,
     visibleTo: 0,
   })
-  const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
+  const data = createSignal<ReadonlyArray<KLineData>>([])
   const themePreference = opts.theme ?? 'light'
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const chartMode = createSignal<ReturnType<ChartController['chartMode']['peek']>>('kline')
@@ -219,9 +219,6 @@ export function createMockChartController(
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     catalog: [],
 
-    setData: (next) => data.set(next),
-    appendData: (next) => data.set([...data.peek(), ...next]),
-    updateData: (next) => data.set(next),
     getData: () => data.peek(),
     withIndicatorData: async () => {
       throw new Error('测试图表未配置临时计算行情')
@@ -233,11 +230,9 @@ export function createMockChartController(
     addComparisonSymbol: () => {},
     setComparisonHidden: () => {},
     removeComparisonSymbol: () => {},
-    setComparisonData: () => {},
     setCurrentSymbol: () => {},
     setCurrentPeriod: () => {},
     switchToTimeShareForDate: () => {},
-    applyCustomData: () => {},
     ensureDataRange: () => {},
     setTheme: (next) => {
       setThemeCalls.push(next)
@@ -313,7 +308,6 @@ export function createMockChartController(
     setSelectedDrawingIds: () => {},
     getSelectedDrawingIds: () => [],
     alertController,
-    resetToFetcher: () => {},
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
     getCurrentDpr: () => 1,

@@ -19,7 +19,7 @@
           autofocus
           @update:model-value="controller.setSearchQuery"
         >
-          <BaseButton v-if="section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
+          <BaseButton v-if="scriptsEnabled !== false && section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
             新建脚本
           </BaseButton>
         </ModalSearchBar>
@@ -49,6 +49,7 @@
             type="button"
             class="selector-nav-item"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
+            v-if="scriptsEnabled !== false"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.scripts"
           >
@@ -103,7 +104,7 @@
                 </div>
               </button>
               <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
-              <BaseTooltip content="编辑脚本" placement="top">
+              <BaseTooltip v-if="scriptsEnabled !== false" content="编辑脚本" placement="top">
                 <button
                   type="button"
                   class="item-action-btn"
@@ -218,6 +219,7 @@
 
   const props = defineProps<{
     chartController?: ChartController | null
+    scriptsEnabled?: boolean
     activeIndicators?: string[]
     indicatorParams?: Record<string, Record<string, unknown>>
     replacePaneId?: string | null
@@ -253,10 +255,10 @@
   const currentIndicator = ref<ReturnType<typeof findIndicator>>()
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
-    if (props.replacePaneId) {
-      return props.replaceRole === 'main' ? filteredMain.value : filteredSub.value
-    }
-    return [...filteredMain.value, ...filteredSub.value]
+    const indicators = props.replacePaneId
+      ? props.replaceRole === 'main' ? filteredMain.value : filteredSub.value
+      : [...filteredMain.value, ...filteredSub.value]
+    return props.scriptsEnabled === false ? indicators.filter((item) => item.source !== 'script') : indicators
   })
   const { section, favoriteSet, filteredIndicators, toggleFavorite } = useIndicatorFavorites(
     computed(() => props.chartController ?? null),

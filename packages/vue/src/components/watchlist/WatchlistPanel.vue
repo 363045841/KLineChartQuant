@@ -84,7 +84,7 @@
     --drop-menu-item-padding-block: 10px;
   }
 
-  /* DropMenu 触发器是共享组件的元素，用 :deep 收紧为紧凑图标按钮。 */
+  /* 业务外观覆盖 primitives 层中的共享按钮默认值。 */
   :deep(.watchlist-trigger) {
     width: 30px;
     min-width: 30px;

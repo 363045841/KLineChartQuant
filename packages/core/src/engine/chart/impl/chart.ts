@@ -19,13 +19,11 @@ import {
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
-  type CustomDataSource,
   isTimeSharePeriod,
   type SymbolInfo,
   type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '../../../controllers/types.js'
-import type { DataBuffer } from '../../../data/buffer/impl/dataBuffer.js'
 import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import {
@@ -581,6 +579,7 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
       subPaneOps: {
+        reconcileDefinition: (indicatorId, role) => this.kernel.paneManager.reconcileDefinition(indicatorId, role),
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
         remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
         replace: (paneId, indicatorId, params) =>
@@ -1452,19 +1451,6 @@ export class Chart {
 
   // ---------- Data ----------
 
-  setData(data: KLineData[]): void {
-    this.dataManager.setData(data)
-  }
-
-  /** 实时帧写入活动 K 线序列：末尾窗口 replace-on-conflict（SSE forming/closed 链路）。 */
-  updateBars(bars: KLineData[]): void {
-    this.dataManager.updateBars(bars)
-  }
-
-  get dataBuffer(): DataBuffer {
-    return this.dataManager.dataBuffer as DataBuffer
-  }
-
   checkVisibleRangeGap(): void {
     this.dataManager.checkVisibleRangeGap()
   }
@@ -1550,15 +1536,6 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  setComparisonData(symbol: string, data: KLineData[]): void {
-    this.dataManager.setComparisonData(symbol, data)
-    this.applyPriceScaleSettingToKernel(
-      resolvePriceScaleTypeSetting(
-        this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-      ),
-    )
-  }
-
   setCurrentSymbol(symbol: string): void {
     this.dataManager.setCurrentSymbol(symbol)
   }
@@ -1575,31 +1552,6 @@ export class Chart {
   switchToTimeShareForDate(dateYYYYMMDD: number): void {
     this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
     this.setCurrentPeriod(TIME_SHARE_PERIOD)
-  }
-
-  /** 校验并原子替换自定义 K 线数据及对比集合，再按最终快照选择视图。 */
-  applyCustomData(source: CustomDataSource): void {
-    // 在任何数据写入前校验市场契约，失败时不留下半写入的品种状态。
-    if (isTimeSharePeriod(source.period)) {
-      resolveSymbolMarketSession(
-        {
-          symbol: source.symbol ?? '',
-          market: source.market,
-        },
-        this.marketSessions,
-      )
-    }
-    // 自定义数据会替换对比集合；用最终快照裁决，避免旧集合决定新视图。
-    batch(() => {
-      this.dataManager.applyCustomData(source)
-      this.transitionView()
-    })
-  }
-
-  /** 在恢复 Provider 数据入口前配置目标品种的视图。 */
-  resetToFetcher(spec: SymbolSpec): void {
-    this.transitionView(spec)
-    this.dataManager.resetToFetcher(spec)
   }
 
   // ---------- Interaction (Zero-config unified entry) ----------

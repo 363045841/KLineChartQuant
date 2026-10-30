@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { createIndicatorState } from '../indicatorState'
 import { createPaneState } from '../paneState'
 
-/** 布局测试使用真实指标状态作为派生输入。 */
+/** 布局独立于指标目录与执行环境。 */
 function createState() {
-  return createPaneState(createIndicatorState().readonly.workspaces)
+  return createPaneState()
 }
 
 describe('paneState', () => {
@@ -82,7 +81,6 @@ describe('paneState', () => {
     m.actions.restoreWorkspaces({
       kline: {
         instances: [],
-        paneRatios: { main: 0.75, RSI_0: 0.25 },
         paneSpecs: [
           { id: 'main', ratio: 0.75 },
           { id: 'RSI_0', ratio: 0.25 },
@@ -91,13 +89,13 @@ describe('paneState', () => {
       },
       timeshare: {
         instances: [],
-        paneRatios: { main: 1 },
         paneSpecs: [{ id: 'main', ratio: 1 }],
         paneScaleTypes: { main: 'percent' },
       },
     })
 
-    expect(m.readonly.paneSpecs.peek().map((spec) => spec.id)).toEqual(['main'])
+    expect(m.readonly.paneSpecs.peek().map((spec) => spec.id)).toEqual(['main', 'RSI_0'])
+    expect(m.readonly.paneRatios.peek()).toEqual({ main: 0.75, RSI_0: 0.25 })
     expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('log')
 
     m.actions.setActiveWorkspace('timeshare')

@@ -13,6 +13,8 @@ export class NodeScriptWorker extends EventTarget {
       `
       const { parentPort, workerData } = require('node:worker_threads')
       globalThis.postMessage = (message) => parentPort.postMessage(message)
+      // 执行浏览器发布产物时隐藏 Node 探测入口，避免依赖选择未打包的 Node 分支。
+      globalThis.process = undefined
       import(workerData).then(() => {
         parentPort.on('message', (data) => globalThis.onmessage({ data }))
       })

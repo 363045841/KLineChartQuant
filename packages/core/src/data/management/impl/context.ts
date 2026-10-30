@@ -9,9 +9,34 @@ import type { MarketDataConfiguration } from '../types.js'
 import { normalizeConnectionUrl } from './connection.js'
 import { MarketDataHealth } from './health.js'
 import { participatesInSearch } from './policy.js'
+import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
+import type { MarketDataSource } from '../../provider/types.js'
 
 /** 连接、Provider 目录和策略共享注册表中的权威快照。 */
 export class MarketDataContext {
+  private readonly registrations = new Set<() => void>()
+  private disposed = false
+
+  /** 注册宿主数据源；返回幂等注销函数，取消该来源的在途查询和实时订阅。 */
+  registerDataSource(source: MarketDataSource): () => void {
+    if (this.disposed) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, 'Market data host is disposed')
+    const registration = createRegisteredDataSource(source)
+    this.registry.register(registration.provider)
+    const unregister = () => {
+      if (!this.registrations.delete(unregister)) return
+      registration.dispose()
+      this.registry.unregister(source.id)
+    }
+    this.registrations.add(unregister)
+    return unregister
+  }
+
+  /** 按来源及稳定 ID 解析品种，不使用全局默认源猜测。 */
+  async resolveInstrument(sourceId: string, id: string, signal?: AbortSignal) {
+    const provider = this.registry.getRequired(sourceId)
+    if (!provider.catalog?.resolve) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Source does not implement instrument resolution: ${sourceId}`)
+    return provider.catalog.resolve(id, signal)
+  }
   readonly health: MarketDataHealth
   readonly configuration: ReadonlySignal<MarketDataConfiguration>
 
@@ -78,9 +103,15 @@ export class MarketDataContext {
 
   /** 由宿主释放；图表卸载不销毁共享实例。 */
   dispose(): void {
+    if (this.disposed) return
+    this.disposed = true
+    for (const unregister of this.registrations) unregister()
     this.health.dispose()
   }
 }
 
 /** 兼容未提供实例的宿主；不隐式访问 localStorage。 */
 export const defaultMarketDataContext = new MarketDataContext(marketDataProviderRegistry)
+
+/** 创建独立行情宿主；公开注册 API 复用同一管理实例。 */
+export function createMarketDataHost(): MarketDataContext { return new MarketDataContext() }

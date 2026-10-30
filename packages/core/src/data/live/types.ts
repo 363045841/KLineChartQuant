@@ -14,6 +14,9 @@ export interface LiveBar {
 
 /** 数据源实时 K 线帧协议。 */
 export type LiveBarsFrame =
+  | { type: 'update'; symbol: string; period: string; bar: LiveBar }
+  | { type: 'historical'; symbol: string; period: string; bar: LiveBar }
+  | { type: 'invalidate'; symbol: string; period: string }
   | { type: 'snapshot'; symbol: string; period: string; bars: LiveBar[] }
   | { type: 'forming'; symbol: string; period: string; bar: LiveBar }
   | { type: 'closed'; symbol: string; period: string; bar: LiveBar }

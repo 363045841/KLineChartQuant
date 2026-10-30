@@ -37,7 +37,8 @@ function readThemeCss(preset: ThemePresetId, mode: 'light' | 'dark'): string {
 }
 
 describe('design tokens pipeline', () => {
-  it('generated files are in sync with the DTCG source (tokens:check)', () => {
+  // 真实生成器会启动构建工具，包测试并行时不应受单元测试默认的 5 秒限制。
+  it('generated files are in sync with the DTCG source (tokens:check)', { timeout: 30000 }, () => {
     expect(() =>
       execFileSync(process.execPath, [buildScript, '--check'], { encoding: 'utf8', stdio: 'pipe' }),
     ).not.toThrow()

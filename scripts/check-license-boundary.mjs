@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** Apache-2.0 一侧的包：发布物里不允许出现任何 AGPL module specifier。 */
-const APACHE_PACKAGES = ['plot-contracts', 'core', 'agent-runtime', 'vue', 'react', 'angular']
+const APACHE_PACKAGES = ['plot-contracts', 'core', 'agent-runtime', 'react', 'angular']
 
 /**
  * 豁免文件（相对仓库根，正斜杠）：只把 AGPL 包名当展示文本读取 package.json，

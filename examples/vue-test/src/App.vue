@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
+  import { KlineChart } from '@363045841yyt/klinechart'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core'
 

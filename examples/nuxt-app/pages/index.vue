@@ -10,26 +10,15 @@
  * to the client only, satisfying the adapter's SSR-safety contract.
  */
 import { ref } from 'vue'
-import { useChart, type ChartMountOptions } from '@363045841yyt/klinechart'
-import type { KLineData } from '@363045841yyt/klinechart-core'
+import { useChart } from '@363045841yyt/klinechart'
 
 const containerRef = ref<HTMLElement | null>(null)
-
-const mockData: KLineData[] = Array.from({ length: 100 }, (_, i) => ({
-    timestamp: 1_700_000_000_000 + i * 60_000,
-    open: 100 + i * 0.5,
-    high: 101 + i * 0.5,
-    low: 99 + i * 0.5,
-    close: 100.5 + i * 0.5,
-    volume: 1_000 + i * 10,
-}))
 
 // In a real consumer app, a ChartControllerFactory is auto-registered by the
 // adapter's module init (Round 1E). For a pure-SSR smoke, the registration
 // happens on the client during `onMounted`. SSR build passes regardless.
-const { chart } = useChart(containerRef, {
-    data: mockData as unknown as ChartMountOptions['data'],
-})
+// SSR 用例只验证挂载；实际行情使用注册数据源，不提供数组注入入口。
+const { chart } = useChart(containerRef, {})
 </script>
 
 <template>

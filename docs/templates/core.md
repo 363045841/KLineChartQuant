@@ -135,9 +135,9 @@ import {
 
 ### Mount Options
 
-`ChartMountOptions` accepts the host `container` and optional initial data or symbols. It also supports initial zoom, light or dark theme preference, chart settings, market sessions, layout dimensions, and pre-existing DOM layers for framework hosts.
+`ChartMountOptions` accepts the host `container`, market-data context and initial symbols. It also supports initial zoom, theme, settings, market sessions, dimensions and pre-existing DOM layers.
 
-Use `data` for immediately available K-line data. Use `symbols` to drive the registered market-data provider pipeline. For application-owned data, `applyCustomData()` provides an atomic bundle that bypasses fetching.
+Use `symbols` to select instruments from the registered market-data Provider pipeline. Data is owned by the Provider runtime.
 
 ### Readonly State
 
@@ -174,10 +174,6 @@ Comparison legends expose the real price, change relative to the comparison base
 ### Data and Modes
 
 ```typescript
-chart.setData(nextBars)
-chart.appendData(laterBars)
-chart.updateData(revisedBars)
-
 chart.setSymbols([
   { symbol: '000001', market: 'CN', period: 'daily', source: 'baostock' },
 ])
@@ -187,7 +183,7 @@ chart.removeComparisonSymbol('000002')
 chart.switchToTimeShareForDate(20240102)
 ```
 
-For fetch-backed data, register providers and symbols through the market-data API. `setCurrentSymbol()` and `setCurrentPeriod()` update the current selection without fetching; `resetToFetcher()` returns a custom-data chart to the provider pipeline.
+Register providers through the market-data API and use instrument selection to request their data. The public controller exposes selection and read-only data, without array injection methods.
 
 ### Viewport, Theme, and Input
 

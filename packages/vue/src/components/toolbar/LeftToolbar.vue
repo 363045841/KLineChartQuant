@@ -14,7 +14,7 @@
           <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="代码编辑器">
+      <BaseTooltip v-if="scriptsEnabled !== false" content="代码编辑器">
         <button
           type="button"
           class="left-toolbar__button"
@@ -436,6 +436,7 @@
   const props = withDefaults(
     defineProps<{
       alertController?: ChartController | null
+      scriptsEnabled?: boolean
       effectiveSettings?: ChartSettings
       /** Core 当前 drawingTool；工具栏高亮以它为准 */
       drawingToolId?: string

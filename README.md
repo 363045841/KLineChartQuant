@@ -234,14 +234,7 @@ The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vw
 - **Real editor** - The chart ships a CodeMirror-based script editor with completions, hover signatures, and signature help generated from the same declarations the compiler uses
 - **Same rendering path** - Plots flow through the engine's normal Plot, axis, and legend chain, so script indicators behave exactly like built-in ones
 
-Register scripts through the script service; each one then appears in the indicator picker as a normal entry:
-
-```ts
-import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-
-const scripts = await createScriptService()
-await scripts.create(source)
-```
+In `KlineWorkbench`, open the code editor to create, run and add scripts to the chart. The product owns the script service and registers built-in scripts automatically; no separate script package installation is needed. Set `scripts` to `false` before mounting to disable scripting and hide its editor entry.
 
 See the [script docs](packages/script/docs/indicator.md) for the full declaration reference, [libraries](packages/script/docs/library.md), and [Plot API](packages/script/docs/indicator.md#plot).
 
@@ -312,155 +305,26 @@ After `pnpm setup:backends`, no extra setup is needed. The dev server proxies `/
 
 ## 🚀 Quick Start
 
-### 3. Install and Use
+### Complete workbench
 
-```bash
-npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
-```
-
-**Use the component:**
+Install only `@363045841yyt/klinechart` and Vue 3. Internal Core, Agent, script and editor packages are included in the product and are no longer published separately.
 
 ```vue
-<template>
-  <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings" />
-  </div>
-</template>
-
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import type { ChartSettings } from '@363045841yyt/klinechart-core'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
-
-  const currentTheme = ref<'light' | 'dark'>('dark')
-
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
-
-  const chartSettings: ChartSettings = {
-    showGridLines: true,
-    isAsiaMarket: true,
-    mainLeftAxisDisplaySetting: 'none',
-    theme: 'dark',
-    colorPresetSettings: {
-      dark: {
-        candleUpBody: '#e85d04',
-        candleDownBody: '#1b4332',
-        crosshairLine: '#faa307',
-        gridMajor: '#3e2723',
-      },
-    },
-  }
+import { KlineWorkbench } from '@363045841yyt/klinechart'
+import '@363045841yyt/klinechart/style.css'
 </script>
 
-<style>
-  .app-container {
-    display: flex;
-    flex-direction: column;
-    height: 80vh;
-  }
-
-  .app-container[data-theme='dark'] {
-    background: #000;
-    color: #e5e7eb;
-  }
-</style>
-```
-
-**Import CSS in main.ts:**
-
-```typescript
-import '@363045841yyt/klinechart/style.css'
-import { createApp } from 'vue'
-import App from './App.vue'
-
-createApp(App).mount('#app')
-```
-
-**Slot Usage — Custom Tooltip:**
-
-```html
-<KlineChart>
-  <template #kline-tooltip="{ hoverData, upColor, downColor }">
-    <div class="custom-tooltip">
-      <div class="custom-tooltip__title">
-        <span>{{ hoverData.stockCode }}</span>
-        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
-      </div>
-      <div
-        class="custom-tooltip__price"
-        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
-      >
-        {{ hoverData.close.toFixed(2) }}
-      </div>
-      <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br />
-        H: {{ hoverData.high.toFixed(2) }}<br />
-        L: {{ hoverData.low.toFixed(2) }}<br />
-        C: {{ hoverData.close.toFixed(2) }}
-      </div>
-    </div>
-  </template>
-</KlineChart>
-```
-
-**Slot Usage — Custom Main-Pane Legend:**
-
-Providing `#legend` fully replaces the default Canvas legend. The slot scope is the full `LegendTemplateContext` (OHLC, timeshare, main indicators, comparisons, layout, colors).
-
-```vue
-<template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
-  <div class="my-legend">
-    <!-- Custom fields added to KLineData[] for PR #98 are exposed through currentBar -->
-    <div v-if="currentBar" class="my-legend__row">
-      <span :style="{ color: currentBar.color }">
-        开盘 {{ currentBar.open.toFixed(2) }} 最高 {{ currentBar.high.toFixed(2) }} 最低
-        {{ currentBar.low.toFixed(2) }} 收盘 {{ currentBar.close.toFixed(2) }}
-      </span>
-      <span v-if="currentBar.volumeText"> Vol {{ currentBar.volumeText }}</span>
-    </div>
-
-    <div v-if="timeshare" class="my-legend__row">
-      <span :style="{ color: timeshare.changeColor }">
-        现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
-      </span>
-    </div>
-
-    <!-- Using main chart indicator legend data -->
-    <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
-      <span>{{ indicator.name }}:</span>
-      <template v-for="value in indicator.values" :key="value.label">
-        <span :style="{ color: value.color }">
-          {{ value.label }} {{ value.value.toFixed(3) }}
-        </span>
-      </template>
-    </div>
-    <!-- Using comparison commodity data -->
-    <div
-      v-for="comparison in comparisons"
-      :key="comparison.symbol"
-      class="my-legend__row"
-      :style="{ color: comparison.percentColor }"
-    >
-      {{ comparison.symbol }}
-      {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
-    </div>
-  </div>
+<template>
+  <div style="height: 700px"><KlineWorkbench /></div>
 </template>
 ```
 
-### Host toolbar controls
+The workbench is the same component used by the source preview. `agent` and `scripts` default to `true`; set either to `false` before mounting to disable it. `chart` accepts chart configuration, and `marketDataContext` accepts a host-owned market data context. Script support prepares builtin indicators before mounting the chart. The editor and language service load when opened. Advanced Agent interfaces are available from `@363045841yyt/klinechart/agent` in the same package.
 
-Use `#toolbar-start` and `#toolbar-end` to place host account or workspace
-controls in the native toolbar. Both slots are optional and inherit the
-resolved chart theme. They stay outside the draggable, scrolling chart controls.
+Implement `MarketDataSource`, register it with `createMarketDataHost().registerDataSource(source)`, and pass the host as `marketDataContext`. Select a stable instrument using `:instrument="{ sourceId, id }"` and `period`. Historical pages use `bars.fetch`; single-bar updates use the subscription observer's `update`. See the [data source API](docs/market-data/data-source-api.md).
 
-```vue
-<KlineChart>
-  <template #toolbar-start><AccountMenu /></template>
-  <template #toolbar-end><WorkspaceActions /></template>
-</KlineChart>
-```
+The complete product includes AGPL-3.0-or-later script modules and is distributed under AGPL-3.0-or-later. Individual Apache-2.0 modules retain their original licenses; see the included notices.
 
 
 ### 4. (Optional) Add AI Agent Control
@@ -496,7 +360,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
 | zoomLevels | `number` | 80 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
-| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
 
 
@@ -554,7 +417,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 - **v0.4** Modern UI, left toolbar, right axis optimization, TradingView-style zoom feel
 
 
-## 📄 License
+## Product license
 
-[Apache-2.0](LICENSE)
+The complete Vue workbench is distributed under [AGPL-3.0-or-later](packages/vue/LICENSE). Individual Apache-2.0 modules retain their original licenses. The product includes module and third-party license notices.
 

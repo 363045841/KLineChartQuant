@@ -28,8 +28,8 @@
 
 - MT5 等无交易时段的数据源可直接参与对比，无需往 Chart 实例注册表塞假会话。
 - Provider 侧仍用自己声明的会话解析 `timeZone`（`getInstrumentTimeZone`），那是另一份注册表实例，与 Chart 实例注册表无关；本次不改。
-- 既有测试中锁定"未知 market 一律拒绝"的日线用例（对比写入、`resetToFetcher`）随行为变更删除。
-- 分时的未知 market 仍会显式抛错（如 `applyCustomData` 传入未知 market 的分时数据）。
+- 既有测试中锁定"未知 market 一律拒绝"的日线用例随行为变更删除。
+- 分时选择未知 market 时仍会显式抛错。
 
 ## 后果
 

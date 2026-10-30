@@ -1,5 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-react",
+  "private": true,
   "version": "0.11.0-alpha.10",
   "description": "React bindings for @363045841yyt/klinechart: direct core mount and the full-UI Web Component.",
   "license": "Apache-2.0",

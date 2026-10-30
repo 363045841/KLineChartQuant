@@ -43,9 +43,6 @@ export function createMockChartController(): MockControllerHandle {
     interactionState,
     paneRatios,
     indicators,
-    setData() {
-      /* no-op */
-    },
     setSymbols() {
       /* no-op */
     },

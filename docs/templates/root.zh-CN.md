@@ -18,7 +18,7 @@
 
 ## 🚀 快速开始
 
-{{include:_usage-vue.zh-CN.md}}
+{{include:_product-vue.zh-CN.md}}
 
 {{include:_agent-runtime.zh-CN.md}}
 
@@ -32,4 +32,4 @@
 
 {{include:_whatsnew.zh-CN.md}}
 
-{{include:_license.zh-CN.md}}
+{{include:_product-license.zh-CN.md}}

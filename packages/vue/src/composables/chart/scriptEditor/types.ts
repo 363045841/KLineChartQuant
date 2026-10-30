@@ -2,7 +2,7 @@
 
 import type { ScriptOutputSource, ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import type { Diagnostic } from '@codemirror/lint'
-import type { InjectionKey } from 'vue'
+import type { InjectionKey, Ref } from 'vue'
 
 /** 问题面板的诊断快照；服务或保存失败没有可跳转的位置。 */
 export interface ScriptEditorProblem {
@@ -123,4 +123,6 @@ export interface ScriptSourceStore {
 }
 
 /** 应用源码仓库注入键；图表与编辑器共用。 */
-export const SCRIPT_SOURCE_STORE_KEY: InjectionKey<ScriptSourceStore> = Symbol('ScriptSourceStore')
+export const SCRIPT_SOURCE_STORE_KEY: InjectionKey<
+  ScriptSourceStore | Readonly<Ref<ScriptSourceStore | undefined>>
+> = Symbol('ScriptSourceStore')

@@ -86,13 +86,6 @@ onBar() {
 - **真实编辑器** — 图表内置基于 CodeMirror 的脚本编辑器，补全、悬浮签名与参数提示均来自编译器所用的同一份声明
 - **同一渲染链路** — Plot 走引擎既有的绘图、坐标轴与图例通道，脚本指标与内置指标行为一致
 
-通过脚本服务注册脚本，注册后即作为普通条目出现在指标选择器中：
-
-```ts
-import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-
-const scripts = await createScriptService()
-await scripts.create(source)
-```
+在 `KlineWorkbench` 中打开代码编辑器，即可创建、运行脚本并添加到图表。产品统一管理脚本服务并自动注册内置脚本，无需安装其他脚本包。挂载前设置 `scripts=false` 可禁用脚本并隐藏编辑入口。
 
 完整声明参考见[脚本文档]({{root}}packages/script/docs/indicator.md)，另有[函数库]({{root}}packages/script/docs/library.md)与 [Plot API]({{root}}packages/script/docs/indicator.md#plot)。

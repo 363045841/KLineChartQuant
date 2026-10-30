@@ -1,5 +1,6 @@
 {
   "name": "klinechart-monorepo",
+  "private": true,
   "version": "0.7.1",
   "description": "A lightweight financial K-line charting library with first-class AI Agent support, crisp ResizeObserver-driven rendering, and plugin-based architecture. Focused on quantitative trading scenarios with TradingView-level interaction experience.",
   "author": "363045841 <slslswbsy@qq.com>",
@@ -60,7 +61,10 @@
     "dev:lan:all": "node scripts/dev.mjs --lan -c all",
     "connector": "node scripts/start-connector.mjs",
     "build": "pnpm build:packages",
-    "build:packages": "pnpm --filter @363045841yyt/klinechart-plot-contracts build && pnpm --filter @363045841yyt/klinechart-script build && pnpm --filter @363045841yyt/klinechart-script-server build && pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-script-chart build && pnpm --filter @363045841yyt/klinechart-agent-runtime build && pnpm --filter @363045841yyt/klinechart build && pnpm --filter @363045841yyt/klinechart-script-editor build && pnpm --filter @363045841yyt/klinechart-web-component build",
+    "build:packages": "pnpm build:product && pnpm --filter @363045841yyt/klinechart-web-component build",
+    "build:product": "pnpm --filter @363045841yyt/klinechart-plot-contracts build && pnpm --filter @363045841yyt/klinechart-script build && pnpm --filter @363045841yyt/klinechart-script-server build && pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-script-chart build && pnpm --filter @363045841yyt/klinechart-agent-runtime build && pnpm --filter @363045841yyt/klinechart-script-editor build && pnpm --filter @363045841yyt/klinechart build",
+    "pack:product": "node scripts/pack-product.mjs",
+    "test:product": "node scripts/test-product.mjs",
     "build:demo": "vite build --config packages/vue/preview/vite.config.ts",
     "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config packages/vue/preview/vite.config.ts",
@@ -83,8 +87,8 @@
     "tokens:check": "node packages/core/scripts/tokens/build.mjs --check",
     "tokens:palettes": "node packages/core/scripts/tokens/generate-palettes.mjs",
     "tokens:contrast": "tsx packages/core/scripts/tokens/contrast-report.mts",
-    "size:packages": "pnpm -r --workspace-concurrency=4 size",
-    "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
+    "size:packages": "pnpm --filter @363045841yyt/klinechart size",
+    "lint:publish": "pnpm --filter @363045841yyt/klinechart lint:publish",
     "license:boundary": "node scripts/check-license-boundary.mjs",
     "lint:types": "node scripts/lint-types.mjs",
     "lint": "biome check .",
@@ -95,6 +99,7 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@babel/core": "^8.0.5",
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@babel/plugin-transform-typescript": "^8.0.5",

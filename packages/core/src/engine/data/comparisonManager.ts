@@ -102,29 +102,6 @@ export class ComparisonManager {
     this.hooks.setLoading(false)
   }
 
-  /** 向已选择的比较序列写入内联数据。 */
-  setData(identity: string, data: KLineData[]): boolean {
-    const spec = this.hooks
-      .getSpecs()
-      .find(
-        (candidate) =>
-          symbolSpecIdentityKey(candidate) === identity || candidate.symbol === identity,
-      )
-    if (!spec) return false
-    const selection = this.hooks.selectionForSpec(spec)
-    const buffer = this.repository.getOrCreateBars(selection, () =>
-      this.hooks.createBuffer(spec, selection),
-    )
-    const key = seriesSelectionKey(selection)
-    const mounted = this.subscriptions.get(key)
-    if (mounted?.buffer !== buffer) {
-      if (mounted) this.removeSubscriptions(key, false)
-      this.mountSubscriptions(key, selection, buffer)
-    }
-    buffer.setInlineData(data)
-    return true
-  }
-
   /** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
   ensureRange(firstVisibleTs: number): void {
     for (const spec of this.hooks.getSpecs()) {

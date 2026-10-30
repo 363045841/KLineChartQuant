@@ -7,11 +7,48 @@ import { describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
 import { NodeScriptWorker } from '../../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createMockChartController } from '../../../__tests__/_mockController.js'
+import { useScriptRemoval } from '../../indicator/useScriptRemoval.js'
+import type { ScriptSourceStore } from '../scriptEditor/types.js'
 import { useScriptEditor } from '../useScriptEditor.js'
 
 vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('useScriptEditor', () => {
+  it('服务稍后就绪时同步目录，保留草稿并启用脚本删除', async () => {
+    const scripts = await createScriptService([], {
+      persistence: { load: async () => null, save: async () => true },
+    })
+    const scope = effectScope()
+    try {
+      await scripts.createFolder({ kind: 'library', path: '工具' })
+      const document = await scripts.create(
+        `defineLibrary('LateServiceLibrary', { value(): number { return 1 } })`,
+        false,
+        '工具',
+      )
+      const sourceStore = shallowRef<ScriptSourceStore>()
+      const editor = scope.run(() => useScriptEditor(sourceStore))!
+      const removal = scope.run(() => useScriptRemoval(sourceStore))!
+      editor.openBlank()
+      editor.source.value = '// 初始化期间的草稿'
+      expect(editor.documents.value).toEqual([])
+      expect(removal.canRemove(document.id)).toBe(false)
+
+      sourceStore.value = scripts
+
+      expect(editor.documents.value).toEqual(scripts.list())
+      expect(editor.documents.value).toContainEqual(document)
+      expect(editor.folders.value).toEqual([{ kind: 'library', path: '工具' }])
+      expect(editor.source.value).toBe('// 初始化期间的草稿')
+      expect(removal.canRemove(document.id)).toBe(true)
+      await removal.removeScript(document.id)
+      expect(scripts.read(document.id)).toBeUndefined()
+    } finally {
+      scope.stop()
+      scripts.dispose()
+    }
+  })
+
   it('草稿直接运行产生输出，添加才保存并启用，重复添加不增加实例', async () => {
     const scripts = await createScriptService([], {
       persistence: { load: async () => null, save: async () => true },

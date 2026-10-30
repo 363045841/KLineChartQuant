@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 /** 通过正式包入口验证第三方 Layer、指标和插件的实例生命周期。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MarketDataContext } from '@/data/management/impl/context.js'
+import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createChartDom,
   installAnimationFrameQueue,
@@ -62,6 +64,7 @@ function lastIndicatorLayer(): Layer<RenderContext> {
 describe('public chart renderer access', () => {
   const controllers: ChartController[] = []
   const containers: HTMLElement[] = []
+  const hosts: MarketDataContext[] = []
   let restoreDom: () => void
   let frames: ReturnType<typeof installAnimationFrameQueue>
 
@@ -74,6 +77,7 @@ describe('public chart renderer access', () => {
 
   afterEach(async () => {
     await Promise.all(controllers.splice(0).map((controller) => controller.dispose()))
+    for (const host of hosts.splice(0)) host.dispose()
     for (const container of containers.splice(0)) container.remove()
     restoreDom()
     vi.unstubAllGlobals()
@@ -85,15 +89,21 @@ describe('public chart renderer access', () => {
     const dom = createChartDom(800, 600)
     document.body.appendChild(dom.container)
     containers.push(dom.container)
+    const host = new MarketDataContext()
+    hosts.push(host)
+    host.registerDataSource(createDataSourceFixture([
+      { timestamp: 60_000, open: 10, high: 12, low: 9, close: 11 },
+      { timestamp: 120_000, open: 11, high: 13, low: 10, close: 12 },
+    ], false).source)
+    const instrument = await host.resolveInstrument('test', 'A')
     const controller = await createChartController({
       ...dom,
+      marketDataContext: host,
+      symbols: [{ instrument, symbol: 'A', market: 'CN', source: 'test', period: 'daily' }],
       settings: { rendererBackend: 'canvas' },
-      data: [
-        { timestamp: 60_000, open: 10, high: 12, low: 9, close: 11 },
-        { timestamp: 120_000, open: 11, high: 13, low: 10, close: 12 },
-      ],
     })
     controllers.push(controller)
+    await vi.waitFor(() => expect(controller.getData()).toHaveLength(2))
     return controller
   }
 

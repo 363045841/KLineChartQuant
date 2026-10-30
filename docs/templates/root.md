@@ -18,7 +18,7 @@
 
 ## 🚀 Quick Start
 
-{{include:_usage-vue.md}}
+{{include:_product-vue.md}}
 
 {{include:_agent-runtime.md}}
 
@@ -32,4 +32,4 @@
 
 {{include:_whatsnew.md}}
 
-{{include:_license.md}}
+{{include:_product-license.md}}

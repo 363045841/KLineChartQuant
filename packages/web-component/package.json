@@ -1,5 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-web-component",
+  "private": true,
   "version": "0.11.0-alpha.10",
   "description": "Standalone Web Component build of KLineChartQuant: one ESM file that registers the full-UI <kline-chart> custom element for non-Vue hosts.",
   "license": "Apache-2.0",

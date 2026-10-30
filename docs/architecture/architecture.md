@@ -207,7 +207,7 @@ flowchart TB
 
 ### 4.1 数据加载
 
-1. 绑定层调用 `controller.setSymbols(spec)` 或注入 `customData`。
+1. 绑定层调用 `controller.setSymbols(spec)`，行情统一由 Provider 链路加载。
 2. `Chart` 通过 `ChartDataManager` 在 `SeriesRepository` 中定位 / 创建对应 Buffer。
 3. 图表与 Agent 共用图表实例级 `MarketDataCache`；它根据 latest 或时间范围处理缓存覆盖、
    Provider cursor 分页、重试与请求去重。

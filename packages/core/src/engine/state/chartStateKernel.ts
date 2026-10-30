@@ -287,7 +287,7 @@ export class ChartStateKernel extends StateKernel {
     })
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
-    this.pane = createPaneState(this.indicator.readonly.workspaces)
+    this.pane = createPaneState()
     {
       const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({ ...spec }))
       const initialRatios: Record<string, number> = {}
@@ -528,7 +528,6 @@ export class ChartStateKernel extends StateKernel {
           ...instance,
           params: { ...instance.params },
         })),
-        paneRatios: { ...pane.paneRatios },
         paneSpecs: pane.paneSpecs.map(({ id, ratio, visible, minHeightPx }) => ({
           id,
           ratio,
@@ -572,7 +571,6 @@ export class ChartStateKernel extends StateKernel {
   createLayout(): LayoutDocument {
     const workspace = () => ({
       instances: [],
-      paneRatios: { [MAIN_PANE_ID]: 1 },
       paneSpecs: [{ id: MAIN_PANE_ID, ratio: 1 }],
       paneScaleTypes: {},
     })

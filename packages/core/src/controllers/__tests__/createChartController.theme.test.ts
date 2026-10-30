@@ -8,6 +8,8 @@ import {
 
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
 import { createChartController } from '../chart/index'
+import { MarketDataContext } from '@/data/management/impl/context.js'
+import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 
 import type { KLineData } from '../types'
 
@@ -118,7 +120,7 @@ describe('createChartController mount theme', () => {
 
     ctrl.dispose()
     ctrl.dispose()
-    ctrl.setData(createBars())
+    ctrl.setSymbols([])
     expect(ctrl.getData()).toEqual([])
     expect(ctrl.removeDrawing('missing')).toBe(false)
     expect(ctrl.getPaneInfo('main')).toBeUndefined()
@@ -136,43 +138,37 @@ describe('createChartController mount theme', () => {
       document.body.appendChild(container)
     }
 
-    const first = await createChartController({ container: firstContainer })
-    const second = await createChartController({ container: secondContainer })
     const data = createBars()
-    first.applyCustomData({
-      market: 'US',
-      symbol: 'AAPL',
-      exchange: 'NASDAQ',
-      period: 'daily',
-      source: 'fixture',
-      data,
-    })
-    second.applyCustomData({
-      market: 'US',
-      symbol: 'MSFT',
-      period: 'daily',
-      source: 'fixture',
-      data,
-    })
+    const host = new MarketDataContext()
+    host.registerDataSource(createDataSourceFixture(data, false).source)
+    const firstInstrument = await host.resolveInstrument('test', 'A')
+    const secondInstrument = await host.resolveInstrument('test', 'B')
+    const first = await createChartController({ container: firstContainer, marketDataContext: host,
+      symbols: [{ instrument: firstInstrument, market: 'CN', symbol: 'A', source: 'test', period: 'daily' }] })
+    const second = await createChartController({ container: secondContainer, marketDataContext: host,
+      symbols: [{ instrument: secondInstrument, market: 'CN', symbol: 'B', source: 'test', period: 'daily' }] })
+    await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
+    await vi.waitFor(() => expect(second.getData()).toHaveLength(30))
 
     const initial = first.agent.getContext()
     expect(initial.chartId).not.toBe(second.agent.getContext().chartId)
     expect(initial).toMatchObject({
-      symbol: 'AAPL',
-      market: 'US',
-      exchange: 'NASDAQ',
+      symbol: 'A',
+      market: 'CN',
+      exchange: 'TEST',
       period: 'kline',
-      dataSource: 'chart-custom:fixture',
-      dataRange: { from: 60_000, to: 1_800_000, bars: 30 },
+      dataSource: 'test',
     })
     first.setTheme('light')
 
-    first.setData([...data, { ...data[data.length - 1]!, timestamp: 1_860_000 }])
+    first.setSymbols([{ instrument: secondInstrument, symbol: 'B', market: 'CN', source: 'test', period: 'daily' }])
+    await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     const afterData = first.agent.getContext()
-    expect(afterData.dataRevision).toBeGreaterThan(initial.dataRevision)
+    expect(afterData.symbol).toBe('B')
 
     first.dispose()
     second.dispose()
+    host.dispose()
     firstContainer.remove()
     secondContainer.remove()
   })

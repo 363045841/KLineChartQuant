@@ -60,9 +60,11 @@ function createSourceAliases() {
  * 页面必须是「入口 + 样式」两个文件：宿主用 `new URL('./assets/editor.js', import.meta.url)`
  * 复制资源时只会复制这一个文件，不会跟随它的相对 import。所以这里把 chunk 与 Worker 全部内联。
  *
- * @returns {Promise<{ script: string, styles: string[], files: Array<{ name: string, source: string | Uint8Array }> }>}
+ * @returns {Promise<{ script: string, styles: string[], files: Array<{ name: string, source: string | Uint8Array }>, workers: Array<{ name: string, source: string }> }>}
  */
 export async function buildEditorPage() {
+  // 留存送入内联编码器的真实 Worker 产物，供发布验收直接执行其代码。
+  const workers = []
   const result = await build({
     base: './',
     configFile: false,
@@ -84,7 +86,17 @@ export async function buildEditorPage() {
       Icons({ compiler: 'vue3' }),
     ],
     resolve: { alias: createSourceAliases() },
-    worker: { format: 'es' },
+    worker: {
+      format: 'es',
+      plugins: () => [{
+        name: 'capture-editor-workers',
+        generateBundle(_options, bundle) {
+          for (const file of Object.values(bundle)) {
+            if (file.type === 'chunk' && file.isEntry) workers.push({ name: file.fileName, source: file.code })
+          }
+        },
+      }],
+    },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     build: {
       write: false,
@@ -93,7 +105,7 @@ export async function buildEditorPage() {
       lib: { entry, formats: ['es'] },
       rolldownOptions: {
         output: {
-          inlineDynamicImports: true,
+          codeSplitting: false,
           entryFileNames: PAGE_SCRIPT,
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: (asset) => {
@@ -120,7 +132,7 @@ export async function buildEditorPage() {
   }
   if (script !== PAGE_SCRIPT) throw new Error(`页面入口没有产出 ${PAGE_SCRIPT}`)
   if (!styles.includes(PAGE_STYLE)) throw new Error(`页面样式没有产出 ${PAGE_STYLE}`)
-  return { script, styles, files }
+  return { script, styles, files, workers }
 }
 
 /** 写入 dist/assets；src/index.ts 按固定相对路径引用这些文件。 */

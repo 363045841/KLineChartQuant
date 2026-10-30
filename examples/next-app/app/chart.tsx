@@ -13,24 +13,12 @@
  * `useEffect` does not run, so no DOM access occurs server-side.
  */
 import { useRef } from 'react'
-import { useChart, type ChartMountOptions } from '@363045841yyt/klinechart-react'
-import type { MockCandle } from '@/lib/mockData'
+import { useKLineChart } from '@363045841yyt/klinechart-react'
 
-interface ChartProps {
-    data: ReadonlyArray<MockCandle>
-}
-
-export default function Chart({ data }: ChartProps): JSX.Element {
+export default function Chart(): JSX.Element {
     const containerRef = useRef<HTMLDivElement | null>(null)
-    // NOTE: `data` here is plain mock —the engine factory is not wired in
-    // this smoke test, so the hook will throw at mount time IF a consumer
-    // actually runs `pnpm dev` without registering a factory. That is the
-    // documented contract —production users call `__setChartFactory(...)`
-    // before mounting. The SSR/build pass never reaches that point, so
-    // `next build` succeeds regardless.
-    useChart(containerRef, {
-        data: data as unknown as ChartMountOptions['data'],
-    })
+    // SSR 用例只验证浏览器挂载；行情接入须注册数据源，不能直接传行情数组。
+    useKLineChart(containerRef)
 
     return (
         <div

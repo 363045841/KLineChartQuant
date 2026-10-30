@@ -68,9 +68,6 @@ export async function runCompositionChecks() {
     overlayZ: string
   }> = []
   try {
-    chart.setData([
-      { timestamp: Date.UTC(2026, 0, 1), open: 100, high: 105, low: 95, close: 102, volume: 1 },
-    ])
     chart.useRenderer(
       layer('composition:base', 'primary', 1000, [
         { kind: 'rect', x: 20, y: 40, width: 100, height: 80, color: '#ff0000' },

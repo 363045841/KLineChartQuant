@@ -1,8 +1,8 @@
 {
   "name": "@363045841yyt/klinechart",
   "version": "0.11.0-alpha.10",
-  "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
-  "license": "Apache-2.0",
+  "description": "Complete Vue 3 financial chart workbench with integrated Agent, script engine and editor.",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/363045841/KLineChartQuant.git"
@@ -26,13 +26,16 @@
         "default": "./dist/index.js"
       }
     },
-    "./style.css": "./dist/index.css"
+    "./style.css": "./dist/index.css",
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js"
+    }
   },
   "files": [
     "dist",
-    "src",
-    "!src/**/__tests__/**",
-    "!src/assets/fonts/*.ttf"
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -43,68 +46,31 @@
     "postbuild": "node scripts/postbuild.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "size": "size-limit",
+    "size": "node scripts/report-size.mjs",
     "lint:publish": "publint --strict .",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm --dir ../.. build:product",
     "font:subset": "node scripts/build-font-subset.mjs"
   },
-  "size-limit": [
-    {
-      "name": "vue (entry, pre-build src measurement)",
-      "path": "src/index.ts",
-      "limit": "8 KB",
-      "gzip": true,
-      "ignore": [
-        "vue",
-        "@363045841yyt/klinechart-core"
-      ]
-    }
-  ],
   "peerDependencies": {
-    "@363045841yyt/klinechart-agent-runtime": "workspace:^",
-    "@363045841yyt/klinechart-core": "workspace:^",
-    "@363045841yyt/klinechart-script-editor": "workspace:^",
-    "@363045841yyt/klinechart-script-server": "workspace:^",
     "vue": "^3.4.0"
   },
-  "peerDependenciesMeta": {
-    "@363045841yyt/klinechart-script-server": {
-      "optional": true
-    },
-    "@363045841yyt/klinechart-script-editor": {
-      "optional": true
-    }
-  },
   "devDependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*",
+    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart-script-chart": "workspace:*",
     "@363045841yyt/klinechart-script-editor": "workspace:*",
     "@363045841yyt/klinechart-script-server": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.5",
-    "@size-limit/preset-small-lib": "^13.1.1",
-    "@vitejs/plugin-vue": "^6.0.10",
-    "@vue/test-utils": "^2.5.1",
-    "fake-indexeddb": "^6.2.6",
-    "happy-dom": "^21.0.3",
-    "jsdom": "^30.1.3",
-    "publint": "^0.3.25",
-    "size-limit": "^13.1.1",
-    "subset-font": "^2.9.0",
-    "unplugin-icons": "^24.0.0",
-    "vite": "^8.3.4",
-    "vite-plugin-babel": "^1.7.3",
-    "vite-plugin-dts": "^5.1.2",
-    "vitest": "^5.0.5",
-    "vue": "^3.5.44"
-  },
-  "dependencies": {
-    "@363045841yyt/klinechart-plot-contracts": "workspace:*",
+    "@typescript/vfs": "^1.6.5",
+    "quickjs-emscripten": "^0.32.0",
+    "@valtown/codemirror-ts": "^2.3.1",
+    "comlink": "^4.4.2",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/language": "^6.13.1",
-    "@codemirror/lint": "^6.9.7",
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
     "@codemirror/theme-one-dark": "^6.1.3",
@@ -118,6 +84,27 @@
     "html-to-image": "^1.11.13",
     "markdown-it": "^15.0.3",
     "pinia": "^4.1.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/test-utils": "^2.5.1",
+    "fake-indexeddb": "^6.2.6",
+    "happy-dom": "^21.0.3",
+    "jsdom": "^30.1.3",
+    "publint": "^0.3.25",
+    "subset-font": "^2.9.0",
+    "unplugin-icons": "^24.0.0",
+    "vite": "^8.3.4",
+    "vite-plugin-babel": "^1.7.3",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^5.0.5",
+    "vue": "^3.5.44"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "^1.0.2",
+    "@earendil-works/pi-agent-core": "^1.0.2",
+    "@earendil-works/pi-ai": "^1.0.2",
+    "@earendil-works/pi-durable": "^1.0.2",
+    "typebox": "1.4.2",
+    "@codemirror/lint": "^6.9.7"
   }
 }

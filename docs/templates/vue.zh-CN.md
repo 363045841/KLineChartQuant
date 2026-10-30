@@ -16,7 +16,7 @@
 
 ## 🚀 快速开始
 
-{{include:_usage-vue.zh-CN.md}}
+{{include:_product-vue.zh-CN.md}}
 
 ## 🎨 自定义 Tooltip
 
@@ -39,7 +39,7 @@
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
         <span>{{ hoverData.stockCode }}</span>
-        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+        <span>{{ formatTimeInTimeZone(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
       <div class="custom-tooltip__price"
            :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
@@ -54,7 +54,7 @@
 </KlineChart>
 
 <script setup lang="ts">
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart'
 </script>
 
 <style scoped>
@@ -87,4 +87,4 @@
 
 {{include:_whatsnew.zh-CN.md}}
 
-{{include:_license.zh-CN.md}}
+{{include:_product-license.zh-CN.md}}

@@ -1,5 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-script-editor",
+  "private": true,
   "version": "0.11.0-alpha.10",
   "description": "Standalone script editor page for KLineChartQuant: the detached editor window bundle, published separately so Apache-2.0 chart packages never inline AGPL code.",
   "license": "AGPL-3.0-or-later",

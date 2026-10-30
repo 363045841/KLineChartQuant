@@ -1,216 +1,140 @@
-/** 按视图工作区保存主图/副图布局、比例与坐标轴状态。 */
-import {
-  batch,
-  computed,
-  createSubState,
-  type ReadonlySignal,
-} from '../../foundation/reactivity/signal.js'
+/** Pane 配置独立于指标执行环境；尺寸比例只存于 paneSpecs，像素布局不写回配置。 */
+import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
 import type { PaneSpec } from '../pane/types.js'
 import { MAIN_PANE_ID } from '../pane/types.js'
 import { immutableMap } from './immutable.js'
-import type { IndicatorInstanceSpec } from './indicatorState.js'
-
-/** 从指标定义派生的实例生成 Pane，保存的规格仅提供顺序、尺寸和可见性。 */
-function projectWorkspace(
-  workspace: PaneWorkspace,
-  instances: ReadonlyArray<IndicatorInstanceSpec>,
-): PaneWorkspace {
-  const required = new Set(
-    instances.filter((instance) => instance.role === 'sub').map((instance) => instance.paneId),
-  )
-  const main = workspace.paneSpecs.find((spec) => spec.id === MAIN_PANE_ID) ?? {
-    id: MAIN_PANE_ID,
-    ratio: 1,
-    visible: true,
-    role: 'price' as const,
-  }
-  const specs = [
-    main,
-    ...workspace.paneSpecs.filter(
-      (spec) => spec.id !== MAIN_PANE_ID && (spec.role === 'price' || required.has(spec.id)),
-    ),
-  ]
-  const present = new Set(specs.map((spec) => spec.id))
-  const missing = [...required]
-    .filter((id) => !present.has(id))
-    .map((id) => ({ id, ratio: 1, role: 'indicator' as const }))
-  const projectedSpecs = [...specs, ...missing]
-  const ratios = Object.fromEntries(
-    projectedSpecs.map((spec) => [spec.id, workspace.paneRatios[spec.id] ?? spec.ratio]),
-  )
-  const scales = new Map(
-    [...workspace.paneScaleTypes].filter(([id]) => projectedSpecs.some((spec) => spec.id === id)),
-  )
-  return snapshotWorkspace(ratios, projectedSpecs, scales)
-}
-
-function copyRatios(ratios: Readonly<Record<string, number>>): Record<string, number> {
-  return { ...ratios }
-}
-
-function copySpecs(specs: ReadonlyArray<PaneSpec>): PaneSpec[] {
-  return specs.map((spec) => ({
-    ...spec,
-    ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
-  }))
-}
-
-function scaleMapsEqual(
-  left: ReadonlyMap<string, ScaleType>,
-  right: ReadonlyMap<string, ScaleType>,
-): boolean {
-  if (left.size !== right.size) return false
-  for (const [id, type] of right) {
-    if (left.get(id) !== type) return false
-  }
-  return true
-}
 
 type PaneWorkspace = Readonly<{
-  paneRatios: Readonly<Record<string, number>>
   paneSpecs: ReadonlyArray<PaneSpec>
   paneScaleTypes: ReadonlyMap<string, ScaleType>
 }>
 
-const EMPTY_WORKSPACE: PaneWorkspace = Object.freeze({
-  paneRatios: Object.freeze({}),
-  paneSpecs: Object.freeze([]),
-  paneScaleTypes: immutableMap(new Map()),
-})
-
+/** 创建不可变配置；调用方的数组、规格和坐标轴映射不能穿透状态边界。 */
 function snapshotWorkspace(
-  ratios: Readonly<Record<string, number>>,
   specs: ReadonlyArray<PaneSpec>,
   scaleTypes: ReadonlyMap<string, ScaleType>,
 ): PaneWorkspace {
   return Object.freeze({
-    paneRatios: Object.freeze(copyRatios(ratios)),
-    paneSpecs: Object.freeze(copySpecs(specs)),
+    paneSpecs: Object.freeze(specs.map((spec) => Object.freeze({
+      ...spec,
+      ...(spec.capabilities ? { capabilities: Object.freeze({ ...spec.capabilities }) } : {}),
+    }))),
     paneScaleTypes: immutableMap(new Map(scaleTypes)),
   })
 }
 
-/** 当前工作区的派生接口保持既有消费方不变。 */
-export function createPaneState(
-  indicatorWorkspaces: ReadonlySignal<
-    Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceSpec>>>
-  >,
-) {
+/** 没有用户布局的工作区从单主图开始，不依赖指标目录补齐窗格。 */
+function initialWorkspace(): PaneWorkspace {
+  return snapshotWorkspace(
+    [{ id: MAIN_PANE_ID, ratio: 1, visible: true, role: 'price' }],
+    new Map(),
+  )
+}
+
+/** 比较轴偏好，避免重复写入引发整张图的重投影。 */
+function scaleMapsEqual(left: ReadonlyMap<string, ScaleType>, right: ReadonlyMap<string, ScaleType>): boolean {
+  return left.size === right.size && [...right].every(([id, type]) => left.get(id) === type)
+}
+
+/** 配置由恢复和用户命令写入；指标是否加载不参与 pane 的存在性、顺序或高度。 */
+export function createPaneState() {
   const { signals, readonly: stored } = createSubState({
     activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
     workspaces: Object.freeze({
-      kline: EMPTY_WORKSPACE,
-      timeshare: EMPTY_WORKSPACE,
+      kline: initialWorkspace(),
+      timeshare: initialWorkspace(),
     }) as Readonly<Record<ChartWorkspaceId, PaneWorkspace>>,
   })
-  const workspaces = computed(() =>
-    Object.freeze({
-      kline: projectWorkspace(stored.workspaces().kline, indicatorWorkspaces().kline),
-      timeshare: projectWorkspace(stored.workspaces().timeshare, indicatorWorkspaces().timeshare),
-    }),
-  )
+  const current = computed(() => stored.workspaces()[stored.activeWorkspace()])
   const readonly = {
     ...stored,
-    workspaces,
-    paneSpecs: computed(() => workspaces()[stored.activeWorkspace()].paneSpecs),
-    paneRatios: computed(() => workspaces()[stored.activeWorkspace()].paneRatios),
-    paneScaleTypes: computed(() => workspaces()[stored.activeWorkspace()].paneScaleTypes),
+    paneSpecs: computed(() => current().paneSpecs),
+    paneRatios: computed(() => Object.freeze(Object.fromEntries(
+      current().paneSpecs.map((spec) => [spec.id, spec.ratio]),
+    ))),
+    paneScaleTypes: computed(() => current().paneScaleTypes),
   }
-  const currentWorkspace = (): PaneWorkspace =>
-    stored.workspaces.peek()[stored.activeWorkspace.peek()]
 
-  const writeActive = (next: PaneWorkspace): void => {
-    const workspaceId = readonly.activeWorkspace.peek()
-    batch(() => {
-      signals.workspaces.set(Object.freeze({ ...stored.workspaces.peek(), [workspaceId]: next }))
-    })
+  /** Action 直接读取原始配置，支持同一 batch 内连续提交。 */
+  function currentWorkspace(): PaneWorkspace {
+    return stored.workspaces.peek()[stored.activeWorkspace.peek()]
   }
-  const writeScaleTypes = (next: ReadonlyMap<string, ScaleType>): void => {
-    const current = currentWorkspace()
-    if (scaleMapsEqual(current.paneScaleTypes, next)) return
-    writeActive(snapshotWorkspace(current.paneRatios, current.paneSpecs, next))
+
+  /** 用一次不可变快照提交当前工作区。 */
+  function writeActive(next: PaneWorkspace): void {
+    signals.workspaces.set(Object.freeze({
+      ...stored.workspaces.peek(),
+      [stored.activeWorkspace.peek()]: next,
+    }))
+  }
+
+  /** 仅在轴偏好变化时写入，保留完整 pane 配置。 */
+  function writeScaleTypes(next: ReadonlyMap<string, ScaleType>): void {
+    const previous = currentWorkspace()
+    if (!scaleMapsEqual(previous.paneScaleTypes, next)) {
+      writeActive(snapshotWorkspace(previous.paneSpecs, next))
+    }
   }
 
   return {
     readonly,
-    /** 命令读取当前轴偏好，batch 内不依赖延迟更新的布局投影。 */
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
       setActiveWorkspace(workspaceId: ChartWorkspaceId): void {
-        if (signals.activeWorkspace.peek() === workspaceId) return
-        batch(() => {
-          signals.activeWorkspace.set(workspaceId)
-        })
+        if (stored.activeWorkspace.peek() !== workspaceId) signals.activeWorkspace.set(workspaceId)
       },
-      /** 用已校验的持久快照恢复两个工作区的布局与坐标轴类型。 */
+      /** 原样恢复完整布局，包含尚未加载指标的窗格。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces): void {
-        const next = Object.freeze({
-          kline: snapshotWorkspace(
-            workspaces.kline.paneRatios,
-            workspaces.kline.paneSpecs.map((spec) => ({
-              ...spec,
-              role: spec.id === 'main' ? 'price' : 'indicator',
-            })),
-            new Map(Object.entries(workspaces.kline.paneScaleTypes)),
-          ),
-          timeshare: snapshotWorkspace(
-            workspaces.timeshare.paneRatios,
-            workspaces.timeshare.paneSpecs.map((spec) => ({
-              ...spec,
-              role: spec.id === 'main' ? 'price' : 'indicator',
-            })),
-            new Map(Object.entries(workspaces.timeshare.paneScaleTypes)),
-          ),
-        })
-        batch(() => {
-          signals.workspaces.set(next)
-        })
+        const restore = (workspaceId: ChartWorkspaceId): PaneWorkspace => snapshotWorkspace(
+          workspaces[workspaceId].paneSpecs.map((spec) => ({
+            ...spec,
+            role: spec.id === MAIN_PANE_ID ? 'price' : 'indicator',
+          })),
+          new Map(Object.entries(workspaces[workspaceId].paneScaleTypes)),
+        )
+        signals.workspaces.set(Object.freeze({
+          kline: restore(ChartWorkspaceId.KLine),
+          timeshare: restore(ChartWorkspaceId.TimeShare),
+        }))
       },
-      setPaneRatios(ratios: Record<string, number>): void {
-        const current = currentWorkspace()
-        writeActive(snapshotWorkspace(ratios, current.paneSpecs, current.paneScaleTypes))
+      /** 更新现有窗格的权重，不维护第二份比例状态。 */
+      setPaneRatios(ratios: Readonly<Record<string, number>>): void {
+        const previous = currentWorkspace()
+        writeActive(snapshotWorkspace(previous.paneSpecs.map((spec) => ({
+          ...spec, ratio: ratios[spec.id] ?? spec.ratio,
+        })), previous.paneScaleTypes))
       },
-      setPaneSpecs(specs: PaneSpec[]): void {
-        const current = currentWorkspace()
-        writeActive(snapshotWorkspace(current.paneRatios, specs, current.paneScaleTypes))
+      setPaneSpecs(specs: ReadonlyArray<PaneSpec>): void {
+        writeActive(snapshotWorkspace(specs, currentWorkspace().paneScaleTypes))
       },
-      /** ratios、specs 与保留的坐标轴类型同批发布，避免中间态。 */
+      /** 用户布局命令一次提交规格和权重；只保留仍存在的窗格轴偏好。 */
       commitLayout(ratios: Readonly<Record<string, number>>, specs: ReadonlyArray<PaneSpec>): void {
-        const prev = currentWorkspace().paneScaleTypes
-        const next = new Map<string, ScaleType>()
-        for (const spec of specs) {
-          const existing = prev.get(spec.id)
-          if (existing !== undefined) next.set(spec.id, existing)
-        }
-        batch(() => writeActive(snapshotWorkspace(ratios, specs, next)))
+        const previous = currentWorkspace()
+        const ids = new Set(specs.map((spec) => spec.id))
+        writeActive(snapshotWorkspace(
+          specs.map((spec) => ({ ...spec, ratio: ratios[spec.id] ?? spec.ratio })),
+          new Map([...previous.paneScaleTypes].filter(([id]) => ids.has(id))),
+        ))
       },
       setPaneScaleType(paneId: string, scaleType: ScaleType): void {
-        const prev = currentWorkspace().paneScaleTypes
-        if (prev.get(paneId) === scaleType) return
-        const next = new Map(prev)
+        const next = new Map(currentWorkspace().paneScaleTypes)
         next.set(paneId, scaleType)
-        writeScaleTypes(immutableMap(next))
+        writeScaleTypes(next)
       },
-      replacePaneScaleTypes(types: ReadonlyMap<string, ScaleType>): void {
-        writeScaleTypes(immutableMap(new Map(types)))
-      },
+      replacePaneScaleTypes: writeScaleTypes,
       removePaneScaleType(paneId: string): void {
-        const prev = currentWorkspace().paneScaleTypes
-        if (!prev.has(paneId)) return
-        const next = new Map(prev)
+        const next = new Map(currentWorkspace().paneScaleTypes)
         next.delete(paneId)
-        writeScaleTypes(immutableMap(next))
+        writeScaleTypes(next)
       },
     },
     dispose(): void {
       batch(() => {
         signals.activeWorkspace.set(ChartWorkspaceId.KLine)
-        signals.workspaces.set(
-          Object.freeze({ kline: EMPTY_WORKSPACE, timeshare: EMPTY_WORKSPACE }),
-        )
+        signals.workspaces.set(Object.freeze({ kline: initialWorkspace(), timeshare: initialWorkspace() }))
       })
     },
   }

@@ -48,7 +48,7 @@ import {
 } from '@363045841yyt/klinechart-core/controllers'
 ```
 
-It receives its data and chart options through typed props (such as `symbols`, `settings`, and `customData`), which keep the Vue shell a thin host rather than a chart engine.
+It receives instrument selection and chart options through typed props such as `symbols` and `settings`; all market data is requested through the Provider pipeline.
 
 This matters for compatibility. The Vue SFC is not a Vue-only chart engine. It is a Vue-hosted shell around the shared engine. That shell can be published as normal Vue bindings or compiled into a Web Component.
 

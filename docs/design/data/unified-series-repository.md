@@ -2,11 +2,11 @@
 
 ## 背景
 
-引入 Repository 之前，行情数据由 `ChartDataManager` 中的 K 线 Map、分时 Map、Comparison runtime 和 `customData` 写入路径共同维护。虽然最终数据都进入 Buffer，但不同类型和用途仍通过不同入口管理，造成：
+引入 Repository 之前，行情数据由多套 Map、比较运行时和独立数组写入路径共同维护，造成：
 
 - K 线、分时和对比序列的创建、查询、销毁规则分散。
 - 主图与对比图的使用角色进入 Buffer key，数据身份与视图身份混在一起。
-- `customData` 同时承担注册数据和切换当前品种，形成第二套选品入口。
+- 数组写入同时承担注册数据和切换当前品种，形成第二套选品入口；该入口现已删除。
 - active data 使用 `unknown[]`，K 线与分时的类型边界只能由调用方断言。
 - source 回退后的实际来源没有成为序列身份的一部分，前端无法稳定表达来源选择。
 
@@ -145,7 +145,7 @@ Provider 选择仍由 `SourceRouter` 负责。Repository 只按最终 source 身
 
 ## 自定义数据
 
-自定义数据注册为图表实例级 source，并进入与 Provider 相同的 Repository：`ChartDataManager.applyCustomData` 用 `CUSTOM_SOURCE_PREFIX` 生成 source id，经 `_repository.getOrCreateBars` 创建/复用叶子 Buffer，再 `setInlineData` 写入数据，最后调用 `setSymbols` / comparison `setSpecs` 切换当前选择。
+宿主行情通过 Provider 注册，主图、比较序列、脚本与 Agent 统一访问相同的 Repository，不再提供旁路数组注入入口。
 
 custom source 绑定 Chart 实例，不注册到全局 `marketDataProviderRegistry`，避免不同图表之间的数据冲突和生命周期泄漏。独立的 custom mode、`preCustomSpec` 与专用恢复路径已删除。
 

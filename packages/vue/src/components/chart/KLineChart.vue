@@ -65,6 +65,7 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
+          :scripts-enabled="scriptsEnabled"
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
@@ -315,6 +316,7 @@
       @save="saveCanvasTemplate"
     />
     <IndicatorSelector
+      :scripts-enabled="scriptsEnabled"
       ref="indicatorSelectorRef"
       :chart-controller="controller"
       :active-indicators="activeIndicators"
@@ -348,6 +350,7 @@
     />
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
     <ScriptEditorHost
+      v-if="scriptEditorOpen"
       mode="dialog"
       :tabs="scriptEditorSession.tabs.value"
       :active-tab-id="scriptEditorSession.activeTabId.value"
@@ -397,7 +400,6 @@
     type ChartController,
     type ChartMountOptions,
     CURSOR_DRAWING_TOOL_ID,
-    type CustomDataSource,
     createChartController,
     type DrawingLineLabelTarget,
     type DrawingStyle,
@@ -424,6 +426,7 @@
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
   import {
     computed,
+    defineAsyncComponent,
     inject,
     nextTick,
     onBeforeUpdate,
@@ -454,7 +457,7 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
+  const ScriptEditorHost = defineAsyncComponent(() => import('@vue-src/components/script/ScriptEditorHost.vue'))
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
@@ -506,6 +509,8 @@
       marketSessions?: ChartMountOptions['marketSessions']
       /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
       marketDataContext?: MarketDataContext
+      /** 由产品功能配置控制脚本入口；低层组件默认保留脚本能力。 */
+      scriptsEnabled?: boolean
 
       yPaddingPx?: number
       minKWidth?: number
@@ -536,11 +541,10 @@
       /** Canvas 主图图例配置；默认由 Core 绘制，不进入 Vue 更新路径。 */
       legend?: LegendOptions
 
-      /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
-      customData?: CustomDataSource
     }>(),
     {
       yPaddingPx: 20,
+      scriptsEnabled: true,
       minKWidth: 1,
       maxKWidth: 200,
       rightAxisWidth: 0,
@@ -1356,7 +1360,14 @@
     { deep: true },
   )
 
-  const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
+  const paneSeparatorLines = computed(() => {
+    const borderTop = containerRef.value
+      ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
+      : 0
+    return paneAxisItems.value.slice(0, -1).map((pane) => ({
+      id: pane.id, top: pane.top + pane.height + borderTop,
+    }))
+  })
   const deviceEnvironment = useDeviceEnvironment()
   const isCoarsePointer = computed(() => deviceEnvironment.value.isCoarsePointer)
 
@@ -1606,7 +1617,6 @@
   ): Promise<ChartController> {
     const ctrl = createChartController({
       container,
-      data: [],
       marketSessions: props.marketSessions,
       marketDataContext,
       canvasLayer,
@@ -1629,20 +1639,6 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
-    const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
-      const borderTop = containerRef.value
-        ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
-        : 0
-      const panes = ctrl.paneLayout.peek()
-      // 使用 pane 的实际渲染位置计算分隔线位置，确保与鼠标检测一致
-      paneSeparatorLines.value = panes.slice(0, -1).map((pane) => {
-        const paneInfo = ctrl.getPaneInfo(pane.id)
-        // 分隔线位置 = pane 顶部位置 + pane 实际高度
-        const separatorTop = (paneInfo?.top ?? 0) + (paneInfo?.height ?? 0)
-        return { id: pane.id, top: separatorTop + borderTop }
-      })
-    })
-
     // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
     let paneAxisViewportSignature = ''
     const refreshPaneAxisLayout = () => {
@@ -1661,7 +1657,6 @@
     })
 
     return () => {
-      unsubscribePaneLayout()
       unsubscribeViewport()
       unsubscribeTheme()
     }
@@ -1707,9 +1702,7 @@
       }
     }
 
-    if (props.customData) {
-      ctrl.applyCustomData(props.customData)
-    } else if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
+    if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
       // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
       ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
       ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
@@ -1815,7 +1808,7 @@
 
   // 受控业务 props 使用同一条同步路径；指标总是在 data source 之前创建。
   watch(
-    [() => props.symbols, () => props.indicators, () => props.customData],
+    [() => props.symbols, () => props.indicators],
     async () => {
       const ctrl = controller.value
       if (!ctrl) return

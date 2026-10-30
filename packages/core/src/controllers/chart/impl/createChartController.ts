@@ -146,7 +146,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return chart.kernel.exportLayout()
     },
     createLayout: () => chart.kernel.createLayout(),
-    prepareLayout: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
+    loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
     applyLayout: (document) => {
       if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {
@@ -161,17 +161,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
   })
   await layoutManager.initialize()
-  // 宿主显式传入的数据与品种优先于恢复的布局：在布局恢复之后写入。否则恢复出的品种
-  // 会覆盖它们，空品种（内联数据保存的布局没有 currentSymbol）还会经 setSymbols([]) 清空。
-  // 未传入时沿用恢复的布局。
-  if (opts.data && opts.data.length > 0) {
-    try {
-      chart.setData([...opts.data])
-    } catch (error) {
-      // 不中断挂载，但必须可见：静默吞掉会让宿主拿到一张没有数据的空图。
-      console.warn('[createChartController] initial setData failed', error)
-    }
-  }
+  // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
   if (opts.symbols && opts.symbols.length > 0) {
     chart.setSymbols([opts.symbols[0]!])
     if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)

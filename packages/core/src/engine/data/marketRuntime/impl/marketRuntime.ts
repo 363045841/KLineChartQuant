@@ -93,7 +93,7 @@ export class MarketRuntime implements IndicatorMarketData {
   private readonly registry: MarketDataProviderRegistry
   private readonly live = new Map<
     string,
-    { stream: LiveBarsStream; connector: RealtimeBarsConnector }
+    { stream: LiveBarsStream; connector: RealtimeBarsConnector; abort: AbortController }
   >()
   private readonly barDemands = new Map<
     string,
@@ -327,6 +327,7 @@ export class MarketRuntime implements IndicatorMarketData {
     for (const [key, binding] of this.live) {
       if (targets.has(key)) continue
       this.live.delete(key)
+      binding.abort.abort()
       binding.connector.stop()
       binding.stream.destroy()
     }
@@ -346,27 +347,72 @@ export class MarketRuntime implements IndicatorMarketData {
         exchange: target.instrument.exchange,
         adjustment: target.selection.adjustment,
       })
-      const connector = new RealtimeBarsConnector(
-        {
-          updateBars: (bars) => {
-            if (this.disposed || this.live.get(key)?.stream !== stream) return
-            this.deps.cache.acceptBars(target.selection, target.instrument, bars)
-            const current = this.deps.session.peek()
-            const demand = this.barDemands.get(key)
-            if (current !== null && seriesSelectionKey(current.selection) === key)
-              this.deps.writeBars(current, bars)
-            else {
-              demand?.buffer.applyRealtimeBars(bars)
+      const abort = new AbortController()
+      const buffer = this.deps.cache.repository.getBars(target.selection)!
+      const current = () => !this.disposed && this.live.get(key)?.stream === stream && !abort.signal.aborted
+      let refreshing = false
+      let invalidated = false
+      const queued: { bar: KLineData; historical: boolean }[] = []
+      /** 快照及增量变更沿同一 Buffer 和 Request 失效通道提交。 */
+      const notify = () => {
+        if ((this.barDemands.get(key)?.owners.size ?? 0) > 0) {
+          this.requestRevision++
+          this.deps.invalidateRequests?.()
+        }
+      }
+      /** 失效重查串行执行；期间收到的增量按到达顺序重放，旧查询不能覆盖它们。 */
+      const refresh = async () => {
+        if (refreshing) return
+        refreshing = true
+        try {
+          do {
+            invalidated = false
+            try {
+              await this.deps.reloadBars(target, buffer, abort.signal)
+            } finally {
+              // 重查失败仍需提交已收到的实时事实；取消后整批丢弃，不能污染新会话。
+              if (current()) {
+                for (const event of queued.splice(0)) {
+                  if (event.historical) buffer.correctBar(event.bar)
+                  else buffer.applyRealtimeBars([event.bar])
+                  this.deps.cache.acceptBars(target.selection, target.instrument, [event.bar])
+                }
+                notify()
+              }
             }
-            if (demand !== undefined && demand.owners.size > 0) {
-              this.requestRevision++
-              this.deps.invalidateRequests?.()
-            }
-          },
+          } while (invalidated && current())
+        } catch (error) {
+          if (current()) buffer.setError(error instanceof Error ? error.message : String(error))
+        } finally {
+          refreshing = false
+        }
+      }
+      const connector = new RealtimeBarsConnector({
+        updateBars: (bars, strictTail) => {
+          if (!current()) return
+          let latest = buffer.getRawData().at(-1)?.timestamp ?? -Infinity
+          for (const event of queued) if (!event.historical) latest = Math.max(latest, event.bar.timestamp)
+          for (const bar of bars) {
+            if (strictTail && bar.timestamp < latest) throw new RangeError('Older bars require update(bar, { historical: true })')
+            latest = Math.max(latest, bar.timestamp)
+          }
+          if (refreshing) { queued.push(...bars.map((bar) => ({ bar, historical: false }))); return }
+          buffer.applyRealtimeBars(bars)
+          this.deps.cache.acceptBars(target.selection, target.instrument, bars)
+          notify()
         },
-        stream,
-      )
-      this.live.set(key, { stream, connector })
+        correctBar: (bar) => {
+          if (!current()) return
+          if (buffer.getLogicalIndexAtTimestamp(bar.timestamp) === null) throw new RangeError('Historical correction must target an existing bar')
+          if (refreshing) { queued.push({ bar, historical: true }); return }
+          buffer.correctBar(bar)
+          this.deps.cache.acceptBars(target.selection, target.instrument, [bar])
+          notify()
+        },
+        invalidate: () => { if (current()) { invalidated = true; void refresh() } },
+        setError: (message) => { if (current()) buffer.setError(message) },
+      }, stream)
+      this.live.set(key, { stream, connector, abort })
       connector.start()
     }
   }
@@ -543,6 +589,7 @@ export class MarketRuntime implements IndicatorMarketData {
     this.requestAborts.clear()
     this.barDemands.clear()
     for (const binding of this.live.values()) {
+      binding.abort.abort()
       binding.connector.stop()
       binding.stream.destroy()
     }

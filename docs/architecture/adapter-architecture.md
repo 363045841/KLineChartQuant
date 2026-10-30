@@ -89,7 +89,7 @@ Key design choices:
 ### 3.3 Mutations
 
 **Data:**
-- `setData(data)`, `appendData(data)`, `updateData(data)` — replace/append/refresh
+- 行情写入由注册数据源驱动，控制器只提供品种选择和只读数据。
 - `getData()` — read current data
 - `getZoomLevelCount()` — total zoom levels
 
@@ -225,7 +225,6 @@ const controller = shallowRef<ChartController | null>(null)
 onMounted(() => {
   controller.value = createChartController({
     container: containerRef.value!,
-    data: props.data,
     theme: props.theme,
   })
   // Subscribe via coreSignalToVueRef
@@ -288,7 +287,7 @@ export function useCoreSignal<T>(signal: ReadonlySignal<T> | null | undefined): 
 **Convenience component:**
 
 ```tsx
-<KLineChart ref={handleRef} data={data} theme="dark" onReady={setController} />
+<KLineChart ref={handleRef} symbols={symbols} theme="dark" onReady={setController} />
 
 // Imperative access via ref:
 handleRef.current?.getController()?.zoomToLevel(3)
@@ -515,7 +514,7 @@ const viewport = useCoreSignal(controller?.viewport)
 ```typescript
 // Angular
 import { provideKLineChart } from '@363045841yyt/klinechart-angular'
-// In template: <kline-chart [data]="klineData" />
+// In template: <kline-chart [symbols]="symbols" />
 ```
 
 ## 11. Migration Notes

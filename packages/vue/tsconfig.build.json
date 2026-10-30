@@ -7,7 +7,7 @@
     "noImplicitOverride": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "declarationMap": true,
+    "declarationMap": false,
     "sourceMap": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -20,5 +20,5 @@
     "rootDir": "src"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/__tests__/**", "dist", "node_modules"]
+  "exclude": ["src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts", "dist", "node_modules"]
 }

@@ -65,6 +65,7 @@
 </script>
 
 <style scoped>
+  @layer kline-primitives {
   .base-textarea {
     --base-textarea-padding-block: var(--klc-space-8, 8px);
     --base-textarea-border: 1px;
@@ -110,5 +111,6 @@
   .base-textarea:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
   }
 </style>

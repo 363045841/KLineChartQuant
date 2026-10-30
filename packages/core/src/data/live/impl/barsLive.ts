@@ -126,7 +126,10 @@ export class BarsLiveSource implements LiveBarsStream {
 
 /** 实时写入端：ChartController 或仅暴露 updateBars 的替身。 */
 export interface RealtimeBarsSink {
-  updateBars(bars: ReadonlyArray<KLineData>): void
+  updateBars(bars: ReadonlyArray<KLineData>, strictTail?: boolean): void
+  correctBar?(bar: KLineData): void
+  invalidate?(): void
+  setError?(message: string): void
 }
 
 /** 把 SSE 帧序列转成 updateBars 原子写的最小接受端。 */
@@ -168,7 +171,8 @@ export class RealtimeBarsConnector {
     this.unsubError = this.source.onError((err) => {
       // 解析异常不影响连接（EventSource 继续收流），仅冲刷暂存避免终值滞留
       this.flushPendingClosed()
-      console.error('[RealtimeBarsConnector]', err.message)
+      if (this.sink.setError) this.sink.setError(err.message)
+      else console.error('[RealtimeBarsConnector]', err.message)
     })
     this.source.connect()
   }
@@ -187,6 +191,21 @@ export class RealtimeBarsConnector {
 
   /** 帧分发：closed 暂存、forming 合并写、snapshot 整批写。 */
   private handleFrame(frame: LiveBarsFrame): void {
+    if (frame.type === 'update') {
+      this.sink.updateBars([toKLineData(frame.bar)], true)
+      return
+    }
+    if (frame.type === 'historical') {
+      if (!this.sink.correctBar) throw new Error('Historical correction is not supported by this sink')
+      this.sink.correctBar(toKLineData(frame.bar))
+      return
+    }
+    if (frame.type === 'invalidate') {
+      if (!this.sink.invalidate) throw new Error('Invalidation is not supported by this sink')
+      this.pendingClosed = null
+      this.sink.invalidate()
+      return
+    }
     if (frame.type === 'closed') {
       this.pendingClosed = toKLineData(frame.bar)
       return

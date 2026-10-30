@@ -38,6 +38,43 @@ export class PaneManager {
     return this.createEntry(entry)
   }
 
+  /** 脚本显式改变主副图位置时，原子迁移用户配置；普通定义加载不修改布局。 */
+  reconcileDefinition(indicatorId: string, role: 'main' | 'sub'): void {
+    const { pane, indicator } = this.dependencies
+    const configurations = indicator.readonly.configurations.peek()
+    if (!Object.values(configurations).some((instances) => instances.some(
+      (instance) => instance.indicatorId === indicatorId && instance.role !== role,
+    ))) return
+    const previous = pane.readonly.workspaces.peek()
+    const migrate = (workspaceId: 'kline' | 'timeshare') => {
+      const removed = new Set<string>()
+      const instances = configurations[workspaceId].map((instance) => {
+        if (instance.indicatorId !== indicatorId || instance.role === role) return instance
+        if (instance.role === 'sub') removed.add(instance.paneId)
+        return { ...instance, role, paneId: role === 'main' ? 'main' : `pane:${instance.instanceId}` }
+      })
+      let specs = previous[workspaceId].paneSpecs.filter((spec) => !removed.has(spec.id))
+      for (const instance of instances) {
+        if (instance.role !== 'sub' || specs.some((spec) => spec.id === instance.paneId)) continue
+        const visible = specs.filter((spec) => spec.visible !== false)
+        const total = visible.reduce((sum, spec) => sum + spec.ratio, 0)
+        specs = [...specs, { id: instance.paneId, ratio: total / (visible.length + 2), visible: true, role: 'indicator' }]
+      }
+      const ratios = this.buildRatios(specs, (spec) => spec.ratio)
+      const paneSpecs = this.withRatios(specs, ratios)
+      return {
+        instances,
+        paneSpecs,
+        paneScaleTypes: Object.fromEntries([...previous[workspaceId].paneScaleTypes].filter(([id]) => !removed.has(id))),
+      }
+    }
+    const next = { kline: migrate('kline'), timeshare: migrate('timeshare') }
+    batch(() => {
+      indicator.actions.restoreWorkspaces(next)
+      pane.actions.restoreWorkspaces(next)
+    })
+  }
+
   private create(input: CreatePaneInput): boolean {
     const ordinal =
       this.dependencies.indicator.readonly.instances
@@ -188,10 +225,10 @@ export class PaneManager {
       const visible = specs.filter((item) => item.visible !== false)
       const pricePanes = visible.filter((item) => item.role === 'price')
       if (pricePanes.length === 1) {
-        raw[pricePanes[0]!.id] = 3
-        for (const item of visible) {
-          if (item.role === 'indicator') raw[item.id] = 1
-        }
+        // 只分配新窗格的份额，已有窗格之间的用户比例保持不变。
+        const existing = visible.filter((item) => item.id !== createdPaneId)
+        const total = existing.reduce((sum, item) => sum + (raw[item.id] ?? item.ratio), 0)
+        raw[createdPaneId] = total / (existing.length + 2)
       } else {
         raw[createdPaneId] = 1
       }

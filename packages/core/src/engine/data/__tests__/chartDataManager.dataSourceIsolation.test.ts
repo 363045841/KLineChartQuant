@@ -1,4 +1,4 @@
-/** ChartDataManager 行情来源隔离测试：统一市场品种与自定义源不得复用同一 Buffer。 */
+/** ChartDataManager 行情来源隔离测试：不同市场品种不得复用同一 Buffer。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChartDataManager } from '../chartDataManager'
@@ -69,32 +69,4 @@ describe('ChartDataManager data source isolation', () => {
     expect(fetchCount).toBe(2)
   })
 
-  it('keeps custom source data isolated from a Provider with the same label', async () => {
-    const providerData = makeKLine(2)
-    const fetchBars = vi.fn(async () =>
-      makeBarsPage([providerData], { instrumentId: 'test:000001' }),
-    )
-    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
-    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
-
-    manager.applyCustomData({
-      market: 'CN',
-      symbol: '000001',
-      source: 'test',
-      data: [makeKLine(1)],
-    })
-    expect(manager.getData()[0]?.timestamp).toBe(1)
-
-    manager.resetToFetcher({
-      market: 'CN',
-      symbol: '000001',
-      period: 'daily',
-      adjust: 'none',
-      source: 'test',
-      instrument: instrumentFor('000001'),
-    })
-
-    await vi.waitFor(() => expect(manager!.getData()[0]?.timestamp).toBe(2))
-    expect(fetchBars).toHaveBeenCalledOnce()
-  })
 })

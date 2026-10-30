@@ -10,15 +10,13 @@
  * (Round 1H, criteria item #1).
  */
 import * as KLineReact from '@363045841yyt/klinechart-react'
-import { buildMockCandles } from '@/lib/mockData'
 import Chart from './chart'
 
 // Reference the import so tree-shaking does not drop it. We just read a
 // known-exported symbol; we do not call it on the server.
-const adapterLoaded: boolean = typeof KLineReact.useChart === 'function'
+const adapterLoaded: boolean = typeof KLineReact.useKLineChart === 'function'
 
 export default function Page(): JSX.Element {
-    const data = buildMockCandles(100)
     return (
         <main style={{ padding: 16, fontFamily: 'sans-serif' }}>
             <h1>KLineChart Quant —Next.js 15 SSR smoke</h1>
@@ -26,8 +24,7 @@ export default function Page(): JSX.Element {
                 Adapter loaded at module scope:{' '}
                 <strong>{adapterLoaded ? 'yes' : 'no'}</strong>
             </p>
-            <p>Candles in dataset: {data.length}</p>
-            <Chart data={data} />
+            <Chart />
         </main>
     )
 }

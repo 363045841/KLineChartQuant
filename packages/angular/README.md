@@ -78,7 +78,6 @@ export class AppModule {}
 <!-- app.component.html -->
 <kline-chart
   [theme]="'dark'"
-  [customData]="demoData"
   [settings]="chartSettings">
 </kline-chart>
 ```

@@ -3,7 +3,7 @@
 import type {
   ChartController,
   ChartControllerFactory,
-  KLineData,
+  SymbolSpec,
   ReadonlySignal,
 } from '@363045841yyt/klinechart-core'
 import { act, render, waitFor } from '@testing-library/react'
@@ -36,7 +36,7 @@ function createFakeController() {
   const theme = fakeSignal<'light' | 'dark'>('light')
   const controller = {
     theme,
-    setData: vi.fn(),
+    setSymbols: vi.fn(),
     setTheme: vi.fn((next: 'light' | 'dark') => theme.set(next)),
     setSystemTheme: vi.fn(),
     updateSettingsFacade: vi.fn(),
@@ -67,8 +67,7 @@ function deferredFactory() {
   return { factory, fakes, resolveAll }
 }
 
-const bar = (timestamp: number): KLineData =>
-  ({ timestamp, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 }) as KLineData
+const selection = (symbol: string): SymbolSpec => ({ symbol, market: 'CN', source: 'test', period: 'daily' })
 
 describe('KLineChart', () => {
   afterEach(() => {
@@ -80,15 +79,15 @@ describe('KLineChart', () => {
     const { factory, fakes, resolveAll } = deferredFactory()
     const onReady = vi.fn()
     const ref = createRef<KLineChartHandle>()
-    const data = [bar(1)]
+    const symbols = [selection('A')]
     const { container, unmount } = render(
-      createElement(KLineChart, { factory, data, zoomLevels: 8, onReady, ref }),
+      createElement(KLineChart, { factory, symbols, zoomLevels: 8, onReady, ref }),
     )
 
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
     const mountOptions = factory.mock.calls[0]?.[0]
     expect(mountOptions?.container).toBe(container.firstElementChild)
-    expect(mountOptions?.data).toBe(data)
+    expect(mountOptions?.symbols).toBe(symbols)
     expect(mountOptions?.zoomLevels).toBe(8)
 
     await resolveAll()
@@ -96,7 +95,7 @@ describe('KLineChart', () => {
     expect(ref.current?.getController()).toBe(fake?.asController)
     expect(onReady).toHaveBeenCalledWith(fake?.asController)
     // 挂载时已带入的 data 不重复同步。
-    expect(fake?.controller.setData).not.toHaveBeenCalled()
+    expect(fake?.controller.setSymbols).not.toHaveBeenCalled()
 
     unmount()
     expect(fake?.controller.dispose).toHaveBeenCalledOnce()
@@ -124,29 +123,29 @@ describe('KLineChart', () => {
     expect(live).toHaveLength(1)
   })
 
-  it('syncs data, theme and settings changes after mount', async () => {
+  it('syncs selection, theme and settings changes after mount', async () => {
     const { factory, fakes, resolveAll } = deferredFactory()
-    const first = [bar(1)]
-    const { rerender } = render(createElement(KLineChart, { factory, data: first }))
+    const first = [selection('A')]
+    const { rerender } = render(createElement(KLineChart, { factory, symbols: first }))
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
     await resolveAll()
     const fake = fakes[0]
 
-    rerender(createElement(KLineChart, { factory, data: first }))
-    expect(fake?.controller.setData).not.toHaveBeenCalled()
+    rerender(createElement(KLineChart, { factory, symbols: first }))
+    expect(fake?.controller.setSymbols).not.toHaveBeenCalled()
 
-    const second = [bar(1), bar(2)]
-    rerender(createElement(KLineChart, { factory, data: second }))
-    expect(fake?.controller.setData).toHaveBeenCalledWith(second)
+    const second = [selection('B')]
+    rerender(createElement(KLineChart, { factory, symbols: second }))
+    expect(fake?.controller.setSymbols).toHaveBeenCalledWith(second)
 
-    rerender(createElement(KLineChart, { factory, data: second, settings: { theme: 'dark' } }))
+    rerender(createElement(KLineChart, { factory, symbols: second, settings: { theme: 'dark' } }))
     expect(fake?.controller.updateSettingsFacade).toHaveBeenCalledOnce()
     expect(fake?.controller.setTheme).toHaveBeenLastCalledWith('dark')
 
     rerender(
       createElement(KLineChart, {
         factory,
-        data: second,
+        symbols: second,
         settings: { theme: 'dark' },
         theme: 'light',
       }),

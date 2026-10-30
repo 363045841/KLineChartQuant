@@ -33,8 +33,8 @@ type NormalizeSettings = typeof import('@363045841yyt/klinechart-core/config')['
 type BindChartInput = typeof import('@363045841yyt/klinechart-core/input')['bindChartInput']
 
 export interface KLineChartOptions {
-  data?: ReadonlyArray<KLineData>
   symbols?: ReadonlyArray<SymbolSpec>
+  marketDataContext?: ChartMountOptions['marketDataContext']
   marketSessions?: ChartMountOptions['marketSessions']
   /** 显式主题优先于 `settings.theme`。 */
   theme?: 'light' | 'dark'
@@ -121,7 +121,7 @@ export function useKLineChart(
   const optionsRef = useRef(options)
   optionsRef.current = options
   // 记录已下发给控制器的值，避免挂载后重复同步同一引用。
-  const appliedRef = useRef<Pick<KLineChartOptions, 'data' | 'theme' | 'settings'>>({})
+  const appliedRef = useRef<Pick<KLineChartOptions, 'symbols' | 'theme' | 'settings'>>({})
 
   useEffect(() => {
     const container = containerRef.current
@@ -136,8 +136,8 @@ export function useKLineChart(
         const runtime = await loadCoreRuntime(mount.factory)
         const next = await runtime.factory({
           container,
-          data: mount.data,
           symbols: mount.symbols,
+          marketDataContext: mount.marketDataContext,
           marketSessions: mount.marketSessions,
           settings: mount.settings,
           initialZoomLevel: mount.initialZoomLevel,
@@ -155,7 +155,7 @@ export function useKLineChart(
           disposeInput = runtime.bindChartInput(next, { surface: container }, hooks)
         }
         runtimeRef.current = runtime
-        appliedRef.current = { data: mount.data, theme: mount.theme, settings: mount.settings }
+        appliedRef.current = { symbols: mount.symbols, theme: mount.theme, settings: mount.settings }
         if (mount.theme === undefined) applySettingsTheme(next, mount.settings?.theme)
         setController(next)
       } catch (cause) {
@@ -171,13 +171,13 @@ export function useKLineChart(
     }
   }, [containerRef])
 
-  const { data, theme, settings } = options
+  const { symbols, theme, settings } = options
 
   useEffect(() => {
-    if (!controller || appliedRef.current.data === data) return
-    appliedRef.current.data = data
-    controller.setData(data ?? [])
-  }, [controller, data])
+    if (!controller || appliedRef.current.symbols === symbols) return
+    appliedRef.current.symbols = symbols
+    if (symbols !== undefined) controller.setSymbols(symbols)
+  }, [controller, symbols])
 
   useEffect(() => {
     if (!controller || appliedRef.current.theme === theme) return

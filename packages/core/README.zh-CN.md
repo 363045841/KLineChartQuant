@@ -135,9 +135,9 @@ import {
 
 ### 挂载选项
 
-`ChartMountOptions` 接收宿主 `container`，以及可选的初始数据或 symbols。它还支持初始缩放、light 或 dark 主题偏好、图表 settings、市场交易时段、布局尺寸和框架宿主预先创建的 DOM layer。
+`ChartMountOptions` 接收宿主 `container`、行情上下文及初始 symbols，也支持初始缩放、主题、settings、市场交易时段、布局尺寸和框架宿主的 DOM layer。
 
-数据已就绪时使用 `data`。通过已注册行情 Provider 拉取数据时使用 `symbols`。数据完全由应用持有时，使用 `applyCustomData()` 原子写入完整数据包并绕过拉取链路。
+通过 `symbols` 选择已注册 Provider 的品种，行情数据归 Provider 运行时管理。
 
 ### 只读状态
 
@@ -174,10 +174,6 @@ chart.legend.rows.peek() // 所有 Pane 的展示行，包含按钮能力 action
 ### 数据与模式
 
 ```typescript
-chart.setData(nextBars)
-chart.appendData(laterBars)
-chart.updateData(revisedBars)
-
 chart.setSymbols([
   { symbol: '000001', market: 'CN', period: 'daily', source: 'baostock' },
 ])
@@ -187,7 +183,7 @@ chart.removeComparisonSymbol('000002')
 chart.switchToTimeShareForDate(20240102)
 ```
 
-拉取型数据请通过 market-data API 注册 Provider 和品种。`setCurrentSymbol()` 与 `setCurrentPeriod()` 只更新当前选择，不触发拉取；`resetToFetcher()` 可将 custom data 图表切回 Provider 拉取链路。
+通过 market-data API 注册 Provider，选择品种后沿统一行情链路取数。公开控制器提供品种选择和只读数据，不提供数组注入方法。
 
 ### 视口、主题与输入
 

@@ -2,7 +2,6 @@
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import {
-  getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/indicatorDefinitionRegistry.js'
@@ -16,11 +15,14 @@ import { deepFreezeSnapshot } from './immutable.js'
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'
 
-/** 用户配置只记录实例身份和设置；位置由指标定义派生。 */
+/** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
 export interface IndicatorInstanceConfig {
+  /** 用户持久化配置不携带模式实例的运行时来源。 */
+  readonly source?: never
   readonly instanceId: string
   readonly indicatorId: string
-  readonly layoutId: string
+  readonly paneId: string
+  readonly role: IndicatorInstanceRole
   readonly ordinal: number
   readonly hidden?: boolean
   readonly params: Readonly<Record<string, unknown>>
@@ -31,39 +33,6 @@ type StoredIndicatorInstance =
   | IndicatorInstanceConfig
   | (IndicatorInstanceSpec & { readonly source: 'mode' })
 
-/** 用户实例的位置只取定义，layoutId 仅保留副图布局身份。 */
-function projectInstance(entry: StoredIndicatorInstance): readonly IndicatorInstanceSpec[] {
-  if ('source' in entry) return [entry]
-  const definition = getIndicatorDescriptor(entry.indicatorId)
-  // 未装配的定义只保留用户配置，不猜测位置；目录发布后自动参与投影。
-  if (!definition) return []
-  const role = definition.category === 'main' ? 'main' : 'sub'
-  return [
-    Object.freeze({
-      instanceId: entry.instanceId,
-      indicatorId: entry.indicatorId,
-      role,
-      paneId: role === 'main' ? 'main' : entry.layoutId,
-      ordinal: entry.ordinal,
-      params: entry.params,
-      ...(entry.hidden ? { hidden: true } : {}),
-    }),
-  ]
-}
-
-/** 写入时剥离用户实例的派生位置，系统实例保留其模式配置。 */
-function storeInstance(entry: IndicatorInstanceInput): StoredIndicatorInstance {
-  const snapshot = snapshotInstance(entry)
-  if (snapshot.source === 'mode') return Object.freeze({ ...snapshot, source: 'mode' })
-  return Object.freeze({
-    instanceId: snapshot.instanceId,
-    indicatorId: snapshot.indicatorId,
-    layoutId: snapshot.paneId === 'main' ? `pane:${snapshot.instanceId}` : snapshot.paneId,
-    ordinal: snapshot.ordinal,
-    params: snapshot.params,
-    ...(snapshot.hidden ? { hidden: true } : {}),
-  })
-}
 export type IndicatorInstanceSource = 'user' | 'mode'
 
 /** 统一的指标实例业务状态；主图固定 paneId 为 main。 */
@@ -102,7 +71,7 @@ export type SubPaneInput = Omit<SubPaneSpec, 'instanceId' | 'ordinal'> &
   Partial<Pick<SubPaneSpec, 'instanceId' | 'ordinal'>>
 
 /** 冻结统一指标实例，隔离调用方对参数对象的修改。 */
-function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceSpec {
+function snapshotInstance(entry: IndicatorInstanceInput): StoredIndicatorInstance {
   const snapshot = {
     instanceId: entry.instanceId,
     indicatorId: entry.indicatorId,
@@ -177,12 +146,7 @@ export function createIndicatorState() {
     configRevision: 0,
     favoriteIndicatorIds: Object.freeze<string[]>([]),
   })
-  const workspaces = computed(() =>
-    Object.freeze({
-      kline: Object.freeze(stored.workspaces().kline.flatMap(projectInstance)),
-      timeshare: Object.freeze(stored.workspaces().timeshare.flatMap(projectInstance)),
-    }),
-  )
+  const workspaces = stored.workspaces
   const instances = computed(() => workspaces()[stored.activeWorkspace()])
   const configurations = computed(() =>
     Object.freeze({
@@ -201,33 +165,16 @@ export function createIndicatorState() {
   const readonly = { ...stored, workspaces, instances, configurations }
   /** Action 在 batch 内直接读取原始配置，不读取尚未重算的派生快照。 */
   const currentInstances = () =>
-    stored.workspaces.peek()[stored.activeWorkspace.peek()].flatMap(projectInstance)
+    stored.workspaces.peek()[stored.activeWorkspace.peek()]
 
   /** 写入不可变实例快照。 */
   const write = (instances: ReadonlyArray<IndicatorInstanceInput>) => {
     const previous = currentInstances()
-    const existing = new Map(
-      stored.workspaces
-        .peek()
-        [stored.activeWorkspace.peek()].map((entry) => [entry.instanceId, entry]),
-    )
-    const pending = [...existing.values()].filter(
-      (entry) => !previous.some((instance) => instance.instanceId === entry.instanceId),
-    )
-    const next = Object.freeze([
-      ...pending,
-      ...instances.map((entry) => {
-        const config = storeInstance(entry)
-        const previousConfig = existing.get(config.instanceId)
-        return !('source' in config) && previousConfig && 'layoutId' in previousConfig
-          ? Object.freeze({ ...config, layoutId: previousConfig.layoutId })
-          : config
-      }),
-    ])
+    const next = Object.freeze(instances.map(snapshotInstance))
     batch(() => {
       const workspaceId = readonly.activeWorkspace.peek()
       signals.workspaces.set(Object.freeze({ ...stored.workspaces.peek(), [workspaceId]: next }))
-      if (!calculationInstancesEqual(previous, next.flatMap(projectInstance))) {
+      if (!calculationInstancesEqual(previous, next)) {
         signals.configRevision.set(signals.configRevision.peek() + 1)
       }
     })
@@ -318,17 +265,14 @@ export function createIndicatorState() {
       },
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces) {
+        // 系统实例由模式拥有，替换用户配置时不能顺带删除。
+        const restore = (workspaceId: ChartWorkspaceId) => Object.freeze([
+          ...stored.workspaces.peek()[workspaceId].filter((entry) => 'source' in entry),
+          ...workspaces[workspaceId].instances.map(snapshotInstance),
+        ])
         const next = Object.freeze({
-          kline: Object.freeze(
-            workspaces.kline.instances.map((entry) =>
-              Object.freeze({ ...entry, params: deepFreezeSnapshot(entry.params) }),
-            ),
-          ),
-          timeshare: Object.freeze(
-            workspaces.timeshare.instances.map((entry) =>
-              Object.freeze({ ...entry, params: deepFreezeSnapshot(entry.params) }),
-            ),
-          ),
+          kline: restore(ChartWorkspaceId.KLine),
+          timeshare: restore(ChartWorkspaceId.TimeShare),
         })
         batch(() => {
           signals.workspaces.set(next)

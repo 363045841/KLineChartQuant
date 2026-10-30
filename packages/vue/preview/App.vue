@@ -12,13 +12,7 @@
       :class="{ 'is-fullscreen': isFullscreen }"
       :style="{ width: embedWidth, height: embedHeight }"
     >
-      <AgentWorkbenchShell
-        :bridge="agentBridge"
-        :panel-width-storage="webPanelWidthStorage"
-        :panel-side-storage="webPanelSideStorage"
-      >
-        <template #chart>
-          <KlineChart
+          <KlineWorkbench
             ref="chartRef"
             :left-axis-width="60"
             @update:is-fullscreen="isFullscreen = $event"
@@ -42,9 +36,7 @@
             </div>
           </div>
         </template> -->
-          </KlineChart>
-        </template>
-      </AgentWorkbenchShell>
+          </KlineWorkbench>
     </div>
 
     <!-- Modal 场景 -->
@@ -67,16 +59,13 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, provide, inject, onBeforeUnmount, type Ref, type InjectionKey } from 'vue'
+  import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { useChartDocumentTitle } from './useChartDocumentTitle'
   import {
-    AgentWorkbenchShell,
-    createAgentPanelSideStorage,
-    createAgentPanelWidthStorage,
+    KlineWorkbench,
     KlineChart,
   } from '../src/index'
-  import { BrowserAgentBridge } from '../src/features/agent/browser-agent/bridge/impl/browser-agent-bridge'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
   import { normalizeSettings } from '@363045841yyt/klinechart-core/config'
@@ -96,13 +85,7 @@
     })
   }
 
-  const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
-  const agentBridge = new BrowserAgentBridge({
-    getChartAgent: () => chartRef.value?.getController?.()?.agent,
-  })
-  onBeforeUnmount(() => agentBridge.close())
-  const webPanelWidthStorage = createAgentPanelWidthStorage()
-  const webPanelSideStorage = createAgentPanelSideStorage()
+  const chartRef = ref<InstanceType<typeof KlineWorkbench> | null>(null)
   const showModal = ref(false)
 
   const sizeIndex = ref(0)
@@ -142,7 +125,6 @@
 
   /** 控制器就绪后用内部解析出的有效主题初始化外壳主题。 */
   function onControllerReady(controller: ChartController) {
-    agentBridge.bindChartAgent(controller.agent)
     currentTheme.value = controller.theme.peek()
     bindDocumentTitle(controller)
   }
