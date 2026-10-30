@@ -11,6 +11,7 @@
         @controller-ready="emit('controller-ready', $event)"
         @theme-change="onThemeChange"
         @update:is-fullscreen="emit('update:is-fullscreen', $event)"
+        @error="emit('error', $event)"
       />
       <template #fallback><slot name="loading"><p role="status">正在加载工作台…</p></slot></template>
     </Suspense>

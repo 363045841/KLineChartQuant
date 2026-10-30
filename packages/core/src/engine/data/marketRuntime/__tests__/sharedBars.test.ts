@@ -61,7 +61,7 @@ function createHarness() {
     data: createSignal<readonly KLineData[]>(data),
     needsTrades: () => false,
     publishTrades: () => {},
-    writeBars: () => {},
+    reloadBars: async () => { throw new Error('Unexpected reload') },
     resolveBarsSelection: (instrument, period, adjustment, barAggregation) => ({
       ...selectionFor(instrument.symbol),
       period,

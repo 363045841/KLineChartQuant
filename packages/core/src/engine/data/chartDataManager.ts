@@ -213,9 +213,15 @@ export class ChartDataManager {
         return { ...this.barsSelectionForSpec(spec), barAggregation }
       },
       publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
-      writeBars: (session, bars) => {
-        this._repository.getBars(session.selection)?.applyRealtimeBars(bars)
-      },
+      reloadBars: (session, buffer, signal) => this.loadBars(session.selection, buffer, {
+        instrument: session.instrument,
+        symbol: session.instrument.symbol,
+        market: session.instrument.sessionId ?? session.instrument.exchange,
+        exchange: session.instrument.exchange,
+        source: session.instrument.sourceId,
+        period: session.selection.period,
+        adjust: session.selection.adjustment,
+      }, { limit: Math.max(buffer.getRawData().length, DEFAULT_BAR_PAGE_LIMIT), refresh: true, signal }),
     })
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
@@ -516,11 +522,12 @@ export class ChartDataManager {
     selection: BarsSelection,
     buffer: KLineBuffer,
     spec: SymbolSpec,
-    target: { limit: number; beforeTimestamp?: number },
+    target: { limit: number; beforeTimestamp?: number; refresh?: boolean; signal?: AbortSignal },
   ): Promise<void> {
     const request = {}
     this.barLoads.get(buffer)?.abort()
     const abort = new AbortController()
+    const signal = target.signal ? AbortSignal.any([abort.signal, target.signal]) : abort.signal
     this.barLoads.set(buffer, abort)
     this.loadRequests.set(buffer, request)
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
@@ -529,9 +536,15 @@ export class ChartDataManager {
       throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
     buffer.setLoading(true)
+    // 数据源可能不及时结束 Promise；取消时立即释放本任务拥有的加载状态。
+    const releaseLoading = () => {
+      if (this.isCurrentLoad(buffer, request)) buffer.setLoading(false)
+    }
+    signal.addEventListener('abort', releaseLoading, { once: true })
+    if (signal.aborted) releaseLoading()
     try {
-      const result = await this.marketDataCache.queryBars({
-        signal: abort.signal,
+      const query = {
+        signal,
         sourceId: spec.source,
         instrument: spec.instrument,
         symbol: spec.symbol,
@@ -544,8 +557,14 @@ export class ChartDataManager {
         ...(target.beforeTimestamp === undefined
           ? {}
           : { beforeTimestamp: target.beforeTimestamp }),
-      })
-      if (this.disposed || this.loadRequests.get(buffer) !== request) return
+      }
+      if (target.refresh && (!spec.source || !spec.instrument)) {
+        throw new Error('Refreshing bars requires a resolved source and instrument')
+      }
+      const result = target.refresh && spec.source && spec.instrument
+        ? await this.marketDataCache.refreshBars({ ...query, sourceId: spec.source, instrument: spec.instrument })
+        : await this.marketDataCache.queryBars(query)
+      if (signal.aborted || !this.isCurrentLoad(buffer, request)) return
       if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
         return
       // 来源必须先于任何 Kernel/Buffer 通知就绪；通知的订阅者会立即协调成交连接。
@@ -561,7 +580,10 @@ export class ChartDataManager {
           return
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
-      buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+      if (target.refresh) {
+        this.calendarRequests.delete(buffer)
+        buffer.replaceData(result.series.data, result.series.olderData, result.series.timezone)
+      } else buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
       const resolvedSelection = { ...selection, sourceId: result.sourceId }
       if (
         this.deps.comparison.readonly.specs
@@ -578,14 +600,17 @@ export class ChartDataManager {
       }
       if (
         this.isActiveSelection(selection) &&
-        buffer.loadedTimeRange?.earliestTs !== previousEarliest
+        (target.refresh || buffer.loadedTimeRange?.earliestTs !== previousEarliest)
       ) {
         this.deps.onBarsReady()
       }
     } catch (error) {
-      if (!this.disposed && !abort.signal.aborted && this.loadRequests.get(buffer) === request)
+      if (!signal.aborted && this.isCurrentLoad(buffer, request))
         buffer.setError(error instanceof Error ? error.message : String(error))
+      if (target.refresh) throw error
     } finally {
+      signal.removeEventListener('abort', releaseLoading)
+      releaseLoading()
       if (this.barLoads.get(buffer) === abort) this.barLoads.delete(buffer)
     }
   }
@@ -1022,22 +1047,8 @@ export class ChartDataManager {
 
   get dataBuffer(): KLineBuffer {
     const buf = this.getActiveDataBuffer()
-    if (buf) return buf
-    const spec: SymbolSpec = {
-      market: 'custom',
-      symbol: '',
-      period: DEFAULT_KLINE_PERIOD,
-      adjust: DEFAULT_KLINE_ADJUSTMENT,
-      source: 'custom',
-      incremental: false,
-    }
-    const selection = this.barsSelectionForSpec(spec)
-    const fallback = this._repository.getOrCreateBars(selection, () =>
-      this.createKLineBuffer(selection),
-    )
-    fallback.setCurrentSpec(spec)
-    this.activateBuffer(selection)
-    return fallback
+    if (!buf) throw new Error('No active K-line series')
+    return buf
   }
 
   getComparisonColors(): Map<string, string> {
@@ -1047,49 +1058,6 @@ export class ChartDataManager {
   /** 返回比较折线隐藏状态供图例渲染。 */
   getComparisonHidden(): ReadonlyMap<string, boolean> {
     return this.deps.comparison.readonly.hidden.peek()
-  }
-
-  // ── Data updates (KLine) ──
-
-  /** 内联数据替换前撤销旧加载请求及正式来源，防止晚返回的 REST 覆盖调用方数据。 */
-  private setInlineBars(buffer: KLineBuffer, data: readonly KLineData[]): void {
-    this.loadRequests.delete(buffer)
-    this.resolvedBarSources.delete(buffer)
-    this.readySessions.delete(buffer)
-    buffer.setInlineData(data)
-  }
-
-  updateData(data: KLineData[]): void {
-    if (isTimeSharePeriod(this.currentPeriod)) return
-    const buf = this.getActiveDataBuffer()
-    if (buf) {
-      this.setInlineBars(buf, data)
-    }
-  }
-
-  setData(data: KLineData[]): void {
-    const buffer = this.dataBuffer
-    const currentSpec = buffer.currentSpec
-    if (currentSpec && currentSpec.incremental !== false) {
-      buffer.setCurrentSpec({ ...currentSpec, incremental: false })
-    }
-    this.setInlineBars(buffer, data)
-  }
-
-  /** 实时帧写入活动 K 线 Buffer（末尾窗口 replace-on-conflict）；分时视图或无活动序列时忽略。 */
-  updateBars(bars: KLineData[]): void {
-    if (isTimeSharePeriod(this.currentPeriod)) return
-    this.getActiveDataBuffer()?.applyRealtimeBars(bars)
-  }
-
-  appendData(newData: KLineData[]): void {
-    const buf = this.getActiveDataBuffer()
-    if (buf) {
-      const merged = [...buf.getRawData(), ...newData]
-      this.setInlineBars(buf, merged)
-    } else {
-      this.setInlineBars(this.dataBuffer, newData)
-    }
   }
 
   getData(): KLineData[] {
@@ -1171,18 +1139,6 @@ export class ChartDataManager {
       return
     }
     this._repository.delete(selection)
-  }
-
-  setComparisonData(symbol: string, data: KLineData[]): void {
-    const specs = this.deps.comparison.readonly.specs.peek()
-    if (!specs.some((spec) => spec.symbol === symbol)) {
-      // 未登记的对比品种按当前主品种 market 兜底，写回对比状态而非 kline symbols。
-      const market = this._dataState.readonly.symbols.peek()[0]?.market ?? ''
-      const next = [...specs, { symbol, market, period: DEFAULT_KLINE_PERIOD }]
-      this.deps.comparison.actions.setSpecs(next)
-      this.deps.comparison.actions.syncColors(next)
-    }
-    this._comparisonManager.setData(symbol, data)
   }
 
   // ── Symbol / Period ──
@@ -1352,14 +1308,8 @@ export class ChartDataManager {
     const buf = this.getPrimaryDataBuffer(spec)
     this.activateBuffer(this.barsSelectionForSpec(spec))
     // 已缓存的序列可以立即投影，后续更新仍由 Provider 运行时负责。
-    // → just update the spec metadata, skip fetch to avoid clearing inline data.
-    // Preserve the buffer's existing incremental flag so inline data sources
-    // (which use incremental:false) remain non-fetching even after a symbol switch.
     if (buf.getRawData().length > 0) {
-      buf.setCurrentSpec({
-        ...spec,
-        incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
-      })
+      buf.setCurrentSpec(spec)
       this.deps.resetInteraction()
       // 有快照时由 Chart 在模式切换后恢复；否则定位到最新数据。
       if (!this._dmState.actions.getViewportSnapshot(this.getViewportSnapshotKey(spec))) {

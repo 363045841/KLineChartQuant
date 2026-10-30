@@ -54,7 +54,7 @@ describe('实时 K 线绑定边界', () => {
             data: createSignal<readonly KLineData[]>([]),
             needsTrades: () => false,
             publishTrades: () => {},
-            writeBars: () => {},
+            reloadBars: async () => { throw new Error('Unexpected reload') },
             resolveBarsSelection: () => selection,
           }),
       ).not.toThrow()

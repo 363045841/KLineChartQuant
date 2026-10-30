@@ -10,7 +10,6 @@ import {
   SeriesRepository,
   sourceIdFromSpec,
 } from '@/data/buffer/impl/seriesRepository'
-import { OLDER_DATA_STATUS } from '@/data/provider/types'
 import { ComparisonManager } from '../comparisonManager'
 
 /** 将测试品种转换为日 K 选择。 */
@@ -87,47 +86,6 @@ describe('ComparisonManager runtime projection', () => {
     expect(harness.repository.getBars(selectionForSpec(spec))).toBeDefined()
   })
 
-  it('projects every selected comparison buffer independently of the primary', () => {
-    const harness = createHarness()
-    const first = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
-    const second = { symbol: 'B', market: 'CN', source: 'custom', period: 'daily' }
-    harness.setSpecs([first, second])
-    harness.manager.reconcile()
-
-    harness.manager.setData('A', [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }])
-    harness.manager.setData('B', [
-      { timestamp: 1, open: 1, high: 1, low: 1, close: 1 },
-      { timestamp: 2, open: 1, high: 1, low: 1, close: 1 },
-    ])
-    expect([...harness.manager.data.values()].map((data) => data.length)).toEqual([1, 2])
-
-    harness.setSpecs([])
-    harness.manager.reconcile()
-    expect(harness.manager.data.size).toBe(0)
-  })
-
-  it('does not reset a shared leaf when comparison request metadata differs', () => {
-    const harness = createHarness()
-    const mainSpec: SymbolSpec = {
-      symbol: 'A',
-      market: 'CN',
-      source: 'custom',
-      period: 'daily',
-      incremental: false,
-    }
-    const shared = new DataBuffer()
-    shared.setCurrentSpec(mainSpec)
-    shared.setInlineData([{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }])
-    harness.repository.getOrCreateBars(selectionForSpec(mainSpec), () => shared)
-    harness.setSpecs([{ ...mainSpec, incremental: true, startDate: '2026-01-01' }])
-
-    harness.manager.reconcile()
-
-    expect(harness.createBuffer).not.toHaveBeenCalled()
-    expect(shared.getRawData()).toHaveLength(1)
-    expect(shared.currentSpec).toBe(mainSpec)
-  })
-
   it('keeps the same symbol isolated by market, source and period', () => {
     const harness = createHarness()
     const specs: SymbolSpec[] = [
@@ -158,37 +116,6 @@ describe('ComparisonManager runtime projection', () => {
     expect(harness.repository.getBars(selectionForSpec(removed))).toBeUndefined()
     expect(harness.repository.getBars(selectionForSpec(retained))).toBeDefined()
     expect(harness.releaseSelection).toHaveBeenCalledWith(selectionForSpec(removed))
-  })
-
-  it('sets inline data only for a desired comparison', () => {
-    const harness = createHarness()
-    expect(harness.manager.setData('A', [])).toBe(false)
-
-    const spec = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
-    harness.setSpecs([spec])
-    expect(harness.manager.setData('A', [])).toBe(true)
-    expect(harness.repository.getBars(selectionForSpec(spec))?.getRawData()).toEqual([])
-  })
-
-  it('does not queue another history page while a comparison buffer is loading', () => {
-    const harness = createHarness()
-    const spec = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
-    harness.setSpecs([spec])
-    harness.manager.setData('A', [{ timestamp: 100, open: 1, high: 1, low: 1, close: 1 }])
-    const buffer = harness.repository.getBars(selectionForSpec(spec))!
-    buffer.mergeData(
-      [{ timestamp: 100, open: 1, high: 1, low: 1, close: 1 }],
-      OLDER_DATA_STATUS.AVAILABLE,
-      'Asia/Shanghai',
-    )
-    buffer.setLoading(true)
-
-    harness.manager.ensureRange(99)
-
-    expect(harness.loadRange).not.toHaveBeenCalled()
-    buffer.setLoading(false)
-    harness.manager.ensureRange(99)
-    expect(harness.loadRange).toHaveBeenCalledOnce()
   })
 
   it('clearAll releases runtime selections and clears loading', () => {

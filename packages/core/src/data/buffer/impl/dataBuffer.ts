@@ -155,8 +155,8 @@ export class DataBuffer implements KLineBuffer {
     if (this.disposed) return
     this.olderDataStatus = olderData
     this.currentTimezone = timezone
-    this.store.setInlineData([...data])
     this.calendar.clear()
+    this.store.setInlineData([...data])
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }

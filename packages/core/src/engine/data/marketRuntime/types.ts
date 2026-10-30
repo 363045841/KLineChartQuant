@@ -2,6 +2,7 @@
 
 import type { MarketDataCache } from '@/data/buffer/impl/marketDataCache.js'
 import type { BarsSelection } from '@/data/buffer/impl/seriesRepository.js'
+import type { KLineBuffer } from '@/data/buffer/types.js'
 import type { InstrumentDescriptor, SourceCapabilities } from '@/data/provider/types.js'
 import type { TradeSnapshot } from '@/data/trades/types.js'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
@@ -47,5 +48,6 @@ export interface MarketRuntimeDependencies {
   readonly data: ReadonlySignal<ReadonlyArray<KLineData | TimeShareData>>
   needsTrades(): boolean
   publishTrades(snapshot: TradeSnapshot): void
-  writeBars(session: ReadyMarketSession, bars: readonly KLineData[]): void
+  /** 失效重查交给正常加载流程，运行模块仅协调订阅期间的事件顺序。 */
+  reloadBars(session: ReadyMarketSession, buffer: KLineBuffer, signal: AbortSignal): Promise<void>
 }

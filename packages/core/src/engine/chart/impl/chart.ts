@@ -24,7 +24,6 @@ import {
   type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '../../../controllers/types.js'
-import type { DataBuffer } from '../../../data/buffer/impl/dataBuffer.js'
 import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import {
@@ -1451,19 +1450,6 @@ export class Chart {
 
   // ---------- Data ----------
 
-  setData(data: KLineData[]): void {
-    this.dataManager.setData(data)
-  }
-
-  /** 实时帧写入活动 K 线序列：末尾窗口 replace-on-conflict（SSE forming/closed 链路）。 */
-  updateBars(bars: KLineData[]): void {
-    this.dataManager.updateBars(bars)
-  }
-
-  get dataBuffer(): DataBuffer {
-    return this.dataManager.dataBuffer as DataBuffer
-  }
-
   checkVisibleRangeGap(): void {
     this.dataManager.checkVisibleRangeGap()
   }
@@ -1547,15 +1533,6 @@ export class Chart {
   setComparisonHidden(identity: string, hidden: boolean): void {
     this.kernel.comparison.actions.setHidden(identity, hidden)
     this.scheduleDraw()
-  }
-
-  setComparisonData(symbol: string, data: KLineData[]): void {
-    this.dataManager.setComparisonData(symbol, data)
-    this.applyPriceScaleSettingToKernel(
-      resolvePriceScaleTypeSetting(
-        this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-      ),
-    )
   }
 
   setCurrentSymbol(symbol: string): void {

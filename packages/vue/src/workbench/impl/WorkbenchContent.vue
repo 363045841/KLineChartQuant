@@ -6,6 +6,10 @@
     :controller="agent ? controller : undefined"
     :initial-panel-open="agent ? initialAgentPanelOpen : undefined"
   >
+    <div v-if="market.error.value" class="kline-workbench__market-error" role="alert">
+      {{ market.error.value.message }}
+      <BaseButton @click="market.retry">重试</BaseButton>
+    </div>
     <KlineChart
       v-bind="{ ...chart, ...$attrs }"
       :market-data-context="market.context"
@@ -22,6 +26,7 @@
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { defineAsyncComponent, provide, shallowRef } from 'vue'
   import KlineChart from '../../components/chart/KLineChart.vue'
+  import BaseButton from '../../components/common/BaseButton.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '../../composables/chart/scriptEditor/types.js'
   import type { KlineWorkbenchProps } from '../types.js'
   import { useWorkbenchServices } from './useWorkbenchServices.js'
@@ -37,12 +42,14 @@
     'controller-ready': [controller: ChartController]
     'theme-change': [theme: 'light' | 'dark']
     'update:is-fullscreen': [fullscreen: boolean]
+    error: [error: Error]
   }>()
   const controller = shallowRef<ChartController | null>(null)
   const WorkbenchAgent = defineAsyncComponent(() => import('./WorkbenchAgent.vue'))
   const { initialize } = useWorkbenchServices(props.scripts)
-  const market = useWorkbenchMarket(props)
-  const [scriptService] = await Promise.all([initialize(), market.initialize()])
+  const market = useWorkbenchMarket(props, (error) => emit('error', error))
+  void market.initialize()
+  const scriptService = await initialize()
   if (scriptService) provide(SCRIPT_SOURCE_STORE_KEY, scriptService)
 
   /** 对外转发同一个图表控制器，Agent 和宿主不再各自组装图表。 */
@@ -55,11 +62,17 @@
 
 <style>
   .kline-workbench__content {
+    position: relative;
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
     --kmap-chart-width: 100%;
     --kmap-chart-height: 100%;
+  }
+  .kline-workbench__market-error {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
   }
 </style>

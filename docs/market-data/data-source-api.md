@@ -69,4 +69,4 @@ const unregister = host.registerDataSource(source)
 
 隔离消费验收也注册数据源，实际验证历史查询、末根更新、新根追加、脚本运行和卸载释放，不使用旁路数组注入。
 
-内置 mock 同样实现此接口：`host.registerDataSource(createMockDataSource())`。每个实例独立持有 `MOCK-100` 与 `MOCK-10000` 的历史，历史页遵守数量及排他游标约束；实时订阅只调用 `observer.update(bar)`。注销来源或释放宿主会停止计时器。两组历史均截止当前 UTC 日，不生成未来 K 线。
+内置 mock 同样实现此接口，自建宿主用 `host.registerDataSource(createMockDataSource())` 注册。默认宿主 `defaultMarketDataContext` 在加载时已内置一个 mock 来源，不要对它重复注册：同名来源重复注册会抛 `INVALID_STATE`。每个实例独立持有 `MOCK-100` 与 `MOCK-10000` 的历史，历史页遵守数量及排他游标约束；实时订阅只调用 `observer.update(bar)`。注销来源或释放宿主会停止计时器。两组历史均截止当前 UTC 日，不生成未来 K 线。

@@ -367,22 +367,19 @@ export class MarketRuntime implements IndicatorMarketData {
         try {
           do {
             invalidated = false
-            buffer.setLoading(true)
-            const result = await this.deps.cache.refreshBars({
-              sourceId: target.instrument.sourceId, instrument: target.instrument,
-              symbol: target.instrument.symbol, exchange: target.instrument.exchange, assetClass: target.instrument.assetClass,
-              period: target.selection.period, adjustment: target.selection.adjustment,
-              barAggregation: target.selection.barAggregation,
-              limit: Math.max(buffer.getRawData().length, 1), signal: abort.signal,
-            })
-            if (!current()) return
-            buffer.replaceData(result.series.data, result.series.olderData, result.series.timezone)
-            for (const event of queued.splice(0)) {
-              if (event.historical) buffer.correctBar(event.bar)
-              else buffer.applyRealtimeBars([event.bar])
-              this.deps.cache.acceptBars(target.selection, target.instrument, [event.bar])
+            try {
+              await this.deps.reloadBars(target, buffer, abort.signal)
+            } finally {
+              // 重查失败仍需提交已收到的实时事实；取消后整批丢弃，不能污染新会话。
+              if (current()) {
+                for (const event of queued.splice(0)) {
+                  if (event.historical) buffer.correctBar(event.bar)
+                  else buffer.applyRealtimeBars([event.bar])
+                  this.deps.cache.acceptBars(target.selection, target.instrument, [event.bar])
+                }
+                notify()
+              }
             }
-            notify()
           } while (invalidated && current())
         } catch (error) {
           if (current()) buffer.setError(error instanceof Error ? error.message : String(error))

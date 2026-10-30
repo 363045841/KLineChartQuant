@@ -75,9 +75,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
 
   function ensureDataRange(startTs: number): void {
     if (isDisposed()) return
-    const buf = chart.dataBuffer
-    const loadedTimeRange = buf.loadedTimeRange
-    if (!loadedTimeRange || startTs >= loadedTimeRange.earliestTs) return
     chart.ensureDataRange(startTs)
   }
 
