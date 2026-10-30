@@ -1,4 +1,6 @@
 /* 工具栏按钮与下拉触发器的共享外观；通过 scoped 样式引入，避免影响其他按钮。 */
+/* 共享默认外观低于业务组件样式，不依赖同步或懒加载分块的到达顺序。 */
+@layer kline-primitives {
 .control-button {
   display: inline-flex;
   align-items: center;
@@ -70,4 +72,5 @@
   .control-button {
     transition: none;
   }
+}
 }

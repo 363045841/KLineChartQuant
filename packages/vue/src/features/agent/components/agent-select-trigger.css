@@ -1,6 +1,6 @@
 /* Agent 模型选择与设置弹窗共用的紧凑触发按钮样式。 */
-.composer__model .control-button.drop-menu__trigger,
-.agent-settings-selects .control-button.drop-menu__trigger {
+.composer__model .drop-menu__trigger,
+.agent-settings-selects .drop-menu__trigger {
   height: 26px;
   padding: 0 10px;
   border: 0;

@@ -32,6 +32,7 @@
 </script>
 
 <style scoped>
+  @layer kline-primitives {
   .base-button {
     box-sizing: border-box;
     display: inline-flex;
@@ -89,5 +90,6 @@
     .base-button {
       transition: none;
     }
+  }
   }
 </style>

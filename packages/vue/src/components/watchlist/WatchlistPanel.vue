@@ -84,8 +84,8 @@
     --drop-menu-item-padding-block: 10px;
   }
 
-  /* 明确高于共享按钮的选择器优先级，避免产品 CSS 分块改变顺序后覆盖外观。 */
-  :deep(.control-button.watchlist-trigger) {
+  /* 业务外观覆盖 primitives 层中的共享按钮默认值。 */
+  :deep(.watchlist-trigger) {
     width: 30px;
     min-width: 30px;
     height: 30px;

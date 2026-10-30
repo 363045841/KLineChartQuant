@@ -142,6 +142,33 @@ try {
     const fullScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     writeFileSync(path.join(artifacts, `${label}-full.png`), fullScreenshot)
     fullScreenshots.push(fullScreenshot)
+    // 模拟 CSS 分块以相反顺序到达，业务外观不能依赖共享控件的加载先后。
+    const cascadeChanges = await page.evaluate(async () => {
+      const elements = [...document.querySelectorAll('#app *')]
+      const snapshot = () => elements.map((element) => {
+        const style = getComputedStyle(element)
+        return Object.fromEntries([...style].map((name) => [name, style.getPropertyValue(name)]))
+      })
+      const before = snapshot()
+      const original = [...document.querySelectorAll('link[rel="stylesheet"], style')]
+      const styles = original.map((style) => style.cloneNode(true))
+      const loaded = styles.map((style) => style instanceof HTMLLinkElement
+        ? new Promise((resolve, reject) => { style.addEventListener('load', resolve, { once: true }); style.addEventListener('error', reject, { once: true }) })
+        : Promise.resolve())
+      for (const style of styles.reverse()) document.head.append(style)
+      await Promise.all(loaded)
+      for (const style of original) style.remove()
+      await document.fonts.ready
+      const after = snapshot()
+      return elements.flatMap((element, index) => {
+        const changes = Object.entries(before[index]).filter(([name, value]) => after[index][name] !== value)
+        return changes.length ? [{ element: element.tagName, class: element.className, changes: changes.map(([name, value]) => [name, value, after[index][name]]) }] : []
+      })
+    })
+    writeFileSync(path.join(artifacts, `${label}-css-order.json`), JSON.stringify(cascadeChanges, null, 2))
+    const reorderedScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
+    writeFileSync(path.join(artifacts, `${label}-css-reordered.png`), reorderedScreenshot)
+    assert.ok(fullScreenshot.equals(reorderedScreenshot), `${label} workbench changes when stylesheet order is reversed`)
     await page.getByRole('button', { name: '代码编辑器', exact: true }).click()
     await page.locator('.cm-editor').waitFor({ timeout: 60_000 })
     const runButton = page.getByRole('button', { name: '运行代码', exact: true })
