@@ -40,15 +40,11 @@ afterEach(async () => {
 
 /** 写入实际内联行情并提交渲染帧，不接入外部网络或复制领域替身。 */
 function loadData(): void {
-  chart.applyCustomData({
-    symbol: 'PRIMARY',
-    market: 'CN',
-    period: 'daily',
-    data: [
+  chart.setSymbols([{ symbol: 'PRIMARY', market: 'CN', period: 'daily', source: 'legend-fixture', incremental: false }])
+  chart.setData([
       { timestamp: 1000, open: 10, high: 11, low: 9, close: 10 },
       { timestamp: 2000, open: 10, high: 13, low: 10, close: 12 },
-    ],
-  })
+    ])
   frames.flush()
 }
 

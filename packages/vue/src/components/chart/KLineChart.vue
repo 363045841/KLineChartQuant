@@ -400,7 +400,6 @@
     type ChartController,
     type ChartMountOptions,
     CURSOR_DRAWING_TOOL_ID,
-    type CustomDataSource,
     createChartController,
     type DrawingLineLabelTarget,
     type DrawingStyle,
@@ -542,8 +541,6 @@
       /** Canvas 主图图例配置；默认由 Core 绘制，不进入 Vue 更新路径。 */
       legend?: LegendOptions
 
-      /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
-      customData?: CustomDataSource
     }>(),
     {
       yPaddingPx: 20,
@@ -1613,7 +1610,6 @@
   ): Promise<ChartController> {
     const ctrl = createChartController({
       container,
-      data: [],
       marketSessions: props.marketSessions,
       marketDataContext,
       canvasLayer,
@@ -1714,9 +1710,7 @@
       }
     }
 
-    if (props.customData) {
-      ctrl.applyCustomData(props.customData)
-    } else if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
+    if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
       // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
       ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
       ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
@@ -1822,7 +1816,7 @@
 
   // 受控业务 props 使用同一条同步路径；指标总是在 data source 之前创建。
   watch(
-    [() => props.symbols, () => props.indicators, () => props.customData],
+    [() => props.symbols, () => props.indicators],
     async () => {
       const ctrl = controller.value
       if (!ctrl) return

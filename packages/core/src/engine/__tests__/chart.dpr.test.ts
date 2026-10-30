@@ -128,14 +128,14 @@ describe('Chart DPR pipeline', () => {
   const comparison: SymbolSpec = {
     symbol: 'COMPARE',
     market: 'CN',
-    source: 'chart-custom:default',
+    source: 'render-fixture',
     period: 'daily',
     incremental: false,
   }
 
   /** 通过真实内联数据入口设置主品种，避免依赖外部行情 Provider。 */
   function setInlinePrimary(chart: Chart): void {
-    chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: [] })
+    chart.setSymbols([{ symbol: 'PRIMARY', market: 'CN', period: 'daily', source: 'render-fixture', incremental: false }])
   }
   const viewCases = [
     { period: 'daily', specs: [], view: ChartDataViewId.KLine, mode: ChartDataViewId.KLine },
@@ -240,7 +240,8 @@ describe('Chart DPR pipeline', () => {
     const chart = mountChart()
     try {
       const data = makeBars(100)
-      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data })
+      setInlinePrimary(chart)
+      chart.setData(data)
       const primaryData = chart.data.peek()
       const count = chart.kernel.dataLength$.peek()
       const zoom = chart.kernel.zoom.readonly.zoomLevel.peek()
@@ -333,12 +334,8 @@ describe('Chart DPR pipeline', () => {
     )
     try {
       chart.resize()
-      chart.applyCustomData({
-        symbol: 'PRIMARY',
-        market: 'CN',
-        period: 'daily',
-        data: makeBars(200),
-      })
+      setInlinePrimary(chart)
+      chart.setData(makeBars(200))
       chart.draw()
       const handRange = () =>
         chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[MAIN_PANE_ID]?.handRange
@@ -388,18 +385,13 @@ describe('Chart DPR pipeline', () => {
     }
   })
 
-  it('keeps custom-data comparisons inside the kline view', async () => {
+  it('keeps comparison selection inside the kline view', async () => {
     const chart = mountChart()
     try {
-      chart.applyCustomData({
-        symbol: 'PRIMARY',
-        market: 'CN',
-        period: 'daily',
-        data: [],
-        comparisons: { COMPARE: [] },
-      })
+      setInlinePrimary(chart)
+      chart.setComparisonSpecs([comparison])
       expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
-      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', period: 'daily', data: [] })
+      chart.setComparisonSpecs([])
       expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
       expect(chart.interactionState).toBe(chart.kernel.interaction.readonly.interactionSnapshot)
     } finally {
@@ -476,12 +468,8 @@ describe('Chart DPR pipeline', () => {
       const chart = mountChart(1000, 600, { clock })
       try {
         chart.resize()
-        chart.applyCustomData({
-          symbol: 'PRIMARY',
-          market,
-          period: '1min',
-          data: [{ timestamp: opened, open: 10, high: 11, low: 9, close: 10 }],
-        })
+        chart.setSymbols([{ symbol: 'PRIMARY', market, period: '1min', source: 'render-fixture', incremental: false }])
+        chart.setData([{ timestamp: opened, open: 10, high: 11, low: 9, close: 10 }])
         const paint = vi.spyOn(chart['renderer'].getScene(), 'paint')
         clock.now.mockClear()
         chart.draw()
@@ -853,12 +841,8 @@ describe('Chart DPR pipeline', () => {
       const chart = mountHandModeChart(scaleType)
       try {
         chart.resize()
-        chart.applyCustomData({
-          symbol: 'PRIMARY',
-          market: 'CN',
-          period: 'daily',
-          data: makeBars(200),
-        })
+        setInlinePrimary(chart)
+        chart.setData(makeBars(200))
         chart.draw()
         const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
         const y = axis.priceToY(10)
@@ -877,12 +861,8 @@ describe('Chart DPR pipeline', () => {
       const chart = mountHandModeChart(scaleType)
       try {
         chart.resize()
-        chart.applyCustomData({
-          symbol: 'PRIMARY',
-          market: 'CN',
-          period: 'daily',
-          data: makeTwoTierBars(),
-        })
+        setInlinePrimary(chart)
+        chart.setData(makeTwoTierBars())
         chart.draw()
         const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
         expect(axis.getScaleType()).toBe(scaleType)
@@ -918,12 +898,8 @@ describe('Chart DPR pipeline', () => {
       const chart = mountHandModeChart(scaleType)
       try {
         chart.resize()
-        chart.applyCustomData({
-          symbol: 'PRIMARY',
-          market: 'CN',
-          period: 'daily',
-          data: makeBars(200),
-        })
+        setInlinePrimary(chart)
+        chart.setData(makeBars(200))
         chart.draw()
         const primary = chart.symbols.peek()[0]!
         const axis = chart.getPaneRenderers()[0]!.getPane().yAxis
@@ -933,12 +909,8 @@ describe('Chart DPR pipeline', () => {
         chart.draw()
         expect(axis.getDisplayRange()).not.toEqual(initialRange)
 
-        chart.applyCustomData({
-          symbol: 'SECONDARY',
-          market: 'CN',
-          period: 'daily',
-          data: makeBars(200, 100),
-        })
+        chart.setSymbols([{ symbol: 'SECONDARY', market: 'CN', period: 'daily', source: 'render-fixture', incremental: false }])
+        chart.setData(makeBars(200, 100))
         // 新品种尚未绘制时，旧轴上的交互不能提前初始化其锁定范围。
         chart.scalePrice(MAIN_PANE_ID, -100)
         chart.translatePrice(MAIN_PANE_ID, 80)
@@ -1025,7 +997,8 @@ describe('Chart DPR pipeline', () => {
     const host = chart.getDom().canvasLayer
     let canvas: HTMLCanvasElement | null = null
     try {
-      chart.applyCustomData({ symbol: 'PRIMARY', market: 'CN', data: makeBars(100) })
+      setInlinePrimary(chart)
+      chart.setData(makeBars(100))
       chart.draw()
       // 十字线首次出现前不分配整幅表面。
       expect(host.querySelector('canvas.crosshair-canvas')).toBeNull()

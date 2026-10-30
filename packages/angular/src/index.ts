@@ -149,8 +149,8 @@ export async function createChart(
   template: '<div #container style="width:100%;height:100%;"></div>',
 })
 export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
-  @Input() data: ReadonlyArray<KLineData> = []
   @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
+  @Input() marketDataContext: ChartMountOptions['marketDataContext'] = undefined
   @Input() marketSessions: ChartMountOptions['marketSessions'] = undefined
   @Input() theme: 'light' | 'dark' | undefined = undefined
   @Input() settings: Partial<ChartSettings> | undefined = undefined
@@ -193,8 +193,8 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
     const controller = await createChart({
       container: containerEl,
-      data: this.data,
       symbols: this.symbols,
+      marketDataContext: this.marketDataContext,
       marketSessions: this.marketSessions,
       settings: this.settings,
       initialZoomLevel: this.initialZoomLevel,
@@ -249,9 +249,6 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['data'] && !changes['data'].isFirstChange()) {
-      this.controller?.setData(this.data)
-    }
     if (changes['theme'] && !changes['theme'].isFirstChange()) {
       if (this.theme !== undefined) {
         this.controller?.setTheme(this.theme)
@@ -330,10 +327,6 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
   setTheme(theme: 'light' | 'dark'): void {
     this.controller?.setTheme(theme)
-  }
-
-  setData(next: ReadonlyArray<KLineData>): void {
-    this.controller?.setData(next)
   }
 
   setSymbols(next: ReadonlyArray<SymbolSpec>): void {

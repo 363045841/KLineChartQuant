@@ -35,7 +35,9 @@ for (const destination of [consumer, sourceRoot]) {
   const entry = path.join(destination, 'main.ts')
   writeFileSync(entry, readFileSync(entry, 'utf8').replaceAll('__PRODUCT_NAME__', manifest.name))
   const data = readFileSync(path.join(root, 'packages/desktop-electron/src/features/agent/chart-e2e-fixture.ts'), 'utf8')
-  writeFileSync(path.join(destination, 'data.ts'), data.replace('@363045841yyt/klinechart-core/controllers', manifest.name))
+  writeFileSync(path.join(destination, 'data.ts'), data
+    .replaceAll('@363045841yyt/klinechart-core/controllers', manifest.name)
+    .replaceAll('@363045841yyt/klinechart-core/market-data', manifest.name))
 }
 writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({
   private: true,
@@ -77,7 +79,7 @@ const browser = await chromium.launch({ headless: true })
 const failures = []
 const screenshots = []
 const fullScreenshots = []
-const browserOptions = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light', locale: 'zh-CN', timezoneId: 'Asia/Shanghai' }
+const browserOptions = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light', reducedMotion: 'reduce', locale: 'zh-CN', timezoneId: 'Asia/Shanghai' }
 /** 为每个独立页面记录真实资源和运行时故障。 */
 function observePage(page, onWorker) {
   page.on('pageerror', (error) => failures.push(error.message))
@@ -100,6 +102,7 @@ try {
     page.on('request', (request) => requested.push(request.url()))
     await page.goto(`${origin}?agent=0&scripts=0`)
     await page.waitForFunction(() => document.body.dataset.bars === '160')
+    await page.waitForFunction(() => document.body.dataset.loading === 'false')
     assert.equal(workers, 0, 'Disabled features must not start Workers')
     assert.equal(await page.getByRole('button', { name: '代码编辑器', exact: true }).count(), 0, 'Disabled scripting must hide the editor entry')
     assert.ok(!requested.some((url) => /WorkbenchAgent|ScriptEditorHost|createScriptLanguageSession/.test(url)), 'Disabled features must not download their implementation chunks')
@@ -110,10 +113,18 @@ try {
     const label = target === sourceRoot ? 'source' : 'package'
     writeFileSync(path.join(artifacts, `${label}.png`), screenshot)
     screenshots.push(screenshot)
+    const beforeUpdate = await page.evaluate(() => ({ close: Number(document.body.dataset.latestClose), requests: document.body.dataset.historyRequests }))
+    await page.getByRole('button', { name: '更新末根', exact: true }).click()
+    await page.waitForFunction((close) => Number(document.body.dataset.latestClose) === close + 1, beforeUpdate.close)
+    assert.equal(await page.evaluate(() => document.body.dataset.bars), '160')
+    assert.equal(await page.evaluate(() => document.body.dataset.historyRequests), beforeUpdate.requests, 'Incremental updates must not refetch or replace history')
+    await page.getByRole('button', { name: '追加一根', exact: true }).click()
+    await page.waitForFunction(() => document.body.dataset.bars === '161')
     await page.getByRole('button', { name: '切换主题' }).click()
     await page.waitForFunction(() => document.querySelector('.kline-workbench')?.getAttribute('data-theme') === 'dark')
     await page.getByRole('button', { name: '卸载工作台' }).click()
     await page.waitForFunction(() => document.querySelectorAll('canvas').length === 0)
+    await page.waitForFunction(() => document.body.dataset.activeStreams === '0')
     // 独立场景使用独立存储和写锁，不继承前一场景保存在 IndexedDB 中的布局。
     await context.close()
     context = await browser.newContext(browserOptions)
@@ -122,6 +133,7 @@ try {
     observePage(page, () => { workers += 1 })
     await page.goto(origin)
     await page.waitForFunction(() => document.body.dataset.bars === '160', null, { timeout: 120_000 })
+    await page.waitForFunction(() => document.body.dataset.loading === 'false')
     await page.locator('.agent-workspace').waitFor({ timeout: 60_000 })
     await page.locator('.composer__input').waitFor({ timeout: 60_000 })
     assert.ok(workers > 0, 'Enabled scripts must start the execution Worker')
@@ -151,7 +163,7 @@ try {
   assert.deepEqual(failures, [], 'Production consumer must have no browser or resource errors')
   assert.ok(screenshots[0].equals(screenshots[1]), 'Source and packed workbench screenshots differ; see artifacts/product/{source,package}.png')
   assert.ok(fullScreenshots[0].equals(fullScreenshots[1]), 'Full source and packed workbench screenshots differ; see artifacts/product/{source,package}-full.png')
-  writeFileSync(path.join(artifacts, 'verified.json'), JSON.stringify({ ...manifest, checks: ['isolated-install', 'public-types', 'production-build', 'source-screenshot-parity', 'disabled-workers', 'script-worker', 'agent-panel', 'editor', 'script-execution', 'detached-editor', 'theme', 'unmount'] }, null, 2) + '\n')
+  writeFileSync(path.join(artifacts, 'verified.json'), JSON.stringify({ ...manifest, checks: ['isolated-install', 'public-types', 'production-build', 'source-screenshot-parity', 'registered-source', 'tail-update', 'bar-append', 'stream-cleanup', 'disabled-workers', 'script-worker', 'agent-panel', 'editor', 'script-execution', 'detached-editor', 'theme', 'unmount'] }, null, 2) + '\n')
   console.log(`Product consumer passed. Fixture retained at ${directory}`)
 } catch (error) {
   writeFileSync(path.join(artifacts, 'failure.txt'), `${String(error)}\n${failures.join('\n')}`)

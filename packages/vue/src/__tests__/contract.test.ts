@@ -45,7 +45,7 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
   })
 
   it('mounts on first render via template ref', async () => {
-    const mockController = createMockChartController({ data: [] })
+    const mockController = createMockChartController()
     const factorySpy = vi.fn((opts: ChartMountOptions) => Promise.resolve(mockController))
     VueAdapter.__setControllerFactory(factorySpy)
 
@@ -53,7 +53,7 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
       name: 'Host',
       setup() {
         const containerRef = ref<HTMLElement | null>(null)
-        const { chart } = VueAdapter.useChart(containerRef, { data: [] })
+        const { chart } = VueAdapter.useChart(containerRef, {})
         return { containerRef, chart }
       },
       render() {
@@ -73,14 +73,14 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
   })
 
   it('disposes on unmount', async () => {
-    const mockController = createMockChartController({ data: [] })
+    const mockController = createMockChartController()
     VueAdapter.__setControllerFactory(() => Promise.resolve(mockController))
 
     const HostComponent = defineComponent({
       name: 'Host',
       setup() {
         const containerRef = ref<HTMLElement | null>(null)
-        const { chart } = VueAdapter.useChart(containerRef, { data: [] })
+        const { chart } = VueAdapter.useChart(containerRef, {})
         return { containerRef, chart }
       },
       render() {

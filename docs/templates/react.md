@@ -40,7 +40,7 @@ function Chart({ data }: { data: KLineData[] }) {
   const viewport = useCoreSignal(controller?.viewport)
   return (
     <>
-      <KLineChart data={data} theme="dark" onReady={setController} />
+      <KLineChart symbols={symbols} theme="dark" onReady={setController} />
       <span>{viewport?.kWidth}</span>
     </>
   )

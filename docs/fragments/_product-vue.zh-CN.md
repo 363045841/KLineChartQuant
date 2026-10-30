@@ -15,4 +15,6 @@ import '@363045841yyt/klinechart/style.css'
 
 源码预览也挂载同一个工作台。`agent`、`scripts` 默认开启；在挂载前设为 `false` 可禁用。`chart` 接收图表配置，`marketDataContext` 接收宿主管理的行情实例。脚本功能会在图表挂载前准备内置指标；编辑器与语言服务在打开时加载。高级 Agent 接口在同一包的 `@363045841yyt/klinechart/agent` 子入口。
 
+应用实现 `MarketDataSource`，通过 `createMarketDataHost().registerDataSource(source)` 注册，将宿主传给 `marketDataContext`。使用 `:instrument="{ sourceId, id }"` 和 `period` 选择稳定品种与周期。历史页走 `bars.fetch`，单根增量走订阅回调的 `update`，详见[数据源 API]({{root}}docs/market-data/data-source-api.md)。
+
 完整产品包含 AGPL 脚本模块，按 AGPL-3.0-or-later 交付。内部 Apache-2.0 模块保留各自许可证，详见随包声明。

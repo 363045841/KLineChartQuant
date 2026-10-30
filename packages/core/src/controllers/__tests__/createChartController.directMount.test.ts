@@ -10,6 +10,8 @@ import {
 
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
 import { createChartController } from '../chart/index'
+import { MarketDataContext } from '@/data/management/impl/context.js'
+import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 
 import type { KLineData } from '../types'
 
@@ -105,7 +107,7 @@ describe('createChartController direct mount', () => {
   it('lays out panes on the first frame without waiting for a ResizeObserver callback', async () => {
     const host = document.createElement('div')
     document.body.appendChild(host)
-    const ctrl = await createChartController({ container: host, data: createBars(200) })
+    const ctrl = await createChartController({ container: host })
 
     // ResizeObserverMock 从不回调；WebKit 的首次回调也因尺寸未变而不触发 resize。
     const mainCanvas = host.querySelector<HTMLCanvasElement>('canvas.main-canvas')
@@ -115,26 +117,30 @@ describe('createChartController direct mount', () => {
     ctrl.dispose()
   })
 
-  it('keeps mount data when a stored layout without a symbol is restored', async () => {
+  it('loads registered source data when a stored layout without a symbol is restored', async () => {
     const data = createBars(300)
+    const host = new MarketDataContext()
+    host.registerDataSource(createDataSourceFixture(data, false).source)
+    const instrument = await host.resolveInstrument('test', 'A')
+    const symbols = [{ instrument, symbol: 'A', market: 'CN', source: 'test', period: 'daily' }]
     const first = document.createElement('div')
     document.body.appendChild(first)
-    const ctrlA = await createChartController({ container: first, data })
-    expect(ctrlA.getData()).toHaveLength(300)
+    const ctrlA = await createChartController({ container: first, marketDataContext: host })
     ctrlA.dispose()
 
     // 第二次挂载会恢复第一次保存的布局；其 currentSymbol 为空。
     const second = document.createElement('div')
     document.body.appendChild(second)
-    const ctrlB = await createChartController({ container: second, data })
-    expect(ctrlB.getData()).toHaveLength(300)
+    const ctrlB = await createChartController({ container: second, marketDataContext: host, symbols })
+    await vi.waitFor(() => expect(ctrlB.getData()).toHaveLength(300))
     ctrlB.dispose()
+    host.dispose()
   })
 
   it('keeps mount symbols over the symbol of a restored layout', async () => {
     const first = document.createElement('div')
     document.body.appendChild(first)
-    const ctrlA = await createChartController({ container: first, data: createBars(50) })
+    const ctrlA = await createChartController({ container: first })
     ctrlA.dispose()
 
     const spec = { market: 'CN', symbol: '600000', period: 'daily', source: 'custom' } as const

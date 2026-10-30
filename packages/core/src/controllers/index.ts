@@ -35,7 +35,6 @@ export type {
   ChartMountOptions,
   ChartViewport,
   CreateDrawingInput,
-  CustomDataSource,
   DataSourceParams,
   DrawingChartAdapter,
   DrawingChartViewport,

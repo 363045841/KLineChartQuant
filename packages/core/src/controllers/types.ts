@@ -174,24 +174,6 @@ export interface SymbolSpec {
   incremental?: boolean
 }
 
-/** User-provided K-line data bundle — bypasses the fetcher pipeline entirely */
-export interface CustomDataSource {
-  market: string
-  symbol?: string
-  period?: string
-  adjust?: string
-  /** Display description for the symbol catalog (defaults to symbol code) */
-  description?: string
-  /** Exchange code for the symbol catalog */
-  exchange?: string
-  /** Data source label for the symbol catalog */
-  source?: string
-  /** Main chart K-line data (required) */
-  data: ReadonlyArray<KLineData>
-  /** Comparison products keyed by symbol */
-  comparisons?: Record<string, ReadonlyArray<KLineData>>
-}
-
 // ---------------------------------------------------------------------------
 // Indicator metadata
 // ---------------------------------------------------------------------------
@@ -361,7 +343,6 @@ export interface ChartMountOptions {
   container: HTMLElement
   /** 宿主持有的行情管理实例；多个图表可以显式共享。 */
   marketDataContext?: import('../data/management/impl/context.js').MarketDataContext
-  data?: ReadonlyArray<KLineData>
   symbols?: ReadonlyArray<SymbolSpec>
   initialZoomLevel?: number
   zoomLevels?: number
@@ -519,24 +500,14 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   removeComparisonSymbol(symbol: string): void
   /** 隐藏或显示比较折线，保留品种选择及图例。 */
   setComparisonHidden(identity: string, hidden: boolean): void
-  /** Inject comparison product data directly (bypasses fetcher) */
-  setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void
   /** Update the main symbol code without triggering a fetch */
   setCurrentSymbol(symbol: string): void
   /** Update the K-line period without triggering a fetch */
   setCurrentPeriod(period: string): void
   /** Switch to time-share view for a specific date (YYYYMMDD), e.g. after double-clicking a daily bar */
   switchToTimeShareForDate(dateYYYYMMDD: number): void
-  /** Inject a complete custom data bundle (bypasses fetcher pipeline) */
-  applyCustomData(source: CustomDataSource): void
   /** 清除当前图表实例的行情缓存。 */
   clearMarketDataCache(): void
-  resetToFetcher(spec: SymbolSpec): void
-  setData(next: ReadonlyArray<KLineData>): void
-  /** 实时帧写入：末尾窗口 replace-on-conflict（forming bar 更新不被保旧弃新吞掉）。 */
-  updateBars(next: ReadonlyArray<KLineData>): void
-  appendData(next: ReadonlyArray<KLineData>): void
-  updateData(next: ReadonlyArray<KLineData>): void
   getData(): ReadonlyArray<KLineData>
   /** 返回 K 线逻辑索引对应的时间戳，供双击切换分时等 UI 操作使用。 */
   getTimestampAtLogicalIndex(index: number): number | null

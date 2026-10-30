@@ -6,7 +6,7 @@
  */
 
 import type { Chart } from '@/engine/chart/index.js'
-import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../types.js'
+import type { KLineData, SymbolInfo, SymbolSpec } from '../types.js'
 
 /**
  * 创建数据与区间选择委托方法集。
@@ -16,17 +16,7 @@ import type { CustomDataSource, KLineData, SymbolInfo, SymbolSpec } from '../typ
  * @returns methods 为公开委托方法。
  */
 export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
-  function setData(next: ReadonlyArray<KLineData>): void {
-    if (isDisposed()) return
-    chart.setData([...next])
-  }
-
-  /** 实时帧写入：末尾窗口 replace-on-conflict（SSE forming/closed 链路），写后自动联动指标与重绘。 */
-  function updateBars(next: ReadonlyArray<KLineData>): void {
-    if (isDisposed()) return
-    chart.updateBars([...next])
-  }
-
+  /** 公开门面只改变品种选择，历史与增量写入归行情运行时。 */
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
     if (isDisposed()) return
     chart.clearRangeSelection()
@@ -54,10 +44,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.setComparisonHidden(identity, hidden)
   }
 
-  function setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void {
-    if (isDisposed()) return
-    chart.setComparisonData(symbol, [...data])
-  }
 
   function setCurrentSymbol(symbol: string): void {
     if (isDisposed()) return
@@ -81,17 +67,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.registerSymbols(infos)
   }
 
-  function applyCustomData(source: CustomDataSource): void {
-    if (isDisposed()) return
-    chart.clearRangeSelection()
-    chart.applyCustomData(source)
-  }
-
-  function resetToFetcher(spec: SymbolSpec): void {
-    if (isDisposed()) return
-    chart.clearRangeSelection()
-    chart.resetToFetcher(spec)
-  }
 
   function clearMarketDataCache(): void {
     if (isDisposed()) return
@@ -131,12 +106,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.clearRangeSelection()
   }
 
-  function appendData(next: ReadonlyArray<KLineData>): void {
-    if (isDisposed()) return
-    const current = chart.data.peek()
-    const merged = [...current, ...next]
-    setData(merged)
-  }
 
   function getData(): ReadonlyArray<KLineData> {
     if (isDisposed()) return []
@@ -151,23 +120,16 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
       addComparisonSymbol,
       removeComparisonSymbol,
       setComparisonHidden,
-      setComparisonData,
       setCurrentSymbol,
       setCurrentPeriod,
       switchToTimeShareForDate,
-      applyCustomData,
       clearMarketDataCache,
-      resetToFetcher,
       ensureDataRange,
       startRangeSelection,
       updateRangeSelection,
       finishRangeSelection,
       setRangeSelection,
       clearRangeSelection,
-      setData,
-      updateBars,
-      appendData,
-      updateData: setData,
       getData,
     },
   }

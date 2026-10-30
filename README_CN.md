@@ -322,6 +322,8 @@ import '@363045841yyt/klinechart/style.css'
 
 源码预览也挂载同一个工作台。`agent`、`scripts` 默认开启；在挂载前设为 `false` 可禁用。`chart` 接收图表配置，`marketDataContext` 接收宿主管理的行情实例。脚本功能会在图表挂载前准备内置指标；编辑器与语言服务在打开时加载。高级 Agent 接口在同一包的 `@363045841yyt/klinechart/agent` 子入口。
 
+应用实现 `MarketDataSource`，通过 `createMarketDataHost().registerDataSource(source)` 注册，将宿主传给 `marketDataContext`。使用 `:instrument="{ sourceId, id }"` 和 `period` 选择稳定品种与周期。历史页走 `bars.fetch`，单根增量走订阅回调的 `update`，详见[数据源 API](docs/market-data/data-source-api.md)。
+
 完整产品包含 AGPL 脚本模块，按 AGPL-3.0-or-later 交付。内部 Apache-2.0 模块保留各自许可证，详见随包声明。
 
 
@@ -358,7 +360,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | priceLabelWidth | `number` | 60 | 价格标签额外宽度（用于显示涨跌幅） |
 | zoomLevels | `number` | 80 | 缩放级别总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
-| customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
 
 

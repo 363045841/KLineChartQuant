@@ -204,6 +204,15 @@ export class KLineDataStore {
     this._dataSignal.set({ data: [], kind: DATA_CHANGE_KINDS.replace, prependedCount: 0 })
   }
 
+  /** 历史修正只修改既有时间点；低频修正允许使计算快照整体失效。 */
+  correctBar(bar: KLineData): void {
+    const index = this.timestampIndex.get(bar.timestamp)
+    if (index === null) throw new RangeError('Historical correction must target an existing bar')
+    const next = [...this._data]
+    next[index] = bar
+    this.setInlineData(next)
+  }
+
   /** 根据当前缓存更新已加载的时间窗口。 */
   private _updateWindow(): void {
     if (this._data.length > 0) {

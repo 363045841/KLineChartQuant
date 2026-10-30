@@ -7,6 +7,8 @@ export type {
   MarketRegistryState,
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
+export { createMarketDataHost } from '../management/impl/context.js'
+export type { MarketDataSource, DataSourceInstrument, BarsRequest, HistoryRequest, HistoryPage, BarsObserver, ConnectionStatus } from './types.js'
 
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'

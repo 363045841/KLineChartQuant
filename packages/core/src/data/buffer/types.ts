@@ -73,6 +73,8 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
    * 收线帧与下一根 forming 帧应作为同一批传入，避免图表观察到中间状态。
    */
   applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
+  correctBar(bar: KLineData): void
+  replaceData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
   setSymbol(spec: SymbolSpec): void
   setCurrentSpec(spec: SymbolSpec): void
 }

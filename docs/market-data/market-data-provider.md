@@ -2,7 +2,7 @@
 
 统一行情模型由前端定义。Provider 负责把数据源私有协议转换为标准品种、K 线和分时结果，图表与 UI 不解析 `providerRef`。
 
-图表运行时只通过 `MarketDataProvider` 与 `SourceRouter` 取数。自定义数据仍可用 `setData` / `applyCustomData` 注入。
+图表运行时只通过 `MarketDataProvider` 与 `SourceRouter` 取数，不提供绕过行情链路的数组注入入口。
 
 ## 定义品种
 

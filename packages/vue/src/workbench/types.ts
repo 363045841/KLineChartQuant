@@ -1,6 +1,7 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
+import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'
 
 export interface KlineWorkbenchProps {
@@ -11,7 +12,10 @@ export interface KlineWorkbenchProps {
   initialAgentPanelOpen?: boolean
   /** 行情实例归调用方所有，工作台卸载时不会销毁它。 */
   marketDataContext?: MarketDataContext
-  chart?: Omit<InstanceType<typeof KlineChart>['$props'], 'marketDataContext' | 'scriptsEnabled'>
+  /** 来源 ID 与稳定品种 ID，周期独立控制。 */
+  instrument?: { sourceId: string; id: string }
+  period?: KLinePeriod
+  chart?: Omit<InstanceType<typeof KlineChart>['$props'], 'marketDataContext' | 'scriptsEnabled' | 'symbols'>
 }
 
 export interface KlineWorkbenchHandle {

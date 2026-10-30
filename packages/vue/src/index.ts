@@ -39,7 +39,6 @@ export type {
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  CustomDataSource,
   KLineData,
 } from '@363045841yyt/klinechart-core'
 
@@ -58,7 +57,9 @@ export type {
 export {
   defaultMarketDataContext,
   MarketDataContext,
+  createMarketDataHost,
 } from '@363045841yyt/klinechart-core/market-data'
+export type { MarketDataSource, DataSourceInstrument, BarsRequest, HistoryRequest, HistoryPage, BarsObserver, ConnectionStatus, InstrumentDescriptor, KLinePeriod, KLineAdjustment, SourceCapabilities } from '@363045841yyt/klinechart-core/market-data'
 export { default as ColorPicker } from '@vue-src/components/color/impl/ColorPicker.vue'
 export type { ColorPickerProps } from '@vue-src/components/color/types.js'
 export type {

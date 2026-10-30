@@ -310,6 +310,8 @@ export interface TimeShareRangeQuery {
 
 /** 品种目录能力。 */
 export interface InstrumentCatalog {
+  /** 通过稳定 ID 恢复品种；数据源接入必须实现，内置目录可逐步提供。 */
+  resolve?(id: string, signal?: AbortSignal): Promise<InstrumentDescriptor>
   /** 按关键字和品种类别搜索当前 Provider 的品种目录。 */
   search(query: InstrumentSearchQuery): Promise<ReadonlyArray<InstrumentDescriptor>>
 }
@@ -352,6 +354,57 @@ export interface MarketDataProvider {
   readonly timeShare?: TimeShareDataSource
   readonly timeShareRange?: TimeShareRangeDataSource
   readonly depth?: DepthDataSource
+}
+
+/** 宿主数据源品种，身份与能力复用聚合协议；来源由注册宿主补齐。 */
+export interface DataSourceInstrument extends Omit<InstrumentDescriptor, 'sourceId'> {
+  timezone: string
+  volumeUnit?: VolumeUnit
+}
+
+/** 一条完整序列的身份；时间一律使用 UTC 毫秒。 */
+export interface BarsRequest {
+  instrument: DataSourceInstrument
+  period: KLinePeriod
+  adjustment: KLineAdjustment
+  barAggregation: BarAggregation
+  signal: AbortSignal
+}
+
+/** beforeTimestamp 是排他上界，缺省时请求最新一页。 */
+export interface HistoryRequest extends BarsRequest {
+  beforeTimestamp?: number
+  limit: number
+}
+
+export interface HistoryPage {
+  bars: ReadonlyArray<KLineData>
+  olderData: OlderDataStatus
+}
+
+/** 增量流只提交完整单根快照；历史修正必须显式声明。 */
+export interface BarsObserver {
+  update(bar: KLineData, options?: { historical: true }): void
+  invalidate(): void
+  status(status: ConnectionStatus): void
+  error(error: Error): void
+}
+
+export type ConnectionStatus = import('../live/types.js').LiveBarsStatus
+
+/** 用户实现的公开数据源；注册后与内置 Provider 共用路由、缓存和运行时。 */
+export interface MarketDataSource extends Pick<MarketDataProvider, 'trades' | 'depth' | 'timeShare' | 'timeShareRange' | 'tradingCalendar'> {
+  id: string
+  name: string
+  capabilities: SourceCapabilities
+  instruments: {
+    search(query: InstrumentSearchQuery): Promise<ReadonlyArray<DataSourceInstrument>>
+    resolve(id: string, signal: AbortSignal): Promise<DataSourceInstrument>
+  }
+  bars: {
+    fetch(request: HistoryRequest): Promise<HistoryPage>
+    subscribe?(request: BarsRequest, observer: BarsObserver): () => void
+  }
 }
 
 /** 前端可稳定处理的行情错误分类。 */

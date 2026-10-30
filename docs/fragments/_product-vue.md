@@ -15,4 +15,6 @@ import '@363045841yyt/klinechart/style.css'
 
 The workbench is the same component used by the source preview. `agent` and `scripts` default to `true`; set either to `false` before mounting to disable it. `chart` accepts chart configuration, and `marketDataContext` accepts a host-owned market data context. Script support prepares builtin indicators before mounting the chart. The editor and language service load when opened. Advanced Agent interfaces are available from `@363045841yyt/klinechart/agent` in the same package.
 
+Implement `MarketDataSource`, register it with `createMarketDataHost().registerDataSource(source)`, and pass the host as `marketDataContext`. Select a stable instrument using `:instrument="{ sourceId, id }"` and `period`. Historical pages use `bars.fetch`; single-bar updates use the subscription observer's `update`. See the [data source API]({{root}}docs/market-data/data-source-api.md).
+
 The complete product includes AGPL-3.0-or-later script modules and is distributed under AGPL-3.0-or-later. Individual Apache-2.0 modules retain their original licenses; see the included notices.

@@ -19,7 +19,6 @@ import {
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
-  type CustomDataSource,
   isTimeSharePeriod,
   type SymbolInfo,
   type SymbolSpec,
@@ -1575,31 +1574,6 @@ export class Chart {
   switchToTimeShareForDate(dateYYYYMMDD: number): void {
     this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
     this.setCurrentPeriod(TIME_SHARE_PERIOD)
-  }
-
-  /** 校验并原子替换自定义 K 线数据及对比集合，再按最终快照选择视图。 */
-  applyCustomData(source: CustomDataSource): void {
-    // 在任何数据写入前校验市场契约，失败时不留下半写入的品种状态。
-    if (isTimeSharePeriod(source.period)) {
-      resolveSymbolMarketSession(
-        {
-          symbol: source.symbol ?? '',
-          market: source.market,
-        },
-        this.marketSessions,
-      )
-    }
-    // 自定义数据会替换对比集合；用最终快照裁决，避免旧集合决定新视图。
-    batch(() => {
-      this.dataManager.applyCustomData(source)
-      this.transitionView()
-    })
-  }
-
-  /** 在恢复 Provider 数据入口前配置目标品种的视图。 */
-  resetToFetcher(spec: SymbolSpec): void {
-    this.transitionView(spec)
-    this.dataManager.resetToFetcher(spec)
   }
 
   // ---------- Interaction (Zero-config unified entry) ----------

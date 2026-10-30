@@ -8,7 +8,8 @@
   >
     <KlineChart
       v-bind="{ ...chart, ...$attrs }"
-      :market-data-context="marketDataContext"
+      :market-data-context="market.context"
+      :symbols="market.symbols.value"
       :scripts-enabled="scripts"
       @controller-ready="onControllerReady"
       @theme-change="emit('theme-change', $event)"
@@ -24,6 +25,7 @@
   import { SCRIPT_SOURCE_STORE_KEY } from '../../composables/chart/scriptEditor/types.js'
   import type { KlineWorkbenchProps } from '../types.js'
   import { useWorkbenchServices } from './useWorkbenchServices.js'
+  import { useWorkbenchMarket } from './useWorkbenchMarket.js'
 
   defineOptions({ inheritAttrs: false })
   const props = withDefaults(defineProps<KlineWorkbenchProps>(), {
@@ -39,7 +41,8 @@
   const controller = shallowRef<ChartController | null>(null)
   const WorkbenchAgent = defineAsyncComponent(() => import('./WorkbenchAgent.vue'))
   const { initialize } = useWorkbenchServices(props.scripts)
-  const scriptService = await initialize()
+  const market = useWorkbenchMarket(props)
+  const [scriptService] = await Promise.all([initialize(), market.initialize()])
   if (scriptService) provide(SCRIPT_SOURCE_STORE_KEY, scriptService)
 
   /** 对外转发同一个图表控制器，Agent 和宿主不再各自组装图表。 */

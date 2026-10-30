@@ -15,7 +15,6 @@ export type {
   ChartMountOptions,
   ChartViewport,
   CreateDrawingInput,
-  CustomDataSource,
   DrawingControllerCallbacks,
   DrawingObject,
   DrawingStyleKey,

@@ -118,7 +118,6 @@ describe('createChart()', () => {
     await expect(
       createChart({
         container: null as unknown as HTMLElement,
-        data: [],
       }),
     ).rejects.toThrow(/container is required/)
   })
@@ -127,7 +126,6 @@ describe('createChart()', () => {
     await expect(
       createChart({
         container: {} as HTMLElement,
-        data: [],
       }),
     ).rejects.toThrow(/no ChartControllerFactory/)
   })
@@ -137,7 +135,6 @@ describe('createChart()', () => {
     const factory = vi.fn<ChartControllerFactory>(() => Promise.resolve(controller))
     const result = await createChart({
       container: {} as HTMLElement,
-      data: [],
       factory,
     })
     expect(factory).toHaveBeenCalledOnce()
@@ -206,7 +203,6 @@ describe('@363045841yyt/klinechart-angular —component lifecycle', () => {
 
     const component = runInInjectionContext(injector, () => new KLineChartComponent())
     component.container = makeContainerRef()
-    component.data = []
     await component.ngAfterViewInit()
 
     expect(factory).toHaveBeenCalledOnce()
