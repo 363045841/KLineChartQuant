@@ -1,20 +1,18 @@
-<!-- 单一产品入口：公开加载状态和错误，异步服务就绪后挂载正式界面。 -->
+<!-- 单一产品入口：立即挂载界面，脚本与 Agent 独立异步加载。 -->
 <template>
   <div class="kline-workbench" :data-theme="theme">
     <slot v-if="failure" name="error" :error="failure">
       <p role="alert">{{ failure.message }}</p>
     </slot>
-    <Suspense v-else>
-      <WorkbenchContent
-        ref="content"
-        v-bind="{ ...$props, ...$attrs }"
-        @controller-ready="emit('controller-ready', $event)"
-        @theme-change="onThemeChange"
-        @update:is-fullscreen="emit('update:is-fullscreen', $event)"
-        @error="emit('error', $event)"
-      />
-      <template #fallback><slot name="loading"><p role="status">正在加载工作台…</p></slot></template>
-    </Suspense>
+    <WorkbenchContent
+      v-else
+      ref="content"
+      v-bind="{ ...$props, ...$attrs }"
+      @controller-ready="emit('controller-ready', $event)"
+      @theme-change="onThemeChange"
+      @update:is-fullscreen="emit('update:is-fullscreen', $event)"
+      @error="emit('error', $event)"
+    />
   </div>
 </template>
 

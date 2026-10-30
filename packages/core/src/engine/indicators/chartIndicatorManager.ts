@@ -126,6 +126,7 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
 
 /** 副图业务操作：create/remove/clear 会联动 pane 布局，不能只写 subPane 模块 */
 export interface SubPaneOps {
+  reconcileDefinition: (indicatorId: string, role: IndicatorInstanceSpec['role']) => void
   create: (entry: SubPaneInput) => void
   remove: (paneId: string) => void
   replace: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
@@ -314,6 +315,10 @@ export class ChartIndicatorManager {
         return
       }
       this.inlineExecutor.updateDefinitions(inline)
+      this.deps.subPaneOps.reconcileDefinition(
+        resolveCanonicalIndicatorId(definition),
+        definition.category === 'main' ? 'main' : 'sub',
+      )
       const revision = this.pipeline.snapshot().calculationRevision
       this.syncPipeline(this.deps.indicator.readonly.instances.peek())
       if (revision === this.pipeline.snapshot().calculationRevision) this.requestCompute()
@@ -394,12 +399,14 @@ export class ChartIndicatorManager {
     const paneSpecs = this.deps.paneSpecs$()
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
+    // 配置和窗格立即存在；只有定义就绪的内容才进入计算与 Layer 投影。
+    const readyInstances = instances.filter((instance) => getRegisteredIndicatorDefinition(instance.indicatorId))
     // 实例移除后清理其可用性来源，避免残留的 loading 在重新启用时无法复位。
     const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
     for (const instanceId of [...this.availabilitySources.keys()]) {
       if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
     }
-    const subPanes: SubPaneSpec[] = instances
+    const subPanes: SubPaneSpec[] = readyInstances
       .filter((instance) => instance.role === 'sub')
       .map((instance) => ({
         instanceId: instance.instanceId,
@@ -417,10 +424,10 @@ export class ChartIndicatorManager {
         this.projectedPaneRatios = paneRatios
         paneChanged = true
       }
-      this.syncPipeline(instances)
+      this.syncPipeline(readyInstances)
       const presentationChanged = this.syncPresentationProjection()
       if (colorsChanged) this.reprojectRenderStates()
-      const mainChanged = this.reconcileMainIndicators(instances)
+      const mainChanged = this.reconcileMainIndicators(readyInstances)
       const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
       if (paneChanged || presentationChanged || mainChanged || subChanged || colorsChanged) {
         this.deps.scheduleDraw()

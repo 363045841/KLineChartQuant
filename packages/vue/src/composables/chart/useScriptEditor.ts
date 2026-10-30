@@ -2,7 +2,7 @@
 import { generateUUID } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
-import { computed, onScopeDispose, type Ref, ref, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, type MaybeRef, type Ref, ref, shallowRef, unref, watch } from 'vue'
 import {
   createBlankSource,
   createCopySource,
@@ -78,9 +78,14 @@ function requireRevision(draft: EditorDraft): number {
 
 /** 创建会话；关闭编辑器不丢弃标签，显式关闭标签才移除草稿。 */
 export function useScriptEditor(
-  store: ScriptSourceStore | undefined,
+  sourceStore: MaybeRef<ScriptSourceStore | undefined>,
   controller?: Readonly<Ref<ChartController | null>>,
 ): ScriptEditorSession {
+  let store = unref(sourceStore)
+  watch(() => unref(sourceStore), (value) => {
+    store = value
+    refreshDocuments()
+  }, { flush: 'sync' })
   const open = ref(false)
   const saving = ref(false)
   const treeError = ref<string | null>(null)
@@ -142,8 +147,8 @@ export function useScriptEditor(
       : null,
   )
   watch(
-    outputId,
-    (id) => {
+    [outputId, () => unref(sourceStore)],
+    ([id]) => {
       unsubscribeOutput?.()
       unsubscribeOutput = undefined
       logs.value = []

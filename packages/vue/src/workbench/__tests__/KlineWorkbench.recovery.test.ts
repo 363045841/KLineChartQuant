@@ -7,8 +7,9 @@ import { createDataSourceFixture } from '../../../../core/src/data/provider/__te
 import KlineWorkbench from '../KlineWorkbench.vue'
 
 const lifecycle = vi.hoisted(() => ({ chartMounted: vi.fn(), chartUnmounted: vi.fn(), agentMounted: vi.fn(), agentUnmounted: vi.fn() }))
+const initialize = vi.hoisted(() => vi.fn<() => Promise<undefined>>(async () => undefined))
 
-vi.mock('../impl/useWorkbenchServices.js', () => ({ useWorkbenchServices: () => ({ initialize: async () => undefined }) }))
+vi.mock('../impl/useWorkbenchServices.js', () => ({ useWorkbenchServices: () => ({ initialize }) }))
 vi.mock('../../components/chart/KLineChart.vue', () => ({
   default: defineComponent({
     setup() {
@@ -30,6 +31,25 @@ vi.mock('../impl/WorkbenchAgent.vue', () => ({
 }))
 
 describe('workbench recovery', () => {
+  it('mounts the chart while script initialization is pending and reports failures without removing it', async () => {
+    let rejectInitialization: (error: Error) => void = () => {}
+    initialize.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      rejectInitialization = reject
+    }))
+    const wrapper = mount(KlineWorkbench, { props: { agent: false } })
+    try {
+      expect(wrapper.find('[data-chart]').exists()).toBe(true)
+      const error = new Error('Script initialization failed')
+      rejectInitialization(error)
+      await flushPromises()
+      expect(wrapper.emitted('error')).toEqual([[error]])
+      expect(wrapper.find('[data-chart]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+      vi.clearAllMocks()
+    }
+  })
+
   it('shows a retry action without replacing the chart or Agent after selection failures', async () => {
     const fixture = createDataSourceFixture([], false)
     vi.spyOn(fixture.source.instruments, 'resolve').mockRejectedValueOnce(new Error('Network unavailable'))

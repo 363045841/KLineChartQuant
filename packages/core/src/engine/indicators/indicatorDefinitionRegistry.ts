@@ -6,7 +6,7 @@
  * 由 loadIndicatorDefinitions 按需填充。
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { createSignal } from '../../foundation/reactivity/signal.js'
+import { batch, createSignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import { BUILTIN_INDICATOR_MANIFEST } from './generated/builtinIndicators.js'
 import type { IndicatorName } from './indicatorContracts.js'
@@ -224,9 +224,11 @@ function publishDefinition(
   }
   for (const alias of aliases) indexAlias(alias, normalizedName)
   registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)
-  // 先推进目录修订号再通知消费者：订阅者重建目录时才能看到本次提交。
-  catalogRevision.set(catalogRevision.peek() + 1)
-  notifyDefinition({ type: replaceDescriptor ? 'update' : 'create', definition })
+  // 执行器接收定义之后才刷新响应式投影，避免内容已就绪但计算入口尚未安装。
+  batch(() => {
+    catalogRevision.set(catalogRevision.peek() + 1)
+    notifyDefinition({ type: replaceDescriptor ? 'update' : 'create', definition })
+  })
 }
 
 /** 删除脚本文档及目录身份，通知所有图表移除对应实例。 */
@@ -247,9 +249,10 @@ export function removeScriptIndicatorDefinition(id: string): void {
   indicatorDescriptors.delete(key)
   for (const alias of identityAliases(definition))
     indicatorDefinitionAliases.delete(normalizeIndicatorId(alias))
-  // 删除同样先推进修订号，订阅者才能感知目录已变化。
-  catalogRevision.set(catalogRevision.peek() + 1)
-  notifyDefinition({ type: 'remove', definition })
+  batch(() => {
+    catalogRevision.set(catalogRevision.peek() + 1)
+    notifyDefinition({ type: 'remove', definition })
+  })
 }
 
 /** 已提交快照的通知独立于写入，单个消费者失败不能阻断其它消费者。 */
@@ -342,6 +345,7 @@ export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[
 
 /** 按名称、展示名或别名查询已装配定义；未加载实现时返回 undefined。 */
 export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadata | undefined {
+  catalogRevision()
   const key = resolveCatalogKey(name)
   return key === undefined ? undefined : indicatorDefinitions.get(key)
 }

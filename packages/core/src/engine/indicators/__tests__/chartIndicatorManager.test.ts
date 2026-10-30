@@ -17,8 +17,10 @@ import {
   createMockCanvasContext,
 } from '../../__tests__/helpers/renderTestKit'
 import type { PaneSpec } from '../../pane/types'
+import { PaneManager } from '../../pane/impl/paneManager'
 import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
+import { createPaneState } from '../../state/paneState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
 import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
@@ -83,7 +85,9 @@ function createMockDeps() {
   const paneRatios$ = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecs$ = createSignal<ReadonlyArray<PaneSpec>>([])
   const indicator = createIndicatorState()
+  const paneManager = new PaneManager({ pane: createPaneState(), indicator })
   const subPaneOps: IndicatorDependencies['subPaneOps'] = {
+    reconcileDefinition: (indicatorId, role) => paneManager.reconcileDefinition(indicatorId, role),
     create: (entry) => indicator.actions.upsertSub(entry),
     remove: (paneId) => indicator.actions.removeSub(paneId),
     replace: (paneId, indicatorId, params) =>
@@ -128,6 +132,21 @@ function createMockDeps() {
 }
 
 describe('ChartIndicatorManager', () => {
+  it('已恢复的实例先保留配置，定义稍后注册时使用已安装的执行器计算', async () => {
+    const name = 'LateCalculationDefinition'
+    deps.indicator.actions.upsertMain(name, {})
+    const instance = deps.indicator.readonly.instances.peek()[0]!
+    const data = createTestData(3)
+    manager.updateIndicatorData(data, { start: 0, end: 3 })
+    expect(manager.indicatorsComputed().map((entry) => entry.id)).toContain(instance.instanceId)
+    expect(manager.createRenderStateReader().get(instance.instanceId)).toBeUndefined()
+    const compute = vi.fn(() => ({ plots: [], fills: [] }))
+    registerPlotIndicatorFixture({ name, category: 'main', compute })
+    await vi.waitFor(() => expect(compute).toHaveBeenCalled())
+    expect(deps.indicator.readonly.instances.peek()[0]).toBe(instance)
+    expect(manager.createRenderStateReader().get(instance.instanceId)).toBeDefined()
+  })
+
   it.each(['main', 'sub'])(
     '异步重算期间 %s 指标始终按原始时间身份对齐，连续补历史不累计错位',
     async (category) => {

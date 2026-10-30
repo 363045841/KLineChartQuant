@@ -34,12 +34,8 @@ export interface PaneLayoutDependencies {
 /**
  * Pane DOM / PaneRenderer 投影器 + 布局算法。
  *
- * SSOT: kernel.pane（paneRatios / paneSpecs）。
- * 本地 _internalPaneRatios / _paneSpecs 仅是算法工作副本：
- * - 入站: projectState(kernel snapshot)
- * - 出站: 每次突变结束必须 commitLayout() → kernel
- * projectState 必须 layoutPanes({ commit: false })，禁止回写抖动。
- * 禁止在未 commit 的中间态对外暴露为业务真相。
+ * 配置只来自 kernel.pane；本地规格与比例仅供像素布局计算。
+ * 容器变化和内容加载均为单向投影，只有用户拖动边界才提交新权重。
  */
 export class ChartPaneLayout {
   private deps: PaneLayoutDependencies
@@ -233,23 +229,6 @@ export class ChartPaneLayout {
     }))
   }
 
-  private syncPaneRatiosToSpecs(): void {
-    const visible = this._paneSpecs.filter((p) => p.visible !== false)
-    const visibleSum = visible.reduce(
-      (s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0),
-      0,
-    )
-    const safeVisibleSum = visibleSum > 0 ? visibleSum : 1
-
-    this._paneSpecs = this._paneSpecs.map((spec) => {
-      const ratio = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
-      if (spec.visible === false) {
-        return { ...spec, ratio }
-      }
-      return { ...spec, ratio: ratio / safeVisibleSum }
-    })
-  }
-
   private normalizeVisiblePaneRatios(specs: PaneSpec[]): void {
     const asRecord: Record<string, number> = {}
     this._internalPaneRatios.forEach((ratio, id) => {
@@ -322,7 +301,7 @@ export class ChartPaneLayout {
     return this.deps.viewport.readonly.viewport.peek()
   }
 
-  layoutPanes(options?: { commit?: boolean }) {
+  layoutPanes() {
     this.syncRatiosFromKernel()
 
     const vp = this.peekViewport()
@@ -368,16 +347,6 @@ export class ChartPaneLayout {
       y += h + gap
     }
 
-    const finalAvailable = Math.max(1, availableH)
-    for (const spec of visibleSpecs) {
-      const renderer = this.paneRenderers.find((r) => r.getPane().id === spec.id)
-      if (!renderer) continue
-      const h = renderer.getPane().height
-      this._internalPaneRatios.set(spec.id, h / finalAvailable)
-    }
-    this.normalizeVisiblePaneRatios(visibleSpecs)
-    this.syncPaneRatiosToSpecs()
-    if (options?.commit !== false) this.commitLayout()
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */
@@ -402,7 +371,7 @@ export class ChartPaneLayout {
     }))
     this._internalPaneRatios = new Map(Object.entries(ratios))
     if (definitionsChanged) this.initPanes()
-    this.layoutPanes({ commit: false })
+    this.layoutPanes()
   }
 
   /**

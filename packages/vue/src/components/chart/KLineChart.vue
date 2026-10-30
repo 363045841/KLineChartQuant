@@ -1360,7 +1360,14 @@
     { deep: true },
   )
 
-  const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
+  const paneSeparatorLines = computed(() => {
+    const borderTop = containerRef.value
+      ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
+      : 0
+    return paneAxisItems.value.slice(0, -1).map((pane) => ({
+      id: pane.id, top: pane.top + pane.height + borderTop,
+    }))
+  })
   const deviceEnvironment = useDeviceEnvironment()
   const isCoarsePointer = computed(() => deviceEnvironment.value.isCoarsePointer)
 
@@ -1632,20 +1639,6 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
-    const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
-      const borderTop = containerRef.value
-        ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
-        : 0
-      const panes = ctrl.paneLayout.peek()
-      // 使用 pane 的实际渲染位置计算分隔线位置，确保与鼠标检测一致
-      paneSeparatorLines.value = panes.slice(0, -1).map((pane) => {
-        const paneInfo = ctrl.getPaneInfo(pane.id)
-        // 分隔线位置 = pane 顶部位置 + pane 实际高度
-        const separatorTop = (paneInfo?.top ?? 0) + (paneInfo?.height ?? 0)
-        return { id: pane.id, top: separatorTop + borderTop }
-      })
-    })
-
     // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
     let paneAxisViewportSignature = ''
     const refreshPaneAxisLayout = () => {
@@ -1664,7 +1657,6 @@
     })
 
     return () => {
-      unsubscribePaneLayout()
       unsubscribeViewport()
       unsubscribeTheme()
     }

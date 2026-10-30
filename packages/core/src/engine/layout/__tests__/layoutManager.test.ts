@@ -9,6 +9,8 @@ import type { DrawingObject } from '../../drawing/types.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
+import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
+import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
 
 /** 每个用例使用独立数据库，避免归档相互污染。 */
 beforeEach(async () => {
@@ -29,6 +31,44 @@ function createManager() {
   })
   return { kernel, manager }
 }
+
+it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
+  const source = createManager()
+  const oldStorage = createIndexedDbPersistence<unknown>({
+    databaseName: '@363045841yyt/klinechart-layouts', storeName: 'layouts', key: 'documents',
+    flushOnPageHide: false, codec: { decode: (value) => value, encode: (value) => value },
+  })
+  await oldStorage.save({
+    activeId: 'old-layout', autoSave: true,
+    documents: { 'old-layout': { ...source.kernel.createLayout(), version: 2, id: 'old-layout', name: 'Old layout' } },
+  })
+  await oldStorage.dispose()
+  await source.manager.initialize()
+  expect(source.manager.layouts.peek().map((layout) => layout.id)).not.toContain('old-layout')
+  const document = source.kernel.createLayout()
+  source.kernel.applyLayout({ ...document, workspaces: { ...document.workspaces, kline: {
+    instances: [{ instanceId: 'pending-instance', indicatorId: 'pending-script', role: 'sub', paneId: 'pending-pane', ordinal: 0, params: {} }],
+    paneSpecs: [{ id: 'main', ratio: 0.83 }, { id: 'pending-pane', ratio: 0.17 }],
+    paneScaleTypes: { 'pending-pane': 'log' },
+  } } })
+  const snapshot = source.kernel.exportLayout()
+  expect(snapshot.version).toBe(LAYOUT_DOCUMENT_VERSION)
+  expect(snapshot.workspaces.kline).not.toHaveProperty('paneRatios')
+  source.manager.scheduleAutoSave()
+  await source.manager.dispose()
+  source.kernel.dispose()
+
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.kernel.exportLayout().workspaces).toEqual(snapshot.workspaces)
+    expect(restored.kernel.indicator.readonly.subPanes.peek()).toHaveLength(1)
+    expect(restored.kernel.pane.readonly.paneRatios.peek()).toEqual({ main: 0.83, 'pending-pane': 0.17 })
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
+  }
+})
 
 /** 按生产订阅方式把图元变更交给布局自动保存，返回释放订阅的方法。 */
 function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createManager>) {
@@ -358,7 +398,7 @@ it('视口快照随布局文档持久化，切换到该布局时恢复', async (
   }
 })
 
-it('恢复与切换布局前先完成文档依赖准备，再原子写入状态', async () => {
+it('恢复与切换布局时立即发布配置，内容加载完成前窗格已经可用', async () => {
   const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
   const events: string[] = []
   /** 每次准备返回一个由用例显式放行的任务，并通知用例准备已开始。 */
@@ -376,7 +416,7 @@ it('恢复与切换布局前先完成文档依赖准备，再原子写入状态'
       kernel.applyLayout(document)
     },
     createLayout: () => kernel.createLayout(),
-    prepareLayout: () => {
+    loadContent: () => {
       events.push('prepare')
       return new Promise<void>((resolve) =>
         onStart(() => {
@@ -387,24 +427,29 @@ it('恢复与切换布局前先完成文档依赖准备，再原子写入状态'
     },
   })
   try {
-    await manager.initialize()
+    armPreparation()
+    const initializing = manager.initialize()
+    const releaseInitial = await started
+    releaseInitial()
+    await initializing
+    events.length = 0
     const id = await manager.saveLayout({ name: '目标' })
     armPreparation()
     const switching = manager.switchLayout({ id })
     const releaseSwitch = await started
-    // 准备未完成时不得写入任何状态。
-    expect(events).toEqual(['prepare'])
+    // 加载内容时配置已完成恢复，不让模块加载成为布局的前置条件。
+    expect(events).toEqual(['apply', 'prepare'])
     releaseSwitch()
     await switching
-    expect(events).toEqual(['prepare', 'prepared', 'apply'])
+    expect(events).toEqual(['apply', 'prepare', 'prepared'])
     events.length = 0
     armPreparation()
     const applying = manager.applyLayout(kernel.exportLayout())
     const releaseApply = await started
-    expect(events).toEqual(['prepare'])
+    expect(events).toEqual(['apply', 'prepare'])
     releaseApply()
     await applying
-    expect(events).toEqual(['prepare', 'prepared', 'apply'])
+    expect(events).toEqual(['apply', 'prepare', 'prepared'])
   } finally {
     await manager.dispose()
     kernel.dispose()

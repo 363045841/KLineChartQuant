@@ -579,6 +579,7 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
       subPaneOps: {
+        reconcileDefinition: (indicatorId, role) => this.kernel.paneManager.reconcileDefinition(indicatorId, role),
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
         remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
         replace: (paneId, indicatorId, params) =>

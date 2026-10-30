@@ -146,7 +146,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return chart.kernel.exportLayout()
     },
     createLayout: () => chart.kernel.createLayout(),
-    prepareLayout: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
+    loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
     applyLayout: (document) => {
       if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {

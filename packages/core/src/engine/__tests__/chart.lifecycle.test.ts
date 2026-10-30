@@ -8,6 +8,8 @@ import { ScaleType } from '@/foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController } from '../drawing/index'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
+import { registerPlotIndicator, updatePlotIndicator } from '../indicators/registerPlotIndicator'
+import { resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { MAIN_PANE_ID } from '../pane/types'
 
@@ -209,6 +211,113 @@ describe('Chart lifecycle without a market selection', () => {
         { id: 'MACD_0', ratio: 0.3, role: 'indicator', visible: true },
       ], { main: 0.7, MACD_0: 0.3 })
       expect(commit).not.toHaveBeenCalled()
+    } finally { await chart.destroy() }
+  })
+
+  it('restores all panes before definitions arrive and keeps geometry and configuration stable as content loads', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      const document = chart.kernel.createLayout()
+      const paneSpecs = [
+        { id: 'main', ratio: 0.6 },
+        { id: 'late-pane-a', ratio: 0.25 },
+        { id: 'late-pane-b', ratio: 0.15 },
+      ]
+      chart.kernel.applyLayout({ ...document, workspaces: {
+        ...document.workspaces,
+        kline: {
+          instances: paneSpecs.slice(1).map((pane, index) => ({
+            instanceId: `late-instance-${index}`,
+            indicatorId: pane.id,
+            paneId: pane.id,
+            role: 'sub',
+            ordinal: 0,
+            params: {},
+          })),
+          paneSpecs,
+          paneScaleTypes: { 'late-pane-a': 'log' },
+        },
+      } })
+      chart.draw()
+      const baseline = chart.kernel.exportLayout().workspaces
+      const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
+      const heights = panes.map((pane) => pane.height)
+      expect(panes.map((pane) => pane.id)).toEqual(paneSpecs.map((pane) => pane.id))
+      expect(chart.indicators.subPanes.peek()).toHaveLength(2)
+      expect(heights[1]! / heights[2]!).toBeCloseTo(0.25 / 0.15, 1)
+      const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
+
+      for (const pane of paneSpecs.slice(1)) {
+        registerPlotIndicator({
+          id: pane.id, name: pane.id, source: 'script', inputs: {},
+          compute: () => ({ plots: [], fills: [] }),
+        })
+        chart.draw()
+        expect(chart.getRenderer(resolveIndicatorLayerId(pane.id, pane.id))).toBeDefined()
+        chart.getPaneRenderers().forEach((renderer, index) => expect(renderer.getPane()).toBe(panes[index]))
+        expect(panes.map((entry) => entry.height)).toEqual(heights)
+        expect(chart.kernel.exportLayout().workspaces).toEqual(baseline)
+      }
+
+      for (const height of [300, 1000]) {
+        ResizeObserverMock.instances[0]!.emit({
+          contentRect: DOMRect.fromRect({ width: 1000, height }),
+          contentBoxSize: [{ inlineSize: 1000, blockSize: height }],
+        })
+        chart.draw()
+        expect(chart.kernel.exportLayout().workspaces).toEqual(baseline)
+      }
+      expect(panes.map((pane) => pane.height)).toEqual(heights)
+      expect(commit).not.toHaveBeenCalled()
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('late-pane-a')).toBe('log')
+    } finally { await chart.destroy() }
+  })
+
+  it('preserves existing proportions when adding a pane and persists only explicit boundary changes', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      const indicatorId = 'pane-ratio-fixture'
+      registerPlotIndicator({ id: indicatorId, name: indicatorId, inputs: {}, compute: () => ({ plots: [], fills: [] }) })
+      const first = chart.indicators.add(indicatorId)
+      expect(first).not.toBeNull()
+      const paneId = chart.indicators.subPanes.peek()[0]!.paneId
+      chart.panes.update('main', { ratio: 0.8 })
+      chart.panes.update(paneId, { ratio: 0.2 })
+      const previous = chart.paneRatios.peek()
+      chart.indicators.add(indicatorId)
+      const next = chart.paneRatios.peek()
+      expect(next.main! / next[paneId]!).toBeCloseTo(previous.main! / previous[paneId]!)
+      chart.draw()
+      expect(chart.panes.resizeBoundary('main', -40)).toBe(true)
+      const resized = chart.kernel.exportLayout().workspaces
+      expect(resized.kline.paneSpecs).not.toEqual(chart.kernel.createLayout().workspaces.kline.paneSpecs)
+      chart.resize()
+      chart.draw()
+      expect(chart.kernel.exportLayout().workspaces).toEqual(resized)
+    } finally { await chart.destroy() }
+  })
+
+  it('moves script placement through a domain command in both workspaces without replacing its instance', async () => {
+    const chart = mountChart(1000, 1000)
+    const definition = {
+      id: 'placement-script', name: 'Placement script', source: 'script' as const,
+      inputs: {}, compute: () => ({ plots: [], fills: [] }),
+    }
+    try {
+      registerPlotIndicator(definition)
+      const first = chart.indicators.add(definition.id)
+      chart.kernel.actions.setDataView('timeshare')
+      const second = chart.indicators.add(definition.id)
+      updatePlotIndicator({ ...definition, position: 'main' })
+      for (const [workspaceId, workspace] of Object.entries(chart.kernel.snapshotViewWorkspaces())) {
+        expect(workspace.instances).toMatchObject([{ instanceId: workspaceId === 'kline' ? first : second, role: 'main', paneId: 'main' }])
+        expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual(['main'])
+      }
+      updatePlotIndicator({ ...definition, position: 'sub' })
+      for (const workspace of Object.values(chart.kernel.snapshotViewWorkspaces())) {
+        expect(workspace.instances[0]?.role).toBe('sub')
+        expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual(['main', workspace.instances[0]?.paneId])
+      }
     } finally { await chart.destroy() }
   })
 
