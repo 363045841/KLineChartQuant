@@ -1,5 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-core",
+  "private": true,
   "version": "0.11.0-alpha.10",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "Apache-2.0",

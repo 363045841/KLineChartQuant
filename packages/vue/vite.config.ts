@@ -1,51 +1,59 @@
-/**
- * vue 包（普通库入口）构建配置。
- *
- * 自定义元素那份交付形态在 @363045841yyt/klinechart-web-component，独立编辑器页在
- * @363045841yyt/klinechart-script-editor；本包只有单入口，两样都不在此打包。
- */
+/** 唯一 Vue 产品构建：内部代码随产品交付，Vue 保持宿主 peer。 */
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import dts from 'vite-plugin-dts'
 
-export default defineConfig({
-  plugins: [
-    vue(),
-    Icons({ compiler: 'vue3', autoInstall: true }),
-    dts({
-      tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)),
-    }),
-  ],
+/** 独立编辑器是自包含页面，作为文件发布而非内联进主入口。 */
+function editorPageAssets(): Plugin {
+  return {
+    name: 'klinechart:product-editor-assets',
+    enforce: 'pre',
+    resolveId(id) {
+      if (id === '@363045841yyt/klinechart-script-editor') return '\0product-editor-assets'
+    },
+    load(id) {
+      if (id !== '\0product-editor-assets') return
+      const refs = ['editor.js', 'editor.css'].map((name) => this.emitFile({
+        type: 'asset',
+        fileName: `assets/${name}`,
+        source: readFileSync(fileURLToPath(new URL(`../script-editor/dist/assets/${name}`, import.meta.url))),
+      }))
+      return `export async function loadScriptEditorPageAssets() { return { script: import.meta.ROLLUP_FILE_URL_${refs[0]}, styles: [import.meta.ROLLUP_FILE_URL_${refs[1]}] } }`
+    },
+  }
+}
 
+export default defineConfig({
+  base: './',
+  plugins: [
+    editorPageAssets(),
+    vue(),
+    Icons({ compiler: 'vue3', autoInstall: false }),
+    dts({ tsconfigPath: fileURLToPath(new URL('./tsconfig.build.json', import.meta.url)) }),
+  ],
   resolve: {
     alias: [{ find: /^@vue-src\//, replacement: fileURLToPath(new URL('./src/', import.meta.url)) }],
   },
-
+  worker: { format: 'es' },
   build: {
     target: 'esnext',
     emptyOutDir: true,
-    // lib 模式默认把样式合成一个以库名命名的文件；这里按 chunk 切分，产物名固定为 index.css。
+    license: { fileName: 'THIRD-PARTY-LICENSES.md' },
     cssCodeSplit: true,
     lib: {
-      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-      name: 'KlineChart',
+      entry: {
+        index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        agent: fileURLToPath(new URL('./src/agent.ts', import.meta.url)),
+      },
       formats: ['es'],
-      fileName: () => 'index.js',
+      fileName: (_format, name) => `${name}.js`,
     },
     rolldownOptions: {
-      external: [
-        'vue',
-        /@363045841yyt\/klinechart-core/,
-        /@363045841yyt\/klinechart-agent-runtime/,
-        /@363045841yyt\/klinechart-script/,
-        // CodeMirror 必须与消费端共用同一份实例：script-server 的语言服务把外部化的
-        // @codemirror/state 扩展对象传回编辑器，两副本会让 instanceof 校验失败。
-        'codemirror',
-        /^@codemirror\//,
-        /^@lezer\//,
-      ],
+      external: ['vue'],
+      output: { chunkFileNames: 'chunks/[name]-[hash].js' },
     },
   },
 })

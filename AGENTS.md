@@ -36,7 +36,7 @@
 
 ## Monorepo
 
-pnpm workspace at `packages/*`;Node `^20.19.0 || >=22.12.0`,pnpm 11.x.可以发布的包:
+pnpm workspace at `packages/*`。唯一对外发布包为 `packages/vue` (`@363045841yyt/klinechart`)，其余包均为私有实现模块。下面的模块名仅供内部开发使用:
 
 | 目录 | 发布包 |
 |------|--------|
@@ -52,7 +52,7 @@ pnpm workspace at `packages/*`;Node `^20.19.0 || >=22.12.0`,pnpm 11.x.可以发�
 | `packages/react` | `@363045841yyt/klinechart-react` |
 | `packages/angular` | `@363045841yyt/klinechart-angular` |
 
-`pnpm build:packages` 按 plot-contracts → script → script-server → core → script-chart → agent-runtime → vue → script-editor → web-component 的顺序构建,顺序不可颠倒:框架包通过 `workspace:` 协议依赖 core 与 agent-runtime,vue 还把 agent-runtime 声明为 `peerDependencies`.script-editor 与 web-component 都复用 vue 包的源码,分别产出独立编辑器页与单文件自定义元素,因此必须排在 vue 之后.react,angular 不在该命令内,各自单独构建.
+`pnpm build:packages` 调用 `build:product` 并构建内部 Web Component 适配器，供全仓类型检查使用。产品构建先准备内部依赖与独立编辑器资源，再构建 Vue。内部包不发布；Vue 产品包含内部运行时代码和声明，Vue 本身保持外部 peer。`pnpm pack:product` 生成唯一 tarball，`pnpm test:product` 在隔离项目验收，发布只上传经过验收的产物。`KlineWorkbench` 是源码 preview 与消费项目共用的完整工作台入口；高级 Agent API 在同一包的 `/agent` 子入口。
 
 ## README Generation
 

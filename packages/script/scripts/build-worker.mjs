@@ -30,6 +30,8 @@ await build({
     },
     rolldownOptions: {
       output: {
+        // 上层产品只复制 Worker 入口；QuickJS 的动态分支也必须打入同一文件。
+        codeSplitting: false,
         entryFileNames: 'script.worker.js',
         chunkFileNames: 'script.worker-[hash].js',
         assetFileNames: 'script.worker-[hash][extname]',

@@ -7,14 +7,7 @@ import process from 'node:process'
 
 // 受检包（目录名）→ 需要跳过的入口。CSS 入口不是 JS/类型，attw 必然报无法解析。
 const PACKAGES = {
-  'plot-contracts': [],
-  script: [],
-  core: [],
-  'script-chart': [],
-  'agent-runtime': [],
   vue: ['style.css'],
-  react: [],
-  angular: [],
 }
 
 // 统一校验口径：只按 ESM 解析。这些包只发布 ESM，且 Node 22+ 已支持 require(ESM)，

@@ -71,6 +71,7 @@ examples/next-app/pnpm-lock.yaml
 
 # Render benchmark local results
 bench/results/
+artifacts/product/
 
 # 设计 Token 生成产物：仅本地 / CI 产物，不作为源提交
 packages/core/design-tokens/reports/

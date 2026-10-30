@@ -16,7 +16,7 @@
 
 ## 🚀 Quick Start
 
-{{include:_usage-vue.md}}
+{{include:_product-vue.md}}
 
 ## 🎨 Custom Tooltip
 
@@ -39,7 +39,7 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
         <span>{{ hoverData.stockCode }}</span>
-        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+        <span>{{ formatTimeInTimeZone(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
       <div class="custom-tooltip__price"
            :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
@@ -54,7 +54,7 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 </KlineChart>
 
 <script setup lang="ts">
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimeInTimeZone } from '@363045841yyt/klinechart'
 </script>
 
 <style scoped>
@@ -87,4 +87,4 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 
 {{include:_whatsnew.md}}
 
-{{include:_license.md}}
+{{include:_product-license.md}}

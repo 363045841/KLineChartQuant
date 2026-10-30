@@ -14,6 +14,8 @@ class WebWorker extends EventTarget {
       `
       const { parentPort, workerData } = require('node:worker_threads')
       globalThis.postMessage = (message) => parentPort.postMessage(message)
+      // 此线程模拟 Web Worker 宿主，依赖必须走浏览器分支。
+      globalThis.process = undefined
       if (workerData.disableWasm) globalThis.WebAssembly = undefined
       import(workerData.url).then(() => {
         parentPort.on('message', (data) => globalThis.onmessage({ data }))

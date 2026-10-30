@@ -65,6 +65,7 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
+          :scripts-enabled="scriptsEnabled"
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
@@ -315,6 +316,7 @@
       @save="saveCanvasTemplate"
     />
     <IndicatorSelector
+      :scripts-enabled="scriptsEnabled"
       ref="indicatorSelectorRef"
       :chart-controller="controller"
       :active-indicators="activeIndicators"
@@ -348,6 +350,7 @@
     />
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
     <ScriptEditorHost
+      v-if="scriptEditorOpen"
       mode="dialog"
       :tabs="scriptEditorSession.tabs.value"
       :active-tab-id="scriptEditorSession.activeTabId.value"
@@ -424,6 +427,7 @@
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
   import {
     computed,
+    defineAsyncComponent,
     inject,
     nextTick,
     onBeforeUpdate,
@@ -454,7 +458,7 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
+  const ScriptEditorHost = defineAsyncComponent(() => import('@vue-src/components/script/ScriptEditorHost.vue'))
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
@@ -506,6 +510,8 @@
       marketSessions?: ChartMountOptions['marketSessions']
       /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
       marketDataContext?: MarketDataContext
+      /** 由产品功能配置控制脚本入口；低层组件默认保留脚本能力。 */
+      scriptsEnabled?: boolean
 
       yPaddingPx?: number
       minKWidth?: number
@@ -541,6 +547,7 @@
     }>(),
     {
       yPaddingPx: 20,
+      scriptsEnabled: true,
       minKWidth: 1,
       maxKWidth: 200,
       rightAxisWidth: 0,

@@ -86,13 +86,6 @@ The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vw
 - **Real editor** - The chart ships a CodeMirror-based script editor with completions, hover signatures, and signature help generated from the same declarations the compiler uses
 - **Same rendering path** - Plots flow through the engine's normal Plot, axis, and legend chain, so script indicators behave exactly like built-in ones
 
-Register scripts through the script service; each one then appears in the indicator picker as a normal entry:
-
-```ts
-import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-
-const scripts = await createScriptService()
-await scripts.create(source)
-```
+In `KlineWorkbench`, open the code editor to create, run and add scripts to the chart. The product owns the script service and registers built-in scripts automatically; no separate script package installation is needed. Set `scripts` to `false` before mounting to disable scripting and hide its editor entry.
 
 See the [script docs]({{root}}packages/script/docs/indicator.md) for the full declaration reference, [libraries]({{root}}packages/script/docs/library.md), and [Plot API]({{root}}packages/script/docs/indicator.md#plot).

@@ -20,8 +20,8 @@
     BrowserAgentBridge,
     createAgentPanelSideStorage,
     createAgentPanelWidthStorage,
-    KlineChart,
-  } from '@363045841yyt/klinechart'
+  } from '@363045841yyt/klinechart/agent'
+  import { KlineChart } from '@363045841yyt/klinechart'
   import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
   import { onBeforeUnmount, ref } from 'vue'
 

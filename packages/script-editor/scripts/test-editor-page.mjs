@@ -10,9 +10,9 @@ const serverRequire = createRequire(new URL('../../script-server/package.json', 
 const { wrap, releaseProxy } = serverRequire('comlink')
 const nodeEndpoint = serverRequire('comlink/dist/umd/node-adapter.js')
 
-/** 语言 Worker 是独立产物文件，直接按名字取源码，不再从页面脚本里反解字符串。 */
+/** 直接执行构建器送入内联编码器的真实 Worker，不依赖内联字符串的编码格式。 */
 function languageWorkerSource(page) {
-  const worker = page.files.find(
+  const worker = page.workers.find(
     (file) => file.name.endsWith('.js') && /(^|\/)scriptLanguage\.worker-/.test(file.name),
   )
   if (!worker || typeof worker.source !== 'string') {

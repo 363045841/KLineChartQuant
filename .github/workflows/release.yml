@@ -10,8 +10,11 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  TZ: Asia/Shanghai
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-vue-product
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +31,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.18.0
+          node-version: 24.21.0
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
@@ -45,69 +48,27 @@ jobs:
       - name: Build packages
         run: pnpm build:packages
 
-      - name: Publish to npm
-        shell: bash
+      - name: Product quality gates
         run: |
-          set -euo pipefail
+          pnpm type-check
+          pnpm test:packages:ci
+          pnpm --filter @363045841yyt/klinechart lint:publish
+          pnpm lint:types
 
-          # 根据 tag 名判断 npm dist-tag
-          # 用 bash glob 而非 grep，避免 GH Actions 环境中 regex 差异导致匹配失败
-          TAG="${GITHUB_REF_NAME#v}"
-          case "$TAG" in
-            *-alpha.*) PRERELEASE=true; NPM_TAG=alpha ;;
-            *-beta.*)  PRERELEASE=true; NPM_TAG=beta  ;;
-            *-rc.*)    PRERELEASE=true; NPM_TAG=rc    ;;
-            *)         PRERELEASE=false; NPM_TAG=latest ;;
-          esac
+      - name: Pack and verify the Vue product
+        run: |
+          pnpm pack:product
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:product
 
-          echo "Publishing version $TAG with npm tag '$NPM_TAG' (prerelease=$PRERELEASE)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vue-product
+          path: artifacts/product
 
-          # 只发布已构建产物：构建已在上一步 pnpm build:packages 完成。
-          # pnpm pack 打包时会把 workspace: 协议原生替换为具体版本，npm publish 只负责上传 tarball；
-          # 因此无需就地改写 package.json，也不会在发布阶段再触发 pnpm 脚本与依赖校验。
-          # 注意不要改用 pnpm publish：自 pnpm 11 起它是原生实现，npm OIDC 可信发布尚未支持。
-          publish_package() {
-            local package_dir="$1"
-            local pack_dir
-            pack_dir="$(mktemp -d)"
-            (
-              cd "$GITHUB_WORKSPACE/packages/$package_dir"
-              pnpm pack --ignore-scripts --pack-destination "$pack_dir" >/dev/null
-              npm publish "$pack_dir"/*.tgz --access public --tag "$NPM_TAG"
-            )
-            rm -rf "$pack_dir"
-          }
-
-          # 发布顺序按依赖图拓扑排：plot-contracts -> script -> script-server -> core
-          # -> agent-runtime -> script-chart -> vue -> script-editor -> web-component。
-          # pnpm pack 会把 workspace: 协议解析成具体版本，被依赖的包没先发出去，后续包在 npm 上
-          # 就会声明一个不存在的版本。react / angular 暂不发布，故 build:packages 已覆盖全部待发包。
-          echo "====== 开始发布 Plot Contracts 包 ======"
-          publish_package plot-contracts
-
-          echo "====== 开始发布 Script 包 ======"
-          publish_package script
-
-          echo "====== 开始发布 Script Server 包 ======"
-          publish_package script-server
-
-          echo "====== 开始发布 Core 包 ======"
-          publish_package core
-
-          echo "====== 开始发布 Agent Runtime 包 ======"
-          publish_package agent-runtime
-
-          echo "====== 开始发布 Script Chart 包 ======"
-          publish_package script-chart
-
-          echo "====== 开始发布 Vue 包 ======"
-          publish_package vue
-
-          echo "====== 开始发布 Script Editor 包 ======"
-          publish_package script-editor
-
-          echo "====== 开始发布 Web Component 包 ======"
-          publish_package web-component
+      - name: Publish verified Vue product to npm
+        run: node scripts/publish-product.mjs
 
       - name: Generate release notes
         id: notes
@@ -307,11 +268,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build core
-        run: pnpm --filter @363045841yyt/klinechart-core build
-
-      - name: Build vue
-        run: pnpm --filter @363045841yyt/klinechart build
+      - name: Build Vue product and its internal resources
+        run: pnpm build:product
 
       - name: Build & package desktop
         run: pnpm --filter @363045841yyt/klinechart-desktop build

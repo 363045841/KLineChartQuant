@@ -110,6 +110,19 @@ jobs:
       - name: Type-resolution check (attw) [REQUIRED]
         run: pnpm lint:types
 
+      - name: Vue product consumer acceptance [REQUIRED]
+        if: matrix.node == '24.21.0'
+        run: |
+          pnpm pack:product
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:product
+
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.node == '24.21.0'
+        with:
+          name: vue-product-acceptance
+          path: artifacts/product
+
       # ---- WARN-ONLY GATES ----
       # These still need their own fixes before they can block merges; see
       # docs/contributing/CI_GATES.md for the current blockers.
@@ -117,9 +130,8 @@ jobs:
         run: pnpm size:packages
         continue-on-error: true
 
-      - name: Publish hygiene (publint --strict) [WARN]
+      - name: Product publish hygiene (publint --strict) [REQUIRED]
         run: pnpm lint:publish
-        continue-on-error: true
 
   build:
     name: build (node ${{ matrix.node }})

@@ -1,7 +1,8 @@
 /**
  * @363045841yyt/klinechart — public API surface.
  *
- * Vue 3 bindings for @363045841yyt/klinechart-core. Bridges core signals to Vue's
+ * 完整 Vue 工作台与组件的唯一产品入口，内部模块随构建产物交付。
+ * Bridges core signals to Vue's
  * reactivity via `shallowRef` subscriptions so each adapter owns its own
  * reactivity boundary — no proxy wrapping of immutable signal values.
  *
@@ -21,6 +22,7 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import { KlineChart } from '@vue-src/components/index.js'
+import KlineWorkbench from './workbench/KlineWorkbench.vue'
 import {
   type App,
   type ComputedRef,
@@ -120,25 +122,12 @@ export {
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
-export { default as AgentWorkbenchShell } from '@vue-src/features/agent/AgentWorkbenchShell.vue'
-export * from '@vue-src/features/agent/agent-contracts.js'
-export { BrowserAgentBridge } from '@vue-src/features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
-export type { BrowserAgentBridgeOptions } from '@vue-src/features/agent/browser-agent/bridge/types.js'
-export { default as AgentWorkspace } from '@vue-src/features/agent/components/AgentWorkspace.vue'
-export { createAgentPanelSideStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-side-storage.js'
-export { createAgentPanelWidthStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-width-storage.js'
-export { useAgentWorkspace } from '@vue-src/features/agent/workspace/impl/use-agent-workspace.js'
-export {
-  createWorkspaceState,
-  displayConversation,
-} from '@vue-src/features/agent/workspace/impl/workspace-state.js'
-export type {
-  AgentPanelSide,
-  AgentPanelSideStorage,
-  AgentPanelWidthStorage,
-  AgentWorkspaceAvailability,
-  AgentWorkspaceState,
-} from '@vue-src/features/agent/workspace/types.js'
+export { KlineWorkbench }
+export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
+export { createBuiltinMarketDataContext } from '@363045841yyt/klinechart-core/market-data/sources'
+export type { MarketDataConfiguration } from '@363045841yyt/klinechart-core/market-data'
+export type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+export { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection
@@ -380,6 +369,7 @@ export function useIndicatorSelector(controller: ChartController): {
 export const KMapPlugin = {
   install(app: App): void {
     app.component('KLineChart', KlineChart)
+    app.component('KlineWorkbench', KlineWorkbench)
   },
 }
 

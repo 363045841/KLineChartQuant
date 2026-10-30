@@ -183,7 +183,7 @@
   }
 
   /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。 */
-  .composer__textarea {
+  .composer__input .composer__textarea {
     --base-textarea-padding-block: var(--composer-inset);
     --base-textarea-border: 0px;
 
@@ -196,7 +196,7 @@
     line-height: 1.5;
   }
 
-  .composer__textarea::placeholder {
+  .composer__input .composer__textarea::placeholder {
     color: var(--agent-text-soft);
   }
 

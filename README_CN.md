@@ -234,14 +234,7 @@ onBar() {
 - **真实编辑器** — 图表内置基于 CodeMirror 的脚本编辑器，补全、悬浮签名与参数提示均来自编译器所用的同一份声明
 - **同一渲染链路** — Plot 走引擎既有的绘图、坐标轴与图例通道，脚本指标与内置指标行为一致
 
-通过脚本服务注册脚本，注册后即作为普通条目出现在指标选择器中：
-
-```ts
-import { createScriptService } from '@363045841yyt/klinechart-script-chart'
-
-const scripts = await createScriptService()
-await scripts.create(source)
-```
+在 `KlineWorkbench` 中打开代码编辑器，即可创建、运行脚本并添加到图表。产品统一管理脚本服务并自动注册内置脚本，无需安装其他脚本包。挂载前设置 `scripts=false` 可禁用脚本并隐藏编辑入口。
 
 完整声明参考见[脚本文档](packages/script/docs/indicator.md)，另有[函数库](packages/script/docs/library.md)与 [Plot API](packages/script/docs/indicator.md#plot)。
 
@@ -312,142 +305,24 @@ pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 M
 
 ## 🚀 快速开始
 
-### 3. 安装并使用
+### 完整工作台
 
-```bash
-npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
-```
-
-**使用组件：**
+只安装 `@363045841yyt/klinechart` 和 Vue 3。Core、Agent、脚本引擎与编辑器由产品统一交付，不再单独发布内部包。
 
 ```vue
-<template>
-  <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings" />
-  </div>
-</template>
-
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import type { ChartSettings } from '@363045841yyt/klinechart-core'
-  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
-  import demoData from './demo-data.json'
-
-  const currentTheme = ref<'light' | 'dark'>('dark')
-
-  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
-
-  const chartSettings: ChartSettings = {
-    showGridLines: true,
-    isAsiaMarket: true,
-    mainLeftAxisDisplaySetting: 'none',
-    theme: 'dark',
-    colorPresetSettings: {
-      dark: {
-        candleUpBody: '#e85d04',
-        candleDownBody: '#1b4332',
-        crosshairLine: '#faa307',
-        gridMajor: '#3e2723',
-      },
-    },
-  }
+import { KlineWorkbench } from '@363045841yyt/klinechart'
+import '@363045841yyt/klinechart/style.css'
 </script>
 
-<style>
-  .app-container {
-    display: flex;
-    flex-direction: column;
-    height: 80vh;
-  }
-
-  .app-container[data-theme='dark'] {
-    background: #000;
-    color: #e5e7eb;
-  }
-</style>
-```
-
-**Import CSS in main.ts：**
-
-```typescript
-import '@363045841yyt/klinechart/style.css'
-import { createApp } from 'vue'
-import App from './App.vue'
-
-createApp(App).mount('#app')
-```
-
-**插槽用法 — 自定义 Tooltip：**
-
-```html
-<KlineChart>
-  <template #kline-tooltip="{ hoverData, upColor, downColor }">
-    <div class="custom-tooltip">
-      <div class="custom-tooltip__title">
-        <span>{{ hoverData.stockCode }}</span>
-        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
-      </div>
-      <div
-        class="custom-tooltip__price"
-        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
-      >
-        {{ hoverData.close.toFixed(2) }}
-      </div>
-      <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br />
-        H: {{ hoverData.high.toFixed(2) }}<br />
-        L: {{ hoverData.low.toFixed(2) }}<br />
-        C: {{ hoverData.close.toFixed(2) }}
-      </div>
-    </div>
-  </template>
-</KlineChart>
-```
-
-**插槽用法 — 自定义主图左上角图例：**
-
-提供 `#legend` 时完全替换 Canvas 默认图例；作用域为完整 `LegendTemplateContext`（OHLC、分时、主图指标、对比品种、布局与颜色）。
-
-```vue
-<template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
-  <div class="my-legend">
-    <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
-    <div v-if="currentBar" class="my-legend__row">
-      <span :style="{ color: currentBar.color }">
-        开盘 {{ currentBar.open.toFixed(2) }} 最高 {{ currentBar.high.toFixed(2) }} 最低
-        {{ currentBar.low.toFixed(2) }} 收盘 {{ currentBar.close.toFixed(2) }}
-      </span>
-      <span v-if="currentBar.volumeText"> Vol {{ currentBar.volumeText }}</span>
-    </div>
-
-    <div v-if="timeshare" class="my-legend__row">
-      <span :style="{ color: timeshare.changeColor }">
-        现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
-      </span>
-    </div>
-
-    <!-- 使用主图指标图例数据 -->
-    <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
-      <span>{{ indicator.name }}:</span>
-      <template v-for="value in indicator.values" :key="value.label">
-        <span :style="{ color: value.color }">
-          {{ value.label }} {{ value.value.toFixed(3) }}
-        </span>
-      </template>
-    </div>
-    <!-- 使用比较商品数据 -->
-    <div
-      v-for="comparison in comparisons"
-      :key="comparison.symbol"
-      class="my-legend__row"
-      :style="{ color: comparison.percentColor }"
-    >
-      {{ comparison.symbol }}
-      {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
-    </div>
-  </div>
+<template>
+  <div style="height: 700px"><KlineWorkbench /></div>
 </template>
 ```
+
+源码预览也挂载同一个工作台。`agent`、`scripts` 默认开启；在挂载前设为 `false` 可禁用。`chart` 接收图表配置，`marketDataContext` 接收宿主管理的行情实例。脚本功能会在图表挂载前准备内置指标；编辑器与语言服务在打开时加载。高级 Agent 接口在同一包的 `@363045841yyt/klinechart/agent` 子入口。
+
+完整产品包含 AGPL 脚本模块，按 AGPL-3.0-or-later 交付。内部 Apache-2.0 模块保留各自许可证，详见随包声明。
 
 
 ### 4.（可选）启用 AI Agent 控制
@@ -541,7 +416,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 - **v0.4** 现代化 UI，左侧工具栏、右轴优化、TradingView 式缩放手感
 
 
-## 📄 License
+## 产品许可证
 
-[Apache-2.0](LICENSE)
+完整 Vue 工作台按 [AGPL-3.0-or-later](packages/vue/LICENSE) 交付。内部 Apache-2.0 模块保留各自许可证；产品包含模块与第三方许可证声明。
 

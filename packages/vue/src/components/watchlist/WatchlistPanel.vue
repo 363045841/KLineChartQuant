@@ -84,8 +84,8 @@
     --drop-menu-item-padding-block: 10px;
   }
 
-  /* DropMenu 触发器是共享组件的元素，用 :deep 收紧为紧凑图标按钮。 */
-  :deep(.watchlist-trigger) {
+  /* 明确高于共享按钮的选择器优先级，避免产品 CSS 分块改变顺序后覆盖外观。 */
+  :deep(.control-button.watchlist-trigger) {
     width: 30px;
     min-width: 30px;
     height: 30px;
