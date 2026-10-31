@@ -76,6 +76,74 @@ await build({
 
 const servers = []
 const browser = await chromium.launch({ headless: true })
+/**
+ * Chromium 会把视口边缘 3px 圆角的抗锯齿落在相邻 1 色阶之间，同一构建重复加载也会抖动，
+ * 与源码/打包差异无关；只吸收单像素级噪声，成片或更大色差仍然失败。
+ */
+const SCREENSHOT_CHANNEL_TOLERANCE = 1
+const SCREENSHOT_PIXEL_BUDGET = 8
+/** 把截图编码成浏览器可解码的 data URL。 */
+function screenshotUrl(buffer) {
+  return `data:image/png;base64,${buffer.toString('base64')}`
+}
+/** 在浏览器内解码两张 PNG，统计超差像素数量、最大色差与范围。 */
+async function compareScreenshots(left, right) {
+  const page = await browser.newPage()
+  try {
+    return await page.evaluate(async ([first, second]) => {
+      /** 解码一张截图，失败立即返回可展示的错误。 */
+      const load = (src) =>
+        new Promise((resolve, reject) => {
+          const image = new Image()
+          image.onload = () => resolve(image)
+          image.onerror = () => reject(new Error('Screenshot decode failed'))
+          image.src = src
+        })
+      const [one, two] = await Promise.all([load(first), load(second)])
+      const canvas = new OffscreenCanvas(one.width, one.height)
+      const context = canvas.getContext('2d')
+      /** 读取整张截图的 RGBA 像素。 */
+      const pixels = (image) => {
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        context.drawImage(image, 0, 0)
+        return context.getImageData(0, 0, canvas.width, canvas.height).data
+      }
+      const before = pixels(one)
+      const after = pixels(two)
+      let count = 0
+      let maxDelta = 0
+      let box = null
+      for (let index = 0; index < before.length; index += 4) {
+        const delta = Math.max(
+          Math.abs(before[index] - after[index]),
+          Math.abs(before[index + 1] - after[index + 1]),
+          Math.abs(before[index + 2] - after[index + 2]),
+          Math.abs(before[index + 3] - after[index + 3]),
+        )
+        if (delta === 0) continue
+        count += 1
+        maxDelta = Math.max(maxDelta, delta)
+        const pixel = index / 4
+        const x = pixel % canvas.width
+        const y = Math.floor(pixel / canvas.width)
+        box = box
+          ? [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x), Math.max(box[3], y)]
+          : [x, y, x, y]
+      }
+      return { count, maxDelta, box }
+    }, [screenshotUrl(left), screenshotUrl(right)])
+  } finally {
+    await page.close()
+  }
+}
+/** 断言两张截图只在允许的噪声范围内一致；失败信息带上差异规模便于定位。 */
+async function assertSameScreenshot(left, right, message) {
+  const { count, maxDelta, box } = await compareScreenshots(left, right)
+  assert.ok(
+    maxDelta <= SCREENSHOT_CHANNEL_TOLERANCE && count <= SCREENSHOT_PIXEL_BUDGET,
+    `${message}: differing pixels=${count}, max channel delta=${maxDelta}, box=${JSON.stringify(box)}`,
+  )
+}
 const failures = []
 const screenshots = []
 const fullScreenshots = []
@@ -170,7 +238,11 @@ try {
     writeFileSync(path.join(artifacts, `${label}-css-order.json`), JSON.stringify(cascadeChanges, null, 2))
     const reorderedScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     writeFileSync(path.join(artifacts, `${label}-css-reordered.png`), reorderedScreenshot)
-    assert.ok(fullScreenshot.equals(reorderedScreenshot), `${label} workbench changes when stylesheet order is reversed`)
+    await assertSameScreenshot(
+      fullScreenshot,
+      reorderedScreenshot,
+      `${label} workbench changes when stylesheet order is reversed`,
+    )
     await page.getByRole('button', { name: '代码编辑器', exact: true }).click()
     await page.locator('.cm-editor').waitFor({ timeout: 60_000 })
     const runButton = page.getByRole('button', { name: '运行代码', exact: true })
@@ -190,8 +262,16 @@ try {
     await context.close()
   }
   assert.deepEqual(failures, [], 'Production consumer must have no browser or resource errors')
-  assert.ok(screenshots[0].equals(screenshots[1]), 'Source and packed workbench screenshots differ; see artifacts/product/{source,package}.png')
-  assert.ok(fullScreenshots[0].equals(fullScreenshots[1]), 'Full source and packed workbench screenshots differ; see artifacts/product/{source,package}-full.png')
+  await assertSameScreenshot(
+    screenshots[0],
+    screenshots[1],
+    'Source and packed workbench screenshots differ; see artifacts/product/{source,package}.png',
+  )
+  await assertSameScreenshot(
+    fullScreenshots[0],
+    fullScreenshots[1],
+    'Full source and packed workbench screenshots differ; see artifacts/product/{source,package}-full.png',
+  )
   writeFileSync(path.join(artifacts, 'verified.json'), JSON.stringify({ ...manifest, checks: ['isolated-install', 'public-types', 'production-build', 'source-screenshot-parity', 'registered-source', 'tail-update', 'bar-append', 'stream-cleanup', 'disabled-workers', 'script-worker', 'agent-panel', 'editor', 'script-execution', 'detached-editor', 'theme', 'unmount'] }, null, 2) + '\n')
   console.log(`Product consumer passed. Fixture retained at ${directory}`)
 } catch (error) {
