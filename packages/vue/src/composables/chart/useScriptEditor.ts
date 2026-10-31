@@ -47,6 +47,8 @@ export interface ScriptEditorSession {
   readonly name: Readonly<Ref<string | null>>
   readonly identity: Readonly<Ref<ScriptIdentity>>
   readonly saving: Ref<boolean>
+  /** 脚本服务是否已就绪；宿主异步初始化期间编辑器与运行都不可用。 */
+  readonly ready: Readonly<Ref<boolean>>
   createCopy(): Promise<void>
   readonly open: Ref<boolean>
   readonly definitionId: Readonly<Ref<string | null>>
@@ -86,6 +88,8 @@ export function useScriptEditor(
     store = value
     refreshDocuments()
   }, { flush: 'sync' })
+  /** 服务就绪是编辑器、目录与运行入口可用的前提。 */
+  const ready = computed(() => unref(sourceStore) !== undefined)
   const open = ref(false)
   const saving = ref(false)
   const treeError = ref<string | null>(null)
@@ -408,6 +412,7 @@ export function useScriptEditor(
     name,
     identity,
     saving,
+    ready,
     open,
     definitionId,
     source,

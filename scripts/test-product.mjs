@@ -137,6 +137,8 @@ try {
     await page.locator('.agent-workspace').waitFor({ timeout: 60_000 })
     await page.locator('.composer__input').waitFor({ timeout: 60_000 })
     assert.ok(workers > 0, 'Enabled scripts must start the execution Worker')
+    // 脚本服务异步初始化：截图和运行都要在编辑器入口出现（服务就绪）之后，避免只拿到空草稿。
+    await page.getByRole('button', { name: '代码编辑器', exact: true }).waitFor({ timeout: 60_000 })
     await page.evaluate(async () => { await document.fonts.ready })
     await page.mouse.move(1439, 899)
     const fullScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })

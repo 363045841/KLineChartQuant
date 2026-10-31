@@ -65,7 +65,7 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          :scripts-enabled="scriptsEnabled"
+          :scripts-enabled="scriptsAvailable"
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
@@ -316,7 +316,7 @@
       @save="saveCanvasTemplate"
     />
     <IndicatorSelector
-      :scripts-enabled="scriptsEnabled"
+      :scripts-enabled="scriptsAvailable"
       ref="indicatorSelectorRef"
       :chart-controller="controller"
       :active-indicators="activeIndicators"
@@ -1085,9 +1085,14 @@
   /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
-  const scriptEditorSession = useScriptEditor(
-    inject(SCRIPT_SOURCE_STORE_KEY, undefined),
-    controller,
+  const scriptSourceStore = inject(SCRIPT_SOURCE_STORE_KEY, undefined)
+  const scriptEditorSession = useScriptEditor(scriptSourceStore, controller)
+  /**
+   * 脚本服务由宿主异步初始化，就绪前不暴露编辑器与脚本目录。
+   * 提前打开只会得到没有模板、也无法运行的草稿，且用户看不出原因。
+   */
+  const scriptsAvailable = computed(
+    () => props.scriptsEnabled && scriptEditorSession.ready.value,
   )
   const {
     open: scriptEditorOpen,

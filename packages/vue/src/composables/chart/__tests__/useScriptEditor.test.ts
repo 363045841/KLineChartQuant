@@ -31,11 +31,13 @@ describe('useScriptEditor', () => {
       const removal = scope.run(() => useScriptRemoval(sourceStore))!
       editor.openBlank()
       editor.source.value = '// 初始化期间的草稿'
+      expect(editor.ready.value).toBe(false)
       expect(editor.documents.value).toEqual([])
       expect(removal.canRemove(document.id)).toBe(false)
 
       sourceStore.value = scripts
 
+      expect(editor.ready.value).toBe(true)
       expect(editor.documents.value).toEqual(scripts.list())
       expect(editor.documents.value).toContainEqual(document)
       expect(editor.folders.value).toEqual([{ kind: 'library', path: '工具' }])
