@@ -37,7 +37,7 @@ test does not compete with core transforms or other script execution. It remains
 part of the same required gate, with the same worker cap, isolation and timeout.
 Re-evaluate both limits together when the runner size or test workload changes.
 
-The Node 22 and Node 24 jobs both run the complete package suite. For a local
+The Node 26 job runs the complete package suite. For a local
 comparison, set `TZ=Asia/Shanghai`, use the same machine and clear the Vitest
 caches before each run so both commands start cold:
 
@@ -57,7 +57,7 @@ status. Workflow totals include runner queueing and unrelated gates. The normal
 `pnpm lint:types` runs `scripts/lint-types.mjs`, which pins one profile for
 every publishable package:
 
-- `--profile esm-only` — each publishable package ships ESM only, and Node 22+
+- `--profile esm-only` — each publishable package ships ESM only, and Node 26+
   supports `require()` of ESM, so the legacy Node CJS resolution rules only
   produce false alarms here.
 - `--exclude-entrypoints style.css` for the Vue package — a CSS entry is not

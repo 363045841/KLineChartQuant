@@ -43,7 +43,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": "^22.19.0 || >=24.11.0"
+    "node": ">=26.0.0"
   },
   "scripts": {
     "indicators:generate": "node scripts/generate-indicator-entrypoints.mjs",
@@ -105,9 +105,9 @@
     "@babel/plugin-transform-typescript": "^8.0.5",
     "@biomejs/biome": "^2.5.15",
     "@iconify-json/tabler": "^1.2.41",
-    "@tsconfig/node24": "^24.0.5",
+    "@tsconfig/node26": "^26.0.1",
     "@types/jsdom": "^30.0.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vitest/coverage-v8": "^5.0.3",
     "@vue/test-utils": "^2.5.1",

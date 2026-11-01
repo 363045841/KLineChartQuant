@@ -43,7 +43,7 @@ await runtime.close()
 
 ## Node
 
-`createNodeRuntimeSessions` 改为异步工厂，直接调用官方 `openNodeSqliteStorage`，移除 `cwd`、NodeExecutionEnv 和独立 SQLite 后端依赖。要求 Node 22.19+。
+`createNodeRuntimeSessions` 改为异步工厂，直接调用官方 `openNodeSqliteStorage`，移除 `cwd`、NodeExecutionEnv 和独立 SQLite 后端依赖。要求 Node 26+。
 
 ```ts
 import { createNodeRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/node'

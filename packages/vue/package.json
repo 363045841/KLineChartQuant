@@ -11,7 +11,7 @@
   "homepage": "https://363045841.github.io/KLineChartQuant/",
   "type": "module",
   "engines": {
-    "node": "^22.12.0 || >=24.0.0"
+    "node": ">=26.0.0"
   },
   "sideEffects": [
     "**/*.css"
