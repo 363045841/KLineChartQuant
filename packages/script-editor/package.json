@@ -52,6 +52,6 @@
     "@fontsource/jetbrains-mono": "^5.3.0"
   },
   "engines": {
-    "node": "^22.19.0 || >=24.0.0"
+    "node": ">=26.0.0"
   }
 }

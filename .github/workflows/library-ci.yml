@@ -40,13 +40,8 @@ env:
 
 jobs:
   test:
-    name: test (node ${{ matrix.node }})
+    name: test (node 26)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 两个受支持 LTS 主线均固定到当前最新补丁，确保可复现的 CI 环境。
-        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -58,10 +53,10 @@ jobs:
           # When packageManager is set, action-setup reads it automatically.
           version: 12
 
-      - name: Setup Node ${{ matrix.node }}
+      - name: Setup Node 26
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 26.13.0
           cache: pnpm
 
       - name: Install dependencies
@@ -111,14 +106,13 @@ jobs:
         run: pnpm lint:types
 
       - name: Vue product consumer acceptance [REQUIRED]
-        if: matrix.node == '24.21.0'
         run: |
           pnpm pack:product
           pnpm exec playwright install --with-deps chromium
           pnpm test:product
 
       - uses: actions/upload-artifact@v4
-        if: always() && matrix.node == '24.21.0'
+        if: always()
         with:
           name: vue-product-acceptance
           path: artifacts/product
@@ -134,12 +128,8 @@ jobs:
         run: pnpm lint:publish
 
   build:
-    name: build (node ${{ matrix.node }})
+    name: build (node 26)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22.23.2', '24.21.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -149,10 +139,10 @@ jobs:
         with:
           version: 12
 
-      - name: Setup Node ${{ matrix.node }}
+      - name: Setup Node 26
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 26.13.0
           cache: pnpm
 
       - name: Install dependencies
