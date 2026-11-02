@@ -3,7 +3,7 @@ import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
-import { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '@/engine/pane/types.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -19,13 +19,9 @@ import type {
   LegendTemplateContext,
   LegendUiRequest,
 } from '../types.js'
-import {
-  LEGEND_COLLAPSED_HEADER_PX,
-  LEGEND_GAP_PX,
-  LEGEND_ROW_HEIGHT_PX,
-  legendHeaderInset,
-  legendRowTop,
-} from './legendGeometry.js'
+import { projectLegendColors } from './legendColors.js'
+import { LEGEND_COLLAPSED_HEADER_PX, legendHeaderInset } from './legendGeometry.js'
+import { createLegendRow } from './legendRow.js'
 import { projectLegendActions } from './projectLegendActions.js'
 import { projectIndicator, projectLegendContext } from './projectLegendContext.js'
 import { projectIndicatorTexts, projectMainLegendRows } from './projectLegendRows.js'
@@ -383,8 +379,8 @@ export class LegendManager implements LegendApi {
       if (paneId === MAIN_PANE_ID) {
         if (template) rows.push(...projectMainLegendRows(template, context.pane.top))
       } else rows.push(...this.collectSubPaneRows(context))
-      const anchor = rows.filter((row) => row.paneId === paneId).at(-1)
-      rows.push(...this.projectCustomRows(context, anchor))
+      const paneRowCount = rows.filter((row) => row.paneId === paneId).length
+      rows.push(...this.projectCustomRows(context, paneRowCount))
     }
     return rows
   }
@@ -413,53 +409,45 @@ export class LegendManager implements LegendApi {
         colors,
       )
       if (!title) continue
-      rows.push({
-        key: instance.instanceId,
-        paneId,
-        x: PANE_HEADER_INSET_PX,
-        y: legendRowTop(context.pane.top, rows.length),
-        maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
-        height: LEGEND_ROW_HEIGHT_PX,
-        gap: LEGEND_GAP_PX,
-        indicator: { instanceId: instance.instanceId, definitionId: instance.definitionId },
-        hidden: title.hidden,
-        loading: title.loading,
-        error: title.error,
-        texts: projectIndicatorTexts(title, {
-          textPrimary: colors.text.primary,
-          textTertiary: colors.text.tertiary,
-          up: colors.candleUpBody,
-          down: colors.candleDownBody,
-        }),
-        actions: [],
-      })
+      rows.push(
+        createLegendRow(
+          {
+            paneId,
+            paneTop: context.pane.top,
+            paneWidth: context.paneWidth,
+            index: rows.length,
+          },
+          {
+            key: instance.instanceId,
+            indicator: { instanceId: instance.instanceId, definitionId: instance.definitionId },
+            hidden: title.hidden,
+            loading: title.loading,
+            error: title.error,
+            texts: projectIndicatorTexts(title, projectLegendColors(colors)),
+          },
+        ),
+      )
     }
     return rows
   }
 
-  /** 自定义行依次追加在所属 Pane 已有行之后。 */
-  private projectCustomRows(context: RenderContext, anchor: LegendRow | undefined): LegendRow[] {
+  /** 自定义行按已有行数续排，行号与主图、副图共用同一套几何。 */
+  private projectCustomRows(context: RenderContext, startIndex: number): LegendRow[] {
     const paneId = context.pane.id
-    const custom = this.customState
+    return this.customState
       .peek()
       .filter((entry) => entry.paneId === paneId && !entry.hidden)
-    let y = anchor ? anchor.y + anchor.height : legendRowTop(context.pane.top, 0)
-    const rows: LegendRow[] = []
-    for (const entry of custom) {
-      rows.push({
-        key: entry.id,
-        paneId,
-        x: PANE_HEADER_INSET_PX,
-        y,
-        maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
-        height: LEGEND_ROW_HEIGHT_PX,
-        gap: LEGEND_GAP_PX,
-        texts: entry.texts,
-        actions: [],
-      })
-      y += LEGEND_ROW_HEIGHT_PX
-    }
-    return rows
+      .map((entry, offset) =>
+        createLegendRow(
+          {
+            paneId,
+            paneTop: context.pane.top,
+            paneWidth: context.paneWidth,
+            index: startIndex + offset,
+          },
+          { key: entry.id, texts: entry.texts },
+        ),
+      )
   }
 
   /** 为每条展示行补全 Core 端按钮能力。 */

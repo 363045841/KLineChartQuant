@@ -22,7 +22,6 @@ function createHarness() {
     y: 16,
     maxWidth: 780,
     height: 24,
-    gap: 10,
     indicator: { instanceId: 'main:MA', definitionId: 'MA' },
     actions: projectLegendActions(
       {
@@ -37,9 +36,9 @@ function createHarness() {
       () => false,
     ),
     texts: [
-      { text: 'MA', color: 'red' },
-      { text: '(5)', color: 'gray' },
-      { text: 'MA5 100.000', color: 'blue' },
+      { text: 'MA', color: 'red', gapBefore: 0 },
+      { text: '(5)', color: 'gray', gapBefore: 4 },
+      { text: 'MA5 100.000', color: 'blue', gapBefore: 10 },
     ],
   }
   return { host, renderer, row, execute, setMainCollapsed }
@@ -88,7 +87,15 @@ describe('DOM Legend renderer', () => {
       frameOf([
         [
           'main',
-          [{ ...row, texts: [...row.texts.slice(0, 2), { text: 'MA5 101.000', color: 'blue' }] }],
+          [
+            {
+              ...row,
+              texts: [
+                ...row.texts.slice(0, 2),
+                { text: 'MA5 101.000', color: 'blue', gapBefore: 10 },
+              ],
+            },
+          ],
         ],
       ]),
     )
@@ -97,6 +104,35 @@ describe('DOM Legend renderer', () => {
     expect(observer.takeRecords().map((record) => record.type)).toEqual(['characterData'])
     expect(geometry).not.toHaveBeenCalled()
     observer.disconnect()
+    renderer.dispose()
+  })
+
+  it('按每段自带的最终间距排版，容器不按下标推断间距', () => {
+    const { host, renderer, row } = createHarness()
+    renderer.update(
+      frameOf([
+        [
+          'main',
+          [
+            {
+              ...row,
+              texts: [
+                { text: 'A', color: 'red', gapBefore: 0 },
+                { text: 'B', color: 'gray', gapBefore: 4 },
+                { text: 'C', color: 'blue', gapBefore: 10 },
+              ],
+            },
+          ],
+        ],
+      ]),
+    )
+
+    const element = host.querySelector<HTMLElement>('.klc-legend-row')!
+    const text = host.querySelector<HTMLElement>('.klc-legend-text')!
+    const spans = text.querySelectorAll<HTMLElement>(':scope > span:not(.klc-legend-spinner)')
+    expect(element.style.gap).toBe('')
+    expect(text.style.gap).toBe('')
+    expect([...spans].map((span) => span.style.marginLeft)).toEqual(['4px', '10px'])
     renderer.dispose()
   })
 
@@ -250,7 +286,7 @@ describe('DOM Legend renderer', () => {
         ['main'],
         () => false,
       ),
-      texts: [{ text: '比较商品 A', color: 'blue' }],
+      texts: [{ text: '比较商品 A', color: 'blue', gapBefore: 0 }],
     }
     renderer.update(frameOf([['main', [comparison]]]))
     const element = host.querySelector<HTMLElement>('[data-comparison]')!

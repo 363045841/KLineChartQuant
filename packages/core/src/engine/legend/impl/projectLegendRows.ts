@@ -9,23 +9,17 @@ import type {
   LegendTemplateContext,
   LegendText,
 } from '../types.js'
-import { legendRowTop } from './legendGeometry.js'
+import { LEGEND_PARAM_GAP_PX } from './legendGeometry.js'
+import { formatLegendChange, formatLegendPrice, formatLegendSigned } from './legendQuote.js'
+import { createLegendRow, type LegendRowContent } from './legendRow.js'
 
 /** 行可选元信息：指标/比较身份、隐藏态与加载态。 */
-interface LegendRowMeta {
-  indicator?: LegendRow['indicator']
-  comparison?: LegendRow['comparison']
-  hidden?: boolean
-  loading?: boolean
-  error?: string
-}
+type LegendRowMeta = Pick<
+  LegendRowContent,
+  'indicator' | 'comparison' | 'hidden' | 'loading' | 'error'
+>
 
 type AddRow = (key: string, texts: LegendText[], meta?: LegendRowMeta) => void
-
-/** 正数补 + 号，其余按两位小数展示。 */
-function signed(value: number): string {
-  return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
-}
 
 /** 左上角统一展示主品种行情、指标数值与比较品种真实行情。 */
 export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
@@ -33,21 +27,21 @@ export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: nu
   const rows: LegendRow[] = []
   /** 用同一行号维护紧凑布局和指标的位置。 */
   const add: AddRow = (key, texts, meta = {}) => {
-    rows.push({
-      key,
-      paneId: MAIN_PANE_ID,
-      x: layout.x,
-      y: legendRowTop(paneTop, rows.length),
-      maxWidth: Math.max(0, layout.paneWidth - layout.x),
-      height: layout.lineHeight,
-      gap: layout.gap,
-      texts,
-      actions: [],
-      ...meta,
-    })
+    rows.push(
+      createLegendRow(
+        {
+          paneId: MAIN_PANE_ID,
+          paneTop,
+          paneWidth: layout.paneWidth,
+          index: rows.length,
+        },
+        { key, texts, ...meta },
+        { inset: layout.x, height: layout.lineHeight, gap: layout.gap },
+      ),
+    )
   }
 
-  if (legend.timeshare) pushTimeshareRows(legend.timeshare, layout.compact, colors, add)
+  if (legend.timeshare) pushTimeshareRows(legend.timeshare, layout, colors, add)
   if (legend.currentBar) pushBarRows(legend.currentBar, layout, colors, add)
   for (const title of legend.indicators) {
     add(title.instanceId, projectIndicatorTexts(title, colors), {
@@ -67,28 +61,25 @@ export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: nu
   return rows
 }
 
-/** 分时行情行：窄屏拆成两行，宽屏合并为一行。 */
+/** 分时行情行：涨跌读数与 K 线共用格式；窄屏拆成两行，宽屏合并为一行。 */
 function pushTimeshareRows(
   ts: NonNullable<LegendTemplateContext['timeshare']>,
-  compact: boolean,
+  layout: LegendLayout,
   colors: LegendTemplateContext['colors'],
   add: AddRow,
 ): void {
   const price = [
-    { text: `现价 ${ts.price.toFixed(2)}`, color: ts.changeColor },
-    { text: `均价 ${ts.average.toFixed(2)}`, color: colors.textPrimary },
+    { text: `现价 ${formatLegendPrice(ts.price)}`, color: ts.change?.color ?? colors.textPrimary },
+    { text: `均价 ${formatLegendPrice(ts.average)}`, color: colors.textPrimary },
   ]
-  const change = [
-    { text: `涨跌 ${signed(ts.changeAmount)}`, color: ts.changeColor },
-    { text: `涨幅 ${signed(ts.changePercent)}%`, color: ts.changeColor },
-  ]
+  const change = ts.change ? formatLegendChange(ts.change) : []
   const volume = ts.volumeText
     ? [{ text: `成交量 ${ts.volumeText}`, color: colors.textPrimary }]
     : []
   const amount = ts.amountText
     ? [{ text: `成交额 ${ts.amountText}`, color: colors.textPrimary }]
     : []
-  if (compact) {
+  if (layout.compact) {
     add('timeshare-price', [...price, ...volume])
     add('timeshare-change', [...change, ...amount])
   } else add('timeshare', [...price, ...change, ...volume, ...amount])
@@ -102,23 +93,13 @@ function pushBarRows(
   add: AddRow,
 ): void {
   const ohl = [
-    { text: `O ${bar.open.toFixed(2)}`, color: bar.color },
-    { text: `H ${bar.high.toFixed(2)}`, color: colors.textPrimary },
-    { text: `L ${bar.low.toFixed(2)}`, color: colors.textPrimary },
+    { text: `O ${formatLegendPrice(bar.open)}`, color: bar.color },
+    { text: `H ${formatLegendPrice(bar.high)}`, color: colors.textPrimary },
+    { text: `L ${formatLegendPrice(bar.low)}`, color: colors.textPrimary },
   ]
-  const change = bar.change
-    ? [
-        { text: signed(bar.change.amount), color: bar.change.color },
-        {
-          text: `(${signed(bar.change.percent)}%)`,
-          color: bar.change.color,
-          // 涨跌额与涨跌幅是一组读数，只空 1/4 格与其它字段区分。
-          gapBefore: layout.gap / 4,
-        },
-      ]
-    : []
+  const change = bar.change ? formatLegendChange(bar.change) : []
   const close = [
-    { text: `C ${bar.close.toFixed(2)}`, color: bar.color },
+    { text: `C ${formatLegendPrice(bar.close)}`, color: bar.color },
     ...change,
     ...(bar.volumeText ? [{ text: `Vol ${bar.volumeText}`, color: colors.textPrimary }] : []),
   ]
@@ -141,11 +122,12 @@ function projectComparisonTexts(
       color: colors.textPrimary,
     },
     {
-      text: comparison.price === null ? '现价 —' : `现价 ${comparison.price.toFixed(2)}`,
+      text: comparison.price === null ? '现价 —' : `现价 ${formatLegendPrice(comparison.price)}`,
       color: comparison.color,
     },
     {
-      text: comparison.percent === null ? '涨幅 —' : `涨幅 ${signed(comparison.percent)}%`,
+      text:
+        comparison.percent === null ? '涨幅 —' : `涨幅 ${formatLegendSigned(comparison.percent)}%`,
       color: comparison.percentColor,
     },
   ]
@@ -159,7 +141,13 @@ export function projectIndicatorTexts(
   return [
     { text: title.name, color: colors.textPrimary },
     ...(title.params?.length
-      ? [{ text: `(${title.params.join(',')})`, color: colors.textTertiary, gapBefore: 4 }]
+      ? [
+          {
+            text: `(${title.params.join(',')})`,
+            color: colors.textTertiary,
+            gapBefore: LEGEND_PARAM_GAP_PX,
+          },
+        ]
       : []),
     ...(title.values?.map((item) => ({
       text: `${item.label} ${item.formattedValue ?? item.value.toFixed(3)}`,

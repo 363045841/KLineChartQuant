@@ -37,8 +37,12 @@
           </div>
 
           <div v-if="timeshare" class="my-legend__row">
-            <span :style="{ color: timeshare.changeColor }">
-              现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
+            <span :style="{ color: timeshare.change?.color }">
+              现价 {{ timeshare.price.toFixed(2) }}
+              <template v-if="timeshare.change">
+                涨跌 {{ timeshare.change.amount.toFixed(2) }} 涨幅
+                {{ timeshare.change.percent.toFixed(2) }}%
+              </template>
             </span>
           </div>
 

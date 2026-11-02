@@ -61,7 +61,7 @@ interface MountedRow {
 /** 仅在值变化时写入样式，减少高频帧的 DOM 变更。 */
 function applyStyle(
   style: CSSStyleDeclaration,
-  property: 'left' | 'top' | 'maxWidth' | 'minHeight' | 'gap',
+  property: 'left' | 'top' | 'maxWidth' | 'minHeight',
   value: string,
 ): void {
   if (style[property] !== value) style[property] = value
@@ -72,13 +72,13 @@ function createStyles(document: Document): HTMLStyleElement {
   const style = document.createElement('style')
   style.textContent = `
     .klc-legend-root { position:absolute; inset:0; z-index:9; pointer-events:none; }
-    .klc-legend-row { position:absolute; display:flex; align-items:center; width:max-content; box-sizing:border-box; z-index:0;
+    .klc-legend-row { position:absolute; display:flex; align-items:center; gap:0; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:${LEGEND_TEXT_LINE_HEIGHT}px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
     .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
       flex:0 0 auto; min-height:inherit; z-index:1; }
-    .klc-legend-text { display:flex; align-items:center; min-width:0; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
+    .klc-legend-text { display:flex; align-items:center; gap:0; min-width:0; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
     .klc-legend-row[data-hidden] .klc-legend-text,
     .klc-legend-row[data-hidden] .klc-legend-name > span { filter:grayscale(1); opacity:.55; }
@@ -342,9 +342,6 @@ export function createLegendDomRenderer(
     applyStyle(row.element.style, 'top', `${data.y}px`)
     applyStyle(row.element.style, 'maxWidth', `${Math.max(0, data.maxWidth - actionWidth)}px`)
     applyStyle(row.element.style, 'minHeight', `${data.height}px`)
-    // 首段参数已移到独立容器，其前置间距由容器间 gap 承担，避免负 margin 被裁剪。
-    applyStyle(row.element.style, 'gap', `${data.texts[1]?.gapBefore ?? data.gap}px`)
-    applyStyle(row.text.style, 'gap', `${data.gap}px`)
     const loading = data.loading === true
     if (row.spinner.hidden === loading) row.spinner.hidden = !loading
   }
@@ -372,8 +369,8 @@ export function createLegendDomRenderer(
       if (node.data !== segment.text) node.data = segment.text
       if (created || previous.texts[index]?.color !== segment.color)
         span.style.color = segment.color
-      const marginLeft =
-        index > 1 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
+      // 间距由行投影解析成每段的最终值，renderer 不按下标推断。
+      const marginLeft = index === 0 ? '' : `${segment.gapBefore}px`
       if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
     }
     // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
