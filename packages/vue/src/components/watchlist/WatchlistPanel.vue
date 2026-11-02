@@ -2,6 +2,7 @@
 <template>
   <DropMenu
     label="自选股"
+    class="watchlist-menu"
     :groups="groups"
     trigger-class="watchlist-trigger"
     tooltip-placement="bottom"
@@ -84,8 +85,8 @@
     --drop-menu-item-padding-block: 10px;
   }
 
-  /* 业务外观覆盖 primitives 层中的共享按钮默认值。 */
-  :deep(.watchlist-trigger) {
+  /* 业务外观覆盖共享按钮默认值；必须带面板容器类，才能压过同为单类规则的 control-button。 */
+  .watchlist-menu :deep(.watchlist-trigger) {
     width: 30px;
     min-width: 30px;
     height: 30px;
@@ -96,12 +97,12 @@
     color: var(--klc-color-ui-muted);
   }
 
-  :deep(.watchlist-trigger:hover:not(:disabled)),
-  :deep(.watchlist-trigger[aria-expanded='true']:not(:disabled)) {
+  .watchlist-menu :deep(.watchlist-trigger:hover:not(:disabled)),
+  .watchlist-menu :deep(.watchlist-trigger[aria-expanded='true']:not(:disabled)) {
     background: var(--klc-color-ui-hover);
   }
 
-  :deep(.watchlist-trigger svg) {
+  .watchlist-menu :deep(.watchlist-trigger svg) {
     width: 18px;
     height: 18px;
   }
