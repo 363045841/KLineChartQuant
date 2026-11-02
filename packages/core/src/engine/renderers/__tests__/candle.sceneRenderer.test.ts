@@ -93,17 +93,21 @@ function makeSceneRenderer(capsName: RendererName = 'webgl2') {
 }
 
 describe('candle sceneRenderer path', () => {
-  it.each(['candlestick', 'footprint'] as const)(
-    'draws %s through the scene primitive target on webgl',
-    (klineShape) => {
-      const { r, submit } = makeSceneRenderer()
+  it.each([
+    { capsName: 'webgl2', backend: 'webgl', klineShape: 'candlestick' },
+    { capsName: 'webgl2', backend: 'webgl', klineShape: 'footprint' },
+    { capsName: 'webgpu', backend: 'webgpu', klineShape: 'candlestick' },
+  ] as const)(
+    'draws $klineShape through the scene primitive target on $backend',
+    ({ capsName, backend, klineShape }) => {
+      const { r, submit } = makeSceneRenderer(capsName)
 
       const ctx = createCtx(r, {
         data: makeBars(5),
         range: { start: 0, end: 5 },
         kLinePositions: [0, 10, 20, 30, 40],
         kLineCenters: [4, 14, 24, 34, 44],
-        settings: { rendererBackend: 'webgl', klineShape },
+        settings: { rendererBackend: backend, klineShape },
       })
 
       paint(ctx)
@@ -112,22 +116,6 @@ describe('candle sceneRenderer path', () => {
       expect(submit.mock.calls[0]?.[0]).toBe(ctx.ctx)
     },
   )
-
-  it('draws through the same primitive target on webgpu', () => {
-    const { r, submit } = makeSceneRenderer('webgpu')
-
-    const ctx = createCtx(r, {
-      data: makeBars(3),
-      range: { start: 0, end: 3 },
-      kLinePositions: [0, 10, 20],
-      kLineCenters: [4, 14, 24],
-      settings: { rendererBackend: 'webgpu' },
-    })
-
-    paint(ctx)
-
-    expect(submit).toHaveBeenCalledOnce()
-  })
 
   it('falls to Canvas2D on the same target when primitive execution fails', () => {
     const { r, submit } = makeSceneRenderer()

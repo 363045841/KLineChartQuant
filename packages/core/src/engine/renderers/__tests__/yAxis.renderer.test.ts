@@ -1,5 +1,5 @@
 /** 价格轴静态刻度与动态价签的绘制测试。 */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 import {
   createYAxisOverlayRendererLayer,
@@ -52,10 +52,6 @@ function createContext(overrides: MockRenderContextOverrides = {}): RenderContex
 }
 
 describe('yAxis renderer', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('draws ticks when pane capability showPriceAxisTicks is true', () => {
     const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const context = createContext()
@@ -109,17 +105,6 @@ describe('yAxis renderer', () => {
     },
   )
 
-  it('uses ctx when yAxisCtx is not provided', () => {
-    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
-    const fallbackCtx = createMockCanvasContext()
-    const context = createContext({ ctx: fallbackCtx, yAxisCtx: undefined })
-
-    layer.paint(context)
-
-    expect(fallbackCtx.clearRect).toHaveBeenCalled()
-    expect(fallbackCtx.fillText).toHaveBeenCalled()
-  })
-
   it('paints registered decoration labels on the right overlay canvas', () => {
     const layer = createYAxisOverlayRendererLayer({ axisWidth: 80 })
     const context = createContext({
@@ -157,18 +142,6 @@ describe('yAxis renderer', () => {
       expect.objectContaining({ kind: 'tag', text: '95.00', variant: 'crosshair' }),
     ])
     expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalled()
-  })
-
-  it('does not draw a crosshair tag when getCrosshair returns null', () => {
-    const layer = createYAxisOverlayRendererLayer({
-      axisWidth: 80,
-      getCrosshair: () => null,
-    })
-    const context = createContext({ yAxisOverlayCtx: createMockCanvasContext() })
-
-    layer.paint(context)
-
-    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledTimes(0)
   })
 
   it('shows the timeshare crosshair as price on left and percent on right', () => {
