@@ -105,13 +105,15 @@
 
 <style scoped>
   .agent-header {
-    height: 40px;
+    /* 行高与图表顶栏同源，两列 header 因此拼成一条线。 */
+    height: var(--klc-density-comfortable, 40px);
     box-sizing: border-box;
     display: flex;
     align-items: center;
     padding: 0 var(--agent-header-inset, 8px);
     border-top: 1px solid var(--agent-border);
-    border-bottom: 1px solid var(--agent-border);
+    /* 下方分隔线由紧随其后的内容区画在顶部；保留透明占位，使内容盒与图表顶栏一致。 */
+    border-bottom: 1px solid transparent;
     background: var(--agent-surface);
   }
 

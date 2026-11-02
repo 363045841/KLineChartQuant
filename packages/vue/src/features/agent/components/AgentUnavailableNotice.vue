@@ -42,6 +42,8 @@
     align-content: center;
     gap: 10px;
     padding: 24px;
+    /* 与时间线一致：表头分隔线由内容区顶部绘制。 */
+    border-top: 1px solid var(--agent-border);
     text-align: center;
   }
   .agent-unavailable > svg {

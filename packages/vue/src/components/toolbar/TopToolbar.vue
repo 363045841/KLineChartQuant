@@ -375,13 +375,16 @@
 <style scoped>
   .top-toolbar {
     position: relative;
-    height: 40px;
+    /* 行高与 AgentHeader 同源，行内控件高度由外壳下发，两列表头才对得齐。 */
+    --control-button-height: var(--workbench-header-control-size, 30px);
+    height: var(--klc-density-comfortable, 40px);
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 0 8px;
     border: 1px solid var(--klc-color-ui-border);
-    border-bottom: 0;
+    /* 底边由下方绘图区画框；保留透明占位，使内容盒与 AgentHeader 完全一致。 */
+    border-bottom: 1px solid transparent;
     border-radius: 0;
     background: var(--klc-color-ui-surface);
     box-sizing: border-box;
@@ -427,6 +430,11 @@
 
   .top-toolbar__actions::-webkit-scrollbar {
     display: none;
+  }
+
+  /* 分组线两侧留出等宽间距：线前由 margin 提供，线后由各组的 padding-left 提供。 */
+  .top-toolbar__actions > * + * {
+    margin-left: 4px;
   }
 
   .top-toolbar__item {

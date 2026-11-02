@@ -108,12 +108,8 @@
   // 启动器文案暂只支持中文；统一国际化后改由宿主注入 locale。
   const text = getAgentCopy('zh-CN')
 
-  const shellStyle = computed(() => ({
-    '--agent-panel-width': `${panelWidth.value}px`,
-    '--agent-panel-track': panelOpen.value
-      ? `${panelWidth.value}px`
-      : 'var(--agent-header-button-size)',
-  }))
+  // 只发布面板宽度，轨道宽度由 CSS 依开合状态与停靠侧派生，避免同一数值两处来源。
+  const shellStyle = computed(() => ({ '--agent-panel-width': `${panelWidth.value}px` }))
 
   // 将传入的面板宽度限制到允许范围，并返回整数像素值。
   function clampPanelWidth(width: number): number {
@@ -218,12 +214,15 @@
 
 <style scoped>
   .agent-workbench-shell {
+    /* 顶栏控件尺寸与关闭态启动器宽度同源，两个 header 的行内控件因此等高。 */
+    --workbench-header-control-size: 30px;
+    /* 面板轨道宽度：开启时等于面板宽度，关闭时收成一列启动器；紧凑模式由下方覆盖为 0。 */
+    --agent-panel-track: var(--workbench-header-control-size);
     --agent-bg: var(--klc-color-ui-background);
     --agent-surface: var(--klc-color-ui-surface);
     --agent-text: var(--klc-color-ui-text);
     --agent-focus: var(--klc-color-ui-focus);
     --agent-header-inset: 8px;
-    --agent-header-button-size: 30px;
 
     width: 100%;
     height: 100%;
@@ -231,7 +230,21 @@
     min-height: 0;
     position: relative;
     overflow: hidden;
+    /* 两列网格：图表与面板轨道共享同一列宽，两列表头因此天然对齐。 */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--agent-panel-track);
+    grid-template-rows: minmax(0, 1fr);
     background: var(--agent-bg);
+  }
+
+  /* 面板展开时轨道就是面板宽度。 */
+  .agent-workbench-shell--panel-open {
+    --agent-panel-track: var(--agent-panel-width);
+  }
+
+  /* 面板停靠在左侧时交换两列顺序，图表仍占满剩余空间。 */
+  .agent-workbench-shell--panel-left {
+    grid-template-columns: var(--agent-panel-track) minmax(0, 1fr);
   }
 
   .agent-workbench-shell :deep(button),
@@ -246,6 +259,8 @@
     --kmap-chart-height: 100%;
     --kmap-chart-width: 100%;
 
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
     min-height: 0;
     height: 100%;
@@ -254,24 +269,22 @@
     padding: 0;
     box-sizing: border-box;
     background: var(--agent-bg);
-    margin-right: var(--agent-panel-track, 0px);
   }
 
-  /* 面板停靠在左侧时改为预留左轨道，图表仍占满剩余空间。 */
+  /* 面板停靠在左侧时图表移到右列，宽度仍由剩余轨道决定。 */
   .agent-workbench-shell--panel-left .chart-surface {
-    margin-right: 0;
-    margin-left: var(--agent-panel-track, 0px);
+    grid-column: 2;
   }
 
+  /* 面板占面板轨道；贴外壳边缘固定，轨道收缩时不会横向跳位，关闭态整体移出后由外壳裁切。 */
   .agent-panel {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
     width: var(--agent-panel-width);
     min-height: 0;
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
     z-index: 3;
     overflow: hidden;
     background: var(--agent-bg);
@@ -284,8 +297,8 @@
 
   /* 左侧停靠时从左侧滑入，关闭态向左侧移出。 */
   .agent-workbench-shell--panel-left .agent-panel {
-    right: auto;
-    left: 0;
+    grid-column: 1;
+    justify-self: start;
     transform: translateX(-100%);
   }
 
@@ -298,18 +311,16 @@
       visibility 0s;
   }
 
+  /* 悬浮在面板内侧边缘时提示左右拖拽。 */
   .agent-workbench-shell--resize-ready .agent-panel {
-    cursor: col-resize;
+    cursor: ew-resize;
   }
 
-  /* 宽度与 AgentHeader 的收起按钮一致；高度撑满 chart-surface，右侧贴屏幕边缘。 */
+  /* 关闭态启动器占满面板轨道，宽度与 AgentHeader 的收起按钮一致。 */
   .agent-launcher {
-    width: var(--agent-header-button-size);
-    height: auto;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 0;
+    grid-column: 2;
+    grid-row: 1;
+    width: var(--workbench-header-control-size);
     z-index: 20;
     display: inline-grid;
     place-items: center;
@@ -322,10 +333,9 @@
     cursor: pointer;
   }
 
-  /* 左侧停靠时启动器贴左边缘，边框方向随之翻转。 */
+  /* 左侧停靠时启动器移到左列，边框方向随之翻转。 */
   .agent-workbench-shell--panel-left .agent-launcher {
-    right: auto;
-    left: 0;
+    grid-column: 1;
     border-left: 1px solid var(--klc-color-ui-border);
     border-right: 0;
   }
@@ -351,13 +361,13 @@
 
   .agent-workbench-shell--resizing,
   .agent-workbench-shell--resizing * {
-    cursor: col-resize !important;
+    cursor: ew-resize !important;
     user-select: none !important;
   }
 
-  .agent-workbench-shell--compact.agent-workbench-shell--panel-open .chart-surface {
-    margin-right: 0;
-    margin-left: 0;
+  /* 紧凑模式下面板改为覆盖层，轨道收为 0，图表占满整行。 */
+  .agent-workbench-shell--compact {
+    --agent-panel-track: 0px;
   }
 
   .agent-workbench-shell--compact .drawer-backdrop {
@@ -369,7 +379,9 @@
     background: var(--klc-color-agent-backdrop);
   }
 
+  /* 覆盖层跨满整行，宽度百分比按外壳宽度解析；贴边方向沿用各停靠侧的对齐。 */
   .agent-workbench-shell--compact .agent-panel {
+    grid-column: 1 / -1;
     border-left: 1px solid var(--klc-color-ui-border);
     width: min(var(--agent-panel-width), calc(100% - 28px));
     min-width: min(360px, calc(100% - 28px));
@@ -382,6 +394,15 @@
     border-left: 0;
     border-right: 1px solid var(--klc-color-ui-border);
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
+  }
+
+  /* 紧凑模式的启动器贴外壳边缘，方向与覆盖式抽屉一致。 */
+  .agent-workbench-shell--compact .agent-launcher {
+    justify-self: end;
+  }
+
+  .agent-workbench-shell--compact.agent-workbench-shell--panel-left .agent-launcher {
+    justify-self: start;
   }
 
   @media (prefers-reduced-motion: reduce) {
