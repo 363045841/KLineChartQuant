@@ -158,6 +158,8 @@ export class Chart {
   private layoutManager: ChartPaneLayout
   /** ResizeObserver 只置位；会清空像素的表面尺寸变更由绘制帧统一提交。 */
   private viewportResizePending = false
+  /** 图例占位变化只置位；下一帧开始时重新布局，避免绘制中途改画布尺寸。 */
+  private legendLayoutPending = false
   private get paneRenderers(): PaneRenderer[] {
     return this.layoutManager.getPaneRenderers()
   }
@@ -221,6 +223,7 @@ export class Chart {
   private footprintRuntime: ReturnType<typeof createFootprintRuntime>
   private disposeFootprintDraw: (() => void) | null = null
   private disposeSettingsProjection: (() => void) | null = null
+  private disposeLegendInsetProjection: (() => void) | null = null
   /** 图例领域操作与展示投影的唯一入口。 */
   readonly legend: LegendManager
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
@@ -269,7 +272,7 @@ export class Chart {
     ).registry
     this.legendDom = createLegendDomRenderer(
       dom.canvasLayer,
-      () => this.dataManager.symbols.peek().length > 0,
+      (collapsed) => this.legend.setMainCollapsed(collapsed),
       (id, action) => this.legend.execute(id, action),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
@@ -338,6 +341,8 @@ export class Chart {
       viewport: this.kernel.viewport,
       scheduleDraw: (level) => this.scheduleDraw(level),
       pane: this.kernel.pane,
+      /** 图例占位由 legend 领域计算；布局只消费高度，不反向修改图例。 */
+      getHeaderInset: (paneId) => this.legend.headerInset(paneId),
       afterCommitLayout: () => {
         this.ensurePaneScaleTypesFromSettings()
       },
@@ -470,7 +475,7 @@ export class Chart {
       zoom: this.kernel.zoom,
       options: this.kernel.options,
       viewport: this.kernel.viewport,
-      commitViewportResize: () => this.commitViewportResize(),
+      commitPendingLayout: () => this.commitPendingLayout(),
       commitViewportScroll: (targetScrollLeft) =>
         this.viewportScrollBridge.commit(
           targetScrollLeft,
@@ -497,14 +502,18 @@ export class Chart {
         this.legend.projectFrame(contexts)
         const paneOrder = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)
         const rows = this.legend.rows.peek()
-        for (const paneId of paneOrder)
-          this.legendDom.update(
+        const mainVisible = this.getOption().legend?.visible !== false
+        this.legendDom.update({
+          rowsByPane: paneOrder.map((paneId) => ({
             paneId,
-            paneId === MAIN_PANE_ID && this.getOption().legend?.visible === false
-              ? []
-              : rows.filter((row) => row.paneId === paneId),
-            paneOrder,
-          )
+            rows:
+              paneId === MAIN_PANE_ID && !mainVisible
+                ? []
+                : rows.filter((row) => row.paneId === paneId),
+          })),
+          mainCollapsed: this.legend.mainCollapsed.peek(),
+          canCollapse: this.legend.canCollapse(),
+        })
       },
       getLegendConfiguration: () => this.legend.configuration.peek(),
       clearLegendFrame: () => {
@@ -579,7 +588,8 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
       subPaneOps: {
-        reconcileDefinition: (indicatorId, role) => this.kernel.paneManager.reconcileDefinition(indicatorId, role),
+        reconcileDefinition: (indicatorId, role) =>
+          this.kernel.paneManager.reconcileDefinition(indicatorId, role),
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
         remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
         replace: (paneId, indicatorId, params) =>
@@ -603,10 +613,17 @@ export class Chart {
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
       getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
+      hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
       isScriptIndicator: (definitionId) =>
         !!getRegisteredIndicatorDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
+    })
+
+    // 图例占位是 pane 布局的输入：占位变化只置位，下一帧开始时统一重新布局。
+    this.disposeLegendInsetProjection = this.legend.headerInsets.subscribe(() => {
+      this.legendLayoutPending = true
+      this.scheduleDraw()
     })
 
     // 异步计算结果就绪后串联 Alert 管线
@@ -1195,13 +1212,17 @@ export class Chart {
     if (!timeShare) this.checkVisibleRangeGapWhenIdle()
   }
 
-  /** 在绘制帧内提交 Pane 表面尺寸，随后同帧绘制，避免清屏后跨帧留白。 */
-  private commitViewportResize(): void {
-    if (!this.viewportResizePending) return
+  /** 在绘制帧内提交待处理布局：容器尺寸或图例占位变化后重算 pane 内容区。 */
+  private commitPendingLayout(): void {
+    if (!this.viewportResizePending && !this.legendLayoutPending) return
     const vp = this.getViewport()
     if (!vp) return
+    const legendChanged = this.legendLayoutPending
     this.viewportResizePending = false
+    this.legendLayoutPending = false
     this.layoutManager.layoutPanes()
+    // 内容区变化会改变 y→价格映射，悬停价格必须按新几何重算。
+    if (legendChanged) this.interaction.invalidateHover()
   }
 
   /**
@@ -1284,6 +1305,8 @@ export class Chart {
     this.footprintRuntime.dispose()
     this.disposeSettingsProjection?.()
     this.disposeSettingsProjection = null
+    this.disposeLegendInsetProjection?.()
+    this.disposeLegendInsetProjection = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
     this.legend.dispose()

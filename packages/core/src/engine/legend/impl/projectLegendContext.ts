@@ -23,14 +23,11 @@ import {
   type LegendTemplateContext,
   type LegendTimeshareRow,
 } from '../types.js'
+import { LEGEND_COMPACT_WIDTH_PX, LEGEND_GAP_PX, LEGEND_ROW_HEIGHT_PX } from './legendGeometry.js'
 import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 
-const LINE_HEIGHT = 24
-const LEGEND_GAP = 10
 /** 主图图例左、上内边距与 pane 标题共用同一基准。 */
 const LEGEND_INSET = PANE_HEADER_INSET_PX
-/** 窄于该宽度时行情行拆成两行，避免与指标挤在同一行。 */
-const COMPACT_PANE_WIDTH = 400
 
 /** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
 export interface ProjectLegendContextInput {
@@ -86,10 +83,10 @@ export function projectLegendContext(
   const layout: LegendLayout = {
     x: LEGEND_INSET,
     y: LEGEND_INSET,
-    lineHeight: LINE_HEIGHT,
-    gap: LEGEND_GAP,
+    lineHeight: LEGEND_ROW_HEIGHT_PX,
+    gap: LEGEND_GAP_PX,
     paneWidth: context.paneWidth,
-    compact: context.paneWidth < COMPACT_PANE_WIDTH,
+    compact: context.paneWidth < LEGEND_COMPACT_WIDTH_PX,
   }
 
   const klineData = isKLineDataArray(context.data) ? context.data : []

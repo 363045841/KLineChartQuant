@@ -45,7 +45,6 @@ export interface IndicatorScaleRendererOptions {
   /** 坐标轴绑定的实例身份。 */
   instanceId: string
   axisWidth: number
-  yPaddingPx: number
   getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
 }
 

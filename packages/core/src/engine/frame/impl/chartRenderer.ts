@@ -283,8 +283,8 @@ export class ChartRenderer {
           pane.height,
           pane.role,
           axis.getScaleType(),
-          axis.getPaddingTop(),
-          axis.getPaddingBottom(),
+          axis.getContentTop(),
+          axis.getContentHeight(),
           axis.getBasePrice(),
         ]
       }),
@@ -368,7 +368,7 @@ export class ChartRenderer {
         this.scheduleLastPriceCountdown(snapshot.countdown)
         if (snapshot.skip) return
         // 调整后备存储会自动清屏，必须紧邻本帧绘制，不能在 ResizeObserver 中提前执行。
-        this.deps.commitViewportResize()
+        this.deps.commitPendingLayout()
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame) {
@@ -1415,8 +1415,9 @@ export class ChartRenderer {
           yAxis: {
             priceToY: () => 0,
             yToPrice: () => 0,
-            getPaddingTop: () => 0,
-            getPaddingBottom: () => 0,
+            getContentTop: () => 0,
+            getContentBottom: () => 0,
+            getContentHeight: () => 0,
             getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
             getScaleType: () => ScaleType.Linear,
             getBasePrice: () => null,

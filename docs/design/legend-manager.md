@@ -12,4 +12,8 @@ K 线行情行在收盘价右侧依次显示涨跌额与 `(涨跌幅%)`，两者
 
 每条展示行的 `actions` 声明按钮集合、标签与边界状态，规则集中在 Core 的 `projectLegendActions`。DOM renderer 按集合展示按钮并调用统一 `execute`。显隐、关闭和排序在 Core 执行；主图指标没有排序行为，不生成上移/下移按钮，副图按 Pane 顺序保留；设置和替换通过 `LEGEND_UI_EVENT` 请求宿主打开界面，选择器提交时调用 `legend.replace`。框架和 renderer 不再按主图、副图或比较品种分发领域操作。
 
+图例行几何（行盒高度、间距、紧凑断点、收起控件高度）只在 `legend/impl/legendGeometry.ts` 定义，主图行情行、主图指标行、副图标题行共用；`LegendRow.y` 是行盒顶部，DOM 直接使用该坐标。行盒反过来按文本行高上移半行距，保证行情行的上、左内边距一致。只有主图按图例高度预留内容区，副图标题仍叠加在指标上，详见 `pane-header-inset.md`。
+
+主图整块收起状态属于图例领域（`legend.mainCollapsed`），DOM renderer 只提交切换意图并发起重绘；收起后主图行全部隐藏，占位只保留收起控件高度，指标全部移除时投影自动回到展开态。
+
 旧 mainIndicatorLegend Layer、Pane title Layer、帧内 publishLegendRows、独立 legendTemplateContext 信号及 Vue 领域分发链路移除，不保留兼容入口。图例不再参与 Canvas Layer 目录或指标 renderer 元数据。

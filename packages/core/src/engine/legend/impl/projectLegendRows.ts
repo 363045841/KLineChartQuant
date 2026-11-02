@@ -9,6 +9,7 @@ import type {
   LegendTemplateContext,
   LegendText,
 } from '../types.js'
+import { legendRowTop } from './legendGeometry.js'
 
 /** 行可选元信息：指标/比较身份、隐藏态与加载态。 */
 interface LegendRowMeta {
@@ -36,7 +37,7 @@ export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: nu
       key,
       paneId: MAIN_PANE_ID,
       x: layout.x,
-      y: paneTop + layout.y + rows.length * layout.lineHeight,
+      y: legendRowTop(paneTop, rows.length),
       maxWidth: Math.max(0, layout.paneWidth - layout.x),
       height: layout.lineHeight,
       gap: layout.gap,

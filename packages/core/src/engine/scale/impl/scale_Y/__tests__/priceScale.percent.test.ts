@@ -6,7 +6,7 @@ describe('PriceScale percent mode (比较视图右轴百分比)', () => {
   it('maps base price to the center of a symmetric percent range', () => {
     const scale = new PriceScale()
     scale.setHeight(100)
-    scale.setPadding(0, 0)
+    scale.setContentInsets(0, 0)
     scale.setRange({ maxPrice: 110, minPrice: 90 })
     scale.setBasePrice(100)
     scale.setScaleType('percent')
@@ -30,7 +30,7 @@ describe('PriceScale percent mode (比较视图右轴百分比)', () => {
   it('restores linear mapping after switching back to linear', () => {
     const scale = new PriceScale()
     scale.setHeight(100)
-    scale.setPadding(0, 0)
+    scale.setContentInsets(0, 0)
     scale.setRange({ maxPrice: 110, minPrice: 90 })
     scale.setBasePrice(100)
     scale.setScaleType('percent')

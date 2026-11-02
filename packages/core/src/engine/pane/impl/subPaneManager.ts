@@ -201,7 +201,6 @@ export class SubPaneManager {
       axisWidth,
       paneId: entry.paneId,
       instanceId: entry.instanceId,
-      yPaddingPx: opt.yPaddingPx,
       getCrosshair,
     }
     const layer = definition?.scaleRendererFactory

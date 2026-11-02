@@ -19,26 +19,73 @@ import type {
   LegendTemplateContext,
   LegendUiRequest,
 } from '../types.js'
+import {
+  LEGEND_COLLAPSED_HEADER_PX,
+  LEGEND_GAP_PX,
+  LEGEND_ROW_HEIGHT_PX,
+  legendHeaderInset,
+  legendRowTop,
+} from './legendGeometry.js'
 import { projectLegendActions } from './projectLegendActions.js'
 import { projectIndicator, projectLegendContext } from './projectLegendContext.js'
 import { projectIndicatorTexts, projectMainLegendRows } from './projectLegendRows.js'
 import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
+
+/** 占位高度未变时不重发快照，避免每帧触发重新布局。 */
+function sameHeaderInsets(
+  previous: ReadonlyMap<string, number>,
+  next: ReadonlyMap<string, number>,
+): boolean {
+  if (previous.size !== next.size) return false
+  for (const [paneId, height] of previous) if (next.get(paneId) !== height) return false
+  return true
+}
 
 /** 管理内置图例的领域操作及自定义图例；每帧原子发布完整投影。 */
 export class LegendManager implements LegendApi {
   private disposed = false
   private readonly contextState = createSignal<LegendTemplateContext | null>(null)
   private readonly rowsState = createSignal<ReadonlyArray<LegendRow>>([])
+  private readonly collapsedState = createSignal(false)
+  private readonly headerInsetsState = createSignal<ReadonlyMap<string, number>>(new Map())
   private readonly customState = createSignal<
     ReadonlyArray<Extract<LegendEntry, { kind: 'custom' }>>
   >([])
   readonly context: ReadonlySignal<LegendTemplateContext | null> = this.contextState
   readonly rows: ReadonlySignal<ReadonlyArray<LegendRow>> = this.rowsState
+  /** 主图图例整块收起；只影响默认 DOM 与占位，行数据仍完整发布。 */
+  readonly mainCollapsed: ReadonlySignal<boolean> = this.collapsedState
+  /** 每个 pane 顶部被图例占用的高度，pane 布局据此预留内容区。 */
+  readonly headerInsets: ReadonlySignal<ReadonlyMap<string, number>> = this.headerInsetsState
   /** 帧事务直接追踪自定义配置引用，配置变化不会被缓存帧跳过。 */
   readonly configuration: ReadonlySignal<ReadonlyArray<LegendEntry>> = this.customState
 
   /** 注入所属领域，创建实例级图例管理器。 */
   constructor(private readonly deps: LegendManagerDependencies) {}
+
+  /**
+   * 切换主图图例整块收起。
+   * 行内容不变，只改变默认 DOM 显隐与 pane 顶部占位。
+   */
+  setMainCollapsed(collapsed: boolean): void {
+    if (this.disposed || this.collapsedState.peek() === collapsed) return
+    if (collapsed && !this.canCollapse()) return
+    this.collapsedState.set(collapsed)
+    this.deps.requestRender()
+  }
+
+  /** 主图有指标行且已选品种时，收起控件才有意义。 */
+  canCollapse(): boolean {
+    if (!this.deps.hasPrimarySymbol()) return false
+    return this.rowsState
+      .peek()
+      .some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+  }
+
+  /** 当前 pane 顶部需要为图例预留的高度；未知 pane 不占位。 */
+  headerInset(paneId: string): number {
+    return this.headerInsetsState.peek().get(paneId) ?? 0
+  }
 
   /** 从当前领域状态枚举图例，不依赖是否已有行情或已绘制一帧。 */
   list(): ReadonlyArray<LegendEntry> {
@@ -253,12 +300,59 @@ export class LegendManager implements LegendApi {
     if (this.disposed) return
     const template = this.projectMainTemplate(contexts)
     const rows = this.withActions(this.collectFrameRows(contexts, template), contexts)
+    const canCollapse = this.canCollapseRows(rows)
+    // 指标全部移除后收起态不再成立，直接回到展开，避免占位和行显隐错位。
+    if (!canCollapse && this.collapsedState.peek()) this.collapsedState.set(false)
+    const insets = this.projectHeaderInsets(
+      contexts,
+      rows,
+      canCollapse && this.collapsedState.peek(),
+    )
     batch(() => {
       this.contextState.set(
         template ? { ...template, rows: rows.filter((row) => row.paneId === MAIN_PANE_ID) } : null,
       )
       this.rowsState.set(rows)
+      if (!sameHeaderInsets(this.headerInsetsState.peek(), insets))
+        this.headerInsetsState.set(insets)
     })
+  }
+
+  /** 主图有指标行且已选品种时才允许整块收起。 */
+  private canCollapseRows(rows: ReadonlyArray<LegendRow>): boolean {
+    return (
+      this.deps.hasPrimarySymbol() &&
+      rows.some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+    )
+  }
+
+  /**
+   * 主图顶部为图例预留的高度。
+   * 只有主图行情区需要让位；副图标题按设计叠加在指标上，不参与占位。
+   * 主图默认 DOM 隐藏或整块收起时，分别取 0 与收起控件高度。
+   */
+  private projectHeaderInsets(
+    contexts: ReadonlyArray<RenderContext>,
+    rows: ReadonlyArray<LegendRow>,
+    collapsed: boolean,
+  ): ReadonlyMap<string, number> {
+    const insets = new Map<string, number>()
+    const main = contexts.find((context) => context.pane.id === MAIN_PANE_ID)
+    if (!main) return insets
+    if (this.deps.getOptions().legend?.visible === false) {
+      insets.set(MAIN_PANE_ID, 0)
+      return insets
+    }
+    insets.set(
+      MAIN_PANE_ID,
+      collapsed
+        ? LEGEND_COLLAPSED_HEADER_PX
+        : legendHeaderInset(
+            rows.filter((row) => row.paneId === MAIN_PANE_ID),
+            main.pane.top,
+          ),
+    )
+    return insets
   }
 
   /** 主图模板：可见指标过滤后投影左上角上下文。 */
@@ -323,10 +417,10 @@ export class LegendManager implements LegendApi {
         key: instance.instanceId,
         paneId,
         x: PANE_HEADER_INSET_PX,
-        y: context.pane.top + 12,
+        y: legendRowTop(context.pane.top, rows.length),
         maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
-        height: 18,
-        gap: 8,
+        height: LEGEND_ROW_HEIGHT_PX,
+        gap: LEGEND_GAP_PX,
         indicator: { instanceId: instance.instanceId, definitionId: instance.definitionId },
         hidden: title.hidden,
         loading: title.loading,
@@ -349,7 +443,7 @@ export class LegendManager implements LegendApi {
     const custom = this.customState
       .peek()
       .filter((entry) => entry.paneId === paneId && !entry.hidden)
-    let y = anchor ? anchor.y + anchor.height : context.pane.top + 12
+    let y = anchor ? anchor.y + anchor.height : legendRowTop(context.pane.top, 0)
     const rows: LegendRow[] = []
     for (const entry of custom) {
       rows.push({
@@ -358,12 +452,12 @@ export class LegendManager implements LegendApi {
         x: PANE_HEADER_INSET_PX,
         y,
         maxWidth: Math.max(0, context.paneWidth - PANE_HEADER_INSET_PX),
-        height: 24,
-        gap: 10,
+        height: LEGEND_ROW_HEIGHT_PX,
+        gap: LEGEND_GAP_PX,
         texts: entry.texts,
         actions: [],
       })
-      y += 24
+      y += LEGEND_ROW_HEIGHT_PX
     }
     return rows
   }
@@ -390,6 +484,7 @@ export class LegendManager implements LegendApi {
     batch(() => {
       this.contextState.set(null)
       this.rowsState.set([])
+      this.headerInsetsState.set(new Map())
     })
   }
 
@@ -399,6 +494,7 @@ export class LegendManager implements LegendApi {
     this.disposed = true
     batch(() => {
       this.customState.set([])
+      this.collapsedState.set(false)
       this.clearFrame()
     })
   }

@@ -47,8 +47,9 @@ describe('indicator scale crosshair overlay', () => {
             top: 300,
             height: 200,
             yAxis: {
-              getPaddingTop: () => 0,
-              getPaddingBottom: () => 0,
+              getContentTop: () => 0,
+              getContentBottom: () => 200,
+              getContentHeight: () => 200,
               getDisplayRange: () => ({ minPrice: 0, maxPrice: 100 }),
             },
           },

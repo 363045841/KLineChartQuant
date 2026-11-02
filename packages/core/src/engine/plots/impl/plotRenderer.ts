@@ -155,9 +155,9 @@ function markerY(
     case 'absolute':
       return axis.priceToY(value)
     case 'top':
-      return axis.getPaddingTop() + MARKER_BAR_GAP - glyph.top
+      return axis.getContentTop() + MARKER_BAR_GAP - glyph.top
     case 'bottom':
-      return context.pane.height - axis.getPaddingBottom() - MARKER_BAR_GAP - glyph.bottom
+      return axis.getContentBottom() - MARKER_BAR_GAP - glyph.bottom
     case 'abovebar':
       return barMarkerY(true, index, glyph, context)
     case 'belowbar':

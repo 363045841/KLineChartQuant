@@ -25,8 +25,9 @@ function makePane(): MockPaneInfoOverrides {
     priceRange: { minPrice: 90, maxPrice: 110 },
     yAxis: {
       getDisplayRange: () => ({ maxPrice: 110, minPrice: 90 }),
-      getPaddingTop: () => 10,
-      getPaddingBottom: () => 10,
+      getContentTop: () => 10,
+      getContentBottom: () => 390,
+      getContentHeight: () => 380,
       getScaleType: () => 'linear',
       priceToY: (p) => 200 - (p - 100),
     },

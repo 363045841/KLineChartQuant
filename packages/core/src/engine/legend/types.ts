@@ -127,7 +127,9 @@ export interface LegendText {
 export interface LegendRow {
   key: string
   paneId: string
+  /** 行盒左边界（相对图表容器）。 */
   x: number
+  /** 行盒顶部（相对图表容器），不含文本垂直居中的补偿。 */
   y: number
   maxWidth: number
   height: number
@@ -211,8 +213,14 @@ export interface LegendUiRequest {
 export interface LegendApi {
   readonly context: ReadonlySignal<LegendTemplateContext | null>
   readonly rows: ReadonlySignal<ReadonlyArray<LegendRow>>
+  /** 主图图例整块收起；收起后布局只保留收起控件的占位。 */
+  readonly mainCollapsed: ReadonlySignal<boolean>
   list(): ReadonlyArray<LegendEntry>
   get(id: string): LegendEntry | null
+  /** 切换主图图例整块收起；无指标行时拒绝收起。 */
+  setMainCollapsed(collapsed: boolean): void
+  /** 主图当前是否允许收起。 */
+  canCollapse(): boolean
   create(input: CreateLegendInput): string | null
   update(id: string, patch: LegendPatch): boolean
   remove(id: string): boolean
@@ -231,6 +239,8 @@ export interface LegendManagerDependencies {
   setComparisonHidden: (identity: string, hidden: boolean) => void
   getOptions: () => { legend?: LegendOptions }
   getVisibleIndicatorIds: () => ReadonlyArray<string>
+  /** 主图是否已有品种；空图不展示收起入口。 */
+  hasPrimarySymbol: () => boolean
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
   isScriptIndicator?: (definitionId: string) => boolean
   requestRender: () => void

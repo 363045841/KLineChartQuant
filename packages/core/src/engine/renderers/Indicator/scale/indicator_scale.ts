@@ -28,8 +28,6 @@ export interface IndicatorScaleLayerOptions {
   indicatorKey: string
   label: string
   decimals?: number
-  /** 与 pane 一致的 Y 轴内边距；保留以兼容既有工厂选项形状。 */
-  yPaddingPx?: number
   scaleType?: ScaleType
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
   formatTickLabel?: (value: number) => string
@@ -117,9 +115,8 @@ export function createIndicatorScaleLayer(
       const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
 
       const positions = calculateValueTickPositions({
-        height: pane.height,
-        paddingTop: pane.yAxis.getPaddingTop(),
-        paddingBottom: pane.yAxis.getPaddingBottom(),
+        contentTop: pane.yAxis.getContentTop(),
+        contentBottom: pane.yAxis.getContentBottom(),
         isMain: false,
         hideEdgeTicks: false,
         valueMin: displayRange.minPrice,
@@ -171,11 +168,9 @@ export function createIndicatorScaleLayer(
           context.colorPresetSettings,
         )
         const localY = crosshair.y - pane.top
-        const paddingTop = pane.yAxis.getPaddingTop()
-        const paddingBottom = pane.yAxis.getPaddingBottom()
-        const yStart = paddingTop
-        const yEnd = Math.max(paddingTop, pane.height - paddingBottom)
-        const viewH = Math.max(1, yEnd - yStart)
+        const yStart = pane.yAxis.getContentTop()
+        const yEnd = pane.yAxis.getContentBottom()
+        const viewH = pane.yAxis.getContentHeight()
         const clampedY = Math.min(Math.max(localY, yStart), yEnd)
         const t = (clampedY - yStart) / viewH
         const displayPrice =

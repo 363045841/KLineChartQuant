@@ -10,29 +10,38 @@ export interface TickPosition {
 }
 
 export interface CalculateTickPositionsOptions {
-  height: number
-  paddingTop: number
-  paddingBottom: number
+  /** 内容区上边界；刻度从该像素开始。 */
+  contentTop: number
+  /** 内容区下边界；刻度在该像素结束。 */
+  contentBottom: number
   isMain?: boolean
   hideEdgeTicks?: boolean
   scaleType?: ScaleType
 }
 
+/** 把内容区边界归一成可用的像素跨度。 */
+function resolveContentSpan(options: CalculateTickPositionsOptions): {
+  start: number
+  end: number
+  height: number
+} {
+  const start = Math.max(0, options.contentTop)
+  const end = Math.max(start, options.contentBottom)
+  return { start, end, height: Math.max(0, end - start) }
+}
+
 function calculateTickPositions(options: CalculateTickPositionsOptions): TickPosition[] {
-  const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
+  const { isMain, hideEdgeTicks } = options
+  const { start, height: viewH } = resolveContentSpan(options)
 
-  const yStart = paddingTop
-  const yEnd = Math.max(paddingTop, height - paddingBottom)
-  const viewH = Math.max(0, yEnd - yStart)
-
-  const ticks = calculateTickCount(height, isMain)
+  const ticks = calculateTickCount(viewH, isMain)
   const positions: TickPosition[] = []
 
   for (let i = 0; i < ticks; i++) {
     if (hideEdgeTicks && (i === 0 || i === ticks - 1)) continue
 
     const t = ticks <= 1 ? 0 : i / (ticks - 1)
-    const y = yStart + t * viewH
+    const y = start + t * viewH
 
     positions.push({ index: i, t, y })
   }
@@ -93,20 +102,17 @@ function roundLogTickValue(value: number): number {
 }
 
 function generatePixelUniformLogTicks(options: {
-  height: number
-  paddingTop: number
-  paddingBottom: number
+  contentTop: number
+  contentBottom: number
   valueMin: number
   valueMax: number
   targetCount: number
 }): TickPositionWithValue[] {
-  const { height, paddingTop, paddingBottom, valueMin, valueMax, targetCount } = options
+  const { valueMin, valueMax, targetCount } = options
+  const { start: yStart, end: yEnd, height: viewH } = resolveContentSpan(options)
 
   const effectiveMin = Math.max(valueMin, LOG_EPSILON)
   const effectiveMax = Math.max(valueMax, effectiveMin * 1.001)
-  const yStart = paddingTop
-  const yEnd = Math.max(paddingTop, height - paddingBottom)
-  const viewH = Math.max(0, yEnd - yStart)
 
   if (viewH <= 0) {
     return []
@@ -168,18 +174,14 @@ function generatePixelUniformLogTicks(options: {
 }
 
 function generatePixelUniformPercentTicks(options: {
-  height: number
-  paddingTop: number
-  paddingBottom: number
+  contentTop: number
+  contentBottom: number
   valueMin: number
   valueMax: number
   targetCount: number
 }): TickPositionWithValue[] {
-  const { height, paddingTop, paddingBottom, valueMin, valueMax, targetCount } = options
-
-  const yStart = paddingTop
-  const yEnd = Math.max(paddingTop, height - paddingBottom)
-  const viewH = Math.max(0, yEnd - yStart)
+  const { valueMin, valueMax, targetCount } = options
+  const { start: yStart, height: viewH } = resolveContentSpan(options)
 
   if (viewH <= 0) return []
 
@@ -210,7 +212,7 @@ let _cvtpCacheKey = ''
 let _cvtpCacheResult: TickPositionWithValue[] = []
 
 function buildCvtpCacheKey(options: CalculateValueTickPositionsOptions): string {
-  return `${options.valueMin}:${options.valueMax}:${options.height}:${options.paddingTop}:${options.paddingBottom}:${options.isMain}:${options.scaleType ?? ScaleType.Linear}:${options.hideEdgeTicks ?? false}`
+  return `${options.valueMin}:${options.valueMax}:${options.contentTop}:${options.contentBottom}:${options.isMain}:${options.scaleType ?? ScaleType.Linear}:${options.hideEdgeTicks ?? false}`
 }
 
 export function calculateValueTickPositions(
@@ -230,13 +232,13 @@ export function calculateValueTickPositions(
 
     const effectiveMin = Math.max(valueMin, LOG_EPSILON)
     const effectiveMax = Math.max(valueMax, effectiveMin * 1.001)
-    const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
-    const targetCount = Math.max(2, calculateTickCount(height, isMain))
+    const { isMain, hideEdgeTicks } = options
+    const contentHeight = resolveContentSpan(options).height
+    const targetCount = Math.max(2, calculateTickCount(contentHeight, isMain))
 
     let positions = generatePixelUniformLogTicks({
-      height,
-      paddingTop,
-      paddingBottom,
+      contentTop: options.contentTop,
+      contentBottom: options.contentBottom,
       valueMin: effectiveMin,
       valueMax: effectiveMax,
       targetCount,
@@ -253,13 +255,13 @@ export function calculateValueTickPositions(
   }
 
   if (scaleType === ScaleType.Percent) {
-    const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
-    const targetCount = Math.max(2, calculateTickCount(height, isMain))
+    const { isMain, hideEdgeTicks } = options
+    const contentHeight = resolveContentSpan(options).height
+    const targetCount = Math.max(2, calculateTickCount(contentHeight, isMain))
 
     let positions = generatePixelUniformPercentTicks({
-      height,
-      paddingTop,
-      paddingBottom,
+      contentTop: options.contentTop,
+      contentBottom: options.contentBottom,
       valueMin,
       valueMax,
       targetCount,
@@ -276,7 +278,7 @@ export function calculateValueTickPositions(
   }
 
   const basePositions = calculateTickPositions(options)
-  const totalTicks = calculateTickCount(options.height, options.isMain)
+  const totalTicks = calculateTickCount(resolveContentSpan(options).height, options.isMain)
   const valueRange = valueMax - valueMin || 1
 
   const result = basePositions.map((pos) => {

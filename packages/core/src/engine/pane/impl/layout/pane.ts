@@ -89,11 +89,11 @@ export class Pane {
   }
 
   /**
-   * 设置 Y 轴上下 padding
-   * @param top 上内边距，影响 priceToY 映射的顶部留白
-   * @param bottom 下内边距，影响 priceToY 映射的底部留白
+   * 设置 pane 内容区的上下内缩。
+   * @param top 上内缩：图例占位 + 视觉留白
+   * @param bottom 下内缩：视觉留白
    */
-  setPadding(top: number, bottom: number) {
-    this.yAxis.setPadding(top, bottom)
+  setContentInsets(top: number, bottom: number) {
+    this.yAxis.setContentInsets(top, bottom)
   }
 }

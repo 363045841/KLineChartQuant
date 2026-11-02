@@ -100,8 +100,9 @@ export function createChartStub(args: {
       yAxis: {
         yToPrice: (y: number) => y,
         priceToY: (p: number) => p,
-        getPaddingTop: () => 0,
-        getPaddingBottom: () => 0,
+        getContentTop: () => 0,
+        getContentBottom: () => paneDef.height,
+        getContentHeight: () => paneDef.height,
       },
     }),
   }))
