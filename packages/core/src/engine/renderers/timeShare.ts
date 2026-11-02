@@ -65,7 +65,14 @@ export function createTimeShareLayer(): Layer<RenderContext> {
       ctx.rect(scrollLeft, 0, context.paneWidth, pane.height)
       ctx.clip()
 
-      drawPreCloseLine(ctx, xPositions, preCloseY, dpr, colors.timeSharePreClose)
+      drawPreCloseLine(
+        ctx,
+        scrollLeft,
+        scrollLeft + context.paneWidth,
+        preCloseY,
+        dpr,
+        colors.timeSharePreClose,
+      )
 
       drawAreaFill(
         ctx,
@@ -75,6 +82,7 @@ export function createTimeShareLayer(): Layer<RenderContext> {
         dpr,
         colors.timeShareAreaUp,
         colors.timeShareAreaDown,
+        colors.chartBackground,
       )
 
       drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 1)
