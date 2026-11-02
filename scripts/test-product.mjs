@@ -256,8 +256,11 @@ try {
     popup.on('requestfailed', (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`))
     await popup.locator('.cm-editor').waitFor({ timeout: 60_000 })
     await popup.close()
-    await page.keyboard.press('Escape')
-    await page.locator('dialog[open]').waitFor({ state: 'hidden' })
+    // 独立窗口关闭后编辑器回到弹窗；用弹窗关闭按钮退出，Esc 可能先被打开的菜单或浮层消费。
+    const editorDialog = page.locator('dialog[open]')
+    await editorDialog.waitFor({ timeout: 30_000 })
+    await editorDialog.locator('.base-close-btn').click()
+    await editorDialog.waitFor({ state: 'hidden' })
     await page.getByRole('button', { name: '卸载工作台' }).click()
     await context.close()
   }
