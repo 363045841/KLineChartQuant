@@ -204,8 +204,12 @@ export function createMockChartController(
     legend: {
       context: legendContext,
       rows: createSignal<ReturnType<ChartController['legend']['rows']['peek']>>([]),
+      mainCollapsed: createSignal(false),
       list: () => [],
       get: () => null,
+      // 替身不模拟收起状态；主图收起入口在 core 的 legendDom 测试覆盖。
+      setMainCollapsed: () => {},
+      canCollapse: () => false,
       create: () => null,
       update: () => false,
       remove: () => false,
