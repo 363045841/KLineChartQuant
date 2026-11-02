@@ -20,9 +20,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'pnpm exec vite preview --port 4173 --strictPort',
+    // CI 的 localhost 可能先解析到 ::1；显式绑 127.0.0.1，避免 Playwright 探测不到。
+    command: 'node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 120_000,
   },
 })
