@@ -87,7 +87,10 @@ describe('gridLines mode', () => {
     createGridLinesLayer().paint(context)
     const verticals = fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBeGreaterThan(0)
+    // 网格是背景：纵向线铺满整个 pane，不受内容区裁切。
     expect(verticals[0]?.x).toBe(1)
+    expect(verticals[0]?.y).toBe(0)
+    expect(verticals[0]?.height).toBe(context.pane.height)
   })
 
   it('does not draw vertical month boundary lines in timeshare mode', () => {

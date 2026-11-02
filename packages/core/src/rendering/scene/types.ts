@@ -75,6 +75,11 @@ export interface FramePaint {
   gpuSurface?: import('../primitives/types.js').PrimitiveSurface
   /** 本帧 DPR；直出表面按它投影，缺省为 1。 */
   dpr?: number
+  /**
+   * 数据层的内容区裁切（逻辑像素，pane 局部坐标）。
+   * 背景网格与 overlay 不受它约束；未提供表示不裁。
+   */
+  clip?: import('../primitives/types.js').PrimitiveClip
   /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
   /** 距离上一次绘制的时间（ms），首帧可能为 0。 */

@@ -20,7 +20,9 @@ PriceScale 私有 padding → priceToY / yToPrice
 - **Pane 布局拥有内容区**：只有 `ChartPaneLayout.layoutPanes` 写内容区内缩，其他模块不写 padding。内容区上边界取 `max(yPaddingPx, 占位高度)`：占位高度已含底部间距，不再叠加视觉留白。
 - **图例只发布高度**：`LegendManager.headerInsets` 按 pane 发布“顶部被图例占用多少像素”，布局只消费这个数字，不反读图例、图例也不读 padding。
 - **`PriceScale` 内部持有 padding**：对外只暴露 `getContentTop()` / `getContentBottom()` / `getContentHeight()`，不再暴露 `getPaddingTop/getPaddingBottom`；消费方不再各自计算 `height - top - bottom`。
-- **渲染器不需要知道 padding**：用 `priceToY` 画价格的渲染器无需改动；需要贴边的内容（Y 轴刻度、marker、十字线夹取）读内容区边界。网格与刻度都按内容区铺开，占位带保持纯背景，不再出现只有纵向网格穿过图例区的错位。
+- **渲染器不需要知道 padding**：用 `priceToY` 画价格的渲染器无需改动；需要贴边的内容（Y 轴刻度、marker、十字线夹取）读内容区边界。
+- **背景网格不受内容区约束**：纵向网格线铺满整个 pane（图例带也画），横向网格线按价格刻度绘制；网格只受 pane 边界约束。
+- **数据层按内容区裁切**：`Scene` 对 `primary / indicator / component / drawing` 应用 pane 的 `clip`（`contentTop + contentHeight`），`background` 与 `overlay` 不裁。价格轴拖动/缩放时，越界的蜡烛与指标因此不会画进图例带；GPU 直出路径用 scissor 实现，2D 合成路径用 `ctx.clip`，开销只是一次状态设置。
 
 ## 时序
 

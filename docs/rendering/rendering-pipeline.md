@@ -75,6 +75,8 @@ main 目标内部还有两段叠放：GPU 直出画布与 2D 主画布同为 z =
 
 每个 `FramePaint` 提供 `targets` 和当前 `renderer`。Scene 先选择目标，未分配的 drawing 目标跳过绘制。`kind: 'draw-list'` 的图层绘制上下文里没有 `ctx`，只能提交原语；`kind: 'context'`（缺省）的图层拿到 `context.ctx`，Scene 在它前后立即合成，保证自带裁剪与坐标系语义。业务 Layer 不绕开 Scene 选择其他绘图区画布。Scene 在 finally 中恢复 Canvas 状态，单个图层异常不会中断同 Pane 的其他图层。
 
+`FramePaint.clip` 是数据层的内容区裁切：Scene 只对 `primary / indicator / component / drawing` 应用，`background`（网格）与 `overlay`（十字线）不裁。GPU 直出路径把裁切作为 scissor 传给可见表面，2D 合成路径在目标上 `save + rect + clip`，一次设置覆盖该 Pane 整批数据层。
+
 坐标轴和时间轴有独立表面与轴标签接口；十字线使用图表级独立表面。它们不通过额外 GPU DOM 层来改变行情或 drawing 的遮挡。
 
 ## 更新级别

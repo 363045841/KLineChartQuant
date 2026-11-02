@@ -12,8 +12,9 @@ import type { DrawListLayer } from '@/rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '@/rendering/scene/types.js'
 
 /**
- * 网格线 Layer：横向按像素均分铺满绘图区高度，纵向按月分割
- * （使用预计算的月边界，网格线对齐到 K 线实体中部），绘制到所有 pane。
+ * 网格层：横向按价格刻度绘制，纵向按月/日边界绘制，绘制到所有 pane。
+ *
+ * 网格是背景：只受 pane 边界约束，不受内容区内缩约束；数据层的内容区裁切由 Scene 负责。
  *
  * 背景带必须是纯增量原语：主图带由可见 GPU 表面直接呈现，任何 ctx 绘制的背景
  * 都会落到它上方的 2D 画布，从而盖住蜡烛与指标。
@@ -57,10 +58,6 @@ function drawGridLines(context: PrimitiveRenderContext): void {
     rects.push(rect.x - scrollLeft, rect.y, rect.width, rect.height)
   }
 
-  // 纵向网格与横向网格同样只覆盖内容区：图例占位是纯空白背景，不铺网格。
-  const gridTop = pane.yAxis.getContentTop()
-  const gridHeight = pane.yAxis.getContentHeight()
-
   // Pane 边界由宿主分隔层绘制；网格线只覆盖内部，避免与分隔边框叠加。
   if (context.yAxisTicks) {
     for (const tick of context.yAxisTicks) {
@@ -70,9 +67,10 @@ function drawGridLines(context: PrimitiveRenderContext): void {
   }
 
   // 五日分时纵线直接读取帧级日边界几何，保证首尾和日间分隔线均与主序列同源。
+  // 网格是背景：纵向分隔线铺满整个 pane，图例占位也不切断；只有数据层按内容区裁切。
   if (context.fiveDayTimeShareGeometry) {
     for (const x of context.fiveDayTimeShareGeometry.verticalGridLineXs) {
-      add(createVerticalLineRect(x, gridTop, gridHeight, dpr))
+      add(createVerticalLineRect(x, 0, pane.height, dpr))
     }
   } else if (!isTimeShareDataView(context.dataView)) {
     const minutePeriod = isMinutePeriod(context.period)
@@ -92,7 +90,7 @@ function drawGridLines(context: PrimitiveRenderContext): void {
       // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
       const localIdx = idx - range.start
       if (localIdx < 0 || localIdx >= kLineCenters.length) continue
-      add(createVerticalLineRect(kLineCenters[localIdx]!, gridTop, gridHeight, dpr))
+      add(createVerticalLineRect(kLineCenters[localIdx]!, 0, pane.height, dpr))
     }
   }
 
