@@ -5,6 +5,9 @@ import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { defineConfig, type Plugin } from 'vite'
 import dts from 'vite-plugin-dts'
+import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
+
+const buildCommit = resolveBuildCommit()
 
 /** 独立编辑器是自包含页面，作为文件发布而非内联进主入口。 */
 function editorPageAssets(): Plugin {
@@ -28,6 +31,10 @@ function editorPageAssets(): Plugin {
 
 export default defineConfig({
   base: './',
+  define: {
+    'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
+    'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
+  },
   plugins: [
     editorPageAssets(),
     vue(),

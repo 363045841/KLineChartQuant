@@ -17,6 +17,7 @@ import {
   createWorkspaceSourceAliases,
 } from '../../../scripts/package-source-aliases.mjs'
 import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
+import { resolveBuildCommit } from '../../../scripts/build-commit.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
 
 const decoratorTransform = babel({
@@ -38,6 +39,7 @@ const coreSrc = `${root}/packages/core/src`
 const vueSrc = `${root}/packages/vue/src`
 // 独立编辑器页是预构建产物：dev 直接读它的 dist，避免把 AGPL 源码拉进预览构建。
 const scriptEditorSrc = `${root}/packages/script-editor/src`
+const buildCommit = resolveBuildCommit()
 
 /**
  * 把 workspace 源码目录整树加入 watcher，使 root 外源码获得与 root 内一致的目录监听。
@@ -55,6 +57,10 @@ function watchWorkspaceSources(repoRoot: string): Plugin {
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
+  define: {
+    'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
+    'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
+  },
   optimizeDeps: {
     exclude: ['@363045841yyt/klinechart-core'],
   },

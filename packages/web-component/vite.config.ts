@@ -10,8 +10,15 @@ import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
 import cssInjectedByJs from 'vite-plugin-css-injected-by-js'
+import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
+
+const buildCommit = resolveBuildCommit()
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
+    'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
+  },
   plugins: [
     vue({ customElement: true }),
     Icons({ compiler: 'vue3', autoInstall: true }),

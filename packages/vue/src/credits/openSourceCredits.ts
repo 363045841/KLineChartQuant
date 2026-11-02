@@ -9,6 +9,7 @@ import scriptServerPkg from '../../../script-server/package.json'
 import scriptPkg from '../../../script/package.json'
 import codemirrorPkg from '../../node_modules/codemirror/package.json'
 import vuePkg from '../../package.json'
+import { PROJECT_REPOSITORY_URL } from '../productLinks.js'
 
 export interface CreditItem {
   /** 展示名：本仓库包省略 npm scope，第三方为完整包名 */
@@ -49,9 +50,6 @@ interface PackageMeta {
   homepage?: string
 }
 
-/** 本 monorepo 默认仓库（包未写 repository 时回退） */
-const MONOREPO_GITHUB = 'https://github.com/363045841/KLineChartQuant'
-
 /** 白名单包 → package.json（构建时内联元数据） */
 const PACKAGE_META: Record<WhitelistName, PackageMeta> = {
   '@363045841yyt/klinechart': vuePkg,
@@ -83,7 +81,7 @@ function readLicense(meta: PackageMeta): string {
  * 将 package.json 的 repository / homepage 规范为 https GitHub 仓库页。
  * 支持：完整 git URL、git+https、owner/repo 短写、ssh。
  */
-export function resolveGithubUrl(meta: PackageMeta, fallback = MONOREPO_GITHUB): string {
+export function resolveGithubUrl(meta: PackageMeta, fallback = PROJECT_REPOSITORY_URL): string {
   const raw =
     typeof meta.repository === 'string'
       ? meta.repository

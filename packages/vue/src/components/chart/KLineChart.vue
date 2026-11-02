@@ -92,7 +92,7 @@
         <div ref="chartMainRef" class="chart-main">
           <a
             class="chart-brand"
-            href="https://github.com/363045841/KLineChartQuant"
+            :href="PROJECT_REPOSITORY_URL"
             target="_blank"
             rel="noopener noreferrer"
             :style="{
@@ -425,6 +425,7 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
+  import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
     defineAsyncComponent,

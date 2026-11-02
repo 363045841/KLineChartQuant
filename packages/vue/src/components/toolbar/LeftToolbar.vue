@@ -248,6 +248,33 @@
     <span class="left-toolbar__divider"></span>
 
     <div class="left-toolbar__group left-toolbar__group--bottom">
+      <BaseTooltip placement="top">
+        <template #content>
+          <span class="github-tooltip">
+            <span class="github-tooltip__meta">
+              <span class="github-tooltip__label">Vue</span>
+              <span class="github-tooltip__value">{{ VERSION }}</span>
+              <span class="github-tooltip__label">Core</span>
+              <span class="github-tooltip__value">{{ CORE_VERSION }}</span>
+              <span class="github-tooltip__label">Commit</span>
+              <span class="github-tooltip__value">{{ COMMIT_HASH }}</span>
+              <span class="github-tooltip__time">{{ COMMIT_TIME }}</span>
+            </span>
+          </span>
+        </template>
+        <a
+          class="left-toolbar__button"
+          :href="PROJECT_REPOSITORY_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerBrandGithub class="tool-icon" aria-hidden="true" />
+        </a>
+      </BaseTooltip>
       <BaseTooltip content="命令面板" command="palette.open">
         <button
           type="button"
@@ -316,6 +343,8 @@
   import { useClickOutside } from '@vue-src/composables/ui/useClickOutside.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
+  import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
+  import { COMMIT_HASH, COMMIT_TIME, CORE_VERSION, VERSION } from '@vue-src/version.js'
   import { computed, ref, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
@@ -323,6 +352,7 @@
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
   import IconTablerBell from '~icons/tabler/bell'
+  import IconTablerBrandGithub from '~icons/tabler/brand-github'
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
@@ -866,6 +896,37 @@
     border-radius: 999px;
     pointer-events: none;
     transform: translateY(-1px) translateX(1px);
+  }
+
+  /* --- GitHub 入口的自定义 tooltip 内容 --- */
+  .github-tooltip {
+    display: block;
+    min-width: 176px;
+    padding: 2px 0;
+    text-align: left;
+  }
+
+  .github-tooltip__meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 12px;
+    color: color-mix(in srgb, var(--klc-color-tooltip-text) 62%, transparent);
+  }
+
+  .github-tooltip__value {
+    color: var(--klc-color-tooltip-text);
+    font-family: var(--klc-typography-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* 提交时间作为整行居中的说明，与 Commit 哈希保持同一视觉分组。 */
+  .github-tooltip__time {
+    grid-column: 1 / -1;
+    color: color-mix(in srgb, var(--klc-color-tooltip-text) 62%, transparent);
+    font-family: var(--klc-typography-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
   }
 
   /* --- 响应式 --- */

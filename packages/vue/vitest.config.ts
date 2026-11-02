@@ -8,6 +8,7 @@ import Icons from 'unplugin-icons/vite'
 
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
+import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 import { contractResourcesPlugin } from '../script/scripts/contract-resources-plugin.mjs'
 
@@ -16,6 +17,7 @@ const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 const vueSrc = fileURLToPath(new URL('./src', import.meta.url))
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 const coreAliases = createCoreSourceAliases(coreSrc)
+const buildCommit = resolveBuildCommit()
 
 const vueResolverPlugin = {
   name: 'vue-resolver',
@@ -55,6 +57,10 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./src/test-setup.ts'],
+    env: {
+      VITE_KLINE_COMMIT_HASH: buildCommit.hash,
+      VITE_KLINE_COMMIT_TIME: buildCommit.time,
+    },
   },
   resolve: {
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
