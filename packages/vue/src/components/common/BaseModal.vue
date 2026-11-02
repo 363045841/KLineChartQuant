@@ -516,7 +516,8 @@
   /*
     下划线用 width 展开，不用 transform: scaleX。
     transform 过渡走合成层，动画结束时该层被回收、线重新栅格化，视觉上会突然变细。
-    left 50% + 静态 translate 让宽度从中心向两侧生长，长度等于文字宽度（按钮内容区）。
+    left 50% + 静态 translate 让宽度从中心向两侧生长；宽度由控件自己声明的行内留白变量推导，
+    等于文字宽度（按钮内容区），控件更换尺寸或响应式留白时不会与文字错位。
     线高 1px、离按钮下缘 5px：与文字留出间距的同时不贴着按钮下缘。
   */
   .base-footer :deep(.base-button)::after,
@@ -534,11 +535,14 @@
 
   /* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
   .base-footer :deep(.base-button:not(:disabled):hover)::after,
-  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after,
+  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after {
+    width: calc(100% - 2 * var(--base-button-inline-padding, 8px));
+  }
+
   .base-footer :deep(.control-button:not(:disabled):hover)::after,
   .base-footer :deep(.control-button:not(:disabled):focus-visible)::after,
   .base-footer :deep(.control-button[aria-expanded='true'])::after {
-    width: calc(100% - 2 * var(--klc-space-8, 8px));
+    width: calc(100% - 2 * var(--control-button-inline-padding, 8px));
   }
 
   @media (prefers-reduced-motion: reduce) {

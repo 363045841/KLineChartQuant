@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@363045841yyt/klinechart — Preview</title>
     <style>
-      * {
+      /* 零特异性 reset：只归零 UA 默认值，任何组件类都能压过它。 */
+      :where(*, *::before, *::after) {
         margin: 0;
         padding: 0;
         box-sizing: border-box;

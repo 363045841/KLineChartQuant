@@ -1,6 +1,5 @@
 /* 工具栏按钮与下拉触发器的共享外观；通过 scoped 样式引入，避免影响其他按钮。 */
-/* 共享默认外观低于业务组件样式，不依赖同步或懒加载分块的到达顺序。 */
-@layer kline-primitives {
+/* 共享默认外观只用组件自己的类：业务覆盖靠更高特异性，宿主 reset 必须是零特异性。 */
 .control-button {
   display: inline-flex;
   align-items: center;
@@ -8,9 +7,11 @@
   flex: 0 0 auto;
   box-sizing: border-box;
   gap: 6px;
+  /* 行内留白同时决定 Footer 下划线的宽度，尺寸变体只改变量。 */
+  --control-button-inline-padding: var(--klc-spacing-sm);
   /* 外壳可覆盖统一的行内控件高度；未覆盖时沿用间距推算值。 */
   height: var(--control-button-height, calc(12px + 2 * var(--klc-spacing-sm)));
-  padding: 0 var(--klc-spacing-sm);
+  padding: 0 var(--control-button-inline-padding);
   border: 1px solid var(--control-button-border, var(--klc-color-ui-border));
   border-radius: var(--klc-radius-md, 8px);
   background: var(--control-button-background, var(--klc-color-ui-control-background));
@@ -55,17 +56,17 @@
 }
 
 .control-button--sm {
+  --control-button-inline-padding: 6px;
   height: calc(8px + 2 * var(--klc-spacing-sm));
-  padding: 0 6px;
   gap: 4px;
   font-size: var(--klc-typography-font-size-md);
 }
 
 @media (max-width: 768px), (max-height: 640px) {
   .control-button:not(.control-button--sm) {
+    --control-button-inline-padding: 6px;
     height: 26px;
     gap: 4px;
-    padding: 0 6px;
   }
 }
 
@@ -73,5 +74,4 @@
   .control-button {
     transition: none;
   }
-}
 }

@@ -32,8 +32,10 @@
 </script>
 
 <style scoped>
-  @layer kline-primitives {
+  /* 默认外观保持无层：宿主 reset 必须是零特异性 :where()，组件类才能压过它；不要改回 @layer。 */
   .base-button {
+    /* 行内留白同时决定 Footer 下划线的宽度，两者共用同一个值。 */
+    --base-button-inline-padding: var(--klc-space-8, 8px);
     box-sizing: border-box;
     display: inline-flex;
     flex: 0 0 auto;
@@ -42,7 +44,7 @@
     gap: var(--klc-space-4, 4px);
     min-width: 0;
     height: var(--base-button-height, 28px);
-    padding: 0 var(--klc-space-8, 8px);
+    padding: 0 var(--base-button-inline-padding);
     border: 1px solid transparent;
     border-radius: var(--klc-radius-xs, 4px);
     font-family: var(--klc-typography-font-family);
@@ -90,6 +92,5 @@
     .base-button {
       transition: none;
     }
-  }
   }
 </style>

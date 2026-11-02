@@ -65,7 +65,7 @@
 </script>
 
 <style scoped>
-  @layer kline-primitives {
+  /* 默认外观保持无层：宿主 reset 必须是零特异性 :where()，组件类才能压过它；不要改回 @layer。 */
   .base-textarea {
     --base-textarea-padding-block: var(--klc-space-8, 8px);
     --base-textarea-border: 1px;
@@ -111,6 +111,5 @@
   .base-textarea:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
   }
 </style>

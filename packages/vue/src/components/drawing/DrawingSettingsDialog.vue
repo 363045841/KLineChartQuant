@@ -323,7 +323,7 @@
   /* 模板下拉触发器按 Footer 文本动作呈现：度量对齐 `BaseButton size="sm"`（保存为模板），不再有按钮盒子。 */
   .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger) {
     height: var(--base-button-height, 28px);
-    padding: 0 var(--klc-space-8, 8px);
+    --control-button-inline-padding: var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 400;
