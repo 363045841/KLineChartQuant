@@ -155,9 +155,6 @@ export function paintTimeShareFrame(context: RenderContext): void {
 
   ctx.save()
   ctx.translate(-scrollLeft, 0)
-  ctx.beginPath()
-  ctx.rect(scrollLeft, 0, context.paneWidth, pane.height)
-  ctx.clip()
 
   if (baselineY !== null) {
     for (const day of geometry.days) {

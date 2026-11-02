@@ -90,7 +90,7 @@ export class Pane {
 
   /**
    * 设置 pane 内容区的上下内缩。
-   * @param top 上内缩：图例占位 + 视觉留白
+   * @param top 上内缩：视觉留白
    * @param bottom 下内缩：视觉留白
    */
   setContentInsets(top: number, bottom: number) {

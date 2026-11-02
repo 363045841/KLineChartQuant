@@ -14,6 +14,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
+import type { PrimitiveSurface } from '@/rendering/primitives/types'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 
 import { createScene } from '../createScene'
@@ -83,6 +84,7 @@ function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>):
     panes: [
       {
         paneId,
+        bounds: { width: 300, height: 260 },
         context: { tag: paneId },
         renderer: createMockRenderer(),
         targets: {
@@ -128,40 +130,77 @@ describe('createScene', () => {
     }
     scene.paint(input)
     expect(painted).toEqual([targets.main, targets.drawing, targets.overlay])
-    for (const target of Object.values(targets)) {
-      expect(target?.save).toHaveBeenCalledOnce()
-      expect(target?.restore).toHaveBeenCalledOnce()
+    for (const [name, target] of Object.entries(targets)) {
+      const saves = name === 'overlay' ? 1 : 2
+      expect(target?.save).toHaveBeenCalledTimes(saves)
+      expect(target?.restore).toHaveBeenCalledTimes(saves)
       expect(target?.clearRect).not.toHaveBeenCalled()
     }
   })
 
-  it('clips data roles to the content rect but leaves the background grid unclipped', () => {
+  it.each(['primary', 'indicator', 'component', 'drawing'] as const)(
+    '%s 使用完整 Pane 边界，不把价格留白裁成上下空带',
+    (dataRole) => {
+      const scene = createScene<FrameStub>()
+      const input = frame('main')
+      input.panes[0]!.context = { tag: 'main', priceMapping: { top: 60, bottom: 220 } }
+      const target = input.panes[0]!.targets[dataRole === 'drawing' ? 'drawing' : 'main']!
+      for (const [id, role, z] of [
+        ['grid', 'background', 0],
+        ['data', dataRole, 1],
+      ] as const) {
+        scene.addLayer({
+          id,
+          pane: 'main',
+          role,
+          z,
+          visible: true,
+          paint() {},
+          dispose() {},
+        })
+      }
+
+      scene.paint(input)
+
+      // 背景层不裁；数据层从顶部 0 画到 Pane 底部 260。
+      expect(target.rect).toHaveBeenCalledTimes(1)
+      expect(target.rect).toHaveBeenCalledWith(0, 0, 300, 260)
+      expect(target.clip).toHaveBeenCalledTimes(1)
+      scene.dispose()
+    },
+  )
+
+  it.each([true, false])('GPU 直出结果为 %s 时，直出与回退共享完整 Pane 边界', (success) => {
     const scene = createScene<FrameStub>()
     const input = frame('main')
-    const clip = { x: 0, y: 60, width: 300, height: 200 }
-    input.panes[0]!.clip = clip
-    const target = input.panes[0]!.targets.main!
-    for (const [id, role, z] of [
-      ['grid', 'background', 0],
-      ['candles', 'primary', 1],
-    ] as const) {
-      scene.addLayer({
-        id,
-        pane: 'main',
-        role,
-        z,
-        visible: true,
-        paint() {},
-        dispose() {},
-      })
-    }
-
+    const pane = input.panes[0]!
+    const target = pane.targets.main!
+    const paint = vi.fn<PrimitiveSurface['paint']>().mockReturnValue(success)
+    pane.gpuSurface = { canvas: target.canvas, paint, dispose() {} }
+    scene.addLayer({
+      id: 'data',
+      role: 'primary',
+      pane: 'main',
+      z: 0,
+      visible: true,
+      kind: 'draw-list',
+      paint(context) {
+        context.primitives!(
+          [
+            { kind: 'circle', x: 10, y: 2, radius: 4, color: '#ffffff' },
+            { kind: 'circle', x: 10, y: 258, radius: 4, color: '#ffffff' },
+          ],
+          2,
+        )
+      },
+      dispose() {},
+    })
     scene.paint(input)
-
-    // 背景层不裁；数据层按内容区裁一次。
-    expect(target.rect).toHaveBeenCalledTimes(1)
-    expect(target.rect).toHaveBeenCalledWith(clip.x, clip.y, clip.width, clip.height)
-    expect(target.clip).toHaveBeenCalledTimes(1)
+    expect(paint).toHaveBeenCalledOnce()
+    expect(paint.mock.calls[0]?.[4]).toEqual({ x: 0, y: 0, width: 300, height: 260 })
+    // 失败回退时在同一完整边界内重新合成，不能丢失或恢复旧裁剪。
+    expect(target.rect).toHaveBeenCalledTimes(success ? 1 : 2)
+    for (const args of vi.mocked(target.rect).mock.calls) expect(args).toEqual([0, 0, 300, 260])
     scene.dispose()
   })
 
@@ -173,6 +212,7 @@ describe('createScene', () => {
       panes: [
         {
           paneId: 'main',
+          bounds: { width: 300, height: 260 },
           context: { tag: 'main' },
           renderer,
           targets: { main, drawing: null, overlay: null },

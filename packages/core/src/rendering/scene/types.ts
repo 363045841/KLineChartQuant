@@ -76,10 +76,10 @@ export interface FramePaint {
   /** 本帧 DPR；直出表面按它投影，缺省为 1。 */
   dpr?: number
   /**
-   * 数据层的内容区裁切（逻辑像素，pane 局部坐标）。
-   * 背景网格与 overlay 不受它约束；未提供表示不裁。
+   * Pane 的完整尺寸（逻辑像素），Scene 据此生成从 (0, 0) 开始的绘制边界。
+   * 不接收价格坐标留白或图例高度，避免把映射范围误用为裁剪范围。
    */
-  clip?: import('../primitives/types.js').PrimitiveClip
+  bounds: Readonly<{ width: number; height: number }>
   /** 帧计数器，用于动画与跳帧检测。 */
   frameNumber: number
   /** 距离上一次绘制的时间（ms），首帧可能为 0。 */

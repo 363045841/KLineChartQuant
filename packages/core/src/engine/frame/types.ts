@@ -46,7 +46,7 @@ export interface RendererDependencies {
   options: OptionsStateModule
   /** scroll / dpr / plot 几何 SSOT */
   viewport: ViewportStateModule
-  /** 绘制前统一提交待处理布局（容器尺寸、图例占位），避免观察器提前清空像素。 */
+  /** 绘制前统一提交容器尺寸变化，避免观察器提前清空像素。 */
   commitPendingLayout: () => void
   /** 由 Chart 的 ViewportScrollBridge 在 render frame 内提交原生滚动。 */
   commitViewportScroll: (targetScrollLeft: number) => void

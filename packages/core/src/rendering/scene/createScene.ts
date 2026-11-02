@@ -25,7 +25,7 @@ import type {
 } from './types.js'
 import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
 
-/** 数据角色按内容区裁切；背景网格与 overlay 不裁。 */
+/** 数据角色只按完整 Pane 边界裁切；背景网格与 overlay 由自身表面约束。 */
 const CLIPPED_ROLES: ReadonlySet<LayerRole> = new Set([
   'primary',
   'indicator',
@@ -148,7 +148,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           surfaces.set(surface, batches)
         }
         if (!entry) {
-          entry = { primitives: [], dpr }
+          entry = { primitives: [], dpr, clip }
           batches.push(entry)
         }
         entry.dpr = dpr
@@ -170,6 +170,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       return composer
     }
     for (const pane of frame.panes) {
+      // 裁剪矩形只由 Pane 尺寸构造，业务上下文中的价格留白不影响它。
+      const paneClip: PrimitiveClip = { x: 0, y: 0, ...pane.bounds }
       // 本批要绘制的 Layer 列表
       let candidates = layerList.filter(
         (layer) =>
@@ -186,7 +188,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           SCENE_TARGET_Z[scenePaintTarget(a.role)] - SCENE_TARGET_Z[scenePaintTarget(b.role)] ||
           a.z - b.z,
       )
-      // 内容区裁切只作用于数据层：进入前设置，离开前落盘并恢复。
+      // Pane 边界只作用于数据层：进入前设置，离开前落盘并恢复。
       let clipTarget: CanvasRenderingContext2D | null = null
       let clipActive = false
       const releaseClip = (): void => {
@@ -199,7 +201,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       for (const layer of candidates) {
         const target = pane.targets[scenePaintTarget(layer.role)]
         if (!target) continue
-        const clip = pane.clip && CLIPPED_ROLES.has(layer.role) ? pane.clip : undefined
+        const clip = CLIPPED_ROLES.has(layer.role) ? paneClip : undefined
         if (target !== clipTarget) {
           releaseClip()
           clipTarget = target

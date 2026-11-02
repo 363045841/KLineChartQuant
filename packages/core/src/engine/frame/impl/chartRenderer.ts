@@ -1265,13 +1265,8 @@ export class ChartRenderer {
       legendContexts.push(context)
 
       const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
-      // 数据层按内容区裁切；网格是背景，不受它约束。
-      const clip = {
-        x: 0,
-        y: pane.yAxis.getContentTop(),
-        width: vp.plotWidth,
-        height: pane.yAxis.getContentHeight(),
-      }
+      // 只传 pane 完整尺寸；价格坐标留白不能参与绘制裁剪。
+      const bounds = { width: vp.plotWidth, height: pane.height }
       // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端返回 null 并清掉旧表面。
       const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
       // 画 main canvas（非 overlay 角色 layer）
@@ -1282,7 +1277,7 @@ export class ChartRenderer {
           renderer: sceneRenderer,
           targets,
           gpuSurface,
-          clip,
+          bounds,
           dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,
@@ -1298,7 +1293,7 @@ export class ChartRenderer {
           context,
           renderer: sceneRenderer,
           targets,
-          clip,
+          bounds,
           dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,

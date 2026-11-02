@@ -217,7 +217,7 @@ export interface LegendUiRequest {
 export interface LegendApi {
   readonly context: ReadonlySignal<LegendTemplateContext | null>
   readonly rows: ReadonlySignal<ReadonlyArray<LegendRow>>
-  /** 主图图例整块收起；收起后布局只保留收起控件的占位。 */
+  /** 主图图例整块收起；只改变显示，不影响行情布局。 */
   readonly mainCollapsed: ReadonlySignal<boolean>
   list(): ReadonlyArray<LegendEntry>
   get(id: string): LegendEntry | null

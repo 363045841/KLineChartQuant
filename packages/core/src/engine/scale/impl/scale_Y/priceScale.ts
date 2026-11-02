@@ -91,7 +91,7 @@ export class PriceScale {
     this.height = Math.max(1, h)
   }
 
-  /** 内容区上下内缩；padding 只属于 scale，对外只暴露内容区边界。 */
+  /** 价格映射的上下留白；仅影响坐标和刻度，不定义绘制裁剪边界。 */
   setContentInsets(top: number, bottom: number) {
     this.paddingTop = Math.max(0, top)
     this.paddingBottom = Math.max(0, bottom)
