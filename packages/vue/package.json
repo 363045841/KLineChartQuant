@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.11.0-alpha.11",
+  "version": "0.11.0",
   "description": "Complete Vue 3 financial chart workbench with integrated Agent, script engine and editor.",
   "license": "AGPL-3.0-or-later",
   "repository": {
