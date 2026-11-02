@@ -23,14 +23,13 @@ import {
   type LegendTemplateContext,
   type LegendTimeshareRow,
 } from '../types.js'
+import { projectLegendColors } from './legendColors.js'
+import { LEGEND_COMPACT_WIDTH_PX, LEGEND_GAP_PX, LEGEND_ROW_HEIGHT_PX } from './legendGeometry.js'
+import { formatLegendQuantity, legendChangeColor, resolveLegendChange } from './legendQuote.js'
 import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 
-const LINE_HEIGHT = 24
-const LEGEND_GAP = 10
 /** 主图图例左、上内边距与 pane 标题共用同一基准。 */
 const LEGEND_INSET = PANE_HEADER_INSET_PX
-/** 窄于该宽度时行情行拆成两行，避免与指标挤在同一行。 */
-const COMPACT_PANE_WIDTH = 400
 
 /** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
 export interface ProjectLegendContextInput {
@@ -38,24 +37,6 @@ export interface ProjectLegendContextInput {
   host: PluginHost | null
   /** 由视图状态投影的可见主图指标；null 表示不过滤。 */
   visibleIndicatorIds?: ReadonlySet<string> | null
-}
-
-/** 成交量/成交额按中文 “万/亿” 缩写，保留两位小数。 */
-function formatLegendQuantity(value: number): string {
-  if (value >= 1e8) return (value / 1e8).toFixed(2) + '亿'
-  if (value >= 1e4) return (value / 1e4).toFixed(2) + '万'
-  return value.toFixed(2)
-}
-
-/** 前收价只在为正的有限数时参与分时涨跌计算。 */
-function resolvePreClose(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
-}
-
-/** 涨跌颜色：正为涨色、负为跌色，其余用正文色。 */
-function signedColor(value: number | null, colors: ColorTokens): string {
-  if (value === null || value === 0) return colors.text.primary
-  return value > 0 ? colors.candleUpBody : colors.candleDownBody
 }
 
 export function projectLegendContext(
@@ -73,10 +54,10 @@ export function projectLegendContext(
   const layout: LegendLayout = {
     x: LEGEND_INSET,
     y: LEGEND_INSET,
-    lineHeight: LINE_HEIGHT,
-    gap: LEGEND_GAP,
+    lineHeight: LEGEND_ROW_HEIGHT_PX,
+    gap: LEGEND_GAP_PX,
     paneWidth: context.paneWidth,
-    compact: context.paneWidth < COMPACT_PANE_WIDTH,
+    compact: context.paneWidth < LEGEND_COMPACT_WIDTH_PX,
   }
 
   const klineData = isKLineDataArray(context.data) ? context.data : []
@@ -88,12 +69,7 @@ export function projectLegendContext(
     index: targetIndex,
     hasCrosshair: typeof context.crosshairIndex === 'number',
     layout,
-    colors: {
-      textPrimary: colors.text.primary,
-      textTertiary: colors.text.tertiary,
-      up: colors.candleUpBody,
-      down: colors.candleDownBody,
-    },
+    colors: projectLegendColors(colors),
     currentBar: projectCurrentBar(context, klineData, targetIndex, colors),
     timeshare: projectTimeshareRow(context, targetIndex, colors),
     indicators: collectIndicatorRows(
@@ -109,7 +85,7 @@ export function projectLegendContext(
   }
 }
 
-/** 分时行情行：按前收计算涨跌，缺失前收时整行不展示。 */
+/** 分时行情行：按前收计算涨跌；前收无效时保留行情，只省略涨跌。 */
 function projectTimeshareRow(
   context: RenderContext,
   targetIndex: number,
@@ -117,10 +93,8 @@ function projectTimeshareRow(
 ): LegendTimeshareRow | null {
   if (!isTimeShareDataView(context.dataView)) return null
   const item = isTimeShareDataArray(context.data) ? context.data[targetIndex] : undefined
-  const preClose = resolvePreClose(context.settings?.preClose)
-  if (!item || preClose === null) return null
+  if (!item) return null
 
-  const changeAmount = item.price - preClose
   const volume =
     typeof item.volume === 'number' && Number.isFinite(item.volume) ? item.volume : null
   const amount =
@@ -128,17 +102,15 @@ function projectTimeshareRow(
   return {
     price: item.price,
     average: item.average,
-    changeAmount,
-    changePercent: (changeAmount / preClose) * 100,
+    change: resolveLegendChange(item.price, context.settings?.preClose, colors),
     volume,
-    volumeText: volume === null ? null : `${formatLegendQuantity(volume)}手`,
+    volumeText: volume === null ? null : formatLegendQuantity(volume),
     amount,
     amountText: amount === null ? null : formatLegendQuantity(amount),
-    changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
   }
 }
 
-/** K 线当前柱：OHLC 与成交量文本，进入/离开画布不推动指标行位置。 */
+/** K 线当前柱：OHLC、涨跌幅与成交量文本，进入/离开画布不推动指标行位置。 */
 function projectCurrentBar(
   context: RenderContext,
   klineData: ReadonlyArray<KLineData>,
@@ -153,6 +125,11 @@ function projectCurrentBar(
     volume: typeof bar.volume === 'number' ? bar.volume : null,
     volumeText: typeof bar.volume === 'number' ? formatLegendQuantity(bar.volume) : null,
     color: bar.close >= bar.open ? colors.candleUpBody : colors.candleDownBody,
+    change: resolveLegendChange(
+      bar.close,
+      targetIndex > 0 ? klineData[targetIndex - 1]?.close : null,
+      colors,
+    ),
   }
 }
 
@@ -273,6 +250,6 @@ function projectComparisonRow(
     ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
     percent,
     color: context.comparisonColors?.get(identity) ?? colors.palette.i2,
-    percentColor: signedColor(percent, colors),
+    percentColor: legendChangeColor(percent, colors),
   }
 }

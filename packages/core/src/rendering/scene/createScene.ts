@@ -9,9 +9,37 @@ import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
 import { createPrimitiveComposer } from '../primitives/impl/composer.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
-import type { PaintPrimitive, PrimitiveComposer, PrimitiveSurface } from '../primitives/types.js'
-import type { Layer, LayerPaint, PrimitiveDrawContext, Scene, SceneFrame } from './types.js'
+import type {
+  PaintPrimitive,
+  PrimitiveClip,
+  PrimitiveComposer,
+  PrimitiveSurface,
+} from '../primitives/types.js'
+import type {
+  Layer,
+  LayerPaint,
+  LayerRole,
+  PrimitiveDrawContext,
+  Scene,
+  SceneFrame,
+} from './types.js'
 import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
+
+/** 数据角色按内容区裁切；背景网格与 overlay 不裁。 */
+const CLIPPED_ROLES: ReadonlySet<LayerRole> = new Set([
+  'primary',
+  'indicator',
+  'component',
+  'drawing',
+])
+
+/** 同一可见表面上按裁切区分的直出批次。 */
+interface SurfaceBatch {
+  primitives: PaintPrimitive[]
+  dpr: number
+  transform?: DataTransform
+  clip?: PrimitiveClip
+}
 
 /**
  * 去掉帧上下文里的 `ctx`。
@@ -90,11 +118,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     if (disposed) return
     // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
-    // 可见 GPU 表面按 pane 累积；帧末一次直出，不产生拷贝。
-    const surfaces = new Map<
-      PrimitiveSurface,
-      { primitives: PaintPrimitive[]; dpr: number; transform?: DataTransform }
-    >()
+    // 可见 GPU 表面按 pane 累积；同一表面按裁切区分批次，帧末一次直出。
+    const surfaces = new Map<PrimitiveSurface, SurfaceBatch[]>()
     /**
      * 几何写可见表面，文字仍走它上方的 2D 目标。
      *
@@ -107,18 +132,24 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       composer: PrimitiveComposer,
       primitives: readonly PaintPrimitive[],
       dpr: number,
-      transform?: DataTransform,
+      transform: DataTransform | undefined,
+      clip: PrimitiveClip | undefined,
     ): void => {
-      let entry = surfaces.get(surface)
+      let batches = surfaces.get(surface)
+      let entry = batches?.find((batch) => batch.clip === clip)
       const text: PaintPrimitive[] = []
       for (const primitive of primitives) {
         if (primitive.kind === 'text') {
           text.push(primitive)
           continue
         }
+        if (!batches) {
+          batches = []
+          surfaces.set(surface, batches)
+        }
         if (!entry) {
           entry = { primitives: [], dpr }
-          surfaces.set(surface, entry)
+          batches.push(entry)
         }
         entry.dpr = dpr
         entry.transform = transform
@@ -155,10 +186,37 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           SCENE_TARGET_Z[scenePaintTarget(a.role)] - SCENE_TARGET_Z[scenePaintTarget(b.role)] ||
           a.z - b.z,
       )
+      // 内容区裁切只作用于数据层：进入前设置，离开前落盘并恢复。
+      let clipTarget: CanvasRenderingContext2D | null = null
+      let clipActive = false
+      const releaseClip = (): void => {
+        if (!clipTarget || !clipActive) return
+        composers.get(clipTarget)?.flush()
+        clipTarget.restore()
+        clipActive = false
+      }
       // 依次绘制这批 Layer
       for (const layer of candidates) {
         const target = pane.targets[scenePaintTarget(layer.role)]
         if (!target) continue
+        const clip = pane.clip && CLIPPED_ROLES.has(layer.role) ? pane.clip : undefined
+        if (target !== clipTarget) {
+          releaseClip()
+          clipTarget = target
+        }
+        if ((clip !== undefined) !== clipActive) {
+          composerFor(target, pane.renderer).flush()
+          if (clip) {
+            target.save()
+            target.beginPath()
+            target.rect(clip.x, clip.y, clip.width, clip.height)
+            target.clip()
+            clipActive = true
+          } else {
+            target.restore()
+            clipActive = false
+          }
+        }
         const composer = composerFor(target, pane.renderer)
         if (layer.kind === 'draw-list') {
           // 纯增量图层：没有 ctx；有可见 GPU 表面时直接写入，否则进入合成器。
@@ -167,7 +225,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
             ...withoutContext(pane.context as TFrame),
             primitives: surface
               ? (primitives, dpr, transform) =>
-                  submitToSurface(surface, composer, primitives, dpr, transform)
+                  submitToSurface(surface, composer, primitives, dpr, transform, clip)
               : composer.submit,
             measureContext: target,
             paneId: pane.paneId,
@@ -203,23 +261,37 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         }
         composer.flush()
       }
-      // 主图带直出：一次写入可见表面；失败整批回落到 2D 合成路径。
+      releaseClip()
+      // 主图带直出：按裁切批次写入可见表面；失败整批回落到 2D 合成路径。
       const surface = pane.gpuSurface
       if (surface) {
-        const entry = surfaces.get(surface)
-        const dpr = entry?.dpr ?? pane.dpr ?? 1
-        const batch = entry?.primitives
-        if (entry || pane.clear) {
-          if (!surface.paint(batch ?? [], dpr, pane.clear, entry?.transform) && batch?.length) {
-            const main = pane.targets.main
-            if (main) {
-              const composer = composerFor(main, pane.renderer)
-              composer.submit(batch, dpr, entry?.transform)
-              composer.flush()
-            }
-          }
-        }
+        const batches = surfaces.get(surface)
         surfaces.delete(surface)
+        let cleared = false
+        const flushBatch = (batch?: SurfaceBatch): void => {
+          const shouldClear = pane.clear && !cleared
+          const dpr = batch?.dpr ?? pane.dpr ?? 1
+          const primitives = batch?.primitives ?? []
+          if (primitives.length === 0 && !shouldClear) return
+          const painted = surface.paint(primitives, dpr, shouldClear, batch?.transform, batch?.clip)
+          if (shouldClear && painted) cleared = true
+          if (painted || primitives.length === 0) return
+          // 直出失败：整批回落到 2D 合成，裁切由目标自身保证。
+          const main = pane.targets.main
+          if (!main) return
+          main.save()
+          if (batch?.clip) {
+            main.beginPath()
+            main.rect(batch.clip.x, batch.clip.y, batch.clip.width, batch.clip.height)
+            main.clip()
+          }
+          const composer = composerFor(main, pane.renderer)
+          composer.submit(primitives, dpr, batch?.transform)
+          composer.flush()
+          main.restore()
+        }
+        if (batches?.length) for (const batch of batches) flushBatch(batch)
+        else flushBatch()
       }
     }
     // 帧末统一落盘：每个目标只做一次离屏渲染与合成。

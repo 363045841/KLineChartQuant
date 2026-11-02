@@ -146,15 +146,14 @@ function prepareCandles(args: {
 
   // 预取 displayRange，避免循环内每根 K 线 4 次 getDisplayRange()
   const { maxPrice, minPrice } = pane.yAxis.getDisplayRange()
-  const paddingTop = pane.yAxis.getPaddingTop()
-  const paddingBottom = pane.yAxis.getPaddingBottom()
-  const viewHeight = Math.max(1, pane.height - paddingTop - paddingBottom)
+  const contentTop = pane.yAxis.getContentTop()
+  const viewHeight = pane.yAxis.getContentHeight()
   const isLinear = pane.yAxis.getScaleType() === ScaleType.Linear
   let fastPriceToY: (price: number) => number
   if (isLinear) {
     const priceRange = maxPrice - minPrice || 1
     const scaleK = viewHeight / priceRange
-    const scaleB = paddingTop + viewHeight
+    const scaleB = contentTop + viewHeight
     fastPriceToY = (price: number) => scaleB - (price - minPrice) * scaleK
   } else {
     fastPriceToY = (price: number) => pane.yAxis.priceToY(price)

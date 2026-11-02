@@ -5,31 +5,47 @@
  */
 import type { RenderContext } from '@/foundation/plugin/index.js'
 
-/** 绘制一个分时片段的昨收虚线。 */
+/** 绘制昨收虚线，横跨给定区间（单日分时为整条可见画布）。 */
 export function drawPreCloseLine(
   ctx: CanvasRenderingContext2D,
-  xPositions: number[],
+  startX: number,
+  endX: number,
   y: number,
   dpr: number,
   color: string,
 ): void {
-  if (xPositions.length < 2) return
-  const firstX = xPositions[0]!
-  const lastX = xPositions[xPositions.length - 1]!
+  if (endX <= startX) return
 
   ctx.save()
   ctx.strokeStyle = color
   ctx.lineWidth = 1
   ctx.setLineDash([4, 4])
   ctx.beginPath()
-  ctx.moveTo(firstX, y)
-  ctx.lineTo(lastX, y)
+  ctx.moveTo(startX, y)
+  ctx.lineTo(endX, y)
   ctx.stroke()
   ctx.setLineDash([])
   ctx.restore()
 }
 
-/** 按片段基准线分别绘制上涨和下跌面积。 */
+/**
+ * 渐变向背景收敛时的终点色：主题背景色的 RGB 加 0 透明度。
+ *
+ * Canvas 渐变插值颜色通道，终点若写成透明黑，整块面积会向灰色偏移；
+ * 用背景色作基色让渐变只在 alpha 上收敛，面积才真正融进画布。
+ */
+function resolveBackgroundFade(ctx: CanvasRenderingContext2D, background: string): string {
+  ctx.save()
+  // fillStyle 的 getter 返回浏览器规范化后的颜色（#rrggbb 或 rgba(...)），不需要自行解析主题写法。
+  ctx.fillStyle = background
+  const normalized = ctx.fillStyle
+  ctx.restore()
+  if (normalized.startsWith('#')) return `${normalized.slice(0, 7)}00`
+  const [r, g, b] = normalized.slice(normalized.indexOf('(') + 1).split(',')
+  return `rgba(${r?.trim()}, ${g?.trim()}, ${b?.trim()}, 0)`
+}
+
+/** 按片段基准线分别绘制上涨和下跌面积，渐变由片段基准色收敛到主题背景色。 */
 export function drawAreaFill(
   ctx: CanvasRenderingContext2D,
   xPositions: number[],
@@ -38,10 +54,12 @@ export function drawAreaFill(
   dpr: number,
   upColor: string,
   downColor: string,
+  background: string,
 ): void {
   if (xPositions.length < 2) return
 
   const n = xPositions.length
+  const fade = resolveBackgroundFade(ctx, background)
 
   function buildPolygon(isAbove: boolean): Array<{ x: number; y: number }> {
     const pts: Array<{ x: number; y: number }> = [{ x: xPositions[0]!, y: baselineY }]
@@ -79,7 +97,7 @@ export function drawAreaFill(
     ctx.save()
     const grad = ctx.createLinearGradient(0, topY, 0, baselineY)
     grad.addColorStop(0, upColor)
-    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    grad.addColorStop(1, fade)
     ctx.beginPath()
     ctx.moveTo(abovePts[0]!.x, abovePts[0]!.y)
     for (let i = 1; i < abovePts.length; i++) {
@@ -96,7 +114,7 @@ export function drawAreaFill(
     const botY = Math.max(...belowPts.map((p) => p.y))
     ctx.save()
     const grad = ctx.createLinearGradient(0, baselineY, 0, botY)
-    grad.addColorStop(0, 'rgba(0,0,0,0)')
+    grad.addColorStop(0, fade)
     grad.addColorStop(1, downColor)
     ctx.beginPath()
     ctx.moveTo(belowPts[0]!.x, belowPts[0]!.y)

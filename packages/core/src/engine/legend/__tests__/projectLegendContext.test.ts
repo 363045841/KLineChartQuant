@@ -3,10 +3,12 @@ import type { SymbolSpec } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { projectComparison } from '@/engine/chartModel'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
+import { LEGEND_GAP_PX, LEGEND_READOUT_GAP_PX } from '@/engine/legend/impl/legendGeometry'
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
 import { projectLegendContext } from '../impl/projectLegendContext'
+import { projectMainLegendRows } from '../impl/projectLegendRows'
 
 function point(timestamp: number, price: number): TimeShareData {
   return { timestamp, price, average: price, volume: 100, amount: price * 100 }
@@ -31,8 +33,8 @@ describe('projectLegendContext layout', () => {
 })
 
 describe('projectLegendContext timeshare baseline', () => {
-  it('formats timeshare volume as hands', () => {
-    const context = createMockRenderContext({
+  it('formats volume with the shared quantity text', () => {
+    const timeshare = createMockRenderContext({
       data: [{ ...point(1, 10), volume: 12_345 }],
       period: 'timeshare',
       dataView: ChartDataViewId.TimeShare,
@@ -42,10 +44,21 @@ describe('projectLegendContext timeshare baseline', () => {
       isAsiaMarket: true,
       settings: { preClose: 9 },
     })
+    const kline = createMockRenderContext({
+      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10, volume: 12_345 }],
+      period: 'daily',
+      dataView: ChartDataViewId.KLine,
+      range: { start: 0, end: 1 },
+      crosshairIndex: 0,
+      paneWidth: 800,
+      isAsiaMarket: true,
+    })
 
-    const result = projectLegendContext({ context, host: null })
+    const timeshareRow = projectLegendContext({ context: timeshare, host: null })?.timeshare
+    const klineRow = projectLegendContext({ context: kline, host: null })?.currentBar
 
-    expect(result?.timeshare?.volumeText).toBe('1.23万手')
+    expect(timeshareRow?.volumeText).toBe('1.23万')
+    expect(klineRow?.volumeText).toBe(timeshareRow?.volumeText)
   })
 
   // 验证仅有成交额的分时不伪造成交量。
@@ -69,23 +82,125 @@ describe('projectLegendContext timeshare baseline', () => {
     expect(result?.timeshare?.amountText).toBe('69.73亿')
   })
 
-  it.each([undefined, -1])(
-    'does not derive changes from the first price when preClose is %s',
-    (preClose) => {
-      const context = createMockRenderContext({
-        data: [point(1, 10), point(2, 11)],
+  it.each([undefined, -1])('keeps the quote when preClose is %s', (preClose) => {
+    const context = createMockRenderContext({
+      data: [point(1, 10), point(2, 11)],
+      period: 'timeshare',
+      dataView: ChartDataViewId.TimeShare,
+      range: { start: 0, end: 2 },
+      crosshairIndex: 1,
+      paneWidth: 800,
+      isAsiaMarket: true,
+      settings: { preClose },
+    })
+
+    const result = projectLegendContext({ context, host: null })
+
+    expect(result?.timeshare?.change).toBeNull()
+    expect(result?.timeshare?.price).toBe(11)
+    expect(result?.timeshare?.average).toBe(11)
+
+    const rows = projectMainLegendRows(result!, 0)
+    expect(rows.flatMap((row) => row.texts.map((text) => text.text))).toEqual([
+      '现价 11.00',
+      '均价 11.00',
+      '成交量 100.00',
+      '成交额 1100.00',
+    ])
+    expect(rows[0]!.texts[0]!.color).toBe(result?.colors?.textPrimary)
+  })
+})
+
+describe('projectLegendContext shared change readout', () => {
+  it('分时与 K 线输出同一份涨跌读数与文本', () => {
+    const timeshare = projectLegendContext({
+      context: createMockRenderContext({
+        data: [point(1, 10)],
         period: 'timeshare',
         dataView: ChartDataViewId.TimeShare,
+        range: { start: 0, end: 1 },
+        crosshairIndex: 0,
+        paneWidth: 800,
+        isAsiaMarket: true,
+        settings: { preClose: 9 },
+      }),
+      host: null,
+    })!
+    const kline = projectLegendContext({
+      context: createMockRenderContext({
+        data: [
+          { timestamp: 1000, open: 9, high: 9, low: 9, close: 9 },
+          { timestamp: 2000, open: 9, high: 10, low: 9, close: 10 },
+        ],
+        period: 'daily',
+        dataView: ChartDataViewId.KLine,
         range: { start: 0, end: 2 },
         crosshairIndex: 1,
         paneWidth: 800,
         isAsiaMarket: true,
-        settings: { preClose },
+      }),
+      host: null,
+    })!
+
+    // 涨跌文本片段：只在 K 线与分时各自行里取带符号/括号的读数。
+    const changeTexts = (legend: NonNullable<ReturnType<typeof projectLegendContext>>) =>
+      projectMainLegendRows(legend, 0)
+        .flatMap((row) => row.texts.map((text) => text.text))
+        .filter((text) => /^[(+-]/.test(text))
+
+    expect(timeshare.timeshare?.change?.amount).toBe(1)
+    expect(timeshare.timeshare?.change?.percent).toBeCloseTo(100 / 9)
+    expect(timeshare.timeshare?.change?.color).toBe(timeshare.colors.up)
+    expect(changeTexts(timeshare)).toEqual(['+1.00', '(+11.11%)'])
+    expect(changeTexts(kline)).toEqual(changeTexts(timeshare))
+
+    const gapsOf = (legend: NonNullable<ReturnType<typeof projectLegendContext>>, key: string) =>
+      projectMainLegendRows(legend, 0)
+        .find((row) => row.key === key)!
+        .texts.map((text) => text.gapBefore)
+    // 首段为 0，默认间距取行 gap，涨跌组内部只空 1/4 格。
+    expect(gapsOf(timeshare, 'timeshare')).toEqual([
+      0,
+      LEGEND_GAP_PX,
+      LEGEND_GAP_PX,
+      LEGEND_READOUT_GAP_PX,
+      LEGEND_GAP_PX,
+      LEGEND_GAP_PX,
+    ])
+    expect(gapsOf(kline, 'bar')).toEqual([
+      0,
+      LEGEND_GAP_PX,
+      LEGEND_GAP_PX,
+      LEGEND_GAP_PX,
+      LEGEND_GAP_PX,
+      LEGEND_READOUT_GAP_PX,
+    ])
+  })
+})
+
+describe('projectLegendContext bar change', () => {
+  const bars: KLineData[] = [
+    { timestamp: 1000, open: 10, high: 11, low: 9, close: 10 },
+    { timestamp: 2000, open: 10, high: 13, low: 8, close: 9 },
+  ]
+
+  it.each([
+    { close: 12, expectedAmount: 2, expectedPercent: 20, colorKey: 'up' as const },
+    { close: 8, expectedAmount: -2, expectedPercent: -20, colorKey: 'down' as const },
+  ])(
+    '以光标所指 K 线的前一根收盘价为基准计算涨跌 (close=$close)',
+    ({ close, expectedAmount, expectedPercent, colorKey }) => {
+      const context = createMockRenderContext({
+        data: [bars[0]!, { ...bars[1]!, close }],
+        crosshairIndex: 1,
+        range: { start: 0, end: 2 },
       })
 
       const result = projectLegendContext({ context, host: null })
 
-      expect(result?.timeshare).toBeNull()
+      expect(result?.currentBar?.change?.amount).toBe(expectedAmount)
+      expect(result?.currentBar?.change?.percent).toBeCloseTo(expectedPercent)
+      expect(result?.currentBar?.change?.color).toBe(result?.colors[colorKey])
     },
   )
 })
@@ -172,7 +287,6 @@ describe('projectLegendContext comparison rows', () => {
 
       const result = projectLegendContext({ context, host: null })
 
-      expect(result?.currentBar?.close).toBe(mainData[1]!.close)
       expect(result?.comparisons).toEqual([
         {
           symbol: spec.symbol,

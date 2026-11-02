@@ -151,8 +151,12 @@ export interface PaneInfo {
   yAxis: {
     priceToY(price: number): number
     yToPrice(y: number): number
-    getPaddingTop(): number
-    getPaddingBottom(): number
+    /** 内容区上边界：图例占位与视觉留白之后，价格从这里开始绘制。 */
+    getContentTop(): number
+    /** 内容区下边界。 */
+    getContentBottom(): number
+    /** 内容区高度。 */
+    getContentHeight(): number
     getDisplayRange(baseRange?: { maxPrice: number; minPrice: number }): {
       maxPrice: number
       minPrice: number

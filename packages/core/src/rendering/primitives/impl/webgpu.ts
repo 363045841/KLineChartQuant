@@ -7,7 +7,7 @@ import {
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
-import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
+import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
@@ -174,7 +174,7 @@ function createDevice(
     instanceTracker = new UploadTracker(),
     segmentTracker = new UploadTracker()
   return {
-    render(batch, width, height, dpr, clear = true, transform) {
+    render(batch, width, height, dpr, clear = true, transform, clip?: PrimitiveClip) {
       // 离屏目标只增不减；可见表面由 Pane 负责尺寸，直接沿用。
       const nextWidth = direct ? canvas.width : Math.max(width, targetWidth)
       const nextHeight = direct ? canvas.height : Math.max(height, targetHeight)
@@ -288,6 +288,17 @@ function createDevice(
       pass.setStencilReference(0)
       // 共享目标可能大于本 pane；只写左上角目标区域，其余内容由合成端忽略。
       pass.setViewport(0, 0, width, height, 0, 1)
+      if (clip) {
+        // 数据层内容区裁切：物理像素，原点在左上。
+        const x = Math.max(0, Math.floor(clip.x * dpr))
+        const y = Math.max(0, Math.floor(clip.y * dpr))
+        pass.setScissorRect(
+          x,
+          y,
+          Math.max(1, Math.min(nextWidth - x, Math.round(clip.width * dpr))),
+          Math.max(1, Math.min(nextHeight - y, Math.round(clip.height * dpr))),
+        )
+      }
       let active: GPURenderPipeline | undefined
       let activeBuffer: GPUBuffer | undefined
       /** 避免相邻同管线命令重复绑定。 */
@@ -357,7 +368,7 @@ function createSurface(
   let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
   return {
     canvas,
-    paint(primitives, dpr, clear, transform) {
+    paint(primitives, dpr, clear, transform, clip) {
       try {
         const document = canvas.ownerDocument
         if (!document) return false
@@ -374,7 +385,7 @@ function createSurface(
           transform,
         )
         target ??= createDevice(device, format, canvas, true)
-        target.render(batch, width, height, dpr, clear, transform)
+        target.render(batch, width, height, dpr, clear, transform, clip)
         return true
       } catch {
         target?.dispose()

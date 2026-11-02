@@ -14,7 +14,7 @@ describe('value-anchored Y axis ticks', () => {
   it('moves the same price marks with the series during a vertical pan', () => {
     const scale = new PriceScale()
     scale.setHeight(400)
-    scale.setPadding(20, 20)
+    scale.setContentInsets(20, 20)
     scale.setRange({ minPrice: 0, maxPrice: 100 })
     const initial = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Linear })
     // 纵向平移：18px 对应 100 跨度中的 5 个价格（viewHeight 360）。
@@ -31,7 +31,7 @@ describe('value-anchored Y axis ticks', () => {
   it('keeps percentage marks stable with a percent scale', () => {
     const scale = new PriceScale()
     scale.setHeight(400)
-    scale.setPadding(20, 20)
+    scale.setContentInsets(20, 20)
     scale.setBasePrice(100)
     scale.setRange({ minPrice: 90, maxPrice: 110 })
     scale.setScaleType(ScaleType.Percent)
@@ -48,7 +48,7 @@ describe('value-anchored Y axis ticks', () => {
   it('produces finite aligned marks in logarithmic space', () => {
     const scale = new PriceScale()
     scale.setHeight(400)
-    scale.setPadding(20, 20)
+    scale.setContentInsets(20, 20)
     scale.setRange({ minPrice: 1, maxPrice: 1000 })
     scale.setScaleType(ScaleType.Log)
     const ticks = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Log })

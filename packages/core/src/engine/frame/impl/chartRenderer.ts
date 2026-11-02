@@ -283,8 +283,8 @@ export class ChartRenderer {
           pane.height,
           pane.role,
           axis.getScaleType(),
-          axis.getPaddingTop(),
-          axis.getPaddingBottom(),
+          axis.getContentTop(),
+          axis.getContentHeight(),
           axis.getBasePrice(),
         ]
       }),
@@ -368,7 +368,7 @@ export class ChartRenderer {
         this.scheduleLastPriceCountdown(snapshot.countdown)
         if (snapshot.skip) return
         // 调整后备存储会自动清屏，必须紧邻本帧绘制，不能在 ResizeObserver 中提前执行。
-        this.deps.commitViewportResize()
+        this.deps.commitPendingLayout()
         // DOM scroll 与 canvas 绘制必须由同一帧事务提交，避免两个 rAF 产生视觉错位。
         this.commitViewportScroll()
         if (snapshot.frame) {
@@ -1269,6 +1269,13 @@ export class ChartRenderer {
       legendContexts.push(context)
 
       const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
+      // 数据层按内容区裁切；网格是背景，不受它约束。
+      const clip = {
+        x: 0,
+        y: pane.yAxis.getContentTop(),
+        width: vp.plotWidth,
+        height: pane.yAxis.getContentHeight(),
+      }
       // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端返回 null 并清掉旧表面。
       const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
       // 画 main canvas（非 overlay 角色 layer）
@@ -1279,6 +1286,7 @@ export class ChartRenderer {
           renderer: sceneRenderer,
           targets,
           gpuSurface,
+          clip,
           dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,
@@ -1294,6 +1302,7 @@ export class ChartRenderer {
           context,
           renderer: sceneRenderer,
           targets,
+          clip,
           dpr: vp.dpr,
           frameNumber: this.frameCount++,
           deltaMs: 0,
@@ -1415,8 +1424,9 @@ export class ChartRenderer {
           yAxis: {
             priceToY: () => 0,
             yToPrice: () => 0,
-            getPaddingTop: () => 0,
-            getPaddingBottom: () => 0,
+            getContentTop: () => 0,
+            getContentBottom: () => 0,
+            getContentHeight: () => 0,
             getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
             getScaleType: () => ScaleType.Linear,
             getBasePrice: () => null,

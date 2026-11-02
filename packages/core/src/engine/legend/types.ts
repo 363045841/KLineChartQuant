@@ -27,25 +27,33 @@ export interface LegendLayout {
   compact: boolean
 }
 
+/** 行情相对基准价的涨跌；K 线用前一根收盘价，分时用前收。缺少基准时为 null。 */
+export interface LegendBarChange {
+  amount: number
+  percent: number
+  /** 涨跌文本颜色，随正负取涨跌色。 */
+  color: string
+}
+
 /** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
-export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
+export type LegendCurrentBar = Omit<KLineData, 'volume' | 'changePercent' | 'changeAmount'> & {
   volume: number | null
-  // 成交量+单位格式化文本(eg. 1.23亿)
+  // 成交量缩写文本(eg. 1.23亿)，单位由数据契约决定
   volumeText: string | null
   color: string
+  change: LegendBarChange | null
 }
 
 export interface LegendTimeshareRow {
   price: number
   average: number
-  changeAmount: number
-  changePercent: number
+  /** 相对前收的涨跌；前收无效时为 null，行情行照常显示。 */
+  change: LegendBarChange | null
   volume: number | null
-  /** 带手数单位的成交量文本。 */
+  /** 成交量缩写文本；单位由数据契约决定，图例不拼接。 */
   volumeText: string | null
   amount: number | null
   amountText: string | null
-  changeColor: string
 }
 
 export interface LegendIndicatorRow {
@@ -109,21 +117,28 @@ export interface LegendOptions {
   visibleIndicatorIds?: ReadonlyArray<string>
 }
 
+/** 展示文本片段；gapBefore 相对上一段，省略时由行投影补默认间距。 */
 export interface LegendText {
   readonly text: string
   readonly color: string
   readonly gapBefore?: number
 }
 
+/** 行投影解析后的文本片段：间距已确定，renderer 不再按位置推断。 */
+export interface LegendRowText extends LegendText {
+  readonly gapBefore: number
+}
+
 export interface LegendRow {
   key: string
   paneId: string
+  /** 行盒左边界（相对图表容器）。 */
   x: number
+  /** 行盒顶部（相对图表容器），不含文本垂直居中的补偿。 */
   y: number
   maxWidth: number
   height: number
-  gap: number
-  texts: ReadonlyArray<LegendText>
+  texts: ReadonlyArray<LegendRowText>
   /** 按钮集合、标签和边界状态由 Core 生成，renderer 不按图例类型分支。 */
   actions: ReadonlyArray<LegendActionButton>
   indicator?: { instanceId: string; definitionId: string }
@@ -202,8 +217,14 @@ export interface LegendUiRequest {
 export interface LegendApi {
   readonly context: ReadonlySignal<LegendTemplateContext | null>
   readonly rows: ReadonlySignal<ReadonlyArray<LegendRow>>
+  /** 主图图例整块收起；收起后布局只保留收起控件的占位。 */
+  readonly mainCollapsed: ReadonlySignal<boolean>
   list(): ReadonlyArray<LegendEntry>
   get(id: string): LegendEntry | null
+  /** 切换主图图例整块收起；无指标行时拒绝收起。 */
+  setMainCollapsed(collapsed: boolean): void
+  /** 主图当前是否允许收起。 */
+  canCollapse(): boolean
   create(input: CreateLegendInput): string | null
   update(id: string, patch: LegendPatch): boolean
   remove(id: string): boolean
@@ -222,6 +243,8 @@ export interface LegendManagerDependencies {
   setComparisonHidden: (identity: string, hidden: boolean) => void
   getOptions: () => { legend?: LegendOptions }
   getVisibleIndicatorIds: () => ReadonlyArray<string>
+  /** 主图是否已有品种；空图不展示收起入口。 */
+  hasPrimarySymbol: () => boolean
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
   isScriptIndicator?: (definitionId: string) => boolean
   requestRender: () => void

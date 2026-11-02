@@ -1,7 +1,7 @@
 /** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
 
 import type { DataTransform } from '@/foundation/plugin/types.js'
-import type { PrimitiveBackend, PrimitiveSurface } from '../types.js'
+import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
 import { UploadTracker } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
@@ -129,7 +129,7 @@ function createDevice(
     gl.vertexAttribDivisor(location, 1)
   }
   return {
-    render(batch, width, height, dpr, clear = true, transform) {
+    render(batch, width, height, dpr, clear = true, transform, clip?: PrimitiveClip) {
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
       // 目标只增不减：多 pane 交替绘制不会每帧重分配 drawing buffer。
       if (canvas.width < width) canvas.width = width
@@ -175,7 +175,18 @@ function createDevice(
       gl.scissor(0, 0, width, height)
       // 可见表面在增量帧保留颜色，只重置 stencil。
       gl.clear(clear ? gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT : gl.STENCIL_BUFFER_BIT)
-      gl.disable(gl.SCISSOR_TEST)
+      if (clip) {
+        // 数据层内容区裁切：物理像素，原点在左下。
+        gl.enable(gl.SCISSOR_TEST)
+        gl.scissor(
+          Math.round(clip.x * dpr),
+          Math.round((height / dpr - clip.y - clip.height) * dpr),
+          Math.round(clip.width * dpr),
+          Math.round(clip.height * dpr),
+        )
+      } else {
+        gl.disable(gl.SCISSOR_TEST)
+      }
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       let active: 'mesh' | 'shape' | 'segments' | undefined
@@ -291,7 +302,7 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
   let preparer: ReturnType<typeof createPrimitivePreparer> | null = null
   return {
     canvas,
-    paint(primitives, dpr, clear, transform) {
+    paint(primitives, dpr, clear, transform, clip) {
       try {
         const document = canvas.ownerDocument
         if (!document) return false
@@ -309,7 +320,7 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
           transform,
         )
         device ??= createDevice(canvas, true, true)
-        device.render(batch, width, height, dpr, clear, transform)
+        device.render(batch, width, height, dpr, clear, transform, clip)
         return true
       } catch {
         device?.dispose()

@@ -91,7 +91,8 @@ export class PriceScale {
     this.height = Math.max(1, h)
   }
 
-  setPadding(top: number, bottom: number) {
+  /** 内容区上下内缩；padding 只属于 scale，对外只暴露内容区边界。 */
+  setContentInsets(top: number, bottom: number) {
     this.paddingTop = Math.max(0, top)
     this.paddingBottom = Math.max(0, bottom)
   }
@@ -100,12 +101,19 @@ export class PriceScale {
     return this.range
   }
 
-  getPaddingTop(): number {
+  /** 内容区上边界（pane 局部坐标），价格映射与刻度都从这里开始。 */
+  getContentTop(): number {
     return this.paddingTop
   }
 
-  getPaddingBottom(): number {
-    return this.paddingBottom
+  /** 内容区下边界（pane 局部坐标）。 */
+  getContentBottom(): number {
+    return Math.max(this.paddingTop, this.height - this.paddingBottom)
+  }
+
+  /** 内容区高度；价格映射、刻度和命中测试共用同一高度。 */
+  getContentHeight(): number {
+    return Math.max(1, this.getContentBottom() - this.paddingTop)
   }
 
   /** 设置刻度类型；对数轴按当前范围刷新变换公式，不改变范围本身。 */
@@ -127,11 +135,6 @@ export class PriceScale {
     return baseRange ?? this.range
   }
 
-  /** pane 内容区的有效高度（扣除上下 padding）。 */
-  private viewHeight(): number {
-    return Math.max(1, this.height - this.paddingTop - this.paddingBottom)
-  }
-
   /**
    * 把 baseRange 竖直平移指定像素，返回平移后的范围；不修改自身状态。
    * @param baseRange 起始范围
@@ -140,7 +143,7 @@ export class PriceScale {
   translateRange(baseRange: PriceRange, deltaY: number): PriceRange {
     const min = this.toNative(baseRange.minPrice)
     const max = this.toNative(baseRange.maxPrice)
-    const shift = deltaY * ((max - min || 1) / this.viewHeight())
+    const shift = deltaY * ((max - min || 1) / this.getContentHeight())
     return { minPrice: this.fromNative(min + shift), maxPrice: this.fromNative(max + shift) }
   }
 
@@ -159,7 +162,7 @@ export class PriceScale {
     const fractionFromTop =
       anchorY === undefined || !Number.isFinite(anchorY)
         ? 0.5
-        : (anchorY - this.paddingTop) / this.viewHeight()
+        : (anchorY - this.paddingTop) / this.getContentHeight()
     // 固定 anchorY 处的价格，围绕它收放原生跨度。
     const anchorValue = max - fractionFromTop * (max - min)
     const center = anchorValue + (2 * fractionFromTop - 1) * half
@@ -171,7 +174,7 @@ export class PriceScale {
    */
   priceToY(price: number): number {
     const { maxPrice, minPrice } = this.getDisplayRange()
-    const viewHeight = this.viewHeight()
+    const viewHeight = this.getContentHeight()
 
     const nativeMin = this.toNative(minPrice)
     const nativeMax = this.toNative(maxPrice)
@@ -186,7 +189,7 @@ export class PriceScale {
    */
   yToPrice(y: number): number {
     const { maxPrice, minPrice } = this.getDisplayRange()
-    const viewHeight = this.viewHeight()
+    const viewHeight = this.getContentHeight()
     const ratio = 1 - (y - this.paddingTop) / viewHeight
 
     const nativeMin = this.toNative(minPrice)

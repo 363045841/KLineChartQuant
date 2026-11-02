@@ -14,7 +14,7 @@ function span(scale: PriceScale): number {
 function createScale(mode: ScaleType): PriceScale {
   const scale = new PriceScale()
   scale.setHeight(400)
-  scale.setPadding(30, 50)
+  scale.setContentInsets(30, 50)
   scale.setRange({ minPrice: 80, maxPrice: 160 })
   scale.setBasePrice(100)
   scale.setScaleType(mode)

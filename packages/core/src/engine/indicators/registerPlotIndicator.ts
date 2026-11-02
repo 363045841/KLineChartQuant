@@ -57,7 +57,6 @@ function createScaleRendererFactory(
       indicatorKey,
       label,
       decimals: 2,
-      yPaddingPx: options.yPaddingPx,
       getCrosshair: options.getCrosshair,
       formatTickLabel: (value) => formatPlotValue(format, value),
       formatCrosshairLabel: (value) => formatPlotValue(format, value),

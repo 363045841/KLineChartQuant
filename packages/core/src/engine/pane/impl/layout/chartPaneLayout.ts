@@ -25,6 +25,8 @@ export interface PaneLayoutDependencies {
   /** scroll / plot 几何 SSOT */
   viewport: ViewportStateModule
   scheduleDraw: (level?: UpdateLevel) => void
+  /** pane 顶部必须让给图例的高度；布局只消费高度，不反向修改图例。 */
+  getHeaderInset: (paneId: string) => number
   /** pane ratios / specs / scaleTypes SSOT */
   pane: PaneStateModule
   /** commitLayout 写入 kernel 后的副作用（如 ensurePaneScaleTypes） */
@@ -336,7 +338,9 @@ export class ChartPaneLayout {
       const h = paneHeights[i] ?? 1
 
       pane.setLayout(y, h)
-      pane.setPadding(opt.yPaddingPx, opt.yPaddingPx)
+      // 图例占位已含底部间距：有图例时不再叠加视觉留白，避免顶部出现大片空白。
+      const headerInset = Math.max(0, this.deps.getHeaderInset(spec.id))
+      pane.setContentInsets(Math.max(opt.yPaddingPx, headerInset), opt.yPaddingPx)
 
       renderer.resize(vp.plotWidth, h, vp.dpr, y)
       this.syncLeftAxis(renderer)
@@ -346,7 +350,6 @@ export class ChartPaneLayout {
 
       y += h + gap
     }
-
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */

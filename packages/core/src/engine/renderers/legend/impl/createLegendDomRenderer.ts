@@ -10,6 +10,7 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
 import settings from '@iconify-icons/tabler/settings'
 import x from '@iconify-icons/tabler/x'
+import { LEGEND_COLLAPSE_HEIGHT_PX } from '@/engine/legend/impl/legendGeometry.js'
 import {
   LEGEND_TEXT_LINE_HEIGHT,
   LEGEND_UI_EVENT,
@@ -19,7 +20,7 @@ import {
 } from '@/engine/legend/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { FONT_FAMILY } from '@/foundation/tokens/fonts.js'
-import type { LegendDomRenderer } from '../types.js'
+import type { LegendDomFrame, LegendDomRenderer } from '../types.js'
 
 /** 隐藏/显示按钮的图标反映当前状态：显示状态用睁眼图标，隐藏状态用划线图标。 */
 const VISIBILITY_ICONS = { visible: eye, hidden: eyeOff } as const
@@ -60,15 +61,10 @@ interface MountedRow {
 /** 仅在值变化时写入样式，减少高频帧的 DOM 变更。 */
 function applyStyle(
   style: CSSStyleDeclaration,
-  property: 'left' | 'top' | 'maxWidth' | 'minHeight' | 'gap',
+  property: 'left' | 'top' | 'maxWidth' | 'minHeight',
   value: string,
 ): void {
   if (style[property] !== value) style[property] = value
-}
-
-/** 行盒内文本垂直居中产生的顶部偏移；文字行高小于行盒时需向上补偿，使文本顶部与左边距一致。 */
-function textTopOffset(height: number): number {
-  return Math.max(0, height - LEGEND_TEXT_LINE_HEIGHT) / 2
 }
 
 /** 将主题与交互样式限制在当前图表拥有的 Legend 容器中。 */
@@ -76,13 +72,13 @@ function createStyles(document: Document): HTMLStyleElement {
   const style = document.createElement('style')
   style.textContent = `
     .klc-legend-root { position:absolute; inset:0; z-index:9; pointer-events:none; }
-    .klc-legend-row { position:absolute; display:flex; align-items:center; width:max-content; box-sizing:border-box; z-index:0;
+    .klc-legend-row { position:absolute; display:flex; align-items:center; gap:0; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:${LEGEND_TEXT_LINE_HEIGHT}px; letter-spacing:normal; white-space:nowrap; pointer-events:none; }
     .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
       flex:0 0 auto; min-height:inherit; z-index:1; }
-    .klc-legend-text { display:flex; align-items:center; min-width:0; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
+    .klc-legend-text { display:flex; align-items:center; gap:0; min-width:0; min-height:inherit; width:max-content; max-width:100%; overflow:hidden; }
     .klc-legend-text > span { flex-shrink:0; }
     .klc-legend-row[data-hidden] .klc-legend-text,
     .klc-legend-row[data-hidden] .klc-legend-name > span { filter:grayscale(1); opacity:.55; }
@@ -103,7 +99,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-button:disabled:hover { background:transparent; }
     .klc-legend-button > svg { display:block; width:14px; height:14px; overflow:visible; }
     .klc-legend-collapse { position:absolute; z-index:1; display:flex; align-items:center; gap:2px;
-      height:16px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
+      height:${LEGEND_COLLAPSE_HEIGHT_PX}px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
       background:var(--klc-color-ui-surface); color:var(--klc-color-ui-text-soft); cursor:pointer; pointer-events:auto; }
     .klc-legend-collapse[hidden] { display:none; }
     .klc-legend-collapse:hover, .klc-legend-collapse:focus-visible { outline:none; }
@@ -170,10 +166,10 @@ function addActions(
   row.actionFrame = frame
 }
 
-/** 创建 DOM renderer，通过 hasSelectedSymbol 读取当前品种选择状态。 */
+/** 创建 DOM renderer；收起状态由 Core 持有，渲染器只提交切换意图。 */
 export function createLegendDomRenderer(
   host: HTMLElement,
-  hasSelectedSymbol: () => boolean,
+  setMainCollapsed: (collapsed: boolean) => void,
   execute: (id: string, action: LegendAction) => LegendUiRequest | null,
 ): LegendDomRenderer {
   const document = host.ownerDocument
@@ -183,7 +179,7 @@ export function createLegendDomRenderer(
   host.append(root)
   const mounted = new Map<string, Map<string, MountedRow>>()
 
-  // 主图图例整块收起状态只存在于当前图表实例内存；收起只是切换已有行的显示，不改发布数据。
+  // 最近一帧的主图收起结果；真正的状态在 Core，这里只用于显隐与按钮定位。
   let mainCollapsed = false
   // 收起时在图标右侧显示的主图指标数量。
   let mainIndicatorCount = 0
@@ -203,8 +199,7 @@ export function createLegendDomRenderer(
   collapseButton.append(collapseIcon, collapseCount)
   collapseButton.addEventListener('click', (event) => {
     event.stopPropagation()
-    mainCollapsed = !mainCollapsed
-    applyCollapseState()
+    setMainCollapsed(!mainCollapsed)
   })
   // 收起按钮阻止画布拖拽，点击不触发画布指针流程。
   for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
@@ -344,12 +339,9 @@ export function createLegendDomRenderer(
       ? data.actions.length * ACTION_BUTTON_STEP_PX + ACTION_FRAME_PADDING_PX
       : 0
     applyStyle(row.element.style, 'left', `${data.x}px`)
-    applyStyle(row.element.style, 'top', `${data.y - textTopOffset(data.height)}px`)
+    applyStyle(row.element.style, 'top', `${data.y}px`)
     applyStyle(row.element.style, 'maxWidth', `${Math.max(0, data.maxWidth - actionWidth)}px`)
     applyStyle(row.element.style, 'minHeight', `${data.height}px`)
-    // 首段参数已移到独立容器，其前置间距由容器间 gap 承担，避免负 margin 被裁剪。
-    applyStyle(row.element.style, 'gap', `${data.texts[1]?.gapBefore ?? data.gap}px`)
-    applyStyle(row.text.style, 'gap', `${data.gap}px`)
     const loading = data.loading === true
     if (row.spinner.hidden === loading) row.spinner.hidden = !loading
   }
@@ -377,8 +369,8 @@ export function createLegendDomRenderer(
       if (node.data !== segment.text) node.data = segment.text
       if (created || previous.texts[index]?.color !== segment.color)
         span.style.color = segment.color
-      const marginLeft =
-        index > 1 && segment.gapBefore !== undefined ? `${segment.gapBefore - data.gap}px` : ''
+      // 间距由行投影解析成每段的最终值，renderer 不按下标推断。
+      const marginLeft = index === 0 ? '' : `${segment.gapBefore}px`
       if (span.style.marginLeft !== marginLeft) span.style.marginLeft = marginLeft
     }
     // 加载圈始终跟在文本（含参数）之后；span 增删后再校正顺序。
@@ -417,20 +409,17 @@ export function createLegendDomRenderer(
   }
 
   /** 主图行就绪后更新收起按钮的位置、可见性与计数。 */
-  function syncMainCollapse(
-    rows: ReadonlyArray<LegendRow>,
-    indicatorRows: ReadonlyArray<LegendRow>,
-  ): void {
+  function syncMainCollapse(rows: ReadonlyArray<LegendRow>, canCollapse: boolean): void {
     const first = rows[0]
     const last = rows[rows.length - 1]
-    mainIndicatorCount = indicatorRows.length
-    // 已选择品种且主图有指标行时启用，避免默认指标让空图显示展开/收起入口。
-    const enable =
-      hasSelectedSymbol() && indicatorRows.length > 0 && first !== undefined && last !== undefined
+    mainIndicatorCount = rows.filter((row) => row.indicator).length
+    // 只有在 Core 判定可收起且确实有行时才展示入口，空图不显示展开/收起。
+    const enable = canCollapse && first !== undefined && last !== undefined
     if (collapseButton.hidden === enable) collapseButton.hidden = !enable
     if (enable) {
-      firstRowTop = `${first.y - textTopOffset(first.height)}px`
-      lastRowBottom = `${last.y - textTopOffset(last.height) + last.height + COLLAPSE_GAP_PX}px`
+      // 收起按钮与首行文本垂直居中；展开时落在末行行盒下方。
+      firstRowTop = `${first.y + (first.height - LEGEND_COLLAPSE_HEIGHT_PX) / 2}px`
+      lastRowBottom = `${last.y + last.height + COLLAPSE_GAP_PX}px`
       applyStyle(collapseButton.style, 'left', `${first.x}px`)
     } else {
       firstRowTop = null
@@ -440,24 +429,28 @@ export function createLegendDomRenderer(
   }
 
   return {
-    update(paneId, rows, paneOrder) {
-      prunePanes(paneOrder)
-      const entries = pruneRows(paneId, rows)
-      const indicatorRows = rows.filter((row) => row.indicator)
-      for (const data of rows) {
-        let row = entries.get(data.key)
-        if (!row) {
-          row = createRow(data)
-          entries.set(data.key, row)
+    update(frame: LegendDomFrame) {
+      mainCollapsed = frame.mainCollapsed
+      prunePanes(frame.rowsByPane.map((pane) => pane.paneId))
+      let mainRows: ReadonlyArray<LegendRow> = []
+      for (const { paneId, rows } of frame.rowsByPane) {
+        const entries = pruneRows(paneId, rows)
+        for (const data of rows) {
+          let row = entries.get(data.key)
+          if (!row) {
+            row = createRow(data)
+            entries.set(data.key, row)
+          }
+          const previous = row.data
+          syncActions(row, data)
+          syncGeometry(row, data)
+          syncTexts(row, data, previous)
+          syncState(row, data, previous)
+          row.data = data
         }
-        const previous = row.data
-        syncActions(row, data)
-        syncGeometry(row, data)
-        syncTexts(row, data, previous)
-        syncState(row, data, previous)
-        row.data = data
+        if (paneId === MAIN_PANE_ID) mainRows = rows
       }
-      if (paneId === MAIN_PANE_ID) syncMainCollapse(rows, indicatorRows)
+      syncMainCollapse(mainRows, frame.canCollapse)
     },
     clear,
     dispose() {

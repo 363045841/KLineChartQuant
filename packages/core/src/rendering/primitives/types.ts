@@ -94,6 +94,14 @@ export interface PrimitiveBackend {
   dispose(): void
 }
 
+/** 逻辑像素的矩形裁切区，原点为目标画布左上角。 */
+export interface PrimitiveClip {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /** 可见 GPU 表面的直出入口；`clear` 表示本帧是否先清空整张表面。 */
 export interface PrimitiveSurface {
   readonly canvas: HTMLCanvasElement
@@ -102,6 +110,7 @@ export interface PrimitiveSurface {
     dpr: number,
     clear: boolean,
     transform?: DataTransform,
+    clip?: PrimitiveClip,
   ): boolean
   dispose(): void
 }

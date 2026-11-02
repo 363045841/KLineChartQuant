@@ -38,9 +38,9 @@ function niceStep(rough: number, pixelsPerUnit: number): number {
 
 /** 返回 pane 内的刻度坐标和原始价格；标签文本由轴渲染器格式化。 */
 export function createYAxisTicks(pane: PaneInfo, display: EffectiveAxisDisplayInput): YAxisTick[] {
-  const { yAxis, height } = pane
-  const top = yAxis.getPaddingTop()
-  const bottom = Math.max(top, height - yAxis.getPaddingBottom())
+  const { yAxis } = pane
+  const top = yAxis.getContentTop()
+  const bottom = yAxis.getContentBottom()
   const topPrice = yAxis.yToPrice(top)
   const bottomPrice = yAxis.yToPrice(bottom)
   const scaleType = yAxis.getScaleType()

@@ -45,7 +45,8 @@ export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
         if (baseline !== null) {
           drawPreCloseLine(
             ctx,
-            [dayGeometry.startX, dayGeometry.endX],
+            dayGeometry.startX,
+            dayGeometry.endX,
             pane.yAxis.priceToY(baseline),
             dpr,
             colors.timeSharePreClose,
@@ -76,6 +77,7 @@ export function createFiveDayTimeShareLayer(): Layer<RenderContext> {
             dpr,
             colors.timeShareAreaUp,
             colors.timeShareAreaDown,
+            colors.chartBackground,
           )
         }
         drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 1)

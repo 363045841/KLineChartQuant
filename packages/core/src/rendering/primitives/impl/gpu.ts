@@ -1,7 +1,7 @@
 /** GPU 原语调度：纯几何整批准备并一次合成，含文字的批次整批交给 Canvas 单次重放。 */
 
 import type { DataTransform } from '@/foundation/plugin/types.js'
-import type { PaintPrimitive, PrimitiveBackend, PrimitiveMetrics } from '../types.js'
+import type { PaintPrimitive, PrimitiveBackend, PrimitiveClip, PrimitiveMetrics } from '../types.js'
 import { paintCanvasPrimitives } from './canvas.js'
 import { createColorResolver } from './colors.js'
 import { createPrimitivePreparer, type GeometryPrimitive, type PreparedBatch } from './prepare.js'
@@ -20,6 +20,8 @@ export interface PrimitiveDevice {
     /** false 时只清 stencil，保留上一帧颜色（可见表面的增量帧）。 */
     clear?: boolean,
     transform?: DataTransform,
+    /** 数据层内容区裁切（逻辑像素）；离屏合成路径不传。 */
+    clip?: PrimitiveClip,
   ): { canvas: HTMLCanvasElement; metrics: DeviceMetrics }
   waitForIdle(): Promise<void>
   dispose(): void

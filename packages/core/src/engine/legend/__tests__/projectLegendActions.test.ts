@@ -1,7 +1,7 @@
 /** 图例操作按钮投影：脚本指标额外提供代码编辑入口。 */
 import { describe, expect, it } from 'vitest'
-import type { LegendEntry } from '../types'
 import { projectLegendActions } from '../impl/projectLegendActions'
+import type { LegendEntry } from '../types'
 
 describe('projectLegendActions', () => {
   const entry: LegendEntry = {

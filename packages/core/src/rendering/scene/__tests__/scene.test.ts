@@ -135,6 +135,36 @@ describe('createScene', () => {
     }
   })
 
+  it('clips data roles to the content rect but leaves the background grid unclipped', () => {
+    const scene = createScene<FrameStub>()
+    const input = frame('main')
+    const clip = { x: 0, y: 60, width: 300, height: 200 }
+    input.panes[0]!.clip = clip
+    const target = input.panes[0]!.targets.main!
+    for (const [id, role, z] of [
+      ['grid', 'background', 0],
+      ['candles', 'primary', 1],
+    ] as const) {
+      scene.addLayer({
+        id,
+        pane: 'main',
+        role,
+        z,
+        visible: true,
+        paint() {},
+        dispose() {},
+      })
+    }
+
+    scene.paint(input)
+
+    // 背景层不裁；数据层按内容区裁一次。
+    expect(target.rect).toHaveBeenCalledTimes(1)
+    expect(target.rect).toHaveBeenCalledWith(clip.x, clip.y, clip.width, clip.height)
+    expect(target.clip).toHaveBeenCalledTimes(1)
+    scene.dispose()
+  })
+
   it('injects the same target-bound primitives submitter into ctx and draw-list layers', () => {
     const scene = createScene<FrameStub>()
     const renderer = createMockRenderer()
