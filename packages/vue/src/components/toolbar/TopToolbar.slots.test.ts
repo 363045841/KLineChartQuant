@@ -23,7 +23,7 @@ describe('KLineChart toolbar host slots', () => {
     expect(html).toContain('Host account')
     expect(html).toContain('Host sign-in')
     expect(html.indexOf('Host account')).toBeLessThan(html.indexOf('top-toolbar__controls'))
-    expect(html.indexOf('Host sign-in')).toBeGreaterThan(html.indexOf('screenshot-actions'))
+    expect(html.indexOf('Host sign-in')).toBeGreaterThan(html.indexOf('chart-actions'))
   })
 
   it('keeps the default toolbar free of empty host containers', async () => {

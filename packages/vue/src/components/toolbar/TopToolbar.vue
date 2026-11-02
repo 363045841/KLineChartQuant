@@ -1,4 +1,4 @@
-<!-- 图表顶部控件及固定在右侧的截图入口。 -->
+<!-- 图表顶部控件及固定在右侧的图表操作入口。 -->
 <template>
   <div class="top-toolbar">
     <div v-if="$slots.start" class="top-toolbar__host"><slot name="start" /></div>
@@ -78,17 +78,6 @@
           <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip v-if="showBackButton" content="返回" placement="bottom" trigger-display="contents">
-      <button
-        type="button"
-        class="control-button back-button"
-        aria-label="返回"
-        @click="emit('back')"
-      >
-        <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
-        返回
-      </button>
-      </BaseTooltip>
       <MarketDataManagementDialog
         :show="showSourceDialog"
         @close="showSourceDialog = false"
@@ -100,7 +89,17 @@
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
     </div>
-    <div class="screenshot-actions">
+    <div class="chart-actions">
+      <BaseTooltip v-if="showBackButton" content="返回" placement="bottom">
+        <button
+          type="button"
+          class="control-button history-button"
+          aria-label="返回"
+          @click="emit('back')"
+        >
+          <IconTablerArrowLeft class="history-button__icon" aria-hidden="true" />
+        </button>
+      </BaseTooltip>
       <BaseTooltip content="撤回" command="drawing.undo" placement="bottom">
         <button
           type="button"
@@ -461,7 +460,6 @@
   .top-toolbar :deep(.symbol-chip),
   .top-toolbar :deep(.compare-chip),
   .top-toolbar__item :deep(.drop-menu__trigger),
-  .top-toolbar .back-button,
   .top-toolbar .history-button,
   .top-toolbar :deep(.screenshot-button) {
     height: 30px;
@@ -479,19 +477,8 @@
   .top-toolbar :deep(.compare-chip.is-open),
   .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled)),
   .top-toolbar__item :deep(.drop-menu__trigger[aria-expanded='true']),
-  .top-toolbar .back-button:hover:not(:disabled),
   .top-toolbar .history-button:hover:not(:disabled) {
     background: var(--klc-color-ui-hover);
-  }
-
-  .back-button {
-    flex: 0 0 auto;
-    margin-left: auto;
-  }
-
-  .back-button__icon {
-    width: 15px;
-    height: 15px;
   }
 
   /* 足迹设置仅用图标变色提示悬浮，点击区域保持紧凑。 */
@@ -525,7 +512,7 @@
     padding-left: 4px;
   }
 
-  .screenshot-actions {
+  .chart-actions {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -534,8 +521,8 @@
     padding-left: 4px;
   }
 
-  .screenshot-actions .history-button,
-  .screenshot-actions :deep(.screenshot-button) {
+  .chart-actions .history-button,
+  .chart-actions :deep(.screenshot-button) {
     color: var(--klc-color-ui-muted);
     width: 30px;
     min-width: 30px;
@@ -543,7 +530,7 @@
   }
 
   /* 截图入口只保留图标，去掉外框和默认底色，交互提示交给 hover tooltip。 */
-  .screenshot-actions :deep(.screenshot-button) {
+  .chart-actions :deep(.screenshot-button) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -551,8 +538,8 @@
     background: transparent;
   }
 
-  .screenshot-actions :deep(.screenshot-button:hover:not(:disabled)),
-  .screenshot-actions :deep(.screenshot-button[aria-expanded='true']:not(:disabled)) {
+  .chart-actions :deep(.screenshot-button:hover:not(:disabled)),
+  .chart-actions :deep(.screenshot-button[aria-expanded='true']:not(:disabled)) {
     border-color: transparent;
     background: var(--klc-color-ui-hover);
   }

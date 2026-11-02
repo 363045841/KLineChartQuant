@@ -35,7 +35,7 @@
         :aggregation-sources="aggregationSources"
         :enabled-source-names="enabledSourceNameSet"
         :watchlist-keys="watchlistKeys"
-        :show-back-button="kLineLevel === 'timeshare'"
+        :show-back-button="isTimeShareView"
         :screenshot-capturing="isCapturing"
         :screenshot-message="screenshotMessage"
         @screenshot="captureScreenshot"
@@ -404,6 +404,7 @@
     type DrawingLineLabelTarget,
     type DrawingStyle,
     type DrawingToolId,
+    isTimeShareDataView,
     type LegendOptions,
     type LegendTemplateContext,
     type RendererBackendRuntime,
@@ -981,6 +982,8 @@
     if (chartMode.value === 'timeshare') return 'timeshare'
     return controllerSymbols.value[0]?.period ?? initialKLineLevel
   })
+  /** 单日分时与五日分时共用同一个返回入口，只认运行时数据视图。 */
+  const isTimeShareView = computed(() => isTimeShareDataView(chartMode.value))
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
 
   // 控制器就绪前使用显式设置与默认值，就绪后直接读取活动布局设置。

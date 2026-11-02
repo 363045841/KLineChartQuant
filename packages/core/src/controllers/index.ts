@@ -12,12 +12,16 @@ export type {
   InstrumentLookupInput,
 } from '../features/agent/index.js'
 export { getRegisteredChartTools } from '../features/agent/index.js'
+export {
+  type ChartDataView,
+  ChartDataViewId,
+  isTimeShareDataView,
+} from '../foundation/types/chartView.js'
 export type {
   RendererBackend,
   RendererBackendRuntime,
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
-
 export { createChartController } from './chart/index.js'
 export {
   allIndicatorDefinitions,
