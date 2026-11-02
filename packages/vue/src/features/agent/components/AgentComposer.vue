@@ -182,8 +182,9 @@
     background: var(--klc-color-agent-composer-input-background);
   }
 
-  /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。 */
-  .composer__textarea {
+  /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。
+     覆盖必须带父类：primitive 默认值同为无层的单类规则，只靠加载顺序会翻转。 */
+  .composer__input .composer__textarea {
     --base-textarea-padding-block: var(--composer-inset);
     --base-textarea-border: 0px;
 
@@ -196,7 +197,7 @@
     line-height: 1.5;
   }
 
-  .composer__textarea::placeholder {
+  .composer__input .composer__textarea::placeholder {
     color: var(--agent-text-soft);
   }
 

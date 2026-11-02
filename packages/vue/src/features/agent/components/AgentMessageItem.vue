@@ -197,8 +197,9 @@
 
 <style scoped>
   .message__editor { position: relative; padding-bottom: 32px; }
-  /* BaseTextarea 负责自增高；编辑态贴合气泡，无内边距与边框。 */
-  .message__edit-input {
+  /* BaseTextarea 负责自增高；编辑态贴合气泡，无内边距与边框。
+     覆盖必须带父类：primitive 默认值同为无层的单类规则，只靠加载顺序会翻转。 */
+  .message__editor .message__edit-input {
     --base-textarea-padding-block: 0px;
     --base-textarea-border: 0px;
 
