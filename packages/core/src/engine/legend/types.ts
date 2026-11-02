@@ -27,12 +27,21 @@ export interface LegendLayout {
   compact: boolean
 }
 
+/** K 线相对前一根收盘价的涨跌；缺少基准时为 null，图例不生成任何涨跌文本。 */
+export interface LegendBarChange {
+  amount: number
+  percent: number
+  /** 涨跌文本颜色，随正负取涨跌色。 */
+  color: string
+}
+
 /** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
-export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
+export type LegendCurrentBar = Omit<KLineData, 'volume' | 'changePercent' | 'changeAmount'> & {
   volume: number | null
   // 成交量+单位格式化文本(eg. 1.23亿)
   volumeText: string | null
   color: string
+  change: LegendBarChange | null
 }
 
 export interface LegendTimeshareRow {

@@ -90,6 +90,33 @@ describe('projectLegendContext timeshare baseline', () => {
   )
 })
 
+describe('projectLegendContext bar change', () => {
+  const bars: KLineData[] = [
+    { timestamp: 1000, open: 10, high: 11, low: 9, close: 10 },
+    { timestamp: 2000, open: 10, high: 13, low: 8, close: 9 },
+  ]
+
+  it.each([
+    { close: 12, expectedAmount: 2, expectedPercent: 20, colorKey: 'up' as const },
+    { close: 8, expectedAmount: -2, expectedPercent: -20, colorKey: 'down' as const },
+  ])(
+    '以光标所指 K 线的前一根收盘价为基准计算涨跌 (close=$close)',
+    ({ close, expectedAmount, expectedPercent, colorKey }) => {
+      const context = createMockRenderContext({
+        data: [bars[0]!, { ...bars[1]!, close }],
+        crosshairIndex: 1,
+        range: { start: 0, end: 2 },
+      })
+
+      const result = projectLegendContext({ context, host: null })
+
+      expect(result?.currentBar?.change?.amount).toBe(expectedAmount)
+      expect(result?.currentBar?.change?.percent).toBeCloseTo(expectedPercent)
+      expect(result?.currentBar?.change?.color).toBe(result?.colors[colorKey])
+    },
+  )
+})
+
 describe('projectLegendContext comparison rows', () => {
   const mainData: KLineData[] = [
     { timestamp: 1000, date: '2025-01-01', open: 10, high: 11, low: 9, close: 10 },

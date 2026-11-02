@@ -58,6 +58,19 @@ function signedColor(value: number | null, colors: ColorTokens): string {
   return value > 0 ? colors.candleUpBody : colors.candleDownBody
 }
 
+/** K 线涨跌额与涨跌幅以相邻前一根收盘价为基准；首根或基准无效时返回 null，不伪造 0%。 */
+function resolveBarChange(
+  klineData: ReadonlyArray<KLineData>,
+  targetIndex: number,
+): { amount: number; percent: number } | null {
+  const preClose = targetIndex > 0 ? klineData[targetIndex - 1]?.close : undefined
+  const close = klineData[targetIndex]?.close
+  if (typeof preClose !== 'number' || !Number.isFinite(preClose) || preClose <= 0) return null
+  if (typeof close !== 'number' || !Number.isFinite(close)) return null
+  const amount = close - preClose
+  return { amount, percent: (amount / preClose) * 100 }
+}
+
 export function projectLegendContext(
   input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
@@ -138,7 +151,7 @@ function projectTimeshareRow(
   }
 }
 
-/** K 线当前柱：OHLC 与成交量文本，进入/离开画布不推动指标行位置。 */
+/** K 线当前柱：OHLC、涨跌幅与成交量文本，进入/离开画布不推动指标行位置。 */
 function projectCurrentBar(
   context: RenderContext,
   klineData: ReadonlyArray<KLineData>,
@@ -148,11 +161,13 @@ function projectCurrentBar(
   if (context.dataView !== ChartDataViewId.KLine) return null
   const bar = klineData[targetIndex]
   if (!bar || typeof bar.close !== 'number') return null
+  const change = resolveBarChange(klineData, targetIndex)
   return {
     ...bar,
     volume: typeof bar.volume === 'number' ? bar.volume : null,
     volumeText: typeof bar.volume === 'number' ? formatLegendQuantity(bar.volume) : null,
     color: bar.close >= bar.open ? colors.candleUpBody : colors.candleDownBody,
+    change: change ? { ...change, color: signedColor(change.percent, colors) } : null,
   }
 }
 

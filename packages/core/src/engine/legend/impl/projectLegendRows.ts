@@ -4,6 +4,7 @@ import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type {
   LegendComparisonRow,
   LegendIndicatorRow,
+  LegendLayout,
   LegendRow,
   LegendTemplateContext,
   LegendText,
@@ -46,7 +47,7 @@ export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: nu
   }
 
   if (legend.timeshare) pushTimeshareRows(legend.timeshare, layout.compact, colors, add)
-  if (legend.currentBar) pushBarRows(legend.currentBar, layout.compact, colors, add)
+  if (legend.currentBar) pushBarRows(legend.currentBar, layout, colors, add)
   for (const title of legend.indicators) {
     add(title.instanceId, projectIndicatorTexts(title, colors), {
       indicator: { instanceId: title.instanceId, definitionId: title.definitionId },
@@ -92,10 +93,10 @@ function pushTimeshareRows(
   } else add('timeshare', [...price, ...change, ...volume, ...amount])
 }
 
-/** K 线行情行：窄屏拆成 OHLC 与收盘两行，宽屏合并。 */
+/** K 线行情行：窄屏拆成 OHLC 与收盘两行，宽屏合并；涨跌额与涨跌幅紧跟收盘价。 */
 function pushBarRows(
   bar: NonNullable<LegendTemplateContext['currentBar']>,
-  compact: boolean,
+  layout: LegendLayout,
   colors: LegendTemplateContext['colors'],
   add: AddRow,
 ): void {
@@ -104,11 +105,23 @@ function pushBarRows(
     { text: `H ${bar.high.toFixed(2)}`, color: colors.textPrimary },
     { text: `L ${bar.low.toFixed(2)}`, color: colors.textPrimary },
   ]
+  const change = bar.change
+    ? [
+        { text: signed(bar.change.amount), color: bar.change.color },
+        {
+          text: `(${signed(bar.change.percent)}%)`,
+          color: bar.change.color,
+          // 涨跌额与涨跌幅是一组读数，只空 1/4 格与其它字段区分。
+          gapBefore: layout.gap / 4,
+        },
+      ]
+    : []
   const close = [
     { text: `C ${bar.close.toFixed(2)}`, color: bar.color },
+    ...change,
     ...(bar.volumeText ? [{ text: `Vol ${bar.volumeText}`, color: colors.textPrimary }] : []),
   ]
-  if (compact) {
+  if (layout.compact) {
     add('bar-ohl', ohl)
     add('bar-close', close)
   } else add('bar', [...ohl, ...close])
