@@ -216,7 +216,7 @@
   .agent-workbench-shell {
     /* 顶栏控件尺寸与关闭态启动器宽度同源，两个 header 的行内控件因此等高。 */
     --workbench-header-control-size: 30px;
-    /* 面板轨道宽度：开启时等于面板宽度，关闭时收成一列启动器；紧凑模式由下方覆盖为 0。 */
+    /* 面板轨道宽度：开启时等于面板宽度，关闭时收成一列启动器；紧凑模式下面板改为覆盖层，面板打开时为 0。 */
     --agent-panel-track: var(--workbench-header-control-size);
     --agent-bg: var(--klc-color-ui-background);
     --agent-surface: var(--klc-color-ui-surface);
@@ -370,6 +370,11 @@
     --agent-panel-track: 0px;
   }
 
+  /* 面板关闭时仍为启动器保留一列，否则它会溢出到图表右侧并遮挡价格轴。 */
+  .agent-workbench-shell--compact:not(.agent-workbench-shell--panel-open) {
+    --agent-panel-track: var(--workbench-header-control-size);
+  }
+
   .agent-workbench-shell--compact .drawer-backdrop {
     position: absolute;
     inset: 0;
@@ -394,15 +399,6 @@
     border-left: 0;
     border-right: 1px solid var(--klc-color-ui-border);
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
-  }
-
-  /* 紧凑模式的启动器贴外壳边缘，方向与覆盖式抽屉一致。 */
-  .agent-workbench-shell--compact .agent-launcher {
-    justify-self: end;
-  }
-
-  .agent-workbench-shell--compact.agent-workbench-shell--panel-left .agent-launcher {
-    justify-self: start;
   }
 
   @media (prefers-reduced-motion: reduce) {
