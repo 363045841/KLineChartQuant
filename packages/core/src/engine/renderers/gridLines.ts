@@ -68,8 +68,8 @@ function drawGridLines(context: PrimitiveRenderContext): void {
 
   // 五日分时纵线直接读取帧级日边界几何，保证首尾和日间分隔线均与主序列同源。
   // 网格是背景：纵向分隔线铺满整个 pane，图例占位也不切断；只有数据层按内容区裁切。
-  if (context.fiveDayTimeShareGeometry) {
-    for (const x of context.fiveDayTimeShareGeometry.verticalGridLineXs) {
+  if (context.timeShareGeometry) {
+    for (const x of context.timeShareGeometry.verticalGridLineXs) {
       add(createVerticalLineRect(x, 0, pane.height, dpr))
     }
   } else if (!isTimeShareDataView(context.dataView)) {

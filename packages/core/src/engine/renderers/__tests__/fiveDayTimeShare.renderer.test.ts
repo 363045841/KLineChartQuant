@@ -1,10 +1,12 @@
 /** 五日分时 renderer 的按日分段测试。 */
 import { describe, expect, it } from 'vitest'
-import type { TimeShareDay } from '@/data/provider/types'
+import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 import {
-  createMockCanvasContext,
-  createMockRenderContext,
-} from '@/engine/__tests__/helpers/renderTestKit'
+  createTimeShareDayGeometry,
+  createTimeShareGeometry,
+  createTimeShareRenderContext,
+  createTimeShareSegment,
+} from '@/engine/__tests__/helpers/timeShareTestKit'
 import { createFiveDayTimeShareLayer } from '../fiveDayTimeShare'
 
 describe('fiveDayTimeShare renderer', () => {
@@ -16,51 +18,39 @@ describe('fiveDayTimeShare renderer', () => {
       { timestamp: 3, price: 11, average: 11 },
       { timestamp: 4, price: 11.1, average: 11.05 },
     ]
-    const days: TimeShareDay[] = [
-      { tradingDate: '2026-08-14', preClose: 9.9, data: data.slice(0, 2) },
-      { tradingDate: '2026-08-17', preClose: 10.9, data: data.slice(2) },
-    ]
-    const context = createMockRenderContext({
+    const context = createTimeShareRenderContext({
       ctx,
       data,
       dataView: 'fiveDayTimeShare',
       period: '5daytimeshare',
-      range: { start: 0, end: 4 },
+      baseline: 9.9,
       paneWidth: 200,
-      kLineCenters: [10, 20, 110, 120],
-      timeShareRange: {
-        instrumentId: 'test',
-        timezone: 'Asia/Shanghai',
-        requestedDays: 2,
-        olderData: 'exhausted',
-        days,
-      },
-      fiveDayTimeShareGeometry: {
+      centers: [10, 20, 110, 120],
+      geometry: createTimeShareGeometry({
         sessionSlots: 241,
         contentWidth: 200,
         days: [
-          {
+          createTimeShareDayGeometry({
             tradingDate: '2026-08-14',
             dataStartIndex: 0,
             dataEndIndex: 2,
             startX: 0,
             endX: 100,
-            labelX: 50,
-          },
-          {
+          }),
+          createTimeShareDayGeometry({
             tradingDate: '2026-08-17',
             dataStartIndex: 2,
             dataEndIndex: 4,
             startX: 100,
             endX: 200,
-            labelX: 150,
-            separatorX: 100,
-          },
+          }),
         ],
-        verticalGridLineXs: [],
-      },
+        segments: [
+          createTimeShareSegment({ dataStartIndex: 0, dataEndIndex: 2, startX: 10, endX: 20 }),
+          createTimeShareSegment({ dataStartIndex: 2, dataEndIndex: 4, startX: 110, endX: 120 }),
+        ],
+      }),
       pane: { height: 300, yAxis: { priceToY: (price) => 200 - price } },
-      isAsiaMarket: true,
     })
     createFiveDayTimeShareLayer().paint({ ...context, paneId: 'main', clear: false })
 

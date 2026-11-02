@@ -10,57 +10,18 @@ import {
   computeTimeSharePriceRange,
   computeTimeShareTimeLabelIndices,
   computeTimeShareXLayout,
-  resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
 } from '../timeShareMath'
 
 describe('resolveTimeShareBaseline', () => {
-  it('prefers finite non-zero preClose over first trade price', () => {
-    expect(resolveTimeShareBaseline({ preClose: 10.5, firstPrice: 11 })).toBe(10.5)
-  })
-
-  it('does not treat the first trade as the pre-close baseline', () => {
-    expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 11 })).toBeNull()
-    expect(resolveTimeShareBaseline({ firstPrice: 11 })).toBeNull()
-    expect(resolveTimeShareBaseline({ preClose: null, firstPrice: 9 })).toBeNull()
-  })
-
-  it('returns null when no valid baseline exists', () => {
-    expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 0 })).toBeNull()
-    expect(resolveTimeShareBaseline({})).toBeNull()
-    expect(resolveTimeShareBaseline({ preClose: NaN, firstPrice: Infinity })).toBeNull()
-  })
-})
-
-describe('resolveFiveDayTimeShareBaseline', () => {
-  it('uses only the first trading day preClose for the entire window', () => {
-    expect(
-      resolveFiveDayTimeShareBaseline({
-        instrumentId: 'test',
-        timezone: 'Asia/Shanghai',
-        requestedDays: 2,
-        olderData: 'exhausted',
-        days: [
-          { tradingDate: '2026-08-14', preClose: 10, data: [] },
-          { tradingDate: '2026-08-17', preClose: 12, data: [] },
-        ],
-      }),
-    ).toBe(10)
-  })
-
-  it('does not replace a missing first-day preClose with a later day value', () => {
-    expect(
-      resolveFiveDayTimeShareBaseline({
-        instrumentId: 'test',
-        timezone: 'Asia/Shanghai',
-        requestedDays: 2,
-        olderData: 'exhausted',
-        days: [
-          { tradingDate: '2026-08-14', preClose: null, data: [] },
-          { tradingDate: '2026-08-17', preClose: 12, data: [] },
-        ],
-      }),
-    ).toBeNull()
+  it('accepts only a positive finite pre-close', () => {
+    expect(resolveTimeShareBaseline(10.5)).toBe(10.5)
+    expect(resolveTimeShareBaseline(0)).toBeNull()
+    expect(resolveTimeShareBaseline(-1)).toBeNull()
+    expect(resolveTimeShareBaseline(null)).toBeNull()
+    expect(resolveTimeShareBaseline(undefined)).toBeNull()
+    expect(resolveTimeShareBaseline(NaN)).toBeNull()
+    expect(resolveTimeShareBaseline(Infinity)).toBeNull()
   })
 })
 
@@ -141,7 +102,7 @@ describe('computeTimeShareXLayout', () => {
     expect(layout!.centers).toEqual([1, 239, 243, 479])
   })
 
-  it('uses the main-chart physical width algorithm for volume bars', () => {
+  it('derives bar width from the physical slot grid', () => {
     const layout = computeTimeShareXLayout({
       arrivedCount: 1,
       sessionSlots: 24,
@@ -181,6 +142,21 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.barVisible).toEqual([true, false, true, true])
+  })
+
+  it('keeps indexes aligned and marks unresolved slots as non-drawable', () => {
+    const layout = computeTimeShareXLayout({
+      arrivedCount: 3,
+      sessionSlots: 240,
+      totalWidth: 480,
+      dpr: 1,
+      slotIndices: [0, null, 2],
+    })
+
+    expect(layout).not.toBeNull()
+    expect(layout!.centers).toHaveLength(3)
+    expect(layout!.centers[1]).toBe(layout!.centers[0])
+    expect(layout!.barVisible).toEqual([true, false, true])
   })
 })
 

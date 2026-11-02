@@ -1,11 +1,14 @@
 /**
- * 分时绘制公共原语：昨收线、分段面积填充、分段折线。
+ * 分时绘制公共实现：昨收线、分段面积填充、分段折线与完整的单日/五日绘制入口。
  *
- * 从旧 `renderers/timeShare.ts` 抽出，供单日与五日分时 Layer 共用。
+ * 单日与五日只在几何来源上不同，绘制路径必须完全一致。
  */
 import type { RenderContext } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { isTimeShareDataArray } from '@/foundation/types/price.js'
+import { resolveTimeShareBaseline } from '../chartModel/index.js'
 
-/** 绘制昨收虚线，横跨给定区间（单日分时为整条可见画布）。 */
+/** 绘制昨收虚线，横跨给定交易日区间。 */
 export function drawPreCloseLine(
   ctx: CanvasRenderingContext2D,
   startX: number,
@@ -126,6 +129,76 @@ export function drawAreaFill(
     ctx.fill()
     ctx.restore()
   }
+}
+
+/**
+ * 绘制一帧分时主序列：单日与五日共用同一份帧级几何。
+ *
+ * 段由几何层按槽位连续性切好；这里只画段，不判断交易日或槽位边界。
+ * 昨收缺失时仍绘制价格与均价线，只跳过基准虚线和面积填充。
+ */
+export function paintTimeShareFrame(context: RenderContext): void {
+  const geometry = context.timeShareGeometry
+  if (!geometry || geometry.days.length === 0 || !isTimeShareDataArray(context.data)) return
+
+  const data = context.data
+  if (data.length === 0) return
+
+  const colors = resolveThemeColors(
+    context.theme,
+    context.isAsiaMarket,
+    context.colorPresetSettings,
+  )
+  const baseline = resolveTimeShareBaseline(context.timeShareBaseline)
+  const { ctx, pane, dpr, range, kLineCenters, scrollLeft } = context
+  const baselineY = baseline === null ? null : pane.yAxis.priceToY(baseline)
+
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  ctx.beginPath()
+  ctx.rect(scrollLeft, 0, context.paneWidth, pane.height)
+  ctx.clip()
+
+  if (baselineY !== null) {
+    for (const day of geometry.days) {
+      drawPreCloseLine(ctx, day.startX, day.endX, baselineY, dpr, colors.timeSharePreClose)
+    }
+  }
+
+  for (const segment of geometry.segments) {
+    const start = Math.max(segment.dataStartIndex, range.start)
+    const end = Math.min(segment.dataEndIndex, range.end, data.length)
+    if (end - start < 2) continue
+    const xPositions: number[] = []
+    const yPrices: number[] = []
+    const yAvgs: number[] = []
+    for (let index = start; index < end; index++) {
+      const point = data[index]
+      const x = kLineCenters[index - range.start]
+      if (!point || x === undefined) continue
+      xPositions.push(x)
+      yPrices.push(pane.yAxis.priceToY(point.price))
+      yAvgs.push(pane.yAxis.priceToY(point.average))
+    }
+    if (xPositions.length < 2) continue
+
+    if (baselineY !== null) {
+      drawAreaFill(
+        ctx,
+        xPositions,
+        yPrices,
+        baselineY,
+        dpr,
+        colors.timeShareAreaUp,
+        colors.timeShareAreaDown,
+        colors.chartBackground,
+      )
+    }
+    drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 1)
+    drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1)
+  }
+
+  ctx.restore()
 }
 
 /** 绘制单个交易日内连续的分时折线。 */

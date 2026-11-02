@@ -9,6 +9,7 @@ import {
   isMinutePeriod,
   isTimeSharePeriod,
 } from '../../foundation/types/chartPeriod.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
@@ -80,8 +81,9 @@ function collectTimeAxisTicks(
   const textColor = colors.text.secondary
   const fontSize = 12
 
-  if (context.fiveDayTimeShareGeometry) {
-    for (const day of context.fiveDayTimeShareGeometry.days) {
+  if (context.dataView === ChartDataViewId.FiveDayTimeShare && context.timeShareGeometry) {
+    for (const day of context.timeShareGeometry.days) {
+      if (day.tradingDate === undefined) continue
       const screenX = day.labelX - scrollLeft
       if (screenX < 0 || screenX > width) continue
       surface.register({

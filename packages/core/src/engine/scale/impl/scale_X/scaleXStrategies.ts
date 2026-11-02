@@ -1,15 +1,8 @@
 /** 集中定义各数据视图的横向标尺行为；模型、绘制和交互不再独立识别周期。 */
 import { slotIndexAt, slotWorldX } from '../../../../foundation/geometry/slotGrid.js'
 import { ChartDataViewId } from '../../../../foundation/types/chartView.js'
-import {
-  resolveMarketSessionSlots,
-  resolveTimestampSessionSlot,
-} from '../../../../foundation/utils/timeShareAxisLabels.js'
-import {
-  CHART_VIEW_DEFINITIONS,
-  computeFiveDayTimeShareGeometry,
-  computeTimeShareXLayout,
-} from '../../../chartModel/index.js'
+import { resolveMarketSessionSlots } from '../../../../foundation/utils/timeShareAxisLabels.js'
+import { CHART_VIEW_DEFINITIONS, computeTimeShareGeometry } from '../../../chartModel/index.js'
 import { calcBarLeftPx, calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
 import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
 import { kGapFromKWidth } from '../../../viewport/zoom.js'
@@ -83,7 +76,7 @@ function projectBars(input: ScaleXInput): ScaleXSnapshot {
       centers: Array.from({ length: Math.max(0, range.end - range.start) }, (_, index) =>
         slotWorldX(grid, range.start + index),
       ),
-      fiveDayGeometry: null,
+      timeShareGeometry: null,
       capabilities: KLINE_DEFINITION.capabilities,
       hoverKind: 'candle',
       hasPriceSeries: true,
@@ -114,18 +107,14 @@ function projectSingleSession(input: ScaleXInput): ScaleXSnapshot {
   const session = input.marketSession
   const slots = session ? resolveMarketSessionSlots(session) : 0
   const grid = createTimeShareSlotGrid(input.width, slots, input.dpr)
-  const slotIndices = session
-    ? input.data.map((point) =>
-        'price' in point ? resolveTimestampSessionSlot(point.timestamp, session) : null,
-      )
-    : []
-  const layout = computeTimeShareXLayout({
-    arrivedCount: slotIndices.length,
-    sessionSlots: slots,
-    totalWidth: input.width,
-    dpr: input.dpr,
-    slotIndices: slotIndices.filter((index): index is number => index !== null),
-  })
+  const layout = session
+    ? computeTimeShareGeometry({
+        days: [{ data: input.data }],
+        marketSession: session,
+        contentWidth: input.width,
+        dpr: input.dpr,
+      })
+    : null
   const centers = layout ? layout.centers : []
   const kWidthPx = layout ? layout.kWidthPx : 1
   return snapshot(
@@ -144,7 +133,7 @@ function projectSingleSession(input: ScaleXInput): ScaleXSnapshot {
       range: { start: 0, end: centers.length },
       slotRange: { start: -1, end: slots },
       centers,
-      fiveDayGeometry: null,
+      timeShareGeometry: layout ? layout.geometry : null,
       capabilities: TIMESHARE_DEFINITION.capabilities,
       hoverKind: 'point',
       hasPriceSeries: false,
@@ -164,8 +153,8 @@ function projectMultipleSessions(input: ScaleXInput): ScaleXSnapshot {
   const grid = createTimeShareSlotGrid(width, slots, input.dpr)
   const layout =
     input.timeShareRange && input.marketSession
-      ? computeFiveDayTimeShareGeometry({
-          range: input.timeShareRange,
+      ? computeTimeShareGeometry({
+          days: input.timeShareRange.days,
           marketSession: input.marketSession,
           contentWidth: width,
           dpr: input.dpr,
@@ -190,7 +179,7 @@ function projectMultipleSessions(input: ScaleXInput): ScaleXSnapshot {
       range: { start: 0, end: centers.length },
       slotRange: { start: 0, end: slots },
       centers,
-      fiveDayGeometry: layout ? layout.geometry : null,
+      timeShareGeometry: layout ? layout.geometry : null,
       capabilities: FIVE_DAY_DEFINITION.capabilities,
       hoverKind: 'point',
       hasPriceSeries: false,

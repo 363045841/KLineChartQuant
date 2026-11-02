@@ -1,14 +1,9 @@
 /** 分时图表模式：固定整物理网格柱宽，价格范围由可见价格与均价决定。 */
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types.js'
 import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels.js'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
 import type { VisibleRange } from '../../../viewport/viewport.js'
-import {
-  computeTimeSharePriceRange,
-  resolveFiveDayTimeShareBaseline,
-  resolveTimeShareBaseline,
-} from './timeShareMath.js'
+import { computeTimeSharePriceRange, resolveTimeShareBaseline } from './timeShareMath.js'
 import type {
   ChartModeActivationContext,
   ChartModeChartContext,
@@ -34,7 +29,7 @@ export class TimeShareMode implements ChartModeHandler {
 
   /**
    * 取可见分时点 price/average 的极值生成带留白范围，并给出百分比基准价（昨收）。
-   * 无数据或无有效昨收时返回 null。
+   * 基准缺失只影响百分比轴的基准值，不影响价格范围本身。
    */
   computePaneRange(
     range: VisibleRange,
@@ -46,16 +41,6 @@ export class TimeShareMode implements ChartModeHandler {
 
     const end = Math.min(range.end, tsData.length)
     const start = Math.max(0, range.start)
-    // 五日视图固定使用第一交易日昨收；单日仍以当前昨收为基准。
-    const baseline =
-      dm.currentPeriod === FIVE_DAY_TIME_SHARE_PERIOD
-        ? resolveFiveDayTimeShareBaseline(dm.getTimeShareRange())
-        : resolveTimeShareBaseline({
-            preClose: dm.getTimeSharePreClose(),
-            firstPrice: tsData[0]?.price,
-          })
-    if (baseline === null) return null
-
     const visibleValues: number[] = []
     for (let i = start; i < end; i++) {
       const item = tsData[i]
@@ -64,7 +49,10 @@ export class TimeShareMode implements ChartModeHandler {
     }
     const priceRange = computeTimeSharePriceRange(visibleValues)
     if (!priceRange) return null
-    return { range: priceRange, basePrice: baseline }
+    return {
+      range: priceRange,
+      basePrice: resolveTimeShareBaseline(dm.getTimeSharePreClose()),
+    }
   }
 
   onActivate(_chart: ChartModeActivationContext, _prev: ChartModeHandler | null): void {

@@ -102,7 +102,7 @@ function projectTimeshareRow(
   return {
     price: item.price,
     average: item.average,
-    change: resolveLegendChange(item.price, context.settings?.preClose, colors),
+    change: resolveLegendChange(item.price, context.timeShareBaseline, colors),
     volume,
     volumeText: volume === null ? null : formatLegendQuantity(volume),
     amount,

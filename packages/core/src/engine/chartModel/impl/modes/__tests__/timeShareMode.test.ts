@@ -1,27 +1,21 @@
 /** 分时模式的可见价格范围、均价覆盖与昨收基准测试。 */
 import { describe, expect, it } from 'vitest'
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
-import type { TimeShareRange } from '@/data/provider/types'
+import { createTimeSharePoint } from '@/engine/__tests__/helpers/timeShareTestKit'
 import type { TimeShareData } from '@/foundation/types/price'
 import { createMockChartDataManager } from '../../../../data/__tests__/helpers/chartDataManagerTestKit'
 import { TimeShareMode } from '../timeShareMode'
 
 /** 构造分时点，默认均价与价格相同。 */
 function ts(price: number, i = 0, average = price): TimeShareData {
-  return { timestamp: i, price, average, volume: 1, amount: price }
+  return createTimeSharePoint({ timestamp: i, price, average, volume: 1, amount: price })
 }
 
 /** 用已有数据管理器替身提供分时行情与昨收。 */
-function mockDm(
-  points: TimeShareData[],
-  preClose: number | null = null,
-  options?: { currentPeriod?: string; timeShareRange?: TimeShareRange },
-) {
+function mockDm(points: TimeShareData[], preClose: number | null = null) {
   return createMockChartDataManager({
-    currentPeriod: options?.currentPeriod ?? 'timeshare',
+    currentPeriod: 'timeshare',
     timeShareData: points,
     preClose,
-    timeShareRange: options?.timeShareRange,
   })
 }
 
@@ -76,29 +70,13 @@ describe('TimeShareMode', () => {
     expect(result?.range.minPrice).toBeCloseTo(9.9, 6)
   })
 
-  it('五日视图使用第一交易日昨收作为基准', () => {
+  it('基准缺失时仍返回价格范围，只把 basePrice 置空', () => {
     const mode = new TimeShareMode()
-    const firstDay = [ts(10.2, 0), ts(10.4, 1)]
-    const secondDay = [ts(12, 2), ts(12.2, 3)]
+    const result = mode.computePaneRange({ start: 0, end: 2 }, mockDm([ts(10), ts(11)], null))
 
-    const result = mode.computePaneRange(
-      { start: 0, end: 4 },
-      mockDm([...firstDay, ...secondDay], null, {
-        currentPeriod: FIVE_DAY_TIME_SHARE_PERIOD,
-        timeShareRange: {
-          instrumentId: 'test',
-          timezone: 'Asia/Shanghai',
-          requestedDays: 2,
-          olderData: 'exhausted',
-          days: [
-            { tradingDate: '2026-08-14', preClose: 10, data: firstDay },
-            { tradingDate: '2026-08-17', preClose: 11, data: secondDay },
-          ],
-        },
-      }),
-    )
-
-    expect(result?.basePrice).toBe(10)
+    expect(result?.range.maxPrice).toBeGreaterThan(11)
+    expect(result?.range.minPrice).toBeLessThan(10)
+    expect(result?.basePrice).toBeNull()
   })
 
   it('无分时数据时返回 null', () => {

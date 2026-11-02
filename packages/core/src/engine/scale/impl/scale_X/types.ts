@@ -3,7 +3,7 @@
 import type { SymbolSpec } from '../../../../controllers/types.js'
 import type { TimeShareRange } from '../../../../data/provider/types.js'
 import type { SlotGrid } from '../../../../foundation/geometry/slotGrid.js'
-import type { FiveDayTimeShareGeometry } from '../../../../foundation/plugin/index.js'
+import type { TimeShareGeometry } from '../../../../foundation/plugin/index.js'
 import type { ChartDataView } from '../../../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../../../foundation/utils/timeShareAxisLabels.js'
@@ -42,7 +42,7 @@ export interface ScaleXSnapshot {
   centers: number[]
   positions: number[]
   bars: Array<{ x: number; width: number }>
-  fiveDayGeometry: FiveDayTimeShareGeometry | null
+  timeShareGeometry: TimeShareGeometry | null
   capabilities: Readonly<ViewCapabilities>
   hoverKind: 'candle' | 'point'
   /** 主序列是否携带 OHLC；分时只有价格点，不参与价格极值与倒计时派生。 */

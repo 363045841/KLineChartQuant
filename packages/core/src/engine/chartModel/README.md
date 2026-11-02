@@ -12,7 +12,7 @@
 - `impl/modes/`：视图的**行为实现**。
   - `types.ts`：`ChartModeHandler` 契约（`computePaneRange` / `onActivate` / `onDeactivate` / `useIndicatorScheduler`）。
   - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时实现持有运行时 `marketSession`。
-  - `timeShareMath.ts` / `fiveDayTimeShareGeometry.ts`：分时数学与几何。
+  - `timeShareMath.ts` / `timeShareGeometry.ts`：分时数学与单日/五日共享几何。
 - `impl/comparison/`：视图上的**比较叠加**。
   - `types.ts`：`ComparisonProjection` / `ComparisonData` / `ComparisonSeriesProjection` 一帧投影契约。
   - `comparisonProjection.ts`：`projectComparison()` 把主品种 OHLC 与比较序列归一到共同基点的纯投影。

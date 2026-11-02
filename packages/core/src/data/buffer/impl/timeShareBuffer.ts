@@ -67,10 +67,11 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
     const content = this.content()
     return content.kind === 'range' ? content.range : null
   })
+  /** 五日窗口统一使用第一交易日的昨收，与百分比轴和面积基准保持同一口径。 */
   private readonly preClose = computed(() => {
     const content = this.content()
     if (content.kind === 'inline') return content.preClose
-    return content.kind === 'range' ? (content.range.days.at(-1)?.preClose ?? null) : null
+    return content.kind === 'range' ? (content.range.days[0]?.preClose ?? null) : null
   })
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)

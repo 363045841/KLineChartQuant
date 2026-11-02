@@ -4,6 +4,7 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { createTimeShareGeometry } from '@/engine/__tests__/helpers/timeShareTestKit'
 import { createGridLinesLayer } from '@/engine/renderers/gridLines'
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
@@ -102,12 +103,9 @@ describe('gridLines mode', () => {
 
   it('draws first-day, day-separator, and last-day boundaries in five-day timeshare mode', () => {
     const { fillRects, context } = buildContext(ChartDataViewId.FiveDayTimeShare)
-    context.fiveDayTimeShareGeometry = {
-      sessionSlots: 240,
-      contentWidth: 800,
-      days: [],
+    context.timeShareGeometry = createTimeShareGeometry({
       verticalGridLineXs: [0, 400, 800],
-    }
+    })
 
     createGridLinesLayer().paint(context)
 

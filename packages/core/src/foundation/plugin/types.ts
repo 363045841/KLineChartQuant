@@ -303,9 +303,10 @@ export interface YAxisTick {
   value: number
 }
 
-/** 五日分时中单个交易日的帧级几何。 */
-export interface FiveDayTimeShareDayGeometry {
-  tradingDate: string
+/** 分时中单个交易日的帧级几何；单日视图只有一组。 */
+export interface TimeShareDayGeometry {
+  /** 交易日；单日视图不提供。 */
+  tradingDate?: string
   dataStartIndex: number
   dataEndIndex: number
   startX: number
@@ -314,12 +315,22 @@ export interface FiveDayTimeShareDayGeometry {
   separatorX?: number
 }
 
-/** 五日分时共享几何，由帧准备阶段生成并供所有 renderer 消费。 */
-export interface FiveDayTimeShareGeometry {
+/** 一段连续可绘制的分时槽位；槽位缺失或跨交易日即断开。 */
+export interface TimeShareSegmentGeometry {
+  dataStartIndex: number
+  dataEndIndex: number
+  startX: number
+  endX: number
+}
+
+/** 分时共享几何，由帧准备阶段生成并供所有 renderer 消费。 */
+export interface TimeShareGeometry {
   sessionSlots: number
   contentWidth: number
-  days: ReadonlyArray<FiveDayTimeShareDayGeometry>
-  /** 首尾交易日边界和日间分隔线的世界坐标。 */
+  days: ReadonlyArray<TimeShareDayGeometry>
+  /** 连续槽位段；renderer 只在这些段内连线。 */
+  segments: ReadonlyArray<TimeShareSegmentGeometry>
+  /** 首尾交易日边界和日间分隔线的世界坐标；单日为空。 */
   verticalGridLineXs: ReadonlyArray<number>
 }
 
@@ -347,8 +358,10 @@ export interface RenderDataContext {
   dataView: ChartDataView
   /** 多日分时的原子业务快照。 */
   timeShareRange?: import('../../data/provider/types.js').TimeShareRange
-  /** 五日分时的帧级共享几何。 */
-  fiveDayTimeShareGeometry?: FiveDayTimeShareGeometry
+  /** 分时昨收基准；单日与五日共用同一来源（五日为第一交易日）。 */
+  timeShareBaseline?: number
+  /** 分时帧级共享几何；单日与五日由同一函数生成。 */
+  timeShareGeometry?: TimeShareGeometry
   /** 当前图表实例解析后的市场交易时段 */
   marketSession?: import('../utils/sessionTimeLabels.js').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>

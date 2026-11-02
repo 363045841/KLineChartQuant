@@ -2,6 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { TradingDate } from '@/data/provider/types'
+import {
+  createTimeShareDay,
+  createTimeShareRange,
+} from '@/engine/__tests__/helpers/timeShareTestKit'
 import type { ChartDataManager } from '../chartDataManager'
 import {
   createTestChartDataManager,
@@ -114,24 +118,25 @@ describe('ChartDataManager time share', () => {
   it('loads five-day timeshare through the range Provider and stores the grouped snapshot', async () => {
     const harness = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } })
     manager = harness.manager
-    const fetchTimeShareRange = vi.fn(async () => ({
-      instrumentId: 'test:000001',
-      timezone: 'Asia/Shanghai',
-      requestedDays: 5,
-      olderData: 'unknown' as const,
-      days: [
-        {
-          tradingDate: '2026-08-05' as const,
-          preClose: 9.5,
-          data: [{ timestamp: 1, price: 10, average: 10 }],
-        },
-        {
-          tradingDate: '2026-08-06' as const,
-          preClose: 10,
-          data: [{ timestamp: 2, price: 11, average: 11 }],
-        },
-      ],
-    }))
+    const fetchTimeShareRange = vi.fn(async () =>
+      createTimeShareRange({
+        instrumentId: 'test:000001',
+        requestedDays: 5,
+        olderData: 'unknown',
+        days: [
+          createTimeShareDay({
+            tradingDate: '2026-08-05',
+            preClose: 9.5,
+            data: [{ timestamp: 1, price: 10, average: 10 }],
+          }),
+          createTimeShareDay({
+            tradingDate: '2026-08-06',
+            preClose: 10,
+            data: [{ timestamp: 2, price: 11, average: 11 }],
+          }),
+        ],
+      }),
+    )
     registerTestProvider(createTestProvider({ fetchTimeShareRange }))
 
     manager.setSymbols([

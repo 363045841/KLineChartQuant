@@ -5,10 +5,10 @@ import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
   AxisLabelsFrame,
-  FiveDayTimeShareGeometry,
   IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   RenderContext,
+  TimeShareGeometry,
   XAxisRange,
 } from '../../../foundation/plugin/index.js'
 import { wrapPaneInfo } from '../../../foundation/plugin/index.js'
@@ -116,8 +116,8 @@ type FrameContext = {
   data: readonly ChartSeriesDatum[]
   /** 与本帧主序列快照对应的提交版本。 */
   dataRevision: number
-  /** 五日分时供所有 renderer 和交互共享的帧级几何。 */
-  fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
+  /** 分时视图供所有 renderer 和交互共享的帧级几何。 */
+  timeShareGeometry: TimeShareGeometry | null
   /** 帧准备阶段生成的真正可视 K 线极值。 */
   visiblePriceExtrema: VisiblePriceExtrema | null
   /** 跨数量级时生成的低频右轴测量意图；由 seal 阶段提交。 */
@@ -207,7 +207,7 @@ export class ChartRenderer {
     kLineCenters: number[]
     kBarRects: Array<{ x: number; width: number }>
     kWidthPx: number
-    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
+    timeShareGeometry: TimeShareGeometry | null
     visiblePriceExtrema: VisiblePriceExtrema | null
   } | null = null
 
@@ -721,20 +721,20 @@ export class ChartRenderer {
     let kLineCenters: number[]
     let kBarRects: Array<{ x: number; width: number }>
     let kWidthPx: number
-    let fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
+    let timeShareGeometry: TimeShareGeometry | null
 
     if (cached) {
       kLinePositions = cached.kLinePositions
       kLineCenters = cached.kLineCenters
       kBarRects = cached.kBarRects
       kWidthPx = cached.kWidthPx
-      fiveDayTimeShareGeometry = cached.fiveDayTimeShareGeometry
+      timeShareGeometry = cached.timeShareGeometry
     } else {
       kLineCenters = projection.centers
       kLinePositions = projection.positions
       kBarRects = projection.bars
       kWidthPx = projection.kWidthPx
-      fiveDayTimeShareGeometry = projection.fiveDayGeometry
+      timeShareGeometry = projection.timeShareGeometry
     }
 
     const visiblePriceExtrema = cached
@@ -762,7 +762,7 @@ export class ChartRenderer {
       useCachedFrame,
       data: internalData,
       dataRevision: dataManager.getRenderDataRevision(),
-      fiveDayTimeShareGeometry,
+      timeShareGeometry,
       visiblePriceExtrema,
       // 价格轴范围在 render 回调里、visibleRange 更新之后统一收集。
       panePriceRanges: {},
@@ -1011,7 +1011,7 @@ export class ChartRenderer {
       useCachedFrame,
       data: renderData,
       dataRevision,
-      fiveDayTimeShareGeometry,
+      timeShareGeometry,
       visiblePriceExtrema,
     } = frame
     const countdown = frame.countdown.text
@@ -1152,7 +1152,7 @@ export class ChartRenderer {
         marketSession: this.deps.getMarketSession(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
-        fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
+        timeShareGeometry: timeShareGeometry ?? undefined,
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: comparisonActive ? dataManager.getComparisonSpecs() : [],
         comparisonColors: dataManager.getComparisonColors(),
@@ -1187,13 +1187,9 @@ export class ChartRenderer {
           plotWidth: vp.plotWidth,
           plotHeight: vp.plotHeight,
         },
-        settings: {
-          ...this.getSettings(),
-          // 分时昨收优先读 series 元数据，settings 作回退
-          preClose:
-            dataManager.getTimeSharePreClose() ??
-            (this.getSettings().preClose as number | undefined),
-        },
+        settings: this.getSettings(),
+        // 分时昨收只有一个来源：Buffer 快照；五日由 Buffer 取第一交易日。
+        timeShareBaseline: dataManager.getTimeSharePreClose() ?? undefined,
         yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
         axisLabels: axisLabelsFrame,
@@ -1388,7 +1384,7 @@ export class ChartRenderer {
       kBarRects,
       kWidthPx,
       data: renderData,
-      fiveDayTimeShareGeometry,
+      timeShareGeometry,
     } = frame
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')
@@ -1445,7 +1441,7 @@ export class ChartRenderer {
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
-        fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
+        timeShareGeometry: timeShareGeometry ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,
@@ -1488,7 +1484,7 @@ export class ChartRenderer {
       kLineCenters: frame.kLineCenters,
       kBarRects: frame.kBarRects,
       kWidthPx: frame.kWidthPx,
-      fiveDayTimeShareGeometry: frame.fiveDayTimeShareGeometry,
+      timeShareGeometry: frame.timeShareGeometry,
       visiblePriceExtrema: frame.visiblePriceExtrema,
     }
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
+import { createTimeSharePoint } from '@/engine/__tests__/helpers/timeShareTestKit'
 import { projectComparison } from '@/engine/chartModel'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
 import { LEGEND_GAP_PX, LEGEND_READOUT_GAP_PX } from '@/engine/legend/impl/legendGeometry'
@@ -11,7 +12,31 @@ import { projectLegendContext } from '../impl/projectLegendContext'
 import { projectMainLegendRows } from '../impl/projectLegendRows'
 
 function point(timestamp: number, price: number): TimeShareData {
-  return { timestamp, price, average: price, volume: 100, amount: price * 100 }
+  return createTimeSharePoint({
+    timestamp,
+    price,
+    average: price,
+    volume: 100,
+    amount: price * 100,
+  })
+}
+
+/** 分时图例上下文只声明数据、基准与十字线索引，其余字段共用默认值。 */
+function createTimeshareLegendContext(options: {
+  data: TimeShareData[]
+  baseline?: number
+  crosshairIndex?: number
+}): ReturnType<typeof createMockRenderContext> {
+  return createMockRenderContext({
+    data: options.data,
+    period: 'timeshare',
+    dataView: ChartDataViewId.TimeShare,
+    range: { start: 0, end: options.data.length },
+    crosshairIndex: options.crosshairIndex ?? 0,
+    paneWidth: 800,
+    isAsiaMarket: true,
+    timeShareBaseline: options.baseline,
+  })
 }
 
 describe('projectLegendContext layout', () => {
@@ -34,15 +59,9 @@ describe('projectLegendContext layout', () => {
 
 describe('projectLegendContext timeshare baseline', () => {
   it('formats volume with the shared quantity text', () => {
-    const timeshare = createMockRenderContext({
+    const timeshare = createTimeshareLegendContext({
       data: [{ ...point(1, 10), volume: 12_345 }],
-      period: 'timeshare',
-      dataView: ChartDataViewId.TimeShare,
-      range: { start: 0, end: 1 },
-      crosshairIndex: 0,
-      paneWidth: 800,
-      isAsiaMarket: true,
-      settings: { preClose: 9 },
+      baseline: 9,
     })
     const kline = createMockRenderContext({
       data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10, volume: 12_345 }],
@@ -63,15 +82,16 @@ describe('projectLegendContext timeshare baseline', () => {
 
   // 验证仅有成交额的分时不伪造成交量。
   it('keeps amount-only timeshare metrics separate from volume', () => {
-    const context = createMockRenderContext({
-      data: [{ timestamp: 1, price: 3812.11, average: 3812.11, amount: 6_972_838_100 }],
-      period: 'timeshare',
-      dataView: ChartDataViewId.TimeShare,
-      range: { start: 0, end: 1 },
-      crosshairIndex: 0,
-      paneWidth: 800,
-      isAsiaMarket: true,
-      settings: { preClose: 3828.47 },
+    const context = createTimeshareLegendContext({
+      data: [
+        createTimeSharePoint({
+          timestamp: 1,
+          price: 3812.11,
+          average: 3812.11,
+          amount: 6_972_838_100,
+        }),
+      ],
+      baseline: 3828.47,
     })
 
     const result = projectLegendContext({ context, host: null })
@@ -82,16 +102,11 @@ describe('projectLegendContext timeshare baseline', () => {
     expect(result?.timeshare?.amountText).toBe('69.73亿')
   })
 
-  it.each([undefined, -1])('keeps the quote when preClose is %s', (preClose) => {
-    const context = createMockRenderContext({
+  it.each([undefined, -1])('keeps the quote when the baseline is %s', (preClose) => {
+    const context = createTimeshareLegendContext({
       data: [point(1, 10), point(2, 11)],
-      period: 'timeshare',
-      dataView: ChartDataViewId.TimeShare,
-      range: { start: 0, end: 2 },
+      baseline: preClose,
       crosshairIndex: 1,
-      paneWidth: 800,
-      isAsiaMarket: true,
-      settings: { preClose },
     })
 
     const result = projectLegendContext({ context, host: null })
@@ -114,16 +129,7 @@ describe('projectLegendContext timeshare baseline', () => {
 describe('projectLegendContext shared change readout', () => {
   it('分时与 K 线输出同一份涨跌读数与文本', () => {
     const timeshare = projectLegendContext({
-      context: createMockRenderContext({
-        data: [point(1, 10)],
-        period: 'timeshare',
-        dataView: ChartDataViewId.TimeShare,
-        range: { start: 0, end: 1 },
-        crosshairIndex: 0,
-        paneWidth: 800,
-        isAsiaMarket: true,
-        settings: { preClose: 9 },
-      }),
+      context: createTimeshareLegendContext({ data: [point(1, 10)], baseline: 9 }),
       host: null,
     })!
     const kline = projectLegendContext({

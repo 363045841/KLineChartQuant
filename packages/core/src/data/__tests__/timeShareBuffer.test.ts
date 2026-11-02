@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  createTimeShareDay,
+  createTimeSharePoint,
+} from '@/engine/__tests__/helpers/timeShareTestKit'
 import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
 
+/** 分时 Buffer 只关心时间戳与点数值，其余字段取共享默认值。 */
 function point(timestamp: number) {
-  return { timestamp, price: 10, average: 10, volume: 1 }
+  return createTimeSharePoint({ timestamp })
 }
 
 describe('TimeShareBuffer', () => {
@@ -23,14 +28,15 @@ describe('TimeShareBuffer', () => {
       requestedDays: 2,
       olderData: 'available',
       days: [
-        { tradingDate: '2026-09-01', preClose: 9, data: [point(1)] },
-        { tradingDate: '2026-09-02', preClose: 10, data: [point(2)] },
+        createTimeShareDay({ tradingDate: '2026-09-01', preClose: 9, data: [{ timestamp: 1 }] }),
+        createTimeShareDay({ tradingDate: '2026-09-02', preClose: 10, data: [{ timestamp: 2 }] }),
       ],
     })
 
     expect(buffer.getRange()?.days).toHaveLength(2)
     expect(buffer.getRawData()).toHaveLength(2)
-    expect(buffer.getPreClose()).toBe(10)
+    // 五日窗口统一取第一交易日昨收。
+    expect(buffer.getPreClose()).toBe(9)
   })
 
   it('resolves unique point timestamps and rejects duplicates', () => {
