@@ -1,0 +1,10 @@
+# 独立消费项目：自己就是 workspace 根。
+# 根仓库的 pnpm-workspace.yaml 只收 packages/* 和 examples/*，这里显式声明空包列表，
+# 让 pnpm 在安装时不会把 packages/vue 的同名包 link 进来，依赖必须从 registry 解。
+packages: []
+# pnpm 12 要求显式决定构建脚本；这两个是包的传递依赖，消费者不需要其构建产物。
+allowBuilds:
+  '@google/genai': false
+  protobufjs: false
+minimumReleaseAgeExclude:
+  - '@363045841yyt/klinechart@0.11.0-alpha.11'

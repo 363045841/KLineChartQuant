@@ -21,6 +21,8 @@ import '@363045841yyt/klinechart/style.css'
 
 发布执行 `pnpm build:product`、`pnpm pack:product`、`pnpm test:product`，只上传 `artifacts/product/manifest.json` 对应的 tarball。内部包版本不再要求与产品同步。源码测试负责模块契约，隔离消费测试负责声明解析、生产构建、浏览器渲染和资源交付。发布检查失败必须阻断上传。
 
+发布后的回读验收独立于发布链路：`e2e/product-consumer` 是一个不加入 workspace 的消费项目，只从 registry 安装已发布版本并挂载 `KlineWorkbench`；`.github/workflows/verify-published.yml` 在 `release.yml` 结束后按 tag 推导版本自动执行，也支持手动指定版本。它只能报警，不能阻断已经完成的上传。
+
 脚本计算 Worker 必须是自包含文件，QuickJS 的动态实现也一并内联。产品构建会重新定位 Worker URL，但不会递归发现预构建 Worker 内的任意相对动态 import；保留这种引用会让默认内置脚本正常、首次运行用户脚本失败。消费验收必须实际运行未受信任的用户脚本，不能仅断言 Worker 已启动。
 
 编辑器独立页面保持自包含 JS/CSS，产品将其作为独立资源发布，通过构建器生成的 URL 引用。语言 Worker 的真实构建代码在内联编码前捕获，用同一份代码校验补全和诊断。

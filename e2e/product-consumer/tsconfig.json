@@ -1,0 +1,13 @@
+// 独立消费项目的类型契约：只解析 node_modules 里的已发布声明。
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["*.ts"]
+}
