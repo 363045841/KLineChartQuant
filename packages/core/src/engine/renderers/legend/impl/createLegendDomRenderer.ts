@@ -75,7 +75,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-row { position:absolute; display:flex; align-items:center; gap:0; width:max-content; box-sizing:border-box; z-index:0;
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:${LEGEND_TEXT_LINE_HEIGHT}px; letter-spacing:normal; white-space:nowrap; pointer-events:none;
-      margin-left:-4px; padding-left:4px;
+      margin-left:-4px; padding-inline:4px;
       background:color-mix(in srgb,var(--klc-color-ui-surface) 80%,transparent); }
     .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
