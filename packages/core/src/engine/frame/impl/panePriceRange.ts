@@ -32,6 +32,7 @@ export interface PaneAutoRangeInput {
   readonly comparisonActive: boolean
   readonly comparisonProjection: ComparisonProjection | null
   readonly subIndicatorRange: { min: number; max: number } | null
+  readonly closeOnly?: boolean
 }
 
 /**
@@ -58,7 +59,12 @@ export function computePaneAutoRange(input: PaneAutoRangeInput): PaneAutoPriceRa
   }
 
   const indicatorRange = input.mode.useIndicatorScheduler ? input.mainIndicatorRange : null
-  return input.mode.computePaneRange(input.range, input.dataManager, indicatorRange)
+  return input.mode.computePaneRange(
+    input.range,
+    input.dataManager,
+    indicatorRange,
+    input.closeOnly,
+  )
 }
 
 /**

@@ -18,7 +18,7 @@ export interface OhlcGeometryInput {
   readonly widthPx: number
   readonly dpr: number
   readonly zoomLevel: number
-  readonly shape: 'candlestick' | 'hollow-candlestick' | 'ohlc-bar'
+  readonly shape: 'candlestick' | 'hollow-candlestick' | 'ohlc-bar' | 'high-low'
   readonly separateBorder: boolean
   /** 调用方确认各部分同色时，允许将等宽实体和影线合为实体矩形。 */
   readonly mergeWick?: boolean

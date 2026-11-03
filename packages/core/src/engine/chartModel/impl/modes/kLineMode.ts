@@ -21,9 +21,10 @@ export class KLineMode implements ChartModeHandler {
     range: VisibleRange,
     dm: ChartDataManager,
     mergedIndicatorRange?: { min: number; max: number } | null,
+    closeOnly = false,
   ): PaneAutoPriceRange | null {
     const data = dm.getInternalData()
-    const priceRange = getVisiblePriceRange(data, range.start, range.end)
+    const priceRange = getVisiblePriceRange(data, range.start, range.end, closeOnly)
     if (!priceRange) return null
 
     if (

@@ -746,6 +746,8 @@ export class ChartRenderer {
             kLineCenters,
             vp.scrollLeft,
             vp.plotWidth,
+            this.deps.settings$.peek().klineShape === 'line' ||
+              this.deps.settings$.peek().klineShape === 'area',
           )
         : null
     const indicatorManager = this.deps.getIndicatorManager()
@@ -838,6 +840,9 @@ export class ChartRenderer {
         comparisonActive,
         comparisonProjection,
         subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
+        closeOnly:
+          this.deps.settings$.peek().klineShape === 'line' ||
+          this.deps.settings$.peek().klineShape === 'area',
       })
       if (pane.id === MAIN_PANE_ID && !comparisonActive) {
         const footprintRange = computeFootprintPriceRange(

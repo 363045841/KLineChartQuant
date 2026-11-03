@@ -93,6 +93,80 @@ function makeSceneRenderer(capsName: RendererName = 'webgl2') {
 }
 
 describe('candle sceneRenderer path', () => {
+  it.each(['webgl2', 'webgpu', 'canvas2d'] as const)(
+    'draws full-width high-low bodies on %s and invalidates retained OHLC geometry',
+    (capsName) => {
+      const renderer = makeSceneRenderer(capsName)
+      const layer = createCandleLayer()
+      const context = createCtx(renderer.r, {
+        data: makeBars(2),
+        range: { start: 0, end: 2 },
+        kLineCenters: [10, 20],
+        kWidthPx: 11,
+        dataRevision: 1,
+      })
+      layer.paint({
+        ...context,
+        paneId: 'main',
+        clear: false,
+        settings: { klineShape: 'ohlc-bar' },
+      })
+      expect(renderer.rectangles()).toHaveLength(6)
+      renderer.submit.mockClear()
+      layer.paint({
+        ...context,
+        paneId: 'main',
+        clear: false,
+        settings: { klineShape: 'high-low' },
+      })
+      const rectangles = renderer.rectangles()
+      expect(rectangles).toHaveLength(2)
+      for (const rect of rectangles) {
+        expect(rect[1]).toBe(105)
+        expect(rect[2]).toBe(11)
+        expect(rect[3]).toBe(190)
+      }
+      layer.dispose()
+    },
+  )
+
+  it.each(['line', 'area'] as const)(
+    'draws close prices for %s without candle geometry',
+    (klineShape) => {
+      const renderer = makeSceneRenderer()
+      const data = makeBars(3)
+      paint(
+        createCtx(renderer.r, {
+          data,
+          range: { start: 0, end: 3 },
+          kLineCenters: [10, 20, 30],
+          settings: { klineShape },
+        }),
+      )
+      const commands = renderer.submit.mock.calls.flatMap(([, primitives]) => primitives)
+      const stroke = commands.find((command) => command.kind === 'stroke')
+      expect(stroke?.kind).toBe('stroke')
+      if (stroke?.kind !== 'stroke') return
+      expect(stroke.paths).toEqual([
+        [
+          { x: 10, y: 198 },
+          { x: 20, y: 198 },
+          { x: 30, y: 198 },
+        ],
+      ])
+      expect(renderer.rectangles()).toEqual([])
+      const fills = commands.filter((command) => command.kind === 'fill')
+      expect(fills).toHaveLength(klineShape === 'area' ? 1 : 0)
+      if (klineShape === 'area') {
+        expect(fills[0]?.paths[0]?.slice(3)).toEqual([
+          { x: 30, y: 390 },
+          { x: 20, y: 390 },
+          { x: 10, y: 390 },
+        ])
+      }
+    },
+  )
+
   it.each([
     { capsName: 'webgl2', backend: 'webgl', klineShape: 'candlestick' },
     { capsName: 'webgl2', backend: 'webgl', klineShape: 'footprint' },

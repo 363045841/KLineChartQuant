@@ -9,6 +9,43 @@ function overlap(a: OhlcRect, b: OhlcRect): boolean {
 }
 
 describe('OHLC geometry', () => {
+  it.each([1, 1.25, 1.5, 2, 3])('高低线以实体宽度覆盖完整区间，DPR=%s', (dpr) => {
+    for (const zoomLevel of [1, 10]) {
+      for (const [highY, lowY] of [
+        [10, 80],
+        [80, 10],
+        [30, 30],
+      ]) {
+        const input: OhlcGeometryInput = {
+          openY: 30,
+          closeY: 60,
+          highY: highY!,
+          lowY: lowY!,
+          center: 100,
+          widthPx: 11,
+          dpr,
+          zoomLevel,
+          shape: 'high-low',
+          separateBorder: false,
+        }
+        const geometry = projectOhlc(input)
+        const stem = geometry.body[0]
+        expect(geometry.body).toHaveLength(1)
+        expect(geometry.border).toEqual([])
+        expect(geometry.wick).toEqual([])
+        expect(stem?.[1]).toBe(Math.min(Math.round(highY! * dpr), Math.round(lowY! * dpr)) / dpr)
+        const candle = projectOhlc({ ...input, shape: 'candlestick', openY: highY!, closeY: lowY! })
+        expect(stem?.[0]).toBe(candle.body[0]?.[0])
+        expect(stem?.[2]).toBe(candle.body[0]?.[2])
+        expect(stem?.[2]).toBeGreaterThan(2 / dpr)
+        expect(stem?.[3]).toBe(
+          Math.max(1, Math.abs(Math.round(lowY! * dpr) - Math.round(highY! * dpr))) / dpr,
+        )
+        expect(projectOhlc({ ...input, openY: 500, closeY: -500 })).toEqual(geometry)
+      }
+    }
+  })
+
   it.each([1, 1.25, 1.5, 2, 3])('同色等宽蜡烛合并后保留全部物理像素，DPR=%s', (dpr) => {
     for (const shape of ['candlestick', 'hollow-candlestick'] as const) {
       for (const prices of [

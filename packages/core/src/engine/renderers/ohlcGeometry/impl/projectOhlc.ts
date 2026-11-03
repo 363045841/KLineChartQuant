@@ -4,7 +4,7 @@ import type { OhlcGeometry, OhlcGeometryInput, OhlcRect } from '../types.js'
 
 const THICK_WICK_ZOOM_LEVEL = 10
 
-/** 投影单根蜡烛或美国线；零高度实体保留一个物理像素。 */
+/** 投影单根蜡烛、美国线或高低线；零高度区间保留一个物理像素。 */
 export function projectOhlc(input: OhlcGeometryInput): OhlcGeometry {
   const { dpr } = input
   const open = Math.round(input.openY * dpr)
@@ -23,6 +23,14 @@ export function projectOhlc(input: OhlcGeometryInput): OhlcGeometry {
     w / dpr,
     h / dpr,
   ]
+  // 高低线使用完整实体宽度覆盖 high/low 区间，开收盘价不影响几何。
+  if (input.shape === 'high-low') {
+    return {
+      body: [rect(left, Math.min(high, low), width, Math.max(1, Math.abs(low - high)))],
+      border: [],
+      wick: [],
+    }
+  }
   if (input.shape === 'ohlc-bar') {
     const tickWidth = Math.max(0, stemLeft - left)
     const body = [rect(stemLeft, Math.min(high, low), stroke, Math.max(1, Math.abs(low - high)))]

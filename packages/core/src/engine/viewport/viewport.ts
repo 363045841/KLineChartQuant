@@ -25,6 +25,7 @@ export function getVisiblePriceRange(
   data: KLineData[],
   startIndex: number,
   endIndex: number,
+  closeOnly = false,
 ): PriceRange | null {
   let maxPrice = -Infinity
   let minPrice = Infinity
@@ -32,8 +33,10 @@ export function getVisiblePriceRange(
   for (let i = startIndex; i < endIndex && i < data.length; i++) {
     const e = data[i]
     if (!e) continue
-    if (e.high > maxPrice) maxPrice = e.high
-    if (e.low < minPrice) minPrice = e.low
+    const high = closeOnly ? e.close : e.high
+    const low = closeOnly ? e.close : e.low
+    if (high > maxPrice) maxPrice = high
+    if (low < minPrice) minPrice = low
   }
 
   if (!Number.isFinite(maxPrice) || !Number.isFinite(minPrice)) {

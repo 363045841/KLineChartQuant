@@ -39,6 +39,7 @@ export interface ChartModeHandler {
     range: VisibleRange,
     dm: ChartDataManager,
     mergedIndicatorRange?: { min: number; max: number } | null,
+    closeOnly?: boolean,
   ): PaneAutoPriceRange | null
 
   /** 激活时调用 */

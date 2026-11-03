@@ -16,7 +16,9 @@ import {
 } from '../frame/impl/retainedProjection.js'
 import type { ProjectionRevision } from '../frame/types.js'
 import { paintBarBatches } from './barGeometry/impl/paintBars.js'
+import { paintCloseSeries } from './closeSeries/impl/paintCloseSeries.js'
 import { projectOhlc } from './ohlcGeometry/impl/projectOhlc.js'
+import type { OhlcGeometryInput } from './ohlcGeometry/types.js'
 
 /** 缓冲池属于 Layer，避免其他图表覆盖已保留的几何。 */
 type CandleBuffers = {
@@ -60,8 +62,17 @@ export function createCandleLayer(): DrawListLayer<RenderContext> {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context
       const klineShape = settings?.klineShape
+      if (klineShape === 'line' || klineShape === 'area') {
+        paintCloseSeries(context, klineShape)
+        return
+      }
       const hollow = klineShape !== undefined && HOLLOW_BODY_KLINE_SHAPES.has(klineShape)
-      const ohlcBar = settings?.klineShape === 'ohlc-bar'
+      const shape: OhlcGeometryInput['shape'] =
+        klineShape === 'ohlc-bar' || klineShape === 'high-low'
+          ? klineShape
+          : hollow
+            ? 'hollow-candlestick'
+            : 'candlestick'
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -80,8 +91,7 @@ export function createCandleLayer(): DrawListLayer<RenderContext> {
           kLineCenters,
           zoomLevel: context.zoomLevel ?? 1,
           buffers,
-          hollow,
-          ohlcBar,
+          shape,
         })
       // 无版本的直接调用不能继续持有旧版本，缓冲将在下面重新写入。
       if (context.dataRevision === undefined) retained.clear()
@@ -93,8 +103,7 @@ export function createCandleLayer(): DrawListLayer<RenderContext> {
                 context.dataRevision,
                 context.dataView,
                 context.zoomLevel ?? 1,
-                hollow,
-                ohlcBar,
+                shape,
               ]),
               build,
             )
@@ -124,13 +133,13 @@ function prepareCandles(args: {
   kLineCenters: number[]
   zoomLevel: number
   buffers: CandleBuffers
-  hollow: boolean
-  ohlcBar: boolean
+  shape: OhlcGeometryInput['shape']
 }): PreparedCandles {
   const { pane, data, range, kWidthPx, dpr, kLineCenters, buffers } = args
 
   const maxRects = Math.max(1, range.end - range.start)
-  const bodyRectsPerBar = args.ohlcBar ? 3 : args.hollow ? 4 : 1
+  const bodyRectsPerBar =
+    args.shape === 'ohlc-bar' ? 3 : args.shape === 'hollow-candlestick' ? 4 : 1
   const upBodyBuf = ensureBufferCapacity(buffers.upBody, maxRects * bodyRectsPerBar * 4)
   buffers.upBody = upBodyBuf
   const downBodyBuf = ensureBufferCapacity(buffers.downBody, maxRects * bodyRectsPerBar * 4)
@@ -175,7 +184,7 @@ function prepareCandles(args: {
       widthPx: kWidthPx,
       dpr,
       zoomLevel: args.zoomLevel,
-      shape: args.ohlcBar ? 'ohlc-bar' : args.hollow ? 'hollow-candlestick' : 'candlestick',
+      shape: args.shape,
       separateBorder: false,
       mergeWick: true,
     })

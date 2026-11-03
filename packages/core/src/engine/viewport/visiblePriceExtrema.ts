@@ -16,6 +16,7 @@ export function computeVisiblePriceExtrema(
   kLineCenters: readonly number[],
   scrollLeft: number,
   paneWidth: number,
+  closeOnly = false,
 ): VisiblePriceExtrema | null {
   const { first, last } = findVisibleBarRange(range, kLineCenters, scrollLeft, paneWidth)
   if (last < first) return null
@@ -27,12 +28,14 @@ export function computeVisiblePriceExtrema(
   for (let index = first; index <= last; index++) {
     const item = data[index]
     if (!item) continue
-    if (item.high >= max) {
-      max = item.high
+    const high = closeOnly ? item.close : item.high
+    const low = closeOnly ? item.close : item.low
+    if (high >= max) {
+      max = high
       maxIndex = index
     }
-    if (item.low <= min) {
-      min = item.low
+    if (low <= min) {
+      min = low
       minIndex = index
     }
   }
