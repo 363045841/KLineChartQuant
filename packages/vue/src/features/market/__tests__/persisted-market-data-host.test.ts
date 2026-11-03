@@ -36,8 +36,14 @@ describe('createPersistedMarketDataHost', () => {
     initial.dispose()
 
     const target = 'http://127.0.0.1:9187'
-    configuration.connections[EDITABLE_SOURCE_ID] = { baseUrl: target }
-    window.localStorage.setItem(CONFIGURATION_KEY, JSON.stringify(configuration))
+    // 配置快照只读，改写落盘文档时构造新文档而不是就地修改。
+    window.localStorage.setItem(
+      CONFIGURATION_KEY,
+      JSON.stringify({
+        ...configuration,
+        connections: { ...configuration.connections, [EDITABLE_SOURCE_ID]: { baseUrl: target } },
+      }),
+    )
 
     const restored = createPersistedMarketDataHost()
     try {
