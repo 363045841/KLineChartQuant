@@ -2,7 +2,7 @@
 
 ## 背景
 
-`comparison_create` 在代码命中多个标的时（如 `000012` 同时是南玻A / 国债指数）静默选择第一个候选，用户得到错误标的且无从察觉。同时 `comparison_create` 的 schema 缺少 `assetClass`，即使模型知道意图也无法表达。
+`comparison_create` 在代码命中多个标的时（如 `000012` 同时是南玻A / 国债指数）静默选择第一个候选，用户得到错误标的且无从察觉。同时 `comparison_create` 的 schema 缺少 `instrumentType`，即使模型知道意图也无法表达。
 
 ## 决策
 
@@ -17,11 +17,11 @@
 ## 备选与否决
 
 - UI 层拦截歧义：core 工具入口是 Agent 与用户共用的（Agent 即用户原则），裁决逻辑放 UI 会随宿主数量复制。
-- 让模型自己带 `assetClass` 消歧：`assetClass` 过滤保留为"可用时精确定位"，但命中多标的时最终仍交给用户。
+- 让模型自己带 `instrumentType` 消歧：`instrumentType` 过滤保留为"可用时精确定位"，但命中多标的时最终仍交给用户。
 
 ## 影响文件
 
 - `packages/core/src/engine/chart.ts`、`engine/data/comparisonCommands.ts`（歧义返回与过滤）
-- `packages/core/src/data/provider/types.ts`（`ASSET_CLASS_VALUES` 单一来源）
+- `packages/core/src/data/provider/types.ts`（`INSTRUMENT_TYPES` 单一来源）
 - `packages/agent-runtime/src/tools/ask-user-tool.ts`、`pi/impl/pi-run-driver.ts`、`pi/types.ts`、`contracts/ui.ts`、`provider-openai-compatible/runtime.ts`
 - `packages/vue/src/features/agent/`（bridge 挂起/应答、`QuestionCard.vue`、reducer、fake bridge 脚本）

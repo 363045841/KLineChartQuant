@@ -4,17 +4,18 @@
  *
  * 约束：项目自有类型 MarketDataProvider 用 satisfies 全量约束，缺成员在编译期暴露。
  */
+
+import type { KLineData } from '@/controllers/types.js'
 import type {
+  BarDataSource,
   BarsObserver,
   DataSourceInstrument,
   HistoryRequest,
-  MarketDataSource,
-  BarDataSource,
   InstrumentCatalog,
   MarketDataProvider,
+  MarketDataSource,
   SourceCapabilities,
 } from '../../types'
-import type { KLineData } from '@/controllers/types.js'
 
 /** 公开数据源测试共用夹具，调用者提供行情事实，不复制注册或订阅替身。 */
 export function createDataSourceFixture(bars: readonly KLineData[], realtime = true) {
@@ -22,15 +23,32 @@ export function createDataSourceFixture(bars: readonly KLineData[], realtime = t
   const stopped: string[] = []
   const requests: HistoryRequest[] = []
   const instruments: DataSourceInstrument[] = ['A', 'B'].map((symbol) => ({
-    id: symbol, symbol, name: symbol, exchange: 'TEST', assetClass: 'stock',
-    sessionId: 'CN', timezone: 'Asia/Shanghai',
-    capabilities: { bars: { periods: ['daily', '1min'], adjustments: ['none'] }, liveBars: realtime },
+    id: symbol,
+    symbol,
+    name: symbol,
+    exchange: 'TEST',
+    instrumentType: 'stock',
+    sessionId: 'CN',
+    timezone: 'Asia/Shanghai',
+    capabilities: {
+      bars: { periods: ['daily', '1min'], adjustments: ['none'] },
+      liveBars: realtime,
+    },
   }))
   const source: MarketDataSource = {
-    id: 'test', name: 'Test data source',
-    capabilities: { assetClasses: ['stock'], bars: { periods: ['daily', '1min'], adjustments: ['none'] }, liveBars: realtime },
+    id: 'test',
+    name: 'Test data source',
+    capabilities: {
+      instrumentTypes: ['stock'],
+      bars: { periods: ['daily', '1min'], adjustments: ['none'] },
+      liveBars: realtime,
+    },
     instruments: {
-      async search(query) { return instruments.filter((item) => item.symbol.includes(query.keyword)).slice(0, query.limit) },
+      async search(query) {
+        return instruments
+          .filter((item) => item.symbol.includes(query.keyword))
+          .slice(0, query.limit)
+      },
       async resolve(id, signal) {
         signal.throwIfAborted()
         const instrument = instruments.find((item) => item.id === id)
@@ -41,14 +59,26 @@ export function createDataSourceFixture(bars: readonly KLineData[], realtime = t
     bars: {
       async fetch(request) {
         requests.push(request)
-        const available = bars.filter((bar) => request.beforeTimestamp === undefined || bar.timestamp < request.beforeTimestamp)
-        return { bars: available.slice(-request.limit), olderData: available.length > request.limit ? 'available' : 'exhausted' }
+        const available = bars.filter(
+          (bar) => request.beforeTimestamp === undefined || bar.timestamp < request.beforeTimestamp,
+        )
+        return {
+          bars: available.slice(-request.limit),
+          olderData: available.length > request.limit ? 'available' : 'exhausted',
+        }
       },
-      ...(realtime ? { subscribe(request: import('../../types.js').BarsRequest, observer: BarsObserver) {
-        observers.set(request.instrument.id, observer)
-        observer.status('connected')
-        return () => { observers.delete(request.instrument.id); stopped.push(request.instrument.id) }
-      } } : {}),
+      ...(realtime
+        ? {
+            subscribe(request: import('../../types.js').BarsRequest, observer: BarsObserver) {
+              observers.set(request.instrument.id, observer)
+              observer.status('connected')
+              return () => {
+                observers.delete(request.instrument.id)
+                stopped.push(request.instrument.id)
+              }
+            },
+          }
+        : {}),
     },
   }
   return { source, instruments, observers, stopped, requests }
@@ -56,7 +86,7 @@ export function createDataSourceFixture(bars: readonly KLineData[], realtime = t
 
 /** 测试默认源级能力：stock / daily / none。 */
 const DEFAULT_SOURCE_CAPABILITIES: SourceCapabilities = {
-  assetClasses: ['stock'],
+  instrumentTypes: ['stock'],
   bars: { periods: ['daily'], adjustments: ['none'] },
 }
 

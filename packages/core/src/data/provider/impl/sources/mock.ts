@@ -1,8 +1,13 @@
-/** 内置 MOCK 与用户数据源实现同一注册接口；不再自建 Provider 或实时流适配层。 */
+/** 内置 MOCK 与用户数据源实现同一注册接口；注册由 sources/index.ts 的默认宿主装配完成 */
 import type { KLineData } from '@/controllers/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { defaultMarketDataContext } from '../../../management/impl/context.js'
-import type { DataSourceInstrument, MarketDataSource } from '../../types.js'
+import {
+  type DataSourceInstrument,
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
+  type MarketDataSource,
+} from '../../types.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { generateMockBars, mockDayStart } from './mockData.js'
 
@@ -15,16 +20,26 @@ const MOCK_INSTRUMENTS = [
 export function createMockDataSource(): MarketDataSource {
   const metadata = dataSourceRegistry.mock
   const instruments: DataSourceInstrument[] = MOCK_INSTRUMENTS.map((item) => ({
-    id: `${metadata.id}:${item.symbol}`, symbol: item.symbol, name: item.name,
-    assetClass: 'index', exchange: 'MOCK', sessionId: 'CN', timezone: 'Asia/Shanghai', volumeUnit: 'share',
-    capabilities: { bars: { periods: ['daily'], adjustments: ['none'] }, liveBars: true },
+    id: `${metadata.id}:${item.symbol}`,
+    symbol: item.symbol,
+    name: item.name,
+    instrumentType: InstrumentType.Index,
+    exchange: 'MOCK',
+    sessionId: 'CN',
+    timezone: 'Asia/Shanghai',
+    volumeUnit: 'share',
+    capabilities: {
+      bars: { periods: [KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
+      liveBars: true,
+    },
   }))
   const histories = new Map<string, KLineData[]>()
 
   /** 精确解析品种身份，未知 ID 不回退到默认 mock。 */
   function resolve(id: string): DataSourceInstrument {
     const instrument = instruments.find((item) => item.id === id)
-    if (!instrument) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `Unknown mock instrument: ${id}`)
+    if (!instrument)
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `Unknown mock instrument: ${id}`)
     return instrument
   }
 
@@ -41,16 +56,31 @@ export function createMockDataSource(): MarketDataSource {
   }
 
   return {
-    id: metadata.id, name: metadata.displayName,
-    capabilities: { assetClasses: ['index'], bars: { periods: ['daily'], adjustments: ['none'] }, liveBars: true },
+    id: metadata.id,
+    name: metadata.displayName,
+    capabilities: {
+      instrumentTypes: [InstrumentType.Index],
+      bars: { periods: [KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
+      liveBars: true,
+    },
     instruments: {
       async search(query) {
         query.signal?.throwIfAborted()
-        if (query.assetClasses && !query.assetClasses.includes('index')) return []
+        if (query.instrumentTypes && !query.instrumentTypes.includes(InstrumentType.Index))
+          return []
         const keyword = query.keyword.trim().toLowerCase()
-        return instruments.filter((item) => item.symbol.toLowerCase().includes(keyword) || item.name.toLowerCase().includes(keyword)).slice(0, query.limit)
+        return instruments
+          .filter(
+            (item) =>
+              item.symbol.toLowerCase().includes(keyword) ||
+              item.name.toLowerCase().includes(keyword),
+          )
+          .slice(0, query.limit)
       },
-      async resolve(id, signal) { signal.throwIfAborted(); return resolve(id) },
+      async resolve(id, signal) {
+        signal.throwIfAborted()
+        return resolve(id)
+      },
     },
     bars: {
       async fetch(request) {
@@ -77,7 +107,9 @@ export function createMockDataSource(): MarketDataSource {
           const close = Math.round((initialClose + Math.sin(phase) * 0.08) * 100) / 100
           phase += Math.PI / 12
           const bar = {
-            timestamp, open, close,
+            timestamp,
+            open,
+            close,
             high: Math.max(timestamp === previous.timestamp ? previous.high : open, close + 0.02),
             low: Math.min(timestamp === previous.timestamp ? previous.low : open, close - 0.02),
             volume: timestamp === previous.timestamp ? previous.volume : 0,
@@ -103,5 +135,3 @@ export function createMockDataSource(): MarketDataSource {
     },
   }
 }
-
-defaultMarketDataContext.registerDataSource(createMockDataSource())

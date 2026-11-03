@@ -271,7 +271,7 @@ export function instrumentFor(symbol: string) {
     sourceId: 'test',
     symbol,
     name: symbol,
-    assetClass: 'stock' as const,
+    instrumentType: 'stock' as const,
     exchange: 'SZ',
     sessionId: 'CN',
     capabilities: {
@@ -312,7 +312,7 @@ export function createTestProvider(options: {
       id: 'test',
       displayName: 'Test',
       capabilities: {
-        assetClasses: ['stock'],
+        instrumentTypes: ['stock'],
         bars: { periods: ['daily'], adjustments: ['none'] },
         ...(options.fetchTradingCalendar ? { tradingCalendar: true } : {}),
         timeShare: true,

@@ -139,7 +139,7 @@ describe('useSymbolSearch', () => {
         sourceId: 'test',
         symbol: 'SECOND',
         name: 'Second',
-        assetClass: 'unknown',
+        instrumentType: 'unknown',
         exchange: 'TEST',
       }),
     ])
@@ -150,7 +150,7 @@ describe('useSymbolSearch', () => {
         sourceId: 'test',
         symbol: 'FIRST',
         name: 'First',
-        assetClass: 'unknown',
+        instrumentType: 'unknown',
         exchange: 'TEST',
       }),
     ])

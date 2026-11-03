@@ -3,9 +3,9 @@ import { type Static, Type } from 'typebox'
 
 import type { SymbolSpec } from '../../controllers/types.js'
 import {
-  type AssetClass,
   type InstrumentDescriptor,
-  KNOWN_ASSET_CLASS_VALUES,
+  type InstrumentType,
+  KNOWN_INSTRUMENT_TYPES,
 } from '../../data/provider/types.js'
 import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { Tool } from '../../foundation/agent/chartToolRegistry.js'
@@ -14,7 +14,7 @@ import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 // unknown 只描述数据源未归一化状态，禁止作为歧义消解筛选条件。
-const AssetClassToolParameter = Type.Enum(KNOWN_ASSET_CLASS_VALUES)
+const InstrumentTypeToolParameter = Type.Enum(KNOWN_INSTRUMENT_TYPES)
 
 const ComparisonPrimaryToolParameters = Type.Object(
   {
@@ -36,7 +36,7 @@ const ComparisonCreateToolParameters = Type.Object(
     market: Type.Optional(Type.String({ minLength: 1 })),
     exchange: Type.Optional(Type.String({ minLength: 1 })),
     source: Type.Optional(Type.String({ minLength: 1 })),
-    assetClass: Type.Optional(AssetClassToolParameter),
+    instrumentType: Type.Optional(InstrumentTypeToolParameter),
     period: Type.Optional(Type.String({ minLength: 1 })),
     adjust: Type.Optional(Type.String({ minLength: 1 })),
     /** 图表主品种；只用于补齐缺省路由字段，缺省时不阻断写入。 */
@@ -61,9 +61,9 @@ export type ComparisonRemoveInput = Static<typeof ComparisonRemoveToolParameters
 /**
  * 对比新增输入：Agent 只给窄字段，UI 可给完整 SymbolSpec。
  * 未提供的路由字段由调用方显式传入的主品种补齐，已提供的品种信息原样保留。
- * assetClass 只参与歧义消解，不进入品种 spec。
+ * instrumentType 只参与歧义消解，不进入品种 spec。
  */
-export type ComparisonAddInput = Omit<ComparisonCreateInput, 'assetClass' | 'primary'> &
+export type ComparisonAddInput = Omit<ComparisonCreateInput, 'instrumentType' | 'primary'> &
   Partial<
     Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>
   >
@@ -91,7 +91,7 @@ export interface ComparisonCandidateView {
   readonly symbol: string
   readonly name: string
   readonly exchange: string
-  readonly assetClass: AssetClass
+  readonly instrumentType: InstrumentType
 }
 
 /** comparison_create 的结果：成功添加，或命中多个标的而拒绝写入并等待用户澄清。 */
@@ -169,18 +169,22 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     name: 'comparison_create',
     label: 'Add comparison symbol',
     description:
-      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and assetClass restrict which instrument the code may resolve to; assetClass only accepts a known class, never unknown. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source and exchange (add assetClass only when its class is not unknown). Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
+      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and instrumentType restrict which instrument the code may resolve to; instrumentType only accepts a known class, never unknown. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source and exchange (add instrumentType only when its class is not unknown). Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
     parameters: ComparisonCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
   })
   async create(input: ComparisonCreateInput): Promise<ComparisonCreateResult> {
-    const { assetClass, primary, ...specInput } = input
+    const { instrumentType, primary, ...specInput } = input
     const resolution = await this.dependencies.resolveInstrument({
       symbol: input.symbol,
       source: input.source ?? primary?.source,
     })
-    const matches = filterInstrumentCandidates(resolution.candidates, assetClass, input.exchange)
+    const matches = filterInstrumentCandidates(
+      resolution.candidates,
+      instrumentType,
+      input.exchange,
+    )
     if (matches.length === 0) {
       throw instrumentNotFoundError(input.symbol, resolution, resolution.candidates.length > 0)
     }
@@ -306,11 +310,14 @@ function instrumentNotFoundError(
     : 'all enabled sources'
   if (candidatesFilteredOut) {
     const options = resolution.candidates
-      .map((item) => `${item.assetClass}@${item.exchange} "${item.name}" (source ${item.sourceId})`)
+      .map(
+        (item) =>
+          `${item.instrumentType}@${item.exchange} "${item.name}" (source ${item.sourceId})`,
+      )
       .join('; ')
     return new KLineChartError(
       COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
-      `Symbol "${symbol}" exists but no instrument matches the given exchange/assetClass filters. Searched ${searched}. Actual matches: ${options}. Ask the user to confirm the intended instrument with the ask_user tool before retrying.`,
+      `Symbol "${symbol}" exists but no instrument matches the given exchange/instrumentType filters. Searched ${searched}. Actual matches: ${options}. Ask the user to confirm the intended instrument with the ask_user tool before retrying.`,
     )
   }
   const hint = resolution.foundElsewhereSourceIds.length
@@ -325,13 +332,13 @@ function instrumentNotFoundError(
 /** 按用户路由约束过滤精确匹配候选；exchange 大小写不敏感，未给约束时原样返回。 */
 function filterInstrumentCandidates(
   candidates: readonly InstrumentDescriptor[],
-  assetClass: AssetClass | undefined,
+  instrumentType: InstrumentType | undefined,
   exchange: string | undefined,
 ): readonly InstrumentDescriptor[] {
   const expectedExchange = exchange?.trim().toUpperCase()
   return candidates.filter(
     (item) =>
-      (assetClass === undefined || item.assetClass === assetClass) &&
+      (instrumentType === undefined || item.instrumentType === instrumentType) &&
       (expectedExchange === undefined || item.exchange.toUpperCase() === expectedExchange),
   )
 }
@@ -343,7 +350,7 @@ function ambiguousComparisonResult(
 ): ComparisonCreateResult {
   return Object.freeze({
     status: 'ambiguous' as const,
-    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparison_create with that candidate's source and exchange (add assetClass only when its class is not unknown).`,
+    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparison_create with that candidate's source and exchange (add instrumentType only when its class is not unknown).`,
     candidates: Object.freeze(
       matches.map((item) =>
         Object.freeze({
@@ -352,7 +359,7 @@ function ambiguousComparisonResult(
           symbol: item.symbol,
           name: item.name,
           exchange: item.exchange,
-          assetClass: item.assetClass,
+          instrumentType: item.instrumentType,
         }),
       ),
     ),

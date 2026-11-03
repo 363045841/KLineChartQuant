@@ -1,10 +1,12 @@
 /** 确定性行情：只依赖包的公开类型，不 import 仓库内任何模块。 */
+
 import type {
   BarsObserver,
   DataSourceInstrument,
   KLineData,
   MarketDataSource,
 } from '@363045841yyt/klinechart'
+import { InstrumentType, KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart'
 
 /** 生成固定 160 根日线，保证截图与断言可复现。 */
 export function createChartData(): KLineData[] {
@@ -43,17 +45,20 @@ export function createMockDataSource(onSubscriptionChange?: (active: number) => 
     symbol: 'BTCUSDT',
     name: 'Bitcoin / Tether consumer fixture',
     exchange: 'MOCK',
-    assetClass: 'crypto',
+    instrumentType: InstrumentType.Crypto,
     sessionId: 'CN',
     timezone: 'Asia/Shanghai',
-    capabilities: { bars: { periods: ['daily'], adjustments: ['none'] }, liveBars: true },
+    capabilities: {
+      bars: { periods: [KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
+      liveBars: true,
+    },
   }
   const source: MarketDataSource = {
     id: 'consumer-fixture',
     name: 'Consumer market data',
     capabilities: {
-      assetClasses: ['crypto'],
-      bars: { periods: ['daily'], adjustments: ['none'] },
+      instrumentTypes: [InstrumentType.Crypto],
+      bars: { periods: [KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
       liveBars: true,
     },
     instruments: {

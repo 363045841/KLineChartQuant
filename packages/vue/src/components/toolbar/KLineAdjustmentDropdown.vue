@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
+  import { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
@@ -24,10 +24,10 @@
 
   const TITLE = '复权方式'
   const adjustmentOptions: Array<{ label: string; value: KLineAdjustment }> = [
-    { label: '前复权', value: 'qfq' },
-    { label: '后复权', value: 'hfq' },
-    { label: '仅拆股', value: 'splits' },
-    { label: '不复权', value: 'none' },
+    { label: '前复权', value: KLineAdjustment.Qfq },
+    { label: '后复权', value: KLineAdjustment.Hfq },
+    { label: '仅拆股', value: KLineAdjustment.Splits },
+    { label: '不复权', value: KLineAdjustment.None },
   ]
 
   const props = defineProps<{

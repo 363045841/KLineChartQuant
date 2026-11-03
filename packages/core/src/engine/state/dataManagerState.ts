@@ -1,6 +1,7 @@
 /** 数据协调层状态：当前 spec、可恢复视口位置与增量加载批次。 */
 
 import type { SymbolSpec } from '../../controllers/types.js'
+import { DEFAULT_KLINE_PERIOD } from '../../data/provider/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { LayoutViewportSnapshot } from '../layout/index.js'
 
@@ -22,7 +23,7 @@ export function createDataManagerState() {
       pendingIncrementalLoad: emptyIncrementalLoadBatch(),
     },
     {
-      currentPeriod: (s) => s.currentSpec()?.period ?? 'daily',
+      currentPeriod: (s) => s.currentSpec()?.period ?? DEFAULT_KLINE_PERIOD,
     },
   )
 

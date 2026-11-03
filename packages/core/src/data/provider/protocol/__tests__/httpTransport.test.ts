@@ -53,7 +53,7 @@ describe('createHttpMarketDataTransport', () => {
           status: 'online',
           checkedAt: 1,
           capabilities: {
-            assetClasses: ['stock'],
+            instrumentTypes: ['stock'],
             bars: { periods: ['daily'], adjustments: ['none'] },
           },
         },
@@ -66,7 +66,7 @@ describe('createHttpMarketDataTransport', () => {
       status: 'online',
       checkedAt: 1,
       capabilities: {
-        assetClasses: ['stock'],
+        instrumentTypes: ['stock'],
         bars: { periods: ['daily'], adjustments: ['none'] },
       },
     })

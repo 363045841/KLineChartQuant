@@ -49,7 +49,7 @@ describe('ChartDataManager trade subscription', () => {
           ...provider.source,
           capabilities: {
             ...provider.source.capabilities,
-            assetClasses: ['stock'],
+            instrumentTypes: ['stock'],
             trades: { raw: true, live: true },
           },
         },

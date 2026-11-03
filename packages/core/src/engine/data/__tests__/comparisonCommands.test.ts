@@ -41,7 +41,7 @@ function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
           sourceId: 'mock',
           symbol: query.symbol,
           name: `${query.symbol} 名称`,
-          assetClass: 'stock',
+          instrumentType: 'stock',
           exchange: 'SSE',
           sessionId: 'CN',
           capabilities: {},
@@ -110,7 +110,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'mock',
           symbol: 'CMP',
           name: 'CMP 名称',
-          assetClass: 'stock',
+          instrumentType: 'stock',
           exchange: 'SH',
           capabilities: {},
         },
@@ -161,7 +161,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'gotdx',
           symbol: '000012',
           name: '南玻A',
-          assetClass: 'stock',
+          instrumentType: 'stock',
           exchange: 'SZ',
           capabilities: {},
         },
@@ -170,7 +170,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'gotdx',
           symbol: '000012',
           name: '国债指数',
-          assetClass: 'index',
+          instrumentType: 'index',
           exchange: 'SH',
           capabilities: {},
         },
@@ -189,7 +189,7 @@ describe('ComparisonCommands', () => {
           symbol: '000012',
           name: '南玻A',
           exchange: 'SZ',
-          assetClass: 'stock',
+          instrumentType: 'stock',
         },
         {
           id: 'index:0:000012',
@@ -197,14 +197,14 @@ describe('ComparisonCommands', () => {
           symbol: '000012',
           name: '国债指数',
           exchange: 'SH',
-          assetClass: 'index',
+          instrumentType: 'index',
         },
       ],
     })
     expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
-  it('adds the single candidate narrowed by assetClass without leaking the filter into the spec', async () => {
+  it('adds the single candidate narrowed by instrumentType without leaking the filter into the spec', async () => {
     const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [
@@ -213,7 +213,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'gotdx',
           symbol: '000012',
           name: '南玻A',
-          assetClass: 'stock',
+          instrumentType: 'stock',
           exchange: 'SZ',
           capabilities: {},
         },
@@ -222,7 +222,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'gotdx',
           symbol: '000012',
           name: '国债指数',
-          assetClass: 'index',
+          instrumentType: 'index',
           exchange: 'SH',
           sessionId: 'CN',
           capabilities: {},
@@ -233,13 +233,13 @@ describe('ComparisonCommands', () => {
     })
 
     await expect(
-      harness.commands.create({ symbol: '000012', source: 'gotdx', assetClass: 'index' }),
+      harness.commands.create({ symbol: '000012', source: 'gotdx', instrumentType: 'index' }),
     ).resolves.toMatchObject({ status: 'added', name: '国债指数' })
 
     const comparison = harness.specs()[0]
     expect(comparison?.id).toBe('index:0:000012')
     expect(comparison?.exchange).toBe('SH')
-    expect(comparison).not.toHaveProperty('assetClass')
+    expect(comparison).not.toHaveProperty('instrumentType')
   })
 
   it('lists the actual candidate combinations when user filters exclude every match', async () => {
@@ -251,7 +251,7 @@ describe('ComparisonCommands', () => {
           sourceId: 'gotdx',
           symbol: '000012',
           name: '南玻A',
-          assetClass: 'stock',
+          instrumentType: 'stock',
           exchange: 'SZ',
           capabilities: {},
         },
@@ -261,7 +261,7 @@ describe('ComparisonCommands', () => {
     })
 
     await expect(
-      harness.commands.create({ symbol: '000012', source: 'gotdx', assetClass: 'index' }),
+      harness.commands.create({ symbol: '000012', source: 'gotdx', instrumentType: 'index' }),
     ).rejects.toMatchObject({
       code: 'INSTRUMENT_NOT_FOUND',
       message: expect.stringContaining('stock@SZ "南玻A"'),
@@ -299,7 +299,7 @@ describe('ComparisonCommands', () => {
         sourceId: 'mock',
         symbol: 'CMP',
         name: 'CMP 名称',
-        assetClass: 'stock',
+        instrumentType: 'stock',
         exchange: 'SSE',
         capabilities: {},
       },

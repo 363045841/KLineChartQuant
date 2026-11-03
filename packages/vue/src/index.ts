@@ -22,7 +22,6 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import { KlineChart } from '@vue-src/components/index.js'
-import KlineWorkbench from './workbench/KlineWorkbench.vue'
 import {
   type App,
   type ComputedRef,
@@ -32,6 +31,7 @@ import {
   shallowRef,
   watch,
 } from 'vue'
+import KlineWorkbench from './workbench/KlineWorkbench.vue'
 import './styles/fonts.css'
 import './styles/scrollbar.css'
 
@@ -54,12 +54,25 @@ export type {
   LegendTemplateContext,
   LegendTimeshareRow,
 } from '@363045841yyt/klinechart-core/controllers'
-export {
-  defaultMarketDataContext,
-  MarketDataContext,
-  createMarketDataHost,
+export type {
+  BarsObserver,
+  BarsRequest,
+  ConnectionStatus,
+  DataSourceInstrument,
+  HistoryPage,
+  HistoryRequest,
+  InstrumentDescriptor,
+  MarketDataSource,
+  SourceCapabilities,
 } from '@363045841yyt/klinechart-core/market-data'
-export type { MarketDataSource, DataSourceInstrument, BarsRequest, HistoryRequest, HistoryPage, BarsObserver, ConnectionStatus, InstrumentDescriptor, KLinePeriod, KLineAdjustment, SourceCapabilities } from '@363045841yyt/klinechart-core/market-data'
+export {
+  createMarketDataHost,
+  defaultMarketDataContext,
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
+  MarketDataContext,
+} from '@363045841yyt/klinechart-core/market-data'
 export { default as ColorPicker } from '@vue-src/components/color/impl/ColorPicker.vue'
 export type { ColorPickerProps } from '@vue-src/components/color/types.js'
 export type {
@@ -123,12 +136,15 @@ export {
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
-export { KlineWorkbench }
-export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
-export { createBuiltinMarketDataContext, createMockDataSource } from '@363045841yyt/klinechart-core/market-data/sources'
-export type { MarketDataConfiguration } from '@363045841yyt/klinechart-core/market-data'
-export type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 export { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
+export type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+export type { MarketDataConfiguration } from '@363045841yyt/klinechart-core/market-data'
+export {
+  createBuiltinMarketDataContext,
+  createMockDataSource,
+} from '@363045841yyt/klinechart-core/market-data/sources'
+export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
+export { KlineWorkbench }
 
 // ---------------------------------------------------------------------------
 // Controller factory injection

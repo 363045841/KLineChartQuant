@@ -31,7 +31,7 @@ function createCache(
     sourceId: 'test',
     symbol: 'BTCUSDT',
     name: 'Bitcoin',
-    assetClass: 'crypto' as const,
+    instrumentType: 'crypto' as const,
     exchange: 'BINANCE',
     capabilities: { bars: { periods: ['daily'] as const, adjustments: ['none'] as const } },
   }
@@ -40,7 +40,7 @@ function createCache(
       id: 'test',
       displayName: 'Test',
       capabilities: {
-        assetClasses: ['crypto'],
+        instrumentTypes: ['crypto'],
         bars: { periods: ['daily'], adjustments: ['none'] },
       },
     },
@@ -56,7 +56,7 @@ function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
     sourceId: 'test',
     symbol: 'BTCUSDT',
     exchange: 'BINANCE',
-    assetClass: 'crypto' as const,
+    instrumentType: 'crypto' as const,
     period: 'daily' as const,
     adjustment: 'none' as const,
     barAggregation: 'original' as const,

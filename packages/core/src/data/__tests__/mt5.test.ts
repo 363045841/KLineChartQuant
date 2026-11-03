@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { marketDataProviderRegistry } from '../provider/impl/registry'
-import { mt5MarketDataProvider } from '../provider/impl/sources/mt5'
+import { mt5MarketDataProvider } from '../provider/impl/sources/index'
 import type { InstrumentDescriptor } from '../provider/types'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -19,7 +19,7 @@ const instrument: InstrumentDescriptor = {
   sourceId: 'mt5',
   symbol: 'XAUUSD',
   name: 'Gold vs US Dollar',
-  assetClass: 'forex' as const,
+  instrumentType: 'forex' as const,
   exchange: 'MT5',
   sessionId: 'MT5',
   providerRef: { symbol: 'XAUUSD' },
@@ -60,7 +60,7 @@ describe('mt5 V1 provider', () => {
       sourceId: 'mt5',
       keyword: 'gold',
       limit: 10,
-      assetClasses: undefined,
+      instrumentTypes: undefined,
     })
   })
 

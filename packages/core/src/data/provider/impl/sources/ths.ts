@@ -1,5 +1,5 @@
-/** 同花顺 THS 日线 Provider 的实例装配与默认注册。 */
-import { type MarketDataProviderRegistry, marketDataProviderRegistry } from '../registry.js'
+/** 同花顺 THS 日线 Provider 的实例装配；注册入口见 builtinProviders.ts。 */
+import type { MarketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 
@@ -7,6 +7,3 @@ import { createHttpSource } from './createHttpSource.js'
 export function createThsMarketDataProvider(registry: MarketDataProviderRegistry) {
   return createHttpSource(dataSourceRegistry.ths, registry)
 }
-export const thsMarketDataProvider = createThsMarketDataProvider(marketDataProviderRegistry)
-if (!marketDataProviderRegistry.get(thsMarketDataProvider.source.id))
-  marketDataProviderRegistry.register(thsMarketDataProvider)

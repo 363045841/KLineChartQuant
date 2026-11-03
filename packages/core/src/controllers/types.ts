@@ -10,9 +10,9 @@
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import type {
-  AssetClass,
   InstrumentCapabilities,
   InstrumentDescriptor,
+  InstrumentType,
 } from '../data/provider/types.js'
 import type {
   IndicatorInstance,
@@ -134,7 +134,7 @@ export type DataSourceParams = Readonly<Record<string, string | number | boolean
 export interface SymbolInfo {
   /** 统一行情模型提供的稳定品种 ID；旧目录结果可暂时缺失。 */
   id?: string
-  assetClass?: AssetClass
+  instrumentType?: InstrumentType
   sessionId?: string
   capabilities?: InstrumentCapabilities
   tickSize?: number

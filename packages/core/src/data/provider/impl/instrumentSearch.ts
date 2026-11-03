@@ -65,7 +65,7 @@ export async function searchInstruments(
       provider.catalog!.search({
         keyword: request.keyword,
         limit: request.limit,
-        assetClasses: request.assetClasses,
+        instrumentTypes: request.instrumentTypes,
         signal: request.signal,
       }),
     ),

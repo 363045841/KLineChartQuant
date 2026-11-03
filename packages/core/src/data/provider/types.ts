@@ -9,59 +9,67 @@ import type { DepthSource } from '../depth/types.js'
 import type { LiveBarsDataSource } from '../live/types.js'
 import type { TradeDataSource } from '../trades/types.js'
 
-/** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
-const ASSET_CLASS_VALUES = [
-  'stock',
-  'index',
-  'fund',
-  'etf',
-  'future',
-  'option',
-  'forex',
-  'crypto',
-  'unknown',
-] as const
+/**
+ * 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。
+ * 运行时值与类型同名，宿主、脚本与 Agent 共用同一份枚举，不要再写裸字符串。
+ */
+export const InstrumentType = {
+  Stock: 'stock',
+  Index: 'index',
+  Fund: 'fund',
+  ETF: 'etf',
+  Future: 'future',
+  Option: 'option',
+  Forex: 'forex',
+  Crypto: 'crypto',
+  Unknown: 'unknown',
+} as const
 
-export type AssetClass = (typeof ASSET_CLASS_VALUES)[number]
+export type InstrumentType = (typeof InstrumentType)[keyof typeof InstrumentType]
+
+/** 完整枚举值，供输入校验；顺序与枚举声明一致。 */
+export const INSTRUMENT_TYPES: readonly InstrumentType[] = Object.values(InstrumentType)
 
 /** 已完成语义归一化的品种类别；排除 unknown，可作为筛选或歧义消解条件。 */
-export type KnownAssetClass = Exclude<AssetClass, 'unknown'>
+export type KnownInstrumentType = Exclude<InstrumentType, 'unknown'>
 
 /** unknown 只表示数据源尚未归一化，不允许作为筛选条件参与匹配。 */
-export const KNOWN_ASSET_CLASS_VALUES: readonly KnownAssetClass[] = ASSET_CLASS_VALUES.filter(
-  (value): value is KnownAssetClass => value !== 'unknown',
+export const KNOWN_INSTRUMENT_TYPES: readonly KnownInstrumentType[] = INSTRUMENT_TYPES.filter(
+  (value): value is KnownInstrumentType => value !== 'unknown',
 )
 
 /**
  * 判断资产类别是否可作为筛选条件参与匹配。
  * unknown 与缺省同义，仅表示数据源未完成归一化，返回 false 时调用方必须按“无条件”处理。
  */
-export function isFilterableAssetClass(value: AssetClass | undefined): value is KnownAssetClass {
+export function isFilterableInstrumentType(
+  value: InstrumentType | undefined,
+): value is KnownInstrumentType {
   return value !== undefined && value !== 'unknown'
 }
 
 /**
- * 图表支持的标准 K 线周期。
- *
- * 这是周期清单的唯一事实来源：类型、运行时白名单、Agent 工具参数与 Request 周期顺序都从这里派生。
- * 顺序即由小到大的比较顺序，`request.security` 判断目标周期是否低于主图时直接用该顺序。
+ * 图表支持的标准 K 线周期；运行时值与类型同名。
+ * 对象顺序即由小到大的比较顺序，`request.security` 判断目标周期是否低于主图时直接使用。
  */
-export const KLINE_PERIODS = [
-  '1min',
-  '5min',
-  '15min',
-  '30min',
-  '60min',
-  '4h',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'yearly',
-] as const
+export const KLinePeriod = {
+  Min1: '1min',
+  Min5: '5min',
+  Min15: '15min',
+  Min30: '30min',
+  Min60: '60min',
+  Hour4: '4h',
+  Daily: 'daily',
+  Weekly: 'weekly',
+  Monthly: 'monthly',
+  Quarterly: 'quarterly',
+  Yearly: 'yearly',
+} as const
 
-/** 图表当前支持的标准 K 线周期。 */
-export type KLinePeriod = (typeof KLINE_PERIODS)[number]
+export type KLinePeriod = (typeof KLinePeriod)[keyof typeof KLinePeriod]
+
+/** 周期清单：类型、白名单、Agent 参数与比较顺序都从这里派生。 */
+export const KLINE_PERIODS: readonly KLinePeriod[] = Object.values(KLinePeriod)
 
 /** 周期校验集合；只在模块内建一次，避免调用方各自复制清单。 */
 const KLINE_PERIOD_SET: ReadonlySet<string> = new Set(KLINE_PERIODS)
@@ -92,14 +100,32 @@ export const BAR_AGGREGATIONS = [
 
 export type BarAggregation = (typeof BAR_AGGREGATIONS)[number]
 
-/** 图表当前支持的复权方式。 */
-export type KLineAdjustment = 'qfq' | 'hfq' | 'splits' | 'none'
+/** 图表支持的复权方式；运行时值与类型同名。 */
+export const KLineAdjustment = {
+  Qfq: 'qfq',
+  Hfq: 'hfq',
+  Splits: 'splits',
+  None: 'none',
+} as const
+
+export type KLineAdjustment = (typeof KLineAdjustment)[keyof typeof KLineAdjustment]
+
+/** 复权方式清单：类型、白名单、Agent 参数都从这里派生。 */
+export const KLINE_ADJUSTMENTS: readonly KLineAdjustment[] = Object.values(KLineAdjustment)
+
+/** 复权方式校验集合；只在模块内建一次。 */
+const KLINE_ADJUSTMENT_SET: ReadonlySet<string> = new Set(KLINE_ADJUSTMENTS)
+
+/** 判断任意字符串是否为受支持的复权方式。 */
+export function isKLineAdjustment(value: string): value is KLineAdjustment {
+  return KLINE_ADJUSTMENT_SET.has(value)
+}
 
 /** K 线请求未指定时使用的默认周期。 */
-export const DEFAULT_KLINE_PERIOD: KLinePeriod = 'daily'
+export const DEFAULT_KLINE_PERIOD: KLinePeriod = KLinePeriod.Daily
 
 /** K 线请求未指定时使用的默认复权方式。 */
-export const DEFAULT_KLINE_ADJUSTMENT: KLineAdjustment = 'none'
+export const DEFAULT_KLINE_ADJUSTMENT: KLineAdjustment = KLineAdjustment.None
 
 /** 当前游标之前的历史数据状态；unknown 表示数据源无法可靠判断。 */
 export const OLDER_DATA_STATUS = {
@@ -151,7 +177,7 @@ export interface InstrumentCapabilities {
 /** 数据源级能力声明，用于在请求前筛选流转候选源。 */
 export interface SourceCapabilities {
   trades?: { readonly raw: boolean; readonly live: boolean }
-  assetClasses: ReadonlyArray<AssetClass>
+  instrumentTypes: ReadonlyArray<InstrumentType>
   bars?: BarCapability
   tradingCalendar?: boolean
   /** 是否支持实时 K 线流。 */
@@ -174,7 +200,7 @@ export interface InstrumentDescriptor {
   sourceId: string
   symbol: string
   name: string
-  assetClass: AssetClass
+  instrumentType: InstrumentType
   exchange: string
   /** 对应 MarketSessionRegistry 的会话标识；纯深度品种可不提供。 */
   sessionId?: string
@@ -219,7 +245,7 @@ export interface SourceProbeResult {
 export interface InstrumentSearchQuery {
   keyword: string
   limit: number
-  assetClasses?: ReadonlyArray<AssetClass>
+  instrumentTypes?: ReadonlyArray<InstrumentType>
   signal?: AbortSignal
 }
 
@@ -393,7 +419,11 @@ export interface BarsObserver {
 export type ConnectionStatus = import('../live/types.js').LiveBarsStatus
 
 /** 用户实现的公开数据源；注册后与内置 Provider 共用路由、缓存和运行时。 */
-export interface MarketDataSource extends Pick<MarketDataProvider, 'trades' | 'depth' | 'timeShare' | 'timeShareRange' | 'tradingCalendar'> {
+export interface MarketDataSource
+  extends Pick<
+    MarketDataProvider,
+    'trades' | 'depth' | 'timeShare' | 'timeShareRange' | 'tradingCalendar'
+  > {
   id: string
   name: string
   capabilities: SourceCapabilities
@@ -449,7 +479,7 @@ export type MarketDataSourceConfigPatch = Partial<MarketDataSourceConfig>
 /** 源级能力筛选条件。 */
 export interface SourceCapabilityQuery {
   capability: 'bars' | 'timeShare' | 'timeShareRange' | 'depth'
-  assetClass?: AssetClass
+  instrumentType?: InstrumentType
   period?: KLinePeriod
   adjustment?: KLineAdjustment
   days?: number
@@ -459,7 +489,7 @@ export interface SourceCapabilityQuery {
 export interface SourceRouterInstrumentIdentity {
   symbol: string
   exchange?: string
-  assetClass?: AssetClass
+  instrumentType?: InstrumentType
 }
 
 /** K 线流转请求。 */

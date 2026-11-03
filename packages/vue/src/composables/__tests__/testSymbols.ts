@@ -12,7 +12,7 @@ export function makeSearchableSymbol(
     sourceId: 'gotdx',
     symbol: '600519',
     name: '贵州茅台',
-    assetClass: 'stock',
+    instrumentType: 'stock',
     exchange: 'SH',
     sessionId: 'CN',
     providerRef: { market: 1 },

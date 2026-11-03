@@ -1,5 +1,6 @@
 /** 统一行情领域模型公共入口。 */
 
+export { createMarketDataHost } from '../management/impl/context.js'
 export type {
   MarketConnection,
   MarketDataConfiguration,
@@ -7,13 +8,10 @@ export type {
   MarketRegistryState,
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
-export { createMarketDataHost } from '../management/impl/context.js'
-export type { MarketDataSource, DataSourceInstrument, BarsRequest, HistoryRequest, HistoryPage, BarsObserver, ConnectionStatus } from './types.js'
-
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'
-export { SourceRouter, SourceRoutingError, sourceRouter } from './impl/router.js'
+export { SourceRouter, SourceRoutingError } from './impl/router.js'
 export type { DataSourceRegistration } from './impl/sourceRegistry.js'
 export { dataSourceRegistry } from './impl/sourceRegistry.js'
 export type {
@@ -57,23 +55,27 @@ export {
   V1_PROTOCOL_VERSION,
 } from './protocol/index.js'
 export type {
-  AssetClass,
   BarAggregation,
   BarCapability,
   BarDataSource,
   BarQuery,
   BarSeries,
+  BarsObserver,
+  BarsRequest,
+  ConnectionStatus,
   DataSourceDescriptor,
+  DataSourceInstrument,
   DepthDataSource,
+  HistoryPage,
+  HistoryRequest,
   InstrumentCapabilities,
   InstrumentCatalog,
   InstrumentDescriptor,
   InstrumentSearchQuery,
-  KLineAdjustment,
-  KLinePeriod,
   MarketDataErrorCode,
   MarketDataFailure,
   MarketDataProvider,
+  MarketDataSource,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   MarketDataSourceStatus,
@@ -105,5 +107,14 @@ export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,
   EUROPE_TRADITIONAL_BAR_AGGREGATION,
+  INSTRUMENT_TYPES,
+  InstrumentType,
+  isKLineAdjustment,
+  isKLinePeriod,
+  KLINE_ADJUSTMENTS,
+  KLINE_PERIODS,
+  KLineAdjustment,
+  KLinePeriod,
+  KNOWN_INSTRUMENT_TYPES,
   ORIGINAL_BAR_AGGREGATION,
 } from './types.js'

@@ -1,11 +1,9 @@
 /** 显式开启的真实 Connector 验收：标准 Provider → 足迹主序列执行 → K 线成交额核对。 */
 import { expect, it } from 'vitest'
-import {
-  FOOTPRINT_METRICS,
-} from '../../../components/footprint/types.js'
 import { createFootprintExecution } from '../../../components/footprint/runtime/impl/footprintExecution.js'
+import { FOOTPRINT_METRICS } from '../../../components/footprint/types.js'
 import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
-import { binanceMarketDataProvider } from '../../provider/impl/sources/binance.js'
+import { binanceMarketDataProvider } from '../../provider/impl/sources/index.js'
 import { TRADE_STATUS } from '../types.js'
 
 // 默认不访问外网；设置 BINANCE_CONNECTOR_TEST_URL 指向已启动的真实 Go 服务。
@@ -44,15 +42,18 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
       marketKey: `${instrument.sourceId}:${instrument.id}:1min`,
       data: result.data,
       params: { ticksPerRow: 100, imbalanceRatio: 3, metric: FOOTPRINT_METRICS.Turnover },
-      trades: { mode: 'replace', snapshot: {
-        revision: 1,
-        tickSize: String(instrument.tickSize),
-        status: TRADE_STATUS.ready,
-        batches: [batch],
-        coverage: [batch.range],
-        latestTimestamp: batch.range.to,
-        message: null,
-      } },
+      trades: {
+        mode: 'replace',
+        snapshot: {
+          revision: 1,
+          tickSize: String(instrument.tickSize),
+          status: TRADE_STATUS.ready,
+          batches: [batch],
+          coverage: [batch.range],
+          latestTimestamp: batch.range.to,
+          message: null,
+        },
+      },
     })
     if (!('series' in output)) throw new Error(output.error)
     const series = output.series

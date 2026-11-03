@@ -1,5 +1,5 @@
-/** Binance Provider 的实例装配，K 线与成交共享连接配置。 */
-import { type MarketDataProviderRegistry, marketDataProviderRegistry } from '../registry.js'
+/** Binance Provider 的实例装配，K 线与成交共享连接配置；注册入口见 builtinProviders.ts。 */
+import type { MarketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 
@@ -7,6 +7,3 @@ import { createHttpSource } from './createHttpSource.js'
 export function createBinanceMarketDataProvider(registry: MarketDataProviderRegistry) {
   return createHttpSource(dataSourceRegistry.binance, registry, { liveBars: true, trades: true })
 }
-export const binanceMarketDataProvider = createBinanceMarketDataProvider(marketDataProviderRegistry)
-if (!marketDataProviderRegistry.get(binanceMarketDataProvider.source.id))
-  marketDataProviderRegistry.register(binanceMarketDataProvider)

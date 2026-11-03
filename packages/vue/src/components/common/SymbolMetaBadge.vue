@@ -14,7 +14,7 @@
     const symbol = props.symbol
     if (!symbol) return ''
     const parts = [symbol.exchange]
-    if (symbol.assetClass !== 'unknown') parts.push(symbol.assetClass)
+    if (symbol.instrumentType !== 'unknown') parts.push(symbol.instrumentType)
     if (symbol.sessionId) parts.push(symbol.sessionId)
     return parts.join(' · ')
   })

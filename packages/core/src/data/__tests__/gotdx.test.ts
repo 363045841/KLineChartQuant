@@ -1,7 +1,7 @@
 /** 验证 GOTDX Provider 只通过统一 V1 协议访问行情服务。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { marketDataProviderRegistry } from '../provider/impl/registry'
-import { gotdxMarketDataProvider } from '../provider/impl/sources/gotdx'
+import { gotdxMarketDataProvider } from '../provider/impl/sources/index'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -17,7 +17,7 @@ const instrument = {
   sourceId: 'gotdx',
   symbol: '600519',
   name: '贵州茅台',
-  assetClass: 'stock' as const,
+  instrumentType: 'stock' as const,
   exchange: 'SH',
   sessionId: 'CN',
   providerRef: { market: 1, kind: 'stock' },

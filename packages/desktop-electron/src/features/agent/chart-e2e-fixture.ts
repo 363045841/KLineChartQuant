@@ -1,6 +1,10 @@
 /** Deterministic chart data used only by the Electron E2E build mode. */
 import type { KLineData } from '@363045841yyt/klinechart-core/controllers'
-import type { BarsObserver, DataSourceInstrument, MarketDataSource } from '@363045841yyt/klinechart-core/market-data'
+import type {
+  BarsObserver,
+  DataSourceInstrument,
+  MarketDataSource,
+} from '@363045841yyt/klinechart-core/market-data'
 
 export function createE2eChartData(): KLineData[] {
   const start = Date.parse('2026-01-01T00:00:00Z')
@@ -35,17 +39,30 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
   const observers = new Set<BarsObserver>()
   const metrics = { historyRequests: 0, subscriptions: 0, unsubscriptions: 0 }
   const instrument: DataSourceInstrument = {
-    id: 'BTCUSDT', symbol: 'BTCUSDT', name: 'Bitcoin / Tether E2E fixture',
-    exchange: 'MOCK', assetClass: 'crypto', sessionId: 'CN', timezone: 'Asia/Shanghai',
+    id: 'BTCUSDT',
+    symbol: 'BTCUSDT',
+    name: 'Bitcoin / Tether E2E fixture',
+    exchange: 'MOCK',
+    instrumentType: 'crypto',
+    sessionId: 'CN',
+    timezone: 'Asia/Shanghai',
     capabilities: { bars: { periods: ['daily'], adjustments: ['none'] }, liveBars: true },
   }
   const source: MarketDataSource = {
-    id: 'e2e-fixture', name: 'Acceptance market data',
-    capabilities: { assetClasses: ['crypto'], bars: { periods: ['daily'], adjustments: ['none'] }, liveBars: true },
+    id: 'e2e-fixture',
+    name: 'Acceptance market data',
+    capabilities: {
+      instrumentTypes: ['crypto'],
+      bars: { periods: ['daily'], adjustments: ['none'] },
+      liveBars: true,
+    },
     instruments: {
       async search(query) {
         query.signal?.throwIfAborted()
-        return instrument.symbol.includes(query.keyword.toUpperCase()) || instrument.name.includes(query.keyword) ? [instrument] : []
+        return instrument.symbol.includes(query.keyword.toUpperCase()) ||
+          instrument.name.includes(query.keyword)
+          ? [instrument]
+          : []
       },
       async resolve(id, signal) {
         signal.throwIfAborted()
@@ -57,8 +74,13 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
       async fetch(request) {
         request.signal.throwIfAborted()
         metrics.historyRequests++
-        const available = bars.filter((bar) => request.beforeTimestamp === undefined || bar.timestamp < request.beforeTimestamp)
-        return { bars: available.slice(-request.limit), olderData: available.length > request.limit ? 'available' : 'exhausted' }
+        const available = bars.filter(
+          (bar) => request.beforeTimestamp === undefined || bar.timestamp < request.beforeTimestamp,
+        )
+        return {
+          bars: available.slice(-request.limit),
+          olderData: available.length > request.limit ? 'available' : 'exhausted',
+        }
       },
       subscribe(_request, observer) {
         metrics.subscriptions++
@@ -72,7 +94,10 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
       },
     },
   }
-  return { source, instrument: { sourceId: source.id, id: instrument.id }, metrics,
+  return {
+    source,
+    instrument: { sourceId: source.id, id: instrument.id },
+    metrics,
     /** 改写权威末根并发送一根增量，既不调用图表，也不重发历史数组。 */
     updateLastBar() {
       const last = bars.at(-1)!

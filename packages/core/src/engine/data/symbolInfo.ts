@@ -6,7 +6,7 @@ export function symbolInfoFromSpec(spec: SymbolSpec): SymbolInfo {
   const instrument = spec.instrument
   return {
     id: spec.id,
-    assetClass: instrument?.assetClass,
+    instrumentType: instrument?.instrumentType,
     sessionId: instrument?.sessionId ?? spec.market,
     capabilities: instrument?.capabilities,
     tickSize: instrument?.tickSize,

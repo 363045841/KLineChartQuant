@@ -1,8 +1,13 @@
 /** 区间选择状态、统计指标与 CSV 导出逻辑。 */
 import { formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
-import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
-import { ORIGINAL_BAR_AGGREGATION, sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import type { KLineAdjustment, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
+import {
+  isKLinePeriod,
+  KLinePeriod,
+  ORIGINAL_BAR_AGGREGATION,
+  SourceRouter,
+} from '@363045841yyt/klinechart-core/market-data'
 import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel.js'
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel.js'
@@ -57,8 +62,12 @@ export function useRangeSelection(options: {
   containerRef: Ref<HTMLElement | null>
   data: Readonly<Ref<ReadonlyArray<KLineData>>>
   batchSymbols: Ref<string[]>
+  marketDataContext: MarketDataContext
 }) {
-  const { controller, isRangeSelectMode, containerRef, data, batchSymbols } = options
+  const { controller, isRangeSelectMode, containerRef, data, batchSymbols, marketDataContext } =
+    options
+  // 路由绑定宿主注入的注册表，避免绕开自定义 marketDataContext 去查全局源。
+  const router = new SourceRouter(marketDataContext.registry)
 
   const customStartDate = ref('')
   const customEndDate = ref('')
@@ -367,19 +376,20 @@ export function useRangeSelection(options: {
 
     if (batchCodes.length > 0) {
       const spec = controller.value?.symbols.peek()?.[0]
-      const period = (spec?.period ?? 'daily') as KLinePeriod
+      const period =
+        spec?.period !== undefined && isKLinePeriod(spec.period) ? spec.period : KLinePeriod.Daily
       const adjustment = (spec?.adjust ?? 'none') as KLineAdjustment
 
       for (let i = 0; i < batchCodes.length; i++) {
         const code = batchCodes[i]!
         exportingProgress.value = { current: 1 + i, total, label: `正在获取 ${code}...` }
         try {
-          const result = await sourceRouter.bars({
+          const result = await router.bars({
             preferredSourceId: spec?.source,
             instrument: spec?.instrument,
             symbol: code,
             exchange: spec?.exchange,
-            assetClass: spec?.instrument?.assetClass,
+            instrumentType: spec?.instrument?.instrumentType,
             period,
             adjustment,
             barAggregation: ORIGINAL_BAR_AGGREGATION,

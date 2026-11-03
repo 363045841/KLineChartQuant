@@ -9,10 +9,19 @@ import type { InstrumentDescriptor as PublicInstrumentDescriptor } from '../../c
 import type {
   BarSeries,
   InstrumentDescriptor,
-  KLinePeriod,
   MarketDataProvider,
   ProviderRef,
   TradingDate,
+} from '../provider'
+import {
+  INSTRUMENT_TYPES,
+  InstrumentType,
+  isKLineAdjustment,
+  KLINE_ADJUSTMENTS,
+  KLINE_PERIODS,
+  KLineAdjustment,
+  KLinePeriod,
+  KNOWN_INSTRUMENT_TYPES,
 } from '../provider'
 
 const stock = {
@@ -20,7 +29,7 @@ const stock = {
   sourceId: 'gotdx',
   symbol: '000001',
   name: '平安银行',
-  assetClass: 'stock',
+  instrumentType: 'stock',
   exchange: 'SZ',
   sessionId: 'CN',
   currency: 'CNY',
@@ -41,6 +50,24 @@ describe('MarketData 类型契约', () => {
     expectTypeOf(stock).toMatchTypeOf<InstrumentDescriptor>()
     expectTypeOf(stock).toMatchTypeOf<PublicInstrumentDescriptor>()
     expect(stock.id).toBe('gotdx:stock:0:000001')
+  })
+
+  // 验证品种类别是运行时可枚举的单一枚举，外部宿主无需硬编码字符串。
+  it('导出可枚举的品种类别', () => {
+    expect(InstrumentType.Index).toBe('index')
+    expect(INSTRUMENT_TYPES).toContain(InstrumentType.Unknown)
+    expect(KNOWN_INSTRUMENT_TYPES).toHaveLength(INSTRUMENT_TYPES.length - 1)
+  })
+
+  // 验证周期与复权方式同样是运行时可枚举的单一枚举。
+  it('导出可枚举的周期与复权方式', () => {
+    expect(KLinePeriod.Daily).toBe('daily')
+    expect(KLineAdjustment.None).toBe('none')
+    expect(KLINE_PERIODS[0]).toBe(KLinePeriod.Min1)
+    expect(KLINE_PERIODS.at(-1)).toBe(KLinePeriod.Yearly)
+    expect(KLINE_ADJUSTMENTS).toEqual(['qfq', 'hfq', 'splits', 'none'])
+    expect(isKLineAdjustment('hfq')).toBe(true)
+    expect(isKLineAdjustment('bogus')).toBe(false)
   })
 
   // 验证同代码品种依赖稳定 id 区分来源，而不是解析 providerRef。

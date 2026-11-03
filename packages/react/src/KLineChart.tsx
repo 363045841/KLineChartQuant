@@ -108,7 +108,7 @@ export function useCoreSignal<T>(signal: ReadonlySignal<T> | null | undefined): 
 
 /**
  * 在容器上挂载 Core 控制器，卸载时释放。挂载参数只在首次挂载时读取，
- * 之后 data / theme / settings 的变化通过控制器方法增量同步。
+ * 之后 symbols / theme / settings 的变化通过控制器方法增量同步。
  */
 export function useKLineChart(
   containerRef: RefObject<HTMLElement | null>,
@@ -155,7 +155,11 @@ export function useKLineChart(
           disposeInput = runtime.bindChartInput(next, { surface: container }, hooks)
         }
         runtimeRef.current = runtime
-        appliedRef.current = { symbols: mount.symbols, theme: mount.theme, settings: mount.settings }
+        appliedRef.current = {
+          symbols: mount.symbols,
+          theme: mount.theme,
+          settings: mount.settings,
+        }
         if (mount.theme === undefined) applySettingsTheme(next, mount.settings?.theme)
         setController(next)
       } catch (cause) {

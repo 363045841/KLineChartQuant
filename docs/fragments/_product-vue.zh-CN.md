@@ -44,6 +44,9 @@ import { KlineWorkbench } from '@363045841yyt/klinechart'
 
 ```ts
 import {
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
   createMarketDataHost,
   type BarsObserver,
   type DataSourceInstrument,
@@ -57,10 +60,10 @@ const instrument: DataSourceInstrument = {
   symbol: 'BTCUSDT',
   name: 'Bitcoin / USDT',
   exchange: 'BINANCE',
-  assetClass: 'crypto',
+  instrumentType: InstrumentType.Crypto,
   timezone: 'UTC',
   capabilities: {
-    bars: { periods: ['1min', 'daily'], adjustments: ['none'] },
+    bars: { periods: [KLinePeriod.Min1, KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
     liveBars: true,
   },
 }
@@ -69,8 +72,8 @@ const source: MarketDataSource = {
   id: 'binance',
   name: 'Binance Spot',
   capabilities: {
-    assetClasses: ['crypto'],
-    bars: { periods: ['1min', 'daily'], adjustments: ['none'] },
+    instrumentTypes: [InstrumentType.Crypto],
+    bars: { periods: [KLinePeriod.Min1, KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
     liveBars: true,
   },
   instruments: {

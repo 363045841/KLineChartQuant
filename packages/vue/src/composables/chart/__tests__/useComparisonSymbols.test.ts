@@ -19,7 +19,7 @@ describe('原生比较入口', () => {
       exchange: 'SSE',
       sourceId: 'mock',
       sessionId: 'CN',
-      assetClass: 'stock',
+      instrumentType: 'stock',
       capabilities: {},
     }
     const compared: SymbolSpec = { symbol: selected.symbol, market: 'CN', period: 'daily' }

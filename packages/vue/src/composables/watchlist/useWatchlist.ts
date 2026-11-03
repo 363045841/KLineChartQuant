@@ -19,7 +19,7 @@ function isWatchlistItem(value: unknown): value is SearchableSymbol {
     typeof item.sourceId === 'string' &&
     typeof item.symbol === 'string' &&
     typeof item.name === 'string' &&
-    typeof item.assetClass === 'string' &&
+    typeof item.instrumentType === 'string' &&
     typeof item.exchange === 'string' &&
     typeof item.capabilities === 'object' &&
     item.capabilities !== null

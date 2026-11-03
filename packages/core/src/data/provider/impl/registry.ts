@@ -11,7 +11,7 @@ import type {
   SourceCapabilities,
   SourceCapabilityQuery,
 } from '../types.js'
-import { isFilterableAssetClass } from '../types.js'
+import { isFilterableInstrumentType } from '../types.js'
 
 /**
  * 能力入库前与前端实际实现对齐。
@@ -37,8 +37,8 @@ function supportsCapability(
 ): boolean {
   if (!capabilities) return false
   if (
-    isFilterableAssetClass(query.assetClass) &&
-    !capabilities.assetClasses.includes(query.assetClass)
+    isFilterableInstrumentType(query.instrumentType) &&
+    !capabilities.instrumentTypes.includes(query.instrumentType)
   )
     return false
   if (query.capability === 'timeShare') return capabilities.timeShare === true

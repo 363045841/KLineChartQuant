@@ -1,7 +1,7 @@
 /** 验证同花顺 THS Provider 只通过统一 V1 协议访问行情服务。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { marketDataProviderRegistry } from '../provider/impl/registry'
-import { thsMarketDataProvider } from '../provider/impl/sources/ths'
+import { thsMarketDataProvider } from '../provider/impl/sources/index'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -17,7 +17,7 @@ const instrument = {
   sourceId: 'ths',
   symbol: '600519.SH',
   name: '贵州茅台',
-  assetClass: 'stock' as const,
+  instrumentType: 'stock' as const,
   exchange: 'SH',
   sessionId: 'CN',
   currency: 'CNY',

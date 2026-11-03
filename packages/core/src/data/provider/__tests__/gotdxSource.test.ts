@@ -26,7 +26,7 @@ describe('GOTDX Provider 实时 K 线能力', () => {
       source: {
         id: 'probe-live',
         displayName: 'Probe Live',
-        capabilities: { assetClasses: ['stock'] },
+        capabilities: { instrumentTypes: ['stock'] },
       },
       async probe() {
         return { status: 'online', checkedAt: 1 }
@@ -35,7 +35,7 @@ describe('GOTDX Provider 实时 K 线能力', () => {
     registry.register(provider)
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      registry.setCapabilities('probe-live', { assetClasses: ['stock'], liveBars: true })
+      registry.setCapabilities('probe-live', { instrumentTypes: ['stock'], liveBars: true })
       // 契约漂移在入库处解决，运行时只消费已对齐的能力位。
       expect(provider.source.capabilities?.liveBars).toBe(false)
       expect(errorLog).toHaveBeenCalledTimes(1)

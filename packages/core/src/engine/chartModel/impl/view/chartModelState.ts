@@ -1,7 +1,14 @@
 /** ChartModel 状态：当前数据视图、主序列渲染偏好与视图派生能力。 */
-import { batch, computed, createSubState } from '../../../../foundation/reactivity/signal.js'
-import { createSignal, type ReadonlySignal } from '../../../../foundation/reactivity/signal.js'
+
+import { DEFAULT_KLINE_PERIOD } from '../../../../data/provider/types.js'
 import type { ChartSettings } from '../../../../foundation/config/chartSettings.js'
+import {
+  batch,
+  computed,
+  createSignal,
+  createSubState,
+  type ReadonlySignal,
+} from '../../../../foundation/reactivity/signal.js'
 import {
   CHART_VIEW_DEFINITIONS,
   type ChartDataView,
@@ -12,15 +19,19 @@ import {
   type ViewCapabilities,
 } from './chartViews.js'
 
+/** 主图最近一次 K 线周期；上层按周期清单校验，默认日线。 */
+const DEFAULT_LAST_BAR_PERIOD: string = DEFAULT_KLINE_PERIOD
+
 /** 主序列画法从设置派生，模型不再保存一份独立的 K 线偏好。 */
 export function createChartModel(settings$: ReadonlySignal<ChartSettings> = createSignal({})) {
   const { signals, readonly: sourceReadonly } = createSubState({
     dataView: ChartDataViewId.KLine as ChartDataView,
-    lastBarPeriod: 'daily',
+    lastBarPeriod: DEFAULT_LAST_BAR_PERIOD,
   })
   const primaryRendererByView = computed<PrimaryRendererByView>(() => ({
     ...DEFAULT_PRIMARY_RENDERERS,
-    [ChartDataViewId.KLine]: settings$().klineShape ?? CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].primaryRenderer,
+    [ChartDataViewId.KLine]:
+      settings$().klineShape ?? CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].primaryRenderer,
   }))
   const effectivePrimaryRenderer = computed(() => {
     const view = sourceReadonly.dataView()
@@ -59,7 +70,7 @@ export function createChartModel(settings$: ReadonlySignal<ChartSettings> = crea
     dispose(): void {
       batch(() => {
         signals.dataView.set(ChartDataViewId.KLine)
-        signals.lastBarPeriod.set('daily')
+        signals.lastBarPeriod.set(DEFAULT_LAST_BAR_PERIOD)
       })
     },
   }

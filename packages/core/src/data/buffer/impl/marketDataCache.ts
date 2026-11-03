@@ -5,12 +5,10 @@ import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signa
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
 import type {
-  AssetClass,
   BarAggregation,
   BarSeries,
   InstrumentDescriptor,
-  KLineAdjustment,
-  KLinePeriod,
+  InstrumentType,
   OlderDataStatus,
   TimeShareRange,
   TimeShareSeries,
@@ -18,6 +16,10 @@ import type {
 } from '../../provider/types.js'
 import {
   AUTO_SOURCE_ID,
+  KLINE_ADJUSTMENTS,
+  KLINE_PERIODS,
+  KLineAdjustment,
+  KLinePeriod,
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../provider/types.js'
@@ -63,7 +65,7 @@ export interface BarsCacheQuery {
   readonly sourceId?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
   /** 请求的根数；拉多少就请求多少，不按时间范围外推。 */
   readonly limit: number
   /** 排他上界时间戳；省略表示从数据源最新一根开始。 */
@@ -84,7 +86,7 @@ export interface TimeShareCacheQuery {
   readonly resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
   readonly sourceId?: string
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
   readonly signal?: AbortSignal
 }
 
@@ -96,7 +98,7 @@ export interface TimeShareRangeCacheQuery {
   readonly days: number
   readonly sourceId?: string
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
   readonly signal?: AbortSignal
 }
 
@@ -228,12 +230,12 @@ function cacheKey(query: {
   readonly sourceId?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
 }): string {
   return [
     query.sourceId ?? AUTO_SOURCE_ID,
     query.instrument?.id ?? '',
-    query.instrument?.assetClass ?? query.assetClass ?? '',
+    query.instrument?.instrumentType ?? query.instrumentType ?? '',
     query.instrument?.exchange ?? query.exchange ?? '',
     query.symbol,
     query.period,
@@ -502,30 +504,52 @@ export class MarketDataCache {
 
   /** 查询单个交易日分时，命中后直接返回缓存快照。 */
   /** 指定序列失效后重新请求，等待旧查询完成后再撤销其缓存事实。 */
-  async refreshBars(query: BarsCacheQuery & { sourceId: string; instrument: InstrumentDescriptor }): Promise<BarsCacheResult> {
+  async refreshBars(
+    query: BarsCacheQuery & { sourceId: string; instrument: InstrumentDescriptor },
+  ): Promise<BarsCacheResult> {
     const key = cacheKey(query)
     const keys = new Set([key])
     for (const [candidate, entry] of this.bars) {
-      if (entry.sourceId === query.sourceId && entry.instrument.id === query.instrument?.id &&
-        entry.series.period === query.period && entry.series.adjustment === query.adjustment &&
-        entry.series.barAggregation === query.barAggregation) keys.add(candidate)
+      if (
+        entry.sourceId === query.sourceId &&
+        entry.instrument.id === query.instrument?.id &&
+        entry.series.period === query.period &&
+        entry.series.adjustment === query.adjustment &&
+        entry.series.barAggregation === query.barAggregation
+      )
+        keys.add(candidate)
     }
-    await Promise.all([...keys].map((candidate) => this.pending.get(this.entryId('bars', candidate))))
+    await Promise.all(
+      [...keys].map((candidate) => this.pending.get(this.entryId('bars', candidate))),
+    )
     query.signal?.throwIfAborted()
     for (const candidate of keys) {
       this.bars.delete(candidate)
       const id = this.entryId('bars', candidate)
       const metadata = this.entries.get(id)
-      if (metadata) { this.usedBytes -= metadata.bytes; this.entries.delete(id) }
+      if (metadata) {
+        this.usedBytes -= metadata.bytes
+        this.entries.delete(id)
+      }
     }
     this.publishStats()
     // 重查覆盖原窗口，但每页仍遵守源声明的最大根数。
-    const maximum = this.registry.getRequired(query.sourceId).source.capabilities?.bars?.maxBarsPerRequest ?? query.limit
+    const maximum =
+      this.registry.getRequired(query.sourceId).source.capabilities?.bars?.maxBarsPerRequest ??
+      query.limit
     let result = await this.queryBars({ ...query, limit: Math.min(query.limit, maximum) })
     let data = [...result.series.data]
-    while (data.length < query.limit && result.series.olderData !== OLDER_DATA_STATUS.EXHAUSTED && data.length > 0) {
+    while (
+      data.length < query.limit &&
+      result.series.olderData !== OLDER_DATA_STATUS.EXHAUSTED &&
+      data.length > 0
+    ) {
       const beforeTimestamp = data[0].timestamp
-      result = await this.queryBars({ ...query, beforeTimestamp, limit: Math.min(query.limit - data.length, maximum) })
+      result = await this.queryBars({
+        ...query,
+        beforeTimestamp,
+        limit: Math.min(query.limit - data.length, maximum),
+      })
       if (result.series.data.length === 0) break
       data = [...result.series.data, ...data]
     }
@@ -539,8 +563,8 @@ export class MarketDataCache {
     }
     const key = `${cacheKey({
       ...query,
-      period: 'daily',
-      adjustment: 'none',
+      period: KLinePeriod.Daily,
+      adjustment: KLineAdjustment.None,
       barAggregation: ORIGINAL_BAR_AGGREGATION,
     })}:${query.tradingDate ?? LATEST_TRADING_DATE}`
     const cached = this.timeShares.get(key)
@@ -553,7 +577,7 @@ export class MarketDataCache {
       instrument: query.instrument,
       symbol: query.symbol,
       exchange: query.exchange,
-      assetClass: query.assetClass,
+      instrumentType: query.instrumentType,
       tradingDate: query.tradingDate,
       resolveTradingDate: query.resolveTradingDate,
       signal: this.requestSignal(query.signal),
@@ -577,8 +601,8 @@ export class MarketDataCache {
     }
     const key = `${cacheKey({
       ...query,
-      period: 'daily',
-      adjustment: 'none',
+      period: KLinePeriod.Daily,
+      adjustment: KLineAdjustment.None,
       barAggregation: ORIGINAL_BAR_AGGREGATION,
     })}:${query.endTradingDate ?? LATEST_TRADING_DATE}:${query.days}`
     const cached = this.timeShareRanges.get(key)
@@ -595,7 +619,7 @@ export class MarketDataCache {
       instrument: query.instrument,
       symbol: query.symbol,
       exchange: query.exchange,
-      assetClass: query.assetClass,
+      instrumentType: query.instrumentType,
       endTradingDate: query.endTradingDate,
       resolveEndTradingDate: query.resolveEndTradingDate,
       days: query.days,
@@ -732,7 +756,10 @@ export class MarketDataCache {
     // 只重放请求期间发生的变更；普通历史页仍允许上游修正重叠数据。
     if (current !== entry) {
       const before = new Map(entry?.data.map((bar) => [bar.timestamp, bar]))
-      merged = mergeBars(merged, previous.filter((bar) => before.get(bar.timestamp) !== bar))
+      merged = mergeBars(
+        merged,
+        previous.filter((bar) => before.get(bar.timestamp) !== bar),
+      )
     }
     const progressed = merged.length > previous.length || previous.length === 0
     const value: CacheEntry = {
@@ -770,7 +797,7 @@ export class MarketDataCache {
         instrument: entry?.instrument ?? query.instrument,
         symbol: query.symbol,
         exchange: query.exchange,
-        assetClass: query.assetClass,
+        instrumentType: query.instrumentType,
         period: query.period,
         adjustment: query.adjustment,
         barAggregation: query.barAggregation,

@@ -13,7 +13,7 @@ function instrument(sourceId: string, id: string): InstrumentDescriptor {
     sourceId,
     symbol: '600519',
     name: '贵州茅台',
-    assetClass: 'stock',
+    instrumentType: 'stock',
     exchange: 'SH',
     capabilities: {},
   }

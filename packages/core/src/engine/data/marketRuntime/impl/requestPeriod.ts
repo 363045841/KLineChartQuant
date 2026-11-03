@@ -1,5 +1,5 @@
 /** Request 周期写法映射到 Provider 的标准周期；未支持的值直接拒绝。 */
-import { isKLinePeriod, KLINE_PERIODS, type KLinePeriod } from '@/data/provider/types.js'
+import { isKLinePeriod, KLINE_PERIODS, KLinePeriod } from '@/data/provider/types.js'
 
 /**
  * 对外短写法与标准周期名不一致的部分。
@@ -8,17 +8,17 @@ import { isKLinePeriod, KLINE_PERIODS, type KLinePeriod } from '@/data/provider/
  * 别名只做显式映射，不对错误周期做近似替代。
  */
 const REQUEST_PERIOD_ALIASES: Readonly<Record<string, KLinePeriod>> = {
-  '1': '1min',
-  '5': '5min',
-  '15': '15min',
-  '30': '30min',
-  '60': '60min',
-  '240': '4h',
-  D: 'daily',
-  W: 'weekly',
-  M: 'monthly',
-  '3M': 'quarterly',
-  '12M': 'yearly',
+  '1': KLinePeriod.Min1,
+  '5': KLinePeriod.Min5,
+  '15': KLinePeriod.Min15,
+  '30': KLinePeriod.Min30,
+  '60': KLinePeriod.Min60,
+  '240': KLinePeriod.Hour4,
+  D: KLinePeriod.Daily,
+  W: KLinePeriod.Weekly,
+  M: KLinePeriod.Monthly,
+  '3M': KLinePeriod.Quarterly,
+  '12M': KLinePeriod.Yearly,
 }
 
 /** security 第一版只接受同周期或高周期，低周期数组属于独立接口。 */

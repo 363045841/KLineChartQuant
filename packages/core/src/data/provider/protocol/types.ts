@@ -4,10 +4,10 @@
  * OpenAPI 文档为派生物，以本接口为唯一权威
  */
 import type {
-  AssetClass,
   BarAggregation,
   BarCapability,
   InstrumentCapabilities,
+  InstrumentType,
   KLineAdjustment,
   KLinePeriod,
   MarketDataErrorCode,
@@ -95,7 +95,7 @@ export interface ProtocolInstrumentDescriptor {
   sourceId: string // 所属数据源 ID
   symbol: string // 品种代码
   name: string // 品种名称
-  assetClass: AssetClass // 品种类别
+  instrumentType: InstrumentType // 品种类别
   exchange: string // 交易所标识
   sessionId?: string // 交易时段标识
   currency?: string // 计价货币
@@ -122,7 +122,7 @@ export interface ProtocolInstrumentSearchRequest {
   sourceId: string
   keyword: string
   limit: number
-  assetClasses?: ReadonlyArray<AssetClass>
+  instrumentTypes?: ReadonlyArray<InstrumentType>
 }
 
 // 品种目录搜索结果

@@ -21,7 +21,7 @@ const thsInstrument = {
   sourceId: 'ths',
   symbol: '600519.SH',
   name: '贵州茅台',
-  assetClass: 'stock' as const,
+  instrumentType: 'stock' as const,
   exchange: 'SH',
   sessionId: 'CN',
   providerRef: { thscode: '600519.SH', assetType: 'a-share' },
@@ -68,7 +68,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
         },
         search: async () => [thsInstrument],
@@ -79,7 +79,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       createMockMarketDataProvider({
         sourceId: 'other',
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['1min', 'daily'], adjustments: ['none'] },
         },
         search: async () => [minuteInstrument],
@@ -111,7 +111,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
         },
         search: async () => [thsInstrument],
@@ -124,7 +124,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       createMockMarketDataProvider({
         sourceId: 'other',
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['1min'], adjustments: ['none'] },
         },
         search: async () => [minuteInstrument],
@@ -161,7 +161,7 @@ describe('THS capability 声明驱动的源筛选', () => {
       createMockMarketDataProvider({
         sourceId: 'ths',
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
         },
         search: async () => [thsInstrument],

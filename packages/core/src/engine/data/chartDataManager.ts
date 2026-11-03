@@ -48,7 +48,9 @@ import {
   AUTO_SOURCE_ID,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
+  isKLineAdjustment,
   isKLinePeriod,
+  KLinePeriod,
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
@@ -109,8 +111,6 @@ export interface DataDependencies {
 }
 
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
-
-const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
 export class ChartDataManager {
   private readonly marketRuntime: MarketRuntime
@@ -213,15 +213,25 @@ export class ChartDataManager {
         return { ...this.barsSelectionForSpec(spec), barAggregation }
       },
       publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
-      reloadBars: (session, buffer, signal) => this.loadBars(session.selection, buffer, {
-        instrument: session.instrument,
-        symbol: session.instrument.symbol,
-        market: session.instrument.sessionId ?? session.instrument.exchange,
-        exchange: session.instrument.exchange,
-        source: session.instrument.sourceId,
-        period: session.selection.period,
-        adjust: session.selection.adjustment,
-      }, { limit: Math.max(buffer.getRawData().length, DEFAULT_BAR_PAGE_LIMIT), refresh: true, signal }),
+      reloadBars: (session, buffer, signal) =>
+        this.loadBars(
+          session.selection,
+          buffer,
+          {
+            instrument: session.instrument,
+            symbol: session.instrument.symbol,
+            market: session.instrument.sessionId ?? session.instrument.exchange,
+            exchange: session.instrument.exchange,
+            source: session.instrument.sourceId,
+            period: session.selection.period,
+            adjust: session.selection.adjustment,
+          },
+          {
+            limit: Math.max(buffer.getRawData().length, DEFAULT_BAR_PAGE_LIMIT),
+            refresh: true,
+            signal,
+          },
+        ),
     })
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
@@ -271,13 +281,13 @@ export class ChartDataManager {
     if (!isKLinePeriod(period)) {
       throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
     }
-    if (!KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
+    if (!isKLineAdjustment(adjustment)) {
       throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
     }
     const existing = this.marketRuntime.findBarsSelection(
       spec,
       period,
-      adjustment as KLineAdjustment,
+      adjustment,
       this.barAggregation(),
     )
     if (existing !== undefined) return existing
@@ -286,7 +296,7 @@ export class ChartDataManager {
       instrumentKey: instrumentKeyFromSpec(spec),
       sourceId: sourceIdFromSpec(spec),
       period,
-      adjustment: adjustment as KLineAdjustment,
+      adjustment,
       barAggregation: this.barAggregation(),
     }
   }
@@ -532,7 +542,7 @@ export class ChartDataManager {
     this.loadRequests.set(buffer, request)
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (!isKLinePeriod(period) || !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
+    if (!isKLinePeriod(period) || !isKLineAdjustment(adjustment)) {
       throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
     buffer.setLoading(true)
@@ -549,9 +559,9 @@ export class ChartDataManager {
         instrument: spec.instrument,
         symbol: spec.symbol,
         exchange: spec.exchange,
-        assetClass: spec.instrument?.assetClass,
+        instrumentType: spec.instrument?.instrumentType,
         period,
-        adjustment: adjustment as KLineAdjustment,
+        adjustment,
         barAggregation: selection.barAggregation,
         limit: target.limit,
         ...(target.beforeTimestamp === undefined
@@ -561,9 +571,14 @@ export class ChartDataManager {
       if (target.refresh && (!spec.source || !spec.instrument)) {
         throw new Error('Refreshing bars requires a resolved source and instrument')
       }
-      const result = target.refresh && spec.source && spec.instrument
-        ? await this.marketDataCache.refreshBars({ ...query, sourceId: spec.source, instrument: spec.instrument })
-        : await this.marketDataCache.queryBars(query)
+      const result =
+        target.refresh && spec.source && spec.instrument
+          ? await this.marketDataCache.refreshBars({
+              ...query,
+              sourceId: spec.source,
+              instrument: spec.instrument,
+            })
+          : await this.marketDataCache.queryBars(query)
       if (signal.aborted || !this.isCurrentLoad(buffer, request)) return
       if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
         return
@@ -729,13 +744,16 @@ export class ChartDataManager {
   /** 分时单日与多日查询共用的来源描述字段。 */
   private timeShareQueryBase(
     spec: SymbolSpec,
-  ): Pick<TimeShareCacheQuery, 'sourceId' | 'instrument' | 'symbol' | 'exchange' | 'assetClass'> {
+  ): Pick<
+    TimeShareCacheQuery,
+    'sourceId' | 'instrument' | 'symbol' | 'exchange' | 'instrumentType'
+  > {
     return {
       sourceId: spec.source,
       instrument: spec.instrument,
       symbol: spec.symbol,
       exchange: spec.exchange,
-      assetClass: spec.instrument?.assetClass,
+      instrumentType: spec.instrument?.instrumentType,
     }
   }
 
@@ -911,8 +929,8 @@ export class ChartDataManager {
         instrument: spec.instrument,
         symbol: spec.symbol,
         exchange: spec.exchange,
-        assetClass: spec.instrument?.assetClass,
-        period: '1min',
+        instrumentType: spec.instrument?.instrumentType,
+        period: KLinePeriod.Min1,
         adjustment: (spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT) as KLineAdjustment,
         barAggregation: ORIGINAL_BAR_AGGREGATION,
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,

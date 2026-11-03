@@ -3,15 +3,21 @@
 Vue 产品公开 `MarketDataSource` 和 `createMarketDataHost()`。历史文件、数据库、回放与实时连接都实现同一接口。用户不操作 Buffer，也不向工作台传入行情数组。
 
 ```ts
-import { createMarketDataHost, type MarketDataSource } from '@363045841yyt/klinechart'
+import {
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
+  createMarketDataHost,
+  type MarketDataSource,
+} from '@363045841yyt/klinechart'
 
 const host = createMarketDataHost()
 const source: MarketDataSource = {
   id: 'broker',
   name: '我的行情',
   capabilities: {
-    assetClasses: ['stock'],
-    bars: { periods: ['daily', '1min'], adjustments: ['none'] },
+    instrumentTypes: [InstrumentType.Stock],
+    bars: { periods: [KLinePeriod.Daily, KLinePeriod.Min1], adjustments: [KLineAdjustment.None] },
   },
   instruments: {
     search: query => api.searchInstruments(query),

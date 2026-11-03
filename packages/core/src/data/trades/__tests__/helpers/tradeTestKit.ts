@@ -14,7 +14,7 @@ export const tradeInstrument: InstrumentDescriptor = {
   sourceId: 'binance',
   symbol: 'BTCUSDT',
   name: 'BTC / USDT',
-  assetClass: 'crypto',
+  instrumentType: 'crypto',
   exchange: 'BINANCE',
   tickSize: 0.01,
   capabilities: { trades: { raw: true, live: true } },
@@ -50,7 +50,7 @@ export function createTradeCache(
     source: {
       id: tradeInstrument.sourceId,
       displayName: 'Binance',
-      capabilities: { assetClasses: ['crypto'], trades: { raw: true, live: true } },
+      capabilities: { instrumentTypes: ['crypto'], trades: { raw: true, live: true } },
     },
     probe: async () => ({ status: 'online', checkedAt: 1 }),
     catalog: { search: async () => [tradeInstrument] },

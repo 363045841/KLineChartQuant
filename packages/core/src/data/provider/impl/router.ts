@@ -17,8 +17,8 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../types.js'
-import { AUTO_SOURCE_ID, isFilterableAssetClass } from '../types.js'
-import { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
+import { AUTO_SOURCE_ID, isFilterableInstrumentType } from '../types.js'
+import type { MarketDataProviderRegistry } from './registry.js'
 
 /** 所有候选源都明确拒绝请求时抛出的错误。 */
 export class SourceRoutingError extends KLineChartError {
@@ -105,7 +105,7 @@ async function resolveInstrument(
     attached?.sourceId === provider.source.id &&
     attached.symbol === identity.symbol &&
     (identity.exchange === undefined || attached.exchange === identity.exchange) &&
-    (identity.assetClass === undefined || attached.assetClass === identity.assetClass)
+    (identity.instrumentType === undefined || attached.instrumentType === identity.instrumentType)
   ) {
     if (!instrumentSupportsCapability(attached.capabilities, capability)) {
       throw new KLineChartError(
@@ -128,7 +128,9 @@ async function resolveInstrument(
     keyword: identity.symbol,
     limit: 20,
     // unknown 不参与筛选：传 unknown 会误杀已归一化到已知类别的同代码品种。
-    assetClasses: isFilterableAssetClass(identity.assetClass) ? [identity.assetClass] : undefined,
+    instrumentTypes: isFilterableInstrumentType(identity.instrumentType)
+      ? [identity.instrumentType]
+      : undefined,
     signal,
   })
   const instrument = candidates.find(
@@ -168,7 +170,7 @@ async function discoverCapabilities(
 
 /** 行情 Provider Router。 */
 export class SourceRouter {
-  constructor(private readonly registry: MarketDataProviderRegistry = marketDataProviderRegistry) {}
+  constructor(private readonly registry: MarketDataProviderRegistry) {}
 
   /** 获取请求候选源；显式来源只返回自身，auto 才允许按优先级流转。 */
   private async getCandidates(
@@ -235,7 +237,7 @@ export class SourceRouter {
     return this.route(
       {
         capability: 'bars',
-        assetClass: request.assetClass,
+        instrumentType: request.instrumentType,
         period: request.period,
         adjustment: request.adjustment,
       },
@@ -279,7 +281,7 @@ export class SourceRouter {
     request: SourceRouterTimeShareRequest,
   ): Promise<RoutedMarketData<TimeShareSeries>> {
     return this.route(
-      { capability: 'timeShare', assetClass: request.assetClass },
+      { capability: 'timeShare', instrumentType: request.instrumentType },
       request,
       request.preferredSourceId,
       request.instrument,
@@ -309,7 +311,7 @@ export class SourceRouter {
     request: SourceRouterTimeShareRangeRequest,
   ): Promise<RoutedMarketData<TimeShareRange>> {
     return this.route(
-      { capability: 'timeShareRange', assetClass: request.assetClass, days: request.days },
+      { capability: 'timeShareRange', instrumentType: request.instrumentType, days: request.days },
       request,
       request.preferredSourceId,
       request.instrument,
@@ -339,6 +341,3 @@ export class SourceRouter {
     )
   }
 }
-
-/** 内置 Provider Router。 */
-export const sourceRouter = new SourceRouter()

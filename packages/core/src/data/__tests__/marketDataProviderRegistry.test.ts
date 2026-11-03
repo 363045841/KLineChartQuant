@@ -3,14 +3,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '../../errors'
-import { type MarketDataProvider, MarketDataProviderRegistry } from '../provider'
+import { InstrumentType, type MarketDataProvider, MarketDataProviderRegistry } from '../provider'
 
 const gotdxProvider = {
   source: {
     id: 'gotdx',
     displayName: 'GOTDX',
     capabilities: {
-      assetClasses: ['stock'],
+      instrumentTypes: [InstrumentType.Stock],
       bars: { periods: ['daily'], adjustments: ['none'] },
     },
   },
@@ -25,7 +25,7 @@ const mockProvider = {
     id: 'mock',
     displayName: 'Mock',
     capabilities: {
-      assetClasses: ['index'],
+      instrumentTypes: [InstrumentType.Index],
       bars: { periods: ['daily'], adjustments: ['none'] },
     },
   },
@@ -109,16 +109,16 @@ describe('MarketDataProviderRegistry', () => {
     expect(
       registry.getEnabledByCapability({
         capability: 'bars',
-        assetClass: 'stock',
+        instrumentType: 'stock',
         period: 'daily',
         adjustment: 'none',
       }),
     ).toEqual([gotdxProvider])
-    // unknown 不参与筛选：未归一化的品种不受源声明 assetClasses 限制。
+    // unknown 不参与筛选：未归一化的品种不受源声明 instrumentTypes 限制。
     expect(
       registry.getEnabledByCapability({
         capability: 'bars',
-        assetClass: 'unknown',
+        instrumentType: 'unknown',
         period: 'daily',
         adjustment: 'none',
       }),

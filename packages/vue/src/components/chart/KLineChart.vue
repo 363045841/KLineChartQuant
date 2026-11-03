@@ -414,6 +414,9 @@
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
+    isKLineAdjustment,
+    KLineAdjustment,
+    KLinePeriod,
     type MarketDataContext,
     searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
@@ -459,7 +462,11 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  const ScriptEditorHost = defineAsyncComponent(() => import('@vue-src/components/script/ScriptEditorHost.vue'))
+
+  const ScriptEditorHost = defineAsyncComponent(
+    () => import('@vue-src/components/script/ScriptEditorHost.vue'),
+  )
+
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
@@ -542,7 +549,6 @@
 
       /** Canvas 主图图例配置；默认由 Core 绘制，不进入 Vue 更新路径。 */
       legend?: LegendOptions
-
     }>(),
     {
       yPaddingPx: 20,
@@ -573,7 +579,7 @@
     (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
-    (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
+    (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
     (e: 'controllerReady', controller: ChartController): void
   }>()
 
@@ -637,16 +643,16 @@
     (ctrl) => ctrl.comparisonSpecs,
     () => [],
   )
-  const initialKLineLevel = props.symbols?.[0]?.period ?? 'daily'
+  const initialKLineLevel = props.symbols?.[0]?.period ?? KLinePeriod.Daily
   // Preference used only before a primary symbol exists; active adjustment is Core-owned.
-  const initialAdjust = ref<'qfq' | 'hfq' | 'splits' | 'none'>(
-    (props.symbols?.[0]?.adjust as 'qfq' | 'hfq' | 'splits' | 'none' | undefined) ?? 'none',
-  )
+  /** 把外部字符串收敛为受支持的复权方式；缺省使用不复权。 */
+  function toKLineAdjustment(value: string | undefined): KLineAdjustment {
+    return value !== undefined && isKLineAdjustment(value) ? value : KLineAdjustment.None
+  }
+  const initialAdjust = ref<KLineAdjustment>(toKLineAdjustment(props.symbols?.[0]?.adjust))
   const kLineAdjust = computed(() => {
     const adjust = controllerSymbols.value[0]?.adjust
-    return adjust === 'qfq' || adjust === 'hfq' || adjust === 'splits' || adjust === 'none'
-      ? adjust
-      : initialAdjust.value
+    return adjust !== undefined && isKLineAdjustment(adjust) ? adjust : initialAdjust.value
   })
   const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
   const currentSymbolItem = computed(() => {
@@ -716,7 +722,7 @@
     }
   }
 
-  function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
+  function onKLineAdjustChange(adjust: KLineAdjustment) {
     if (!currentSymbolItem.value) initialAdjust.value = adjust
     emit('kLineAdjustChange', adjust)
     syncSymbolsToController(adjust)
@@ -754,7 +760,7 @@
   }
 
   /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
-  function applyInstrumentCapabilities(item: SymbolItem): 'qfq' | 'hfq' | 'splits' | 'none' {
+  function applyInstrumentCapabilities(item: SymbolItem): KLineAdjustment {
     const capabilities = item.capabilities
     if (!capabilities) return kLineAdjust.value
     const supportedPeriods = capabilities.bars?.periods ?? []
@@ -830,7 +836,7 @@
       sourceId: info.source ?? '',
       symbol: info.symbol,
       name: info.description ?? info.symbol,
-      assetClass: info.assetClass ?? 'unknown',
+      instrumentType: info.instrumentType ?? 'unknown',
       exchange: info.exchange ?? '',
       sessionId: info.sessionId ?? (info.market || undefined),
       providerRef: info.params,
@@ -845,7 +851,7 @@
   function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
     return {
       id: item.id,
-      assetClass: item.assetClass,
+      instrumentType: item.instrumentType,
       sessionId: item.sessionId,
       capabilities: item.capabilities,
       tickSize: item.tickSize,
@@ -878,7 +884,7 @@
           sourceId: spec.source ?? '',
           symbol: spec.symbol,
           name: spec.symbol,
-          assetClass: 'unknown',
+          instrumentType: 'unknown',
           exchange: spec.exchange ?? '',
           sessionId: spec.market || undefined,
           providerRef: spec.params,
@@ -1095,9 +1101,7 @@
    * 脚本服务由宿主异步初始化，就绪前不暴露编辑器与脚本目录。
    * 提前打开只会得到没有模板、也无法运行的草稿，且用户看不出原因。
    */
-  const scriptsAvailable = computed(
-    () => props.scriptsEnabled && scriptEditorSession.ready.value,
-  )
+  const scriptsAvailable = computed(() => props.scriptsEnabled && scriptEditorSession.ready.value)
   const {
     open: scriptEditorOpen,
     source: scriptEditorSource,
@@ -1303,6 +1307,7 @@
     containerRef,
     data,
     batchSymbols,
+    marketDataContext,
   })
 
   // ── No-op Render Trigger (exposed) ──
@@ -1374,7 +1379,8 @@
       ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
       : 0
     return paneAxisItems.value.slice(0, -1).map((pane) => ({
-      id: pane.id, top: pane.top + pane.height + borderTop,
+      id: pane.id,
+      top: pane.top + pane.height + borderTop,
     }))
   })
   const deviceEnvironment = useDeviceEnvironment()
@@ -1543,7 +1549,7 @@
       return
     }
 
-    if (kLineLevel.value !== 'daily' || !controller.value) return
+    if (kLineLevel.value !== KLinePeriod.Daily || !controller.value) return
 
     const index = controller.value.getLogicalIndexAtX(mouseX)
     if (index == null) return

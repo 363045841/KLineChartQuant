@@ -8,7 +8,6 @@ import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/error
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 
 import type {
-  AssetClass,
   BarQuery,
   BarSeries,
   DataSourceDescriptor,
@@ -20,7 +19,7 @@ import type {
   TimeShareSeries,
   VolumeUnit,
 } from '../../types.js'
-import { isFilterableAssetClass } from '../../types.js'
+import { InstrumentType, isFilterableInstrumentType } from '../../types.js'
 import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
@@ -45,7 +44,8 @@ const CN_SESSION_ID = 'CN'
 
 // 默认成交量单位兜底：CN 市场非指数品种按手计，其余保持未知
 function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit | undefined {
-  return instrument.sessionId === CN_SESSION_ID && instrument.assetClass !== 'index'
+  return instrument.sessionId === CN_SESSION_ID &&
+    instrument.instrumentType !== InstrumentType.Index
     ? 'lot'
     : undefined
 }
@@ -57,7 +57,7 @@ function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor
     sourceId: item.sourceId,
     symbol: item.symbol,
     name: item.name,
-    assetClass: item.assetClass,
+    instrumentType: item.instrumentType,
     exchange: item.exchange,
     sessionId: item.sessionId,
     currency: item.currency,
@@ -168,17 +168,17 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
             sourceId: source.id,
             keyword: query.keyword,
             limit: query.limit,
-            assetClasses: query.assetClasses,
+            instrumentTypes: query.instrumentTypes,
           },
           query.signal,
         )
         const instruments = result.items.map(mapInstrument)
         // unknown 不参与筛选：请求携带 unknown 时按无条件处理，避免误杀已归一化的同代码品种。
-        const allowed = new Set<AssetClass>(
-          (query.assetClasses ?? []).filter(isFilterableAssetClass),
+        const allowed = new Set<InstrumentType>(
+          (query.instrumentTypes ?? []).filter(isFilterableInstrumentType),
         )
         if (allowed.size === 0) return instruments
-        return instruments.filter((instrument) => allowed.has(instrument.assetClass))
+        return instruments.filter((instrument) => allowed.has(instrument.instrumentType))
       },
     },
 

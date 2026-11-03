@@ -1,6 +1,7 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it, vi } from 'vitest'
 import type { InstrumentDescriptor } from '../../types'
+import { InstrumentType } from '../../types'
 import { createMarketDataProvider } from '../impl/provider'
 import type {
   MarketDataTransport,
@@ -14,7 +15,7 @@ const instrument: InstrumentDescriptor = {
   sourceId: 'gotdx',
   symbol: '600519',
   name: '贵州茅台',
-  assetClass: 'stock',
+  instrumentType: 'stock',
   exchange: 'SH',
   sessionId: 'CN',
   providerRef: { market: 1, kind: 'stock' },
@@ -66,7 +67,7 @@ describe('createMarketDataProvider', () => {
         status: 'online',
         checkedAt: 1,
         capabilities: {
-          assetClasses: ['stock'],
+          instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
         },
       }),
@@ -105,7 +106,7 @@ describe('createMarketDataProvider', () => {
           status: 'online',
           checkedAt: 1,
           capabilities: {
-            assetClasses: ['stock'],
+            instrumentTypes: ['stock'],
             bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest: sourceLimit },
           },
         }),
@@ -162,8 +163,8 @@ describe('createMarketDataProvider', () => {
     })
   })
 
-  // 验证品种目录映射到领域模型，并按要求过滤 assetClasses
-  it('maps catalog items and filters by asset class', async () => {
+  // 验证品种目录映射到领域模型，并按要求过滤 instrumentTypes
+  it('maps catalog items and filters by instrument type', async () => {
     const provider = createProvider(
       fakeTransport({
         searchInstruments: async () => ({
@@ -175,11 +176,15 @@ describe('createMarketDataProvider', () => {
       instrument,
     ])
     await expect(
-      provider.catalog!.search({ keyword: '茅台', limit: 10, assetClasses: ['index'] }),
+      provider.catalog!.search({
+        keyword: '茅台',
+        limit: 10,
+        instrumentTypes: [InstrumentType.Index],
+      }),
     ).resolves.toEqual([])
     // unknown 不参与筛选：带 unknown 的请求按无条件处理，返回全部品种。
     await expect(
-      provider.catalog!.search({ keyword: '茅台', limit: 10, assetClasses: ['unknown'] }),
+      provider.catalog!.search({ keyword: '茅台', limit: 10, instrumentTypes: ['unknown'] }),
     ).resolves.toEqual([instrument])
   })
 

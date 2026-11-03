@@ -223,7 +223,7 @@ components:
       minLength: 1
       example: gotdx
 
-    AssetClass:
+    InstrumentType:
       type: string
       enum: [stock, index, fund, etf, future, option, forex, crypto, unknown]
 
@@ -289,7 +289,7 @@ components:
         - sourceId
         - symbol
         - name
-        - assetClass
+        - instrumentType
         - exchange
         - capabilities
       properties:
@@ -305,8 +305,8 @@ components:
         name:
           type: string
           example: 贵州茅台
-        assetClass:
-          $ref: '#/components/schemas/AssetClass'
+        instrumentType:
+          $ref: '#/components/schemas/InstrumentType'
         exchange:
           type: string
           example: SH
@@ -356,11 +356,11 @@ components:
           type: integer
           minimum: 1
           maximum: 100
-        assetClasses:
+        instrumentTypes:
           type: array
           uniqueItems: true
           items:
-            $ref: '#/components/schemas/AssetClass'
+            $ref: '#/components/schemas/InstrumentType'
 
     InstrumentSearchResponse:
       allOf:

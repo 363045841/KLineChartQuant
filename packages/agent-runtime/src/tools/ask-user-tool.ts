@@ -9,7 +9,7 @@ export const ASK_USER_TOOL_METADATA = {
   name: ASK_USER_TOOL_NAME,
   label: 'Ask question',
   description:
-    'Ask the user a clarifying question in the Agent panel and wait for the answer before continuing. This is required whenever a tool result reports status "ambiguous": turn every candidate into one option, where value is the candidate\'s unique routing identifier (for example its id, or source + exchange + assetClass), label is its display name, and description explains its source, exchange, and assetClass routing fields. Every value must be unique; labels may repeat. Never answer on the user\'s behalf and never retry with a guessed candidate.',
+    'Ask the user a clarifying question in the Agent panel and wait for the answer before continuing. This is required whenever a tool result reports status "ambiguous": turn every candidate into one option, where value is the candidate\'s unique routing identifier (for example its id, or source + exchange + instrumentType), label is its display name, and description explains its source, exchange, and instrumentType routing fields. Every value must be unique; labels may repeat. Never answer on the user\'s behalf and never retry with a guessed candidate.',
 } as const
 
 const AskUserParameters = Type.Object(

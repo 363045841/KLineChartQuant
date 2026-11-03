@@ -86,7 +86,6 @@ export type {
 // Heatmap controller (depth pipeline rendering half)
 export { createHeatmapController } from '../components/orderBookHeatmap/index.js'
 export type {
-  AssetClass,
   BarAggregation,
   BarCapability,
   BarDataSource,
@@ -102,6 +101,7 @@ export type {
   InstrumentCatalog,
   InstrumentDescriptor,
   InstrumentSearchQuery,
+  InstrumentType,
   KLineAdjustment,
   KLinePeriod,
   LiveBar,

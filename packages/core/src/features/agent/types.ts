@@ -3,10 +3,10 @@ import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
 import type {
-  AssetClass,
   BarAggregation,
   BarSeries,
   InstrumentDescriptor,
+  InstrumentType,
   KLineAdjustment,
   KLinePeriod,
   OlderDataStatus,
@@ -129,7 +129,7 @@ export interface BarsQueryInput {
   readonly limit: number
   readonly sourceId?: string
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
 }
 
 /** 单日分时查询输入；交易日必须由调用方显式给出。 */
@@ -138,7 +138,7 @@ export interface TimeShareQueryInput {
   readonly tradingDate: string
   readonly sourceId?: string
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
 }
 
 /** 多日分时查询输入；截止交易日与天数必须由调用方显式给出。 */
@@ -148,7 +148,7 @@ export interface TimeShareRangeQueryInput {
   readonly days: number
   readonly sourceId?: string
   readonly exchange?: string
-  readonly assetClass?: AssetClass
+  readonly instrumentType?: InstrumentType
 }
 
 /** 行情查询的可序列化来源信息。 */

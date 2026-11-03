@@ -1,5 +1,5 @@
-/** TradingView Provider 的实例装配与默认注册。 */
-import { type MarketDataProviderRegistry, marketDataProviderRegistry } from '../registry.js'
+/** TradingView Provider 的实例装配；注册入口见 builtinProviders.ts。 */
+import type { MarketDataProviderRegistry } from '../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 
@@ -9,8 +9,3 @@ export function createTradingviewMarketDataProvider(registry: MarketDataProvider
     resolveVolumeUnit: () => undefined,
   })
 }
-export const tradingviewMarketDataProvider = createTradingviewMarketDataProvider(
-  marketDataProviderRegistry,
-)
-if (!marketDataProviderRegistry.get(tradingviewMarketDataProvider.source.id))
-  marketDataProviderRegistry.register(tradingviewMarketDataProvider)

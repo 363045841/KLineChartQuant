@@ -80,7 +80,7 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 ## 取数路径
 
-图表运行时只走 Provider 路径：`ChartDataManager` 通过 `SourceRouter` 选择已注册的 `MarketDataProvider`。聚合源管理 UI 只展示 Provider 注册表。新数据源应实现为 Provider 并注册进 `marketDataProviderRegistry`。
+图表运行时只走 Provider 路径：`ChartDataManager` 通过 `SourceRouter` 选择已注册的 `MarketDataProvider`。聚合源管理 UI 只展示 Provider 注册表。内置源应实现为 Provider 并加入 `provider/impl/sources/builtinProviders.ts` 的清单（默认宿主与独立宿主共用）；外部源走 `MarketDataContext.registerDataSource`。
 
 ## 公共导出
 

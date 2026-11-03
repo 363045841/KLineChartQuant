@@ -11,7 +11,7 @@ function createInstrument(overrides: Partial<InstrumentDescriptor> = {}): Instru
     sourceId: 'gotdx',
     symbol: '000012',
     name: '南 玻Ａ',
-    assetClass: 'stock',
+    instrumentType: 'stock',
     exchange: 'SZ',
     sessionId: 'CN',
     currency: 'CNY',
@@ -34,7 +34,7 @@ describe('createMarketDataTextFormatter.formatInstrumentLookup', () => {
     ).toBe(
       `instrument lookup | symbol=000012 | matches=1
 
-| id | sourceId | symbol | name | assetClass | exchange | sessionId | currency | providerRef.kind | providerRef.market | capabilities.bars.periods | capabilities.bars.adjustments | capabilities.timeShare | capabilities.timeShareRange.maxTradingDays |
+| id | sourceId | symbol | name | instrumentType | exchange | sessionId | currency | providerRef.kind | providerRef.market | capabilities.bars.periods | capabilities.bars.adjustments | capabilities.timeShare | capabilities.timeShareRange.maxTradingDays |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | gotdx:stock:0:000012 | gotdx | 000012 | 南 玻Ａ | stock | SZ | CN | CNY | stock | 0 | ["1min","daily"] | ["none"] | true | 20 |`,
     )
@@ -49,7 +49,7 @@ describe('createMarketDataTextFormatter.formatInstrumentLookup', () => {
         createInstrument({
           id: 'gotdx:index:0:000012',
           name: '国债|指数\n(净值)',
-          assetClass: 'index',
+          instrumentType: 'index',
           exchange: 'SH',
           capabilities: {},
         }),

@@ -2,14 +2,14 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
+import type { SymbolSpec } from '../../../controllers/types.js'
+import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
+import type { DrawingObject } from '../../drawing/types.js'
 import { registerIndicatorDescriptor } from '../../indicators/indicatorDefinitionRegistry.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
-import type { SymbolSpec } from '../../../controllers/types.js'
-import type { DrawingObject } from '../../drawing/types.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
-import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
 
 /** 每个用例使用独立数据库，避免归档相互污染。 */
@@ -35,22 +35,51 @@ function createManager() {
 it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
   const source = createManager()
   const oldStorage = createIndexedDbPersistence<unknown>({
-    databaseName: '@363045841yyt/klinechart-layouts', storeName: 'layouts', key: 'documents',
-    flushOnPageHide: false, codec: { decode: (value) => value, encode: (value) => value },
+    databaseName: '@363045841yyt/klinechart-layouts',
+    storeName: 'layouts',
+    key: 'documents',
+    flushOnPageHide: false,
+    codec: { decode: (value) => value, encode: (value) => value },
   })
   await oldStorage.save({
-    activeId: 'old-layout', autoSave: true,
-    documents: { 'old-layout': { ...source.kernel.createLayout(), version: 2, id: 'old-layout', name: 'Old layout' } },
+    activeId: 'old-layout',
+    autoSave: true,
+    documents: {
+      'old-layout': {
+        ...source.kernel.createLayout(),
+        version: 2,
+        id: 'old-layout',
+        name: 'Old layout',
+      },
+    },
   })
   await oldStorage.dispose()
   await source.manager.initialize()
   expect(source.manager.layouts.peek().map((layout) => layout.id)).not.toContain('old-layout')
   const document = source.kernel.createLayout()
-  source.kernel.applyLayout({ ...document, workspaces: { ...document.workspaces, kline: {
-    instances: [{ instanceId: 'pending-instance', indicatorId: 'pending-script', role: 'sub', paneId: 'pending-pane', ordinal: 0, params: {} }],
-    paneSpecs: [{ id: 'main', ratio: 0.83 }, { id: 'pending-pane', ratio: 0.17 }],
-    paneScaleTypes: { 'pending-pane': 'log' },
-  } } })
+  source.kernel.applyLayout({
+    ...document,
+    workspaces: {
+      ...document.workspaces,
+      kline: {
+        instances: [
+          {
+            instanceId: 'pending-instance',
+            indicatorId: 'pending-script',
+            role: 'sub',
+            paneId: 'pending-pane',
+            ordinal: 0,
+            params: {},
+          },
+        ],
+        paneSpecs: [
+          { id: 'main', ratio: 0.83 },
+          { id: 'pending-pane', ratio: 0.17 },
+        ],
+        paneScaleTypes: { 'pending-pane': 'log' },
+      },
+    },
+  })
   const snapshot = source.kernel.exportLayout()
   expect(snapshot.version).toBe(LAYOUT_DOCUMENT_VERSION)
   expect(snapshot.workspaces.kline).not.toHaveProperty('paneRatios')
@@ -63,7 +92,10 @@ it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未�
     await restored.manager.initialize()
     expect(restored.kernel.exportLayout().workspaces).toEqual(snapshot.workspaces)
     expect(restored.kernel.indicator.readonly.subPanes.peek()).toHaveLength(1)
-    expect(restored.kernel.pane.readonly.paneRatios.peek()).toEqual({ main: 0.83, 'pending-pane': 0.17 })
+    expect(restored.kernel.pane.readonly.paneRatios.peek()).toEqual({
+      main: 0.83,
+      'pending-pane': 0.17,
+    })
   } finally {
     await restored.manager.dispose()
     restored.kernel.dispose()
@@ -76,7 +108,13 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
-  registerIndicatorDescriptor({ name: 'layout-test', displayName: 'Layout test', kind: IndicatorKind.Indicator, category: 'main', defaultPaneId: 'main' })
+  registerIndicatorDescriptor({
+    name: 'layout-test',
+    displayName: 'Layout test',
+    kind: IndicatorKind.Indicator,
+    category: 'main',
+    defaultPaneId: 'main',
+  })
   const definition = allIndicatorDefinitions()[0]
   if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
@@ -337,7 +375,7 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
       sourceId: 'fixture',
       symbol: 'AAPL',
       name: 'Apple',
-      assetClass: 'stock',
+      instrumentType: 'stock',
       exchange: 'NASDAQ',
       sessionId: 'US',
       providerRef: { exchange: 'NASDAQ' },

@@ -124,7 +124,7 @@ describe('Chart Agent @Tool registry', () => {
     }
   })
 
-  it('rejects unknown assetClass as a comparison routing filter', async () => {
+  it('rejects unknown instrumentType as a comparison routing filter', async () => {
     const create = getRegisteredChartTools().find(
       (tool) => tool.config.name === 'comparison_create',
     )!
@@ -132,10 +132,10 @@ describe('Chart Agent @Tool registry', () => {
     await expect(
       create.execute(
         {},
-        { symbol: '000012', assetClass: 'unknown' },
+        { symbol: '000012', instrumentType: 'unknown' },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
-    ).rejects.toThrow('/assetClass')
+    ).rejects.toThrow('/instrumentType')
   })
 
   it('auto-records the real method name and owns its primitive host', async () => {
@@ -160,7 +160,7 @@ describe('Chart Agent @Tool registry', () => {
             sourceId: 'mock',
             symbol,
             name: symbol,
-            assetClass: 'stock',
+            instrumentType: 'stock',
             exchange: 'SSE',
             sessionId: 'CN',
             capabilities: {},

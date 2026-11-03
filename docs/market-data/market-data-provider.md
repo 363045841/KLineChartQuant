@@ -7,14 +7,19 @@
 ## 定义品种
 
 ```ts
-import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+import {
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
+  type InstrumentDescriptor,
+} from '@363045841yyt/klinechart-core/market-data'
 
 const instrument = {
   id: 'gotdx:stock:0:000001',
   sourceId: 'gotdx',
   symbol: '000001',
   name: '平安银行',
-  assetClass: 'stock',
+  instrumentType: InstrumentType.Stock,
   exchange: 'SZ',
   sessionId: 'CN',
   currency: 'CNY',
@@ -25,8 +30,8 @@ const instrument = {
   },
   capabilities: {
     bars: {
-      periods: ['1min', '5min', 'daily', 'weekly'],
-      adjustments: ['qfq', 'hfq', 'none'],
+      periods: [KLinePeriod.Min1, KLinePeriod.Min5, KLinePeriod.Daily, KLinePeriod.Weekly],
+      adjustments: [KLineAdjustment.Qfq, KLineAdjustment.Hfq, KLineAdjustment.None],
     },
     timeShare: true,
   },

@@ -23,7 +23,7 @@ renderer 和部分 Vitest 配置则为了直接编译 core 源码，使用 Vite 
 Vue 代码也通过公共 API 使用它：
 
 ```ts
-import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import { searchInstruments } from '@363045841yyt/klinechart-core/market-data'
 ```
 
 但 GitHub Pages preview 构建失败：

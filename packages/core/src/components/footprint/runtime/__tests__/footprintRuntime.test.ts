@@ -1,14 +1,14 @@
 /** 验证足迹独立链路的增量传输、过期隔离、模式启停和参数归属。 */
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { createSignal } from '@/foundation/reactivity/signal.js'
 import { getIndicatorDescriptors } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import { batch, trade, input, runtimeInput } from '../../__tests__/helpers/footprintTestKit.js'
-import { createFootprintHarness } from './helpers/footprintModeTestKit.js'
+import { createSignal } from '@/foundation/reactivity/signal.js'
+import { batch, input, runtimeInput, trade } from '../../__tests__/helpers/footprintTestKit.js'
 import { FOOTPRINT_TEXT_MODES } from '../../types.js'
-import type { FootprintInput, FootprintResult } from '../types.js'
 import { createFootprintRuntime } from '../impl/createFootprintRuntime.js'
 import { createFootprintExecution } from '../impl/footprintExecution.js'
 import { diffFootprintTrades } from '../impl/tradeDiff.js'
+import type { FootprintInput, FootprintResult } from '../types.js'
+import { createFootprintHarness } from './helpers/footprintModeTestKit.js'
 
 describe('足迹主序列运行模块', () => {
   it('增量、重复快照、历史替换和市场切换均不重复累计成交', () => {
@@ -24,7 +24,10 @@ describe('足迹主序列运行模块', () => {
       { current: runtimeInput([a], 'other:5min'), mode: 'replace', added: 1, total: '2.4' },
     ]
     for (const [index, item] of cases.entries()) {
-      const diff = diffFootprintTrades(previous?.marketKey === item.current.marketKey ? previous.trades : undefined, item.current.trades)
+      const diff = diffFootprintTrades(
+        previous?.marketKey === item.current.marketKey ? previous.trades : undefined,
+        item.current.trades,
+      )
       expect(diff.mode).toBe(item.mode)
       expect(diff.snapshot.batches).toHaveLength(item.added)
       const response = execute(structuredClone({ requestId: index, ...item.current, trades: diff }))
@@ -39,7 +42,13 @@ describe('足迹主序列运行模块', () => {
     const latest = runtimeInput([batch([trade('b', 1500, '1.2', '3', 'buy')])])
     const input$ = createSignal<FootprintInput | null>(first)
     const committed: FootprintResult[] = []
-    const runtime = createFootprintRuntime({ input$, createWorker: () => null, commit: (result) => { if (result) committed.push(result) } })
+    const runtime = createFootprintRuntime({
+      input$,
+      createWorker: () => null,
+      commit: (result) => {
+        if (result) committed.push(result)
+      },
+    })
     onTestFinished(() => runtime.dispose())
     input$.set(runtimeInput([]))
     input$.set(latest)
@@ -62,7 +71,9 @@ describe('足迹主序列运行模块', () => {
     kernel.data.actions.setTrades(snapshot)
     const state = kernel.footprint.readonly
     await vi.waitFor(() => expect(state.renderState.peek()?.series.bars[0]?.total).toBe('2.4'))
-    expect(getIndicatorDescriptors().some((item) => item.name.toLowerCase() === 'footprint')).toBe(false)
+    expect(getIndicatorDescriptors().some((item) => item.name.toLowerCase() === 'footprint')).toBe(
+      false,
+    )
     expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('footprint')
     const currentInput = state.input.peek()
     const series = state.renderState.peek()?.series
@@ -90,7 +101,7 @@ describe('足迹主序列运行模块', () => {
     await vi.waitFor(() => expect(state.renderState.peek()?.series.bars[0]?.total).toBe('2.4'))
     expect(state.supported.peek()).toBe(true)
     // 会话不再声明原始成交流能力：不请求成交、不聚合，图上既无足迹也无提示文案。
-    selectPeriod('1min', { assetClasses: ['stock'] })
+    selectPeriod('1min', { instrumentTypes: ['stock'] })
     expect(state.supported.peek()).toBe(false)
     expect(state.enabled.peek()).toBe(false)
     expect(state.input.peek()).toBeNull()

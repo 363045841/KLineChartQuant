@@ -161,7 +161,7 @@ export function createHttpMarketDataTransport(
         sourceId: req.sourceId,
         keyword: req.keyword,
         limit: req.limit,
-        assetClasses: req.assetClasses,
+        instrumentTypes: req.instrumentTypes,
       })
       return request<ProtocolInstrumentSearchResult>(
         baseUrl(),

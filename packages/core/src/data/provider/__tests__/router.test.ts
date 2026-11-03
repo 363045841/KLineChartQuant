@@ -7,6 +7,7 @@ import { symbolInfoFromSpec } from '../../../engine/data/symbolInfo'
 import { MarketDataProviderRegistry } from '../impl/registry'
 import { SourceRouter, SourceRoutingError } from '../impl/router'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'
+import { InstrumentType } from '../types'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
 
 const baseInstrument: InstrumentDescriptor = {
@@ -14,7 +15,7 @@ const baseInstrument: InstrumentDescriptor = {
   sourceId: 'gotdx',
   symbol: '600519',
   name: '贵州茅台',
-  assetClass: 'stock',
+  instrumentType: 'stock',
   exchange: 'SH',
   sessionId: 'CN',
   providerRef: { market: 1 },
@@ -176,7 +177,7 @@ describe('SourceRouter', () => {
       instrument: baseInstrument,
       symbol: baseInstrument.symbol,
       exchange: baseInstrument.exchange,
-      assetClass: baseInstrument.assetClass,
+      instrumentType: baseInstrument.instrumentType,
       period: 'daily',
       adjustment: 'none',
       barAggregation: 'original',
@@ -318,21 +319,21 @@ describe('SourceRouter', () => {
     })
   })
 
-  // 验证 assetClass 为 unknown 的品种不会被源级 assetClasses 声明误杀，仍会发出取数请求。
-  it('routes unknown assetClass instruments instead of filtering the source out', async () => {
+  // 验证 instrumentType 为 unknown 的品种不会被源级 instrumentTypes 声明误杀，仍会发出取数请求。
+  it('routes unknown instrumentType instruments instead of filtering the source out', async () => {
     const unknownInstrument: InstrumentDescriptor = {
       ...baseInstrument,
       id: 'gotdx:ex:0:HSI',
       symbol: 'HSI',
-      assetClass: 'unknown',
+      instrumentType: 'unknown',
       exchange: 'INDEX',
     }
     let fetched = false
     const provider = createMockMarketDataProvider({
       sourceId: 'gotdx',
-      // 源声明的 assetClasses 不含 unknown：修复前会因此把 gotdx 整源筛掉。
+      // 源声明的 instrumentTypes 不含 unknown：修复前会因此把 gotdx 整源筛掉。
       capabilities: {
-        assetClasses: ['index'],
+        instrumentTypes: [InstrumentType.Index],
         bars: { periods: ['daily'], adjustments: ['none'] },
       },
       fetchBars: async ({ instrument }) => {
@@ -355,7 +356,7 @@ describe('SourceRouter', () => {
       instrument: unknownInstrument,
       symbol: unknownInstrument.symbol,
       exchange: unknownInstrument.exchange,
-      assetClass: unknownInstrument.assetClass,
+      instrumentType: unknownInstrument.instrumentType,
       period: 'daily',
       adjustment: 'none',
       barAggregation: 'original',
