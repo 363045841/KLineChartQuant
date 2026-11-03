@@ -1,6 +1,6 @@
 # 系统架构
 
-> 更新日期：2026-09-12 | 适用范围：整个 monorepo（`packages/*`）与外部行情后端
+> 更新日期：2026-11-03 | 适用范围：整个 monorepo（`packages/*`）与外部行情后端
 
 本文描述 KLineChartQuant 的整体架构：包边界、核心引擎的分层、运行时数据流，
 以及外部行情后端的接入方式。渲染主链路的细节以
@@ -90,6 +90,41 @@ flowchart TB
 | 渲染管线 | 帧事务、几何封存、Scene/Layer 调度、后端降级 | 业务图元语义 |
 | 插件子系统 | 插件注册、钩子、事件总线、渲染器插件管理 | 业务绘制 |
 | 行情后端（外部） | 行情数据服务 | 前端逻辑 |
+
+### 1.2 适配层边界与设计理由
+
+框架绑定只负责容器挂载与卸载、输入事件转发、core Signal 到框架响应式的桥接（Vue `shallowRef`、React `useSyncExternalStore`、Angular signal）。业务状态与绘制归 core，适配层不持有状态副本。
+
+**Signal + Controller，而不是单一 Reactive 类**
+
+- 框架无关：core 不 import 任何框架。
+- SSR 安全：模块作用域不访问 DOM，挂载推迟到 `onMounted` / `useEffect` / `isPlatformBrowser`。
+- 可测试：Signal 可脱离 DOM 创建，`ChartController` 可用 mock 工厂替换。
+- 分层清晰：适配层拥有响应式桥接，core 拥有业务逻辑。
+
+**`_chart` 逃生舱已删除**
+
+`ChartController` 曾用 `_chart: unknown` 把内部 `Chart` 暴露给绘图交互。现在由窄接口 `DrawingChartAdapter`（`DrawingDocumentPort & DrawingViewportPort & DrawingSessionPort`）承担：只包含绘图需要的方法，不暴露 renderer、PluginHost 或引擎内部状态；`ChartController` 实现该接口并委托到 `chart.*`。
+
+**部分引擎工具从 controllers 再导出**
+
+`zoomLevelToKWidth()`、`kGapFromKWidth()` 在控制器创建前就要用于计算初始布局。统一从 `@363045841yyt/klinechart-core/controllers` 导出，避免各适配器深入 `engine/*` 内部路径。
+
+**SSR 约束**
+
+- core 在模块求值期会访问浏览器全局（config 读取 `localStorage`；有 DOM 时创建 canvas 并 `getContext`），静态 `import` 会进入服务端求值路径。
+- 直连 core 的适配器必须在客户端动态 `import()` core；服务端只输出空容器，挂载前返回 `null`。
+- 控制器创建是异步的：卸载或 StrictMode 双挂载时，迟到的控制器在 resolve 后立即 `dispose()`。挂载参数只在首次挂载读取，之后通过控制器方法增量同步。
+
+**适配器契约测试**
+
+适配器只测桥接，不实例化完整引擎：用 mock `ChartControllerFactory` 验证生命周期、signal 桥接与错误处理。
+
+- Vue：`__setControllerFactory(factory)` 覆盖，测试后重置为 `null`；生产入口在 import 时注入 `createChartController`。
+- React：`<KLineChart factory={mockFactory} />` 或 `useKLineChart(ref, { factory })`。
+- Angular：`provideKLineChart({ factory: mockFactory })`。
+
+测试文件：`packages/vue/src/__tests__/contract.test.ts`、`packages/angular/src/__tests__/contract.test.ts`、`packages/react/src/__tests__/KLineChart.test.tsx`。
 
 ## 2. 包与依赖
 
