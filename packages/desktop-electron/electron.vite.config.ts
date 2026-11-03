@@ -68,8 +68,10 @@ export default defineConfig({
     },
     resolve: {
       // 渲染进程按包名导入 workspace 各包（含 Vue UI），统一解析到源码，保留热更新且不依赖
-      // 预先构建 dist；core 另由 createCoreSourceAliases 补齐 @/ 与 Indicator 深层入口。
+      // 预先构建 dist；core 另由 createCoreSourceAliases 补齐 @/ 与 Indicator 深层入口，
+      // vue 包内部用 @vue-src/ 自引用源码，必须与包名 alias 一起生效。
       alias: [
+        { find: /^@vue-src\//, replacement: fileURLToPath(new URL('../vue/src/', import.meta.url)) },
         ...createCoreSourceAliases(coreSrc),
         ...createWorkspaceSourceAliases(root, { exclude: [coreSrc] }),
       ],

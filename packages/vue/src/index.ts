@@ -143,6 +143,8 @@ export {
   createBuiltinMarketDataContext,
   createMockDataSource,
 } from '@363045841yyt/klinechart-core/market-data/sources'
+export { createPersistedMarketDataHost } from '@vue-src/features/market/impl/persisted-market-data-host.js'
+export type { PersistedMarketDataHost } from '@vue-src/features/market/types.js'
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
 export { KlineWorkbench }
 

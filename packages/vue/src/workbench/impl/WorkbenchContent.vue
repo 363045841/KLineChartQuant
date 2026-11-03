@@ -5,6 +5,7 @@
     class="kline-workbench__content"
     :controller="agent ? controller : undefined"
     :initial-panel-open="agent ? initialAgentPanelOpen : undefined"
+    :credentials="agent ? credentials : undefined"
   >
     <div v-if="market.error.value" class="kline-workbench__market-error" role="alert">
       {{ market.error.value.message }}
@@ -28,8 +29,8 @@
   import KlineChart from '../../components/chart/KLineChart.vue'
   import BaseButton from '../../components/common/BaseButton.vue'
   import type { KlineWorkbenchProps } from '../types.js'
-  import { useWorkbenchServices } from './useWorkbenchServices.js'
   import { useWorkbenchMarket } from './useWorkbenchMarket.js'
+  import { useWorkbenchServices } from './useWorkbenchServices.js'
 
   defineOptions({ inheritAttrs: false })
   const props = withDefaults(defineProps<KlineWorkbenchProps>(), {

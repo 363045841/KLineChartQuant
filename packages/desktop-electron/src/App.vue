@@ -1,56 +1,48 @@
+<!-- 桌面端只做宿主装配：行情实例、凭据存储与数据源注册，界面沿用同一套产品工作台。 -->
 <template>
-  <AgentWorkbenchShell
-    :bridge="bridge"
-    :panel-width-storage="panelWidthStorage"
-    :panel-side-storage="panelSideStorage"
-  >
-    <template #chart>
-      <KlineChart
-        ref="chartRef"
-        :market-data-context="e2eMarket?.host"
-        :symbols="e2eMarket?.symbols"
-        @controller-ready="(controller) => bridge.bindChartAgent(controller.agent)"
-      />
-    </template>
-  </AgentWorkbenchShell>
+  <KlineWorkbench
+    :market-data-context="market.context"
+    :instrument="market.instrument"
+    :period="period"
+    :credentials="credentials"
+    :left-axis-width="60"
+  />
 </template>
 
 <script setup lang="ts">
   import {
-    AgentWorkbenchShell,
-    BrowserAgentBridge,
-    createAgentPanelSideStorage,
-    createAgentPanelWidthStorage,
-  } from '@363045841yyt/klinechart/agent'
-  import { KlineChart } from '@363045841yyt/klinechart'
-  import { createMarketDataHost } from '@363045841yyt/klinechart'
-  import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
-  import { onBeforeUnmount, ref } from 'vue'
-
-  import { createElectronCredentialStore } from './features/agent/electron-credential-store'
+    createMarketDataHost,
+    createPersistedMarketDataHost,
+    KLinePeriod,
+    KlineWorkbench,
+    type KlineWorkbenchProps,
+    type PersistedMarketDataHost,
+  } from '@363045841yyt/klinechart'
+  import { onBeforeUnmount } from 'vue'
   import { createE2eDataSource } from './features/agent/chart-e2e-fixture'
+  import { createElectronCredentialStore } from './features/agent/electron-credential-store'
 
-  /** Electron E2E 也沿注册源加载，不提供任何旁路行情入口。 */
-  async function prepareE2eMarket() {
+  /** E2E 也走注册数据源，不提供旁路行情入口；产品模式复用的持久化宿主与 Web 完全相同。 */
+  function createMarket(): PersistedMarketDataHost & {
+    instrument?: KlineWorkbenchProps['instrument']
+  } {
+    if (import.meta.env.MODE !== 'e2e') return createPersistedMarketDataHost()
     const fixture = createE2eDataSource()
     const host = createMarketDataHost()
     host.registerDataSource(fixture.source)
-    const instrument = await host.resolveInstrument(fixture.instrument.sourceId, fixture.instrument.id)
-    return { host, symbols: [{ instrument, symbol: instrument.symbol, market: 'CN', source: fixture.source.id, period: 'daily' }] }
+    return {
+      context: host,
+      dispose: () => host.dispose(),
+      instrument: fixture.instrument,
+    }
   }
-  const e2eMarket = import.meta.env.MODE === 'e2e' ? await prepareE2eMarket() : undefined
-  onBeforeUnmount(() => e2eMarket?.host.dispose())
 
-  const chartRef = ref<{ getController?: () => { agent: ChartAgentController } } | null>(null)
-  // preload 缺席时返回 undefined，bridge 退回默认的 localStorage 实现，应用仍可启动。
-  const bridge = new BrowserAgentBridge({
-    getChartAgent: () => chartRef.value?.getController?.()?.agent,
-    credentials: createElectronCredentialStore(),
-  })
-  onBeforeUnmount(() => bridge.close())
-
-  const panelWidthStorage = createAgentPanelWidthStorage()
-  const panelSideStorage = createAgentPanelSideStorage()
+  // preload 缺席时返回 undefined，工作台退回默认的浏览器凭据实现，应用仍可启动。
+  const credentials = createElectronCredentialStore()
+  const market = createMarket()
+  const period = KLinePeriod.Daily
+  // 行情实例归宿主所有，工作台卸载不销毁它。
+  onBeforeUnmount(() => market.dispose())
 </script>
 
 <style>
