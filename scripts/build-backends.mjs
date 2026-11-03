@@ -84,7 +84,10 @@ function capture(command, args) {
 function ensureSource(backend, override) {
   if (override) return override
   const directory = path.join(SOURCE_CACHE, backend.id)
-  if (!fs.existsSync(path.join(directory, '.git'))) {
+  // `--no-checkout` 只取对象不落工作区，所以「HEAD 已经是目标 commit」并不等于文件已就绪；
+  // 新克隆的仓库必须再走一次 checkout，否则 go build 会看到空目录。
+  const cloned = !fs.existsSync(path.join(directory, '.git'))
+  if (cloned) {
     fs.mkdirSync(SOURCE_CACHE, { recursive: true })
     console.log(`  • 克隆 ${backend.repo}`)
     try {
@@ -102,19 +105,23 @@ function ensureSource(backend, override) {
   } catch {
     head = ''
   }
+  if (!cloned && head === backend.commit) return directory
+
+  console.log(`  • ${backend.id} 切到 ${backend.commit.slice(0, 12)}`)
   if (head !== backend.commit) {
-    console.log(`  • ${backend.id} 切到 ${backend.commit.slice(0, 12)}`)
     run('git', ['-C', directory, 'fetch', '--depth', '1', 'origin', backend.commit])
-    run('git', [
-      '-C',
-      directory,
-      '-c',
-      'advice.detachedHead=false',
-      'checkout',
-      '--detach',
-      backend.commit,
-    ])
   }
+  run('git', [
+    '-C',
+    directory,
+    '-c',
+    'advice.detachedHead=false',
+    'checkout',
+    '--detach',
+    backend.commit,
+  ])
+  if (!fs.existsSync(path.join(directory, backend.package)))
+    throw new Error(`${backend.id} 的 checkout 缺少 ${backend.package}，检查 backends.json 的 package 字段`)
   return directory
 }
 
