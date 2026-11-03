@@ -19,6 +19,7 @@
           type="button"
           class="left-toolbar__button"
           aria-label="代码编辑器"
+          :disabled="!scriptsReady"
           @click="emit('openScriptEditor')"
           @pointerdown.stop
           @pointermove.stop
@@ -190,29 +191,28 @@
       </div>
     </div>
 
-    <template v-if="alertController">
-      <span class="left-toolbar__divider"></span>
+    <span class="left-toolbar__divider"></span>
 
-      <div class="left-toolbar__group">
-        <BaseTooltip content="预警">
-          <button
-            type="button"
-            class="left-toolbar__button"
-            :class="{ active: showAlerts }"
-            aria-label="预警"
-            @click="showAlerts = true"
-            @pointerdown.stop
-            @pointermove.stop
-            @pointerup.stop
-          >
-            <IconTablerBell class="tool-icon" aria-hidden="true" />
-            <span v-if="unreadCount > 0" class="alert-badge">{{
-              unreadCount > 99 ? '99+' : unreadCount
-            }}</span>
-          </button>
-        </BaseTooltip>
-      </div>
-    </template>
+    <div class="left-toolbar__group">
+      <BaseTooltip content="预警">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: showAlerts }"
+          aria-label="预警"
+          :disabled="!alertController"
+          @click="showAlerts = true"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerBell class="tool-icon" aria-hidden="true" />
+          <span v-if="unreadCount > 0" class="alert-badge">{{
+            unreadCount > 99 ? '99+' : unreadCount
+          }}</span>
+        </button>
+      </BaseTooltip>
+    </div>
 
     <span class="left-toolbar__divider"></span>
 
@@ -467,6 +467,8 @@
     defineProps<{
       alertController?: ChartController | null
       scriptsEnabled?: boolean
+      /** 脚本服务是否就绪；未就绪时按钮常驻但禁用，避免首屏插入按钮挤动下方分组。 */
+      scriptsReady?: boolean
       effectiveSettings?: ChartSettings
       /** Core 当前 drawingTool；工具栏高亮以它为准 */
       drawingToolId?: string
@@ -483,6 +485,7 @@
     }>(),
     {
       magnetMode: MagnetMode.Off,
+      scriptsReady: true,
     },
   )
 

@@ -65,7 +65,8 @@
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          :scripts-enabled="scriptsAvailable"
+          :scripts-enabled="props.scriptsEnabled"
+          :scripts-ready="scriptEditorSession.ready.value"
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
@@ -131,7 +132,12 @@
           >
             <div class="scroll-content">
               <div ref="canvasLayerRef" class="canvas-layer">
-                <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
+                <!-- 首帧就给出最终几何：默认 300×150 的 canvas 会在第一次绘制帧被改尺寸，造成底部时间轴的位移。 -->
+                <canvas
+                  ref="xAxisCanvasRef"
+                  class="x-axis-canvas"
+                  :style="{ width: '100%', height: `${props.bottomAxisHeight}px` }"
+                ></canvas>
 
                 <div
                   v-if="hasLegendSlot && legendContext"
@@ -2124,6 +2130,8 @@
 
   .scroll-content {
     min-height: inherit;
+    /* 首帧就撑满容器：canvas 层用 bottom 锚定时间轴，层高必须与容器一致，否则时间轴会从顶部跳到底部。 */
+    height: 100%;
     position: relative;
   }
 
@@ -2172,6 +2180,8 @@
     position: sticky;
     left: 0;
     top: 0;
+    /* 与 scroll-content 同高，使 x 轴 canvas 首帧就落在底部；Core 之后写入的 px 高度与之一致。 */
+    height: 100%;
     z-index: 26;
     pointer-events: none;
   }
