@@ -1,6 +1,6 @@
 /** 有序合批准备：提前剔除、缓存几何、实例化基础形状，复用 CPU 连续缓冲。 */
 import type { DataTransform } from '@/foundation/plugin/types.js'
-import type { PaintPrimitive, PrimitivePath, PrimitivePoint } from '../types.js'
+import type { PaintPrimitive, PrimitiveFade, PrimitivePath, PrimitivePoint } from '../types.js'
 import { FloatArena } from './buffers.js'
 import { type CachedGeometry, GeometryCache, type PrimitiveBounds } from './cache.js'
 import type { ColorResolver, PrimitiveColor } from './colors.js'
@@ -188,6 +188,8 @@ function sameFill(
   if (
     a.color !== b.color ||
     a.opacity !== b.opacity ||
+    a.fade?.fromY !== b.fade?.fromY ||
+    a.fade?.toY !== b.fade?.toY ||
     a.fillRule !== b.fillRule ||
     a.band !== b.band ||
     a.dataSpace !== b.dataSpace ||
@@ -245,6 +247,7 @@ export function createPrimitivePreparer(
         y: number
         color: PrimitiveColor
         opacity: number
+        fade?: PrimitiveFade
       }> = []
       let pendingBounds: PrimitiveBounds | undefined
       let parity = false
@@ -257,6 +260,7 @@ export function createPrimitivePreparer(
         color: PrimitiveColor,
         opacity: number,
         mode = 0,
+        fade?: PrimitiveFade,
       ): void {
         wroteVertices = true
         // 顶点保留逻辑像素：屏幕几何原样写入，数据空间几何由着色器先变换再归一化。
@@ -268,6 +272,8 @@ export function createPrimitivePreparer(
         mesh.write(color[3] * opacity)
         // mode=1 表示顶点是数据空间（世界 x、价格 y），由着色器按帧变换还原。
         mesh.write(mode)
+        mesh.write(fade?.fromY ?? 0)
+        mesh.write(fade?.toY ?? 0)
       }
       /** 不相交的相邻 stencil 对象可以先累计 mask，再统一 cover；相交对象强制保持独立顺序。 */
       function flush(): void {
@@ -283,7 +289,7 @@ export function createPrimitivePreparer(
               item.opacity,
             )
         }
-        const coverFirst = mesh.length / 6
+        const coverFirst = mesh.length / MESH_FLOATS
         for (const item of pending) {
           const box = item.geometry.bounds
           const x = Math.max(0, box.left + item.x),
@@ -291,12 +297,12 @@ export function createPrimitivePreparer(
           const right = Math.min(viewportWidth, box.right + item.x),
             bottom = Math.min(viewportHeight, box.bottom + item.y)
           mesh.reserve(6 * MESH_FLOATS)
-          vertex(x, y, item.color, item.opacity)
-          vertex(right, y, item.color, item.opacity)
-          vertex(right, bottom, item.color, item.opacity)
-          vertex(x, y, item.color, item.opacity)
-          vertex(right, bottom, item.color, item.opacity)
-          vertex(x, bottom, item.color, item.opacity)
+          vertex(x, y, item.color, item.opacity, 0, item.fade)
+          vertex(right, y, item.color, item.opacity, 0, item.fade)
+          vertex(right, bottom, item.color, item.opacity, 0, item.fade)
+          vertex(x, y, item.color, item.opacity, 0, item.fade)
+          vertex(right, bottom, item.color, item.opacity, 0, item.fade)
+          vertex(x, bottom, item.color, item.opacity, 0, item.fade)
         }
         draws.push({
           kind: 'stencil',
@@ -561,6 +567,7 @@ export function createPrimitivePreparer(
               color,
               opacity,
               dataSpace ? 1 : 0,
+              primitive.kind === 'fill' ? primitive.fade : undefined,
             )
           const count = geometry.positions.length / 2
           const draw: PreparedDraw = { kind: 'direct', first, count }
@@ -597,7 +604,14 @@ export function createPrimitivePreparer(
             )
           if (pending.length && (overlaps || parity !== evenodd)) flush()
           parity = evenodd
-          pending.push({ geometry, x: cached.x - offsetX, y: cached.y, color, opacity })
+          pending.push({
+            geometry,
+            x: cached.x - offsetX,
+            y: cached.y,
+            color,
+            opacity,
+            fade: primitive.kind === 'fill' ? primitive.fade : undefined,
+          })
           pendingBounds = pendingBounds
             ? {
                 left: Math.min(pendingBounds.left, actual.left),

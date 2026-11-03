@@ -4,6 +4,12 @@ import type { DataTransform } from '../../foundation/plugin/types.js'
 export type PrimitivePoint = Readonly<{ x: number; y: number }>
 export type PrimitivePath = readonly PrimitivePoint[]
 
+/** 屏幕逻辑 Y 上的线性透明度衰减区间；fromY 保留原色，toY 完全透明。 */
+export interface PrimitiveFade {
+  readonly fromY: number
+  readonly toY: number
+}
+
 export type PaintPrimitive =
   | {
       kind: 'circle'
@@ -36,6 +42,8 @@ export type PaintPrimitive =
       paths: readonly PrimitivePath[]
       color: string
       opacity?: number
+      /** 屏幕逻辑 Y 上的透明度衰减：fromY 为原色，toY 为透明；反向区间同样有效。 */
+      fade?: PrimitiveFade
       fillRule?: CanvasFillRule
       /** 路径是上下两条等长链组成的带子，按条带三角化并跳过 stencil。 */
       band?: boolean

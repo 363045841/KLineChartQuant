@@ -1,18 +1,24 @@
-/** 原语 shader 的共享布局常量；网格每顶点 7 float（含数据空间标记），形状每实例 16 float。 */
-export const MESH_FLOATS = 7
+/** 原语 shader 的共享布局常量；网格每顶点 9 float（含数据空间标记与渐变区间）。 */
+export const MESH_FLOATS = 9
 export const INSTANCE_FLOATS = 16
 
 export const MESH_VERTEX_GLSL = `#version 300 es
-in vec2 position; in vec4 color; in float mode; out vec4 tint;
+in vec2 position; in vec4 color; in float mode; in vec2 fade;
+out vec4 tint; out float screenY; flat out vec2 fadeRange;
 uniform vec4 viewport; uniform vec3 data;
 void main(){
   vec2 point=vec2(position.x-data.x*mode,mix(position.y,position.y*data.y+data.z,mode));
   gl_Position=vec4(point.x/viewport.x*2.-1.,1.-point.y/viewport.y*2.,0.,1.);
-  tint=color;
+  tint=color; screenY=point.y; fadeRange=fade;
 }`
 export const MESH_FRAGMENT_GLSL = `#version 300 es
-precision highp float; in vec4 tint; out vec4 outputColor;
-void main(){ outputColor=vec4(tint.rgb*tint.a,tint.a); }`
+precision highp float; in vec4 tint; in float screenY; flat in vec2 fadeRange; out vec4 outputColor;
+void main(){
+  float coverage=1.;
+  if(fadeRange.x!=fadeRange.y) coverage=clamp((fadeRange.y-screenY)/(fadeRange.y-fadeRange.x),0.,1.);
+  float alpha=tint.a*coverage;
+  outputColor=vec4(tint.rgb*alpha,alpha);
+}`
 export const SHAPE_VERTEX_GLSL = `#version 300 es
 in vec4 bounds; in vec4 parameters; in vec4 fillColor; in vec4 strokeColor;
 uniform vec4 viewport; out vec2 local; flat out vec4 geometry; flat out vec4 fillTint; flat out vec4 strokeTint;
@@ -242,14 +248,20 @@ fn side(a:vec2f,b:vec2f,point:vec2f)->f32 {
 export const MESH_WGSL = `
 struct Viewport { size:vec4f, data:vec4f }
 @group(0) @binding(0) var<uniform> viewport:Viewport;
-struct Vertex { @builtin(position) position:vec4f, @location(0) color:vec4f }
-@vertex fn vs(@location(0) position:vec2f,@location(1) color:vec4f,@location(2) mode:f32)->Vertex {
+struct Vertex { @builtin(position) position:vec4f, @location(0) color:vec4f,
+  @location(1) screenY:f32, @location(2) @interpolate(flat) fade:vec2f }
+@vertex fn vs(@location(0) position:vec2f,@location(1) color:vec4f,@location(2) mode:f32,@location(3) fade:vec2f)->Vertex {
   var out:Vertex;
   let point=vec2f(position.x-viewport.data.x*mode,mix(position.y,position.y*viewport.data.y+viewport.data.z,mode));
   out.position=vec4f(point.x/viewport.size.x*2.-1.,1.-point.y/viewport.size.y*2.,0.,1.);
-  out.color=color;return out;
+  out.color=color;out.screenY=point.y;out.fade=fade;return out;
 }
-@fragment fn fs(in:Vertex)->@location(0) vec4f { return vec4f(in.color.rgb*in.color.a,in.color.a); }`
+@fragment fn fs(in:Vertex)->@location(0) vec4f {
+  var coverage=1.;
+  if(in.fade.x!=in.fade.y) { coverage=clamp((in.fade.y-in.screenY)/(in.fade.y-in.fade.x),0.,1.); }
+  let alpha=in.color.a*coverage;
+  return vec4f(in.color.rgb*alpha,alpha);
+}`
 export const SHAPE_WGSL = `
 struct Viewport { size:vec4f }
 @group(0) @binding(0) var<uniform> viewport:Viewport;

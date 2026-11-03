@@ -98,6 +98,7 @@ function createDevice(
     ['position', 2, 0],
     ['color', 4, 8],
     ['mode', 1, 24],
+    ['fade', 2, 28],
   ] as const) {
     const location = gl.getAttribLocation(meshProgram, name)
     gl.enableVertexAttribArray(location)
@@ -115,7 +116,7 @@ function createDevice(
   // 折线段实例布局与 vertex shader 的显式 location 一一对应。
   gl.bindVertexArray(segmentVao)
   gl.bindBuffer(gl.ARRAY_BUFFER, segmentBuffer)
-  for (const [location, count, offset] of [
+  const segmentAttributes = [
     [0, 2, 0],
     [1, 2, 8],
     [2, 2, 16],
@@ -123,7 +124,8 @@ function createDevice(
     [4, 1, 32],
     [5, 4, 36],
     [6, 1, 52],
-  ] as const) {
+  ] as const
+  for (const [location, count, offset] of segmentAttributes) {
     gl.enableVertexAttribArray(location)
     gl.vertexAttribPointer(location, count, gl.FLOAT, false, SEGMENT_FLOATS * 4, offset)
     gl.vertexAttribDivisor(location, 1)
@@ -165,14 +167,16 @@ function createDevice(
       segmentCapacity = batch.changed.segments
         ? upload(segmentBuffer, batch.segments, segmentTracker, segmentCapacity)
         : segmentCapacity
-      gl.viewport(0, 0, width, height)
+      // 离屏存储只增不减，合成器读取左上角；GL 的原点在左下，必须补齐存储高度差。
+      const originY = canvas.height - height
+      gl.viewport(0, originY, width, height)
       gl.colorMask(true, true, true, true)
       gl.stencilMask(0xff)
       gl.clearColor(0, 0, 0, 0)
       gl.clearStencil(0)
       // 只清理本目标区域，共享设备上其他 pane 的残留不影响本次读回。
       gl.enable(gl.SCISSOR_TEST)
-      gl.scissor(0, 0, width, height)
+      gl.scissor(0, originY, width, height)
       // 可见表面在增量帧保留颜色，只重置 stencil。
       gl.clear(clear ? gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT : gl.STENCIL_BUFFER_BIT)
       if (clip) {
@@ -180,7 +184,7 @@ function createDevice(
         gl.enable(gl.SCISSOR_TEST)
         gl.scissor(
           Math.round(clip.x * dpr),
-          Math.round((height / dpr - clip.y - clip.height) * dpr),
+          originY + Math.round((height / dpr - clip.y - clip.height) * dpr),
           Math.round(clip.width * dpr),
           Math.round(clip.height * dpr),
         )
@@ -212,6 +216,18 @@ function createDevice(
             segmentTransform = transform
           }
           gl.disable(gl.STENCIL_TEST)
+          // 面积填充会把分时描边拆为多个 draw；每次必须从本 draw 的实例起点读取。
+          gl.bindBuffer(gl.ARRAY_BUFFER, segmentBuffer)
+          for (const [location, count, offset] of segmentAttributes) {
+            gl.vertexAttribPointer(
+              location,
+              count,
+              gl.FLOAT,
+              false,
+              SEGMENT_FLOATS * 4,
+              draw.first * SEGMENT_FLOATS * 4 + offset,
+            )
+          }
           gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, draw.count)
           metrics.drawCalls++
         } else if (draw.kind === 'instances') {

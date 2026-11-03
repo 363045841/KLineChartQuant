@@ -1,5 +1,20 @@
 /** Canvas 原语后端：共用同一套路径与文字解释器，矩形批次按视口剔除，数据空间填充缓存 Path2D。 */
 import type { PaintPrimitive, PrimitiveBackend, PrimitivePath, PrimitiveSink } from '../types.js'
+import { type ColorResolver, createColorResolver } from './colors.js'
+
+/** 透明渐变端保留原色 RGB；每个绘制目标只解析一次相同颜色。 */
+const fadeColors = new WeakMap<CanvasRenderingContext2D, ColorResolver>()
+
+/** 用原色的零 alpha 版本作终点，避免浏览器向透明黑插值导致颜色变暗。 */
+function transparentEnd(ctx: CanvasRenderingContext2D, color: string): string {
+  let resolve = fadeColors.get(ctx)
+  if (!resolve) {
+    resolve = createColorResolver(ctx.canvas.ownerDocument)
+    fadeColors.set(ctx, resolve)
+  }
+  const [red, green, blue] = resolve(color)
+  return `rgba(${red * 255}, ${green * 255}, ${blue * 255}, 0)`
+}
 
 /** 视口尺寸（逻辑像素）。 */
 interface ViewportBounds {
@@ -189,6 +204,12 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, dpr, trans
         const dataSpace = primitive.dataSpace === true && transform !== undefined
         ctx.fillStyle = primitive.color
         ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
+        if (primitive.fade && primitive.fade.fromY !== primitive.fade.toY) {
+          const gradient = ctx.createLinearGradient(0, primitive.fade.fromY, 0, primitive.fade.toY)
+          gradient.addColorStop(0, primitive.color)
+          gradient.addColorStop(1, transparentEnd(ctx, primitive.color))
+          ctx.fillStyle = gradient
+        }
         const drawPath = (offsetX: number, yScale: number, yOffset: number): void => {
           ctx.beginPath()
           appendPaths(ctx, primitive.paths, true, offsetX, yScale, yOffset)
