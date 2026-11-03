@@ -61,7 +61,7 @@ jobs:
           pnpm exec playwright install --with-deps chromium
           pnpm test:product
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: vue-product
@@ -254,7 +254,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Cache Electron
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron

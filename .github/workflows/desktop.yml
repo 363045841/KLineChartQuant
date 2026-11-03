@@ -63,7 +63,7 @@ jobs:
           cache: pnpm
 
       - name: Cache Electron
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron
@@ -90,7 +90,7 @@ jobs:
       - name: Build and package desktop
         run: pnpm --filter @363045841yyt/klinechart-desktop build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: desktop-${{ matrix.artifact }}
           path: |
