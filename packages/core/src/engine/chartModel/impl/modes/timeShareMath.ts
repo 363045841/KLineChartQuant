@@ -20,9 +20,10 @@ export type TimeSharePriceRange = {
 const TIME_SHARE_RANGE_PADDING_RATIO = 0.1
 const TIME_SHARE_FLAT_PADDING_RATIO = 0.0001
 
-/** 从可见价格与均价的极值生成带留白的 Y 轴范围；无有效值时返回 null。 */
+/** 可见价格、均价与有效昨收共同决定自动范围，保证 0% 基准不会被裁出；无有效行情返回 null。 */
 export function computeTimeSharePriceRange(
   prices: ReadonlyArray<number | undefined | null>,
+  preClose?: number | null,
 ): TimeSharePriceRange | null {
   let minPrice = Infinity
   let maxPrice = -Infinity
@@ -32,6 +33,12 @@ export function computeTimeSharePriceRange(
     maxPrice = Math.max(maxPrice, price)
   }
   if (!Number.isFinite(minPrice)) return null
+
+  const baseline = resolveTimeShareBaseline(preClose)
+  if (baseline !== null) {
+    minPrice = Math.min(minPrice, baseline)
+    maxPrice = Math.max(maxPrice, baseline)
+  }
 
   const span = maxPrice - minPrice
   // 最小区间只用于完全平盘，不能扩大已有的小幅波动。

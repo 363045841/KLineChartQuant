@@ -31,22 +31,20 @@ describe('TimeShareMode', () => {
     const result = mode.computePaneRange({ start: 1, end: 3 }, mockDm(points, 230))
 
     expect(result?.basePrice).toBe(230)
-    expect(result?.range.minPrice).toBeCloseTo(230.688, 8)
-    expect(result?.range.maxPrice).toBeCloseTo(230.832, 8)
+    expect(result?.range.minPrice).toBeCloseTo(229.918, 8)
+    expect(result?.range.maxPrice).toBeCloseTo(230.902, 8)
   })
 
-  it('以 preClose 作为 basePrice，且不把不可见的昨收拉入范围', () => {
+  it.each([
+    [11, 10.5, 10.2],
+    [9, 9.5, 9.8],
+  ])('行情全部位于昨收同侧时，0%% 基准仍在自动范围内（%s/%s/%s）', (a, b, c) => {
     const mode = new TimeShareMode()
-    // open gap: first trade 11, preClose 10
-    const result = mode.computePaneRange(
-      { start: 0, end: 3 },
-      mockDm([ts(11), ts(10.5), ts(10.2)], 10),
-    )
+    const result = mode.computePaneRange({ start: 0, end: 3 }, mockDm([ts(a), ts(b), ts(c)], 10))
 
     expect(result?.basePrice).toBe(10)
-    // 跳空影响涨跌幅基准，不应把不可见的昨收拉入价格范围。
-    expect(result?.range.maxPrice).toBeCloseTo(11.08, 6)
-    expect(result?.range.minPrice).toBeCloseTo(10.12, 6)
+    expect(result!.range.minPrice).toBeLessThan(Math.min(10, a, b, c))
+    expect(result!.range.maxPrice).toBeGreaterThan(Math.max(10, a, b, c))
   })
 
   it('平盘日仍给出非零范围', () => {

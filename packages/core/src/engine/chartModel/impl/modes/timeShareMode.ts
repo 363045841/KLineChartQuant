@@ -1,4 +1,4 @@
-/** 分时图表模式：固定整物理网格柱宽，价格范围由可见价格与均价决定。 */
+/** 分时图表模式：固定整物理网格柱宽，自动价格范围覆盖可见行情与昨收。 */
 import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels.js'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
@@ -28,8 +28,8 @@ export class TimeShareMode implements ChartModeHandler {
   }
 
   /**
-   * 取可见分时点 price/average 的极值生成带留白范围，并给出百分比基准价（昨收）。
-   * 基准缺失只影响百分比轴的基准值，不影响价格范围本身。
+   * 可见 price/average 与昨收共同生成带留白范围，百分比轴与基准线共用同一个昨收。
+   * 昨收缺失时仅按行情拟合，不补造基准价。
    */
   computePaneRange(
     range: VisibleRange,
@@ -47,11 +47,12 @@ export class TimeShareMode implements ChartModeHandler {
       if (!item) continue
       visibleValues.push(item.price, item.average)
     }
-    const priceRange = computeTimeSharePriceRange(visibleValues)
+    const baseline = resolveTimeShareBaseline(dm.getTimeSharePreClose())
+    const priceRange = computeTimeSharePriceRange(visibleValues, baseline)
     if (!priceRange) return null
     return {
       range: priceRange,
-      basePrice: resolveTimeShareBaseline(dm.getTimeSharePreClose()),
+      basePrice: baseline,
     }
   }
 
