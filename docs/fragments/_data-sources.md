@@ -9,7 +9,7 @@ KLineChart requires a market data backend. Supported data sources:
 | `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock]({{root}}docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock]({{root}}docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5]({{root}}docs/data-sources/mt5.zh-CN.md) |
-| `mock` | Debug only: local MOCK-100 / MOCK-10000 K-lines, no backend needed, always online | — |
+| `mock` | Debug only: local on-demand infinite MOCK daily bars, no backend needed, always online | — |
 
 Backend repos live alongside this one (outside the monorepo).
 

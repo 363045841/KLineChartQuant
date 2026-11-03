@@ -147,7 +147,7 @@ Data contract:
 - A source-level `liveBars` flag derives from `subscribe`; an individual instrument may declare `liveBars: false`.
 - `instrument` and `period` are controlled props: change them to switch the series.
 - The host belongs to your app. `unregister()` removes one source and `host.dispose()` releases everything; unmounting the workbench does not dispose the host.
-- For local development without a backend, register the built-in mock instead: `host.registerDataSource(createMockDataSource())` (MOCK-100 / MOCK-10000). The default context already contains it, so do not register it twice.
+- For local development without a backend, register the built-in mock instead: `host.registerDataSource(createMockDataSource())` (MOCK). The default context already contains it, so do not register it twice.
 
 The complete contract, including trades, depth, time-share, and trading-calendar interfaces, is documented in the [data source API]({{root}}docs/market-data/data-source-api.md).
 

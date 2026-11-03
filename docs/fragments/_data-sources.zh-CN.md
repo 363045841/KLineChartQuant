@@ -9,7 +9,7 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 | `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock]({{root}}docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock]({{root}}docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5]({{root}}docs/data-sources/mt5.zh-CN.md) |
-| `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
+| `mock` | 调试用：本地按需生成无限 MOCK 日线，无需后端，探测恒为在线 | — |
 
 后端仓库与本仓库同级（不在 monorepo 内）。
 

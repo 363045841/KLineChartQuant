@@ -147,7 +147,7 @@ const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
 - 源级 `liveBars` 由 `subscribe` 实现派生；单个品种可以声明 `liveBars: false`。
 - `instrument` 与 `period` 是受控属性，修改即切换序列。
 - 宿主生命周期归应用所有：`unregister()` 注销单个来源，`host.dispose()` 释放全部资源；卸载工作台不会销毁宿主。
-- 本地开发没有后端时，注册内置 mock：`host.registerDataSource(createMockDataSource())`（MOCK-100 / MOCK-10000）。默认宿主已内置该来源，不要重复注册。
+- 本地开发没有后端时，注册内置 mock：`host.registerDataSource(createMockDataSource())`（MOCK）。默认宿主已内置该来源，不要重复注册。
 
 包含逐笔、盘口、分时与交易日历接口的完整契约见[数据源 API]({{root}}docs/market-data/data-source-api.md)。
 

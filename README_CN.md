@@ -250,7 +250,7 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 | `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](docs/data-sources/mt5.zh-CN.md) |
-| `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
+| `mock` | 调试用：本地按需生成无限 MOCK 日线，无需后端，探测恒为在线 | — |
 
 后端仓库与本仓库同级（不在 monorepo 内）。
 
@@ -454,7 +454,7 @@ const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
 - 源级 `liveBars` 由 `subscribe` 实现派生；单个品种可以声明 `liveBars: false`。
 - `instrument` 与 `period` 是受控属性，修改即切换序列。
 - 宿主生命周期归应用所有：`unregister()` 注销单个来源，`host.dispose()` 释放全部资源；卸载工作台不会销毁宿主。
-- 本地开发没有后端时，注册内置 mock：`host.registerDataSource(createMockDataSource())`（MOCK-100 / MOCK-10000）。默认宿主已内置该来源，不要重复注册。
+- 本地开发没有后端时，注册内置 mock：`host.registerDataSource(createMockDataSource())`（MOCK）。默认宿主已内置该来源，不要重复注册。
 
 包含逐笔、盘口、分时与交易日历接口的完整契约见[数据源 API](docs/market-data/data-source-api.md)。
 

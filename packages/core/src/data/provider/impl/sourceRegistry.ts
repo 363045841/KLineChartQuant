@@ -37,7 +37,7 @@ export const dataSourceRegistry = {
   mock: {
     id: DataSource.Mock,
     displayName: 'Mock',
-    description: 'Provides two test rendering instruments: MOCK-100 and MOCK-10000',
+    description: 'Provides one on-demand infinite daily series (MOCK) for local rendering',
   },
   baostock: {
     id: DataSource.BaoStock,
