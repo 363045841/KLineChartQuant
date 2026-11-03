@@ -45,6 +45,8 @@
 - 打包链路新增 Go 工具链依赖；`pnpm --filter …klinechart-desktop build` 会先跑 `build:backends`。
   交叉编译一次产出全部目标平台，不需要按平台分开构建。
 - 后端版本与应用版本解耦：升级 connector 只改 `backends.json` 的 commit。
+- 只想出安装包时用手动工作流 `desktop.yml`（`workflow_dispatch`，产物走 artifact），不必触发
+  `release.yml` 里的 npm 发布。
 - `Binance-Connector` 仓库当前**没有 LICENSE 文件**，`GoTDX-Connector` 是 Apache-2.0。
   正式对外发布前必须先确定前者的许可，否则不能随安装包分发。
 - Python 三个后端保持现状：数据源面板里显示连接错误，由用户自行启动或改为远端地址。
