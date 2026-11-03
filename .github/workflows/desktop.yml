@@ -19,7 +19,7 @@ env:
 jobs:
   # 手动输入决定 matrix：GitHub 的 jobs.<id>.if 拿不到 matrix 上下文，只能先算出来。
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
@@ -37,7 +37,7 @@ jobs:
             case "$name" in
               windows) entry='{"os":"windows-latest","artifact":"windows-x64"}' ;;
               macos)   entry='{"os":"macos-latest","artifact":"macos"}' ;;
-              linux)   entry='{"os":"ubuntu-latest","artifact":"linux-x64"}' ;;
+              linux)   entry='{"os":"ubuntu-24.04","artifact":"linux-x64"}' ;;
               *) echo "未知平台：$name（可用 windows / macos / linux / all）" >&2; exit 1 ;;
             esac
             entries="${entries:+$entries,}$entry"
