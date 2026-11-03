@@ -1,0 +1,19 @@
+{
+  "$comment": "随桌面端分发的 Go connector。commit 固定，升级必须改这里并重新验收；二进制由 scripts/build-backends.mjs 产出到 resources/backends/<platform>-<arch>/。",
+  "backends": [
+    {
+      "id": "gotdx",
+      "repo": "https://github.com/363045841/GoTDX-Connector.git",
+      "commit": "82c0475e4f666e7dae749f70a088416d9f817716",
+      "package": "./services/tdx-api",
+      "binary": "gotdx"
+    },
+    {
+      "id": "binance",
+      "repo": "https://github.com/363045841/Binance-Connector.git",
+      "commit": "2e6a2870b7728b35235493f7614416240e860608",
+      "package": "./cmd/binance-connector",
+      "binary": "binance"
+    }
+  ]
+}

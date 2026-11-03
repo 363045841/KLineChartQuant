@@ -268,6 +268,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Setup Go for the bundled connectors
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          # Go 源码在独立仓库里按 commit 克隆，仓库内没有 go.sum 可供缓存判定。
+          cache: false
+
       - name: Build Vue product and its internal resources
         run: pnpm build:product
 

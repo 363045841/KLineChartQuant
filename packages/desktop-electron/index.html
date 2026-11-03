@@ -3,9 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 连接本地 connector（127.0.0.1）、用户自填数据源与 Agent Provider，都跨 origin：
+         CSP 必须显式放行 connect-src，否则打包后所有行情请求会被浏览器拦掉。 -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src http: https: ws: wss:"
     />
     <title>KLineChart Quant — Desktop</title>
     <style>

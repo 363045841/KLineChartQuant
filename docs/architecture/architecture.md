@@ -137,7 +137,7 @@ flowchart TB
 | React bindings | `packages/react` | React 绑定：`KLineChartWC` 经 `<kline-chart>` Web Component 接入 | `@363045841yyt/klinechart-react` |
 | Angular bindings | `packages/angular` | Angular 绑定 | `@363045841yyt/klinechart-angular` |
 | Agent runtime | `packages/agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | `@363045841yyt/klinechart-agent-runtime` |
-| Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布） | — |
+| Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布），随包分发 gotdx / binance 两个 Go connector（ADR 0012） | — |
 
 依赖方向：各绑定包通过 `workspace:*` 依赖 core；core 不依赖任何框架。
 构建顺序遵循 `pnpm build:packages`（core → vue）。

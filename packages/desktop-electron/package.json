@@ -8,8 +8,9 @@
   "main": "./out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder",
-    "build:unpack": "electron-vite build && electron-builder --dir",
+    "build": "pnpm build:backends && electron-vite build && electron-builder",
+    "build:unpack": "pnpm build:backends && electron-vite build && electron-builder --dir",
+    "build:backends": "node ../../scripts/build-backends.mjs",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
