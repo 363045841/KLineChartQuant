@@ -2,9 +2,8 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { MARKET_DATA_CONTEXT_KEY } from '@vue-src/composables/market/useMarketDataContext.js'
+// 字体与滚动条样式随包的入口样式一起加载，宿主不需要单独引入。
 import { createPersistedMarketDataHost } from '../src/index'
-import '../src/styles/fonts.css'
-import '../src/styles/scrollbar.css'
 
 const marketDataHost = createPersistedMarketDataHost()
 createApp(App).provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context).mount('#app')

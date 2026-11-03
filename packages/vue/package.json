@@ -14,7 +14,8 @@
     "node": ">=26.0.0"
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./src/index.ts"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
