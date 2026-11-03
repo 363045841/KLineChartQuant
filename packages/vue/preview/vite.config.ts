@@ -5,6 +5,7 @@
  * 整树加入 watcher：Vite 只递归监听 config.root，root 之外的源码靠加载时逐文件补挂，
  * 新增/删除/重写文件时不触发 HMR（issue #194）。
  */
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -40,6 +41,9 @@ const vueSrc = `${root}/packages/vue/src`
 // 独立编辑器页是预构建产物：dev 直接读它的 dist，避免把 AGPL 源码拉进预览构建。
 const scriptEditorSrc = `${root}/packages/script-editor/src`
 const buildCommit = resolveBuildCommit()
+// 手机 WebGPU 调试需 HTTPS；证书及私钥保存在仓库外，由启动环境显式指定。
+const httpsCert = process.env.KLINE_DEV_HTTPS_CERT
+const httpsKey = process.env.KLINE_DEV_HTTPS_KEY
 
 /**
  * 把 workspace 源码目录整树加入 watcher，使 root 外源码获得与 root 内一致的目录监听。
@@ -66,6 +70,10 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    https:
+      httpsCert && httpsKey
+        ? { cert: readFileSync(httpsCert), key: readFileSync(httpsKey) }
+        : undefined,
     proxy: {
       '/api/stock': {
         target: 'http://127.0.0.1:8000',
