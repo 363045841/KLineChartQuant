@@ -38,6 +38,9 @@
         @focusout="onMenuFocusOut"
       >
        <template v-if="open">
+        <div v-if="$slots.header" class="drop-menu__header">
+          <slot name="header" />
+        </div>
         <div v-for="group in groups" :key="group.id" class="drop-menu__group">
           <div class="drop-menu__heading">{{ group.label }}</div>
           <div
@@ -246,6 +249,15 @@
 
   .drop-menu__group + .drop-menu__group {
     border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  /* 面板头部与分组标题同样留白；空插槽不占高度。 */
+  .drop-menu__header {
+    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px) 0;
+  }
+
+  .drop-menu__header:empty {
+    display: none;
   }
 
   .drop-menu__footer {

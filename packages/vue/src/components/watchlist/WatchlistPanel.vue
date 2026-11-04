@@ -1,7 +1,7 @@
-<!-- TopBar 自选股入口：复用 DropMenu 呈现列表与行内移除。 -->
+<!-- TopBar 自选股入口：按数据源或品种类型分组呈现列表，并保留行内移除。 -->
 <template>
   <DropMenu
-    label="自选股"
+    :label="menuLabel"
     class="watchlist-menu"
     :groups="groups"
     trigger-class="watchlist-trigger"
@@ -9,10 +9,18 @@
     placement="bottom"
     empty-text="暂无自选股"
     density="compact"
-    replace-detail-on-action
     @select="onSelect"
   >
     <template #trigger><IconBookmark aria-hidden="true" /></template>
+    <template #header>
+      <BaseTabs
+        :model-value="grouping"
+        :tabs="GROUPING_TABS"
+        size="compact"
+        aria-label="自选分组方式"
+        @update:model-value="onGroupingChange"
+      />
+    </template>
     <template #item="{ item, select }">
       <button type="button" role="menuitem" class="drop-menu__item-main" @click="select">
         <span class="watchlist-item">
@@ -22,8 +30,9 @@
               {{ byId.get(item.id)?.name }}
             </span>
           </span>
-          <span class="watchlist-item__meta drop-menu__item-detail">
-            <SymbolMetaBadge :symbol="byId.get(item.id)" />
+          <span class="watchlist-item__quote" :class="directionClass(item.id)">
+            <span class="watchlist-item__price">{{ priceText(item.id) }}</span>
+            <span class="watchlist-item__change">{{ changeText(item.id) }}</span>
           </span>
         </span>
       </button>
@@ -37,34 +46,101 @@
 </template>
 
 <script setup lang="ts">
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import SymbolMetaBadge from '@vue-src/components/common/SymbolMetaBadge.vue'
+  import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import {
     type SearchableSymbol,
     symbolIdentityKey,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
+  import type { WatchlistGrouping } from '@vue-src/composables/watchlist/useWatchlist.js'
+  import { useWatchlistGroups } from '@vue-src/composables/watchlist/useWatchlistGroups.js'
+  import { useWatchlistQuotes, type WatchlistQuote } from '@vue-src/composables/watchlist/useWatchlistQuotes.js'
+  import {
+    formatQuoteChange,
+    formatQuotePrice,
+    QUOTE_PLACEHOLDER,
+    quoteDirection,
+  } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
   import { computed } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconX from '~icons/tabler/x'
 
-  const props = defineProps<{ items: ReadonlyArray<SearchableSymbol> }>()
+  /** 分组切换项；顺序即界面展示顺序。 */
+  const GROUPING_TABS: ReadonlyArray<{ id: WatchlistGrouping; label: string }> = [
+    { id: 'source', label: '数据源' },
+    { id: 'instrumentType', label: '品种类型' },
+  ]
+
+  const props = defineProps<{
+    items: ReadonlyArray<SearchableSymbol>
+    grouping: WatchlistGrouping
+  }>()
   const emit = defineEmits<{
     select: [item: SearchableSymbol]
     remove: [item: SearchableSymbol]
+    'update:grouping': [grouping: WatchlistGrouping]
   }>()
 
   /** id → 品种，供 item 插槽还原符号、名称与交易所。 */
   const byId = computed(() => new Map(props.items.map((item) => [symbolIdentityKey(item), item])))
-  const groups = computed<ReadonlyArray<DropMenuGroup>>(() => [
-    {
-      id: 'watchlist',
-      label: props.items.length > 0 ? `自选股（${props.items.length}）` : '自选股',
-      items: props.items.map((item) => ({
-        id: symbolIdentityKey(item),
-        label: item.symbol,
-      })),
-    },
-  ])
+
+  /** 数据源显示名；键顺序即数据源分组顺序。 */
+  const catalog = useMarketDataSourceCatalog()
+  const sourceLabels = computed(
+    () => new Map(catalog.value.map((source) => [source.name, source.displayName])),
+  )
+
+  const groupedItems = useWatchlistGroups(
+    () => props.items,
+    () => props.grouping,
+    sourceLabels,
+  )
+
+  const { quotes, sourceStatus } = useWatchlistQuotes(() => props.items)
+
+  /** 该行可用的报价：来源必须在线，断线时整行回到占位而不是展示旧值。 */
+  function quoteOf(id: string): WatchlistQuote | null {
+    const item = byId.value.get(id)
+    if (!item || sourceStatus.value.get(item.sourceId) !== 'connected') return null
+    return quotes.value.get(symbolIdentityKey(item)) ?? null
+  }
+
+  function priceText(id: string): string {
+    const item = byId.value.get(id)
+    const quote = quoteOf(id)
+    return item && quote ? formatQuotePrice(quote, item.tickSize) : QUOTE_PLACEHOLDER
+  }
+
+  function changeText(id: string): string {
+    const quote = quoteOf(id)
+    return quote ? formatQuoteChange(quote) : QUOTE_PLACEHOLDER
+  }
+
+  /** 涨跌色走主题的 positive / negative 语义 Token，红涨绿跌由配色预设决定。 */
+  function directionClass(id: string): string {
+    const quote = quoteOf(id)
+    return quote ? `is-${quoteDirection(quote)}` : 'is-unavailable'
+  }
+
+  /** 触发按钮同时承担可发现性：标题里带当前自选数量。 */
+  const menuLabel = computed(() =>
+    props.items.length > 0 ? `自选股（${props.items.length}）` : '自选股',
+  )
+
+  const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
+    if (groupedItems.value.length === 0) return [{ id: 'empty', label: '', items: [] }]
+    return groupedItems.value.map((group) => ({
+      id: group.key,
+      label: `${group.label}（${group.items.length}）`,
+      items: group.items.map((item) => ({ id: symbolIdentityKey(item), label: item.symbol })),
+    }))
+  })
+
+  /** 切换分组维度；状态与持久化由图层统一持有。 */
+  function onGroupingChange(grouping: WatchlistGrouping): void {
+    emit('update:grouping', grouping)
+  }
 
   /** 选中项：DropMenu 已负责关闭面板，这里只回传领域对象。 */
   function onSelect(_group: string, id: string): void {
@@ -139,10 +215,41 @@
     line-height: 1.2;
   }
 
-  /* 空间不足时整块换行，不挤压或覆盖商品信息。 */
-  .watchlist-item__meta {
+  .watchlist-item__quote {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
     flex: 0 0 auto;
-    max-width: 100%;
+    min-width: 84px;
+    font-family: var(--klc-typography-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .watchlist-item__price {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .watchlist-item__change {
+    font-size: 11px;
+  }
+
+  /* 涨跌色只消费主题语义 Token；红涨绿跌由配色预设切换。 */
+  .watchlist-item__quote.is-up {
+    color: var(--klc-color-performance-positive);
+  }
+
+  .watchlist-item__quote.is-down {
+    color: var(--klc-color-performance-negative);
+  }
+
+  .watchlist-item__quote.is-flat {
+    color: var(--klc-color-performance-neutral);
+  }
+
+  .watchlist-item__quote.is-unavailable {
+    color: var(--klc-color-ui-muted);
   }
 </style>
