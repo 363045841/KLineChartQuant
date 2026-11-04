@@ -17,7 +17,7 @@
     <Teleport :to="teleportTarget">
       <div
         ref="panel"
-        class="watchlist-panel"
+        class="watchlist-panel popover-surface popover-surface--scroll"
         v-bind="popover.panelBindings.value"
         role="dialog"
         :aria-label="menuLabel"
@@ -245,6 +245,7 @@
 </script>
 
 <style scoped src="../common/control-button.css"></style>
+<style scoped src="../common/popover-surface.css"></style>
 
 <style scoped>
   .watchlist {
@@ -282,12 +283,6 @@
     max-height: min(460px, calc(100vh - 24px));
     /* 面板只做纵向滚动；横向溢出一律裁掉，避免出现左右滚动条。 */
     overflow-x: hidden;
-    overflow-y: auto;
-    border: 0;
-    border-radius: var(--klc-radius-md, 8px);
-    background: var(--klc-color-ui-input);
-    color: var(--klc-color-ui-text);
-    box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
   }
 
   /* 分组切换与列标题随滚动固定在顶部，长列表滚动时列语义不丢。 */

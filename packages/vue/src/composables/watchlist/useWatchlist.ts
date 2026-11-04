@@ -12,11 +12,11 @@ const WATCHLIST_ITEMS_KEY = 'items'
 const WATCHLIST_GROUPING_KEY = 'grouping'
 
 /** 自选分组维度；界面与持久化共用同一份取值。 */
-export const WATCHLIST_GROUPINGS = ['source', 'instrumentType'] as const
+const WATCHLIST_GROUPINGS = ['source', 'instrumentType'] as const
 export type WatchlistGrouping = (typeof WATCHLIST_GROUPINGS)[number]
 
 /** 默认按品种归类：自选首先要回答“关注了哪些品种”，数据源是次要维度。 */
-export const DEFAULT_WATCHLIST_GROUPING: WatchlistGrouping = 'instrumentType'
+const DEFAULT_WATCHLIST_GROUPING: WatchlistGrouping = 'instrumentType'
 
 /** 判断 IndexedDB 中的值是否为可用的统一品种描述。 */
 function isWatchlistItem(value: unknown): value is SearchableSymbol {
