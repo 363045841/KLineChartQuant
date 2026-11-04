@@ -1,5 +1,5 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
-import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
+import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime/contracts'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'

@@ -1,11 +1,15 @@
 // OpenAI-compatible Provider 的运行时配置、存储边界与诊断数据契约。
 
 /** OpenAI-compatible Provider 的稳定标识。 */
+import type { ProviderCredentialStore } from '../contracts/credentials.js'
 import type {
   AgentRunContext,
   ProviderApiProtocol,
   ProviderReasoningEffort,
 } from '../contracts/ui.js'
+
+// 凭据边界属于宿主契约，定义在 contracts；这里转出以保持现有导入路径可用。
+export type { ProviderCredentialStore } from '../contracts/credentials.js'
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 /** 在 UI 中展示的 Provider 名称。 */
@@ -14,20 +18,6 @@ export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 export const PROVIDER_SETTINGS_VERSION = 4 as const
 /** Provider 未声明模型容量时使用的上下文窗口回退值。 */
 export const DEFAULT_PROVIDER_CONTEXT_WINDOW = 1_000_000
-
-/**
- * 定义 Provider API Key 的持久化边界。
- *
- * 实现方负责凭据的安全存储，并在每次 I/O 前响应取消信号。
- */
-export interface ProviderCredentialStore {
-  /** 读取当前 API Key；未配置时返回 undefined。 */
-  read(signal?: AbortSignal): Promise<string | undefined>
-  /** 写入 API Key。 */
-  write(apiKey: string, signal?: AbortSignal): Promise<void>
-  /** 删除已保存的 API Key。 */
-  delete(signal?: AbortSignal): Promise<void>
-}
 
 /** OpenAI-compatible Provider 的已验证连接设置。 */
 export interface OpenAiCompatibleProviderSettings {
