@@ -2,11 +2,12 @@
 
 KLineChartQuant 的独立脚本编辑器页面：把 Vue 编辑器组件、CodeMirror 与 TypeScript 语言服务打成一份能在空白窗口里直接加载的产物。
 
+> **内部模块。** 本包不对外发布，随产品包 [`@363045841yyt/klinechart`](../vue/README.md) 交付。
 > AGPL-3.0-or-later。图表包（Apache-2.0）只在打开独立窗口时按需调用本包，不内联它的代码。
 
 ## 用途
 
-`@363045841yyt/klinechart` 与 `@363045841yyt/klinechart-web-component` 的「在新窗口打开编辑器」功能依赖本包。未安装时该入口提示不可用，其余功能不受影响。
+`@363045841yyt/klinechart` 的「在新窗口打开编辑器」功能依赖本包，编辑器页面资源随产品包按需加载。
 
 ```ts
 import { loadScriptEditorPageAssets } from '@363045841yyt/klinechart-script-editor'

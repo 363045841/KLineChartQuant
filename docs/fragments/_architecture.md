@@ -1,23 +1,21 @@
 ## 📐 System Architecture
 
-KLineChartQuant is a pnpm monorepo. The framework-agnostic core engine exposes a unified
-`ChartController` (readonly signals + commands); Vue / React / Angular bindings only handle
-mounting, event forwarding, and reactivity bridging. The AI Agent drives the chart through the
-same `@Tool` primitives as the UI, sharing one state source instead of a bridge.
+KLineChartQuant is a pnpm monorepo that publishes one product package, `@363045841yyt/klinechart`.
+The framework-agnostic core engine exposes a unified `ChartController` (readonly signals +
+commands); the Vue layer handles mounting, event forwarding, and reactivity bridging. The AI Agent
+drives the chart through the same `@Tool` primitives as the UI, sharing one state source instead of
+a bridge. Everything below the Vue layer ships inside the product tarball.
 
 ```mermaid
 flowchart TB
-    subgraph app["UI Layer / Framework Bindings"]
+    subgraph app["Product @363045841yyt/klinechart"]
         UI["UI Layer"]
-        VuePkg["@363045841yyt/klinechart<br/>Vue 3 components · useChart"]
-        WCPkg["@363045841yyt/klinechart-web-component<br/>&lt;kline-chart&gt; custom element"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart (direct core) · KLineChartWC (Web Component)"]
-        AngularPkg["@363045841yyt/klinechart-angular"]
+        VuePkg["Vue 3 components<br/>KlineWorkbench · useChart"]
         Agent["AI Agent"]
-        AgentRt["@363045841yyt/klinechart-agent-runtime"]
+        AgentRt["Agent runtime"]
     end
 
-    subgraph core["Core Engine @363045841yyt/klinechart-core"]
+    subgraph core["Core Engine"]
         Ctl["ChartController<br/>signals + commands"]
         Chart["Chart facade"]
         Kernel["StateKernel<br/>Reactive SSOT"]
@@ -36,14 +34,8 @@ flowchart TB
     end
 
     UI --> VuePkg
-    UI --> ReactPkg
-    UI --> AngularPkg
-    VuePkg -->|"builds from"| WCPkg
-    WCPkg --> ReactPkg
     Agent --> AgentRt
     VuePkg --> Ctl
-    ReactPkg --> Ctl
-    AngularPkg --> Ctl
     AgentRt -->|"@Tool primitives (same path as UI)"| Ctl
     Ctl --> Chart
     Chart --> Kernel
@@ -70,10 +62,7 @@ flowchart TB
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.
-- **React bindings** — `@363045841yyt/klinechart-react`'s `KLineChart` mounts the core directly
-  (client-only, no Vue runtime); `KLineChartWC` renders the full-UI `<kline-chart>` Custom Element
-  from `@363045841yyt/klinechart-web-component`, a standalone one-file bundle.
-- **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
-  invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
+- **Agent Native** — the bundled Agent runtime orchestrates the Agent, which invokes the core's
+  `@Tool`-registered primitives—the same entry points the UI uses.
 
 See [docs/architecture/architecture.md]({{root}}docs/architecture/architecture.md) for the full architecture document.

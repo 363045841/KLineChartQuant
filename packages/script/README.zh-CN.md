@@ -6,13 +6,10 @@
 引擎只编译一次，逐 bar 执行并输出 Plot 绘图点。它不依赖任何图表或数据源：行情由宿主提供，
 渲染交给图表适配层。
 
-## 安装
+## 内部模块
 
-```bash
-npm install @363045841yyt/klinechart-script
-# 或
-pnpm add @363045841yyt/klinechart-script
-```
+本包不对外发布，随产品包 [`@363045841yyt/klinechart`](../vue/README.md) 交付；只需安装该包。
+下文导入路径在 monorepo 内通过 workspace 解析。
 
 ## 脚本结构
 
@@ -103,5 +100,5 @@ Plot 数据模型由 `@363045841yyt/klinechart-plot-contracts` 提供，与图�
 
 [AGPL-3.0-or-later](LICENSE)
 
-本包属于本仓库的 AGPL 岛：可以依赖 Apache-2.0 的包，但任何 Apache-2.0 的包都不得 import 或打包它。对应发布版本的源码见
+本包属于本仓库的 AGPL 岛：可以依赖 Apache-2.0 的包，但任何 Apache-2.0 的包都不得 import 或打包它。产品包内对应版本的源码见
 [KLineChartQuant 仓库](https://github.com/363045841/KLineChartQuant/tree/main/packages/script) 的发布 tag。

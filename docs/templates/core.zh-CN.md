@@ -2,6 +2,9 @@
 
 面向浏览器的框架无关 K 线图表运行时，以自研 Signal 响应式状态内核为中心，提供多后端渲染能力。
 
+> **内部模块。** 本包不对外发布，随产品包 [`@363045841yyt/klinechart`](../vue/README.md) 交付；
+> 只需安装该包。下文导入路径在 monorepo 内通过 workspace 解析。
+
 ## 概述
 
 `@363045841yyt/klinechart-core` 是 KLineChartQuant 各框架绑定的运行时基础。它负责图表业务状态、视口与面板计算、输入处理、数据协调和渲染；它会创建及管理图表 DOM 与 Canvas，但应用层 UI 由 Vue、React、Angular 或自定义适配器负责。
@@ -12,16 +15,6 @@
 - 通过 Controller 方法修改图表状态。
 - 自定义宿主需要时转发浏览器输入事件。
 - 宿主卸载时销毁 Controller。
-
-## 安装
-
-```bash
-npm install @363045841yyt/klinechart-core
-# 或
-pnpm add @363045841yyt/klinechart-core
-# 或
-yarn add @363045841yyt/klinechart-core
-```
 
 ## 快速开始
 
@@ -265,11 +258,5 @@ Canvas preference: Canvas2D
 ```
 
 默认同步 Host 尝试 WebGL，失败时使用 Canvas2D。WebGPU 通过 renderer settings 选择，并可在 device lost 后运行时降级。
-
-## 相关包
-
-- `@363045841yyt/klinechart` - Vue 3 bindings
-- `@363045841yyt/klinechart-react` - React bindings
-- `@363045841yyt/klinechart-angular` - Angular bindings
 
 {{include:_license.md}}

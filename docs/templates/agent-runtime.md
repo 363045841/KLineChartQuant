@@ -4,6 +4,10 @@ Framework-neutral Pi orchestration for KLineChartQuant. The package owns the
 stable Agent UI/IPC contracts, run lifecycle, durable Pi sessions, event replay,
 redaction, and deterministic test support.
 
+> **Internal module.** This package is not published to npm. It ships inside the product package
+> [`@363045841yyt/klinechart`](../vue/README.md); install only that package. Import paths below
+> resolve through the workspace inside this monorepo.
+
 ```ts
 import {
   AgentApplicationService,

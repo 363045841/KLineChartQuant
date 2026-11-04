@@ -67,24 +67,22 @@ Benchmark: 1180 × 640 viewport, DPR 2, 4× MSAA, 300–10,000 visible K-lines, 
 
 ## 📐 System Architecture
 
-KLineChartQuant is a pnpm monorepo. The framework-agnostic core engine exposes a unified
-`ChartController` (readonly signals + commands); Vue / React / Angular bindings only handle
-mounting, event forwarding, and reactivity bridging. The AI Agent drives the chart through the
-same `@Tool` primitives as the UI, sharing one state source instead of a bridge.
+KLineChartQuant is a pnpm monorepo that publishes one product package, `@363045841yyt/klinechart`.
+The framework-agnostic core engine exposes a unified `ChartController` (readonly signals +
+commands); the Vue layer handles mounting, event forwarding, and reactivity bridging. The AI Agent
+drives the chart through the same `@Tool` primitives as the UI, sharing one state source instead of
+a bridge. Everything below the Vue layer ships inside the product tarball.
 
 ```mermaid
 flowchart TB
-    subgraph app["UI Layer / Framework Bindings"]
+    subgraph app["Product @363045841yyt/klinechart"]
         UI["UI Layer"]
-        VuePkg["@363045841yyt/klinechart<br/>Vue 3 components · useChart"]
-        WCPkg["@363045841yyt/klinechart-web-component<br/>&lt;kline-chart&gt; custom element"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart (direct core) · KLineChartWC (Web Component)"]
-        AngularPkg["@363045841yyt/klinechart-angular"]
+        VuePkg["Vue 3 components<br/>KlineWorkbench · useChart"]
         Agent["AI Agent"]
-        AgentRt["@363045841yyt/klinechart-agent-runtime"]
+        AgentRt["Agent runtime"]
     end
 
-    subgraph core["Core Engine @363045841yyt/klinechart-core"]
+    subgraph core["Core Engine"]
         Ctl["ChartController<br/>signals + commands"]
         Chart["Chart facade"]
         Kernel["StateKernel<br/>Reactive SSOT"]
@@ -103,14 +101,8 @@ flowchart TB
     end
 
     UI --> VuePkg
-    UI --> ReactPkg
-    UI --> AngularPkg
-    VuePkg -->|"builds from"| WCPkg
-    WCPkg --> ReactPkg
     Agent --> AgentRt
     VuePkg --> Ctl
-    ReactPkg --> Ctl
-    AngularPkg --> Ctl
     AgentRt -->|"@Tool primitives (same path as UI)"| Ctl
     Ctl --> Chart
     Chart --> Kernel
@@ -137,11 +129,8 @@ flowchart TB
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.
-- **React bindings** — `@363045841yyt/klinechart-react`'s `KLineChart` mounts the core directly
-  (client-only, no Vue runtime); `KLineChartWC` renders the full-UI `<kline-chart>` Custom Element
-  from `@363045841yyt/klinechart-web-component`, a standalone one-file bundle.
-- **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
-  invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
+- **Agent Native** — the bundled Agent runtime orchestrates the Agent, which invokes the core's
+  `@Tool`-registered primitives—the same entry points the UI uses.
 
 See [docs/architecture/architecture.md](docs/architecture/architecture.md) for the full architecture document.
 
@@ -465,13 +454,10 @@ The complete product includes AGPL-3.0-or-later script modules and is distribute
 
 ### 4. (Optional) Add AI Agent Control
 
-The chart core exposes its domain capabilities as `@Tool` primitives. Both the UI and the Agent call them through the same path:
-
-```ts
-import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controllers'
-```
-
-`getRegisteredChartTools()` returns every tool with its parameter schema, safety level, and unified executor. Hand them to `@363045841yyt/klinechart-agent-runtime`, which orchestrates the Agent inside your app (browser or Electron) against a Provider profile — no MCP bridge, no side-channel state. See [agent-runtime](packages/agent-runtime/README.md).
+`KlineWorkbench` ships the Agent panel. The chart core exposes its domain capabilities as `@Tool`
+primitives, and the Agent calls the same primitives as the UI: one shared state, one execution path,
+no MCP bridge, no side-channel state. Advanced Agent APIs live in the same package at
+`@363045841yyt/klinechart/agent`.
 
 
 ## 📖 More Documentation
@@ -515,24 +501,20 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 - [ ] Support convert the drawing to quant code
 
 
-## 📦 Packages
+## 📦 Package
+
+`@363045841yyt/klinechart` is the only published package. The engine, Agent runtime, script engine,
+editor page, and every other monorepo module ship inside it and are not published separately.
 
 | Package | Description | npm |
 |---------|-------------|-----|
-| `@363045841yyt/klinechart-core` | Headless chart engine + controllers | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
-| `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
-| `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
-| `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
-| `@363045841yyt/klinechart-script` | Sandboxed script indicator engine (QuickJS runtime + language service) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script) |
-| `@363045841yyt/klinechart-script-chart` | Registers script indicators as chart indicators | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script-chart) |
-| `@363045841yyt/klinechart-plot-contracts` | Plot declaration contracts shared by the engine and the script runtime | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-plot-contracts) |
+| `@363045841yyt/klinechart` | Vue 3 product: `KlineWorkbench`, `useChart`, and the full chart engine | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 
 
 ## 🚀 What's New
 
 - **v0.11**
-  - **Agent Runtime** - `agent-runtime` and an AI runtime with OpenAI protocol support, driving the chart through the same `@tool` primitives the UI uses, plus `@tool` registration, drawing Agent tools, and a shared web/Electron Agent workspace
+  - **Agent Runtime** - A bundled Agent runtime with OpenAI protocol support, driving the chart through the same `@tool` primitives the UI uses, plus `@tool` registration, drawing Agent tools, and a shared web/Electron Agent workspace
   - **Script Indicator Engine** - One plain TypeScript file per indicator, executed in a sandboxed QuickJS runtime under time and memory budgets; built-in CodeMirror editor, a `ta` technical-analysis library, and user libraries; plots flow through the normal rendering chain, so a script indicator behaves exactly like a built-in one
   - **Drawing** - Sub-pane and timeshare drawing with workspace isolation, multi-select and batch editing, blank-area anchors, inline text editing, marquee group drag, and configurable labels
   - **Timeshare and Workspaces** - Five-day timeshare, native timeshare indicators, and persistent view workspaces
