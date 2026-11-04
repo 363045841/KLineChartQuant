@@ -2,7 +2,7 @@
 <template>
   <header class="title-bar" :class="{ 'title-bar--mac': platform === 'darwin' }">
     <div class="title-bar__inner">
-      <span class="title-bar__title">KCQ</span>
+      <span class="title-bar__title">KCQ Desktop</span>
     </div>
   </header>
 </template>
