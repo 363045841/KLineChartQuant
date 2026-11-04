@@ -73,41 +73,62 @@ export class RealtimeBarsConnector {
     this.subscription.close()
   }
 
-  /** 帧分发：closed 暂存、forming 合并写、snapshot 整批写。 */
-  private handleFrame(
-    frame: Extract<import('../types.js').LiveFrame, { channel: 'bars' }>,
-  ): void {
-    if (frame.type === 'update') {
-      this.sink.updateBars([toKLineData(frame.bar)], true)
-      return
+  /** 帧分发：按帧类型交给对应的语义处理。 */
+  private handleFrame(frame: Extract<import('../types.js').LiveFrame, { channel: 'bars' }>): void {
+    switch (frame.type) {
+      case 'update':
+        return this.applyUpdate(frame.bar)
+      case 'historical':
+        return this.applyHistorical(frame.bar)
+      case 'invalidate':
+        return this.applyInvalidate()
+      case 'closed':
+        return this.applyClosed(frame.bar)
+      case 'forming':
+        return this.applyForming(frame.bar)
+      case 'snapshot':
+        return this.applySnapshot(frame.bars)
+      default:
+        return
     }
-    if (frame.type === 'historical') {
-      if (!this.sink.correctBar) throw new Error('Historical correction is not supported by this sink')
-      this.sink.correctBar(toKLineData(frame.bar))
-      return
-    }
-    if (frame.type === 'invalidate') {
-      if (!this.sink.invalidate) throw new Error('Invalidation is not supported by this sink')
-      this.pendingClosed = null
-      this.sink.invalidate()
-      return
-    }
-    if (frame.type === 'closed') {
-      this.pendingClosed = toKLineData(frame.bar)
-      return
-    }
-    if (frame.type === 'forming') {
-      const forming = toKLineData(frame.bar)
-      // 暂存的收线终值与新 forming 合并为一次原子写。
-      const batch = this.pendingClosed ? [this.pendingClosed, forming] : [forming]
-      this.pendingClosed = null
-      this.sink.updateBars(batch)
-      return
-    }
-    // snapshot：全量尾态，暂存随之作废。
-    if (frame.type !== 'snapshot') return
+  }
+
+  /** 增量帧直接写单根 K 线。 */
+  private applyUpdate(bar: LiveBar): void {
+    this.sink.updateBars([toKLineData(bar)], true)
+  }
+
+  /** 历史修正帧改写已提交的 K 线；sink 不支持时显式报错。 */
+  private applyHistorical(bar: LiveBar): void {
+    if (!this.sink.correctBar)
+      throw new Error('Historical correction is not supported by this sink')
+    this.sink.correctBar(toKLineData(bar))
+  }
+
+  /** 失效帧清空暂存并触发重拉；sink 不支持时显式报错。 */
+  private applyInvalidate(): void {
+    if (!this.sink.invalidate) throw new Error('Invalidation is not supported by this sink')
     this.pendingClosed = null
-    this.sink.updateBars(frame.bars.map(toKLineData))
+    this.sink.invalidate()
+  }
+
+  /** 收线帧先暂存，等随后的 forming 帧合并为一次原子写。 */
+  private applyClosed(bar: LiveBar): void {
+    this.pendingClosed = toKLineData(bar)
+  }
+
+  /** forming 帧与暂存终值合并；没有暂存时只写当前根。 */
+  private applyForming(bar: LiveBar): void {
+    const forming = toKLineData(bar)
+    const batch = this.pendingClosed ? [this.pendingClosed, forming] : [forming]
+    this.pendingClosed = null
+    this.sink.updateBars(batch)
+  }
+
+  /** 快照帧自带全量尾态，暂存随之作废。 */
+  private applySnapshot(bars: ReadonlyArray<LiveBar>): void {
+    this.pendingClosed = null
+    this.sink.updateBars(bars.map(toKLineData))
   }
 
   /** 冲刷暂存的收线终值（市场恰在收线后停流/断连的场景）。 */

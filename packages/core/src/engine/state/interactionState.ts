@@ -71,6 +71,16 @@ export interface InteractionDeps {
   scheduleDraw: (level?: unknown) => void
 }
 
+/** 快照字段清单从空态派生，新增字段时无需再维护第二份列表。 */
+const INTERACTION_SNAPSHOT_KEYS = Object.keys(createIdleInteractionSnapshot()) as ReadonlyArray<
+  keyof InteractionSnapshot
+>
+
+/** 快照是否逐字段相等；引用相等即视为未变化。 */
+function sameInteractionSnapshot(left: InteractionSnapshot, right: InteractionSnapshot): boolean {
+  return INTERACTION_SNAPSHOT_KEYS.every((key) => left[key] === right[key])
+}
+
 export interface RangeSelectionState {
   readonly startTimestamp: number | null
   readonly endTimestamp: number | null
@@ -137,26 +147,8 @@ export function createInteractionState(_deps: InteractionDeps) {
       drawingHoverCursor: drawingHover?.cursor ?? null,
     }
 
-    if (_cachedSnapshot) {
-      const c = _cachedSnapshot
-      if (
-        c.crosshairPos === next.crosshairPos &&
-        c.crosshairIndex === next.crosshairIndex &&
-        c.crosshairPrice === next.crosshairPrice &&
-        c.hoveredIndex === next.hoveredIndex &&
-        c.activePaneId === next.activePaneId &&
-        c.tooltipPos === next.tooltipPos &&
-        c.tooltipAnchorPlacement === next.tooltipAnchorPlacement &&
-        c.isDragging === next.isDragging &&
-        c.isResizingPaneBoundary === next.isResizingPaneBoundary &&
-        c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
-        c.hoveredPaneBoundaryId === next.hoveredPaneBoundaryId &&
-        c.isHoveringRightAxis === next.isHoveringRightAxis &&
-        c.drawingHoverTarget === next.drawingHoverTarget &&
-        c.drawingHoverCursor === next.drawingHoverCursor
-      ) {
-        return _cachedSnapshot
-      }
+    if (_cachedSnapshot && sameInteractionSnapshot(_cachedSnapshot, next)) {
+      return _cachedSnapshot
     }
     _cachedSnapshot = next
     return next

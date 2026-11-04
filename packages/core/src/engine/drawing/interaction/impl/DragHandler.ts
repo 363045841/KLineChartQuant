@@ -1,6 +1,6 @@
 /** 绘图拖拽：由起始快照生成锚点移动，并约束回归通道的数据边界。 */
 import type { DrawingViewportPort } from '@/controllers/types.js'
-import { midpoint } from '@/foundation/geometry/index.js'
+import { midpoint, type Point } from '@/foundation/geometry/index.js'
 import {
   anchorToScreen,
   isScreenPoint,
@@ -104,35 +104,59 @@ export class DragHandler {
     if (!this.dragState) return null
 
     const target = this.dragState.target
-    // 整线拖拽是位移增量语义，没有单一落点，不吸附；锚点/手柄拖拽排除本次拖拽的图元，
-    // 否则它们的已提交几何会成为候选，落点会吸到自己。
-    const magnet =
-      target.type === 'all' || options?.magnet === undefined
-        ? undefined
-        : {
-            ...options.magnet,
-            excludeDrawingIds: this.dragState.drawings.map((drawing) => drawing.id),
-          }
-    const primary = this.dragState.drawings[0]
     const pointer = resolveDrawingPointer(e, container, adapter, {
-      magnet,
-      clampDataEnd: target.type === 'anchor' && primary?.kind === DrawingTool.RegressionChannel,
+      magnet: this.resolveDragMagnet(target, options),
+      clampDataEnd:
+        target.type === 'anchor' &&
+        this.dragState.drawings[0]?.kind === DrawingTool.RegressionChannel,
     })
     this.snapIndicator = toSnapIndicator(pointer)
+    const primary = this.dragState.drawings[0]
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
+    return this.moveByTarget(primary, target, pointer, adapter)
+  }
+
+  /** 整线拖拽是位移增量语义，没有单一落点，不吸附；锚点/手柄拖拽排除本次拖拽的图元。 */
+  private resolveDragMagnet(
+    target: DrawingDragTarget,
+    options?: ResolveDrawingPointerOptions,
+  ): ResolveDrawingPointerOptions['magnet'] {
+    if (target.type === 'all' || options?.magnet === undefined) return undefined
+    return {
+      ...options.magnet,
+      excludeDrawingIds: this.dragState?.drawings.map((drawing) => drawing.id) ?? [],
+    }
+  }
+
+  /** 按命中目标分派拖拽位移；三种目标共用同一落点。 */
+  private moveByTarget(
+    primary: DrawingObject,
+    target: DrawingDragTarget,
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+    adapter: DrawingViewportPort,
+  ): DrawingObject[] {
     if (target.type === 'anchor') {
       return [this.moveAnchor(primary, target.index, pointer, adapter)]
     }
     if (target.type === 'line-handle') {
       return [this.moveLineHandle(primary, target.lineIndex, pointer, adapter)]
     }
-    // 整组选中图元共用受限位移，回归端点到达最后一根 K 线时保持组内间距。
-    const dx = this.dragState.drawings.reduce(
+    return this.moveSelection(pointer, adapter)
+  }
+
+  /** 整组选中图元共用受限位移，回归端点到达最后一根 K 线时保持组内间距。 */
+  private moveSelection(
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+    adapter: DrawingViewportPort,
+  ): DrawingObject[] {
+    const state = this.dragState
+    if (!state) return []
+    const dx = state.drawings.reduce(
       (offset, drawing) => this.clampRegressionOffset(drawing, offset, adapter),
-      pointer.x - this.dragState.startMouse.x,
+      pointer.x - state.startMouse.x,
     )
-    const dy = pointer.y - this.dragState.startMouse.y
-    return this.dragState.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
+    const dy = pointer.y - state.startMouse.y
+    return state.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
   }
 
   /**
@@ -157,7 +181,26 @@ export class DragHandler {
 
     const originScreen = anchorToScreen(origin, drawing.paneId, adapter)
     if (!isScreenPoint(originScreen)) return drawing
+    return this.followAnchorGroup(drawing, index, pointer, adapter, snapshot, originScreen)
+  }
 
+  /**
+   * 命中锚点跟随指针，组内其余锚点按同一屏幕位移跟随。
+   * @param drawing 拖拽的图元
+   * @param index 命中锚点下标
+   * @param pointer 指针解析出的落点锚点
+   * @param adapter 视口与坐标换算查询
+   * @param snapshot 拖拽起始快照
+   * @param originScreen 起始锚点的屏幕坐标
+   */
+  private followAnchorGroup(
+    drawing: DrawingObject,
+    index: number,
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+    adapter: DrawingViewportPort,
+    snapshot: DrawingObject | undefined,
+    originScreen: Point,
+  ): DrawingObject {
     const dx = pointer.x - originScreen.x
     const dy = pointer.y - originScreen.y
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
@@ -229,38 +272,66 @@ export class DragHandler {
     const handle = resolveLineHandle(drawing.kind, lineIndex)
     if (!snapshot || !handle) return drawing
 
-    const [from, to] = [handle.from, handle.to]
-    const fromAnchor = snapshot.anchors[from]
-    const toAnchor = snapshot.anchors[to]
+    const fromAnchor = snapshot.anchors[handle.from]
+    const toAnchor = snapshot.anchors[handle.to]
     if (!fromAnchor || !toAnchor) return drawing
     const fromScreen = anchorToScreen(fromAnchor, drawing.paneId, adapter)
     const toScreen = anchorToScreen(toAnchor, drawing.paneId, adapter)
     if (!isScreenPoint(fromScreen) || !isScreenPoint(toScreen)) return drawing
 
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
+    const middle = midpoint(fromScreen, toScreen)
     if (handle.axis === 'price') {
-      const priceDelta =
-        adapter.yToPrice(drawing.paneId, pointer.y) -
-        adapter.yToPrice(drawing.paneId, midpoint(fromScreen, toScreen).y)
-      for (const index of [from, to]) {
-        const anchor = anchors[index]
-        if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
-      }
-      return { ...drawing, anchors }
+      this.shiftLineByPrice(anchors, handle, drawing.paneId, pointer.y, middle.y, adapter)
+    } else {
+      this.shiftLineByTime(
+        anchors,
+        handle,
+        drawing.paneId,
+        fromScreen,
+        toScreen,
+        pointer.x - middle.x,
+        adapter,
+      )
     }
+    return { ...drawing, anchors }
+  }
 
-    // 时间轴手柄：两个锚点按同一屏幕 X 位移换算时间，价格保持不变。
-    const dx = pointer.x - midpoint(fromScreen, toScreen).x
+  /** 价格轴平移：按指针与线段中点的价格差移动两个锚点。 */
+  private shiftLineByPrice(
+    anchors: PersistedDrawingAnchor[],
+    handle: NonNullable<ReturnType<typeof resolveLineHandle>>,
+    paneId: string,
+    pointerY: number,
+    middleY: number,
+    adapter: DrawingViewportPort,
+  ): void {
+    const priceDelta = adapter.yToPrice(paneId, pointerY) - adapter.yToPrice(paneId, middleY)
+    for (const index of [handle.from, handle.to]) {
+      const anchor = anchors[index]
+      if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
+    }
+  }
+
+  /** 时间轴平移：两个锚点按同一屏幕 X 位移换算时间，价格保持不变。 */
+  private shiftLineByTime(
+    anchors: PersistedDrawingAnchor[],
+    handle: NonNullable<ReturnType<typeof resolveLineHandle>>,
+    paneId: string,
+    fromScreen: Point,
+    toScreen: Point,
+    dx: number,
+    adapter: DrawingViewportPort,
+  ): void {
     for (const [index, screen] of [
-      [from, fromScreen],
-      [to, toScreen],
+      [handle.from, fromScreen],
+      [handle.to, toScreen],
     ] as const) {
-      const resolved = screenToAnchor(screen.x + dx, screen.y, drawing.paneId, adapter)
+      const resolved = screenToAnchor(screen.x + dx, screen.y, paneId, adapter)
       const anchor = anchors[index]
       if (resolved && anchor)
         anchors[index] = { ...anchor, time: resolved.time, futureOffset: resolved.futureOffset }
     }
-    return { ...drawing, anchors }
   }
 
   /**
