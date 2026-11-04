@@ -1,6 +1,11 @@
 /** 验证基于 ta.maxsum 的四个内置指标：参考值、端点映射与只画末根的图形。 */
 import { describe, expect, it } from 'vitest'
-import { barsFromCloses, runShipped, runShippedBars, shippedSource } from '../../__tests__/marketData.js'
+import {
+  barsFromCloses,
+  runShipped,
+  runShippedBars,
+  shippedSource,
+} from '../../__tests__/marketData.js'
 import type { Bar } from '../../contracts/input.js'
 import { runQuickJSScript } from '../impl/runQuickJSScript.js'
 
@@ -28,7 +33,9 @@ describe('maxsum 内置指标', () => {
       kind: 'rectangle',
       anchors: [
         { logicalIndex: 4, price: 14 },
+        { logicalIndex: 6, price: 14 },
         { logicalIndex: 6, price: 8 },
+        { logicalIndex: 4, price: 8 },
       ],
     })
     expect(result.drawings?.[1]).toMatchObject({
@@ -55,7 +62,9 @@ describe('maxsum 内置指标', () => {
       kind: 'rectangle',
       anchors: [
         { logicalIndex: 0, price: 14 },
+        { logicalIndex: 1, price: 14 },
         { logicalIndex: 1, price: 9 },
+        { logicalIndex: 0, price: 9 },
       ],
     })
     expect(result.drawings?.[1]).toMatchObject({

@@ -5,13 +5,20 @@ import {
   createSubState,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
+import type { DrawingDragCursor } from '../drawing/handles/types.js'
 
 /**
  * 指针悬停的绘图拖拽目标，与命中结果的目标类型一致，`none` 表示没有悬停在任何可拖拽图元上：
- * `anchor` 圆形锚点、`vertical-handle` 线段中点手柄、`all` 线身（可整体拖拽）。
- * 宿主按目标类型决定光标：手柄 → ns-resize，线身 → move，锚点 → default（显式回到默认箭头）。
+ * `anchor` 锚点、`line-handle` 线段中点手柄、`all` 线身（可整体拖拽）。
+ * 光标不在这里推导：命中结果自带 {@link DrawingDragCursor}，宿主直接透传。
  */
-export type DrawingHoverTarget = 'none' | 'anchor' | 'vertical-handle' | 'all'
+export type DrawingHoverTarget = 'none' | 'anchor' | 'line-handle' | 'all'
+
+/** 绘图悬停命中：目标语义 + 该目标拖动时使用的光标。 */
+export interface DrawingHoverHit {
+  readonly target: DrawingHoverTarget
+  readonly cursor: DrawingDragCursor
+}
 
 export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null
@@ -28,6 +35,8 @@ export interface InteractionSnapshot {
   isHoveringRightAxis: boolean
   /** 指针悬停的绘图拖拽目标；没有悬停在任何可拖拽图元上时为 `none`。 */
   drawingHoverTarget: DrawingHoverTarget
+  /** 悬停目标对应的光标；没有悬停任何目标时为 null，宿主直接透传。 */
+  drawingHoverCursor: DrawingDragCursor | null
 }
 
 export type DragMode = 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore'
@@ -51,6 +60,7 @@ export function createIdleInteractionSnapshot(): InteractionSnapshot {
     hoveredPaneBoundaryId: null,
     isHoveringRightAxis: false,
     drawingHoverTarget: 'none',
+    drawingHoverCursor: null,
   }
 }
 
@@ -85,12 +95,13 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredRightAxisPaneId: null as string | null,
     tooltipPos: { x: 0, y: 0 },
     tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
-    hoveredDrawingTarget: 'none' as DrawingHoverTarget,
+    /** 实时绘图悬停命中：目标语义与光标一起写入，快照直接透传。 */
+    hoveredDrawing: null as DrawingHoverHit | null,
     /**
-     * 图元拖拽会话期间冻结的绘图悬停目标。拖拽中指针会移出锚点，若继续实时命中，
+     * 图元拖拽会话期间冻结的绘图悬停命中。拖拽中指针会移出锚点，若继续实时命中，
      * 光标会被重算成 `none` 并落回十字线；因此拖拽期间沿用按下时认定的目标。
      */
-    drawingDragTarget: null as DrawingHoverTarget | null,
+    drawingDragHover: null as DrawingHoverHit | null,
     rangeSelection: Object.freeze({
       startTimestamp: null,
       endTimestamp: null,
@@ -106,6 +117,8 @@ export function createInteractionState(_deps: InteractionDeps) {
     const dragMode = readonly.dragMode()
     const hoveredSep = readonly.hoveredSeparatorUpperPaneId()
     const hoveredRight = readonly.hoveredRightAxisPaneId()
+    // 拖拽期间沿用按下时冻结的命中，否则指针离开锚点会被实时命中重算成 none（光标随之落回十字线）。
+    const drawingHover = readonly.drawingDragHover() ?? readonly.hoveredDrawing()
 
     const next: InteractionSnapshot = {
       crosshairPos,
@@ -120,8 +133,8 @@ export function createInteractionState(_deps: InteractionDeps) {
       isHoveringPaneBoundary: hoveredSep !== null,
       hoveredPaneBoundaryId: hoveredSep,
       isHoveringRightAxis: hoveredRight !== null,
-      // 拖拽期间沿用按下时冻结的目标，否则指针离开锚点会被实时命中重算成 none（光标随之落回十字线）。
-      drawingHoverTarget: readonly.drawingDragTarget() ?? readonly.hoveredDrawingTarget(),
+      drawingHoverTarget: drawingHover?.target ?? 'none',
+      drawingHoverCursor: drawingHover?.cursor ?? null,
     }
 
     if (_cachedSnapshot) {
@@ -139,7 +152,8 @@ export function createInteractionState(_deps: InteractionDeps) {
         c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
         c.hoveredPaneBoundaryId === next.hoveredPaneBoundaryId &&
         c.isHoveringRightAxis === next.isHoveringRightAxis &&
-        c.drawingHoverTarget === next.drawingHoverTarget
+        c.drawingHoverTarget === next.drawingHoverTarget &&
+        c.drawingHoverCursor === next.drawingHoverCursor
       ) {
         return _cachedSnapshot
       }
@@ -175,7 +189,7 @@ export function createInteractionState(_deps: InteractionDeps) {
       signals.hoveredRightAxisPaneId.set(null)
       signals.tooltipPos.set({ x: 0, y: 0 })
       signals.tooltipAnchorPlacement.set('right-bottom')
-      signals.hoveredDrawingTarget.set('none')
+      signals.hoveredDrawing.set(null)
       signals.rangeSelection.set(
         Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
       )
@@ -245,9 +259,10 @@ export function createInteractionState(_deps: InteractionDeps) {
         })
       },
 
-      /** 图元拖拽会话期间冻结绘图悬停目标；`null` 表示未拖拽，目标按实时命中推导。 */
-      setDrawingDragTarget(target: DrawingHoverTarget | null) {
-        signals.drawingDragTarget.set(target)
+      /** 图元拖拽会话期间冻结绘图悬停命中；`null` 表示未拖拽，命中按实时推导。 */
+      setDrawingDragHover(hit: DrawingHoverHit | null) {
+        if (signals.drawingDragHover.peek() === hit) return
+        signals.drawingDragHover.set(hit)
       },
 
       setDragMode(mode: DragMode) {
@@ -263,13 +278,22 @@ export function createInteractionState(_deps: InteractionDeps) {
       },
 
       /**
-       * 设置绘图悬停目标（none / 锚点 / 线段中点手柄 / 线身），宿主据此切换光标。
-       * 拖拽会话冻结目标期间丢弃实时命中结果，防止指针离开锚点后光标在拖拽中途回落。
+       * 设置实时绘图悬停命中（目标 + 光标），宿主据此切换光标。
+       * 拖拽会话冻结期间丢弃实时命中结果，防止指针离开锚点后光标在拖拽中途回落。
        */
-      setDrawingTargetHover(target: DrawingHoverTarget) {
-        if (signals.drawingDragTarget.peek() !== null) return
-        if (signals.hoveredDrawingTarget.peek() === target) return
-        signals.hoveredDrawingTarget.set(target)
+      setDrawingHover(hit: DrawingHoverHit | null) {
+        if (signals.drawingDragHover.peek() !== null) return
+        const prev = signals.hoveredDrawing.peek()
+        if (prev === hit) return
+        // 命中是每次 hover 新建的对象，值相同就不写，避免快照无谓变动。
+        if (
+          prev !== null &&
+          hit !== null &&
+          prev.target === hit.target &&
+          prev.cursor === hit.cursor
+        )
+          return
+        signals.hoveredDrawing.set(hit)
       },
 
       /**

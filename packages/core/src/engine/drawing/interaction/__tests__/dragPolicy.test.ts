@@ -1,7 +1,7 @@
 /** 验证拖拽策略把被拖锚点解析为要一起移动的锚点及其位移系数。 */
 import { describe, expect, it } from 'vitest'
 
-import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from '../impl/dragPolicy'
+import { resolveAnchorFollowers, resolveLineHandle } from '../impl/dragPolicy'
 
 describe('resolveAnchorFollowers', () => {
   it.each([
@@ -48,23 +48,62 @@ describe('resolveAnchorFollowers', () => {
     ])
   })
 
+  it.each([
+    {
+      index: 0,
+      moving: [
+        { index: 0 },
+        { index: 3, follow: { time: 1, price: 0 } },
+        { index: 1, follow: { time: 0, price: 1 } },
+      ],
+    },
+    {
+      index: 1,
+      moving: [
+        { index: 1 },
+        { index: 2, follow: { time: 1, price: 0 } },
+        { index: 0, follow: { time: 0, price: 1 } },
+      ],
+    },
+    {
+      index: 2,
+      moving: [
+        { index: 2 },
+        { index: 1, follow: { time: 1, price: 0 } },
+        { index: 3, follow: { time: 0, price: 1 } },
+      ],
+    },
+    {
+      index: 3,
+      moving: [
+        { index: 3 },
+        { index: 0, follow: { time: 1, price: 0 } },
+        { index: 2, follow: { time: 0, price: 1 } },
+      ],
+    },
+  ])('keeps the rectangle axis-aligned when dragging corner $index', ({ index, moving }) => {
+    expect(resolveAnchorFollowers('rectangle', index)).toEqual(moving)
+  })
+
   it('falls back to moving only the dragged anchor for unregistered kinds', () => {
     expect(resolveAnchorFollowers('trend-line', 1)).toEqual([{ index: 1 }])
   })
 })
 
-describe('resolveVerticalHandleAnchors', () => {
+describe('resolveLineHandle', () => {
   it.each([
-    { kind: 'flat-line', lineIndex: 0, pair: [0, 1] },
-    { kind: 'flat-line', lineIndex: 1, pair: [2, 3] },
-    { kind: 'disjoint-channel', lineIndex: 0, pair: [0, 1] },
-    { kind: 'disjoint-channel', lineIndex: 1, pair: [2, 3] },
-    { kind: 'parallel-channel', lineIndex: 0, pair: [0, 1] },
-    { kind: 'parallel-channel', lineIndex: 1, pair: [2, 3] },
+    { kind: 'flat-line', lineIndex: 0, handle: { index: 0, from: 0, to: 1, axis: 'price' } },
+    { kind: 'flat-line', lineIndex: 1, handle: { index: 1, from: 2, to: 3, axis: 'price' } },
+    { kind: 'disjoint-channel', lineIndex: 0, handle: { index: 0, from: 0, to: 1, axis: 'price' } },
+    { kind: 'parallel-channel', lineIndex: 1, handle: { index: 1, from: 2, to: 3, axis: 'price' } },
+    { kind: 'rectangle', lineIndex: 0, handle: { index: 0, from: 0, to: 1, axis: 'price' } },
+    { kind: 'rectangle', lineIndex: 1, handle: { index: 1, from: 1, to: 2, axis: 'time' } },
+    { kind: 'rectangle', lineIndex: 2, handle: { index: 2, from: 2, to: 3, axis: 'price' } },
+    { kind: 'rectangle', lineIndex: 3, handle: { index: 3, from: 3, to: 0, axis: 'time' } },
     // 出界的线下标与未登记线表的图元一律返回 null。
-    { kind: 'flat-line', lineIndex: 2, pair: null },
-    { kind: 'trend-line', lineIndex: 0, pair: null },
-  ] as const)('resolves $kind line $lineIndex to $pair', ({ kind, lineIndex, pair }) => {
-    expect(resolveVerticalHandleAnchors(kind, lineIndex)).toEqual(pair)
+    { kind: 'flat-line', lineIndex: 2, handle: null },
+    { kind: 'trend-line', lineIndex: 0, handle: null },
+  ] as const)('resolves $kind line $lineIndex to $handle', ({ kind, lineIndex, handle }) => {
+    expect(resolveLineHandle(kind, lineIndex)).toEqual(handle)
   })
 })

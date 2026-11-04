@@ -35,19 +35,17 @@ function pickCursor(
   dragCursor: string | null,
   fallbackCursor: string,
 ): string {
-  if (dragCursor !== null && snapshot.drawingHoverTarget !== 'none') return dragCursor
+  if (dragCursor !== null && snapshot.drawingHoverCursor !== null) return dragCursor
   return resolveStageCursor(snapshot, fallbackCursor)
 }
 
 /**
- * 舞台光标：图表平移/框选 dragging；面板分隔与绘图中点手柄 ns-resize；
- * 图元线身 move（可整体拖动）；圆形锚点显式 default，避免沿用十字线/指针。
+ * 舞台光标：图表平移/框选 dragging；面板分隔 ns-resize；
+ * 绘图命中光标由 Core 给出（锚点/手柄/线身各自声明），这里只透传。
  */
 function resolveStageCursor(state: InteractionSnapshot, fallbackCursor: string): string {
   if (state.isResizingPaneBoundary || state.isHoveringPaneBoundary) return 'ns-resize'
-  if (state.drawingHoverTarget === 'vertical-handle') return 'ns-resize'
-  if (state.drawingHoverTarget === 'all') return 'move'
-  if (state.drawingHoverTarget === 'anchor') return 'default'
+  if (state.drawingHoverCursor !== null) return state.drawingHoverCursor
   if (state.isDragging) return 'grabbing'
   return fallbackCursor
 }
@@ -60,13 +58,9 @@ function applyStage(
   dragCursor: string | null,
 ): void {
   stage?.classList.toggle('is-dragging', next.isDragging)
-  const drawingDragging = dragCursor !== null && next.drawingHoverTarget !== 'none'
-  stage?.classList.toggle('is-dragging-drawing', drawingDragging)
-  if (stage && drawingDragging) {
-    stage.dataset.drawingCursor = next.drawingHoverTarget
-  } else if (stage) {
-    delete stage.dataset.drawingCursor
-  }
+  // 拖拽图元时沿用按下时的光标：舞台内联样式优先于 `.is-dragging` 的 grabbing。
+  const drawingDragging = dragCursor !== null && next.drawingHoverCursor !== null
+  if (stage) stage.style.cursor = drawingDragging ? dragCursor : ''
   stage?.classList.toggle('is-resizing-pane', next.isResizingPaneBoundary)
   stage?.classList.toggle('is-hovering-pane-separator', next.isHoveringPaneBoundary)
   stage?.classList.toggle('is-hovering-right-axis', next.isHoveringRightAxis)

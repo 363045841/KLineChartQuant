@@ -4,7 +4,7 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
-import { midpoint, type Point } from '@/foundation/geometry/index.js'
+import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
   type DrawingFrameProjection,
@@ -23,6 +23,8 @@ import {
 } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
+import { resolveLineMidHandles } from '../../handles/impl/layout.js'
+import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
@@ -33,7 +35,6 @@ import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
 import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
-import { getVerticalHandleLines } from './lines.js'
 import { drawingTimeIndex } from './timeCoordinate.js'
 
 type MutableDrawingFrameProjection = {
@@ -110,10 +111,18 @@ function resolveDrawingStyle(style: DrawingStyle, resolve: ScriptColorResolver):
   }
 }
 
-/** 锚点只在选中态可见：未选中的图元不画线段端点，也不投影锚点点图元。 */
+/** 手柄点：锚点圆点与线段平移方块，两者都只在选中态可见。 */
+function isHandlePoint(primitive: DrawingPrimitive): boolean {
+  return (
+    primitive.kind === PRIMITIVE_KIND.point &&
+    (primitive.role === POINT_ROLE.anchor || primitive.role === POINT_ROLE['translate-handle'])
+  )
+}
+
+/** 锚点只在选中态可见：未选中的图元不画线段端点，也不投影任何手柄点。 */
 function withoutAnchorVisuals(primitive: DrawingPrimitive): DrawingPrimitive | null {
   if (primitive.kind === PRIMITIVE_KIND.line) return { ...primitive, showEndpoints: false }
-  if (primitive.kind === PRIMITIVE_KIND.point && primitive.role === POINT_ROLE.anchor) return null
+  if (isHandlePoint(primitive)) return null
   return primitive
 }
 
@@ -147,28 +156,23 @@ function applySelectedStyle(
 }
 
 /**
- * 选中图元的线段中点垂直手柄：与锚点同色、同半径的点图元，形状由绘制侧决定。
+ * 选中图元的线段中点手柄：位置由手柄布局统一解析，这里只负责转成绘制原语。
+ * 与锚点同色、同半径，形状由绘制侧决定。
  * @param drawing 已解析到当前帧的图元
- * @param toScreen 锚点 → 屏幕坐标（与图元绘制同一映射）
+ * @param port 帧投影端口（锚点投影 + 本帧 Pane 边界）
  */
-function projectVerticalHandles(
+function projectLineMidHandlePrimitives(
   drawing: ResolvedDrawingObject,
-  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  port: DrawingHandlePort<ResolvedDrawingAnchor>,
 ): DrawingPrimitive[] {
-  const handles: DrawingPrimitive[] = []
-  for (const line of getVerticalHandleLines(drawing.kind)) {
-    const from = drawing.anchors[line.from]
-    const to = drawing.anchors[line.to]
-    // 锚点缺失（导入的残缺图元）时不出手柄，避免把手柄画到错误的线上。
-    if (!from || !to) continue
-    handles.push({
+  return resolveLineMidHandles(drawing, port).map(
+    (handle): DrawingPrimitive => ({
       kind: PRIMITIVE_KIND.point,
       role: POINT_ROLE['translate-handle'],
-      point: midpoint(toScreen(from), toScreen(to)),
+      point: handle.point,
       style: { stroke: drawing.style.stroke },
-    })
-  }
-  return handles
+    }),
+  )
 }
 
 /** 将持久化文本附加到对应线段；锚点、旋转、对齐与基线由渲染器和热点共用同一约定。 */
@@ -330,6 +334,16 @@ export function projectDrawingsForFrame(
   // 锚点索引由活动 Buffer 的时间索引解析，RenderContext 已保证解析器存在。
   const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp
   const toScreen = createToScreen(context)
+  // 帧投影端口：锚点经本帧快照投影，边界取本帧 Pane 尺寸；单轴锚点保留单轴语义。
+  const handlePort: DrawingHandlePort<ResolvedDrawingAnchor> = {
+    bounds: { plotWidth: context.viewport.plotWidth, paneHeight: context.pane.height },
+    projectAnchor: (anchor) => {
+      const point = toScreen(anchor)
+      if (anchor.type === 'horizontal') return { type: 'horizontal', y: point.y }
+      if (anchor.type === 'vertical') return { type: 'vertical', x: point.x }
+      return { type: 'point', x: point.x, y: point.y }
+    },
+  }
   const workspaceId = resolveChartWorkspaceId(context.dataView)
   const themeColors = resolveThemeColors(
     context.theme,
@@ -367,7 +381,7 @@ export function projectDrawingsForFrame(
     const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
     output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
     if (isSelected) {
-      handlePrimitives.push(...projectVerticalHandles(drawing, toScreen))
+      handlePrimitives.push(...projectLineMidHandlePrimitives(drawing, handlePort))
       projectAxisDecorations(
         drawing.kind,
         [...drawing.anchors, ...(geometry.computedAnchors ?? [])],

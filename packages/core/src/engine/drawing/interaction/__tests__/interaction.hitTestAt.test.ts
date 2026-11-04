@@ -18,7 +18,7 @@ describe('DrawingInteractionController hitTestAt', () => {
     const { adapter } = createSelectionAdapter([free, locked], HIT_TEST_PANE)
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: free, target: { type: 'all' } },
+      hit: { drawing: free, target: { type: 'all' }, cursor: 'move' },
     })
 
     expect(controller.hitTestAt(20, 55)).toBe(free)

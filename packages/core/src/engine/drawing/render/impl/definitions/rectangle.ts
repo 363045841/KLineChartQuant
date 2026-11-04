@@ -1,31 +1,34 @@
-/** 手绘矩形与脚本 Box 的公共定义，填充与真实边界分别裁剪。 */
+/** 手绘矩形与脚本 Box 的公共定义：四角锚点直接围成填充与边框，水平延伸只作用于上下边。 */
 
 import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
 import { resolveRectLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
-import { rectangleGeometry } from '@/engine/drawing/geometry/impl/rectangleGeometry.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 import type { DrawingPrimitive } from '@/foundation/plugin/types.js'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 
-/** 两个对角点确定价格范围，水平延伸保持上下边界和填充一致。 */
+/** 四角顺时针定义矩形；水平延伸保持上下边与填充一致，竖边只在真实左右边界绘制。 */
 export function createRectangleDefinition(): DrawingDefinition {
   return {
     kind: 'rectangle',
-    minAnchors: 2,
-    maxAnchors: 2,
+    minAnchors: 4,
+    maxAnchors: 4,
     extent: (drawing) => anchorExtent(drawing.anchors, drawing.extend),
     compute(drawing, context) {
-      const [first, second] = drawing.anchors
-      if (!first || !second) return { primitives: [] }
-      const a = context.toScreen(first)
-      const b = context.toScreen(second)
-      const { topLeft, topRight, bottomRight, bottomLeft, edges } = rectangleGeometry(a, b)
+      const [topLeftAnchor, topRightAnchor, bottomRightAnchor, bottomLeftAnchor] = drawing.anchors
+      if (!topLeftAnchor || !topRightAnchor || !bottomRightAnchor || !bottomLeftAnchor)
+        return { primitives: [] }
+
+      const topLeft = context.toScreen(topLeftAnchor)
+      const topRight = context.toScreen(topRightAnchor)
+      const bottomRight = context.toScreen(bottomRightAnchor)
+      const bottomLeft = context.toScreen(bottomLeftAnchor)
       const extendLeft = drawing.extend === 'left' || drawing.extend === 'both'
       const extendRight = drawing.extend === 'right' || drawing.extend === 'both'
       const left = extendLeft ? Math.min(topLeft.x, context.viewport.scrollLeft) : topLeft.x
       const right = extendRight
         ? Math.max(topRight.x, context.viewport.scrollLeft + context.viewport.plotWidth)
         : topRight.x
+
       const primitives: DrawingPrimitive[] = [
         {
           kind: 'area',
@@ -46,20 +49,16 @@ export function createRectangleDefinition(): DrawingDefinition {
         },
       ]
       if (drawing.style.strokeWidth !== 0) {
-        for (const edge of edges) {
-          const horizontal = edge.a.y === edge.b.y
-          // 只在真实左右边界绘制竖边，延伸边没有人为封口。
-          if (
-            !horizontal &&
-            ((extendLeft && edge.a.x === topLeft.x) || (extendRight && edge.a.x === topRight.x))
-          )
-            continue
-          primitives.push({
-            kind: 'line',
-            a: horizontal ? { x: left, y: edge.a.y } : edge.a,
-            b: horizontal ? { x: right, y: edge.b.y } : edge.b,
-            style: drawing.style,
-          })
+        // 顺时针四条边：上、右、下、左；延伸侧不封口，避免与延长后的上下边重叠。
+        const edges = [
+          { a: { x: left, y: topLeft.y }, b: { x: right, y: topRight.y } },
+          { a: topRight, b: bottomRight },
+          { a: { x: right, y: bottomRight.y }, b: { x: left, y: bottomLeft.y } },
+          { a: bottomLeft, b: topLeft },
+        ]
+        for (const [index, edge] of edges.entries()) {
+          if ((index === 1 && extendRight) || (index === 3 && extendLeft)) continue
+          primitives.push({ kind: 'line', a: edge.a, b: edge.b, style: drawing.style })
         }
       }
       const text = drawing.text

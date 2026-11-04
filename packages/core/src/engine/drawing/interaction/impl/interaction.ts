@@ -1,6 +1,5 @@
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingChartAdapter } from '@/controllers/types.js'
-import type { DrawingHoverTarget } from '@/engine/state/interactionState.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import { resolveDrawingPointer } from '../../geometry/impl/coordinateUtils.js'
 import type {
@@ -40,6 +39,8 @@ type DrawingPointerSession =
   | { kind: 'idle' }
   | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
   | { kind: 'drag' }
+
+/** 命中结果 → 绘图悬停命中：光标已由命中处给出，这里只做空值收敛。 */
 
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
@@ -327,18 +328,18 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 指针悬停的绘图拖拽目标，与命中返回的目标类型一致；未命中时由本方法给出 `none`。
-   * 与命中共用同一份选中集合与线表：中点手柄只在图元被选中时可悬停，锚点与线身不受选中限制。
+   * 指针悬停的绘图命中，与命中结果同一份契约；光标随命中一起返回，宿主不再二次推导。
+   * 与命中共用同一份选中集合与手柄布局：靠边手柄与中点手柄只在图元被选中时可悬停。
    * @param pointer 指针 client 坐标；一般由 hover flush 用缓存的指针位置传入
+   * @returns 命中结果；没有可拖拽目标时为 null
    */
-  getHoveredTarget(pointer: PointerCoordinates, container: HTMLElement): DrawingHoverTarget {
+  getHoveredHit(pointer: PointerCoordinates, container: HTMLElement): HitResult | null {
     const tool = this.getActiveTool()
-    if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return 'none'
-    if (this.dragHandler.isDragging()) return 'none'
+    if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return null
+    if (this.dragHandler.isDragging()) return null
     const resolved = resolveDrawingPointer(pointer, container, this.adapter)
-    if (!resolved) return 'none'
-    const hit = this.findSelectableHit(resolved)
-    return hit === null ? 'none' : hit.target.type
+    if (!resolved) return null
+    return this.findSelectableHit(resolved)
   }
 
   /**

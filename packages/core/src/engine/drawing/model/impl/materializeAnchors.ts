@@ -26,6 +26,7 @@ export function getDrawingAnchorCount(kind: DrawingKind): 1 | 2 | 3 | 4 {
     case 'parallel-channel':
     case 'flat-line':
     case 'disjoint-channel':
+    case 'rectangle':
       return 4
     default:
       return getDrawingInputAnchorCount(kind)
@@ -53,6 +54,8 @@ export function materializeDrawingAnchors(
       return appendDisjointAnchors(anchors, createAnchorId)
     case 'flat-line':
       return appendFlatLineAnchors(anchors, createAnchorId)
+    case 'rectangle':
+      return appendRectangleAnchors(anchors, createAnchorId)
     default:
       return [...anchors]
   }
@@ -115,5 +118,26 @@ function appendDisjointAnchors(
     second,
     pointAt(second, createAnchorId(), third.price),
     pointAt(first, createAnchorId(), third.price + (second.price - first.price)),
+  ]
+}
+
+/**
+ * 矩形：两个对角输入补齐为顺时针四角（左上、右上、右下、左下）。
+ * 时间与价格分别取两输入点的较小 / 较大者，因此两个对角点谁先谁后都不影响结果。
+ */
+function appendRectangleAnchors(
+  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  createAnchorId: () => string,
+): PersistedDrawingAnchor[] {
+  const [first, second] = anchors
+  if (!first || !second) return [...anchors]
+  const [left, right] =
+    Number(first.time) <= Number(second.time) ? [first, second] : [second, first]
+  const [top, bottom] = first.price >= second.price ? [first, second] : [second, first]
+  return [
+    pointAt(left, createAnchorId(), top.price),
+    pointAt(right, createAnchorId(), top.price),
+    pointAt(right, createAnchorId(), bottom.price),
+    pointAt(left, createAnchorId(), bottom.price),
   ]
 }

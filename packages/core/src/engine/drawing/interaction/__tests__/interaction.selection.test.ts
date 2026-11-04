@@ -19,7 +19,7 @@ describe('DrawingInteractionController selection', () => {
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: second, target: { type: 'all' } },
+      hit: { drawing: second, target: { type: 'all' }, cursor: 'move' },
     })
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
@@ -53,7 +53,7 @@ describe('DrawingInteractionController selection', () => {
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: second, target: { type: 'all' } },
+      hit: { drawing: second, target: { type: 'all' }, cursor: 'move' },
     })
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
@@ -119,7 +119,7 @@ describe('DrawingInteractionController selection', () => {
     }
     const startDrag = vi.fn()
     stubDrawingControllerInternals(controller, {
-      hit: { drawing: first, target: { type: 'all' } },
+      hit: { drawing: first, target: { type: 'all' }, cursor: 'move' },
       draggingIds: [first.id, second.id],
       movedDrawings: [movedFirst, movedSecond],
       startDrag,
@@ -144,7 +144,7 @@ describe('DrawingInteractionController selection', () => {
     const controller = new DrawingInteractionController(adapter)
     const startDrag = vi.fn()
     stubDrawingControllerInternals(controller, {
-      hit: { drawing: first, target: { type: 'all' } },
+      hit: { drawing: first, target: { type: 'all' }, cursor: 'move' },
       startDrag,
     })
     adapter.setSelectedDrawingIds([first.id, second.id])
@@ -172,7 +172,7 @@ describe('DrawingInteractionController selection', () => {
     )
     const controller = new DrawingInteractionController(adapter)
     stubDrawingControllerInternals(controller, {
-      hit: { drawing, target: { type: 'anchor', index: 0 } },
+      hit: { drawing, target: { type: 'anchor', index: 0 }, cursor: 'default' },
       draggingIds: [drawing.id],
       movedDrawings: [drawing],
     })

@@ -98,6 +98,20 @@ describe('createDrawingLayer', () => {
 })
 
 describe('createDefaultPrimitiveRendererSet', () => {
+  /** 注入的手柄填充色，与被测主题无关。 */
+  const HANDLE_FILL = '#101010'
+
+  /** 手柄填充取注入的背景色，不写死白色，明暗主题才都不会错。 */
+  it('fills handles with the injected background color', () => {
+    const ctx = createMockCanvasContext()
+    createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL }).point(
+      ctx,
+      { kind: 'point', point: { x: 10, y: 20 }, style: { stroke: '#f00' } },
+      1,
+    )
+    expect(ctx.fillStyle).toBe(HANDLE_FILL)
+  })
+
   /** 端点标签按线段语义位置锚定，并在端点外侧排版。 */
   it.each([
     ['start', 10, 'left'],
@@ -107,7 +121,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
     'renders a %s line label at its semantic anchor',
     (position, expectedX, expectedAlign) => {
       const ctx = createMockCanvasContext()
-      const renderers = createDefaultPrimitiveRendererSet()
+      const renderers = createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL })
 
       renderers.line(
         ctx,
@@ -131,7 +145,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
   /** 字面量换行控制码必须被拆为多行，不按图元宽度自动折行。 */
   it('renders literal newline text without automatic wrapping', () => {
     const ctx = createMockCanvasContext()
-    const renderers = createDefaultPrimitiveRendererSet()
+    const renderers = createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL })
 
     renderers.text(
       ctx,
@@ -152,7 +166,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
   /** 线段标签在旋转的局部坐标系中也必须逐行绘制。 */
   it('renders literal newline line labels in the rotated local coordinate system', () => {
     const ctx = createMockCanvasContext()
-    const renderers = createDefaultPrimitiveRendererSet()
+    const renderers = createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL })
 
     renderers.line(
       ctx,
@@ -175,7 +189,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
   /** 线身虚线不得传染到锚点环：虚线只作用于线本身。 */
   it('keeps anchor rings solid on a dashed line', () => {
     const ctx = createMockCanvasContext()
-    const renderers = createDefaultPrimitiveRendererSet()
+    const renderers = createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL })
 
     renderers.line(
       ctx,

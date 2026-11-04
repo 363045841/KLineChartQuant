@@ -1,3 +1,4 @@
+/** 绘图工具配置：工具 ID 到锚点数与图元种类的映射表。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { DrawingKind } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
@@ -35,11 +36,16 @@ export const TRIPLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
   DrawingTool.DisjointChannel,
 ]
 
+/** 各锚点数分组的查询表；三张表不重叠，见 toolConfig 用例。 */
+const SINGLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(SINGLE_ANCHOR_TOOLS)
+const DOUBLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(DOUBLE_ANCHOR_TOOLS)
+const TRIPLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(TRIPLE_ANCHOR_TOOLS)
+
 /** 返回工具所需的锚点数量（cursor 返回 null） */
 export function getAnchorCountForTool(toolId: DrawingToolId): 1 | 2 | 3 | null {
-  if (SINGLE_ANCHOR_TOOLS.includes(toolId as any)) return 1
-  if (DOUBLE_ANCHOR_TOOLS.includes(toolId as any)) return 2
-  if (TRIPLE_ANCHOR_TOOLS.includes(toolId as any)) return 3
+  if (SINGLE_ANCHOR_TOOL_SET.has(toolId)) return 1
+  if (DOUBLE_ANCHOR_TOOL_SET.has(toolId)) return 2
+  if (TRIPLE_ANCHOR_TOOL_SET.has(toolId)) return 3
   return null
 }
 

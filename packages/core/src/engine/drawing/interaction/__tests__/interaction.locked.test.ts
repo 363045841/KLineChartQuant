@@ -17,7 +17,7 @@ describe('DrawingInteractionController locked drawings', () => {
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked])
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: locked, target: { type: 'all' } },
+      hit: { drawing: locked, target: { type: 'all' }, cursor: 'move' },
     })
 
     expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
@@ -65,7 +65,7 @@ describe('DrawingInteractionController locked drawings', () => {
     const { adapter } = createSelectionAdapter([free, locked])
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: free, target: { type: 'all' } },
+      hit: { drawing: free, target: { type: 'all' }, cursor: 'move' },
     })
     adapter.setSelectedDrawingIds(['free', 'locked'])
 
@@ -78,7 +78,7 @@ describe('DrawingInteractionController locked drawings', () => {
     const { adapter } = createSelectionAdapter([free], { globalLocked: true })
     const controller = new DrawingInteractionController(adapter)
     const internal = stubDrawingControllerInternals(controller, {
-      hit: { drawing: free, target: { type: 'all' } },
+      hit: { drawing: free, target: { type: 'all' }, cursor: 'move' },
     })
 
     expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)

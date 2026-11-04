@@ -565,6 +565,28 @@ describe('projectDrawingsForFrame', () => {
       expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
     },
   )
+
+  it.each([
+    {
+      label: 'horizontal line',
+      kind: 'horizontal-line' as const,
+      anchors: [{ id: 'a', type: 'horizontal' as const, price: 30 }],
+      expected: { x: 60, y: 70 },
+    },
+    {
+      label: 'vertical line',
+      kind: 'vertical-line' as const,
+      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000, price: 40 }],
+      expected: { x: 10, y: 60 },
+    },
+  ])('projects the edge translate handle of a selected $label', ({ kind, anchors, expected }) => {
+    // 绘图区 100×100、右侧 / 下方内边距 40：手柄落在靠边位置而不是锚点自身。
+    const points = projectSingleAnchor(kind, anchors).projection.primitives.filter(
+      (primitive) =>
+        primitive.kind === 'point' && primitive.role === POINT_ROLE['translate-handle'],
+    )
+    expect(points).toEqual([expect.objectContaining({ point: expected })])
+  })
 })
 
 describe('projectDrawingsForFrame range culling', () => {
@@ -596,6 +618,25 @@ describe('projectDrawingsForFrame range culling', () => {
       anchors: [
         { id: 'a', type: 'point', logicalIndex: start, price: 10 },
         { id: 'b', type: 'point', logicalIndex: end, price: 20 },
+      ],
+    })
+  }
+
+  /** 四角矩形：上边价格 20、下边价格 10，左右分别落在起止索引。 */
+  function rectangleBetween(
+    start: number,
+    end: number,
+    extend?: 'left' | 'right' | 'both',
+  ): DrawingObject {
+    return createDrawingObject({
+      id: `rectangle-${start}-${end}`,
+      kind: 'rectangle',
+      extend,
+      anchors: [
+        { id: 'tl', type: 'point', logicalIndex: start, price: 20 },
+        { id: 'tr', type: 'point', logicalIndex: end, price: 20 },
+        { id: 'br', type: 'point', logicalIndex: end, price: 10 },
+        { id: 'bl', type: 'point', logicalIndex: start, price: 10 },
       ],
     })
   }
@@ -655,7 +696,7 @@ describe('projectDrawingsForFrame range culling', () => {
     },
     {
       label: 'a rectangle extending into the range',
-      drawing: drawingBetween('rectangle', 1, 2, 'right'),
+      drawing: rectangleBetween(1, 2, 'right'),
       visible: true,
     },
   ]

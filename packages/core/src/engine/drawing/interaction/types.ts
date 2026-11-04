@@ -7,6 +7,7 @@
 
 import type { Point } from '@/foundation/geometry/types.js'
 import type { DrawingLabelPosition } from '@/foundation/plugin/types.js'
+import type { DrawingDragCursor } from '../handles/types.js'
 import type { DrawingObject } from '../types.js'
 
 /**
@@ -80,16 +81,18 @@ export type DrawingSelectionMarquee = {
   end: Point
 }
 
-/** 命中的拖拽目标：锚点、线段中点垂直手柄，或图元主体（整体拖拽）。命中与拖拽会话共用。 */
+/** 命中的拖拽目标：锚点、线段中点手柄，或图元主体（整体拖拽）。命中与拖拽会话共用。 */
 export type DrawingDragTarget =
   | { readonly type: 'anchor'; readonly index: number }
-  | { readonly type: 'vertical-handle'; readonly lineIndex: number }
+  | { readonly type: 'line-handle'; readonly lineIndex: number }
   | { readonly type: 'all' }
 
-/** 命中检测结果：命中的图元及其拖拽目标。 */
+/** 命中检测结果：命中的图元、拖拽目标，以及该目标在拖动时使用的光标。 */
 export interface HitResult {
   readonly drawing: DrawingObject
   readonly target: DrawingDragTarget
+  /** 光标在命中处就确定，宿主直接透传，不再按目标类型二次推导。 */
+  readonly cursor: DrawingDragCursor
 }
 
 /** 线段/填充标签热点，携带与绘制完全一致的锚点、旋转、对齐、基线与字号。 */

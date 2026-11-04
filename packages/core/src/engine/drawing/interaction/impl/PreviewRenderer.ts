@@ -98,32 +98,38 @@ export class PreviewRenderer {
     }
   }
 
-  /** 双锚点工具预览：两个锚点之间的虚线，回归通道附带填充区域 */
+  /** 双锚点工具预览：两个锚点之间的虚线，回归通道附带填充区域；矩形等物化图元在此补齐全部锚点。 */
   private buildDoubleAnchorPreview(
     activeTool: DrawingToolId,
     first: InteractionDrawingAnchor,
     second: InteractionDrawingAnchor,
     paneId: string,
   ): DrawingObject {
+    const kind = getDrawingKind(activeTool)
+    let derivedId = 0
     return {
       id: PREVIEW_ID,
-      kind: getDrawingKind(activeTool),
+      kind,
       paneId,
       visible: true,
-      anchors: [
-        {
-          id: `${PREVIEW_ID}-a`,
-          time: first.time,
-          futureOffset: first.futureOffset,
-          price: first.price,
-        },
-        {
-          id: `${PREVIEW_ID}-b`,
-          time: second.time,
-          futureOffset: second.futureOffset,
-          price: second.price,
-        },
-      ],
+      anchors: materializeDrawingAnchors(
+        kind,
+        [
+          {
+            id: `${PREVIEW_ID}-a`,
+            time: first.time,
+            futureOffset: first.futureOffset,
+            price: first.price,
+          },
+          {
+            id: `${PREVIEW_ID}-b`,
+            time: second.time,
+            futureOffset: second.futureOffset,
+            price: second.price,
+          },
+        ],
+        () => `${PREVIEW_ID}-d${derivedId++}`,
+      ),
       params: activeTool === DrawingTool.RegressionChannel ? { sigma: 2 } : {},
       style: previewStyle(activeTool === DrawingTool.RegressionChannel),
     }

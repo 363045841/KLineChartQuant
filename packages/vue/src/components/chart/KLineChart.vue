@@ -1974,23 +1974,6 @@
     cursor: grabbing;
   }
 
-  /* 拖拽图元时沿用锚点/手柄/线身光标；内联 `cursor` 不足以覆盖上面的 CSS 规则。 */
-  .chart-stage.is-dragging-drawing {
-    cursor: inherit;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='anchor'] {
-    cursor: default;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='vertical-handle'] {
-    cursor: ns-resize;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='all'] {
-    cursor: move;
-  }
-
   /* 绘图区与左右轴共用布局、背景和手势规则。 */
   .chart-container,
   .left-axis-host,

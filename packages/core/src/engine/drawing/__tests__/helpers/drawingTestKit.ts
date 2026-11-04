@@ -117,6 +117,21 @@ export function createParallelChannelDrawing(
   })
 }
 
+/** 构造矩形图元：四角顺时针（左上、右上、右下、左下）。 */
+export function createRectangleDrawing(overrides: Partial<DrawingObject> = {}): DrawingObject {
+  return createDrawingObject({
+    id: 'rect',
+    kind: 'rectangle',
+    anchors: [
+      { id: 'tl', type: 'point', time: 500, price: 140 },
+      { id: 'tr', type: 'point', time: 1_000, price: 140 },
+      { id: 'br', type: 'point', time: 1_000, price: 60 },
+      { id: 'bl', type: 'point', time: 500, price: 60 },
+    ],
+    ...overrides,
+  })
+}
+
 /** 命中 / 拖拽测试所需的最小容器，局部坐标原点在左上角。 */
 export const CONTAINER = {
   getBoundingClientRect: () => ({ left: 0, top: 0 }),

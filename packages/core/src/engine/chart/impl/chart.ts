@@ -1375,7 +1375,7 @@ export class Chart {
   }
 
   /**
-   * 按指针位置重算绘图悬停目标（none / 锚点 / 平移手柄 / 线身），宿主据此切换光标。
+   * 按指针位置重算绘图悬停命中（目标语义 + 光标），宿主据此切换光标。
    * 由 InteractionController 在 hover flush 中调用，与本帧几何同代。
    */
   updateDrawingHover(clientX: number, clientY: number): void {
@@ -1383,27 +1383,28 @@ export class Chart {
       this.clearDrawingHover()
       return
     }
-    this.kernel.interaction.actions.setDrawingTargetHover(
-      this.drawingSession.getHoveredTarget({ clientX, clientY }, this.dom.container),
+    const hit = this.drawingSession.getHoveredHit({ clientX, clientY }, this.dom.container)
+    this.kernel.interaction.actions.setDrawingHover(
+      hit === null ? null : { target: hit.target.type, cursor: hit.cursor },
     )
   }
 
-  /** 冻结绘图悬停目标：图元拖拽开始时调用，拖拽期间不再被实时命中改写。 */
+  /** 冻结绘图悬停：图元拖拽开始时调用，拖拽期间不再被实时命中改写。 */
   freezeDrawingHover(): void {
     if (this.drawingSession === null) return
-    this.kernel.interaction.actions.setDrawingDragTarget(
-      this.kernel.interaction.readonly.hoveredDrawingTarget.peek(),
+    this.kernel.interaction.actions.setDrawingDragHover(
+      this.kernel.interaction.readonly.hoveredDrawing.peek(),
     )
   }
 
-  /** 解冻绘图悬停目标：图元拖拽结束后调用，恢复为实时命中。 */
+  /** 解冻绘图悬停：图元拖拽结束后调用，恢复为实时命中。 */
   unfreezeDrawingHover(): void {
-    this.kernel.interaction.actions.setDrawingDragTarget(null)
+    this.kernel.interaction.actions.setDrawingDragHover(null)
   }
 
-  /** 清除绘图悬停目标：指针离开画布、悬停被清空或切换绘图工具时调用。 */
+  /** 清除绘图悬停：指针离开画布、悬停被清空或切换绘图工具时调用。 */
   clearDrawingHover(): void {
-    this.kernel.interaction.actions.setDrawingTargetHover('none')
+    this.kernel.interaction.actions.setDrawingHover(null)
   }
 
   /** 面板比例信号 */

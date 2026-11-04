@@ -1,6 +1,6 @@
 /**
- * 验证线段中点垂直手柄：拖拽只沿价格轴平移这条线（时间与另一条线不变）。
- * 手柄由线表 LINES 的 verticalHandle 声明开启，未开启的线（parallel-channel）不响应手柄拖拽。
+ * 验证线段中点手柄：拖拽只沿线表声明的轴平移这条线，另一条线不动。
+ * 通道类为价格轴，矩形左右边为时间轴；矩形四边都开手柄。
  */
 import { describe, expect, it } from 'vitest'
 
@@ -10,6 +10,7 @@ import {
   createFlatLineDrawing,
   createFourBarTimelineAdapter,
   createParallelChannelDrawing,
+  createRectangleDrawing,
   pointerMove,
 } from '../../__tests__/helpers/drawingTestKit'
 import { DragHandler } from '../impl/DragHandler'
@@ -23,10 +24,10 @@ const logAdapter = createFourBarTimelineAdapter({
   yToPrice: (_paneId: string, y: number) => Math.exp((200 - y) / 10),
 })
 
-describe('DragHandler vertical handle', () => {
+describe('DragHandler line handle', () => {
   it('translates the slanted line in price only, leaving the flat line untouched', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLineDrawing()], { type: 'vertical-handle', lineIndex: 0 }, 10, 80)
+    handler.startDrag([createFlatLineDrawing()], { type: 'line-handle', lineIndex: 0 }, 10, 80)
 
     // 斜线中点 (10,80) 拖到 (35,60)：价格 +20，X 位移被忽略。
     const updated = handler.handleDragMove(pointerMove(35, 60), CONTAINER, adapter)
@@ -37,7 +38,7 @@ describe('DragHandler vertical handle', () => {
 
   it('translates the flat line in price only, leaving the slanted line untouched', () => {
     const handler = new DragHandler()
-    handler.startDrag([createFlatLineDrawing()], { type: 'vertical-handle', lineIndex: 1 }, 10, 140)
+    handler.startDrag([createFlatLineDrawing()], { type: 'line-handle', lineIndex: 1 }, 10, 140)
 
     // 水平线中点 (10,140) 拖到 (10,120)：价格 +20，斜线两点不动。
     const updated = handler.handleDragMove(pointerMove(10, 120), CONTAINER, adapter)
@@ -49,7 +50,7 @@ describe('DragHandler vertical handle', () => {
     const handler = new DragHandler()
     handler.startDrag(
       [createDisjointChannelDrawing()],
-      { type: 'vertical-handle', lineIndex: 1 },
+      { type: 'line-handle', lineIndex: 1 },
       10,
       160,
     )
@@ -69,7 +70,7 @@ describe('DragHandler vertical handle', () => {
     const handler = new DragHandler()
     handler.startDrag(
       [createParallelChannelDrawing()],
-      { type: 'vertical-handle', lineIndex: 0 },
+      { type: 'line-handle', lineIndex: 0 },
       10,
       80,
     )
@@ -83,12 +84,7 @@ describe('DragHandler vertical handle', () => {
 
   it('applies the same price increment to both anchors on a non-linear price axis', () => {
     const handler = new DragHandler()
-    handler.startDrag(
-      [createFlatLineDrawing()],
-      { type: 'vertical-handle', lineIndex: 0 },
-      10,
-      153.9,
-    )
+    handler.startDrag([createFlatLineDrawing()], { type: 'line-handle', lineIndex: 0 }, 10, 153.9)
 
     const updated = handler.handleDragMove(pointerMove(10, 140), CONTAINER, logAdapter)
 
@@ -96,5 +92,27 @@ describe('DragHandler vertical handle', () => {
     const anchors = updated![0]!.anchors
     expect((anchors[1]?.price ?? 0) - (anchors[0]?.price ?? 0)).toBeCloseTo(40, 5)
     expect(anchors[0]?.time).toEqual(500)
+  })
+
+  it('translates the top edge of a rectangle in price only', () => {
+    const handler = new DragHandler()
+    // 上边中点 (10,60)；拖到 y=40 即价格 +20。
+    handler.startDrag([createRectangleDrawing()], { type: 'line-handle', lineIndex: 0 }, 10, 60)
+
+    const updated = handler.handleDragMove(pointerMove(10, 40), CONTAINER, adapter)
+
+    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([160, 160, 60, 60])
+    expect(updated?.[0]?.anchors.map((anchor) => anchor.time)).toEqual([500, 1_000, 1_000, 500])
+  })
+
+  it('translates the right edge of a rectangle in time only', () => {
+    const handler = new DragHandler()
+    // 右边中点 (15,100)；拖到 x=25 即价格不变的 Bar 2（time 1500）。
+    handler.startDrag([createRectangleDrawing()], { type: 'line-handle', lineIndex: 1 }, 15, 100)
+
+    const updated = handler.handleDragMove(pointerMove(25, 100), CONTAINER, adapter)
+
+    expect(updated?.[0]?.anchors.map((anchor) => anchor.time)).toEqual([500, 1_500, 1_500, 500])
+    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([140, 140, 60, 60])
   })
 })

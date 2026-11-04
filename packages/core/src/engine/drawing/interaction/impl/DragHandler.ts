@@ -8,9 +8,9 @@ import {
   screenToAnchor,
 } from '../../geometry/impl/coordinateUtils.js'
 import type { ResolveDrawingPointerOptions } from '../../geometry/types.js'
-import type { DrawingObject } from '../../types.js'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../types.js'
 import { type DragFollow, type DrawingDragTarget, DrawingTool } from '../types.js'
-import { resolveAnchorFollowers, resolveVerticalHandleAnchors } from './dragPolicy.js'
+import { resolveAnchorFollowers, resolveLineHandle } from './dragPolicy.js'
 
 // ---- Types ----
 
@@ -104,8 +104,8 @@ export class DragHandler {
     if (target.type === 'anchor') {
       return [this.moveAnchor(primary, target.index, pointer, adapter)]
     }
-    if (target.type === 'vertical-handle') {
-      return [this.moveVerticalHandle(primary, target.lineIndex, pointer, adapter)]
+    if (target.type === 'line-handle') {
+      return [this.moveLineHandle(primary, target.lineIndex, pointer, adapter)]
     }
     // 整组选中图元共用受限位移，回归端点到达最后一根 K 线时保持组内间距。
     const dx = this.dragState.drawings.reduce(
@@ -131,7 +131,12 @@ export class DragHandler {
   ): DrawingObject {
     const snapshot = this.dragState?.drawings[0]
     const origin = snapshot?.anchors[index]
-    const originScreen = origin ? anchorToScreen(origin, drawing.paneId, adapter) : null
+    if (!origin) return drawing
+    // 单轴锚点只写回自己拥有的坐标轴：水平线只改价格，垂直线只改时间。
+    if (origin.type === 'horizontal' || origin.type === 'vertical')
+      return this.moveSingleAxisAnchor(drawing, index, pointer)
+
+    const originScreen = anchorToScreen(origin, drawing.paneId, adapter)
     if (!isScreenPoint(originScreen)) return drawing
 
     const dx = pointer.x - originScreen.x
@@ -164,50 +169,79 @@ export class DragHandler {
   }
 
   /**
-   * 拖拽线段中点垂直手柄：指针 Y 相对手柄中点的偏移换算成价格增量，
-   * 对该线的两个锚点同增同减，时间与 futureOffset 保持不变（这条线只沿价格轴平移）。
+   * 拖拽单轴锚点：水平锚点只写价格，垂直锚点只写时间，另一根轴保持原值。
+   * @param drawing 拖拽的图元
+   * @param index 被拖拽的锚点下标
+   * @param pointer 指针解析出的落点锚点
+   * @returns 更新后的图元
+   */
+  private moveSingleAxisAnchor(
+    drawing: DrawingObject,
+    index: number,
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+  ): DrawingObject {
+    const anchor = drawing.anchors[index]
+    if (!anchor) return drawing
+    const next: PersistedDrawingAnchor =
+      anchor.type === 'horizontal'
+        ? { ...anchor, type: 'horizontal', price: pointer.price }
+        : { ...anchor, type: 'vertical', time: pointer.time, futureOffset: pointer.futureOffset }
+    const anchors = drawing.anchors.map((item) => ({ ...item }))
+    anchors[index] = next
+    return { ...drawing, anchors }
+  }
+
+  /**
+   * 拖拽线段中点手柄：指针沿该线声明的轴相对手柄中点的位移，换算成两个锚点的同一坐标增量，
+   * 因此这条线只沿该轴平移、形状不变。
    * @param drawing 拖拽的图元
    * @param lineIndex 手柄所在线在线表中的下标
    * @param pointer 指针解析出的落点锚点
    * @param adapter 视口与坐标换算查询
+   * @returns 更新后的图元；该线未开启手柄时原样返回
    */
-  private moveVerticalHandle(
+  private moveLineHandle(
     drawing: DrawingObject,
     lineIndex: number,
     pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
     adapter: DrawingViewportPort,
   ): DrawingObject {
     const snapshot = this.dragState?.drawings[0]
-    const pair = resolveVerticalHandleAnchors(drawing.kind, lineIndex)
-    if (!snapshot || !pair) return drawing
+    const handle = resolveLineHandle(drawing.kind, lineIndex)
+    if (!snapshot || !handle) return drawing
 
-    const [from, to] = pair
-    const origin = this.anchorMidpoint(snapshot, from, to, adapter)
-    if (!origin) return drawing
+    const [from, to] = [handle.from, handle.to]
+    const fromAnchor = snapshot.anchors[from]
+    const toAnchor = snapshot.anchors[to]
+    if (!fromAnchor || !toAnchor) return drawing
+    const fromScreen = anchorToScreen(fromAnchor, drawing.paneId, adapter)
+    const toScreen = anchorToScreen(toAnchor, drawing.paneId, adapter)
+    if (!isScreenPoint(fromScreen) || !isScreenPoint(toScreen)) return drawing
 
-    const priceDelta =
-      adapter.yToPrice(drawing.paneId, pointer.y) - adapter.yToPrice(drawing.paneId, origin.y)
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
-    for (const index of pair) {
+    if (handle.axis === 'price') {
+      const priceDelta =
+        adapter.yToPrice(drawing.paneId, pointer.y) -
+        adapter.yToPrice(drawing.paneId, midpoint(fromScreen, toScreen).y)
+      for (const index of [from, to]) {
+        const anchor = anchors[index]
+        if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
+      }
+      return { ...drawing, anchors }
+    }
+
+    // 时间轴手柄：两个锚点按同一屏幕 X 位移换算时间，价格保持不变。
+    const dx = pointer.x - midpoint(fromScreen, toScreen).x
+    for (const [index, screen] of [
+      [from, fromScreen],
+      [to, toScreen],
+    ] as const) {
+      const resolved = screenToAnchor(screen.x + dx, screen.y, drawing.paneId, adapter)
       const anchor = anchors[index]
-      if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
+      if (resolved && anchor)
+        anchors[index] = { ...anchor, time: resolved.time, futureOffset: resolved.futureOffset }
     }
     return { ...drawing, anchors }
-  }
-
-  /** 两个锚点的屏幕中点；任一端不可投影时返回 null。 */
-  private anchorMidpoint(
-    drawing: DrawingObject,
-    fromIndex: number,
-    toIndex: number,
-    adapter: DrawingViewportPort,
-  ): { x: number; y: number } | null {
-    const from = drawing.anchors[fromIndex]
-    const to = drawing.anchors[toIndex]
-    const a = from ? anchorToScreen(from, drawing.paneId, adapter) : null
-    const b = to ? anchorToScreen(to, drawing.paneId, adapter) : null
-    if (!isScreenPoint(a) || !isScreenPoint(b)) return null
-    return midpoint(a, b)
   }
 
   /**

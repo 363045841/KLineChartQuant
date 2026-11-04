@@ -25,10 +25,11 @@ export type {
   DrawingLine,
   DrawingPointerAnchor,
   InteractionDrawingAnchor,
+  LineHandle,
+  LineHandleAxis,
   PointerCoordinates,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
-  VerticalHandleLine,
 } from './geometry/types.js'
 
 export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
