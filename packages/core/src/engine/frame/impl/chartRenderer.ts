@@ -1,5 +1,6 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
+import type { SnapLine } from '@/foundation/plugin/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -40,6 +41,7 @@ import { AxisWidthEstimator } from '../../axisWidth/impl/axisWidthEstimator.js'
 import type { KLinePositions, Viewport } from '../../chart/index.js'
 import { ChartDataViewId } from '../../chartModel/index.js'
 import type { ChartDataManager } from '../../data/chartDataManager.js'
+import type { DrawingObject, SnapIndicatorValue } from '../../drawing/index.js'
 import {
   createDrawingLayer,
   createDrawingSessionLayer,
@@ -48,7 +50,6 @@ import {
   projectDrawingsForFrame,
   registerDefaultDrawingDefinitions,
 } from '../../drawing/index.js'
-import type { DrawingObject } from '../../drawing/types.js'
 import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
@@ -174,6 +175,41 @@ export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): Updat
 }
 
 /** 在绘制帧内提交 viewport 的原生滚动位置，跳过无变化写入。 */
+/** 可参与磁吸的指标序列：在 Bar 上画出单一价格的折线类。 */
+type SnapValuePlot = Extract<
+  import('@363045841yyt/klinechart-plot-contracts').Plot,
+  {
+    readonly kind:
+      | 'line'
+      | 'linebr'
+      | 'stepline'
+      | 'steplinebr'
+      | 'histogram'
+      | 'columns'
+      | 'points'
+  }
+>
+
+/**
+ * 标记类（shape/char/arrow）与 OHLC 图形没有单值语义，不参与值轴吸附。
+ */
+function isSnapValuePlot(
+  plot: import('@363045841yyt/klinechart-plot-contracts').Plot,
+): plot is SnapValuePlot {
+  switch (plot.kind) {
+    case 'line':
+    case 'linebr':
+    case 'stepline':
+    case 'steplinebr':
+    case 'histogram':
+    case 'columns':
+    case 'points':
+      return true
+    default:
+      return false
+  }
+}
+
 export class ChartRenderer {
   /** 依赖注入容器，ChartRenderer 不直接持有状态，从 deps 接口读取，也便于测试 mock */
   private deps: RendererDependencies
@@ -312,6 +348,7 @@ export class ChartRenderer {
       // getOverlay 会新建数组，按图元引用比较才能同时捕获移动和避免空数组误失效。
       ...(this.deps.getOverlay?.() ?? []),
       this.deps.getSelectionMarquee?.(),
+      this.deps.getSnapIndicator?.(),
       countdown,
     ]
   }
@@ -484,6 +521,39 @@ export class ChartRenderer {
 
   getDrawingStore(): DrawingStore {
     return this.drawingStore
+  }
+
+  /**
+   * 已提交层图元的线段（Pane 局部坐标），供磁吸候选。
+   * 会话覆盖不进入候选：拖拽中的图元吸自己会形成反馈回路。
+   */
+  getCommittedSnapLines(paneId: string): ReadonlyArray<SnapLine> {
+    return this.paneCtxMap.get(paneId)?.drawingProjection?.snapLines ?? []
+  }
+
+  /**
+   * 指定逻辑下标处该 Pane 的可吸附指标值。
+   *
+   * 只取「在某根 Bar 上画出一个价格」的序列：标记类（shape/char/arrow）与
+   * OHLC 图形没有单值语义，参与吸附只会产生歧义。Plot 的显示位移在取样时扣除，
+   * 因此读 `data[barIndex - offset]`。
+   */
+  getIndicatorSnapValues(paneId: string, barIndex: number): ReadonlyArray<SnapIndicatorValue> {
+    const manager = this.deps.getIndicatorManager()
+    const states = manager.getRenderStatesSnapshot()
+    const values: SnapIndicatorValue[] = []
+    for (const instance of manager.indicatorsComputed.peek()) {
+      if ((instance.paneId ?? MAIN_PANE_ID) !== paneId) continue
+      const state = states.get(instance.id)
+      if (!isPlotRenderState(state)) continue
+      for (const plot of state.plots) {
+        if (!plot.visible || !isSnapValuePlot(plot)) continue
+        const point = plot.data[barIndex - plot.offset]
+        if (point === undefined) continue
+        values.push({ id: `${instance.id}:${plot.id}`, value: point.value })
+      }
+    }
+    return values
   }
 
   getSettings(): ChartSettings {
@@ -1251,6 +1321,7 @@ export class ChartRenderer {
         context,
         this.deps.getSelectionMarquee?.() ?? null,
         'session',
+        this.deps.getSnapIndicator?.() ?? null,
       )
       for (const projection of [context.drawingProjection, context.sessionDrawingProjection]) {
         if (!projection) continue

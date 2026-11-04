@@ -13,6 +13,7 @@ import {
   POINT_ROLE,
   PRIMITIVE_KIND,
   type RenderContext,
+  type SnapLine,
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
@@ -26,7 +27,7 @@ import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
-import type { DrawingSelectionMarquee } from '../../interaction/types.js'
+import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
@@ -41,6 +42,7 @@ type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
   yAxisRanges: YAxisRange[]
   xAxisRanges: XAxisRange[]
+  snapLines: SnapLine[]
 }
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
@@ -320,11 +322,13 @@ export function projectDrawingsForFrame(
   context: RenderContext,
   selectionMarquee: DrawingSelectionMarquee | null = null,
   scope: DrawingPaintScope = 'all',
+  snapIndicator: DrawingSnapIndicator | null = null,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
     yAxisRanges: [],
     xAxisRanges: [],
+    snapLines: [],
   }
   const selectedIds = new Set(store.getSelectedIds())
   // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
@@ -377,6 +381,24 @@ export function projectDrawingsForFrame(
       toScreen,
     })
     if (!geometry) continue
+    // 磁吸只认已提交层：会话覆盖正在被拖拽，吸它会形成反馈回路。
+    if (scope === 'committed') {
+      for (const primitive of geometry.primitives) {
+        if (primitive.kind !== PRIMITIVE_KIND.line) continue
+        output.snapLines.push({
+          drawingId: drawing.id,
+          a: primitive.a,
+          b: primitive.b,
+          ...horizontalPrice(
+            drawing,
+            geometry.computedAnchors ?? [],
+            toScreen,
+            primitive.a,
+            primitive.b,
+          ),
+        })
+      }
+    }
     const isSelected = isDrawingInteractive(drawing) && selectedIds.has(drawing.id)
     const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
     output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
@@ -397,5 +419,49 @@ export function projectDrawingsForFrame(
   if (selectionMarquee?.paneId === context.pane.id) {
     output.primitives.push(...createSelectionMarqueePrimitives(selectionMarquee, themeColors))
   }
+  if (snapIndicator?.paneId === context.pane.id) {
+    output.primitives.push(createSnapIndicatorPrimitive(snapIndicator, themeColors.selectionStroke))
+  }
   return output
+}
+
+/**
+ * 水平线段的精确价格：找出投影 Y 与该线段相同的锚点，直接取它的领域价格。
+ *
+ * 这样吸附到水平线时写回的是原值，而不是 `yToPrice(priceToY(price))` 的浮点回环。
+ * 非水平线段没有单一价格，不产出该字段。
+ */
+function horizontalPrice(
+  drawing: ResolvedDrawingObject,
+  computedAnchors: ReadonlyArray<ResolvedDrawingAnchor>,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  a: Point,
+  b: Point,
+): Partial<Pick<SnapLine, 'price'>> {
+  if (Math.abs(a.y - b.y) > HORIZONTAL_EPSILON) return {}
+  for (const anchor of [...drawing.anchors, ...computedAnchors]) {
+    if (Math.abs(toScreen(anchor).y - a.y) > HORIZONTAL_EPSILON) continue
+    return { price: anchor.price }
+  }
+  return {}
+}
+
+/** 判定「同一水平位置」的半像素容差。 */
+const HORIZONTAL_EPSILON = 0.5
+
+/**
+ * 磁吸命中指示：命中点上的一枚空心圆点。
+ *
+ * 复用 point 原语的锚点形状（底色挖空 + 描边），颜色取交互标记 Token，
+ * 因此明暗主题与配色预设自动跟随，不需要单独维护一套颜色。
+ */
+function createSnapIndicatorPrimitive(
+  indicator: DrawingSnapIndicator,
+  color: string,
+): DrawingPrimitive {
+  return {
+    kind: PRIMITIVE_KIND.point,
+    point: { x: indicator.x, y: indicator.y },
+    style: { stroke: color },
+  }
 }

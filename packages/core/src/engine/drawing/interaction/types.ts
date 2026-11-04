@@ -81,6 +81,13 @@ export type DrawingSelectionMarquee = {
   end: Point
 }
 
+/** 磁吸命中点：Pane 内逻辑像素，只用于渲染高亮，不写回文档。 */
+export type DrawingSnapIndicator = {
+  paneId: string
+  x: number
+  y: number
+}
+
 /** 命中的拖拽目标：锚点、线段中点手柄，或图元主体（整体拖拽）。命中与拖拽会话共用。 */
 export type DrawingDragTarget =
   | { readonly type: 'anchor'; readonly index: number }

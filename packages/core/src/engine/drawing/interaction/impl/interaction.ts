@@ -8,6 +8,7 @@ import type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../../geometry/types.js'
+import type { ActiveMagnetMode, MagnetSnapConfig } from '../../magnet/types.js'
 import { MagnetMode } from '../../magnet/types.js'
 import { isDrawingMovementLocked } from '../../model/impl/drawingAccess.js'
 import {
@@ -18,6 +19,7 @@ import { DrawingSessionOverlay, PREVIEW_ID } from '../../session/impl/DrawingSes
 import type { DrawingObject } from '../../types.js'
 import type {
   DrawingSelectionMarquee,
+  DrawingSnapIndicator,
   DrawingToolId,
   HitResult,
   LineLabelTarget,
@@ -29,6 +31,7 @@ import { drawingToolStyle } from './drawingToolStyle.js'
 import { HitTester } from './HitTester.js'
 import { PreviewRenderer } from './PreviewRenderer.js'
 import { drawingIntersectsSelectionMarquee, hasSelectionMarqueeArea } from './selectionMarquee.js'
+import { toSnapIndicator } from './snapIndicator.js'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
@@ -60,6 +63,8 @@ export class DrawingInteractionController {
   private magnetMode: MagnetMode = MagnetMode.Off
   /** 完成图元后是否继续使用当前绘图工具。 */
   private continuousDrawing = false
+  /** 最近一次落点命中的吸附候选，供渲染层画高亮；仅会话态，不进 kernel。 */
+  private pointerSnap: DrawingSnapIndicator | null = null
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -78,6 +83,12 @@ export class DrawingInteractionController {
   /** 返回当前框选会话，供渲染期投影为临时 primitive。 */
   getSelectionMarquee(): DrawingSelectionMarquee | null {
     return this.pointerSession.kind === 'marquee' ? this.pointerSession.marquee : null
+  }
+
+  /** 返回当前磁吸命中点，供渲染期投影为高亮圆点。 */
+  getSnapIndicator(): DrawingSnapIndicator | null {
+    if (this.pointerSession.kind === 'drag') return this.dragHandler.getSnapIndicator()
+    return this.pointerSnap
   }
 
   // ============ 工具状态 ============
@@ -143,6 +154,7 @@ export class DrawingInteractionController {
    * @returns true 表示事件已消费，需要重绘
    */
   onPointerMove(e: PointerEvent, container: HTMLElement): boolean {
+    this.pointerSnap = null
     if (this.pointerSession.kind === 'drag') return this.handleDragMove(e, container)
     if (this.pointerSession.kind === 'marquee') return this.handleSelectionMarqueeMove(e, container)
 
@@ -155,6 +167,7 @@ export class DrawingInteractionController {
         this.adapter,
         this.resolvePlacementOptions(e),
       )
+      this.pointerSnap = toSnapIndicator(pointer)
       if (!pointer) {
         this.sessionOverlay.removePreview()
         return false
@@ -199,6 +212,7 @@ export class DrawingInteractionController {
       this.adapter,
       this.resolvePlacementOptions(e),
     )
+    this.pointerSnap = toSnapIndicator(pointer)
     if (!pointer) return false
 
     const anchorCount = getAnchorCountForTool(activeTool)
@@ -228,6 +242,7 @@ export class DrawingInteractionController {
   onPointerUp(_e: PointerEvent, _container: HTMLElement): boolean {
     const session = this.pointerSession
     this.pointerSession = { kind: 'idle' }
+    this.pointerSnap = null
     if (session.kind === 'marquee') {
       this.adapter.requestDraw?.()
       this.commitSelectionMarquee(session.marquee)
@@ -253,10 +268,27 @@ export class DrawingInteractionController {
     if (e.shiftKey) return undefined
     if (e.ctrlKey || e.metaKey) {
       return this.magnetMode === MagnetMode.Off
-        ? { magnet: { mode: MagnetMode.Strong } }
+        ? { magnet: this.createMagnetConfig(MagnetMode.Strong) }
         : undefined
     }
-    return this.magnetMode === MagnetMode.Off ? undefined : { magnet: { mode: this.magnetMode } }
+    return this.magnetMode === MagnetMode.Off
+      ? undefined
+      : { magnet: this.createMagnetConfig(this.magnetMode) }
+  }
+
+  /**
+   * 构建磁吸配置：候选源直接读适配器。
+   * 排除集合默认为空，拖拽方在调用前用本次拖拽的图元覆盖。
+   */
+  private createMagnetConfig(mode: ActiveMagnetMode): MagnetSnapConfig {
+    return {
+      mode,
+      excludeDrawingIds: [],
+      sources: {
+        getLines: (paneId) => this.adapter.getSnapLines(paneId),
+        getIndicatorValues: (paneId, barIndex) => this.adapter.getIndicatorValues(paneId, barIndex),
+      },
+    }
   }
 
   /**
@@ -440,6 +472,7 @@ export class DrawingInteractionController {
   private resetPointerSession(requestDraw = true): void {
     const session = this.pointerSession
     this.pointerSession = { kind: 'idle' }
+    this.pointerSnap = null
     if (session.kind === 'drag') {
       this.sessionOverlay.clearDragOverride()
       this.dragHandler.endDrag()

@@ -30,6 +30,7 @@ describe('createDrawingLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        snapLines: [],
       }
       const context = createMockRenderContext({
         ctx: scope === 'committed' ? drawingCtx : overlayCtx,
@@ -71,6 +72,7 @@ describe('createDrawingLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        snapLines: [],
       },
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       pane: { height: 400 },

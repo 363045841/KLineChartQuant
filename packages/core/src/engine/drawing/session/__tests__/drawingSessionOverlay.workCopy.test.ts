@@ -52,6 +52,8 @@ function mockAdapter(
     yToPrice: () => 0,
     getPaneInfo: () => undefined,
     getPaneAtY: () => undefined,
+    getSnapLines: () => [],
+    getIndicatorValues: () => [],
   }
 }
 

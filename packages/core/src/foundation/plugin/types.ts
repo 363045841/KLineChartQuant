@@ -293,6 +293,23 @@ export interface DrawingFrameProjection {
   primitives: ReadonlyArray<DrawingPrimitive>
   yAxisRanges: ReadonlyArray<YAxisRange>
   xAxisRanges: ReadonlyArray<XAxisRange>
+  /**
+   * 本帧可用于磁吸的线段（Pane 局部坐标）。
+   * 只统计已提交层，会话覆盖（拖拽中的图元）不进入候选。
+   */
+  snapLines: ReadonlyArray<SnapLine>
+}
+
+/** 一条可参与磁吸的线段；所属图元用于排除正在拖拽的对象。 */
+export interface SnapLine {
+  readonly drawingId: string
+  readonly a: Point
+  readonly b: Point
+  /**
+   * 该线段在领域内的精确价格（水平线段才有）；缺省表示只能由屏幕 Y 反算。
+   * 有了它，吸附到水平线时写回的 price 与该线自身的 price 完全相等。
+   */
+  readonly price?: number
 }
 
 /** Y轴刻度（位置+值），由 RenderContext 构建时预计算，所有 Y 轴渲染器共用 */

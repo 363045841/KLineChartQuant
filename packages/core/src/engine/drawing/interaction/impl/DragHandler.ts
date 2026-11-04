@@ -9,8 +9,10 @@ import {
 } from '../../geometry/impl/coordinateUtils.js'
 import type { ResolveDrawingPointerOptions } from '../../geometry/types.js'
 import type { DrawingObject, PersistedDrawingAnchor } from '../../types.js'
+import type { DrawingSnapIndicator } from '../types.js'
 import { type DragFollow, type DrawingDragTarget, DrawingTool } from '../types.js'
 import { resolveAnchorFollowers, resolveLineHandle } from './dragPolicy.js'
+import { toSnapIndicator } from './snapIndicator.js'
 
 // ---- Types ----
 
@@ -39,10 +41,17 @@ function offsetScreen(
  */
 export class DragHandler {
   private dragState: DragState | null = null
+  /** 最近一次拖拽落点命中的磁吸点；只用于渲染高亮。 */
+  private snapIndicator: DrawingSnapIndicator | null = null
 
   /** 当前是否有未结束的拖拽 */
   isDragging(): boolean {
     return this.dragState !== null
+  }
+
+  /** 当前拖拽的磁吸命中点；未命中或未开启磁吸时为 null。 */
+  getSnapIndicator(): DrawingSnapIndicator | null {
+    return this.snapIndicator
   }
 
   /** 拖拽中的主图元 ID。 */
@@ -69,6 +78,7 @@ export class DragHandler {
     mouseY: number,
   ): void {
     if (drawings.length === 0) return
+    this.snapIndicator = null
     this.dragState = {
       drawings: drawings.map((drawing) => ({
         ...drawing,
@@ -94,12 +104,21 @@ export class DragHandler {
     if (!this.dragState) return null
 
     const target = this.dragState.target
-    const magnet = target.type === 'all' ? undefined : options?.magnet
+    // 整线拖拽是位移增量语义，没有单一落点，不吸附；锚点/手柄拖拽排除本次拖拽的图元，
+    // 否则它们的已提交几何会成为候选，落点会吸到自己。
+    const magnet =
+      target.type === 'all' || options?.magnet === undefined
+        ? undefined
+        : {
+            ...options.magnet,
+            excludeDrawingIds: this.dragState.drawings.map((drawing) => drawing.id),
+          }
     const primary = this.dragState.drawings[0]
     const pointer = resolveDrawingPointer(e, container, adapter, {
       magnet,
       clampDataEnd: target.type === 'anchor' && primary?.kind === DrawingTool.RegressionChannel,
     })
+    this.snapIndicator = toSnapIndicator(pointer)
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
     if (target.type === 'anchor') {
       return [this.moveAnchor(primary, target.index, pointer, adapter)]
@@ -312,5 +331,6 @@ export class DragHandler {
   /** 结束拖拽，清空状态 */
   endDrag(): void {
     this.dragState = null
+    this.snapIndicator = null
   }
 }

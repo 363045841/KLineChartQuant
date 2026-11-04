@@ -304,6 +304,13 @@ export interface DrawingViewportPort {
   getPaneInfo(paneId: string): PaneLayoutInfo | undefined
   /** 根据图表局部 Y 坐标查找所属 Pane。 */
   getPaneAtY(y: number): PaneLayoutInfo | undefined
+  /** 当前 Pane 已提交层的图元线段（Pane 局部坐标），供磁吸候选。 */
+  getSnapLines(paneId: string): ReadonlyArray<import('../engine/drawing/index.js').SnapLine>
+  /** 指定逻辑下标处该 Pane 的指标值，供磁吸候选。 */
+  getIndicatorValues(
+    paneId: string,
+    barIndex: number,
+  ): ReadonlyArray<import('../engine/drawing/index.js').SnapIndicatorValue>
 }
 
 /**

@@ -493,6 +493,7 @@ export class Chart {
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
       getSelectionMarquee: () => this.drawingSession?.getSelectionMarquee() ?? null,
+      getSnapIndicator: () => this.drawingSession?.getSnapIndicator() ?? null,
       projectLegendFrame: (contexts) => {
         this.legend.projectFrame(contexts)
         const paneOrder = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)
@@ -739,6 +740,19 @@ export class Chart {
   }
 
   /** 获取已注册渲染器 Layer。 */
+  /** 当前 Pane 已提交层的图元线段，供绘图磁吸候选。 */
+  getSnapLines(paneId: string): ReadonlyArray<import('../../drawing/index.js').SnapLine> {
+    return this.renderer.getCommittedSnapLines(paneId)
+  }
+
+  /** 指定逻辑下标处该 Pane 的指标值，供绘图磁吸候选。 */
+  getIndicatorSnapValues(
+    paneId: string,
+    barIndex: number,
+  ): ReadonlyArray<import('../../drawing/index.js').SnapIndicatorValue> {
+    return this.renderer.getIndicatorSnapValues(paneId, barIndex)
+  }
+
   getRenderer(id: string): Layer<RenderContext> | undefined {
     return this.renderer.getScene().getLayer(id) ?? undefined
   }

@@ -18,8 +18,14 @@ import type {
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
-import type { HitResult } from '../../interaction/types'
-import type { MagnetMode } from '../../magnet/types'
+import type { DrawingSnapIndicator, HitResult } from '../../interaction/types'
+import type {
+  ActiveMagnetMode,
+  MagnetMode,
+  MagnetSnapConfig,
+  SnapIndicatorValue,
+  SnapLine,
+} from '../../magnet/types'
 import type { DrawingObject } from '../../types'
 
 /** 测试图元默认描边色。 */
@@ -187,14 +193,14 @@ export interface DrawingControllerInternals {
   dragHandler: {
     isDragging: ReturnType<typeof vi.fn>
     getDraggingDrawingIds: ReturnType<typeof vi.fn>
+    getSnapIndicator: ReturnType<typeof vi.fn>
     startDrag: ReturnType<typeof vi.fn>
     handleDragMove: ReturnType<typeof vi.fn>
     endDrag: ReturnType<typeof vi.fn>
   }
 }
 
-/** 拖拽处理器替身的返回值差异；只覆盖用例关心的部分。 */
-export interface DragHandlerStubOptions {
+/** 拖拽处理器替身的返回值差异；只覆盖用例关心的部分。 */ export interface DragHandlerStubOptions {
   /** 命中器命中结果；null 表示空白处。 */
   hit: HitResult | null
   /** 正在拖拽的图元 id；`isDragging` 由此推导。 */
@@ -227,6 +233,7 @@ export function stubDrawingControllerInternals(
   internals.dragHandler = {
     isDragging: vi.fn(() => draggingIds.length > 0),
     getDraggingDrawingIds: vi.fn(() => draggingIds),
+    getSnapIndicator: vi.fn<() => DrawingSnapIndicator | null>(() => null),
     startDrag,
     handleDragMove: vi.fn(() => movedDrawings),
     endDrag: vi.fn(),
@@ -317,6 +324,8 @@ export function createDrawingViewportPort(
     yToPrice,
     getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
     getPaneAtY: () => ({ paneId: 'main', top: 0, height: 240 }),
+    getSnapLines: () => [],
+    getIndicatorValues: () => [],
     ...overrides,
   } satisfies DrawingViewportPort
 }
@@ -399,12 +408,35 @@ export function createMagnetController(
   return { controller, adapter, createDrawing, commitDrawingDrag }
 }
 
-/** 构造 snapPointerToOhlc 纯函数最小 adapter；viewport 用于覆盖索引 / 中心解析。 */
+/** 构造 snapPointer 纯函数最小 adapter；viewport 用于覆盖索引 / 中心解析。 */
 export function createMagnetSnapAdapter(
   bars: ReadonlyArray<KLineData> = OHLC_BARS,
   viewport: Partial<DrawingViewportPort> = {},
 ): DrawingChartAdapter {
   return createDrawingAdapter({ viewport: { getData: () => bars, ...viewport } })
+}
+
+/**
+ * 磁吸配置夹具：默认没有图元线与指标值，用例只声明差异。
+ * 候选源与排除集合是配置的一部分，避免每个用例自己拼一份结构。
+ */
+export function createMagnetConfig(
+  mode: ActiveMagnetMode,
+  options: {
+    lines?: ReadonlyArray<SnapLine>
+    indicatorValues?: ReadonlyArray<SnapIndicatorValue>
+    excludeDrawingIds?: ReadonlyArray<string>
+  } = {},
+): MagnetSnapConfig {
+  const { lines = [], indicatorValues = [], excludeDrawingIds = [] } = options
+  return {
+    mode,
+    excludeDrawingIds,
+    sources: {
+      getLines: () => lines,
+      getIndicatorValues: () => indicatorValues,
+    },
+  }
 }
 
 /** 选择 / 命中路径 adapter 的可选差异。 */

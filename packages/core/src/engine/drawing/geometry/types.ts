@@ -5,7 +5,7 @@
  * 本文件不得 import 同子模块 impl/。
  */
 
-import type { MagnetSnapConfig } from '../magnet/types.js'
+import type { MagnetSnapConfig, SnapCandidate } from '../magnet/types.js'
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {
@@ -26,8 +26,12 @@ export interface ResolvedInteractionAnchor extends InteractionDrawingAnchor {
 /** 指针命中 Pane 后解析出的完整绘图锚点。 */
 export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
   paneId: string
+  /** Pane 局部 X（逻辑像素）。 */
   x: number
+  /** Pane 局部 Y（逻辑像素）。 */
   y: number
+  /** 本次落点命中的磁吸候选；未开启磁吸或未命中时为 null。 */
+  snap: SnapCandidate | null
 }
 
 /** 指针位置的最小形状：只需 client 坐标，便于用缓存的指针位置重算命中。 */
