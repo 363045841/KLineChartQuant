@@ -230,6 +230,17 @@
               </div>
             </div>
           </div>
+          <button
+            v-if="isAwayFromLatest"
+            type="button"
+            class="jump-to-latest"
+            :style="{ right: `${latestButtonRight}px` }"
+            :title="JUMP_TO_LATEST_LABEL"
+            :aria-label="JUMP_TO_LATEST_LABEL"
+            @click="jumpToLatest"
+          >
+            <IconChevronsRight aria-hidden="true" />
+          </button>
           <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
             <template v-if="hasKLineTooltipSlot">
               <div
@@ -407,6 +418,7 @@
     useSlots,
     watch,
   } from 'vue'
+  import IconChevronsRight from '~icons/tabler/chevrons-right'
   import { provideToast, TOAST_STORE_KEY } from '../composables/toast/useToast.js'
   import { useAggregationSources } from '../composables/useAggregationSources.js'
   import { useMarketDataSourceCatalog } from '../composables/useMarketDataSourceCatalog.js'
@@ -438,6 +450,7 @@
   import { useDrawingManager } from '../composables/chart/useDrawingManager.js'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '../composables/chart/useInteractionBridge.js'
+  import { useJumpToLatest } from '../composables/chart/useJumpToLatest.js'
   import { useKLineTooltip } from '../composables/chart/useKLineTooltip.js'
   import { useLegendUi } from '../composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '../composables/chart/usePaneAxisItems.js'
@@ -966,6 +979,17 @@
     return controllerSymbols.value[0]?.period ?? initialKLineLevel
   })
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
+
+  // ── 回到最新 K 线 ──
+  /** 按钮文案对齐 TV 快捷键提示，作为 title 与 aria-label 的单一来源。 */
+  const JUMP_TO_LATEST_LABEL = '滚动到最近的K线（Alt + Shift + →）'
+  const {
+    isAwayFromLatest,
+    jumpToLatest,
+    attach: attachJumpToLatest,
+    detach: detachJumpToLatest,
+    refresh: refreshJumpToLatest,
+  } = useJumpToLatest({ scrollToRight: () => controller.value?.scrollToRight() })
 
   // 控制器就绪前使用显式设置与默认值，就绪后直接读取活动布局设置。
   const _initialResolved = normalizeSettings(props.settings)
@@ -1592,6 +1616,18 @@
     () => _initialResolved.priceAxisPosition,
   )
 
+  /**
+   * 「回到最新 K 线」按钮的右偏移。
+   * 价格轴在右侧时让出整条轴宽，轴在左侧或分时模式下贴绘图区右缘。
+   */
+  const latestButtonRight = computed(() => {
+    const axisWidth =
+      chartMode.value !== 'timeshare' && priceAxisPosition.value === 'right'
+        ? axisHostWidth.value
+        : 0
+    return axisWidth + 12
+  })
+
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
     controller.value?.zoomToLevel(targetLevel, anchorX)
   }
@@ -1776,6 +1812,9 @@
       return
     }
     controller.value = ctrl
+    // 「回到最新」按钮依赖容器滚动余量；滚动、容器尺寸、数据增长都会改变它。
+    attachJumpToLatest(container)
+    watch([data, zoomLevel], refreshJumpToLatest, { flush: 'post' })
     // 2) 输入接线：绘图区与价格轴是兄弟节点，由共同父节点接收滚轮事件。
     disposeChartInput = bindChartInput(
       ctrl,
@@ -1814,6 +1853,7 @@
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
     onFullscreenChange = null
+    detachJumpToLatest()
     disposeChartInput?.()
     disposeChartInput = null
     cleanupChartCallbacks?.()
@@ -1927,6 +1967,39 @@
     align-items: stretch;
     gap: 0;
     position: relative;
+  }
+
+  /* 回到最新 K 线的悬浮钮：仅在视图离开最新 K 线时出现，垂直居中于绘图区右缘。 */
+  .jump-to-latest {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    background: var(--klc-color-ui-surface);
+    color: var(--klc-color-ui-text);
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    transition:
+      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
+      border-color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
+  }
+
+  .jump-to-latest:hover {
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
+  }
+
+  .jump-to-latest :deep(svg) {
+    width: 16px;
+    height: 16px;
   }
 
   .chart-brand {

@@ -63,4 +63,16 @@ describe('createChartCommands', () => {
     expect(undo).toHaveBeenCalledOnce()
     expect(redo).toHaveBeenCalledOnce()
   })
+
+  it('binds Alt+Shift+ArrowRight to scrolling back to the latest bar', async () => {
+    const controller = createMockChartController()
+    const registry = registryFor(controller)
+    const scrollToRight = vi.spyOn(controller, 'scrollToRight')
+    expect(
+      registry.resolveKeyboardEvent(key('ArrowRight', { altKey: true, shiftKey: true }), inChart)
+        ?.id,
+    ).toBe('view.scrollToLatest')
+    await registry.execute('view.scrollToLatest')
+    expect(scrollToRight).toHaveBeenCalledOnce()
+  })
 })

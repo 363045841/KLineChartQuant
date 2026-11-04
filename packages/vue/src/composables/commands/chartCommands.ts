@@ -7,6 +7,7 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Component } from 'vue'
 import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
 import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
+import IconTablerChevronsRight from '~icons/tabler/chevrons-right'
 import IconTablerCommand from '~icons/tabler/command'
 
 /** 命令 id 到功能图标的映射；快捷键设置等界面据此展示命令图标。 */
@@ -14,6 +15,7 @@ export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
   'palette.open': IconTablerCommand,
   'drawing.undo': IconTablerArrowBackUp,
   'drawing.redo': IconTablerArrowForwardUp,
+  'view.scrollToLatest': IconTablerChevronsRight,
 }
 
 /** 命令目录需要的宿主能力。 */
@@ -61,6 +63,15 @@ export function createChartCommands(host: ChartCommandHost): CommandDef[] {
       shortcut: ['Mod+Shift+Z', 'Mod+Y'],
       when: () => controller()?.canRedoDrawing.peek() === true,
       run: () => controller()?.redoDrawing(),
+    },
+    {
+      id: 'view.scrollToLatest',
+      group: 'view',
+      title: { zh: '滚动到最近的K线', en: 'Scroll to most recent bar' },
+      keywords: ['latest', 'recent', '最新', '回到最新'],
+      shortcut: 'Alt+Shift+ArrowRight',
+      when: () => controller() !== null,
+      run: () => controller()?.scrollToRight(),
     },
   ]
 }
