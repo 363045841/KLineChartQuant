@@ -50,9 +50,9 @@ describe('ElectronCredentialStore', () => {
 
 describe('createElectronCredentialStore', () => {
   it('builds a store when the preload bridge is present', () => {
-    expect(createElectronCredentialStore({ [CREDENTIAL_BRIDGE_KEY]: createBridge() })).toBeInstanceOf(
-      ElectronCredentialStore,
-    )
+    expect(
+      createElectronCredentialStore({ [CREDENTIAL_BRIDGE_KEY]: createBridge() }),
+    ).toBeInstanceOf(ElectronCredentialStore)
   })
 
   it('reports no store when the bridge is absent or incomplete', () => {

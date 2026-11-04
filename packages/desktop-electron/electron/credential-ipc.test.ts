@@ -39,10 +39,10 @@ interface SafeStorageState {
 }
 
 /** 可切换可用性与轮换标记的假 safeStorage。 */
-function createSafeStorage(options: {
-  available?: boolean
-  shouldReEncrypt?: boolean
-}): { safeStorage: SafeStorageLike; state: SafeStorageState } {
+function createSafeStorage(options: { available?: boolean; shouldReEncrypt?: boolean }): {
+  safeStorage: SafeStorageLike
+  state: SafeStorageState
+} {
   const state: SafeStorageState = {
     available: options.available ?? true,
     key: 'key-1',
@@ -101,7 +101,10 @@ describe('EncryptedCredentialStore', () => {
     ['the record has no ciphertext', JSON.stringify({ version: 1 })],
     [
       'the record version is unknown',
-      JSON.stringify({ version: 99, cipherText: Buffer.from(`key-1:${SECRET}`).toString('base64') }),
+      JSON.stringify({
+        version: 99,
+        cipherText: Buffer.from(`key-1:${SECRET}`).toString('base64'),
+      }),
     ],
     [
       'the ciphertext cannot be decrypted',

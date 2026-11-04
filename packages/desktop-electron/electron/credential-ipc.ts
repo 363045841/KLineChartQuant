@@ -9,6 +9,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
 import { CREDENTIAL_CHANNELS } from './credential-bridge'
+import { createMainFrameGuard, type TrustedIpcEvent } from './ipc-guard'
 
 /**
  * `safeStorage` 中本模块真正用到的部分，便于单测注入替身。
@@ -173,12 +174,8 @@ export interface IpcMainLike {
   ): void
 }
 
-/** 只声明门禁用到的字段；`IpcMainInvokeEvent` 结构上可直接传入。 */
-export interface CredentialIpcEvent {
-  /** 发起 IPC 的 webContents；主进程用它与主窗口比对。 */
-  readonly sender: unknown
-  readonly senderFrame?: { readonly parent?: unknown } | null
-}
+/** 凭据 IPC 事件，与其它主进程通道共用同一套来源门禁。 */
+export type CredentialIpcEvent = TrustedIpcEvent
 
 /**
  * 注册三个 handler。
@@ -195,13 +192,12 @@ export function registerCredentialIpc(options: {
   store: Pick<EncryptedCredentialStore, 'read' | 'write' | 'delete'>
   isTrustedSender: (event: CredentialIpcEvent) => boolean
 }): void {
-  const { ipcMain, store, isTrustedSender } = options
+  const { ipcMain, store } = options
+  const assertTrustedMainFrame = createMainFrameGuard(options.isTrustedSender)
   const guard =
     <T>(handler: (...args: unknown[]) => Promise<T>) =>
     async (event: CredentialIpcEvent, ...args: unknown[]): Promise<T> => {
-      if (!isTrustedSender(event) || event.senderFrame?.parent) {
-        throw new Error('Credential IPC is only available to the main application frame.')
-      }
+      assertTrustedMainFrame(event)
       return await handler(...args)
     }
 
