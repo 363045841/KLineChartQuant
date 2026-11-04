@@ -1,1 +1,1 @@
-High-performance financial charting infrastructure with a single-frame generation time of just 2 ms, stable scrolling at 190–200 fps in a 200 Hz environment, a native AI-Native chart architecture, full-link ResizeObserver-driven crisp rendering, a QuickJS indicator runtime, and support for running scripts against the in-house KCQ financial analysis API to render indicators.
+High-performance financial charting library with WebGPU / WebGL / Canvas2D rendering, a QuickJS indicator runtime, and an Agent-native API.

@@ -1,4 +1,4 @@
-高性能金融图表基础设施，单帧生成时间仅需 2 ms，200 hz 环境下稳定滚动 190-200 fps，原生 AI-Native 图表架构，全链路 ResizeObserver 驱动清晰渲染，QuickJS 指标运行环境，支持自研 KCQ 金融分析 API 运行脚本实现指标渲染。
+高性能金融图表库，支持 WebGPU / WebGL / Canvas2D 渲染、QuickJS 指标运行时与 Agent 原生 API。
 
 
 <div align="center">
@@ -6,8 +6,6 @@
 [English](README.md) | 简体中文
 
 # 📈 KLineChartQuant
-
-**渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 
 [![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-在线体验-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
@@ -18,39 +16,29 @@
 ---
 
 
-轻量级金融 K 线图表库，专注量化交易场景。**Agent 是一等公民** — 支持 AI Agent 直接控制图表操作，提供 TradingView 级别的交互体验。
-
-![](https://files.seeusercontent.com/2026/10/19/yfD1/2026-10-19-19_36_21-601360.png)
+面向量化交易场景的轻量级金融 K 线图表库，提供 Agent 原生 API 与内置脚本指标。
 
 
 ## 🤖 Agent 原生架构
 
-KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不是附着的对话层，而是与 UI 共用同一套原语操作图表，操作端点由图表核心主动对外暴露。
+KLineChartQuant 把图表能力以 `@Tool` 原语暴露在图表核心上。Agent 与 UI 调用同一批入口：一份状态、一条执行链路，没有桥接层，也没有旁路状态。
 
-- **Agent 即用户，用户即 Agent**：Agent 不是图表的外来访客，而是与屏幕前的人同权的操作者。用户在 UI 上能做的一切，Agent 都能通过相同入口完成，反之亦然。等权是架构前提，不是可开关的功能。
-
-- **Agent 服务图表，而非输出文字流**：内嵌 Agent 的意义在于操作用户眼前的图表，而不是用大段文字淹没用户。它的输出落在用户所见界面上——指标、绘图、视口变化——对话只是手段，图表与真实交互始终是主体。
-
-- **AI-Native 原生架构，而非寄生层**：工具以切面方式织入图表 API 原语，而非包成独立一层，因此一份逻辑、状态天然一致、调用零开销。Zed 是原生范本：Agent 构建在编辑器自身地基（GPUI）之上；VS Code 是寄生反例：Copilot 与 Claude Code 经扩展层接入，Claude 扩展本质是外部 CLI 的 GUI 包装。前者让 Agent 原生，后者让 Agent 寄生。
-
-- **Agent 反向推动架构稳定与高效**：引入 Agent 不增加架构负担，反而倒逼架构更好。因为每种能力都必须由统一 API 与统一原语暴露，状态必须内收为 SSOT 并保持绝对一致，状态散落、副本转态、多处写入、并行链路与竞态都无法存续。Agent 与用户走同一条链路，这份约束最终沉淀为更稳定、可测试的图表核心。
-
-- **不盲目使用 MCP**：项目经历三个阶段——早期 JSON 配置式、随后 MCP、最终走向 AI-Native 原生架构。MCP 需要中间层或 DSL，浪费 token、丢失信息，且桥接层自身维护状态副本、侵入前端逻辑。现方案取消桥接：工具直接注册在图表核心上，一次调用即进内核。
-
-- **响应式内核是 Agent 的地基**：StateKernel 是唯一真源——只有 action 能写，computed 自动链式推导，外部只拿 readonly signal，并配合 batch 原子快照与深拷贝冻结。内核零依赖、极致轻量、渲染时机可控，这让 Agent 能以近零开销共享用户的准确状态，也让工具成为 Action 的子集，而非另一套并行系统。
+- **同一套原语** — UI 操作与 Agent 工具共用 `ChartController`；工具是 Action 的子集。
+- **唯一真源** — 图表状态由 `StateKernel` 持有，外部只读 readonly signal。
+- **无 MCP 桥接** — 工具直接注册在核心上，一次调用即进内核，不需要 DSL 或状态副本。
 
 
 ## ✨ 核心特性
 
-- **Agent 原生** - 图表核心以 `@Tool` 装饰的领域原语对外暴露能力，Agent 与 UI 调用同一套原语。工具是 Action 的子集：共享同一状态、同一条执行链路，无桥接层
+- **Agent 原生** - 图表能力以 `@Tool` 装饰的领域原语暴露，Agent 与 UI 调用同一套原语，共享同一状态与同一条执行链路
 - **脚本指标** - 用 TypeScript 直接编写指标。QuickJS 沙箱执行并带时间与内存预算，内置带补全与悬浮签名的编辑器，Plot 走既有渲染链路
 - **渲染清晰** - 全链路 ResizeObserver 驱动，物理像素对齐，各 DPR 屏幕下 K 线、影线、线条均锐利清晰
 - **插件架构** - 渲染器插件化设计，支持动态注册、配置和生命周期管理
-- **高性能** - 流畅处理万级数据点，无卡顿缩放平移；**200Hz 屏幕下支持 190-200fps**，单帧生成时间低至 **2ms**
-- **多后端渲染** - 统一绘制原语一次提交，支持 **WebGPU**、**WebGL**、**Canvas2D** 三种后端。WebGPU 提供混合 DOM Canvas（无 `compositeTo` 拷贝）、单命令缓冲每帧提交、原生 4x MSAA、基于 ResourceTable 的实例几何缓存。自动降级链路：WebGPU → WebGL → Canvas2D。**200Hz 屏幕下可达 190fps**，每帧 GPU 耗时 **<1ms**
+- **高性能** - 流畅处理万级数据点，缩放平移无卡顿；基准数据见「Performance」章节
+- **多后端渲染** - 统一绘制原语一次提交，支持 **WebGPU**、**WebGL**、**Canvas2D** 三种后端并自动降级（WebGPU → WebGL → Canvas2D）。WebGPU 提供混合 DOM Canvas（无 `compositeTo` 拷贝）、单命令缓冲每帧提交、4x MSAA、基于 ResourceTable 的实例几何缓存
 - **交互优化** - 缩放锚点稳定、十字光标精准、拖拽流畅
 - **移动端交互优化** - 长按十字线浏览数据不触发滚动，拖拽移动十字线，轻点取消，再次触摸手势滚动
-- **商品比较** - 支持无限数量商品走势比较
+- **商品比较** - 在同一图表中比较多只商品走势
 - **多数据源** - 支持多数据源聚合并可自由扩展
 - **批量数据导出** - 选择时间范围后，批量输入多个股票代码，一键导出合并 CSV 文件，支持进度提示
 - **自定义 Tooltip** - 通过 `#kline-tooltip` 命名插槽完全自定义 tooltip，引擎提供悬停数据、位置和样式
@@ -485,17 +473,6 @@ const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
 
 ## 🗺️ Roadmap
 
-- [x] v0.10：图表 AI 原生支持
-- [x] K 线缩放锚点稳定，缩放手感提升
-- [x] 右轴脱离滚动容器，彻底解决裁剪问题
-- [x] 空白区域支持绘制
-- [x] 限制垂直平移范围，防止视口脱离数据
-- [x] 绘图系统
-- [x] 右轴缩放
-- [x] 最新价线与右轴标签样式优化
-- [x] 面图元工具及渲染
-- [x] 更多高级绘图工具
-- [x] 支持分钟、多日、月、年 K 线显示
 - [ ] 支持将绘制的图形转换为量化代码
 
 
