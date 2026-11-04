@@ -13,8 +13,9 @@ import {
   type TradesSelection,
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
-import { RealtimeBarsConnector } from '@/data/live/impl/barsLive.js'
-import type { LiveBarsStream } from '@/data/live/types.js'
+import { RealtimeBarsConnector } from '@/data/live/impl/barsConnector.js'
+import { realtimePoolFor } from '@/data/live/impl/realtimePool.js'
+import type { RealtimeSubscription, RealtimeSubscriptionPool } from '@/data/live/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
@@ -91,9 +92,10 @@ type OwnerSource = 'plan' | 'temporary'
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
 export class MarketRuntime implements IndicatorMarketData {
   private readonly registry: MarketDataProviderRegistry
+  private readonly pool: RealtimeSubscriptionPool
   private readonly live = new Map<
     string,
-    { stream: LiveBarsStream; connector: RealtimeBarsConnector; abort: AbortController }
+    { subscription: RealtimeSubscription; connector: RealtimeBarsConnector; abort: AbortController }
   >()
   private readonly barDemands = new Map<
     string,
@@ -329,27 +331,24 @@ export class MarketRuntime implements IndicatorMarketData {
       this.live.delete(key)
       binding.abort.abort()
       binding.connector.stop()
-      binding.stream.destroy()
     }
     for (const [key, target] of targets) {
       // 源声明是前提，品种可显式关闭（Connector 只对部分市场提供实时流）。
       if (this.live.has(key) || target.capabilities.liveBars !== true) continue
       if (target.instrument.capabilities.liveBars === false) continue
-      // 能力位已在 probe 入库时与实现对齐；这里只做绑定，失败不得抛穿状态通知链。
-      const liveBars = this.registry.get(target.instrument.sourceId)?.liveBars
-      if (liveBars === undefined) continue
-      const stream = liveBars.createStream({
-        symbol: target.instrument.symbol,
+      // 连接由订阅池统一建立；同一序列在图表与脚本之间共享同一条连接。
+      const subscription = this.pool.subscribe({
+        sourceId: target.instrument.sourceId,
+        channel: 'bars',
+        instrumentId: target.instrument.id,
         period: target.selection.period,
         barAggregation: target.selection.barAggregation,
-        // 与 /bars 使用同一份已解析身份，避免服务端按裸 symbol 猜测或静默降级复权。
-        instrumentId: target.instrument.id,
-        exchange: target.instrument.exchange,
         adjustment: target.selection.adjustment,
       })
       const abort = new AbortController()
       const buffer = this.deps.cache.repository.getBars(target.selection)!
-      const current = () => !this.disposed && this.live.get(key)?.stream === stream && !abort.signal.aborted
+      const current = () =>
+        !this.disposed && this.live.get(key)?.subscription === subscription && !abort.signal.aborted
       let refreshing = false
       let invalidated = false
       const queued: { bar: KLineData; historical: boolean }[] = []
@@ -411,8 +410,8 @@ export class MarketRuntime implements IndicatorMarketData {
         },
         invalidate: () => { if (current()) { invalidated = true; void refresh() } },
         setError: (message) => { if (current()) buffer.setError(message) },
-      }, stream)
-      this.live.set(key, { stream, connector, abort })
+      }, subscription)
+      this.live.set(key, { subscription, connector, abort })
       connector.start()
     }
   }
@@ -424,6 +423,7 @@ export class MarketRuntime implements IndicatorMarketData {
 
   constructor(private readonly deps: MarketRuntimeDependencies) {
     this.registry = deps.registry ?? marketDataProviderRegistry
+    this.pool = deps.realtime ?? realtimePoolFor(this.registry)
     let previousRegistry = this.registry.state.peek()
     this.subscriptions = [
       this.registry.state.subscribe(() => {
@@ -591,7 +591,6 @@ export class MarketRuntime implements IndicatorMarketData {
     for (const binding of this.live.values()) {
       binding.abort.abort()
       binding.connector.stop()
-      binding.stream.destroy()
     }
     this.live.clear()
     this.unmountTrade()

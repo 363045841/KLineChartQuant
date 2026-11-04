@@ -6,7 +6,7 @@
 import type { KLineData, TimeShareData } from '../../controllers/types.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { DepthSource } from '../depth/types.js'
-import type { LiveBarsDataSource } from '../live/types.js'
+import type { RealtimeConnectionFactory } from '../live/types.js'
 import type { TradeDataSource } from '../trades/types.js'
 
 /**
@@ -375,8 +375,8 @@ export interface MarketDataProvider {
   readonly catalog?: InstrumentCatalog
   readonly bars?: BarDataSource
   readonly tradingCalendar?: TradingCalendarDataSource
-  /** 实时 K 线流；仅在 source.capabilities.liveBars 为 true 时提供。 */
-  readonly liveBars?: LiveBarsDataSource
+  /** 宿主自带的实时连接；HTTP Provider 不提供，由实时订阅池的 SSE 实现兜底。 */
+  readonly realtime?: RealtimeConnectionFactory
   readonly timeShare?: TimeShareDataSource
   readonly timeShareRange?: TimeShareRangeDataSource
   readonly depth?: DepthDataSource
@@ -416,7 +416,7 @@ export interface BarsObserver {
   error(error: Error): void
 }
 
-export type ConnectionStatus = import('../live/types.js').LiveBarsStatus
+export type ConnectionStatus = import('../live/types.js').RealtimeStatus
 
 /** 用户实现的公开数据源；注册后与内置 Provider 共用路由、缓存和运行时。 */
 export interface MarketDataSource

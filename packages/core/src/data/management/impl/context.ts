@@ -11,6 +11,7 @@ import { MarketDataHealth } from './health.js'
 import { participatesInSearch } from './policy.js'
 import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
 import type { MarketDataSource } from '../../provider/types.js'
+import { realtimePoolFor } from '../../live/impl/realtimePool.js'
 
 /** 连接、Provider 目录和策略共享注册表中的权威快照。 */
 export class MarketDataContext {
@@ -39,6 +40,11 @@ export class MarketDataContext {
   }
   readonly health: MarketDataHealth
   readonly configuration: ReadonlySignal<MarketDataConfiguration>
+
+  /** 宿主共享的实时订阅池；图表与自选共用同一份连接。 */
+  get realtime() {
+    return realtimePoolFor(this.registry)
+  }
 
   constructor(readonly registry = new MarketDataProviderRegistry()) {
     this.health = new MarketDataHealth(registry)
