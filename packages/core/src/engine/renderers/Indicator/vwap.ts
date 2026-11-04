@@ -18,7 +18,7 @@ type LinePoint = { x: number; y: number }
 function createVWAPLayer(
   options: { paneId?: string; instanceId?: string } = {},
 ): Layer<RenderContext> {
-  const { paneId = 'sub_VWAP', instanceId } = options
+  const { paneId = 'main', instanceId } = options
   return createIndicatorRendererLayer({
     definitionId: 'vwap',
     paneId,
@@ -84,9 +84,13 @@ const getVWAPTitleInfo = createSingleLineTitleInfo({
   name: 'vwap',
   displayName: 'VWAP',
   kind: IndicatorKind.Indicator,
-  category: 'volume',
+  category: 'main',
   indicatorType: 'volume',
-  defaultPaneId: 'sub_VWAP',
+  defaultPaneId: 'main',
+  allowMainPane: true,
+  mainPane: {
+    toActiveConfig: (params, active) => ({ ...params, showVWAP: active }),
+  },
   visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
   scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
   getTitleInfo: getVWAPTitleInfo,

@@ -214,7 +214,7 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     load: () => import('../../renderers/Indicator/volumeProfile.js').then((module) => module.VolumeProfileIndicatorDefinition),
   },
   {
-    descriptor: {"name":"vwap","kind":"indicator","displayName":"VWAP","category":"volume","indicatorType":"volume","defaultPaneId":"sub_VWAP","defaultParams":{"sessionResetGapMs":0},"defaultOptions":{"showVWAP":true}},
+    descriptor: {"name":"vwap","kind":"indicator","displayName":"VWAP","category":"main","indicatorType":"volume","defaultPaneId":"main","allowMainPane":true,"defaultParams":{"sessionResetGapMs":0},"defaultOptions":{"showVWAP":true}},
     load: () => import('../../renderers/Indicator/vwap.js').then((module) => module.VWAPIndicatorDefinition),
   },
   {

@@ -168,6 +168,18 @@ describe('builtin indicator registration', () => {
     expect(definition?.scale).toBeDefined()
   })
 
+  it('registers VWAP as a main-pane overlay', () => {
+    const vwap = getRegisteredIndicatorDefinition('VWAP')
+    expect(vwap?.category).toBe('main')
+    expect(vwap?.defaultPaneId).toBe('main')
+    expect(vwap?.allowMainPane).toBe(true)
+
+    // 守卫：成交量量纲的指标仍必须留在副图，避免本次修正被扩大成整体重分类。
+    const vol = getRegisteredIndicatorDefinition('VOL')
+    expect(vol?.category).toBe('volume')
+    expect(vol?.allowMainPane).toBeFalsy()
+  })
+
   it('registers main pane renderer metadata for stage 6A-1 indicators', () => {
     const expected: Record<string, string> = {
       MA: 'ma',
