@@ -10,13 +10,8 @@ import { useMarketDataContext } from '@vue-src/composables/market/useMarketDataC
 import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
 import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
 import { type MaybeRefOrGetter, onScopeDispose, shallowRef, toValue, watch } from 'vue'
-
-/** 报价数值；涨跌幅由展示层按昨收派生，不在状态里重复存。 */
-export interface WatchlistQuote {
-  last: number
-  prevClose: number
-  timestamp: number
-}
+import type { WatchlistQuote } from './watchlistQuote.js'
+import { priceDirection } from './watchlistQuoteFormat.js'
 
 /** 订阅键：来源 + 稳定品种 ID，同一 ID 在不同来源互不冲突。 */
 function subscriptionKey(item: SearchableSymbol): string {
@@ -82,7 +77,17 @@ export function useWatchlistQuotes(
     })
     subscription.onFrame((frame: LiveFrame) => {
       if (frame.channel !== 'quotes') return
-      quoteDraft.set(key, frame.quote)
+      const previous = quoteDraft.get(key)
+      quoteDraft.set(key, {
+        last: frame.quote.last,
+        prevClose: frame.quote.prevClose,
+        timestamp: frame.quote.timestamp,
+        // 与上一次展示的最新价比较；价格没变的重复帧保留原方向，避免整行无缘无故退回灰色。
+        direction:
+          previous !== undefined && previous.last === frame.quote.last
+            ? previous.direction
+            : priceDirection(previous?.last ?? frame.quote.prevClose, frame.quote.last),
+      })
       quotesDirty = true
       scheduleFlush()
     })

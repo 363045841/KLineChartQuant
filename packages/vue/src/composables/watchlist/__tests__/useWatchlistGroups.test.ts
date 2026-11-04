@@ -14,11 +14,12 @@ describe('groupWatchlist', () => {
   it('orders source groups by catalog order and keeps item order', () => {
     const groups = groupWatchlist(TEST_SYMBOLS, 'source', SOURCE_LABELS)
 
-    expect(groups.map((group) => [group.key, group.label, group.items.map((item) => item.symbol)]))
-      .toEqual([
-        ['tradingview', 'TradingView', ['AAPL']],
-        ['gotdx', 'GOTDX', ['600519']],
-      ])
+    expect(
+      groups.map((group) => [group.key, group.label, group.items.map((item) => item.symbol)]),
+    ).toEqual([
+      ['tradingview', 'TradingView', ['AAPL']],
+      ['gotdx', 'GOTDX', ['600519']],
+    ])
   })
 
   it('keeps sources missing from the catalog under their id', () => {

@@ -66,12 +66,12 @@ describe('useWatchlist', () => {
     expect(watchlist.watchlistItems.value).toEqual([])
   })
 
-  it('defaults to source grouping when no preference is saved', async () => {
+  it('defaults to instrument type grouping when no preference is saved', async () => {
     const watchlist = useWatchlist()
 
     await watchlist.restoreWatchlist()
 
-    expect(watchlist.watchlistGrouping.value).toBe('source')
+    expect(watchlist.watchlistGrouping.value).toBe('instrumentType')
   })
 
   it('persists the grouping preference across instances', async () => {

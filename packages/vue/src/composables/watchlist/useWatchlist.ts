@@ -15,8 +15,8 @@ const WATCHLIST_GROUPING_KEY = 'grouping'
 export const WATCHLIST_GROUPINGS = ['source', 'instrumentType'] as const
 export type WatchlistGrouping = (typeof WATCHLIST_GROUPINGS)[number]
 
-/** 默认按数据源分组：与订阅上限、能力声明天然对齐。 */
-export const DEFAULT_WATCHLIST_GROUPING: WatchlistGrouping = 'source'
+/** 默认按品种归类：自选首先要回答“关注了哪些品种”，数据源是次要维度。 */
+export const DEFAULT_WATCHLIST_GROUPING: WatchlistGrouping = 'instrumentType'
 
 /** 判断 IndexedDB 中的值是否为可用的统一品种描述。 */
 function isWatchlistItem(value: unknown): value is SearchableSymbol {

@@ -94,7 +94,39 @@ describe('useWatchlistQuotes', () => {
       last: 12.5,
       prevClose: 11,
       timestamp: 1,
+      direction: 'up',
     })
+    scope.stop()
+  })
+
+  it('colors by the move against the previously displayed price', async () => {
+    const pool = new FakePool()
+    const scope = effectScope()
+    const state = scope.run(() => useWatchlistQuotes(ref([TEST_SYMBOLS[0]!]), pool))!
+    await nextTick()
+
+    const symbol = TEST_SYMBOLS[0]!
+    const subscription = pool.subscriptions.get(`gotdx:${symbol.id}`)!
+    const direction = () => state.quotes.value.get(symbolIdentityKey(symbol))?.direction
+
+    // 首帧没有上一次展示值，以昨收为基准。
+    subscription.emitQuote(symbol.id, 12.5, 11)
+    await Promise.resolve()
+    expect(direction()).toBe('up')
+
+    // 价格低于上一次展示值即转跌，即使仍高于昨收。
+    subscription.emitQuote(symbol.id, 12.4, 11)
+    await Promise.resolve()
+    expect(direction()).toBe('down')
+
+    // 价格未变的重复帧沿用上一次方向。
+    subscription.emitQuote(symbol.id, 12.4, 11)
+    await Promise.resolve()
+    expect(direction()).toBe('down')
+
+    subscription.emitQuote(symbol.id, 12.6, 11)
+    await Promise.resolve()
+    expect(direction()).toBe('up')
     scope.stop()
   })
 
