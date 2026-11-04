@@ -67,24 +67,21 @@ KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不
 
 ## 📐 系统架构
 
-KLineChartQuant 是一个 pnpm monorepo。核心引擎不依赖任何 UI 框架，通过统一的
-`ChartController`（只读信号 + 命令方法）对外暴露能力；Vue / React / Angular 绑定层只负责
-挂载、事件转发与响应式桥接。AI Agent 通过与 UI 相同的 `@Tool` 原语直接驱动图表，
-共享同一状态源，而非桥接层。
+KLineChartQuant 是一个 pnpm monorepo，只发布一个产品包 `@363045841yyt/klinechart`。核心引擎不依赖
+任何 UI 框架，通过统一的 `ChartController`（只读信号 + 命令方法）对外暴露能力；Vue 层只负责挂载、
+事件转发与响应式桥接。AI Agent 通过与 UI 相同的 `@Tool` 原语直接驱动图表，共享同一状态源，而非
+桥接层。Vue 层以下的全部模块都随产品 tarball 交付。
 
 ```mermaid
 flowchart TB
-    subgraph app["UI 层 / 框架绑定"]
+    subgraph app["产品 @363045841yyt/klinechart"]
         UI["UI 层"]
-        VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
-        WCPkg["@363045841yyt/klinechart-web-component<br/>&lt;kline-chart&gt; 自定义元素"]
-        ReactPkg["@363045841yyt/klinechart-react<br/>KLineChart（直连 Core）· KLineChartWC（Web Component）"]
-        AngularPkg["@363045841yyt/klinechart-angular"]
+        VuePkg["Vue 3 组件<br/>KlineWorkbench · useChart"]
         Agent["AI Agent"]
-        AgentRt["@363045841yyt/klinechart-agent-runtime"]
+        AgentRt["Agent 运行时"]
     end
 
-    subgraph core["核心引擎 @363045841yyt/klinechart-core"]
+    subgraph core["核心引擎"]
         Ctl["ChartController<br/>只读信号 + 命令方法"]
         Chart["Chart 门面"]
         Kernel["StateKernel<br/>Reactive SSOT"]
@@ -103,14 +100,8 @@ flowchart TB
     end
 
     UI --> VuePkg
-    UI --> ReactPkg
-    UI --> AngularPkg
-    VuePkg -->|"源码是 WC 的构建输入"| WCPkg
-    WCPkg --> ReactPkg
     Agent --> AgentRt
     VuePkg --> Ctl
-    ReactPkg --> Ctl
-    AngularPkg --> Ctl
     AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
@@ -137,11 +128,8 @@ flowchart TB
   （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
-- **React 绑定** — `@363045841yyt/klinechart-react` 的 `KLineChart` 直接挂载 Core（仅客户端加载，
-  不含 Vue 运行时）；`KLineChartWC` 渲染带完整 UI 的 `<kline-chart>` 自定义元素，由
-  `@363045841yyt/klinechart-web-component` 提供，是独立发布的单文件产物。
-- **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
-  `@Tool` 注册的原语——与 UI 使用同一入口。
+- **Agent 原生** — 随包交付的 Agent 运行时编排 Agent，直接调用核心 `@Tool` 注册的原语——
+  与 UI 使用同一入口。
 
 完整架构文档见 [docs/architecture/architecture.md](docs/architecture/architecture.md)。
 
@@ -465,13 +453,9 @@ const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
 
 ### 4.（可选）启用 AI Agent 控制
 
-图表核心以 `@Tool` 原语对外暴露领域能力，UI 与 Agent 通过同一条路径调用：
-
-```ts
-import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controllers'
-```
-
-`getRegisteredChartTools()` 返回每个工具的参数 schema、safety 等级与统一执行器。将它们交给 `@363045841yyt/klinechart-agent-runtime`，即可在应用内（浏览器或 Electron）基于 Provider profile 编排 Agent——无 MCP 桥接，无旁路状态副本。详见 [agent-runtime](packages/agent-runtime/README.md)。
+`KlineWorkbench` 自带 Agent 面板。图表核心以 `@Tool` 原语对外暴露领域能力，Agent 与 UI 调用同一批
+原语：同一份状态、同一条执行路径，无 MCP 桥接，无旁路状态副本。高级 Agent API 位于同一个包的
+`@363045841yyt/klinechart/agent` 子入口。
 
 
 ## 📖 更多文档
@@ -515,24 +499,20 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 - [ ] 支持将绘制的图形转换为量化代码
 
 
-## 📦 包列表
+## 📦 发布包
+
+`@363045841yyt/klinechart` 是唯一对外发布的包。引擎、Agent 运行时、脚本引擎、编辑器页面等所有
+monorepo 模块都随该包交付，不再单独发布。
 
 | 包名 | 说明 | npm |
 |------|------|-----|
-| `@363045841yyt/klinechart-core` | 无头图表引擎 + 控制器 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
-| `@363045841yyt/klinechart` | Vue 3 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
-| `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
-| `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
-| `@363045841yyt/klinechart-script` | 脚本指标引擎（QuickJS 运行时 + 语言服务） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script) |
-| `@363045841yyt/klinechart-script-chart` | 将脚本指标注册为图表指标 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script-chart) |
-| `@363045841yyt/klinechart-plot-contracts` | 引擎与脚本运行时共用的 Plot 声明契约 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-plot-contracts) |
+| `@363045841yyt/klinechart` | Vue 3 完整产品：`KlineWorkbench`、`useChart` 与图表引擎 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 
 
 ## 🚀 What's New
 
 - **v0.11**
-  - **Agent 运行时** - agent-runtime 与 AI runtime，支持 OpenAI 协议，Agent 通过与 UI 相同的 `@tool` 原语驱动图表；新增 @tool 注册基础设施、绘图 Agent 工具，以及 Web/Electron 共享的 Agent 工作区
+  - **Agent 运行时** - 随包交付的 Agent 运行时，支持 OpenAI 协议，Agent 通过与 UI 相同的 `@tool` 原语驱动图表；新增 @tool 注册基础设施、绘图 Agent 工具，以及 Web/Electron 共享的 Agent 工作区
   - **脚本指标引擎** - 一个指标就是一个纯 TypeScript 文件，在带时间与内存配额的 QuickJS 沙箱中运行；内置 CodeMirror 编辑器、`ta` 技术分析库与用户自定义库；绘图走同一条渲染链路，脚本指标与内置指标行为一致
   - **绘图工具** - 支持子图与分时绘制、workspace 隔离、多选批量编辑、空白区域锚点、单行内联文本编辑、框选成组拖拽与标签位置配置
   - **分时与工作区** - 五日分时、分时指标原生支持与持久化视图工作区

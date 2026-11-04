@@ -65,6 +65,8 @@ export interface RendererDependencies {
   getOverlay?: DrawingStoreDeps['getOverlay']
   /** 绘图交互会话中的临时框选，不进入持久化图元列表。 */
   getSelectionMarquee?: () => DrawingSelectionMarquee | null
+  /** 绘图磁吸命中点，渲染为会话层高亮圆点。 */
+  getSnapIndicator?: () => import('../../engine/drawing/index.js').DrawingSnapIndicator | null
   /** 完整帧的所有 Pane 统一交给图例管理器投影。 */
   projectLegendFrame: (contexts: ReadonlyArray<RenderContext>) => void
   getLegendConfiguration: () => ReadonlyArray<import('../legend/types.js').LegendEntry>

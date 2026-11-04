@@ -17,14 +17,11 @@ support.dispose()
 The language service builds on the sandbox-free TypeScript language service, not on the
 QuickJS execution engine, so it never executes user script code.
 
-## Install
+## Internal module
 
-```bash
-pnpm add @363045841yyt/klinechart-script-server @363045841yyt/klinechart-script
-```
-
-The package is optional: without it, `@363045841yyt/klinechart` still renders the editor
-with syntax highlighting but without completions, hover or diagnostics.
+This package is not published to npm. It ships inside the product package
+[`@363045841yyt/klinechart`](../vue/README.md), which loads it lazily when the script editor opens;
+install only the product.
 
 ## Commands
 

@@ -5,7 +5,7 @@
  * 本文件不得 import 同子模块 impl/。
  */
 
-import type { MagnetSnapConfig } from '../magnet/types.js'
+import type { MagnetSnapConfig, SnapCandidate } from '../magnet/types.js'
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {
@@ -26,8 +26,12 @@ export interface ResolvedInteractionAnchor extends InteractionDrawingAnchor {
 /** 指针命中 Pane 后解析出的完整绘图锚点。 */
 export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
   paneId: string
+  /** Pane 局部 X（逻辑像素）。 */
   x: number
+  /** Pane 局部 Y（逻辑像素）。 */
   y: number
+  /** 本次落点命中的磁吸候选；未开启磁吸或未命中时为 null。 */
+  snap: SnapCandidate | null
 }
 
 /** 指针位置的最小形状：只需 client 坐标，便于用缓存的指针位置重算命中。 */
@@ -54,20 +58,25 @@ export interface ResolveDrawingPointerOptions {
   clampDataEnd?: boolean
 }
 
+/** 线中点手柄的拖拽轴：price 上下平移整条线，time 左右平移整条线。 */
+export type LineHandleAxis = 'price' | 'time'
+
 /** 图元的一条线：由两个持久化锚点下标定义。 */
 export interface DrawingLine {
   /** 起点锚点下标。 */
   readonly from: number
   /** 终点锚点下标。 */
   readonly to: number
-  /** 是否开启该线中点的垂直手柄：拖拽只沿价格轴（上下）移动这条线，时间不变。 */
-  readonly verticalHandle: boolean
+  /** 该线中点手柄的拖拽轴；null 表示这条线不开手柄。 */
+  readonly handle: LineHandleAxis | null
 }
 
-/** 开启中点垂直手柄的线：在所属图元的线表中的下标与两个锚点下标。 */
-export interface VerticalHandleLine {
-  /** 在 {@link getLines} 返回数组中的下标，命中与拖拽以此定位。 */
+/** 开启中点手柄的线：在所属图元线表中的下标、两端锚点下标与拖拽轴。 */
+export interface LineHandle {
+  /** 在 {@link getLineHandles} 返回数组中的下标，命中与拖拽以此定位。 */
   readonly index: number
   readonly from: number
   readonly to: number
+  /** 拖拽该线时平移的坐标轴。 */
+  readonly axis: LineHandleAxis
 }

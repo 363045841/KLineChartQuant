@@ -26,7 +26,7 @@
     <Teleport :to="teleportTarget">
       <div
         ref="menu"
-        class="drop-menu__panel"
+        class="drop-menu__panel popover-surface popover-surface--scroll"
         :class="{
           'drop-menu__panel--compact': density === 'compact',
           'drop-menu__panel--replace-detail': replaceDetailOnAction,
@@ -38,6 +38,9 @@
         @focusout="onMenuFocusOut"
       >
        <template v-if="open">
+        <div v-if="$slots.header" class="drop-menu__header">
+          <slot name="header" />
+        </div>
         <div v-for="group in groups" :key="group.id" class="drop-menu__group">
           <div class="drop-menu__heading">{{ group.label }}</div>
           <div
@@ -201,6 +204,7 @@
 
 <!-- 触发器复用工具栏共享按钮外观，避免各下拉各写一套高度与字体。 -->
 <style scoped src="./control-button.css"></style>
+<style scoped src="./popover-surface.css"></style>
 
 <style scoped>
   /* 设置弹窗内的菜单共用紧凑、透明的触发器。 */
@@ -232,12 +236,6 @@
     max-width: calc(100vw - 16px);
     max-height: min(420px, calc(100vh - 24px));
     padding: 0;
-    overflow-y: auto;
-    border: 0;
-    border-radius: var(--klc-radius-md, 8px);
-    background: var(--klc-color-ui-input);
-    color: var(--klc-color-ui-text);
-    box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
   }
 
   .drop-menu__panel:empty {
@@ -246,6 +244,15 @@
 
   .drop-menu__group + .drop-menu__group {
     border-top: 1px solid var(--klc-color-ui-border);
+  }
+
+  /* 面板头部与分组标题同样留白；空插槽不占高度。 */
+  .drop-menu__header {
+    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px) 0;
+  }
+
+  .drop-menu__header:empty {
+    display: none;
   }
 
   .drop-menu__footer {

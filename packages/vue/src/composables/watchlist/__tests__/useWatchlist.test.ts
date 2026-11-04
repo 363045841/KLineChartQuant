@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import {
   loadWatchlist,
+  loadWatchlistGrouping,
   saveWatchlist,
+  saveWatchlistGrouping,
   useWatchlist,
   WATCHLIST_DATABASE_NAME,
 } from '../useWatchlist'
@@ -62,5 +64,24 @@ describe('useWatchlist', () => {
     await watchlist.restoreWatchlist()
 
     expect(watchlist.watchlistItems.value).toEqual([])
+  })
+
+  it('defaults to instrument type grouping when no preference is saved', async () => {
+    const watchlist = useWatchlist()
+
+    await watchlist.restoreWatchlist()
+
+    expect(watchlist.watchlistGrouping.value).toBe('instrumentType')
+  })
+
+  it('persists the grouping preference across instances', async () => {
+    await saveWatchlistGrouping('instrumentType')
+
+    const restored = useWatchlist()
+    await restored.restoreWatchlist()
+    expect(restored.watchlistGrouping.value).toBe('instrumentType')
+
+    await restored.setWatchlistGrouping('source')
+    expect(await loadWatchlistGrouping()).toBe('source')
   })
 })

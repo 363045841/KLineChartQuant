@@ -238,7 +238,7 @@ describe('registered data source', () => {
     try {
       await harness.select('A')
       expect(harness.fixture.observers.size).toBe(0)
-      expect(harness.host.registry.get('test')?.liveBars).toBeUndefined()
+      expect(harness.host.registry.get('test')?.realtime).toBeUndefined()
       expect(harness.fixture.requests).toHaveLength(1)
       harness.fixture.source.bars.fetch = async () => ({
         bars: [makeKLine(200), makeKLine(100)],

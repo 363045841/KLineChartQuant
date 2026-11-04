@@ -39,7 +39,7 @@ export const darkTheme: Theme = {
     candleDownBorder: '#f23645',
     candleDownWick: '#f23645',
     candleDojiBorder: '#8A8F98',
-    performancePositive: '#22D69B',
+    performancePositive: '#22AB94',
     performanceNegative: '#FF6464',
     performanceNeutral: '#9AA0A6',
     volumeUp: '#22D69B66',

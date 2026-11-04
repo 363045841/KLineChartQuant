@@ -2,6 +2,7 @@
 
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { Layer, LayerPaint } from '@/rendering/scene/types.js'
@@ -35,7 +36,16 @@ function paintProjection(
   const target = context.ctx
   const commands: PaintPrimitive[] = []
   const renderers =
-    custom ?? createDefaultPrimitiveRendererSet((_target, batch) => commands.push(...batch))
+    custom ??
+    createDefaultPrimitiveRendererSet({
+      // 手柄填充取当前主题的图表背景：明暗主题下都像线上挖洞，而不是贴一块白。
+      handleFill: resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      ).chartBackground,
+      submit: (_target, batch) => commands.push(...batch),
+    })
   renderPrimitives(
     target,
     primitives,

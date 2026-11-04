@@ -33,6 +33,7 @@ import {
   type KLineBuffer,
   type TimeShareBuffer,
 } from '../../data/buffer/types.js'
+import type { RealtimeSubscriptionPool } from '../../data/live/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
@@ -84,6 +85,8 @@ import { symbolSpecIdentityKey } from './symbolIdentity.js'
 export interface DataDependencies {
   invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
+  /** 实时订阅池；省略时使用注册表对应的共享池。 */
+  realtimeSubscriptionPool?: RealtimeSubscriptionPool
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
   getOption: () => { kWidth: number; kGap: number }
@@ -183,6 +186,7 @@ export class ChartDataManager {
     this._dmState = dmState
     this.marketRuntime = new MarketRuntime({
       registry: this.providerRegistry,
+      realtime: deps.realtimeSubscriptionPool,
       cache: this.marketDataCache,
       session: dataState.readonly.readyMarket,
       visibleRange: deps.viewport.readonly.visibleRange,

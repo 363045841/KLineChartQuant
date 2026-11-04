@@ -1,6 +1,7 @@
 /** 绘图拖拽策略：拖动图元的某个锚点时，解析要一起移动的锚点及其位移系数。 */
 
-import { getLines } from '../../geometry/impl/lines.js'
+import { getLineHandles } from '../../geometry/impl/lines.js'
+import type { LineHandle } from '../../geometry/types.js'
 import type { DrawingKind } from '../../types.js'
 import type { DragFollow, MovingAnchor } from '../types.js'
 
@@ -61,6 +62,17 @@ const anchorDragFollowers: Partial<Record<DrawingKind, AnchorDragFollowers>> = {
     { index },
     { index: DISJOINT_CHANNEL_X_PARTNERS[index]!, follow: FOLLOW_MIRRORED },
   ],
+
+  /**
+   * 矩形四角：0 左上、1 右上、2 右下、3 左下。
+   * 拖动一个角时，同横边的对角保持 X、跟随价格；同竖边的对角保持价格、跟随 X，对角点固定，
+   * 因此矩形始终保持轴对齐。
+   */
+  rectangle: (index) => [
+    { index },
+    { index: 3 - index, follow: FOLLOW_TIME_ONLY },
+    { index: index ^ 1, follow: FOLLOW_PRICE_ONLY },
+  ],
 }
 
 /**
@@ -73,16 +85,12 @@ export function resolveAnchorFollowers(kind: DrawingKind, index: number): readon
 }
 
 /**
- * 解析拖拽线段中点垂直手柄时一起上下移动的锚点对。
- * 两个锚点按同一价格增量移动、时间不变，因此该线只沿价格轴平移、形状不变。
+ * 解析中点手柄所在线及其拖拽轴。
+ * 轴在几何层声明：price 两个锚点同价增量，time 两个锚点同时间增量。
  * @param kind 图元种类
  * @param lineIndex 线在 {@link getLines} 数组中的下标
- * @returns 锚点对；该线未开启垂直手柄时返回 null
+ * @returns 线的两端锚点与拖拽轴；该线未开启手柄时返回 null
  */
-export function resolveVerticalHandleAnchors(
-  kind: DrawingKind,
-  lineIndex: number,
-): readonly [from: number, to: number] | null {
-  const line = getLines(kind)[lineIndex]
-  return line?.verticalHandle ? [line.from, line.to] : null
+export function resolveLineHandle(kind: DrawingKind, lineIndex: number): LineHandle | null {
+  return getLineHandles(kind)[lineIndex] ?? null
 }

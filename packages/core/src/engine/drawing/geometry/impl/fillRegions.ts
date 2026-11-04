@@ -1,5 +1,5 @@
 // 组合图元的填充区域：按持久化锚点下标声明多边形环绕顺序，绘制与命中共用同一份顺序。
-// 只有由四个持久化锚点直接围成填充的通道图元在此登记；矩形与回归通道的填充另有推导。
+// 只有由四个持久化锚点直接围成填充的图元在此登记；回归通道的填充另有推导。
 
 import type { Point } from '@/foundation/geometry/index.js'
 import type { DrawingKind } from '../../types.js'
@@ -13,6 +13,8 @@ const FILL_ANCHOR_ORDERS: Partial<Record<DrawingKind, readonly number[]>> = {
   'parallel-channel': [0, 1, 3, 2],
   'flat-line': [0, 1, 3, 2],
   'disjoint-channel': [0, 1, 2, 3],
+  // 矩形四角顺时针（左上、右上、右下、左下），直接成环。
+  rectangle: [0, 1, 2, 3],
 }
 
 /**

@@ -3,8 +3,50 @@
  */
 
 import { UNBOUNDED_DRAWING_EXTENT } from '@/engine/drawing/geometry/impl/drawingExtent.js'
-import type { DrawingDefinition, DrawingKind } from '@/engine/drawing/types.js'
-import { POINT_ROLE, PRIMITIVE_KIND } from '@/foundation/plugin/index.js'
+import { placeAnchorHandle } from '@/engine/drawing/handles/impl/placement.js'
+import type {
+  DrawingComputeContext,
+  DrawingDefinition,
+  DrawingKind,
+} from '@/engine/drawing/types.js'
+import {
+  type DrawingPrimitive,
+  type DrawingStyle,
+  POINT_ROLE,
+  PRIMITIVE_KIND,
+  type ScreenDrawingAnchor,
+} from '@/foundation/plugin/index.js'
+
+/**
+ * 单锚点线的锚点手柄：落位由手柄布局统一给出，保证绘制、命中、拖动同一处推导。
+ * 水平线在右侧留内边距、垂直线在下方留内边距；拖动平移的是整条线，
+ * 因此用平移手柄角色（方块），与通道中点手柄同一形状语义。
+ * @param kind 图元种类
+ * @param projection 锚点的单轴投影
+ * @param context 当前帧的几何上下文
+ * @param style 图元样式（跟随即时描边）
+ * @returns 锚点手柄图元；该锚点不出手柄时为空数组
+ */
+function anchorHandlePrimitives(
+  kind: DrawingKind,
+  projection: ScreenDrawingAnchor,
+  context: DrawingComputeContext,
+  style: DrawingStyle,
+): DrawingPrimitive[] {
+  const placed = placeAnchorHandle(kind, projection, {
+    plotWidth: context.viewport.plotWidth,
+    paneHeight: context.pane.height,
+  })
+  if (!placed) return []
+  return [
+    {
+      kind: PRIMITIVE_KIND.point,
+      role: POINT_ROLE['translate-handle'],
+      point: placed.point,
+      style,
+    },
+  ]
+}
 
 /** 创建单锚点线定义：按 kind 输出水平线、射线、垂直线或十字线。 */
 export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefinition {
@@ -38,6 +80,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
+            ...anchorHandlePrimitives(kind, { type: 'horizontal', y }, context, drawing.style),
           ],
         }
       }
@@ -70,6 +113,12 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
+            ...anchorHandlePrimitives(
+              kind,
+              { type: 'vertical', x: point.x },
+              context,
+              drawing.style,
+            ),
           ],
         }
       }

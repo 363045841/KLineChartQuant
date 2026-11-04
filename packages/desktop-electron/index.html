@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- 连接本地 connector（127.0.0.1）、用户自填数据源与 Agent Provider，都跨 origin：
          CSP 必须显式放行 connect-src，否则打包后所有行情请求会被浏览器拦掉。
+         worker-src 放行 blob:，Vite 开发客户端的 HMR 心跳用 blob SharedWorker 实现。
          font-src 放行 data:，Vite 会把小字重的字体子集内联成 data URL。 -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src http: https: ws: wss:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src http: https: ws: wss:; worker-src 'self' blob:"
     />
-    <title>KCQ</title>
+    <title>KCQ Desktop</title>
     <style>
       * {
         margin: 0;

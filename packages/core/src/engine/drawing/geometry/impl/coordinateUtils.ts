@@ -1,11 +1,16 @@
-// 绘图坐标换算模块：负责锚点逻辑坐标（时间戳 + 价格）与屏幕坐标（px）的双向换算，
-// 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选 OHLC 磁吸）。
+// 绘图坐标换算模块：锚点逻辑坐标（时间戳 + 价格）与屏幕坐标（px）的双向换算，
+// 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选磁吸）。
+//
+// 坐标空间只有一套：进入本模块后一律是 Pane 局部逻辑像素，`pane.top` 只在
+// 「容器局部 → Pane 局部」这一处消费一次；磁吸、命中、手柄、帧投影共用同一空间。
+//
 // 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
-import { snapPointerToOhlc } from '../../magnet/impl/magnetSnapper.js'
+import { snapPointer } from '../../magnet/impl/snapPointer.js'
+import type { SnapCandidate } from '../../magnet/types.js'
 import type { PersistedDrawingAnchor } from '../../types.js'
 import type {
   DrawingPointerAnchor,
@@ -13,8 +18,6 @@ import type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../types.js'
-
-// ---- Coordinate conversion ----
 
 /**
  * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。
@@ -62,6 +65,10 @@ export function isScreenPoint(
  *
  * 用于拖拽整线时的屏幕偏移量回算。
  *
+ * @param screenX Pane 局部 X
+ * @param paneY Pane 局部 Y
+ * @param paneId 目标 Pane
+ * @param adapter 视口与坐标换算
  * @returns ResolvedInteractionAnchor，viewport 不可用或无法解析时间轴槽位时返回 null
  */
 export function screenToAnchor(
@@ -91,25 +98,26 @@ export function screenToAnchor(
   }
 }
 
-/** 容器局部落点与其所属 Pane。 */
+/** 落点所在的 Pane 与 Pane 局部坐标。 */
 interface DrawingAreaPlacement {
-  x: number
-  y: number
   pane: PaneLayoutInfo
+  /** Pane 局部 X。 */
+  x: number
+  /** Pane 局部 Y。 */
+  y: number
 }
 
 /**
- * 从指针位置解析出光标对应的逻辑锚点。
+ * 把指针事件解析为绘图落点锚点。
  *
- * 边界检测：
- * - 鼠标超出 viewport.plotWidth / plotHeight → null
- * - 鼠标不在任何 Pane 范围内 → null
- * - 鼠标位置无对应时间轴槽位 → null
+ * 坐标约定：`DrawingPointerAnchor.x/y` 是 Pane 局部逻辑像素；调用方不得再加减
+ * `pane.top`。容器局部 → Pane 局部的换算只发生在本函数的入口一次。
  *
- * 传入 magnet 配置时，吸附发生在 screenToAnchor 之前（改写局部 x/y），
- * 返回的锚点与 x/y 均为吸附后的值；传入 clampPaneId 时先贴边再做同样的吸附与反解析。
- *
- * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
+ * @param pointer 指针 client 坐标
+ * @param container 图表容器
+ * @param adapter 视口与坐标换算
+ * @param options 磁吸与出界钳制
+ * @returns 落点锚点；超出绘图区、数据不可用或时间轴无法解析时返回 null
  */
 export function resolveDrawingPointer(
   pointer: PointerCoordinates,
@@ -130,25 +138,50 @@ export function resolveDrawingPointer(
     : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
   if (!placement) return null
 
-  // 磁吸只改写局部坐标，不影响 pane 判定（吸附基准仍取落点所在 Pane）。
-  let x = placement.x
-  let y = placement.y - placement.pane.top
+  let { x, y } = placement
   // 回归等依赖已有数据的图元在最后一根 K 线贴边，预览和确认落点共用此约束。
   if (options?.clampDataEnd) {
     const lastX = adapter.getXAtLogicalIndex(data.length - 1)
     if (lastX === null) return null
     x = Math.min(x, lastX)
   }
-  if (options?.magnet) {
-    const snapped = snapPointerToOhlc(x, placement.y, placement.pane, adapter, options.magnet)
-    if (snapped) {
-      x = snapped.x
-      y = snapped.y - placement.pane.top
-    }
+
+  // 磁吸只改写 Pane 局部坐标，不影响 Pane 判定（吸附基准取落点所在 Pane）。
+  const snapped = options?.magnet
+    ? snapPointer(x, y, placement.pane, adapter, options.magnet)
+    : null
+  if (snapped) {
+    x = snapped.x
+    y = snapped.y
   }
 
   const anchor = screenToAnchor(x, y, placement.pane.paneId, adapter)
-  return anchor ? { ...anchor, paneId: placement.pane.paneId, x, y } : null
+  if (!anchor) return null
+  return {
+    ...applyCandidate(anchor, snapped?.candidate ?? null),
+    paneId: placement.pane.paneId,
+    x,
+    y,
+    snap: snapped?.candidate ?? null,
+  }
+}
+
+/**
+ * 命中的候选直接覆盖对应轴的领域值，避免屏幕坐标反算带来的精度损失。
+ *
+ * 候选提供时间时，同时丢弃 futureOffset：它引用的是真实 Bar，不再是未来槽位。
+ */
+function applyCandidate(
+  anchor: ResolvedInteractionAnchor,
+  candidate: SnapCandidate | null,
+): ResolvedInteractionAnchor {
+  if (candidate === null) return anchor
+  if (candidate.time !== null) {
+    const { futureOffset: _futureOffset, ...rest } = anchor
+    return { ...rest, time: candidate.time, price: candidate.price ?? anchor.price }
+  }
+  if (candidate.price !== null) return { ...anchor, price: candidate.price }
+  return anchor
 }
 
 /** 严格落点：超出绘图区或不在任何 Pane 内返回 null。 */
@@ -162,7 +195,7 @@ function resolveWithinDrawingArea(
     return null
   }
   const pane = adapter.getPaneAtY(mouseY)
-  return pane ? { x: mouseX, y: mouseY, pane } : null
+  return pane ? { x: mouseX, y: mouseY - pane.top, pane } : null
 }
 
 /** 出界钳制：X 贴绘图区，Y 贴目标 Pane，保证进行中的图元预览不因指针离开而中断。 */
@@ -175,9 +208,10 @@ function clampToPane(
 ): DrawingAreaPlacement | null {
   const pane = adapter.getPaneInfo(paneId)
   if (!pane) return null
+  const clampedY = clampRange(mouseY, pane.top, pane.top + pane.height)
   return {
     x: clampRange(mouseX, 0, viewport.plotWidth),
-    y: clampRange(mouseY, pane.top, pane.top + pane.height),
+    y: clampedY - pane.top,
     pane,
   }
 }

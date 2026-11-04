@@ -487,7 +487,7 @@ const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
 ## 🚀 What's New
 
 - **v0.11**
-  - **Agent 运行时** - agent-runtime 与 AI runtime，支持 OpenAI 协议，Agent 通过与 UI 相同的 `@tool` 原语驱动图表；新增 @tool 注册基础设施、绘图 Agent 工具，以及 Web/Electron 共享的 Agent 工作区
+  - **Agent 运行时** - 随包交付的 Agent 运行时，支持 OpenAI 协议，Agent 通过与 UI 相同的 `@tool` 原语驱动图表；新增 @tool 注册基础设施、绘图 Agent 工具，以及 Web/Electron 共享的 Agent 工作区
   - **脚本指标引擎** - 一个指标就是一个纯 TypeScript 文件，在带时间与内存配额的 QuickJS 沙箱中运行；内置 CodeMirror 编辑器、`ta` 技术分析库与用户自定义库；绘图走同一条渲染链路，脚本指标与内置指标行为一致
   - **绘图工具** - 支持子图与分时绘制、workspace 隔离、多选批量编辑、空白区域锚点、单行内联文本编辑、框选成组拖拽与标签位置配置
   - **分时与工作区** - 五日分时、分时指标原生支持与持久化视图工作区

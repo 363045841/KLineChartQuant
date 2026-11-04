@@ -1,32 +1,41 @@
-// 图元的线表：定义图元由哪些持久化锚点构成线段，并声明该线段是否开启中点垂直手柄。
-// 命中整段、中点手柄的绘制与拖拽共用这一份定义；未登记的图元由锚点顺序推导线段。
+// 图元的线表：定义图元由哪些持久化锚点构成线段，并声明该线段中点手柄的拖拽轴。
+// 命中整段与中点手柄的绘制、拖拽共用这一份定义；未登记的图元由锚点顺序推导线段。
 
 import type { DrawingKind } from '../../types.js'
-import type { DrawingLine, VerticalHandleLine } from '../types.js'
+import type { DrawingLine, LineHandle } from '../types.js'
 
 // ---- Table ----
 
 /**
  * 各图元的线构成。
- * 三条通道图元的两条线都开启中点垂直手柄：拖拽只平移这条线，另一条线不动，因此通道宽度会改变。
+ *
+ * 通道类：两条线都开价格轴手柄，拖拽只平移这条线，另一条不动，因此通道宽度会改变。
+ * 矩形：四角顺时针为左上、右上、右下、左下；上下边为价格轴手柄（改高度），
+ * 左右边为时间轴手柄（改宽度），与 TradingView 的四边中点一致。
  */
 const LINES: Partial<Record<DrawingKind, readonly DrawingLine[]>> = {
   'parallel-channel': [
-    { from: 0, to: 1, verticalHandle: true },
-    { from: 2, to: 3, verticalHandle: true },
+    { from: 0, to: 1, handle: 'price' },
+    { from: 2, to: 3, handle: 'price' },
   ],
   'flat-line': [
-    { from: 0, to: 1, verticalHandle: true },
-    { from: 2, to: 3, verticalHandle: true },
+    { from: 0, to: 1, handle: 'price' },
+    { from: 2, to: 3, handle: 'price' },
   ],
   'disjoint-channel': [
-    { from: 0, to: 1, verticalHandle: true },
-    { from: 2, to: 3, verticalHandle: true },
+    { from: 0, to: 1, handle: 'price' },
+    { from: 2, to: 3, handle: 'price' },
+  ],
+  rectangle: [
+    { from: 0, to: 1, handle: 'price' },
+    { from: 1, to: 2, handle: 'time' },
+    { from: 2, to: 3, handle: 'price' },
+    { from: 3, to: 0, handle: 'time' },
   ],
 }
 
 const NO_LINES: readonly DrawingLine[] = []
-const NO_HANDLE_LINES: readonly VerticalHandleLine[] = []
+const NO_HANDLES: readonly LineHandle[] = []
 
 /**
  * 返回图元的线。
@@ -38,14 +47,14 @@ export function getLines(kind: DrawingKind): readonly DrawingLine[] {
 }
 
 /**
- * 返回开启中点垂直手柄的线。
+ * 返回开启中点手柄的线及其拖拽轴。
  * @param kind 图元种类
  * @returns 手柄线列表；未登记或未开启手柄时返回空数组
  */
-export function getVerticalHandleLines(kind: DrawingKind): readonly VerticalHandleLine[] {
+export function getLineHandles(kind: DrawingKind): readonly LineHandle[] {
   const lines = LINES[kind]
-  if (!lines) return NO_HANDLE_LINES
+  if (!lines) return NO_HANDLES
   return lines.flatMap((line, index) =>
-    line.verticalHandle ? [{ index, from: line.from, to: line.to }] : [],
+    line.handle ? [{ index, from: line.from, to: line.to, axis: line.handle }] : [],
   )
 }

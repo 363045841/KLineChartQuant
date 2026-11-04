@@ -46,6 +46,25 @@ function drawing(kind: ResolvedDrawingObject['kind']): ResolvedDrawingObject {
   }
 }
 
+/** 四角矩形夹具：左上、右上、右下、左下，与持久化顺序一致。 */
+function rectangleDrawing(overrides: Partial<ResolvedDrawingObject> = {}): ResolvedDrawingObject {
+  const anchors = drawing('rectangle').anchors
+  const left = anchors[0]!
+  const right = anchors[1]!
+  const top = Math.max(left.price, right.price)
+  const bottom = Math.min(left.price, right.price)
+  return {
+    ...drawing('rectangle'),
+    anchors: [
+      { ...left, price: top },
+      { ...right, price: top },
+      { ...right, price: bottom },
+      { ...left, price: bottom },
+    ],
+    ...overrides,
+  }
+}
+
 describe('new drawing tools', () => {
   it('uses canonical IDs and two anchors', () => {
     expect(getDrawingKind('fib-retracement')).toBe('fib-retracement')
@@ -63,7 +82,7 @@ describe('new drawing tools', () => {
   })
 
   it('draws a rectangle border and translucent fill', () => {
-    const geometry = createRectangleDefinition().compute(drawing('rectangle'), context())
+    const geometry = createRectangleDefinition().compute(rectangleDrawing(), context())
     expect(geometry.primitives.filter((primitive) => primitive.kind === 'line')).toHaveLength(4)
     const area = geometry.primitives.find((primitive) => primitive.kind === 'area')
     expect(area?.style?.fillOpacity).toBe(0.1)
@@ -72,7 +91,7 @@ describe('new drawing tools', () => {
   it('extends Box fill and horizontal edges together without a false viewport border', () => {
     const geometry = createRectangleDefinition().compute(
       {
-        ...drawing('rectangle'),
+        ...rectangleDrawing(),
         extend: 'right',
         style: { stroke: '#2962ff', fill: '#2962ff80', fillOpacity: 1 },
       },
@@ -103,7 +122,7 @@ describe('new drawing tools', () => {
     } satisfies NonNullable<ResolvedDrawingObject['text']>
     const box = createRectangleDefinition().compute(
       {
-        ...drawing('rectangle'),
+        ...rectangleDrawing(),
         text,
         style: { stroke: '#123456', strokeWidth: 0, textColor: '#123456', fontSize: 11 },
       },

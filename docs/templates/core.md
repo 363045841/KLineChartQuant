@@ -2,6 +2,10 @@
 
 Framework-independent K-line chart runtime with a signal-based state kernel, multi-backend rendering, and no UI framework dependency.
 
+> **Internal module.** This package is not published to npm. It ships inside the product package
+> [`@363045841yyt/klinechart`](../vue/README.md); install only that package. The import paths below
+> resolve through the workspace inside this monorepo.
+
 ## Overview
 
 `@363045841yyt/klinechart-core` is the runtime behind the KLineChartQuant framework bindings. It owns chart state, viewport and pane calculation, input handling, data coordination, and rendering. It creates and manages the chart DOM and canvases, but leaves application UI to Vue, React, Angular, or a custom adapter.
@@ -12,16 +16,6 @@ The public application boundary is `ChartController`:
 - Change chart state through controller methods.
 - Forward browser input events from a custom host when needed.
 - Dispose the controller when its host is unmounted.
-
-## Installation
-
-```bash
-npm install @363045841yyt/klinechart-core
-# or
-pnpm add @363045841yyt/klinechart-core
-# or
-yarn add @363045841yyt/klinechart-core
-```
 
 ## Quick Start
 
@@ -265,11 +259,5 @@ Canvas preference: Canvas2D
 ```
 
 The default synchronous host attempts WebGL and falls back to Canvas2D. WebGPU is selected through renderer settings and can degrade at runtime if the device is lost.
-
-## Related Packages
-
-- `@363045841yyt/klinechart` - Vue 3 bindings
-- `@363045841yyt/klinechart-react` - React bindings
-- `@363045841yyt/klinechart-angular` - Angular bindings
 
 {{include:_license.md}}

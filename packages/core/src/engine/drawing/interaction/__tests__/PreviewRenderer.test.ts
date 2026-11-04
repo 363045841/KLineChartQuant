@@ -51,4 +51,21 @@ describe('PreviewRenderer', () => {
     expect(preview?.anchors[2]).toMatchObject({ time: 1_000, price: 20 })
     expect(preview?.anchors[3]).toMatchObject({ time: 500, price: 60 })
   })
+
+  it('materializes the four clockwise corners of a rectangle preview', () => {
+    const preview = new PreviewRenderer().buildPreview(
+      'rectangle',
+      [{ time: 2_000, price: 40 }],
+      { time: 500, price: 140 },
+      'main',
+      'kline',
+    )
+
+    // 预览同样按持久化四角（左上、右上、右下、左下）输出，绘制端无需再区分输入锚点数。
+    expect(preview?.anchors).toHaveLength(4)
+    expect(preview?.anchors[0]).toMatchObject({ time: 500, price: 140 })
+    expect(preview?.anchors[1]).toMatchObject({ time: 2_000, price: 140 })
+    expect(preview?.anchors[2]).toMatchObject({ time: 2_000, price: 40 })
+    expect(preview?.anchors[3]).toMatchObject({ time: 500, price: 40 })
+  })
 })

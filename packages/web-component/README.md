@@ -2,19 +2,9 @@
 
 一个 ESM 文件，导入即注册 `<kline-chart>` 自定义元素：完整 UI 的 Vue 图表，能在没有 Vue 运行时的页面里直接使用。
 
-> 本包由 `packages/vue` 的源码构建，但独立发布：不用 Web Component 的项目不会下载这份产物。
-
-## 安装
-
-```bash
-pnpm add @363045841yyt/klinechart-web-component
-```
-
-需要脚本编辑器时再装可选依赖（AGPL-3.0，未安装时编辑器退化为纯文本）：
-
-```bash
-pnpm add @363045841yyt/klinechart-script-server
-```
+> **内部模块。** 本包由 `packages/vue` 的源码构建，随产品包
+> [`@363045841yyt/klinechart`](../vue/README.md) 交付，不单独发布；脚本编辑器与语言服务
+> （AGPL-3.0）同样在产品包内按需加载。
 
 ## 使用
 
@@ -45,4 +35,4 @@ import '@363045841yyt/klinechart-web-component'
 
 ## 许可证
 
-Apache-2.0。可选的脚本编辑器依赖 `@363045841yyt/klinechart-script-server` 为 AGPL-3.0-or-later。
+Apache-2.0。可选的脚本编辑器模块为 AGPL-3.0-or-later。

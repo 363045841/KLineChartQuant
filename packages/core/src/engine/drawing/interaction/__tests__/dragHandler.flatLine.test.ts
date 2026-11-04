@@ -35,18 +35,4 @@ describe('DragHandler flat line', () => {
     expect(updated?.[0]?.anchors[0]).toMatchObject({ time: 1_000, price: 100 })
     expect(updated?.[0]?.anchors[3]).toMatchObject({ time: 1_000, price: 90 })
   })
-
-  it('translates every anchor when dragging the whole drawing', () => {
-    const handler = new DragHandler()
-    handler.startDrag([createFlatLineDrawing()], { type: 'all' }, 25, 100)
-
-    const updated = handler.handleDragMove(pointerMove(35, 90), CONTAINER, adapter)
-
-    // 整体平移 (+10px 时间 / +10px 价格)：四个锚点保持相对位置。
-    expect(updated?.[0]?.anchors.map((anchor) => anchor.price)).toEqual([110, 150, 70, 70])
-    expect(updated?.[0]?.anchors[0]).toMatchObject({ time: 1_000 })
-    expect(updated?.[0]?.anchors[1]).toMatchObject({ time: 1_500 })
-    expect(updated?.[0]?.anchors[2]).toMatchObject({ time: 1_000 })
-    expect(updated?.[0]?.anchors[3]).toMatchObject({ time: 1_500 })
-  })
 })

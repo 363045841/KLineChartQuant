@@ -565,6 +565,101 @@ describe('projectDrawingsForFrame', () => {
       expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
     },
   )
+
+  it.each([
+    {
+      label: 'horizontal line',
+      kind: 'horizontal-line' as const,
+      anchors: [{ id: 'a', type: 'horizontal' as const, price: 30 }],
+      expected: { x: 60, y: 70 },
+    },
+    {
+      label: 'vertical line',
+      kind: 'vertical-line' as const,
+      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000, price: 40 }],
+      expected: { x: 10, y: 60 },
+    },
+  ])('projects the edge translate handle of a selected $label', ({ kind, anchors, expected }) => {
+    // 绘图区 100×100、右侧 / 下方内边距 40：手柄落在靠边位置而不是锚点自身。
+    const points = projectSingleAnchor(kind, anchors).projection.primitives.filter(
+      (primitive) =>
+        primitive.kind === 'point' && primitive.role === POINT_ROLE['translate-handle'],
+    )
+    expect(points).toEqual([expect.objectContaining({ point: expected })])
+  })
+})
+
+describe('projectDrawingsForFrame snap sources', () => {
+  /** 建一个只包含给定图元的 store。 */
+  function createStore(drawings: ReadonlyArray<DrawingObject>): DrawingStore {
+    return new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>(drawings),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+    })
+  }
+
+  function createRegistry(): DrawingDefinitionRegistry {
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    return definitions
+  }
+
+  /** 磁吸候选只认已提交层：会话覆盖是正在被拖拽、位置还会继续变的图元。 */
+  it('只有 committed 层输出可吸附线段', () => {
+    const store = createStore([
+      createDrawingObject({
+        id: 't1',
+        kind: 'trend-line',
+        anchors: [
+          { id: 'a', time: 1_000, price: 10 },
+          { id: 'b', time: 2_000, price: 20 },
+        ],
+      }),
+    ])
+    const definitions = createRegistry()
+
+    const committed = projectDrawingsForFrame(
+      store,
+      definitions,
+      createContext(),
+      null,
+      'committed',
+    )
+    expect(committed.snapLines).toHaveLength(1)
+    expect(committed.snapLines[0]!.drawingId).toBe('t1')
+
+    const session = projectDrawingsForFrame(store, definitions, createContext(), null, 'session')
+    expect(session.snapLines).toHaveLength(0)
+  })
+
+  /** 水平线段带领域价格，磁吸写回时不必经过屏幕反算。 */
+  it('水平线段的 snapLine 携带精确价格', () => {
+    const store = createStore([createFlatLineDrawing('f1')])
+    const committed = projectDrawingsForFrame(
+      store,
+      createRegistry(),
+      createContext(),
+      null,
+      'committed',
+    )
+    expect(committed.snapLines.some((line) => line.price === 5)).toBe(true)
+  })
+
+  /** 命中反馈走会话层，位置就是磁吸结果本身，不再做一次换算。 */
+  it('磁吸命中点投影为会话层圆点', () => {
+    const context = createContext()
+    const projection = projectDrawingsForFrame(
+      createStore([]),
+      createRegistry(),
+      context,
+      null,
+      'session',
+      { paneId: context.pane.id, x: 12, y: 34 },
+    )
+    expect(
+      pointPrimitives(projection.primitives).map((primitive) => primitive.point),
+    ).toContainEqual({ x: 12, y: 34 })
+  })
 })
 
 describe('projectDrawingsForFrame range culling', () => {
@@ -596,6 +691,25 @@ describe('projectDrawingsForFrame range culling', () => {
       anchors: [
         { id: 'a', type: 'point', logicalIndex: start, price: 10 },
         { id: 'b', type: 'point', logicalIndex: end, price: 20 },
+      ],
+    })
+  }
+
+  /** 四角矩形：上边价格 20、下边价格 10，左右分别落在起止索引。 */
+  function rectangleBetween(
+    start: number,
+    end: number,
+    extend?: 'left' | 'right' | 'both',
+  ): DrawingObject {
+    return createDrawingObject({
+      id: `rectangle-${start}-${end}`,
+      kind: 'rectangle',
+      extend,
+      anchors: [
+        { id: 'tl', type: 'point', logicalIndex: start, price: 20 },
+        { id: 'tr', type: 'point', logicalIndex: end, price: 20 },
+        { id: 'br', type: 'point', logicalIndex: end, price: 10 },
+        { id: 'bl', type: 'point', logicalIndex: start, price: 10 },
       ],
     })
   }
@@ -655,7 +769,7 @@ describe('projectDrawingsForFrame range culling', () => {
     },
     {
       label: 'a rectangle extending into the range',
-      drawing: drawingBetween('rectangle', 1, 2, 'right'),
+      drawing: rectangleBetween(1, 2, 'right'),
       visible: true,
     },
   ]

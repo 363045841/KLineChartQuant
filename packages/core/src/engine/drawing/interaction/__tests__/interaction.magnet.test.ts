@@ -9,7 +9,7 @@ import {
 } from '../../__tests__/helpers/drawingTestKit'
 
 describe('DrawingInteractionController magnet', () => {
-  it('weak 档下单锚点工具的落点价格收敛到最近的 high/low', () => {
+  it('weak 档下单锚点工具的落点价格收敛到最近的 OHLC 值', () => {
     const { controller, createDrawing } = createMagnetController('weak')
 
     // 点击 (12, 83)：距 high(y=80) 3px，在 weak 半径内 → 锚点价格收敛 120。
@@ -21,28 +21,33 @@ describe('DrawingInteractionController magnet', () => {
     })
   })
 
-  it('weak 档下距 high/low 超半径的落点保持原始价格', () => {
+  it('weak 档下 OHLC 全部超半径的落点保持原始价格', () => {
     const { controller, createDrawing } = createMagnetController('weak')
 
-    // 点击 (12, 101)：距 high 21px、距 low 19px，均超 8px 半径 → 价格保持 99。
-    expect(controller.onPointerDown(pointerDown(12, 101), CONTAINER)).toBe(true)
-    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
+    // 点击 (12, 70)：距最近的 high(y=80) 也有 10px，全部超 8px 半径 → 价格保持 130。
+    expect(controller.onPointerDown(pointerDown(12, 70), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 130 })
   })
 
-  it('strong 档吸附 open（weak 候选之外的值）', () => {
-    const { controller, createDrawing } = createMagnetController('strong')
+  it('weak 档同样吸附 open/close（候选集合与 strong 一致）', () => {
+    const { controller, createDrawing } = createMagnetController('weak')
 
     // 点击 (12, 101)：距 open(y=100) 1px → 价格收敛 100。
     expect(controller.onPointerDown(pointerDown(12, 101), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
   })
 
-  it('strong 档远离 OHLC 时仍收敛到最近价格', () => {
+  it('strong 档把吸附范围放大到 24px，超出仍自由落点', () => {
     const { controller, createDrawing } = createMagnetController('strong')
 
-    // y=150 距最近的 low(y=120) 30px，仍吸附到 low(price=80)。
-    expect(controller.onPointerDown(pointerDown(12, 150), CONTAINER)).toBe(true)
+    // y=140 距 low(y=120) 20px：weak 够不到，strong 仍吸附到 low(price=80)。
+    expect(controller.onPointerDown(pointerDown(12, 140), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 80 })
+
+    // y=150 距最近候选 30px，超出 strong 半径 → 保持原始价格 50。
+    createDrawing.mockClear()
+    expect(controller.onPointerDown(pointerDown(12, 150), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 50 })
   })
 
   it('Ctrl 取反：off 档临时开启为 strong 吸附（TV 语义）', () => {

@@ -14,6 +14,8 @@ import {
   type DrawingToolId,
   type DrawingWorkspaceId,
   type PersistedDrawingAnchor,
+  type SnapIndicatorValue,
+  type SnapLine,
 } from '@/engine/drawing/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import type {
@@ -110,6 +112,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       yToPrice,
       getPaneInfo,
       getPaneAtY,
+      getSnapLines,
+      getIndicatorValues,
     })
     if (placements.length === 0) return []
     chart.cancelDrawingSession()
@@ -324,6 +328,18 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return pane ? { paneId: pane.id, top: pane.top, height: pane.height } : undefined
   }
 
+  /** 当前 Pane 已提交层的图元线段，供磁吸候选；拖拽中的图元由调用方按 id 排除。 */
+  function getSnapLines(paneId: string): ReadonlyArray<SnapLine> {
+    if (isDisposed()) return []
+    return chart.getSnapLines(paneId)
+  }
+
+  /** 指定逻辑下标处该 Pane 的指标值，供磁吸候选。 */
+  function getIndicatorValues(paneId: string, barIndex: number): ReadonlyArray<SnapIndicatorValue> {
+    if (isDisposed()) return []
+    return chart.getIndicatorSnapValues(paneId, barIndex)
+  }
+
   return {
     setDrawingTool,
     setDrawingToolId,
@@ -365,5 +381,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     yToPrice,
     getPaneInfo,
     getPaneAtY,
+    getSnapLines,
+    getIndicatorValues,
   }
 }

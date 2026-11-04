@@ -69,15 +69,31 @@ describe('materializeDrawingAnchors', () => {
     expect(anchors[3]).toMatchObject({ time: 500, price: 60 })
   })
 
+  it('derives the four clockwise corners of a rectangle from its diagonal', () => {
+    const anchors = materializeDrawingAnchors(
+      'rectangle',
+      [anchor('a', 2_000, 40), anchor('b', 500, 140)],
+      createIdFactory(),
+    )
+
+    // 输入顺序与对角方向都不影响结果：左上、右上、右下、左下按时间与价格排序生成。
+    expect(anchors).toHaveLength(4)
+    expect(anchors[0]).toMatchObject({ time: 500, price: 140 })
+    expect(anchors[1]).toMatchObject({ time: 2_000, price: 140 })
+    expect(anchors[2]).toMatchObject({ time: 2_000, price: 40 })
+    expect(anchors[3]).toMatchObject({ time: 500, price: 40 })
+  })
+
   it('leaves drawings whose anchor count already matches untouched', () => {
     const anchors = [anchor('a', 500, 10), anchor('b', 1_000, 20)]
     expect(materializeDrawingAnchors('trend-line', anchors, createIdFactory())).toEqual(anchors)
   })
 
-  it('reports four persisted anchors for the composite channels', () => {
+  it('reports four persisted anchors for the composite channels and rectangle', () => {
     expect(getDrawingAnchorCount('parallel-channel')).toBe(4)
     expect(getDrawingAnchorCount('disjoint-channel')).toBe(4)
     expect(getDrawingAnchorCount('flat-line')).toBe(4)
+    expect(getDrawingAnchorCount('rectangle')).toBe(4)
     expect(getDrawingAnchorCount('trend-line')).toBe(2)
   })
 })

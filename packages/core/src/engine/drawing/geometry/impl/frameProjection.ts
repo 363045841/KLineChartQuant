@@ -4,7 +4,7 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
-import { midpoint, type Point } from '@/foundation/geometry/index.js'
+import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
   type DrawingFrameProjection,
@@ -13,6 +13,7 @@ import {
   POINT_ROLE,
   PRIMITIVE_KIND,
   type RenderContext,
+  type SnapLine,
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
@@ -23,23 +24,31 @@ import {
 } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
+import { resolveLineMidHandles } from '../../handles/impl/layout.js'
+import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
-import type { DrawingSelectionMarquee } from '../../interaction/types.js'
+import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
-import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
+import type {
+  DrawingGeometry,
+  DrawingKind,
+  DrawingObject,
+  ResolvedDrawingAnchor,
+  ResolvedDrawingObject,
+} from '../../types.js'
 import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
-import { getVerticalHandleLines } from './lines.js'
 import { drawingTimeIndex } from './timeCoordinate.js'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
   yAxisRanges: YAxisRange[]
   xAxisRanges: XAxisRange[]
+  snapLines: SnapLine[]
 }
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
@@ -110,10 +119,18 @@ function resolveDrawingStyle(style: DrawingStyle, resolve: ScriptColorResolver):
   }
 }
 
-/** 锚点只在选中态可见：未选中的图元不画线段端点，也不投影锚点点图元。 */
+/** 手柄点：锚点圆点与线段平移方块，两者都只在选中态可见。 */
+function isHandlePoint(primitive: DrawingPrimitive): boolean {
+  return (
+    primitive.kind === PRIMITIVE_KIND.point &&
+    (primitive.role === POINT_ROLE.anchor || primitive.role === POINT_ROLE['translate-handle'])
+  )
+}
+
+/** 锚点只在选中态可见：未选中的图元不画线段端点，也不投影任何手柄点。 */
 function withoutAnchorVisuals(primitive: DrawingPrimitive): DrawingPrimitive | null {
   if (primitive.kind === PRIMITIVE_KIND.line) return { ...primitive, showEndpoints: false }
-  if (primitive.kind === PRIMITIVE_KIND.point && primitive.role === POINT_ROLE.anchor) return null
+  if (isHandlePoint(primitive)) return null
   return primitive
 }
 
@@ -147,28 +164,23 @@ function applySelectedStyle(
 }
 
 /**
- * 选中图元的线段中点垂直手柄：与锚点同色、同半径的点图元，形状由绘制侧决定。
+ * 选中图元的线段中点手柄：位置由手柄布局统一解析，这里只负责转成绘制原语。
+ * 与锚点同色、同半径，形状由绘制侧决定。
  * @param drawing 已解析到当前帧的图元
- * @param toScreen 锚点 → 屏幕坐标（与图元绘制同一映射）
+ * @param port 帧投影端口（锚点投影 + 本帧 Pane 边界）
  */
-function projectVerticalHandles(
+function projectLineMidHandlePrimitives(
   drawing: ResolvedDrawingObject,
-  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  port: DrawingHandlePort<ResolvedDrawingAnchor>,
 ): DrawingPrimitive[] {
-  const handles: DrawingPrimitive[] = []
-  for (const line of getVerticalHandleLines(drawing.kind)) {
-    const from = drawing.anchors[line.from]
-    const to = drawing.anchors[line.to]
-    // 锚点缺失（导入的残缺图元）时不出手柄，避免把手柄画到错误的线上。
-    if (!from || !to) continue
-    handles.push({
+  return resolveLineMidHandles(drawing, port).map(
+    (handle): DrawingPrimitive => ({
       kind: PRIMITIVE_KIND.point,
       role: POINT_ROLE['translate-handle'],
-      point: midpoint(toScreen(from), toScreen(to)),
+      point: handle.point,
       style: { stroke: drawing.style.stroke },
-    })
-  }
-  return handles
+    }),
+  )
 }
 
 /** 将持久化文本附加到对应线段；锚点、旋转、对齐与基线由渲染器和热点共用同一约定。 */
@@ -309,6 +321,114 @@ function projectAxisDecorations(
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
 }
 
+/** 单帧投影的共享状态；把长参数表收敛成一份，避免辅助函数逐个透传。 */
+interface FrameProjectionState {
+  readonly definitions: DrawingDefinitionRegistry
+  readonly context: RenderContext
+  readonly selectedIds: ReadonlySet<string>
+  readonly toScreen: (anchor: ResolvedDrawingAnchor) => Point
+  readonly handlePort: DrawingHandlePort<ResolvedDrawingAnchor>
+  readonly themeColors: ReturnType<typeof resolveThemeColors>
+  readonly resolveColor: ScriptColorResolver
+  readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
+  readonly handlePrimitives: DrawingPrimitive[]
+  readonly output: MutableDrawingFrameProjection
+  readonly visibleData: KLineData[]
+  readonly seriesData: KLineData[]
+}
+
+/** 帧投影端口：锚点经本帧快照投影，边界取本帧 Pane 尺寸；单轴锚点保留单轴语义。 */
+function createHandlePort(
+  context: RenderContext,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+): DrawingHandlePort<ResolvedDrawingAnchor> {
+  return {
+    bounds: { plotWidth: context.viewport.plotWidth, paneHeight: context.pane.height },
+    projectAnchor: (anchor) => {
+      const point = toScreen(anchor)
+      if (anchor.type === 'horizontal') return { type: 'horizontal', y: point.y }
+      if (anchor.type === 'vertical') return { type: 'vertical', x: point.x }
+      return { type: 'point', x: point.x, y: point.y }
+    },
+  }
+}
+
+/** 已提交层线段的磁吸候选；会话覆盖不进入候选，拖拽中的图元吸自己会形成反馈回路。 */
+function collectSnapLines(
+  state: FrameProjectionState,
+  drawing: ResolvedDrawingObject,
+  geometry: DrawingGeometry,
+): void {
+  for (const primitive of geometry.primitives) {
+    if (primitive.kind !== PRIMITIVE_KIND.line) continue
+    state.output.snapLines.push({
+      drawingId: drawing.id,
+      a: primitive.a,
+      b: primitive.b,
+      ...horizontalPrice(
+        drawing,
+        geometry.computedAnchors ?? [],
+        state.toScreen,
+        primitive.a,
+        primitive.b,
+      ),
+    })
+  }
+}
+
+/** 投影单个图元；视口外或几何不可解析的图元直接跳过。 */
+function projectStoredDrawing(
+  state: FrameProjectionState,
+  storedDrawing: DrawingObject,
+  scope: DrawingPaintScope,
+): void {
+  const { context, definitions } = state
+  const frameDrawing = resolveDrawingForFrame(
+    storedDrawing,
+    state.getLogicalIndexAtTimestamp,
+    context,
+  )
+  // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
+  const drawing: ResolvedDrawingObject = {
+    ...frameDrawing,
+    style: resolveDrawingStyle(frameDrawing.style, state.resolveColor),
+  }
+  if (!hasResolvableTimeAnchors(drawing)) return
+  // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
+  if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) return
+  const geometry = definitions.compute(drawing, {
+    pane: context.pane,
+    visibleData: state.visibleData,
+    seriesData: state.seriesData,
+    range: context.range,
+    kLinePositions: context.kLinePositions,
+    kLineCenters: context.kLineCenters,
+    kBarRects: context.kBarRects,
+    kWidth: context.kWidth,
+    kGap: context.kGap,
+    dpr: context.dpr,
+    paneWidth: context.paneWidth,
+    viewport: context.viewport,
+    toScreen: state.toScreen,
+  })
+  if (!geometry) return
+  if (scope === 'committed') collectSnapLines(state, drawing, geometry)
+  const isSelected = isDrawingInteractive(drawing) && state.selectedIds.has(drawing.id)
+  const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
+  state.output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
+  if (!isSelected) return
+  state.handlePrimitives.push(...projectLineMidHandlePrimitives(drawing, state.handlePort))
+  projectAxisDecorations(
+    drawing.kind,
+    [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
+    drawing.style,
+    state.themeColors.label.text,
+    context,
+    state.toScreen,
+    state.output,
+  )
+}
+
 /** 按 scope 投影当前 Pane 图元并收集轴标签；先按可见索引区间裁掉视口外图元。 */
 export function projectDrawingsForFrame(
   store: DrawingStore,
@@ -316,72 +436,87 @@ export function projectDrawingsForFrame(
   context: RenderContext,
   selectionMarquee: DrawingSelectionMarquee | null = null,
   scope: DrawingPaintScope = 'all',
+  snapIndicator: DrawingSnapIndicator | null = null,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
     yAxisRanges: [],
     xAxisRanges: [],
+    snapLines: [],
   }
-  const selectedIds = new Set(store.getSelectedIds())
-  // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
-  const handlePrimitives: DrawingPrimitive[] = []
   const seriesData = context.data as KLineData[]
-  const visibleData = seriesData.slice(context.range.start, context.range.end)
-  // 锚点索引由活动 Buffer 的时间索引解析，RenderContext 已保证解析器存在。
-  const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp
   const toScreen = createToScreen(context)
-  const workspaceId = resolveChartWorkspaceId(context.dataView)
   const themeColors = resolveThemeColors(
     context.theme,
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  const resolveColor = createScriptColorResolver(themeColors)
-  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
-    const frameDrawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
-    // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
-    const drawing: ResolvedDrawingObject = {
-      ...frameDrawing,
-      style: resolveDrawingStyle(frameDrawing.style, resolveColor),
-    }
-    if (!hasResolvableTimeAnchors(drawing)) continue
-    // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
-    if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) continue
-    const geometry = definitions.compute(drawing, {
-      pane: context.pane,
-      visibleData,
-      seriesData,
-      range: context.range,
-      kLinePositions: context.kLinePositions,
-      kLineCenters: context.kLineCenters,
-      kBarRects: context.kBarRects,
-      kWidth: context.kWidth,
-      kGap: context.kGap,
-      dpr: context.dpr,
-      paneWidth: context.paneWidth,
-      viewport: context.viewport,
-      toScreen,
-    })
-    if (!geometry) continue
-    const isSelected = isDrawingInteractive(drawing) && selectedIds.has(drawing.id)
-    const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
-    output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
-    if (isSelected) {
-      handlePrimitives.push(...projectVerticalHandles(drawing, toScreen))
-      projectAxisDecorations(
-        drawing.kind,
-        [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
-        drawing.style,
-        themeColors.label.text,
-        context,
-        toScreen,
-        output,
-      )
-    }
+  const state: FrameProjectionState = {
+    definitions,
+    context,
+    selectedIds: new Set(store.getSelectedIds()),
+    toScreen,
+    handlePort: createHandlePort(context, toScreen),
+    themeColors,
+    resolveColor: createScriptColorResolver(themeColors),
+    getLogicalIndexAtTimestamp: context.getLogicalIndexAtTimestamp,
+    // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
+    handlePrimitives: [],
+    output,
+    visibleData: seriesData.slice(context.range.start, context.range.end),
+    seriesData,
   }
-  output.primitives.push(...handlePrimitives)
+  const workspaceId = resolveChartWorkspaceId(context.dataView)
+  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
+    projectStoredDrawing(state, storedDrawing, scope)
+  }
+  output.primitives.push(...state.handlePrimitives)
   if (selectionMarquee?.paneId === context.pane.id) {
     output.primitives.push(...createSelectionMarqueePrimitives(selectionMarquee, themeColors))
   }
+  if (snapIndicator?.paneId === context.pane.id) {
+    output.primitives.push(createSnapIndicatorPrimitive(snapIndicator, themeColors.selectionStroke))
+  }
   return output
+}
+
+/**
+ * 水平线段的精确价格：找出投影 Y 与该线段相同的锚点，直接取它的领域价格。
+ *
+ * 这样吸附到水平线时写回的是原值，而不是 `yToPrice(priceToY(price))` 的浮点回环。
+ * 非水平线段没有单一价格，不产出该字段。
+ */
+function horizontalPrice(
+  drawing: ResolvedDrawingObject,
+  computedAnchors: ReadonlyArray<ResolvedDrawingAnchor>,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  a: Point,
+  b: Point,
+): Partial<Pick<SnapLine, 'price'>> {
+  if (Math.abs(a.y - b.y) > HORIZONTAL_EPSILON) return {}
+  for (const anchor of [...drawing.anchors, ...computedAnchors]) {
+    if (Math.abs(toScreen(anchor).y - a.y) > HORIZONTAL_EPSILON) continue
+    return { price: anchor.price }
+  }
+  return {}
+}
+
+/** 判定「同一水平位置」的半像素容差。 */
+const HORIZONTAL_EPSILON = 0.5
+
+/**
+ * 磁吸命中指示：命中点上的一枚空心圆点。
+ *
+ * 复用 point 原语的锚点形状（底色挖空 + 描边），颜色取交互标记 Token，
+ * 因此明暗主题与配色预设自动跟随，不需要单独维护一套颜色。
+ */
+function createSnapIndicatorPrimitive(
+  indicator: DrawingSnapIndicator,
+  color: string,
+): DrawingPrimitive {
+  return {
+    kind: PRIMITIVE_KIND.point,
+    point: { x: indicator.x, y: indicator.y },
+    style: { stroke: color },
+  }
 }

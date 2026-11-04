@@ -13,7 +13,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-candle-down-border: #f23645;
   --klc-color-candle-down-wick: #f23645;
   --klc-color-candle-doji-border: #8A8F98;
-  --klc-color-performance-positive: #22D69B;
+  --klc-color-performance-positive: #22AB94;
   --klc-color-performance-negative: #FF6464;
   --klc-color-performance-neutral: #9AA0A6;
   --klc-color-volume-up: #22D69B66;
@@ -228,7 +228,7 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | tooltipText | #DCE0E8 | tooltipBg | 13.14 | 4.5:1 | ✅ |
 | candleUpBody | #089981 | background | 5.07 | 3.0:1 | ✅ |
 | candleDownBody | #f23645 | background | 4.64 | 3.0:1 | ✅ |
-| performancePositive | #22D69B | background | 9.61 | 4.5:1 | ✅ |
+| performancePositive | #22AB94 | background | 6.31 | 4.5:1 | ✅ |
 | performanceNegative | #FF6464 | background | 6.25 | 4.5:1 | ✅ |
 | performanceNeutral | #9AA0A6 | background | 6.85 | 4.5:1 | ✅ |
 | candleDojiBorder | #8A8F98 | background | 5.57 | 3.0:1 | ✅ |

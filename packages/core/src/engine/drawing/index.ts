@@ -25,10 +25,11 @@ export type {
   DrawingLine,
   DrawingPointerAnchor,
   InteractionDrawingAnchor,
+  LineHandle,
+  LineHandleAxis,
   PointerCoordinates,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
-  VerticalHandleLine,
 } from './geometry/types.js'
 
 export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
@@ -43,6 +44,7 @@ export type {
   DragFollow,
   DrawingDragTarget,
   DrawingSelectionMarquee,
+  DrawingSnapIndicator,
   DrawingToolId,
   HitResult,
   LineLabelTarget,
@@ -54,9 +56,18 @@ export {
   DrawingTool,
 } from './interaction/types.js'
 
-export { MAGNET_RADIUS_WEAK, snapPointerToOhlc } from './magnet/impl/magnetSnapper.js'
-export type { ActiveMagnetMode, MagnetSnapConfig, SnappedPoint } from './magnet/types.js'
-export { MagnetMode } from './magnet/types.js'
+export { snapPointer } from './magnet/impl/snapPointer.js'
+export type {
+  ActiveMagnetMode,
+  MagnetSnapConfig,
+  MagnetSnapSources,
+  SnapCandidate,
+  SnapIndicatorValue,
+  SnapLine,
+  SnapResult,
+  SnapSource,
+} from './magnet/types.js'
+export { MAGNET_RADIUS_STRONG, MAGNET_RADIUS_WEAK, MagnetMode } from './magnet/types.js'
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'

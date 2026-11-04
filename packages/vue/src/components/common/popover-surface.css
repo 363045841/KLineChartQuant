@@ -1,0 +1,13 @@
+/* 浮层面板表面：边框、圆角、底色、文字色与阴影；下拉菜单与自选面板共用。 */
+.popover-surface {
+  border: 0;
+  border-radius: var(--klc-radius-md, 8px);
+  background: var(--klc-color-ui-input);
+  color: var(--klc-color-ui-text);
+  box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
+}
+
+/* 面板纵向滚动；横向溢出由各面板自行决定。 */
+.popover-surface--scroll {
+  overflow-y: auto;
+}

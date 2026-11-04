@@ -40,13 +40,20 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
       extend: 'right',
       anchors: [
         { logicalIndex: 0, price: 20 },
+        { logicalIndex: 2, price: 20 },
         { logicalIndex: 2, price: 10 },
+        { logicalIndex: 0, price: 10 },
       ],
       style: { strokeWidth: 0, fillOpacity: 1 },
       text: { value: 'FVG' },
     })
     expect(result.drawings?.[1]).toMatchObject({
-      anchors: [{ price: 25 }, { logicalIndex: 1 }],
+      anchors: [
+        { logicalIndex: 0, price: 25 },
+        { logicalIndex: 1, price: 25 },
+        { logicalIndex: 1, price: 10 },
+        { logicalIndex: 0, price: 10 },
+      ],
       text: { value: 'copy' },
     })
     expect(result.drawings?.[2]).toMatchObject({
@@ -141,7 +148,9 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
       xloc: 'bar_index',
       anchors: [
         { logicalIndex: 0, price: 20 },
+        { logicalIndex: 3, price: 20 },
         { logicalIndex: 3, price: 5 },
+        { logicalIndex: 0, price: 5 },
       ],
     })
     expect(result.drawings?.[1]?.anchors[0]?.price).toBeNaN()
@@ -176,7 +185,9 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     expect(rectangles).toHaveLength(1)
     expect(rectangles[0]?.anchors).toMatchObject([
       { logicalIndex: 0, price: 12.5 },
+      { logicalIndex: 4, price: 12.5 },
       { logicalIndex: 4, price: 11.5 },
+      { logicalIndex: 0, price: 11.5 },
     ])
     const lines = result.drawings!.filter((drawing) => drawing.kind === 'trend-line')
     expect(lines.map((drawing) => drawing.anchors[0]!.price)).toEqual([12, 11.5, 12.5])
@@ -192,7 +203,9 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     expect(partial.drawings).toHaveLength(1)
     expect(partial.drawings?.[0]?.anchors).toMatchObject([
       { logicalIndex: 0, price: 13 },
+      { logicalIndex: 3, price: 13 },
       { logicalIndex: 3, price: 11 },
+      { logicalIndex: 0, price: 11 },
     ])
     expect((await run(source, bars, { showOB: false })).drawings).toEqual([])
     const retained = await run(source, bars, { showOB: false, keepMitigated: true })
@@ -223,7 +236,9 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
       text: { value: 'OB' },
       anchors: [
         { logicalIndex: 2, price: 12 },
+        { logicalIndex: 3, price: 12 },
         { logicalIndex: 3, price: 10 },
+        { logicalIndex: 2, price: 10 },
       ],
     })
   })

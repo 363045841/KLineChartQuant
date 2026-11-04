@@ -1,49 +1,53 @@
-# magnet — OHLC 磁吸
+# magnet — 绘图磁吸
 
-`engine/drawing/magnet/` 承载绘图磁吸：把指针屏幕坐标吸附到最近 K 线的 OHLC 价格与 Bar 中心。
-对外契约在 `types.ts`，实现在 `impl/`。
+`engine/drawing/magnet/` 承载绘图磁吸：把指针落点吸附到 OHLC、图元的线与指标值。
+对外契约在 `types.ts`，实现在 `impl/`。设计决策见
+`docs/design/drawing/magnet-candidates.md`。
 
 ## 模块边界
 
 本目录负责：
 
-- 磁吸档位契约：`MagnetMode`（off/weak/strong）、生效档位 `ActiveMagnetMode` 与配置 `MagnetSnapConfig`。
-- 纯函数 `snapPointerToOhlc`：weak 在 8px 内吸 high/low，strong 无距离门槛地吸最近 OHLC；Bar 中心可解析时吸附 X。
+- 档位契约：`MagnetMode`（off/weak/strong）、`ActiveMagnetMode`、`MagnetSnapConfig`。
+- 候选契约：`SnapCandidate`、`SnapLine`、`SnapSource`、`SnapIndicatorValue`。
+- 纯函数 `snapPointer`：采集候选 → 按屏幕距离选择 → 生成落点。
 
 本目录不负责：
 
-- 磁吸档位的会话状态与修饰键（Ctrl/Meta/Shift）分发：属 `interaction/`（`DrawingInteractionController`）。
-- 落点解析与坐标换算：属 `geometry/`（`resolveDrawingPointer` 以可选 `magnet` 配置调用本模块）。
+- 档位会话状态与修饰键（Ctrl/Meta/Shift）分发：属 `interaction/`。
+- 候选数据来源：`getSnapLines` / `getIndicatorValues` 由适配器提供，磁吸只读。
 - 命中、框选、标签等只读路径：不得传入磁吸配置，否则范围会随吸附漂移。
 
 ## 档位语义
 
-| 档位 | 候选价格 | Y 吸附半径 | X 行为 |
-|------|----------|-----------|--------|
-| off  | —        | —         | 不吸附 |
-| weak | high/low | 8px       | Bar 中心可解析时吸附到中心 |
-| strong | high/low/open/close | 无距离门槛，始终吸最近价格 | 同上 |
+| 档位 | 候选 | 半径 | X 行为 |
+|------|------|------|--------|
+| off  | — | — | 不吸附 |
+| weak | OHLC 四值 + 图元线 + 指标值 | 8px | 命中时间锚点用其 X，否则落 Bar 中心 |
+| strong | 同上 | 24px | 同上 |
 
-- X 吸附与 Y 是否命中无关：只要 `getXAtLogicalIndex(barIndex)` 非 null，X 即改写为 Bar 中心；同一 Bar 内点击因此解析出同一时间戳，差异仅在 Bar 边界半个 Bar 宽内。
-- 候选遍历顺序 `[high, low, open, close]`，距离用 `<=` 比较——同距离时后遍历者胜出。
-- Bar 中心不可解析且 Y 无命中（完全无吸附点）时 `snapPointerToOhlc` 返回 null，调用方使用原始坐标。
+- 两个档位的候选集合相同，只有半径不同——strong 是「够得着的范围更大」，不是无限吸附。
 
-档位是会话级交互配置，不属于 StateKernel（不持久化、不派生状态、不驱动 effect）；生效档位与修饰键分发在 `interaction/`。
+- 距离按候选语义取：点候选二维，值线只比 Y，时间锚点只比 X。
+- 同距离先比来源优先级（图元线 / 指标值优先于 OHLC），再比候选 id。
+- 全部坐标是 Pane 局部逻辑像素；本模块不读写 `pane.top`。
 
 ## 目录结构
 
 ```text
 magnet/
-├── types.ts                # 磁吸档位、配置与吸附结果契约
+├── types.ts              # 档位、候选、候选源与结果契约
+├── README.md             # 本文
 └── impl/
-    └── magnetSnapper.ts    # snapPointerToOhlc 纯函数与吸附半径常量
+    └── snapPointer.ts    # 采集 / 选择 / 应用三段纯函数
 ```
 
 ## 依赖
 
-- `@/controllers/types.js`：`DrawingViewportPort`、`PaneLayoutInfo`（坐标/索引换算与 OHLC 数据）。
+- `@/controllers/types.js`：`DrawingViewportPort`、`PaneLayoutInfo`（坐标与 OHLC）。
+- `@/foundation/plugin`：`SnapLine`（帧投影产出的可吸附线段）。
 
 ## 约定
 
-- 实现保持纯函数、无状态，仅经 `resolveDrawingPointer` 的可选 `magnet` 参数在落点/预览路径生效。
-- 磁吸只作用于落点与预览路径；命中、框选、标签等只读路径不得开启磁吸。
+- 保持纯函数、无状态，仅经 `resolveDrawingPointer` 的可选 `magnet` 参数生效。
+- 候选必须来自**已提交层**：拖拽中的图元由调用方按 id 排除。

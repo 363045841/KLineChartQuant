@@ -24,29 +24,42 @@ X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签
 
 ## 组合图元锚点物化
 
-组合图元（`parallel-channel`、`flat-line`、`disjoint-channel`）在创建时把派生点一次性物化为持久化锚点，之后只持久化坐标；渲染、命中、拖拽一律只读 `anchors`。拖拽跟随规则由命中目标与拖拽策略声明，不进入持久化模型。
+组合图元（`parallel-channel`、`flat-line`、`disjoint-channel`、`rectangle`）在创建时把派生点一次性物化为持久化锚点，之后只持久化坐标；渲染、命中、拖拽一律只读 `anchors`。拖拽跟随规则由命中目标与拖拽策略声明，不进入持久化模型。
 
 ### 物化
 
-- 锚点数量：`getDrawingInputAnchorCount(kind)` 是用户输入数（1 / 2 / 3），`getDrawingAnchorCount(kind)` 是补齐后的持久化数（组合图元为 4）。
+- 锚点数量：`getDrawingInputAnchorCount(kind)` 是用户输入数（1 / 2 / 3），`getDrawingAnchorCount(kind)` 是补齐后的持久化数（通道与矩形为 4）。
 - `materializeDrawingAnchors(kind, anchors, createAnchorId)` 把输入补齐。第三个输入锚点只提供价格，时间被忽略：派生点复制首两点的时间坐标，因此不依赖时间轴能力，也没有派生索引越界的失败路径。
   - `parallel-channel`：两条线跨越同样的首两点时间，斜率相同。第 3 点取次点时间 + 第三个输入价格（光标落在次点时间槽上跟手）；第 2 点取首点时间，价格 = `third.price − (second.price − first.price)`。
   - `disjoint-channel`：两条线跨越同样的首两点时间，斜率互为相反数。第 2 点取次点时间 + 第三个输入价格；第 3 点取首点时间，价格 = `third.price + (second.price − first.price)`。
   - `flat-line`：两个水平端点分别落在首两点的时间上，价格同取第三个输入价格。
+  - `rectangle`：两个对角输入补齐为顺时针四角（左上、右上、右下、左下）。时间取两输入点的较小 / 较大者，价格取较大 / 较小者，因此两个对角点谁先谁后都不影响结果；四角顺序与 `LINES` 的四条边、`FILL_ANCHOR_ORDERS` 的环绕顺序一致。输入仍是两次点击，脚本 `box` 在创建时也直接产出四角，模型里不存在「两锚点矩形」。
 - 同 X 配对：`parallel-channel` / `flat-line` 为 `0↔2`、`1↔3`；`disjoint-channel` 为 `0↔3`、`1↔2`——它的第 2 点是第二条线的右端、第 3 点是左端，由「第二条线端点 = 首两点时间 + 负斜率」唯一确定，不是 `flat-line` 的左右同价平移。
-- 导入的旧 3 锚点快照在 `replaceDrawings` 时走同一函数补齐。
+- 导入的旧 3 锚点快照在 `replaceDrawings` 时走同一函数补齐；旧的两锚点矩形同样在此补齐为四角。
 
 ### 帧内消费
 
-绘图定义直接读 4 个持久化锚点，线段按 `[0, 1]` 与 `[2, 3]` 成对构成，不再按 kind 推导。只有 `regression-channel` 保留 `computedAnchors`：端点是数据拟合结果，无固定坐标可持久化，命中时映射回两个范围锚点。
+绘图定义直接读 4 个持久化锚点，线段由线表（`geometry/impl/lines.ts`）声明的锚点对构成，不再按 kind 推导。`rectangle` 的四条边同样来自线表，`extend` 只延长上下两边、不封口竖边。只有 `regression-channel` 保留 `computedAnchors`：端点是数据拟合结果，无固定坐标可持久化，命中时映射回两个范围锚点。
 
 `parallel-channel` 额外在同 X 端点的中点连线上画一条虚线中线（`showEndpoints: false`），观感对齐 `regression-channel` 的中间回归线；中线纯装饰，不参与锚点、命中与拖拽。
 
 ### 命中
 
-命中目标只有 `{ type: 'anchor', index }`（锚点）与 `{ type: 'all' }`（图元主体）两种。`HitTester` 的锚点命中天然覆盖全部持久化锚点，第 4 点因此可拖；线段与填充都属于「图元主体」，不存在「拖某条边只动这条线」的中间形态。
+命中目标有三种：`{ type: 'anchor', index }`（锚点）、`{ type: 'line-handle', lineIndex }`（线中点手柄）、`{ type: 'all' }`（图元主体）。锚点命中覆盖全部持久化锚点；线段与填充都属于「图元主体」。
 
-填充命中只覆盖三个组合图元：填充多边形顶点顺序由 `fillRegions.ts` 的唯一一张表声明，绘制（`createXxxDefinition` 的 `area`）与命中（点在多边形内判定）共用同一份顺序，不会各自漂移。不相交通道第二条线方向相反，环绕顺序与另两者不同，单独登记。命中优先级为锚点 > 中点手柄 > 线段 > 填充；矩形与回归通道的填充不由四个持久化锚点直接构成，仍按线段命中。
+填充命中覆盖四个四锚点图元：填充多边形顶点顺序由 `fillRegions.ts` 的唯一一张表声明，绘制（`createXxxDefinition` 的 `area`）与命中（点在多边形内判定）共用同一份顺序，不会各自漂移。不相交通道第二条线方向相反，环绕顺序与另两者不同，单独登记。命中优先级为锚点 > 中点手柄 > 线段 > 填充；回归通道的填充仍由线段构成，不登记环绕顺序。
+
+### 中点手柄
+
+中点手柄是派生量：位置取线表锚点对的中点，每次投影现算，不持久化。线表为每条线声明 `handle` 轴：
+
+- `price`：上下平移这条线（通道两条线、矩形上下边），光标 `ns-resize`。
+- `time`：左右平移这条线（矩形左右边），光标 `ew-resize`。
+- `null`：这条线不出手柄。
+
+命中、绘制、拖动都读同一个 `resolveLineHandle(kind, lineIndex)`，`DragHandler` 只按轴换算增量（价格增量 / 屏幕 X 位移），不认识 kind。手柄只在图元被选中时出现并参与命中。
+
+计算出来的几何（`regression-channel` 的上下轨）没有中点手柄：手柄 = 位置 + 写回目标，而拟合轨道没有可写的持久化锚点，改宽度属于参数（属性面板），不是画布手势。
 
 ### 拖拽策略
 
@@ -56,11 +69,12 @@ X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签
   - `parallel-channel`：端点按角色跨线成对（`0/2` 左端、`1/3` 右端）。拖任一端点时，另一条线上的同角色端点按同一位移跟随，剩下两点固定，两条线向量始终相同。
   - `flat-line`：`0/1` 斜线、`2/3` 水平线。同侧共享 X、水平线两端共享价格。拖斜线端点时水平线同侧端点只跟时间；拖水平线端点时斜线同侧端点只跟时间（`follow: { time: 1, price: 0 }`）、水平线另一端只跟价格（`follow: { time: 0, price: 1 }`）。
   - `disjoint-channel`：同 X 伙伴时间同向、价格反向（`follow: { time: 1, price: -1 }`），剩下两点固定；创建期不变量（`x(0) = x(3)`、`x(1) = x(2)`、`p(2) − p(3) = −(p(1) − p(0))`）在点拖与整体拖拽后都成立。
+  - `rectangle`：拖一个角时，同横边的对角保持 X、跟随价格（`follow: { time: 0, price: 1 }`），同竖边的对角保持价格、跟随 X（`follow: { time: 1, price: 0 }`），对角点固定，矩形始终保持轴对齐。
   - `regression-channel`：不做拖拽策略，命中映射回范围锚点后走缺省行为。
 
 ## 交易日解析错误码
 
-`findAnchorAtTradingDate` 过去返回 `{ timestamp } | null`，`null` 同时代表三种互斥原因，Agent 收到后无法判断该改什么。本次把解析结果改成可判别联合，并按原因抛不同错误码。
+`findAnchorAtTradingDate` 返回可判别联合，并按原因抛不同错误码；不再用 `null` 同时表示范围外、非交易日与能力缺失。
 
 | 原因 | 语义 | 可自纠的修正 |
 | --- | --- | --- |
@@ -92,6 +106,6 @@ export type AnchorTradingDateResolution =
 
 `DRAWING_ANCHOR_NOT_FOUND` 保留给时间戳锚点路径（`getLogicalIndexAtTimestamp` 未命中已加载 bar），语义收窄为「时间戳不可达」。
 
-Agent 层 `drawingCreateFailure` 按新错误码返回各自的 `code` / `expected` / `recovery`，其中范围外与范围值直接带出 `earliest`、`latest`——修正所需信息随失败一起返回，不再要求模型去猜已加载范围。
+Agent 层 `drawingCreateFailure` 按错误码返回各自的 `code` / `expected` / `recovery`；范围外与范围值直接带出 `earliest`、`latest`，修正所需信息随失败一起返回。
 
-边界：不注入全量交易日（范围边界只有两个值，token 恒定）；不把「日期在范围内但无 bar」的判定改为吸附（吸附会改变用户意图，属独立产品决策）；日内周期下「日期命中多根 bar」目前静默取首根，属行为问题另行决策。
+边界：不注入全量交易日；不把「日期在范围内但无 bar」改为吸附（会改变用户意图）；日内周期下日期命中多根 bar 目前取首根。

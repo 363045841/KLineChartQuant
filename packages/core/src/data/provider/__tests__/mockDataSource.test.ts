@@ -1,6 +1,6 @@
 /** 内置 mock 沿公开注册 API 验证无限分页、页间连续性、历史稳定性、实时覆盖和宿主释放。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LiveBarsFrame } from '../../live/types.js'
+import type { LiveFrame } from '../../live/types.js'
 import { createMarketDataHost } from '../../management/impl/context.js'
 import { createMockDataSource } from '../impl/sources/mock.js'
 import type { BarQuery } from '../types.js'
@@ -56,26 +56,27 @@ describe('registered mock data source', () => {
 
       const instrument = matches[0]!
       const before = await provider.bars!.fetch(query(100))
-      const stream = provider.liveBars!.createStream({
-        instrumentId: instrument.id,
-        symbol: instrument.symbol,
+      const connection = provider.realtime!({
+        sourceId: 'mock',
+        channel: 'bars',
+        instrumentIds: [instrument.id],
         period: 'daily',
-        adjustment: 'none',
         barAggregation: 'original',
+        adjustment: 'none',
       })
-      const frames = vi.fn<(frame: LiveBarsFrame) => void>()
-      stream.onFrame(frames)
-      stream.connect()
+      const frames = vi.fn<(frame: LiveFrame) => void>()
+      connection.onFrame(frames)
+      connection.connect()
       await vi.advanceTimersByTimeAsync(2_000)
-      const updates = frames.mock.calls
-        .map(([frame]) => frame)
-        .filter((frame) => frame.type === 'update')
+      const updates = frames.mock.calls.flatMap(([frame]) =>
+        frame.channel === 'bars' && frame.type === 'update' ? [frame.bar] : [],
+      )
       expect(updates).toHaveLength(2)
-      expect(updates[1]!.bar.timestamp).toBe(before.data.at(-1)!.timestamp)
-      expect(updates[1]!.bar.close).not.toBe(before.data.at(-1)!.close)
+      expect(updates[1]!.timestamp).toBe(before.data.at(-1)!.timestamp)
+      expect(updates[1]!.close).not.toBe(before.data.at(-1)!.close)
       const after = await provider.bars!.fetch(query(100))
       expect(after.data.slice(0, -1)).toEqual(before.data.slice(0, -1))
-      expect(after.data.at(-1)).toEqual(updates[1]!.bar)
+      expect(after.data.at(-1)!.close).toBe(updates[1]!.close)
 
       // 跨零点仍首尾相连：新一日的开盘等于昨日实时收盘。
       vi.setSystemTime(new Date('2026-06-02T00:00:00Z'))

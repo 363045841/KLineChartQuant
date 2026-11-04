@@ -1,29 +1,31 @@
-/** DragHandler 磁吸单测：锚点拖拽随指针吸附 OHLC，整线拖拽不受磁吸影响。 */
+/**
+ * DragHandler 磁吸单测：锚点拖拽按候选收敛，整线拖拽保持位移语义，
+ * 并且本次拖拽的图元不进入候选（否则会吸到自己）。
+ */
 import { describe, expect, it } from 'vitest'
 
 import {
   CONTAINER,
   createAnchorDragDrawing,
   createMagnetAdapter,
+  createMagnetConfig,
   pointerMove,
 } from '../../__tests__/helpers/drawingTestKit'
 import { DragHandler } from '../impl/DragHandler'
 
 describe('DragHandler magnet', () => {
-  it('锚点拖拽：strong 磁吸把被拖锚点收敛到 OHLC 与 Bar 中心', () => {
+  it('锚点拖拽：strong 把落点收敛到 OHLC 与 Bar 中心', () => {
     const { adapter } = createMagnetAdapter()
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
 
-    // 指针 (12, 83)：strong 吸最近的 high(y=80) → 价格收敛 120；X 吸 Bar 中心 15（时间 1000）。
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter, {
-      magnet: { mode: 'strong' },
+      magnet: createMagnetConfig('strong'),
     })
-    expect(updated).toHaveLength(1)
     expect(updated![0]!.anchors[0]).toMatchObject({ time: 1000, price: 120 })
   })
 
-  it('锚点拖拽：不传磁吸时锚点保持原始指针落点', () => {
+  it('锚点拖拽：不传磁吸时保持原始指针落点', () => {
     const { adapter } = createMagnetAdapter()
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'anchor', index: 0 }, 15, 90)
@@ -37,11 +39,24 @@ describe('DragHandler magnet', () => {
     const handler = new DragHandler()
     handler.startDrag([createAnchorDragDrawing()], { type: 'all' }, 15, 90)
 
-    // 指针 (12, 83) 若被磁吸改写为 (15, 80)，锚点会收敛到价格 120；
-    // 增量语义下应随位移 (-3, -7) 到 (12, 83)，价格 117。
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter, {
-      magnet: { mode: 'strong' },
+      magnet: createMagnetConfig('strong'),
     })
     expect(updated![0]!.anchors[0]).toMatchObject({ time: 1000, price: 117 })
+  })
+
+  it('拖拽中的图元被排除在候选之外', () => {
+    const { adapter } = createMagnetAdapter()
+    const drawing = createAnchorDragDrawing()
+    const handler = new DragHandler()
+    handler.startDrag([drawing], { type: 'anchor', index: 0 }, 15, 90)
+
+    const lines = [{ drawingId: drawing.id, a: { x: 0, y: 60 }, b: { x: 100, y: 60 } }]
+    const updated = handler.handleDragMove(pointerMove(12, 62), CONTAINER, adapter, {
+      magnet: createMagnetConfig('weak', { lines }),
+    })
+    // 自身线被排除后没有命中候选：价格回到指针落点，而不是 140。
+    expect(updated![0]!.anchors[0]!.price).toBe(138)
+    expect(handler.getSnapIndicator()).toBeNull()
   })
 })

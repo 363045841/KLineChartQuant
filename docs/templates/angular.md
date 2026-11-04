@@ -10,9 +10,8 @@
 
 ## 🚀 Quick Start
 
-```bash
-npm install @363045841yyt/klinechart-angular
-```
+This adapter is an internal monorepo module and is not published to npm. The published product is
+[`@363045841yyt/klinechart`](../vue/README.md); the examples below run from this repository.
 
 ### Basic Usage
 
@@ -39,7 +38,5 @@ For full setup including the data backend, see the [root README]{{root}}README.m
 {{include:_docs.md}}
 
 {{include:_roadmap.md}}
-
-{{include:_packages.md}}
 
 {{include:_license.md}}

@@ -3,7 +3,6 @@
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
 import type { KLineData, TimeShareData } from '@/controllers/types.js'
-import type { LiveBarsDataSource } from '@/data/live/types.js'
 import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 
@@ -33,8 +32,6 @@ export interface MarketDataProviderOptions {
   source: DataSourceDescriptor
   // 传输实现，负责 wire 语义
   transport: MarketDataTransport
-  /** 数据源自有的实时 K 线流装配。 */
-  liveBars?: LiveBarsDataSource
   // 成交量单位兜底推断；后端未返回 volumeUnit 时使用
   resolveVolumeUnit?: (instrument: InstrumentDescriptor) => VolumeUnit | undefined
 }
@@ -135,7 +132,6 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
 
   return {
     source: runtimeSource,
-    liveBars: options.liveBars,
     trades: options.trades,
 
     // 通过 probe endpoint 探测数据源可用性，失败时返回 offline 而非抛错

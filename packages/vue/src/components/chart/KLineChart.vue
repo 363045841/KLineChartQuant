@@ -58,8 +58,10 @@
         <template #watchlist>
           <WatchlistPanel
             :items="watchlistItems"
+            :grouping="watchlistGrouping"
             @select="onSymbolChange"
             @remove="removeWatchlistItem"
+            @update:grouping="setWatchlistGrouping"
           />
         </template>
       </TopToolbar>
@@ -694,8 +696,15 @@
   const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
   const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
   const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
-  const { watchlistItems, watchlistKeys, restoreWatchlist, addWatchlistItem, removeWatchlistItem } =
-    useWatchlist()
+  const {
+    watchlistItems,
+    watchlistKeys,
+    watchlistGrouping,
+    restoreWatchlist,
+    addWatchlistItem,
+    removeWatchlistItem,
+    setWatchlistGrouping,
+  } = useWatchlist()
 
   /** 分时入口统一校验：品种未声明分时能力或缺会话时写入错误态，返回是否允许进入。 */
   function ensureTimeShareSupported(): boolean {
@@ -1972,23 +1981,6 @@
 
   .chart-stage.is-dragging {
     cursor: grabbing;
-  }
-
-  /* 拖拽图元时沿用锚点/手柄/线身光标；内联 `cursor` 不足以覆盖上面的 CSS 规则。 */
-  .chart-stage.is-dragging-drawing {
-    cursor: inherit;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='anchor'] {
-    cursor: default;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='vertical-handle'] {
-    cursor: ns-resize;
-  }
-
-  .chart-stage.is-dragging-drawing[data-drawing-cursor='all'] {
-    cursor: move;
   }
 
   /* 绘图区与左右轴共用布局、背景和手势规则。 */

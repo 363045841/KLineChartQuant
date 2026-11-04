@@ -1,6 +1,5 @@
 import type { DrawingViewportPort } from '@/controllers/types.js'
 import {
-  midpoint,
   type Point,
   pointInCircle,
   pointInPolygon,
@@ -15,13 +14,14 @@ import {
   resolveAreaLabelLayout,
   resolveLineLabelLayout,
 } from '../../geometry/impl/labelLayout.js'
-import { getLines, getVerticalHandleLines } from '../../geometry/impl/lines.js'
-import { rectangleGeometry } from '../../geometry/impl/rectangleGeometry.js'
+import { getLines } from '../../geometry/impl/lines.js'
 import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.js'
-import type { DrawingLine, VerticalHandleLine } from '../../geometry/types.js'
+import type { DrawingLine } from '../../geometry/types.js'
+import { resolveDrawingHandles } from '../../handles/impl/layout.js'
+import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingObject } from '../../types.js'
-import type { HitResult, LineLabelTarget } from '../types.js'
+import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
@@ -111,7 +111,8 @@ export class HitTester {
   /**
    * Find the drawing (and its drag target) under the given mouse position.
    * 优先级：锚点 > 线段中点手柄 > 线身（整体拖拽）。
-   * 中点手柄只在图元被选中时可见，因此也只在选中时参与命中；未选中时中点按线身命中。
+   * 两类手柄由手柄布局一次解析，命中顺序即布局顺序；中点手柄只在选中态出现，
+   * 未选中时中点按线身命中。
    */
   hitTest(
     mouseX: number,
@@ -124,7 +125,7 @@ export class HitTester {
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
     const pointer: Point = { x: mouseX, y: mouseY }
 
-    // Check anchor and vertical-handle hits first
+    // Check anchor and segment-midpoint handle hits first
     for (const drawing of visibleDrawings) {
       // regression-channel: computed endpoints are also draggable
       if (drawing.kind === 'regression-channel' && drawing.anchors.length >= 2) {
@@ -138,17 +139,13 @@ export class HitTester {
         if (hit) return hit
       }
 
-      for (let i = 0; i < drawing.anchors.length; i++) {
-        const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
-        if (!isScreenPoint(screen)) continue
-        if (pointInCircle(pointer, screen, DRAG_POINT_HIT_RADIUS)) {
-          return { drawing, target: { type: 'anchor', index: i } }
+      const handles = resolveDrawingHandles(drawing, this.createHandlePort(drawing, adapter), {
+        selected: selectedDrawingIds.has(drawing.id),
+      })
+      for (const handle of handles) {
+        if (pointInCircle(pointer, handle.point, DRAG_POINT_HIT_RADIUS)) {
+          return { drawing, target: toDragTarget(handle), cursor: handle.cursor }
         }
-      }
-
-      if (selectedDrawingIds.has(drawing.id)) {
-        const hit = this.hitTestVerticalHandles(drawing, mouseX, mouseY, adapter)
-        if (hit) return hit
       }
     }
 
@@ -157,7 +154,7 @@ export class HitTester {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
       for (const seg of segments) {
         if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
-          return { drawing, target: { type: 'all' } }
+          return { drawing, target: { type: 'all' }, cursor: 'move' }
         }
       }
     }
@@ -166,44 +163,24 @@ export class HitTester {
     for (const drawing of visibleDrawings) {
       const polygon = this.getDrawingFillPolygon(drawing, adapter)
       if (polygon.length >= 3 && pointInPolygon(pointer, polygon)) {
-        return { drawing, target: { type: 'all' } }
+        return { drawing, target: { type: 'all' }, cursor: 'move' }
       }
     }
 
     return null
   }
 
-  /** 线段中点垂直手柄命中：只有开启手柄的线参与。 */
-  private hitTestVerticalHandles(
+  /** 命中侧的投影端口：锚点经视口适配器投影，边界取当前 Pane 尺寸。 */
+  private createHandlePort(
     drawing: DrawingObject,
-    mouseX: number,
-    mouseY: number,
     adapter: DrawingViewportPort,
-  ): HitResult | null {
-    const pointer: Point = { x: mouseX, y: mouseY }
-    for (const line of getVerticalHandleLines(drawing.kind)) {
-      const point = this.getVerticalHandlePoint(drawing, line, adapter)
-      if (!point) continue
-      if (pointInCircle(pointer, point, DRAG_POINT_HIT_RADIUS)) {
-        return { drawing, target: { type: 'vertical-handle', lineIndex: line.index } }
-      }
+  ): DrawingHandlePort {
+    const viewport = adapter.getViewport()
+    const pane = adapter.getPaneInfo(drawing.paneId)
+    return {
+      bounds: viewport && pane ? { plotWidth: viewport.plotWidth, paneHeight: pane.height } : null,
+      projectAnchor: (anchor) => anchorToScreen(anchor, drawing.paneId, adapter),
     }
-    return null
-  }
-
-  /** 线段中点手柄的屏幕位置；两端锚点任一不可投影时返回 null。 */
-  private getVerticalHandlePoint(
-    drawing: DrawingObject,
-    line: VerticalHandleLine,
-    adapter: DrawingViewportPort,
-  ): Point | null {
-    const from = drawing.anchors[line.from]
-    const to = drawing.anchors[line.to]
-    if (!from || !to) return null
-    const a = anchorToScreen(from, drawing.paneId, adapter)
-    const b = anchorToScreen(to, drawing.paneId, adapter)
-    if (!isScreenPoint(a) || !isScreenPoint(b)) return null
-    return midpoint(a, b)
   }
 
   /**
@@ -405,12 +382,23 @@ export class HitTester {
     const pointer: Point = { x: mouseX, y: mouseY }
     for (const endpoint of geometry.endpoints) {
       if (pointInCircle(pointer, endpoint.point, DRAG_POINT_HIT_RADIUS)) {
-        return { drawing, target: { type: 'anchor', index: endpoint.anchorIndex } }
+        return {
+          drawing,
+          target: { type: 'anchor', index: endpoint.anchorIndex },
+          cursor: 'default',
+        }
       }
     }
 
     return null
   }
+}
+
+/** 手柄行 → 拖拽目标；命中与拖拽共用同一份布局结果，不各自推导。 */
+function toDragTarget(handle: DrawingHandle): DrawingDragTarget {
+  return handle.kind === 'anchor'
+    ? { type: 'anchor', index: handle.anchorIndex }
+    : { type: 'line-handle', lineIndex: handle.lineIndex }
 }
 
 /** 矩形/斐波那契/箭头的专属命中线段；其他两锚点图元返回 null。 */
@@ -419,8 +407,6 @@ function resolveTwoAnchorSegments(
   a: Point,
   b: Point,
 ): LineSegment[] | null {
-  if (drawing.kind === 'rectangle')
-    return rectangleGeometry(a, b).edges.map((edge) => ({ a: edge.a, b: edge.b }))
   if (drawing.kind === 'fib-retracement')
     return fibLevelLines(drawing.params, a, b).map((level) => ({
       a: { x: level.left, y: level.y },

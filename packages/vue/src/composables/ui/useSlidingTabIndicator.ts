@@ -1,6 +1,6 @@
 // 下划线 Tabs 的滑动指示器：把指示条对齐到当前激活 tab，供 BaseTabs 复用。
 
-import { nextTick, onMounted, type Ref, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue'
 
 /**
  * 追踪 Tabs 容器内激活项的位置与宽度，输出指示器的绝对定位样式。
@@ -11,6 +11,7 @@ import { nextTick, onMounted, type Ref, ref, watch } from 'vue'
  */
 export function useSlidingTabIndicator(rootRef: Ref<HTMLElement | null>, activeKey: () => unknown) {
   const indicatorStyle = ref<{ left: string; width: string }>({ left: '0px', width: '0px' })
+  let resizeObserver: ResizeObserver | undefined
 
   /** 把指示器对齐到当前激活 tab 的位置与宽度。 */
   function syncIndicator(): void {
@@ -25,6 +26,15 @@ export function useSlidingTabIndicator(rootRef: Ref<HTMLElement | null>, activeK
 
   onMounted(() => {
     void nextTick(syncIndicator)
+    // 弹层打开前容器仍未布局（尺寸为 0），量不出激活项位置；
+    // 观察到尺寸从 0 变为实际值后再对齐一次，避免首次打开时下划线消失。
+    if (typeof ResizeObserver === 'undefined' || !rootRef.value) return
+    resizeObserver = new ResizeObserver(syncIndicator)
+    resizeObserver.observe(rootRef.value)
+  })
+
+  onBeforeUnmount(() => {
+    resizeObserver?.disconnect()
   })
 
   return { indicatorStyle, syncIndicator }

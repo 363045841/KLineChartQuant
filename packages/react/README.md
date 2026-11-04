@@ -58,9 +58,8 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 
 ## 🚀 Quick Start
 
-```bash
-npm install @363045841yyt/klinechart-react
-```
+This adapter is an internal monorepo module and is not published to npm. The published product is
+[`@363045841yyt/klinechart`](../vue/README.md); the examples below run from this repository.
 
 ### Basic Usage
 
@@ -121,20 +120,6 @@ For full setup including the data backend, see the [root README]../../README.md)
 - [x] More advanced drawing tools
 - [x] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
-
-
-## 📦 Packages
-
-| Package | Description | npm |
-|---------|-------------|-----|
-| `@363045841yyt/klinechart-core` | Headless chart engine + controllers | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
-| `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
-| `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
-| `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
-| `@363045841yyt/klinechart-script` | Sandboxed script indicator engine (QuickJS runtime + language service) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script) |
-| `@363045841yyt/klinechart-script-chart` | Registers script indicators as chart indicators | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-script-chart) |
-| `@363045841yyt/klinechart-plot-contracts` | Plot declaration contracts shared by the engine and the script runtime | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-plot-contracts) |
 
 
 ## 📄 License

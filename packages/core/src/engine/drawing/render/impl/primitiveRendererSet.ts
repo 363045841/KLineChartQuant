@@ -1,7 +1,6 @@
 /** drawing 投影到公共屏幕原语；不持有 Canvas 状态或后端资源。 */
 import { type Point, pointInRect } from '@/foundation/geometry/index.js'
 import { type DrawingStyle, POINT_ROLE } from '@/foundation/plugin/index.js'
-import { DRAWING_ANCHOR_FILL } from '@/foundation/tokens/index.js'
 import { paintCanvasPrimitives } from '@/rendering/primitives/impl/canvas.js'
 import type { PaintPrimitive, PrimitiveSink } from '@/rendering/primitives/types.js'
 import {
@@ -41,11 +40,20 @@ function line(a: Point, b: Point, style: DrawingStyle, dpr: number): PaintPrimit
   }
 }
 
-/** 锚点的填充与描边作为同一实例提交，多个选中对象共享基础形状批次。 */
-function anchor(point: Point, style: DrawingStyle, dpr: number, handle = false): PaintPrimitive[] {
+/**
+ * 锚点的填充与描边作为同一实例提交，多个选中对象共享基础形状批次。
+ * 填充色由调用方按当前主题注入，手柄看起来是在线上挖了个洞，不随明暗模式失真。
+ */
+function anchor(
+  point: Point,
+  style: DrawingStyle,
+  dpr: number,
+  fill: string,
+  handle = false,
+): PaintPrimitive[] {
   const radius = Math.max(style.pointRadius ?? 4, 1 / dpr)
   const paint = {
-    color: DRAWING_ANCHOR_FILL,
+    color: fill,
     strokeColor: style.stroke,
     strokeWidth: 1,
   }
@@ -142,16 +150,26 @@ function wing(point: Point, angle: number, length: number, style: DrawingStyle):
   }
 }
 
+/** 默认渲染器选项。 */
+export interface PrimitiveRendererOptions {
+  /** 手柄填充色：取当前主题的图表背景，让手柄看起来是在线上挖了个洞。 */
+  readonly handleFill: string
+  /** 原语提交器；缺省走 Canvas 2D 后端。 */
+  readonly submit?: PrimitiveSink
+}
+
 /** 创建纯投影适配器；提交器决定使用三后端中的哪一个。 */
 export function createDefaultPrimitiveRendererSet(
-  submit: PrimitiveSink = paintCanvasPrimitives,
+  options: PrimitiveRendererOptions,
 ): PrimitiveRendererSet {
+  const { handleFill, submit = paintCanvasPrimitives } = options
   return {
     point(ctx, primitive, dpr) {
       const commands = anchor(
         primitive.point,
         primitive.style,
         dpr,
+        handleFill,
         primitive.role === POINT_ROLE['translate-handle'],
       )
       if (primitive.text && primitive.role !== POINT_ROLE['translate-handle'])
@@ -182,7 +200,8 @@ export function createDefaultPrimitiveRendererSet(
         commands.push(wing(clipped.b, angle, length, primitive.style))
       if (primitive.showEndpoints !== false)
         for (const point of [primitive.a, primitive.b]) {
-          if (pointInRect(point, clip)) commands.push(...anchor(point, primitive.style, dpr))
+          if (pointInRect(point, clip))
+            commands.push(...anchor(point, primitive.style, dpr, handleFill))
         }
       submit(ctx, commands, dpr)
     },

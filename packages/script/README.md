@@ -8,13 +8,11 @@ The engine compiles a script once, then runs it bar by bar and collects Plot poi
 not depend on any chart or data source: the host supplies the bars and the chart adapter
 renders the result.
 
-## Installation
+## Internal module
 
-```bash
-npm install @363045841yyt/klinechart-script
-# or
-pnpm add @363045841yyt/klinechart-script
-```
+This package is not published to npm. It ships inside the product package
+[`@363045841yyt/klinechart`](../vue/README.md); install only that package. Import paths below
+resolve through the workspace inside this monorepo.
 
 ## Script shape
 
@@ -120,7 +118,7 @@ The Plot data model is shared with the chart engine through
 [AGPL-3.0-or-later](LICENSE)
 
 This package is part of the monorepo's AGPL island: it may depend on the Apache-2.0
-packages, but no Apache-2.0 package may import or bundle it. Source for a published
-version is available from the
+packages, but no Apache-2.0 package may import or bundle it. Source for the version
+shipped inside the product is available from the
 [KLineChartQuant repository](https://github.com/363045841/KLineChartQuant/tree/main/packages/script)
 under the matching release tag.
