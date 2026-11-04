@@ -5,6 +5,8 @@ const CHART_BACKGROUND_HOSTS = '.chart-main, .chart-container, .left-axis-host, 
 const SCREENSHOT_EXCLUDED_CONTROLS = '.price-axis-shortcuts, .axis-settings-menu'
 const CLIPPING_OVERFLOW = new Set(['hidden', 'clip', 'auto', 'scroll'])
 const SVG_MIME_TYPE = 'image/svg+xml'
+const SVG_DATA_URL_PREFIX = 'data:image/svg+xml;charset=utf-8,'
+const SVG_DATA_URL_ERROR = '截图 SVG 生成失败'
 const CANVAS_CONTEXT_ERROR = '截图画布初始化失败'
 
 type CanvasSnapshot = {
@@ -90,6 +92,12 @@ function snapshotCanvases(element: HTMLElement, frame: ChartFrameCaptureContext)
   return snapshots.sort(compareStackingOrder)
 }
 
+/** html-to-image 的 toSvg 返回 percent-encoded 的内联 SVG data URL，本地解码即可；fetch(data:) 会被宿主 CSP 的 connect-src 拦截。 */
+function decodeSvgDataUrl(dataUrl: string): string {
+  if (!dataUrl.startsWith(SVG_DATA_URL_PREFIX)) throw new Error(SVG_DATA_URL_ERROR)
+  return decodeURIComponent(dataUrl.slice(SVG_DATA_URL_PREFIX.length))
+}
+
 /** 转换 DOM 浮层，排除坐标轴操作按钮并保留宿主边框。 */
 async function captureDomOverlay(
   element: HTMLElement,
@@ -105,7 +113,7 @@ async function captureDomOverlay(
       !(node instanceof HTMLCanvasElement) &&
       !(node instanceof Element && node.matches(SCREENSHOT_EXCLUDED_CONTROLS)),
   })
-  const svgText = await (await fetch(svgUrl)).text()
+  const svgText = decodeSvgDataUrl(svgUrl)
   const svg = new DOMParser().parseFromString(svgText, SVG_MIME_TYPE)
   for (const host of svg.querySelectorAll(CHART_BACKGROUND_HOSTS)) {
     host.setAttribute(
