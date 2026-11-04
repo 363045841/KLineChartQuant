@@ -10,11 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
 
 import { type ManagedBackendHost, startManagedBackends } from './backends'
-import {
-  type CredentialIpcEvent,
-  EncryptedCredentialStore,
-  registerCredentialIpc,
-} from './credential-ipc'
+import { EncryptedCredentialStore, registerCredentialIpc } from './credential-ipc'
 
 let mainWindow: BrowserWindow | null = null
 let backends: ManagedBackendHost | undefined
@@ -71,8 +67,7 @@ async function startApplication(): Promise<void> {
       userDataPath: app.getPath('userData'),
     }),
     // 只信任主窗口的 webContents；其它窗口 / 子 frame 一律拒绝。
-    isTrustedSender: (event) =>
-      (event as CredentialIpcEvent & { sender?: unknown }).sender === mainWindow?.webContents,
+    isTrustedSender: (event) => event.sender === mainWindow?.webContents,
   })
   createWindow()
 

@@ -17,5 +17,6 @@ minimumReleaseAgeExclude:
   - '@earendil-works/pi-ai@1.0.2'
   - '@earendil-works/pi-durable@1.0.2'
   - '@earendil-works/pi-telemetry@1.0.2'
+  - electron@45.2.2
 patchedDependencies:
   vite-plugin-babel@1.7.3: patches/vite-plugin-babel@1.7.3.patch

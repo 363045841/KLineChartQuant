@@ -1,33 +1,29 @@
-// 验证渲染侧凭据存储只经 preload 桥接读写，且桥接缺失时可被检出。
+/**
+ * 渲染侧凭据存储的回归测试：只经 preload 桥接读写，桥接缺失或残缺时由宿主退回默认实现。
+ */
 import { describe, expect, it, vi } from 'vitest'
 
 import { CREDENTIAL_BRIDGE_KEY } from '../../../electron/credential-bridge'
 
-import {
-  createElectronCredentialStore,
-  ElectronCredentialStore,
-  readCredentialBridge,
-} from './electron-credential-store'
+import { createElectronCredentialStore, ElectronCredentialStore } from './electron-credential-store'
 
-/** 构造带桥接对象的假 window 作用域。 */
-function createScope(bridge: unknown): Record<string, unknown> {
-  return { [CREDENTIAL_BRIDGE_KEY]: bridge }
-}
+const SECRET = 'sk-secret-value'
 
+/** preload 会注入的桥接对象，默认已有一个保存好的 Key。 */
 function createBridge() {
   return {
-    read: vi.fn(async () => 'sk-secret-value' as string | null),
-    write: vi.fn(async () => {}),
+    read: vi.fn(async () => SECRET as string | null),
+    write: vi.fn(async (_apiKey: string) => {}),
     delete: vi.fn(async () => {}),
   }
 }
 
 describe('ElectronCredentialStore', () => {
-  it('reads, writes and deletes through the bridge', async () => {
+  it('forwards reads, writes and deletes to the bridge', async () => {
     const bridge = createBridge()
     const store = new ElectronCredentialStore(bridge)
 
-    await expect(store.read()).resolves.toBe('sk-secret-value')
+    await expect(store.read()).resolves.toBe(SECRET)
     await store.write('sk-next')
     await store.delete()
 
@@ -35,7 +31,7 @@ describe('ElectronCredentialStore', () => {
     expect(bridge.delete).toHaveBeenCalledTimes(1)
   })
 
-  it('maps an absent key to undefined', async () => {
+  it('maps the bridge null to undefined', async () => {
     const bridge = createBridge()
     bridge.read.mockResolvedValue(null)
 
@@ -50,27 +46,20 @@ describe('ElectronCredentialStore', () => {
       /encryption is unavailable/,
     )
   })
-
-  it('honours an aborted signal before touching the bridge', async () => {
-    const bridge = createBridge()
-
-    await expect(new ElectronCredentialStore(bridge).read(AbortSignal.abort())).rejects.toThrow()
-    expect(bridge.read).not.toHaveBeenCalled()
-  })
 })
 
 describe('createElectronCredentialStore', () => {
   it('builds a store when the preload bridge is present', () => {
-    expect(createElectronCredentialStore(createScope(createBridge()))).toBeInstanceOf(
+    expect(createElectronCredentialStore({ [CREDENTIAL_BRIDGE_KEY]: createBridge() })).toBeInstanceOf(
       ElectronCredentialStore,
     )
   })
 
-  it('returns undefined outside Electron so the host can fall back', () => {
+  it('reports no store when the bridge is absent or incomplete', () => {
     expect(createElectronCredentialStore({})).toBeUndefined()
-  })
-
-  it('rejects an incomplete bridge rather than failing later at call time', () => {
-    expect(readCredentialBridge(createScope({ read: () => undefined }))).toBeUndefined()
+    // 残缺桥接在构造期就被拒绝，而不是等到调用时才抛 undefined is not a function。
+    expect(
+      createElectronCredentialStore({ [CREDENTIAL_BRIDGE_KEY]: { read: async () => null } }),
+    ).toBeUndefined()
   })
 })

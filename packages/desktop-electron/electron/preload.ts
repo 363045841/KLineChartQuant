@@ -7,8 +7,12 @@
  */
 import { contextBridge, ipcRenderer } from 'electron'
 
-import { CREDENTIAL_BRIDGE_KEY, type CredentialBridge } from './credential-bridge'
-import { CREDENTIAL_CHANNELS } from './credential-ipc'
+// 只从共享契约导入：该文件不含 node 内置模块，sandbox preload 才不会引入无法加载的 require。
+import {
+  CREDENTIAL_BRIDGE_KEY,
+  CREDENTIAL_CHANNELS,
+  type CredentialBridge,
+} from './credential-bridge'
 
 const bridge: CredentialBridge = {
   read: () => ipcRenderer.invoke(CREDENTIAL_CHANNELS.read) as Promise<string | null>,
