@@ -155,6 +155,18 @@ function observePage(page, onWorker) {
   page.on('requestfailed', (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`))
   page.on('worker', onWorker)
 }
+/**
+ * 等待布局自动保存落盘。
+ *
+ * 首次挂载会把宿主传入的图表配置写进布局，自动保存完成前触发器带脏标记 `*`；
+ * 截图对比要求界面静止，否则两张截图可能分别落在标记消失前后。
+ */
+async function waitForLayoutSettled(page) {
+  await page.waitForFunction(() => {
+    const label = document.querySelector('.symbol-chip__code')
+    return label !== null && !label.textContent?.includes('*')
+  }, null, { timeout: 30_000 })
+}
 try {
   for (const target of [sourceRoot, consumer]) {
     const server = await preview({ configFile: false, root: target, base: '/product-test/', preview: { host: '127.0.0.1', port: 0 } })
@@ -177,6 +189,7 @@ try {
     assert.ok(await page.locator('canvas').count() > 0)
     await page.evaluate(async () => { await document.fonts.ready })
     await page.mouse.move(1439, 899)
+    await waitForLayoutSettled(page)
     const screenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     const label = target === sourceRoot ? 'source' : 'package'
     writeFileSync(path.join(artifacts, `${label}.png`), screenshot)
@@ -199,16 +212,20 @@ try {
     page = await context.newPage()
     workers = 0
     observePage(page, () => { workers += 1 })
+    // 执行 Worker 由脚本服务异步拉起；在导航前登记事件，避免它先于等待到达。
+    const workerStarted = page.waitForEvent('worker', { timeout: 120_000 })
     await page.goto(origin)
     await page.waitForFunction(() => document.body.dataset.bars === '160', null, { timeout: 120_000 })
     await page.waitForFunction(() => document.body.dataset.loading === 'false')
     await page.locator('.agent-workspace').waitFor({ timeout: 60_000 })
     await page.locator('.composer__input').waitFor({ timeout: 60_000 })
+    await workerStarted
     assert.ok(workers > 0, 'Enabled scripts must start the execution Worker')
-    // 脚本服务异步初始化：截图和运行都要在编辑器入口出现（服务就绪）之后，避免只拿到空草稿。
-    await page.getByRole('button', { name: '代码编辑器', exact: true }).waitFor({ timeout: 60_000 })
+    // 脚本服务异步初始化：按钮在服务就绪前一直是 disabled，等可用态而不是等它出现。
+    await page.locator('button[aria-label="代码编辑器"]:enabled').waitFor({ timeout: 60_000 })
     await page.evaluate(async () => { await document.fonts.ready })
     await page.mouse.move(1439, 899)
+    await waitForLayoutSettled(page)
     const fullScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     writeFileSync(path.join(artifacts, `${label}-full.png`), fullScreenshot)
     fullScreenshots.push(fullScreenshot)
