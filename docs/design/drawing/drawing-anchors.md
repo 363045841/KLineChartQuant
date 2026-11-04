@@ -74,7 +74,7 @@ X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签
 
 ## 交易日解析错误码
 
-`findAnchorAtTradingDate` 过去返回 `{ timestamp } | null`，`null` 同时代表三种互斥原因，Agent 收到后无法判断该改什么。本次把解析结果改成可判别联合，并按原因抛不同错误码。
+`findAnchorAtTradingDate` 返回可判别联合，并按原因抛不同错误码；不再用 `null` 同时表示范围外、非交易日与能力缺失。
 
 | 原因 | 语义 | 可自纠的修正 |
 | --- | --- | --- |
@@ -106,6 +106,6 @@ export type AnchorTradingDateResolution =
 
 `DRAWING_ANCHOR_NOT_FOUND` 保留给时间戳锚点路径（`getLogicalIndexAtTimestamp` 未命中已加载 bar），语义收窄为「时间戳不可达」。
 
-Agent 层 `drawingCreateFailure` 按新错误码返回各自的 `code` / `expected` / `recovery`，其中范围外与范围值直接带出 `earliest`、`latest`——修正所需信息随失败一起返回，不再要求模型去猜已加载范围。
+Agent 层 `drawingCreateFailure` 按错误码返回各自的 `code` / `expected` / `recovery`；范围外与范围值直接带出 `earliest`、`latest`，修正所需信息随失败一起返回。
 
-边界：不注入全量交易日（范围边界只有两个值，token 恒定）；不把「日期在范围内但无 bar」的判定改为吸附（吸附会改变用户意图，属独立产品决策）；日内周期下「日期命中多根 bar」目前静默取首根，属行为问题另行决策。
+边界：不注入全量交易日；不把「日期在范围内但无 bar」改为吸附（会改变用户意图）；日内周期下日期命中多根 bar 目前取首根。
