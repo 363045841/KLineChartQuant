@@ -152,7 +152,7 @@
       },
       "performancePositive": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1333, 0.8392, 0.6078], "hex": "#22D69B" }
+        "$value": { "colorSpace": "srgb", "components": [0.1333, 0.6706, 0.5804], "hex": "#22AB94" }
       },
       "performanceNegative": {
         "$type": "color",
