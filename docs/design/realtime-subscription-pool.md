@@ -19,6 +19,10 @@
 池不存行情。K 线帧交给 `RealtimeBarsConnector` 写入 `DataBuffer`，报价帧交给消费端的
 signal 表。历史查询、缓存与分页仍走 `MarketDataCache`。
 
+连接表面（`onFrame` / `onStatus` / `onError` 的监听与广播）只有一份实现
+`createRealtimeCallbackHub`：SSE 连接、宿主连接工厂与池订阅共用它，避免每处各写一套
+Set 与广播逻辑。关闭后所有投递静默丢弃，销毁与退订不再需要逐个清理监听集合。
+
 ## 分层
 
 ```
@@ -63,7 +67,7 @@ Connector 由本项目维护，批量订阅是协议要求而不是可选项；�
 - Core：池、SSE 实现、K 线消费器、宿主适配、图表运行时接入、共享池（按注册表实例）已完成。
 - Connector：MT5 / GoTDX / Binance 已按 `instruments` 批量参数、`instrumentId` 帧身份与
   `/quotes` 端点改造；报价统一实现为「日线实时流的投影」，不新增上游查询路径。
-- 待接入：自选面板消费报价通道（分组与列展示）。
+- 待接入：无；自选面板已消费报价通道（分组与列展示）。
 
 ## 不变量
 

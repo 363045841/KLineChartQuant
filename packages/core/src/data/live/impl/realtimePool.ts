@@ -6,7 +6,10 @@
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { marketDataProviderRegistry, type MarketDataProviderRegistry } from '../../provider/impl/registry.js'
+import {
+  type MarketDataProviderRegistry,
+  marketDataProviderRegistry,
+} from '../../provider/impl/registry.js'
 import type {
   LiveFrame,
   RealtimeChannel,
@@ -17,6 +20,7 @@ import type {
   RealtimeSubscriptionPool,
   RealtimeSubscriptionRequest,
 } from '../types.js'
+import { createRealtimeCallbackHub } from './callbackHub.js'
 import { createSseConnection, type LiveEventSource } from './sseConnection.js'
 
 export interface RealtimeSubscriptionPoolOptions {
@@ -32,9 +36,7 @@ export interface RealtimeSubscriptionPoolOptions {
 
 /** 一条逻辑订阅的句柄；关闭后自行从连接上摘除。 */
 class PooledSubscription implements RealtimeSubscription {
-  private readonly frameCbs = new Set<(frame: LiveFrame) => void>()
-  private readonly statusCbs = new Set<(status: RealtimeStatus) => void>()
-  private readonly errorCbs = new Set<(error: Error) => void>()
+  private readonly hub = createRealtimeCallbackHub()
   private closed = false
 
   constructor(
@@ -43,45 +45,37 @@ class PooledSubscription implements RealtimeSubscription {
   ) {}
 
   onFrame(callback: (frame: LiveFrame) => void): () => void {
-    this.frameCbs.add(callback)
-    return () => this.frameCbs.delete(callback)
+    return this.hub.onFrame(callback)
   }
 
   onStatus(callback: (status: RealtimeStatus) => void): () => void {
-    this.statusCbs.add(callback)
-    return () => this.statusCbs.delete(callback)
+    return this.hub.onStatus(callback)
   }
 
   onError(callback: (error: Error) => void): () => void {
-    this.errorCbs.add(callback)
-    return () => this.errorCbs.delete(callback)
+    return this.hub.onError(callback)
   }
 
   close(): void {
     if (this.closed) return
     this.closed = true
-    this.frameCbs.clear()
-    this.statusCbs.clear()
-    this.errorCbs.clear()
+    this.hub.close()
     this.detach(this)
   }
 
   /** 投递帧；句柄关闭后静默丢弃。 */
   dispatchFrame(frame: LiveFrame): void {
-    if (this.closed) return
-    for (const callback of this.frameCbs) callback(frame)
+    this.hub.emitFrame(frame)
   }
 
   /** 投递连接状态；句柄关闭后静默丢弃。 */
   dispatchStatus(status: RealtimeStatus): void {
-    if (this.closed) return
-    for (const callback of this.statusCbs) callback(status)
+    this.hub.emitStatus(status)
   }
 
   /** 投递解析错误；句柄关闭后静默丢弃。 */
   dispatchError(error: Error): void {
-    if (this.closed) return
-    for (const callback of this.errorCbs) callback(error)
+    this.hub.emitError(error)
   }
 }
 
@@ -94,9 +88,16 @@ function connectionKey(request: RealtimeSubscriptionRequest): string {
 /** 校验订阅身份：K 线必须带齐序列参数，报价忽略序列参数。 */
 function assertRequest(request: RealtimeSubscriptionRequest): void {
   if (!request.sourceId || !request.instrumentId)
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Live subscription requires sourceId and instrumentId')
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      'Live subscription requires sourceId and instrumentId',
+    )
   if (request.channel === 'quotes') return
-  if (request.period === undefined || request.barAggregation === undefined || request.adjustment === undefined)
+  if (
+    request.period === undefined ||
+    request.barAggregation === undefined ||
+    request.adjustment === undefined
+  )
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
       'Bars subscription requires period, barAggregation and adjustment',
@@ -240,7 +241,8 @@ export function createRealtimeSubscriptionPool(
 
   return {
     subscribe(request) {
-      if (disposed) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, 'Realtime pool is disposed')
+      if (disposed)
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, 'Realtime pool is disposed')
       assertRequest(request)
       const key = connectionKey(request)
       const connection =

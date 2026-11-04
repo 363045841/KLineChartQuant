@@ -18,6 +18,13 @@ export type {
   DepthSource,
   DepthSourceStatus,
 } from './depth/types.js'
+export type { RealtimeBarsSink } from './live/impl/barsConnector.js'
+export { RealtimeBarsConnector } from './live/impl/barsConnector.js'
+export {
+  createRealtimeSubscriptionPool,
+  realtimePoolFor,
+  realtimeSubscriptionPool,
+} from './live/impl/realtimePool.js'
 export type {
   LiveBar,
   LiveFrame,
@@ -31,14 +38,6 @@ export type {
   RealtimeSubscriptionPool,
   RealtimeSubscriptionRequest,
 } from './live/types.js'
-export type { RealtimeBarsSink } from './live/impl/barsConnector.js'
-export { RealtimeBarsConnector } from './live/impl/barsConnector.js'
-export {
-  createRealtimeSubscriptionPool,
-  realtimePoolFor,
-  realtimeSubscriptionPool,
-} from './live/impl/realtimePool.js'
-export { createSseConnection } from './live/impl/sseConnection.js'
 export * from './provider/impl/sources/index.js'
 export * from './provider/index.js'
 export type {

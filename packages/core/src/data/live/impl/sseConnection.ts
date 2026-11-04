@@ -12,8 +12,8 @@ import type {
   RealtimeChannel,
   RealtimeConnection,
   RealtimeConnectionRequest,
-  RealtimeStatus,
 } from '../types.js'
+import { createRealtimeCallbackHub } from './callbackHub.js'
 
 /** 通道对应的端点路径段；两个通道都挂在 sources/:sourceId 下。 */
 const CHANNEL_PATHS = {
@@ -21,15 +21,31 @@ const CHANNEL_PATHS = {
   quotes: 'quotes',
 } as const satisfies Record<RealtimeChannel, string>
 
+/** 帧信封：类型标签与品种身份由所有通道共享，后续分支只解析各自载荷。 */
+interface FrameEnvelope {
+  readonly type: unknown
+  readonly instrumentId: string
+  readonly payload: Record<string, unknown>
+}
+
+/** K 线更新帧的类型集合；四种类型共用同一份 bar 载荷。 */
+const BAR_UPDATE_TYPES: ReadonlySet<unknown> = new Set([
+  'update',
+  'historical',
+  'closed',
+  'forming',
+])
+
 /** 读取有限数值；非 number 或 NaN 一律视为协议错误。 */
 function readNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-/** 解析 K 线载荷；字段缺失直接判为无效帧。 */
-function readBar(value: unknown): LiveBar | null {
-  if (!value || typeof value !== 'object') return null
-  const bar = value as Record<string, unknown>
+/** K 线必填字段；量额可选，缺失时由 readBar 决定是否写入。 */
+type BarCore = Pick<LiveBar, 'timestamp' | 'open' | 'high' | 'low' | 'close'>
+
+/** 读取 K 线必填字段；任一缺失都视为无效载荷。 */
+function readBarCore(bar: Record<string, unknown>): BarCore | null {
   const timestamp = readNumber(bar.timestamp)
   const open = readNumber(bar.open)
   const high = readNumber(bar.high)
@@ -37,69 +53,116 @@ function readBar(value: unknown): LiveBar | null {
   const close = readNumber(bar.close)
   if (timestamp === null || open === null || high === null || low === null || close === null)
     return null
+  return { timestamp, open, high, low, close }
+}
+
+/** 解析 K 线载荷；必填字段缺失直接判为无效帧，量额缺失则省略。 */
+function readBar(value: unknown): LiveBar | null {
+  if (!value || typeof value !== 'object') return null
+  const bar = value as Record<string, unknown>
+  const core = readBarCore(bar)
+  if (core === null) return null
   const volume = readNumber(bar.volume)
   const turnover = readNumber(bar.turnover)
   return {
-    timestamp,
-    open,
-    high,
-    low,
-    close,
+    ...core,
     ...(volume === null ? {} : { volume }),
     ...(turnover === null ? {} : { turnover }),
   }
 }
 
-/** 把原始载荷解析为通道对应的帧；未知类型视为协议错误。 */
-function readFrame(channel: RealtimeChannel, raw: unknown): LiveFrame {
+/** 校验帧信封并取出类型与品种身份；所有通道都要求 instrumentId。 */
+function readFrameEnvelope(raw: unknown): FrameEnvelope {
   if (!raw || typeof raw !== 'object') throw new TypeError('Live frame must be an object')
-  const frame = raw as Record<string, unknown>
-  const instrumentId = frame.instrumentId
+  const payload = raw as Record<string, unknown>
+  const instrumentId = payload.instrumentId
   if (typeof instrumentId !== 'string' || instrumentId === '')
     throw new TypeError('Live frame requires instrumentId')
-  const type = frame.type
-  if (channel === 'quotes') {
-    if (type !== 'quote') throw new TypeError(`Unknown quote frame: ${String(type)}`)
-    const last = readNumber(frame.last)
-    const prevClose = readNumber(frame.prevClose)
-    const timestamp = readNumber(frame.timestamp)
-    if (last === null || prevClose === null || timestamp === null)
-      throw new TypeError('Quote frame requires last, prevClose and timestamp')
-    return { channel: 'quotes', type: 'quote', instrumentId, quote: { last, prevClose, timestamp } }
+  return { type: payload.type, instrumentId, payload }
+}
+
+/** 解析报价帧；字段缺失直接判为无效帧。 */
+function readQuoteFrame(envelope: FrameEnvelope): LiveFrame {
+  const { type, instrumentId, payload } = envelope
+  if (type !== 'quote') throw new TypeError(`Unknown quote frame: ${String(type)}`)
+  const last = readNumber(payload.last)
+  const prevClose = readNumber(payload.prevClose)
+  const timestamp = readNumber(payload.timestamp)
+  if (last === null || prevClose === null || timestamp === null)
+    throw new TypeError('Quote frame requires last, prevClose and timestamp')
+  return { channel: 'quotes', type: 'quote', instrumentId, quote: { last, prevClose, timestamp } }
+}
+
+/** 解析快照帧；任一 K 线无效都视为整帧协议错误。 */
+function readSnapshotFrame(instrumentId: string, payload: Record<string, unknown>): LiveFrame {
+  if (!Array.isArray(payload.bars)) throw new TypeError('Snapshot frame requires bars')
+  const bars: LiveBar[] = []
+  for (const rawBar of payload.bars) {
+    const bar = readBar(rawBar)
+    if (bar === null) throw new TypeError('Snapshot frame has invalid bars')
+    bars.push(bar)
   }
-  if (type === 'snapshot') {
-    if (!Array.isArray(frame.bars)) throw new TypeError('Snapshot frame requires bars')
-    const bars = frame.bars.map(readBar)
-    if (bars.some((bar) => bar === null)) throw new TypeError('Snapshot frame has invalid bars')
-    return { channel: 'bars', type: 'snapshot', instrumentId, bars: bars as LiveBar[] }
+  return { channel: 'bars', type: 'snapshot', instrumentId, bars }
+}
+
+/** 解析 K 线状态帧；detail 仅在服务端给出字符串时透传。 */
+function readStatusFrame(instrumentId: string, payload: Record<string, unknown>): LiveFrame {
+  if (typeof payload.status !== 'string') throw new TypeError('Status frame requires status')
+  return {
+    channel: 'bars',
+    type: 'status',
+    instrumentId,
+    status: payload.status,
+    ...(typeof payload.detail === 'string' ? { detail: payload.detail } : {}),
   }
+}
+
+/** 是否为携带单根 K 线的更新帧类型。 */
+function isBarUpdateType(value: unknown): value is 'update' | 'historical' | 'closed' | 'forming' {
+  return typeof value === 'string' && BAR_UPDATE_TYPES.has(value)
+}
+
+/** 解析 K 线更新帧；bar 缺失直接判为无效帧。 */
+function readBarUpdateFrame(
+  type: 'update' | 'historical' | 'closed' | 'forming',
+  instrumentId: string,
+  payload: Record<string, unknown>,
+): LiveFrame {
+  const bar = readBar(payload.bar)
+  if (bar === null) throw new TypeError(`${type} frame requires a valid bar`)
+  return { channel: 'bars', type, instrumentId, bar }
+}
+
+/** 解析 K 线帧；按帧类型分派，未知类型视为协议错误。 */
+function readBarsFrame(envelope: FrameEnvelope): LiveFrame {
+  const { type, instrumentId, payload } = envelope
+  if (type === 'snapshot') return readSnapshotFrame(instrumentId, payload)
   if (type === 'invalidate') return { channel: 'bars', type: 'invalidate', instrumentId }
-  if (type === 'status') {
-    if (typeof frame.status !== 'string') throw new TypeError('Status frame requires status')
-    return {
-      channel: 'bars',
-      type: 'status',
-      instrumentId,
-      status: frame.status,
-      ...(typeof frame.detail === 'string' ? { detail: frame.detail } : {}),
-    }
-  }
-  if (type === 'update' || type === 'historical' || type === 'closed' || type === 'forming') {
-    const bar = readBar(frame.bar)
-    if (bar === null) throw new TypeError(`${type} frame requires a valid bar`)
-    return { channel: 'bars', type, instrumentId, bar }
-  }
+  if (type === 'status') return readStatusFrame(instrumentId, payload)
+  if (isBarUpdateType(type)) return readBarUpdateFrame(type, instrumentId, payload)
   throw new TypeError(`Unknown bars frame: ${String(type)}`)
+}
+
+/** 把原始载荷解析为通道对应的帧；通道决定帧形状。 */
+function readFrame(channel: RealtimeChannel, raw: unknown): LiveFrame {
+  const envelope = readFrameEnvelope(raw)
+  return channel === 'quotes' ? readQuoteFrame(envelope) : readBarsFrame(envelope)
 }
 
 /** 组装批量订阅 URL：品种身份一律用 instrumentId，服务端不再按 symbol 猜测。 */
 function buildUrl(request: RealtimeConnectionRequest, baseUrl: string): string {
   if (request.instrumentIds.length === 0)
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Live connection requires instruments')
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      'Live connection requires instruments',
+    )
   const params = new URLSearchParams({ instruments: request.instrumentIds.join(',') })
   if (request.channel === 'bars') {
     if (request.period === undefined || request.adjustment === undefined)
-      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Bars subscription requires period and adjustment')
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'Bars subscription requires period and adjustment',
+      )
     params.set('period', request.period)
     params.set('adjustment', request.adjustment)
     if (request.barAggregation !== undefined) params.set('barAggregation', request.barAggregation)
@@ -128,56 +191,32 @@ export function createSseConnection(
   baseUrl: string,
   esFactory?: (url: string) => LiveEventSource,
 ): RealtimeConnection {
-  const frameCbs = new Set<(frame: LiveFrame) => void>()
-  const statusCbs = new Set<(status: RealtimeStatus) => void>()
-  const errorCbs = new Set<(error: Error) => void>()
+  const hub = createRealtimeCallbackHub()
   let source: LiveEventSource | null = null
   let destroyed = false
 
-  /** 广播连接状态；销毁后静默。 */
-  function emitStatus(status: RealtimeStatus): void {
-    if (destroyed) return
-    for (const callback of statusCbs) callback(status)
-  }
-
-  /** 广播解析错误；单帧错误不影响连接继续收流。 */
-  function emitError(error: Error): void {
-    if (destroyed) return
-    for (const callback of errorCbs) callback(error)
-  }
-
   const connection: RealtimeConnection = {
-    onFrame(callback) {
-      frameCbs.add(callback)
-      return () => frameCbs.delete(callback)
-    },
-    onStatus(callback) {
-      statusCbs.add(callback)
-      return () => statusCbs.delete(callback)
-    },
-    onError(callback) {
-      errorCbs.add(callback)
-      return () => errorCbs.delete(callback)
-    },
+    onFrame: hub.onFrame,
+    onStatus: hub.onStatus,
+    onError: hub.onError,
     connect() {
       if (destroyed || source !== null) return
-      emitStatus('connecting')
+      hub.emitStatus('connecting')
       const factory = esFactory ?? ((url: string) => new EventSource(url))
       source = factory(buildUrl(request, baseUrl))
-      source.onopen = () => emitStatus('connected')
+      source.onopen = () => hub.emitStatus('connected')
       source.onerror = () => {
         // EventSource 原生重连；这里只报告状态，不自行销毁。
-        emitStatus('disconnected')
+        hub.emitStatus('disconnected')
       }
       source.onmessage = (event: MessageEvent) => {
         if (destroyed) return
-        const data = event.data as string
-        if (data === '' || data.startsWith(':')) return
+        const data = event.data
+        if (typeof data !== 'string' || data === '' || data.startsWith(':')) return
         try {
-          const frame = readFrame(request.channel, JSON.parse(data) as unknown)
-          for (const callback of frameCbs) callback(frame)
+          hub.emitFrame(readFrame(request.channel, JSON.parse(data) as unknown))
         } catch (error) {
-          emitError(
+          hub.emitError(
             new KLineChartError(
               ERROR_CODES.FETCH_FAILED,
               `Live frame parse error: ${error instanceof Error ? error.message : String(error)}`,
@@ -190,16 +229,14 @@ export function createSseConnection(
       if (source === null) return
       source.close()
       source = null
-      emitStatus('disconnected')
+      hub.emitStatus('disconnected')
     },
     destroy() {
       if (destroyed) return
       destroyed = true
       source?.close()
       source = null
-      frameCbs.clear()
-      statusCbs.clear()
-      errorCbs.clear()
+      hub.close()
     },
   }
 

@@ -1,8 +1,9 @@
 /** 将公开数据源接入唯一 Provider 协议；这里仅管理接口翻译、取消和订阅生命周期。 */
-import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+
 import type { KLineData } from '@/controllers/types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { createRealtimeCallbackHub } from '../../live/impl/callbackHub.js'
 import type {
-  LiveFrame,
   RealtimeConnection,
   RealtimeConnectionRequest,
   RealtimeStatus,
@@ -17,11 +18,13 @@ import type {
 
 /** 验证整根快照，价格和成交量都不是累加差值。 */
 function validateBar(bar: KLineData): void {
-  if (!Number.isSafeInteger(bar.timestamp) ||
+  if (
+    !Number.isSafeInteger(bar.timestamp) ||
     ![bar.open, bar.high, bar.low, bar.close].every(Number.isFinite) ||
     bar.high < Math.max(bar.open, bar.close, bar.low) ||
     bar.low > Math.min(bar.open, bar.close) ||
-    (bar.volume !== undefined && (!Number.isFinite(bar.volume) || bar.volume < 0))) {
+    (bar.volume !== undefined && (!Number.isFinite(bar.volume) || bar.volume < 0))
+  ) {
     throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Invalid data source OHLCV bar')
   }
 }
@@ -32,18 +35,30 @@ function hostSubscriptionTargets(
   instruments: ReadonlyMap<string, DataSourceInstrument>,
 ): ReadonlyArray<{ instrument: DataSourceInstrument; options: Omit<BarsRequest, 'signal'> }> {
   if (request.channel !== 'bars')
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Host data sources provide bars realtime only')
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      'Host data sources provide bars realtime only',
+    )
   const period = request.period
   const adjustment = request.adjustment
   const barAggregation = request.barAggregation
   if (period === undefined || adjustment === undefined || barAggregation === undefined)
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Host bars subscription requires period, aggregation and adjustment')
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      'Host bars subscription requires period, aggregation and adjustment',
+    )
   return request.instrumentIds.map((id) => {
     const instrument = instruments.get(id)
     if (!instrument)
-      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Instrument must be resolved before subscription')
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'Instrument must be resolved before subscription',
+      )
     if (!instrument.capabilities.bars?.periods.some((value) => value === period))
-      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Instrument does not support the requested period')
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'Instrument does not support the requested period',
+      )
     return {
       instrument,
       options: { instrument, period, adjustment, barAggregation },
@@ -64,9 +79,7 @@ function createHostRealtimeConnection(
   signalFor: (signal?: AbortSignal) => AbortSignal,
 ): RealtimeConnection {
   const targets = hostSubscriptionTargets(request, instruments)
-  const frameCbs = new Set<(frame: LiveFrame) => void>()
-  const statusCbs = new Set<(status: RealtimeStatus) => void>()
-  const errorCbs = new Set<(error: Error) => void>()
+  const hub = createRealtimeCallbackHub()
   const statuses = new Map<string, RealtimeStatus>()
   const lifetime = new AbortController()
   const stops: Array<() => void> = []
@@ -81,38 +94,10 @@ function createHostRealtimeConnection(
     return 'connected'
   }
 
-  /** 广播帧；销毁后静默。 */
-  function emitFrame(frame: LiveFrame): void {
-    if (destroyed) return
-    for (const callback of frameCbs) callback(frame)
-  }
-
-  /** 广播合并状态。 */
-  function emitStatus(): void {
-    if (destroyed) return
-    const status = aggregateStatus()
-    for (const callback of statusCbs) callback(status)
-  }
-
-  /** 广播宿主订阅错误，不终止整条连接。 */
-  function emitError(error: Error): void {
-    if (destroyed) return
-    for (const callback of errorCbs) callback(error)
-  }
-
   const connection: RealtimeConnection = {
-    onFrame(callback) {
-      frameCbs.add(callback)
-      return () => frameCbs.delete(callback)
-    },
-    onStatus(callback) {
-      statusCbs.add(callback)
-      return () => statusCbs.delete(callback)
-    },
-    onError(callback) {
-      errorCbs.add(callback)
-      return () => errorCbs.delete(callback)
-    },
+    onFrame: hub.onFrame,
+    onStatus: hub.onStatus,
+    onError: hub.onError,
     connect() {
       if (destroyed || stops.length > 0) return
       const signal = signalFor(lifetime.signal)
@@ -120,54 +105,53 @@ function createHostRealtimeConnection(
         const instrumentId = instrument.id
         statuses.set(instrumentId, 'connecting')
         // 重查屏障先于同步增量建立，查询期间的帧不会被迟到历史覆盖。
-        emitFrame({ channel: 'bars', type: 'invalidate', instrumentId })
+        hub.emitFrame({ channel: 'bars', type: 'invalidate', instrumentId })
         const observer: BarsObserver = {
           update(bar, updateOptions) {
             if (destroyed) return
             try {
               validateBar(bar)
-              emitFrame({
+              hub.emitFrame({
                 channel: 'bars',
                 type: updateOptions?.historical ? 'historical' : 'update',
                 instrumentId,
                 bar: { ...bar },
               })
             } catch (error) {
-              emitError(error instanceof Error ? error : new Error(String(error)))
+              hub.emitError(error instanceof Error ? error : new Error(String(error)))
             }
           },
           invalidate() {
-            if (!destroyed) emitFrame({ channel: 'bars', type: 'invalidate', instrumentId })
+            if (!destroyed) hub.emitFrame({ channel: 'bars', type: 'invalidate', instrumentId })
           },
           status(status) {
             statuses.set(instrumentId, status)
-            emitStatus()
+            hub.emitStatus(aggregateStatus())
           },
           error(error) {
-            emitError(error instanceof Error ? error : new Error(String(error)))
+            hub.emitError(error instanceof Error ? error : new Error(String(error)))
           },
         }
         try {
           stops.push(subscribe({ ...options, signal }, observer))
         } catch (error) {
-          emitError(error instanceof Error ? error : new Error(String(error)))
+          hub.emitError(error instanceof Error ? error : new Error(String(error)))
         }
       }
-      emitStatus()
+      hub.emitStatus(aggregateStatus())
     },
     disconnect() {
       lifetime.abort()
       for (const stop of stops.splice(0)) stop()
       statuses.clear()
-      if (!destroyed) for (const callback of statusCbs) callback('disconnected')
+      hub.emitStatus('disconnected')
     },
     destroy() {
       if (destroyed) return
       destroyed = true
+      // 先关闭回调表面，销毁过程不再向订阅者投递状态。
+      hub.close()
       connection.disconnect()
-      frameCbs.clear()
-      statusCbs.clear()
-      errorCbs.clear()
     },
   }
 
@@ -176,8 +160,14 @@ function createHostRealtimeConnection(
 
 /** 构造可由宿主一次性释放的 Provider，不管理缓存、渲染或网络重连策略。 */
 export function createRegisteredDataSource(source: MarketDataSource) {
-  if (source.capabilities.liveBars !== undefined && source.capabilities.liveBars !== (source.bars.subscribe !== undefined))
-    throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'liveBars capability must match bars.subscribe')
+  if (
+    source.capabilities.liveBars !== undefined &&
+    source.capabilities.liveBars !== (source.bars.subscribe !== undefined)
+  )
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_PARAM,
+      'liveBars capability must match bars.subscribe',
+    )
   const lifetime = new AbortController()
   const instruments = new Map<string, DataSourceInstrument>()
 
@@ -190,7 +180,11 @@ export function createRegisteredDataSource(source: MarketDataSource) {
 
   /** 来源只由注册入口决定，不允许一个数据源冒充另一个来源。 */
   function remember(instrument: DataSourceInstrument) {
-    if (!instrument.id || !instrument.timezone) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Instrument id and timezone are required')
+    if (!instrument.id || !instrument.timezone)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'Instrument id and timezone are required',
+      )
     instruments.set(instrument.id, instrument)
     return { ...instrument, sourceId: source.id }
   }
@@ -198,9 +192,13 @@ export function createRegisteredDataSource(source: MarketDataSource) {
   /** 统一按稳定 ID 解析，避免用搜索结果顺序猜测品种。 */
   async function resolve(id: string, signal?: AbortSignal) {
     const active = signalFor(signal)
-    const instrument = instruments.get(id) ?? await source.instruments.resolve(id, active)
+    const instrument = instruments.get(id) ?? (await source.instruments.resolve(id, active))
     active.throwIfAborted()
-    if (instrument.id !== id) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Resolved instrument id does not match the request')
+    if (instrument.id !== id)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        'Resolved instrument id does not match the request',
+      )
     return remember(instrument)
   }
 
@@ -217,8 +215,12 @@ export function createRegisteredDataSource(source: MarketDataSource) {
             createHostRealtimeConnection(request, subscribe, instruments, signalFor),
         }
       : {}),
-    source: { id: source.id, displayName: source.name, endpointEditable: false,
-      capabilities: { ...source.capabilities, liveBars: source.bars.subscribe !== undefined } },
+    source: {
+      id: source.id,
+      displayName: source.name,
+      endpointEditable: false,
+      capabilities: { ...source.capabilities, liveBars: source.bars.subscribe !== undefined },
+    },
     async probe(signal) {
       signalFor(signal)
       return { status: 'online', checkedAt: Date.now(), capabilities: provider.source.capabilities }
@@ -239,23 +241,43 @@ export function createRegisteredDataSource(source: MarketDataSource) {
         const instrument = instruments.get(query.instrument.id)!
         const result = await source.bars.fetch({ ...query, instrument, signal })
         signal.throwIfAborted()
-        if (result.bars.length > query.limit) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'History page exceeds the requested limit')
+        if (result.bars.length > query.limit)
+          throw new KLineChartError(
+            GENERIC_ERROR_CODES.INVALID_PARAM,
+            'History page exceeds the requested limit',
+          )
         let previous = -Infinity
         for (const bar of result.bars) {
           validateBar(bar)
-          if (bar.timestamp <= previous || (query.beforeTimestamp !== undefined && bar.timestamp >= query.beforeTimestamp))
-            throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'History must be ordered, unique and before the requested cursor')
+          if (
+            bar.timestamp <= previous ||
+            (query.beforeTimestamp !== undefined && bar.timestamp >= query.beforeTimestamp)
+          )
+            throw new KLineChartError(
+              GENERIC_ERROR_CODES.INVALID_PARAM,
+              'History must be ordered, unique and before the requested cursor',
+            )
           previous = bar.timestamp
         }
-        return { instrumentId: instrument.id, period: query.period, adjustment: query.adjustment,
-          barAggregation: query.barAggregation, timezone: instrument.timezone,
-          volumeUnit: instrument.volumeUnit, olderData: result.olderData, data: result.bars.map((bar) => ({ ...bar })) }
+        return {
+          instrumentId: instrument.id,
+          period: query.period,
+          adjustment: query.adjustment,
+          barAggregation: query.barAggregation,
+          timezone: instrument.timezone,
+          volumeUnit: instrument.volumeUnit,
+          olderData: result.olderData,
+          data: result.bars.map((bar) => ({ ...bar })),
+        }
       },
     },
   }
 
-  return { provider, dispose() {
-    lifetime.abort()
-    instruments.clear()
-  } }
+  return {
+    provider,
+    dispose() {
+      lifetime.abort()
+      instruments.clear()
+    },
+  }
 }
