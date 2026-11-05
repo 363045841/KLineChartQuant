@@ -144,7 +144,70 @@ function lastSeriesValue(series: unknown): number | null {
   return null
 }
 
+/** 宿主可注入的绘图指针会话入口。 */
+interface DrawingPointerController {
+  onPointerDown?: (e: PointerEvent, container: HTMLElement) => boolean
+  onPointerMove?: (e: PointerEvent, container: HTMLElement) => boolean
+  onPointerUp?: (e: PointerEvent, container: HTMLElement) => boolean
+}
+
+/** 按事件类型选取绘图会话处理器。 */
+function resolveDrawingPointerHandler(
+  e: PointerEvent,
+  controller: DrawingPointerController | undefined,
+): ((e: PointerEvent, container: HTMLElement) => boolean) | undefined {
+  if (e.type === 'pointerdown') return controller?.onPointerDown
+  if (e.type === 'pointermove') return controller?.onPointerMove
+  if (e.type === 'pointerup') return controller?.onPointerUp
+  return undefined
+}
+
+/** Chart 可选运行时注入；所有字段都有默认值。 */
+interface ChartRuntime {
+  rendererHost?: RendererHost
+  initialSettings?: Partial<ChartSettings>
+  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
+  marketDataContext?: MarketDataContext
+  /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
+  clock?: import('../../../foundation/utils/clock.js').Clock
+}
+
+function resolveMarketDataContext(runtime: ChartRuntime | undefined): MarketDataContext {
+  return runtime?.marketDataContext ?? defaultMarketDataContext
+}
+
+function resolveRendererHost(runtime: ChartRuntime | undefined): RendererHost {
+  return runtime?.rendererHost ?? createDefaultRendererHostSync()
+}
+
+function resolveInitialZoomLevel(opt: ChartOptions): number {
+  return opt.initialZoomLevel ?? 1
+}
+
+function resolveZoomLevelCount(opt: ChartOptions): number {
+  return Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
+}
+
 export class Chart {
+  /** 指针事件到分发器的唯一映射；避免在事件热路径上写长 switch。 */
+  private readonly pointerEventHandlers: Record<
+    string,
+    (e: PointerEvent, isRightAxis: boolean, hadPointer: boolean) => boolean
+  > = {
+    pointerdown: (e, isRightAxis) => this.dispatchPointerDown(e, isRightAxis),
+    pointermove: (e, isRightAxis) => this.dispatchPointerMove(e, isRightAxis),
+    pointerup: (e, isRightAxis, hadPointer) => this.dispatchPointerUp(e, isRightAxis, hadPointer),
+    pointerleave: (e, isRightAxis) => this.dispatchPointerLeave(e, isRightAxis),
+    pointercancel: (e) => {
+      this.interaction.onPointerCancel(e)
+      return false
+    },
+    lostpointercapture: (e) => {
+      this.interaction.onLostPointerCapture(e)
+      return false
+    },
+  }
+
   private dom: ChartDom
   private dataManager: ChartDataManager
   /** 创建时配置的初始缩放级别；`resetChart` 恢复到该档位。 */
@@ -254,22 +317,9 @@ export class Chart {
    * @param dom 由 Vue 组件传入的 DOM 句柄
    * @param opt 初始配置
    */
-  constructor(
-    dom: ChartDom,
-    opt: ChartOptions,
-    runtime?: {
-      rendererHost?: RendererHost
-      initialSettings?: Partial<ChartSettings>
-      marketSessions?: Readonly<Record<string, MarketSessionConfig>>
-      marketDataContext?: MarketDataContext
-      /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
-      clock?: import('../../../foundation/utils/clock.js').Clock
-    },
-  ) {
+  constructor(dom: ChartDom, opt: ChartOptions, runtime?: ChartRuntime) {
     this.dom = dom
-    this.marketDataProviderRegistry = (
-      runtime?.marketDataContext ?? defaultMarketDataContext
-    ).registry
+    this.marketDataProviderRegistry = resolveMarketDataContext(runtime).registry
     this.legendDom = createLegendDomRenderer(
       dom.canvasLayer,
       (collapsed) => this.legend.setMainCollapsed(collapsed),
@@ -278,10 +328,10 @@ export class Chart {
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
     this.pluginHost = createPluginHost()
-    this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
+    this.rendererHost = resolveRendererHost(runtime)
 
-    this.initialZoomLevel = opt.initialZoomLevel ?? 1
-    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? DEFAULT_ZOOM_LEVEL_COUNT))
+    this.initialZoomLevel = resolveInitialZoomLevel(opt)
+    const zoomLevelCount = resolveZoomLevelCount(opt)
 
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
@@ -684,7 +734,17 @@ export class Chart {
     this.legend.clearFrame()
     this.legendDom.clear()
 
-    if (isTimeShareDataView(nextDataView)) {
+    this.applyDataViewScaleTypes(nextDataView)
+
+    mode.onActivate(
+      { ...this.createModeChartContext(), currentPeriod: this.dataManager.currentPeriod },
+      prev,
+    )
+  }
+
+  /** 切换数据视图时同步主图价格轴类型：分时用百分比，K 线恢复设置类型。 */
+  private applyDataViewScaleTypes(dataView: ChartDataView): void {
+    if (isTimeShareDataView(dataView)) {
       const percentMap = new Map(this.kernel.pane.getScalePreferences())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
@@ -692,18 +752,13 @@ export class Chart {
       }
       this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
       this.projectPaneScaleTypes()
-    } else {
-      for (const renderer of this.paneRenderers) renderer.getPane().yAxis.setBasePrice(null)
-      this.applyPriceScaleSettingToKernel(
-        resolvePriceScaleTypeSetting(
-          this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-        ),
-      )
+      return
     }
-
-    mode.onActivate(
-      { ...this.createModeChartContext(), currentPeriod: this.dataManager.currentPeriod },
-      prev,
+    for (const renderer of this.paneRenderers) renderer.getPane().yAxis.setBasePrice(null)
+    this.applyPriceScaleSettingToKernel(
+      resolvePriceScaleTypeSetting(
+        this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+      ),
     )
   }
 
@@ -1093,31 +1148,35 @@ export class Chart {
       volume: latest.volume,
     }
 
+    return {
+      bar,
+      indicators: this.collectIndicatorValues(),
+      rollingVolume: this.collectRollingVolumes(),
+      orderBook: undefined,
+      footprint: undefined,
+    }
+  }
+
+  /** 读取当前所有指标实例的最新标量值。 */
+  private collectIndicatorValues(): Record<string, number> {
     const indicators: Record<string, number> = {}
-    const indicatorStateReader = this.indicatorManager.createRenderStateReader()
+    const reader = this.indicatorManager.createRenderStateReader()
     for (const instance of this.kernel.indicator.readonly.instances.peek()) {
       const meta = getRegisteredIndicatorDefinition(instance.indicatorId)
-      const state = indicatorStateReader.get<{ series?: unknown }>(instance.instanceId)
+      const state = reader.get<{ series?: unknown }>(instance.instanceId)
       if (!meta || !state?.series) continue
       const value = lastSeriesValue(state.series)
       if (value !== null) indicators[meta.name] = value
     }
+    return indicators
+  }
 
-    // 只读滚动量（由 evaluateAlerts 推进滑窗）
+  /** 只读滚动量；滑窗由 evaluateAlerts 推进。 */
+  private collectRollingVolumes(): Record<number, number> {
     const rollingVolume: Record<number, number> = {}
-    if (this._volumeLookbacks) {
-      for (const [size, calc] of this._volumeLookbacks) {
-        rollingVolume[size] = calc.mean
-      }
-    }
-
-    return {
-      bar,
-      indicators,
-      rollingVolume,
-      orderBook: undefined,
-      footprint: undefined,
-    }
+    if (!this._volumeLookbacks) return rollingVolume
+    for (const [size, calc] of this._volumeLookbacks) rollingVolume[size] = calc.mean
+    return rollingVolume
   }
 
   getTimestampAtLogicalIndex(index: number): number | null {
@@ -1615,14 +1674,7 @@ export class Chart {
    * @param drawingController 可选的绘图控制器，如果提供，会优先让绘图控制器处理事件
    * @returns 是否被处理（如果 drawingController 处理了返回 true，否则返回 false）
    */
-  handlePointerEvent(
-    e: PointerEvent,
-    drawingController?: {
-      onPointerDown?: (e: PointerEvent, container: HTMLElement) => boolean
-      onPointerMove?: (e: PointerEvent, container: HTMLElement) => boolean
-      onPointerUp?: (e: PointerEvent, container: HTMLElement) => boolean
-    },
-  ): boolean {
+  handlePointerEvent(e: PointerEvent, drawingController?: DrawingPointerController): boolean {
     // 判断事件目标是否在右轴区域
     if (e.type === 'pointerdown') {
       this.interaction.stopInertia()
@@ -1630,14 +1682,7 @@ export class Chart {
     }
     const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
     const hadPointer = e.type === 'pointerup' && this.interaction.isPointerDown()
-    const drawingHandler =
-      e.type === 'pointerdown'
-        ? drawingController?.onPointerDown
-        : e.type === 'pointermove'
-          ? drawingController?.onPointerMove
-          : e.type === 'pointerup'
-            ? drawingController?.onPointerUp
-            : undefined
+    const drawingHandler = resolveDrawingPointerHandler(e, drawingController)
     if (drawingHandler?.call(drawingController, e, this.dom.container)) {
       // 绘图预览消费移动事件时仍更新十字线；cursor 拖拽独占事件。
       if (e.type === 'pointermove' && !isRightAxis && this.drawing.tool.peek() !== 'cursor') {
@@ -1646,51 +1691,45 @@ export class Chart {
       return true
     }
 
-    switch (e.type) {
-      case 'pointerdown':
-        if (isRightAxis) {
-          this.interaction.onRightAxisPointerDown(e)
-        } else {
-          this.interaction.onPointerDown(e)
-        }
-        return false
-      case 'pointermove':
-        // 绘图悬停目标不在事件里直接写：由 InteractionController 的 hover flush 与本帧几何同代推导
-        if (isRightAxis) {
-          // 右轴不参与绘图悬停
-          this.clearDrawingHover()
-          this.interaction.onRightAxisPointerMove(e)
-        } else {
-          this.interaction.onPointerMove(e)
-        }
-        return false
-      case 'pointerup': {
-        if (isRightAxis) {
-          this.interaction.onRightAxisPointerUp(e)
-        } else {
-          this.interaction.onPointerUp(e)
-        }
-        if (hadPointer) this.checkVisibleRangeGapWhenIdle()
-        return false
-      }
-      case 'pointerleave':
-        // 指针离开画布：先清绘图悬停，再交给 interaction 处理
-        this.clearDrawingHover()
-        if (isRightAxis) {
-          this.interaction.onRightAxisPointerLeave(e)
-        } else {
-          this.interaction.onPointerLeave(e)
-        }
-        return false
-      case 'pointercancel':
-        this.interaction.onPointerCancel(e)
-        return false
-      case 'lostpointercapture':
-        this.interaction.onLostPointerCapture(e)
-        return false
-      default:
-        return false
+    const handler = this.pointerEventHandlers[e.type]
+    return handler ? handler(e, isRightAxis, hadPointer) : false
+  }
+
+  /** 按下事件按是否落在右轴分流。 */
+  private dispatchPointerDown(e: PointerEvent, isRightAxis: boolean): boolean {
+    if (isRightAxis) this.interaction.onRightAxisPointerDown(e)
+    else this.interaction.onPointerDown(e)
+    return false
+  }
+
+  /**
+   * 移动事件按是否落在右轴分流；右轴不参与绘图悬停。
+   * 绘图悬停目标由 InteractionController 的 hover flush 与本帧几何同代推导。
+   */
+  private dispatchPointerMove(e: PointerEvent, isRightAxis: boolean): boolean {
+    if (!isRightAxis) {
+      this.interaction.onPointerMove(e)
+      return false
     }
+    this.clearDrawingHover()
+    this.interaction.onRightAxisPointerMove(e)
+    return false
+  }
+
+  /** 抬起事件结束后检查是否需要补齐可见区数据。 */
+  private dispatchPointerUp(e: PointerEvent, isRightAxis: boolean, hadPointer: boolean): boolean {
+    if (isRightAxis) this.interaction.onRightAxisPointerUp(e)
+    else this.interaction.onPointerUp(e)
+    if (hadPointer) this.checkVisibleRangeGapWhenIdle()
+    return false
+  }
+
+  /** 离开画布时先清绘图悬停，再按是否落在右轴分流。 */
+  private dispatchPointerLeave(e: PointerEvent, isRightAxis: boolean): boolean {
+    this.clearDrawingHover()
+    if (isRightAxis) this.interaction.onRightAxisPointerLeave(e)
+    else this.interaction.onPointerLeave(e)
+    return false
   }
 
   /**

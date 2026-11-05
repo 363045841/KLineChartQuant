@@ -72,6 +72,15 @@ function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000
   return { viewport, controller, zoomState }
 }
 
+/** 覆盖视口宽度、DPR、距右缘槽数与缩放方向的全部锚点组合。 */
+const pointerAnchorCases = [400, 800, 1600].flatMap((width) =>
+  [1, 1.5, 2].flatMap((dpr) =>
+    [2, 3, 10, 30, 60].flatMap((distance) =>
+      [-1, 1].map((delta) => ({ width, dpr, distance, delta })),
+    ),
+  ),
+)
+
 describe('ChartZoomController smooth zoom', () => {
   let time: number
   let frames: Map<number, FrameRequestCallback>
@@ -123,32 +132,23 @@ describe('ChartZoomController smooth zoom', () => {
     expect(frames.size).toBe(0)
   })
 
-  it.each([400, 800, 1600])(
-    'keeps the last several candles at the pointer throughout zoom, width=%s',
-    (width) => {
-      for (const dpr of [1, 1.5, 2]) {
-        for (const distance of [2, 3, 10, 30, 60]) {
-          for (const delta of [-1, 1]) {
-            const { controller, viewport } = makeController(dpr, 'daily', 600, width)
-            controller.zoomToLevel(delta < 0 ? 4 : 5)
-            const slot = 600 - distance + 0.2
-            const anchor = width * 0.75
-            const initial = viewport.readonly.viewSnapshot.peek()
-            viewport.actions.scrollToLogical(
-              initial.grid.origin + slot * initial.grid.step - anchor,
-            )
-            if (delta < 0) controller.zoomIn(anchor)
-            else controller.zoomOut(anchor)
-            for (let frame = 0; frame < 12; frame++) {
-              step(16)
-              const view = viewport.readonly.viewSnapshot.peek()
-              expectPixelAnchor(view, slot, anchor, dpr)
-            }
-            settle()
-            expect(frames.size).toBe(0)
-          }
-        }
+  it.each(pointerAnchorCases)(
+    'keeps the last several candles at the pointer throughout zoom, width=$width dpr=$dpr distance=$distance delta=$delta',
+    ({ width, dpr, distance, delta }) => {
+      const { controller, viewport } = makeController(dpr, 'daily', 600, width)
+      controller.zoomToLevel(delta < 0 ? 4 : 5)
+      const slot = 600 - distance + 0.2
+      const anchor = width * 0.75
+      const initial = viewport.readonly.viewSnapshot.peek()
+      viewport.actions.scrollToLogical(initial.grid.origin + slot * initial.grid.step - anchor)
+      if (delta < 0) controller.zoomIn(anchor)
+      else controller.zoomOut(anchor)
+      for (let frame = 0; frame < 12; frame++) {
+        step(16)
+        expectPixelAnchor(viewport.readonly.viewSnapshot.peek(), slot, anchor, dpr)
       }
+      settle()
+      expect(frames.size).toBe(0)
     },
   )
 

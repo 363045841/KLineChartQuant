@@ -40,6 +40,27 @@ function isSingleAxisAnchor(anchor: PersistedDrawingAnchor): boolean {
   return anchor.type === 'horizontal' || anchor.type === 'vertical'
 }
 
+/** 在可投影的点锚点中找离拖拽锚点最近的一个，作为 Shift 锁角的参考点。 */
+function nearestPointAnchor(
+  drawing: DrawingObject,
+  skipIndex: number,
+  draggedScreen: Point,
+  adapter: DrawingViewportPort,
+): Point | null {
+  let nearest = Number.POSITIVE_INFINITY
+  let origin: Point | null = null
+  for (const [index, anchor] of drawing.anchors.entries()) {
+    if (index === skipIndex || isSingleAxisAnchor(anchor)) continue
+    const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+    if (!isScreenPoint(screen)) continue
+    const distance = Math.hypot(screen.x - draggedScreen.x, screen.y - draggedScreen.y)
+    if (distance >= nearest) continue
+    nearest = distance
+    origin = { x: screen.x, y: screen.y }
+  }
+  return origin
+}
+
 /**
  * Manages drag state and handles drag-move mutations for drawings.
  * Does NOT own the drawings array — the caller retrieves and writes back.
@@ -85,20 +106,7 @@ export class DragHandler {
     if (!drawing || dragged === undefined || isSingleAxisAnchor(dragged)) return null
     const draggedScreen = anchorToScreen(dragged, drawing.paneId, adapter)
     if (!isScreenPoint(draggedScreen)) return null
-
-    let origin: Point | null = null
-    let nearest = Number.POSITIVE_INFINITY
-    for (const [index, anchor] of drawing.anchors.entries()) {
-      if (index === state.target.index || isSingleAxisAnchor(anchor)) continue
-      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
-      if (!isScreenPoint(screen)) continue
-      const distance = Math.hypot(screen.x - draggedScreen.x, screen.y - draggedScreen.y)
-      if (distance < nearest) {
-        nearest = distance
-        origin = { x: screen.x, y: screen.y }
-      }
-    }
-    return origin
+    return nearestPointAnchor(drawing, state.target.index, draggedScreen, adapter)
   }
 
   /**

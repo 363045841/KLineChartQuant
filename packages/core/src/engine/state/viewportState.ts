@@ -94,6 +94,24 @@ const NULL_DOM_RETURN: ReturnType<ViewportDomDeps['getDom']> = {
   xAxisCanvas: null,
 }
 
+/** 判断视口快照是否可复用；任一字段变化都必须产生新对象。 */
+function sameViewportState(
+  previous: ViewportState | null,
+  next: ViewportState,
+): previous is ViewportState {
+  if (!previous) return false
+  return (
+    previous.zoomLevel === next.zoomLevel &&
+    previous.plotWidth === next.plotWidth &&
+    previous.plotHeight === next.plotHeight &&
+    previous.dpr === next.dpr &&
+    previous.visibleFrom === next.visibleFrom &&
+    previous.visibleTo === next.visibleTo &&
+    previous.kWidth === next.kWidth &&
+    previous.kGap === next.kGap
+  )
+}
+
 export function createViewportState(signalDeps: ViewportSignalDeps) {
   let _domDeps: ViewportDomDeps | undefined
   const readTimeShareSlotWidth = (): number | undefined =>
@@ -225,19 +243,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       kWidth: viewSnapshot().kWidth,
       kGap: kGap(),
     }
-    if (
-      _cachedViewportState &&
-      _cachedViewportState.zoomLevel === next.zoomLevel &&
-      _cachedViewportState.plotWidth === next.plotWidth &&
-      _cachedViewportState.plotHeight === next.plotHeight &&
-      _cachedViewportState.dpr === next.dpr &&
-      _cachedViewportState.visibleFrom === next.visibleFrom &&
-      _cachedViewportState.visibleTo === next.visibleTo &&
-      _cachedViewportState.kWidth === next.kWidth &&
-      _cachedViewportState.kGap === next.kGap
-    ) {
-      return _cachedViewportState
-    }
+    if (sameViewportState(_cachedViewportState, next)) return _cachedViewportState!
     _cachedViewportState = next
     return next
   })

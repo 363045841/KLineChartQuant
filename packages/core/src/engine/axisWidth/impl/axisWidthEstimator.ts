@@ -53,9 +53,39 @@ export function resolveAxisWidth(
   return Math.max(floor, requested, committed ?? 0)
 }
 
+/** 每个 Pane 的静态/动态轴宽缓存。 */
+type PaneAxisWidths = { static: AxisWidths; overlay: AxisWidths }
+
+/** 某一侧轴表面在当前帧的标签最大宽度。 */
+function maxLabelWidth(
+  frame: AxisWidthFrame,
+  surface: 'yLeftStatic' | 'yLeftOverlay' | 'yRightStatic' | 'yRightOverlay',
+  paneId: string,
+): number {
+  const labels = frame.labels.forSurface(surface, paneId).labels
+  return Math.max(0, ...labels.map(estimateLabelWidth))
+}
+
+/** 按静态/动态分组更新 Pane 轴宽。 */
+function updatePartWidths(
+  frame: AxisWidthFrame,
+  paneId: string,
+  part: 'static' | 'overlay',
+  widths: PaneAxisWidths,
+): void {
+  const update = part === 'static' ? frame.updateStatic : frame.updateOverlay
+  if (!update) return
+  const left = part === 'static' ? 'yLeftStatic' : 'yLeftOverlay'
+  const right = part === 'static' ? 'yRightStatic' : 'yRightOverlay'
+  widths[part] = {
+    left: maxLabelWidth(frame, left, paneId),
+    right: maxLabelWidth(frame, right, paneId),
+  }
+}
+
 /** 保留未重绘表面的宽度；Pane 删除时清除记录，每侧取所有可见 Pane 的最大值。 */
 export class AxisWidthEstimator {
-  private readonly widths = new Map<string, { static: AxisWidths; overlay: AxisWidths }>()
+  private readonly widths = new Map<string, PaneAxisWidths>()
 
   /** 输入本帧最终标签，返回左右两侧所需宽度。 */
   estimate(frame: AxisWidthFrame): AxisWidths {
@@ -70,17 +100,7 @@ export class AxisWidthEstimator {
         overlay: { left: 0, right: 0 },
       }
       for (const part of ['static', 'overlay'] as const) {
-        if (part === 'static' ? frame.updateStatic : frame.updateOverlay) {
-          const left = part === 'static' ? 'yLeftStatic' : 'yLeftOverlay'
-          const right = part === 'static' ? 'yRightStatic' : 'yRightOverlay'
-          widths[part] = {
-            left: Math.max(0, ...frame.labels.forSurface(left, id).labels.map(estimateLabelWidth)),
-            right: Math.max(
-              0,
-              ...frame.labels.forSurface(right, id).labels.map(estimateLabelWidth),
-            ),
-          }
-        }
+        updatePartWidths(frame, id, part, widths)
         result.left = Math.max(result.left, widths[part].left)
         result.right = Math.max(result.right, widths[part].right)
       }

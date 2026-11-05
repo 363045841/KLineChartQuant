@@ -36,6 +36,49 @@ function screenPoints(points: number[][]): number[][] {
   return points.map(([x, y]) => [x! - 10, y!])
 }
 
+/** 每个箭头从起点到六段线围成的纵向高度。 */
+function arrowHeights(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+): number[] {
+  return starts.map((start, index) => {
+    const ys = [start[1], ...lines.slice(index * 6, index * 6 + 6).map((point) => point[1])]
+    const values = ys.map((value) => value ?? NaN)
+    return Math.max(...values) - Math.min(...values)
+  })
+}
+
+/** 每个箭头头部的固定高度。 */
+function arrowHeadHeights(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+): number[] {
+  return starts.map((start, index) => {
+    const base = lines[index * 6]
+    return Math.abs((base?.[1] ?? NaN) - (start[1] ?? NaN))
+  })
+}
+
+/** 三个箭头头部尺寸一致。 */
+function expectEqualArrowHeads(headHeights: readonly number[]): void {
+  expect(headHeights[1]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+  expect(headHeights[2]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+}
+
+/** 箭头长度按幅度归一化，且正负方向尖端位置正确。 */
+function expectArrowBodyGeometry(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+  heights: readonly number[],
+  headHeights: readonly number[],
+): void {
+  expect(heights[1]).toBeCloseTo(10, 5)
+  expect(heights[2]).toBeCloseTo(20, 5)
+  expect(heights[0]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+  expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
+  expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
+}
+
 /** 从真实 Plot 投影创建绘制上下文，强制验证 Canvas 回退结果。 */
 function paint(
   definition: IndicatorPlotDefinition,
@@ -434,24 +477,12 @@ describe('Plot renderer', () => {
     const starts = vi.mocked(ctx.moveTo).mock.calls
     const lines = vi.mocked(ctx.lineTo).mock.calls
     expect(starts).toHaveLength(3)
-    const heights = starts.map((start, index) => {
-      const ys = [start[1], ...lines.slice(index * 6, index * 6 + 6).map((point) => point[1])]
-      return Math.max(...ys) - Math.min(...ys)
-    })
+    const heights = arrowHeights(starts, lines)
     // 头部高度恒定：三个箭头无论长短，头部都是同一个尺寸。
-    const headHeights = starts.map((start, index) => {
-      const base = lines[index * 6]
-      return Math.abs((base?.[1] ?? NaN) - (start[1] ?? NaN))
-    })
-    expect(headHeights[1]).toBeCloseTo(headHeights[0] ?? NaN, 5)
-    expect(headHeights[2]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+    const headHeights = arrowHeadHeights(starts, lines)
+    expectEqualArrowHeads(headHeights)
     // 长度按幅度归一化；被托底的最短箭头就是一个完整的头，杆长为 0。
-    expect(heights[1]).toBeCloseTo(10, 5)
-    expect(heights[2]).toBeCloseTo(20, 5)
-    expect(heights[0]).toBeCloseTo(headHeights[0] ?? NaN, 5)
-    // 正箭头尖端最靠近 bar，负箭头尖端位于最下方。
-    expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
-    expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
+    expectArrowBodyGeometry(starts, lines, heights, headHeights)
     expect(ctx.fillStyle).toBe('red')
     const original = lines.slice()
     vi.mocked(ctx.lineTo).mockClear()

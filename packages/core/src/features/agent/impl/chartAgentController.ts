@@ -367,6 +367,37 @@ function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number 
 }
 
 /** 实现 UI 和 Agent 共用的图表查询 API。 */
+/** 返回第一个真值，用于兼容旧 spec 字段与空字符串回退。 */
+function firstTruthy<T>(...values: ReadonlyArray<T | null | undefined>): T | null {
+  for (const value of values) {
+    if (value) return value
+  }
+  return null
+}
+
+type AgentSymbolSpec = ReturnType<ChartAgentControllerDependencies['currentSpec']>
+
+/** spec 的标识字段分散在 instrument 与旧平面字段，逐项收敛避免调用方堆叠可选链。 */
+function specSymbol(spec: AgentSymbolSpec): string | null {
+  return firstTruthy(spec?.instrument?.symbol, spec?.symbol)
+}
+
+function specSymbolName(spec: AgentSymbolSpec): string | null {
+  return spec?.instrument?.name ?? null
+}
+
+function specMarket(spec: AgentSymbolSpec): string | null {
+  return spec?.market ?? null
+}
+
+function specExchange(spec: AgentSymbolSpec): string | null {
+  return firstTruthy(spec?.instrument?.exchange, spec?.exchange)
+}
+
+function specDataSource(spec: AgentSymbolSpec, sourceId: string): string | null {
+  return firstTruthy(sourceId, spec?.source, spec?.instrument?.sourceId)
+}
+
 class ChartAgentControllerImpl implements ChartAgentController {
   /** 图表状态的响应式只读上下文投影。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
@@ -392,11 +423,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const spec = this.dependencies.currentSpec()
     const dataRange = requireTimestampRange(activeBuffer.data)
     const selection = activeBuffer.selection
-    const symbol = spec?.instrument?.symbol ?? spec?.symbol ?? null
-    const symbolName = spec?.instrument?.name ?? null
-    const market = spec?.market ?? null
-    const exchange = spec?.instrument?.exchange ?? spec?.exchange ?? null
-    const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
+    const symbol = specSymbol(spec)
+    const symbolName = specSymbolName(spec)
+    const market = specMarket(spec)
+    const exchange = specExchange(spec)
+    const dataSource = specDataSource(spec, selection.sourceId)
     const period = this.dependencies.chartMode()
     const adjustMode =
       selection.kind === SERIES_SELECTION_KIND.bars ? selection.adjustment : (spec?.adjust ?? null)

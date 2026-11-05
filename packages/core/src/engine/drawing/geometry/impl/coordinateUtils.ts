@@ -133,52 +133,79 @@ export function resolveDrawingPointer(
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
-  const rect = container.getBoundingClientRect()
-  const mouseX = pointer.clientX - rect.left
-  const mouseY = pointer.clientY - rect.top
-
-  const placement = options?.clampPaneId
-    ? clampToPane(mouseX, mouseY, viewport, adapter, options.clampPaneId)
-    : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
+  const placement = resolvePointerPlacement(
+    pointer,
+    container,
+    viewport,
+    adapter,
+    options?.clampPaneId,
+  )
   if (!placement) return null
 
-  let { x, y } = placement
+  const constrained = applyPointerConstraints(placement, options, adapter, data.length)
+  if (!constrained) return null
 
-  // 锁角是方向约束：先绕参考点定向，再由数据边界裁 X——回归通道不允许越出已有数据，
-  // 触边时角度让位于硬约束。
-  if (options?.angleLock) {
-    const locked = lockAngle(options.angleLock.origin, { x, y })
-    x = locked.x
-    y = locked.y
-  }
-
-  // 回归等依赖已有数据的图元在最后一根 K 线贴边，预览和确认落点共用此约束。
-  if (options?.clampDataEnd) {
-    const lastX = adapter.getXAtLogicalIndex(data.length - 1)
-    if (lastX === null) return null
-    x = Math.min(x, lastX)
-  }
-
-  // 值吸附只改写 Pane 局部坐标，不影响 Pane 判定（吸附基准取落点所在 Pane）。
-  // 与锁角互斥：方向约束在场时值吸附不执行，否则吸回的值会把落点拽离锁定方向。
-  let snapped: SnapResult | null = null
-  if (options?.magnet && !options?.angleLock) {
-    snapped = snapPointer(x, y, placement.pane, adapter, options.magnet)
-    if (snapped) {
-      x = snapped.x
-      y = snapped.y
-    }
-  }
-
-  const anchor = screenToAnchor(x, y, placement.pane.paneId, adapter)
+  const snapped = resolvePointerSnap(constrained, placement.pane, options, adapter)
+  const anchor = screenToAnchor(constrained.x, constrained.y, placement.pane.paneId, adapter)
   if (!anchor) return null
   return {
     ...applyCandidate(anchor, snapped?.candidate ?? null),
     paneId: placement.pane.paneId,
-    x,
-    y,
+    x: snapped?.x ?? constrained.x,
+    y: snapped?.y ?? constrained.y,
     snap: snapped?.candidate ?? null,
   }
+}
+
+/** 把 client 坐标换算成落点所在 Pane 的局部坐标；出界钳制与严格落点共用同一入口。 */
+function resolvePointerPlacement(
+  pointer: PointerCoordinates,
+  container: HTMLElement,
+  viewport: { plotWidth: number; plotHeight: number },
+  adapter: DrawingViewportPort,
+  clampPaneId: string | undefined,
+): DrawingAreaPlacement | null {
+  const rect = container.getBoundingClientRect()
+  const mouseX = pointer.clientX - rect.left
+  const mouseY = pointer.clientY - rect.top
+  return clampPaneId
+    ? clampToPane(mouseX, mouseY, viewport, adapter, clampPaneId)
+    : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
+}
+
+/**
+ * 应用方向约束与数据边界。
+ *
+ * 锁角先绕参考点定向，再由数据边界裁 X：回归通道不允许越出已有数据，
+ * 触边时角度让位于硬约束。
+ */
+function applyPointerConstraints(
+  placement: DrawingAreaPlacement,
+  options: ResolveDrawingPointerOptions | undefined,
+  adapter: DrawingViewportPort,
+  dataLength: number,
+): Point | null {
+  const locked = options?.angleLock
+    ? lockAngle(options.angleLock.origin, { x: placement.x, y: placement.y })
+    : { x: placement.x, y: placement.y }
+  if (!options?.clampDataEnd) return locked
+  const lastX = adapter.getXAtLogicalIndex(dataLength - 1)
+  return lastX === null ? null : { x: Math.min(locked.x, lastX), y: locked.y }
+}
+
+/**
+ * 值吸附只改写 Pane 局部坐标，不影响 Pane 判定。
+ *
+ * 与锁角互斥：方向约束在场时值吸附不执行，否则吸回的值会把落点拽离锁定方向。
+ */
+function resolvePointerSnap(
+  point: Point,
+  pane: PaneLayoutInfo,
+  options: ResolveDrawingPointerOptions | undefined,
+  adapter: DrawingViewportPort,
+): SnapResult | null {
+  if (!options?.magnet || options.angleLock) return null
+  return snapPointer(point.x, point.y, pane, adapter, options.magnet)
 }
 
 /**

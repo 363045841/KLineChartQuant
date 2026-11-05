@@ -355,10 +355,9 @@ export class DrawingInteractionController {
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
-    const preservesSelection = e.ctrlKey || e.metaKey || e.shiftKey
     const result = this.findDrawingHit(e, container)
     if (!result) {
-      if (!preservesSelection) this.clearSelection()
+      if (!this.preservesSelection(e)) this.clearSelection()
       return false
     }
     const { pointer, hit } = result
@@ -372,13 +371,21 @@ export class DrawingInteractionController {
       this.startDuplicatePending(e, pointer, hit)
       return true
     }
+    this.beginMove(pointer, hit)
+    return true
+  }
 
+  /** 带修饰键的空白点击保留选择；无修饰键才清空。 */
+  private preservesSelection(e: PointerEvent): boolean {
+    return e.ctrlKey || e.metaKey || e.shiftKey
+  }
+
+  /** 命中未选中的图元时先改选择，再按整组已选图元开始拖拽。 */
+  private beginMove(pointer: DrawingPointerAnchor, hit: HitResult): void {
     const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
     const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
     if (!isSelected) this.setSelected([hit.drawing])
-
     this.startDrag(pointer, hit, isSelected ? selectedDrawings : [hit.drawing])
-    return true
   }
 
   /** 框选工具优先拖拽已选图元，其他位置才进入框选会话。 */
