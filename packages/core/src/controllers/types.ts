@@ -238,6 +238,10 @@ export interface DrawingDocumentPort {
   getFullDrawings(): ReadonlyArray<DrawingObject>
   /** 创建一个已确认图元。 */
   createDrawing(input: CreateDrawingInput): DrawingObject
+  /** 以显式锚点复制存在的图元；不取消当前会话，供交互层使用。 */
+  duplicateDrawings(
+    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject>
   /** 以完整模型快照更新一个已确认图元。 */
   updateDrawing(drawing: DrawingObject): DrawingObject | null
   /** 提交交互层拖拽后的已解析锚点。 */
@@ -402,6 +406,12 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   removePlugin(name: string): Promise<void>
   /** 按当前视口偏移复制所选图元，一次撤回移除全部副本。 */
   copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject>
+  /** 将所选图元写入内部剪贴板；不创建副本、不写历史。 */
+  copyDrawingsToClipboard(ids: ReadonlyArray<string>): boolean
+  /** 从内部剪贴板粘贴，一次撤回移除全部副本。 */
+  pasteDrawings(): ReadonlyArray<DrawingObject>
+  /** 内部剪贴板是否非空。 */
+  readonly hasDrawingClipboard: ReadonlySignal<boolean>
   /** Stable, serializable Agent context and deterministic query facade. */
   readonly agent: ChartAgentController
   // ---- Signals ----

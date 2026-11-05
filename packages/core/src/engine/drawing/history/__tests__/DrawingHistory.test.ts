@@ -16,7 +16,7 @@ function addLine(commands: ReturnType<typeof fixture>['commands'], price = 10) {
 }
 
 describe('drawing history', () => {
-  it('copies a selection atomically with fresh IDs and restores the whole group in one undo/redo', () => {
+  it('clones a selection atomically with fresh IDs and restores the whole group in one undo/redo', () => {
     const { commands, document, state } = fixture()
     const a = commands.create({
       kind: 'parallel-channel',
@@ -38,9 +38,9 @@ describe('drawing history', () => {
     const unsubscribe = state.readonly.drawings.subscribe(() => {
       observed.push([...state.readonly.selectedDrawingIds.peek()])
     })
-    const copies = commands.copy(
+    const copies = commands.duplicate(
       [a, b].map((drawing) => ({
-        id: drawing.id,
+        source: drawing,
         anchors: drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 5 })),
       })),
     )
@@ -69,19 +69,38 @@ describe('drawing history', () => {
     expect(state.readonly.selectedDrawingIds.peek()).toEqual(copies.map((drawing) => drawing.id))
   })
 
-  it('rejects the entire copy when a source or placement is invalid', () => {
+  it('rejects the entire clone when a source or placement is invalid', () => {
     const { commands, document, state } = fixture()
     const a = addLine(commands)
     const before = document.snapshot()
     expect(
-      commands.copy([
-        { id: a.id, anchors: a.anchors },
-        { id: 'missing', anchors: a.anchors },
+      commands.duplicate([
+        { source: a, anchors: a.anchors },
+        { source: a, anchors: a.anchors },
       ]),
     ).toEqual([])
-    expect(commands.copy([{ id: a.id, anchors: [] }])).toEqual([])
+    expect(commands.duplicate([{ source: a, anchors: [] }])).toEqual([])
+    expect(
+      commands.duplicate([{ source: { ...a, paneId: 'missing' }, anchors: a.anchors }]),
+    ).toEqual([])
     expect(document.snapshot()).toEqual(before)
     expect(state.readonly.selectedDrawingIds.peek()).toEqual([a.id])
+  })
+
+  it('duplicates a detached snapshot as one visible unlocked edit', () => {
+    const { commands, document, state } = fixture()
+    const source = addLine(commands, 10)
+    commands.remove(source.id)
+    expect(document.listDrawings()).toEqual([])
+
+    const copies = commands.duplicate([{ source, anchors: source.anchors }])
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.id).not.toBe(source.id)
+    expect(copies[0]!).toMatchObject({ visible: true, locked: false })
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([copies[0]!.id])
+
+    expect(commands.history.undo()).toBe(true)
+    expect(document.listDrawings()).toEqual([])
   })
 
   it('hides individual and all drawings as reversible edits while clearing hidden selection', () => {

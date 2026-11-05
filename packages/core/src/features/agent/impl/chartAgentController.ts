@@ -817,12 +817,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
     )
   }
 
-  /** 按当前视口复制指定图元，与 Canvas Toolbar 使用相同入口。 */
+  /** 按当前视口克隆指定图元，与 Canvas Toolbar 的克隆按钮使用相同入口。 */
   @Tool({
     name: 'drawings_copy',
-    label: 'Copy drawings',
+    label: 'Clone drawings',
     description:
-      'Copy drawings by ID with a shared screen offset. Selects visible, unlocked copies; the entire group is one undo step.',
+      'Clone drawings by ID with a shared screen offset. Selects visible, unlocked copies; the entire group is one undo step.',
     parameters: DrawingCopyToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',

@@ -91,6 +91,10 @@ export interface MockChartController extends ChartController {
   _setLegendContext: (next: LegendTemplateContext | null) => void
   /** test-only: 写入全部已确认图元 */
   _setDrawings: (drawings: ReadonlyArray<DrawingObject>) => void
+  /** test-only: 写入绘图选择集合 */
+  _setSelectedDrawingIds: (ids: ReadonlyArray<string>) => void
+  /** test-only: 写入绘图剪贴板可用性 */
+  _setDrawingClipboard: (available: boolean) => void
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
@@ -138,6 +142,8 @@ export function createMockChartController(
   const rightAxisEffectiveWidth = createSignal(0)
   const legendContext = createSignal<LegendTemplateContext | null>(null)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
+  const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
+  const hasDrawingClipboard = createSignal(false)
   const globalDrawingLock = createSignal(false)
   const interactionState = createSignal(createIdleInteractionSnapshot())
   const optionsFacadeCalls: OptionsFacadePatch[] = []
@@ -175,7 +181,8 @@ export function createMockChartController(
     drawings,
     canUndoDrawing,
     canRedoDrawing,
-    selectedDrawingIds: createSignal<ReadonlyArray<string>>([]),
+    selectedDrawingIds,
+    hasDrawingClipboard,
     globalDrawingLock,
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
@@ -298,6 +305,9 @@ export function createMockChartController(
     clearDrawings: () => {},
     createDrawing: () => ({}) as DrawingObject,
     copyDrawings: () => [],
+    copyDrawingsToClipboard: () => true,
+    pasteDrawings: () => [],
+    duplicateDrawings: () => [],
     updateDrawing: () => null,
     commitDrawingDrag: () => null,
     updateBatch: () => [],
@@ -374,6 +384,8 @@ export function createMockChartController(
       canRedoDrawing.set(redo)
     },
     _setDrawings: (next) => drawings.set(next),
+    _setSelectedDrawingIds: (ids) => selectedDrawingIds.set(ids),
+    _setDrawingClipboard: (available) => hasDrawingClipboard.set(available),
     disposeCalls: () => disposeCalls,
     setThemeCalls: () => setThemeCalls,
     optionsFacadeCalls: () => optionsFacadeCalls,

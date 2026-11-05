@@ -83,6 +83,7 @@ export type {
   DrawingCommandsDependencies,
   DrawingCommandsDocumentPort,
   DrawingDocumentDependencies,
+  DrawingDuplicatePlacement,
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from './model/types.js'

@@ -42,11 +42,25 @@ import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget
 
-/** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
+/** 指针会话的唯一状态：框选、拖拽与待复制互斥，禁止通过多个可空字段推导行为。 */
 type DrawingPointerSession =
   | { kind: 'idle' }
   | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
+  | { kind: 'duplicate-pending'; pending: DuplicatePending }
   | { kind: 'drag' }
+
+/** Ctrl 拖动复制在阈值前的待定会话：不写文档，只记录命中与起点。 */
+interface DuplicatePending {
+  readonly hit: DrawingObject
+  readonly targets: ReadonlyArray<DrawingObject>
+  readonly startX: number
+  readonly startY: number
+  readonly startClientX: number
+  readonly startClientY: number
+}
+
+/** 超过该像素才把 Ctrl 按下解释为拖动复制，否则按 Ctrl+单击切换选择。 */
+const DUPLICATE_DRAG_THRESHOLD_PX = 4
 
 /** 命中结果 → 绘图悬停命中：光标已由命中处给出，这里只做空值收敛。 */
 
@@ -140,7 +154,11 @@ export class DrawingInteractionController {
 
   /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
   getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
-    if (this.getActiveTool() !== CURSOR_DRAWING_TOOL_ID || this.dragHandler.isDragging())
+    if (
+      this.getActiveTool() !== CURSOR_DRAWING_TOOL_ID ||
+      this.dragHandler.isDragging() ||
+      this.pointerSession.kind === 'duplicate-pending'
+    )
       return null
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer) return null
@@ -160,6 +178,8 @@ export class DrawingInteractionController {
    */
   onPointerMove(e: PointerEvent, container: HTMLElement): boolean {
     this.pointerSnap = null
+    if (this.pointerSession.kind === 'duplicate-pending')
+      return this.handleDuplicatePendingMove(e, container)
     if (this.pointerSession.kind === 'drag') return this.handleDragMove(e, container)
     if (this.pointerSession.kind === 'marquee') return this.handleSelectionMarqueeMove(e, container)
 
@@ -253,6 +273,11 @@ export class DrawingInteractionController {
       this.commitSelectionMarquee(session.marquee)
       return true
     }
+    if (session.kind === 'duplicate-pending') {
+      this.adapter.unfreezeHoverTarget?.()
+      this.toggleSelected([session.pending.hit])
+      return true
+    }
     if (session.kind !== 'drag') return false
     this.sessionOverlay.commitDrags()
     this.dragHandler.endDrag()
@@ -330,17 +355,21 @@ export class DrawingInteractionController {
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
-    // Shift 与 Ctrl 同语义：按住时点击切换选中，空白处不清空选择。
-    const isMultiSelect = e.ctrlKey || e.shiftKey
+    const preservesSelection = e.ctrlKey || e.metaKey || e.shiftKey
     const result = this.findDrawingHit(e, container)
     if (!result) {
-      if (!isMultiSelect) this.clearSelection()
+      if (!preservesSelection) this.clearSelection()
       return false
     }
     const { pointer, hit } = result
 
-    if (isMultiSelect) {
+    // Shift 立即切换选择；Ctrl/Meta 延迟到松开或越过拖动阈值再决定。
+    if (e.shiftKey) {
       this.toggleSelected([hit.drawing])
+      return true
+    }
+    if (e.ctrlKey || e.metaKey) {
+      this.startDuplicatePending(e, pointer, hit)
       return true
     }
 
@@ -393,7 +422,8 @@ export class DrawingInteractionController {
   getHoveredHit(pointer: PointerCoordinates, container: HTMLElement): HitResult | null {
     const tool = this.getActiveTool()
     if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return null
-    if (this.dragHandler.isDragging()) return null
+    if (this.dragHandler.isDragging() || this.pointerSession.kind === 'duplicate-pending')
+      return null
     const resolved = resolveDrawingPointer(pointer, container, this.adapter)
     if (!resolved) return null
     return this.findSelectableHit(resolved)
@@ -450,6 +480,58 @@ export class DrawingInteractionController {
     this.adapter.freezeHoverTarget?.()
   }
 
+  /** Ctrl 按下只进入待复制会话；越过阈值才生成真实副本，未越过按 Ctrl+单击处理。 */
+  private startDuplicatePending(
+    e: PointerEvent,
+    pointer: DrawingPointerAnchor,
+    hit: HitResult,
+  ): void {
+    const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
+    const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
+    const globalLocked = this.adapter.isGlobalDrawingLocked()
+    const targets = (isSelected ? selectedDrawings : [hit.drawing]).filter(
+      (drawing) => !isDrawingMovementLocked(drawing, globalLocked),
+    )
+    if (targets.length === 0) {
+      this.toggleSelected([hit.drawing])
+      return
+    }
+    this.pointerSession = {
+      kind: 'duplicate-pending',
+      pending: {
+        hit: hit.drawing,
+        targets,
+        startX: pointer.x,
+        startY: pointer.y,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+      },
+    }
+    this.adapter.freezeHoverTarget?.()
+  }
+
+  /** 待复制会话：阈值前只消费事件；越过阈值后生成真实副本并转入普通拖拽。 */
+  private handleDuplicatePendingMove(e: PointerEvent, container: HTMLElement): boolean {
+    if (this.pointerSession.kind !== 'duplicate-pending') return false
+    const pending = this.pointerSession.pending
+    const moved = Math.hypot(e.clientX - pending.startClientX, e.clientY - pending.startClientY)
+    if (moved < DUPLICATE_DRAG_THRESHOLD_PX) return true
+    // 副本只在原 Pane 内生成；指针离开该 Pane 时继续等待，避免在原地留下副本。
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer || pointer.paneId !== pending.targets[0]!.paneId) return true
+    const copies = this.adapter.duplicateDrawings(
+      pending.targets.map((target) => ({ id: target.id, anchors: target.anchors })),
+    )
+    if (copies.length === 0) {
+      this.resetPointerSession()
+      return true
+    }
+    this.dragHandler.startDrag(copies, { type: 'all' }, pending.startX, pending.startY)
+    this.pointerSession = { kind: 'drag' }
+    this.handleDragMove(e, container)
+    return true
+  }
+
   /** 开始框选，坐标只在按下所在 Pane 内解释。 */
   private startSelectionMarquee(e: PointerEvent, container: HTMLElement): boolean {
     const pointer = resolveDrawingPointer(e, container, this.adapter)
@@ -501,6 +583,8 @@ export class DrawingInteractionController {
     if (session.kind === 'drag') {
       this.sessionOverlay.clearDragOverride()
       this.dragHandler.endDrag()
+    } else if (session.kind === 'duplicate-pending') {
+      this.adapter.unfreezeHoverTarget?.()
     }
     if (requestDraw) this.adapter.requestDraw?.()
   }

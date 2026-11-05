@@ -15,6 +15,7 @@ import type {
   CreateDrawingInput,
   DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
+  DrawingDuplicatePlacement,
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from '../types.js'
@@ -144,23 +145,23 @@ export class DrawingDocument {
     ])[0]!
   }
 
-  /** 按已解析的位置复制整组图元；保留配置，生成新 ID，原子选中可见且未锁定的副本。 */
-  copyDrawings(
-    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  /** 克隆整组图元的唯一实现；源快照可以已不在文档中，供复制、粘贴与拖拽复制共用。 */
+  duplicateDrawings(
+    placements: ReadonlyArray<DrawingDuplicatePlacement>,
   ): ReadonlyArray<DrawingObject> {
-    const ids = placements.map((placement) => placement.id)
-    if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
-    const originals = this.getDrawingsByIds(ids)
-    if (originals.length !== placements.length) return Object.freeze([])
+    if (placements.length === 0) return Object.freeze([])
+    if (new Set(placements.map((placement) => placement.source.id)).size !== placements.length)
+      return Object.freeze([])
     const copies: DrawingObject[] = []
-    for (const [index, original] of originals.entries()) {
-      const anchors = placements[index]!.anchors
-      if (!this.hasValidAnchors(original, anchors)) return Object.freeze([])
-      const copy = this.objects.clone(original)
+    for (const { source, anchors } of placements) {
+      if (!this.dependencies.hasPaneId(source.paneId)) return Object.freeze([])
+      if (!this.hasValidAnchors(source, anchors)) return Object.freeze([])
+      const copy = this.objects.clone(source)
       copies.push({
         ...copy,
         visible: true,
         locked: false,
+        workspaceId: this.dependencies.getWorkspaceId(),
         anchors: anchors.map((anchor, anchorIndex) => ({
           ...anchor,
           id: copy.anchors[anchorIndex]!.id,

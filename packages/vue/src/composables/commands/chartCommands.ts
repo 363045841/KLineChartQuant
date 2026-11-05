@@ -10,7 +10,10 @@ import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
 import IconTablerCamera from '~icons/tabler/camera'
 import IconTablerChevronLeft from '~icons/tabler/chevron-left'
 import IconTablerChevronRight from '~icons/tabler/chevron-right'
+import IconTablerClipboard from '~icons/tabler/clipboard'
 import IconTablerCommand from '~icons/tabler/command'
+import IconTablerCopy from '~icons/tabler/copy'
+import IconTablerCopyPlus from '~icons/tabler/copy-plus'
 import IconTablerMaximize from '~icons/tabler/maximize'
 import IconTablerMinus from '~icons/tabler/minus'
 import IconTablerPlus from '~icons/tabler/plus'
@@ -25,6 +28,9 @@ export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
   'settings.open': IconTablerSettings,
   'drawing.undo': IconTablerArrowBackUp,
   'drawing.redo': IconTablerArrowForwardUp,
+  'drawing.copy': IconTablerCopy,
+  'drawing.paste': IconTablerClipboard,
+  'drawing.clone': IconTablerCopyPlus,
   'view.zoomIn': IconTablerPlus,
   'view.zoomOut': IconTablerMinus,
   'view.moveLeft': IconTablerChevronLeft,
@@ -155,6 +161,38 @@ export function createChartCommands(host: ChartCommandHost): CommandDef[] {
       shortcut: ['Mod+Shift+Z', 'Mod+Y'],
       when: () => controller()?.canRedoDrawing.peek() === true,
       run: () => controller()?.redoDrawing(),
+    },
+    {
+      id: 'drawing.copy',
+      group: 'drawing',
+      title: { zh: '复制图元', en: 'Copy drawings' },
+      keywords: ['copy', '复制'],
+      shortcut: 'Mod+C',
+      when: () => (controller()?.selectedDrawingIds.peek().length ?? 0) > 0,
+      run: () => {
+        const current = controller()
+        if (current) current.copyDrawingsToClipboard(current.selectedDrawingIds.peek())
+      },
+    },
+    {
+      id: 'drawing.paste',
+      group: 'drawing',
+      title: { zh: '粘贴图元', en: 'Paste drawings' },
+      keywords: ['paste', '粘贴'],
+      shortcut: 'Mod+V',
+      when: () => controller()?.hasDrawingClipboard.peek() === true,
+      run: () => controller()?.pasteDrawings(),
+    },
+    {
+      id: 'drawing.clone',
+      group: 'drawing',
+      title: { zh: '克隆图元', en: 'Clone drawings' },
+      keywords: ['clone', 'duplicate', '克隆'],
+      when: () => (controller()?.selectedDrawingIds.peek().length ?? 0) > 0,
+      run: () => {
+        const current = controller()
+        if (current) current.copyDrawings(current.selectedDrawingIds.peek())
+      },
     },
   ]
 }

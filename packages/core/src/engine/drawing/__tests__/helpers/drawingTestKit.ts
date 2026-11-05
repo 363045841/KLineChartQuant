@@ -280,6 +280,7 @@ function createDrawingDocumentPort(
     replaceDrawings: vi.fn(),
     getFullDrawings: () => drawings,
     createDrawing: vi.fn(() => createDrawingObject({ id: 'created' })),
+    duplicateDrawings: vi.fn(() => []),
     updateDrawing: vi.fn(() => null),
     commitDrawingDrag: vi.fn(() => null),
     commitDrawingDrags: vi.fn(() => []),

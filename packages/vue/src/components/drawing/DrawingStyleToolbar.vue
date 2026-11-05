@@ -90,7 +90,13 @@
       </button>
     </BaseTooltip>
 
-    <BaseTooltip v-if="drawings.length > 0" content="复制所选图元" placement="top" trigger-display="contents">
+    <BaseTooltip
+      v-if="drawings.length > 0"
+      content="复制"
+      command="drawing.copy"
+      placement="top"
+      trigger-display="contents"
+    >
       <button
         type="button"
         class="toolbar-btn toolbar-btn--copy"
@@ -98,6 +104,17 @@
         @click="emit('copy')"
       >
         <IconTablerCopy class="lock-icon" aria-hidden="true" />
+      </button>
+    </BaseTooltip>
+
+    <BaseTooltip v-if="drawings.length > 0" content="克隆" placement="top" trigger-display="contents">
+      <button
+        type="button"
+        class="toolbar-btn toolbar-btn--clone"
+        aria-label="克隆所选图元"
+        @click="emit('clone')"
+      >
+        <IconTablerCopyPlus class="lock-icon" aria-hidden="true" />
       </button>
     </BaseTooltip>
 
@@ -170,6 +187,7 @@
   import IconTablerBookmarks from '~icons/tabler/bookmarks'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerCopy from '~icons/tabler/copy'
+  import IconTablerCopyPlus from '~icons/tabler/copy-plus'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
@@ -214,6 +232,7 @@
     (e: 'toggleLock', locked: boolean): void
     (e: 'hide'): void
     (e: 'copy'): void
+    (e: 'clone'): void
     (e: 'updateLineLabelPosition', position: DrawingLabelPosition): void
     (e: 'openSettings', drawingId: string): void
     (e: 'openTemplates'): void

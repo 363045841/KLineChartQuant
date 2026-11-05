@@ -182,6 +182,7 @@
                     @toggle-lock="onToggleDrawingLock"
                     @hide="onHideSelectedDrawings"
                     @copy="onCopyDrawings"
+                    @clone="onCloneDrawings"
                     @update-line-label-position="setLineLabelPosition"
                     @open-settings="openDrawingSettings"
                   />
@@ -1180,6 +1181,7 @@
     onToggleDrawingLock,
     onHideSelectedDrawings,
     onCopyDrawings,
+    onCloneDrawings,
     onSetAllDrawingsVisible,
     globalDrawingLock,
     onSetGlobalDrawingLock,
