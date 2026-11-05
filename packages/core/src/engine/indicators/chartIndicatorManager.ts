@@ -65,9 +65,7 @@ import {
   createIndicatorInstancePipeline,
   type IndicatorInstancePipeline,
 } from './instances/assembly/indicatorInstancePipeline.js'
-import {
-  createInstanceCalculationDefinitions,
-} from './instances/assembly/instanceDefinitionCatalog.js'
+import { createInstanceCalculationDefinitions } from './instances/assembly/instanceDefinitionCatalog.js'
 import {
   createIndicatorCalculationKey,
   type IndicatorParameterValue,
@@ -79,20 +77,18 @@ import {
   createInlineIndicatorCalculationExecutor,
   type InlineIndicatorCalculationExecutor,
 } from './instances/execution/instanceCalculationExecutors.js'
+import { createInstanceCalculationScheduler } from './instances/execution/instanceCalculationScheduler.js'
 import {
-  createInstanceCalculationScheduler,
-} from './instances/execution/instanceCalculationScheduler.js'
-import {
-  composeInstanceRenderState,
-} from './stateComposer.js'
-import { createIndicatorTimelineProjection, projectIndicatorCollection } from './projection/impl/indicatorTimelineProjection.js'
+  createIndicatorTimelineProjection,
+  projectIndicatorCollection,
+} from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
+import { composeInstanceRenderState } from './stateComposer.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
 }
-
 
 function mainIndicatorProjectionKey(
   params: Readonly<Record<string, number | boolean | string>>,
@@ -400,7 +396,9 @@ export class ChartIndicatorManager {
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
     // 配置和窗格立即存在；只有定义就绪的内容才进入计算与 Layer 投影。
-    const readyInstances = instances.filter((instance) => getRegisteredIndicatorDefinition(instance.indicatorId))
+    const readyInstances = instances.filter((instance) =>
+      getRegisteredIndicatorDefinition(instance.indicatorId),
+    )
     // 实例移除后清理其可用性来源，避免残留的 loading 在重新启用时无法复位。
     const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
     for (const instanceId of [...this.availabilitySources.keys()]) {
@@ -561,7 +559,6 @@ export class ChartIndicatorManager {
     }
     return presentation
   }
-
 
   /** 注册实例状态读取与实例目录服务，供 renderer / 图例消费。 */
   private registerPluginServices(): void {
@@ -768,8 +765,18 @@ export class ChartIndicatorManager {
       )
       if (state === undefined) continue
       if (isPlotRenderState(state) && metadata.plots) {
-        const projected = updatePlotRange({ ...state, ...projectIndicatorCollection(state, timeline) }, metadata.plots, this.visibleRange, timestamp)
-        this.plotProjections.set(result, { presentation: instance.presentation, colors, state: projected, timeline })
+        const projected = updatePlotRange(
+          { ...state, ...projectIndicatorCollection(state, timeline) },
+          metadata.plots,
+          this.visibleRange,
+          timestamp,
+        )
+        this.plotProjections.set(result, {
+          presentation: instance.presentation,
+          colors,
+          state: projected,
+          timeline,
+        })
         renderStates.set(instance.instanceId, projected)
       } else {
         renderStates.set(instance.instanceId, state)
@@ -783,7 +790,8 @@ export class ChartIndicatorManager {
     const target = this.displayTimestamps ?? this.currentTimestamps
     const byMinute = this.displayTimestamps !== null
     const cached = this.timelineProjection
-    if (cached?.source === source && cached.target === target && cached.byMinute === byMinute) return cached.projection
+    if (cached?.source === source && cached.target === target && cached.byMinute === byMinute)
+      return cached.projection
     const projection = createIndicatorTimelineProjection(source, target, byMinute)
     this.timelineProjection = { source, target, byMinute, projection }
     return projection

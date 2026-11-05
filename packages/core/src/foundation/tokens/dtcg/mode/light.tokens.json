@@ -38,6 +38,19 @@
       "ask": { "$type": "color", "$value": "{light.color.footprintCell.ask}" },
       "text": { "$type": "color", "$value": "{light.color.footprintCell.text}" }
     },
+    "volumeProfile": {
+      "up": { "$type": "color", "$value": "{light.color.volumeProfile.up}" },
+      "down": { "$type": "color", "$value": "{light.color.volumeProfile.down}" },
+      "valueAreaUp": { "$type": "color", "$value": "{light.color.volumeProfile.valueAreaUp}" },
+      "valueAreaDown": { "$type": "color", "$value": "{light.color.volumeProfile.valueAreaDown}" },
+      "pointOfControl": {
+        "$type": "color",
+        "$value": "{light.color.volumeProfile.pointOfControl}"
+      },
+      "valueAreaHigh": { "$type": "color", "$value": "{light.color.volumeProfile.valueAreaHigh}" },
+      "valueAreaLow": { "$type": "color", "$value": "{light.color.volumeProfile.valueAreaLow}" },
+      "boxBackground": { "$type": "color", "$value": "{light.color.volumeProfile.boxBackground}" }
+    },
     "alertActive": { "$type": "color", "$value": "{light.color.alertActive}" },
     "alertTriggered": { "$type": "color", "$value": "{light.color.alertTriggered}" },
     "alertMuted": { "$type": "color", "$value": "{light.color.alertMuted}" },

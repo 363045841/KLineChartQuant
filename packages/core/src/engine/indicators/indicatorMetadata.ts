@@ -108,6 +108,12 @@ export type GetTitleInfoFn = (
   colors: ColorTokens,
 ) => TitleInfo | null
 
+/** 下拉选项：值即参数取值，label 为面板显示名。 */
+export interface IndicatorInputOption {
+  readonly value: string
+  readonly label: string
+}
+
 /**
  * 输入参数在面板中的展示声明。
  *
@@ -120,7 +126,7 @@ export interface IndicatorInputDef {
   /** 面板显示名；缺省显示参数名。 */
   readonly title?: string
   /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | IndicatorInputOption)[]
 }
 
 /**
@@ -153,6 +159,16 @@ export interface IndicatorRuntimeDescriptor<C = any> {
 /** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */
 export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unknown>>> {
   readonly defaultOptions: O
+}
+
+/** 可见范围使用的周期单位；同单位内用 min/max 表示区间。 */
+export type IndicatorPeriodUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter'
+
+/** 一条可见范围声明；省略 min/max 表示该单位全段可见。 */
+export interface IndicatorPeriodVisibility {
+  readonly unit: IndicatorPeriodUnit
+  readonly min?: number
+  readonly max?: number
 }
 
 /**
@@ -244,6 +260,12 @@ export interface IndicatorMetadata<T = unknown> {
    * - false/undefined：仅限副图显示
    */
   allowMainPane?: boolean
+
+  /**
+   * 指标在哪些图表周期可见；未声明时所有周期都可见。
+   * 声明后，不在范围内的周期既不绘制也不出现在图例里（TradingView 的「可见范围」）。
+   */
+  visiblePeriods?: readonly IndicatorPeriodVisibility[]
 
   /**
    * 主图指标启停相关配置。

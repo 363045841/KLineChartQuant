@@ -15,6 +15,7 @@ import type {
   IndicatorCategory,
   IndicatorKind,
   IndicatorMetadata,
+  IndicatorPeriodVisibility,
   IndicatorPresentationDescriptor,
   IndicatorRendererNameResolver,
   IndicatorRuntimeDescriptor,
@@ -46,6 +47,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   dataViews?: readonly ChartDataView[]
   paneIdField?: string
   allowMainPane?: boolean
+  /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
+  visiblePeriods?: readonly IndicatorPeriodVisibility[]
   scaleRendererFactory?: ScaleRendererFactory
   scale?: IndicatorMetadata['scale']
   mainPane?: IndicatorMetadata['mainPane']

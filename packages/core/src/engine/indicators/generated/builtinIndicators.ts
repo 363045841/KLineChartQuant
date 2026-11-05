@@ -29,4 +29,12 @@ export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{
     descriptor: {"name":"timeShare","kind":"system","displayName":"分时","category":"main","defaultPaneId":"main","dataViews":["timeshare"]},
     load: () => import('../../renderers/timeShare.js').then((module) => module.TimeShareIndicatorDefinition),
   },
+  {
+    descriptor: {"name":"svp","kind":"indicator","displayName":"SVP","category":"main","defaultPaneId":"main","dataViews":["kline"],"allowMainPane":true,"visiblePeriods":[{"unit":"minute"},{"unit":"hour"}],"defaultParams":{"volumeMode":"updown","valueAreaPercent":70,"rowSize":120,"boxWidthPercent":30,"boxPosition":"left","showPoc":true,"showVah":true,"showVal":true,"extendPoc":false,"extendVah":false,"extendVal":false}},
+    load: () => import('../../renderers/volumeProfile/index.js').then((module) => module.SessionVolumeProfileIndicatorDefinition),
+  },
+  {
+    descriptor: {"name":"pvp","kind":"indicator","displayName":"PVP","category":"main","defaultPaneId":"main","dataViews":["kline"],"allowMainPane":true,"defaultParams":{"periodCount":1,"periodUnit":"week","volumeMode":"updown","valueAreaPercent":70,"rowSize":120,"boxWidthPercent":30,"boxPosition":"left","showPoc":true,"showVah":true,"showVal":true,"extendPoc":false,"extendVah":false,"extendVal":false}},
+    load: () => import('../../renderers/volumeProfile/index.js').then((module) => module.PeriodicVolumeProfileIndicatorDefinition),
+  },
 ]

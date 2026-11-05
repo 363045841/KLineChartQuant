@@ -1,4 +1,7 @@
 /** 图例唯一管理入口：领域 CRUD、主副图帧投影与宿主界面请求。 */
+
+import { getIndicatorDescriptor } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { isIndicatorVisibleOnPeriod } from '@/engine/indicators/indicatorPeriodVisibility.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
@@ -305,7 +308,8 @@ export class LegendManager implements LegendApi {
     const options = this.deps.getOptions()
     const configured = options.legend?.visibleIndicatorIds
     const viewIds = this.deps.getVisibleIndicatorIds()
-    const visible = configured ? configured.filter((id) => viewIds.includes(id)) : viewIds
+    const candidates = configured ? configured.filter((id) => viewIds.includes(id)) : viewIds
+    const visible = candidates.filter((id) => this.isVisibleOnPeriod(id, main.period))
     return projectLegendContext({
       context: main,
       host: this.deps.host,
@@ -330,6 +334,12 @@ export class LegendManager implements LegendApi {
     return rows
   }
 
+  /** 指标在当前周期是否进入图例；未声明可见范围时恒为真。 */
+  private isVisibleOnPeriod(definitionId: string, period: RenderContext['period']): boolean {
+    const descriptor = getIndicatorDescriptor(definitionId)
+    return isIndicatorVisibleOnPeriod(period, descriptor?.visiblePeriods)
+  }
+
   /** 副图指标标题行：从统一实例目录读取当前 Pane 的实例。 */
   private collectSubPaneRows(context: RenderContext): LegendRow[] {
     const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
@@ -345,6 +355,7 @@ export class LegendManager implements LegendApi {
     const index = resolveLegendValueIndex(context.crosshairIndex, context.data.length)
     const rows: LegendRow[] = []
     for (const instance of catalog?.listPaneInstances(paneId) ?? []) {
+      if (!this.isVisibleOnPeriod(instance.definitionId, context.period)) continue
       const title = projectIndicator(
         instance,
         context.indicatorStateReader,

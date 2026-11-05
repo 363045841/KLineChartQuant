@@ -38,7 +38,13 @@ function parameterConfigs(defaults: Readonly<Record<string, unknown>>, definitio
     return [{ key, label: input?.title === undefined ? key : input.title,
       type: options && options.length > 0 ? 'select' : typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string',
       default: value, min: input?.min, max: input?.max, step: input?.step,
-      ...(options === undefined ? {} : { options: options.map((option) => ({ value: option, label: option })) }),
+      ...(options === undefined
+        ? {}
+        : {
+            options: options.map((option) =>
+              typeof option === 'string' ? { value: option, label: option } : option,
+            ),
+          }),
     }]
   })
 }

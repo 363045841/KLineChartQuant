@@ -256,6 +256,80 @@
           }
         }
       },
+      "volumeProfile": {
+        "$description": "成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。",
+        "up": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6196, 0.6196, 0.6196],
+            "alpha": 0.502,
+            "hex": "#9E9E9E"
+          }
+        },
+        "down": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.6196, 0.6196, 0.6196],
+            "alpha": 0.502,
+            "hex": "#9E9E9E"
+          }
+        },
+        "valueAreaUp": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2902, 0.6196, 1],
+            "alpha": 0.702,
+            "hex": "#4A9EFF"
+          }
+        },
+        "valueAreaDown": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9098, 0.7569, 0.3529],
+            "alpha": 0.702,
+            "hex": "#E8C15A"
+          }
+        },
+        "pointOfControl": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9373, 0.3255, 0.3137],
+            "hex": "#EF5350"
+          }
+        },
+        "valueAreaHigh": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2902, 0.6196, 1],
+            "alpha": 0.8,
+            "hex": "#4A9EFF"
+          }
+        },
+        "valueAreaLow": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2902, 0.6196, 1],
+            "alpha": 0.8,
+            "hex": "#4A9EFF"
+          }
+        },
+        "boxBackground": {
+          "$type": "color",
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 1, 1],
+            "alpha": 0.039,
+            "hex": "#FFFFFF"
+          }
+        }
+      },
       "alertActive": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.2902, 0.6196, 1], "hex": "#4A9EFF" }

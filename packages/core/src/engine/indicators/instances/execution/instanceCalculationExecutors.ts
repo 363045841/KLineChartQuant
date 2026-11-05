@@ -11,16 +11,29 @@ export type InlineIndicatorCalculationExecutor = IndicatorCalculationExecutor & 
 }
 
 /** 委派到注册定义的计算端口，原生扩展与 Script 服务使用相同调度语义。 */
-export function createInlineIndicatorCalculationExecutor(definitions: Iterable<IndicatorCalculationDefinition>, marketData?: () => IndicatorMarketData): InlineIndicatorCalculationExecutor {
+export function createInlineIndicatorCalculationExecutor(
+  definitions: Iterable<IndicatorCalculationDefinition>,
+  marketData?: () => IndicatorMarketData,
+): InlineIndicatorCalculationExecutor {
   const runtime = new IndicatorInstanceExecutionRuntime(definitions, marketData)
   return Object.freeze({
     /** 追加定义不修改已有任务。 */
-    addDefinitions(next: Iterable<IndicatorCalculationDefinition>): void { for (const definition of next) runtime.addDefinition(definition) },
+    addDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {
+      for (const definition of next) runtime.addDefinition(definition)
+    },
     /** 替换定义并失效任务缓存。 */
-    updateDefinitions(next: Iterable<IndicatorCalculationDefinition>): void { for (const definition of next) runtime.updateDefinition(definition) },
+    updateDefinitions(next: Iterable<IndicatorCalculationDefinition>): void {
+      for (const definition of next) runtime.updateDefinition(definition)
+    },
     /** 移除定义及关联任务。 */
-    removeDefinitions(ids: readonly string[]): void { for (const id of ids) runtime.removeDefinition(id) },
-    async setData(data, revision) { runtime.setData(data, revision) },
-    async execute(plan) { return runtime.execute(plan) },
+    removeDefinitions(ids: readonly string[]): void {
+      for (const id of ids) runtime.removeDefinition(id)
+    },
+    async setData(data, revision) {
+      runtime.setData(data, revision)
+    },
+    async execute(plan) {
+      return runtime.execute(plan)
+    },
   } satisfies InlineIndicatorCalculationExecutor)
 }

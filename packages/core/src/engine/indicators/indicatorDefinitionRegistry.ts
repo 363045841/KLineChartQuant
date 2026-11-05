@@ -21,6 +21,7 @@ import type {
   IndicatorInputDef,
   IndicatorKind,
   IndicatorMetadata,
+  IndicatorPeriodVisibility,
 } from './indicatorMetadata.js'
 
 /** 装饰器与定义配置由叶子模块提供，此处转出以维持公开出口。 */
@@ -46,6 +47,8 @@ export interface IndicatorDescriptor {
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
   readonly allowMainPane?: boolean
+  /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
+  readonly visiblePeriods?: readonly IndicatorPeriodVisibility[]
   /** runtime.defaultParams 的静态值。 */
   readonly defaultParams?: Readonly<Record<string, unknown>>
   /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
@@ -149,6 +152,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     allowMainPane: definition.allowMainPane,
+    visiblePeriods: definition.visiblePeriods,
     defaultParams:
       typeof defaultParams === 'function'
         ? (defaultParams as () => Record<string, unknown>)()
@@ -156,6 +160,12 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     defaultOptions: definition.presentation?.defaultOptions,
     inputDefs: definition.runtime?.inputDefs,
   }
+}
+
+/** 只保留有值的目录字段，供静态目录与实现元数据合并。 */
+function definedDescriptor(descriptor: IndicatorDescriptor): IndicatorDescriptor {
+  const entries = Object.entries(descriptor).filter(([, value]) => value !== undefined)
+  return Object.fromEntries(entries) as IndicatorDescriptor
 }
 
 /** 注册注解定义；相同元数据幂等，不同定义争用同一身份时拒绝覆盖。 */
@@ -221,6 +231,15 @@ function publishDefinition(
   indicatorDefinitions.set(normalizedName, definition)
   if (replaceDescriptor || !indicatorDescriptors.has(normalizedName)) {
     indicatorDescriptors.set(normalizedName, { descriptor: descriptorFromMetadata(definition) })
+  } else {
+    // 静态目录只含编译期可提取字段；实现加载后补齐 inputDefs/title/info 等运行期元数据。
+    const stored = indicatorDescriptors.get(normalizedName)
+    indicatorDescriptors.set(normalizedName, {
+      descriptor: {
+        ...stored?.descriptor,
+        ...definedDescriptor(descriptorFromMetadata(definition)),
+      },
+    })
   }
   for (const alias of aliases) indexAlias(alias, normalizedName)
   registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)
