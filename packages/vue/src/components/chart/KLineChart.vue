@@ -93,6 +93,7 @@
           @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
+          <ChartNavigation :style="{ bottom: `${props.bottomAxisHeight}px` }" />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -450,6 +451,7 @@
     useSlots,
     watch,
   } from 'vue'
+  import ChartNavigation from './ChartNavigation.vue'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const toast = useToast()

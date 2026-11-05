@@ -1170,10 +1170,19 @@ export class Chart {
     }
   }
 
-  /** 重置图表视图：恢复初始缩放级别，再清除主图价格轴的手动缩放与偏移。 */
-  resetChart(): void {
+  /** 恢复首次进入品种时的 X 轴规则：初始缩放，并按当前数据定位到最新端。 */
+  resetTimeAxis(): void {
     this.zoom.toLevel(this.initialZoomLevel)
-    this.resetPriceTransform(MAIN_PANE_ID)
+    this.dataManager.scrollToRight()
+  }
+
+  /** 一次提交默认时间视图与价格轴状态，避免消费方看到半重置的视口。 */
+  resetChart(): void {
+    batch(() => {
+      this.resetTimeAxis()
+      this.resetPriceTransform(MAIN_PANE_ID)
+    })
+    this.checkVisibleRangeGapWhenIdle()
   }
 
   /** 统一提交左右纵轴宽度；交互期间只扩宽，结束后按所有 Pane 的实际标签需求收缩。 */

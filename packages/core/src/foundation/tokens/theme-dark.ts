@@ -32,6 +32,7 @@ export const darkTheme: Theme = {
     foreground: darkInterfaceColors.text,
     chartBackground: darkInterfaceColors.background,
     floatingSurface: darkInterfaceColors.surface,
+    chartNavigationBackground: '#222222',
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
     candleUpWick: '#089981',

@@ -7,19 +7,16 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Component } from 'vue'
 import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
 import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
-import IconTablerArrowNarrowLeft from '~icons/tabler/arrow-narrow-left'
-import IconTablerArrowNarrowRight from '~icons/tabler/arrow-narrow-right'
 import IconTablerCamera from '~icons/tabler/camera'
+import IconTablerChevronLeft from '~icons/tabler/chevron-left'
+import IconTablerChevronRight from '~icons/tabler/chevron-right'
 import IconTablerCommand from '~icons/tabler/command'
 import IconTablerMaximize from '~icons/tabler/maximize'
+import IconTablerMinus from '~icons/tabler/minus'
+import IconTablerPlus from '~icons/tabler/plus'
 import IconTablerRefresh from '~icons/tabler/refresh'
 import IconTablerSettings from '~icons/tabler/settings'
-import IconTablerZoomIn from '~icons/tabler/zoom-in'
-import IconTablerZoomOut from '~icons/tabler/zoom-out'
-import {
-  type ChartScreenshotAction,
-  chartScreenshotActions,
-} from '../chart/useChartScreenshot.js'
+import { type ChartScreenshotAction, chartScreenshotActions } from '../chart/useChartScreenshot.js'
 
 /** 命令 id 到功能图标的映射；快捷键设置等界面据此展示命令图标。 */
 export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
@@ -28,10 +25,10 @@ export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
   'settings.open': IconTablerSettings,
   'drawing.undo': IconTablerArrowBackUp,
   'drawing.redo': IconTablerArrowForwardUp,
-  'view.zoomIn': IconTablerZoomIn,
-  'view.zoomOut': IconTablerZoomOut,
-  'view.moveLeft': IconTablerArrowNarrowLeft,
-  'view.moveRight': IconTablerArrowNarrowRight,
+  'view.zoomIn': IconTablerPlus,
+  'view.zoomOut': IconTablerMinus,
+  'view.moveLeft': IconTablerChevronLeft,
+  'view.moveRight': IconTablerChevronRight,
   'view.reset': IconTablerRefresh,
   'view.fullscreen': IconTablerMaximize,
 }
