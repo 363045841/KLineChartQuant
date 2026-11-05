@@ -580,7 +580,7 @@ function projectRegressionGeometry(
   offset: number,
 ): RegressionChannelGeometry {
   const at = (timestamp: number, price: number) =>
-    anchorToScreen({ id: '', time: timestamp, price }, drawing.paneId, adapter)
+    anchorToScreen({ time: timestamp, price }, drawing.paneId, adapter)
   const middleStart = at(firstTimestamp, firstValue)
   const middleEnd = at(secondTimestamp, secondValue)
   const upperStart = at(firstTimestamp, firstValue + offset)

@@ -1,7 +1,12 @@
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingChartAdapter } from '@/controllers/types.js'
+import type { Point } from '@/foundation/geometry/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
-import { resolveDrawingPointer } from '../../geometry/impl/coordinateUtils.js'
+import {
+  anchorToScreen,
+  isScreenPoint,
+  resolveDrawingPointer,
+} from '../../geometry/impl/coordinateUtils.js'
 import type {
   DrawingPointerAnchor,
   PointerCoordinates,
@@ -259,20 +264,28 @@ export class DrawingInteractionController {
   // ============ 私有方法 ============
 
   /**
-   * 解析当前指针事件的磁吸配置。
-   * Shift 按住时不吸附——与宿主 Shift 锁角互斥，锁角改写后的坐标不得再被磁吸改写；
-   * Ctrl/Meta 按住时取反磁吸（TV 官方 Magnet Mode 语义）：off 临时开启（取 strong，
-   * TV 对磁吸开的定义即吸附 OHLC 四值），weak/strong 临时关闭；无修饰键按当前档位执行。
+   * 修饰键 → 落点约束的唯一映射。宿主只透传 PointerEvent，落点语义全部在引擎内决定。
+   *
+   * - Shift：锁角到最近的 45° 方向。值吸附会改写方向约束的结果，所以磁吸同时让位；
+   *   没有参考点时（单锚点工具、首个锚点、单锚点图元）只剩「关闭磁吸」这一半语义。
+   * - Ctrl/Meta：取反磁吸（TV 官方 Magnet Mode 语义）——off 临时开启并取 strong
+   *   （TV 对「磁吸开」的定义即吸附 OHLC 四值），weak/strong 临时关闭。
+   * - 无修饰键：按当前档位。
+   * @param e 指针事件（修饰键来源）
+   * @param origin 锁角参考点；调用方按会话给出，没有参考点时传 null
    */
-  private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
-    if (e.shiftKey) return undefined
+  private resolvePlacementModifiers(
+    e: PointerEvent,
+    origin: Point | null,
+  ): Pick<ResolveDrawingPointerOptions, 'magnet' | 'angleLock'> {
+    if (e.shiftKey) return origin === null ? {} : { angleLock: { origin } }
     if (e.ctrlKey || e.metaKey) {
       return this.magnetMode === MagnetMode.Off
         ? { magnet: this.createMagnetConfig(MagnetMode.Strong) }
-        : undefined
+        : {}
     }
     return this.magnetMode === MagnetMode.Off
-      ? undefined
+      ? {}
       : { magnet: this.createMagnetConfig(this.magnetMode) }
   }
 
@@ -292,13 +305,25 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 绘图落点解析选项：磁吸 + 出界钳制。
+   * 绘制路径的锁角参考点：最近落下的锚点，按当前视口每帧重新投影。
+   * 单锚点工具或首个锚点还没有参考点，返回 null（此时 Shift 只关磁吸）。
+   */
+  private resolveDraftAngleOrigin(): Point | null {
+    if (this.pendingPaneId === null) return null
+    const pending = this.anchorCollector.getLast()
+    if (!pending) return null
+    const screen = anchorToScreen(pending, this.pendingPaneId, this.adapter)
+    return isScreenPoint(screen) ? { x: screen.x, y: screen.y } : null
+  }
+
+  /**
+   * 绘图落点解析选项：落点约束 + 出界钳制。
    * 进行中的多锚点图元固定在其起始 Pane 内，指针移出该 Pane（含轴区）时贴边继续预览，
    * 不再因落点解析失败而抹掉预览。首个锚点仍要求落在有效 Pane 内。
    */
   private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
-    const options = {
-      ...this.resolveMagnetOptions(e),
+    const options: ResolveDrawingPointerOptions = {
+      ...this.resolvePlacementModifiers(e, this.resolveDraftAngleOrigin()),
       clampDataEnd: this.getActiveTool() === DrawingTool.RegressionChannel,
     }
     return this.pendingPaneId === null ? options : { ...options, clampPaneId: this.pendingPaneId }
@@ -480,7 +505,7 @@ export class DrawingInteractionController {
     if (requestDraw) this.adapter.requestDraw?.()
   }
 
-  /** 更新拖拽会话的整组临时覆盖；磁吸配置与绘制路径同源（Shift 互斥、Ctrl 取反），仅锚点拖拽生效。 */
+  /** 更新拖拽会话的整组临时覆盖；落点约束与绘制路径同源（Shift 锁角、Ctrl 取反），仅锚点拖拽生效。 */
   private handleDragMove(e: PointerEvent, container: HTMLElement): boolean {
     const draggingIds = this.dragHandler.getDraggingDrawingIds()
     if (draggingIds.some((id) => this.sessionOverlay.getById(id) === undefined)) {
@@ -491,7 +516,7 @@ export class DrawingInteractionController {
       e,
       container,
       this.adapter,
-      this.resolveMagnetOptions(e),
+      this.resolvePlacementModifiers(e, this.dragHandler.getAngleLockOrigin(this.adapter)),
     )
     if (!updated) return false
     this.sessionOverlay.setDragOverrides(updated)

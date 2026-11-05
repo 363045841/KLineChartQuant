@@ -35,6 +35,11 @@ function offsetScreen(
   }
 }
 
+/** 单轴锚点（水平线 / 垂直线）只有一根轴有自由度，不参与锁角。 */
+function isSingleAxisAnchor(anchor: PersistedDrawingAnchor): boolean {
+  return anchor.type === 'horizontal' || anchor.type === 'vertical'
+}
+
 /**
  * Manages drag state and handles drag-move mutations for drawings.
  * Does NOT own the drawings array — the caller retrieves and writes back.
@@ -65,6 +70,38 @@ export class DragHandler {
   }
 
   /**
+   * 当前拖拽锚点的锁角参考点：同一图元里离它最近的其他点锚点。
+   *
+   * 参考点取拖拽起始快照，拖拽过程中不随覆盖移动。对趋势线就是另一端；
+   * 对多锚点图元是用户看到的那一段的另一端，因此不需要为每种图元登记配对表。
+   * @param adapter 视口与坐标换算
+   * @returns Pane 局部参考点；非锚点拖拽、没有其他点锚点或无法投影时返回 null
+   */
+  getAngleLockOrigin(adapter: DrawingViewportPort): Point | null {
+    const state = this.dragState
+    if (!state || state.target.type !== 'anchor') return null
+    const drawing = state.drawings[0]
+    const dragged = drawing?.anchors[state.target.index]
+    if (!drawing || dragged === undefined || isSingleAxisAnchor(dragged)) return null
+    const draggedScreen = anchorToScreen(dragged, drawing.paneId, adapter)
+    if (!isScreenPoint(draggedScreen)) return null
+
+    let origin: Point | null = null
+    let nearest = Number.POSITIVE_INFINITY
+    for (const [index, anchor] of drawing.anchors.entries()) {
+      if (index === state.target.index || isSingleAxisAnchor(anchor)) continue
+      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      if (!isScreenPoint(screen)) continue
+      const distance = Math.hypot(screen.x - draggedScreen.x, screen.y - draggedScreen.y)
+      if (distance < nearest) {
+        nearest = distance
+        origin = { x: screen.x, y: screen.y }
+      }
+    }
+    return origin
+  }
+
+  /**
    * 开始拖拽。
    * @param drawings 参与本次拖拽的图元
    * @param target 命中目标（锚点 / 线段中点手柄 / 整体）
@@ -91,9 +128,9 @@ export class DragHandler {
 
   /**
    * 基于拖拽快照生成整组图元的临时覆盖，不修改已确认状态。
-   * options.magnet 仅在锚点/手柄拖拽分支生效：命中点绝对跟随指针，磁吸随指针落点
-   * 收敛到 OHLC（修饰键语义由调用方 resolveMagnetOptions 统一分发）；
-   * 整体拖拽是位移增量语义，全体锚点平移，无单一落点基准，不吸附。
+   * options 里的落点约束（锁角 / 磁吸）由调用方按修饰键给出：命中点绝对跟随指针，
+   * 磁吸随指针落点收敛到 OHLC，锁角则把落点绕参考点定向；
+   * 整体拖拽是位移增量语义，全体锚点平移，无单一落点基准，不吸附也不锁角。
    */
   handleDragMove(
     e: PointerEvent,
@@ -106,6 +143,7 @@ export class DragHandler {
     const target = this.dragState.target
     const pointer = resolveDrawingPointer(e, container, adapter, {
       magnet: this.resolveDragMagnet(target, options),
+      angleLock: options?.angleLock,
       clampDataEnd:
         target.type === 'anchor' &&
         this.dragState.drawings[0]?.kind === DrawingTool.RegressionChannel,

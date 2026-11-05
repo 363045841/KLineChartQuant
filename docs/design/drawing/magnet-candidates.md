@@ -24,15 +24,14 @@
 
 中点、边沿不是独立候选：它们是线的一部分，按线求交即覆盖。
 
-指标值按 K 线下标对齐（`Plot.data[barIndex]`），下标查询是 O(1)，不需要分桶。
+指标值按 K 线下标对齐（`Plot.data[barIndex]`），直接取值即可。
 
 ## 坐标空间
 
 磁吸内部只有一套坐标：**Pane 局部逻辑像素**。
 
 - 容器局部 → Pane 局部的换算只在 `resolveDrawingPointer` 入口发生一次；
-- `DrawingPointerAnchor.x/y`、候选的 `x/y`、手柄、命中测试同处一个空间；
-- 磁吸不再读写 `pane.top`，也不返回容器坐标。
+- `DrawingPointerAnchor.x/y`、候选的 `x/y`、手柄、命中测试同处一个空间。
 
 `priceToY` / `yToPrice` 本身就是 Pane 局部，因此候选与落点之间不需要任何偏移运算。
 
@@ -67,6 +66,10 @@ X 的落点：命中的候选自带时间时用它自己的 X；否则落 Bar �
 拖拽方再按 id 补充排除（例如整组选中一起拖动的图元）。
 
 整线拖拽是位移增量语义，没有单一落点，不参与磁吸。
+
+## 与 Shift 锁角的关系
+
+磁吸只做值吸附；Shift 是方向约束，见 [angle-lock.md](./angle-lock.md)。
 
 ## 命中反馈
 
