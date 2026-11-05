@@ -162,6 +162,12 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
   }
 }
 
+/** 只保留有值的目录字段，供静态目录与实现元数据合并。 */
+function definedDescriptor(descriptor: IndicatorDescriptor): IndicatorDescriptor {
+  const entries = Object.entries(descriptor).filter(([, value]) => value !== undefined)
+  return Object.fromEntries(entries) as IndicatorDescriptor
+}
+
 /** 注册注解定义；相同元数据幂等，不同定义争用同一身份时拒绝覆盖。 */
 export function registerIndicatorDefinition(definitionClass: IndicatorDefinitionClass): void {
   const definition = definitionClass[definitionMetadata]?.()
@@ -225,6 +231,15 @@ function publishDefinition(
   indicatorDefinitions.set(normalizedName, definition)
   if (replaceDescriptor || !indicatorDescriptors.has(normalizedName)) {
     indicatorDescriptors.set(normalizedName, { descriptor: descriptorFromMetadata(definition) })
+  } else {
+    // 静态目录只含编译期可提取字段；实现加载后补齐 inputDefs/title/info 等运行期元数据。
+    const stored = indicatorDescriptors.get(normalizedName)
+    indicatorDescriptors.set(normalizedName, {
+      descriptor: {
+        ...stored?.descriptor,
+        ...definedDescriptor(descriptorFromMetadata(definition)),
+      },
+    })
   }
   for (const alias of aliases) indexAlias(alias, normalizedName)
   registerIndicatorLayerNaming(aliases, definition.getRendererName, definition.getScaleRendererName)

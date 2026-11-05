@@ -110,9 +110,7 @@ export async function executeIndicatorCalculationPlan(
 ): Promise<readonly IndicatorCalculationOutput[]> {
   return Object.freeze(
     await Promise.all(
-      plan.tasks.map((task) =>
-        executeIndicatorCalculationTask(task, data, resolveDefinition),
-      ),
+      plan.tasks.map((task) => executeIndicatorCalculationTask(task, data, resolveDefinition)),
     ),
   )
 }

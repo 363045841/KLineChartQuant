@@ -35,6 +35,14 @@
   --klc-color-footprint-cell-bid: #d64b4b;
   --klc-color-footprint-cell-ask: #929292;
   --klc-color-footprint-cell-text: #303030;
+  --klc-color-volume-profile-up: #0000001A;
+  --klc-color-volume-profile-down: #00000033;
+  --klc-color-volume-profile-value-area-up: #2D7FF9B3;
+  --klc-color-volume-profile-value-area-down: #D9A600B3;
+  --klc-color-volume-profile-point-of-control: #D9453F;
+  --klc-color-volume-profile-value-area-high: #2D7FF9CC;
+  --klc-color-volume-profile-value-area-low: #2D7FF9CC;
+  --klc-color-volume-profile-box-background: #00000008;
   --klc-color-alert-active: #2D7FF9;
   --klc-color-alert-triggered: #C2410C;
   --klc-color-alert-muted: #9CA3AF;

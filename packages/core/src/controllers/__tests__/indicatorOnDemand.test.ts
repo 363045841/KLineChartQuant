@@ -58,9 +58,10 @@ describe('indicator catalog without implementations', () => {
       category: 'sub',
       compute: () => ({ plots: [], fills: [] }),
     })
-    expect(allIndicatorDefinitions().map((definition) => definition.id)).toEqual([
+    // 目录里的内置项是静态占位（kind: indicator），不加载实现；宿主注册项同样直接可见。
+    expect(allIndicatorDefinitions().map((definition) => definition.id)).toContain(
       'LateRegisteredFixture',
-    ])
+    )
     expect(loads.size).toBe(0)
   })
 })
@@ -73,6 +74,7 @@ describe('static catalog fidelity', () => {
     for (const descriptor of descriptors) {
       const definition = getRegisteredIndicatorDefinition(descriptor.name)!
       const runtimeDefaults = definition.runtime?.defaultParams
+      const runtimeInputDefs = definition.runtime?.inputDefs
       expect(descriptor, descriptor.name).toEqual(
         JSON.parse(
           JSON.stringify({
@@ -84,8 +86,10 @@ describe('static catalog fidelity', () => {
             defaultPaneId: definition.defaultPaneId,
             dataViews: definition.dataViews,
             allowMainPane: definition.allowMainPane,
+            visiblePeriods: definition.visiblePeriods,
             defaultParams:
               typeof runtimeDefaults === 'function' ? runtimeDefaults() : runtimeDefaults,
+            inputDefs: runtimeInputDefs,
             defaultOptions: definition.presentation?.defaultOptions,
           }),
         ),
@@ -93,3 +97,4 @@ describe('static catalog fidelity', () => {
     }
   })
 })
+
