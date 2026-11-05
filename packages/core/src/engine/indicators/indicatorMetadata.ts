@@ -155,6 +155,16 @@ export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unk
   readonly defaultOptions: O
 }
 
+/** 可见范围使用的周期单位；同单位内用 min/max 表示区间。 */
+export type IndicatorPeriodUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter'
+
+/** 一条可见范围声明；省略 min/max 表示该单位全段可见。 */
+export interface IndicatorPeriodVisibility {
+  readonly unit: IndicatorPeriodUnit
+  readonly min?: number
+  readonly max?: number
+}
+
 /**
  * 指标元数据接口
  */
@@ -241,6 +251,12 @@ export interface IndicatorMetadata<T = unknown> {
    * - false/undefined：仅限副图显示
    */
   allowMainPane?: boolean
+
+  /**
+   * 指标在哪些图表周期可见；未声明时所有周期都可见。
+   * 声明后，不在范围内的周期既不绘制也不出现在图例里（TradingView 的「可见范围」）。
+   */
+  visiblePeriods?: readonly IndicatorPeriodVisibility[]
 
   /**
    * 主图指标启停相关配置。
