@@ -14,8 +14,6 @@ import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
 
 const defaultOptions: ChartOptions = {
-  kWidth: 10,
-  kGap: 2,
   yPaddingPx: 0,
   rightAxisWidth: 0,
   leftAxisWidth: 0,
@@ -64,14 +62,13 @@ describe('Chart lifecycle without a market selection', () => {
     vi.restoreAllMocks()
   })
 
-  it('filters options without mutating a frozen caller object', async () => {
+  it('applies options without mutating a frozen caller object', async () => {
     const chart = mountChart()
     try {
-      const patch = Object.freeze({ kWidth: 99, kGap: 98, yPaddingPx: 7 })
+      const patch = Object.freeze({ yPaddingPx: 7 })
       chart.updateOptions(patch)
-      expect(patch).toEqual({ kWidth: 99, kGap: 98, yPaddingPx: 7 })
+      expect(patch).toEqual({ yPaddingPx: 7 })
       expect(chart.getOption().yPaddingPx).toBe(7)
-      expect(chart.kernel.zoom.readonly.kWidth.peek()).not.toBe(99)
     } finally {
       await chart.destroy()
     }

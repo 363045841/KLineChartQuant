@@ -129,11 +129,11 @@ describe('createSubState', () => {
 })
 
 describe('viewportState template', () => {
-  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=1.5）便于在窄视口内构造多根数据。 */
+  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=3.6）便于在窄视口内构造多根数据。 */
   const scrollDeps = (dataLength?: number) =>
     createViewportStateDeps({
       ...(dataLength !== undefined ? { dataLength } : {}),
-      options: { kWidth: 6, kGap: 1 },
+      geometry: { kWidth: 6 },
       zoomLevel: 1,
     })
 

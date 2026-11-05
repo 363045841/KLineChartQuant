@@ -58,9 +58,11 @@ export function getEffectiveDprLogic(preciseDpr: number): number {
  * 可在 kernel constructor 中直接使用（无 DOM 依赖）。
  */
 export interface ViewportSignalDeps {
-  options$: ReadonlySignal<{
+  /** 视口几何输入：轴高、缩放派生的实体宽度与密度派生的间距系数。 */
+  geometry$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
+    kGapRatio: number
   }>
   dataLength$: ReadonlySignal<number>
   dataView$: ReadonlySignal<ChartDataView>
@@ -108,7 +110,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
 
   const computePlotWidth = (viewWidth: number): number => Math.round(viewWidth)
   const computePlotHeight = (viewHeight: number): number =>
-    Math.round(viewHeight - signalDeps.options$().bottomAxisHeight)
+    Math.round(viewHeight - signalDeps.geometry$().bottomAxisHeight)
 
   const { signals, readonly } = createSubState(
     {
@@ -134,7 +136,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     view: signalDeps.dataView$(),
     width: readonly.plotWidth(),
     dpr: readonly.dpr(),
-    kWidth: signalDeps.options$().kWidth,
+    kWidth: signalDeps.geometry$().kWidth,
+    kGapRatio: signalDeps.geometry$().kGapRatio,
     sessionSlotWidth: readTimeShareSlotWidth() ?? null,
     data: signalDeps.data$(),
     dataLength: signalDeps.dataLength$(),

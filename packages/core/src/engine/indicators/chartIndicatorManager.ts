@@ -88,7 +88,7 @@ import {
 import { createIndicatorTimelineProjection, projectIndicatorCollection } from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
 
-type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
+type ResolvedChartOptions = ChartOptions & {
   kWidth: number
   kGap: number
 }

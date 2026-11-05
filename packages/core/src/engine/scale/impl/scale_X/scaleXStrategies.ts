@@ -49,7 +49,7 @@ function snapshot(
 
 /** K 线与对比槽位共用网格，视口边界保留至少两根完整实体。 */
 function projectBars(input: ScaleXInput): ScaleXSnapshot {
-  const gap = kGapFromKWidth(input.kWidth, input.dpr)
+  const gap = kGapFromKWidth(input.kWidth, input.dpr, input.kGapRatio)
   const grid = createKLineSlotGrid(input.kWidth, gap, input.dpr)
   const barWidth = calcKBarWidthPx(grid.step * input.dpr) / input.dpr
   const half = (Math.round(barWidth * input.dpr) - 1) / (2 * input.dpr)

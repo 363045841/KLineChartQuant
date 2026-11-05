@@ -1,8 +1,11 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
-import { createFootprintState } from './footprintState.js'
 
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
-import { type ChartSettings, normalizeSettings } from '../../foundation/config/chartSettings.js'
+import {
+  type ChartSettings,
+  normalizeSettings,
+  resolveKLineGapRatio,
+} from '../../foundation/config/chartSettings.js'
 import type { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
@@ -44,6 +47,7 @@ import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
+import { createFootprintState } from './footprintState.js'
 import {
   createIndicatorState,
   type IndicatorInstanceSpec,
@@ -213,9 +217,10 @@ export class ChartStateKernel extends StateKernel {
   readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
   /** 当前数据视图中应显示在主图图例的用户指标 ID。 */
   readonly visibleMainIndicatorIds$: ReadonlySignal<ReadonlyArray<string>>
-  readonly optionsForViewport$: ReadonlySignal<{
+  readonly viewportGeometry$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
+    kGapRatio: number
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
@@ -243,9 +248,10 @@ export class ChartStateKernel extends StateKernel {
     this.zoom.actions.setZoomLevel(deps.initialZoomLevel)
 
     this.zoomLevel$ = computed(() => this.zoom.readonly.zoomLevel())
-    this.optionsForViewport$ = computed(() => ({
+    this.viewportGeometry$ = computed(() => ({
       bottomAxisHeight: this.options.readonly.options().bottomAxisHeight,
       kWidth: this.zoom.readonly.kWidth(),
+      kGapRatio: resolveKLineGapRatio(this.settings.readonly.settings().klineDensity),
     }))
 
     // ── Data state ──
@@ -276,7 +282,7 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
-      options$: this.optionsForViewport$,
+      geometry$: this.viewportGeometry$,
       dataLength$: this.dataLength$,
       dataView$: this.mode.readonly.dataView,
       data$: this.data.readonly.data,

@@ -276,7 +276,6 @@ export class Chart {
       (id, action) => this.legend.execute(id, action),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
-    const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
     this.pluginHost = createPluginHost()
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
@@ -287,7 +286,7 @@ export class Chart {
     // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
       initialOptions: {
-        ...restOpt,
+        ...opt,
         zoomLevelCount,
       },
       initialZoomLevel: this.initialZoomLevel,
@@ -325,7 +324,7 @@ export class Chart {
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
     // ── Legacy managers ──
-    this.layoutManager = new ChartPaneLayout(restOpt.panes, {
+    this.layoutManager = new ChartPaneLayout(opt.panes, {
       getDom: () => this.dom,
       getOption: () => {
         const o = this.kernel.options.readonly.options.peek()
@@ -920,8 +919,8 @@ export class Chart {
    * @param partial 部分配置项
    */
   updateOptions(partial: Partial<ChartOptions>) {
-    // 几何由 zoom/viewport 管理；解构过滤避免修改调用方对象。
-    const { kWidth: _kWidth, kGap: _kGap, panes, ...optionPatch } = partial
+    // panes 走独立布局入口，其余字段合并进 options 快照。
+    const { panes, ...optionPatch } = partial
     this.kernel.options.actions.patch(optionPatch)
     if (panes) {
       this.panes.importLayout(panes.map((pane) => ({ ...pane })))

@@ -1,8 +1,8 @@
-/** 图表选项状态：分辨率化选项快照（不含 kWidth/kGap）。 */
+/** 图表选项状态：分辨率化选项快照；K 线几何尺寸由视口派生，不属于选项。 */
 import { createSubState } from '../../foundation/reactivity/signal.js'
 import type { ChartOptions } from '../chart/index.js'
 
-type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & { zoomLevelCount: number }
+type ResolvedChartOptions = ChartOptions & { zoomLevelCount: number }
 
 export function createOptionsState(initial: ResolvedChartOptions) {
   const { signals, readonly } = createSubState({

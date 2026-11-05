@@ -5,10 +5,11 @@
  * 滚动量由 viewportState 的 maxScrollLeft 统一夹取，始终保留两个已有数据槽位。
  *
  * 数值基准：dpr=1，viewWidth=plotWidth=1000，dataLength=10，
- * 级别 6→5 缩小一级（kWidth 21→17.4，kGapPx 均钳 3，旧 unitPx=24 / 新 unitPx=20）。
+ * 级别 6→5 缩小一级（kWidth 21→17.4，kGapRatio=0.6）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChartDataView } from '@/engine/chartModel/index'
+import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import type { ScaleXSnapshot } from '../../scale/index'
 import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
@@ -37,9 +38,10 @@ function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000
   // 与真实 kernel 相同：viewport 直接订阅 zoomState 的 K 线宽度。
   const viewport = createViewportState({
     ...deps,
-    options$: computed(() => ({
+    geometry$: computed(() => ({
       bottomAxisHeight: 24,
       kWidth: zoomState.readonly.kWidth(),
+      kGapRatio: KLINE_GAP_RATIOS.standard,
     })),
     zoomLevel$: zoomState.readonly.zoomLevel,
     timeShareSlotWidth$: zoomState.readonly.timeShareSlotWidth,
