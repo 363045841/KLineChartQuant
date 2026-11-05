@@ -1,6 +1,9 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
 import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime/contracts'
-import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type {
+  ChartController,
+  RegisteredChartTool,
+} from '@363045841yyt/klinechart-core/controllers'
 import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'
 
@@ -17,6 +20,11 @@ export interface KlineWorkbenchProps {
    * 省略时保持 Web 端默认实现，工作台本身不选择存储介质。
    */
   credentials?: ProviderCredentialStore
+  /**
+   * 宿主追加的图表工具惰性源，用于插件或宿主向 Agent 注入自有能力；
+   * 未提供时不追加，工具在挂载时求值一次。
+   */
+  extraChartTools?: () => ReadonlyArray<RegisteredChartTool>
   /** 来源 ID 与稳定品种 ID，周期独立控制。 */
   instrument?: { sourceId: string; id: string }
   period?: KLinePeriod
@@ -28,4 +36,6 @@ export interface KlineWorkbenchProps {
 
 export interface KlineWorkbenchHandle {
   getController(): ChartController | null
+  /** 后补注册外部图表工具；宿主的工具晚于挂载就绪时用它补入目录。 */
+  registerChartTools(tools: ReadonlyArray<RegisteredChartTool>): void
 }

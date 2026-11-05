@@ -2,10 +2,12 @@
 <template>
   <component
     :is="agent ? WorkbenchAgent : 'div'"
+    ref="agentView"
     class="kline-workbench__content"
     :controller="agent ? controller : undefined"
     :initial-panel-open="agent ? initialAgentPanelOpen : undefined"
     :credentials="agent ? credentials : undefined"
+    :extra-chart-tools="agent ? extraChartTools : undefined"
   >
     <div v-if="market.error.value" class="kline-workbench__market-error" role="alert">
       {{ market.error.value.message }}
@@ -24,7 +26,10 @@
 </template>
 
 <script setup lang="ts">
-  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    ChartController,
+    RegisteredChartTool,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { defineAsyncComponent, shallowRef } from 'vue'
   import KlineChart from '../../components/chart/KLineChart.vue'
   import BaseButton from '../../components/common/BaseButton.vue'
@@ -58,7 +63,14 @@
     controller.value = value
     emit('controller-ready', value)
   }
-  defineExpose({ getController: () => controller.value })
+  /** Agent 宿主的工具补录入口；Agent 关闭或尚未加载时静默忽略。 */
+  const agentView = shallowRef<{
+    registerChartTools?: (tools: ReadonlyArray<RegisteredChartTool>) => void
+  } | null>(null)
+  function registerChartTools(tools: ReadonlyArray<RegisteredChartTool>): void {
+    agentView.value?.registerChartTools?.(tools)
+  }
+  defineExpose({ getController: () => controller.value, registerChartTools })
 </script>
 
 <style>

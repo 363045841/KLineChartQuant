@@ -17,10 +17,13 @@
 </template>
 
 <script setup lang="ts">
-  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    ChartController,
+    RegisteredChartTool,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { onErrorCaptured, shallowRef } from 'vue'
-  import type { KlineWorkbenchHandle, KlineWorkbenchProps } from './types.js'
   import WorkbenchContent from './impl/WorkbenchContent.vue'
+  import type { KlineWorkbenchHandle, KlineWorkbenchProps } from './types.js'
 
   defineOptions({ inheritAttrs: false })
   withDefaults(defineProps<KlineWorkbenchProps>(), {
@@ -47,7 +50,11 @@
     theme.value = value
     emit('theme-change', value)
   }
-  defineExpose({ getController: () => content.value?.getController() ?? null })
+  defineExpose({
+    getController: () => content.value?.getController() ?? null,
+    registerChartTools: (tools: ReadonlyArray<RegisteredChartTool>) =>
+      content.value?.registerChartTools(tools),
+  })
 </script>
 
 <style>
