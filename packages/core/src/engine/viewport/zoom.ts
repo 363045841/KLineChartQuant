@@ -29,10 +29,9 @@ export function zoomLevelToKWidth(level: number, config: ZoomConfigBase): number
   return config.minKWidth + fraction * (config.maxKWidth - config.minKWidth)
 }
 
-/** 间距随 K 线物理宽度按比例增长，至少一个物理像素。 */
+/** 槽位间距连续变化；物理像素对齐留到实体与影线的最终绘制。 */
 export function kGapFromKWidth(kWidth: number, dpr: number): number {
-  const widthPx = Math.round(kWidth * dpr)
-  return Math.max(1, Math.round(widthPx * 0.6)) / dpr
+  return Math.max(1 / dpr, kWidth * 0.6)
 }
 
 /** 按周期派生 K 线或分时的绘制间隙。 */

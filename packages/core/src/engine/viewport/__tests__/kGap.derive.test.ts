@@ -1,15 +1,17 @@
+/** 连续槽位间隙与分时固定物理像素间隙的派生契约。 */
 import { describe, expect, it } from 'vitest'
 
 import { deriveKGap, kGapFromKWidth } from '../zoom'
 
 describe('deriveKGap', () => {
-  it.each([1, 1.25, 1.5, 2, 3])('K 线间距随宽度增加且对齐物理像素，DPR=%s', (dpr) => {
+  it.each([1, 1.25, 1.5, 2, 3])('K 线间距连续增长且至少一个物理像素，DPR=%s', (dpr) => {
     const gaps = [2, 8, 16, 32, 50].map((width) => kGapFromKWidth(width, dpr) * dpr)
     for (let index = 0; index < gaps.length; index++) {
-      expect(gaps[index]).toBeCloseTo(Math.round(gaps[index]!), 10)
+      expect(gaps[index]).toBeGreaterThanOrEqual(1)
       if (index > 0) expect(gaps[index]).toBeGreaterThan(gaps[index - 1]!)
     }
     expect(gaps.at(-1)).toBeGreaterThan(3)
+    expect(kGapFromKWidth(8.001, dpr) - kGapFromKWidth(8, dpr)).toBeCloseTo(0.0006, 10)
   })
 
   it('uses fixed 1 physical px gap in timeshare period', () => {

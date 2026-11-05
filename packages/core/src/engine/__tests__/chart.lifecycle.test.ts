@@ -144,7 +144,7 @@ describe('Chart lifecycle without a market selection', () => {
       chart.resize()
       const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
       chart.handlePointerEvent(pointerEvent('pointerdown', dom.container, { pointerType: 'mouse' }))
-      const wheel = new WheelEvent('wheel', { deltaY: -1, clientX: 100 })
+      const wheel = new WheelEvent('wheel', { deltaY: -100, clientX: 100 })
       chart.handleWheelEvent(wheel)
       chart.draw()
       expect(check).not.toHaveBeenCalled()
@@ -154,7 +154,11 @@ describe('Chart lifecycle without a market selection', () => {
       expect(check).not.toHaveBeenCalled()
       const callbacks = [...frames.values()]
       frames.clear()
-      for (const callback of callbacks) callback(performance.now() + 200)
+      for (const callback of callbacks) callback(performance.now() + 1000)
+      expect(check).not.toHaveBeenCalled()
+      const completion = [...frames.values()]
+      frames.clear()
+      for (const callback of completion) callback(performance.now() + 1016)
       expect(check).toHaveBeenCalledOnce()
     } finally {
       await chart.destroy()

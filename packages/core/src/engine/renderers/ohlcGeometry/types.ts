@@ -1,4 +1,4 @@
-/** 主图和脚本 OHLC 共用的屏幕几何契约，坐标使用逻辑像素。 */
+/** 主图和脚本 OHLC 共用的世界几何契约，坐标使用逻辑像素。 */
 export type OhlcRect = readonly [x: number, y: number, width: number, height: number]
 
 /** 一根 OHLC 的三部分几何；矩形内部不重叠，透明色不会重复叠加。 */

@@ -27,7 +27,8 @@ function createContext(): RenderContext {
       { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
     ],
     range: { start: 0, end: 2 },
-    kWidth: 6,
+    // 理想槽距 18+2=20，中心起点 2+(17-1)/2=10，与封存中心保持一致。
+    kWidth: 18,
     kGap: 2,
     paneWidth: 100,
     kLinePositions: [7, 27],

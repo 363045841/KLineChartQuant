@@ -39,8 +39,9 @@ export function calcBarLeftPx(centerPx: number, widthPx: number): number {
 export function getPhysicalKLineConfig(kWidth: number, kGap: number, dpr: number) {
   const kWidthPx = calcKWidthPx(kWidth, dpr)
   const kGapPx = Math.round(kGap * dpr)
-  const unitPx = kWidthPx + kGapPx
-  const startXPx = kGapPx
+  // 世界槽距保留小数，避免连续缩放被物理像素取整变成台阶。
+  const unitPx = (kWidth + kGap) * dpr
+  const startXPx = kGap * dpr
 
   // 转回逻辑像素（供需要逻辑像素的地方使用）
   const kWidthLogical = kWidthPx / dpr

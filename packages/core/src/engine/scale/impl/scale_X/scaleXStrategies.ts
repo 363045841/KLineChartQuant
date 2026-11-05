@@ -1,6 +1,7 @@
 /** 集中定义各数据视图的横向标尺行为；模型、绘制和交互不再独立识别周期。 */
 import { slotIndexAt, slotWorldX } from '../../../../foundation/geometry/slotGrid.js'
 import { ChartDataViewId } from '../../../../foundation/types/chartView.js'
+import { worldXToScreenX } from '../../../../foundation/utils/pixelAlign.js'
 import { resolveMarketSessionSlots } from '../../../../foundation/utils/timeShareAxisLabels.js'
 import { CHART_VIEW_DEFINITIONS, computeTimeShareGeometry } from '../../../chartModel/index.js'
 import { calcBarLeftPx, calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
@@ -21,16 +22,26 @@ function snapshot(
   visible?: ReadonlyArray<boolean>,
 ): ScaleXSnapshot {
   const half = (fields.kWidthPx - 1) / (2 * input.dpr)
+  // 每一帧只在这里生成一次显示中心，实体、影线、指标和交互共享同一像素列。
+  const centers = fields.centers.map(
+    (center) => worldXToScreenX(center, fields.scroll, input.dpr) + fields.scroll,
+  )
   return {
     ...fields,
+    centers,
     view: input.view,
     viewportWidth: input.width,
     // K 线几何不依赖到达点数量；交易视图必须有可绘制的交易中心。
     ready: input.width > 0 && (fields.hoverKind === 'candle' ? true : fields.centers.length > 0),
-    positions: fields.centers.map((center) => center - half),
-    bars: fields.centers.map((center, index) => ({
+    positions: centers.map((center) => center - half),
+    bars: centers.map((center, index) => ({
       x:
-        calcBarLeftPx(Math.round(center * input.dpr), Math.round(barWidth * input.dpr)) / input.dpr,
+        calcBarLeftPx(
+          worldXToScreenX(center, fields.scroll, input.dpr) * input.dpr,
+          Math.round(barWidth * input.dpr),
+        ) /
+          input.dpr +
+        fields.scroll,
       width: visible && !visible[index] ? 0 : barWidth,
     })),
   }
@@ -43,11 +54,19 @@ function projectBars(input: ScaleXInput): ScaleXSnapshot {
   const barWidth = calcKBarWidthPx(grid.step * input.dpr) / input.dpr
   const half = (Math.round(barWidth * input.dpr) - 1) / (2 * input.dpr)
   const count = Math.min(2, input.dataLength)
+  // 边界先在连续世界空间求解，右端只使用视口中完整的物理像素列。
+  const firstCenter = slotWorldX(grid, count - 1)
+  const lastCenter = slotWorldX(grid, input.dataLength - count)
+  const physicalWidth = Math.floor(input.width * input.dpr) / input.dpr
   const min =
-    count > 0 ? Math.max(-input.width, slotWorldX(grid, count - 1) + half - input.width) : 0
-  const max = count > 0 ? slotWorldX(grid, input.dataLength - count) - half : 0
+    count > 0
+      ? Math.ceil(Math.max(-input.width, firstCenter + half - physicalWidth) * input.dpr) /
+        input.dpr
+      : 0
+  const max = count > 0 ? Math.floor((lastCenter - half) * input.dpr) / input.dpr : 0
   // 视口窄于两根实体时居中显示已有数据；正常尺寸严格保留两根完整实体。
-  const scrollBounds = min <= max ? { min, max } : { min: (min + max) / 2, max: (min + max) / 2 }
+  const middle = Math.round(((min + max) / 2) * input.dpr) / input.dpr
+  const scrollBounds = min <= max ? { min, max } : { min: middle, max: middle }
   const scroll = Math.max(scrollBounds.min, Math.min(input.scroll, scrollBounds.max))
   const start = Math.floor((scroll - grid.origin) / grid.step) - 1
   const end = Math.ceil((scroll + input.width - grid.origin) / grid.step) + 1
@@ -80,7 +99,10 @@ function projectBars(input: ScaleXInput): ScaleXSnapshot {
       capabilities: KLINE_DEFINITION.capabilities,
       hoverKind: 'candle',
       hasPriceSeries: true,
-      worldAtIndex: (index) => (Number.isInteger(index) ? slotWorldX(grid, index) : null),
+      worldAtIndex: (index) =>
+        Number.isInteger(index)
+          ? worldXToScreenX(slotWorldX(grid, index), scroll, input.dpr) + scroll
+          : null,
       indexAtWorld: (world) => (Number.isFinite(world) ? slotIndexAt(grid, world) : null),
     },
     barWidth,
@@ -201,7 +223,10 @@ function zoomSessions(input: ScaleXInput, delta: number, _kWidth: number): Scale
   const before = projectMultipleSessions(input)
   return {
     ...input,
-    sessionSlotWidth: Math.max(1, Math.round(before.grid.step * input.dpr) + delta) / input.dpr,
+    sessionSlotWidth: Math.max(
+      1 / input.dpr,
+      (input.sessionSlotWidth ?? before.grid.step) + delta / input.dpr,
+    ),
   }
 }
 

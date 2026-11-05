@@ -1683,7 +1683,7 @@ export class Chart {
     }
     if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     const rect = this.dom.container.getBoundingClientRect()
-    this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left)
+    this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left, e.deltaMode, e.ctrlKey)
   }
 
   /**

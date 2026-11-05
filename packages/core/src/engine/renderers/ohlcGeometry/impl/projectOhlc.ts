@@ -1,4 +1,4 @@
-/** OHLC 共享几何：先在整数物理像素空间构建，再交给矩形批次渲染。 */
+/** OHLC 世界几何：保留横向中心的小数，尺寸与纵向边界按物理像素构建。 */
 import { calcBarLeftPx, fitBarWidthPx } from '../../../viewport/klineConfig.js'
 import type { OhlcGeometry, OhlcGeometryInput, OhlcRect } from '../types.js'
 
@@ -13,7 +13,8 @@ export function projectOhlc(input: OhlcGeometryInput): OhlcGeometry {
   const low = Math.round(input.lowY * dpr)
   const stroke = input.zoomLevel >= THICK_WICK_ZOOM_LEVEL ? 2 : 1
   const width = fitBarWidthPx(input.widthPx, stroke)
-  const center = Math.round(input.center * dpr)
+  // 实体与影线共用连续中心，最终扣除滚动量后由矩形批次统一对齐。
+  const center = input.center * dpr
   const left = calcBarLeftPx(center, width)
   const stemLeft = calcBarLeftPx(center, stroke)
   /** 物理像素矩形转换为批次消费的逻辑像素。 */

@@ -15,12 +15,12 @@ export function roundToPhysicalPixel(value: number, dpr: number, theme?: 'light'
 /**
  * 将世界 X 坐标按当前滚动量投影并对齐到屏幕物理像素。
  *
- * 世界坐标与滚动量分别对齐：滚动时所有点整体平移同一整数物理像素，几何缓存的
- * 归一化坐标保持不变；若对 `world - scroll` 整体取整，每个点的舍入方向会随滚动
- * 变化，导致每帧都重新三角化。
+ * 先完成世界到屏幕的变换再取整，避免锚点不动时世界坐标和滚动量各自跨越
+ * 舍入阈值造成一像素往返。世界几何缓存保留连续坐标，屏幕投影每帧重算。
  */
 export function worldXToScreenX(worldX: number, scrollLeft: number, dpr: number): number {
-  return (Math.round(worldX * dpr) - Math.round(scrollLeft * dpr)) / dpr
+  // 先恢复物理单位再相减，避免大世界坐标在 CSS 单位相消后放大半像素舍入误差。
+  return Math.round(worldX * dpr - scrollLeft * dpr) / dpr
 }
 
 /** 将世界坐标中的矩形 X 边界投影到屏幕物理像素，保持至少一个物理像素宽度。 */

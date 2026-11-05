@@ -4,6 +4,7 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
+import { createKLineSlotGrid } from '@/engine/viewport/slotGrid.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
@@ -22,6 +23,7 @@ import {
   resolveThemeColors,
   type ScriptColorResolver,
 } from '@/foundation/tokens/index.js'
+import { ChartDataViewId } from '@/foundation/types/chartView.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
@@ -54,6 +56,10 @@ type MutableDrawingFrameProjection = {
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
   const { pane, range, kLineCenters, scrollLeft } = context
+  const grid =
+    context.dataView === ChartDataViewId.KLine
+      ? createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
+      : undefined
   return (anchor) => {
     const x = logicalIndexToScreenX({
       index: anchor.index,
@@ -62,6 +68,7 @@ function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor)
       scrollLeft,
       dpr: context.dpr,
       fallbackStep: context.kWidth + context.kGap,
+      grid,
     })
     return { x: x ?? Number.NaN, y: pane.yAxis.priceToY(anchor.price) }
   }

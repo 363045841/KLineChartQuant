@@ -26,8 +26,11 @@ import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
+import { createKLineSlotGrid, slotWorldX } from '@/engine/viewport/slotGrid.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { ChartDataViewId } from '@/foundation/types/chartView.js'
+import { worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
@@ -178,13 +181,19 @@ function projectX(index: number, context: PrimitiveRenderContext): number | null
   const start = context.range.start
   const offset = index - start
   const center = centers[offset]
-  const dpr = context.dpr
-  if (Number.isFinite(center)) return Math.round(center! * dpr) / dpr
+  if (Number.isFinite(center)) return center!
+  // 显示中心量化后不再等距，视口外与小数索引必须从理想网格独立采样。
+  if (context.dataView === ChartDataViewId.KLine) {
+    const grid = createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
+    return (
+      worldXToScreenX(slotWorldX(grid, index), context.scrollLeft, context.dpr) + context.scrollLeft
+    )
+  }
   const lower = Math.floor(offset)
   if (lower >= 0 && lower + 1 < centers.length) {
     const left = centers[lower]!,
       right = centers[lower + 1]!
-    return Math.round((left + (right - left) * (offset - lower)) * dpr) / dpr
+    return left + (right - left) * (offset - lower)
   }
   // 视口外的索引按首/末中心与槽位步长线性外推，语义与 logicalIndexToScreenX 一致。
   const step =
@@ -196,7 +205,7 @@ function projectX(index: number, context: PrimitiveRenderContext): number | null
   if (!Number.isFinite(step) || step === 0) return null
   const originIndex = index < start ? start : start + centers.length - 1
   const originCenter = index < start ? centers[0]! : centers[centers.length - 1]!
-  return Math.round((originCenter + (index - originIndex) * step) * dpr) / dpr
+  return originCenter + (index - originIndex) * step
 }
 
 /** 投影价格定位的 Plot 点；空值保持断开。 */
