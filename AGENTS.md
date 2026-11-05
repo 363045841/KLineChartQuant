@@ -140,6 +140,11 @@ Issue 与需求单在仓库 GitHub Issues（gh CLI 读写；PRs 不作为 triage
 
 单上下文：根 `CONTEXT.md` + `docs/adr/`。See `docs/agents/domain.md`.
 
+### 仓库拓扑（三个 remote）
+
+本仓是「私有主仓 + 公开 PR 桥」两段式：`origin` = 私有仓（日常开发），`pr` = 公开 fork（只放准备提上游 PR 的分支），`upstream` = 上游（只读）。
+推 `pr` 等于公开，推送前必须逐条确认分支不含策略、私有数据与凭据。See `docs/agents/repo-topology.md`.
+
 ## OpenSpec（规格驱动 · 决策档案）
 
 本项目已初始化 OpenSpec 1.8.0。**这是跨会话的决策档案，可靠性高于会话记忆与压缩摘要。**
