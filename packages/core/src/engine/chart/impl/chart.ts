@@ -77,6 +77,8 @@ import {
   type RendererHost,
 } from '../../../rendering/render/index.js'
 import type { Layer } from '../../../rendering/scene/types.js'
+// ===== 普通 imports，按路径字母排序 =====
+import { resolveAxisWidth } from '../../axisWidth/impl/axisWidthEstimator.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -88,7 +90,6 @@ import {
   TimeShareMode,
 } from '../../chartModel/index.js'
 import { InteractionController, type InteractionSnapshot } from '../../controller/interaction.js'
-// ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from '../../data/chartDataManager.js'
 import { ComparisonCommands } from '../../data/comparisonCommands.js'
 import { symbolInfoFromSpec } from '../../data/symbolInfo.js'
@@ -236,9 +237,11 @@ export class Chart {
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
-  /** 右轴 host 当前生效的 CSS 宽度；仅在可视区极值变化时更新。 */
+  /** 右轴 host 当前生效的 CSS 宽度；提交后锁定，布局变化时才重新评估。 */
   private readonly _effectiveRightAxisWidth = createSignal(0)
   private readonly _effectiveLeftAxisWidth = createSignal(0)
+  /** 轴宽是否已锁定：锁定期间只允许变宽，避免运动途中改变绘图区宽度。 */
+  private axisWidthLocked = false
 
   /** 预警控制器 */
   readonly alertController: AlertController
@@ -858,6 +861,7 @@ export class Chart {
 
   /** 将内核设置变更应用到交互、缓存和渲染后端，不回写业务设置。 */
   private projectSettings(prev: Readonly<ChartSettings>, next: Readonly<ChartSettings>): void {
+    this.unlockAxisWidth()
     this.interaction.onSettingsChanged(prev, next)
     if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
       this.dataManager.marketDataCache.setMaxBytes(
@@ -1182,23 +1186,33 @@ export class Chart {
       this.resetTimeAxis()
       this.resetPriceTransform(MAIN_PANE_ID)
     })
+    this.unlockAxisWidth()
     this.checkVisibleRangeGapWhenIdle()
   }
 
-  /** 统一提交左右纵轴宽度；交互期间只扩宽，结束后按所有 Pane 的实际标签需求收缩。 */
+  /**
+   * 统一提交左右纵轴宽度。
+   *
+   * 轴宽属于布局而不是动画：首次提交后锁定，缩放、平移、拖拽和悬停期间只允许
+   * 变宽，不会因为标签变窄而收缩，绘图区宽度因此不会在运动途中改变。
+   * 只有显式布局变化（品种/周期切换、面板重排、设置或尺寸变化、图表重置）才解锁重评。
+   *
+   * @param widths 本帧标签估算出的轴宽需求
+   * @returns 是否改变了实际生效的宽度
+   */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
     const options = this.kernel.options.readonly.options.peek()
-    const interacting = this.interaction.isPointerDown()
-    const right = Math.max(
+    const right = resolveAxisWidth(
       options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
       widths.right,
-      interacting ? this._effectiveRightAxisWidth.peek() : 0,
+      this.axisWidthLocked ? this._effectiveRightAxisWidth.peek() : null,
     )
-    const left = Math.max(
+    const left = resolveAxisWidth(
       options.leftAxisWidth,
       widths.left,
-      interacting ? this._effectiveLeftAxisWidth.peek() : 0,
+      this.axisWidthLocked ? this._effectiveLeftAxisWidth.peek() : null,
     )
+    this.axisWidthLocked = true
     const changed =
       this._effectiveRightAxisWidth.peek() !== right || this._effectiveLeftAxisWidth.peek() !== left
     if (!changed) return false
@@ -1211,11 +1225,17 @@ export class Chart {
     return true
   }
 
+  /** 布局或设置变化后允许重新评估轴宽；下一帧按新标签提交并重新锁定。 */
+  private unlockAxisWidth(): void {
+    this.axisWidthLocked = false
+  }
+
   /** 容器尺寸变化时记录重排意图，保留当前像素直到下一帧能够立即重画。 */
   resize() {
     const vp = this.getViewport()
     const timeShare = this.activeMode === this._timeShareMode
     if (!vp || (timeShare ? vp.plotWidth <= 0 : vp.viewWidth < 10 || vp.viewHeight < 10)) return
+    this.unlockAxisWidth()
     this.viewportResizePending = true
     this.renderer.clearCachedFrame()
     this.renderer.invalidateFrame()
@@ -1250,6 +1270,7 @@ export class Chart {
 
   /** 统一批量投影入口：run 期间的所有 scheduleDraw 推迟到最外层统一 flush */
   private runRuntimeProjection(run: () => void): void {
+    this.unlockAxisWidth()
     this.runtimeProjectionDepth++
     try {
       run()
@@ -1531,6 +1552,7 @@ export class Chart {
   ): { dataView: ChartDataView; timeShare: boolean } {
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
+    this.unlockAxisWidth()
     const dataView = resolveChartDataView(period)
     const timeShare = isTimeShareDataView(dataView)
     if (timeShare && spec) {

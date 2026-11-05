@@ -34,6 +34,25 @@ function estimateLabelWidth(label: AxisLabel): number {
   return Math.ceil(Math.max(textWidth, countdownWidth) + AXIS_PADDING)
 }
 
+/**
+ * 解析单侧轴宽：已提交宽度只能被更宽的需求推开，不会自行收缩。
+ *
+ * 轴宽是布局属性，缩放、平移、悬停期间保持稳定；否则绘图区宽度会在运动途中
+ * 改变，坐标轴与绘图区右缘跟着跳动。只有布局变化后传入 committed=null 才重新评估。
+ *
+ * @param floor 配置下限（轴内边距与价格标签预留）
+ * @param requested 本帧标签估算宽度
+ * @param committed 已提交宽度；null 表示布局已变化，按当前需求重新评估
+ * @returns 本帧生效的轴宽
+ */
+export function resolveAxisWidth(
+  floor: number,
+  requested: number,
+  committed: number | null,
+): number {
+  return Math.max(floor, requested, committed ?? 0)
+}
+
 /** 保留未重绘表面的宽度；Pane 删除时清除记录，每侧取所有可见 Pane 的最大值。 */
 export class AxisWidthEstimator {
   private readonly widths = new Map<string, { static: AxisWidths; overlay: AxisWidths }>()
