@@ -27,8 +27,6 @@ export interface TimeShareGeometryInput {
 export interface TimeShareFrameGeometry {
   geometry: TimeShareGeometry
   centers: number[]
-  barWidth: number
-  barVisible: boolean[]
   kWidthPx: number
 }
 
@@ -161,8 +159,6 @@ export function computeTimeShareGeometry(
       ),
     }),
     centers: layout.centers,
-    barWidth: layout.barWidth,
-    barVisible: layout.barVisible,
     kWidthPx: layout.kWidthPx,
   }
 }

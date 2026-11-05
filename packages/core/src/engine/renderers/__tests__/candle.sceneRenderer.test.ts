@@ -45,7 +45,6 @@ function createCtx(
     kGap: 2,
     dpr: 1,
     paneWidth: 800,
-    kBarRects: [],
     theme: 'dark',
     viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
     sceneRenderer,

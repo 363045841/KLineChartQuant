@@ -43,7 +43,6 @@ export interface ScaleXSnapshot {
   slotRange: { start: number; end: number }
   centers: number[]
   positions: number[]
-  bars: Array<{ x: number; width: number }>
   timeShareGeometry: TimeShareGeometry | null
   capabilities: Readonly<ViewCapabilities>
   hoverKind: 'candle' | 'point'

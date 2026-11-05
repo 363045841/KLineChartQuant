@@ -343,12 +343,9 @@ describe('ChartZoomController smooth zoom', () => {
           const pixel = (center - view.scroll) * dpr
           expect(pixel).toBeCloseTo(Math.round(pixel), 9)
           expect(view.worldAtIndex(view.range.start + index)).toBeCloseTo(center, 9)
-          const bar = view.bars[index]!
-          expect((bar.x - view.scroll) * dpr).toBeCloseTo(
-            Math.round((bar.x - view.scroll) * dpr),
-            9,
-          )
-          expect(bar.width * dpr).toBeCloseTo(Math.round(bar.width * dpr), 9)
+          const left = view.positions[index]!
+          expect((left - view.scroll) * dpr).toBeCloseTo(Math.round((left - view.scroll) * dpr), 9)
+          expect(view.kWidthPx / dpr).toBeGreaterThan(0)
         }
       }
       expect(count).toBeGreaterThan(1)

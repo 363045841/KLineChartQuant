@@ -33,7 +33,6 @@ function createContext(): RenderContext {
     paneWidth: 100,
     kLinePositions: [7, 27],
     kLineCenters: [10, 30],
-    kBarRects: [],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
     pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
   })

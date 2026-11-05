@@ -60,7 +60,7 @@ export interface HistogramPlot extends Omit<PlotBase, 'size'> {
   readonly size: import('./shape.js').ShapeSize | number
 }
 
-/** 柱宽随 K 线间距缩放，不支持手动柱宽。 */
+/** 填充时间槽位，左右各留 1 个物理像素；不跟随蜡烛实体宽度，不支持手动柱宽。 */
 export interface ColumnsPlot extends PlotBase {
   readonly kind: 'columns'
   readonly baseline: number

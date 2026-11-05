@@ -13,11 +13,6 @@ export function calcKWidthPx(kWidth: number, dpr: number): number {
   return fitBarWidthPx(Math.round(kWidth * dpr), 1)
 }
 
-/** 根据整数单元宽度计算柱状图宽度，保留固定整数间隙并确保中心对称。 */
-export function calcKBarWidthPx(unitPx: number): number {
-  return fitBarWidthPx(Math.floor(unitPx) - 1, 1)
-}
-
 /** 在可用宽度内选择与影线同奇偶的实体宽度，保证整数边界和几何居中。 */
 export function fitBarWidthPx(availablePx: number, wickWidthPx: number): number {
   const width = Math.max(wickWidthPx, Math.floor(availablePx))
@@ -39,7 +34,7 @@ export function calcBarLeftPx(centerPx: number, widthPx: number): number {
 export function getPhysicalKLineConfig(kWidth: number, kGap: number, dpr: number) {
   const kWidthPx = calcKWidthPx(kWidth, dpr)
   const kGapPx = Math.round(kGap * dpr)
-  // 世界槽距保留小数，避免连续缩放被物理像素取整变成台阶。
+  // 世界槽距保留小数：连续缩放依赖它，取整会让缩放变成逐物理像素的台阶。
   const unitPx = (kWidth + kGap) * dpr
   const startXPx = kGap * dpr
 

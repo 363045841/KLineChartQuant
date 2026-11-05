@@ -410,7 +410,6 @@ function projectStoredDrawing(
     range: context.range,
     kLinePositions: context.kLinePositions,
     kLineCenters: context.kLineCenters,
-    kBarRects: context.kBarRects,
     kWidth: context.kWidth,
     kGap: context.kGap,
     dpr: context.dpr,

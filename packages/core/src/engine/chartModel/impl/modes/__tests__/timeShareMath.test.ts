@@ -102,7 +102,7 @@ describe('computeTimeShareXLayout', () => {
     expect(layout!.centers).toEqual([1, 239, 243, 479])
   })
 
-  it('derives bar width from the physical slot grid', () => {
+  it('derives the physical width from the physical slot grid', () => {
     const layout = computeTimeShareXLayout({
       arrivedCount: 1,
       sessionSlots: 24,
@@ -112,10 +112,10 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.centers[0]).toBe(5)
-    expect(layout!.barWidth).toBe(9)
+    expect(layout!.kWidthPx).toBe(10)
   })
 
-  it('keeps center distance and volume gap constant on non-divisible widths', () => {
+  it('keeps center distance constant on non-divisible widths', () => {
     const layout = computeTimeShareXLayout({
       arrivedCount: 3,
       sessionSlots: 240,
@@ -126,25 +126,11 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.centers).toEqual([61, 63, 65])
-    expect(layout!.barWidth).toBe(1)
-    expect(layout!.centers[1]! - layout!.centers[0]! - layout!.barWidth).toBe(1)
-    expect(layout!.centers[2]! - layout!.centers[1]! - layout!.barWidth).toBe(1)
+    expect(layout!.centers[1]! - layout!.centers[0]!).toBe(2)
+    expect(layout!.centers[2]! - layout!.centers[1]!).toBe(2)
   })
 
-  it('keeps only the latest bar when endpoint timestamps share one slot', () => {
-    const layout = computeTimeShareXLayout({
-      arrivedCount: 4,
-      sessionSlots: 240,
-      totalWidth: 480,
-      dpr: 1,
-      slotIndices: [119, 120, 120, 121],
-    })
-
-    expect(layout).not.toBeNull()
-    expect(layout!.barVisible).toEqual([true, false, true, true])
-  })
-
-  it('keeps indexes aligned and marks unresolved slots as non-drawable', () => {
+  it('keeps indexes aligned for unresolved slots', () => {
     const layout = computeTimeShareXLayout({
       arrivedCount: 3,
       sessionSlots: 240,
@@ -156,7 +142,6 @@ describe('computeTimeShareXLayout', () => {
     expect(layout).not.toBeNull()
     expect(layout!.centers).toHaveLength(3)
     expect(layout!.centers[1]).toBe(layout!.centers[0])
-    expect(layout!.barVisible).toEqual([true, false, true])
   })
 })
 

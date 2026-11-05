@@ -1,6 +1,5 @@
 /** 分时几何与价格轴计算的纯函数集合。 */
 import { resolveSessionSlotPhysicalGrid } from '@/foundation/utils/timeShareAxisLabels.js'
-import { calcKBarWidthPx } from '../../../viewport/klineConfig.js'
 
 /**
  * 昨收基准只接受正的有限数；无效值统一返回 null。
@@ -66,9 +65,6 @@ export type TimeShareXLayout = {
   /** 第一个槽位网格的逻辑像素起点。 */
   offset: number
   centers: number[]
-  barWidth: number
-  /** 同一物理中心的端点重复数据仅保留最后一根量柱。 */
-  barVisible: boolean[]
   kWidthPx: number
 }
 
@@ -83,33 +79,24 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
   const grid = resolveSessionSlotPhysicalGrid(totalWidth, sessionSlots, dpr)
   const step = grid ? grid.unitPx / dpr : totalWidth / sessionSlots
   const centers: number[] = new Array(arrivedCount)
-  const centerPxValues: Array<number | null> = new Array(arrivedCount)
-  const lastIndexByCenterPx = new Map<number, number>()
   let previousCenter = 0
   for (let i = 0; i < arrivedCount; i++) {
     const slotIndex = slotIndices?.[i]
     if (slotIndex === null) {
       centers[i] = previousCenter
-      centerPxValues[i] = null
       continue
     }
     const resolvedSlot = slotIndex === undefined ? i : slotIndex
     const centerPx = grid
       ? grid.offsetPx + resolvedSlot * grid.unitPx + Math.floor(grid.unitPx / 2)
       : Math.round((resolvedSlot + 0.5) * step * dpr)
-    centerPxValues[i] = centerPx
     centers[i] = centerPx / dpr
     previousCenter = centers[i]!
-    lastIndexByCenterPx.set(centerPx, i)
   }
 
-  const barVisible = centerPxValues.map(
-    (centerPx, index) => centerPx !== null && lastIndexByCenterPx.get(centerPx) === index,
-  )
   const kWidthPx = grid?.unitPx ?? 1
-  const barWidth = calcKBarWidthPx(kWidthPx) / dpr
 
-  return { step, offset: (grid?.offsetPx ?? 0) / dpr, centers, barWidth, barVisible, kWidthPx }
+  return { step, offset: (grid?.offsetPx ?? 0) / dpr, centers, kWidthPx }
 }
 
 export { computeTimeShareTimeLabelIndices } from '@/foundation/utils/timeShareAxisLabels.js'

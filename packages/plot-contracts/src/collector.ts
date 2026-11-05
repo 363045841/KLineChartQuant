@@ -347,7 +347,7 @@ function createHistogramPlot(
   }
 }
 
-/** 自动柱宽只依赖 K 线间距。 */
+/** Columns 的柱宽由宿主时间槽位决定，声明不携带蜡烛实体尺寸。 */
 function createColumnsPlot(declaration: ColumnsPlotDeclaration, base: PlotBaseFields): ColumnsPlot {
   return {
     ...base,

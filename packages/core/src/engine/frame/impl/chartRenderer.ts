@@ -107,8 +107,6 @@ type FrameContext = {
   kLinePositions: KLinePositions
   /** 每根 K 线中心的 x 坐标（由物理像素回算逻辑值） */
   kLineCenters: number[]
-  /** 每根 K 线实体的 x 和宽度 */
-  kBarRects: Array<{ x: number; width: number }>
   /** K 线柱物理像素宽度 */
   kWidthPx: number
   /** Overlay 帧复用上一帧的几何缓存 */
@@ -241,7 +239,6 @@ export class ChartRenderer {
     range: VisibleRange
     kLinePositions: KLinePositions
     kLineCenters: number[]
-    kBarRects: Array<{ x: number; width: number }>
     kWidthPx: number
     timeShareGeometry: TimeShareGeometry | null
     visiblePriceExtrema: VisiblePriceExtrema | null
@@ -789,20 +786,17 @@ export class ChartRenderer {
 
     let kLinePositions: KLinePositions
     let kLineCenters: number[]
-    let kBarRects: Array<{ x: number; width: number }>
     let kWidthPx: number
     let timeShareGeometry: TimeShareGeometry | null
 
     if (cached) {
       kLinePositions = cached.kLinePositions
       kLineCenters = cached.kLineCenters
-      kBarRects = cached.kBarRects
       kWidthPx = cached.kWidthPx
       timeShareGeometry = cached.timeShareGeometry
     } else {
       kLineCenters = projection.centers
       kLinePositions = projection.positions
-      kBarRects = projection.bars
       kWidthPx = projection.kWidthPx
       timeShareGeometry = projection.timeShareGeometry
     }
@@ -829,7 +823,6 @@ export class ChartRenderer {
       range,
       kLinePositions,
       kLineCenters,
-      kBarRects,
       kWidthPx,
       useCachedFrame,
       data: internalData,
@@ -1081,7 +1074,6 @@ export class ChartRenderer {
       range,
       kLinePositions,
       kLineCenters,
-      kBarRects,
       kWidthPx,
       useCachedFrame,
       data: renderData,
@@ -1235,6 +1227,7 @@ export class ChartRenderer {
         comparisonProjection: comparisonProjection ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
+        slotGrid: frame.viewSnapshot.grid,
         dataTransform,
         kWidth: opt.kWidth,
         kGap: opt.kGap,
@@ -1242,7 +1235,6 @@ export class ChartRenderer {
         paneWidth: vp.plotWidth,
         kLinePositions,
         kLineCenters,
-        kBarRects,
         kWidthPx,
         visiblePriceExtrema,
         getLogicalIndexAtTimestamp: (timestamp) =>
@@ -1452,7 +1444,6 @@ export class ChartRenderer {
       range,
       kLinePositions,
       kLineCenters,
-      kBarRects,
       kWidthPx,
       data: renderData,
       timeShareGeometry,
@@ -1515,13 +1506,13 @@ export class ChartRenderer {
         timeShareGeometry: timeShareGeometry ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
+        slotGrid: frame.viewSnapshot.grid,
         kWidth: opt.kWidth,
         kGap: opt.kGap,
         dpr: vp.dpr,
         paneWidth: vp.plotWidth,
         kLinePositions,
         kLineCenters,
-        kBarRects,
         kWidthPx,
         xAxisCtx,
         viewport: {
@@ -1553,7 +1544,6 @@ export class ChartRenderer {
       range: { ...frame.range },
       kLinePositions: frame.kLinePositions,
       kLineCenters: frame.kLineCenters,
-      kBarRects: frame.kBarRects,
       kWidthPx: frame.kWidthPx,
       timeShareGeometry: frame.timeShareGeometry,
       visiblePriceExtrema: frame.visiblePriceExtrema,

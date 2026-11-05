@@ -104,6 +104,19 @@ describe('SCALE_X_STRATEGIES', () => {
     expect(loose.kGap).toBeCloseTo(8 * KLINE_GAP_RATIOS.loose, 10)
   })
 
+  it('槽距保持连续，取整余量只落在实体间距上', () => {
+    const snapshot = SCALE_X_STRATEGIES[ChartDataViewId.KLine].project(
+      input({ view: ChartDataViewId.KLine, kWidth: 8 }),
+    )
+    // 小数槽距是平滑缩放的前提；实体宽度与间距不另做像素取整派生。
+    expect(snapshot.grid.step).toBeCloseTo(8 + 8 * KLINE_GAP_RATIOS.standard, 10)
+    const nominalGap = snapshot.grid.step - snapshot.kWidthPx
+    for (let index = 1; index < 5; index++) {
+      const gap = snapshot.positions[index]! - snapshot.positions[index - 1]! - snapshot.kWidthPx
+      expect(Math.abs(gap - nominalGap)).toBeLessThanOrEqual(1)
+    }
+  })
+
   it('实体退化为 1 物理像素时间距归零，但槽距仍随宽度增长', () => {
     const strategy = SCALE_X_STRATEGIES[ChartDataViewId.KLine]
     const line = strategy.project(

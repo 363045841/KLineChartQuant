@@ -26,6 +26,7 @@ import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars
 import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/shared/indicatorRendererLayer.js'
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
+import { calcBarLeftPx } from '@/engine/viewport/klineConfig.js'
 import { createKLineSlotGrid, slotWorldX } from '@/engine/viewport/slotGrid.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
@@ -36,6 +37,7 @@ import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types
 import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
+import { projectColumnPrimitives } from './columnGeometry.js'
 import { buildFillBands, type FillBand } from './fillGeometry.js'
 import {
   buildArrowGlyph,
@@ -64,10 +66,17 @@ interface LineProjection {
   readonly lines: readonly LineBatch[]
 }
 
-/** 柱状图与柱形图的投影结果：几何相同，只有柱宽来源不同。 */
+/** Columns 只保留数据点，屏幕槽界在每次滚动重放时生成。 */
 interface ColumnProjection {
-  readonly kind: 'histogram' | 'columns'
-  readonly plot: HistogramPlot | ColumnsPlot
+  readonly kind: 'columns'
+  readonly plot: ColumnsPlot
+  readonly points: ReadonlyMap<number, Point>
+}
+
+/** Histogram 使用固定像素宽度的世界矩形。 */
+interface HistogramProjection {
+  readonly kind: 'histogram'
+  readonly plot: HistogramPlot
   readonly points: ReadonlyMap<number, Point>
   readonly rects: readonly RectBatch[]
 }
@@ -97,6 +106,7 @@ interface MarkerProjection {
 type PlotProjection =
   | LineProjection
   | ColumnProjection
+  | HistogramProjection
   | PointsProjection
   | MarkerProjection
   | OhlcProjection
@@ -216,7 +226,7 @@ function projectPricePoint(
 ): Point | undefined {
   const value = barValue(plot, index)
   if (value === undefined) return undefined
-  const x = projectX(index, context)
+  const x = plot.kind === 'columns' ? slotWorldX(context.slotGrid, index) : projectX(index, context)
   if (x === null) return undefined
   const y = context.pane.yAxis.priceToY(value)
   return Number.isFinite(y) ? { x, y } : undefined
@@ -321,19 +331,19 @@ function buildLineSegments(
   return lines.filter((line) => line.points.length >= 2)
 }
 
-/** 构建柱体几何：histogram 用固定像素宽，columns 沿用 K 线实体宽度。 */
-function buildColumnRects(
-  plot: HistogramPlot | ColumnsPlot,
+/** Histogram 的固定像素宽度矩形；不参与 Columns 的槽位填充规则。 */
+function buildHistogramRects(
+  plot: HistogramPlot,
   context: PrimitiveRenderContext,
   points: ReadonlyMap<number, Point>,
 ): RectBatch[] {
   const batches = new Map<string, RectBatch>()
   const baselineY = context.pane.yAxis.priceToY(plot.baseline)
   if (!Number.isFinite(baselineY)) return []
+  const widthPx = Math.max(1, Math.round(histogramWidth(plot.size) * context.dpr))
   for (let index = context.range.start; index < context.range.end; index++) {
     const point = points.get(index)
-    const bar = context.kBarRects[index - context.range.start]
-    if (!point || !bar || bar.width <= 0) continue
+    if (!point) continue
     const color = plot.data[index - plot.offset]?.color ?? plot.color
     let batch = batches.get(color)
     if (!batch) {
@@ -346,12 +356,10 @@ function buildColumnRects(
     }
     // 先对齐数值端点和基线，再求高度，保证所有柱子的基线边缘一致。
     const vertical = barVerticalRect(point.y, baselineY, context.dpr)
-    // histogram 柱宽固定为逻辑像素，columns 跟随 K 线实体宽度，两者都按 bar 中心对齐。
-    const width = plot.kind === 'histogram' ? histogramWidth(plot.size) : bar.width
     const offset = batch.count++ * 4
-    batch.buf[offset] = bar.x + (bar.width - width) / 2
+    batch.buf[offset] = calcBarLeftPx(Math.round(point.x * context.dpr), widthPx) / context.dpr
     batch.buf[offset + 1] = vertical.y
-    batch.buf[offset + 2] = width
+    batch.buf[offset + 2] = widthPx / context.dpr
     batch.buf[offset + 3] = vertical.height
   }
   return [...batches.values()]
@@ -399,12 +407,17 @@ function projectPlot(
         lines: buildLineSegments(plot, context, (index) => points.get(index), margin),
       }
     }
-    case 'histogram':
     case 'columns': {
       const points = projectPoints(plot, context, (index) =>
         projectPricePoint(plot, index, context),
       )
-      return { kind: plot.kind, plot, points, rects: buildColumnRects(plot, context, points) }
+      return { kind: 'columns', plot, points }
+    }
+    case 'histogram': {
+      const points = projectPoints(plot, context, (index) =>
+        projectPricePoint(plot, index, context),
+      )
+      return { kind: 'histogram', plot, points, rects: buildHistogramRects(plot, context, points) }
     }
     case 'points': {
       const points = projectPoints(plot, context, (index) =>
@@ -603,8 +616,10 @@ function paintGeometry(
             offsetX,
           })
         break
-      case 'histogram':
       case 'columns':
+        commands.push(...projectColumnPrimitives(projection.plot, projection.points, context))
+        break
+      case 'histogram':
       case 'candle':
       case 'bar':
         commands.push(
@@ -727,7 +742,13 @@ export function createPlotLayer(
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
       const geometry = retained.read(
-        createProjectionRevision(context, [state.plots, state.fills, context.data, context.theme]),
+        createProjectionRevision(context, [
+          state.plots,
+          state.fills,
+          context.data,
+          context.theme,
+          context.zoomLevel ?? 1,
+        ]),
         () => collectGeometry(state, context),
       )
       paintGeometry(state, context, geometry)
