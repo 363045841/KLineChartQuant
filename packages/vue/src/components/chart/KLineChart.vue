@@ -345,6 +345,7 @@
       v-model:open="chartSettingsOpen"
       :initial-section="chartSettingsSection"
       :initial-settings="chartSettings"
+      :effective-theme="chartTheme"
       :renderer-runtime="rendererRuntime"
       :market-data-cache-stats="marketDataCacheStats"
       @confirm="confirmChartSettings"

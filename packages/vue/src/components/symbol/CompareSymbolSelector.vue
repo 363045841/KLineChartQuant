@@ -32,7 +32,6 @@
           v-if="sourceTabs.length > 0"
           v-model="activeSourceTab"
           :tabs="sourceTabs"
-          size="compact"
           aria-label="聚合源"
         />
       </template>
