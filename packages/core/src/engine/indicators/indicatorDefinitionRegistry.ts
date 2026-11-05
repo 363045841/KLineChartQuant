@@ -21,6 +21,7 @@ import type {
   IndicatorInputDef,
   IndicatorKind,
   IndicatorMetadata,
+  IndicatorPeriodVisibility,
 } from './indicatorMetadata.js'
 
 /** 装饰器与定义配置由叶子模块提供，此处转出以维持公开出口。 */
@@ -46,6 +47,8 @@ export interface IndicatorDescriptor {
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
   readonly allowMainPane?: boolean
+  /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
+  readonly visiblePeriods?: readonly IndicatorPeriodVisibility[]
   /** runtime.defaultParams 的静态值。 */
   readonly defaultParams?: Readonly<Record<string, unknown>>
   /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
@@ -149,6 +152,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     allowMainPane: definition.allowMainPane,
+    visiblePeriods: definition.visiblePeriods,
     defaultParams:
       typeof defaultParams === 'function'
         ? (defaultParams as () => Record<string, unknown>)()
