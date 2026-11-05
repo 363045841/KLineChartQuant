@@ -5,6 +5,10 @@
     "foreground": { "$type": "color", "$value": "{light.color.foreground}" },
     "chartBackground": { "$type": "color", "$value": "{light.color.chartBackground}" },
     "floatingSurface": { "$type": "color", "$value": "{light.color.floatingSurface}" },
+    "chartNavigationBackground": {
+      "$type": "color",
+      "$value": "{light.color.chartNavigationBackground}"
+    },
     "candleUpBody": { "$type": "color", "$value": "{light.color.candleUpBody}" },
     "candleUpBorder": { "$type": "color", "$value": "{light.color.candleUpBorder}" },
     "candleUpWick": { "$type": "color", "$value": "{light.color.candleUpWick}" },
