@@ -1,13 +1,13 @@
 <template>
   <div ref="rootRef" class="compare-chip-wrap">
-    <BaseTooltip content="比较商品" placement="bottom" trigger-display="contents" :disabled="showPopup">
+    <BaseTooltip content="比较商品" placement="bottom" trigger-display="contents" :disabled="picker.showPopup">
     <button
       type="button"
       class="control-button compare-chip"
-      :class="{ 'is-open': showPopup }"
-      :aria-expanded="showPopup"
+      :class="{ 'is-open': picker.showPopup }"
+      :aria-expanded="picker.showPopup"
       aria-haspopup="dialog"
-      @click="togglePopup"
+      @click="picker.togglePopup"
     >
       <span class="compare-chip__icon" aria-hidden="true">
         <IconTablerPlus />
@@ -18,20 +18,20 @@
     </button>
     </BaseTooltip>
     <SymbolPopover
-      v-model:search="searchQuery"
-      :show="showPopup"
+      v-model:search="picker.searchQuery"
+      :show="picker.showPopup"
       :anchor="rootRef"
       dialog-label="比较商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索比较商品"
-      @close="closePopup"
+      @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
       <template #tabs>
         <BaseTabs
-          v-if="sourceTabs.length > 0"
-          v-model="activeSourceTab"
-          :tabs="sourceTabs"
+          v-if="picker.sourceTabs.length > 0"
+          v-model="picker.activeSourceTab"
+          :tabs="picker.sourceTabs"
           aria-label="聚合源"
         />
       </template>
@@ -77,31 +77,15 @@
         </div>
 
         <div class="compare-list" role="listbox" aria-label="商品列表">
-          <div v-if="searchLoading" class="compare-list__empty">
+          <div v-if="picker.loading" class="compare-list__empty">
             <LoadingSpinner :size="32" class="compare-list__spinner" />
             <span>正在搜索</span>
           </div>
-          <div v-else-if="comparisonSymbols.length === 0" class="compare-list__empty">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              style="margin-bottom: 8px; opacity: 0.35"
-            >
-              <circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" />
-              <line
-                x1="21"
-                y1="21"
-                x2="29"
-                y2="29"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-            </svg>
-            <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
-          </div>
+          <SymbolSearchEmpty
+            v-else-if="comparisonSymbols.length === 0"
+            :error="picker.error"
+            empty-class="compare-list__empty"
+          />
           <button
             v-for="item in comparisonSymbols"
             :key="symbolIdentityKey(item)"
@@ -145,22 +129,17 @@
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
   import SymbolMetaBadge from '@vue-src/components/common/SymbolMetaBadge.vue'
-  import { useAggregationSourceHealth } from '@vue-src/composables/market/useAggregationSourceHealth.js'
-  import {
-    type AggregationSourceDefinition,
-    isMockSourceName,
-    supportsAggregationSourceSearch,
-  } from '@vue-src/composables/market/useAggregationSources.js'
-  import { useAggregationSourceTab } from '@vue-src/composables/market/useAggregationSourceTab.js'
+  import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SymbolSearchFn,
     symbolIdentityKey,
     uniqueSymbolsByIdentity,
-    useSymbolSearch,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { computed, ref, watch } from 'vue'
+  import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
+  import { computed, ref } from 'vue'
   import IconTablerPlus from '~icons/tabler/plus'
   import SymbolPopover from './SymbolPopover.vue'
+  import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -188,31 +167,8 @@
     (e: 'manageSources'): void
   }>()
 
-  const showPopup = ref(false)
-  const searchQuery = ref('')
-  const activeSourceTab = useAggregationSourceTab()
   const rootRef = ref<HTMLElement | null>(null)
-  const { onlineNameSet, refresh: refreshSourceHealth } = useAggregationSourceHealth()
-
-  /** 全部 + 已启用、在线且可搜索的源；连接失败的源不展示；mock 沉底 */
-  const sourceTabs = computed<Array<{ id: string; label: string }>>(() => {
-    const enabled = props.enabledSourceNames
-    const online = onlineNameSet.value
-    const searchable = props.aggregationSources
-      .filter(
-        (source) =>
-          enabled.has(source.name) &&
-          online.has(source.name) &&
-          supportsAggregationSourceSearch(source),
-      )
-      .slice()
-      .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
-    if (searchable.length === 0) return []
-    return [
-      { id: 'all', label: '全部' },
-      ...searchable.map((source) => ({ id: source.name, label: source.displayName })),
-    ]
-  })
+  const picker = useSymbolSourcePickerFromProps<SymbolItem>(props)
 
   const selectedSet = computed(() => new Set(props.selected ?? []))
 
@@ -222,21 +178,7 @@
     return props.symbols.filter((s) => set.has(symbolIdentityKey(s)))
   })
 
-  const {
-    results: filteredSymbols,
-    loading: searchLoading,
-    error: searchError,
-  } = useSymbolSearch<SymbolItem>({
-    query: searchQuery,
-    symbols: computed(() => props.symbols),
-    search: computed(() => props.search),
-    sourceFilter: activeSourceTab,
-    // 默认范围只含已启用、在线且可搜索的源；离线源不发必然失败的网络请求。
-    defaultSources: computed(() =>
-      sourceTabs.value.filter((tab) => tab.id !== 'all').map((tab) => tab.id),
-    ),
-  })
-  const comparisonSymbols = computed(() => uniqueSymbolsByIdentity(filteredSymbols.value))
+  const comparisonSymbols = computed(() => uniqueSymbolsByIdentity(picker.results))
 
   function isSelected(item: SymbolItem): boolean {
     return selectedSet.value.has(symbolIdentityKey(item))
@@ -253,29 +195,6 @@
   function removeSymbol(item: SymbolItem) {
     emit('remove', symbolIdentityKey(item))
   }
-
-  function togglePopup() {
-    showPopup.value = !showPopup.value
-  }
-
-  /** 关闭弹层并清空搜索 */
-  function closePopup() {
-    showPopup.value = false
-    searchQuery.value = ''
-  }
-
-  // 弹层打开时刷新已启用源的健康状态，离线源不进入 Tab（TTL 内复用上次结果）
-  watch(showPopup, (show) => {
-    if (show) {
-      void refreshSourceHealth(props.aggregationSources, { names: props.enabledSourceNames })
-    }
-  })
-
-  watch(sourceTabs, (tabs) => {
-    if (!tabs.some((tab) => tab.id === activeSourceTab.value)) {
-      activeSourceTab.value = 'all'
-    }
-  })
 </script>
 
 <style scoped src="../common/control-button.css"></style>
