@@ -1,5 +1,10 @@
 /** 按时间身份投影指标输出，不修改计算结果，也不猜测数组中的领域坐标。 */
-import { isOhlcPlot, type DrawingObject, type Plot, type PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  type DrawingObject,
+  isOhlcPlot,
+  type Plot,
+  type PlotCollection,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorTimelineProjection } from '../types.js'
 
 /** 全局冻结恒等单例：复用恒等投影，避免重复分配。 */
@@ -15,10 +20,11 @@ export function createIndicatorTimelineProjection(
   target: readonly number[],
   byMinute: boolean,
 ): IndicatorTimelineProjection {
-  const identity = source.length === target.length && source.every((time, index) => time === target[index])
+  const identity =
+    source.length === target.length && source.every((time, index) => time === target[index])
   if (identity) return IDENTITY_PROJECTION
   /** K 线精确匹配时间戳；分时才按分钟聚合。 */
-  const key = (time: number): number => byMinute ? Math.floor(time / 60_000) : time
+  const key = (time: number): number => (byMinute ? Math.floor(time / 60_000) : time)
   const sourceByTime = new Map(source.map((time, index) => [key(time), index]))
   const targetByTime = new Map(target.map((time, index) => [key(time), index]))
   const sourceIndices = target.map((time) => sourceByTime.get(key(time)))
@@ -48,16 +54,24 @@ export function createIndicatorTimelineProjection(
     projectIndex,
     /** 保留样式、标签、锚点等非序列数组，仅调用方明确声明的数据列参与重排。 */
     projectArray<T>(values: readonly T[]): readonly (T | undefined)[] {
-      return sourceIndices.map((index) => index === undefined ? undefined : values[index])
+      return sourceIndices.map((index) => (index === undefined ? undefined : values[index]))
     },
   }
 }
 
 /** 只投影索引锚点，bar_time 已有绝对身份，不随行情数组变化。 */
-function projectDrawing(drawing: DrawingObject, timeline: IndicatorTimelineProjection): DrawingObject {
-  return { ...drawing, anchors: drawing.anchors.map((anchor) => anchor.logicalIndex === undefined
-    ? anchor
-    : { ...anchor, logicalIndex: timeline.projectIndex(anchor.logicalIndex) }) }
+function projectDrawing(
+  drawing: DrawingObject,
+  timeline: IndicatorTimelineProjection,
+): DrawingObject {
+  return {
+    ...drawing,
+    anchors: drawing.anchors.map((anchor) =>
+      anchor.logicalIndex === undefined
+        ? anchor
+        : { ...anchor, logicalIndex: timeline.projectIndex(anchor.logicalIndex) },
+    ),
+  }
 }
 
 /** Plot、逐 bar 填充与 drawing 共用时间轴映射，绘图偏移仍是独立的用户语义。 */
@@ -66,12 +80,20 @@ export function projectIndicatorCollection(
   timeline: IndicatorTimelineProjection,
 ): PlotCollection {
   if (timeline.identity) return collection
-  const plots = collection.plots.map((plot): Plot => isOhlcPlot(plot)
-    ? { ...plot, data: timeline.projectArray(plot.data) }
-    : { ...plot, data: timeline.projectArray(plot.data) })
+  const plots = collection.plots.map(
+    (plot): Plot =>
+      isOhlcPlot(plot)
+        ? { ...plot, data: timeline.projectArray(plot.data) }
+        : { ...plot, data: timeline.projectArray(plot.data) },
+  )
   return {
     plots,
-    fills: collection.fills.map((fill) => ({ ...fill, colors: timeline.projectArray(fill.colors).map((color) => color === undefined ? null : color) })),
+    fills: collection.fills.map((fill) => ({
+      ...fill,
+      colors: timeline
+        .projectArray(fill.colors)
+        .map((color) => (color === undefined ? null : color)),
+    })),
     drawings: collection.drawings?.map((drawing) => projectDrawing(drawing, timeline)),
   }
 }

@@ -3,8 +3,9 @@
  * 让 Core 的投影/调度测试不依赖已迁移到 Script 包的指标实现。
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
-import type { PlotCollection } from '@/engine/plots/types.js'
+
 import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
+import type { PlotCollection } from '@/engine/plots/types.js'
 import type { KLineData } from '@/foundation/types/price.js'
 
 import { Indicator } from '../../indicatorDecorator.js'

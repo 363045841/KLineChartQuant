@@ -108,6 +108,12 @@ export type GetTitleInfoFn = (
   colors: ColorTokens,
 ) => TitleInfo | null
 
+/** 下拉选项：值即参数取值，label 为面板显示名。 */
+export interface IndicatorInputOption {
+  readonly value: string
+  readonly label: string
+}
+
 /**
  * 输入参数在面板中的展示声明。
  *
@@ -120,7 +126,7 @@ export interface IndicatorInputDef {
   /** 面板显示名；缺省显示参数名。 */
   readonly title?: string
   /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | IndicatorInputOption)[]
 }
 
 /**
@@ -214,6 +220,9 @@ export interface IndicatorMetadata<T = unknown> {
    * 调用时创建该指标的渲染器实例
    */
   rendererFactory: RendererFactory
+
+  /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
+  ui?: { name?: string; description?: string; params?: readonly unknown[] }
 
   /**
    * 专用坐标轴渲染器工厂。未提供时可回退到 scale 通用配置。
