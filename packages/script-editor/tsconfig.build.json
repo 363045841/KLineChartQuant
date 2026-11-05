@@ -16,5 +16,5 @@
     "rootDir": "src"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/page/**", "dist", "node_modules"]
+  "exclude": ["dist", "node_modules"]
 }
