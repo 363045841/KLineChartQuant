@@ -26,6 +26,8 @@
     transform: translateX(-50%);
     z-index: 30;
     padding: 12px 16px 8px;
+    /* 透明导航层不参与命中测试，只有可见按钮接收指针事件。 */
+    pointer-events: none;
   }
 
   .chart-navigation__buttons {
@@ -39,12 +41,17 @@
   .chart-navigation__group {
     display: flex;
     gap: var(--klc-space-8);
+    pointer-events: none;
+  }
+
+  /* 容器保持透明，仅按钮本身参与命中，悬浮时再由按钮触发父级 :hover。 */
+  .chart-navigation__buttons :deep(.chart-command-button) {
+    pointer-events: auto;
   }
 
   .chart-navigation:hover .chart-navigation__buttons,
   .chart-navigation:focus-within .chart-navigation__buttons {
     opacity: 1;
-    pointer-events: auto;
   }
 
   @media (hover: none) {
