@@ -86,8 +86,8 @@ export interface DataDependencies {
   marketSessions?: MarketSessionRegistry
   invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
-  /** 实时订阅池；省略时使用注册表对应的共享池。 */
-  realtimeSubscriptionPool?: RealtimeSubscriptionPool
+  /** 宿主持有的唯一实时订阅池。 */
+  realtimeSubscriptionPool: RealtimeSubscriptionPool
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
   getOption: () => { kWidth: number; kGap: number }

@@ -14,6 +14,7 @@ import { createSignal } from '@/foundation/reactivity/signal.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
   createTestProvider,
+  inactiveRealtimePool,
   instrumentFor,
   makeBarsPage,
   makeKLine,
@@ -57,7 +58,7 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
     return queryBars(query)
   })
   const runtime = new MarketRuntime({
-    realtime,
+    realtime: realtime === undefined ? inactiveRealtimePool : realtime,
     cache,
     session: createSignal<ReadyMarketSession | null>({
       selection: selectionFor('MAIN'),

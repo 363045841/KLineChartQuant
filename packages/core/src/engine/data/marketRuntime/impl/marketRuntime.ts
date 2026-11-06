@@ -13,7 +13,6 @@ import {
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
 import { RealtimeBarsConnector } from '@/data/live/impl/barsConnector.js'
-import { realtimePoolFor } from '@/data/live/impl/realtimePool.js'
 import type { RealtimeSubscription, RealtimeSubscriptionPool } from '@/data/live/types.js'
 import {
   type MarketDataProviderRegistry,
@@ -366,7 +365,7 @@ export class MarketRuntime implements IndicatorMarketData {
   constructor(private readonly deps: MarketRuntimeDependencies) {
     this.marketSessions = deps.marketSessions ?? new MarketSessionRegistry()
     this.registry = deps.registry ?? marketDataProviderRegistry
-    this.pool = deps.realtime ?? realtimePoolFor(this.registry)
+    this.pool = deps.realtime
     this.requests = new IndicatorBarsRepository({
       cache: deps.cache,
       registry: this.registry,

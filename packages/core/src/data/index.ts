@@ -20,11 +20,7 @@ export type {
 } from './depth/types.js'
 export type { RealtimeBarsSink } from './live/impl/barsConnector.js'
 export { RealtimeBarsConnector } from './live/impl/barsConnector.js'
-export {
-  createRealtimeSubscriptionPool,
-  realtimePoolFor,
-  realtimeSubscriptionPool,
-} from './live/impl/realtimePool.js'
+export { createRealtimeSubscriptionPool } from './live/impl/realtimePool.js'
 export type {
   LiveBar,
   LiveFrame,

@@ -203,14 +203,20 @@ export function createSseConnection(
       if (destroyed || source !== null) return
       hub.emitStatus('connecting')
       const factory = esFactory ?? ((url: string) => new EventSource(url))
-      source = factory(buildUrl(request, baseUrl))
-      source.onopen = () => hub.emitStatus('connected')
-      source.onerror = () => {
-        // EventSource 原生重连；这里只报告状态，不自行销毁。
+      const current = factory(buildUrl(request, baseUrl))
+      source = current
+      current.onopen = () => {
+        if (source === current) hub.emitStatus('connected')
+      }
+      current.onerror = () => {
+        if (source !== current) return
+        // 结束这次传输，阻止浏览器自行重连；恢复时机只由订阅池决定。
+        current.close()
+        source = null
         hub.emitStatus('disconnected')
       }
-      source.onmessage = (event: MessageEvent) => {
-        if (destroyed) return
+      current.onmessage = (event: MessageEvent) => {
+        if (source !== current) return
         const data = event.data
         if (typeof data !== 'string' || data === '' || data.startsWith(':')) return
         try {

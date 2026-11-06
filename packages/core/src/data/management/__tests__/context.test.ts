@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
 import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
 import type { BarsSelection } from '../../buffer/impl/seriesRepository.js'
+import { createDataSourceFixture } from '../../provider/__tests__/helpers/providerTestKit.js'
 import { searchInstruments } from '../../provider/impl/instrumentSearch.js'
 import { createBuiltinMarketDataContext } from '../../provider/impl/sources/createBuiltinContext.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
@@ -26,6 +27,67 @@ function provider(
 }
 
 describe('MarketDataContext', () => {
+  it('releases a host subscription that disconnects synchronously during creation', async () => {
+    const fixture = createDataSourceFixture([])
+    const stop = vi.fn()
+    fixture.source.bars.subscribe = (_request, observer) => {
+      observer.status('disconnected')
+      return stop
+    }
+    const context = new MarketDataContext()
+    try {
+      context.registerDataSource(fixture.source)
+      const instrument = await context.resolveInstrument('test', 'A')
+      await context.health.refresh()
+      const handle = context.realtime.subscribe({
+        sourceId: 'test',
+        instrumentId: instrument.id,
+        channel: 'bars',
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+      })
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce())
+      handle.close()
+    } finally {
+      context.dispose()
+    }
+    expect(stop).toHaveBeenCalledOnce()
+  })
+
+  it('owns stream lifetime and keeps healthy connections during health refresh', async () => {
+    const fixture = createDataSourceFixture([])
+    const context = new MarketDataContext()
+    context.registerDataSource(fixture.source)
+    const instrument = await context.resolveInstrument('test', 'A')
+    await context.health.refresh()
+    const handle = context.realtime.subscribe({
+      sourceId: 'test',
+      instrumentId: instrument.id,
+      channel: 'bars',
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+    })
+    const frames = vi.fn()
+    handle.onFrame(frames)
+    await vi.waitFor(() => expect(fixture.observers.size).toBe(1))
+    const observer = fixture.observers.get('A')!
+    await context.health.refresh({ force: true })
+    await Promise.resolve()
+    expect(fixture.observers.get('A')).toBe(observer)
+    expect(fixture.stopped).toEqual([])
+    context.dispose()
+    expect(fixture.observers.size).toBe(0)
+    expect(fixture.stopped).toEqual(['A'])
+    frames.mockClear()
+    observer.invalidate()
+    expect(frames).not.toHaveBeenCalled()
+    expect(() =>
+      context.realtime.subscribe({ sourceId: 'test', instrumentId: 'A', channel: 'quotes' }),
+    ).toThrow('disposed')
+  })
+
   it('drops old connection snapshots while retaining unrelated data', () => {
     const context = new MarketDataContext()
     context.registry.register(provider('one'))
