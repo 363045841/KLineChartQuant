@@ -65,9 +65,7 @@ import {
   createIndicatorInstancePipeline,
   type IndicatorInstancePipeline,
 } from './instances/assembly/indicatorInstancePipeline.js'
-import {
-  createInstanceCalculationDefinitions,
-} from './instances/assembly/instanceDefinitionCatalog.js'
+import { createInstanceCalculationDefinitions } from './instances/assembly/instanceDefinitionCatalog.js'
 import {
   createIndicatorCalculationKey,
   type IndicatorParameterValue,
@@ -79,20 +77,18 @@ import {
   createInlineIndicatorCalculationExecutor,
   type InlineIndicatorCalculationExecutor,
 } from './instances/execution/instanceCalculationExecutors.js'
+import { createInstanceCalculationScheduler } from './instances/execution/instanceCalculationScheduler.js'
 import {
-  createInstanceCalculationScheduler,
-} from './instances/execution/instanceCalculationScheduler.js'
-import {
-  composeInstanceRenderState,
-} from './stateComposer.js'
-import { createIndicatorTimelineProjection, projectIndicatorCollection } from './projection/impl/indicatorTimelineProjection.js'
+  createIndicatorTimelineProjection,
+  projectIndicatorCollection,
+} from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
+import { composeInstanceRenderState } from './stateComposer.js'
 
-type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
+type ResolvedChartOptions = ChartOptions & {
   kWidth: number
   kGap: number
 }
-
 
 function mainIndicatorProjectionKey(
   params: Readonly<Record<string, number | boolean | string>>,
@@ -400,7 +396,9 @@ export class ChartIndicatorManager {
     const paneRatios = this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
     // 配置和窗格立即存在；只有定义就绪的内容才进入计算与 Layer 投影。
-    const readyInstances = instances.filter((instance) => getRegisteredIndicatorDefinition(instance.indicatorId))
+    const readyInstances = instances.filter((instance) =>
+      getRegisteredIndicatorDefinition(instance.indicatorId),
+    )
     // 实例移除后清理其可用性来源，避免残留的 loading 在重新启用时无法复位。
     const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
     for (const instanceId of [...this.availabilitySources.keys()]) {
@@ -561,7 +559,6 @@ export class ChartIndicatorManager {
     }
     return presentation
   }
-
 
   /** 注册实例状态读取与实例目录服务，供 renderer / 图例消费。 */
   private registerPluginServices(): void {
@@ -748,9 +745,8 @@ export class ChartIndicatorManager {
       const previous = this.plotProjections.get(result)
       if (
         metadata.plots &&
-        previous?.timeline === timeline &&
-        previous?.presentation === instance.presentation &&
-        previous.colors === colors
+        previous &&
+        this.canReusePlotProjection(previous, timeline, instance.presentation, colors)
       ) {
         renderStates.set(
           instance.instanceId,
@@ -767,15 +763,62 @@ export class ChartIndicatorManager {
         colors,
       )
       if (state === undefined) continue
-      if (isPlotRenderState(state) && metadata.plots) {
-        const projected = updatePlotRange({ ...state, ...projectIndicatorCollection(state, timeline) }, metadata.plots, this.visibleRange, timestamp)
-        this.plotProjections.set(result, { presentation: instance.presentation, colors, state: projected, timeline })
-        renderStates.set(instance.instanceId, projected)
-      } else {
-        renderStates.set(instance.instanceId, state)
-      }
+      this.storeComposedState(
+        instance,
+        result,
+        metadata,
+        timeline,
+        timestamp,
+        colors,
+        state,
+        renderStates,
+      )
     }
     return renderStates
+  }
+
+  /** 写入单实例渲染状态；Plot 状态额外投影范围并缓存。 */
+  private storeComposedState(
+    instance: IndicatorPipelineInstance,
+    result: IndicatorSeriesResult,
+    metadata: NonNullable<ReturnType<typeof getRegisteredIndicatorDefinition>>,
+    timeline: IndicatorTimelineProjection,
+    timestamp: number,
+    colors: ColorTokens,
+    state: unknown,
+    renderStates: Map<string, unknown>,
+  ): void {
+    if (!isPlotRenderState(state) || !metadata.plots) {
+      renderStates.set(instance.instanceId, state)
+      return
+    }
+    const projected = updatePlotRange(
+      { ...state, ...projectIndicatorCollection(state, timeline) },
+      metadata.plots,
+      this.visibleRange,
+      timestamp,
+    )
+    this.plotProjections.set(result, {
+      presentation: instance.presentation,
+      colors,
+      state: projected,
+      timeline,
+    })
+    renderStates.set(instance.instanceId, projected)
+  }
+
+  /** 时间轴、展示配置与颜色一致时复用上一帧的 Plot 投影。 */
+  private canReusePlotProjection(
+    previous: { timeline: unknown; presentation: unknown; colors: unknown },
+    timeline: unknown,
+    presentation: unknown,
+    colors: unknown,
+  ): boolean {
+    return (
+      previous.timeline === timeline &&
+      previous.presentation === presentation &&
+      previous.colors === colors
+    )
   }
 
   /** 从权威计算时间轴映射到当前展示时间轴，缓存完整的映射身份。 */
@@ -783,7 +826,8 @@ export class ChartIndicatorManager {
     const target = this.displayTimestamps ?? this.currentTimestamps
     const byMinute = this.displayTimestamps !== null
     const cached = this.timelineProjection
-    if (cached?.source === source && cached.target === target && cached.byMinute === byMinute) return cached.projection
+    if (cached?.source === source && cached.target === target && cached.byMinute === byMinute)
+      return cached.projection
     const projection = createIndicatorTimelineProjection(source, target, byMinute)
     this.timelineProjection = { source, target, byMinute, projection }
     return projection
@@ -926,6 +970,16 @@ export class ChartIndicatorManager {
   }
 
   private reconcileMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
+    let changed = this.removeStaleMainIndicators(desired)
+    for (const entry of desired) {
+      if (entry.role !== 'main') continue
+      if (this.reconcileMainIndicator(entry)) changed = true
+    }
+    return changed
+  }
+
+  /** 移除已不在期望集合中的主图渲染器。 */
+  private removeStaleMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
     let changed = false
     for (const id of [...this.appliedMainIndicators.keys()]) {
       if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id))
@@ -934,40 +988,52 @@ export class ChartIndicatorManager {
       this.appliedMainIndicators.delete(id)
       changed = true
     }
-    for (const entry of desired) {
-      if (entry.role !== 'main') continue
-      const id = entry.indicatorId
-      // 模式主序列（如 candle）由 core 挂载；有 @Indicator 主图定义的模式图层由此投影。
-      if (entry.source === 'mode' && !getRegisteredIndicatorDefinition(id)?.mainPane) continue
-      // 隐藏：只卸载绘制层，保留实例与 Legend 层，图例仍显示并可恢复。
-      if (entry.hidden === true) {
-        if (this.appliedMainIndicators.has(id)) {
-          this.removeMainIndicatorRenderer(id)
-          this.appliedMainIndicators.delete(id)
-          changed = true
-        }
-        continue
-      }
-      const hasApplied = this.appliedMainIndicators.has(id)
-      const params = entry.params as Readonly<Record<string, number | boolean | string>>
-      const projectionKey = mainIndicatorProjectionKey(params)
-      const applied = this.appliedMainIndicators.get(id)
-      if (applied?.instanceId === entry.instanceId && applied.projectionKey === projectionKey)
-        continue
-      try {
-        if (!hasApplied) {
-          this.enableMainIndicatorRenderer(entry)
-        } else {
-          // 参数变化：原子重建该主图指标 Layer（渲染器不持有 config）
-          this.replaceMainIndicatorLayer(entry)
-        }
-        this.appliedMainIndicators.set(id, { instanceId: entry.instanceId, projectionKey })
-        changed = true
-      } catch (error) {
-        console.error(`[ChartIndicatorManager] Failed to project main indicator "${id}":`, error)
-      }
-    }
     return changed
+  }
+
+  /** 同步单个主图指标；隐藏、模式主序列与参数变化共用这一入口。 */
+  private reconcileMainIndicator(entry: IndicatorInstanceSpec): boolean {
+    const id = entry.indicatorId
+    // 模式主序列（如 candle）由 core 挂载；有 @Indicator 主图定义的模式图层由此投影。
+    if (entry.source === 'mode' && !getRegisteredIndicatorDefinition(id)?.mainPane) return false
+    // 隐藏：只卸载绘制层，保留实例与 Legend 层，图例仍显示并可恢复。
+    if (entry.hidden === true) return this.removeAppliedMainIndicator(id)
+    const projectionKey = mainIndicatorProjectionKey(
+      entry.params as Readonly<Record<string, number | boolean | string>>,
+    )
+    if (this.isMainIndicatorApplied(entry, projectionKey)) return false
+    try {
+      this.applyMainIndicator(entry)
+      this.appliedMainIndicators.set(id, { instanceId: entry.instanceId, projectionKey })
+      return true
+    } catch (error) {
+      console.error(`[ChartIndicatorManager] Failed to project main indicator "${id}":`, error)
+      return false
+    }
+  }
+
+  /** 隐藏时只卸载已挂载的渲染层。 */
+  private removeAppliedMainIndicator(id: string): boolean {
+    if (!this.appliedMainIndicators.has(id)) return false
+    this.removeMainIndicatorRenderer(id)
+    this.appliedMainIndicators.delete(id)
+    return true
+  }
+
+  /** 实例与投影输入都未变化时跳过重建。 */
+  private isMainIndicatorApplied(entry: IndicatorInstanceSpec, projectionKey: string): boolean {
+    const applied = this.appliedMainIndicators.get(entry.indicatorId)
+    return applied?.instanceId === entry.instanceId && applied.projectionKey === projectionKey
+  }
+
+  /** 首次挂载或参数变化时重建主图指标 Layer。 */
+  private applyMainIndicator(entry: IndicatorInstanceSpec): void {
+    if (!this.appliedMainIndicators.has(entry.indicatorId)) {
+      this.enableMainIndicatorRenderer(entry)
+      return
+    }
+    // 参数变化：原子重建该主图指标 Layer（渲染器不持有 config）。
+    this.replaceMainIndicatorLayer(entry)
   }
 
   private enableMainIndicatorRenderer(instance: IndicatorInstanceSpec): void {

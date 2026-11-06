@@ -15,6 +15,7 @@ import type {
   CreateDrawingInput,
   DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
+  DrawingDuplicatePlacement,
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from '../types.js'
@@ -49,6 +50,66 @@ function isChannel(kind: DrawingKind): boolean {
 }
 
 /** 已确认图元的唯一 CRUD 入口。 */
+/** 水平线锚点只允许价格，未来偏移与非法价格都要在创建前拒绝。 */
+function resolveHorizontalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+  if (input.futureOffset !== undefined) {
+    throw new KLineChartError(
+      DRAWING_ERROR_CODES.INVALID_ANCHOR,
+      'Horizontal drawing anchors cannot use a future offset.',
+      { details: { futureOffset: input.futureOffset } },
+    )
+  }
+  assertFiniteAnchorPrice(input.price, 'Horizontal')
+  return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price }
+}
+
+/** 校验未来偏移必须是正整数。 */
+function isValidFutureOffset(offset: number | undefined): boolean {
+  return offset === undefined || (Number.isInteger(offset) && offset > 0)
+}
+
+/** 水平线锚点必须无未来偏移且价格有限。 */
+function isHorizontalAnchorValid(anchor: PersistedDrawingAnchor): boolean {
+  return (
+    anchor.type === 'horizontal' &&
+    anchor.futureOffset === undefined &&
+    Number.isFinite(anchor.price)
+  )
+}
+
+/** 垂直线锚点必须有可解析时间。 */
+function isVerticalAnchorValid(anchor: PersistedDrawingAnchor): boolean {
+  return anchor.type === 'vertical' && Number.isFinite(Number(anchor.time))
+}
+
+/** 普通点锚点同时需要时间与价格。 */
+function isPointAnchorValid(anchor: PersistedDrawingAnchor): boolean {
+  return (
+    anchor.type !== 'horizontal' &&
+    anchor.type !== 'vertical' &&
+    Number.isFinite(anchor.price) &&
+    Number.isFinite(Number(anchor.time))
+  )
+}
+
+/** 按图元种类校验锚点的类型、时间与价格语义。 */
+function isAnchorValid(drawing: DrawingObject, anchor: PersistedDrawingAnchor): boolean {
+  if (!isValidFutureOffset(anchor.futureOffset)) return false
+  if (drawing.kind === 'horizontal-line') return isHorizontalAnchorValid(anchor)
+  if (drawing.kind === 'vertical-line') return isVerticalAnchorValid(anchor)
+  return isPointAnchorValid(anchor)
+}
+
+/** 校验锚点价格为有限数。 */
+function assertFiniteAnchorPrice(price: number, axis: 'Horizontal' | 'Vertical'): void {
+  if (Number.isFinite(price)) return
+  throw new KLineChartError(
+    DRAWING_ERROR_CODES.INVALID_ANCHOR,
+    `${axis} drawing anchor price must be a finite number.`,
+    { details: { price } },
+  )
+}
+
 export class DrawingDocument {
   private readonly objects: ReturnType<typeof createDrawingObjectApi>
 
@@ -144,23 +205,23 @@ export class DrawingDocument {
     ])[0]!
   }
 
-  /** 按已解析的位置复制整组图元；保留配置，生成新 ID，原子选中可见且未锁定的副本。 */
-  copyDrawings(
-    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  /** 克隆整组图元的唯一实现；源快照可以已不在文档中，供复制、粘贴与拖拽复制共用。 */
+  duplicateDrawings(
+    placements: ReadonlyArray<DrawingDuplicatePlacement>,
   ): ReadonlyArray<DrawingObject> {
-    const ids = placements.map((placement) => placement.id)
-    if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
-    const originals = this.getDrawingsByIds(ids)
-    if (originals.length !== placements.length) return Object.freeze([])
+    if (placements.length === 0) return Object.freeze([])
+    if (new Set(placements.map((placement) => placement.source.id)).size !== placements.length)
+      return Object.freeze([])
     const copies: DrawingObject[] = []
-    for (const [index, original] of originals.entries()) {
-      const anchors = placements[index]!.anchors
-      if (!this.hasValidAnchors(original, anchors)) return Object.freeze([])
-      const copy = this.objects.clone(original)
+    for (const { source, anchors } of placements) {
+      if (!this.dependencies.hasPaneId(source.paneId)) return Object.freeze([])
+      if (!this.hasValidAnchors(source, anchors)) return Object.freeze([])
+      const copy = this.objects.clone(source)
       copies.push({
         ...copy,
         visible: true,
         locked: false,
+        workspaceId: this.dependencies.getWorkspaceId(),
         anchors: anchors.map((anchor, anchorIndex) => ({
           ...anchor,
           id: copy.anchors[anchorIndex]!.id,
@@ -239,28 +300,7 @@ export class DrawingDocument {
     anchors: ReadonlyArray<PersistedDrawingAnchor>,
   ): boolean {
     if (anchors.length !== getDrawingAnchorCount(drawing.kind)) return false
-    return anchors.every((anchor) => {
-      const hasValidFutureOffset =
-        anchor.futureOffset === undefined ||
-        (Number.isInteger(anchor.futureOffset) && anchor.futureOffset > 0)
-      if (!hasValidFutureOffset) return false
-      if (drawing.kind === 'horizontal-line') {
-        return (
-          anchor.type === 'horizontal' &&
-          anchor.futureOffset === undefined &&
-          Number.isFinite(anchor.price)
-        )
-      }
-      if (drawing.kind === 'vertical-line') {
-        return anchor.type === 'vertical' && Number.isFinite(Number(anchor.time))
-      }
-      return (
-        anchor.type !== 'horizontal' &&
-        anchor.type !== 'vertical' &&
-        Number.isFinite(anchor.price) &&
-        Number.isFinite(Number(anchor.time))
-      )
-    })
+    return anchors.every((anchor) => isAnchorValid(drawing, anchor))
   }
 
   /** 返回一批图元共同拥有的样式字段。 */
@@ -408,41 +448,57 @@ export class DrawingDocument {
     kind: DrawingKind,
     input: DrawingAnchorCommandInput,
   ): PersistedDrawingAnchor {
-    if (kind === 'horizontal-line') {
-      if (input.futureOffset !== undefined) {
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.INVALID_ANCHOR,
-          'Horizontal drawing anchors cannot use a future offset.',
-          { details: { futureOffset: input.futureOffset } },
-        )
-      }
-      if (!Number.isFinite(input.price)) {
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.INVALID_ANCHOR,
-          'Horizontal drawing anchor price must be a finite number.',
-          { details: { price: input.price } },
-        )
-      }
-      return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price! }
-    }
-    if (kind === 'vertical-line' && !Number.isFinite(input.price)) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Vertical drawing anchor price must be a finite number.',
-        { details: { price: input.price } },
-      )
-    }
+    if (kind === 'horizontal-line') return resolveHorizontalAnchor(input)
+    if (kind === 'vertical-line') return this.resolveVerticalAnchor(input)
+    return this.resolvePointAnchor(input)
+  }
+
+  /** 水平线只持久化价格，不允许未来偏移。 */
+  private resolveVerticalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+    assertFiniteAnchorPrice(input.price, 'Vertical')
     if (input.tradingDate !== undefined) {
-      const timestamp = this.resolveAnchorTradingDate(input.tradingDate)
-      return kind === 'vertical-line'
-        ? {
-            id: `anchor-${generateUUID()}`,
-            type: 'vertical',
-            time: timestamp,
-            price: input.price,
-          }
-        : this.createPointAnchor(timestamp, undefined, input.price)
+      return {
+        id: `anchor-${generateUUID()}`,
+        type: 'vertical',
+        time: this.resolveAnchorTradingDate(input.tradingDate),
+        price: input.price,
+      }
     }
+    const anchor = this.resolveTimestampAnchor(input)
+    return {
+      id: `anchor-${generateUUID()}`,
+      type: 'vertical',
+      time: anchor.timestamp,
+      futureOffset: anchor.futureOffset,
+      price: input.price,
+    }
+  }
+
+  /** 普通点锚点同时持久化时间与价格。 */
+  private resolvePointAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+    const anchor = this.resolveTimeAnchorInput(input)
+    return this.createPointAnchor(anchor.timestamp, anchor.futureOffset, input.price)
+  }
+
+  /** 解析交易日或时间戳锚点，并校验未来偏移。 */
+  private resolveTimeAnchorInput(input: DrawingAnchorCommandInput): {
+    timestamp: number
+    futureOffset: number | undefined
+  } {
+    if (input.tradingDate !== undefined) {
+      return {
+        timestamp: this.resolveAnchorTradingDate(input.tradingDate),
+        futureOffset: input.futureOffset,
+      }
+    }
+    return this.resolveTimestampAnchor(input)
+  }
+
+  /** 校验时间戳存在且有对应数据，再校验未来偏移。 */
+  private resolveTimestampAnchor(input: DrawingAnchorCommandInput): {
+    timestamp: number
+    futureOffset: number | undefined
+  } {
     const timestamp = input.timestamp
     if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
       throw new KLineChartError(
@@ -466,15 +522,7 @@ export class DrawingDocument {
         { details: { timestamp, futureOffset, price: input.price } },
       )
     }
-    return kind === 'vertical-line'
-      ? {
-          id: `anchor-${generateUUID()}`,
-          type: 'vertical',
-          time: timestamp,
-          futureOffset,
-          price: input.price,
-        }
-      : this.createPointAnchor(timestamp, futureOffset, input.price)
+    return { timestamp, futureOffset }
   }
 
   /** 校验并创建同时包含时间与价格的普通锚点。 */

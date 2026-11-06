@@ -12,20 +12,71 @@ import {
   createMockCanvasContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
+import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
-import { paintPlots } from '../impl/plotRenderer.js'
+import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
 import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
 import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
-beforeAll(loadBuiltinIndicators)
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+  registerIndicatorLayerNaming(
+    ['plot-test'],
+    () => 'plot-test',
+    () => 'plot-test-scale',
+  )
+})
 
 /** 公共原语已经投影到屏幕坐标，不再通过 Canvas translate 扣除滚动。 */
 function screenPoints(points: number[][]): number[][] {
   return points.map(([x, y]) => [x! - 10, y!])
+}
+
+/** 每个箭头从起点到六段线围成的纵向高度。 */
+function arrowHeights(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+): number[] {
+  return starts.map((start, index) => {
+    const ys = [start[1], ...lines.slice(index * 6, index * 6 + 6).map((point) => point[1])]
+    const values = ys.map((value) => value ?? NaN)
+    return Math.max(...values) - Math.min(...values)
+  })
+}
+
+/** 每个箭头头部的固定高度。 */
+function arrowHeadHeights(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+): number[] {
+  return starts.map((start, index) => {
+    const base = lines[index * 6]
+    return Math.abs((base?.[1] ?? NaN) - (start[1] ?? NaN))
+  })
+}
+
+/** 三个箭头头部尺寸一致。 */
+function expectEqualArrowHeads(headHeights: readonly number[]): void {
+  expect(headHeights[1]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+  expect(headHeights[2]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+}
+
+/** 箭头长度按幅度归一化，且正负方向尖端位置正确。 */
+function expectArrowBodyGeometry(
+  starts: ReadonlyArray<readonly number[]>,
+  lines: ReadonlyArray<readonly number[]>,
+  heights: readonly number[],
+  headHeights: readonly number[],
+): void {
+  expect(heights[1]).toBeCloseTo(10, 5)
+  expect(heights[2]).toBeCloseTo(20, 5)
+  expect(heights[0]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+  expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
+  expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
 }
 
 /** 从真实 Plot 投影创建绘制上下文，强制验证 Canvas 回退结果。 */
@@ -41,8 +92,8 @@ function paint(
   const context = createContextWithInstanceState(ctx, 'plot-test', state, {
     range: { start: 0, end: 5 },
     kLineCenters: [5, 15, 25, 35, 45],
+    slotGrid: { origin: 5, step: 10 },
     scrollLeft: 10,
-    kBarRects: Array.from({ length: 5 }, (_, index) => ({ x: index * 10, width: 8 })),
     ...overrides,
   })
   paintPlots(state, { ...context, measureContext: ctx })
@@ -426,24 +477,12 @@ describe('Plot renderer', () => {
     const starts = vi.mocked(ctx.moveTo).mock.calls
     const lines = vi.mocked(ctx.lineTo).mock.calls
     expect(starts).toHaveLength(3)
-    const heights = starts.map((start, index) => {
-      const ys = [start[1], ...lines.slice(index * 6, index * 6 + 6).map((point) => point[1])]
-      return Math.max(...ys) - Math.min(...ys)
-    })
+    const heights = arrowHeights(starts, lines)
     // 头部高度恒定：三个箭头无论长短，头部都是同一个尺寸。
-    const headHeights = starts.map((start, index) => {
-      const base = lines[index * 6]
-      return Math.abs((base?.[1] ?? NaN) - (start[1] ?? NaN))
-    })
-    expect(headHeights[1]).toBeCloseTo(headHeights[0] ?? NaN, 5)
-    expect(headHeights[2]).toBeCloseTo(headHeights[0] ?? NaN, 5)
+    const headHeights = arrowHeadHeights(starts, lines)
+    expectEqualArrowHeads(headHeights)
     // 长度按幅度归一化；被托底的最短箭头就是一个完整的头，杆长为 0。
-    expect(heights[1]).toBeCloseTo(10, 5)
-    expect(heights[2]).toBeCloseTo(20, 5)
-    expect(heights[0]).toBeCloseTo(headHeights[0] ?? NaN, 5)
-    // 正箭头尖端最靠近 bar，负箭头尖端位于最下方。
-    expect(starts[0]?.[1]).toBeLessThan(lines[0]?.[1] ?? NaN)
-    expect(starts[2]?.[1]).toBeGreaterThan(lines[12]?.[1] ?? NaN)
+    expectArrowBodyGeometry(starts, lines, heights, headHeights)
     expect(ctx.fillStyle).toBe('red')
     const original = lines.slice()
     vi.mocked(ctx.lineTo).mockClear()
@@ -594,11 +633,6 @@ describe('Plot renderer', () => {
       pane: { yAxis: { priceToY: (price) => 100 - price } },
       range: { start: 0, end: 3 },
       kLineCenters: [5, 15, 25],
-      kBarRects: [
-        { x: 0, width: 8 },
-        { x: 10, width: 8 },
-        { x: 20, width: 8 },
-      ],
     })
     paintPlots(state, { ...context, measureContext: ctx })
     expect(styles).toEqual(['green', 'red'])
@@ -911,32 +945,71 @@ describe('Plot renderer', () => {
     expect(state.visibleMax).toBe(3)
   })
 
-  it('columns 柱宽跟随 K 线实体宽度，size 不生效', () => {
-    const widths = (barWidth: number) => {
-      const { ctx } = paint(
+  it.each([1, 1.25, 1.5, 2, 3])(
+    'Columns 槽位左右各留 1 个物理像素，滚动和蜡烛尺寸不改变间隙，DPR=%s',
+    (dpr) => {
+      const { ctx, context } = paint(
         { series: [{ id: 'bar', kind: 'columns', size: ShapeSize.Huge, color: () => 'red' }] },
-        [1],
+        [1, 1, 1, 1, 1],
         {},
-        { kBarRects: [{ x: 0, width: barWidth }], scrollLeft: 0 },
+        {
+          dpr,
+          kLineCenters: [],
+          slotGrid: { origin: 12 / dpr, step: 9.660759 / dpr },
+          scrollLeft: 0,
+        },
       )
-      return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
-    }
-    expect(widths(8)).toEqual([8])
-    expect(widths(40)).toEqual([40])
+      const layer = createPlotLayer('plot-test', 'main', { instanceId: 'plot-test' })
+      if (layer.kind !== 'draw-list') throw new Error('Expected Plot draw-list layer')
+      for (const stepPx of [9.660759, 12.8, 31.27]) {
+        for (const scrollLeft of [0, 0.37, 1.3]) {
+          for (const zoomLevel of [9, 10]) {
+            vi.mocked(ctx.fillRect).mockClear()
+            layer.paint({
+              ...context,
+              slotGrid: { origin: 20 / dpr, step: stepPx / dpr },
+              scrollLeft,
+              zoomLevel,
+              kWidthPx: zoomLevel === 9 ? 1 : 41,
+              measureContext: ctx,
+            })
+            const rects = vi.mocked(ctx.fillRect).mock.calls
+            expect(rects).toHaveLength(5)
+            for (let index = 1; index < rects.length; index++) {
+              const previous = rects[index - 1]!
+              const current = rects[index]!
+              expect((current[0] - previous[0] - previous[2]) * dpr).toBeCloseTo(2, 9)
+              expect(current[2] * dpr).toBeGreaterThanOrEqual(Math.floor(stepPx) - 2)
+              expect(current[2] * dpr).toBeLessThanOrEqual(Math.ceil(stepPx) - 2 + 1e-9)
+            }
+          }
+        }
+      }
+    },
+  )
+
+  it.each([1, 2])('Columns 的 %spx 窄槽取消留白，柱体不会跨槽覆盖', (step) => {
+    const { ctx } = paint(
+      { series: [{ id: 'bar', kind: 'columns', color: () => 'red' }] },
+      [1, 1, 1, 1, 1],
+      {},
+      { slotGrid: { origin: 10, step }, scrollLeft: 0 },
+    )
+    const rects = vi.mocked(ctx.fillRect).mock.calls
+    expect(rects).toHaveLength(5)
+    expect(rects.map(([, , width]) => width)).toEqual(Array(5).fill(step))
+    for (let index = 1; index < rects.length; index++)
+      expect(rects[index]![0]).toBe(rects[index - 1]![0] + step)
   })
 
-  it('histogram 柱宽为固定逻辑像素，不随 K 线间距缩放', () => {
-    const widths = (barWidth: number) => {
-      const { ctx } = paint(
-        { series: [{ id: 'bar', kind: 'histogram', size: 3, color: () => 'red' }] },
-        [1],
-        {},
-        { kBarRects: [{ x: 0, width: barWidth }], scrollLeft: 0 },
-      )
-      return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
-    }
-    expect(widths(8)).toEqual([3])
-    expect(widths(40)).toEqual([3])
+  it('histogram 柱宽为固定逻辑像素，不随 K 线实体宽度缩放', () => {
+    const { ctx } = paint(
+      { series: [{ id: 'bar', kind: 'histogram', size: 3, color: () => 'red' }] },
+      [1],
+      {},
+      { kWidthPx: 41, scrollLeft: 0 },
+    )
+    expect(vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)).toEqual([3])
   })
 
   it('histogram 档位映射为固定像素，auto/tiny/small 为 1px', () => {

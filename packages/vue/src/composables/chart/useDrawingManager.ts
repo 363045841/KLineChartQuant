@@ -94,8 +94,13 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     ctrl.value?.removeBatch(ids)
   }
 
-  /** 复制当前选择，位置与选中状态由 Core 原子处理。 */
+  /** 复制当前选择到内部剪贴板；不生成副本。 */
   function onCopyDrawings() {
+    ctrl.value?.copyDrawingsToClipboard(selectedDrawingIds.value)
+  }
+
+  /** 克隆当前选择：立即生成偏移副本，位置与选中状态由 Core 原子处理。 */
+  function onCloneDrawings() {
     ctrl.value?.copyDrawings(selectedDrawingIds.value)
   }
 
@@ -150,6 +155,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     updateDrawingLabel,
     onDeleteDrawing,
     onCopyDrawings,
+    onCloneDrawings,
     onToggleDrawingLock,
     onHideSelectedDrawings,
     onSetAllDrawingsVisible,

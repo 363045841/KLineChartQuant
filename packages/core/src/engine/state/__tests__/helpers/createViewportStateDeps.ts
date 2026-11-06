@@ -6,6 +6,7 @@
  */
 
 import type { TimeShareRange } from '@/data/provider/types'
+import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum } from '@/foundation/types/price'
@@ -14,25 +15,23 @@ import {
   type MarketSessionConfig,
 } from '@/foundation/utils/timeShareAxisLabels'
 
-/** 测试用 viewport options（kGap 为历史字段，当前由 kWidth 推导，仅保留形状）。 */
-export interface TestViewportOptions {
+/** 测试用视口几何输入：缩放宽度与密度系数由调用方声明，间隙由策略派生。 */
+export interface TestViewportGeometry {
   bottomAxisHeight: number
   kWidth: number
-  kGap: number
+  kGapRatio: number
 }
 
 /** `createViewportStateDeps` 的覆盖项。 */
 export interface ViewportStateDepsOverrides {
-  /** options 覆盖，与默认值浅合并。 */
-  options?: Partial<TestViewportOptions>
+  /** 视口几何输入覆盖，与默认值浅合并。 */
+  geometry?: Partial<TestViewportGeometry>
   /** 数据长度，默认 100。 */
   dataLength?: number
   /** 周期，默认 daily。 */
   period?: string
   /** 缩放级别，默认 5。 */
   zoomLevel?: number
-  /** 分时槽位数，默认 240。 */
-  sessionSlots?: number
 }
 
 /**
@@ -41,14 +40,13 @@ export interface ViewportStateDepsOverrides {
  * @returns 满足 ViewportSignalDeps 的可写 signal 集合。
  */
 export function createViewportStateDeps(overrides: ViewportStateDepsOverrides = {}) {
-  const options$ = createSignal<TestViewportOptions>({
+  const geometry$ = createSignal<TestViewportGeometry>({
     bottomAxisHeight: 30,
     kWidth: 8,
-    kGap: 2,
-    ...overrides.options,
+    kGapRatio: KLINE_GAP_RATIOS.standard,
+    ...overrides.geometry,
   })
   const dataLength$ = createSignal(overrides.dataLength ?? 100)
-  const period$ = createSignal(overrides.period ?? 'daily')
   const dataView$ = createSignal<ChartDataView>(
     overrides.period === 'timeshare'
       ? ChartDataViewId.TimeShare
@@ -68,13 +66,10 @@ export function createViewportStateDeps(overrides: ViewportStateDepsOverrides = 
   const marketSession$ = createSignal<MarketSessionConfig | null>(ASHARE_MARKET_SESSION)
   const timeShareRange$ = createSignal<TimeShareRange | null>(null)
   const zoomLevel$ = createSignal(overrides.zoomLevel ?? 5)
-  const sessionSlots$ = createSignal(overrides.sessionSlots ?? 240)
   return {
-    options$,
+    geometry$,
     dataLength$,
-    period$,
     zoomLevel$,
-    sessionSlots$,
     dataView$,
     data$,
     marketSession$,

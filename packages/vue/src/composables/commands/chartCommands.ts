@@ -7,19 +7,19 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Component } from 'vue'
 import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
 import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
-import IconTablerArrowNarrowLeft from '~icons/tabler/arrow-narrow-left'
-import IconTablerArrowNarrowRight from '~icons/tabler/arrow-narrow-right'
 import IconTablerCamera from '~icons/tabler/camera'
+import IconTablerChevronLeft from '~icons/tabler/chevron-left'
+import IconTablerChevronRight from '~icons/tabler/chevron-right'
+import IconTablerClipboard from '~icons/tabler/clipboard'
 import IconTablerCommand from '~icons/tabler/command'
+import IconTablerCopy from '~icons/tabler/copy'
+import IconTablerCopyPlus from '~icons/tabler/copy-plus'
 import IconTablerMaximize from '~icons/tabler/maximize'
+import IconTablerMinus from '~icons/tabler/minus'
+import IconTablerPlus from '~icons/tabler/plus'
 import IconTablerRefresh from '~icons/tabler/refresh'
 import IconTablerSettings from '~icons/tabler/settings'
-import IconTablerZoomIn from '~icons/tabler/zoom-in'
-import IconTablerZoomOut from '~icons/tabler/zoom-out'
-import {
-  type ChartScreenshotAction,
-  chartScreenshotActions,
-} from '../chart/useChartScreenshot.js'
+import { type ChartScreenshotAction, chartScreenshotActions } from '../chart/useChartScreenshot.js'
 
 /** 命令 id 到功能图标的映射；快捷键设置等界面据此展示命令图标。 */
 export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
@@ -28,10 +28,13 @@ export const CHART_COMMAND_ICONS: Readonly<Record<string, Component>> = {
   'settings.open': IconTablerSettings,
   'drawing.undo': IconTablerArrowBackUp,
   'drawing.redo': IconTablerArrowForwardUp,
-  'view.zoomIn': IconTablerZoomIn,
-  'view.zoomOut': IconTablerZoomOut,
-  'view.moveLeft': IconTablerArrowNarrowLeft,
-  'view.moveRight': IconTablerArrowNarrowRight,
+  'drawing.copy': IconTablerCopy,
+  'drawing.paste': IconTablerClipboard,
+  'drawing.clone': IconTablerCopyPlus,
+  'view.zoomIn': IconTablerPlus,
+  'view.zoomOut': IconTablerMinus,
+  'view.moveLeft': IconTablerChevronLeft,
+  'view.moveRight': IconTablerChevronRight,
   'view.reset': IconTablerRefresh,
   'view.fullscreen': IconTablerMaximize,
 }
@@ -158,6 +161,38 @@ export function createChartCommands(host: ChartCommandHost): CommandDef[] {
       shortcut: ['Mod+Shift+Z', 'Mod+Y'],
       when: () => controller()?.canRedoDrawing.peek() === true,
       run: () => controller()?.redoDrawing(),
+    },
+    {
+      id: 'drawing.copy',
+      group: 'drawing',
+      title: { zh: '复制图元', en: 'Copy drawings' },
+      keywords: ['copy', '复制'],
+      shortcut: 'Mod+C',
+      when: () => (controller()?.selectedDrawingIds.peek().length ?? 0) > 0,
+      run: () => {
+        const current = controller()
+        if (current) current.copyDrawingsToClipboard(current.selectedDrawingIds.peek())
+      },
+    },
+    {
+      id: 'drawing.paste',
+      group: 'drawing',
+      title: { zh: '粘贴图元', en: 'Paste drawings' },
+      keywords: ['paste', '粘贴'],
+      shortcut: 'Mod+V',
+      when: () => controller()?.hasDrawingClipboard.peek() === true,
+      run: () => controller()?.pasteDrawings(),
+    },
+    {
+      id: 'drawing.clone',
+      group: 'drawing',
+      title: { zh: '克隆图元', en: 'Clone drawings' },
+      keywords: ['clone', 'duplicate', '克隆'],
+      when: () => (controller()?.selectedDrawingIds.peek().length ?? 0) > 0,
+      run: () => {
+        const current = controller()
+        if (current) current.copyDrawings(current.selectedDrawingIds.peek())
+      },
     },
   ]
 }

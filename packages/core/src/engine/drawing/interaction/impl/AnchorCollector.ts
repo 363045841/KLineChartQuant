@@ -25,6 +25,11 @@ export class AnchorCollector {
     return this.pendingAnchors.length
   }
 
+  /** 最近落下的锚点：后续锚点的锁角参考点。 */
+  getLast(): ResolvedInteractionAnchor | undefined {
+    return this.pendingAnchors.at(-1)
+  }
+
   /**
    * Add an anchor for the given tool.
    * @returns the full anchor list if the required count is reached (caller should create drawing),
@@ -46,11 +51,6 @@ export class AnchorCollector {
     }
 
     return null
-  }
-
-  /** Peek at the first pending anchor without modifying state. */
-  getFirst(): ResolvedInteractionAnchor | undefined {
-    return this.pendingAnchors[0]
   }
 
   /** 清空累积的锚点 */

@@ -87,19 +87,4 @@
   .symbol-popover__filters:empty {
     display: none;
   }
-
-  .symbol-popover__filters :deep(.base-tabs) {
-    padding: 0 var(--klc-space-12, 12px);
-    border-bottom: 0;
-  }
-
-  /* 与紧凑默认值同为 class 级规则；显式带上 --compact 提高特异性，避免被后导入的 CSS 分块覆盖。 */
-  .symbol-popover__filters :deep(.base-tabs--compact .base-tabs__tab) {
-    padding-top: var(--klc-space-8, 8px);
-    padding-bottom: var(--klc-space-8, 8px);
-  }
-
-  .symbol-popover__filters :deep(.base-tabs__indicator) {
-    bottom: 6px;
-  }
 </style>

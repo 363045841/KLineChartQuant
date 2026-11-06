@@ -69,7 +69,7 @@ export interface HistogramPlotDeclaration extends Omit<PlotDeclarationBase, 'siz
   readonly size?: ShapeSize | number
 }
 
-/** 自动柱宽随 K 线间距缩放，不支持 size。 */
+/** 按时间槽位填充、左右各留 1 个物理像素，不支持 size。 */
 export interface ColumnsPlotDeclaration extends Omit<PlotDeclarationBase, 'size'> {
   readonly kind: 'columns'
   readonly baseline?: number

@@ -6,10 +6,12 @@
  * 每个方法保留原有的 disposed 守卫语义，由调用方展开进 ChartController 返回对象。
  */
 
+import { createDrawingObject } from '@363045841yyt/klinechart-plot-contracts'
 import type { Chart } from '@/engine/chart/index.js'
 import { resolveCopyPlacements } from '@/engine/drawing/geometry/impl/copyPlacement.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
+  type DrawingDuplicatePlacement,
   type DrawingInteractionController,
   type DrawingToolId,
   type DrawingWorkspaceId,
@@ -17,6 +19,7 @@ import {
   type SnapIndicatorValue,
   type SnapLine,
 } from '@/engine/drawing/index.js'
+import { computed, createSignal } from '@/foundation/reactivity/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import type {
   BatchDrawingPatch,
@@ -36,6 +39,10 @@ import type {
 export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   const drawingDocument = chart.drawingDocument
   const drawingCommands = chart.drawingCommands
+  /** 内部剪贴板快照；只存模型，不随原图元删除而失效。 */
+  const drawingClipboard = createSignal<ReadonlyArray<DrawingObject>>(Object.freeze([]))
+  /** 剪贴板是否非空，供命令可用性判断。 */
+  const hasDrawingClipboard = computed(() => drawingClipboard.peek().length > 0)
 
   /** 设置当前绘图工具，null 视为 cursor。 */
   function setDrawingTool(tool: DrawingToolId | null): void {
@@ -84,20 +91,9 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return drawingCommands.create(input)
   }
 
-  /** 解析当前工作区内的整组复制位置，再以一个命令提交副本。 */
-  function copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
-    if (isDisposed() || ids.length === 0) return []
-    const uniqueIds = [...new Set(ids)]
-    const drawings = uniqueIds.map((id) => drawingDocument.getDrawing(id))
-    if (drawings.some((drawing) => drawing === null)) return []
-    const originals = drawings.filter((drawing) => drawing !== null)
-    if (
-      originals.some(
-        (drawing) => (drawing.workspaceId ?? ChartWorkspaceId.KLine) !== getDrawingWorkspaceId(),
-      )
-    )
-      return []
-    const placements = resolveCopyPlacements(originals, {
+  /** 复制与粘贴共用的视口落点解析；任一图元不可投影时整批不写入。 */
+  function resolvePlacements(drawings: ReadonlyArray<DrawingObject>) {
+    return resolveCopyPlacements(drawings, {
       getViewport,
       getKWidthKGap,
       getCurrentDpr,
@@ -115,9 +111,76 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       getSnapLines,
       getIndicatorValues,
     })
+  }
+
+  /** 按文档内 id 解析当前工作区的源图元；任一缺失或跨工作区时返回空。 */
+  function resolveOriginals(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
+    const drawings = [...new Set(ids)].map((id) => drawingDocument.getDrawing(id))
+    if (drawings.some((drawing) => drawing === null)) return []
+    const originals = drawings.filter((drawing): drawing is DrawingObject => drawing !== null)
+    if (
+      originals.some(
+        (drawing) => (drawing.workspaceId ?? ChartWorkspaceId.KLine) !== getDrawingWorkspaceId(),
+      )
+    )
+      return []
+    return originals
+  }
+
+  /** 提交源快照克隆；调用方负责校验与落点解析。 */
+  function duplicateFromSources(
+    sources: ReadonlyArray<DrawingDuplicatePlacement>,
+  ): ReadonlyArray<DrawingObject> {
+    return drawingCommands.duplicate(sources)
+  }
+
+  /** 以交互层给出的显式锚点复制图元；不取消当前拖拽会话。 */
+  function duplicateDrawings(
+    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject> {
+    if (isDisposed() || placements.length === 0) return []
+    const ids = placements.map((placement) => placement.id)
+    if (new Set(ids).size !== ids.length) return []
+    const originals = resolveOriginals(ids)
+    if (originals.length !== placements.length) return []
+    return duplicateFromSources(
+      originals.map((source, index) => ({ source, anchors: placements[index]!.anchors })),
+    )
+  }
+
+  /** 解析当前工作区内的整组复制位置，再以一个命令提交副本。 */
+  function copyDrawings(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
+    if (isDisposed() || ids.length === 0) return []
+    const originals = resolveOriginals(ids)
+    if (originals.length === 0) return []
+    const placements = resolvePlacements(originals)
     if (placements.length === 0) return []
     chart.cancelDrawingSession()
-    return drawingCommands.copy(placements)
+    return duplicateFromSources(
+      originals.map((source, index) => ({ source, anchors: placements[index]!.anchors })),
+    )
+  }
+
+  /** 将所选图元写入内部剪贴板；快照保留完整配置，原图元删除后仍可粘贴。 */
+  function copyDrawingsToClipboard(ids: ReadonlyArray<string>): boolean {
+    if (isDisposed() || ids.length === 0) return false
+    const originals = resolveOriginals(ids)
+    if (originals.length === 0) return false
+    drawingClipboard.set(Object.freeze(originals.map((drawing) => createDrawingObject(drawing))))
+    return true
+  }
+
+  /** 从内部剪贴板粘贴；落点与克隆按钮共用同一偏移策略。 */
+  function pasteDrawings(): ReadonlyArray<DrawingObject> {
+    if (isDisposed()) return []
+    const clipboard = drawingClipboard.peek()
+    if (clipboard.length === 0) return []
+    const placements = resolvePlacements(clipboard)
+    if (placements.length === 0) return []
+    chart.cancelDrawingSession()
+    return duplicateFromSources(
+      clipboard.map((source, index) => ({ source, anchors: placements[index]!.anchors })),
+    )
   }
 
   /** 以完整模型快照更新一个已确认图元。 */
@@ -350,6 +413,10 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     clearDrawings,
     createDrawing,
     copyDrawings,
+    copyDrawingsToClipboard,
+    pasteDrawings,
+    duplicateDrawings,
+    hasDrawingClipboard,
     updateDrawing,
     commitDrawingDrag,
     commitDrawingDrags,

@@ -93,6 +93,7 @@
           @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
+          <ChartNavigation :style="{ bottom: `${props.bottomAxisHeight}px` }" />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -181,6 +182,7 @@
                     @toggle-lock="onToggleDrawingLock"
                     @hide="onHideSelectedDrawings"
                     @copy="onCopyDrawings"
+                    @clone="onCloneDrawings"
                     @update-line-label-position="setLineLabelPosition"
                     @open-settings="openDrawingSettings"
                   />
@@ -343,6 +345,7 @@
       v-model:open="chartSettingsOpen"
       :initial-section="chartSettingsSection"
       :initial-settings="chartSettings"
+      :effective-theme="chartTheme"
       :renderer-runtime="rendererRuntime"
       :market-data-cache-stats="marketDataCacheStats"
       @confirm="confirmChartSettings"
@@ -450,6 +453,7 @@
     useSlots,
     watch,
   } from 'vue'
+  import ChartNavigation from './ChartNavigation.vue'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const toast = useToast()
@@ -1178,6 +1182,7 @@
     onToggleDrawingLock,
     onHideSelectedDrawings,
     onCopyDrawings,
+    onCloneDrawings,
     onSetAllDrawingsVisible,
     globalDrawingLock,
     onSetGlobalDrawingLock,

@@ -1,7 +1,12 @@
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingChartAdapter } from '@/controllers/types.js'
+import type { Point } from '@/foundation/geometry/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
-import { resolveDrawingPointer } from '../../geometry/impl/coordinateUtils.js'
+import {
+  anchorToScreen,
+  isScreenPoint,
+  resolveDrawingPointer,
+} from '../../geometry/impl/coordinateUtils.js'
 import type {
   DrawingPointerAnchor,
   PointerCoordinates,
@@ -37,11 +42,25 @@ import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget
 
-/** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
+/** 指针会话的唯一状态：框选、拖拽与待复制互斥，禁止通过多个可空字段推导行为。 */
 type DrawingPointerSession =
   | { kind: 'idle' }
   | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
+  | { kind: 'duplicate-pending'; pending: DuplicatePending }
   | { kind: 'drag' }
+
+/** Ctrl 拖动复制在阈值前的待定会话：不写文档，只记录命中与起点。 */
+interface DuplicatePending {
+  readonly hit: DrawingObject
+  readonly targets: ReadonlyArray<DrawingObject>
+  readonly startX: number
+  readonly startY: number
+  readonly startClientX: number
+  readonly startClientY: number
+}
+
+/** 超过该像素才把 Ctrl 按下解释为拖动复制，否则按 Ctrl+单击切换选择。 */
+const DUPLICATE_DRAG_THRESHOLD_PX = 4
 
 /** 命中结果 → 绘图悬停命中：光标已由命中处给出，这里只做空值收敛。 */
 
@@ -135,7 +154,11 @@ export class DrawingInteractionController {
 
   /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑，锁定图元同样可编辑文本。 */
   getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
-    if (this.getActiveTool() !== CURSOR_DRAWING_TOOL_ID || this.dragHandler.isDragging())
+    if (
+      this.getActiveTool() !== CURSOR_DRAWING_TOOL_ID ||
+      this.dragHandler.isDragging() ||
+      this.pointerSession.kind === 'duplicate-pending'
+    )
       return null
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer) return null
@@ -155,6 +178,8 @@ export class DrawingInteractionController {
    */
   onPointerMove(e: PointerEvent, container: HTMLElement): boolean {
     this.pointerSnap = null
+    if (this.pointerSession.kind === 'duplicate-pending')
+      return this.handleDuplicatePendingMove(e, container)
     if (this.pointerSession.kind === 'drag') return this.handleDragMove(e, container)
     if (this.pointerSession.kind === 'marquee') return this.handleSelectionMarqueeMove(e, container)
 
@@ -248,6 +273,11 @@ export class DrawingInteractionController {
       this.commitSelectionMarquee(session.marquee)
       return true
     }
+    if (session.kind === 'duplicate-pending') {
+      this.adapter.unfreezeHoverTarget?.()
+      this.toggleSelected([session.pending.hit])
+      return true
+    }
     if (session.kind !== 'drag') return false
     this.sessionOverlay.commitDrags()
     this.dragHandler.endDrag()
@@ -259,20 +289,28 @@ export class DrawingInteractionController {
   // ============ 私有方法 ============
 
   /**
-   * 解析当前指针事件的磁吸配置。
-   * Shift 按住时不吸附——与宿主 Shift 锁角互斥，锁角改写后的坐标不得再被磁吸改写；
-   * Ctrl/Meta 按住时取反磁吸（TV 官方 Magnet Mode 语义）：off 临时开启（取 strong，
-   * TV 对磁吸开的定义即吸附 OHLC 四值），weak/strong 临时关闭；无修饰键按当前档位执行。
+   * 修饰键 → 落点约束的唯一映射。宿主只透传 PointerEvent，落点语义全部在引擎内决定。
+   *
+   * - Shift：锁角到最近的 45° 方向。值吸附会改写方向约束的结果，所以磁吸同时让位；
+   *   没有参考点时（单锚点工具、首个锚点、单锚点图元）只剩「关闭磁吸」这一半语义。
+   * - Ctrl/Meta：取反磁吸（TV 官方 Magnet Mode 语义）——off 临时开启并取 strong
+   *   （TV 对「磁吸开」的定义即吸附 OHLC 四值），weak/strong 临时关闭。
+   * - 无修饰键：按当前档位。
+   * @param e 指针事件（修饰键来源）
+   * @param origin 锁角参考点；调用方按会话给出，没有参考点时传 null
    */
-  private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
-    if (e.shiftKey) return undefined
+  private resolvePlacementModifiers(
+    e: PointerEvent,
+    origin: Point | null,
+  ): Pick<ResolveDrawingPointerOptions, 'magnet' | 'angleLock'> {
+    if (e.shiftKey) return origin === null ? {} : { angleLock: { origin } }
     if (e.ctrlKey || e.metaKey) {
       return this.magnetMode === MagnetMode.Off
         ? { magnet: this.createMagnetConfig(MagnetMode.Strong) }
-        : undefined
+        : {}
     }
     return this.magnetMode === MagnetMode.Off
-      ? undefined
+      ? {}
       : { magnet: this.createMagnetConfig(this.magnetMode) }
   }
 
@@ -292,39 +330,62 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 绘图落点解析选项：磁吸 + 出界钳制。
+   * 绘制路径的锁角参考点：最近落下的锚点，按当前视口每帧重新投影。
+   * 单锚点工具或首个锚点还没有参考点，返回 null（此时 Shift 只关磁吸）。
+   */
+  private resolveDraftAngleOrigin(): Point | null {
+    if (this.pendingPaneId === null) return null
+    const pending = this.anchorCollector.getLast()
+    if (!pending) return null
+    const screen = anchorToScreen(pending, this.pendingPaneId, this.adapter)
+    return isScreenPoint(screen) ? { x: screen.x, y: screen.y } : null
+  }
+
+  /**
+   * 绘图落点解析选项：落点约束 + 出界钳制。
    * 进行中的多锚点图元固定在其起始 Pane 内，指针移出该 Pane（含轴区）时贴边继续预览，
    * 不再因落点解析失败而抹掉预览。首个锚点仍要求落在有效 Pane 内。
    */
   private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
-    const options = {
-      ...this.resolveMagnetOptions(e),
+    const options: ResolveDrawingPointerOptions = {
+      ...this.resolvePlacementModifiers(e, this.resolveDraftAngleOrigin()),
       clampDataEnd: this.getActiveTool() === DrawingTool.RegressionChannel,
     }
     return this.pendingPaneId === null ? options : { ...options, clampPaneId: this.pendingPaneId }
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
-    // Shift 与 Ctrl 同语义：按住时点击切换选中，空白处不清空选择。
-    const isMultiSelect = e.ctrlKey || e.shiftKey
     const result = this.findDrawingHit(e, container)
     if (!result) {
-      if (!isMultiSelect) this.clearSelection()
+      if (!this.preservesSelection(e)) this.clearSelection()
       return false
     }
     const { pointer, hit } = result
 
-    if (isMultiSelect) {
+    // Shift 立即切换选择；Ctrl/Meta 延迟到松开或越过拖动阈值再决定。
+    if (e.shiftKey) {
       this.toggleSelected([hit.drawing])
       return true
     }
+    if (e.ctrlKey || e.metaKey) {
+      this.startDuplicatePending(e, pointer, hit)
+      return true
+    }
+    this.beginMove(pointer, hit)
+    return true
+  }
 
+  /** 带修饰键的空白点击保留选择；无修饰键才清空。 */
+  private preservesSelection(e: PointerEvent): boolean {
+    return e.ctrlKey || e.metaKey || e.shiftKey
+  }
+
+  /** 命中未选中的图元时先改选择，再按整组已选图元开始拖拽。 */
+  private beginMove(pointer: DrawingPointerAnchor, hit: HitResult): void {
     const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
     const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
     if (!isSelected) this.setSelected([hit.drawing])
-
     this.startDrag(pointer, hit, isSelected ? selectedDrawings : [hit.drawing])
-    return true
   }
 
   /** 框选工具优先拖拽已选图元，其他位置才进入框选会话。 */
@@ -368,7 +429,8 @@ export class DrawingInteractionController {
   getHoveredHit(pointer: PointerCoordinates, container: HTMLElement): HitResult | null {
     const tool = this.getActiveTool()
     if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return null
-    if (this.dragHandler.isDragging()) return null
+    if (this.dragHandler.isDragging() || this.pointerSession.kind === 'duplicate-pending')
+      return null
     const resolved = resolveDrawingPointer(pointer, container, this.adapter)
     if (!resolved) return null
     return this.findSelectableHit(resolved)
@@ -425,6 +487,58 @@ export class DrawingInteractionController {
     this.adapter.freezeHoverTarget?.()
   }
 
+  /** Ctrl 按下只进入待复制会话；越过阈值才生成真实副本，未越过按 Ctrl+单击处理。 */
+  private startDuplicatePending(
+    e: PointerEvent,
+    pointer: DrawingPointerAnchor,
+    hit: HitResult,
+  ): void {
+    const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
+    const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
+    const globalLocked = this.adapter.isGlobalDrawingLocked()
+    const targets = (isSelected ? selectedDrawings : [hit.drawing]).filter(
+      (drawing) => !isDrawingMovementLocked(drawing, globalLocked),
+    )
+    if (targets.length === 0) {
+      this.toggleSelected([hit.drawing])
+      return
+    }
+    this.pointerSession = {
+      kind: 'duplicate-pending',
+      pending: {
+        hit: hit.drawing,
+        targets,
+        startX: pointer.x,
+        startY: pointer.y,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+      },
+    }
+    this.adapter.freezeHoverTarget?.()
+  }
+
+  /** 待复制会话：阈值前只消费事件；越过阈值后生成真实副本并转入普通拖拽。 */
+  private handleDuplicatePendingMove(e: PointerEvent, container: HTMLElement): boolean {
+    if (this.pointerSession.kind !== 'duplicate-pending') return false
+    const pending = this.pointerSession.pending
+    const moved = Math.hypot(e.clientX - pending.startClientX, e.clientY - pending.startClientY)
+    if (moved < DUPLICATE_DRAG_THRESHOLD_PX) return true
+    // 副本只在原 Pane 内生成；指针离开该 Pane 时继续等待，避免在原地留下副本。
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer || pointer.paneId !== pending.targets[0]!.paneId) return true
+    const copies = this.adapter.duplicateDrawings(
+      pending.targets.map((target) => ({ id: target.id, anchors: target.anchors })),
+    )
+    if (copies.length === 0) {
+      this.resetPointerSession()
+      return true
+    }
+    this.dragHandler.startDrag(copies, { type: 'all' }, pending.startX, pending.startY)
+    this.pointerSession = { kind: 'drag' }
+    this.handleDragMove(e, container)
+    return true
+  }
+
   /** 开始框选，坐标只在按下所在 Pane 内解释。 */
   private startSelectionMarquee(e: PointerEvent, container: HTMLElement): boolean {
     const pointer = resolveDrawingPointer(e, container, this.adapter)
@@ -476,11 +590,13 @@ export class DrawingInteractionController {
     if (session.kind === 'drag') {
       this.sessionOverlay.clearDragOverride()
       this.dragHandler.endDrag()
+    } else if (session.kind === 'duplicate-pending') {
+      this.adapter.unfreezeHoverTarget?.()
     }
     if (requestDraw) this.adapter.requestDraw?.()
   }
 
-  /** 更新拖拽会话的整组临时覆盖；磁吸配置与绘制路径同源（Shift 互斥、Ctrl 取反），仅锚点拖拽生效。 */
+  /** 更新拖拽会话的整组临时覆盖；落点约束与绘制路径同源（Shift 锁角、Ctrl 取反），仅锚点拖拽生效。 */
   private handleDragMove(e: PointerEvent, container: HTMLElement): boolean {
     const draggingIds = this.dragHandler.getDraggingDrawingIds()
     if (draggingIds.some((id) => this.sessionOverlay.getById(id) === undefined)) {
@@ -491,7 +607,7 @@ export class DrawingInteractionController {
       e,
       container,
       this.adapter,
-      this.resolveMagnetOptions(e),
+      this.resolvePlacementModifiers(e, this.dragHandler.getAngleLockOrigin(this.adapter)),
     )
     if (!updated) return false
     this.sessionOverlay.setDragOverrides(updated)

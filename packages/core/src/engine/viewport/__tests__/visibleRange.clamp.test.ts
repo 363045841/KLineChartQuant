@@ -28,7 +28,7 @@ describe('viewportState visibleRange SSOT', () => {
 
   it('分时沿交易槽位计算完整数据范围', () => {
     const module = createViewportState(
-      createViewportStateDeps({ dataLength: 240, options: { kWidth: 3 }, period: 'timeshare' }),
+      createViewportStateDeps({ dataLength: 240, period: 'timeshare' }),
     )
     module.actions.resize(900, 400, 1)
     module.actions.scrollToLogical(0)

@@ -7,21 +7,21 @@ import {
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import { computed } from 'vue'
 
-/** 卡片使用所选明暗模式的 Token；auto 模式用默认深色缩略样式。 */
+/** 卡片使用已生效的明暗模式 Token；设置草稿里未确认的明暗不参与预览。 */
 export function useThemePresets(
   getSettings: () => ChartSettings,
   update: (settings: ChartSettings) => void,
+  getEffectiveTheme: () => 'light' | 'dark',
 ) {
   const presets = computed(() =>
     THEME_PRESETS.map((preset) => {
-      const colors = preset.schemes[getSettings().theme === 'light' ? 'light' : 'dark'].colors
+      const colors = preset.schemes[getEffectiveTheme()].colors
       return {
         ...preset,
         style: {
-          '--preset-background': colors.chartBackground,
+          // 卡片是控件而不是图表缩略图：用控件底色，避免浅色下整块纯白、深色下整块纯黑。
+          '--preset-background': colors.ui.controlBackground,
           '--preset-text': colors.ui.text,
-          '--preset-muted': colors.ui.muted,
-          '--preset-border': colors.ui.border,
           '--preset-accent': colors.ui.accent,
           '--preset-indicator': colors.palette.i8,
         },

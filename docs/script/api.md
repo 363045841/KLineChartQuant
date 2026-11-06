@@ -3304,9 +3304,10 @@ plot.Histogram(value: number | null, name: string, options?: PlotStyleOptions<"h
 plot.Columns(value: number | null, name: string, options?: PlotStyleOptions<"columns">): PlotRef
 ```
 
-输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。
+填充当前时间槽位，左右各留 1 个物理像素，不跟随蜡烛实体宽度，不支持 size。
+槽宽仅有 1–2 个物理像素时取消留白，避免柱体消失或跨槽覆盖。
 
-**@summary** 柱形图(跟随缩放)
+**@summary** 柱形图(槽位填充)
 
 <a id="api-266"></a>
 
@@ -6142,7 +6143,7 @@ export interface ColumnsPlotDeclaration extends Omit<PlotDeclarationBase, 'size'
 }
 ```
 
-自动柱宽随 K 线间距缩放，不支持 size。
+按时间槽位填充、左右各留 1 个物理像素，不支持 size。
 
 <a id="type-208"></a>
 

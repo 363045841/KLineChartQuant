@@ -68,4 +68,28 @@ describe('PreviewRenderer', () => {
     expect(preview?.anchors[2]).toMatchObject({ time: 2_000, price: 40 })
     expect(preview?.anchors[3]).toMatchObject({ time: 500, price: 40 })
   })
+
+  it('渲染工具自身的线型，通道额外保留填充透明度', () => {
+    const trend = new PreviewRenderer().buildPreview(
+      'trend-line',
+      [{ time: 500, price: 10 }],
+      { time: 1_000, price: 20 },
+      'main',
+      'kline',
+    )
+    expect(trend?.style?.strokeStyle).toBe('solid')
+
+    const channel = new PreviewRenderer().buildPreview(
+      'parallel-channel',
+      [
+        { time: 500, price: 10 },
+        { time: 1_000, price: 20 },
+      ],
+      { time: 1_500, price: 30 },
+      'main',
+      'kline',
+    )
+    expect(channel?.style?.strokeStyle).toBe('solid')
+    expect(channel?.style?.fillOpacity).toBeGreaterThan(0)
+  })
 })

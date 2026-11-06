@@ -57,6 +57,7 @@
         <ThemePresetPanel
           v-if="activeSection === 'style'"
           :settings="settings"
+          :effective-theme="effectiveTheme"
           @update:settings="onThemePresetChange"
         >
           <template #actions>
@@ -161,6 +162,8 @@
       open: boolean
       initialSection?: 'main' | 'shortcuts'
       initialSettings?: ChartSettings
+      /** 当前已生效的明暗模式，供主题预设卡片按模式取色。 */
+      effectiveTheme: 'light' | 'dark'
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
     }>(),
@@ -245,9 +248,9 @@
     if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
     tabs.push({ id: 'shortcuts', label: '快捷键' })
     tabs.push({ id: 'dataSource', label: '数据源' })
-    tabs.push({ id: 'style', label: '样式 / 颜色' })
+    tabs.push({ id: 'style', label: '外观' })
     if (experimentalSettings.value.length > 0) {
-      tabs.push({ id: 'experimental', label: '实验性 / 调试设置' })
+      tabs.push({ id: 'experimental', label: '实验性' })
     }
     tabs.push({ id: 'opensource', label: '开源致谢' })
     return tabs

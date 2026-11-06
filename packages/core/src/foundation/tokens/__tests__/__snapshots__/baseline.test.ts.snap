@@ -6,6 +6,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-foreground: #DCE0E8;
   --klc-color-chart-background: #151619;
   --klc-color-floating-surface: #191A1E;
+  --klc-color-chart-navigation-background: #222222;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;
@@ -286,6 +287,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-foreground: #242426;
   --klc-color-chart-background: #F5F5F7;
   --klc-color-floating-surface: #FAFAFC;
+  --klc-color-chart-navigation-background: #FAFAFC;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;

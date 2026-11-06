@@ -14,6 +14,8 @@ export interface ScaleXInput {
   width: number
   dpr: number
   kWidth: number
+  /** 实体间距系数；只参与 K 线与对比视图的槽距，分时视图忽略。 */
+  kGapRatio: number
   sessionSlotWidth: number | null
   data: ReadonlyArray<ChartSeriesDatum>
   dataLength: number
@@ -41,7 +43,6 @@ export interface ScaleXSnapshot {
   slotRange: { start: number; end: number }
   centers: number[]
   positions: number[]
-  bars: Array<{ x: number; width: number }>
   timeShareGeometry: TimeShareGeometry | null
   capabilities: Readonly<ViewCapabilities>
   hoverKind: 'candle' | 'point'

@@ -4,15 +4,15 @@
       :content="error || retrying ? `${displayText} · ${errorTagText}` : displayText"
       placement="bottom"
       trigger-display="contents"
-      :disabled="showPopup"
+      :disabled="picker.showPopup"
     >
     <button
       type="button"
       class="control-button symbol-chip"
-      :class="{ 'is-open': showPopup }"
-      :aria-expanded="showPopup"
+      :class="{ 'is-open': picker.showPopup }"
+      :aria-expanded="picker.showPopup"
       aria-haspopup="dialog"
-      @click="togglePopup"
+      @click="picker.togglePopup"
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
       <LoadingSpinner v-if="loading && !retrying" class="symbol-chip__spinner" />
@@ -27,53 +27,36 @@
     </button>
     </BaseTooltip>
     <SymbolPopover
-      v-model:search="searchQuery"
-      :show="showPopup"
+      v-model:search="picker.searchQuery"
+      :show="picker.showPopup"
       :anchor="chipWrapRef"
       dialog-label="选择商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索商品"
-      @close="closePopup"
+      @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
       <template #tabs>
         <BaseTabs
-          v-if="sourceTabs.length > 0"
-          v-model="activeSourceTab"
-          :tabs="sourceTabs"
-          size="compact"
+          v-if="picker.sourceTabs.length > 0"
+          v-model="picker.activeSourceTab"
+          :tabs="picker.sourceTabs"
           aria-label="聚合源"
         />
       </template>
       <template #body>
         <div class="symbol-list" role="listbox" aria-label="商品列表">
-          <div v-if="searchLoading" class="symbol-list__empty">
+          <div v-if="picker.loading" class="symbol-list__empty">
             <LoadingSpinner :size="32" class="symbol-list__spinner" />
             <span>正在搜索</span>
           </div>
-          <div v-else-if="filteredSymbols.length === 0" class="symbol-list__empty">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              style="margin-bottom: 8px; opacity: 0.35"
-            >
-              <circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" />
-              <line
-                x1="21"
-                y1="21"
-                x2="29"
-                y2="29"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-            </svg>
-            <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
-          </div>
+          <SymbolSearchEmpty
+            v-else-if="picker.results.length === 0"
+            :error="picker.error"
+            empty-class="symbol-list__empty"
+          />
           <div
-            v-for="item in filteredSymbols"
+            v-for="item in picker.results"
             :key="symbolIdentityKey(item)"
             class="symbol-list__item"
             :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
@@ -114,23 +97,18 @@
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
   import SymbolMetaBadge from '@vue-src/components/common/SymbolMetaBadge.vue'
-  import { useAggregationSourceHealth } from '@vue-src/composables/market/useAggregationSourceHealth.js'
-  import {
-    type AggregationSourceDefinition,
-    isMockSourceName,
-    supportsAggregationSourceSearch,
-  } from '@vue-src/composables/market/useAggregationSources.js'
-  import { useAggregationSourceTab } from '@vue-src/composables/market/useAggregationSourceTab.js'
+  import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SearchableSymbol,
     type SymbolSearchFn,
     symbolIdentityKey,
-    useSymbolSearch,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
+  import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
   import { computed, ref, watch } from 'vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
   import SymbolPopover from './SymbolPopover.vue'
+  import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
 
   export type SymbolItem = SearchableSymbol
 
@@ -166,31 +144,8 @@
     (e: 'manageSources'): void
   }>()
 
-  const showPopup = ref(false)
-  const searchQuery = ref('')
-  const activeSourceTab = useAggregationSourceTab()
   const chipWrapRef = ref<HTMLElement | null>(null)
-  const { onlineNameSet, refresh: refreshSourceHealth } = useAggregationSourceHealth()
-
-  /** 全部 + 已启用、在线且可搜索的源；连接失败的源不展示；mock 沉底 */
-  const sourceTabs = computed<Array<{ id: string; label: string }>>(() => {
-    const enabled = props.enabledSourceNames
-    const online = onlineNameSet.value
-    const searchable = props.aggregationSources
-      .filter(
-        (source) =>
-          enabled.has(source.name) &&
-          online.has(source.name) &&
-          supportsAggregationSourceSearch(source),
-      )
-      .slice()
-      .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
-    if (searchable.length === 0) return []
-    return [
-      { id: 'all', label: '全部' },
-      ...searchable.map((source) => ({ id: source.name, label: source.displayName })),
-    ]
-  })
+  const picker = useSymbolSourcePickerFromProps<SymbolItem>(props)
 
   const selectedKey = computed(() =>
     props.selectedItem ? symbolIdentityKey(props.selectedItem) : undefined,
@@ -214,59 +169,20 @@
 
   const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')
 
-  const {
-    results: filteredSymbols,
-    loading: searchLoading,
-    error: searchError,
-  } = useSymbolSearch<SymbolItem>({
-    query: searchQuery,
-    symbols: computed(() => props.symbols),
-    search: computed(() => props.search),
-    sourceFilter: activeSourceTab,
-    // 默认范围只含已启用、在线且可搜索的源；离线源不发必然失败的网络请求。
-    defaultSources: computed(() =>
-      sourceTabs.value.filter((tab) => tab.id !== 'all').map((tab) => tab.id),
-    ),
-  })
-
-  function togglePopup() {
-    showPopup.value = !showPopup.value
-  }
-
-  /** 关闭弹层并清空搜索 */
-  function closePopup() {
-    showPopup.value = false
-    searchQuery.value = ''
-  }
-
-  // 弹层打开时刷新已启用源的健康状态，离线源不进入 Tab（TTL 内复用上次结果）
-  watch(showPopup, (show) => {
-    if (show) {
-      void refreshSourceHealth(props.aggregationSources, { names: props.enabledSourceNames })
-    }
-  })
-
-  // 启用列表变化时，若当前 Tab 已不存在则回到全部
-  watch(sourceTabs, (tabs) => {
-    if (!tabs.some((tab) => tab.id === activeSourceTab.value)) {
-      activeSourceTab.value = 'all'
-    }
-  })
-
   function selectSymbol(item: SymbolItem) {
     if (symbolIdentityKey(item) === selectedKey.value) {
-      closePopup()
+      picker.closePopup()
       return
     }
     emit('change', item)
-    closePopup()
+    picker.closePopup()
   }
 
   watch(
     () => props.symbol,
     () => {
-      showPopup.value = false
-      searchQuery.value = ''
+      picker.showPopup = false
+      picker.searchQuery = ''
     },
   )
 </script>

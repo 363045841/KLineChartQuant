@@ -22,6 +22,7 @@ export type {
 export { projectDrawingsForFrame } from './geometry/impl/frameProjection.js'
 export { computeLinearRegression } from './geometry/impl/linearRegression.js'
 export type {
+  AngleLockOptions,
   DrawingLine,
   DrawingPointerAnchor,
   InteractionDrawingAnchor,
@@ -82,6 +83,7 @@ export type {
   DrawingCommandsDependencies,
   DrawingCommandsDocumentPort,
   DrawingDocumentDependencies,
+  DrawingDuplicatePlacement,
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from './model/types.js'

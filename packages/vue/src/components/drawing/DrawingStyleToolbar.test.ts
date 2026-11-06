@@ -65,17 +65,21 @@ describe('DrawingStyleToolbar 模板菜单', () => {
     }
   })
 
-  it('单选和多选都可复制，空选择不显示复制按钮', async () => {
+  it('复制与克隆是独立动作，空选择不显示按钮', async () => {
     const wrapper = mount(DrawingStyleToolbar, {
       props: { drawings: [createDrawingObject('a', true)], editableStyleKeys: [] },
     })
     try {
       await wrapper.get('[aria-label="复制所选图元"]').trigger('click')
+      await wrapper.get('[aria-label="克隆所选图元"]').trigger('click')
       await wrapper.setProps({ drawings: [createDrawingObject('a'), createDrawingObject('b')] })
       await wrapper.get('[aria-label="复制所选图元"]').trigger('click')
+      await wrapper.get('[aria-label="克隆所选图元"]').trigger('click')
       expect(wrapper.emitted('copy')).toEqual([[], []])
+      expect(wrapper.emitted('clone')).toEqual([[], []])
       await wrapper.setProps({ drawings: [] })
       expect(wrapper.find('.toolbar-btn--copy').exists()).toBe(false)
+      expect(wrapper.find('.toolbar-btn--clone').exists()).toBe(false)
     } finally {
       wrapper.unmount()
     }

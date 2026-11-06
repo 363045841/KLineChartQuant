@@ -1,10 +1,10 @@
 /** 集中定义各数据视图的横向标尺行为；模型、绘制和交互不再独立识别周期。 */
 import { slotIndexAt, slotWorldX } from '../../../../foundation/geometry/slotGrid.js'
 import { ChartDataViewId } from '../../../../foundation/types/chartView.js'
+import { worldXToScreenX } from '../../../../foundation/utils/pixelAlign.js'
 import { resolveMarketSessionSlots } from '../../../../foundation/utils/timeShareAxisLabels.js'
 import { CHART_VIEW_DEFINITIONS, computeTimeShareGeometry } from '../../../chartModel/index.js'
-import { calcBarLeftPx, calcKBarWidthPx, calcKWidthPx } from '../../../viewport/klineConfig.js'
-import { createKLineSlotGrid, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
+import { createKLineSlotGeometry, createTimeShareSlotGrid } from '../../../viewport/slotGrid.js'
 import { kGapFromKWidth } from '../../../viewport/zoom.js'
 import type { ScaleXInput, ScaleXSnapshot, ScaleXStrategy } from './types.js'
 
@@ -13,41 +13,46 @@ const KLINE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine]
 const TIMESHARE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.TimeShare]
 const FIVE_DAY_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.FiveDayTimeShare]
 
-/** 由中心几何派生共享快照；位置、实体矩形与命中都读同一份中心数组。 */
+/** 由中心几何派生共享快照；位置、命中与指标都读同一份中心数组。 */
 function snapshot(
   input: ScaleXInput,
-  fields: Omit<ScaleXSnapshot, 'view' | 'ready' | 'positions' | 'bars' | 'viewportWidth'>,
-  barWidth: number,
-  visible?: ReadonlyArray<boolean>,
+  fields: Omit<ScaleXSnapshot, 'view' | 'ready' | 'positions' | 'viewportWidth'>,
 ): ScaleXSnapshot {
   const half = (fields.kWidthPx - 1) / (2 * input.dpr)
+  // 每一帧只在这里生成一次显示中心，实体、影线、指标和交互共享同一像素列。
+  const centers = fields.centers.map(
+    (center) => worldXToScreenX(center, fields.scroll, input.dpr) + fields.scroll,
+  )
   return {
     ...fields,
+    centers,
     view: input.view,
     viewportWidth: input.width,
     // K 线几何不依赖到达点数量；交易视图必须有可绘制的交易中心。
     ready: input.width > 0 && (fields.hoverKind === 'candle' ? true : fields.centers.length > 0),
-    positions: fields.centers.map((center) => center - half),
-    bars: fields.centers.map((center, index) => ({
-      x:
-        calcBarLeftPx(Math.round(center * input.dpr), Math.round(barWidth * input.dpr)) / input.dpr,
-      width: visible && !visible[index] ? 0 : barWidth,
-    })),
+    positions: centers.map((center) => center - half),
   }
 }
 
 /** K 线与对比槽位共用网格，视口边界保留至少两根完整实体。 */
 function projectBars(input: ScaleXInput): ScaleXSnapshot {
-  const gap = kGapFromKWidth(input.kWidth, input.dpr)
-  const grid = createKLineSlotGrid(input.kWidth, gap, input.dpr)
-  const barWidth = calcKBarWidthPx(grid.step * input.dpr) / input.dpr
-  const half = (Math.round(barWidth * input.dpr) - 1) / (2 * input.dpr)
+  const gap = kGapFromKWidth(input.kWidth, input.dpr, input.kGapRatio)
+  const { grid, kWidthPx } = createKLineSlotGeometry(input.kWidth, gap, input.dpr)
+  const half = (kWidthPx - 1) / (2 * input.dpr)
   const count = Math.min(2, input.dataLength)
+  // 边界先在连续世界空间求解，右端只使用视口中完整的物理像素列。
+  const firstCenter = slotWorldX(grid, count - 1)
+  const lastCenter = slotWorldX(grid, input.dataLength - count)
+  const physicalWidth = Math.floor(input.width * input.dpr) / input.dpr
   const min =
-    count > 0 ? Math.max(-input.width, slotWorldX(grid, count - 1) + half - input.width) : 0
-  const max = count > 0 ? slotWorldX(grid, input.dataLength - count) - half : 0
+    count > 0
+      ? Math.ceil(Math.max(-input.width, firstCenter + half - physicalWidth) * input.dpr) /
+        input.dpr
+      : 0
+  const max = count > 0 ? Math.floor((lastCenter - half) * input.dpr) / input.dpr : 0
   // 视口窄于两根实体时居中显示已有数据；正常尺寸严格保留两根完整实体。
-  const scrollBounds = min <= max ? { min, max } : { min: (min + max) / 2, max: (min + max) / 2 }
+  const middle = Math.round(((min + max) / 2) * input.dpr) / input.dpr
+  const scrollBounds = min <= max ? { min, max } : { min: middle, max: middle }
   const scroll = Math.max(scrollBounds.min, Math.min(input.scroll, scrollBounds.max))
   const start = Math.floor((scroll - grid.origin) / grid.step) - 1
   const end = Math.ceil((scroll + input.width - grid.origin) / grid.step) + 1
@@ -56,35 +61,33 @@ function projectBars(input: ScaleXInput): ScaleXSnapshot {
   const domOffset = baseOffset
   const domScroll = scroll + domOffset
   const seriesWidth = input.dataLength * grid.step
-  const kWidthPx = calcKWidthPx(input.kWidth, input.dpr)
-  return snapshot(
-    input,
-    {
-      grid,
-      scroll,
-      scrollBounds,
-      domOffset,
-      domScroll,
-      // 两侧各预留一屏；实际导航还必须满足最少可见 K 线约束。
-      contentWidth: domOffset + seriesWidth + input.width,
-      seriesWidth,
-      kWidth: input.kWidth,
-      kGap: gap,
-      kWidthPx,
-      range,
-      slotRange: { start, end },
-      centers: Array.from({ length: Math.max(0, range.end - range.start) }, (_, index) =>
-        slotWorldX(grid, range.start + index),
-      ),
-      timeShareGeometry: null,
-      capabilities: KLINE_DEFINITION.capabilities,
-      hoverKind: 'candle',
-      hasPriceSeries: true,
-      worldAtIndex: (index) => (Number.isInteger(index) ? slotWorldX(grid, index) : null),
-      indexAtWorld: (world) => (Number.isFinite(world) ? slotIndexAt(grid, world) : null),
-    },
-    barWidth,
-  )
+  return snapshot(input, {
+    grid,
+    scroll,
+    scrollBounds,
+    domOffset,
+    domScroll,
+    // 两侧各预留一屏；实际导航还必须满足最少可见 K 线约束。
+    contentWidth: domOffset + seriesWidth + input.width,
+    seriesWidth,
+    kWidth: input.kWidth,
+    kGap: gap,
+    kWidthPx,
+    range,
+    slotRange: { start, end },
+    centers: Array.from({ length: Math.max(0, range.end - range.start) }, (_, index) =>
+      slotWorldX(grid, range.start + index),
+    ),
+    timeShareGeometry: null,
+    capabilities: KLINE_DEFINITION.capabilities,
+    hoverKind: 'candle',
+    hasPriceSeries: true,
+    worldAtIndex: (index) =>
+      Number.isInteger(index)
+        ? worldXToScreenX(slotWorldX(grid, index), scroll, input.dpr) + scroll
+        : null,
+    indexAtWorld: (world) => (Number.isFinite(world) ? slotIndexAt(grid, world) : null),
+  })
 }
 
 /** 交易数据中心的最近索引；同中心取最后一条数据。 */
@@ -117,32 +120,27 @@ function projectSingleSession(input: ScaleXInput): ScaleXSnapshot {
     : null
   const centers = layout ? layout.centers : []
   const kWidthPx = layout ? layout.kWidthPx : 1
-  return snapshot(
-    input,
-    {
-      grid,
-      scroll: 0,
-      scrollBounds: { min: 0, max: 0 },
-      domOffset: 0,
-      domScroll: 0,
-      contentWidth: input.width,
-      seriesWidth: input.width,
-      kWidth: kWidthPx / input.dpr,
-      kGap: 1 / input.dpr,
-      kWidthPx,
-      range: { start: 0, end: centers.length },
-      slotRange: { start: -1, end: slots },
-      centers,
-      timeShareGeometry: layout ? layout.geometry : null,
-      capabilities: TIMESHARE_DEFINITION.capabilities,
-      hoverKind: 'point',
-      hasPriceSeries: false,
-      worldAtIndex: (index) => centers[index] ?? null,
-      indexAtWorld: (world) => nearestIndex(centers, world),
-    },
-    layout ? layout.barWidth : 0,
-    layout?.barVisible,
-  )
+  return snapshot(input, {
+    grid,
+    scroll: 0,
+    scrollBounds: { min: 0, max: 0 },
+    domOffset: 0,
+    domScroll: 0,
+    contentWidth: input.width,
+    seriesWidth: input.width,
+    kWidth: kWidthPx / input.dpr,
+    kGap: 1 / input.dpr,
+    kWidthPx,
+    range: { start: 0, end: centers.length },
+    slotRange: { start: -1, end: slots },
+    centers,
+    timeShareGeometry: layout ? layout.geometry : null,
+    capabilities: TIMESHARE_DEFINITION.capabilities,
+    hoverKind: 'point',
+    hasPriceSeries: false,
+    worldAtIndex: (index) => centers[index] ?? null,
+    indexAtWorld: (world) => nearestIndex(centers, world),
+  })
 }
 
 /** 多日交易网格可滚动；尺寸与数据分组共同派生，禁止退回单日或 K 线几何。 */
@@ -163,32 +161,27 @@ function projectMultipleSessions(input: ScaleXInput): ScaleXSnapshot {
   const scroll = Math.max(0, Math.min(input.scroll, Math.max(0, width - input.width)))
   const centers = layout ? layout.centers : []
   const kWidthPx = layout ? layout.kWidthPx : 1
-  return snapshot(
-    input,
-    {
-      grid,
-      scroll,
-      scrollBounds: { min: 0, max: Math.max(0, width - input.width) },
-      domOffset: 0,
-      domScroll: scroll,
-      contentWidth: width,
-      seriesWidth: width,
-      kWidth: kWidthPx / input.dpr,
-      kGap: 1 / input.dpr,
-      kWidthPx,
-      range: { start: 0, end: centers.length },
-      slotRange: { start: 0, end: slots },
-      centers,
-      timeShareGeometry: layout ? layout.geometry : null,
-      capabilities: FIVE_DAY_DEFINITION.capabilities,
-      hoverKind: 'point',
-      hasPriceSeries: false,
-      worldAtIndex: (index) => centers[index] ?? null,
-      indexAtWorld: (world) => nearestIndex(centers, world),
-    },
-    layout ? layout.barWidth : 0,
-    layout?.barVisible,
-  )
+  return snapshot(input, {
+    grid,
+    scroll,
+    scrollBounds: { min: 0, max: Math.max(0, width - input.width) },
+    domOffset: 0,
+    domScroll: scroll,
+    contentWidth: width,
+    seriesWidth: width,
+    kWidth: kWidthPx / input.dpr,
+    kGap: 1 / input.dpr,
+    kWidthPx,
+    range: { start: 0, end: centers.length },
+    slotRange: { start: 0, end: slots },
+    centers,
+    timeShareGeometry: layout ? layout.geometry : null,
+    capabilities: FIVE_DAY_DEFINITION.capabilities,
+    hoverKind: 'point',
+    hasPriceSeries: false,
+    worldAtIndex: (index) => centers[index] ?? null,
+    indexAtWorld: (world) => nearestIndex(centers, world),
+  })
 }
 
 /** K 线缩放只改变配置尺寸，导航由统一锚点变换计算。 */
@@ -201,7 +194,10 @@ function zoomSessions(input: ScaleXInput, delta: number, _kWidth: number): Scale
   const before = projectMultipleSessions(input)
   return {
     ...input,
-    sessionSlotWidth: Math.max(1, Math.round(before.grid.step * input.dpr) + delta) / input.dpr,
+    sessionSlotWidth: Math.max(
+      1 / input.dpr,
+      (input.sessionSlotWidth ?? before.grid.step) + delta / input.dpr,
+    ),
   }
 }
 

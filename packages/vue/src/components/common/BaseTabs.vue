@@ -1,9 +1,8 @@
-<!-- 共享下划线 Tabs：图表设置 / Agent 设置 / 色彩预设 / 商品选择弹层复用，统一 tab 样式与滑动指示器；标签溢出时支持滚轮与拖拽横向浏览。 -->
+<!-- 共享下划线 Tabs：所有弹窗的 tab 栏共用同一套字号、内边距与指示器位置；标签溢出时支持滚轮与拖拽横向浏览。 -->
 <template>
   <nav
     ref="rootRef"
     class="base-tabs"
-    :class="{ 'base-tabs--compact': size === 'compact' }"
     role="tablist"
     :aria-label="ariaLabel"
     @mousedown="onMouseDown"
@@ -29,21 +28,14 @@
   import { useSlidingTabIndicator } from '@vue-src/composables/ui/useSlidingTabIndicator.js'
   import { onUnmounted, ref } from 'vue'
 
-  const props = withDefaults(
-    defineProps<{
-      /** 当前激活 tab 的 id。 */
-      modelValue: T
-      /** tab 列表，id 为泛型以保留调用方的联合类型。 */
-      tabs: ReadonlyArray<{ id: T; label: string }>
-      /** tablist 的可访问名称。 */
-      ariaLabel?: string
-      /** 紧凑尺寸，用于商品选择弹层等密集布局。 */
-      size?: 'default' | 'compact'
-    }>(),
-    {
-      size: 'default',
-    },
-  )
+  const props = defineProps<{
+    /** 当前激活 tab 的 id。 */
+    modelValue: T
+    /** tab 列表，id 为泛型以保留调用方的联合类型。 */
+    tabs: ReadonlyArray<{ id: T; label: string }>
+    /** tablist 的可访问名称。 */
+    ariaLabel?: string
+  }>()
   const emit = defineEmits<{ 'update:modelValue': [id: T] }>()
 
   const rootRef = ref<HTMLElement | null>(null)
@@ -144,21 +136,6 @@
   .base-tabs__tab.is-active {
     color: var(--klc-color-ui-text);
     font-weight: 600;
-  }
-
-  /* 紧凑尺寸：商品选择弹层内的聚合源标签 */
-  .base-tabs--compact {
-    gap: 0;
-    margin: 0 -4px;
-    padding: 0 4px;
-    border-bottom-color: var(--klc-color-border-button);
-  }
-
-  .base-tabs--compact .base-tabs__tab {
-    padding: 0 12px;
-    border-bottom: 0;
-    font-size: calc(var(--klc-typography-font-size-md) + 1px);
-    line-height: 32px;
   }
 
   .base-tabs__indicator {

@@ -1,23 +1,24 @@
 // 绘图坐标换算模块：锚点逻辑坐标（时间戳 + 价格）与屏幕坐标（px）的双向换算，
-// 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选磁吸）。
+// 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选磁吸 / 锁角）。
 //
 // 坐标空间只有一套：进入本模块后一律是 Pane 局部逻辑像素，`pane.top` 只在
-// 「容器局部 → Pane 局部」这一处消费一次；磁吸、命中、手柄、帧投影共用同一空间。
+// 「容器局部 → Pane 局部」这一处消费一次；磁吸、锁角、命中、手柄、帧投影共用同一空间。
 //
-// 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
+// 磁吸与锁角只作用于落点/预览路径，命中、框选等只读路径不得传入，以免范围漂移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
 import { snapPointer } from '../../magnet/impl/snapPointer.js'
-import type { SnapCandidate } from '../../magnet/types.js'
-import type { PersistedDrawingAnchor } from '../../types.js'
+import type { SnapCandidate, SnapResult } from '../../magnet/types.js'
 import type {
   DrawingPointerAnchor,
   PointerCoordinates,
+  ProjectableAnchor,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from '../types.js'
+import { lockAngle } from './angleLock.js'
 
 /**
  * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。
@@ -27,10 +28,13 @@ import type {
  * 2. 通过本帧已封存的中心点取得 X（分时与 K 线共用同一映射）
  * 3. 通过 adapter.priceToY 按锚点所属 Pane 将价格转为局部 Y
  *
+ * @param anchor 待投影锚点；持久化锚点与交互期待定锚点都可直接传入
+ * @param paneId 锚点所属 Pane
+ * @param adapter 视口与坐标换算
  * @returns 按锚点类型返回点、水平或垂直投影；时间戳无法解析或视图未就绪时返回 null
  */
 export function anchorToScreen(
-  anchor: PersistedDrawingAnchor,
+  anchor: ProjectableAnchor,
   paneId: string,
   adapter: DrawingViewportPort,
 ): ScreenDrawingAnchor | null {
@@ -116,7 +120,7 @@ interface DrawingAreaPlacement {
  * @param pointer 指针 client 坐标
  * @param container 图表容器
  * @param adapter 视口与坐标换算
- * @param options 磁吸与出界钳制
+ * @param options 落点约束（磁吸 / 锁角）与出界钳制
  * @returns 落点锚点；超出绘图区、数据不可用或时间轴无法解析时返回 null
  */
 export function resolveDrawingPointer(
@@ -129,41 +133,79 @@ export function resolveDrawingPointer(
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
-  const rect = container.getBoundingClientRect()
-  const mouseX = pointer.clientX - rect.left
-  const mouseY = pointer.clientY - rect.top
-
-  const placement = options?.clampPaneId
-    ? clampToPane(mouseX, mouseY, viewport, adapter, options.clampPaneId)
-    : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
+  const placement = resolvePointerPlacement(
+    pointer,
+    container,
+    viewport,
+    adapter,
+    options?.clampPaneId,
+  )
   if (!placement) return null
 
-  let { x, y } = placement
-  // 回归等依赖已有数据的图元在最后一根 K 线贴边，预览和确认落点共用此约束。
-  if (options?.clampDataEnd) {
-    const lastX = adapter.getXAtLogicalIndex(data.length - 1)
-    if (lastX === null) return null
-    x = Math.min(x, lastX)
-  }
+  const constrained = applyPointerConstraints(placement, options, adapter, data.length)
+  if (!constrained) return null
 
-  // 磁吸只改写 Pane 局部坐标，不影响 Pane 判定（吸附基准取落点所在 Pane）。
-  const snapped = options?.magnet
-    ? snapPointer(x, y, placement.pane, adapter, options.magnet)
-    : null
-  if (snapped) {
-    x = snapped.x
-    y = snapped.y
-  }
-
-  const anchor = screenToAnchor(x, y, placement.pane.paneId, adapter)
+  const snapped = resolvePointerSnap(constrained, placement.pane, options, adapter)
+  const anchor = screenToAnchor(constrained.x, constrained.y, placement.pane.paneId, adapter)
   if (!anchor) return null
   return {
     ...applyCandidate(anchor, snapped?.candidate ?? null),
     paneId: placement.pane.paneId,
-    x,
-    y,
+    x: snapped?.x ?? constrained.x,
+    y: snapped?.y ?? constrained.y,
     snap: snapped?.candidate ?? null,
   }
+}
+
+/** 把 client 坐标换算成落点所在 Pane 的局部坐标；出界钳制与严格落点共用同一入口。 */
+function resolvePointerPlacement(
+  pointer: PointerCoordinates,
+  container: HTMLElement,
+  viewport: { plotWidth: number; plotHeight: number },
+  adapter: DrawingViewportPort,
+  clampPaneId: string | undefined,
+): DrawingAreaPlacement | null {
+  const rect = container.getBoundingClientRect()
+  const mouseX = pointer.clientX - rect.left
+  const mouseY = pointer.clientY - rect.top
+  return clampPaneId
+    ? clampToPane(mouseX, mouseY, viewport, adapter, clampPaneId)
+    : resolveWithinDrawingArea(mouseX, mouseY, viewport, adapter)
+}
+
+/**
+ * 应用方向约束与数据边界。
+ *
+ * 锁角先绕参考点定向，再由数据边界裁 X：回归通道不允许越出已有数据，
+ * 触边时角度让位于硬约束。
+ */
+function applyPointerConstraints(
+  placement: DrawingAreaPlacement,
+  options: ResolveDrawingPointerOptions | undefined,
+  adapter: DrawingViewportPort,
+  dataLength: number,
+): Point | null {
+  const locked = options?.angleLock
+    ? lockAngle(options.angleLock.origin, { x: placement.x, y: placement.y })
+    : { x: placement.x, y: placement.y }
+  if (!options?.clampDataEnd) return locked
+  const lastX = adapter.getXAtLogicalIndex(dataLength - 1)
+  return lastX === null ? null : { x: Math.min(locked.x, lastX), y: locked.y }
+}
+
+/**
+ * 值吸附只改写 Pane 局部坐标，不影响 Pane 判定。
+ *
+ * 与锁角互斥：方向约束在场时值吸附不执行，否则吸回的值会把落点拽离锁定方向。
+ */
+function resolvePointerSnap(
+  point: Point,
+  pane: PaneLayoutInfo,
+  options: ResolveDrawingPointerOptions | undefined,
+  adapter: DrawingViewportPort,
+): SnapResult | null {
+  if (!options?.magnet || options.angleLock) return null
+  return snapPointer(point.x, point.y, pane, adapter, options.magnet)
 }
 
 /**

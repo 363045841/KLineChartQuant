@@ -21,6 +21,7 @@ describe('主题选择快照', () => {
       (next) => {
         draft = next
       },
+      () => (theme === 'light' ? 'light' : 'dark'),
     )
     for (const preset of THEME_PRESETS) {
       picker.selectPreset(preset)
@@ -31,5 +32,17 @@ describe('主题选择快照', () => {
       expect(picker.isSelected(preset)).toBe(true)
     }
     expect(original.colorPresetSettings).not.toHaveProperty('preset')
+  })
+
+  it('卡片配色使用已生效模式，不跟随未确认的 theme 草稿', () => {
+    const picker = useThemePresets(
+      () => ({ theme: 'light' }),
+      () => {},
+      () => 'dark',
+    )
+    const pro = picker.presets.value.find((preset) => preset.id === 'pro')
+    expect(pro?.style['--preset-background']).toBe(
+      pro?.schemes.dark.colors.ui.controlBackground,
+    )
   })
 })

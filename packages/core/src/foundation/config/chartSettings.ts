@@ -77,6 +77,31 @@ export function resolveSettingDefault(value: SettingItem['default']): boolean | 
 /** tooltipPosition 取值：none 表示不显示数据悬浮框。 */
 export const TOOLTIP_POSITION_NONE = 'none'
 
+/** K 线密度档位：只控制实体间距，不改变实体宽度与影线宽度。 */
+export const KLINE_DENSITY = {
+  Compact: 'compact',
+  Standard: 'standard',
+  Loose: 'loose',
+} as const
+
+export type KLineDensity = (typeof KLINE_DENSITY)[keyof typeof KLINE_DENSITY]
+
+/** 各密度档位的实体间距系数（间隙 = 实体宽度 × 系数），全仓唯一映射。 */
+export const KLINE_GAP_RATIOS: Readonly<Record<KLineDensity, number>> = {
+  [KLINE_DENSITY.Compact]: 0.3,
+  [KLINE_DENSITY.Standard]: 0.6,
+  [KLINE_DENSITY.Loose]: 0.9,
+}
+
+/**
+ * 把设置里的密度档位解析为几何层使用的间距系数。
+ * @param density 密度档位；Partial<ChartSettings> 尚未归一化时缺失，回退标准档
+ * @returns 实体间距系数
+ */
+export function resolveKLineGapRatio(density: KLineDensity | undefined): number {
+  return KLINE_GAP_RATIOS[density ?? KLINE_DENSITY.Standard]
+}
+
 /** 默认设置配置 */
 const FOOTPRINT_VISIBLE_WHEN = [{ key: 'klineShape', values: [FOOTPRINT_SHAPE] }]
 
@@ -246,6 +271,18 @@ export const DEFAULT_SETTINGS = [
     options: [
       { value: PRICE_AXIS_RANGE_MODE.AUTO, label: '自动适应' },
       { value: PRICE_AXIS_RANGE_MODE.HAND, label: '锁定价格对 K 线比例' },
+    ],
+  },
+  {
+    key: 'klineDensity',
+    label: 'K 线密度',
+    type: 'select',
+    default: KLINE_DENSITY.Standard,
+    group: 'style',
+    options: [
+      { value: KLINE_DENSITY.Compact, label: '紧凑' },
+      { value: KLINE_DENSITY.Standard, label: '标准' },
+      { value: KLINE_DENSITY.Loose, label: '宽松' },
     ],
   },
   {

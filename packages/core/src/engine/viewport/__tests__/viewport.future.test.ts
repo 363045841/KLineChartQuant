@@ -19,12 +19,12 @@ describe('K 线槽位边界', () => {
       expect(module.readonly.scrollLeft()).toBeGreaterThanOrEqual(0)
       expect(scroll).toBeGreaterThanOrEqual(-613)
       expect(scroll + 613).toBeLessThanOrEqual(view.seriesWidth + 613)
-      const visible = view.bars.filter((bar, index) => {
+      const visible = view.positions.filter((left, index) => {
         const dataIndex = view.range.start + index
         return (
           dataIndex < 10 &&
-          bar.x >= scroll - 1e-9 &&
-          bar.x + bar.width - 1 / dpr <= scroll + 613 + 1e-9
+          left >= scroll - 1e-9 &&
+          left + view.kWidthPx / dpr - 1 / dpr <= scroll + 613 + 1e-9
         )
       })
       expect(visible.length).toBeGreaterThanOrEqual(2)
