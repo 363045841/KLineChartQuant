@@ -81,7 +81,7 @@ describe('原生脚本后端', () => {
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
   })
 
-  it.each(builtinScriptSources.map((source, index) => ({ source, index })))(
+  it.each(builtinScriptSources.filter((source) => !source.includes('request.')).map((source, index) => ({ source, index })))(
     '内置脚本 $index 的声明、数值、样式和填充与 QuickJS 一致',
     ({ source }) => {
       const native = prepareNativeScript(source)

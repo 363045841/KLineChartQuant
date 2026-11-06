@@ -44,8 +44,11 @@ export interface InputOptions {
 
 /** 字符串输入可通过 options 渲染下拉选择。 */
 export interface StringInputOptions extends InputOptions {
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | InputOption)[]
 }
+
+/** 参数值与展示标签在生产者契约中定义，所有参数面板共用。 */
+export interface InputOption { readonly value: string; readonly label: string }
 
 /** 周期输入的 options 只允许 Timeframe 中登记的周期。 */
 export interface TimeframeInputOptions extends InputOptions {
@@ -63,7 +66,7 @@ export interface NumberInputOptions extends InputOptions {
 export interface InputDef<T> extends InputOptions {
   /** 默认值，同时决定参数在面板中的编辑类型。 */
   readonly default: T
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | InputOption)[]
   readonly min?: number
   readonly max?: number
   readonly step?: number

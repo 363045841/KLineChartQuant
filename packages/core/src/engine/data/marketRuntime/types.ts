@@ -35,6 +35,7 @@ export function supportsRawTradeStream(session: ReadyMarketSession): boolean {
 }
 
 export interface MarketRuntimeDependencies {
+  readonly marketSessions?: import('@/foundation/config/marketSession/marketSessionRegistry.js').MarketSessionRegistry
   resolveBarsSelection(
     instrument: InstrumentDescriptor,
     period: BarsSelection['period'],

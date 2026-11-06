@@ -166,6 +166,23 @@ describe('比较品种与 Request 共用行情', () => {
 })
 
 describe('Request 来源约定', () => {
+  it('lower_tf沿同一缓存链路加载，记录图表结束边界，并在高周期请求前拒绝或显式忽略', async () => {
+    const { runtime, cache, data, queries } = createHarness()
+    try {
+      const market = runtime.context('script', data)
+      const actual = await market.loadBars({ symbol: 'MAIN', timeframe: 'D', mode: 'lower_tf', calcBarsCount: 2 })
+      expect(actual.map((bar) => bar.time)).toEqual(data.map((bar) => bar.timestamp))
+      expect(queries[0]?.beforeTimestamp).toBeDefined()
+      const fetched = queries.length
+      await expect(market.loadBars({ symbol: 'MAIN', timeframe: 'W', mode: 'lower_tf', calcBarsCount: 2 })).rejects.toThrow('不能高于主图')
+      await expect(market.loadBars({ symbol: 'MAIN', timeframe: 'W', mode: 'lower_tf', calcBarsCount: 2, ignore_invalid_timeframe: true })).resolves.toEqual([])
+      expect(queries).toHaveLength(fetched)
+    } finally {
+      runtime.dispose()
+      cache.destroy()
+    }
+  })
+
   it('同品种省略 source 时继承图表已解析来源', async () => {
     const { runtime, cache, data, queries } = createHarness()
     try {

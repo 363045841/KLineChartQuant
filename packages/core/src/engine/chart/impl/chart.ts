@@ -406,6 +406,7 @@ export class Chart {
     this.dataManager = new ChartDataManager(
       {
         marketDataProviderRegistry: this.marketDataProviderRegistry,
+        marketSessions: this.marketSessions,
         getOption: () => this.getRenderOptions(),
         getZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
         setZoomLevel: (level) => this.kernel.zoom.actions.setZoomLevel(level),

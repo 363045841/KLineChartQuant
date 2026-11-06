@@ -103,4 +103,8 @@ const high = __series('high')
 const low = __series('low')
 const close = __series('close')
 const volume = __series('volume')
-const time = __series('time')
+/** time同时支持历史序列读取和Pine风格周期/时段查询。 */
+const time = new Proxy(
+  Object.assign((period: string, session?: string, timezone?: string): number => __timeValue('open', period, __read('time', 0), session, timezone), __series('time')),
+  { get: (_target, key) => __seriesGet((offset) => __read('time', offset), key) },
+)

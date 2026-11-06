@@ -11,6 +11,7 @@ import {
 import {
   type Bar,
   DEFAULT_REQUEST_BARS,
+  DEFAULT_INTRABAR_LIMIT,
   type IndicatorMarketContext,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -66,14 +67,16 @@ export function createScriptExecutor(
         id: request.id,
         bars: await market.loadBars({
           symbol: request.symbol,
+          mode: request.mode,
+          ignore_invalid_timeframe: request.ignore_invalid_timeframe,
           timeframe: request.timeframe,
           source: request.source,
           calcBarsCount:
-            request.calcBarsCount === undefined ? DEFAULT_REQUEST_BARS : request.calcBarsCount,
+            request.calcBarsCount === undefined ? request.mode === 'lower_tf' ? DEFAULT_INTRABAR_LIMIT : DEFAULT_REQUEST_BARS : request.calcBarsCount,
         }),
       })),
     )
-    return worker.run(handle, bars, params, { symbol: market.symbol, snapshots })
+    return worker.run(handle, bars, params, { symbol: market.symbol, time: market.time, snapshots })
   }
 
   /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */

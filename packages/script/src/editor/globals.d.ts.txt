@@ -44,7 +44,12 @@ declare global {
   var low: Series
   var close: Series
   var volume: Series
-  var time: Series
+  var time: Series & ((period: string, session?: string, timezone?: string) => number)
+  /** 周期结束时间；自定义session外返回NaN。 */
+  function time_close(period?: string, session?: string, timezone?: string): number
+  const time_tradingday: number
+  const timeframe: { readonly period: string; in_seconds(period?: string): number; change(period: string): boolean }
+  const session: { readonly ismarket: boolean; readonly ispremarket: boolean; readonly ispostmarket: boolean; readonly isfirstbar: boolean; readonly isfirstbar_regular: boolean }
   /** 当前 K 线索引，从 0 开始。 */
   const bar_index: number
   /**
@@ -171,5 +176,5 @@ declare global {
   /** 获取指定品种周期的数据；`syminfo.tickerid` 是当前图表品种。 */
   const request: ScriptRequest
   /** 当前图表品种信息；`tickerid` 可直接传给 `request.security`。 */
-  const syminfo: { readonly tickerid: string }
+  const syminfo: { readonly tickerid: string; readonly timezone: string; readonly session: string }
 }

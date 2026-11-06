@@ -52,7 +52,7 @@ it('Request 编译只使用 VFS，不读取宿主 ts.sys', () => {
     compile(
       `defineIndicator({onBar(){const value=request.security('BTCUSDT','60',()=>close);plot.Line(value,'hour')}})`,
     ),
-  ).toContain(`__declareRequest("0", 'BTCUSDT', '60', {})`)
+  ).toContain(`__declareRequest("0", 'BTCUSDT', '60', {}, "security")`)
   expect(() =>
     compile(
       `defineIndicator({onBar(){const price=close+1;request.security('BTCUSDT','60',()=>price)}})`,

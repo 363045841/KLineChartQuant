@@ -17,22 +17,16 @@ const SYSTEM_INDICATOR_NAMES = [
   'timeShare',
 ]
 
-/** 渲染型指标：脚本只能逐 bar 输出序列，需要自定义 Layer.paint 的指标留在 core。 */
-const RENDERER_INDICATOR_NAMES = ['svp', 'pvp']
-
 beforeAll(loadBuiltinIndicators)
 
 describe('builtin indicator registration', () => {
   it('explicitly registers every system definition with decorator metadata', () => {
     const definitions = getRegisteredIndicatorDefinitions()
     expect(definitions.map((definition) => definition.name).sort()).toEqual(
-      [...SYSTEM_INDICATOR_NAMES, ...RENDERER_INDICATOR_NAMES].sort(),
+      [...SYSTEM_INDICATOR_NAMES].sort(),
     )
     for (const definition of definitions) {
-      const expectedKind = RENDERER_INDICATOR_NAMES.includes(definition.name)
-        ? IndicatorKind.Indicator
-        : IndicatorKind.System
-      expect(definition.kind, definition.name).toBe(expectedKind)
+      expect(definition.kind, definition.name).toBe(IndicatorKind.System)
     }
   })
 

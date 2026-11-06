@@ -52,6 +52,8 @@ import {
 } from '../types.js'
 import { readDefinition, readFillCall, readHLineCall, readPlotCall } from './readDefinition.js'
 import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
+import { TIME_PRELUDE } from '../generated/runtime.js'
+import { timeValue, timeframeSeconds } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 共享的 WASM 模块类型。 */
 type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
@@ -211,6 +213,13 @@ function runWithContext(
     barCountHandle.dispose()
     const execution =
       options.requestExecution === undefined ? EMPTY_REQUEST_EXECUTION : options.requestExecution
+    const timeFunction = vm.newFunction('__timeValue', (mode, period, timestamp, session, timezone) =>
+      vm.newNumber(timeValue(execution.time, vm.getString(mode), vm.getString(period), vm.getNumber(timestamp), session && !vm.eq(session, vm.undefined) ? vm.getString(session) : undefined, timezone && !vm.eq(timezone, vm.undefined) ? vm.getString(timezone) : undefined)))
+    vm.setProp(vm.global, '__timeValue', timeFunction)
+    timeFunction.dispose()
+    const secondsFunction = vm.newFunction('__timeframeSeconds', (period) => vm.newNumber(timeframeSeconds(vm.getString(period))))
+    vm.setProp(vm.global, '__timeframeSeconds', secondsFunction)
+    secondsFunction.dispose()
     evalOrThrow(
       vm,
       `globalThis.__requestContext = ${requestExecutionSource(execution)}`,
@@ -227,6 +236,7 @@ function runWithContext(
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, TIME_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, DRAWING_API_PRELUDE, 'compile', timeout).dispose()

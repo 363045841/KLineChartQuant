@@ -83,6 +83,7 @@ import { ScrollCompensator } from './scrollCompensator.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 export interface DataDependencies {
+  marketSessions?: MarketSessionRegistry
   invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
   /** 实时订阅池；省略时使用注册表对应的共享池。 */
@@ -185,6 +186,7 @@ export class ChartDataManager {
     this._dataState = dataState
     this._dmState = dmState
     this.marketRuntime = new MarketRuntime({
+      marketSessions: deps.marketSessions,
       registry: this.providerRegistry,
       realtime: deps.realtimeSubscriptionPool,
       cache: this.marketDataCache,

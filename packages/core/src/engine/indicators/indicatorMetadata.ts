@@ -109,10 +109,7 @@ export type GetTitleInfoFn = (
 ) => TitleInfo | null
 
 /** 下拉选项：值即参数取值，label 为面板显示名。 */
-export interface IndicatorInputOption {
-  readonly value: string
-  readonly label: string
-}
+export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contracts').InputOption
 
 /**
  * 输入参数在面板中的展示声明。

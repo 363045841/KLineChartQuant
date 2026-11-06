@@ -43,6 +43,8 @@ import type {
 } from '../../request/types.js'
 import { createScriptConsole } from './createScriptConsole.js'
 import { compileSources, FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from './scriptRuntime.js'
+import { TIME_PRELUDE } from '../../quickjs/generated/runtime.js'
+import { timeValue, timeframeSeconds } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 工厂只返回指标入口，运行库和用户状态留在每次调用的函数作用域内。 */
 interface NativeRuntime {
@@ -82,6 +84,7 @@ export function prepareNativeScript(
         ${LIBRARY_PRELUDE}
         ${SCRIPT_PRELUDE}
         ${REQUEST_PRELUDE}
+        ${TIME_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
         ${DRAWING_API_PRELUDE}
@@ -112,6 +115,8 @@ export function prepareNativeScript(
     const scope = {
       console: createScriptConsole(emit, () => index),
       __requestContext: execution,
+      __timeValue: (mode: string, period: string, timestamp: number, session?: string, timezone?: string) => timeValue(execution.time, mode, period, timestamp, session, timezone),
+      __timeframeSeconds: timeframeSeconds,
       // 公开枚举与 QuickJS 后端共用同一份名字和取值，两个后端不再各自抄一遍。
       ...SCRIPT_ENUM_GLOBALS,
       params: { ...params },

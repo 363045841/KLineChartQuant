@@ -19,6 +19,7 @@ const INPUT_METHODS: Readonly<Record<keyof ScriptInput, true>> = {
   bool: true,
   string: true,
   timeframe: true,
+  session: true,
 }
 
 /** 输入调用的声明形状：变量名与直接所属函数。 */

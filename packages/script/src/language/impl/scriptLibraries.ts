@@ -1,6 +1,7 @@
 /** 从脚本语法树读取声明与静态依赖，编译器和源码仓库共用。 */
 import ts from 'typescript'
 import type { QuickJSLibrary } from '../../quickjs/types.js'
+import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 
 /** 每个文件只声明一个指标或库；依赖名称必须在准备阶段可确定。 */
 export function inspectScript(source: string) {
@@ -40,12 +41,13 @@ export function inspectScript(source: string) {
 /** 按依赖顺序返回实际使用的库，缺失与循环依赖在执行前报告。 */
 export function resolveScriptLibraries(source: string, libraries: readonly QuickJSLibrary[]) {
   const catalog = new Map<string, QuickJSLibrary>()
+  const builtins = new Set(builtinLibraries.map((library) => library.name))
   for (const library of libraries) {
-    if (library.name === 'ta' || catalog.has(library.name)) throw new Error(`库名已存在：${library.name}`)
+    if (builtins.has(library.name) || catalog.has(library.name)) throw new Error(`库名已存在：${library.name}`)
     catalog.set(library.name, library)
   }
   const visiting = new Set<string>()
-  const loaded = new Set<string>(['ta'])
+  const loaded = new Set(builtins)
   const result: QuickJSLibrary[] = []
   /** 深度优先装载依赖，保证初始化时被引用库已注册。 */
   function load(name: string): void {

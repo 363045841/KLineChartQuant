@@ -20,7 +20,7 @@ import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
 } from '@/data/provider/impl/registry.js'
-import { OLDER_DATA_STATUS } from '@/data/provider/types.js'
+import { OLDER_DATA_STATUS, KLINE_PERIODS } from '@/data/provider/types.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   TRADE_STREAM_CODES,
@@ -36,6 +36,8 @@ import {
   supportsRawTradeStream,
 } from '../types.js'
 import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
+import { DEFAULT_INTRABAR_LIMIT, DEFAULT_REQUEST_BARS, timeValue } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 成交流订阅的身份与传输目标；由就绪会话和指标需求解析得到。 */
 interface TradeTarget {
@@ -91,6 +93,7 @@ type OwnerSource = 'plan' | 'temporary'
 
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
 export class MarketRuntime implements IndicatorMarketData {
+  private readonly marketSessions: MarketSessionRegistry
   private readonly registry: MarketDataProviderRegistry
   private readonly pool: RealtimeSubscriptionPool
   private readonly live = new Map<
@@ -179,8 +182,14 @@ export class MarketRuntime implements IndicatorMarketData {
   context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext {
     const session = this.deps.session.peek()
     const symbol = session === null ? '' : session.instrument.symbol
+    const profile = session?.instrument.sessionId === undefined ? undefined : this.marketSessions.getRequired(session.instrument.sessionId)
+    const venue = profile?.extendedSessions?.[session!.instrument.exchange]
     return Object.freeze({
       symbol,
+      time: session === null || profile === undefined ? undefined : {
+        period: session.selection.period,
+        session: venue === undefined ? profile : { ...profile, premarket: venue.premarket, postmarket: venue.postmarket },
+      },
       loadBars: (request: IndicatorBarsRequest) =>
         this.loadRequestBars(owner, bars, request, session),
     })
@@ -249,7 +258,12 @@ export class MarketRuntime implements IndicatorMarketData {
     }
     const signal = abort.signal
     const period = requestPeriod(request.timeframe)
-    assertSecurityPeriod(period, session.selection.period)
+    if (request.mode !== 'lower_tf') assertSecurityPeriod(period, session.selection.period)
+    if (request.mode === 'lower_tf' && KLINE_PERIODS.indexOf(period) > KLINE_PERIODS.indexOf(session.selection.period)) {
+      if (request.ignore_invalid_timeframe) return []
+      throw new TypeError('security_lower_tf的周期不能高于主图')
+    }
+    const intrabarLimit = Math.min(request.calcBarsCount, DEFAULT_INTRABAR_LIMIT)
     const sameSymbol = request.symbol === session.instrument.symbol
     // 同品种继承图表已解析来源；跨品种没有确定来源，必须由调用方显式指定。
     if (!sameSymbol && request.source === undefined)
@@ -264,23 +278,28 @@ export class MarketRuntime implements IndicatorMarketData {
       instrument,
       adjustment: session.selection.adjustment,
       barAggregation: session.selection.barAggregation,
-      limit: request.calcBarsCount,
+      limit: request.mode === 'lower_tf' ? Math.min(DEFAULT_REQUEST_BARS, intrabarLimit) : request.calcBarsCount,
       signal,
     }
     const pages: KLineData[][] = []
     let beforeTimestamp: number | undefined
     const earliest = bars[0]!.timestamp
     let warmup = 0
-    let result = await this.deps.cache.queryBars(query)
+    let loaded = 0
+    const timeContext = this.context(owner, bars).time
+    if (request.mode === 'lower_tf' && !timeContext) throw new Error('低周期明细需要品种的市场时段配置')
+    const chartEnd = request.mode === 'lower_tf' ? timeValue(timeContext, 'close', session.selection.period, bars[bars.length - 1]!.timestamp) : undefined
+    let result = await this.deps.cache.queryBars({ ...query, ...(chartEnd === undefined ? {} : { beforeTimestamp: chartEnd }) })
     while (true) {
       signal.throwIfAborted()
       if (this.disposed || this.deps.session.peek() !== session)
         throw new Error('Request 图表会话已切换')
       const page = [...result.series.data]
       pages.unshift(page)
+      loaded += page.length
       warmup += page.filter((bar) => bar.timestamp < earliest).length
       if (
-        warmup >= request.calcBarsCount ||
+        (request.mode === 'lower_tf' ? loaded >= intrabarLimit || (page[0]?.timestamp ?? Infinity) <= earliest : warmup >= request.calcBarsCount) ||
         (result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED && page.length < query.limit) ||
         page.length === 0
       )
@@ -308,7 +327,8 @@ export class MarketRuntime implements IndicatorMarketData {
       owner,
     )
     this.reconcileBarStreams()
-    return buffer.getRawData().map((bar) =>
+    const snapshot = request.mode === 'lower_tf' ? buffer.getRawData().slice(-intrabarLimit) : buffer.getRawData()
+    return snapshot.map((bar) =>
       Object.freeze({
         time: bar.timestamp,
         open: bar.open,
@@ -422,6 +442,7 @@ export class MarketRuntime implements IndicatorMarketData {
   private disposed = false
 
   constructor(private readonly deps: MarketRuntimeDependencies) {
+    this.marketSessions = deps.marketSessions ?? new MarketSessionRegistry()
     this.registry = deps.registry ?? marketDataProviderRegistry
     this.pool = deps.realtime ?? realtimePoolFor(this.registry)
     let previousRegistry = this.registry.state.peek()
