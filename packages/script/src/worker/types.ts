@@ -3,6 +3,8 @@ import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contract
 import type { LogEvent } from '../contracts/output.js'
 import type { QuickJSLibrary, QuickJSScriptDefinition, ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
+import type { PackedPlotCollection, RunInputPatch } from './transport/types.js'
+import type { CompiledScriptSources } from '../execution/types.js'
 
 /** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功后替换编译结果。 */
 export interface ScriptWorker {
@@ -54,15 +56,13 @@ export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
 export type ScriptWorkerRequest = { readonly requestId: number; readonly id: string } & (
   | {
       readonly type: 'prepare'
-      readonly source: string
-      readonly libraries?: readonly QuickJSLibrary[]
+      readonly module: CompiledScriptSources
       readonly trusted?: boolean
     }
   | {
       readonly type: 'run'
-      readonly bars: readonly Bar[]
+      readonly input: RunInputPatch
       readonly params?: Readonly<Record<string, ScriptParamValue>>
-      readonly context?: ScriptRequestContext
     }
   | {
       readonly type: 'requests'
@@ -86,7 +86,7 @@ export interface ScriptWorkerError {
 export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'output'; readonly id: string; readonly events: readonly LogEvent[] }
   | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
-  | { readonly type: 'run'; readonly collection: PlotCollection }
+  | { readonly type: 'run'; readonly collection: PackedPlotCollection }
   | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }
   | { readonly type: 'release' }
   | { readonly type: 'error'; readonly error: ScriptWorkerError }

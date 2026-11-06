@@ -19,8 +19,8 @@ describe('realtime script lifecycle', () => {
     let created = 0
     let terminated = 0
     class ObservedWorker extends NodeScriptWorker {
-      constructor() {
-        super()
+      constructor(url?: URL) {
+        super(url)
         created++
       }
       override terminate(): void {

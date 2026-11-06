@@ -20,6 +20,7 @@ import {
 import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 import { resolveBuildCommit } from '../../../scripts/build-commit.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
+import { compilerDependencyPlugin } from '../../../scripts/compiler-dependency-plugin.js'
 
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
@@ -86,6 +87,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    compilerDependencyPlugin(root),
     contractResourcesPlugin(),
     indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),

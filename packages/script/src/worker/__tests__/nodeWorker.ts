@@ -7,12 +7,12 @@ export class NodeScriptWorker extends EventTarget {
   private readonly thread: Worker
 
   /** 默认加载构建后的 Script 入口，不在测试中模拟脚本计算。 */
-  constructor() {
+  constructor(url = new NodeURL('../../../dist/worker/impl/script.worker.js', import.meta.url)) {
     super()
     this.thread = new Worker(
       `
       const { parentPort, workerData } = require('node:worker_threads')
-      globalThis.postMessage = (message) => parentPort.postMessage(message)
+      globalThis.postMessage = (message, options) => parentPort.postMessage(message, options?.transfer)
       // 执行浏览器发布产物时隐藏 Node 探测入口，避免依赖选择未打包的 Node 分支。
       globalThis.process = undefined
       import(workerData).then(() => {
@@ -21,7 +21,9 @@ export class NodeScriptWorker extends EventTarget {
     `,
       {
         eval: true,
-        workerData: new NodeURL('../../../dist/worker/impl/script.worker.js', import.meta.url).href,
+        workerData: url.href
+          .replace('/src/worker/', '/dist/worker/')
+          .replace('/src/worker/impl/', '/dist/worker/impl/'),
       },
     )
     this.thread.on('message', (data: unknown) => {
@@ -39,8 +41,8 @@ export class NodeScriptWorker extends EventTarget {
   }
 
   /** 跨线程发送实际消息。 */
-  postMessage(message: unknown): void {
-    this.thread.postMessage(message)
+  postMessage(message: unknown, transfer: readonly ArrayBuffer[] = []): void {
+    this.thread.postMessage(message, transfer)
   }
 
   /** 结束计算线程。 */
