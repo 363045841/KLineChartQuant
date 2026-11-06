@@ -18,6 +18,13 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   role?: Layer['role']
 }
 
+/** 该定义在当前周期是否应绘制；未声明可见范围时恒为真。 */
+export function isLayerVisibleOnPeriod(definition: IndicatorMetadata, period: string): boolean {
+  const ranges = definition.visiblePeriods
+  if (ranges === undefined || ranges.length === 0) return true
+  return isIndicatorVisibleOnPeriod(period, ranges)
+}
+
 /**
  * 用可见范围包一层 paint；未声明范围时直接复用原 Layer，避免每帧多一次判断。
  * @param layer 原始渲染器 Layer
@@ -33,7 +40,7 @@ function withPeriodVisibility(
   return {
     ...layer,
     paint: (context) => {
-      if (!isIndicatorVisibleOnPeriod(context.period, ranges)) return
+      if (!isLayerVisibleOnPeriod(definition, context.period)) return
       layer.paint(context)
     },
   }

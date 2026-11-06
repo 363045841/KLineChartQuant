@@ -1,6 +1,9 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
 import { describe, expect, it } from 'vitest'
-import { createIndicatorLayer } from '@/engine/renderers/Indicator/factory.js'
+import {
+  createIndicatorLayer,
+  isLayerVisibleOnPeriod,
+} from '@/engine/renderers/Indicator/factory.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
@@ -40,61 +43,73 @@ describe('isIndicatorVisibleOnPeriod', () => {
   })
 })
 
-/** 构造只用于可见性断言的假 Layer，paint 记录调用次数。 */
-function fakeLayer(calls: { count: number }): Layer<RenderContext> {
+/** 构造只用于身份断言的最小上下文图层，不发绘制指令。 */
+function fakeLayer(): Layer<RenderContext> {
   return {
     id: 'fake_layer',
+    kind: 'context',
     pane: 'main',
     role: 'primary',
     z: 1,
     visible: true,
-    paint: () => {
-      calls.count += 1
-    },
+    paint: () => {},
     dispose: () => {},
-  } as unknown as Layer<RenderContext>
+  }
 }
 
-/** 构造只声明可见范围的最小指标定义。 */
-function fakeDefinition(visiblePeriods: IndicatorMetadata['visiblePeriods']): IndicatorMetadata {
+/** 构造携带指定 Layer 与可见范围的最小指标定义。 */
+function fakeDefinition(
+  layer: Layer<RenderContext>,
+  visiblePeriods?: IndicatorMetadata['visiblePeriods'],
+): IndicatorMetadata {
   return {
     name: 'fake',
     displayName: 'FAKE',
     kind: 'indicator',
     category: 'main',
     defaultPaneId: 'main',
+    getRendererName: () => 'fake',
+    getScaleRendererName: () => null,
     visiblePeriods,
-    rendererFactory: () => callsLayer,
-  } as unknown as IndicatorMetadata
+    rendererFactory: () => layer,
+  }
 }
 
-let callsLayer: Layer<RenderContext>
-
-describe('createIndicatorLayer 周期拦截', () => {
-  it('周期不在范围内时不调用原始 paint', () => {
-    const calls = { count: 0 }
-    callsLayer = fakeLayer(calls)
-    const layer = createIndicatorLayer({
-      definition: fakeDefinition([{ unit: 'minute' }]),
-      paneId: 'main',
-      indicatorId: 'fake',
-      instanceId: 'fake_main',
-    })
-    layer.paint({ period: 'daily' } as unknown as Parameters<Layer<RenderContext>['paint']>[0])
-    expect(calls.count).toBe(0)
-    layer.paint({ period: '5min' } as unknown as Parameters<Layer<RenderContext>['paint']>[0])
-    expect(calls.count).toBe(1)
+describe('isLayerVisibleOnPeriod', () => {
+  it('未声明范围时任何周期都绘制', () => {
+    expect(isLayerVisibleOnPeriod(fakeDefinition(fakeLayer()), 'daily')).toBe(true)
   })
 
+  it('周期不在范围内时不绘制', () => {
+    const definition = fakeDefinition(fakeLayer(), [{ unit: 'minute' }, { unit: 'hour' }])
+    expect(isLayerVisibleOnPeriod(definition, '5min')).toBe(true)
+    expect(isLayerVisibleOnPeriod(definition, '4h')).toBe(true)
+    expect(isLayerVisibleOnPeriod(definition, 'daily')).toBe(false)
+  })
+})
+
+describe('createIndicatorLayer 装配', () => {
   it('未声明范围时原样复用 Layer', () => {
-    const calls = { count: 0 }
-    callsLayer = fakeLayer(calls)
-    const layer = createIndicatorLayer({
-      definition: fakeDefinition(undefined),
+    const layer = fakeLayer()
+    const assembled = createIndicatorLayer({
+      definition: fakeDefinition(layer),
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
     })
-    expect(layer).toBe(callsLayer)
+    expect(assembled).toBe(layer)
+  })
+
+  it('声明范围时返回包裹后的新 Layer，并保留身份', () => {
+    const layer = fakeLayer()
+    const assembled = createIndicatorLayer({
+      definition: fakeDefinition(layer, [{ unit: 'minute' }]),
+      paneId: 'main',
+      indicatorId: 'fake',
+      instanceId: 'fake_main',
+    })
+    expect(assembled).not.toBe(layer)
+    expect(assembled.id).toBe(layer.id)
+    expect(assembled.pane).toBe(layer.pane)
   })
 })
