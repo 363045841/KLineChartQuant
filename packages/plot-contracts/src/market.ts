@@ -1,7 +1,8 @@
 /** 指标读取宿主行情的中立契约；不暴露 Buffer、Provider 或可写状态。 */
 import type { Bar } from './bar.js'
 import type { ScriptTimeContext } from './time.js'
-export type { ScriptTimeContext, ScriptMarketSession, ScriptSessionRange } from './time.js'
+
+export type { ScriptMarketSession, ScriptSessionRange, ScriptTimeContext } from './time.js'
 
 /**
  * @summary 数据源
@@ -78,6 +79,8 @@ export interface IndicatorBarsRequest {
 export interface IndicatorMarketContext {
   readonly symbol: string
   readonly time?: ScriptTimeContext
+  /** 本次计算的生命周期；只在宿主使用，不传入脚本或跨线程消息。 */
+  readonly signal?: AbortSignal
   /** 根据主图已加载历史与预热根数准备快照，分页仍由游标驱动。 */
-  loadBars(request: IndicatorBarsRequest): Promise<readonly Bar[]>
+  loadBars(request: IndicatorBarsRequest, signal?: AbortSignal): Promise<readonly Bar[]>
 }

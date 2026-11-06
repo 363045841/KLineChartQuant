@@ -1,33 +1,15 @@
-/**
- * 实例计算执行器。
- *
- * 这是 Worker 与 inline fallback 共用的状态极小的运行时：缓存当前行情与已注册的
- * calculator 定义，执行时只接收 instanceCalculationPlan。
- */
-import type { KLineData } from '@/foundation/types/price.js'
-import type {
-  IndicatorCalculationOutput,
-  IndicatorCalculationPlan,
-} from '../domain/instanceCalculationPlan.js'
+/** 定义与计算器仓库；不保存数据快照、运行任务、计算版本或取消控制器。 */
+import type { IndicatorCalculationTask } from '../domain/instanceCalculationPlan.js'
 import {
   executeIndicatorCalculationTask,
   type IndicatorCalculationDefinition,
-  type IndicatorCalculationDefinitionResolver,
 } from './instanceCalculationRuntime.js'
+import type { IndicatorMarketData } from './marketDataTypes.js'
+import type { IndicatorCalculationExecutor } from './types.js'
 
-export class IndicatorInstanceExecutionRuntime {
-  private data: KLineData[] = []
-  private dataRevision = 0
-  private readonly cache = new Map<
-    string,
-    {
-      dataRevision: number
-      marketRevision: number
-      output: Promise<IndicatorCalculationOutput>
-    }
-  >()
-  private readonly taskDefinitions = new Map<string, IndicatorCalculationDefinition>()
+export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationExecutor {
   private readonly definitions = new Map<string, IndicatorCalculationDefinition>()
+  private readonly calculators = new Map<string, IndicatorCalculationDefinition>()
 
   constructor(
     definitions: Iterable<IndicatorCalculationDefinition> = [],
@@ -36,96 +18,62 @@ export class IndicatorInstanceExecutionRuntime {
     for (const definition of definitions) this.addDefinition(definition)
   }
 
+  get revision(): number {
+    return this.marketData?.().revision ?? 0
+  }
+
+  /** 注册定义；同一对象重复注册幂等，其它同名对象必须显式更新。 */
   addDefinition(definition: IndicatorCalculationDefinition): void {
-    const previous = this.definitions.get(definition.definitionId)
-    if (previous && previous !== definition) {
+    const existing = this.definitions.get(definition.definitionId)
+    if (existing && existing !== definition)
       throw new TypeError(`Duplicate indicator calculation definition: ${definition.definitionId}`)
-    }
     this.definitions.set(definition.definitionId, definition)
   }
 
-  /** 显式替换已有定义，同时清除该定义的任务计算器与结果；其它指标缓存保留。 */
+  /** 新定义只影响后续执行；旧执行持有自己的快照，发布资格由调度器决定。 */
   updateDefinition(definition: IndicatorCalculationDefinition): void {
-    if (!this.definitions.has(definition.definitionId)) {
+    if (!this.definitions.has(definition.definitionId))
       throw new TypeError(`Unknown indicator calculation definition: ${definition.definitionId}`)
-    }
+    this.removeDefinition(definition.definitionId)
     this.definitions.set(definition.definitionId, definition)
-    this.clearDefinitionTasks(definition.definitionId)
   }
 
-  /** 删除定义并释放它的计算状态。 */
   removeDefinition(id: string): void {
     this.definitions.delete(id)
-    this.clearDefinitionTasks(id)
+    for (const [key, calculator] of this.calculators)
+      if (calculator.definitionId === id) this.calculators.delete(key)
   }
 
-  /** 按定义清理任务状态，新增、更新和删除共享一处失效逻辑。 */
-  private clearDefinitionTasks(id: string): void {
-    for (const [key, taskDefinition] of this.taskDefinitions) {
-      if (taskDefinition.definitionId !== id) continue
-      this.taskDefinitions.delete(key)
-      this.cache.delete(key)
+  /** 活动计划拥有计算器与行情租约；展示实例共用同一计算身份。 */
+  retain(tasks: readonly IndicatorCalculationTask[]): void {
+    const keys = new Set(tasks.map((task) => task.calculationKey))
+    for (const key of this.calculators.keys()) if (!keys.has(key)) this.calculators.delete(key)
+    this.marketData?.().retain(keys)
+  }
+
+  /** 执行一个不可变输入；取消信号来自任务生命周期，不解释实时更新。 */
+  execute: IndicatorCalculationExecutor['execute'] = (task, data, signal) => {
+    signal.throwIfAborted()
+    let calculator = this.calculators.get(task.calculationKey)
+    if (!calculator) {
+      const definition = this.definitions.get(task.definitionId)
+      if (!definition)
+        return Promise.reject(new TypeError(`Unknown indicator definition: ${task.definitionId}`))
+      calculator = { ...definition, compute: definition.createCompute?.() ?? definition.compute }
+      this.calculators.set(task.calculationKey, calculator)
     }
-  }
-
-  /**
-   * 写入行情快照。
-   * @param data 当前 K 线数据
-   * @param dataRevision 数据版本，不允许回退
-   */
-  setData(data: KLineData[], dataRevision: number): void {
-    if (dataRevision < this.dataRevision) {
-      throw new RangeError(`Indicator data revision moved backwards: ${dataRevision}`)
-    }
-    this.data = data
-    this.dataRevision = dataRevision
-  }
-
-  async execute(plan: IndicatorCalculationPlan): Promise<readonly IndicatorCalculationOutput[]> {
-    const market = this.marketData?.()
-    const resolve: IndicatorCalculationDefinitionResolver = (definitionId) =>
-      this.definitions.get(definitionId)
-    const activeKeys = new Set(plan.tasks.map((task) => task.calculationKey))
-    market?.retain(activeKeys)
-    for (const key of this.cache.keys()) if (!activeKeys.has(key)) this.cache.delete(key)
-    for (const key of this.taskDefinitions.keys())
-      if (!activeKeys.has(key)) this.taskDefinitions.delete(key)
-    // 缓存进行中的 Promise，同一版本并发请求共享计算；新版本替换缓存后旧请求不再写回。
-    return Object.freeze(
-      await Promise.all(
-        plan.tasks.map((task) => {
-          const definition = resolve(task.definitionId)
-          const cached = this.cache.get(task.calculationKey)
-          if (
-            cached &&
-            cached.dataRevision === this.dataRevision &&
-            cached.marketRevision === (market === undefined ? 0 : market.revision)
-          )
-            return cached.output
-          let taskDefinition = this.taskDefinitions.get(task.calculationKey)
-          if (!taskDefinition && definition) {
-            taskDefinition = {
-              ...definition,
-              compute: definition.createCompute?.() ?? definition.compute,
-            }
-            this.taskDefinitions.set(task.calculationKey, taskDefinition)
-          }
-          const output = executeIndicatorCalculationTask(
-            task,
-            this.data,
-            () => taskDefinition,
-            market?.context(task.calculationKey, this.data),
-          )
-          this.cache.set(task.calculationKey, {
-            marketRevision: market === undefined ? 0 : market.revision,
-            dataRevision: this.dataRevision,
-            output,
-          })
-          return output
-        }),
-      ),
+    const context = this.marketData?.().context(task.calculationKey, data)
+    return executeIndicatorCalculationTask(
+      task,
+      data,
+      () => calculator,
+      context ? { ...context, signal } : undefined,
     )
   }
-}
 
-import type { IndicatorMarketData } from './marketDataTypes.js'
+  /** 销毁不负责取消执行；调用方先取消调度任务，再释放仓库。 */
+  dispose(): void {
+    this.calculators.clear()
+    this.definitions.clear()
+  }
+}

@@ -10,8 +10,6 @@ import {
 } from '@363045841yyt/klinechart-core'
 import {
   type Bar,
-  DEFAULT_REQUEST_BARS,
-  DEFAULT_INTRABAR_LIMIT,
   type IndicatorMarketContext,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -19,9 +17,10 @@ import {
   type QuickJSScriptDefinition,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
-import { createScriptWorker } from '@363045841yyt/klinechart-script/worker'
+import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptOutput } from './createScriptOutput.js'
+import { prepareScriptMarketData } from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 
 /** 一次准备的编译句柄；提交成功前不进入运行表。 */
@@ -45,12 +44,14 @@ export function createScriptExecutor(
 ) {
   const handles = new Map<string, string>()
   const debugOutputs = new Map<string, string>()
-  const worker = createScriptWorker(undefined, (handle, events) => {
-    const outputId = debugOutputs.get(handle)
-    if (outputId !== undefined) output.append(outputId, events)
-    for (const [id, active] of handles) {
-      if (active === handle) output.append(id, events)
-    }
+  const worker = createScriptWorkerPool({
+    onOutput: (handle, events) => {
+      const outputId = debugOutputs.get(handle)
+      if (outputId !== undefined) output.append(outputId, events)
+      for (const [id, active] of handles) {
+        if (active === handle) output.append(id, events)
+      }
+    },
   })
 
   /** 调试和图表计算共用 Request 准备及 Worker 执行入口。 */
@@ -61,22 +62,8 @@ export function createScriptExecutor(
     market?: IndicatorMarketContext,
   ) {
     if (market === undefined) return worker.run(handle, bars, params)
-    const requests = await worker.requests(handle, params, market.symbol)
-    const snapshots = await Promise.all(
-      requests.map(async (request) => ({
-        id: request.id,
-        bars: await market.loadBars({
-          symbol: request.symbol,
-          mode: request.mode,
-          ignore_invalid_timeframe: request.ignore_invalid_timeframe,
-          timeframe: request.timeframe,
-          source: request.source,
-          calcBarsCount:
-            request.calcBarsCount === undefined ? request.mode === 'lower_tf' ? DEFAULT_INTRABAR_LIMIT : DEFAULT_REQUEST_BARS : request.calcBarsCount,
-        }),
-      })),
-    )
-    return worker.run(handle, bars, params, { symbol: market.symbol, time: market.time, snapshots })
+    const context = await prepareScriptMarketData(worker, handle, params, market)
+    return worker.run(handle, bars, params, context, market.signal)
   }
 
   /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */

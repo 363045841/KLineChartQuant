@@ -27,6 +27,29 @@ export interface ScriptWorker {
   dispose(): void
 }
 
+/** 线程池只配置资源上限和线程工厂，不接受指标轻重或行情版本参数。 */
+export interface ScriptWorkerPoolOptions {
+  readonly size?: number
+  readonly createWorker?: () => ScriptWorker
+  readonly onOutput?: (id: string, events: readonly LogEvent[]) => void
+}
+
+export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
+  run(
+    id: string,
+    bars: Parameters<ScriptWorker['run']>[1],
+    params?: Parameters<ScriptWorker['run']>[2],
+    context?: Parameters<ScriptWorker['run']>[3],
+    signal?: AbortSignal,
+  ): ReturnType<ScriptWorker['run']>
+  requests(
+    id: string,
+    params: Parameters<ScriptWorker['requests']>[1],
+    symbol: string,
+    signal?: AbortSignal,
+  ): ReturnType<ScriptWorker['requests']>
+}
+
 /** 仅传递数据；编译闭包始终留在 Worker 内。 */
 export type ScriptWorkerRequest = { readonly requestId: number; readonly id: string } & (
   | {

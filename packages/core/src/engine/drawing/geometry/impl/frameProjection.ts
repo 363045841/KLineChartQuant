@@ -1,6 +1,6 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
-import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
+import { isDrawingInteractive, timeValue } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
@@ -112,13 +112,19 @@ function resolveAnchorForFrame(
   drawing: DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
+  lastBarClose?: number,
 ): ResolvedDrawingAnchor {
   if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
   const timestamp = parseAnchorTime(anchor.time)
   if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
     return {
       ...anchor,
-      index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex),
+      index: drawingTimeIndex(
+        timestamp,
+        context.data,
+        context.getTimestampAtLogicalIndex,
+        lastBarClose,
+      ),
     }
   }
   if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
@@ -133,11 +139,12 @@ function resolveDrawingForFrame(
   drawing: DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
+  lastBarClose?: number,
 ): ResolvedDrawingObject {
   return {
     ...drawing,
     anchors: drawing.anchors.map((anchor) =>
-      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context),
+      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context, lastBarClose),
     ),
   }
 }
@@ -417,6 +424,7 @@ function projectAxisDecorations(
 
 /** 单帧投影的共享状态；把长参数表收敛成一份，避免辅助函数逐个透传。 */
 interface FrameProjectionState {
+  readonly lastBarClose?: number
   readonly definitions: DrawingDefinitionRegistry
   readonly context: RenderContext
   readonly selectedIds: ReadonlySet<string>
@@ -481,6 +489,7 @@ function projectStoredDrawing(
     storedDrawing,
     state.getLogicalIndexAtTimestamp,
     context,
+    state.lastBarClose,
   )
   // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
   const drawing: ResolvedDrawingObject = {
@@ -538,6 +547,16 @@ export function projectDrawingsForFrame(
     snapLines: [],
   }
   const seriesData = context.data as KLineData[]
+  const lastOpen = seriesData.at(-1)?.timestamp
+  const lastBarClose =
+    context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
+      ? timeValue(
+          { period: context.period, session: context.marketSession },
+          'close',
+          context.period,
+          lastOpen,
+        )
+      : undefined
   const toScreen = createToScreen(context)
   const themeColors = resolveThemeColors(
     context.theme,
@@ -545,6 +564,7 @@ export function projectDrawingsForFrame(
     context.colorPresetSettings,
   )
   const state: FrameProjectionState = {
+    lastBarClose,
     definitions,
     context,
     selectedIds: new Set(store.getSelectedIds()),

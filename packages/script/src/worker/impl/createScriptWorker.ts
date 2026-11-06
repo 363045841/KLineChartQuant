@@ -32,6 +32,7 @@ export function createScriptWorker(
   /** 线程失效后拒绝全部请求，并阻止继续向已失效线程发送消息。 */
   function stop(error: Error): void {
     if (failure) return
+    Object.assign(error, { workerFailure: true })
     failure = error
     worker.removeEventListener('message', onMessage)
     worker.removeEventListener('error', onError)

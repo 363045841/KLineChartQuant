@@ -1,16 +1,10 @@
-/**
- * 实例计算计划的共享执行核心。
- *
- * Worker 入口与 inline fallback 都只能通过此模块执行任务，从而保证二者的去重、
- * 参数和 firstReadyIndex 语义完全一致。
- */
+/** 单次计算的输出规范化：错误诊断、参数传递和firstReadyIndex；不承担调度。 */
 
 import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '@/foundation/types/price.js'
 import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
 import type {
   IndicatorCalculationOutput,
-  IndicatorCalculationPlan,
   IndicatorCalculationTask,
 } from '../domain/instanceCalculationPlan.js'
 import type { IndicatorParameters } from '../domain/instanceModel.js'
@@ -100,17 +94,4 @@ export async function executeIndicatorCalculationTask(
         ? null
         : findInstanceFirstReadyIndex(series, data.length),
   })
-}
-
-/** 按计划顺序执行所有任务；每个 calculationKey 恰好执行一次。 */
-export async function executeIndicatorCalculationPlan(
-  plan: IndicatorCalculationPlan,
-  data: KLineData[],
-  resolveDefinition: IndicatorCalculationDefinitionResolver,
-): Promise<readonly IndicatorCalculationOutput[]> {
-  return Object.freeze(
-    await Promise.all(
-      plan.tasks.map((task) => executeIndicatorCalculationTask(task, data, resolveDefinition)),
-    ),
-  )
 }

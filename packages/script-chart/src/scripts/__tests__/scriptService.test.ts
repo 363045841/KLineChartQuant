@@ -5,7 +5,7 @@ import {
   getRegisteredIndicatorDefinition,
   removeScriptIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
-import type { LogEvent, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
+import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
@@ -45,6 +45,7 @@ describe('ScriptService', () => {
         expect(events.map((event) => event.message)).toEqual(['11'])
         expect(market.loadBars).toHaveBeenCalledWith(
           expect.objectContaining({ symbol: 'TEST', timeframe: 'D' }),
+          undefined,
         )
         expect(getIndicatorDescriptor('DebugOnly')).toBeUndefined()
         expect(scripts.list().some((item) => item.definition.name === 'DebugOnly')).toBe(false)
@@ -368,7 +369,11 @@ describe('ScriptService', () => {
     })
     const data = Array.from({ length: 50 }, (_, index) => ({
       timestamp: Date.UTC(2026, 0, 5) + index * 60_000,
-      open: 100 + index, high: 102 + index, low: 98 + index, close: 101 + index, volume: 100,
+      open: 100 + index,
+      high: 102 + index,
+      low: 98 + index,
+      close: 101 + index,
+      volume: 100,
     }))
     const market: IndicatorMarketContext = {
       symbol: 'TEST',
