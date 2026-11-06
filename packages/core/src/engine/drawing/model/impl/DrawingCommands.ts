@@ -6,6 +6,7 @@ import type {
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingCommandsDependencies,
+  DrawingDuplicatePlacement,
   UpdateDrawingPatch,
 } from '../types.js'
 
@@ -22,11 +23,11 @@ export class DrawingCommands {
     return this.history.run(() => this.dependencies.document.createDrawing(input))
   }
 
-  /** 复制整组图元，将新增与选择变化记录为一步历史。 */
-  copy(
-    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  /** 按源快照克隆整组图元；复制、粘贴与拖拽复制共用，新增与选择变化为一步历史。 */
+  duplicate(
+    placements: ReadonlyArray<DrawingDuplicatePlacement>,
   ): ReadonlyArray<DrawingObject> {
-    return this.history.run(() => this.dependencies.document.copyDrawings(placements))
+    return this.history.run(() => this.dependencies.document.duplicateDrawings(placements))
   }
 
   /** 以完整模型快照更新存在的图元；无匹配图元时不请求重绘。 */

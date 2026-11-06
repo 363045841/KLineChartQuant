@@ -23,7 +23,6 @@
           </span>
         </span>
         <strong>{{ preset.label }}</strong>
-        <span class="theme-preset__description">{{ preset.description }}</span>
       </button>
     </div>
     <p class="theme-presets__hint">风格只调整配色，不改变明暗模式、涨跌习惯与界面尺寸，已有自定义颜色优先。点击即生效并保存。</p>
@@ -35,11 +34,16 @@
   import { useThemePresets } from '@vue-src/composables/theme/useThemePresets.js'
   import IconTablerCheck from '~icons/tabler/check'
 
-  const props = defineProps<{ settings: ChartSettings }>()
+  const props = defineProps<{
+    settings: ChartSettings
+    /** 当前已生效的明暗模式；未确认的 settings.theme 草稿不能影响卡片配色。 */
+    effectiveTheme: 'light' | 'dark'
+  }>()
   const emit = defineEmits<{ 'update:settings': [settings: ChartSettings] }>()
   const { presets, isSelected, selectPreset } = useThemePresets(
     () => props.settings,
     (settings) => emit('update:settings', settings),
+    () => props.effectiveTheme,
   )
 </script>
 
@@ -75,8 +79,7 @@
     gap: var(--klc-spacing-sm);
     min-inline-size: 0;
     padding: var(--klc-spacing-md);
-    /* 卡片边框跟随所选预设的界面边框色，不用强调色描边。 */
-    border: 1px solid var(--preset-border);
+    border: 0;
     border-radius: 8px;
     background: var(--preset-background);
     color: var(--preset-text);
@@ -127,13 +130,6 @@
   .theme-preset__choose svg {
     inline-size: var(--klc-spacing-lg);
     block-size: var(--klc-spacing-lg);
-  }
-
-  .theme-preset__description {
-    color: var(--preset-muted);
-    font-size: var(--klc-typography-font-size-sm);
-    line-height: var(--klc-typography-line-height-standard);
-    text-align: start;
   }
 
   .theme-presets__hint {

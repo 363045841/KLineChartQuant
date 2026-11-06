@@ -107,8 +107,6 @@ type FrameContext = {
   kLinePositions: KLinePositions
   /** 每根 K 线中心的 x 坐标（由物理像素回算逻辑值） */
   kLineCenters: number[]
-  /** 每根 K 线实体的 x 和宽度 */
-  kBarRects: Array<{ x: number; width: number }>
   /** K 线柱物理像素宽度 */
   kWidthPx: number
   /** Overlay 帧复用上一帧的几何缓存 */
@@ -134,6 +132,118 @@ type FrameContext = {
   indicatorStateReader: IndicatorRenderStateReader
   /** 本帧指标可用性读取器。 */
   indicatorAvailability: IndicatorAvailabilityReader
+}
+
+/** Overlay 帧复用的上一帧几何缓存。 */
+type CachedDrawFrame = {
+  viewport: Viewport
+  range: VisibleRange
+  kLinePositions: KLinePositions
+  kLineCenters: number[]
+  kWidthPx: number
+  timeShareGeometry: TimeShareGeometry | null
+  visiblePriceExtrema: VisiblePriceExtrema | null
+}
+
+/** 单个 Pane 的 canvas 上下文与布局形状。 */
+type PaneContexts = ReturnType<PaneRenderer['getContexts']>
+type PaneLayout = ReturnType<PaneRenderer['getPane']>
+type ViewportFrame = FrameContext['vp']
+
+/** 把可空上下文收敛为可选属性，避免在 RenderContext 里散落 `?? undefined`。 */
+function optional<T>(value: T | null | undefined): T | undefined {
+  return value ?? undefined
+}
+
+/** Pane 三种表面的 layer 角色分组，避免每帧重建。 */
+const MAIN_CANVAS_ROLES: readonly LayerRole[] = ['background', 'primary', 'indicator', 'component']
+const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
+const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
+
+/** 缓存帧直接复用横向几何与时间分时几何，否则从当前投影读取。 */
+function resolveFrameGeometry(
+  cached: CachedDrawFrame | null,
+  projection: FrameContext['viewSnapshot'],
+): Pick<CachedDrawFrame, 'kLinePositions' | 'kLineCenters' | 'kWidthPx' | 'timeShareGeometry'> {
+  if (cached) {
+    return {
+      kLinePositions: cached.kLinePositions,
+      kLineCenters: cached.kLineCenters,
+      kWidthPx: cached.kWidthPx,
+      timeShareGeometry: cached.timeShareGeometry,
+    }
+  }
+  return {
+    kLinePositions: projection.positions,
+    kLineCenters: projection.centers,
+    kWidthPx: projection.kWidthPx,
+    timeShareGeometry: projection.timeShareGeometry,
+  }
+}
+
+/** 清空绘图表面；overlay 使用 canvas 自身宽度，主图使用逻辑绘图宽度。 */
+function clearPlotSurface(
+  ctx: CanvasRenderingContext2D | null | undefined,
+  vp: ViewportFrame,
+  pane: PaneLayout,
+  useCanvasWidth = false,
+): void {
+  if (!ctx) return
+  const width = useCanvasWidth ? ctx.canvas.width / vp.dpr : vp.plotWidth
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.scale(vp.dpr, vp.dpr)
+  ctx.clearRect(0, 0, width + 1, pane.height + 2 / vp.dpr)
+}
+
+/** 副图指标可能提供的极值字段。 */
+interface IndicatorExtremaState {
+  valueMin?: number
+  valueMax?: number
+  visibleMin?: number
+  visibleMax?: number
+}
+
+/** 优先使用指标值域，缺失时回退可见区极值。 */
+function readIndicatorExtrema(
+  state: IndicatorExtremaState | undefined,
+): { min: number; max: number } | null {
+  const min = state?.valueMin ?? state?.visibleMin
+  const max = state?.valueMax ?? state?.visibleMax
+  return typeof min === 'number' && typeof max === 'number' ? { min, max } : null
+}
+
+/** 四侧轴表面；静态与动态标签分别跟随 Main / Overlay 更新。 */
+const AXIS_SURFACES = ['yRightStatic', 'yRightOverlay', 'yLeftStatic', 'yLeftOverlay'] as const
+type AxisSurface = (typeof AXIS_SURFACES)[number]
+
+/** 判断某侧轴表面是否属于本次更新级别。 */
+function axisSurfaceUpdates(surface: AxisSurface, level: UpdateLevel): boolean {
+  if (surface.endsWith('Static')) return level === UpdateLevel.Main || level === UpdateLevel.All
+  return level === UpdateLevel.Overlay || level === UpdateLevel.All
+}
+
+/** 数据空间折线的每帧映射；仅线性价格轴可生成。 */
+function createDataTransform(
+  pane: PaneLayout,
+  vp: ViewportFrame,
+): { offsetX: number; yScale: number; yOffset: number } | undefined {
+  const yOffset = pane.yAxis.priceToY(0)
+  const yScale = pane.yAxis.priceToY(1) - yOffset
+  if (pane.yAxis.getScaleType() !== ScaleType.Linear) return undefined
+  if (!Number.isFinite(yScale) || !Number.isFinite(yOffset) || yScale === 0) return undefined
+  return { offsetX: vp.scrollLeft, yScale, yOffset }
+}
+
+/** 清空单侧轴画布，保留 canvas 当前物理宽度。 */
+function clearAxisSurface(
+  ctx: CanvasRenderingContext2D | null | undefined,
+  dpr: number,
+  height: number,
+): void {
+  if (!ctx) return
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.scale(dpr, dpr)
+  ctx.clearRect(0, 0, ctx.canvas.width / dpr, height + 2 / dpr)
 }
 
 /** 范围决策共用的输入快照；读取阶段不修改 frame 或业务状态。 */
@@ -236,16 +346,7 @@ export class ChartRenderer {
   private xAxisCtx: CanvasRenderingContext2D | null = null
   private readonly crosshairOverlay: CrosshairOverlay
 
-  private cachedDrawFrame: {
-    viewport: Viewport
-    range: VisibleRange
-    kLinePositions: KLinePositions
-    kLineCenters: number[]
-    kBarRects: Array<{ x: number; width: number }>
-    kWidthPx: number
-    timeShareGeometry: TimeShareGeometry | null
-    visiblePriceExtrema: VisiblePriceExtrema | null
-  } | null = null
+  private cachedDrawFrame: CachedDrawFrame | null = null
 
   private scene: Scene<RenderContext>
   private frameCount = 0
@@ -770,6 +871,28 @@ export class ChartRenderer {
    * Overlay 且已有缓存帧时复用 cachedDrawFrame，跳过重算；Main/All 强制刷新。
    * 帧几何全部来自 viewSnapshot 投影，render 不再派生另一套坐标。
    */
+  /** 缓存帧复用极值；新帧按当前可见区间计算。 */
+  private computeFrameVisibleExtrema(
+    cached: CachedDrawFrame | null,
+    projection: FrameContext['viewSnapshot'],
+    data: readonly ChartSeriesDatum[],
+    range: VisibleRange,
+    centers: readonly number[],
+    vp: Viewport,
+  ): VisiblePriceExtrema | null {
+    if (cached) return cached.visiblePriceExtrema
+    if (!projection.hasPriceSeries) return null
+    const shape = this.deps.settings$.peek().klineShape
+    return computeVisiblePriceExtrema(
+      data as readonly KLineData[],
+      range,
+      centers,
+      vp.scrollLeft,
+      vp.plotWidth,
+      shape === 'line' || shape === 'area',
+    )
+  }
+
   private prepareFrameData(level: UpdateLevel, countdown: FrameCountdown): FrameContext | null {
     const cached = level === UpdateLevel.Overlay ? this.cachedDrawFrame : null
     const useCachedFrame = cached !== null
@@ -787,39 +910,15 @@ export class ChartRenderer {
 
     const dataManager = this.deps.getDataManager()
 
-    let kLinePositions: KLinePositions
-    let kLineCenters: number[]
-    let kBarRects: Array<{ x: number; width: number }>
-    let kWidthPx: number
-    let timeShareGeometry: TimeShareGeometry | null
-
-    if (cached) {
-      kLinePositions = cached.kLinePositions
-      kLineCenters = cached.kLineCenters
-      kBarRects = cached.kBarRects
-      kWidthPx = cached.kWidthPx
-      timeShareGeometry = cached.timeShareGeometry
-    } else {
-      kLineCenters = projection.centers
-      kLinePositions = projection.positions
-      kBarRects = projection.bars
-      kWidthPx = projection.kWidthPx
-      timeShareGeometry = projection.timeShareGeometry
-    }
-
-    const visiblePriceExtrema = cached
-      ? cached.visiblePriceExtrema
-      : projection.hasPriceSeries
-        ? computeVisiblePriceExtrema(
-            internalData as readonly KLineData[],
-            range,
-            kLineCenters,
-            vp.scrollLeft,
-            vp.plotWidth,
-            this.deps.settings$.peek().klineShape === 'line' ||
-              this.deps.settings$.peek().klineShape === 'area',
-          )
-        : null
+    const geometry = resolveFrameGeometry(cached, projection)
+    const visiblePriceExtrema = this.computeFrameVisibleExtrema(
+      cached,
+      projection,
+      internalData,
+      range,
+      geometry.kLineCenters,
+      vp,
+    )
     const indicatorManager = this.deps.getIndicatorManager()
 
     return {
@@ -827,14 +926,10 @@ export class ChartRenderer {
       countdown,
       vp,
       range,
-      kLinePositions,
-      kLineCenters,
-      kBarRects,
-      kWidthPx,
+      ...geometry,
       useCachedFrame,
       data: internalData,
       dataRevision: dataManager.getRenderDataRevision(),
-      timeShareGeometry,
       visiblePriceExtrema,
       // 价格轴范围在 render 回调里、visibleRange 更新之后统一收集。
       panePriceRanges: {},
@@ -894,56 +989,76 @@ export class ChartRenderer {
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
   ): PanePriceRangeResult {
-    const { dataManager, mode, mainIndicatorRange, comparisonActive, comparisonProjection } = inputs
     const panePriceRanges: Record<string, ResolvedPanePriceRange> = {}
     // 收集阶段只做决策，不写内核；待初始化的锁定范围先收集，循环后统一提交。
     const pendingHandRanges: Array<{ paneId: string; range: PriceRange }> = []
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      let auto = computePaneAutoRange({
-        paneId: pane.id,
-        role: pane.role,
-        range: frame.range,
-        dataManager,
-        mode,
-        mainIndicatorRange,
-        comparisonActive,
-        comparisonProjection,
-        subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
-        closeOnly:
-          this.deps.settings$.peek().klineShape === 'line' ||
-          this.deps.settings$.peek().klineShape === 'area',
-      })
-      if (pane.id === MAIN_PANE_ID && !comparisonActive) {
-        const footprintRange = computeFootprintPriceRange(
-          this.deps.footprintState$.peek(),
-          frame.range,
-        )
-        if (footprintRange) {
-          auto = {
-            range: auto
-              ? {
-                  minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
-                  maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
-                }
-              : footprintRange,
-            basePrice: auto?.basePrice ?? null,
-          }
-        }
-      }
-      const axisState = inputs.axisStates[pane.id]
-      const resolved = resolvePanePriceRange({
-        rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-        handRange: axisState?.handRange ?? null,
-        autoRange: auto?.range ?? null,
-        basePrice: auto?.basePrice ?? null,
-      })
+      const auto = this.resolvePaneAutoRange(frame, inputs, pane)
+      const resolved = this.resolvePaneRange(inputs, pane.id, auto)
       panePriceRanges[pane.id] = resolved
-      if (!frame.useCachedFrame && resolved.initializeHandRange && resolved.range) {
-        pendingHandRanges.push({ paneId: pane.id, range: resolved.range })
-      }
+      this.collectPendingHandRange(pendingHandRanges, frame, pane.id, resolved)
     }
     return { panePriceRanges, pendingHandRanges }
+  }
+
+  /** 计算 Pane 自动范围；主图在非比较模式下叠加足迹价格范围。 */
+  private resolvePaneAutoRange(
+    frame: FrameContext,
+    inputs: PanePriceRangeInputs,
+    pane: PaneLayout,
+  ): ReturnType<typeof computePaneAutoRange> {
+    const shape = this.deps.settings$.peek().klineShape
+    const auto = computePaneAutoRange({
+      paneId: pane.id,
+      role: pane.role,
+      range: frame.range,
+      dataManager: inputs.dataManager,
+      mode: inputs.mode,
+      mainIndicatorRange: inputs.mainIndicatorRange,
+      comparisonActive: inputs.comparisonActive,
+      comparisonProjection: inputs.comparisonProjection,
+      subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
+      closeOnly: shape === 'line' || shape === 'area',
+    })
+    if (pane.id !== MAIN_PANE_ID || inputs.comparisonActive) return auto
+    const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
+    if (!footprintRange) return auto
+    return {
+      range: auto
+        ? {
+            minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
+            maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
+          }
+        : footprintRange,
+      basePrice: auto?.basePrice ?? null,
+    }
+  }
+
+  /** 把自动范围与 Pane 轴状态合成为最终范围。 */
+  private resolvePaneRange(
+    inputs: PanePriceRangeInputs,
+    paneId: string,
+    auto: ReturnType<typeof computePaneAutoRange>,
+  ): ResolvedPanePriceRange {
+    const axisState = inputs.axisStates[paneId]
+    return resolvePanePriceRange({
+      rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+      handRange: axisState?.handRange ?? null,
+      autoRange: auto?.range ?? null,
+      basePrice: auto?.basePrice ?? null,
+    })
+  }
+
+  /** 新帧首次锁定手工范围时记录待提交意图；缓存帧不重复初始化。 */
+  private collectPendingHandRange(
+    pending: Array<{ paneId: string; range: PriceRange }>,
+    frame: FrameContext,
+    paneId: string,
+    resolved: ResolvedPanePriceRange,
+  ): void {
+    if (frame.useCachedFrame || !resolved.initializeHandRange || !resolved.range) return
+    pending.push({ paneId, range: resolved.range })
   }
 
   /** 将计算结果发布到帧对象，供后续轴投影和绘制共享。 */
@@ -974,26 +1089,9 @@ export class ChartRenderer {
   ): { min: number; max: number } | null {
     const subPaneEntry = this.deps.getIndicatorManager().getSubPaneEntry(paneId)
     if (!subPaneEntry) return null
-    const state = frame.indicatorStateReader.get<{
-      valueMin?: number
-      valueMax?: number
-      visibleMin?: number
-      visibleMax?: number
-    }>(subPaneEntry.instanceId)
-    const min = state?.valueMin ?? state?.visibleMin
-    const max = state?.valueMax ?? state?.visibleMax
-    return typeof min === 'number' && typeof max === 'number' ? { min, max } : null
-  }
-
-  private clearAxisCtx(
-    ctx: CanvasRenderingContext2D,
-    dpr: number,
-    width: number,
-    height: number,
-  ): void {
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, width, height + 2 / dpr)
+    return readIndicatorExtrema(
+      frame.indicatorStateReader.get<IndicatorExtremaState>(subPaneEntry.instanceId),
+    )
   }
 
   clearAllCanvases(): void {
@@ -1022,28 +1120,10 @@ export class ChartRenderer {
       }
       drawingCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      if (yAxisCtx) {
-        this.clearAxisCtx(yAxisCtx, vp.dpr, yAxisCtx.canvas.width / vp.dpr, pane.height)
-      }
-      if (yAxisOverlayCtx) {
-        this.clearAxisCtx(
-          yAxisOverlayCtx,
-          vp.dpr,
-          yAxisOverlayCtx.canvas.width / vp.dpr,
-          pane.height,
-        )
-      }
-      if (leftAxisCtx) {
-        this.clearAxisCtx(leftAxisCtx, vp.dpr, leftAxisCtx.canvas.width / vp.dpr, pane.height)
-      }
-      if (leftAxisOverlayCtx) {
-        this.clearAxisCtx(
-          leftAxisOverlayCtx,
-          vp.dpr,
-          leftAxisOverlayCtx.canvas.width / vp.dpr,
-          pane.height,
-        )
-      }
+      clearAxisSurface(yAxisCtx, vp.dpr, pane.height)
+      clearAxisSurface(yAxisOverlayCtx, vp.dpr, pane.height)
+      clearAxisSurface(leftAxisCtx, vp.dpr, pane.height)
+      clearAxisSurface(leftAxisOverlayCtx, vp.dpr, pane.height)
     }
     const xCtx = this.xAxisCtx
     if (xCtx) {
@@ -1071,47 +1151,343 @@ export class ChartRenderer {
     })
   }
 
+  /** 提交轴宽与保留标签；宽度变化时只重画轴画布，不重跑主图。 */
+  private commitAxisLabelWidths(
+    level: UpdateLevel,
+    axisLabelsFrame: AxisLabelsFrame,
+    vp: ViewportFrame,
+  ): void {
+    const widths = this.measureAxisWidths(level, axisLabelsFrame)
+    this.retainAxisLabels(level, axisLabelsFrame)
+    if (this.deps.commitAxisWidths?.(widths)) this.repaintAxisSurfaces(vp)
+  }
+
+  /** 按本帧标签估算左右轴宽。 */
+  private measureAxisWidths(
+    level: UpdateLevel,
+    axisLabelsFrame: AxisLabelsFrame,
+  ): ReturnType<AxisWidthEstimator['estimate']> {
+    return this.axisWidthEstimator.estimate({
+      labels: axisLabelsFrame,
+      paneIds: this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+      updateStatic: level === UpdateLevel.Main || level === UpdateLevel.All,
+      updateOverlay: level === UpdateLevel.Overlay || level === UpdateLevel.All,
+    })
+  }
+
+  /** 更新每个 Pane 的轴标签保留帧，并移除已消失 Pane 的记录。 */
+  private retainAxisLabels(level: UpdateLevel, axisLabelsFrame: AxisLabelsFrame): void {
+    const surfaces = AXIS_SURFACES
+    const visiblePaneIds = new Set(
+      this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+    )
+    for (const id of this.retainedAxisLabels.keys()) {
+      if (!visiblePaneIds.has(id)) this.retainedAxisLabels.delete(id)
+    }
+    for (const renderer of this.deps.getPaneRenderers()) {
+      const pane = renderer.getPane()
+      const retainedFrame = this.retainedAxisLabels.get(pane.id) ?? createAxisLabelsFrame()
+      this.retainedAxisLabels.set(pane.id, retainedFrame)
+      for (const surface of surfaces) {
+        if (!axisSurfaceUpdates(surface, level)) continue
+        const retained = retainedFrame.forSurface(surface, pane.id).labels
+        retained.length = 0
+        retained.push(...axisLabelsFrame.forSurface(surface, pane.id).labels)
+      }
+    }
+  }
+
+  /** 轴宽变化后只重画轴表面，复用保留标签，不重跑主图与指标。 */
+  private repaintAxisSurfaces(vp: ViewportFrame): void {
+    for (const renderer of this.deps.getPaneRenderers()) {
+      const pane = renderer.getPane()
+      renderer.resize(vp.plotWidth, pane.height, vp.dpr)
+      const contexts = renderer.getContexts()
+      const targets = [
+        contexts.yAxisCtx,
+        contexts.yAxisOverlayCtx,
+        contexts.leftAxisCtx,
+        contexts.leftAxisOverlayCtx,
+      ]
+      for (const [index, surface] of AXIS_SURFACES.entries()) {
+        const target = targets[index]
+        if (!target) continue
+        const axisWidth = target.canvas.width / vp.dpr
+        clearAxisSurface(target, vp.dpr, pane.height)
+        paintAxisLabels(
+          target,
+          this.retainedAxisLabels.get(pane.id)?.forSurface(surface, pane.id).labels ?? [],
+          surface,
+          { dpr: vp.dpr, axisWidth, axisHeight: pane.height },
+        )
+      }
+    }
+  }
+
+  /** 非缓存帧把收集阶段算好的范围投影到运行时轴，不做决策或回写。 */
+  private applyPanePriceRange(
+    pane: PaneLayout,
+    frame: FrameContext,
+    useCachedFrame: boolean,
+  ): void {
+    if (useCachedFrame) return
+    const resolved = frame.panePriceRanges[pane.id]
+    if (!resolved) return
+    pane.yAxis.setBasePrice(resolved.basePrice)
+    if (resolved.range) pane.yAxis.setRange(resolved.range)
+  }
+
+  /** 判断正式图元层是否需要重绘；几何、文档、选中或覆盖成员变化都会使缓存失效。 */
+  private shouldRepaintDrawing(
+    useCachedFrame: boolean,
+    drawingChanged: boolean,
+    previousContext: RenderContext | undefined,
+    drawingCtx: CanvasRenderingContext2D | null | undefined,
+  ): boolean {
+    return (
+      !useCachedFrame ||
+      drawingChanged ||
+      previousContext?.drawingCtx !== drawingCtx ||
+      !previousContext?.drawingProjection
+    )
+  }
+
+  /** 为单个 Pane 构造本帧共享的 RenderContext。 */
+  private createPaneRenderContext(
+    frame: FrameContext,
+    pane: PaneLayout,
+    contexts: PaneContexts,
+    dataManager: ChartDataManager,
+    axisLabelsFrame: AxisLabelsFrame,
+    sharedXAxisRanges: XAxisRange[],
+  ): RenderContext {
+    const vp = frame.vp
+    const opt = this.deps.getOption()
+    return {
+      countdown: optional(frame.countdown.text),
+      ctx: contexts.mainCtx!,
+      overlayCtx: optional(contexts.overlayCtx),
+      drawingCtx: optional(contexts.drawingCtx),
+      pane: wrapPaneInfo(pane),
+      data: frame.data,
+      dataRevision: frame.dataRevision,
+      period: dataManager.currentPeriod,
+      dataView: this.deps.dataView$(),
+      marketSession: this.deps.getMarketSession(),
+      displayTimeFormatter: this.getDisplayTimeFormatter(),
+      timeShareRange: optional(dataManager.getTimeShareRange()),
+      timeShareGeometry: optional(frame.timeShareGeometry),
+      comparisonData: dataManager.getComparisonData(),
+      comparisonSymbols: frame.comparisonActive ? dataManager.getComparisonSpecs() : [],
+      comparisonColors: dataManager.getComparisonColors(),
+      comparisonHidden: dataManager.getComparisonHidden(),
+      comparisonProjection: optional(frame.comparisonProjection),
+      range: frame.range,
+      scrollLeft: vp.scrollLeft,
+      slotGrid: frame.viewSnapshot.grid,
+      dataTransform: createDataTransform(pane, vp),
+      kWidth: opt.kWidth,
+      kGap: opt.kGap,
+      dpr: vp.dpr,
+      paneWidth: vp.plotWidth,
+      kLinePositions: frame.kLinePositions,
+      kLineCenters: frame.kLineCenters,
+      kWidthPx: frame.kWidthPx,
+      visiblePriceExtrema: frame.visiblePriceExtrema,
+      getLogicalIndexAtTimestamp: (timestamp) => dataManager.getLogicalIndexAtTimestamp(timestamp),
+      getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
+      indicatorStateReader: frame.indicatorStateReader,
+      indicatorAvailability: frame.indicatorAvailability,
+      crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
+      yAxisCtx: optional(contexts.yAxisCtx),
+      yAxisOverlayCtx: optional(contexts.yAxisOverlayCtx),
+      leftAxisCtx: optional(contexts.leftAxisCtx),
+      leftAxisOverlayCtx: optional(contexts.leftAxisOverlayCtx),
+      zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
+      zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
+      viewport: {
+        scrollLeft: vp.scrollLeft,
+        plotWidth: vp.plotWidth,
+        plotHeight: vp.plotHeight,
+      },
+      settings: this.getSettings(),
+      // 分时昨收只有一个来源：Buffer 快照；五日由 Buffer 取第一交易日。
+      timeShareBaseline: optional(dataManager.getTimeSharePreClose()),
+      yAxisRanges: [],
+      xAxisRanges: sharedXAxisRanges,
+      axisLabels: axisLabelsFrame,
+      theme: this.deps.theme$.peek(),
+      isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
+      colorPresetSettings: this.getSettings().colorPresetSettings,
+    }
+  }
+
+  /** 把单个 Pane 的 main/overlay 表面提交到 Scene；main 清屏，overlay 保留正式图元像素。 */
+  private enqueuePanePaint(
+    framePanes: Array<FramePaint & { paneId: string }>,
+    renderer: PaneRenderer,
+    context: RenderContext,
+    pane: PaneLayout,
+    shouldUpdateMain: boolean,
+    shouldUpdateOverlay: boolean,
+    shouldUpdateDrawing: boolean,
+  ): void {
+    const sceneRenderer = this.deps.getSceneRenderer()
+    const targets = {
+      main: context.ctx,
+      drawing: context.drawingCtx ?? null,
+      overlay: context.overlayCtx ?? null,
+    }
+    const bounds = { width: context.paneWidth, height: pane.height }
+    const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
+    if (shouldUpdateMain) {
+      framePanes.push({
+        paneId: pane.id,
+        context,
+        renderer: sceneRenderer,
+        targets,
+        gpuSurface,
+        bounds,
+        dpr: context.dpr,
+        frameNumber: this.frameCount++,
+        deltaMs: 0,
+        roles: MAIN_CANVAS_ROLES,
+        clear: true,
+      })
+    }
+    if (!shouldUpdateOverlay) return
+    framePanes.push({
+      paneId: pane.id,
+      context,
+      renderer: sceneRenderer,
+      targets,
+      bounds,
+      dpr: context.dpr,
+      frameNumber: this.frameCount++,
+      deltaMs: 0,
+      roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,
+      clear: false,
+    })
+  }
+
+  /** 场景里是否有当前 Pane 可绘制的自定义 drawing layer。 */
+  private hasCustomDrawingLayer(pane: PaneLayout): boolean {
+    return this.scene.layers
+      .peek()
+      .some(
+        (layer) =>
+          layer !== this.drawingLayer &&
+          layer.visible &&
+          layer.role === 'drawing' &&
+          (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
+      )
+  }
+
+  /** 更新正式图元投影；需要时为首次出现的图元创建独立表面。 */
+  private updateCommittedDrawing(
+    renderer: PaneRenderer,
+    context: RenderContext,
+    previousContext: RenderContext | undefined,
+    pane: PaneLayout,
+    shouldUpdateDrawing: boolean,
+  ): void {
+    if (!shouldUpdateDrawing) {
+      context.drawingProjection = previousContext?.drawingProjection
+      return
+    }
+    const labels = createAxisLabelsFrame()
+    context.drawingProjection = projectDrawingsForFrame(
+      this.drawingStore,
+      this.drawingDefinitions,
+      { ...context, axisLabels: labels },
+      null,
+      'committed',
+    )
+    this.drawingAxisLabels.set(renderer, labels)
+    if (context.drawingCtx) return
+    const hasPrimitives = (context.drawingProjection?.primitives.length ?? 0) > 0
+    if (!hasPrimitives && !this.hasCustomDrawingLayer(pane)) return
+    const created = renderer.ensureDrawingContext()
+    if (!created) return
+    created.setTransform(1, 0, 0, 1, 0, 0)
+    created.scale(context.dpr, context.dpr)
+    context.drawingCtx = created
+  }
+
+  /** 提交正式与会话图元投影，并把轴范围并入本帧共享集合。 */
+  private appendDrawingProjections(
+    renderer: PaneRenderer,
+    context: RenderContext,
+    sharedXAxisRanges: XAxisRange[],
+  ): void {
+    this.registerRetainedDrawingLabels(renderer, context)
+    context.sessionDrawingProjection = projectDrawingsForFrame(
+      this.drawingStore,
+      this.drawingDefinitions,
+      context,
+      this.deps.getSelectionMarquee?.() ?? null,
+      'session',
+      this.deps.getSnapIndicator?.() ?? null,
+    )
+    this.mergeDrawingAxisRanges(context, sharedXAxisRanges)
+  }
+
+  /** 把上一帧保留的绘图轴标签注册回当前 Pane 上下文。 */
+  private registerRetainedDrawingLabels(renderer: PaneRenderer, context: RenderContext): void {
+    const retainedLabels = this.drawingAxisLabels.get(renderer)
+    for (const label of retainedLabels?.forSurface('yRightOverlay', context.pane.id).labels ?? []) {
+      registerAxisLabel(context, 'yRightOverlay', label)
+    }
+    for (const label of retainedLabels?.forSurface('xLabels').labels ?? []) {
+      registerAxisLabel(context, 'xLabels', label)
+    }
+  }
+
+  /** 把正式与会话图元的轴范围并入本帧共享集合。 */
+  private mergeDrawingAxisRanges(context: RenderContext, sharedXAxisRanges: XAxisRange[]): void {
+    for (const projection of [context.drawingProjection, context.sessionDrawingProjection]) {
+      if (!projection) continue
+      context.yAxisRanges.push(...projection.yAxisRanges)
+      sharedXAxisRanges.push(...projection.xAxisRanges)
+    }
+  }
+
+  /** 按更新级别清空 Pane 的绘图与轴表面；绘图表面保留策略由调用方判定。 */
+  private clearPaneSurfaces(
+    contexts: PaneContexts,
+    pane: PaneLayout,
+    vp: ViewportFrame,
+    level: UpdateLevel,
+    shouldUpdateDrawing: boolean,
+  ): { shouldUpdateMain: boolean; shouldUpdateOverlay: boolean } {
+    const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
+    const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
+    if (shouldUpdateMain) {
+      clearPlotSurface(contexts.mainCtx, vp, pane)
+      clearAxisSurface(contexts.yAxisCtx, vp.dpr, pane.height)
+      clearAxisSurface(contexts.leftAxisCtx, vp.dpr, pane.height)
+    }
+    if (shouldUpdateDrawing) clearPlotSurface(contexts.drawingCtx, vp, pane)
+    if (shouldUpdateOverlay) {
+      clearPlotSurface(contexts.overlayCtx, vp, pane, true)
+      clearAxisSurface(contexts.yAxisOverlayCtx, vp.dpr, pane.height)
+      clearAxisSurface(contexts.leftAxisOverlayCtx, vp.dpr, pane.height)
+    }
+    return { shouldUpdateMain, shouldUpdateOverlay }
+  }
+
   /** 构造 pane 上下文，通过统一 drawing 投影绘制用户与指标对象。 */
   private renderPanes(
     frame: FrameContext,
     level: UpdateLevel,
   ): { axisLabelsFrame: AxisLabelsFrame; sharedXAxisRanges: XAxisRange[] } {
-    const {
-      vp,
-      range,
-      kLinePositions,
-      kLineCenters,
-      kBarRects,
-      kWidthPx,
-      useCachedFrame,
-      data: renderData,
-      dataRevision,
-      timeShareGeometry,
-      visiblePriceExtrema,
-    } = frame
-    const countdown = frame.countdown.text
+    const { vp, useCachedFrame } = frame
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
     // 轴标签收集统一走 axisLabels 模块的单帧聚合：X 表面共享 + 每 Pane 独立 Y 表面。
     const axisLabelsFrame = createAxisLabelsFrame()
     const sharedXAxisRanges: XAxisRange[] = []
-    const indicatorStateReader = frame.indicatorStateReader
-    const indicatorAvailability = frame.indicatorAvailability
-
     const dataManager = this.deps.getDataManager()
 
-    // 单帧只生成一次比较投影，轴范围、百分比基准和折线共享同一快照。
-    const comparisonActive = frame.comparisonActive
-    const comparisonProjection = frame.comparisonProjection
-
-    // 正式图元保存到独立 canvas，会话图元使用 pane 动态覆盖 canvas。
-    const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
-      'background',
-      'primary',
-      'indicator',
-      'component',
-    ]
-    const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
-    const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
     const drawingVersion = [
       ...this.drawingStore.getCommittedPaintVersion(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
@@ -1126,208 +1502,41 @@ export class ChartRenderer {
     // 本帧所有 pane 的绘制输入；全部 pane 构建完成后再一次性交给 Scene。
     const framePanes: Array<FramePaint & { paneId: string }> = []
     const legendContexts: RenderContext[] = []
-    const sceneRenderer = this.deps.getSceneRenderer()
 
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const {
-        mainCtx,
-        drawingCtx,
-        overlayCtx,
-        yAxisCtx,
-        yAxisOverlayCtx,
-        leftAxisCtx,
-        leftAxisOverlayCtx,
-      } = renderer.getContexts()
+      const contexts = renderer.getContexts()
       const previousContext = this.paneCtxMap.get(pane.id)
-      const shouldUpdateDrawing =
-        !useCachedFrame ||
-        drawingChanged ||
-        previousContext?.drawingCtx !== drawingCtx ||
-        !previousContext?.drawingProjection
+      const shouldUpdateDrawing = this.shouldRepaintDrawing(
+        useCachedFrame,
+        drawingChanged,
+        previousContext,
+        contexts.drawingCtx,
+      )
+      this.applyPanePriceRange(pane, frame, useCachedFrame)
 
-      // 非缓存帧：把收集阶段算好的范围直接投影到运行时轴，不做任何决策或回写。
-      if (!useCachedFrame) {
-        const resolved = frame.panePriceRanges[pane.id]
-        if (resolved) {
-          pane.yAxis.setBasePrice(resolved.basePrice)
-          if (resolved.range) pane.yAxis.setRange(resolved.range)
-        }
-      }
-
-      // 根据 UpdateLevel 决定清哪些 canvas
-      const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
-      // 会话图元与十字线每次重画；正式层只在几何、文档、选中或覆盖成员变化时重画。
-      const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
-
-      // 清 main canvas
-      if (shouldUpdateMain && mainCtx) {
-        mainCtx.setTransform(1, 0, 0, 1, 0, 0)
-        mainCtx.scale(vp.dpr, vp.dpr)
-        mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      }
-
-      // 清正式图元 canvas；成员、选中或视口不变时保留其像素。
-      if (shouldUpdateDrawing && drawingCtx) {
-        drawingCtx.setTransform(1, 0, 0, 1, 0, 0)
-        drawingCtx.scale(vp.dpr, vp.dpr)
-        drawingCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      }
-
-      // 清动态覆盖 canvas，不触碰正式图元的像素。
-      if (shouldUpdateOverlay && overlayCtx) {
-        const overlayWidth = overlayCtx.canvas.width / vp.dpr
-        overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
-        overlayCtx.scale(vp.dpr, vp.dpr)
-        overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
-      }
-
-      // 清 Y 轴静态 canvas（Main/All）
-      if (shouldUpdateMain && yAxisCtx) {
-        const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
-        this.clearAxisCtx(yAxisCtx, vp.dpr, yAxisWidth, pane.height)
-      }
-      if (shouldUpdateMain && leftAxisCtx) {
-        const leftAxisWidth = leftAxisCtx.canvas.width / vp.dpr
-        this.clearAxisCtx(leftAxisCtx, vp.dpr, leftAxisWidth, pane.height)
-      }
-      // 清 Y 轴动态 canvas（Overlay/All）
-      if (shouldUpdateOverlay && yAxisOverlayCtx) {
-        const yAxisWidth = yAxisOverlayCtx.canvas.width / vp.dpr
-        this.clearAxisCtx(yAxisOverlayCtx, vp.dpr, yAxisWidth, pane.height)
-      }
-      if (shouldUpdateOverlay && leftAxisOverlayCtx) {
-        const leftAxisWidth = leftAxisOverlayCtx.canvas.width / vp.dpr
-        this.clearAxisCtx(leftAxisOverlayCtx, vp.dpr, leftAxisWidth, pane.height)
-      }
+      const { shouldUpdateMain, shouldUpdateOverlay } = this.clearPaneSurfaces(
+        contexts,
+        pane,
+        vp,
+        level,
+        shouldUpdateDrawing,
+      )
 
       // 构造本 pane 的 RenderContext，供所有 layer 读取
-      const opt = this.deps.getOption()
-      // 数据空间折线的每帧映射：x 平移来自滚动，y 映射来自当前价格轴（仅线性轴）。
-      const yOffset = pane.yAxis.priceToY(0)
-      const yScale = pane.yAxis.priceToY(1) - yOffset
-      const dataTransform =
-        pane.yAxis.getScaleType() === ScaleType.Linear &&
-        Number.isFinite(yScale) &&
-        Number.isFinite(yOffset) &&
-        yScale !== 0
-          ? { offsetX: vp.scrollLeft, yScale, yOffset }
-          : undefined
-      const context: RenderContext = {
-        countdown: countdown ?? undefined,
-        ctx: mainCtx!,
-        overlayCtx: overlayCtx ?? undefined,
-        drawingCtx: drawingCtx ?? undefined,
-        pane: wrapPaneInfo(pane),
-        data: renderData,
-        dataRevision,
-        period: dataManager.currentPeriod,
-        dataView: this.deps.dataView$(),
-        marketSession: this.deps.getMarketSession(),
-        displayTimeFormatter: this.getDisplayTimeFormatter(),
-        timeShareRange: dataManager.getTimeShareRange() ?? undefined,
-        timeShareGeometry: timeShareGeometry ?? undefined,
-        comparisonData: dataManager.getComparisonData(),
-        comparisonSymbols: comparisonActive ? dataManager.getComparisonSpecs() : [],
-        comparisonColors: dataManager.getComparisonColors(),
-        comparisonHidden: dataManager.getComparisonHidden(),
-        comparisonProjection: comparisonProjection ?? undefined,
-        range,
-        scrollLeft: vp.scrollLeft,
-        dataTransform,
-        kWidth: opt.kWidth,
-        kGap: opt.kGap,
-        dpr: vp.dpr,
-        paneWidth: vp.plotWidth,
-        kLinePositions,
-        kLineCenters,
-        kBarRects,
-        kWidthPx,
-        visiblePriceExtrema,
-        getLogicalIndexAtTimestamp: (timestamp) =>
-          dataManager.getLogicalIndexAtTimestamp(timestamp),
-        getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
-        indicatorStateReader,
-        indicatorAvailability,
-        crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
-        yAxisCtx: yAxisCtx ?? undefined,
-        yAxisOverlayCtx: yAxisOverlayCtx ?? undefined,
-        leftAxisCtx: leftAxisCtx ?? undefined,
-        leftAxisOverlayCtx: leftAxisOverlayCtx ?? undefined,
-        zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
-        zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
-        viewport: {
-          scrollLeft: vp.scrollLeft,
-          plotWidth: vp.plotWidth,
-          plotHeight: vp.plotHeight,
-        },
-        settings: this.getSettings(),
-        // 分时昨收只有一个来源：Buffer 快照；五日由 Buffer 取第一交易日。
-        timeShareBaseline: dataManager.getTimeSharePreClose() ?? undefined,
-        yAxisRanges: [],
-        xAxisRanges: sharedXAxisRanges,
-        axisLabels: axisLabelsFrame,
-        theme: this.deps.theme$.peek(),
-        isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
-        colorPresetSettings: this.getSettings().colorPresetSettings,
-      }
+      const context = this.createPaneRenderContext(
+        frame,
+        pane,
+        contexts,
+        dataManager,
+        axisLabelsFrame,
+        sharedXAxisRanges,
+      )
 
       // 覆盖成员进入会话层时从正式层排除；连续移动复用正式层投影和像素。
-      if (shouldUpdateDrawing) {
-        const labels = createAxisLabelsFrame()
-        context.drawingProjection = projectDrawingsForFrame(
-          this.drawingStore,
-          this.drawingDefinitions,
-          { ...context, axisLabels: labels },
-          null,
-          'committed',
-        )
-        this.drawingAxisLabels.set(renderer, labels)
-        // 正式图元表面在 pane 首次出现图元时创建；新表面为空白，只需与清除路径相同的 DPR 变换。
-        const customDrawingVisible = this.scene.layers
-          .peek()
-          .some(
-            (layer) =>
-              layer !== this.drawingLayer &&
-              layer.visible &&
-              layer.role === 'drawing' &&
-              (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
-          )
-        if (
-          !context.drawingCtx &&
-          ((context.drawingProjection?.primitives.length ?? 0) > 0 || customDrawingVisible)
-        ) {
-          const createdDrawingCtx = renderer.ensureDrawingContext()
-          if (createdDrawingCtx) {
-            createdDrawingCtx.setTransform(1, 0, 0, 1, 0, 0)
-            createdDrawingCtx.scale(vp.dpr, vp.dpr)
-            context.drawingCtx = createdDrawingCtx
-          }
-        }
-      } else {
-        context.drawingProjection = previousContext?.drawingProjection
-      }
-      const retainedLabels = this.drawingAxisLabels.get(renderer)
-      for (const label of retainedLabels?.forSurface('yRightOverlay', pane.id).labels ?? []) {
-        registerAxisLabel(context, 'yRightOverlay', label)
-      }
-      for (const label of retainedLabels?.forSurface('xLabels').labels ?? []) {
-        registerAxisLabel(context, 'xLabels', label)
-      }
-      context.sessionDrawingProjection = projectDrawingsForFrame(
-        this.drawingStore,
-        this.drawingDefinitions,
-        context,
-        this.deps.getSelectionMarquee?.() ?? null,
-        'session',
-        this.deps.getSnapIndicator?.() ?? null,
-      )
-      for (const projection of [context.drawingProjection, context.sessionDrawingProjection]) {
-        if (!projection) continue
-        context.yAxisRanges.push(...projection.yAxisRanges)
-        sharedXAxisRanges.push(...projection.xAxisRanges)
-      }
+      this.updateCommittedDrawing(renderer, context, previousContext, pane, shouldUpdateDrawing)
+      this.appendDrawingProjections(renderer, context, sharedXAxisRanges)
 
       // 刻度锚定轴数值，再投影到本帧的价格坐标系；网格与左右轴共用。
       context.yAxisTicks = createYAxisTicks(pane, {
@@ -1340,102 +1549,22 @@ export class ChartRenderer {
       this.paneCtxMap.set(pane.id, context)
       legendContexts.push(context)
 
-      const targets = { main: mainCtx, drawing: context.drawingCtx ?? null, overlay: overlayCtx }
-      // 只传 pane 完整尺寸；价格坐标留白不能参与绘制裁剪。
-      const bounds = { width: vp.plotWidth, height: pane.height }
-      // GPU 后端为每个 pane 提供可见直出表面；Canvas 后端返回 null 并清掉旧表面。
-      const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
-      // 画 main canvas（非 overlay 角色 layer）
-      if (shouldUpdateMain) {
-        framePanes.push({
-          paneId: pane.id,
-          context,
-          renderer: sceneRenderer,
-          targets,
-          gpuSurface,
-          bounds,
-          dpr: vp.dpr,
-          frameNumber: this.frameCount++,
-          deltaMs: 0,
-          roles: MAIN_CANVAS_ROLES,
-          clear: true,
-        })
-      }
-      // 画 overlay canvas（绘图和动态 overlay 角色 layer）
-      if (shouldUpdateOverlay) {
-        // 正式图元与会话层保留独立像素，后端只能写入 Scene 选定的目标。
-        framePanes.push({
-          paneId: pane.id,
-          context,
-          renderer: sceneRenderer,
-          targets,
-          bounds,
-          dpr: vp.dpr,
-          frameNumber: this.frameCount++,
-          deltaMs: 0,
-          roles: shouldUpdateDrawing ? OVERLAY_CANVAS_ROLES : SESSION_CANVAS_ROLES,
-          clear: false,
-        })
-      }
+      this.enqueuePanePaint(
+        framePanes,
+        renderer,
+        context,
+        pane,
+        shouldUpdateMain,
+        shouldUpdateOverlay,
+        shouldUpdateDrawing,
+      )
     }
 
     // 所有 pane 构建完成后一次性绘制；Scene 逐 pane 过滤、z 排序、逐层隔离分发。
     this.scene.paint({ panes: framePanes })
     this.paintedDrawingVersion = drawingVersion
 
-    const widths = this.axisWidthEstimator.estimate({
-      labels: axisLabelsFrame,
-      paneIds: this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
-      updateStatic: level === UpdateLevel.Main || level === UpdateLevel.All,
-      updateOverlay: level === UpdateLevel.Overlay || level === UpdateLevel.All,
-    })
-    const surfaces = ['yRightStatic', 'yRightOverlay', 'yLeftStatic', 'yLeftOverlay'] as const
-    const visiblePaneIds = new Set(
-      this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
-    )
-    for (const id of this.retainedAxisLabels.keys()) {
-      if (!visiblePaneIds.has(id)) this.retainedAxisLabels.delete(id)
-    }
-    for (const renderer of this.deps.getPaneRenderers()) {
-      const pane = renderer.getPane()
-      const retainedFrame = this.retainedAxisLabels.get(pane.id) ?? createAxisLabelsFrame()
-      this.retainedAxisLabels.set(pane.id, retainedFrame)
-      for (const surface of surfaces) {
-        const update = surface.endsWith('Static')
-          ? level === UpdateLevel.Main || level === UpdateLevel.All
-          : level === UpdateLevel.Overlay || level === UpdateLevel.All
-        if (!update) continue
-        const retained = retainedFrame.forSurface(surface, pane.id).labels
-        retained.length = 0
-        retained.push(...axisLabelsFrame.forSurface(surface, pane.id).labels)
-      }
-    }
-    if (this.deps.commitAxisWidths?.(widths)) {
-      // 宿主宽度变化只清空轴画布；使用保留标签同帧重画，不重跑主图与指标。
-      for (const renderer of this.deps.getPaneRenderers()) {
-        const pane = renderer.getPane()
-        renderer.resize(vp.plotWidth, pane.height, vp.dpr)
-        const contexts = renderer.getContexts()
-        const targets = [
-          contexts.yAxisCtx,
-          contexts.yAxisOverlayCtx,
-          contexts.leftAxisCtx,
-          contexts.leftAxisOverlayCtx,
-        ]
-        for (const [index, surface] of surfaces.entries()) {
-          const target = targets[index]
-          if (!target) continue
-          const axisWidth = target.canvas.width / vp.dpr
-          this.clearAxisCtx(target, vp.dpr, axisWidth, pane.height)
-          paintAxisLabels(
-            target,
-            this.retainedAxisLabels.get(pane.id)?.forSurface(surface, pane.id).labels ?? [],
-            surface,
-            { dpr: vp.dpr, axisWidth, axisHeight: pane.height },
-          )
-        }
-      }
-    }
+    this.commitAxisLabelWidths(level, axisLabelsFrame, vp)
 
     this.deps.projectLegendFrame(legendContexts)
     return { axisLabelsFrame, sharedXAxisRanges }
@@ -1452,7 +1581,6 @@ export class ChartRenderer {
       range,
       kLinePositions,
       kLineCenters,
-      kBarRects,
       kWidthPx,
       data: renderData,
       timeShareGeometry,
@@ -1511,17 +1639,17 @@ export class ChartRenderer {
         getLogicalIndexAtTimestamp: (timestamp) =>
           dataManager.getLogicalIndexAtTimestamp(timestamp),
         getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
-        timeShareRange: dataManager.getTimeShareRange() ?? undefined,
-        timeShareGeometry: timeShareGeometry ?? undefined,
+        timeShareRange: optional(dataManager.getTimeShareRange()),
+        timeShareGeometry: optional(timeShareGeometry),
         range,
         scrollLeft: vp.scrollLeft,
+        slotGrid: frame.viewSnapshot.grid,
         kWidth: opt.kWidth,
         kGap: opt.kGap,
         dpr: vp.dpr,
         paneWidth: vp.plotWidth,
         kLinePositions,
         kLineCenters,
-        kBarRects,
         kWidthPx,
         xAxisCtx,
         viewport: {
@@ -1553,7 +1681,6 @@ export class ChartRenderer {
       range: { ...frame.range },
       kLinePositions: frame.kLinePositions,
       kLineCenters: frame.kLineCenters,
-      kBarRects: frame.kBarRects,
       kWidthPx: frame.kWidthPx,
       timeShareGeometry: frame.timeShareGeometry,
       visiblePriceExtrema: frame.visiblePriceExtrema,

@@ -231,7 +231,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.scrollByBars(bars)
   }
 
-  /** 重置图表视图：恢复初始缩放级别，并复位主图价格轴。 */
+  /** 重置图表视图：恢复默认时间位置、初始缩放与主图价格轴。 */
   function resetChart(): void {
     if (isDisposed()) return
     chart.resetChart()

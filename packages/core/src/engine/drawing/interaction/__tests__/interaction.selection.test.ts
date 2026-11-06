@@ -47,7 +47,7 @@ describe('DrawingInteractionController selection', () => {
     expect(adapter.getSelectedDrawingIds()).toEqual([drawing.id])
   })
 
-  it('adds and removes hit drawings with Ctrl without starting a drag', () => {
+  it('toggles the hit drawing when Ctrl is released without dragging', () => {
     const first = createDrawingObject({ id: 'first' })
     const second = createDrawingObject({ id: 'second' })
     const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second])
@@ -58,13 +58,52 @@ describe('DrawingInteractionController selection', () => {
     adapter.setSelectedDrawingIds([first.id])
     const container = CONTAINER
 
+    // 按下时只进入待复制会话，选择保持不变；松开未移动才按 Ctrl+单击切换。
     expect(controller.onPointerDown(pointerDown(10, 10, { ctrlKey: true }), container)).toBe(true)
+    expect(setSelectedDrawingIds).not.toHaveBeenLastCalledWith(['first', 'second'])
+    expect(controller.onPointerUp(pointerDown(10, 10, { ctrlKey: true }), container)).toBe(true)
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['first', 'second'])
     expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
 
     expect(controller.onPointerDown(pointerDown(10, 10, { ctrlKey: true }), container)).toBe(true)
+    expect(controller.onPointerUp(pointerDown(10, 10, { ctrlKey: true }), container)).toBe(true)
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['first'])
     expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
+  })
+
+  it('duplicates the hit drawing once Ctrl movement passes the threshold', () => {
+    const source = createDrawingObject({ id: 'source' })
+    const copy = createDrawingObject({ id: 'copy' })
+    const movedCopy = {
+      ...copy,
+      anchors: [{ id: 'copy-anchor', type: 'horizontal' as const, price: 12 }],
+    }
+    const { adapter } = createSelectionAdapter([source])
+    adapter.getFullDrawings = () => [source, copy]
+    const duplicateDrawings = vi.mocked(adapter.duplicateDrawings)
+    duplicateDrawings.mockReturnValue([copy])
+    const controller = new DrawingInteractionController(adapter)
+    const startDrag = vi.fn()
+    stubDrawingControllerInternals(controller, {
+      hit: { drawing: source, target: { type: 'all' }, cursor: 'move' },
+      draggingIds: [copy.id],
+      movedDrawings: [movedCopy],
+      startDrag,
+    })
+    const container = CONTAINER
+
+    expect(controller.onPointerDown(pointerDown(10, 10, { ctrlKey: true }), container)).toBe(true)
+    expect(duplicateDrawings).not.toHaveBeenCalled()
+
+    // 越过阈值：立即生成真实副本，再从按下点开始普通拖拽。
+    expect(controller.onPointerMove(pointerMove(20, 20, { ctrlKey: true }), container)).toBe(true)
+    expect(duplicateDrawings).toHaveBeenCalledWith([
+      { id: source.id, anchors: source.anchors },
+    ])
+    expect(startDrag).toHaveBeenCalledWith([copy], { type: 'all' }, 10, 10)
+
+    expect(controller.onPointerUp(pointerMove(20, 20), container)).toBe(true)
+    expect(adapter.commitDrawingDrag).toHaveBeenCalledWith(copy.id, movedCopy.anchors)
   })
 
   it('toggles every drawing intersecting a selection marquee', () => {

@@ -168,7 +168,6 @@ export function createTimeShareRenderContext(
     timeShareBaseline: baseline === null ? undefined : baseline,
     timeShareGeometry: geometry,
     kLineCenters: centers,
-    kBarRects: centers.map((center) => ({ x: center - 2, width: 4 })),
     pane: options.pane ?? {
       height: 400,
       top: 0,

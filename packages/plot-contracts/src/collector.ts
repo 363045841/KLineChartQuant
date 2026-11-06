@@ -101,26 +101,48 @@ export class PlotCollector {
     kind?: PlotDeclaration['kind'],
     options?: PlotDeclaration,
   ): void {
-    let entry = this.entries.get(name)
-    if (entry?.source === 'ohlc')
-      throw new TypeError(`Plot ${name} cannot change kind during a run`)
-    if (!entry) {
-      entry = this.createEntry(name, kind)
-      this.entries.set(name, entry)
-    }
-    const declaration = withCallOptions(resolveDeclaration(entry.declaration, kind), options)
-    // 调用没有改写声明时沿用同一条目，跳过整列样式签名比较。
-    if (declaration !== entry.declaration) {
-      if (entry.emitted && declaration.kind !== entry.declaration.kind)
-        throw new TypeError(`Plot ${name} cannot change kind during a run`)
-      const style = styleSignature(declaration)
-      if (entry.emitted && !sameStyle(entry.style, style))
-        throw new TypeError(`Plot ${name} cannot change style during a run`)
-      entry.declaration = declaration
-      entry.style = style
-    }
+    const entry = this.getOrCreateScalarEntry(name, kind)
+    this.applyPlotDeclaration(entry, name, kind, options)
     entry.emitted = true
     entry.data[barIndex] = point !== null && Number.isFinite(point.value) ? point : undefined
+  }
+
+  /** 取标量 Plot 条目；OHLC 条目不可复用。 */
+  private getOrCreateScalarEntry(
+    name: string,
+    kind: PlotDeclaration['kind'] | undefined,
+  ): CollectedPlot {
+    const entry = this.entries.get(name)
+    if (entry) {
+      if (entry.source === 'ohlc') {
+        throw new TypeError(`Plot ${name} cannot change kind during a run`)
+      }
+      return entry
+    }
+    const created = this.createEntry(name, kind)
+    this.entries.set(name, created)
+    return created
+  }
+
+  /** 校验并应用本轮声明；样式与种类在首次写出后必须保持稳定。 */
+  private applyPlotDeclaration(
+    entry: CollectedPlot,
+    name: string,
+    kind: PlotDeclaration['kind'] | undefined,
+    options: PlotDeclaration | undefined,
+  ): void {
+    const declaration = withCallOptions(resolveDeclaration(entry.declaration, kind), options)
+    // 调用没有改写声明时沿用同一条目，跳过整列样式签名比较。
+    if (declaration === entry.declaration) return
+    if (entry.emitted && declaration.kind !== entry.declaration.kind) {
+      throw new TypeError(`Plot ${name} cannot change kind during a run`)
+    }
+    const style = styleSignature(declaration)
+    if (entry.emitted && !sameStyle(entry.style, style)) {
+      throw new TypeError(`Plot ${name} cannot change style during a run`)
+    }
+    entry.declaration = declaration
+    entry.style = style
   }
 
   /** 登记图表级水平线并返回本轮运行内的句柄 id；hline 只在文件顶层声明。 */
@@ -250,9 +272,56 @@ function createOhlcPlot(
  * 整列样式签名：逐 bar 输出必须与首次一致，颜色不参与（逐点颜色由 PlotPoint 携带）。
  * 虚线展开为元素，避免调用处每根 bar 新建数组造成假变更。
  */
-function styleSignature(
-  declaration: PlotDeclaration,
-): readonly (string | number | boolean | undefined)[] {
+type StyleValues = readonly (string | number | boolean | undefined)[]
+type StyleExtra = (declaration: PlotDeclaration) => StyleValues
+
+function lineStyleExtra(declaration: PlotDeclaration): StyleValues {
+  if (
+    declaration.kind !== 'line' &&
+    declaration.kind !== 'linebr' &&
+    declaration.kind !== 'stepline' &&
+    declaration.kind !== 'steplinebr'
+  ) {
+    throw new TypeError('Expected line declaration')
+  }
+  return [...(declaration.dash ?? [])]
+}
+
+function barStyleExtra(declaration: PlotDeclaration): StyleValues {
+  if (declaration.kind !== 'histogram' && declaration.kind !== 'columns') {
+    throw new TypeError('Expected bar declaration')
+  }
+  return [declaration.baseline]
+}
+
+function emptyStyleExtra(): StyleValues {
+  return []
+}
+
+function shapeStyleExtra(declaration: PlotDeclaration): StyleValues {
+  if (declaration.kind !== 'shape') throw new TypeError('Expected shape declaration')
+  return [declaration.style, declaration.location, declaration.text]
+}
+
+function charStyleExtra(declaration: PlotDeclaration): StyleValues {
+  if (declaration.kind !== 'char') throw new TypeError('Expected char declaration')
+  return [declaration.char, declaration.location, declaration.text]
+}
+
+const STYLE_EXTRAS: Record<PlotDeclaration['kind'], StyleExtra> = {
+  line: lineStyleExtra,
+  linebr: lineStyleExtra,
+  stepline: lineStyleExtra,
+  steplinebr: lineStyleExtra,
+  histogram: barStyleExtra,
+  columns: barStyleExtra,
+  points: emptyStyleExtra,
+  shape: shapeStyleExtra,
+  char: charStyleExtra,
+  arrow: emptyStyleExtra,
+}
+
+function styleSignature(declaration: PlotDeclaration): StyleValues {
   const base = [
     declaration.name,
     declaration.label,
@@ -262,24 +331,7 @@ function styleSignature(
     declaration.textColor,
     declaration.size,
   ] as const
-  switch (declaration.kind) {
-    case 'line':
-    case 'linebr':
-    case 'stepline':
-    case 'steplinebr':
-      return [...base, ...(declaration.dash ?? [])]
-    case 'histogram':
-    case 'columns':
-      return [...base, declaration.baseline]
-    case 'points':
-      return [...base]
-    case 'shape':
-      return [...base, declaration.style, declaration.location, declaration.text]
-    case 'char':
-      return [...base, declaration.char, declaration.location, declaration.text]
-    case 'arrow':
-      return [...base]
-  }
+  return [...base, ...STYLE_EXTRAS[declaration.kind](declaration)]
 }
 
 /** 按元素比较两个整列样式签名。 */
@@ -347,7 +399,7 @@ function createHistogramPlot(
   }
 }
 
-/** 自动柱宽只依赖 K 线间距。 */
+/** Columns 的柱宽由宿主时间槽位决定，声明不携带蜡烛实体尺寸。 */
 function createColumnsPlot(declaration: ColumnsPlotDeclaration, base: PlotBaseFields): ColumnsPlot {
   return {
     ...base,

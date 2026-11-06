@@ -33,6 +33,7 @@ export const lightTheme: Theme = {
     foreground: lightInterfaceColors.text,
     chartBackground: lightInterfaceColors.background,
     floatingSurface: lightInterfaceColors.surface,
+    chartNavigationBackground: lightInterfaceColors.surface,
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
     candleUpWick: '#089981',

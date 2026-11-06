@@ -84,7 +84,7 @@
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
+    font-size: var(--klc-typography-font-size-md);
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;

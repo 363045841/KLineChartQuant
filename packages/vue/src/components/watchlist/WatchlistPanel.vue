@@ -27,7 +27,6 @@
             <BaseTabs
               :model-value="grouping"
               :tabs="GROUPING_TABS"
-              size="compact"
               aria-label="自选分组方式"
               @update:model-value="onGroupingChange"
             />
@@ -292,13 +291,6 @@
     z-index: 1;
     padding-top: 4px;
     background: var(--klc-color-ui-input);
-  }
-
-  /* 紧凑 Tabs 自带 -4px 负外边距用于抵消内边距；面板里改用正内边距，
-     否则标签条会比面板宽 8px，直接撑出横向滚动。 */
-  .watchlist-panel__head :deep(.base-tabs) {
-    margin: 0;
-    padding: 0 16px;
   }
 
   .watchlist-panel__columns {

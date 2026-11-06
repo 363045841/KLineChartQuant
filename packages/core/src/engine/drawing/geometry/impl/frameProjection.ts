@@ -4,6 +4,7 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
+import { createKLineSlotGrid } from '@/engine/viewport/slotGrid.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
@@ -22,6 +23,7 @@ import {
   resolveThemeColors,
   type ScriptColorResolver,
 } from '@/foundation/tokens/index.js'
+import { ChartDataViewId } from '@/foundation/types/chartView.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
@@ -54,6 +56,10 @@ type MutableDrawingFrameProjection = {
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
   const { pane, range, kLineCenters, scrollLeft } = context
+  const grid =
+    context.dataView === ChartDataViewId.KLine
+      ? createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
+      : undefined
   return (anchor) => {
     const x = logicalIndexToScreenX({
       index: anchor.index,
@@ -62,6 +68,7 @@ function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor)
       scrollLeft,
       dpr: context.dpr,
       fallbackStep: context.kWidth + context.kGap,
+      grid,
     })
     return { x: x ?? Number.NaN, y: pane.yAxis.priceToY(anchor.price) }
   }
@@ -80,32 +87,58 @@ function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
   })
 }
 
+/** 解析时间锚点的时间戳；字符串日期与数字时间戳统一为数字。 */
+function parseAnchorTime(time: DrawingObject['anchors'][number]['time']): number | undefined {
+  return typeof time === 'string' ? Date.parse(time) : time
+}
+
+/** 时间锚点对应的当前序列下标；非法未来偏移或缺失数据返回 -1。 */
+function resolveTimestampAnchorIndex(
+  timestamp: number,
+  futureOffset: number | undefined,
+  getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
+): number {
+  if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+    return -1
+  }
+  const baseIndex = getLogicalIndexAtTimestamp(timestamp)
+  // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
+  return baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0)
+}
+
+/** 将单个持久化锚点重新定位到当前数据序列。 */
+function resolveAnchorForFrame(
+  anchor: DrawingObject['anchors'][number],
+  drawing: DrawingObject,
+  getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
+  context: RenderContext,
+): ResolvedDrawingAnchor {
+  if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
+  const timestamp = parseAnchorTime(anchor.time)
+  if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
+    return {
+      ...anchor,
+      index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex),
+    }
+  }
+  if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
+  return {
+    ...anchor,
+    index: resolveTimestampAnchorIndex(timestamp, anchor.futureOffset, getLogicalIndexAtTimestamp),
+  }
+}
+
 /** 将持久化时间锚点重新定位到当前数据序列，避免历史数据 prepend 后沿用过期 index。 */
 function resolveDrawingForFrame(
-  drawing: import('../../types.js').DrawingObject,
+  drawing: DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
 ): ResolvedDrawingObject {
   return {
     ...drawing,
-    anchors: drawing.anchors.map((anchor) => {
-      if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
-      const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-      if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
-        return {
-          ...anchor,
-          index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex),
-        }
-      }
-      if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
-      const baseIndex = getLogicalIndexAtTimestamp(timestamp)
-      const futureOffset = anchor.futureOffset
-      if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
-        return { ...anchor, index: -1 }
-      }
-      // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
-      return { ...anchor, index: baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0) }
-    }),
+    anchors: drawing.anchors.map((anchor) =>
+      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context),
+    ),
   }
 }
 
@@ -227,79 +260,113 @@ const PRICE_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set([
 /** 垂直类图元只有时间语义：锚点只投影时间轴标签。 */
 const TIME_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set(['vertical-line'])
 
-/** 将一个选中图元的锚点投影为坐标轴标签和范围带。 */
-function projectAxisDecorations(
-  kind: DrawingKind,
-  anchors: ReadonlyArray<ResolvedDrawingAnchor>,
-  style: DrawingStyle,
+/** 锚点逻辑索引是否落在当前可见区间。 */
+function isAnchorIndexVisible(
+  anchor: ResolvedDrawingAnchor,
+  range: RenderContext['range'],
+): boolean {
+  return Number.isFinite(anchor.index) && anchor.index >= range.start && anchor.index < range.end
+}
+
+/** 解析锚点用于时间轴标签的时间戳；未来槽位只取日历或真实 bar 时间。 */
+function resolveAnchorTimestamp(
+  anchor: ResolvedDrawingAnchor,
+  series: RenderContext['data'],
+  context: RenderContext,
+): number | null {
+  if (anchor.index >= series.length) return context.getTimestampAtLogicalIndex(anchor.index)
+  if (anchor.futureOffset !== undefined) return series[anchor.index]?.timestamp ?? null
+  const parsed = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+  return parsed !== undefined && Number.isFinite(parsed) ? parsed : null
+}
+
+/** 价格轴标签只在锚点落在 Pane 高度内时注册。 */
+function registerPriceAxisTag(
+  context: RenderContext,
+  anchor: ResolvedDrawingAnchor,
+  point: Point,
+  color: string,
+  textColor: string,
+): void {
+  if (point.y < 0 || point.y > context.pane.height) return
+  registerAxisLabel(context, 'yRightOverlay', {
+    kind: AXIS_LABEL_KIND.TAG,
+    text: anchor.price.toFixed(2),
+    pos: point.y + context.pane.top,
+    origin: context.pane.top,
+    variant: 'label',
+    bgColor: color,
+    borderColor: color,
+    textColor,
+    fontSize: 11,
+  })
+}
+
+/** 时间轴标签只在锚点落在 Pane 宽度内时注册。 */
+function registerTimeAxisTag(
+  context: RenderContext,
+  text: string,
+  point: Point,
+  color: string,
+  textColor: string,
+): void {
+  if (point.x < 0 || point.x > context.paneWidth) return
+  registerAxisLabel(context, 'xLabels', {
+    kind: AXIS_LABEL_KIND.TAG,
+    text,
+    pos: point.x,
+    bgColor: color,
+    textColor,
+    fontSize: 12,
+  })
+}
+
+/** 价格标签与时间标签共用同一锚点可见性判断。 */
+function resolveTimeLabelText(
+  anchor: ResolvedDrawingAnchor,
+  priceLabelOnly: boolean,
+  indexVisible: boolean,
+  context: RenderContext,
+): string | null {
+  if (priceLabelOnly || !indexVisible) return null
+  const timestamp = resolveAnchorTimestamp(anchor, context.data, context)
+  return resolveAxisTimeLabel(anchor.index, context.data.length, timestamp, (ts) =>
+    context.displayTimeFormatter.formatDate(ts),
+  )
+}
+
+/** 直接命中候选时保留领域值；没有命中时返回原锚点。 */
+function projectAnchorAxisLabels(
+  anchor: ResolvedDrawingAnchor,
+  priceLabelOnly: boolean,
+  timeLabelOnly: boolean,
+  color: string,
   labelTextColor: string,
+  context: RenderContext,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+): void {
+  if (!Number.isFinite(anchor.price)) return
+  // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
+  const indexVisible = isAnchorIndexVisible(anchor, context.range)
+  const wantsPrice = !timeLabelOnly && (priceLabelOnly || indexVisible)
+  const timeText = resolveTimeLabelText(anchor, priceLabelOnly, indexVisible, context)
+  if (!wantsPrice && timeText === null) return
+
+  const point = toScreen(anchor)
+  if (wantsPrice) registerPriceAxisTag(context, anchor, point, color, labelTextColor)
+  if (timeText !== null) registerTimeAxisTag(context, timeText, point, color, labelTextColor)
+}
+
+/** 收集可见锚点，投影价格范围带与时间范围带。 */
+function projectAxisRangeBands(
+  anchors: ReadonlyArray<ResolvedDrawingAnchor>,
+  color: string,
   context: RenderContext,
   toScreen: (anchor: ResolvedDrawingAnchor) => Point,
   output: MutableDrawingFrameProjection,
 ): void {
-  if (context.pane.role !== 'price') return
-  const color = style.stroke
-  const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
-  const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
-  const series = context.data
-  for (const anchor of anchors) {
-    if (!Number.isFinite(anchor.price)) continue
-    // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
-    const indexVisible =
-      Number.isFinite(anchor.index) &&
-      anchor.index >= context.range.start &&
-      anchor.index < context.range.end
-    const anchorTimestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    // futureOffset 的 time 是创建时的基准 bar，不是该槽位的日期；
-    // 槽位已变为真实 bar 时取 bar 时间，仍在未来时只取交易日历。
-    const timestamp =
-      anchor.index >= series.length
-        ? context.getTimestampAtLogicalIndex(anchor.index)
-        : anchor.futureOffset !== undefined
-          ? (series[anchor.index]?.timestamp ?? null)
-          : anchorTimestamp !== undefined && Number.isFinite(anchorTimestamp)
-            ? anchorTimestamp
-            : null
-    const wantsPrice = !timeLabelOnly && (priceLabelOnly || indexVisible)
-    const timeText =
-      !priceLabelOnly && indexVisible
-        ? resolveAxisTimeLabel(anchor.index, series.length, timestamp, (ts) =>
-            context.displayTimeFormatter.formatDate(ts),
-          )
-        : null
-    if (!wantsPrice && timeText === null) continue
-
-    const point = toScreen(anchor)
-    if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
-      registerAxisLabel(context, 'yRightOverlay', {
-        kind: AXIS_LABEL_KIND.TAG,
-        text: anchor.price.toFixed(2),
-        pos: point.y + context.pane.top,
-        origin: context.pane.top,
-        variant: 'label',
-        bgColor: color,
-        borderColor: color,
-        textColor: labelTextColor,
-        fontSize: 11,
-      })
-    }
-    if (timeText !== null && point.x >= 0 && point.x <= context.paneWidth) {
-      registerAxisLabel(context, 'xLabels', {
-        kind: AXIS_LABEL_KIND.TAG,
-        text: timeText,
-        pos: point.x,
-        bgColor: color,
-        textColor: labelTextColor,
-        fontSize: 12,
-      })
-    }
-  }
   const valid = anchors.filter(
-    (anchor) =>
-      Number.isFinite(anchor.index) &&
-      anchor.index >= context.range.start &&
-      anchor.index < context.range.end &&
-      Number.isFinite(anchor.price),
+    (anchor) => isAnchorIndexVisible(anchor, context.range) && Number.isFinite(anchor.price),
   )
   if (valid.length < 2) return
   const prices = valid.map((anchor) => anchor.price)
@@ -319,6 +386,33 @@ function projectAxisDecorations(
   const right =
     toScreen({ id: '', index: Math.max(...indices), price: maxPrice }).x + context.scrollLeft
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
+}
+
+/** 将一个选中图元的锚点投影为坐标轴标签和范围带。 */
+function projectAxisDecorations(
+  kind: DrawingKind,
+  anchors: ReadonlyArray<ResolvedDrawingAnchor>,
+  style: DrawingStyle,
+  labelTextColor: string,
+  context: RenderContext,
+  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  output: MutableDrawingFrameProjection,
+): void {
+  if (context.pane.role !== 'price') return
+  const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
+  const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
+  for (const anchor of anchors) {
+    projectAnchorAxisLabels(
+      anchor,
+      priceLabelOnly,
+      timeLabelOnly,
+      style.stroke,
+      labelTextColor,
+      context,
+      toScreen,
+    )
+  }
+  projectAxisRangeBands(anchors, style.stroke, context, toScreen, output)
 }
 
 /** 单帧投影的共享状态；把长参数表收敛成一份，避免辅助函数逐个透传。 */
@@ -403,7 +497,6 @@ function projectStoredDrawing(
     range: context.range,
     kLinePositions: context.kLinePositions,
     kLineCenters: context.kLineCenters,
-    kBarRects: context.kBarRects,
     kWidth: context.kWidth,
     kGap: context.kGap,
     dpr: context.dpr,

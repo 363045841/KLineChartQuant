@@ -74,19 +74,35 @@ describe('DrawingInteractionController magnet', () => {
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
   })
 
-  it('Shift 按住时不吸附（与宿主锁角互斥）', () => {
+  it('Shift 期间磁吸让位；单锚点工具没有锁角参考点，落点保持自由', () => {
     const { controller, createDrawing } = createMagnetController('strong')
 
-    // strong 档 + Shift：距 open 1px 但不吸附 → 价格保持 99（锁角优先于磁吸）。
+    // strong 档 + Shift：距 open 1px，但磁吸让位且单锚点工具没有参考点 → 价格保持 99。
     expect(controller.onPointerDown(pointerDown(12, 101, { shiftKey: true }), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
 
-    // Ctrl + Shift 同按：Shift 优先，Ctrl 取反同样被抑制。
+    // Ctrl + Shift 同按：Shift 决定锁角语义，Ctrl 的磁吸取反随之被抑制。
     createDrawing.mockClear()
     expect(
       controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true, shiftKey: true }), CONTAINER),
     ).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
+  })
+
+  it('Shift 期间只锁角，松开后同一落点回到原档位', () => {
+    const { controller } = createMagnetController('strong', 'trend-line')
+    // 起点 (12,30) 离所有 OHLC 候选都超过 strong 半径：第一锚点保持原始价格 170。
+    controller.onPointerDown(pointerDown(12, 30), CONTAINER)
+    // Shift：以起点 (15,30) 为参考锁定到垂直，落点价格 = 170 - hypot(3, 30)。
+    controller.onPointerMove(pointerDown(18, 60, { shiftKey: true }), CONTAINER)
+    expect(controller.getPaintOverlay()[0]?.anchors[1]?.price).toBeCloseTo(
+      200 - (30 + Math.hypot(3, 30)),
+      10,
+    )
+
+    // 松开 Shift：strong 档吸附 high（y=80 → 价格 120），说明磁吸档位没有被改写。
+    controller.onPointerMove(pointerDown(18, 60), CONTAINER)
+    expect(controller.getPaintOverlay()[0]?.anchors[1]?.price).toBe(120)
   })
 
   it('off 档且无修饰键时不吸附', () => {
@@ -130,13 +146,13 @@ describe('DrawingInteractionController magnet', () => {
     ])
   })
 
-  it('编辑路径：Shift 按住时锚点拖拽不吸附（互斥与绘制路径同源）', () => {
+  it('编辑路径：单锚点图元没有锁角参考点，Shift 期间保持自由落点', () => {
     const { controller, commitDrawingDrag } = createMagnetController('strong', 'cursor', [
       createAnchorDragDrawing(),
     ])
 
     controller.onPointerDown(pointerDown(15, 88), CONTAINER)
-    // Shift 按住拖动：互斥不吸附 → 锚点保持指针原始落点（价格 117）。
+    // Shift 按住拖动：磁吸让位，且单锚点图元没有其他锚点可作参考 → 落点保持指针原始位置（价格 117）。
     controller.onPointerMove(pointerDown(12, 83, { shiftKey: true }), CONTAINER)
     controller.onPointerUp(pointerDown(12, 83), CONTAINER)
     expect(commitDrawingDrag).toHaveBeenCalledWith('d1', [

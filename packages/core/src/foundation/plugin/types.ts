@@ -408,6 +408,8 @@ export interface RenderGeometryContext {
   pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number
+  /** 横轴的连续时间槽位网格；柱形图消费槽界，不消费蜡烛实体尺寸。 */
+  slotGrid: Readonly<import('../geometry/slotGrid.js').SlotGrid>
   /** 数据空间原语（世界 x、价格 y）的每帧变换；非线性轴不提供。 */
   dataTransform?: DataTransform
   kWidth: number
@@ -417,8 +419,6 @@ export interface RenderGeometryContext {
   kLinePositions: number[]
   /** 每根K线柱中心的X坐标（物理像素对齐后，逻辑像素） */
   kLineCenters: number[]
-  /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
-  kBarRects: Array<{ x: number; width: number }>
   /** 本帧 K 线实体宽度（物理像素），由帧准备阶段统一计算。 */
   kWidthPx: number
   /** K 线真正可视区的 high/low 及其索引；由帧准备阶段计算，供多个 renderer 共享。 */

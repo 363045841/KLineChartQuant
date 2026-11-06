@@ -1,15 +1,16 @@
 /** 独立编辑器窗口：在当前 Window 内构建 Vue、CodeMirror 与语言 Worker。 */
-import type { ScriptTreeAction } from '@vue-src/composables/chart/scriptEditor/types.js'
+
+import ScriptEditorHost from '../../../../components/script/ScriptEditorHost.vue'
+import { createDetachedEditorState } from '../impl/detachedEditorState.js'
+import type { ScriptTreeAction } from '../types.js'
 import {
   type DetachedEditorConnection,
   type DetachedEditorEvent,
   type DetachedEditorSnapshot,
   SCRIPT_EDITOR_WINDOW_CHANNEL,
-} from '@vue-src/composables/chart/scriptEditor/windowTypes.js'
-import { createDetachedEditorState } from '@vue-src/composables/chart/scriptEditor/impl/detachedEditorState.js'
-import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
+} from '../windowTypes.js'
 import '@fontsource/jetbrains-mono/400.css'
-import '@vue-src/styles/scrollbar.css'
+import '../../../../styles/scrollbar.css'
 import { createApp, defineComponent, h } from 'vue'
 
 /** 只接受能打开本窗口的父页面通过专属通道发来的草稿，不通过全局 message 广播。 */

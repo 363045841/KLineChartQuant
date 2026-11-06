@@ -193,6 +193,7 @@ export interface DrawingControllerInternals {
   dragHandler: {
     isDragging: ReturnType<typeof vi.fn>
     getDraggingDrawingIds: ReturnType<typeof vi.fn>
+    getAngleLockOrigin: ReturnType<typeof vi.fn>
     getSnapIndicator: ReturnType<typeof vi.fn>
     startDrag: ReturnType<typeof vi.fn>
     handleDragMove: ReturnType<typeof vi.fn>
@@ -233,6 +234,7 @@ export function stubDrawingControllerInternals(
   internals.dragHandler = {
     isDragging: vi.fn(() => draggingIds.length > 0),
     getDraggingDrawingIds: vi.fn(() => draggingIds),
+    getAngleLockOrigin: vi.fn<() => null>(() => null),
     getSnapIndicator: vi.fn<() => DrawingSnapIndicator | null>(() => null),
     startDrag,
     handleDragMove: vi.fn(() => movedDrawings),
@@ -278,6 +280,7 @@ function createDrawingDocumentPort(
     replaceDrawings: vi.fn(),
     getFullDrawings: () => drawings,
     createDrawing: vi.fn(() => createDrawingObject({ id: 'created' })),
+    duplicateDrawings: vi.fn(() => []),
     updateDrawing: vi.fn(() => null),
     commitDrawingDrag: vi.fn(() => null),
     commitDrawingDrags: vi.fn(() => []),
@@ -359,7 +362,7 @@ export function createDrawingAdapter(
  * 返回落图元（createDrawing）与拖拽提交（commitDrawingDrag）探针，dragHandler 用例可只取 adapter。
  */
 export function createMagnetAdapter(
-  tool: 'h-ray' | 'cursor' = 'cursor',
+  tool: DrawingToolId = 'cursor',
   drawings: DrawingObject[] = [],
 ) {
   const createDrawing = vi.fn((_input: CreateDrawingInput) =>
@@ -399,7 +402,7 @@ export function createAnchorDragDrawing(): DrawingObject {
  */
 export function createMagnetController(
   mode: MagnetMode,
-  tool: 'h-ray' | 'cursor' = 'h-ray',
+  tool: DrawingToolId = 'h-ray',
   drawings: DrawingObject[] = [],
 ) {
   const { adapter, createDrawing, commitDrawingDrag } = createMagnetAdapter(tool, drawings)
@@ -498,8 +501,45 @@ export interface PlacementAdapterOptions {
 }
 
 /**
- * 构造绘图落点 / 创建 / 预览用例的完整 adapter：单 Pane、扁平价格映射（y 即价格）。
+ * 可反向投影的落点 adapter：单 Pane 100×100，逻辑索引、屏幕 X 与时间戳 1:1，Y 即价格。
+ *
+ * 锚点能投影回原点击位置，供「先落一个点、再以它为参考」的路径（锁角等）使用。
+ * 固定索引的 createPlacementAdapter 无法支撑这种反向投影：它只保证落点解析，
+ * 不保证 anchorToScreen(落点) 回到原处。
+ */
+export function createAngleLockAdapter(
+  tool: DrawingToolId,
+  document: Partial<DrawingDocumentPort> = {},
+  drawings: ReadonlyArray<DrawingObject> = [],
+): DrawingChartAdapter {
+  const pane = { paneId: 'main', top: 0, height: 100 }
+  return createDrawingAdapter(
+    {
+      document: { getDrawingToolId: () => tool, ...document },
+      viewport: {
+        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
+        getPaneAtY: () => pane,
+        getPaneInfo: () => pane,
+        getDrawingData: () => PIXEL_TIMELINE,
+        getLogicalIndexAtX: (x) => Math.round(x),
+        getXAtLogicalIndex: (index) => index,
+        getDrawingTimestampAtLogicalIndex: (index) => index,
+        getLogicalIndexAtTimestamp: (timestamp) => timestamp,
+        priceToY: (_paneId: string, price: number) => price,
+        yToPrice: (_paneId: string, y: number) => y,
+      },
+    },
+    drawings,
+  )
+}
+
+/** 锁角用例的像素级时间轴：索引 i 对应时间戳 i，保证落点与锚点投影一一对应。 */
+const PIXEL_TIMELINE = Array.from({ length: 200 }, (_, index) => ({ timestamp: index }))
+
+/**
+ * 构造绘图落点 / 创建 / 预览用例的完整 adapter：单 Pane、扁平坐标（y 即价格）。
  * 与选择用例的 createSelectionAdapter 相比，多出工具 id 与逻辑索引的显式声明。
+ * 价格映射必须双向一致：anchorToScreen 与 yToPrice 共用同一把尺子。
  */
 export function createPlacementAdapter(
   options: PlacementAdapterOptions,
@@ -519,6 +559,7 @@ export function createPlacementAdapter(
         getDrawingData: () => [{ timestamp: 1 }],
         getLogicalIndexAtX: () => options.logicalIndex,
         getDrawingTimestampAtLogicalIndex: () => 1,
+        priceToY: (_paneId: string, price: number) => price,
         yToPrice: (_paneId: string, y: number) => y,
       },
       session: options.session,

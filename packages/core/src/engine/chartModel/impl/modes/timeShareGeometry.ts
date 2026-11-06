@@ -27,8 +27,6 @@ export interface TimeShareGeometryInput {
 export interface TimeShareFrameGeometry {
   geometry: TimeShareGeometry
   centers: number[]
-  barWidth: number
-  barVisible: boolean[]
   kWidthPx: number
 }
 
@@ -67,6 +65,37 @@ function pushSegment(
   )
 }
 
+/** 单个交易日内的连续槽位段状态。 */
+interface SegmentState {
+  segments: TimeShareSegmentGeometry[]
+  segmentStart: number
+  previousSlot: number | null
+}
+
+/** 追加一个槽位；空槽位与跳槽都会切段。 */
+function appendSlot(
+  state: SegmentState,
+  index: number,
+  slot: number | null,
+  centers: ReadonlyArray<number>,
+): void {
+  if (slot === null) {
+    if (state.segmentStart >= 0) {
+      pushSegment(state.segments, state.segmentStart, index, centers)
+    }
+    state.segmentStart = -1
+    state.previousSlot = null
+    return
+  }
+  if (state.segmentStart < 0) {
+    state.segmentStart = index
+  } else if (state.previousSlot === null || slot !== state.previousSlot + 1) {
+    pushSegment(state.segments, state.segmentStart, index, centers)
+    state.segmentStart = index
+  }
+  state.previousSlot = slot
+}
+
 /** 只在槽位连续时连线；空槽位、跳槽与交易日边界都切段。 */
 function buildSegments(
   dayRanges: ReadonlyArray<DayRange>,
@@ -75,25 +104,11 @@ function buildSegments(
 ): TimeShareSegmentGeometry[] {
   const segments: TimeShareSegmentGeometry[] = []
   for (const { start, end } of dayRanges) {
-    let segmentStart = -1
-    let previousSlot: number | null = null
+    const state: SegmentState = { segments, segmentStart: -1, previousSlot: null }
     for (let index = start; index < end; index++) {
-      const slot = slots[index] ?? null
-      if (slot === null) {
-        if (segmentStart >= 0) pushSegment(segments, segmentStart, index, centers)
-        segmentStart = -1
-        previousSlot = null
-        continue
-      }
-      if (segmentStart < 0) {
-        segmentStart = index
-      } else if (previousSlot === null || slot !== previousSlot + 1) {
-        pushSegment(segments, segmentStart, index, centers)
-        segmentStart = index
-      }
-      previousSlot = slot
+      appendSlot(state, index, slots[index] ?? null, centers)
     }
-    if (segmentStart >= 0) pushSegment(segments, segmentStart, end, centers)
+    if (state.segmentStart >= 0) pushSegment(segments, state.segmentStart, end, centers)
   }
   return segments
 }
@@ -161,8 +176,6 @@ export function computeTimeShareGeometry(
       ),
     }),
     centers: layout.centers,
-    barWidth: layout.barWidth,
-    barVisible: layout.barVisible,
     kWidthPx: layout.kWidthPx,
   }
 }
