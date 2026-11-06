@@ -20,7 +20,7 @@ defineIndicator({
     const extendVah = input.bool(false, { title: '向右延长 VAH' })
     const extendVal = input.bool(false, { title: '向右延长 VAL' })
     const keepPeriods = input.int(8, { title: '保留期数', min: 1, max: 240 })
-    const [t, e, o, h, l, c, v, k] = request.security_lower_tf(syminfo.tickerid, calculationPeriod, () => [time, time_close(), open, high, low, close, volume, time(params.periodUnit === 'day' ? '1D' : params.periodUnit === 'week' ? '1W' : '1M')] as const)
+    const [t, e, o, h, l, c, v, k] = request.security_lower_tf(syminfo.tickerid, calculationPeriod, () => [time, time_close(), open, high, low, close, volume, time(periodUnit === 'day' ? '1D' : periodUnit === 'week' ? '1W' : '1M')] as const)
     vp.collect(t, e, o, h, l, c, v, periodUnit === 'candle' ? k.map(() => bar_index) : k)
     if (barstate.islast) vp.render({ rows: rowSize, area: valueAreaPercent, width: boxWidthPercent, side: boxPosition, mode: volumeMode, showPoc, showVah, showVal, extendPoc, extendVah, extendVal, count: periodCount, keep: keepPeriods })
   },

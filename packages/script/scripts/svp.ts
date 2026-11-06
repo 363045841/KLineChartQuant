@@ -21,7 +21,7 @@ defineIndicator({
     const extendVah = input.bool(false, { title: '向右延长 VAH' })
     const extendVal = input.bool(false, { title: '向右延长 VAL' })
     const keepPeriods = input.int(8, { title: '保留期数', min: 1, max: 240 })
-    const [t, e, o, h, l, c, v, k] = request.security_lower_tf(syminfo.tickerid, calculationPeriod, () => [time, time_close(), open, high, low, close, volume, params.sessionMode === 'custom' ? time('1D', params.sessionHours, params.sessionTimezone || undefined) : params.sessionMode === 'regular' && !session.ismarket ? Number.NaN : time_tradingday] as const)
+    const [t, e, o, h, l, c, v, k] = request.security_lower_tf(syminfo.tickerid, calculationPeriod, () => [time, time_close(), open, high, low, close, volume, sessionMode === 'custom' ? time('1D', sessionHours, sessionTimezone || undefined) : sessionMode === 'regular' && !session.ismarket ? Number.NaN : time_tradingday] as const)
     vp.collect(t, e, o, h, l, c, v, k)
     if (barstate.islast) vp.render({ rows: rowSize, area: valueAreaPercent, width: boxWidthPercent, side: boxPosition, mode: volumeMode, showPoc, showVah, showVal, extendPoc, extendVah, extendVal, count: 1, keep: keepPeriods })
   },

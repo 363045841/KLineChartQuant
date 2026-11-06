@@ -69,6 +69,7 @@ describe('ScriptService', () => {
     },
   )
 
+  // 同一用例串行启动真实 Worker，覆盖多轮编译、失败更新及持久化恢复。
   it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
     const persistence = createScriptPersistence()
     const scripts = await createScriptService([], { persistence })
@@ -136,7 +137,7 @@ describe('ScriptService', () => {
     } finally {
       restored.dispose()
     }
-  })
+  }, 15_000)
   it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
     let saved: ScriptWorkspace | null = null
     const persistence = {

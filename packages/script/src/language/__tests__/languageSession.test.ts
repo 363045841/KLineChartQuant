@@ -11,6 +11,29 @@ function diagnosticCodes(session: ReturnType<typeof createScriptLanguageSession>
 }
 
 describe('共享脚本语义会话', () => {
+  it('默认加载全部内置库，更新用户库不移除内置类型且保留成员检查', () => {
+    const session = createScriptLanguageSession()
+    const source = `const vp = importLibrary('volumeProfile')
+      vp.collect([], [], [], [], [], [], [], [])
+      const average: Series = importLibrary('ta').sma(close, 2)`
+    session.updateSource(source)
+    expect(diagnosticCodes(session)).toEqual([])
+    session.setLibraries([{ name: 'stats', source: `defineLibrary('stats', { value: 1 })` }])
+    session.updateSource(`${source}; const value: number = importLibrary('stats').value`)
+    expect(diagnosticCodes(session)).toEqual([])
+    session.setLibraries([])
+    session.updateSource(source)
+    expect(diagnosticCodes(session)).toEqual([])
+    session.updateSource(
+      `importLibrary('volumeProfile').collect('invalid', [], [], [], [], [], [], [])`,
+    )
+    expect(diagnosticCodes(session)).toContain(2345)
+    session.updateSource(`importLibrary('volumeProfile').missing()`)
+    expect(diagnosticCodes(session)).toContain(2339)
+    session.updateSource(`importLibrary('stats')`)
+    expect(diagnosticCodes(session)).toContain(2345)
+  })
+
   it('Series 在脚本类型补全中可见，并保持只读序列契约', () => {
     const session = createScriptLanguageSession()
     const source = 'let source: Ser'
