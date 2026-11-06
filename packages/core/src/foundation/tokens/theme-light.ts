@@ -67,6 +67,17 @@ export const lightTheme: Theme = {
       ask: '#929292',
       text: '#303030',
     },
+    // 成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。
+    volumeProfile: {
+      up: '#0000001A',
+      down: '#00000033',
+      valueAreaUp: '#2D7FF9B3',
+      valueAreaDown: '#D9A600B3',
+      pointOfControl: '#D9453F',
+      valueAreaHigh: '#2D7FF9CC',
+      valueAreaLow: '#2D7FF9CC',
+      boxBackground: '#00000008',
+    },
     alertActive: '#2D7FF9',
     // alertTriggered: orange #F97316 was 2.69:1 on white (fails AA
     // non-text). Darkened to #C2410C → 4.13:1.

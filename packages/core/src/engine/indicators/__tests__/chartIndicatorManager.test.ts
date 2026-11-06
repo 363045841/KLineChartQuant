@@ -16,8 +16,8 @@ import {
   createContextWithInstanceState,
   createMockCanvasContext,
 } from '../../__tests__/helpers/renderTestKit'
-import type { PaneSpec } from '../../pane/types'
 import { PaneManager } from '../../pane/impl/paneManager'
+import type { PaneSpec } from '../../pane/types'
 import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { createPaneState } from '../../state/paneState'
@@ -397,9 +397,9 @@ describe('ChartIndicatorManager', () => {
 
     registerPlotIndicator(source('Old Script Name'))
     expect(manager.addIndicator(scriptId, { factor: 3 })).toBe(scriptId)
-    const beforeRename = manager.indicatorsComputed().find(
-      (entry) => entry.definitionId === scriptId,
-    )
+    const beforeRename = manager
+      .indicatorsComputed()
+      .find((entry) => entry.definitionId === scriptId)
 
     updatePlotIndicator(source('New Script Name'))
 

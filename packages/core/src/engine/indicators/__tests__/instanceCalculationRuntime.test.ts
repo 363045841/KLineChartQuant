@@ -15,9 +15,7 @@ import {
   executeIndicatorCalculationTask,
   findInstanceFirstReadyIndex,
 } from '../instances/execution/instanceCalculationRuntime'
-import {
-  IndicatorInstanceExecutionRuntime,
-} from '../instances/execution/instanceExecutionRuntime'
+import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime'
 import {
   createTestData,
   createTestInstance,
