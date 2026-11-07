@@ -11,7 +11,7 @@
     {
       "id": "binance",
       "repo": "https://github.com/363045841/Binance-Connector.git",
-      "commit": "2e6a2870b7728b35235493f7614416240e860608",
+      "commit": "6a8e1c4faae100765c2ce488fea8edd49c9af8a6",
       "package": "./cmd/binance-connector",
       "binary": "binance"
     }
