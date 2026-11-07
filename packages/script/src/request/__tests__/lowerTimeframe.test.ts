@@ -81,20 +81,25 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const bars = [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)]
     const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] }
     const config = { rowSize: 4, periodUnit: 'day' }
-    const first = script.runDetailed(bars, config, market)
+    const first = script.runDetailed(bars, config, market, { start: 0, end: bars.length })
     const nextDetails = [...details, bar(day + 172_800_000 + 60_000, 70)]
-    const second = script.runDetailed(bars, config, {
-      ...market,
-      snapshots: [{ id: '0', bars: nextDetails }],
-    })
+    const second = script.runDetailed(
+      bars,
+      config,
+      {
+        ...market,
+        snapshots: [{ id: '0', bars: nextDetails }],
+      },
+      { start: bars.length - 1, end: bars.length },
+    )
     const completed = (output: typeof first) =>
       (output.collection.drawings ?? []).filter(
         (drawing) => drawing.kind === 'rectangle' && drawing.anchors[0]?.time === day,
       )
     expect(completed(first).length).toBeGreaterThan(0)
-    expect(second.drawingPatch.reset).toBe(false)
+    expect(second.drawingDelta.reset).toBe(false)
     expect(completed(second)[0]).toBe(completed(first)[0])
-    expect(second.drawingPatch.upsert.every((drawing) => drawing.anchors[0]?.time !== day)).toBe(
+    expect(second.drawingDelta.upsert.every((drawing) => drawing.anchors[0]?.time !== day)).toBe(
       true,
     )
     script.dispose()

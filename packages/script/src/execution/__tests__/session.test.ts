@@ -1,4 +1,4 @@
-/** 会话增量契约：常驻运行态、尾部重算、同 bar 回滚与绘图增量。 */
+/** 会话契约：区间执行、有状态重置与绘图增量。 */
 
 import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
@@ -21,14 +21,14 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
   it('keeps completed drawings and only re-emits the changed tail', () => {
     const script = prepare(boxSource)
     const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
-    const first = script.runDetailed(bars.slice(0, 2))
-    const second = script.runDetailed(bars)
-    expect(first.drawingPatch.reset).toBe(true)
-    expect(second.drawingPatch.reset).toBe(false)
+    const first = script.runDetailed(bars.slice(0, 2), {}, undefined, { start: 0, end: 2 })
+    const second = script.runDetailed(bars, {}, undefined, { start: 1, end: 3 })
+    expect(first.drawingDelta.reset).toBe(true)
+    expect(second.drawingDelta.reset).toBe(false)
     expect(second.collection.drawings?.[0]).toBe(first.collection.drawings?.[0])
     expect(second.collection.drawings).toHaveLength(3)
     // 旧末根会随检查点回滚重算，新根追加；已完成的第一根保持原对象。
-    expect(second.drawingPatch.upsert).toHaveLength(2)
+    expect(second.drawingDelta.upsert).toHaveLength(2)
     script.dispose()
   })
 
@@ -43,6 +43,23 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
     script.dispose()
   })
 
+  it('stateless range keeps results outside the range', () => {
+    const script = prepare(plotSource)
+    const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
+    const first = script.runDetailed(bars, {}, undefined, { start: 0, end: 3 })
+    const values = (output: typeof first) =>
+      output.collection.plots[0]?.data.map((point) =>
+        point && 'value' in point ? point.value : undefined,
+      )
+    // 会话输出是运行态视图；下一次运行前先快照本次结果。
+    const firstValues = values(first)
+    const changed = [bar(0, 10), bar(60_000, 20), bar(120_000, 99)]
+    const second = script.runDetailed(changed, {}, undefined, { start: 2, end: 3 })
+    expect(firstValues).toEqual([10, 20, 30])
+    expect(values(second)).toEqual([10, 20, 99])
+    script.dispose()
+  })
+
   it('runs top-level initialization once across ticks', () => {
     const events: string[] = []
     const script = prepare(
@@ -50,8 +67,8 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
       [],
       (event) => events.push(event.message),
     )
-    script.run([bar(0, 10)])
-    script.run([bar(0, 10), bar(60_000, 20)])
+    script.run([bar(0, 10)], {}, undefined, { start: 0, end: 1 })
+    script.run([bar(0, 10), bar(60_000, 20)], {}, undefined, { start: 1, end: 2 })
     expect(events.filter((message) => message === 'init')).toHaveLength(1)
     script.dispose()
   })

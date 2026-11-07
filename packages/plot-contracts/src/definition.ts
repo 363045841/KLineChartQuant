@@ -99,11 +99,14 @@ export interface IndicatorDefinition<P> {
   readonly document?: IndicatorSourceDocument
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
-  /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */
+  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
+  readonly dependency?: import('./compute.js').ComputeDependency
+  /** 计算端口：给定 bars、参数与重算区间，产出完整 PlotCollection。 */
   compute(
     bars: readonly Bar[],
     params: P,
     market?: IndicatorMarketContext,
+    range?: import('./compute.js').ComputeRange,
   ): PlotCollection | Promise<PlotCollection>
 }
 

@@ -182,6 +182,10 @@ export class ChartIndicatorManager {
 
   // ========== 计算与投影运行时 ==========
   private currentData: readonly KLineData[] = []
+  private currentChange: import('@363045841yyt/klinechart-plot-contracts').ComputeChange = {
+    start: 0,
+    end: 0,
+  }
   private currentTimestamps: readonly number[] = []
   private visibleRange: VisibleRange = { start: 0, end: 0 }
   /** 非空时，计算结果需投影到该展示序列的时间戳。 */
@@ -636,11 +640,13 @@ export class ChartIndicatorManager {
   /** 数据更新入口：K 线计算，可选把结果投影到展示时间戳序列。 */
   updateIndicatorData(
     data: readonly KLineData[],
+    change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
     visibleRange: VisibleRange,
     dataRevision?: number,
     displayTimestamps: readonly number[] | null = null,
   ): void {
     this.currentData = data
+    this.currentChange = change
     this.currentTimestamps = data.map((item) => item.timestamp)
     this.visibleRange = visibleRange
     this.displayTimestamps = displayTimestamps
@@ -662,6 +668,7 @@ export class ChartIndicatorManager {
       dataRevision: this.dataRevision,
       timestamps: this.currentTimestamps,
       data: this.currentData,
+      change: this.currentChange,
     })
   }
 

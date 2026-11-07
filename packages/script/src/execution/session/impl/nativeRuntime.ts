@@ -35,7 +35,7 @@ import { createScriptConsole } from '../../impl/createScriptConsole.js'
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../impl/scriptRuntime.js'
 import type { CompiledScriptSources } from '../../types.js'
 import type {
-  DrawingPatch,
+  DrawingDelta,
   ScriptRuntime,
   ScriptRuntimeExecuteOptions,
   ScriptRuntimeExecuteResult,
@@ -63,7 +63,8 @@ interface NativeRuntime {
   drawings(): NonNullable<PlotCollection['drawings']>
   checkpoint(): NativeCheckpoint
   rollback(checkpoint: NativeCheckpoint): void
-  drawingPatch(reset: boolean): DrawingPatch
+  drawingDelta(reset: boolean): DrawingDelta
+  invalidateSeries(startIndex: number): void
   drawingCheckpoint(): NativeDrawingCheckpoint
   checkpointLibraries(): readonly unknown[]
 }
@@ -224,7 +225,7 @@ export function createNativeScriptRuntime(
         ${PIVOT_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
-        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()), checkpoint: __checkpoint, rollback: __rollback, drawingPatch: __drawingPatch, drawingCheckpoint: __drawingCheckpoint, checkpointLibraries: __checkpointLibraries }
+        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()), checkpoint: __checkpoint, rollback: __rollback, drawingDelta: __drawingDelta, invalidateSeries: __rollbackSeries, drawingCheckpoint: __drawingCheckpoint, checkpointLibraries: __checkpointLibraries }
       }).call(globalThis)
     }
   `,
@@ -288,7 +289,8 @@ export function createNativeScriptRuntime(
     execute,
     checkpoint: () => runtime.checkpoint(),
     rollback: (checkpoint) => runtime.rollback(checkpoint),
-    drawingPatch: (reset) => runtime.drawingPatch(reset),
+    invalidate: (startIndex) => runtime.invalidateSeries(startIndex),
+    drawingDelta: (reset) => runtime.drawingDelta(reset),
     /** 原生运行态随闭包释放，不需要显式清理。 */
     dispose: () => {},
   }

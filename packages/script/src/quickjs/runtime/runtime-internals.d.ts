@@ -18,7 +18,7 @@ interface RollingWindow {
 declare function __count(): number
 
 /** 绘图增量：reset 表示整体替换，否则按 id 合并 upsert 并删除 remove。 */
-interface DrawingPatch {
+interface DrawingDelta {
   readonly reset: boolean
   readonly upsert: readonly DrawingObject[]
   readonly remove: readonly string[]
@@ -59,7 +59,7 @@ declare function __checkpoint(): ScriptCheckpoint
 declare function __rollback(checkpoint: ScriptCheckpoint): void
 
 /** 取走绘图增量；reset 表示消费端必须整体替换。 */
-declare function __drawingPatch(reset: boolean): DrawingPatch
+declare function __drawingDelta(reset: boolean): DrawingDelta
 
 /** 库在完成期渲染后提交会话检查点；活动期绘图不进入该检查点。 */
 declare function __commitCheckpoint(): void

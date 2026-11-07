@@ -19,6 +19,8 @@ interface Call {
   finish(value: number[]): void
 }
 
+const STATEFUL = Object.freeze({ kind: 'stateful' } as const)
+
 /** 真实执行器搭配可控慢计算；只控制外部完成时刻，不模拟调度实现。 */
 function setup(shared = false) {
   const calls: Call[] = []
@@ -34,8 +36,8 @@ function setup(shared = false) {
     })
   const executor = createInlineIndicatorCalculationExecutor(
     [
-      { definitionId: 'slow', compute },
-      { definitionId: 'fast', compute: (data) => data.map((bar) => bar.close) },
+      { definitionId: 'slow', dependency: STATEFUL, compute },
+      { definitionId: 'fast', dependency: STATEFUL, compute: (data) => data.map((bar) => bar.close) },
     ],
     () => ({
       revision: 0,
@@ -62,6 +64,7 @@ function setup(shared = false) {
       dataRevision: revision,
       data,
       timestamps: data.map((bar) => bar.timestamp),
+      change: { start: 0, end: data.length },
     })
   }
   return {
@@ -176,6 +179,7 @@ describe('independent indicator scheduling', () => {
     const executor = createInlineIndicatorCalculationExecutor([
       {
         definitionId: 'value',
+        dependency: STATEFUL,
         compute: () => {
           if (fail) throw new Error('source unavailable')
           return [42]
@@ -191,11 +195,21 @@ describe('independent indicator scheduling', () => {
       onPending: (_ids, pending) => states.push(pending),
     })
     const data = createTestData(1)
-    await scheduler.compute({ dataRevision: 1, data, timestamps: [data[0]!.timestamp] })
+    await scheduler.compute({
+      dataRevision: 1,
+      data,
+      timestamps: [data[0]!.timestamp],
+      change: { start: 0, end: data.length },
+    })
     await vi.waitFor(() => expect(states.at(-1)).toBe(false))
     expect(commits.at(-1)!.pool.results.get('value')!.error!.message).toBe('source unavailable')
     fail = false
-    await scheduler.compute({ dataRevision: 2, data, timestamps: [data[0]!.timestamp] })
+    await scheduler.compute({
+      dataRevision: 2,
+      data,
+      timestamps: [data[0]!.timestamp],
+      change: { start: 0, end: data.length },
+    })
     expect(commits.at(-1)!.pool.results.get('value')!.series).toEqual([42])
     expect(commits.at(-1)!.pool.results.get('value')!.error).toBeUndefined()
     scheduler.dispose()

@@ -423,8 +423,14 @@ export class Chart {
           this.interaction.reset()
           this.zoomController.stopAnimation()
         },
-        updateIndicatorData: (data, range, dataRevision, displayTimestamps) =>
-          this.indicatorManager.updateIndicatorData(data, range, dataRevision, displayTimestamps),
+        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps) =>
+          this.indicatorManager.updateIndicatorData(
+            data,
+            change,
+            range,
+            dataRevision,
+            displayTimestamps,
+          ),
         isPointerDown: () => this.interaction.isPointerDown(),
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },

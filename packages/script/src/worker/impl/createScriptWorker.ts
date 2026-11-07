@@ -2,7 +2,7 @@
 
 import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/output.js'
-import { applyDrawingPatch } from '../../execution/session/impl/drawingPatch.js'
+import { applyDrawingDelta } from '../../execution/session/impl/drawingDelta.js'
 import { acquireCompilation } from '../compiler/impl/sharedCompiler.js'
 import type { CompilationLease } from '../compiler/types.js'
 import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
@@ -144,7 +144,7 @@ export function createScriptWorker(
       return operation
     },
     /** 使用 Worker 内已有编译快照计算行情。 */
-    async run(id, bars, params, context) {
+    async run(id, bars, params, context, range) {
       await ready
       if (failure) throw failure
       const inputPatch = input.encode(bars, context)
@@ -155,16 +155,17 @@ export function createScriptWorker(
           id,
           input: inputPatch,
           params,
+          range,
         },
         inputTransferList(inputPatch),
       )
       if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
       const collection = unpackPlotCollection(response.collection)
-      const patchCollection = unpackPlotCollection(response.drawings.collection)
-      const next = applyDrawingPatch(drawings.get(id) ?? [], {
-        reset: response.drawings.reset,
-        upsert: patchCollection.drawings ?? [],
-        remove: response.drawings.remove,
+      const deltaCollection = unpackPlotCollection(response.drawingDelta.collection)
+      const next = applyDrawingDelta(drawings.get(id) ?? [], {
+        reset: response.drawingDelta.reset,
+        upsert: deltaCollection.drawings ?? [],
+        remove: response.drawingDelta.remove,
       })
       drawings.set(id, next)
       return { ...collection, drawings: next }

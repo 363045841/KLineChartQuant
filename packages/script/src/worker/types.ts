@@ -1,8 +1,12 @@
 /** Script Worker 的异步执行接口与消息类型。 */
-import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  Bar,
+  ComputeRange,
+  PlotCollection,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../contracts/output.js'
 import type { CompiledScriptSources } from '../execution/types.js'
-import type { QuickJSLibrary, QuickJSScriptDefinition, ScriptParamValue } from '../quickjs/types.js'
+import type { PreparedScriptDefinition, QuickJSLibrary, ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 import type { PackedPlotCollection, RunInputPatch } from './transport/types.js'
 
@@ -13,12 +17,13 @@ export interface ScriptWorker {
     source: string,
     libraries?: readonly QuickJSLibrary[],
     trusted?: boolean,
-  ): Promise<QuickJSScriptDefinition>
+  ): Promise<PreparedScriptDefinition>
   run(
     id: string,
     bars: readonly Bar[],
     params?: Readonly<Record<string, ScriptParamValue>>,
     context?: ScriptRequestContext,
+    range?: ComputeRange,
   ): Promise<PlotCollection>
   requests(
     id: string,
@@ -42,6 +47,7 @@ export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
     bars: Parameters<ScriptWorker['run']>[1],
     params?: Parameters<ScriptWorker['run']>[2],
     context?: Parameters<ScriptWorker['run']>[3],
+    range?: Parameters<ScriptWorker['run']>[4],
     signal?: AbortSignal,
   ): ReturnType<ScriptWorker['run']>
   requests(
@@ -63,6 +69,7 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
       readonly type: 'run'
       readonly input: RunInputPatch
       readonly params?: Readonly<Record<string, ScriptParamValue>>
+      readonly range?: ComputeRange
     }
   | {
       readonly type: 'requests'
@@ -73,7 +80,7 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
 )
 
 /** 绘图增量传输：reset 整体替换，否则按 id 合并 upsert 并删除 remove。 */
-export interface PackedDrawingPatch {
+export interface PackedDrawingDelta {
   readonly reset: boolean
   readonly remove: readonly string[]
   readonly collection: PackedPlotCollection
@@ -92,11 +99,11 @@ export interface ScriptWorkerError {
 /** 请求 ID 关联一次响应，不增加握手或版本协商。 */
 export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'output'; readonly id: string; readonly events: readonly LogEvent[] }
-  | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
+  | { readonly type: 'prepare'; readonly definition: PreparedScriptDefinition }
   | {
       readonly type: 'run'
       readonly collection: PackedPlotCollection
-      readonly drawings: PackedDrawingPatch
+      readonly drawingDelta: PackedDrawingDelta
     }
   | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }
   | { readonly type: 'release' }

@@ -52,7 +52,7 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
   }
 
   /** 执行一个不可变输入；取消信号来自任务生命周期，不解释实时更新。 */
-  execute: IndicatorCalculationExecutor['execute'] = (task, data, signal) => {
+  execute: IndicatorCalculationExecutor['execute'] = (task, input, signal) => {
     signal.throwIfAborted()
     let calculator = this.calculators.get(task.calculationKey)
     if (!calculator) {
@@ -62,10 +62,10 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
       calculator = { ...definition, compute: definition.createCompute?.() ?? definition.compute }
       this.calculators.set(task.calculationKey, calculator)
     }
-    const context = this.marketData?.().context(task.calculationKey, data)
+    const context = this.marketData?.().context(task.calculationKey, input.data)
     return executeIndicatorCalculationTask(
       task,
-      data,
+      input,
       () => calculator,
       context ? { ...context, signal } : undefined,
     )

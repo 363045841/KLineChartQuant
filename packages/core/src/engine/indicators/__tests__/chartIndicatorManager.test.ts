@@ -35,6 +35,17 @@ function numberOf(params: IndicatorParameters, key: string): number {
   return typeof value === 'number' ? value : 1
 }
 
+/** 测试只关心渲染投影；变化区间取整份数据。 */
+function update(
+  manager: ChartIndicatorManager,
+  data: readonly KLineData[],
+  range: { start: number; end: number },
+  dataRevision?: number,
+  display?: readonly number[] | null,
+): void {
+  manager.updateIndicatorData(data, { start: 0, end: data.length }, range, dataRevision, display)
+}
+
 beforeAll(async () => {
   await loadBuiltinIndicators()
   registerPlotIndicatorFixture({
@@ -137,7 +148,7 @@ describe('ChartIndicatorManager', () => {
     deps.indicator.actions.upsertMain(name, {})
     const instance = deps.indicator.readonly.instances.peek()[0]!
     const data = createTestData(3)
-    manager.updateIndicatorData(data, { start: 0, end: 3 })
+    update(manager, data, { start: 0, end: 3 })
     expect(manager.indicatorsComputed().map((entry) => entry.id)).toContain(instance.instanceId)
     expect(manager.createRenderStateReader().get(instance.instanceId)).toBeUndefined()
     const compute = vi.fn(() => ({ plots: [], fills: [] }))
@@ -193,13 +204,13 @@ describe('ChartIndicatorManager', () => {
       const reader = manager.createRenderStateReader()
       /** 从同一读取器观察同步展示更新与异步提交之间的窗口。 */
       const read = (): PlotRenderState => reader.get<PlotRenderState>(id)!
-      manager.updateIndicatorData(initial, { start: 0, end: 3 })
+      update(manager, initial, { start: 0, end: 3 })
       await vi.waitFor(() => expect(read()?.plots[0]?.data).toHaveLength(3))
       const original = read()
-      manager.updateIndicatorData(all.slice(2, 7), { start: 0, end: 5 })
+      update(manager, all.slice(2, 7), { start: 0, end: 5 })
       expect(read().plots[0]?.data).toEqual([undefined, undefined, ...original.plots[0]!.data])
       expect(read().drawings?.[0]?.anchors.map((anchor) => anchor.logicalIndex)).toEqual([2, 5])
-      manager.updateIndicatorData(all, { start: 0, end: 8 })
+      update(manager, all, { start: 0, end: 8 })
       expect(read().plots[0]?.data).toEqual([
         undefined,
         undefined,
@@ -223,7 +234,7 @@ describe('ChartIndicatorManager', () => {
     manager.enableMainIndicator('PlotClose')
     const data = createTestData(3)
     const display = [data[1]!.timestamp, data[2]!.timestamp]
-    manager.updateIndicatorData(data, { start: 0, end: 2 }, 1, display)
+    update(manager, data, { start: 0, end: 2 }, 1, display)
     const reader = manager.createRenderStateReader()
     await vi.waitFor(() =>
       expect(reader.get<PlotRenderState>('main:PlotClose')?.plots[0]?.data).toEqual([
@@ -276,7 +287,7 @@ describe('ChartIndicatorManager', () => {
       const id = harness.indicator.readonly.instances
         .peek()
         .find((instance) => instance.indicatorId === name)!.instanceId
-      manager.updateIndicatorData(createTestData(5), { start: 0, end: 5 })
+      update(manager, createTestData(5), { start: 0, end: 5 })
       const reader = manager.createRenderStateReader()
       await vi.waitFor(() => expect(reader.get<PlotRenderState>(id)?.drawings).toHaveLength(1))
       const output = reader.get<PlotRenderState>(id)!
@@ -308,7 +319,7 @@ describe('ChartIndicatorManager', () => {
     const instance = manager.addIndicator('PlotVolume')
     expect(instance).not.toBeNull()
     const data = createTestData(5)
-    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    update(manager, data, { start: 0, end: 5 })
     await vi.waitFor(() => expect(manager.createRenderStateReader().get(instance!)).toBeDefined())
     const state = manager.createRenderStateReader().get<PlotRenderState>(instance!)!
     expect(state.plots[0]).toMatchObject({ kind: 'columns', baseline: 0 })
@@ -344,7 +355,7 @@ describe('ChartIndicatorManager', () => {
     expect(id).not.toBeNull()
     const pane = manager.getSubPaneEntries()[0]!
     const data = createTestData(3)
-    manager.updateIndicatorData(data, { start: 0, end: 3 })
+    update(manager, data, { start: 0, end: 3 })
     const read = () => manager.createRenderStateReader().get<PlotRenderState>(id ?? '')
     await vi.waitFor(() =>
       expect(read()?.plots[0]?.data[0]).toMatchObject({ value: data[0]?.close }),
@@ -414,7 +425,7 @@ describe('ChartIndicatorManager', () => {
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
     manager.enableMainIndicator('PlotClose')
     const data = createTestData(5)
-    manager.updateIndicatorData(data, { start: 0, end: 5 })
+    update(manager, data, { start: 0, end: 5 })
     const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:PlotClose')
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
     const state = read()!
@@ -431,7 +442,7 @@ describe('ChartIndicatorManager', () => {
     await vi.waitFor(() =>
       expect(read()?.plots[0]?.data[0]).toMatchObject({ value: data[0]!.close * 2 }),
     )
-    manager.updateIndicatorData(data.slice(0, 3), { start: 0, end: 3 })
+    update(manager, data.slice(0, 3), { start: 0, end: 3 })
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
     manager.disableMainIndicator('PlotClose')
     expect(read()).toBeUndefined()

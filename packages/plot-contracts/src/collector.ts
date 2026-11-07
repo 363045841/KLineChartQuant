@@ -74,12 +74,13 @@ export class PlotCollector {
   }
 
   /**
-   * 为增量运行准备列：按新 bar 数扩展/截断，并清空 startIndex 之后的旧输出。
-   * 保留 startIndex 之前的列，避免每次重算都重建整份 Plot 数据。
+   * 为增量运行准备列：按新 bar 数扩展/截断，并清空 [startIndex, endIndex) 的旧输出。
+   * 保留区间之外的列，避免每次重算都重建整份 Plot 数据。
    */
-  prepare(barCount: number, startIndex: number): void {
+  prepare(barCount: number, startIndex: number, endIndex: number = barCount): void {
     if (barCount !== this.barCount) {
       for (const entry of this.entries.values()) {
+        // 分支只用于把判别联合收窄到具体列类型；两种列共用同一套扩展规则。
         if (entry.source === 'ohlc') resizeColumn(entry.data, barCount, undefined)
         else resizeColumn(entry.data, barCount, undefined)
       }
@@ -87,10 +88,12 @@ export class PlotCollector {
       this.barCount = barCount
     }
     for (const entry of this.entries.values()) {
-      if (entry.source === 'ohlc') clearColumnFrom(entry.data, startIndex, undefined)
-      else clearColumnFrom(entry.data, startIndex, undefined)
+      if (entry.source === 'ohlc')
+        clearColumnFrom(entry.data, startIndex, endIndex, undefined)
+      else clearColumnFrom(entry.data, startIndex, endIndex, undefined)
     }
-    for (const fill of this.fills.values()) clearColumnFrom(fill.colors, startIndex, null)
+    for (const fill of this.fills.values())
+      clearColumnFrom(fill.colors, startIndex, endIndex, null)
   }
 
   /** 按名称采集当前 bar 的填充颜色；边界和整列显隐在一次运行内固定。 */
@@ -254,9 +257,11 @@ function resizeColumn<T>(values: T[], length: number, empty: T): void {
   for (let index = previous; index < length; index++) values[index] = empty
 }
 
-/** 清空 startIndex 及之后的列；增量重算只覆盖受影响尾部。 */
-function clearColumnFrom<T>(values: T[], startIndex: number, empty: T): void {
-  for (let index = Math.max(0, startIndex); index < values.length; index++) values[index] = empty
+/** 清空 [startIndex, endIndex) 的列；增量重算只覆盖受影响区间。 */
+function clearColumnFrom<T>(values: T[], startIndex: number, endIndex: number, empty: T): void {
+  const start = Math.max(0, startIndex)
+  const end = Math.min(values.length, endIndex)
+  for (let index = start; index < end; index++) values[index] = empty
 }
 
 /** 填充的固定元数据与逐 bar 颜色分别保存。 */

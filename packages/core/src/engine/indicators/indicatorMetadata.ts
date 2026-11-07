@@ -133,11 +133,14 @@ export interface IndicatorInputDef {
 export interface IndicatorRuntimeDescriptor<C = any> {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
+  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
+  dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
   /** 每个执行器创建独立的增量 calculator。 */
   createCompute?: () => (
     data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
@@ -148,6 +151,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'

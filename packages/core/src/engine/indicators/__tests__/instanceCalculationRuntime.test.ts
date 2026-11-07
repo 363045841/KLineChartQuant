@@ -1,12 +1,26 @@
 /** 单任务执行契约：计算器隔离、定义替换、错误输出和有效数据边界。 */
+import type { KLineData } from '@/foundation/types/price.js'
 import { describe, expect, it, vi } from 'vitest'
 import { findInstanceFirstReadyIndex } from '../instances/execution/instanceCalculationRuntime.js'
 import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
+import type { IndicatorCalculationInput } from '../instances/execution/types.js'
 import {
   createTestData,
   createTestInstance,
   FakeCalculationSource,
 } from './helpers/instanceTestKit.js'
+
+/** 测试输入：整段变化，依赖按有状态处理。 */
+function input(data: readonly KLineData[]): IndicatorCalculationInput {
+  return {
+    dataRevision: 0,
+    timestamps: data.map((item) => item.timestamp),
+    data,
+    change: { start: 0, end: data.length },
+  }
+}
+
+const STATEFUL = Object.freeze({ kind: 'stateful' } as const)
 
 describe('indicator execution repository', () => {
   it('reuses calculators per identity and replaces only the edited definition', async () => {
@@ -20,18 +34,18 @@ describe('indicator execution repository', () => {
     ])
     const other = vi.fn(() => [9])
     const runtime = new IndicatorInstanceExecutionRuntime([
-      { definitionId: 'value', compute: () => [], createCompute: factory },
-      { definitionId: 'other', compute: other },
+      { definitionId: 'value', dependency: STATEFUL, compute: () => [], createCompute: factory },
+      { definitionId: 'other', dependency: STATEFUL, compute: other },
     ])
     const tasks = source.calculationPlan().tasks
-    const data = createTestData(1)
+    const data = input(createTestData(1))
     const signal = new AbortController().signal
     runtime.retain(tasks)
     expect((await runtime.execute(tasks[0]!, data, signal)).series).toEqual([1])
     expect((await runtime.execute(tasks[1]!, data, signal)).series).toEqual([2])
     await runtime.execute(tasks[0]!, data, signal)
     expect(factory).toHaveBeenCalledTimes(2)
-    runtime.updateDefinition({ definitionId: 'value', compute: () => [3] })
+    runtime.updateDefinition({ definitionId: 'value', dependency: STATEFUL, compute: () => [3] })
     expect((await runtime.execute(tasks[0]!, data, signal)).series).toEqual([3])
     expect((await runtime.execute(tasks[2]!, data, signal)).series).toEqual([9])
     expect(other).toHaveBeenCalledOnce()
@@ -45,6 +59,7 @@ describe('indicator execution repository', () => {
     const runtime = new IndicatorInstanceExecutionRuntime([
       {
         definitionId: 'bad',
+        dependency: STATEFUL,
         compute: () => {
           throw Object.assign(new Error('invalid plot'), {
             code: 'TEST_PLOT',
@@ -56,7 +71,7 @@ describe('indicator execution repository', () => {
     ])
     const result = await runtime.execute(
       source.calculationPlan().tasks[0]!,
-      createTestData(2),
+      input(createTestData(2)),
       new AbortController().signal,
     )
     expect(structuredClone(result).error).toEqual({
@@ -75,7 +90,7 @@ describe('indicator execution repository', () => {
     const task = new FakeCalculationSource([
       createTestInstance({ instanceId: 'missing', definitionId: 'missing' }),
     ]).calculationPlan().tasks[0]!
-    await expect(runtime.execute(task, [], new AbortController().signal)).rejects.toThrow(
+    await expect(runtime.execute(task, input([]), new AbortController().signal)).rejects.toThrow(
       'Unknown indicator definition',
     )
   })

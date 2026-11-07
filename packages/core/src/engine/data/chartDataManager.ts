@@ -104,6 +104,7 @@ export interface DataDependencies {
   /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
   updateIndicatorData: (
     data: readonly KLineData[],
+    change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
     range: VisibleRange,
     dataRevision?: number,
     displayTimestamps?: readonly number[] | null,
@@ -845,6 +846,7 @@ export class ChartDataManager {
       // 指标计算异步提交，提交后由结果链路回调 scheduleDraw / 预警。
       this.deps.updateIndicatorData(
         bufferData,
+        change,
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
       )
@@ -924,6 +926,7 @@ export class ChartDataManager {
       // 1min K 线计算，结果投影到分时展示时间戳；提交后由结果链路回调重绘。
       this.deps.updateIndicatorData(
         [...result.series.data],
+        { start: 0, end: result.series.data.length },
         range,
         this._dataState.readonly.dataRevision.peek(),
         data.map((item) => item.timestamp),

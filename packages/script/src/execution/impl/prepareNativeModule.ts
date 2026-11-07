@@ -1,4 +1,5 @@
 /** 可信脚本的原生执行后端：编译产物交给常驻会话，不加载 TypeScript，不提供沙箱保护。 */
+import type { ComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/output.js'
 import type { PreparedQuickJSScript, ScriptParamValue } from '../../quickjs/types.js'
@@ -16,10 +17,11 @@ export function prepareNativeModule(
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createNativeScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
+    dependency: compiled.dependency,
     onLog,
   })
   return Object.freeze({
-    definition: session.definition,
+    definition: Object.freeze({ ...session.definition, dependency: compiled.dependency }),
     requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
       return session.requests(params, symbol)
     },
@@ -27,17 +29,17 @@ export function prepareNativeModule(
       bars: readonly Bar[],
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
-      startIndex?: number,
+      range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, startIndex }).collection
+      return session.run({ bars, params, context, range }).collection
     },
     runDetailed(
       bars: readonly Bar[],
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
-      startIndex?: number,
+      range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, startIndex })
+      return session.run({ bars, params, context, range })
     },
     dispose() {
       session.dispose()

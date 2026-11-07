@@ -4,6 +4,7 @@
  * 宿主只提供行情与输出桥，Series/ta 全部在 VM prelude 内；同一脚本的 VM 不再按 tick 重建。
  */
 import {
+  type ComputeRange,
   type DrawingObject,
   isPlotKind,
   type PersistedDrawingAnchor,
@@ -26,7 +27,7 @@ import { createScriptConsole } from '../../execution/impl/createScriptConsole.js
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
 import { createScriptExecutionSession } from '../../execution/session/impl/createScriptExecutionSession.js'
 import type {
-  DrawingPatch,
+  DrawingDelta,
   ScriptRuntime,
   ScriptRuntimeExecuteOptions,
   ScriptRuntimeExecuteResult,
@@ -355,7 +356,7 @@ type DumpedAnchor = Omit<PersistedDrawingAnchor, 'logicalIndex' | 'time' | 'pric
 type DumpedDrawing = Omit<DrawingObject, 'anchors'> & {
   readonly anchors: readonly DumpedAnchor[]
 }
-type DumpedDrawingPatch = {
+type DumpedDrawingDelta = {
   readonly reset: boolean
   readonly upsert: readonly DumpedDrawing[]
   readonly remove: readonly string[]
@@ -375,7 +376,7 @@ function normalizeAnchor(anchor: DumpedAnchor): PersistedDrawingAnchor {
 }
 
 /** 把 VM 增量恢复成领域对象；未变化对象仍由消费端保留原引用。 */
-function normalizeDrawingPatch(patch: DumpedDrawingPatch): DrawingPatch {
+function normalizeDrawingDelta(patch: DumpedDrawingDelta): DrawingDelta {
   return {
     reset: patch.reset,
     remove: patch.remove,
@@ -476,8 +477,10 @@ export function createQuickJSScriptRuntime(
     handles.push(checkpointFn)
     const rollbackFn = evalOrThrow(vm, '__rollback', 'compile', timeout)
     handles.push(rollbackFn)
-    const patchFn = evalOrThrow(vm, '__drawingPatch', 'compile', timeout)
+    const patchFn = evalOrThrow(vm, '__drawingDelta', 'compile', timeout)
     handles.push(patchFn)
+    const invalidateFn = evalOrThrow(vm, '__rollbackSeries', 'compile', timeout)
+    handles.push(invalidateFn)
     const drawingCheckpointFn = evalOrThrow(vm, '__drawingCheckpoint', 'compile', timeout)
     handles.push(drawingCheckpointFn)
     const checkpointLibrariesFn = evalOrThrow(vm, '__checkpointLibraries', 'compile', timeout)
@@ -532,7 +535,7 @@ export function createQuickJSScriptRuntime(
       state.failure = undefined
       deadline = Date.now() + SCRIPT_TIMEOUT_MS
       timeout.expired = false
-      state.collector.prepare(input.bars.length, input.startIndex)
+      state.collector.prepare(input.bars.length, input.startIndex, input.endIndex)
       evalOrThrow(
         vm,
         `globalThis.__requestContext = ${requestExecutionSource(input.execution)}`,
@@ -588,16 +591,27 @@ export function createQuickJSScriptRuntime(
         checkpoint.handle.dispose()
         if (checkpointHandle === checkpoint.handle) checkpointHandle = undefined
       },
-      drawingPatch(reset) {
+      invalidate(startIndex) {
+        const start = vm.newNumber(startIndex)
+        const result = vm.callFunction(invalidateFn, vm.undefined, start)
+        start.dispose()
+        if (result.error) {
+          const message = describeFailure(vm, result.error, timeout)
+          result.error.dispose()
+          throw new ScriptExecutionError('run', message)
+        }
+        result.value.dispose()
+      },
+      drawingDelta(reset) {
         const result = vm.callFunction(patchFn, vm.undefined, reset ? vm.true : vm.false)
         if (result.error) {
           const message = describeFailure(vm, result.error, timeout)
           result.error.dispose()
           throw new ScriptExecutionError('run', message)
         }
-        const dumped: DumpedDrawingPatch = vm.dump(result.value)
+        const dumped: DumpedDrawingDelta = vm.dump(result.value)
         result.value.dispose()
-        return normalizeDrawingPatch(dumped)
+        return normalizeDrawingDelta(dumped)
       },
       dispose() {
         checkpointHandle?.dispose()
@@ -622,10 +636,11 @@ export function prepareQuickJSModule(
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
+    dependency: compiled.dependency,
     onLog,
   })
   return Object.freeze({
-    definition: session.definition,
+    definition: Object.freeze({ ...session.definition, dependency: compiled.dependency }),
     requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
       return session.requests(params, symbol)
     },
@@ -633,17 +648,17 @@ export function prepareQuickJSModule(
       bars: readonly Bar[],
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
-      startIndex?: number,
+      range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, startIndex }).collection
+      return session.run({ bars, params, context, range }).collection
     },
     runDetailed(
       bars: readonly Bar[],
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
-      startIndex?: number,
+      range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, startIndex })
+      return session.run({ bars, params, context, range })
     },
     dispose() {
       session.dispose()

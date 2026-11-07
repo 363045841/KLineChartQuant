@@ -64,7 +64,7 @@ export * from './contracts/library.js'
 export * from './contracts/output.js'
 export { ScriptExecutionError } from './errors.js'
 export type {
-  DrawingPatch,
+  DrawingDelta,
   ScriptExecutionSession,
   ScriptRuntime,
   ScriptRuntimeExecuteOptions,
@@ -87,6 +87,7 @@ export {
 } from './quickjs/impl/runQuickJSScript.js'
 export type {
   PreparedQuickJSScript,
+  PreparedScriptDefinition,
   QuickJSLibrary,
   QuickJSRunOptions,
   QuickJSScriptDefinition,

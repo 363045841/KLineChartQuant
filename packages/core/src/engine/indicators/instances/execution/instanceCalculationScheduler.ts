@@ -59,7 +59,7 @@ export function createInstanceCalculationScheduler(
     void Promise.resolve()
       .then(() => {
         lane.abort.signal.throwIfAborted()
-        return options.executor.execute(lane.task, work.input.data, lane.abort.signal)
+        return options.executor.execute(lane.task, work.input, lane.abort.signal)
       })
       .then((output) => {
         if (!active(key, lane)) return

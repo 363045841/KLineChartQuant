@@ -1,6 +1,12 @@
 /** 单次计算的输出规范化：错误诊断、参数传递和firstReadyIndex；不承担调度。 */
 
-import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  type ComputeChange,
+  type ComputeDependency,
+  type ComputeRange,
+  isOhlcPlot,
+  resolveComputeRange,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { KLineData } from '@/foundation/types/price.js'
 import { isPlotCollection } from '../../../plots/impl/readPlotState.js'
 import type {
@@ -8,15 +14,19 @@ import type {
   IndicatorCalculationTask,
 } from '../domain/instanceCalculationPlan.js'
 import type { IndicatorParameters } from '../domain/instanceModel.js'
+import type { IndicatorCalculationInput } from './types.js'
 
 export interface IndicatorCalculationDefinition {
   readonly createCompute?: () => IndicatorCalculationDefinition['compute']
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
+  /** 计算对历史的依赖；由定义声明，缺省按有状态处理。 */
+  readonly dependency: ComputeDependency
   compute(
     data: readonly KLineData[],
     params: IndicatorParameters,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    range?: ComputeRange,
   ): unknown
 }
 
@@ -54,18 +64,19 @@ export function findInstanceFirstReadyIndex(value: unknown, dataLength: number):
   return null
 }
 
-/** 执行一个去重任务。context 的解释权属于未来具备上下文计算能力的 definition；当前不隐式混入参数。 */
+/** 执行一个去重任务。重算区间由依赖推导，执行器只消费。 */
 export async function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
-  data: readonly KLineData[],
+  input: IndicatorCalculationInput,
   resolveDefinition: IndicatorCalculationDefinitionResolver,
   market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
 ): Promise<IndicatorCalculationOutput> {
   const definition = resolveDefinition(task.definitionId)
   if (!definition) throw new TypeError(`Unknown indicator definition: ${task.definitionId}`)
+  const range = resolveComputeRange(input.change, definition.dependency, input.data.length)
   let series: unknown
   try {
-    series = await definition.compute(data, task.params, market)
+    series = await definition.compute(input.data, task.params, market, range)
   } catch (error) {
     // 失败作为本任务的结果提交，其他实例继续计算，旧绘图随结果池一并替换。
     return Object.freeze({
@@ -92,6 +103,6 @@ export async function executeIndicatorCalculationTask(
     firstReadyIndex:
       definition.outputAlignment === 'aggregate'
         ? null
-        : findInstanceFirstReadyIndex(series, data.length),
+        : findInstanceFirstReadyIndex(series, input.data.length),
   })
 }

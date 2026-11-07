@@ -56,20 +56,20 @@ function runRequest(
         current.bars,
         message.params,
         current.context,
-        current.startIndex,
+        message.range,
       )
       const { drawings: _drawings, ...collection } = result.collection
       return {
         requestId,
         type: 'run',
         collection: packPlotCollection(collection),
-        drawings: {
-          reset: result.drawingPatch.reset,
-          remove: result.drawingPatch.remove,
+        drawingDelta: {
+          reset: result.drawingDelta.reset,
+          remove: result.drawingDelta.remove,
           collection: packPlotCollection({
             plots: [],
             fills: [],
-            drawings: result.drawingPatch.upsert,
+            drawings: result.drawingDelta.upsert,
           }),
         },
       }
@@ -131,7 +131,7 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
   globalThis.postMessage(response, {
     transfer:
       response.type === 'run'
-        ? [response.collection.buffer, response.drawings.collection.buffer]
+        ? [response.collection.buffer, response.drawingDelta.collection.buffer]
         : [],
   })
 }

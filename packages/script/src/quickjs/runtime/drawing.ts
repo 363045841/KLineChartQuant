@@ -118,7 +118,7 @@ function __drawingRollback(checkpoint: DrawingCheckpoint): void {
 }
 
 /** 取走自上次调用以来的绘图增量；reset 表示消费端必须整体替换。 */
-function __drawingPatch(reset: boolean): DrawingPatch {
+function __drawingDelta(reset: boolean): DrawingDelta {
   const upsert = reset
     ? __drawingObjects.slice()
     : __drawingObjects.filter((drawing) => __drawingDirty.has(drawing.id))

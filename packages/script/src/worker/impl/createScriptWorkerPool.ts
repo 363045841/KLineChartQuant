@@ -1,5 +1,5 @@
 /** 长寿命Worker池：FIFO领取任务，按线程缓存编译；只响应显式生命周期取消。 */
-import type { QuickJSLibrary, QuickJSScriptDefinition } from '../../quickjs/types.js'
+import type { PreparedScriptDefinition, QuickJSLibrary } from '../../quickjs/types.js'
 import type { ScriptWorker, ScriptWorkerPool, ScriptWorkerPoolOptions } from '../types.js'
 import { createScriptWorker } from './createScriptWorker.js'
 
@@ -10,7 +10,7 @@ interface Source {
 }
 interface Compilation {
   readonly source: Source
-  readonly definition: QuickJSScriptDefinition
+  readonly definition: PreparedScriptDefinition
 }
 interface Slot {
   worker?: ScriptWorker
@@ -58,7 +58,7 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
   function schedule<T>(
     id: string,
     source: Source,
-    run: (worker: ScriptWorker, definition: QuickJSScriptDefinition) => Promise<T>,
+    run: (worker: ScriptWorker, definition: PreparedScriptDefinition) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<T> {
     if (disposed) return Promise.reject(new Error('Script Worker pool 已销毁'))
@@ -155,8 +155,8 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
         throw error
       }
     },
-    run: (id, bars, params, context, signal) =>
-      use(id, (worker) => worker.run(id, bars, params, context), signal),
+    run: (id, bars, params, context, range, signal) =>
+      use(id, (worker) => worker.run(id, bars, params, context, range), signal),
     requests: (id, params, symbol, signal) =>
       use(id, (worker) => worker.requests(id, params, symbol), signal),
     async release(id) {

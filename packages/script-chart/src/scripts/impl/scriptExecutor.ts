@@ -10,11 +10,12 @@ import {
 } from '@363045841yyt/klinechart-core'
 import {
   type Bar,
+  type ComputeRange,
   type IndicatorMarketContext,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
-  type QuickJSScriptDefinition,
+  type PreparedScriptDefinition,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
 import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
@@ -26,7 +27,7 @@ import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 /** 一次准备的编译句柄；提交成功前不进入运行表。 */
 export interface PreparedScript {
   readonly handle: string
-  readonly definition: QuickJSScriptDefinition
+  readonly definition: PreparedScriptDefinition
 }
 
 /** 执行器实例：编译、发布、运行与句柄回收的唯一入口。 */
@@ -60,10 +61,11 @@ export function createScriptExecutor(
     bars: readonly Bar[],
     params: Readonly<Record<string, number | string | boolean>>,
     market?: IndicatorMarketContext,
+    range?: ComputeRange,
   ) {
-    if (market === undefined) return worker.run(handle, bars, params)
+    if (market === undefined) return worker.run(handle, bars, params, undefined, range)
     const context = await prepareScriptMarketData(worker, handle, params, market)
-    return worker.run(handle, bars, params, context, market.signal)
+    return worker.run(handle, bars, params, context, range, market.signal)
   }
 
   /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */
@@ -111,7 +113,12 @@ export function createScriptExecutor(
       id,
       source: 'script',
       document,
-      compute: (bars, params, market) => compute(prepared.handle, bars, params, market),
+      compute: (
+        bars,
+        params: Readonly<Record<string, number | string | boolean>>,
+        market,
+        range,
+      ) => compute(prepared.handle, bars, params, market, range),
     })
     const previous = handles.get(id)
     handles.set(id, prepared.handle)

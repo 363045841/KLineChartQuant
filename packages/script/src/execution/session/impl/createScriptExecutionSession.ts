@@ -1,5 +1,11 @@
-/** 脚本执行会话：常驻运行时、尾部增量、同 bar 回滚和 Request 增量对齐的唯一装配点。 */
-import type { Bar, DrawingObject, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+/** 脚本执行会话：常驻运行时、区间执行、依赖驱动的重置与 Request 增量对齐。 */
+import type {
+  Bar,
+  ComputeDependency,
+  ComputeRange,
+  DrawingObject,
+  PlotCollection,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../../contracts/output.js'
 import type { ScriptParamValue } from '../../../quickjs/types.js'
 import { createRequestAligner, type RequestAligner } from '../../../request/impl/requestAligner.js'
@@ -19,11 +25,12 @@ import type {
   ScriptSessionRunOptions,
 } from '../types.js'
 import { firstChangedBar } from './changeRange.js'
-import { applyDrawingPatch } from './drawingPatch.js'
+import { applyDrawingDelta } from './drawingDelta.js'
 
-/** 会话装配选项；onLog 只转发主脚本日志，表达式运行不输出日志。 */
+/** 会话装配选项；dependency 来自编译期推断，会话不再自行判断状态性。 */
 export interface ScriptSessionOptions<Checkpoint> {
   readonly createRuntime: ScriptRuntimeFactory<Checkpoint>
+  readonly dependency: ComputeDependency
   readonly onLog?: (event: LogEvent) => void
 }
 
@@ -55,7 +62,7 @@ function emptyCollection(): PlotCollection {
   return { plots: [], fills: [], drawings: [] }
 }
 
-/** 创建一个脚本执行会话；主运行时在准备阶段建立，后续 tick 只执行尾部。 */
+/** 创建一个脚本执行会话；主运行时在准备阶段建立，后续按区间执行。 */
 export function createScriptExecutionSession<Checkpoint>(
   options: ScriptSessionOptions<Checkpoint>,
 ): ScriptExecutionSession {
@@ -86,7 +93,7 @@ export function createScriptExecutionSession<Checkpoint>(
     runtimeFresh = true
   }
 
-  /** 解析并更新所有 Request 对齐结果；主图 startIndex 决定尾部重算范围。 */
+  /** 解析并更新所有 Request 对齐结果；主图区间起点决定尾部重算范围。 */
   function resolveRequestExecution(input: {
     bars: readonly Bar[]
     params: Readonly<Record<string, ScriptParamValue>>
@@ -201,15 +208,59 @@ export function createScriptExecutionSession<Checkpoint>(
     bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>>,
   ): ScriptSessionOutput {
-    const drawingPatch = main.drawingPatch(reset)
-    retainedDrawings = applyDrawingPatch(retainedDrawings, drawingPatch)
+    const drawingDelta = main.drawingDelta(reset)
+    retainedDrawings = applyDrawingDelta(retainedDrawings, drawingDelta)
     previousBars = bars.slice()
     mainParams = { ...params }
     runtimeFresh = false
     return {
       collection: { ...result.collection, drawings: retainedDrawings },
-      drawingPatch,
+      drawingDelta,
     }
+  }
+
+  /** 有状态执行：从 from 起跑到末根；最后一根单独提交检查点。 */
+  function runStateful(
+    from: number,
+    bars: readonly Bar[],
+    params: Readonly<Record<string, ScriptParamValue>>,
+    execution: RequestExecution,
+  ): ScriptSessionOutput {
+    const reset = runtimeFresh
+    if (bars.length > 1) {
+      main.execute({
+        bars,
+        startIndex: from,
+        endIndex: bars.length - 1,
+        params,
+        execution,
+        emit: options.onLog,
+      })
+      checkpoint = main.checkpoint()
+      const result = main.execute({
+        bars,
+        startIndex: bars.length - 1,
+        endIndex: bars.length,
+        params,
+        execution,
+        emit: options.onLog,
+        checkpointIndex: bars.length - 1,
+      })
+      checkpoint = result.checkpoint ?? checkpoint
+      return commit(result, reset, bars, params)
+    }
+    checkpoint = main.checkpoint()
+    const result = main.execute({
+      bars,
+      startIndex: 0,
+      endIndex: 1,
+      params,
+      execution,
+      emit: options.onLog,
+      checkpointIndex: 0,
+    })
+    checkpoint = result.checkpoint ?? checkpoint
+    return commit(result, reset, bars, params)
   }
 
   resetMain({}, CURRENT_SYMBOL)
@@ -240,78 +291,46 @@ export function createScriptExecutionSession<Checkpoint>(
           if (!runtimeFresh) resetMain(params, symbol)
           return {
             collection: emptyCollection(),
-            drawingPatch: { reset: true, upsert: [], remove: [] },
+            drawingDelta: { reset: true, upsert: [], remove: [] },
           }
         }
-        const change = input.startIndex ?? firstChangedBar(previousBars, bars)
-        let runFrom: number
-        let reset: boolean
-        if (runtimeFresh) {
-          runFrom = 0
-          reset = true
-        } else if (change >= previousBars.length - 1 && checkpoint !== undefined) {
-          runFrom = Math.min(change, previousBars.length - 1)
-          main.rollback(checkpoint)
-          reset = false
-        } else {
-          resetMain(params, symbol)
-          runFrom = 0
-          reset = true
-        }
+        let range: ComputeRange = input.range ?? { start: 0, end: bars.length }
+        const stateful = options.dependency.kind === 'stateful'
+        const previousLength = previousBars.length
+        // 只有从上一轮末根开始的尾部更新才能复用检查点；其余区间一律重建。
+        const tailOnly = previousLength > 0 && range.start >= previousLength - 1
+        if (stateful && !tailOnly) resetMain(params, symbol)
+
         const requestResult = resolveRequestExecution({
           bars,
           params,
           context: input.context,
-          startIndex: runFrom,
+          startIndex: range.start,
           symbol,
         })
         if (requestResult.historyChanged) {
-          // 目标周期历史已修正：主图对齐结果整段重算，Request 运行态保留新目标状态。
-          main.dispose()
-          main = options.createRuntime({ params, symbol })
-          mainParams = { ...params }
-          previousBars = []
-          checkpoint = undefined
-          retainedDrawings = []
-          runtimeFresh = true
-          runFrom = 0
-          reset = true
+          resetMain(params, symbol)
+          range = { start: 0, end: bars.length }
         }
         const execution = requestResult.execution
-        if (bars.length > 1) {
-          main.execute({
-            bars,
-            startIndex: runFrom,
-            endIndex: bars.length - 1,
-            params,
-            execution,
-            emit: options.onLog,
-          })
-          checkpoint = main.checkpoint()
-          const result = main.execute({
-            bars,
-            startIndex: bars.length - 1,
-            endIndex: bars.length,
-            params,
-            execution,
-            emit: options.onLog,
-            checkpointIndex: bars.length - 1,
-          })
-          checkpoint = result.checkpoint ?? checkpoint
-          return commit(result, reset, bars, params)
+
+        if (stateful) {
+          if (tailOnly && checkpoint !== undefined) main.rollback(checkpoint)
+          const from = tailOnly ? Math.min(range.start, bars.length - 1) : 0
+          return runStateful(from, bars, params, execution)
         }
-        checkpoint = main.checkpoint()
+
+        // 无状态：只重算区间，区间外的派生缓存与结果保持不变。
+        main.invalidate(range.start)
         const result = main.execute({
           bars,
-          startIndex: 0,
-          endIndex: 1,
+          startIndex: range.start,
+          endIndex: range.end,
           params,
           execution,
           emit: options.onLog,
-          checkpointIndex: 0,
         })
-        checkpoint = result.checkpoint ?? checkpoint
-        return commit(result, reset, bars, params)
+        return commit(result, runtimeFresh, bars, params)
       } catch (error) {
         dirty = true
         throw error

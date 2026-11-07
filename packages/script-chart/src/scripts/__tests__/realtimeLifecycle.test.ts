@@ -51,10 +51,12 @@ describe('realtime script lifecycle', () => {
       [
         {
           definitionId: 'slow',
+          dependency: { kind: 'stateful' },
           compute: (data, _params, market) => slow.compute(data, {}, market),
         },
         {
           definitionId: 'fast',
+          dependency: { kind: 'stateful' },
           compute: (data, _params, market) => fast.compute(data, {}, market),
         },
       ],
@@ -91,6 +93,7 @@ describe('realtime script lifecycle', () => {
         dataRevision: revision,
         data,
         timestamps: data.map((bar) => bar.timestamp),
+        change: { start: 0, end: data.length },
       })
     try {
       const first = update(1)
