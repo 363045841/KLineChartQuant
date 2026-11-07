@@ -49,6 +49,19 @@ describe('analyzeScriptDependency', () => {
     })
   })
 
+  it('顶层辅助函数里的递归调用也按有状态处理', () => {
+    const source = `function average(source, length) { return ta.ema(source, length) }
+defineIndicator({ name:'T', position:Position.Main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`
+    expect(analyzeScriptDependency(source)).toEqual({ kind: 'stateful' })
+  })
+
+  it('pivot 的左右窗口都计入回看', () => {
+    expect(analyzeScriptDependency(script(`plot.Line(ta.pivothigh(high, 2, 3)[0], 'p')`))).toEqual({
+      kind: 'stateless',
+      lookback: 5,
+    })
+  })
+
   it('导入有状态库按有状态处理', () => {
     const library = { name: 'statefulLib', source: 'let profileBars = []' }
     expect(

@@ -210,7 +210,7 @@ function profileLine(
   let touched = false
   if (extended) {
     for (const bar of profileBars) {
-      if (bar.time < end || price < bar.low || price > bar.high) continue
+      if (!bar || bar.time < end || price < bar.low || price > bar.high) continue
       end = bar.end
       touched = true
       break
@@ -236,7 +236,7 @@ function profileLine(
 function updateStageLine(stage: StageLine): void {
   if (!stage.extending) return
   for (const bar of profileBars) {
-    if (bar.time < stage.end || stage.price < bar.low || stage.price > bar.high) continue
+    if (!bar || bar.time < stage.end || stage.price < bar.low || stage.price > bar.high) continue
     stage.end = bar.end
     stage.extending = false
     line.set_x2(stage.ref, bar.end)
@@ -281,7 +281,9 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
   }
   for (let index = 0; index < kept.length; index++) {
     const group = kept[index]!
-    const key = String(group[0]!.key)
+    const first = group[0]
+    if (!first) continue
+    const key = String(first.key)
     const active = index === kept.length - 1
     // 完成期已输出后冻结；活动期在提交检查点之后单独渲染。
     if (active) __commitCheckpoint()
@@ -294,7 +296,6 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
     const lines: StageLine[] = []
     const profile = buildProfile(group, config.rows, config.area)
     if (!profile) continue
-    const first = group[0]!
     const last = group[group.length - 1]!
     const width = ((last.end - first.time) * config.width) / 100
     const left = config.side === 'left' ? first.time : last.end - width

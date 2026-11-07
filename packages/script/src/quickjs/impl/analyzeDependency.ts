@@ -51,6 +51,8 @@ const WINDOW_TA: Readonly<Record<string, number>> = {
   change: 1,
   rising: 1,
   falling: 1,
+  pivothigh: 1,
+  pivotlow: 1,
 }
 
 /** 固定回看的 TA；值与是否 stateful 无关。 */
@@ -130,7 +132,7 @@ function windowLookback(name: string, args: readonly ts.Expression[]): number | 
   return length === undefined ? 'unbounded' : Math.max(0, length - 1)
 }
 
-/** 扫描 onBar：有状态信号优先，其次累计字面量回看深度。 */
+/** 扫描整份源码：顶层辅助函数也可能被 onBar 调用，必须一起判定。 */
 function scanBody(body: ts.Node): { stateful: boolean; lookback: number | 'unbounded' } {
   let lookback: number | 'unbounded' = 0
   const extend = (value: number | 'unbounded'): void => {
@@ -152,6 +154,21 @@ function scanBody(body: ts.Node): { stateful: boolean; lookback: number | 'unbou
         extend(windowLookback(name, node.arguments))
       } else if (name && Object.hasOwn(FIXED_LOOKBACK, name)) {
         extend(FIXED_LOOKBACK[name]!)
+      }
+      // ta.* 的未知函数按有状态处理；用户函数不在这个命名空间内。
+      if (ts.isPropertyAccessExpression(node.expression)) {
+        const owner = node.expression.expression
+        const property = node.expression.name.text
+        if (
+          ts.isIdentifier(owner) &&
+          owner.text === 'ta' &&
+          !STATEFUL_TA.has(property) &&
+          !Object.hasOwn(WINDOW_TA, property) &&
+          !Object.hasOwn(FIXED_LOOKBACK, property)
+        ) {
+          stateful = true
+          return
+        }
       }
       if (name === 'new' && ts.isPropertyAccessExpression(node.expression)) {
         const owner = node.expression.expression
@@ -218,9 +235,7 @@ export function analyzeScriptDependency(
 ): ComputeDependency {
   const file = parse(source)
   if (hasTopLevelMutableState(file)) return STATEFUL
-  const body = findOnBarBody(file)
-  if (!body) return stateless(0)
-  const scan = scanBody(body)
+  const scan = scanBody(file)
   if (scan.stateful) return STATEFUL
   if (importsStatefulLibrary(source, libraries)) return STATEFUL
   return stateless(scan.lookback)

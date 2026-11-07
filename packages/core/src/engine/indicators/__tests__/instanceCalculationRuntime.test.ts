@@ -83,6 +83,31 @@ describe('indicator execution repository', () => {
     runtime.dispose()
   })
 
+  it('passes the dependency-derived range to compute', async () => {
+    const source = new FakeCalculationSource([
+      createTestInstance({ instanceId: 'range', definitionId: 'range' }),
+    ])
+    const compute = vi.fn(() => [])
+    const runtime = new IndicatorInstanceExecutionRuntime([
+      { definitionId: 'range', dependency: { kind: 'stateless', lookback: 2 }, compute },
+    ])
+    const task = source.calculationPlan().tasks[0]!
+    runtime.retain([task])
+    const data = createTestData(10)
+    await runtime.execute(
+      task,
+      {
+        dataRevision: 1,
+        timestamps: data.map((item) => item.timestamp),
+        data,
+        change: { start: 5, end: 6 },
+      },
+      new AbortController().signal,
+    )
+    expect(compute).toHaveBeenCalledWith(data, {}, undefined, { start: 3, end: 8 })
+    runtime.dispose()
+  })
+
   it('derives warmup from aligned data and rejects unavailable definitions', async () => {
     expect(findInstanceFirstReadyIndex({ series: [undefined, 2, 3] }, 3)).toBe(1)
     expect(findInstanceFirstReadyIndex([1, 2], 3)).toBeNull()

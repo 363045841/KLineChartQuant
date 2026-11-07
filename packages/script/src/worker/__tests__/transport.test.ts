@@ -30,13 +30,20 @@ describe('Worker input synchronization', () => {
     bars[1]!.close = 11
     bars[1]!.closed = false
     const tick = sender.encode(bars)
-    expect(tick.bars.offset).toBe(1)
+    expect(tick.bars.start).toBe(1)
     expect(tick.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
     expect(receiver.decode(tick).bars).toStrictEqual(bars)
     bars.push({ ...bar(3), closed: undefined })
     const append = sender.encode(bars)
-    expect(append.bars.offset).toBe(2)
+    expect(append.bars.start).toBe(2)
     expect(receiver.decode(append).bars).toStrictEqual(bars)
+    // 前置插入只发送新增前缀，不重发整段历史。
+    const prependedBars = [{ ...bar(0) }, ...bars]
+    const prepend = sender.encode(prependedBars)
+    expect(prepend.bars.prepended).toBe(1)
+    expect(prepend.bars.count).toBe(1)
+    expect(prepend.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(receiver.decode(prepend).bars).toStrictEqual(prependedBars)
   })
 
   it('handles history corrections, prepend, truncation, empty data and reset', () => {
@@ -54,7 +61,7 @@ describe('Worker input synchronization', () => {
     sender.clear()
     receiver.clear()
     const reset = sender.encode([bar(7, 20)])
-    expect(reset.bars.offset).toBe(0)
+    expect(reset.bars.start).toBe(0)
     expect(receiver.decode(reset).bars).toStrictEqual([bar(7, 20)])
   })
 
@@ -66,10 +73,10 @@ describe('Worker input synchronization', () => {
     expect(sender.encode([bar(1)], context).context?.snapshots[0]?.bars.buffer.byteLength).toBe(0)
     receiver.decode(sender.encode([bar(1)]))
     const restored = sender.encode([bar(1)], context)
-    expect(restored.context?.snapshots[0]?.bars.offset).toBe(0)
+    expect(restored.context?.snapshots[0]?.bars.start).toBe(0)
     expect(receiver.decode(restored).context).toStrictEqual(context)
     const other = new WorkerInputSender().encode([bar(1)], context)
-    expect(other.bars.offset).toBe(0)
+    expect(other.bars.start).toBe(0)
     expect(new WorkerInputReceiver().decode(other).context).toStrictEqual(context)
   })
 })

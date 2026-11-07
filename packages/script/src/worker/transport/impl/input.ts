@@ -37,14 +37,41 @@ function writeBar(values: Float64Array, offset: number, bar: Bar): void {
   values[offset + 6] = closedValue(bar)
 }
 
-/** 单条序列只保存最近一次输入；扫描比较不创建对象，只为变化尾段分配通信内存。 */
+/** 单条序列只保存最近一次输入；扫描比较不创建对象，只为变化块分配通信内存。 */
 class BarSender {
   private previous = new Float64Array(0)
 
-  /** 找首个实际变化位置；补历史、历史修正和截断走同一协议。 */
+  /** 旧序列是否整体后移到新前缀之后；是则只发新增前缀。 */
+  private isPrepend(bars: readonly Bar[], prepended: number): boolean {
+    const previousLength = this.previous.length / BAR_WIDTH
+    for (let index = 0; index < previousLength; index++) {
+      if (!equalBar(this.previous, index * BAR_WIDTH, bars[index + prepended]!)) return false
+    }
+    return true
+  }
+
+  /** 前置插入：只发送新增前缀，并把本地基线整体右移。 */
+  private prepend(bars: readonly Bar[], prepended: number): BarPatch {
+    const values = new Float64Array(prepended * BAR_WIDTH)
+    for (let index = 0; index < prepended; index++) {
+      writeBar(values, index * BAR_WIDTH, bars[index]!)
+    }
+    const previous = new Float64Array(bars.length * BAR_WIDTH)
+    previous.set(this.previous, prepended * BAR_WIDTH)
+    previous.set(values, 0)
+    this.previous = previous
+    return { start: 0, count: prepended, length: bars.length, prepended, buffer: values.buffer }
+  }
+
+  /** 找首个实际变化位置；前置插入走前缀快路径，其余变化走同一尾段协议。 */
   encode(bars: readonly Bar[]): BarPatch {
+    const previousLength = this.previous.length / BAR_WIDTH
+    const prepended = bars.length - previousLength
+    if (previousLength > 0 && prepended > 0 && this.isPrepend(bars, prepended))
+      return this.prepend(bars, prepended)
+
     let offset = 0
-    const common = Math.min(bars.length, this.previous.length / BAR_WIDTH)
+    const common = Math.min(bars.length, previousLength)
     while (offset < common && equalBar(this.previous, offset * BAR_WIDTH, bars[offset]!)) offset++
     const values = new Float64Array((bars.length - offset) * BAR_WIDTH)
     for (let index = offset; index < bars.length; index++) {
@@ -56,7 +83,13 @@ class BarSender {
       this.previous = previous
     }
     this.previous.set(values, offset * BAR_WIDTH)
-    return { offset, length: bars.length, buffer: values.buffer }
+    return {
+      start: offset,
+      count: bars.length - offset,
+      length: bars.length,
+      prepended: 0,
+      buffer: values.buffer,
+    }
   }
 }
 
@@ -64,19 +97,27 @@ class BarSender {
 class BarReceiver {
   private readonly bars: Bar[] = []
 
-  /** 按发送顺序应用尾段；无法应用的协议直接报错，禁止悄悄使用旧行情。 */
+  /** 按增量应用；前置插入先整体右移，再写前缀。无法应用的协议直接报错。 */
   decode(patch: BarPatch): readonly Bar[] {
     const values = new Float64Array(patch.buffer)
     if (
-      patch.offset > this.bars.length ||
-      patch.offset > patch.length ||
-      values.length !== (patch.length - patch.offset) * BAR_WIDTH
+      patch.start + patch.count > patch.length ||
+      patch.prepended > this.bars.length ||
+      values.length !== patch.count * BAR_WIDTH
     ) {
       throw new RangeError('Worker 行情增量与当前序列不匹配')
     }
+    if (patch.prepended > 0) {
+      const previousLength = this.bars.length
+      this.bars.length = previousLength + patch.prepended
+      for (let index = previousLength - 1; index >= 0; index--) {
+        this.bars[index + patch.prepended] = this.bars[index]!
+      }
+    }
     this.bars.length = patch.length
-    for (let index = patch.offset; index < patch.length; index++) {
-      const offset = (index - patch.offset) * BAR_WIDTH
+    for (let index = 0; index < patch.count; index++) {
+      const target = patch.start + index
+      const offset = index * BAR_WIDTH
       const bar: Bar = {
         time: values[offset]!,
         open: values[offset + 1]!,
@@ -89,7 +130,7 @@ class BarReceiver {
       if (closed !== Closed.Missing) {
         bar.closed = closed === Closed.Undefined ? undefined : closed === Closed.Closed
       }
-      this.bars[index] = bar
+      this.bars[target] = bar
     }
     return this.bars
   }
@@ -130,7 +171,6 @@ export class WorkerInputReceiver {
   decode(input: RunInputPatch): {
     bars: readonly Bar[]
     context?: ScriptRequestContext
-    startIndex: number
   } {
     const bars = this.main.decode(input.bars)
     const next = new Map<string, BarReceiver>()
@@ -140,8 +180,8 @@ export class WorkerInputReceiver {
       return { id: snapshot.id, bars: receiver.decode(snapshot.bars) }
     })
     this.snapshots = next
-    if (!input.context || !snapshots) return { bars, startIndex: input.bars.offset }
-    return { bars, context: { ...input.context, snapshots }, startIndex: input.bars.offset }
+    if (!input.context || !snapshots) return { bars }
+    return { bars, context: { ...input.context, snapshots } }
   }
 
   /** 与发送端保持相同的显式生命周期。 */

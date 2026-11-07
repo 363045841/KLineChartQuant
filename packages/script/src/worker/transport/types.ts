@@ -7,10 +7,16 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { ScriptRequestContext } from '../../request/types.js'
 
-/** 替换 offset 之后的行情并截断至 length；空尾块也能表达截断。 */
+/** 行情增量：prepended 表示在旧首根之前插入的根数；count 为本块根数。 */
 export interface BarPatch {
-  readonly offset: number
+  /** 新序列中本块的起点。 */
+  readonly start: number
+  /** 本块根数。 */
+  readonly count: number
+  /** 新序列总长度。 */
   readonly length: number
+  /** 在旧首根之前插入的根数；其它情况为 0。 */
+  readonly prepended: number
   readonly buffer: ArrayBuffer
 }
 

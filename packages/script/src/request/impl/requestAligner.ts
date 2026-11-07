@@ -53,7 +53,9 @@ export function createRequestAligner(request: SecurityRequest): RequestAligner {
         result[index] = empty()
       return result
     }
-    const from = Math.max(0, startIndex)
+    const from = Number.isFinite(startIndex)
+      ? Math.min(Math.max(0, startIndex), bars.length - 1)
+      : 0
     // 从第一根不早于当前主图 bar 的明细开始；空目标时游标保持 0。
     let cursor = 0
     while (cursor < target.length && target[cursor]!.time < bars[from]!.time) cursor++
@@ -85,7 +87,9 @@ export function createRequestAligner(request: SecurityRequest): RequestAligner {
     if (bars.length === 0) return result
     const sample = values[0]
     if (sample === undefined) throw new Error('Request 目标序列没有可计算的数据')
-    const from = Math.max(0, startIndex - 1)
+    const from = Number.isFinite(startIndex)
+      ? Math.min(Math.max(0, startIndex - 1), bars.length - 1)
+      : 0
     let cursor = cursorAt(target, bars[from]!.time)
     for (let index = from; index < bars.length; index++) {
       const bar = bars[index]!
