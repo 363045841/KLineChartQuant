@@ -1,0 +1,63 @@
+/**
+ * 结构分析（SMC/ICT）模块的公共出口。
+ *
+ * 当前只导出契约。实现的落点是 `impl/`，且实现必须满足三条硬约束（因果性、判据与阈值分离、
+ * 可序列化），详见 `types.ts` 头部说明与 `docs/design/structure/structure-contracts.md`。
+ */
+export type {
+  BiasBasis,
+  BreachAssessment,
+  BreachEvidence,
+  BreachProbability,
+  BreachRetest,
+  BreachSide,
+  BreachVerdict,
+  BreachVerdictResult,
+  BreakDirection,
+  BreakKind,
+  ChannelKind,
+  ChannelOrigin,
+  ChannelQuality,
+  ChannelState,
+  CrossInstrumentAgreement,
+  CrossInstrumentConfirmation,
+  PivotKind,
+  PivotScale,
+  PriceBand,
+  PriceLine,
+  StructureBias,
+  StructureBiasState,
+  StructureBreak,
+  StructurePivot,
+  StructureQuality,
+  StructureSnapshot,
+  StructureSwing,
+  StructureZone,
+  StructureZoneKind,
+  SwingLabel,
+  ThresholdProfile,
+  ThresholdProvenance,
+  VolumeClock,
+  VolumeClockSource,
+  VolumeProfileSlot,
+  ZoneState,
+} from './types.js'
+
+export {
+  BIAS_BASIS,
+  BREACH_SIDE,
+  BREACH_VERDICT,
+  BREAK_DIRECTION,
+  BREAK_KIND,
+  CHANNEL_KIND,
+  CHANNEL_ORIGIN,
+  CROSS_INSTRUMENT_AGREEMENT,
+  PIVOT_KIND,
+  PIVOT_SCALE,
+  STRUCTURE_BIAS,
+  STRUCTURE_ZONE_KIND,
+  SWING_LABEL,
+  THRESHOLD_PROVENANCE,
+  VOLUME_CLOCK_SOURCE,
+  ZONE_STATE,
+} from './types.js'
