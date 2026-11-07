@@ -163,8 +163,20 @@ export function createDefaultPrimitiveRendererSet(
   options: PrimitiveRendererOptions,
 ): PrimitiveRendererSet {
   const { handleFill, submit = paintCanvasPrimitives } = options
+  const builder = createDrawingPrimitiveBuilder(handleFill)
   return {
-    point(ctx, primitive, dpr) {
+    point: (ctx, primitive, dpr) => submit(ctx, builder.point(primitive, dpr), dpr),
+    line: (ctx, primitive, clip, dpr) => submit(ctx, builder.line(primitive, clip, dpr), dpr),
+    area: (ctx, primitive, dpr) => submit(ctx, builder.area(primitive), dpr),
+    text: (ctx, primitive, dpr) => submit(ctx, builder.text(primitive), dpr),
+    arrow: (ctx, primitive, dpr) => submit(ctx, builder.arrow(primitive, dpr), dpr),
+  }
+}
+
+/** 只把 drawing 投影转换成公共原语，不持有或操作任何绘制表面。 */
+export function createDrawingPrimitiveBuilder(handleFill: string) {
+  return {
+    point(primitive: Parameters<PrimitiveRendererSet['point']>[1], dpr: number): PaintPrimitive[] {
       const commands = anchor(
         primitive.point,
         primitive.style,
@@ -183,11 +195,15 @@ export function createDefaultPrimitiveRendererSet(
             primitive.text.baseline ?? 'middle',
           ),
         )
-      submit(ctx, commands, dpr)
+      return commands
     },
-    line(ctx, primitive, clip, dpr) {
+    line(
+      primitive: Parameters<PrimitiveRendererSet['line']>[1],
+      clip: Parameters<PrimitiveRendererSet['line']>[2],
+      dpr: number,
+    ): PaintPrimitive[] {
       const clipped = extendLineToViewport(primitive, clip)
-      if (!clipped) return
+      if (!clipped) return []
       const commands = [line(clipped.a, clipped.b, primitive.style, dpr)]
       if (primitive.text)
         commands.push(...lineText(primitive.a, primitive.b, primitive.text, primitive.style))
@@ -203,10 +219,10 @@ export function createDefaultPrimitiveRendererSet(
           if (pointInRect(point, clip))
             commands.push(...anchor(point, primitive.style, dpr, handleFill))
         }
-      submit(ctx, commands, dpr)
+      return commands
     },
-    area(ctx, primitive, dpr) {
-      if (primitive.points.length === 0) return
+    area(primitive: Parameters<PrimitiveRendererSet['area']>[1]): PaintPrimitive[] {
+      if (primitive.points.length === 0) return []
       const commands: PaintPrimitive[] = [
         {
           kind: 'fill',
@@ -234,23 +250,19 @@ export function createDefaultPrimitiveRendererSet(
           ),
         )
       }
-      submit(ctx, commands, dpr)
+      return commands
     },
-    text(ctx, primitive, dpr) {
-      submit(
-        ctx,
-        text(
-          primitive.text,
-          primitive.point.x,
-          primitive.point.y,
-          primitive.style,
-          primitive.align ?? 'left',
-          primitive.baseline ?? 'bottom',
-        ),
-        dpr,
+    text(primitive: Parameters<PrimitiveRendererSet['text']>[1]): PaintPrimitive[] {
+      return text(
+        primitive.text,
+        primitive.point.x,
+        primitive.point.y,
+        primitive.style,
+        primitive.align ?? 'left',
+        primitive.baseline ?? 'bottom',
       )
     },
-    arrow(ctx, primitive, dpr) {
+    arrow(primitive: Parameters<PrimitiveRendererSet['arrow']>[1], dpr: number): PaintPrimitive[] {
       const head = arrowHead(
         primitive.start,
         primitive.end,
@@ -267,7 +279,7 @@ export function createDefaultPrimitiveRendererSet(
       ]
       if (primitive.text)
         commands.push(...lineText(primitive.start, primitive.end, primitive.text, primitive.style))
-      submit(ctx, commands, dpr)
+      return commands
     },
   }
 }

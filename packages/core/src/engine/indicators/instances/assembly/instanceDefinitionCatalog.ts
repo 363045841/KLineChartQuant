@@ -16,6 +16,7 @@ export function createInstanceCalculationDefinitions(
     const definition: IndicatorCalculationDefinition = {
       definitionId: item.name,
       outputAlignment: runtime.outputAlignment,
+      dependency: runtime.dependency ?? Object.freeze({ kind: 'stateful' } as const),
       compute: runtime.compute,
       createCompute: runtime.createCompute,
     }

@@ -8,8 +8,13 @@ import {
 
 import type { DrawingPrimitive } from '@/foundation/plugin/index'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer'
+import { createScene } from '@/rendering/scene/createScene'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
-import { createDrawingLayer, createDrawingSessionLayer } from '../impl/plugin'
+import {
+  createDrawingLayer,
+  createDrawingSessionLayer,
+  createIndicatorDrawingLayer,
+} from '../impl/plugin'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'
 
 describe('createDrawingLayer', () => {
@@ -96,6 +101,196 @@ describe('createDrawingLayer', () => {
       { kind: 'point', point: { x: 10, y: 20 }, style: { stroke: '#f00' } },
       1,
     )
+  })
+})
+
+describe('createIndicatorDrawingLayer', () => {
+  /** 直出失败时先恢复完整目标再重放，不能把几何提交到 0×0 后备存储。 */
+  it('restores the main target before replaying a failed GPU batch', () => {
+    const main = createMockCanvasContext()
+    const ensureMainTarget = vi.fn(() => main)
+    const context = createMockRenderContext()
+    const scene = createScene<typeof context>()
+    scene.addLayer({
+      id: 'fallback',
+      pane: 'main',
+      role: 'indicator',
+      kind: 'draw-list',
+      z: 0,
+      visible: true,
+      paint(frame) {
+        frame.primitives?.(
+          [{ kind: 'rect', x: 10, y: 20, width: 30, height: 40, color: '#f00' }],
+          1,
+        )
+      },
+      dispose() {},
+    })
+    scene.paint({
+      panes: [
+        {
+          paneId: 'main',
+          context,
+          renderer: createCanvas2DRenderer(),
+          targets: { main, drawing: null, overlay: null },
+          gpuSurface: { canvas: main.canvas, paint: () => false, dispose() {} },
+          ensureMainTarget,
+          bounds: { width: 800, height: 200 },
+          dpr: 1,
+          frameNumber: 0,
+          deltaMs: 0,
+          clear: true,
+        },
+      ],
+    })
+    expect(ensureMainTarget).toHaveBeenCalledOnce()
+    expect(main.fillRect).toHaveBeenCalledWith(10, 20, 30, 40)
+  })
+
+  /** 混合文字的指标图元必须拆到可见 GPU 与小文字表面，且不得再依赖主 ctx 像素。 */
+  it('routes geometry directly to GPU and text to the pane text surface', () => {
+    const main = createMockCanvasContext()
+    const paint = vi.fn(
+      (_primitives: readonly import('@/rendering/primitives/types').PaintPrimitive[]) => true,
+    )
+    const paintText = vi.fn()
+    const context = createMockRenderContext({
+      indicatorDrawingProjection: {
+        primitives: [
+          {
+            kind: 'area',
+            closed: true,
+            points: [
+              { x: 10, y: 20 },
+              { x: 100, y: 20 },
+              { x: 100, y: 40 },
+            ],
+            style: { stroke: '#f00' },
+          },
+          { kind: 'text', point: { x: 30, y: 25 }, text: 'PVP', style: { stroke: '#fff' } },
+        ],
+        yAxisRanges: [],
+        xAxisRanges: [],
+        snapLines: [],
+      },
+    })
+    const scene = createScene<typeof context>()
+    const layer = createIndicatorDrawingLayer()
+    expect(layer.kind).toBe('draw-list')
+    scene.addLayer(layer)
+    scene.paint({
+      panes: [
+        {
+          paneId: 'main',
+          context,
+          renderer: createCanvas2DRenderer(),
+          targets: { main, drawing: null, overlay: null },
+          gpuSurface: { canvas: main.canvas, paint, dispose() {} },
+          paintText,
+          bounds: { width: 800, height: 200 },
+          dpr: 1.5,
+          frameNumber: 0,
+          deltaMs: 0,
+          clear: true,
+        },
+      ],
+    })
+    expect(paint).toHaveBeenCalledOnce()
+    expect(paint.mock.calls[0]?.[0]).toEqual([expect.objectContaining({ kind: 'fill' })])
+    expect(paintText).toHaveBeenCalledWith(
+      [expect.objectContaining({ kind: 'text', text: 'PVP' })],
+      1.5,
+      { width: 800, height: 200 },
+    )
+    expect(main.fillText).not.toHaveBeenCalled()
+  })
+
+  /** 非 main 目标即使提供 GPU 主表面也不能把用户 drawing 或预览画到行情表面。 */
+  it.each([createDrawingLayer, createDrawingSessionLayer])(
+    'keeps drawing target bands isolated',
+    (factory) => {
+      const main = createMockCanvasContext()
+      const drawing = createMockCanvasContext()
+      const overlay = createMockCanvasContext()
+      const paint = vi.fn(() => true)
+      const projection = {
+        primitives: [
+          {
+            kind: 'point',
+            point: { x: 30, y: 40 },
+            style: { stroke: '#f00' },
+          } satisfies DrawingPrimitive,
+        ],
+        yAxisRanges: [],
+        xAxisRanges: [],
+        snapLines: [],
+      }
+      const context = createMockRenderContext({
+        drawingProjection: projection,
+        sessionDrawingProjection: projection,
+      })
+      const layer = factory()
+      const scene = createScene<typeof context>()
+      scene.addLayer(layer)
+      scene.paint({
+        panes: [
+          {
+            paneId: 'main',
+            context,
+            renderer: createCanvas2DRenderer(),
+            targets: { main, drawing, overlay },
+            gpuSurface: { canvas: main.canvas, paint, dispose() {} },
+            bounds: { width: 800, height: 200 },
+            dpr: 1,
+            frameNumber: 0,
+            deltaMs: 0,
+            clear: false,
+          },
+        ],
+      })
+      expect(paint).not.toHaveBeenCalled()
+      expect((layer.role === 'drawing' ? drawing : overlay).arc).toHaveBeenCalled()
+      expect(main.arc).not.toHaveBeenCalled()
+    },
+  )
+
+  /** 指标图元并入 main 目标，不再写入独立 drawing 画布。 */
+  it('paints indicator projections on the main target', () => {
+    const mainCtx = createMockCanvasContext()
+    const drawingCtx = createMockCanvasContext()
+    const point = vi.fn()
+    const primitive = {
+      kind: 'point',
+      point: { x: 10, y: 20 },
+      style: { stroke: '#f00' },
+    } satisfies DrawingPrimitive
+    const projection = {
+      primitives: [primitive],
+      yAxisRanges: [],
+      xAxisRanges: [],
+      snapLines: [],
+    }
+    const context = createMockRenderContext({
+      ctx: mainCtx,
+      drawingCtx,
+      indicatorDrawingProjection: projection,
+      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
+      pane: { height: 400 },
+    })
+    const layer = createIndicatorDrawingLayer({
+      renderers: {
+        point,
+        line: vi.fn(),
+        area: vi.fn(),
+        arrow: vi.fn(),
+        text: vi.fn(),
+      },
+    })
+
+    expect(layer.role).toBe('indicator')
+    layer.paint({ ...context, paneId: 'main', clear: false })
+    expect(point).toHaveBeenCalledWith(mainCtx, primitive, 1)
+    expect(drawingCtx.fill).not.toHaveBeenCalled()
   })
 })
 

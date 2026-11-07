@@ -13,8 +13,29 @@ import type {
 import { AXIS_LABEL_KIND } from '@/foundation/plugin/types.js'
 import { getFont, setCanvasFont } from '@/foundation/tokens/fonts.js'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/foundation/utils/pixelAlign.js'
+import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive, TextPaintPrimitive } from '@/rendering/primitives/types.js'
 import type { AxisLabelMetrics } from '../types.js'
-import { getLastPriceLabelHeight, paintLastPriceLabelText } from './lastPriceLabel.js'
+import { buildLastPriceLabelText, getLastPriceLabelHeight } from './lastPriceLabel.js'
+
+/** 标签布局输出公共文字命令，具体执行统一交给原语后端。 */
+function labelText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+): TextPaintPrimitive {
+  return {
+    kind: 'text',
+    text,
+    x,
+    y,
+    font: ctx.font,
+    color: String(ctx.fillStyle),
+    align: ctx.textAlign,
+    baseline: ctx.textBaseline,
+  }
+}
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
@@ -42,16 +63,20 @@ function paintTick(
   label: AxisTickLabel,
   surface: AxisLabelSurface,
   metrics: AxisLabelMetrics,
+  commands: PaintPrimitive[],
 ): void {
   setCanvasFont(ctx, getFont(label.fontSize ?? 12, { bold: label.bold }))
   ctx.textBaseline = 'middle'
   ctx.fillStyle = label.color
   if (isXSurface(surface)) {
     ctx.textAlign = 'center'
-    ctx.fillText(
-      label.text,
-      roundToPhysicalPixel(label.pos, metrics.dpr),
-      alignToPhysicalPixelCenter(metrics.axisHeight / 2, metrics.dpr),
+    commands.push(
+      labelText(
+        ctx,
+        label.text,
+        roundToPhysicalPixel(label.pos, metrics.dpr),
+        alignToPhysicalPixelCenter(metrics.axisHeight / 2, metrics.dpr),
+      ),
     )
     return
   }
@@ -62,7 +87,7 @@ function paintTick(
       : label.align === 'left'
         ? 4
         : metrics.axisWidth / 2
-  ctx.fillText(label.text, roundToPhysicalPixel(x, metrics.dpr), label.pos)
+  commands.push(labelText(ctx, label.text, roundToPhysicalPixel(x, metrics.dpr), label.pos))
 }
 
 /** 绘制色块标签：X 表面为竖直时间签，Y 表面为横向价格签。 */
@@ -71,6 +96,7 @@ function paintTag(
   label: AxisTagLabel,
   surface: AxisLabelSurface,
   metrics: AxisLabelMetrics,
+  commands: PaintPrimitive[],
 ): void {
   const fontSize = label.fontSize ?? 12
   const origin = label.origin ?? 0
@@ -92,17 +118,22 @@ function paintTag(
     const centerY = origin + metrics.axisHeight / 2
     const rectX = centerX - rectW / 2
     ctx.fillStyle = label.bgColor
-    ctx.fillRect(
-      roundToPhysicalPixel(rectX, dpr),
-      roundToPhysicalPixel(origin, dpr),
-      roundToPhysicalPixel(rectW, dpr),
-      roundToPhysicalPixel(rectH, dpr),
-    )
+    commands.push({
+      kind: 'rect',
+      x: roundToPhysicalPixel(rectX, dpr),
+      y: roundToPhysicalPixel(origin, dpr),
+      width: roundToPhysicalPixel(rectW, dpr),
+      height: roundToPhysicalPixel(rectH, dpr),
+      color: label.bgColor,
+    })
     ctx.fillStyle = label.textColor
-    ctx.fillText(
-      label.text,
-      roundToPhysicalPixel(centerX, dpr),
-      alignToPhysicalPixelCenter(centerY, dpr),
+    commands.push(
+      labelText(
+        ctx,
+        label.text,
+        roundToPhysicalPixel(centerX, dpr),
+        alignToPhysicalPixelCenter(centerY, dpr),
+      ),
     )
     ctx.restore()
     return
@@ -118,29 +149,51 @@ function paintTag(
   const rw = metrics.axisWidth
   const rh = roundToPhysicalPixel(rectH, dpr)
   ctx.fillStyle = label.bgColor
-  ctx.fillRect(0, ry, rw, rh)
+  commands.push({ kind: 'rect', x: 0, y: ry, width: rw, height: rh, color: label.bgColor })
   if (label.borderColor) {
-    ctx.strokeStyle = label.borderColor
-    ctx.lineWidth = 1
-    ctx.strokeRect(
-      alignToPhysicalPixelCenter(0, dpr),
-      alignToPhysicalPixelCenter(ry, dpr),
-      Math.max(0, rw - 1 / dpr),
-      Math.max(0, rh - 1 / dpr),
-    )
+    const x = alignToPhysicalPixelCenter(0, dpr),
+      y = alignToPhysicalPixelCenter(ry, dpr)
+    const right = x + Math.max(0, rw - 1 / dpr),
+      bottom = y + Math.max(0, rh - 1 / dpr)
+    commands.push({
+      kind: 'stroke',
+      paths: [
+        [
+          { x, y },
+          { x: right, y },
+          { x: right, y: bottom },
+          { x, y: bottom },
+        ],
+      ],
+      closed: true,
+      color: label.borderColor,
+      width: 1,
+    })
   }
   const centerX = rw / 2
   ctx.fillStyle = label.textColor
   if (countdown) {
-    paintLastPriceLabelText(ctx, label.text, countdown, centerX, yy, fontSize, dpr)
+    commands.push(
+      ...buildLastPriceLabelText(labelText(ctx, label.text, centerX, yy), countdown, fontSize, dpr),
+    )
   } else if (label.variant === 'crosshair') {
-    ctx.fillText(
-      label.text,
-      roundToPhysicalPixel(centerX, dpr),
-      alignToPhysicalPixelCenter(yy, dpr),
+    commands.push(
+      labelText(
+        ctx,
+        label.text,
+        roundToPhysicalPixel(centerX, dpr),
+        alignToPhysicalPixelCenter(yy, dpr),
+      ),
     )
   } else {
-    ctx.fillText(label.text, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr) + 1)
+    commands.push(
+      labelText(
+        ctx,
+        label.text,
+        roundToPhysicalPixel(centerX, dpr),
+        roundToPhysicalPixel(yy, dpr) + 1,
+      ),
+    )
   }
   ctx.restore()
 }
@@ -159,11 +212,15 @@ export function paintAxisLabels(
   surface: AxisLabelSurface,
   metrics: AxisLabelMetrics,
 ): void {
+  const commands: PaintPrimitive[] = []
+  ctx.save()
   for (const label of labels) {
     if (label.kind === AXIS_LABEL_KIND.TICK) {
-      paintTick(ctx, label, surface, metrics)
+      paintTick(ctx, label, surface, metrics, commands)
     } else {
-      paintTag(ctx, label, surface, metrics)
+      paintTag(ctx, label, surface, metrics, commands)
     }
   }
+  ctx.restore()
+  primitiveSink()(ctx, commands, metrics.dpr)
 }

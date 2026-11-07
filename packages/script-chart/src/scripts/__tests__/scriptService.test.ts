@@ -5,7 +5,7 @@ import {
   getRegisteredIndicatorDefinition,
   removeScriptIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
-import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
+import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
 import { describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
@@ -45,6 +45,7 @@ describe('ScriptService', () => {
         expect(events.map((event) => event.message)).toEqual(['11'])
         expect(market.loadBars).toHaveBeenCalledWith(
           expect.objectContaining({ symbol: 'TEST', timeframe: 'D' }),
+          undefined,
         )
         expect(getIndicatorDescriptor('DebugOnly')).toBeUndefined()
         expect(scripts.list().some((item) => item.definition.name === 'DebugOnly')).toBe(false)
@@ -68,6 +69,7 @@ describe('ScriptService', () => {
     },
   )
 
+  // 同一用例串行启动真实 Worker，覆盖多轮编译、失败更新及持久化恢复。
   it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
     const persistence = createScriptPersistence()
     const scripts = await createScriptService([], { persistence })
@@ -135,7 +137,7 @@ describe('ScriptService', () => {
     } finally {
       restored.dispose()
     }
-  })
+  }, 15_000)
   it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
     let saved: ScriptWorkspace | null = null
     const persistence = {
@@ -366,6 +368,19 @@ describe('ScriptService', () => {
       builtinSources: builtinScriptSources,
       persistence,
     })
+    const data = Array.from({ length: 50 }, (_, index) => ({
+      timestamp: Date.UTC(2026, 0, 5) + index * 60_000,
+      open: 100 + index,
+      high: 102 + index,
+      low: 98 + index,
+      close: 101 + index,
+      volume: 100,
+    }))
+    const market: IndicatorMarketContext = {
+      symbol: 'TEST',
+      time: { period: '1', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
+      loadBars: async () => data.map(({ timestamp, ...bar }) => ({ time: timestamp, ...bar })),
+    }
     for (const source of builtinScriptSources) {
       const definition = scripts.list().find((document) => document.source === source)!.definition
       expect(getRegisteredIndicatorDefinition(definition.name)?.document).toMatchObject({
@@ -376,18 +391,11 @@ describe('ScriptService', () => {
       // 内置脚本随包发布，默认受信任。
       expect(scripts.read(definition.name)?.trusted).toBe(true)
       const metadata = getRegisteredIndicatorDefinition(definition.name)
-      const data = Array.from({ length: 50 }, (_, timestamp) => ({
-        timestamp,
-        open: 100 + timestamp,
-        high: 102 + timestamp,
-        low: 98 + timestamp,
-        close: 101 + timestamp,
-        volume: 100,
-      }))
-      const output = await metadata?.runtime?.compute(data, metadata.runtime.defaultParams)
+      const output = await metadata?.runtime?.compute(data, metadata.runtime.defaultParams, market)
       expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
     }
     expect(await persistence.load()).toEqual(saved)
+    scripts.dispose()
   })
 
   it('用户源码和版本从 IndexedDB 恢复，删除后不再恢复', async () => {

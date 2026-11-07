@@ -18,6 +18,15 @@ import type { DrawingObject } from '../types.js'
 /** 图元投影范围：合成视图、正式图元或会话覆盖。 */
 export type DrawingPaintScope = 'all' | 'committed' | 'session'
 
+/**
+ * 图元来源。
+ *
+ * 指标输出与用户文档共用 drawing 投影，但落点不同：用户图元需要独立的
+ * drawing 画布保持像素，指标图元直接并入 main 目标，避免为 PVP/SVP 这类
+ * 指标多分配一张全尺寸画布。
+ */
+export type DrawingSource = 'all' | 'user' | 'indicator'
+
 /** 正式图元与会话图元的输入依赖。 */
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
@@ -28,7 +37,7 @@ export interface DrawingStoreDeps {
   getIndicatorDrawings?: () => ReadonlyArray<DrawingObject>
 }
 
-/** drawing 投影适配器集合；ctx 仅指定合成目标，实际绘制由统一原语提交器负责。 */
+/** 自定义 Canvas 绘图扩展；默认 drawing 使用纯原语 builder，不依赖此上下文接口。 */
 export type PrimitiveRendererSet = {
   point: (ctx: CanvasRenderingContext2D, primitive: PointPrimitive, dpr: number) => void
   line: (

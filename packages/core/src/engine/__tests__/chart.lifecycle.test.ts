@@ -420,6 +420,27 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('gives a newly created sub pane the default 3:1 split', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      const indicatorId = 'default-sub-pane-ratio'
+      registerPlotIndicator({
+        id: indicatorId,
+        name: indicatorId,
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      const instanceId = chart.indicators.add(indicatorId)
+      expect(instanceId).not.toBeNull()
+      const paneId = chart.indicators.subPanes.peek()[0]!.paneId
+      const ratios = chart.paneRatios.peek()
+      expect(ratios.main).toBeCloseTo(0.75)
+      expect(ratios[paneId]).toBeCloseTo(0.25)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('moves script placement through a domain command in both workspaces without replacing its instance', async () => {
     const chart = mountChart(1000, 1000)
     const definition = {

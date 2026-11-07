@@ -16,5 +16,5 @@ export function requestExecutionSource(execution: RequestExecution): string {
   const results = Object.entries(execution.results).map(
     ([id, values]) => `${JSON.stringify(id)}:${literal(values)}`,
   )
-  return `{symbol:${JSON.stringify(execution.symbol)},expressionId:${execution.expressionId === undefined ? 'undefined' : JSON.stringify(execution.expressionId)},results:{${results.join(',')}}}`
+  return `{symbol:${JSON.stringify(execution.symbol)},time:${JSON.stringify(execution.time) ?? 'undefined'},expressionId:${execution.expressionId === undefined ? 'undefined' : JSON.stringify(execution.expressionId)},results:{${results.join(',')}}}`
 }

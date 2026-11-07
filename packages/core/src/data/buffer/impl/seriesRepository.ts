@@ -135,6 +135,8 @@ export function seriesSelectionKey(selection: RepositorySelection): string {
 /** 将 Map 复制为只读快照，后续写入只能通过新的 Map 完成。 */
 function mapSnapshot<K, V>(source?: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
   const copy = new Map(source)
+  // 一份拓扑快照只绑定一次方法；实时绘制会按槽位反复读取 get，不能逐次分配闭包。
+  const methods = new Map<PropertyKey, unknown>()
   return new Proxy(copy, {
     get(target, property) {
       if (property === 'set' || property === 'delete' || property === 'clear') {
@@ -142,8 +144,12 @@ function mapSnapshot<K, V>(source?: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
           throw new TypeError('SeriesRepository snapshot is immutable')
         }
       }
+      if (methods.has(property)) return methods.get(property)
       const value = Reflect.get(target, property, target)
-      return typeof value === 'function' ? value.bind(target) : value
+      if (typeof value !== 'function') return value
+      const method = value.bind(target)
+      methods.set(property, method)
+      return method
     },
   }) as ReadonlyMap<K, V>
 }

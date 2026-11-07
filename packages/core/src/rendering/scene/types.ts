@@ -73,6 +73,17 @@ export interface FramePaint {
    * 缺省（Canvas 后端或直出不可用）时仍合成到 `targets.main`。
    */
   gpuSurface?: import('../primitives/types.js').PrimitiveSurface
+  /** GPU 直出失败时同帧恢复完整 2D 目标；正常帧无需分配它的像素。 */
+  ensureMainTarget?: () => CanvasRenderingContext2D | null
+  /** 指令覆盖层首次提交时分配，帧结束无提交则释放；自定义 context 层在进入前分配。 */
+  ensureOverlayTarget?: () => CanvasRenderingContext2D | null
+  finishOverlay?: (used: boolean) => void
+  /** Pane 提供稀疏文字表面；仅接收 main GPU 直出通道拆出的文字。 */
+  paintText?: (
+    primitives: readonly import('../primitives/types.js').TextPaintPrimitive[],
+    dpr: number,
+    bounds: Readonly<{ width: number; height: number }>,
+  ) => void
   /** 本帧 DPR；直出表面按它投影，缺省为 1。 */
   dpr?: number
   /**
@@ -137,7 +148,7 @@ export type PrimitiveDrawContext<TFrame> = Omit<TFrame, 'ctx'> & {
 }
 
 /** 所有 Layer 的公共身份与生命周期。 */
-interface LayerBase<TFrame> {
+interface LayerBase<_TFrame> {
   readonly id: string
   readonly role: LayerRole
   /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */

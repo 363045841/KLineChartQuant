@@ -8,7 +8,7 @@ import type {
   PersistedDrawingAnchor,
 } from './drawing.js'
 import { xloc } from './drawing.js'
-import { createDrawingObject, createDrawingObjectApi } from './drawingObject.js'
+import { createDrawingObjectApi } from './drawingObject.js'
 
 export const DRAWING_FUTURE_BARS = 500
 export const DEFAULT_DRAWING_COUNT = 50
@@ -82,6 +82,17 @@ export function createOwnedDrawingApi(
 ) {
   const objects = createDrawingObjectApi(store)
   const refs = new Map<string, LineRef>()
+  let refsEpoch = store.epoch()
+  /** 仓库回滚后重建引用表；未回滚时不扫描，避免按对象数量平方复制。 */
+  function syncRefs(): void {
+    const epoch = store.epoch()
+    if (epoch === refsEpoch) return
+    refsEpoch = epoch
+    refs.clear()
+    for (const value of store.list())
+      if (value.kind === kind && value.ownerId === ownerId)
+        refs.set(value.id, Object.freeze({ id: value.id }))
+  }
   /** 同一存活对象始终返回同一引用。 */
   function reference(id: string): LineRef {
     let ref = refs.get(id)
@@ -93,15 +104,18 @@ export function createOwnedDrawingApi(
   }
   /** 只读取属于当前 API 的对象。 */
   function get(ref: LineRef): DrawingObject | undefined {
+    syncRefs()
     const value = objects.get(ref.id)
     return value?.kind === kind && value.ownerId === ownerId ? value : undefined
   }
   /** 按创建顺序枚举当前对象。 */
   function list(): readonly DrawingObject[] {
+    syncRefs()
     return store.list().filter((value) => value.kind === kind && value.ownerId === ownerId)
   }
   /** 创建与回收最早对象在同一仓库提交中完成；对象数量以本 API 的引用顺序为准。 */
   function insert(value: DrawingObject): LineRef {
+    syncRefs()
     if (refs.has(value.id)) throw new TypeError(`Duplicate drawing ID: ${value.id}`)
     // 超过额度时回收最早的对象；refs 按创建顺序记录本 API 持有的对象，无需扫描仓库。
     const overflow = refs.size + 1 - limit()
@@ -112,7 +126,8 @@ export function createOwnedDrawingApi(
         evicted.push(id)
       }
     }
-    store.append([createDrawingObject(value)], evicted)
+    // API 已构造完整快照，仓库直接接管；不再为同一对象做第二次深复制。
+    store.append([value], evicted)
     for (const id of evicted) refs.delete(id)
     return reference(value.id)
   }

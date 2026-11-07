@@ -1,9 +1,9 @@
 /** 活动行情就绪快照与订阅运行模块的依赖契约。 */
 
 import type { MarketDataCache } from '@/data/buffer/impl/marketDataCache.js'
-import type { RealtimeSubscriptionPool } from '@/data/live/types.js'
 import type { BarsSelection } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
+import type { RealtimeSubscriptionPool } from '@/data/live/types.js'
 import type { InstrumentDescriptor, SourceCapabilities } from '@/data/provider/types.js'
 import type { TradeSnapshot } from '@/data/trades/types.js'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
@@ -35,6 +35,7 @@ export function supportsRawTradeStream(session: ReadyMarketSession): boolean {
 }
 
 export interface MarketRuntimeDependencies {
+  readonly marketSessions?: import('@/foundation/config/marketSession/marketSessionRegistry.js').MarketSessionRegistry
   resolveBarsSelection(
     instrument: InstrumentDescriptor,
     period: BarsSelection['period'],
@@ -43,8 +44,8 @@ export interface MarketRuntimeDependencies {
   ): BarsSelection
   invalidateRequests?(): void
   readonly registry?: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
-  /** 实时订阅池；省略时使用注册表对应的共享池。 */
-  readonly realtime?: RealtimeSubscriptionPool
+  /** 宿主持有的唯一实时订阅池，运行模块不能自行创建。 */
+  readonly realtime: RealtimeSubscriptionPool
   readonly cache: MarketDataCache
   readonly session: ReadonlySignal<ReadyMarketSession | null>
   readonly visibleRange: ReadonlySignal<VisibleRange>

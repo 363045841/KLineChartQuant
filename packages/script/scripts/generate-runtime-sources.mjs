@@ -14,10 +14,12 @@ const entries = [
   { file: 'library.ts', exportName: 'LIBRARY_PRELUDE' },
   { file: 'series.ts', exportName: 'SCRIPT_PRELUDE' },
   { file: 'request.ts', exportName: 'REQUEST_PRELUDE' },
+  { file: 'time.ts', exportName: 'TIME_PRELUDE' },
   { file: 'rolling.ts', exportName: 'ROLLING_PRELUDE' },
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },
   { file: 'drawing.ts', exportName: 'DRAWING_PRELUDE' },
   { file: 'ta.ts', exportName: 'TA_LIBRARY_SOURCE', rawExportName: 'TA_LIBRARY_TYPES_SOURCE' },
+  { file: '../../../scripts/libraries/volume-profile.ts', exportName: 'VP_LIBRARY_SOURCE', rawExportName: 'VP_LIBRARY_TYPES_SOURCE' },
   { file: 'pivot.ts', exportName: 'PIVOT_PRELUDE' },
 ]
 

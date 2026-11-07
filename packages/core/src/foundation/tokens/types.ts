@@ -264,6 +264,30 @@ export interface FootprintCellColors {
   readonly text: ColorValue
 }
 
+/**
+ * 成交量分布（Volume Profile）专用配色。
+ * 参考 TradingView 的分档：价值区内的横条与价值区外的横条使用两套颜色，
+ * POC 与 VAH/VAL 各有独立线色。
+ */
+export interface VolumeProfileColors {
+  /** 价值区外的上涨成交量横条颜色。 */
+  readonly up: ColorValue
+  /** 价值区外的下跌成交量横条颜色。 */
+  readonly down: ColorValue
+  /** 价值区内的上涨成交量横条颜色。 */
+  readonly valueAreaUp: ColorValue
+  /** 价值区内的下跌成交量横条颜色。 */
+  readonly valueAreaDown: ColorValue
+  /** POC（成交最密集价位）横线颜色。 */
+  readonly pointOfControl: ColorValue
+  /** 价值区上边界（VAH）横线颜色。 */
+  readonly valueAreaHigh: ColorValue
+  /** 价值区下边界（VAL）横线颜色。 */
+  readonly valueAreaLow: ColorValue
+  /** 分布图背景框颜色。 */
+  readonly boxBackground: ColorValue
+}
+
 /** 通用 UI 颜色：表面、输入、边框、文字与状态色，框架与业务组件共用。 */
 export interface UiColors {
   readonly background: ColorValue
@@ -368,6 +392,8 @@ export interface ColorTokens {
   readonly heatmapHottest: ColorValue
   /** 足迹图横条与数字的专用配色；使用独立红/灰约定，不随涨跌方向翻转。 */
   readonly footprintCell: FootprintCellColors
+  /** 成交量分布横条、POC 与价值区配色。 */
+  readonly volumeProfile: VolumeProfileColors
 
   // Alerts
   readonly alertActive: ColorValue

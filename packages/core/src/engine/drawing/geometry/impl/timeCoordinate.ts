@@ -2,7 +2,12 @@
 import { DRAWING_FUTURE_BARS } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 解析任意毫秒坐标，不要求时间戳恰好命中某根 K 线。 */
-export function drawingTimeIndex(timestamp: number, data: readonly { timestamp: number }[], axisTime: (index: number) => number | null): number {
+export function drawingTimeIndex(
+  timestamp: number,
+  data: readonly { timestamp: number }[],
+  axisTime: (index: number) => number | null,
+  lastBarClose?: number,
+): number {
   if (!Number.isFinite(timestamp) || data.length === 0) return Number.NaN
   let low = 0
   let high = data.length - 1
@@ -21,7 +26,19 @@ export function drawingTimeIndex(timestamp: number, data: readonly { timestamp: 
     if (data.length < 2) return Number.NaN
     return (timestamp - data[0]!.timestamp) / (data[1]!.timestamp - data[0]!.timestamp)
   }
-  // 未来时间由图表日历决定，不能按最近两根 bar 的间隔猜测休市时段。
+  // 末根bar内部仍属于已知周期，不依赖下一根bar的交易日历。
+  // 收盘边界最多映射到下一槽位，不能据此推演更远的未来或跨越休市时间。
+  const lastIndex = data.length - 1
+  const lastOpen = data[lastIndex]!.timestamp
+  if (
+    lastBarClose !== undefined &&
+    Number.isFinite(lastBarClose) &&
+    lastBarClose > lastOpen &&
+    timestamp <= lastBarClose
+  ) {
+    return lastIndex + (timestamp - lastOpen) / (lastBarClose - lastOpen)
+  }
+  // 更远的未来时间由图表日历决定，不能按最近两根bar的间隔猜测休市时段。
   let previousIndex = data.length - 1
   let previousTime = data[previousIndex]!.timestamp
   for (let index = data.length; index <= data.length + DRAWING_FUTURE_BARS; index++) {

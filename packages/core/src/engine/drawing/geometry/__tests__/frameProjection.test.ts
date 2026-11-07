@@ -107,6 +107,49 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
 }
 
 describe('projectDrawingsForFrame', () => {
+  it('projects profile reference lines inside the final five-minute candle without a future calendar', () => {
+    const start = Date.UTC(2026, 0, 5)
+    const context = createContext()
+    context.data = [
+      { timestamp: start, open: 1, high: 2, low: 0, close: 1 },
+      { timestamp: start + 300_000, open: 1, high: 2, low: 0, close: 1 },
+    ]
+    // 没有未来交易日历：真实bar时间以外的端点不能解析。
+    context.getTimestampAtLogicalIndex = (index) => context.data[index]?.timestamp ?? null
+    context.period = '5min'
+    context.marketSession = { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] }
+    const bar = createDrawingObject({
+      id: 'profile',
+      kind: 'rectangle',
+      xloc: 'bar_time',
+      anchors: [
+        { id: 'a', time: start, price: 10 },
+        { id: 'b', time: start + 108_000, price: 10 },
+        { id: 'c', time: start + 108_000, price: 20 },
+        { id: 'd', time: start, price: 20 },
+      ],
+    })
+    expect(projectSingleDrawing(bar, false, context).primitives.length).toBeGreaterThan(0)
+    const line = createTrendDrawing({
+      xloc: 'bar_time',
+      anchors: [
+        { id: 'a', time: start, price: 15 },
+        { id: 'b', time: start + 360_000, price: 15 },
+      ],
+    })
+    expect(linePrimitives(projectSingleDrawing(line, false, context).primitives)).toHaveLength(1)
+    const beyondClose = createTrendDrawing({
+      xloc: 'bar_time',
+      anchors: [
+        { id: 'a', time: start, price: 15 },
+        { id: 'b', time: start + 660_000, price: 15 },
+      ],
+    })
+    expect(projectSingleDrawing(beyondClose, false, context).primitives).toEqual([])
+    context.getTimestampAtLogicalIndex = (index) => start + index * 300_000
+    expect(linePrimitives(projectSingleDrawing(line, false, context).primitives)).toHaveLength(1)
+  })
+
   it('projects timestamp positions between bars through the shared continuous X axis', () => {
     const drawing = createTrendDrawing({
       ownerId: 'indicator',

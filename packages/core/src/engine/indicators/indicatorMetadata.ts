@@ -99,7 +99,7 @@ export interface TitleInfo {
  * 获取标题信息的回调类型
  */
 export type GetTitleInfoFn = (
-  data: KLineData[],
+  data: readonly KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
@@ -107,6 +107,9 @@ export type GetTitleInfoFn = (
   paneId: string,
   colors: ColorTokens,
 ) => TitleInfo | null
+
+/** 下拉选项：值即参数取值，label 为面板显示名。 */
+export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contracts').InputOption
 
 /**
  * 输入参数在面板中的展示声明。
@@ -120,7 +123,7 @@ export interface IndicatorInputDef {
   /** 面板显示名；缺省显示参数名。 */
   readonly title?: string
   /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | IndicatorInputOption)[]
 }
 
 /**
@@ -130,21 +133,25 @@ export interface IndicatorInputDef {
 export interface IndicatorRuntimeDescriptor<C = any> {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
+  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
+  dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
   /** 每个执行器创建独立的增量 calculator。 */
-  createCompute?: () => (
-    data: KLineData[],
+  createCompute?: () => ((
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-  ) => unknown
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
+  ) => unknown) & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
   inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** 注册定义的唯一计算端口。 */
   compute: (
-    data: KLineData[],
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'
@@ -155,10 +162,20 @@ export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unk
   readonly defaultOptions: O
 }
 
+/** 可见范围使用的周期单位；同单位内用 min/max 表示区间。 */
+export type IndicatorPeriodUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter'
+
+/** 一条可见范围声明；省略 min/max 表示该单位全段可见。 */
+export interface IndicatorPeriodVisibility {
+  readonly unit: IndicatorPeriodUnit
+  readonly min?: number
+  readonly max?: number
+}
+
 /**
  * 指标元数据接口
  */
-export interface IndicatorMetadata<T = unknown> {
+export interface IndicatorMetadata<_T = unknown> {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
   /** 序列和绘图对象统一声明公共 Plot 输出。 */
@@ -205,6 +222,9 @@ export interface IndicatorMetadata<T = unknown> {
    */
   rendererFactory: RendererFactory
 
+  /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
+  ui?: { name?: string; description?: string; params?: readonly unknown[] }
+
   /**
    * 专用坐标轴渲染器工厂。未提供时可回退到 scale 通用配置。
    */
@@ -241,6 +261,12 @@ export interface IndicatorMetadata<T = unknown> {
    * - false/undefined：仅限副图显示
    */
   allowMainPane?: boolean
+
+  /**
+   * 指标在哪些图表周期可见；未声明时所有周期都可见。
+   * 声明后，不在范围内的周期既不绘制也不出现在图例里（TradingView 的「可见范围」）。
+   */
+  visiblePeriods?: readonly IndicatorPeriodVisibility[]
 
   /**
    * 主图指标启停相关配置。

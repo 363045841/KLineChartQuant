@@ -306,7 +306,12 @@ export class ChartStateKernel extends StateKernel {
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
     this.pane = createPaneState()
     {
-      const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({ ...spec }))
+      // 主图 role 是 PaneManager 分配新副图默认份额的依据，必须在进入 kernel 时补齐，
+      // 不能只依赖调用方传入；与 restoreWorkspaces 的 role 归一化保持一致。
+      const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({
+        ...spec,
+        role: spec.role ?? (spec.id === MAIN_PANE_ID ? 'price' : 'indicator'),
+      }))
       const initialRatios: Record<string, number> = {}
       for (const spec of initialPanes) {
         initialRatios[spec.id] = spec.ratio ?? 1

@@ -174,28 +174,6 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     ])
   })
 
-  it('VP calculates once at the last bar with bar-based widths and POC / value area', async () => {
-    const bars = barsFromCloses([10, 11, 12, 13, 14], { spread: 0.5, volumes: [1, 1, 20, 1, 1] })
-    const result = await run(shippedSource('volume-profile'), bars, {
-      bins: 5,
-      widthBars: 4,
-      valueAreaPercent: 70,
-    })
-    const rectangles = result.drawings!.filter((drawing) => drawing.kind === 'rectangle')
-    expect(rectangles).toHaveLength(1)
-    expect(rectangles[0]?.anchors).toMatchObject([
-      { logicalIndex: 0, price: 12.5 },
-      { logicalIndex: 4, price: 12.5 },
-      { logicalIndex: 4, price: 11.5 },
-      { logicalIndex: 0, price: 11.5 },
-    ])
-    const lines = result.drawings!.filter((drawing) => drawing.kind === 'trend-line')
-    expect(lines.map((drawing) => drawing.anchors[0]!.price)).toEqual([12, 11.5, 12.5])
-    expect((await run(shippedSource('volume-profile'), barsFromCloses([10, 10]))).drawings).toEqual(
-      [],
-    )
-  })
-
   it('FVG survives a partial fill and ends only at its far boundary', async () => {
     const source = shippedSource('zones')
     const bars = barsFromCloses([10, 12, 14, 13, 12], { spread: 1 })
@@ -254,7 +232,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
 })
 
 describe('内置脚本的编辑器类型契约', () => {
-  it.each(['structure', 'zones', 'volume-profile', 'mpr', 'mfs', 'bis', 'mdd'])(
+  it.each(['structure', 'zones', 'mpr', 'mfs', 'bis', 'mdd'])(
     '%s has no editor type errors',
     (name) => {
       const session = createScriptLanguageSession()

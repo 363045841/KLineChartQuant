@@ -13,6 +13,7 @@ export interface PrimitiveFade {
 export type PaintPrimitive =
   | {
       kind: 'circle'
+      opacity?: number
       x: number
       y: number
       radius: number
@@ -22,6 +23,7 @@ export type PaintPrimitive =
     }
   | {
       kind: 'rect'
+      opacity?: number
       x: number
       y: number
       width: number
@@ -70,6 +72,10 @@ export type PaintPrimitive =
     }
   | {
       kind: 'text'
+      /** 独立文字透明度；不改变相邻原语的透明度。 */
+      opacity?: number
+      /** 可选的单行压缩宽度，与 Canvas fillText 的 maxWidth 语义相同。 */
+      maxWidth?: number
       text: string
       x: number
       y: number
@@ -81,6 +87,9 @@ export type PaintPrimitive =
       /** 旋转坐标系中的行偏移。 */
       offsetY?: number
     }
+
+/** 文字表面只接收文字指令，不接收几何或任意 Canvas 操作。 */
+export type TextPaintPrimitive = Extract<PaintPrimitive, { kind: 'text' }>
 
 /** 整批先画到隔离目标，成功后才合成；false 保证未改变调用方目标。 */
 export interface PrimitiveBackend {

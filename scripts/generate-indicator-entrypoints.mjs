@@ -213,6 +213,7 @@ const DESCRIPTOR_FIELDS = [
   ['defaultPaneId'],
   ['dataViews'],
   ['allowMainPane'],
+  ['visiblePeriods'],
   ['defaultParams', 'runtime', 'defaultParams'],
   ['defaultOptions', 'presentation', 'defaultOptions'],
 ]

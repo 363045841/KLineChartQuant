@@ -92,9 +92,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
   const disposeLayer = (layer: Layer<TFrame>): void => {
     try {
       layer.dispose()
-    } catch (error) {
-      console.error(`[Layer] ${layer.id} dispose error:`, error)
-    }
+    } catch (_error) {}
   }
 
   const getLayer = (id: string): Layer<TFrame> | null => {
@@ -120,6 +118,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
     // 可见 GPU 表面按 pane 累积；同一表面按裁切区分批次，帧末一次直出。
     const surfaces = new Map<PrimitiveSurface, SurfaceBatch[]>()
+    let paneText: import('../primitives/types.js').TextPaintPrimitive[] = []
+    let tileText = false
     /**
      * 几何写可见表面，文字仍走它上方的 2D 目标。
      *
@@ -137,7 +137,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     ): void => {
       let batches = surfaces.get(surface)
       let entry = batches?.find((batch) => batch.clip === clip)
-      const text: PaintPrimitive[] = []
+      const text: import('../primitives/types.js').TextPaintPrimitive[] = []
       for (const primitive of primitives) {
         if (primitive.kind === 'text') {
           text.push(primitive)
@@ -155,7 +155,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         entry.transform = transform
         entry.primitives.push(primitive)
       }
-      if (text.length > 0) composer.submit(text, dpr, transform)
+      if (tileText) paneText.push(...text)
+      else if (text.length > 0) composer.submit(text, dpr, transform)
     }
     /** 取（或建立）目标合成器；后端由 pane 提供，目标由 Scene 选定。 */
     const composerFor = (
@@ -170,6 +171,9 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       return composer
     }
     for (const pane of frame.panes) {
+      let overlayUsed = false
+      paneText = []
+      tileText = pane.paintText !== undefined
       // 裁剪矩形只由 Pane 尺寸构造，业务上下文中的价格留白不影响它。
       const paneClip: PrimitiveClip = { x: 0, y: 0, ...pane.bounds }
       // 本批要绘制的 Layer 列表
@@ -199,6 +203,11 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       }
       // 依次绘制这批 Layer
       for (const layer of candidates) {
+        const overlay = scenePaintTarget(layer.role) === 'overlay'
+        if (overlay && layer.kind !== 'draw-list' && pane.ensureOverlayTarget) {
+          pane.ensureOverlayTarget()
+          overlayUsed = true
+        }
         const target = pane.targets[scenePaintTarget(layer.role)]
         if (!target) continue
         const clip = CLIPPED_ROLES.has(layer.role) ? paneClip : undefined
@@ -222,13 +231,20 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         const composer = composerFor(target, pane.renderer)
         if (layer.kind === 'draw-list') {
           // 纯增量图层：没有 ctx；有可见 GPU 表面时直接写入，否则进入合成器。
-          const surface = pane.gpuSurface
+          const surface = scenePaintTarget(layer.role) === 'main' ? pane.gpuSurface : undefined
           const context: PrimitiveDrawContext<TFrame> = {
             ...withoutContext(pane.context as TFrame),
             primitives: surface
               ? (primitives, dpr, transform) =>
                   submitToSurface(surface, composer, primitives, dpr, transform, clip)
-              : composer.submit,
+              : overlay && pane.ensureOverlayTarget
+                ? (primitives, dpr, transform) => {
+                    if (primitives.length === 0) return
+                    if (!overlayUsed) pane.ensureOverlayTarget?.()
+                    overlayUsed = true
+                    composer.submit(primitives, dpr, transform)
+                  }
+                : composer.submit,
             measureContext: target,
             paneId: pane.paneId,
             clear: pane.clear,
@@ -236,9 +252,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           }
           try {
             layer.paint(context)
-          } catch (e) {
-            console.error(`[Layer] ${layer.id} paint error:`, e)
-          }
+          } catch (_e) {}
           continue
         }
         // 完整上下文图层可能自带裁剪或局部坐标系：前后各自落盘。
@@ -255,9 +269,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         target.save()
         try {
           layer.paint(ctx)
-        } catch (e) {
-          // 异常隔离：单个 Layer 抛错不中断同 pane 后续 Layer。
-          console.error(`[Layer] ${layer.id} paint error:`, e)
+        } catch (_e) {
         } finally {
           target.restore()
         }
@@ -279,7 +291,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           if (shouldClear && painted) cleared = true
           if (painted || primitives.length === 0) return
           // 直出失败：整批回落到 2D 合成，裁切由目标自身保证。
-          const main = pane.targets.main
+          const main = pane.ensureMainTarget ? pane.ensureMainTarget() : pane.targets.main
           if (!main) return
           main.save()
           if (batch?.clip) {
@@ -294,6 +306,12 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         }
         if (batches?.length) for (const batch of batches) flushBatch(batch)
         else flushBatch()
+      }
+      pane.paintText?.(paneText, pane.dpr ?? 1, pane.bounds)
+      if (pane.finishOverlay) {
+        const overlay = pane.targets.overlay
+        if (overlay) composers.get(overlay)?.flush()
+        pane.finishOverlay(overlayUsed)
       }
     }
     // 帧末统一落盘：每个目标只做一次离屏渲染与合成。

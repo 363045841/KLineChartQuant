@@ -9,13 +9,19 @@ function __rollingSeries(
 ): Series {
   const cached = __derivedCache.get(key)
   if (cached) return cached
-  const window = create()
+  let window = create()
   const samples: number[] = []
   let processed = -1
   return __deriveOnce(key, (self, offset) => {
     const count = __count()
     const target = count - 1 - offset
     if (target < 0) return Number.NaN
+    // 回滚到更早的 bar 时，窗口已越过目标；丢弃并从头补齐，避免沿用未来状态。
+    if (target < processed) {
+      window = create()
+      samples.length = 0
+      processed = -1
+    }
     // 每次递入只补一根，深度恒为两层，不随首次查询的历史长度增长。
     while (processed + 1 < target) self.at(count - 2 - processed)
     const slot = target % length

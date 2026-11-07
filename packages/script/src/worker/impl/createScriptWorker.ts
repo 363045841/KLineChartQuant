@@ -1,6 +1,12 @@
-/** Script Worker 客户端；只负责请求关联、错误传递和线程释放。 */
+/** Script Worker 端口：按物理线程同步行情增量，转移数值块并关联计算响应。 */
 
+import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/output.js'
+import { applyDrawingDelta } from '../../execution/session/impl/drawingDelta.js'
+import { acquireCompilation } from '../compiler/impl/sharedCompiler.js'
+import type { CompilationLease } from '../compiler/types.js'
+import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
+import { unpackPlotCollection } from '../transport/impl/output.js'
 import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 /**
@@ -21,6 +27,15 @@ export function createScriptWorker(
 ): ScriptWorker {
   let nextRequestId = 0
   let failure: Error | undefined
+  const input = new WorkerInputSender()
+  /** 每个脚本保留上一轮完整绘图；增量只替换变化对象，未变化对象保持引用。 */
+  const drawings = new Map<string, readonly DrawingObject[]>()
+  const compiled = new Map<
+    string,
+    { lease: CompilationLease; trusted: boolean; installed: boolean }
+  >()
+  const preparing = new Set<CompilationLease>()
+  let ready: Promise<void> = Promise.resolve()
   const pending = new Map<
     number,
     {
@@ -32,7 +47,14 @@ export function createScriptWorker(
   /** 线程失效后拒绝全部请求，并阻止继续向已失效线程发送消息。 */
   function stop(error: Error): void {
     if (failure) return
+    Object.assign(error, { workerFailure: true })
     failure = error
+    input.clear()
+    drawings.clear()
+    for (const entry of compiled.values()) entry.lease.release()
+    for (const lease of preparing) lease.release()
+    compiled.clear()
+    preparing.clear()
     worker.removeEventListener('message', onMessage)
     worker.removeEventListener('error', onError)
     worker.removeEventListener('messageerror', onMessageError)
@@ -72,48 +94,114 @@ export function createScriptWorker(
   worker.addEventListener('error', onError)
   worker.addEventListener('messageerror', onMessageError)
 
-  /** 登记请求后发送消息；发送失败只拒绝本次调用。 */
-  function request(message: ScriptWorkerRequest): Promise<ScriptWorkerResponse> {
+  /** 登记后转移专用通信块；发送失败销毁端口，禁止继续使用已失配的增量基线。 */
+  function request(
+    message: ScriptWorkerRequest,
+    transfer: ArrayBuffer[] = [],
+  ): Promise<ScriptWorkerResponse> {
     if (failure) return Promise.reject(failure)
     return new Promise((resolve, reject) => {
       pending.set(message.requestId, { resolve, reject })
       try {
-        worker.postMessage(message)
+        worker.postMessage(message, transfer)
       } catch (error) {
         pending.delete(message.requestId)
         reject(error)
+        stop(error instanceof Error ? error : new Error(String(error)))
       }
     })
   }
 
-  return {
-    /** 在 Worker 内编译源码，返回声明元数据。 */
-    async prepare(id, source, libraries, trusted = false) {
+  /** 元数据读取只保留编译租约；首次请求计划或计算时才安装执行会话。 */
+  function ensureInstalled(id: string): Promise<void> {
+    const operation = ready.then(async () => {
+      if (failure) throw failure
+      const entry = compiled.get(id)
+      if (!entry) throw new Error(`脚本尚未准备：${id}`)
+      if (entry.installed) return
+      const module = await entry.lease.module
       const response = await request({
         requestId: ++nextRequestId,
         type: 'prepare',
         id,
-        source,
-        libraries,
-        trusted,
+        module,
+        trusted: entry.trusted,
       })
       if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
-      return response.definition
+      entry.installed = true
+    })
+    ready = operation.then(
+      () => {},
+      () => {},
+    )
+    return operation
+  }
+
+  return {
+    /** 编译线程共用源码产物；安装成功后才替换旧租约，编译失败保留当前执行模块。 */
+    prepare(id, source, libraries, trusted = false, mode = 'execution') {
+      const operation = ready.then(async () => {
+        if (failure) throw failure
+        const lease = acquireCompilation(source, libraries)
+        preparing.add(lease)
+        try {
+          const module = await lease.module
+          if (failure) throw failure
+          const response = await request({
+            requestId: ++nextRequestId,
+            type: 'prepare',
+            id,
+            module,
+            trusted,
+            metadataOnly: mode === 'metadata',
+          })
+          if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
+          compiled.get(id)?.lease.release()
+          compiled.set(id, { lease, trusted, installed: mode === 'execution' })
+          drawings.delete(id)
+          return response.definition
+        } catch (error) {
+          lease.release()
+          throw failure ?? error
+        } finally {
+          preparing.delete(lease)
+        }
+      })
+      ready = operation.then(
+        () => {},
+        () => {},
+      )
+      return operation
     },
     /** 使用 Worker 内已有编译快照计算行情。 */
-    async run(id, bars, params, context) {
-      const response = await request({
-        requestId: ++nextRequestId,
-        type: 'run',
-        id,
-        bars,
-        params,
-        context,
-      })
+    async run(id, bars, params, context, range) {
+      await ensureInstalled(id)
+      if (failure) throw failure
+      const inputPatch = input.encode(bars, context)
+      const response = await request(
+        {
+          requestId: ++nextRequestId,
+          type: 'run',
+          id,
+          input: inputPatch,
+          params,
+          range,
+        },
+        inputTransferList(inputPatch),
+      )
       if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
-      return response.collection
+      const collection = unpackPlotCollection(response.collection)
+      const deltaCollection = unpackPlotCollection(response.drawingDelta.collection)
+      const next = applyDrawingDelta(drawings.get(id) ?? [], {
+        reset: response.drawingDelta.reset,
+        upsert: deltaCollection.drawings ?? [],
+        remove: response.drawingDelta.remove,
+      })
+      drawings.set(id, next)
+      return { ...collection, drawings: next }
     },
     async requests(id, params, symbol) {
+      await ensureInstalled(id)
       const response = await request({
         requestId: ++nextRequestId,
         type: 'requests',
@@ -126,7 +214,12 @@ export function createScriptWorker(
     },
     /** 删除指定脚本的编译快照。 */
     async release(id) {
+      await ready
+      input.clear()
+      drawings.delete(id)
       await request({ requestId: ++nextRequestId, type: 'release', id })
+      compiled.get(id)?.lease.release()
+      compiled.delete(id)
     },
     /** 终止线程并拒绝所有尚未完成的请求。 */
     dispose() {

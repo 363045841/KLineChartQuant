@@ -67,6 +67,17 @@ export const darkTheme: Theme = {
       ask: '#929292',
       text: '#eeeeee',
     },
+    // 成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。
+    volumeProfile: {
+      up: '#9E9E9E80',
+      down: '#9E9E9E80',
+      valueAreaUp: '#4A9EFFB3',
+      valueAreaDown: '#E8C15AB3',
+      pointOfControl: '#EF5350',
+      valueAreaHigh: '#4A9EFFCC',
+      valueAreaLow: '#4A9EFFCC',
+      boxBackground: '#FFFFFF0A',
+    },
     alertActive: '#4A9EFF',
     alertTriggered: '#FFA94D',
     alertMuted: '#6B727A',

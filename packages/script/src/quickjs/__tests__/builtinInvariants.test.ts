@@ -15,7 +15,8 @@ function lastBarOnly(name: string): boolean {
   return shippedSource(name).includes('barstate.islast')
 }
 
-describe.each(builtinScriptNames())('内置脚本不变量 %s', (name) => {
+// Request指标由lowerTimeframe测试矩阵覆盖实际明细与绘图，不用无行情上下文的逐bar序列用例约束。
+describe.each(builtinScriptNames().filter((name) => !shippedSource(name).includes('request.')))('内置脚本不变量 %s', (name) => {
   it('空输入、重复运行、追加历史与预热都不破坏约定', async () => {
     const source = shippedSource(name)
     // 空输入不产生任何绘图。

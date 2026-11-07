@@ -131,6 +131,8 @@ export class DrawingDocument {
         )
       },
       nextId: () => `drawing-${generateUUID()}`,
+      /** 用户文档没有外部回滚；引用表无需重建。 */
+      epoch: () => 0,
     })
   }
 

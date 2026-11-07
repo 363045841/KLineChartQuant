@@ -1,8 +1,9 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
-import type { Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
+import type { ComputeDependency, Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { LogEvent } from '../contracts/output.js'
+import type { ScriptSessionOutput } from '../execution/session/types.js'
 import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
@@ -60,6 +61,11 @@ export interface QuickJSScriptDefinition {
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 
+/** 编译产物：VM 元数据 + 编译期推断的计算依赖。 */
+export type PreparedScriptDefinition = QuickJSScriptDefinition & {
+  readonly dependency: ComputeDependency
+}
+
 /** 一次 QuickJS 脚本运行的配置。 */
 export interface QuickJSRunOptions {
   readonly onLog?: (event: LogEvent) => void
@@ -74,16 +80,26 @@ export interface QuickJSRunOptions {
   readonly libraries?: readonly QuickJSLibrary[]
 }
 
-/** 一个源码版本的编译快照；每次运行仍使用独立 VM 上下文。 */
+/** 一个源码版本的常驻执行会话；编译与运行态跨 tick 复用，释放时统一销毁。 */
 export interface PreparedQuickJSScript {
-  readonly definition: QuickJSScriptDefinition
+  readonly definition: PreparedScriptDefinition
   requests(
     params?: Readonly<Record<string, ScriptParamValue>>,
     symbol?: string,
   ): readonly SecurityRequest[]
+  /** 只要绘图结果的便捷入口；需要增量绘图时使用 runDetailed。 */
   run(
     bars: readonly Bar[],
     params?: Readonly<Record<string, ScriptParamValue>>,
     context?: ScriptRequestContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ): import('@363045841yyt/klinechart-plot-contracts').PlotCollection
+  /** 完整会话输出：完整绘图 + 本次增量，供 Worker 只传输变化对象。 */
+  runDetailed(
+    bars: readonly Bar[],
+    params?: Readonly<Record<string, ScriptParamValue>>,
+    context?: ScriptRequestContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
+  ): ScriptSessionOutput
+  dispose(): void
 }
