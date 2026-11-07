@@ -14,7 +14,7 @@ import {
 } from './helpers/instanceTestKit.js'
 
 interface Call {
-  readonly data: KLineData[]
+  readonly data: readonly KLineData[]
   readonly signal: AbortSignal
   finish(value: number[]): void
 }
@@ -27,7 +27,7 @@ function setup(shared = false) {
     createTestInstance({ instanceId: 'fast', definitionId: 'fast' }),
     ...(shared ? [createTestInstance({ instanceId: 'copy', definitionId: 'slow' })] : []),
   ])
-  const compute = (data: KLineData[], _params: unknown, market?: IndicatorMarketContext) =>
+  const compute = (data: readonly KLineData[], _params: unknown, market?: IndicatorMarketContext) =>
     new Promise<number[]>((finish) => {
       if (!market?.signal) throw new Error('Missing lifecycle signal')
       calls.push({ data, signal: market.signal, finish })

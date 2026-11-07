@@ -237,7 +237,7 @@ describe('ChartIndicatorManager', () => {
     async (category) => {
       const name = `Visibility_${category}`
       const compute = vi.fn(
-        (data: KLineData[]): PlotCollection => ({
+        (data: readonly KLineData[]): PlotCollection => ({
           plots: [
             {
               kind: 'line',

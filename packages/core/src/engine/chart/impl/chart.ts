@@ -1079,7 +1079,7 @@ export class Chart {
     this.transformPrice(paneId, (yAxis, base) => yAxis.scaleRange(base, deltaY, anchorY))
   }
   /** 获取当前数据源（供 renderers 和 interaction 使用） */
-  getData(): KLineData[] {
+  getData(): readonly KLineData[] {
     return this.dataManager.getData()
   }
 
@@ -1109,12 +1109,12 @@ export class Chart {
   }
 
   /** K线原始数据（分时模式下为空） */
-  getInternalData(): KLineData[] {
+  getInternalData(): readonly KLineData[] {
     return this.dataManager.getInternalData()
   }
 
   /** 数据就绪时触发预警评估 */
-  private evaluateAlerts(data: KLineData[]): void {
+  private evaluateAlerts(data: readonly KLineData[]): void {
     const latest = data[data.length - 1]
     if (!latest) return
     // 去重：同一根 K 线只评估一次（增量加载/Worker 重复回调时跳过）
@@ -1135,7 +1135,7 @@ export class Chart {
   }
 
   /** 构建预警引擎所需的当前市场快照 */
-  private buildMarketSnapshot(data: KLineData[]): MarketSnapshot | null {
+  private buildMarketSnapshot(data: readonly KLineData[]): MarketSnapshot | null {
     const latest = data[data.length - 1]
     if (!latest) return null
 

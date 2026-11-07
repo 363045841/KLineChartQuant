@@ -181,7 +181,7 @@ export class ChartIndicatorManager {
   private destroyed = false
 
   // ========== 计算与投影运行时 ==========
-  private currentData: KLineData[] = []
+  private currentData: readonly KLineData[] = []
   private currentTimestamps: readonly number[] = []
   private visibleRange: VisibleRange = { start: 0, end: 0 }
   /** 非空时，计算结果需投影到该展示序列的时间戳。 */
@@ -635,7 +635,7 @@ export class ChartIndicatorManager {
 
   /** 数据更新入口：K 线计算，可选把结果投影到展示时间戳序列。 */
   updateIndicatorData(
-    data: KLineData[],
+    data: readonly KLineData[],
     visibleRange: VisibleRange,
     dataRevision?: number,
     displayTimestamps: readonly number[] | null = null,

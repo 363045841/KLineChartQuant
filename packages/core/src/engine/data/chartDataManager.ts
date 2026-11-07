@@ -29,7 +29,6 @@ import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/impl/t
 import {
   DATA_CHANGE_KINDS,
   type DataChange,
-  type DataChangeKind,
   type KLineBuffer,
   type TimeShareBuffer,
 } from '../../data/buffer/types.js'
@@ -104,7 +103,7 @@ export interface DataDependencies {
   resetInteraction: () => void
   /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
   updateIndicatorData: (
-    data: KLineData[],
+    data: readonly KLineData[],
     range: VisibleRange,
     dataRevision?: number,
     displayTimestamps?: readonly number[] | null,
@@ -364,13 +363,9 @@ export class ChartDataManager {
     })
 
     // 初始同步：key/data/loading 同批；subscribe 不回放当前值
-    const { dataChanged, kind, prependedCount, prevDataLength } = this.publishBufferSnapshot(
-      selection,
-      buf,
-      true,
-    )
+    const { dataChanged, prevDataLength } = this.publishBufferSnapshot(selection, buf, true)
     if (dataChanged) {
-      this.onBufferDataChanged(selection, kind, prevDataLength, prependedCount)
+      this.onBufferDataChanged(selection, prevDataLength)
     }
     if (!buf.loading.peek()) {
       this.scheduleIncrementalLoadHintFlush(selection)
@@ -434,16 +429,10 @@ export class ChartDataManager {
     selection: SeriesSelection,
     buf: KLineBuffer | TimeShareBuffer,
     forceData: boolean,
-  ): {
-    dataChanged: boolean
-    kind: DataChangeKind
-    prependedCount: number
-    prevDataLength: number
-  } {
+  ): { dataChanged: boolean; prevDataLength: number } {
     const dataChange = buf.data.peek()
     const dataChanged = forceData || dataChange !== this._lastDataChange
     const prevDataLength = this._dataState.readonly.dataLength.peek()
-    const prependedCount = dataChanged ? dataChange.prependedCount : 0
     if (dataChanged) this._lastDataChange = dataChange
 
     if (selection.kind === SERIES_SELECTION_KIND.bars) {
@@ -453,7 +442,7 @@ export class ChartDataManager {
           kind: ACTIVE_BUFFER_KIND.bars,
           selection,
           data: dataChanged
-            ? [...buffer.data.peek().data]
+            ? buffer.data.peek().data
             : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
           loading: buffer.loading.peek(),
           error: buffer.lastError.peek(),
@@ -469,7 +458,7 @@ export class ChartDataManager {
         kind: ACTIVE_BUFFER_KIND.timeShare,
         selection,
         data: dataChanged
-          ? [...buffer.data.peek().data]
+          ? buffer.data.peek().data
           : (this._dataState.readonly.data.peek() as ReadonlyArray<TimeShareData>),
         loading: buffer.loading.peek(),
         error: buffer.lastError.peek(),
@@ -479,20 +468,16 @@ export class ChartDataManager {
       })
     }
 
-    return { dataChanged, kind: dataChange.kind, prependedCount, prevDataLength }
+    return { dataChanged, prevDataLength }
   }
 
   private handleBufferDataEvent(selection: SeriesSelection): void {
     if (!this.isActiveSelection(selection)) return
     const buf = this.lookupBuffer(selection)
     if (!buf) return
-    const { dataChanged, kind, prependedCount, prevDataLength } = this.publishBufferSnapshot(
-      selection,
-      buf,
-      false,
-    )
+    const { dataChanged, prevDataLength } = this.publishBufferSnapshot(selection, buf, false)
     if (!dataChanged) return
-    this.onBufferDataChanged(selection, kind, prevDataLength, prependedCount)
+    this.onBufferDataChanged(selection, prevDataLength)
   }
 
   private handleBufferLoadingEvent(selection: SeriesSelection): void {
@@ -603,8 +588,8 @@ export class ChartDataManager {
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       if (target.refresh) {
         this.calendarRequests.delete(buffer)
-        buffer.replaceData(result.series.data, result.series.olderData, result.series.timezone)
-      } else buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
+        buffer.replace(result.series.data, result.series.olderData, result.series.timezone)
+      } else buffer.mergePage(result.series.data, result.series.olderData, result.series.timezone)
       const resolvedSelection = { ...selection, sourceId: result.sourceId }
       if (
         this.deps.comparison.readonly.specs
@@ -815,28 +800,23 @@ export class ChartDataManager {
 
   // ── Buffer data change handler ──
 
-  private onBufferDataChanged(
-    selection: SeriesSelection,
-    kind: DataChangeKind,
-    prevDataLength?: number,
-    prependedCount?: number,
-  ): void {
+  private onBufferDataChanged(selection: SeriesSelection, prevDataLength?: number): void {
     if (selection.kind === SERIES_SELECTION_KIND.timeShare) {
       this.onTimeShareBufferChanged()
       return
     }
     const buf = this._repository.getBars(selection)
     if (!buf) return
-    this.onKLineBufferChanged(buf, kind, prevDataLength, prependedCount ?? 0)
+    this.onKLineBufferChanged(buf, buf.data.peek(), prevDataLength)
   }
 
   private onKLineBufferChanged(
     buf: KLineBuffer,
-    kind: DataChangeKind,
+    change: DataChange<KLineData>,
     prevDataLength?: number,
-    prependedCount: number = 0,
   ): void {
     const bufferData = buf.getRawData()
+    const prependedCount = change.kind === DATA_CHANGE_KINDS.prepend ? change.end - change.start : 0
 
     if (prependedCount > 0) {
       this._scrollCompensator.compensatePrepend(prependedCount)
@@ -848,9 +828,8 @@ export class ChartDataManager {
       this.scrollToRight()
     }
 
-    // 只有让既有下标失效的变更才作废交互态；实时尾部写入不改变既有 K 线下标，
-    // 若一并重置会打断用户正在进行的手势。
-    if (kind !== DATA_CHANGE_KINDS.tail) {
+    // 只有整体替换或前置插入会让既有序号/下标失效；尾部写入与单根修正不打断手势。
+    if (change.kind === DATA_CHANGE_KINDS.replace || change.kind === DATA_CHANGE_KINDS.prepend) {
       this.deps.resetInteraction()
     }
 
@@ -1019,11 +998,11 @@ export class ChartDataManager {
   }
 
   /** Internal KLine data for indicator scheduler (empty in timeshare mode) */
-  getInternalData(): KLineData[] {
+  getInternalData(): readonly KLineData[] {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf.getRawData()
     const peek = this._dataState.readonly.data.peek()
-    return peek.length > 0 ? (peek as KLineData[]) : []
+    return peek.length > 0 ? (peek as readonly KLineData[]) : []
   }
 
   /** 当前主序列的提交版本，供绘制投影判断行情是否变化。 */
@@ -1046,7 +1025,7 @@ export class ChartDataManager {
     return this._dataState.readonly.data.peek()
   }
 
-  getTimeShareData(): TimeShareData[] {
+  getTimeShareData(): readonly TimeShareData[] {
     const buf = this.getActiveTimeShareBuffer()
     return buf ? buf.getRawData() : []
   }
@@ -1084,7 +1063,7 @@ export class ChartDataManager {
     return this.deps.comparison.readonly.hidden.peek()
   }
 
-  getData(): KLineData[] {
+  getData(): readonly KLineData[] {
     const buf = this.getActiveDataBuffer()
     return buf ? buf.getRawData() : []
   }

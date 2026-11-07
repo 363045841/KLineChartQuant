@@ -247,9 +247,9 @@ export class IndicatorBarsRepository {
           demand.buffer === buffer
             ? buffer.getRawData().filter((bar) => baseline?.get(bar.timestamp) !== bar)
             : []
-        buffer.mergeData(pages.flat(), result.series.olderData, result.series.timezone)
+        buffer.mergePage(pages.flat(), result.series.olderData, result.series.timezone)
         if (concurrent.length)
-          buffer.mergeData(concurrent, result.series.olderData, result.series.timezone)
+          buffer.mergePage(concurrent, result.series.olderData, result.series.timezone)
         const capabilities = this.deps.registry.get(result.sourceId)?.source.capabilities
         if (!capabilities) throw new Error(`Request 数据源没有能力声明：${result.sourceId}`)
         demand.target = { selection, instrument: result.instrument, capabilities }

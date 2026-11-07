@@ -22,7 +22,7 @@ export function hasLeftDataGap(scrollLeft: number, leftLoadBufferWidth: number):
  * - 若区间内无有效数据，返回 null，不生成默认价格范围。
  */
 export function getVisiblePriceRange(
-  data: KLineData[],
+  data: readonly KLineData[],
   startIndex: number,
   endIndex: number,
   closeOnly = false,

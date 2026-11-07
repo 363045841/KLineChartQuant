@@ -99,7 +99,7 @@ export interface TitleInfo {
  * 获取标题信息的回调类型
  */
 export type GetTitleInfoFn = (
-  data: KLineData[],
+  data: readonly KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
@@ -135,7 +135,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   revision?: number
   /** 每个执行器创建独立的增量 calculator。 */
   createCompute?: () => (
-    data: KLineData[],
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown
@@ -145,7 +145,7 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** 注册定义的唯一计算端口。 */
   compute: (
-    data: KLineData[],
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ) => unknown

@@ -12,7 +12,7 @@ export interface IndicatorCalculationExecutor {
   retain(tasks: readonly IndicatorCalculationTask[]): void
   execute(
     task: IndicatorCalculationTask,
-    data: KLineData[],
+    data: readonly KLineData[],
     signal: AbortSignal,
   ): Promise<IndicatorCalculationOutput>
 }
@@ -20,7 +20,7 @@ export interface IndicatorCalculationExecutor {
 export interface IndicatorCalculationInput {
   readonly dataRevision: number
   readonly timestamps: readonly number[]
-  readonly data: KLineData[]
+  readonly data: readonly KLineData[]
 }
 
 export interface InstanceCalculationCommit {

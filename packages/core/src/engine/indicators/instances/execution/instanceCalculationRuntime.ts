@@ -14,7 +14,7 @@ export interface IndicatorCalculationDefinition {
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
   compute(
-    data: KLineData[],
+    data: readonly KLineData[],
     params: IndicatorParameters,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
   ): unknown
@@ -57,7 +57,7 @@ export function findInstanceFirstReadyIndex(value: unknown, dataLength: number):
 /** 执行一个去重任务。context 的解释权属于未来具备上下文计算能力的 definition；当前不隐式混入参数。 */
 export async function executeIndicatorCalculationTask(
   task: IndicatorCalculationTask,
-  data: KLineData[],
+  data: readonly KLineData[],
   resolveDefinition: IndicatorCalculationDefinitionResolver,
   market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
 ): Promise<IndicatorCalculationOutput> {

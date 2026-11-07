@@ -49,7 +49,7 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
   if (realtime) {
     cache.repository
       .getOrCreateBars(selectionFor('MAIN'), () => new DataBuffer())
-      .mergeData(data, 'unknown', 'Asia/Shanghai')
+      .mergePage(data, 'unknown', 'Asia/Shanghai')
   }
   const queries: BarsCacheQuery[] = []
   const queryBars = cache.queryBars.bind(cache)
@@ -145,7 +145,7 @@ describe('比较品种与 Request 共用行情', () => {
       try {
         const compared = selectionFor('CMP')
         const buffer = cache.repository.getOrCreateBars(compared, () => new DataBuffer())
-        buffer.mergeData(data, 'exhausted', 'Asia/Shanghai')
+        buffer.mergePage(data, 'exhausted', 'Asia/Shanghai')
         runtime.retainComparison(
           { selection: compared, instrument: instrumentFor('CMP'), capabilities },
           buffer,

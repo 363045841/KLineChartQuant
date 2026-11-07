@@ -330,7 +330,7 @@ export class MarketRuntime implements IndicatorMarketData {
           },
           correctBar: (bar) => {
             if (!current()) return
-            if (buffer.getLogicalIndexAtTimestamp(bar.timestamp) === null)
+            if (buffer.getOrdinalAtTimestamp(bar.timestamp) === null)
               throw new RangeError('Historical correction must target an existing bar')
             if (refreshing) {
               queued.push({ bar, historical: true })
