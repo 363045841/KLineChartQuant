@@ -145,14 +145,32 @@ async function assertSameScreenshot(left, right, message) {
   )
 }
 const failures = []
+/**
+ * 工作台会探测本机可选行情后端；CI 没有启动这些服务，连接被拒绝属于预期环境差异。
+ * 只忽略 loopback 上 `/api/v1/market-data/sources/<id>/probe` 的失败，其它请求仍按错误处理。
+ */
+function isOptionalBackendProbe(url) {
+  try {
+    const target = new URL(url)
+    return (target.hostname === '127.0.0.1' || target.hostname === 'localhost')
+      && /^\/api\/v1\/market-data\/sources\/[^/]+\/probe$/.test(target.pathname)
+  } catch {
+    return false
+  }
+}
+/** 统一登记页面错误；可选后端的探测失败不进入断言。 */
+function recordFailure(message, url) {
+  if (url && isOptionalBackendProbe(url)) return
+  failures.push(message)
+}
 const screenshots = []
 const fullScreenshots = []
 const browserOptions = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light', reducedMotion: 'reduce', locale: 'zh-CN', timezoneId: 'Asia/Shanghai' }
 /** 为每个独立页面记录真实资源和运行时故障。 */
 function observePage(page, onWorker) {
-  page.on('pageerror', (error) => failures.push(error.message))
-  page.on('response', (response) => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`) })
-  page.on('requestfailed', (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`))
+  page.on('pageerror', (error) => recordFailure(error.message))
+  page.on('response', (response) => { if (response.status() >= 400) recordFailure(`${response.status()} ${response.url()}`, response.url()) })
+  page.on('requestfailed', (request) => recordFailure(`${request.url()}: ${request.failure()?.errorText}`, request.url()))
   page.on('worker', onWorker)
 }
 /**
@@ -269,8 +287,8 @@ try {
     const popupReady = page.waitForEvent('popup')
     await page.getByRole('button', { name: '在新窗口打开', exact: true }).click()
     const popup = await popupReady
-    popup.on('pageerror', (error) => failures.push(error.message))
-    popup.on('requestfailed', (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`))
+    popup.on('pageerror', (error) => recordFailure(error.message))
+    popup.on('requestfailed', (request) => recordFailure(`${request.url()}: ${request.failure()?.errorText}`, request.url()))
     await popup.locator('.cm-editor').waitFor({ timeout: 60_000 })
     await popup.close()
     // 独立窗口关闭后编辑器回到弹窗；用弹窗关闭按钮退出，Esc 可能先被打开的菜单或浮层消费。
