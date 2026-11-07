@@ -341,6 +341,18 @@ export class ChartRenderer {
   private lastPriceCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
   readonly drawingStore: DrawingStore
+  /** 指标图元包装缓存：未变化的源对象只绑定一次归属，避免每次投影重建。 */
+  private readonly indicatorDrawingWrappers = new Map<
+    string,
+    WeakMap<DrawingObject, DrawingObject>
+  >()
+  /** 指标图元列表缓存；计算快照、实例列表和工作区不变时直接复用同一数组。 */
+  private indicatorDrawingsCache: {
+    readonly states: ReadonlyMap<string, unknown>
+    readonly instances: readonly { readonly id: string }[]
+    readonly workspaceId: ReturnType<typeof resolveChartWorkspaceId>
+    readonly drawings: readonly DrawingObject[]
+  } | null = null
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
   private readonly drawingLayer = createDrawingLayer()
   private xAxisCtx: CanvasRenderingContext2D | null = null
@@ -1138,17 +1150,48 @@ export class ChartRenderer {
     const manager = this.deps.getIndicatorManager()
     const states = manager.getRenderStatesSnapshot()
     const workspaceId = resolveChartWorkspaceId(this.deps.dataView$.peek())
-    return manager.indicatorsComputed.peek().flatMap((instance) => {
+    const instances = manager.indicatorsComputed.peek()
+    const cached = this.indicatorDrawingsCache
+    if (
+      cached !== null &&
+      cached.states === states &&
+      cached.instances === instances &&
+      cached.workspaceId === workspaceId
+    )
+      return cached.drawings
+    const active = new Set(instances.map((instance) => instance.id))
+    for (const id of this.indicatorDrawingWrappers.keys())
+      if (!active.has(id)) this.indicatorDrawingWrappers.delete(id)
+    const drawings = instances.flatMap((instance) => {
       const state = states.get(instance.id)
       if (!isPlotRenderState(state) || !state.drawings) return []
-      return state.drawings.map((drawing) => ({
-        ...drawing,
-        id: `${instance.id}:${drawing.id}`,
-        ownerId: instance.id,
-        paneId: instance.paneId ?? MAIN_PANE_ID,
-        workspaceId,
-      }))
+      let cache = this.indicatorDrawingWrappers.get(instance.id)
+      if (!cache) {
+        cache = new WeakMap()
+        this.indicatorDrawingWrappers.set(instance.id, cache)
+      }
+      const paneId = instance.paneId ?? MAIN_PANE_ID
+      return state.drawings.map((drawing) => {
+        const wrapped = cache.get(drawing)
+        if (
+          wrapped !== undefined &&
+          wrapped.paneId === paneId &&
+          wrapped.workspaceId === workspaceId
+        )
+          return wrapped
+        const wrapper: DrawingObject = {
+          ...drawing,
+          id: `${instance.id}:${drawing.id}`,
+          ownerId: instance.id,
+          paneId,
+          workspaceId,
+        }
+        cache.set(drawing, wrapper)
+        return wrapper
+      })
     })
+    this.indicatorDrawingsCache = { states, instances, workspaceId, drawings }
+    return drawings
   }
 
   /** 提交轴宽与保留标签；宽度变化时只重画轴画布，不重跑主图。 */

@@ -39,6 +39,9 @@ function __series(field: string): Series {
   })
 }
 
+/** 派生序列回滚入口；会话按 bar 下标恢复缓存，同 bar 重算不沿用旧值。 */
+const __seriesRollbacks: ((index: number) => void)[] = []
+
 /** 派生序列：按偏移惰性计算并缓存，同一脚本内多次引用不重复计算。 */
 function __derive(compute: (offset: number) => number): Series {
   // 计算结果恒为 number，因此 undefined 只表示该下标尚未计算。
@@ -55,12 +58,20 @@ function __derive(compute: (offset: number) => number): Series {
     memo.set(index, value)
     return value
   }
+  __seriesRollbacks.push((index) => {
+    for (const key of memo.keys()) if (key >= index) memo.delete(key)
+  })
   return new Proxy(Object.create(null), {
     get: (_target, key) => __seriesGet(read, key),
     set: () => {
       throw new TypeError('Series 是只读的')
     },
   })
+}
+
+/** 回滚全部派生序列到指定 bar 下标之前；由会话检查点调用。 */
+function __rollbackSeries(index: number): void {
+  for (const rollback of __seriesRollbacks) rollback(index)
 }
 
 /** 派生序列缓存：同一轮运行内，相同输入与算法的派生序列复用同一实例，memo 才能跨 bar 保留。 */
@@ -105,6 +116,10 @@ const close = __series('close')
 const volume = __series('volume')
 /** time同时支持历史序列读取和Pine风格周期/时段查询。 */
 const time = new Proxy(
-  Object.assign((period: string, session?: string, timezone?: string): number => __timeValue('open', period, __read('time', 0), session, timezone), __series('time')),
+  Object.assign(
+    (period: string, session?: string, timezone?: string): number =>
+      __timeValue('open', period, __read('time', 0), session, timezone),
+    __series('time'),
+  ),
   { get: (_target, key) => __seriesGet((offset) => __read('time', offset), key) },
 )

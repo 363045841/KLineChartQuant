@@ -63,6 +63,17 @@ export * from './contracts/input.js'
 export * from './contracts/library.js'
 export * from './contracts/output.js'
 export { ScriptExecutionError } from './errors.js'
+export type {
+  DrawingPatch,
+  ScriptExecutionSession,
+  ScriptRuntime,
+  ScriptRuntimeExecuteOptions,
+  ScriptRuntimeExecuteResult,
+  ScriptRuntimeFactory,
+  ScriptRuntimeFactoryOptions,
+  ScriptSessionOutput,
+  ScriptSessionRunOptions,
+} from './execution/session/types.js'
 export type { TechnicalAnalysisLibrary } from './Library/types.js'
 export { inspectScript, resolveScriptLibraries } from './language/impl/scriptLibraries.js'
 export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'

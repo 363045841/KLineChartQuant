@@ -1,11 +1,13 @@
 /** Script Worker 端口：按物理线程同步行情增量，转移数值块并关联计算响应。 */
 
+import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/output.js'
-import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
-import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
-import { unpackPlotCollection } from '../transport/impl/output.js'
+import { applyDrawingPatch } from '../../execution/session/impl/drawingPatch.js'
 import { acquireCompilation } from '../compiler/impl/sharedCompiler.js'
 import type { CompilationLease } from '../compiler/types.js'
+import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
+import { unpackPlotCollection } from '../transport/impl/output.js'
+import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 /**
  * 创建独立计算线程；可传入宿主创建的 Worker，销毁客户端时一并终止。
@@ -26,6 +28,8 @@ export function createScriptWorker(
   let nextRequestId = 0
   let failure: Error | undefined
   const input = new WorkerInputSender()
+  /** 每个脚本保留上一轮完整绘图；增量只替换变化对象，未变化对象保持引用。 */
+  const drawings = new Map<string, readonly DrawingObject[]>()
   const compiled = new Map<string, CompilationLease>()
   const preparing = new Set<CompilationLease>()
   let ready: Promise<void> = Promise.resolve()
@@ -43,6 +47,7 @@ export function createScriptWorker(
     Object.assign(error, { workerFailure: true })
     failure = error
     input.clear()
+    drawings.clear()
     for (const lease of [...compiled.values(), ...preparing]) lease.release()
     compiled.clear()
     preparing.clear()
@@ -123,6 +128,7 @@ export function createScriptWorker(
           if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
           compiled.get(id)?.release()
           compiled.set(id, lease)
+          drawings.delete(id)
           return response.definition
         } catch (error) {
           lease.release()
@@ -141,19 +147,27 @@ export function createScriptWorker(
     async run(id, bars, params, context) {
       await ready
       if (failure) throw failure
-      const patch = input.encode(bars, context)
+      const inputPatch = input.encode(bars, context)
       const response = await request(
         {
           requestId: ++nextRequestId,
           type: 'run',
           id,
-          input: patch,
+          input: inputPatch,
           params,
         },
-        inputTransferList(patch),
+        inputTransferList(inputPatch),
       )
       if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
-      return unpackPlotCollection(response.collection)
+      const collection = unpackPlotCollection(response.collection)
+      const patchCollection = unpackPlotCollection(response.drawings.collection)
+      const next = applyDrawingPatch(drawings.get(id) ?? [], {
+        reset: response.drawings.reset,
+        upsert: patchCollection.drawings ?? [],
+        remove: response.drawings.remove,
+      })
+      drawings.set(id, next)
+      return { ...collection, drawings: next }
     },
     async requests(id, params, symbol) {
       await ready
@@ -171,6 +185,7 @@ export function createScriptWorker(
     async release(id) {
       await ready
       input.clear()
+      drawings.delete(id)
       await request({ requestId: ++nextRequestId, type: 'release', id })
       compiled.get(id)?.release()
       compiled.delete(id)

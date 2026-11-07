@@ -17,6 +17,53 @@ interface RollingWindow {
 /** 宿主注入：已推进的 K 线条数。 */
 declare function __count(): number
 
+/** 绘图增量：reset 表示整体替换，否则按 id 合并 upsert 并删除 remove。 */
+interface DrawingPatch {
+  readonly reset: boolean
+  readonly upsert: readonly DrawingObject[]
+  readonly remove: readonly string[]
+}
+
+/** 绘图检查点：对象身份集合与 id 序列，回滚后重算得到相同身份。 */
+interface DrawingCheckpoint {
+  readonly ids: ReadonlySet<string>
+  readonly sequence: number
+}
+
+/** 有状态库的检查点协议；库自己决定快照内容与恢复方式。 */
+interface LibraryState {
+  checkpoint(): unknown
+  rollback(state: unknown): void
+}
+
+/** 会话检查点：series 缓存下标、绘图对象快照与库状态。 */
+interface ScriptCheckpoint {
+  readonly index: number
+  readonly drawings: DrawingCheckpoint
+  readonly libraries: readonly unknown[]
+}
+
+/** 回滚全部派生序列到指定 bar 下标之前。 */
+declare function __rollbackSeries(index: number): void
+
+/** 收集所有有状态库的检查点。 */
+declare function __checkpointLibraries(): readonly unknown[]
+
+/** 恢复所有有状态库。 */
+declare function __rollbackLibraries(states: readonly unknown[]): void
+
+/** 创建会话检查点；由宿主在最后一根 bar 之前调用。 */
+declare function __checkpoint(): ScriptCheckpoint
+
+/** 回滚到会话检查点；宿主用于同一根 bar 的实时更新。 */
+declare function __rollback(checkpoint: ScriptCheckpoint): void
+
+/** 取走绘图增量；reset 表示消费端必须整体替换。 */
+declare function __drawingPatch(reset: boolean): DrawingPatch
+
+/** 库在完成期渲染后提交会话检查点；活动期绘图不进入该检查点。 */
+declare function __commitCheckpoint(): void
+
 /** 数值窗口统一校验，负数、非整数与零都拒绝。 */
 declare function __checkLength(length: number): void
 
@@ -47,11 +94,7 @@ declare function __weightedWindow(length: number): RollingWindow
 declare function __deviationWindow(length: number): RollingWindow
 
 /** 最高/最低值窗口；bars 为 true 时返回相对当前下标的负偏移。 */
-declare function __extremeWindow(
-  length: number,
-  highest: boolean,
-  bars?: boolean,
-): RollingWindow
+declare function __extremeWindow(length: number, highest: boolean, bars?: boolean): RollingWindow
 
 /** 摆动点序列；确认发生在右窗口完成时。 */
 declare function __pivotSeries(

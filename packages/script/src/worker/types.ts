@@ -1,10 +1,10 @@
 /** Script Worker 的异步执行接口与消息类型。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../contracts/output.js'
+import type { CompiledScriptSources } from '../execution/types.js'
 import type { QuickJSLibrary, QuickJSScriptDefinition, ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 import type { PackedPlotCollection, RunInputPatch } from './transport/types.js'
-import type { CompiledScriptSources } from '../execution/types.js'
 
 /** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功后替换编译结果。 */
 export interface ScriptWorker {
@@ -72,6 +72,13 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
   | { readonly type: 'release' }
 )
 
+/** 绘图增量传输：reset 整体替换，否则按 id 合并 upsert 并删除 remove。 */
+export interface PackedDrawingPatch {
+  readonly reset: boolean
+  readonly remove: readonly string[]
+  readonly collection: PackedPlotCollection
+}
+
 /** 显式保留脚本错误的诊断字段，避免结构化克隆丢失自定义属性。 */
 export interface ScriptWorkerError {
   readonly name: string
@@ -86,7 +93,11 @@ export interface ScriptWorkerError {
 export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'output'; readonly id: string; readonly events: readonly LogEvent[] }
   | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
-  | { readonly type: 'run'; readonly collection: PackedPlotCollection }
+  | {
+      readonly type: 'run'
+      readonly collection: PackedPlotCollection
+      readonly drawings: PackedDrawingPatch
+    }
   | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }
   | { readonly type: 'release' }
   | { readonly type: 'error'; readonly error: ScriptWorkerError }

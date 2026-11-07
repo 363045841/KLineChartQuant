@@ -127,7 +127,11 @@ export class WorkerInputReceiver {
   private snapshots = new Map<string, BarReceiver>()
 
   /** 先同步输入再执行脚本，下一次请求不依赖上次计算是否成功。 */
-  decode(input: RunInputPatch): { bars: readonly Bar[]; context?: ScriptRequestContext } {
+  decode(input: RunInputPatch): {
+    bars: readonly Bar[]
+    context?: ScriptRequestContext
+    startIndex: number
+  } {
     const bars = this.main.decode(input.bars)
     const next = new Map<string, BarReceiver>()
     const snapshots = input.context?.snapshots.map((snapshot) => {
@@ -136,8 +140,8 @@ export class WorkerInputReceiver {
       return { id: snapshot.id, bars: receiver.decode(snapshot.bars) }
     })
     this.snapshots = next
-    if (!input.context || !snapshots) return { bars }
-    return { bars, context: { ...input.context, snapshots } }
+    if (!input.context || !snapshots) return { bars, startIndex: input.bars.offset }
+    return { bars, context: { ...input.context, snapshots }, startIndex: input.bars.offset }
   }
 
   /** 与发送端保持相同的显式生命周期。 */

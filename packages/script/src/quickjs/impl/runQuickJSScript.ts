@@ -18,13 +18,14 @@ export async function runQuickJSScript(options: QuickJSRunOptions): Promise<Plot
   return runQuickJSScriptSync(options)
 }
 
-/** 同步编译和执行，WASM 的预加载契约不变。 */
+/** 同步编译和执行；一次性调用创建会话并在结束后释放。 */
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
-  return prepareQuickJSScript(options.source, options.libraries, options.onLog).run(
-    options.bars,
-    options.params,
-    options.requestContext,
-  )
+  const script = prepareQuickJSScript(options.source, options.libraries, options.onLog)
+  try {
+    return script.run(options.bars, options.params, options.requestContext)
+  } finally {
+    script.dispose()
+  }
 }
 
 /** 只读取声明，不保存额外编译快照。 */
@@ -32,7 +33,12 @@ export function readQuickJSScriptDefinitionSync(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
 ): QuickJSScriptDefinition {
-  return prepareQuickJSScript(source, libraries).definition
+  const script = prepareQuickJSScript(source, libraries)
+  try {
+    return script.definition
+  } finally {
+    script.dispose()
+  }
 }
 
 /** 同步 API 与 Worker 共同使用唯一编译入口和执行模块。 */

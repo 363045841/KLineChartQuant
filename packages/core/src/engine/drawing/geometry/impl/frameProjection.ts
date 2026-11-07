@@ -53,6 +53,20 @@ type MutableDrawingFrameProjection = {
   snapLines: SnapLine[]
 }
 
+/** 已解析绘图缓存：数据、主题与末根边界不变时复用锚点和样式，视口变化只重算屏幕几何。 */
+interface ResolvedDrawingCacheEntry {
+  readonly data: RenderContext['data']
+  readonly period: RenderContext['period']
+  readonly marketSession: RenderContext['marketSession']
+  readonly lastBarClose: number | undefined
+  readonly theme: RenderContext['theme']
+  readonly isAsiaMarket: RenderContext['isAsiaMarket']
+  readonly colorPresetSettings: RenderContext['colorPresetSettings']
+  readonly resolved: ResolvedDrawingObject
+}
+
+const resolvedDrawingCache = new WeakMap<DrawingObject, ResolvedDrawingCacheEntry>()
+
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
   const { pane, range, kLineCenters, scrollLeft } = context
@@ -478,13 +492,24 @@ function collectSnapLines(
   }
 }
 
-/** 投影单个图元；视口外或几何不可解析的图元直接跳过。 */
-function projectStoredDrawing(
+/** 解析并缓存图元的锚点与样式；几何仍在每帧按当前视口计算。 */
+function resolveStoredDrawing(
   state: FrameProjectionState,
   storedDrawing: DrawingObject,
-  scope: DrawingPaintScope,
-): void {
-  const { context, definitions } = state
+): ResolvedDrawingObject {
+  const { context } = state
+  const cached = resolvedDrawingCache.get(storedDrawing)
+  if (
+    cached !== undefined &&
+    cached.data === context.data &&
+    cached.period === context.period &&
+    cached.marketSession === context.marketSession &&
+    cached.lastBarClose === state.lastBarClose &&
+    cached.theme === context.theme &&
+    cached.isAsiaMarket === context.isAsiaMarket &&
+    cached.colorPresetSettings === context.colorPresetSettings
+  )
+    return cached.resolved
   const frameDrawing = resolveDrawingForFrame(
     storedDrawing,
     state.getLogicalIndexAtTimestamp,
@@ -492,10 +517,31 @@ function projectStoredDrawing(
     state.lastBarClose,
   )
   // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
-  const drawing: ResolvedDrawingObject = {
+  const resolved: ResolvedDrawingObject = {
     ...frameDrawing,
     style: resolveDrawingStyle(frameDrawing.style, state.resolveColor),
   }
+  resolvedDrawingCache.set(storedDrawing, {
+    data: context.data,
+    period: context.period,
+    marketSession: context.marketSession,
+    lastBarClose: state.lastBarClose,
+    theme: context.theme,
+    isAsiaMarket: context.isAsiaMarket,
+    colorPresetSettings: context.colorPresetSettings,
+    resolved,
+  })
+  return resolved
+}
+
+/** 投影单个图元；视口外或几何不可解析的图元直接跳过。 */
+function projectStoredDrawing(
+  state: FrameProjectionState,
+  storedDrawing: DrawingObject,
+  scope: DrawingPaintScope,
+): void {
+  const { context, definitions } = state
+  const drawing = resolveStoredDrawing(state, storedDrawing)
   if (!hasResolvableTimeAnchors(drawing)) return
   // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
   if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) return

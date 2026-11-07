@@ -168,7 +168,11 @@ declare global {
    */
   function hline(price: number, options?: HLineOptions): HLineRef
   /** 注册一个库，其成员同时绑定到同名全局对象。 */
-  function defineLibrary<T extends object>(name: string, members: T): Readonly<T>
+  function defineLibrary<T extends object>(
+    name: string,
+    members: T,
+    state?: { checkpoint(): unknown; rollback(state: unknown): void },
+  ): Readonly<T>
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */
   function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
 

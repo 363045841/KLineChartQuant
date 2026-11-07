@@ -5,9 +5,9 @@ import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { prepareNativeModule } from '../../execution/impl/prepareNativeModule.js'
 import { preloadQuickJS, prepareQuickJSModule } from '../../quickjs/impl/runQuickJSModule.js'
 import type { PreparedQuickJSScript } from '../../quickjs/types.js'
-import type { ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 import { WorkerInputReceiver } from '../transport/impl/input.js'
 import { packPlotCollection } from '../transport/impl/output.js'
+import type { ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 const scripts = new Map<string, PreparedQuickJSScript>()
 const input = new WorkerInputReceiver()
@@ -39,6 +39,7 @@ async function prepareRequest(
   if (!message.trusted) await preloadQuickJS()
   const prepare = message.trusted ? prepareNativeModule : prepareQuickJSModule
   const script = prepare(message.module, onLog)
+  scripts.get(message.id)?.dispose()
   scripts.set(message.id, script)
   return { requestId: message.requestId, type: 'prepare', definition: script.definition }
 }
@@ -51,12 +52,26 @@ function runRequest(
   switch (message.type) {
     case 'run': {
       const current = input.decode(message.input)
+      const result = requireScript(id).runDetailed(
+        current.bars,
+        message.params,
+        current.context,
+        current.startIndex,
+      )
+      const { drawings: _drawings, ...collection } = result.collection
       return {
         requestId,
         type: 'run',
-        collection: packPlotCollection(
-          requireScript(id).run(current.bars, message.params, current.context),
-        ),
+        collection: packPlotCollection(collection),
+        drawings: {
+          reset: result.drawingPatch.reset,
+          remove: result.drawingPatch.remove,
+          collection: packPlotCollection({
+            plots: [],
+            fills: [],
+            drawings: result.drawingPatch.upsert,
+          }),
+        },
       }
     }
     case 'requests':
@@ -66,6 +81,7 @@ function runRequest(
         requests: requireScript(id).requests(message.params, message.symbol),
       }
     case 'release':
+      scripts.get(id)?.dispose()
       scripts.delete(id)
       input.clear()
       return { requestId, type: 'release' }
@@ -113,6 +129,9 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
     globalThis.postMessage(logs)
   }
   globalThis.postMessage(response, {
-    transfer: response.type === 'run' ? [response.collection.buffer] : [],
+    transfer:
+      response.type === 'run'
+        ? [response.collection.buffer, response.drawings.collection.buffer]
+        : [],
   })
 }
