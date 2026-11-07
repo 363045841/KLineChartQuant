@@ -1,13 +1,15 @@
 /** 通信契约验收：真实转移、原地 tick、历史重排、跨周期释放和真实脚本绘图往返。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
+import { createScriptWorker } from '../impl/createScriptWorker.js'
 import {
   inputTransferList,
   WorkerInputReceiver,
   WorkerInputSender,
 } from '../transport/impl/input.js'
 import { packPlotCollection, unpackPlotCollection } from '../transport/impl/output.js'
+import { NodeScriptWorker } from './nodeWorker.js'
 
 /** 不替换计算或传输实现；只构造各边界情况所需的输入根。 */
 function bar(time: number, close = 10): Bar {
@@ -131,3 +133,58 @@ describe('Worker drawing transport', () => {
     expect(collection.drawings![0]!.style.stroke).toBe('inherit')
   })
 })
+
+it('keeps port-owned baselines correct across real thread calculations and failures', async () => {
+  const transfers: number[][] = []
+  const detached: boolean[] = []
+  class TransferWorker extends NodeScriptWorker {
+    /** 记录实际发出的字节数与转移后的所有权状态。 */
+    override postMessage(message: unknown, transfer: readonly ArrayBuffer[] = []): void {
+      if (transfer.length) transfers.push(transfer.map((buffer) => buffer.byteLength))
+      super.postMessage(message, transfer)
+      if (transfer.length) detached.push(transfer.every((buffer) => buffer.byteLength === 0))
+    }
+  }
+  vi.stubGlobal('Worker', TransferWorker)
+  const worker = createScriptWorker()
+  const bars: Bar[] = Array.from({ length: 1500 }, (_, index) => ({
+    time: index * 60000,
+    open: index,
+    high: index + 1,
+    low: index - 1,
+    close: index,
+    volume: 1,
+    closed: true,
+  }))
+  const source = `defineIndicator({name:'WireLifecycle',position:Position.Main,onBar(){
+    if(close[0]<0) throw new Error('invalid-price');plot.Line(close,'close');
+  }})`
+  try {
+    await worker.prepare('wire', source, [], true)
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1499 })
+    const fullBytes = transfers.at(-1)![0]!
+    expect(fullBytes).toBeGreaterThan(0)
+    bars[1499]!.close = 1500
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1500 })
+    // 后续 tick 只同步变化尾部，不再重发整段历史。
+    expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
+    bars[1499]!.close = -1
+    await expect(worker.run('wire', bars)).rejects.toThrow('invalid-price')
+    bars[1499]!.close = 1501
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1501 })
+    expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
+    await worker.release('wire')
+    await worker.prepare('wire', source, [], true)
+    const context = { symbol: 'BTCUSDT', snapshots: [{ id: 'lower', bars }] }
+    await worker.run('wire', bars, {}, context)
+    expect(transfers.at(-1)).toHaveLength(2)
+    const before = transfers.length
+    await worker.run('wire', bars, {}, context)
+    expect(transfers).toHaveLength(before)
+    expect(detached.every(Boolean)).toBe(true)
+    expect(bars[1499]!.close).toBe(1501)
+  } finally {
+    worker.dispose()
+    vi.unstubAllGlobals()
+  }
+}, 15_000)
