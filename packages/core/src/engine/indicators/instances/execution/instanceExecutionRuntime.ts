@@ -9,7 +9,10 @@ import type { IndicatorCalculationExecutor } from './types.js'
 
 export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationExecutor {
   private readonly definitions = new Map<string, IndicatorCalculationDefinition>()
-  private readonly calculators = new Map<string, IndicatorCalculationDefinition>()
+  private readonly calculators = new Map<
+    string,
+    IndicatorCalculationDefinition & { dispose?: () => void }
+  >()
 
   constructor(
     definitions: Iterable<IndicatorCalculationDefinition> = [],
@@ -40,14 +43,21 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
 
   removeDefinition(id: string): void {
     this.definitions.delete(id)
-    for (const [key, calculator] of this.calculators)
-      if (calculator.definitionId === id) this.calculators.delete(key)
+    for (const [key, calculator] of this.calculators) {
+      if (calculator.definitionId !== id) continue
+      calculator.dispose?.()
+      this.calculators.delete(key)
+    }
   }
 
   /** 活动计划拥有计算器与行情租约；展示实例共用同一计算身份。 */
   retain(tasks: readonly IndicatorCalculationTask[]): void {
     const keys = new Set(tasks.map((task) => task.calculationKey))
-    for (const key of this.calculators.keys()) if (!keys.has(key)) this.calculators.delete(key)
+    for (const [key, calculator] of this.calculators) {
+      if (keys.has(key)) continue
+      calculator.dispose?.()
+      this.calculators.delete(key)
+    }
     this.marketData?.().retain(keys)
   }
 
@@ -59,7 +69,12 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
       const definition = this.definitions.get(task.definitionId)
       if (!definition)
         return Promise.reject(new TypeError(`Unknown indicator definition: ${task.definitionId}`))
-      calculator = { ...definition, compute: definition.createCompute?.() ?? definition.compute }
+      const compute = definition.createCompute?.()
+      calculator = {
+        ...definition,
+        compute: compute ?? definition.compute,
+        dispose: compute?.dispose,
+      }
       this.calculators.set(task.calculationKey, calculator)
     }
     const context = this.marketData?.().context(task.calculationKey, input.data)
@@ -73,6 +88,7 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
 
   /** 销毁不负责取消执行；调用方先取消调度任务，再释放仓库。 */
   dispose(): void {
+    for (const calculator of this.calculators.values()) calculator.dispose?.()
     this.calculators.clear()
     this.definitions.clear()
   }

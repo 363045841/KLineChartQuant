@@ -39,9 +39,15 @@ async function prepareRequest(
   if (!message.trusted) await preloadQuickJS()
   const prepare = message.trusted ? prepareNativeModule : prepareQuickJSModule
   const script = prepare(message.module, onLog)
+  const definition = script.definition
   scripts.get(message.id)?.dispose()
-  scripts.set(message.id, script)
-  return { requestId: message.requestId, type: 'prepare', definition: script.definition }
+  if (message.metadataOnly) {
+    script.dispose()
+    scripts.delete(message.id)
+  } else {
+    scripts.set(message.id, script)
+  }
+  return { requestId: message.requestId, type: 'prepare', definition }
 }
 
 /** 分发非编译请求。 */

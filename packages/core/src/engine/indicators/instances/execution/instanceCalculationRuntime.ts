@@ -17,7 +17,7 @@ import type { IndicatorParameters } from '../domain/instanceModel.js'
 import type { IndicatorCalculationInput } from './types.js'
 
 export interface IndicatorCalculationDefinition {
-  readonly createCompute?: () => IndicatorCalculationDefinition['compute']
+  readonly createCompute?: () => IndicatorCalculationDefinition['compute'] & { dispose?(): void }
   readonly definitionId: string
   readonly outputAlignment?: 'bar' | 'aggregate'
   /** 计算对历史的依赖；由定义声明，缺省按有状态处理。 */

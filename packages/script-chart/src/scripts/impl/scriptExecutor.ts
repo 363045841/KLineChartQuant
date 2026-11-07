@@ -11,11 +11,13 @@ import {
 import {
   type Bar,
   type ComputeRange,
+  type IndicatorDefinition,
   type IndicatorMarketContext,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
   type PreparedScriptDefinition,
+  type QuickJSLibrary,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
 import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
@@ -45,9 +47,16 @@ export function createScriptExecutor(
 ) {
   const handles = new Map<string, string>()
   const debugOutputs = new Map<string, string>()
+  const executionOutputs = new Map<string, string>()
+  const preparedSources = new Map<
+    string,
+    { source: string; libraries: readonly QuickJSLibrary[]; trusted: boolean }
+  >()
+  const executions = new Set<() => void>()
+  let disposed = false
   const worker = createScriptWorkerPool({
     onOutput: (handle, events) => {
-      const outputId = debugOutputs.get(handle)
+      const outputId = debugOutputs.get(handle) ?? executionOutputs.get(handle)
       if (outputId !== undefined) output.append(outputId, events)
       for (const [id, active] of handles) {
         if (active === handle) output.append(id, events)
@@ -91,10 +100,11 @@ export function createScriptExecutor(
         return document === undefined || document.trusted
       })
     const definition = await worker.prepare(handle, source, selected, effectiveTrust)
+    preparedSources.set(handle, { source, libraries: selected, trusted: effectiveTrust })
     return { handle, definition }
   }
 
-  /** 校验和编译全部完成后，以单个定义快照提交，执行闭包绑定该版本源码。 */
+  /** 提交元数据与该版本的会话工厂；目录定义不持有已安装的运行态。 */
   async function publish(
     id: string,
     source: string,
@@ -106,6 +116,43 @@ export function createScriptExecutor(
     folder = '',
   ): Promise<ScriptDocument> {
     const { definition } = prepared
+    const sources = preparedSources.get(prepared.handle)
+    if (!sources) throw new Error('脚本准备句柄已释放')
+    /** 计算身份首次执行才申请 Worker 句柄；移除身份时归还，目录不持有运行态。 */
+    const createCompute = (): IndicatorDefinition<
+      Readonly<Record<string, number | string | boolean>>
+    >['compute'] & { dispose(): void } => {
+      const handle = generateUUID()
+      let preparation: Promise<PreparedScriptDefinition> | undefined
+      let released = false
+      const release = (): void => {
+        if (released) return
+        released = true
+        executions.delete(release)
+        executionOutputs.delete(handle)
+        if (preparation && !disposed) void worker.release(handle)
+      }
+      executions.add(release)
+      const run: IndicatorDefinition<
+        Readonly<Record<string, number | string | boolean>>
+      >['compute'] = async (bars, params, market, range) => {
+        if (disposed) throw new Error('脚本服务已销毁')
+        if (released) throw new Error('脚本执行会话已释放')
+        executionOutputs.set(handle, id)
+        preparation ??= worker.prepare(
+          handle,
+          sources.source,
+          sources.libraries,
+          sources.trusted,
+          'execution',
+        )
+        await preparation
+        if (disposed) throw new Error('脚本服务已销毁')
+        if (released) throw new Error('脚本执行会话已释放')
+        return compute(handle, bars, params, market, range)
+      }
+      return Object.assign(run, { dispose: release })
+    }
     const document = Object.freeze({ revision, source, definition, identity, trusted, folder })
     const commit = update ? updatePlotIndicator : registerPlotIndicator
     commit({
@@ -113,16 +160,24 @@ export function createScriptExecutor(
       id,
       source: 'script',
       document,
-      compute: (
+      createCompute,
+      async compute(
         bars,
         params: Readonly<Record<string, number | string | boolean>>,
         market,
         range,
-      ) => compute(prepared.handle, bars, params, market, range),
+      ) {
+        const execution = createCompute()
+        try {
+          return await execution(bars, params, market, range)
+        } finally {
+          execution.dispose()
+        }
+      },
     })
     const previous = handles.get(id)
     handles.set(id, prepared.handle)
-    if (previous) await worker.release(previous)
+    if (previous) await releaseHandle(previous)
     return Object.freeze({ kind: 'indicator', id, ...document })
   }
 
@@ -135,19 +190,20 @@ export function createScriptExecutor(
       await compute(prepared.handle, options.bars, {}, options.market)
     } finally {
       debugOutputs.delete(prepared.handle)
-      await worker.release(prepared.handle)
+      await releaseHandle(prepared.handle)
     }
   }
 
   /** 释放一个尚未提交的准备句柄。 */
   async function releaseHandle(handle: string): Promise<void> {
+    preparedSources.delete(handle)
     await worker.release(handle)
   }
 
   /** 未成为该定义的当前句柄时立即释放，避免保存失败泄漏 Worker。 */
   async function releasePrepared(id: string | null, handle: string): Promise<void> {
     if (id !== null && handles.get(id) === handle) return
-    await worker.release(handle)
+    await releaseHandle(handle)
   }
 
   /** 释放已提交定义的执行句柄。 */
@@ -155,13 +211,18 @@ export function createScriptExecutor(
     const handle = handles.get(id)
     if (handle === undefined) return
     handles.delete(id)
-    await worker.release(handle)
+    await releaseHandle(handle)
   }
 
   function dispose(): void {
+    if (disposed) return
+    disposed = true
+    for (const release of [...executions]) release()
     worker.dispose()
     handles.clear()
     debugOutputs.clear()
+    executionOutputs.clear()
+    preparedSources.clear()
   }
 
   return {

@@ -1,6 +1,7 @@
 /** 单任务执行契约：计算器隔离、定义替换、错误输出和有效数据边界。 */
-import type { KLineData } from '@/foundation/types/price.js'
+
 import { describe, expect, it, vi } from 'vitest'
+import type { KLineData } from '@/foundation/types/price.js'
 import { findInstanceFirstReadyIndex } from '../instances/execution/instanceCalculationRuntime.js'
 import { IndicatorInstanceExecutionRuntime } from '../instances/execution/instanceExecutionRuntime.js'
 import type { IndicatorCalculationInput } from '../instances/execution/types.js'
@@ -23,6 +24,37 @@ function input(data: readonly KLineData[]): IndicatorCalculationInput {
 const STATEFUL = Object.freeze({ kind: 'stateful' } as const)
 
 describe('indicator execution repository', () => {
+  it('disposes only calculators whose identity leaves the plan and releases the remainder on shutdown', async () => {
+    const source = new FakeCalculationSource([
+      createTestInstance({ instanceId: 'a', definitionId: 'value', params: { period: 1 } }),
+      createTestInstance({ instanceId: 'b', definitionId: 'value', params: { period: 2 } }),
+    ])
+    const disposals: ReturnType<typeof vi.fn>[] = []
+    const runtime = new IndicatorInstanceExecutionRuntime([
+      {
+        definitionId: 'value',
+        dependency: STATEFUL,
+        compute: () => [],
+        createCompute() {
+          const dispose = vi.fn()
+          disposals.push(dispose)
+          return Object.assign(() => [], { dispose })
+        },
+      },
+    ])
+    const tasks = source.calculationPlan().tasks
+    for (const task of tasks)
+      await runtime.execute(task, input(createTestData(1)), new AbortController().signal)
+    runtime.retain([tasks[1]!])
+    expect(disposals[0]).toHaveBeenCalledOnce()
+    expect(disposals[1]).not.toHaveBeenCalled()
+    runtime.retain([tasks[1]!])
+    runtime.dispose()
+    runtime.dispose()
+    expect(disposals[0]).toHaveBeenCalledOnce()
+    expect(disposals[1]).toHaveBeenCalledOnce()
+  })
+
   it('reuses calculators per identity and replaces only the edited definition', async () => {
     const source = new FakeCalculationSource([
       createTestInstance({ instanceId: 'a', definitionId: 'value', params: { period: 1 } }),

@@ -72,17 +72,15 @@ describe('CrosshairOverlay', () => {
   )
 
   it('updates physical and CSS dimensions on resize and clears when the pointer leaves', () => {
-    const { ctx, overlay, surface, frame } = createFixture()
+    const { ctx, host, overlay, surface, frame } = createFixture()
     overlay.paint(frame)
     const canvas = surface()
     frame.viewport = { plotWidth: 480, plotHeight: 320, dpr: 2 }
     frame.pos = null
     overlay.paint(frame)
-    expect(canvas.width).toBe(960)
-    expect(canvas.height).toBe(640)
-    expect(canvas.style.width).toBe('480px')
-    expect(canvas.style.height).toBe('320px')
-    expect(ctx.clearRect).toHaveBeenLastCalledWith(0, 0, 960, 640)
+    expect(canvas.width).toBe(0)
+    expect(canvas.height).toBe(0)
+    expect(host.querySelector('canvas')).toBeNull()
     expect(ctx.strokedPaths).toHaveLength(4)
   })
 

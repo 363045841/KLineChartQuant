@@ -36,6 +36,7 @@ import {
   type Layer,
   type LayerRole,
   type Scene,
+  scenePaintTarget,
 } from '../../../rendering/scene/types.js'
 import { AxisWidthEstimator } from '../../axisWidth/impl/axisWidthEstimator.js'
 import type { KLinePositions, Viewport } from '../../chart/index.js'
@@ -1118,6 +1119,7 @@ export class ChartRenderer {
     const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
+      r.clearText()
       const {
         mainCtx,
         drawingCtx,
@@ -1387,6 +1389,22 @@ export class ChartRenderer {
     }
     const bounds = { width: context.paneWidth, height: pane.height }
     const gpuSurface = renderer.getMainGpuSurface(sceneRenderer) ?? undefined
+    const hasContextMain = this.scene.layers
+      .peek()
+      .some(
+        (layer) =>
+          layer.visible &&
+          layer.kind !== 'draw-list' &&
+          scenePaintTarget(layer.role) === 'main' &&
+          (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
+      )
+    const sparseText = gpuSurface !== undefined && !hasContextMain
+    if (shouldUpdateMain) {
+      renderer.setMainRasterRequired(!sparseText)
+      // 分配或释放后备存储会重置 Canvas 状态，必须在 Scene 合批前恢复本帧 DPR。
+      targets.main.setTransform(context.dpr, 0, 0, context.dpr, 0, 0)
+      if (!sparseText) renderer.clearText()
+    }
     if (shouldUpdateMain) {
       framePanes.push({
         paneId: pane.id,
@@ -1394,6 +1412,15 @@ export class ChartRenderer {
         renderer: sceneRenderer,
         targets,
         gpuSurface,
+        ensureMainTarget: () => {
+          renderer.setMainRasterRequired(true)
+          const target = renderer.getContexts().mainCtx
+          target?.setTransform(context.dpr, 0, 0, context.dpr, 0, 0)
+          return target
+        },
+        paintText: sparseText
+          ? (texts, dpr, textBounds) => renderer.paintText(texts, dpr, textBounds)
+          : undefined,
         bounds,
         dpr: context.dpr,
         frameNumber: this.frameCount++,
@@ -1404,6 +1431,10 @@ export class ChartRenderer {
     }
     if (!shouldUpdateOverlay) return
     framePanes.push({
+      ensureOverlayTarget: () => renderer.setOverlayRasterRequired(true),
+      finishOverlay: (used) => {
+        if (!used) renderer.setOverlayRasterRequired(false)
+      },
       paneId: pane.id,
       context,
       renderer: sceneRenderer,

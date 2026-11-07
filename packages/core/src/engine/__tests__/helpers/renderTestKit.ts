@@ -13,10 +13,40 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
+import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
+import { createScene } from '@/rendering/scene/createScene.js'
 import type { KLineData } from '@/types/price'
 
 /** 默认 K 线根数，覆盖指标预热窗口。 */
 const DEFAULT_BAR_COUNT = 100
+
+/** 渲染器迁移测试走真实 Scene 分发，避免用直接 paint 隐式绑定错误的目标。 */
+export function paintTestLayer(
+  layer: import('@/rendering/scene/types.js').Layer<RenderContext>,
+  context: RenderContext,
+): void {
+  const scene = createScene<RenderContext>()
+  scene.addLayer(layer)
+  scene.paint({
+    panes: [
+      {
+        paneId: context.pane.id,
+        context,
+        renderer: context.sceneRenderer ?? createCanvas2DRenderer(),
+        targets: {
+          main: context.ctx,
+          drawing: context.drawingCtx ?? null,
+          overlay: context.overlayCtx ?? null,
+        },
+        bounds: { width: context.paneWidth, height: context.pane.height },
+        dpr: context.dpr,
+        frameNumber: 0,
+        deltaMs: 0,
+        clear: true,
+      },
+    ],
+  })
+}
 
 /** 构造递增的默认 K 线序列，时间基准与渲染器用例保持一致。 */
 export function createKLineData(length = DEFAULT_BAR_COUNT): KLineData[] {
@@ -239,7 +269,7 @@ export function createContextWithInstanceState<T>(
 }
 
 /** 构造完整 PluginHost，只覆盖调用方声明的字段；共享状态默认由内存 Map 承载。 */
-function createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost {
+function _createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost {
   const sharedState = new Map<string, unknown>()
   return {
     events: {

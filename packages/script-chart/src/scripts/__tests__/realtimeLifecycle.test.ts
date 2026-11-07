@@ -19,12 +19,14 @@ describe('realtime script lifecycle', () => {
     let created = 0
     let terminated = 0
     class ObservedWorker extends NodeScriptWorker {
+      private readonly calculationWorker: boolean
       constructor(url?: URL) {
         super(url)
-        created++
+        this.calculationWorker = !url?.pathname.includes('compiler.worker')
+        if (this.calculationWorker) created++
       }
       override terminate(): void {
-        terminated++
+        if (this.calculationWorker) terminated++
         super.terminate()
       }
     }
@@ -52,12 +54,14 @@ describe('realtime script lifecycle', () => {
         {
           definitionId: 'slow',
           dependency: { kind: 'stateful' },
-          compute: (data, _params, market) => slow.compute(data, {}, market),
+          compute: slow.compute,
+          createCompute: slow.createCompute,
         },
         {
           definitionId: 'fast',
           dependency: { kind: 'stateful' },
-          compute: (data, _params, market) => fast.compute(data, {}, market),
+          compute: fast.compute,
+          createCompute: fast.createCompute,
         },
       ],
       () => ({

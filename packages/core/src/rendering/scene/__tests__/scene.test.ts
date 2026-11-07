@@ -101,6 +101,43 @@ function frame(paneId: string, clear = false, roles?: ReadonlyArray<LayerRole>):
   }
 }
 
+describe('overlay backing lifetime', () => {
+  it('allocates only for nonempty commands and reports an empty following frame', () => {
+    const scene = createScene<FrameStub>()
+    const input = frame('main')
+    const pane = input.panes[0]!
+    const ensure = vi.fn(() => pane.targets.overlay)
+    const finish = vi.fn()
+    let visible = true
+    scene.addLayer({
+      id: 'lazy-overlay',
+      role: 'overlay',
+      pane: 'main',
+      z: 0,
+      kind: 'draw-list',
+      visible: true,
+      paint(context) {
+        if (visible)
+          context.primitives?.(
+            [{ kind: 'rect', x: 10, y: 20, width: 30, height: 40, color: '#fff' }],
+            1,
+          )
+      },
+      dispose() {},
+    })
+    const paint = () =>
+      scene.paint({ panes: [{ ...pane, ensureOverlayTarget: ensure, finishOverlay: finish }] })
+    paint()
+    expect(ensure).toHaveBeenCalledOnce()
+    expect(finish).toHaveBeenLastCalledWith(true)
+    visible = false
+    paint()
+    expect(ensure).toHaveBeenCalledOnce()
+    expect(finish).toHaveBeenLastCalledWith(false)
+    scene.dispose()
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

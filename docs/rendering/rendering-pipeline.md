@@ -71,9 +71,11 @@ ResizeObserver 优先使用 device-pixel-content-box；DPR 经过有效性处理
 
 z 只在同一目标内决定叠放，相同 z 保留注册顺序。不能通过把 main 图层的 z 改大来跨越 drawing 或 overlay 层带。这个规则与浏览器 DOM 层序一致。
 
-main 目标内部还有两段叠放：GPU 直出画布与 2D 主画布同为 z = 0，DOM 顺序上 GPU 画布在前，因此几何在下、文字与 `ctx` 图层在上。
+main 目标内部还有两段叠放：GPU 几何在下，文字表面或自定义 `ctx` 图层在上。纯指令主图的文字由 Pane 持有的稀疏网格表面承接，每格最多 256×256 物理像素；跨格文字在各格按原序重放。无文字时不分配网格，无自定义 main context 图层时完整 2D 主画布的后备存储归零。Canvas 后端、自定义 main context 图层或 GPU 直出失败时恢复完整 2D 目标。
 
-每个 `FramePaint` 提供 `targets` 和当前 `renderer`。Scene 先选择目标，未分配的 drawing 目标跳过绘制。`kind: 'draw-list'` 的图层绘制上下文里没有 `ctx`，只能提交原语；`kind: 'context'`（缺省）的图层拿到 `context.ctx`，Scene 在它前后立即合成，保证自带裁剪与坐标系语义。业务 Layer 不绕开 Scene 选择其他绘图区画布。Scene 在 finally 中恢复 Canvas 状态，单个图层异常不会中断同 Pane 的其他图层。
+每个 `FramePaint` 提供 `targets` 和当前 `renderer`。Scene 先选择目标，未分配的 drawing 目标跳过绘制。只有 main 目标的 draw-list 可以使用 `gpuSurface`，drawing 和 overlay 不得误入该表面。`kind: 'draw-list'` 的图层绘制上下文里没有 `ctx`，只能提交原语；`kind: 'context'` 的图层拿到 `context.ctx`，Scene 在它前后立即合成，保证自带裁剪与坐标系语义。内部指标工厂必须显式声明 kind；外部 Layer 的缺省 context 语义保持不变。Scene 在 finally 中恢复 Canvas 状态，单个图层异常不会中断同 Pane 的其他图层。
+
+默认指标 drawing、用户 drawing、会话预览、比较线、足迹、极值标记与最新价线统一生成公共原语。drawing 的 Canvas 扩展只有显式传入自定义 renderer 时才创建 context layer。坐标轴、时间轴与十字线仍由各自表面所有者调度，但其图形和文字也使用公共原语解释器；这些独立表面不需要为统一入口额外创建 GPU canvas。
 
 `FramePaint.bounds` 必须提供 Pane 的完整逻辑宽高。Scene 统一构造 `(0, 0, width, height)` 的边界，对 `primary / indicator / component / drawing` 应用，`background`（网格）与 `overlay`（十字线）由自身表面约束。价格坐标留白只影响映射和刻度，图例只以半透明背景叠加，二者均不能提供裁剪边界。GPU 直出批次保留同一边界作为 scissor；2D 合成和 GPU 失败回退均使用该边界，主副图遵守同一规则。
 
@@ -85,7 +87,7 @@ main 目标内部还有两段叠放：GPU 直出画布与 2D 主画布同为 z =
 - Overlay 更新动态内容；正式 drawing 仅在文档、选中、覆盖成员或几何变化时更新。
 - All 同步更新需要变化的全部目标。
 
-正式 drawing 与 session 仍持有独立投影和像素。拖拽连续移动复用正式层，提交或取消后重建正式层。空数据时清理所有原生可见目标，不存在额外 GPU 透明清屏。当前不实现对象级局部重绘或脏矩形。
+正式 drawing 与 session 仍持有独立投影和像素。拖拽连续移动复用正式层，提交或取消后重建正式层。main 文字网格只在对应 main 帧替换，Overlay 帧保留其像素。Scene 在 overlay 首次非空原语提交时确保完整后备存储，本帧没有提交则归零；自定义 context 层在进入前分配。坐标轴只使用自己的表面，轴标签更新不会单独触发整幅 pane overlay 分配。空数据、隐藏 Pane 和销毁时释放文字网格；十字线隐藏时移除表面并归零后备存储。当前不实现对象级局部重绘。
 
 ## Renderer 与公共原语
 
@@ -101,7 +103,7 @@ Renderer 只提供：
 
 Scene 为每个绘制目标建立一个合成器：连续输出原语的图层累积成一批，帧末统一落盘，每个目标每帧只做一次离屏渲染与合成；目标级状态（仿射变换、透明度、合成模式、阴影、滤镜）变化时才切段，并按提交时记录的状态重放。成本因此随目标数增长，与图层数量无关。
 
-Canvas 直接解释命令。GPU 在私有离屏目标执行有序几何，完成后合成到 target；后端实现了 `createSurface` 时，主图带的几何直接写入 Pane 的可见画布，省掉离屏目标与 Canvas 侧的整张拷贝。文字直接用 Canvas：含文字的批次整批交给 Canvas 单次重放，既保留图文交错顺序，也不会为每段文字各做一次整画布离屏合成。
+Canvas 直接解释命令。GPU 在私有离屏目标执行有序几何，完成后合成到 target；后端实现了 `createSurface` 时，main draw-list 的几何直接写入 Pane 的可见画布，文字由 Scene 拆出交给 Pane 的稀疏文字表面，省掉整幅 2D 主画布。drawing、overlay 等保持图文交错语义的 2D 目标仍由同一原语后端执行；含文字的普通 paint 批次整批交给 Canvas。统一指令入口不意味着为每个目标增加一张 GPU 画布。
 
 目标默认具有 DPR 缩放。额外仿射变换、非默认混合、阴影或滤镜使用 Canvas 解释器，不能先按错误坐标剔除再套变换。
 

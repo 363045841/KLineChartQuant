@@ -1,4 +1,4 @@
-/** 长寿命Worker池：FIFO领取任务，按线程缓存编译；只响应显式生命周期取消。 */
+/** Worker 池：保留编译快照，按活动句柄安装运行态，空闲时立即清理已释放会话。 */
 import type { PreparedScriptDefinition, QuickJSLibrary } from '../../quickjs/types.js'
 import type { ScriptWorker, ScriptWorkerPool, ScriptWorkerPoolOptions } from '../types.js'
 import { createScriptWorker } from './createScriptWorker.js'
@@ -7,6 +7,7 @@ interface Source {
   readonly code: string
   readonly libraries?: readonly QuickJSLibrary[]
   readonly trusted: boolean
+  readonly mode: 'metadata' | 'execution'
 }
 interface Compilation {
   readonly source: Source
@@ -16,6 +17,7 @@ interface Slot {
   worker?: ScriptWorker
   readonly compiled: Map<string, Compilation>
   active?: Job
+  maintenance?: Promise<void>
 }
 interface Job {
   readonly id: string
@@ -46,7 +48,24 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
   function pump(): void {
     if (disposed) return
     for (const slot of slots) {
-      if (slot.active) continue
+      if (slot.active || slot.maintenance) continue
+      const stale = [...slot.compiled.keys()].filter((id) => !sources.has(id))
+      if (stale.length > 0) {
+        // 空闲槽位也必须立即归还失效句柄，不能等下一次计算才清理。
+        slot.maintenance = (async () => {
+          for (const id of stale) {
+            await slot.worker?.release(id)
+            slot.compiled.delete(id)
+          }
+          if (slot.compiled.size === 0) reset(slot)
+        })()
+          .catch(() => reset(slot))
+          .finally(() => {
+            slot.maintenance = undefined
+            pump()
+          })
+        continue
+      }
       const job = queue.shift()
       if (!job) return
       slot.active = job
@@ -95,13 +114,6 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
                   options.createWorker?.() ?? createScriptWorker(undefined, options.onOutput)
               }
               const worker = slot.worker
-              // 释放旧脚本只影响该编译句柄，不销毁其它脚本的缓存。
-              for (const cachedId of slot.compiled.keys()) {
-                if (sources.has(cachedId)) continue
-                await worker.release(cachedId)
-                check()
-                slot.compiled.delete(cachedId)
-              }
               let compiled = slot.compiled.get(id)
               if (compiled?.source !== source) {
                 const definition = await worker.prepare(
@@ -109,6 +121,7 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
                   source.code,
                   source.libraries,
                   source.trusted,
+                  source.mode,
                 )
                 check()
                 compiled = { source, definition }
@@ -145,8 +158,8 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
   }
 
   return {
-    async prepare(id, code, libraries, trusted = false) {
-      const source = { code, libraries, trusted }
+    async prepare(id, code, libraries, trusted = false, mode = 'metadata') {
+      const source = { code, libraries, trusted, mode }
       sources.set(id, source)
       try {
         return await schedule(id, source, async (_worker, definition) => definition)
@@ -163,7 +176,8 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
       sources.delete(id)
       for (const job of [...queue, ...slots.flatMap((slot) => (slot.active ? [slot.active] : []))])
         if (job.id === id) job.cancel()
-      // 下一次领取任务时清理失效句柄；忙碌线程不被其它脚本的释放动作打断。
+      pump()
+      await Promise.all(slots.map((slot) => slot.maintenance))
     },
     dispose() {
       if (disposed) return

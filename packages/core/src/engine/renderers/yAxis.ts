@@ -1,4 +1,6 @@
 /** 价格轴刻度、范围带与十字线价签的静态和动态绘制。 */
+
+import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
 import { AXIS_DISPLAY } from '../../foundation/config/axisSettings.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
@@ -24,13 +26,14 @@ type YAxisOptions = {
  */
 export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: makePluginLayerId('yAxis'),
     role: 'background',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.SYSTEM_YAXIS,
     visible: true,
     paint(context) {
-      const { ctx, pane, dpr, yAxisCtx } = context
+      const { pane, dpr, yAxisCtx } = context
       if (resolvePriceAxisDisplay(context) === AXIS_DISPLAY.NONE) return
 
       const tokenColors = resolveThemeColors(
@@ -38,7 +41,8 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const targetCtx = yAxisCtx || ctx
+      const targetCtx = yAxisCtx
+      if (!targetCtx) return
       const axisWidth = yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth
       const isPercent = usesPercentAxis(context)
 
@@ -92,6 +96,7 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
  */
 export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: makePluginLayerId('yAxisOverlay'),
     role: 'overlay',
     pane: LAYER_PANE_GLOBAL,
@@ -122,11 +127,25 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
           const topY = range.topY + pane.top
           const bandHeight = range.bottomY - range.topY
           if (bandHeight <= 0) continue
-          targetCtx.save()
-          targetCtx.globalAlpha = range.opacity
-          targetCtx.fillStyle = range.color
-          targetCtx.fillRect(0, topY, axisWidth, bandHeight)
-          targetCtx.restore()
+          primitiveSink()(
+            targetCtx,
+            [
+              {
+                kind: 'fill',
+                paths: [
+                  [
+                    { x: 0, y: topY },
+                    { x: axisWidth, y: topY },
+                    { x: axisWidth, y: topY + bandHeight },
+                    { x: 0, y: topY + bandHeight },
+                  ],
+                ],
+                color: range.color,
+                opacity: range.opacity,
+              },
+            ],
+            dpr,
+          )
         }
       }
 

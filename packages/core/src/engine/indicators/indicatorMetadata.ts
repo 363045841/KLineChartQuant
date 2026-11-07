@@ -136,12 +136,12 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
   dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
   /** 每个执行器创建独立的增量 calculator。 */
-  createCompute?: () => (
+  createCompute?: () => ((
     data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
     range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ) => unknown
+  ) => unknown) & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
@@ -175,7 +175,7 @@ export interface IndicatorPeriodVisibility {
 /**
  * 指标元数据接口
  */
-export interface IndicatorMetadata<T = unknown> {
+export interface IndicatorMetadata<_T = unknown> {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
   /** 序列和绘图对象统一声明公共 Plot 输出。 */

@@ -48,7 +48,10 @@ export interface StringInputOptions extends InputOptions {
 }
 
 /** 参数值与展示标签在生产者契约中定义，所有参数面板共用。 */
-export interface InputOption { readonly value: string; readonly label: string }
+export interface InputOption {
+  readonly value: string
+  readonly label: string
+}
 
 /** 周期输入的 options 只允许 Timeframe 中登记的周期。 */
 export interface TimeframeInputOptions extends InputOptions {
@@ -101,6 +104,8 @@ export interface IndicatorDefinition<P> {
   readonly inputs: InputSchema<P>
   /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
   readonly dependency?: import('./compute.js').ComputeDependency
+  /** 计算身份拥有独立会话；最后一个消费者退出时释放运行态，元数据仍可留在目录。 */
+  readonly createCompute?: () => IndicatorDefinition<P>['compute'] & { dispose(): void }
   /** 计算端口：给定 bars、参数与重算区间，产出完整 PlotCollection。 */
   compute(
     bars: readonly Bar[],

@@ -72,6 +72,7 @@ export function createIndicatorScaleLayer(
   } = options
 
   const staticLayer = createIndicatorRendererLayer({
+    kind: 'draw-list',
     definitionId: indicatorKey,
     part: 'scale',
     paneId,
@@ -142,6 +143,7 @@ export function createIndicatorScaleLayer(
   })
 
   const crosshairLayer = createIndicatorRendererLayer({
+    kind: 'draw-list',
     layerId: resolveIndicatorScaleCrosshairLayerId(staticLayer.id),
     paneId,
     role: 'overlay',

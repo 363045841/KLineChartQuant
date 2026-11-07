@@ -42,6 +42,20 @@ function setup(size: number) {
 }
 
 describe('long-lived script workers', () => {
+  it('releases idle execution handles immediately without waiting for another task', async () => {
+    const h = setup(1)
+    try {
+      await h.pool.prepare('a', 'source')
+      await h.pool.release('a')
+      expect(h.workers[0]!.release).toHaveBeenCalledWith('a')
+      expect(h.workers[0]!.dispose).toHaveBeenCalledOnce()
+      await h.pool.prepare('b', 'source-next')
+      expect(h.workers).toHaveLength(2)
+    } finally {
+      h.pool.dispose()
+    }
+  })
+
   it('repeated calculations reuse the same worker and compiled script', async () => {
     const h = setup(2)
     try {

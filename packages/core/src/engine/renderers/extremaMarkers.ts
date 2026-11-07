@@ -1,7 +1,10 @@
 /** 可视区最高/最低价标注 Layer（overlay 层，绘制到所有 pane）。 */
+
+import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
+import { getFont } from '../../foundation/tokens/fonts.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import {
@@ -17,9 +20,6 @@ import { Indicator } from '../indicators/indicatorDecorator.js'
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
-const textWidthCache = new Map<string, number>()
-const TEXT_WIDTH_CACHE_LIMIT = 256
-
 // 模块级常量，避免每次重复创建
 const PADDING = 4
 const LINE_LENGTH = 30
@@ -31,7 +31,6 @@ interface MarkerData {
   y: number
   price: number
   text: string
-  textWidth: number
   drawLeft: boolean
   lineStartX: number
   lineEndX: number
@@ -39,66 +38,46 @@ interface MarkerData {
   textX: number
 }
 
-function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
-  // 使用固定字体，缓存更稳定
-  const key = MARKER_FONT + '|' + text
-  const cached = textWidthCache.get(key)
-  if (cached !== undefined) {
-    return cached
-  }
-
-  const savedFont = ctx.font
-  ctx.font = MARKER_FONT
-  const width = ctx.measureText(text).width
-  ctx.font = savedFont
-
-  if (textWidthCache.size >= TEXT_WIDTH_CACHE_LIMIT) {
-    textWidthCache.clear()
-  }
-  textWidthCache.set(key, width)
-  return width
-}
-
 /**
  * 批量绘制所有 marker
  * 分两个阶段：线条 → 文字，避免 Canvas 状态频繁切换
  */
-function drawAllMarkers(
-  ctx: CanvasRenderingContext2D,
+function buildMarkers(
   markers: MarkerData[],
   dpr: number,
   lineColor: string,
   textColor: string,
-) {
-  if (markers.length === 0) return
-
-  ctx.save()
+): PaintPrimitive[] {
+  const commands: PaintPrimitive[] = []
 
   // ========== 阶段1：批量绘制所有线条（同一 fillStyle）==========
-  ctx.fillStyle = lineColor
   for (const m of markers) {
     const lineRect = createHorizontalLineRect(m.lineStartX, m.lineEndX, m.y, dpr)
     if (lineRect) {
-      ctx.fillRect(lineRect.x, lineRect.y, lineRect.width, lineRect.height)
+      commands.push({ kind: 'rect', ...lineRect, color: lineColor })
     }
   }
 
   // ========== 阶段2：批量绘制所有文字（同一 font/baseline/fillStyle）==========
-  setCanvasFont(ctx, MARKER_FONT)
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = textColor
-
   for (const m of markers) {
-    ctx.textAlign = m.drawLeft ? 'right' : 'left'
-    ctx.fillText(m.text, m.textX, m.alignedY)
+    commands.push({
+      kind: 'text',
+      text: m.text,
+      x: m.textX,
+      y: m.alignedY,
+      font: MARKER_FONT,
+      baseline: 'middle',
+      align: m.drawLeft ? 'right' : 'left',
+      color: textColor,
+    })
   }
-
-  ctx.restore()
+  return commands
 }
 
 /** 可视区最高/最低价标注 Layer（绘制到所有 pane 的 overlay 层）。 */
 export function createExtremaMarkersLayer(): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: resolveIndicatorLayerId('extremaMarkers', 'main'),
     role: 'overlay',
     pane: LAYER_PANE_GLOBAL,
@@ -106,24 +85,13 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
     visible: true,
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
-      const {
-        overlayCtx,
-        pane,
-        range,
-        scrollLeft,
-        dpr,
-        paneWidth,
-        kLineCenters,
-        visiblePriceExtrema,
-      } = context
-      const ctx = overlayCtx
+      const { pane, range, scrollLeft, dpr, paneWidth, kLineCenters, visiblePriceExtrema } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
       if (pane.role !== 'price') return
-      if (!ctx) return
       if (!visiblePriceExtrema) return
       const { max, min, maxIndex, minIndex } = visiblePriceExtrema
 
@@ -138,16 +106,18 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
       const pushMarker = (index: number, value: number): void => {
         const screenX = getScreenCenterX(index)
         if (!Number.isFinite(screenX)) return
-        markers.push(
-          createMarkerData(screenX, pane.yAxis.priceToY(value), value, dpr, paneWidth, ctx),
-        )
+        markers.push(createMarkerData(screenX, pane.yAxis.priceToY(value), value, dpr, paneWidth))
       }
 
       pushMarker(maxIndex, max)
       pushMarker(minIndex, min)
 
       // 批量绘制所有 markers
-      drawAllMarkers(ctx, markers, dpr, colors.text.weak, colors.text.primary)
+      submitPrimitives(
+        context,
+        buildMarkers(markers, dpr, colors.text.weak, colors.text.primary),
+        dpr,
+      )
     },
     dispose() {},
   }
@@ -175,10 +145,8 @@ function createMarkerData(
   price: number,
   dpr: number,
   paneWidth: number,
-  ctx: CanvasRenderingContext2D,
 ): MarkerData {
   const text = price.toFixed(2)
-  const textWidth = measureTextWidth(ctx, text)
 
   const drawLeft = isOnRightHalf(x, paneWidth)
 
@@ -199,7 +167,6 @@ function createMarkerData(
     y,
     price,
     text,
-    textWidth,
     drawLeft,
     lineStartX,
     lineEndX,

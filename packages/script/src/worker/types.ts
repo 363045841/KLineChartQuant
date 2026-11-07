@@ -1,12 +1,12 @@
 /** Script Worker 的异步执行接口与消息类型。 */
-import type {
-  Bar,
-  ComputeRange,
-  PlotCollection,
-} from '@363045841yyt/klinechart-plot-contracts'
+import type { Bar, ComputeRange, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../contracts/output.js'
 import type { CompiledScriptSources } from '../execution/types.js'
-import type { PreparedScriptDefinition, QuickJSLibrary, ScriptParamValue } from '../quickjs/types.js'
+import type {
+  PreparedScriptDefinition,
+  QuickJSLibrary,
+  ScriptParamValue,
+} from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 import type { PackedPlotCollection, RunInputPatch } from './transport/types.js'
 
@@ -17,6 +17,8 @@ export interface ScriptWorker {
     source: string,
     libraries?: readonly QuickJSLibrary[],
     trusted?: boolean,
+    /** metadata 读取声明后销毁临时会话，execution 同时安装运行态。 */
+    mode?: 'metadata' | 'execution',
   ): Promise<PreparedScriptDefinition>
   run(
     id: string,
@@ -64,6 +66,8 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
       readonly type: 'prepare'
       readonly module: CompiledScriptSources
       readonly trusted?: boolean
+      /** 读取声明后立即释放临时运行态，不安装计算会话。 */
+      readonly metadataOnly?: boolean
     }
   | {
       readonly type: 'run'

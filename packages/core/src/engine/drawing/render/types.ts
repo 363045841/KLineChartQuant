@@ -37,7 +37,7 @@ export interface DrawingStoreDeps {
   getIndicatorDrawings?: () => ReadonlyArray<DrawingObject>
 }
 
-/** drawing 投影适配器集合；ctx 仅指定合成目标，实际绘制由统一原语提交器负责。 */
+/** 自定义 Canvas 绘图扩展；默认 drawing 使用纯原语 builder，不依赖此上下文接口。 */
 export type PrimitiveRendererSet = {
   point: (ctx: CanvasRenderingContext2D, primitive: PointPrimitive, dpr: number) => void
   line: (
