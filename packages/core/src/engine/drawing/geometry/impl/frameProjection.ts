@@ -33,7 +33,7 @@ import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../intera
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
-import type { DrawingPaintScope } from '../../render/types.js'
+import type { DrawingPaintScope, DrawingSource } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type {
   DrawingGeometry,
@@ -585,6 +585,7 @@ export function projectDrawingsForFrame(
   selectionMarquee: DrawingSelectionMarquee | null = null,
   scope: DrawingPaintScope = 'all',
   snapIndicator: DrawingSnapIndicator | null = null,
+  source: DrawingSource = 'all',
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -626,7 +627,7 @@ export function projectDrawingsForFrame(
     seriesData,
   }
   const workspaceId = resolveChartWorkspaceId(context.dataView)
-  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
+  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope, source)) {
     projectStoredDrawing(state, storedDrawing, scope)
   }
   output.primitives.push(...state.handlePrimitives)

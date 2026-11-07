@@ -45,6 +45,7 @@ import type { DrawingObject, SnapIndicatorValue } from '../../drawing/index.js'
 import {
   createDrawingLayer,
   createDrawingSessionLayer,
+  createIndicatorDrawingLayer,
   DrawingDefinitionRegistry,
   DrawingStore,
   projectDrawingsForFrame,
@@ -355,6 +356,7 @@ export class ChartRenderer {
   } | null = null
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
   private readonly drawingLayer = createDrawingLayer()
+  private readonly indicatorDrawingLayer = createIndicatorDrawingLayer()
   private xAxisCtx: CanvasRenderingContext2D | null = null
   private readonly crosshairOverlay: CrosshairOverlay
 
@@ -621,6 +623,7 @@ export class ChartRenderer {
 
   registerDrawingPlugins(): void {
     this.scene.addLayer(this.drawingLayer)
+    this.scene.addLayer(this.indicatorDrawingLayer)
     this.scene.addLayer(createDrawingSessionLayer())
   }
 
@@ -1291,7 +1294,8 @@ export class ChartRenderer {
       !useCachedFrame ||
       drawingChanged ||
       previousContext?.drawingCtx !== drawingCtx ||
-      !previousContext?.drawingProjection
+      !previousContext?.drawingProjection ||
+      !previousContext?.indicatorDrawingProjection
     )
   }
 
@@ -1436,15 +1440,29 @@ export class ChartRenderer {
   ): void {
     if (!shouldUpdateDrawing) {
       context.drawingProjection = previousContext?.drawingProjection
+      context.indicatorDrawingProjection = previousContext?.indicatorDrawingProjection
       return
     }
     const labels = createAxisLabelsFrame()
+    const projectionContext = { ...context, axisLabels: labels }
+    // 用户图元需要独立画布保持像素；指标图元直接并入 main，避免多一张全尺寸画布。
     context.drawingProjection = projectDrawingsForFrame(
       this.drawingStore,
       this.drawingDefinitions,
-      { ...context, axisLabels: labels },
+      projectionContext,
       null,
       'committed',
+      null,
+      'user',
+    )
+    context.indicatorDrawingProjection = projectDrawingsForFrame(
+      this.drawingStore,
+      this.drawingDefinitions,
+      projectionContext,
+      null,
+      'committed',
+      null,
+      'indicator',
     )
     this.drawingAxisLabels.set(renderer, labels)
     if (context.drawingCtx) return
@@ -1488,7 +1506,11 @@ export class ChartRenderer {
 
   /** 把正式与会话图元的轴范围并入本帧共享集合。 */
   private mergeDrawingAxisRanges(context: RenderContext, sharedXAxisRanges: XAxisRange[]): void {
-    for (const projection of [context.drawingProjection, context.sessionDrawingProjection]) {
+    for (const projection of [
+      context.drawingProjection,
+      context.indicatorDrawingProjection,
+      context.sessionDrawingProjection,
+    ]) {
       if (!projection) continue
       context.yAxisRanges.push(...projection.yAxisRanges)
       sharedXAxisRanges.push(...projection.xAxisRanges)
@@ -1502,8 +1524,10 @@ export class ChartRenderer {
     vp: ViewportFrame,
     level: UpdateLevel,
     shouldUpdateDrawing: boolean,
+    forceMain: boolean,
   ): { shouldUpdateMain: boolean; shouldUpdateOverlay: boolean } {
-    const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
+    // 指标图元已并入 main 目标，图元变化必须同时刷新 main，不能只清 drawing 画布。
+    const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All || forceMain
     const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
     if (shouldUpdateMain) {
       clearPlotSurface(contexts.mainCtx, vp, pane)
@@ -1565,6 +1589,7 @@ export class ChartRenderer {
         vp,
         level,
         shouldUpdateDrawing,
+        drawingChanged,
       )
 
       // 构造本 pane 的 RenderContext，供所有 layer 读取

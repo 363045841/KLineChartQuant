@@ -82,6 +82,28 @@ export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<Ren
   }
 }
 
+/**
+ * 指标图元层：指标输出并入 main 目标，不再单独占用一张全尺寸 drawing 画布。
+ * 用户手绘图元仍由 createDrawingLayer 走独立画布，二者在 Scene 内按 z 排序。
+ */
+export function createIndicatorDrawingLayer(
+  options: DrawingLayerOptions = {},
+): Layer<RenderContext> {
+  return {
+    id: makePluginLayerId('indicatorDrawingRenderer'),
+    role: 'indicator',
+    pane: 'global',
+    z: 54,
+    visible: true,
+    paint(context) {
+      const projection = context.indicatorDrawingProjection
+      if (!projection || projection.primitives.length === 0) return
+      paintProjection(context, projection.primitives, options.renderers)
+    },
+    dispose() {},
+  }
+}
+
 /** 会话图元单独绘制到动态覆盖层，每次移动只刷新临时坐标。 */
 export function createDrawingSessionLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
   return {

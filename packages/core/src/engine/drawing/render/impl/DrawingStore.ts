@@ -6,7 +6,7 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import { mergePaint } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
-import type { DrawingPaintScope, DrawingStoreDeps } from '../types.js'
+import type { DrawingPaintScope, DrawingSource, DrawingStoreDeps } from '../types.js'
 
 /** 绘图投影器 —— kernel 业务 SSOT ⊕ 会话 overlay，供渲染插件读取。 */
 export class DrawingStore {
@@ -16,6 +16,7 @@ export class DrawingStore {
     readonly drawings: readonly DrawingObject[]
     readonly paneId: string
     readonly workspaceId: DrawingWorkspaceId
+    readonly source: DrawingSource
     readonly value: DrawingObject[]
   } | null = null
 
@@ -58,26 +59,33 @@ export class DrawingStore {
     ]
   }
 
-  /** 返回指定 Pane 与工作区下可见的绘制对象，按 zIndex 升序。 */
+  /**
+   * 返回指定 Pane 与工作区下可见的绘制对象，按 zIndex 升序。
+   *
+   * source 把指标输出与用户文档分开：指标图元走 main 目标，用户图元才需要
+   * 独立 drawing 画布。会话覆盖只属于用户文档，指标没有 session 投影。
+   */
   getVisibleByPane(
     paneId: string,
     workspaceId: DrawingWorkspaceId,
     scope: DrawingPaintScope = 'all',
+    source: DrawingSource = 'all',
   ): DrawingObject[] {
-    const overlay = this.deps.getOverlay?.() ?? []
+    const indicators = source === 'user' ? [] : this.indicatorDrawings()
+    const overlay = source === 'indicator' ? [] : (this.deps.getOverlay?.() ?? [])
+    const committed = source === 'indicator' ? [] : this.deps.drawings$.peek()
     if (scope === 'committed' && overlay.length === 0) {
-      const indicators = this.indicatorDrawings()
-      const drawings = this.deps.drawings$.peek()
       const cached = this.committedVisibleCache
       if (
         cached !== null &&
         cached.indicators === indicators &&
-        cached.drawings === drawings &&
+        cached.drawings === committed &&
         cached.paneId === paneId &&
-        cached.workspaceId === workspaceId
+        cached.workspaceId === workspaceId &&
+        cached.source === source
       )
         return cached.value
-      const value = [...indicators, ...drawings]
+      const value = [...indicators, ...committed]
         .filter(
           (drawing) =>
             drawing.visible &&
@@ -85,7 +93,14 @@ export class DrawingStore {
             (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
         )
         .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
-      this.committedVisibleCache = { indicators, drawings, paneId, workspaceId, value }
+      this.committedVisibleCache = {
+        indicators,
+        drawings: committed,
+        paneId,
+        workspaceId,
+        source,
+        value,
+      }
       return value
     }
     const overriddenIds = new Set(overlay.map((drawing) => drawing.id))
@@ -93,11 +108,8 @@ export class DrawingStore {
       scope === 'session'
         ? overlay
         : scope === 'committed'
-          ? [
-              ...this.indicatorDrawings(),
-              ...this.deps.drawings$.peek().filter((drawing) => !overriddenIds.has(drawing.id)),
-            ]
-          : this.paintList()
+          ? [...indicators, ...committed.filter((drawing) => !overriddenIds.has(drawing.id))]
+          : [...indicators, ...mergePaint(committed, overlay)]
     return drawings
       .filter(
         (drawing) =>

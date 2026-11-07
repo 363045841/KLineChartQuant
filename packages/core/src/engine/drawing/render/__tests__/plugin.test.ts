@@ -9,7 +9,11 @@ import {
 import type { DrawingPrimitive } from '@/foundation/plugin/index'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
-import { createDrawingLayer, createDrawingSessionLayer } from '../impl/plugin'
+import {
+  createDrawingLayer,
+  createDrawingSessionLayer,
+  createIndicatorDrawingLayer,
+} from '../impl/plugin'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'
 
 describe('createDrawingLayer', () => {
@@ -96,6 +100,47 @@ describe('createDrawingLayer', () => {
       { kind: 'point', point: { x: 10, y: 20 }, style: { stroke: '#f00' } },
       1,
     )
+  })
+})
+
+describe('createIndicatorDrawingLayer', () => {
+  /** 指标图元并入 main 目标，不再写入独立 drawing 画布。 */
+  it('paints indicator projections on the main target', () => {
+    const mainCtx = createMockCanvasContext()
+    const drawingCtx = createMockCanvasContext()
+    const point = vi.fn()
+    const primitive = {
+      kind: 'point',
+      point: { x: 10, y: 20 },
+      style: { stroke: '#f00' },
+    } satisfies DrawingPrimitive
+    const projection = {
+      primitives: [primitive],
+      yAxisRanges: [],
+      xAxisRanges: [],
+      snapLines: [],
+    }
+    const context = createMockRenderContext({
+      ctx: mainCtx,
+      drawingCtx,
+      indicatorDrawingProjection: projection,
+      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
+      pane: { height: 400 },
+    })
+    const layer = createIndicatorDrawingLayer({
+      renderers: {
+        point,
+        line: vi.fn(),
+        area: vi.fn(),
+        arrow: vi.fn(),
+        text: vi.fn(),
+      },
+    })
+
+    expect(layer.role).toBe('indicator')
+    layer.paint({ ...context, paneId: 'main', clear: false })
+    expect(point).toHaveBeenCalledWith(mainCtx, primitive, 1)
+    expect(drawingCtx.fill).not.toHaveBeenCalled()
   })
 })
 

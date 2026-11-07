@@ -457,8 +457,10 @@ export interface RenderOverlayContext {
   countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
-  /** 绘图系统预先生成的当前 Pane 帧投影。 */
+  /** 用户图元的当前 Pane 帧投影，绘制到独立 drawing 画布。 */
   drawingProjection?: DrawingFrameProjection
+  /** 指标输出图元的当前 Pane 帧投影，直接绘制到 main 目标。 */
+  indicatorDrawingProjection?: DrawingFrameProjection
   /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */
   sessionDrawingProjection?: DrawingFrameProjection
 }
