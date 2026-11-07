@@ -4,6 +4,8 @@
  */
 
 import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
+import { BINANCE_PERP_MARKET_SESSION } from '@/foundation/config/marketSession/binancePerpMarketSession.js'
+import { BINANCE_SPOT_MARKET_SESSION } from '@/foundation/config/marketSession/binanceSpotMarketSession.js'
 import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
 
 /** 本地默认行情服务地址，可通过数据源运行时配置覆盖 */
@@ -23,10 +25,14 @@ export interface DataSourceRegistration {
 export const dataSourceRegistry = {
   binance: {
     id: DataSource.Binance,
-    displayName: 'Binance Spot',
-    description: 'Binance 现货 K 线与真实逐笔成交',
+    displayName: 'Binance',
+    description: 'Binance 现货与永续 K 线、真实逐笔成交',
     defaultBaseUrl: 'http://127.0.0.1:8091',
-    marketSessions: { BINANCE_SPOT: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] } },
+    // 现货与永续 sessionId 由连接器按市场下发，两者时段相同但市场身份不同。
+    marketSessions: {
+      BINANCE_SPOT: BINANCE_SPOT_MARKET_SESSION,
+      BINANCE_PERP: BINANCE_PERP_MARKET_SESSION,
+    },
   },
   gotdx: {
     id: DataSource.Gotdx,

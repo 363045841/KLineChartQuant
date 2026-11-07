@@ -246,6 +246,8 @@ export interface InstrumentSearchQuery {
   keyword: string
   limit: number
   instrumentTypes?: ReadonlyArray<InstrumentType>
+  /** 限定数据源内的市场划分；缺省时由数据源决定（Binance 缺省现货）。 */
+  market?: string
   signal?: AbortSignal
 }
 

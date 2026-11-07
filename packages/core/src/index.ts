@@ -66,6 +66,7 @@ export * from './features/chartTypes/index.js'
 // ── Batch 2: Framework-agnostic foundation ────────────────────────────────
 export * from './features/input/index.js'
 export * from './features/replay/index.js'
+export * from './features/structure/index.js'
 export {
   type ChartToolConfig,
   type ChartToolExecutionContext,

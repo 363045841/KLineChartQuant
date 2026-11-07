@@ -13,6 +13,7 @@ import type {
   InstrumentDescriptor,
   InstrumentSearchQuery,
   MarketDataProvider,
+  SourceCapabilities,
   TimeShareQuery,
   TimeShareRangeQuery,
   TimeShareSeries,
@@ -23,8 +24,24 @@ import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
   ProtocolKLineItem,
+  ProtocolSourceCapabilities,
   ProtocolTimeShareItem,
 } from '../types.js'
+
+/** 能力声明不合规时对外说明的原因；宿主据此判断该源不可参与流转。 */
+const MISSING_CAPABILITIES_MESSAGE = '能力声明缺少 instrumentTypes，已按不可用处理'
+
+/**
+ * 校验协议响应里的源级能力声明。
+ *
+ * 能力来自网络而非类型系统，第三方连接器可能只报旧字段（如 MT5 的 assetClasses）。
+ * 缺 instrumentTypes 时返回 undefined，让该源退出候选，而不是让筛选计算抛错。
+ */
+function readSourceCapabilities(
+  value: ProtocolSourceCapabilities | undefined,
+): SourceCapabilities | undefined {
+  return value !== undefined && Array.isArray(value.instrumentTypes) ? value : undefined
+}
 
 export interface MarketDataProviderOptions {
   trades?: import('../../../trades/types.js').TradeDataSource
@@ -139,12 +156,17 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
       const startedAt = Date.now()
       try {
         const result = await transport.probe(source.id, signal)
-        runtimeSource.capabilities = result.capabilities
+        const capabilities = readSourceCapabilities(result.capabilities)
+        runtimeSource.capabilities = capabilities
+        // 声明了能力却不合协议才降级：完全不上报能力的源保持原状态，只是不参与流转。
+        const degraded =
+          result.capabilities !== undefined && capabilities === undefined && result.status !== 'offline'
         return {
-          status: result.status,
+          status: degraded ? 'degraded' : result.status,
           checkedAt: result.checkedAt,
           latencyMs: Date.now() - startedAt,
-          capabilities: result.capabilities,
+          message: degraded ? MISSING_CAPABILITIES_MESSAGE : result.message,
+          capabilities,
         }
       } catch (error) {
         return {
@@ -165,6 +187,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
             keyword: query.keyword,
             limit: query.limit,
             instrumentTypes: query.instrumentTypes,
+            market: query.market,
           },
           query.signal,
         )

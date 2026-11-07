@@ -167,11 +167,12 @@ describe('useSymbolSearch', () => {
     expect(symbolIdentityKey(main)).not.toBe(symbolIdentityKey(extended))
   })
 
-  // 验证不同数据源内相同的品种 ID 不会在聚合搜索结果中相互覆盖。
-  it('includes the source in a standard instrument identity', () => {
-    const first = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'first' }
-    const second = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'second' }
+  // 验证身份键就是带来源前缀的品种 ID，不同来源不会在聚合搜索结果中相互覆盖。
+  it('keeps source-prefixed instrument ids distinct', () => {
+    const first = { ...TEST_SYMBOLS[0]!, id: 'first:stock:600519', sourceId: 'first' }
+    const second = { ...TEST_SYMBOLS[0]!, id: 'second:stock:600519', sourceId: 'second' }
 
+    expect(symbolIdentityKey(first)).toBe('first:stock:600519')
     expect(symbolIdentityKey(first)).not.toBe(symbolIdentityKey(second))
   })
 

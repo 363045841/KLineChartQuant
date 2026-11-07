@@ -165,7 +165,7 @@ KLineChart requires a market data backend. Supported data sources:
 | Data Source | Description | Docs |
 |---|---|---|
 | `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `GoTDX-Connector` | [GoTDX-Connector](../../docs/data-sources/klinechartquantgo.zh-CN.md) |
-| `binance` | Binance Spot K-lines and real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
+| `binance` | Binance spot and USDT-M perpetual K-lines with real tick-by-tick trades (footprint / order-flow), served by `Binance-Connector` | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
 | `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `Baostock-Tradingview-Connector` | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView global instruments, served by `Baostock-Tradingview-Connector` | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5 (Exness) local terminal: forex / metals / crypto CFDs, served by `KCQ-MT5-connector` | [MT5](../../docs/data-sources/mt5.zh-CN.md) |
@@ -296,7 +296,7 @@ const instrument: DataSourceInstrument = {
 
 const source: MarketDataSource = {
   id: 'binance',
-  name: 'Binance Spot',
+  name: 'Binance',
   capabilities: {
     instrumentTypes: [InstrumentType.Crypto],
     bars: { periods: [KLinePeriod.Min1, KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },

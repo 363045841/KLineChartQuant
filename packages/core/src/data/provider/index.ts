@@ -26,6 +26,11 @@ export type {
   MarketRegistryState,
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
+export {
+  formatInstrumentLabel,
+  instrumentIdentityKey,
+  isInstrumentIdOfSource,
+} from './impl/instrumentIdentity.js'
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'

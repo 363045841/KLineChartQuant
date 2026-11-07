@@ -50,6 +50,8 @@ export interface UseKLineTooltipOptions {
   isDraggable: () => boolean
   /** 数据悬浮框是否启用；false 时保持隐藏 */
   isEnabled: () => boolean
+  /** 标题里的品种展示代码；`.P` 等展示后缀只在这一层出现，不写进 K 线数据 */
+  symbolLabel: () => string
 }
 
 /** 格式化成交量，按亿 / 万分级。 */
@@ -78,11 +80,15 @@ function calcDirection(
 }
 
 /** 创建默认 tooltip 的标题与字段骨架，只按数据的可选字段建行。 */
-function buildTooltipDom(el: HTMLDivElement, kline: KLineData): TooltipDomRefs {
+function buildTooltipDom(
+  el: HTMLDivElement,
+  kline: KLineData,
+  symbolLabel: string,
+): TooltipDomRefs {
   const title = document.createElement('div')
   title.className = 'kline-tooltip__title'
   let symbolSpan: HTMLSpanElement | null = null
-  if (kline.symbol) {
+  if (symbolLabel) {
     symbolSpan = document.createElement('span')
     title.appendChild(symbolSpan)
   }
@@ -145,6 +151,7 @@ function updateTooltipDom(
   downColor: string,
   timezone: string,
   showTime: boolean,
+  symbolLabel: string,
 ): void {
   const openDir = calcDirection(kline, allData, idx)
   const closeDiff = kline.close - kline.open
@@ -154,7 +161,7 @@ function updateTooltipDom(
   const changeC = changePct > 0 ? upColor : changePct < 0 ? downColor : NEUTRAL_COLOR
 
   refs.date.textContent = formatTimeInTimeZone(kline.timestamp, { timeZone: timezone, showTime })
-  if (refs.symbol) refs.symbol.textContent = kline.symbol ?? ''
+  if (refs.symbol) refs.symbol.textContent = symbolLabel
 
   refs.open.textContent = kline.open.toFixed(2)
   refs.open.style.color = openC
@@ -186,13 +193,14 @@ function updateTooltipDom(
  */
 export function useKLineTooltip(options: UseKLineTooltipOptions) {
   const { controller, contentRef, containerRef, colors, hasExternalSlot } = options
-  const { isCoarsePointer, isIntraday, timezone, isDraggable, isEnabled } = options
+  const { isCoarsePointer, isIntraday, timezone, isDraggable, isEnabled, symbolLabel } = options
 
   /** 拖拽后的 tooltip 位置；null 表示跟随交互快照。 */
   const dragPos = ref<{ x: number; y: number } | null>(null)
 
   let resizeObserver: ResizeObserver | null = null
   let previousIndex: number | null = null
+  let previousSymbolLabel: string | null = null
   let domRefs: TooltipDomRefs | null = null
   let visibilityEl: HTMLDivElement | null = null
   let hiddenState = false
@@ -292,15 +300,27 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
           return
         }
         positionDefault()
-        if (idx !== previousIndex) {
+        const label = symbolLabel()
+        if (idx !== previousIndex || label !== previousSymbolLabel) {
           previousIndex = idx
+          previousSymbolLabel = label
           if (!domRefs || domRefs.container !== el) {
             domRefs = null
             el.textContent = ''
-            domRefs = buildTooltipDom(el, kline)
+            domRefs = buildTooltipDom(el, kline, label)
           }
           const { upColor, downColor } = colors.value
-          updateTooltipDom(domRefs, kline, idx!, data, upColor, downColor, timezone(), isIntraday())
+          updateTooltipDom(
+            domRefs,
+            kline,
+            idx!,
+            data,
+            upColor,
+            downColor,
+            timezone(),
+            isIntraday(),
+            label,
+          )
           if (!resizeObserver) {
             resizeObserver = new ResizeObserver((entries) => {
               for (const entry of entries) {
@@ -329,6 +349,7 @@ export function useKLineTooltip(options: UseKLineTooltipOptions) {
         resizeObserver = null
         domRefs = null
         previousIndex = null
+        previousSymbolLabel = null
         visibilityEl = null
         refresh = null
       })

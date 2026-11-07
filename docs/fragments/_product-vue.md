@@ -70,7 +70,7 @@ const instrument: DataSourceInstrument = {
 
 const source: MarketDataSource = {
   id: 'binance',
-  name: 'Binance Spot',
+  name: 'Binance',
   capabilities: {
     instrumentTypes: [InstrumentType.Crypto],
     bars: { periods: [KLinePeriod.Min1, KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },

@@ -20,8 +20,26 @@ describe('symbolSpecIdentityKey', () => {
       params: { category: 31 },
     }
 
-    expect(symbolSpecIdentityKey(first)).toBe('instrument:gotdx:gotdx:stock:1:600519')
+    expect(symbolSpecIdentityKey(first)).toBe('gotdx:stock:1:600519')
     expect(symbolSpecIdentityKey(second)).toBe(symbolSpecIdentityKey(first))
+  })
+
+  // 验证同一代码在现货与永续是两个不同身份，避免跨市场串号。
+  it('区分同一代码的现货与永续身份', () => {
+    const spot = {
+      id: 'binance:spot:BTCUSDT',
+      symbol: 'BTCUSDT',
+      market: 'BINANCE_SPOT',
+      source: 'binance',
+    }
+    const perp = {
+      id: 'binance:perp:BTCUSDT',
+      symbol: 'BTCUSDT',
+      market: 'BINANCE_PERP',
+      source: 'binance',
+    }
+
+    expect(symbolSpecIdentityKey(spot)).not.toBe(symbolSpecIdentityKey(perp))
   })
 
   // 验证旧调用仍能按来源、市场、交易所、代码和 params 区分品种。

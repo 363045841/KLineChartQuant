@@ -1,6 +1,11 @@
 /** 聚合已启用行情数据源的无状态品种目录查询能力。 */
 import { ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { InstrumentDescriptor, InstrumentSearchQuery } from '../types.js'
+import {
+  formatInstrumentLabel,
+  instrumentIdentityKey,
+  parseInstrumentQuery,
+} from './instrumentIdentity.js'
 import type { MarketDataProviderRegistry } from './registry.js'
 
 /** 跨数据源查询品种目录的输入。 */
@@ -21,11 +26,6 @@ export interface InstrumentLookupRequest {
 
 const INSTRUMENT_LOOKUP_CANDIDATE_LIMIT = 100
 
-/** 生成数据源范围内品种的稳定去重键。 */
-function instrumentIdentityKey(instrument: InstrumentDescriptor): string {
-  return `${instrument.sourceId}:${instrument.id}`
-}
-
 /** 统一代码比较规则，避免调用方各自实现大小写和空白处理。 */
 function normalizeInstrumentSymbol(symbol: string): string {
   return symbol.trim().toUpperCase()
@@ -36,6 +36,10 @@ export async function searchInstruments(
   registry: MarketDataProviderRegistry,
   request: InstrumentSearchRequest,
 ): Promise<ReadonlyArray<InstrumentDescriptor>> {
+  // `.P` 后缀在搜索入口还原为市场限定；空关键词不产生请求。
+  const parsed = parseInstrumentQuery(request.keyword)
+  if (!parsed.keyword) return []
+  const market = request.market ?? parsed.market
   // 省略 sourceIds 表示查询全部已启用源；显式空数组表示不查任何源。
   const selectedSourceIds = request.sourceIds?.map((sourceId) => sourceId.trim()).filter(Boolean)
   const selectedSources = selectedSourceIds === undefined ? undefined : new Set(selectedSourceIds)
@@ -63,9 +67,10 @@ export async function searchInstruments(
   const settled = await Promise.allSettled(
     providers.map((provider) =>
       provider.catalog!.search({
-        keyword: request.keyword,
+        keyword: parsed.keyword,
         limit: request.limit,
         instrumentTypes: request.instrumentTypes,
+        market,
         signal: request.signal,
       }),
     ),
@@ -93,20 +98,23 @@ export async function searchInstruments(
 
 /**
  * 在已启用数据源中按代码精确查询品种。
- * 复用目录搜索作为候选获取通道，精确匹配规则由 Core 统一保证。
+ * 复用目录搜索作为候选获取通道，精确匹配按展示代码比较：
+ * `.P` 后缀是输入与展示共用的写法，实际 `symbol` 里不含它。
  */
 export async function lookupInstrumentsBySymbol(
   registry: MarketDataProviderRegistry,
   request: InstrumentLookupRequest,
 ): Promise<ReadonlyArray<InstrumentDescriptor>> {
-  const symbol = normalizeInstrumentSymbol(request.symbol)
-  if (!symbol) return []
+  const expected = normalizeInstrumentSymbol(request.symbol)
+  if (!expected) return []
 
   const candidates = await searchInstruments(registry, {
-    keyword: symbol,
+    keyword: request.symbol,
     limit: INSTRUMENT_LOOKUP_CANDIDATE_LIMIT,
     sourceIds: request.sourceIds,
     signal: request.signal,
   })
-  return candidates.filter((instrument) => normalizeInstrumentSymbol(instrument.symbol) === symbol)
+  return candidates.filter(
+    (instrument) => normalizeInstrumentSymbol(formatInstrumentLabel(instrument).code) === expected,
+  )
 }

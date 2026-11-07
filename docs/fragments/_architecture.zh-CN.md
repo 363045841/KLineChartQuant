@@ -27,7 +27,7 @@ flowchart TB
 
     subgraph conn["行情后端（仓库外平级目录）"]
         Go["GoTDX-Connector<br/>gotdx :8080"]
-        Bn["Binance-Connector<br/>Binance 现货 K 线 / 逐笔成交 :8091"]
+        Bn["Binance-Connector<br/>Binance 现货 / 永续 K 线与逐笔成交 :8091"]
         Bs["Baostock-Tradingview-Connector<br/>BaoStock / TradingView :8000"]
         Mt["KCQ-MT5-connector<br/>MT5（Exness）:8090"]
     end
@@ -58,7 +58,7 @@ flowchart TB
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
 - **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
-  （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
+  （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 / 永续 K 线与逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
 - **Agent 原生** — 随包交付的 Agent 运行时编排 Agent，直接调用核心 `@Tool` 注册的原语——

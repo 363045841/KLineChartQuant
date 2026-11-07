@@ -123,6 +123,8 @@ export interface ProtocolInstrumentSearchRequest {
   keyword: string
   limit: number
   instrumentTypes?: ReadonlyArray<InstrumentType>
+  // 市场划分；仅对支持多市场的连接器生效，缺省由连接器决定
+  market?: string
 }
 
 // 品种目录搜索结果

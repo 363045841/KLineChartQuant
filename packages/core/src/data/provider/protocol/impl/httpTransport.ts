@@ -162,6 +162,7 @@ export function createHttpMarketDataTransport(
         keyword: req.keyword,
         limit: req.limit,
         instrumentTypes: req.instrumentTypes,
+        ...(req.market === undefined ? {} : { market: req.market }),
       })
       return request<ProtocolInstrumentSearchResult>(
         baseUrl(),

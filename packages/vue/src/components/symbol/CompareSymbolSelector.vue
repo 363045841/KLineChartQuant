@@ -51,12 +51,12 @@
                 class="compare-selected__color"
                 :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? 'var(--klc-color-ui-muted)' }"
               />
-              <span class="compare-selected__code">{{ item.symbol }}</span>
+              <span class="compare-selected__code">{{ displayCode(item) }}</span>
               <span class="compare-selected__desc">{{ item.name }}</span>
               <button
                 type="button"
                 class="compare-selected__remove"
-                :aria-label="'移除 ' + item.symbol"
+                :aria-label="`移除 ${displayCode(item)}`"
                 @click="removeSymbol(item)"
               >
                 <svg
@@ -114,7 +114,7 @@
             @click="toggleSymbol(item)"
           >
             <span class="list-text">
-              <span class="compare-list__code">{{ item.symbol }}</span>
+              <span class="compare-list__code">{{ displayCode(item) }}</span>
               <span class="compare-list__desc">{{ item.name }}</span>
             </span>
             <span class="compare-list__right">
@@ -159,6 +159,7 @@
     uniqueSymbolsByIdentity,
     useSymbolSearch,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
+  import { formatInstrumentLabel } from '@363045841yyt/klinechart-core/market-data'
   import { computed, ref, watch } from 'vue'
   import IconTablerPlus from '~icons/tabler/plus'
   import SymbolPopover from './SymbolPopover.vue'
@@ -238,6 +239,11 @@
     ),
   })
   const comparisonSymbols = computed(() => uniqueSymbolsByIdentity(filteredSymbols.value))
+
+  /** 展示代码：永续追加 `.P`，与搜索输入保持同一写法。 */
+  function displayCode(item: SymbolItem): string {
+    return formatInstrumentLabel(item).code
+  }
 
   function isSelected(item: SymbolItem): boolean {
     return selectedSet.value.has(symbolIdentityKey(item))

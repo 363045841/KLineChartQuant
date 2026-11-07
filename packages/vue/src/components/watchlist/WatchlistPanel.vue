@@ -59,7 +59,7 @@
                   <span class="watchlist-row__avatar" :style="row.avatarStyle" aria-hidden="true">
                     {{ row.initial }}
                   </span>
-                  <span class="watchlist-row__symbol">{{ row.item.symbol }}</span>
+                  <span class="watchlist-row__symbol">{{ row.code }}</span>
                   <span class="watchlist-row__price">{{ row.price }}</span>
                   <span class="watchlist-row__change">{{ row.change }}</span>
                   <span class="watchlist-row__percent">{{ row.percent }}</span>
@@ -67,7 +67,7 @@
                 <button
                   type="button"
                   class="watchlist-row__remove"
-                  :aria-label="`移除自选 ${row.item.symbol}`"
+                  :aria-label="`移除自选 ${row.code}`"
                   @click.stop="onRemove(row.item)"
                 >
                   <IconX aria-hidden="true" />
@@ -109,6 +109,7 @@
     QUOTE_PLACEHOLDER,
   } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
   import { type CSSProperties, computed, ref, useTemplateRef } from 'vue'
+  import { formatInstrumentLabel } from '@363045841yyt/klinechart-core/market-data'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconX from '~icons/tabler/x'
@@ -126,6 +127,8 @@
   interface WatchlistRow {
     key: string
     item: SearchableSymbol
+    /** 展示代码：永续带 `.P` 后缀，与搜索框输入同一写法。 */
+    code: string
     initial: string
     avatarStyle: CSSProperties
     price: string
@@ -188,6 +191,7 @@
     return {
       key: symbolIdentityKey(item),
       item,
+      code: formatInstrumentLabel(item).code,
       initial: symbolInitial(item.symbol),
       avatarStyle: avatarStyle(item),
       price: quote ? formatQuotePrice(quote, item.tickSize) : QUOTE_PLACEHOLDER,

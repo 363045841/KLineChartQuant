@@ -2,6 +2,7 @@
 import { ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { MarketDataTransport } from '../../provider/protocol/types.js'
 import { V1_ENDPOINTS } from '../../provider/protocol/types.js'
+import type { InstrumentDescriptor } from '../../provider/types.js'
 import {
   type MarketTrade,
   TRADE_MESSAGES,
@@ -39,6 +40,23 @@ function isMarketTrade(value: unknown): value is MarketTrade {
   } catch {
     return false
   }
+}
+
+/**
+ * 构造单 symbol 成交流地址。
+ * 批量流把市场编进 instrumentId；单 symbol 端点没有品种 ID 可用，市场只能由 providerRef
+ * 原样回传，服务端仍以 instrumentId 为准并校验两者一致。providerRef 值可为数字或布尔，
+ * 只有字符串才可能是市场标识。
+ */
+export function buildTradeStreamUrl(
+  baseUrl: string,
+  sourceId: string,
+  instrument: InstrumentDescriptor,
+): string {
+  const query = new URLSearchParams({ symbol: instrument.symbol, kind: 'aggregated' })
+  const market = instrument.providerRef?.market
+  if (typeof market === 'string' && market.trim() !== '') query.set('market', market.trim())
+  return `${baseUrl}${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/trades/stream?${query}`
 }
 
 /** 创建不含图表状态的成交能力，运行时读取地址配置。 */
@@ -82,10 +100,7 @@ export function createTradeDataSource(
     },
     connect(instrument) {
       const listeners = new Set<(frame: TradeFrame) => void>()
-      const query = new URLSearchParams({ symbol: instrument.symbol, kind: 'aggregated' })
-      const source = new EventSource(
-        `${baseUrl()}${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/trades/stream?${query}`,
-      )
+      const source = new EventSource(buildTradeStreamUrl(baseUrl(), sourceId, instrument))
       const publish = (frame: TradeFrame) => {
         for (const listener of listeners) listener(frame)
       }

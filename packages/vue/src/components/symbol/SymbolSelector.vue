@@ -82,7 +82,7 @@
           >
             <button type="button" class="symbol-list__select" @click="selectSymbol(item)">
               <span class="list-text">
-                <span class="symbol-list__code">{{ item.symbol }}</span>
+                <span class="symbol-list__code">{{ displayCode(item) }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
               <SymbolMetaBadge :symbol="item" />
@@ -96,7 +96,7 @@
               <button
                 type="button"
                 class="symbol-list__add"
-                :aria-label="`添加自选 ${item.symbol}`"
+                :aria-label="`添加自选 ${displayCode(item)}`"
                 @click.stop="emit('addWatchlist', item)"
               >
                 <IconTablerPlus aria-hidden="true" />
@@ -128,6 +128,7 @@
     useSymbolSearch,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { computed, ref, watch } from 'vue'
+  import { formatInstrumentLabel } from '@363045841yyt/klinechart-core/market-data'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
   import SymbolPopover from './SymbolPopover.vue'
@@ -202,14 +203,16 @@
       : props.symbols.find((s) => s.symbol === props.symbol),
   )
 
+  /** 展示代码：永续追加 .P，与搜索输入保持同一写法；行情请求仍用 item.symbol。 */
+  function displayCode(item: SymbolItem): string {
+    return formatInstrumentLabel(item).code
+  }
+
   const displayText = computed(() => {
     const cur = currentSymbol.value
-    if (cur) {
-      const legacy = cur as SymbolItem & { description?: string }
-      const name = cur.name ?? legacy.description ?? cur.symbol
-      return cur.symbol === name ? cur.symbol : `${cur.symbol} - ${name}`
-    }
-    return props.symbol
+    if (!cur) return props.symbol
+    const code = displayCode(cur)
+    return code === cur.name ? code : `${code} - ${cur.name}`
   })
 
   const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')

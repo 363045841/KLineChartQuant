@@ -111,6 +111,27 @@ describe('createHttpMarketDataTransport', () => {
     })
   })
 
+  // 验证限定市场时请求体携带 market，缺省时保持省略
+  it('carries the market field only when the query scopes a market', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { items: [] }, requestId: 'r' }))
+
+    const transport = createHttpMarketDataTransport()
+    await transport.searchInstruments({
+      sourceId: 'binance',
+      keyword: 'BTCUSDT',
+      limit: 10,
+      market: 'perp',
+    })
+
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse(String(init?.body))).toEqual({
+      sourceId: 'binance',
+      keyword: 'BTCUSDT',
+      limit: 10,
+      market: 'perp',
+    })
+  })
+
   // 验证 K 线请求体完整携带品种引用与游标分页参数
   it('fetches bars with instrument and cursor parameters', async () => {
     fetchMock.mockResolvedValue(

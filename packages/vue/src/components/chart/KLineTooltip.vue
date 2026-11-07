@@ -7,7 +7,7 @@
     :style="useAnchor ? undefined : { left: `${pos.x}px`, top: `${pos.y}px` }"
   >
     <div class="kline-tooltip__title">
-      <span v-if="hoverData.symbol">{{ hoverData.symbol }}</span>
+      <span v-if="titleCode">{{ titleCode }}</span>
       <span>{{ formattedDate }}</span>
     </div>
     <div class="kline-tooltip__grid">
@@ -90,6 +90,11 @@
       showTime?: boolean
       /** 是否可拖拽 */
       draggable?: boolean
+      /**
+       * 标题里展示的品种代码。宿主应传入 `formatInstrumentLabel` 的结果，
+       * 这样永续会显示为 `BTCUSDT.P`；省略时回落到 `hoverData.symbol`（原始代码）。
+       */
+      symbolLabel?: string
     }>(),
     {
       upColor: 'var(--klc-color-candle-up-body)',
@@ -98,6 +103,9 @@
       showTime: false,
     },
   )
+
+  /** 标题代码：宿主给定展示代码时优先，否则用 K 线数据自带的原始代码。 */
+  const titleCode = computed(() => props.symbolLabel || props.hoverData?.symbol || '')
 
   const formattedDate = computed(() => {
     if (!props.hoverData) return ''

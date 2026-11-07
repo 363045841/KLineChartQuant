@@ -59,7 +59,7 @@ flowchart TB
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
 - **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
-  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
+  multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance spot / perpetual K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.
 - **Agent Native** — the bundled Agent runtime orchestrates the Agent, which invokes the core's

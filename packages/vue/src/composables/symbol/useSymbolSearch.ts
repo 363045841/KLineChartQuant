@@ -1,4 +1,5 @@
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+import { instrumentIdentityKey } from '@363045841yyt/klinechart-core/market-data'
 import {
   computed,
   getCurrentScope,
@@ -58,7 +59,9 @@ export function symbolIdentityKey(item: SymbolIdentity): string {
   if (item.id?.trim()) {
     const sourceId =
       'sourceId' in item && typeof item.sourceId === 'string' ? item.sourceId.trim() : ''
-    return sourceId ? `instrument:${sourceId}:${item.id.trim()}` : `id:${item.id.trim()}`
+    return sourceId
+      ? instrumentIdentityKey({ id: item.id, sourceId })
+      : instrumentIdentityKey({ id: item.id, sourceId: item.id.trim().split(':')[0] ?? '' })
   }
   if (!('symbol' in item) || !('market' in item)) return 'legacy:unknown'
   const params = Object.entries(item.params ?? {}).sort(([left], [right]) =>

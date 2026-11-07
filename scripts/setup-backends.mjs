@@ -32,7 +32,7 @@ const BACKENDS = [
     name: 'Binance-Connector',
     repo: 'https://github.com/363045841/Binance-Connector.git',
     purpose:
-      'Binance 现货行情后端：K 线、真实逐笔成交与历史归档，供足迹图使用，默认端口 8091，启动命令：`pnpm dev -c binance`',
+      'Binance 现货与永续行情后端：K 线、真实逐笔成交与历史归档，供足迹图使用，默认端口 8091，启动命令：`pnpm dev -c binance`',
   },
   {
     name: 'Baostock-Tradingview-Connector',
@@ -58,7 +58,7 @@ const BACKENDS = [
 const COMMANDS = [
   { command: 'pnpm dev -c all', comment: '# Vite 开发服务器 + 全部 connector（不含 mt5）' },
   { command: 'pnpm dev -c gotdx baostock', comment: '# 前端 + 指定的 connector' },
-  { command: 'pnpm connector binance', comment: '# 仅 Binance 现货行情后端（K 线 / 逐笔成交）' },
+  { command: 'pnpm connector binance', comment: '# 仅 Binance 现货 / 永续行情后端（K 线 / 逐笔成交）' },
   { command: 'pnpm connector baostock', comment: '# 仅 BaoStock / TradingView 后端' },
   {
     command: 'pnpm connector mt5',

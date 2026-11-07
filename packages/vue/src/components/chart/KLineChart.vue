@@ -422,6 +422,7 @@
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     type InstrumentDescriptor,
+    formatInstrumentLabel,
     isKLineAdjustment,
     KLineAdjustment,
     KLinePeriod,
@@ -662,11 +663,16 @@
     const adjust = controllerSymbols.value[0]?.adjust
     return adjust !== undefined && isKLineAdjustment(adjust) ? adjust : initialAdjust.value
   })
-  const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
   const currentSymbolItem = computed(() => {
     const primary = controllerSymbols.value[0]
     return primary ? symbolItemForSpec(primary) : null
   })
+  /** 展示代码由品种身份派生：永续追加 `.P`，请求参数仍用 symbol 本体。 */
+  const currentSymbolCode = computed(() => {
+    const item = currentSymbolItem.value
+    return item ? formatInstrumentLabel(item).code : ''
+  })
+  const currentSymbol = computed(() => currentSymbolCode.value || '选择商品')
   // Local feedback describes rejected/pending UI commands, not a copy of Core loading state.
   const localSymbolStatus = ref<'loading' | 'error' | null>(null)
   const localSymbolError = ref<string | null>(null)
@@ -1426,6 +1432,7 @@
     timezone: () => props.timezone,
     isDraggable: () => isTooltipDraggable.value,
     isEnabled: () => isTooltipEnabled.value,
+    symbolLabel: () => currentSymbolCode.value,
   })
 
   const externalHoveredKLine = computed(() => {

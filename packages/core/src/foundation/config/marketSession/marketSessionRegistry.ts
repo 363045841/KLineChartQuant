@@ -1,4 +1,4 @@
-/** 市场会话注册表：内置股票、MT5 与 Binance 现货时段，支持注册覆盖及交易时间查询。 */
+/** 市场会话注册表：内置股票、MT5 与 Binance 现货/永续时段，支持注册覆盖及交易时间查询。 */
 
 import {
   ASHARE_MARKET_SESSION,
@@ -7,6 +7,7 @@ import {
   type MarketSessionConfig,
   US_MARKET_SESSION,
 } from '../../utils/sessionTimeLabels.js'
+import { BINANCE_PERP_MARKET_SESSION } from './binancePerpMarketSession.js'
 import { BINANCE_SPOT_MARKET_SESSION } from './binanceSpotMarketSession.js'
 import { FOREX_MARKET_SESSION } from './forexMarketSession.js'
 
@@ -17,8 +18,9 @@ const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   US: US_MARKET_SESSION,
   // MT5 连接器（symbol-catalog 规格约定 sessionId=MT5）的交易时段配置。
   MT5: FOREX_MARKET_SESSION,
-  // Binance 连接器返回的 sessionId，与交易所名称 BINANCE 区分。
+  // Binance 连接器返回的 sessionId，与交易所名称 BINANCE 区分；现货与永续共用时段但 id 不同。
   BINANCE_SPOT: BINANCE_SPOT_MARKET_SESSION,
+  BINANCE_PERP: BINANCE_PERP_MARKET_SESSION,
 }
 
 function isValidSession(config: MarketSessionConfig): boolean {

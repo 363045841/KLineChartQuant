@@ -165,7 +165,7 @@ KLineChart 需要行情数据后端支持。支持的数据源如下：
 | 数据源 | 说明 | 文档 |
 |---|---|---|
 | `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `GoTDX-Connector` 提供 | [GoTDX-Connector](../../docs/data-sources/klinechartquantgo.zh-CN.md) |
-| `binance` | Binance 现货 K 线与真实逐笔成交（足迹图 / 订单流），由 `Binance-Connector` 提供 | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
+| `binance` | Binance 现货与 USDT 本位永续 K 线、真实逐笔成交（足迹图 / 订单流），由 `Binance-Connector` 提供 | [Binance-Connector](https://github.com/363045841/Binance-Connector) |
 | `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `tradingview` | TradingView 全球品种，由 `Baostock-Tradingview-Connector` 提供 | [BaoStock](../../docs/data-sources/baostock.zh-CN.md) |
 | `mt5` | MT5（Exness）本地终端：外汇 / 金属 / 加密 CFD，由 `KCQ-MT5-connector` 提供 | [MT5](../../docs/data-sources/mt5.zh-CN.md) |
@@ -198,7 +198,7 @@ pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访�
 pnpm dev:all                  # 前端 + 全部后端
 pnpm dev:g                    # 前端 + gotdx 通达信
 pnpm dev:b                    # 前端 + BaoStock / TradingView
-pnpm dev:bnb                  # 前端 + Binance 现货行情
+pnpm dev:bnb                  # 前端 + Binance 现货 / 永续行情
 pnpm dev:mt5                  # 前端 + MT5 本地终端
 pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 ```
@@ -212,7 +212,7 @@ Windows PowerShell 下如果要求 Ctrl+C 后先输出完关闭日志、最后�
 ```bash
 pnpm connector                # 全部后端（不含 mt5）
 pnpm connector gotdx          # gotdx 通达信（:8080）
-pnpm connector binance        # Binance 现货 K 线 / 逐笔成交（:8091）
+pnpm connector binance        # Binance 现货 / 永续 K 线与逐笔成交（:8091）
 pnpm connector baostock       # BaoStock / TradingView（:8000）
 pnpm connector mt5            # MT5 本地终端（:8090，Windows + 已登录 MT5 (Exness) 终端）
 ```
@@ -296,7 +296,7 @@ const instrument: DataSourceInstrument = {
 
 const source: MarketDataSource = {
   id: 'binance',
-  name: 'Binance Spot',
+  name: 'Binance',
   capabilities: {
     instrumentTypes: [InstrumentType.Crypto],
     bars: { periods: [KLinePeriod.Min1, KLinePeriod.Daily], adjustments: [KLineAdjustment.None] },
