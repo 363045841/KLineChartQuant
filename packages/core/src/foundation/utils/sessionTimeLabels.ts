@@ -3,21 +3,10 @@
  * sessions[0..n-2] 左闭右开 [open, close)；sessions[n-1] 左闭右闭 [open, close]。
  * 只打印闭侧端点：半开段不展示 close。
  */
-export type OpenTimeRange = {
-  open: number
-  close: number
-}
-
-/** 市场分时 session 配置（几何 / 标签共用） */
-export type MarketSessionConfig = {
-  /** IANA 时区，如 Asia/Shanghai */
-  timeZone: string
-  sessions: ReadonlyArray<OpenTimeRange>
-  /** 每个 bar 槽对应的分钟数，默认 1 */
-  slotMinutes?: number
-  /** 每周交易日（0=周日…6=周六，与 Date.getDay 一致）；仅供市场时段描述。 */
-  tradingDays?: ReadonlyArray<number>
-}
+import { BUILTIN_MARKET_SESSIONS } from '../config/marketSession/builtinMarketSessions.js'
+import type { ScriptMarketSession as MarketSessionConfig, ScriptSessionRange as OpenTimeRange } from '@363045841yyt/klinechart-plot-contracts'
+/** 绘图和脚本共用中立时段契约，禁止再维护一份时间配置类型。 */
+export type { ScriptMarketSession as MarketSessionConfig, ScriptSessionRange as OpenTimeRange } from '@363045841yyt/klinechart-plot-contracts'
 
 export type SessionTimeLabel = {
   /** 自 0 点起的分钟数（交易所墙钟） */
@@ -46,49 +35,17 @@ const MAX_DATE_TIMESTAMP_MS = 8_640_000_000_000_000
 const SESSION_SLOT_FORMATTER_CACHE_LIMIT = 16
 const sessionSlotFormatterCache = new Map<string, Intl.DateTimeFormat>()
 
-function hm(h: number, m: number): number {
-  return h * 60 + m
-}
-
-/** A 股默认 */
-const ASHARE_OPEN_SESSIONS: readonly OpenTimeRange[] = [
-  { open: hm(9, 30), close: hm(11, 30) },
-  { open: hm(13, 0), close: hm(15, 0) },
-]
-
-export const ASHARE_MARKET_SESSION: MarketSessionConfig = {
-  timeZone: 'Asia/Shanghai',
-  sessions: ASHARE_OPEN_SESSIONS,
-  slotMinutes: 1,
-  tradingDays: [1, 2, 3, 4, 5],
-}
+/** A股常规盘；所有内置时段统一来自JSON。 */
+export const ASHARE_MARKET_SESSION: MarketSessionConfig = BUILTIN_MARKET_SESSIONS.CN
 
 /** 港股 */
-export const HK_MARKET_SESSION: MarketSessionConfig = {
-  timeZone: 'Asia/Hong_Kong',
-  sessions: [
-    { open: hm(9, 30), close: hm(12, 0) },
-    { open: hm(13, 0), close: hm(16, 0) },
-  ],
-  slotMinutes: 1,
-  tradingDays: [1, 2, 3, 4, 5],
-}
+export const HK_MARKET_SESSION: MarketSessionConfig = BUILTIN_MARKET_SESSIONS.HK
 
 /** 韩股（常规盘，无午休） */
-export const KR_MARKET_SESSION: MarketSessionConfig = {
-  timeZone: 'Asia/Seoul',
-  sessions: [{ open: hm(9, 0), close: hm(15, 30) }],
-  slotMinutes: 1,
-  tradingDays: [1, 2, 3, 4, 5],
-}
+export const KR_MARKET_SESSION: MarketSessionConfig = BUILTIN_MARKET_SESSIONS.KR
 
 /** 美股（常规盘，无午休） */
-export const US_MARKET_SESSION: MarketSessionConfig = {
-  timeZone: 'America/New_York',
-  sessions: [{ open: hm(9, 30), close: hm(16, 0) }],
-  slotMinutes: 1,
-  tradingDays: [1, 2, 3, 4, 5],
-}
+export const US_MARKET_SESSION: MarketSessionConfig = BUILTIN_MARKET_SESSIONS.US
 
 /**
  * 只输出各区间闭侧端点。

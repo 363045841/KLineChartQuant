@@ -1,4 +1,4 @@
-/** KLineDataStore.updateBars 语义测试：replace-on-conflict 末尾窗口合并，拒绝陈旧帧。 */
+/** KLineDataStore：唯一提交入口、稳定序号与实时尾段语义。 */
 import { describe, expect, it } from 'vitest'
 import { KLineDataStore } from '../buffer/impl/kLineDataStore'
 import { DATA_CHANGE_KINDS } from '../buffer/types'
@@ -7,161 +7,152 @@ function bar(timestamp: number, close = 1, volume = 10) {
   return { timestamp, open: 1, high: 2, low: 0, close, volume }
 }
 
-describe('KLineDataStore.updateBars', () => {
-  it('appends bars newer than the last bar', () => {
+describe('KLineDataStore', () => {
+  it('replace 规范化顺序与重复时间戳，并把 origin 归零', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20)])
+    store.replace([bar(20, 2), bar(10, 1), bar(20, 5)])
 
-    const result = store.updateBars([bar(30, 5)])
-
-    expect(result.appendedCount).toBe(1)
-    expect(result.replacedCount).toBe(0)
-    expect(result.rejected).toEqual([])
-    expect(store.getRawData().map((item) => item.close)).toEqual([1, 1, 5])
+    expect(store.getRawData().map((item) => [item.timestamp, item.close])).toEqual([
+      [10, 1],
+      [20, 5],
+    ])
+    expect(store.origin).toBe(0)
+    expect(store.getOrdinalAtTimestamp(20)).toBe(1)
+    expect(store.data()).toMatchObject({
+      kind: DATA_CHANGE_KINDS.replace,
+      start: 0,
+      end: 2,
+      origin: 0,
+    })
   })
 
-  it('replaces a forming bar with the same timestamp instead of dropping it', () => {
+  it('prepend 只移动 origin，既有时间戳的序号不变', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20, 1)])
+    store.replace([bar(20), bar(30)])
+    const ordinalBefore = store.getOrdinalAtTimestamp(20)
 
-    const result = store.updateBars([bar(20, 9)])
+    store.mergePage([bar(10)])
 
-    expect(result.appendedCount).toBe(0)
-    expect(result.replacedCount).toBe(1)
-    expect(store.getRawData().map((item) => item.close)).toEqual([1, 9])
-    // 关键回归防线：forming 更新不会被 merge 的保旧弃新吞掉
-    expect(store.getRawData()).toHaveLength(2)
+    expect(store.origin).toBe(-1)
+    expect(store.getOrdinalAtTimestamp(20)).toBe(ordinalBefore)
+    expect(store.getLogicalIndexAtTimestamp(20)).toBe(1)
+    expect(store.data()).toMatchObject({
+      kind: DATA_CHANGE_KINDS.prepend,
+      start: 0,
+      end: 1,
+      origin: -1,
+    })
   })
 
-  it('allows revising the last two bars but rejects older stale frames', () => {
+  it('append 保持 origin，只发布尾部区间', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20), bar(30), bar(40)])
+    store.replace([bar(10), bar(20)])
 
-    // 倒数第二根可修订
-    const revised = store.updateBars([bar(30, 8)])
-    expect(revised.replacedCount).toBe(1)
-    expect(revised.rejected).toEqual([])
+    store.mergePage([bar(30)])
 
-    // 早于末尾两根窗口的帧被拒绝：数据不变
-    const stale = store.updateBars([bar(20, 7)])
-    expect(stale.rejected).toEqual([bar(20, 7)])
-    expect(stale.appendedCount).toBe(0)
-    expect(stale.replacedCount).toBe(0)
-    expect(store.getRawData().map((item) => item.close)).toEqual([1, 1, 8, 1])
+    expect(store.origin).toBe(0)
+    expect(store.data()).toMatchObject({
+      kind: DATA_CHANGE_KINDS.append,
+      start: 2,
+      end: 3,
+      origin: 0,
+    })
   })
 
-  it('does not publish a data change when every incoming frame is stale', () => {
+  it('分页命中既有时间戳时保留旧值且不发布', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20), bar(30)])
+    store.replace([bar(20, 1), bar(30, 2)])
     const changes: number[] = []
     const unsubscribe = store.data.subscribe(() => changes.push(store.data().data.length))
 
-    store.updateBars([bar(10, 9)])
+    store.mergePage([bar(20, 9)])
 
+    expect(store.getRawData().map((item) => item.close)).toEqual([1, 2])
     expect(changes).toEqual([])
     unsubscribe()
   })
 
-  it('applies closed plus forming as one atomic write with a single signal', () => {
+  it('分页同时跨过首尾时拆成前置与后置两次提交', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20, 1)])
-    const changes: string[] = []
-    const unsubscribe = store.data.subscribe(() =>
-      changes.push(
-        store
-          .data()
-          .data.map((item) => item.close)
-          .join(','),
-      ),
-    )
+    store.replace([bar(20), bar(30)])
+    const kinds: string[] = []
+    const unsubscribe = store.data.subscribe(() => kinds.push(store.data().kind))
 
-    // 收线 + 新 forming 一次写入（SSE 帧序列的典型批）
-    const result = store.updateBars([bar(20, 2), bar(30, 3)])
+    store.mergePage([bar(10), bar(40)])
 
-    expect(changes).toEqual(['1,2,3'])
-    expect(result.appendedCount).toBe(1)
-    expect(result.replacedCount).toBe(1)
-    expect(store.data().prependedCount).toBe(0)
+    expect(kinds).toEqual([DATA_CHANGE_KINDS.prepend, DATA_CHANGE_KINDS.append])
+    expect(store.getRawData().map((item) => item.timestamp)).toEqual([10, 20, 30, 40])
+    expect(store.data().origin).toBe(-1)
     unsubscribe()
   })
 
-  it('seeds all bars into an empty store and keeps the last write for batch duplicates', () => {
+  it('分页插入既有区间内部时直接拒绝', () => {
     const store = new KLineDataStore()
+    store.replace([bar(10, 1), bar(30, 3)])
 
-    const result = store.updateBars([bar(10, 1), bar(20, 2), bar(20, 5)])
-
-    expect(result.appendedCount).toBe(2)
-    expect(store.getRawData().map((item) => item.close)).toEqual([1, 5])
+    expect(() => store.mergePage([bar(20, 2)])).toThrow('分页不能插入既有序列内部')
   })
 
-  it('mixes stale rejection with accepted tail updates in one batch', () => {
+  it('实时尾段替换 forming bar、追加新根并拒绝陈旧帧', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20), bar(30, 1)])
+    store.replace([bar(10), bar(20), bar(30)])
 
-    const result = store.updateBars([bar(10, 9), bar(30, 4), bar(40, 5)])
+    const result = store.applyRealtime([bar(20, 9), bar(30, 8), bar(40, 7), bar(10, 0)])
 
-    expect(result.rejected).toEqual([bar(10, 9)])
-    expect(result.replacedCount).toBe(1)
-    expect(result.appendedCount).toBe(1)
-    expect(store.getRawData().map((item) => item.close)).toEqual([1, 1, 4, 5])
+    expect(result).toMatchObject({ appendedCount: 1, replacedCount: 2 })
+    expect(result.rejected).toEqual([bar(10, 0)])
+    expect(store.getRawData().map((item) => [item.timestamp, item.close])).toEqual([
+      [10, 1],
+      [20, 9],
+      [30, 8],
+      [40, 7],
+    ])
+    expect(store.data()).toMatchObject({
+      kind: DATA_CHANGE_KINDS.tail,
+      start: 1,
+      end: 4,
+      origin: 0,
+    })
   })
 
-  it('keeps loadedTimeRange growing with appended realtime bars', () => {
+  it('实时帧没有实际变化时也发布一次原子快照', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20)])
+    store.replace([bar(10), bar(20)])
+    const changes: number[] = []
+    const unsubscribe = store.data.subscribe(() => changes.push(store.data().data.length))
 
-    store.updateBars([bar(30)])
+    const result = store.applyRealtime([bar(20)])
 
-    expect(store.loadedTimeRange).toEqual({ earliestTs: 10, latestTs: 30 })
-  })
-})
-
-describe('KLineDataStore 数据变更种类', () => {
-  it('整体替换与清空发布 replace', () => {
-    const store = new KLineDataStore()
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
-
-    store.setInlineData([bar(10), bar(20)])
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
-
-    store.reset()
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+    expect(result).toMatchObject({ appendedCount: 0, replacedCount: 1 })
+    expect(changes).toEqual([2])
+    unsubscribe()
   })
 
-  it('空存储首次合并视为整体替换', () => {
+  it('correct 只改一根，origin 与序号不变', () => {
     const store = new KLineDataStore()
+    store.replace([bar(10), bar(20), bar(30)])
+    const ordinalBefore = store.getOrdinalAtTimestamp(20)
 
-    store.merge([bar(10), bar(20)])
+    store.correct(bar(20, 9))
 
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.replace)
+    expect(store.getRawData().map((item) => item.close)).toEqual([1, 9, 1])
+    expect(store.getOrdinalAtTimestamp(20)).toBe(ordinalBefore)
+    expect(store.data()).toMatchObject({
+      kind: DATA_CHANGE_KINDS.correct,
+      start: 1,
+      end: 2,
+    })
   })
 
-  it('头部插入历史发布 prepend', () => {
+  it('loadedTimeRange 跟随当前序列，replace 会收缩', () => {
     const store = new KLineDataStore()
-    store.setInlineData([bar(20), bar(30)])
+    store.replace([bar(10), bar(20)])
+    store.mergePage([bar(5)])
+    store.mergePage([bar(30)])
 
-    store.merge([bar(10)])
+    expect(store.loadedTimeRange).toEqual({ earliestTs: 5, latestTs: 30 })
 
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.prepend)
-  })
-
-  it('尾部增补发布 tail', () => {
-    const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20)])
-
-    store.merge([bar(30)])
-
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.tail)
-  })
-
-  it('实时写入发布 tail 且既有下标不后移', () => {
-    const store = new KLineDataStore()
-    store.setInlineData([bar(10), bar(20)])
-    const indexBefore = store.getLogicalIndexAtTimestamp(20)
-
-    store.updateBars([bar(20, 9), bar(30, 5)])
-
-    expect(store.data().kind).toBe(DATA_CHANGE_KINDS.tail)
-    expect(store.getLogicalIndexAtTimestamp(20)).toBe(indexBefore)
+    store.replace([bar(20)])
+    expect(store.loadedTimeRange).toEqual({ earliestTs: 20, latestTs: 20 })
   })
 })

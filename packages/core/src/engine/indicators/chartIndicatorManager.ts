@@ -181,7 +181,11 @@ export class ChartIndicatorManager {
   private destroyed = false
 
   // ========== 计算与投影运行时 ==========
-  private currentData: KLineData[] = []
+  private currentData: readonly KLineData[] = []
+  private currentChange: import('@363045841yyt/klinechart-plot-contracts').ComputeChange = {
+    start: 0,
+    end: 0,
+  }
   private currentTimestamps: readonly number[] = []
   private visibleRange: VisibleRange = { start: 0, end: 0 }
   /** 非空时，计算结果需投影到该展示序列的时间戳。 */
@@ -310,6 +314,7 @@ export class ChartIndicatorManager {
         this.inlineExecutor.addDefinitions(inline)
         return
       }
+      this.calculationScheduler.invalidateDefinitions([definition.name])
       this.inlineExecutor.updateDefinitions(inline)
       this.deps.subPaneOps.reconcileDefinition(
         resolveCanonicalIndicatorId(definition),
@@ -324,6 +329,10 @@ export class ChartIndicatorManager {
       pipeline: this.pipeline,
       executor: this.inlineExecutor,
       onCommit: ({ pool }) => this.applyCommittedPool(pool),
+      onPending: (instanceIds, pending) => {
+        for (const id of instanceIds)
+          this.reportAvailability(id, INDICATOR_AVAILABILITY_SOURCE.compute, pending)
+      },
       onError: (error) => this.handleCalculationError(error),
     })
 
@@ -630,12 +639,14 @@ export class ChartIndicatorManager {
 
   /** 数据更新入口：K 线计算，可选把结果投影到展示时间戳序列。 */
   updateIndicatorData(
-    data: KLineData[],
+    data: readonly KLineData[],
+    change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
     visibleRange: VisibleRange,
     dataRevision?: number,
     displayTimestamps: readonly number[] | null = null,
   ): void {
     this.currentData = data
+    this.currentChange = change
     this.currentTimestamps = data.map((item) => item.timestamp)
     this.visibleRange = visibleRange
     this.displayTimestamps = displayTimestamps
@@ -648,26 +659,17 @@ export class ChartIndicatorManager {
 
   /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
   private requestCompute(): void {
-    if (this.destroyed || !this.hasData) return
-    // 仅当实例尚无已提交结果时标记为计算中：已有结果的重算不显示加载圈，避免闪烁。
-    const pending: string[] = []
-    for (const instance of this.deps.indicator.readonly.instances.peek()) {
-      if (!this.renderStates.has(instance.instanceId)) pending.push(instance.instanceId)
+    if (this.destroyed) return
+    if (!this.hasData) {
+      this.calculationScheduler.invalidate()
+      return
     }
-    for (const instanceId of pending) {
-      this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, true)
-    }
-    void this.calculationScheduler
-      .compute({
-        dataRevision: this.dataRevision,
-        timestamps: this.currentTimestamps,
-        data: this.currentData,
-      })
-      .finally(() => {
-        for (const instanceId of pending) {
-          this.reportAvailability(instanceId, INDICATOR_AVAILABILITY_SOURCE.compute, false)
-        }
-      })
+    void this.calculationScheduler.compute({
+      dataRevision: this.dataRevision,
+      timestamps: this.currentTimestamps,
+      data: this.currentData,
+      change: this.currentChange,
+    })
   }
 
   /** 结果池始终保留计算时的时间轴；展示映射在投影边界生成。 */
@@ -735,12 +737,12 @@ export class ChartIndicatorManager {
   /** 逐实例生成渲染投影；结果池是唯一事实来源。 */
   private composeRenderStates(pool: IndicatorResultPool): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
-    const timeline = this.getTimelineProjection(pool.timestamps)
     const renderStates = new Map<string, unknown>()
     for (const instance of this.pipeline.snapshot().instances.values()) {
       const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
+      const timeline = this.getTimelineProjection(result.timestamps ?? pool.timestamps)
       const colors = this.deps.plotColors$.peek()
       const previous = this.plotProjections.get(result)
       if (
@@ -1189,6 +1191,8 @@ export class ChartIndicatorManager {
   }
 
   destroy(): void {
+    this.calculationScheduler.dispose()
+    this.inlineExecutor.dispose()
     this.destroyed = true
     this.disposeDefinitionSubscription()
     this.disposeProjection?.()

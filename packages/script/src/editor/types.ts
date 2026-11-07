@@ -16,6 +16,8 @@ import type { QuickJSScriptDefinition } from '../quickjs/types.js'
 
 /** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
 export interface ScriptInput {
+  /** Pine时段字符串，例如0930-1600，时区由time调用指定。 */
+  session(value: string, options?: InputOptions): string
   /**
    * 整数输入；min、max 和 step 必须为整数。
    * @summary 整数

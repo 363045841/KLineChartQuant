@@ -102,6 +102,7 @@ function createHostRealtimeConnection(
       if (destroyed || stops.length > 0) return
       const signal = signalFor(lifetime.signal)
       for (const { instrument, options } of targets) {
+        if (destroyed) return
         const instrumentId = instrument.id
         statuses.set(instrumentId, 'connecting')
         // 重查屏障先于同步增量建立，查询期间的帧不会被迟到历史覆盖。
@@ -125,17 +126,24 @@ function createHostRealtimeConnection(
             if (!destroyed) hub.emitFrame({ channel: 'bars', type: 'invalidate', instrumentId })
           },
           status(status) {
+            if (destroyed) return
             statuses.set(instrumentId, status)
             hub.emitStatus(aggregateStatus())
           },
           error(error) {
+            if (destroyed) return
             hub.emitError(error instanceof Error ? error : new Error(String(error)))
           },
         }
         try {
-          stops.push(subscribe({ ...options, signal }, observer))
+          const stop = subscribe({ ...options, signal }, observer)
+          // 宿主可能同步报告断开，池已销毁本次连接时必须立即释放刚返回的句柄。
+          if (destroyed) stop()
+          else stops.push(stop)
         } catch (error) {
           hub.emitError(error instanceof Error ? error : new Error(String(error)))
+          statuses.set(instrumentId, 'disconnected')
+          hub.emitStatus(aggregateStatus())
         }
       }
       hub.emitStatus(aggregateStatus())

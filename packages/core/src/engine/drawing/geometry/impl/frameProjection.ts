@@ -1,6 +1,6 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
-import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
+import { isDrawingInteractive, timeValue } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
@@ -52,6 +52,20 @@ type MutableDrawingFrameProjection = {
   xAxisRanges: XAxisRange[]
   snapLines: SnapLine[]
 }
+
+/** 已解析绘图缓存：数据、主题与末根边界不变时复用锚点和样式，视口变化只重算屏幕几何。 */
+interface ResolvedDrawingCacheEntry {
+  readonly data: RenderContext['data']
+  readonly period: RenderContext['period']
+  readonly marketSession: RenderContext['marketSession']
+  readonly lastBarClose: number | undefined
+  readonly theme: RenderContext['theme']
+  readonly isAsiaMarket: RenderContext['isAsiaMarket']
+  readonly colorPresetSettings: RenderContext['colorPresetSettings']
+  readonly resolved: ResolvedDrawingObject
+}
+
+const resolvedDrawingCache = new WeakMap<DrawingObject, ResolvedDrawingCacheEntry>()
 
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
@@ -112,13 +126,19 @@ function resolveAnchorForFrame(
   drawing: DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
+  lastBarClose?: number,
 ): ResolvedDrawingAnchor {
   if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
   const timestamp = parseAnchorTime(anchor.time)
   if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
     return {
       ...anchor,
-      index: drawingTimeIndex(timestamp, context.data, context.getTimestampAtLogicalIndex),
+      index: drawingTimeIndex(
+        timestamp,
+        context.data,
+        context.getTimestampAtLogicalIndex,
+        lastBarClose,
+      ),
     }
   }
   if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
@@ -133,11 +153,12 @@ function resolveDrawingForFrame(
   drawing: DrawingObject,
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
+  lastBarClose?: number,
 ): ResolvedDrawingObject {
   return {
     ...drawing,
     anchors: drawing.anchors.map((anchor) =>
-      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context),
+      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context, lastBarClose),
     ),
   }
 }
@@ -417,6 +438,7 @@ function projectAxisDecorations(
 
 /** 单帧投影的共享状态；把长参数表收敛成一份，避免辅助函数逐个透传。 */
 interface FrameProjectionState {
+  readonly lastBarClose?: number
   readonly definitions: DrawingDefinitionRegistry
   readonly context: RenderContext
   readonly selectedIds: ReadonlySet<string>
@@ -470,6 +492,48 @@ function collectSnapLines(
   }
 }
 
+/** 解析并缓存图元的锚点与样式；几何仍在每帧按当前视口计算。 */
+function resolveStoredDrawing(
+  state: FrameProjectionState,
+  storedDrawing: DrawingObject,
+): ResolvedDrawingObject {
+  const { context } = state
+  const cached = resolvedDrawingCache.get(storedDrawing)
+  if (
+    cached !== undefined &&
+    cached.data === context.data &&
+    cached.period === context.period &&
+    cached.marketSession === context.marketSession &&
+    cached.lastBarClose === state.lastBarClose &&
+    cached.theme === context.theme &&
+    cached.isAsiaMarket === context.isAsiaMarket &&
+    cached.colorPresetSettings === context.colorPresetSettings
+  )
+    return cached.resolved
+  const frameDrawing = resolveDrawingForFrame(
+    storedDrawing,
+    state.getLogicalIndexAtTimestamp,
+    context,
+    state.lastBarClose,
+  )
+  // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
+  const resolved: ResolvedDrawingObject = {
+    ...frameDrawing,
+    style: resolveDrawingStyle(frameDrawing.style, state.resolveColor),
+  }
+  resolvedDrawingCache.set(storedDrawing, {
+    data: context.data,
+    period: context.period,
+    marketSession: context.marketSession,
+    lastBarClose: state.lastBarClose,
+    theme: context.theme,
+    isAsiaMarket: context.isAsiaMarket,
+    colorPresetSettings: context.colorPresetSettings,
+    resolved,
+  })
+  return resolved
+}
+
 /** 投影单个图元；视口外或几何不可解析的图元直接跳过。 */
 function projectStoredDrawing(
   state: FrameProjectionState,
@@ -477,16 +541,7 @@ function projectStoredDrawing(
   scope: DrawingPaintScope,
 ): void {
   const { context, definitions } = state
-  const frameDrawing = resolveDrawingForFrame(
-    storedDrawing,
-    state.getLogicalIndexAtTimestamp,
-    context,
-  )
-  // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
-  const drawing: ResolvedDrawingObject = {
-    ...frameDrawing,
-    style: resolveDrawingStyle(frameDrawing.style, state.resolveColor),
-  }
+  const drawing = resolveStoredDrawing(state, storedDrawing)
   if (!hasResolvableTimeAnchors(drawing)) return
   // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
   if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) return
@@ -538,6 +593,16 @@ export function projectDrawingsForFrame(
     snapLines: [],
   }
   const seriesData = context.data as KLineData[]
+  const lastOpen = seriesData.at(-1)?.timestamp
+  const lastBarClose =
+    context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
+      ? timeValue(
+          { period: context.period, session: context.marketSession },
+          'close',
+          context.period,
+          lastOpen,
+        )
+      : undefined
   const toScreen = createToScreen(context)
   const themeColors = resolveThemeColors(
     context.theme,
@@ -545,6 +610,7 @@ export function projectDrawingsForFrame(
     context.colorPresetSettings,
   )
   const state: FrameProjectionState = {
+    lastBarClose,
     definitions,
     context,
     selectedIds: new Set(store.getSelectedIds()),

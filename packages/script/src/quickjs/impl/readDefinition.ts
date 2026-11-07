@@ -43,11 +43,11 @@ function optional(value: unknown, kind: 'string' | 'number' | 'boolean'): boolea
 }
 
 /** 字符串选项数组：非空且每一项都是字符串。 */
-function isOptionsList(value: unknown): value is readonly string[] {
+function isOptionsList(value: unknown): value is readonly (string | import('@363045841yyt/klinechart-plot-contracts').InputOption)[] {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
-    value.every((item: unknown) => typeof item === 'string')
+    value.every((item: unknown) => typeof item === 'string' || (isRecord(item) && typeof item.value === 'string' && typeof item.label === 'string'))
   )
 }
 

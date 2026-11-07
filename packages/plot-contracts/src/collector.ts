@@ -62,7 +62,7 @@ export interface PlotCollectorOptions {
 
 /** 按 name / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
 export class PlotCollector {
-  private readonly barCount: number
+  private barCount: number
   private readonly fills = new Map<string, CollectedFill>()
   private readonly entries = new Map<string, CollectedPlot | CollectedOhlcPlot>()
   private readonly hlines: HLine[] = []
@@ -71,6 +71,29 @@ export class PlotCollector {
   /** 登记 bar 数量；Plot 条目在首次输出时按 name 建立，填充由 onFill 登记。 */
   constructor(options: PlotCollectorOptions) {
     this.barCount = options.barCount
+  }
+
+  /**
+   * 为增量运行准备列：按新 bar 数扩展/截断，并清空 [startIndex, endIndex) 的旧输出。
+   * 保留区间之外的列，避免每次重算都重建整份 Plot 数据。
+   */
+  prepare(barCount: number, startIndex: number, endIndex: number = barCount): void {
+    if (barCount !== this.barCount) {
+      for (const entry of this.entries.values()) {
+        // 分支只用于把判别联合收窄到具体列类型；两种列共用同一套扩展规则。
+        if (entry.source === 'ohlc') resizeColumn(entry.data, barCount, undefined)
+        else resizeColumn(entry.data, barCount, undefined)
+      }
+      for (const fill of this.fills.values()) resizeColumn(fill.colors, barCount, null)
+      this.barCount = barCount
+    }
+    for (const entry of this.entries.values()) {
+      if (entry.source === 'ohlc')
+        clearColumnFrom(entry.data, startIndex, endIndex, undefined)
+      else clearColumnFrom(entry.data, startIndex, endIndex, undefined)
+    }
+    for (const fill of this.fills.values())
+      clearColumnFrom(fill.colors, startIndex, endIndex, null)
   }
 
   /** 按名称采集当前 bar 的填充颜色；边界和整列显隐在一次运行内固定。 */
@@ -225,6 +248,20 @@ export class PlotCollector {
   private emptyColumn(): (PlotPoint | undefined)[] {
     return new Array<PlotPoint | undefined>(this.barCount).fill(undefined)
   }
+}
+
+/** 按目标长度调整列；新增槽位写空值，已有槽位保持引用。 */
+function resizeColumn<T>(values: T[], length: number, empty: T): void {
+  const previous = values.length
+  values.length = length
+  for (let index = previous; index < length; index++) values[index] = empty
+}
+
+/** 清空 [startIndex, endIndex) 的列；增量重算只覆盖受影响区间。 */
+function clearColumnFrom<T>(values: T[], startIndex: number, endIndex: number, empty: T): void {
+  const start = Math.max(0, startIndex)
+  const end = Math.min(values.length, endIndex)
+  for (let index = start; index < end; index++) values[index] = empty
 }
 
 /** 填充的固定元数据与逐 bar 颜色分别保存。 */

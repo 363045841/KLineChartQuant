@@ -8,7 +8,7 @@ import {
 import { IndicatorKind } from '../indicatorMetadata'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 
-/** Core 只保留系统定义；纯数值指标全部由 Script 包提供。 */
+/** Core 只保留系统图层定义；纯数值指标全部由 Script 包提供。 */
 const SYSTEM_INDICATOR_NAMES = [
   'extremaMarkers',
   'fiveDayTimeShare',

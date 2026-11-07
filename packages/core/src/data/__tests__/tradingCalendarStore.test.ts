@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { DataBuffer } from '../buffer/impl/dataBuffer.js'
+import { OLDER_DATA_STATUS } from '../provider/types.js'
 
 const bar = (timestamp: number) => ({ timestamp, open: 1, high: 1, low: 1, close: 1, volume: 1 })
 
 describe('DataBuffer trading calendar', () => {
   it('按尾部锚点读取，并在新 K 线到达后消费槽位', () => {
     const buffer = new DataBuffer()
-    buffer.setInlineData([bar(100)])
+    buffer.replace([bar(100)], OLDER_DATA_STATUS.EXHAUSTED, null)
     expect(buffer.setTradingCalendar({ anchorTimestamp: 100, futureTimestamps: [200, 300] })).toBe(
       true,
     )
@@ -19,14 +20,14 @@ describe('DataBuffer trading calendar', () => {
 
   it('拒绝错误锚点及非递增日历；替换数据清空旧日历', () => {
     const buffer = new DataBuffer()
-    buffer.setInlineData([bar(100)])
+    buffer.replace([bar(100)], OLDER_DATA_STATUS.EXHAUSTED, null)
     expect(buffer.setTradingCalendar({ anchorTimestamp: 99, futureTimestamps: [200] })).toBe(false)
     expect(buffer.setTradingCalendar({ anchorTimestamp: 100, futureTimestamps: [200, 200] })).toBe(
       false,
     )
     expect(buffer.getFutureTimestamp(1)).toBeNull()
     buffer.setTradingCalendar({ anchorTimestamp: 100, futureTimestamps: [200] })
-    buffer.setInlineData([bar(100)])
+    buffer.replace([bar(100)], OLDER_DATA_STATUS.EXHAUSTED, null)
     expect(buffer.getFutureTimestamp(1)).toBeNull()
   })
 })

@@ -44,8 +44,11 @@ export interface InputOptions {
 
 /** 字符串输入可通过 options 渲染下拉选择。 */
 export interface StringInputOptions extends InputOptions {
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | InputOption)[]
 }
+
+/** 参数值与展示标签在生产者契约中定义，所有参数面板共用。 */
+export interface InputOption { readonly value: string; readonly label: string }
 
 /** 周期输入的 options 只允许 Timeframe 中登记的周期。 */
 export interface TimeframeInputOptions extends InputOptions {
@@ -63,7 +66,7 @@ export interface NumberInputOptions extends InputOptions {
 export interface InputDef<T> extends InputOptions {
   /** 默认值，同时决定参数在面板中的编辑类型。 */
   readonly default: T
-  readonly options?: readonly string[]
+  readonly options?: readonly (string | InputOption)[]
   readonly min?: number
   readonly max?: number
   readonly step?: number
@@ -96,11 +99,14 @@ export interface IndicatorDefinition<P> {
   readonly document?: IndicatorSourceDocument
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
-  /** 计算端口：给定 bars 与参数，产出完整 PlotCollection。 */
+  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
+  readonly dependency?: import('./compute.js').ComputeDependency
+  /** 计算端口：给定 bars、参数与重算区间，产出完整 PlotCollection。 */
   compute(
     bars: readonly Bar[],
     params: P,
     market?: IndicatorMarketContext,
+    range?: import('./compute.js').ComputeRange,
   ): PlotCollection | Promise<PlotCollection>
 }
 

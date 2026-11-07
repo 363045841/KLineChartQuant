@@ -1,27 +1,35 @@
-/** 数据快照的唯一时间戳索引：重复时间戳没有确定的逻辑位置。 */
+/** 时间戳到稳定序号的唯一索引；序号不随 prepend 改变。 */
 export class UniqueTimestampIndex {
-  private readonly indices = new Map<number, number>()
-  private readonly duplicates = new Set<number>()
+  private readonly ordinals = new Map<number, number>()
 
-  /** 使用当前完整快照重建时间戳索引。 */
-  rebuild(data: ReadonlyArray<{ readonly timestamp: number }>): void {
-    this.indices.clear()
-    this.duplicates.clear()
-    for (let index = 0; index < data.length; index++) {
+  /** 用完整序列重建索引；调用方保证时间戳已唯一化。 */
+  rebuild(data: readonly { readonly timestamp: number }[], origin: number): void {
+    this.ordinals.clear()
+    this.addRange(data, origin, 0, data.length)
+  }
+
+  /** 写入 [start, end) 区间的稳定序号；同一时间戳覆盖旧序号。 */
+  addRange(
+    data: readonly { readonly timestamp: number }[],
+    origin: number,
+    start: number,
+    end: number,
+  ): void {
+    for (let index = start; index < end; index++) {
       const timestamp = data[index]!.timestamp
       if (!Number.isFinite(timestamp)) continue
-      if (this.indices.has(timestamp)) {
-        this.indices.delete(timestamp)
-        this.duplicates.add(timestamp)
-      } else if (!this.duplicates.has(timestamp)) {
-        this.indices.set(timestamp, index)
-      }
+      this.ordinals.set(timestamp, origin + index)
     }
   }
 
-  /** 返回唯一时间戳的逻辑索引；缺失或重复时返回 null。 */
-  get(timestamp: number): number | null {
-    if (!Number.isFinite(timestamp) || this.duplicates.has(timestamp)) return null
-    return this.indices.get(timestamp) ?? null
+  /** 返回时间戳的稳定序号；不存在时返回 null。 */
+  getOrdinal(timestamp: number): number | null {
+    if (!Number.isFinite(timestamp)) return null
+    return this.ordinals.get(timestamp) ?? null
+  }
+
+  /** 清空索引。 */
+  clear(): void {
+    this.ordinals.clear()
   }
 }

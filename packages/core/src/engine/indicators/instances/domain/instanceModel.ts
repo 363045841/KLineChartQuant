@@ -87,6 +87,8 @@ export interface IndicatorCalculationError {
 }
 
 export interface IndicatorSeriesResult {
+  /** 独立发布时各结果可来自不同轮计算，保留各自时间轴。 */
+  readonly timestamps?: readonly number[]
   readonly instanceId: IndicatorInstanceId
   readonly calculationKey: IndicatorCalculationKey
   readonly dataRevision: number

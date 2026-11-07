@@ -1,13 +1,16 @@
-/** Script 计算 Worker 入口；初始化、编译和逐 bar 执行都发生在本线程。 */
+/** Script 计算 Worker 入口；只安装编译产物并执行，不加载 TypeScript 或语言服务。 */
 
 import { type LogEvent, SCRIPT_OUTPUT_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
-import { preloadQuickJS, prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
+import { prepareNativeModule } from '../../execution/impl/prepareNativeModule.js'
+import { preloadQuickJS, prepareQuickJSModule } from '../../quickjs/impl/runQuickJSModule.js'
 import type { PreparedQuickJSScript } from '../../quickjs/types.js'
+import { WorkerInputReceiver } from '../transport/impl/input.js'
+import { packPlotCollection } from '../transport/impl/output.js'
 import type { ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 const scripts = new Map<string, PreparedQuickJSScript>()
+const input = new WorkerInputReceiver()
 let pending: Promise<void> = Promise.resolve()
 let output: LogEvent[] = []
 
@@ -34,8 +37,9 @@ async function prepareRequest(
 ): Promise<ScriptWorkerResponse> {
   // 信任由宿主注册属性决定，原生准备和运行完全不经过 QuickJS。
   if (!message.trusted) await preloadQuickJS()
-  const prepare = message.trusted ? prepareNativeScript : prepareQuickJSScript
-  const script = prepare(message.source, message.libraries, onLog)
+  const prepare = message.trusted ? prepareNativeModule : prepareQuickJSModule
+  const script = prepare(message.module, onLog)
+  scripts.get(message.id)?.dispose()
   scripts.set(message.id, script)
   return { requestId: message.requestId, type: 'prepare', definition: script.definition }
 }
@@ -46,12 +50,30 @@ function runRequest(
 ): ScriptWorkerResponse {
   const { requestId, id } = message
   switch (message.type) {
-    case 'run':
+    case 'run': {
+      const current = input.decode(message.input)
+      const result = requireScript(id).runDetailed(
+        current.bars,
+        message.params,
+        current.context,
+        message.range,
+      )
+      const { drawings: _drawings, ...collection } = result.collection
       return {
         requestId,
         type: 'run',
-        collection: requireScript(id).run(message.bars, message.params, message.context),
+        collection: packPlotCollection(collection),
+        drawingDelta: {
+          reset: result.drawingDelta.reset,
+          remove: result.drawingDelta.remove,
+          collection: packPlotCollection({
+            plots: [],
+            fills: [],
+            drawings: result.drawingDelta.upsert,
+          }),
+        },
       }
+    }
     case 'requests':
       return {
         requestId,
@@ -59,7 +81,9 @@ function runRequest(
         requests: requireScript(id).requests(message.params, message.symbol),
       }
     case 'release':
+      scripts.get(id)?.dispose()
       scripts.delete(id)
+      input.clear()
       return { requestId, type: 'release' }
     default:
       throw new Error('未知请求类型')
@@ -104,5 +128,10 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
     const logs: ScriptWorkerResponse = { requestId, type: 'output', id, events: output }
     globalThis.postMessage(logs)
   }
-  globalThis.postMessage(response)
+  globalThis.postMessage(response, {
+    transfer:
+      response.type === 'run'
+        ? [response.collection.buffer, response.drawingDelta.collection.buffer]
+        : [],
+  })
 }

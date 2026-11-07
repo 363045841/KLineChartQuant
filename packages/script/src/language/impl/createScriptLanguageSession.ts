@@ -4,6 +4,7 @@ import { convertScriptSource } from './convertScriptSource.js'
 import { createScriptTypeEnvironment } from './createScriptTypeEnvironment.js'
 import { SCRIPT_SOURCE_FILE } from './scriptFiles.js'
 import { libraryTypeSource } from './scriptLibraries.js'
+import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 
 /** 创建独立的增量语义会话；同一源码版本复用转换结果和语言服务程序。 */
 export function createScriptLanguageSession(): ScriptLanguageSession {
@@ -12,7 +13,7 @@ export function createScriptLanguageSession(): ScriptLanguageSession {
   let conversion: ScriptConversion | undefined
   let libraryKey = ''
   let libraryFiles: string[] = []
-  return {
+  const session: ScriptLanguageSession = {
     environment,
     /** 同步库模块及类型目录，编辑器和执行器使用相同的公开成员类型。 */
     setLibraries(libraries) {
@@ -21,15 +22,25 @@ export function createScriptLanguageSession(): ScriptLanguageSession {
       libraryKey = key
       conversion = undefined
       for (const path of libraryFiles) environment.deleteFile(path)
-      libraryFiles = libraries.map((_, index) => `/user-libraries/library-${index}.ts`)
-      libraries.forEach((library, index) => {
+      const catalogLibraries = [
+        ...builtinLibraries.map((library) => ({ name: library.name, source: library.typeSource })),
+        ...libraries,
+      ]
+      libraryFiles = catalogLibraries.map((_, index) => `/user-libraries/library-${index}.ts`)
+      catalogLibraries.forEach((library, index) => {
         environment.createFile(libraryFiles[index]!, libraryTypeSource(library.source))
       })
       const contract = '/node_modules/@363045841yyt/klinechart-script/contracts/library.js'
-      const catalog = `import type {} from ${JSON.stringify(contract)}\n`
-        + `declare module ${JSON.stringify(contract)} { interface LibraryModules {\n`
-        + libraries.map((library, index) => `${JSON.stringify(library.name)}: typeof import('./library-${index}.js').__library`).join('\n')
-        + '\n} }\n'
+      const catalog =
+        `import type {} from ${JSON.stringify(contract)}\n` +
+        `declare module ${JSON.stringify(contract)} { interface LibraryModules {\n` +
+        catalogLibraries
+          .map(
+            (library, index) =>
+              `${JSON.stringify(library.name)}: typeof import('./library-${index}.js').__library`,
+          )
+          .join('\n') +
+        '\n} }\n'
       const path = '/user-libraries/catalog.ts'
       if (environment.getSourceFile(path)) environment.updateFile(path, catalog)
       else environment.createFile(path, catalog)
@@ -57,4 +68,6 @@ export function createScriptLanguageSession(): ScriptLanguageSession {
       return conversion
     },
   }
+  session.setLibraries([])
+  return session
 }

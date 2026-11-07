@@ -4,6 +4,9 @@
  * 通道（K 线 / 报价）是订阅维度而不是连接维度：K 线需要序列参数，报价只要品种。
  */
 
+import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import type { MarketProviderHealth } from '../management/types.js'
+import type { MarketDataProviderRegistry } from '../provider/impl/registry.js'
 import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../provider/types.js'
 
 /** 实时通道；同一品种的 K 线与报价是两条独立订阅。 */
@@ -94,13 +97,20 @@ export interface RealtimeConnection {
   destroy(): void
 }
 
-/** 宿主数据源自带的连接工厂；HTTP Provider 不提供，由池的 SSE 实现兜底。 */
-export type RealtimeConnectionFactory = (
-  request: RealtimeConnectionRequest,
-) => RealtimeConnection
+/** 一次连接的工厂；传输在宿主装配时确定，不由消费者猜测。 */
+export type RealtimeConnectionFactory = (request: RealtimeConnectionRequest) => RealtimeConnection
 
 /** 实时订阅池：全仓唯一的订阅入口。 */
 export interface RealtimeSubscriptionPool {
   subscribe(request: RealtimeSubscriptionRequest): RealtimeSubscription
   dispose(): void
+}
+
+/** 池直接消费现有配置与健康快照，不复制一套来源状态。 */
+export interface RealtimeSubscriptionPoolOptions {
+  readonly registry: MarketDataProviderRegistry
+  readonly health: ReadonlySignal<Readonly<Record<string, MarketProviderHealth>>>
+  readonly createConnection: RealtimeConnectionFactory
+  /** 合并同一轮输入变化；测试可注入手动队列。 */
+  defer?(run: () => void): void
 }

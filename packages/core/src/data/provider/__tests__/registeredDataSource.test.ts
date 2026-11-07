@@ -18,6 +18,7 @@ function setup(realtime = true, options: MockDataDependenciesOptions = {}) {
   const unregister = host.registerDataSource(fixture.source)
   const { manager, scrollTo } = createTestChartDataManager(createTestDocument(), {
     marketDataProviderRegistry: host.registry,
+    realtimeSubscriptionPool: host.realtime,
     viewport: { scrollLeft: 800 },
     ...options,
   })
@@ -88,6 +89,7 @@ describe('registered data source', () => {
     host.registerDataSource({ ...fixture.source, tradingCalendar: { fetch: calendar } })
     const { manager } = createTestChartDataManager(createTestDocument(), {
       marketDataProviderRegistry: host.registry,
+      realtimeSubscriptionPool: host.realtime,
       viewport: { scrollLeft: 800, visibleRange: { start: 0, end: 5 } },
     })
     let unsubscribe: (() => void) | undefined
@@ -166,7 +168,7 @@ describe('registered data source', () => {
       observer.update({ ...updated, timestamp: 500 })
       expect(manager.getData()).toHaveLength(3)
       harness.unregister()
-      expect(fixture.stopped).toContain('B')
+      await vi.waitFor(() => expect(fixture.stopped).toContain('B'))
       expect(host.registry.get('test')).toBeUndefined()
     } finally {
       harness.dispose()
@@ -227,7 +229,7 @@ describe('registered data source', () => {
       expect(requestSignal?.aborted).toBe(true)
       complete!({ bars, olderData: 'exhausted' })
       observer.update(updated)
-      expect(fixture.observers.size).toBe(0)
+      await vi.waitFor(() => expect(fixture.observers.size).toBe(0))
     } finally {
       harness.dispose()
     }

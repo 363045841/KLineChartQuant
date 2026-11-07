@@ -10,23 +10,24 @@ import {
 } from '@363045841yyt/klinechart-core'
 import {
   type Bar,
-  DEFAULT_REQUEST_BARS,
+  type ComputeRange,
   type IndicatorMarketContext,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
-  type QuickJSScriptDefinition,
+  type PreparedScriptDefinition,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
-import { createScriptWorker } from '@363045841yyt/klinechart-script/worker'
+import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptOutput } from './createScriptOutput.js'
+import { prepareScriptMarketData } from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 
 /** 一次准备的编译句柄；提交成功前不进入运行表。 */
 export interface PreparedScript {
   readonly handle: string
-  readonly definition: QuickJSScriptDefinition
+  readonly definition: PreparedScriptDefinition
 }
 
 /** 执行器实例：编译、发布、运行与句柄回收的唯一入口。 */
@@ -44,12 +45,14 @@ export function createScriptExecutor(
 ) {
   const handles = new Map<string, string>()
   const debugOutputs = new Map<string, string>()
-  const worker = createScriptWorker(undefined, (handle, events) => {
-    const outputId = debugOutputs.get(handle)
-    if (outputId !== undefined) output.append(outputId, events)
-    for (const [id, active] of handles) {
-      if (active === handle) output.append(id, events)
-    }
+  const worker = createScriptWorkerPool({
+    onOutput: (handle, events) => {
+      const outputId = debugOutputs.get(handle)
+      if (outputId !== undefined) output.append(outputId, events)
+      for (const [id, active] of handles) {
+        if (active === handle) output.append(id, events)
+      }
+    },
   })
 
   /** 调试和图表计算共用 Request 准备及 Worker 执行入口。 */
@@ -58,22 +61,11 @@ export function createScriptExecutor(
     bars: readonly Bar[],
     params: Readonly<Record<string, number | string | boolean>>,
     market?: IndicatorMarketContext,
+    range?: ComputeRange,
   ) {
-    if (market === undefined) return worker.run(handle, bars, params)
-    const requests = await worker.requests(handle, params, market.symbol)
-    const snapshots = await Promise.all(
-      requests.map(async (request) => ({
-        id: request.id,
-        bars: await market.loadBars({
-          symbol: request.symbol,
-          timeframe: request.timeframe,
-          source: request.source,
-          calcBarsCount:
-            request.calcBarsCount === undefined ? DEFAULT_REQUEST_BARS : request.calcBarsCount,
-        }),
-      })),
-    )
-    return worker.run(handle, bars, params, { symbol: market.symbol, snapshots })
+    if (market === undefined) return worker.run(handle, bars, params, undefined, range)
+    const context = await prepareScriptMarketData(worker, handle, params, market)
+    return worker.run(handle, bars, params, context, range, market.signal)
   }
 
   /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */
@@ -121,7 +113,12 @@ export function createScriptExecutor(
       id,
       source: 'script',
       document,
-      compute: (bars, params, market) => compute(prepared.handle, bars, params, market),
+      compute: (
+        bars,
+        params: Readonly<Record<string, number | string | boolean>>,
+        market,
+        range,
+      ) => compute(prepared.handle, bars, params, market, range),
     })
     const previous = handles.get(id)
     handles.set(id, prepared.handle)

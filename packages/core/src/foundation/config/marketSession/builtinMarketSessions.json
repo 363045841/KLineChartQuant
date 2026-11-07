@@ -1,0 +1,105 @@
+{
+  "CN": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 570, "close": 690 }, { "open": 780, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "sources": ["https://english.sse.com.cn/start/trading/schedule/"],
+    "notes": ["沪深股票常规交易时段；收盘集合竞价包含在下午时段内。", "集合竞价不是盘前连续交易；盘后固定价格交易须按板块、品种及规则生效日期单独配置。"],
+    "calendars": [{
+      "year": 2026,
+      "closedDates": ["2026-01-01", "2026-01-02", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-23", "2026-04-06", "2026-05-01", "2026-05-04", "2026-05-05", "2026-06-19", "2026-09-25", "2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06", "2026-10-07"],
+      "specialSessions": [],
+      "sources": ["https://www.sse.com.cn/disclosure/announcement/general/c/c_20251222_10802507.shtml"],
+      "notes": ["仅列工作日休市；周末即使是政府调休工作日仍不交易。上证公告〔2025〕45号。"]
+    }]
+  },
+  "HK": {
+    "timeZone": "Asia/Hong_Kong",
+    "sessions": [{ "open": 570, "close": 720 }, { "open": 780, "close": 960 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "sources": ["https://www.hkex.com.hk/Services/Trading-hours-and-Severe-Weather-Arrangements/Trading-Hours/Securities-Market?sc_lang=en"],
+    "notes": ["港股证券持续交易时段；适用证券的开市前时段为09:00–09:30，收市竞价随机结束于16:08–16:10。", "半日市没有下午持续交易；半日市收市竞价随机结束于12:08–12:10。", "部分产品支持12:00–13:00延续早市；须按产品覆盖，不能应用到所有港股。"],
+    "calendars": [{
+      "year": 2026,
+      "closedDates": ["2026-01-01", "2026-02-17", "2026-02-18", "2026-02-19", "2026-04-03", "2026-04-06", "2026-04-07", "2026-05-01", "2026-05-25", "2026-06-19", "2026-07-01", "2026-10-01", "2026-10-19", "2026-12-25"],
+      "specialSessions": [
+        { "date": "2026-02-16", "sessions": [{ "open": 570, "close": 720 }] },
+        { "date": "2026-12-24", "sessions": [{ "open": 570, "close": 720 }] },
+        { "date": "2026-12-31", "sessions": [{ "open": 570, "close": 720 }] }
+      ],
+      "sources": ["https://www.hkex.com.hk/-/media/HKEX-Market/Services/Circulars-and-Notices/Participant-and-Members-Circulars/SEHK/2025/ce_SEHK_CT_075_2025.pdf"],
+      "notes": ["仅列工作日休市；半日市sessions为持续交易，未把随机结束的收市竞价硬编码为固定收盘。"]
+    }]
+  },
+  "KR": {
+    "timeZone": "Asia/Seoul",
+    "sessions": [{ "open": 540, "close": 930 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "premarket": [{ "open": 510, "close": 520 }],
+    "postmarket": [{ "open": 940, "close": 960 }],
+    "sources": ["https://global.krx.co.kr/", "http://regulation.krx.co.kr/contents/RGL/03/03010301/RGL03010301.jsp"],
+    "notes": ["KRX股票市场常规交易；盘前08:30–08:40为前收盘价交易，盘后15:40–16:00为收盘价交易。", "不包含NXT替代交易场所；16:00以后的盘后制度存在年度变更，不沿用旧英文指南的18:00收盘作为通用规则。", "2026年9月盘后市场扩至20:00及11月19日高考日延迟开盘的报道尚待官方公告原文核实，未作为已核实的固定时段写入。"],
+    "calendars": [{
+      "year": 2026,
+      "closedDates": ["2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-03-02", "2026-05-01", "2026-05-05", "2026-05-25", "2026-06-03", "2026-07-17", "2026-08-17", "2026-09-24", "2026-09-25", "2026-10-05", "2026-10-09", "2026-12-25", "2026-12-31"],
+      "specialSessions": [],
+      "sources": ["https://open.krx.co.kr/contents/MKD/01/0110/01100305/MKD01100305.jsp"],
+      "notes": ["休市日已按KRX年度表核对；特殊开收盘日尚未完整核实，不能把specialSessions为空解释为没有特殊日。", "媒体报道1月2日常规盘10:00–15:30、11月19日10:00–16:30；待官方公告原文确认后再加入可执行时段。"]
+    }]
+  },
+  "US": {
+    "timeZone": "America/New_York",
+    "sessions": [{ "open": 570, "close": 960 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "sources": ["https://www.nyse.com/markets/hours-calendars"],
+    "notes": ["美国股票常规交易时段；IANA时区自动适用夏令时。", "不同交易所的盘前盘后时间不同；按交易场所选择extendedSessions配置，不能把订单录入时间视为可成交时间。", "尚未生效的夜盘扩展规则不作为默认交易时段。"],
+    "extendedSessions": {
+      "NASDAQ": {
+        "premarket": [{ "open": 240, "close": 570 }],
+        "postmarket": [{ "open": 960, "close": 1200 }],
+        "sources": ["https://www.nasdaq.com/market-activity/stock-market-holiday-schedule"]
+      },
+      "NYSE_ARCA": {
+        "premarket": [{ "open": 240, "close": 570 }],
+        "postmarket": [{ "open": 960, "close": 1200 }],
+        "sources": ["https://www.nyse.com/markets/hours-calendars"]
+      },
+      "NYSE_AMERICAN": {
+        "premarket": [{ "open": 420, "close": 570 }],
+        "postmarket": [{ "open": 960, "close": 1200 }],
+        "sources": ["https://www.nyse.com/markets/hours-calendars"]
+      }
+    },
+    "calendars": [{
+      "year": 2026,
+      "closedDates": ["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"],
+      "specialSessions": [
+        { "date": "2026-11-27", "sessions": [{ "open": 570, "close": 780 }] },
+        { "date": "2026-12-24", "sessions": [{ "open": 570, "close": 780 }] }
+      ],
+      "sources": ["https://www.nyse.com/markets/hours-calendars"],
+      "notes": ["覆盖NYSE股票常规盘；提前收市日的盘后时段需按交易所规则单独确定。"]
+    }]
+  },
+  "MT5": {
+    "timeZone": "UTC",
+    "sessions": [{ "open": 0, "close": 1440 }],
+    "slotMinutes": 1440,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "approximate": true,
+    "sources": ["https://www.mql5.com/en/docs/marketinformation/symbolinfosessiontrade", "https://www.mql5.com/en/book/automation/symbols/symbols_sessions"],
+    "notes": ["仅保留现有工作日全天展示画像，不是实际外汇交易日历。", "MT5是平台而非单一市场；股票、外汇、金属、指数及加密资产的交易时间必须按经纪商和品种获取。", "实际时段由SymbolInfoSessionTrade按星期及session序号读取，时钟为经纪商服务器时间；周日开盘、每日维护及跨午夜归属不可由UTC工作日画像推算。"]
+  },
+  "BINANCE_SPOT": {
+    "timeZone": "UTC",
+    "sessions": [{ "open": 0, "close": 1440 }],
+    "slotMinutes": 1,
+    "tradingDays": [0, 1, 2, 3, 4, 5, 6],
+    "sources": ["https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md"],
+    "notes": ["现货每周七天连续交易，默认UTC划分K线；交易对停牌、下架和临时维护由行情源状态决定，不是固定节假日。", "不应用于交割合约、期权或其他Binance产品。"]
+  }
+}

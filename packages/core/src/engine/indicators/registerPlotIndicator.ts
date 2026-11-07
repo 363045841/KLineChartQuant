@@ -107,9 +107,13 @@ function createPlotIndicatorDefinition<P>(
     getTitleInfo: createPlotTitleInfo(definition.name, format),
     runtime: {
       revision: definition.document?.revision,
+      dependency:
+        definition.dependency ??
+        Object.freeze({ kind: 'stateful' } as const),
       defaultParams: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
-      compute: (data, params: P, market) => definition.compute(data.map(toPlotBar), params, market),
+      compute: (data, params: P, market, range) =>
+        definition.compute(data.map(toPlotBar), params, market, range),
     },
   })
   class PlotIndicatorDefinition {

@@ -13,7 +13,7 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
     const target = barsFromCloses([10, 20, 30]).map((bar, i) => ({ ...bar, time: i * 3600000 }))
     const bars = barsFromCloses([1, 2, 3, 4, 5, 6]).map((bar, i) => ({ ...bar, time: i * 1800000 }))
     expect(script.requests({}, 'BTCUSDT')).toEqual([
-      { id: '0', symbol: 'BTCUSDT', timeframe: '60', source: 'binance' },
+      { id: '0', symbol: 'BTCUSDT', timeframe: '60', source: 'binance', mode: 'security' },
     ])
     const result = script.run(
       bars,
@@ -36,7 +36,7 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
       const value = request.security(syminfo.tickerid, Timeframe.Day, () => close)
       plot.Line(value, 'daily')
     }})`)
-    expect(script.requests({}, 'BTCUSDT')).toEqual([{ id: '0', symbol: 'BTCUSDT', timeframe: 'D' }])
+    expect(script.requests({}, 'BTCUSDT')).toEqual([{ id: '0', symbol: 'BTCUSDT', timeframe: 'D', mode: 'security' }])
   })
 
   it('元组可以直接作为蜡烛输入，脚本不能写入共享结果', () => {

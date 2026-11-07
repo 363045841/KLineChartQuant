@@ -1,5 +1,19 @@
 /** 统一行情领域模型公共入口。 */
 
+export { createRealtimeSubscriptionPool } from '../live/impl/realtimePool.js'
+export type {
+  LiveBar,
+  LiveFrame,
+  LiveQuote,
+  RealtimeChannel,
+  RealtimeConnection,
+  RealtimeConnectionFactory,
+  RealtimeConnectionRequest,
+  RealtimeStatus,
+  RealtimeSubscription,
+  RealtimeSubscriptionPool,
+  RealtimeSubscriptionRequest,
+} from '../live/types.js'
 export { createMarketDataHost } from '../management/impl/context.js'
 export type {
   MarketConnection,
@@ -14,24 +28,6 @@ export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/r
 export { SourceRouter, SourceRoutingError } from './impl/router.js'
 export type { DataSourceRegistration } from './impl/sourceRegistry.js'
 export { dataSourceRegistry } from './impl/sourceRegistry.js'
-export type {
-  LiveBar,
-  LiveFrame,
-  LiveQuote,
-  RealtimeChannel,
-  RealtimeConnection,
-  RealtimeConnectionFactory,
-  RealtimeConnectionRequest,
-  RealtimeStatus,
-  RealtimeSubscription,
-  RealtimeSubscriptionPool,
-  RealtimeSubscriptionRequest,
-} from '../live/types.js'
-export {
-  createRealtimeSubscriptionPool,
-  realtimePoolFor,
-  realtimeSubscriptionPool,
-} from '../live/impl/realtimePool.js'
 export type {
   HttpTransportOptions,
   MarketDataProviderOptions,
