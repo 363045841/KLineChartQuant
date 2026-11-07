@@ -1417,11 +1417,11 @@ export class ChartDataManager {
 
   /** 仅供 X 轴日期文字使用；未来索引可映射到已知市场交易时段。 */
   getAxisTimestampAtLogicalIndex(index: number): number | null {
-    const actual = this.getTimestampAtLogicalIndex(index)
-    if (actual !== null) return actual
     if (!Number.isInteger(index) || index < 0) return null
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
+    const actual = data[index]?.timestamp
+    if (actual !== undefined) return actual
     if (index < data.length) return null
     if (!buf || !data.length) return null
     const timestamp = buf.getFutureTimestamp(index)

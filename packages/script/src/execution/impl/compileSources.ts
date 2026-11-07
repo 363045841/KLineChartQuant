@@ -1,5 +1,8 @@
 /** 唯一的脚本编译入口；执行模块不得导入本文件。 */
-import { analyzeScriptDependency } from '../../quickjs/impl/analyzeDependency.js'
+import {
+  analyzeScriptDependency,
+  requiresFullReplay,
+} from '../../quickjs/impl/analyzeDependency.js'
 import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 import { compileScript } from '../../quickjs/impl/compileScript.js'
 import type { QuickJSLibrary } from '../../quickjs/types.js'
@@ -30,5 +33,6 @@ export function compileSources(
       })),
     ],
     dependency: analyzeScriptDependency(source, analysisLibraries),
+    replayOnUpdate: requiresFullReplay(source, analysisLibraries),
   }
 }

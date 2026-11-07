@@ -80,7 +80,10 @@ function hasTopLevelMutableState(file: ts.SourceFile): boolean {
     if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) return true
     for (const declaration of statement.declarationList.declarations) {
       const initializer = declaration.initializer
-      if (initializer && (ts.isObjectLiteralExpression(initializer) || ts.isArrayLiteralExpression(initializer)))
+      if (
+        initializer &&
+        (ts.isObjectLiteralExpression(initializer) || ts.isArrayLiteralExpression(initializer))
+      )
         return true
     }
   }
@@ -88,7 +91,7 @@ function hasTopLevelMutableState(file: ts.SourceFile): boolean {
 }
 
 /** 找到 onBar 的函数体；找不到时按无状态空脚本处理。 */
-function findOnBarBody(file: ts.SourceFile): ts.Node | undefined {
+function _findOnBarBody(file: ts.SourceFile): ts.Node | undefined {
   let body: ts.Node | undefined
   const visit = (node: ts.Node): void => {
     if (body) return
@@ -207,6 +210,23 @@ function scanBody(body: ts.Node): { stateful: boolean; lookback: number | 'unbou
 /** 库自身是否持有跨调用状态；`ta` 按函数单独判定，不参与模块级判断。 */
 function libraryHasState(source: string): boolean {
   return hasTopLevelMutableState(parse(source))
+}
+
+/** 普通顶层变量没有回滚协议；只有注册了检查点的库状态才能跨末根更新复用。 */
+export function requiresFullReplay(source: string, libraries: readonly QuickJSLibrary[]): boolean {
+  if (hasTopLevelMutableState(parse(source))) return true
+  return libraries.some((library) => {
+    const file = parse(library.source)
+    if (!hasTopLevelMutableState(file)) return false
+    return !file.statements.some(
+      (statement) =>
+        ts.isExpressionStatement(statement) &&
+        ts.isCallExpression(statement.expression) &&
+        ts.isIdentifier(statement.expression.expression) &&
+        statement.expression.expression.text === 'defineLibrary' &&
+        statement.expression.arguments.length >= 3,
+    )
+  })
 }
 
 /** 脚本是否导入了有状态的库。 */

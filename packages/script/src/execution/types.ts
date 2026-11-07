@@ -7,4 +7,6 @@ export interface CompiledScriptSources {
   readonly libraries: readonly QuickJSLibrary[]
   /** 编译期推断的计算依赖；运行时只读，不再自行猜测。 */
   readonly dependency: ComputeDependency
+  /** 不受运行时检查点管理的可变状态要求全量重放。 */
+  readonly replayOnUpdate: boolean
 }

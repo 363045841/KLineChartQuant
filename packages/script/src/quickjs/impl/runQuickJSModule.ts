@@ -555,6 +555,8 @@ export function createQuickJSScriptRuntime(
           error instanceof Error ? error.message : String(error),
         )
       }
+      // 与原生端一致，检查点游标停在最后一根已执行 bar，而不是循环的开区间终点。
+      state.index = input.endIndex - 1
       return {
         collection: state.collector.collect(),
         values: state.values,
@@ -637,6 +639,7 @@ export function prepareQuickJSModule(
     createRuntime: ({ expressionId, params, symbol }) =>
       createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
     dependency: compiled.dependency,
+    replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
   return Object.freeze({

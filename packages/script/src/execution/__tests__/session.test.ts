@@ -18,6 +18,39 @@ const plotSource = `defineIndicator({ name:'SessionPlot', position:Position.Main
 }})`
 
 describe.each(BACKENDS)('$name session', ({ prepare }) => {
+  it('replays unmanaged top-level state instead of carrying the previous live bar forward', () => {
+    const source = `let total=0; defineIndicator({name:'UnmanagedState',position:Position.Main,onBar(){total+=close[0];plot.Line(total,'total')}})`
+    const script = prepare(source)
+    const fresh = prepare(source)
+    const bars = [bar(0, 10), bar(60_000, 20)]
+    script.run(bars, {}, undefined, { start: 0, end: 2 })
+    const changed = [bars[0]!, bar(60_000, 99)]
+    expect(script.run(changed, {}, undefined, { start: 1, end: 2 })).toEqual(fresh.run(changed))
+    script.dispose()
+    fresh.dispose()
+  })
+
+  it('reuses stateful checkpoints when the host supplies a conservative full range', () => {
+    const events: string[] = []
+    const source = `console.log('init'); defineIndicator({name:'StatefulRange',position:Position.Main,onBar(){ plot.Line(ta.ema(close,2)[0],'ema') }})`
+    const script = prepare(source, [], (event) => events.push(event.message))
+    const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
+    script.run(bars, {}, undefined, { start: 0, end: 3 })
+    const changed = [bars[0]!, bars[1]!, bar(120_000, 99)]
+    const updated = script.run(changed, {}, undefined, { start: 0, end: 3 })
+    const fresh = prepare(source)
+    expect(updated).toEqual(fresh.run(changed))
+    expect(events.filter((message) => message === 'init')).toHaveLength(1)
+    const prepended = [bar(-60_000, 5), ...changed]
+    expect(script.run(prepended, {}, undefined, { start: 0, end: 4 })).toEqual(fresh.run(prepended))
+    expect(events.filter((message) => message === 'init')).toHaveLength(2)
+    const corrected = [prepended[0]!, bar(0, 7), ...prepended.slice(2)]
+    expect(script.run(corrected, {}, undefined, { start: 0, end: 4 })).toEqual(fresh.run(corrected))
+    expect(events.filter((message) => message === 'init')).toHaveLength(3)
+    script.dispose()
+    fresh.dispose()
+  })
+
   it('keeps completed drawings and only re-emits the changed tail', () => {
     const script = prepare(boxSource)
     const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]

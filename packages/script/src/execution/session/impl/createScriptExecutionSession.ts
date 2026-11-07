@@ -31,6 +31,7 @@ import { applyDrawingDelta } from './drawingDelta.js'
 export interface ScriptSessionOptions<Checkpoint> {
   readonly createRuntime: ScriptRuntimeFactory<Checkpoint>
   readonly dependency: ComputeDependency
+  readonly replayOnUpdate: boolean
   readonly onLog?: (event: LogEvent) => void
 }
 
@@ -297,8 +298,14 @@ export function createScriptExecutionSession<Checkpoint>(
         let range: ComputeRange = input.range ?? { start: 0, end: bars.length }
         const stateful = options.dependency.kind === 'stateful'
         const previousLength = previousBars.length
-        // 只有从上一轮末根开始的尾部更新才能复用检查点；其余区间一律重建。
-        const tailOnly = previousLength > 0 && range.start >= previousLength - 1
+        // 宿主给有状态指标的计算范围覆盖全历史；会话按实际输入差异证明尾部可复用。
+        // 首次运行、前插、截断到历史或历史修正仍重建，不把扩大后的范围当作变更事实。
+        if (stateful) range = { start: firstChangedBar(previousBars, bars), end: bars.length }
+        let tailOnly =
+          !options.replayOnUpdate &&
+          previousLength > 0 &&
+          bars.length >= previousLength &&
+          range.start >= previousLength - 1
         if (stateful && !tailOnly) resetMain(params, symbol)
 
         const requestResult = resolveRequestExecution({
@@ -311,12 +318,13 @@ export function createScriptExecutionSession<Checkpoint>(
         if (requestResult.historyChanged) {
           resetMain(params, symbol)
           range = { start: 0, end: bars.length }
+          tailOnly = false
         }
         const execution = requestResult.execution
 
         if (stateful) {
           if (tailOnly && checkpoint !== undefined) main.rollback(checkpoint)
-          const from = tailOnly ? Math.min(range.start, bars.length - 1) : 0
+          const from = tailOnly ? Math.min(range.start, previousLength - 1, bars.length - 1) : 0
           return runStateful(from, bars, params, execution)
         }
 

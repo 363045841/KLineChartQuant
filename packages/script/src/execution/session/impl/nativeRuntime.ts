@@ -276,6 +276,8 @@ export function createNativeScriptRuntime(
         error instanceof Error ? error.message : String(error),
       )
     }
+    // for 循环退出时游标已越过末根；检查点必须记录已完成 bar 的数量。
+    state.index = input.endIndex - 1
     return {
       collection: { ...state.collector.collect(), drawings: runtime.drawings() },
       values: state.values,
