@@ -2,6 +2,7 @@
 import { type Static, Type } from 'typebox'
 import type { IndicatorInstance } from '@/controllers/types.js'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
+import { formatInstrumentLabel } from '@/data/provider/impl/instrumentIdentity.js'
 import {
   lookupInstrumentsBySymbol,
   searchInstruments,
@@ -392,10 +393,16 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const spec = this.dependencies.currentSpec()
     const dataRange = requireTimestampRange(activeBuffer.data)
     const selection = activeBuffer.selection
-    const symbol = spec?.instrument?.symbol ?? spec?.symbol ?? null
-    const symbolName = spec?.instrument?.name ?? null
+    const instrument = spec?.instrument
+    const rawSymbol = instrument?.symbol ?? spec?.symbol ?? null
+    // 永续的展示代码带 `.P`：模型读到的品种名与用户在芯片、搜索框看到的必须一致。
+    const symbol =
+      rawSymbol === null
+        ? null
+        : formatInstrumentLabel({ symbol: rawSymbol, providerRef: instrument?.providerRef }).code
+    const symbolName = instrument?.name ?? null
     const market = spec?.market ?? null
-    const exchange = spec?.instrument?.exchange ?? spec?.exchange ?? null
+    const exchange = instrument?.exchange ?? spec?.exchange ?? null
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
     const period = this.dependencies.chartMode()
     const adjustMode =

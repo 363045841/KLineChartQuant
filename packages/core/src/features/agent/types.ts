@@ -49,6 +49,7 @@ export interface ChartAgentActiveIndicator {
 /** Minimum sufficient, detached chart context for Agent runs and tools. */
 export interface ChartAgentContextSnapshot {
   readonly chartId: string
+  /** 展示代码：永续带 `.P` 后缀，与图表工具栏和搜索输入保持同一写法。 */
   readonly symbol: string | null
   readonly symbolName: string | null
   readonly market: string | null

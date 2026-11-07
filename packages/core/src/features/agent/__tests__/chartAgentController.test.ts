@@ -316,6 +316,27 @@ describe('createChartAgentController', () => {
     expect(snapshot.activeIndicators[0]?.params.period).toBe(14)
   })
 
+  it('shows the perpetual display code with the .P suffix', () => {
+    const fixture = createFixture()
+
+    fixture.currentSpec.set({
+      symbol: 'BTCUSDT',
+      market: 'BINANCE_PERP',
+      instrument: {
+        id: 'fixture:perp:BTCUSDT',
+        sourceId: 'fixture',
+        symbol: 'BTCUSDT',
+        name: 'Bitcoin',
+        instrumentType: 'crypto',
+        exchange: 'BINANCE',
+        providerRef: { market: 'perp' },
+        capabilities: {},
+      },
+    })
+
+    expect(fixture.controller.getContext().symbol).toBe('BTCUSDT.P')
+  })
+
   it('projects the server-provided K-line timezone', () => {
     const fixture = createFixture()
 
