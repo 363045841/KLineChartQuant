@@ -85,3 +85,7 @@ packages/core/design-tokens/reports/
 packages/core/design-tokens/proposals/
 .zed/
 .vscode/
+
+# 本地会话工作区：交接文档与运维记录，不随仓库分发
+.scratch/
+.dsh-ops/
