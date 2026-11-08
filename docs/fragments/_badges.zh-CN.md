@@ -1,10 +1,6 @@
 <div align="center">
 
-{{include:_brand-logo.md}}
-
 [English](README.md) | 简体中文
-
-# KLineChartQuant
 
 **渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 
