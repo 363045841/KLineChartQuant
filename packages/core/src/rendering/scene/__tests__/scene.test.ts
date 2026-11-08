@@ -212,6 +212,8 @@ describe('createScene', () => {
     const input = frame('main')
     const pane = input.panes[0]!
     const target = pane.targets.main!
+    const ensureMainTarget = vi.fn(() => target)
+    pane.ensureMainTarget = ensureMainTarget
     const paint = vi.fn<PrimitiveSurface['paint']>().mockReturnValue(success)
     pane.gpuSurface = { canvas: target.canvas, paint, dispose() {} }
     scene.addLayer({
@@ -234,6 +236,23 @@ describe('createScene', () => {
     })
     scene.paint(input)
     expect(paint).toHaveBeenCalledOnce()
+    // 回退重放前必须先恢复主表面的像素；成功直出无需分配。
+    if (success) expect(ensureMainTarget).not.toHaveBeenCalled()
+    else {
+      expect(ensureMainTarget).toHaveBeenCalledOnce()
+      expect(pane.renderer.primitives.paint).toHaveBeenCalledWith(
+        target,
+        [
+          { kind: 'circle', x: 10, y: 2, radius: 4, color: '#ffffff' },
+          { kind: 'circle', x: 10, y: 258, radius: 4, color: '#ffffff' },
+        ],
+        2,
+        undefined,
+      )
+      expect(ensureMainTarget.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(pane.renderer.primitives.paint).mock.invocationCallOrder[0]!,
+      )
+    }
     expect(paint.mock.calls[0]?.[4]).toEqual({ x: 0, y: 0, width: 300, height: 260 })
     // 失败回退时在同一完整边界内重新合成，不能丢失或恢复旧裁剪。
     expect(target.rect).toHaveBeenCalledTimes(success ? 1 : 2)
@@ -298,30 +317,18 @@ describe('createScene', () => {
     expect(secondBatch).toEqual([circle(2)])
   })
 
-  it('addLayer then getLayer round-trips by id', () => {
+  it('keeps the first layer per id and disposes it once across removal and shutdown', () => {
     const scene = createScene<FrameStub>()
     const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
     scene.addLayer(a)
+    scene.addLayer(makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 9 }))
     expect(scene.getLayer('a')).toBe(a)
+    expect(scene.layers.peek()).toHaveLength(1)
     expect(scene.getLayer('missing')).toBeNull()
-  })
-
-  it('removeLayer returns true on hit and false on miss', () => {
-    const scene = createScene<FrameStub>()
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
-    scene.addLayer(a)
     expect(scene.removeLayer('missing')).toBe(false)
     expect(scene.removeLayer('a')).toBe(true)
     expect(scene.getLayer('a')).toBeNull()
     expect(scene.removeLayer('a')).toBe(false)
-  })
-
-  it('removeLayer disposes the detached layer exactly once', () => {
-    const scene = createScene<FrameStub>()
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
-    scene.addLayer(a)
-
-    expect(scene.removeLayer('a')).toBe(true)
     expect(a.disposeCalls).toBe(1)
 
     // 已移除的层不再被 scene.dispose 二次释放
@@ -368,16 +375,6 @@ describe('createScene', () => {
     const refs = new Set(seen)
     expect(refs.size).toBe(3)
     expect(seen[2]?.map((l) => l.id)).toEqual(['b'])
-  })
-
-  it('duplicate id on addLayer is silently ignored (first wins)', () => {
-    const scene = createScene<FrameStub>()
-    const first = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
-    const imposter = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 9 })
-    scene.addLayer(first)
-    scene.addLayer(imposter)
-    expect(scene.getLayer('a')).toBe(first)
-    expect(scene.layers.peek()).toHaveLength(1)
   })
 
   it('setLayerVisibility toggles the field on the existing layer', () => {

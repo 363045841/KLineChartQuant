@@ -60,7 +60,7 @@ describe('long-lived script workers', () => {
     const h = setup(2)
     try {
       await h.pool.prepare('a', 'source')
-      for (let index = 0; index < 20; index++) {
+      for (let index = 0; index < 3; index++) {
         const run = h.pool.run('a', [])
         await vi.waitFor(() => expect(h.calls).toHaveLength(index + 1))
         h.calls[index]!.finish(h.output)

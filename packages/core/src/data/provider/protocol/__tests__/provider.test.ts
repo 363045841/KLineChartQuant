@@ -94,8 +94,6 @@ describe('createMarketDataProvider', () => {
     { requested: 1, sourceLimit: 798, instrumentLimit: undefined, expected: 1 },
     { requested: 798, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
     { requested: 799, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
-    { requested: 3099, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
-    { requested: 5000, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
     { requested: 3099, sourceLimit: undefined, instrumentLimit: 500, expected: 500 },
     { requested: 3099, sourceLimit: 798, instrumentLimit: 200, expected: 200 },
     { requested: 3099, sourceLimit: undefined, instrumentLimit: undefined, expected: 3099 },
@@ -169,7 +167,7 @@ describe('createMarketDataProvider', () => {
     const provider = createProvider(
       fakeTransport({
         searchInstruments: async () => ({
-          items: [instrument as unknown as InstrumentDescriptor],
+          items: [instrument],
         }),
       }),
     )

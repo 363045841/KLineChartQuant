@@ -97,17 +97,9 @@ describe('共享脚本语义会话', () => {
     expect(display).toContain('Color | (string & {})')
   })
 
-  it('title 是 defineIndicator 的合法展示名', () => {
+  it('带 title 的指标接受 Request 的 Timeframe 参数，并拒绝 Provider 周期名', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(
-      `defineIndicator({ name: 'Titled', title: '展示名', position: Position.Sub, onBar() {} })`,
-    )
-    expect(diagnosticCodes(session)).toEqual([])
-  })
-
-  it('request.security 是编辑器可见的全局接口', () => {
-    const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ name: 'Request', position: Position.Main, onBar() {
+    session.updateSource(`defineIndicator({ name: 'Request', title: '展示名', position: Position.Main, onBar() {
       const timeframe = input.timeframe(Timeframe.Hour1, { options: [Timeframe.Hour1, Timeframe.Day] })
       const [o, h, l, c] = request.security(syminfo.tickerid, timeframe, () => [open, high, low, close] as const)
       const ma: number = request.security('BTCUSDT', Timeframe.Hour1, () => ta.sma(close, 20), { source: DataSource.Binance, calcBarsCount: 300, gaps: 'off' })
@@ -115,10 +107,6 @@ describe('共享脚本语义会话', () => {
       plot.Line(ma, 'ma')
     } })`)
     expect(diagnosticCodes(session)).toEqual([])
-  })
-
-  it('目标周期只接受 Timeframe，Provider 周期名不再通过类型检查', () => {
-    const session = createScriptLanguageSession()
     session.updateSource(`defineIndicator({ name: 'RawPeriod', position: Position.Main, onBar() {
       const ma: number = request.security(syminfo.tickerid, 'daily', () => ta.sma(close, 20))
       plot.Line(ma, 'ma')

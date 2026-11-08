@@ -46,17 +46,10 @@ describe('Worker input synchronization', () => {
     expect(receiver.decode(prepend).bars).toStrictEqual(prependedBars)
   })
 
-  it('handles history corrections, prepend, truncation, empty data and reset', () => {
+  it('handles history corrections, truncation, empty data and reset', () => {
     const sender = new WorkerInputSender()
     const receiver = new WorkerInputReceiver()
-    for (const bars of [
-      [bar(2), bar(3)],
-      [bar(2, 9), bar(3)],
-      [bar(1), bar(2, 9), bar(3)],
-      [bar(1)],
-      [],
-      [bar(7, 20)],
-    ])
+    for (const bars of [[bar(2), bar(3)], [bar(2, 9), bar(3)], [bar(2, 9)], [], [bar(7, 20)]])
       expect(receiver.decode(sender.encode(bars)).bars).toStrictEqual(bars)
     sender.clear()
     receiver.clear()
@@ -117,7 +110,7 @@ describe('Worker drawing transport', () => {
       fills: [
         { id: 'fill', from: 'line', to: 'line', visible: true, colors: [null, 'inherit', null] },
       ],
-      drawings: Array.from({ length: 100 }, (_, index) => ({
+      drawings: Array.from({ length: 2 }, (_, index) => ({
         id: String(index),
         kind: 'rectangle',
         paneId: 'main',

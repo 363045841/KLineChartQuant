@@ -65,18 +65,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
     script.dispose()
   })
 
-  it('same-bar update matches a fresh full run', () => {
-    const script = prepare(plotSource)
-    const bars = [bar(0, 10), bar(60_000, 20)]
-    const changed = [bar(0, 10), bar(60_000, 30)]
-    script.run(bars)
-    const updated = script.run(changed)
-    const fresh = prepare(plotSource).run(changed)
-    expect(updated).toEqual(fresh)
-    script.dispose()
-  })
-
-  it('stateless range keeps results outside the range', () => {
+  it('same-bar updates preserve earlier results with inferred and explicit ranges', () => {
     const script = prepare(plotSource)
     const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
     const first = script.runDetailed(bars, {}, undefined, { start: 0, end: 3 })
@@ -86,6 +75,8 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
       )
     // 会话输出是运行态视图；下一次运行前先快照本次结果。
     const firstValues = values(first)
+    const inferred = script.runDetailed([bars[0]!, bars[1]!, bar(120_000, 50)])
+    expect(values(inferred)).toEqual([10, 20, 50])
     const changed = [bar(0, 10), bar(60_000, 20), bar(120_000, 99)]
     const second = script.runDetailed(changed, {}, undefined, { start: 2, end: 3 })
     expect(firstValues).toEqual([10, 20, 30])

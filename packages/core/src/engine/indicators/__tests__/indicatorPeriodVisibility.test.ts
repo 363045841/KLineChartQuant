@@ -1,5 +1,6 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
 import {
   createIndicatorLayer,
   isLayerVisibleOnPeriod,
@@ -67,7 +68,7 @@ function fakeDefinition(
 }
 
 describe('renderer layer gating', () => {
-  it('未声明范围时直接复用 Layer，声明后按周期拦截绘制', () => {
+  it('未声明范围时直接复用 Layer', () => {
     const layer = fakeLayer()
     expect(isLayerVisibleOnPeriod(fakeDefinition(layer), 'daily')).toBe(true)
     const assembled = createIndicatorLayer({
@@ -77,15 +78,11 @@ describe('renderer layer gating', () => {
       instanceId: 'fake_main',
     })
     expect(assembled).toBe(layer)
-
-    const definition = fakeDefinition(fakeLayer(), [{ unit: 'minute' }, { unit: 'hour' }])
-    expect(isLayerVisibleOnPeriod(definition, '5min')).toBe(true)
-    expect(isLayerVisibleOnPeriod(definition, '4h')).toBe(true)
-    expect(isLayerVisibleOnPeriod(definition, 'daily')).toBe(false)
   })
 
-  it('声明范围时返回包裹后的新 Layer，并保留身份', () => {
+  it('声明范围时保留 Layer 身份，并实际拦截及恢复绘制', () => {
     const layer = fakeLayer()
+    const paint = vi.spyOn(layer, 'paint')
     const assembled = createIndicatorLayer({
       definition: fakeDefinition(layer, [{ unit: 'minute' }]),
       paneId: 'main',
@@ -95,5 +92,14 @@ describe('renderer layer gating', () => {
     expect(assembled).not.toBe(layer)
     expect(assembled.id).toBe(layer.id)
     expect(assembled.pane).toBe(layer.pane)
+    assembled.paint({
+      ...createMockRenderContext({ period: 'daily' }),
+      paneId: 'main',
+      clear: false,
+    })
+    expect(paint).not.toHaveBeenCalled()
+    const context = { ...createMockRenderContext({ period: '5min' }), paneId: 'main', clear: false }
+    assembled.paint(context)
+    expect(paint).toHaveBeenCalledExactlyOnceWith(context)
   })
 })

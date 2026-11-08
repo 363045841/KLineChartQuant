@@ -387,7 +387,7 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('preserves existing proportions when adding a pane and persists only explicit boundary changes', async () => {
+  it('starts with a 3:1 split, preserves proportions on addition and persists boundary changes', async () => {
     const chart = mountChart(1000, 1000)
     try {
       const indicatorId = 'pane-ratio-fixture'
@@ -400,6 +400,8 @@ describe('Chart lifecycle without a market selection', () => {
       const first = chart.indicators.add(indicatorId)
       expect(first).not.toBeNull()
       const paneId = chart.indicators.subPanes.peek()[0]!.paneId
+      expect(chart.paneRatios.peek().main).toBeCloseTo(0.75)
+      expect(chart.paneRatios.peek()[paneId]).toBeCloseTo(0.25)
       chart.panes.update('main', { ratio: 0.8 })
       chart.panes.update(paneId, { ratio: 0.2 })
       const previous = chart.paneRatios.peek()
@@ -415,27 +417,6 @@ describe('Chart lifecycle without a market selection', () => {
       chart.resize()
       chart.draw()
       expect(chart.kernel.exportLayout().workspaces).toEqual(resized)
-    } finally {
-      await chart.destroy()
-    }
-  })
-
-  it('gives a newly created sub pane the default 3:1 split', async () => {
-    const chart = mountChart(1000, 1000)
-    try {
-      const indicatorId = 'default-sub-pane-ratio'
-      registerPlotIndicator({
-        id: indicatorId,
-        name: indicatorId,
-        inputs: {},
-        compute: () => ({ plots: [], fills: [] }),
-      })
-      const instanceId = chart.indicators.add(indicatorId)
-      expect(instanceId).not.toBeNull()
-      const paneId = chart.indicators.subPanes.peek()[0]!.paneId
-      const ratios = chart.paneRatios.peek()
-      expect(ratios.main).toBeCloseTo(0.75)
-      expect(ratios[paneId]).toBeCloseTo(0.25)
     } finally {
       await chart.destroy()
     }

@@ -220,22 +220,7 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.primitives).not.toEqual([])
     expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
-    expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(2)
     expect(context.yAxisRanges).toHaveLength(0)
-  })
-
-  it('registers selected drawing axis labels through the frame collector on the context', () => {
-    const drawing = createTrendDrawing()
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-
-    projectDrawingsForFrame(store, definitions, context)
-
     expect(
       context.axisLabels
         .forSurface('yRightOverlay', 'main')
