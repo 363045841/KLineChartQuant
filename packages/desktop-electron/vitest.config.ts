@@ -13,6 +13,7 @@ export default defineConfig({
   plugins: [vue(), Icons({ compiler: 'vue3' })],
   resolve: {
     alias: [
+      { find: /^@vue-src\//, replacement: fileURLToPath(new URL('../vue/src/', import.meta.url)) },
       {
         find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
         replacement: agentContracts,

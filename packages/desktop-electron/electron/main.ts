@@ -12,9 +12,10 @@ import { APPLICATION_ICON } from './app-icon'
 import { installApplicationMenu } from './app-menu'
 import { type ManagedBackendHost, startManagedBackends } from './backends'
 import { EncryptedCredentialStore, registerCredentialIpc } from './credential-ipc'
+import { createMainWindow } from './main-window'
 import { WINDOW_CHANNELS } from './window-bridge'
 import { registerWindowIpc } from './window-ipc'
-import { loadWorkspaceIds, saveWorkspaceIds } from './window-store'
+import { createWorkspaceSessionStore } from './window-store'
 import { createWindowSet, type WindowSet } from './windows'
 
 let backends: ManagedBackendHost | undefined
@@ -28,7 +29,10 @@ function notifyWorkspaceChanged(): void {
 }
 
 /** 启动应用：先拉起随包分发的行情后端，再注册 IPC、菜单并恢复窗口。 */
-async function startApplication(activeWindows: WindowSet): Promise<void> {
+async function startApplication(
+  activeWindows: WindowSet,
+  session: ReturnType<typeof createWorkspaceSessionStore>,
+): Promise<void> {
   const userDataPath = app.getPath('userData')
 
   // 开发态也显示平台标识；安装后的 macOS 应用直接使用包内 ICNS。
@@ -66,7 +70,7 @@ async function startApplication(activeWindows: WindowSet): Promise<void> {
     },
   })
 
-  const restored = await loadWorkspaceIds(userDataPath)
+  const restored = await session.load()
   for (const workspaceId of restored.length > 0 ? restored : [randomUUID()]) {
     activeWindows.open(workspaceId)
   }
@@ -81,13 +85,16 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   const userDataPath = app.getPath('userData')
+  const session = createWorkspaceSessionStore(userDataPath)
   const activeWindows = createWindowSet((workspaceIds) => {
-    void saveWorkspaceIds(userDataPath, workspaceIds)
-  })
+    void session
+      .save(workspaceIds)
+      .catch((error: unknown) => console.error('Window session save failed', error))
+  }, createMainWindow)
 
   app.on('second-instance', () => activeWindows.focusAny())
 
-  app.whenReady().then(() => startApplication(activeWindows))
+  app.whenReady().then(() => startApplication(activeWindows, session))
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
@@ -97,9 +104,12 @@ if (!app.requestSingleInstanceLock()) {
 
   // 退出前先回收后端子进程；`quitting` 防住 app.quit() 再次进入本钩子。
   app.on('before-quit', (event) => {
-    if (quitting || !backends) return
+    if (quitting) return
     event.preventDefault()
     quitting = true
-    void backends.dispose().finally(() => app.quit())
+    activeWindows.preserveSession()
+    void Promise.all([session.flush(), backends?.dispose()])
+      .catch((error: unknown) => console.error('Desktop shutdown failed', error))
+      .finally(() => app.quit())
   })
 }

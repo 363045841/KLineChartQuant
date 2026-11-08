@@ -32,7 +32,7 @@ function isWorkspaceRecord(value: unknown): value is WorkspaceRecord {
  * @param userDataPath 用户数据目录
  * @returns 工作区身份列表；文件缺失或损坏时为空列表（等同于“没有上次会话”）
  */
-export async function loadWorkspaceIds(userDataPath: string): Promise<ReadonlyArray<string>> {
+async function loadWorkspaceIds(userDataPath: string): Promise<ReadonlyArray<string>> {
   try {
     const raw = await readFile(join(userDataPath, WORKSPACE_FILE_NAME), 'utf8')
     const parsed: unknown = JSON.parse(raw)
@@ -48,7 +48,7 @@ export async function loadWorkspaceIds(userDataPath: string): Promise<ReadonlyAr
  * @param userDataPath 用户数据目录
  * @param workspaceIds 存活工作区身份
  */
-export async function saveWorkspaceIds(
+async function saveWorkspaceIds(
   userDataPath: string,
   workspaceIds: ReadonlyArray<string>,
 ): Promise<void> {
@@ -56,11 +56,32 @@ export async function saveWorkspaceIds(
   const record: WorkspaceRecord = { version: WORKSPACE_FILE_VERSION, workspaceIds }
   await mkdir(dirname(path), { recursive: true })
   const temporaryPath = `${path}.tmp`
-  await writeFile(temporaryPath, JSON.stringify(record), 'utf8')
   try {
+    await writeFile(temporaryPath, JSON.stringify(record), 'utf8')
     await rename(temporaryPath, path)
   } catch (error) {
     await rm(temporaryPath, { force: true })
     throw error
+  }
+}
+
+/** 每个应用实例持有一个清单仓库；按调用顺序提交，并在退出前等待队列排空。 */
+export function createWorkspaceSessionStore(userDataPath: string) {
+  let queue: Promise<void> = Promise.resolve()
+  return {
+    /** 读取已提交会话；不与本实例尚未完成的写入竞争。 */
+    async load(): Promise<ReadonlyArray<string>> {
+      await queue
+      return loadWorkspaceIds(userDataPath)
+    },
+    /** 立即捕获快照，失败由调用方处理，后续保存仍能继续。 */
+    save(workspaceIds: ReadonlyArray<string>): Promise<void> {
+      const snapshot = [...workspaceIds]
+      const result = queue.then(() => saveWorkspaceIds(userDataPath, snapshot))
+      queue = result.catch(() => {})
+      return result
+    },
+    /** 写入错误已由 save 的调用方接收，这里只等待所有提交结束。 */
+    flush: () => queue,
   }
 }

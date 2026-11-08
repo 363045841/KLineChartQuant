@@ -63,7 +63,7 @@
   import { useWorkspaceTabs } from './shell/use-workspace-tabs'
   import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './shell/window-shell'
   import { workspaceAccent } from './shell/workspace-accent'
-  import { tabLabelForSpec, type TabDropTarget } from './shell/workspace-tabs'
+  import { type TabDropTarget, tabLabelForSpec } from './shell/workspace-tabs'
 
   /** E2E 也走注册数据源，不提供旁路行情入口；产品模式复用的持久化宿主与 Web 完全相同。 */
   function createMarket(): PersistedMarketDataHost & {
@@ -109,7 +109,9 @@
 
   /** 图表当前品种回写到标签，标签标题始终跟随图表而不是另存一份。 */
   function syncSpec(tabId: string, controller: ChartController): void {
-    tabs.setSpec(tabId, controller.symbols.peek()[0] ?? null)
+    void tabs
+      .setSpec(tabId, controller.symbols.peek()[0] ?? null)
+      .catch((error: unknown) => console.error('Tab symbol save failed', error))
   }
 
   /** 图表就绪：恢复标签保存的品种，再接管后续品种回报。 */
@@ -133,7 +135,7 @@
     const tab = tabs.tabs.value.find((candidate) => candidate.id === tabId)
     if (!tab) return
     await windowShell.openWindow([tab])
-    tabs.removeTab(tabId)
+    await tabs.removeTab(tabId)
   }
 
   /** 拖入标签：本地完成两边写入；源工作区被搬空时直接关掉那扇窗口。 */
@@ -162,7 +164,7 @@
     })
     await tabs.restore(await windowShell.consumeInitialTabs())
     unsubscribeWorkspace = windowShell.onWorkspaceChanged(() => {
-      void tabs.reload()
+      void tabs.reload().catch((error: unknown) => console.error('Workspace reload failed', error))
     })
   })
 

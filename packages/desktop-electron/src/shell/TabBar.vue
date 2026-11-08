@@ -125,6 +125,7 @@
   import IconX from '~icons/tabler/x'
   import type { WorkspaceTab } from '../../electron/window-bridge'
   import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
+  import { readTabDragPayload, type TabDragPayload } from './tab-drag'
   import type { TabDropTarget, TabPlacement } from './workspace-tabs'
   import { tabLabelForSpec } from './workspace-tabs'
 
@@ -153,12 +154,6 @@
     toggleMaximize: []
     closeWindow: []
   }>()
-
-  /** 拖拽载荷：只带身份，不搬运图表状态。 */
-  interface TabDragPayload {
-    readonly fromWorkspaceId: string
-    readonly tabId: string
-  }
 
   const draggingId = ref<string | null>(null)
   // 插入位置只用于画指示线，真实顺序始终由标签数组决定。
@@ -320,13 +315,8 @@
   function onDrop(event: DragEvent): void {
     const raw = event.dataTransfer?.getData('text/plain')
     if (!raw) return
-    let payload: TabDragPayload
-    try {
-      payload = JSON.parse(raw) as TabDragPayload
-    } catch {
-      return
-    }
-    if (!payload.fromWorkspaceId || !payload.tabId) return
+    const payload = readTabDragPayload(raw)
+    if (!payload) return
     // 落点先取出再清空：drop 之后本窗口收不到 dragend，指示线必须在这里复位。
     const target = dropTarget.value
     clearDropTarget()
