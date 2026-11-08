@@ -1,6 +1,5 @@
 /** 指标收藏视图：订阅 Core 唯一状态，仅持有当前导航项，不复制收藏数据。 */
 
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import type {
   ChartController,
   IndicatorDefinition,
@@ -33,10 +32,8 @@ export function useIndicatorFavorites(
       ? availableIndicators.value.filter((indicator) => favoriteSet.value.has(indicator.id))
       : availableIndicators.value.filter((indicator) =>
           section.value === INDICATOR_SELECTOR_SECTIONS.scripts
-            ? indicator.source === 'script' &&
-              getRegisteredIndicatorDefinition(indicator.id)?.document?.identity === 'user'
-            : indicator.source !== 'script' ||
-              getRegisteredIndicatorDefinition(indicator.id)?.document?.identity === 'builtin',
+            ? indicator.documentIdentity === 'user'
+            : indicator.source !== 'script' || indicator.documentIdentity === 'builtin',
         ),
   )
 

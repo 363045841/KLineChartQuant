@@ -32,6 +32,7 @@ export function toIndicatorDefinition(indicator: Indicator): IndicatorDefinition
     name: indicator.name,
     description: indicator.description,
     role: indicator.pane,
+    documentIdentity: indicator.documentIdentity,
     params: (indicator.params ?? []).map(toParamDef),
   }
 }

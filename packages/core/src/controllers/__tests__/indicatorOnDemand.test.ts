@@ -88,6 +88,7 @@ describe('static catalog fidelity', () => {
             allowMainPane: definition.allowMainPane,
             visiblePeriods: definition.visiblePeriods,
             multiInstance: definition.multiInstance,
+            documentIdentity: definition.document?.identity,
             defaultParams:
               typeof runtimeDefaults === 'function' ? runtimeDefaults() : runtimeDefaults,
             inputDefs: runtimeInputDefs,
