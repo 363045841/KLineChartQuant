@@ -49,3 +49,22 @@ export function readWorkspaceId(search: string = globalThis.location.search): st
   }
   return workspaceId
 }
+
+/**
+ * 读取本窗口的工作区标识色槽位。
+ *
+ * 槽位由主进程分配，保证同时打开的窗口不撞色；缺失说明窗口不是由主进程创建的，
+ * 直接失败而不是回退到某个固定颜色。
+ *
+ * @param search 当前页面查询串
+ * @returns 非负整数槽位
+ */
+export function readWorkspaceAccent(search: string = globalThis.location.search): number {
+  const value = new URLSearchParams(search).get('accent')
+  // 缺失时不能走 Number(null) === 0，否则所有窗口都会落到第一个色槽。
+  const slot = value === null ? Number.NaN : Number(value)
+  if (!Number.isInteger(slot) || slot < 0) {
+    throw new Error('The desktop window is missing its accent slot.')
+  }
+  return slot
+}

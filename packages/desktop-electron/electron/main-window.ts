@@ -21,9 +21,10 @@ const WINDOW_BACKGROUND = { light: '#F5F5F7', dark: '#151619' } as const
  * 创建一扇应用窗口并加载界面。
  *
  * @param workspaceId 工作区身份；渲染进程据此恢复自己的标签页集合
+ * @param accentSlot 工作区标识色槽位；由窗口集合分配，保证同屏窗口不撞色
  * @returns 已配置好标题栏、preload 与加载入口的窗口；调用方负责显示时机以外的生命周期
  */
-export function createMainWindow(workspaceId: string): BrowserWindow {
+export function createMainWindow(workspaceId: string, accentSlot: number): BrowserWindow {
   const isMac = process.platform === 'darwin'
   const window = new BrowserWindow({
     width: 1400,
@@ -56,14 +57,15 @@ export function createMainWindow(workspaceId: string): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // 工作区身份经 URL 下发：preload 不读取 argv，渲染进程也不需要额外 IPC 就能取到。
+  // 工作区身份与标识色槽位经 URL 下发：preload 不读取 argv，渲染进程也不需要额外 IPC 就能取到。
   if (process.env.ELECTRON_RENDERER_URL) {
     const url = new URL(process.env.ELECTRON_RENDERER_URL)
     url.searchParams.set('workspace', workspaceId)
+    url.searchParams.set('accent', String(accentSlot))
     void window.loadURL(url.toString())
   } else {
     void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
-      query: { workspace: workspaceId },
+      query: { workspace: workspaceId, accent: String(accentSlot) },
     })
   }
 

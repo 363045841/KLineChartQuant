@@ -61,7 +61,7 @@
   import { createElectronCredentialStore } from './features/agent/electron-credential-store'
   import TabBar from './shell/TabBar.vue'
   import { useWorkspaceTabs } from './shell/use-workspace-tabs'
-  import { readWindowShell, readWorkspaceId } from './shell/window-shell'
+  import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './shell/window-shell'
   import { workspaceAccent } from './shell/workspace-accent'
   import { tabLabelForSpec, type TabDropTarget } from './shell/workspace-tabs'
 
@@ -90,7 +90,7 @@
   const shellStyle = { '--desktop-titlebar-height': `${windowShell.titleBarHeight}px` }
   const market = createMarket()
   const period = KLinePeriod.Daily
-  const accent = workspaceAccent(workspaceId)
+  const accent = workspaceAccent(readWorkspaceAccent())
   const tabs = useWorkspaceTabs(workspaceId)
   /** 最大化状态以主进程推送为准，按钮图标据此切换。 */
   const maximized = ref(false)

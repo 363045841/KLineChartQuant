@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { WINDOW_BRIDGE_KEY } from '../../electron/window-bridge'
 
-import { readWindowShell, readWorkspaceId } from './window-shell'
+import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './window-shell'
 
 /** preload 会注入的窗口桥。 */
 function createBridge() {
@@ -56,5 +56,20 @@ describe('readWorkspaceId', () => {
 
   it('缺少身份时直接失败，不退回到默认工作区', () => {
     expect(() => readWorkspaceId('')).toThrow(/workspace id/)
+  })
+})
+
+describe('readWorkspaceAccent', () => {
+  it('从查询串读取色槽位', () => {
+    expect(readWorkspaceAccent('?accent=3')).toBe(3)
+  })
+
+  it.each([
+    ['缺少槽位', ''],
+    ['槽位不是整数', '?accent=1.5'],
+    ['槽位为负', '?accent=-1'],
+    ['槽位不是数字', '?accent=red'],
+  ])('%s时直接失败，不退回到固定颜色', (_label, search) => {
+    expect(() => readWorkspaceAccent(search)).toThrow(/accent slot/)
   })
 })
