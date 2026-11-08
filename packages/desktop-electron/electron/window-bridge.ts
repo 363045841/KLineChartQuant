@@ -49,9 +49,7 @@ export function isSymbolSpec(value: unknown): value is SymbolSpec {
  */
 export interface WorkspaceTab {
   readonly id: string
-  /** 标签标题，取当前品种代码；空标签页使用默认标题。 */
-  readonly label: string
-  /** 图表完整的品种描述；恢复时直接写回图表，不经过数据源解析。 */
+  /** 图表完整的品种描述；标题在渲染时由它派生，恢复时直接写回图表，不经过数据源解析。 */
   readonly spec: SymbolSpec | null
 }
 

@@ -33,15 +33,15 @@ function readWorkspaceTabs(value: unknown): ReadonlyArray<WorkspaceTab> {
     if (typeof item !== 'object' || item === null) {
       throw new TypeError('A transferred tab must be an object.')
     }
-    const { id, label, spec } = item as Record<string, unknown>
-    if (typeof id !== 'string' || id.length === 0 || typeof label !== 'string') {
-      throw new TypeError('A transferred tab needs an id and a label.')
+    const { id, spec } = item as Record<string, unknown>
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new TypeError('A transferred tab needs an id.')
     }
-    if (spec === null) return { id, label, spec: null }
+    if (spec === null) return { id, spec: null }
     if (!isSymbolSpec(spec)) {
       throw new TypeError('A transferred tab spec must be a chart symbol spec or null.')
     }
-    return { id, label, spec }
+    return { id, spec }
   })
 }
 

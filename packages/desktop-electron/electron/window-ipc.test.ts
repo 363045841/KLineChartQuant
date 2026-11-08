@@ -12,7 +12,6 @@ const trustedSender = { id: 1 }
 const mainFrame: WindowIpcEvent = { sender: trustedSender, senderFrame: { parent: null } }
 const transferredTab: WorkspaceTab = {
   id: 'tab-1',
-  label: 'SOLUSDT',
   spec: { symbol: 'SOLUSDT', market: 'binance' },
 }
 
@@ -80,7 +79,7 @@ describe('registerWindowIpc — 来源门禁', () => {
 })
 
 describe('registerWindowIpc — 窗口控制', () => {
-  it('最小化、关闭只作用于发起调用的窗口', async () => {
+  it('把最小化与关闭转发给来源窗口', async () => {
     const { call, window } = setup()
 
     await expect(call(WINDOW_CHANNELS.minimizeWindow)).resolves.toBeNull()
@@ -129,8 +128,8 @@ describe('registerWindowIpc — 新建窗口', () => {
 
   const malformed: ReadonlyArray<readonly [string, unknown]> = [
     ['空数组', []],
-    ['标签缺少 id', [{ label: 'X', spec: null }]],
-    ['品种描述不完整', [{ id: 't', label: 'X', spec: { symbol: 'X' } }]],
+    ['标签缺少 id', [{ spec: null }]],
+    ['品种描述不完整', [{ id: 't', spec: { symbol: 'X' } }]],
   ]
 
   it.each(malformed)('拒绝%s的标签载荷', async (_label, tabs) => {
@@ -177,12 +176,15 @@ describe('registerWindowIpc — 标签移交与接管', () => {
     expect(notifyWorkspaceChanged).toHaveBeenCalledTimes(1)
   })
 
-  it('拒绝缺少来源或标签身份的接管请求', async () => {
+  it.each([
+    ['缺少来源工作区', { tabId: 'tab-1' }],
+    ['缺少标签身份', { fromWorkspaceId: 'w-1' }],
+  ] as const)('拒绝%s的接管请求', async (_label, request) => {
     const { call, notifyWorkspaceChanged } = setup()
 
-    await expect(
-      call(WINDOW_CHANNELS.adoptTab, mainFrame, { tabId: 'tab-1' }),
-    ).rejects.toBeInstanceOf(TypeError)
+    await expect(call(WINDOW_CHANNELS.adoptTab, mainFrame, request)).rejects.toBeInstanceOf(
+      TypeError,
+    )
     expect(notifyWorkspaceChanged).not.toHaveBeenCalled()
   })
 })

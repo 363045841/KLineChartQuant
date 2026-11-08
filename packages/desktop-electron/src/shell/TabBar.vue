@@ -17,6 +17,7 @@
       </ColorAvatar>
       <div
         class="tab-bar__list"
+        ref="list"
         role="tablist"
         aria-label="标签页"
         @dragover="onListDragOver"
@@ -43,13 +44,13 @@
           @dragstart="onDragStart($event, tab.id)"
           @dragend="onDragEnd($event, tab.id)"
         >
-          <span class="tab-bar__label">{{ tab.label }}</span>
+          <span class="tab-bar__label">{{ tabLabelForSpec(tab.spec) }}</span>
           <IconX
             v-if="tabs.length > 1"
             class="tab-bar__close"
             role="button"
             tabindex="0"
-            :aria-label="`关闭 ${tab.label}`"
+            :aria-label="`关闭 ${tabLabelForSpec(tab.spec)}`"
             draggable="false"
             @pointerdown.stop
             @click.stop="emit('close', tab.id)"
@@ -61,6 +62,14 @@
           <IconPlus class="tab-bar__create-icon" aria-hidden="true" />
         </button>
       </div>
+      <!-- 标题居中显示；标签延伸到这一区域时自动让位。 -->
+      <span
+        ref="title"
+        class="tab-bar__title"
+        :class="{ 'is-hidden': !showTitle }"
+        aria-hidden="true"
+        >KCQ Desktop</span
+      >
       <!-- macOS 用系统红绿灯，其它平台自绘窗口按钮；图标取自 OpenChamber 的经典 Windows 样式。 -->
       <div v-if="platform !== 'darwin'" class="tab-bar__controls">
         <button type="button" class="tab-bar__control" aria-label="最小化" @click="emit('minimize')">
@@ -111,11 +120,12 @@
 
 <script setup lang="ts">
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
-  import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
+  import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import brandLogoMarkup from '../../../../docs/Pics/kcq-logo.svg?raw'
   import type { WorkspaceTab } from '../../electron/window-bridge'
+  import { tabLabelForSpec } from './workspace-tabs'
   import type { TabDropTarget, TabPlacement } from './workspace-tabs'
 
   const props = defineProps<{
@@ -154,8 +164,46 @@
   // 插入位置只用于画指示线，真实顺序始终由标签数组决定。
   const dropTarget = ref<TabDropTarget | null>(null)
   const bar = useTemplateRef<HTMLElement>('bar')
+  const list = useTemplateRef<HTMLElement>('list')
+  const title = useTemplateRef<HTMLElement>('title')
+  /** 标签没堆到中间时显示窗口标题。 */
+  const showTitle = ref(true)
   // 同窗口落点提交后 dragend 仍会触发，用它区分“拖出窗口”。
   let dropped = false
+
+  /** 标题与标签内容之间保留的最小间隔。 */
+  const TITLE_GAP = 12
+
+  /** 标签内容右边缘越过标题左边缘时隐藏标题，避免文字叠压。 */
+  function updateTitleVisibility(): void {
+    const listEl = list.value
+    const titleEl = title.value
+    if (!listEl || !titleEl) return
+    const lastChild = listEl.lastElementChild
+    if (!lastChild) {
+      showTitle.value = true
+      return
+    }
+    const listLeft = listEl.getBoundingClientRect().left
+    const titleLeft = titleEl.getBoundingClientRect().left
+    // 取标签条最后一个子元素（新建按钮）的右边缘：scrollWidth 至少等于可视宽度，不能用作内容宽度。
+    const contentRight = lastChild.getBoundingClientRect().right - listLeft
+    showTitle.value = contentRight <= titleLeft - listLeft - TITLE_GAP
+  }
+
+  let listObserver: ResizeObserver | undefined
+
+  onMounted(() => {
+    const listEl = list.value
+    if (!listEl) return
+    // 尺寸变化（窗口缩放、字体加载）与标签增减都会改变可用宽度。
+    listObserver = new ResizeObserver(updateTitleVisibility)
+    listObserver.observe(listEl)
+    listEl.addEventListener('scroll', updateTitleVisibility, { passive: true })
+    updateTitleVisibility()
+  })
+
+  watch(() => props.tabs, updateTitleVisibility, { flush: 'post' })
 
   /** 只清落点指示线：指针离开标签栏，或落点已被消费时使用。 */
   function clearDropTarget(): void {
@@ -208,7 +256,11 @@
   }
 
   // 脱窗后标签会先被移除，dragend 可能不再派发；卸载时兜底复位。
-  onBeforeUnmount(endDrag)
+  onBeforeUnmount(() => {
+    endDrag()
+    listObserver?.disconnect()
+    list.value?.removeEventListener('scroll', updateTitleVisibility)
+  })
 
   /** 按指针横坐标解析插入点：命中标签中线前插前面，越过最后一个插末尾。 */
   function resolveDropTarget(list: HTMLElement, clientX: number): TabDropTarget | null {
@@ -470,6 +522,24 @@
   .tab-bar__create-icon {
     width: 16px;
     height: 16px;
+  }
+
+  /* 窗口标题居中；标签延伸到这一区域时隐藏。 */
+  .tab-bar__title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    color: var(--klc-color-text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .tab-bar__title.is-hidden {
+    visibility: hidden;
   }
 
   /* 自绘窗口按钮：贴住窗口右上角，高度占满标题栏。 */

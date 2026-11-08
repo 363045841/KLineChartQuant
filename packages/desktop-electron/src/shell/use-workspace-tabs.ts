@@ -10,7 +10,6 @@ import { computed, ref, shallowRef } from 'vue'
 import type { WorkspaceTab } from '../../electron/window-bridge'
 import {
   createBlankTab,
-  DEFAULT_TAB_LABEL,
   loadWorkspaceTabs,
   openWorkspaceTabsStore,
   readWorkspaceTabs,
@@ -88,14 +87,13 @@ export function useWorkspaceTabs(workspaceId: string) {
     commit({ ...state.value, activeTabId: tabId })
   }
 
-  /** 图表的品种变化回写到标签，标题始终跟随当前品种。 */
+  /** 图表的品种变化回写到标签；标题在渲染时由品种派生。 */
   function setSpec(tabId: string, spec: SymbolSpec | null): void {
     const current = state.value.tabs.find((tab) => tab.id === tabId)
     if (!current) return
-    const label = spec?.symbol ?? DEFAULT_TAB_LABEL
-    if (current.label === label && specKey(current.spec) === specKey(spec)) return
+    if (specKey(current.spec) === specKey(spec)) return
     commit({
-      tabs: state.value.tabs.map((tab) => (tab.id === tabId ? { ...tab, label, spec } : tab)),
+      tabs: state.value.tabs.map((tab) => (tab.id === tabId ? { ...tab, spec } : tab)),
       activeTabId: state.value.activeTabId,
     })
   }

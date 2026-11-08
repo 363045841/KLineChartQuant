@@ -4,6 +4,7 @@
  * 这里只记录“开了哪些标签页”，图表自身的状态归各图表实例所有；
  * 存储与布局归档完全分离，两边互不引用。
  */
+import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 import {
   createIndexedDbPersistence,
   type IndexedDbPersistence,
@@ -18,8 +19,20 @@ export const WORKSPACE_TABS_DATABASE = '@363045841yyt/klinechart-desktop'
 const WORKSPACE_TABS_DATABASE_VERSION = 1
 const WORKSPACE_TABS_STORE = 'workspaces'
 
-/** 空标签页的标题；用户选定品种后由图表回报替换。 */
-export const DEFAULT_TAB_LABEL = '新图表'
+/** 空标签页的标题；由 `tabLabelForSpec` 统一输出。 */
+const DEFAULT_TAB_LABEL = '新图表'
+
+/**
+ * 由品种描述派生标签标题，形如 `600519 · 贵州茅台`。
+ *
+ * @param spec 图表当前品种；空标签页为 null
+ */
+export function tabLabelForSpec(spec: SymbolSpec | null): string {
+  if (!spec) return DEFAULT_TAB_LABEL
+  // 部分数据源用代码充当名称，拼起来会得到 `BTCUSDT · BTCUSDT`，此时只显示代码。
+  const name = spec.instrument?.name
+  return name && name !== spec.symbol ? `${spec.symbol} · ${name}` : spec.symbol
+}
 
 /** 拖拽插入位置：相对目标标签的前或后。 */
 export type TabPlacement = 'before' | 'after'
@@ -68,15 +81,13 @@ export interface WorkspaceTabs {
 export function isWorkspaceTab(value: unknown): value is WorkspaceTab {
   if (typeof value !== 'object' || value === null) return false
   const tab = value as Record<string, unknown>
-  if (typeof tab.id !== 'string' || tab.id.length === 0 || typeof tab.label !== 'string') {
-    return false
-  }
+  if (typeof tab.id !== 'string' || tab.id.length === 0) return false
   return tab.spec === null || isSymbolSpec(tab.spec)
 }
 
 /** 生成一个空标签页（新建图表）。 */
 export function createBlankTab(): WorkspaceTab {
-  return { id: globalThis.crypto.randomUUID(), label: DEFAULT_TAB_LABEL, spec: null }
+  return { id: globalThis.crypto.randomUUID(), spec: null }
 }
 
 /**

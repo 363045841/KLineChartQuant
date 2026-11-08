@@ -56,14 +56,14 @@
     type PersistedMarketDataHost,
   } from '@363045841yyt/klinechart'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import { onBeforeUnmount, onMounted, ref } from 'vue'
+  import { onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
   import { createE2eDataSource } from './features/agent/chart-e2e-fixture'
   import { createElectronCredentialStore } from './features/agent/electron-credential-store'
   import TabBar from './shell/TabBar.vue'
   import { useWorkspaceTabs } from './shell/use-workspace-tabs'
   import { readWindowShell, readWorkspaceId } from './shell/window-shell'
   import { workspaceAccent } from './shell/workspace-accent'
-  import type { TabDropTarget } from './shell/workspace-tabs'
+  import { tabLabelForSpec, type TabDropTarget } from './shell/workspace-tabs'
 
   /** E2E 也走注册数据源，不提供旁路行情入口；产品模式复用的持久化宿主与 Web 完全相同。 */
   function createMarket(): PersistedMarketDataHost & {
@@ -94,6 +94,13 @@
   const tabs = useWorkspaceTabs(workspaceId)
   /** 最大化状态以主进程推送为准，按钮图标据此切换。 */
   const maximized = ref(false)
+
+  // 窗口标题跟随当前标签页：任务栏、Alt+Tab 与窗口菜单显示的就是选中的图表。
+  watchEffect(() => {
+    const activeTab = tabs.tabs.value.find((tab) => tab.id === tabs.activeTabId.value)
+    if (!activeTab) return
+    document.title = tabLabelForSpec(activeTab.spec)
+  })
 
   /** 每个图表只保留一份品种订阅，重复回报同一品种不会产生写入。 */
   const symbolSubscriptions = new Map<string, () => void>()
@@ -188,7 +195,5 @@
     position: relative;
     flex: 1;
     min-height: 0;
-    /* 分隔线在这里而不是标题栏底部：标题栏高度内会被系统窗口按钮覆盖层挡住右半段。 */
-    border-top: 1px solid var(--klc-color-ui-border);
   }
 </style>
