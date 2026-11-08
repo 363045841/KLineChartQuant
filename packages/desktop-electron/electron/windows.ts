@@ -5,6 +5,7 @@
  */
 import type { BrowserWindow } from 'electron'
 
+import { nextAccentSlot } from './accent-slot'
 import { createMainWindow } from './main-window'
 import { WINDOW_CHANNELS, type WorkspaceTab } from './window-bridge'
 
@@ -15,19 +16,6 @@ interface WindowEntry {
   readonly accentSlot: number
   /** 拖出窗口时暂存的标签；新窗口取走一次后清空。 */
   initialTabs: ReadonlyArray<WorkspaceTab> | null
-}
-
-/**
- * 取当前未被占用的最小色槽位。
- *
- * 同屏窗口因此不会撞色；调用方按调色板容量回绕，超出容量后才可能重复。
- *
- * @param used 存活窗口已占用的槽位
- */
-function nextAccentSlot(used: ReadonlySet<number>): number {
-  let slot = 0
-  while (used.has(slot)) slot += 1
-  return slot
 }
 
 export interface WindowSet {
