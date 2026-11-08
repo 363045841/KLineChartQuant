@@ -1,11 +1,10 @@
 /**
- * 窗口相关 IPC：原生标题栏配色、新建窗口与标签移交。
+ * 窗口相关 IPC：窗口控制、最大化状态、新建窗口与标签移交。
  *
  * 所有通道共用同一套来源门禁：只有窗口集合内的主 frame 可以调用，
  * 窗口实例按事件来源反查，不再绑定某一个“主窗口”。
  */
 import { createMainFrameGuard, type TrustedIpcEvent } from './ipc-guard'
-import { applyTitleBarTheme, type TitleBarTarget } from './titlebar-theme'
 import { isSymbolSpec, WINDOW_CHANNELS, type WorkspaceTab } from './window-bridge'
 
 /** 窗口 IPC 的事件形状，与其它主进程通道共用同一套来源门禁。 */
@@ -14,6 +13,15 @@ export type WindowIpcEvent = TrustedIpcEvent
 /** `ipcMain` 中本模块用到的部分，便于单测替换。 */
 export interface IpcMainLike {
   handle(channel: string, listener: (event: WindowIpcEvent, ...args: unknown[]) => unknown): void
+}
+
+/** 本模块需要的窗口能力；`BrowserWindow` 结构上满足它，单测可注入替身。 */
+export interface WindowActions {
+  minimize(): void
+  maximize(): void
+  unmaximize(): void
+  isMaximized(): boolean
+  close(): void
 }
 
 /** 判断 IPC 传入的标签快照是否完整；不完整直接失败，不做静默丢弃。 */
@@ -47,30 +55,48 @@ function readWorkspaceTabs(value: unknown): ReadonlyArray<WorkspaceTab> {
  * @param options.closeWorkspace 关闭某个工作区的窗口
  * @param options.takeInitialTabs 取走某个窗口的初始标签
  * @param options.notifyWorkspaceChanged 通知所有窗口重新读取标签页集合
- * @param options.platform 宿主平台，默认取 `process.platform`
  */
 export function registerWindowIpc(options: {
   ipcMain: IpcMainLike
-  getWindow: (event: WindowIpcEvent) => TitleBarTarget | null
+  getWindow: (event: WindowIpcEvent) => WindowActions | null
   isTrustedSender: (event: WindowIpcEvent) => boolean
   createWindow: (tabs?: ReadonlyArray<WorkspaceTab>) => void
   closeWorkspace: (workspaceId: string) => void
   takeInitialTabs: (event: WindowIpcEvent) => ReadonlyArray<WorkspaceTab> | null
   notifyWorkspaceChanged: () => void
-  platform?: NodeJS.Platform
 }): void {
   const assertTrustedMainFrame = createMainFrameGuard(options.isTrustedSender)
-  const platform = options.platform ?? process.platform
 
-  options.ipcMain.handle(WINDOW_CHANNELS.setTitleBarTheme, async (event, theme) => {
-    assertTrustedMainFrame(event)
-    if (theme !== 'light' && theme !== 'dark') {
-      throw new TypeError('The window theme must be light or dark.')
-    }
+  /** 取来源窗口；来源可信但窗口已销毁时明确失败。 */
+  function requireWindow(event: WindowIpcEvent): WindowActions {
     const window = options.getWindow(event)
     if (!window) throw new Error('The window is not available.')
-    applyTitleBarTheme(window, theme, platform)
+    return window
+  }
+
+  options.ipcMain.handle(WINDOW_CHANNELS.minimizeWindow, async (event) => {
+    assertTrustedMainFrame(event)
+    requireWindow(event).minimize()
     return null
+  })
+
+  options.ipcMain.handle(WINDOW_CHANNELS.toggleMaximizeWindow, async (event) => {
+    assertTrustedMainFrame(event)
+    const window = requireWindow(event)
+    if (window.isMaximized()) window.unmaximize()
+    else window.maximize()
+    return null
+  })
+
+  options.ipcMain.handle(WINDOW_CHANNELS.closeWindow, async (event) => {
+    assertTrustedMainFrame(event)
+    requireWindow(event).close()
+    return null
+  })
+
+  options.ipcMain.handle(WINDOW_CHANNELS.getWindowState, async (event) => {
+    assertTrustedMainFrame(event)
+    return { maximized: requireWindow(event).isMaximized() }
   })
 
   options.ipcMain.handle(WINDOW_CHANNELS.openWindow, async (event, tabs) => {

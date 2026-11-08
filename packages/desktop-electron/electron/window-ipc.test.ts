@@ -1,13 +1,12 @@
 /**
- * 窗口 IPC 的回归测试：来源门禁、主题下发、标签移交与跨窗口接管广播。
+ * 窗口 IPC 的回归测试：来源门禁、窗口控制、标签移交与跨窗口接管广播。
  *
- * 用假窗口记录 `setTitleBarOverlay` 调用，不启动真实 Electron。
+ * 用窗口替身记录调用，不启动真实 Electron。
  */
 import { describe, expect, it, vi } from 'vitest'
 
-import { TITLEBAR_THEMES, type TitleBarTarget } from './titlebar-theme'
-import { TITLEBAR_HEIGHT, WINDOW_CHANNELS, type WorkspaceTab } from './window-bridge'
-import { registerWindowIpc, type WindowIpcEvent } from './window-ipc'
+import { type WorkspaceTab, WINDOW_CHANNELS } from './window-bridge'
+import { registerWindowIpc, type WindowActions, type WindowIpcEvent } from './window-ipc'
 
 const trustedSender = { id: 1 }
 const mainFrame: WindowIpcEvent = { sender: trustedSender, senderFrame: { parent: null } }
@@ -18,9 +17,20 @@ const transferredTab: WorkspaceTab = {
 }
 
 /** 收集注册的 handler 与两侧替身。 */
-function setup(options: { platform?: NodeJS.Platform } = {}) {
+function setup() {
   const handlers = new Map<string, (event: WindowIpcEvent, ...args: unknown[]) => unknown>()
-  const window: TitleBarTarget = { setTitleBarOverlay: vi.fn() }
+  let maximized = false
+  const window: WindowActions = {
+    minimize: vi.fn(),
+    maximize: vi.fn(() => {
+      maximized = true
+    }),
+    unmaximize: vi.fn(() => {
+      maximized = false
+    }),
+    isMaximized: vi.fn(() => maximized),
+    close: vi.fn(),
+  }
   const createWindow = vi.fn()
   const closeWorkspace = vi.fn()
   const takeInitialTabs = vi.fn(() => [transferredTab])
@@ -33,7 +43,6 @@ function setup(options: { platform?: NodeJS.Platform } = {}) {
     closeWorkspace,
     takeInitialTabs,
     notifyWorkspaceChanged,
-    platform: options.platform ?? 'win32',
   })
   const call = (channel: string, event: WindowIpcEvent = mainFrame, ...args: unknown[]) =>
     handlers.get(channel)!(event, ...args)
@@ -41,9 +50,12 @@ function setup(options: { platform?: NodeJS.Platform } = {}) {
 }
 
 describe('registerWindowIpc — 来源门禁', () => {
-  // 三个通道共用同一套门禁：逐个通道确认被拒绝，而不是只测其中一个。
+  // 所有通道共用同一套门禁：逐个通道确认被拒绝，而不是只测其中一个。
   const channels: ReadonlyArray<readonly [string, ReadonlyArray<unknown>]> = [
-    [WINDOW_CHANNELS.setTitleBarTheme, ['dark']],
+    [WINDOW_CHANNELS.minimizeWindow, []],
+    [WINDOW_CHANNELS.toggleMaximizeWindow, []],
+    [WINDOW_CHANNELS.closeWindow, []],
+    [WINDOW_CHANNELS.getWindowState, []],
     [WINDOW_CHANNELS.openWindow, [undefined]],
     [WINDOW_CHANNELS.closeWorkspace, ['w-1']],
     [WINDOW_CHANNELS.consumeInitialTabs, []],
@@ -67,33 +79,34 @@ describe('registerWindowIpc — 来源门禁', () => {
   })
 })
 
-describe('registerWindowIpc — 标题栏主题', () => {
-  it.each(['light', 'dark'] as const)('把 %s 配色写入发起调用的窗口', async (theme) => {
-    const { window, call } = setup()
+describe('registerWindowIpc — 窗口控制', () => {
+  it('最小化、关闭只作用于发起调用的窗口', async () => {
+    const { call, window } = setup()
 
-    await expect(call(WINDOW_CHANNELS.setTitleBarTheme, mainFrame, theme)).resolves.toBeNull()
+    await expect(call(WINDOW_CHANNELS.minimizeWindow)).resolves.toBeNull()
+    await expect(call(WINDOW_CHANNELS.closeWindow)).resolves.toBeNull()
 
-    expect(window.setTitleBarOverlay).toHaveBeenCalledWith({
-      ...TITLEBAR_THEMES[theme],
-      height: TITLEBAR_HEIGHT,
-    })
+    expect(window.minimize).toHaveBeenCalledTimes(1)
+    expect(window.close).toHaveBeenCalledTimes(1)
   })
 
-  it('macOS 保留系统红绿灯', async () => {
-    const { window, call } = setup({ platform: 'darwin' })
+  it('在最大化与还原之间切换', async () => {
+    const { call, window } = setup()
 
-    await expect(call(WINDOW_CHANNELS.setTitleBarTheme, mainFrame, 'dark')).resolves.toBeNull()
+    await expect(call(WINDOW_CHANNELS.toggleMaximizeWindow)).resolves.toBeNull()
+    expect(window.maximize).toHaveBeenCalledTimes(1)
 
-    expect(window.setTitleBarOverlay).not.toHaveBeenCalled()
+    await expect(call(WINDOW_CHANNELS.toggleMaximizeWindow)).resolves.toBeNull()
+    expect(window.unmaximize).toHaveBeenCalledTimes(1)
   })
 
-  it('拒绝未知主题而不是猜测', async () => {
-    const { window, call } = setup()
+  it('回报当前最大化状态', async () => {
+    const { call } = setup()
 
-    await expect(call(WINDOW_CHANNELS.setTitleBarTheme, mainFrame, 'auto')).rejects.toBeInstanceOf(
-      TypeError,
-    )
-    expect(window.setTitleBarOverlay).not.toHaveBeenCalled()
+    await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: false })
+
+    await call(WINDOW_CHANNELS.toggleMaximizeWindow)
+    await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: true })
   })
 })
 

@@ -9,21 +9,22 @@ import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 /** 挂在 `window` 上的窗口桥名称。 */
 export const WINDOW_BRIDGE_KEY = 'klinechartWindow'
 
-/** 标题栏高度（逻辑像素）；主进程 WCO 与渲染进程布局共用同一个值。 */
+/** 标题栏高度（逻辑像素）；主进程与渲染进程布局共用同一个值。 */
 export const TITLEBAR_HEIGHT = 40
 
 /** 渲染进程可见的窗口 channel；名称带包前缀，避免与其它 IPC 冲突。 */
 export const WINDOW_CHANNELS = {
-  setTitleBarTheme: 'klinechart:window:set-title-bar-theme',
+  minimizeWindow: 'klinechart:window:minimize',
+  toggleMaximizeWindow: 'klinechart:window:toggle-maximize',
+  closeWindow: 'klinechart:window:close',
+  getWindowState: 'klinechart:window:get-state',
+  windowStateChanged: 'klinechart:window:state-changed',
   openWindow: 'klinechart:window:open',
   closeWorkspace: 'klinechart:window:close-workspace',
   consumeInitialTabs: 'klinechart:window:consume-initial-tabs',
   adoptTab: 'klinechart:window:adopt-tab',
   workspaceChanged: 'klinechart:window:workspace-changed',
 } as const
-
-/** 有效主题；原生窗口按钮的颜色只能二选一。 */
-export type WindowTheme = 'light' | 'dark'
 
 /**
  * 判断值是否为可用的图表品种描述。
@@ -54,14 +55,27 @@ export interface WorkspaceTab {
   readonly spec: SymbolSpec | null
 }
 
+/** 窗口的最大化状态。 */
+export interface WindowState {
+  readonly maximized: boolean
+}
+
 /** preload 暴露的窗口能力。 */
 export interface WindowBridge {
   /** 宿主平台，macOS 需要给系统红绿灯让出位置。 */
   readonly platform: string
   /** 标题栏高度，渲染进程据此设置布局变量。 */
   readonly titleBarHeight: number
-  /** 同步原生窗口按钮配色；WCO 由系统绘制，读不到页面 CSS 变量。 */
-  setTitleBarTheme(theme: WindowTheme): Promise<void>
+  /** 最小化本窗口。 */
+  minimize(): Promise<void>
+  /** 在最大化与还原之间切换。 */
+  toggleMaximize(): Promise<void>
+  /** 关闭本窗口。 */
+  close(): Promise<void>
+  /** 读取当前最大化状态；状态变化由 `onMaximizedChanged` 推送。 */
+  getWindowState(): Promise<WindowState>
+  /** 订阅最大化状态变化；返回退订函数。 */
+  onMaximizedChanged(listener: (maximized: boolean) => void): () => void
   /** 新建窗口；tabs 缺省表示开一扇空白窗口，提供时表示把这些标签整体移交过去。 */
   openWindow(tabs?: ReadonlyArray<WorkspaceTab>): Promise<void>
   /** 关闭某个工作区对应的窗口；标签被其它窗口接管到空时使用。 */

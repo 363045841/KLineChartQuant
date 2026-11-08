@@ -59,6 +59,50 @@
           <IconPlus class="tab-bar__create-icon" aria-hidden="true" />
         </button>
       </div>
+      <!-- macOS 用系统红绿灯，其它平台自绘窗口按钮；图标取自 OpenChamber 的经典 Windows 样式。 -->
+      <div v-if="platform !== 'darwin'" class="tab-bar__controls">
+        <button type="button" class="tab-bar__control" aria-label="最小化" @click="emit('minimize')">
+          <svg class="tab-bar__control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 11V13H19V11H5Z" fill="currentColor" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="tab-bar__control"
+          :aria-label="maximized ? '还原' : '最大化'"
+          @click="emit('toggleMaximize')"
+        >
+          <svg
+            class="tab-bar__control-icon tab-bar__control-icon--maximize"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              v-if="maximized"
+              d="M18 7H22V9H16V3H18V7ZM8 9H2V7H6V3H8V9ZM18 17V21H16V15H22V17H18ZM8 15V21H6V17H2V15H8Z"
+              fill="currentColor"
+            />
+            <path
+              v-else
+              d="M4 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3ZM5 5V19H19V5H5Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="tab-bar__control tab-bar__control--close"
+          aria-label="关闭"
+          @click="emit('closeWindow')"
+        >
+          <svg class="tab-bar__control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 </template>
@@ -81,6 +125,8 @@
     accent: string
     /** 只有一个标签时不允许拖出成新窗口；拖到其它窗口合并仍然允许。 */
     canDetach: boolean
+    /** 当前窗口是否最大化，决定最大化按钮显示还原还是最大化图标。 */
+    maximized: boolean
   }>()
   const emit = defineEmits<{
     activate: [tabId: string]
@@ -89,6 +135,9 @@
     detach: [tabId: string]
     adopt: [request: { fromWorkspaceId: string; tabId: string; target: TabDropTarget | null }]
     reorder: [tabId: string, targetId: string, placement: TabPlacement]
+    minimize: []
+    toggleMaximize: []
+    closeWindow: []
   }>()
 
   /** 拖拽载荷：只带身份，不搬运图表状态。 */
@@ -412,5 +461,54 @@
   .tab-bar__create-icon {
     width: 16px;
     height: 16px;
+  }
+
+  /* 自绘窗口按钮：贴住窗口右上角，高度占满标题栏。 */
+  .tab-bar__controls {
+    display: flex;
+    flex: none;
+    height: 100%;
+    margin-left: -8px;
+    margin-right: -8px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .tab-bar__control {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--klc-color-text-tertiary);
+    cursor: pointer;
+  }
+
+  .tab-bar__control:hover,
+  .tab-bar__control:focus-visible {
+    /* 与 OpenChamber 一致的半透明叠加底色（约 8% 前景色），不写死灰阶。 */
+    background: color-mix(in srgb, var(--klc-color-ui-text) 8%, transparent);
+    color: var(--klc-color-ui-text);
+    outline: 0;
+  }
+
+  .tab-bar__control--close:hover,
+  .tab-bar__control--close:focus-visible {
+    /* 用错误色背景层 + 错误色文字，而不是整块高饱和红：和冷黑界面一致，也不刺眼。 */
+    background: var(--klc-color-ui-danger-background);
+    color: var(--klc-color-ui-danger-text);
+  }
+
+  .tab-bar__control-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* 最大化/还原图标也保持 14px，视觉重量与 Windows 原生按钮一致。 */
+  .tab-bar__control-icon--maximize {
+    width: 14px;
+    height: 14px;
   }
 </style>

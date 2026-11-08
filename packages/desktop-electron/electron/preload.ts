@@ -18,7 +18,7 @@ import {
   WINDOW_BRIDGE_KEY,
   WINDOW_CHANNELS,
   type WindowBridge,
-  type WindowTheme,
+  type WindowState,
   type WorkspaceTab,
 } from './window-bridge'
 
@@ -35,8 +35,24 @@ const credentialBridge: CredentialBridge = {
 const windowBridge: WindowBridge = {
   platform: process.platform,
   titleBarHeight: TITLEBAR_HEIGHT,
-  setTitleBarTheme: async (theme: WindowTheme) => {
-    await ipcRenderer.invoke(WINDOW_CHANNELS.setTitleBarTheme, theme)
+  minimize: async () => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.minimizeWindow)
+  },
+  toggleMaximize: async () => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.toggleMaximizeWindow)
+  },
+  close: async () => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.closeWindow)
+  },
+  getWindowState: () =>
+    ipcRenderer.invoke(WINDOW_CHANNELS.getWindowState) as Promise<WindowState>,
+  onMaximizedChanged: (listener: (maximized: boolean) => void) => {
+    // 只订阅专用通道；事件对象不透传给渲染层。
+    const handler = (_event: unknown, maximized: boolean): void => listener(maximized)
+    ipcRenderer.on(WINDOW_CHANNELS.windowStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(WINDOW_CHANNELS.windowStateChanged, handler)
+    }
   },
   openWindow: async (tabs?: ReadonlyArray<WorkspaceTab>) => {
     await ipcRenderer.invoke(WINDOW_CHANNELS.openWindow, tabs)
@@ -45,9 +61,9 @@ const windowBridge: WindowBridge = {
     await ipcRenderer.invoke(WINDOW_CHANNELS.closeWorkspace, workspaceId)
   },
   consumeInitialTabs: () =>
-    ipcRenderer.invoke(
-      WINDOW_CHANNELS.consumeInitialTabs,
-    ) as Promise<ReadonlyArray<WorkspaceTab> | null>,
+    ipcRenderer.invoke(WINDOW_CHANNELS.consumeInitialTabs) as Promise<
+      ReadonlyArray<WorkspaceTab> | null
+    >,
   adoptTab: async (request) => {
     await ipcRenderer.invoke(WINDOW_CHANNELS.adoptTab, request)
   },

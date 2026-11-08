@@ -53,7 +53,6 @@ async function startApplication(activeWindows: WindowSet): Promise<void> {
     closeWorkspace: (workspaceId) => activeWindows.close(workspaceId),
     takeInitialTabs: (event) => activeWindows.takeInitialTabs(event.sender),
     notifyWorkspaceChanged,
-    platform: process.platform,
   })
   installApplicationMenu({
     platform: process.platform,

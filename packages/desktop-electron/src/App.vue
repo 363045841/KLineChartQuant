@@ -12,12 +12,16 @@
         :active-tab-id="tabs.activeTabId.value"
         :accent="accent"
         :can-detach="tabs.tabs.value.length > 1"
+        :maximized="maximized"
         @activate="tabs.activate"
         @create="tabs.createTab"
         @close="tabs.removeTab"
         @detach="detachTab"
         @adopt="adoptTab"
         @reorder="tabs.moveTab"
+        @minimize="windowShell.minimize"
+        @toggle-maximize="windowShell.toggleMaximize"
+        @close-window="windowShell.close"
       />
       <div class="desktop-shell__content">
         <!--
@@ -36,7 +40,6 @@
           :credentials="credentials"
           :left-axis-width="60"
           @controller-ready="onControllerReady(tab.id, $event)"
-          @theme-change="onThemeChange"
         />
       </div>
     </template>
@@ -53,7 +56,7 @@
     type PersistedMarketDataHost,
   } from '@363045841yyt/klinechart'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import { onBeforeUnmount, onMounted } from 'vue'
+  import { onBeforeUnmount, onMounted, ref } from 'vue'
   import { createE2eDataSource } from './features/agent/chart-e2e-fixture'
   import { createElectronCredentialStore } from './features/agent/electron-credential-store'
   import TabBar from './shell/TabBar.vue'
@@ -83,28 +86,26 @@
   const windowShell = shell
   const workspaceId = readWorkspaceId()
   const credentials = createElectronCredentialStore()
-  // 标题栏高度由主进程下发，避免 WCO 高度与页面布局各写一份。
+  // 标题栏高度由主进程下发，避免窗口布局各写一份。
   const shellStyle = { '--desktop-titlebar-height': `${windowShell.titleBarHeight}px` }
   const market = createMarket()
   const period = KLinePeriod.Daily
   const accent = workspaceAccent(workspaceId)
   const tabs = useWorkspaceTabs(workspaceId)
+  /** 最大化状态以主进程推送为准，按钮图标据此切换。 */
+  const maximized = ref(false)
 
   /** 每个图表只保留一份品种订阅，重复回报同一品种不会产生写入。 */
   const symbolSubscriptions = new Map<string, () => void>()
   let unsubscribeWorkspace: (() => void) | undefined
-
-  /** 原生窗口按钮读不到 CSS 变量，主题变化时把有效主题回传主进程。 */
-  function onThemeChange(theme: 'light' | 'dark'): void {
-    void windowShell.setTitleBarTheme(theme)
-  }
+  let unsubscribeMaximized: (() => void) | undefined
 
   /** 图表当前品种回写到标签，标签标题始终跟随图表而不是另存一份。 */
   function syncSpec(tabId: string, controller: ChartController): void {
     tabs.setSpec(tabId, controller.symbols.peek()[0] ?? null)
   }
 
-  /** 图表就绪：先恢复标签的品种，再接管品种回报，并用首帧主题同步窗口按钮配色。 */
+  /** 图表就绪：恢复标签保存的品种，再接管后续品种回报。 */
   function onControllerReady(tabId: string, controller: ChartController): void {
     // 标签页各自持有图表状态；多个标签同时向同一份布局归档自动保存会互相覆盖，
     // 因此桌面端关闭归档自动保存，布局菜单仍是手动保存/切换的入口。
@@ -118,7 +119,6 @@
     const spec = tabs.tabs.value.find((tab) => tab.id === tabId)?.spec
     if (spec) controller.setSymbols([spec])
     syncSpec(tabId, controller)
-    if (tabId === tabs.activeTabId.value) onThemeChange(controller.theme.peek())
   }
 
   /** 拖出标签：先开新窗口接管，成功后再从本窗口移除，失败时标签仍在。 */
@@ -149,6 +149,10 @@
   }
 
   onMounted(async () => {
+    maximized.value = (await windowShell.getWindowState()).maximized
+    unsubscribeMaximized = windowShell.onMaximizedChanged((value) => {
+      maximized.value = value
+    })
     await tabs.restore(await windowShell.consumeInitialTabs())
     unsubscribeWorkspace = windowShell.onWorkspaceChanged(() => {
       void tabs.reload()
@@ -158,6 +162,7 @@
   // 行情实例归宿主所有，工作台卸载不销毁它。
   onBeforeUnmount(() => {
     unsubscribeWorkspace?.()
+    unsubscribeMaximized?.()
     for (const unsubscribe of symbolSubscriptions.values()) unsubscribe()
     symbolSubscriptions.clear()
     void tabs.dispose()

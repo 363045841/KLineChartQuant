@@ -1,23 +1,20 @@
 /**
- * 主窗口创建：无边框标题栏、平台差异、外链策略与首屏时机。
+ * 应用窗口创建：无边框标题栏、平台差异、外链策略与首屏时机。
  *
- * macOS 保留系统红绿灯并调整位置；Windows / Linux 用 Window Controls Overlay
- * 提供原生按钮，标题栏本体由渲染进程绘制。
+ * macOS 保留系统红绿灯并调整位置；Windows / Linux 使用无边框窗口，
+ * 最小化 / 最大化 / 关闭由渲染进程自绘并通过 IPC 控制。
  */
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow, nativeTheme, shell } from 'electron'
 
-import { applyTitleBarTheme, TITLEBAR_THEMES } from './titlebar-theme'
-import { TITLEBAR_HEIGHT, type WindowTheme } from './window-bridge'
+import { TITLEBAR_HEIGHT } from './window-bridge'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 
-/** 首屏配色跟随系统主题；渲染进程拿到图表有效主题后会再同步一次。 */
-function systemTheme(): WindowTheme {
-  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-}
+/** 首屏底色：对应 core 的 `--klc-color-background`，只用于页面首帧之前防闪白。 */
+const WINDOW_BACKGROUND = { light: '#F5F5F7', dark: '#151619' } as const
 
 /**
  * 创建一扇应用窗口并加载界面。
@@ -26,19 +23,18 @@ function systemTheme(): WindowTheme {
  * @returns 已配置好标题栏、preload 与加载入口的窗口；调用方负责显示时机以外的生命周期
  */
 export function createMainWindow(workspaceId: string): BrowserWindow {
-  const theme = systemTheme()
+  const isMac = process.platform === 'darwin'
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 720,
     minHeight: 600,
     show: false,
-    // 页面首帧之前由窗口底色兜底，避免深色主题下闪白。
-    backgroundColor: TITLEBAR_THEMES[theme].color,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? WINDOW_BACKGROUND.dark : WINDOW_BACKGROUND.light,
+    // macOS 保留原生红绿灯；其它平台去掉原生框架，窗口按钮由渲染进程自绘。
+    frame: isMac ? undefined : false,
     titleBarStyle: 'hidden',
-    ...(process.platform === 'darwin'
-      ? { trafficLightPosition: { x: 16, y: 7 } }
-      : { titleBarOverlay: { height: TITLEBAR_HEIGHT, ...TITLEBAR_THEMES[theme] } }),
+    ...(isMac ? { trafficLightPosition: { x: 16, y: 8 } } : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -67,7 +63,5 @@ export function createMainWindow(workspaceId: string): BrowserWindow {
     })
   }
 
-  // 构造参数与这里都写一次，保证渲染进程尚未回报主题时原生按钮也是正确配色。
-  applyTitleBarTheme(window, theme)
   return window
 }

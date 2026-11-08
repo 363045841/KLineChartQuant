@@ -6,7 +6,7 @@
 import type { BrowserWindow } from 'electron'
 
 import { createMainWindow } from './main-window'
-import type { WorkspaceTab } from './window-bridge'
+import { WINDOW_CHANNELS, type WorkspaceTab } from './window-bridge'
 
 interface WindowEntry {
   readonly window: BrowserWindow
@@ -59,6 +59,13 @@ export function createWindowSet(
     const window = createMainWindow(workspaceId)
     const entry: WindowEntry = { window, workspaceId, initialTabs }
     entries.set(window.id, entry)
+    // 最大化状态变化由主进程推送，渲染进程据此切换按钮图标。
+    window.on('maximize', () => {
+      window.webContents.send(WINDOW_CHANNELS.windowStateChanged, true)
+    })
+    window.on('unmaximize', () => {
+      window.webContents.send(WINDOW_CHANNELS.windowStateChanged, false)
+    })
     window.on('closed', () => {
       entries.delete(window.id)
       onWorkspaceChange(workspaceIds())

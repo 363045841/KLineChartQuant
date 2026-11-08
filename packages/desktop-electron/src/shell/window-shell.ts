@@ -20,7 +20,11 @@ export function readWindowShell(scope: unknown = globalThis): WindowBridge | und
     typeof candidate.titleBarHeight === 'number' &&
     Number.isFinite(candidate.titleBarHeight) &&
     candidate.titleBarHeight > 0 &&
-    typeof candidate.setTitleBarTheme === 'function' &&
+    typeof candidate.minimize === 'function' &&
+    typeof candidate.toggleMaximize === 'function' &&
+    typeof candidate.close === 'function' &&
+    typeof candidate.getWindowState === 'function' &&
+    typeof candidate.onMaximizedChanged === 'function' &&
     typeof candidate.openWindow === 'function' &&
     typeof candidate.closeWorkspace === 'function' &&
     typeof candidate.consumeInitialTabs === 'function' &&
