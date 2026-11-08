@@ -17,7 +17,7 @@ import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
-import { projectDrawingsForFrame } from '../impl/frameProjection'
+import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
 function createContext(): RenderContext {
@@ -107,6 +107,29 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
 }
 
 describe('projectDrawingsForFrame', () => {
+  it.each(['none', 'right', 'left', 'both'] as const)(
+    'uses the same time anchors and %s extension for drawing and price range',
+    (extend) => {
+      const context = createRangeContext({ start: 5, end: 8 })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const first = context.data[0]!.timestamp
+      const second = context.data[1]!.timestamp
+      const drawing = createTrendDrawing({
+        xloc: 'bar_time', extend,
+        anchors: [
+          { id: 'a', time: first, price: 100 },
+          { id: 'b', time: first + (second - first) / 2, price: 200 },
+        ],
+      })
+      const range = computeDrawingPriceRange([drawing], definitions, context)
+      const projection = projectSingleDrawing(drawing, false, context)
+      const visible = extend === 'right' || extend === 'both'
+      expect(range).toEqual(visible ? { min: 100, max: 200 } : null)
+      expect(projection.primitives.length > 0).toBe(visible)
+    },
+  )
+
   it('projects profile reference lines inside the final five-minute candle without a future calendar', () => {
     const start = Date.UTC(2026, 0, 5)
     const context = createContext()
