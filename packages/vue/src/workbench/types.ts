@@ -9,6 +9,7 @@ export interface KlineWorkbenchProps {
   agent?: boolean
   /** 默认加载内置脚本指标；关闭后不创建脚本执行 Worker。 */
   scripts?: boolean
+  /** 智能体面板初始是否展开，默认收起。 */
   initialAgentPanelOpen?: boolean
   /** 行情实例归调用方所有，工作台卸载时不会销毁它。 */
   marketDataContext?: MarketDataContext
