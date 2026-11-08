@@ -14,6 +14,7 @@
     <KlineChart
       v-bind="{ ...chart, ...$attrs }"
       :market-data-context="market.context"
+      :restore-layout="restoreLayout"
       :symbols="market.symbols.value"
       :scripts-enabled="scripts"
       @controller-ready="onControllerReady"
@@ -36,7 +37,8 @@
   const props = withDefaults(defineProps<KlineWorkbenchProps>(), {
     agent: true,
     scripts: true,
-    initialAgentPanelOpen: true,
+    initialAgentPanelOpen: false,
+    restoreLayout: true,
   })
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]

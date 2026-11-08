@@ -17,7 +17,7 @@ import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
-import { projectDrawingsForFrame } from '../impl/frameProjection'
+import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
 function createContext(): RenderContext {
@@ -106,7 +106,66 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
+describe('computeDrawingPriceRange', () => {
+  it('滚动后只汇总当前可见图元，隐藏和非法坐标不污染极值', () => {
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const drawings = [0, 6].map((index) =>
+      createTrendDrawing({
+        id: `range-${index}`,
+        anchors: [
+          { id: 'a', logicalIndex: index, price: index + 10 },
+          { id: 'b', logicalIndex: index + 1, price: index + 20 },
+        ],
+      }),
+    )
+    const ignored = [
+      createTrendDrawing({ visible: false }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: 0, price: Number.NaN }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: Number.NaN, price: 1000 }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', time: -1000, price: 1000 }] }),
+    ]
+    const context = createRangeContext({ start: 0, end: 3 })
+
+    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
+      min: 10,
+      max: 20,
+    })
+    context.range = { start: 6, end: 9 }
+    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
+      min: 16,
+      max: 26,
+    })
+    context.range = { start: 3, end: 3 }
+    expect(computeDrawingPriceRange(drawings, definitions, context)).toBeNull()
+  })
+})
+
 describe('projectDrawingsForFrame', () => {
+  it.each(['none', 'right', 'left', 'both'] as const)(
+    'uses the same time anchors and %s extension for drawing and price range',
+    (extend) => {
+      const context = createRangeContext({ start: 5, end: 8 })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const first = context.data[0]!.timestamp
+      const second = context.data[1]!.timestamp
+      const drawing = createTrendDrawing({
+        xloc: 'bar_time',
+        extend,
+        anchors: [
+          { id: 'a', time: first, price: 100 },
+          { id: 'b', time: first + (second - first) / 2, price: 200 },
+        ],
+      })
+      const range = computeDrawingPriceRange([drawing], definitions, context)
+      const projection = projectSingleDrawing(drawing, false, context)
+      const visible = extend === 'right' || extend === 'both'
+      expect(range).toEqual(visible ? { min: 100, max: 200 } : null)
+      expect(projection.primitives.length > 0).toBe(visible)
+    },
+  )
+
   it('projects profile reference lines inside the final five-minute candle without a future calendar', () => {
     const start = Date.UTC(2026, 0, 5)
     const context = createContext()

@@ -438,15 +438,12 @@ function projectAxisDecorations(
 
 /** 单帧投影的共享状态；把长参数表收敛成一份，避免辅助函数逐个透传。 */
 interface FrameProjectionState {
-  readonly lastBarClose?: number
   readonly definitions: DrawingDefinitionRegistry
   readonly context: RenderContext
   readonly selectedIds: ReadonlySet<string>
   readonly toScreen: (anchor: ResolvedDrawingAnchor) => Point
   readonly handlePort: DrawingHandlePort<ResolvedDrawingAnchor>
   readonly themeColors: ReturnType<typeof resolveThemeColors>
-  readonly resolveColor: ScriptColorResolver
-  readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   readonly handlePrimitives: DrawingPrimitive[]
   readonly output: MutableDrawingFrameProjection
   readonly visibleData: KLineData[]
@@ -494,17 +491,17 @@ function collectSnapLines(
 
 /** 解析并缓存图元的锚点与样式；几何仍在每帧按当前视口计算。 */
 function resolveStoredDrawing(
-  state: FrameProjectionState,
+  context: RenderContext,
   storedDrawing: DrawingObject,
+  lastBarClose: number | undefined,
 ): ResolvedDrawingObject {
-  const { context } = state
   const cached = resolvedDrawingCache.get(storedDrawing)
   if (
     cached !== undefined &&
     cached.data === context.data &&
     cached.period === context.period &&
     cached.marketSession === context.marketSession &&
-    cached.lastBarClose === state.lastBarClose &&
+    cached.lastBarClose === lastBarClose &&
     cached.theme === context.theme &&
     cached.isAsiaMarket === context.isAsiaMarket &&
     cached.colorPresetSettings === context.colorPresetSettings
@@ -512,26 +509,72 @@ function resolveStoredDrawing(
     return cached.resolved
   const frameDrawing = resolveDrawingForFrame(
     storedDrawing,
-    state.getLogicalIndexAtTimestamp,
+    context.getLogicalIndexAtTimestamp,
     context,
-    state.lastBarClose,
+    lastBarClose,
   )
   // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
   const resolved: ResolvedDrawingObject = {
     ...frameDrawing,
-    style: resolveDrawingStyle(frameDrawing.style, state.resolveColor),
+    style: resolveDrawingStyle(
+      frameDrawing.style,
+      createScriptColorResolver(
+        resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings),
+      ),
+    ),
   }
   resolvedDrawingCache.set(storedDrawing, {
     data: context.data,
     period: context.period,
     marketSession: context.marketSession,
-    lastBarClose: state.lastBarClose,
+    lastBarClose,
     theme: context.theme,
     isAsiaMarket: context.isAsiaMarket,
     colorPresetSettings: context.colorPresetSettings,
     resolved,
   })
   return resolved
+}
+
+/** 绘制与轴范围共用的唯一图元入口：解析锚点、验证坐标并按定义裁剪。 */
+function resolveVisibleDrawing(
+  storedDrawing: DrawingObject,
+  definitions: DrawingDefinitionRegistry,
+  context: RenderContext,
+): ResolvedDrawingObject | null {
+  if (!storedDrawing.visible || context.range.end <= context.range.start) return null
+  const lastOpen = context.data.at(-1)?.timestamp
+  const lastBarClose =
+    context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
+      ? timeValue(
+          { period: context.period, session: context.marketSession },
+          'close',
+          context.period,
+          lastOpen,
+        )
+      : undefined
+  const drawing = resolveStoredDrawing(context, storedDrawing, lastBarClose)
+  if (!hasResolvableTimeAnchors(drawing)) return null
+  return intersectsDrawingRange(definitions.extent(drawing), context.range) ? drawing : null
+}
+
+/** 仅汇总公共可见性入口接受的图元，供各 Pane 自动价格范围使用。 */
+export function computeDrawingPriceRange(
+  drawings: readonly DrawingObject[],
+  definitions: DrawingDefinitionRegistry,
+  context: RenderContext,
+): { min: number; max: number } | null {
+  let min = Infinity
+  let max = -Infinity
+  for (const storedDrawing of drawings) {
+    const drawing = resolveVisibleDrawing(storedDrawing, definitions, context)
+    if (!drawing) continue
+    for (const anchor of drawing.anchors) {
+      min = Math.min(min, anchor.price)
+      max = Math.max(max, anchor.price)
+    }
+  }
+  return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
 }
 
 /** 投影单个图元；视口外或几何不可解析的图元直接跳过。 */
@@ -541,10 +584,8 @@ function projectStoredDrawing(
   scope: DrawingPaintScope,
 ): void {
   const { context, definitions } = state
-  const drawing = resolveStoredDrawing(state, storedDrawing)
-  if (!hasResolvableTimeAnchors(drawing)) return
-  // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
-  if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) return
+  const drawing = resolveVisibleDrawing(storedDrawing, definitions, context)
+  if (!drawing) return
   const geometry = definitions.compute(drawing, {
     pane: context.pane,
     visibleData: state.visibleData,
@@ -594,16 +635,6 @@ export function projectDrawingsForFrame(
     snapLines: [],
   }
   const seriesData = context.data as KLineData[]
-  const lastOpen = seriesData.at(-1)?.timestamp
-  const lastBarClose =
-    context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
-      ? timeValue(
-          { period: context.period, session: context.marketSession },
-          'close',
-          context.period,
-          lastOpen,
-        )
-      : undefined
   const toScreen = createToScreen(context)
   const themeColors = resolveThemeColors(
     context.theme,
@@ -611,15 +642,12 @@ export function projectDrawingsForFrame(
     context.colorPresetSettings,
   )
   const state: FrameProjectionState = {
-    lastBarClose,
     definitions,
     context,
     selectedIds: new Set(store.getSelectedIds()),
     toScreen,
     handlePort: createHandlePort(context, toScreen),
     themeColors,
-    resolveColor: createScriptColorResolver(themeColors),
-    getLogicalIndexAtTimestamp: context.getLogicalIndexAtTimestamp,
     // 手柄统一在所有图元之后压入，保证不被后画的图元遮住。
     handlePrimitives: [],
     output,

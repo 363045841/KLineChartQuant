@@ -89,7 +89,7 @@
       initialPanelOpen?: boolean
     }>(),
     {
-      initialPanelOpen: true,
+      initialPanelOpen: false,
       panelWidthStorage: undefined,
       panelSideStorage: undefined,
     },

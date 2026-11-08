@@ -523,6 +523,11 @@
     defineProps<{
       /** 受控品种列表；传入时由组件同步到图表数据源。 */
       symbols?: ReadonlyArray<SymbolSpec>
+      /**
+       * 挂载时是否恢复布局归档里的活动布局，默认 `true`。
+       * 多窗口 / 多标签各自持有配置的宿主必须传 `false`。
+       */
+      restoreLayout?: boolean
       /** 受控指标实例列表；传入时完整替换当前指标实例。 */
       indicators?: ReadonlyArray<ChartIndicatorConfig>
 
@@ -576,6 +581,7 @@
       // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
       isFullscreen: undefined,
       timezone: 'Asia/Shanghai',
+      restoreLayout: true,
     },
   )
 
@@ -1669,6 +1675,7 @@
       minKWidth: props.minKWidth,
       maxKWidth: props.maxKWidth,
       settings: props.settings,
+      layoutRestore: props.restoreLayout,
     })
     return ctrl
   }

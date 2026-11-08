@@ -25,6 +25,7 @@
     "@363045841yyt/klinechart-core": "workspace:*"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/test-utils": "^2.4.11",
     "electron": "^45.2.2",

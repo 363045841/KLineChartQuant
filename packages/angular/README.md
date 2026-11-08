@@ -1,11 +1,14 @@
+<h1 align="center">
+  <img src="../../docs/Pics/kcq-logo-horizontal.svg" alt="KlineChartQuant" width="640" />
+</h1>
+
+
 High-performance financial charting infrastructure with a single-frame generation time of just 2 ms, stable scrolling at 190–200 fps in a 200 Hz environment, a native AI-Native chart architecture, full-link ResizeObserver-driven crisp rendering, a QuickJS indicator runtime, and support for running scripts against the in-house KCQ financial analysis API to render indicators.
 
 
 <div align="center">
 
 English | [简体中文](README_CN.md)
-
-# 📈 KLineChartQuant
 
 **Crisp Rendering · High Performance · Optimized Interaction · Mobile-Friendly**
 
@@ -20,7 +23,7 @@ English | [简体中文](README_CN.md)
 
 A lightweight financial K-line charting library focused on quantitative trading scenarios. **Agent is a first-class citizen** — supports AI Agent direct control of chart operations, providing TradingView-level interaction experience.
 
-![](https://files.seeusercontent.com/2026/10/19/yfD1/2026-10-19-19_36_21-601360.png)
+![KlineChartQuant workbench with BTCUSDT 5-minute candles and PVP volume profile overlays](../../docs/Pics/hero-workbench.webp)
 
 
 ## 🤖 Agent-Native Architecture

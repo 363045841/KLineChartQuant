@@ -55,9 +55,9 @@
             <ul v-if="!group.collapsed" class="watchlist-group__list">
               <li v-for="row in group.rows" :key="row.key" class="watchlist-row" :class="`is-${row.tone}`">
                 <button type="button" class="watchlist-row__select" @click="onSelect(row.item)">
-                  <span class="watchlist-row__avatar" :style="row.avatarStyle" aria-hidden="true">
+                  <ColorAvatar :color="row.avatarColor">
                     {{ row.initial }}
-                  </span>
+                  </ColorAvatar>
                   <span class="watchlist-row__symbol">{{ row.item.symbol }}</span>
                   <span class="watchlist-row__price">{{ row.price }}</span>
                   <span class="watchlist-row__change">{{ row.change }}</span>
@@ -83,6 +83,7 @@
 <script setup lang="ts">
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import {
@@ -107,7 +108,7 @@
     formatQuotePrice,
     QUOTE_PLACEHOLDER,
   } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
-  import { type CSSProperties, computed, ref, useTemplateRef } from 'vue'
+  import { computed, ref, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconX from '~icons/tabler/x'
@@ -126,7 +127,7 @@
     key: string
     item: SearchableSymbol
     initial: string
-    avatarStyle: CSSProperties
+    avatarColor: string
     price: string
     change: string
     percent: string
@@ -175,20 +176,14 @@
     return quotes.value.get(symbolIdentityKey(item)) ?? null
   }
 
-  /** 图标底色取指标色板，散列只依赖代码，跨会话与分组稳定。 */
-  function avatarStyle(item: SearchableSymbol): CSSProperties {
-    return {
-      '--watchlist-avatar-color': `var(--klc-color-palette-i${symbolPaletteIndex(item.symbol)})`,
-    }
-  }
-
+  /** 报价与标识一次投影；标识颜色只依赖代码，跨会话与分组稳定。 */
   function toRow(item: SearchableSymbol): WatchlistRow {
     const quote = quoteOf(item)
     return {
       key: symbolIdentityKey(item),
       item,
       initial: symbolInitial(item.symbol),
-      avatarStyle: avatarStyle(item),
+      avatarColor: `var(--klc-color-palette-i${symbolPaletteIndex(item.symbol)})`,
       price: quote ? formatQuotePrice(quote, item.tickSize) : QUOTE_PLACEHOLDER,
       change: quote ? formatQuoteChange(quote, item.tickSize) : QUOTE_PLACEHOLDER,
       percent: quote ? formatQuotePercent(quote) : QUOTE_PLACEHOLDER,
@@ -392,20 +387,6 @@
   .watchlist-row__select:focus-visible {
     background: var(--klc-color-ui-hover);
     outline: 0;
-  }
-
-  /* 图标用色板色的低透明度底色，保证明暗主题下文字都可读。 */
-  .watchlist-row__avatar {
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--watchlist-avatar-color) 22%, transparent);
-    color: var(--watchlist-avatar-color);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
   }
 
   .watchlist-row__symbol {

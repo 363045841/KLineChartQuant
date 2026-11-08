@@ -1,6 +1,6 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
-import { beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
@@ -21,14 +21,19 @@ beforeEach(async () => {
   })
 })
 
+afterEach(() => vi.useRealTimers())
+
 /** 以生产 Kernel 快照和恢复方法构造领域管理器。 */
-function createManager() {
+function createManager(restore = true) {
   const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
-  const manager = new LayoutManager({
-    exportLayout: () => kernel.exportLayout(),
-    applyLayout: (document) => kernel.applyLayout(document),
-    createLayout: () => kernel.createLayout(),
-  })
+  const manager = new LayoutManager(
+    {
+      exportLayout: () => kernel.exportLayout(),
+      applyLayout: (document) => kernel.applyLayout(document),
+      createLayout: () => kernel.createLayout(),
+    },
+    { restore },
+  )
   return { kernel, manager }
 }
 
@@ -507,13 +512,14 @@ it('高频视口变化合并为静止后的一次比较，销毁前补齐待检�
   })
   await manager.initialize()
   const id = await manager.saveLayout({ name: '视口' })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
   exports = 0
   kernel.settings.actions.patch({ theme: 'dark' })
   for (let frame = 0; frame < 60; frame++) manager.scheduleCoalescedAutoSave()
   // 逐帧通知不导出布局，静止后只比较一次。
   expect(exports).toBe(0)
   expect(manager.layoutDirty.peek()).toBe(false)
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  await vi.advanceTimersByTimeAsync(300)
   expect(exports).toBe(1)
   expect(manager.layoutDirty.peek()).toBe(true)
   await manager.saveLayout({ id, name: '视口' })
@@ -532,5 +538,27 @@ it('高频视口变化合并为静止后的一次比较，销毁前补齐待检�
   } finally {
     await restored.manager.dispose()
     restored.kernel.dispose()
+  }
+})
+
+it.each([true, false])('restore: %s 控制启动恢复，手动切换始终生效', async (restore) => {
+  const source = createManager()
+  source.kernel.settings.actions.patch({ theme: 'dark' })
+  const savedId = await source.manager.saveLayout({ name: 'saved' })
+  await source.manager.dispose()
+  source.kernel.dispose()
+
+  const target = createManager(restore)
+  try {
+    await target.manager.initialize()
+    expect(target.kernel.settings.readonly.settings.peek().theme).toBe(restore ? 'dark' : 'light')
+    expect(target.manager.activeLayoutId.peek()).toBe(savedId)
+
+    target.kernel.settings.actions.patch({ theme: 'light' })
+    await target.manager.switchLayout({ id: savedId })
+    expect(target.kernel.settings.readonly.settings.peek().theme).toBe('dark')
+  } finally {
+    await target.manager.dispose()
+    target.kernel.dispose()
   }
 })

@@ -99,6 +99,11 @@ export class LayoutManager implements LayoutApi {
       /** 配置发布后加载指标内容；不得阻塞窗格布局恢复。 */
       loadContent?(document: LayoutDocument): Promise<void>
     },
+    /**
+     * `restore: false` 时归档只作为手动保存/切换的仓库：
+     * 读取不会把活动布局应用到图表，供“每个窗口/标签各自持有配置”的宿主使用。
+     */
+    private readonly options: { restore?: boolean } = {},
   ) {
     globalThis.addEventListener?.('pagehide', this.onPageHide)
   }
@@ -246,7 +251,8 @@ export class LayoutManager implements LayoutApi {
       )
     } else if (stored) {
       const active = this.archive.documents[this.archive.activeId] ?? fallback
-      this.applySnapshot(active)
+      // 关闭恢复时不改动图表，只把归档里的身份同步出来，手动切换仍然可用。
+      if (this.options.restore !== false) this.applySnapshot(active)
       this.archive = { ...this.archive, activeId: active.id }
     }
     this.loaded = true

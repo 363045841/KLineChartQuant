@@ -1,6 +1,7 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
 import type { SnapLine } from '@/foundation/plugin/index.js'
+import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -1011,7 +1012,23 @@ export class ChartRenderer {
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
       const auto = this.resolvePaneAutoRange(frame, inputs, pane)
-      const resolved = this.resolvePaneRange(inputs, pane.id, auto)
+      const context = this.createPaneRenderContext(
+        frame, pane, renderer.getContexts(), inputs.dataManager, createAxisLabelsFrame(), [],
+      )
+      const drawings = this.drawingStore.getVisibleByPane(
+        pane.id, resolveChartWorkspaceId(this.deps.dataView$.peek()), 'committed', 'indicator',
+      )
+      const drawingRange = computeDrawingPriceRange(drawings, this.drawingDefinitions, context)
+      const combined = drawingRange
+        ? {
+            range: {
+              minPrice: auto ? Math.min(auto.range.minPrice, drawingRange.min) : drawingRange.min,
+              maxPrice: auto ? Math.max(auto.range.maxPrice, drawingRange.max) : drawingRange.max,
+            },
+            basePrice: auto?.basePrice ?? null,
+          }
+        : auto
+      const resolved = this.resolvePaneRange(inputs, pane.id, combined)
       panePriceRanges[pane.id] = resolved
       this.collectPendingHandRange(pendingHandRanges, frame, pane.id, resolved)
     }

@@ -1,3 +1,5 @@
+{{include:_brand-logo.md}}
+
 {{include:_header.zh-CN.md}}
 
 {{include:_badges.zh-CN.md}}
