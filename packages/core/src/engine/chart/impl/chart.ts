@@ -660,6 +660,8 @@ export class Chart {
         reconcileDefinition: (indicatorId, role) =>
           this.kernel.paneManager.reconcileDefinition(indicatorId, role),
         create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
+        // 同类叠加：只追加副图实例，面板与坐标轴沿用已有面板。
+        addToPane: (entry) => this.kernel.indicator.actions.addSub(entry),
         remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
         replace: (paneId, indicatorId, params) =>
           this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),

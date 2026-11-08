@@ -242,10 +242,14 @@ export function createVolumeProfileLayer(
   paneId: string,
   instanceId: string,
   params: Record<string, unknown> | undefined,
+  stacked?: boolean,
 ): Layer<RenderContext> {
   return {
     // 两个指标都允许多实例，层身份必须带上实例，否则第二个分布图会覆盖第一个。
-    id: resolveIndicatorLayerId(scope === 'session' ? 'svp' : 'pvp', paneId, { instanceId }),
+    id: resolveIndicatorLayerId(scope === 'session' ? 'svp' : 'pvp', paneId, {
+      instanceId,
+      stacked,
+    }),
     role: 'overlay',
     pane: paneId,
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL - 1,

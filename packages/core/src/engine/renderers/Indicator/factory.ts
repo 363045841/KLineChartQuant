@@ -84,6 +84,7 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     indicatorId: options.indicatorId,
     instanceId: options.instanceId,
     params: options.params,
+    stacked: options.stacked,
   })
   const layer = withPeriodVisibility(created, definition, options.params)
   return role && role !== layer.role ? { ...layer, role } : layer

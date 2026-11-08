@@ -124,6 +124,8 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
 export interface SubPaneOps {
   reconcileDefinition: (indicatorId: string, role: IndicatorInstanceSpec['role']) => void
   create: (entry: SubPaneInput) => void
+  /** 追加到已有副图面板；只用于同定义叠加，面板与坐标轴保持唯一。 */
+  addToPane: (entry: SubPaneInput) => void
   remove: (paneId: string) => void
   replace: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
   setParams: (paneId: string, params: Readonly<Record<string, unknown>>) => void
@@ -1124,7 +1126,7 @@ export class ChartIndicatorManager {
     return this.deps.indicator.readonly.subPanes.peek().map((entry) => ({
       ...entry,
       params: { ...entry.params },
-      ...this.subPaneManager.getMountedResources(entry.paneId),
+      ...this.subPaneManager.getMountedResources(entry.instanceId),
     }))
   }
 
@@ -1136,7 +1138,7 @@ export class ChartIndicatorManager {
     return {
       ...entry,
       params: { ...entry.params },
-      ...this.subPaneManager.getMountedResources(paneId),
+      ...this.subPaneManager.getMountedResources(entry.instanceId),
     }
   }
 
@@ -1179,7 +1181,21 @@ export class ChartIndicatorManager {
    * @param params 可选的指标参数覆盖。
    * @returns 成功时返回可用于后续操作的标识，失败时返回 null。
    */
-  addIndicator(definitionId: string, params?: Record<string, unknown>): string | null {
+  /**
+   * 添加指标实例；主图返回规范化 definitionId，副图创建独立 instanceId。
+   *
+   * 副图给 `paneId` 且该面板已挂同一指标时，会在该面板追加第二个实例
+   * （同类叠加）：面板与坐标轴共用，绘制层按实例分开。
+   * @param definitionId 已注册的指标定义标识。
+   * @param params 可选的指标参数覆盖。
+   * @param options 可选目标面板；仅副图生效。
+   * @returns 成功时返回可用于后续操作的标识，失败时返回 null。
+   */
+  addIndicator(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    options?: { paneId?: string },
+  ): string | null {
     const definition = getRegisteredIndicatorDefinition(definitionId)
     if (!definition) return null
     if (definition.category === 'main') {
@@ -1189,14 +1205,31 @@ export class ChartIndicatorManager {
       )
       if (!success) return null
       return resolveIndicatorDefinitionId(definitionId) ?? definitionId
-    } else {
-      const instanceId = createIndicatorInstanceId()
-      const paneId = generateUUID()
-      this.deps.subPaneOps.create(
-        this.createPaneInput(paneId, resolveCanonicalIndicatorId(definition), params, instanceId),
-      )
+    }
+
+    const canonicalId = resolveCanonicalIndicatorId(definition)
+    const instanceId = createIndicatorInstanceId()
+    const targetPaneId = options?.paneId
+    if (targetPaneId !== undefined) {
+      const target = this.deps.indicator.readonly.instances
+        .peek()
+        .find(
+          (entry) =>
+            entry.role === 'sub' &&
+            entry.paneId === targetPaneId &&
+            entry.indicatorId === canonicalId,
+        )
+      if (!target) return null
+      this.deps.subPaneOps.addToPane({
+        ...this.createPaneInput(targetPaneId, canonicalId, params, instanceId),
+        ordinal: target.ordinal,
+      })
       return instanceId
     }
+
+    const paneId = generateUUID()
+    this.deps.subPaneOps.create(this.createPaneInput(paneId, canonicalId, params, instanceId))
+    return instanceId
   }
 
   removeIndicator(instanceId: string): boolean {

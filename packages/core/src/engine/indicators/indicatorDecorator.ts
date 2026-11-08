@@ -105,11 +105,10 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
             : `${config.name}_${paneId}`
         const getRendererName: IndicatorRendererNameResolver =
           config.getRendererName ??
-          (({ paneId, instanceId }) => {
+          (({ paneId, instanceId, stacked }) => {
             const base = resolveRendererBaseName(paneId)
-            return config.multiInstance === true && instanceId !== undefined
-              ? `${base}_${instanceId}`
-              : base
+            const withInstance = config.multiInstance === true || stacked === true
+            return withInstance && instanceId !== undefined ? `${base}_${instanceId}` : base
           })
         const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
           config.getScaleRendererName ??

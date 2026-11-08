@@ -341,6 +341,16 @@ export function createIndicatorState() {
         ])
       },
       /** 按 paneId 新增或替换副图实例。 */
+      /** 追加副图实例；用于同一定义在同一面板内的叠加，不创建新面板。 */
+      addSub(entry: SubPaneInput): string {
+        const nextEntry = snapshotInstance({
+          ...entry,
+          instanceId: entry.instanceId ?? createIndicatorInstanceId(),
+          role: 'sub',
+        })
+        write([...currentInstances(), nextEntry])
+        return nextEntry.instanceId
+      },
       upsertSub(entry: SubPaneInput) {
         const prev = currentInstances()
         const index = findSubIndex(prev, entry.paneId)

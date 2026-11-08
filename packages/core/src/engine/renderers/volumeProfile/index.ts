@@ -92,6 +92,8 @@ interface VolumeProfileRendererOptions {
   paneId: string
   instanceId: string
   params?: Record<string, unknown>
+  /** 同一面板内叠加了同定义多个实例，层身份需要带实例。 */
+  stacked?: boolean
 }
 
 /** 会话成交量分布（SVP）：按交易日（行情时区）分段，只用于日内周期。 */
@@ -114,7 +116,13 @@ interface VolumeProfileRendererOptions {
 })
 export class SessionVolumeProfileIndicatorDefinition {
   static rendererFactory = (options: VolumeProfileRendererOptions): Layer<RenderContext> =>
-    createVolumeProfileLayer('session', options.paneId, options.instanceId, options.params)
+    createVolumeProfileLayer(
+      'session',
+      options.paneId,
+      options.instanceId,
+      options.params,
+      options.stacked,
+    )
 }
 
 /** 周期性成交量分布（PVP）：每「阶段数量 × 阶段单位」画一个分布图。 */
@@ -153,5 +161,11 @@ export class SessionVolumeProfileIndicatorDefinition {
 })
 export class PeriodicVolumeProfileIndicatorDefinition {
   static rendererFactory = (options: VolumeProfileRendererOptions): Layer<RenderContext> =>
-    createVolumeProfileLayer('periodic', options.paneId, options.instanceId, options.params)
+    createVolumeProfileLayer(
+      'periodic',
+      options.paneId,
+      options.instanceId,
+      options.params,
+      options.stacked,
+    )
 }

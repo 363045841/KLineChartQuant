@@ -15,7 +15,7 @@ import type { SubPaneSpec } from '../../state/indicatorState.js'
 import type { SubPaneContext, SubPaneResources } from '../types.js'
 import { DEFAULT_PRICE_LABEL_WIDTH } from '../types.js'
 
-type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
+type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources & { readonly stacked: boolean }
 type MountedSubPaneResources = SubPaneResources & {
   readonly projectionKey: string
   /** 当前投影的隐藏状态，用于判断是否需要重建置灰标题。 */
@@ -65,26 +65,36 @@ function toResources(entry: ProjectedSubPaneEntry): SubPaneResources {
 
 /** 副图 renderer/layer 的 runtime projection，不持有业务 Signal。 */
 export class SubPaneManager {
+  /** 按实例身份挂载；同一面板可以挂多个实例（同类叠加）。 */
   private readonly mounted = new Map<string, MountedSubPaneResources>()
+  /** paneId → 该面板共享的坐标轴层 id；最后一个实例卸载时才移除。 */
+  private readonly scaleLayers = new Map<string, string>()
 
   reconcile(ctx: SubPaneContext, desired: ReadonlyArray<SubPaneSpec>): boolean {
-    const desiredByPane = new Map(desired.map((spec) => [spec.paneId, spec]))
+    const desiredById = new Map(desired.map((spec) => [spec.instanceId, spec]))
+    // 同一面板内的实例数决定层身份是否必须带实例，以及坐标轴层是否还要保留。
+    const stackSize = new Map<string, number>()
+    for (const spec of desired) stackSize.set(spec.paneId, (stackSize.get(spec.paneId) ?? 0) + 1)
     let changed = false
 
-    for (const [paneId, entry] of [...this.mounted]) {
-      if (desiredByPane.has(paneId)) continue
+    for (const [instanceId, entry] of [...this.mounted]) {
+      if (desiredById.has(instanceId)) continue
       this.unmount(ctx, entry)
-      this.mounted.delete(paneId)
+      this.mounted.delete(instanceId)
       changed = true
     }
 
     for (const spec of desired) {
-      const current = this.mounted.get(spec.paneId)
+      const current = this.mounted.get(spec.instanceId)
       let candidate: ProjectedSubPaneEntry | undefined
       try {
-        candidate = this.describeEntry(ctx, spec)
+        const stacked = (stackSize.get(spec.paneId) ?? 1) > 1
+        candidate = this.describeEntry(ctx, spec, stacked)
         const nextProjectionKey = `${spec.indicatorId}:${spec.hidden ? 'hidden' : 'shown'}:${stableConfig(spec.params)}`
-        if (current?.projectionKey === nextProjectionKey) continue
+        if (current?.projectionKey === nextProjectionKey) {
+          this.ensureScaleLayer(ctx, candidate)
+          continue
+        }
 
         if (candidate.hidden) {
           // 隐藏只卸载数据与坐标轴，图例由实例状态继续投影。
@@ -101,7 +111,7 @@ export class SubPaneManager {
           this.mount(ctx, candidate)
           if (current) this.unmount(ctx, current)
         }
-        this.mounted.set(spec.paneId, {
+        this.mounted.set(spec.instanceId, {
           ...toResources(candidate),
           projectionKey: nextProjectionKey,
           hidden: candidate.hidden === true,
@@ -113,30 +123,51 @@ export class SubPaneManager {
         } else if (current) {
           this.unmount(ctx, current)
         }
-        this.mounted.delete(spec.paneId)
+        this.mounted.delete(spec.instanceId)
         console.error(`[SubPaneManager] Failed to project pane "${spec.paneId}":`, error)
       }
     }
 
+    this.pruneScaleLayers(ctx, stackSize)
     if (changed) ctx.onPaneProjectionChanged()
     return changed
   }
 
-  getMountedResources(paneId: string): SubPaneResources | undefined {
-    const resources = this.mounted.get(paneId)
+  getMountedResources(instanceId: string): SubPaneResources | undefined {
+    const resources = this.mounted.get(instanceId)
     if (!resources) return undefined
     const { projectionKey: _, hidden: _hidden, ...snapshot } = resources
     return { ...snapshot }
   }
 
   clear(ctx: SubPaneContext): void {
-    if (this.mounted.size === 0) return
+    if (this.mounted.size === 0 && this.scaleLayers.size === 0) return
     for (const entry of this.mounted.values()) this.unmount(ctx, entry)
     this.mounted.clear()
+    for (const scaleLayerId of this.scaleLayers.values()) this.removeScaleLayer(ctx, scaleLayerId)
+    this.scaleLayers.clear()
     ctx.onPaneProjectionChanged()
   }
 
-  private describeEntry(ctx: SubPaneContext, spec: SubPaneSpec): ProjectedSubPaneEntry {
+  /** 面板没有实例时移除共享坐标轴层；Panel 仍在则保留。 */
+  private pruneScaleLayers(ctx: SubPaneContext, stackSize: ReadonlyMap<string, number>): void {
+    for (const [paneId, scaleLayerId] of [...this.scaleLayers]) {
+      if ((stackSize.get(paneId) ?? 0) > 0) continue
+      this.removeScaleLayer(ctx, scaleLayerId)
+      this.scaleLayers.delete(paneId)
+    }
+  }
+
+  private removeScaleLayer(ctx: SubPaneContext, scaleLayerId: string): void {
+    ctx.removeRenderer(scaleLayerId)
+    ctx.removeRenderer(resolveIndicatorScaleCrosshairLayerId(scaleLayerId))
+  }
+
+  private describeEntry(
+    ctx: SubPaneContext,
+    spec: SubPaneSpec,
+    stacked: boolean,
+  ): ProjectedSubPaneEntry {
     const definition = getRegisteredIndicatorDefinition(spec.indicatorId)
     if (!definition) {
       throw new KLineChartError(
@@ -153,6 +184,8 @@ export class SubPaneManager {
     const rendererName = definition.getRendererName({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
+      instanceId: spec.instanceId,
+      stacked,
     })
     const scaleRendererName = definition.getScaleRendererName({
       paneId: spec.paneId,
@@ -161,9 +194,13 @@ export class SubPaneManager {
     return {
       ...spec,
       params: { ...spec.params },
+      stacked,
       rendererName,
       scaleRendererName,
-      layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId),
+      layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, {
+        instanceId: spec.instanceId,
+        stacked,
+      }),
       scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, { part: 'scale' }),
     }
   }
@@ -177,15 +214,19 @@ export class SubPaneManager {
         instanceId: entry.instanceId,
         definition,
         params: { ...entry.params },
+        stacked: entry.stacked,
       })
       // useRenderer：唯一 Scene Layer
       ctx.useRenderer(layer)
     }
-    this.mountScaleRenderer(ctx, entry)
+    this.ensureScaleLayer(ctx, entry)
   }
 
-  private mountScaleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
+  /** 坐标轴层按面板共享：同一面板的多个实例只挂一个。 */
+  private ensureScaleLayer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
+    if (this.scaleLayers.has(entry.paneId)) return
     if (ctx.getRenderer(entry.scaleLayerId)) {
+      this.scaleLayers.set(entry.paneId, entry.scaleLayerId)
       return
     }
     const definition = getRegisteredIndicatorDefinition(entry.indicatorId)
@@ -216,13 +257,12 @@ export class SubPaneManager {
     if (!layer) return
     ctx.useRenderer(layer)
     if (hasIndicatorScaleCrosshairLayer(layer)) ctx.useRenderer(layer.crosshairLayer)
+    this.scaleLayers.set(entry.paneId, entry.scaleLayerId)
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources): void {
-    // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose
+    // removeRenderer 同步卸 Scene Layer 并触发 Layer.dispose；共享坐标轴层由 prune 处理。
     ctx.removeRenderer(entry.layerId)
-    ctx.removeRenderer(entry.scaleLayerId)
-    ctx.removeRenderer(resolveIndicatorScaleCrosshairLayerId(entry.scaleLayerId))
   }
 
   private invalidateProjection(

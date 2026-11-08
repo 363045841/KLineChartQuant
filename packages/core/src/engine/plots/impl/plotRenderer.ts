@@ -932,12 +932,14 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
 export function createPlotLayer(
   definitionId: string,
   defaultPaneId: string,
-  options: { instanceId: string },
+  options: { instanceId: string; stacked?: boolean },
 ): Layer<RenderContext> {
   const retained = createRetainedGeometry<PlotGeometry, ProjectionRevision>(sameProjectionRevision)
   return createIndicatorRendererLayer({
     definitionId,
     paneId: defaultPaneId,
+    instanceId: options.instanceId,
+    stacked: options.stacked,
     z: RENDERER_PRIORITY.INDICATOR,
     kind: 'draw-list',
     draw(context) {

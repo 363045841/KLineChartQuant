@@ -575,7 +575,17 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
-  addIndicator(definitionId: string, params?: Record<string, unknown>): string | null
+  /**
+   * 添加指标实例。
+   * @param definitionId 指标定义标识
+   * @param params 可选的参数覆盖
+   * @param options 可选目标面板；副图给出已有面板且同定义时在同一面板内叠加实例
+   */
+  addIndicator(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    options?: { paneId?: string },
+  ): string | null
   removeIndicator(instanceId: string): boolean
   /** 调整主图指标的 Legend 顺序。 */
   moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean

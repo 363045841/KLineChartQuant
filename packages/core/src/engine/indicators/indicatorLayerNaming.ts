@@ -41,11 +41,13 @@ export function registerIndicatorLayerNaming(
   }
 }
 
-/** Layer 身份选项：取数据层还是坐标轴层，以及多实例定义所需的实例身份。 */
+/** Layer 身份选项：取数据层还是坐标轴层，以及实例身份。 */
 export interface IndicatorLayerIdOptions {
   readonly part?: 'renderer' | 'scale'
   /** 允许同一指标多实例的定义必须给出，否则多个实例会争用同一层。 */
   readonly instanceId?: string
+  /** 同一面板内叠加了同定义的多个实例；即使定义未声明多实例也要带实例身份。 */
+  readonly stacked?: boolean
 }
 
 /** 按定义身份解析数据或坐标轴 Layer ID；身份未登记时抛错。 */
@@ -54,9 +56,9 @@ export function resolveIndicatorLayerId(
   paneId: string,
   options: IndicatorLayerIdOptions = {},
 ): string {
-  const { part = 'renderer', instanceId } = options
+  const { part = 'renderer', instanceId, stacked } = options
   const rule = namingRules.get(normalizeIndicatorId(definitionId))
-  const nameOptions = { paneId, indicatorId: definitionId, instanceId }
+  const nameOptions = { paneId, indicatorId: definitionId, instanceId, stacked }
   const name = part === 'renderer' ? rule?.renderer(nameOptions) : rule?.scale(nameOptions)
   if (!name)
     throw new KLineChartError(

@@ -154,9 +154,13 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   /** 添加指标实例，返回实例 id；失败返回 null。 */
-  function addIndicator(definitionId: string, params?: Record<string, unknown>): string | null {
+  function addIndicator(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    options?: { paneId?: string },
+  ): string | null {
     if (isDisposed() || !isLoaded(definitionId)) return null
-    return chart.indicators.add(definitionId, params)
+    return chart.indicators.add(definitionId, params, options)
   }
 
   /** 移除指标实例。 */

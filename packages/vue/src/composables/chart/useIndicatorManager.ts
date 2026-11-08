@@ -199,7 +199,14 @@ export function useIndicatorManager(
     if (isSubPaneIndicator(indicatorId)) {
       if (active) {
         const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-        if (existingPane) return
+        if (existingPane) {
+          // 同类叠加：已有同定义面板时，把新实例挂到该面板而不是新开面板。
+          const loaded = await loadIndicator(controller, indicatorId)
+          loaded?.addIndicator(indicatorId, indicatorParams.value[indicatorId], {
+            paneId: existingPane.id,
+          })
+          return
+        }
         if (subPanes.value.length >= maxSubPanes) return
 
         const loaded = await loadIndicator(controller, indicatorId)

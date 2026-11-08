@@ -35,8 +35,12 @@ export class ChartIndicatorFacade {
   }
 
   /** 添加主图或副图指标实例。 */
-  add(definitionId: string, params?: Record<string, unknown>): string | null {
-    return this.deps.manager.addIndicator(definitionId, params)
+  add(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    options?: { paneId?: string },
+  ): string | null {
+    return this.deps.manager.addIndicator(definitionId, params, options)
   }
 
   /** 移动主图 Legend。 */

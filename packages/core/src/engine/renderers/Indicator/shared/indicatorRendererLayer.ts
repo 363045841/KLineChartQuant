@@ -27,6 +27,8 @@ type IndicatorRendererLayerIdentity = {
       part?: 'renderer' | 'scale'
       /** 多实例定义的实例身份；缺省按定义级单一层处理。 */
       instanceId?: string
+      /** 同一面板内叠加了同定义多个实例，层身份必须带实例。 */
+      stacked?: boolean
     }
   | { layerId: string }
 )
@@ -57,6 +59,7 @@ function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
         ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, {
             part: spec.part ?? 'renderer',
             ...(spec.instanceId === undefined ? {} : { instanceId: spec.instanceId }),
+            ...(spec.stacked === undefined ? {} : { stacked: spec.stacked }),
           })
         : spec.layerId,
     role: spec.role ?? (spec.paneId === MAIN_PANE_ID ? 'primary' : 'indicator'),

@@ -37,6 +37,8 @@ export interface IndicatorRendererOptions {
   /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
   instanceId: string
   params?: Record<string, unknown>
+  /** 同一面板内叠加了同定义的多个实例，Layer 身份需要带上实例。 */
+  stacked?: boolean
 }
 
 export interface IndicatorScaleRendererOptions {
@@ -64,6 +66,8 @@ export interface IndicatorRendererNameOptions {
   indicatorId: IndicatorId
   /** 实例身份；允许同一指标多实例的定义用它区分渲染层。 */
   instanceId?: string
+  /** 同一面板内叠加了同定义的多个实例；此时层身份必须带实例，与定义声明无关。 */
+  stacked?: boolean
 }
 
 /** 指标 renderer plugin 名称解析器。 */

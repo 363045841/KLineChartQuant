@@ -104,6 +104,7 @@ function createMockDeps() {
   const subPaneOps: IndicatorDependencies['subPaneOps'] = {
     reconcileDefinition: (indicatorId, role) => paneManager.reconcileDefinition(indicatorId, role),
     create: (entry) => indicator.actions.upsertSub(entry),
+    addToPane: (entry) => indicator.actions.addSub(entry),
     remove: (paneId) => indicator.actions.removeSub(paneId),
     replace: (paneId, indicatorId, params) =>
       indicator.actions.replaceSub({ paneId, indicatorId, params }),
@@ -487,6 +488,25 @@ describe('ChartIndicatorManager', () => {
     expect(manager.removeIndicator(second.instanceId)).toBe(true)
     expect(pvpInstances()).toHaveLength(1)
     expect(pvpInstances()[0]?.instanceId).toBe(first.instanceId)
+  })
+  it('同一副图面板可以叠加同定义的第二个实例', () => {
+    const first = manager.addIndicator('PlotVolume')
+    expect(first).not.toBeNull()
+    const pane = manager.getSubPaneEntries()[0]!
+    const second = manager.addIndicator('PlotVolume', undefined, { paneId: pane.paneId })
+    expect(second).not.toBeNull()
+    expect(second).not.toBe(first)
+
+    const entries = manager.getSubPaneEntries()
+    expect(entries).toHaveLength(2)
+    // 两个实例共享同一面板，但实例身份不同。
+    expect(new Set(entries.map((entry) => entry.paneId)).size).toBe(1)
+    expect(new Set(entries.map((entry) => entry.instanceId)).size).toBe(2)
+  })
+  it('副图目标面板不存在时拒绝叠加，不创建多余实例', () => {
+    expect(manager.addIndicator('PlotVolume')).not.toBeNull()
+    expect(manager.addIndicator('PlotVolume', undefined, { paneId: 'missing-pane' })).toBeNull()
+    expect(manager.getSubPaneEntries()).toHaveLength(1)
   })
   let manager: ChartIndicatorManager
   let harness: ReturnType<typeof createMockDeps>
