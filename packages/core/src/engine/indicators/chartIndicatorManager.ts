@@ -1081,6 +1081,7 @@ export class ChartIndicatorManager {
       indicatorId: instance.indicatorId,
       instanceId: instance.instanceId,
       definition,
+      params: { ...instance.params },
     })
   }
 

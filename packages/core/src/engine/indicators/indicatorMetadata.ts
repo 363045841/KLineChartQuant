@@ -124,6 +124,11 @@ export interface IndicatorInputDef {
   readonly title?: string
   /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
   readonly options?: readonly (string | IndicatorInputOption)[]
+  /**
+   * 颜色控件；值为 `#rrggbb`，空串表示跟随主题。
+   * 面板据此渲染取色块而不是文本框，业务侧负责把空串解析成主题色。
+   */
+  readonly color?: boolean
 }
 
 /**
@@ -265,6 +270,7 @@ export interface IndicatorMetadata<_T = unknown> {
   /**
    * 指标在哪些图表周期可见；未声明时所有周期都可见。
    * 声明后，不在范围内的周期既不绘制也不出现在图例里（TradingView 的「可见范围」）。
+   * 这是定义级的能力上限；需要用户自行收窄时，用 `visibleFrom` / `visibleTo` 参数。
    */
   visiblePeriods?: readonly IndicatorPeriodVisibility[]
 

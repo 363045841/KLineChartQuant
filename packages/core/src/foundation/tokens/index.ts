@@ -8,6 +8,7 @@
  * Public surface from the root `@klinechart-quant/core` barrel.
  */
 
+export { scaleColorAlpha } from './colorAlpha.js'
 export { COLOR_PICKER_CSS_VARS } from './colorPicker.js'
 export {
   applyColorPresetOverrides,

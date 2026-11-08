@@ -2,15 +2,23 @@
  * 成交量分布的计算、分段与目录登记用例。
  *
  * 覆盖：成交量摊分守恒、上涨/下跌拆分、POC 与价值区边界、阶段切分（K 线/日/周/月、时区、合并、上限），
- * 以及两个指标在「添加指标」目录中的主图身份与参数暴露。
+ * 两个指标在「添加指标」目录中的主图身份与参数暴露，配色覆盖规则，以及可见周期参数对绘制的拦截。
  */
 import { describe, expect, it } from 'vitest'
+import { darkTheme, lightTheme, scaleColorAlpha } from '../../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../../foundation/types/price.js'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+} from '../../../__tests__/helpers/renderTestKit.js'
+import { getRegisteredIndicatorDefinition } from '../../../indicators/indicatorDefinitionRegistry.js'
 import { loadSystemIndicators } from '../../../indicators/registerBuiltins.js'
+import { createIndicatorLayer } from '../../Indicator/factory.js'
 import { allIndicators } from '../../Indicator/indicatorCatalog.js'
 import { buildVolumeProfile } from '../impl/build.js'
+import { readVolumeProfilePaletteParams, resolveVolumeProfilePalette } from '../impl/palette.js'
 import { resolveVolumeProfileSlices } from '../impl/period.js'
-import { MAX_PROFILE_SLICES } from '../types.js'
+import { COMMON_VOLUME_PROFILE_PARAMS, MAX_PROFILE_SLICES } from '../types.js'
 
 /** 构造一根 K 线。 */
 function bar(
@@ -152,5 +160,67 @@ describe('indicator catalog entry', () => {
 
     const svp = entries.find((item) => item.id === 'SVP')
     expect(svp?.params?.some((param) => param.key === 'periodUnit')).toBe(false)
+  })
+
+  it('两个指标都暴露颜色控件与可见周期区间，且默认区间符合各自口径', async () => {
+    await loadSystemIndicators()
+    const entries = allIndicators().filter((item) => item.id === 'SVP' || item.id === 'PVP')
+    for (const entry of entries) {
+      const colors = entry.params?.filter((param) => param.type === 'color') ?? []
+      expect(colors.map((param) => param.key)).toContain('upColor')
+      expect(colors).toHaveLength(8)
+      expect(entry.params?.find((param) => param.key === 'upOpacity')?.type).toBe('number')
+      expect(entry.params?.find((param) => param.key === 'visibleFrom')?.type).toBe('select')
+      expect(entry.params?.find((param) => param.key === 'visibleTo')?.default).toBe(
+        entry.id === 'SVP' ? '4h' : 'yearly',
+      )
+    }
+  })
+})
+
+describe('配色参数', () => {
+  it('未覆盖时逐部位保持主题原色', () => {
+    const params = readVolumeProfilePaletteParams(undefined)
+    expect(resolveVolumeProfilePalette(darkTheme.colors.volumeProfile, params)).toEqual(
+      darkTheme.colors.volumeProfile,
+    )
+    expect(resolveVolumeProfilePalette(lightTheme.colors.volumeProfile, params)).toEqual(
+      lightTheme.colors.volumeProfile,
+    )
+  })
+
+  it('覆盖色替换对应部位，其余继续跟随主题', () => {
+    const params = readVolumeProfilePaletteParams({ upColor: '#FF0000', downOpacity: 50 })
+    const palette = resolveVolumeProfilePalette(lightTheme.colors.volumeProfile, params)
+    expect(palette.up).toBe('#FF0000')
+    expect(palette.down).toBe(scaleColorAlpha(lightTheme.colors.volumeProfile.down, 0.5))
+    expect(palette.pointOfControl).toBe(lightTheme.colors.volumeProfile.pointOfControl)
+  })
+
+  it('非法颜色与越界不透明度回落到默认值', () => {
+    const params = readVolumeProfilePaletteParams({ upColor: 'red', boxBackgroundOpacity: 300 })
+    expect(params.upColor).toBe('')
+    expect(params.boxBackgroundOpacity).toBe(100)
+  })
+})
+
+describe('可见周期参数', () => {
+  it('区间之外的周期不绘制，区间内照常绘制', async () => {
+    await loadSystemIndicators()
+    const definition = getRegisteredIndicatorDefinition('svp')
+    expect(definition).toBeDefined()
+    if (!definition) return
+    const layer = createIndicatorLayer({
+      definition,
+      paneId: 'main',
+      indicatorId: 'svp',
+      instanceId: 'svp_main',
+      params: { ...COMMON_VOLUME_PROFILE_PARAMS, visibleTo: '4h' },
+    })
+    const ctx = createMockCanvasContext()
+    layer.paint(createMockRenderContext({ overlayCtx: ctx, period: 'daily' }))
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    layer.paint(createMockRenderContext({ overlayCtx: ctx, period: '5min' }))
+    expect(ctx.fillRect).toHaveBeenCalled()
   })
 })

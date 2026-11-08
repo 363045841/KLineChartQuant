@@ -21,14 +21,41 @@ import {
   MIN_BOX_WIDTH_PERCENT,
   MIN_PROFILE_ROWS,
   type VolumeProfileBoxPosition,
+  type VolumeProfileColorParams,
   type VolumeProfileLevel,
+  type VolumeProfileOpacityParams,
   type VolumeProfileParams,
   type VolumeProfilePeriodUnit,
   type VolumeProfileResult,
   type VolumeProfileVolumeMode,
 } from '../types.js'
 import { buildVolumeProfile } from './build.js'
+import { readVolumeProfilePaletteParams, resolveVolumeProfilePalette } from './palette.js'
 import { resolveVolumeProfileSlices } from './period.js'
+
+/**
+ * 绘制层实际消费的参数。
+ *
+ * 可见周期由 Layer 工厂判定，颜色由 palette 模块解析，因此这两类不在这里展开。
+ */
+type VolumeProfileRenderOptions = Pick<
+  VolumeProfileParams,
+  | 'periodCount'
+  | 'periodUnit'
+  | 'volumeMode'
+  | 'valueAreaPercent'
+  | 'rowSize'
+  | 'boxWidthPercent'
+  | 'boxPosition'
+  | 'showPoc'
+  | 'showVah'
+  | 'showVal'
+  | 'extendPoc'
+  | 'extendVah'
+  | 'extendVal'
+> &
+  VolumeProfileColorParams &
+  VolumeProfileOpacityParams
 
 /** 单根横条之间的垂直留缝（逻辑像素）；与 TV 一致地连续填充。 */
 const PROFILE_BAR_GAP = 0
@@ -73,9 +100,10 @@ function readBoolean(value: unknown, fallback: boolean): boolean {
  * 归一化绘制参数：指标实例首帧拿到的是 `undefined`，且用户改参后记录里可能只含被改动的字段，
  * 因此这里必须用默认值补齐并逐项校验，不能直接断言参数表已经是完整契约。
  */
-function readParams(params: Record<string, unknown> | undefined): VolumeProfileParams {
+function readParams(params: Record<string, unknown> | undefined): VolumeProfileRenderOptions {
   const defaults = DEFAULT_VOLUME_PROFILE_PARAMS
   return {
+    ...readVolumeProfilePaletteParams(params),
     periodCount: Math.round(
       readNumber(params?.periodCount, defaults.periodCount, 1, MAX_PERIOD_COUNT),
     ),
@@ -236,7 +264,7 @@ export function createVolumeProfileLayer(
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const palette = colors.volumeProfile
+      const palette = resolveVolumeProfilePalette(colors.volumeProfile, options)
       const timeZone = context.marketSession?.timeZone ?? 'UTC'
       const unit = scope === 'session' ? 'day' : options.periodUnit
       const count = scope === 'session' ? 1 : options.periodCount

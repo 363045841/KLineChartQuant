@@ -15,6 +15,7 @@ import { createRendererLayerStore } from '../../__tests__/helpers/rendererLayerS
 import {
   createContextWithInstanceState,
   createMockCanvasContext,
+  createMockRenderContext,
 } from '../../__tests__/helpers/renderTestKit'
 import { PaneManager } from '../../pane/impl/paneManager'
 import type { PaneSpec } from '../../pane/types'
@@ -446,6 +447,16 @@ describe('ChartIndicatorManager', () => {
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(3))
     manager.disableMainIndicator('PlotClose')
     expect(read()).toBeUndefined()
+  })
+  it('主图指标 Layer 收到实例参数：SVP 默认区间之外的周期不绘制', () => {
+    expect(manager.enableMainIndicator('svp')).toBe(true)
+    update(manager, createTestData(6), { start: 0, end: 6 })
+    const layer = deps.getRenderer(makePluginLayerId('svp_main'))!
+    const ctx = createMockCanvasContext()
+    layer.paint(createMockRenderContext({ overlayCtx: ctx, period: 'daily' }))
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    layer.paint(createMockRenderContext({ overlayCtx: ctx, period: '5min' }))
+    expect(ctx.fillRect).toHaveBeenCalled()
   })
   let manager: ChartIndicatorManager
   let harness: ReturnType<typeof createMockDeps>

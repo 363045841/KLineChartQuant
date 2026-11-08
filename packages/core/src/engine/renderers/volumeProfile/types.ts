@@ -17,8 +17,29 @@ export type VolumeProfilePeriodUnit = 'candle' | 'day' | 'week' | 'month'
 /** 横条相对所属阶段区间的对齐方向。 */
 export type VolumeProfileBoxPosition = 'left' | 'right'
 
+/** 可调色部位的键；与主题 `colors.volumeProfile` 的字段一一对应。 */
+export type VolumeProfilePaletteKey =
+  | 'up'
+  | 'down'
+  | 'valueAreaUp'
+  | 'valueAreaDown'
+  | 'pointOfControl'
+  | 'valueAreaHigh'
+  | 'valueAreaLow'
+  | 'boxBackground'
+
+/** 颜色覆盖参数；空串表示跟随主题配色。 */
+export type VolumeProfileColorParams = {
+  readonly [K in VolumeProfilePaletteKey as `${K}Color`]: string
+}
+
+/** 不透明度参数（百分比）；100 表示保持主题配色的原有透明度。 */
+export type VolumeProfileOpacityParams = {
+  readonly [K in VolumeProfilePaletteKey as `${K}Opacity`]: number
+}
+
 /** 可调参数；字段一一对应 TradingView 的「输入」与「样式」两栏。 */
-export interface VolumeProfileParams {
+export interface VolumeProfileParams extends VolumeProfileColorParams, VolumeProfileOpacityParams {
   /** 阶段数量，与 `periodUnit` 组合决定每段覆盖多少数据。 */
   readonly periodCount: number
   /** 阶段单位。 */
@@ -45,6 +66,10 @@ export interface VolumeProfileParams {
   readonly showVah: boolean
   /** 显示 VAL 线。 */
   readonly showVal: boolean
+  /** 可见周期区间起点（周期键，含）；与指标声明的范围取交集。 */
+  readonly visibleFrom: string
+  /** 可见周期区间终点（周期键，含）。 */
+  readonly visibleTo: string
 }
 
 /** 单个价位桶。 */
@@ -83,21 +108,50 @@ export interface VolumeProfileSlice {
   readonly endIndex: number
 }
 
+/**
+ * 两个指标共用的默认参数；键顺序即参数面板顺序。
+ *
+ * 颜色默认取空串（跟随主题），不透明度默认 100（保持主题原样），
+ * 因此不改参数时的观感与纯主题配色完全一致。
+ */
+export const COMMON_VOLUME_PROFILE_PARAMS: Omit<VolumeProfileParams, 'periodCount' | 'periodUnit'> =
+  {
+    volumeMode: 'updown',
+    valueAreaPercent: 70,
+    rowSize: 120,
+    boxWidthPercent: 30,
+    boxPosition: 'left',
+    showPoc: true,
+    showVah: true,
+    showVal: true,
+    extendPoc: false,
+    extendVah: false,
+    extendVal: false,
+    visibleFrom: '1min',
+    visibleTo: 'yearly',
+    upColor: '',
+    upOpacity: 100,
+    downColor: '',
+    downOpacity: 100,
+    valueAreaUpColor: '',
+    valueAreaUpOpacity: 100,
+    valueAreaDownColor: '',
+    valueAreaDownOpacity: 100,
+    pointOfControlColor: '',
+    pointOfControlOpacity: 100,
+    valueAreaHighColor: '',
+    valueAreaHighOpacity: 100,
+    valueAreaLowColor: '',
+    valueAreaLowOpacity: 100,
+    boxBackgroundColor: '',
+    boxBackgroundOpacity: 100,
+  }
+
 /** 默认参数：与 TradingView 的默认值一致（分布图贴阶段左沿）。 */
 export const DEFAULT_VOLUME_PROFILE_PARAMS: VolumeProfileParams = {
   periodCount: 1,
   periodUnit: 'week',
-  volumeMode: 'updown',
-  valueAreaPercent: 70,
-  rowSize: 120,
-  boxWidthPercent: 30,
-  boxPosition: 'left',
-  extendPoc: false,
-  extendVah: false,
-  extendVal: false,
-  showPoc: true,
-  showVah: true,
-  showVal: true,
+  ...COMMON_VOLUME_PROFILE_PARAMS,
 }
 
 /** 行数上下限：上限用于限制单帧绘制量。 */
