@@ -1,27 +1,27 @@
 /**
  * 渲染侧窗口桥的回归测试：只接受形状完整的 preload 注入对象，并强制工作区身份。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { WINDOW_BRIDGE_KEY } from '../../electron/window-bridge'
+import { WINDOW_BRIDGE_KEY, type WindowBridge } from '../../electron/window-bridge'
 
 import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './window-shell'
 
 /** preload 会注入的窗口桥。 */
-function createBridge() {
+function createBridge(): WindowBridge {
   return {
     platform: 'win32',
     titleBarHeight: 40,
-    minimize: vi.fn(async () => {}),
-    toggleMaximize: vi.fn(async () => {}),
-    close: vi.fn(async () => {}),
-    getWindowState: vi.fn(async () => ({ maximized: false })),
-    onMaximizedChanged: vi.fn(() => () => {}),
-    openWindow: vi.fn(async () => {}),
-    closeWorkspace: vi.fn(async () => {}),
-    consumeInitialTabs: vi.fn(async () => null),
-    adoptTab: vi.fn(async () => {}),
-    onWorkspaceChanged: vi.fn(() => () => {}),
+    minimize: async () => {},
+    toggleMaximize: async () => {},
+    close: async () => {},
+    getWindowState: async () => ({ maximized: false }),
+    onMaximizedChanged: () => () => {},
+    openWindow: async () => {},
+    closeWorkspace: async () => {},
+    consumeInitialTabs: async () => null,
+    adoptTab: async () => {},
+    onWorkspaceChanged: () => () => {},
   }
 }
 
@@ -60,12 +60,14 @@ describe('readWorkspaceId', () => {
 })
 
 describe('readWorkspaceAccent', () => {
-  it('从查询串读取色槽位', () => {
-    expect(readWorkspaceAccent('?accent=3')).toBe(3)
+  it.each([0, 3])('从查询串读取色槽位 %i', (slot) => {
+    expect(readWorkspaceAccent(`?accent=${slot}`)).toBe(slot)
   })
 
   it.each([
     ['缺少槽位', ''],
+    ['空的槽位', '?accent='],
+    ['只有空白的槽位', '?accent=%20'],
     ['槽位不是整数', '?accent=1.5'],
     ['槽位为负', '?accent=-1'],
     ['槽位不是数字', '?accent=red'],

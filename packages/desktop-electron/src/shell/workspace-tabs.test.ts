@@ -1,9 +1,9 @@
 /**
  * 标签顺序与标题派生的纯函数回归：只验证纯计算，不触碰 IndexedDB 与 Vue。
  */
-import { describe, expect, it } from 'vitest'
 
 import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import { describe, expect, it } from 'vitest'
 
 import type { WorkspaceTab } from '../../electron/window-bridge'
 import { reorderTabs, tabLabelForSpec } from './workspace-tabs'
@@ -36,16 +36,18 @@ function ids(value: ReadonlyArray<WorkspaceTab>): string[] {
 }
 
 describe('reorderTabs', () => {
-  it('把标签向后移动', () => {
-    expect(ids(reorderTabs(tabs('a', 'b', 'c'), 'a', 'b', 'after'))).toEqual(['b', 'a', 'c'])
-  })
+  it.each([
+    ['向后插在目标之后', 'a', 'b', 'after', ['b', 'a', 'c']],
+    ['向前插在目标之前', 'c', 'a', 'before', ['c', 'a', 'b']],
+    ['向后插在目标之前', 'a', 'c', 'before', ['b', 'a', 'c']],
+    ['向前插在目标之后', 'c', 'a', 'after', ['a', 'c', 'b']],
+  ] as const)('%s，保留标签对象且不改动原数组', (_label, tabId, targetId, placement, expected) => {
+    const source = tabs('a', 'b', 'c')
+    const result = reorderTabs(source, tabId, targetId, placement)
 
-  it('把标签向前移动', () => {
-    expect(ids(reorderTabs(tabs('a', 'b', 'c'), 'c', 'a', 'before'))).toEqual(['c', 'a', 'b'])
-  })
-
-  it('插到末尾', () => {
-    expect(ids(reorderTabs(tabs('a', 'b', 'c'), 'b', 'c', 'after'))).toEqual(['a', 'c', 'b'])
+    expect(ids(result)).toEqual(expected)
+    expect(ids(source)).toEqual(['a', 'b', 'c'])
+    expect(result.find((tab) => tab.id === tabId)).toBe(source.find((tab) => tab.id === tabId))
   })
 
   it.each([

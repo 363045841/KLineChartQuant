@@ -15,7 +15,7 @@ import type { WorkspaceTab } from '../../electron/window-bridge'
 import { isSymbolSpec } from '../../electron/window-bridge'
 
 /** 标签页所属数据库；与布局归档分开，避免两套功能的生命周期互相牵制。 */
-export const WORKSPACE_TABS_DATABASE = '@363045841yyt/klinechart-desktop'
+const WORKSPACE_TABS_DATABASE = '@363045841yyt/klinechart-desktop'
 const WORKSPACE_TABS_DATABASE_VERSION = 1
 const WORKSPACE_TABS_STORE = 'workspaces'
 
@@ -78,7 +78,7 @@ export interface WorkspaceTabs {
 }
 
 /** 判断是否为完整标签；用于 IPC 输入与落盘数据的同一份校验。 */
-export function isWorkspaceTab(value: unknown): value is WorkspaceTab {
+function isWorkspaceTab(value: unknown): value is WorkspaceTab {
   if (typeof value !== 'object' || value === null) return false
   const tab = value as Record<string, unknown>
   if (typeof tab.id !== 'string' || tab.id.length === 0) return false

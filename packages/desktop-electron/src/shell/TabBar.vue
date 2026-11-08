@@ -123,10 +123,10 @@
   import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
-  import brandLogoMarkup from '../../../../docs/Pics/kcq-logo.svg?raw'
   import type { WorkspaceTab } from '../../electron/window-bridge'
-  import { tabLabelForSpec } from './workspace-tabs'
+  import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
   import type { TabDropTarget, TabPlacement } from './workspace-tabs'
+  import { tabLabelForSpec } from './workspace-tabs'
 
   const props = defineProps<{
     /** 宿主平台；macOS 需要给系统红绿灯让出位置。 */

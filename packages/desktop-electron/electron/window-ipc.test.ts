@@ -5,7 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-import { type WorkspaceTab, WINDOW_CHANNELS } from './window-bridge'
+import { WINDOW_CHANNELS, type WorkspaceTab } from './window-bridge'
 import { registerWindowIpc, type WindowActions, type WindowIpcEvent } from './window-ipc'
 
 const trustedSender = { id: 1 }
@@ -58,6 +58,7 @@ describe('registerWindowIpc — 来源门禁', () => {
     [WINDOW_CHANNELS.openWindow, [undefined]],
     [WINDOW_CHANNELS.closeWorkspace, ['w-1']],
     [WINDOW_CHANNELS.consumeInitialTabs, []],
+    [WINDOW_CHANNELS.adoptTab, [{ fromWorkspaceId: 'w-1', tabId: 'tab-1' }]],
   ]
 
   const rejected: ReadonlyArray<readonly [string, WindowIpcEvent]> = [
@@ -70,11 +71,15 @@ describe('registerWindowIpc — 来源门禁', () => {
       rejected.map(([label, event]) => [channel, label, event, args] as const),
     ),
   )('%s 拒绝%s', async (channel, _label, event, args) => {
-    const { call, createWindow, takeInitialTabs } = setup()
+    const { call, window, createWindow, closeWorkspace, takeInitialTabs, notifyWorkspaceChanged } =
+      setup()
 
     await expect(call(channel, event, ...args)).rejects.toThrow(/main application frame/)
     expect(createWindow).not.toHaveBeenCalled()
     expect(takeInitialTabs).not.toHaveBeenCalled()
+    expect(closeWorkspace).not.toHaveBeenCalled()
+    expect(notifyWorkspaceChanged).not.toHaveBeenCalled()
+    for (const action of Object.values(window)) expect(action).not.toHaveBeenCalled()
   })
 })
 
@@ -89,41 +94,32 @@ describe('registerWindowIpc — 窗口控制', () => {
     expect(window.close).toHaveBeenCalledTimes(1)
   })
 
-  it('在最大化与还原之间切换', async () => {
+  it('最大化与还原操作同步反映在查询状态中', async () => {
     const { call, window } = setup()
 
+    await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: false })
     await expect(call(WINDOW_CHANNELS.toggleMaximizeWindow)).resolves.toBeNull()
     expect(window.maximize).toHaveBeenCalledTimes(1)
+    expect(window.unmaximize).not.toHaveBeenCalled()
+    await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: true })
 
     await expect(call(WINDOW_CHANNELS.toggleMaximizeWindow)).resolves.toBeNull()
     expect(window.unmaximize).toHaveBeenCalledTimes(1)
-  })
-
-  it('回报当前最大化状态', async () => {
-    const { call } = setup()
-
+    expect(window.maximize).toHaveBeenCalledTimes(1)
     await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: false })
-
-    await call(WINDOW_CHANNELS.toggleMaximizeWindow)
-    await expect(call(WINDOW_CHANNELS.getWindowState)).resolves.toEqual({ maximized: true })
   })
 })
 
 describe('registerWindowIpc — 新建窗口', () => {
-  it('不带标签时开一扇空白窗口', async () => {
+  it.each([
+    ['空白窗口', undefined],
+    ['移交的标签', [transferredTab]],
+  ] as const)('新建窗口接收%s', async (_label, tabs) => {
     const { call, createWindow } = setup()
 
-    await expect(call(WINDOW_CHANNELS.openWindow)).resolves.toBeNull()
+    await expect(call(WINDOW_CHANNELS.openWindow, mainFrame, tabs)).resolves.toBeNull()
 
-    expect(createWindow).toHaveBeenCalledWith(undefined)
-  })
-
-  it('带标签时把这些标签交给新窗口', async () => {
-    const { call, createWindow } = setup()
-
-    await expect(call(WINDOW_CHANNELS.openWindow, mainFrame, [transferredTab])).resolves.toBeNull()
-
-    expect(createWindow).toHaveBeenCalledWith([transferredTab])
+    expect(createWindow).toHaveBeenCalledExactlyOnceWith(tabs)
   })
 
   const malformed: ReadonlyArray<readonly [string, unknown]> = [

@@ -537,7 +537,7 @@ function resolveStoredDrawing(
 }
 
 /** 绘制与轴范围共用的唯一图元入口：解析锚点、验证坐标并按定义裁剪。 */
-export function resolveVisibleDrawing(
+function resolveVisibleDrawing(
   storedDrawing: DrawingObject,
   definitions: DrawingDefinitionRegistry,
   context: RenderContext,
@@ -548,7 +548,9 @@ export function resolveVisibleDrawing(
     context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
       ? timeValue(
           { period: context.period, session: context.marketSession },
-          'close', context.period, lastOpen,
+          'close',
+          context.period,
+          lastOpen,
         )
       : undefined
   const drawing = resolveStoredDrawing(context, storedDrawing, lastBarClose)

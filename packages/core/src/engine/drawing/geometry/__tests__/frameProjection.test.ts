@@ -106,6 +106,41 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
+describe('computeDrawingPriceRange', () => {
+  it('滚动后只汇总当前可见图元，隐藏和非法坐标不污染极值', () => {
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const drawings = [0, 6].map((index) =>
+      createTrendDrawing({
+        id: `range-${index}`,
+        anchors: [
+          { id: 'a', logicalIndex: index, price: index + 10 },
+          { id: 'b', logicalIndex: index + 1, price: index + 20 },
+        ],
+      }),
+    )
+    const ignored = [
+      createTrendDrawing({ visible: false }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: 0, price: Number.NaN }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: Number.NaN, price: 1000 }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', time: -1000, price: 1000 }] }),
+    ]
+    const context = createRangeContext({ start: 0, end: 3 })
+
+    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
+      min: 10,
+      max: 20,
+    })
+    context.range = { start: 6, end: 9 }
+    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
+      min: 16,
+      max: 26,
+    })
+    context.range = { start: 3, end: 3 }
+    expect(computeDrawingPriceRange(drawings, definitions, context)).toBeNull()
+  })
+})
+
 describe('projectDrawingsForFrame', () => {
   it.each(['none', 'right', 'left', 'both'] as const)(
     'uses the same time anchors and %s extension for drawing and price range',
@@ -116,7 +151,8 @@ describe('projectDrawingsForFrame', () => {
       const first = context.data[0]!.timestamp
       const second = context.data[1]!.timestamp
       const drawing = createTrendDrawing({
-        xloc: 'bar_time', extend,
+        xloc: 'bar_time',
+        extend,
         anchors: [
           { id: 'a', time: first, price: 100 },
           { id: 'b', time: first + (second - first) / 2, price: 200 },

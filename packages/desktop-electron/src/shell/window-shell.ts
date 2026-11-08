@@ -62,7 +62,7 @@ export function readWorkspaceId(search: string = globalThis.location.search): st
 export function readWorkspaceAccent(search: string = globalThis.location.search): number {
   const value = new URLSearchParams(search).get('accent')
   // 缺失时不能走 Number(null) === 0，否则所有窗口都会落到第一个色槽。
-  const slot = value === null ? Number.NaN : Number(value)
+  const slot = value === null || value.trim() === '' ? Number.NaN : Number(value)
   if (!Number.isInteger(slot) || slot < 0) {
     throw new Error('The desktop window is missing its accent slot.')
   }
