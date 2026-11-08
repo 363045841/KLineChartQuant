@@ -20,11 +20,12 @@ function systemTheme(): WindowTheme {
 }
 
 /**
- * 创建主窗口并加载界面。
+ * 创建一扇应用窗口并加载界面。
  *
+ * @param workspaceId 工作区身份；渲染进程据此恢复自己的标签页集合
  * @returns 已配置好标题栏、preload 与加载入口的窗口；调用方负责显示时机以外的生命周期
  */
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(workspaceId: string): BrowserWindow {
   const theme = systemTheme()
   const window = new BrowserWindow({
     width: 1400,
@@ -55,10 +56,15 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // 工作区身份经 URL 下发：preload 不读取 argv，渲染进程也不需要额外 IPC 就能取到。
   if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    const url = new URL(process.env.ELECTRON_RENDERER_URL)
+    url.searchParams.set('workspace', workspaceId)
+    void window.loadURL(url.toString())
   } else {
-    void window.loadFile(join(currentDirectory, '../renderer/index.html'))
+    void window.loadFile(join(currentDirectory, '../renderer/index.html'), {
+      query: { workspace: workspaceId },
+    })
   }
 
   // 构造参数与这里都写一次，保证渲染进程尚未回报主题时原生按钮也是正确配色。

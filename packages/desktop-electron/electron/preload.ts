@@ -19,6 +19,7 @@ import {
   WINDOW_CHANNELS,
   type WindowBridge,
   type WindowTheme,
+  type WorkspaceTab,
 } from './window-bridge'
 
 const credentialBridge: CredentialBridge = {
@@ -36,6 +37,27 @@ const windowBridge: WindowBridge = {
   titleBarHeight: TITLEBAR_HEIGHT,
   setTitleBarTheme: async (theme: WindowTheme) => {
     await ipcRenderer.invoke(WINDOW_CHANNELS.setTitleBarTheme, theme)
+  },
+  openWindow: async (tabs?: ReadonlyArray<WorkspaceTab>) => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.openWindow, tabs)
+  },
+  closeWorkspace: async (workspaceId: string) => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.closeWorkspace, workspaceId)
+  },
+  consumeInitialTabs: () =>
+    ipcRenderer.invoke(
+      WINDOW_CHANNELS.consumeInitialTabs,
+    ) as Promise<ReadonlyArray<WorkspaceTab> | null>,
+  adoptTab: async (request) => {
+    await ipcRenderer.invoke(WINDOW_CHANNELS.adoptTab, request)
+  },
+  onWorkspaceChanged: (listener: () => void) => {
+    // 只订阅专用通道，事件参数不透传给渲染层。
+    const handler = (): void => listener()
+    ipcRenderer.on(WINDOW_CHANNELS.workspaceChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(WINDOW_CHANNELS.workspaceChanged, handler)
+    }
   },
 }
 

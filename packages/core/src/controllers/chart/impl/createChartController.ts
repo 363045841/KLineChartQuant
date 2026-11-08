@@ -139,27 +139,30 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
-  const layoutManager = new LayoutManager({
-    // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
-    exportLayout: () => {
-      chart.captureViewportSnapshot()
-      return chart.kernel.exportLayout()
+  const layoutManager = new LayoutManager(
+    {
+      // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
+      exportLayout: () => {
+        chart.captureViewportSnapshot()
+        return chart.kernel.exportLayout()
+      },
+      createLayout: () => chart.kernel.createLayout(),
+      loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
+      applyLayout: (document) => {
+        if (isDisposed()) throw new Error('图表已销毁')
+        batch(() => {
+          if (document.currentSymbol !== undefined) {
+            dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
+          }
+          // 品种切换清理旧范围后，再恢复布局中的锁定范围。
+          chart.kernel.applyLayout(document)
+        })
+        chart.drawingCommands.history.reset()
+        chart.scheduleDraw()
+      },
     },
-    createLayout: () => chart.kernel.createLayout(),
-    loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
-    applyLayout: (document) => {
-      if (isDisposed()) throw new Error('图表已销毁')
-      batch(() => {
-        if (document.currentSymbol !== undefined) {
-          dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
-        }
-        // 品种切换清理旧范围后，再恢复布局中的锁定范围。
-        chart.kernel.applyLayout(document)
-      })
-      chart.drawingCommands.history.reset()
-      chart.scheduleDraw()
-    },
-  })
+    { restore: opts.layoutRestore !== false },
+  )
   await layoutManager.initialize()
   // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
   if (opts.symbols && opts.symbols.length > 0) {

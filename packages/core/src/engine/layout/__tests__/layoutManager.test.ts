@@ -22,13 +22,16 @@ beforeEach(async () => {
 })
 
 /** 以生产 Kernel 快照和恢复方法构造领域管理器。 */
-function createManager() {
+function createManager(restore = true) {
   const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
-  const manager = new LayoutManager({
-    exportLayout: () => kernel.exportLayout(),
-    applyLayout: (document) => kernel.applyLayout(document),
-    createLayout: () => kernel.createLayout(),
-  })
+  const manager = new LayoutManager(
+    {
+      exportLayout: () => kernel.exportLayout(),
+      applyLayout: (document) => kernel.applyLayout(document),
+      createLayout: () => kernel.createLayout(),
+    },
+    { restore },
+  )
   return { kernel, manager }
 }
 
@@ -533,4 +536,23 @@ it('高频视口变化合并为静止后的一次比较，销毁前补齐待检�
     await restored.manager.dispose()
     restored.kernel.dispose()
   }
+})
+
+it('restore: false 时读归档不改动图表，手动切换仍然生效', async () => {
+  const source = createManager()
+  source.kernel.settings.actions.patch({ theme: 'dark' })
+  const savedId = await source.manager.saveLayout({ name: 'saved' })
+  await source.manager.dispose()
+  source.kernel.dispose()
+
+  const target = createManager(false)
+  await target.manager.initialize()
+  // 归档存在也不恢复：图表保持初始配置。
+  expect(target.kernel.settings.readonly.settings.peek().theme).toBe('light')
+
+  await target.manager.switchLayout({ id: savedId })
+  expect(target.kernel.settings.readonly.settings.peek().theme).toBe('dark')
+
+  await target.manager.dispose()
+  target.kernel.dispose()
 })

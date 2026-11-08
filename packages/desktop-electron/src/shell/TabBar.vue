@@ -1,0 +1,416 @@
+<!--
+  窗口标题栏：工作区标识、标签页列表与新建入口。
+  标签可拖动换位、拖出成新窗口、拖入本窗口；中键或悬停的关闭按钮可关闭。
+-->
+<template>
+  <header
+    ref="bar"
+    class="tab-bar"
+    :class="{ 'tab-bar--mac': platform === 'darwin' }"
+    :style="{ '--tab-accent': accent }"
+    @dragover.prevent
+    @drop="onDrop"
+  >
+    <div class="tab-bar__inner">
+      <span class="tab-bar__brand" aria-hidden="true">K</span>
+      <div
+        class="tab-bar__list"
+        role="tablist"
+        aria-label="标签页"
+        @dragover="onListDragOver"
+        @dragleave="onListDragLeave"
+      >
+        <div
+          v-for="tab in tabs"
+          :key="tab.id"
+          class="tab-bar__tab"
+          :class="{
+            'is-active': tab.id === activeTabId,
+            'is-drop-before': dropTarget?.id === tab.id && dropTarget.placement === 'before',
+            'is-drop-after': dropTarget?.id === tab.id && dropTarget.placement === 'after',
+          }"
+          role="tab"
+          tabindex="0"
+          :aria-selected="tab.id === activeTabId"
+          :data-tab-id="tab.id"
+          draggable="true"
+          @click="emit('activate', tab.id)"
+          @keydown.enter.prevent="emit('activate', tab.id)"
+          @keydown.space.prevent="emit('activate', tab.id)"
+          @auxclick="onAuxClick($event, tab.id)"
+          @dragstart="onDragStart($event, tab.id)"
+          @dragend="onDragEnd($event, tab.id)"
+        >
+          <span class="tab-bar__label">{{ tab.label }}</span>
+          <IconX
+            v-if="tabs.length > 1"
+            class="tab-bar__close"
+            role="button"
+            tabindex="0"
+            :aria-label="`关闭 ${tab.label}`"
+            draggable="false"
+            @pointerdown.stop
+            @click.stop="emit('close', tab.id)"
+            @keydown.enter.prevent.stop="emit('close', tab.id)"
+            @keydown.space.prevent.stop="emit('close', tab.id)"
+          />
+        </div>
+        <button type="button" class="tab-bar__create" aria-label="新建标签页" @click="emit('create')">
+          <IconPlus class="tab-bar__create-icon" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  </header>
+</template>
+
+<script setup lang="ts">
+  import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
+  import IconPlus from '~icons/tabler/plus'
+  import IconX from '~icons/tabler/x'
+  import type { WorkspaceTab } from '../../electron/window-bridge'
+  import type { TabDropTarget, TabPlacement } from './workspace-tabs'
+
+  const props = defineProps<{
+    /** 宿主平台；macOS 需要给系统红绿灯让出位置。 */
+    platform: string
+    /** 本窗口的工作区身份，拖拽数据里用它标识标签来源。 */
+    workspaceId: string
+    tabs: ReadonlyArray<WorkspaceTab>
+    activeTabId: string
+    /** 工作区标识色，取自色板。 */
+    accent: string
+    /** 只有一个标签时不允许拖出成新窗口；拖到其它窗口合并仍然允许。 */
+    canDetach: boolean
+  }>()
+  const emit = defineEmits<{
+    activate: [tabId: string]
+    create: []
+    close: [tabId: string]
+    detach: [tabId: string]
+    adopt: [request: { fromWorkspaceId: string; tabId: string; target: TabDropTarget | null }]
+    reorder: [tabId: string, targetId: string, placement: TabPlacement]
+  }>()
+
+  /** 拖拽载荷：只带身份，不搬运图表状态。 */
+  interface TabDragPayload {
+    readonly fromWorkspaceId: string
+    readonly tabId: string
+  }
+
+  const draggingId = ref<string | null>(null)
+  // 插入位置只用于画指示线，真实顺序始终由标签数组决定。
+  const dropTarget = ref<TabDropTarget | null>(null)
+  const bar = useTemplateRef<HTMLElement>('bar')
+  // 同窗口落点提交后 dragend 仍会触发，用它区分“拖出窗口”。
+  let dropped = false
+
+  /** 只清落点指示线：指针离开标签栏，或落点已被消费时使用。 */
+  function clearDropTarget(): void {
+    dropTarget.value = null
+  }
+
+  /** 结束一次拖拽：解绑整窗监听并复位本窗口的全部拖拽状态。 */
+  function endDrag(): void {
+    window.removeEventListener('dragover', onWindowDragOver)
+    window.removeEventListener('drop', onWindowDrop)
+    draggingId.value = null
+    dropped = false
+    clearDropTarget()
+  }
+
+  /** 中键关闭标签；左键由 click 处理，其它键忽略。 */
+  function onAuxClick(event: MouseEvent, tabId: string): void {
+    if (event.button !== 1) return
+    event.preventDefault()
+    if (props.tabs.length === 1) return
+    emit('close', tabId)
+  }
+
+  function onDragStart(event: DragEvent, tabId: string): void {
+    if (!event.dataTransfer) return
+    dropped = false
+    draggingId.value = tabId
+    event.dataTransfer.effectAllowed = 'move'
+    const payload: TabDragPayload = { fromWorkspaceId: props.workspaceId, tabId }
+    event.dataTransfer.setData('text/plain', JSON.stringify(payload))
+    // 拖拽期间整扇窗口都接受这次拖拽：否则指针一离开标签栏就显示禁止光标。
+    window.addEventListener('dragover', onWindowDragOver)
+    window.addEventListener('drop', onWindowDrop)
+  }
+
+  /** 拖拽期间接管整窗 dragover，声明为可放置，避免出现禁止光标。 */
+  function onWindowDragOver(event: DragEvent): void {
+    if (!draggingId.value) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  }
+
+  /** 落在标签栏之外的 drop 直接开新窗口；栏内的已由标签栏自己处理。 */
+  function onWindowDrop(event: DragEvent): void {
+    const tabId = draggingId.value
+    if (!tabId || dropped) return
+    event.preventDefault()
+    dropped = true
+    if (props.canDetach) emit('detach', tabId)
+  }
+
+  // 脱窗后标签会先被移除，dragend 可能不再派发；卸载时兜底复位。
+  onBeforeUnmount(endDrag)
+
+  /** 按指针横坐标解析插入点：命中标签中线前插前面，越过最后一个插末尾。 */
+  function resolveDropTarget(list: HTMLElement, clientX: number): TabDropTarget | null {
+    const entries = Array.from(list.querySelectorAll<HTMLElement>('[data-tab-id]')).flatMap(
+      (element) => {
+        const id = element.dataset.tabId
+        return id ? [{ id, rect: element.getBoundingClientRect() }] : []
+      },
+    )
+    for (const { id, rect } of entries) {
+      if (clientX < rect.left + rect.width / 2) return { id, placement: 'before' }
+    }
+    const last = entries.at(-1)
+    return last ? { id: last.id, placement: 'after' } : null
+  }
+
+  function onListDragOver(event: DragEvent): void {
+    // 本窗口和其它窗口拖来的标签用同一套落点计算；dragover 阶段只能读 types。
+    if (event.dataTransfer?.types.includes('text/plain') !== true) return
+    event.preventDefault()
+    const list = event.currentTarget as HTMLElement
+    const next = resolveDropTarget(list, event.clientX)
+    if (next?.id === draggingId.value) {
+      clearDropTarget()
+      return
+    }
+    const current = dropTarget.value
+    if (current?.id === next?.id && current?.placement === next?.placement) return
+    dropTarget.value = next
+  }
+
+  function onListDragLeave(event: DragEvent): void {
+    // 指针移入子元素也会触发 dragleave，只有真正离开列表才清掉指示线。
+    const next = event.relatedTarget as Node | null
+    if (next && (event.currentTarget as HTMLElement).contains(next)) return
+    clearDropTarget()
+  }
+
+  /** 拖出标签栏即视为拖出窗口：留在栏内重排，离开栏就另开窗口。 */
+  function onDragEnd(event: DragEvent, tabId: string): void {
+    const moved = dropped
+    endDrag()
+    if (moved || !props.canDetach) return
+    // 落到另一个窗口时由对方 accept（dropEffect 变成 move），本窗口不能再判成拖出。
+    if (event.dataTransfer?.dropEffect === 'move') return
+    const rect = bar.value?.getBoundingClientRect()
+    if (!rect) return
+    const outsideBar =
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    if (outsideBar) emit('detach', tabId)
+  }
+
+  /** 落点在同一窗口内换位置，其它窗口拖来的标签则接管。 */
+  function onDrop(event: DragEvent): void {
+    const raw = event.dataTransfer?.getData('text/plain')
+    if (!raw) return
+    let payload: TabDragPayload
+    try {
+      payload = JSON.parse(raw) as TabDragPayload
+    } catch {
+      return
+    }
+    if (!payload.fromWorkspaceId || !payload.tabId) return
+    // 落点先取出再清空：drop 之后本窗口收不到 dragend，指示线必须在这里复位。
+    const target = dropTarget.value
+    clearDropTarget()
+    if (payload.fromWorkspaceId !== props.workspaceId) {
+      // 明确接受这次 drop，源窗口据此得到 move，不会重复脱窗。
+      event.preventDefault()
+      emit('adopt', { ...payload, target })
+      return
+    }
+    if (!target) return
+    event.preventDefault()
+    dropped = true
+    emit('reorder', payload.tabId, target.id, target.placement)
+  }
+</script>
+
+<style scoped>
+  .tab-bar {
+    position: relative;
+    flex: none;
+    /* 高度以系统给出的覆盖层高度为准：用常量对齐一旦差 1px，画在底部的线就会落进覆盖层。 */
+    height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    background: var(--klc-color-ui-background);
+    /* 分隔线画在内容区顶边：标题栏高度内会落在系统覆盖层下面而缺一段。 */
+    -webkit-app-region: drag;
+    app-region: drag;
+    user-select: none;
+  }
+
+  /* 内容收在系统给出的安全区内：Windows / Linux 的原生窗口按钮压在这一层之上。 */
+  .tab-bar__inner {
+    position: absolute;
+    left: env(titlebar-area-x, 0px);
+    top: env(titlebar-area-y, 0px);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    overflow: hidden;
+  }
+
+  /* 红绿灯固定在左上角；左右对称留位。 */
+  .tab-bar--mac .tab-bar__inner {
+    padding-inline: 82px;
+  }
+
+  /* 工作区标识：色板色的低透明度底，保证明暗主题下文字都可读。 */
+  .tab-bar__brand {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tab-accent) 22%, transparent);
+    color: var(--tab-accent);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .tab-bar__list {
+    display: flex;
+    flex: 1;
+    /* 标签之间的间距。 */
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .tab-bar__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-bar__tab {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    /* 未选中的标签给一层很浅的底色，让左右两侧都有可见边界，分隔线才落得居中。 */
+    padding: 0 8px;
+    max-width: 220px;
+    height: 26px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--klc-color-ui-hover) 45%, transparent);
+    color: var(--klc-color-text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .tab-bar__tab:hover,
+  .tab-bar__tab:focus-visible {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+    outline: 0;
+  }
+
+  .tab-bar__tab.is-active {
+    background: color-mix(in srgb, var(--klc-color-ui-hover) 80%, var(--klc-color-text-tertiary));
+    color: var(--klc-color-ui-text);
+  }
+
+  /* 插入指示线：贴在标签内边缘，颜色跟随工作区标识。 */
+  .tab-bar__tab.is-drop-before {
+    box-shadow: inset 2px 0 0 var(--tab-accent);
+  }
+
+  .tab-bar__tab.is-drop-after {
+    box-shadow: inset -2px 0 0 var(--tab-accent);
+  }
+
+  .tab-bar__label {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  /* 关闭图标直接是一个 svg：未选中的标签不占位，选中或悬停时才展开。 */
+  .tab-bar__close {
+    flex: none;
+    width: 0;
+    height: 14px;
+    margin-left: 0;
+    overflow: hidden;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      width 120ms ease,
+      margin-left 120ms ease,
+      opacity 120ms ease;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .tab-bar__tab:hover .tab-bar__close,
+  .tab-bar__tab.is-active .tab-bar__close,
+  .tab-bar__tab:focus-within .tab-bar__close {
+    width: 14px;
+    margin-left: 4px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 指针落在关闭图标上时只改图标本身：换成警示色，不加任何底色或外框。 */
+  .tab-bar__close:hover,
+  .tab-bar__close:focus-visible {
+    color: var(--klc-color-ui-danger);
+    outline: 0;
+  }
+
+  .tab-bar__create {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    /* 用底色表示实体，不画边框；与未选中标签同一层浅灰。 */
+    background: color-mix(in srgb, var(--klc-color-ui-hover) 45%, transparent);
+    color: var(--klc-color-text-tertiary);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .tab-bar__create:hover,
+  .tab-bar__create:focus-visible {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+    outline: 0;
+  }
+
+  .tab-bar__create-icon {
+    width: 16px;
+    height: 16px;
+  }
+</style>

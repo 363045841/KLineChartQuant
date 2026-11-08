@@ -19,14 +19,15 @@
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { onErrorCaptured, shallowRef } from 'vue'
-  import type { KlineWorkbenchHandle, KlineWorkbenchProps } from './types.js'
   import WorkbenchContent from './impl/WorkbenchContent.vue'
+  import type { KlineWorkbenchHandle, KlineWorkbenchProps } from './types.js'
 
   defineOptions({ inheritAttrs: false })
   withDefaults(defineProps<KlineWorkbenchProps>(), {
     agent: true,
     scripts: true,
     initialAgentPanelOpen: true,
+    restoreLayout: true,
   })
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]

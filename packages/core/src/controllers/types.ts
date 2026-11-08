@@ -379,6 +379,15 @@ export interface ChartMountOptions {
   settings?: Partial<ChartSettings>
 
   /**
+   * 挂载时是否恢复布局归档里的活动布局。
+   *
+   * - `true`（默认）：沿用布局功能，恢复上次保存的配置。
+   * - `false`：归档只作为手动保存/切换的仓库，图表从初始状态起步；
+   *   多窗口 / 多标签各自持有配置时必须用这个值，否则每个图表都会拿到同一份归档。
+   */
+  layoutRestore?: boolean
+
+  /**
    * 指标实现的加载策略。
    * - `'on-demand'`（默认）：创建时只加载系统定义与已保存布局用到的指标，其余指标在
    *   `loadIndicators` / 布局切换 / Agent 工具时按需加载；同步的 `addIndicator` 等方法
