@@ -74,7 +74,7 @@ interface ScriptTimeout {
 }
 
 /** QuickJS 检查点：VM 内对象句柄，只能交回同一运行时。 */
-export interface QuickJSCheckpoint {
+interface QuickJSCheckpoint {
   readonly handle: QuickJSHandle
 }
 
@@ -98,7 +98,7 @@ interface QuickJSState {
 }
 
 /** QuickJS 运行时选项；表达式运行时不输出绘图或日志。 */
-export interface QuickJSRuntimeOptions {
+interface QuickJSRuntimeOptions {
   readonly expressionId?: string
   readonly onLog?: (event: LogEvent) => void
   readonly params?: Readonly<Record<string, ScriptParamValue>>
@@ -388,7 +388,7 @@ function normalizeDrawingDelta(patch: DumpedDrawingDelta): DrawingDelta {
 }
 
 /** 创建一个常驻 QuickJS 运行时；同一会话内只创建一次，后续按 bar 增量执行。 */
-export function createQuickJSScriptRuntime(
+function createQuickJSScriptRuntime(
   compiled: CompiledScriptSources,
   options: QuickJSRuntimeOptions = {},
 ): ScriptRuntime<QuickJSCheckpoint> {
