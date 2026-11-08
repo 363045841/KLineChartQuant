@@ -12,7 +12,9 @@
     @drop="onDrop"
   >
     <div class="tab-bar__inner">
-      <span class="tab-bar__brand" aria-hidden="true">K</span>
+      <ColorAvatar class="tab-bar__brand" :color="accent">
+        <span class="tab-bar__brand-mark" v-html="brandLogoMarkup" />
+      </ColorAvatar>
       <div
         class="tab-bar__list"
         role="tablist"
@@ -108,9 +110,11 @@
 </template>
 
 <script setup lang="ts">
+  import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
   import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
+  import brandLogoMarkup from '../../../../docs/Pics/kcq-logo.svg?raw'
   import type { WorkspaceTab } from '../../electron/window-bridge'
   import type { TabDropTarget, TabPlacement } from './workspace-tabs'
 
@@ -319,19 +323,24 @@
     padding-inline: 82px;
   }
 
-  /* 工作区标识：色板色的低透明度底，保证明暗主题下文字都可读。 */
+  /* 圆底由公共标识组件提供；只内联静态 SVG，保持与 README 相同的折线与留白。 */
   .tab-bar__brand {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--tab-accent) 22%, transparent);
-    color: var(--tab-accent);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
+    pointer-events: none;
+  }
+
+  .tab-bar__brand-mark,
+  .tab-bar__brand :deep(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .tab-bar__brand :deep(circle) {
+    fill: none;
+  }
+
+  .tab-bar__brand :deep(path) {
+    stroke: currentColor;
   }
 
   .tab-bar__list {

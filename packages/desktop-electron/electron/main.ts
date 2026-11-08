@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
-
+import { APPLICATION_ICON } from './app-icon'
 import { installApplicationMenu } from './app-menu'
 import { type ManagedBackendHost, startManagedBackends } from './backends'
 import { EncryptedCredentialStore, registerCredentialIpc } from './credential-ipc'
@@ -30,6 +30,11 @@ function notifyWorkspaceChanged(): void {
 /** 启动应用：先拉起随包分发的行情后端，再注册 IPC、菜单并恢复窗口。 */
 async function startApplication(activeWindows: WindowSet): Promise<void> {
   const userDataPath = app.getPath('userData')
+
+  // 开发态也显示平台标识；安装后的 macOS 应用直接使用包内 ICNS。
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.dock?.setIcon(APPLICATION_ICON)
+  }
 
   // 打包后二进制在 process.resourcesPath/backends；开发态从包目录的 resources/backends 找。
   backends = startManagedBackends({

@@ -3,9 +3,14 @@
 
 <div align="center">
 
+<p>
+  <img src="../../docs/Pics/kcq-logo.svg" alt="KLineChartQuant" width="144" height="144" />
+</p>
+
+
 [English](README.md) | 简体中文
 
-# 📈 KLineChartQuant
+# KLineChartQuant
 
 **渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 

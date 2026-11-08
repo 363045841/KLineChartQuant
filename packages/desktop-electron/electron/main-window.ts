@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow, nativeTheme, shell } from 'electron'
 
+import { APPLICATION_ICON } from './app-icon'
 import { TITLEBAR_HEIGHT } from './window-bridge'
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -30,7 +31,10 @@ export function createMainWindow(workspaceId: string): BrowserWindow {
     minWidth: 720,
     minHeight: 600,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? WINDOW_BACKGROUND.dark : WINDOW_BACKGROUND.light,
+    icon: APPLICATION_ICON,
+    backgroundColor: nativeTheme.shouldUseDarkColors
+      ? WINDOW_BACKGROUND.dark
+      : WINDOW_BACKGROUND.light,
     // macOS 保留原生红绿灯；其它平台去掉原生框架，窗口按钮由渲染进程自绘。
     frame: isMac ? undefined : false,
     titleBarStyle: 'hidden',

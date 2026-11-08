@@ -3,9 +3,14 @@ High-performance financial charting infrastructure with a single-frame generatio
 
 <div align="center">
 
+<p>
+  <img src="../../docs/Pics/kcq-logo.svg" alt="KLineChartQuant" width="144" height="144" />
+</p>
+
+
 English | [简体中文](README_CN.md)
 
-# 📈 KLineChartQuant
+# KLineChartQuant
 
 **Crisp Rendering · High Performance · Optimized Interaction · Mobile-Friendly**
 

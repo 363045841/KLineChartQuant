@@ -1,8 +1,10 @@
 <div align="center">
 
+{{include:_brand-logo.md}}
+
 English | [简体中文](README_CN.md)
 
-# 📈 KLineChartQuant
+# KLineChartQuant
 
 **Crisp Rendering · High Performance · Optimized Interaction · Mobile-Friendly**
 
