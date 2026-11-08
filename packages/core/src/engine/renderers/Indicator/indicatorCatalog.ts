@@ -28,6 +28,8 @@ export interface Indicator {
   pane: 'main' | 'sub'
   description?: string
   params?: ParamConfig[]
+  /** 是否允许同一指标存在多个实例；选择器据此把点击当作「再添加一个」。 */
+  multiInstance?: boolean
 }
 
 /** 只用于目录名称匹配，不改变注册身份。 */
@@ -91,6 +93,7 @@ const indicatorCatalog = computed<readonly Indicator[]>(() =>
         name: definition.title === undefined ? definition.displayName : definition.title,
         pane: definition.category === 'main' ? 'main' : 'sub',
         description: definition.info,
+        multiInstance: definition.multiInstance === true,
         params: parameterConfigs(
           { ...definition.defaultParams, ...definition.defaultOptions },
           definition.inputDefs,

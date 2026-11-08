@@ -31,18 +31,21 @@ import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 /** 主图图例左、上内边距与 pane 标题共用同一基准。 */
 const LEGEND_INSET = PANE_HEADER_INSET_PX
 
-/** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
+/** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图实例可见过滤。 */
 export interface ProjectLegendContextInput {
   context: RenderContext
   host: PluginHost | null
-  /** 由视图状态投影的可见主图指标；null 表示不过滤。 */
-  visibleIndicatorIds?: ReadonlySet<string> | null
+  /**
+   * 允许进入图例的主图实例身份；null 表示不过滤。
+   * 按实例而非定义过滤，同一指标的多个实例才能各占一行。
+   */
+  visibleInstanceIds?: ReadonlySet<string> | null
 }
 
 export function projectLegendContext(
   input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
-  const { context, host, visibleIndicatorIds } = input
+  const { context, host, visibleInstanceIds } = input
   if (!context.data.length) return null
 
   const colors = resolveThemeColors(
@@ -78,7 +81,7 @@ export function projectLegendContext(
       klineData,
       targetIndex,
       colors,
-      visibleIndicatorIds,
+      visibleInstanceIds,
     ),
     comparisons: collectComparisonRows(context, bar, colors),
     bar,
@@ -139,7 +142,7 @@ function collectIndicatorRows(
   klineData: KLineData[],
   targetIndex: number,
   colors: ColorTokens,
-  visibleIndicatorIds: ReadonlySet<string> | null | undefined,
+  visibleInstanceIds: ReadonlySet<string> | null | undefined,
 ): LegendIndicatorRow[] {
   const stateReader = context.indicatorStateReader
   if (!host || !stateReader) return []
@@ -148,7 +151,7 @@ function collectIndicatorRows(
 
   const rows: LegendIndicatorRow[] = []
   for (const instance of catalog.listMainInstances()) {
-    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
+    if (visibleInstanceIds != null && !visibleInstanceIds.has(instance.instanceId)) continue
     const row = projectIndicator(
       instance,
       stateReader,

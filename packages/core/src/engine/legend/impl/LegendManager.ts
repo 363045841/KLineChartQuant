@@ -302,7 +302,7 @@ export class LegendManager implements LegendApi {
     )
   }
 
-  /** 主图模板：可见指标过滤后投影左上角上下文。 */
+  /** 主图模板：按实例过滤可见性后投影左上角上下文。 */
   private projectMainTemplate(
     contexts: ReadonlyArray<RenderContext>,
   ): LegendTemplateContext | null {
@@ -312,28 +312,23 @@ export class LegendManager implements LegendApi {
     const configured = options.legend?.visibleIndicatorIds
     const viewIds = this.deps.getVisibleIndicatorIds()
     const candidates = configured ? configured.filter((id) => viewIds.includes(id)) : viewIds
-    const paramsByDefinition = this.mainIndicatorParams()
-    const visible = candidates.filter((id) =>
-      this.isVisibleOnPeriod(id, main.period, paramsByDefinition.get(id)),
+    // 可见性按实例判定：同一指标的多个实例可以各自设置可见周期，也可能只有部分可见。
+    const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
+      INDICATOR_INSTANCE_CATALOG_SERVICE,
+    )
+    const visibleInstanceIds = new Set(
+      (catalog?.listMainInstances() ?? [])
+        .filter((instance) => candidates.includes(instance.definitionId))
+        .filter((instance) =>
+          this.isVisibleOnPeriod(instance.definitionId, main.period, instance.params),
+        )
+        .map((instance) => instance.instanceId),
     )
     return projectLegendContext({
       context: main,
       host: this.deps.host,
-      visibleIndicatorIds: new Set(visible),
+      visibleInstanceIds,
     })
-  }
-
-  /** 主图实例参数按定义 id 索引；同一主图定义只允许一个实例，索引不会互相覆盖。 */
-  private mainIndicatorParams(): ReadonlyMap<string, Readonly<Record<string, unknown>>> {
-    const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
-      INDICATOR_INSTANCE_CATALOG_SERVICE,
-    )
-    return new Map(
-      (catalog?.listMainInstances() ?? []).map((instance) => [
-        instance.definitionId,
-        instance.params,
-      ]),
-    )
   }
 
   /** 汇总所有 Pane 的展示行：主图模板、副图指标标题与自定义行。 */

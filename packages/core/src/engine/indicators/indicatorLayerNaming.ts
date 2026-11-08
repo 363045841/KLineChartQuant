@@ -41,15 +41,23 @@ export function registerIndicatorLayerNaming(
   }
 }
 
+/** Layer 身份选项：取数据层还是坐标轴层，以及多实例定义所需的实例身份。 */
+export interface IndicatorLayerIdOptions {
+  readonly part?: 'renderer' | 'scale'
+  /** 允许同一指标多实例的定义必须给出，否则多个实例会争用同一层。 */
+  readonly instanceId?: string
+}
+
 /** 按定义身份解析数据或坐标轴 Layer ID；身份未登记时抛错。 */
 export function resolveIndicatorLayerId(
   definitionId: string,
   paneId: string,
-  part: 'renderer' | 'scale' = 'renderer',
+  options: IndicatorLayerIdOptions = {},
 ): string {
+  const { part = 'renderer', instanceId } = options
   const rule = namingRules.get(normalizeIndicatorId(definitionId))
-  const options = { paneId, indicatorId: definitionId }
-  const name = part === 'renderer' ? rule?.renderer(options) : rule?.scale(options)
+  const nameOptions = { paneId, indicatorId: definitionId, instanceId }
+  const name = part === 'renderer' ? rule?.renderer(nameOptions) : rule?.scale(nameOptions)
   if (!name)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,

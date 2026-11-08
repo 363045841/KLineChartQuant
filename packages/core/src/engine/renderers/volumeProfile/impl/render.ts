@@ -240,11 +240,12 @@ function resolveExtendEnd(
 export function createVolumeProfileLayer(
   scope: 'session' | 'periodic',
   paneId: string,
-  _instanceId: string,
+  instanceId: string,
   params: Record<string, unknown> | undefined,
 ): Layer<RenderContext> {
   return {
-    id: resolveIndicatorLayerId(scope === 'session' ? 'svp' : 'pvp', paneId),
+    // 两个指标都允许多实例，层身份必须带上实例，否则第二个分布图会覆盖第一个。
+    id: resolveIndicatorLayerId(scope === 'session' ? 'svp' : 'pvp', paneId, { instanceId }),
     role: 'overlay',
     pane: paneId,
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL - 1,

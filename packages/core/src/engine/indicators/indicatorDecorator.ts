@@ -98,12 +98,19 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
         }
 
         // 固定主图定义使用独占名称；可切换 pane 的定义使用 pane 级身份。
+        // 允许多实例的定义再叠加实例身份，否则第二个实例会与第一个争用同一个绘制层。
+        const resolveRendererBaseName = (paneId: string): string =>
+          config.category === 'main' && !config.allowMainPane && paneId === 'main'
+            ? config.name
+            : `${config.name}_${paneId}`
         const getRendererName: IndicatorRendererNameResolver =
           config.getRendererName ??
-          (({ paneId }) =>
-            config.category === 'main' && !config.allowMainPane && paneId === 'main'
-              ? config.name
-              : `${config.name}_${paneId}`)
+          (({ paneId, instanceId }) => {
+            const base = resolveRendererBaseName(paneId)
+            return config.multiInstance === true && instanceId !== undefined
+              ? `${base}_${instanceId}`
+              : base
+          })
         const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
           config.getScaleRendererName ??
           (({ paneId }) =>

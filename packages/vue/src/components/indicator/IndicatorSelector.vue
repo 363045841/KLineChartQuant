@@ -256,9 +256,13 @@
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     const indicators = props.replacePaneId
-      ? props.replaceRole === 'main' ? filteredMain.value : filteredSub.value
+      ? props.replaceRole === 'main'
+        ? filteredMain.value
+        : filteredSub.value
       : [...filteredMain.value, ...filteredSub.value]
-    return props.scriptsEnabled === false ? indicators.filter((item) => item.source !== 'script') : indicators
+    return props.scriptsEnabled === false
+      ? indicators.filter((item) => item.source !== 'script')
+      : indicators
   })
   const { section, favoriteSet, filteredIndicators, toggleFavorite } = useIndicatorFavorites(
     computed(() => props.chartController ?? null),
@@ -272,9 +276,10 @@
   }
 
   function addIndicator(indicatorId: string) {
-    if (isActive(indicatorId)) return
     const indicator = findIndicator(indicatorId)
+    // 声明多实例的指标允许重复添加，因此已启用不再是跳过条件。
     if (!indicator) return
+    if (indicator.multiInstance !== true && isActive(indicatorId)) return
     emit('toggle', indicatorId, true)
   }
 
@@ -293,7 +298,7 @@
       closeMenu()
       return
     }
-    if (isActive(indicatorId)) {
+    if (isActive(indicatorId) && findIndicator(indicatorId)?.multiInstance !== true) {
       removeIndicator(indicatorId)
     } else {
       addIndicator(indicatorId)

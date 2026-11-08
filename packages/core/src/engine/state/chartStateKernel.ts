@@ -127,6 +127,7 @@ function appendInstanceRenderers(
         modeDefinition.getRendererName({
           paneId: instance.paneId,
           indicatorId: instance.indicatorId,
+          instanceId: instance.instanceId,
         }),
       )
       return
@@ -144,7 +145,11 @@ function appendInstanceRenderers(
     instance.indicatorId,
   )
   if (!resolved) return
-  const options = { paneId: instance.paneId, indicatorId: instance.indicatorId }
+  const options = {
+    paneId: instance.paneId,
+    indicatorId: instance.indicatorId,
+    instanceId: instance.instanceId,
+  }
   if (instance.role === 'main') {
     add(main, resolved.getRendererName(options))
     return
@@ -521,9 +526,11 @@ export class ChartStateKernel extends StateKernel {
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),
       setComparisonLoading: (loading: boolean) => this.comparison.actions.setLoading(loading),
-      upsertMainIndicator: (id, params) => this.indicator.actions.upsertMain(id, params),
-      removeMainIndicator: (id) => this.indicator.actions.removeMain(id),
-      setMainIndicatorParams: (id, params) => this.indicator.actions.setMainParams(id, params),
+      addMainIndicator: (definitionId, params) =>
+        this.indicator.actions.addMain(definitionId, params),
+      removeMainIndicator: (instanceId) => this.indicator.actions.removeMain(instanceId),
+      setMainIndicatorParams: (instanceId, params) =>
+        this.indicator.actions.setMainParams(instanceId, params),
       replaceMainIndicators: (instances: ReadonlyArray<IndicatorInstanceSpec>) =>
         this.indicator.actions.replaceAllMain(instances),
       clearMainIndicators: () => this.indicator.actions.clearMain(),

@@ -87,6 +87,7 @@ describe('static catalog fidelity', () => {
             dataViews: definition.dataViews,
             allowMainPane: definition.allowMainPane,
             visiblePeriods: definition.visiblePeriods,
+            multiInstance: definition.multiInstance,
             defaultParams:
               typeof runtimeDefaults === 'function' ? runtimeDefaults() : runtimeDefaults,
             inputDefs: runtimeInputDefs,
@@ -97,4 +98,3 @@ describe('static catalog fidelity', () => {
     }
   })
 })
-

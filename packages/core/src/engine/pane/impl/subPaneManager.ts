@@ -164,7 +164,7 @@ export class SubPaneManager {
       rendererName,
       scaleRendererName,
       layerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId),
-      scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, 'scale'),
+      scaleLayerId: resolveIndicatorLayerId(spec.indicatorId, spec.paneId, { part: 'scale' }),
     }
   }
 

@@ -5,10 +5,7 @@ import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/indicatorDefinitionRegistry.js'
-import {
-  createIndicatorInstanceId,
-  createMainIndicatorInstanceId,
-} from '../indicators/instances/api/instanceIdentity.js'
+import { createIndicatorInstanceId } from '../indicators/instances/api/instanceIdentity.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
@@ -164,8 +161,7 @@ export function createIndicatorState() {
   )
   const readonly = { ...stored, workspaces, instances, configurations }
   /** Action 在 batch 内直接读取原始配置，不读取尚未重算的派生快照。 */
-  const currentInstances = () =>
-    stored.workspaces.peek()[stored.activeWorkspace.peek()]
+  const currentInstances = () => stored.workspaces.peek()[stored.activeWorkspace.peek()]
 
   /** 写入不可变实例快照。 */
   const write = (instances: ReadonlyArray<IndicatorInstanceInput>) => {
@@ -199,41 +195,35 @@ export function createIndicatorState() {
     ),
   )
 
-  /** 查找指定主图指标实例的数组下标。 */
-  const findMainIndex = (
-    instances: ReadonlyArray<IndicatorInstanceSpec>,
-    indicatorId: string,
-  ): number =>
-    instances.findIndex(
-      (instance) => instance.role === 'main' && instance.indicatorId === indicatorId,
-    )
-
   /** 查找指定副图 pane 实例的数组下标。 */
   const findSubIndex = (instances: ReadonlyArray<IndicatorInstanceSpec>, paneId: string): number =>
     instances.findIndex((instance) => instance.role === 'sub' && instance.paneId === paneId)
 
-  /** 写入或更新主图实例，新实例始终位于副图实例之前。 */
-  const upsertMain = (id: string, params: Record<string, number | boolean | string>) => {
+  /**
+   * 追加一个主图实例，返回新实例身份。
+   *
+   * 主图实例一律使用独立身份：允许同一指标多次添加后，实例之间只能靠身份区分，
+   * 不能再由定义派生（派生会让第二个实例覆盖第一个）。
+   */
+  const addMainInstance = (
+    definitionId: string,
+    params: Readonly<Record<string, unknown>>,
+  ): string => {
     const prev = currentInstances()
-    const index = findMainIndex(prev, id)
-    const existing = index < 0 ? undefined : prev[index]
-    const next = [...prev]
     const entry = snapshotInstance({
-      instanceId: existing ? existing.instanceId : createMainIndicatorInstanceId(id),
-      indicatorId: id,
+      instanceId: createIndicatorInstanceId(),
+      indicatorId: definitionId,
       paneId: 'main',
       role: 'main',
       ordinal: 0,
-      params: { ...(existing?.params ?? {}), ...params },
-      hidden: existing?.hidden,
+      params: { ...params },
     })
-    if (index >= 0) next[index] = entry
-    else {
-      const firstSubIndex = next.findIndex((instance) => instance.role === 'sub')
-      if (firstSubIndex < 0) next.push(entry)
-      else next.splice(firstSubIndex, 0, entry)
-    }
+    const next = [...prev]
+    const firstSubIndex = next.findIndex((instance) => instance.role === 'sub')
+    if (firstSubIndex < 0) next.push(entry)
+    else next.splice(firstSubIndex, 0, entry)
     write(next)
+    return entry.instanceId
   }
 
   return {
@@ -266,10 +256,11 @@ export function createIndicatorState() {
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces) {
         // 系统实例由模式拥有，替换用户配置时不能顺带删除。
-        const restore = (workspaceId: ChartWorkspaceId) => Object.freeze([
-          ...stored.workspaces.peek()[workspaceId].filter((entry) => 'source' in entry),
-          ...workspaces[workspaceId].instances.map(snapshotInstance),
-        ])
+        const restore = (workspaceId: ChartWorkspaceId) =>
+          Object.freeze([
+            ...stored.workspaces.peek()[workspaceId].filter((entry) => 'source' in entry),
+            ...workspaces[workspaceId].instances.map(snapshotInstance),
+          ])
         const next = Object.freeze({
           kline: restore(ChartWorkspaceId.KLine),
           timeshare: restore(ChartWorkspaceId.TimeShare),
@@ -279,26 +270,37 @@ export function createIndicatorState() {
           signals.configRevision.set(signals.configRevision.peek() + 1)
         })
       },
-      /** 按 indicatorId 写入或合并主图实例参数。 */
-      upsertMain(id: string, params: Record<string, number | boolean | string>) {
-        upsertMain(id, params)
+      /** 追加一个主图实例并返回实例身份；是否允许重复由调用方的定义声明决定。 */
+      addMain(definitionId: string, params: Record<string, number | boolean | string>): string {
+        return addMainInstance(definitionId, params)
       },
-      /** 按 indicatorId 删除主图实例。 */
-      removeMain(id: string) {
+      /** 按实例身份删除主图实例。 */
+      removeMain(instanceId: string) {
         const prev = currentInstances()
-        if (findMainIndex(prev, id) < 0) return
-        write(
-          prev.filter(
-            (instance) =>
-              instance.source === 'mode' ||
-              !(instance.role === 'main' && instance.indicatorId === id),
-          ),
-        )
+        const index = prev.findIndex((instance) => instance.instanceId === instanceId)
+        const target = index < 0 ? undefined : prev[index]
+        if (!target || target.role !== 'main' || target.source === 'mode') return
+        write(prev.filter((instance) => instance !== target))
       },
-      /** 仅更新已存在主图实例的参数。 */
-      setMainParams(id: string, params: Record<string, number | boolean | string>) {
-        if (findMainIndex(currentInstances(), id) < 0) return
-        upsertMain(id, params)
+      /** 删除某定义的全部主图实例；用于定义被移除或整体关闭指标。 */
+      removeMainByDefinition(definitionId: string) {
+        const prev = currentInstances()
+        const next = prev.filter(
+          (instance) =>
+            instance.source === 'mode' ||
+            !(instance.role === 'main' && instance.indicatorId === definitionId),
+        )
+        if (next.length !== prev.length) write(next)
+      },
+      /** 按实例身份合并主图实例参数。 */
+      setMainParams(instanceId: string, params: Record<string, number | boolean | string>) {
+        const prev = currentInstances()
+        const index = prev.findIndex((instance) => instance.instanceId === instanceId)
+        const target = index < 0 ? undefined : prev[index]
+        if (!target || target.role !== 'main') return
+        const next = [...prev]
+        next[index] = snapshotInstance({ ...target, params: { ...target.params, ...params } })
+        write(next)
       },
       /** 隐藏或显示指标实例；隐藏只影响绘制，图例保留并置灰，不参与计算与参数比较。 */
       setIndicatorHidden(instanceId: string, hidden: boolean) {

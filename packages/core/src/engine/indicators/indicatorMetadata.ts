@@ -62,6 +62,8 @@ export type RendererFactory = (options: IndicatorRendererOptions) => Layer<Rende
 export interface IndicatorRendererNameOptions {
   paneId: string
   indicatorId: IndicatorId
+  /** 实例身份；允许同一指标多实例的定义用它区分渲染层。 */
+  instanceId?: string
 }
 
 /** 指标 renderer plugin 名称解析器。 */

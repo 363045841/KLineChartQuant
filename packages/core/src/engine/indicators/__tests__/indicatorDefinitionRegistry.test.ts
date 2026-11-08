@@ -44,7 +44,7 @@ describe('Indicator definition registry', () => {
     expect(getRegisteredIndicatorDefinition('custom rsi')).toBe(definition)
     expect(getRegisteredIndicatorDefinitions()).toHaveLength(1)
     expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane')).toBe('plugin:customRsi_pane')
-    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'scale')).toBe(
+    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', { part: 'scale' })).toBe(
       'plugin:customRsiScale_pane',
     )
   })
@@ -107,6 +107,23 @@ describe('Indicator definition registry', () => {
     }
     registerIndicatorDefinition(MultiLineDefinition)
     expect(getIndicatorDescriptor('customMultiLine')?.multiInstance).toBe(true)
-    expect(getRegisteredIndicatorDefinition('customMultiLine')?.multiInstance).toBe(true)
+    const multi = getRegisteredIndicatorDefinition('customMultiLine')
+    expect(multi?.multiInstance).toBe(true)
+    // 声明多实例后，渲染层身份叠加实例 id；未声明时忽略实例 id，保持原有层身份。
+    expect(multi?.getRendererName({ paneId: 'main', indicatorId: 'customMultiLine' })).toBe(
+      'customMultiLine_main',
+    )
+    expect(
+      multi?.getRendererName({ paneId: 'main', indicatorId: 'customMultiLine', instanceId: 'abc' }),
+    ).toBe('customMultiLine_main_abc')
+
+    registerIndicatorDefinition(declareDefinition('customSingle', 'SINGLE_ALIAS'))
+    expect(
+      getRegisteredIndicatorDefinition('customSingle')?.getRendererName({
+        paneId: 'pane',
+        indicatorId: 'customSingle',
+        instanceId: 'abc',
+      }),
+    ).toBe('customSingle_pane')
   })
 })

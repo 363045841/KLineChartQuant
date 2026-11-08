@@ -23,7 +23,10 @@ import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { createPaneState } from '../../state/paneState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
-import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveIndicatorDefinitionId,
+} from '../indicatorDefinitionRegistry.js'
 import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 import { registerPlotIndicator, updatePlotIndicator } from '../registerPlotIndicator.js'
@@ -146,7 +149,7 @@ function createMockDeps() {
 describe('ChartIndicatorManager', () => {
   it('已恢复的实例先保留配置，定义稍后注册时使用已安装的执行器计算', async () => {
     const name = 'LateCalculationDefinition'
-    deps.indicator.actions.upsertMain(name, {})
+    deps.indicator.actions.addMain(name, {})
     const instance = deps.indicator.readonly.instances.peek()[0]!
     const data = createTestData(3)
     update(manager, data, { start: 0, end: 3 })
@@ -238,7 +241,7 @@ describe('ChartIndicatorManager', () => {
     update(manager, data, { start: 0, end: 2 }, 1, display)
     const reader = manager.createRenderStateReader()
     await vi.waitFor(() =>
-      expect(reader.get<PlotRenderState>('main:PlotClose')?.plots[0]?.data).toEqual([
+      expect(reader.get<PlotRenderState>(mainInstanceId('PlotClose'))?.plots[0]?.data).toEqual([
         { value: data[1]!.close, color: undefined },
         { value: data[2]!.close, color: undefined },
       ]),
@@ -424,17 +427,18 @@ describe('ChartIndicatorManager', () => {
     expect(instance?.label).toBe('New Script Name')
   })
   it('外部 Plot 实例计算后使用通用 Plot 绘制，参数和行情更新不残留旧点', async () => {
-    manager.enableMainIndicator('PlotClose')
+    expect(manager.enableMainIndicator('PlotClose')).toBe(true)
     const data = createTestData(5)
     update(manager, data, { start: 0, end: 5 })
-    const read = () => manager.createRenderStateReader().get<PlotRenderState>('main:PlotClose')
+    const closeInstanceId = mainInstanceId('PlotClose')
+    const read = () => manager.createRenderStateReader().get<PlotRenderState>(closeInstanceId)
     await vi.waitFor(() => expect(read()?.plots[0]?.data.length).toBe(5))
     const state = read()!
     expect(state.plots[0]?.data[0]).toMatchObject({ value: data[0]?.close })
     const ctx = createMockCanvasContext()
     paintPlots(
       state,
-      createContextWithInstanceState(ctx, 'main:PlotClose', state, {
+      createContextWithInstanceState(ctx, closeInstanceId, state, {
         range: { start: 0, end: 5 },
       }),
     )
@@ -458,9 +462,44 @@ describe('ChartIndicatorManager', () => {
     layer.paint(createMockRenderContext({ overlayCtx: ctx, period: '5min' }))
     expect(ctx.fillRect).toHaveBeenCalled()
   })
+  it('声明多实例的主图指标可以叠加，绘制层身份互不覆盖', () => {
+    expect(manager.enableMainIndicator('pvp')).toBe(true)
+    expect(manager.enableMainIndicator('pvp', { periodCount: 3 })).toBe(true)
+    const pvpId = resolveIndicatorDefinitionId('pvp')
+    const pvpInstances = () =>
+      deps.indicator.readonly
+        .instances()
+        .filter((instance) => instance.role === 'main' && instance.indicatorId === pvpId)
+    const [first, second] = pvpInstances()
+    expect(pvpInstances()).toHaveLength(2)
+    expect(first?.params.periodCount).toBe(1)
+    expect(second?.params.periodCount).toBe(3)
+    if (!first || !second) return
+
+    update(manager, createTestData(6), { start: 0, end: 6 })
+    const firstLayer = deps.getRenderer(makePluginLayerId(`pvp_main_${first.instanceId}`))
+    const secondLayer = deps.getRenderer(makePluginLayerId(`pvp_main_${second.instanceId}`))
+    expect(firstLayer).toBeDefined()
+    expect(secondLayer).toBeDefined()
+    expect(firstLayer?.id).not.toBe(secondLayer?.id)
+
+    // 删除其中一个实例不影响另一个。
+    expect(manager.removeIndicator(second.instanceId)).toBe(true)
+    expect(pvpInstances()).toHaveLength(1)
+    expect(pvpInstances()[0]?.instanceId).toBe(first.instanceId)
+  })
   let manager: ChartIndicatorManager
   let harness: ReturnType<typeof createMockDeps>
   let deps: IndicatorDependencies
+
+  /** 读取某定义当前主图实例的身份；主图实例一律使用独立身份，不再由定义派生。 */
+  function mainInstanceId(definitionId: string): string {
+    const instance = deps.indicator.readonly
+      .instances()
+      .find((entry) => entry.role === 'main' && entry.indicatorId === definitionId)
+    if (!instance) throw new Error(`missing main instance for ${definitionId}`)
+    return instance.instanceId
+  }
 
   beforeEach(() => {
     harness = createMockDeps()

@@ -172,7 +172,8 @@ export class ChartIndicatorManager {
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
   private subPaneCtx: SubPaneContext
   private disposeProjection: (() => void) | null = null
-  private appliedMainIndicators = new Map<string, { instanceId: string; projectionKey: string }>()
+  /** 已挂载的主图渲染层；按实例身份记账，同一指标的多个实例各占一层。 */
+  private appliedMainIndicators = new Map<string, { definitionId: string; projectionKey: string }>()
   private projectedPaneSpecs: ReadonlyArray<PaneSpec> | null = null
   private projectedPaneRatios: Readonly<Record<string, number>> | null = null
   /** 已投影到 renderStates 的展示版本；展示变化只重建投影。 */
@@ -303,7 +304,8 @@ export class ChartIndicatorManager {
       if (type === 'remove') {
         for (const instance of this.deps.indicator.readonly.instances.peek()) {
           if (instance.indicatorId !== resolveCanonicalIndicatorId(definition)) continue
-          if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
+          if (instance.role === 'main')
+            this.deps.indicator.actions.removeMainByDefinition(instance.indicatorId)
           else this.deps.subPaneOps.remove(instance.paneId)
         }
         this.inlineExecutor.removeDefinitions([definition.name])
@@ -844,10 +846,25 @@ export class ChartIndicatorManager {
   }
 
   /** 从统一实例集合读取指定主图指标。 */
-  private getMainIndicatorInstance(indicatorId: string): IndicatorInstanceSpec | undefined {
+  /** 该定义已启用的全部主图实例；声明多实例时可能有多个。 */
+  private getMainIndicatorInstances(definitionId: string): ReadonlyArray<IndicatorInstanceSpec> {
     return this.deps.indicator.readonly.instances
       .peek()
-      .find((instance) => instance.role === 'main' && instance.indicatorId === indicatorId)
+      .filter((instance) => instance.role === 'main' && instance.indicatorId === definitionId)
+  }
+
+  /** 按实例身份或定义身份解析主图实例；定义身份命中时取第一个实例。 */
+  private resolveMainInstance(instanceIdOrDefinitionId: string): IndicatorInstanceSpec | undefined {
+    const instances = this.deps.indicator.readonly.instances.peek()
+    const byInstance = instances.find(
+      (instance) => instance.role === 'main' && instance.instanceId === instanceIdOrDefinitionId,
+    )
+    if (byInstance) return byInstance
+    const definitionId = resolveIndicatorDefinitionId(instanceIdOrDefinitionId)
+    if (!definitionId) return undefined
+    return instances.find(
+      (instance) => instance.role === 'main' && instance.indicatorId === definitionId,
+    )
   }
 
   /**
@@ -857,9 +874,9 @@ export class ChartIndicatorManager {
    */
   private resolveIndicatorTarget(
     instanceId: string,
-  ): { kind: 'main'; mainId: string } | { kind: 'sub'; paneId: string } | null {
-    const mainId = resolveIndicatorDefinitionId(instanceId)
-    if (mainId && this.getMainIndicatorInstance(mainId)) return { kind: 'main', mainId }
+  ): { kind: 'main'; instanceId: string } | { kind: 'sub'; paneId: string } | null {
+    const main = this.resolveMainInstance(instanceId)
+    if (main) return { kind: 'main', instanceId: main.instanceId }
     const subPaneEntry = this.deps.indicator.readonly.instances
       .peek()
       .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
@@ -878,35 +895,40 @@ export class ChartIndicatorManager {
       return false
     }
 
-    const existing = this.getMainIndicatorInstance(id)
+    const definition = getRegisteredIndicatorDefinition(id)
+    const existing = this.getMainIndicatorInstances(id)
 
-    if (existing) {
+    // 未声明多实例的定义保持原语义：已存在时只更新参数，不追加实例。
+    if (existing.length > 0 && definition?.multiInstance !== true) {
       if (params) {
-        this.deps.indicator.actions.upsertMain(id, params)
+        const [first] = existing
+        if (first) this.deps.indicator.actions.setMainParams(first.instanceId, params)
       }
       return true
     }
 
     const defaults = ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}
     const merged = params ? { ...defaults, ...params } : defaults
-    this.deps.indicator.actions.upsertMain(id, merged)
+    this.deps.indicator.actions.addMain(id, merged)
     return true
   }
 
   disableMainIndicator(indicatorId: string): boolean {
     const id = resolveIndicatorDefinitionId(indicatorId)
-    if (!id || !this.getMainIndicatorInstance(id)) return false
+    if (!id || this.getMainIndicatorInstances(id).length === 0) return false
 
-    this.deps.indicator.actions.removeMain(id)
+    this.deps.indicator.actions.removeMainByDefinition(id)
     return true
   }
 
   /** 移动用户主图实例的 Legend 顺序，保留实例身份和计算参数。 */
-  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean {
+  moveMainIndicator(instanceIdOrDefinitionId: string, direction: 'up' | 'down'): boolean {
+    const resolved = this.resolveMainInstance(instanceIdOrDefinitionId)
+    if (!resolved) return false
     const instances = this.deps.indicator.readonly.instances
       .peek()
       .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
-    const index = instances.findIndex((instance) => instance.indicatorId === definitionId)
+    const index = instances.findIndex((instance) => instance.instanceId === resolved.instanceId)
     const target = direction === 'up' ? index - 1 : index + 1
     if (index < 0 || target < 0 || target >= instances.length) return false
     const current = instances[index]!
@@ -919,14 +941,16 @@ export class ChartIndicatorManager {
   }
 
   /** 在同一序列位置替换用户主图定义，以一次状态写入保留其他实例。 */
-  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean {
+  replaceMainIndicator(instanceIdOrDefinitionId: string, nextDefinitionId: string): boolean {
     const nextId = resolveIndicatorDefinitionId(nextDefinitionId)
     if (!nextId || !ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(nextId)) return false
     if (this.isMainIndicatorActive(nextId)) return false
+    const resolved = this.resolveMainInstance(instanceIdOrDefinitionId)
+    if (!resolved) return false
     const instances = this.deps.indicator.readonly.instances
       .peek()
       .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
-    const index = instances.findIndex((instance) => instance.indicatorId === definitionId)
+    const index = instances.findIndex((instance) => instance.instanceId === resolved.instanceId)
     if (index < 0) return false
     instances[index] = {
       ...instances[index]!,
@@ -938,9 +962,8 @@ export class ChartIndicatorManager {
   }
 
   /** 隐藏或显示主图指标；只改变绘制，保留实例与计算。 */
-  setMainHidden(definitionId: string, hidden: boolean): boolean {
-    const id = resolveIndicatorDefinitionId(definitionId)
-    const instance = id ? this.getMainIndicatorInstance(id) : undefined
+  setMainHidden(instanceIdOrDefinitionId: string, hidden: boolean): boolean {
+    const instance = this.resolveMainInstance(instanceIdOrDefinitionId)
     if (!instance) return false
     this.deps.indicator.actions.setIndicatorHidden(instance.instanceId, hidden)
     return true
@@ -957,18 +980,17 @@ export class ChartIndicatorManager {
   }
 
   isMainIndicatorActive(indicatorId: string): boolean {
-    const id = resolveIndicatorDefinitionId(indicatorId)
-    return id !== undefined && Boolean(this.getMainIndicatorInstance(id))
+    return this.resolveMainInstance(indicatorId) !== undefined
   }
 
   updateMainIndicatorParams(
-    indicatorId: string,
+    instanceIdOrDefinitionId: string,
     params: Record<string, number | boolean | string>,
   ): void {
-    const id = resolveIndicatorDefinitionId(indicatorId)
-    if (!id || !this.getMainIndicatorInstance(id)) return
+    const instance = this.resolveMainInstance(instanceIdOrDefinitionId)
+    if (!instance) return
 
-    this.deps.indicator.actions.setMainParams(id, params)
+    this.deps.indicator.actions.setMainParams(instance.instanceId, params)
   }
 
   private reconcileMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
@@ -982,12 +1004,14 @@ export class ChartIndicatorManager {
 
   /** 移除已不在期望集合中的主图渲染器。 */
   private removeStaleMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
+    const desiredIds = new Set(
+      desired.filter((instance) => instance.role === 'main').map((instance) => instance.instanceId),
+    )
     let changed = false
-    for (const id of [...this.appliedMainIndicators.keys()]) {
-      if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id))
-        continue
-      this.removeMainIndicatorRenderer(id)
-      this.appliedMainIndicators.delete(id)
+    for (const [instanceId, applied] of [...this.appliedMainIndicators]) {
+      if (desiredIds.has(instanceId)) continue
+      this.removeMainIndicatorRenderer(applied.definitionId, instanceId)
+      this.appliedMainIndicators.delete(instanceId)
       changed = true
     }
     return changed
@@ -999,14 +1023,14 @@ export class ChartIndicatorManager {
     // 模式主序列（如 candle）由 core 挂载；有 @Indicator 主图定义的模式图层由此投影。
     if (entry.source === 'mode' && !getRegisteredIndicatorDefinition(id)?.mainPane) return false
     // 隐藏：只卸载绘制层，保留实例与 Legend 层，图例仍显示并可恢复。
-    if (entry.hidden === true) return this.removeAppliedMainIndicator(id)
+    if (entry.hidden === true) return this.removeAppliedMainIndicator(entry)
     const projectionKey = mainIndicatorProjectionKey(
       entry.params as Readonly<Record<string, number | boolean | string>>,
     )
     if (this.isMainIndicatorApplied(entry, projectionKey)) return false
     try {
       this.applyMainIndicator(entry)
-      this.appliedMainIndicators.set(id, { instanceId: entry.instanceId, projectionKey })
+      this.appliedMainIndicators.set(entry.instanceId, { definitionId: id, projectionKey })
       return true
     } catch (error) {
       console.error(`[ChartIndicatorManager] Failed to project main indicator "${id}":`, error)
@@ -1015,22 +1039,21 @@ export class ChartIndicatorManager {
   }
 
   /** 隐藏时只卸载已挂载的渲染层。 */
-  private removeAppliedMainIndicator(id: string): boolean {
-    if (!this.appliedMainIndicators.has(id)) return false
-    this.removeMainIndicatorRenderer(id)
-    this.appliedMainIndicators.delete(id)
+  private removeAppliedMainIndicator(entry: IndicatorInstanceSpec): boolean {
+    if (!this.appliedMainIndicators.has(entry.instanceId)) return false
+    this.removeMainIndicatorRenderer(entry.indicatorId, entry.instanceId)
+    this.appliedMainIndicators.delete(entry.instanceId)
     return true
   }
 
   /** 实例与投影输入都未变化时跳过重建。 */
   private isMainIndicatorApplied(entry: IndicatorInstanceSpec, projectionKey: string): boolean {
-    const applied = this.appliedMainIndicators.get(entry.indicatorId)
-    return applied?.instanceId === entry.instanceId && applied.projectionKey === projectionKey
+    return this.appliedMainIndicators.get(entry.instanceId)?.projectionKey === projectionKey
   }
 
   /** 首次挂载或参数变化时重建主图指标 Layer。 */
   private applyMainIndicator(entry: IndicatorInstanceSpec): void {
-    if (!this.appliedMainIndicators.has(entry.indicatorId)) {
+    if (!this.appliedMainIndicators.has(entry.instanceId)) {
       this.enableMainIndicatorRenderer(entry)
       return
     }
@@ -1044,7 +1067,11 @@ export class ChartIndicatorManager {
     // mainPane 只声明模式启停转换；普通主图实例的绘制层由已启用实例决定。
     if (!definition) return
 
-    const rendererName = definition.getRendererName({ paneId: 'main', indicatorId })
+    const rendererName = definition.getRendererName({
+      paneId: 'main',
+      indicatorId,
+      instanceId: instance.instanceId,
+    })
     const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
@@ -1056,16 +1083,24 @@ export class ChartIndicatorManager {
   private replaceMainIndicatorLayer(instance: IndicatorInstanceSpec): void {
     const indicatorId = instance.indicatorId
     const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
+    const rendererName = definition?.getRendererName({
+      paneId: 'main',
+      indicatorId,
+      instanceId: instance.instanceId,
+    })
     if (!definition || !rendererName) return
     this.deps.removeRenderer(makePluginLayerId(rendererName))
     this.deps.useRenderer(this.buildMainIndicatorLayer(instance, definition))
   }
 
   /** 卸载主图绘制层；系统图层跨数据视图保留，用户指标按定义释放。 */
-  private removeMainIndicatorRenderer(indicatorId: string): void {
-    const definition = getRegisteredIndicatorDefinition(indicatorId)
-    const rendererName = definition?.getRendererName({ paneId: 'main', indicatorId })
+  private removeMainIndicatorRenderer(definitionId: string, instanceId: string): void {
+    const definition = getRegisteredIndicatorDefinition(definitionId)
+    const rendererName = definition?.getRendererName({
+      paneId: 'main',
+      indicatorId: definitionId,
+      instanceId,
+    })
     if (definition?.kind === IndicatorKind.Indicator && rendererName) {
       this.deps.removeRenderer(makePluginLayerId(rendererName))
     }
@@ -1167,7 +1202,10 @@ export class ChartIndicatorManager {
   removeIndicator(instanceId: string): boolean {
     const target = this.resolveIndicatorTarget(instanceId)
     if (!target) return false
-    if (target.kind === 'main') return this.disableMainIndicator(target.mainId)
+    if (target.kind === 'main') {
+      this.deps.indicator.actions.removeMain(target.instanceId)
+      return true
+    }
     this.deps.subPaneOps.remove(target.paneId)
     return true
   }
@@ -1177,7 +1215,7 @@ export class ChartIndicatorManager {
     if (!target) return false
     if (target.kind === 'main') {
       this.updateMainIndicatorParams(
-        target.mainId,
+        target.instanceId,
         params as Record<string, number | boolean | string>,
       )
       return true

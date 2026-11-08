@@ -21,7 +21,15 @@ type IndicatorRendererLayerIdentity = {
   role?: LayerRole
   /** 卸载清理；缺省无操作。 */
   dispose?: () => void
-} & ({ definitionId: string; part?: 'renderer' | 'scale' } | { layerId: string })
+} & (
+  | {
+      definitionId: string
+      part?: 'renderer' | 'scale'
+      /** 多实例定义的实例身份；缺省按定义级单一层处理。 */
+      instanceId?: string
+    }
+  | { layerId: string }
+)
 
 /** 纯增量图层：只能提交原语，可与相邻同类图层合并成一次合成。 */
 export type IndicatorDrawListLayerSpec = IndicatorRendererLayerIdentity & {
@@ -46,7 +54,10 @@ function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
   const identity = {
     id:
       'definitionId' in spec
-        ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, spec.part)
+        ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, {
+            part: spec.part ?? 'renderer',
+            ...(spec.instanceId === undefined ? {} : { instanceId: spec.instanceId }),
+          })
         : spec.layerId,
     role: spec.role ?? (spec.paneId === MAIN_PANE_ID ? 'primary' : 'indicator'),
     pane: spec.paneId,

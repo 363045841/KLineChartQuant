@@ -182,10 +182,13 @@ export function useIndicatorManager(
     const def = getIndicatorDescriptor(indicatorId)
     const isMain = def?.category === 'main'
     if (isMain) {
+      const isMulti = def?.multiInstance === true
       const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
-      if (active && !existingIndicator) {
+      // 声明多实例的指标允许同一身份再添加一个实例。
+      if (active && (!existingIndicator || isMulti)) {
         const c = await loadIndicator(controller, indicatorId)
-        if (!c || mainActiveIndicators.value.includes(indicatorId)) return
+        if (!c) return
+        if (!isMulti && mainActiveIndicators.value.includes(indicatorId)) return
         c.addIndicator(indicatorId, indicatorParams.value[indicatorId])
       } else if (!active && existingIndicator) {
         controller.removeIndicator(indicatorId)

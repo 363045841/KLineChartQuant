@@ -126,6 +126,8 @@ export class SessionVolumeProfileIndicatorDefinition {
   dataViews: [ChartDataViewId.KLine],
   kind: IndicatorKind.Indicator,
   allowMainPane: true,
+  // 阶段口径是实例自己的参数，因此允许叠加多个：同时看周与月的分布。
+  multiInstance: true,
   runtime: {
     defaultParams: {
       periodCount: DEFAULT_VOLUME_PROFILE_PARAMS.periodCount,
