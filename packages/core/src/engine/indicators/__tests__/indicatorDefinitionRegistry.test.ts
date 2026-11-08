@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Indicator } from '../indicatorDecorator'
 import {
   clearRegisteredIndicatorDefinitionsForTest,
+  getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
   registerIndicatorDefinition,
@@ -89,5 +90,23 @@ describe('Indicator definition registry', () => {
     ).toThrow('alias is already registered')
     expect(getRegisteredIndicatorDefinition('Alpha')?.displayName).toBe('Alpha')
     expect(getRegisteredIndicatorDefinition('Beta')?.displayName).toBe('Beta')
+  })
+
+  it('多实例声明同时进入静态目录与运行期元数据', () => {
+    @Indicator({
+      name: 'customMultiLine',
+      displayName: 'MULTI_LINE',
+      kind: IndicatorKind.Indicator,
+      category: 'main',
+      defaultPaneId: 'main',
+      allowMainPane: true,
+      multiInstance: true,
+    })
+    class MultiLineDefinition {
+      static rendererFactory = () => createTestRendererLayer('customMultiLine')
+    }
+    registerIndicatorDefinition(MultiLineDefinition)
+    expect(getIndicatorDescriptor('customMultiLine')?.multiInstance).toBe(true)
+    expect(getRegisteredIndicatorDefinition('customMultiLine')?.multiInstance).toBe(true)
   })
 })

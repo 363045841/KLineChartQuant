@@ -214,6 +214,7 @@ const DESCRIPTOR_FIELDS = [
   ['dataViews'],
   ['allowMainPane'],
   ['visiblePeriods'],
+  ['multiInstance'],
   ['defaultParams', 'runtime', 'defaultParams'],
   ['defaultOptions', 'presentation', 'defaultOptions'],
 ]

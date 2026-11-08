@@ -98,6 +98,7 @@ function createPlotIndicatorDefinition<P>(
     category: main ? 'main' : 'sub',
     defaultPaneId: paneId,
     allowMainPane: main,
+    multiInstance: definition.multiInstance,
     mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
     scale: { label: definition.name, decimals: 2 },
     scaleRendererFactory: format

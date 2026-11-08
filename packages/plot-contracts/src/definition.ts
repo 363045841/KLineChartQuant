@@ -100,6 +100,12 @@ export interface IndicatorDefinition<P> {
   /** 来源分类；缺省由消费方决定。 */
   readonly source?: IndicatorSource
   readonly document?: IndicatorSourceDocument
+  /**
+   * 是否允许同一指标存在多个实例；缺省只允许一个。
+   *
+   * 主图叠加类指标（多条均线）才需要多份；多数指标多份只会拉长图例与参数入口。
+   */
+  readonly multiInstance?: boolean
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
   /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */

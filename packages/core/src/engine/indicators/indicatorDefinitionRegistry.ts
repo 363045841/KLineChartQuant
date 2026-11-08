@@ -49,6 +49,8 @@ export interface IndicatorDescriptor {
   readonly allowMainPane?: boolean
   /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
   readonly visiblePeriods?: readonly IndicatorPeriodVisibility[]
+  /** 是否允许同一指标存在多个实例；缺省只允许一个。 */
+  readonly multiInstance?: boolean
   /** runtime.defaultParams 的静态值。 */
   readonly defaultParams?: Readonly<Record<string, unknown>>
   /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
@@ -153,6 +155,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     dataViews: definition.dataViews,
     allowMainPane: definition.allowMainPane,
     visiblePeriods: definition.visiblePeriods,
+    multiInstance: definition.multiInstance,
     defaultParams:
       typeof defaultParams === 'function'
         ? (defaultParams as () => Record<string, unknown>)()

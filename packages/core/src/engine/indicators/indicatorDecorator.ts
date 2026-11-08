@@ -49,6 +49,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   allowMainPane?: boolean
   /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
   visiblePeriods?: readonly IndicatorPeriodVisibility[]
+  /** 是否允许同一指标存在多个实例；缺省只允许一个。 */
+  multiInstance?: boolean
   scaleRendererFactory?: ScaleRendererFactory
   scale?: IndicatorMetadata['scale']
   mainPane?: IndicatorMetadata['mainPane']
