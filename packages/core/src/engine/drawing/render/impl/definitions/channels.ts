@@ -4,6 +4,7 @@
 
 import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
 import { buildFillPolygon } from '@/engine/drawing/geometry/impl/fillRegions.js'
+import { offsetPriceInSpace, priceSpaceOf } from '@/engine/drawing/geometry/impl/priceSpace.js'
 import { computeRegressionChannel } from '@/engine/drawing/geometry/impl/regressionChannel.js'
 import type {
   DrawingDefinition,
@@ -152,14 +153,22 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
       if (firstIndex === null || secondIndex === null) return { primitives: [] }
       const params = drawing.params
       const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
+      const space = priceSpaceOf(context.pane.yAxis.getScaleType())
       const regression = computeRegressionChannel(
         context.seriesData.map((item) => item.close),
         firstIndex,
         secondIndex,
         sigma,
+        space,
       )
       if (!regression) return { primitives: [] }
-      const { firstValue, secondValue, offset } = regression
+      const { firstValue, secondValue, deviation } = regression
+      const upperFirst = offsetPriceInSpace(firstValue, deviation, space)
+      const upperSecond = offsetPriceInSpace(secondValue, deviation, space)
+      const lowerFirst = offsetPriceInSpace(firstValue, -deviation, space)
+      const lowerSecond = offsetPriceInSpace(secondValue, -deviation, space)
+      if (![upperFirst, upperSecond, lowerFirst, lowerSecond].every(Number.isFinite))
+        return { primitives: [] }
 
       const startAnchor = {
         id: `${drawing.id}-reg-start`,
@@ -176,22 +185,22 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
       const upperStartAnchor = {
         ...startAnchor,
         id: `${drawing.id}-reg-upper-start`,
-        price: firstValue + offset,
+        price: upperFirst,
       }
       const upperEndAnchor = {
         ...endAnchor,
         id: `${drawing.id}-reg-upper-end`,
-        price: secondValue + offset,
+        price: upperSecond,
       }
       const lowerStartAnchor = {
         ...startAnchor,
         id: `${drawing.id}-reg-lower-start`,
-        price: firstValue - offset,
+        price: lowerFirst,
       }
       const lowerEndAnchor = {
         ...endAnchor,
         id: `${drawing.id}-reg-lower-end`,
-        price: secondValue - offset,
+        price: lowerSecond,
       }
 
       const middleA = context.toScreen(startAnchor)
@@ -224,6 +233,7 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
           sigma: regression.sigma,
           stdDev: regression.regression.stdDev,
           slope: regression.regression.slope,
+          space: regression.space,
         },
       }
     },

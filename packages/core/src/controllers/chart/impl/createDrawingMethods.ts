@@ -378,7 +378,12 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     const renderer = chart.getPaneRenderers().find((item) => item.getPane().id === paneId)
     const pane = renderer?.getPane()
     if (!pane) return undefined
-    return { paneId: pane.id, top: pane.top, height: pane.height }
+    return {
+      paneId: pane.id,
+      top: pane.top,
+      height: pane.height,
+      scaleType: pane.yAxis.getScaleType(),
+    }
   }
 
   /** 根据图表局部 Y 坐标查找所属 Pane。 */
@@ -388,7 +393,14 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       .getPaneRenderers()
       .find((item) => y >= item.getPane().top && y <= item.getPane().top + item.getPane().height)
     const pane = renderer?.getPane()
-    return pane ? { paneId: pane.id, top: pane.top, height: pane.height } : undefined
+    return pane
+      ? {
+          paneId: pane.id,
+          top: pane.top,
+          height: pane.height,
+          scaleType: pane.yAxis.getScaleType(),
+        }
+      : undefined
   }
 
   /** 当前 Pane 已提交层的图元线段，供磁吸候选；拖拽中的图元由调用方按 id 排除。 */

@@ -1,5 +1,6 @@
 /** 验证 Ctrl/Shift 命中仅增删选择集合，不进入图元拖拽。 */
 import { describe, expect, it, vi } from 'vitest'
+import { ScaleType } from '@/foundation/types/scaleType'
 import {
   CONTAINER,
   createDrawingObject,
@@ -97,9 +98,7 @@ describe('DrawingInteractionController selection', () => {
 
     // 越过阈值：立即生成真实副本，再从按下点开始普通拖拽。
     expect(controller.onPointerMove(pointerMove(20, 20, { ctrlKey: true }), container)).toBe(true)
-    expect(duplicateDrawings).toHaveBeenCalledWith([
-      { id: source.id, anchors: source.anchors },
-    ])
+    expect(duplicateDrawings).toHaveBeenCalledWith([{ id: source.id, anchors: source.anchors }])
     expect(startDrag).toHaveBeenCalledWith([copy], { type: 'all' }, 10, 10)
 
     expect(controller.onPointerUp(pointerMove(20, 20), container)).toBe(true)
@@ -201,7 +200,7 @@ describe('DrawingInteractionController selection', () => {
     const adapter = createPlacementAdapter(
       {
         tool: 'cursor',
-        pane: { paneId: 'main', top: 0, height: 100 },
+        pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
         plotWidth: 100,
         plotHeight: 100,
         logicalIndex: 0,

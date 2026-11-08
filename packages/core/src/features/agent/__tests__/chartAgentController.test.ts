@@ -82,6 +82,7 @@ function createFixture() {
     },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
+    getPriceSpace: () => 'price',
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })

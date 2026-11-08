@@ -19,6 +19,7 @@ export function createDrawingDocumentFixture() {
         : { kind: 'not-trading' as const },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
+    getPriceSpace: () => 'price',
   })
   return { state, document }
 }

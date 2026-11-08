@@ -15,8 +15,9 @@ import {
   resolveLineLabelLayout,
 } from '../../geometry/impl/labelLayout.js'
 import { getLines } from '../../geometry/impl/lines.js'
+import { offsetPriceInSpace, priceSpaceOf } from '../../geometry/impl/priceSpace.js'
 import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.js'
-import type { DrawingLine } from '../../geometry/types.js'
+import type { DrawingLine, PriceSpace } from '../../geometry/types.js'
 import { resolveDrawingHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
@@ -636,6 +637,8 @@ function buildRegressionChannelGeometry(
 ): RegressionChannelGeometry | null {
   const data = adapter.getData()
   if (data.length === 0 || drawing.anchors.length < 2) return null
+  const paneInfo = adapter.getPaneInfo(drawing.paneId)
+  if (!paneInfo) return null
   const firstTimestamp = Number(drawing.anchors[0]!.time)
   const secondTimestamp = Number(drawing.anchors[1]!.time)
   const firstIndex = adapter.getLogicalIndexAtTimestamp(firstTimestamp)
@@ -645,11 +648,13 @@ function buildRegressionChannelGeometry(
   const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
   const params = drawing.params
   const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
+  const space = priceSpaceOf(paneInfo.scaleType)
   const regression = computeRegressionChannel(
     data.map((item: { close: number }) => item.close),
     clampedFirst,
     clampedSecond,
     sigma,
+    space,
   )
   if (!regression) return null
   return projectRegressionGeometry(
@@ -659,7 +664,8 @@ function buildRegressionChannelGeometry(
     secondTimestamp,
     regression.firstValue,
     regression.secondValue,
-    regression.offset,
+    regression.deviation,
+    space,
   )
 }
 
@@ -671,16 +677,17 @@ function projectRegressionGeometry(
   secondTimestamp: number,
   firstValue: number,
   secondValue: number,
-  offset: number,
+  deviation: number,
+  space: PriceSpace,
 ): RegressionChannelGeometry {
   const at = (timestamp: number, price: number) =>
     anchorToScreen({ time: timestamp, price }, drawing.paneId, adapter)
   const middleStart = at(firstTimestamp, firstValue)
   const middleEnd = at(secondTimestamp, secondValue)
-  const upperStart = at(firstTimestamp, firstValue + offset)
-  const upperEnd = at(secondTimestamp, secondValue + offset)
-  const lowerStart = at(firstTimestamp, firstValue - offset)
-  const lowerEnd = at(secondTimestamp, secondValue - offset)
+  const upperStart = at(firstTimestamp, offsetPriceInSpace(firstValue, deviation, space))
+  const upperEnd = at(secondTimestamp, offsetPriceInSpace(secondValue, deviation, space))
+  const lowerStart = at(firstTimestamp, offsetPriceInSpace(firstValue, -deviation, space))
+  const lowerEnd = at(secondTimestamp, offsetPriceInSpace(secondValue, -deviation, space))
 
   const segments: LineSegment[] = []
   const addSegment = (a: ReturnType<typeof at>, b: ReturnType<typeof at>) => {

@@ -1,6 +1,6 @@
 import type { DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
-import type { InteractionDrawingAnchor } from '../../geometry/types.js'
+import type { InteractionDrawingAnchor, PriceSpace } from '../../geometry/types.js'
 import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
@@ -28,6 +28,7 @@ function previewStyle(withFill: boolean): DrawingStyle {
 export class PreviewRenderer {
   /**
    * Build a preview drawing from the current tool state and pointer anchor.
+   * @param space 该 Pane 的价格运算空间，通道类预览按它换算派生锚点
    * @returns a preview DrawingObject, or null if the state is insufficient for a preview.
    */
   buildPreview(
@@ -36,6 +37,7 @@ export class PreviewRenderer {
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
     workspaceId: DrawingWorkspaceId,
+    space: PriceSpace,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
     const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
@@ -50,13 +52,25 @@ export class PreviewRenderer {
     if (isDouble) {
       if (pendingAnchors.length < 1) return null
       return {
-        ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
+        ...this.buildDoubleAnchorPreview(
+          activeTool,
+          pendingAnchors[0]!,
+          currentAnchor,
+          paneId,
+          space,
+        ),
         workspaceId,
       }
     }
 
     // Triple anchor tools
-    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
+    const preview = this.buildTripleAnchorPreview(
+      activeTool,
+      pendingAnchors,
+      currentAnchor,
+      paneId,
+      space,
+    )
     return preview ? { ...preview, workspaceId } : null
   }
 
@@ -101,6 +115,7 @@ export class PreviewRenderer {
     first: InteractionDrawingAnchor,
     second: InteractionDrawingAnchor,
     paneId: string,
+    space: PriceSpace,
   ): DrawingObject {
     const kind = getDrawingKind(activeTool)
     let derivedId = 0
@@ -126,6 +141,7 @@ export class PreviewRenderer {
           },
         ],
         () => `${PREVIEW_ID}-d${derivedId++}`,
+        space,
       ),
       params: activeTool === DrawingTool.RegressionChannel ? { sigma: 2 } : {},
       style: previewStyle(activeTool === DrawingTool.RegressionChannel),
@@ -143,6 +159,7 @@ export class PreviewRenderer {
     pendingAnchors: InteractionDrawingAnchor[],
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
+    space: PriceSpace,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null
 
@@ -200,6 +217,7 @@ export class PreviewRenderer {
         },
       ],
       () => `${PREVIEW_ID}-x${derivedId++}`,
+      space,
     )
 
     return {

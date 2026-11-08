@@ -33,7 +33,7 @@ import {
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
 import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
-import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { DRAWING_ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,
@@ -98,6 +98,7 @@ import {
   DrawingDocument,
   type DrawingInteractionController,
   type DrawingToolId,
+  priceSpaceOf,
   resolveDrawingTradingDate,
 } from '../../drawing/index.js'
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
@@ -603,6 +604,18 @@ export class Chart {
         resolveDrawingTradingDate(this.getData(), tradingDate),
       hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
       getWorkspaceId: () => this.drawing.getWorkspaceId(),
+      getPriceSpace: (paneId) => {
+        const renderer = this.getPaneRenderers().find((item) => item.getPane().id === paneId)
+        // createDrawing 先校验 paneId，走到锚点物化时 Pane 必然存在。
+        if (!renderer) {
+          throw new KLineChartError(
+            DRAWING_ERROR_CODES.UNKNOWN_PANE,
+            `Unknown drawing pane '${paneId}'.`,
+            { details: { paneId } },
+          )
+        }
+        return priceSpaceOf(renderer.getPane().yAxis.getScaleType())
+      },
     })
     this.drawingCommands = new DrawingCommands({
       document: this.drawingDocument,

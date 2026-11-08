@@ -21,6 +21,12 @@ export type {
 
 export { projectDrawingsForFrame } from './geometry/impl/frameProjection.js'
 export { computeLinearRegression } from './geometry/impl/linearRegression.js'
+export {
+  fromPriceSpace,
+  offsetPriceInSpace,
+  priceSpaceOf,
+  toPriceSpace,
+} from './geometry/impl/priceSpace.js'
 export type {
   AngleLockOptions,
   DrawingLine,
@@ -29,6 +35,7 @@ export type {
   LineHandle,
   LineHandleAxis,
   PointerCoordinates,
+  PriceSpace,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from './geometry/types.js'

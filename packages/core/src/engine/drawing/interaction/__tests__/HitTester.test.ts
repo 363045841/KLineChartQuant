@@ -1,5 +1,6 @@
 /** 验证单轴锚点图元的命中检测。 */
 import { describe, expect, it } from 'vitest'
+import { ScaleType } from '@/foundation/types/scaleType'
 import {
   createDisjointChannelDrawing,
   createDrawingAdapter,
@@ -20,7 +21,7 @@ function createAdapter() {
       getXAtLogicalIndex: () => 137,
       getLogicalIndexAtTimestamp: () => 0,
       priceToY: (_paneId: string, price: number) => price,
-      getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
+      getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240, scaleType: ScaleType.Linear }),
     },
   })
 }
@@ -33,7 +34,7 @@ function createLineAdapter() {
       getXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
       getLogicalIndexAtTimestamp: (timestamp: number) => (timestamp === 1_000 ? 0 : 1),
       priceToY: (_paneId: string, price: number) => price,
-      getPaneInfo: () => ({ paneId: 'main', top: 30, height: 240 }),
+      getPaneInfo: () => ({ paneId: 'main', top: 30, height: 240, scaleType: ScaleType.Linear }),
     },
   })
 }

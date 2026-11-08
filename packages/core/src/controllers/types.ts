@@ -40,6 +40,7 @@ import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
+import type { ScaleType } from '../foundation/types/scaleType.js'
 import type { ChartRendererAccess } from './renderers/index.js'
 
 export {
@@ -215,6 +216,8 @@ export interface PaneLayoutInfo {
   paneId: string
   top: number
   height: number
+  /** 该 Pane 的 Y 轴类型；绘图换算按它决定价格运算空间。 */
+  scaleType: ScaleType
 }
 
 // ---------------------------------------------------------------------------

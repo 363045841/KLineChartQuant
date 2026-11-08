@@ -9,6 +9,7 @@ import type { DrawingPatch } from '@363045841yyt/klinechart-plot-contracts'
 import type { TradingDate } from '@/data/provider/types.js'
 import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
+import type { PriceSpace } from '../geometry/types.js'
 import type { DrawingHistoryDocumentPort } from '../history/types.js'
 import type {
   DrawingKind,
@@ -87,6 +88,8 @@ export interface DrawingDocumentDependencies {
   readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => AnchorTradingDateResolution
   readonly hasPaneId: (paneId: string) => boolean
   readonly getWorkspaceId: () => DrawingWorkspaceId
+  /** 指定 Pane 的价格运算空间；通道类图元的派生锚点按它换算。 */
+  readonly getPriceSpace: (paneId: string) => PriceSpace
 }
 
 /** 克隆一个图元所需的源快照与目标锚点；源快照可以已不在文档中。 */

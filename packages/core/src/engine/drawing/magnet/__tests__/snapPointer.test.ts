@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { ScaleType } from '@/foundation/types/scaleType'
 import {
   createMagnetConfig,
   createMagnetSnapAdapter,
@@ -132,7 +133,7 @@ describe('snapPointer', () => {
   })
 
   it('全部坐标是 Pane 局部：pane.top 不再参与任何换算', () => {
-    const pane = { paneId: 'main', top: 40, height: 200 }
+    const pane = { paneId: 'main', top: 40, height: 200, scaleType: ScaleType.Linear }
     const snapped = snapPointer(12, 83, pane, createMagnetSnapAdapter(), createMagnetConfig('weak'))
     expect(snapped).toMatchObject({ x: 15, y: 80 })
   })

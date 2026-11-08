@@ -185,7 +185,7 @@ export class DrawingDocument {
         { details: { paneId: input.paneId } },
       )
     }
-    const anchors = this.resolveAnchors(input.kind, input.anchors)
+    const anchors = this.resolveAnchors(input.kind, input.anchors, input.paneId)
     return this.createAndSelect([
       {
         id: `drawing-${generateUUID()}`,
@@ -367,6 +367,7 @@ export class DrawingDocument {
           drawing.kind,
           drawing.anchors,
           () => `anchor-${generateUUID()}`,
+          this.dependencies.getPriceSpace(drawing.paneId),
         ),
         labels: normalizeDrawingLabels(drawing.labels),
       })),
@@ -377,6 +378,7 @@ export class DrawingDocument {
   private resolveAnchors(
     kind: DrawingKind,
     inputs: ReadonlyArray<DrawingAnchorCommandInput>,
+    paneId: string,
   ): PersistedDrawingAnchor[] {
     const required = getDrawingInputAnchorCount(kind)
     if (inputs.length !== required) {
@@ -390,6 +392,7 @@ export class DrawingDocument {
       kind,
       inputs.map((input) => this.resolveAnchor(kind, input)),
       () => `anchor-${generateUUID()}`,
+      this.dependencies.getPriceSpace(paneId),
     )
   }
 
@@ -438,7 +441,7 @@ export class DrawingDocument {
   ): PersistedDrawingAnchor[] {
     const drawing = this.getDrawing(id)
     if (!drawing) return []
-    const anchors = this.resolveAnchors(drawing.kind, inputs)
+    const anchors = this.resolveAnchors(drawing.kind, inputs, drawing.paneId)
     return anchors.map((anchor, index) => ({
       ...anchor,
       id: drawing.anchors[index]?.id ?? anchor.id,

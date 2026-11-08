@@ -1,6 +1,7 @@
 /** 验证绘图落点：出界时贴 Pane 边界继续预览与落点，未来槽位与创建顺序不受影响。 */
 import { describe, expect, it, vi } from 'vitest'
 
+import { ScaleType } from '@/foundation/types/scaleType'
 import {
   CONTAINER,
   createDrawingAdapter,
@@ -46,7 +47,7 @@ describe('DrawingInteractionController placement', () => {
     const createDrawing = vi.fn(() => createdDrawing)
     const adapter = createPlacementAdapter({
       tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 3,
@@ -68,7 +69,7 @@ describe('DrawingInteractionController placement', () => {
     const calls: string[] = []
     const adapter = createPlacementAdapter({
       tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 3,
@@ -94,7 +95,7 @@ describe('DrawingInteractionController placement', () => {
     const setDrawingToolId = vi.fn()
     const adapter = createPlacementAdapter({
       tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 0,
@@ -121,7 +122,7 @@ describe('DrawingInteractionController placement', () => {
     const setDrawingToolId = vi.fn()
     const adapter = createPlacementAdapter({
       tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 0,
@@ -150,7 +151,7 @@ describe('DrawingInteractionController placement', () => {
   it('keeps the in-progress preview and clamps the next anchor to the pane edge', () => {
     const adapter = createPlacementAdapter({
       tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 60 },
+      pane: { paneId: 'main', top: 0, height: 60, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 0,
@@ -175,7 +176,7 @@ describe('DrawingInteractionController placement', () => {
     const createDrawing = vi.fn(() => createdDrawing)
     const adapter = createPlacementAdapter({
       tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 60 },
+      pane: { paneId: 'main', top: 0, height: 60, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 0,
@@ -206,7 +207,7 @@ describe('DrawingInteractionController horizontal anchors', () => {
     const createDrawing = vi.fn(() => createdDrawing)
     const adapter = createPlacementAdapter({
       tool: 'h-line',
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
       plotWidth: 100,
       plotHeight: 100,
       logicalIndex: 3,

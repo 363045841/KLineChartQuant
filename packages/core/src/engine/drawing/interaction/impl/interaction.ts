@@ -7,6 +7,7 @@ import {
   isScreenPoint,
   resolveDrawingPointer,
 } from '../../geometry/impl/coordinateUtils.js'
+import { priceSpaceOf } from '../../geometry/impl/priceSpace.js'
 import type {
   DrawingPointerAnchor,
   PointerCoordinates,
@@ -198,12 +199,18 @@ export class DrawingInteractionController {
         return false
       }
 
+      const pane = this.adapter.getPaneInfo(pointer.paneId)
+      if (!pane) {
+        this.sessionOverlay.removePreview()
+        return false
+      }
       const preview = this.previewRenderer.buildPreview(
         activeTool,
         this.anchorCollector.pendingAnchors,
         pointer,
         pointer.paneId,
         this.adapter.getDrawingWorkspaceId(),
+        priceSpaceOf(pane.scaleType),
       )
       if (!preview) {
         this.sessionOverlay.removePreview()

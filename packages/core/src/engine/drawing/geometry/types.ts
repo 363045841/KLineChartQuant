@@ -119,3 +119,11 @@ export interface LineHandle {
   /** 拖拽该线时平移的坐标轴。 */
   readonly axis: LineHandleAxis
 }
+
+/**
+ * 价格运算所在的空间。
+ *
+ * 线性轴取价格本身；对数轴取价格的自然对数。通道平移、斜率取反与回归拟合都必须
+ * 在同一空间内完成，否则图形在屏幕上会变形：价格空间等距在对数轴上并不等距。
+ */
+export type PriceSpace = 'price' | 'log'

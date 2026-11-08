@@ -1,5 +1,7 @@
 /** 创建图元时的锚点物化：把输入锚点补齐为全部持久化锚点，之后只持久化坐标。 */
 
+import { offsetPriceInSpace, toPriceSpace } from '../../geometry/impl/priceSpace.js'
+import type { PriceSpace } from '../../geometry/types.js'
 import type { DrawingKind, PersistedDrawingAnchor } from '../../types.js'
 
 /** 图元创建时用户输入的锚点数。 */
@@ -36,22 +38,25 @@ export function getDrawingAnchorCount(kind: DrawingKind): 1 | 2 | 3 | 4 {
 /**
  * 把创建输入的锚点补齐为全部持久化锚点。
  * 第三个输入锚点一律只提供价格：第二条线的时间坐标由首两点决定，因此其时间被忽略。
+ * 价格增量在 `space` 内计算：对数轴上「同一斜率」是等比例而不是等差价。
  * @param kind 图元种类
  * @param anchors 用户输入的锚点，数量等于输入锚点数时才补齐
  * @param createAnchorId 派生锚点的 id 生成器
- * @returns 全部持久化锚点；无需补点时返回输入锚点副本
+ * @param space 价格运算空间
+ * @returns 全部持久化锚点；无需补点或无法换算时返回输入锚点副本
  */
 export function materializeDrawingAnchors(
   kind: DrawingKind,
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
   createAnchorId: () => string,
+  space: PriceSpace,
 ): PersistedDrawingAnchor[] {
   if (anchors.length !== getDrawingInputAnchorCount(kind)) return [...anchors]
   switch (kind) {
     case 'parallel-channel':
-      return appendParallelAnchors(anchors, createAnchorId)
+      return appendParallelAnchors(anchors, createAnchorId, space)
     case 'disjoint-channel':
-      return appendDisjointAnchors(anchors, createAnchorId)
+      return appendDisjointAnchors(anchors, createAnchorId, space)
     case 'flat-line':
       return appendFlatLineAnchors(anchors, createAnchorId)
     case 'rectangle':
@@ -73,17 +78,26 @@ function pointAt(
 /**
  * 平行通道：第二条线与第一条线跨越同样的首两点时间、斜率相同。
  * 3 落在次点 X 上、价格取第三个输入点（即光标所在时间槽跟手）；2 落在首点 X 上，价格按第一条线的价格增量反向回推。
+ * 增量在 `space` 内取负：对数轴上是等比例反向，屏幕上两条线才真正平行。
+ * @param anchors 三个输入锚点
+ * @param createAnchorId 派生锚点的 id 生成器
+ * @param space 价格运算空间
+ * @returns 四个持久化锚点；价格无法换算时原样返回输入
  */
 function appendParallelAnchors(
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
   createAnchorId: () => string,
+  space: PriceSpace,
 ): PersistedDrawingAnchor[] {
   const [first, second, third] = anchors
   if (!first || !second || !third) return [...anchors]
+  const delta = toPriceSpace(second.price, space) - toPriceSpace(first.price, space)
+  const mirrored = offsetPriceInSpace(third.price, -delta, space)
+  if (!Number.isFinite(mirrored)) return [...anchors]
   return [
     first,
     second,
-    pointAt(first, createAnchorId(), third.price - (second.price - first.price)),
+    pointAt(first, createAnchorId(), mirrored),
     pointAt(second, createAnchorId(), third.price),
   ]
 }
@@ -106,18 +120,27 @@ function appendFlatLineAnchors(
 /**
  * 不相交通道：第二条线与第一条线跨越同样的首两点时间，斜率互为相反数。
  * 2 与次点同 X、价格取第三个输入点；3 与首点同 X，价格由第一条线的价格增量取反推出。
+ * 取反在 `space` 内完成：对数轴上两条线的屏幕斜率才真正互为相反数。
+ * @param anchors 三个输入锚点
+ * @param createAnchorId 派生锚点的 id 生成器
+ * @param space 价格运算空间
+ * @returns 四个持久化锚点；价格无法换算时原样返回输入
  */
 function appendDisjointAnchors(
   anchors: ReadonlyArray<PersistedDrawingAnchor>,
   createAnchorId: () => string,
+  space: PriceSpace,
 ): PersistedDrawingAnchor[] {
   const [first, second, third] = anchors
   if (!first || !second || !third) return [...anchors]
+  const delta = toPriceSpace(second.price, space) - toPriceSpace(first.price, space)
+  const mirrored = offsetPriceInSpace(third.price, delta, space)
+  if (!Number.isFinite(mirrored)) return [...anchors]
   return [
     first,
     second,
     pointAt(second, createAnchorId(), third.price),
-    pointAt(first, createAnchorId(), third.price + (second.price - first.price)),
+    pointAt(first, createAnchorId(), mirrored),
   ]
 }
 

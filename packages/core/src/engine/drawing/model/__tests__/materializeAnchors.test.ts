@@ -1,4 +1,4 @@
-/** 验证创建期锚点物化：输入锚点补齐为全部持久化锚点。 */
+/** 验证创建期锚点物化：输入锚点补齐为全部持久化锚点，价格增量按运算空间换算。 */
 import { describe, expect, it } from 'vitest'
 import type { PersistedDrawingAnchor } from '../../types'
 import { getDrawingAnchorCount, materializeDrawingAnchors } from '../impl/materializeAnchors'
@@ -20,6 +20,7 @@ describe('materializeDrawingAnchors', () => {
       'parallel-channel',
       [anchor('a', 500, 10), anchor('b', 1_000, 20), anchor('c', 1_500, 30)],
       createIdFactory(),
+      'price',
     )
 
     // 第三个输入点只提供价格：3 与次点同 X 且直接取该价格，2 与首点同 X 且按首两点增量反向回推。
@@ -37,6 +38,7 @@ describe('materializeDrawingAnchors', () => {
         anchor('c', 1_500, 30),
       ],
       createIdFactory(),
+      'price',
     )
 
     expect(anchors[2]).toMatchObject({ time: 2_500, futureOffset: 2, price: 30 })
@@ -49,6 +51,7 @@ describe('materializeDrawingAnchors', () => {
       'flat-line',
       [anchor('a', 500, 10), anchor('b', 1_000, 20), anchor('c', 1_500, 30)],
       createIdFactory(),
+      'price',
     )
 
     expect(anchors).toHaveLength(4)
@@ -61,6 +64,7 @@ describe('materializeDrawingAnchors', () => {
       'disjoint-channel',
       [anchor('a', 500, 100), anchor('b', 1_000, 140), anchor('c', 1_500, 20)],
       createIdFactory(),
+      'price',
     )
 
     // 第三个输入点只提供价格：2 与次点同 X，3 与首点同 X 且价格按首两点增量取反。
@@ -74,6 +78,7 @@ describe('materializeDrawingAnchors', () => {
       'rectangle',
       [anchor('a', 2_000, 40), anchor('b', 500, 140)],
       createIdFactory(),
+      'price',
     )
 
     // 输入顺序与对角方向都不影响结果：左上、右上、右下、左下按时间与价格排序生成。
@@ -84,9 +89,35 @@ describe('materializeDrawingAnchors', () => {
     expect(anchors[3]).toMatchObject({ time: 500, price: 40 })
   })
 
+  it('对数轴按等比平移平行通道的第二条线', () => {
+    const anchors = materializeDrawingAnchors(
+      'parallel-channel',
+      [anchor('a', 500, 100), anchor('b', 1_000, 200), anchor('c', 1_500, 400)],
+      createIdFactory(),
+      'log',
+    )
+
+    // 首两点翻倍，派生点按同比例反向回推 400 ÷ 2 = 200；按价格等差会得到 300。
+    expect(anchors[2]?.price).toBeCloseTo(200, 10)
+  })
+
+  it('对数轴按等比取反不相交通道的斜率', () => {
+    const anchors = materializeDrawingAnchors(
+      'disjoint-channel',
+      [anchor('a', 500, 100), anchor('b', 1_000, 200), anchor('c', 1_500, 50)],
+      createIdFactory(),
+      'log',
+    )
+
+    // 首两点翻倍，取反即乘以 2：50 × 2 = 100；按价格等差会得到 150。
+    expect(anchors[3]?.price).toBeCloseTo(100, 10)
+  })
+
   it('leaves drawings whose anchor count already matches untouched', () => {
     const anchors = [anchor('a', 500, 10), anchor('b', 1_000, 20)]
-    expect(materializeDrawingAnchors('trend-line', anchors, createIdFactory())).toEqual(anchors)
+    expect(materializeDrawingAnchors('trend-line', anchors, createIdFactory(), 'price')).toEqual(
+      anchors,
+    )
   })
 
   it('reports four persisted anchors for the composite channels and rectangle', () => {

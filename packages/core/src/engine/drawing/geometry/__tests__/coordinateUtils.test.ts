@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DrawingViewportPort } from '@/controllers/types'
+import { ScaleType } from '@/foundation/types/scaleType'
 import {
   CONTAINER,
   createDrawingAdapter,
@@ -22,9 +23,14 @@ function createAdapter(overrides: Partial<DrawingViewportPort> = {}) {
       getDrawingWorkspaceId: () => 'timeshare',
       priceToY: (paneId, price) => (paneId === 'sub' ? price + 10 : price),
       yToPrice: (_paneId, y) => y + 100,
-      getPaneInfo: (paneId) => (paneId === 'sub' ? { paneId, top: 120, height: 80 } : undefined),
+      getPaneInfo: (paneId) =>
+        paneId === 'sub'
+          ? { paneId, top: 120, height: 80, scaleType: ScaleType.Linear }
+          : undefined,
       getPaneAtY: (y) =>
-        y >= 120 && y <= 200 ? { paneId: 'sub', top: 120, height: 80 } : undefined,
+        y >= 120 && y <= 200
+          ? { paneId: 'sub', top: 120, height: 80, scaleType: ScaleType.Linear }
+          : undefined,
       ...overrides,
     },
   })

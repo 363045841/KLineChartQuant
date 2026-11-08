@@ -11,6 +11,7 @@ describe('PreviewRenderer', () => {
       { time: 1_000, futureOffset: 3, price: 12 },
       'main',
       'kline',
+      'price',
     )
 
     expect(preview?.anchors[1]).toMatchObject({ time: 1_000, futureOffset: 3, price: 12 })
@@ -26,6 +27,7 @@ describe('PreviewRenderer', () => {
       { time: 1_500, price: 30 },
       'main',
       'kline',
+      'price',
     )
 
     // 光标只提供价格并落在次点 X 上，光标时间（1500）被忽略；首点 X 的派生点按首两点增量反向回推。
@@ -44,6 +46,7 @@ describe('PreviewRenderer', () => {
       { time: 1_500, price: 20 },
       'main',
       'kline',
+      'price',
     )
 
     // 光标只提供价格：第二条线与首两点同 X、斜率取反，光标时间（1500）被忽略。
@@ -59,6 +62,7 @@ describe('PreviewRenderer', () => {
       { time: 500, price: 140 },
       'main',
       'kline',
+      'price',
     )
 
     // 预览同样按持久化四角（左上、右上、右下、左下）输出，绘制端无需再区分输入锚点数。
@@ -69,6 +73,23 @@ describe('PreviewRenderer', () => {
     expect(preview?.anchors[3]).toMatchObject({ time: 500, price: 40 })
   })
 
+  it('对数轴按等比回推平行通道的第二条线', () => {
+    const preview = new PreviewRenderer().buildPreview(
+      'parallel-channel',
+      [
+        { time: 500, price: 100 },
+        { time: 1_000, price: 200 },
+      ],
+      { time: 1_500, price: 400 },
+      'main',
+      'kline',
+      'log',
+    )
+
+    // 首两点翻倍（×2），派生点按同比例反向回推：400 ÷ 2 = 200；线性空间会得到 300。
+    expect(preview?.anchors[2]?.price).toBeCloseTo(200, 10)
+  })
+
   it('渲染工具自身的线型，通道额外保留填充透明度', () => {
     const trend = new PreviewRenderer().buildPreview(
       'trend-line',
@@ -76,6 +97,7 @@ describe('PreviewRenderer', () => {
       { time: 1_000, price: 20 },
       'main',
       'kline',
+      'price',
     )
     expect(trend?.style?.strokeStyle).toBe('solid')
 
@@ -88,6 +110,7 @@ describe('PreviewRenderer', () => {
       { time: 1_500, price: 30 },
       'main',
       'kline',
+      'price',
     )
     expect(channel?.style?.strokeStyle).toBe('solid')
     expect(channel?.style?.fillOpacity).toBeGreaterThan(0)
