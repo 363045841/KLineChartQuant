@@ -27,9 +27,7 @@ describe('StateKernel type constraints (compile-time)', () => {
   })
 
   it('createViewportState readonly viewportState signal has no .set', () => {
-    const m = createViewportState(
-      createViewportStateDeps({ options: { kWidth: 6, kGap: 1 }, zoomLevel: 1 }),
-    )
+    const m = createViewportState(createViewportStateDeps())
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set
   })

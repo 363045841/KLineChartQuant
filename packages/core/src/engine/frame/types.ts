@@ -18,8 +18,8 @@ import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
 
-/** 已解析的图表选项：kWidth / kGap 必填，由样式与配置派生。 */
-export type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
+/** 帧使用的图表选项：在基础选项上附加由视口派生的 K 线宽度与间隙。 */
+export type ResolvedChartOptions = ChartOptions & {
   kWidth: number
   kGap: number
 }

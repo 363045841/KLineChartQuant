@@ -514,8 +514,11 @@ export function createPrimitivePreparer(
           instances.write(strokeWidth)
           instances.write(0)
           instances.write(0)
-          for (const component of color) instances.write(component)
-          for (const component of stroke) instances.write(component)
+          const opacity = primitive.opacity ?? 1
+          for (let component = 0; component < 4; component++)
+            instances.write(color[component]! * (component === 3 ? opacity : 1))
+          for (let component = 0; component < 4; component++)
+            instances.write(stroke[component]! * (component === 3 ? opacity : 1))
           const last = draws.at(-1)
           if (last?.kind === 'instances') last.count++
           else draws.push({ kind: 'instances', first, count: 1 })

@@ -308,11 +308,11 @@ describe('InteractionController hover snapshot', () => {
 
     interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
 
-    // K 线中心网格 origin=7、step=11；索引与屏幕坐标互为逆映射。
-    expect(interaction.getXAtLogicalIndex(22)).toBe(249)
-    expect(interaction.getXAtLogicalIndex(23)).toBe(260)
-    expect(interaction.getLogicalIndexAtScreenX(249)).toBe(22)
-    expect(interaction.getLogicalIndexAtScreenX(260)).toBe(23)
+    // 理想网格 origin=7.2、step=11.2；交互使用本帧已对齐的实际显示中心。
+    expect(interaction.getXAtLogicalIndex(22)).toBe(254)
+    expect(interaction.getXAtLogicalIndex(23)).toBe(265)
+    expect(interaction.getLogicalIndexAtScreenX(254)).toBe(22)
+    expect(interaction.getLogicalIndexAtScreenX(265)).toBe(23)
     expect(interaction.getLogicalIndexAtScreenX(7)).toBe(0)
   })
 })

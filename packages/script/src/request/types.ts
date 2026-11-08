@@ -1,6 +1,6 @@
 /** Request 的脚本接口与可跨 Worker 传递的行情快照。 */
 
-import type { DataSource, Timeframe } from '@363045841yyt/klinechart-plot-contracts'
+import type { DataSource, Timeframe, ScriptTimeContext } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { Series } from '../series/types.js'
 
@@ -20,8 +20,24 @@ export interface SecurityOptions {
   readonly gaps?: 'off' | 'on'
 }
 
+export interface LowerTimeframeOptions extends Omit<SecurityOptions, 'gaps'> {
+  /** 高于主图的请求周期：默认报错，开启时返回空数组。 */
+  readonly ignore_invalid_timeframe?: boolean
+}
+
+export type IntrabarResult<T> = T extends readonly unknown[]
+  ? { readonly [K in keyof T]: readonly RequestResult<T[K]>[] }
+  : readonly RequestResult<T>[]
+
 /** 跨品种、跨周期取数入口，等价于 Pine 的 request.security。 */
 export interface ScriptRequest {
+  /** 按时间升序返回当前主图bar内全部可用明细；元组表达式返回对应的多个数组。 */
+  security_lower_tf<T extends RequestValue | Series | readonly (RequestValue | Series)[]>(
+    symbol: string,
+    timeframe: Timeframe,
+    expression: () => T,
+    options?: LowerTimeframeOptions,
+  ): IntrabarResult<T>
   /**
    * 在指定品种、周期的上下文中计算 expression，再将计算结果对齐到当前图表品种的 K 线时间槽位上。
    *
@@ -51,6 +67,10 @@ export interface ScriptRequest {
 }
 
 export interface SecurityRequest extends SecurityOptions {
+  /** 编译器记录元组列数，空行情仍返回对应空列，不依赖首根行情推断形状。 */
+  readonly tupleSize?: number
+  readonly mode?: 'security' | 'lower_tf'
+  readonly ignore_invalid_timeframe?: boolean
   readonly id: string
   readonly symbol: string
   /**
@@ -69,11 +89,13 @@ export interface RequestSnapshot {
 
 export interface ScriptRequestContext {
   readonly symbol: string
+  readonly time?: ScriptTimeContext
   readonly snapshots: readonly RequestSnapshot[]
 }
 
 export interface RequestExecution {
   readonly symbol: string
+  readonly time?: ScriptTimeContext
   readonly expressionId?: string
   readonly results: Readonly<Record<string, readonly RequestValue[]>>
 }

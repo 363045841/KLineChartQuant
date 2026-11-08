@@ -15,13 +15,10 @@ import {
   TRIPLE_ANCHOR_TOOLS,
 } from './toolConfig.js'
 
-/** 预览统一使用工具样式的虚线版本；通道类额外给出填充透明度。 */
+/** 预览沿用工具自身的线型；通道类额外给出填充透明度，不改变描边样式。 */
 function previewStyle(withFill: boolean): DrawingStyle {
-  return {
-    ...drawingToolStyle(),
-    strokeStyle: 'dashed',
-    ...(withFill ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
-  }
+  const style = drawingToolStyle()
+  return withFill ? { ...style, fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : style
 }
 
 /**

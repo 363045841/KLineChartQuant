@@ -13,7 +13,7 @@ class WebWorker extends EventTarget {
     this.thread = new NodeWorker(
       `
       const { parentPort, workerData } = require('node:worker_threads')
-      globalThis.postMessage = (message) => parentPort.postMessage(message)
+      globalThis.postMessage = (message, options) => parentPort.postMessage(message, options?.transfer)
       // 此线程模拟 Web Worker 宿主，依赖必须走浏览器分支。
       globalThis.process = undefined
       if (workerData.disableWasm) globalThis.WebAssembly = undefined
@@ -31,8 +31,8 @@ class WebWorker extends EventTarget {
   }
 
   /** 消息经过真实的结构化克隆。 */
-  postMessage(message) {
-    this.thread.postMessage(message)
+  postMessage(message, transfer) {
+    this.thread.postMessage(message, transfer)
   }
 
   /** 释放实际的计算线程。 */

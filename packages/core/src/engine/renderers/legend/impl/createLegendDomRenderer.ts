@@ -109,7 +109,7 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-collapse-count { font-family:${FONT_FAMILY}; font-size:12px; line-height:1;
       color:var(--klc-color-ui-text-soft); }
     .klc-legend-collapse-count[hidden] { display:none; }
-    .klc-legend-spinner { flex:0 0 12px; width:12px; height:12px; box-sizing:border-box;
+    .klc-legend-spinner { flex:0 0 12px; width:12px; height:12px; box-sizing:border-box; margin-inline:4px;
       border:2px solid currentColor; border-top-color:transparent; border-radius:50%;
       color:var(--klc-color-ui-text-soft); animation:klc-legend-spin 0.6s linear infinite; }
     .klc-legend-spinner[hidden] { display:none; }

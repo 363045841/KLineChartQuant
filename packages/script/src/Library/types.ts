@@ -1,5 +1,4 @@
-/** 宿主维护的内置库类型目录；键名即脚本作用域中的库名。 */
-import type {} from '../contracts/library.js'
+/** 技术分析库的公开契约，供实现校验与编辑器类型提示共用。 */
 import type { Series } from '../series/types.js'
 
 /** 技术分析库公开接口。 */
@@ -114,13 +113,7 @@ export type TechnicalAnalysisLibrary = {
    * @param floor 为 true 时对中心取下整，缺省 false。
    * @returns 均线序列；完整窗口之前为 NaN。
    */
-  alma(
-    source: Series,
-    length: number,
-    offset?: number,
-    sigma?: number,
-    floor?: boolean,
-  ): Series
+  alma(source: Series, length: number, offset?: number, sigma?: number, floor?: boolean): Series
   /**
    * 总体标准差（STDDEV），窗口内数值相对窗口均值的偏差，除以 length。
    * @summary 总体标准差
@@ -300,11 +293,4 @@ export type TechnicalAnalysisLibrary = {
    * @returns 发生下穿时为 true。
    */
   crossunder(left: Series, right: Series): boolean
-}
-
-declare module '../contracts/library.js' {
-  /** 内置库的类型目录。 */
-  interface LibraryModules {
-    ta: TechnicalAnalysisLibrary
-  }
 }

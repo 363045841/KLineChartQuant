@@ -13,8 +13,6 @@ export type ChartDom = {
 }
 
 export type ChartOptions = {
-  kWidth?: number
-  kGap?: number
   yPaddingPx: number
   rightAxisWidth: number
   leftAxisWidth: number

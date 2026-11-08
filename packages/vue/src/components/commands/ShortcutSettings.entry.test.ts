@@ -13,6 +13,7 @@ it('opens chart settings from the command palette', async () => {
         h(ChartSettingsDialog, {
           open: settingsOpen.value,
           initialSection: 'shortcuts',
+          effectiveTheme: 'dark',
           'onUpdate:open': (value: boolean) => {
             settingsOpen.value = value
           },

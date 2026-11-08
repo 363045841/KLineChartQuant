@@ -1,7 +1,11 @@
 /** Request 声明与结果读取；目标表达式由执行后端在独立运行态逐根执行。 */
 const __requestExpressions = new Map<string, () => unknown>()
 const __requests: import('../../request/types.js').SecurityRequest[] = []
-const syminfo = Object.freeze({ tickerid: __requestContext.symbol })
+const syminfo = Object.freeze({
+  tickerid: __requestContext.symbol,
+  get timezone() { return __requestContext.time?.session.timeZone ?? '' },
+  get session() { return 'regular' },
+})
 
 /** 判断非空字符串；品种与周期都不允许空白。 */
 function isNonEmptyText(value: unknown): value is string {
@@ -37,6 +41,8 @@ function __declareRequest(
   symbol: string,
   timeframe: string,
   options: import('../../request/types.js').SecurityOptions,
+  mode: 'security' | 'lower_tf' = 'security',
+  tupleSize?: number,
 ): void {
   if (options === null || typeof options !== 'object' || Array.isArray(options))
     throw new TypeError('Request options 必须是对象')
@@ -46,7 +52,8 @@ function __declareRequest(
     const value = options[rule.key]
     if (value !== undefined && !rule.isValid(value)) throw new TypeError(rule.message)
   }
-  __requests.push(Object.freeze({ id, symbol, timeframe, ...options }))
+  if ('ignore_invalid_timeframe' in options && typeof options.ignore_invalid_timeframe !== 'boolean') throw new TypeError('ignore_invalid_timeframe必须为布尔值')
+  __requests.push(Object.freeze({ id, symbol, timeframe, ...options, mode, ...(tupleSize === undefined ? {} : { tupleSize }) }))
 }
 
 /** 从宿主提供的已对齐结果取值，返回数组副本，脚本不持有缓存引用。 */
@@ -69,7 +76,7 @@ function __copyRequestValue(value: unknown): import('../../request/types.js').Re
     return value
   if (Array.isArray(value)) return Object.freeze(value.map(__copyRequestValue))
   // Series 代理不实现 has，直接读取 at。
-  if (typeof value === 'object' && value !== null) {
+  if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
     const at = Reflect.get(value, 'at')
     if (typeof at === 'function') return __copyRequestValue(at(0))
   }

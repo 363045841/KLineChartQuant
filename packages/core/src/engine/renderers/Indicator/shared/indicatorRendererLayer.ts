@@ -10,6 +10,7 @@ import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNamin
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import type { DrawListLayer, Layer, LayerRole } from '@/rendering/scene/types.js'
+
 /** 两种 Layer 共用的身份声明。 */
 type IndicatorRendererLayerIdentity = {
   /** 绘制目标 pane，具体 paneId。 */
@@ -30,14 +31,12 @@ export type IndicatorDrawListLayerSpec = IndicatorRendererLayerIdentity & {
 
 /** 完整上下文图层：可自带裁剪或直接写 canvas，Scene 在其前后立即合成。 */
 export type IndicatorContextLayerSpec = IndicatorRendererLayerIdentity & {
-  kind?: 'context'
+  kind: 'context'
   draw: (context: RenderContext) => void
 }
 
 /** 组装指标 Layer 所需参数。 */
-export type IndicatorRendererLayerSpec =
-  | IndicatorDrawListLayerSpec
-  | IndicatorContextLayerSpec
+export type IndicatorRendererLayerSpec = IndicatorDrawListLayerSpec | IndicatorContextLayerSpec
 
 /** 无资源需释放的 Layer 的缺省 dispose。 */
 function noopDispose(): void {}

@@ -1,60 +1,30 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DrawingChartAdapter } from '@/controllers/types'
-import { createTrendLine } from '../../__tests__/helpers/drawingTestKit'
+import { createDrawingAdapter, createTrendLine } from '../../__tests__/helpers/drawingTestKit'
 import type { DrawingObject } from '../../types'
 import { DrawingSessionOverlay, mergePaint, PREVIEW_ID } from '../impl/DrawingSessionOverlay'
 
-/** 构造由内存 kernel 列表承载文档状态的完整适配器。 */
-function mockAdapter(
-  initial: DrawingObject[] = [],
-  initialSelected: string[] = [],
-): DrawingChartAdapter {
+/** 构造由内存 kernel 列表承载文档状态的适配器；其余 port 复用测试工具默认值。 */
+function mockAdapter(initial: DrawingObject[] = [], initialSelected: string[] = []) {
   let selected = [...initialSelected]
   let kernelList = [...initial]
-  const replaceDrawings = vi.fn((list: ReadonlyArray<DrawingObject>) => {
-    kernelList = list
-      .filter((drawing) => drawing.id !== PREVIEW_ID)
-      .map((drawing) => ({ ...drawing }))
-  })
-  const setSelectedDrawingIds = vi.fn((ids: ReadonlyArray<string>) => {
-    selected = [...ids]
-  })
-  return {
-    replaceDrawings,
-    createDrawing: vi.fn(() => createTrendLine('created')),
-    updateDrawing: vi.fn(() => null),
-    commitDrawingDrag: vi.fn(() => null),
-    commitDrawingDrags: vi.fn(() => []),
-    updateBatch: vi.fn(() => []),
-    getBatchStyleKeys: vi.fn(() => []),
-    removeDrawing: vi.fn(() => false),
-    removeBatch: vi.fn(() => false),
-    clearDrawings: vi.fn(),
-    getFullDrawings: () => kernelList,
-    setSelectedDrawingIds,
-    getSelectedDrawingIds: () => selected,
-    setDrawingToolId: vi.fn(),
-    getDrawingToolId: () => 'cursor',
-    isGlobalDrawingLocked: () => false,
-    requestDraw: vi.fn(),
-    getViewport: () => null,
-    getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
-    getCurrentDpr: () => 1,
-    getData: () => [],
-    getDrawingData: () => [],
-    getLogicalIndexAtX: () => null,
-    getXAtLogicalIndex: () => null,
-    getDrawingTimestampAtLogicalIndex: () => null,
-    getLogicalIndexAtTimestamp: () => null,
-    getDrawingWorkspaceId: () => 'kline',
-    priceToY: () => 0,
-    yToPrice: () => 0,
-    getPaneInfo: () => undefined,
-    getPaneAtY: () => undefined,
-    getSnapLines: () => [],
-    getIndicatorValues: () => [],
-  }
+  return createDrawingAdapter(
+    {
+      document: {
+        replaceDrawings: vi.fn((list: ReadonlyArray<DrawingObject>) => {
+          kernelList = list
+            .filter((drawing) => drawing.id !== PREVIEW_ID)
+            .map((drawing) => ({ ...drawing }))
+        }),
+        getFullDrawings: () => kernelList,
+        setSelectedDrawingIds: vi.fn((ids: ReadonlyArray<string>) => {
+          selected = [...ids]
+        }),
+        getSelectedDrawingIds: () => selected,
+      },
+    },
+    initial,
+  )
 }
 
 describe('DrawingSessionOverlay session SSOT', () => {

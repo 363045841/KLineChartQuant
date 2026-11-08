@@ -51,7 +51,6 @@ export type DrawingComputeContext = {
   range: { start: number; end: number }
   kLinePositions: number[]
   kLineCenters: number[]
-  kBarRects: Array<{ x: number; width: number }>
   kWidth: number
   kGap: number
   dpr: number

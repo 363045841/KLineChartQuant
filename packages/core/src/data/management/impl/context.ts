@@ -1,26 +1,30 @@
 /** 宿主持有的行情管理实例：统一配置入口，Core 不选择持久化介质。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { createRealtimeSubscriptionPool } from '../../live/impl/realtimePool.js'
+import { createSseConnection } from '../../live/impl/sseConnection.js'
+import type { RealtimeSubscriptionPool } from '../../live/types.js'
+import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
 import {
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
 } from '../../provider/impl/registry.js'
+import type { MarketDataSource } from '../../provider/types.js'
 import type { MarketDataConfiguration } from '../types.js'
 import { normalizeConnectionUrl } from './connection.js'
 import { MarketDataHealth } from './health.js'
 import { participatesInSearch } from './policy.js'
-import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
-import type { MarketDataSource } from '../../provider/types.js'
-import { realtimePoolFor } from '../../live/impl/realtimePool.js'
 
 /** 连接、Provider 目录和策略共享注册表中的权威快照。 */
 export class MarketDataContext {
   private readonly registrations = new Set<() => void>()
   private disposed = false
+  private readonly unsubscribeSources: () => void
 
   /** 注册宿主数据源；返回幂等注销函数，取消该来源的在途查询和实时订阅。 */
   registerDataSource(source: MarketDataSource): () => void {
-    if (this.disposed) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, 'Market data host is disposed')
+    if (this.disposed)
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, 'Market data host is disposed')
     const registration = createRegisteredDataSource(source)
     this.registry.register(registration.provider)
     const unregister = () => {
@@ -35,19 +39,39 @@ export class MarketDataContext {
   /** 按来源及稳定 ID 解析品种，不使用全局默认源猜测。 */
   async resolveInstrument(sourceId: string, id: string, signal?: AbortSignal) {
     const provider = this.registry.getRequired(sourceId)
-    if (!provider.catalog?.resolve) throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Source does not implement instrument resolution: ${sourceId}`)
+    if (!provider.catalog?.resolve)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_STATE,
+        `Source does not implement instrument resolution: ${sourceId}`,
+      )
     return provider.catalog.resolve(id, signal)
   }
   readonly health: MarketDataHealth
   readonly configuration: ReadonlySignal<MarketDataConfiguration>
 
   /** 宿主共享的实时订阅池；图表与自选共用同一份连接。 */
-  get realtime() {
-    return realtimePoolFor(this.registry)
-  }
+  readonly realtime: RealtimeSubscriptionPool
 
   constructor(readonly registry = new MarketDataProviderRegistry()) {
     this.health = new MarketDataHealth(registry)
+    this.realtime = createRealtimeSubscriptionPool({
+      registry,
+      health: this.health.state,
+      createConnection: (request) => {
+        const provider = registry.getRequired(request.sourceId)
+        if (provider.realtime) return provider.realtime(request)
+        const connection = registry.getConnection(request.sourceId)
+        const baseUrl = connection.baseUrl ?? connection.defaultBaseUrl
+        if (baseUrl === undefined)
+          throw new KLineChartError(
+            GENERIC_ERROR_CODES.INVALID_STATE,
+            'Realtime endpoint is not configured',
+          )
+        return createSseConnection(request, baseUrl)
+      },
+    })
+    this.unsubscribeSources = registry.state.subscribe(() => this.probeUnresolvedSources())
+    this.probeUnresolvedSources()
     const read = (): MarketDataConfiguration => {
       const state = registry.state()
       return {
@@ -72,6 +96,18 @@ export class MarketDataContext {
       }
     }
     this.configuration = Object.assign(read, { peek: read, subscribe: registry.state.subscribe })
+  }
+
+  /** 新来源或改址后先确认健康，检测结果再单向驱动池，避免先发连接再补状态。 */
+  private probeUnresolvedSources(): void {
+    const health = this.health.state.peek()
+    const names = new Set(
+      this.registry
+        .getEnabled()
+        .filter((provider) => health[provider.source.id] === undefined)
+        .map((provider) => provider.source.id),
+    )
+    if (names.size > 0) void this.health.refresh({ names })
   }
 
   /** 提交完整连接地址；宿主管理的连接不允许从管理界面修改。 */
@@ -111,6 +147,8 @@ export class MarketDataContext {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.unsubscribeSources()
+    this.realtime.dispose()
     for (const unregister of this.registrations) unregister()
     this.health.dispose()
   }
@@ -120,4 +158,6 @@ export class MarketDataContext {
 export const defaultMarketDataContext = new MarketDataContext(marketDataProviderRegistry)
 
 /** 创建独立行情宿主；公开注册 API 复用同一管理实例。 */
-export function createMarketDataHost(): MarketDataContext { return new MarketDataContext() }
+export function createMarketDataHost(): MarketDataContext {
+  return new MarketDataContext()
+}

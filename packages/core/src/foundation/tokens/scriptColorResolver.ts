@@ -21,6 +21,16 @@ export type ScriptColorResolver = (value: string) => string
  */
 export function createScriptColorResolver(colors: ColorTokens): ScriptColorResolver {
   return (value) => {
+    // 命名空间token直接解析当前主题，不复制任何指标专用颜色表。
+    if (value.startsWith('@token:')) {
+      let token: unknown = colors
+      for (const key of value.slice(7).split('.')) {
+        if (token === null || typeof token !== 'object' || !Object.hasOwn(token, key)) throw new TypeError(`Unknown theme color token: ${value}`)
+        token = Reflect.get(token, key)
+      }
+      if (typeof token !== 'string') throw new TypeError(`Theme token is not a color: ${value}`)
+      return token
+    }
     const parsed = parseScriptColor(value)
     if (parsed.kind === 'css') return parsed.value
     return `${colors.scriptPalette[parsed.alias]}${parsed.alpha}`

@@ -4,6 +4,7 @@ import { createLastPriceLabelLayer, createLastPriceLineLayer } from '@/core/rend
 import {
   createMockCanvasContext,
   createMockRenderContext,
+  paintTestLayer,
 } from '@/engine/__tests__/helpers/renderTestKit'
 import type { RenderContext } from '@/foundation/plugin/index'
 import { resolveThemeColors } from '@/foundation/tokens/index'
@@ -16,7 +17,7 @@ function paintLabel(context: RenderContext): void {
 
 /** 以主图身份调用最新价线 Layer.paint。 */
 function paintLine(context: RenderContext): void {
-  createLastPriceLineLayer().paint({ ...context, paneId: 'main', clear: false })
+  paintTestLayer(createLastPriceLineLayer(), context)
 }
 
 describe('createLastPriceLabelLayer', () => {

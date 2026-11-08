@@ -8,9 +8,9 @@
 
 ## 状态机与交互规则
 
-框选和拖拽通过 `DrawingInteractionController` 的 `idle | marquee | drag` 指针会话状态机互斥仲裁。框选工具处于 idle 时，优先命中已选图元：命中后进入 drag；未命中或命中未选图元才进入 marquee。pointermove 与 pointerup 仅按当前会话分发，避免工具 ID 与多个会话字段共同决定行为。
+框选和拖拽通过 `DrawingInteractionController` 的 `idle | marquee | duplicate-pending | drag` 指针会话状态机互斥仲裁。框选工具处于 idle 时，优先命中已选图元：命中后进入 drag；未命中或命中未选图元才进入 marquee。pointermove 与 pointerup 仅按当前会话分发，避免工具 ID 与多个会话字段共同决定行为。
 
-普通点击命中图元会将选择收敛为该图元并开始拖拽；Ctrl 点击只将命中图元加入或移出选择集合，不开始拖拽。Ctrl 点击空白处保留当前选择，普通点击空白处清空选择。Shift 与 Ctrl 同为多选修饰键。
+普通点击命中图元会将选择收敛为该图元并开始拖拽。Shift 点击立即将命中图元加入或移出选择集合，不开始拖拽。Ctrl/Meta 按下先进入 `duplicate-pending`：位移未越过 4px 阈值时松开，按点击切换选择；越过阈值后立即生成真实副本并转入普通拖拽，原图元保持不动。Ctrl/Meta 或 Shift 点击空白处保留当前选择，普通点击空白处清空选择。
 
 ## 框选
 

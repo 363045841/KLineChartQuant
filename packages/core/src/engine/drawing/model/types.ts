@@ -89,14 +89,21 @@ export interface DrawingDocumentDependencies {
   readonly getWorkspaceId: () => DrawingWorkspaceId
 }
 
+/** 克隆一个图元所需的源快照与目标锚点；源快照可以已不在文档中。 */
+export interface DrawingDuplicatePlacement {
+  readonly source: DrawingObject
+  readonly anchors: ReadonlyArray<PersistedDrawingAnchor>
+}
+
 /**
  * 命令层所需的文档写能力；由 `DrawingDocument` 实现。
  * 契约层只声明命令实际调用的方法，不反向依赖 impl/。
  */
 export interface DrawingCommandsDocumentPort extends DrawingHistoryDocumentPort {
   createDrawing(input: CreateDrawingInput): DrawingObject
-  copyDrawings(
-    placements: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  /** 按源快照克隆整组图元；源快照不要求仍在文档中。 */
+  duplicateDrawings(
+    placements: ReadonlyArray<DrawingDuplicatePlacement>,
   ): ReadonlyArray<DrawingObject>
   updateDrawing(drawing: DrawingObject): DrawingObject | null
   updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null

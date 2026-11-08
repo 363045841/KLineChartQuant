@@ -21,7 +21,10 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const vueSourceRoot = fileURLToPath(new URL('../../vue/src/', import.meta.url))
 const coreSourceRoot = fileURLToPath(new URL('../../core/src/', import.meta.url))
-const entry = fileURLToPath(new URL('../src/page/editor.ts', import.meta.url))
+// 页面入口属于 vue 源码；本包只负责把它打包成独立资源，运行期依赖方向仍是 vue → script-editor。
+const entry = fileURLToPath(
+  new URL('../../vue/src/composables/chart/scriptEditor/page/editor.ts', import.meta.url),
+)
 
 /** 页面脚本与样式的固定文件名；src/index.ts 的运行时约定必须与此一致。 */
 const PAGE_SCRIPT = 'editor.js'
@@ -88,14 +91,17 @@ export async function buildEditorPage() {
     resolve: { alias: createSourceAliases() },
     worker: {
       format: 'es',
-      plugins: () => [{
-        name: 'capture-editor-workers',
-        generateBundle(_options, bundle) {
-          for (const file of Object.values(bundle)) {
-            if (file.type === 'chunk' && file.isEntry) workers.push({ name: file.fileName, source: file.code })
-          }
+      plugins: () => [
+        {
+          name: 'capture-editor-workers',
+          generateBundle(_options, bundle) {
+            for (const file of Object.values(bundle)) {
+              if (file.type === 'chunk' && file.isEntry)
+                workers.push({ name: file.fileName, source: file.code })
+            }
+          },
         },
-      }],
+      ],
     },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     build: {

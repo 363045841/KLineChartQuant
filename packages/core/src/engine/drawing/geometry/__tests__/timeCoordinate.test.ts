@@ -6,10 +6,25 @@ describe('drawingTimeIndex', () => {
   const data = [{ timestamp: 1000 }, { timestamp: 2000 }, { timestamp: 5000 }]
   /** 未来轴故意跨过休市间隔，禁止使用最近两根的时间差猜测。 */
   const axis = (index: number) => [1000, 2000, 5000, 9000, 10000][index] ?? null
-  it.each([[1000, 0], [3500, 1.5], [0, -1], [7000, 2.5], [9000, 3]])('projects %s to %s', (time, index) => {
+  it.each([
+    [1000, 0],
+    [3500, 1.5],
+    [0, -1],
+    [7000, 2.5],
+    [9000, 3],
+  ])('projects %s to %s', (time, index) => {
     expect(drawingTimeIndex(time, data, axis)).toBe(index)
   })
   it('does not invent future slots without a calendar', () => {
     expect(drawingTimeIndex(11000, data, axis)).toBeNaN()
+  })
+  it('uses the final candle closing boundary without extrapolating into the market break', () => {
+    const open = Date.UTC(2026, 0, 5, 11)
+    const close = Date.UTC(2026, 0, 5, 11, 30)
+    const bars = [{ timestamp: open }]
+    const missingCalendar = () => null
+    expect(drawingTimeIndex(open + 15 * 60_000, bars, missingCalendar, close)).toBe(0.5)
+    expect(drawingTimeIndex(close, bars, missingCalendar, close)).toBe(1)
+    expect(drawingTimeIndex(close + 1, bars, missingCalendar, close)).toBeNaN()
   })
 })

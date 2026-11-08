@@ -408,6 +408,8 @@ export interface RenderGeometryContext {
   pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number
+  /** 横轴的连续时间槽位网格；柱形图消费槽界，不消费蜡烛实体尺寸。 */
+  slotGrid: Readonly<import('../geometry/slotGrid.js').SlotGrid>
   /** 数据空间原语（世界 x、价格 y）的每帧变换；非线性轴不提供。 */
   dataTransform?: DataTransform
   kWidth: number
@@ -417,8 +419,6 @@ export interface RenderGeometryContext {
   kLinePositions: number[]
   /** 每根K线柱中心的X坐标（物理像素对齐后，逻辑像素） */
   kLineCenters: number[]
-  /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
-  kBarRects: Array<{ x: number; width: number }>
   /** 本帧 K 线实体宽度（物理像素），由帧准备阶段统一计算。 */
   kWidthPx: number
   /** K 线真正可视区的 high/low 及其索引；由帧准备阶段计算，供多个 renderer 共享。 */
@@ -457,8 +457,10 @@ export interface RenderOverlayContext {
   countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
-  /** 绘图系统预先生成的当前 Pane 帧投影。 */
+  /** 用户图元的当前 Pane 帧投影，绘制到独立 drawing 画布。 */
   drawingProjection?: DrawingFrameProjection
+  /** 指标输出图元的当前 Pane 帧投影，直接绘制到 main 目标。 */
+  indicatorDrawingProjection?: DrawingFrameProjection
   /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */
   sessionDrawingProjection?: DrawingFrameProjection
 }

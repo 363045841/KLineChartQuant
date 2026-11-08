@@ -11,6 +11,7 @@ import {
   type TimeShareSelection,
 } from '../buffer/impl/seriesRepository'
 import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
+import { OLDER_DATA_STATUS } from '../provider/types'
 
 /** 创建测试用 K 线选择。 */
 function barsSelection(overrides: Partial<BarsSelection> = {}): BarsSelection {
@@ -98,7 +99,7 @@ describe('SeriesRepository', () => {
     const selection = barsSelection()
     const buffer = repository.getOrCreateBars(selection, () => new DataBuffer())
 
-    buffer.setInlineData([])
+    buffer.replace([], OLDER_DATA_STATUS.EXHAUSTED, null)
     repository.getOrCreateBars(selection, () => new DataBuffer())
     expect(listener).toHaveBeenCalledTimes(1)
 

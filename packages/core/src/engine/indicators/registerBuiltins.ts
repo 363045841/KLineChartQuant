@@ -12,15 +12,14 @@ export function loadBuiltinIndicators(): Promise<void> {
 }
 
 /**
- * 加载 core 自带的全部定义：系统图层（K 线标注、最新价、分时主线等）与渲染型指标。
- * 渲染型指标需要自定义 Layer.paint（成交量分布等），脚本只能逐 bar 输出序列，故留在 core。
+ * 加载图表视图自身需要的系统定义；所有用户指标由脚本服务提供。
  */
 export function loadSystemIndicators(): Promise<void> {
   return loadIndicatorDefinitions(
     getIndicatorDescriptors()
       .filter(
         (descriptor) =>
-          descriptor.kind === IndicatorKind.System || descriptor.kind === IndicatorKind.Indicator,
+          descriptor.kind === IndicatorKind.System,
       )
       .map((descriptor) => descriptor.name),
   )

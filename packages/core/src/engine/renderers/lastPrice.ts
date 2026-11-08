@@ -1,4 +1,6 @@
 /** 最新价 label 注册与点虚线 Layer 工厂（overlay 层，绘制到主图）。 */
+
+import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
@@ -11,7 +13,7 @@ import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 import { registerAxisLabel } from './impl/labels/index.js'
 
-function getLastPriceInfo(context: RenderContext) {
+function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
   const { pane, data } = context
   const klineData = data as KLineData[]
   const last = klineData[klineData.length - 1]
@@ -39,6 +41,7 @@ function getLastPriceInfo(context: RenderContext) {
  */
 export function createLastPriceLabelLayer(): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: resolveIndicatorLayerId('lastPriceLabelRegistrar', 'main'),
     role: 'overlay',
     pane: 'main',
@@ -98,6 +101,7 @@ const LAST_PRICE_LINE_DASH = [1, 3]
  */
 export function createLastPriceLineLayer(): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: resolveIndicatorLayerId('lastPriceLine', 'main'),
     role: 'overlay',
     pane: 'main',
@@ -105,9 +109,7 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
     visible: true,
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
-      const { overlayCtx, scrollLeft, dpr, paneWidth } = context
-      const ctx = overlayCtx
-      if (!ctx) return
+      const { dpr, paneWidth } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -118,25 +120,26 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
 
       const y = info.y
 
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
-
-      // 最新价水平线横贯整个视口（从左边缘到右边缘）
-      const startX = scrollLeft
-      const endX = paneWidth + scrollLeft
-
-      ctx.strokeStyle = info.isUp ? colors.candleUpBorder : colors.candleDownBorder
-      ctx.lineWidth = 1
-      ctx.lineCap = 'round'
-      ctx.setLineDash(LAST_PRICE_LINE_DASH)
-      ctx.beginPath()
       const yy = (Math.floor(y * dpr) + 0.5) / dpr
-      ctx.moveTo(Math.round(startX * dpr) / dpr, yy)
-      ctx.lineTo(Math.round(endX * dpr) / dpr, yy)
-      ctx.stroke()
-      ctx.setLineDash([])
-
-      ctx.restore()
+      submitPrimitives(
+        context,
+        [
+          {
+            kind: 'stroke',
+            paths: [
+              [
+                { x: 0, y: yy },
+                { x: paneWidth, y: yy },
+              ],
+            ],
+            color: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
+            width: 1,
+            cap: 'round',
+            dash: LAST_PRICE_LINE_DASH,
+          },
+        ],
+        dpr,
+      )
     },
     dispose() {},
   }

@@ -5,10 +5,10 @@ import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import type { Layer, LayerPaint } from '@/rendering/scene/types.js'
+import type { Layer, LayerPaint, LayerRole, PrimitiveDrawContext } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
-import { createDefaultPrimitiveRendererSet } from './primitiveRendererSet.js'
+import { createDrawingPrimitiveBuilder } from './primitiveRendererSet.js'
 
 /** 将已投影 primitive 绘制到当前 Pane。 */
 function renderPrimitives(
@@ -31,29 +31,68 @@ function renderPrimitives(
 function paintProjection(
   context: LayerPaint<RenderContext>,
   primitives: ReadonlyArray<DrawingPrimitive>,
-  custom?: PrimitiveRendererSet,
+  custom: PrimitiveRendererSet,
 ): void {
-  const target = context.ctx
-  const commands: PaintPrimitive[] = []
-  const renderers =
-    custom ??
-    createDefaultPrimitiveRendererSet({
-      // 手柄填充取当前主题的图表背景：明暗主题下都像线上挖洞，而不是贴一块白。
-      handleFill: resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      ).chartBackground,
-      submit: (_target, batch) => commands.push(...batch),
-    })
   renderPrimitives(
-    target,
+    context.ctx,
     primitives,
-    renderers,
+    custom,
     { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height },
     context.dpr,
   )
-  if (!custom) submitPrimitives(context, commands, context.dpr)
+}
+
+/** 默认绘图只生成指令；所有目标选择、合成与后端分派都交给 Scene。 */
+function submitProjection(
+  context: PrimitiveDrawContext<RenderContext>,
+  primitives: ReadonlyArray<DrawingPrimitive>,
+): void {
+  const builder = createDrawingPrimitiveBuilder(
+    resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
+      .chartBackground,
+  )
+  const commands: PaintPrimitive[] = []
+  const clip = { left: 0, top: 0, right: context.viewport.plotWidth, bottom: context.pane.height }
+  for (const primitive of primitives) {
+    if (primitive.kind === 'point') commands.push(...builder.point(primitive, context.dpr))
+    else if (primitive.kind === 'line') commands.push(...builder.line(primitive, clip, context.dpr))
+    else if (primitive.kind === 'area') commands.push(...builder.area(primitive))
+    else if (primitive.kind === 'arrow') commands.push(...builder.arrow(primitive, context.dpr))
+    else commands.push(...builder.text(primitive))
+  }
+  submitPrimitives(context, commands, context.dpr)
+}
+
+type ProjectionKey = 'drawingProjection' | 'indicatorDrawingProjection' | 'sessionDrawingProjection'
+
+/** Canvas 自定义扩展显式声明 context；默认实现始终使用无 ctx 的 draw-list。 */
+function createProjectionLayer(
+  id: string,
+  role: LayerRole,
+  z: number,
+  key: ProjectionKey,
+  options: DrawingLayerOptions,
+): Layer<RenderContext> {
+  const base = { id: makePluginLayerId(id), role, pane: 'global', z, visible: true, dispose() {} }
+  const custom = options.renderers
+  if (custom) {
+    return {
+      ...base,
+      kind: 'context',
+      paint(context) {
+        const projection = context[key]
+        if (projection) paintProjection(context, projection.primitives, custom)
+      },
+    }
+  }
+  return {
+    ...base,
+    kind: 'draw-list',
+    paint(context) {
+      const projection = context[key]
+      if (projection) submitProjection(context, projection.primitives)
+    },
+  }
 }
 
 /** 绘图 Layer 选项。 */
@@ -67,34 +106,32 @@ export interface DrawingLayerOptions {
  * 正式图元输出到独立 canvas，保持在所有行情图元之上。
  */
 export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
-  return {
-    id: makePluginLayerId('drawingRenderer'),
-    role: 'drawing',
-    pane: 'global',
-    z: 55,
-    visible: true,
-    paint(context) {
-      const projection = context.drawingProjection
-      if (!projection || projection.primitives.length === 0) return
-      paintProjection(context, projection.primitives, options.renderers)
-    },
-    dispose() {},
-  }
+  return createProjectionLayer('drawingRenderer', 'drawing', 55, 'drawingProjection', options)
+}
+
+/**
+ * 指标图元层：指标输出并入 main 目标，不再单独占用一张全尺寸 drawing 画布。
+ * 用户手绘图元仍由 createDrawingLayer 走独立画布，二者在 Scene 内按 z 排序。
+ */
+export function createIndicatorDrawingLayer(
+  options: DrawingLayerOptions = {},
+): Layer<RenderContext> {
+  return createProjectionLayer(
+    'indicatorDrawingRenderer',
+    'indicator',
+    54,
+    'indicatorDrawingProjection',
+    options,
+  )
 }
 
 /** 会话图元单独绘制到动态覆盖层，每次移动只刷新临时坐标。 */
 export function createDrawingSessionLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
-  return {
-    id: makePluginLayerId('drawingSessionRenderer'),
-    role: 'overlay',
-    pane: 'global',
-    z: 56,
-    visible: true,
-    paint(context) {
-      const projection = context.sessionDrawingProjection
-      if (!projection || projection.primitives.length === 0) return
-      paintProjection(context, projection.primitives, options.renderers)
-    },
-    dispose() {},
-  }
+  return createProjectionLayer(
+    'drawingSessionRenderer',
+    'overlay',
+    56,
+    'sessionDrawingProjection',
+    options,
+  )
 }

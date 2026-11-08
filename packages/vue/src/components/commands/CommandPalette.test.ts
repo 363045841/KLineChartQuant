@@ -25,6 +25,8 @@ const CHART_COMMAND_SHORTCUTS = [
   'Shift+F',
   'Ctrl+Z',
   'Ctrl+Shift+Z',
+  'Ctrl+C',
+  'Ctrl+V',
 ] as const
 
 describe('CommandPalette', () => {
@@ -154,6 +156,9 @@ describe('CommandPalette', () => {
       false,
       false,
       false,
+      true,
+      true,
+      true,
       true,
       true,
     ])

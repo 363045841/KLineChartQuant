@@ -1,4 +1,4 @@
-/** 数据缓冲层共享契约：定义已加载窗口、数据变更描述与 K 线/分时缓冲的统一接口。 */
+/** 数据缓冲层共享契约：已加载窗口、统一的数据变更描述与 K 线/分时缓冲接口。 */
 import type { KLineData, SymbolSpec } from '../../controllers/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
@@ -11,31 +11,44 @@ export interface LoadedTimeRange {
   earliestTs: number
   latestTs: number
 }
+
 /**
  * 数据变更种类的取名字面量；类型与取值同源，业务代码只引用常量，禁止散落字符串。
  */
 export const DATA_CHANGE_KINDS = Object.freeze({
   replace: 'replace',
   prepend: 'prepend',
+  append: 'append',
   tail: 'tail',
+  correct: 'correct',
 } as const)
 
 /**
- * 数据变更种类，表达本次变更是否让既有的下标型定位失效。
+ * 数据变更种类，表达本次写入影响了哪一段序列。
  *
- * - replace：整体替换，全部旧下标失效
- * - prepend：头部插入历史数据，既有下标整体后移
- * - tail：尾部新增或修订当前 K 线，既有下标不变
+ * - replace：整体替换，全部旧下标与序号失效
+ * - prepend：头部插入历史，既有序号不变、逻辑下标后移
+ * - append：尾部追加，既有下标与序号都不变
+ * - tail：实时尾段修订或追加，既有下标不变
+ * - correct：单根历史修正，序列与序号都不变
  */
 export type DataChangeKind = (typeof DATA_CHANGE_KINDS)[keyof typeof DATA_CHANGE_KINDS]
 
-/** 数据变更描述：在一次数据更新中携带数据本身和变更元数据 */
+/**
+ * 数据变更描述：一次写入携带的完整快照与变化区间。
+ *
+ * `origin` 是新序列首元素的稳定序号；`prepend` 只让它变小，既有元素的序号不变。
+ * `start`/`end` 是受影响区间（左闭右开，相对新序列），消费方只重算这一段。
+ */
 export interface DataChange<T> {
   readonly data: ReadonlyArray<T>
-  /** 本次变更种类，决定下标型交互态是否需要作废 */
+  /** 首元素的稳定序号；replace 重置为 0。 */
+  readonly origin: number
   readonly kind: DataChangeKind
-  /** 本次新增了多少根 K 线到头部（向左滚动加载的历史数据） */
-  readonly prependedCount: number
+  /** 受影响区间起点，相对新序列。 */
+  readonly start: number
+  /** 受影响区间终点（不含），相对新序列。 */
+  readonly end: number
 }
 
 export interface DataBufferLike<T = KLineData | TimeShareData> {
@@ -45,7 +58,8 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
   readonly lastError: ReadonlySignal<string | null>
   /** 当前已加载数据覆盖的时间范围。 */
   readonly loadedTimeRange: LoadedTimeRange | null
-  getRawData(): T[]
+  /** 返回当前序列；数组归 Buffer 所有，消费方不得修改。 */
+  getRawData(): readonly T[]
   dispose(): void
 }
 
@@ -57,16 +71,17 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
   readonly olderData: OlderDataStatus
   /** 服务端返回的当前 K 线序列时区。 */
   readonly timezone: string | null
-  getRawData(): KLineData[]
-  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在或重复时返回 null。 */
+  getRawData(): readonly KLineData[]
+  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在时返回 null。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null
-  setInlineData(data: ReadonlyArray<KLineData>): void
+  /** 按唯一时间戳解析稳定序号；跨 prepend 不变。 */
+  getOrdinalAtTimestamp(timestamp: number): number | null
   /** 缓存查询开始时发布加载状态。 */
   setLoading(loading: boolean): void
   /** 缓存查询失败时发布错误状态。 */
   setError(error: string | null): void
-  /** 合并缓存查询结果并保留前置插入信息。 */
-  mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
+  /** 合并一页历史或增量；既有时间戳不被分页改写。 */
+  mergePage(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
   /**
    * 原子应用一批实时 K 线：同时间戳替换尾部 K 线，新时间戳追加，陈旧帧拒绝。
    *
@@ -74,15 +89,16 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
    */
   applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
   correctBar(bar: KLineData): void
-  replaceData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
+  /** 整体替换当前序列；调用方提供完整数据，store 负责排序与唯一化。 */
+  replace(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string | null): void
   setSymbol(spec: SymbolSpec): void
   setCurrentSpec(spec: SymbolSpec): void
 }
 
 export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   readonly range: ReadonlySignal<TimeShareRange | null>
-  getRawData(): TimeShareData[]
-  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在或重复时返回 null。 */
+  getRawData(): readonly TimeShareData[]
+  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在时返回 null。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void
   getRange(): TimeShareRange | null

@@ -1,11 +1,21 @@
 /**
- * geometry 子模块对外契约：指针落点锚点、坐标换算选项与线表类型。
+ * geometry 子模块对外契约：指针落点锚点、落点约束选项与线表类型。
  *
- * 仅存放跨子模块引用或被 barrel 公开的类型；几何实现细节留在 impl/。
+ * 仅存放跨子模块引用或被 barrel 公开的类型与常量；几何实现细节留在 impl/。
  * 本文件不得 import 同子模块 impl/。
  */
 
+import type { Point } from '@/foundation/geometry/index.js'
 import type { MagnetSnapConfig, SnapCandidate } from '../magnet/types.js'
+import type { PersistedDrawingAnchor } from '../types.js'
+
+/**
+ * 可投影为屏幕坐标的锚点形状。
+ *
+ * 投影只读取类型、时间、价格与未来槽位；持久化锚点与交互期待定锚点都满足它，
+ * 因此取参考点时不需要为待定锚点伪造持久化 id。
+ */
+export type ProjectableAnchor = Omit<PersistedDrawingAnchor, 'id'> & { id?: string }
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {
@@ -40,7 +50,34 @@ export interface PointerCoordinates {
   clientY: number
 }
 
-/** resolveDrawingPointer 的可选行为配置。 */
+/** 锁角档位：90° / 2，整个圆周 8 个方向（含水平与垂直）。 */
+export const ANGLE_LOCK_STEP = Math.PI / 4
+
+/**
+ * 锁角生效的最小位移（Pane 局部逻辑像素）。
+ *
+ * 离参考点太近时方向噪声大于意义，低于该值保持自由落点，避免参考点附近抖动。
+ */
+export const ANGLE_LOCK_MIN_DELTA = 4
+
+/**
+ * Shift 锁角：把落点绕参考点投影到最近的 45° 倍数方向上，距离不变。
+ *
+ * 这是方向约束，与磁吸的值吸附是两个维度：没有候选集合，也没有领域原值，
+ * 只改写落点的屏幕向量。参考点由调用方按会话给出（绘制中是上一锚点，
+ * 编辑中是同一图元的另一个锚点）。
+ */
+export interface AngleLockOptions {
+  /** 锁角参考点（Pane 局部逻辑像素）。 */
+  readonly origin: Point
+}
+
+/**
+ * resolveDrawingPointer 的可选行为配置。
+ *
+ * `magnet` 与 `angleLock` 互斥：值吸附会改写方向约束的结果，两者同时给出时锁角优先。
+ * 修饰键到这两者的映射由交互层统一决策，宿主只透传 PointerEvent。
+ */
 export interface ResolveDrawingPointerOptions {
   /**
    * OHLC 磁吸配置：在坐标反解析前把指针吸附到最近 K 线的价格极值。
@@ -48,6 +85,8 @@ export interface ResolveDrawingPointerOptions {
    * 否则点选命中与框选范围会随吸附漂移。
    */
   magnet?: MagnetSnapConfig
+  /** Shift 锁角配置；与 `magnet` 互斥，同时给出时锁角优先。 */
+  angleLock?: AngleLockOptions
   /**
    * 出界钳制目标 Pane：指针超出绘图区或该 Pane 时，把落点贴到 Pane 边界后继续解析，
    * 供进行中的多锚点图元保持预览（橡皮筋式贴边）。

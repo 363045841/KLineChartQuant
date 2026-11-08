@@ -15,6 +15,8 @@ export function createProjectionRevision(
       context.data.length,
       context.range.start,
       context.range.end,
+      context.slotGrid.origin,
+      context.slotGrid.step,
       context.kWidth,
       context.kGap,
       context.kWidthPx,

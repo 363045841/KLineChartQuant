@@ -1,4 +1,7 @@
 /** 独立图表级 Canvas2D 十字线表面，浏览器直接合成到 pane 画布之上。 */
+
+import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../../errors.js'
 import { alignToPhysicalPixelCenter } from '../../../../foundation/utils/pixelAlign.js'
 import type { CrosshairOverlayFrame } from '../types.js'
@@ -41,8 +44,10 @@ export class CrosshairOverlay {
 
   /** 每帧按引擎视口同步物理尺寸并重新绘制，隐藏十字线时同样清除旧像素。 */
   paint(frame: CrosshairOverlayFrame): void {
-    // 从未出现过十字线时没有旧像素可清，也无需分配整幅后备存储。
-    if (!this.surface && !frame.pos) return
+    if (!frame.pos) {
+      this.dispose()
+      return
+    }
     this.surface ??= this.createSurface()
     const { canvas, ctx } = this.surface
     const { plotWidth, plotHeight, dpr } = frame.viewport
@@ -53,7 +58,7 @@ export class CrosshairOverlay {
     canvas.style.width = `${plotWidth}px`
     canvas.style.height = `${plotHeight}px`
     this.clear()
-    if (!frame.pos || width === 0 || height === 0) return
+    if (width === 0 || height === 0) return
 
     const { activePane, price, pos } = frame
     // 先在 chart 坐标中确定价格交点，再只对齐一次，避免各 pane 分别舍入导致相位偏差。
@@ -65,23 +70,30 @@ export class CrosshairOverlay {
     const gap = Math.ceil(CENTER_GAP * dpr) / dpr
     ctx.save()
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.strokeStyle = frame.color
-    ctx.lineWidth = 1 / dpr
-    ctx.lineCap = LINE_CAP
-    ctx.setLineDash(DASH_PATTERN)
-    ctx.lineDashOffset = 0
+    const commands: PaintPrimitive[] = []
 
     /** 独立路径从中央空隙外向外描边，使四个方向的 dash 对称展开。 */
     const strokeRay = (startX: number, startY: number, endX: number, endY: number): void => {
-      ctx.beginPath()
-      ctx.moveTo(startX, startY)
-      ctx.lineTo(endX, endY)
-      ctx.stroke()
+      commands.push({
+        kind: 'stroke',
+        paths: [
+          [
+            { x: startX, y: startY },
+            { x: endX, y: endY },
+          ],
+        ],
+        color: frame.color,
+        width: 1 / dpr,
+        cap: LINE_CAP,
+        dash: DASH_PATTERN,
+      })
     }
 
     // 整条纵线只画一次，pane 分隔区域同样连续，不再投影或拼接局部线段。
     if (iy - gap > 0) strokeRay(ix, iy - gap, ix, 0)
     if (iy + gap < plotHeight) strokeRay(ix, iy + gap, ix, plotHeight)
+    primitiveSink()(ctx, commands, dpr)
+    commands.length = 0
     if (activePane && price !== null) {
       // 水平线仍局限于活跃 pane，价格移出该 pane 时不画到相邻副图。
       ctx.beginPath()
@@ -89,6 +101,7 @@ export class CrosshairOverlay {
       ctx.clip()
       if (ix - gap > 0) strokeRay(ix - gap, iy, 0, iy)
       if (ix + gap < plotWidth) strokeRay(ix + gap, iy, plotWidth, iy)
+      primitiveSink()(ctx, commands, dpr)
     }
     ctx.restore()
   }

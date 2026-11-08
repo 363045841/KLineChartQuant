@@ -2,7 +2,11 @@
 import { describe, expect, it } from 'vitest'
 import { AXIS_LABEL_KIND } from '../../../foundation/plugin/types.js'
 import { createAxisLabelsFrame } from '../../renderers/impl/labels/impl/axisLabelCollector.js'
-import { AxisWidthEstimator, estimateAxisTextWidth } from '../impl/axisWidthEstimator.js'
+import {
+  AxisWidthEstimator,
+  estimateAxisTextWidth,
+  resolveAxisWidth,
+} from '../impl/axisWidthEstimator.js'
 
 describe('AxisWidthEstimator', () => {
   it('根据字符组成与字号估算文本宽度', () => {
@@ -78,5 +82,16 @@ describe('AxisWidthEstimator', () => {
     expect(estimate('-1.00%', 12)).toBeGreaterThan(estimate('1.00', 12))
     expect(estimate('1.00', 18)).toBeGreaterThan(estimate('1.00', 12))
     expect(estimate('1', 12, '12:34:56')).toBeGreaterThan(estimate('1', 12))
+  })
+
+  it('锁定后轴宽只增不减，解锁后按当前需求重算', () => {
+    // 缩放过程中标签会变窄；已提交宽度必须保留，否则绘图区会改变宽度。
+    expect(resolveAxisWidth(60, 40, 67)).toBe(67)
+    // 出现更宽的标签时仍可撑宽。
+    expect(resolveAxisWidth(60, 80, 67)).toBe(80)
+    // 配置下限始终生效。
+    expect(resolveAxisWidth(60, 0, null)).toBe(60)
+    // 布局变化后解锁：按当前需求重算，允许收缩。
+    expect(resolveAxisWidth(60, 48, null)).toBe(60)
   })
 })

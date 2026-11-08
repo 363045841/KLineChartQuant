@@ -10,6 +10,7 @@ import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '@/controllers/types'
+import type { RealtimeSubscriptionPool } from '@/data/live/types.js'
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarAggregation,
@@ -29,6 +30,14 @@ import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
 import { createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
+
+/** 不声明实时能力的用例禁止隐式创建网络订阅。 */
+export const inactiveRealtimePool: RealtimeSubscriptionPool = {
+  subscribe() {
+    throw new Error('Unexpected realtime subscription in a history-only test')
+  },
+  dispose() {},
+}
 
 /** ViewportStateModule 替身入参。 */
 export interface MockViewportOptions {
@@ -94,6 +103,7 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
 
 /** DataDependencies 工厂入参。 */
 export interface MockDataDependenciesOptions {
+  realtimeSubscriptionPool?: RealtimeSubscriptionPool
   marketDataProviderRegistry?: DataDependencies['marketDataProviderRegistry']
   /** 透传给 createMockViewport 的差异项。 */
   viewport?: MockViewportOptions
@@ -120,6 +130,10 @@ function createMockDataDependencies(
   } = options
   return {
     marketDataProviderRegistry: options.marketDataProviderRegistry,
+    realtimeSubscriptionPool:
+      options.realtimeSubscriptionPool === undefined
+        ? inactiveRealtimePool
+        : options.realtimeSubscriptionPool,
     getOption: () => ({ kWidth: 8, kGap: 2 }),
     getZoomLevel: () => 1,
     setZoomLevel: () => {},

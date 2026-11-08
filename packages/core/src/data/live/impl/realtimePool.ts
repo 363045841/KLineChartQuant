@@ -1,15 +1,12 @@
 /**
  * 实时订阅池：全仓唯一的连接管理入口。
  *
- * 池把逻辑订阅聚合成连接，按品种扇出帧；连接集合变化时才重建连接。
- * 连接实现只有 SSE 一份，宿主数据源可注入自己的连接工厂。
+ * 配置、健康状态和订阅需求单向驱动连接；传输没有独立的重连生命周期。
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import {
-  type MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-} from '../../provider/impl/registry.js'
+import type { MarketProviderHealth } from '../../management/types.js'
+import type { MarketDataProvider } from '../../provider/types.js'
 import type {
   LiveFrame,
   RealtimeChannel,
@@ -18,21 +15,10 @@ import type {
   RealtimeStatus,
   RealtimeSubscription,
   RealtimeSubscriptionPool,
+  RealtimeSubscriptionPoolOptions,
   RealtimeSubscriptionRequest,
 } from '../types.js'
 import { createRealtimeCallbackHub } from './callbackHub.js'
-import { createSseConnection, type LiveEventSource } from './sseConnection.js'
-
-export interface RealtimeSubscriptionPoolOptions {
-  /** 从注册表读取数据源生效地址。 */
-  resolveBaseUrl(sourceId: string): string
-  /** 宿主自带的连接工厂；返回 undefined 时使用默认 SSE 实现。 */
-  resolveConnection?(request: RealtimeConnectionRequest): RealtimeConnection | undefined
-  /** EventSource 工厂；测试注入替身。 */
-  createEventSource?(url: string): LiveEventSource
-  /** 订阅集合变化的合并执行器；默认微任务，测试可同步执行。 */
-  defer?(run: () => void): void
-}
 
 /** 一条逻辑订阅的句柄；关闭后自行从连接上摘除。 */
 class PooledSubscription implements RealtimeSubscription {
@@ -115,7 +101,10 @@ class PooledConnection {
   private readonly handles = new Map<string, Set<PooledSubscription>>()
   private connection: RealtimeConnection | null = null
   private applied: ReadonlyArray<string> = []
-  private status: RealtimeStatus = 'connecting'
+  private status: RealtimeStatus = 'disconnected'
+  private provider: MarketDataProvider | undefined
+  private version = -1
+  private failedHealth: MarketProviderHealth | undefined
   private scheduled = false
   private destroyed = false
 
@@ -157,7 +146,7 @@ class PooledConnection {
   }
 
   /** 合并同一轮变化，避免逐条订阅触发多次重连。 */
-  private scheduleSync(): void {
+  scheduleSync(): void {
     if (this.scheduled || this.destroyed) return
     this.scheduled = true
     this.defer(() => {
@@ -166,41 +155,80 @@ class PooledConnection {
     })
   }
 
-  /** 连接上的品种集合变化时才重建连接。 */
+  /** 唯一启停入口：来源可用且存在需求才连接，失败后等待新的健康确认。 */
   private sync(): void {
     if (this.destroyed) return
+    const sourceId = this.template.sourceId
+    const provider = this.options.registry.get(sourceId)
+    if (provider === undefined) {
+      this.broadcastStatus('disconnected')
+      this.destroy()
+      this.release()
+      return
+    }
+    const version = this.options.registry.getConnection(sourceId).version
+    if (provider !== this.provider || version !== this.version) {
+      this.closeConnection()
+      this.provider = provider
+      this.version = version
+      this.failedHealth = undefined
+    }
+    const health = this.options.health.peek()[sourceId]
+    if (
+      !this.options.registry.getConfig(sourceId).enabled ||
+      health === undefined ||
+      health.connectionVersion !== version ||
+      (health.status !== 'online' && health.status !== 'degraded')
+    ) {
+      this.closeConnection()
+      this.failedHealth = undefined
+      return
+    }
+    if (this.failedHealth === health) return
     const instrumentIds = [...this.handles.keys()].sort()
     if (instrumentIds.length === 0) return
     if (this.connection !== null && sameInstruments(this.applied, instrumentIds)) return
-    this.rebuild(instrumentIds)
+    this.rebuild(instrumentIds, health)
   }
 
-  /** 用新的品种集合重建连接；重建即重新同步快照。 */
-  private rebuild(instrumentIds: ReadonlyArray<string>): void {
-    this.connection?.destroy()
+  /** 重建连接并绑定当前实例，旧连接的迟到事件不能影响新连接。 */
+  private rebuild(instrumentIds: ReadonlyArray<string>, health: MarketProviderHealth): void {
+    this.closeConnection()
     this.applied = instrumentIds
     this.broadcastStatus('connecting')
     const request: RealtimeConnectionRequest = { ...this.template, instrumentIds }
-    let connection: RealtimeConnection
     try {
-      connection =
-        this.options.resolveConnection?.(request) ??
-        createSseConnection(
-          request,
-          this.options.resolveBaseUrl(request.sourceId),
-          this.options.createEventSource,
-        )
+      const connection = this.options.createConnection(request)
+      this.connection = connection
+      connection.onFrame((frame) => {
+        if (this.connection === connection) this.dispatchFrame(frame)
+      })
+      connection.onStatus((status) => {
+        if (this.connection !== connection) return
+        if (status === 'disconnected') {
+          // 失败之前的健康确认不能作为失败之后的恢复信号。
+          this.failedHealth = this.options.health.peek()[this.template.sourceId]
+          this.closeConnection()
+        } else this.broadcastStatus(status)
+      })
+      connection.onError((error) => {
+        if (this.connection === connection) this.broadcastError(error)
+      })
+      connection.connect()
     } catch (error) {
-      // 地址未配置或宿主工厂拒绝时只报告错误，不能让异常逃出合并队列。
-      this.connection = null
+      this.failedHealth = health
+      this.closeConnection()
       this.broadcastError(error instanceof Error ? error : new Error(String(error)))
-      return
     }
-    connection.onFrame((frame) => this.dispatchFrame(frame))
-    connection.onStatus((status) => this.broadcastStatus(status))
-    connection.onError((error) => this.broadcastError(error))
-    this.connection = connection
-    connection.connect()
+  }
+
+  /** 先解除当前实例身份，再销毁传输，隔离销毁过程中的回调。 */
+  private closeConnection(): void {
+    const connection = this.connection
+    this.connection = null
+    connection?.destroy()
+    this.applied = []
+    this.broadcastStatus('disconnected')
   }
 
   /** 按品种扇出帧；已退订品种的迟到帧直接丢弃。 */
@@ -212,6 +240,7 @@ class PooledConnection {
 
   /** 连接状态对所有订阅者一致。 */
   private broadcastStatus(status: RealtimeStatus): void {
+    if (this.status === status) return
     this.status = status
     for (const set of this.handles.values()) for (const handle of set) handle.dispatchStatus(status)
   }
@@ -225,8 +254,10 @@ class PooledConnection {
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
-    this.connection?.destroy()
+    const connection = this.connection
     this.connection = null
+    connection?.destroy()
+    for (const set of this.handles.values()) for (const handle of set) handle.close()
     this.handles.clear()
   }
 }
@@ -238,6 +269,12 @@ export function createRealtimeSubscriptionPool(
   const connections = new Map<string, PooledConnection>()
   const defer = options.defer ?? ((run: () => void) => queueMicrotask(run))
   let disposed = false
+  /** 上游输入只触发同一个同步入口，不直接操作传输。 */
+  const sync = () => {
+    for (const connection of connections.values()) connection.scheduleSync()
+  }
+  const unsubscribeRegistry = options.registry.state.subscribe(sync)
+  const unsubscribeHealth = options.health.subscribe(sync)
 
   return {
     subscribe(request) {
@@ -265,31 +302,10 @@ export function createRealtimeSubscriptionPool(
     dispose() {
       if (disposed) return
       disposed = true
+      unsubscribeRegistry()
+      unsubscribeHealth()
       for (const connection of connections.values()) connection.destroy()
       connections.clear()
     },
   }
 }
-
-/** 每个注册表实例对应一个池；图表与自选共享同一份连接。 */
-const pools = new WeakMap<MarketDataProviderRegistry, RealtimeSubscriptionPool>()
-
-/**
- * 读取注册表所属的实时订阅池，首次访问时创建。
- *
- * @param registry - 行情数据源注册表
- */
-export function realtimePoolFor(registry: MarketDataProviderRegistry): RealtimeSubscriptionPool {
-  let pool = pools.get(registry)
-  if (pool === undefined) {
-    pool = createRealtimeSubscriptionPool({
-      resolveBaseUrl: (sourceId) => registry.getConfig(sourceId).baseUrl ?? '',
-      resolveConnection: (request) => registry.get(request.sourceId)?.realtime?.(request),
-    })
-    pools.set(registry, pool)
-  }
-  return pool
-}
-
-/** 默认注册表对应的共享池。 */
-export const realtimeSubscriptionPool = realtimePoolFor(marketDataProviderRegistry)

@@ -1,10 +1,6 @@
 /** 统一行情领域模型公共入口。 */
 
-export {
-  createRealtimeSubscriptionPool,
-  realtimePoolFor,
-  realtimeSubscriptionPool,
-} from '../live/impl/realtimePool.js'
+export { createRealtimeSubscriptionPool } from '../live/impl/realtimePool.js'
 export type {
   LiveBar,
   LiveFrame,

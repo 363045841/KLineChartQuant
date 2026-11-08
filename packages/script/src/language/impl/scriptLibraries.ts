@@ -1,6 +1,7 @@
 /** 从脚本语法树读取声明与静态依赖，编译器和源码仓库共用。 */
 import ts from 'typescript'
 import type { QuickJSLibrary } from '../../quickjs/types.js'
+import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 
 /** 每个文件只声明一个指标或库；依赖名称必须在准备阶段可确定。 */
 export function inspectScript(source: string) {
@@ -13,7 +14,8 @@ export function inspectScript(source: string) {
       const api = node.expression.text
       if (api === 'importLibrary') {
         const name = node.arguments[0]
-        if (!name || !ts.isStringLiteral(name)) throw new Error('importLibrary 需要字符串字面量库名')
+        if (!name || !ts.isStringLiteral(name))
+          throw new Error('importLibrary 需要字符串字面量库名')
         dependencies.add(name.text)
       }
       if (api === 'defineLibrary' || api === 'defineIndicator') {
@@ -40,12 +42,14 @@ export function inspectScript(source: string) {
 /** 按依赖顺序返回实际使用的库，缺失与循环依赖在执行前报告。 */
 export function resolveScriptLibraries(source: string, libraries: readonly QuickJSLibrary[]) {
   const catalog = new Map<string, QuickJSLibrary>()
+  const builtins = new Set(builtinLibraries.map((library) => library.name))
   for (const library of libraries) {
-    if (library.name === 'ta' || catalog.has(library.name)) throw new Error(`库名已存在：${library.name}`)
+    if (builtins.has(library.name) || catalog.has(library.name))
+      throw new Error(`库名已存在：${library.name}`)
     catalog.set(library.name, library)
   }
   const visiting = new Set<string>()
-  const loaded = new Set<string>(['ta'])
+  const loaded = new Set(builtins)
   const result: QuickJSLibrary[] = []
   /** 深度优先装载依赖，保证初始化时被引用库已注册。 */
   function load(name: string): void {
@@ -54,7 +58,8 @@ export function resolveScriptLibraries(source: string, libraries: readonly Quick
     const library = catalog.get(name)
     if (!library) throw new Error(`库不存在：${name}`)
     const declaration = inspectScript(library.source)
-    if (declaration.kind !== 'library' || declaration.name !== name) throw new Error(`库声明名称不匹配：${name}`)
+    if (declaration.kind !== 'library' || declaration.name !== name)
+      throw new Error(`库声明名称不匹配：${name}`)
     visiting.add(name)
     for (const dependency of declaration.dependencies) load(dependency)
     visiting.delete(name)
@@ -69,10 +74,18 @@ export function resolveScriptLibraries(source: string, libraries: readonly Quick
 export function libraryTypeSource(source: string): string {
   const file = ts.createSourceFile('library.ts', source, ts.ScriptTarget.Latest, true)
   for (const statement of file.statements) {
-    if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression)
-      && ts.isIdentifier(statement.expression.expression) && statement.expression.expression.text === 'defineLibrary') {
+    if (
+      ts.isExpressionStatement(statement) &&
+      ts.isCallExpression(statement.expression) &&
+      ts.isIdentifier(statement.expression.expression) &&
+      statement.expression.expression.text === 'defineLibrary'
+    ) {
       const start = statement.getStart(file)
-      return `${source.slice(0, start)}export const __library = ${source.slice(start)}`
+      const members = statement.expression.arguments[1]
+      // 显式公开契约优先于实现对象推导，保留 ta 的签名、可选参数和文档。
+      const annotation =
+        members && ts.isSatisfiesExpression(members) ? `: ${members.type.getText(file)}` : ''
+      return `${source.slice(0, start)}export const __library${annotation} = ${source.slice(start)}`
     }
   }
   throw new Error('未找到库声明')

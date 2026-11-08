@@ -18,7 +18,7 @@ export interface PlotIndicatorFixtureConfig {
   name: string
   category: 'main' | 'sub'
   defaultParams?: IndicatorParameters
-  compute: (data: KLineData[], params: IndicatorParameters) => PlotCollection
+  compute: (data: readonly KLineData[], params: IndicatorParameters) => PlotCollection
 }
 
 /**

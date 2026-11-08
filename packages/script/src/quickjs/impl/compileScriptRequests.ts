@@ -11,6 +11,7 @@ import {
   REQUEST_EXPRESSIONS,
   REQUEST_VALUE,
   SECURITY_CALL,
+  LOWER_TIMEFRAME_CALL,
   type SourceEdit,
 } from './scriptCompileAst.js'
 
@@ -96,7 +97,7 @@ function collectDetachedCaptures(
         })
       }
     }
-    if (ts.isCallExpression(current) && current.expression.getText(file) === SECURITY_CALL)
+    if (ts.isCallExpression(current) && [SECURITY_CALL, LOWER_TIMEFRAME_CALL].includes(current.expression.getText(file)))
       fail('暂不支持嵌套 Request')
     ts.forEachChild(current, visit)
   }
@@ -150,8 +151,15 @@ function rewriteSecurityCall(
   if (!onBarDeclarationOf(file, enclosingFunctionOf(node))) fail('Request 必须在 onBar 方法中调用')
   const id = JSON.stringify(String(target.declarations.length))
   const optionSource = options ? detachedSource(file, checker, options) : '{}'
+  let body: ts.Node = expression.body
+  if (ts.isBlock(body)) {
+    const returned = body.statements.find(ts.isReturnStatement)?.expression
+    if (returned) body = returned
+  }
+  while (ts.isAsExpression(body) || ts.isTypeAssertionExpression(body) || ts.isParenthesizedExpression(body)) body = body.expression
+  const tupleSize = ts.isArrayLiteralExpression(body) ? body.elements.length : undefined
   target.declarations.push(
-    `${DECLARE_REQUEST}(${id}, ${detachedSource(file, checker, symbol)}, ${detachedSource(file, checker, timeframe)}, ${optionSource});`,
+    `${DECLARE_REQUEST}(${id}, ${detachedSource(file, checker, symbol)}, ${detachedSource(file, checker, timeframe)}, ${optionSource}, ${JSON.stringify(node.expression.getText(file) === LOWER_TIMEFRAME_CALL ? 'lower_tf' : 'security')}${tupleSize === undefined ? '' : `, ${tupleSize}`});`,
   )
   target.expressions.push(
     `${REQUEST_EXPRESSIONS}.set(${id}, ${detachedSource(file, checker, expression)});`,
@@ -173,7 +181,7 @@ export function compileScriptRequests(source: string): string {
   const target: RequestDeclarations = { declarations: [], expressions: [] }
   /** 提取顶层 onBar 中的调用；请求不能放在分支或循环里。 */
   function visit(node: ts.Node): void {
-    if (ts.isCallExpression(node) && node.expression.getText(file) === SECURITY_CALL) {
+    if (ts.isCallExpression(node) && [SECURITY_CALL, LOWER_TIMEFRAME_CALL].includes(node.expression.getText(file))) {
       edits.push(rewriteSecurityCall(file, checker, node, target))
       return
     }

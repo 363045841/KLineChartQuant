@@ -21,11 +21,29 @@ export function createTimeShareSlotGrid(width: number, slots: number, dpr: numbe
   }
 }
 
-/** 从实际绘制的物理几何生成 K 线槽位网格。 */
-export function createKLineSlotGrid(kWidth: number, kGap: number, dpr: number): SlotGrid {
+/** K 线横轴网格与蜡烛可用实体宽度；Columns 只消费横轴网格。 */
+export interface KLineSlotGeometry {
+  grid: SlotGrid
+  kWidthPx: number
+}
+
+/** 从实际绘制的物理几何生成 K 线槽位网格与柱宽。 */
+export function createKLineSlotGeometry(
+  kWidth: number,
+  kGap: number,
+  dpr: number,
+): KLineSlotGeometry {
   const geometry = getPhysicalKLineConfig(kWidth, kGap, dpr)
   return {
-    origin: (geometry.startXPx + (geometry.kWidthPx - 1) / 2) / dpr,
-    step: geometry.unitPx / dpr,
+    grid: {
+      origin: (geometry.startXPx + (geometry.kWidthPx - 1) / 2) / dpr,
+      step: geometry.unitPx / dpr,
+    },
+    kWidthPx: geometry.kWidthPx,
   }
+}
+
+/** 只取槽位网格；需要柱宽时用 createKLineSlotGeometry，避免重复派生。 */
+export function createKLineSlotGrid(kWidth: number, kGap: number, dpr: number): SlotGrid {
+  return createKLineSlotGeometry(kWidth, kGap, dpr).grid
 }

@@ -603,6 +603,8 @@ export interface DrawingObjectStore {
   /** 原子追加一批对象并删除指定 ID；文档一次快照提交，VM 原地写入。 */
   append(drawings: readonly DrawingObject[], removeIds: readonly string[]): void
   nextId(): string
+  /** 外部回滚计数；变化时 API 重新同步引用，避免已撤销的 id 继续占用限额。 */
+  epoch(): number
 }
 export interface DrawingLineContext {
   readonly paneId: string

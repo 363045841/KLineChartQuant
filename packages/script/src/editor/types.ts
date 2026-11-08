@@ -16,6 +16,8 @@ import type { QuickJSScriptDefinition } from '../quickjs/types.js'
 
 /** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
 export interface ScriptInput {
+  /** Pine时段字符串，例如0930-1600，时区由time调用指定。 */
+  session(value: string, options?: InputOptions): string
   /**
    * 整数输入；min、max 和 step 必须为整数。
    * @summary 整数
@@ -92,8 +94,9 @@ export interface ScriptPlot {
    */
   Histogram(value: number | null, name: string, options?: PlotStyleOptions<'histogram'>): PlotRef
   /**
-   * 输出自动柱宽的柱状图，随 K 线间距缩放，不支持 size。
-   * @summary 柱形图(跟随缩放)
+   * 填充当前时间槽位，左右各留 1 个物理像素，不跟随蜡烛实体宽度，不支持 size。
+   * 槽宽仅有 1–2 个物理像素时取消留白，避免柱体消失或跨槽覆盖。
+   * @summary 柱形图(槽位填充)
    */
   Columns(value: number | null, name: string, options?: PlotStyleOptions<'columns'>): PlotRef
   /**

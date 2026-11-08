@@ -13,7 +13,9 @@ import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { getFont } from '@/foundation/tokens/fonts.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { roundToPhysicalPixel, worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
-import type { Layer } from '@/rendering/scene/types.js'
+import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
+import type { PaintPrimitive } from '@/rendering/primitives/types.js'
+import type { Layer, PrimitiveDrawContext } from '@/rendering/scene/types.js'
 
 /** 不平衡方向的不透明度；透明度不是颜色，故不进入 token。 */
 const IMBALANCE_ALPHA = 0.75
@@ -34,8 +36,9 @@ const SUMMARY_OFFSET = 14
 
 /** 一帧足迹绘制的只读共享输入；各子步骤只读取该快照，不各自解析坐标与配色。 */
 interface FootprintFrame {
-  /** 覆盖画布 2D 上下文；足迹内容全部绘制在此，不触碰主画布。 */
-  readonly ctx: CanvasRenderingContext2D
+  /** 只允许度量文字；可见内容通过 commands 交给 Scene。 */
+  readonly measure: CanvasRenderingContext2D | undefined
+  readonly commands: PaintPrimitive[]
   /** 价格到屏幕 Y 的映射，取自主图价格轴。 */
   readonly priceToY: (price: number) => number
   /** 主图 pane 的逻辑高度，用于上下裁切与汇总可见性。 */
@@ -167,15 +170,13 @@ function measureMaxValue(
 /** 汇总整帧共享的坐标映射、配色与数值上限。
  *
  * @param context - 单帧渲染上下文
- * @param ctx - 已确认非空的覆盖画布上下文
  * @param state - 当前足迹展示状态
  * @param start - 可视区起始索引（含）
  * @param end - 可视区结束索引（不含）
  * @returns 各子步骤只读的帧级快照
  */
 function createFootprintFrame(
-  context: RenderContext,
-  ctx: CanvasRenderingContext2D,
+  context: PrimitiveDrawContext<RenderContext>,
   state: FootprintRenderState,
   start: number,
   end: number,
@@ -186,7 +187,8 @@ function createFootprintFrame(
     context.colorPresetSettings,
   ).footprintCell
   return {
-    ctx,
+    measure: context.measureContext,
+    commands: [],
     priceToY: (price) => context.pane.yAxis.priceToY(price),
     paneHeight: context.pane.height,
     dpr: context.dpr,
@@ -286,21 +288,30 @@ function paintCellBars(
   rect: CellRect,
 ): void {
   const { frame, x, halfWidth } = column
-  const { ctx } = frame
   if (bid > 0) {
     const bidWidth = resolveBarWidth(frame, bid, halfWidth)
-    ctx.globalAlpha = cell.bidImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
-    ctx.fillStyle = frame.bidColor
-    ctx.fillRect(x - bidWidth, rect.rectTop, bidWidth, rect.rectHeight)
+    frame.commands.push({
+      kind: 'rect',
+      x: x - bidWidth,
+      y: rect.rectTop,
+      width: bidWidth,
+      height: rect.rectHeight,
+      color: frame.bidColor,
+      opacity: cell.bidImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA,
+    })
   }
   if (ask > 0) {
     const askWidth = resolveBarWidth(frame, ask, halfWidth)
-    ctx.globalAlpha = cell.askImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA
-    ctx.fillStyle = frame.askColor
-    ctx.fillRect(x, rect.rectTop, askWidth, rect.rectHeight)
+    frame.commands.push({
+      kind: 'rect',
+      x,
+      y: rect.rectTop,
+      width: askWidth,
+      height: rect.rectHeight,
+      color: frame.askColor,
+      opacity: cell.askImbalance ? IMBALANCE_ALPHA : NORMAL_ALPHA,
+    })
   }
-  // 逐格复位：下一格可能两侧都为零，不应继承上一格的透明度。
-  ctx.globalAlpha = 1
 }
 
 /** 解析一格的标签文字；Bid Ask 模式给出两侧原值，单值模式给出合计或差。
@@ -343,17 +354,18 @@ function collectCellLabel(
 ): ColumnLabel | null {
   if (column.labelFontSize === 0) return null
   const { frame, halfWidth, labelFontSize } = column
-  const { ctx, dpr, isBidAsk, paneHeight } = frame
+  const { measure, dpr, isBidAsk, paneHeight } = frame
+  if (!measure) return null
   const textY = roundToPhysicalPixel((rect.top + rect.bottom) / 2, dpr)
   const halfFontSize = labelFontSize / 2
   // 整行文字出视口时不画，避免留半截数字。
   if (textY - halfFontSize < 0 || textY + halfFontSize > paneHeight) return null
   const text = resolveLabelText(frame, cell, bid, ask)
   // 字号已在列级别定好，这里只校验文字是否放得进单侧宽度。
-  ctx.font = getFont(labelFontSize, { bold: true })
+  measure.font = getFont(labelFontSize, { bold: true })
   const availableWidth = halfWidth - 4
-  if (ctx.measureText(text.bid).width > availableWidth) return null
-  if (isBidAsk && ctx.measureText(text.ask).width > availableWidth) return null
+  if (measure.measureText(text.bid).width > availableWidth) return null
+  if (isBidAsk && measure.measureText(text.ask).width > availableWidth) return null
   return {
     y: textY,
     fontSize: labelFontSize,
@@ -391,22 +403,31 @@ function paintColumnCells(column: ColumnFrame, cells: readonly FootprintCell[]):
 /** 绘制一列已收集的标签；最后绘制，避免后续价格行的横条覆盖文字。 */
 function paintColumnLabels(column: ColumnFrame, labels: readonly ColumnLabel[]): void {
   const { frame, x } = column
-  const { ctx, isBidAsk, textColor } = frame
-  ctx.globalAlpha = 1
-  ctx.textBaseline = 'middle'
+  const { commands, isBidAsk, textColor } = frame
   for (const label of labels) {
-    ctx.font = getFont(label.fontSize, { bold: label.bidImbalance })
-    ctx.textAlign = 'right'
-    ctx.fillStyle = textColor
-    ctx.fillText(label.bid, x - 2, label.y)
+    commands.push({
+      kind: 'text',
+      text: label.bid,
+      x: x - 2,
+      y: label.y,
+      font: getFont(label.fontSize, { bold: label.bidImbalance }),
+      align: 'right',
+      baseline: 'middle',
+      color: textColor,
+    })
     if (isBidAsk) {
-      ctx.font = getFont(label.fontSize, { bold: label.askImbalance })
-      ctx.textAlign = 'left'
-      ctx.fillStyle = textColor
-      ctx.fillText(label.ask, x + 2, label.y)
+      commands.push({
+        kind: 'text',
+        text: label.ask,
+        x: x + 2,
+        y: label.y,
+        font: getFont(label.fontSize, { bold: label.askImbalance }),
+        align: 'left',
+        baseline: 'middle',
+        color: textColor,
+      })
     }
   }
-  ctx.textBaseline = 'alphabetic'
 }
 
 /** 绘制柱脚 Delta 汇总；柱脚移出可视区时不吸附到 pane 底部。
@@ -418,15 +439,22 @@ function paintColumnLabels(column: ColumnFrame, labels: readonly ColumnLabel[]):
 function paintColumnSummary(column: ColumnFrame, deltaText: string, lowestVisibleY: number): void {
   if (column.width < MIN_LABEL_COLUMN_WIDTH || !Number.isFinite(lowestVisibleY)) return
   const { frame, x, width } = column
-  const { ctx, askColor, bidColor, paneHeight } = frame
+  const { commands, askColor, bidColor, paneHeight } = frame
   const summaryY = lowestVisibleY + SUMMARY_OFFSET
   if (summaryY - SUMMARY_FONT_SIZE < 0 || summaryY > paneHeight) return
   const delta = Number(deltaText)
-  ctx.font = getFont(SUMMARY_FONT_SIZE)
-  ctx.textAlign = 'center'
-  ctx.fillStyle = delta >= 0 ? askColor : bidColor
   // 正值显式带 +，负值沿用定点格式化自带的 -，零值不带符号。
-  ctx.fillText(`${delta > 0 ? '+' : ''}${compactValue(deltaText)}`, x, summaryY, width)
+  commands.push({
+    kind: 'text',
+    text: `${delta > 0 ? '+' : ''}${compactValue(deltaText)}`,
+    x,
+    y: summaryY,
+    font: getFont(SUMMARY_FONT_SIZE),
+    align: 'center',
+    baseline: 'alphabetic',
+    color: delta >= 0 ? askColor : bidColor,
+    maxWidth: width,
+  })
 }
 
 /** 可视区共用数值比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
@@ -434,22 +462,21 @@ export function createFootprintLayer(
   readState: () => FootprintRenderState | null,
 ): Layer<RenderContext> {
   return {
+    kind: 'draw-list',
     id: makePluginLayerId('footprint'),
     pane: MAIN_PANE_ID,
     visible: true,
-    // GPU K 线画布位于 main Canvas2D 上方，足迹内容必须参加覆盖画布绘制。
+    // 足迹保留 overlay 层带语义；绘制目标由 Scene 选择，不从业务上下文读取画布。
     role: 'overlay',
     // 足迹成交行和数字必须在 K 线主体之后绘制，避免被实体及影线覆盖。
     z: RENDERER_PRIORITY.OVERLAY,
     paint(context) {
       const state = readState()
       if (!state) return
-      const { overlayCtx: ctx, range, kLineCenters, scrollLeft } = context
-      if (!ctx) return
+      const { range, kLineCenters, scrollLeft } = context
       const start = Math.max(0, range.start)
       const end = Math.min(range.end, state.series.bars.length)
-      const frame = createFootprintFrame(context, ctx, state, start, end)
-      ctx.save()
+      const frame = createFootprintFrame(context, state, start, end)
       for (let index = start; index < end; index++) {
         const bar = state.series.bars[index]
         if (!bar) continue
@@ -459,7 +486,7 @@ export function createFootprintLayer(
         paintColumnLabels(column, labels)
         paintColumnSummary(column, bar.delta, lowestVisibleY)
       }
-      ctx.restore()
+      submitPrimitives(context, frame.commands, context.dpr)
     },
     dispose() {},
   }

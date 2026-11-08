@@ -1,5 +1,6 @@
 /** 柱状几何统一映射到公共原语：屏幕缓冲按世界缓冲复用，投影时裁掉视口外的柱。 */
 import type { PrimitiveRenderContext } from '@/foundation/plugin/index.js'
+import { worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { WorldRectBatch } from '../types.js'
@@ -60,7 +61,6 @@ export function projectBarPrimitives(
   dpr: number,
   viewportWidth: number,
 ): RectBatchPrimitive[] {
-  const scrollPx = Math.round(scrollLeft * dpr)
   const limitPx = viewportWidth * dpr
   const commands: RectBatchPrimitive[] = []
   for (const batch of batches) {
@@ -69,7 +69,7 @@ export function projectBarPrimitives(
     let written = 0
     for (let index = 0; index < batch.count; index++) {
       const source = index * 4
-      const xPx = Math.round(batch.buf[source]! * dpr) - scrollPx
+      const xPx = worldXToScreenX(batch.buf[source]!, scrollLeft, dpr) * dpr
       const widthPx = Math.max(1, Math.round(batch.buf[source + 2]! * dpr))
       if (xPx + widthPx < 0 || xPx > limitPx) continue
       const offset = written * 4

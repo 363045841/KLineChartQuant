@@ -138,6 +138,7 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, dpr, trans
         break
       }
       case 'rect': {
+        ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.fillStyle = primitive.color
         if (primitive.radius) {
           ctx.beginPath()
@@ -167,9 +168,11 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, dpr, trans
           ctx.lineJoin = 'miter'
           ctx.stroke()
         }
+        ctx.globalAlpha = baseAlpha
         break
       }
       case 'circle': {
+        ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.fillStyle = primitive.color
         ctx.beginPath()
         ctx.arc(primitive.x, primitive.y, primitive.radius, 0, Math.PI * 2)
@@ -181,22 +184,30 @@ export const paintCanvasPrimitives: PrimitiveSink = (ctx, primitives, dpr, trans
           ctx.lineJoin = 'miter'
           ctx.stroke()
         }
+        ctx.globalAlpha = baseAlpha
         break
       }
       case 'text': {
+        ctx.globalAlpha = baseAlpha * (primitive.opacity ?? 1)
         ctx.font = primitive.font
         ctx.fillStyle = primitive.color
         ctx.textAlign = primitive.align
         ctx.textBaseline = primitive.baseline
         if (primitive.rotation === undefined) {
-          ctx.fillText(primitive.text, primitive.x, primitive.y)
+          if (primitive.maxWidth === undefined)
+            ctx.fillText(primitive.text, primitive.x, primitive.y)
+          else ctx.fillText(primitive.text, primitive.x, primitive.y, primitive.maxWidth)
+          ctx.globalAlpha = baseAlpha
           break
         }
         ctx.save()
         ctx.translate(primitive.x, primitive.y)
         ctx.rotate(primitive.rotation)
-        ctx.fillText(primitive.text, 0, primitive.offsetY ?? 0)
+        if (primitive.maxWidth === undefined)
+          ctx.fillText(primitive.text, 0, primitive.offsetY ?? 0)
+        else ctx.fillText(primitive.text, 0, primitive.offsetY ?? 0, primitive.maxWidth)
         ctx.restore()
+        ctx.globalAlpha = baseAlpha
         break
       }
       case 'fill': {

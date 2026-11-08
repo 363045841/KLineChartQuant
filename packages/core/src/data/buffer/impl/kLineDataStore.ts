@@ -1,4 +1,9 @@
-/** K 线数据存储：按时间戳去重合并增量数据、维护已加载窗口，并通过信号发布数据变更。 */
+/**
+ * K 线数据存储：唯一提交入口、稳定序号与已加载窗口。
+ *
+ * 所有写路径只负责算出「新序列 + 变化区间」，由 `commit` 统一维护
+ * 时间戳唯一性、序号索引与变更信号；不在链路中途做第二套规范化。
+ */
 import type { KLineData } from '@/controllers/types.js'
 import {
   createSignal,
@@ -14,16 +19,18 @@ import {
 } from '../types.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
-export interface MergeResult {
-  readonly prependedCount: number
-  readonly advancedEarliest: boolean
-}
-
 /** updateBars 的写入结果：区分追加、替换与陈旧拒绝。 */
 export interface UpdateBarsResult {
   readonly appendedCount: number
   readonly replacedCount: number
   readonly rejected: ReadonlyArray<KLineData>
+}
+
+/** 一次提交的变化区间；kind 决定消费方需要失效的范围。 */
+interface CommitChange {
+  readonly kind: DataChangeKind
+  readonly start: number
+  readonly end: number
 }
 
 /**
@@ -32,47 +39,45 @@ export interface UpdateBarsResult {
  */
 const REALTIME_REVISABLE_TAIL_BARS = 2
 
-/** 按时间戳去重并合并两批 K 线数据。 */
-function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineData[] {
-  if (existing.length === 0) return [...incoming]
-  if (incoming.length === 0) return [...existing]
-
-  const tsSet = new Set<number>(existing.map((d) => d.timestamp))
-  const unique = incoming.filter((d) => !tsSet.has(d.timestamp))
-  if (unique.length === 0) return existing
-
-  const merged = [...existing, ...unique]
-  merged.sort((a, b) => a.timestamp - b.timestamp)
-  return merged
+/**
+ * 按 timestamp 升序去重；同时间戳后写生效。
+ * 这是所有写路径唯一的规范化入口，store 因此可以假设序列始终有序且唯一。
+ */
+function normalizeBars(bars: readonly KLineData[]): KLineData[] {
+  const sorted = [...bars].sort((left, right) => left.timestamp - right.timestamp)
+  const unique: KLineData[] = []
+  for (const bar of sorted) {
+    const last = unique[unique.length - 1]
+    if (last && last.timestamp === bar.timestamp) unique[unique.length - 1] = bar
+    else unique.push(bar)
+  }
+  return unique
 }
 
-/**
- * 判定合并结果的变更种类。
- *
- * 空存储的合并视为建立序列（整体替换）；头部插入历史时既有下标整体后移；其余仅在尾部增补。
- */
-function resolveMergeKind(oldLength: number, prependedCount: number): DataChangeKind {
-  if (oldLength === 0) return DATA_CHANGE_KINDS.replace
-  return prependedCount > 0 ? DATA_CHANGE_KINDS.prepend : DATA_CHANGE_KINDS.tail
+/** 序列首元素为空时的初始变更描述。 */
+function emptyChange(): DataChange<KLineData> {
+  return { data: [], origin: 0, kind: DATA_CHANGE_KINDS.replace, start: 0, end: 0 }
 }
 
 export class KLineDataStore {
   private _data: KLineData[] = []
-  private _dataSignal: WritableSignal<DataChange<KLineData>>
+  private _origin = 0
   private _loadedTimeRange: LoadedTimeRange | null = null
   private readonly timestampIndex = new UniqueTimestampIndex()
+  private readonly _dataSignal: WritableSignal<DataChange<KLineData>>
 
   /** 创建空数据存储和初始变更信号。 */
   constructor() {
-    this._dataSignal = createSignal<DataChange<KLineData>>({
-      data: [],
-      kind: DATA_CHANGE_KINDS.replace,
-      prependedCount: 0,
-    })
+    this._dataSignal = createSignal<DataChange<KLineData>>(emptyChange())
   }
 
   get data(): ReadonlySignal<DataChange<KLineData>> {
     return this._dataSignal
+  }
+
+  /** 首根已加载 K 线的稳定序号；prepend 后变小。 */
+  get origin(): number {
+    return this._origin
   }
 
   /** 返回当前已加载数据覆盖的时间范围。 */
@@ -80,152 +85,175 @@ export class KLineDataStore {
     return this._loadedTimeRange
   }
 
-  /** 返回当前缓存的原始 K 线数组。 */
-  getRawData(): KLineData[] {
+  /** 返回当前缓存的原始 K 线数组；数组归 store 所有，消费方不得修改。 */
+  getRawData(): readonly KLineData[] {
     return this._data
   }
 
-  /** 按唯一时间戳查找当前数据快照的逻辑索引。 */
+  /** 按唯一时间戳查找当前快照的逻辑下标。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    return this.timestampIndex.get(timestamp)
+    const ordinal = this.timestampIndex.getOrdinal(timestamp)
+    return ordinal === null ? null : ordinal - this._origin
   }
 
-  /** 合并新数据并发布包含前置插入数量的变更快照。 */
-  merge(incoming: ReadonlyArray<KLineData>): MergeResult {
-    if (incoming.length === 0) return { prependedCount: 0, advancedEarliest: false }
+  /** 按唯一时间戳查找稳定序号；跨 prepend 不变。 */
+  getOrdinalAtTimestamp(timestamp: number): number | null {
+    return this.timestampIndex.getOrdinal(timestamp)
+  }
 
-    const oldLength = this._data.length
-    const oldEarliestTs = oldLength > 0 ? this._data[0]!.timestamp : null
-    const merged = mergeSortedData(this._data, [...incoming])
-    // 命中既有历史时事实没有变化，不发布通知，避免共享消费者反复触发重算。
-    if (merged === this._data) return { prependedCount: 0, advancedEarliest: false }
-    const newEarliestTs = merged[0]?.timestamp ?? null
-    const advancedEarliest =
-      oldEarliestTs !== null && newEarliestTs !== null && newEarliestTs < oldEarliestTs
+  /**
+   * 整体替换当前序列。
+   *
+   * 调用方提供完整数据，store 负责排序与唯一化；序号从 0 重新开始。
+   */
+  replace(bars: readonly KLineData[]): void {
+    const normalized = normalizeBars(bars)
+    this.commit(normalized, 0, {
+      kind: DATA_CHANGE_KINDS.replace,
+      start: 0,
+      end: normalized.length,
+    })
+  }
 
-    let prependedCount = 0
-    if (oldLength > 0 && merged.length > oldLength && advancedEarliest) {
-      prependedCount = merged.findIndex((d) => d.timestamp === oldEarliestTs)
+  /**
+   * 合并一页历史或增量。
+   *
+   * 分页可以整体早于首根、整体晚于末根，或同时跨过首尾；两端同时扩展时拆成
+   * 前置与后置两次提交，前置只移动 origin。命中既有时间戳的条目丢弃；
+   * 中间补洞属于数据源违约，直接拒绝。
+   */
+  mergePage(page: readonly KLineData[]): void {
+    if (page.length === 0) return
+    const normalized = normalizeBars(page)
+    if (this._data.length === 0) {
+      this.replace(normalized)
+      return
     }
 
-    this._data = merged
-    this.timestampIndex.rebuild(this._data)
-    this._updateWindow()
-    this._dataSignal.set({
-      data: [...merged],
-      kind: resolveMergeKind(oldLength, prependedCount),
-      prependedCount,
-    })
+    const firstTimestamp = this._data[0]!.timestamp
+    const lastTimestamp = this._data[this._data.length - 1]!.timestamp
+    const older: KLineData[] = []
+    const newer: KLineData[] = []
+    for (const bar of normalized) {
+      if (bar.timestamp < firstTimestamp) older.push(bar)
+      else if (bar.timestamp > lastTimestamp) newer.push(bar)
+      else if (this.timestampIndex.getOrdinal(bar.timestamp) === null)
+        throw new RangeError('分页不能插入既有序列内部')
+    }
 
-    return { prependedCount, advancedEarliest }
-  }
-
-  /** 以静态内联数据整体替换当前缓存。 */
-  setInlineData(data: KLineData[]): void {
-    this._data = [...data]
-    this.timestampIndex.rebuild(this._data)
-    this._dataSignal.set({ data: [...data], kind: DATA_CHANGE_KINDS.replace, prependedCount: 0 })
-    this._loadedTimeRange =
-      data.length > 0
-        ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
-        : null
+    if (older.length > 0) {
+      const next = [...older, ...this._data]
+      this.commit(next, this._origin - older.length, {
+        kind: DATA_CHANGE_KINDS.prepend,
+        start: 0,
+        end: older.length,
+      })
+    }
+    if (newer.length > 0) {
+      const start = this._data.length
+      const next = [...this._data, ...newer]
+      this.commit(next, this._origin, {
+        kind: DATA_CHANGE_KINDS.append,
+        start,
+        end: next.length,
+      })
+    }
   }
 
   /**
    * 实时帧写入：replace-on-conflict 的末尾窗口合并。
    *
-   * 与 merge() 的保旧弃新不同，同时间戳的末尾 bar 会被新值替换（forming bar 更新）；
-   * 晚于末根的时间戳追加；早于可修订窗口（末 REALTIME_REVISABLE_TAIL_BARS 根）的陈旧帧拒绝。
-   * 一次调用只发布一个数据快照（closed+forming 批合并为原子写）。
+   * 同时间戳的末尾 bar 被新值替换（forming bar 更新）；晚于末根的时间戳追加；
+   * 早于可修订窗口的陈旧帧拒绝。一次调用只发布一个数据快照。
    */
-  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
+  applyRealtime(bars: readonly KLineData[]): UpdateBarsResult {
     if (bars.length === 0) return { appendedCount: 0, replacedCount: 0, rejected: [] }
 
-    // 空存储：整批作为初始序列（批内重复时间戳按后写生效）
     if (this._data.length === 0) {
-      const byTs = new Map<number, KLineData>()
-      for (const bar of bars) byTs.set(bar.timestamp, bar)
-      const seeded = [...byTs.values()].sort((a, b) => a.timestamp - b.timestamp)
-      return this._commitRealtimeWrite(seeded, seeded.length, 0, [])
+      const seeded = normalizeBars(bars)
+      this.replace(seeded)
+      return { appendedCount: seeded.length, replacedCount: 0, rejected: [] }
     }
 
     const tailCount = Math.min(REALTIME_REVISABLE_TAIL_BARS, this._data.length)
-    const windowStartTs = this._data[this._data.length - tailCount]!.timestamp
-
+    const windowStartTimestamp = this._data[this._data.length - tailCount]!.timestamp
     const accepted: KLineData[] = []
     const rejected: KLineData[] = []
     for (const bar of bars) {
-      if (bar.timestamp >= windowStartTs) accepted.push(bar)
+      if (bar.timestamp >= windowStartTimestamp) accepted.push(bar)
       else rejected.push(bar)
     }
-    if (accepted.length === 0) {
-      return { appendedCount: 0, replacedCount: 0, rejected }
-    }
+    if (accepted.length === 0) return { appendedCount: 0, replacedCount: 0, rejected }
 
-    // 可修订尾段与帧合并：同时间戳帧覆盖旧值，新时间戳插入
-    const existingTs = new Set(this._data.map((item) => item.timestamp))
-    const mergedTail = new Map<number, KLineData>()
-    for (const bar of this._data.slice(this._data.length - tailCount)) {
-      mergedTail.set(bar.timestamp, bar)
-    }
+    const normalized = normalizeBars(accepted)
     let appendedCount = 0
     let replacedCount = 0
-    for (const bar of accepted) {
-      if (!mergedTail.has(bar.timestamp) && !existingTs.has(bar.timestamp)) appendedCount += 1
+    for (const bar of normalized) {
+      if (this.timestampIndex.getOrdinal(bar.timestamp) === null) appendedCount += 1
       else replacedCount += 1
-      mergedTail.set(bar.timestamp, bar)
     }
-    const head = this._data.slice(0, this._data.length - tailCount)
-    const next = [...head, ...[...mergedTail.values()].sort((a, b) => a.timestamp - b.timestamp)]
-    this._commitRealtimeWrite(next, appendedCount, replacedCount, rejected)
+
+    const previousTail = this._data.slice(this._data.length - tailCount)
+    const tail = normalizeBars([...previousTail, ...normalized])
+    const next = this._data.slice(0, this._data.length - tailCount)
+    for (const bar of tail) next.push(bar)
+    this.commit(next, this._origin, {
+      kind: DATA_CHANGE_KINDS.tail,
+      start: next.length - tail.length,
+      end: next.length,
+    })
     return { appendedCount, replacedCount, rejected }
   }
 
-  /** 提交实时写入结果：重建索引、扩窗并发布单次数据快照。 */
-  private _commitRealtimeWrite(
-    next: KLineData[],
-    appendedCount: number,
-    replacedCount: number,
-    rejected: ReadonlyArray<KLineData>,
-  ): UpdateBarsResult {
-    this._data = next
-    this.timestampIndex.rebuild(this._data)
-    this._updateWindow()
-    // 实时写入只改末尾，既有 K 线下标不变，故不使下标型交互态失效。
-    this._dataSignal.set({ data: [...next], kind: DATA_CHANGE_KINDS.tail, prependedCount: 0 })
-    return { appendedCount, replacedCount, rejected }
+  /** 单根历史修正；序列长度与序号都不变。 */
+  correct(bar: KLineData): void {
+    const ordinal = this.timestampIndex.getOrdinal(bar.timestamp)
+    if (ordinal === null) throw new RangeError('Historical correction must target an existing bar')
+    const index = ordinal - this._origin
+    const next = this._data.slice()
+    next[index] = bar
+    this.commit(next, this._origin, {
+      kind: DATA_CHANGE_KINDS.correct,
+      start: index,
+      end: index + 1,
+    })
   }
 
-  /** 清空缓存、加载窗口和数据变更快照。 */
+  /** 清空缓存、序号与已加载窗口。 */
   reset(): void {
     this._data = []
-    this.timestampIndex.rebuild(this._data)
+    this._origin = 0
+    this.timestampIndex.clear()
     this._loadedTimeRange = null
-    this._dataSignal.set({ data: [], kind: DATA_CHANGE_KINDS.replace, prependedCount: 0 })
+    this._dataSignal.set(emptyChange())
   }
 
-  /** 历史修正只修改既有时间点；低频修正允许使计算快照整体失效。 */
-  correctBar(bar: KLineData): void {
-    const index = this.timestampIndex.get(bar.timestamp)
-    if (index === null) throw new RangeError('Historical correction must target an existing bar')
-    const next = [...this._data]
-    next[index] = bar
-    this.setInlineData(next)
-  }
-
-  /** 根据当前缓存更新已加载的时间窗口。 */
-  private _updateWindow(): void {
-    if (this._data.length > 0) {
-      const earliest = this._data[0]!.timestamp
-      const latest = this._data[this._data.length - 1]!.timestamp
-      if (!this._loadedTimeRange) {
-        this._loadedTimeRange = { earliestTs: earliest, latestTs: latest }
-      } else {
-        this._loadedTimeRange = {
-          earliestTs: Math.min(this._loadedTimeRange.earliestTs, earliest),
-          latestTs: Math.max(this._loadedTimeRange.latestTs, latest),
-        }
-      }
+  /**
+   * 唯一提交入口：接管新序列，维护序号索引与已加载窗口，发布一次变更快照。
+   *
+   * 序列在进入这里之前已经有序且唯一；`change` 只描述受影响的区间。
+   */
+  private commit(bars: KLineData[], origin: number, change: CommitChange): void {
+    this._data = bars
+    this._origin = origin
+    if (change.kind === DATA_CHANGE_KINDS.replace) {
+      this.timestampIndex.rebuild(bars, origin)
+    } else if (change.kind !== DATA_CHANGE_KINDS.correct) {
+      this.timestampIndex.addRange(bars, origin, change.start, change.end)
     }
+    this._loadedTimeRange =
+      bars.length === 0
+        ? null
+        : {
+            earliestTs: bars[0]!.timestamp,
+            latestTs: bars[bars.length - 1]!.timestamp,
+          }
+    this._dataSignal.set({
+      data: bars,
+      origin,
+      kind: change.kind,
+      start: change.start,
+      end: change.end,
+    })
   }
 }

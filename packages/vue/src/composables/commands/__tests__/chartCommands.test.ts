@@ -72,6 +72,29 @@ describe('createChartCommands', () => {
     expect(redo).toHaveBeenCalledOnce()
   })
 
+  it('binds copy and paste to drawing selection and clipboard availability', async () => {
+    const controller = createMockChartController()
+    const registry = registryFor(controller)
+    expect(registry.resolveKeyboardEvent(key('c', { ctrlKey: true }), inChart)).toBeNull()
+    expect(registry.resolveKeyboardEvent(key('v', { ctrlKey: true }), inChart)).toBeNull()
+
+    controller._setSelectedDrawingIds(['first'])
+    expect(registry.resolveKeyboardEvent(key('c', { ctrlKey: true }), inChart)?.id).toBe(
+      'drawing.copy',
+    )
+    controller._setDrawingClipboard(true)
+    expect(registry.resolveKeyboardEvent(key('v', { ctrlKey: true }), inChart)?.id).toBe(
+      'drawing.paste',
+    )
+
+    const copy = vi.spyOn(controller, 'copyDrawingsToClipboard')
+    const paste = vi.spyOn(controller, 'pasteDrawings')
+    await registry.execute('drawing.copy')
+    await registry.execute('drawing.paste')
+    expect(copy).toHaveBeenCalledWith(['first'])
+    expect(paste).toHaveBeenCalledOnce()
+  })
+
   it('binds the view commands to TradingView-style keys', () => {
     const registry = registryFor(createMockChartController())
     expect(registry.resolveKeyboardEvent(key('ArrowUp', { ctrlKey: true }), inChart)?.id).toBe(

@@ -122,6 +122,7 @@
       "foreground": { "$type": "color", "$value": "{light.interface.text}" },
       "chartBackground": { "$type": "color", "$value": "{light.interface.background}" },
       "floatingSurface": { "$type": "color", "$value": "{light.interface.surface}" },
+      "chartNavigationBackground": { "$type": "color", "$value": "{light.interface.surface}" },
       "candleUpBody": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }

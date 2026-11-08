@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_SETTINGS,
+  KLINE_DENSITY,
+  KLINE_GAP_RATIOS,
   mapRendererTierToBackend,
   normalizeSettings,
+  resolveKLineGapRatio,
   resolveSettingDefault,
 } from '../chartSettings'
 
@@ -52,6 +55,21 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings().theme).toBe('dark')
     expect(normalizeSettings({ theme: 'auto' }).theme).toBe('auto')
     expect(normalizeSettings({ theme: 'light' }).theme).toBe('light')
+  })
+})
+
+describe('K 线密度', () => {
+  it('默认标准档，未归一化的设置也回退标准档', () => {
+    expect(normalizeSettings().klineDensity).toBe(KLINE_DENSITY.Standard)
+    expect(resolveKLineGapRatio(undefined)).toBe(KLINE_GAP_RATIOS.standard)
+  })
+
+  it.each([
+    [KLINE_DENSITY.Compact, 0.3],
+    [KLINE_DENSITY.Standard, 0.6],
+    [KLINE_DENSITY.Loose, 0.9],
+  ] as const)('%s 解析为对应系数', (density, ratio) => {
+    expect(resolveKLineGapRatio(density)).toBe(ratio)
   })
 })
 

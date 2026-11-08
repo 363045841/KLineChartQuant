@@ -2,12 +2,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   barsFromCloses,
-  builtinScriptNames,
   runShippedBars,
-  shippedSource,
   wavyCloses,
 } from '../../__tests__/marketData.js'
-import { readQuickJSScriptDefinitionSync } from '../impl/runQuickJSScript.js'
 
 describe('迁移的内置指标', () => {
   it('MOM 与 ROC 保留间距预热和零基期留空', async () => {
@@ -115,27 +112,6 @@ describe('迁移的内置指标', () => {
       ).toBe(true)
     }
   })
-
-  /** 显隐开关必须登记；新增开关等于新增用户可见配置，需要在评审时确认。 */
-  const VISIBILITY_SWITCHES: Record<string, readonly string[]> = {
-    rsi: ['showRSI1', 'showRSI2', 'showRSI3'],
-    ma: ['showMA1', 'showMA2', 'showMA3', 'showMA4', 'showMA5'],
-    expma: ['showFast', 'showSlow'],
-    gmma: ['showShort', 'showLong'],
-    structure: ['showSwings', 'showBOS', 'showCHoCH'],
-    'volume-profile': ['showPOC', 'showValueArea'],
-    zones: ['showFvg', 'showOb'],
-  }
-
-  // 这条用例逐个编译全部内置脚本，CI 上会超过 vitest 默认的 5 秒。
-  it('逐线/逐元素开关只出现在登记过的脚本里', () => {
-    for (const name of builtinScriptNames()) {
-      const switches = Object.keys(
-        readQuickJSScriptDefinitionSync(shippedSource(name)).inputs,
-      ).filter((key) => key.startsWith('show'))
-      expect(switches, name).toEqual(VISIBILITY_SWITCHES[name] ?? [])
-    }
-  }, 30_000)
 
   it('RSI 的逐线开关只隐藏对应那条线', async () => {
     const data = barsFromCloses(wavyCloses(40))

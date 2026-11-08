@@ -17,6 +17,50 @@ function createDom() {
 }
 
 describe('PaneRenderer resize DPR mapping', () => {
+  it('releases an empty overlay and restores its current DPR size when content returns', () => {
+    const dom = createDom()
+    const renderer = new PaneRenderer(dom, new Pane('main'), {
+      rightAxisWidth: 60,
+      leftAxisWidth: 0,
+      priceLabelWidth: 60,
+      yPaddingPx: 0,
+    })
+    renderer.resize(500, 240, 1.5)
+    renderer.setOverlayRasterRequired(false)
+    expect(dom.overlayCanvas.width).toBe(0)
+    expect(dom.overlayCanvas.height).toBe(0)
+    expect(dom.overlayCanvas.style.width).toBe('500px')
+    renderer.resize(400, 200, 2)
+    expect(dom.overlayCanvas.width).toBe(0)
+    renderer.setOverlayRasterRequired(true)
+    expect(dom.overlayCanvas.width).toBe(800)
+    expect(dom.overlayCanvas.height).toBe(400)
+    renderer.destroy()
+  })
+
+  it('releases only main raster pixels in GPU mode and restores current layout for Canvas', () => {
+    const dom = createDom()
+    const renderer = new PaneRenderer(dom, new Pane('main'), {
+      rightAxisWidth: 60,
+      leftAxisWidth: 0,
+      priceLabelWidth: 60,
+      yPaddingPx: 0,
+    })
+    renderer.resize(500, 240, 1.5)
+    renderer.setMainRasterRequired(false)
+    expect(dom.mainCanvas.width).toBe(0)
+    expect(dom.mainCanvas.height).toBe(0)
+    expect(dom.mainCanvas.style.width).toBe('500px')
+    expect(dom.overlayCanvas.width).toBe(750)
+    renderer.resize(400, 200, 2)
+    expect(dom.mainCanvas.width).toBe(0)
+    renderer.setMainRasterRequired(true)
+    expect(dom.mainCanvas.width).toBe(800)
+    expect(dom.mainCanvas.height).toBe(400)
+    expect(dom.mainCanvas.style.height).toBe('200px')
+    renderer.destroy()
+  })
+
   it('keeps the left axis visible when axis width is supplied only by price labels', () => {
     const dom = createDom()
     const renderer = new PaneRenderer(dom, new Pane('main'), {

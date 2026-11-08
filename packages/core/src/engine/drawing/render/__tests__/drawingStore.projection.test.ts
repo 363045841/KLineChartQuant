@@ -32,6 +32,29 @@ describe('DrawingStore projection', () => {
     expect(store.getSelectedIds()).toEqual([])
   })
 
+  it('separates indicator drawings from user drawings for different paint targets', () => {
+    const state = createDrawingState()
+    state.actions.setDrawings([createTrendLine('user')])
+    const store = new DrawingStore({
+      drawings$: state.readonly.drawings,
+      selectedDrawingIds$: state.readonly.selectedDrawingIds,
+      getIndicatorDrawings: () => [createTrendLine('indicator')],
+    })
+
+    expect(store.getVisibleByPane('main', 'kline', 'committed', 'user').map((d) => d.id)).toEqual([
+      'user',
+    ])
+    expect(
+      store.getVisibleByPane('main', 'kline', 'committed', 'indicator').map((d) => d.id),
+    ).toEqual(['indicator'])
+    expect(
+      store
+        .getVisibleByPane('main', 'kline', 'committed', 'all')
+        .map((d) => d.id)
+        .sort(),
+    ).toEqual(['indicator', 'user'])
+  })
+
   it('merges session overlay for paint without changing kernel signal', () => {
     const state = createDrawingState()
     state.actions.setDrawings([createTrendLine('a')])

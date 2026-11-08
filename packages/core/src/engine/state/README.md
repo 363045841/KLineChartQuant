@@ -90,7 +90,7 @@ state/
 | `effectiveTheme$`          | 由偏好主题 + 系统主题推导的生效主题                  |
 | `activeRenderers$`         | 当前状态要求启用的受管 renderer layer                |
 | `visibleMainIndicatorIds$` | 当前数据视图中应显示在主图图例的用户指标 ID          |
-| `optionsForViewport$`      | 视口几何依赖的选项投影                               |
+| `viewportGeometry$`        | 视口几何输入投影（轴高、K 线宽度、密度系数）          |
 | `sessionSlots$`            | 由品种 market 派生的分时交易时段槽位数                |
 
 ## 新增一个子状态

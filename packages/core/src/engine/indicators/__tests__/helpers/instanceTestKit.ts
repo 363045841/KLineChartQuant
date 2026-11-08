@@ -1,13 +1,11 @@
 /**
- * instances/ 计算链路测试共享夹具：实例快照、计算计划、可控执行器与输出构造。
+ * instances/ 计算链路测试共享夹具：行情、实例快照与可替换的计算计划供给源。
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
-import { vi } from 'vitest'
 
 import type { KLineData } from '@/types/price'
 import {
   createIndicatorCalculationPlan,
-  type IndicatorCalculationOutput,
   type IndicatorCalculationPlan,
   type IndicatorCalculationSource,
 } from '../../instances/domain/instanceCalculationPlan'
@@ -81,58 +79,5 @@ export class FakeCalculationSource implements IndicatorCalculationSource {
   /** 替换当前快照，模拟实例集合或计算版本在执行期间发生变化。 */
   replace(snapshot: IndicatorInstanceSnapshot): void {
     this.current = snapshot
-  }
-}
-
-/** 由计划生成匹配数量的执行输出，series 与 firstReadyIndex 由用例指定。 */
-export function createOutputs(
-  plan: IndicatorCalculationPlan,
-  series: unknown,
-  firstReadyIndex: number | null = null,
-): readonly IndicatorCalculationOutput[] {
-  return plan.tasks.map((task) => ({
-    calculationKey: task.calculationKey,
-    series,
-    firstReadyIndex,
-  }))
-}
-
-/** 一个尚可 resolve/reject 的执行请求。 */
-export interface DeferredExecution {
-  readonly plan: IndicatorCalculationPlan
-  readonly dataRevision: number
-  resolve(outputs: readonly IndicatorCalculationOutput[]): void
-  reject(error: unknown): void
-}
-
-/** 可控执行器：setData 立即完成，execute 返回由用例手动结算的 Promise。 */
-export interface ControlledExecutor {
-  setData: (data: KLineData[], dataRevision: number) => Promise<void>
-  execute: (
-    plan: IndicatorCalculationPlan,
-    dataRevision: number,
-  ) => Promise<readonly IndicatorCalculationOutput[]>
-  /** 按 dataRevision 查找未决请求，避免依赖微任务调用顺序。 */
-  find(dataRevision: number): DeferredExecution
-}
-
-/** 构造可控执行器。 */
-export function createControlledExecutor(): ControlledExecutor {
-  const pending: DeferredExecution[] = []
-  const setData = vi.fn(async (_data: KLineData[], _dataRevision: number): Promise<void> => {})
-  const execute = vi.fn(
-    (plan: IndicatorCalculationPlan, dataRevision: number) =>
-      new Promise<readonly IndicatorCalculationOutput[]>((resolve, reject) => {
-        pending.push({ plan, dataRevision, resolve, reject })
-      }),
-  )
-  return {
-    setData,
-    execute,
-    find(dataRevision: number): DeferredExecution {
-      const entry = pending.find((candidate) => candidate.dataRevision === dataRevision)
-      if (!entry) throw new Error(`No pending execution for revision ${dataRevision}`)
-      return entry
-    },
   }
 }

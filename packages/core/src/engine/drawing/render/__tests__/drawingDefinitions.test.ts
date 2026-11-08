@@ -21,7 +21,6 @@ function context(): DrawingComputeContext {
     range: { start: 0, end: 0 },
     kLinePositions: [],
     kLineCenters: [],
-    kBarRects: [],
     kWidth: 8,
     kGap: 2,
     dpr: 1,

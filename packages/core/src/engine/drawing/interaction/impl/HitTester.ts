@@ -20,7 +20,7 @@ import type { DrawingLine } from '../../geometry/types.js'
 import { resolveDrawingHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
-import type { DrawingObject } from '../../types.js'
+import type { DrawingLabel, DrawingObject } from '../../types.js'
 import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
@@ -85,17 +85,59 @@ function labelHitDistanceSq(
   const height = lines.length * fontSize * 1.2
   const localX = dx * Math.cos(rotation) + dy * Math.sin(rotation)
   const localY = -dx * Math.sin(rotation) + dy * Math.cos(rotation)
-  const left = align === 'left' ? 0 : align === 'right' ? -width : -width / 2
+  const left = labelLeftOffset(align, width)
   const top = baseline === 'bottom' ? -height : -height / 2
+  return isInsideLabelBox(localX, localY, left, top, width, height) ? 0 : anchorDistanceSq
+}
+
+/** 按对齐方式把文本宽度换算为左边界偏移。 */
+function labelLeftOffset(align: CanvasTextAlign, width: number): number {
+  if (align === 'left') return 0
+  return align === 'right' ? -width : -width / 2
+}
+
+/** 文本命中区按 5px 外扩，旋转后仍在局部坐标系比较。 */
+function isInsideLabelBox(
+  x: number,
+  y: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): boolean {
   const padding = 5
-  if (
-    localX >= left - padding &&
-    localX <= left + width + padding &&
-    localY >= top - padding &&
-    localY <= top + height + padding
+  return (
+    x >= left - padding &&
+    x <= left + width + padding &&
+    y >= top - padding &&
+    y <= top + height + padding
   )
-    return 0
-  return anchorDistanceSq
+}
+
+/** 单锚点图元的屏幕线段；类型不匹配时不参与命中。 */
+type ScreenAnchor = ReturnType<typeof anchorToScreen>
+
+function horizontalLineSegment(screen: ScreenAnchor, right: number): LineSegment[] {
+  if (!screen || screen.type !== 'horizontal') return []
+  return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
+}
+
+function horizontalRaySegment(screen: ScreenAnchor, right: number): LineSegment[] {
+  if (!isScreenPoint(screen)) return []
+  return [{ a: screen, b: { x: right, y: screen.y } }]
+}
+
+function verticalLineSegment(screen: ScreenAnchor, bottom: number): LineSegment[] {
+  if (!screen || screen.type !== 'vertical') return []
+  return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
+}
+
+function crossLineSegments(screen: ScreenAnchor, right: number, bottom: number): LineSegment[] {
+  if (!isScreenPoint(screen)) return []
+  return [
+    { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
+    { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
+  ]
 }
 
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
@@ -124,21 +166,39 @@ export class HitTester {
     const visibleDrawings = drawings.filter((d) => d.visible && isDrawingInteractive(d))
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
     const pointer: Point = { x: mouseX, y: mouseY }
+    return (
+      this.hitTestHandles(
+        visibleDrawings,
+        pointer,
+        adapter,
+        selectedDrawingIds,
+        regressionGeometryCache,
+      ) ??
+      this.hitTestLineSegments(visibleDrawings, mouseX, mouseY, adapter, regressionGeometryCache) ??
+      this.hitTestFillRegions(visibleDrawings, pointer, adapter)
+    )
+  }
 
-    // Check anchor and segment-midpoint handle hits first
-    for (const drawing of visibleDrawings) {
-      // regression-channel: computed endpoints are also draggable
+  /** 锚点、线段中点手柄与回归通道端点优先参与命中。 */
+  private hitTestHandles(
+    drawings: DrawingObject[],
+    pointer: Point,
+    adapter: DrawingViewportPort,
+    selectedDrawingIds: ReadonlySet<string>,
+    regressionGeometryCache: Map<string, RegressionChannelGeometry | null>,
+  ): HitResult | null {
+    for (const drawing of drawings) {
+      // regression-channel 的计算端点同样可拖拽。
       if (drawing.kind === 'regression-channel' && drawing.anchors.length >= 2) {
         const hit = this.hitTestRegressionEndpoints(
           drawing,
-          mouseX,
-          mouseY,
+          pointer.x,
+          pointer.y,
           adapter,
           regressionGeometryCache,
         )
         if (hit) return hit
       }
-
       const handles = resolveDrawingHandles(drawing, this.createHandlePort(drawing, adapter), {
         selected: selectedDrawingIds.has(drawing.id),
       })
@@ -148,25 +208,40 @@ export class HitTester {
         }
       }
     }
+    return null
+  }
 
-    // Check line segment hits
-    for (const drawing of visibleDrawings) {
+  /** 线身命中的优先级低于手柄。 */
+  private hitTestLineSegments(
+    drawings: readonly DrawingObject[],
+    mouseX: number,
+    mouseY: number,
+    adapter: DrawingViewportPort,
+    regressionGeometryCache: Map<string, RegressionChannelGeometry | null>,
+  ): HitResult | null {
+    for (const drawing of drawings) {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
-      for (const seg of segments) {
-        if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
+      for (const segment of segments) {
+        if (pointToSegmentDistanceSq(mouseX, mouseY, segment.a, segment.b) <= LINE_HIT_RADIUS_SQ) {
           return { drawing, target: { type: 'all' }, cursor: 'move' }
         }
       }
     }
+    return null
+  }
 
-    // Check fill region hits：通道类组合图元的填充与线身同属「图元主体」，落在内部也整体拖拽。
-    for (const drawing of visibleDrawings) {
+  /** 通道填充与线身同属图元主体，落在内部也整体拖拽。 */
+  private hitTestFillRegions(
+    drawings: readonly DrawingObject[],
+    pointer: Point,
+    adapter: DrawingViewportPort,
+  ): HitResult | null {
+    for (const drawing of drawings) {
       const polygon = this.getDrawingFillPolygon(drawing, adapter)
       if (polygon.length >= 3 && pointInPolygon(pointer, polygon)) {
         return { drawing, target: { type: 'all' }, cursor: 'move' }
       }
     }
-
     return null
   }
 
@@ -221,26 +296,11 @@ export class HitTester {
     if (!paneInfo) return []
 
     const bottom = paneInfo.height
-
-    switch (drawing.kind) {
-      case 'horizontal-line':
-        if (screen.type !== 'horizontal') return []
-        return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
-      case 'horizontal-ray':
-        if (!isScreenPoint(screen)) return []
-        return [{ a: screen, b: { x: right, y: screen.y } }]
-      case 'vertical-line':
-        if (screen.type !== 'vertical') return []
-        return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
-      case 'cross-line':
-        if (!isScreenPoint(screen)) return []
-        return [
-          { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
-          { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
-        ]
-      default:
-        return []
-    }
+    if (drawing.kind === 'horizontal-line') return horizontalLineSegment(screen, right)
+    if (drawing.kind === 'horizontal-ray') return horizontalRaySegment(screen, right)
+    if (drawing.kind === 'vertical-line') return verticalLineSegment(screen, bottom)
+    if (drawing.kind === 'cross-line') return crossLineSegments(screen, right, bottom)
+    return []
   }
 
   /** 两锚点图元：专属线段优先，其余按 extend 延长。 */
@@ -442,6 +502,58 @@ function extendSegment(
   return { a: start, b: end }
 }
 
+/** 构造线段文本热点目标。 */
+function createLineLabelTarget(
+  drawing: DrawingObject,
+  label: DrawingLabel | undefined,
+  layout: ReturnType<typeof resolveLineLabelLayout>,
+  lineIndex: number,
+  adapter: DrawingViewportPort,
+  fontSize: number,
+): LineLabelTarget {
+  return {
+    drawingId: drawing.id,
+    targetKind: 'line',
+    lineIndex,
+    x: layout.x,
+    y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+    rotation: layout.rotation,
+    text: label?.text ?? '',
+    position: label?.position ?? 'center',
+    align: layout.align,
+    baseline: LINE_LABEL_BASELINE,
+    fontSize,
+  }
+}
+
+/** 单条线段的中线文本候选。 */
+function buildLineLabelCandidate(
+  drawing: DrawingObject,
+  segment: LineSegment,
+  lineIndex: number,
+  adapter: DrawingViewportPort,
+  mouseX: number,
+  mouseY: number,
+): { target: LineLabelTarget; distanceSq: number } {
+  const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
+  const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
+  const fontSize = drawing.style.fontSize ?? 12
+  return {
+    distanceSq: labelHitDistanceSq(
+      mouseX,
+      mouseY,
+      layout.x,
+      layout.y,
+      label?.text,
+      fontSize,
+      layout.align,
+      'bottom',
+      layout.rotation,
+    ),
+    target: createLineLabelTarget(drawing, label, layout, lineIndex, adapter, fontSize),
+  }
+}
+
 /** 线段中点文本热点：取半径内最近的一条。 */
 function findLineLabelTarget(
   drawing: DrawingObject,
@@ -453,39 +565,30 @@ function findLineLabelTarget(
 ): { target: LineLabelTarget; distanceSq: number } | null {
   let best: { target: LineLabelTarget; distanceSq: number } | null = null
   for (const [lineIndex, segment] of segments.entries()) {
-    const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
-    const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
-    const distanceSq = labelHitDistanceSq(
-      mouseX,
-      mouseY,
-      layout.x,
-      layout.y,
-      label?.text,
-      drawing.style.fontSize ?? 12,
-      layout.align,
-      'bottom',
-      layout.rotation,
-    )
-    if (distanceSq > threshold) continue
-    threshold = distanceSq
-    best = {
-      distanceSq,
-      target: {
-        drawingId: drawing.id,
-        targetKind: 'line',
-        lineIndex,
-        x: layout.x,
-        y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
-        rotation: layout.rotation,
-        text: label?.text ?? '',
-        position: label?.position ?? 'center',
-        align: layout.align,
-        baseline: LINE_LABEL_BASELINE,
-        fontSize: drawing.style.fontSize ?? 12,
-      },
-    }
+    const candidate = buildLineLabelCandidate(drawing, segment, lineIndex, adapter, mouseX, mouseY)
+    if (candidate.distanceSq > threshold) continue
+    threshold = candidate.distanceSq
+    best = candidate
   }
   return best
+}
+
+/** 通道填充文本热点的几何中心与对齐方式。 */
+function readAreaLabelGeometry(
+  drawing: DrawingObject,
+  segments: readonly LineSegment[],
+): { x: number; y: number; position: LineLabelTarget['position']; align: CanvasTextAlign } | null {
+  if (segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) return null
+  const points = segments.flatMap((segment) => [segment.a, segment.b])
+  const position = drawing.labels?.area['0']?.position ?? 'center'
+  const layout = resolveAreaLabelLayout(
+    Math.min(...points.map((point) => point.x)),
+    Math.max(...points.map((point) => point.x)),
+    position,
+  )
+  const y =
+    (Math.min(...points.map((point) => point.y)) + Math.max(...points.map((point) => point.y))) / 2
+  return { x: layout.x, y, position, align: layout.align }
 }
 
 /** 填充图元的文本热点：用线段包围盒中心，只对通道类图元生效。 */
@@ -496,42 +599,33 @@ function findAreaLabelTarget(
   mouseX: number,
   mouseY: number,
 ): LineLabelTarget | null {
-  if (segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) return null
-  const points = segments.flatMap((segment) => [segment.a, segment.b])
-  const areaPosition = drawing.labels?.area['0']?.position ?? 'center'
-  const areaLayout = resolveAreaLabelLayout(
-    Math.min(...points.map((point) => point.x)),
-    Math.max(...points.map((point) => point.x)),
-    areaPosition,
+  const geometry = readAreaLabelGeometry(drawing, segments)
+  if (!geometry) return null
+  const text = drawing.labels?.area['0']?.text
+  const fontSize = drawing.style.fontSize ?? 12
+  const distanceSq = labelHitDistanceSq(
+    mouseX,
+    mouseY,
+    geometry.x,
+    geometry.y,
+    text,
+    fontSize,
+    geometry.align,
+    'middle',
   )
-  const x = areaLayout.x
-  const y =
-    (Math.min(...points.map((point) => point.y)) + Math.max(...points.map((point) => point.y))) / 2
-  if (
-    labelHitDistanceSq(
-      mouseX,
-      mouseY,
-      x,
-      y,
-      drawing.labels?.area['0']?.text,
-      drawing.style.fontSize ?? 12,
-      areaLayout.align,
-      'middle',
-    ) > LINE_LABEL_TARGET_RADIUS_SQ
-  )
-    return null
+  if (distanceSq > LINE_LABEL_TARGET_RADIUS_SQ) return null
   return {
     drawingId: drawing.id,
     targetKind: 'area',
     lineIndex: 0,
-    x,
-    y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+    x: geometry.x,
+    y: geometry.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
     rotation: 0,
-    text: drawing.labels?.area['0']?.text ?? '',
-    position: areaPosition,
-    align: areaLayout.align,
+    text: text ?? '',
+    position: geometry.position,
+    align: geometry.align,
     baseline: 'middle',
-    fontSize: drawing.style.fontSize ?? 12,
+    fontSize,
   }
 }
 
@@ -580,7 +674,7 @@ function projectRegressionGeometry(
   offset: number,
 ): RegressionChannelGeometry {
   const at = (timestamp: number, price: number) =>
-    anchorToScreen({ id: '', time: timestamp, price }, drawing.paneId, adapter)
+    anchorToScreen({ time: timestamp, price }, drawing.paneId, adapter)
   const middleStart = at(firstTimestamp, firstValue)
   const middleEnd = at(secondTimestamp, secondValue)
   const upperStart = at(firstTimestamp, firstValue + offset)

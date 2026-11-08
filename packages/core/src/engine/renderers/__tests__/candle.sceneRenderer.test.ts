@@ -45,7 +45,6 @@ function createCtx(
     kGap: 2,
     dpr: 1,
     paneWidth: 800,
-    kBarRects: [],
     theme: 'dark',
     viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
     sceneRenderer,
@@ -480,12 +479,11 @@ describe('candle preparation', () => {
     const bottomPx = Math.round((top + height) * dpr)
     const bodyY = topPx / dpr
     const bodyH = Math.max(1, bottomPx - topPx) / dpr
-    const centerPx = Math.round(12.5 * dpr)
+    const centerPx = Math.round((12.5 - 0.4) * dpr)
     const bodyPx = 5
-    const scrollPx = Math.round(0.4 * dpr)
-    const body = { x: (centerPx - 2 - scrollPx) / dpr, width: bodyPx / dpr }
+    const body = { x: (centerPx - 2) / dpr, width: bodyPx / dpr }
     const wickPx = 1
-    const wick = { x: (centerPx - scrollPx) / dpr, width: wickPx / dpr }
+    const wick = { x: centerPx / dpr, width: wickPx / dpr }
     const highY = aligned(bar.high)
     const lowY = aligned(bar.low)
     const upperTop = Math.round(Math.min(highY, bodyY) * dpr)

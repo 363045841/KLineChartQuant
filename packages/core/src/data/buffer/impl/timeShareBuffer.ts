@@ -34,13 +34,20 @@ function copyPoint(point: TimeShareData): TimeShareData {
   return Object.freeze({ ...point })
 }
 
+/** 按 timestamp 去重；同时间戳后写生效，与 K 线写入保持同一规则。 */
+function normalizePoints(points: ReadonlyArray<TimeShareData>): TimeShareData[] {
+  const byTimestamp = new Map<number, TimeShareData>()
+  for (const point of points) byTimestamp.set(point.timestamp, copyPoint(point))
+  return [...byTimestamp.values()]
+}
+
 /** 创建不可变的多日分时快照。 */
 function copyRange(range: TimeShareRange): TimeShareRange {
   return Object.freeze({
     ...range,
     days: Object.freeze(
       range.days.map((day) =>
-        Object.freeze({ ...day, data: Object.freeze(day.data.map(copyPoint)) }),
+        Object.freeze({ ...day, data: Object.freeze(normalizePoints(day.data)) }),
       ),
     ),
   })
@@ -58,11 +65,16 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   private readonly content = createSignal<Content>(EMPTY_CONTENT)
   private readonly flatData = computed(() => flatten(this.content()))
   // 分时每次写入都是整段快照替换，点列下标不具备跨快照含义。
-  private readonly dataSignal = computed<DataChange<TimeShareData>>(() => ({
-    data: this.flatData(),
-    kind: DATA_CHANGE_KINDS.replace,
-    prependedCount: 0,
-  }))
+  private readonly dataSignal = computed<DataChange<TimeShareData>>(() => {
+    const data = this.flatData()
+    return {
+      data,
+      origin: 0,
+      kind: DATA_CHANGE_KINDS.replace,
+      start: 0,
+      end: data.length,
+    }
+  })
   private readonly rangeSignal = computed<TimeShareRange | null>(() => {
     const content = this.content()
     return content.kind === 'range' ? content.range : null
@@ -107,14 +119,14 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
       : null
   }
 
-  /** 返回当前扁平分时点列。 */
-  getRawData(): TimeShareData[] {
+  /** 返回当前扁平分时点列；数组归 Buffer 所有，消费方不得修改。 */
+  getRawData(): readonly TimeShareData[] {
     return [...this.flatData.peek()]
   }
 
   /** 按唯一时间戳查找当前分时快照的逻辑索引。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    return this.timestampIndex.get(timestamp)
+    return this.timestampIndex.getOrdinal(timestamp)
   }
 
   /** 返回多日分时快照。 */
@@ -133,7 +145,10 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
     const copiedRange = copyRange(range)
     batch(() => {
       this.content.set({ kind: 'range', range: copiedRange })
-      this.timestampIndex.rebuild(copiedRange.days.flatMap((day) => day.data))
+      this.timestampIndex.rebuild(
+        copiedRange.days.flatMap((day) => day.data),
+        0,
+      )
     })
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
@@ -143,10 +158,10 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
     if (this.disposed) return
     if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) return
-    const copiedData = Object.freeze(data.map(copyPoint))
+    const copiedData = Object.freeze(normalizePoints(data))
     batch(() => {
       this.content.set({ kind: 'inline', data: copiedData, preClose })
-      this.timestampIndex.rebuild(copiedData)
+      this.timestampIndex.rebuild(copiedData, 0)
     })
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
@@ -179,7 +194,7 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   dispose(): void {
     this.disposed = true
     this.content.set(EMPTY_CONTENT)
-    this.timestampIndex.rebuild([])
+    this.timestampIndex.rebuild([], 0)
     this.loadingSignal.set(false)
     this.errorSignal.set(null)
   }

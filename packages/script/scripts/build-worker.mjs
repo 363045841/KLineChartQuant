@@ -11,33 +11,38 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const entry = fileURLToPath(new URL('../src/worker/impl/script.worker.ts', import.meta.url))
-
-await build({
-  configFile: false,
-  root: packageRoot,
-  logLevel: 'warn',
-  build: {
-    target: 'esnext',
-    outDir: 'dist/worker/impl',
-    emptyOutDir: false,
-    // 单文件交付：wasm 一并内联，Worker 不依赖任何相对资源。
-    assetsInlineLimit: 100_000_000,
-    lib: {
-      entry,
-      formats: ['es'],
-      fileName: () => 'script.worker.js',
-    },
-    rolldownOptions: {
-      output: {
-        // 上层产品只复制 Worker 入口；QuickJS 的动态分支也必须打入同一文件。
-        codeSplitting: false,
-        entryFileNames: 'script.worker.js',
-        chunkFileNames: 'script.worker-[hash].js',
-        assetFileNames: 'script.worker-[hash][extname]',
+for (const [source, output] of [
+  ['worker/impl/script.worker', 'worker/impl'],
+  ['worker/compiler/impl/compiler.worker', 'worker/compiler/impl'],
+]) {
+  const entry = fileURLToPath(new URL(`../src/${source}.ts`, import.meta.url))
+  const fileName = source.split('/').at(-1) + '.js'
+  await build({
+    configFile: false,
+    root: packageRoot,
+    logLevel: 'warn',
+    build: {
+      target: 'esnext',
+      outDir: `dist/${output}`,
+      emptyOutDir: false,
+      // 单文件交付：wasm 一并内联，Worker 不依赖任何相对资源。
+      assetsInlineLimit: 100_000_000,
+      lib: {
+        entry,
+        formats: ['es'],
+        fileName: () => fileName,
+      },
+      rolldownOptions: {
+        output: {
+          // 上层产品只复制 Worker 入口；QuickJS 的动态分支也必须打入同一文件。
+          codeSplitting: false,
+          entryFileNames: fileName,
+          chunkFileNames: 'script.worker-[hash].js',
+          assetFileNames: 'script.worker-[hash][extname]',
+        },
       },
     },
-  },
-})
+  })
+}
 
 console.log('[script-worker] dist/worker/impl/script.worker.js 已打包为自包含产物')

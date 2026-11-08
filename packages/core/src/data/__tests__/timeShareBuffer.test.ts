@@ -39,12 +39,13 @@ describe('TimeShareBuffer', () => {
     expect(buffer.getPreClose()).toBe(9)
   })
 
-  it('resolves unique point timestamps and rejects duplicates', () => {
+  it('按后写生效解析重复时间戳', () => {
     const buffer = new TimeShareBuffer()
     buffer.setInlineData([point(1), point(2), point(2)], 9.5)
 
+    expect(buffer.getRawData()).toHaveLength(2)
     expect(buffer.getLogicalIndexAtTimestamp(1)).toBe(0)
-    expect(buffer.getLogicalIndexAtTimestamp(2)).toBeNull()
+    expect(buffer.getLogicalIndexAtTimestamp(2)).toBe(1)
     expect(buffer.getLogicalIndexAtTimestamp(3)).toBeNull()
   })
 

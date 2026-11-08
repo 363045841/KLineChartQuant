@@ -22,6 +22,7 @@ export type {
 export { projectDrawingsForFrame } from './geometry/impl/frameProjection.js'
 export { computeLinearRegression } from './geometry/impl/linearRegression.js'
 export type {
+  AngleLockOptions,
   DrawingLine,
   DrawingPointerAnchor,
   InteractionDrawingAnchor,
@@ -82,6 +83,7 @@ export type {
   DrawingCommandsDependencies,
   DrawingCommandsDocumentPort,
   DrawingDocumentDependencies,
+  DrawingDuplicatePlacement,
   DrawingStyleKey,
   UpdateDrawingPatch,
 } from './model/types.js'
@@ -101,9 +103,18 @@ export { createInfoLineDefinition } from './render/impl/definitions/infoLine.js'
 export { createRectangleDefinition } from './render/impl/definitions/rectangle.js'
 export { createSingleAnchorLineDefinition } from './render/impl/definitions/singleAnchorLine.js'
 export { createTwoPointLineDefinition } from './render/impl/definitions/twoPointLine.js'
-export { createDrawingLayer, createDrawingSessionLayer } from './render/impl/plugin.js'
+export {
+  createDrawingLayer,
+  createDrawingSessionLayer,
+  createIndicatorDrawingLayer,
+} from './render/impl/plugin.js'
 export { createDefaultPrimitiveRendererSet } from './render/impl/primitiveRendererSet.js'
-export type { DrawingStoreDeps, PrimitiveRendererSet } from './render/types.js'
+export type {
+  DrawingPaintScope,
+  DrawingSource,
+  DrawingStoreDeps,
+  PrimitiveRendererSet,
+} from './render/types.js'
 
 export { clearDrawingSelection, toggleDrawingSelection } from './session/impl/DrawingSelection.js'
 

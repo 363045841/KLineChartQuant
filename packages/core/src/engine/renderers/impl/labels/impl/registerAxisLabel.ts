@@ -14,7 +14,7 @@ import type { AxisLabel, AxisLabelSurface, RenderContext } from '@/foundation/pl
  * @param paneId - Y 表面的隔离键；默认取 `context.pane.id`
  */
 export function registerAxisLabel(
-  context: RenderContext,
+  context: Pick<RenderContext, 'axisLabels' | 'pane'>,
   surface: AxisLabelSurface,
   label: AxisLabel,
   paneId: string = context.pane.id,

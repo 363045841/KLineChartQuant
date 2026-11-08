@@ -5,7 +5,6 @@ import type {
   IndicatorMarketContext,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { SymbolSpec } from '@/controllers/types.js'
-import { DataBuffer } from '@/data/buffer/impl/dataBuffer.js'
 import {
   type BarsSelection,
   SERIES_SELECTION_KIND,
@@ -14,13 +13,11 @@ import {
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
 import { RealtimeBarsConnector } from '@/data/live/impl/barsConnector.js'
-import { realtimePoolFor } from '@/data/live/impl/realtimePool.js'
 import type { RealtimeSubscription, RealtimeSubscriptionPool } from '@/data/live/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
 } from '@/data/provider/impl/registry.js'
-import { OLDER_DATA_STATUS } from '@/data/provider/types.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   TRADE_STREAM_CODES,
@@ -29,13 +26,14 @@ import {
   type TradeStream,
 } from '@/data/trades/types.js'
 import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
   type MarketRuntimeDependencies,
   type ReadyMarketSession,
   supportsRawTradeStream,
 } from '../types.js'
-import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
+import { IndicatorBarsRepository } from './indicatorBarsRepository.js'
 
 /** 成交流订阅的身份与传输目标；由就绪会话和指标需求解析得到。 */
 interface TradeTarget {
@@ -91,6 +89,7 @@ type OwnerSource = 'plan' | 'temporary'
 
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
 export class MarketRuntime implements IndicatorMarketData {
+  private readonly marketSessions: MarketSessionRegistry
   private readonly registry: MarketDataProviderRegistry
   private readonly pool: RealtimeSubscriptionPool
   private readonly live = new Map<
@@ -101,7 +100,7 @@ export class MarketRuntime implements IndicatorMarketData {
     string,
     { session: ReadyMarketSession; buffer: KLineBuffer; comparison: boolean; owners: Set<string> }
   >()
-  private readonly requestAborts = new Map<string, AbortController>()
+  private readonly requests: IndicatorBarsRepository
   private requestRevision = 0
   /** 行情租约的唯一事实：key → 来源。请求与需求条目只是它的投影。 */
   private readonly owners = new Map<string, OwnerSource>()
@@ -179,10 +178,25 @@ export class MarketRuntime implements IndicatorMarketData {
   context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext {
     const session = this.deps.session.peek()
     const symbol = session === null ? '' : session.instrument.symbol
+    const profile =
+      session?.instrument.sessionId === undefined
+        ? undefined
+        : this.marketSessions.getRequired(session.instrument.sessionId)
+    const venue = profile?.extendedSessions?.[session!.instrument.exchange]
     return Object.freeze({
       symbol,
-      loadBars: (request: IndicatorBarsRequest) =>
-        this.loadRequestBars(owner, bars, request, session),
+      time:
+        session === null || profile === undefined
+          ? undefined
+          : {
+              period: session.selection.period,
+              session:
+                venue === undefined
+                  ? profile
+                  : { ...profile, premarket: venue.premarket, postmarket: venue.postmarket },
+            },
+      loadBars: (request: IndicatorBarsRequest, signal?: AbortSignal) =>
+        this.requests.read(owner, bars, request, session, signal),
     })
   }
 
@@ -196,11 +210,7 @@ export class MarketRuntime implements IndicatorMarketData {
 
   /** 把请求与需求投影对齐到租约集合，再回收无引用的 Buffer 与连接。 */
   private sweep(): void {
-    for (const [owner, abort] of this.requestAborts) {
-      if (this.owners.has(owner)) continue
-      abort.abort()
-      this.requestAborts.delete(owner)
-    }
+    this.requests.retain(new Set(this.owners.keys()))
     for (const demand of this.barDemands.values())
       for (const owner of demand.owners) if (!this.owners.has(owner)) demand.owners.delete(owner)
     this.releaseUnusedBars()
@@ -230,94 +240,6 @@ export class MarketRuntime implements IndicatorMarketData {
       if (primary === null || seriesSelectionKey(primary.selection) !== key)
         this.deps.cache.repository.delete(demand.session.selection)
     }
-  }
-
-  /** 沿游标加载覆盖主图历史的实际 K 线，再向前补足目标周期预热根数。 */
-  private async loadRequestBars(
-    owner: string,
-    bars: readonly KLineData[],
-    request: IndicatorBarsRequest,
-    session: ReadyMarketSession | null,
-  ) {
-    if (this.disposed || session === null || this.deps.session.peek() !== session)
-      throw new Error('Request 没有有效的图表行情会话')
-    if (bars.length === 0) return []
-    let abort = this.requestAborts.get(owner)
-    if (abort === undefined) {
-      abort = new AbortController()
-      this.requestAborts.set(owner, abort)
-    }
-    const signal = abort.signal
-    const period = requestPeriod(request.timeframe)
-    assertSecurityPeriod(period, session.selection.period)
-    const sameSymbol = request.symbol === session.instrument.symbol
-    // 同品种继承图表已解析来源；跨品种没有确定来源，必须由调用方显式指定。
-    if (!sameSymbol && request.source === undefined)
-      throw new Error('跨品种 Request 必须显式指定 source')
-    const sourceId = request.source ?? session.instrument.sourceId
-    const sameInstrument = sameSymbol && sourceId === session.instrument.sourceId
-    const instrument = sameInstrument ? session.instrument : undefined
-    const query = {
-      symbol: request.symbol,
-      period,
-      sourceId,
-      instrument,
-      adjustment: session.selection.adjustment,
-      barAggregation: session.selection.barAggregation,
-      limit: request.calcBarsCount,
-      signal,
-    }
-    const pages: KLineData[][] = []
-    let beforeTimestamp: number | undefined
-    const earliest = bars[0]!.timestamp
-    let warmup = 0
-    let result = await this.deps.cache.queryBars(query)
-    while (true) {
-      signal.throwIfAborted()
-      if (this.disposed || this.deps.session.peek() !== session)
-        throw new Error('Request 图表会话已切换')
-      const page = [...result.series.data]
-      pages.unshift(page)
-      warmup += page.filter((bar) => bar.timestamp < earliest).length
-      if (
-        warmup >= request.calcBarsCount ||
-        (result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED && page.length < query.limit) ||
-        page.length === 0
-      )
-        break
-      const cursor = page[0]!.timestamp
-      if (beforeTimestamp !== undefined && cursor >= beforeTimestamp)
-        throw new Error('Request 历史游标没有前进')
-      beforeTimestamp = cursor
-      result = await this.deps.cache.queryBars({ ...query, beforeTimestamp })
-    }
-    const selection = this.deps.resolveBarsSelection(
-      result.instrument,
-      period,
-      query.adjustment,
-      query.barAggregation,
-    )
-    const buffer = this.deps.cache.repository.getOrCreateBars(selection, () => new DataBuffer())
-    buffer.mergeData(pages.flat(), result.series.olderData, result.series.timezone)
-    const provider = this.registry.get(result.sourceId)
-    if (provider === undefined) throw new Error(`Request 数据源不可用：${result.sourceId}`)
-    const capabilities = provider.source.capabilities
-    if (capabilities === undefined)
-      throw new Error(`Request 数据源没有能力声明：${result.sourceId}`)
-    this.demand({ selection, instrument: result.instrument, capabilities }, buffer).owners.add(
-      owner,
-    )
-    this.reconcileBarStreams()
-    return buffer.getRawData().map((bar) =>
-      Object.freeze({
-        time: bar.timestamp,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume === undefined ? 0 : bar.volume,
-      }),
-    )
   }
 
   /** 主图和 Request 共用同一张连接表，完整序列身份相同就复用连接。 */
@@ -386,31 +308,50 @@ export class MarketRuntime implements IndicatorMarketData {
           refreshing = false
         }
       }
-      const connector = new RealtimeBarsConnector({
-        updateBars: (bars, strictTail) => {
-          if (!current()) return
-          let latest = buffer.getRawData().at(-1)?.timestamp ?? -Infinity
-          for (const event of queued) if (!event.historical) latest = Math.max(latest, event.bar.timestamp)
-          for (const bar of bars) {
-            if (strictTail && bar.timestamp < latest) throw new RangeError('Older bars require update(bar, { historical: true })')
-            latest = Math.max(latest, bar.timestamp)
-          }
-          if (refreshing) { queued.push(...bars.map((bar) => ({ bar, historical: false }))); return }
-          buffer.applyRealtimeBars(bars)
-          this.deps.cache.acceptBars(target.selection, target.instrument, bars)
-          notify()
+      const connector = new RealtimeBarsConnector(
+        {
+          updateBars: (bars, strictTail) => {
+            if (!current()) return
+            let latest = buffer.getRawData().at(-1)?.timestamp ?? -Infinity
+            for (const event of queued)
+              if (!event.historical) latest = Math.max(latest, event.bar.timestamp)
+            for (const bar of bars) {
+              if (strictTail && bar.timestamp < latest)
+                throw new RangeError('Older bars require update(bar, { historical: true })')
+              latest = Math.max(latest, bar.timestamp)
+            }
+            if (refreshing) {
+              queued.push(...bars.map((bar) => ({ bar, historical: false })))
+              return
+            }
+            buffer.applyRealtimeBars(bars)
+            this.deps.cache.acceptBars(target.selection, target.instrument, bars)
+            notify()
+          },
+          correctBar: (bar) => {
+            if (!current()) return
+            if (buffer.getOrdinalAtTimestamp(bar.timestamp) === null)
+              throw new RangeError('Historical correction must target an existing bar')
+            if (refreshing) {
+              queued.push({ bar, historical: true })
+              return
+            }
+            buffer.correctBar(bar)
+            this.deps.cache.acceptBars(target.selection, target.instrument, [bar])
+            notify()
+          },
+          invalidate: () => {
+            if (current()) {
+              invalidated = true
+              void refresh()
+            }
+          },
+          setError: (message) => {
+            if (current()) buffer.setError(message)
+          },
         },
-        correctBar: (bar) => {
-          if (!current()) return
-          if (buffer.getLogicalIndexAtTimestamp(bar.timestamp) === null) throw new RangeError('Historical correction must target an existing bar')
-          if (refreshing) { queued.push({ bar, historical: true }); return }
-          buffer.correctBar(bar)
-          this.deps.cache.acceptBars(target.selection, target.instrument, [bar])
-          notify()
-        },
-        invalidate: () => { if (current()) { invalidated = true; void refresh() } },
-        setError: (message) => { if (current()) buffer.setError(message) },
-      }, subscription)
+        subscription,
+      )
       this.live.set(key, { subscription, connector, abort })
       connector.start()
     }
@@ -422,8 +363,21 @@ export class MarketRuntime implements IndicatorMarketData {
   private disposed = false
 
   constructor(private readonly deps: MarketRuntimeDependencies) {
+    this.marketSessions = deps.marketSessions ?? new MarketSessionRegistry()
     this.registry = deps.registry ?? marketDataProviderRegistry
-    this.pool = deps.realtime ?? realtimePoolFor(this.registry)
+    this.pool = deps.realtime
+    this.requests = new IndicatorBarsRepository({
+      cache: deps.cache,
+      registry: this.registry,
+      sessions: this.marketSessions,
+      current: () => (this.disposed ? null : deps.session.peek()),
+      resolveSelection: deps.resolveBarsSelection,
+      bind: (owners, target, buffer) => {
+        const demand = this.demand(target, buffer)
+        for (const id of owners) demand.owners.add(id)
+        this.reconcileBarStreams()
+      },
+    })
     let previousRegistry = this.registry.state.peek()
     this.subscriptions = [
       this.registry.state.subscribe(() => {
@@ -457,8 +411,7 @@ export class MarketRuntime implements IndicatorMarketData {
     const next = this.deps.session.peek()
     if (next !== this.session) {
       this.session = next
-      for (const abort of this.requestAborts.values()) abort.abort()
-      this.requestAborts.clear()
+      this.requests.clear()
       for (const demand of this.barDemands.values()) demand.owners.clear()
       this.releaseUnusedBars()
       this.requestRevision++
@@ -585,8 +538,7 @@ export class MarketRuntime implements IndicatorMarketData {
     this.disposed = true
     for (const unsubscribe of this.subscriptions) unsubscribe()
     this.clearTradeDemand()
-    for (const abort of this.requestAborts.values()) abort.abort()
-    this.requestAborts.clear()
+    this.requests.clear()
     this.barDemands.clear()
     for (const binding of this.live.values()) {
       binding.abort.abort()

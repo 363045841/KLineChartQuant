@@ -7,6 +7,7 @@
     "packages/react/src/index.ts",
     "packages/angular/src/index.ts",
     "packages/vue/preview/main.ts",
+    "packages/vue/src/composables/chart/scriptEditor/page/editor.ts",
     "packages/script/src/quickjs/runtime/library.ts",
     "packages/script/src/quickjs/runtime/series.ts",
     "packages/script/src/quickjs/runtime/request.ts",
@@ -29,7 +30,8 @@
     "**/preview/dist/**",
     "packages/core/design-tokens/**",
     "packages/react/preview/**",
-    "scripts/lint/stylelint-plugin-klc.mjs"
+    "scripts/lint/stylelint-plugin-klc.mjs",
+    "packages/script-editor/scripts/build-page.mjs"
   ],
   "ignoreDependencies": [
     "~icons",

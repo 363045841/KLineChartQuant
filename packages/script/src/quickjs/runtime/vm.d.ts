@@ -33,6 +33,8 @@ type QuickJSScriptDefinition = import('../../quickjs/types.js').QuickJSScriptDef
 
 /** 宿主注入：按字段与偏移读取行情，历史不足返回 NaN。 */
 declare function __read(field: string, offset: number): number
+declare function __timeValue(mode: string, period: string, timestamp: number, session?: string, timezone?: string): number
+declare function __timeframeSeconds(period: string): number
 
 // __count 由 runtime-internals.d.ts 声明，运行时与内置库展示共用同一签名。
 /** 宿主注入的本次数据总根数，仅供末根判断。 */

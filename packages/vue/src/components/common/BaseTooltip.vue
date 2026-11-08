@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
   import { primaryShortcut } from '@363045841yyt/klinechart-core'
-  import { injectCommands } from '@vue-src/composables/commands/useCommands.js'
+  import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
   import { supportsPopover } from '@vue-src/composables/overlay/platform.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { type TooltipPlacement, useTooltip } from '@vue-src/composables/ui/useTooltip.js'
@@ -73,9 +73,10 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const registry = injectCommands()
+  const commands = useCommandList(registry)
   const shortcut = computed(() => {
     if (!props.command || !registry) return null
-    const command = registry.get(props.command)
+    const command = commands.value.find((entry) => entry.id === props.command)
     const combo = command ? primaryShortcut(command) : null
     return combo ? registry.formatShortcut(combo) : null
   })

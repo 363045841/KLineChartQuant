@@ -113,6 +113,11 @@ function toPlotValue(value: number | boolean | null): number | null {
 
 /** 按类型提供输入工厂，非法默认值和选项在声明时拒绝。 */
 const inputFactories = {
+  /** 时段字符串在时间API消费时按同一份规则解析。 */
+  session(value: string, options?: InputOptions) {
+    if (typeof value !== 'string') throw new TypeError('input.session需要时段字符串')
+    return { ...options, default: value }
+  },
   /** 创建整数输入。 */
   int(value: number, options?: NumberInputOptions) {
     if (
@@ -137,7 +142,7 @@ const inputFactories = {
     if (typeof value !== 'string') throw new TypeError('input.string 需要字符串默认值')
     requireOptionList(
       options?.options,
-      (item) => typeof item === 'string',
+      (item) => typeof item === 'string' || (typeof item === 'object' && item !== null && 'value' in item && typeof item.value === 'string' && 'label' in item && typeof item.label === 'string'),
       value,
       'input.string 的 options 必须是包含默认值的非空字符串列表',
     )
@@ -165,7 +170,7 @@ function requireOptionList(
   message: string,
 ): void {
   if (options === undefined) return
-  if (!options.length || !options.every(isValid) || !options.includes(value))
+  if (!options.length || !options.every(isValid) || !options.some((item) => (typeof item === 'object' && item !== null && 'value' in item ? item.value : item) === value))
     throw new TypeError(message)
 }
 

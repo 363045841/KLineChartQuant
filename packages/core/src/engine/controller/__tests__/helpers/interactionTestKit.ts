@@ -3,6 +3,7 @@
 
 import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
+import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum, KLineData, TimeShareData } from '@/foundation/types/price'
@@ -115,6 +116,7 @@ export function createChartStub(args: {
       width: args.plotWidth,
       dpr: args.dpr,
       kWidth: 7 / args.dpr,
+      kGapRatio: KLINE_GAP_RATIOS.standard,
       sessionSlotWidth: null,
       data,
       dataLength: data.length,

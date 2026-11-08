@@ -7,7 +7,7 @@
 import type { DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
 
-/** 返回手绘工具的完整样式；预览按需改虚线，提交使用实线。 */
+/** 返回手绘工具的完整样式；预览与最终提交同用这份线型。 */
 export function drawingToolStyle(): DrawingStyle {
   return { stroke: DEFAULT_DRAWING_STROKE, strokeWidth: 1, strokeStyle: 'solid' }
 }

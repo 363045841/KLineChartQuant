@@ -1,5 +1,6 @@
 /** 将逻辑索引按当前帧封存的中心点投影为屏幕 X 坐标。 */
 
+import { type SlotGrid, slotWorldX } from '../../foundation/geometry/slotGrid.js'
 import { worldXToScreenX } from '../../foundation/utils/pixelAlign.js'
 
 export interface LogicalIndexScreenXInput {
@@ -10,6 +11,8 @@ export interface LogicalIndexScreenXInput {
   readonly dpr: number
   /** 仅有一个中心点时使用的逻辑槽位步长。 */
   readonly fallbackStep: number
+  /** K 线保留理想网格供任意索引投影；已对齐的相邻中心不能用来推断统一槽距。 */
+  readonly grid?: SlotGrid
 }
 
 /**
@@ -32,6 +35,8 @@ export function logicalIndexToScreenX(input: LogicalIndexScreenXInput): number |
     const right = centers[lower + 1]!
     return worldXToScreenX(left + (right - left) * (offset - lower), scrollLeft, dpr)
   }
+
+  if (input.grid) return worldXToScreenX(slotWorldX(input.grid, index), scrollLeft, dpr)
 
   const step =
     centers.length >= 2

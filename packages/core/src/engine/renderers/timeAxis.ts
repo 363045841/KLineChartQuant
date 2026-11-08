@@ -1,5 +1,6 @@
 /** X 轴刻度、十字线时间签与绘图轴标签的绘制入口。 */
 
+import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { AxisLabelCollector, RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
@@ -318,6 +319,7 @@ export interface TimeAxisLayerOptions {
  */
 export function createTimeAxisLayer(options: TimeAxisLayerOptions): ContextLayer<RenderContext> {
   return {
+    kind: 'context',
     id: makePluginLayerId('timeAxis'),
     role: 'background',
     pane: LAYER_PANE_GLOBAL,
@@ -351,11 +353,25 @@ export function createTimeAxisLayer(options: TimeAxisLayerOptions): ContextLayer
         const screenRightX = range.rightX - context.scrollLeft
         const bandWidth = screenRightX - screenLeftX
         if (bandWidth <= 0) continue
-        ctx.save()
-        ctx.globalAlpha = range.opacity
-        ctx.fillStyle = range.color
-        ctx.fillRect(screenLeftX, 0, bandWidth, height)
-        ctx.restore()
+        primitiveSink()(
+          ctx,
+          [
+            {
+              kind: 'fill',
+              paths: [
+                [
+                  { x: screenLeftX, y: 0 },
+                  { x: screenRightX, y: 0 },
+                  { x: screenRightX, y: height },
+                  { x: screenLeftX, y: height },
+                ],
+              ],
+              color: range.color,
+              opacity: range.opacity,
+            },
+          ],
+          dpr,
+        )
       }
 
       // 十字线时间签：真实 bar 或日历显示日期；无日历的未来槽显示相对索引。

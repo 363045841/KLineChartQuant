@@ -14,7 +14,7 @@ import {
 
 /**
  * 10 根数据、dpr=1 的测试场景。
- * 几何：kWidth=7 → kWidthPx=7、gapPx=4，中心网格 origin=7、step=11。
+ * 几何：kWidth=7 → kWidthPx=7、连续 gap=4.2，中心网格 origin=7.2、step=11.2。
  */
 function createFutureScene(args?: {
   dataView?: ChartDataView
@@ -47,17 +47,17 @@ describe('InteractionController future-slot crosshair', () => {
   it('lets the crosshair snap onto an extrapolated future slot but keeps hoveredIndex null', () => {
     const interaction = createFutureScene()
 
-    // world=150 → 最近槽位 13，中心 150；未来槽位无 OHLC，不产生 hover。
+    // world=150 → 最近槽位 13，理想中心 152.8 对齐到 153；未来槽位无 OHLC。
     hoverAt(interaction, 150)
 
     expect(interaction.crosshairIndex).toBe(13)
-    expect(interaction.crosshairPos?.x).toBe(150)
+    expect(interaction.crosshairPos?.x).toBe(153)
     expect(interaction.hoveredIndex).toBeNull()
   })
 
   it.each([
     { label: '普通位置', clientX: 61, expectedIndex: 5 },
-    { label: '精确落在末根中心', clientX: 106, expectedIndex: 9 },
+    { label: '精确落在末根中心', clientX: 108, expectedIndex: 9 },
   ])(
     'snaps and hovers a real bar inside the data region（$label）',
     ({ clientX, expectedIndex }) => {
@@ -88,7 +88,7 @@ describe('InteractionController future-slot crosshair', () => {
 
     hoverAt(interaction, 3)
     expect(interaction.crosshairIndex).toBe(-9)
-    expect(interaction.crosshairPos?.x).toBe(8)
+    expect(interaction.crosshairPos?.x).toBe(6)
     expect(interaction.hoveredIndex).toBeNull()
   })
 })

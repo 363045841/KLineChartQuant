@@ -129,11 +129,11 @@ describe('createSubState', () => {
 })
 
 describe('viewportState template', () => {
-  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=1.5）便于在窄视口内构造多根数据。 */
+  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=3.6）便于在窄视口内构造多根数据。 */
   const scrollDeps = (dataLength?: number) =>
     createViewportStateDeps({
       ...(dataLength !== undefined ? { dataLength } : {}),
-      options: { kWidth: 6, kGap: 1 },
+      geometry: { kWidth: 6 },
       zoomLevel: 1,
     })
 
@@ -152,8 +152,8 @@ describe('viewportState template', () => {
     expect(vs.visibleFrom).toBeGreaterThanOrEqual(0)
     expect(vs.visibleFrom).toBeLessThan(vs.visibleTo)
     expect(vs.kWidth).toBe(8)
-    // 物理宽度 16 → 物理间距 10，DPR=2 时输出逻辑间距 5。
-    expect(vs.kGap).toBe(5)
+    // 世界间隙按宽度连续派生，最终实体才对齐物理像素。
+    expect(vs.kGap).toBeCloseTo(4.8, 10)
   })
 
   it('scrollTo writes signal and DOM', async () => {

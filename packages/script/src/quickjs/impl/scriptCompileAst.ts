@@ -29,6 +29,7 @@ export const REQUEST_EXPRESSIONS = '__requestExpressions'
 
 /** 脚本里的跨周期请求入口。 */
 export const SECURITY_CALL = 'request.security'
+export const LOWER_TIMEFRAME_CALL = 'request.security_lower_tf'
 
 /** 单次源码改写：把 [from, to) 替换成 text。 */
 export interface SourceEdit {

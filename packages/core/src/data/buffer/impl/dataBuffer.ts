@@ -73,14 +73,19 @@ export class DataBuffer implements KLineBuffer {
     return this.store.loadedTimeRange
   }
 
-  /** 返回图表当前 K 线快照。 */
-  getRawData(): KLineData[] {
+  /** 返回图表当前 K 线快照；数组归 Buffer 所有，消费方不得修改。 */
+  getRawData(): readonly KLineData[] {
     return this.store.getRawData()
   }
 
   /** 通过 Buffer 的唯一时间索引解析逻辑坐标。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null {
     return this.store.getLogicalIndexAtTimestamp(timestamp)
+  }
+
+  /** 通过 Buffer 的唯一时间索引解析稳定序号；跨 prepend 不变。 */
+  getOrdinalAtTimestamp(timestamp: number): number | null {
+    return this.store.getOrdinalAtTimestamp(timestamp)
   }
 
   /** 切换图表选择并清空旧快照；请求由上层缓存 API 发起。 */
@@ -100,23 +105,12 @@ export class DataBuffer implements KLineBuffer {
     if (!this.disposed) this.current = spec
   }
 
-  /** 写入调用方提供的完整静态数据。 */
-  setInlineData(data: ReadonlyArray<KLineData>): void {
-    if (this.disposed) return
-    this.olderDataStatus = OLDER_DATA_STATUS.EXHAUSTED
-    this.currentTimezone = null
-    this.store.setInlineData([...data])
-    this.calendar.clear()
-    this.errorSignal.set(null)
-    this.loadingSignal.set(false)
-  }
-
-  /** 合并缓存层返回的分页结果并发布增量变更。 */
-  mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
+  /** 合并缓存层返回的一页历史或增量；既有时间戳不被分页改写。 */
+  mergePage(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
     if (this.disposed) return
     this.olderDataStatus = olderData
     this.currentTimezone = timezone
-    this.store.merge(data)
+    this.store.mergePage(data)
     this.calendar.advance(this.store.getRawData().at(-1)?.timestamp ?? Number.NaN)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
@@ -130,7 +124,7 @@ export class DataBuffer implements KLineBuffer {
    */
   applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
     if (this.disposed) return { appendedCount: 0, replacedCount: 0, rejected: [...bars] }
-    const result = this.store.updateBars(bars)
+    const result = this.store.applyRealtime(bars)
     this.calendar.advance(this.store.getRawData().at(-1)?.timestamp ?? Number.NaN)
     if (result.appendedCount > 0 || result.replacedCount > 0) {
       this.errorSignal.set(null)
@@ -146,17 +140,21 @@ export class DataBuffer implements KLineBuffer {
   /** 修正已加载历史，不改变序列身份和历史覆盖状态。 */
   correctBar(bar: KLineData): void {
     if (this.disposed) return
-    this.store.correctBar(bar)
+    this.store.correct(bar)
     this.errorSignal.set(null)
   }
 
-  /** 失效重查提交完整查询结果，不改变品种身份。 */
-  replaceData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
+  /** 整体替换当前序列；失效重查与静态数据共用这一条路径。 */
+  replace(
+    data: ReadonlyArray<KLineData>,
+    olderData: OlderDataStatus,
+    timezone: string | null,
+  ): void {
     if (this.disposed) return
     this.olderDataStatus = olderData
     this.currentTimezone = timezone
     this.calendar.clear()
-    this.store.setInlineData([...data])
+    this.store.replace(data)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }

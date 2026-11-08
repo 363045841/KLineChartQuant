@@ -1,6 +1,7 @@
 /** 管理单个 Pane 的画布分配、尺寸、上下文和运行时状态。 */
-import type { PrimitiveSurface } from '@/rendering/primitives/types.js'
+import type { PrimitiveSurface, TextPaintPrimitive } from '@/rendering/primitives/types.js'
 import type { Renderer } from '@/rendering/render/Renderer.js'
+import { TextSurfacePool } from '@/rendering/surfaces/impl/textSurfacePool.js'
 import {
   DEFAULT_PRICE_LABEL_WIDTH,
   type PaneRendererContexts,
@@ -43,6 +44,9 @@ export class PaneRenderer {
   private contexts: PaneRendererContexts | null = null
   private metrics: PaneMetrics | null = null
   private visible = true
+  private mainRasterRequired = true
+  private overlayRasterRequired = true
+  private readonly textSurfaces: TextSurfacePool
 
   constructor(
     dom: PaneRendererDom,
@@ -51,6 +55,7 @@ export class PaneRenderer {
     surfaces?: PaneSurfaceFactory,
   ) {
     this.dom = dom
+    this.textSurfaces = new TextSurfacePool(dom.mainCanvas)
     this.pane = pane
     this.surfaces = surfaces
     this.opt = {
@@ -82,6 +87,40 @@ export class PaneRenderer {
       }
     }
     return this.contexts
+  }
+
+  /** Scene 中只有纯指令 main 图层时释放整幅 2D 像素；Canvas 后端或自定义 ctx 层按原尺寸恢复。 */
+  setMainRasterRequired(required: boolean): void {
+    if (this.mainRasterRequired === required) return
+    this.mainRasterRequired = required
+    this.applyMetrics()
+  }
+
+  /** 覆盖层只在本帧确有图元或自定义 ctx 使用者时保留像素。 */
+  setOverlayRasterRequired(required: boolean): CanvasRenderingContext2D | null {
+    if (this.overlayRasterRequired !== required) {
+      this.overlayRasterRequired = required
+      this.applyMetrics()
+    }
+    const ctx = this.getContexts().overlayCtx
+    const dpr = this.metrics?.dpr ?? 1
+    ctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
+    return ctx
+  }
+
+  /** 按当前 pane 位置提交稀疏文字；不会在仅 Overlay 更新时被调用。 */
+  paintText(
+    texts: readonly TextPaintPrimitive[],
+    dpr: number,
+    bounds: Readonly<{ width: number; height: number }>,
+  ): void {
+    const top = this.metrics?.top
+    this.textSurfaces.paint(texts, dpr, bounds, top === undefined || Number.isNaN(top) ? 0 : top)
+  }
+
+  /** 清理空行情或切换到整幅 Canvas 时的旧文字。 */
+  clearText(): void {
+    this.textSurfaces.clear()
   }
 
   /**
@@ -165,6 +204,7 @@ export class PaneRenderer {
     if (this.visible === visible) return
     this.visible = visible
     if (visible) return
+    this.textSurfaces.clear()
     this.metrics = null
     if (this.surfaces) {
       this.mainSurface?.dispose()
@@ -262,7 +302,15 @@ export class PaneRenderer {
     // Main Canvas
     const mainWidth = Math.round(width * dpr)
     const mainHeight = Math.round(height * dpr)
-    PaneRenderer.resizeCanvas(mainCanvas, mainWidth, mainHeight, dpr)
+    PaneRenderer.resizeCanvas(
+      mainCanvas,
+      this.mainRasterRequired ? mainWidth : 0,
+      this.mainRasterRequired ? mainHeight : 0,
+      dpr,
+    )
+    // CSS 仍表示完整布局尺寸，只有后备存储归零，避免默认 300×150 与 DPR 错位。
+    mainCanvas.style.width = `${mainWidth / dpr}px`
+    mainCanvas.style.height = `${mainHeight / dpr}px`
     if (this.dom.mainGpuCanvas) {
       PaneRenderer.resizeCanvas(this.dom.mainGpuCanvas, mainWidth, mainHeight, dpr)
     }
@@ -271,7 +319,14 @@ export class PaneRenderer {
     }
 
     // Overlay Canvas - 与 Main Canvas 相同尺寸
-    PaneRenderer.resizeCanvas(overlayCanvas, mainWidth, mainHeight, dpr)
+    PaneRenderer.resizeCanvas(
+      overlayCanvas,
+      this.overlayRasterRequired ? mainWidth : 0,
+      this.overlayRasterRequired ? mainHeight : 0,
+      dpr,
+    )
+    overlayCanvas.style.width = `${mainWidth / dpr}px`
+    overlayCanvas.style.height = `${mainHeight / dpr}px`
 
     // YAxis Canvas + overlay 轴（同尺寸）
     const yAxisWidth = Math.round(canvasYAxisWidth * dpr)
@@ -297,6 +352,7 @@ export class PaneRenderer {
 
   /** 销毁 PaneRenderer 实例：移除全部表面并归零后备存储。 */
   destroy() {
+    this.textSurfaces.clear()
     this.mainSurface?.dispose()
     this.mainSurface = null
     this.mainSurfaceOwner = null

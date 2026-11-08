@@ -99,7 +99,7 @@ export interface TitleInfo {
  * 获取标题信息的回调类型
  */
 export type GetTitleInfoFn = (
-  data: KLineData[],
+  data: readonly KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
   stateReader: IndicatorRenderStateReader,
@@ -109,10 +109,7 @@ export type GetTitleInfoFn = (
 ) => TitleInfo | null
 
 /** 下拉选项：值即参数取值，label 为面板显示名。 */
-export interface IndicatorInputOption {
-  readonly value: string
-  readonly label: string
-}
+export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contracts').InputOption
 
 /**
  * 输入参数在面板中的展示声明。
@@ -136,21 +133,25 @@ export interface IndicatorInputDef {
 export interface IndicatorRuntimeDescriptor<C = any> {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
+  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
+  dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
   /** 每个执行器创建独立的增量 calculator。 */
-  createCompute?: () => (
-    data: KLineData[],
+  createCompute?: () => ((
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-  ) => unknown
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
+  ) => unknown) & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
   defaultParams: C
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
   inputDefs?: Readonly<Record<string, IndicatorInputDef>>
   /** 注册定义的唯一计算端口。 */
   compute: (
-    data: KLineData[],
+    data: readonly KLineData[],
     config: C,
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'
@@ -174,7 +175,7 @@ export interface IndicatorPeriodVisibility {
 /**
  * 指标元数据接口
  */
-export interface IndicatorMetadata<T = unknown> {
+export interface IndicatorMetadata<_T = unknown> {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
   /** 序列和绘图对象统一声明公共 Plot 输出。 */

@@ -15,6 +15,12 @@ const light = createScriptColorResolver(lightTheme.colors)
 const dark = createScriptColorResolver(darkTheme.colors)
 
 describe('createScriptColorResolver', () => {
+  it('resolves namespaced tokens at paint time and rejects non-color paths', () => {
+    expect(light('@token:volumeProfile.pointOfControl')).toBe(lightTheme.colors.volumeProfile.pointOfControl)
+    expect(dark('@token:volumeProfile.valueAreaUp')).toBe(darkTheme.colors.volumeProfile.valueAreaUp)
+    expect(() => light('@token:volumeProfile')).toThrow(TypeError)
+    expect(() => light('@token:__proto__.anything')).toThrow(TypeError)
+  })
   it('resolves every alias to the theme palette value', () => {
     for (const alias of SCRIPT_COLOR_ALIASES) {
       expect(light(`@${alias}`)).toBe(lightTheme.colors.scriptPalette[alias])

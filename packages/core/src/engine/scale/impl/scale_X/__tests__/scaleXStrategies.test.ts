@@ -6,6 +6,7 @@ import {
   createTimeSharePoints,
   createTimeShareRange,
 } from '@/engine/__tests__/helpers/timeShareTestKit'
+import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum } from '@/foundation/types/price'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
@@ -56,6 +57,7 @@ function input(overrides: Partial<ScaleXInput> & Pick<ScaleXInput, 'view'>): Sca
     width: 600,
     dpr: 1,
     kWidth: 8,
+    kGapRatio: KLINE_GAP_RATIOS.standard,
     sessionSlotWidth: null,
     data: bars(20),
     dataLength: 20,
@@ -83,10 +85,50 @@ describe('SCALE_X_STRATEGIES', () => {
     expect(snapshot.viewportWidth).toBe(600)
     const negative = snapshot.indexAtWorld(-5000)!
     expect(negative).toBeLessThan(0)
-    // 负索引落在最近槽位中心（kWidth=8、gap=3 → step=10，ORIGIN 对齐物理像素），故存在半个槽位误差。
+    // 负索引落在最近槽位中心（kWidth=8、gap=4.8 → step=12.8，ORIGIN 对齐物理像素），故存在半个槽位误差。
     expect(Math.abs(snapshot.worldAtIndex(negative)! + 5000)).toBeLessThanOrEqual(
       snapshot.grid.step / 2,
     )
+  })
+
+  it('密度系数只改变槽距，不改变实体宽度', () => {
+    const strategy = SCALE_X_STRATEGIES[ChartDataViewId.KLine]
+    const compact = strategy.project(
+      input({ view: ChartDataViewId.KLine, kGapRatio: KLINE_GAP_RATIOS.compact }),
+    )
+    const loose = strategy.project(
+      input({ view: ChartDataViewId.KLine, kGapRatio: KLINE_GAP_RATIOS.loose }),
+    )
+    expect(compact.kWidthPx).toBe(loose.kWidthPx)
+    expect(compact.kGap).toBeCloseTo(8 * KLINE_GAP_RATIOS.compact, 10)
+    expect(loose.kGap).toBeCloseTo(8 * KLINE_GAP_RATIOS.loose, 10)
+  })
+
+  it('槽距保持连续，取整余量只落在实体间距上', () => {
+    const snapshot = SCALE_X_STRATEGIES[ChartDataViewId.KLine].project(
+      input({ view: ChartDataViewId.KLine, kWidth: 8 }),
+    )
+    // 小数槽距是平滑缩放的前提；实体宽度与间距不另做像素取整派生。
+    expect(snapshot.grid.step).toBeCloseTo(8 + 8 * KLINE_GAP_RATIOS.standard, 10)
+    const nominalGap = snapshot.grid.step - snapshot.kWidthPx
+    for (let index = 1; index < 5; index++) {
+      const gap = snapshot.positions[index]! - snapshot.positions[index - 1]! - snapshot.kWidthPx
+      expect(Math.abs(gap - nominalGap)).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('实体退化为 1 物理像素时间距归零，但槽距仍随宽度增长', () => {
+    const strategy = SCALE_X_STRATEGIES[ChartDataViewId.KLine]
+    const line = strategy.project(
+      input({ view: ChartDataViewId.KLine, kWidth: 1, kGapRatio: KLINE_GAP_RATIOS.standard }),
+    )
+    const slightlyWider = strategy.project(
+      input({ view: ChartDataViewId.KLine, kWidth: 1.2, kGapRatio: KLINE_GAP_RATIOS.standard }),
+    )
+    expect(line.kGap).toBe(0)
+    expect(line.grid.step).toBeCloseTo(1, 10)
+    expect(slightlyWider.kGap).toBe(0)
+    expect(slightlyWider.grid.step).toBeCloseTo(1.2, 10)
   })
 
   it('普通分时忽略传入滚动与遗留槽宽，固定适配视口', () => {

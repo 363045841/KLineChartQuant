@@ -54,14 +54,16 @@ export class MarketDataHealth {
       return Promise.resolve()
     active?.controller.abort()
     const controller = new AbortController()
-    this.signal.set({
-      ...this.signal.peek(),
-      [id]: {
-        status: 'checking',
-        checkedAt: Date.now(),
-        connectionVersion: version,
-      },
-    })
+    // 后台复查保留上次事实；checking 只用于尚未有结果的来源，避免刷新导致连接抖动。
+    if (cached === undefined)
+      this.signal.set({
+        ...this.signal.peek(),
+        [id]: {
+          status: 'checking',
+          checkedAt: Date.now(),
+          connectionVersion: version,
+        },
+      })
     let timer: ReturnType<typeof setTimeout> | undefined
     const aborted = new Promise<SourceProbeResult>((resolve) => {
       controller.signal.addEventListener(

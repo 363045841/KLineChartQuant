@@ -1,6 +1,8 @@
 /** 柱体屏幕投影：视口裁剪、屏幕缓冲复用与物理像素量化。 */
 import { describe, expect, it } from 'vitest'
+import { projectOhlc } from '../../ohlcGeometry/impl/projectOhlc.js'
 import { projectBarPrimitives } from '../impl/paintBars.js'
+import { projectBarBatches } from '../impl/projectBars.js'
 import type { WorldRectBatch } from '../types.js'
 
 /** 生成等宽柱：第 i 根从 x = i × step、宽 6、高 10、y = 2 开始。 */
@@ -11,6 +13,47 @@ function makeBatch(count: number, step = 8): WorldRectBatch {
 }
 
 describe('柱体屏幕投影', () => {
+  it.each([1, 1.25, 1.5, 2, 3])('两条柱状投影入口使用相同像素规则，DPR=%s', (dpr) => {
+    for (const phase of [0.49, 0.5, 0.51]) {
+      const batch = {
+        buf: new Float64Array([(10 + phase) / dpr, 2, 3 / dpr, 10]),
+        count: 1,
+        color: '#f00',
+      }
+      const scroll = phase / dpr
+      const legacy = projectBarBatches([batch], scroll, dpr)[0]!
+      const primitive = projectBarPrimitives([batch], scroll, dpr, 800)[0]!
+      expect(primitive.data[0]! * dpr).toBe(legacy.buf[0])
+      expect(primitive.data[2]! * dpr).toBe(legacy.buf[2])
+    }
+  })
+  it.each([1, 1.25, 1.5, 2, 3])('锚点不动时实体和影线不随世界坐标取整抖动，DPR=%s', (dpr) => {
+    let previous: number[][] | undefined
+    for (const phase of [0.49, 0.51, 0.99, 1.01]) {
+      const geometry = projectOhlc({
+        center: (100 + phase) / dpr,
+        openY: 30,
+        highY: 10,
+        lowY: 80,
+        closeY: 60,
+        widthPx: 11,
+        dpr,
+        zoomLevel: 1,
+        shape: 'candlestick',
+        separateBorder: false,
+      })
+      const batches = [geometry.body, geometry.wick].map((rects) => ({
+        buf: new Float64Array(rects.flat()),
+        count: rects.length,
+        color: '#f00',
+      }))
+      const screen = projectBarPrimitives(batches, phase / dpr, dpr, 800).map((primitive) =>
+        Array.from(primitive.data),
+      )
+      if (previous) expect(screen).toEqual(previous)
+      previous = screen
+    }
+  })
   it('复用世界缓冲对应的屏幕缓冲与原语对象', () => {
     const batch = makeBatch(10)
     const first = projectBarPrimitives([batch], 0, 1, 800)[0]!

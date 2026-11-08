@@ -3,6 +3,10 @@
   <div class="theme-mode" role="radiogroup" :aria-label="label">
     <span
       class="theme-mode__thumb"
+      :class="{
+        'theme-mode__thumb--first': activeIndex === 0,
+        'theme-mode__thumb--last': activeIndex === themeModes.length - 1,
+      }"
       aria-hidden="true"
       :style="{ '--theme-mode-index': activeIndex }"
     ></span>
@@ -63,33 +67,38 @@
   .theme-mode {
     --theme-mode-scale: 0.75;
     --theme-mode-size: calc(32px * var(--theme-mode-scale));
-    --theme-mode-gap: calc(var(--klc-spacing-xs) * var(--theme-mode-scale));
-    --theme-mode-padding: calc(var(--klc-spacing-xs) * var(--theme-mode-scale));
 
     position: relative;
     display: inline-flex;
     flex: 0 0 auto;
-    gap: var(--theme-mode-gap);
-    padding: var(--theme-mode-padding);
+    overflow: hidden;
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 999px;
+    border-radius: var(--klc-radius-full, 9999px);
     background-color: var(--klc-color-ui-surface);
   }
 
-  /* 选中滑块：切换时平移到目标选项，形成连续的位移动画。 */
+  /* 选中滑块铺满整个分段，与胶囊容器之间不留内边距；圆角按首尾项贴合胶囊。 */
   .theme-mode__thumb {
     position: absolute;
-    inset-block-start: var(--theme-mode-padding);
-    inset-inline-start: var(--theme-mode-padding);
+    inset-block-start: 0;
+    inset-inline-start: 0;
     inline-size: var(--theme-mode-size);
     block-size: var(--theme-mode-size);
-    border-radius: 50%;
+    border-radius: 0;
     background-color: var(--klc-color-ui-hover);
-    transform: translateX(
-      calc(var(--theme-mode-index, 0) * (var(--theme-mode-size) + var(--theme-mode-gap)))
-    );
+    transform: translateX(calc(var(--theme-mode-index, 0) * var(--theme-mode-size)));
     transition: transform var(--klc-motion-duration-moderate) var(--klc-motion-easing-decelerate);
     pointer-events: none;
+  }
+
+  .theme-mode__thumb--first {
+    border-start-start-radius: var(--klc-radius-full, 9999px);
+    border-end-start-radius: var(--klc-radius-full, 9999px);
+  }
+
+  .theme-mode__thumb--last {
+    border-start-end-radius: var(--klc-radius-full, 9999px);
+    border-end-end-radius: var(--klc-radius-full, 9999px);
   }
 
   .theme-mode__option {
@@ -114,7 +123,7 @@
     place-items: center;
     inline-size: var(--theme-mode-size);
     block-size: var(--theme-mode-size);
-    border-radius: 50%;
+    border-radius: 0;
     color: var(--klc-color-ui-muted);
     transition:
       color var(--klc-motion-duration-fast) ease,
@@ -133,9 +142,10 @@
     background-color: transparent;
   }
 
+  /* 容器改为 overflow 裁切后，焦点环向内收，避免被胶囊边界裁掉。 */
   .theme-mode__input:focus-visible + .theme-mode__surface {
     outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: calc(2px * var(--theme-mode-scale));
+    outline-offset: -2px;
   }
 
   .theme-mode__icon {
