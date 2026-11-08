@@ -9,13 +9,14 @@ import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.j
 /** 本地默认行情服务地址，可通过数据源运行时配置覆盖 */
 export const DEFAULT_V1_BASE_URL = 'http://127.0.0.1:8080'
 
-/** 数据源注册声明：集中承载展示信息与出厂默认地址，运行时覆盖由注册表配置层负责 */
+/** 数据源注册声明：集中承载展示信息、出厂默认地址与私有会话覆盖；共享会话只在 builtinMarketSessions.json 定义。 */
 export interface DataSourceRegistration {
   id: string
   connectionId?: string
   displayName: string
   description?: string
   defaultBaseUrl?: string
+  /** 仅声明内置表没有的私有会话；共享时段不得在此重复定义。 */
   marketSessions?: Readonly<Record<string, MarketSessionConfig>>
 }
 
@@ -23,10 +24,9 @@ export interface DataSourceRegistration {
 export const dataSourceRegistry = {
   binance: {
     id: DataSource.Binance,
-    displayName: 'Binance Spot',
-    description: 'Binance 现货 K 线与真实逐笔成交',
+    displayName: 'Binance Spot / Perp',
+    description: 'Binance 现货与 USDT-M 永续 K 线、真实逐笔成交',
     defaultBaseUrl: 'http://127.0.0.1:8091',
-    marketSessions: { BINANCE_SPOT: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] } },
   },
   gotdx: {
     id: DataSource.Gotdx,
@@ -61,10 +61,7 @@ export const dataSourceRegistry = {
     description:
       'MT5 local terminal connector (Exness), source: https://github.com/EliteOtaku/KCQ-MT5-connector',
     defaultBaseUrl: 'http://127.0.0.1:8090',
-    // MT5 品种（外汇/加密/金属 CFD）近似 7x24：会话仅供时区解析（UTC），不裁剪 K 线
-    marketSessions: {
-      MT5: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] },
-    },
+    // MT5 品种（外汇/加密/金属 CFD）近似 7x24，会话定义见内置表 MT5（UTC）
   },
   ths: {
     id: DataSource.THS,

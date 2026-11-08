@@ -101,5 +101,13 @@
     "tradingDays": [0, 1, 2, 3, 4, 5, 6],
     "sources": ["https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md"],
     "notes": ["现货每周七天连续交易，默认UTC划分K线；交易对停牌、下架和临时维护由行情源状态决定，不是固定节假日。", "不应用于交割合约、期权或其他Binance产品。"]
+  },
+  "BINANCE_PERP": {
+    "timeZone": "UTC",
+    "sessions": [{ "open": 0, "close": 1440 }],
+    "slotMinutes": 1,
+    "tradingDays": [0, 1, 2, 3, 4, 5, 6],
+    "sources": ["https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data"],
+    "notes": ["USDT-M永续每周七天连续交易，默认UTC划分K线；资金费率结算不中断交易。", "与现货分开声明：connector按市场下发不同sessionId，指标与脚本按sessionId取时区。"]
   }
 }

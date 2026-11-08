@@ -46,6 +46,7 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
+import { applyMarketSessions } from '../../../foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
@@ -296,6 +297,7 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
+  private readonly unsubscribeMarketSessions: () => void
   private readonly marketDataProviderRegistry: MarketDataProviderRegistry
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
@@ -326,7 +328,18 @@ export class Chart {
       (id, action) => this.legend.execute(id, action),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
-    this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
+    // 会话表只有一份：内置表 + 数据源声明 + 图表覆盖，动态注册的数据源也同步进来。
+    this.marketSessions = new MarketSessionRegistry()
+    const sessionOverrides = runtime?.marketSessions
+    const syncMarketSessions = () =>
+      applyMarketSessions(
+        this.marketSessions,
+        this.marketDataProviderRegistry.getAll().map((provider) => provider.source),
+        sessionOverrides,
+      )
+    syncMarketSessions()
+    this.unsubscribeMarketSessions =
+      this.marketDataProviderRegistry.state.subscribe(syncMarketSessions)
     this.pluginHost = createPluginHost()
     this.rendererHost = resolveRendererHost(runtime)
 
@@ -1384,6 +1397,7 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
+    this.unsubscribeMarketSessions()
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
     this.renderer.stopScheduling()

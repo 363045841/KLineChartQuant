@@ -1,5 +1,6 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it, vi } from 'vitest'
+import { dataSourceRegistry } from '../../impl/sourceRegistry'
 import type { InstrumentDescriptor } from '../../types'
 import { InstrumentType } from '../../types'
 import { createMarketDataProvider } from '../impl/provider'
@@ -327,5 +328,43 @@ describe('createMarketDataProvider', () => {
         }),
       ],
     })
+  })
+
+  // 内置 Binance 注册必须覆盖 connector 下发的两个市场会话，否则永续取时区时直接抛错。
+  it('resolves the session timezone of every binance market', async () => {
+    const provider = createMarketDataProvider({
+      source: { ...dataSourceRegistry.binance },
+      transport: fakeTransport({
+        fetchBars: async (request) => ({
+          instrumentId: request.instrument.id,
+          period: 'daily',
+          adjustment: 'none',
+          barAggregation: 'original',
+          timezone: '',
+          olderData: 'unknown',
+          items: [],
+        }),
+      }),
+    })
+    for (const [id, sessionId] of [
+      ['binance:spot:BTCUSDT', 'BINANCE_SPOT'],
+      ['binance:perp:BTCUSDT', 'BINANCE_PERP'],
+    ] as const) {
+      const series = await provider.bars!.fetch({
+        instrument: {
+          ...instrument,
+          id,
+          sourceId: 'binance',
+          sessionId,
+          exchange: 'BINANCE',
+          capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
+        },
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 10,
+      })
+      expect(series.timezone).toBe('UTC')
+    }
   })
 })
