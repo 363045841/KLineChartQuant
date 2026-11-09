@@ -64,6 +64,21 @@
         :disabled-values="kLineShapeDisabled"
         @update:model-value="emit('kLineShapeChange', $event)"
       />
+      <!-- 指标与模板下拉共用一个下拉触发器外观：图标 + 文字 + 箭头。 -->
+      <div v-if="!showBackButton" class="indicator-actions">
+        <BaseTooltip content="指标" placement="bottom">
+          <button
+            type="button"
+            class="indicator-actions__main"
+            aria-label="指标"
+            @click="emit('toggleIndicator')"
+          >
+            <IconTablerMathFunction class="indicator-actions__icon" aria-hidden="true" />
+            <span class="indicator-actions__label">指标</span>
+          </button>
+        </BaseTooltip>
+        <IndicatorTemplateMenu :controller="layoutController ?? null" />
+      </div>
       <BaseTooltip
         v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
         content="足迹图设置"
@@ -88,11 +103,6 @@
     <div class="top-toolbar__actions" role="group" aria-label="布局与图表操作">
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
-      <!-- 指标模板与布局分开：模板只换指标组合，不动品种与周期。 -->
-      <IndicatorTemplateMenu
-        v-if="!showBackButton"
-        :controller="layoutController ?? null"
-      />
     </div>
     <div class="chart-actions">
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom">
@@ -208,6 +218,7 @@
   import IconTablerClipboard from '~icons/tabler/clipboard'
   import IconTablerDownload from '~icons/tabler/download'
   import IconTablerMaximize from '~icons/tabler/maximize'
+  import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerSettings from '~icons/tabler/settings'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
@@ -341,6 +352,7 @@
     (e: 'toggleFullscreen'): void
     (e: 'settings'): void
     (e: 'footprintSettings'): void
+    (e: 'toggleIndicator'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 
@@ -516,6 +528,49 @@
     flex: 0 0 auto;
     border-left: 1px solid var(--klc-color-ui-border);
     padding-left: 4px;
+  }
+
+  /* 指标与模板下拉共用一个平面触发器外观：不画外框，和相邻下拉触发器一致。 */
+  .indicator-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: var(--klc-radius-md, 8px);
+    color: var(--klc-color-ui-text);
+    font-family: var(--klc-typography-font-family);
+    font-size: calc(var(--klc-typography-font-size-md) + 1px);
+    font-weight: 500;
+    transition: background-color var(--klc-motion-duration-moderate) ease;
+  }
+
+  .indicator-actions:hover,
+  .indicator-actions:focus-within {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .indicator-actions__main {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .indicator-actions__icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .indicator-actions__label {
+    line-height: normal;
   }
 
   .chart-actions {

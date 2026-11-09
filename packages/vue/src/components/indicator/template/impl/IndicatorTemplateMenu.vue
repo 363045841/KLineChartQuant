@@ -5,14 +5,14 @@
       <button
         ref="trigger"
         type="button"
-        class="control-button indicator-template__trigger"
+        class="indicator-template__trigger"
         aria-label="指标模板"
         aria-haspopup="dialog"
         :aria-expanded="open"
         :disabled="!controller"
         @click="toggle"
       >
-        <IconTablerLayoutGridAdd aria-hidden="true" />
+        <IconTablerChevronDown aria-hidden="true" />
       </button>
     </BaseTooltip>
 
@@ -208,9 +208,9 @@
   } from '@vue-src/composables/indicator/useIndicatorTemplates.js'
   import { computed, onBeforeUnmount, ref } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
   import IconTablerFolderOpen from '~icons/tabler/folder-open'
-  import IconTablerLayoutGridAdd from '~icons/tabler/layout-grid-add'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerTrash from '~icons/tabler/trash'
   import IndicatorTemplateNameDialog from './IndicatorTemplateNameDialog.vue'
@@ -319,11 +319,24 @@
   .indicator-template__trigger {
     display: inline-grid;
     place-items: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
   }
 
   .indicator-template__trigger svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
+    transition: transform var(--klc-motion-duration-fast) ease;
+  }
+
+  .indicator-template__trigger[aria-expanded='true'] svg {
+    transform: rotate(180deg);
   }
 
   .indicator-template__tabs {

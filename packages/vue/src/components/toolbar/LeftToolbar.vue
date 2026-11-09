@@ -1,19 +1,6 @@
 <template>
   <nav class="left-toolbar" aria-label="图表工具栏">
     <div class="left-toolbar__group">
-      <BaseTooltip content="指标">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="指标"
-          @click="emit('toggleIndicator')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
       <BaseTooltip v-if="scriptsEnabled !== false" content="代码编辑器">
         <button
           type="button"
@@ -452,7 +439,6 @@
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'setContinuousDrawing', enabled: boolean): void
-    (e: 'toggleIndicator'): void
     (e: 'openScriptEditor'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
