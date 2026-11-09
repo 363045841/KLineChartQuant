@@ -47,14 +47,20 @@ function createManager() {
   return { kernel, manager, appliedSnapshot: () => applied }
 }
 
-/** 在 K 线视图加入一个副图指标，返回窗格身份。 */
+/**
+ * 在 K 线视图加入一个副图指标，返回窗格身份。
+ *
+ * @remarks
+ * 用 `upsertSub` 而不是 `addSub`：前者的入参形状在两条基线一致，
+ * 用例不必为了内核 API 的名字差异改动断言本身。
+ */
 function addSubIndicator(
   kernel: ReturnType<typeof createTestChartStateKernel>,
   indicatorId: string,
   params: Record<string, number> = {},
 ): string {
   const paneId = `pane-${indicatorId}`
-  kernel.indicator.actions.addSub({
+  kernel.indicator.actions.upsertSub({
     instanceId: `instance-${indicatorId}`,
     indicatorId,
     paneId,
