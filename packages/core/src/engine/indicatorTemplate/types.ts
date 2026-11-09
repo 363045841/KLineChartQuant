@@ -1,0 +1,101 @@
+/**
+ * 指标模板契约层：模板文档形状、列表摘要与管理接口；实现位于 impl/。
+ *
+ * @remarks
+ * 模板只保存「指标组合」——每个实例的定义、参数、所在窗格与副图顺序。
+ * 商品、周期、图表设置、绘图、视口与价格轴都不属于模板，它们留在布局文档里。
+ * 因此模板可以跨图表复用，而布局是整张图表的快照。
+ */
+
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import type { LayoutPaneConfig } from '../layout/types.js'
+import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
+
+/** 模板文档版本；Alpha 阶段只接受当前版本，不迁移旧文档。 */
+export const INDICATOR_TEMPLATE_VERSION = 1
+
+/**
+ * 单个数据视图的指标组合。
+ *
+ * @remarks
+ * 与布局的 LayoutWorkspace 同构，但刻意不共用类型：布局以后可能继续增加
+ * 例如轴类型、窗格可见性等字段，而模板只关心指标实例与窗格顺序/高度。
+ * 复用一份类型会让模板被动继承布局的未来字段。
+ */
+export interface TemplateWorkspace {
+  readonly instances: ReadonlyArray<IndicatorInstanceConfig>
+  /** 用户指标所在窗格的数量与高度权重，顺序即界面上从下到上的顺序。 */
+  readonly paneSpecs: ReadonlyArray<LayoutPaneConfig>
+}
+
+/** K 线与分时两个视图的指标组合。 */
+export type TemplateWorkspaces = Readonly<Record<ChartWorkspaceId, TemplateWorkspace>>
+
+/** 一份具名指标模板。 */
+export interface IndicatorTemplateDocument {
+  readonly version: typeof INDICATOR_TEMPLATE_VERSION
+  readonly workspaces: TemplateWorkspaces
+}
+
+/** 归档在模板上附加身份；运行时状态不复制模板内容。 */
+export interface NamedIndicatorTemplate extends IndicatorTemplateDocument {
+  readonly id: string
+  readonly name: string
+}
+
+/** 列表项：只暴露列表需要的字段，不复制模板内容。 */
+export interface IndicatorTemplateSummary {
+  readonly id: string
+  readonly name: string
+  /** 模板内各指标的显示名，按出现顺序去重；多实例折叠为「名称 x N」。 */
+  readonly labels: ReadonlyArray<string>
+  /** 模板内指标实例总数，供列表展示规模。 */
+  readonly instanceCount: number
+}
+
+/** 模板归档的持久化形状；按模板身份索引，不含「当前模板」概念。 */
+export interface IndicatorTemplateArchive {
+  readonly documents: Readonly<Record<string, NamedIndicatorTemplate>>
+  /** 最近应用过的模板身份，最新在前；用于弹层的「最近用过」分组。 */
+  readonly recentIds: ReadonlyArray<string>
+}
+
+/** 应用模板的结果；被跳过的指标用于界面提示，不静默丢弃。 */
+export interface IndicatorTemplateApplyResult {
+  /** 成功恢复的指标实例数。 */
+  readonly applied: number
+  /** 模板引用但当前无法注册的指标定义 ID，去重保序。 */
+  readonly skipped: ReadonlyArray<string>
+  /** 因副图数量上限被丢弃的指标定义 ID，去重保序。 */
+  readonly dropped: ReadonlyArray<string>
+}
+
+/** 控制器与 UI 消费的模板管理入口。 */
+export interface IndicatorTemplateApi {
+  /** 当前模板列表，按创建顺序稳定输出。 */
+  readonly templates: ReadonlySignal<ReadonlyArray<IndicatorTemplateSummary>>
+  /** 最近应用过的模板身份，最新在前。 */
+  readonly recentTemplateIds: ReadonlySignal<ReadonlyArray<string>>
+  /** 读取归档并返回最新列表；首次调用时初始化存储。 */
+  listTemplates(): Promise<ReadonlyArray<IndicatorTemplateSummary>>
+  /**
+   * 保存当前图表的指标组合。
+   *
+   * @param input.name 模板名称，去空白后不能为空；与已有模板同名时覆盖该模板。
+   * @returns 写入后的模板身份。
+   */
+  saveTemplate(input: { name: string }): Promise<string>
+  /** 修改模板名称；目标不存在或新名称为空时抛错。 */
+  renameTemplate(input: { id: string; name: string }): Promise<void>
+  /** 删除模板；目标不存在时抛错。 */
+  deleteTemplate(input: { id: string }): Promise<void>
+  /**
+   * 把模板的指标组合应用到当前图表。
+   *
+   * @remarks
+   * 替换图上现有的用户指标，不追加；商品、周期、设置、绘图与视口保持不变。
+   * 模板引用但已无法注册的指标会被跳过，其余照常恢复。
+   */
+  applyTemplate(input: { id: string }): Promise<IndicatorTemplateApplyResult>
+}

@@ -88,6 +88,12 @@
     <div class="top-toolbar__actions" role="group" aria-label="布局与图表操作">
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
+      <!-- 指标模板与布局分开：模板只换指标组合，不动品种与周期。 -->
+      <IndicatorTemplateMenu
+        v-if="!showBackButton"
+        :controller="layoutController ?? null"
+        :active-indicator-labels="activeIndicatorLabels ?? []"
+      />
     </div>
     <div class="chart-actions">
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom">
@@ -183,6 +189,7 @@
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import LayoutMenu from '@vue-src/components/layout/LayoutMenu.vue'
+  import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import CompareSymbolSelector from '@vue-src/components/symbol/CompareSymbolSelector.vue'
   import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
@@ -286,6 +293,8 @@
   const props = withDefaults(
     defineProps<{
       layoutController?: ChartController | null
+      /** 当前图表的指标摘要，供指标模板保存对话框展示。 */
+      activeIndicatorLabels?: ReadonlyArray<string>
       symbol?: string
       symbolItem?: SymbolItem
       kLineLevel?: string

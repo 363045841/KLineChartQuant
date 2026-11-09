@@ -3,6 +3,11 @@
 
 export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
+  IndicatorTemplateApi,
+  IndicatorTemplateApplyResult,
+  IndicatorTemplateSummary,
+} from '../engine/indicatorTemplate/types.js'
+export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,

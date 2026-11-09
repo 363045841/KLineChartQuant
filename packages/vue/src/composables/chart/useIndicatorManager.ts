@@ -70,6 +70,25 @@ export function useIndicatorManager(
     ...subActiveIndicators.value,
   ])
 
+  /**
+   * 当前图表的指标名摘要，供指标模板保存对话框展示。
+   *
+   * @remarks
+   * 与模板列表用同一套折叠规则：同一定义出现多次显示为「名称 x N」。
+   * 名称取自定义目录，未注册的定义退回定义 ID。
+   */
+  const templateIndicatorLabels = computed<ReadonlyArray<string>>(() => {
+    const counts = new Map<string, { label: string; count: number }>()
+    for (const instance of indicatorInstances.value) {
+      const definition = getIndicatorDescriptor(instance.definitionId)
+      const label = definition?.title ?? definition?.displayName ?? instance.definitionId
+      const entry = counts.get(instance.definitionId)
+      if (entry) entry.count += 1
+      else counts.set(instance.definitionId, { label, count: 1 })
+    }
+    return [...counts.values()].map(({ label, count }) => (count > 1 ? `${label} x ${count}` : label))
+  })
+
   const indicatorParams = computed<Record<string, Record<string, unknown>>>(() => {
     const params: Record<string, Record<string, unknown>> = {}
     for (const indicator of indicatorInstances.value) {
@@ -270,6 +289,7 @@ export function useIndicatorManager(
     mainActiveIndicators,
     subActiveIndicators,
     activeIndicators,
+    templateIndicatorLabels,
     indicatorParams,
     subPanes,
     maxSubPanes,
