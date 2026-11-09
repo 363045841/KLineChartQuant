@@ -1,8 +1,7 @@
 /**
- * 按中立指标定义注册「产出 PlotCollection」的指标。
+ * 编译阶段的定义工厂：把中立的 Plot 指标定义装配成 core 的指标定义类。
  *
- * 生产方（脚本等）只提供 IndicatorDefinition；本模块负责把行情映射成 Bar、绑定通用
- * Plot Layer，并落入指标目录，使 core 成为纯粹的消费者，不必接触生产方的模型。
+ * 只做装配，不写注册表；脚本与第三方来源都通过它产出 `RegistrableIndicator`。
  */
 import {
   Format,
@@ -11,22 +10,17 @@ import {
   type InputSchema,
   resolveInputDefaults,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { plotRenderer } from '../plots/impl/plotDefinition.js'
-import { createPlotTitleInfo } from '../plots/impl/plotTitleInfo.js'
-import { formatPlotValue } from '../plots/impl/plotValueFormat.js'
-import { createIndicatorScaleLayer } from '../renderers/Indicator/scale/indicator_scale.js'
-import {
-  Indicator,
-  type IndicatorDefinitionClass,
-  registerIndicatorDefinition,
-  updateIndicatorDefinition,
-} from './indicatorDefinitionRegistry.js'
+import { Indicator, type IndicatorDefinitionClass } from '@/engine/indicators/indicatorDecorator.js'
 import {
   type IndicatorInputDef,
   IndicatorKind,
   type ScaleRendererFactory,
-} from './indicatorMetadata.js'
-import { toPlotBar } from './plotBars.js'
+} from '@/engine/indicators/indicatorMetadata.js'
+import { toPlotBar } from '@/engine/indicators/plotBars.js'
+import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
+import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
+import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
+import { createIndicatorScaleLayer } from '@/engine/renderers/Indicator/scale/indicator_scale.js'
 
 /** 提取参数展示声明；默认值与类型仍由 defaultParams 提供，两处不重复存默认值。 */
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
@@ -65,22 +59,12 @@ function createScaleRendererFactory(
 }
 
 /**
- * 注册一个由 IndicatorDefinition 描述的 Plot 指标。
+ * 把中立指标定义装配成 core 可注册的定义类。
  *
- * 位置缺省放副图；内部身份取 `id ?? name`（脚本由宿主分配稳定 ID），
- * displayName 与坐标轴标签取 name（稳定短名），title 作为选择器长名称。
+ * @param definition 已绑定计算入口的中立定义
+ * @returns 声明了 @Indicator 元数据的定义类，交给注册阶段写入
  */
-export function registerPlotIndicator<P>(definition: IndicatorDefinition<P>): void {
-  registerIndicatorDefinition(createPlotIndicatorDefinition(definition))
-}
-
-/** 保存完整脚本后显式更新同一指标的元数据与执行端口。 */
-export function updatePlotIndicator<P>(definition: IndicatorDefinition<P>): void {
-  updateIndicatorDefinition(createPlotIndicatorDefinition(definition))
-}
-
-/** 注册与更新共用中立定义转换，避免维护两套默认参数或位置映射。 */
-function createPlotIndicatorDefinition<P>(
+export function createPlotIndicatorDefinition<P>(
   definition: IndicatorDefinition<P>,
 ): IndicatorDefinitionClass {
   const main = definition.position === 'main'
@@ -124,7 +108,7 @@ function createPlotIndicatorDefinition<P>(
             )
           }
         : undefined,
-      compute: (data, params: P, market, range) =>
+      compute: (data, params, market, range) =>
         definition.compute(data.map(toPlotBar), params, market, range),
     },
   })

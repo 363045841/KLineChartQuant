@@ -68,18 +68,6 @@
         </button>
       </div>
     </div>
-
-    <!-- 始终渲染，用 grid 行高过渡展开/收起，避免 margin 跳变 -->
-    <div
-      v-if="param.description"
-      class="param-description"
-      :class="{ 'is-open': showDescription }"
-      :aria-hidden="!showDescription"
-    >
-      <div class="param-description__clip">
-        <p class="param-description__text">{{ param.description }}</p>
-      </div>
-    </div>
   </div>
 </template>
 

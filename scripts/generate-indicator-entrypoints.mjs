@@ -325,7 +325,7 @@ export function generateIndicatorEntrypoints(
   const header = '/** 自动扫描 @Indicator 生成；请修改定义类，不要手动编辑。 */\n'
   const indicatorSource =
     header +
-    "import type {\n  IndicatorDefinitionClass,\n  IndicatorDescriptor,\n} from '../indicatorDefinitionRegistry.js'\n\n" +
+    "import type {\n  IndicatorDefinitionClass,\n} from '../indicatorDecorator.js'\nimport type {\n  IndicatorDescriptor,\n} from '../pipeline/types.js'\n\n" +
     '/** 内置定义的静态目录与按需加载入口；目录字段在编译期提取，读取目录不会加载实现。 */\n' +
     'export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{\n' +
     '  readonly descriptor: IndicatorDescriptor\n' +

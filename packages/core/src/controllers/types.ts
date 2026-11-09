@@ -187,7 +187,7 @@ export interface IndicatorParamDef {
   max?: number
   step?: number
   options?: ReadonlyArray<{ value: string; label: string }>
-  visibleWhen?: import('../engine/renderers/Indicator/indicatorCatalog.js').ParamConfig['visibleWhen']
+  visibleWhen?: { key: string; values: readonly (number | string | boolean)[] }
 }
 
 export interface IndicatorDefinition {
@@ -199,7 +199,7 @@ export interface IndicatorDefinition {
   role: IndicatorPaneRole
   params: ReadonlyArray<IndicatorParamDef>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
-  documentIdentity?: 'builtin' | 'user'
+  documentIdentity?: import('../engine/indicators/pipeline/types.js').IndicatorDocumentIdentity
 }
 
 // ---------------------------------------------------------------------------
@@ -511,8 +511,8 @@ export interface ChartController extends DrawingChartAdapter, ChartRendererAcces
   /** Registered symbol catalog — adapters use for picker UI */
   readonly symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>>
 
-  // indicator catalog (static — adapters use for picker UI)
-  readonly catalog: ReadonlyArray<IndicatorDefinition>
+  // indicator catalog（注册表投影，随注册表变更自动重建）
+  readonly catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
 
   // ---- Alerts ----
   readonly alertController: AlertController

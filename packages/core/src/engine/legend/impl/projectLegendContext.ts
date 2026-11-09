@@ -3,7 +3,7 @@
  */
 
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,

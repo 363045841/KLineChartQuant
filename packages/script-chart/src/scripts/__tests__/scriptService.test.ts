@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  removeScriptIndicatorDefinition,
+  unregisterIndicator,
 } from '@363045841yyt/klinechart-core'
 import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
@@ -122,7 +122,7 @@ describe('ScriptService', () => {
     expect(await values()).toMatchObject({
       plots: [{ data: [{ value: 3 }, { value: 5 }, { value: 9 }] }],
     })
-    removeScriptIndicatorDefinition(indicator.id)
+    unregisterIndicator(indicator.id)
     scripts.dispose()
     const restored = await createScriptService([], { persistence })
     try {
@@ -174,7 +174,7 @@ describe('ScriptService', () => {
     } finally {
       scripts.dispose()
     }
-    removeScriptIndicatorDefinition('FolderAverage')
+    unregisterIndicator('FolderAverage')
     const restored = await createScriptService([], { persistence })
     try {
       expect(restored.listFolders()).toEqual([
@@ -343,7 +343,7 @@ describe('ScriptService', () => {
       trusted: true,
       folder: '',
     })
-    removeScriptIndicatorDefinition(initial.id)
+    unregisterIndicator(initial.id)
     const restored = await createScriptService([], { persistence })
     expect(restored.read(initial.id)).toEqual(initial)
     const revoked = await restored.update(initial.id, initial.source, 1, false)
@@ -416,7 +416,7 @@ describe('ScriptService', () => {
     expect(reusedName.id).not.toBe(initial.id)
     await scripts.remove(reusedName.id, reusedName.revision)
     // 清除运行定义模拟页面刷新，保留真实 IndexedDB 数据。
-    removeScriptIndicatorDefinition(next.id)
+    unregisterIndicator(next.id)
     const restored = await createScriptService()
     expect(restored.read(next.id)).toEqual(next)
     await restored.remove(next.id, next.revision)
@@ -471,7 +471,7 @@ describe('ScriptService', () => {
     expect(builtin.identity).toBe('builtin')
     await expect(scripts.update(builtin.id, builtin.source, 1)).rejects.toThrow('内置脚本只读')
     await expect(scripts.remove(builtin.id, 1)).rejects.toThrow('内置脚本只读')
-    expect(() => removeScriptIndicatorDefinition(builtin.id)).toThrow()
+    expect(() => unregisterIndicator(builtin.id)).toThrow()
     expect(await persistence.load()).toEqual({ scripts: [], folders: [] })
   })
 

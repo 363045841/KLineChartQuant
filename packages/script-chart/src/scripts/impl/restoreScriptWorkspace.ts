@@ -1,11 +1,17 @@
 /**
- * 启动恢复：先目录，再库，后内置脚本与用户指标。
+ * 启动恢复（只读阶段）：恢复目录、用户库与库可用性校验。
  *
- * 顺序由依赖决定：文档只能落在已恢复的目录中，指标只能引用已恢复的库。
+ * 不写指标注册表；指标注册由管线在拿到文档快照后执行。库校验失败逐条记录，
+ * 不阻断其余文档与指标的恢复。
  */
-import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core'
+import type { IndicatorFailure } from '@363045841yyt/klinechart-core'
 import { inspectScript } from '@363045841yyt/klinechart-script'
-import type { ScriptPersistence, ScriptServiceOptions } from '../types.js'
+import type {
+  SavedScript,
+  ScriptDocument,
+  ScriptPersistence,
+  ScriptServiceOptions,
+} from '../types.js'
 import { validateLibrary } from './libraryValidation.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 import type { ScriptExecutor } from './scriptExecutor.js'
@@ -19,81 +25,55 @@ export interface RestoreScriptWorkspaceRequest {
   readonly options: ScriptServiceOptions
 }
 
-/** 读取脚本声明中的名称，失败日志用；解析不出时退回序号。 */
-function describeScript(source: string, index: number): string {
-  try {
-    const declaration = inspectScript(source)
-    return declaration.name || `#${index}`
-  } catch {
-    return `#${index}`
-  }
+/** 恢复结果：目录、全部持久化脚本与逐条库失败。 */
+export interface RestoredScriptWorkspace {
+  readonly folders: ScriptFolderMap
+  readonly scripts: readonly SavedScript[]
+  readonly failures: readonly IndicatorFailure[]
 }
 
 /**
- * 恢复用户工作区并注册全部可执行定义。
+ * 恢复用户工作区：目录 → 库 → 脚本快照。
  *
- * @returns 恢复后的目录集合
+ * @param request 持久化、读模型与执行器
+ * @returns 目录映射、持久化脚本与库校验失败清单
  */
 export async function restoreScriptWorkspace(
   request: RestoreScriptWorkspaceRequest,
-): Promise<ScriptFolderMap> {
-  const { persistence, store, executor, options } = request
-  try {
-    const restored = await persistence.load()
-    const folders = restoreFolders(restored?.folders ?? [])
-    const saved = restored?.scripts ?? []
-    // 先恢复全部库，再准备指标；归档顺序不参与依赖加载。
-    const libraryIds = new Set<string>()
-    for (const document of saved) {
-      const declaration = inspectScript(document.source)
-      if (declaration.kind === 'library') {
-        libraryIds.add(document.id)
-        store.setLibrary(
-          Object.freeze({
-            ...document,
-            identity: 'user',
-            kind: 'library',
-            definition: { name: declaration.name },
-          }),
-        )
-      }
-    }
-    for (const library of store.catalog()) await validateLibrary(executor, library.name)
-    for (const [index, source] of (options.builtinSources ?? []).entries()) {
-      // 单个内置脚本失败不能拖垮整批：记录脚本名与错误后继续发布剩余脚本，
-      // 否则一个坏脚本会让选择器里只剩原生指标。名称只在失败时解析，不为日志多付解析成本。
-      try {
-        const prepared = await executor.prepare(source, true)
-        // 内置脚本随包发布且只读，可信是它的固有属性，不是用户选择。
-        await executor.publish(prepared.definition.name, source, prepared, 1, false, true, 'builtin')
-      } catch (error) {
-        console.error(`[ScriptService] 内置脚本发布失败：${describeScript(source, index)}`, error)
-      }
-    }
-    for (const document of saved) {
-      if (libraryIds.has(document.id)) continue
-      try {
-        const prepared = await executor.prepare(document.source, document.trusted)
-        const { definition } = prepared
-        store.assertAvailable(definition)
-        if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
-        await executor.publish(
-          document.id,
-          document.source,
-          prepared,
-          document.revision,
-          false,
-          document.trusted,
-          'user',
-          document.folder,
-        )
-      } catch (error) {
-        console.error(`[ScriptService] 用户脚本恢复失败：${document.id}`, error)
-      }
-    }
-    return folders
-  } catch (error) {
-    executor.dispose()
-    throw error
+): Promise<RestoredScriptWorkspace> {
+  const { persistence, store, executor } = request
+  const restored = await persistence.load()
+  const folders = restoreFolders(restored?.folders ?? [])
+  const saved = restored?.scripts ?? []
+  const failures: IndicatorFailure[] = []
+  const libraryDocuments = new Map<string, SavedScript>()
+
+  for (const document of saved) {
+    const declaration = inspectScript(document.source)
+    if (declaration.kind !== 'library') continue
+    libraryDocuments.set(declaration.name, document)
+    const library: ScriptDocument = Object.freeze({
+      ...document,
+      identity: 'user',
+      kind: 'library',
+      definition: { name: declaration.name },
+    })
+    store.setLibrary(library)
   }
+
+  for (const library of store.catalog()) {
+    try {
+      await validateLibrary(executor, library.name)
+    } catch (error) {
+      failures.push({
+        stage: 'collect',
+        origin: 'user-script',
+        key: libraryDocuments.get(library.name)?.id ?? library.name,
+        name: library.name,
+        error,
+      })
+    }
+  }
+
+  return { folders, scripts: saved, failures }
 }

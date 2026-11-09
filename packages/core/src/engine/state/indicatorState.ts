@@ -4,7 +4,7 @@ import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
-} from '../indicators/indicatorDefinitionRegistry.js'
+} from '../indicators/pipeline/index.js'
 import {
   createIndicatorInstanceId,
   createMainIndicatorInstanceId,

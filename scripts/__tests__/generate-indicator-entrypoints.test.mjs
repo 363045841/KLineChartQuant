@@ -188,7 +188,7 @@ for (const target of ['src', 'dist']) {
     writeFileSync(
       entry,
       `export { loadBuiltinIndicators } from '${pathToFileURL(path.join(directory, `registerBuiltins.${extension}`)).href}'\n` +
-        `export { getRegisteredIndicatorDefinitions } from '${pathToFileURL(path.join(directory, `indicatorDefinitionRegistry.${extension}`)).href}'\n`,
+        `export { readRegisteredDefinitions } from '${pathToFileURL(path.join(directory, `pipeline/index.${extension}`)).href}'\n`,
     )
     await build({
       configFile: false,
@@ -223,7 +223,7 @@ for (const target of ['src', 'dist']) {
     })
     const bundled = await import(pathToFileURL(path.join(output, 'definitions.mjs')).href)
     await bundled.loadBuiltinIndicators()
-    const definitions = bundled.getRegisteredIndicatorDefinitions()
+    const definitions = bundled.readRegisteredDefinitions()
     assert.deepEqual(definitions.map((definition) => definition.name).sort(), expected)
     for (const definition of definitions)
       assert.equal(typeof definition.rendererFactory, 'function', definition.name)

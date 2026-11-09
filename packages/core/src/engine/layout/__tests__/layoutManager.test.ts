@@ -1,11 +1,11 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
+import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
 import type { DrawingObject } from '../../drawing/types.js'
-import { registerIndicatorDescriptor } from '../../indicators/indicatorDefinitionRegistry.js'
+import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
@@ -113,14 +113,20 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
-  registerIndicatorDescriptor({
-    name: 'layout-test',
-    displayName: 'Layout test',
-    kind: IndicatorKind.Indicator,
-    category: 'main',
-    defaultPaneId: 'main',
-  })
-  const definition = allIndicatorDefinitions()[0]
+  registerIndicators([
+    {
+      kind: 'descriptor',
+      candidate: { key: 'layout-test', origin: 'third-party', identity: 'native' },
+      descriptor: {
+        name: 'layout-test',
+        displayName: 'Layout test',
+        kind: IndicatorKind.Indicator,
+        category: 'main',
+        defaultPaneId: 'main',
+      },
+    },
+  ])
+  const definition = indicatorCatalog()[0]
   if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
   await first.manager.initialize()

@@ -34,7 +34,6 @@
         :key="param.key"
         :param="param"
         :value="localValues[param.key]"
-        :show-description="showDescription"
         @update="setValue(param.key, $event)"
       />
     </div>

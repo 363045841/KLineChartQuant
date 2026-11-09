@@ -13,13 +13,12 @@ import {
 import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
 import { BUILTIN_INDICATOR_MANIFEST } from '@/engine/indicators/generated/builtinIndicators'
 import {
-  clearRegisteredIndicatorDefinitionsForTest,
-  getIndicatorDescriptors,
+  clearIndicatorStoreForTest,
   getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '@/engine/indicators/indicatorDefinitionRegistry'
+  readIndicatorDescriptors,
+} from '@/engine/indicators/pipeline/index'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-import { allIndicatorDefinitions } from '../indicatorDefinitionCatalog'
+import { indicatorCatalog } from '../indicatorCatalog/index'
 
 /** 记录每个内置定义模块的加载次数；必须在注册表首次读取目录前安装。 */
 const loads = new Map<string, number>()
@@ -40,7 +39,7 @@ beforeEach(async () => {
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
   })
-  clearRegisteredIndicatorDefinitionsForTest()
+  clearIndicatorStoreForTest()
   loads.clear()
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   stubAnimationFrame()
@@ -59,7 +58,7 @@ describe('indicator catalog without implementations', () => {
       compute: () => ({ plots: [], fills: [] }),
     })
     // 目录里的内置项是静态占位（kind: indicator），不加载实现；宿主注册项同样直接可见。
-    expect(allIndicatorDefinitions().map((definition) => definition.id)).toContain(
+    expect(indicatorCatalog().map((definition) => definition.id)).toContain(
       'LateRegisteredFixture',
     )
     expect(loads.size).toBe(0)
@@ -69,7 +68,7 @@ describe('indicator catalog without implementations', () => {
 describe('static catalog fidelity', () => {
   it('matches the metadata of every loaded implementation', async () => {
     await loadBuiltinIndicators()
-    const descriptors = getIndicatorDescriptors()
+    const descriptors = readIndicatorDescriptors()
     expect(descriptors).toHaveLength(BUILTIN_INDICATOR_MANIFEST.length)
     for (const descriptor of descriptors) {
       const definition = getRegisteredIndicatorDefinition(descriptor.name)!

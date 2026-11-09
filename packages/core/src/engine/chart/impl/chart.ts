@@ -103,7 +103,7 @@ import {
 } from '../../drawing/index.js'
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'

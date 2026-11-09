@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createSignal } from '@/foundation/reactivity/signal'
 import { createIndicatorSelectorController } from '../indicatorSelector/index'
 import type { IndicatorDefinition } from '../types'
 
@@ -77,8 +78,10 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
   },
 ]
 
+const fixtureCatalogSignal = createSignal<ReadonlyArray<IndicatorDefinition>>(fixtureCatalog)
+
 function makeController() {
-  return createIndicatorSelectorController({ catalog: fixtureCatalog })
+  return createIndicatorSelectorController({ catalog: fixtureCatalogSignal })
 }
 
 // ---------------------------------------------------------------------------
@@ -98,8 +101,10 @@ describe('createIndicatorSelectorController — construction', () => {
     expect(c.searchQuery()).toBe('')
   })
 
-  it('defaults catalog to empty when not provided', () => {
-    const c = createIndicatorSelectorController()
+  it('accepts an empty catalog signal', () => {
+    const c = createIndicatorSelectorController({
+      catalog: createSignal<ReadonlyArray<IndicatorDefinition>>([]),
+    })
     expect(c.catalog()).toEqual([])
     expect(c.filteredMain()).toEqual([])
     expect(c.filteredSub()).toEqual([])
@@ -107,7 +112,7 @@ describe('createIndicatorSelectorController — construction', () => {
 
   it('accepts initial active indicators', () => {
     const c = createIndicatorSelectorController({
-      catalog: fixtureCatalog,
+      catalog: fixtureCatalogSignal,
       active: [
         {
           id: 'seed-1',

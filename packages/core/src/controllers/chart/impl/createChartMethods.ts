@@ -11,7 +11,7 @@ import {
   getRegisteredIndicatorDefinition,
   isIndicatorDefinitionLoaded,
   resolveCanonicalIndicatorId,
-} from '@/engine/indicators/indicatorDefinitionRegistry.js'
+} from '@/engine/indicators/pipeline/index.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'

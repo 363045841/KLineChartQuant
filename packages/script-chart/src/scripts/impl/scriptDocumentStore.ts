@@ -2,7 +2,7 @@
 import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
+  readRegisteredDefinitions,
   type IndicatorMetadata,
 } from '@363045841yyt/klinechart-core'
 import {
@@ -72,7 +72,7 @@ export function createScriptDocumentStore(hostLibraries: readonly QuickJSLibrary
   /** 从唯一注册表派生用户快照，不维护第二份源码状态。 */
   function list(): readonly ScriptDocument[] {
     return Object.freeze([
-      ...getRegisteredIndicatorDefinitions().flatMap((metadata) => {
+      ...readRegisteredDefinitions().flatMap((metadata) => {
         const document = fromMetadata(metadata)
         return document ? [document] : []
       }),

@@ -8,20 +8,44 @@ export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
 export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/indicatorContracts.js'
 export {
-  getIndicatorDescriptor,
-  getIndicatorDescriptors,
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
   Indicator,
+  type IndicatorDefinitionClass,
   type IndicatorDefinitionConfig,
-  type IndicatorDescriptor,
+} from './engine/indicators/indicatorDecorator.js'
+export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
+export {
+  createPlotIndicatorDefinition,
+  getIndicatorDescriptor,
+  getRegisteredIndicatorDefinition,
+  indicatorCatalogRevision,
+  indicatorCommits,
+  indicatorFailures,
   isIndicatorDefinitionLoaded,
+  loadAllIndicatorDefinitions,
   loadIndicatorDefinitions,
-  registerIndicatorDefinition,
-  removeScriptIndicatorDefinition,
+  logIndicatorFailure,
+  readIndicatorDescriptors,
+  readRegisteredDefinitions,
+  registerIndicators,
   resolveCanonicalIndicatorId,
-  resolveIndicatorLayerId,
-} from './engine/indicators/indicatorDefinitionRegistry.js'
+  resolveIndicatorDefinitionId,
+  runIndicatorPipeline,
+  setIndicatorFailures,
+  unregisterIndicator,
+  type IndicatorCandidate,
+  type IndicatorCatalogCommit,
+  type IndicatorCompiler,
+  type IndicatorCollector,
+  type IndicatorDefinitionLoader,
+  type IndicatorDescriptor,
+  type IndicatorDocumentIdentity,
+  type IndicatorFailure,
+  type IndicatorOrigin,
+  type IndicatorPipelineReport,
+  type IndicatorStage,
+  type RegistrableIndicator,
+  type StageResult,
+} from './engine/indicators/pipeline/index.js'
 export {
   type IndicatorInputDef,
   IndicatorKind,
@@ -31,10 +55,6 @@ export {
   type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
-export {
-  registerPlotIndicator,
-  updatePlotIndicator,
-} from './engine/indicators/registerPlotIndicator.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {

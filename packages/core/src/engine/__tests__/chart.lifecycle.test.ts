@@ -6,9 +6,9 @@ import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '@/foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController } from '../drawing/index'
-import { resolveIndicatorLayerId } from '../indicators/indicatorDefinitionRegistry'
+import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { registerPlotIndicator, updatePlotIndicator } from '../indicators/registerPlotIndicator'
+import { registerEmptyPlot, registerPlotDefinition } from '../indicators/__tests__/helpers/plotIndicatorTestKit'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
@@ -355,13 +355,7 @@ describe('Chart lifecycle without a market selection', () => {
       const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
 
       for (const pane of paneSpecs.slice(1)) {
-        registerPlotIndicator({
-          id: pane.id,
-          name: pane.id,
-          source: 'script',
-          inputs: {},
-          compute: () => ({ plots: [], fills: [] }),
-        })
+        registerEmptyPlot(pane.id)
         chart.draw()
         expect(chart.getRenderer(resolveIndicatorLayerId(pane.id, pane.id))).toBeDefined()
         chart
@@ -391,12 +385,7 @@ describe('Chart lifecycle without a market selection', () => {
     const chart = mountChart(1000, 1000)
     try {
       const indicatorId = 'pane-ratio-fixture'
-      registerPlotIndicator({
-        id: indicatorId,
-        name: indicatorId,
-        inputs: {},
-        compute: () => ({ plots: [], fills: [] }),
-      })
+      registerEmptyPlot(indicatorId)
       const first = chart.indicators.add(indicatorId)
       expect(first).not.toBeNull()
       const paneId = chart.indicators.subPanes.peek()[0]!.paneId
@@ -432,11 +421,11 @@ describe('Chart lifecycle without a market selection', () => {
       compute: () => ({ plots: [], fills: [] }),
     }
     try {
-      registerPlotIndicator(definition)
+      registerPlotDefinition(definition)
       const first = chart.indicators.add(definition.id)
       chart.kernel.actions.setDataView('timeshare')
       const second = chart.indicators.add(definition.id)
-      updatePlotIndicator({ ...definition, position: 'main' })
+      registerPlotDefinition({ ...definition, position: 'main' })
       for (const [workspaceId, workspace] of Object.entries(
         chart.kernel.snapshotViewWorkspaces(),
       )) {
@@ -445,7 +434,7 @@ describe('Chart lifecycle without a market selection', () => {
         ])
         expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual(['main'])
       }
-      updatePlotIndicator({ ...definition, position: 'sub' })
+      registerPlotDefinition({ ...definition, position: 'sub' })
       for (const workspace of Object.values(chart.kernel.snapshotViewWorkspaces())) {
         expect(workspace.instances[0]?.role).toBe('sub')
         expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual([

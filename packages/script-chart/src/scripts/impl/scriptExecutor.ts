@@ -1,18 +1,15 @@
 /**
- * 脚本编译与执行：持有临时句柄、按提交快照发布定义、转发调试输出。
+ * 脚本编译与执行：持有编译句柄、按提交快照生成指标定义、转发调试输出。
  *
- * 只依赖文档读模型和 Worker，不接触持久化与目录。
+ * 只依赖文档读模型和 Worker，不接触持久化、目录与注册表；注册由调用方完成。
  */
-import {
-  generateUUID,
-  registerPlotIndicator,
-  updatePlotIndicator,
-} from '@363045841yyt/klinechart-core'
+import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/klinechart-core'
 import {
   type Bar,
   type ComputeRange,
   type IndicatorDefinition,
   type IndicatorMarketContext,
+  type IndicatorSourceDocument,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
@@ -26,13 +23,23 @@ import type { createScriptOutput } from './createScriptOutput.js'
 import { prepareScriptMarketData } from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 
-/** 一次准备的编译句柄；提交成功前不进入运行表。 */
-export interface PreparedScript {
+/** 一次编译的产物；提交成功前不进入运行表。 */
+export interface CompiledScript {
   readonly handle: string
   readonly definition: PreparedScriptDefinition
 }
 
-/** 执行器实例：编译、发布、运行与句柄回收的唯一入口。 */
+/** 生成指标定义所需的提交信息；与持久化文档一一对应。 */
+export interface CompiledScriptIdentity {
+  readonly id: string
+  readonly source: string
+  readonly revision: number
+  readonly identity: IndicatorSourceDocument['identity']
+  readonly trusted: boolean
+  readonly folder: string
+}
+
+/** 执行器实例：编译、绑定计算入口、运行与句柄回收的唯一入口。 */
 export type ScriptExecutor = ReturnType<typeof createScriptExecutor>
 
 /**
@@ -48,7 +55,7 @@ export function createScriptExecutor(
   const handles = new Map<string, string>()
   const debugOutputs = new Map<string, string>()
   const executionOutputs = new Map<string, string>()
-  const preparedSources = new Map<
+  const compiledSources = new Map<
     string,
     { source: string; libraries: readonly QuickJSLibrary[]; trusted: boolean }
   >()
@@ -77,12 +84,16 @@ export function createScriptExecutor(
     return worker.run(handle, bars, params, context, range, market.signal)
   }
 
-  /** 每次准备使用独立句柄，保存失败或过期提交不会覆盖当前可执行版本。 */
-  async function prepare(
+  /**
+   * 编译一份脚本源码：解析依赖库、确定可信状态并交给 Worker 编译。
+   *
+   * 每次编译使用独立句柄，提交失败不会覆盖当前可执行版本。
+   */
+  async function compile(
     source: string,
     trusted: boolean,
     snapshot?: readonly ScriptDocument[],
-  ): Promise<PreparedScript> {
+  ): Promise<CompiledScript> {
     const handle = generateUUID()
     const catalog = documents.catalog(snapshot)
     const resolved = resolveScriptLibraries(source, catalog)
@@ -100,25 +111,22 @@ export function createScriptExecutor(
         return document === undefined || document.trusted
       })
     const definition = await worker.prepare(handle, source, selected, effectiveTrust)
-    preparedSources.set(handle, { source, libraries: selected, trusted: effectiveTrust })
+    compiledSources.set(handle, { source, libraries: selected, trusted: effectiveTrust })
     return { handle, definition }
   }
 
-  /** 提交元数据与该版本的会话工厂；目录定义不持有已安装的运行态。 */
-  async function publish(
-    id: string,
-    source: string,
-    prepared: PreparedScript,
-    revision: number,
-    update: boolean,
-    trusted: boolean,
-    identity: ScriptDocument['identity'] = 'user',
-    folder = '',
-  ): Promise<ScriptDocument> {
-    const { definition } = prepared
-    const sources = preparedSources.get(prepared.handle)
-    if (!sources) throw new Error('脚本准备句柄已释放')
-    /** 计算身份首次执行才申请 Worker 句柄；移除身份时归还，目录不持有运行态。 */
+  /**
+   * 把编译结果绑定成可注册的指标定义。
+   *
+   * 计算入口首次执行时才申请 Worker 句柄，目录定义不持有运行态；
+   * 同一身份的新定义会替换旧句柄，旧句柄立即释放。
+   */
+  async function createDefinition(
+    compiled: CompiledScript,
+    identity: CompiledScriptIdentity,
+  ): Promise<ReturnType<typeof createPlotIndicatorDefinition>> {
+    const sources = compiledSources.get(compiled.handle)
+    if (!sources) throw new Error('脚本编译句柄已释放')
     const createCompute = (): IndicatorDefinition<
       Readonly<Record<string, number | string | boolean>>
     >['compute'] & { dispose(): void } => {
@@ -138,7 +146,7 @@ export function createScriptExecutor(
       >['compute'] = async (bars, params, market, range) => {
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
-        executionOutputs.set(handle, id)
+        executionOutputs.set(handle, identity.id)
         preparation ??= worker.prepare(
           handle,
           sources.source,
@@ -153,20 +161,21 @@ export function createScriptExecutor(
       }
       return Object.assign(run, { dispose: release })
     }
-    const document = Object.freeze({ revision, source, definition, identity, trusted, folder })
-    const commit = update ? updatePlotIndicator : registerPlotIndicator
-    commit({
-      ...definition,
-      id,
+    const document = Object.freeze({
+      revision: identity.revision,
+      source: identity.source,
+      definition: compiled.definition,
+      identity: identity.identity,
+      trusted: identity.trusted,
+      folder: identity.folder,
+    })
+    const definition = createPlotIndicatorDefinition({
+      ...compiled.definition,
+      id: identity.id,
       source: 'script',
       document,
       createCompute,
-      async compute(
-        bars,
-        params: Readonly<Record<string, number | string | boolean>>,
-        market,
-        range,
-      ) {
+      async compute(bars, params, market, range) {
         const execution = createCompute()
         try {
           return await execution(bars, params, market, range)
@@ -175,34 +184,34 @@ export function createScriptExecutor(
         }
       },
     })
-    const previous = handles.get(id)
-    handles.set(id, prepared.handle)
+    const previous = handles.get(identity.id)
+    handles.set(identity.id, compiled.handle)
     if (previous) await releaseHandle(previous)
-    return Object.freeze({ kind: 'indicator', id, ...document })
+    return definition
   }
 
   /** 直接执行一份草稿，不注册也不持久化定义。 */
   async function run(options: ScriptRunOptions): Promise<void> {
     output.source.clear(options.outputId)
-    const prepared = await prepare(options.source, options.trusted)
-    debugOutputs.set(prepared.handle, options.outputId)
+    const compiled = await compile(options.source, options.trusted)
+    debugOutputs.set(compiled.handle, options.outputId)
     try {
-      await compute(prepared.handle, options.bars, {}, options.market)
+      await compute(compiled.handle, options.bars, {}, options.market)
     } finally {
-      debugOutputs.delete(prepared.handle)
-      await releaseHandle(prepared.handle)
+      debugOutputs.delete(compiled.handle)
+      await releaseHandle(compiled.handle)
     }
   }
 
-  /** 释放一个尚未提交的准备句柄。 */
+  /** 释放一个尚未成为当前定义的编译句柄。 */
   async function releaseHandle(handle: string): Promise<void> {
-    preparedSources.delete(handle)
+    compiledSources.delete(handle)
     await worker.release(handle)
   }
 
-  /** 未成为该定义的当前句柄时立即释放，避免保存失败泄漏 Worker。 */
-  async function releasePrepared(id: string | null, handle: string): Promise<void> {
-    if (id !== null && handles.get(id) === handle) return
+  /** 注册失败时丢弃编译结果；已成为当前定义则保留。 */
+  async function abandon(id: string, handle: string): Promise<void> {
+    if (handles.get(id) === handle) return
     await releaseHandle(handle)
   }
 
@@ -222,16 +231,16 @@ export function createScriptExecutor(
     handles.clear()
     debugOutputs.clear()
     executionOutputs.clear()
-    preparedSources.clear()
+    compiledSources.clear()
   }
 
   return {
-    prepare,
-    publish,
+    compile,
+    createDefinition,
     compute,
     run,
     releaseHandle,
-    releasePrepared,
+    abandon,
     releaseDefinition,
     dispose,
   }

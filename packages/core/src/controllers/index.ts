@@ -23,10 +23,6 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 export { createChartController } from './chart/index.js'
-export {
-  allIndicatorDefinitions,
-  toIndicatorDefinition,
-} from './indicatorDefinitionCatalog.js'
 export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/index.js'
 export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type { ChartRendererAccess } from './renderers/index.js'
@@ -178,8 +174,11 @@ export {
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'
-// 选择器可在运行时注册脚本后刷新目录。
-export { onIndicatorDefinitionChanged } from '../engine/indicators/indicatorDefinitionRegistry.js'
+// 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
+export {
+  findIndicatorDefinition,
+  indicatorCatalog,
+} from '../controllers/indicatorCatalog/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {
   LayoutApi,
@@ -210,13 +209,6 @@ export type {
 export { LEGEND_UI_EVENT } from '../engine/legend/types.js'
 // Indicator types & config
 export type { SubIndicatorType } from '../engine/renderers/Indicator/index.js'
-export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog.js'
-// Indicator data helpers
-export {
-  allIndicators,
-  findIndicator,
-  isSubIndicatorId,
-} from '../engine/renderers/Indicator/indicatorCatalog.js'
 export { getPhysicalKLineConfig } from '../engine/viewport/klineConfig.js'
 // Utility functions
 export { kGapFromKWidth, zoomLevelToKWidth } from '../engine/viewport/zoom.js'

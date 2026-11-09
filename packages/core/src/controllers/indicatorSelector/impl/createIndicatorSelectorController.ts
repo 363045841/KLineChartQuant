@@ -11,6 +11,7 @@
  * stays in the Vue adapter — the controller only deals with pure data.
  */
 
+import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
 import { computed, createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type { IndicatorDefinition } from '../../types.js'
 import { INDICATOR_ROLE } from '../../types.js'
@@ -75,17 +76,16 @@ function matchesQuery(def: IndicatorDefinition, q: string): boolean {
 // ---------------------------------------------------------------------------
 
 export function createIndicatorSelectorController(
-  initial?: IndicatorSelectorInit,
+  initial: IndicatorSelectorInit,
 ): IndicatorSelectorController {
   // -------------------------------------------------------------------
   // Signals (state)
   // -------------------------------------------------------------------
-  const catalog: Signal<ReadonlyArray<IndicatorDefinition>> = createSignal<
-    ReadonlyArray<IndicatorDefinition>
-  >(initial?.catalog ?? [])
+  // 目录由 Core 注册表投影直接提供，选择器不持有副本。
+  const catalog = initial.catalog
   const active: Signal<ReadonlyArray<ActiveIndicator>> = createSignal<
     ReadonlyArray<ActiveIndicator>
-  >(initial?.active ?? [])
+  >(initial.active ?? [])
   const menuOpen = createSignal(false)
   const searchQuery = createSignal('')
 
@@ -246,29 +246,8 @@ export function createIndicatorSelectorController(
   // longer receive notifications. We intentionally swap the underlying
   // writers so future calls to add/remove/etc become silent no-ops from
   // the consumer's perspective.
-  let disposed = false
-
-  // Snapshot the signals we expose via the interface so we can rebind them
-  // through a stable indirection object. Adapter code holding a reference
-  // to `controller.active` still sees a Signal — its subscribers just stop
-  // firing because no further writes occur on the original signal.
-  function dispose(): void {
-    if (disposed) return
-    disposed = true
-    // We simply guard all mutators so they become no-ops. Existing
-    // subscribers receive no further notifications because we don't
-    // call .set on the originals after this point.
-  }
-
-  // Wrap mutators so calls after dispose() are silent no-ops. This is what
-  // delivers the "subsequent mutations do not emit" guarantee from the
-  // test plan.
-  function guard<T extends (...args: never[]) => unknown>(fn: T): T {
-    return ((...args: Parameters<T>): ReturnType<T> => {
-      if (disposed) return undefined as ReturnType<T>
-      return fn(...args) as ReturnType<T>
-    }) as T
-  }
+  // 销毁后所有变更方法变为静默 no-op；生命周期由共享守卫统一处理。
+  const { dispose, guard } = createDisposeGuard()
 
   return {
     catalog,

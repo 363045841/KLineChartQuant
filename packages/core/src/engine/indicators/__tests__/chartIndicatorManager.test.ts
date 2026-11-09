@@ -2,7 +2,7 @@
  * ChartIndicatorManager 测试：实例 CRUD、主图增删改、副图 pane 联动、读者寻址与主图价格范围。
  */
 
-import type { IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
+import type { Bar, IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
 import { createDrawingObject, ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlotCollection, PlotRenderState } from '@/engine/plots/types.js'
@@ -22,12 +22,11 @@ import { paintPlots } from '../../plots/impl/plotRenderer.js'
 import { createIndicatorState } from '../../state/indicatorState'
 import { createPaneState } from '../../state/paneState'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
-import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '../pipeline/index.js'
 import type { IndicatorParameters } from '../instances/domain/instanceModel.js'
 import { loadBuiltinIndicators } from '../registerBuiltins'
-import { registerPlotIndicator, updatePlotIndicator } from '../registerPlotIndicator.js'
 import { createTestData } from './helpers/instanceTestKit'
-import { registerPlotIndicatorFixture } from './helpers/plotIndicatorTestKit'
+import { registerPlotDefinition, registerPlotIndicatorFixture } from './helpers/plotIndicatorTestKit'
 
 /** 读取数字参数；缺省或类型不符时回落到 1。 */
 function numberOf(params: IndicatorParameters, key: string): number {
@@ -248,7 +247,7 @@ describe('ChartIndicatorManager', () => {
     async (category) => {
       const name = `Visibility_${category}`
       const compute = vi.fn(
-        (data: readonly KLineData[]): PlotCollection => ({
+        (data: readonly Bar[]): PlotCollection => ({
           plots: [
             {
               kind: 'line',
@@ -310,8 +309,12 @@ describe('ChartIndicatorManager', () => {
       expect(manager.getRenderStatesSnapshot()).not.toBe(snapshot)
       if (category === 'main') expect(manager.getMainIndicatorPriceRange()).toBeNull()
       setHidden(false)
-      expect(reader.get(id)).toBe(output)
-      expect(manager.getRenderStatesSnapshot().get(id)).toBe(output)
+      // 只比较计算结果；重新组合的展示快照会刷新 timestamp，与“是否重算”无关。
+      expect(reader.get(id)).toMatchObject({ plots: output.plots, drawings: output.drawings })
+      expect(manager.getRenderStatesSnapshot().get(id)).toMatchObject({
+        plots: output.plots,
+        drawings: output.drawings,
+      })
       expect(compute).toHaveBeenCalledTimes(calls)
     },
   )
@@ -350,7 +353,7 @@ describe('ChartIndicatorManager', () => {
         fills: [],
       }),
     })
-    registerPlotIndicator(definition(1))
+    registerPlotDefinition(definition(1))
     const id = manager.addIndicator('script_editable_plot', { period: 7 })
     expect(id).not.toBeNull()
     const pane = manager.getSubPaneEntries()[0]!
@@ -360,11 +363,11 @@ describe('ChartIndicatorManager', () => {
     await vi.waitFor(() =>
       expect(read()?.plots[0]?.data[0]).toMatchObject({ value: data[0]?.close }),
     )
-    expect(() => updatePlotIndicator(definition(2))).not.toThrow()
+    expect(() => registerPlotDefinition(definition(2))).not.toThrow()
     await vi.waitFor(() =>
       expect(read()?.plots[0]?.data[0]).toMatchObject({ value: (data[0]?.close ?? 0) * 2 }),
     )
-    updatePlotIndicator(definition(3))
+    registerPlotDefinition(definition(3))
     await vi.waitFor(() =>
       expect(read()?.plots[0]?.data[0]).toMatchObject({ value: (data[0]?.close ?? 0) * 3 }),
     )
@@ -376,7 +379,7 @@ describe('ChartIndicatorManager', () => {
       params: { period: 7 },
     })
     // 位置由定义派生，迁移到主图后必须继续按原实例身份读取计算结果。
-    updatePlotIndicator({ ...definition(3), position: 'main' })
+    registerPlotDefinition({ ...definition(3), position: 'main' })
     expect(manager.getSubPaneEntries()).toHaveLength(0)
     const metadata = getRegisteredIndicatorDefinition('script_editable_plot')!
     const renderer = deps.getRenderer(
@@ -406,13 +409,13 @@ describe('ChartIndicatorManager', () => {
       compute: () => ({ plots: [], fills: [] }),
     })
 
-    registerPlotIndicator(source('Old Script Name'))
+    registerPlotDefinition(source('Old Script Name'))
     expect(manager.addIndicator(scriptId, { factor: 3 })).toBe(scriptId)
     const beforeRename = manager
       .indicatorsComputed()
       .find((entry) => entry.definitionId === scriptId)
 
-    updatePlotIndicator(source('New Script Name'))
+    registerPlotDefinition(source('New Script Name'))
 
     // 改名不重建实例，已启用状态与参数保留。
     expect(manager.isMainIndicatorActive(scriptId)).toBe(true)

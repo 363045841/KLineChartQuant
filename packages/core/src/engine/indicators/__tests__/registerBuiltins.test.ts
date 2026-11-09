@@ -3,8 +3,8 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import {
   getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '../indicatorDefinitionRegistry'
+  readRegisteredDefinitions,
+} from '../pipeline/index.js'
 import { IndicatorKind } from '../indicatorMetadata'
 import { loadBuiltinIndicators } from '../registerBuiltins'
 
@@ -21,7 +21,7 @@ beforeAll(loadBuiltinIndicators)
 
 describe('builtin indicator registration', () => {
   it('explicitly registers every system definition with decorator metadata', () => {
-    const definitions = getRegisteredIndicatorDefinitions()
+    const definitions = readRegisteredDefinitions()
     expect(definitions.map((definition) => definition.name).sort()).toEqual(
       [...SYSTEM_INDICATOR_NAMES].sort(),
     )
@@ -31,9 +31,9 @@ describe('builtin indicator registration', () => {
   })
 
   it('shares concurrent initialization without replacing registered definitions', async () => {
-    const definitions = getRegisteredIndicatorDefinitions()
+    const definitions = readRegisteredDefinitions()
     await Promise.all([loadBuiltinIndicators(), loadBuiltinIndicators()])
-    const reloaded = getRegisteredIndicatorDefinitions()
+    const reloaded = readRegisteredDefinitions()
     expect(reloaded).toHaveLength(definitions.length)
     for (const definition of definitions) {
       expect(getRegisteredIndicatorDefinition(definition.name)).toBe(definition)
@@ -41,7 +41,7 @@ describe('builtin indicator registration', () => {
   })
 
   it('resolves renderer names without creating renderer instances', () => {
-    for (const definition of getRegisteredIndicatorDefinitions()) {
+    for (const definition of readRegisteredDefinitions()) {
       const panes = definition.allowMainPane
         ? ['main', `sub_${definition.name}`]
         : [definition.category === 'main' ? 'main' : `sub_${definition.name}`]

@@ -15,6 +15,7 @@ import type {
   ChartMountOptions,
   ChartViewport,
   DrawingObject,
+  IndicatorDefinition,
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
@@ -228,7 +229,7 @@ export function createMockChartController(
     comparisonLoading: createSignal(false),
     comparisonSpecs: createSignal<ReadonlyArray<SymbolSpec>>([]),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
-    catalog: [],
+    catalog: createSignal([] as ReadonlyArray<IndicatorDefinition>),
 
     getData: () => data.peek(),
     withIndicatorData: async () => {

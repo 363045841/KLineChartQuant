@@ -1,6 +1,6 @@
 // 本文件执行指标计算，并将纯计算结果直接转义为紧凑文本。
 
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { ACTIVE_BUFFER_KIND } from '@/engine/state/dataState.js'
 import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '@/errors.js'

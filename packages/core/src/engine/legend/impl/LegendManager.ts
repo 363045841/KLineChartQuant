@@ -1,6 +1,6 @@
 /** 图例唯一管理入口：领域 CRUD、主副图帧投影与宿主界面请求。 */
 
-import { getIndicatorDescriptor } from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { isIndicatorVisibleOnPeriod } from '@/engine/indicators/indicatorPeriodVisibility.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,

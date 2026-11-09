@@ -20,7 +20,7 @@ import {
   makePluginLayerId,
   type Plugin,
   type RenderContext,
-  registerIndicatorDefinition,
+  registerIndicators,
 } from '@/index'
 
 /** 构造第三方自有 Layer，记录真实 Scene 对其绘制和释放的调用。 */
@@ -53,7 +53,13 @@ class ExternalIndicator {
     createExternalLayer(indicatorLayerId, options?.paneId),
   )
 }
-registerIndicatorDefinition(ExternalIndicator)
+registerIndicators([
+  {
+    kind: 'definition',
+    candidate: { key: indicatorName, origin: 'third-party', identity: 'native' },
+    definition: ExternalIndicator,
+  },
+])
 
 /** 读取指标工厂最近一次创建的 Layer。 */
 function lastIndicatorLayer(): Layer<RenderContext> {

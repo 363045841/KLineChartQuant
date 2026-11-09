@@ -33,7 +33,7 @@ import type { DrawingToolId } from '../drawing/index.js'
 import {
   getRegisteredIndicatorDefinition,
   resolveCanonicalIndicatorId,
-} from '../indicators/indicatorDefinitionRegistry.js'
+} from '../indicators/pipeline/index.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {

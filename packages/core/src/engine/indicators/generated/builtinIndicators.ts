@@ -1,8 +1,10 @@
 /** 自动扫描 @Indicator 生成；请修改定义类，不要手动编辑。 */
 import type {
   IndicatorDefinitionClass,
+} from '../indicatorDecorator.js'
+import type {
   IndicatorDescriptor,
-} from '../indicatorDefinitionRegistry.js'
+} from '../pipeline/types.js'
 
 /** 内置定义的静态目录与按需加载入口；目录字段在编译期提取，读取目录不会加载实现。 */
 export const BUILTIN_INDICATOR_MANIFEST: ReadonlyArray<{

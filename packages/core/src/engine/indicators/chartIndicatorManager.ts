@@ -45,11 +45,12 @@ import type { VisibleRange } from '../viewport/viewport.js'
 import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-  onIndicatorDefinitionChanged,
+  readRegisteredDefinitions,
+  indicatorCommits,
   resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
-} from './indicatorDefinitionRegistry.js'
+  type IndicatorCatalogCommit,
+} from './pipeline/index.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
 import {
   INDICATOR_AVAILABILITY_SERVICE,
@@ -166,6 +167,8 @@ export class ChartIndicatorManager {
   private readonly inlineExecutor: InlineIndicatorCalculationExecutor
   /** 取消订阅按需装配事件。 */
   private readonly disposeDefinitionSubscription: () => void
+  /** 已消费的提交修订号；构造时以当前快照为基线，避免重复装配。 */
+  private appliedCommitRevision: number
   private readonly calculationScheduler: ReturnType<typeof createInstanceCalculationScheduler>
   private subPaneManager: SubPaneManager
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
@@ -238,6 +241,43 @@ export class ChartIndicatorManager {
   }
   private onResultsAppliedCallback: (() => void) | null = null
 
+  /** 消费一次注册提交：先移除，再新增，最后替换。 */
+  private applyDefinitionCommit(commit: IndicatorCatalogCommit): void {
+    this.removeCommittedDefinitions(commit.removed)
+    if (commit.added.length > 0) {
+      this.inlineExecutor.addDefinitions(createInstanceCalculationDefinitions(commit.added))
+    }
+    if (commit.updated.length > 0) this.replaceCommittedDefinitions(commit.updated)
+  }
+
+  /** 移除已删除定义对应的实例与计算缓存。 */
+  private removeCommittedDefinitions(definitions: readonly IndicatorMetadata[]): void {
+    for (const definition of definitions) {
+      const canonical = resolveCanonicalIndicatorId(definition)
+      for (const instance of this.deps.indicator.readonly.instances.peek()) {
+        if (instance.indicatorId !== canonical) continue
+        if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
+        else this.deps.subPaneOps.remove(instance.paneId)
+      }
+      this.inlineExecutor.removeDefinitions([definition.name])
+    }
+  }
+
+  /** 替换定义：丢弃旧计算缓存、重挂实例并重算。 */
+  private replaceCommittedDefinitions(definitions: readonly IndicatorMetadata[]): void {
+    this.calculationScheduler.invalidateDefinitions(definitions.map((item) => item.name))
+    this.inlineExecutor.updateDefinitions(createInstanceCalculationDefinitions(definitions))
+    for (const definition of definitions) {
+      this.deps.subPaneOps.reconcileDefinition(
+        resolveCanonicalIndicatorId(definition),
+        definition.category === 'main' ? 'main' : 'sub',
+      )
+    }
+    const revision = this.pipeline.snapshot().calculationRevision
+    this.syncPipeline(this.deps.indicator.readonly.instances.peek())
+    if (revision === this.pipeline.snapshot().calculationRevision) this.requestCompute()
+  }
+
   /** 主图目录缓存；注册或替换任一完整定义后重建。 */
   private static _mainCatalogCache: {
     readonly definitions: readonly IndicatorMetadata[]
@@ -246,7 +286,7 @@ export class ChartIndicatorManager {
   } | null = null
 
   private static get mainCatalog() {
-    const definitions = getRegisteredIndicatorDefinitions()
+    const definitions = readRegisteredDefinitions()
     const cached = ChartIndicatorManager._mainCatalogCache
     if (
       cached &&
@@ -295,34 +335,17 @@ export class ChartIndicatorManager {
 
     // 计算经注册定义委派；Script 服务管理自己的 Worker，不创建平行执行链路。
     this.inlineExecutor = createInlineIndicatorCalculationExecutor(
-      createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
+      createInstanceCalculationDefinitions(readRegisteredDefinitions()),
       deps.getMarketData,
     )
-    // 新增与更新是不同意图；替换定义后必须丢弃旧计算器与结果缓存并重新计算。
-    this.disposeDefinitionSubscription = onIndicatorDefinitionChanged(({ type, definition }) => {
-      if (type === 'remove') {
-        for (const instance of this.deps.indicator.readonly.instances.peek()) {
-          if (instance.indicatorId !== resolveCanonicalIndicatorId(definition)) continue
-          if (instance.role === 'main') this.deps.indicator.actions.removeMain(instance.indicatorId)
-          else this.deps.subPaneOps.remove(instance.paneId)
-        }
-        this.inlineExecutor.removeDefinitions([definition.name])
-        return
-      }
-      const inline = createInstanceCalculationDefinitions([definition])
-      if (type === 'create') {
-        this.inlineExecutor.addDefinitions(inline)
-        return
-      }
-      this.calculationScheduler.invalidateDefinitions([definition.name])
-      this.inlineExecutor.updateDefinitions(inline)
-      this.deps.subPaneOps.reconcileDefinition(
-        resolveCanonicalIndicatorId(definition),
-        definition.category === 'main' ? 'main' : 'sub',
-      )
-      const revision = this.pipeline.snapshot().calculationRevision
-      this.syncPipeline(this.deps.indicator.readonly.instances.peek())
-      if (revision === this.pipeline.snapshot().calculationRevision) this.requestCompute()
+    // 注册表只发一次提交摘要：新增装配计算定义，替换丢弃旧缓存并重算，移除卸载实例。
+    // 构造时已用当前快照装配过，基线之前的提交不再重复消费。
+    this.appliedCommitRevision = indicatorCommits.peek()?.revision ?? 0
+    this.disposeDefinitionSubscription = effect(() => {
+      const commit = indicatorCommits()
+      if (commit === null || commit.revision <= this.appliedCommitRevision) return
+      this.appliedCommitRevision = commit.revision
+      this.applyDefinitionCommit(commit)
     })
 
     this.calculationScheduler = createInstanceCalculationScheduler({

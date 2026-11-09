@@ -19,6 +19,7 @@ import type {
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
+  ReadonlySignal,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import { KlineChart } from '@vue-src/components/index.js'
@@ -321,7 +322,7 @@ export function useViewport(controller: ChartController): ComputedRef<ChartViewp
  * ChartController engine methods.
  */
 export function useIndicatorSelector(controller: ChartController): {
-  catalog: ReadonlyArray<IndicatorDefinition>
+  catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
   filteredMain: ComputedRef<ReadonlyArray<IndicatorDefinition>>
   filteredSub: ComputedRef<ReadonlyArray<IndicatorDefinition>>
   menuOpen: ComputedRef<boolean>
@@ -347,7 +348,7 @@ export function useIndicatorSelector(controller: ChartController): {
 
   /** 先按需加载指标实现，再添加到对应位置。 */
   async function add(definitionId: string): Promise<string | null> {
-    const def = controller.catalog.find((d) => d.id === definitionId)
+    const def = controller.catalog.peek().find((d) => d.id === definitionId)
     if (def === undefined) return null
     await controller.loadIndicators([definitionId])
     return controller.addIndicator(definitionId)

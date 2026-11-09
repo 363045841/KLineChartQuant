@@ -92,12 +92,8 @@
       "import": "./dist/engine/renderers/Indicator/index.js"
     },
     "./indicators": {
-      "types": "./dist/engine/indicators/indicatorDefinitionRegistry.d.ts",
-      "import": "./dist/engine/indicators/indicatorDefinitionRegistry.js"
-    },
-    "./engine/renderers/Indicator/indicatorCatalog": {
-      "types": "./dist/engine/renderers/Indicator/indicatorCatalog.d.ts",
-      "import": "./dist/engine/renderers/Indicator/indicatorCatalog.js"
+      "types": "./dist/engine/indicators/pipeline/index.d.ts",
+      "import": "./dist/engine/indicators/pipeline/index.js"
     },
     "./engine/controller/interaction": {
       "types": "./dist/engine/controller/interaction.d.ts",

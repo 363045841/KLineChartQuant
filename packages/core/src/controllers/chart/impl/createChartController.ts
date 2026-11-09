@@ -5,7 +5,7 @@ import {
   getRegisteredIndicatorDefinition,
   loadIndicatorDefinitions,
   resolveCanonicalIndicatorId,
-} from '@/engine/indicators/indicatorDefinitionRegistry.js'
+} from '@/engine/indicators/pipeline/index.js'
 import {
   loadBuiltinIndicators,
   loadSystemIndicators,
@@ -21,7 +21,7 @@ import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
-import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
+import { indicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -287,7 +287,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     comparisonLoading: chart.comparisonLoading,
     comparisonSpecs: chart.comparisonSpecs,
     symbolCatalog,
-    catalog: allIndicatorDefinitions(),
+    catalog: indicatorCatalog,
     alertController: chart.alertController,
     ...dataMethods.methods,
     ...chartMethods,

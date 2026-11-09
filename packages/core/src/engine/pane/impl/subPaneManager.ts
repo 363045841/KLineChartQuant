@@ -3,8 +3,8 @@ import { encodeStableNumber } from '../../../foundation/utils/stableNumber.js'
 import type { Layer } from '../../../rendering/scene/types.js'
 import {
   getRegisteredIndicatorDefinition,
-  resolveIndicatorLayerId,
-} from '../../indicators/indicatorDefinitionRegistry.js'
+} from '../../indicators/pipeline/index.js'
+import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import { createIndicatorLayer } from '../../renderers/Indicator/factory.js'
 import {
   createIndicatorScaleLayer,

@@ -175,7 +175,7 @@
       v-if="currentIndicator"
       :visible="paramsVisible"
       :indicator-id="currentIndicator.id"
-      :indicator-name="currentIndicator.name"
+      :indicator-name="currentIndicatorName"
       :indicator-description="currentIndicator.description"
       :params="currentIndicator.params || []"
       :values="getParamValues(currentIndicator.id)"
@@ -189,7 +189,8 @@
   import {
     type ChartController,
     createIndicatorSelectorController,
-    findIndicator,
+    findIndicatorDefinition,
+    indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
@@ -199,7 +200,6 @@
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import { useIndicatorCatalog } from '@vue-src/composables/indicator/useIndicatorCatalog.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
@@ -237,9 +237,8 @@
     close: []
   }>()
 
-  // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
-  const controller = createIndicatorSelectorController()
-  useIndicatorCatalog(controller)
+  // 目录是 Core 注册表投影，选择器打开即已是最新，不再复制列表。
+  const controller = createIndicatorSelectorController({ catalog: indicatorCatalog })
   const { removing, removalError, canRemove, removeScript } = useScriptRemoval(
     inject(SCRIPT_SOURCE_STORE_KEY, undefined),
   )
@@ -252,7 +251,11 @@
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
   /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
-  const currentIndicator = ref<ReturnType<typeof findIndicator>>()
+  const currentIndicator = ref<ReturnType<typeof findIndicatorDefinition>>()
+  /** 参数弹窗标题优先用长名称，缺省回落到列表标签。 */
+  const currentIndicatorName = computed(
+    () => currentIndicator.value?.name ?? currentIndicator.value?.label ?? '',
+  )
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     const indicators = props.replacePaneId
@@ -273,7 +276,7 @@
 
   function addIndicator(indicatorId: string) {
     if (isActive(indicatorId)) return
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     if (!indicator) return
     emit('toggle', indicatorId, true)
   }
@@ -285,8 +288,8 @@
   /** 切换指标启用状态。 */
   function toggleIndicator(indicatorId: string) {
     if (props.replacePaneId) {
-      const indicator = findIndicator(indicatorId)
-      if (!indicator || indicator.pane !== props.replaceRole) return
+      const indicator = findIndicatorDefinition(indicatorId)
+      if (!indicator || indicator.role !== props.replaceRole) return
       // 替换源本身不允许再次选中；主图和副图同一规则，避免出现重复指标。
       if (isActive(indicatorId)) return
       emit('replace', props.replacePaneId, indicatorId)
@@ -301,7 +304,7 @@
   }
 
   function showParams(indicatorId: string) {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
     if (!indicator?.params?.length) return
     currentIndicatorId.value = indicatorId
@@ -317,7 +320,7 @@
 
   /** 打开当前脚本文档，官方身份由编辑器提供只读展示。 */
   function editScript(indicatorId: string) {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     // 原生指标没有脚本可编辑；入口按钮保持可见并置灰。
     if (indicator?.source !== 'script') return
     closeMenu()
@@ -331,7 +334,7 @@
   }
 
   function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     if (!indicator?.params) return {}
 
     const defaultParams: Record<string, number | string | boolean> = {}
