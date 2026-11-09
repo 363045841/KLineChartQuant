@@ -1,13 +1,15 @@
 /** 根组件直接挂载时必须同步初始化，防止顶层 await 让安装包启动后只显示背景。 */
 import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
 
 describe('desktop root startup', () => {
   it('compiles App.vue to synchronous setup for direct mounting', () => {
-    const filename = new URL('../App.vue', import.meta.url)
+    const filename = resolve(dirname(fileURLToPath(import.meta.url)), '../App.vue')
     const { descriptor, errors } = parse(readFileSync(filename, 'utf8'), {
-      filename: filename.pathname,
+      filename,
     })
     expect(errors).toEqual([])
 
