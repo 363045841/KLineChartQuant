@@ -64,6 +64,12 @@
         :disabled-values="kLineShapeDisabled"
         @update:model-value="emit('kLineShapeChange', $event)"
       />
+      <IndicatorTemplateMenu
+        v-if="!showBackButton"
+        class="top-toolbar__item"
+        :controller="layoutController ?? null"
+        @toggle-indicator="emit('toggleIndicator')"
+      />
       <BaseTooltip
         v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
         content="足迹图设置"
@@ -182,6 +188,7 @@
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import LayoutMenu from '@vue-src/components/layout/LayoutMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import CompareSymbolSelector from '@vue-src/components/symbol/CompareSymbolSelector.vue'
@@ -335,6 +342,7 @@
     (e: 'toggleFullscreen'): void
     (e: 'settings'): void
     (e: 'footprintSettings'): void
+    (e: 'toggleIndicator'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 
@@ -470,12 +478,18 @@
     box-shadow: none;
   }
 
+  /* 分区触发器只画一份外观，留白交给内部两个点击区域。 */
+  .top-toolbar__item :deep(.control-trigger) {
+    --control-button-inline-padding: 10px;
+    padding: 0;
+  }
+
   .top-toolbar :deep(.symbol-chip:hover),
   .top-toolbar :deep(.symbol-chip.is-open),
   .top-toolbar :deep(.symbol-chip[aria-expanded='true']),
   .top-toolbar :deep(.compare-chip:hover),
   .top-toolbar :deep(.compare-chip.is-open),
-  .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled)),
+  .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled):not(.control-trigger)),
   .top-toolbar__item :deep(.drop-menu__trigger[aria-expanded='true']),
   .top-toolbar .history-button:hover:not(:disabled) {
     background: var(--klc-color-ui-hover);
@@ -511,6 +525,7 @@
     border-left: 1px solid var(--klc-color-ui-border);
     padding-left: 4px;
   }
+
 
   .chart-actions {
     flex: 0 0 auto;

@@ -51,7 +51,7 @@
           >
             <header class="source-group__header">
               <span class="source-group__title">{{ group.title }}</span>
-              <span v-if="group.shared" class="source-group__tag">共用连接</span>
+              <BaseChip v-if="group.shared" variant="outline" size="sm">共用连接</BaseChip>
             </header>
 
             <!-- 地址是连接级配置：一个连接只出现一个编辑入口 -->
@@ -84,7 +84,7 @@
               <code class="source-endpoint__value">
                 {{ group.connection.baseUrl ?? group.connection.defaultBaseUrl }}
               </code>
-              <span class="source-group__tag">宿主托管</span>
+              <BaseChip variant="outline" size="sm">宿主托管</BaseChip>
             </div>
             <p v-if="errors[group.connection.id]" class="source-endpoint__error" role="alert">
               {{ errors[group.connection.id] }}
@@ -131,6 +131,7 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
@@ -291,18 +292,6 @@
     font-size: var(--klc-text-label-13-font-size, 13px);
     font-weight: 600;
     letter-spacing: 0.01em;
-  }
-
-  .source-group__tag {
-    flex: 0 0 auto;
-    padding: 1px 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 999px;
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.6;
-    white-space: nowrap;
   }
 
   /* ── 连接地址 ── */

@@ -33,6 +33,24 @@
   cursor: not-allowed;
 }
 
+/* 单横线输入：去掉四周框与填充，只保留底线；聚焦只提亮底线，不画焦点环。 */
+.form-control--underline {
+  height: var(--klc-density-default, 32px);
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--klc-color-ui-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.form-control--underline:focus {
+  border-bottom-color: var(--klc-color-ui-border-strong);
+}
+
+.form-control--underline[aria-invalid="true"] {
+  border-bottom-color: var(--klc-color-ui-danger);
+}
+
 /* 行内命名控件：尺寸与外观共享，宽度和 flex 由所在布局决定。 */
 .form-control-inline-name {
   min-width: 0;

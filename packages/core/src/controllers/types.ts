@@ -32,6 +32,7 @@ import type {
   DrawingObject as PluginDrawingObject,
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
+import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
 import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -402,7 +403,18 @@ export interface ChartMountOptions {
 /** 指标实现的加载策略，见 {@link ChartMountOptions.indicatorLoading}。 */
 export type IndicatorLoadingMode = 'on-demand' | 'all'
 
-export interface ChartController extends DrawingChartAdapter, ChartRendererAccess, LayoutApi {
+/**
+ * 图表控制器。
+ *
+ * @remarks
+ * 布局（`LayoutApi`）与指标模板（`IndicatorTemplateApi`）刻意分开继承：
+ * 布局是整张图表的快照，模板只含指标组合，两者存储与生命周期互不影响。
+ */
+export interface ChartController
+  extends DrawingChartAdapter,
+    ChartRendererAccess,
+    LayoutApi,
+    IndicatorTemplateApi {
   /** 一次临时指标计算，共享当前行情与 Request 上下文，完成后释放行情使用权。 */
   withIndicatorData<T>(
     compute: (bars: readonly Bar[], market: IndicatorMarketContext) => Promise<T>,

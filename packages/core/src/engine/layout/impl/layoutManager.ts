@@ -1,5 +1,5 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
-import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
+import { createArchivePersistence } from '../../../foundation/persistence/index.js'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import {
   LAYOUT_DOCUMENT_VERSION,
@@ -57,13 +57,13 @@ function requireName(name: string): string {
 }
 
 export class LayoutManager implements LayoutApi {
-  private readonly persistence = createIndexedDbPersistence<LayoutArchive>({
+  private readonly archiveStore = createArchivePersistence<LayoutArchive>({
     databaseName: '@363045841yyt/klinechart-layouts',
     databaseVersion: LAYOUT_DOCUMENT_VERSION,
     storeName: 'layouts',
     key: 'documents',
-    flushOnPageHide: false,
     codec: { decode: decodeArchive, encode: (value) => value },
+    disposedMessage: '图表已销毁',
   })
   private archive: LayoutArchive = {
     documents: {},
@@ -83,7 +83,6 @@ export class LayoutManager implements LayoutApi {
   private disposed = false
   private lastConfiguration = ''
   private loaded = false
-  private queue: Promise<unknown> = Promise.resolve()
   readonly layouts = this.layoutSignal
   readonly activeLayoutId = this.activeSignal
   readonly layoutAutoSave = this.autoSaveSignal
@@ -135,7 +134,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
   private async saveArchive(archive: LayoutArchive): Promise<void> {
-    await this.persistence.save(archive)
+    await this.archiveStore.save(archive)
     this.archive = archive
     this.errorSignal.set(null)
     this.publish()
@@ -173,12 +172,7 @@ export class LayoutManager implements LayoutApi {
 
   /** 串行处理归档操作，失败不会阻塞后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.queue.then(() => {
-      if (this.disposed) throw new Error('图表已销毁')
-      return operation()
-    })
-    this.queue = result.catch(() => undefined)
-    return result
+    return this.archiveStore.run(operation)
   }
 
   // ── 生命周期 ──
@@ -203,7 +197,7 @@ export class LayoutManager implements LayoutApi {
       })
     } finally {
       this.disposed = true
-      await this.persistence.dispose()
+      await this.archiveStore.dispose()
     }
   }
 
@@ -234,7 +228,7 @@ export class LayoutManager implements LayoutApi {
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用布局存储')
-    const stored = await this.persistence.load()
+    const stored = await this.archiveStore.loadStored()
     if (stored) this.archive = stored
     const fallback = this.archive.documents[DEFAULT_LAYOUT_ID]
     if (!fallback) {

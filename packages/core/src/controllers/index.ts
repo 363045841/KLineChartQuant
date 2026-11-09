@@ -1,6 +1,12 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
+export type {
+  IndicatorTemplateApi,
+  IndicatorTemplateApplyResult,
+  IndicatorTemplateIndicator,
+  IndicatorTemplateSummary,
+} from '../engine/indicatorTemplate/types.js'
 export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
   ChartAgentActiveIndicator,
@@ -81,6 +87,11 @@ export type {
 } from '../components/orderBookHeatmap/index.js'
 // Heatmap controller (depth pipeline rendering half)
 export { createHeatmapController } from '../components/orderBookHeatmap/index.js'
+// 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
+export {
+  findIndicatorDefinition,
+  indicatorCatalog,
+} from '../controllers/indicatorCatalog/index.js'
 export type {
   BarAggregation,
   BarCapability,
@@ -174,11 +185,6 @@ export {
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'
-// 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
-export {
-  findIndicatorDefinition,
-  indicatorCatalog,
-} from '../controllers/indicatorCatalog/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {
   LayoutApi,

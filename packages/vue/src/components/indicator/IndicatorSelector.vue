@@ -99,7 +99,7 @@
                     </BasePopover>
                   </span>
                   <span class="item-tags">
-                    <span class="type-badge">{{ indicator.role === 'main' ? '主图' : '副图' }}</span>
+                    <BaseChip size="sm">{{ indicator.role === 'main' ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
@@ -193,6 +193,7 @@
     indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BasePopover from '@vue-src/components/common/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
@@ -259,9 +260,13 @@
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     const indicators = props.replacePaneId
-      ? props.replaceRole === 'main' ? filteredMain.value : filteredSub.value
+      ? props.replaceRole === 'main'
+        ? filteredMain.value
+        : filteredSub.value
       : [...filteredMain.value, ...filteredSub.value]
-    return props.scriptsEnabled === false ? indicators.filter((item) => item.source !== 'script') : indicators
+    return props.scriptsEnabled === false
+      ? indicators.filter((item) => item.source !== 'script')
+      : indicators
   })
   const { section, favoriteSet, filteredIndicators, toggleFavorite } = useIndicatorFavorites(
     computed(() => props.chartController ?? null),
@@ -560,18 +565,6 @@
     height: 16px;
     color: var(--klc-color-ui-text);
     pointer-events: none;
-  }
-
-  .type-badge {
-    flex: 0 0 auto;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.4;
-    white-space: nowrap;
   }
 
   .item-action-btn,

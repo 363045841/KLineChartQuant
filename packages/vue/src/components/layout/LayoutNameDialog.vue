@@ -10,11 +10,9 @@
   >
     <form :id="formId" class="layout-name" @submit.prevent="submit">
       <label class="layout-name__label" :for="nameId">布局名称</label>
-      <input
-        class="form-control"
+      <BaseInput
         :id="nameId"
         v-model="name"
-        type="text"
         maxlength="40"
         autocomplete="off"
         :disabled="busy"
@@ -34,6 +32,7 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import { ref, useId, watch } from 'vue'
 
@@ -75,8 +74,6 @@
     if (name.value.trim() && !props.busy) emit('submit', name.value.trim())
   }
 </script>
-
-<style scoped src="../common/form-control.css"></style>
 
 <style scoped>
   /* 通用弹窗输入字段：标签在上、控件在下，样式与其他弹窗一致。 */
