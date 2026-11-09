@@ -33,6 +33,7 @@ import {
   watch,
 } from 'vue'
 import KlineWorkbench from './workbench/KlineWorkbench.vue'
+import './styles/theme-scheme.css'
 import './styles/fonts.css'
 import './styles/scrollbar.css'
 
