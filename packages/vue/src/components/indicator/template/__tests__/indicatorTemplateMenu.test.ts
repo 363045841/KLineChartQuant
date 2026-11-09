@@ -58,6 +58,33 @@ async function mountMenu(controller: ChartController) {
 }
 
 describe('指标模板弹层', () => {
+  it('主按钮只打开指标选择，箭头独立打开模板弹窗', async () => {
+    const { controller } = createTemplateController()
+    const wrapper = mount(IndicatorTemplateMenu, {
+      props: { controller },
+      global: { stubs: MODAL_STUB },
+    })
+
+    await wrapper.get('button[aria-label="指标"]').trigger('click')
+    expect(wrapper.emitted('toggleIndicator')).toHaveLength(1)
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+
+    await wrapper.get('button[aria-label="指标模板"]').trigger('click')
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(true)
+    expect(wrapper.emitted('toggleIndicator')).toHaveLength(1)
+    expect(wrapper.get('button[aria-label="指标模板"]').attributes('aria-expanded')).toBe('true')
+    wrapper.unmount()
+  })
+
+  it('控制器尚未就绪时只禁用模板箭头', async () => {
+    const wrapper = mount(IndicatorTemplateMenu, { global: { stubs: MODAL_STUB } })
+    expect(wrapper.get('button[aria-label="指标模板"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('button[aria-label="指标"]').attributes('disabled')).toBeUndefined()
+    await wrapper.get('button[aria-label="指标"]').trigger('click')
+    expect(wrapper.emitted('toggleIndicator')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('默认停在「指标」页签，含保存入口与打开模板入口', async () => {
     const { controller } = createTemplateController()
     const wrapper = await mountMenu(controller)

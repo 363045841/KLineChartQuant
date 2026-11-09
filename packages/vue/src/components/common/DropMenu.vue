@@ -7,13 +7,11 @@
       :disabled="open || disabled"
       :command="command"
     >
-      <button
-        ref="trigger"
-        type="button"
-        class="control-button drop-menu__trigger"
+      <ControlTrigger
+        ref="triggerControl"
         :class="triggerClass"
         v-bind="popover.triggerBindings.value"
-        :aria-label="label"
+        :label="label"
         aria-haspopup="menu"
         :disabled="disabled"
         @pointerdown="onTriggerPointerDown"
@@ -21,7 +19,7 @@
         @keydown="onTriggerKeydown"
       >
         <slot name="trigger">{{ label }}</slot>
-      </button>
+      </ControlTrigger>
     </BaseTooltip>
     <Teleport :to="teleportTarget">
       <div
@@ -83,8 +81,9 @@
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import { useRovingFocus } from '@vue-src/composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-  import { useTemplateRef } from 'vue'
+  import { computed, useTemplateRef } from 'vue'
   import BaseTooltip from './BaseTooltip.vue'
+  import ControlTrigger from './ControlTrigger.vue'
 
   export interface DropMenuGroup {
     id: string
@@ -124,7 +123,8 @@
     select: [groupId: string, itemId: string]
     open: []
   }>()
-  const triggerRef = useTemplateRef<HTMLElement>('trigger')
+  const triggerControl = useTemplateRef<InstanceType<typeof ControlTrigger>>('triggerControl')
+  const triggerRef = computed(() => triggerControl.value?.element ?? null)
   const menuRef = useTemplateRef<HTMLElement>('menu')
   const teleportTarget = useFullscreenTeleportTarget()
   const roving = useRovingFocus(menuRef, {
@@ -202,8 +202,6 @@
   defineExpose({ show, hide })
 </script>
 
-<!-- 触发器复用工具栏共享按钮外观，避免各下拉各写一套高度与字体。 -->
-<style scoped src="./control-button.css"></style>
 <style scoped src="./popover-surface.css"></style>
 
 <style scoped>

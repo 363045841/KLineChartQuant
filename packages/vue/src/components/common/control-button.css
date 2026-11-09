@@ -6,7 +6,8 @@
   justify-content: center;
   flex: 0 0 auto;
   box-sizing: border-box;
-  gap: 6px;
+  --control-button-content-gap: 6px;
+  gap: var(--control-button-content-gap);
   /* 行内留白同时决定 Footer 下划线的宽度，尺寸变体只改变量。 */
   --control-button-inline-padding: var(--klc-spacing-sm);
   /* 外壳可覆盖统一的行内控件高度；未覆盖时沿用间距推算值。 */
@@ -28,19 +29,22 @@
     box-shadow var(--klc-motion-duration-moderate) ease;
 }
 
-.control-button[aria-expanded="true"]:not(:disabled) {
+.control-button[aria-expanded="true"]:not(:disabled),
+.control-trigger__action[aria-expanded="true"]:not(:disabled) {
   border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
   background: var(--control-button-active-background, var(--klc-color-ui-hover));
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .control-button:hover:not(:disabled) {
+  .control-button:hover:not(:disabled):not(.control-trigger),
+  .control-trigger__action:hover:not(:disabled) {
     border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
     background: var(--control-button-active-background, var(--klc-color-ui-hover));
   }
 }
 
-.control-button:focus-visible {
+.control-button:focus-visible,
+.control-trigger__action:focus-visible {
   border-color: var(--control-button-focus-border, var(--klc-color-ui-accent));
   background: var(--control-button-focus-background, var(--klc-color-ui-hover));
   box-shadow: var(
@@ -56,17 +60,19 @@
 }
 
 .control-button--sm {
+  --control-button-content-gap: 4px;
   --control-button-inline-padding: 6px;
   height: calc(8px + 2 * var(--klc-spacing-sm));
-  gap: 4px;
+  gap: var(--control-button-content-gap);
   font-size: var(--klc-typography-font-size-md);
 }
 
 @media (max-width: 768px), (max-height: 640px) {
   .control-button:not(.control-button--sm) {
+    --control-button-content-gap: 4px;
     --control-button-inline-padding: 6px;
     height: 26px;
-    gap: 4px;
+    gap: var(--control-button-content-gap);
   }
 }
 

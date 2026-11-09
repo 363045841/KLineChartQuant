@@ -1,20 +1,20 @@
 <!-- 指标模板菜单：工具栏独立入口，弹层分「指标」与「模板」两个页签。 -->
 <template>
   <div class="indicator-template">
-    <BaseTooltip content="指标模板" placement="bottom">
-      <button
-        ref="trigger"
-        type="button"
-        class="indicator-template__trigger"
-        aria-label="指标模板"
-        aria-haspopup="dialog"
-        :aria-expanded="open"
-        :disabled="!controller"
-        @click="toggle"
-      >
-        <IconTablerChevronDown aria-hidden="true" />
-      </button>
-    </BaseTooltip>
+    <ControlTrigger
+      ref="trigger"
+      split
+      label="指标"
+      dropdown-label="指标模板"
+      aria-haspopup="dialog"
+      :aria-expanded="open"
+      :dropdown-disabled="!controller"
+      @click="emit('toggleIndicator')"
+      @dropdown-click="toggle"
+    >
+      <IconTablerMathFunction class="indicator-template__icon" aria-hidden="true" />
+      <span>指标</span>
+    </ControlTrigger>
 
     <BaseModal
       :open="open"
@@ -71,8 +71,8 @@
               </span>
             </button>
 
+            <div class="indicator-template__group-title">最近用过</div>
             <template v-if="recentTemplates.length > 0">
-              <div class="indicator-template__group-title">最近用过</div>
               <div
                 v-for="template in recentTemplates"
                 :key="template.id"
@@ -100,6 +100,7 @@
                 </BaseTooltip>
               </div>
             </template>
+            <p v-else class="indicator-template__empty">暂无最近使用的模板</p>
 
             <div class="indicator-template__footer-row">
               <button
@@ -200,6 +201,7 @@
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import ControlTrigger from '@vue-src/components/common/ControlTrigger.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import {
@@ -208,9 +210,9 @@
   } from '@vue-src/composables/indicator/useIndicatorTemplates.js'
   import { computed, onBeforeUnmount, ref } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
-  import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
   import IconTablerFolderOpen from '~icons/tabler/folder-open'
+  import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerTrash from '~icons/tabler/trash'
   import IndicatorTemplateNameDialog from './IndicatorTemplateNameDialog.vue'
@@ -218,6 +220,7 @@
   const props = defineProps<{
     controller?: ChartController | null
   }>()
+  const emit = defineEmits<{ toggleIndicator: [] }>()
 
   const controller = computed(() => props.controller ?? null)
   const {
@@ -243,7 +246,7 @@
   } = useIndicatorTemplates(controller)
 
   const open = ref(false)
-  const trigger = ref<HTMLElement | null>(null)
+  const trigger = ref<InstanceType<typeof ControlTrigger> | null>(null)
   /** 重命名目标；null 表示对话框关闭。 */
   const renaming = ref<IndicatorTemplateSummary | null>(null)
 
@@ -316,36 +319,20 @@
 </script>
 
 <style scoped>
-  .indicator-template__trigger {
-    display: inline-grid;
-    place-items: center;
+  .indicator-template__icon {
     width: 16px;
     height: 16px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: none;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  .indicator-template__trigger svg {
-    width: 14px;
-    height: 14px;
-    transition: transform var(--klc-motion-duration-fast) ease;
-  }
-
-  .indicator-template__trigger[aria-expanded='true'] svg {
-    transform: rotate(180deg);
   }
 
   .indicator-template__tabs {
     display: flex;
     gap: var(--klc-space-16, 16px);
+    padding: 0 var(--klc-space-16, 16px);
+    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .indicator-template__tab {
-    padding: var(--klc-space-4, 4px) 0;
+    padding: var(--klc-space-8, 8px) 0;
     border: 0;
     border-bottom: 2px solid transparent;
     background: none;
@@ -362,7 +349,8 @@
   .indicator-template__content {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* 内容区自身提供高度，避免没有最近记录时弹窗塌成两行。 */
+    height: min(320px, calc(75dvh - 88px));
     min-height: 0;
   }
 
@@ -388,6 +376,7 @@
   .indicator-template__scroll {
     flex: 1;
     min-height: 0;
+    padding: var(--klc-space-8, 8px) 0;
   }
 
   .indicator-template__row {
