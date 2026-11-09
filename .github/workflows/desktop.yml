@@ -77,6 +77,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check desktop root startup
+        run: pnpm --filter @363045841yyt/klinechart-desktop test src/__tests__/app-startup.test.ts --maxWorkers=2
+
       # Go connector 随包分发，构建机必须有 Go；源码按 backends.json 的 commit 克隆。
       - name: Setup Go for the bundled connectors
         uses: actions/setup-go@v6
@@ -86,6 +89,9 @@ jobs:
 
       - name: Build Vue product and its internal resources
         run: pnpm build:product
+
+      - name: Test desktop package
+        run: pnpm --filter @363045841yyt/klinechart-desktop test --maxWorkers=2
 
       - name: Build and package desktop
         run: pnpm --filter @363045841yyt/klinechart-desktop build
