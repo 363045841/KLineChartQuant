@@ -18,6 +18,8 @@ createApp({
       h('div', { style: 'height:840px' }, mounted.value ? [h(KlineWorkbench, {
         agent: query.get('agent') !== '0',
         scripts: query.get('scripts') !== '0',
+        // Agent 面板默认收起为启动器；验收要检查面板内容，显式以展开态启动。
+        initialAgentPanelOpen: true,
         marketDataContext: host,
         instrument: fixture.instrument,
         period: 'daily',
