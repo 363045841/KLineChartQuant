@@ -20,13 +20,13 @@ import {
   type NamedIndicatorTemplate,
   type TemplateWorkspaces,
 } from '../types.js'
-import { collectTemplateIndicatorIds } from './templateCapture.js'
+import { collectTemplateIndicatorIds } from './templateExtract.js'
 import {
   countWorkspaceInstances,
-  describeIndicatorLabels,
-  describeMissingIndicators,
-  describeTemplateIndicators,
-} from './templateLabels.js'
+  findMissingIndicators,
+  summarizeIndicatorLabels,
+  summarizeTemplateIndicators,
+} from './templateSummary.js'
 
 /** 「最近用过」保留的条数上限。 */
 const RECENT_LIMIT = 10
@@ -87,14 +87,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   /**
    * 注入图表侧能力，管理器不持有第二份运行时状态。
    *
-   * @param dependencies.captureIndicators 读取当前图表的指标组合快照。
+   * @param dependencies.extractIndicators 从当前图表提取模板需要的指标组合。
    * @param dependencies.applyIndicators 把指标组合恢复到当前图表。
    * @param dependencies.userIndicatorConfigurations 当前两个数据视图的用户指标，供摘要派生。
    * @param dependencies.loadIndicators 恢复前加载指标实现；不改变恢复语义。
    */
   constructor(
     private readonly dependencies: {
-      captureIndicators(): TemplateWorkspaces
+      extractIndicators(): TemplateWorkspaces
       applyIndicators(workspaces: TemplateWorkspaces): void
       userIndicatorConfigurations: ReadonlySignal<
         Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceConfig>>>
@@ -102,9 +102,9 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       loadIndicators?(indicatorIds: ReadonlyArray<string>): Promise<void>
     },
   ) {
-    // 摘要与模板列表共用同一折叠规则；这里只做派生，不复制指标状态。
+    // 摘要与模板列表共用同一套名称汇总规则；这里只做派生，不复制指标状态。
     this.currentIndicatorLabels = computed(() =>
-      describeIndicatorLabels(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+      summarizeIndicatorLabels(Object.values(dependencies.userIndicatorConfigurations()).flat()),
     )
   }
 
@@ -124,7 +124,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
         Object.freeze({
           id,
           name: document.name,
-          labels: describeTemplateIndicators(document.workspaces),
+          labels: summarizeTemplateIndicators(document.workspaces),
           instanceCount: countWorkspaceInstances(document.workspaces),
         }),
       ),
@@ -181,7 +181,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     return this.run(async () => {
       await this.load()
       const name = requireName(input.name)
-      const workspaces = this.dependencies.captureIndicators()
+      const workspaces = this.dependencies.extractIndicators()
       const existing = Object.values(this.archive.documents).find(
         (document) => document.name === name,
       )
@@ -236,7 +236,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       const indicatorIds = collectTemplateIndicatorIds(template.workspaces)
       // 先加载实现再判定缺失：脚本指标注册完成后即可恢复，不必等下一次应用。
       await this.dependencies.loadIndicators?.(indicatorIds)
-      const skipped = describeMissingIndicators(template.workspaces)
+      const skipped = findMissingIndicators(template.workspaces)
       this.dependencies.applyIndicators(template.workspaces)
       const recentIds = [template.id, ...this.archive.recentIds.filter((id) => id !== template.id)]
       await this.saveArchive({ ...this.archive, recentIds: recentIds.slice(0, RECENT_LIMIT) })

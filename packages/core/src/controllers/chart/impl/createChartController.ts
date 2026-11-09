@@ -10,7 +10,7 @@ import {
   loadBuiltinIndicators,
   loadSystemIndicators,
 } from '@/engine/indicators/registerBuiltins.js'
-import { captureTemplate } from '@/engine/indicatorTemplate/impl/templateCapture.js'
+import { extractTemplate } from '@/engine/indicatorTemplate/impl/templateExtract.js'
 import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
@@ -169,7 +169,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
   const templateManager = new IndicatorTemplateManager({
-    captureIndicators: () => captureTemplate(chart.kernel.snapshotViewWorkspaces()),
+    extractIndicators: () => extractTemplate(chart.kernel.snapshotViewWorkspaces()),
     applyIndicators: (workspaces) => {
       if (isDisposed()) throw new Error('图表已销毁')
       chart.kernel.applyIndicatorTemplate(workspaces)

@@ -32,7 +32,7 @@
 - **入口**：工具栏独立按钮，与指标按钮并列。弹层分「指标」「模板」两个页签。
 - **指标页签**：置顶「保存指标模板…」，中间「最近用过」列表，底部「打开模板…」。
 - **模板页签**：搜索框 + 列出全部模板，每条两行：名称、逗号分隔的指标摘要。
-- **摘要折叠**：同一定义多次出现显示为「名称 x N」，例如 `PVP x 2`。
+- **指标名称汇总**：同一定义多次出现显示为「名称 x N」，例如 `PVP x 2`。
 - **行内操作**：删除（指标页签）、重命名与删除（模板页签），hover 才出现。
 - **应用语义**：替换图上现有指标，不追加。
 - **同名保存**：按名称覆盖，不新增副本。
@@ -55,13 +55,13 @@ type TemplateWorkspace = Pick<LayoutWorkspace, 'instances' | 'paneSpecs'>
 不是「用了哪些指标」。用投影而不是重写一份类型：布局工作区增删字段时，
 模板这边的差异会直接由类型检查暴露，不会静默继承或静默丢失。
 
-`captureTemplate` 从 `kernel.snapshotViewWorkspaces()` 裁剪出 `instances` 与 `paneSpecs`，
+`extractTemplate` 从 `kernel.snapshotViewWorkspaces()` 提取 `instances` 与 `paneSpecs`，
 两个数据视图都存。
 
 ## 当前指标摘要
 
 保存对话框里的「已存指标」由模板接口的 `currentIndicatorLabels` 只读信号提供，
-输入是内核当前两个数据视图的用户指标。它和模板列表摘要共用同一个折叠函数，
+输入是内核当前两个数据视图的用户指标。它和模板列表摘要共用同一个名称汇总函数，
 界面不再自行推导名称，同一规则只有一处实现。
 
 ## 应用模板
@@ -108,9 +108,9 @@ actions.setDataView(当前数据视图)
 ## 相关文件
 
 - `packages/core/src/engine/indicatorTemplate/types.ts` — 契约
-- `packages/core/src/engine/indicatorTemplate/impl/templateCapture.ts` — 从布局快照裁剪
+- `packages/core/src/engine/indicatorTemplate/impl/templateExtract.ts` — 从布局快照提取指标组合
 - `packages/core/src/engine/indicatorTemplate/impl/templateManager.ts` — 存储与领域操作
-- `packages/core/src/engine/indicatorTemplate/impl/templateLabels.ts` — 摘要与缺失判定
+- `packages/core/src/engine/indicatorTemplate/impl/templateSummary.ts` — 名称汇总与缺失判定
 - `packages/core/src/foundation/persistence/archivePersistence.ts` — 布局与模板共用的归档存储原语
 - `packages/core/src/engine/state/chartStateKernel.ts` — `applyIndicatorTemplate`
 - `packages/vue/src/components/indicator/template/impl/` — 弹层与名称对话框

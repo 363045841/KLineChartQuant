@@ -5,7 +5,7 @@ import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
-import { captureTemplate } from '../impl/templateCapture.js'
+import { extractTemplate } from '../impl/templateExtract.js'
 import { IndicatorTemplateManager } from '../impl/templateManager.js'
 import type { TemplateWorkspaces } from '../types.js'
 
@@ -44,7 +44,7 @@ function createManager() {
   const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
   let applied: TemplateWorkspaces | null = null
   const manager = new IndicatorTemplateManager({
-    captureIndicators: () => captureTemplate(kernel.snapshotViewWorkspaces()),
+    extractIndicators: () => extractTemplate(kernel.snapshotViewWorkspaces()),
     applyIndicators: (workspaces) => {
       applied = workspaces
       kernel.applyIndicatorTemplate(workspaces)
@@ -209,12 +209,12 @@ it('应用模板报告无法注册的指标，其余照常恢复', async () => {
   }
 })
 
-it('模板只捕获指标与窗格，不含图表设置、绘图与视口', async () => {
+it('模板只提取指标与窗格，不含图表设置、绘图与视口', async () => {
   const own = createManager()
   try {
-    const captured = captureTemplate(own.kernel.snapshotViewWorkspaces())
-    expect(Object.keys(captured)).toEqual([ChartWorkspaceId.KLine, ChartWorkspaceId.TimeShare])
-    for (const workspace of Object.values(captured)) {
+    const extracted = extractTemplate(own.kernel.snapshotViewWorkspaces())
+    expect(Object.keys(extracted)).toEqual([ChartWorkspaceId.KLine, ChartWorkspaceId.TimeShare])
+    for (const workspace of Object.values(extracted)) {
       expect(Object.keys(workspace).sort()).toEqual(['instances', 'paneSpecs'])
     }
   } finally {
@@ -223,7 +223,7 @@ it('模板只捕获指标与窗格，不含图表设置、绘图与视口', asyn
   }
 })
 
-it('当前指标摘要与模板摘要共用折叠规则并随指标状态更新', async () => {
+it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新', async () => {
   const own = createManager()
   try {
     registerTestIndicator('MACD')
@@ -244,7 +244,7 @@ it('当前指标摘要与模板摘要共用折叠规则并随指标状态更新'
     })
     expect(own.manager.currentIndicatorLabels.peek()).toEqual(['MACD x 2'])
 
-    const id = await own.manager.saveTemplate({ name: '折叠' })
+    const id = await own.manager.saveTemplate({ name: '汇总' })
     const summary = own.manager.templates.peek().find((template) => template.id === id)
     expect(summary?.labels).toEqual(own.manager.currentIndicatorLabels.peek())
   } finally {

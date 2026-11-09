@@ -42,7 +42,7 @@ export interface NamedIndicatorTemplate extends IndicatorTemplateDocument {
 export interface IndicatorTemplateSummary {
   readonly id: string
   readonly name: string
-  /** 模板内各指标的显示名，按出现顺序去重；多实例折叠为「名称 x N」。 */
+  /** 模板内各指标的显示名，按出现顺序去重；多实例合并为「名称 x N」。 */
   readonly labels: ReadonlyArray<string>
   /** 模板内指标实例总数，供列表展示规模。 */
   readonly instanceCount: number
@@ -73,7 +73,7 @@ export interface IndicatorTemplateApi {
    * 当前图表用户指标的显示名摘要。
    *
    * @remarks
-   * 与模板列表共用同一折叠规则；保存对话框直接消费，界面不再自行推导。
+   * 与模板列表共用同一名称汇总规则；保存对话框直接消费，界面不再自行推导。
    */
   readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
   /** 读取归档并返回最新列表；首次调用时初始化存储。 */

@@ -11,7 +11,7 @@ import type { LayoutWorkspaces } from '../../layout/types.js'
 import type { TemplateWorkspace, TemplateWorkspaces } from '../types.js'
 
 /** 提取单个视图的指标组合；实例在布局快照里已经是纯用户配置。 */
-function captureWorkspace(workspace: LayoutWorkspaces[ChartWorkspaceId]): TemplateWorkspace {
+function extractWorkspace(workspace: LayoutWorkspaces[ChartWorkspaceId]): TemplateWorkspace {
   return Object.freeze({
     instances: workspace.instances,
     paneSpecs: workspace.paneSpecs,
@@ -19,15 +19,15 @@ function captureWorkspace(workspace: LayoutWorkspaces[ChartWorkspaceId]): Templa
 }
 
 /**
- * 把布局工作区快照裁剪成模板工作区。
+ * 从布局工作区中提取模板需要的指标组合。
  *
  * @param workspaces 当前图表两个数据视图的布局快照。
  * @returns 只含指标实例与窗格顺序/高度的模板快照。
  */
-export function captureTemplate(workspaces: LayoutWorkspaces): TemplateWorkspaces {
+export function extractTemplate(workspaces: LayoutWorkspaces): TemplateWorkspaces {
   return Object.freeze({
-    [ChartWorkspaceId.KLine]: captureWorkspace(workspaces[ChartWorkspaceId.KLine]),
-    [ChartWorkspaceId.TimeShare]: captureWorkspace(workspaces[ChartWorkspaceId.TimeShare]),
+    [ChartWorkspaceId.KLine]: extractWorkspace(workspaces[ChartWorkspaceId.KLine]),
+    [ChartWorkspaceId.TimeShare]: extractWorkspace(workspaces[ChartWorkspaceId.TimeShare]),
   })
 }
 
