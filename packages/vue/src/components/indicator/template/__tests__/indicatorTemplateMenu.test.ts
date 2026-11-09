@@ -22,7 +22,7 @@ function createTemplateController(templates: ReadonlyArray<IndicatorTemplateSumm
   const list = createTestSignal(templates)
   const recent = createTestSignal<ReadonlyArray<string>>([])
   const currentLabels = createTestSignal<ReadonlyArray<string>>(['MACD', 'RSI x 2'])
-  const applyTemplate = vi.fn(async () => ({ applied: 2, skipped: [], dropped: [] }))
+  const applyTemplate = vi.fn(async () => ({ applied: 2, skipped: [] }))
   const saveTemplate = vi.fn(async () => 'id-1')
   // 只声明被消费的成员：契约新增其它成员时不必补桩，组件真正读取时才需要。
   const partial: Partial<ChartController> = {

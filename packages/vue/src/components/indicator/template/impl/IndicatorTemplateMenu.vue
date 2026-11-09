@@ -170,8 +170,10 @@
       </div>
     </BaseModal>
 
-    <IndicatorTemplateSaveDialog
+    <IndicatorTemplateNameDialog
       :show="saving"
+      title="保存指标模板"
+      :initial-name="''"
       :labels="currentIndicatorLabels"
       :busy="busy"
       :error="error"
@@ -180,9 +182,11 @@
     />
     <IndicatorTemplateNameDialog
       :show="renaming !== null"
+      title="重命名模板"
+      :initial-name="renaming?.name ?? ''"
+      :labels="null"
       :busy="busy"
       :error="error"
-      :initial-name="renaming?.name ?? ''"
       @close="closeRename"
       @submit="submitRename"
     />
@@ -210,7 +214,6 @@
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerTrash from '~icons/tabler/trash'
   import IndicatorTemplateNameDialog from './IndicatorTemplateNameDialog.vue'
-  import IndicatorTemplateSaveDialog from './IndicatorTemplateSaveDialog.vue'
 
   const props = defineProps<{
     controller?: ChartController | null
