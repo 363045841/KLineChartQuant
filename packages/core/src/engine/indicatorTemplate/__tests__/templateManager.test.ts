@@ -2,10 +2,10 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
-import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
+import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
-import { extractTemplate } from '../impl/templateExtract.js'
+import { extractTemplate, selectTemplateIndicators } from '../impl/templateExtract.js'
 import { IndicatorTemplateManager } from '../impl/templateManager.js'
 import type { TemplateWorkspaces } from '../types.js'
 
@@ -20,14 +20,15 @@ beforeEach(async () => {
   })
 })
 
-/** 注册一个只用于摘要断言的原生指标定义。 */
-function registerTestIndicator(displayName: string): string {
+/** 注册一个只用于摘要断言的原生指标定义；title 用于验证摘要取 name 而不是可本地化标题。 */
+function registerTestIndicator(displayName: string, title?: string): string {
   registerIndicators([
     {
       kind: 'descriptor',
       candidate: { key: displayName, origin: 'third-party', identity: 'native' },
       descriptor: {
         name: displayName,
+        ...(title === undefined ? {} : { title }),
         displayName,
         kind: IndicatorKind.Indicator,
         category: 'sub',
@@ -234,7 +235,7 @@ it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新'
       paneId: 'pane-macd-1',
       params: {},
     })
-    expect(own.manager.currentIndicatorLabels.peek()).toEqual(['MACD'])
+    expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 1 }])
 
     own.kernel.indicator.actions.upsertSub({
       instanceId: 'macd-2',
@@ -242,13 +243,94 @@ it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新'
       paneId: 'pane-macd-2',
       params: {},
     })
-    expect(own.manager.currentIndicatorLabels.peek()).toEqual(['MACD x 2'])
+    expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 2 }])
 
     const id = await own.manager.saveTemplate({ name: '汇总' })
     const summary = own.manager.templates.peek().find((template) => template.id === id)
-    expect(summary?.labels).toEqual(own.manager.currentIndicatorLabels.peek())
+    expect(summary?.labels).toEqual(['MACD x 2'])
   } finally {
     await own.manager.dispose()
     own.kernel.dispose()
   }
+})
+
+it('摘要显示指标 name 元数据而不是 title', async () => {
+  const own = createManager()
+  try {
+    registerTestIndicator('EXPMA', '指数移动平均')
+    await own.manager.initialize()
+    addSubIndicator(own.kernel, 'EXPMA')
+
+    expect(own.manager.currentIndicators.peek()).toEqual([
+      { id: 'EXPMA', label: 'EXPMA', count: 1 },
+    ])
+    const id = await own.manager.saveTemplate({ name: '名称' })
+    const summary = own.manager.templates.peek().find((template) => template.id === id)
+    expect(summary?.labels).toEqual(['EXPMA'])
+  } finally {
+    await own.manager.dispose()
+    own.kernel.dispose()
+  }
+})
+
+it('保存时按 indicatorIds 过滤指标与无引用副图', async () => {
+  const own = createManager()
+  try {
+    registerTestIndicator('MA')
+    registerTestIndicator('MACD')
+    await own.manager.initialize()
+    addSubIndicator(own.kernel, 'MA')
+    addSubIndicator(own.kernel, 'MACD')
+
+    const id = await own.manager.saveTemplate({ name: '仅 MA', indicatorIds: ['MA'] })
+    const summary = own.manager.templates.peek().find((template) => template.id === id)
+    expect(summary?.labels).toEqual(['MA'])
+    expect(summary?.instanceCount).toBe(1)
+
+    const applied = await own.manager.applyTemplate({ id })
+    expect(applied.applied).toBe(1)
+    const kline = own.appliedSnapshot()?.[ChartWorkspaceId.KLine]
+    expect(kline?.instances.map((instance) => instance.indicatorId)).toEqual(['MA'])
+  } finally {
+    await own.manager.dispose()
+    own.kernel.dispose()
+  }
+})
+
+it('按 indicatorIds 过滤模板实例并移除无引用副图', () => {
+  const workspaces: TemplateWorkspaces = {
+    [ChartWorkspaceId.KLine]: {
+      instances: [
+        {
+          instanceId: 'ma-1',
+          indicatorId: 'MA',
+          paneId: 'main',
+          role: 'main',
+          ordinal: 0,
+          params: {},
+        },
+        {
+          instanceId: 'macd-1',
+          indicatorId: 'MACD',
+          paneId: 'pane-MACD',
+          role: 'sub',
+          ordinal: 0,
+          params: {},
+        },
+      ],
+      paneSpecs: [
+        { id: 'main', ratio: 1 },
+        { id: 'pane-MACD', ratio: 1 },
+      ],
+    },
+    [ChartWorkspaceId.TimeShare]: {
+      instances: [],
+      paneSpecs: [{ id: 'main', ratio: 1 }],
+    },
+  }
+
+  const filtered = selectTemplateIndicators(workspaces, ['MA'])
+  const kline = filtered[ChartWorkspaceId.KLine]
+  expect(kline.instances.map((instance) => instance.indicatorId)).toEqual(['MA'])
+  expect(kline.paneSpecs.map((spec) => spec.id)).toEqual(['main'])
 })

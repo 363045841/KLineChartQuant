@@ -10,11 +10,9 @@
   >
     <form :id="formId" class="template-field" @submit.prevent="submit">
       <label class="template-field__label" :for="nameId">模板名称</label>
-      <input
-        class="form-control"
+      <BaseInput
         :id="nameId"
-        v-model.trim="name"
-        type="text"
+        v-model="name"
         maxlength="40"
         autocomplete="off"
         :disabled="busy"
@@ -24,13 +22,14 @@
     </form>
     <template #footer>
       <BaseButton :disabled="busy" @click="emit('close')">取消</BaseButton>
-      <BaseButton type="submit" :form="formId" :disabled="!name || busy">保存</BaseButton>
+      <BaseButton type="submit" :form="formId" :disabled="!name.trim() || busy">保存</BaseButton>
     </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import { ref, useId, watch } from 'vue'
 
@@ -49,8 +48,6 @@
     if (name.value.trim() && !props.busy) emit('save', name.value.trim())
   }
 </script>
-
-<style scoped src="../../common/form-control.css"></style>
 
 <style scoped>
   /* 通用弹窗输入字段：标签在上、控件在下，样式与其他弹窗一致。 */

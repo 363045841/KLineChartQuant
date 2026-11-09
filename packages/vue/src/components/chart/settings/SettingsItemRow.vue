@@ -92,8 +92,8 @@
   }
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>
 <style scoped src="../../common/form-control.css"></style>
+<style scoped src="../../common/settings-item.css"></style>
 <style scoped src="../../common/selection-menu.css"></style>
 <style scoped>
   .settings-number {

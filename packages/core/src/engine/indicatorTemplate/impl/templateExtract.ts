@@ -8,6 +8,7 @@
 
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { LayoutWorkspaces } from '../../layout/types.js'
+import { MAIN_PANE_ID } from '../../pane/types.js'
 import type { TemplateWorkspace, TemplateWorkspaces } from '../types.js'
 
 /** 提取单个视图的指标组合；实例在布局快照里已经是纯用户配置。 */
@@ -38,4 +39,33 @@ export function collectTemplateIndicatorIds(workspaces: TemplateWorkspaces): str
     for (const instance of workspace.instances) ids.add(instance.indicatorId)
   }
   return [...ids]
+}
+
+/**
+ * 按指标定义过滤模板组合。
+ *
+ * @param workspaces 当前图表的模板快照。
+ * @param indicatorIds 只保留这些指标定义；undefined 表示保留全部。
+ * @returns 过滤后的模板组合；未保留指标的副图 pane 一并移除，主图始终保留。
+ */
+export function selectTemplateIndicators(
+  workspaces: TemplateWorkspaces,
+  indicatorIds: ReadonlyArray<string> | undefined,
+): TemplateWorkspaces {
+  if (indicatorIds === undefined) return workspaces
+  const allowed = new Set(indicatorIds)
+  const selectWorkspace = (workspace: TemplateWorkspace): TemplateWorkspace => {
+    const instances = workspace.instances.filter((instance) => allowed.has(instance.indicatorId))
+    const paneIds = new Set(instances.map((instance) => instance.paneId))
+    return Object.freeze({
+      instances: Object.freeze(instances),
+      paneSpecs: Object.freeze(
+        workspace.paneSpecs.filter((spec) => spec.id === MAIN_PANE_ID || paneIds.has(spec.id)),
+      ),
+    })
+  }
+  return Object.freeze({
+    [ChartWorkspaceId.KLine]: selectWorkspace(workspaces[ChartWorkspaceId.KLine]),
+    [ChartWorkspaceId.TimeShare]: selectWorkspace(workspaces[ChartWorkspaceId.TimeShare]),
+  })
 }

@@ -269,7 +269,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     templates: templateManager.templates,
     recentTemplateIds: templateManager.recentTemplateIds,
-    currentIndicatorLabels: templateManager.currentIndicatorLabels,
+    currentIndicators: templateManager.currentIndicators,
     listTemplates: () => templateManager.listTemplates(),
     saveTemplate: (input) => templateManager.saveTemplate(input),
     renameTemplate: (input) => templateManager.renameTemplate(input),

@@ -1,41 +1,51 @@
 /**
- * 模板指标摘要：把指标定义 ID 汇总成界面可读的名称。
+ * 模板指标摘要：把指标实例汇总成定义级名称。
  *
  * @remarks
- * 摘要来自注册表当前值，所以脚本指标在注册后就显示原名，未注册时退回定义 ID。
+ * 摘要来自注册表当前值，显示定义元数据里的 name；未注册时退回定义 ID。
  * 多实例合并成「名称 x N」，与 TradingView 的「PVP x 2」保持一致。
  */
 
 import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
-import type { TemplateWorkspaces } from '../types.js'
+import type { IndicatorTemplateIndicator, TemplateWorkspaces } from '../types.js'
 
-/** 一个指标在摘要中的出现次数。 */
-interface LabelCount {
-  readonly label: string
-  count: number
+/**
+ * 把一组指标实例汇总成定义级摘要。
+ *
+ * @param instances 按界面顺序排列的指标实例。
+ * @returns 按首次出现顺序排列的指标；同一定义合并并计数。
+ */
+export function summarizeIndicators(
+  instances: ReadonlyArray<IndicatorInstanceConfig>,
+): ReadonlyArray<IndicatorTemplateIndicator> {
+  const counts = new Map<string, { label: string; count: number }>()
+  for (const instance of instances) {
+    const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+    // name 是定义元数据里的稳定标识；模板摘要显示它而不是可本地化的 title。
+    const label = definition?.name ?? instance.indicatorId
+    const entry = counts.get(instance.indicatorId)
+    if (entry) entry.count += 1
+    else counts.set(instance.indicatorId, { label, count: 1 })
+  }
+  return Object.freeze(
+    [...counts].map(([id, { label, count }]) => Object.freeze({ id, label, count })),
+  )
 }
 
 /**
  * 把一组指标实例汇总成显示名。
  *
  * @param instances 按界面顺序排列的指标实例。
- * @returns 按首次出现顺序排列的显示名；同一定义出现多次时为「名称 x N」。
+ * @returns 按首次出现顺序排列的 name 元数据；同一定义出现多次时为「名称 x N」。
  */
 export function summarizeIndicatorLabels(
   instances: ReadonlyArray<IndicatorInstanceConfig>,
 ): ReadonlyArray<string> {
-  const counts = new Map<string, LabelCount>()
-  for (const instance of instances) {
-    const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-    // title 是选择器里的长名称，缺省时用 displayName；未注册时退回定义 ID。
-    const label = definition?.title ?? definition?.displayName ?? instance.indicatorId
-    const entry = counts.get(instance.indicatorId)
-    if (entry) entry.count += 1
-    else counts.set(instance.indicatorId, { label, count: 1 })
-  }
   return Object.freeze(
-    [...counts.values()].map(({ label, count }) => (count > 1 ? `${label} x ${count}` : label)),
+    summarizeIndicators(instances).map(({ label, count }) =>
+      count > 1 ? `${label} x ${count}` : label,
+    ),
   )
 }
 
@@ -45,9 +55,7 @@ export function summarizeIndicatorLabels(
  * @param workspaces 模板的两个数据视图快照。
  * @returns 按首次出现顺序排列的显示名；同一定义出现多次时为「名称 x N」。
  */
-export function summarizeTemplateIndicators(
-  workspaces: TemplateWorkspaces,
-): ReadonlyArray<string> {
+export function summarizeTemplateIndicators(workspaces: TemplateWorkspaces): ReadonlyArray<string> {
   return summarizeIndicatorLabels(
     Object.values(workspaces).flatMap((workspace) => workspace.instances),
   )

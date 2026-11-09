@@ -42,10 +42,18 @@ export interface NamedIndicatorTemplate extends IndicatorTemplateDocument {
 export interface IndicatorTemplateSummary {
   readonly id: string
   readonly name: string
-  /** 模板内各指标的显示名，按出现顺序去重；多实例合并为「名称 x N」。 */
+  /** 模板内各指标的 name 元数据，按出现顺序去重；多实例合并为「名称 x N」。 */
   readonly labels: ReadonlyArray<string>
   /** 模板内指标实例总数，供列表展示规模。 */
   readonly instanceCount: number
+}
+
+/** 当前图表中的一个指标定义摘要；id 用于保存时过滤，label 为 name 元数据。 */
+export interface IndicatorTemplateIndicator {
+  readonly id: string
+  readonly label: string
+  /** 同一定义在当前图表中的实例数。 */
+  readonly count: number
 }
 
 /** 模板归档的持久化形状；按模板身份索引，不含「当前模板」概念。 */
@@ -70,21 +78,22 @@ export interface IndicatorTemplateApi {
   /** 最近应用过的模板身份，最新在前。 */
   readonly recentTemplateIds: ReadonlySignal<ReadonlyArray<string>>
   /**
-   * 当前图表用户指标的显示名摘要。
+   * 当前图表用户指标的摘要。
    *
    * @remarks
    * 与模板列表共用同一名称汇总规则；保存对话框直接消费，界面不再自行推导。
    */
-  readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
+  readonly currentIndicators: ReadonlySignal<ReadonlyArray<IndicatorTemplateIndicator>>
   /** 读取归档并返回最新列表；首次调用时初始化存储。 */
   listTemplates(): Promise<ReadonlyArray<IndicatorTemplateSummary>>
   /**
    * 保存当前图表的指标组合。
    *
    * @param input.name 模板名称，去空白后不能为空；与已有模板同名时覆盖该模板。
+   * @param input.indicatorIds 只保存这些指标定义；省略时保存当前图表全部指标。
    * @returns 写入后的模板身份。
    */
-  saveTemplate(input: { name: string }): Promise<string>
+  saveTemplate(input: { name: string; indicatorIds?: ReadonlyArray<string> }): Promise<string>
   /** 修改模板名称；目标不存在或新名称为空时抛错。 */
   renameTemplate(input: { id: string; name: string }): Promise<void>
   /** 删除模板；目标不存在时抛错。 */

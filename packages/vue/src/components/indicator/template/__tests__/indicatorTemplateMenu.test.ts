@@ -2,6 +2,7 @@
 
 import type {
   ChartController,
+  IndicatorTemplateIndicator,
   IndicatorTemplateSummary,
 } from '@363045841yyt/klinechart-core/controllers'
 import { mount } from '@vue/test-utils'
@@ -21,14 +22,17 @@ function createTemplateController(templates: ReadonlyArray<IndicatorTemplateSumm
 } {
   const list = createTestSignal(templates)
   const recent = createTestSignal<ReadonlyArray<string>>([])
-  const currentLabels = createTestSignal<ReadonlyArray<string>>(['MACD', 'RSI x 2'])
+  const currentIndicators = createTestSignal<ReadonlyArray<IndicatorTemplateIndicator>>([
+    { id: 'MACD', label: 'MACD', count: 1 },
+    { id: 'RSI', label: 'RSI', count: 2 },
+  ])
   const applyTemplate = vi.fn(async () => ({ applied: 2, skipped: [] }))
   const saveTemplate = vi.fn(async () => 'id-1')
   // 只声明被消费的成员：契约新增其它成员时不必补桩，组件真正读取时才需要。
   const partial: Partial<ChartController> = {
     templates: list,
     recentTemplateIds: recent,
-    currentIndicatorLabels: currentLabels,
+    currentIndicators,
     listTemplates: vi.fn(async () => templates),
     saveTemplate,
     renameTemplate: vi.fn(async () => undefined),
@@ -89,8 +93,8 @@ describe('指标模板弹层', () => {
     const { controller } = createTemplateController()
     const wrapper = await mountMenu(controller)
 
-    expect(wrapper.text()).toContain('保存指标模板…')
-    expect(wrapper.text()).toContain('打开模板…')
+    expect(wrapper.text()).toContain('保存指标模板')
+    expect(wrapper.text()).toContain('打开模板')
     expect(wrapper.text()).not.toContain('模板名称')
   })
 
@@ -106,11 +110,12 @@ describe('指标模板弹层', () => {
     await tabs[1].trigger('click')
 
     expect(wrapper.text()).toContain('A股')
-    expect(wrapper.text()).toContain('MACD，RSI x 2')
+    expect(wrapper.text()).toContain('MACD')
+    expect(wrapper.text()).toContain('RSI x 2')
     expect(wrapper.text()).toContain('加密')
   })
 
-  it('点击模板行调用应用，成功后展示恢复条数', async () => {
+  it('点击模板行调用应用，成功后不展示恢复提示', async () => {
     const { controller, applyTemplate } = createTemplateController([
       { id: 'a', name: 'A股', labels: ['MACD'], instanceCount: 1 },
     ])
@@ -119,7 +124,8 @@ describe('指标模板弹层', () => {
     await wrapper.findAll('[role="tab"]')[1].trigger('click')
     await wrapper.get('.indicator-template__item-main').trigger('click')
     await vi.waitFor(() => expect(applyTemplate).toHaveBeenCalledWith({ id: 'a' }))
-    await vi.waitFor(() => expect(wrapper.text()).toContain('已应用模板，恢复 2 个指标'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).not.toContain('已应用模板')
   })
 
   it('搜索词过滤模板列表', async () => {
@@ -143,7 +149,8 @@ describe('指标模板弹层', () => {
     await wrapper.get('.indicator-template__row').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('MACD，RSI x 2')
+    expect(wrapper.text()).toContain('MACD')
+    expect(wrapper.text()).toContain('RSI x 2')
     const saveButton = wrapper
       .findAll('button')
       .find((button) => button.text() === '保存' && button.attributes('type') === 'submit')
@@ -152,7 +159,7 @@ describe('指标模板弹层', () => {
   })
 
   it('应用结果文案点名无法加载的指标', () => {
-    expect(describeApplyMessage(1, [])).toBe('已应用模板，恢复 1 个指标')
+    expect(describeApplyMessage(1, [])).toBe('')
     expect(describeApplyMessage(1, ['gone', 'lost'])).toBe(
       '已恢复 1 个指标，2 个无法加载：gone、lost',
     )

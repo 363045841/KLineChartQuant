@@ -8,7 +8,11 @@
  */
 
 import { createArchivePersistence } from '../../../foundation/persistence/index.js'
-import { computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import {
+  computed,
+  createSignal,
+  type ReadonlySignal,
+} from '../../../foundation/reactivity/signal.js'
 import type { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
 import {
@@ -16,15 +20,16 @@ import {
   type IndicatorTemplateApi,
   type IndicatorTemplateApplyResult,
   type IndicatorTemplateArchive,
+  type IndicatorTemplateIndicator,
   type IndicatorTemplateSummary,
   type NamedIndicatorTemplate,
   type TemplateWorkspaces,
 } from '../types.js'
-import { collectTemplateIndicatorIds } from './templateExtract.js'
+import { collectTemplateIndicatorIds, selectTemplateIndicators } from './templateExtract.js'
 import {
   countWorkspaceInstances,
   findMissingIndicators,
-  summarizeIndicatorLabels,
+  summarizeIndicators,
   summarizeTemplateIndicators,
 } from './templateSummary.js'
 
@@ -82,7 +87,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   private loaded = false
   readonly templates = this.listSignal
   readonly recentTemplateIds = this.recentSignal
-  readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
+  readonly currentIndicators: ReadonlySignal<ReadonlyArray<IndicatorTemplateIndicator>>
 
   /**
    * 注入图表侧能力，管理器不持有第二份运行时状态。
@@ -103,8 +108,8 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     },
   ) {
     // 摘要与模板列表共用同一套名称汇总规则；这里只做派生，不复制指标状态。
-    this.currentIndicatorLabels = computed(() =>
-      summarizeIndicatorLabels(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+    this.currentIndicators = computed(() =>
+      summarizeIndicators(Object.values(dependencies.userIndicatorConfigurations()).flat()),
     )
   }
 
@@ -177,11 +182,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   }
 
   /** 保存当前指标组合；同名模板按名称覆盖，不新增副本。 */
-  saveTemplate(input: { name: string }): Promise<string> {
+  saveTemplate(input: { name: string; indicatorIds?: ReadonlyArray<string> }): Promise<string> {
     return this.run(async () => {
       await this.load()
       const name = requireName(input.name)
-      const workspaces = this.dependencies.extractIndicators()
+      const workspaces = selectTemplateIndicators(
+        this.dependencies.extractIndicators(),
+        input.indicatorIds,
+      )
       const existing = Object.values(this.archive.documents).find(
         (document) => document.name === name,
       )

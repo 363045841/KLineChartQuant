@@ -40,11 +40,10 @@
                   class="rail__inline"
                   @submit.prevent="submitProfileName()"
                 >
-                  <input
+                  <BaseInput
                     ref="profileNameInput"
-                    class="form-control-inline-name"
                     v-model="profileNameDraft"
-                    type="text"
+                    variant="inline"
                     autocomplete="off"
                     :aria-label="text.providerProfileName"
                     :aria-invalid="profileNameDialogError ? 'true' : undefined"
@@ -130,11 +129,10 @@
               class="rail__inline rail__inline--create"
               @submit.prevent="submitProfileName()"
             >
-              <input
+              <BaseInput
                 ref="profileNameInput"
-                class="form-control-inline-name"
                 v-model="profileNameDraft"
-                type="text"
+                variant="inline"
                 autocomplete="off"
                 :placeholder="`${text.providerProfileName}…`"
                 :aria-label="text.providerProfileName"
@@ -187,10 +185,9 @@
               </label>
               <label class="field">
                 <span class="field__label">{{ text.baseUrl }}</span>
-                <input
-                  class="form-control"
+                <BaseInput
                   v-model="providerSettings.baseUrl"
-                  type="text"
+                  variant="underline"
                   autocomplete="off"
                   spellcheck="false"
                   @blur="providerSettings.persistConnection()"
@@ -198,10 +195,10 @@
               </label>
               <label class="field">
                 <span class="field__label">{{ text.apiKey }}</span>
-                <input
-                  class="form-control"
+                <BaseInput
                   v-model="providerSettings.apiKey"
                   type="password"
+                  variant="underline"
                   autocomplete="new-password"
                   :placeholder="
                     status.configured ? MASKED_SECRET_PLACEHOLDER : text.apiKeyPlaceholder
@@ -256,9 +253,9 @@
                 <li v-for="model in filteredModels" :key="model.id" class="model">
                   <span class="model__name" :title="model.name">{{ model.name }}</span>
                   <span class="model__meta">
-                    <small v-if="model.contextWindow" class="chip">
+                    <BaseChip v-if="model.contextWindow" size="sm">
                       {{ formatContextWindow(model.contextWindow) }}
-                    </small>
+                    </BaseChip>
                     <ToggleSwitch
                       :model-value="modelPoolIds.has(model.id)"
                       :aria-label="`${text.modelPool}: ${model.name}`"
@@ -302,8 +299,7 @@
               <div v-if="tool.name === 'web_search'" class="field">
                 <span class="field__label">{{ text.exaApiKey }}</span>
                 <div class="field__row">
-                  <input
-                    class="form-control"
+                  <BaseInput
                     v-model="providerSettings.exaApiKey"
                     type="password"
                     autocomplete="new-password"
@@ -411,6 +407,8 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
@@ -451,7 +449,7 @@
   const MASKED_SECRET_PLACEHOLDER = '••••••••'
 
   /** 行内命名输入；v-for 中的 ref 收集为数组，同一时间只渲染一个。 */
-  const profileNameInput = useTemplateRef<HTMLInputElement | HTMLInputElement[]>('profileNameInput')
+  const profileNameInput = useTemplateRef<InstanceType<typeof BaseInput>>('profileNameInput')
   const deleteCancelButton = useTemplateRef<HTMLButtonElement[]>('deleteCancelButton')
   const profileNameMode = ref<'create' | 'rename' | null>(null)
   const profileNameDraft = ref('')
@@ -590,8 +588,7 @@
   /** 聚焦行内命名输入；重命名时全选原名称。 */
   function focusProfileNameInput(select: boolean): void {
     void nextTick(() => {
-      const value = profileNameInput.value
-      const input = Array.isArray(value) ? value[0] : value
+      const input = profileNameInput.value
       input?.focus()
       if (select) input?.select()
     })
@@ -675,8 +672,6 @@
   )
 </script>
 
-<style scoped src="../../../components/common/form-control.css"></style>
-
 <!-- 当前值与展开箭头的外观复用工具栏单选下拉，避免两套相似样式漂移。 -->
 <style scoped src="../../../components/common/selection-menu.css"></style>
 
@@ -727,8 +722,7 @@
     text-align: center;
   }
 
-  .badge,
-  .chip {
+  .badge {
     display: inline-flex;
     align-items: center;
     height: 18px;
@@ -783,8 +777,7 @@
   }
 
   /* ───────── 单横线输入 ───────── */
-  /* 仅连接卡片的三个字段用下划线样式：去掉四周边框、圆角与填充底色，只保留一条底线。 */
-  .connection .form-control,
+  /* 仅连接卡片的多行字段用下划线样式；单行输入由 BaseInput 的 underline 变体统一处理。 */
   .connection :deep(.base-textarea) {
     border: 0;
     border-bottom: 1px solid var(--klc-color-ui-border);
@@ -795,14 +788,8 @@
   }
 
   /* 聚焦只提亮底线，不画四周框、不加外发光。 */
-  .connection .form-control:focus,
   .connection :deep(.base-textarea:focus) {
     border-bottom-color: var(--klc-color-ui-border-strong);
-  }
-
-  .connection .form-control {
-    height: var(--klc-density-default, 32px);
-    padding: 0 2px;
   }
 
   /* 多行输入高度仍随内容增长，只是不再画四周框线。 */

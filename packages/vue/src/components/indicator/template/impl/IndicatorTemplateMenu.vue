@@ -27,40 +27,26 @@
       @update:open="!$event && close()"
     >
       <template #tabs>
-        <div class="indicator-template__tabs" role="tablist" aria-label="指标模板页签">
-          <button
-            type="button"
-            role="tab"
-            class="indicator-template__tab"
-            :class="{ 'is-active': tab === INDICATOR_TEMPLATE_TABS.indicators }"
-            :aria-selected="tab === INDICATOR_TEMPLATE_TABS.indicators"
-            @click="setTab(INDICATOR_TEMPLATE_TABS.indicators)"
-          >
-            指标
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="indicator-template__tab"
-            :class="{ 'is-active': tab === INDICATOR_TEMPLATE_TABS.templates }"
-            :aria-selected="tab === INDICATOR_TEMPLATE_TABS.templates"
-            @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
-          >
-            模板
-          </button>
-        </div>
+        <BaseTabs v-model="tab" :tabs="TEMPLATE_TABS" aria-label="指标模板页签" />
+        <ModalSearchBar
+          v-if="tab === INDICATOR_TEMPLATE_TABS.templates"
+          v-model="searchQuery"
+          placeholder="搜索模板名称..."
+          aria-label="搜索模板"
+          :top-border="false"
+        />
       </template>
 
       <div class="indicator-template__content">
         <div v-if="error" class="indicator-template__error" role="alert">{{ error }}</div>
         <div v-if="message" class="indicator-template__message" role="status">{{ message }}</div>
 
-        <!-- 页签一：保存入口、最近用过、打开模板入口。 -->
+        <!-- 页签一：保存与打开入口、最近使用的模板。 -->
         <template v-if="tab === INDICATOR_TEMPLATE_TABS.indicators">
           <OverlayScrollArea class="indicator-template__scroll">
             <button type="button" class="indicator-template__row" @click="openSaveDialog">
               <IconTablerDeviceFloppy aria-hidden="true" />
-              <span>保存指标模板…</span>
+              <span>保存指标模板</span>
               <span
                 v-if="saved"
                 class="indicator-template__saved"
@@ -70,8 +56,16 @@
                 <IconTablerCheck aria-hidden="true" />
               </span>
             </button>
+            <button
+              type="button"
+              class="indicator-template__row"
+              @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
+            >
+              <IconTablerFolderOpen aria-hidden="true" />
+              <span>打开模板</span>
+            </button>
 
-            <div class="indicator-template__group-title">最近用过</div>
+            <div class="indicator-template__group-title">最近</div>
             <template v-if="recentTemplates.length > 0">
               <div
                 v-for="template in recentTemplates"
@@ -85,9 +79,23 @@
                   @click="applyTemplate(template.id)"
                 >
                   <span class="indicator-template__item-name">{{ template.name }}</span>
-                  <span class="indicator-template__item-labels">{{ describeLabels(template) }}</span>
+                  <span class="indicator-template__item-chips">
+                    <BaseChip
+                      v-for="(label, index) in template.labels"
+                      :key="`${template.id}-${index}`"
+                      size="sm"
+                    >
+                      {{ label }}
+                    </BaseChip>
+                    <span
+                      v-if="template.labels.length === 0"
+                      class="indicator-template__item-empty"
+                    >
+                      无指标
+                    </span>
+                  </span>
                 </button>
-                <BaseTooltip content="删除" placement="top">
+                <BaseTooltip content="删除" placement="bottom">
                   <button
                     type="button"
                     class="indicator-template__item-action"
@@ -101,31 +109,12 @@
               </div>
             </template>
             <p v-else class="indicator-template__empty">暂无最近使用的模板</p>
-
-            <div class="indicator-template__footer-row">
-              <button
-                type="button"
-                class="indicator-template__row"
-                @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
-              >
-                <IconTablerFolderOpen aria-hidden="true" />
-                <span>打开模板…</span>
-              </button>
-            </div>
           </OverlayScrollArea>
         </template>
 
         <!-- 页签二：搜索与完整模板列表。 -->
         <template v-else>
-          <div class="indicator-template__search">
-            <ModalSearchBar
-              v-model="searchQuery"
-              placeholder="搜索模板名称..."
-              aria-label="搜索模板"
-            />
-          </div>
           <OverlayScrollArea class="indicator-template__scroll">
-            <div class="indicator-template__list-head">模板名称</div>
             <div
               v-for="template in visibleTemplates"
               :key="template.id"
@@ -138,9 +127,20 @@
                 @click="applyTemplate(template.id)"
               >
                 <span class="indicator-template__item-name">{{ template.name }}</span>
-                <span class="indicator-template__item-labels">{{ describeLabels(template) }}</span>
+                <span class="indicator-template__item-chips">
+                  <BaseChip
+                    v-for="(label, index) in template.labels"
+                    :key="`${template.id}-${index}`"
+                    size="sm"
+                  >
+                    {{ label }}
+                  </BaseChip>
+                  <span v-if="template.labels.length === 0" class="indicator-template__item-empty">
+                    无指标
+                  </span>
+                </span>
               </button>
-              <BaseTooltip content="重命名" placement="top">
+              <BaseTooltip content="重命名" placement="bottom">
                 <button
                   type="button"
                   class="indicator-template__item-action"
@@ -151,7 +151,7 @@
                   <IconTablerPencil aria-hidden="true" />
                 </button>
               </BaseTooltip>
-              <BaseTooltip content="删除" placement="top">
+              <BaseTooltip content="删除" placement="bottom">
                 <button
                   type="button"
                   class="indicator-template__item-action"
@@ -175,7 +175,7 @@
       :show="saving"
       title="保存指标模板"
       :initial-name="''"
-      :labels="currentIndicatorLabels"
+      :indicators="currentIndicators"
       :busy="busy"
       :error="error"
       @close="closeSave"
@@ -185,7 +185,7 @@
       :show="renaming !== null"
       title="重命名模板"
       :initial-name="renaming?.name ?? ''"
-      :labels="null"
+      :indicators="null"
       :busy="busy"
       :error="error"
       @close="closeRename"
@@ -199,13 +199,16 @@
     ChartController,
     IndicatorTemplateSummary,
   } from '@363045841yyt/klinechart-core/controllers'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ControlTrigger from '@vue-src/components/common/ControlTrigger.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import {
     INDICATOR_TEMPLATE_TABS,
+    type IndicatorTemplateTab,
     useIndicatorTemplates,
   } from '@vue-src/composables/indicator/useIndicatorTemplates.js'
   import { computed, onBeforeUnmount, ref } from 'vue'
@@ -222,6 +225,12 @@
   }>()
   const emit = defineEmits<{ toggleIndicator: [] }>()
 
+  /** 弹层页签顺序；统一交给 BaseTabs 渲染。 */
+  const TEMPLATE_TABS: ReadonlyArray<{ id: IndicatorTemplateTab; label: string }> = [
+    { id: INDICATOR_TEMPLATE_TABS.indicators, label: '指标' },
+    { id: INDICATOR_TEMPLATE_TABS.templates, label: '模板' },
+  ]
+
   const controller = computed(() => props.controller ?? null)
   const {
     tab,
@@ -231,10 +240,9 @@
     message,
     saving,
     saved,
-    currentIndicatorLabels,
+    currentIndicators,
     visibleTemplates,
     recentTemplates,
-    describeLabels,
     refresh,
     save,
     apply,
@@ -277,8 +285,12 @@
   }
 
   /** 提交保存；成功后关闭对话框并刷新列表。 */
-  async function submitSave(name: string): Promise<void> {
-    if (!(await save(name))) return
+  async function submitSave(
+    name: string,
+    indicatorIds: ReadonlyArray<string> | null,
+  ): Promise<void> {
+    const done = indicatorIds === null ? await save(name) : await save(name, indicatorIds)
+    if (!done) return
     closeSave()
     await refresh()
   }
@@ -324,28 +336,6 @@
     height: 16px;
   }
 
-  .indicator-template__tabs {
-    display: flex;
-    gap: var(--klc-space-16, 16px);
-    padding: 0 var(--klc-space-16, 16px);
-    border-bottom: 1px solid var(--klc-color-ui-border);
-  }
-
-  .indicator-template__tab {
-    padding: var(--klc-space-8, 8px) 0;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: var(--klc-color-ui-text-secondary);
-    font-size: var(--klc-font-size-sm, 12px);
-    cursor: pointer;
-  }
-
-  .indicator-template__tab.is-active {
-    border-bottom-color: var(--klc-color-ui-focus);
-    color: var(--klc-color-ui-text);
-  }
-
   .indicator-template__content {
     display: flex;
     flex-direction: column;
@@ -357,8 +347,8 @@
   .indicator-template__error,
   .indicator-template__message {
     margin: 0;
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-    font-size: var(--klc-font-size-sm, 12px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .indicator-template__error {
@@ -369,14 +359,10 @@
     color: var(--klc-color-ui-text-secondary);
   }
 
-  .indicator-template__search {
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-  }
-
   .indicator-template__scroll {
     flex: 1;
     min-height: 0;
-    padding: var(--klc-space-8, 8px) 0;
+    padding: 0;
   }
 
   .indicator-template__row {
@@ -384,11 +370,11 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     width: 100%;
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
     border: 0;
     background: none;
     color: var(--klc-color-ui-text);
-    font-size: var(--klc-font-size-md, 13px);
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: left;
     cursor: pointer;
   }
@@ -407,15 +393,10 @@
     color: var(--klc-color-success, #21a05f);
   }
 
-  .indicator-template__group-title,
-  .indicator-template__list-head {
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-    font-size: var(--klc-font-size-sm, 12px);
+  .indicator-template__group-title {
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    font-size: var(--klc-text-12-font-size, 12px);
     color: var(--klc-color-ui-text-secondary);
-  }
-
-  .indicator-template__list-head {
-    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .indicator-template__item {
@@ -425,17 +406,19 @@
     padding-right: var(--klc-space-8, 8px);
   }
 
+  /* 行 hover 用比胶囊更深的选中色，避免胶囊和行背景融在一起。 */
   .indicator-template__item:hover {
-    background: var(--klc-color-ui-hover);
+    background: var(--klc-color-ui-selected);
   }
 
   .indicator-template__item-main {
     display: flex;
     flex: 1;
     min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
+    flex-flow: row nowrap;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
     border: 0;
     background: none;
     color: var(--klc-color-ui-text);
@@ -444,15 +427,25 @@
   }
 
   .indicator-template__item-name {
-    font-size: var(--klc-font-size-md, 13px);
-  }
-
-  .indicator-template__item-labels {
+    flex: 0 1 auto;
+    min-width: 0;
     overflow: hidden;
-    color: var(--klc-color-ui-text-secondary);
-    font-size: var(--klc-font-size-sm, 12px);
+    font-size: var(--klc-text-12-font-size, 12px);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .indicator-template__item-chips {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: var(--klc-space-4, 4px);
+    min-width: 0;
+  }
+
+  .indicator-template__item-empty {
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .indicator-template__item-action {
@@ -472,20 +465,22 @@
     opacity: 1;
   }
 
+  /* 只高亮图标本身，不给按钮加背景或外框。 */
+  .indicator-template__item-action:hover,
+  .indicator-template__item-action:focus-visible {
+    color: var(--klc-color-ui-text);
+  }
+
   .indicator-template__item-action svg {
     width: 16px;
     height: 16px;
   }
 
-  .indicator-template__footer-row {
-    border-top: 1px solid var(--klc-color-ui-border);
-  }
-
   .indicator-template__empty {
     margin: 0;
-    padding: var(--klc-space-24, 24px) var(--klc-space-16, 16px);
-    color: var(--klc-color-ui-text-secondary);
-    font-size: var(--klc-font-size-sm, 12px);
+    padding: var(--klc-space-24, 24px) var(--klc-space-12, 12px);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;
   }
 </style>
