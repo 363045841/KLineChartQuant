@@ -1,5 +1,4 @@
 /** 指标展示目录从已注册定义及输入声明派生，不维护平行 UI 配置。 */
-import { computed } from '@/foundation/reactivity/signal.js'
 import { getIndicatorDescriptors, resolveCanonicalIndicatorId, resolveIndicatorDefinitionId } from '../../indicators/indicatorDefinitionRegistry.js'
 import { type IndicatorInputDef, IndicatorKind } from '../../indicators/indicatorMetadata.js'
 
@@ -24,6 +23,8 @@ export interface Indicator {
   pane: 'main' | 'sub'
   description?: string
   params?: ParamConfig[]
+  /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
+  documentIdentity?: 'builtin' | 'user'
 }
 
 /** 只用于目录名称匹配，不改变注册身份。 */
@@ -49,27 +50,33 @@ function parameterConfigs(defaults: Readonly<Record<string, unknown>>, definitio
   })
 }
 
-/** 注册表修订触发重建；所有指标使用同一份元数据来源。 */
-const indicatorCatalog = computed<readonly Indicator[]>(() => getIndicatorDescriptors()
-  .filter((definition) => definition.kind === IndicatorKind.Indicator)
-  .map((definition): Indicator => ({
-    id: resolveCanonicalIndicatorId(definition), source: definition.source,
-    label: definition.displayName, name: definition.title === undefined ? definition.displayName : definition.title,
-    pane: definition.category === 'main' ? 'main' : 'sub', description: definition.info,
-    params: parameterConfigs({ ...definition.defaultParams, ...definition.defaultOptions }, definition.inputDefs),
-  }))
-  .sort((a, b) => (a.pane === 'main' ? 0 : 1) - (b.pane === 'main' ? 0 : 1) || a.label.localeCompare(b.label)))
-
-/** 返回目录快照，调用方不会改写缓存。 */
-export function allIndicators(): Indicator[] { return [...indicatorCatalog()] }
+/**
+ * 目录快照：每次调用都读注册表当前值。
+ *
+ * 不缓存为 computed：脚本定义在运行时陆续注册，缓存过的派生值在没有订阅者时不会失效，
+ * 选择器就会停在启动那一刻的列表上。
+ */
+export function allIndicators(): Indicator[] {
+  return getIndicatorDescriptors()
+    .filter((definition) => definition.kind === IndicatorKind.Indicator)
+    .map((definition): Indicator => ({
+      id: resolveCanonicalIndicatorId(definition), source: definition.source,
+      label: definition.displayName, name: definition.title === undefined ? definition.displayName : definition.title,
+      pane: definition.category === 'main' ? 'main' : 'sub', description: definition.info,
+      documentIdentity: definition.documentIdentity,
+      params: parameterConfigs({ ...definition.defaultParams, ...definition.defaultOptions }, definition.inputDefs),
+    }))
+    .sort((a, b) => (a.pane === 'main' ? 0 : 1) - (b.pane === 'main' ? 0 : 1) || a.label.localeCompare(b.label))
+}
 
 /** 按规范身份、展示名或注册别名查找。 */
 export function findIndicator(id: string): Indicator | undefined {
   const normalized = normalizeId(id)
-  const direct = indicatorCatalog().find((item) => normalizeId(item.id) === normalized || normalizeId(item.label) === normalized)
+  const catalog = allIndicators()
+  const direct = catalog.find((item) => normalizeId(item.id) === normalized || normalizeId(item.label) === normalized)
   if (direct) return direct
   const canonical = resolveIndicatorDefinitionId(id)
-  return canonical === undefined ? undefined : indicatorCatalog().find((item) => normalizeId(item.id) === normalizeId(canonical))
+  return canonical === undefined ? undefined : catalog.find((item) => normalizeId(item.id) === normalizeId(canonical))
 }
 
 /** 查询目录中的默认 pane 分类。 */

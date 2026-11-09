@@ -53,6 +53,11 @@ export interface IndicatorDescriptor {
   readonly defaultParams?: Readonly<Record<string, unknown>>
   /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
   readonly inputDefs?: Readonly<Record<string, IndicatorInputDef>>
+  /**
+   * 脚本身份：内置只读或用户可编辑。
+   * 放在静态目录里，选择器无需加载实现即可区分两类脚本。
+   */
+  readonly documentIdentity?: 'builtin' | 'user'
   /** presentation.defaultOptions 的静态值。 */
   readonly defaultOptions?: Readonly<Record<string, unknown>>
 }
@@ -159,6 +164,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
         : (defaultParams as Readonly<Record<string, unknown>> | undefined),
     defaultOptions: definition.presentation?.defaultOptions,
     inputDefs: definition.runtime?.inputDefs,
+    documentIdentity: definition.document?.identity,
   }
 }
 

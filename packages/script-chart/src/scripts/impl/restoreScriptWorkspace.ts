@@ -19,6 +19,16 @@ export interface RestoreScriptWorkspaceRequest {
   readonly options: ScriptServiceOptions
 }
 
+/** 读取脚本声明中的名称，失败日志用；解析不出时退回序号。 */
+function describeScript(source: string, index: number): string {
+  try {
+    const declaration = inspectScript(source)
+    return declaration.name || `#${index}`
+  } catch {
+    return `#${index}`
+  }
+}
+
 /**
  * 恢复用户工作区并注册全部可执行定义。
  *
@@ -49,27 +59,37 @@ export async function restoreScriptWorkspace(
       }
     }
     for (const library of store.catalog()) await validateLibrary(executor, library.name)
-    for (const source of options.builtinSources ?? []) {
-      const prepared = await executor.prepare(source, true)
-      // 内置脚本随包发布且只读，可信是它的固有属性，不是用户选择。
-      await executor.publish(prepared.definition.name, source, prepared, 1, false, true, 'builtin')
+    for (const [index, source] of (options.builtinSources ?? []).entries()) {
+      // 单个内置脚本失败不能拖垮整批：记录脚本名与错误后继续发布剩余脚本，
+      // 否则一个坏脚本会让选择器里只剩原生指标。名称只在失败时解析，不为日志多付解析成本。
+      try {
+        const prepared = await executor.prepare(source, true)
+        // 内置脚本随包发布且只读，可信是它的固有属性，不是用户选择。
+        await executor.publish(prepared.definition.name, source, prepared, 1, false, true, 'builtin')
+      } catch (error) {
+        console.error(`[ScriptService] 内置脚本发布失败：${describeScript(source, index)}`, error)
+      }
     }
     for (const document of saved) {
       if (libraryIds.has(document.id)) continue
-      const prepared = await executor.prepare(document.source, document.trusted)
-      const { definition } = prepared
-      store.assertAvailable(definition)
-      if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
-      await executor.publish(
-        document.id,
-        document.source,
-        prepared,
-        document.revision,
-        false,
-        document.trusted,
-        'user',
-        document.folder,
-      )
+      try {
+        const prepared = await executor.prepare(document.source, document.trusted)
+        const { definition } = prepared
+        store.assertAvailable(definition)
+        if (getIndicatorDescriptor(document.id)) throw new Error(`脚本 ID 已存在：${document.id}`)
+        await executor.publish(
+          document.id,
+          document.source,
+          prepared,
+          document.revision,
+          false,
+          document.trusted,
+          'user',
+          document.folder,
+        )
+      } catch (error) {
+        console.error(`[ScriptService] 用户脚本恢复失败：${document.id}`, error)
+      }
     }
     return folders
   } catch (error) {
