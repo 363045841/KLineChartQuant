@@ -111,6 +111,8 @@ pnpm workspace at `packages/*`。唯一对外发布包为 `packages/vue` (`@3630
 
 - **Viewport too large**: 可能触发 `MAX_CANVAS_PIXELS`(`viewportState` 的 `clampDpr`),DPR 会被主动降级.
 - **tsc 增量构建与产物**: 各 `tsc -p tsconfig.build.json` 的包用 `incremental` + `node_modules/.tmp` 缓存,该缓存只比对源文件时间戳;若 `dist/` 被带外删除而缓存仍在,`tsc` 会认为已最新,跳过 emit 并退出 0(得到空 `dist`).删掉对应的 `node_modules/.tmp/tsconfig.build.*.tsbuildinfo` 再构建即可;CI 每次干净检出,不受影响.
+- **`test:product` 不会重新打包**: 该命令只执行 `scripts/test-product.mjs`,读取的是 `artifacts/product/*.tgz` 里已有的 tarball.改完源码直接跑会因为测到旧产物而失败(典型症状是 source 与 package 截图不一致,差异落在新加的 UI 上).正确顺序是 `pnpm pack:product` 再 `pnpm test:product`,或直接用 `pnpm build:packages && pnpm pack:product && pnpm test:product` 走全链路.
+- **切分支后 `dist` 与生成产物会错位**: `dist/` 与 `packages/core/src/engine/indicators/generated/builtinIndicators.ts` 都按"当前分支源码"生成,而工作区在切换分支时不会重建它们.跨分支(`nexus/main` ↔ 上游基线的 `pr/*`)来回切后,会看到源码里有的字段在产物里消失、或类型检查报"属性不存在"、`git status` 冒出生成文件改动.这都不是代码缺陷.**切分支后先 `pnpm build:packages` 重建,再判断失败**.确认真实状态的办法:`git stash` 后重新生成,看生成产物是否与当前源码一致;一致就说明产物只是停留在另一条分支的生成结果.
 
 ## Comment Style
 
