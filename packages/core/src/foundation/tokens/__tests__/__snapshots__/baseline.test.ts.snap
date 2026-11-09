@@ -291,11 +291,11 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
 ":root {
-  --klc-color-background: #F5F5F7;
-  --klc-color-foreground: #242426;
-  --klc-color-chart-background: #F5F5F7;
-  --klc-color-floating-surface: #FAFAFC;
-  --klc-color-chart-navigation-background: #FAFAFC;
+  --klc-color-background: #F8F8F8;
+  --klc-color-foreground: #262626;
+  --klc-color-chart-background: #F8F8F8;
+  --klc-color-floating-surface: #FCFCFC;
+  --klc-color-chart-navigation-background: #FCFCFC;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;
@@ -309,19 +309,19 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-volume-up: #0F8B5C66;
   --klc-color-volume-down: #C2363B66;
   --klc-color-volume-neutral: #00000066;
-  --klc-color-axis-text: #606066;
-  --klc-color-axis-line: #D8D8DE;
-  --klc-color-axis-tick: #D8D8DE;
+  --klc-color-axis-text: #606060;
+  --klc-color-axis-line: #DDDDDD;
+  --klc-color-axis-tick: #DDDDDD;
   --klc-color-grid-major: #E5E5E5;
   --klc-color-grid-minor: #F0F0F0;
   --klc-color-crosshair-line: #8C8C8C;
-  --klc-color-crosshair-label-bg: #242426;
-  --klc-color-crosshair-label-text: #F5F5F7;
+  --klc-color-crosshair-label-bg: #262626;
+  --klc-color-crosshair-label-text: #F8F8F8;
   --klc-color-selection-fill: #2D7FF933;
   --klc-color-selection-stroke: #2D7FF9;
-  --klc-color-tooltip-bg: #FAFAFC;
-  --klc-color-tooltip-text: #242426;
-  --klc-color-tooltip-border: #D8D8DE;
+  --klc-color-tooltip-bg: #FCFCFC;
+  --klc-color-tooltip-text: #262626;
+  --klc-color-tooltip-border: #DDDDDD;
   --klc-color-heatmap-coldest: #F0F4F8;
   --klc-color-heatmap-hottest: #1F3A5F;
   --klc-color-footprint-cell-bid: #d64b4b;
@@ -376,26 +376,26 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-script-palette-brown: #A17257;
   --klc-color-script-palette-blue-gray: #668093;
   --klc-color-script-palette-gray: #7C7C7C;
-  --klc-color-script-palette-foreground: #242426;
-  --klc-color-text-primary: #242426;
-  --klc-color-text-secondary: #606066;
-  --klc-color-text-tertiary: #76767C;
+  --klc-color-script-palette-foreground: #262626;
+  --klc-color-text-primary: #262626;
+  --klc-color-text-secondary: #606060;
+  --klc-color-text-tertiary: #767676;
   --klc-color-text-weak: hsl(210, 7%, 65%);
   --klc-color-text-white: rgba(255, 255, 255, 0.92);
   --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
-  --klc-color-tag-bg-white: #FAFAFC;
+  --klc-color-tag-bg-white: #FCFCFC;
   --klc-color-tag-bg-light-gray: rgba(255, 255, 255, 0.92);
   --klc-color-tag-bg-pure-white: #FFFFFF;
   --klc-color-tag-bg-transparent: transparent;
-  --klc-color-tag-bg-active: #52617B;
-  --klc-color-tag-bg-active-hover: #414E66;
-  --klc-color-tag-bg-hover: #DCDCE1;
+  --klc-color-tag-bg-active: #5A5A5A;
+  --klc-color-tag-bg-active-hover: #444444;
+  --klc-color-tag-bg-hover: #E5E5E5;
   --klc-color-border-dark: rgba(0, 0, 0, 0.12);
   --klc-color-border-medium: rgba(0, 0, 0, 0.10);
   --klc-color-border-light: rgba(0, 0, 0, 0.08);
   --klc-color-border-separator: rgba(0, 0, 0, 0.10);
-  --klc-color-border-button: #B8B8BE;
-  --klc-color-border-chart: #D8D8DE;
+  --klc-color-border-button: #8C8C8C;
+  --klc-color-border-chart: #DDDDDD;
   --klc-color-ma-ma5: #e8590c;
   --klc-color-ma-ma10: #0891b2;
   --klc-color-ma-ma20: #2563eb;
@@ -452,21 +452,21 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-last-price-label-bg: rgba(255, 247, 248, 0.98);
   --klc-color-reference-line-neutral: rgba(0, 0, 0, 0.3);
   --klc-color-wmsr-grid: rgba(0, 0, 0, 0.1);
-  --klc-color-ui-background: #F5F5F7;
-  --klc-color-ui-surface: #FAFAFC;
+  --klc-color-ui-background: #F8F8F8;
+  --klc-color-ui-surface: #FCFCFC;
   --klc-color-ui-card: #FFFFFF;
   --klc-color-ui-input: #FFFFFF;
-  --klc-color-ui-control-background: #E5E5EA;
-  --klc-color-ui-hover: #DCDCE1;
-  --klc-color-ui-selected: #ECECEF;
-  --klc-color-ui-border: #D8D8DE;
-  --klc-color-ui-border-strong: #B8B8BE;
-  --klc-color-ui-text: #242426;
-  --klc-color-ui-text-soft: #76767C;
-  --klc-color-ui-muted: #606066;
-  --klc-color-ui-accent: #52617B;
-  --klc-color-ui-accent-strong: #414E66;
-  --klc-color-ui-focus: #52617B;
+  --klc-color-ui-control-background: #EAEAEA;
+  --klc-color-ui-hover: #E5E5E5;
+  --klc-color-ui-selected: #EEEEEE;
+  --klc-color-ui-border: #DDDDDD;
+  --klc-color-ui-border-strong: #8C8C8C;
+  --klc-color-ui-text: #262626;
+  --klc-color-ui-text-soft: #767676;
+  --klc-color-ui-muted: #606060;
+  --klc-color-ui-accent: #5A5A5A;
+  --klc-color-ui-accent-strong: #444444;
+  --klc-color-ui-focus: #5A5A5A;
   --klc-color-ui-warning-background: #FFF8E8;
   --klc-color-ui-warning-border: #D29A3A;
   --klc-color-ui-warning-text: #AD7414;
@@ -477,12 +477,12 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-success: #16885A;
   --klc-color-ui-warning: #C58A1A;
   --klc-color-ui-danger: #D14B4B;
-  --klc-color-ui-neutral: #76767C;
+  --klc-color-ui-neutral: #767676;
   --klc-color-ui-on-accent: #FFFFFF;
-  --klc-color-ui-secondary-button-text: #606066;
+  --klc-color-ui-secondary-button-text: #606060;
   --klc-color-agent-composer-input-background: #FFFFFF;
-  --klc-color-agent-composer-control-background: #E5E5EA;
-  --klc-color-agent-composer-control-hover: #DCDCE1;
+  --klc-color-agent-composer-control-background: #EAEAEA;
+  --klc-color-agent-composer-control-hover: #E5E5E5;
   --klc-color-agent-user-message: #EAEAEE;
   --klc-color-agent-backdrop: rgba(0, 0, 0, 0.35);
   --klc-color-agent-panel-shadow: rgba(0, 0, 0, 0.2);
@@ -520,60 +520,60 @@ Each role is measured against its own surface (default: \`colors.background\`).
 
 | Role | Value | Surface | Ratio | Floor | Pass |
 |---|---|---|---|---|---|
-| foreground | #242426 | background | 14.23 | 4.5:1 | ✅ |
-| axisText | #606066 | background | 5.74 | 4.5:1 | ✅ |
-| crosshairLabelText | #F5F5F7 | crosshairLabelBg | 14.23 | 4.5:1 | ✅ |
-| tooltipText | #242426 | tooltipBg | 14.86 | 4.5:1 | ✅ |
-| candleUpBody | #089981 | background | 3.28 | 3.0:1 | ✅ |
-| candleDownBody | #f23645 | background | 3.58 | 3.0:1 | ✅ |
-| performancePositive | #0B7A50 | background | 4.93 | 4.5:1 | ✅ |
-| performanceNegative | #C2363B | background | 4.96 | 4.5:1 | ✅ |
-| performanceNeutral | #5A5A5A | background | 6.33 | 4.5:1 | ✅ |
-| candleDojiBorder | #6E6E6E | background | 4.68 | 3.0:1 | ✅ |
-| crosshairLine | #8C8C8C | background | 3.09 | 3.0:1 | ✅ |
-| selectionStroke | #2D7FF9 | background | 3.50 | 3.0:1 | ✅ |
-| alertActive | #2D7FF9 | background | 3.50 | 3.0:1 | ✅ |
-| alertTriggered | #C2410C | background | 4.76 | 3.0:1 | ✅ |
-| avwapLine | #7C3AED | background | 5.23 | 3.0:1 | ✅ |
-| mtfOverlay | #0369A1 | background | 5.45 | 3.0:1 | ✅ |
+| foreground | #262626 | background | 14.25 | 4.5:1 | ✅ |
+| axisText | #606060 | background | 5.92 | 4.5:1 | ✅ |
+| crosshairLabelText | #F8F8F8 | crosshairLabelBg | 14.25 | 4.5:1 | ✅ |
+| tooltipText | #262626 | tooltipBg | 14.75 | 4.5:1 | ✅ |
+| candleUpBody | #089981 | background | 3.36 | 3.0:1 | ✅ |
+| candleDownBody | #f23645 | background | 3.67 | 3.0:1 | ✅ |
+| performancePositive | #0B7A50 | background | 5.05 | 4.5:1 | ✅ |
+| performanceNegative | #C2363B | background | 5.09 | 4.5:1 | ✅ |
+| performanceNeutral | #5A5A5A | background | 6.49 | 4.5:1 | ✅ |
+| candleDojiBorder | #6E6E6E | background | 4.80 | 3.0:1 | ✅ |
+| crosshairLine | #8C8C8C | background | 3.17 | 3.0:1 | ✅ |
+| selectionStroke | #2D7FF9 | background | 3.59 | 3.0:1 | ✅ |
+| alertActive | #2D7FF9 | background | 3.59 | 3.0:1 | ✅ |
+| alertTriggered | #C2410C | background | 4.88 | 3.0:1 | ✅ |
+| avwapLine | #7C3AED | background | 5.37 | 3.0:1 | ✅ |
+| mtfOverlay | #0369A1 | background | 5.59 | 3.0:1 | ✅ |
 
 ## Indicator palette
 
 | Slot | Value | Ratio vs surface |
 |---|---|---|
-| i1 | #0072B2 | 4.76 |
-| i2 | #E69F00 | 2.07 |
-| i3 | #009E73 | 3.14 |
-| i4 | #CC79A7 | 2.81 |
-| i5 | #D55E00 | 3.55 |
-| i6 | #56B4E9 | 2.12 |
-| i7 | #F0E442 | 1.21 |
-| i8 | #7C3AED | 5.23 |
-| i9 | #2D7FF9 | 3.50 |
-| i10 | #6E6E6E | 4.68 |
-| indicatorAtr | #d97706 | 2.93 |
+| i1 | #0072B2 | 4.88 |
+| i2 | #E69F00 | 2.12 |
+| i3 | #009E73 | 3.22 |
+| i4 | #CC79A7 | 2.88 |
+| i5 | #D55E00 | 3.64 |
+| i6 | #56B4E9 | 2.17 |
+| i7 | #F0E442 | 1.25 |
+| i8 | #7C3AED | 5.37 |
+| i9 | #2D7FF9 | 3.59 |
+| i10 | #6E6E6E | 4.80 |
+| indicatorAtr | #d97706 | 3.00 |
 
 ## Script color palette
 
 | Slot | Value | Ratio vs surface |
 |---|---|---|
-| red | #DF453B | 3.82 |
-| deepOrange | #D05711 | 3.82 |
-| orange | #BA680A | 3.80 |
-| amber | #9D7704 | 3.80 |
-| yellow | #8D7D07 | 3.80 |
-| lime | #6C8621 | 3.80 |
-| lightGreen | #588934 | 3.82 |
-| green | #298E43 | 3.82 |
-| teal | #148B7E | 3.84 |
-| cyan | #168999 | 3.80 |
-| lightBlue | #0F84BF | 3.80 |
-| blue | #177AEC | 3.83 |
-| indigo | #6574D9 | 3.82 |
-| purple | #A85BCF | 3.81 |
-| pink | #E23680 | 3.80 |
-| brown | #A17257 | 3.81 |
-| blueGray | #668093 | 3.80 |
-| gray | #7C7C7C | 3.83 |
-| foreground | #242426 | 14.23 |"
+| red | #DF453B | 3.91 |
+| deepOrange | #D05711 | 3.91 |
+| orange | #BA680A | 3.90 |
+| amber | #9D7704 | 3.90 |
+| yellow | #8D7D07 | 3.90 |
+| lime | #6C8621 | 3.90 |
+| lightGreen | #588934 | 3.92 |
+| green | #298E43 | 3.92 |
+| teal | #148B7E | 3.94 |
+| cyan | #168999 | 3.90 |
+| lightBlue | #0F84BF | 3.90 |
+| blue | #177AEC | 3.93 |
+| indigo | #6574D9 | 3.91 |
+| purple | #A85BCF | 3.91 |
+| pink | #E23680 | 3.90 |
+| brown | #A17257 | 3.91 |
+| blueGray | #668093 | 3.90 |
+| gray | #7C7C7C | 3.93 |
+| foreground | #262626 | 14.25 |"
 `;

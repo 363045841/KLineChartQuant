@@ -16,7 +16,10 @@ const buildCommit = resolveBuildCommit()
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@363045841yyt/klinechart'] })],
+    resolve: {
+      alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
+    },
     build: {
       rollupOptions: {
         input: entry('electron/main.ts'),
@@ -27,7 +30,10 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@363045841yyt/klinechart'] })],
+    resolve: {
+      alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
+    },
     build: {
       rollupOptions: {
         input: entry('electron/preload.ts'),

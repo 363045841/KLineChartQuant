@@ -54,6 +54,7 @@ export default defineConfig({
       entry: {
         index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
         agent: fileURLToPath(new URL('./src/agent.ts', import.meta.url)),
+        'workspace-tabs': fileURLToPath(new URL('./src/workspace-tabs.ts', import.meta.url)),
       },
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,

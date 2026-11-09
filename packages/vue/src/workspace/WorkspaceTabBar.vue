@@ -6,15 +6,15 @@
   <header
     ref="bar"
     class="tab-bar"
-    :class="{ 'tab-bar--mac': platform === 'darwin' }"
+    :class="{ 'tab-bar--mac': desktop && platform === 'darwin', 'tab-bar--web': !desktop }"
     :style="{ '--tab-accent': accent }"
     @dragover.prevent
     @drop="onDrop"
   >
     <div class="tab-bar__inner">
-      <ColorAvatar class="tab-bar__brand" :color="accent">
-        <span class="tab-bar__brand-mark" v-html="brandLogoMarkup" />
-      </ColorAvatar>
+      <div class="tab-bar__application-menu">
+        <WorkspaceMenu :accent="accent" :theme-mode="themeMode" @theme-change="emit('theme-change', $event)" />
+      </div>
       <div
         class="tab-bar__list"
         ref="list"
@@ -64,14 +64,15 @@
       </div>
       <!-- 标题居中显示；标签延伸到这一区域时自动让位。 -->
       <span
-        ref="title"
+        v-if="title"
+        ref="titleElement"
         class="tab-bar__title"
         :class="{ 'is-hidden': !showTitle }"
         aria-hidden="true"
-        >KCQ Desktop</span
+        >{{ title }}</span
       >
       <!-- macOS 用系统红绿灯，其它平台自绘窗口按钮；图标取自 OpenChamber 的经典 Windows 样式。 -->
-      <div v-if="platform !== 'darwin'" class="tab-bar__controls">
+      <div v-if="desktop && platform !== 'darwin'" class="tab-bar__controls">
         <button type="button" class="tab-bar__control" aria-label="最小化" @click="emit('minimize')">
           <svg class="tab-bar__control-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 11V13H19V11H5Z" fill="currentColor" />
@@ -119,31 +120,39 @@
 </template>
 
 <script setup lang="ts">
-  import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
-  import type { WorkspaceTab } from '../../electron/window-bridge'
-  import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
-  import { readTabDragPayload, type TabDragPayload } from './tab-drag'
-  import type { TabDropTarget, TabPlacement } from './workspace-tabs'
-  import { tabLabelForSpec } from './workspace-tabs'
+  import WorkspaceMenu from './components/WorkspaceMenu.vue'
+  import { readTabDragPayload, type TabDragPayload } from './impl/tab-drag.js'
+  import type { TabDropTarget, TabPlacement } from './impl/workspace-tabs.js'
+  import { tabLabelForSpec } from './impl/workspace-tabs.js'
+  import type { WorkspaceTab } from './types.js'
 
-  const props = defineProps<{
-    /** 宿主平台；macOS 需要给系统红绿灯让出位置。 */
-    platform: string
-    /** 本窗口的工作区身份，拖拽数据里用它标识标签来源。 */
-    workspaceId: string
-    tabs: ReadonlyArray<WorkspaceTab>
-    activeTabId: string
-    /** 工作区标识色，取自色板。 */
-    accent: string
-    /** 只有一个标签时不允许拖出成新窗口；拖到其它窗口合并仍然允许。 */
-    canDetach: boolean
-    /** 当前窗口是否最大化，决定最大化按钮显示还原还是最大化图标。 */
-    maximized: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      /** Web 仅支持页面内标签；桌面宿主额外提供窗口操作。 */
+      desktop?: boolean
+      title?: string
+      themeMode?: ChartSettings['theme']
+      /** 宿主平台；macOS 需要给系统红绿灯让出位置。 */
+      platform?: string
+      /** 本窗口的工作区身份，拖拽数据里用它标识标签来源。 */
+      workspaceId: string
+      tabs: ReadonlyArray<WorkspaceTab>
+      activeTabId: string
+      /** 工作区标识色，取自色板。 */
+      accent: string
+      /** 只有一个标签时不允许拖出成新窗口；拖到其它窗口合并仍然允许。 */
+      canDetach?: boolean
+      /** 当前窗口是否最大化，决定最大化按钮显示还原还是最大化图标。 */
+      maximized?: boolean
+    }>(),
+    { desktop: false, platform: '', title: '', canDetach: false, maximized: false },
+  )
   const emit = defineEmits<{
+    'theme-change': [mode: ChartSettings['theme']]
     activate: [tabId: string]
     create: []
     close: [tabId: string]
@@ -160,7 +169,7 @@
   const dropTarget = ref<TabDropTarget | null>(null)
   const bar = useTemplateRef<HTMLElement>('bar')
   const list = useTemplateRef<HTMLElement>('list')
-  const title = useTemplateRef<HTMLElement>('title')
+  const titleElement = useTemplateRef<HTMLElement>('titleElement')
   /** 标签没堆到中间时显示窗口标题。 */
   const showTitle = ref(true)
   // 同窗口落点提交后 dragend 仍会触发，用它区分“拖出窗口”。
@@ -172,7 +181,7 @@
   /** 标签内容右边缘越过标题左边缘时隐藏标题，避免文字叠压。 */
   function updateTitleVisibility(): void {
     const listEl = list.value
-    const titleEl = title.value
+    const titleEl = titleElement.value
     if (!listEl || !titleEl) return
     const lastChild = listEl.lastElementChild
     if (!lastChild) {
@@ -230,8 +239,10 @@
     const payload: TabDragPayload = { fromWorkspaceId: props.workspaceId, tabId }
     event.dataTransfer.setData('text/plain', JSON.stringify(payload))
     // 拖拽期间整扇窗口都接受这次拖拽：否则指针一离开标签栏就显示禁止光标。
-    window.addEventListener('dragover', onWindowDragOver)
-    window.addEventListener('drop', onWindowDrop)
+    if (props.desktop) {
+      window.addEventListener('dragover', onWindowDragOver)
+      window.addEventListener('drop', onWindowDrop)
+    }
   }
 
   /** 拖拽期间接管整窗 dragover，声明为可放置，避免出现禁止光标。 */
@@ -247,7 +258,7 @@
     if (!tabId || dropped) return
     event.preventDefault()
     dropped = true
-    if (props.canDetach) emit('detach', tabId)
+    if (props.desktop && props.canDetach) emit('detach', tabId)
   }
 
   // 脱窗后标签会先被移除，dragend 可能不再派发；卸载时兜底复位。
@@ -275,6 +286,7 @@
   function onListDragOver(event: DragEvent): void {
     // 本窗口和其它窗口拖来的标签用同一套落点计算；dragover 阶段只能读 types。
     if (event.dataTransfer?.types.includes('text/plain') !== true) return
+    if (!props.desktop && !draggingId.value) return
     event.preventDefault()
     const list = event.currentTarget as HTMLElement
     const next = resolveDropTarget(list, event.clientX)
@@ -298,7 +310,7 @@
   function onDragEnd(event: DragEvent, tabId: string): void {
     const moved = dropped
     endDrag()
-    if (moved || !props.canDetach) return
+    if (moved || !props.desktop || !props.canDetach) return
     // 落到另一个窗口时由对方 accept（dropEffect 变成 move），本窗口不能再判成拖出。
     if (event.dataTransfer?.dropEffect === 'move') return
     const rect = bar.value?.getBoundingClientRect()
@@ -322,11 +334,13 @@
     clearDropTarget()
     if (payload.fromWorkspaceId !== props.workspaceId) {
       // 明确接受这次 drop，源窗口据此得到 move，不会重复脱窗。
-      event.preventDefault()
-      emit('adopt', { ...payload, target })
+      if (props.desktop) {
+        event.preventDefault()
+        emit('adopt', { ...payload, target })
+      }
       return
     }
-    if (!target) return
+    if (!target || (!props.desktop && draggingId.value !== payload.tabId)) return
     event.preventDefault()
     dropped = true
     emit('reorder', payload.tabId, target.id, target.placement)
@@ -360,7 +374,31 @@
     overflow: hidden;
   }
 
+  /* 8px 栏内边距加 36px 菜单位，中心落在下方 52px 工具栏的中线。 */
+  .tab-bar__application-menu {
+    width: 36px;
+    flex: none;
+    display: flex;
+    justify-content: center;
+  }
+
   /* 红绿灯固定在左上角；左右对称留位。 */
+  /* Web 标签栏属于页面，不预留系统标题栏区域。 */
+  .tab-bar--web {
+    height: 40px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .tab-bar--web .tab-bar__inner {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
   .tab-bar--mac .tab-bar__inner {
     padding-inline: 82px;
   }
@@ -411,10 +449,12 @@
     max-width: 220px;
     height: 26px;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--klc-color-ui-hover) 45%, transparent);
+    background: transparent;
+    border: 1px solid transparent;
+    box-sizing: border-box;
     color: var(--klc-color-text-tertiary);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     -webkit-app-region: no-drag;
     app-region: no-drag;
@@ -428,7 +468,9 @@
   }
 
   .tab-bar__tab.is-active {
-    background: color-mix(in srgb, var(--klc-color-ui-hover) 80%, var(--klc-color-text-tertiary));
+    /* 跟随图表设置的实际 color-scheme，自动模式也使用对应的选中背景。 */
+    background: light-dark(transparent, var(--klc-color-ui-hover));
+    border-color: var(--klc-color-ui-border);
     color: var(--klc-color-ui-text);
   }
 
@@ -495,7 +537,7 @@
     border: 0;
     border-radius: 6px;
     /* 用底色表示实体，不画边框；与未选中标签同一层浅灰。 */
-    background: color-mix(in srgb, var(--klc-color-ui-hover) 45%, transparent);
+    background: transparent;
     color: var(--klc-color-text-tertiary);
     cursor: pointer;
     -webkit-app-region: no-drag;

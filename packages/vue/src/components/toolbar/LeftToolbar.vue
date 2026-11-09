@@ -754,8 +754,12 @@
 
   .left-toolbar__button.active {
     border-color: transparent;
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
-    color: var(--klc-color-ui-accent);
+    /* 深色模式使用浅灰选中底和深色图标，跟随系统时按实际明暗模式生效。 */
+    background: light-dark(
+      color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
+      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
+    );
+    color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
   }
 
   .left-toolbar__button:focus-visible {

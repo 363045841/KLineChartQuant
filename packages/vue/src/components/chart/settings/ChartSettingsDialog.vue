@@ -6,7 +6,7 @@
     title="图表设置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
-    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
+    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm)) var(--klc-spacing-md) var(--klc-spacing-md)"
     footer-align="space-between"
     @update:open="emit('update:open', $event)"
   >
@@ -51,19 +51,13 @@
         <SettingsNavRow @select="showAggregationSourceModal = true">行情数据源</SettingsNavRow>
       </template>
 
-      <OpenSourceCredits v-else-if="activeSection === 'opensource'" />
-
       <template v-else>
         <ThemePresetPanel
           v-if="activeSection === 'style'"
           :settings="settings"
           :effective-theme="effectiveTheme"
           @update:settings="onThemePresetChange"
-        >
-          <template #actions>
-            <ThemeModeControl v-model="settings.theme" label="明暗模式" />
-          </template>
-        </ThemePresetPanel>
+        />
         <template v-for="item in sectionItems" :key="item.key">
           <SettingsItemRow
             :label="item.label"
@@ -146,14 +140,12 @@
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
   import { computed, ref, watch } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerTrash from '~icons/tabler/trash'
-  import OpenSourceCredits from './OpenSourceCredits.vue'
   import SettingsItemRow from './SettingsItemRow.vue'
   import SettingsNavRow from './SettingsNavRow.vue'
 
@@ -234,13 +226,7 @@
     return mainSettings.value.filter((item) => isSettingVisible(item, settings.value))
   })
 
-  type SettingsSectionId =
-    | 'shortcuts'
-    | 'main'
-    | 'style'
-    | 'experimental'
-    | 'dataSource'
-    | 'opensource'
+  type SettingsSectionId = 'shortcuts' | 'main' | 'style' | 'experimental' | 'dataSource'
 
   /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
   const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
@@ -252,7 +238,6 @@
     if (experimentalSettings.value.length > 0) {
       tabs.push({ id: 'experimental', label: '实验性' })
     }
-    tabs.push({ id: 'opensource', label: '开源致谢' })
     return tabs
   })
 
@@ -316,7 +301,9 @@
   }
 
   function confirmSettings() {
-    emit('confirm', { ...settings.value })
+    // 应用明暗模式归顶部菜单管理，图表设置只提交其余选项。
+    const { theme, ...chartSettings } = settings.value
+    emit('confirm', chartSettings)
   }
 
   /** 主题预设点击即生效：先写入草稿，再立即提交给上层应用并持久化，不关闭弹窗。 */

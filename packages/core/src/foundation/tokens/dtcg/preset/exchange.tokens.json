@@ -1,10 +1,10 @@
 {
-  "$description": "Exchange · 交易 — 分层面板 · 琥珀强调",
+  "$description": "Exchange · 交易 — 分层面板；浅色使用中性灰，深色保留琥珀强调。",
   "light": {
     "visual": {
       "background": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9725], "hex": "#FAFAF8" }
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9804], "hex": "#FAFAFA" }
       },
       "surface": {
         "$type": "color",
@@ -12,39 +12,39 @@
       },
       "card": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.9608, 0.9412], "hex": "#F5F5F0" }
+        "$value": { "colorSpace": "srgb", "components": [0.9608, 0.9608, 0.9608], "hex": "#F5F5F5" }
       },
       "input": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.9373, 0.9059], "hex": "#EFEFE7" }
+        "$value": { "colorSpace": "srgb", "components": [0.9373, 0.9373, 0.9373], "hex": "#EFEFEF" }
       },
       "hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9059, 0.9059, 0.8627], "hex": "#E7E7DC" }
+        "$value": { "colorSpace": "srgb", "components": [0.9059, 0.9059, 0.9059], "hex": "#E7E7E7" }
       },
       "selected": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9216, 0.9216, 0.8824], "hex": "#EBEBE1" }
+        "$value": { "colorSpace": "srgb", "components": [0.9216, 0.9216, 0.9216], "hex": "#EBEBEB" }
       },
       "border": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.851, 0.851, 0.7961], "hex": "#D9D9CB" }
+        "$value": { "colorSpace": "srgb", "components": [0.851, 0.851, 0.851], "hex": "#D9D9D9" }
       },
       "borderStrong": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.5765, 0.5843, 0.4902], "hex": "#93957D" }
+        "$value": { "colorSpace": "srgb", "components": [0.549, 0.549, 0.549], "hex": "#8C8C8C" }
       },
       "text": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1451, 0.1647, 0.1882], "hex": "#252A30" }
+        "$value": { "colorSpace": "srgb", "components": [0.149, 0.149, 0.149], "hex": "#262626" }
       },
       "muted": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4196, 0.4392], "hex": "#666B70" }
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4, 0.4], "hex": "#666666" }
       },
       "accent": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.5804, 0.4196, 0], "hex": "#946B00" }
+        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
       },
       "onAccent": {
         "$type": "color",
@@ -52,11 +52,11 @@
       },
       "gridMajor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.902, 0.902, 0.8706], "hex": "#E6E6DE" }
+        "$value": { "colorSpace": "srgb", "components": [0.902, 0.902, 0.902], "hex": "#E6E6E6" }
       },
       "gridMinor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9137], "hex": "#F0F0E9" }
+        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9412], "hex": "#F0F0F0" }
       }
     },
     "color": {
@@ -64,9 +64,9 @@
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.5804, 0.4196, 0],
+          "components": [0.3529, 0.3529, 0.3529],
           "alpha": 0.149,
-          "hex": "#946B00"
+          "hex": "#5A5A5A"
         },
         "$description": "= visual.accent at alpha 0x26."
       }

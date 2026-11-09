@@ -23,7 +23,7 @@
   const credits = getOpenSourceCredits()
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>
+<style scoped src="../../components/common/settings-item.css"></style>
 
 <style scoped>
   /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与留白。 */
@@ -37,6 +37,7 @@
   }
 
   .settings-item.credit-item {
+    gap: var(--klc-spacing-lg);
     /* 纯文本条目用 32px 的紧凑行高，比控件行的 40px 更紧凑但不过密。 */
     min-block-size: 32px;
     padding-block: var(--klc-spacing-xs);
@@ -59,9 +60,7 @@
   .credit-name {
     min-inline-size: 0;
     font-size: var(--klc-typography-font-size-md);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   .credit-version {
@@ -69,5 +68,15 @@
     font-size: var(--klc-typography-font-size-md);
     color: var(--klc-color-ui-muted);
     white-space: nowrap;
+  }
+
+  /* 窄屏按两行排版，保留完整名称与许可证，不强迫弹窗超出视口。 */
+  @media (max-width: 540px) {
+    .settings-item.credit-item {
+      flex-wrap: wrap;
+      gap: var(--klc-spacing-xs);
+    }
+    .credit-name { flex-basis: 100%; }
+    .credit-version { white-space: normal; overflow-wrap: anywhere; }
   }
 </style>

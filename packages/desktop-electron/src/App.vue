@@ -6,10 +6,13 @@
   <div class="desktop-shell" :style="shellStyle">
     <template v-if="tabs.ready.value">
       <TabBar
+        desktop
+        title="KCQ Desktop"
         :platform="windowShell.platform"
         :workspace-id="workspaceId"
         :tabs="tabs.tabs.value"
         :active-tab-id="tabs.activeTabId.value"
+        :theme-mode="appearance.mode.value"
         :accent="accent"
         :can-detach="tabs.tabs.value.length > 1"
         :maximized="maximized"
@@ -19,6 +22,7 @@
         @detach="detachTab"
         @adopt="adoptTab"
         @reorder="tabs.moveTab"
+        @theme-change="appearance.setMode"
         @minimize="windowShell.minimize"
         @toggle-maximize="windowShell.toggleMaximize"
         @close-window="windowShell.close"
@@ -29,17 +33,12 @@
           工作台的属性不允许依赖「谁是活动标签」：那样会换掉外层组件类型，
           让 Vue 卸载重建整棵子树，兄弟标签的图表实例会一起被销毁。
         -->
-        <KlineWorkbench
-          v-for="tab in tabs.tabs.value"
-          v-show="tab.id === tabs.activeTabId.value"
-          :key="tab.id"
-          :market-data-context="market.context"
-          :instrument="market.instrument"
-          :restore-layout="false"
-          :period="period"
-          :credentials="credentials"
-          :left-axis-width="60"
-          @controller-ready="onControllerReady(tab.id, $event)"
+        <WorkspaceContent
+          :tabs="tabs.tabs.value"
+          :active-tab-id="tabs.activeTabId.value"
+          :theme-mode="appearance.mode.value"
+          :workbench="{ marketDataContext: market.context, instrument: market.instrument, period, credentials, chart: { leftAxisWidth: 60 } }"
+          @spec-change="tabs.setSpec"
         />
       </div>
     </template>
@@ -51,19 +50,20 @@
     createMarketDataHost,
     createPersistedMarketDataHost,
     KLinePeriod,
-    KlineWorkbench,
     type KlineWorkbenchProps,
     type PersistedMarketDataHost,
+    WorkspaceTabBar as TabBar,
+    type TabDropTarget,
+    tabLabelForSpec,
+    useWorkspaceAppearance,
+    useWorkspaceTabs,
+    WorkspaceContent,
   } from '@363045841yyt/klinechart'
-  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
   import { createE2eDataSource } from './features/agent/chart-e2e-fixture'
   import { createElectronCredentialStore } from './features/agent/electron-credential-store'
-  import TabBar from './shell/TabBar.vue'
-  import { useWorkspaceTabs } from './shell/use-workspace-tabs'
   import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './shell/window-shell'
   import { workspaceAccent } from './shell/workspace-accent'
-  import { type TabDropTarget, tabLabelForSpec } from './shell/workspace-tabs'
 
   /** E2E 也走注册数据源，不提供旁路行情入口；产品模式复用的持久化宿主与 Web 完全相同。 */
   function createMarket(): PersistedMarketDataHost & {
@@ -92,6 +92,7 @@
   const period = KLinePeriod.Daily
   const accent = workspaceAccent(readWorkspaceAccent())
   const tabs = useWorkspaceTabs(workspaceId)
+  const appearance = useWorkspaceAppearance()
   /** 最大化状态以主进程推送为准，按钮图标据此切换。 */
   const maximized = ref(false)
 
@@ -102,33 +103,9 @@
     document.title = tabLabelForSpec(activeTab.spec)
   })
 
-  /** 每个图表只保留一份品种订阅，重复回报同一品种不会产生写入。 */
-  const symbolSubscriptions = new Map<string, () => void>()
+  /** 窗口事件归宿主所有，退出时统一解绑。 */
   let unsubscribeWorkspace: (() => void) | undefined
   let unsubscribeMaximized: (() => void) | undefined
-
-  /** 图表当前品种回写到标签，标签标题始终跟随图表而不是另存一份。 */
-  function syncSpec(tabId: string, controller: ChartController): void {
-    void tabs
-      .setSpec(tabId, controller.symbols.peek()[0] ?? null)
-      .catch((error: unknown) => console.error('Tab symbol save failed', error))
-  }
-
-  /** 图表就绪：恢复标签保存的品种，再接管后续品种回报。 */
-  function onControllerReady(tabId: string, controller: ChartController): void {
-    // 标签页各自持有图表状态；多个标签同时向同一份布局归档自动保存会互相覆盖，
-    // 因此桌面端关闭归档自动保存，布局菜单仍是手动保存/切换的入口。
-    if (controller.layoutAutoSave.peek()) void controller.setLayoutAutoSave({ enabled: false })
-    symbolSubscriptions.get(tabId)?.()
-    symbolSubscriptions.set(
-      tabId,
-      controller.symbols.subscribe(() => syncSpec(tabId, controller)),
-    )
-    // 直接把标签保存的品种写回图表：不走数据源解析，因此不依赖 catalog.resolve。
-    const spec = tabs.tabs.value.find((tab) => tab.id === tabId)?.spec
-    if (spec) controller.setSymbols([spec])
-    syncSpec(tabId, controller)
-  }
 
   /** 拖出标签：先开新窗口接管，成功后再从本窗口移除，失败时标签仍在。 */
   async function detachTab(tabId: string): Promise<void> {
@@ -172,8 +149,6 @@
   onBeforeUnmount(() => {
     unsubscribeWorkspace?.()
     unsubscribeMaximized?.()
-    for (const unsubscribe of symbolSubscriptions.values()) unsubscribe()
-    symbolSubscriptions.clear()
     void tabs.dispose()
     market.dispose()
   })
@@ -194,6 +169,8 @@
 
   /* 标题栏之外的空间全部交给工作台；min-height 保证图表能正确收缩。 */
   .desktop-shell__content {
+    display: flex;
+    flex-direction: column;
     position: relative;
     flex: 1;
     min-height: 0;

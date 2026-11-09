@@ -2,7 +2,7 @@
 // 视觉风格的语义色表；市场涨跌沿用 base，不将强调色用作行情颜色。
 import type { VisualPalette } from '../types.js'
 
-// Exchange · 交易 — 分层面板 · 琥珀强调
+// Exchange · 交易 — 分层面板；浅色使用中性灰，深色保留琥珀强调。
 export const exchange = {
   dark: {
     background: '#0B0E11',
@@ -21,20 +21,20 @@ export const exchange = {
     gridMinor: '#171D24',
   },
   light: {
-    background: '#FAFAF8',
+    background: '#FAFAFA',
     surface: '#FFFFFF',
-    card: '#F5F5F0',
-    input: '#EFEFE7',
-    hover: '#E7E7DC',
-    selected: '#EBEBE1',
-    border: '#D9D9CB',
-    borderStrong: '#93957D',
-    text: '#252A30',
-    muted: '#666B70',
-    accent: '#946B00',
+    card: '#F5F5F5',
+    input: '#EFEFEF',
+    hover: '#E7E7E7',
+    selected: '#EBEBEB',
+    border: '#D9D9D9',
+    borderStrong: '#8C8C8C',
+    text: '#262626',
+    muted: '#666666',
+    accent: '#5A5A5A',
     onAccent: '#FFFFFF',
-    gridMajor: '#E6E6DE',
-    gridMinor: '#F0F0E9',
+    gridMajor: '#E6E6E6',
+    gridMinor: '#F0F0F0',
   },
 } satisfies Record<'light' | 'dark', VisualPalette>
 

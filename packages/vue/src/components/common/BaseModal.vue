@@ -93,6 +93,7 @@
     useFullscreenTeleportTarget,
   } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useModalDrag } from '@vue-src/composables/ui/useModalDrag.js'
+  import { useModalResize } from '@vue-src/composables/ui/useModalResize.js'
   import {
     computed,
     nextTick,
@@ -114,6 +115,10 @@
       draggable?: boolean
       title?: string
       width?: string
+      /** 内容自适应宽度时的下限，仍受视口可用宽度约束。 */
+      minWidth?: string
+      /** 默认平滑过渡内容或配置引起的尺寸变化，尊重减少动态效果偏好。 */
+      animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
       overlayPadding?: string
@@ -131,6 +136,8 @@
       title: '',
       draggable: true,
       width: 'min(92vw, 400px)',
+      minWidth: '',
+      animateResize: true,
       maxWidth: '',
       maxHeight: 'min(600px, calc(100dvh - 48px))',
       overlayPadding: 'var(--klc-space-24, 24px)',
@@ -156,6 +163,7 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
+  useModalResize(dialog, () => props.animateResize)
   const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
   const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
     dialog,
@@ -173,6 +181,9 @@
 
   const modalStyle = computed(() => ({
     '--base-modal-width': props.width,
+    minWidth: props.minWidth
+      ? `min(${props.minWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
+      : undefined,
     maxWidth: props.maxWidth
       ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
       : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,

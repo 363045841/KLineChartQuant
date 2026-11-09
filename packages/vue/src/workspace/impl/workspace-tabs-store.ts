@@ -7,7 +7,7 @@ import {
   type TabDropTarget,
   type WorkspaceTab,
   type WorkspaceTabs,
-} from './workspace-tabs'
+} from './workspace-tabs.js'
 
 const DATABASE_NAME = '@363045841yyt/klinechart-desktop'
 const DATABASE_VERSION = 1

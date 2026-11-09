@@ -21,6 +21,7 @@
     "useDefineForClassFields": true,
     "resolveJsonModule": true,
     "paths": {
+      "@363045841yyt/klinechart/workspace-tabs": ["./packages/vue/src/workspace-tabs.ts"],
       "@/core/*": ["./packages/core/src/engine/*"],
       "@/types/*": ["./packages/core/src/foundation/types/*"],
       "@/plugin": ["./packages/core/src/foundation/plugin"],

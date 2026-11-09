@@ -28,6 +28,10 @@
       }
     },
     "./style.css": "./dist/index.css",
+    "./workspace-tabs": {
+      "types": "./dist/workspace-tabs.d.ts",
+      "import": "./dist/workspace-tabs.js"
+    },
     "./agent": {
       "types": "./dist/agent.d.ts",
       "import": "./dist/agent.js"

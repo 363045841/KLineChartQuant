@@ -4,7 +4,9 @@
  * 与 `credential-bridge.ts` 一样，本文件不得依赖任何 node 内置模块：
  * sandbox preload 只能加载 `electron`。
  */
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { WorkspaceTab } from '@363045841yyt/klinechart/workspace-tabs'
+
+export { isSymbolSpec, type WorkspaceTab } from '@363045841yyt/klinechart/workspace-tabs'
 
 /** 挂在 `window` 上的窗口桥名称。 */
 export const WINDOW_BRIDGE_KEY = 'klinechartWindow'
@@ -25,33 +27,6 @@ export const WINDOW_CHANNELS = {
   adoptTab: 'klinechart:window:adopt-tab',
   workspaceChanged: 'klinechart:window:workspace-changed',
 } as const
-
-/**
- * 判断值是否为可用的图表品种描述。
- *
- * 只校验加载数据所需的字段；其余字段由图表原样使用，这里不做二次构造。
- */
-export function isSymbolSpec(value: unknown): value is SymbolSpec {
-  if (typeof value !== 'object' || value === null) return false
-  const spec = value as Record<string, unknown>
-  return (
-    typeof spec.symbol === 'string' &&
-    spec.symbol.length > 0 &&
-    typeof spec.market === 'string' &&
-    spec.market.length > 0
-  )
-}
-
-/**
- * 标签页快照。
- *
- * 主进程只在窗口之间搬运这份数据，不解释、不改写：标签内容归渲染进程所有。
- */
-export interface WorkspaceTab {
-  readonly id: string
-  /** 图表完整的品种描述；标题在渲染时由它派生，恢复时直接写回图表，不经过数据源解析。 */
-  readonly spec: SymbolSpec | null
-}
 
 /** 窗口的最大化状态。 */
 export interface WindowState {

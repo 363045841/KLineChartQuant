@@ -6,8 +6,7 @@
  */
 import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 
-import type { WorkspaceTab } from '../../electron/window-bridge'
-import { isSymbolSpec } from '../../electron/window-bridge'
+import { isSymbolSpec, type WorkspaceTab } from '../types.js'
 
 /** 空标签页的标题；由 `tabLabelForSpec` 统一输出。 */
 const DEFAULT_TAB_LABEL = '新图表'

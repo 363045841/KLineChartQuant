@@ -125,6 +125,8 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    /* 与设置行的文字起点一致；图标列对齐页脚的重置入口。 */
+    padding-inline-start: var(--klc-spacing-sm);
   }
 
   .shortcut-settings__empty,

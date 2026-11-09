@@ -4,9 +4,8 @@
 
 import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 import { describe, expect, it } from 'vitest'
-
-import type { WorkspaceTab } from '../../electron/window-bridge'
-import { reorderTabs, tabLabelForSpec } from './workspace-tabs'
+import { reorderTabs, tabLabelForSpec } from '../impl/workspace-tabs.js'
+import type { WorkspaceTab } from '../types.js'
 
 /** 造一份带品种名称的图表品种描述。 */
 function spec(symbol: string, name: string): SymbolSpec {

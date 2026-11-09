@@ -408,3 +408,13 @@ import { createChartController } from '@363045841yyt/klinechart-core'
 __setControllerFactory(createChartController)
 
 export { CORE_VERSION, VERSION } from '@vue-src/version.js'
+export { useWorkspaceAppearance } from './workspace/impl/useWorkspaceAppearance.js'
+export { useWorkspaceTabs } from './workspace/impl/useWorkspaceTabs.js'
+export {
+  type TabDropTarget,
+  type TabPlacement,
+  tabLabelForSpec,
+} from './workspace/impl/workspace-tabs.js'
+export type { WorkspaceTab } from './workspace/types.js'
+export { default as WorkspaceContent } from './workspace/WorkspaceContent.vue'
+export { default as WorkspaceTabBar } from './workspace/WorkspaceTabBar.vue'

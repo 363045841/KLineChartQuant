@@ -8,8 +8,8 @@ import {
   type TabPlacement,
   type WorkspaceTab,
   type WorkspaceTabs,
-} from './workspace-tabs'
-import { openWorkspaceTabsStore } from './workspace-tabs-store'
+} from './workspace-tabs.js'
+import { openWorkspaceTabsStore } from './workspace-tabs-store.js'
 
 /** 品种身份：只有这些字段变化才需要改写标签。 */
 function specKey(spec: SymbolSpec | null): string {

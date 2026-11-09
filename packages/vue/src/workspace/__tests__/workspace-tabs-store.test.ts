@@ -2,13 +2,33 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { useWorkspaceTabs } from './use-workspace-tabs'
-import { openWorkspaceTabsStore } from './workspace-tabs-store'
+import { useWorkspaceTabs } from '../impl/useWorkspaceTabs.js'
+import { openWorkspaceTabsStore } from '../impl/workspace-tabs-store.js'
 
 beforeEach(() => vi.stubGlobal('indexedDB', new IDBFactory()))
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+it('页面重新挂载后恢复标签品种、排序与活动项，并始终保留最后一个标签', async () => {
+  const tabs = useWorkspaceTabs('web')
+  await tabs.restore(null)
+  const first = tabs.activeTabId.value
+  await tabs.setSpec(first, { symbol: 'BTCUSDT', market: 'binance' })
+  await tabs.createTab()
+  const second = tabs.activeTabId.value
+  await tabs.moveTab(second, first, 'before')
+  await tabs.dispose()
+  const restored = useWorkspaceTabs('web')
+  await restored.restore(null)
+  expect(restored.tabs.value.map((tab) => tab.id)).toEqual([second, first])
+  expect(restored.activeTabId.value).toBe(second)
+  expect(restored.tabs.value[1]?.spec?.symbol).toBe('BTCUSDT')
+  await restored.removeTab(second)
+  await restored.removeTab(first)
+  expect(restored.tabs.value.map((tab) => tab.id)).toEqual([first])
+  expect(restored.activeTabId.value).toBe(first)
 })
 
 /** 源、目标都走真实初始化入口，源工作区特意只有一个标签以覆盖空记录语义。 */
