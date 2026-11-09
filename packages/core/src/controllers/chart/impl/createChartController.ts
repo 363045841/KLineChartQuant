@@ -10,6 +10,8 @@ import {
   loadBuiltinIndicators,
   loadSystemIndicators,
 } from '@/engine/indicators/registerBuiltins.js'
+import { captureTemplate } from '@/engine/indicatorTemplate/impl/templateCapture.js'
+import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
@@ -164,6 +166,20 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     { restore: opts.layoutRestore !== false },
   )
   await layoutManager.initialize()
+
+  // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
+  const templateManager = new IndicatorTemplateManager({
+    captureIndicators: () => captureTemplate(chart.kernel.snapshotViewWorkspaces()),
+    applyIndicators: (workspaces) => {
+      if (isDisposed()) throw new Error('图表已销毁')
+      chart.kernel.applyIndicatorTemplate(workspaces)
+      chart.scheduleDraw()
+    },
+    loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+  })
+  await templateManager.initialize().catch(() => {
+    // 模板存储不可用不阻断图表；列表保持为空，写入时才向界面报错。
+  })
   // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
   if (opts.symbols && opts.symbols.length > 0) {
     chart.setSymbols([opts.symbols[0]!])
@@ -221,7 +237,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposal) return disposal
     disposed = true
     for (const unsubscribe of layoutSubscriptions) unsubscribe()
-    disposal = layoutManager.dispose().finally(() => chart.destroy())
+    disposal = templateManager
+      .dispose()
+      .then(() => layoutManager.dispose())
+      .finally(() => chart.destroy())
     try {
       mounted.cleanup()
     } catch {
@@ -247,6 +266,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     renameLayout: (input) => layoutManager.renameLayout(input),
     duplicateLayout: (input) => layoutManager.duplicateLayout(input),
     deleteLayout: (input) => layoutManager.deleteLayout(input),
+    templates: templateManager.templates,
+    recentTemplateIds: templateManager.recentTemplateIds,
+    listTemplates: () => templateManager.listTemplates(),
+    saveTemplate: (input) => templateManager.saveTemplate(input),
+    renameTemplate: (input) => templateManager.renameTemplate(input),
+    deleteTemplate: (input) => templateManager.deleteTemplate(input),
+    applyTemplate: (input) => templateManager.applyTemplate(input),
     agent,
     favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
     setIndicatorFavorite: (indicatorId, favorite) => {

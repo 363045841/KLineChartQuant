@@ -35,6 +35,7 @@ import {
   resolveCanonicalIndicatorId,
 } from '../indicators/indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
+import type { TemplateWorkspace, TemplateWorkspaces } from '../indicatorTemplate/index.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {
   LAYOUT_DOCUMENT_VERSION,
@@ -620,6 +621,41 @@ export class ChartStateKernel extends StateKernel {
       )
       this.drawing.actions.commitDocument(document.drawings ?? [], [])
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
+      this.actions.setDataView(this.mode.readonly.dataView.peek())
+    })
+  }
+
+  /**
+   * 应用指标模板：只替换用户指标与副图布局。
+   *
+   * @remarks
+   * 模板是「用哪些指标」，不是整张图表的快照。因此商品、周期、图表设置、绘图、
+   * 视口与价格轴都保持原样，只把指标实例与窗格规格换掉。
+   * 系统实例由当前图表模式拥有，恢复时会自动保留，模板无法把它们带到别的图表。
+   *
+   * @param workspaces 模板的两个数据视图快照。
+   */
+  applyIndicatorTemplate(workspaces: TemplateWorkspaces): void {
+    const paneWorkspaces = this.pane.readonly.workspaces.peek()
+    batch(() => {
+      // 复用布局恢复路径：两者对指标与窗格的写入语义完全相同。
+      // 轴类型不属于模板，沿用当前图表已有偏好。
+      const asLayout = (
+        workspace: TemplateWorkspace,
+        workspaceId: ChartWorkspaceId,
+      ): LayoutWorkspaces[ChartWorkspaceId] => ({
+        ...workspace,
+        paneScaleTypes: Object.fromEntries(paneWorkspaces[workspaceId].paneScaleTypes),
+      })
+      const restored: LayoutWorkspaces = {
+        [ChartWorkspaceId.KLine]: asLayout(workspaces[ChartWorkspaceId.KLine], ChartWorkspaceId.KLine),
+        [ChartWorkspaceId.TimeShare]: asLayout(
+          workspaces[ChartWorkspaceId.TimeShare],
+          ChartWorkspaceId.TimeShare,
+        ),
+      }
+      this.indicator.actions.restoreWorkspaces(restored)
+      this.pane.actions.restoreWorkspaces(restored)
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })
   }
