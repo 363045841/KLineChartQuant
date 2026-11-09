@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-desktop",
-  "version": "0.11.1-macfix.1",
+  "version": "0.11.1-macos12.1",
   "private": true,
   "description": "Electron desktop shell for @363045841yyt/klinechart",
   "license": "Apache-2.0",
@@ -28,7 +28,7 @@
     "fake-indexeddb": "^6.2.5",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/test-utils": "^2.4.11",
-    "electron": "^45.2.2",
+    "electron": "43.8.7",
     "electron-builder": "^26.18.0",
     "electron-vite": "^5.0.0",
     "jsdom": "^30.1.0",

@@ -3,8 +3,8 @@
   "backends": [
     {
       "id": "gotdx",
-      "repo": "https://github.com/363045841/GoTDX-Connector.git",
-      "commit": "82c0475e4f666e7dae749f70a088416d9f817716",
+      "repo": "https://github.com/beiweimd/GoTDX-Connector.git",
+      "commit": "723c1540ec7494be3254b77d0fbf3b0fa48e6235",
       "package": "./services/tdx-api",
       "binary": "gotdx"
     },

@@ -40,6 +40,8 @@ nsis:
 
 mac:
   icon: build/icon.icns
+  # 必须与 Electron 和随包后端的实际系统要求一致，不能只降低此声明。
+  minimumSystemVersion: '12.0'
   target:
     - target: dmg
       arch:

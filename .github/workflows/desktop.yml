@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: '构建平台，逗号分隔：windows / macos / linux，或 all'
+        description: '构建平台：windows / macos / macos-intel / linux，逗号分隔，或 all'
         default: windows
         type: string
 
@@ -37,8 +37,9 @@ jobs:
             case "$name" in
               windows) entry='{"os":"windows-latest","artifact":"windows-x64"}' ;;
               macos)   entry='{"os":"macos-latest","artifact":"macos"}' ;;
+              macos-intel) entry='{"os":"macos-15-intel","artifact":"macos12-intel"}' ;;
               linux)   entry='{"os":"ubuntu-24.04","artifact":"linux-x64"}' ;;
-              *) echo "未知平台：$name（可用 windows / macos / linux / all）" >&2; exit 1 ;;
+              *) echo "未知平台：$name（可用 windows / macos / macos-intel / linux / all）" >&2; exit 1 ;;
             esac
             entries="${entries:+$entries,}$entry"
           done
@@ -84,7 +85,8 @@ jobs:
       - name: Setup Go for the bundled connectors
         uses: actions/setup-go@v6
         with:
-          go-version: stable
+          # Go 1.27 的运行时要求 macOS 13，兼容分支不能自动升级工具链。
+          go-version: 1.26.10
           cache: false
 
       - name: Build Vue product and its internal resources
@@ -94,7 +96,29 @@ jobs:
         run: pnpm --filter @363045841yyt/klinechart-desktop test --maxWorkers=2
 
       - name: Build and package desktop
+        if: matrix.artifact != 'macos12-intel'
+        env:
+          GOTOOLCHAIN: local
         run: pnpm --filter @363045841yyt/klinechart-desktop build
+
+      # 单独验收 Intel Monterey；不提前生成用户尚未验收的 arm64 包。
+      - name: Build Intel macOS 12 package
+        if: matrix.artifact == 'macos12-intel'
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          pnpm --filter @363045841yyt/klinechart-desktop exec node ../../scripts/build-backends.mjs --target darwin-x64
+          (cd node_modules/.tmp/backends/gotdx && go test ./...)
+          pnpm --filter @363045841yyt/klinechart-desktop exec electron-vite build
+          pnpm --filter @363045841yyt/klinechart-desktop exec electron-builder --mac dmg --x64
+
+      - name: Verify Intel package compatibility and startup
+        if: matrix.artifact == 'macos12-intel'
+        run: |
+          APP="packages/desktop-electron/dist/mac/KLineChart Quant.app"
+          node scripts/check-macos-package.mjs "$APP" | tee packages/desktop-electron/dist/macos12-intel-check.txt
+          node scripts/smoke-macos-desktop.mjs "$APP" | tee -a packages/desktop-electron/dist/macos12-intel-check.txt
+          shasum -a 256 packages/desktop-electron/dist/*.dmg > packages/desktop-electron/dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v6
         with:
@@ -103,5 +127,7 @@ jobs:
             packages/desktop-electron/dist/*.exe
             packages/desktop-electron/dist/*.dmg
             packages/desktop-electron/dist/*.AppImage
+            packages/desktop-electron/dist/macos12-intel-check.txt
+            packages/desktop-electron/dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
