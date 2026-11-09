@@ -198,6 +198,8 @@ export interface IndicatorDefinition {
   description?: string
   role: IndicatorPaneRole
   params: ReadonlyArray<IndicatorParamDef>
+  /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
+  documentIdentity?: 'builtin' | 'user'
 }
 
 // ---------------------------------------------------------------------------
