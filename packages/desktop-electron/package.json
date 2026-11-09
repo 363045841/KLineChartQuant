@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "pnpm build:backends && electron-vite build && electron-builder",
+    "build:mac": "node ../../scripts/build-macos-desktop.mjs",
     "build:unpack": "pnpm build:backends && electron-vite build && electron-builder --dir",
     "build:backends": "node ../../scripts/build-backends.mjs",
     "preview": "electron-vite preview",

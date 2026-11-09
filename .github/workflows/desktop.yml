@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: '构建平台，逗号分隔：windows / macos / linux，或 all'
+        description: 'windows / macos（四个包）/ linux / all；也可指定 macos12-x64 等单个 Mac 包，逗号分隔'
         default: windows
         type: string
 
@@ -23,26 +23,13 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
+      - uses: actions/checkout@v7
       - id: plan
         env:
           PLATFORMS: ${{ inputs.platforms }}
         run: |
           set -euo pipefail
-          case "$PLATFORMS" in
-            all) list="windows macos linux" ;;
-            *)   list="${PLATFORMS//,/ }" ;;
-          esac
-          entries=""
-          for name in $list; do
-            case "$name" in
-              windows) entry='{"os":"windows-latest","artifact":"windows-x64"}' ;;
-              macos)   entry='{"os":"macos-latest","artifact":"macos"}' ;;
-              linux)   entry='{"os":"ubuntu-24.04","artifact":"linux-x64"}' ;;
-              *) echo "未知平台：$name（可用 windows / macos / linux / all）" >&2; exit 1 ;;
-            esac
-            entries="${entries:+$entries,}$entry"
-          done
-          echo "matrix={\"include\":[$entries]}" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(node scripts/desktop-build-matrix.mjs "$PLATFORMS")" >> "$GITHUB_OUTPUT"
 
   desktop:
     needs: plan
@@ -53,42 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/build-desktop
         with:
-          version: 12.4.1
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26.13.0
-          cache: pnpm
-
-      - name: Cache Electron
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('packages/desktop-electron/package.json') }}
-
-      - name: Install system deps (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libfuse2
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Go connector 随包分发，构建机必须有 Go；源码按 backends.json 的 commit 克隆。
-      - name: Setup Go for the bundled connectors
-        uses: actions/setup-go@v6
-        with:
-          go-version: stable
-          cache: false
-
-      - name: Build Vue product and its internal resources
-        run: pnpm build:product
-
-      - name: Build and package desktop
-        run: pnpm --filter @363045841yyt/klinechart-desktop build
+          profile: ${{ matrix.profile }}
+          arch: ${{ matrix.arch }}
+          go-version: ${{ matrix.goVersion }}
 
       - uses: actions/upload-artifact@v6
         with:
