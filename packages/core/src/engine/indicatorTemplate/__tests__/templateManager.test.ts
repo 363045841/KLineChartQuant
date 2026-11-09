@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
-import { registerIndicatorDescriptor } from '../../indicators/indicatorDefinitionRegistry.js'
+import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { captureTemplate } from '../impl/templateCapture.js'
@@ -22,14 +22,20 @@ beforeEach(async () => {
 
 /** 注册一个只用于摘要断言的原生指标定义。 */
 function registerTestIndicator(displayName: string): string {
-  registerIndicatorDescriptor({
-    name: displayName,
-    displayName,
-    kind: IndicatorKind.Indicator,
-    category: 'sub',
-    defaultPaneId: `pane-${displayName}`,
-    defaultParams: {},
-  })
+  registerIndicators([
+    {
+      kind: 'descriptor',
+      candidate: { key: displayName, origin: 'third-party', identity: 'native' },
+      descriptor: {
+        name: displayName,
+        displayName,
+        kind: IndicatorKind.Indicator,
+        category: 'sub',
+        defaultPaneId: `pane-${displayName}`,
+        defaultParams: {},
+      },
+    },
+  ])
   return displayName
 }
 

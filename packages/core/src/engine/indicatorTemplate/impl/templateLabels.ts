@@ -6,7 +6,7 @@
  * 多实例折叠成「名称 x N」，与 TradingView 的「PVP x 2」保持一致。
  */
 
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import type { TemplateWorkspaces } from '../types.js'
 
 /** 一个指标在摘要中的出现次数。 */
