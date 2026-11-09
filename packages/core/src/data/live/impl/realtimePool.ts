@@ -2,6 +2,7 @@
  * 实时订阅池：全仓唯一的连接管理入口。
  *
  * 配置、健康状态和订阅需求单向驱动连接；传输没有独立的重连生命周期。
+ * 断线后由池推动健康复查，让恢复所需的「新快照」真正到来。
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
@@ -19,6 +20,18 @@ import type {
   RealtimeSubscriptionRequest,
 } from '../types.js'
 import { createRealtimeCallbackHub } from './callbackHub.js'
+
+/** 恢复重试的首次延迟；断线后立刻推动一次复查。 */
+const RECOVERY_INITIAL_DELAY_MS = 500
+
+/** 恢复重试的间隔上限；与健康 TTL 对齐，源恢复后最多等一个周期就能被发现。 */
+const RECOVERY_MAX_DELAY_MS = 15_000
+
+/** 默认延迟调度；测试经 options.scheduleRetry 注入手动队列。 */
+function defaultScheduleRetry(run: () => void, delayMs: number): () => void {
+  const timer = setTimeout(run, delayMs)
+  return () => clearTimeout(timer)
+}
 
 /** 一条逻辑订阅的句柄；关闭后自行从连接上摘除。 */
 class PooledSubscription implements RealtimeSubscription {
@@ -107,6 +120,10 @@ class PooledConnection {
   private failedHealth: MarketProviderHealth | undefined
   private scheduled = false
   private destroyed = false
+  /** 待执行的恢复重试；同一时刻只挂一个。 */
+  private retryCancel: (() => void) | undefined
+  /** 下一次恢复重试的延迟；连接建立后复位。 */
+  private retryDelay = RECOVERY_INITIAL_DELAY_MS
 
   constructor(
     private readonly template: Omit<RealtimeConnectionRequest, 'instrumentIds'>,
@@ -155,9 +172,15 @@ class PooledConnection {
     })
   }
 
-  /** 唯一启停入口：来源可用且存在需求才连接，失败后等待新的健康确认。 */
+  /** 唯一启停入口：先按需求调整连接，再决定是否安排恢复。 */
   private sync(): void {
     if (this.destroyed) return
+    this.applyDemand()
+    this.settleRecovery()
+  }
+
+  /** 按需求与健康状态启停连接；来源可用且存在需求才建立。 */
+  private applyDemand(): void {
     const sourceId = this.template.sourceId
     const provider = this.options.registry.get(sourceId)
     if (provider === undefined) {
@@ -191,6 +214,35 @@ class PooledConnection {
     this.rebuild(instrumentIds, health)
   }
 
+  /** 有需求但没连接时安排下一次恢复；恢复后立即停止并复位退避。 */
+  private settleRecovery(): void {
+    if (this.connection !== null || this.handles.size === 0) {
+      this.cancelRecovery()
+      return
+    }
+    this.scheduleRecovery()
+  }
+
+  /** 按退避推动一次健康复查：新快照会让池在下一轮 sync 里自然重建。 */
+  private scheduleRecovery(): void {
+    if (this.retryCancel !== undefined || this.destroyed) return
+    const schedule = this.options.scheduleRetry ?? defaultScheduleRetry
+    const delay = this.retryDelay
+    this.retryDelay = Math.min(delay * 2, RECOVERY_MAX_DELAY_MS)
+    this.retryCancel = schedule(() => {
+      this.retryCancel = undefined
+      if (this.destroyed || this.connection !== null || this.handles.size === 0) return
+      this.options.requestHealthRefresh?.(this.template.sourceId)
+    }, delay)
+  }
+
+  /** 停止恢复重试并复位退避。 */
+  private cancelRecovery(): void {
+    this.retryCancel?.()
+    this.retryCancel = undefined
+    this.retryDelay = RECOVERY_INITIAL_DELAY_MS
+  }
+
   /** 重建连接并绑定当前实例，旧连接的迟到事件不能影响新连接。 */
   private rebuild(instrumentIds: ReadonlyArray<string>, health: MarketProviderHealth): void {
     this.closeConnection()
@@ -209,6 +261,8 @@ class PooledConnection {
           // 失败之前的健康确认不能作为失败之后的恢复信号。
           this.failedHealth = this.options.health.peek()[this.template.sourceId]
           this.closeConnection()
+          // 断开是一次事件，不会再触发 sync，必须在这里安排恢复。
+          this.settleRecovery()
         } else this.broadcastStatus(status)
       })
       connection.onError((error) => {
@@ -254,6 +308,7 @@ class PooledConnection {
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
+    this.cancelRecovery()
     const connection = this.connection
     this.connection = null
     connection?.destroy()

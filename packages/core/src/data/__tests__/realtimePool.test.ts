@@ -40,10 +40,20 @@ class FakeEventSource implements LiveEventSource {
   }
 }
 
+/** 一条待执行的恢复重试；手动推进，不依赖真实时钟。 */
+interface PendingRetry {
+  run: () => void
+  delayMs: number
+  cancelled: boolean
+  done: boolean
+}
+
 /** 池 + 手动刷新的合并队列；合并窗口与真实微任务等价但可断言。 */
 function setup() {
   const created: FakeEventSource[] = []
   const pending: Array<() => void> = []
+  const retries: PendingRetry[] = []
+  const refreshed: string[] = []
   const registry = new MarketDataProviderRegistry()
   registry.register(createMockMarketDataProvider({ sourceId: 'mt5' }), {
     baseUrl: 'http://127.0.0.1:8090',
@@ -69,11 +79,27 @@ function setup() {
         return source
       }),
     defer: (run) => pending.push(run),
+    requestHealthRefresh: (sourceId) => refreshed.push(sourceId),
+    scheduleRetry: (run, delayMs) => {
+      const entry: PendingRetry = { run, delayMs, cancelled: false, done: false }
+      retries.push(entry)
+      return () => {
+        entry.cancelled = true
+      }
+    },
   })
   const flush = () => {
     while (pending.length > 0) pending.shift()!()
   }
-  return { pool, created, flush, registry, health, setHealth }
+  /** 推进最早一条未取消且未执行的恢复重试。 */
+  const runRetry = (): PendingRetry => {
+    const entry = retries.find((candidate) => !candidate.cancelled && !candidate.done)
+    if (entry === undefined) throw new Error('No pending recovery retry')
+    entry.done = true
+    entry.run()
+    return entry
+  }
+  return { pool, created, flush, registry, health, setHealth, retries, refreshed, runRetry }
 }
 
 /** K 线订阅请求；同一序列共享一条连接。 */
@@ -135,6 +161,52 @@ describe('realtime subscription pool', () => {
     setHealth('offline')
     flush()
     expect(created[1]!.closed).toBe(true)
+    pool.dispose()
+  })
+
+  it('drives its own health refresh after a drop so the deck recovers without the user', () => {
+    const { pool, created, flush, setHealth, retries, refreshed, runRetry } = setup()
+    const handle = pool.subscribe(bars('mt5:A'))
+    flush()
+    expect(created).toHaveLength(1)
+    created[0]!.open()
+    created[0]!.fail()
+    flush()
+    expect(created[0]!.closed).toBe(true)
+    // 断线后立刻安排第一次复查，不需要外部介入。
+    expect(retries).toHaveLength(1)
+    expect(retries[0]!.delayMs).toBe(500)
+    runRetry()
+    expect(refreshed).toEqual(['mt5'])
+    // 复查拿到新的健康快照后自动重建。
+    setHealth('online')
+    flush()
+    expect(created).toHaveLength(2)
+    handle.close()
+    pool.dispose()
+  })
+
+  it('backs off recovery attempts to the health TTL and stops once reconnected', () => {
+    const { pool, created, flush, setHealth, retries, runRetry } = setup()
+    const handle = pool.subscribe(bars('mt5:A'))
+    flush()
+    created[0]!.fail()
+    flush()
+    expect(retries.map((entry) => entry.delayMs)).toEqual([500])
+    runRetry()
+    setHealth('offline')
+    flush()
+    expect(retries.map((entry) => entry.delayMs)).toEqual([500, 1000])
+    runRetry()
+    setHealth('offline')
+    flush()
+    expect(retries.map((entry) => entry.delayMs)).toEqual([500, 1000, 2000])
+    // 源恢复后重建，并停掉待执行的复查。
+    setHealth('online')
+    flush()
+    expect(created).toHaveLength(2)
+    expect(retries.every((entry) => entry.cancelled || entry.done)).toBe(true)
+    handle.close()
     pool.dispose()
   })
 

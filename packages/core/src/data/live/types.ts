@@ -113,4 +113,17 @@ export interface RealtimeSubscriptionPoolOptions {
   readonly createConnection: RealtimeConnectionFactory
   /** 合并同一轮输入变化；测试可注入手动队列。 */
   defer?(run: () => void): void
+  /**
+   * 请求强制复查某个来源的健康状态。
+   *
+   * 连接恢复只认新的健康快照，所以失败后必须有人推动一次探测；
+   * 缺省时不推动，池退化为等待外部驱动。
+   */
+  requestHealthRefresh?(sourceId: string): void
+  /**
+   * 延迟调度一次恢复尝试，返回取消函数。
+   *
+   * 缺省用 `setTimeout`；测试注入手动队列，避免依赖真实时钟。
+   */
+  scheduleRetry?(run: () => void, delayMs: number): () => void
 }

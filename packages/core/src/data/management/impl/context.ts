@@ -15,11 +15,33 @@ import { normalizeConnectionUrl } from './connection.js'
 import { MarketDataHealth } from './health.js'
 import { participatesInSearch } from './policy.js'
 
+/** 全局对象上的网络恢复事件能力；不依赖 DOM 类型。 */
+interface OnlineTarget {
+  addEventListener(type: 'online', listener: () => void): void
+  removeEventListener(type: 'online', listener: () => void): void
+}
+
+/** 探测全局对象是否提供 online 事件；Node 等环境返回 null，不注册。 */
+function readOnlineTarget(): OnlineTarget | null {
+  const candidate: unknown = globalThis
+  if (typeof candidate !== 'object' || candidate === null) return null
+  if (!('addEventListener' in candidate) || !('removeEventListener' in candidate)) return null
+  const add = candidate.addEventListener
+  const remove = candidate.removeEventListener
+  if (typeof add !== 'function' || typeof remove !== 'function') return null
+  return {
+    addEventListener: (type, listener) => add.call(candidate, type, listener),
+    removeEventListener: (type, listener) => remove.call(candidate, type, listener),
+  }
+}
+
 /** 连接、Provider 目录和策略共享注册表中的权威快照。 */
 export class MarketDataContext {
   private readonly registrations = new Set<() => void>()
   private disposed = false
   private readonly unsubscribeSources: () => void
+  /** 网络恢复监听；宿主不提供 online 事件时为 undefined。 */
+  private readonly detachOnline: (() => void) | undefined
 
   /** 注册宿主数据源；返回幂等注销函数，取消该来源的在途查询和实时订阅。 */
   registerDataSource(source: MarketDataSource): () => void {
@@ -69,9 +91,23 @@ export class MarketDataContext {
           )
         return createSseConnection(request, baseUrl)
       },
+      /** 恢复重试要求强制复查：断线前的 TTL 缓存不能挡住这一次探测。 */
+      requestHealthRefresh: (sourceId) => {
+        void this.health.refresh({ names: new Set([sourceId]), force: true })
+      },
     })
     this.unsubscribeSources = registry.state.subscribe(() => this.probeUnresolvedSources())
     this.probeUnresolvedSources()
+    // 网络恢复时立刻复查全部来源：休眠唤醒与切换网络都靠这条快路径。
+    const online = readOnlineTarget()
+    if (online === null) this.detachOnline = undefined
+    else {
+      const handler = (): void => {
+        void this.health.refresh({ force: true })
+      }
+      online.addEventListener('online', handler)
+      this.detachOnline = () => online.removeEventListener('online', handler)
+    }
     const read = (): MarketDataConfiguration => {
       const state = registry.state()
       return {
@@ -147,6 +183,7 @@ export class MarketDataContext {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.detachOnline?.()
     this.unsubscribeSources()
     this.realtime.dispose()
     for (const unregister of this.registrations) unregister()
