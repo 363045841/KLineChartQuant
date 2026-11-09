@@ -7,7 +7,7 @@
  * 所有写操作串行执行，避免并发保存互相覆盖；读失败不阻断图表，写失败才上报。
  */
 
-import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
+import { createArchivePersistence } from '../../../foundation/persistence/index.js'
 import { computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
 import type { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
@@ -68,20 +68,18 @@ function requireName(name: string): string {
 }
 
 export class IndicatorTemplateManager implements IndicatorTemplateApi {
-  private readonly persistence = createIndexedDbPersistence<IndicatorTemplateArchive>({
+  private readonly archiveStore = createArchivePersistence<IndicatorTemplateArchive>({
     databaseName: '@363045841yyt/klinechart-indicator-templates',
     databaseVersion: INDICATOR_TEMPLATE_VERSION,
     storeName: 'templates',
     key: 'archive',
-    flushOnPageHide: false,
     codec: { decode: decodeArchive, encode: (value) => value },
+    disposedMessage: '图表已销毁',
   })
   private archive: IndicatorTemplateArchive = { documents: {}, recentIds: [] }
   private readonly listSignal = createSignal<ReadonlyArray<IndicatorTemplateSummary>>([])
   private readonly recentSignal = createSignal<ReadonlyArray<string>>([])
   private loaded = false
-  private disposed = false
-  private queue: Promise<unknown> = Promise.resolve()
   readonly templates = this.listSignal
   readonly recentTemplateIds = this.recentSignal
   readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
@@ -114,7 +112,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
   private async saveArchive(archive: IndicatorTemplateArchive): Promise<void> {
-    await this.persistence.save(archive)
+    await this.archiveStore.save(archive)
     this.archive = archive
     this.publish()
   }
@@ -143,19 +141,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 串行处理归档操作，失败不会阻塞后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.queue.then(() => {
-      if (this.disposed) throw new Error('图表已销毁')
-      return operation()
-    })
-    this.queue = result.catch(() => undefined)
-    return result
+    return this.archiveStore.run(operation)
   }
 
   /** 首次读取归档；IndexedDB 不可用时抛错，由控制器转成界面文案。 */
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用模板存储')
-    const stored = await this.persistence.load()
+    const stored = await this.archiveStore.loadStored()
     if (stored) this.archive = stored
     this.loaded = true
     this.publish()
@@ -170,9 +163,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 释放存储资源；模板是显式保存的，销毁时不补写。 */
   async dispose(): Promise<void> {
-    this.disposed = true
-    await this.queue.catch(() => undefined)
-    await this.persistence.dispose()
+    await this.archiveStore.dispose()
   }
 
   // ── 领域操作 ──
@@ -252,7 +243,6 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       return Object.freeze({
         applied: countWorkspaceInstances(template.workspaces),
         skipped,
-        dropped: [],
       })
     })
   }

@@ -45,17 +45,15 @@
 
 ## 数据形状
 
-`TemplateWorkspace` 与布局的 `LayoutWorkspace` 同构，但刻意不共用类型：
+`TemplateWorkspace` 从布局工作区投影，只保留模板关心的两个字段：
 
 ```ts
-interface TemplateWorkspace {
-  readonly instances: ReadonlyArray<IndicatorInstanceConfig>
-  readonly paneSpecs: ReadonlyArray<LayoutPaneConfig>
-}
+type TemplateWorkspace = Pick<LayoutWorkspace, 'instances' | 'paneSpecs'>
 ```
 
 `LayoutWorkspace` 还有 `paneScaleTypes`。模板不收它，因为轴类型描述「这张图表怎么显示」，
-不是「用了哪些指标」。共用一份类型会让模板被动继承布局以后新增的字段。
+不是「用了哪些指标」。用投影而不是重写一份类型：布局工作区增删字段时，
+模板这边的差异会直接由类型检查暴露，不会静默继承或静默丢失。
 
 `captureTemplate` 从 `kernel.snapshotViewWorkspaces()` 裁剪出 `instances` 与 `paneSpecs`，
 两个数据视图都存。
@@ -97,6 +95,8 @@ actions.setDataView(当前数据视图)
 - `decodeArchive` 只保留结构完整的模板，并丢弃指向已删除模板的最近记录。
 - IndexedDB 不可用时：读取失败不阻断图表（列表为空），写入失败通过界面报错。
 - 所有写操作串行执行，并发保存不会互相覆盖。
+- 串行队列、读取校验与销毁守卫由 `foundation/persistence/createArchivePersistence` 统一提供；
+  布局与模板各自只保留数据库名、文档 codec 与领域操作，不复制存储机制。
 
 ## 边界
 
@@ -111,6 +111,7 @@ actions.setDataView(当前数据视图)
 - `packages/core/src/engine/indicatorTemplate/impl/templateCapture.ts` — 从布局快照裁剪
 - `packages/core/src/engine/indicatorTemplate/impl/templateManager.ts` — 存储与领域操作
 - `packages/core/src/engine/indicatorTemplate/impl/templateLabels.ts` — 摘要与缺失判定
+- `packages/core/src/foundation/persistence/archivePersistence.ts` — 布局与模板共用的归档存储原语
 - `packages/core/src/engine/state/chartStateKernel.ts` — `applyIndicatorTemplate`
-- `packages/vue/src/components/indicator/template/impl/` — 弹层与两个对话框
+- `packages/vue/src/components/indicator/template/impl/` — 弹层与名称对话框
 - `packages/vue/src/composables/indicator/useIndicatorTemplates.ts` — 界面状态

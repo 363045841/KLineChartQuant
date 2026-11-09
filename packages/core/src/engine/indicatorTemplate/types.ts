@@ -9,8 +9,7 @@
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'
-import type { LayoutPaneConfig } from '../layout/types.js'
-import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
+import type { LayoutWorkspace } from '../layout/types.js'
 
 /** 模板文档版本；Alpha 阶段只接受当前版本，不迁移旧文档。 */
 export const INDICATOR_TEMPLATE_VERSION = 1
@@ -19,15 +18,10 @@ export const INDICATOR_TEMPLATE_VERSION = 1
  * 单个数据视图的指标组合。
  *
  * @remarks
- * 与布局的 LayoutWorkspace 同构，但刻意不共用类型：布局以后可能继续增加
- * 例如轴类型、窗格可见性等字段，而模板只关心指标实例与窗格顺序/高度。
- * 复用一份类型会让模板被动继承布局的未来字段。
+ * 从布局工作区投影：模板只取指标实例与窗格顺序/高度，轴类型等布局专属字段
+ * 不进模板。布局工作区增删字段时，差异会直接在这里暴露，不会静默继承。
  */
-export interface TemplateWorkspace {
-  readonly instances: ReadonlyArray<IndicatorInstanceConfig>
-  /** 用户指标所在窗格的数量与高度权重，顺序即界面上从下到上的顺序。 */
-  readonly paneSpecs: ReadonlyArray<LayoutPaneConfig>
-}
+export type TemplateWorkspace = Pick<LayoutWorkspace, 'instances' | 'paneSpecs'>
 
 /** K 线与分时两个视图的指标组合。 */
 export type TemplateWorkspaces = Readonly<Record<ChartWorkspaceId, TemplateWorkspace>>
@@ -67,8 +61,6 @@ export interface IndicatorTemplateApplyResult {
   readonly applied: number
   /** 模板引用但当前无法注册的指标定义 ID，去重保序。 */
   readonly skipped: ReadonlyArray<string>
-  /** 因副图数量上限被丢弃的指标定义 ID，去重保序。 */
-  readonly dropped: ReadonlyArray<string>
 }
 
 /** 控制器与 UI 消费的模板管理入口。 */
