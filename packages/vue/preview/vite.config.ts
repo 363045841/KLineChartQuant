@@ -65,7 +65,7 @@ export default defineConfig({
   build: { cssTarget: 'esnext' },
   root: fileURLToPath(new URL('.', import.meta.url)),
   // 品牌资源目录同时作为站点 publicDir：标签页图标直接复用桌面应用图标的 SVG，不再另存副本。
-  publicDir: fileURLToPath(new URL('../../desktop-electron/src/assets', import.meta.url)),
+  publicDir: fileURLToPath(new URL('../src/workspace/assets', import.meta.url)),
   define: {
     'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
     'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
