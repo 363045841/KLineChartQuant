@@ -92,7 +92,6 @@
       <IndicatorTemplateMenu
         v-if="!showBackButton"
         :controller="layoutController ?? null"
-        :active-indicator-labels="activeIndicatorLabels ?? []"
       />
     </div>
     <div class="chart-actions">
@@ -293,8 +292,6 @@
   const props = withDefaults(
     defineProps<{
       layoutController?: ChartController | null
-      /** 当前图表的指标摘要，供指标模板保存对话框展示。 */
-      activeIndicatorLabels?: ReadonlyArray<string>
       symbol?: string
       symbolItem?: SymbolItem
       kLineLevel?: string

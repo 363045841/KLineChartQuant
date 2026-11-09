@@ -172,7 +172,7 @@
 
     <IndicatorTemplateSaveDialog
       :show="saving"
-      :labels="captureLabels"
+      :labels="currentIndicatorLabels"
       :busy="busy"
       :error="error"
       @close="closeSave"
@@ -214,8 +214,6 @@
 
   const props = defineProps<{
     controller?: ChartController | null
-    /** 当前图表的指标摘要，用于保存对话框的「已存指标」区。 */
-    activeIndicatorLabels?: ReadonlyArray<string>
   }>()
 
   const controller = computed(() => props.controller ?? null)
@@ -227,6 +225,7 @@
     message,
     saving,
     saved,
+    currentIndicatorLabels,
     visibleTemplates,
     recentTemplates,
     describeLabels,
@@ -244,9 +243,6 @@
   const trigger = ref<HTMLElement | null>(null)
   /** 重命名目标；null 表示对话框关闭。 */
   const renaming = ref<IndicatorTemplateSummary | null>(null)
-
-  /** 保存对话框展示的指标摘要来自宿主图表快照，不受搜索过滤影响。 */
-  const captureLabels = computed(() => props.activeIndicatorLabels ?? [])
 
   /** 打开或关闭弹层；打开时读取真实归档。 */
   function toggle(): void {

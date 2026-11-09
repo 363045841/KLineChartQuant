@@ -77,6 +77,13 @@ export interface IndicatorTemplateApi {
   readonly templates: ReadonlySignal<ReadonlyArray<IndicatorTemplateSummary>>
   /** 最近应用过的模板身份，最新在前。 */
   readonly recentTemplateIds: ReadonlySignal<ReadonlyArray<string>>
+  /**
+   * 当前图表用户指标的显示名摘要。
+   *
+   * @remarks
+   * 与模板列表共用同一折叠规则；保存对话框直接消费，界面不再自行推导。
+   */
+  readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
   /** 读取归档并返回最新列表；首次调用时初始化存储。 */
   listTemplates(): Promise<ReadonlyArray<IndicatorTemplateSummary>>
   /**

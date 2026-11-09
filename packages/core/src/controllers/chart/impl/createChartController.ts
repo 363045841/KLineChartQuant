@@ -175,6 +175,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       chart.kernel.applyIndicatorTemplate(workspaces)
       chart.scheduleDraw()
     },
+    userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
   })
   await templateManager.initialize().catch(() => {
@@ -268,6 +269,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     templates: templateManager.templates,
     recentTemplateIds: templateManager.recentTemplateIds,
+    currentIndicatorLabels: templateManager.currentIndicatorLabels,
     listTemplates: () => templateManager.listTemplates(),
     saveTemplate: (input) => templateManager.saveTemplate(input),
     renameTemplate: (input) => templateManager.renameTemplate(input),

@@ -8,7 +8,9 @@
  */
 
 import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
-import { createSignal } from '../../../foundation/reactivity/signal.js'
+import { computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import type { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
+import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
 import {
   INDICATOR_TEMPLATE_VERSION,
   type IndicatorTemplateApi,
@@ -21,6 +23,7 @@ import {
 import { collectTemplateIndicatorIds } from './templateCapture.js'
 import {
   countWorkspaceInstances,
+  describeIndicatorLabels,
   describeMissingIndicators,
   describeTemplateIndicators,
 } from './templateLabels.js'
@@ -81,21 +84,31 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   private queue: Promise<unknown> = Promise.resolve()
   readonly templates = this.listSignal
   readonly recentTemplateIds = this.recentSignal
+  readonly currentIndicatorLabels: ReadonlySignal<ReadonlyArray<string>>
 
   /**
    * 注入图表侧能力，管理器不持有第二份运行时状态。
    *
    * @param dependencies.captureIndicators 读取当前图表的指标组合快照。
    * @param dependencies.applyIndicators 把指标组合恢复到当前图表。
+   * @param dependencies.userIndicatorConfigurations 当前两个数据视图的用户指标，供摘要派生。
    * @param dependencies.loadIndicators 恢复前加载指标实现；不改变恢复语义。
    */
   constructor(
     private readonly dependencies: {
       captureIndicators(): TemplateWorkspaces
       applyIndicators(workspaces: TemplateWorkspaces): void
+      userIndicatorConfigurations: ReadonlySignal<
+        Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceConfig>>>
+      >
       loadIndicators?(indicatorIds: ReadonlyArray<string>): Promise<void>
     },
-  ) {}
+  ) {
+    // 摘要与模板列表共用同一折叠规则；这里只做派生，不复制指标状态。
+    this.currentIndicatorLabels = computed(() =>
+      describeIndicatorLabels(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+    )
+  }
 
   // ── 归档读写 ──
 

@@ -7,6 +7,7 @@
  */
 
 import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
+import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
 import type { TemplateWorkspaces } from '../types.js'
 
 /** 一个指标在摘要中的出现次数。 */
@@ -16,25 +17,37 @@ interface LabelCount {
 }
 
 /**
+ * 把一组指标实例折叠成显示名摘要。
+ *
+ * @param instances 按界面顺序排列的指标实例。
+ * @returns 按首次出现顺序排列的显示名；同一定义出现多次时为「名称 x N」。
+ */
+export function describeIndicatorLabels(
+  instances: ReadonlyArray<IndicatorInstanceConfig>,
+): ReadonlyArray<string> {
+  const counts = new Map<string, LabelCount>()
+  for (const instance of instances) {
+    const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+    // title 是选择器里的长名称，缺省时用 displayName；未注册时退回定义 ID。
+    const label = definition?.title ?? definition?.displayName ?? instance.indicatorId
+    const entry = counts.get(instance.indicatorId)
+    if (entry) entry.count += 1
+    else counts.set(instance.indicatorId, { label, count: 1 })
+  }
+  return Object.freeze(
+    [...counts.values()].map(({ label, count }) => (count > 1 ? `${label} x ${count}` : label)),
+  )
+}
+
+/**
  * 生成模板的指标名摘要。
  *
  * @param workspaces 模板的两个数据视图快照。
  * @returns 按首次出现顺序排列的显示名；同一定义出现多次时为「名称 x N」。
  */
 export function describeTemplateIndicators(workspaces: TemplateWorkspaces): ReadonlyArray<string> {
-  const counts = new Map<string, LabelCount>()
-  for (const workspace of Object.values(workspaces)) {
-    for (const instance of workspace.instances) {
-      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-      // title 是选择器里的长名称，缺省时用 displayName；未注册时退回定义 ID。
-      const label = definition?.title ?? definition?.displayName ?? instance.indicatorId
-      const entry = counts.get(instance.indicatorId)
-      if (entry) entry.count += 1
-      else counts.set(instance.indicatorId, { label, count: 1 })
-    }
-  }
-  return Object.freeze(
-    [...counts.values()].map(({ label, count }) => (count > 1 ? `${label} x ${count}` : label)),
+  return describeIndicatorLabels(
+    Object.values(workspaces).flatMap((workspace) => workspace.instances),
   )
 }
 

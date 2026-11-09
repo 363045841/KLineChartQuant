@@ -60,6 +60,12 @@ interface TemplateWorkspace {
 `captureTemplate` 从 `kernel.snapshotViewWorkspaces()` 裁剪出 `instances` 与 `paneSpecs`，
 两个数据视图都存。
 
+## 当前指标摘要
+
+保存对话框里的「已存指标」由模板接口的 `currentIndicatorLabels` 只读信号提供，
+输入是内核当前两个数据视图的用户指标。它和模板列表摘要共用同一个折叠函数，
+界面不再自行推导名称，同一规则只有一处实现。
+
 ## 应用模板
 
 `chartStateKernel.applyIndicatorTemplate` 只做三件事：

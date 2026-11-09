@@ -47,6 +47,11 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     (api) => api.recentTemplateIds,
     () => [] as ReadonlyArray<string>,
   )
+  const currentIndicatorLabels = useControllerSignal(
+    controller,
+    (api) => api.currentIndicatorLabels,
+    () => [] as ReadonlyArray<string>,
+  )
 
   const tab = ref<IndicatorTemplateTab>(INDICATOR_TEMPLATE_TABS.indicators)
   const searchQuery = ref('')
@@ -178,6 +183,7 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     saving,
     saved,
     templates,
+    currentIndicatorLabels,
     visibleTemplates,
     recentTemplates,
     describeLabels,

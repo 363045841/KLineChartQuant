@@ -49,6 +49,7 @@ function createManager() {
       applied = workspaces
       kernel.applyIndicatorTemplate(workspaces)
     },
+    userIndicatorConfigurations: kernel.indicator.readonly.configurations,
   })
   return { kernel, manager, appliedSnapshot: () => applied }
 }
@@ -216,6 +217,36 @@ it('模板只捕获指标与窗格，不含图表设置、绘图与视口', asyn
     for (const workspace of Object.values(captured)) {
       expect(Object.keys(workspace).sort()).toEqual(['instances', 'paneSpecs'])
     }
+  } finally {
+    await own.manager.dispose()
+    own.kernel.dispose()
+  }
+})
+
+it('当前指标摘要与模板摘要共用折叠规则并随指标状态更新', async () => {
+  const own = createManager()
+  try {
+    registerTestIndicator('MACD')
+    await own.manager.initialize()
+    own.kernel.indicator.actions.upsertSub({
+      instanceId: 'macd-1',
+      indicatorId: 'MACD',
+      paneId: 'pane-macd-1',
+      params: {},
+    })
+    expect(own.manager.currentIndicatorLabels.peek()).toEqual(['MACD'])
+
+    own.kernel.indicator.actions.upsertSub({
+      instanceId: 'macd-2',
+      indicatorId: 'MACD',
+      paneId: 'pane-macd-2',
+      params: {},
+    })
+    expect(own.manager.currentIndicatorLabels.peek()).toEqual(['MACD x 2'])
+
+    const id = await own.manager.saveTemplate({ name: '折叠' })
+    const summary = own.manager.templates.peek().find((template) => template.id === id)
+    expect(summary?.labels).toEqual(own.manager.currentIndicatorLabels.peek())
   } finally {
     await own.manager.dispose()
     own.kernel.dispose()

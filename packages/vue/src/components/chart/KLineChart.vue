@@ -8,7 +8,6 @@
     <div class="chart-workspace">
       <TopToolbar
         :layout-controller="controller"
-        :active-indicator-labels="templateIndicatorLabels"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @settings="openChartSettings('main')"
@@ -1101,7 +1100,6 @@
     subActiveIndicators,
     activeIndicators,
     indicatorParams,
-    templateIndicatorLabels,
     subPanes,
     buildPaneLayoutIntent,
     getDefaultParams,
