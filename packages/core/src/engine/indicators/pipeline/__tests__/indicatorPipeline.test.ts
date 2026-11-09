@@ -21,12 +21,29 @@ import { runIndicatorPipeline } from '../impl/runIndicatorPipeline'
 import { createTestRendererLayer } from '../../__tests__/helpers/metadataTestKit'
 
 /** 声明带别名的真实 Layer 定义，注册由用例决定。 */
-function declareDefinition(name: string, alias: string, scriptDisplayName?: string) {
+function declareDefinition(
+  name: string,
+  alias: string,
+  scriptDisplayName?: string,
+  documentIdentity: 'builtin' | 'user' = 'user',
+) {
   @Indicator({
     name,
     aliases: [alias],
     displayName: scriptDisplayName ?? name,
     source: scriptDisplayName === undefined ? 'native' : 'script',
+    ...(scriptDisplayName === undefined
+      ? {}
+      : {
+          document: {
+            identity: documentIdentity,
+            revision: 1,
+            source: `// ${scriptDisplayName}`,
+            trusted: true,
+            folder: '',
+            definition: { name: scriptDisplayName, inputs: {} },
+          },
+        }),
     kind: IndicatorKind.Indicator,
     category: 'oscillator',
     defaultPaneId: `sub_${alias}`,
@@ -193,6 +210,33 @@ describe('Indicator pipeline', () => {
     expect(String(log.mock.calls[0]?.[0])).toContain('懒加载实现失败')
     expect(getIndicatorDescriptor(name)).toBeDefined()
     log.mockRestore()
+  })
+
+  it('同一份内置脚本重复注册保持幂等，源码不同才拒绝', () => {
+    const first = declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置甲', 'builtin')
+    registerIndicators([registrable('builtinAlpha', first, 'builtin-script')])
+    const revision = indicatorCatalogRevision.peek()
+
+    const repeated = registerIndicators([
+      registrable(
+        'builtinAlpha',
+        declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置甲', 'builtin'),
+        'builtin-script',
+      ),
+    ])
+    expect(repeated.failures).toEqual([])
+    expect(indicatorCatalogRevision.peek()).toBe(revision)
+    expect(getRegisteredIndicatorDefinition('BUILTIN_ALPHA')).toBeDefined()
+
+    const overwritten = registerIndicators([
+      registrable(
+        'builtinAlpha',
+        declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置乙', 'builtin'),
+        'builtin-script',
+      ),
+    ])
+    expect(overwritten.failures).toHaveLength(1)
+    expect(getRegisteredIndicatorDefinition('BUILTIN_ALPHA')?.displayName).toBe('内置甲')
   })
 
   it('目录项注册与定义注册共用同一次提交', () => {

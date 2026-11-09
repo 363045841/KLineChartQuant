@@ -155,6 +155,34 @@ function planDescriptorWrite(
   }
 }
 
+/**
+ * 内置脚本重复注册：源码一致视为幂等，源码不一致拒绝覆盖。
+ *
+ * 页面里可能有多个工作台共用全局注册表，重复注册是正常路径而不是错误。
+ */
+function planBuiltinRepeat(
+  previous: IndicatorMetadata,
+  metadata: IndicatorMetadata,
+  key: string,
+  origin: RegistrableIndicator['candidate']['origin'],
+): WritePlan {
+  const incoming = metadata.document
+  if (incoming?.identity === 'builtin' && incoming.source === previous.document?.source) {
+    return {
+      key,
+      metadata: previous,
+      descriptor: descriptorFromMetadata(previous),
+      origin,
+      replaced: previous,
+      changed: false,
+    }
+  }
+  throw new KLineChartError(
+    GENERIC_ERROR_CODES.INVALID_PARAM,
+    `内置脚本只读，不能覆盖：${metadata.name}`,
+  )
+}
+
 /** 校验一条完整定义；只有脚本定义允许替换，内置脚本与原生定义只读。 */
 function planDefinitionWrite(
   item: Extract<RegistrableIndicator, { kind: 'definition' }>,
@@ -173,7 +201,7 @@ function planDefinitionWrite(
       )
     }
     if (previous.document?.identity === 'builtin') {
-      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '内置脚本只读，不能覆盖')
+      return planBuiltinRepeat(previous, metadata, key, item.candidate.origin)
     }
   }
   assertAliasesAvailable(identityAliases(metadata), key)
