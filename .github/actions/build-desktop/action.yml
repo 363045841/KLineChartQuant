@@ -1,0 +1,56 @@
+# 手动构建和正式发版共用构建步骤，上传方式由调用方决定。
+name: Build desktop package
+description: Build a desktop installer with the selected compatibility profile
+inputs:
+  profile:
+    description: Mac compatibility profile; unused on Windows and Linux
+    default: ''
+  arch:
+    description: Target CPU architecture
+    required: true
+  go-version:
+    description: Go toolchain selected by the build matrix
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 12.4.1
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 26.13.0
+        cache: pnpm
+    - name: Cache Electron
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+        key: ${{ runner.os }}-electron-${{ inputs.profile }}-${{ inputs.arch }}-${{ hashFiles('packages/desktop-electron/package.json', 'scripts/macos-build-profiles.mjs') }}
+    - name: Install system deps (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y libfuse2
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Setup Go for the bundled connectors
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+    - name: Build Vue product and its internal resources
+      shell: bash
+      run: pnpm build:product
+    - name: Build Mac package
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.profile }}
+        ARCH: ${{ inputs.arch }}
+      run: pnpm --filter @363045841yyt/klinechart-desktop build:mac --profile "$PROFILE" --arch "$ARCH"
+    - name: Build Windows or Linux package
+      if: runner.os != 'macOS'
+      shell: bash
+      run: pnpm --filter @363045841yyt/klinechart-desktop build

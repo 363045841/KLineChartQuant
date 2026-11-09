@@ -233,53 +233,29 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME" $PRERELEASE_FLAG
           fi
 
+  desktop-plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        run: echo "matrix=$(node scripts/desktop-build-matrix.mjs all)" >> "$GITHUB_OUTPUT"
+
   electron-release:
-    needs: release
+    needs: [release, desktop-plan]
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+      matrix: ${{ fromJson(needs.desktop-plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/build-desktop
         with:
-          version: 12.4.1
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26.13.0
-          cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Cache Electron
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('packages/desktop-electron/package.json') }}
-
-      - name: Install system deps (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libfuse2
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Setup Go for the bundled connectors
-        uses: actions/setup-go@v6
-        with:
-          go-version: stable
-          # Go 源码在独立仓库里按 commit 克隆，仓库内没有 go.sum 可供缓存判定。
-          cache: false
-
-      - name: Build Vue product and its internal resources
-        run: pnpm build:product
-
-      - name: Build & package desktop
-        run: pnpm --filter @363045841yyt/klinechart-desktop build
+          profile: ${{ matrix.profile }}
+          arch: ${{ matrix.arch }}
+          go-version: ${{ matrix.goVersion }}
 
       - name: Upload artifacts to release
         env:

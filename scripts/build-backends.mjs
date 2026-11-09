@@ -8,6 +8,7 @@
  *   node scripts/build-backends.mjs                      # 当前平台（macOS 同时出 x64 / arm64）
  *   node scripts/build-backends.mjs --target win32-x64   # 指定目标，可逗号分隔多个
  *   node scripts/build-backends.mjs --source gotdx=../GoTDX-Connector
+ *   node scripts/build-backends.mjs --overrides packages/desktop-electron/backends-macos12.json
  *
  * 要求：本机已安装 Go（版本需满足各仓库 go.mod 的声明）。
  */
@@ -63,6 +64,23 @@ function resolveSources(argv) {
   return sources
 }
 
+/** 按需加载档位覆盖，仅替换指定后端的仓库与固定提交。 */
+function resolveBackends(manifest, argv) {
+  const index = argv.indexOf('--overrides')
+  if (index === -1) return manifest.backends
+  if (!argv[index + 1]) throw new Error('--overrides 需要配置文件路径')
+  const { overrides } = JSON.parse(fs.readFileSync(path.resolve(ROOT, argv[index + 1]), 'utf8'))
+  for (const id of Object.keys(overrides)) {
+    if (!manifest.backends.some((backend) => backend.id === id))
+      throw new Error(`未知后端覆盖：${id}`)
+  }
+  return manifest.backends.map((backend) => {
+    if (!Object.hasOwn(overrides, backend.id)) return backend
+    const { repo, commit } = overrides[backend.id]
+    return { ...backend, repo, commit }
+  })
+}
+
 /** 执行命令并把输出交给用户；失败直接终止构建。 */
 function run(command, args, options = {}) {
   try {
@@ -109,7 +127,8 @@ function ensureSource(backend, override) {
 
   console.log(`  • ${backend.id} 切到 ${backend.commit.slice(0, 12)}`)
   if (head !== backend.commit) {
-    run('git', ['-C', directory, 'fetch', '--depth', '1', 'origin', backend.commit])
+    // 不同档位可从不同仓库固定提交；缓存副本的 origin 不一定是本次的源仓库。
+    run('git', ['-C', directory, 'fetch', '--depth', '1', backend.repo, backend.commit])
   }
   run('git', [
     '-C',
@@ -121,7 +140,9 @@ function ensureSource(backend, override) {
     backend.commit,
   ])
   if (!fs.existsSync(path.join(directory, backend.package)))
-    throw new Error(`${backend.id} 的 checkout 缺少 ${backend.package}，检查 backends.json 的 package 字段`)
+    throw new Error(
+      `${backend.id} 的 checkout 缺少 ${backend.package}，检查 backends.json 的 package 字段`,
+    )
   return directory
 }
 
@@ -153,7 +174,7 @@ const sources = resolveSources(argv)
 if (!targets.length) throw new Error('没有可构建的目标')
 
 console.log(`Go connector 目标：${targets.join(', ')}`)
-for (const backend of manifest.backends) {
+for (const backend of resolveBackends(manifest, argv)) {
   const sourceDirectory = ensureSource(backend, sources.get(backend.id))
   for (const target of targets) {
     const output = build(backend, target, sourceDirectory)

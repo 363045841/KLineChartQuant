@@ -1,3 +1,4 @@
+/** 桌面三进程构建配置；Mac 兼容档位显式覆盖运行时编译目标。 */
 import { fileURLToPath } from 'node:url'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
@@ -8,10 +9,13 @@ import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
 import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
+import { resolveMacosBuildProfile } from '../../scripts/macos-build-profiles.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
 const buildCommit = resolveBuildCommit()
+const profile = process.env.KCQ_DESKTOP_PROFILE
+const targets = profile ? resolveMacosBuildProfile(profile).buildTargets : {}
 
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 export default defineConfig({
@@ -21,6 +25,7 @@ export default defineConfig({
       alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
     },
     build: {
+      ...(targets.main ? { target: targets.main } : {}),
       rollupOptions: {
         input: entry('electron/main.ts'),
         external: [
@@ -35,6 +40,7 @@ export default defineConfig({
       alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
     },
     build: {
+      ...(targets.main ? { target: targets.main } : {}),
       rollupOptions: {
         input: entry('electron/preload.ts'),
         external: ['electron'],
@@ -68,7 +74,8 @@ export default defineConfig({
       Icons({ compiler: 'vue3', autoInstall: true }),
     ],
     build: {
-      cssTarget: 'esnext',
+      ...(targets.renderer ? { target: targets.renderer } : {}),
+      cssTarget: targets.renderer || 'esnext',
       rollupOptions: {
         input: entry('index.html'),
       },

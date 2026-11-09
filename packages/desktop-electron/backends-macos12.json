@@ -1,0 +1,9 @@
+{
+  "$comment": "仅覆盖 macOS 12 兼容包的 GoTDX 固定版本；其余后端继续使用 backends.json。该提交基于标准版同一服务提交，仅调整 Go 及 gotdx 依赖以支持 Go 1.26。",
+  "overrides": {
+    "gotdx": {
+      "repo": "https://github.com/beiweimd/GoTDX-Connector.git",
+      "commit": "723c1540ec7494be3254b77d0fbf3b0fa48e6235"
+    }
+  }
+}
