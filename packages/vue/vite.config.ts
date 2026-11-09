@@ -46,6 +46,8 @@ export default defineConfig({
   },
   worker: { format: 'es' },
   build: {
+    // 主题在运行时切换，不能把 light-dark() 降级为静态辅助变量。
+    cssTarget: 'esnext',
     target: 'esnext',
     emptyOutDir: true,
     license: { fileName: 'THIRD-PARTY-LICENSES.md' },

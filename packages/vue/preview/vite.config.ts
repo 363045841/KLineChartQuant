@@ -61,6 +61,8 @@ function watchWorkspaceSources(repoRoot: string): Plugin {
 }
 
 export default defineConfig({
+  // 明暗模式由运行时 color-scheme 决定，保留原生 light-dark()，避免静态降级失效。
+  build: { cssTarget: 'esnext' },
   root: fileURLToPath(new URL('.', import.meta.url)),
   // 品牌资源目录同时作为站点 publicDir：标签页图标直接复用桌面应用图标的 SVG，不再另存副本。
   publicDir: fileURLToPath(new URL('../../desktop-electron/src/assets', import.meta.url)),
