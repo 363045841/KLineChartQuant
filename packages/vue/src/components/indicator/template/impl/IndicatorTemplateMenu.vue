@@ -1,20 +1,24 @@
 <!-- 指标模板菜单：工具栏独立入口，弹层分「指标」与「模板」两个页签。 -->
 <template>
   <div class="indicator-template">
-    <ControlTrigger
-      ref="trigger"
-      split
-      label="指标"
-      dropdown-label="指标模板"
-      aria-haspopup="dialog"
-      :aria-expanded="open"
-      :dropdown-disabled="!controller"
-      @click="emit('toggleIndicator')"
-      @dropdown-click="toggle"
-    >
+    <ControlTrigger label="指标" @click="emit('toggleIndicator')">
       <IconTablerMathFunction class="indicator-template__icon" aria-hidden="true" />
       <span>指标</span>
     </ControlTrigger>
+    <BaseTooltip content="指标模板" placement="bottom" :disabled="open">
+      <button
+        ref="trigger"
+        type="button"
+        class="control-button indicator-template__entry"
+        aria-label="指标模板"
+        aria-haspopup="dialog"
+        :aria-expanded="open"
+        :disabled="!controller"
+        @click="toggle"
+      >
+        <IconBookmark aria-hidden="true" />
+      </button>
+    </BaseTooltip>
 
     <BaseModal
       :open="open"
@@ -212,6 +216,7 @@
     useIndicatorTemplates,
   } from '@vue-src/composables/indicator/useIndicatorTemplates.js'
   import { computed, onBeforeUnmount, ref } from 'vue'
+  import IconBookmark from '~icons/tabler/bookmark'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
   import IconTablerFolderOpen from '~icons/tabler/folder-open'
@@ -254,7 +259,7 @@
   } = useIndicatorTemplates(controller)
 
   const open = ref(false)
-  const trigger = ref<InstanceType<typeof ControlTrigger> | null>(null)
+  const trigger = ref<HTMLButtonElement | null>(null)
   /** 重命名目标；null 表示对话框关闭。 */
   const renaming = ref<IndicatorTemplateSummary | null>(null)
 
@@ -330,10 +335,41 @@
   defineExpose({ toggle, close })
 </script>
 
+<style scoped src="../../../common/control-button.css"></style>
+
 <style scoped>
+  .indicator-template {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
+  }
+
   .indicator-template__icon {
     width: 16px;
     height: 16px;
+  }
+
+  /* 模板入口只保留图标，外观与自选股等工具栏图标按钮一致。 */
+  .indicator-template__entry {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+  }
+
+  .indicator-template__entry:hover:not(:disabled),
+  .indicator-template__entry[aria-expanded='true']:not(:disabled) {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+  }
+
+  .indicator-template__entry svg {
+    width: 18px;
+    height: 18px;
   }
 
   .indicator-template__content {

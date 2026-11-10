@@ -62,7 +62,7 @@ async function mountMenu(controller: ChartController) {
 }
 
 describe('指标模板弹层', () => {
-  it('主按钮只打开指标选择，箭头独立打开模板弹窗', async () => {
+  it('指标按钮只打开指标选择，模板按钮独立打开模板弹窗', async () => {
     const { controller } = createTemplateController()
     const wrapper = mount(IndicatorTemplateMenu, {
       props: { controller },
@@ -80,7 +80,7 @@ describe('指标模板弹层', () => {
     wrapper.unmount()
   })
 
-  it('控制器尚未就绪时只禁用模板箭头', async () => {
+  it('控制器尚未就绪时只禁用模板按钮', async () => {
     const wrapper = mount(IndicatorTemplateMenu, { global: { stubs: MODAL_STUB } })
     expect(wrapper.get('button[aria-label="指标模板"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('button[aria-label="指标"]').attributes('disabled')).toBeUndefined()
