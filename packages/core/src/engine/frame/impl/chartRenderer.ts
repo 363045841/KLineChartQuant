@@ -1,7 +1,7 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
-import type { SnapLine } from '@/foundation/plugin/index.js'
 import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
+import type { SnapLine } from '@/foundation/plugin/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -71,6 +71,7 @@ import {
   paintAxisLabels,
   registerAxisLabel,
 } from '../../renderers/impl/labels/index.js'
+import { createLastPriceLabelLayer, createLastPriceLineLayer } from '../../renderers/lastPrice.js'
 import { createTimeAxisLayer } from '../../renderers/timeAxis.js'
 import { createTimeShareLayer } from '../../renderers/timeShare.js'
 import {
@@ -129,8 +130,6 @@ type FrameContext = {
   comparisonActive: boolean
   /** 单帧生成的比较投影；轴范围、百分比基准与折线共享。 */
   comparisonProjection: ReturnType<ChartDataManager['getComparisonProjection']> | null
-  /** 本帧主图指标极值。 */
-  mainIndicatorRange: { min: number; max: number } | null
   /** 本帧指标实例状态读取器，范围解析与绘制共用。 */
   indicatorStateReader: IndicatorRenderStateReader
   /** 本帧指标可用性读取器。 */
@@ -250,19 +249,18 @@ function clearAxisSurface(
 }
 
 /** 范围决策共用的输入快照；读取阶段不修改 frame 或业务状态。 */
-type PanePriceRangeInputs = Pick<
-  FrameContext,
-  'mainIndicatorRange' | 'comparisonActive' | 'comparisonProjection'
-> & {
+type PanePriceRangeInputs = Pick<FrameContext, 'comparisonActive' | 'comparisonProjection'> & {
   dataManager: ChartDataManager
   mode: ReturnType<RendererDependencies['getActiveMode']>
   axisStates: ReturnType<RendererDependencies['mainPriceAxis']['readonly']['paneRanges']['peek']>
+  /** 每轴由实例输出派生的极值；主图价格轴也在其中。 */
+  axisRanges: ReadonlyMap<string, { min: number; max: number } | null>
 }
 
 /** 范围决策结果及待提交的锁定初始化意图。 */
 type PanePriceRangeResult = {
   panePriceRanges: Record<string, ResolvedPanePriceRange>
-  pendingHandRanges: Array<{ paneId: string; range: PriceRange }>
+  pendingHandRanges: Array<{ axisId: string; range: PriceRange }>
 }
 
 /** 帧事务输入：合并多次 scheduleDraw 的 level */
@@ -428,17 +426,19 @@ export class ChartRenderer {
       ...layers.map((layer) => layer.visible),
       ...this.deps.getPaneRenderers().flatMap((renderer) => {
         const pane = renderer.getPane()
-        const axis = pane.yAxis
         return [
           renderer,
           pane.id,
           pane.top,
           pane.height,
           pane.role,
-          axis.getScaleType(),
-          axis.getContentTop(),
-          axis.getContentHeight(),
-          axis.getBasePrice(),
+          ...pane.axes.flatMap((axis) => [
+            axis.axisId,
+            axis.yAxis.getScaleType(),
+            axis.yAxis.getContentTop(),
+            axis.yAxis.getContentHeight(),
+            axis.yAxis.getBasePrice(),
+          ]),
         ]
       }),
     ]
@@ -569,6 +569,8 @@ export class ChartRenderer {
   }
 
   initCoreRenderers(): void {
+    this.scene.addLayer(createLastPriceLineLayer())
+    this.scene.addLayer(createLastPriceLabelLayer())
     const opt = this.deps.getOption()
     const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 0)
     const interaction = this.deps.getInteraction()
@@ -952,7 +954,6 @@ export class ChartRenderer {
       panePriceRanges: {},
       comparisonActive: false,
       comparisonProjection: null,
-      mainIndicatorRange: null,
       indicatorStateReader: indicatorManager.createRenderStateReader(),
       indicatorAvailability: indicatorManager.createAvailabilityReader(),
     }
@@ -977,9 +978,6 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
 
-    const mainIndicatorRange = frame.useCachedFrame
-      ? null
-      : indicatorManager.getMainIndicatorPriceRange()
     const comparisonActive =
       this.deps.dataView$() === ChartDataViewId.KLine && dataManager.getComparisonSpecs().length > 0
     const comparisonProjection = comparisonActive
@@ -991,10 +989,19 @@ export class ChartRenderer {
         )
       : null
 
+    const axisRanges = new Map<string, { min: number; max: number } | null>()
+    for (const renderer of this.deps.getPaneRenderers()) {
+      for (const axis of renderer.getPane().axes) {
+        axisRanges.set(
+          axis.axisId,
+          frame.useCachedFrame ? null : indicatorManager.getAxisIndicatorRange(axis.axisId),
+        )
+      }
+    }
     return {
       dataManager,
       mode,
-      mainIndicatorRange,
+      axisRanges,
       comparisonActive,
       comparisonProjection,
       axisStates: this.deps.mainPriceAxis.readonly.paneRanges.peek(),
@@ -1008,34 +1015,62 @@ export class ChartRenderer {
   ): PanePriceRangeResult {
     const panePriceRanges: Record<string, ResolvedPanePriceRange> = {}
     // 收集阶段只做决策，不写内核；待初始化的锁定范围先收集，循环后统一提交。
-    const pendingHandRanges: Array<{ paneId: string; range: PriceRange }> = []
+    const pendingHandRanges: Array<{ axisId: string; range: PriceRange }> = []
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const auto = this.resolvePaneAutoRange(frame, inputs, pane)
-      const context = this.createPaneRenderContext(
-        frame, pane, renderer.getContexts(), inputs.dataManager, createAxisLabelsFrame(), [],
-      )
-      const drawings = this.drawingStore.getVisibleByPane(
-        pane.id, resolveChartWorkspaceId(this.deps.dataView$.peek()), 'committed', 'indicator',
-      )
-      const drawingRange = computeDrawingPriceRange(drawings, this.drawingDefinitions, context)
-      const combined = drawingRange
-        ? {
-            range: {
-              minPrice: auto ? Math.min(auto.range.minPrice, drawingRange.min) : drawingRange.min,
-              maxPrice: auto ? Math.max(auto.range.maxPrice, drawingRange.max) : drawingRange.max,
-            },
-            basePrice: auto?.basePrice ?? null,
-          }
-        : auto
-      const resolved = this.resolvePaneRange(inputs, pane.id, combined)
-      panePriceRanges[pane.id] = resolved
-      this.collectPendingHandRange(pendingHandRanges, frame, pane.id, resolved)
+      const axes = pane.axes
+      for (const axis of axes) {
+        const auto = this.resolveAxisAutoRange(frame, inputs, pane, axis.axisId)
+        const context = this.createPaneRenderContext(
+          frame,
+          pane,
+          renderer.getContexts(),
+          inputs.dataManager,
+          createAxisLabelsFrame(),
+          [],
+        )
+        const drawings = this.drawingStore.getVisibleByPane(
+          pane.id,
+          resolveChartWorkspaceId(this.deps.dataView$.peek()),
+          'committed',
+          'indicator',
+        )
+        const drawingRange =
+          axis.axisId === axes[0]?.axisId
+            ? computeDrawingPriceRange(drawings, this.drawingDefinitions, context)
+            : null
+        const combined = drawingRange
+          ? {
+              range: {
+                minPrice: auto ? Math.min(auto.range.minPrice, drawingRange.min) : drawingRange.min,
+                maxPrice: auto ? Math.max(auto.range.maxPrice, drawingRange.max) : drawingRange.max,
+              },
+              basePrice: auto?.basePrice ?? null,
+            }
+          : auto
+        const resolved = this.resolvePaneRange(inputs, axis.axisId, combined)
+        panePriceRanges[axis.axisId] = resolved
+        this.collectPendingHandRange(pendingHandRanges, frame, axis.axisId, resolved)
+      }
     }
     return { panePriceRanges, pendingHandRanges }
   }
 
-  /** 计算 Pane 自动范围；主图在非比较模式下叠加足迹价格范围。 */
+  /** 单轴自动范围：主图价格轴沿用行情范围，其余轴取实例输出极值。 */
+  private resolveAxisAutoRange(
+    frame: FrameContext,
+    inputs: PanePriceRangeInputs,
+    pane: PaneLayout,
+    axisId: string,
+  ): ReturnType<typeof computePaneAutoRange> {
+    if (pane.id === MAIN_PANE_ID && axisId === MAIN_PANE_ID) {
+      return this.resolvePaneAutoRange(frame, inputs, pane)
+    }
+    const range = inputs.axisRanges.get(axisId)
+    return range ? { range: { minPrice: range.min, maxPrice: range.max }, basePrice: null } : null
+  }
+
+  /** 计算主图价格轴自动范围；足迹范围只在主图叠加。 */
   private resolvePaneAutoRange(
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
@@ -1048,10 +1083,10 @@ export class ChartRenderer {
       range: frame.range,
       dataManager: inputs.dataManager,
       mode: inputs.mode,
-      mainIndicatorRange: inputs.mainIndicatorRange,
+      mainIndicatorRange: inputs.axisRanges.get(MAIN_PANE_ID) ?? null,
       comparisonActive: inputs.comparisonActive,
       comparisonProjection: inputs.comparisonProjection,
-      subIndicatorRange: this.readSubIndicatorRange(frame, pane.id),
+      subIndicatorRange: null,
       closeOnly: shape === 'line' || shape === 'area',
     })
     if (pane.id !== MAIN_PANE_ID || inputs.comparisonActive) return auto
@@ -1068,13 +1103,13 @@ export class ChartRenderer {
     }
   }
 
-  /** 把自动范围与 Pane 轴状态合成为最终范围。 */
+  /** 把自动范围与轴状态合成为最终范围。 */
   private resolvePaneRange(
     inputs: PanePriceRangeInputs,
-    paneId: string,
+    axisId: string,
     auto: ReturnType<typeof computePaneAutoRange>,
   ): ResolvedPanePriceRange {
-    const axisState = inputs.axisStates[paneId]
+    const axisState = inputs.axisStates[axisId]
     return resolvePanePriceRange({
       rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
       handRange: axisState?.handRange ?? null,
@@ -1085,13 +1120,13 @@ export class ChartRenderer {
 
   /** 新帧首次锁定手工范围时记录待提交意图；缓存帧不重复初始化。 */
   private collectPendingHandRange(
-    pending: Array<{ paneId: string; range: PriceRange }>,
+    pending: Array<{ axisId: string; range: PriceRange }>,
     frame: FrameContext,
-    paneId: string,
+    axisId: string,
     resolved: ResolvedPanePriceRange,
   ): void {
     if (frame.useCachedFrame || !resolved.initializeHandRange || !resolved.range) return
-    pending.push({ paneId, range: resolved.range })
+    pending.push({ axisId, range: resolved.range })
   }
 
   /** 将计算结果发布到帧对象，供后续轴投影和绘制共享。 */
@@ -1100,7 +1135,6 @@ export class ChartRenderer {
     inputs: PanePriceRangeInputs,
     result: PanePriceRangeResult,
   ): void {
-    frame.mainIndicatorRange = inputs.mainIndicatorRange
     frame.comparisonActive = inputs.comparisonActive
     frame.comparisonProjection = inputs.comparisonProjection
     frame.panePriceRanges = result.panePriceRanges
@@ -1113,18 +1147,6 @@ export class ChartRenderer {
     if (pendingHandRanges.length > 0) {
       this.deps.mainPriceAxis.actions.initializeHandRanges(pendingHandRanges)
     }
-  }
-
-  /** 读取副图指标 state 的极值；非副图或未就绪返回 null。 */
-  private readSubIndicatorRange(
-    frame: FrameContext,
-    paneId: string,
-  ): { min: number; max: number } | null {
-    const subPaneEntry = this.deps.getIndicatorManager().getSubPaneEntry(paneId)
-    if (!subPaneEntry) return null
-    return readIndicatorExtrema(
-      frame.indicatorStateReader.get<IndicatorExtremaState>(subPaneEntry.instanceId),
-    )
   }
 
   clearAllCanvases(): void {
@@ -1223,41 +1245,55 @@ export class ChartRenderer {
     vp: ViewportFrame,
   ): void {
     const widths = this.measureAxisWidths(level, axisLabelsFrame)
+    // 宿主快捷入口消费已测量的主轴列几何，不能按整块多轴画布居中。
+    for (const renderer of this.deps.getPaneRenderers()) {
+      const primaryAxisId = renderer.getPane().axes[0]!.axisId
+      const width = `${widths.rightByAxis[primaryAxisId]}px`
+      const style = renderer.getDom().yAxisCanvas.style
+      if (style.getPropertyValue('--klc-primary-axis-width') !== width)
+        style.setProperty('--klc-primary-axis-width', width)
+    }
     this.retainAxisLabels(level, axisLabelsFrame)
     if (this.deps.commitAxisWidths?.(widths)) this.repaintAxisSurfaces(vp)
   }
 
-  /** 按本帧标签估算左右轴宽。 */
+  /** 按本帧标签估算左右轴宽与逐列宽度。 */
   private measureAxisWidths(
     level: UpdateLevel,
     axisLabelsFrame: AxisLabelsFrame,
   ): ReturnType<AxisWidthEstimator['estimate']> {
     return this.axisWidthEstimator.estimate({
       labels: axisLabelsFrame,
-      paneIds: this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+      axes: this.deps.getPaneRenderers().flatMap((renderer) => {
+        const pane = renderer.getPane()
+        return pane.axes.map((axis) => ({ axisId: axis.axisId, paneId: pane.id }))
+      }),
       updateStatic: level === UpdateLevel.Main || level === UpdateLevel.All,
       updateOverlay: level === UpdateLevel.Overlay || level === UpdateLevel.All,
     })
   }
 
-  /** 更新每个 Pane 的轴标签保留帧，并移除已消失 Pane 的记录。 */
+  /** 更新每条轴的轴标签保留帧，并移除已消失轴的记录。 */
   private retainAxisLabels(level: UpdateLevel, axisLabelsFrame: AxisLabelsFrame): void {
     const surfaces = AXIS_SURFACES
-    const visiblePaneIds = new Set(
-      this.deps.getPaneRenderers().map((renderer) => renderer.getPane().id),
+    const visibleAxisIds = new Set(
+      this.deps
+        .getPaneRenderers()
+        .flatMap((renderer) => renderer.getPane().axes.map((axis) => axis.axisId)),
     )
     for (const id of this.retainedAxisLabels.keys()) {
-      if (!visiblePaneIds.has(id)) this.retainedAxisLabels.delete(id)
+      if (!visibleAxisIds.has(id)) this.retainedAxisLabels.delete(id)
     }
     for (const renderer of this.deps.getPaneRenderers()) {
-      const pane = renderer.getPane()
-      const retainedFrame = this.retainedAxisLabels.get(pane.id) ?? createAxisLabelsFrame()
-      this.retainedAxisLabels.set(pane.id, retainedFrame)
-      for (const surface of surfaces) {
-        if (!axisSurfaceUpdates(surface, level)) continue
-        const retained = retainedFrame.forSurface(surface, pane.id).labels
-        retained.length = 0
-        retained.push(...axisLabelsFrame.forSurface(surface, pane.id).labels)
+      for (const axis of renderer.getPane().axes) {
+        const retainedFrame = this.retainedAxisLabels.get(axis.axisId) ?? createAxisLabelsFrame()
+        this.retainedAxisLabels.set(axis.axisId, retainedFrame)
+        for (const surface of surfaces) {
+          if (!axisSurfaceUpdates(surface, level)) continue
+          const retained = retainedFrame.forSurface(surface, axis.axisId).labels
+          retained.length = 0
+          retained.push(...axisLabelsFrame.forSurface(surface, axis.axisId).labels)
+        }
       }
     }
   }
@@ -1274,17 +1310,29 @@ export class ChartRenderer {
         contexts.leftAxisCtx,
         contexts.leftAxisOverlayCtx,
       ]
+      const axisIds = pane.axes.map((axis) => axis.axisId)
+      const layout = this.axisWidthEstimator.getLayout(axisIds)
+      for (const target of targets) {
+        if (target) clearAxisSurface(target, vp.dpr, pane.height)
+      }
       for (const [index, surface] of AXIS_SURFACES.entries()) {
         const target = targets[index]
         if (!target) continue
-        const axisWidth = target.canvas.width / vp.dpr
-        clearAxisSurface(target, vp.dpr, pane.height)
-        paintAxisLabels(
-          target,
-          this.retainedAxisLabels.get(pane.id)?.forSurface(surface, pane.id).labels ?? [],
-          surface,
-          { dpr: vp.dpr, axisWidth, axisHeight: pane.height },
-        )
+        const axisList = surface.startsWith('yRight') ? axisIds : [axisIds[0]!]
+        for (const axisId of axisList) {
+          const column = layout[axisId]
+          paintAxisLabels(
+            target,
+            this.retainedAxisLabels.get(axisId)?.forSurface(surface, axisId).labels ?? [],
+            surface,
+            {
+              dpr: vp.dpr,
+              axisWidth: column.width,
+              axisHeight: pane.height,
+              offsetX: column.left,
+            },
+          )
+        }
       }
     }
   }
@@ -1296,10 +1344,12 @@ export class ChartRenderer {
     useCachedFrame: boolean,
   ): void {
     if (useCachedFrame) return
-    const resolved = frame.panePriceRanges[pane.id]
-    if (!resolved) return
-    pane.yAxis.setBasePrice(resolved.basePrice)
-    if (resolved.range) pane.yAxis.setRange(resolved.range)
+    for (const axis of pane.axes) {
+      const resolved = frame.panePriceRanges[axis.axisId]
+      if (!resolved) continue
+      axis.yAxis.setBasePrice(resolved.basePrice)
+      if (resolved.range) axis.yAxis.setRange(resolved.range)
+    }
   }
 
   /** 判断正式图元层是否需要重绘；几何、文档、选中或覆盖成员变化都会使缓存失效。 */
@@ -1382,6 +1432,7 @@ export class ChartRenderer {
       yAxisRanges: [],
       xAxisRanges: sharedXAxisRanges,
       axisLabels: axisLabelsFrame,
+      axisLayout: this.axisWidthEstimator.getLayout(pane.axes.map((axis) => axis.axisId)),
       theme: this.deps.theme$.peek(),
       isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
       colorPresetSettings: this.getSettings().colorPresetSettings,
@@ -1745,6 +1796,20 @@ export class ChartRenderer {
             fromPercent: () => 0,
             getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
           },
+          axes: [],
+          axis: () => ({
+            priceToY: () => 0,
+            yToPrice: () => 0,
+            getContentTop: () => 0,
+            getContentBottom: () => 0,
+            getContentHeight: () => 0,
+            getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
+            getScaleType: () => ScaleType.Linear,
+            getBasePrice: () => null,
+            toPercent: () => 0,
+            fromPercent: () => 0,
+            getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
+          }),
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,

@@ -23,9 +23,11 @@ export interface KlineWorkbenchProps {
   period?: KLinePeriod
   /**
    * 挂载时是否恢复布局归档里的活动布局，默认 `true`。
-   * 多窗口 / 多标签各自持有配置的宿主必须传 `false`。
+   * 多标签通过 layoutStorageId 隔离归档，仍然启用恢复。
    */
   restoreLayout?: boolean
+  /** 布局归档持有者的稳定身份。 */
+  layoutStorageId?: string
   chart?: Omit<
     InstanceType<typeof KlineChart>['$props'],
     'marketDataContext' | 'scriptsEnabled' | 'symbols'

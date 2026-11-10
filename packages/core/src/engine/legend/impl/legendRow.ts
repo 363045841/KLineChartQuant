@@ -73,3 +73,12 @@ export function createLegendRow(
     ...(content.error === undefined ? {} : { error: content.error }),
   }
 }
+
+/** 汇总后的窗格标题内容只在此分配连续行号，内容投影不能自行定位。 */
+export function layoutLegendRows(
+  placement: Omit<LegendRowPlacement, 'index'>,
+  contents: ReadonlyArray<LegendRowContent>,
+  layout: LegendRowLayout = DEFAULT_LEGEND_ROW_LAYOUT,
+): LegendRow[] {
+  return contents.map((content, index) => createLegendRow({ ...placement, index }, content, layout))
+}

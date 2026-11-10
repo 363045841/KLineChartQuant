@@ -45,7 +45,10 @@ function defaultCapabilitiesByRole(role: PaneRole): PaneCapabilities {
 }
 
 /**
- * Pane：代表一个"窗口区域"（主图 / 副图）
+ * Pane：代表一个"窗口区域"（主图 / 副图）。
+ *
+ * 一个 Pane 可以拥有多条轴；主轴沿用 `paneId` 作为轴身份，
+ * 实例独立轴由框架派生后通过 `setAxes` 投影进来。
  */
 export class Pane {
   readonly id: string
@@ -54,8 +57,20 @@ export class Pane {
   top = 0
   height = 0
 
-  /** pane 独立 Y 轴 */
-  readonly yAxis = new PriceScale()
+  private readonly axisScales = new Map<string, PriceScale>()
+  private primaryAxisId: string
+  private paddingTop = 0
+  private paddingBottom = 0
+
+  /** Pane 主轴；兼容只消费单轴的绘制与交互路径。 */
+  get yAxis(): PriceScale {
+    return this.axisScales.get(this.primaryAxisId)!
+  }
+
+  /** 全部轴；顺序即右侧轴列顺序。 */
+  get axes(): ReadonlyArray<{ readonly axisId: string; readonly yAxis: PriceScale }> {
+    return [...this.axisScales].map(([axisId, yAxis]) => ({ axisId, yAxis }))
+  }
 
   /** 当前 pane 的有效基础价格范围。 */
   // 由 wrapPaneInfo 以结构类型 PaneInfo 暴露给插件消费，静态分析无法识别接口接收者上的访问。
@@ -64,10 +79,6 @@ export class Pane {
     return this.yAxis.getRange()
   }
 
-  /**
-   * 创建 pane 实例
-   * @param id pane 标识符（例如 'main'、'sub'），用于在 Chart/Interaction 中识别 pane
-   */
   constructor(id: string, options: PaneInitOptions = {}) {
     this.id = id
     this.role = options.role ?? (id === MAIN_PANE_ID ? 'price' : 'indicator')
@@ -75,6 +86,29 @@ export class Pane {
       ...defaultCapabilitiesByRole(this.role),
       ...(options.capabilities ?? {}),
     }
+    this.primaryAxisId = id
+    this.axisScales.set(id, new PriceScale())
+  }
+
+  /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
+  axis(axisId: string): PriceScale {
+    return this.axisScales.get(axisId) ?? this.yAxis
+  }
+
+  /** 应用框架派生的轴列表；保留已有轴实例，避免每帧重建范围。 */
+  setAxes(axisIds: ReadonlyArray<string>): void {
+    const next = new Set(axisIds.length > 0 ? axisIds : [this.id])
+    for (const axisId of [...this.axisScales.keys()]) {
+      if (!next.has(axisId)) this.axisScales.delete(axisId)
+    }
+    for (const axisId of next) {
+      if (this.axisScales.has(axisId)) continue
+      const scale = new PriceScale()
+      scale.setHeight(this.height)
+      scale.setContentInsets(this.paddingTop, this.paddingBottom)
+      this.axisScales.set(axisId, scale)
+    }
+    this.primaryAxisId = axisIds[0] ?? this.id
   }
 
   /**
@@ -85,7 +119,7 @@ export class Pane {
   setLayout(top: number, height: number) {
     this.top = top
     this.height = Math.max(1, height)
-    this.yAxis.setHeight(this.height)
+    for (const axis of this.axisScales.values()) axis.setHeight(this.height)
   }
 
   /**
@@ -94,6 +128,8 @@ export class Pane {
    * @param bottom 下内缩：视觉留白
    */
   setContentInsets(top: number, bottom: number) {
-    this.yAxis.setContentInsets(top, bottom)
+    this.paddingTop = top
+    this.paddingBottom = bottom
+    for (const axis of this.axisScales.values()) axis.setContentInsets(top, bottom)
   }
 }

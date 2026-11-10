@@ -273,16 +273,18 @@ export function useChart(
 export function useIndicators(controller: ChartController): {
   indicators: ComputedRef<ReadonlyArray<IndicatorInstance>>
   add: ChartController['addIndicator']
+  move: ChartController['moveIndicator']
   remove: ChartController['removeIndicator']
-  updateParams: ChartController['updateIndicatorParams']
+  update: ChartController['updateIndicator']
 } {
   const indicators = coreSignalToVueRef(controller.indicators)
 
   return {
     indicators,
     add: controller.addIndicator.bind(controller),
+    move: controller.moveIndicator.bind(controller),
     remove: controller.removeIndicator.bind(controller),
-    updateParams: controller.updateIndicatorParams.bind(controller),
+    update: controller.updateIndicator.bind(controller),
   }
 }
 

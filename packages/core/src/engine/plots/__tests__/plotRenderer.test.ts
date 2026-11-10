@@ -959,7 +959,10 @@ describe('Plot renderer', () => {
           scrollLeft: 0,
         },
       )
-      const layer = createPlotLayer('plot-test', 'main', { instanceId: 'plot-test' })
+      const layer = createPlotLayer('plot-test', 'main', {
+        instanceId: 'plot-test',
+        axisId: 'main',
+      })
       if (layer.kind !== 'draw-list') throw new Error('Expected Plot draw-list layer')
       for (const stepPx of [9.660759, 12.8, 31.27]) {
         for (const scrollLeft of [0, 0.37, 1.3]) {

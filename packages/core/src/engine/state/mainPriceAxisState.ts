@@ -96,15 +96,15 @@ export function createMainPriceAxisState(initialMode: PriceAxisRangeMode) {
         if (current?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND && current.handRange !== null)
           write(paneId, current.rangeMode, range)
       },
-      /** 首个有效帧批量初始化各 Pane 的锁定范围，一次快照提交避免多次通知。 */
-      initializeHandRanges(entries: ReadonlyArray<{ paneId: string; range: PriceRange }>): void {
+      /** 首个有效帧批量初始化各轴的锁定范围，一次快照提交避免多次通知。 */
+      initializeHandRanges(entries: ReadonlyArray<{ axisId: string; range: PriceRange }>): void {
         const current = readonly.paneRanges.peek()
         let next: Record<string, PanePriceAxisRange> | null = null
-        for (const { paneId, range } of entries) {
-          const state = current[paneId]
+        for (const { axisId, range } of entries) {
+          const state = current[axisId]
           if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange !== null) continue
           next ??= { ...current }
-          next[paneId] = Object.freeze({
+          next[axisId] = Object.freeze({
             rangeMode: state.rangeMode,
             handRange: Object.freeze({ ...range }),
           })

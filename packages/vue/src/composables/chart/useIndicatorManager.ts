@@ -45,13 +45,18 @@ export function useIndicatorManager(
       )
       .map((indicator) => indicator.definitionId),
   )
-  const subPanes = computed<SubPaneSlot[]>(() =>
-    subPaneInfos.value.map((pane) => ({
-      id: pane.paneId,
-      indicatorId: pane.indicatorId as SubIndicatorType,
-      params: { ...pane.params },
-    })),
-  )
+  const subPanes = computed<SubPaneSlot[]>(() => {
+    const byPane = new Map<string, SubPaneSlot>()
+    for (const instance of subPaneInfos.value) {
+      if (byPane.has(instance.paneId)) continue
+      byPane.set(instance.paneId, {
+        id: instance.paneId,
+        indicatorId: instance.indicatorId as SubIndicatorType,
+        params: { ...instance.params },
+      })
+    }
+    return [...byPane.values()]
+  })
 
   const subActiveIndicators = computed(() => {
     const ids: string[] = []
@@ -161,9 +166,11 @@ export function useIndicatorManager(
   ): Promise<void> {
     const controller = ctrl.value
     if (!controller) return
+    const instance = controller.indicators.peek().find((item) => item.paneId === paneId)
+    if (!instance) return
     const nextParams = getDefaultParams(newIndicatorId)
     const loaded = await loadIndicator(controller, newIndicatorId)
-    loaded?.replacePaneContent(paneId, newIndicatorId, nextParams)
+    loaded?.updateIndicator(instance.id, { indicatorId: newIndicatorId, params: nextParams })
   }
 
   /** 在副图序列中移动一个 Pane；主图始终固定在第 0 位。 */
@@ -182,13 +189,15 @@ export function useIndicatorManager(
     const def = getIndicatorDescriptor(indicatorId)
     const isMain = def?.category === 'main'
     if (isMain) {
-      const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
-      if (active && !existingIndicator) {
+      const existing = controller.indicators
+        .peek()
+        .filter((item) => item.role === 'main' && item.definitionId === indicatorId)
+      if (active && existing.length === 0) {
         const c = await loadIndicator(controller, indicatorId)
-        if (!c || mainActiveIndicators.value.includes(indicatorId)) return
+        if (!c) return
         c.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else if (!active && existingIndicator) {
-        controller.removeIndicator(indicatorId)
+      } else if (!active) {
+        for (const instance of existing) controller.removeIndicator(instance.id)
       }
       return
     }
@@ -198,32 +207,23 @@ export function useIndicatorManager(
         const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
         if (existingPane) return
         if (subPanes.value.length >= maxSubPanes) return
-
         const loaded = await loadIndicator(controller, indicatorId)
-        if (!loaded || subPanes.value.some((p) => p.indicatorId === indicatorId)) return
-        const paneId = loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-        if (!paneId && subPanes.value.length > 0) {
-          const lastPane = subPanes.value[subPanes.value.length - 1]
-          await switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
-        }
+        if (!loaded) return
+        loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
       } else {
         const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-        panesToRemove.forEach((pane) => {
-          controller.removePane(pane.id)
-        })
+        panesToRemove.forEach((pane) => controller.removePane(pane.id))
       }
     }
   }
 
-  /** 将定义级参数设置提交到全部匹配实例；主图使用定义 ID，副图使用实例 ID。 */
+  /** 将参数设置提交到全部匹配实例；主图与副图都按实例身份写入。 */
   function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
     const controller = ctrl.value
     if (!controller) return
-
     for (const instance of controller.indicators.peek()) {
       if (instance.definitionId !== indicatorId) continue
-      const targetId = instance.role === 'main' ? instance.definitionId : instance.id
-      controller.updateIndicatorParams(targetId, params)
+      controller.updateIndicator(instance.id, { params })
     }
   }
 

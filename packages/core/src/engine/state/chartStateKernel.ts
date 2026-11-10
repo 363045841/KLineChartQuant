@@ -30,11 +30,12 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
+import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import {
   getRegisteredIndicatorDefinition,
   resolveCanonicalIndicatorId,
 } from '../indicators/pipeline/index.js'
-import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { TemplateWorkspace, TemplateWorkspaces } from '../indicatorTemplate/index.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {
@@ -103,7 +104,11 @@ function tryResolveIndicatorMetadata(
   return definition
 }
 
-type RendererAdder = (target: ActiveRendererDescriptor[], name: string | null) => void
+type RendererAdder = (
+  target: ActiveRendererDescriptor[],
+  name: string | null,
+  layerId?: string,
+) => void
 
 /** 把单个指标实例投影到主图或副图的 renderer 列表。 */
 function appendInstanceRenderers(
@@ -114,30 +119,6 @@ function appendInstanceRenderers(
   add: RendererAdder,
 ): void {
   const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-  // mode 实例的业务 renderer 由 @Indicator.dataViews 声明可见性，且不参与用户指标图例。
-  if (instance.source === 'mode' && instance.role === 'main' && definition) {
-    const modeDefinition = tryResolveIndicatorMetadata(
-      definition,
-      dataView,
-      instance.paneId,
-      instance.indicatorId,
-    )
-    if (modeDefinition) {
-      add(
-        main,
-        modeDefinition.getRendererName({
-          paneId: instance.paneId,
-          indicatorId: instance.indicatorId,
-        }),
-      )
-      return
-    }
-  }
-  // 无 @Indicator 定义的裸主序列 renderer 直接按实例 id 挂载。
-  if (instance.source === 'mode' && instance.indicatorId === 'candle') {
-    add(main, instance.indicatorId)
-    return
-  }
   const resolved = tryResolveIndicatorMetadata(
     definition,
     dataView,
@@ -145,14 +126,22 @@ function appendInstanceRenderers(
     instance.indicatorId,
   )
   if (!resolved) return
-  const options = { paneId: instance.paneId, indicatorId: instance.indicatorId }
+  const options = {
+    paneId: instance.paneId,
+    indicatorId: instance.indicatorId,
+    instanceId: instance.instanceId,
+  }
+  const layerId = resolveIndicatorLayerId(
+    instance.indicatorId,
+    instance.paneId,
+    'renderer',
+    instance.instanceId,
+  )
   if (instance.role === 'main') {
-    add(main, resolved.getRendererName(options))
+    add(main, resolved.getRendererName(options), layerId)
     return
   }
-  // 副图只挂载数据与坐标轴 Layer。
-  add(sub, resolved.getRendererName(options))
-  add(sub, resolved.getScaleRendererName(options))
+  add(sub, resolved.getRendererName(options), layerId)
 }
 
 /** 从已启用指标状态解析当前数据视图实际需要的 renderer layer。 */
@@ -163,10 +152,12 @@ function resolveIndicatorRenderers(
   const mainRenderers: ActiveRendererDescriptor[] = []
   const subRenderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
-  const add = (target: ActiveRendererDescriptor[], name: string | null): void => {
-    if (!name || seen.has(name)) return
-    seen.add(name)
-    target.push({ name, layerId: makePluginLayerId(name) })
+  const add = (target: ActiveRendererDescriptor[], name: string | null, layerId?: string): void => {
+    if (!name) return
+    const id = layerId ?? makePluginLayerId(name)
+    if (seen.has(id)) return
+    seen.add(id)
+    target.push({ name, layerId: id })
   }
 
   // 主副图指标从统一实例集合读取，图例由帧投影统一管理。
@@ -227,8 +218,6 @@ export class ChartStateKernel extends StateKernel {
   readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
   /** 当前图表状态要求启用的受管 renderer layer。 */
   readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
-  /** 当前数据视图中应显示在主图图例的用户指标 ID。 */
-  readonly visibleMainIndicatorIds$: ReadonlySignal<ReadonlyArray<string>>
   readonly viewportGeometry$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
@@ -319,7 +308,11 @@ export class ChartStateKernel extends StateKernel {
       }
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
-    this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
+    this.paneManager = new PaneManager({
+      pane: this.pane,
+      indicator: this.indicator,
+      getDefinition: getRegisteredIndicatorDefinition,
+    })
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     // K 线形态由 settings.klineShape 直接派生，不再镜像进 mode 主序列偏好。
@@ -348,6 +341,10 @@ export class ChartStateKernel extends StateKernel {
     this.activeRenderers$ = computed(() => {
       const dataView = this.mode.readonly.dataView()
       const renderers = [
+        ...CHART_VIEW_DEFINITIONS[dataView].systemLayers.map((name) => ({
+          name,
+          layerId: makePluginLayerId(name),
+        })),
         ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances()),
       ]
       // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
@@ -360,20 +357,6 @@ export class ChartStateKernel extends StateKernel {
         ).values(),
       ])
     })
-    this.visibleMainIndicatorIds$ = computed(() => {
-      const dataView = this.mode.readonly.dataView()
-      const ids = new Set<string>()
-      for (const instance of this.indicator.readonly.instances()) {
-        if (instance.role !== 'main' || instance.source === 'mode') continue
-        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-        if (definition && supportsIndicatorDataView(definition, dataView)) {
-          // 对外统一使用规范 ID，与实例目录的 definitionId 同一身份空间。
-          ids.add(resolveCanonicalIndicatorId(definition))
-        }
-      }
-      return Object.freeze([...ids])
-    })
-
     // ── Drawing state ──
     this.drawing = createDrawingState()
 
@@ -425,7 +408,6 @@ export class ChartStateKernel extends StateKernel {
       effectivePrimaryRenderer: this.mode.readonly.effectivePrimaryRenderer,
       interactionCapabilities: this.mode.readonly.interactionCapabilities,
       activeRenderers: this.activeRenderers$,
-      visibleMainIndicatorIds: this.visibleMainIndicatorIds$,
       // Pane scale types
       paneScaleTypes: this.pane.readonly.paneScaleTypes,
       // Drawing
@@ -479,21 +461,10 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const workspaceId = resolveChartWorkspaceId(view)
-        const modeInstances: IndicatorInstanceSpec[] = CHART_VIEW_DEFINITIONS[
-          view
-        ].mainInstances.map((instance) => ({
-          instanceId: instance.instanceId,
-          indicatorId: instance.indicatorId,
-          paneId: 'main',
-          role: 'main',
-          ordinal: 0,
-          params: { ...(instance.params ?? {}) },
-        }))
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)
           this.pane.actions.setActiveWorkspace(workspaceId)
-          this.indicator.actions.replaceModeInstances(modeInstances)
         })
       },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
@@ -522,12 +493,6 @@ export class ChartStateKernel extends StateKernel {
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),
       setComparisonLoading: (loading: boolean) => this.comparison.actions.setLoading(loading),
-      upsertMainIndicator: (id, params) => this.indicator.actions.upsertMain(id, params),
-      removeMainIndicator: (id) => this.indicator.actions.removeMain(id),
-      setMainIndicatorParams: (id, params) => this.indicator.actions.setMainParams(id, params),
-      replaceMainIndicators: (instances: ReadonlyArray<IndicatorInstanceSpec>) =>
-        this.indicator.actions.replaceAllMain(instances),
-      clearMainIndicators: () => this.indicator.actions.clearMain(),
     }
     this.actions.setDataView(ChartDataViewId.KLine)
   }
@@ -648,7 +613,10 @@ export class ChartStateKernel extends StateKernel {
         paneScaleTypes: Object.fromEntries(paneWorkspaces[workspaceId].paneScaleTypes),
       })
       const restored: LayoutWorkspaces = {
-        [ChartWorkspaceId.KLine]: asLayout(workspaces[ChartWorkspaceId.KLine], ChartWorkspaceId.KLine),
+        [ChartWorkspaceId.KLine]: asLayout(
+          workspaces[ChartWorkspaceId.KLine],
+          ChartWorkspaceId.KLine,
+        ),
         [ChartWorkspaceId.TimeShare]: asLayout(
           workspaces[ChartWorkspaceId.TimeShare],
           ChartWorkspaceId.TimeShare,

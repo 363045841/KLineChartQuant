@@ -41,21 +41,22 @@ export function registerIndicatorLayerNaming(
   }
 }
 
-/** 按定义身份解析数据或坐标轴 Layer ID；身份未登记时抛错。 */
+/** 按定义身份解析数据或坐标轴 Layer ID；实例图层必须带 instanceId 以保证多实例唯一。 */
 export function resolveIndicatorLayerId(
   definitionId: string,
   paneId: string,
   part: 'renderer' | 'scale' = 'renderer',
+  instanceId?: string,
 ): string {
   const rule = namingRules.get(normalizeIndicatorId(definitionId))
-  const options = { paneId, indicatorId: definitionId }
+  const options = { paneId, indicatorId: definitionId, instanceId }
   const name = part === 'renderer' ? rule?.renderer(options) : rule?.scale(options)
   if (!name)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
       `[Indicator] missing ${part} identity for '${definitionId}'`,
     )
-  return makePluginLayerId(name)
+  return makePluginLayerId(instanceId ? `${name}@${instanceId}` : name)
 }
 
 /** 清空测试用命名规则。 */

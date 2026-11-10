@@ -6,12 +6,16 @@ import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '@/foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController } from '../drawing/index'
+import {
+  registerEmptyPlot,
+  registerPlotDefinition,
+} from '../indicators/__tests__/helpers/plotIndicatorTestKit'
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
-import { registerEmptyPlot, registerPlotDefinition } from '../indicators/__tests__/helpers/plotIndicatorTestKit'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
+import { createMockRenderContext } from './helpers/renderTestKit'
 
 const defaultOptions: ChartOptions = {
   yPaddingPx: 0,
@@ -166,6 +170,8 @@ describe('Chart lifecycle without a market selection', () => {
     const chart = mountChart()
     try {
       const scene = chart['renderer'].getScene()
+      expect(chart.kernel.indicator.readonly.instances.peek()).toEqual([])
+      expect(chart.legend.list()).toEqual([])
       for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
         expect(chart.getRenderer(makePluginLayerId(name))).toBeDefined()
         expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
@@ -305,13 +311,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
       commit.mockClear()
-      chart['layoutManager'].projectState(
-        [
-          { id: 'main', ratio: 0.7, role: 'price', visible: true },
-          { id: 'MACD_0', ratio: 0.3, role: 'indicator', visible: true },
-        ],
-        { main: 0.7, MACD_0: 0.3 },
-      )
+      chart['layoutManager'].projectState()
       expect(commit).not.toHaveBeenCalled()
     } finally {
       await chart.destroy()
@@ -357,7 +357,12 @@ describe('Chart lifecycle without a market selection', () => {
       for (const pane of paneSpecs.slice(1)) {
         registerEmptyPlot(pane.id)
         chart.draw()
-        expect(chart.getRenderer(resolveIndicatorLayerId(pane.id, pane.id))).toBeDefined()
+        const instance = chart.indicators.instances
+          .peek()
+          .find((entry) => entry.paneId === pane.id)!
+        expect(
+          chart.getRenderer(resolveIndicatorLayerId(pane.id, pane.id, 'renderer', instance.id)),
+        ).toBeDefined()
         chart
           .getPaneRenderers()
           .forEach((renderer, index) => expect(renderer.getPane()).toBe(panes[index]))
@@ -386,15 +391,16 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const indicatorId = 'pane-ratio-fixture'
       registerEmptyPlot(indicatorId)
-      const first = chart.indicators.add(indicatorId)
+      const first = chart.panes.add(indicatorId)
       expect(first).not.toBeNull()
-      const paneId = chart.indicators.subPanes.peek()[0]!.paneId
+      const paneId = chart.indicators.instances.peek().find((instance) => instance.role === 'sub')!
+        .paneId!
       expect(chart.paneRatios.peek().main).toBeCloseTo(0.75)
       expect(chart.paneRatios.peek()[paneId]).toBeCloseTo(0.25)
-      chart.panes.update('main', { ratio: 0.8 })
-      chart.panes.update(paneId, { ratio: 0.2 })
+      chart.panes.updatePane('main', { ratio: 0.8 })
+      chart.panes.updatePane(paneId, { ratio: 0.2 })
       const previous = chart.paneRatios.peek()
-      chart.indicators.add(indicatorId)
+      chart.panes.add(indicatorId)
       const next = chart.paneRatios.peek()
       expect(next.main! / next[paneId]!).toBeCloseTo(previous.main! / previous[paneId]!)
       chart.draw()
@@ -411,7 +417,7 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('moves script placement through a domain command in both workspaces without replacing its instance', async () => {
+  it('definition replacement keeps explicit instance placement in both workspaces', async () => {
     const chart = mountChart(1000, 1000)
     const definition = {
       id: 'placement-script',
@@ -422,26 +428,247 @@ describe('Chart lifecycle without a market selection', () => {
     }
     try {
       registerPlotDefinition(definition)
-      const first = chart.indicators.add(definition.id)
+      const first = chart.panes.add(definition.id)
       chart.kernel.actions.setDataView('timeshare')
-      const second = chart.indicators.add(definition.id)
+      const second = chart.panes.add(definition.id)
+      const baseline = chart.kernel.snapshotViewWorkspaces()
       registerPlotDefinition({ ...definition, position: 'main' })
-      for (const [workspaceId, workspace] of Object.entries(
-        chart.kernel.snapshotViewWorkspaces(),
-      )) {
-        expect(workspace.instances).toMatchObject([
-          { instanceId: workspaceId === 'kline' ? first : second, role: 'main', paneId: 'main' },
-        ])
-        expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual(['main'])
-      }
+      expect(chart.kernel.snapshotViewWorkspaces()).toEqual(baseline)
       registerPlotDefinition({ ...definition, position: 'sub' })
-      for (const workspace of Object.values(chart.kernel.snapshotViewWorkspaces())) {
-        expect(workspace.instances[0]?.role).toBe('sub')
-        expect(workspace.paneSpecs.map((pane) => pane.id)).toEqual([
-          'main',
-          workspace.instances[0]?.paneId,
-        ])
+      expect(chart.kernel.snapshotViewWorkspaces()).toEqual(baseline)
+      expect(first).not.toBeNull()
+      expect(second).not.toBeNull()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it.each<'main' | 'sub'>(['main', 'sub'])(
+    'moves a %s instance through every pane target with one live layer',
+    async (position) => {
+      const chart = mountChart(1000, 1000)
+      const definitionId = `moving-${position}`
+      registerPlotDefinition({
+        id: definitionId,
+        name: definitionId,
+        source: 'script',
+        position,
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      registerEmptyPlot(`target-${position}`)
+      try {
+        const targetId = chart.panes.add(`target-${position}`)!
+        const targetPaneId = chart.kernel.indicator.readonly.instances
+          .peek()
+          .find((instance) => instance.instanceId === targetId)!.paneId
+        const instanceId = chart.panes.add(definitionId, { custom: 7 })!
+        const mainPane = chart
+          .getPaneRenderers()
+          .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
+          .getPane()
+        const targets: import('../pane/types').InstanceMoveTarget[] = [
+          { kind: 'pane', paneId: targetPaneId },
+          { kind: 'main' },
+          { kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'above' },
+          { kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'below' },
+          { kind: 'pane', paneId: targetPaneId },
+          { kind: 'main' },
+        ]
+        for (const target of targets) {
+          const before = chart.kernel.indicator.readonly.instances
+            .peek()
+            .find((instance) => instance.instanceId === instanceId)!
+          const oldId = resolveIndicatorLayerId(definitionId, before.paneId, 'renderer', instanceId)
+          const oldLayer = chart.getRenderer(oldId)!
+          const disposed = vi.spyOn(oldLayer, 'dispose')
+          expect(chart.legend.moveTo(instanceId, target)).toBe(true)
+          const current = chart.kernel.indicator.readonly.instances
+            .peek()
+            .find((instance) => instance.instanceId === instanceId)!
+          const layerId = resolveIndicatorLayerId(
+            definitionId,
+            current.paneId,
+            'renderer',
+            instanceId,
+          )
+          const layer = chart.getRenderer(layerId)!
+          expect(layer).toBeDefined()
+          expect(layer.pane).toBe(current.paneId)
+          expect(layer.visible).toBe(true)
+          expect(disposed).toHaveBeenCalledTimes(1)
+          expect(current.params).toEqual({ custom: 7 })
+          expect(
+            chart['renderer']
+              .getScene()
+              .layers.peek()
+              .filter((candidate) => candidate.id.endsWith(`@${instanceId}`)),
+          ).toHaveLength(1)
+          const pane = chart
+            .getPaneRenderers()
+            .find((renderer) => renderer.getPane().id === current.paneId)!
+            .getPane()
+          expect(pane.axes.length).toBe(
+            (current.paneId === MAIN_PANE_ID && position === 'sub') ||
+              current.paneId === targetPaneId
+              ? 2
+              : 1,
+          )
+          expect(new Set(pane.axes.map((axis) => axis.axisId)).size).toBe(pane.axes.length)
+          expect(
+            chart
+              .getPaneRenderers()
+              .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
+              .getPane(),
+          ).toBe(mainPane)
+          if (before.role === 'sub' && before.paneId !== targetPaneId)
+            expect(chart.panes.hasPane(before.paneId)).toBe(false)
+          if (target.kind === 'newPane') {
+            const ids = chart.panes.getLayoutSpecs().map((spec) => spec.id)
+            expect(ids.indexOf(current.paneId) - ids.indexOf(MAIN_PANE_ID)).toBe(
+              target.placement === 'above' ? -1 : 1,
+            )
+          }
+          chart.draw()
+        }
+        expect(chart.panes.updateInstance(instanceId, { hidden: true })).toBe(true)
+        expect(
+          chart.getRenderer(
+            resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', instanceId),
+          ),
+        ).toBeUndefined()
+        expect(chart.legend.moveTo(instanceId, { kind: 'pane', paneId: targetPaneId })).toBe(true)
+        expect(
+          chart.panes.updateInstance(instanceId, { hidden: false, params: { custom: 9 } }),
+        ).toBe(true)
+        const finalId = resolveIndicatorLayerId(definitionId, targetPaneId, 'renderer', instanceId)
+        expect(chart.getRenderer(finalId)?.pane).toBe(targetPaneId)
+        expect(chart.panes.removeInstance(instanceId)).toBe(true)
+        expect(chart.getRenderer(finalId)).toBeUndefined()
+        expect(chart.panes.hasPane(targetPaneId)).toBe(true)
+      } finally {
+        await chart.destroy()
       }
+    },
+  )
+
+  it.each([300, 800])(
+    'lays out OHLC and indicator titles together at pane width %s',
+    async (paneWidth) => {
+      const chart = mountChart()
+      const definitionId = `title-layout-${paneWidth}`
+      registerPlotDefinition({
+        id: definitionId,
+        name: definitionId,
+        source: 'script',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      try {
+        const instanceId = chart.panes.add(definitionId)!
+        chart.legend.create({
+          kind: 'custom',
+          id: 'note',
+          paneId: MAIN_PANE_ID,
+          texts: [{ text: 'note', color: '' }],
+        })
+        const context = createMockRenderContext({
+          data: [{ timestamp: 1000, open: 10, high: 12, low: 9, close: 11, volume: 100 }],
+          dataView: 'kline',
+          paneWidth,
+          crosshairIndex: 0,
+        })
+        chart.legend.projectFrame([context])
+        const rows = chart.legend.rows.peek()
+        const quoteCount = paneWidth === 300 ? 2 : 1
+        expect(
+          rows.slice(0, quoteCount).flatMap((row) => row.texts.map((text) => text.text)),
+        ).toEqual(expect.arrayContaining(['O 10.00', 'H 12.00', 'L 9.00', 'C 11.00']))
+        expect(rows[quoteCount]!.key).toBe(instanceId)
+        expect(rows[quoteCount + 1]!.key).toBe('custom:note')
+        for (let index = 1; index < rows.length; index++)
+          expect(rows[index]!.y).toBeGreaterThanOrEqual(
+            rows[index - 1]!.y + rows[index - 1]!.height,
+          )
+        expect(chart.legend.context.peek()!.rows).toEqual(rows)
+        expect(chart.panes.updateInstance(instanceId, { hidden: true })).toBe(true)
+        chart.legend.projectFrame([context])
+        expect(chart.legend.rows.peek().map((row) => row.y)).toEqual(rows.map((row) => row.y))
+      } finally {
+        await chart.destroy()
+      }
+    },
+  )
+
+  it('sorts panes and their indicator rows independently for added and moved instances', async () => {
+    const chart = mountChart()
+    const definitionId = 'independent-order'
+    registerEmptyPlot(definitionId)
+    try {
+      const first = chart.panes.add(definitionId)!
+      const second = chart.panes.add(definitionId)!
+      const moved = chart.panes.add(definitionId, {}, { kind: 'main' })!
+      chart.legend.moveTo(moved, {
+        kind: 'newPane',
+        anchorPaneId: MAIN_PANE_ID,
+        placement: 'below',
+      })
+      const paneOf = (id: string) =>
+        chart.kernel.indicator.readonly.instances
+          .peek()
+          .find((instance) => instance.instanceId === id)!.paneId
+      const order = () => chart.panes.getLayoutSpecs().map((pane) => pane.id)
+      const contexts = () =>
+        chart.getPaneRenderers().map((renderer) =>
+          createMockRenderContext({
+            pane: { id: renderer.getPane().id, top: renderer.getPane().top },
+          }),
+        )
+      const actions = (id: string) => {
+        chart.legend.projectFrame(contexts())
+        return chart.legend.rows.peek().find((row) => row.key === id)!.actions
+      }
+      expect(actions(moved).find((action) => action.action === 'move-pane-up')!.enabled).toBe(false)
+      expect(actions(moved).find((action) => action.action === 'move-pane-down')!.enabled).toBe(
+        true,
+      )
+      expect(
+        actions(moved).some(
+          (action) => action.action === 'move-up' || action.action === 'move-down',
+        ),
+      ).toBe(false)
+      const firstPane = paneOf(first)
+      const movedPane = paneOf(moved)
+      chart.legend.execute(moved, 'move-pane-down')
+      expect(order()).toEqual([MAIN_PANE_ID, firstPane, movedPane, paneOf(second)])
+      expect(paneOf(moved)).toBe(movedPane)
+      chart.legend.execute(moved, 'move-pane-up')
+      expect(order()).toEqual([MAIN_PANE_ID, movedPane, firstPane, paneOf(second)])
+      chart.legend.moveTo(moved, { kind: 'pane', paneId: firstPane })
+      const paneOrder = order()
+      expect(actions(moved).find((action) => action.action === 'move-up')!.enabled).toBe(true)
+      chart.legend.execute(moved, 'move-up')
+      expect(
+        chart.legend
+          .list()
+          .filter((entry) => entry.paneId === firstPane)
+          .map((entry) => entry.id),
+      ).toEqual([moved, first])
+      expect(order()).toEqual(paneOrder)
+      chart.legend.execute(moved, 'move-down')
+      expect(
+        chart.legend
+          .list()
+          .filter((entry) => entry.paneId === firstPane)
+          .map((entry) => entry.id),
+      ).toEqual([first, moved])
+      chart.legend.execute(first, 'move-pane-down')
+      expect(order()).toEqual([MAIN_PANE_ID, paneOf(second), firstPane])
+      expect(paneOf(moved)).toBe(firstPane)
+      expect(actions(first).find((action) => action.action === 'move-pane-down')!.enabled).toBe(
+        false,
+      )
     } finally {
       await chart.destroy()
     }

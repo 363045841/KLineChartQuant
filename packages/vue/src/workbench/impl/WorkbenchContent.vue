@@ -15,6 +15,7 @@
       v-bind="{ ...chart, ...$attrs }"
       :market-data-context="market.context"
       :restore-layout="restoreLayout"
+      :layout-storage-id="layoutStorageId"
       :symbols="market.symbols.value"
       :scripts-enabled="scripts"
       @controller-ready="onControllerReady"

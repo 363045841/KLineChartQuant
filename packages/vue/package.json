@@ -94,7 +94,7 @@
     "@vue/test-utils": "^2.5.1",
     "fake-indexeddb": "^6.2.6",
     "happy-dom": "^21.0.3",
-    "jsdom": "^30.1.3",
+    "jsdom": "^31.0.0",
     "publint": "^0.3.25",
     "subset-font": "^2.9.0",
     "unplugin-icons": "^24.0.0",
@@ -109,7 +109,7 @@
     "@earendil-works/pi-agent-core": "^1.0.2",
     "@earendil-works/pi-ai": "^1.0.2",
     "@earendil-works/pi-durable": "^1.0.2",
-    "typebox": "1.4.2",
+    "typebox": "1.4.6",
     "@codemirror/lint": "^6.9.7"
   }
 }

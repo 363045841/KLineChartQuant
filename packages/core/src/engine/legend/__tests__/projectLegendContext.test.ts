@@ -8,8 +8,9 @@ import { LEGEND_GAP_PX, LEGEND_READOUT_GAP_PX } from '@/engine/legend/impl/legen
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { KLineData, TimeShareData } from '@/foundation/types/price'
+import { layoutLegendRows } from '../impl/legendRow'
 import { projectLegendContext } from '../impl/projectLegendContext'
-import { projectMainLegendRows } from '../impl/projectLegendRows'
+import { projectMainLegendContents } from '../impl/projectLegendRows'
 
 function point(timestamp: number, price: number): TimeShareData {
   return createTimeSharePoint({
@@ -115,7 +116,7 @@ describe('projectLegendContext timeshare baseline', () => {
     expect(result?.timeshare?.price).toBe(11)
     expect(result?.timeshare?.average).toBe(11)
 
-    const rows = projectMainLegendRows(result!, 0)
+    const rows = projectMainLegendContents(result!)
     expect(rows.flatMap((row) => row.texts.map((text) => text.text))).toEqual([
       '现价 11.00',
       '均价 11.00',
@@ -150,7 +151,7 @@ describe('projectLegendContext shared change readout', () => {
 
     // 涨跌文本片段：只在 K 线与分时各自行里取带符号/括号的读数。
     const changeTexts = (legend: NonNullable<ReturnType<typeof projectLegendContext>>) =>
-      projectMainLegendRows(legend, 0)
+      projectMainLegendContents(legend)
         .flatMap((row) => row.texts.map((text) => text.text))
         .filter((text) => /^[(+-]/.test(text))
 
@@ -161,7 +162,10 @@ describe('projectLegendContext shared change readout', () => {
     expect(changeTexts(kline)).toEqual(changeTexts(timeshare))
 
     const gapsOf = (legend: NonNullable<ReturnType<typeof projectLegendContext>>, key: string) =>
-      projectMainLegendRows(legend, 0)
+      layoutLegendRows(
+        { paneId: 'main', paneTop: 0, paneWidth: legend.layout.paneWidth },
+        projectMainLegendContents(legend),
+      )
         .find((row) => row.key === key)!
         .texts.map((text) => text.gapBefore)
     // 首段为 0，默认间距取行 gap，涨跌组内部只空 1/4 格。

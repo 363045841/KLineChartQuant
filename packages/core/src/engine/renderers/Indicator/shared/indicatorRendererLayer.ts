@@ -1,20 +1,28 @@
 /**
  * 指标渲染器 Layer 接缝。
  *
- * 指标工厂只声明身份（definitionId / paneId / z / role / kind）与绘制闭包；`Layer` 的
- * 通用样板（id 生成、role 推导、可见性、sceneRenderer 注入、dispose）集中在此，
- * 避免每个指标渲染器重复实现，符合单一事实来源。
+ * 指标工厂只声明身份（definitionId / paneId / instanceId / axisId）与绘制闭包；
+ * `Layer` 的通用样板集中在此，避免每个指标渲染器重复实现。
  */
 
 import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
-import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
+import type {
+  PrimitiveRenderContext,
+  RenderContext,
+  RenderGeometryContext,
+} from '@/foundation/plugin/index.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import type { DrawListLayer, Layer, LayerRole } from '@/rendering/scene/types.js'
 
 /** 两种 Layer 共用的身份声明。 */
 type IndicatorRendererLayerIdentity = {
   /** 绘制目标 pane，具体 paneId。 */
   paneId: string
+  /** 实例身份；图层命名与多实例唯一性都依赖它。 */
+  instanceId?: string
+  /** 框架派生的轴身份；绘制时把 pane.yAxis 绑定到该轴。 */
+  axisId?: string
   /** 叠放优先级，取 RENDERER_PRIORITY.*。 */
   z: number
   /** 显式 role；缺省按 pane 推导。 */
@@ -41,12 +49,24 @@ export type IndicatorRendererLayerSpec = IndicatorDrawListLayerSpec | IndicatorC
 /** 无资源需释放的 Layer 的缺省 dispose。 */
 function noopDispose(): void {}
 
+/** 把上下文的价格轴切换到图层绑定的轴；无轴声明时保持 Pane 主轴。 */
+export function bindIndicatorAxis<T extends RenderGeometryContext>(context: T, axisId?: string): T {
+  if (!axisId) return context
+  const axis = context.pane.axis(axisId)
+  const yOffset = axis.priceToY(0)
+  const dataTransform =
+    context.dataTransform && axis.getScaleType() === ScaleType.Linear
+      ? { ...context.dataTransform, yOffset, yScale: axis.priceToY(1) - yOffset }
+      : undefined
+  return { ...context, pane: { ...context.pane, yAxis: axis }, dataTransform }
+}
+
 /** 身份与生命周期字段，两种 Layer 共用。 */
 function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
   const identity = {
     id:
       'definitionId' in spec
-        ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, spec.part)
+        ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, spec.part, spec.instanceId)
         : spec.layerId,
     role: spec.role ?? (spec.paneId === MAIN_PANE_ID ? 'primary' : 'indicator'),
     pane: spec.paneId,
@@ -58,13 +78,13 @@ function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
     return {
       ...identity,
       kind: 'draw-list',
-      paint: (context) => spec.draw(context),
+      paint: (context) => spec.draw(bindIndicatorAxis(context, spec.axisId)),
     }
   }
   return {
     ...identity,
     kind: 'context',
-    paint: (context) => spec.draw(context),
+    paint: (context) => spec.draw(bindIndicatorAxis(context, spec.axisId)),
   }
 }
 

@@ -12,9 +12,9 @@ import {
   isIndicatorDefinitionLoaded,
   resolveCanonicalIndicatorId,
 } from '@/engine/indicators/pipeline/index.js'
-import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
-import type { CreatePaneInput, PanePatch } from '@/engine/pane/types.js'
+import type { InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
@@ -153,48 +153,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.handlePinchZoom(delta, centerClientX)
   }
 
-  /** 添加指标实例，返回实例 id；失败返回 null。 */
-  function addIndicator(definitionId: string, params?: Record<string, unknown>): string | null {
-    if (isDisposed() || !isLoaded(definitionId)) return null
-    return chart.indicators.add(definitionId, params)
-  }
-
-  /** 移除指标实例。 */
-  function removeIndicator(instanceId: string): boolean {
-    if (isDisposed()) return false
-    return chart.indicators.remove(instanceId)
-  }
-
-  /** 调整主图 Legend 的顺序，边界处返回 false。 */
-  function moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean {
-    if (isDisposed()) return false
-    return chart.indicators.moveMain(definitionId, direction)
-  }
-
-  /** 校验主图定义后，以一次状态写入替换对应 Legend。 */
-  function replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean {
-    if (isDisposed() || !isLoaded(nextDefinitionId)) return false
-    return chart.indicators.replaceMain(definitionId, nextDefinitionId)
-  }
-
-  /** 隐藏或显示主图指标；只影响绘制，不删除实例。 */
-  function setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean {
-    if (isDisposed()) return false
-    return chart.indicators.setMainHidden(definitionId, hidden)
-  }
-
-  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，不删除 pane。 */
-  function setSubIndicatorHidden(paneId: string, hidden: boolean): boolean {
-    if (isDisposed()) return false
-    return chart.indicators.setSubHidden(paneId, hidden)
-  }
-
-  /** 更新指标实例参数。 */
-  function updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    if (isDisposed()) return false
-    return chart.indicators.updateParams(instanceId, params)
-  }
-
   /** 设置 tooltip 尺寸。 */
   function setTooltipSize(size: { width: number; height: number }): void {
     if (isDisposed()) return
@@ -245,54 +203,56 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return match?.label
   }
 
-  /** 创建子窗格。 */
-  function createPane(input: CreatePaneInput): boolean {
-    if (isDisposed() || !isLoaded(input.indicatorId)) return false
-    return chart.panes.create(input)
+  /** 创建实例；返回实例身份，主副图语义一致。 */
+  function addIndicator(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    target?: InstanceMoveTarget,
+  ): string | null {
+    if (isDisposed() || !isLoaded(definitionId)) return null
+    return chart.panes.add(definitionId, params, target)
+  }
+
+  /** 迁移实例归属；源副图变空时自动回收。 */
+  function moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean {
+    if (isDisposed()) return false
+    return chart.panes.moveInstance(instanceId, target)
+  }
+
+  /** 删除实例；空副图一并回收。 */
+  function removeIndicator(instanceId: string): boolean {
+    if (isDisposed()) return false
+    return chart.panes.removeInstance(instanceId)
+  }
+
+  /** 更新实例参数、显隐、排序或定义。 */
+  function updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean {
+    if (isDisposed()) return false
+    return chart.panes.updateInstance(instanceId, patch)
   }
 
   /** 清空所有子窗格。 */
   function clearPanes(): void {
     if (isDisposed()) return
-    chart.panes.clear()
-  }
-
-  /** 用已注册的 sub-pane 指标替换窗格内容。 */
-  function replacePaneContent(
-    paneId: string,
-    indicatorId: string,
-    params: Record<string, unknown>,
-  ): boolean {
-    if (isDisposed() || !isLoaded(indicatorId)) return false
-    const definition = getRegisteredIndicatorDefinition(indicatorId)
-    if (!definition) return false
-    const canonicalId = resolveCanonicalIndicatorId(definition)
-    if (!hasSubPaneRendererMetadata(definition, paneId, canonicalId)) return false
-    return chart.panes.replaceContent(paneId, canonicalId, params)
-  }
-
-  /** 更新窗格内容参数。 */
-  function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
-    if (isDisposed()) return false
-    return chart.panes.updateContent(paneId, params)
+    chart.panes.clearPanes()
   }
 
   /** 更新窗格属性。 */
   function updatePane(paneId: string, patch: PanePatch): boolean {
     if (isDisposed()) return false
-    return chart.panes.update(paneId, patch)
+    return chart.panes.updatePane(paneId, patch)
   }
 
   /** 移除窗格。 */
   function removePane(paneId: string): boolean {
     if (isDisposed()) return false
-    return chart.panes.remove(paneId)
+    return chart.panes.removePane(paneId)
   }
 
   /** 移动窗格到目标索引。 */
   function movePane(paneId: string, targetIndex: number): boolean {
     if (isDisposed()) return false
-    return chart.panes.move(paneId, targetIndex)
+    return chart.panes.movePane(paneId, targetIndex)
   }
 
   /** 恢复主图价格轴的纵轴缩放和偏移。 */
@@ -343,12 +303,9 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     handleScrollEvent,
     handlePinchZoom,
     addIndicator,
+    moveIndicator,
     removeIndicator,
-    moveMainIndicator,
-    replaceMainIndicator,
-    setMainIndicatorHidden,
-    setSubIndicatorHidden,
-    updateIndicatorParams,
+    updateIndicator,
     setTooltipSize,
     setTooltipAnchorPositioning,
     getContentWidth,
@@ -364,10 +321,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     scrollByBars,
     resetChart,
     getIndicatorTitle,
-    createPane,
     clearPanes,
-    replacePaneContent,
-    updatePaneContent,
     updatePane,
     removePane,
     movePane,

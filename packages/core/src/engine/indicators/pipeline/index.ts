@@ -1,26 +1,7 @@
 /**
  * 指标注册管线对外入口：阶段契约、注册写入口、目录读取与变更通知。
  */
-export type {
-  IndicatorCandidate,
-  IndicatorCatalogCommit,
-  IndicatorCatalogCommitSignal,
-  IndicatorCatalogRevision,
-  IndicatorCompiler,
-  IndicatorCollector,
-  IndicatorDefinitionLoader,
-  IndicatorDescriptor,
-  IndicatorDocumentIdentity,
-  IndicatorFailure,
-  IndicatorFailureSignal,
-  IndicatorIdentity,
-  IndicatorOrigin,
-  IndicatorPipelineReport,
-  IndicatorStage,
-  IndicatorStageName,
-  RegistrableIndicator,
-  StageResult,
-} from './types.js'
+
 export { createPlotIndicatorDefinition } from './impl/createPlotDefinition.js'
 export {
   clearIndicatorStoreForTest,
@@ -41,9 +22,23 @@ export {
   unregisterIndicator,
 } from './impl/indicatorStore.js'
 export { logIndicatorFailure, runIndicatorPipeline } from './impl/runIndicatorPipeline.js'
-export {
-  collectSystemCandidates,
-  compileSystemCandidate,
-  createSystemIndicatorStage,
-  systemIndicators,
-} from './impl/systemIndicatorStage.js'
+export type {
+  IndicatorCandidate,
+  IndicatorCatalogCommit,
+  IndicatorCatalogCommitSignal,
+  IndicatorCatalogRevision,
+  IndicatorCollector,
+  IndicatorCompiler,
+  IndicatorDefinitionLoader,
+  IndicatorDescriptor,
+  IndicatorDocumentIdentity,
+  IndicatorFailure,
+  IndicatorFailureSignal,
+  IndicatorIdentity,
+  IndicatorOrigin,
+  IndicatorPipelineReport,
+  IndicatorStage,
+  IndicatorStageName,
+  RegistrableIndicator,
+  StageResult,
+} from './types.js'

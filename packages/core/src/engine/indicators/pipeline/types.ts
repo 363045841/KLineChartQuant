@@ -2,17 +2,15 @@
  * 指标注册管线契约：收集（collect）→ 编译（compile）→ 注册（register）。
  *
  * 三段之间只传递数据，不共享可变状态：收集产出候选，编译产出可注册定义，
- * 只有注册阶段写指标仓库并发出一次通知。系统指标、内置脚本、用户脚本与
+ * 只有注册阶段写指标仓库并发出一次通知。内置脚本、用户脚本与
  * 第三方注册共用同一组契约，不允许出现旁路写入。
  */
 import type { IndicatorSourceDocument } from '@363045841yyt/klinechart-plot-contracts'
 import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { ChartDataView } from '../../chartModel/index.js'
-import type { IndicatorDefinitionClass } from '../indicatorDecorator.js'
 import type {
   IndicatorCategory,
   IndicatorInputDef,
-  IndicatorKind,
   IndicatorMetadata,
   IndicatorPeriodVisibility,
 } from '../indicatorMetadata.js'
@@ -24,19 +22,18 @@ export type IndicatorDocumentIdentity = IndicatorSourceDocument['identity']
 export type IndicatorIdentity = 'native' | IndicatorDocumentIdentity
 
 /** 候选来源；决定失败日志的标签与责任归属，不参与注册语义。 */
-export type IndicatorOrigin = 'system' | 'builtin-script' | 'user-script' | 'third-party'
+export type IndicatorOrigin = 'builtin-script' | 'user-script' | 'third-party'
 
 /** 管线阶段名；失败按阶段归类，日志与界面都依赖它定位问题。 */
 export type IndicatorStageName = 'collect' | 'compile' | 'register'
 
 /**
  * 静态目录项：选择器、搜索与 Agent 工具结构需要的全部字段；读取时不加载实现（实现懒加载）。
- * 内置定义由生成器在编译期从 @Indicator 声明提取。
+ * 目录来自脚本编译或宿主显式提供的指标描述，不包含系统图层。
  */
 export interface IndicatorDescriptor {
   readonly source?: IndicatorMetadata['source']
   readonly name: string
-  readonly kind: IndicatorKind
   readonly aliases?: readonly string[]
   readonly displayName: string
   /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
@@ -46,7 +43,6 @@ export interface IndicatorDescriptor {
   readonly category: IndicatorCategory
   readonly defaultPaneId: string
   readonly dataViews?: readonly ChartDataView[]
-  readonly allowMainPane?: boolean
   /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
   readonly visiblePeriods?: readonly IndicatorPeriodVisibility[]
   /** runtime.defaultParams 的静态值。 */
@@ -60,14 +56,14 @@ export interface IndicatorDescriptor {
 }
 
 /** 懒加载实现的入口；没有加载入口的目录项只做展示。 */
-export type IndicatorDefinitionLoader = () => Promise<IndicatorDefinitionClass>
+export type IndicatorDefinitionLoader = () => Promise<IndicatorMetadata>
 
 /**
  * 收集阶段产物：描述“有什么”，不包含编译结果。
  *
- * - `key` 是稳定身份：脚本用文档 ID，系统指标用内部 name；
+ * - `key` 是稳定身份：脚本用文档 ID，宿主指标用内部 name；
  * - `sourceText` 只有需要运行时编译的来源才有；
- * - `load` 只有构建期已编译、运行期懒加载的系统指标才有。
+ * - `load` 可由宿主提供，用于懒加载已编译的定义对象。
  */
 export interface IndicatorCandidate {
   readonly key: string
@@ -81,7 +77,7 @@ export interface IndicatorCandidate {
 /**
  * 编译阶段产物：已能直接写入注册表的两种形态。
  *
- * - `descriptor`：实现懒加载的系统指标，只登记目录项；
+ * - `descriptor`：只登记目录项，可附带懒加载入口；
  * - `definition`：已装配实现的指标（脚本、第三方、懒加载完成的原生指标）。
  */
 export type RegistrableIndicator =
@@ -94,7 +90,7 @@ export type RegistrableIndicator =
   | {
       readonly kind: 'definition'
       readonly candidate: IndicatorCandidate
-      readonly definition: IndicatorDefinitionClass
+      readonly definition: IndicatorMetadata
     }
 
 /** 单个候选在某一阶段的失败；失败是数据，不是异常控制流。 */

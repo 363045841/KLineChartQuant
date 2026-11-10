@@ -47,7 +47,6 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 indicators/
 ├── chartIndicatorManager.ts     # 指标实例和副图 pane 的高层业务操作、执行器选择、服务注册与渲染投影
 ├── indicatorMetadata.ts         # 指标定义契约与运行时描述符
-├── indicatorDefinitionRegistry.ts # 内置/扩展定义的全局声明注册表与别名解析（@Indicator 装饰器）
 ├── registerBuiltins.ts          # 内置指标定义装配
 ├── stateComposer.ts             # 按 instanceId 的渲染状态投影（composeInstanceRenderState 等）
 ├── instances/                   # 实例优先指标链路（CRUD、计算计划、执行、投影），分层见其 README
@@ -138,12 +137,13 @@ interface IndicatorRenderStateReader {
 
 ## 新增或修改指标
 
-1. 纯数值指标写在 Script 包：在 `packages/script/scripts/` 新增 `defineIndicator` 文件，数值测试也放在 Script 包。
-2. 需要自定义 Layer、坐标轴或分时数据源的指标才在 Core 声明 `@Indicator` 定义类。
-3. 定义类声明 `category`、`defaultPaneId`、`rendererFactory`、`dataViews`；需要计算时再补 `runtime` 与 `plots`。
-4. 新增或修改 `@Indicator` 定义后运行 `pnpm indicators:generate`，自动更新 `generated/builtinIndicators.ts`。
-5. 在 `engine/renderers/` 实现绘制；通过注入的 `instanceId` 读取帧级投影，不持有计算缓存。
-6. 覆盖注册、调度、结果池展开和渲染投影测试。
+1. 指标统一写在 Script 包：在 `packages/script/scripts/` 新增 `defineIndicator` 文件，数值测试也放在 Script 包。
+2. 中立定义经 Core 适配器补齐计算、Plot 渲染与标题能力，直接产出定义对象交给注册表，不再经过装饰器或定义类。
+3. 定义声明 `category`、`defaultPaneId`、`rendererFactory`、`dataViews`；需要计算时再补 `runtime` 与 `plots`。
+4. 在 `engine/renderers/` 实现绘制；通过注入的 `instanceId` 读取帧级投影，不持有计算缓存。
+5. 覆盖注册、调度、结果池展开和渲染投影测试。
+
+系统绘制（主行情、最新价线、价格标签、极值标记）由图表视图声明并直接注册为 Layer，不属于指标定义。
 
 ## 测试
 

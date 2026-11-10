@@ -1,30 +1,50 @@
-/** PaneManager 统一管理 pane 布局与副图内容的原子领域变更。 */
+/**
+ * PaneManager —— 实例归属与 Pane 容器的唯一领域写入口。
+ *
+ * 主图与副图共用同一套实例命令：add / moveInstance / removeInstance / updateInstance。
+ * Pane 容器操作只管理顺序、高度和可见性，不承担指标内容语义。
+ */
 import { batch } from '../../../foundation/reactivity/signal.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
-import type { SubPaneInput } from '../../state/indicatorState.js'
-import type { CreatePaneInput, PaneManagerDependencies, PanePatch, PaneSpec } from '../types.js'
+import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.js'
+import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
+import type {
+  IndicatorInstancePatch,
+  IndicatorInstanceRole,
+  IndicatorInstanceSpec,
+} from '../../state/indicatorState.js'
+import type {
+  InstanceMoveTarget,
+  PaneLayoutCommands,
+  PaneManagerDependencies,
+  PanePatch,
+  PaneSpec,
+} from '../types.js'
+import { MAIN_PANE_ID } from '../types.js'
 
-/**
- * 收敛 pane 领域写入，保证副图 pane 与对应 indicator instance 同批发布。
- * ChartPaneLayout 只消费这里写入的快照，不能反向成为领域状态入口。
- */
+/** 目标 Pane 解析结果：容器身份 + 实例角色 + 是否需要新建 Pane。 */
+interface ResolvedTarget {
+  readonly paneId: string
+  readonly role: IndicatorInstanceRole
+  readonly insert?: { readonly anchorPaneId: string; readonly placement: 'above' | 'below' }
+}
+
 export class PaneManager {
   constructor(private readonly dependencies: PaneManagerDependencies) {}
 
-  /** 对外唯一的 pane 领域写操作。 */
-  readonly actions = {
-    create: (input: CreatePaneInput) => this.create(input),
-    update: (paneId: string, patch: PanePatch) => this.update(paneId, patch),
-    remove: (paneId: string) => this.remove(paneId),
-    move: (paneId: string, targetIndex: number) => this.move(paneId, targetIndex),
-    replaceContent: (
-      paneId: string,
-      indicatorId: string,
-      params: Readonly<Record<string, unknown>>,
-    ) => this.replaceContent(paneId, indicatorId, params),
-    updateContent: (paneId: string, params: Readonly<Record<string, unknown>>) =>
-      this.updateContent(paneId, params),
-    clear: () => this.clear(),
+  /** 对外唯一布局写入口。 */
+  readonly actions: PaneLayoutCommands = {
+    add: (definitionId, params, target) => this.add(definitionId, params, target),
+    moveInstance: (instanceId, target) => this.moveInstance(instanceId, target),
+    removeInstance: (instanceId) => this.removeInstance(instanceId),
+    updateInstance: (instanceId, patch) => this.updateInstance(instanceId, patch),
+    updatePane: (paneId, patch) => this.updatePane(paneId, patch),
+    movePane: (paneId, targetIndex) => this.movePane(paneId, targetIndex),
+    removePane: (paneId) => this.removePane(paneId),
+    clearPanes: () => this.clearPanes(),
+    importLayout: (specs) => this.importLayout(specs),
+    getLayoutSpecs: () => [...this.list()],
+    hasPane: (paneId) => this.list().some((spec) => spec.id === paneId),
   }
 
   /** 返回当前 pane 布局快照。 */
@@ -32,104 +52,137 @@ export class PaneManager {
     return this.dependencies.pane.readonly.paneSpecs.peek()
   }
 
-  /** 创建或更新一个带副图指标内容的 pane。 */
-  /** 供指标领域创建已分配 identity 的副图 pane，不属于对外 Action。 */
-  createFromIndicator(entry: SubPaneInput): boolean {
-    return this.createEntry(entry)
-  }
+  /** 创建实例；主图定义默认进主图，其余默认在最后一个 Pane 下方新建副图。 */
+  private add(
+    definitionId: string,
+    params: Readonly<Record<string, unknown>> | undefined,
+    target: InstanceMoveTarget | undefined,
+  ): string | null {
+    const definition = this.dependencies.getDefinition(definitionId)
+    if (!definition) return null
+    const specs = this.list()
+    const resolved =
+      target === undefined
+        ? definition.category === 'main'
+          ? { paneId: MAIN_PANE_ID, role: 'main' as const }
+          : {
+              paneId: generateUUID(),
+              role: 'sub' as const,
+              insert: {
+                anchorPaneId: specs[specs.length - 1]?.id ?? MAIN_PANE_ID,
+                placement: 'below' as const,
+              },
+            }
+        : this.resolveTarget(target, specs)
+    if (!resolved) return null
 
-  /** 脚本显式改变主副图位置时，原子迁移用户配置；普通定义加载不修改布局。 */
-  reconcileDefinition(indicatorId: string, role: 'main' | 'sub'): void {
-    const { pane, indicator } = this.dependencies
-    const configurations = indicator.readonly.configurations.peek()
-    if (!Object.values(configurations).some((instances) => instances.some(
-      (instance) => instance.indicatorId === indicatorId && instance.role !== role,
-    ))) return
-    const previous = pane.readonly.workspaces.peek()
-    const migrate = (workspaceId: 'kline' | 'timeshare') => {
-      const removed = new Set<string>()
-      const instances = configurations[workspaceId].map((instance) => {
-        if (instance.indicatorId !== indicatorId || instance.role === role) return instance
-        if (instance.role === 'sub') removed.add(instance.paneId)
-        return { ...instance, role, paneId: role === 'main' ? 'main' : `pane:${instance.instanceId}` }
+    const nextSpecs = resolved.insert
+      ? this.insertPaneSpec(specs, resolved.paneId, resolved.insert)
+      : specs
+    const ratios = this.normalizeRatios(nextSpecs, resolved.insert ? resolved.paneId : undefined)
+    const instanceId = createIndicatorInstanceId()
+    const ordinal = this.nextOrdinal(resolved.paneId)
+    batch(() => {
+      this.dependencies.indicator.actions.addInstance({
+        instanceId,
+        indicatorId: definition.name,
+        paneId: resolved.paneId,
+        role: resolved.role,
+        ordinal,
+        params: {
+          ...resolveDefinitionDefaultParams(definition),
+          ...(params ?? {}),
+        },
       })
-      let specs = previous[workspaceId].paneSpecs.filter((spec) => !removed.has(spec.id))
-      for (const instance of instances) {
-        if (instance.role !== 'sub' || specs.some((spec) => spec.id === instance.paneId)) continue
-        const visible = specs.filter((spec) => spec.visible !== false)
-        const total = visible.reduce((sum, spec) => sum + spec.ratio, 0)
-        specs = [...specs, { id: instance.paneId, ratio: total / (visible.length + 2), visible: true, role: 'indicator' }]
-      }
-      const ratios = this.buildRatios(specs, (spec) => spec.ratio)
-      const paneSpecs = this.withRatios(specs, ratios)
-      return {
-        instances,
-        paneSpecs,
-        paneScaleTypes: Object.fromEntries([...previous[workspaceId].paneScaleTypes].filter(([id]) => !removed.has(id))),
-      }
-    }
-    const next = { kline: migrate('kline'), timeshare: migrate('timeshare') }
-    batch(() => {
-      indicator.actions.restoreWorkspaces(next)
-      pane.actions.restoreWorkspaces(next)
+      this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
     })
+    return instanceId
   }
 
-  private create(input: CreatePaneInput): boolean {
-    const ordinal =
-      this.dependencies.indicator.readonly.instances
-        .peek()
-        .filter((item) => item.role === 'sub' && item.indicatorId === input.indicatorId)
-        .reduce((maximum, item) => Math.max(maximum, item.ordinal), -1) + 1
-    return this.createEntry({ ...input, instanceId: generateUUID(), ordinal })
-  }
+  /** 迁移实例；源副图变空时回收，目标新建时按锚点插入。 */
+  private moveInstance(instanceId: string, target: InstanceMoveTarget): boolean {
+    const { indicator, pane } = this.dependencies
+    const previous = indicator.readonly.instances.peek()
+    const current = previous.find((instance) => instance.instanceId === instanceId)
+    if (!current) return false
 
-  /** 写入已完整解析的副图实例与布局快照。 */
-  private createEntry(entry: SubPaneInput): boolean {
-    const { pane, indicator } = this.dependencies
-    if (indicator.readonly.subPanes.peek().some((item) => item.paneId === entry.paneId)) {
-      return false
+    const specs = this.list()
+    const resolved = this.resolveTarget(target, specs)
+    if (!resolved) return false
+    if (resolved.paneId === current.paneId) return false
+
+    let nextSpecs = resolved.insert
+      ? this.insertPaneSpec(specs, resolved.paneId, resolved.insert)
+      : specs
+    // 源副图移出最后一个实例后不再保留空容器。
+    if (
+      current.role === 'sub' &&
+      !previous.some(
+        (instance) => instance.instanceId !== instanceId && instance.paneId === current.paneId,
+      )
+    ) {
+      nextSpecs = nextSpecs.filter((spec) => spec.id !== current.paneId)
     }
-
-    const currentSpecs = pane.readonly.paneSpecs.peek()
-    const nextSpecs = currentSpecs.some((item) => item.id === entry.paneId)
-      ? currentSpecs.map((item) => ({ ...item }))
-      : [...currentSpecs, { id: entry.paneId, ratio: 1, visible: true, role: 'indicator' as const }]
-    const ratios = this.normalizeRatios(nextSpecs, entry.paneId, true)
-
+    const ratios = this.normalizeRatios(nextSpecs, resolved.insert ? resolved.paneId : undefined)
     batch(() => {
-      indicator.actions.upsertSub(entry)
+      indicator.actions.moveInstance(
+        instanceId,
+        resolved.paneId,
+        resolved.role,
+        this.nextOrdinal(resolved.paneId, instanceId),
+      )
       pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      if (current.paneId !== MAIN_PANE_ID && !nextSpecs.some((spec) => spec.id === current.paneId))
+        pane.actions.removePaneScaleType(current.paneId)
     })
     return true
   }
 
-  /** 删除一个 pane，并原子删除该 pane 上的用户副图指标。 */
-  private remove(paneId: string): boolean {
-    const { pane, indicator } = this.dependencies
-    const currentSpecs = pane.readonly.paneSpecs.peek()
-    if (!currentSpecs.some((item) => item.id === paneId)) return false
-
-    const subPane = indicator.readonly.instances
-      .peek()
-      .find((item) => item.role === 'sub' && item.paneId === paneId)
-    if (subPane?.source === 'mode') return false
-
-    const nextSpecs = currentSpecs.filter((item) => item.id !== paneId)
+  /** 删除实例；空副图一并回收，独立轴偏好随实例删除。 */
+  private removeInstance(instanceId: string): boolean {
+    const { indicator, pane } = this.dependencies
+    const previous = indicator.readonly.instances.peek()
+    const current = previous.find((instance) => instance.instanceId === instanceId)
+    if (!current) return false
+    const remaining = previous.filter((instance) => instance.instanceId !== instanceId)
+    const emptyPane =
+      current.role === 'sub' && !remaining.some((instance) => instance.paneId === current.paneId)
+    const nextSpecs = emptyPane
+      ? this.list().filter((spec) => spec.id !== current.paneId)
+      : this.list()
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
-      if (subPane) indicator.actions.removeSub(paneId)
+      indicator.actions.removeInstance(instanceId)
       pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      pane.actions.removePaneScaleType(`instance:${instanceId}`)
     })
     return true
+  }
+
+  /** 更新实例参数、显隐、排序或定义；归属变化走 moveInstance。 */
+  private updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean {
+    const { indicator } = this.dependencies
+    const current = indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)
+    if (!current) return false
+    if (patch.indicatorId !== undefined) {
+      const definition = this.dependencies.getDefinition(patch.indicatorId)
+      if (!definition) return false
+      return indicator.actions.updateInstance(instanceId, {
+        ...patch,
+        indicatorId: definition.name,
+        params: { ...resolveDefinitionDefaultParams(definition), ...(patch.params ?? {}) },
+      })
+    }
+    return indicator.actions.updateInstance(instanceId, patch)
   }
 
   /** 修改单个 pane 的布局字段；不能通过 patch 改变 pane 身份。 */
-  private update(paneId: string, patch: PanePatch): boolean {
-    const currentSpecs = this.dependencies.pane.readonly.paneSpecs.peek()
+  private updatePane(paneId: string, patch: PanePatch): boolean {
+    const currentSpecs = this.list()
     const index = currentSpecs.findIndex((item) => item.id === paneId)
     if (index < 0) return false
-
     const nextSpecs = currentSpecs.map((item, itemIndex) =>
       itemIndex === index ? { ...item, ...patch, id: paneId } : { ...item },
     )
@@ -139,13 +192,12 @@ export class PaneManager {
   }
 
   /** 调整 pane 的显示顺序，不改变其内容归属。 */
-  private move(paneId: string, targetIndex: number): boolean {
-    const currentSpecs = this.dependencies.pane.readonly.paneSpecs.peek()
+  private movePane(paneId: string, targetIndex: number): boolean {
+    const currentSpecs = this.list()
     const index = currentSpecs.findIndex((item) => item.id === paneId)
     if (index < 0 || !Number.isInteger(targetIndex)) return false
     const boundedTarget = Math.max(0, Math.min(targetIndex, currentSpecs.length - 1))
     if (index === boundedTarget) return true
-
     const nextSpecs = currentSpecs.map((item) => ({ ...item }))
     const [moving] = nextSpecs.splice(index, 1)
     if (!moving) return false
@@ -155,73 +207,115 @@ export class PaneManager {
     return true
   }
 
-  /** 替换已有副图 pane 绑定的指标和完整参数。 */
-  private replaceContent(
-    paneId: string,
-    indicatorId: string,
-    params: Readonly<Record<string, unknown>>,
-  ): boolean {
-    const entry = this.dependencies.indicator.readonly.instances
+  /** 删除 Pane 及其全部用户实例；主图不可删除。 */
+  private removePane(paneId: string): boolean {
+    const { indicator, pane } = this.dependencies
+    if (paneId === MAIN_PANE_ID) return false
+    const currentSpecs = this.list()
+    if (!currentSpecs.some((item) => item.id === paneId)) return false
+    const instances = indicator.readonly.instances
       .peek()
-      .find((item) => item.role === 'sub' && item.paneId === paneId)
-    if (!entry || entry.source === 'mode') return false
-    this.dependencies.indicator.actions.replaceSub({ paneId, indicatorId, params })
-    return true
-  }
-
-  /** 更新已有副图 pane 的完整指标参数。 */
-  private updateContent(paneId: string, params: Readonly<Record<string, unknown>>): boolean {
-    const entry = this.dependencies.indicator.readonly.instances
-      .peek()
-      .find((item) => item.role === 'sub' && item.paneId === paneId)
-    if (!entry || entry.source === 'mode') return false
-    this.dependencies.indicator.actions.setSubParams(paneId, params)
-    return true
-  }
-
-  /** 删除全部用户副图 pane 及其指标内容。 */
-  private clear(): void {
-    const { pane, indicator } = this.dependencies
-    const subPaneIds = new Set(
-      indicator.readonly.instances
-        .peek()
-        .filter((item) => item.role === 'sub' && item.source !== 'mode')
-        .map((item) => item.paneId),
-    )
-    const nextSpecs = pane.readonly.paneSpecs.peek().filter((item) => !subPaneIds.has(item.id))
+      .filter((instance) => instance.paneId === paneId)
+    const nextSpecs = currentSpecs.filter((item) => item.id !== paneId)
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
-      indicator.actions.clearSub()
+      for (const instance of instances) indicator.actions.removeInstance(instance.instanceId)
+      pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+    })
+    return true
+  }
+
+  /** 删除全部用户副图及其实例，保留主图。 */
+  private clearPanes(): void {
+    const { indicator, pane } = this.dependencies
+    const instances = indicator.readonly.instances
+      .peek()
+      .filter((instance) => instance.role === 'sub')
+    const subPaneIds = new Set(instances.map((instance) => instance.paneId))
+    const nextSpecs = this.list().filter((item) => !subPaneIds.has(item.id))
+    const ratios = this.normalizeRatios(nextSpecs)
+    batch(() => {
+      for (const instance of instances) indicator.actions.removeInstance(instance.instanceId)
       pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
     })
   }
 
   /** 受控导入完整布局；删除的用户副图内容随 pane 一并清理。 */
-  replaceLayoutForImport(specs: ReadonlyArray<PaneSpec>): void {
+  importLayout(specs: ReadonlyArray<PaneSpec>): void {
     const nextSpecs = specs.map((item) => ({ ...item }))
     const nextIds = new Set(nextSpecs.map((item) => item.id))
-    const removedSubPaneIds = this.dependencies.indicator.readonly.instances
+    const removed = this.dependencies.indicator.readonly.instances
       .peek()
-      .filter((item) => item.role === 'sub' && item.source !== 'mode' && !nextIds.has(item.paneId))
-      .map((item) => item.paneId)
+      .filter((item) => item.role === 'sub' && !nextIds.has(item.paneId))
     // 完整布局导入以调用方快照为准，不能继承上一帧的 ratio。
     const ratios = this.buildRatios(nextSpecs, (item) =>
       Number.isFinite(item.ratio) ? item.ratio : 1,
     )
     batch(() => {
-      for (const paneId of removedSubPaneIds) this.dependencies.indicator.actions.removeSub(paneId)
+      for (const instance of removed)
+        this.dependencies.indicator.actions.removeInstance(instance.instanceId)
       this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
     })
+  }
+
+  /** 目标解析：已有 Pane 必须存在，新建 Pane 保留锚点与方向。 */
+  private resolveTarget(
+    target: InstanceMoveTarget,
+    specs: ReadonlyArray<PaneSpec>,
+  ): ResolvedTarget | null {
+    if (target.kind === 'main') return { paneId: MAIN_PANE_ID, role: 'main' }
+    if (target.kind === 'pane') {
+      if (!specs.some((spec) => spec.id === target.paneId)) return null
+      return {
+        paneId: target.paneId,
+        role: target.paneId === MAIN_PANE_ID ? 'main' : 'sub',
+      }
+    }
+    if (!specs.some((spec) => spec.id === target.anchorPaneId)) return null
+    return {
+      paneId: generateUUID(),
+      role: 'sub',
+      insert: { anchorPaneId: target.anchorPaneId, placement: target.placement },
+    }
+  }
+
+  /** 在锚点上方或下方插入新 Pane。 */
+  private insertPaneSpec(
+    specs: ReadonlyArray<PaneSpec>,
+    paneId: string,
+    insert: { readonly anchorPaneId: string; readonly placement: 'above' | 'below' },
+  ): PaneSpec[] {
+    const next = specs.map((spec) => ({ ...spec }))
+    const anchorIndex = next.findIndex((spec) => spec.id === insert.anchorPaneId)
+    const index = insert.placement === 'above' ? anchorIndex : anchorIndex + 1
+    next.splice(index, 0, this.createPaneSpec(paneId))
+    return next
+  }
+
+  /** 新 Pane 的初始规格；比例由归一化统一分配。 */
+  private createPaneSpec(paneId: string): PaneSpec {
+    return { id: paneId, ratio: 1, visible: true, role: 'indicator' }
+  }
+
+  /** 目标 Pane 的下一个显示序号；可排除正在迁移的实例。 */
+  private nextOrdinal(paneId: string, excludeInstanceId?: string): number {
+    return (
+      this.dependencies.indicator.readonly.instances
+        .peek()
+        .filter(
+          (instance) => instance.paneId === paneId && instance.instanceId !== excludeInstanceId,
+        )
+        .reduce((maximum, instance) => Math.max(maximum, instance.ordinal), -1) + 1
+    )
   }
 
   /** 依据当前布局快照生成可提交的归一化比例。 */
   private normalizeRatios(
     specs: ReadonlyArray<PaneSpec>,
     createdPaneId?: string,
-    applySubPaneDefault = false,
   ): Record<string, number> {
     const raw = { ...this.dependencies.pane.readonly.paneRatios.peek() }
-    if (applySubPaneDefault && createdPaneId) {
+    if (createdPaneId) {
       const visible = specs.filter((item) => item.visible !== false)
       const pricePanes = visible.filter((item) => item.role === 'price')
       if (pricePanes.length === 1) {
@@ -233,7 +327,6 @@ export class PaneManager {
         raw[createdPaneId] = 1
       }
     }
-
     return this.buildRatios(specs, (item) => raw[item.id] ?? item.ratio)
   }
 
@@ -262,4 +355,12 @@ export class PaneManager {
   ): PaneSpec[] {
     return specs.map((item) => ({ ...item, ratio: ratios[item.id] ?? item.ratio }))
   }
+}
+
+/** 供测试与调试读取实例所在 Pane 的轻量查询。 */
+export function findInstance(
+  instances: ReadonlyArray<IndicatorInstanceSpec>,
+  instanceId: string,
+): IndicatorInstanceSpec | undefined {
+  return instances.find((instance) => instance.instanceId === instanceId)
 }

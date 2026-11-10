@@ -102,34 +102,14 @@ describe('chartModel', () => {
 
     kernel.actions.setDataView('timeshare')
 
-    expect(kernel.indicator.readonly.instances.peek()).toEqual([
-      {
-        instanceId: 'mode:timeshare',
-        indicatorId: 'timeShare',
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        source: 'mode',
-        params: {},
-      },
-    ])
+    expect(kernel.indicator.readonly.instances.peek()).toEqual([])
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
     ])
 
     kernel.actions.setDataView('fiveDayTimeShare')
 
-    expect(kernel.indicator.readonly.instances.peek()).toEqual([
-      {
-        instanceId: 'mode:five-day-timeshare',
-        indicatorId: 'fiveDayTimeShare',
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        source: 'mode',
-        params: {},
-      },
-    ])
+    expect(kernel.indicator.readonly.instances.peek()).toEqual([])
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'fiveDayTimeShare', layerId: 'plugin:fiveDayTimeShare' },
     ])

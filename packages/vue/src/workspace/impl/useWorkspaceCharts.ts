@@ -51,9 +51,9 @@ export function useWorkspaceCharts(options: WorkspaceChartsOptions, events: Work
       }
     }
     syncAppearance()
-    // 多标签不能同时自动写入同一份布局归档；手动保存布局仍由工作台提供。
-    if (controller.layoutAutoSave.peek()) void controller.setLayoutAutoSave({ enabled: false })
-    if (tab.spec) controller.setSymbols([tab.spec])
+    // Layout 已在控制器就绪前恢复。标签品种仅用于尚未保存布局的首次挂载，
+    // 不能覆盖布局里已经恢复的品种、周期及对应工作区。
+    if (tab.spec && controller.symbols.peek().length === 0) controller.setSymbols([tab.spec])
     controllers.set(tabId, controller)
     const syncSpec = () => events.spec(tabId, controller.symbols.peek()[0] ?? null)
     subscriptions.set(tabId, [

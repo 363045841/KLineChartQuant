@@ -36,8 +36,6 @@ export interface RendererDependencies {
   getInteraction: () => InteractionController
   getSceneRenderer: () => Renderer
   getPluginHost: () => PluginHostImpl
-  /** 当前数据视图应显示的主图指标 ID 快照。 */
-  getVisibleMainIndicatorIds: () => ReadonlyArray<string>
   /** 生效主题 SSOT */
   theme$: ReadonlySignal<'light' | 'dark'>
   /** zoomLevel / kWidth SSOT */

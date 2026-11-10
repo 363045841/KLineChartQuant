@@ -18,6 +18,8 @@ const tarball = path.join(artifacts, manifest.tarball)
 assert.equal(createHash('sha256').update(readFileSync(tarball)).digest('hex'), manifest.sha256)
 const directory = mkdtempSync(path.join(tmpdir(), 'klinechart-product-'))
 console.log(`Isolated product fixture: ${directory}`)
+/** 临时 fixture 连 node_modules 约 250 MB：默认成功即回收，失败或显式要求保留时才留在磁盘上。 */
+const keepFixture = process.env.KEEP_PRODUCT_FIXTURE === '1'
 const fixture = path.join(root, 'scripts/fixtures/vue-product')
 const sourceRoot = path.join(directory, 'source')
 const consumer = path.join(directory, 'consumer')
@@ -185,6 +187,8 @@ async function waitForLayoutSettled(page) {
     return label !== null && !label.textContent?.includes('*')
   }, null, { timeout: 30_000 })
 }
+/** 是否走到成功收尾，决定 finally 里回收临时 fixture 还是保留现场。 */
+let passed = false
 try {
   for (const target of [sourceRoot, consumer]) {
     const server = await preview({ configFile: false, root: target, base: '/product-test/', preview: { host: '127.0.0.1', port: 0 } })
@@ -311,7 +315,8 @@ try {
     'Full source and packed workbench screenshots differ; see artifacts/product/{source,package}-full.png',
   )
   writeFileSync(path.join(artifacts, 'verified.json'), JSON.stringify({ ...manifest, checks: ['isolated-install', 'public-types', 'production-build', 'source-screenshot-parity', 'registered-source', 'tail-update', 'bar-append', 'stream-cleanup', 'disabled-workers', 'script-worker', 'agent-panel', 'editor', 'script-execution', 'detached-editor', 'theme', 'unmount'] }, null, 2) + '\n')
-  console.log(`Product consumer passed. Fixture retained at ${directory}`)
+  console.log('Product consumer passed.')
+  passed = true
 } catch (error) {
   writeFileSync(path.join(artifacts, 'failure.txt'), `${String(error)}\n${failures.join('\n')}`)
   for (const [index, context] of browser.contexts().entries()) {
@@ -324,4 +329,14 @@ try {
 } finally {
   await browser.close()
   for (const server of servers) await new Promise((resolve, reject) => server.httpServer.close((error) => error ? reject(error) : resolve()))
+  // 失败现场是复现依据，必须保留；Windows 上 node_modules 偶发占用，回收失败只告警，不影响用例结论。
+  if (passed && !keepFixture) {
+    try {
+      rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
+    } catch (error) {
+      console.warn(`Fixture cleanup failed, kept at ${directory}: ${error.message}`)
+    }
+  } else {
+    console.log(`Product fixture retained at ${directory}`)
+  }
 }

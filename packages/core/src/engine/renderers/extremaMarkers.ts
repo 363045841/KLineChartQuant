@@ -2,6 +2,7 @@
 
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { getFont } from '../../foundation/tokens/fonts.js'
@@ -16,9 +17,6 @@ import {
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { Indicator } from '../indicators/indicatorDecorator.js'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
-import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 
 // 模块级常量，避免每次重复创建
 const PADDING = 4
@@ -78,7 +76,7 @@ function buildMarkers(
 export function createExtremaMarkersLayer(): Layer<RenderContext> {
   return {
     kind: 'draw-list',
-    id: resolveIndicatorLayerId('extremaMarkers', 'main'),
+    id: makePluginLayerId('extremaMarkers'),
     role: 'overlay',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.OVERLAY,
@@ -121,19 +119,6 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
     },
     dispose() {},
   }
-}
-
-@Indicator({
-  name: 'extremaMarkers',
-  displayName: '极值标记',
-  category: 'main',
-  defaultPaneId: 'main',
-  dataViews: [ChartDataViewId.KLine],
-  kind: IndicatorKind.System,
-  mainPane: {},
-})
-export class ExtremaMarkersIndicatorDefinition {
-  static rendererFactory = createExtremaMarkersLayer
 }
 
 /**

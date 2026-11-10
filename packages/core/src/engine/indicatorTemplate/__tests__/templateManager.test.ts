@@ -2,7 +2,6 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { extractTemplate, selectTemplateIndicators } from '../impl/templateExtract.js'
@@ -30,7 +29,6 @@ function registerTestIndicator(displayName: string, title?: string): string {
         name: displayName,
         ...(title === undefined ? {} : { title }),
         displayName,
-        kind: IndicatorKind.Indicator,
         category: 'sub',
         defaultPaneId: `pane-${displayName}`,
         defaultParams: {},
@@ -68,10 +66,11 @@ function addSubIndicator(
   params: Record<string, number> = {},
 ): string {
   const paneId = `pane-${indicatorId}`
-  kernel.indicator.actions.upsertSub({
+  kernel.indicator.actions.addInstance({
     instanceId: `instance-${indicatorId}`,
     indicatorId,
     paneId,
+    role: 'sub',
     params,
   })
   return paneId
@@ -135,7 +134,7 @@ it('应用模板只替换指标与副图，商品与周期保持不变', async (
     const id = await own.manager.saveTemplate({ name: '加密' })
 
     // 换掉图上指标与品种，再应用模板：指标回来，品种不回来。
-    own.kernel.indicator.actions.removeSub('pane-MACD')
+    own.kernel.indicator.actions.removeInstance('instance-MACD')
     own.kernel.dataManager.actions.setCurrentSpec({
       symbol: 'AAPL',
       market: 'us',
@@ -229,18 +228,20 @@ it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新'
   try {
     registerTestIndicator('MACD')
     await own.manager.initialize()
-    own.kernel.indicator.actions.upsertSub({
+    own.kernel.indicator.actions.addInstance({
       instanceId: 'macd-1',
       indicatorId: 'MACD',
       paneId: 'pane-macd-1',
+      role: 'sub',
       params: {},
     })
     expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 1 }])
 
-    own.kernel.indicator.actions.upsertSub({
+    own.kernel.indicator.actions.addInstance({
       instanceId: 'macd-2',
       indicatorId: 'MACD',
       paneId: 'pane-macd-2',
+      role: 'sub',
       params: {},
     })
     expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 2 }])

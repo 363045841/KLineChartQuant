@@ -1,15 +1,9 @@
-/**
- * 构建主图图例的模板上下文：把帧数据投影为行情、指标与对比展示行。
- */
+/** 构建主图图例的模板上下文：把帧数据投影为行情与对比展示行。 */
 
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
-import {
-  INDICATOR_INSTANCE_CATALOG_SERVICE,
-  type IndicatorInstanceCatalog,
-  type IndicatorInstanceDescriptor,
-} from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
+import type { IndicatorInstanceDescriptor } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -31,18 +25,16 @@ import { resolveLegendValueIndex } from './resolveLegendValueIndex.js'
 /** 主图图例左、上内边距与 pane 标题共用同一基准。 */
 const LEGEND_INSET = PANE_HEADER_INSET_PX
 
-/** 构建图例上下文的输入：一帧渲染上下文 + 可选的主图指标可见过滤。 */
+/** 构建图例上下文的输入：一帧渲染上下文。 */
 export interface ProjectLegendContextInput {
   context: RenderContext
   host: PluginHost | null
-  /** 由视图状态投影的可见主图指标；null 表示不过滤。 */
-  visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
 export function projectLegendContext(
   input: ProjectLegendContextInput,
 ): LegendTemplateContext | null {
-  const { context, host, visibleIndicatorIds } = input
+  const { context } = input
   if (!context.data.length) return null
 
   const colors = resolveThemeColors(
@@ -72,14 +64,6 @@ export function projectLegendContext(
     colors: projectLegendColors(colors),
     currentBar: projectCurrentBar(context, klineData, targetIndex, colors),
     timeshare: projectTimeshareRow(context, targetIndex, colors),
-    indicators: collectIndicatorRows(
-      host,
-      context,
-      klineData,
-      targetIndex,
-      colors,
-      visibleIndicatorIds,
-    ),
     comparisons: collectComparisonRows(context, bar, colors),
     bar,
   }
@@ -133,40 +117,11 @@ function projectCurrentBar(
   }
 }
 
-function collectIndicatorRows(
-  host: PluginHost | null,
-  context: RenderContext,
-  klineData: KLineData[],
-  targetIndex: number,
-  colors: ColorTokens,
-  visibleIndicatorIds: ReadonlySet<string> | null | undefined,
-): LegendIndicatorRow[] {
-  const stateReader = context.indicatorStateReader
-  if (!host || !stateReader) return []
-  const catalog = host.getService<IndicatorInstanceCatalog>(INDICATOR_INSTANCE_CATALOG_SERVICE)
-  if (!catalog) return []
-
-  const rows: LegendIndicatorRow[] = []
-  for (const instance of catalog.listMainInstances()) {
-    if (visibleIndicatorIds != null && !visibleIndicatorIds.has(instance.definitionId)) continue
-    const row = projectIndicator(
-      instance,
-      stateReader,
-      context.indicatorAvailability,
-      klineData,
-      targetIndex,
-      colors,
-    )
-    if (row) rows.push(row)
-  }
-  return rows
-}
-
 /**
  * 主副图指标从同一实例目录及帧读取器生成标题。
  *
- * 只要定义已注册就返回一行：当前位置没有取值（如脚本 plot 输出 NaN、计算未覆盖该 bar）
- * 只表现为没有 values，不回退隐藏整个指标。主副图据此保持一致的可见性。
+ * 只要定义已注册就返回一行：当前位置没有取值只表现为没有 values，
+ * 不回退隐藏整个指标。主副图据此保持一致的可见性。
  */
 export function projectIndicator(
   instance: IndicatorInstanceDescriptor,

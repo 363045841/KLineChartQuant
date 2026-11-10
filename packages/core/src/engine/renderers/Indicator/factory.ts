@@ -7,9 +7,11 @@
 
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
+import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod } from '../../indicators/indicatorPeriodVisibility.js'
 import type { IndicatorRendererOptions } from './index.js'
+import { bindIndicatorAxis } from './shared/indicatorRendererLayer.js'
 
 /** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
 export interface IndicatorLayerOptions extends IndicatorRendererOptions {
@@ -56,8 +58,25 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     paneId: options.paneId,
     indicatorId: options.indicatorId,
     instanceId: options.instanceId,
+    axisId: options.axisId,
     params: options.params,
   })
   const layer = withPeriodVisibility(created, definition)
-  return role && role !== layer.role ? { ...layer, role } : layer
+  const identity = {
+    id: resolveIndicatorLayerId(definition.name, options.paneId, 'renderer', options.instanceId),
+    pane: options.paneId,
+    role: role ?? layer.role,
+  }
+  // 所有用户工厂都由框架绑定目标窗格与坐标轴，第三方不需要另写迁移逻辑。
+  if (layer.kind === 'draw-list')
+    return {
+      ...layer,
+      ...identity,
+      paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
+    }
+  return {
+    ...layer,
+    ...identity,
+    paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
+  }
 }

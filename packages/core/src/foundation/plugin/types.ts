@@ -167,6 +167,10 @@ export interface PaneInfo {
     fromPercent(pct: number): number
     getDisplayPercentRange(): { minPct: number; maxPct: number }
   }
+  /** Pane 内全部轴；顺序即右侧轴列顺序。 */
+  axes: ReadonlyArray<{ readonly axisId: string; readonly yAxis: PaneInfo['yAxis'] }>
+  /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
+  axis(axisId: string): PaneInfo['yAxis']
   priceRange: {
     maxPrice: number
     minPrice: number
@@ -449,6 +453,8 @@ export interface RenderAxisContext {
   xAxisRanges: XAxisRange[]
   /** 预计算的 Y 轴刻度列表（锚定数值 → priceToY 投影），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
+  /** 本 Pane 的轴列布局：轴身份 → 在右轴画布内的左偏移与列宽。 */
+  axisLayout?: Readonly<Record<string, { readonly left: number; readonly width: number }>>
 }
 
 /** 覆盖层子契约：十字线、标记器与绘图帧投影。 */

@@ -8,7 +8,7 @@
 
 `mode.dataView` 决定当前显示的图表视图、主图 renderer 和交互能力。`comparison` 子状态负责对比品种集合（`specs`）、颜色和加载状态，不承担当前视图选择。
 
-极值标记是由 `@Indicator({ dataViews: ['kline'] })` 声明的 mode 辅助 renderer。它参与 `activeRenderers$` 投影，但不进入用户指标实例或主图图例。
+极值标记是图表直接挂载的系统 Layer，由 K 线视图的 `systemLayers` 声明启用，不进入指标定义、实例或主图图例。
 
 ## 无主品种概念
 

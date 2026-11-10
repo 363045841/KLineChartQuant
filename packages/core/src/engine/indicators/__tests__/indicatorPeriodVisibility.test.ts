@@ -1,6 +1,10 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import {
+  clearIndicatorLayerNamingForTest,
+  registerIndicatorLayerNaming,
+} from '@/engine/indicators/indicatorLayerNaming.js'
 import {
   createIndicatorLayer,
   isLayerVisibleOnPeriod,
@@ -9,6 +13,15 @@ import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
+
+beforeAll(() =>
+  registerIndicatorLayerNaming(
+    ['fake'],
+    ({ paneId }) => `fake_${paneId}`,
+    () => null,
+  ),
+)
+afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
   it('识别已知周期，未知周期返回 undefined', () => {
@@ -57,7 +70,6 @@ function fakeDefinition(
   return {
     name: 'fake',
     displayName: 'FAKE',
-    kind: 'indicator',
     category: 'main',
     defaultPaneId: 'main',
     getRendererName: () => 'fake',
@@ -68,7 +80,7 @@ function fakeDefinition(
 }
 
 describe('renderer layer gating', () => {
-  it('未声明范围时直接复用 Layer', () => {
+  it('未声明范围时不增加额外绘制包装，但图层身份带实例 id', () => {
     const layer = fakeLayer()
     expect(isLayerVisibleOnPeriod(fakeDefinition(layer), 'daily')).toBe(true)
     const assembled = createIndicatorLayer({
@@ -76,8 +88,10 @@ describe('renderer layer gating', () => {
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
+      axisId: 'main',
     })
-    expect(assembled).toBe(layer)
+    expect(assembled.id).toContain('fake_main')
+    expect(assembled.pane).toBe(layer.pane)
   })
 
   it('声明范围时保留 Layer 身份，并实际拦截及恢复绘制', () => {
@@ -88,9 +102,10 @@ describe('renderer layer gating', () => {
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
+      axisId: 'main',
     })
     expect(assembled).not.toBe(layer)
-    expect(assembled.id).toBe(layer.id)
+    expect(assembled.id).toContain('fake_main')
     expect(assembled.pane).toBe(layer.pane)
     assembled.paint({
       ...createMockRenderContext({ period: 'daily' }),
