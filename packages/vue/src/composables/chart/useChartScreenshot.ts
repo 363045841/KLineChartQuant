@@ -1,6 +1,11 @@
 /** 将 chart-main 与底部水印统一导出为 PNG，供下载和剪贴板共用。 */
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref } from 'vue'
+import {
+  BRAND_MARK_PATH,
+  BRAND_MARK_STROKE_WIDTH,
+  BRAND_MARK_VIEWBOX,
+} from '../../brandMark.js'
 import { captureChartImage } from './captureChartImage.js'
 
 export const chartScreenshotLabels = {
@@ -30,7 +35,11 @@ const SCREENSHOT_PADDING = 24
 const WATERMARK_LIGHT_TEXT_TOKEN = '--klc-color-text-primary'
 const WATERMARK_DARK_TEXT_TOKEN = '--klc-color-text-white'
 const WATERMARK_BRAND_TEXT_TOKEN = '--klc-color-ui-muted'
-const WATERMARK_TEXT = 'KLineChartQuant'
+const WATERMARK_TEXT = 'KlineChartQuant'
+/** 品牌折线标识相对字号的视觉高度，略高于文字大写高度以保持识别度。 */
+const WATERMARK_BRAND_MARK_HEIGHT_RATIO = 0.9
+/** 标识与品牌文字之间的间距，按字号缩放。 */
+const WATERMARK_BRAND_MARK_GAP_RATIO = 0.4
 const WATERMARK_SEPARATOR = ' · '
 const WATERMARK_HORIZONTAL_PADDING = 16
 const WATERMARK_LINE_GAP = 12
@@ -62,27 +71,8 @@ function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-/** 绘制透明文字图层并裁去上下空行，让排版间距以实际字形像素边界为准。 */
-function createWatermarkTextImage(
-  width: number,
-  scale: number,
-  text: string,
-  color: string,
-  family: string,
-  weight: number,
-): HTMLCanvasElement {
-  const image = document.createElement('canvas')
-  const fontSize = WATERMARK_FONT_SIZE * scale
-  const baseline = Math.ceil(fontSize * 2)
-  image.width = width
-  image.height = Math.ceil(fontSize * 3)
-  const context = image.getContext('2d')
-  if (!context) throw new Error(chartScreenshotLabels.failed)
-  context.font = `${weight} ${fontSize}px ${family}`
-  context.fillStyle = color
-  context.textBaseline = 'alphabetic'
-  context.textAlign = 'center'
-  context.fillText(text, width / 2, baseline, width - WATERMARK_HORIZONTAL_PADDING * 2 * scale)
+/** 按实际像素边界裁掉图层上下留白；没有任何绘制内容时视为截图失败。 */
+function cropTransparentRows(image: HTMLCanvasElement, context: CanvasRenderingContext2D): void {
   const pixels = context.getImageData(0, 0, image.width, image.height)
   let lastVisiblePixel = pixels.data.length / 4 - 1
   // Alpha 为零才算留白，以实际绘制结果计算边界，不依赖字体度量的取整方式。
@@ -96,7 +86,117 @@ function createWatermarkTextImage(
   const lastRow = Math.floor(lastVisiblePixel / image.width)
   image.height = lastRow - firstRow + 1
   context.putImageData(pixels, 0, -firstRow)
+}
+
+/**
+ * 在透明画布上绘制一层水印并裁掉上下留白。
+ * @param width 画布宽度
+ * @param height 绘制用画布高度，裁切后以实际墨迹为准
+ * @param draw 具体的绘制过程，图层内容由调用方决定
+ * @returns 裁切后的水印图层
+ */
+function createWatermarkLayer(
+  width: number,
+  height: number,
+  draw: (context: CanvasRenderingContext2D) => void,
+): HTMLCanvasElement {
+  const image = document.createElement('canvas')
+  image.width = width
+  image.height = height
+  const context = image.getContext('2d')
+  if (!context) throw new Error(chartScreenshotLabels.failed)
+  draw(context)
+  cropTransparentRows(image, context)
   return image
+}
+
+/**
+ * 绘制居中的单行文字水印。
+ * @param width 画布宽度，文字在其中居中
+ * @param scale 设备像素比，用于换算字号与内边距
+ * @param text 水印文字
+ * @param color 文字颜色
+ * @param family 字体族
+ * @param weight 字重
+ * @returns 裁掉上下留白后的文字图层
+ */
+function createWatermarkTextImage(
+  width: number,
+  scale: number,
+  text: string,
+  color: string,
+  family: string,
+  weight: number,
+): HTMLCanvasElement {
+  const fontSize = WATERMARK_FONT_SIZE * scale
+  const baseline = Math.ceil(fontSize * 2)
+  return createWatermarkLayer(width, Math.ceil(fontSize * 3), (context) => {
+    context.font = `${weight} ${fontSize}px ${family}`
+    context.fillStyle = color
+    context.textBaseline = 'alphabetic'
+    context.textAlign = 'center'
+    context.fillText(
+      text,
+      width / 2,
+      baseline,
+      width - WATERMARK_HORIZONTAL_PADDING * 2 * scale,
+    )
+  })
+}
+
+/**
+ * 绘制「折线标识 + 品牌文字」的整行水印：标识与文字按同一字号等比缩放并作为一组居中，
+ * 标识对齐文字实际墨迹的垂直中心，避免两者分别居中后出现错位。
+ * @param width 画布宽度，品牌组在其中居中
+ * @param scale 设备像素比，用于换算字号与间距
+ * @param text 品牌文字
+ * @param color 文字与标识共用的颜色
+ * @param family 品牌字体族
+ * @param weight 品牌字重
+ * @returns 裁掉上下留白后的品牌图层
+ */
+function createWatermarkBrandImage(
+  width: number,
+  scale: number,
+  text: string,
+  color: string,
+  family: string,
+  weight: number,
+): HTMLCanvasElement {
+  const fontSize = WATERMARK_FONT_SIZE * scale
+  const baseline = Math.ceil(fontSize * 2)
+  const markScale = (fontSize * WATERMARK_BRAND_MARK_HEIGHT_RATIO) / BRAND_MARK_VIEWBOX.height
+  const markWidth = BRAND_MARK_VIEWBOX.width * markScale
+  const gap = fontSize * WATERMARK_BRAND_MARK_GAP_RATIO
+  return createWatermarkLayer(width, Math.ceil(fontSize * 3), (context) => {
+    context.font = `${weight} ${fontSize}px ${family}`
+    context.fillStyle = color
+    context.strokeStyle = color
+    context.textBaseline = 'alphabetic'
+    context.textAlign = 'left'
+    const textWidth = Math.min(
+      context.measureText(text).width,
+      width - WATERMARK_HORIZONTAL_PADDING * 2 * scale - markWidth - gap,
+    )
+    const left = (width - (markWidth + gap + textWidth)) / 2
+    const metrics = context.measureText(text)
+    // 品牌文字含 Q 的下伸部，墨迹中心由实际度量得出，标识据此与文字等高对齐。
+    const inkCenterY =
+      baseline + (metrics.actualBoundingBoxDescent - metrics.actualBoundingBoxAscent) / 2
+    context.save()
+    context.translate(left + markWidth / 2, inkCenterY)
+    context.scale(markScale, markScale)
+    context.translate(
+      -(BRAND_MARK_VIEWBOX.x + BRAND_MARK_VIEWBOX.width / 2),
+      -(BRAND_MARK_VIEWBOX.y + BRAND_MARK_VIEWBOX.height / 2),
+    )
+    context.lineWidth = BRAND_MARK_STROKE_WIDTH
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.stroke(new Path2D(BRAND_MARK_PATH))
+    context.restore()
+    context.fillText(text, left + markWidth + gap, baseline, textWidth)
+  })
 }
 
 /** 捕获 DOM，合成带留白和独立水印页脚的完整图表，供所有导出方式共用。 */
@@ -127,7 +227,7 @@ async function createScreenshot(
   const context = result.getContext('2d')
   if (!context) throw new Error(chartScreenshotLabels.failed)
   result.width = image.width + padding * 2
-  const brand = createWatermarkTextImage(
+  const brand = createWatermarkBrandImage(
     result.width,
     scale,
     WATERMARK_TEXT,
