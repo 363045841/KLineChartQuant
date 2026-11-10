@@ -42,7 +42,7 @@ function isSameAnchor(a: PersistedDrawingAnchor, b: PersistedDrawingAnchor): boo
     a.id === b.id &&
     a.type === b.type &&
     a.time === b.time &&
-    a.futureOffset === b.futureOffset &&
+    a.logicalIndex === b.logicalIndex &&
     a.price === b.price
   )
 }

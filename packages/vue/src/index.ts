@@ -158,6 +158,8 @@ export { KlineWorkbench }
 // factory via `__setControllerFactory` so the public API surface stays stable.
 // ---------------------------------------------------------------------------
 
+export type { FrameCoordinates } from '@363045841yyt/klinechart-core'
+
 let controllerFactory: ChartControllerFactory | null = null
 
 /**

@@ -28,20 +28,15 @@ describe('materializeDrawingAnchors', () => {
     expect(anchors[3]).toMatchObject({ time: 1_000, price: 30 })
   })
 
-  it('copies the source future slot onto a derived anchor', () => {
+  it('派生锚点复制来源的绝对时间', () => {
     const anchors = materializeDrawingAnchors(
       'flat-line',
-      [
-        { ...anchor('a', 2_500, 10), futureOffset: 2 },
-        anchor('b', 2_000, 20),
-        anchor('c', 1_500, 30),
-      ],
+      [anchor('a', 2_500, 10), anchor('b', 2_000, 20), anchor('c', 1_500, 30)],
       createIdFactory(),
     )
 
-    expect(anchors[2]).toMatchObject({ time: 2_500, futureOffset: 2, price: 30 })
+    expect(anchors[2]).toMatchObject({ time: 2_500, price: 30 })
     expect(anchors[3]).toMatchObject({ time: 2_000, price: 30 })
-    expect(anchors[3]?.futureOffset).toBeUndefined()
   })
 
   it('derives both flat-line endpoints on the first two bar times', () => {

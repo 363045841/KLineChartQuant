@@ -29,22 +29,19 @@
     box-shadow var(--klc-motion-duration-moderate) ease;
 }
 
-.control-button[aria-expanded="true"]:not(:disabled),
-.control-trigger__action[aria-expanded="true"]:not(:disabled) {
+.control-button[aria-expanded="true"]:not(:disabled) {
   border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
   background: var(--control-button-active-background, var(--klc-color-ui-hover));
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .control-button:hover:not(:disabled):not(.control-trigger),
-  .control-trigger__action:hover:not(:disabled) {
+  .control-button:hover:not(:disabled) {
     border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
     background: var(--control-button-active-background, var(--klc-color-ui-hover));
   }
 }
 
-.control-button:focus-visible,
-.control-trigger__action:focus-visible {
+.control-button:focus-visible {
   border-color: var(--control-button-focus-border, var(--klc-color-ui-accent));
   background: var(--control-button-focus-background, var(--klc-color-ui-hover));
   box-shadow: var(

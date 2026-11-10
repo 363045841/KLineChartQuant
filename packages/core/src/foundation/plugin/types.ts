@@ -367,8 +367,10 @@ export interface IndicatorAvailabilityReader {
   isLoading(instanceId: string): boolean
 }
 
-/** 渲染数据子契约：序列数据、数据视图与时间解析。 */
+/** 渲染数据子契约：序列数据、数据视图与本帧坐标。 */
 export interface RenderDataContext {
+  /** 绘图使用的稳定标的身份；不含周期。 */
+  symbolKey?: string
   /** 主序列提交版本；直接绘制的调用方缺省时不保留跨帧几何。 */
   dataRevision?: number
   /** 当前帧的序列数据：K 线视图为 KLineData，分时视图为 TimeShareData。 */
@@ -392,10 +394,8 @@ export interface RenderDataContext {
   comparisonHidden?: ReadonlyMap<string, boolean>
   /** K 线原生比较单帧投影，蜡烛、折线与坐标轴共享同一基准。 */
   comparisonProjection?: import('../../engine/chartModel/index.js').ComparisonProjection
-  /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
-  getLogicalIndexAtTimestamp: (timestamp: number) => number | null
-  /** 逻辑索引 → X 轴时间戳；未来槽位仅由数据源交易日历提供，无对应值时为 null。 */
-  getTimestampAtLogicalIndex: (index: number) => number | null
+  /** 本帧唯一坐标服务：绝对时间 ↔ 逻辑槽位 ↔ 像素，以及本 Pane 的价格投影。 */
+  coordinates: import('../geometry/frameCoordinates.js').FrameCoordinates
   /** 当前图表的显示时区 formatter；仅用于普通 K 线的日期显示与边界。 */
   displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
 }

@@ -22,10 +22,16 @@ function chooseOffset(
 }
 
 /** 横向偏移取接近 16px 的整槽位距离，避免宽 K 线下副本原地重叠。 */
-function getTimeOffset(screenX: number, adapter: DrawingViewportPort): number | null {
-  const index = adapter.getLogicalIndexAtX(screenX)
+function getTimeOffset(
+  screenX: number,
+  paneId: string,
+  adapter: DrawingViewportPort,
+): number | null {
+  const coordinates = adapter.getCoordinates(paneId)
+  if (!coordinates) return null
+  const index = coordinates.xToLogical(screenX)
   if (index === null) return null
-  const nextX = adapter.getXAtLogicalIndex(index + 1)
+  const nextX = coordinates.logicalToX(index + 1)
   if (nextX === null) return null
   const step = nextX - screenX
   if (!Number.isFinite(step) || step <= 0) return null
@@ -42,8 +48,8 @@ function offsetAnchor(
   adapter: DrawingViewportPort,
 ): PersistedDrawingAnchor | null {
   if (screen.type === 'horizontal') {
-    const price = adapter.yToPrice(paneId, screen.y + dy)
-    return Number.isFinite(price) ? { ...anchor, price } : null
+    const price = adapter.getCoordinates(paneId)?.yToPrice(screen.y + dy)
+    return price === undefined || price === null ? null : { ...anchor, price }
   }
   const resolved = screenToAnchor(
     screen.x + dx,
@@ -55,7 +61,6 @@ function offsetAnchor(
   return {
     ...anchor,
     time: resolved.time,
-    futureOffset: resolved.futureOffset,
     price: screen.type === 'vertical' ? anchor.price : resolved.price,
   }
 }
@@ -83,7 +88,8 @@ export function resolveCopyPlacements(
     }
     projected.push({ drawing, screens })
   }
-  const timeOffset = xs.length > 0 ? getTimeOffset(xs[0]!.value, adapter) : 0
+  const timeOffset =
+    xs.length > 0 ? getTimeOffset(xs[0]!.value, projected[0]!.drawing.paneId, adapter) : 0
   if (timeOffset === null) return []
   const dx = chooseOffset(xs, timeOffset)
   const dy = chooseOffset(ys, COPY_PRICE_OFFSET_PX)

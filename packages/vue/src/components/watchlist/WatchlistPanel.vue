@@ -38,6 +38,26 @@
             </div>
           </div>
           <div v-if="groups.length === 0" class="watchlist-panel__empty">暂无自选股</div>
+          <div
+            v-if="quoteIssues.length > 0 && !issuesDismissed"
+            class="watchlist-panel__issues"
+            role="status"
+          >
+            <p v-for="issue in quoteIssues" :key="issue.sourceId" class="watchlist-panel__issue">
+              <span class="watchlist-panel__issue-source">{{ issue.label }}</span>
+              <span class="watchlist-panel__issue-message" :title="issue.message">
+                {{ issue.message }}
+              </span>
+            </p>
+            <button
+              type="button"
+              class="watchlist-panel__issue-close"
+              aria-label="关闭行情提示"
+              @click="issuesDismissed = true"
+            >
+              <IconX aria-hidden="true" />
+            </button>
+          </div>
           <section v-for="group in groups" :key="group.key" class="watchlist-group">
             <button
               type="button"
@@ -53,15 +73,15 @@
               <span class="watchlist-group__label">{{ group.label }}</span>
             </button>
             <ul v-if="!group.collapsed" class="watchlist-group__list">
-              <li v-for="row in group.rows" :key="row.key" class="watchlist-row" :class="`is-${row.tone}`">
+              <li v-for="row in group.rows" :key="row.key" class="watchlist-row">
                 <button type="button" class="watchlist-row__select" @click="onSelect(row.item)">
                   <ColorAvatar :color="row.avatarColor">
                     {{ row.initial }}
                   </ColorAvatar>
                   <span class="watchlist-row__symbol">{{ row.item.symbol }}</span>
-                  <span class="watchlist-row__price">{{ row.price }}</span>
-                  <span class="watchlist-row__change">{{ row.change }}</span>
-                  <span class="watchlist-row__percent">{{ row.percent }}</span>
+                  <span class="watchlist-row__price" :class="`is-${row.tone}`">{{ row.price }}</span>
+                  <span class="watchlist-row__change" :class="`is-${row.tone}`">{{ row.change }}</span>
+                  <span class="watchlist-row__percent" :class="`is-${row.percentTone}`">{{ row.percent }}</span>
                 </button>
                 <button
                   type="button"
@@ -106,9 +126,10 @@
     formatQuoteChange,
     formatQuotePercent,
     formatQuotePrice,
+    percentDirection,
     QUOTE_PLACEHOLDER,
   } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
-  import { computed, ref, useTemplateRef } from 'vue'
+  import { computed, ref, useTemplateRef, watch } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconX from '~icons/tabler/x'
@@ -122,6 +143,13 @@
   /** 报价色调：无可用报价单列一档，展示为占位灰。 */
   type QuoteTone = QuoteDirection | 'unavailable'
 
+  /** 行情提示条目：来源展示名 + 失败原因。 */
+  interface QuoteIssue {
+    sourceId: string
+    label: string
+    message: string
+  }
+
   /** 行视图模型：报价、方向与图标在投影阶段一次算好，模板不再重复查表。 */
   interface WatchlistRow {
     key: string
@@ -131,7 +159,10 @@
     price: string
     change: string
     percent: string
+    /** 最新价与涨跌额的色调：跟随逐笔价格方向。 */
     tone: QuoteTone
+    /** 涨跌幅的色调：按涨跌幅自身正负判定。 */
+    percentTone: QuoteTone
   }
 
   const props = defineProps<{
@@ -168,12 +199,18 @@
     sourceLabels,
   )
 
-  const { quotes, sourceStatus } = useWatchlistQuotes(() => props.items)
+  const { quotes, sourceStatus, sourceErrors } = useWatchlistQuotes(() => props.items)
 
   /** 该行可用的报价：来源必须在线，断线时整行回到占位而不是展示旧值。 */
   function quoteOf(item: SearchableSymbol): WatchlistQuote | null {
     if (sourceStatus.value.get(item.sourceId) !== 'connected') return null
     return quotes.value.get(symbolIdentityKey(item)) ?? null
+  }
+
+  /** 涨跌幅色调：按涨跌幅自身正负判定；没有昨收基准时与占位符一起回到灰色。 */
+  function percentToneOf(quote: WatchlistQuote | null): QuoteTone {
+    if (!quote || quote.prevClose <= 0) return 'unavailable'
+    return percentDirection(quote)
   }
 
   /** 报价与标识一次投影；标识颜色只依赖代码，跨会话与分组稳定。 */
@@ -188,8 +225,34 @@
       change: quote ? formatQuoteChange(quote, item.tickSize) : QUOTE_PLACEHOLDER,
       percent: quote ? formatQuotePercent(quote) : QUOTE_PLACEHOLDER,
       tone: quote ? quote.direction : 'unavailable',
+      percentTone: percentToneOf(quote),
     }
   }
+
+  /** 报价不可用的来源：断线或订阅报错必须显式说明，不能和“没有数据”共用同一个占位。 */
+  const quoteIssues = computed(() => {
+    const issues: QuoteIssue[] = []
+    const seen = new Set<string>()
+    for (const item of props.items) {
+      if (seen.has(item.sourceId)) continue
+      const error = sourceErrors.value.get(item.sourceId)
+      const status = sourceStatus.value.get(item.sourceId)
+      if (error === undefined && status !== 'disconnected') continue
+      seen.add(item.sourceId)
+      issues.push({
+        sourceId: item.sourceId,
+        label: sourceLabels.value.get(item.sourceId) ?? item.sourceId,
+        message: error ?? '行情连接失败',
+      })
+    }
+    return issues
+  })
+
+  /** 整框关闭；故障消失后复位，下一次失败仍会提示。 */
+  const issuesDismissed = ref(false)
+  watch(quoteIssues, (issues) => {
+    if (issues.length === 0) issuesDismissed.value = false
+  })
 
   /** 折叠状态按“分组维度 + 分组键”记录，切换维度不会互相影响。 */
   const collapsedGroups = ref<ReadonlySet<string>>(new Set())
@@ -316,6 +379,63 @@
     margin-top: 2px;
   }
 
+  /* 报价失败必须可见：与“暂无报价”的占位灰区分开。 */
+  .watchlist-panel__issues {
+    position: relative;
+    margin: 0;
+    padding: 6px 28px 6px 12px;
+    background: var(--klc-color-ui-warning-background);
+    color: var(--klc-color-ui-warning-text);
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .watchlist-panel__issue {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .watchlist-panel__issue-source {
+    flex: 0 0 auto;
+    font-weight: 600;
+  }
+
+  .watchlist-panel__issue-message {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 关闭按钮只收起提示，垂直居中于整框，hover 只高亮图标本身。 */
+  .watchlist-panel__issue-close {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+  }
+
+  .watchlist-panel__issue-close:hover,
+  .watchlist-panel__issue-close:focus-visible {
+    opacity: 1;
+    outline: 0;
+  }
+
+  .watchlist-panel__issue-close svg {
+    width: 12px;
+    height: 12px;
+  }
+
   .watchlist-group__header {
     display: flex;
     align-items: center;
@@ -407,20 +527,20 @@
     white-space: nowrap;
   }
 
-  /* 涨跌色只消费主题语义 Token；红涨绿跌由配色预设切换。 */
-  .watchlist-row.is-up {
+  /* 涨跌色只消费主题语义 Token；红涨绿跌由配色预设切换，色调落在单元格上。 */
+  .watchlist-row .is-up {
     --watchlist-quote-color: var(--klc-color-performance-positive);
   }
 
-  .watchlist-row.is-down {
+  .watchlist-row .is-down {
     --watchlist-quote-color: var(--klc-color-performance-negative);
   }
 
-  .watchlist-row.is-flat {
+  .watchlist-row .is-flat {
     --watchlist-quote-color: var(--klc-color-performance-neutral);
   }
 
-  .watchlist-row.is-unavailable {
+  .watchlist-row .is-unavailable {
     --watchlist-quote-color: var(--klc-color-ui-muted);
   }
 

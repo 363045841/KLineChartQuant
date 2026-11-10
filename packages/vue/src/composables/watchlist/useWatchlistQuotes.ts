@@ -1,4 +1,4 @@
-/** 自选报价：按品种订阅报价通道，连接由共享实时订阅池按来源聚合。 */
+/** 自选报价：按品种订阅报价通道，连接由共享实时订阅池按来源聚合；订阅错误按来源上报展示层。 */
 
 import type {
   LiveFrame,
@@ -33,13 +33,17 @@ export function useWatchlistQuotes(
 ) {
   const quotes = shallowRef<ReadonlyMap<string, WatchlistQuote>>(new Map())
   const sourceStatus = shallowRef<ReadonlyMap<string, RealtimeStatus>>(new Map())
+  /** 来源最近一次订阅错误；重连成功后清除，展示层据此区分“失败”和“没有数据”。 */
+  const sourceErrors = shallowRef<ReadonlyMap<string, string>>(new Map())
   const subscriptions = new Map<string, RealtimeSubscription>()
 
   // 同一轮内的连续帧合并为一次响应式写入，避免多品种同时跳动时反复渲染。
   const quoteDraft = new Map<string, WatchlistQuote>()
   const statusDraft = new Map<string, RealtimeStatus>(sourceStatus.value)
+  const errorDraft = new Map<string, string>()
   let quotesDirty = false
   let statusDirty = false
+  let errorsDirty = false
   let flushScheduled = false
 
   /** 把草稿提交为新的只读快照；没有变化时不触发渲染。 */
@@ -52,6 +56,10 @@ export function useWatchlistQuotes(
     if (statusDirty) {
       statusDirty = false
       sourceStatus.value = new Map(statusDraft)
+    }
+    if (errorsDirty) {
+      errorsDirty = false
+      sourceErrors.value = new Map(errorDraft)
     }
   }
 
@@ -71,8 +79,15 @@ export function useWatchlistQuotes(
       instrumentId: item.id,
     })
     subscription.onStatus((status) => {
+      // 重连成功即视为恢复，旧错误不能一直挂着。
+      if (status === 'connected' && errorDraft.delete(item.sourceId)) errorsDirty = true
       statusDraft.set(item.sourceId, status)
       statusDirty = true
+      scheduleFlush()
+    })
+    subscription.onError((error) => {
+      errorDraft.set(item.sourceId, error.message)
+      errorsDirty = true
       scheduleFlush()
     })
     subscription.onFrame((frame: LiveFrame) => {
@@ -116,7 +131,13 @@ export function useWatchlistQuotes(
       quoteDraft.delete(key)
       quotesDirty = true
     }
-    if (quotesDirty) scheduleFlush()
+    const activeSources = new Set(current.map((item) => item.sourceId))
+    for (const sourceId of errorDraft.keys()) {
+      if (activeSources.has(sourceId)) continue
+      errorDraft.delete(sourceId)
+      errorsDirty = true
+    }
+    if (quotesDirty || errorsDirty) scheduleFlush()
   }
 
   watch(() => toValue(items), sync, { immediate: true })
@@ -126,5 +147,5 @@ export function useWatchlistQuotes(
     subscriptions.clear()
   })
 
-  return { quotes, sourceStatus }
+  return { quotes, sourceStatus, sourceErrors }
 }

@@ -108,7 +108,25 @@
               }px`,
             }"
             aria-label="KlineChartQuant"
-          >KlineChartQuant</a>
+          >
+            <!-- 品牌折线取自应用图标 kcq-logo.svg，去掉圆底与磨砂后按当前文字色绘制。 -->
+            <svg
+              class="chart-brand-mark"
+              :viewBox="brandMarkViewBox"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                :d="BRAND_MARK_PATH"
+                fill="none"
+                stroke="currentColor"
+                :stroke-width="BRAND_MARK_STROKE_WIDTH"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>KlineChartQuant</span>
+          </a>
           <div
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"
@@ -439,6 +457,11 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
+  import {
+    BRAND_MARK_PATH,
+    BRAND_MARK_STROKE_WIDTH,
+    BRAND_MARK_VIEWBOX,
+  } from '@vue-src/brandMark.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -928,6 +951,9 @@
     ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, adjust)])
     ctrl.setComparisonSpecs(comparisons)
   }
+
+  /** 品牌折线在图标坐标系中的紧包围盒，模板 viewBox 与画布绘制共用同一份数值。 */
+  const brandMarkViewBox = `${BRAND_MARK_VIEWBOX.x} ${BRAND_MARK_VIEWBOX.y} ${BRAND_MARK_VIEWBOX.width} ${BRAND_MARK_VIEWBOX.height}`
 
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
@@ -1949,6 +1975,16 @@
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-brand-mark {
+    display: block;
+    flex: none;
+    width: auto;
+    height: 14px;
   }
 
   .pane-separator-layer {

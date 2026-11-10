@@ -70,7 +70,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
 
       if (kind === 'horizontal-line') {
         if (anchor.type === 'vertical') return { primitives: [] }
-        const y = context.pane.yAxis.priceToY(anchor.price)
+        const y = context.toScreen(anchor).y
         return {
           primitives: [
             {

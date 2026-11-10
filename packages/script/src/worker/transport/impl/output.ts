@@ -1,7 +1,7 @@
 /** 绘图结果的列式通信：数值、颜色索引和 PVP 锚点共用一个转移块，声明与样式按批去重。 */
 import {
-  isOhlcPlot,
   type DrawingObject,
+  isOhlcPlot,
   type OhlcPlotPoint,
   type PersistedDrawingAnchor,
   type Plot,
@@ -13,9 +13,9 @@ import type { DrawingMetadata, PackedPlot, PackedPlotCollection } from '../types
 const SCALAR_WIDTH = 4
 const OHLC_WIDTH = 8
 const DRAWING_WIDTH = 6
-const ANCHOR_WIDTH = 8
+const ANCHOR_WIDTH = 7
 const PointFlag = { Missing: -1, Color: 1, TextColor: 2 }
-const AnchorFlag = { Type: 1, Time: 2, Future: 4, Logical: 8, FutureValue: 16, LogicalValue: 32 }
+const AnchorFlag = { Type: 1, Time: 2, Logical: 4, LogicalValue: 8 }
 const AnchorType = { Undefined: 0, Point: 1, Horizontal: 2, Vertical: 3 }
 const TimeType = { Undefined: 0, Number: 1, String: 2 }
 const Optional = { Missing: 0, Undefined: 1, Value: 2 }
@@ -96,9 +96,7 @@ function writeAnchor(
   let flags = 0
   if (Object.hasOwn(anchor, 'type')) flags |= AnchorFlag.Type
   if (Object.hasOwn(anchor, 'time')) flags |= AnchorFlag.Time
-  if (Object.hasOwn(anchor, 'futureOffset')) flags |= AnchorFlag.Future
   if (Object.hasOwn(anchor, 'logicalIndex')) flags |= AnchorFlag.Logical
-  if (anchor.futureOffset !== undefined) flags |= AnchorFlag.FutureValue
   if (anchor.logicalIndex !== undefined) flags |= AnchorFlag.LogicalValue
   writer.put(texts.code(anchor.id))
   writer.put(flags)
@@ -119,7 +117,6 @@ function writeAnchor(
         : TimeType.Undefined,
   )
   writer.put(typeof anchor.time === 'string' ? texts.code(anchor.time) : (anchor.time ?? 0))
-  writer.put(anchor.futureOffset ?? 0)
   writer.put(anchor.logicalIndex ?? 0)
   writer.put(anchor.price)
 }
@@ -236,7 +233,7 @@ function readAnchor(
   const timeType = values[offset + 3]!
   const anchor: PersistedDrawingAnchor = {
     id: textAt(strings, values[offset]!),
-    price: values[offset + 7]!,
+    price: values[offset + 6]!,
   }
   if (flags & AnchorFlag.Type)
     anchor.type =
@@ -254,10 +251,8 @@ function readAnchor(
         : timeType === TimeType.String
           ? textAt(strings, values[offset + 4]!)
           : undefined
-  if (flags & AnchorFlag.Future)
-    anchor.futureOffset = flags & AnchorFlag.FutureValue ? values[offset + 5]! : undefined
   if (flags & AnchorFlag.Logical)
-    anchor.logicalIndex = flags & AnchorFlag.LogicalValue ? values[offset + 6]! : undefined
+    anchor.logicalIndex = flags & AnchorFlag.LogicalValue ? values[offset + 5]! : undefined
   return anchor
 }
 

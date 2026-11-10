@@ -3,6 +3,7 @@ import type { KLineData } from '@/foundation/types/price'
 const DAY_MS = 86_400_000
 const FIRST_DAILY_TS = Date.UTC(2025, 9, 23)
 
+/** 连续日线夹具：第一根为 2025-10-23，按 UTC 每日一根递增。 */
 export function createDailyBars(count: number): KLineData[] {
   return Array.from({ length: count }, (_, i) => ({
     timestamp: FIRST_DAILY_TS + i * DAY_MS,
@@ -12,9 +13,4 @@ export function createDailyBars(count: number): KLineData[] {
     close: 100,
     volume: 1000,
   }))
-}
-
-/** 测试夹具：模拟数据源已提供的连续未来槽位时间戳。 */
-export function createDailyFutureTimestamp(dataLength: number) {
-  return (index: number): number | null => (index < 0 ? null : FIRST_DAILY_TS + index * DAY_MS)
 }

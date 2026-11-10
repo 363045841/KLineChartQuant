@@ -30,6 +30,8 @@ function createLineAdapter() {
   return createDrawingAdapter({
     viewport: {
       getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
+      getDrawingData: () => [{ timestamp: 1000 }, { timestamp: 2000 }],
+      getDrawingTimestampAtLogicalIndex: (index) => [1000, 2000][index] ?? null,
       getXAtLogicalIndex: (index: number) => (index === 0 ? 20 : 220),
       getLogicalIndexAtTimestamp: (timestamp: number) => (timestamp === 1_000 ? 0 : 1),
       priceToY: (_paneId: string, price: number) => price,

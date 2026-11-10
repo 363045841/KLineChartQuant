@@ -1,10 +1,8 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
-import { isDrawingInteractive, timeValue } from '@363045841yyt/klinechart-plot-contracts'
+import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
-import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
-import { createKLineSlotGrid } from '@/engine/viewport/slotGrid.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
@@ -23,14 +21,13 @@ import {
   resolveThemeColors,
   type ScriptColorResolver,
 } from '@/foundation/tokens/index.js'
-import { ChartDataViewId } from '@/foundation/types/chartView.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
+import { belongsToDrawingSymbol } from '../../model/impl/drawingScope.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope, DrawingSource } from '../../render/types.js'
@@ -44,7 +41,6 @@ import type {
 } from '../../types.js'
 import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
-import { drawingTimeIndex } from './timeCoordinate.js'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
@@ -53,39 +49,12 @@ type MutableDrawingFrameProjection = {
   snapLines: SnapLine[]
 }
 
-/** 已解析绘图缓存：数据、主题与末根边界不变时复用锚点和样式，视口变化只重算屏幕几何。 */
-interface ResolvedDrawingCacheEntry {
-  readonly data: RenderContext['data']
-  readonly period: RenderContext['period']
-  readonly marketSession: RenderContext['marketSession']
-  readonly lastBarClose: number | undefined
-  readonly theme: RenderContext['theme']
-  readonly isAsiaMarket: RenderContext['isAsiaMarket']
-  readonly colorPresetSettings: RenderContext['colorPresetSettings']
-  readonly resolved: ResolvedDrawingObject
-}
-
-const resolvedDrawingCache = new WeakMap<DrawingObject, ResolvedDrawingCacheEntry>()
-
-/** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
+/** 基于当前帧坐标服务解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
-  const { pane, range, kLineCenters, scrollLeft } = context
-  const grid =
-    context.dataView === ChartDataViewId.KLine
-      ? createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
-      : undefined
-  return (anchor) => {
-    const x = logicalIndexToScreenX({
-      index: anchor.index,
-      visibleRange: range,
-      centers: kLineCenters,
-      scrollLeft,
-      dpr: context.dpr,
-      fallbackStep: context.kWidth + context.kGap,
-      grid,
-    })
-    return { x: x ?? Number.NaN, y: pane.yAxis.priceToY(anchor.price) }
-  }
+  return (anchor) => ({
+    x: context.coordinates.logicalToX(anchor.index) ?? Number.NaN,
+    y: context.coordinates.priceToY(anchor.price) ?? Number.NaN,
+  })
 }
 
 /** 缺失时间锚点对应的数据时不能生成几何，禁止复用旧位置。 */
@@ -94,10 +63,7 @@ function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
     if (!Number.isFinite(anchor.price)) return false
     if (anchor.logicalIndex !== undefined) return Number.isFinite(anchor.index)
     const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    return (
-      timestamp === undefined ||
-      (drawing.xloc === 'bar_time' ? Number.isFinite(anchor.index) : anchor.index >= 0)
-    )
+    return timestamp === undefined || Number.isFinite(anchor.index)
   })
 }
 
@@ -106,60 +72,33 @@ function parseAnchorTime(time: DrawingObject['anchors'][number]['time']): number
   return typeof time === 'string' ? Date.parse(time) : time
 }
 
-/** 时间锚点对应的当前序列下标；非法未来偏移或缺失数据返回 -1。 */
-function resolveTimestampAnchorIndex(
-  timestamp: number,
-  futureOffset: number | undefined,
-  getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
-): number {
-  if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
-    return -1
-  }
-  const baseIndex = getLogicalIndexAtTimestamp(timestamp)
-  // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
-  return baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0)
-}
-
 /** 将单个持久化锚点重新定位到当前数据序列。 */
 function resolveAnchorForFrame(
   anchor: DrawingObject['anchors'][number],
   drawing: DrawingObject,
-  getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
-  lastBarClose?: number,
 ): ResolvedDrawingAnchor {
   if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
   const timestamp = parseAnchorTime(anchor.time)
-  if (drawing.xloc === 'bar_time' && timestamp !== undefined) {
-    return {
-      ...anchor,
-      index: drawingTimeIndex(
-        timestamp,
-        context.data,
-        context.getTimestampAtLogicalIndex,
-        lastBarClose,
-      ),
-    }
-  }
-  if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
   return {
     ...anchor,
-    index: resolveTimestampAnchorIndex(timestamp, anchor.futureOffset, getLogicalIndexAtTimestamp),
+    index:
+      timestamp === undefined
+        ? Number.NaN
+        : ((drawing.xloc === 'bar_time'
+            ? context.coordinates.timeToLogical(timestamp)
+            : context.coordinates.timeToSlot(timestamp)) ?? Number.NaN),
   }
 }
 
 /** 将持久化时间锚点重新定位到当前数据序列，避免历史数据 prepend 后沿用过期 index。 */
 function resolveDrawingForFrame(
   drawing: DrawingObject,
-  getLogicalIndexAtTimestamp: (timestamp: number) => number | null,
   context: RenderContext,
-  lastBarClose?: number,
 ): ResolvedDrawingObject {
   return {
     ...drawing,
-    anchors: drawing.anchors.map((anchor) =>
-      resolveAnchorForFrame(anchor, drawing, getLogicalIndexAtTimestamp, context, lastBarClose),
-    ),
+    anchors: drawing.anchors.map((anchor) => resolveAnchorForFrame(anchor, drawing, context)),
   }
 }
 
@@ -289,14 +228,12 @@ function isAnchorIndexVisible(
   return Number.isFinite(anchor.index) && anchor.index >= range.start && anchor.index < range.end
 }
 
-/** 解析锚点用于时间轴标签的时间戳；未来槽位只取日历或真实 bar 时间。 */
+/** 解析锚点用于时间轴标签的时间戳；索引锚点走连续投影，时间锚点直接使用保存的时间。 */
 function resolveAnchorTimestamp(
   anchor: ResolvedDrawingAnchor,
-  series: RenderContext['data'],
   context: RenderContext,
 ): number | null {
-  if (anchor.index >= series.length) return context.getTimestampAtLogicalIndex(anchor.index)
-  if (anchor.futureOffset !== undefined) return series[anchor.index]?.timestamp ?? null
+  if (anchor.logicalIndex !== undefined) return context.coordinates.logicalToTime(anchor.index)
   const parsed = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
   return parsed !== undefined && Number.isFinite(parsed) ? parsed : null
 }
@@ -350,10 +287,8 @@ function resolveTimeLabelText(
   context: RenderContext,
 ): string | null {
   if (priceLabelOnly || !indexVisible) return null
-  const timestamp = resolveAnchorTimestamp(anchor, context.data, context)
-  return resolveAxisTimeLabel(anchor.index, context.data.length, timestamp, (ts) =>
-    context.displayTimeFormatter.formatDate(ts),
-  )
+  const timestamp = resolveAnchorTimestamp(anchor, context)
+  return timestamp === null ? null : context.displayTimeFormatter.formatDate(timestamp)
 }
 
 /** 直接命中候选时保留领域值；没有命中时返回原锚点。 */
@@ -394,10 +329,13 @@ function projectAxisRangeBands(
   const indices = valid.map((anchor) => anchor.index)
   const minPrice = Math.min(...prices)
   const maxPrice = Math.max(...prices)
-  if (minPrice !== maxPrice) {
+  const coordinates = context.coordinates
+  const topY = coordinates.priceToY(maxPrice)
+  const bottomY = coordinates.priceToY(minPrice)
+  if (minPrice !== maxPrice && topY !== null && bottomY !== null) {
     output.yAxisRanges.push({
-      topY: context.pane.yAxis.priceToY(maxPrice),
-      bottomY: context.pane.yAxis.priceToY(minPrice),
+      topY,
+      bottomY,
       color,
       opacity: 0.15,
     })
@@ -489,30 +427,12 @@ function collectSnapLines(
   }
 }
 
-/** 解析并缓存图元的锚点与样式；几何仍在每帧按当前视口计算。 */
+/** 通过公共坐标服务解析锚点；时间每帧重新投影，不缓存跨帧的索引。 */
 function resolveStoredDrawing(
   context: RenderContext,
   storedDrawing: DrawingObject,
-  lastBarClose: number | undefined,
 ): ResolvedDrawingObject {
-  const cached = resolvedDrawingCache.get(storedDrawing)
-  if (
-    cached !== undefined &&
-    cached.data === context.data &&
-    cached.period === context.period &&
-    cached.marketSession === context.marketSession &&
-    cached.lastBarClose === lastBarClose &&
-    cached.theme === context.theme &&
-    cached.isAsiaMarket === context.isAsiaMarket &&
-    cached.colorPresetSettings === context.colorPresetSettings
-  )
-    return cached.resolved
-  const frameDrawing = resolveDrawingForFrame(
-    storedDrawing,
-    context.getLogicalIndexAtTimestamp,
-    context,
-    lastBarClose,
-  )
+  const frameDrawing = resolveDrawingForFrame(storedDrawing, context)
   // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
   const resolved: ResolvedDrawingObject = {
     ...frameDrawing,
@@ -523,16 +443,6 @@ function resolveStoredDrawing(
       ),
     ),
   }
-  resolvedDrawingCache.set(storedDrawing, {
-    data: context.data,
-    period: context.period,
-    marketSession: context.marketSession,
-    lastBarClose,
-    theme: context.theme,
-    isAsiaMarket: context.isAsiaMarket,
-    colorPresetSettings: context.colorPresetSettings,
-    resolved,
-  })
   return resolved
 }
 
@@ -543,17 +453,8 @@ function resolveVisibleDrawing(
   context: RenderContext,
 ): ResolvedDrawingObject | null {
   if (!storedDrawing.visible || context.range.end <= context.range.start) return null
-  const lastOpen = context.data.at(-1)?.timestamp
-  const lastBarClose =
-    context.dataView === ChartDataViewId.KLine && context.marketSession && lastOpen !== undefined
-      ? timeValue(
-          { period: context.period, session: context.marketSession },
-          'close',
-          context.period,
-          lastOpen,
-        )
-      : undefined
-  const drawing = resolveStoredDrawing(context, storedDrawing, lastBarClose)
+  if (!belongsToDrawingSymbol(storedDrawing, context.symbolKey)) return null
+  const drawing = resolveStoredDrawing(context, storedDrawing)
   if (!hasResolvableTimeAnchors(drawing)) return null
   return intersectsDrawingRange(definitions.extent(drawing), context.range) ? drawing : null
 }

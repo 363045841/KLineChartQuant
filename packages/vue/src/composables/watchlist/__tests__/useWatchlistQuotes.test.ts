@@ -45,6 +45,10 @@ class FakeSubscription implements RealtimeSubscription {
     for (const callback of this.statusCbs) callback(status)
   }
 
+  emitError(message: string): void {
+    for (const callback of this.errorCbs) callback(new Error(message))
+  }
+
   emitQuote(instrumentId: string, last: number, prevClose: number): void {
     const frame: LiveFrame = {
       channel: 'quotes',
@@ -130,8 +134,30 @@ describe('useWatchlistQuotes', () => {
     scope.stop()
   })
 
-  it('closes subscriptions for removed symbols and on scope dispose', async () => {
+  it('reports subscription errors per source and clears them after reconnect', async () => {
     const pool = new FakePool()
+    const scope = effectScope()
+    const state = scope.run(() => useWatchlistQuotes(ref([...TEST_SYMBOLS]), pool))!
+    await nextTick()
+
+    const first = TEST_SYMBOLS[0]!
+    const second = TEST_SYMBOLS[1]!
+    const firstSubscription = pool.subscriptions.get(`gotdx:${first.id}`)!
+
+    firstSubscription.emitError('报价通道不可用')
+    await Promise.resolve()
+    expect(state.sourceErrors.value.get('gotdx')).toBe('报价通道不可用')
+    expect(state.sourceErrors.value.has('tradingview')).toBe(false)
+
+    firstSubscription.emitStatus('connected')
+    await Promise.resolve()
+    expect(state.sourceErrors.value.has('gotdx')).toBe(false)
+
+    expect(pool.subscriptions.get(`tradingview:${second.id}`)).toBeDefined()
+    scope.stop()
+  })
+
+  it('closes subscriptions for removed symbols and on scope dispose', async () => {    const pool = new FakePool()
     const items = ref([...TEST_SYMBOLS])
     const scope = effectScope()
     scope.run(() => useWatchlistQuotes(items, pool))

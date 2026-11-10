@@ -30,6 +30,7 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
+import { bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import {
@@ -575,6 +576,11 @@ export class ChartStateKernel extends StateKernel {
 
   /** 布局和用户指标在一次 batch 中恢复，再重建当前视图的系统实例。 */
   applyLayout(document: LayoutDocument): void {
+    const symbol =
+      document.currentSymbol === undefined
+        ? this.dataManager.readonly.currentSpec.peek()
+        : document.currentSymbol
+    const drawingSymbol = symbol === null ? undefined : symbolSpecIdentityKey(symbol)
     batch(() => {
       this.indicator.actions.restoreWorkspaces(document.workspaces)
       this.indicator.actions.restoreFavorites(document.favoriteIndicatorIds ?? [])
@@ -584,7 +590,10 @@ export class ChartStateKernel extends StateKernel {
         document.panePriceAxisModes,
         document.panePriceAxisRanges,
       )
-      this.drawing.actions.commitDocument(document.drawings ?? [], [])
+      this.drawing.actions.commitDocument(
+        (document.drawings ?? []).map((drawing) => bindDrawingSymbol(drawing, drawingSymbol)),
+        [],
+      )
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })

@@ -54,7 +54,7 @@
 - 右轴 overlay 绘制顺序：范围带 → `yRightOverlay`（装饰标签先注册、十字线后注册）。
 - 副图 `indicator_scale` 在同一 `yRightStatic` 收集器内先注册刻度、后注册十字线。
 - 十字线时间签使用主题 `crosshairLabelBg`/`crosshairLabelText`；普通与分钟周期的文本为「周几 YYYY-MM-DD」，
-  分时仍为市场时段 `HH:mm`，无交易日历的未来槽位仍为 `T+N`。
+  分时仍为市场时段 `HH:mm`。所有槽位（含过去与未来留白）的时间都来自本帧坐标服务的 `logicalToTime`。
 
 ## 边界
 

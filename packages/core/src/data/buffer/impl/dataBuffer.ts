@@ -5,33 +5,14 @@ import {
   type ReadonlySignal,
   type WritableSignal,
 } from '@/foundation/reactivity/signal.js'
-import type { TradingCalendar } from '../../provider/types.js'
 import { OLDER_DATA_STATUS, type OlderDataStatus } from '../../provider/types.js'
 import type { DataChange, KLineBuffer, LoadedTimeRange } from '../types.js'
 import { KLineDataStore, type UpdateBarsResult } from './kLineDataStore.js'
-import { TradingCalendarStore } from './tradingCalendarStore.js'
 
 /** 图表消费的 K 线快照；不负责 Provider 请求、重试或分页策略。 */
 export class DataBuffer implements KLineBuffer {
   private readonly store = new KLineDataStore()
-  private readonly calendar = new TradingCalendarStore()
 
-  setTradingCalendar(calendar: TradingCalendar): boolean {
-    if (this.disposed) return false
-    const anchor = this.store.getRawData().at(-1)?.timestamp
-    return anchor !== undefined && this.calendar.set(calendar, anchor)
-  }
-
-  coversTradingCalendar(count: number): boolean {
-    const anchor = this.store.getRawData().at(-1)?.timestamp
-    return anchor !== undefined && this.calendar.covers(anchor, count)
-  }
-
-  getFutureTimestamp(index: number): number | null {
-    const data = this.store.getRawData()
-    const anchor = data.at(-1)?.timestamp
-    return anchor === undefined ? null : this.calendar.at(anchor, index - data.length)
-  }
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private current: SymbolSpec | null = null
@@ -95,7 +76,6 @@ export class DataBuffer implements KLineBuffer {
     this.olderDataStatus = OLDER_DATA_STATUS.UNKNOWN
     this.currentTimezone = null
     this.store.reset()
-    this.calendar.clear()
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -111,7 +91,6 @@ export class DataBuffer implements KLineBuffer {
     this.olderDataStatus = olderData
     this.currentTimezone = timezone
     this.store.mergePage(data)
-    this.calendar.advance(this.store.getRawData().at(-1)?.timestamp ?? Number.NaN)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -125,7 +104,6 @@ export class DataBuffer implements KLineBuffer {
   applyRealtimeBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult {
     if (this.disposed) return { appendedCount: 0, replacedCount: 0, rejected: [...bars] }
     const result = this.store.applyRealtime(bars)
-    this.calendar.advance(this.store.getRawData().at(-1)?.timestamp ?? Number.NaN)
     if (result.appendedCount > 0 || result.replacedCount > 0) {
       this.errorSignal.set(null)
     }
@@ -153,7 +131,6 @@ export class DataBuffer implements KLineBuffer {
     if (this.disposed) return
     this.olderDataStatus = olderData
     this.currentTimezone = timezone
-    this.calendar.clear()
     this.store.replace(data)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
@@ -174,7 +151,6 @@ export class DataBuffer implements KLineBuffer {
     this.olderDataStatus = OLDER_DATA_STATUS.UNKNOWN
     this.currentTimezone = null
     this.store.reset()
-    this.calendar.clear()
     this.loadingSignal.set(false)
     this.errorSignal.set(null)
   }

@@ -15,6 +15,7 @@ import type {
   DrawingViewportPort,
   PaneLayoutInfo,
 } from '@/controllers/types'
+import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
@@ -64,7 +65,7 @@ export function createFourBarTimelineAdapter(
   return createDrawingAdapter({
     viewport: {
       getDrawingData: () => FOUR_BAR_TIMESTAMPS.map((timestamp) => ({ timestamp })),
-      getDrawingTimestampAtLogicalIndex: (index) => FOUR_BAR_TIMESTAMPS[index] ?? null,
+      getDrawingTimestampAtLogicalIndex: (index) => (index >= 0 ? (index + 1) * 500 : null),
       getLogicalIndexAtTimestamp: (timestamp) => {
         const index = FOUR_BAR_TIMESTAMPS.indexOf(timestamp)
         return index >= 0 ? index : null
@@ -309,7 +310,34 @@ function createDrawingDocumentPort(
 export function createDrawingViewportPort(
   overrides: Partial<DrawingViewportPort> = {},
 ): DrawingViewportPort {
-  return {
+  const port: DrawingViewportPort = {
+    getCoordinates: (paneId) => {
+      const pane = port.getPaneInfo(paneId)
+      const viewport = port.getViewport()
+      if (!pane || !viewport) return null
+      const data = port
+        .getDrawingData()
+        .map(({ timestamp }) => ({ timestamp, open: 1, high: 1, low: 1, close: 1 }))
+      const { kWidth, kGap } = port.getKWidthKGap()
+      return createMockRenderContext({
+        data,
+        range: { start: 0, end: data.length },
+        dataView: port.getDrawingWorkspaceId(),
+        kWidth,
+        kGap,
+        dpr: port.getCurrentDpr(),
+        kLineCenters: data.map((_, index) => port.getXAtLogicalIndex(index) ?? Number.NaN),
+        pane: {
+          id: paneId,
+          top: pane.top,
+          height: pane.height,
+          yAxis: {
+            priceToY: (price) => port.priceToY(paneId, price),
+            yToPrice: (y) => port.yToPrice(paneId, y),
+          },
+        },
+      }).coordinates
+    },
     getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
     getKWidthKGap: () => ({ kWidth: 8, kGap: 2 }),
     getCurrentDpr: () => 1,
@@ -317,7 +345,8 @@ export function createDrawingViewportPort(
     getDrawingData: () => OHLC_BARS,
     getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
     getXAtLogicalIndex: (index: number) => index * 10 + 5,
-    getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
+    // 测试市场提供明确的连续交易日历，未来坐标无需在测试中另写换算算法。
+    getDrawingTimestampAtLogicalIndex: (index: number) => (index >= 0 ? (index + 1) * 500 : null),
     getLogicalIndexAtTimestamp: (timestamp: number) => {
       const index = BAR_TIMESTAMPS.indexOf(timestamp)
       return index >= 0 ? index : null
@@ -331,6 +360,7 @@ export function createDrawingViewportPort(
     getIndicatorValues: () => [],
     ...overrides,
   } satisfies DrawingViewportPort
+  return port
 }
 
 /** 构造完整的绘图会话 port。 */
@@ -475,9 +505,7 @@ export function createSelectionAdapter(
       getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight }),
       getPaneAtY: () => pane,
       getPaneInfo: () => pane,
-      getDrawingData: () => [{ timestamp: 1 }],
-      getLogicalIndexAtX: () => 0,
-      getDrawingTimestampAtLogicalIndex: () => 1,
+      priceToY: (_paneId, price) => price,
       yToPrice: (_paneId: string, y: number) => y,
     }),
   } satisfies DrawingChartAdapter
@@ -494,8 +522,6 @@ export interface PlacementAdapterOptions {
   plotWidth: number
   /** 绘图区高度。 */
   plotHeight: number
-  /** getLogicalIndexAtX 的固定返回值；用于右侧未来槽位用例。 */
-  logicalIndex: number
   document?: Partial<DrawingDocumentPort>
   session?: Partial<DrawingSessionPort>
 }
@@ -504,30 +530,20 @@ export interface PlacementAdapterOptions {
  * 可反向投影的落点 adapter：单 Pane 100×100，逻辑索引、屏幕 X 与时间戳 1:1，Y 即价格。
  *
  * 锚点能投影回原点击位置，供「先落一个点、再以它为参考」的路径（锁角等）使用。
- * 固定索引的 createPlacementAdapter 无法支撑这种反向投影：它只保证落点解析，
- * 不保证 anchorToScreen(落点) 回到原处。
+ * 锁角和普通落点共用同一个真实坐标服务夹具。
  */
 export function createAngleLockAdapter(
   tool: DrawingToolId,
   document: Partial<DrawingDocumentPort> = {},
   drawings: ReadonlyArray<DrawingObject> = [],
 ): DrawingChartAdapter {
-  const pane = { paneId: 'main', top: 0, height: 100 }
-  return createDrawingAdapter(
+  return createPlacementAdapter(
     {
-      document: { getDrawingToolId: () => tool, ...document },
-      viewport: {
-        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
-        getPaneAtY: () => pane,
-        getPaneInfo: () => pane,
-        getDrawingData: () => PIXEL_TIMELINE,
-        getLogicalIndexAtX: (x) => Math.round(x),
-        getXAtLogicalIndex: (index) => index,
-        getDrawingTimestampAtLogicalIndex: (index) => index,
-        getLogicalIndexAtTimestamp: (timestamp) => timestamp,
-        priceToY: (_paneId: string, price: number) => price,
-        yToPrice: (_paneId: string, y: number) => y,
-      },
+      tool,
+      document,
+      pane: { paneId: 'main', top: 0, height: 100 },
+      plotWidth: 100,
+      plotHeight: 100,
     },
     drawings,
   )
@@ -556,9 +572,10 @@ export function createPlacementAdapter(
         }),
         getPaneAtY: () => options.pane,
         getPaneInfo: () => options.pane,
-        getDrawingData: () => [{ timestamp: 1 }],
-        getLogicalIndexAtX: () => options.logicalIndex,
-        getDrawingTimestampAtLogicalIndex: () => 1,
+        getDrawingData: () => PIXEL_TIMELINE,
+        getLogicalIndexAtX: (x) => Math.round(x),
+        getXAtLogicalIndex: (index) => index,
+        getDrawingTimestampAtLogicalIndex: (index) => index,
         priceToY: (_paneId: string, price: number) => price,
         yToPrice: (_paneId: string, y: number) => y,
       },

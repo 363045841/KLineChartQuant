@@ -61,13 +61,13 @@ export function materializeDrawingAnchors(
   }
 }
 
-/** 复制来源锚点的时间坐标（含未来槽位），按给定价格构造点锚点。 */
+/** 复制来源锚点的稳定时间，按给定价格构造点锚点。 */
 function pointAt(
   source: PersistedDrawingAnchor,
   id: string,
   price: number,
 ): PersistedDrawingAnchor {
-  return { id, type: 'point', time: source.time, futureOffset: source.futureOffset, price }
+  return { id, type: 'point', time: source.time, price }
 }
 
 /**

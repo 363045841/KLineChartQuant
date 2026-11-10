@@ -478,18 +478,12 @@
     box-shadow: none;
   }
 
-  /* 分区触发器只画一份外观，留白交给内部两个点击区域。 */
-  .top-toolbar__item :deep(.control-trigger) {
-    --control-button-inline-padding: 10px;
-    padding: 0;
-  }
-
   .top-toolbar :deep(.symbol-chip:hover),
   .top-toolbar :deep(.symbol-chip.is-open),
   .top-toolbar :deep(.symbol-chip[aria-expanded='true']),
   .top-toolbar :deep(.compare-chip:hover),
   .top-toolbar :deep(.compare-chip.is-open),
-  .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled):not(.control-trigger)),
+  .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled)),
   .top-toolbar__item :deep(.drop-menu__trigger[aria-expanded='true']),
   .top-toolbar .history-button:hover:not(:disabled) {
     background: var(--klc-color-ui-hover);

@@ -12,6 +12,7 @@
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 
 import {
   CHART_RENDERERS_SERVICE,
@@ -609,13 +610,11 @@ export class Chart {
     })
     this.drawingDocument = new DrawingDocument({
       drawingState: this.kernel.drawing,
-      getLogicalIndexAtTimestamp: (timestamp) => this.getLogicalIndexAtTimestamp(timestamp),
-      getDrawingTimestampAtLogicalIndex: (index) => this.drawing.getTimestampAtLogicalIndex(index),
-      getDrawingData: () => this.drawing.getData(),
       findAnchorAtTradingDate: (tradingDate) =>
         resolveDrawingTradingDate(this.getData(), tradingDate),
       hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
       getWorkspaceId: () => this.drawing.getWorkspaceId(),
+      getSymbolKey: () => this.drawing.getSymbolKey(),
     })
     this.drawingCommands = new DrawingCommands({
       document: this.drawingDocument,
@@ -810,6 +809,13 @@ export class Chart {
   /** 当前 Pane 已提交层的图元线段，供绘图磁吸候选。 */
   getSnapLines(paneId: string): ReadonlyArray<import('../../drawing/index.js').SnapLine> {
     return this.renderer.getCommittedSnapLines(paneId)
+  }
+
+  /** 返回当前 Pane 与绘图投影共用的公开坐标服务。 */
+  getCoordinates(
+    paneId: string,
+  ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
+    return this.renderer.getCoordinates(paneId)
   }
 
   /** 指定逻辑下标处该 Pane 的指标值，供绘图磁吸候选。 */
@@ -1186,15 +1192,6 @@ export class Chart {
     if (!this._volumeLookbacks) return rollingVolume
     for (const [size, calc] of this._volumeLookbacks) rollingVolume[size] = calc.mean
     return rollingVolume
-  }
-
-  getTimestampAtLogicalIndex(index: number): number | null {
-    return this.dataManager.getTimestampAtLogicalIndex(index)
-  }
-
-  /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
-  getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
   }
 
   /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
@@ -1590,6 +1587,11 @@ export class Chart {
       throw new RangeError(
         'setSymbols accepts one primary symbol; use setComparisonSpecs for comparisons',
       )
+    this.cancelDrawingSession()
+    const nextDrawingSymbol = primary === undefined ? undefined : symbolSpecIdentityKey(primary)
+    if (this.drawing.getSymbolKey() !== nextDrawingSymbol) {
+      this.kernel.drawing.actions.setSelectedDrawingIds([])
+    }
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
     // 激活 buffer 前完成视图转移，让滚动恢复读取目标视图几何。

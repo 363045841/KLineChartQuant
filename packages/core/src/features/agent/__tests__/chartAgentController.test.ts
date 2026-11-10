@@ -68,12 +68,6 @@ function createFixture() {
   const drawingState = createDrawingState()
   const drawingDocument = new DrawingDocument({
     drawingState,
-    getLogicalIndexAtTimestamp: (timestamp) => {
-      const index = bars.findIndex((bar) => bar.timestamp === timestamp)
-      return index === -1 ? null : index
-    },
-    getDrawingTimestampAtLogicalIndex: (index) => bars[index]?.timestamp ?? null,
-    getDrawingData: () => bars,
     findAnchorAtTradingDate: (tradingDate) => {
       const bar = bars.find((item) => item.date === tradingDate)
       return bar === undefined
@@ -82,6 +76,7 @@ function createFixture() {
     },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
+    getSymbolKey: () => undefined,
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })

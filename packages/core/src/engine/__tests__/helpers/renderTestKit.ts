@@ -7,6 +7,7 @@
  * 只在 createMockCanvasContext 内保留唯一一处集中强转。
  */
 import { vi } from 'vitest'
+import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -209,7 +210,8 @@ export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneI
 }
 
 /** RenderContext 夹具入参：pane 允许只声明差异项。 */
-export interface MockRenderContextOverrides extends Partial<Omit<RenderContext, 'pane'>> {
+export interface MockRenderContextOverrides
+  extends Partial<Omit<RenderContext, 'pane' | 'coordinates'>> {
   pane?: MockPaneInfoOverrides
 }
 
@@ -228,11 +230,6 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     data,
     period: 'daily',
     dataView: ChartDataViewId.KLine,
-    getLogicalIndexAtTimestamp: (timestamp: number) => {
-      const index = data.findIndex((item) => item.timestamp === timestamp)
-      return index >= 0 ? index : null
-    },
-    getTimestampAtLogicalIndex: (index: number) => data[index]?.timestamp ?? null,
     pane: createMockPaneInfo(pane),
     range: { start: 0, end: count },
     scrollLeft: 0,
@@ -250,10 +247,21 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     axisLabels: createAxisLabelsFrame(),
     displayTimeFormatter: createDisplayTimeFormatter('UTC'),
     theme: 'light',
-  } satisfies RenderContext
+  } satisfies Omit<RenderContext, 'coordinates'>
+  const resolved = { ...defaults, ...rest }
   return {
-    ...defaults,
-    ...rest,
+    ...resolved,
+    coordinates: createFrameCoordinates({
+      data: resolved.data,
+      range: resolved.range,
+      kLineCenters: resolved.kLineCenters,
+      scrollLeft: resolved.scrollLeft,
+      dpr: resolved.dpr,
+      kWidth: resolved.kWidth,
+      kGap: resolved.kGap,
+      dataView: resolved.dataView,
+      priceAxis: resolved.pane.yAxis,
+    }),
   }
 }
 

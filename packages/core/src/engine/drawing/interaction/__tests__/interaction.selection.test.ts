@@ -97,9 +97,7 @@ describe('DrawingInteractionController selection', () => {
 
     // 越过阈值：立即生成真实副本，再从按下点开始普通拖拽。
     expect(controller.onPointerMove(pointerMove(20, 20, { ctrlKey: true }), container)).toBe(true)
-    expect(duplicateDrawings).toHaveBeenCalledWith([
-      { id: source.id, anchors: source.anchors },
-    ])
+    expect(duplicateDrawings).toHaveBeenCalledWith([{ id: source.id, anchors: source.anchors }])
     expect(startDrag).toHaveBeenCalledWith([copy], { type: 'all' }, 10, 10)
 
     expect(controller.onPointerUp(pointerMove(20, 20), container)).toBe(true)
@@ -204,7 +202,6 @@ describe('DrawingInteractionController selection', () => {
         pane: { paneId: 'main', top: 0, height: 100 },
         plotWidth: 100,
         plotHeight: 100,
-        logicalIndex: 0,
         session: { freezeHoverTarget: freeze, unfreezeHoverTarget: unfreeze },
       },
       [drawing],
