@@ -17,7 +17,6 @@ import {
   collectWorkspaceSourceDirs,
   createWorkspaceSourceAliases,
 } from '../../../scripts/package-source-aliases.mjs'
-import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 import { resolveBuildCommit } from '../../../scripts/build-commit.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
 import { compilerDependencyPlugin } from '../../../scripts/compiler-dependency-plugin.js'
@@ -93,7 +92,6 @@ export default defineConfig({
   plugins: [
     compilerDependencyPlugin(root),
     contractResourcesPlugin(),
-    indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),
     decoratorTransform,
     vue(),

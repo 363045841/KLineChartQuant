@@ -6,36 +6,23 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
-export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/indicatorContracts.js'
-export {
-  Indicator,
-  type IndicatorDefinitionClass,
-  type IndicatorDefinitionConfig,
-} from './engine/indicators/indicatorDecorator.js'
 export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
+export {
+  type IndicatorInputDef,
+  type IndicatorMetadata,
+  type IndicatorRendererOptions,
+  type IndicatorRuntimeDescriptor,
+  type IndicatorScaleRendererOptions,
+  type RendererFactory,
+} from './engine/indicators/indicatorMetadata.js'
 export {
   createPlotIndicatorDefinition,
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  indicatorCatalogRevision,
-  indicatorCommits,
-  indicatorFailures,
-  isIndicatorDefinitionLoaded,
-  loadAllIndicatorDefinitions,
-  loadIndicatorDefinitions,
-  logIndicatorFailure,
-  readIndicatorDescriptors,
-  readRegisteredDefinitions,
-  registerIndicators,
-  resolveCanonicalIndicatorId,
-  resolveIndicatorDefinitionId,
-  runIndicatorPipeline,
-  setIndicatorFailures,
-  unregisterIndicator,
   type IndicatorCandidate,
   type IndicatorCatalogCommit,
-  type IndicatorCompiler,
   type IndicatorCollector,
+  type IndicatorCompiler,
   type IndicatorDefinitionLoader,
   type IndicatorDescriptor,
   type IndicatorDocumentIdentity,
@@ -43,18 +30,24 @@ export {
   type IndicatorOrigin,
   type IndicatorPipelineReport,
   type IndicatorStage,
+  indicatorCatalogRevision,
+  indicatorCommits,
+  indicatorFailures,
+  isIndicatorDefinitionLoaded,
+  loadAllIndicatorDefinitions,
+  loadIndicatorDefinitions,
+  logIndicatorFailure,
   type RegistrableIndicator,
+  readIndicatorDescriptors,
+  readRegisteredDefinitions,
+  registerIndicators,
+  resolveCanonicalIndicatorId,
+  resolveIndicatorDefinitionId,
+  runIndicatorPipeline,
   type StageResult,
+  setIndicatorFailures,
+  unregisterIndicator,
 } from './engine/indicators/pipeline/index.js'
-export {
-  type IndicatorInputDef,
-  IndicatorKind,
-  type IndicatorMetadata,
-  type IndicatorRendererOptions,
-  type IndicatorRuntimeDescriptor,
-  type IndicatorScaleRendererOptions,
-  type RendererFactory,
-} from './engine/indicators/indicatorMetadata.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {

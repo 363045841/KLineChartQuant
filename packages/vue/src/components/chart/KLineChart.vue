@@ -283,7 +283,7 @@
               v-for="pane in paneAxisItems"
               :key="pane.id"
               class="pane-axis-controls-host"
-              :style="{ top: pane.top + 'px', height: pane.height + 'px' }"
+              :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth }"
             >
               <PriceAxisSettingsMenu
                 :controller="controller"
@@ -1381,7 +1381,6 @@
     ctrl.updateOptionsFacade({
       legend: {
         visible: !external && props.legend?.visible !== false,
-        visibleIndicatorIds: props.legend?.visibleIndicatorIds,
       },
     })
   }
@@ -2111,7 +2110,7 @@
 
   .pane-axis-controls-host {
     position: absolute;
-    width: 100%;
+    left: 0;
     z-index: 2;
   }
 

@@ -4,11 +4,15 @@
  * 写入只经过 registerIndicators / unregisterIndicator：一次调用完成全部表写入，
  * 并只发出一次变更通知。读取方拿到的永远是同一份已提交快照。
  */
+
+import {
+  clearIndicatorLayerNamingForTest,
+  normalizeIndicatorId,
+  registerIndicatorLayerNaming,
+} from '@/engine/indicators/indicatorLayerNaming.js'
+import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, createSignal } from '@/foundation/reactivity/signal.js'
-import { definitionMetadata, type IndicatorDefinitionClass } from '@/engine/indicators/indicatorDecorator.js'
-import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
-import { normalizeIndicatorId, registerIndicatorLayerNaming, clearIndicatorLayerNamingForTest } from '@/engine/indicators/indicatorLayerNaming.js'
 import type {
   IndicatorCatalogCommit,
   IndicatorCatalogCommitSignal,
@@ -20,7 +24,6 @@ import type {
   IndicatorPipelineReport,
   RegistrableIndicator,
 } from '../types.js'
-import { systemIndicators } from './systemIndicatorStage.js'
 
 interface DescriptorEntry {
   readonly descriptor: IndicatorDescriptor
@@ -61,10 +64,7 @@ function assertAliasesAvailable(names: readonly string[], key: string): void {
   for (const name of names) {
     const target = aliases.get(normalizeIndicatorId(name))
     if (target && target !== key) {
-      throw new KLineChartError(
-        GENERIC_ERROR_CODES.INVALID_PARAM,
-        `指标身份已被占用：${name}`,
-      )
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `指标身份已被占用：${name}`)
     }
   }
 }
@@ -75,7 +75,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
   return {
     name: definition.name,
     source: definition.source,
-    kind: definition.kind,
     aliases: definition.aliases,
     displayName: definition.displayName,
     title: definition.title,
@@ -83,7 +82,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     category: definition.category,
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
-    allowMainPane: definition.allowMainPane,
     visiblePeriods: definition.visiblePeriods,
     defaultParams:
       typeof defaultParams === 'function'
@@ -99,18 +97,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
 function definedDescriptor(descriptor: IndicatorDescriptor): IndicatorDescriptor {
   const entries = Object.entries(descriptor).filter(([, value]) => value !== undefined)
   return Object.fromEntries(entries) as IndicatorDescriptor
-}
-
-/** 读取注解元数据；缺失属于编程错误，直接抛出。 */
-function definitionOf(definition: IndicatorDefinitionClass): IndicatorMetadata {
-  const metadata = definition[definitionMetadata]?.()
-  if (!metadata) {
-    throw new KLineChartError(
-      GENERIC_ERROR_CODES.INVALID_PARAM,
-      '[Indicator] 定义类缺少 @Indicator 元数据',
-    )
-  }
-  return metadata
 }
 
 /** 本地校验通过后的写入计划；校验失败不留任何部分写入。 */
@@ -187,7 +173,7 @@ function planBuiltinRepeat(
 function planDefinitionWrite(
   item: Extract<RegistrableIndicator, { kind: 'definition' }>,
 ): WritePlan {
-  const metadata = definitionOf(item.definition)
+  const metadata = item.definition
   const key = normalizeIndicatorId(metadata.name)
   if (!key) {
     throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '指标定义缺少名称')
@@ -287,10 +273,7 @@ function planItems(items: readonly RegistrableIndicator[]): {
     try {
       plans.push(planWrite(item))
     } catch (error) {
-      const name =
-        item.kind === 'definition'
-          ? (item.definition[definitionMetadata]?.()?.name ?? item.candidate.key)
-          : item.descriptor.name
+      const name = item.kind === 'definition' ? item.definition.name : item.descriptor.name
       failures.push({
         stage: 'register',
         origin: item.candidate.origin,
@@ -325,7 +308,9 @@ function commitPlans(
   const nextRevision = revision.peek() + 1
   batch(() => {
     revision.set(nextRevision)
-    commitSignal.set(Object.freeze({ revision: nextRevision, added, updated, removed: [], described }))
+    commitSignal.set(
+      Object.freeze({ revision: nextRevision, added, updated, removed: [], described }),
+    )
   })
   return { committed, failures }
 }
@@ -338,7 +323,9 @@ function commitPlans(
  * @param items 编译阶段产出的可注册项
  * @returns 已提交目录项与逐条失败
  */
-export function registerIndicators(items: readonly RegistrableIndicator[]): IndicatorPipelineReport {
+export function registerIndicators(
+  items: readonly RegistrableIndicator[],
+): IndicatorPipelineReport {
   const { plans, failures } = planItems(items)
   if (plans.length === 0) return { committed: [], failures }
   return commitPlans(plans, failures)
@@ -370,7 +357,13 @@ export function unregisterIndicator(id: string): void {
   batch(() => {
     revision.set(nextRevision)
     commitSignal.set(
-      Object.freeze({ revision: nextRevision, added: [], updated: [], removed: [metadata], described: [] }),
+      Object.freeze({
+        revision: nextRevision,
+        added: [],
+        updated: [],
+        removed: [metadata],
+        described: [],
+      }),
     )
   })
 }
@@ -425,7 +418,8 @@ function loadEntry(key: string): Promise<void> {
     )
   }
   if (!entry.load) return Promise.resolve()
-  const task = entry.load()
+  const task = entry
+    .load()
     .then((definitionClass) => {
       if (definitions.has(key)) return
       registerIndicators([
@@ -438,10 +432,7 @@ function loadEntry(key: string): Promise<void> {
     })
     .catch((error: unknown) => {
       // 懒加载失败不改变目录项，调用方仍需收到异常；这里只负责留下可检索的日志。
-      console.error(
-        `[Indicator] 懒加载实现失败：${entry.descriptor.displayName}（${key}）`,
-        error,
-      )
+      console.error(`[Indicator] 懒加载实现失败：${entry.descriptor.displayName}（${key}）`, error)
       throw error
     })
     .finally(() => pendingLoads.delete(key))
@@ -488,7 +479,7 @@ export function resolveIndicatorDefinitionId(nameOrAlias: string): string | unde
   return descriptor === undefined ? undefined : resolveCanonicalIndicatorId(descriptor)
 }
 
-/** 清空测试目录并重新登记内置系统指标；失败清单同时清空。 */
+/** 清空测试目录、命名规则和失败记录；系统图层不属于指标注册表。 */
 export function clearIndicatorStoreForTest(): void {
   definitions.clear()
   descriptors.clear()
@@ -499,8 +490,4 @@ export function clearIndicatorStoreForTest(): void {
   const nextRevision = revision.peek() + 1
   commitSignal.set(null)
   revision.set(nextRevision)
-  registerIndicators(systemIndicators())
 }
-
-// 内置系统指标随模块加载登记：只写静态目录，实现保持懒加载，保证首次读取即有完整目录。
-registerIndicators(systemIndicators())

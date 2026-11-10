@@ -192,7 +192,8 @@ export interface MockPaneInfoOverrides extends Partial<Omit<PaneInfo, 'yAxis'>> 
 
 /** 构造完整 PaneInfo，只覆盖调用方声明的字段。 */
 export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneInfo {
-  const { yAxis, ...rest } = overrides
+  const { yAxis, axes, axis, ...rest } = overrides
+  const resolvedAxis = { ...DEFAULT_PANE_Y_AXIS, ...yAxis }
   return {
     id: 'main',
     role: 'price',
@@ -201,7 +202,9 @@ export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneI
     height: 200,
     priceRange: { minPrice: 0, maxPrice: 200 },
     ...rest,
-    yAxis: { ...DEFAULT_PANE_Y_AXIS, ...yAxis },
+    yAxis: resolvedAxis,
+    axes: axes ?? [{ axisId: 'main', yAxis: resolvedAxis }],
+    axis: axis ?? (() => resolvedAxis),
   } satisfies PaneInfo
 }
 

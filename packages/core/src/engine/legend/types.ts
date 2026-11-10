@@ -6,7 +6,6 @@
  */
 
 import type { SymbolSpec } from '@/controllers/types.js'
-import type { ChartIndicatorFacade } from '@/engine/chart/impl/facade/chartIndicatorFacade.js'
 import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
 import type { ComparisonCommandsApi } from '@/engine/data/comparisonCommands.js'
 import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
@@ -105,16 +104,14 @@ export interface LegendTemplateContext {
   /** 十字线指向的当前 K 线展示行（含 volumeText / color 与自定义字段） */
   currentBar: LegendCurrentBar | null
   timeshare: LegendTimeshareRow | null
-  indicators: ReadonlyArray<LegendIndicatorRow>
   comparisons: ReadonlyArray<LegendComparisonRow>
   /** 当前索引处的原始 K 线（分时模式下可能无 close） */
   bar: KLineData | null
 }
 
-/** 主图图例公开配置，保留现有配置入口。 */
+/** 主图图例公开配置。 */
 export interface LegendOptions {
   visible?: boolean
-  visibleIndicatorIds?: ReadonlyArray<string>
 }
 
 /** 展示文本片段；gapBefore 相对上一段，省略时由行投影补默认间距。 */
@@ -189,8 +186,11 @@ export interface LegendPatch {
 }
 
 export type LegendAction =
+  | 'move-pane-up'
+  | 'move-pane-down'
   | 'move-up'
   | 'move-down'
+  | 'move-to'
   | 'replace'
   | 'edit-code'
   | 'toggle-visibility'
@@ -204,14 +204,20 @@ export interface LegendActionButton {
 }
 export const LEGEND_UI_EVENT = 'klc:legend-ui'
 
-/** Core 只把需要宿主打开界面的操作发布给框架。 */
-export interface LegendUiRequest {
-  action: 'replace' | 'settings' | 'edit-code'
-  id: string
-  paneId: string
-  definitionId: string
-  role: 'main' | 'sub'
-}
+/** Core 只把需要宿主打开界面的操作发布给框架；移动菜单由 Core DOM 自行渲染。 */
+export type LegendUiRequest =
+  | {
+      readonly action: 'replace' | 'settings' | 'edit-code'
+      readonly id: string
+      readonly paneId: string
+      readonly definitionId: string
+      readonly role: 'main' | 'sub'
+    }
+  | {
+      readonly action: 'move-to'
+      readonly id: string
+      readonly options: ReadonlyArray<import('@/engine/pane/types.js').InstanceMoveOption>
+    }
 
 /** 内置图例写入其所属领域，自定义图例由图例模块持有。 */
 export interface LegendApi {
@@ -229,6 +235,8 @@ export interface LegendApi {
   update(id: string, patch: LegendPatch): boolean
   remove(id: string): boolean
   move(id: string, direction: 'up' | 'down'): boolean
+  /** 迁移实例归属；菜单项直接调用这里。 */
+  moveTo(id: string, target: import('@/engine/pane/types.js').InstanceMoveTarget): boolean
   replace(id: string, definitionId: string): boolean
   execute(id: string, action: LegendAction): LegendUiRequest | null
 }
@@ -236,13 +244,11 @@ export interface LegendApi {
 /** 图例只消费所属领域的状态和写入能力，不复制领域集合。 */
 export interface LegendManagerDependencies {
   host: PluginHost
-  indicators: ChartIndicatorFacade
   panes: ChartPaneFacade
   comparisons: ComparisonCommandsApi
   getComparisonHidden: (identity: string) => boolean
   setComparisonHidden: (identity: string, hidden: boolean) => void
   getOptions: () => { legend?: LegendOptions }
-  getVisibleIndicatorIds: () => ReadonlyArray<string>
   /** 主图是否已有品种；空图不展示收起入口。 */
   hasPrimarySymbol: () => boolean
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */

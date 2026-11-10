@@ -6,7 +6,6 @@ import babel from 'vite-plugin-babel'
 import Icons from 'unplugin-icons/vite'
 
 import { createCoreSourceAliases } from '../../../scripts/core-source-aliases.mjs'
-import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 
 const decoratorTransform = babel({
   include: [/\/packages\/core\/src\/.*\.tsx?$/],
@@ -28,7 +27,6 @@ const vueRuntime = `${root}/packages/vue/node_modules/vue/dist/vue.esm-bundler.j
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   plugins: [
-    indicatorEntrypointsPlugin(),
     decoratorTransform,
     vue({ customElement: true }),
     react(),

@@ -27,6 +27,7 @@ export function useLegendUi(
       function onRequest(event: Event): void {
         if (!(event instanceof CustomEvent) || !isLegendUiRequest(event.detail)) return
         const request = event.detail
+        if (request.action === 'move-to') return
         if (request.action === 'settings') options.openIndicatorSettings(request.definitionId)
         else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {

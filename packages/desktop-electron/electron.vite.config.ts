@@ -7,7 +7,6 @@ import babel from 'vite-plugin-babel'
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
-import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
@@ -50,7 +49,6 @@ export default defineConfig({
       'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
     },
     plugins: [
-      indicatorEntrypointsPlugin(),
       babel({
         include: [/\/packages\/core\/src\/.*\.tsx?$/],
         exclude: [/node_modules/],

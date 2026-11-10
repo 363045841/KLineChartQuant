@@ -1,5 +1,5 @@
 /**
- * 编译阶段的定义工厂：把中立的 Plot 指标定义装配成 core 的指标定义类。
+ * 定义适配器：把 defineIndicator 产出的中立定义装配成 Core 可执行定义对象。
  *
  * 只做装配，不写注册表；脚本与第三方来源都通过它产出 `RegistrableIndicator`。
  */
@@ -10,15 +10,14 @@ import {
   type InputSchema,
   resolveInputDefaults,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { Indicator, type IndicatorDefinitionClass } from '@/engine/indicators/indicatorDecorator.js'
 import {
   type IndicatorInputDef,
-  IndicatorKind,
+  type IndicatorMetadata,
   type ScaleRendererFactory,
 } from '@/engine/indicators/indicatorMetadata.js'
 import { toPlotBar } from '@/engine/indicators/plotBars.js'
-import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
 import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
+import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
 import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 import { createIndicatorScaleLayer } from '@/engine/renderers/Indicator/scale/indicator_scale.js'
 
@@ -54,35 +53,35 @@ function createScaleRendererFactory(
       getCrosshair: options.getCrosshair,
       formatTickLabel: (value) => formatPlotValue(format, value),
       formatCrosshairLabel: (value) => formatPlotValue(format, value),
-      instanceId: options.instanceId,
+      axisId: options.axisId,
     })
 }
 
 /**
- * 把中立指标定义装配成 core 可注册的定义类。
+ * 把中立指标定义装配成 Core 可注册的定义对象。
  *
  * @param definition 已绑定计算入口的中立定义
- * @returns 声明了 @Indicator 元数据的定义类，交给注册阶段写入
+ * @returns 完整定义对象，注册阶段直接消费，不经过类或装饰器包装
  */
 export function createPlotIndicatorDefinition<P>(
   definition: IndicatorDefinition<P>,
-): IndicatorDefinitionClass {
+): IndicatorMetadata {
   const main = definition.position === 'main'
   const internalName = definition.id ?? definition.name
   const paneId = main ? 'main' : `sub_${internalName}`
   const format = definition.format
-  const decorate = Indicator({
+  return {
     name: internalName,
     source: definition.source,
     document: definition.document,
     displayName: definition.name,
     title: definition.title,
     info: definition.info,
-    kind: IndicatorKind.Indicator,
     category: main ? 'main' : 'sub',
     defaultPaneId: paneId,
-    allowMainPane: main,
-    mainPane: main ? { toActiveConfig: (params, active) => (active ? params : null) } : undefined,
+    rendererFactory: plotRenderer(internalName),
+    getRendererName: ({ paneId }) => `${internalName}_${paneId}`,
+    getScaleRendererName: ({ paneId }) => `${internalName}Scale_${paneId}`,
     scale: { label: definition.name, decimals: 2 },
     scaleRendererFactory: format
       ? createScaleRendererFactory(format, definition.name, internalName)
@@ -111,10 +110,5 @@ export function createPlotIndicatorDefinition<P>(
       compute: (data, params, market, range) =>
         definition.compute(data.map(toPlotBar), params, market, range),
     },
-  })
-  class PlotIndicatorDefinition {
-    static rendererFactory = plotRenderer(internalName)
   }
-  decorate(PlotIndicatorDefinition)
-  return PlotIndicatorDefinition
 }

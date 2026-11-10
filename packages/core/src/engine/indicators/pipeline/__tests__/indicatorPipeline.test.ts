@@ -1,24 +1,23 @@
 /** 验证指标注册管线：收集 → 编译 → 注册三段、单次通知与逐条失败隔离。 */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Indicator } from '../../indicatorDecorator'
-import { IndicatorKind } from '../../indicatorMetadata'
+import { createTestRendererLayer } from '../../__tests__/helpers/metadataTestKit'
+import { resolveIndicatorLayerId } from '../../indicatorLayerNaming'
+import type { IndicatorMetadata } from '../../indicatorMetadata'
+import { runIndicatorPipeline } from '../impl/runIndicatorPipeline'
 import {
   clearIndicatorStoreForTest,
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  indicatorCatalogRevision,
-  indicatorCommits,
-  loadIndicatorDefinitions,
-  readRegisteredDefinitions,
-  registerIndicators,
   type IndicatorCandidate,
   type IndicatorFailure,
   type IndicatorStage,
+  indicatorCatalogRevision,
+  indicatorCommits,
+  loadIndicatorDefinitions,
   type RegistrableIndicator,
+  readRegisteredDefinitions,
+  registerIndicators,
 } from '../index'
-import { resolveIndicatorLayerId } from '../../indicatorLayerNaming'
-import { runIndicatorPipeline } from '../impl/runIndicatorPipeline'
-import { createTestRendererLayer } from '../../__tests__/helpers/metadataTestKit'
 
 /** 声明带别名的真实 Layer 定义，注册由用例决定。 */
 function declareDefinition(
@@ -27,7 +26,7 @@ function declareDefinition(
   scriptDisplayName?: string,
   documentIdentity: 'builtin' | 'user' = 'user',
 ) {
-  @Indicator({
+  return {
     name,
     aliases: [alias],
     displayName: scriptDisplayName ?? name,
@@ -44,15 +43,13 @@ function declareDefinition(
             definition: { name: scriptDisplayName, inputs: {} },
           },
         }),
-    kind: IndicatorKind.Indicator,
     category: 'oscillator',
     defaultPaneId: `sub_${alias}`,
     scale: { indicatorKey: name },
-  })
-  class Definition {
-    static rendererFactory = () => createTestRendererLayer(name)
-  }
-  return Definition
+    rendererFactory: () => createTestRendererLayer(name),
+    getRendererName: ({ paneId }: { paneId: string }) => `${name}_${paneId}`,
+    getScaleRendererName: ({ paneId }: { paneId: string }) => `${name}Scale_${paneId}`,
+  } satisfies IndicatorMetadata
 }
 
 /** 构造一个第三方来源的可注册定义。 */
@@ -71,15 +68,14 @@ function registrable(
 /** 构造一个只登记目录项的指标；可指定懒加载入口。 */
 function descriptorItem(
   name: string,
-  load?: () => Promise<import('../../indicatorDecorator').IndicatorDefinitionClass>,
+  load?: () => Promise<IndicatorMetadata>,
 ): RegistrableIndicator {
   return {
     kind: 'descriptor',
-    candidate: { key: name, origin: 'system', identity: 'native' },
+    candidate: { key: name, origin: 'third-party', identity: 'native' },
     descriptor: {
       name,
       displayName: name,
-      kind: IndicatorKind.System,
       category: 'main',
       defaultPaneId: 'main',
     },
@@ -127,13 +123,12 @@ describe('Indicator pipeline', () => {
     expect(readRegisteredDefinitions()).toHaveLength(2)
   })
 
-  it('拒绝未声明元数据的定义类', () => {
-    class Undeclared {}
+  it('拒绝没有身份的定义对象', () => {
     const report = registerIndicators([
       {
         kind: 'definition',
         candidate: { key: 'undeclared', origin: 'third-party', identity: 'native' },
-        definition: Undeclared,
+        definition: declareDefinition('', ''),
       },
     ])
     expect(report.failures).toHaveLength(1)
@@ -141,11 +136,23 @@ describe('Indicator pipeline', () => {
 
   it('脚本展示名冲突时拒绝替换并保留原定义', () => {
     registerIndicators([
-      registrable('script_alpha', declareDefinition('script_alpha', 'alpha_alias', 'Alpha'), 'user-script'),
-      registrable('script_beta', declareDefinition('script_beta', 'beta_alias', 'Beta'), 'user-script'),
+      registrable(
+        'script_alpha',
+        declareDefinition('script_alpha', 'alpha_alias', 'Alpha'),
+        'user-script',
+      ),
+      registrable(
+        'script_beta',
+        declareDefinition('script_beta', 'beta_alias', 'Beta'),
+        'user-script',
+      ),
     ])
     const report = registerIndicators([
-      registrable('script_alpha', declareDefinition('script_alpha', 'alpha_alias', 'Beta'), 'user-script'),
+      registrable(
+        'script_alpha',
+        declareDefinition('script_alpha', 'alpha_alias', 'Beta'),
+        'user-script',
+      ),
     ])
     expect(report.failures[0]?.error).toBeInstanceOf(Error)
     expect(getRegisteredIndicatorDefinition('Alpha')?.displayName).toBe('Alpha')
@@ -182,7 +189,10 @@ describe('Indicator pipeline', () => {
           return {
             ok: true,
             items: [
-              registrable(candidate.key === 'good' ? 'pipelineGood' : 'pipelineBad', candidate.key === 'good' ? good : bad),
+              registrable(
+                candidate.key === 'good' ? 'pipelineGood' : 'pipelineBad',
+                candidate.key === 'good' ? good : bad,
+              ),
             ],
           }
         },

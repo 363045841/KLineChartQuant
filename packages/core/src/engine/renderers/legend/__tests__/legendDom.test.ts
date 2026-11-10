@@ -13,8 +13,9 @@ import type { LegendDomFrame } from '../types.js'
 function createHarness() {
   const host = document.createElement('div')
   const execute = vi.fn<(id: string, action: LegendAction) => LegendUiRequest | null>(() => null)
+  const moveTo = vi.fn(() => true)
   const setMainCollapsed = vi.fn<(collapsed: boolean) => void>()
-  const renderer = createLegendDomRenderer(host, setMainCollapsed, execute)
+  const renderer = createLegendDomRenderer(host, setMainCollapsed, execute, moveTo)
   const row: LegendRow = {
     key: 'main:MA',
     paneId: 'main',
@@ -32,8 +33,9 @@ function createHarness() {
         params: {},
         hidden: false,
       },
-      ['main'],
+      new Map([['main', ['main:MA']]]),
       () => false,
+      [{ id: 'main', ratio: 1 }],
     ),
     texts: [
       { text: 'MA', color: 'red', gapBefore: 0 },
@@ -41,7 +43,7 @@ function createHarness() {
       { text: 'MA5 100.000', color: 'blue', gapBefore: 10 },
     ],
   }
-  return { host, renderer, row, execute, setMainCollapsed }
+  return { host, renderer, row, execute, moveTo, setMainCollapsed }
 }
 
 /** 组装一帧图例投影；主图默认可收起，行按 pane 分组。 */
@@ -57,6 +59,31 @@ function frameOf(
 }
 
 describe('DOM Legend renderer', () => {
+  it('移动菜单隔离画布指针捕获，并把点击提交到移动命令', () => {
+    const { host, renderer, row, execute, moveTo } = createHarness()
+    const target = { kind: 'newPane', anchorPaneId: 'main', placement: 'below' } as const
+    execute.mockReturnValue({
+      action: 'move-to',
+      id: row.key,
+      options: [{ target, label: '在下方新建副图', enabled: true }],
+    })
+    const canvasPointer = vi.fn()
+    host.addEventListener('pointerdown', canvasPointer)
+    host.addEventListener('pointermove', canvasPointer)
+    host.addEventListener('pointerup', canvasPointer)
+    renderer.update(frameOf([['main', [row]]]))
+    host.querySelector<HTMLButtonElement>('[aria-label="移动指标"]')!.click()
+    const item = host.querySelector<HTMLButtonElement>('.klc-legend-menu-item')!
+    for (const type of ['pointermove', 'pointerdown', 'pointerup']) {
+      item.dispatchEvent(new Event(type, { bubbles: true }))
+    }
+    expect(canvasPointer).not.toHaveBeenCalled()
+    item.click()
+    expect(moveTo).toHaveBeenCalledExactlyOnceWith(row.key, target)
+    expect(host.querySelector<HTMLElement>('.klc-legend-menu')!.hidden).toBe(true)
+    renderer.dispose()
+  })
+
   it('行盒顶部直接用发布坐标，相同帧不写 DOM，数值更新复用文本节点', () => {
     const { host, renderer, row } = createHarness()
     const geometry = vi.spyOn(host, 'getBoundingClientRect')
@@ -199,74 +226,6 @@ describe('DOM Legend renderer', () => {
     host.remove()
   })
 
-  it.each([
-    {
-      label: '主图指标',
-      legendKey: 'main:MA',
-      paneId: 'main',
-      definitionId: 'MA',
-      paneOrder: ['main'],
-      titles: ['指标设置', '更换指标', '隐藏指标', '关闭指标'],
-      disabled: [false, false, false, false],
-      clicks: [0, 1, 2, 3],
-      calls: [
-        ['main:MA', 'settings'],
-        ['main:MA', 'replace'],
-        ['main:MA', 'toggle-visibility'],
-        ['main:MA', 'close'],
-      ],
-      reorder: null,
-    },
-    {
-      label: '副图指标',
-      legendKey: 'sub_A',
-      paneId: 'sub_A',
-      definitionId: 'RSI',
-      paneOrder: ['main', 'sub_A', 'sub_B'],
-      titles: ['上移指标', '下移指标', '指标设置', '更换指标', '隐藏指标', '关闭指标'],
-      disabled: [true, false, false, false, false, false],
-      clicks: [1],
-      calls: [['sub_A', 'move-down']],
-      reorder: {
-        paneOrder: ['main', 'sub_B', 'sub_A'],
-        disabled: [false, true, false, false, false, false],
-      },
-    },
-  ])(
-    '$label 按 Pane 角色和顺序投影操作按钮',
-    ({ legendKey, paneId, definitionId, paneOrder, titles, disabled, clicks, calls, reorder }) => {
-      const { host, renderer, row, execute } = createHarness()
-      const rowFor = (order: readonly string[]): LegendRow => ({
-        ...row,
-        key: legendKey,
-        paneId,
-        indicator: { instanceId: legendKey, definitionId },
-        actions: projectLegendActions(
-          { id: legendKey, kind: 'indicator', paneId, definitionId, params: {}, hidden: false },
-          order,
-          () => false,
-        ),
-      })
-
-      renderer.update(frameOf([[paneId, [rowFor(paneOrder)]]]))
-      const buttons = [
-        ...host
-          .querySelectorAll<HTMLButtonElement>('.klc-legend-row')[0]!
-          .querySelectorAll('button'),
-      ]
-      expect(buttons.map((button) => button.title)).toEqual(titles)
-      expect(buttons.map((button) => button.disabled)).toEqual(disabled)
-      for (const index of clicks) buttons[index]!.click()
-      expect(execute.mock.calls).toEqual(calls)
-
-      if (reorder) {
-        renderer.update(frameOf([[paneId, [rowFor(reorder.paneOrder)]]]))
-        expect(buttons.map((button) => button.disabled)).toEqual(reorder.disabled)
-      }
-      renderer.dispose()
-    },
-  )
-
   it('比较名称复用悬浮框，仅提供隐藏和删除按钮，并保留隐藏行供恢复', () => {
     const { host, renderer, row, execute } = createHarness()
     const comparison: LegendRow = {
@@ -283,8 +242,9 @@ describe('DOM Legend renderer', () => {
           spec: { symbol: 'A', market: 'CN' },
           hidden: false,
         },
-        ['main'],
+        new Map([['main', []]]),
         () => false,
+        [{ id: 'main', ratio: 1 }],
       ),
       texts: [{ text: '比较商品 A', color: 'blue', gapBefore: 0 }],
     }

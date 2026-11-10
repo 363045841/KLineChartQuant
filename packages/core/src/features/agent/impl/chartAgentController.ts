@@ -553,7 +553,14 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
     const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
     if (!indicatorId) return false
-    return this.dependencies.paneManager.actions.create({ ...input, indicatorId })
+    const anchor = this.dependencies.paneManager.list().at(-1)?.id ?? 'main'
+    return (
+      this.dependencies.paneManager.actions.add(indicatorId, input.params, {
+        kind: 'newPane',
+        anchorPaneId: anchor,
+        placement: 'below',
+      }) !== null
+    )
   }
 
   /** 更新单个 pane 的布局属性。 */
@@ -567,7 +574,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async updatePane(input: Static<typeof PaneUpdateToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.update(input.paneId, input.patch)
+    return this.dependencies.paneManager.actions.updatePane(input.paneId, input.patch)
   }
 
   /** 删除一个 pane 及其用户副图内容。 */
@@ -581,7 +588,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async removePane(input: Static<typeof PaneIdToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.remove(input.paneId)
+    return this.dependencies.paneManager.actions.removePane(input.paneId)
   }
 
   /** 调整 pane 的显示顺序。 */
@@ -595,7 +602,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async movePane(input: Static<typeof PaneMoveToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.move(input.paneId, input.targetIndex)
+    return this.dependencies.paneManager.actions.movePane(input.paneId, input.targetIndex)
   }
 
   /** 替换 pane 的副图指标内容。 */
@@ -613,11 +620,14 @@ class ChartAgentControllerImpl implements ChartAgentController {
   ): Promise<boolean> {
     const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
     if (!indicatorId) return false
-    return this.dependencies.paneManager.actions.replaceContent(
-      input.paneId,
+    const instance = this.dependencies.indicators
+      .peek()
+      .find((item) => item.paneId === input.paneId)
+    if (!instance) return false
+    return this.dependencies.paneManager.actions.updateInstance(instance.id, {
       indicatorId,
-      input.params,
-    )
+      params: input.params,
+    })
   }
 
   /** 更新 pane 副图指标的完整参数。 */
@@ -630,7 +640,13 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async updatePaneContent(input: Static<typeof PaneUpdateContentToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.updateContent(input.paneId, input.params)
+    const instance = this.dependencies.indicators
+      .peek()
+      .find((item) => item.paneId === input.paneId)
+    if (!instance) return false
+    return this.dependencies.paneManager.actions.updateInstance(instance.id, {
+      params: input.params,
+    })
   }
 
   /** 删除全部用户副图 pane。 */
@@ -644,7 +660,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async clearPanes(_input?: Static<typeof PanesClearToolParameters>): Promise<void> {
-    this.dependencies.paneManager.actions.clear()
+    this.dependencies.paneManager.actions.clearPanes()
   }
 
   /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */

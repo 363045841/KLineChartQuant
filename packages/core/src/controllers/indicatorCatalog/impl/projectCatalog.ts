@@ -4,15 +4,16 @@
  * 目录信号是选择器、公共 API 与 Agent 共用的读取入口；它只依赖注册表修订号，
  * 不维护第二份列表状态。
  */
-import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+
+import type { IndicatorInputDef } from '@/engine/indicators/indicatorMetadata.js'
 import {
+  type IndicatorDescriptor,
   indicatorCatalogRevision,
   readIndicatorDescriptors,
   resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
-  type IndicatorDescriptor,
 } from '@/engine/indicators/pipeline/index.js'
-import { IndicatorKind, type IndicatorInputDef } from '@/engine/indicators/indicatorMetadata.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { IndicatorDefinition, IndicatorParamDef } from '../../types.js'
 
 /** 参数值只接受标量；其它类型不进入参数面板。 */
@@ -32,9 +33,7 @@ function paramType(
 }
 
 /** 把声明里的字符串候选补成统一的 value/label 结构。 */
-function toOptions(
-  input: IndicatorInputDef | undefined,
-): IndicatorParamDef['options'] | undefined {
+function toOptions(input: IndicatorInputDef | undefined): IndicatorParamDef['options'] | undefined {
   if (input?.options === undefined || input.options.length === 0) return undefined
   return input.options.map((option) =>
     typeof option === 'string' ? { value: option, label: option } : option,
@@ -95,18 +94,19 @@ function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefini
 export const indicatorCatalog: ReadonlySignal<readonly IndicatorDefinition[]> = computed(() => {
   indicatorCatalogRevision()
   return readIndicatorDescriptors()
-    .filter((descriptor) => descriptor.kind === IndicatorKind.Indicator)
     .map(toIndicatorDefinition)
     .sort(
       (a, b) =>
-        (a.role === 'main' ? 0 : 1) - (b.role === 'main' ? 0 : 1) ||
-        a.label.localeCompare(b.label),
+        (a.role === 'main' ? 0 : 1) - (b.role === 'main' ? 0 : 1) || a.label.localeCompare(b.label),
     )
 })
 
 /** 目录中的指标数量与顺序以 `indicatorCatalog` 为准，这里只做名称匹配。 */
 function normalizeId(id: string): string {
-  return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+  return id
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
 }
 
 /**

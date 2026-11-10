@@ -6,15 +6,11 @@ import {
   loadIndicatorDefinitions,
   resolveCanonicalIndicatorId,
 } from '@/engine/indicators/pipeline/index.js'
-import {
-  loadBuiltinIndicators,
-  loadSystemIndicators,
-} from '@/engine/indicators/registerBuiltins.js'
+import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { extractTemplate } from '@/engine/indicatorTemplate/impl/templateExtract.js'
 import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
-import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
@@ -67,7 +63,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // 视图系统定义随图表创建；用户指标按需加载，布局恢复前再加载其引用的指标。
-  await (opts.indicatorLoading === 'all' ? loadBuiltinIndicators() : loadSystemIndicators())
+  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
   const mounted = mountChartDom(opts)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
@@ -228,7 +224,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = getRegisteredIndicatorDefinition(indicatorId)
-      return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
+      return definition !== undefined
     },
   })
 

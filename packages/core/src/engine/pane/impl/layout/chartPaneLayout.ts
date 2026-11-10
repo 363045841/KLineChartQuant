@@ -10,7 +10,6 @@ import type { PaneSpec, PaneSurfaceFactory } from '../../types.js'
 import { PaneRenderer } from '../paneRenderer.js'
 
 import { Pane, UpdateLevel } from './pane.js'
-import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath.js'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom
@@ -42,19 +41,13 @@ export class ChartPaneLayout {
   private paneRenderers: PaneRenderer[] = []
   /** 左轴是否可见；只有可见时主图 pane 才分配左轴表面。 */
   private leftAxisVisible = false
-  private _internalPaneRatios: Map<string, number> = new Map()
-  private _paneSpecs: PaneSpec[]
+  /** 配置只从 Kernel 读取，布局模块不持有规格或比例的工作副本。 */
+  private get paneSpecs(): ReadonlyArray<PaneSpec> {
+    return this.deps.pane.readonly.paneSpecs.peek()
+  }
 
-  constructor(initialPaneSpecs: PaneSpec[], deps: PaneLayoutDependencies) {
+  constructor(deps: PaneLayoutDependencies) {
     this.deps = deps
-    this._paneSpecs = initialPaneSpecs.map((s) => ({ ...s }))
-    this.syncRatiosFromKernel()
-    for (const spec of this._paneSpecs) {
-      if (!this._internalPaneRatios.has(spec.id)) {
-        this._internalPaneRatios.set(spec.id, spec.ratio ?? 1)
-      }
-    }
-    this.normalizeVisiblePaneRatios(this._paneSpecs)
     this.initPanes()
   }
 
@@ -62,9 +55,14 @@ export class ChartPaneLayout {
     return this.paneRenderers
   }
 
-  private syncRatiosFromKernel(): void {
-    const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
-    this._internalPaneRatios = new Map(Object.entries(kernelRatios))
+  /** 应用框架派生的轴列表；Pane 只消费轴身份，不反向解释指标能力。 */
+  setPaneAxes(axesByPane: ReadonlyMap<string, ReadonlyArray<{ readonly axisId: string }>>): void {
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
+      const axes = axesByPane.get(pane.id)
+      if (!axes) continue
+      pane.setAxes(axes.map((axis) => axis.axisId))
+    }
   }
 
   private resolvePaneRole(spec: PaneSpec, index: number): PaneRole {
@@ -158,22 +156,30 @@ export class ChartPaneLayout {
 
   private initPanes() {
     const kernelScaleTypes = this.deps.pane.readonly.paneScaleTypes.peek()
-    const prevScaleTypes = new Map<string, ScaleType>()
-    for (const r of this.paneRenderers) {
-      prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
-      // 只回收本模块拥有的 pane 表面，保留图表级 GPU 与十字线等独立表面。
-      r.destroy()
-    }
-
-    this.paneRenderers = this._paneSpecs.map((spec, index) => {
+    const remaining = new Map(
+      this.paneRenderers.map((renderer) => [renderer.getPane().id, renderer]),
+    )
+    this.paneRenderers = this.paneSpecs.map((spec, index) => {
+      const existing = remaining.get(spec.id)
+      remaining.delete(spec.id)
+      const role = this.resolvePaneRole(spec, index)
+      if (existing) {
+        const current = existing.getPane()
+        const expected = new Pane(spec.id, { role, capabilities: spec.capabilities })
+        if (
+          current.role === role &&
+          JSON.stringify(current.capabilities) === JSON.stringify(expected.capabilities)
+        ) {
+          return existing
+        }
+        existing.destroy()
+      }
       const pane = new Pane(spec.id, {
-        role: this.resolvePaneRole(spec, index),
+        role,
         capabilities: spec.capabilities,
       })
 
-      // 优先 kernel SSOT，其次重建前 runtime，最后 linear
-      const scaleType =
-        kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? ScaleType.Linear
+      const scaleType = kernelScaleTypes.get(spec.id) ?? ScaleType.Linear
       pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
@@ -211,6 +217,7 @@ export class ChartPaneLayout {
         this.createSurfaceFactory(spec, mainCanvas, overlayCanvas, isMain),
       )
     })
+    for (const renderer of remaining.values()) renderer.destroy()
 
     const dom = this.deps.getDom()
     const canvasLayer = dom.canvasLayer
@@ -222,20 +229,6 @@ export class ChartPaneLayout {
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
       rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
     })
-
-    this._paneSpecs = this._paneSpecs.map((spec, index) => ({
-      ...spec,
-      role: this.paneRenderers[index]?.getPane().role ?? spec.role,
-    }))
-  }
-
-  private normalizeVisiblePaneRatios(specs: PaneSpec[]): void {
-    const asRecord: Record<string, number> = {}
-    this._internalPaneRatios.forEach((ratio, id) => {
-      asRecord[id] = ratio
-    })
-    const normalized = pureNormalizeVisiblePaneRatios(specs, asRecord)
-    this._internalPaneRatios = new Map(Object.entries(normalized))
   }
 
   private getPaneMinHeight(spec: PaneSpec, plotHeight: number): number {
@@ -247,9 +240,7 @@ export class ChartPaneLayout {
   private computePaneHeightsByRatio(visibleSpecs: PaneSpec[], availableH: number): number[] {
     if (visibleSpecs.length === 0) return []
 
-    const ratios = visibleSpecs.map(
-      (spec) => this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0,
-    )
+    const ratios = visibleSpecs.map((spec) => spec.ratio)
     const ratioSum = ratios.reduce((s, r) => s + (r > 0 ? r : 0), 0)
     const safeRatios =
       ratioSum > 0
@@ -302,15 +293,13 @@ export class ChartPaneLayout {
   }
 
   layoutPanes() {
-    this.syncRatiosFromKernel()
-
     const vp = this.peekViewport()
     if (!vp) return
 
-    const visibleSpecs = this._paneSpecs.filter((p) => p.visible !== false)
+    const visibleSpecs = this.paneSpecs.filter((p) => p.visible !== false)
     if (visibleSpecs.length === 0) return
     // 隐藏 pane 不参与布局，也不保留后备存储。
-    for (const spec of this._paneSpecs) {
+    for (const spec of this.paneSpecs) {
       if (spec.visible !== false) continue
       this.paneRenderers.find((r) => r.getPane().id === spec.id)?.setVisible(false)
     }
@@ -322,7 +311,6 @@ export class ChartPaneLayout {
     const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
     const availableH = Math.max(1, vp.plotHeight - totalGaps)
 
-    this.normalizeVisiblePaneRatios(visibleSpecs)
     const paneHeights = this.computePaneHeightsByRatio(visibleSpecs, availableH)
 
     for (let i = 0; i < visibleSpecs.length; i++) {
@@ -350,27 +338,8 @@ export class ChartPaneLayout {
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */
-  projectState(panes: ReadonlyArray<PaneSpec>, ratios: Readonly<Record<string, number>>): void {
-    const definitionsChanged =
-      panes.length !== this._paneSpecs.length ||
-      panes.some((pane, index) => {
-        const current = this._paneSpecs[index]
-        return (
-          !current ||
-          pane.id !== current.id ||
-          pane.visible !== current.visible ||
-          pane.role !== current.role ||
-          pane.minHeightPx !== current.minHeightPx ||
-          JSON.stringify(pane.capabilities ?? null) !== JSON.stringify(current.capabilities ?? null)
-        )
-      })
-
-    this._paneSpecs = panes.map((pane) => ({
-      ...pane,
-      ...(pane.capabilities ? { capabilities: { ...pane.capabilities } } : {}),
-    }))
-    this._internalPaneRatios = new Map(Object.entries(ratios))
-    if (definitionsChanged) this.initPanes()
+  projectState(): void {
+    this.initPanes()
     this.layoutPanes()
   }
 
@@ -382,20 +351,11 @@ export class ChartPaneLayout {
     return this.buildLayoutSpecs(this.deps.pane.readonly.paneRatios.peek())
   }
 
-  /** 仅算法/commit 使用：读当前工作副本 ratios，不读 kernel */
-  private buildLayoutSpecsFromWorkingCopy(): PaneSpec[] {
-    const ratios: Record<string, number> = {}
-    this._internalPaneRatios.forEach((ratio, id) => {
-      ratios[id] = ratio
-    })
-    return this.buildLayoutSpecs(ratios)
-  }
-
   private buildLayoutSpecs(ratios: Readonly<Record<string, number>>): PaneSpec[] {
-    const visible = this._paneSpecs.filter((p) => p.visible !== false)
+    const visible = this.paneSpecs.filter((p) => p.visible !== false)
     const sum = visible.reduce((s, p) => s + (ratios[p.id] ?? p.ratio ?? 0), 0)
     const safeSum = sum > 0 ? sum : 1
-    return this._paneSpecs.map((spec) => {
+    return this.paneSpecs.map((spec) => {
       const base = ratios[spec.id] ?? spec.ratio ?? 0
       const ratio = spec.visible === false ? base : base / safeSum
       const pane = this.paneRenderers.find((r) => r.getPane().id === spec.id)?.getPane()
@@ -406,15 +366,6 @@ export class ChartPaneLayout {
         capabilities: pane ? { ...pane.capabilities } : spec.capabilities,
       }
     })
-  }
-
-  private commitLayout(): void {
-    const ratios: Record<string, number> = {}
-    this._internalPaneRatios.forEach((ratio, id) => {
-      ratios[id] = ratio
-    })
-    this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
-    this.deps.afterCommitLayout?.()
   }
 
   /** 同步左轴可见性：可见时为主图 pane 创建左轴表面，隐藏时释放其后备存储。 */
@@ -428,7 +379,7 @@ export class ChartPaneLayout {
   }
 
   hasPane(paneId: string): boolean {
-    return this._paneSpecs.some((spec) => spec.id === paneId)
+    return this.paneSpecs.some((spec) => spec.id === paneId)
   }
 
   resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
@@ -436,9 +387,7 @@ export class ChartPaneLayout {
     const vp = this.peekViewport()
     if (!vp) return false
 
-    this.syncRatiosFromKernel()
-
-    const visibleSpecs = this._paneSpecs.filter((p) => p.visible !== false)
+    const visibleSpecs = this.paneSpecs.filter((p) => p.visible !== false)
     const boundaryIndex = visibleSpecs.findIndex((p) => p.id === upperPaneId)
     if (boundaryIndex < 0 || boundaryIndex >= visibleSpecs.length - 1) return false
 
@@ -493,12 +442,10 @@ export class ChartPaneLayout {
     const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
     const availableH = Math.max(1, vp.plotHeight - totalGaps)
 
-    for (const spec of visibleSpecs) {
-      const h = heights.get(spec.id) ?? 0
-      this._internalPaneRatios.set(spec.id, h / availableH)
-    }
-
-    this.commitLayout()
+    const ratios = { ...this.deps.pane.readonly.paneRatios.peek() }
+    for (const spec of visibleSpecs) ratios[spec.id] = heights.get(spec.id)! / availableH
+    this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecs(ratios))
+    this.deps.afterCommitLayout?.()
 
     this.layoutPanes()
     this.deps.scheduleDraw()
@@ -508,7 +455,5 @@ export class ChartPaneLayout {
   destroy(): void {
     this.paneRenderers.forEach((r) => r.destroy())
     this.paneRenderers = []
-    this._internalPaneRatios.clear()
-    this._paneSpecs = []
   }
 }

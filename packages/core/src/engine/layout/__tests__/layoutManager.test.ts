@@ -6,7 +6,6 @@ import type { SymbolSpec } from '../../../controllers/types.js'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
@@ -120,7 +119,6 @@ it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局�
       descriptor: {
         name: 'layout-test',
         displayName: 'Layout test',
-        kind: IndicatorKind.Indicator,
         category: 'main',
         defaultPaneId: 'main',
       },

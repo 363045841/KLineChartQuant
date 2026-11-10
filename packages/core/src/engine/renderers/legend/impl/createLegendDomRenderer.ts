@@ -2,6 +2,7 @@
 
 import arrowDown from '@iconify-icons/tabler/arrow-down'
 import arrowUp from '@iconify-icons/tabler/arrow-up'
+import arrowsMove from '@iconify-icons/tabler/arrows-move'
 import chevronDown from '@iconify-icons/tabler/chevron-down'
 import chevronUp from '@iconify-icons/tabler/chevron-up'
 import code from '@iconify-icons/tabler/code'
@@ -27,6 +28,9 @@ const VISIBILITY_ICONS = { visible: eye, hidden: eyeOff } as const
 const ACTION_ICONS: Record<LegendAction, typeof arrowUp> = {
   'move-up': arrowUp,
   'move-down': arrowDown,
+  'move-pane-up': chevronUp,
+  'move-pane-down': chevronDown,
+  'move-to': arrowsMove,
   replace: refresh,
   'edit-code': code,
   'toggle-visibility': eye,
@@ -100,6 +104,16 @@ function createStyles(document: Document): HTMLStyleElement {
     .klc-legend-button:disabled { opacity:.3; cursor:default; }
     .klc-legend-button:disabled:hover { background:transparent; }
     .klc-legend-button > svg { display:block; width:14px; height:14px; overflow:visible; }
+    .klc-legend-menu { position:absolute; z-index:12; display:flex; flex-direction:column; min-width:160px;
+      padding:4px; border:1px solid var(--klc-color-ui-border); border-radius:6px;
+      background:var(--klc-color-ui-surface); box-shadow:0 6px 20px rgba(0,0,0,.28); pointer-events:auto; }
+    .klc-legend-menu[hidden] { display:none; }
+    .klc-legend-menu-item { display:block; width:100%; padding:6px 10px; border:0; border-radius:4px;
+      background:transparent; color:var(--klc-color-ui-text); font-family:${FONT_FAMILY}; font-size:12px;
+      line-height:18px; text-align:left; white-space:nowrap; cursor:pointer; }
+    .klc-legend-menu-item:hover, .klc-legend-menu-item:focus-visible {
+      background:color-mix(in srgb,var(--klc-color-ui-text) 8%,transparent); outline:none; }
+    .klc-legend-menu-item:disabled { opacity:.35; cursor:default; }
     .klc-legend-collapse { position:absolute; z-index:1; display:flex; align-items:center; gap:2px;
       height:${LEGEND_COLLAPSE_HEIGHT_PX}px; padding:0 2px; border:1px solid var(--klc-color-ui-border); border-radius:3px;
       background:var(--klc-color-ui-surface); color:var(--klc-color-ui-text-soft); cursor:pointer; pointer-events:auto; }
@@ -126,6 +140,11 @@ function addActions(
   document: Document,
   row: MountedRow,
   execute: (id: string, action: LegendAction) => LegendUiRequest | null,
+  openMoveMenu: (
+    id: string,
+    anchor: HTMLElement,
+    options: Extract<LegendUiRequest, { action: 'move-to' }>['options'],
+  ) => void,
 ): void {
   // frame 以名称为定位容器，按钮紧跟名称，悬浮时覆盖后续参数且不改变文字坐标。
   const frame = document.createElement('div')
@@ -151,10 +170,14 @@ function addActions(
     button.addEventListener('click', (event) => {
       event.stopPropagation()
       const request = execute(row.data.key, item.action)
-      if (request)
-        row.element.dispatchEvent(
-          new CustomEvent(LEGEND_UI_EVENT, { bubbles: true, detail: request }),
-        )
+      if (!request) return
+      if (request.action === 'move-to') {
+        openMoveMenu(row.data.key, button, request.options)
+        return
+      }
+      row.element.dispatchEvent(
+        new CustomEvent(LEGEND_UI_EVENT, { bubbles: true, detail: request }),
+      )
     })
     row.buttons.push(button)
     actions.append(button)
@@ -173,6 +196,7 @@ export function createLegendDomRenderer(
   host: HTMLElement,
   setMainCollapsed: (collapsed: boolean) => void,
   execute: (id: string, action: LegendAction) => LegendUiRequest | null,
+  moveTo: (id: string, target: import('@/engine/pane/types.js').InstanceMoveTarget) => boolean,
 ): LegendDomRenderer {
   const document = host.ownerDocument
   const root = document.createElement('div')
@@ -209,6 +233,68 @@ export function createLegendDomRenderer(
   }
   root.append(collapseButton)
 
+  // 移动菜单由 Core DOM 绘制：目标列表来自布局命令面，宿主不参与推导。
+  const moveMenu = document.createElement('div')
+  moveMenu.className = 'klc-legend-menu'
+  moveMenu.hidden = true
+  // 菜单属于图例交互，不能进入画布的拖拽与指针捕获流程。
+  // 否则 pointerup/click 被重定向到 chart-container，目标命令不会执行。
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'dblclick']) {
+    moveMenu.addEventListener(type, (event) => event.stopPropagation())
+  }
+  root.append(moveMenu)
+  let menuCleanup: (() => void) | null = null
+
+  /** 关闭移动菜单并释放全局监听。 */
+  function closeMoveMenu(): void {
+    if (moveMenu.hidden) return
+    moveMenu.hidden = true
+    moveMenu.replaceChildren()
+    menuCleanup?.()
+    menuCleanup = null
+  }
+
+  /** 在按钮下方打开目标菜单；越界时贴住图表右缘。 */
+  function openMoveMenu(
+    id: string,
+    anchor: HTMLElement,
+    options: Extract<LegendUiRequest, { action: 'move-to' }>['options'],
+  ): void {
+    closeMoveMenu()
+    const rootRect = root.getBoundingClientRect()
+    const buttonRect = anchor.getBoundingClientRect()
+    moveMenu.style.left = `${Math.max(0, buttonRect.left - rootRect.left)}px`
+    moveMenu.style.top = `${buttonRect.bottom - rootRect.top + 4}px`
+    for (const option of options) {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'klc-legend-menu-item'
+      item.textContent = option.label
+      item.disabled = !option.enabled
+      item.addEventListener('click', (event) => {
+        event.stopPropagation()
+        if (!option.enabled) return
+        moveTo(id, option.target)
+        closeMoveMenu()
+      })
+      moveMenu.append(item)
+    }
+    moveMenu.hidden = false
+    const onPointer = (event: PointerEvent): void => {
+      if (moveMenu.contains(event.target as Node)) return
+      closeMoveMenu()
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') closeMoveMenu()
+    }
+    document.addEventListener('pointerdown', onPointer, true)
+    document.addEventListener('keydown', onKey, true)
+    menuCleanup = () => {
+      document.removeEventListener('pointerdown', onPointer, true)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }
+
   /** 切换主图行的显示，并把按钮放到首行（收起）或末行下方（展开）。 */
   function applyCollapseState(): void {
     // 收起态隐藏全部已发布行；行节点保留，展开时无需重绘即可恢复。
@@ -237,6 +323,7 @@ export function createLegendDomRenderer(
 
   /** 清理全部标题节点，保留容器及主题样式；收起状态复位为展开。 */
   function clear(): void {
+    closeMoveMenu()
     for (const rows of mounted.values()) for (const row of rows.values()) row.element.remove()
     mounted.clear()
     collapseButton.hidden = true
@@ -305,7 +392,7 @@ export function createLegendDomRenderer(
     if (data.comparison) element.dataset.comparison = data.comparison.identity
     if (data.actions.length) {
       element.toggleAttribute('data-actions', true)
-      addActions(document, row, execute)
+      addActions(document, row, execute, openMoveMenu)
     }
     // 能力集合后续可变化，行节点始终隔离画布指针流程。
     for (const event of ['pointerdown', 'pointermove', 'dblclick']) {
@@ -332,7 +419,7 @@ export function createLegendDomRenderer(
     // addActions 依据行上最新的按钮集合创建 DOM。
     row.data = data
     row.element.toggleAttribute('data-actions', data.actions.length > 0)
-    if (data.actions.length) addActions(document, row, execute)
+    if (data.actions.length) addActions(document, row, execute, openMoveMenu)
   }
 
   /** 写入行几何与加载态；maxWidth 预留按钮区宽度。 */

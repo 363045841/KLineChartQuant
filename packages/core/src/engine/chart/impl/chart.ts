@@ -326,6 +326,7 @@ export class Chart {
       dom.canvasLayer,
       (collapsed) => this.legend.setMainCollapsed(collapsed),
       (id, action) => this.legend.execute(id, action),
+      (id, target) => this.legend.moveTo(id, target),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     // 会话表只有一份：内置表 + 数据源声明 + 图表覆盖，动态注册的数据源也同步进来。
@@ -387,7 +388,7 @@ export class Chart {
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
     // ── Legacy managers ──
-    this.layoutManager = new ChartPaneLayout(opt.panes, {
+    this.layoutManager = new ChartPaneLayout({
       getDom: () => this.dom,
       getOption: () => {
         const o = this.kernel.options.readonly.options.peek()
@@ -538,7 +539,6 @@ export class Chart {
       getInteraction: () => this.interaction,
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
-      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       theme$: this.kernel.effectiveTheme$,
       zoom: this.kernel.zoom,
       options: this.kernel.options,
@@ -640,15 +640,19 @@ export class Chart {
       getRenderer: (id) => this.getRenderer(id),
       useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (id) => this.removeRenderer(id),
-      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
         Readonly<Record<string, number>>
       >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      projectPaneLayout: (specs, ratios) => {
-        this.layoutManager.projectState(specs, ratios)
+      projectPaneLayout: () => {
+        this.layoutManager.projectState()
         this.ensurePaneScaleTypesFromSettings()
+      },
+      projectPaneAxes: (axesByPane) => {
+        this.layoutManager.setPaneAxes(axesByPane)
+        this.projectPaneScaleTypes()
+        this.renderer.invalidateFrame()
       },
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
@@ -656,17 +660,6 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
-      subPaneOps: {
-        reconcileDefinition: (indicatorId, role) =>
-          this.kernel.paneManager.reconcileDefinition(indicatorId, role),
-        create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
-        remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
-        replace: (paneId, indicatorId, params) =>
-          this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),
-        setParams: (paneId, params) =>
-          this.kernel.paneManager.actions.updateContent(paneId, params),
-        clear: () => this.kernel.paneManager.actions.clear(),
-      },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
     this.indicators = new ChartIndicatorFacade({
@@ -674,14 +667,12 @@ export class Chart {
     })
     this.legend = new LegendManager({
       host: this.pluginHost,
-      indicators: this.indicators,
       panes: this.panes,
       comparisons: this.comparisonCommands,
       getComparisonHidden: (identity) =>
         this.dataManager.getComparisonHidden().get(identity) === true,
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
-      getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
       isScriptIndicator: (definitionId) =>
@@ -786,8 +777,6 @@ export class Chart {
   /** 构建模式激活/停用回调所需的图表能力入口。 */
   private createModeChartContext(): ChartModeChartContext {
     return {
-      enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
-      disableMainIndicator: (id) => this.indicators.disableMain(id),
       dataManager: this.dataManager,
     }
   }
@@ -860,14 +849,13 @@ export class Chart {
     }
   }
 
-  /** 按用户坐标偏好生成各 pane 的刻度 Map */
+  /** 按用户坐标偏好生成各 pane 的刻度 Map；保留尚未创建 Pane 的已有偏好。 */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    const current = this.kernel.pane.getScalePreferences()
+    const next = new Map(this.kernel.pane.getScalePreferences())
     const panes = this.paneRenderers.map((renderer) => renderer.getPane())
-    const next = buildPaneScaleTypesFromSetting(panes, resolvePriceScaleTypeSetting(setting))
     for (const pane of panes) {
-      const existing = current.get(pane.id)
-      if (pane.id !== MAIN_PANE_ID && existing !== undefined) next.set(pane.id, existing)
+      if (pane.id === MAIN_PANE_ID) next.set(pane.id, resolvePriceScaleTypeSetting(setting))
+      else if (!next.has(pane.id)) next.set(pane.id, ScaleType.Linear)
     }
     return next
   }

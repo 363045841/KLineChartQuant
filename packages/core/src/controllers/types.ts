@@ -34,7 +34,8 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { InstanceMoveTarget, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
@@ -588,17 +589,18 @@ export interface ChartController
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
-  addIndicator(definitionId: string, params?: Record<string, unknown>): string | null
+  /** 创建实例；返回实例身份，主副图语义一致。 */
+  addIndicator(
+    definitionId: string,
+    params?: Record<string, unknown>,
+    target?: InstanceMoveTarget,
+  ): string | null
+  /** 迁移实例归属；源副图变空时自动回收。 */
+  moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean
+  /** 删除实例；空副图一并回收。 */
   removeIndicator(instanceId: string): boolean
-  /** 调整主图指标的 Legend 顺序。 */
-  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
-  /** 在原有 Legend 位置原子替换主图指标。 */
-  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean
-  /** 隐藏或显示主图指标；只影响绘制，保留实例与参数。 */
-  setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean
-  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，保留 pane 与参数。 */
-  setSubIndicatorHidden(paneId: string, hidden: boolean): boolean
-  updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
+  /** 更新实例参数、显隐、排序或定义。 */
+  updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean
 
   // ---- Drawing ----
   /**
@@ -626,12 +628,9 @@ export interface ChartController
   redoDrawing(): boolean
 
   // ---- Pane ----
-  createPane(input: CreatePaneInput): boolean
   updatePane(paneId: string, patch: PanePatch): boolean
   removePane(paneId: string): boolean
   movePane(paneId: string, targetIndex: number): boolean
-  replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean
-  updatePaneContent(paneId: string, params: Record<string, unknown>): boolean
   clearPanes(): void
 
   // ---- Interaction sub-methods ----

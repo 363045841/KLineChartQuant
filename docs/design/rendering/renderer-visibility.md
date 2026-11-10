@@ -18,7 +18,7 @@
 
 ## 最新价线的模式可见性
 
-`lastPriceLine` 与 `lastPriceLabelRegistrar` 是 mode 自有的主图 Indicators，声明 `dataViews: ['kline']`。它们由 `CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].mainInstances` 声明，只有 K 线视图创建这些系统实例，分时视图不创建。
+`lastPriceLine` 与 `lastPriceLabelRegistrar` 是图表直接持有的系统 Layer。`CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine].systemLayers` 声明它们只在 K 线视图激活；不创建指标实例。
 
 原因：最新价虚线描述主 K 线的最后收盘价，在分时的 pane 中没有意义。它必须跟随与 `extremaMarkers` 相同的声明式可见性投影，而不是依赖绘制时的模式判断。
 

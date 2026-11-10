@@ -1,5 +1,7 @@
 /**
- * ChartIndicatorFacade —— 指标实例与主图指标的公开操作。
+ * ChartIndicatorFacade —— 指标实例的只读查询面。
+ *
+ * 所有写操作统一走 Chart.panes 的四条实例命令，这里不再提供第二套写入口。
  */
 import type { Computed } from '../../../../foundation/reactivity/signal.js'
 import type { IndicatorInstance, SubPaneInfo } from '../../../chart/index.js'
@@ -10,7 +12,7 @@ export interface ChartIndicatorFacadeDependencies {
   manager: ChartIndicatorManager
 }
 
-/** 提供指标领域的公开操作。 */
+/** 提供指标实例的只读查询。 */
 export class ChartIndicatorFacade {
   constructor(private readonly deps: ChartIndicatorFacadeDependencies) {}
 
@@ -22,55 +24,5 @@ export class ChartIndicatorFacade {
   /** 返回副图指标信息的派生信号。 */
   get subPanes(): Computed<ReadonlyArray<SubPaneInfo>> {
     return this.deps.manager.subPanesComputed
-  }
-
-  /** 启用主图指标。 */
-  enableMain(id: string, params?: Record<string, number | boolean | string>): boolean {
-    return this.deps.manager.enableMainIndicator(id, params)
-  }
-
-  /** 禁用主图指标。 */
-  disableMain(id: string): boolean {
-    return this.deps.manager.disableMainIndicator(id)
-  }
-
-  /** 添加主图或副图指标实例。 */
-  add(definitionId: string, params?: Record<string, unknown>): string | null {
-    return this.deps.manager.addIndicator(definitionId, params)
-  }
-
-  /** 移动主图 Legend。 */
-  moveMain(id: string, direction: 'up' | 'down'): boolean {
-    return this.deps.manager.moveMainIndicator(id, direction)
-  }
-
-  /** 原子替换指定主图指标。 */
-  replaceMain(id: string, nextId: string): boolean {
-    return this.deps.manager.replaceMainIndicator(id, nextId)
-  }
-
-  /** 隐藏或显示主图指标。 */
-  setMainHidden(id: string, hidden: boolean): boolean {
-    return this.deps.manager.setMainHidden(id, hidden)
-  }
-
-  /** 隐藏或显示指定 pane 的副图指标。 */
-  setSubHidden(paneId: string, hidden: boolean): boolean {
-    return this.deps.manager.setSubHidden(paneId, hidden)
-  }
-
-  /** 删除指定指标实例。 */
-  remove(instanceId: string): boolean {
-    return this.deps.manager.removeIndicator(instanceId)
-  }
-
-  /** 更新指定指标实例的参数。 */
-  updateParams(instanceId: string, params: Record<string, unknown>): boolean {
-    return this.deps.manager.updateIndicatorParams(instanceId, params)
-  }
-
-  /** 调整指标实例顺序。 */
-  reorder(orderedInstanceIds: string[]): boolean {
-    return this.deps.manager.reorderIndicators(orderedInstanceIds)
   }
 }
