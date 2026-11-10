@@ -387,9 +387,11 @@ export interface ChartMountOptions {
    *
    * - `true`（默认）：沿用布局功能，恢复上次保存的配置。
    * - `false`：归档只作为手动保存/切换的仓库，图表从初始状态起步；
-   *   多窗口 / 多标签各自持有配置时必须用这个值，否则每个图表都会拿到同一份归档。
+   *   宿主自行管理图表快照时可关闭；多标签应通过 layoutStorageId 隔离归档。
    */
   layoutRestore?: boolean
+  /** 布局归档的稳定持有者身份；多标签使用标签 ID，省略时使用默认共享归档。 */
+  layoutStorageId?: string
 
   /**
    * 指标实现的加载策略。

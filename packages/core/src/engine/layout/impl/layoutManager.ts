@@ -1,5 +1,8 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
-import { createArchivePersistence } from '../../../foundation/persistence/index.js'
+import {
+  type ArchivePersistence,
+  createArchivePersistence,
+} from '../../../foundation/persistence/index.js'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import {
   LAYOUT_DOCUMENT_VERSION,
@@ -57,14 +60,7 @@ function requireName(name: string): string {
 }
 
 export class LayoutManager implements LayoutApi {
-  private readonly archiveStore = createArchivePersistence<LayoutArchive>({
-    databaseName: '@363045841yyt/klinechart-layouts',
-    databaseVersion: LAYOUT_DOCUMENT_VERSION,
-    storeName: 'layouts',
-    key: 'documents',
-    codec: { decode: decodeArchive, encode: (value) => value },
-    disposedMessage: '图表已销毁',
-  })
+  private readonly archiveStore: ArchivePersistence<LayoutArchive>
   private archive: LayoutArchive = {
     documents: {},
     activeId: DEFAULT_LAYOUT_ID,
@@ -102,8 +98,17 @@ export class LayoutManager implements LayoutApi {
      * `restore: false` 时归档只作为手动保存/切换的仓库：
      * 读取不会把活动布局应用到图表，供“每个窗口/标签各自持有配置”的宿主使用。
      */
-    private readonly options: { restore?: boolean } = {},
+    private readonly options: { restore?: boolean; storageId?: string } = {},
   ) {
+    this.archiveStore = createArchivePersistence<LayoutArchive>({
+      databaseName: '@363045841yyt/klinechart-layouts',
+      databaseVersion: LAYOUT_DOCUMENT_VERSION,
+      storeName: 'layouts',
+      // 每个持有者独占自己的归档键，继续复用同一套保存、恢复和串行写入机制。
+      key: options.storageId === undefined ? 'documents' : ['documents', options.storageId],
+      codec: { decode: decodeArchive, encode: (value) => value },
+      disposedMessage: '图表已销毁',
+    })
     globalThis.addEventListener?.('pagehide', this.onPageHide)
   }
 

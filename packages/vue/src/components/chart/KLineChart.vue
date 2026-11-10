@@ -528,6 +528,8 @@
        * 多窗口 / 多标签各自持有配置的宿主必须传 `false`。
        */
       restoreLayout?: boolean
+      /** 布局持久化身份；标签页传自身稳定 ID。 */
+      layoutStorageId?: string
       /** 受控指标实例列表；传入时完整替换当前指标实例。 */
       indicators?: ReadonlyArray<ChartIndicatorConfig>
 
@@ -1675,6 +1677,7 @@
       maxKWidth: props.maxKWidth,
       settings: props.settings,
       layoutRestore: props.restoreLayout,
+      layoutStorageId: props.layoutStorageId,
     })
     return ctrl
   }

@@ -26,6 +26,9 @@ it('切换与排序不重建图表，关闭时只销毁对应实例', async () =
   const wrapper = mount(WorkspaceContent, { props: { tabs: [a, b], activeTabId: 'a' } })
   try {
     expect(lifecycle.mounted).toBe(2)
+    expect(wrapper.get('[data-instance="1"]').attributes('layout-storage-id')).toBe('a')
+    expect(wrapper.get('[data-instance="2"]').attributes('layout-storage-id')).toBe('b')
+    expect(wrapper.get('[data-instance="1"]').attributes('restore-layout')).toBe('true')
     expect(wrapper.get<HTMLElement>('[data-instance="1"]').element.style.display).not.toBe('none')
     expect(wrapper.get<HTMLElement>('[data-instance="2"]').element.style.display).toBe('none')
     await wrapper.setProps({ activeTabId: 'b', tabs: [b, a] })

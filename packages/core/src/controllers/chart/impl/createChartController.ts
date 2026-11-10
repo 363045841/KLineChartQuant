@@ -159,7 +159,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.scheduleDraw()
       },
     },
-    { restore: opts.layoutRestore !== false },
+    { restore: opts.layoutRestore !== false, storageId: opts.layoutStorageId },
   )
   await layoutManager.initialize()
 

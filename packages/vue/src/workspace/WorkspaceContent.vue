@@ -6,7 +6,8 @@
       v-show="tab.id === activeTabId"
       :key="tab.id"
       v-bind="workbench"
-      :restore-layout="false"
+      :restore-layout="true"
+      :layout-storage-id="tab.id"
       @controller-ready="charts.onControllerReady(tab.id, $event)"
       @update:is-fullscreen="emit('update:is-fullscreen', $event)"
     />
