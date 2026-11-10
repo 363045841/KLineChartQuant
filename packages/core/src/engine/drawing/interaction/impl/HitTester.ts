@@ -643,14 +643,12 @@ function buildRegressionChannelGeometry(
   const firstIndex = coordinates.timeToSlot(firstTimestamp)
   const secondIndex = coordinates.timeToSlot(secondTimestamp)
   if (firstIndex === null || secondIndex === null) return null
-  const clampedFirst = Math.round(firstIndex)
-  const clampedSecond = Math.round(secondIndex)
   const params = drawing.params
   const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
   const regression = computeRegressionChannel(
     data.map((item: { close: number }) => item.close),
-    clampedFirst,
-    clampedSecond,
+    firstIndex,
+    secondIndex,
     sigma,
   )
   if (!regression) return null

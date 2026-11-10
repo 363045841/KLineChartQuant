@@ -234,7 +234,7 @@ function isAnchorIndexVisible(
   return Number.isFinite(anchor.index) && anchor.index >= range.start && anchor.index < range.end
 }
 
-/** 解析锚点用于时间轴标签的时间戳；未来槽位只取日历或真实 bar 时间。 */
+/** 解析锚点用于时间轴标签的时间戳；索引锚点走连续投影，时间锚点直接使用保存的时间。 */
 function resolveAnchorTimestamp(
   anchor: ResolvedDrawingAnchor,
   series: RenderContext['data'],
@@ -437,7 +437,7 @@ function collectSnapLines(
   }
 }
 
-/** 通过公共坐标服务解析锚点；未来日历补齐后必须使用本帧的新结果。 */
+/** 通过公共坐标服务解析锚点；时间每帧重新投影，不缓存跨帧的索引。 */
 function resolveStoredDrawing(
   context: RenderContext,
   storedDrawing: DrawingObject,

@@ -336,7 +336,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   /** 逻辑索引 → 时间戳（ms）。 */
   function getTimestampAtLogicalIndex(index: number): number | null {
     if (isDisposed()) return null
-    return chart.getTimestampAtLogicalIndex(index)
+    return getCoordinates(MAIN_PANE_ID)?.logicalToTime(index) ?? null
   }
 
   /** 当前绘制数据点，仅用于绘图坐标解析。 */
@@ -353,7 +353,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   /** unix 时间戳（ms）→ 当前逻辑索引。 */
   function getLogicalIndexAtTimestamp(timestamp: number): number | null {
     if (isDisposed()) return null
-    return chart.getLogicalIndexAtTimestamp(timestamp)
+    return getCoordinates(MAIN_PANE_ID)?.timeToLogical(timestamp) ?? null
   }
 
   /** 读取当前绘图所属的数据工作区。 */

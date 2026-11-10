@@ -329,7 +329,6 @@ export function createDrawingViewportPort(
           kGap,
           dpr: port.getCurrentDpr(),
           kLineCenters: data.map((_, index) => port.getXAtLogicalIndex(index) ?? Number.NaN),
-          getTimestampAtLogicalIndex: port.getDrawingTimestampAtLogicalIndex,
           pane: {
             id: paneId,
             top: pane.top,

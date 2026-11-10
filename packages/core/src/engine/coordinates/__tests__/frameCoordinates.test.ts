@@ -1,65 +1,60 @@
-/** 公共坐标 API 覆盖跨周期、日历、非线性价格轴及正反向的一致性。 */
+/** 公共坐标 API：真实行情插值、两端外推、槽位取整与价格轴双向一致。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { getFrameCoordinates } from '../impl/frameCoordinates.js'
 
+/** 三根等距 K 线，常规槽距 1000ms。 */
+const EQUAL_TIMES = [1000, 2000, 3000] as const
+
+const MINUTE = 60_000
+const DAY = 24 * 60 * MINUTE
+
+/** 构造指定时间序列的 K 线帧上下文，只声明坐标换算关心的字段。 */
+function contextFor(timestamps: readonly number[]) {
+  return createMockRenderContext({
+    data: timestamps.map((timestamp) => ({ timestamp, open: 1, high: 1, low: 1, close: 1 })),
+  })
+}
+
 describe('公开图表坐标 API', () => {
   it.each([
-    [1000, 0, 0],
-    [3500, 1.5, 2],
-    [0, -1, -1],
-    [7000, 2.5, 3],
-    [9000, 3, 3],
-  ])('时间 %s 与逻辑位置 %s 双向一致，槽位投影为 %s', (time, index, slot) => {
-    const timestamps = [1000, 2000, 5000, 9000, 10000]
-    const context = createMockRenderContext({
-      data: timestamps
-        .slice(0, 3)
-        .map((timestamp) => ({ timestamp, open: 1, high: 1, low: 1, close: 1 })),
-      getTimestampAtLogicalIndex: (i) => timestamps[i] ?? null,
-    })
-    const api = getFrameCoordinates(context)
+    [0, -1, -1, 0],
+    [1000, 0, 0, 1000],
+    [1250, 0.25, 0, 1000],
+    [2000, 1, 1, 2000],
+    [2500, 1.5, 2, 3000],
+    [3000, 2, 2, 3000],
+    [4500, 3.5, 4, 5000],
+    [7000, 6, 6, 7000],
+  ])('时间 %s → 连续位置 %s / 槽位 %s / 槽位时间 %s', (time, index, slot, slotTime) => {
+    const api = getFrameCoordinates(contextFor(EQUAL_TIMES))
     expect(api.timeToLogical(time)).toBe(index)
     expect(api.logicalToTime(index)).toBe(time)
     expect(api.timeToSlot(time)).toBe(slot)
+    expect(api.slotToTime(slot)).toBe(slotTime)
+    expect(api.timeToSlot(slotTime)).toBe(slot)
   })
 
-  it('同一时间在不同周期投影后保持原值，不要求命中 K 线开盘时间', () => {
-    const time = Date.UTC(2026, 0, 5, 10, 15)
-    for (const minutes of [5, 60, 240]) {
-      const start = Date.UTC(2026, 0, 5, 8)
-      const context = createMockRenderContext({
-        data: Array.from({ length: 100 }, (_, i) => ({
-          timestamp: start + i * minutes * 60000,
-          open: 1,
-          high: 1,
-          low: 1,
-          close: 1,
-        })),
-      })
-      const api = getFrameCoordinates(context)
-      const index = api.timeToLogical(time)
-      expect(index).not.toBeNull()
-      expect(api.logicalToTime(index!)).toBe(time)
-    }
+  it('休市长间隔不改变常规槽距，两端都按同一节奏外推', () => {
+    const start = Date.UTC(2026, 0, 5)
+    const timestamps = [0, 1, 2, 3, 4, 7].map((day) => start + day * DAY)
+    const api = getFrameCoordinates(contextFor(timestamps))
+    const last = timestamps[timestamps.length - 1]!
+    expect(api.timeToLogical(last + DAY)).toBe(6)
+    expect(api.slotToTime(6)).toBe(last + DAY)
+    expect(api.logicalToTime(-1)).toBe(start - DAY)
+    expect(api.timeToSlot(start - DAY)).toBe(-1)
   })
 
-  it('未知未来返回空值；日历补齐后同一绘图可直接重新定位', () => {
-    const data = [{ timestamp: 1000, open: 1, high: 1, low: 1, close: 1 }]
-    const unavailable = getFrameCoordinates(createMockRenderContext({ data }))
-    expect(unavailable.timeToLogical(3000)).toBeNull()
-    expect(unavailable.logicalToTime(2)).toBeNull()
-    const available = getFrameCoordinates(
-      createMockRenderContext({
-        data,
-        getTimestampAtLogicalIndex: (i) => [1000, 2000, 4000][i] ?? null,
-      }),
-    )
-    expect(available.timeToLogical(3000)).toBe(1.5)
-    expect(available.logicalToTime(1.5)).toBe(3000)
+  it('单根 K 线只有自身槽位，不凭空推算未来或过去', () => {
+    const api = getFrameCoordinates(contextFor([1000]))
+    expect(api.timeToSlot(1000)).toBe(0)
+    expect(api.timeToLogical(2000)).toBeNull()
+    expect(api.logicalToTime(1)).toBeNull()
+    expect(api.slotToTime(-1)).toBeNull()
   })
 
-  it.each([1, 1.25, 2])('像素比 %s 下连续横坐标和对数价格轴双向一致', (dpr) => {
+  it.each([1, 1.25, 2])('像素比 %s 下横坐标与对数价格轴双向一致', (dpr) => {
     const api = getFrameCoordinates(
       createMockRenderContext({
         dpr,
@@ -73,19 +68,24 @@ describe('公开图表坐标 API', () => {
     expect(api.yToPrice(api.priceToY(100)!)).toBeCloseTo(100)
   })
 
-  it('末根内部可以投影，缺少未来日历时不能把收盘边界当成新锚点槽位', () => {
-    const start = Date.UTC(2026, 0, 5)
-    const api = getFrameCoordinates(
-      createMockRenderContext({
-        data: [{ timestamp: start, open: 1, high: 1, low: 1, close: 1 }],
-        period: '5min',
-        marketSession: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] },
-        getTimestampAtLogicalIndex: () => null,
-      }),
-    )
-    expect(api.timeToLogical(start + 150000)).toBe(0.5)
-    expect(api.logicalToTime(0.5)).toBe(start + 150000)
-    expect(api.slotToTime(1)).toBeNull()
-    expect(api.timeToSlot(start + 240000)).toBe(0)
+  it('视口外的槽位与像素互为逆运算，整槽取整只发生在吸附入口', () => {
+    const api = getFrameCoordinates(createMockRenderContext())
+    const x = api.logicalToX(120)
+    expect(x).not.toBeNull()
+    expect(api.xToLogical(x!)).toBeCloseTo(120)
+    expect(api.xToSlot(x!)).toBe(120)
+  })
+
+  it('同一绝对时间在不同周期下都保持连续位置的双向一致', () => {
+    const time = Date.UTC(2026, 0, 5, 10, 15)
+    for (const minutes of [5, 60, 240]) {
+      const start = Date.UTC(2026, 0, 5, 8)
+      const api = getFrameCoordinates(
+        contextFor(Array.from({ length: 100 }, (_, i) => start + i * minutes * MINUTE)),
+      )
+      const index = api.timeToLogical(time)
+      expect(index).not.toBeNull()
+      expect(api.logicalToTime(index!)).toBe(time)
+    }
   })
 })

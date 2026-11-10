@@ -1,4 +1,4 @@
-/** 同一正式文档跨日线、小时线和分钟线绘制、命中和编辑，创建落点必须吸附槽位。 */
+/** 同一正式文档跨日线、小时线和分钟线绘制、命中和编辑；未来与过去槽位都按绝对时间定位。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { createDrawingDocumentFixture } from '@/engine/drawing/__tests__/helpers/drawingDocumentFixture.js'
@@ -18,8 +18,13 @@ import { getFrameCoordinates } from '../impl/frameCoordinates.js'
 
 const START = Date.UTC(2026, 0, 5)
 const DAY = 86400000
+/** 右侧留白槽位，供未来落点与跨周期投影使用。 */
+const FUTURE_SLOTS = 8
 
-/** 连续交易市场的真实帧结构；仅改变周期和行情点列，不修改绘图文档。 */
+/**
+ * 连续交易市场的真实帧结构：三天行情 + 右侧留白。
+ * 只改变周期和行情点列，不修改绘图文档。
+ */
 function frame(minutes: number, symbolKey = 'asset-a') {
   const count = Math.ceil((3 * 1440) / minutes)
   const data = Array.from({ length: count }, (_, i) => ({
@@ -36,8 +41,9 @@ function frame(minutes: number, symbolKey = 'asset-a') {
     kWidth: 18,
     kGap: 2,
     kLineCenters: data.map((_, i) => 10 + i * 20),
-    paneWidth: count * 20,
-    viewport: { scrollLeft: 0, plotWidth: count * 20, plotHeight: 200 },
+    range: { start: 0, end: count + FUTURE_SLOTS },
+    paneWidth: (count + FUTURE_SLOTS) * 20,
+    viewport: { scrollLeft: 0, plotWidth: (count + FUTURE_SLOTS) * 20, plotHeight: 200 },
     pane: { height: 200, yAxis: { priceToY: (p) => 200 - p, yToPrice: (y) => 200 - y } },
   })
   const coordinates = getFrameCoordinates(context)
@@ -47,8 +53,16 @@ function frame(minutes: number, symbolKey = 'asset-a') {
     getDrawingData: () => data,
     getViewport: () => context.viewport,
     getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
+    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
   })
-  return { context, coordinates, adapter }
+  return {
+    context,
+    coordinates,
+    adapter,
+    count,
+    lastTime: data[count - 1]!.timestamp,
+    cadence: minutes * 60000,
+  }
 }
 
 describe('一份绘图跨周期显示', () => {
@@ -75,13 +89,12 @@ describe('一份绘图跨周期显示', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
     for (const minutes of [1440, 60, 5, 1440]) {
-      const { context, coordinates, adapter } = frame(minutes)
+      const { coordinates, adapter, context } = frame(minutes)
       const projection = projectDrawingsForFrame(store, definitions, context)
       const line = projection.primitives.find((primitive) => primitive.kind === 'line')
       expect(line).toBeDefined()
       if (!line || line.kind !== 'line') throw new Error('趋势线投影缺失')
-      const first = drawing.anchors[0]!
-      const index = coordinates.timeToSlot(Number(first.time))!
+      const index = coordinates.timeToSlot(Number(drawing.anchors[0]!.time))!
       expect(Number.isInteger(index)).toBe(true)
       expect(line.a.x).toBe(coordinates.logicalToX(index))
       expect(new HitTester().hitTest(line.a.x, line.a.y, [drawing], adapter)?.drawing.id).toBe(
@@ -103,6 +116,56 @@ describe('一份绘图跨周期显示', () => {
       { snapToSlot: true },
     )
     expect(pointer).toMatchObject({ time: START + minutes * 60000, x: 30, price: 20 })
+  })
+
+  it('未来时间在目标周期按常规槽距投影，文档只保留原始时间', () => {
+    const { document, state } = createDrawingDocumentFixture(() => 'asset-a')
+    for (const minutes of [1440, 60, 5]) {
+      const { coordinates, adapter, context, count, lastTime, cadence } = frame(minutes)
+      const future = lastTime + cadence * 1.25
+      const drawing = document.createDrawing({
+        kind: 'trend-line',
+        paneId: 'main',
+        style: { stroke: '#2962ff' },
+        anchors: [
+          { timestamp: future, price: 10 },
+          { timestamp: future + cadence * 2, price: 20 },
+        ],
+      })
+      const slot = coordinates.timeToSlot(future)!
+      expect(slot).toBe(count)
+      expect(coordinates.slotToTime(slot)).toBe(lastTime + cadence)
+      expect(coordinates.logicalToTime(coordinates.timeToLogical(future)!)).toBe(future)
+
+      const definitionStore = new DrawingStore({
+        drawings$: state.readonly.drawings,
+        selectedDrawingIds$: state.readonly.selectedDrawingIds,
+      })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const projection = projectDrawingsForFrame(definitionStore, definitions, context)
+      const line = projection.primitives.find((primitive) => primitive.kind === 'line')
+      if (!line || line.kind !== 'line') throw new Error('未来趋势线投影缺失')
+      expect(line.a.x).toBe(coordinates.logicalToX(slot))
+      expect(new HitTester().hitTest(line.a.x, line.a.y, [drawing], adapter)?.drawing.id).toBe(
+        drawing.id,
+      )
+      expect(drawing.anchors[0]?.time).toBe(future)
+      document.removeDrawing(drawing.id)
+    }
+  })
+
+  it.each([1440, 60, 5])('在 %s 分钟周期的未来留白创建锚点时保存该槽位时间', (minutes) => {
+    const { coordinates, adapter, count } = frame(minutes)
+    const slot = count + 3
+    const x = coordinates.logicalToX(slot)!
+    const pointer = resolveDrawingPointer(
+      createPointerEvent({ clientX: x, clientY: 180 }),
+      CONTAINER,
+      adapter,
+      { snapToSlot: true },
+    )
+    expect(pointer).toMatchObject({ time: coordinates.slotToTime(slot), x, price: 20 })
   })
 
   it('在大周期只上下平移时，原先处于槽位内部的时间不会因像素反算改变', () => {
@@ -130,6 +193,32 @@ describe('一份绘图跨周期显示', () => {
     )
     document.commitDrawingDrag(drawing.id, updated!.anchors)
     expect(document.getDrawing(drawing.id)?.anchors[0]?.price).toBe(20)
+  })
+
+  it('未绑定标的的用户图元不泄漏到具体标的，指标图元跟随宿主', () => {
+    const { state, document } = createDrawingDocumentFixture(() => 'asset-a')
+    state.actions.setDrawings([
+      {
+        id: 'orphan',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'a', type: 'horizontal', price: 10 }],
+        params: {},
+        style: { stroke: '#2962ff' },
+      },
+      {
+        id: 'indicator',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        ownerId: 'instance-rsi',
+        visible: true,
+        anchors: [{ id: 'a', type: 'horizontal', price: 20 }],
+        params: {},
+        style: { stroke: '#2962ff' },
+      },
+    ])
+    expect(document.listCurrentDrawings().map((drawing) => drawing.id)).toEqual(['indicator'])
   })
 
   it('切换标的只改变文档视图，清除当前标的保留其他标的图元', () => {

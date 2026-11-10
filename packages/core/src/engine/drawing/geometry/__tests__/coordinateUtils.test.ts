@@ -13,21 +13,27 @@ import { anchorToScreen, resolveDrawingPointer } from '../impl/coordinateUtils'
 function createAdapter() {
   const coordinates = getFrameCoordinates(
     createMockRenderContext({
-      data: [{ timestamp: 1000, open: 1, high: 1, low: 1, close: 1 }],
+      data: [1000, 2000].map((timestamp) => ({
+        timestamp,
+        open: 1,
+        high: 1,
+        low: 1,
+        close: 1,
+      })),
       dataView: 'timeshare',
-      kLineCenters: [137],
+      kLineCenters: [137, 269],
       pane: {
         id: 'sub',
         top: 120,
         height: 80,
         yAxis: { priceToY: (p) => p + 10, yToPrice: (y) => y - 10 },
       },
-      getTimestampAtLogicalIndex: (i) => [1000, 2000, 4000][i] ?? null,
     }),
   )
   return createDrawingAdapter({
     viewport: {
       getCoordinates: () => coordinates,
+      getViewport: () => ({ scrollLeft: 0, plotWidth: 800, plotHeight: 240 }),
       getPaneInfo: () => ({ paneId: 'sub', top: 120, height: 80 }),
       getPaneAtY: (y) =>
         y >= 120 && y <= 200 ? { paneId: 'sub', top: 120, height: 80 } : undefined,
@@ -64,21 +70,24 @@ describe('绘图公共坐标适配', () => {
     ).toMatchObject({ time: 1000, price: 70, x: 137, y: 80 })
   })
 
-  it('未来时间映射到最近槽位，保持原始时间；新落点保存当前槽位时间', () => {
+  it('未来时间吸附最近槽位，新落点保存该槽位时间', () => {
     const adapter = createAdapter()
     const coordinates = adapter.getCoordinates('sub')!
-    const x = coordinates.logicalToX(1.5)!
-    const anchor = { time: 3000, price: 20 }
-    expect(anchorToScreen(anchor, 'sub', adapter)).toEqual({
+    const futureX = coordinates.logicalToX(3)!
+    expect(anchorToScreen({ time: 3500, price: 20 }, 'sub', adapter)).toEqual({
       type: 'point',
-      x: coordinates.logicalToX(2),
+      x: futureX,
       y: 30,
     })
-    expect(anchor.time).toBe(3000)
     expect(
-      resolveDrawingPointer(createPointerEvent({ clientX: x, clientY: 150 }), CONTAINER, adapter, {
-        snapToSlot: true,
-      }),
-    ).toMatchObject({ time: 4000, x: coordinates.logicalToX(2), price: 20 })
+      resolveDrawingPointer(
+        createPointerEvent({ clientX: futureX, clientY: 150 }),
+        CONTAINER,
+        adapter,
+        {
+          snapToSlot: true,
+        },
+      ),
+    ).toMatchObject({ time: 4000, x: futureX, price: 20 })
   })
 })
