@@ -22,7 +22,7 @@ flowchart TB
 
 ### 帧内投影
 
-控制器以 `getCoordinates(paneId)` 暴露 `DrawingCoordinateApi` Interface。渲染、命中、拖动、复制与磁吸通过同一服务换算；控制器的像素换算入口也委托此服务。每个接口实例绑定一个帧上下文，调用方每次现取、不跨帧缓存坐标实例。
+每个 Pane 的帧上下文构造一个 `FrameCoordinates` 并写入 `RenderContext.coordinates`；时间与槽位来自同一帧快照，价格部分绑定该 Pane 的价格轴。渲染、命中、拖动、复制、磁吸与时间轴都消费同一个实例，控制器的 `getCoordinates(paneId)` 直接返回它，调用方每次现取、不跨帧缓存。
 
 新建图元与拖动单个锚点时，先通过 `xToSlot` 吸附到当前周期最近槽位，再通过 `slotToTime` 保存该槽位的绝对时间。跨周期投影使用 `timeToSlot`，同样吸附到目标周期最近槽位。两个入口共用唯一取整规则，切换周期不得把目标槽位的时间回写文档，因此日线、小时线、分钟线之间往返不会累积定位误差。
 

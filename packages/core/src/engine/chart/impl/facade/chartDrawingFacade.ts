@@ -89,12 +89,6 @@ export class ChartDrawingFacade {
     return this.deps.dataManager.getRenderData()
   }
 
-  /** 返回活动点列中指定逻辑索引的时间戳。 */
-  getTimestampAtLogicalIndex(index: number): number | null {
-    if (!Number.isInteger(index) || index < 0) return null
-    return this.deps.dataManager.getRenderData()[index]?.timestamp ?? null
-  }
-
   /** 返回当前数据视图的绘图工作区。 */
   getWorkspaceId(): DrawingWorkspaceId {
     return resolveChartWorkspaceId(this.deps.kernel.mode.readonly.dataView.peek())

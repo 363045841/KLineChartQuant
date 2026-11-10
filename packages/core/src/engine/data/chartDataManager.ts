@@ -122,13 +122,11 @@ export class ChartDataManager {
   private readonly loadRequests = new WeakMap<KLineBuffer | TimeShareBuffer, object>()
   private readonly readySessions = new WeakMap<KLineBuffer, ReadyMarketSession>()
   private readonly barLoads = new Map<KLineBuffer, AbortController>()
-
   /** 成交需求与活动品种共同决定唯一 Buffer，不由 renderer 创建网络连接。 */
   reconcileTradeInput(): void {
     this.marketRuntime.reconcileTrades()
   }
-  private readonly calendarRequests = new WeakMap<KLineBuffer, { anchor: number; count: number }>()
-  /** K 线请求实际解析出的来源与品种，成交及交易日历共用。 */
+  /** K 线请求实际解析出的来源与品种，供成交连接与就绪身份共用。 */
   private readonly resolvedBarSources = new WeakMap<
     KLineBuffer,
     {
@@ -588,7 +586,6 @@ export class ChartDataManager {
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       if (target.refresh) {
-        this.calendarRequests.delete(buffer)
         buffer.replace(result.series.data, result.series.olderData, result.series.timezone)
       } else buffer.mergePage(result.series.data, result.series.olderData, result.series.timezone)
       const resolvedSelection = { ...selection, sourceId: result.sourceId }
@@ -1406,79 +1403,6 @@ export class ChartDataManager {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
     return dataLength + 24
-  }
-
-  getTimestampAtLogicalIndex(index: number): number | null {
-    if (!Number.isInteger(index) || index < 0) return null
-    const buf = this.getActiveDataBuffer()
-    const data = buf ? buf.getRawData() : []
-    return data[index]?.timestamp ?? null
-  }
-
-  /** 仅供 X 轴日期文字使用；未来索引可映射到已知市场交易时段。 */
-  getAxisTimestampAtLogicalIndex(index: number): number | null {
-    if (!Number.isInteger(index) || index < 0) return null
-    const buf = this.getActiveDataBuffer()
-    const data = buf ? buf.getRawData() : []
-    const actual = data[index]?.timestamp
-    if (actual !== undefined) return actual
-    if (index < data.length) return null
-    if (!buf || !data.length) return null
-    const timestamp = buf.getFutureTimestamp(index)
-    if (timestamp !== null) return timestamp
-    this.requestTradingCalendar(buf, data[data.length - 1]!.timestamp)
-    return null
-  }
-
-  private requestTradingCalendar(buffer: KLineBuffer, anchorTimestamp: number): void {
-    const selection = this._activeSelection
-    const source = this.resolvedBarSources.get(buffer)
-    if (selection?.kind !== SERIES_SELECTION_KIND.bars || !source) return
-    const provider = this.providerRegistry.get(source.sourceId)
-    if (
-      !provider?.source.capabilities?.tradingCalendar ||
-      !source.instrument.capabilities.tradingCalendar ||
-      !provider.tradingCalendar
-    )
-      return
-    const count = Math.max(
-      0,
-      this.deps.viewport.readonly.visibleRange.peek().end - buffer.getRawData().length,
-    )
-    if (!count || buffer.coversTradingCalendar(count)) return
-    const pending = this.calendarRequests.get(buffer)
-    if (pending?.anchor === anchorTimestamp && pending.count >= count) return
-    const request = { anchor: anchorTimestamp, count }
-    this.calendarRequests.set(buffer, request)
-    void provider.tradingCalendar
-      .fetch({
-        instrument: source.instrument,
-        period: selection.period,
-        adjustment: selection.adjustment,
-        barAggregation: selection.barAggregation,
-        anchorTimestamp,
-        count,
-      })
-      .then((calendar) => {
-        if (this.calendarRequests.get(buffer) !== request) return
-        if (calendar.futureTimestamps.length > count) return
-        if (buffer.setTradingCalendar(calendar) && this.getActiveDataBuffer() === buffer)
-          this.deps.scheduleDraw()
-      })
-      .catch(() => {
-        // 请求失败只影响未来标签；下次重绘允许重新请求。
-        if (this.calendarRequests.get(buffer) === request) this.calendarRequests.delete(buffer)
-      })
-  }
-
-  /** 通过当前活动数据 Buffer 的唯一时间索引解析逻辑坐标。 */
-  getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    if (!Number.isFinite(timestamp)) return null
-    return (
-      this.getActiveDataBuffer()?.getLogicalIndexAtTimestamp(timestamp) ??
-      this.getActiveTimeShareBuffer()?.getLogicalIndexAtTimestamp(timestamp) ??
-      null
-    )
   }
 
   destroy(): void {

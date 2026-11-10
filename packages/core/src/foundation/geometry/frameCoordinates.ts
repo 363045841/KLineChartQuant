@@ -1,5 +1,9 @@
-/** 图表公开坐标契约；时间与价格是事实，索引与 Pane 局部像素是当前视图的投影。 */
-export interface DrawingCoordinateApi {
+/**
+ * 单帧图表坐标契约：时间是事实，逻辑槽位、像素与 Pane 价格都是当前视图的投影。
+ *
+ * 时间轴、绘图投影、命中与拖拽共享同一个实现；数据两端按常规槽距外推。
+ */
+export interface FrameCoordinates {
   /** 毫秒时间戳映射为连续逻辑位置；真实行情之间插值，两端按常规槽距外推。 */
   timeToLogical(timestamp: number): number | null
   /** 跨周期绘图使用的最近整数槽位；仅派生位置，不改变原始时间。 */

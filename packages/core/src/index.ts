@@ -6,7 +6,6 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
-export type { DrawingCoordinateApi } from './engine/coordinates/types.js'
 export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
 export {
   type IndicatorInputDef,
@@ -83,6 +82,7 @@ export * from './features/replay/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
+export type { FrameCoordinates } from './foundation/geometry/frameCoordinates.js'
 export * from './foundation/persistence/index.js'
 export { makePluginLayerId } from './foundation/plugin/impl/rendererLayerId.js'
 export type { Plugin, PluginConfig, PluginHost, RenderContext } from './foundation/plugin/types.js'

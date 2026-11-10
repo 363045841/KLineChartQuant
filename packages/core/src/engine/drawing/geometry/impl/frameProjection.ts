@@ -2,7 +2,6 @@
 
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
-import { getFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
@@ -23,7 +22,6 @@ import {
   type ScriptColorResolver,
 } from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
@@ -51,15 +49,12 @@ type MutableDrawingFrameProjection = {
   snapLines: SnapLine[]
 }
 
-/** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
+/** 基于当前帧坐标服务解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
-  const coordinates = getFrameCoordinates(context)
-  return (anchor) => {
-    return {
-      x: coordinates.logicalToX(anchor.index) ?? Number.NaN,
-      y: coordinates.priceToY(anchor.price) ?? Number.NaN,
-    }
-  }
+  return (anchor) => ({
+    x: context.coordinates.logicalToX(anchor.index) ?? Number.NaN,
+    y: context.coordinates.priceToY(anchor.price) ?? Number.NaN,
+  })
 }
 
 /** 缺失时间锚点对应的数据时不能生成几何，禁止复用旧位置。 */
@@ -85,15 +80,14 @@ function resolveAnchorForFrame(
 ): ResolvedDrawingAnchor {
   if (anchor.logicalIndex !== undefined) return { ...anchor, index: anchor.logicalIndex }
   const timestamp = parseAnchorTime(anchor.time)
-  const coordinates = getFrameCoordinates(context)
   return {
     ...anchor,
     index:
       timestamp === undefined
         ? Number.NaN
         : ((drawing.xloc === 'bar_time'
-            ? coordinates.timeToLogical(timestamp)
-            : coordinates.timeToSlot(timestamp)) ?? Number.NaN),
+            ? context.coordinates.timeToLogical(timestamp)
+            : context.coordinates.timeToSlot(timestamp)) ?? Number.NaN),
   }
 }
 
@@ -237,11 +231,9 @@ function isAnchorIndexVisible(
 /** 解析锚点用于时间轴标签的时间戳；索引锚点走连续投影，时间锚点直接使用保存的时间。 */
 function resolveAnchorTimestamp(
   anchor: ResolvedDrawingAnchor,
-  series: RenderContext['data'],
   context: RenderContext,
 ): number | null {
-  if (anchor.logicalIndex !== undefined)
-    return getFrameCoordinates(context).logicalToTime(anchor.index)
+  if (anchor.logicalIndex !== undefined) return context.coordinates.logicalToTime(anchor.index)
   const parsed = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
   return parsed !== undefined && Number.isFinite(parsed) ? parsed : null
 }
@@ -295,10 +287,8 @@ function resolveTimeLabelText(
   context: RenderContext,
 ): string | null {
   if (priceLabelOnly || !indexVisible) return null
-  const timestamp = resolveAnchorTimestamp(anchor, context.data, context)
-  return resolveAxisTimeLabel(anchor.index, context.data.length, timestamp, (ts) =>
-    context.displayTimeFormatter.formatDate(ts),
-  )
+  const timestamp = resolveAnchorTimestamp(anchor, context)
+  return timestamp === null ? null : context.displayTimeFormatter.formatDate(timestamp)
 }
 
 /** 直接命中候选时保留领域值；没有命中时返回原锚点。 */
@@ -339,7 +329,7 @@ function projectAxisRangeBands(
   const indices = valid.map((anchor) => anchor.index)
   const minPrice = Math.min(...prices)
   const maxPrice = Math.max(...prices)
-  const coordinates = getFrameCoordinates(context)
+  const coordinates = context.coordinates
   const topY = coordinates.priceToY(maxPrice)
   const bottomY = coordinates.priceToY(minPrice)
   if (minPrice !== maxPrice && topY !== null && bottomY !== null) {

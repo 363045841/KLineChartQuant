@@ -287,7 +287,7 @@ export interface DrawingViewportPort {
   /** 当前 Pane 的公开双向坐标服务；帧尚未就绪时返回 null。 */
   getCoordinates(
     paneId: string,
-  ): import('../engine/coordinates/types.js').DrawingCoordinateApi | null
+  ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */

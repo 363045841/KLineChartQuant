@@ -1,6 +1,10 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
-import { createKLineData, createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
+import {
+  createKLineData,
+  createMockRenderContext,
+  type MockRenderContextOverrides,
+} from '@/engine/__tests__/helpers/renderTestKit'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -20,8 +24,8 @@ import type { DrawingKind, DrawingObject } from '../../types'
 import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
-function createContext(): RenderContext {
-  const context = createMockRenderContext({
+function createContext(overrides: MockRenderContextOverrides = {}): RenderContext {
+  return createMockRenderContext({
     data: [
       { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
       { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
@@ -35,8 +39,8 @@ function createContext(): RenderContext {
     kLineCenters: [10, 30],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
     pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
+    ...overrides,
   })
-  return context
 }
 
 /** 基准趋势线图元，只声明用例关心的差异。 */
@@ -122,13 +126,16 @@ describe('computeDrawingPriceRange', () => {
       min: 10,
       max: 20,
     })
-    context.range = { start: 6, end: 9 }
-    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
-      min: 16,
-      max: 26,
-    })
-    context.range = { start: 3, end: 3 }
-    expect(computeDrawingPriceRange(drawings, definitions, context)).toBeNull()
+    expect(
+      computeDrawingPriceRange(
+        [...drawings, ...ignored],
+        definitions,
+        createRangeContext({ start: 6, end: 9 }),
+      ),
+    ).toEqual({ min: 16, max: 26 })
+    expect(
+      computeDrawingPriceRange(drawings, definitions, createRangeContext({ start: 3, end: 3 })),
+    ).toBeNull()
   })
 })
 
@@ -159,13 +166,14 @@ describe('projectDrawingsForFrame', () => {
 
   it('projects profile reference lines beyond the last candle through the shared cadence', () => {
     const start = Date.UTC(2026, 0, 5)
-    const context = createContext()
-    context.data = [
-      { timestamp: start, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: start + 300_000, open: 1, high: 2, low: 0, close: 1 },
-    ]
-    context.period = '5min'
-    context.marketSession = { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] }
+    const context = createContext({
+      data: [
+        { timestamp: start, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: start + 300_000, open: 1, high: 2, low: 0, close: 1 },
+      ],
+      period: '5min',
+      marketSession: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] },
+    })
     const bar = createDrawingObject({
       id: 'profile',
       kind: 'rectangle',
@@ -437,15 +445,16 @@ describe('projectDrawingsForFrame', () => {
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {
     // 创建时的 index 为 0/1；前方插入两根旧 K 线后它们应变为 2/3。
     const drawing = createTrendDrawing()
-    const context = createContext()
-    context.data = [
-      { timestamp: -1_000, open: 0, high: 1, low: -1, close: 0 },
-      { timestamp: 0, open: 0, high: 1, low: -1, close: 0 },
-      { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
-    ]
-    context.range = { start: 2, end: 4 }
-    context.kLineCenters = [10, 30]
+    const context = createContext({
+      data: [
+        { timestamp: -1_000, open: 0, high: 1, low: -1, close: 0 },
+        { timestamp: 0, open: 0, high: 1, low: -1, close: 0 },
+        { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
+      ],
+      range: { start: 2, end: 4 },
+      kLineCenters: [10, 30],
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
@@ -472,14 +481,15 @@ describe('projectDrawingsForFrame', () => {
         { id: 'b', time: 3_000, price: 20 },
       ],
     })
-    const context = createContext()
-    context.data = [
-      { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
-      { timestamp: 3_000, open: 3, high: 4, low: 2, close: 3 },
-    ]
-    context.paneWidth = 40
-    context.viewport = { scrollLeft: 0, plotWidth: 40, plotHeight: 100 }
+    const context = createContext({
+      data: [
+        { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
+        { timestamp: 3_000, open: 3, high: 4, low: 2, close: 3 },
+      ],
+      paneWidth: 40,
+      viewport: { scrollLeft: 0, plotWidth: 40, plotHeight: 100 },
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
@@ -513,9 +523,10 @@ describe('projectDrawingsForFrame', () => {
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-    context.range = { start: 0, end: 5 }
-    context.kLineCenters = [10, 30, 50, 70, 90]
+    const context = createContext({
+      range: { start: 0, end: 5 },
+      kLineCenters: [10, 30, 50, 70, 90],
+    })
     const projection = projectDrawingsForFrame(store, definitions, context)
     expect(linePrimitives(projection.primitives)).toHaveLength(1)
     // 用户锚点吸附槽位：两根 K 线的常规槽距为 1000ms，4000ms 落在第 3 槽位。

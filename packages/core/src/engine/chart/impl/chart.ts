@@ -812,7 +812,9 @@ export class Chart {
   }
 
   /** 返回当前 Pane 与绘图投影共用的公开坐标服务。 */
-  getCoordinates(paneId: string): import('../../coordinates/types.js').DrawingCoordinateApi | null {
+  getCoordinates(
+    paneId: string,
+  ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
     return this.renderer.getCoordinates(paneId)
   }
 
@@ -1190,15 +1192,6 @@ export class Chart {
     if (!this._volumeLookbacks) return rollingVolume
     for (const [size, calc] of this._volumeLookbacks) rollingVolume[size] = calc.mean
     return rollingVolume
-  }
-
-  getTimestampAtLogicalIndex(index: number): number | null {
-    return this.dataManager.getTimestampAtLogicalIndex(index)
-  }
-
-  /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
-  getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
   }
 
   /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */

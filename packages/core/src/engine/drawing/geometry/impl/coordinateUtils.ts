@@ -8,7 +8,7 @@
 // 磁吸与锁角只作用于落点/预览路径，命中、框选等只读路径不得传入，以免范围漂移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
-import type { DrawingCoordinateApi } from '@/engine/coordinates/types.js'
+import type { FrameCoordinates } from '@/foundation/geometry/frameCoordinates.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
 import { snapPointer } from '../../magnet/impl/snapPointer.js'
@@ -179,7 +179,7 @@ export function resolveDrawingPointer(
  */
 function resolveSlotAnchor(
   x: number,
-  coordinates: DrawingCoordinateApi,
+  coordinates: FrameCoordinates,
 ): { x: number; time: number } | null {
   const index = coordinates.xToSlot(x)
   if (index === null) return null
@@ -212,7 +212,7 @@ function resolvePointerPlacement(
  */
 function applyPointerConstraints(
   placement: DrawingAreaPlacement,
-  coordinates: DrawingCoordinateApi,
+  coordinates: FrameCoordinates,
   dataLength: number,
   options: ResolveDrawingPointerOptions | undefined,
 ): Point | null {

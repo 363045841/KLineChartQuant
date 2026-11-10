@@ -6,4 +6,4 @@
 
 回归计算继续只接受有效数据索引，普通趋势线继续支持未来槽位。自动化用例覆盖正反端点顺序、单端点越界与回拖、整体平移、绘制预览及确认落点，以及普通趋势线行为。
 
-边界查询、跨周期映射与屏幕换算统一经过公共 `DrawingCoordinateApi`，具体规则由[绘图锚点契约](drawing/drawing-anchors.md)维护。
+边界查询、跨周期映射与屏幕换算统一经过公共 `FrameCoordinates`，具体规则由[绘图锚点契约](drawing/drawing-anchors.md)维护。

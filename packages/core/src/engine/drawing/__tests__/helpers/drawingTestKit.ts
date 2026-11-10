@@ -16,7 +16,6 @@ import type {
   PaneLayoutInfo,
 } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { getFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
@@ -320,26 +319,24 @@ export function createDrawingViewportPort(
         .getDrawingData()
         .map(({ timestamp }) => ({ timestamp, open: 1, high: 1, low: 1, close: 1 }))
       const { kWidth, kGap } = port.getKWidthKGap()
-      return getFrameCoordinates(
-        createMockRenderContext({
-          data,
-          range: { start: 0, end: data.length },
-          dataView: port.getDrawingWorkspaceId(),
-          kWidth,
-          kGap,
-          dpr: port.getCurrentDpr(),
-          kLineCenters: data.map((_, index) => port.getXAtLogicalIndex(index) ?? Number.NaN),
-          pane: {
-            id: paneId,
-            top: pane.top,
-            height: pane.height,
-            yAxis: {
-              priceToY: (price) => port.priceToY(paneId, price),
-              yToPrice: (y) => port.yToPrice(paneId, y),
-            },
+      return createMockRenderContext({
+        data,
+        range: { start: 0, end: data.length },
+        dataView: port.getDrawingWorkspaceId(),
+        kWidth,
+        kGap,
+        dpr: port.getCurrentDpr(),
+        kLineCenters: data.map((_, index) => port.getXAtLogicalIndex(index) ?? Number.NaN),
+        pane: {
+          id: paneId,
+          top: pane.top,
+          height: pane.height,
+          yAxis: {
+            priceToY: (price) => port.priceToY(paneId, price),
+            yToPrice: (y) => port.yToPrice(paneId, y),
           },
-        }),
-      )
+        },
+      }).coordinates
     },
     getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
     getKWidthKGap: () => ({ kWidth: 8, kGap: 2 }),

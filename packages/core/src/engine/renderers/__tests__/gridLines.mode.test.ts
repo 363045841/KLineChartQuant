@@ -9,7 +9,7 @@ import { createGridLinesLayer } from '@/engine/renderers/gridLines'
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
-import { createDailyBars, createDailyFutureTimestamp } from './helpers/futureAxisTestKit'
+import { createDailyBars } from './helpers/dailyBarsTestKit'
 
 /** 构造记录 fillRect 矩形的画布。 */
 function createMockCtx() {
@@ -115,11 +115,8 @@ describe('gridLines mode', () => {
 })
 
 describe('gridLines 未来区纵向网格', () => {
-  // 未来区不产生纵向网格线：有无交易日历回调都只按历史月界定位，结果必须一致。
-  it.each([
-    { label: '有交易日历回调', withCalendar: true },
-    { label: '无交易日历回调', withCalendar: false },
-  ])('$label 时未来区不产生纵向网格线', ({ withCalendar }) => {
+  // 未来区不产生纵向网格线：纵向网格只按历史月界定位。
+  it('未来区不产生纵向网格线', () => {
     const dataLength = 100
     const { ctx, fillRects } = createMockCtx()
     const context = createMockRenderContext({
@@ -132,9 +129,6 @@ describe('gridLines 未来区纵向网格', () => {
       displayTimeFormatter: createDisplayTimeFormatter('UTC'),
       range: { start: 0, end: 160 },
       kLineCenters: Array.from({ length: 160 }, (_, i) => 8 * i + 4),
-      ...(withCalendar
-        ? { getTimestampAtLogicalIndex: createDailyFutureTimestamp(dataLength) }
-        : {}),
       pane: { top: 0, height: 400 },
     })
 

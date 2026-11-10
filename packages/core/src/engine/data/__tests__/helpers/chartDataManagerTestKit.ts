@@ -317,7 +317,6 @@ export type TestBarsSource = {
 /** 构造只声明用例关心能力的测试 Provider。 */
 export function createTestProvider(options: {
   fetchBars?: TestBarsSource
-  fetchTradingCalendar?: NonNullable<MarketDataProvider['tradingCalendar']>['fetch']
   fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
   fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
 }): MarketDataProvider {
@@ -328,7 +327,6 @@ export function createTestProvider(options: {
       capabilities: {
         instrumentTypes: ['stock'],
         bars: { periods: ['daily'], adjustments: ['none'] },
-        ...(options.fetchTradingCalendar ? { tradingCalendar: true } : {}),
         timeShare: true,
         ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
       },
@@ -348,9 +346,6 @@ export function createTestProvider(options: {
             barAggregation: 'original',
           }),
         }
-      : undefined,
-    tradingCalendar: options.fetchTradingCalendar
-      ? { fetch: options.fetchTradingCalendar }
       : undefined,
     timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
     timeShareRange: options.fetchTimeShareRange

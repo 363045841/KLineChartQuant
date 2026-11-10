@@ -1,6 +1,6 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
-import { getFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
+import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
 import type { SnapLine } from '@/foundation/plugin/index.js'
@@ -649,14 +649,16 @@ export class ChartRenderer {
    * 已提交层图元的线段（Pane 局部坐标），供磁吸候选。
    * 会话覆盖不进入候选：拖拽中的图元吸自己会形成反馈回路。
    */
-  getCoordinates(paneId: string): import('../../coordinates/types.js').DrawingCoordinateApi | null {
+  getCoordinates(
+    paneId: string,
+  ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
     const context = this.paneCtxMap.get(paneId)
     if (!context) return null
     const dataManager = this.deps.getDataManager()
     const symbol = dataManager.symbols.peek()[0]
     const symbolKey = symbol === undefined ? undefined : symbolSpecIdentityKey(symbol)
     if (context.symbolKey !== symbolKey || context.period !== dataManager.currentPeriod) return null
-    return getFrameCoordinates(context)
+    return context.coordinates
   }
 
   /** 已提交图元的磁吸线段，来自同一帧投影。 */
@@ -1393,17 +1395,30 @@ export class ChartRenderer {
     const vp = frame.vp
     const opt = this.deps.getOption()
     const symbol = dataManager.symbols.peek()[0]
+    const paneInfo = wrapPaneInfo(pane)
+    const dataView = this.deps.dataView$.peek()
     return {
       symbolKey: symbol === undefined ? undefined : symbolSpecIdentityKey(symbol),
       countdown: optional(frame.countdown.text),
       ctx: contexts.mainCtx!,
       overlayCtx: optional(contexts.overlayCtx),
       drawingCtx: optional(contexts.drawingCtx),
-      pane: wrapPaneInfo(pane),
+      pane: paneInfo,
       data: frame.data,
       dataRevision: frame.dataRevision,
       period: dataManager.currentPeriod,
-      dataView: this.deps.dataView$(),
+      dataView,
+      coordinates: createFrameCoordinates({
+        data: frame.data,
+        range: frame.range,
+        kLineCenters: frame.kLineCenters,
+        scrollLeft: vp.scrollLeft,
+        dpr: vp.dpr,
+        kWidth: opt.kWidth,
+        kGap: opt.kGap,
+        dataView,
+        priceAxis: paneInfo.yAxis,
+      }),
       marketSession: this.deps.getMarketSession(),
       displayTimeFormatter: this.getDisplayTimeFormatter(),
       timeShareRange: optional(dataManager.getTimeShareRange()),
@@ -1425,8 +1440,6 @@ export class ChartRenderer {
       kLineCenters: frame.kLineCenters,
       kWidthPx: frame.kWidthPx,
       visiblePriceExtrema: frame.visiblePriceExtrema,
-      getLogicalIndexAtTimestamp: (timestamp) => dataManager.getLogicalIndexAtTimestamp(timestamp),
-      getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
       indicatorStateReader: frame.indicatorStateReader,
       indicatorAvailability: frame.indicatorAvailability,
       crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
@@ -1785,7 +1798,7 @@ export class ChartRenderer {
       if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth
       if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight
       const dataManager = this.deps.getDataManager()
-      const timeAxisContext: RenderContext = {
+      const timeAxisContext: Omit<RenderContext, 'coordinates'> = {
         ctx: xAxisCtx,
         pane: {
           id: 'xAxis',
@@ -1832,9 +1845,6 @@ export class ChartRenderer {
         data: renderData,
         dataView: this.deps.dataView$.peek(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
-        getLogicalIndexAtTimestamp: (timestamp) =>
-          dataManager.getLogicalIndexAtTimestamp(timestamp),
-        getTimestampAtLogicalIndex: (index) => dataManager.getAxisTimestampAtLogicalIndex(index),
         timeShareRange: optional(dataManager.getTimeShareRange()),
         timeShareGeometry: optional(timeShareGeometry),
         range,
@@ -1862,6 +1872,17 @@ export class ChartRenderer {
       }
       this.timeAxisLayer.paint({
         ...timeAxisContext,
+        coordinates: createFrameCoordinates({
+          data: renderData,
+          range,
+          kLineCenters,
+          scrollLeft: vp.scrollLeft,
+          dpr: vp.dpr,
+          kWidth: opt.kWidth,
+          kGap: opt.kGap,
+          dataView: timeAxisContext.dataView,
+          priceAxis: timeAxisContext.pane.yAxis,
+        }),
         paneId: 'xAxis',
         clear: false,
         sceneRenderer: this.deps.getSceneRenderer(),

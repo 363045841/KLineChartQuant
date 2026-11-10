@@ -14,7 +14,6 @@ import { HitTester } from '@/engine/drawing/interaction/impl/HitTester.js'
 import { DrawingDefinitionRegistry } from '@/engine/drawing/render/impl/DrawingDefinitionRegistry.js'
 import { DrawingStore } from '@/engine/drawing/render/impl/DrawingStore.js'
 import { registerDefaultDrawingDefinitions } from '@/engine/drawing/render/impl/definitions/index.js'
-import { getFrameCoordinates } from '../impl/frameCoordinates.js'
 
 const START = Date.UTC(2026, 0, 5)
 const DAY = 86400000
@@ -46,7 +45,7 @@ function frame(minutes: number, symbolKey = 'asset-a') {
     viewport: { scrollLeft: 0, plotWidth: (count + FUTURE_SLOTS) * 20, plotHeight: 200 },
     pane: { height: 200, yAxis: { priceToY: (p) => 200 - p, yToPrice: (y) => 200 - y } },
   })
-  const coordinates = getFrameCoordinates(context)
+  const coordinates = context.coordinates
   const adapter = createDrawingViewportPort({
     getCoordinates: () => coordinates,
     getData: () => data,

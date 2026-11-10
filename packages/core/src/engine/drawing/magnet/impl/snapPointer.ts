@@ -8,7 +8,7 @@
 // 全部坐标是 Pane 局部逻辑像素，与命中、手柄、帧投影共用同一空间，调用方不再做偏移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
-import type { DrawingCoordinateApi } from '@/engine/coordinates/types.js'
+import type { FrameCoordinates } from '@/foundation/geometry/frameCoordinates.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
   type ActiveMagnetMode,
@@ -94,7 +94,7 @@ interface CollectInput {
   readonly barX: number
   /** 求值使用已解析的 Bar 中心 X。 */
   readonly queryX: number
-  readonly coordinates: DrawingCoordinateApi
+  readonly coordinates: FrameCoordinates
   readonly pane: PaneLayoutInfo
   readonly config: MagnetSnapConfig
 }

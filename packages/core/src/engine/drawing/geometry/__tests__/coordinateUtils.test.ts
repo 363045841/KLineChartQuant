@@ -1,7 +1,6 @@
 /** 绘图适配层直接使用公共坐标服务，并保持 Pane 局部坐标与单轴语义。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { getFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import {
   CONTAINER,
   createDrawingAdapter,
@@ -11,25 +10,23 @@ import { anchorToScreen, resolveDrawingPointer } from '../impl/coordinateUtils'
 
 /** 分时副图使用封存中心点，正反向均取真实公共服务。 */
 function createAdapter() {
-  const coordinates = getFrameCoordinates(
-    createMockRenderContext({
-      data: [1000, 2000].map((timestamp) => ({
-        timestamp,
-        open: 1,
-        high: 1,
-        low: 1,
-        close: 1,
-      })),
-      dataView: 'timeshare',
-      kLineCenters: [137, 269],
-      pane: {
-        id: 'sub',
-        top: 120,
-        height: 80,
-        yAxis: { priceToY: (p) => p + 10, yToPrice: (y) => y - 10 },
-      },
-    }),
-  )
+  const coordinates = createMockRenderContext({
+    data: [1000, 2000].map((timestamp) => ({
+      timestamp,
+      open: 1,
+      high: 1,
+      low: 1,
+      close: 1,
+    })),
+    dataView: 'timeshare',
+    kLineCenters: [137, 269],
+    pane: {
+      id: 'sub',
+      top: 120,
+      height: 80,
+      yAxis: { priceToY: (p) => p + 10, yToPrice: (y) => y - 10 },
+    },
+  }).coordinates
   return createDrawingAdapter({
     viewport: {
       getCoordinates: () => coordinates,
