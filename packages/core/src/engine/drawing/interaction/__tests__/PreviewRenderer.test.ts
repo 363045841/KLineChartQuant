@@ -4,16 +4,16 @@ import { describe, expect, it } from 'vitest'
 import { PreviewRenderer } from '../impl/PreviewRenderer'
 
 describe('PreviewRenderer', () => {
-  it('keeps the current future-slot offset in a two-anchor preview', () => {
+  it('预览保留公共坐标接口解析的绝对时间', () => {
     const preview = new PreviewRenderer().buildPreview(
       'trend-line',
       [{ time: 1_000, price: 10 }],
-      { time: 1_000, futureOffset: 3, price: 12 },
+      { time: 4_000, price: 12 },
       'main',
       'kline',
     )
 
-    expect(preview?.anchors[1]).toMatchObject({ time: 1_000, futureOffset: 3, price: 12 })
+    expect(preview?.anchors[1]).toMatchObject({ time: 4_000, price: 12 })
   })
 
   it('materializes the parallel-channel second line on the first two bar times', () => {

@@ -3,8 +3,10 @@
  */
 
 import type { ReadonlySignal } from '../../../../foundation/reactivity/signal.js'
+import { computed } from '../../../../foundation/reactivity/signal.js'
 import { resolveChartWorkspaceId } from '../../../chartModel/index.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
+import { symbolSpecIdentityKey } from '../../../data/symbolIdentity.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
   type DrawingCommands,
@@ -13,6 +15,7 @@ import {
   type DrawingToolId,
   type DrawingWorkspaceId,
 } from '../../../drawing/index.js'
+import { belongsToDrawingSymbol } from '../../../drawing/model/impl/drawingScope.js'
 import type { ChartRenderer } from '../../../frame/index.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
 
@@ -28,7 +31,17 @@ export interface ChartDrawingFacadeDependencies {
 
 /** 提供绘图领域的公开操作，不管理交互会话生命周期。 */
 export class ChartDrawingFacade {
-  constructor(private readonly deps: ChartDrawingFacadeDependencies) {}
+  private readonly currentDrawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+
+  constructor(private readonly deps: ChartDrawingFacadeDependencies) {
+    this.currentDrawings = computed(() => {
+      const spec = deps.kernel.data.readonly.symbols()[0]
+      const key = spec === undefined ? undefined : symbolSpecIdentityKey(spec)
+      return deps.kernel.drawing.readonly
+        .drawings()
+        .filter((drawing) => belongsToDrawingSymbol(drawing, key))
+    })
+  }
 
   /** 当前绘图工具信号。 */
   get tool(): ReadonlySignal<DrawingToolId> {
@@ -37,7 +50,7 @@ export class ChartDrawingFacade {
 
   /** 当前已确认绘图对象信号。 */
   get drawings(): ReadonlySignal<ReadonlyArray<DrawingObject>> {
-    return this.deps.kernel.drawing.readonly.drawings
+    return this.currentDrawings
   }
 
   /** 当前选中绘图 ID 信号。 */
@@ -85,6 +98,12 @@ export class ChartDrawingFacade {
   /** 返回当前数据视图的绘图工作区。 */
   getWorkspaceId(): DrawingWorkspaceId {
     return resolveChartWorkspaceId(this.deps.kernel.mode.readonly.dataView.peek())
+  }
+
+  /** 复用行情领域的标的身份，周期和复权不进入绘图归属。 */
+  getSymbolKey(): string | undefined {
+    const spec = this.deps.kernel.data.readonly.symbols.peek()[0]
+    return spec === undefined ? undefined : symbolSpecIdentityKey(spec)
   }
 
   /** 设置绘图工具，并同步清理会话副作用。 */

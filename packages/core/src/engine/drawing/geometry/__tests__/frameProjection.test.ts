@@ -36,15 +36,6 @@ function createContext(): RenderContext {
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
     pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
   })
-  // 部分用例会替换 context.data，因此按调用时的数据重新解析时间戳；
-  // 命中多个同名时间戳时返回 null，避免把锚点解析到任意一根 Bar。
-  context.getLogicalIndexAtTimestamp = (timestamp) => {
-    const matches = context.data.reduce<number[]>((indices, item, index) => {
-      if (item.timestamp === timestamp) indices.push(index)
-      return indices
-    }, [])
-    return matches.length === 1 ? matches[0]! : null
-  }
   return context
 }
 
@@ -475,23 +466,6 @@ describe('projectDrawingsForFrame', () => {
     ])
   })
 
-  it('does not resolve an ambiguous timestamp to an arbitrary bar', () => {
-    const drawing = createTrendDrawing()
-    const context = createContext()
-    context.getLogicalIndexAtTimestamp = (timestamp) => (timestamp === 1_000 ? null : 1)
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-
-    const projection = projectDrawingsForFrame(store, definitions, context)
-
-    expect(projection.primitives).toEqual([])
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([])
-  })
-
   it('keeps the line geometry when an endpoint is after the visible range without registering it', () => {
     const drawing = createTrendDrawing({
       anchors: [
@@ -527,74 +501,48 @@ describe('projectDrawingsForFrame', () => {
     ).toEqual([10])
   })
 
-  it('projects a future-slot anchor from its creation-time base bar', () => {
-    const drawing = createTrendDrawing({
-      id: 'future-trend',
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 1_000, futureOffset: 2, price: 20 },
-      ],
-    })
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['future-trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-
-    const projection = projectDrawingsForFrame(store, definitions, createContext())
-
-    expect(projection.primitives.find((primitive) => primitive.kind === 'line')).toMatchObject({
-      a: { x: 10 },
-      b: { x: 50 },
-    })
-  })
-
-  it('选中绘图的未来锚点无日历显示 T+X，日历到达及真实 bar 到达后显示对应日期', () => {
-    const drawing = createTrendDrawing({
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, futureOffset: 2, price: 20 },
-      ],
-    })
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-    context.range = { start: 0, end: 5 }
-    context.kLineCenters = [10, 30, 50, 70, 90]
-    projectDrawingsForFrame(store, definitions, context)
-    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.text)).toEqual([
-      context.displayTimeFormatter.formatDate(1_000),
-      'T+2',
-    ])
-
-    const calendar = createContext()
-    calendar.range = { start: 0, end: 5 }
-    calendar.kLineCenters = [10, 30, 50, 70, 90]
-    const futureTimestamp = Date.UTC(2026, 1, 24)
-    calendar.getTimestampAtLogicalIndex = (index) => (index === 3 ? futureTimestamp : null)
-    projectDrawingsForFrame(store, definitions, calendar)
-    expect(calendar.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
-      calendar.displayTimeFormatter.formatDate(futureTimestamp),
-    )
-
-    const filled = createContext()
-    filled.data = [
-      ...filled.data,
-      { timestamp: 3_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 4_000, open: 1, high: 2, low: 0, close: 1 },
-    ]
-    filled.range = { start: 0, end: 5 }
-    filled.kLineCenters = [10, 30, 50, 70, 90]
-    projectDrawingsForFrame(store, definitions, filled)
-    expect(filled.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
-      filled.displayTimeFormatter.formatDate(4_000),
-    )
-  })
+  it.each(['missing', 'calendar', 'bars'] as const)(
+    '未来锚点在 %s 状态下保持同一绝对时间',
+    (availability) => {
+      const drawing = createTrendDrawing({
+        anchors: [
+          { id: 'a', time: 1_000, price: 10 },
+          { id: 'b', time: 4_000, price: 20 },
+        ],
+      })
+      const store = new DrawingStore({
+        drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+        selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
+      })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const context = createContext()
+      context.range = { start: 0, end: 5 }
+      context.kLineCenters = [10, 30, 50, 70, 90]
+      if (availability === 'calendar')
+        context.getTimestampAtLogicalIndex = (index) => [1000, 2000, 3000, 4000][index] ?? null
+      if (availability === 'bars')
+        context.data = [1000, 2000, 3000, 4000].map((timestamp) => ({
+          timestamp,
+          open: 1,
+          high: 2,
+          low: 0,
+          close: 1,
+        }))
+      const projection = projectDrawingsForFrame(store, definitions, context)
+      expect(linePrimitives(projection.primitives)).toHaveLength(availability === 'missing' ? 0 : 1)
+      if (availability !== 'missing') {
+        expect(linePrimitives(projection.primitives)[0]).toMatchObject({
+          a: { x: 10 },
+          b: { x: 70 },
+        })
+        expect(context.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
+          context.displayTimeFormatter.formatDate(4000),
+        )
+      }
+      expect(drawing.anchors[1]?.time).toBe(4000)
+    },
+  )
 
   /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
   function projectSingleAnchor(kind: DrawingKind, anchors: DrawingObject['anchors']) {

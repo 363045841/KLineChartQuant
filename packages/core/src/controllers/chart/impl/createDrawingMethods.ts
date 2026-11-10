@@ -19,6 +19,7 @@ import {
   type SnapIndicatorValue,
   type SnapLine,
 } from '@/engine/drawing/index.js'
+import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { computed, createSignal } from '@/foundation/reactivity/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import type {
@@ -94,6 +95,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   /** 复制与粘贴共用的视口落点解析；任一图元不可投影时整批不写入。 */
   function resolvePlacements(drawings: ReadonlyArray<DrawingObject>) {
     return resolveCopyPlacements(drawings, {
+      getCoordinates,
       getViewport,
       getKWidthKGap,
       getCurrentDpr,
@@ -258,10 +260,15 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   // ---- DrawingChartAdapter methods ----
 
+  /** 对外暴露绘制和交互共同使用的当前帧坐标 Interface。 */
+  function getCoordinates(paneId: string) {
+    return isDisposed() ? null : chart.getCoordinates(paneId)
+  }
+
   /** 读取全部图元列表（plugin 级 DrawingObject）。 */
   function getFullDrawings(): ReadonlyArray<DrawingObject> {
     if (isDisposed()) return []
-    return drawingDocument.listDrawings()
+    return drawingDocument.listCurrentDrawings()
   }
 
   /** 请求一次重绘。 */
@@ -318,14 +325,12 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** screen-x → 逻辑 bar 索引。 */
   function getLogicalIndexAtX(mouseX: number): number | null {
-    if (isDisposed()) return null
-    return chart.getLogicalIndexAtX(mouseX)
+    return getCoordinates(MAIN_PANE_ID)?.xToSlot(mouseX) ?? null
   }
 
   /** 逻辑 bar 索引 → 当前帧 screen x。 */
   function getXAtLogicalIndex(index: number): number | null {
-    if (isDisposed()) return null
-    return chart.getXAtLogicalIndex(index)
+    return getCoordinates(MAIN_PANE_ID)?.logicalToX(index) ?? null
   }
 
   /** 逻辑索引 → 时间戳（ms）。 */
@@ -342,8 +347,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 逻辑索引 → 当前绘制数据点的时间戳（ms）。 */
   function getDrawingTimestampAtLogicalIndex(index: number): number | null {
-    if (isDisposed()) return null
-    return chart.drawing.getTimestampAtLogicalIndex(index)
+    return getCoordinates(MAIN_PANE_ID)?.slotToTime(index) ?? null
   }
 
   /** unix 时间戳（ms）→ 当前逻辑索引。 */
@@ -360,16 +364,12 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 指定 Pane 内 price → Y。 */
   function priceToY(paneId: string, price: number): number {
-    if (isDisposed()) return 0
-    const renderer = chart.getPaneRenderers().find((item) => item.getPane().id === paneId)
-    return renderer?.getPane().yAxis.priceToY(price) ?? 0
+    return getCoordinates(paneId)?.priceToY(price) ?? Number.NaN
   }
 
   /** 指定 Pane 内 Y → price。 */
   function yToPrice(paneId: string, y: number): number {
-    if (isDisposed()) return 0
-    const renderer = chart.getPaneRenderers().find((item) => item.getPane().id === paneId)
-    return renderer?.getPane().yAxis.yToPrice(y) ?? 0
+    return getCoordinates(paneId)?.yToPrice(y) ?? Number.NaN
   }
 
   /** 按 Pane ID 读取只读 Pane 元数据。 */
@@ -404,6 +404,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   return {
+    getCoordinates,
     setDrawingTool,
     setDrawingToolId,
     getDrawingToolId,

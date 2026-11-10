@@ -6,6 +6,7 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
+export type { DrawingCoordinateApi } from './engine/coordinates/types.js'
 export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
 export {
   type IndicatorInputDef,

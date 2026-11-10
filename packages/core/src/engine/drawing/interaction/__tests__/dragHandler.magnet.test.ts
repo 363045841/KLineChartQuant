@@ -42,7 +42,8 @@ describe('DragHandler magnet', () => {
     const updated = handler.handleDragMove(pointerMove(12, 83), CONTAINER, adapter, {
       magnet: createMagnetConfig('strong'),
     })
-    expect(updated![0]!.anchors[0]).toMatchObject({ time: 1000, price: 117 })
+    // 整体平移保留连续位移，不能把非目标锚点重新吸附到其他周期的槽位。
+    expect(updated![0]!.anchors[0]).toMatchObject({ time: 850, price: 117 })
   })
 
   it('拖拽中的图元被排除在候选之外', () => {

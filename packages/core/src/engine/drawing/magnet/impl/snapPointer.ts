@@ -8,6 +8,7 @@
 // 全部坐标是 Pane 局部逻辑像素，与命中、手柄、帧投影共用同一空间，调用方不再做偏移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
+import type { DrawingCoordinateApi } from '@/engine/coordinates/types.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
   type ActiveMagnetMode,
@@ -54,32 +55,33 @@ export function snapPointer(
   const data = adapter.getData()
   if (data.length === 0) return null
 
-  const logicalIndex = adapter.getLogicalIndexAtX(x)
+  const coordinates = adapter.getCoordinates(pane.paneId)
+  if (!coordinates) return null
+  const logicalIndex = coordinates.xToSlot(x)
   if (logicalIndex === null) return null
-  const barIndex = Math.min(Math.max(Math.round(logicalIndex), 0), data.length - 1)
+  const barIndex = Math.min(Math.max(logicalIndex, 0), data.length - 1)
   const bar = data[barIndex]
   if (bar === undefined) return null
 
-  const barX = adapter.getXAtLogicalIndex(barIndex)
-  const queryX = barX ?? x
+  const barX = coordinates.logicalToX(barIndex)
+  if (barX === null) return null
+  const queryX = barX
 
   const candidates = collectCandidates({
     bar,
     barIndex,
     barX,
     queryX,
-    fallbackX: x,
+    coordinates,
     pane,
-    adapter,
     config,
   })
 
   const candidate = selectCandidate(candidates, x, y, config.mode)
-  if (candidate === null && barX === null) return null
 
   return {
     // 时间锚点自带 X；其余候选共用 Bar 中心，保证同一 Bar 内时间戳一致。
-    x: candidate !== null && candidate.time !== null ? candidate.x : (barX ?? x),
+    x: candidate !== null && candidate.time !== null ? candidate.x : barX,
     y: candidate !== null && candidate.price !== null ? candidate.y : y,
     candidate,
   }
@@ -89,13 +91,11 @@ export function snapPointer(
 interface CollectInput {
   readonly bar: KLineData
   readonly barIndex: number
-  readonly barX: number | null
-  /** 求值所用的 X：Bar 中心可解析时用它，否则退回指针 X。 */
+  readonly barX: number
+  /** 求值使用已解析的 Bar 中心 X。 */
   readonly queryX: number
-  /** 候选自身的屏幕 X 缺失时的兜底值。 */
-  readonly fallbackX: number
+  readonly coordinates: DrawingCoordinateApi
   readonly pane: PaneLayoutInfo
-  readonly adapter: DrawingViewportPort
   readonly config: MagnetSnapConfig
 }
 
@@ -113,37 +113,46 @@ function collectCandidates(input: CollectInput): SnapCandidate[] {
  * strong 无门槛。候选集合不随档位变化，避免「同一位置换个档位就吸不到」。
  */
 function collectBarCandidates(input: CollectInput): SnapCandidate[] {
-  const { bar, barIndex, barX, fallbackX, pane, adapter } = input
+  const { bar, barIndex, barX, coordinates } = input
   const fields: ReadonlyArray<readonly [string, number]> = [
     ['high', bar.high],
     ['low', bar.low],
     ['open', bar.open],
     ['close', bar.close],
   ]
-  return fields.map(([field, price]) => ({
-    x: barX ?? fallbackX,
-    y: adapter.priceToY(pane.paneId, price),
-    price,
-    time: null,
-    source: SnapSource.Bar,
-    id: `bar:${barIndex}:${field}`,
-  }))
+  return fields.flatMap(([field, price]) => {
+    const y = coordinates.priceToY(price)
+    return y === null
+      ? []
+      : [
+          {
+            x: barX,
+            y,
+            price,
+            time: null,
+            source: SnapSource.Bar,
+            id: `bar:${barIndex}:${field}`,
+          },
+        ]
+  })
 }
 
 /** 图元线候选：只在 Bar 中心 X 落在该线段区间内时求值，绘制范围之外不参与。 */
 function collectLineCandidates(input: CollectInput): SnapCandidate[] {
-  const { queryX, barX, fallbackX, pane, adapter, config } = input
+  const { queryX, barX, pane, coordinates, config } = input
   const excluded = new Set(config.excludeDrawingIds)
   const candidates: SnapCandidate[] = []
   for (const line of config.sources.getLines(pane.paneId)) {
     if (excluded.has(line.drawingId)) continue
     const y = valueAtX(line, queryX)
     if (y === null) continue
+    const price = line.price === undefined ? coordinates.yToPrice(y) : line.price
+    if (price === null) continue
     candidates.push({
-      x: barX ?? fallbackX,
+      x: barX,
       y,
       // 水平线段自带领域价格，直接写回原值；其余线段只能由 Y 反算。
-      price: line.price === undefined ? adapter.yToPrice(pane.paneId, y) : line.price,
+      price,
       time: null,
       source: SnapSource.Drawing,
       id: `drawing:${line.drawingId}:${line.a.x}:${line.a.y}`,
@@ -154,15 +163,22 @@ function collectLineCandidates(input: CollectInput): SnapCandidate[] {
 
 /** 指标值候选：一条 plot 在当前逻辑下标的一个值。 */
 function collectIndicatorCandidates(input: CollectInput): SnapCandidate[] {
-  const { barIndex, barX, fallbackX, pane, adapter, config } = input
-  return config.sources.getIndicatorValues(pane.paneId, barIndex).map((value) => ({
-    x: barX ?? fallbackX,
-    y: adapter.priceToY(pane.paneId, value.value),
-    price: value.value,
-    time: null,
-    source: SnapSource.Indicator,
-    id: `indicator:${value.id}`,
-  }))
+  const { barIndex, barX, pane, coordinates, config } = input
+  return config.sources.getIndicatorValues(pane.paneId, barIndex).flatMap((value) => {
+    const y = coordinates.priceToY(value.value)
+    return y === null
+      ? []
+      : [
+          {
+            x: barX,
+            y,
+            price: value.value,
+            time: null,
+            source: SnapSource.Indicator,
+            id: `indicator:${value.id}`,
+          },
+        ]
+  })
 }
 
 /**

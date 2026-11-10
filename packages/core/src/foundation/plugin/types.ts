@@ -369,6 +369,8 @@ export interface IndicatorAvailabilityReader {
 
 /** 渲染数据子契约：序列数据、数据视图与时间解析。 */
 export interface RenderDataContext {
+  /** 绘图使用的稳定标的身份；不含周期。 */
+  symbolKey?: string
   /** 主序列提交版本；直接绘制的调用方缺省时不保留跨帧几何。 */
   dataRevision?: number
   /** 当前帧的序列数据：K 线视图为 KLineData，分时视图为 TimeShareData。 */

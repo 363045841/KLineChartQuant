@@ -21,6 +21,7 @@ import type {
 } from '../types.js'
 import { areAnchorsIdentical, isDrawingLocked, isDrawingMovementLocked } from './drawingAccess.js'
 import { normalizeDrawingLabels } from './drawingLabels.js'
+import { belongsToDrawingSymbol, bindDrawingSymbol } from './drawingScope.js'
 import {
   getDrawingAnchorCount,
   getDrawingInputAnchorCount,
@@ -50,31 +51,15 @@ function isChannel(kind: DrawingKind): boolean {
 }
 
 /** 已确认图元的唯一 CRUD 入口。 */
-/** 水平线锚点只允许价格，未来偏移与非法价格都要在创建前拒绝。 */
+/** 水平线锚点只保存价格。 */
 function resolveHorizontalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-  if (input.futureOffset !== undefined) {
-    throw new KLineChartError(
-      DRAWING_ERROR_CODES.INVALID_ANCHOR,
-      'Horizontal drawing anchors cannot use a future offset.',
-      { details: { futureOffset: input.futureOffset } },
-    )
-  }
   assertFiniteAnchorPrice(input.price, 'Horizontal')
   return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price }
 }
 
-/** 校验未来偏移必须是正整数。 */
-function isValidFutureOffset(offset: number | undefined): boolean {
-  return offset === undefined || (Number.isInteger(offset) && offset > 0)
-}
-
-/** 水平线锚点必须无未来偏移且价格有限。 */
+/** 水平线锚点只要求类型正确且价格有限。 */
 function isHorizontalAnchorValid(anchor: PersistedDrawingAnchor): boolean {
-  return (
-    anchor.type === 'horizontal' &&
-    anchor.futureOffset === undefined &&
-    Number.isFinite(anchor.price)
-  )
+  return anchor.type === 'horizontal' && Number.isFinite(anchor.price)
 }
 
 /** 垂直线锚点必须有可解析时间。 */
@@ -94,7 +79,6 @@ function isPointAnchorValid(anchor: PersistedDrawingAnchor): boolean {
 
 /** 按图元种类校验锚点的类型、时间与价格语义。 */
 function isAnchorValid(drawing: DrawingObject, anchor: PersistedDrawingAnchor): boolean {
-  if (!isValidFutureOffset(anchor.futureOffset)) return false
   if (drawing.kind === 'horizontal-line') return isHorizontalAnchorValid(anchor)
   if (drawing.kind === 'vertical-line') return isVerticalAnchorValid(anchor)
   return isPointAnchorValid(anchor)
@@ -171,9 +155,19 @@ export class DrawingDocument {
     return this.dependencies.drawingState.readonly.drawings.peek()
   }
 
+  /** 派生当前标的的对象列表；原始文档仍完整保存在同一个 Kernel 状态。 */
+  listCurrentDrawings(): ReadonlyArray<DrawingObject> {
+    return this.listDrawings().filter((drawing) =>
+      belongsToDrawingSymbol(drawing, this.dependencies.getSymbolKey()),
+    )
+  }
+
   /** 按 id 查询已确认图元。 */
   getDrawing(id: string): DrawingObject | null {
-    return this.objects.get(id) ?? null
+    const drawing = this.objects.get(id)
+    return drawing && belongsToDrawingSymbol(drawing, this.dependencies.getSymbolKey())
+      ? drawing
+      : null
   }
 
   /** 创建、校验并提交一个已确认图元，同时将其设为唯一选中。 */
@@ -192,6 +186,7 @@ export class DrawingDocument {
         kind: input.kind,
         paneId: input.paneId,
         workspaceId: this.dependencies.getWorkspaceId(),
+        symbolKey: this.dependencies.getSymbolKey(),
         visible: input.visible ?? true,
         ...(input.locked === undefined ? {} : { locked: input.locked }),
         ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
@@ -224,6 +219,7 @@ export class DrawingDocument {
         visible: true,
         locked: false,
         workspaceId: this.dependencies.getWorkspaceId(),
+        symbolKey: this.dependencies.getSymbolKey(),
         anchors: anchors.map((anchor, anchorIndex) => ({
           ...anchor,
           id: copy.anchors[anchorIndex]!.id,
@@ -354,7 +350,7 @@ export class DrawingDocument {
 
   /** 清除所有已确认图元。 */
   clearDrawings(): void {
-    this.objects.deleteMany(this.listDrawings().map((drawing) => drawing.id))
+    this.objects.deleteMany(this.listCurrentDrawings().map((drawing) => drawing.id))
   }
 
   /** 原子替换整份文档；旧数据的输入锚点在此补齐。调用方决定记录历史或重设基线。 */
@@ -362,7 +358,7 @@ export class DrawingDocument {
     const committed = drawings.filter((drawing) => drawing.id !== PREVIEW_ID)
     this.objects.replaceAll(
       committed.map((drawing) => ({
-        ...drawing,
+        ...bindDrawingSymbol(drawing, this.dependencies.getSymbolKey()),
         anchors: materializeDrawingAnchors(
           drawing.kind,
           drawing.anchors,
@@ -424,7 +420,7 @@ export class DrawingDocument {
   private getDrawingsByIds(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
     const uniqueIds = [...new Set(ids)]
     if (uniqueIds.length === 0) return Object.freeze([])
-    const drawingsById = new Map(this.listDrawings().map((drawing) => [drawing.id, drawing]))
+    const drawingsById = new Map(this.listCurrentDrawings().map((drawing) => [drawing.id, drawing]))
     const drawings = uniqueIds.map((id) => drawingsById.get(id))
     return drawings.some((drawing) => drawing === undefined)
       ? Object.freeze([])
@@ -471,7 +467,6 @@ export class DrawingDocument {
       id: `anchor-${generateUUID()}`,
       type: 'vertical',
       time: anchor.timestamp,
-      futureOffset: anchor.futureOffset,
       price: input.price,
     }
   }
@@ -479,27 +474,24 @@ export class DrawingDocument {
   /** 普通点锚点同时持久化时间与价格。 */
   private resolvePointAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
     const anchor = this.resolveTimeAnchorInput(input)
-    return this.createPointAnchor(anchor.timestamp, anchor.futureOffset, input.price)
+    return this.createPointAnchor(anchor.timestamp, input.price)
   }
 
-  /** 解析交易日或时间戳锚点，并校验未来偏移。 */
+  /** 将声明式交易日或时间戳解析为稳定时间。 */
   private resolveTimeAnchorInput(input: DrawingAnchorCommandInput): {
     timestamp: number
-    futureOffset: number | undefined
   } {
     if (input.tradingDate !== undefined) {
       return {
         timestamp: this.resolveAnchorTradingDate(input.tradingDate),
-        futureOffset: input.futureOffset,
       }
     }
     return this.resolveTimestampAnchor(input)
   }
 
-  /** 校验时间戳存在且有对应数据，再校验未来偏移。 */
+  /** 文档接受任意有限时间；是否可见由当前视图的公共坐标服务决定。 */
   private resolveTimestampAnchor(input: DrawingAnchorCommandInput): {
     timestamp: number
-    futureOffset: number | undefined
   } {
     const timestamp = input.timestamp
     if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
@@ -509,30 +501,11 @@ export class DrawingDocument {
         { details: { timestamp: input.timestamp, price: input.price } },
       )
     }
-    if (this.dependencies.getLogicalIndexAtTimestamp(timestamp) === null) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
-        `No chart data exists for drawing anchor timestamp ${timestamp}.`,
-        { details: { timestamp } },
-      )
-    }
-    const futureOffset = input.futureOffset
-    if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor future offset must be a positive integer.',
-        { details: { timestamp, futureOffset, price: input.price } },
-      )
-    }
-    return { timestamp, futureOffset }
+    return { timestamp }
   }
 
   /** 校验并创建同时包含时间与价格的普通锚点。 */
-  private createPointAnchor(
-    timestamp: number,
-    futureOffset: number | undefined,
-    price: number,
-  ): PersistedDrawingAnchor {
+  private createPointAnchor(timestamp: number, price: number): PersistedDrawingAnchor {
     if (!Number.isFinite(price)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
@@ -540,6 +513,6 @@ export class DrawingDocument {
         { details: { timestamp, price } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, futureOffset, price }
+    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, price }
   }
 }

@@ -137,20 +137,18 @@ describe('snapPointer', () => {
     expect(snapped).toMatchObject({ x: 15, y: 80 })
   })
 
-  it('Bar 中心不可解析时保持指针 X，未命中候选则只有 X 可用', () => {
-    const adapter = createMagnetSnapAdapter(OHLC_BARS, { getXAtLogicalIndex: () => null })
-    const snapped = snapPointer(12, 83, MAGNET_PANE, adapter, createMagnetConfig('weak'))
-    expect(snapped).toMatchObject({ x: 12, y: 80 })
-
-    const noCandidate = snapPointer(12, 70, MAGNET_PANE, adapter, createMagnetConfig('weak'))
-    expect(noCandidate).toBeNull()
-  })
-
-  it('无数据或索引不可解析时返回 null', () => {
-    expect(
-      snapPointer(12, 83, MAGNET_PANE, createMagnetSnapAdapter([]), createMagnetConfig('weak')),
-    ).toBeNull()
-    const unparsable = createMagnetSnapAdapter(OHLC_BARS, { getLogicalIndexAtX: () => null })
-    expect(snapPointer(12, 83, MAGNET_PANE, unparsable, createMagnetConfig('weak'))).toBeNull()
-  })
+  it.each(['empty', 'no-frame', 'no-centers'])(
+    '%s 时公共坐标不可用，不生成兜底吸附位置',
+    (condition) => {
+      const adapter = createMagnetSnapAdapter(
+        condition === 'empty' ? [] : OHLC_BARS,
+        condition === 'no-frame'
+          ? { getCoordinates: () => null }
+          : condition === 'no-centers'
+            ? { getXAtLogicalIndex: () => null }
+            : {},
+      )
+      expect(snapPointer(12, 83, MAGNET_PANE, adapter, createMagnetConfig('weak'))).toBeNull()
+    },
+  )
 })

@@ -13,6 +13,7 @@ import { snapPointer } from '../../magnet/impl/snapPointer.js'
 import type { SnapCandidate, SnapResult } from '../../magnet/types.js'
 import type {
   DrawingPointerAnchor,
+  DrawingPointerLocation,
   PointerCoordinates,
   ProjectableAnchor,
   ResolveDrawingPointerOptions,
@@ -26,7 +27,7 @@ import { lockAngle } from './angleLock.js'
  * 计算过程：
  * 1. 通过 adapter 将锚点时间戳解析为当前逻辑索引
  * 2. 通过本帧已封存的中心点取得 X（分时与 K 线共用同一映射）
- * 3. 通过 adapter.priceToY 按锚点所属 Pane 将价格转为局部 Y
+ * 3. 通过公共坐标接口将价格转为所属 Pane 的局部 Y
  *
  * @param anchor 待投影锚点；持久化锚点与交互期待定锚点都可直接传入
  * @param paneId 锚点所属 Pane
@@ -38,23 +39,23 @@ export function anchorToScreen(
   paneId: string,
   adapter: DrawingViewportPort,
 ): ScreenDrawingAnchor | null {
+  const coordinates = adapter.getCoordinates(paneId)
+  if (!coordinates) return null
   if (anchor.type === 'horizontal') {
-    return { type: 'horizontal', y: adapter.priceToY(paneId, anchor.price) }
+    const y = coordinates.priceToY(anchor.price)
+    return y === null ? null : { type: 'horizontal', y }
   }
 
   const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
   if (!Number.isFinite(timestamp)) return null
-  const baseIndex = adapter.getLogicalIndexAtTimestamp(timestamp as number)
-  if (baseIndex === null) return null
-  const futureOffset = anchor.futureOffset
-  if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
-    return null
-  }
-  const index = baseIndex + (futureOffset ?? 0)
-  const x = adapter.getXAtLogicalIndex(index)
+  if (timestamp === undefined) return null
+  const index = coordinates.timeToSlot(timestamp)
+  if (index === null) return null
+  const x = coordinates.logicalToX(index)
   if (x === null) return null
   if (anchor.type === 'vertical') return { type: 'vertical', x }
-  return { type: 'point', x, y: adapter.priceToY(paneId, anchor.price) }
+  const y = coordinates.priceToY(anchor.price)
+  return y === null ? null : { type: 'point', x, y }
 }
 
 /** 判断投影是否为同时具有 X/Y 的普通点。 */
@@ -85,21 +86,18 @@ export function screenToAnchor(
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
-  const logicalIndex = adapter.getLogicalIndexAtX(screenX)
+  const coordinates = adapter.getCoordinates(paneId)
+  if (!coordinates) return null
+  const logicalIndex = coordinates.xToLogical(screenX)
   if (logicalIndex === null) return null
 
   const paneInfo = adapter.getPaneInfo(paneId)
   if (!paneInfo) return null
 
-  const lastIndex = data.length - 1
-  const timestamp = adapter.getDrawingTimestampAtLogicalIndex(Math.min(logicalIndex, lastIndex))
+  const timestamp = coordinates.logicalToTime(logicalIndex)
   if (timestamp === null) return null
-
-  return {
-    time: timestamp,
-    ...(logicalIndex > lastIndex ? { futureOffset: logicalIndex - lastIndex } : {}),
-    price: adapter.yToPrice(paneId, paneY),
-  }
+  const price = coordinates.yToPrice(paneY)
+  return price === null ? null : { time: timestamp, price }
 }
 
 /** 落点所在的 Pane 与 Pane 局部坐标。 */
@@ -109,6 +107,18 @@ interface DrawingAreaPlacement {
   x: number
   /** Pane 局部 Y。 */
   y: number
+}
+
+/** 定位容器内的 Pane 局部指针；复用同一几何入口，不要求未知未来存在时间戳。 */
+export function resolveDrawingLocation(
+  pointer: PointerCoordinates,
+  container: HTMLElement,
+  adapter: DrawingViewportPort,
+): DrawingPointerLocation | null {
+  const viewport = adapter.getViewport()
+  if (!viewport) return null
+  const placement = resolvePointerPlacement(pointer, container, viewport, adapter, undefined)
+  return placement ? { paneId: placement.pane.paneId, x: placement.x, y: placement.y } : null
 }
 
 /**
@@ -146,12 +156,26 @@ export function resolveDrawingPointer(
   if (!constrained) return null
 
   const snapped = resolvePointerSnap(constrained, placement.pane, options, adapter)
-  const anchor = screenToAnchor(constrained.x, constrained.y, placement.pane.paneId, adapter)
+  const coordinates = adapter.getCoordinates(placement.pane.paneId)
+  if (!coordinates) return null
+  let x = snapped?.x ?? constrained.x
+  let slotTimestamp: number | null = null
+  if (options?.snapToSlot) {
+    const slotIndex = coordinates.xToSlot(x)
+    if (slotIndex === null) return null
+    const slotX = coordinates.logicalToX(slotIndex)
+    if (slotX === null) return null
+    slotTimestamp = coordinates.slotToTime(slotIndex)
+    if (slotTimestamp === null) return null
+    x = slotX
+  }
+  const anchor = screenToAnchor(x, snapped?.y ?? constrained.y, placement.pane.paneId, adapter)
   if (!anchor) return null
   return {
     ...applyCandidate(anchor, snapped?.candidate ?? null),
+    ...(slotTimestamp === null ? {} : { time: slotTimestamp }),
     paneId: placement.pane.paneId,
-    x: snapped?.x ?? constrained.x,
+    x,
     y: snapped?.y ?? constrained.y,
     snap: snapped?.candidate ?? null,
   }
@@ -189,8 +213,10 @@ function applyPointerConstraints(
     ? lockAngle(options.angleLock.origin, { x: placement.x, y: placement.y })
     : { x: placement.x, y: placement.y }
   if (!options?.clampDataEnd) return locked
-  const lastX = adapter.getXAtLogicalIndex(dataLength - 1)
-  return lastX === null ? null : { x: Math.min(locked.x, lastX), y: locked.y }
+  const lastX = adapter.getCoordinates(placement.pane.paneId)?.logicalToX(dataLength - 1)
+  return lastX === undefined || lastX === null
+    ? null
+    : { x: Math.min(locked.x, lastX), y: locked.y }
 }
 
 /**
@@ -211,7 +237,7 @@ function resolvePointerSnap(
 /**
  * 命中的候选直接覆盖对应轴的领域值，避免屏幕坐标反算带来的精度损失。
  *
- * 候选提供时间时，同时丢弃 futureOffset：它引用的是真实 Bar，不再是未来槽位。
+ * 候选提供时间时，直接使用该真实 Bar 的稳定时间。
  */
 function applyCandidate(
   anchor: ResolvedInteractionAnchor,
@@ -219,8 +245,7 @@ function applyCandidate(
 ): ResolvedInteractionAnchor {
   if (candidate === null) return anchor
   if (candidate.time !== null) {
-    const { futureOffset: _futureOffset, ...rest } = anchor
-    return { ...rest, time: candidate.time, price: candidate.price ?? anchor.price }
+    return { ...anchor, time: candidate.time, price: candidate.price ?? anchor.price }
   }
   if (candidate.price !== null) return { ...anchor, price: candidate.price }
   return anchor

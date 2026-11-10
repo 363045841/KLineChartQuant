@@ -14,7 +14,7 @@ function createCopyAdapter(overrides: Partial<DrawingViewportPort> = {}): Drawin
   return createDrawingViewportPort({
     getDrawingData: () => data,
     getLogicalIndexAtTimestamp: (time) => data.findIndex((bar) => bar.timestamp === time),
-    getDrawingTimestampAtLogicalIndex: (index) => data[index]?.timestamp ?? null,
+    getDrawingTimestampAtLogicalIndex: (index) => (index >= 0 ? index * 1000 : null),
     ...overrides,
   })
 }
@@ -74,7 +74,7 @@ describe('复制落点', () => {
     expect(copies[1]!.anchors[0]).toMatchObject({ time: 3000, price: 100 })
   })
 
-  it('越过最后一根的锚点按未来槽位生成', () => {
+  it('越过最后一根时通过交易日历保存绝对时间', () => {
     const drawing = createTrendLine('line', {
       anchors: [{ id: 'a', type: 'point', time: 28000, price: 100 }],
     })
@@ -82,7 +82,7 @@ describe('复制落点', () => {
       getViewport: () => ({ scrollLeft: 0, plotWidth: 500, plotHeight: 240 }),
     })
     const [copy] = resolveCopyPlacements([drawing], wide)
-    expect(copy!.anchors[0]).toMatchObject({ time: 29000, futureOffset: 1 })
+    expect(copy!.anchors[0]).toMatchObject({ time: 30000 })
   })
 
   it('任一坐标不可解析时整批不复制', () => {

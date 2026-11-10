@@ -1,5 +1,7 @@
 /** 图表帧准备、各 Pane 坐标范围与 Scene 绘制调度。 */
 
+import { getFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
 import type { SnapLine } from '@/foundation/plugin/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
@@ -647,6 +649,17 @@ export class ChartRenderer {
    * 已提交层图元的线段（Pane 局部坐标），供磁吸候选。
    * 会话覆盖不进入候选：拖拽中的图元吸自己会形成反馈回路。
    */
+  getCoordinates(paneId: string): import('../../coordinates/types.js').DrawingCoordinateApi | null {
+    const context = this.paneCtxMap.get(paneId)
+    if (!context) return null
+    const dataManager = this.deps.getDataManager()
+    const symbol = dataManager.symbols.peek()[0]
+    const symbolKey = symbol === undefined ? undefined : symbolSpecIdentityKey(symbol)
+    if (context.symbolKey !== symbolKey || context.period !== dataManager.currentPeriod) return null
+    return getFrameCoordinates(context)
+  }
+
+  /** 已提交图元的磁吸线段，来自同一帧投影。 */
   getCommittedSnapLines(paneId: string): ReadonlyArray<SnapLine> {
     return this.paneCtxMap.get(paneId)?.drawingProjection?.snapLines ?? []
   }
@@ -1379,7 +1392,9 @@ export class ChartRenderer {
   ): RenderContext {
     const vp = frame.vp
     const opt = this.deps.getOption()
+    const symbol = dataManager.symbols.peek()[0]
     return {
+      symbolKey: symbol === undefined ? undefined : symbolSpecIdentityKey(symbol),
       countdown: optional(frame.countdown.text),
       ctx: contexts.mainCtx!,
       overlayCtx: optional(contexts.overlayCtx),

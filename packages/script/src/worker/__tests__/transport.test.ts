@@ -119,7 +119,7 @@ describe('Worker drawing transport', () => {
         style: { stroke: 'inherit', fill: 'inherit' },
         params: {},
         anchors: [
-          { id: 'a', price: 2, time: '2026-11-06', futureOffset: undefined },
+          { id: 'a', price: 2, time: '2026-11-06' },
           { id: 'b', type: 'point', time: 3, logicalIndex: 1, price: 4 },
         ],
       })),
