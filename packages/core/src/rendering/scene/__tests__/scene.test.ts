@@ -207,6 +207,81 @@ describe('createScene', () => {
     },
   )
 
+  it.each([true, false])('不同指标的 GPU 变换分别保留，直出结果为 %s', (success) => {
+    const scene = createScene<FrameStub>()
+    const input = frame('main', true)
+    const pane = input.panes[0]!
+    const target = pane.targets.main!
+    const paint = vi.fn<PrimitiveSurface['paint']>().mockReturnValue(success)
+    pane.gpuSurface = { canvas: target.canvas, paint, dispose() {} }
+    const transforms = [
+      { offsetX: 0, yScale: -100, yOffset: 130 },
+      { offsetX: 0, yScale: -1, yOffset: 10130 },
+    ]
+    // 两种量级都映射到 y=130；再次提交首轴也必须保持原有层序。
+    for (const [index, value] of [0, 10000, 0].entries()) {
+      const transform = transforms[index % 2]!
+      scene.addLayer({
+        id: `axis-${index}`,
+        role: 'indicator',
+        pane: 'main',
+        z: index,
+        visible: true,
+        kind: 'draw-list',
+        paint(context) {
+          context.primitives!(
+            [
+              {
+                kind: 'stroke',
+                paths: [
+                  [
+                    { x: 0, y: value },
+                    { x: 10, y: value },
+                  ],
+                ],
+                color: '#ffffff',
+                width: 1,
+                dataSpace: true,
+              },
+            ],
+            1,
+            transform,
+          )
+        },
+        dispose() {},
+      })
+    }
+    scene.paint(input)
+    expect(paint).toHaveBeenCalledTimes(3)
+    for (const [index, value] of [0, 10000, 0].entries()) {
+      const call = paint.mock.calls[index]!
+      expect(call[0]).toEqual([
+        {
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 0, y: value },
+              { x: 10, y: value },
+            ],
+          ],
+          color: '#ffffff',
+          width: 1,
+          dataSpace: true,
+        },
+      ])
+      expect(call[3]).toBe(transforms[index % 2])
+      if (!success) {
+        const fallback = vi.mocked(pane.renderer.primitives.paint).mock.calls[index]!
+        expect(fallback[1]).toEqual(call[0])
+        expect(fallback[3]).toBe(call[3])
+      }
+    }
+    expect(paint.mock.calls.map((call) => call[2])).toEqual(
+      success ? [true, false, false] : [true, true, true],
+    )
+    scene.dispose()
+  })
+
   it.each([true, false])('GPU 直出结果为 %s 时，直出与回退共享完整 Pane 边界', (success) => {
     const scene = createScene<FrameStub>()
     const input = frame('main')

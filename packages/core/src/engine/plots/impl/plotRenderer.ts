@@ -1034,6 +1034,7 @@ export function createPlotLayer(
     definitionId,
     paneId: defaultPaneId,
     instanceId: options.instanceId,
+    axisId: options.axisId,
     z: RENDERER_PRIORITY.INDICATOR,
     kind: 'draw-list',
     draw(context) {
