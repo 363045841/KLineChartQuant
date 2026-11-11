@@ -18,7 +18,6 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
  *   spacing.md                               `--klc-spacing-md`
  *   typography.fontFamily                    `--klc-typography-font-family`
  *   typography.fontWeightRegular             `--klc-typography-font-weight-regular`
- *   motion.durationFast                      `--klc-motion-duration-fast`
  *   foundation.radius.sm                     `--klc-radius-sm`
  *   foundation.text.label[13].fontSize       `--klc-text-label-13-font-size`
  *   foundation.zIndex.modal                  `--klc-z-index-modal`
@@ -151,7 +150,6 @@ export function themeToCssVars(theme: Theme, opts?: ThemeToCssVarsOptions): Reco
       prefix,
       'typography',
     ),
-    ...flattenFamily(theme.motion as unknown as Record<string, string>, prefix, 'motion'),
     ...(theme.foundation ? flattenFoundation(theme.foundation, prefix) : {}),
   }
 }

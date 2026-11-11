@@ -72,7 +72,6 @@ export type {
   MACDColors,
   MAColors,
   MOMColors,
-  MotionTokens,
   PriceColors,
   RadiusTokens,
   RSIColors,

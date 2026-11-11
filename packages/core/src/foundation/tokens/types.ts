@@ -480,18 +480,6 @@ export interface TypographyTokens {
   readonly lineHeightStandard: number // 1.4
 }
 
-/**
- * Animation. We use them sparingly (zoom inertia, crosshair fade)
- * but the tokens exist so the same easing is reused everywhere.
- */
-export interface MotionTokens {
-  readonly durationInstant: CssDuration // '0ms' (default for finance — no jitter)
-  readonly durationFast: CssDuration // '120ms'
-  readonly durationModerate: CssDuration // '200ms'
-  readonly easingStandard: CssEasing // 'cubic-bezier(0.4, 0, 0.2, 1)'
-  readonly easingDecelerate: CssEasing // 'cubic-bezier(0, 0, 0.2, 1)'
-}
-
 // ---------------------------------------------------------------------------
 // Design tokens v2 foundation. Source: `dtcg/foundation/*.tokens.json` plus the
 // per-mode `elevation` / `brand.accentText` in `dtcg/scheme/*.tokens.json`.
@@ -559,9 +547,10 @@ export interface ElevationTokens {
   readonly hairline: string
 }
 
-/** Motion v2. Chart interactions and keyboard actions stay at `dur[0]`. */
+/** The product's only motion scale. Chart interactions and keyboard actions stay at `dur[0]`. */
 export interface FoundationMotionTokens {
   readonly ease: {
+    readonly standard: CssEasing
     readonly out: CssEasing
     readonly inOut: CssEasing
     readonly drawer: CssEasing
@@ -638,18 +627,18 @@ export interface FoundationTokens {
 }
 
 /**
- * Complete theme — the four token families, plus the optional v2 foundation.
+ * Complete theme — the legacy color/spacing/typography families, plus the v2 foundation.
  *
  * `foundation` is optional so hand-built themes stay valid. The shipped
  * `lightTheme` / `darkTheme` leave it unset (their CSS output is the frozen
- * baseline); `resolveTheme()` attaches the mode's foundation tokens.
+ * baseline); `resolveTheme()` attaches the mode's foundation tokens, which
+ * carry motion.
  */
 export interface Theme {
   readonly name: string
   readonly colors: ColorTokens
   readonly spacing: SpacingTokens
   readonly typography: TypographyTokens
-  readonly motion: MotionTokens
   readonly foundation?: FoundationTokens
 }
 

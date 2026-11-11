@@ -216,11 +216,6 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-typography-font-weight-bold: 700;
   --klc-typography-line-height-tight: 1.2;
   --klc-typography-line-height-standard: 1.4;
-  --klc-motion-duration-instant: 0ms;
-  --klc-motion-duration-fast: 120ms;
-  --klc-motion-duration-moderate: 200ms;
-  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 }"
 `;
 
@@ -505,11 +500,6 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-typography-font-weight-bold: 700;
   --klc-typography-line-height-tight: 1.2;
   --klc-typography-line-height-standard: 1.4;
-  --klc-motion-duration-instant: 0ms;
-  --klc-motion-duration-fast: 120ms;
-  --klc-motion-duration-moderate: 200ms;
-  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 }"
 `;
 

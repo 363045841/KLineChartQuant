@@ -53,7 +53,6 @@ describe('独立主题维度', () => {
       const base = mode === 'dark' ? darkTheme : lightTheme
       expect(preset.schemes[mode].spacing).toEqual(base.spacing)
       expect(preset.schemes[mode].typography).toEqual(base.typography)
-      expect(preset.schemes[mode].motion).toEqual(base.motion)
     }
   })
 

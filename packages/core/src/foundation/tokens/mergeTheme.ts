@@ -43,7 +43,6 @@ export function mergeTheme(base: Theme, override: ThemeOverride): Theme {
     colors: deepMergeColors(base.colors, override.colors),
     spacing: { ...base.spacing, ...(override.spacing ?? {}) },
     typography: { ...base.typography, ...(override.typography ?? {}) },
-    motion: { ...base.motion, ...(override.motion ?? {}) },
   }
   // foundation 为可选族：仅在基底已携带时按组浅合并，不给未携带的主题凭空加键。
   if (!base.foundation) return merged

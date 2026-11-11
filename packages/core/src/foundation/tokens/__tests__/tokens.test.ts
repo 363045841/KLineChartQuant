@@ -92,7 +92,6 @@ describe('theme parity', () => {
     ['colors.scriptPalette', (t: Theme) => t.colors.scriptPalette],
     ['spacing', (t: Theme) => t.spacing],
     ['typography', (t: Theme) => t.typography],
-    ['motion', (t: Theme) => t.motion],
   ] as const)('family %s has the same key set in both themes', (_name, pick) => {
     expect(keysSorted(pick(lightTheme))).toEqual(keysSorted(pick(darkTheme)))
   })

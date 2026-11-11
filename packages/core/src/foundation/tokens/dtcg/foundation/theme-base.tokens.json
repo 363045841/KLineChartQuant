@@ -1,5 +1,5 @@
 {
-  "$description": "Legacy Theme families (spacing / typography / motion) exactly as shipped in theme-base.ts. Theme-layer: emitted by themeToCssVars and frozen by baseline.test.ts.snap.",
+  "$description": "Legacy Theme families (spacing / typography) exactly as shipped in theme-base.ts. Theme-layer: emitted by themeToCssVars and frozen by baseline.test.ts.snap. Motion lives only in foundation/motion.tokens.json.",
   "spacing": {
     "none": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } },
     "xxs": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
@@ -38,12 +38,5 @@
     "fontWeightBold": { "$type": "fontWeight", "$value": 700 },
     "lineHeightTight": { "$type": "number", "$value": 1.2 },
     "lineHeightStandard": { "$type": "number", "$value": 1.4 }
-  },
-  "motion": {
-    "durationInstant": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
-    "durationFast": { "$type": "duration", "$value": { "value": 120, "unit": "ms" } },
-    "durationModerate": { "$type": "duration", "$value": { "value": 200, "unit": "ms" } },
-    "easingStandard": { "$type": "cubicBezier", "$value": [0.4, 0, 0.2, 1] },
-    "easingDecelerate": { "$type": "cubicBezier", "$value": [0, 0, 0.2, 1] }
   }
 }
