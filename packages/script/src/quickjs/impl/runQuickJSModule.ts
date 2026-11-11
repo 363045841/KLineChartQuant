@@ -62,8 +62,8 @@ type QuickJSModule = Awaited<ReturnType<typeof getQuickJS>>
 /** 复用的 WASM 模块；加载一次后所有脚本共用，不共享运行态。 */
 let wasmModule: ReturnType<typeof getQuickJS> | undefined
 
-/** 脚本单次执行的时限（毫秒）；库加载、初始化与逐 bar 计算共用。 */
-const SCRIPT_TIMEOUT_MS = 1000
+/** 脚本单次执行的缺省时限（毫秒）；库加载、初始化与逐 bar 计算共用。 */
+const DEFAULT_SCRIPT_TIMEOUT_MS = 10_000
 
 /** 常驻 VM 的内存上限；历史缓存与绘图对象都在其中。 */
 const SCRIPT_MEMORY_LIMIT = 64 * 1024 * 1024
@@ -71,6 +71,7 @@ const SCRIPT_MEMORY_LIMIT = 64 * 1024 * 1024
 /** 单次脚本执行的超时状态；中断处理器写入，错误转换时读取。 */
 interface ScriptTimeout {
   expired: boolean
+  readonly limitMs: number
 }
 
 /** QuickJS 检查点：VM 内对象句柄，只能交回同一运行时。 */
@@ -103,6 +104,8 @@ interface QuickJSRuntimeOptions {
   readonly onLog?: (event: LogEvent) => void
   readonly params?: Readonly<Record<string, ScriptParamValue>>
   readonly symbol?: string
+  /** 单次执行时限（毫秒）；缺省使用 DEFAULT_SCRIPT_TIMEOUT_MS。 */
+  readonly timeoutMs?: number
 }
 
 /** 加载 WASM 模块并缓存；供同步入口复用。 */
@@ -150,7 +153,7 @@ function describeFailure(
   timeout: ScriptTimeout,
 ): string {
   return timeout.expired
-    ? `脚本执行超时：已超过 ${SCRIPT_TIMEOUT_MS} 毫秒上限并被中断`
+    ? `脚本执行超时：已超过 ${timeout.limitMs} 毫秒上限并被中断`
     : describeHandle(vm, handle)
 }
 
@@ -394,8 +397,11 @@ function createQuickJSScriptRuntime(
 ): ScriptRuntime<QuickJSCheckpoint> {
   const module = getQuickJSSync()
   const vm = module.newContext()
-  const timeout: ScriptTimeout = { expired: false }
-  let deadline = Date.now() + SCRIPT_TIMEOUT_MS
+  const timeout: ScriptTimeout = {
+    expired: false,
+    limitMs: options.timeoutMs ?? DEFAULT_SCRIPT_TIMEOUT_MS,
+  }
+  let deadline = Date.now() + timeout.limitMs
   vm.runtime.setInterruptHandler(() => {
     if (Date.now() <= deadline) return false
     timeout.expired = true
@@ -533,7 +539,7 @@ function createQuickJSScriptRuntime(
       state.emit = input.emit
       state.phase = 'run'
       state.failure = undefined
-      deadline = Date.now() + SCRIPT_TIMEOUT_MS
+      deadline = Date.now() + timeout.limitMs
       timeout.expired = false
       state.collector.prepare(input.bars.length, input.startIndex, input.endIndex)
       evalOrThrow(
@@ -634,10 +640,11 @@ function createQuickJSScriptRuntime(
 export function prepareQuickJSModule(
   compiled: CompiledScriptSources,
   onLog?: (event: LogEvent) => void,
+  timeoutMs?: number,
 ): PreparedQuickJSScript {
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
-      createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
+      createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol, timeoutMs }),
     dependency: compiled.dependency,
     replayOnUpdate: compiled.replayOnUpdate,
     onLog,

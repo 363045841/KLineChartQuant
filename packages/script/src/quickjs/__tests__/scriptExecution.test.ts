@@ -83,6 +83,7 @@ describe('脚本执行器', () => {
       runQuickJSScript({
         source: scriptSource(`while (true) {}`),
         bars: barsFromCloses([1]),
+        timeoutMs: 500,
       }),
     ).rejects.toBeInstanceOf(ScriptExecutionError)
   })

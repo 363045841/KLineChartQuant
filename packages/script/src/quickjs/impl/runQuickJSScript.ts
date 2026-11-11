@@ -20,7 +20,12 @@ export async function runQuickJSScript(options: QuickJSRunOptions): Promise<Plot
 
 /** 同步编译和执行；一次性调用创建会话并在结束后释放。 */
 export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
-  const script = prepareQuickJSScript(options.source, options.libraries, options.onLog)
+  const script = prepareQuickJSScript(
+    options.source,
+    options.libraries,
+    options.onLog,
+    options.timeoutMs,
+  )
   try {
     return script.run(options.bars, options.params, options.requestContext)
   } finally {
@@ -46,6 +51,7 @@ export function prepareQuickJSScript(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
   onLog?: (event: LogEvent) => void,
+  timeoutMs?: number,
 ): PreparedQuickJSScript {
-  return prepareQuickJSModule(compileSources(source, libraries), onLog)
+  return prepareQuickJSModule(compileSources(source, libraries), onLog, timeoutMs)
 }

@@ -78,6 +78,8 @@ export interface QuickJSRunOptions {
   /** 脚本参数，作为全局 `params` 注入。 */
   readonly params?: Readonly<Record<string, ScriptParamValue>>
   readonly libraries?: readonly QuickJSLibrary[]
+  /** 单次执行时限（毫秒）；缺省 10 秒。 */
+  readonly timeoutMs?: number
 }
 
 /** 一个源码版本的常驻执行会话；编译与运行态跨 tick 复用，释放时统一销毁。 */
