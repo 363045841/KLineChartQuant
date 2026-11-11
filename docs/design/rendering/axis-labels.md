@@ -53,8 +53,9 @@
 - 时间轴绘制顺序：`xTicks` → 范围带 → `xCrosshair` → `xLabels`。
 - 右轴 overlay 绘制顺序：范围带 → `yRightOverlay`（装饰标签先注册、十字线后注册）。
 - 副图 `indicator_scale` 在同一 `yRightStatic` 收集器内先注册刻度、后注册十字线。
-- 十字线时间签使用主题 `crosshairLabelBg`/`crosshairLabelText`；普通与分钟周期的文本为「周几 YYYY-MM-DD」，
-  分时仍为市场时段 `HH:mm`。所有槽位（含过去与未来留白）的时间都来自本帧坐标服务的 `logicalToTime`。
+- 十字线时间签使用主题 `crosshairLabelBg`/`crosshairLabelText`；日线及以上周期为「周几 YYYY-MM-DD」，
+  日线以下为「周几 YYYY-MM-DD HH:mm」，分时仍为市场时段 `HH:mm`。所有槽位（含过去与未来留白）的时间都来自本帧坐标服务的 `logicalToTime`。
+- 时间轴刻度在日线以下仍只按日界显示日期，不补时分；时分只出现在十字线时间签与绘图锚点时间签。
 
 ## 边界
 

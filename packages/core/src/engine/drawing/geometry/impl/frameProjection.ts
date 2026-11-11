@@ -21,6 +21,7 @@ import {
   resolveThemeColors,
   type ScriptColorResolver,
 } from '@/foundation/tokens/index.js'
+import { isIntradayPeriod } from '@/foundation/types/chartPeriod.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
@@ -288,7 +289,11 @@ function resolveTimeLabelText(
 ): string | null {
   if (priceLabelOnly || !indexVisible) return null
   const timestamp = resolveAnchorTimestamp(anchor, context)
-  return timestamp === null ? null : context.displayTimeFormatter.formatDate(timestamp)
+  if (timestamp === null) return null
+  // 日线以下补齐时分；日线及以上保留纯日期，与时间轴刻度的粒度一致。
+  return isIntradayPeriod(context.period)
+    ? context.displayTimeFormatter.formatDateTime(timestamp)
+    : context.displayTimeFormatter.formatDate(timestamp)
 }
 
 /** 直接命中候选时保留领域值；没有命中时返回原锚点。 */

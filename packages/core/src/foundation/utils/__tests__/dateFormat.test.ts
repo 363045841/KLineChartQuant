@@ -33,6 +33,13 @@ describe('display time formatter', () => {
     expect(newYork.formatDateWithWeekday(timestamp)).toBe('周五 2025-01-31')
   })
 
+  it('includes the clock time in weekday labels for intraday scales', () => {
+    const utc = createDisplayTimeFormatter('UTC')
+    expect(utc.formatDateTimeWithWeekday(Date.parse('2025-02-01T00:30:00Z'))).toBe(
+      '周六 2025-02-01 00:30',
+    )
+  })
+
   it('handles DST through Intl without offset arithmetic', () => {
     const formatter = createDisplayTimeFormatter('America/New_York')
     expect(formatter.formatDateTime(Date.parse('2025-03-09T06:30:00Z'))).toBe('2025-03-09 01:30')

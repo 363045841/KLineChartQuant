@@ -44,7 +44,7 @@ flowchart TB
 
 ### 轴装饰
 
-X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签注册 `price` 和当前帧派生的 Y 坐标。轴标签不保存或消费 `dataIndex`。
+X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签注册 `price` 和当前帧派生的 Y 坐标。轴标签不保存或消费 `dataIndex`。日线以下的时间签包含时分，与十字线口径一致。
 
 ## 组合图元锚点物化
 

@@ -7,7 +7,7 @@ import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/inde
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import {
   isDailyPeriod,
-  isMinutePeriod,
+  isIntradayPeriod,
   isTimeSharePeriod,
 } from '../../foundation/types/chartPeriod.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
@@ -35,13 +35,15 @@ function formatTradingDateLabel(tradingDate: string): string {
 /**
  * 分时/普通 K 线共用的十字线时间文本。
  *
- * 分时走市场时段 HH:mm；其余周期在日期前带周几，日期与周几使用同一显示时区。
+ * 分时走市场时段 HH:mm；日线以下补齐时分，其余周期只显示日期与周几。
  */
 function formatCrosshairTime(context: RenderContext, timestamp: number): string {
-  return isTimeSharePeriod(context.period)
-    ? getMarketSessionTimeFormatter(
-        context.marketSession?.timeZone ?? ASHARE_MARKET_SESSION.timeZone,
-      ).formatAxisTime(timestamp)
+  if (isTimeSharePeriod(context.period))
+    return getMarketSessionTimeFormatter(
+      context.marketSession?.timeZone ?? ASHARE_MARKET_SESSION.timeZone,
+    ).formatAxisTime(timestamp)
+  return isIntradayPeriod(context.period)
+    ? context.displayTimeFormatter.formatDateTimeWithWeekday(timestamp)
     : context.displayTimeFormatter.formatDateWithWeekday(timestamp)
 }
 
@@ -50,7 +52,8 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
  *
  * 普通 K 线逐槽读取本帧坐标服务：位置来自 logicalToX，日期来自 logicalToTime。
  * 过去留白、真实行情与未来留白使用同一套推算，因此日期 key 变化即月界/日界，
- * 不再区分历史边界与相对索引占位。
+ * 不再区分历史边界与相对索引占位。日线以下按日界，日线及以上按月 / 年界；
+ * 刻度文字始终是日期，时分只出现在十字线时间签与绘图锚点时间签。
  *
  * @param context 当前时间轴渲染上下文
  * @param surface xTicks 表面收集器
@@ -122,12 +125,13 @@ function collectTimeAxisTicks(
   }
 
   const displayTimeFormatter = context.displayTimeFormatter
-  const isMinuteData = isMinutePeriod(period)
-  const showOnlyYear = !isMinuteData && !isDailyPeriod(period)
-  const labelFn = isMinuteData
+  // 日线以下按日界放刻度，周期越高的按年 / 月界放刻度；刻度文字始终是日期，不补时分。
+  const isIntraday = isIntradayPeriod(period)
+  const showOnlyYear = !isIntraday && !isDailyPeriod(period)
+  const labelFn = isIntraday
     ? displayTimeFormatter.formatAxisDay
     : displayTimeFormatter.formatAxisMonthOrYear
-  const keySize = isMinuteData ? 10 : 7
+  const keySize = isIntraday ? 10 : 7
   const minX = AXIS_LABEL_PADDING
   const maxX = Math.max(AXIS_LABEL_PADDING, width - AXIS_LABEL_PADDING)
 

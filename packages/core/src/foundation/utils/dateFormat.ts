@@ -10,6 +10,8 @@ export interface DisplayTimeFormatter {
   /** 十字线时间签：周几在日期之前（如 `周三 2026-08-19`）。 */
   formatDateWithWeekday(timestamp: number): string
   formatDateTime(timestamp: number): string
+  /** 低周期十字线时间签：周几 + 日期 + 时分。 */
+  formatDateTimeWithWeekday(timestamp: number): string
   formatAxisMonthOrYear(timestamp: number): AxisDateLabel
   formatAxisDay(timestamp: number): AxisDateLabel
   getMonthBoundaries(data: ReadonlyArray<Timestamped>): ReadonlyArray<number>
@@ -54,6 +56,7 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
   const dateCache = new Map<number, string>()
   const dateWithWeekdayCache = new Map<number, string>()
   const dateTimeCache = new Map<number, string>()
+  const dateTimeWithWeekdayCache = new Map<number, string>()
   const monthAxisCache = new Map<number, AxisDateLabel>()
   const dayAxisCache = new Map<number, AxisDateLabel>()
   const keyIndexes = new WeakMap<ReadonlyArray<Timestamped>, KeyIndex>()
@@ -66,6 +69,12 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
     getOrCreate(dateCache, timestamp, DATE_CACHE_LIMIT, () => {
       const { year, month, day } = partsAt(timestamp)
       return `${year}-${month}-${day}`
+    })
+
+  const formatDateTimeAt = (timestamp: number): string =>
+    getOrCreate(dateTimeCache, timestamp, DATE_CACHE_LIMIT, () => {
+      const { year, month, day, hour, minute } = partsAt(timestamp, true)
+      return `${year}-${month}-${day} ${hour}:${minute}`
     })
 
   const indexFor = (data: ReadonlyArray<Timestamped>): KeyIndex => {
@@ -134,9 +143,11 @@ export function createDisplayTimeFormatter(timeZone: string): DisplayTimeFormatt
       })
     },
     formatDateTime(timestamp) {
-      return getOrCreate(dateTimeCache, timestamp, DATE_CACHE_LIMIT, () => {
-        const { year, month, day, hour, minute } = partsAt(timestamp, true)
-        return `${year}-${month}-${day} ${hour}:${minute}`
+      return formatDateTimeAt(timestamp)
+    },
+    formatDateTimeWithWeekday(timestamp) {
+      return getOrCreate(dateTimeWithWeekdayCache, timestamp, DATE_CACHE_LIMIT, () => {
+        return `${weekdayFormatter.format(timestamp)} ${formatDateTimeAt(timestamp)}`
       })
     },
     formatAxisMonthOrYear(timestamp) {

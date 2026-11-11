@@ -9,9 +9,15 @@ export const FIVE_DAY_TIME_SHARE_DAYS = 5
 
 const DAILY_PERIOD = 'daily' as const
 const MINUTE_PERIOD_MARKER = 'min'
+const HOUR_PERIOD_MARKER = 'h'
 
 export function isMinutePeriod(period: string | undefined): boolean {
   return period?.includes(MINUTE_PERIOD_MARKER) ?? false
+}
+
+/** 判断周期是否低于日线（分钟或小时），用于日内时间显示与日内边界。 */
+export function isIntradayPeriod(period: string | undefined): boolean {
+  return isMinutePeriod(period) || (period?.endsWith(HOUR_PERIOD_MARKER) ?? false)
 }
 
 export function isDailyPeriod(period: string | undefined): boolean {

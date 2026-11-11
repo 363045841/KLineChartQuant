@@ -537,6 +537,40 @@ describe('projectDrawingsForFrame', () => {
     expect(drawing.anchors[1]?.time).toBe(4000)
   })
 
+  it('intraday anchor time tags include the clock time', () => {
+    const start = Date.UTC(2026, 0, 5, 1, 35)
+    const drawing = createTrendDrawing({
+      anchors: [
+        { id: 'a', time: start, price: 10 },
+        { id: 'b', time: start + 5 * 60_000, price: 20 },
+      ],
+    })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const context = createContext({
+      data: Array.from({ length: 4 }, (_, index) => ({
+        timestamp: start + index * 5 * 60_000,
+        open: 1,
+        high: 2,
+        low: 0,
+        close: 1,
+      })),
+      range: { start: 0, end: 4 },
+      period: '5min',
+      kLineCenters: [10, 30, 50, 70],
+    })
+
+    projectDrawingsForFrame(store, definitions, context)
+
+    expect(context.axisLabels.forSurface('xLabels').labels[0]?.text).toBe(
+      context.displayTimeFormatter.formatDateTime(start),
+    )
+  })
+
   /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
   function projectSingleAnchor(kind: DrawingKind, anchors: DrawingObject['anchors']) {
     const drawing = createDrawingObject({ id: 'subject', kind, anchors })

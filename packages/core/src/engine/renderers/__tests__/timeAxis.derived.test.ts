@@ -2,11 +2,13 @@
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { AXIS_LABEL_KIND, type AxisTickLabel, type RenderContext } from '@/foundation/plugin/index'
+import type { KLineData } from '@/foundation/types/price'
 import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createTimeAxisLayer } from '../timeAxis'
 import { createDailyBars } from './helpers/dailyBarsTestKit'
 
 const DATA_LENGTH = 100
+const FIRST_BAR_TS = Date.UTC(2025, 9, 23)
 const formatter = createDisplayTimeFormatter('UTC')
 
 /** 以时间轴身份调用时间轴 Layer.paint。 */
@@ -40,6 +42,35 @@ function dailyContext(range: { start: number; end: number }, paneWidth = 800, sc
       (_, i) => 6 * (range.start + i) + 3,
     ),
     paneWidth,
+    displayTimeFormatter: formatter,
+  })
+}
+
+/** 日内夹具：从 2025-10-23 00:00 UTC 起按固定槽距生成，中心点与槽位网格一致。 */
+function intradayContext(options: {
+  period: string
+  stepMs: number
+  count: number
+  scrollLeft?: number
+  paneWidth?: number
+}) {
+  const data: KLineData[] = Array.from({ length: options.count }, (_, index) => ({
+    timestamp: FIRST_BAR_TS + index * options.stepMs,
+    open: 100,
+    high: 101,
+    low: 99,
+    close: 100,
+    volume: 1000,
+  }))
+  return createMockRenderContext({
+    data,
+    period: options.period,
+    kWidth: 4,
+    kGap: 2,
+    range: { start: 0, end: options.count },
+    scrollLeft: options.scrollLeft ?? 0,
+    kLineCenters: data.map((_, index) => 6 * index + 3),
+    paneWidth: options.paneWidth ?? 800,
     displayTimeFormatter: formatter,
   })
 }
@@ -82,6 +113,33 @@ describe('时间轴刻度消费帧坐标', () => {
     const timestamp = context.coordinates.logicalToTime(index)!
     expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe(
       formatter.formatDateWithWeekday(timestamp),
+    )
+  })
+})
+
+describe('低周期时间显示', () => {
+  it('小时级刻度按日界显示日期且不补时分', () => {
+    const context = intradayContext({
+      period: '4h',
+      stepMs: 4 * 60 * 60 * 1000,
+      count: 12,
+      scrollLeft: -8,
+      paneWidth: 80,
+    })
+    paint(context)
+
+    const texts = tickTexts(context)
+    expect(texts).toEqual(['10-23', '10-24'])
+    expect(texts.some((text) => text.includes(':'))).toBe(false)
+  })
+
+  it('日内十字线签在日期后补齐时分', () => {
+    const context = intradayContext({ period: '5min', stepMs: 5 * 60 * 1000, count: 12 })
+    paint(context, { x: 42, index: 5 })
+
+    const timestamp = context.coordinates.logicalToTime(5)!
+    expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe(
+      formatter.formatDateTimeWithWeekday(timestamp),
     )
   })
 })
