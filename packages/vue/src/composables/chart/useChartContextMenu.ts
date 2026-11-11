@@ -122,13 +122,12 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     void options.commands?.execute(itemId)
   }
 
-  /** 写入剪贴板并给出成功或失败反馈；失败原因不改变可重试行为。 */
+  /** 写入剪贴板；成功不打扰用户，失败才给出可重试原因。 */
   async function copyPrice(): Promise<void> {
     const text = formatPrice(price.value)
     if (text === null) return
     try {
       await navigator.clipboard.writeText(text)
-      toast.show({ message: `已复制价格 ${text}`, tone: 'success' })
     } catch {
       toast.show({ message: '复制失败，请检查剪贴板权限', tone: 'danger' })
     }

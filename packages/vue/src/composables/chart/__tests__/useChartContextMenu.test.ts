@@ -95,7 +95,7 @@ describe('图表右键菜单', () => {
     expect(writeText).not.toHaveBeenCalled()
   })
 
-  it('复制价格写入两位小数并提示成功', async () => {
+  it('复制价格写入两位小数且成功时不弹提示', async () => {
     const { controller, menu } = createFixture()
     controller._setInteractionState({
       ...createIdleInteractionSnapshot(),
@@ -107,7 +107,7 @@ describe('图表右键菜单', () => {
     menu.select(CHART_CONTEXT_MENU_ITEM.COPY_PRICE)
     await flushPromises()
     expect(writeText).toHaveBeenCalledWith('100.00')
-    expect(toastShow).toHaveBeenCalledWith({ message: '已复制价格 100.00', tone: 'success' })
+    expect(toastShow).not.toHaveBeenCalled()
   })
 
   it('重置与设置分别执行导航和设置使用的同一命令', async () => {

@@ -95,6 +95,7 @@
         <ScriptEditorPanels v-show="activeTabId" :logs="logs" :problems="problems" :editor-host="editorHost" :running="executing === 'run'" :document-error="documentError" @clear="emit('clear-output')" @reveal-problem="revealProblem" />
       </div>
     </div>
+    <ScriptContextMenu :model="scriptMenu" :theme="theme" />
   </div>
 </template>
 
@@ -120,6 +121,7 @@
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerShield from '~icons/tabler/shield'
   import IconTablerWindowMaximize from '~icons/tabler/window-maximize'
+  import ScriptContextMenu from './ScriptContextMenu.vue'
   import ScriptEditorPanels from './ScriptEditorPanels.vue'
   import ScriptFileTree from './ScriptFileTree.vue'
   import ScriptTabsBar from './ScriptTabsBar.vue'
@@ -199,7 +201,7 @@
   const editable = computed(
     () => props.activeTabId !== null && props.identity === 'user' && !props.saving,
   )
-  const { languageLoading, languageError, diagnostics, revealProblem, searchDocument } =
+  const { languageLoading, languageError, diagnostics, revealProblem, searchDocument, scriptMenu } =
     useCodeMirror(
       editorHost,
       source,

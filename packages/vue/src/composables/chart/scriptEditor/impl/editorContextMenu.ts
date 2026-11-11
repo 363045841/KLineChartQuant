@@ -2,9 +2,8 @@
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
-import { scriptEditorHighlight, scriptEditorTheme } from './editorTheme.js'
 import { errorText } from './errorText.js'
-import { createScriptMenu, isMacPlatform } from './scriptMenu.js'
+import { isMacPlatform, type ScriptMenuModel } from './scriptMenuModel.js'
 
 type LanguageSupport = ReturnType<
   typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport
@@ -41,29 +40,19 @@ const F12_NAVIGATION: Readonly<Record<number, NavigationKind>> = {
   5: 'typeDefinition',
 }
 
-/** 菜单使用 Popover 顶层，避免编辑器滚动容器和弹窗裁切。 */
+/** 菜单状态由 Vue 侧渲染成 DropMenu；这里只负责产生内容与响应快捷键。 */
 export function scriptEditorContextMenu(
+  menu: ScriptMenuModel,
   support: () => LanguageSupport | undefined,
   editable: () => boolean,
-  theme: () => 'light' | 'dark',
   formatAvailable: () => boolean,
   format: () => Promise<void>,
 ) {
   return [
     ViewPlugin.define((view) => {
       const document = view.dom.ownerDocument
-      let preview: EditorView | undefined
-      /** 菜单关闭时释放只读预览，异步结果由菜单统一失效。 */
-      const menu = createScriptMenu(document, {
-        host: view.dom,
-        onClose: () => {
-          preview?.destroy()
-          preview = undefined
-        },
-      })
-      const panel = menu.element
 
-      /** 同文件直接选中目标；外部声明在可关闭的只读代码视图中展示。 */
+      /** 同文件直接选中目标；外部声明交给菜单里的只读预览。 */
       function reveal(target: Target): void {
         if (target.current) {
           menu.close()
@@ -74,54 +63,12 @@ export function scriptEditorContextMenu(
           view.focus()
           return
         }
-        menu.clear()
-        panel.setAttribute('role', 'dialog')
-        panel.setAttribute('aria-label', '声明预览')
-        const header = document.createElement('div')
-        header.className = 'klc-script-preview-header'
-        const title = document.createElement('div')
-        title.className = 'klc-script-preview-path'
-        title.textContent = target.path
-        title.title = target.path
-        const dismiss = document.createElement('button')
-        dismiss.type = 'button'
-        dismiss.className = 'klc-script-preview-close'
-        dismiss.setAttribute('aria-label', '关闭声明预览')
-        dismiss.title = '关闭声明预览 (Esc)'
-        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        icon.setAttribute('viewBox', '0 0 24 24')
-        icon.setAttribute('fill', 'none')
-        icon.setAttribute('stroke', 'currentColor')
-        icon.setAttribute('stroke-width', '1.5')
-        icon.setAttribute('stroke-linecap', 'round')
-        icon.setAttribute('aria-hidden', 'true')
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-        path.setAttribute('d', 'M6 6l12 12M6 18L18 6')
-        icon.append(path)
-        dismiss.append(icon)
-        dismiss.addEventListener('click', () => menu.close())
-        header.append(title, dismiss)
-        panel.append(header)
-        const host = document.createElement('div')
-        host.className = 'klc-script-definition-preview'
-        panel.append(host)
-        preview = new EditorView({
-          parent: host,
-          state: EditorState.create({
-            doc: target.source,
-            selection: { anchor: target.from, head: target.to },
-            extensions: [
-              javascript({ typescript: true }),
-              scriptEditorTheme,
-              scriptEditorHighlight(theme()),
-              EditorState.readOnly.of(true),
-              EditorView.editable.of(false),
-            ],
-          }),
+        menu.preview({
+          path: target.path,
+          source: target.source,
+          from: target.from,
+          to: target.to,
         })
-        preview.dispatch({ effects: EditorView.scrollIntoView(target.from, { y: 'center' }) })
-        menu.fit()
-        dismiss.focus()
       }
 
       /** 请求发出后的文档、会话或菜单发生变化，旧结果即失效。 */
@@ -150,7 +97,6 @@ export function scriptEditorContextMenu(
           const line = target.source.slice(0, target.from).split('\n').length
           menu.button(`${target.path}:${line}`, () => reveal(target))
         }
-        menu.fit()
       }
 
       /** 输入新名称后，一次提交所有引用修改，允许整体撤销。 */
@@ -177,7 +123,6 @@ export function scriptEditorContextMenu(
               })),
               annotations: Transaction.userEvent.of('input.rename'),
             })
-            menu.close()
           },
         })
       }
@@ -232,8 +177,7 @@ export function scriptEditorContextMenu(
           x = rect.left
           y = rect.bottom
         }
-        menu.open(x, y, 'menu')
-        panel.setAttribute('aria-label', '脚本编辑器菜单')
+        menu.open(x, y, { role: 'menu', label: '脚本编辑器菜单' })
         for (const [kind, label] of NAVIGATION)
           menu.button(label, () => navigate(kind), {
             disabled: !support(),
@@ -276,7 +220,6 @@ export function scriptEditorContextMenu(
           reason: !editable() ? '内置脚本只读' : empty ? '请先选择内容' : '',
           shortcut: SHORTCUTS.cut,
         })
-        menu.fit()
       }
 
       /** 菜单打开时接管 Mod+C/V/X，避免编辑器先处理剪贴板。 */
@@ -287,7 +230,7 @@ export function scriptEditorContextMenu(
       ): boolean {
         if (
           !menu.isOpen ||
-          panel.getAttribute('role') !== 'menu' ||
+          menu.mode !== 'menu' ||
           !mod ||
           otherMod ||
           event.shiftKey ||
@@ -323,8 +266,8 @@ export function scriptEditorContextMenu(
         mod: boolean,
         otherMod: boolean,
       ): boolean {
-        if (panel.contains(event.target instanceof Node ? event.target : null) || otherMod)
-          return false
+        const target = event.target instanceof Node ? event.target : null
+        if ((target && menu.panelElement.value?.contains(target)) || otherMod) return false
         const kind = navigationKind(event, mod)
         if (kind && support()) {
           open(event)
@@ -377,13 +320,11 @@ export function scriptEditorContextMenu(
       view.dom.addEventListener('contextmenu', open)
       view.dom.addEventListener('keydown', keydown, true)
       return {
-        /** 编辑器销毁时解除监听和所有临时视图。 */
+        /** 编辑器销毁时解除监听，菜单由 Vue 组件自行销毁。 */
         destroy() {
-          preview?.destroy()
-          preview = undefined
           view.dom.removeEventListener('contextmenu', open)
           view.dom.removeEventListener('keydown', keydown, true)
-          menu.destroy()
+          menu.handleUiClose()
         },
       }
     }),

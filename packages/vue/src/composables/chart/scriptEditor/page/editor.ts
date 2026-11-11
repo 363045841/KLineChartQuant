@@ -42,7 +42,6 @@ function connect(event: MessageEvent<DetachedEditorConnection>): void {
             h(ScriptEditorHost, {
               mode: 'window',
               ...state.snapshot.value,
-              container: document.body,
               'onUpdate:source': state.updateSource,
               'onUpdate:trusted': state.updateTrusted,
               onSave: () => state.command('save'),

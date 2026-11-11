@@ -4,7 +4,7 @@
 -->
 <template>
   <component :is="shell" v-bind="shellProps">
-    <div class="script-editor-host__body" :class="`script-editor-host__body--${mode}`">
+    <div ref="teleportHost" class="script-editor-host__body" :class="`script-editor-host__body--${mode}`">
       <ScriptEditorWorkspace
         :source="source"
         :tabs="tabs"
@@ -56,7 +56,7 @@
     ScriptTreeAction,
   } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-  import { computed } from 'vue'
+  import { computed, useTemplateRef } from 'vue'
   import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
 
   const props = withDefaults(
@@ -92,8 +92,6 @@
       detachable?: boolean
       /** 当前图表的有效主题，决定语法高亮配色。 */
       theme: 'light' | 'dark'
-      /** 独立窗口的页面 body，供内部浮层 Teleport；弹窗模式不需要。 */
-      container?: HTMLElement
     }>(),
     {
       mode: 'dialog',
@@ -133,9 +131,11 @@
     return: []
   }>()
 
-  // 独立窗口自己创建页面 body，显式提供给内部浮层；弹窗沿用父级或 BaseModal 的默认目标。
+  // 独立窗口由宿主页面承载，浮层 Teleport 到底部容器；弹窗模式交给 BaseModal 提供的
+  // dialog 目标——若在这里提供目标，BaseModal 会把自身 dialog 插入自己的子节点。
+  const teleportHost = useTemplateRef<HTMLElement>('teleportHost')
   if (props.mode === 'window') {
-    provideFullscreenTeleportTarget(computed(() => props.container ?? document.body))
+    provideFullscreenTeleportTarget(teleportHost)
   }
 
   const shell = computed(() => (props.mode === 'dialog' ? BaseModal : 'div'))

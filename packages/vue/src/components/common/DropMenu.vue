@@ -5,7 +5,7 @@
       v-if="!context"
       :content="label"
       :placement="tooltipPlacement ?? 'top'"
-      :disabled="open || disabled"
+      :disabled="isOpen || disabled"
       :command="command"
       :fill="fill"
     >
@@ -20,7 +20,7 @@
         @click="popover.onTriggerClick"
         @keydown="onTriggerKeydown"
       >
-        <slot name="trigger" :open="open">{{ label }}</slot>
+        <slot name="trigger" :open="isOpen">{{ label }}</slot>
       </ControlTrigger>
     </BaseTooltip>
     <Teleport :to="teleportTarget">
@@ -32,7 +32,7 @@
           'drop-menu__panel--replace-detail': replaceDetailOnAction,
         }"
         v-bind="popover.panelBindings.value"
-        role="menu"
+        :role="panelRole ?? 'menu'"
         :aria-label="label"
         @keydown="onMenuKeydown"
         @focusout="onMenuFocusOut"
@@ -40,54 +40,60 @@
         @pointerover="onMenuPointerOver"
         @pointerleave="hideHighlight"
       >
-        <template v-if="open">
+        <template v-if="isOpen">
           <div
             ref="highlight"
             class="drop-menu__highlight"
             :style="highlightStyle"
             aria-hidden="true"
           ></div>
-          <div v-if="$slots.header" class="drop-menu__header">
-            <slot name="header" />
+          <div v-if="bodyMode" class="drop-menu__body">
+            <slot name="body" />
           </div>
-          <div v-for="group in groups" :key="group.id" class="drop-menu__group">
-            <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
-            <div
-              v-for="item in group.items"
-              :key="item.id"
-              class="drop-menu__item"
-              :class="{ 'is-active': item.active }"
-            >
-              <slot
-                name="item"
-                :group="group"
-                :item="item"
-                :select="() => select(group.id, item.id)"
+          <template v-else>
+            <div v-if="$slots.header" class="drop-menu__header">
+              <slot name="header" />
+            </div>
+            <div v-for="group in groups" :key="group.id" class="drop-menu__group">
+              <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="drop-menu__item"
+                :class="{ 'is-active': item.active }"
               >
-                <button
-                  type="button"
-                  class="drop-menu__item-main"
-                  role="menuitem"
-                  :disabled="item.disabled"
-                  @click="select(group.id, item.id)"
+                <slot
+                  name="item"
+                  :group="group"
+                  :item="item"
+                  :select="() => select(group.id, item.id)"
                 >
-                  <slot name="item-icon" :group="group" :item="item" />
-                  <span>{{ item.label }}</span>
-                  <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
-                </button>
-              </slot>
-              <span v-if="$slots['item-action']" class="drop-menu__item-action">
-                <slot name="item-action" :group="group" :item="item" />
-              </span>
+                  <button
+                    type="button"
+                    class="drop-menu__item-main"
+                    role="menuitem"
+                    :disabled="item.disabled"
+                    :title="item.disabled ? item.reason : undefined"
+                    @click="select(group.id, item.id)"
+                  >
+                    <slot name="item-icon" :group="group" :item="item" />
+                    <span>{{ item.label }}</span>
+                    <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
+                  </button>
+                </slot>
+                <span v-if="$slots['item-action']" class="drop-menu__item-action">
+                  <slot name="item-action" :group="group" :item="item" />
+                </span>
+              </div>
+              <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
+                {{ emptyText }}
+              </div>
             </div>
-            <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
-              {{ emptyText }}
+            <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
+            <div v-if="$slots.footer" class="drop-menu__footer">
+              <slot name="footer" />
             </div>
-          </div>
-          <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
-          <div v-if="$slots.footer" class="drop-menu__footer">
-            <slot name="footer" />
-          </div>
+          </template>
         </template>
       </div>
     </Teleport>
@@ -114,6 +120,8 @@
       active?: boolean
       /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
       shortcut?: string
+      /** 禁用原因；默认按钮通过 title 展示。 */
+      reason?: string
       /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
       deletable?: boolean
     }>
@@ -145,11 +153,23 @@
     context?: boolean
     /** 坐标模式关闭后归还焦点的元素，通常为图表容器。 */
     focusTarget?: HTMLElement | null
+    /** 面板语义角色；表单/预览等非菜单内容使用 dialog。 */
+    panelRole?: 'menu' | 'dialog'
+    /** 打开后把焦点移入首个可用项；脚本右键菜单需要键盘直接可用。 */
+    focusOnOpen?: boolean
+    /** 用 body 插槽替换默认分组内容，供表单、预览等自定义面板使用。 */
+    bodyMode?: boolean
+    /** 受控打开状态；由 controlled + open + update:open 共同驱动。 */
+    controlled?: boolean
+    open?: boolean
+    /** 受控坐标锚点；提供时以该点弹出，无需调用 openAt。 */
+    origin?: { x: number; y: number } | null
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
     open: []
     close: []
+    'update:open': [open: boolean]
   }>()
   const triggerControl = useTemplateRef<InstanceType<typeof ControlTrigger>>('triggerControl')
   const triggerRef = computed(() => triggerControl.value?.element ?? null)
@@ -158,15 +178,16 @@
   const roving = useRovingFocus(menuRef, {
     itemSelector: '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
   })
-  // 坐标模式的弹出原点；普通模式下始终为 null。
-  const origin = shallowRef<{ x: number; y: number } | null>(null)
+  // 命令式坐标（右键菜单）与受控坐标共用同一个原点。
+  const contextOrigin = shallowRef<{ x: number; y: number } | null>(null)
+  const origin = computed(() => props.origin ?? contextOrigin.value)
   // 记录本次打开是否由指针触发，用于区分是否把焦点移入菜单项。
   let pointerOpened = false
   const popover = useAnchoredPopover({
     trigger: triggerRef,
     panel: menuRef,
-    // 普通下拉保留触发器锚定与 CSS anchor；只有坐标模式改用指针原点。
-    origin: props.context ? origin : undefined,
+    // 普通下拉保留触发器锚定与 CSS anchor；坐标模式改用指针原点。
+    origin: props.context || props.origin !== undefined ? origin : undefined,
     restoreFocusTo: () => props.focusTarget ?? null,
     placement: () => props.placement ?? 'auto',
     offset: props.context ? 0 : 4,
@@ -176,12 +197,26 @@
       emit('open')
       // 指针打开与坐标模式只预置 tabindex：把焦点移入菜单项会让该项常驻 hover 高亮，
       // 鼠标移开后仍像被选中。键盘打开才把焦点移入第一个可用项（APG menu button）。
-      if (props.context || pointerOpened) roving.prime('.is-active [role="menuitem"]')
+      if (props.focusOnOpen) roving.focusFirst('.is-active [role="menuitem"]')
+      else if (props.context || pointerOpened) roving.prime('.is-active [role="menuitem"]')
       else roving.focusFirst('.is-active [role="menuitem"]')
     },
-    onClose: () => emit('close'),
+    onClose: () => {
+      emit('close')
+      if (props.controlled) emit('update:open', false)
+    },
   })
-  const open = popover.open
+  // 受控模式下以宿主传入的 open 为准；未传 controlled 时沿用 popover 的内部状态。
+  const isOpen = computed(() => (props.controlled ? props.open === true : popover.open.value))
+  watch(
+    () => (props.controlled ? props.open : undefined),
+    (next) => {
+      if (next === undefined) return
+      if (next) popover.show()
+      else popover.hide({ restoreFocus: false })
+    },
+    { flush: 'post', immediate: true },
+  )
   // 整个面板共用一块悬停高亮：移动时只改位置和高度，形成滑动过渡而不是淡入淡出。
   const HIGHLIGHT_HIDDEN: CSSProperties = { opacity: 0 }
   const highlightStyle = shallowRef<CSSProperties>(HIGHLIGHT_HIDDEN)
@@ -223,7 +258,7 @@
   }
 
   // 关闭后清空高亮，重新打开不会残留上一项的位置。
-  watch(open, (isOpen) => {
+  watch(isOpen, (next) => {
     if (!isOpen) hideHighlight()
   })
 
@@ -239,7 +274,7 @@
   /** 坐标模式入口：记录指针位置后打开，已打开时只更新位置。 */
   function openAt(x: number, y: number): void {
     pointerOpened = false
-    origin.value = { x, y }
+    contextOrigin.value = { x, y }
     show()
   }
 
@@ -251,13 +286,13 @@
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       // 键盘操作：打开时移入焦点；已打开则把焦点从触发器移入菜单。
-      if (open.value) {
+      if (isOpen.value) {
         roving.focusFirst('.is-active [role="menuitem"]')
       } else {
         pointerOpened = false
         show()
       }
-    } else if (event.key === 'Escape' && open.value) {
+    } else if (event.key === 'Escape' && isOpen.value) {
       event.preventDefault()
       event.stopPropagation()
       hide(true)
@@ -284,7 +319,7 @@
     emit('select', groupId, itemId)
   }
 
-  defineExpose({ show, hide, openAt })
+  defineExpose({ show, hide, openAt, element: menuRef })
 </script>
 
 

@@ -33,10 +33,13 @@
         </BaseEmptyState>
       </ul>
     </div>
+    <ScriptContextMenu :model="menu" />
   </nav>
 </template>
 
 <script setup lang="ts">
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import SearchField from '@vue-src/components/common/SearchField.vue'
   import { useScriptTree } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTree.js'
   import { useScriptTreeMenu } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTreeMenu.js'
   import type {
@@ -47,8 +50,7 @@
     ScriptTreeRow,
   } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useTemplateRef } from 'vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import ScriptContextMenu from './ScriptContextMenu.vue'
   import ScriptFileTreeRow from './ScriptFileTreeRow.vue'
 
   const props = withDefaults(
@@ -94,7 +96,7 @@
     select: (id) => emit('select-tab', id),
     openFile: (id) => emit('open-script', id),
   })
-  const { openContextMenu } = useScriptTreeMenu({
+  const { menu, openContextMenu } = useScriptTreeMenu({
     apply: (action) => emit('tree-action', action),
     writable: () => !props.saving && !props.executing,
     treeHost,
