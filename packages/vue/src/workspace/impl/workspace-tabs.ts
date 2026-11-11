@@ -4,6 +4,7 @@
  * 这里只记录标签身份与标题品种；稳定标签 ID 同时用作布局归档的持有者身份。
  * 指标、窗格、绘图与视口只由 Core Layout 保存，不在标签存储中重复持有。
  */
+import { generateUUID } from '@363045841yyt/klinechart-core'
 import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 
 import { isSymbolSpec, type WorkspaceTab } from '../types.js'
@@ -74,9 +75,9 @@ function isWorkspaceTab(value: unknown): value is WorkspaceTab {
   return tab.spec === null || isSymbolSpec(tab.spec)
 }
 
-/** 生成一个空标签页（新建图表）。 */
+/** 生成一个空标签页（新建图表）；ID 走 core 的 UUID 生成器，非安全上下文同样可用。 */
 export function createBlankTab(): WorkspaceTab {
-  return { id: globalThis.crypto.randomUUID(), spec: null }
+  return { id: generateUUID(), spec: null }
 }
 
 /**

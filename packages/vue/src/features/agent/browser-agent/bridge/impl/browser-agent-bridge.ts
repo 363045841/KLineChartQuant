@@ -20,6 +20,7 @@ import {
   type BrowserRuntimeSessions,
   createBrowserRuntimeSessions,
 } from '@363045841yyt/klinechart-agent-runtime/browser'
+import { generateUUID } from '@363045841yyt/klinechart-core'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentBridgeClient,
@@ -187,8 +188,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       throw new AgentRuntimeError('TOOL_NOT_ALLOWED', `Agent tool '${name}' is unavailable.`)
     }
     const result = await tool.execute(input, {
-      runId: `debug:${globalThis.crypto.randomUUID()}`,
-      toolCallId: `debug:${globalThis.crypto.randomUUID()}`,
+      runId: `debug:${generateUUID()}`,
+      toolCallId: `debug:${generateUUID()}`,
       signal: new AbortController().signal,
       progress: () => undefined,
     })
