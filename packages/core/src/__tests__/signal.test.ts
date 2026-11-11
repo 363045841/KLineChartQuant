@@ -166,6 +166,69 @@ describe('computed', () => {
     a.set(2)
     expect(listener).toHaveBeenCalledTimes(1)
   })
+
+  it('不含变化的派生不通知', () => {
+    const a = createSignal(1)
+    const even = computed(() => a() % 2 === 0)
+    const listener = vi.fn()
+    even.subscribe(listener)
+    a.set(3)
+    expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('batch 与派生', () => {
+  it('batch 内读取派生拿到当前输入推导的值', () => {
+    const a = createSignal(1)
+    const doubled = computed(() => a() * 2)
+    batch(() => {
+      a.set(3)
+      expect(doubled()).toBe(6)
+      expect(doubled.peek()).toBe(6)
+    })
+  })
+
+  it('派生链在 batch 内同样按新输入重算', () => {
+    const a = createSignal(2)
+    const doubled = computed(() => a() * 2)
+    const plusOne = computed(() => doubled() + 1)
+    batch(() => {
+      a.set(5)
+      expect(doubled.peek()).toBe(10)
+      expect(plusOne()).toBe(11)
+    })
+  })
+
+  it('一次提交内多次写入只通知一次', () => {
+    const a = createSignal(1)
+    const doubled = computed(() => a() * 2)
+    const listener = vi.fn()
+    doubled.subscribe(listener)
+    batch(() => {
+      a.set(2)
+      a.set(3)
+    })
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(doubled.peek()).toBe(6)
+  })
+
+  it('提交后订阅者只看到一致的一帧', () => {
+    const a = createSignal(1)
+    const b = createSignal(1)
+    const sum = computed(() => a() + b())
+    const frames: Array<[number, number]> = []
+    effect(() => {
+      frames.push([a(), sum()])
+    })
+    batch(() => {
+      a.set(2)
+      b.set(2)
+    })
+    expect(frames).toEqual([
+      [1, 2],
+      [2, 4],
+    ])
+  })
 })
 
 describe('selectSignal', () => {
