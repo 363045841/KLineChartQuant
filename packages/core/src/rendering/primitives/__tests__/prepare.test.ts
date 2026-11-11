@@ -2,8 +2,9 @@
 import { describe, expect, it } from 'vitest'
 import { FloatArena, resolveUploadRange } from '../impl/buffers.js'
 import { rectPath } from '../impl/geometry.js'
-import { createPrimitivePreparer, type GeometryPrimitive } from '../impl/prepare.js'
 import { projectStrokeToScreen, rebaseDataTransform } from '../impl/projection.js'
+import { MESH_FLOATS } from '../impl/shaders.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from '../preparation/index.js'
 import type { PaintPrimitive } from '../types.js'
 
 /** 使用固定 RGBA 隔离浏览器颜色解析，只检查真实几何准备器。 */
@@ -294,6 +295,45 @@ describe('ordered primitive batching', () => {
 })
 
 describe('upload reuse', () => {
+  it('keeps a retained data fill separate from following screen meshes across frames', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1])
+    const fill: GeometryPrimitive = {
+      kind: 'fill',
+      band: true,
+      dataSpace: true,
+      color: 'red',
+      paths: [
+        [
+          { x: 0, y: 10 },
+          { x: 10, y: 10 },
+          { x: 10, y: 20 },
+          { x: 0, y: 20 },
+        ],
+      ],
+    }
+    const stroke: GeometryPrimitive = {
+      kind: 'stroke',
+      color: 'red',
+      width: 2,
+      paths: [
+        [
+          { x: 10, y: 30 },
+          { x: 40, y: 30 },
+        ],
+      ],
+    }
+    const transform = { offsetX: 0, yScale: 2, yOffset: 0 }
+    const first = prepare.prepare([fill, stroke], 100, 100, 1, transform)
+    expect(first.draws.map((draw) => draw.kind)).toEqual(['direct', 'direct'])
+    const fillCount = first.draws[0]!.count
+    const next = prepare.prepare([fill, stroke], 100, 100, 1, { ...transform, yScale: 3 })
+    expect(next.draws.map((draw) => draw.kind)).toEqual(['direct', 'direct'])
+    expect(next.draws[0]!.count).toBe(fillCount)
+    expect(next.uploads.vertices?.offset).toBe(
+      fillCount * MESH_FLOATS * Float32Array.BYTES_PER_ELEMENT,
+    )
+  })
+
   it('keeps sub-cent price differences and large history coordinates precise after GPU rebasing', () => {
     const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
     const paths = [

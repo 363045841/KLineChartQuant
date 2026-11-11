@@ -1,17 +1,16 @@
 /** WebGPU 有序合批设备：共享宿主 device、复用上传资源与目标纹理，文字不进入 GPU。 */
 
-import type { DataTransform } from '@/foundation/plugin/types.js'
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_UNIFORM,
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
-import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
-import { resolveUploadRange, type UploadRange } from './buffers.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from '../preparation/index.js'
+import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface, UploadRange } from '../types.js'
+import { resolveUploadRange } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
-import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
 import { rebaseDataTransform } from './projection.js'
 import {
   INSTANCE_FLOATS,

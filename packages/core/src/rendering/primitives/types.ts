@@ -4,6 +4,12 @@ import type { DataTransform } from '../../foundation/plugin/types.js'
 export type PrimitivePoint = Readonly<{ x: number; y: number }>
 export type PrimitivePath = readonly PrimitivePoint[]
 
+/** 准备器声明的连续上传区间；偏移为字节，视图只在下一次准备前有效。 */
+export interface UploadRange {
+  offset: number
+  values: Float32Array
+}
+
 /** 屏幕逻辑 Y 上的线性透明度衰减区间；fromY 保留原色，toY 完全透明。 */
 export interface PrimitiveFade {
   readonly fromY: number

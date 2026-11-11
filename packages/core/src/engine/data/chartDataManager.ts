@@ -19,7 +19,6 @@ import {
   instrumentKeyFromSpec,
   LATEST_TRADING_DATE,
   SERIES_SELECTION_KIND,
-  SeriesRepository,
   type SeriesSelection,
   seriesSelectionKey,
   sourceIdFromSpec,
@@ -1386,14 +1385,6 @@ export class ChartDataManager {
       paneWidth,
       this.deps.comparison.readonly.hidden.peek(),
     )
-  }
-
-  // ── Index helpers ──
-
-  getLogicalSlotCount(): number {
-    const buf = this.getActiveDataBuffer()
-    const dataLength = buf ? buf.getRawData().length : 0
-    return dataLength + 24
   }
 
   destroy(): void {

@@ -37,7 +37,6 @@ import {
   type ContextLayer,
   type FramePaint,
   LAYER_PANE_GLOBAL,
-  type Layer,
   type LayerRole,
   type Scene,
   scenePaintTarget,
@@ -202,23 +201,6 @@ function clearPlotSurface(
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.scale(vp.dpr, vp.dpr)
   ctx.clearRect(0, 0, width + 1, pane.height + 2 / vp.dpr)
-}
-
-/** 副图指标可能提供的极值字段。 */
-interface IndicatorExtremaState {
-  valueMin?: number
-  valueMax?: number
-  visibleMin?: number
-  visibleMax?: number
-}
-
-/** 优先使用指标值域，缺失时回退可见区极值。 */
-function readIndicatorExtrema(
-  state: IndicatorExtremaState | undefined,
-): { min: number; max: number } | null {
-  const min = state?.valueMin ?? state?.visibleMin
-  const max = state?.valueMax ?? state?.visibleMax
-  return typeof min === 'number' && typeof max === 'number' ? { min, max } : null
 }
 
 /** 四侧轴表面；静态与动态标签分别跟随 Main / Overlay 更新。 */
@@ -640,10 +622,6 @@ export class ChartRenderer {
 
   getScene(): Scene {
     return this.scene
-  }
-
-  getPaneCtxMap(): Map<string, RenderContext> {
-    return this.paneCtxMap
   }
 
   getDrawingStore(): DrawingStore {

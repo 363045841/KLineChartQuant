@@ -1,11 +1,11 @@
 /** WebGL2 有序合批设备：实例化基础形状、连续网格上传与受约束的 stencil 合批。 */
 
 import type { DataTransform } from '@/foundation/plugin/types.js'
-import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
-import { resolveUploadRange, type UploadRange } from './buffers.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from '../preparation/index.js'
+import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface, UploadRange } from '../types.js'
+import { resolveUploadRange } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
-import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
 import { rebaseDataTransform } from './projection.js'
 import {
   INSTANCE_FLOATS,

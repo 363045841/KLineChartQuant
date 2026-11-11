@@ -18,7 +18,7 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import {
   createPrimitivePreparer,
   type GeometryPrimitive,
-} from '@/rendering/primitives/impl/prepare.js'
+} from '@/rendering/primitives/preparation/index.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'

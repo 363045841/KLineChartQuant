@@ -1,4 +1,6 @@
 /** CPU 线性缓冲：写入者声明变更区间，重放只推进游标，不扫描或复制 CPU 镜像。 */
+import type { UploadRange } from '../types.js'
+
 export class FloatArena {
   private storage = new Float32Array(256)
   length = 0
@@ -51,11 +53,6 @@ export class FloatArena {
       ? { offset: this.firstWrite * 4, values: this.storage.subarray(this.firstWrite, end) }
       : null
   }
-}
-
-export interface UploadRange {
-  offset: number
-  values: Float32Array
 }
 
 /** 新 GPU 存储需要完整初始化；已分配存储直接消费生产者的变更区间。 */

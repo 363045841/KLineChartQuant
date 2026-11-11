@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMockCanvasContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { paintCanvasPrimitives } from '../impl/canvas'
-import { createPrimitivePreparer } from '../impl/prepare'
+import { createPrimitivePreparer } from '../preparation/index.js'
 
 describe('primitive opacity', () => {
   it('multiplies GPU rectangle alpha without changing RGB or cached colors', () => {
