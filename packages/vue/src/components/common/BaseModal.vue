@@ -12,7 +12,11 @@
       v-if="rendered"
       ref="dialog"
       class="base-modal"
-      :class="{ 'base-modal--draggable': draggable, 'base-modal--dragging': dragging }"
+      :class="{
+        'base-modal--draggable': draggable,
+        'base-modal--dragging': dragging,
+        'base-modal--resizing': resizing,
+      }"
       :style="[modalStyle, dragStyle]"
       :aria-labelledby="labelledBy"
       :aria-label="labelledBy ? undefined : ariaLabel || undefined"
@@ -163,7 +167,7 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
-  useModalResize(dialog, () => props.animateResize)
+  const { resizing } = useModalResize(dialog, () => props.animateResize)
   const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
   const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
     dialog,
@@ -470,6 +474,14 @@
 
   .base-body--scrollable {
     overflow-y: auto;
+  }
+
+  /*
+    尺寸过渡期间 dialog 的盒子比最终内容矮，此时的滚动条只是中间态伪影，
+    还会挤掉内容宽度；收起它，等动画结束由最终尺寸决定是否出现。
+  */
+  .base-modal--resizing .base-body {
+    overflow-y: hidden;
   }
 
   .base-footer {

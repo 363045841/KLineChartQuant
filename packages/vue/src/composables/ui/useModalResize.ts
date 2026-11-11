@@ -1,5 +1,5 @@
 /** 公共弹窗尺寸过渡：测量自然布局，动画结束后恢复由内容决定尺寸。 */
-import { onScopeDispose, type Ref, watch } from 'vue'
+import { onScopeDispose, type Ref, ref, watch } from 'vue'
 import { prefersReducedMotion, readMotionDuration, readMotionToken } from './motion.js'
 
 interface ModalSize {
@@ -12,6 +12,8 @@ export function useModalResize(
   dialog: Readonly<Ref<HTMLDialogElement | null>>,
   enabled: () => boolean,
 ) {
+  /** 高度过渡进行中：调用方在此时收起滚动条，由动画结束后的最终尺寸决定是否出现。 */
+  const resizing = ref(false)
   let cleanup: (() => void) | undefined
   watch(
     dialog,
@@ -27,17 +29,22 @@ export function useModalResize(
         return { width: element!.offsetWidth, height: element!.offsetHeight }
       }
 
+      /** 结束尺寸动画并退出过渡态，让最终尺寸重新决定滚动条。 */
+      function stopAnimation(): void {
+        animation?.cancel()
+        animation = null
+        resizing.value = false
+      }
+
       /** 从当前可见尺寸过渡到最新自然尺寸，连续操作会接续当前动画。 */
       function resize(): void {
         if (!element?.open) {
-          animation?.cancel()
-          animation = null
+          stopAnimation()
           size = null
           return
         }
         const previous = animation ? measure() : size
-        animation?.cancel()
-        animation = null
+        stopAnimation()
         const next = measure()
         size = next
         if (
@@ -48,6 +55,8 @@ export function useModalResize(
           (previous.width === next.width && previous.height === next.height)
         )
           return
+        // 只有高度变化会把内容挤出可视区，过渡期间的滚动条是中间态伪影。
+        resizing.value = previous.height !== next.height
         const current = element.animate(
           [
             { width: `${previous.width}px`, height: `${previous.height}px` },
@@ -62,6 +71,7 @@ export function useModalResize(
         current.onfinish = () => {
           if (animation !== current) return
           animation = null
+          resizing.value = false
           size = measure()
         }
       }
@@ -71,7 +81,13 @@ export function useModalResize(
         cancelAnimationFrame(frame)
         frame = requestAnimationFrame(resize)
       }
-      const mutations = new MutationObserver(schedule)
+      const mutations = new MutationObserver((records) => {
+        // dialog 自身的 class 只影响外观与过渡（过渡态也是它），不改变内容尺寸；
+        // 忽略这类记录，避免过渡态切换触发一次多余测量并把动画重新起跑。
+        if (records.every((record) => record.target === element && record.attributeName === 'class'))
+          return
+        schedule()
+      })
       mutations.observe(element, {
         childList: true,
         subtree: true,
@@ -88,11 +104,12 @@ export function useModalResize(
         mutations.disconnect()
         observer.disconnect()
         cancelAnimationFrame(frame)
-        animation?.cancel()
+        stopAnimation()
         window.removeEventListener('resize', schedule)
       }
     },
     { flush: 'post' },
   )
   onScopeDispose(() => cleanup?.())
+  return { resizing }
 }
