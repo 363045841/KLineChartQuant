@@ -4,9 +4,11 @@ import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import type { PluginHostImpl, RenderContext } from '../../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { Clock } from '../../foundation/utils/clock.js'
+import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
-import type { ChartDom, ChartOptions } from '../chart/index.js'
+import type { ChartDom, ChartOptions, Viewport } from '../chart/index.js'
+import type { ScaleXSnapshot } from '../scale/index.js'
 import type { ChartDataView, ChartModeHandler } from '../chartModel/index.js'
 import type { InteractionController } from '../controller/interaction.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
@@ -22,6 +24,13 @@ import type { ZoomStateModule } from '../state/zoomState.js'
 export type ResolvedChartOptions = ChartOptions & {
   kWidth: number
   kGap: number
+}
+
+/** 已完成绘制的横向几何；DOM 覆盖物与 Canvas 共用同一帧投影和数据。 */
+export interface ChartFrameGeometry {
+  readonly viewSnapshot: ScaleXSnapshot
+  readonly viewport: Readonly<Viewport>
+  readonly data: readonly ChartSeriesDatum[]
 }
 
 /** 帧渲染器依赖注入契约；ChartRenderer 不直接持有状态，只从该接口读取。 */

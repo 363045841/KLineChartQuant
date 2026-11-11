@@ -163,6 +163,7 @@ export function createMockChartController(
 
   const controller: Partial<ChartController> = {
     viewport,
+    frameGeometry: createSignal<ReturnType<ChartController['frameGeometry']['peek']>>(null),
     data,
     dataLoading: createSignal(false),
     dataError: createSignal<string | null>(null),

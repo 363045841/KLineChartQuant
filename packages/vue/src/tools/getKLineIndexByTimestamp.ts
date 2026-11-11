@@ -1,7 +1,7 @@
-import type { KLineData } from '@363045841yyt/klinechart-core/controllers'
+/** 按时间戳查找区间边界，K 线与已提交帧数据共用同一查找规则。 */
 
 function binarySearch(
-  data: ReadonlyArray<KLineData>,
+  data: ReadonlyArray<{ timestamp: number }>,
   timestamp: number,
 ): { low: number; high: number } {
   let low = 0
@@ -17,7 +17,7 @@ function binarySearch(
 }
 
 export function findNearestKLineIndex(
-  data: ReadonlyArray<KLineData>,
+  data: ReadonlyArray<{ timestamp: number }>,
   timestamp: number,
   direction: 'left' | 'right',
 ): number | null {

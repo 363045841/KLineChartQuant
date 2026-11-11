@@ -1430,6 +1430,11 @@ export class Chart {
     return this.kernel.viewport.readonly.viewportState
   }
 
+  /** 与 Canvas 和原生滚动一起提交的帧几何，供宿主覆盖物订阅。 */
+  get frameGeometry(): ChartRenderer['frameGeometry'] {
+    return this.renderer.frameGeometry
+  }
+
   /** 数据信号 */
   get data(): ReadonlySignal<ReadonlyArray<KLineData>> {
     return this.dataManager.data

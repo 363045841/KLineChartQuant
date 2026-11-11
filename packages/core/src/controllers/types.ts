@@ -446,6 +446,8 @@ export interface ChartController
   readonly agent: ChartAgentController
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
+  /** 绘制完成后发布的帧几何；覆盖物必须使用它的投影，不能拼接实时状态。 */
+  readonly frameGeometry: ReadonlySignal<import('../engine/frame/types.js').ChartFrameGeometry | null>
   /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */
   readonly rightAxisEffectiveWidth: ReadonlySignal<number>
   readonly leftAxisEffectiveWidth: ReadonlySignal<number>

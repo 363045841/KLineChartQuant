@@ -20,6 +20,7 @@ import {
   createFrameTransaction,
   type FrameTransaction,
 } from '../../../foundation/reactivity/frameTransaction.js'
+import type { ReadonlySignal } from '../../../foundation/reactivity/signal.js'
 import {
   createTimeFormatter,
   resolveDisplayTimeZone,
@@ -86,7 +87,7 @@ import {
   computeVisiblePriceExtrema,
   type VisiblePriceExtrema,
 } from '../../viewport/visiblePriceExtrema.js'
-import type { RendererDependencies } from '../types.js'
+import type { ChartFrameGeometry, RendererDependencies } from '../types.js'
 import {
   computePaneAutoRange,
   type ResolvedPanePriceRange,
@@ -263,6 +264,7 @@ type FrameDrawSnapshot = {
   generation: number
   level: UpdateLevel
   frame: FrameContext | null
+  geometry: ChartFrameGeometry | null
   skip: boolean
 }
 
@@ -319,6 +321,9 @@ export class ChartRenderer {
    * 绘制阶段不再反向写 kernel 几何（seal 在 render 回调最前、与 paint 同代）。
    */
   private readonly frameTx: FrameTransaction<FrameDrawInput, FrameDrawSnapshot>
+
+  /** 直接投影帧事务的已发布快照，不另建可写的视口状态。 */
+  readonly frameGeometry: ReadonlySignal<ChartFrameGeometry | null>
 
   /** 合并多次 scheduleDraw 的 level，合并后写入 frameTx */
   private pendingLevel: UpdateLevel = UpdateLevel.All
@@ -479,6 +484,7 @@ export class ChartRenderer {
             generation: 0,
             level: input.level,
             frame: null,
+            geometry: null,
             skip: true,
             countdown: { now: 0, remainingMs: null, text: null },
           }
@@ -494,13 +500,30 @@ export class ChartRenderer {
           !overlayChanged &&
           !this.deps.getInteraction().hasPendingHover() &&
           input.level !== UpdateLevel.Overlay
+        const frame = skip
+          ? null
+          : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay, countdown)
+        const previousGeometry = this.frameTx.published$.peek().geometry
+        // 跳过绘制时保留上屏几何；无数据的清屏帧发布 null，不能残留旧选框。
+        const geometry = skip
+          ? previousGeometry
+          : frame
+            ? previousGeometry?.viewSnapshot === frame.viewSnapshot &&
+              previousGeometry.viewport === frame.vp &&
+              previousGeometry.data === frame.data
+              ? previousGeometry
+              : Object.freeze({
+                  viewSnapshot: frame.viewSnapshot,
+                  viewport: frame.vp,
+                  data: frame.data,
+                })
+            : null
         return {
           generation,
           countdown,
           level: mainChanged ? UpdateLevel.All : UpdateLevel.Overlay,
-          frame: skip
-            ? null
-            : this.prepareFrameData(mainChanged ? UpdateLevel.All : UpdateLevel.Overlay, countdown),
+          frame,
+          geometry,
           skip,
         }
       },
@@ -555,6 +578,7 @@ export class ChartRenderer {
         return this.raf
       },
     })
+    this.frameGeometry = this.frameTx.select((snapshot) => snapshot.geometry)
   }
 
   initCoreRenderers(): void {
