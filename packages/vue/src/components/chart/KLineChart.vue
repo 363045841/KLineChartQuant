@@ -84,8 +84,6 @@
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
           @open-script-editor="openBlankScriptEditor"
-          @zoom-in="applyZoomToLevel(zoomLevel + 1)"
-          @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @clear-drawings="controller?.clearDrawings()"
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
@@ -93,7 +91,13 @@
           @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
-          <ChartNavigation :style="{ bottom: `${props.bottomAxisHeight}px` }" />
+          <ChartNavigation
+            v-if="hasPrimarySymbol"
+            :style="{
+              bottom: `${props.bottomAxisHeight}px`,
+              '--chart-nav-offset-x': `${navOffsetX}px`,
+            }"
+          />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -676,6 +680,8 @@
     (ctrl) => ctrl.symbols,
     () => [],
   )
+  /** 主品种是否已选定；没有品种时导航按钮没有可操作对象。 */
+  const hasPrimarySymbol = computed(() => controllerSymbols.value.length > 0)
   const symbolCatalog = useControllerSignal(
     controller,
     (ctrl) => ctrl.symbolCatalog,
@@ -1654,6 +1660,20 @@
     (settings) => settings.priceAxisPosition,
     () => _initialResolved.priceAxisPosition,
   )
+
+  /**
+   * 导航浮层相对 .chart-main 的水平偏移。
+   * 浮层挂在含轴的图表外框上，外框中点比可见绘图区中点偏出两轴宽度差的一半，
+   * 传入该差值让浮层对准绘图区；价格轴换边后轴移到左侧，偏移方向随之翻转。
+   */
+  const navOffsetX = computed(() => {
+    if (chartMode.value === 'timeshare') {
+      return (leftAxisHostWidth.value - axisHostWidth.value) / 2
+    }
+    return priceAxisPosition.value === 'left'
+      ? axisHostWidth.value / 2
+      : -axisHostWidth.value / 2
+  })
 
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
     controller.value?.zoomToLevel(targetLevel, anchorX)

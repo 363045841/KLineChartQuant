@@ -203,37 +203,6 @@
 
     <span class="left-toolbar__divider"></span>
 
-    <div class="left-toolbar__group">
-      <BaseTooltip content="放大" command="view.zoomIn">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="放大"
-          @click="emit('zoomIn')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerZoomIn class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-      <BaseTooltip content="缩小" command="view.zoomOut">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          aria-label="缩小"
-          @click="emit('zoomOut')"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerZoomOut class="tool-icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
-    </div>
-
-    <span class="left-toolbar__divider"></span>
-
     <div class="left-toolbar__group left-toolbar__group--bottom">
       <BaseTooltip placement="top">
         <template #content>
@@ -365,8 +334,6 @@
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerTrash from '~icons/tabler/trash'
   import IconTablerX from '~icons/tabler/x'
-  import IconTablerZoomIn from '~icons/tabler/zoom-in'
-  import IconTablerZoomOut from '~icons/tabler/zoom-out'
   import { RANGE_SELECT_UI_TOOL_ID } from './toolbarToolIds.js'
 
   interface ToolDef {
@@ -440,8 +407,6 @@
     (e: 'setMagnetMode', mode: MagnetMode): void
     (e: 'setContinuousDrawing', enabled: boolean): void
     (e: 'openScriptEditor'): void
-    (e: 'zoomIn'): void
-    (e: 'zoomOut'): void
     (e: 'clearDrawings'): void
     (e: 'clearIndicators'): void
     (e: 'setGlobalDrawingLock', locked: boolean): void
