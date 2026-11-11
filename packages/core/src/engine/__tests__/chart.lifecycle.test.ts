@@ -126,6 +126,27 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('ignores non-primary mouse buttons so a context menu never starts a pan session', async () => {
+    const dom = createChartDom(1000, 600)
+    dom.container.setPointerCapture = () => {}
+    dom.container.hasPointerCapture = () => false
+    dom.container.releasePointerCapture = () => {}
+    const chart = new Chart(dom, defaultOptions)
+    try {
+      chart.resize()
+      chart.handlePointerEvent(
+        pointerEvent('pointerdown', dom.container, { pointerType: 'mouse', button: 2 }),
+      )
+      expect(chart.interactionState.peek().isDragging).toBe(false)
+      chart.handlePointerEvent(
+        pointerEvent('pointerdown', dom.container, { pointerType: 'mouse', button: 0 }),
+      )
+      expect(chart.interactionState.peek().isDragging).toBe(true)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('checks after smooth wheel zoom settles, but never during a held pointer', async () => {
     const frames = new Map<number, FrameRequestCallback>()
     let frameId = 0

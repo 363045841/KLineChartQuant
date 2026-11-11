@@ -248,33 +248,19 @@
 
   </nav>
 
-  <Teleport :to="teleportTarget">
-    <div
-      v-if="openGroup"
-      ref="menuRef"
-      class="tool-dropdown"
-      :style="dropdownPosition"
-      @pointerdown.stop
-      @pointermove.stop
-      @pointerup.stop
-    >
-      <div class="tool-dropdown__title">{{ openGroup.title }}</div>
-      <button
-        v-for="child in openGroup.children"
-        :key="child.id"
-        type="button"
-        class="tool-dropdown__item"
-        :class="{ active: openGroup.id === magnetGroup.id ? magnetMode === child.id : highlightToolId === child.id }"
-        :aria-label="child.title"
-        :aria-pressed="openGroup.id === magnetGroup.id ? magnetMode === child.id : undefined"
-        :disabled="openGroup.id === deleteGroup.id && (child.id === 'drawings' ? !hasDrawings : !hasIndicators)"
-        @click="selectChild(openGroup, child)"
-      >
-        <component :is="child.icon" class="tool-icon" aria-hidden="true" />
-        <span>{{ child.title }}</span>
-      </button>
-    </div>
-  </Teleport>
+  <DropMenu
+    ref="groupMenuRef"
+    context
+    :label="openGroup?.title ?? '工具菜单'"
+    :groups="openGroup ? menuGroups(openGroup) : []"
+    :focus-target="groupTrigger"
+    @select="onGroupMenuSelect"
+    @close="openGroupId = null"
+  >
+    <template #item-icon="{ item }">
+      <component :is="toolIcons[item.id]" aria-hidden="true" />
+    </template>
+  </DropMenu>
 
   <AlertDialog
     :show="showAlerts"
@@ -295,13 +281,12 @@
   } from '@363045841yyt/klinechart-core/controllers'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
-  import { useClickOutside } from '@vue-src/composables/ui/useClickOutside.js'
-  import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import { COMMIT_HASH, COMMIT_TIME, CORE_VERSION, VERSION } from '@vue-src/version.js'
-  import { computed, ref, watch } from 'vue'
+  import { type Component, computed, ref, shallowRef, watch } from 'vue'
   import IconTablerAlignJustified from '~icons/tabler/align-justified'
   import IconTablerAngle from '~icons/tabler/angle'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
@@ -339,7 +324,7 @@
   interface ToolDef {
     id: string
     title: string
-    icon: unknown
+    icon: Component
     children?: ToolDef[]
   }
 
@@ -402,6 +387,13 @@
       { id: MagnetMode.Off, title: '关闭磁吸', icon: IconTablerMagnetOff },
     ],
   }
+
+  /** 子项图标表：菜单插槽按 item id 取图标，菜单数据本身只携带文案与状态。 */
+  const toolIcons: Readonly<Record<string, Component>> = Object.fromEntries(
+    [...primaryTools, deleteGroup, magnetGroup].flatMap((group) =>
+      (group.children ?? []).map((child) => [child.id, child.icon] as const),
+    ),
+  )
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
@@ -464,6 +456,10 @@
       magnetGroup.children!.find((child) => child.id === props.magnetMode) ??
       magnetGroup.children![2]!,
   )
+  const groupMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  // 当前打开菜单的折叠箭头与所属工具组；关闭事件先于 select 到达，选择动作不能依赖 openGroup。
+  const groupTrigger = shallowRef<HTMLElement | null>(null)
+  const groupMenuTarget = shallowRef<ToolDef | null>(null)
   watch(
     () => props.magnetMode,
     (mode) => {
@@ -471,10 +467,6 @@
     },
     { immediate: true },
   )
-  const triggerRef = ref<HTMLElement | null>(null)
-  const menuRef = ref<HTMLElement | null>(null)
-  const teleportTarget = useFullscreenTeleportTarget()
-  const dropdownPosition = ref({ '--menu-anchor-left': '0px', '--menu-anchor-top': '0px' })
   const showAlerts = ref(false)
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
@@ -521,36 +513,79 @@
     { immediate: true },
   )
 
+  /** 把工具组转成 DropMenu 分组：选中态与禁用态沿用工具栏规则。 */
+  function menuGroups(group: ToolDef): ReadonlyArray<DropMenuGroup> {
+    return [
+      {
+        id: group.id,
+        label: group.title,
+        items: (group.children ?? []).map((child) => ({
+          id: child.id,
+          label: child.title,
+          active: isChildActive(group, child),
+          disabled: isChildDisabled(group, child),
+        })),
+      },
+    ]
+  }
+
+  /** 当前生效项：磁吸看档位，绘图工具看高亮 id，删除组没有选中态。 */
+  function isChildActive(group: ToolDef, child: ToolDef): boolean {
+    if (group.id === magnetGroup.id) return props.magnetMode === child.id
+    if (group.id === deleteGroup.id) return false
+    return highlightToolId.value === child.id
+  }
+
+  /** 删除组按当前图元/指标是否存在禁用子项。 */
+  function isChildDisabled(group: ToolDef, child: ToolDef): boolean {
+    if (group.id !== deleteGroup.id) return false
+    return child.id === 'drawings' ? !props.hasDrawings : !props.hasIndicators
+  }
+
   function selectTool(tool: ToolDef) {
     if (tool.children?.length) {
       const child = groupTool(tool)
       selectedToolId.value = child.id
       emit('selectTool', child.id)
-      openGroupId.value = null
       return
     }
     selectedToolId.value = tool.id
     emit('selectTool', tool.id)
-    openGroupId.value = null
   }
 
-  function selectChild(group: ToolDef, child: ToolDef) {
+  /** 在折叠箭头右侧打开工具组菜单；菜单本体复用 DropMenu 的坐标模式。 */
+  function openGroupMenu(group: ToolDef, event: MouseEvent): void {
+    const trigger = event.currentTarget as HTMLElement
+    const bounds = trigger.getBoundingClientRect()
+    groupTrigger.value = trigger
+    groupMenuTarget.value = group
+    openGroupId.value = group.id
+    groupMenuRef.value?.openAt(bounds.right + 4, bounds.top)
+  }
+
+  /** 菜单选择：动作归属打开菜单的工具组，避免关闭事件先清空 openGroup。 */
+  function onGroupMenuSelect(_groupId: string, itemId: string): void {
+    const group = groupMenuTarget.value
+    if (group) selectChild(group, itemId)
+  }
+
+  /** 菜单选择统一收口到子项 id：删除组执行清理，磁吸组写档位，其余切换绘图工具。 */
+  function selectChild(group: ToolDef, itemId: string): void {
+    const child = group.children?.find((item) => item.id === itemId)
+    if (!child) return
     if (group.id === deleteGroup.id) {
       groupSelections.value[group.id] = child.id
       runDelete(child.id)
-      openGroupId.value = null
       return
     }
     if (group.id === magnetGroup.id) {
       // 磁吸子项的 id 就是 MagnetMode 的三个取值。
       setMagnetMode(child.id as MagnetMode)
-      openGroupId.value = null
       return
     }
     selectedToolId.value = child.id
     groupSelections.value[group.id] = child.id
     emit('selectTool', child.id)
-    openGroupId.value = null
   }
 
   function runDelete(id: string) {
@@ -566,51 +601,7 @@
 
   function toggleMagnet() {
     setMagnetMode(props.magnetMode === MagnetMode.Off ? lastActiveMagnetMode.value : MagnetMode.Off)
-    openGroupId.value = null
   }
-
-  function openGroupMenu(group: ToolDef, event: MouseEvent) {
-    if (openGroupId.value === group.id) return
-    const trigger = event.currentTarget as HTMLElement
-    const bounds = trigger.getBoundingClientRect()
-    triggerRef.value = trigger
-    const menuHeight = 42 + (group.children?.length ?? 0) * 30
-    dropdownPosition.value = {
-      '--menu-anchor-left': `${bounds.right}px`,
-      '--menu-anchor-top': `${Math.max(8, Math.min(bounds.top, window.innerHeight - menuHeight - 8))}px`,
-    }
-    openGroupId.value = group.id
-  }
-
-  useClickOutside(
-    () => [triggerRef.value, menuRef.value],
-    () => {
-      openGroupId.value = null
-    },
-    { enabled: () => openGroupId.value !== null },
-  )
-
-  watch(openGroupId, (id, _previous, onCleanup) => {
-    if (!id) return
-    const close = () => {
-      openGroupId.value = null
-    }
-    const onScroll = (event: Event) => {
-      if (menuRef.value?.contains(event.target as Node)) return
-      close()
-    }
-    const onKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
-    document.addEventListener('scroll', onScroll, true)
-    document.addEventListener('keydown', onKeydown)
-    window.addEventListener('resize', close)
-    onCleanup(() => {
-      document.removeEventListener('scroll', onScroll, true)
-      document.removeEventListener('keydown', onKeydown)
-      window.removeEventListener('resize', close)
-    })
-  })
 
   /** 点击全局锁定按钮：按当前状态取反，切换全局绘图锁定。 */
   function toggleGlobalDrawingLock() {
@@ -619,8 +610,7 @@
 </script>
 
 <style scoped>
-  .left-toolbar,
-  .tool-dropdown {
+  .left-toolbar {
     --tool-button-size: 28px;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
@@ -723,6 +713,7 @@
     height: 16px;
   }
 
+  /* --- 工具组折叠触发器 --- */
   .tool-item__expand {
     position: absolute;
     left: 100%;
@@ -759,73 +750,6 @@
 
   .tool-item__expand:focus-visible {
     outline: 1px solid var(--klc-color-ui-muted);
-  }
-
-  /* --- 工具组纵向菜单 --- */
-  .tool-dropdown {
-    --menu-left: clamp(8px, calc(var(--menu-anchor-left) + 4px), max(8px, calc(100vw - 188px)));
-    position: fixed;
-    left: var(--menu-left);
-    top: var(--menu-anchor-top);
-    display: flex;
-    flex-direction: column;
-    width: 180px;
-    max-width: calc(100vw - 16px);
-    max-height: calc(100vh - 16px);
-    padding: 4px 0 0;
-    border-radius: 8px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 100;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .tool-dropdown__title {
-    flex: 0 0 32px;
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-  }
-
-  .tool-dropdown__item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 0 0 30px;
-    width: 100%;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    font-size: 12px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .tool-dropdown__item .tool-icon {
-    flex-shrink: 0;
-    color: var(--klc-color-ui-muted);
-  }
-
-  .tool-dropdown__item:hover,
-  .tool-dropdown__item.active {
-    background: var(--klc-color-ui-hover);
-  }
-
-  .tool-dropdown__item:focus-visible {
-    outline: 1px solid var(--klc-color-ui-muted);
-    outline-offset: -1px;
-  }
-
-  .tool-dropdown__item:disabled {
-    background: transparent;
-    opacity: 0.5;
-    cursor: default;
   }
 
   /* --- 工具项容器 --- */
@@ -889,8 +813,7 @@
 
   /* --- 响应式 --- */
   @media (max-width: 768px), (max-height: 640px) {
-    .left-toolbar,
-    .tool-dropdown {
+    .left-toolbar {
       --tool-button-size: 26px;
     }
 

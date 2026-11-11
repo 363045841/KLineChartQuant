@@ -350,7 +350,7 @@
     top: 0;
     z-index: 1;
     padding-top: 4px;
-    background: var(--klc-color-ui-input);
+    background: var(--klc-color-ui-popover);
   }
 
   .watchlist-panel__columns {

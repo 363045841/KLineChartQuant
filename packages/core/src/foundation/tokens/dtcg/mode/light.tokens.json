@@ -225,6 +225,7 @@
       "surface": { "$type": "color", "$value": "{light.color.ui.surface}" },
       "card": { "$type": "color", "$value": "{light.color.ui.card}" },
       "input": { "$type": "color", "$value": "{light.color.ui.input}" },
+      "popover": { "$type": "color", "$value": "{light.color.ui.popover}" },
       "controlBackground": { "$type": "color", "$value": "{light.color.ui.controlBackground}" },
       "hover": { "$type": "color", "$value": "{light.color.ui.hover}" },
       "selected": { "$type": "color", "$value": "{light.color.ui.selected}" },

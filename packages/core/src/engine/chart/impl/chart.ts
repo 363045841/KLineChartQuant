@@ -1692,6 +1692,8 @@ export class Chart {
       this.interaction.stopInertia()
       this.zoomController.stopAnimation()
     }
+    // 鼠标非主键（右键）归上下文菜单：不进入平移、绘图或轴拖拽会话。
+    if (e.type === 'pointerdown' && e.pointerType === 'mouse' && e.button !== 0) return false
     const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
     const hadPointer = e.type === 'pointerup' && this.interaction.isPointerDown()
     const drawingHandler = resolveDrawingPointerHandler(e, drawingController)

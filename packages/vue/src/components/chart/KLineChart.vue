@@ -100,6 +100,18 @@
               '--chart-nav-offset-x': `${navOffsetX}px`,
             }"
           />
+          <DropMenu
+            ref="chartContextMenuRef"
+            context
+            label="图表菜单"
+            :groups="contextMenuGroups"
+            :focus-target="containerRef"
+            @select="onContextMenuSelect"
+          >
+            <template #item-icon="{ item }">
+              <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
+            </template>
+          </DropMenu>
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -155,7 +167,7 @@
             tabindex="0"
             class="chart-container"
             @dblclick="onDoubleClick"
-            @contextmenu.prevent
+            @contextmenu="onChartContextMenu"
           >
             <div class="scroll-content">
               <div ref="canvasLayerRef" class="canvas-layer">
@@ -498,6 +510,7 @@
   import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
+  import DropMenu from '@vue-src/components/common/DropMenu.vue'
   import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
@@ -517,6 +530,7 @@
   import WatchlistPanel from '@vue-src/components/watchlist/WatchlistPanel.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
+  import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
   import { useChartScreenshot } from '@vue-src/composables/chart/useChartScreenshot.js'
   import { useChartState } from '@vue-src/composables/chart/useChartState.js'
   import { useChartTheme } from '@vue-src/composables/chart/useChartTheme.js'
@@ -967,6 +981,7 @@
 
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
+  const chartContextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
@@ -1127,6 +1142,13 @@
       screenshot: (action) => void captureScreenshot(action),
     }),
   )
+  // 右键菜单与导航按钮共用命令注册表；价格快照在每次打开时刷新。
+  const {
+    groups: contextMenuGroups,
+    icons: contextMenuIcons,
+    capturePrice: captureContextMenuPrice,
+    select: selectContextMenuItem,
+  } = useChartContextMenu({ controller, commands })
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
@@ -1597,6 +1619,23 @@
       // 非绘图拖拽（平移/框选）也在这里收尾；图元拖拽在回调内已清空。
       if (e.type === 'pointerup') drawingDragCursor = null
     },
+  }
+
+  /** 右键在绘图区打开图表菜单；编辑控件内保留浏览器原生菜单。 */
+  function onChartContextMenu(event: MouseEvent): void {
+    if (
+      event.target instanceof Element &&
+      event.target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')
+    )
+      return
+    event.preventDefault()
+    captureContextMenuPrice()
+    chartContextMenuRef.value?.openAt(event.clientX, event.clientY)
+  }
+
+  /** 菜单项动作由菜单自身分发；这里只转交选中的命令/动作 id。 */
+  function onContextMenuSelect(_groupId: string, itemId: string): void {
+    selectContextMenuItem(itemId)
   }
 
   function onDoubleClick(e: MouseEvent) {

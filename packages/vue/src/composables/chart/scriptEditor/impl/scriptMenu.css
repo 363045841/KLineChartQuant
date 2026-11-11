@@ -10,7 +10,7 @@
   overflow: auto;
   border: 0;
   border-radius: var(--klc-radius-xs, 4px);
-  background: var(--klc-color-ui-input);
+  background: var(--klc-color-ui-popover);
   color: var(--klc-color-ui-text);
   box-shadow: var(--klc-elevation-2);
   font-family: var(--klc-typography-font-family);

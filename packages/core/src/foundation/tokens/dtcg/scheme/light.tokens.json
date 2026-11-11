@@ -19,6 +19,10 @@
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
       },
+      "popover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
+      },
       "controlBackground": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.9176, 0.9176, 0.9176], "hex": "#EAEAEA" }
@@ -1232,6 +1236,7 @@
         "surface": { "$type": "color", "$value": "{light.interface.surface}" },
         "card": { "$type": "color", "$value": "{light.interface.card}" },
         "input": { "$type": "color", "$value": "{light.interface.input}" },
+        "popover": { "$type": "color", "$value": "{light.interface.popover}" },
         "controlBackground": { "$type": "color", "$value": "{light.interface.controlBackground}" },
         "hover": { "$type": "color", "$value": "{light.interface.hover}" },
         "selected": { "$type": "color", "$value": "{light.interface.selected}" },

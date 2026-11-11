@@ -294,6 +294,8 @@ export interface UiColors {
   readonly surface: ColorValue
   readonly card: ColorValue
   readonly input: ColorValue
+  /** 浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。 */
+  readonly popover: ColorValue
   readonly hover: ColorValue
   /** 选中项常驻底色（列表项、菜单项）；比 hover 更轻，避免整行过重。 */
   readonly selected: ColorValue

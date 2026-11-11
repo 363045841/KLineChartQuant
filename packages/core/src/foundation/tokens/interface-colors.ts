@@ -7,6 +7,7 @@ export const darkInterfaceColors: UiColors = {
   surface: '#191A1E',
   card: '#1D1F24',
   input: '#1B1D22',
+  popover: '#1E2025', // 浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。
   controlBackground: '#27292E',
   hover: '#2D3036',
   selected: '#25272D',
@@ -38,6 +39,7 @@ export const lightInterfaceColors: UiColors = {
   surface: '#FCFCFC',
   card: '#FFFFFF',
   input: '#FFFFFF',
+  popover: '#FFFFFF',
   controlBackground: '#EAEAEA',
   hover: '#E5E5E5',
   selected: '#EEEEEE',

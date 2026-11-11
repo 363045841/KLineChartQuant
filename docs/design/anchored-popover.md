@@ -13,7 +13,9 @@ per instance, and each concern owns its own lifetime:
   document listeners.
 - `usePopoverPosition` chooses CSS anchor positioning when native popovers and CSS
   anchors are both available. Otherwise it selects Floating UI. Explicit top/bottom
-  placement does not flip vertically; auto placement may flip.
+  placement does not flip vertically; auto placement may flip. An optional `origin`
+  (pointer coordinates) always uses Floating UI with a zero-size virtual reference, so
+  trigger-less menus such as the chart context menu reuse the same lifecycle.
 - `floatingPosition` owns lazy loading, geometry observation and asynchronous
   measurements. Closing, changing refs/options or disposing the scope aborts the
   previous positioning session. Late imports cannot attach observers, and only the

@@ -19,6 +19,11 @@
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1059, 0.1137, 0.1333], "hex": "#1B1D22" }
       },
+      "popover": {
+        "$description": "浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。",
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1176, 0.1255, 0.1451], "hex": "#1E2025" }
+      },
       "controlBackground": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1529, 0.1608, 0.1804], "hex": "#27292E" }
@@ -1208,6 +1213,7 @@
         "surface": { "$type": "color", "$value": "{dark.interface.surface}" },
         "card": { "$type": "color", "$value": "{dark.interface.card}" },
         "input": { "$type": "color", "$value": "{dark.interface.input}" },
+        "popover": { "$type": "color", "$value": "{dark.interface.popover}" },
         "controlBackground": { "$type": "color", "$value": "{dark.interface.controlBackground}" },
         "hover": { "$type": "color", "$value": "{dark.interface.hover}" },
         "selected": { "$type": "color", "$value": "{dark.interface.selected}" },
