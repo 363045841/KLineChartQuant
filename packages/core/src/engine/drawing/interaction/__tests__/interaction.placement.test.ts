@@ -13,6 +13,38 @@ import { DrawingInteractionController } from '../impl/interaction'
 import { DrawingTool } from '../types'
 
 describe('DrawingInteractionController placement', () => {
+  it.each([DrawingTool.TrendLine, DrawingTool.ParallelChannel])(
+    '%s 首点立即预览，移动只更新跟随点，切换工具清除草稿',
+    (tool) => {
+      const createDrawing = vi.fn(() => createDrawingObject({ id: 'created' }))
+      const requestDraw = vi.fn()
+      const adapter = createPlacementAdapter({
+        tool,
+        pane: { paneId: 'main', top: 0, height: 100 },
+        plotWidth: 100,
+        plotHeight: 100,
+        document: { createDrawing },
+        session: { requestDraw },
+      })
+      const controller = new DrawingInteractionController(adapter)
+
+      controller.onPointerDown(pointerDown(20, 30), CONTAINER)
+      expect(controller.getPaintOverlay()[0]?.anchors).toMatchObject([
+        { time: 20, price: 30 },
+        { time: 20, price: 30 },
+      ])
+      expect(requestDraw).toHaveBeenCalled()
+      controller.onPointerMove(pointerMove(80, 50), CONTAINER)
+      expect(controller.getPaintOverlay()[0]?.anchors).toMatchObject([
+        { time: 20, price: 30 },
+        { time: 80, price: 50 },
+      ])
+      expect(createDrawing).not.toHaveBeenCalled()
+      controller.applyToolSession()
+      expect(controller.getPaintOverlay()).toEqual([])
+    },
+  )
+
   it('clamps regression preview and confirmed endpoints to the last candle', () => {
     const createDrawing = vi.fn(() => createDrawingObject({ id: 'regression' }))
     const adapter = createDrawingAdapter({

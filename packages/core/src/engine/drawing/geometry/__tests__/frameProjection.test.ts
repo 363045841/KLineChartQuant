@@ -101,6 +101,42 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
+describe('会话预览的标的可见性', () => {
+  it.each([undefined, 'active-symbol'])('当前标的 %s 下预览保留连线和端点', (symbolKey) => {
+    const preview = createTrendDrawing({ id: PREVIEW_ID })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+      getOverlay: () => [preview],
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createContext({ symbolKey }),
+      null,
+      'session',
+    )
+
+    expect(linePrimitives(projection.primitives)).toHaveLength(1)
+    expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
+  })
+
+  it('正式图元和已绑定其他标的的预览仍按标的过滤', () => {
+    for (const drawing of [
+      createTrendDrawing(),
+      createTrendDrawing({ symbolKey: 'other-symbol' }),
+      createTrendDrawing({ id: PREVIEW_ID, symbolKey: 'other-symbol' }),
+    ]) {
+      expect(
+        projectSingleDrawing(drawing, false, createContext({ symbolKey: 'active-symbol' }))
+          .primitives,
+      ).toEqual([])
+    }
+  })
+})
+
 describe('computeDrawingPriceRange', () => {
   it('滚动后只汇总当前可见图元，隐藏和非法坐标不污染极值', () => {
     const definitions = new DrawingDefinitionRegistry()

@@ -254,6 +254,16 @@ export class DrawingInteractionController {
       if (result) {
         this.pendingPaneId = null
         this.completeDrawing(activeTool, pointer.paneId, result)
+      } else {
+        // 点击后立即刷新草稿，首点无需等待下一次 pointermove 才可见。
+        const preview = this.previewRenderer.buildPreview(
+          activeTool,
+          this.anchorCollector.pendingAnchors,
+          pointer,
+          pointer.paneId,
+          this.adapter.getDrawingWorkspaceId(),
+        )
+        if (preview) this.sessionOverlay.setPreview(preview)
       }
       return true
     }

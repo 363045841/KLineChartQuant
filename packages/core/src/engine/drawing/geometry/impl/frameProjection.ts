@@ -458,7 +458,9 @@ function resolveVisibleDrawing(
   context: RenderContext,
 ): ResolvedDrawingObject | null {
   if (!storedDrawing.visible || context.range.end <= context.range.start) return null
-  if (!belongsToDrawingSymbol(storedDrawing, context.symbolKey)) return null
+  // 未持久化的预览属于当前会话；已有标的归属的图元仍严格按标的过滤。
+  const isSessionPreview = storedDrawing.id === PREVIEW_ID && storedDrawing.symbolKey === undefined
+  if (!isSessionPreview && !belongsToDrawingSymbol(storedDrawing, context.symbolKey)) return null
   const drawing = resolveStoredDrawing(context, storedDrawing)
   if (!hasResolvableTimeAnchors(drawing)) return null
   return intersectsDrawingRange(definitions.extent(drawing), context.range) ? drawing : null
