@@ -365,6 +365,19 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         return setLogicalScrollLeft(v)
       },
 
+      /**
+       * 定位到当前视图的最新端。
+       *
+       * @remarks 位置由视图策略按模型坐标解算（最新一根 + 固定未来槽位），
+       * 不读 DOM 像素几何，调用时机不受 batch 影响。
+       * @returns 是否发生滚动；固定视图没有最新端时返回 false
+       */
+      scrollToLatest(): boolean {
+        const snapshot = viewSnapshot.peek()
+        const target = SCALE_X_STRATEGIES[snapshot.view].latest(snapshot)
+        return target === null ? false : setLogicalScrollLeft(target)
+      },
+
       /** 提交由模型策略已裁决的导航结果，用于缩放的原子事务。 */
       setNavigation(v: number): void {
         const view = signalDeps.dataView$.peek()

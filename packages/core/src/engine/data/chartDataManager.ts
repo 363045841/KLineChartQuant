@@ -1368,10 +1368,9 @@ export class ChartDataManager {
     return false
   }
 
+  /** 定位到最新端；位置由视口模型按当前视图策略解算，数据层不读像素几何。 */
   scrollToRight(): void {
-    const buf = this.getActiveDataBuffer()
-    const dataLength = buf ? buf.getRawData().length : 0
-    this._scrollCompensator.scrollToRight(dataLength)
+    this.deps.viewport.actions.scrollToLatest()
     this.deps.scheduleDraw()
   }
 

@@ -238,4 +238,25 @@ describe('viewportState template', () => {
     // Both subscriptions via the same listener — batched to one call
     expect(listener).toHaveBeenCalledTimes(1)
   })
+
+  it('scrollToLatest 停在最新一根并保留固定未来槽位，batch 内切换几何也读新网格', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const deps = scrollDeps(200)
+    const module = createViewportState(deps)
+    module.actions.resize(600, 400, 1)
+
+    /** 视口右缘与最新一根右缘之间剩余的槽位数。 */
+    const futureSlots = (): number => {
+      const snapshot = module.readonly.viewSnapshot()
+      const viewportRight = module.readonly.scrollLeftLogical() + snapshot.viewportWidth
+      return (viewportRight - (snapshot.seriesWidth + snapshot.kGap)) / snapshot.grid.step
+    }
+
+    // 缩放与定位在同一次提交里：定位必须按新网格解算，不能读上一帧几何。
+    batch(() => {
+      deps.geometry$.set({ ...deps.geometry$.peek(), kWidth: 20 })
+      module.actions.scrollToLatest()
+    })
+    expect(futureSlots()).toBeCloseTo(10, 6)
+  })
 })
