@@ -47,17 +47,17 @@
             </button>
           </BaseTooltip>
           <BaseTooltip :content="text.saveAndSend" placement="top">
-            <button
-              class="message__edit-send agent-primary-button"
+            <BaseIconButton
+              shape="circle"
               type="submit"
+              class="message__edit-send agent-primary-button"
+              :label="text.saveAndSend"
               :disabled="!canSaveEdit"
-              :aria-label="text.saveAndSend"
               :aria-busy="editPending"
             >
-              <span class="agent-primary-button__background" aria-hidden="true"></span>
               <IconLoader2 v-if="editPending" class="message__spinner klc-spin" aria-hidden="true" />
               <IconArrowUp v-else aria-hidden="true" />
-            </button>
+            </BaseIconButton>
           </BaseTooltip>
         </div>
       </form>
@@ -106,6 +106,7 @@
 <script setup lang="ts">
   import './agent-primary-button.css'
 
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import { computed } from 'vue'
   import IconActivity from '~icons/tabler/activity'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'

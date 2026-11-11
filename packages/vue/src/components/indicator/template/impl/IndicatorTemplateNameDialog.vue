@@ -9,17 +9,18 @@
     @update:open="!$event && emit('close')"
   >
     <form :id="formId" class="template-name" @submit.prevent="submit">
-      <label class="template-name__label" :for="nameId">名称</label>
-      <BaseInput
-        :id="nameId"
-        v-model="name"
-        variant="underline"
-        maxlength="40"
-        autocomplete="off"
-        :disabled="busy"
-        autofocus
-        @focus="selectOnOpen"
-      />
+      <BaseField label="名称" :for-id="nameId" :error="error">
+        <BaseInput
+          :id="nameId"
+          v-model="name"
+          variant="underline"
+          maxlength="40"
+          autocomplete="off"
+          :disabled="busy"
+          autofocus
+          @focus="selectOnOpen"
+        />
+      </BaseField>
       <div v-if="indicators !== null" class="template-name__summary">
         <span class="template-name__summary-title">指标</span>
         <p v-if="indicators.length === 0" class="template-name__empty">当前图表没有指标</p>
@@ -36,7 +37,6 @@
           </BaseChip>
         </div>
       </div>
-      <span v-if="error" class="template-name__error" role="alert">{{ error }}</span>
     </form>
     <template #footer>
       <BaseButton :disabled="busy" @click="emit('close')">取消</BaseButton>
@@ -49,6 +49,7 @@
   import type { IndicatorTemplateIndicator } from '@363045841yyt/klinechart-core/controllers'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseField from '@vue-src/components/common/BaseField.vue'
   import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import { computed, ref, useId, watch } from 'vue'
@@ -131,11 +132,6 @@
     gap: var(--klc-space-8, 8px);
   }
 
-  .template-name__label {
-    font-size: var(--klc-text-12-font-size, 12px);
-    color: var(--klc-color-ui-text-secondary);
-  }
-
   .template-name__summary {
     display: flex;
     flex-direction: column;
@@ -159,10 +155,5 @@
     margin: 0;
     font-size: var(--klc-text-12-font-size, 12px);
     color: var(--klc-color-ui-text-secondary);
-  }
-
-  .template-name__error {
-    font-size: var(--klc-text-12-font-size, 12px);
-    color: var(--klc-color-danger, #e04a4a);
   }
 </style>

@@ -11,7 +11,7 @@
     @update:open="!$event && emit('close')"
   >
     <template #tabs>
-      <div class="symbol-popover__filters">
+      <div v-if="$slots.tabs" class="symbol-popover__filters">
         <slot name="tabs" />
       </div>
       <ModalSearchBar
@@ -80,9 +80,5 @@
   .symbol-popover__filters {
     display: flex;
     flex-direction: column;
-  }
-
-  .symbol-popover__filters:empty {
-    display: none;
   }
 </style>

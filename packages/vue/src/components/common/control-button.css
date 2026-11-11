@@ -1,26 +1,35 @@
 /* 工具栏按钮与下拉触发器的共享外观；通过 scoped 样式引入，避免影响其他按钮。 */
 /* 共享默认外观只用组件自己的类：业务覆盖靠更高特异性，宿主 reset 必须是零特异性。 */
+/* 尺寸/颜色/焦点全部变量化：消费方在父级设置变量即可，不要穿透组件内部改样式。 */
 .control-button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: var(--control-button-justify, center);
   flex: 0 0 auto;
   box-sizing: border-box;
   --control-button-content-gap: 6px;
   gap: var(--control-button-content-gap);
   /* 行内留白同时决定 Footer 下划线的宽度，尺寸变体只改变量。 */
   --control-button-inline-padding: var(--klc-spacing-sm);
+  width: var(--control-button-width, auto);
+  min-width: var(--control-button-min-width, auto);
+  max-width: var(--control-button-max-width, none);
   /* 外壳可覆盖统一的行内控件高度；未覆盖时沿用间距推算值。 */
   height: var(--control-button-height, calc(12px + 2 * var(--klc-spacing-sm)));
   padding: 0 var(--control-button-inline-padding);
-  border: 1px solid var(--control-button-border, var(--klc-color-ui-border));
-  border-radius: var(--klc-radius-md, 8px);
+  border-width: var(--control-button-border-width, 1px);
+  border-style: solid;
+  border-color: var(--control-button-border, var(--klc-color-ui-border));
+  border-radius: var(--control-button-radius, var(--klc-radius-md, 8px));
   background: var(--control-button-background, var(--klc-color-ui-control-background));
   color: var(--control-button-color, var(--klc-color-ui-text));
   font-family: var(--klc-typography-font-family);
-  font-size: calc(var(--klc-typography-font-size-md) + 1px);
-  font-weight: 500;
-  line-height: 1;
+  font-size: var(
+    --control-button-font-size,
+    calc(var(--klc-typography-font-size-md) + 1px)
+  );
+  font-weight: var(--control-button-font-weight, 500);
+  line-height: var(--control-button-line-height, 1);
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -32,12 +41,14 @@
 .control-button[aria-expanded="true"]:not(:disabled) {
   border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
   background: var(--control-button-active-background, var(--klc-color-ui-hover));
+  color: var(--control-button-active-color, currentColor);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .control-button:hover:not(:disabled) {
     border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
     background: var(--control-button-active-background, var(--klc-color-ui-hover));
+    color: var(--control-button-active-color, currentColor);
   }
 }
 
@@ -48,11 +59,14 @@
     --control-button-focus-shadow,
     0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent)
   );
-  outline: 0;
+  outline: var(--control-button-focus-outline, 0);
+  outline-offset: var(--control-button-focus-outline-offset, 0);
 }
 
 .control-button:disabled {
-  opacity: 0.55;
+  opacity: var(--control-button-disabled-opacity, 0.55);
+  color: var(--control-button-disabled-color, inherit);
+  background: var(--control-button-disabled-background, unset);
   cursor: not-allowed;
 }
 

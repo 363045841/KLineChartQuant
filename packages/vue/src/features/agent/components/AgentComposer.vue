@@ -22,9 +22,13 @@
             @open="emit('models-open')"
             @select="selectModel"
           >
-            <template #trigger>
-              <span class="composer__model-value">{{ modelTriggerLabel }}</span>
-              <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
+            <template #trigger="{ open }">
+              <span class="composer__model-value truncate-text">{{ modelTriggerLabel }}</span>
+              <IconChevronDown
+                class="composer__model-chevron"
+                :class="{ 'is-open': open }"
+                aria-hidden="true"
+              />
             </template>
             <template #item-action="{ item }">
               <span v-if="item.id === provider.modelId" class="drop-menu__status">
@@ -42,9 +46,13 @@
             :disabled="running"
             @select="(_groupId, value) => emit('reasoning-effort', value)"
           >
-            <template #trigger>
+            <template #trigger="{ open }">
               <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
-              <IconChevronDown class="composer__model-chevron" aria-hidden="true" />
+              <IconChevronDown
+                class="composer__model-chevron"
+                :class="{ 'is-open': open }"
+                aria-hidden="true"
+              />
             </template>
           </DropMenu>
         </div>
@@ -62,27 +70,25 @@
           ></span>
         </BaseTooltip>
         <BaseTooltip v-if="running" :content="text.stop" placement="top">
-          <button
-            type="button"
+          <BaseIconButton
+            shape="circle"
             class="composer__primary composer__primary--stop agent-primary-button"
-            :aria-label="text.stop"
+            :label="text.stop"
             @click="emit('stop')"
           >
-            <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
             <IconPlayerStopFilled aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip v-else :content="text.send" placement="top">
-          <button
-            type="button"
+          <BaseIconButton
+            shape="circle"
             class="composer__primary agent-primary-button"
+            :label="text.send"
             :disabled="!draft.trim()"
-            :aria-label="text.send"
             @click="emit('send')"
           >
-            <span class="composer__primary-background agent-primary-button__background" aria-hidden="true"></span>
             <IconArrowUp aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
       </div>
   </div>
@@ -90,9 +96,9 @@
 
 <script setup lang="ts">
   import './agent-primary-button.css'
-  import './agent-truncate-text.css'
-  import './agent-select-trigger.css'
+  import '../../../components/common/truncate-text.css'
 
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
@@ -243,47 +249,29 @@
   }
   .composer__model,
   .composer__reasoning {
+    --control-button-height: 26px;
+    --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
+    --control-button-border-width: 0;
+    --control-button-radius: var(--klc-radius-md, 8px);
+    --control-button-background: transparent;
+    --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-focus-shadow: none;
+    --control-button-max-width: 160px;
+
     min-width: 0;
   }
 
-  .composer__reasoning :deep(.drop-menu__trigger) {
-    max-width: 160px;
-    height: 26px;
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 9px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--agent-text);
-    background: var(--klc-color-agent-composer-control-background);
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-  }
-
-  .composer__model :deep(.drop-menu__trigger) {
-    max-width: 160px;
-  }
-
-  .composer__reasoning :deep(.drop-menu__trigger:hover:not(:disabled)),
-  .composer__reasoning :deep(.drop-menu__trigger[aria-expanded='true']:not(:disabled)) {
-    border-color: var(--klc-color-agent-composer-control-hover);
-    background: var(--klc-color-agent-composer-control-hover);
-  }
-
-  .composer__reasoning :deep(.drop-menu__trigger:focus-visible) {
-    outline: none;
-    border-color: var(--agent-focus);
-    background: var(--klc-color-agent-composer-control-hover);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
-  }
-
-  .composer__reasoning :deep(.drop-menu__trigger:disabled) {
-    color: var(--agent-text-soft);
-    background: transparent;
-    cursor: not-allowed;
+  .composer__reasoning {
+    --control-button-color: var(--agent-text);
+    --control-button-background: var(--klc-color-agent-composer-control-background);
+    --control-button-active-background: var(--klc-color-agent-composer-control-hover);
+    --control-button-focus-border: var(--agent-focus);
+    --control-button-focus-background: var(--klc-color-agent-composer-control-hover);
+    --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
+    --control-button-disabled-opacity: 1;
+    --control-button-disabled-background: transparent;
+    --control-button-disabled-color: var(--agent-text-soft);
   }
 
   .composer__model-chevron {
@@ -294,7 +282,7 @@
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
-  .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {
+  .composer__model-chevron.is-open {
     transform: rotate(180deg);
   }
 
@@ -308,11 +296,8 @@
     white-space: nowrap;
   }
 
-  .composer__primary--stop .composer__primary-background {
-    background-color: var(--klc-color-ui-danger);
-  }
-
-  .composer__primary--stop:hover:not(:disabled) .composer__primary-background {
-    background-color: var(--klc-color-ui-danger);
+  .composer__primary--stop {
+    --base-icon-button-background: var(--klc-color-ui-danger);
+    --base-icon-button-hover-bg: var(--klc-color-ui-danger);
   }
 </style>

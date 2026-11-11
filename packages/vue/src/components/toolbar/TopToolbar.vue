@@ -70,20 +70,19 @@
         :controller="layoutController ?? null"
         @toggle-indicator="emit('toggleIndicator')"
       />
-      <BaseTooltip
-        v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
-        content="足迹图设置"
-        placement="bottom"
-      >
-        <button
-          type="button"
-          class="control-button footprint-settings-button"
-          aria-label="足迹图设置"
-          @click="emit('footprintSettings')"
+        <BaseTooltip
+          v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
+          content="足迹图设置"
+          placement="bottom"
         >
-          <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
+          <BaseIconButton
+            label="足迹图设置"
+            class="footprint-settings-button"
+            @click="emit('footprintSettings')"
+          >
+            <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
+          </BaseIconButton>
+        </BaseTooltip>
       <MarketDataManagementDialog
         :show="showSourceDialog"
         @close="showSourceDialog = false"
@@ -150,7 +149,7 @@
         :groups="screenshotMenuGroups"
         :disabled="screenshotCapturing"
         command="chart.snapshot"
-        trigger-class="screenshot-button"
+        class="screenshot-menu"
         tooltip-placement="bottom"
         placement="bottom"
         @select="onScreenshotSelect"
@@ -190,6 +189,7 @@
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
@@ -468,46 +468,34 @@
     background: var(--klc-color-ui-border);
   }
 
-  .top-toolbar :deep(.symbol-chip),
-  .top-toolbar :deep(.compare-chip),
-  .top-toolbar__item :deep(.drop-menu__trigger),
-  .top-toolbar .history-button,
-  .top-toolbar :deep(.screenshot-button) {
-    height: 30px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    box-shadow: none;
+  /* 工具栏里的 control-button（品种、比较、下拉、截图、历史）统一外观；
+     通过变量向下继承，不再穿透子组件去写样式。 */
+  .top-toolbar {
+    --control-button-height: 30px;
+    --control-button-inline-padding: 10px;
+    --control-button-border-width: 0;
+    --control-button-radius: 4px;
+    --control-button-background: transparent;
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-focus-background: transparent;
+    --control-button-focus-shadow: none;
+    --control-button-focus-outline: 2px solid var(--klc-color-ui-focus);
+    --control-button-focus-outline-offset: -2px;
   }
 
-  .top-toolbar :deep(.symbol-chip:hover),
-  .top-toolbar :deep(.symbol-chip.is-open),
-  .top-toolbar :deep(.symbol-chip[aria-expanded='true']),
-  .top-toolbar :deep(.compare-chip:hover),
-  .top-toolbar :deep(.compare-chip.is-open),
-  .top-toolbar__item :deep(.drop-menu__trigger:hover:not(:disabled)),
-  .top-toolbar__item :deep(.drop-menu__trigger[aria-expanded='true']),
-  .top-toolbar .history-button:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
+  /* 截图入口只保留图标。 */
+  .screenshot-menu {
+    --control-button-inline-padding: 0;
+    --control-button-min-width: 30px;
   }
 
-  /* 足迹设置仅用图标变色提示悬浮，点击区域保持紧凑。 */
+  /* 足迹设置只保留图标与变色提示，点击区域保持紧凑。 */
   .top-toolbar .footprint-settings-button {
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    transition: color var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
-  }
-
-  .top-toolbar .footprint-settings-button:hover:not(:disabled) {
-    background: transparent;
-    color: var(--klc-color-ui-accent);
+    --base-icon-button-size: 24px;
+    --base-icon-button-radius: 0;
+    --base-icon-button-color: var(--klc-color-ui-muted);
+    --base-icon-button-hover-color: var(--klc-color-ui-accent);
+    --base-icon-button-hover-bg: transparent;
   }
 
   .footprint-settings-button__icon {
@@ -531,29 +519,13 @@
     gap: 2px;
     border-left: 1px solid var(--klc-color-ui-border);
     padding-left: 4px;
+    --control-button-color: var(--klc-color-ui-muted);
   }
 
-  .chart-actions .history-button,
-  .chart-actions :deep(.screenshot-button) {
-    color: var(--klc-color-ui-muted);
+  .chart-actions .history-button {
     width: 30px;
     min-width: 30px;
     padding: 0;
-  }
-
-  /* 截图入口只保留图标，去掉外框和默认底色，交互提示交给 hover tooltip。 */
-  .chart-actions :deep(.screenshot-button) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-color: transparent;
-    background: transparent;
-  }
-
-  .chart-actions :deep(.screenshot-button:hover:not(:disabled)),
-  .chart-actions :deep(.screenshot-button[aria-expanded='true']:not(:disabled)) {
-    border-color: transparent;
-    background: var(--klc-color-ui-hover);
   }
 
   .screenshot-button__icon {

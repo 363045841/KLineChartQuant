@@ -14,6 +14,7 @@
         :key="shortcut.on"
         :content="shortcut.label"
         placement="left"
+        fill
       >
         <button
           type="button"
@@ -28,9 +29,9 @@
       class="axis-settings-menu"
       :label="MENU_LABEL"
       :groups="groups"
-      trigger-class="axis-settings-button"
       placement="top"
       density="compact"
+      fill
       @pointerdown.stop
       @pointermove.stop
       @pointerup.stop
@@ -139,37 +140,26 @@
     background: var(--klc-color-ui-border-strong);
   }
 
-  .axis-settings-menu :deep(.axis-settings-button) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* 轴边设置入口：占满整格；尺寸/颜色走 control-button 变量，不再穿透组件内部。 */
+  .axis-settings-menu {
+    --control-button-height: 100%;
+    --control-button-inline-padding: 0;
+    --control-button-border-width: 0;
+    --control-button-radius: 0;
+    --control-button-justify: center;
+    --control-button-background: var(--klc-color-ui-background);
+    --control-button-color: var(--klc-color-ui-muted);
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-active-color: var(--klc-color-ui-text);
+    --control-button-focus-outline: 2px solid var(--klc-color-ui-accent);
+    --control-button-focus-outline-offset: -2px;
+    --control-button-focus-shadow: none;
+
     width: 100%;
     height: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    color: var(--klc-color-ui-muted);
-    background: var(--klc-color-ui-background);
-    cursor: pointer;
   }
 
-  /* Tooltip 包装层提供按钮百分比尺寸的参照盒。 */
-  .axis-settings-menu :deep(.base-tooltip__trigger) {
-    width: 100%;
-    height: 100%;
-  }
-
-  .axis-settings-menu :deep(.axis-settings-button:hover) {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .axis-settings-menu :deep(.axis-settings-button:focus-visible) {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: -2px;
-  }
-
-  .axis-settings-menu :deep(.axis-settings-button svg) {
+  .axis-settings-menu svg {
     width: 16px;
     height: 16px;
   }

@@ -17,8 +17,8 @@
       type?: 'button' | 'submit' | 'reset'
       /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景。 */
       size?: 'md' | 'sm'
-      /** 操作层级：均使用文字按钮，主要操作通过文字颜色与字重强调。 */
-      variant?: 'default' | 'primary'
+      /** 操作层级：default / primary 为文字按钮；outline 为卡片内的次级描边按钮。 */
+      variant?: 'default' | 'primary' | 'outline'
       /** 禁用态。 */
       disabled?: boolean
     }>(),
@@ -71,9 +71,18 @@
     font-weight: 500;
   }
 
+  /* 描边变体：用于卡片内的次级操作，颜色由 --base-button-* 变量提供。 */
+  .base-button--outline {
+    gap: var(--base-button-gap, var(--klc-space-4, 4px));
+    border-color: var(--base-button-border-color, var(--klc-color-ui-border));
+    background: var(--base-button-background, var(--klc-color-ui-control-background));
+    color: var(--base-button-color, var(--klc-color-ui-text));
+    font-size: var(--base-button-font-size, var(--klc-text-12-font-size, 12px));
+  }
+
   @media (hover: hover) and (pointer: fine) {
     .base-button:hover:not(:disabled) {
-      background: var(--klc-color-ui-hover);
+      background: var(--base-button-hover-background, var(--klc-color-ui-hover));
       color: var(--klc-color-ui-text);
     }
   }

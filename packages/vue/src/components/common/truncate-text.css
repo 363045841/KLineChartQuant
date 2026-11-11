@@ -1,0 +1,7 @@
+/* 单行省略：同一份文本截断规则，供列表、摘要与模型名复用。 */
+.truncate-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

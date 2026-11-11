@@ -9,16 +9,15 @@
   >
     <template #header-extra>
       <BaseTooltip content="显示/隐藏说明" placement="bottom">
-        <button
-          type="button"
+        <BaseIconButton
           class="toggle-desc-btn"
           :class="{ active: showDescription }"
-          aria-label="显示或隐藏参数说明"
+          label="显示或隐藏参数说明"
           :aria-pressed="showDescription"
           @click="showDescription = !showDescription"
         >
           <IconTablerHelpCircle aria-hidden="true" />
-        </button>
+        </BaseIconButton>
       </BaseTooltip>
     </template>
 
@@ -50,6 +49,7 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import { computed } from 'vue'
@@ -102,35 +102,14 @@
 
   /* ── 描述切换按钮 ── */
   .toggle-desc-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--base-modal-header-action-size);
-    height: var(--base-modal-header-action-size);
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
+    --base-icon-button-size: var(--base-modal-header-action-size);
+    --base-icon-button-radius: var(--klc-radius-md, 8px);
   }
 
   .toggle-desc-btn.active {
-    color: var(--klc-color-ui-accent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
-  }
-
-  .toggle-desc-btn:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 1px;
-  }
-
-  .toggle-desc-btn svg {
-    width: 16px;
-    height: 16px;
+    --base-icon-button-color: var(--klc-color-ui-accent);
+    --base-icon-button-hover-color: var(--klc-color-ui-accent);
+    --base-icon-button-hover-bg: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
   }
 
   /* ── 底部 ── */

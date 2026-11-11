@@ -36,9 +36,8 @@
       @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
-      <template #tabs>
+      <template v-if="picker.sourceTabs.length > 0" #tabs>
         <BaseTabs
-          v-if="picker.sourceTabs.length > 0"
           v-model="picker.activeSourceTab"
           :tabs="picker.sourceTabs"
           aria-label="聚合源"
@@ -76,14 +75,12 @@
               placement="left"
               trigger-display="contents"
             >
-              <button
-                type="button"
-                class="symbol-list__add"
-                :aria-label="`添加自选 ${item.symbol}`"
+              <BaseIconButton
+                :label="`添加自选 ${item.symbol}`"
                 @click.stop="emit('addWatchlist', item)"
               >
                 <IconTablerPlus aria-hidden="true" />
-              </button>
+              </BaseIconButton>
             </BaseTooltip>
           </div>
         </div>
@@ -98,6 +95,7 @@
   import '../common/symbol-list.css'
   import '../common/list-text.css'
 
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
@@ -239,32 +237,6 @@
     cursor: pointer;
     font: inherit;
     text-align: left;
-  }
-
-  .symbol-list__add {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    margin-right: 12px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  .symbol-list__add:hover {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .symbol-list__add svg {
-    width: 15px;
-    height: 15px;
   }
 
   .symbol-list__item:last-child {

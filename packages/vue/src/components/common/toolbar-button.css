@@ -1,0 +1,84 @@
+/*
+ * Canvas 工具栏按钮：画布浮动工具栏（图元、图例、缩放等）共用的紧凑按钮外观。
+ * 组件只负责容器（CanvasToolbar），按钮样式由消费方给元素加 .toolbar-btn 获得，
+ * 通过全局样式表生效，不再由 CanvasToolbar 穿透子组件去写。
+ */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 窄屏不做压缩：按钮保持 26px，宽度不够时交给父级 overflow-x 横向滚动。 */
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--klc-color-ui-muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.toolbar-btn:hover {
+  background: var(--klc-color-ui-hover);
+  color: var(--klc-color-ui-text);
+}
+
+.toolbar-btn:disabled,
+.toolbar-btn:hover:disabled {
+  opacity: 0.4;
+  background: transparent;
+  color: var(--klc-color-ui-muted);
+  cursor: not-allowed;
+}
+
+.toolbar-btn--delete {
+  width: 26px;
+  padding: 0;
+}
+
+.toolbar-btn--delete:hover {
+  color: var(--klc-color-ui-danger);
+  background: color-mix(in srgb, var(--klc-color-ui-danger) 10%, transparent);
+}
+
+.toolbar-btn--lock,
+.toolbar-btn--visibility,
+.toolbar-btn--copy,
+.toolbar-btn--clone,
+.toolbar-btn--template,
+.toolbar-btn--settings {
+  width: 26px;
+  padding: 0;
+}
+
+.toolbar-btn--lock.is-locked {
+  color: var(--klc-color-ui-text);
+}
+
+.toolbar-separated {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  margin-inline: 6px;
+  padding: 0 10px;
+  border-left: 1px solid var(--klc-color-ui-border);
+  border-right: 1px solid var(--klc-color-ui-border);
+}
+
+.delete-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.lock-icon,
+.toolbar-icon,
+.settings-icon {
+  width: 14px;
+  height: 14px;
+}

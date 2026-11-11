@@ -4,8 +4,11 @@
     :open="show"
     @update:open="!$event && emit('close')"
   >
-    <label class="batch-field">
-      <span class="batch-field__label">股票代码</span>
+    <BaseField
+      v-slot="{ hintId }"
+      label="股票代码"
+      hint="每行一个代码；导出时会把所选区间内这些品种的数据一并导出。"
+    >
       <BaseTextarea
         v-model="codesText"
         class="batch-textarea"
@@ -16,10 +19,7 @@
         autocomplete="off"
         :aria-describedby="hintId"
       />
-      <span :id="hintId" class="batch-field__hint">
-        每行一个代码；导出时会把所选区间内这些品种的数据一并导出。
-      </span>
-    </label>
+    </BaseField>
     <template #footer>
       <BaseButton @click="emit('close')">取消</BaseButton>
       <BaseButton :disabled="codes.length === 0" @click="onApply">应用</BaseButton>
@@ -29,9 +29,10 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseField from '@vue-src/components/common/BaseField.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTextarea from '@vue-src/components/common/BaseTextarea.vue'
-  import { computed, ref, useId } from 'vue'
+  import { computed, ref } from 'vue'
 
   defineProps<{
     show: boolean
@@ -42,7 +43,6 @@
     apply: [codes: string[]]
   }>()
 
-  const hintId = `batch-codes-hint-${useId()}`
   /** 保留原始输入（含空行），否则回车产生的空行会被立即过滤，无法换行。 */
   const codesText = ref('')
   const codes = computed(() =>
@@ -60,24 +60,6 @@
 </script>
 
 <style scoped>
-  .batch-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--klc-space-8, 8px);
-  }
-
-  .batch-field__label {
-    color: var(--klc-color-ui-text);
-    font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: var(--klc-text-label-13-font-weight, 500);
-  }
-
-  .batch-field__hint {
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-12-font-size, 12px);
-    line-height: var(--klc-text-12-line-height, 16px);
-  }
-
   .batch-textarea {
     font-family: var(--klc-text-11-mono-font-family, ui-monospace, monospace);
     font-variant-numeric: tabular-nums;

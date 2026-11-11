@@ -22,14 +22,9 @@
       >
         <slot name="search-actions">
           <BaseTooltip content="快捷键设置" placement="bottom">
-            <button
-              type="button"
-              class="command-palette__settings"
-              aria-label="快捷键设置"
-              @click="openShortcutSettings"
-            >
+            <BaseIconButton label="快捷键设置" @click="openShortcutSettings">
               <IconTablerKeyboard aria-hidden="true" />
-            </button>
+            </BaseIconButton>
           </BaseTooltip>
         </slot>
       </ModalSearchBar>
@@ -39,7 +34,9 @@
         aria-label="命令列表"
         @pointermove="keyboardNavigation = false"
       >
-        <div v-if="results.length === 0" class="command-palette__empty">没有匹配的命令</div>
+        <BaseEmptyState v-if="results.length === 0" size="compact" class="modal-list-item">
+          没有匹配的命令
+        </BaseEmptyState>
         <button
           v-for="(row, index) in results"
           :key="row.command.id"
@@ -59,7 +56,11 @@
             <span class="command-palette__title">{{ row.command.title.zh }}</span>
             <span class="command-palette__desc">{{ row.command.title.en }}</span>
           </span>
-          <ShortcutKeys :shortcut="shortcutOf(row.command)" aria-label="快捷键" />
+          <ShortcutKeys
+            :shortcut="shortcutOf(row.command)"
+            :tone="row.available ? 'default' : 'muted'"
+            aria-label="快捷键"
+          />
         </button>
       </div>
     </div>
@@ -76,6 +77,8 @@
     type CommandRegistry,
     primaryShortcut,
   } from '@363045841yyt/klinechart-core'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
@@ -200,44 +203,12 @@
     min-height: 0;
   }
 
-  .command-palette__settings {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--klc-radius-sm, 6px);
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  .command-palette__settings:hover {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .command-palette__settings svg {
-    width: 16px;
-    height: 16px;
-  }
-
   .command-palette__list {
     display: flex;
     flex-direction: column;
     max-height: 480px;
     overflow-y: auto;
     overflow-x: hidden;
-  }
-
-  .command-palette__empty {
-    padding: 28px 0;
-    color: var(--klc-color-ui-muted);
-    font-size: 13px;
-    text-align: center;
   }
 
   .command-palette__item {
@@ -271,10 +242,6 @@
   }
 
   .command-palette__item.is-disabled .command-palette__title,
-  .command-palette__item.is-disabled :deep(.shortcut-key) {
-    color: var(--klc-color-ui-text-soft);
-  }
-
   .command-palette__item.is-disabled .command-palette__desc {
     color: var(--klc-color-ui-muted);
   }

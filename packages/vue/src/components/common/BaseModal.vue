@@ -31,7 +31,7 @@
     >
       <div class="base-modal__surface">
         <div
-          v-if="$slots.header || $slots.title || title"
+          v-if="slots.header || slots.title || title"
           ref="dragHeader"
           class="base-header"
           @pointerdown="startDrag"
@@ -47,10 +47,9 @@
           </div>
           <div v-if="showClose" class="base-header-right">
             <slot name="header-extra" />
-            <button
-              type="button"
+            <BaseIconButton
               class="base-close-btn"
-              :aria-label="closeLabel"
+              :label="closeLabel"
               @click="requestClose"
             >
               <svg
@@ -62,15 +61,15 @@
               >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
-            </button>
+            </BaseIconButton>
           </div>
         </div>
 
-        <div v-if="$slots.subheader" class="base-subheader">
+        <div v-if="slots.subheader" class="base-subheader">
           <slot name="subheader" />
         </div>
 
-        <div v-if="$slots.tabs" class="base-modal__tabs">
+        <div v-if="slots.tabs" class="base-modal__tabs">
           <slot name="tabs" />
         </div>
 
@@ -81,7 +80,7 @@
           <slot />
         </div>
 
-        <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
+        <div v-if="slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
           <slot name="footer" />
         </div>
       </div>
@@ -111,6 +110,7 @@
     useTemplateRef,
     watch,
   } from 'vue'
+  import BaseIconButton from './BaseIconButton.vue'
   import ToastViewport from './ToastViewport.vue'
 
   const props = withDefaults(
@@ -130,7 +130,6 @@
       animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
-      overlayPadding?: string
       /** 正文贴边：内边距由内容自理（内部滚动区、编辑器等）。 */
       bodyFlush?: boolean
       bodyScrollable?: boolean
@@ -150,7 +149,6 @@
       animateResize: true,
       maxWidth: '',
       maxHeight: '780px',
-      overlayPadding: 'var(--klc-space-24, 24px)',
       bodyScrollable: true,
       footerAlign: 'flex-end',
       closeOnOverlay: true,
@@ -200,15 +198,18 @@
     () => props.width || (props.size ? SIZE_WIDTHS[props.size] : 'min(92vw, 400px)'),
   )
 
+  /** 弹窗与视口之间保留的间距；所有弹窗统一，不再逐弹窗覆盖。 */
+  const OVERLAY_PADDING = 'var(--klc-space-24, 24px)'
+
   const modalStyle = computed(() => ({
     '--base-modal-width': resolvedWidth.value,
     minWidth: props.minWidth
-      ? `min(${props.minWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
+      ? `min(${props.minWidth}, calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`
       : undefined,
     maxWidth: props.maxWidth
-      ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
-      : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,
-    maxHeight: `min(${props.maxHeight}, calc(100dvh - ${props.overlayPadding} - ${props.overlayPadding}))`,
+      ? `min(${props.maxWidth}, calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`
+      : `calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING})`,
+    maxHeight: `min(${props.maxHeight}, calc(100dvh - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`,
   }))
 
   async function openDialog(): Promise<void> {
@@ -448,32 +449,9 @@
   }
 
   .base-close-btn {
-    background: transparent;
-    border: 0;
-    border-radius: var(--klc-radius-md, 8px);
-    width: var(--base-modal-header-action-size);
-    height: var(--base-modal-header-action-size);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--klc-color-ui-muted);
-    transition: color var(--klc-motion-dur-fast);
-    padding: 0;
-  }
-
-  .base-close-btn:hover {
-    color: var(--klc-color-ui-text);
-  }
-
-  .base-close-btn:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 2px;
-  }
-
-  .base-close-btn svg {
-    width: 14px;
-    height: 14px;
+    --base-icon-button-size: var(--base-modal-header-action-size);
+    --base-icon-button-icon-size: 14px;
+    --base-icon-button-hover-bg: transparent;
   }
 
   .base-subheader {
@@ -497,8 +475,10 @@
     padding: 0;
   }
 
+  /* 滚动正文只保留横向 inset；纵向留白由内容自己决定，避免滚动区上下出现固定空隙。 */
   .base-body--scrollable {
     overflow-y: auto;
+    padding-block: 0;
   }
 
   /*

@@ -1,6 +1,6 @@
 <!-- 布局管理下拉：商品选择同款 trigger，保存、创建与布局列表在同一面板内，命名走弹窗。 -->
 <template>
-  <DropMenu :label="currentName" :groups="groups" :disabled="!controller" :message="message" empty-text="暂无布局" trigger-class="symbol-chip" tooltip-placement="bottom" placement="bottom" keep-open-on-select @open="refresh" @select="onSelect">
+  <DropMenu :label="currentName" :groups="groups" :disabled="!controller" :message="message" empty-text="暂无布局" tooltip-placement="bottom" placement="bottom" keep-open-on-select @open="refresh" @select="onSelect">
     <template #trigger><span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span></template>
     <template #item="{ group, item, select }">
       <button type="button" role="menuitem" class="drop-menu__item-main" :disabled="item.disabled" @click="select">

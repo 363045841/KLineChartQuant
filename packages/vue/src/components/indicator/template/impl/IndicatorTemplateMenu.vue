@@ -102,19 +102,20 @@
                   </span>
                 </button>
                 <BaseTooltip content="删除" placement="bottom">
-                  <button
-                    type="button"
+                  <BaseIconButton
                     class="indicator-template__item-action"
-                    :aria-label="`删除 ${template.name}`"
+                    :label="`删除 ${template.name}`"
                     :disabled="busy"
                     @click="removeTemplate(template.id)"
                   >
                     <IconTablerTrash aria-hidden="true" />
-                  </button>
+                  </BaseIconButton>
                 </BaseTooltip>
               </div>
             </template>
-            <p v-else class="indicator-template__empty modal-list-item">暂无最近使用的模板</p>
+            <BaseEmptyState v-else size="compact" class="modal-list-item">
+              暂无最近使用的模板
+            </BaseEmptyState>
           </ModalScrollArea>
         </template>
 
@@ -147,31 +148,29 @@
                 </span>
               </button>
               <BaseTooltip content="重命名" placement="bottom">
-                <button
-                  type="button"
+                <BaseIconButton
                   class="indicator-template__item-action"
-                  :aria-label="`重命名 ${template.name}`"
+                  :label="`重命名 ${template.name}`"
                   :disabled="busy"
                   @click="startRename(template)"
                 >
                   <IconTablerPencil aria-hidden="true" />
-                </button>
+                </BaseIconButton>
               </BaseTooltip>
               <BaseTooltip content="删除" placement="bottom">
-                <button
-                  type="button"
+                <BaseIconButton
                   class="indicator-template__item-action"
-                  :aria-label="`删除 ${template.name}`"
+                  :label="`删除 ${template.name}`"
                   :disabled="busy"
                   @click="removeTemplate(template.id)"
                 >
                   <IconTablerTrash aria-hidden="true" />
-                </button>
+                </BaseIconButton>
               </BaseTooltip>
             </div>
-            <p v-if="visibleTemplates.length === 0" class="indicator-template__empty modal-list-item">
+            <BaseEmptyState v-if="visibleTemplates.length === 0" size="compact" class="modal-list-item">
               {{ searchQuery.trim() ? '未找到匹配的模板' : '暂无模板' }}
-            </p>
+            </BaseEmptyState>
           </ModalScrollArea>
         </template>
       </div>
@@ -209,6 +208,8 @@
     IndicatorTemplateSummary,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
@@ -478,15 +479,8 @@
     font-size: var(--klc-text-12-font-size, 12px);
   }
 
+  /* 行内操作默认隐藏，悬停或聚焦时露出；按钮外观由 BaseIconButton 提供。 */
   .indicator-template__item-action {
-    display: inline-grid;
-    place-items: center;
-    width: 24px;
-    height: 24px;
-    border: 0;
-    background: none;
-    color: var(--klc-color-ui-text-secondary);
-    cursor: pointer;
     opacity: 0;
   }
 
@@ -495,22 +489,4 @@
     opacity: 1;
   }
 
-  /* 只高亮图标本身，不给按钮加背景或外框。 */
-  .indicator-template__item-action:hover,
-  .indicator-template__item-action:focus-visible {
-    color: var(--klc-color-ui-text);
-  }
-
-  .indicator-template__item-action svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .indicator-template__empty {
-    margin: 0;
-    padding-block: var(--klc-space-24, 24px);
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-12-font-size, 12px);
-    text-align: center;
-  }
 </style>

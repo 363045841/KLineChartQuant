@@ -21,28 +21,39 @@
       @keydown="resizeWithKeyboard"
     />
     <div class="script-output__toolbar">
-      <div ref="tabsRef" role="tablist" aria-label="编辑器面板" class="script-output__tabs">
-        <button :id="tabId" class="script-output__tab" :class="{ 'is-active': activePanel === 'output' }" data-panel="output" type="button" role="tab" :aria-selected="activePanel === 'output'" :tabindex="activePanel === 'output' ? 0 : -1" :aria-controls="panelId" @click="selectPanel('output')" @keydown="onTabKeyDown">输出 <span v-if="logs.length">({{ logs.length }})</span></button>
-        <button :id="problemsTabId" class="script-output__tab" :class="{ 'is-active': activePanel === 'problems' }" data-panel="problems" type="button" role="tab" :aria-selected="activePanel === 'problems'" :tabindex="activePanel === 'problems' ? 0 : -1" :aria-controls="panelId" @click="selectPanel('problems')" @keydown="onTabKeyDown">问题 <span v-if="problems.length">({{ problems.length }})</span></button>
-        <span class="script-output__indicator" aria-hidden="true" :style="indicatorStyle" />
-      </div>
+      <BaseTabs
+        :model-value="activePanel"
+        :tabs="panelTabs"
+        variant="compact"
+        aria-label="编辑器面板"
+        @update:model-value="selectPanel"
+      />
       <div class="script-output__actions">
         <BaseTooltip v-if="activePanel === 'output'" content="清空输出" placement="top">
-          <button class="script-output__icon-button" type="button" aria-label="清空输出" :disabled="!logs.length" @click="emit('clear')">
+          <BaseIconButton
+            label="清空输出"
+            :disabled="!logs.length"
+            @click="emit('clear')"
+          >
             <IconTablerTrash aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip :content="expanded ? '折叠面板' : '展开面板'" placement="top">
-          <button class="script-output__icon-button" type="button" :aria-label="expanded ? '折叠面板' : '展开面板'" :aria-expanded="expanded" :aria-controls="panelId" @click="expanded = !expanded">
+          <BaseIconButton
+            :label="expanded ? '折叠面板' : '展开面板'"
+            :aria-expanded="expanded"
+            :aria-controls="panelId"
+            @click="expanded = !expanded"
+          >
             <IconTablerChevronDown v-if="expanded" aria-hidden="true" />
             <IconTablerChevronUp v-else aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
       </div>
     </div>
-    <OverlayScrollArea persistent :id="panelId" ref="scrollArea" role="tabpanel" :aria-labelledby="activePanel === 'output' ? tabId : problemsTabId" tabindex="0" class="script-output__content" :class="{ 'is-collapsed': !expanded }" :inert="!expanded" :style="{ height: expanded ? `${height}px` : '0px' }" @scroll="onScroll" @transitionend="onPanelTransitionEnd">
+    <OverlayScrollArea persistent :id="panelId" ref="scrollArea" role="tabpanel" aria-label="编辑器面板内容" tabindex="0" class="script-output__content" :class="{ 'is-collapsed': !expanded }" :inert="!expanded" :style="{ height: expanded ? `${height}px` : '0px' }" @scroll="onScroll" @transitionend="onPanelTransitionEnd">
       <template v-if="activePanel === 'output'">
-      <p v-if="!logs.length" class="script-output__empty">暂无输出</p>
+      <BaseEmptyState v-if="!logs.length" size="compact">暂无输出</BaseEmptyState>
       <ScriptOutputEntry
         v-for="entry in logEntries"
         :key="entry.key"
@@ -55,7 +66,7 @@
       <p v-if="logs.length >= SCRIPT_OUTPUT_LIMIT" class="script-output__empty">仅保留最近 {{ SCRIPT_OUTPUT_LIMIT }} 条输出。</p>
       </template>
       <template v-else>
-        <p v-if="!problems.length" class="script-output__empty">未发现问题</p>
+        <BaseEmptyState v-if="!problems.length" size="compact">未发现问题</BaseEmptyState>
         <ScriptProblemItem v-for="(problem, index) in problems" :key="index" :problem="problem" @reveal="emit('reveal-problem', $event)" />
       </template>
     </OverlayScrollArea>
@@ -64,11 +75,13 @@
 
 <script setup lang="ts">
   import { type LogEvent, SCRIPT_OUTPUT_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import { useScriptEditorPanels } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorPanels.js'
   import type { ScriptEditorProblem } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import { useSlidingTabIndicator } from '@vue-src/composables/ui/useSlidingTabIndicator.js'
   import { computed, useId, useTemplateRef } from 'vue'
   import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerChevronUp from '~icons/tabler/chevron-up'
@@ -104,11 +117,8 @@
     }),
   )
   const id = useId()
-  const tabId = `${id}-output-tab`
-  const problemsTabId = `${id}-problems-tab`
   const panelId = `${id}-output-panel`
   const panelHost = useTemplateRef<HTMLElement>('panelHost')
-  const tabsRef = useTemplateRef<HTMLElement>('tabsRef')
   const scrollArea = useTemplateRef<InstanceType<typeof OverlayScrollArea>>('scrollArea')
   const outputHost = computed(() => scrollArea.value?.viewport ?? null)
   const resizeHandle = useTemplateRef<HTMLElement>('resizeHandle')
@@ -116,7 +126,6 @@
     expanded,
     activePanel,
     selectPanel,
-    onTabKeyDown,
     height,
     minHeight,
     maxHeight,
@@ -136,7 +145,18 @@
     () => props.running,
     () => props.documentError,
   )
-  const { indicatorStyle } = useSlidingTabIndicator(tabsRef, () => activePanel.value)
+
+  /** 页签文案带条数；渲染与键盘切换交给 BaseTabs。 */
+  const panelTabs = computed(() => [
+    {
+      id: 'output' as const,
+      label: `输出${props.logs.length ? ` (${props.logs.length})` : ''}`,
+    },
+    {
+      id: 'problems' as const,
+      label: `问题${props.problems.length ? ` (${props.problems.length})` : ''}`,
+    },
+  ])
 
   /** 展开/收起动画结束后按最终尺寸重算可拖拽上限。 */
   function onPanelTransitionEnd(event: TransitionEvent): void {
@@ -151,28 +171,8 @@
   .script-output__resize-handle:hover { background: var(--klc-brand-accent-text); }
   .script-output__resize-handle:focus-visible { outline: 2px solid var(--klc-color-ui-focus); outline-offset: 0; background: var(--klc-color-ui-focus); }
   .script-output__toolbar, .script-output__actions { display: flex; align-items: center; }
-  .script-output__toolbar { justify-content: space-between; min-height: 32px; padding: 0 var(--klc-space-16, 16px); background: var(--klc-color-ui-card); }
+  .script-output__toolbar { justify-content: space-between; gap: var(--klc-space-8, 8px); min-height: 32px; padding: 0 var(--klc-space-16, 16px); background: var(--klc-color-ui-card); }
   .script-output__actions { gap: var(--klc-space-4, 4px); }
-  .script-output button { display: inline-flex; align-items: center; justify-content: center; border: 0; padding: 0; background: transparent; color: var(--klc-color-ui-muted); font: inherit; cursor: pointer; }
-  /* 指示器与商品选择弹层的 BaseTabs 使用同一条滑动动画。 */
-  .script-output__tabs { position: relative; display: flex; gap: var(--klc-space-16, 16px); }
-  .script-output .script-output__tab { min-height: 32px; gap: var(--klc-space-4, 4px); }
-  .script-output .script-output__tab.is-active { color: var(--klc-color-ui-text); font-weight: 600; }
-  .script-output__indicator {
-    position: absolute;
-    bottom: 0;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--klc-brand-accent-text);
-    transition:
-      left var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
-      width var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
-  }
-  .script-output__icon-button { width: 24px; height: 24px; border-radius: var(--klc-radius-sm, 4px); }
-  .script-output__icon-button svg { width: 16px; height: 16px; }
-  .script-output__icon-button:hover { background: var(--klc-color-ui-hover); }
-  .script-output button:disabled { opacity: 0.4; cursor: default; }
-  .script-output button:focus-visible { outline: 2px solid var(--klc-color-ui-focus); outline-offset: -2px; }
   /* 高度由用户拖拽决定，收起动画只过渡高度与内边距；拖拽时关闭过渡避免跟手滞后。 */
   .script-output__content {
     box-sizing: border-box;

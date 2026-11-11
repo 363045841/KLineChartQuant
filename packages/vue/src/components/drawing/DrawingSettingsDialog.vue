@@ -62,7 +62,6 @@
         <DrawingTemplateMenu
           v-if="show"
           label="应用模板"
-          trigger-class="drawing-template-menu-trigger"
           :names="templateNames"
           :can-save="true"
           :can-apply="templateFields.length > 0"
@@ -318,28 +317,17 @@
     flex-wrap: wrap;
     gap: 8px;
     width: 100%;
-  }
-
-  /* 模板下拉触发器按 Footer 文本动作呈现：度量对齐 `BaseButton size="sm"`（保存为模板），不再有按钮盒子。 */
-  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger) {
-    height: var(--base-button-height, 28px);
+    /* 模板下拉触发器按 Footer 文本动作呈现：度量对齐 BaseButton size="sm"，
+       通过 control-button 变量设置，不穿透组件。 */
+    --control-button-height: var(--base-button-height, 28px);
     --control-button-inline-padding: var(--klc-space-8, 8px);
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 400;
-    line-height: 1.2;
-    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger:hover:not(:disabled)),
-  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger[aria-expanded='true']) {
-    color: var(--klc-color-ui-text);
-  }
-
-  /* control-button 的聚焦提示是边框与底色，清掉后按 BaseButton 的描边补齐键盘焦点。 */
-  .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger:focus-visible) {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 2px;
+    --control-button-color: var(--klc-color-ui-muted);
+    --control-button-active-color: var(--klc-color-ui-text);
+    --control-button-font-size: var(--klc-text-12-font-size, 12px);
+    --control-button-font-weight: 400;
+    --control-button-line-height: 1.2;
+    --control-button-focus-outline: 2px solid var(--klc-color-ui-focus);
+    --control-button-focus-outline-offset: 2px;
   }
 
 </style>

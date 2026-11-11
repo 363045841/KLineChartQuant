@@ -27,9 +27,8 @@
       @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
-      <template #tabs>
+      <template v-if="picker.sourceTabs.length > 0" #tabs>
         <BaseTabs
-          v-if="picker.sourceTabs.length > 0"
           v-model="picker.activeSourceTab"
           :tabs="picker.sourceTabs"
           aria-label="聚合源"

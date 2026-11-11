@@ -1,11 +1,12 @@
 <!-- 分组下拉菜单：统一整行选项、选中态及操作区样式。 -->
 <template>
-  <div class="drop-menu">
+  <div class="drop-menu" :class="{ 'drop-menu--fill': fill }">
     <BaseTooltip
       :content="label"
       :placement="tooltipPlacement ?? 'top'"
       :disabled="open || disabled"
       :command="command"
+      :fill="fill"
     >
       <ControlTrigger
         ref="triggerControl"
@@ -18,7 +19,7 @@
         @click="popover.onTriggerClick"
         @keydown="onTriggerKeydown"
       >
-        <slot name="trigger">{{ label }}</slot>
+        <slot name="trigger" :open="open">{{ label }}</slot>
       </ControlTrigger>
     </BaseTooltip>
     <Teleport :to="teleportTarget">
@@ -40,7 +41,7 @@
           <slot name="header" />
         </div>
         <div v-for="group in groups" :key="group.id" class="drop-menu__group">
-          <div class="drop-menu__heading">{{ group.label }}</div>
+          <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
           <div
             v-for="item in group.items"
             :key="item.id"
@@ -120,6 +121,8 @@
     keepOpenOnSelect?: boolean
     /** 操作区浮于详情位置，悬停或聚焦行时替换 drop-menu__item-detail。 */
     replaceDetailOnAction?: boolean
+    /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
+    fill?: boolean
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -206,22 +209,15 @@
 
 
 <style scoped>
-  /* 设置弹窗内的菜单共用紧凑、透明的触发器。 */
-  .settings-select .drop-menu__trigger {
-    min-width: 100px;
-    height: 24px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    box-shadow: none;
-    font-size: var(--klc-typography-font-size-md);
-    justify-content: space-between;
+  /* 撑满父容器：触发按钮随之铺满，轴边/设置行不再需要穿透改尺寸。 */
+  .drop-menu--fill {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
-  .settings-select .drop-menu__trigger:hover:not(:disabled),
-  .settings-select .drop-menu__trigger[aria-expanded='true'] {
-    background: var(--klc-color-ui-hover);
+  .drop-menu--fill .drop-menu__trigger {
+    width: 100%;
   }
 
   .drop-menu {
@@ -250,21 +246,12 @@
     padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px) 0;
   }
 
-  .drop-menu__header:empty {
-    display: none;
-  }
-
   .drop-menu__footer {
     padding: var(--klc-space-8, 8px);
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
-  .drop-menu__heading:empty {
-    display: none;
-  }
-
-  .drop-menu__item-action:empty,
-  .drop-menu__footer:empty {
+  .drop-menu__item-action:empty {
     display: none;
   }
 

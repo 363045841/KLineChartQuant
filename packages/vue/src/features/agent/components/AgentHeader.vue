@@ -3,57 +3,53 @@
   <header class="agent-header">
     <div class="agent-header__top">
       <BaseTooltip :content="sessionsToggleLabel" placement="bottom">
-        <button
-          type="button"
+        <BaseIconButton
           class="agent-header__sessions-toggle"
           data-testid="agent-sessions-toggle"
-          :aria-label="sessionsToggleLabel"
+          :label="sessionsToggleLabel"
           aria-haspopup="dialog"
           :aria-expanded="sessionsOpen"
           :disabled="!available"
           @click="emit('toggle-sessions')"
         >
           <IconMenu2 aria-hidden="true" />
-        </button>
+        </BaseIconButton>
       </BaseTooltip>
 
       <div class="agent-header__actions">
         <BaseTooltip :content="text.newSession" placement="bottom">
-          <button
-            type="button"
-            :aria-label="text.newSession"
+          <BaseIconButton
+            :label="text.newSession"
             :disabled="!available"
             @click="emit('create')"
           >
             <IconPlus aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip :content="text.settings" placement="bottom">
-          <button type="button" :aria-label="text.settings" @click="emit('settings')">
+          <BaseIconButton :label="text.settings" @click="emit('settings')">
             <IconSettings aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip :content="panelSideLabel" placement="bottom">
-          <button
-            type="button"
+          <BaseIconButton
             data-testid="agent-panel-side-toggle"
-            :aria-label="panelSideLabel"
+            :label="panelSideLabel"
             @click="emit('toggle-panel-side')"
           >
             <IconLayoutSidebarLeftExpand v-if="panelSide === 'right'" aria-hidden="true" />
             <IconLayoutSidebarRightExpand v-else aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip :content="text.closePanel" placement="bottom">
-          <button
-            type="button"
+          <BaseIconButton
             data-testid="agent-panel-close"
-            :aria-label="text.closePanel"
+            :label="text.closePanel"
             @click="emit('close')"
           >
             <IconChevronLeft v-if="panelSide === 'left'" aria-hidden="true" />
             <IconChevronRight v-else aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
       </div>
     </div>
@@ -72,6 +68,7 @@
   import IconMenu2 from '~icons/tabler/menu-2'
   import IconPlus from '~icons/tabler/plus'
   import IconSettings from '~icons/tabler/settings'
+  import BaseIconButton from '../../../components/common/BaseIconButton.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import type { AgentPanelSide } from '../workspace/types.js'

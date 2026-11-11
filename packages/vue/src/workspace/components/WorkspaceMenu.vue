@@ -7,11 +7,10 @@
     tooltip-placement="bottom"
     density="loose"
     :groups="menu.groups"
-    trigger-class="workspace-menu__trigger"
     @select="menu.select"
   >
     <template #trigger>
-      <ColorAvatar :color="accent">
+      <ColorAvatar :color="accent" variant="contrast">
         <span class="workspace-menu__brand" v-html="brandLogoMarkup" />
       </ColorAvatar>
     </template>
@@ -40,27 +39,22 @@
 </script>
 
 <style scoped>
-  .workspace-menu { flex: none; -webkit-app-region: no-drag; app-region: no-drag; }
-  /* 按钮只提供语义与焦点，不给应用图标再包底色、描边或阴影。 */
-  .workspace-menu :deep(.workspace-menu__trigger),
-  .workspace-menu :deep(.workspace-menu__trigger:hover),
-  .workspace-menu :deep(.workspace-menu__trigger[aria-expanded='true']) {
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
+  .workspace-menu {
+    /* 只保留语义与焦点，不给应用图标再包底色、描边或阴影；外观走 control-button 变量。 */
+    --control-button-width: 30px;
+    --control-button-height: 30px;
+    --control-button-inline-padding: 0;
+    --control-button-border-width: 0;
+    --control-button-background: transparent;
+    --control-button-active-background: transparent;
+    --control-button-active-border: transparent;
+    --control-button-focus-shadow: none;
+
+    flex: none;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
   }
   .workspace-menu__brand { display: block; width: 100%; height: 100%; }
-  /* 深色徽章与左侧工具栏的选中态保持一致，浅色仍保留工作区标识色。 */
-  .workspace-menu :deep(.color-avatar) {
-    background: light-dark(
-      color-mix(in srgb, var(--avatar-color) 22%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--avatar-color), var(--klc-color-ui-background));
-  }
   .workspace-menu__brand :deep(svg) { display: block; width: 100%; height: 100%; }
   .workspace-menu__brand :deep(circle) { fill: none; }
   .workspace-menu__brand :deep(path) { stroke: currentColor; }

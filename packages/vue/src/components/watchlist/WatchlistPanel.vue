@@ -37,7 +37,7 @@
               <span>涨跌幅</span>
             </div>
           </div>
-          <div v-if="groups.length === 0" class="watchlist-panel__empty">暂无自选股</div>
+          <BaseEmptyState v-if="groups.length === 0" size="compact">暂无自选股</BaseEmptyState>
           <div
             v-if="quoteIssues.length > 0 && !issuesDismissed"
             class="watchlist-panel__issues"
@@ -104,6 +104,7 @@
   import '../common/control-button.css'
   import '../common/popover-surface.css'
 
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
@@ -368,12 +369,6 @@
 
   .watchlist-panel__columns-spacer {
     grid-column: span 2;
-  }
-
-  .watchlist-panel__empty {
-    padding: 16px 12px;
-    color: var(--klc-color-ui-muted);
-    font-size: 12px;
   }
 
   .watchlist-group + .watchlist-group {

@@ -8,6 +8,7 @@
   <div class="modal-search-bar" :class="{ 'modal-search-bar--no-top': !topBorder }">
     <SearchField
       ref="field"
+      class="modal-search-bar__field"
       :model-value="modelValue"
       :placeholder="placeholder"
       :aria-label="ariaLabel"
@@ -75,6 +76,12 @@
     background: var(--klc-color-ui-surface);
     transition: border-color var(--klc-motion-dur-fast)
       var(--klc-motion-ease-out);
+  }
+
+  /* 搜索框铺满整行，尾部动作按钮保持自身宽度。 */
+  .modal-search-bar__field {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* 搜索框聚焦时只提亮已有上下边线；不画框、不加外发光。 */

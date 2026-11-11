@@ -6,14 +6,14 @@
     @update:open="!$event && handleClose()"
   >
     <template #header-extra>
-      <SegmentedTabs v-model="activeTab" :tabs="tabs" aria-label="预警视图">
+      <BaseTabs v-model="activeTab" :tabs="tabs" variant="segmented" aria-label="预警视图">
         <template #tab="{ tab }">
           {{ tab.label }}
-          <span v-if="tab.value === 'history' && unreadCount > 0" class="alert-tab-badge">
+          <span v-if="tab.id === 'history' && unreadCount > 0" class="alert-tab-badge">
             {{ unreadCount > 99 ? '99+' : unreadCount }}
           </span>
         </template>
-      </SegmentedTabs>
+      </BaseTabs>
     </template>
 
     <!-- Rules Tab -->
@@ -39,21 +39,15 @@
           @cancel="editingRule = null"
         />
 
-        <div v-else-if="rules.length === 0" class="alert-empty">
-          <div class="alert-empty-icon-wrap">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              class="alert-empty-icon"
-            >
+        <BaseEmptyState v-else-if="rules.length === 0" class="alert-empty">
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M12 2a10 10 0 1 0 10 10M12 6v6l4 2" />
             </svg>
-          </div>
-          <span class="alert-empty-title">暂无预警规则</span>
-          <span class="alert-empty-hint">点击「新建规则」添加一条价格或指标条件</span>
-        </div>
+          </template>
+          暂无预警规则
+          <template #hint>点击「新建规则」添加一条价格或指标条件</template>
+        </BaseEmptyState>
 
         <div v-else class="rule-list">
           <div
@@ -76,22 +70,16 @@
                   />
                 </BaseTooltip>
                 <BaseTooltip content="编辑" placement="top">
-                  <button
-                    type="button"
-                    class="rule-item-btn"
-                    :aria-label="`编辑 ${rule.name}`"
-                    @click="startEditRule(rule)"
-                  >
+                  <BaseIconButton :label="`编辑 ${rule.name}`" @click="startEditRule(rule)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                       <path d="M4 20h4L18.5 9.5a2 2 0 0 0-3-3L4 16v4" />
                     </svg>
-                  </button>
+                  </BaseIconButton>
                 </BaseTooltip>
                 <BaseTooltip content="删除" placement="top">
-                  <button
-                    type="button"
-                    class="rule-item-btn rule-item-btn--danger"
-                    :aria-label="`删除 ${rule.name}`"
+                  <BaseIconButton
+                    tone="danger"
+                    :label="`删除 ${rule.name}`"
                     @click="deleteRule(rule)"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -99,7 +87,7 @@
                         d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
                       />
                     </svg>
-                  </button>
+                  </BaseIconButton>
                 </BaseTooltip>
               </div>
             </div>
@@ -158,21 +146,15 @@
           </button>
         </div>
 
-        <div v-if="events.length === 0" class="alert-empty">
-          <div class="alert-empty-icon-wrap">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              class="alert-empty-icon"
-            >
+        <BaseEmptyState v-if="events.length === 0" class="alert-empty">
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
-          </div>
-          <span class="alert-empty-title">暂无告警记录</span>
-          <span class="alert-empty-hint">规则触发后将显示在这里</span>
-        </div>
+          </template>
+          暂无告警记录
+          <template #hint>规则触发后将显示在这里</template>
+        </BaseEmptyState>
 
         <div v-else class="event-list">
           <div v-for="(event, idx) in [...events].reverse()" :key="idx" class="event-item">
@@ -221,9 +203,12 @@
     AlertRule,
     ChartController,
   } from '@363045841yyt/klinechart-core'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import SegmentedTabs from '@vue-src/components/common/SegmentedTabs.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useToast } from '@vue-src/composables/toast/useToast.js'
@@ -241,8 +226,8 @@
   }>()
 
   const tabs = [
-    { value: 'rules' as const, label: '规则' },
-    { value: 'history' as const, label: '历史' },
+    { id: 'rules' as const, label: '规则' },
+    { id: 'history' as const, label: '历史' },
   ]
   const activeTab = ref<'rules' | 'history'>('rules')
 
@@ -496,42 +481,8 @@
    Empty State
 ══════════════════════════════════════════ */
   .alert-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 40px 0 36px;
+    padding-block: var(--klc-space-40, 40px) var(--klc-space-32, 32px);
     color: var(--klc-color-ui-muted);
-  }
-
-  .alert-empty-icon-wrap {
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    background: var(--klc-color-ui-hover);
-    margin-bottom: 4px;
-  }
-
-  .alert-empty-icon {
-    width: 26px;
-    height: 26px;
-    opacity: 0.45;
-  }
-
-  .alert-empty-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--klc-color-ui-text);
-    opacity: 0.7;
-  }
-
-  .alert-empty-hint {
-    font-size: 11px;
-    color: var(--klc-color-ui-muted);
-    opacity: 0.55;
   }
 
   /* ══════════════════════════════════════════
@@ -594,39 +545,6 @@
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
-  }
-
-  .rule-item-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .rule-item-btn svg {
-    width: 13px;
-    height: 13px;
-  }
-
-  .rule-item-btn:hover {
-    background: var(--klc-color-ui-border);
-    color: var(--klc-color-ui-text);
-  }
-
-  .rule-item-btn--danger:hover {
-    background: color-mix(in srgb, var(--klc-color-ui-danger) 20%, transparent);
-    color: var(--klc-color-ui-danger-text);
   }
 
   /* ── Meta Tags ── */

@@ -8,17 +8,17 @@
     :show-close="!busy"
     @update:open="!$event && emit('close')"
   >
-    <form :id="formId" class="template-field" @submit.prevent="submit">
-      <label class="template-field__label" :for="nameId">模板名称</label>
-      <BaseInput
-        :id="nameId"
-        v-model="name"
-        maxlength="40"
-        autocomplete="off"
-        :disabled="busy"
-        autofocus
-      />
-      <span v-if="error" class="template-field__error" role="alert">{{ error }}</span>
+    <form :id="formId" @submit.prevent="submit">
+      <BaseField label="模板名称" :for-id="nameId" :error="error">
+        <BaseInput
+          :id="nameId"
+          v-model="name"
+          maxlength="40"
+          autocomplete="off"
+          :disabled="busy"
+          autofocus
+        />
+      </BaseField>
     </form>
     <template #footer>
       <BaseButton :disabled="busy" @click="emit('close')">取消</BaseButton>
@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseField from '@vue-src/components/common/BaseField.vue'
   import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import { ref, useId, watch } from 'vue'
@@ -50,20 +51,4 @@
 </script>
 
 <style scoped>
-  /* 通用弹窗输入字段：标签在上、控件在下，样式与其他弹窗一致。 */
-  .template-field {
-    display: grid;
-    gap: 5px;
-  }
-
-  .template-field__label {
-    color: var(--klc-color-ui-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .template-field__error {
-    color: var(--klc-color-ui-danger-text);
-    font-size: 11px;
-  }
 </style>

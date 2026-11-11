@@ -18,32 +18,24 @@
         autofocus
       >
         <BaseTooltip content="重新检测" placement="bottom" trigger-display="contents">
-          <button
-            type="button"
-            class="source-toolbar__action"
-            :class="{ 'is-busy': refreshing }"
+          <BaseIconButton
+            :label="'刷新数据源状态'"
             :disabled="refreshing"
-            aria-label="刷新数据源状态"
             @click="refreshAll"
           >
-            <IconTablerRefresh
-              :class="{ 'klc-spin': refreshing }"
-              aria-hidden="true"
-            />
-          </button>
+            <IconTablerRefresh :class="{ 'klc-spin': refreshing }" aria-hidden="true" />
+          </BaseIconButton>
         </BaseTooltip>
       </ModalSearchBar>
     </template>
 
     <div class="source-body">
       <div class="source-list">
-          <p v-if="groups.length === 0" class="source-empty" role="status">
-            暂无可用数据源，请连接一个行情源。
-          </p>
-          <div v-else-if="filteredGroups.length === 0" class="source-empty" role="status">
-            <IconTablerSearch class="source-empty__icon" aria-hidden="true" />
-            <span>未找到匹配的数据源</span>
-          </div>
+        <BaseEmptyState v-if="groups.length === 0" role="status">暂无可用数据源，请连接一个行情源。</BaseEmptyState>
+        <BaseEmptyState v-else-if="filteredGroups.length === 0" role="status">
+          <template #icon><IconTablerSearch /></template>
+          未找到匹配的数据源
+        </BaseEmptyState>
 
           <section
             v-for="group in filteredGroups"
@@ -123,7 +115,7 @@
           </section>
         </div>
 
-      <div v-if="slots['source-management']" class="source-host">
+      <div v-if="$slots['source-management']" class="source-host">
         <slot name="source-management" />
       </div>
     </div>
@@ -135,19 +127,20 @@
 
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
   import { useMarketDataManagement } from '@vue-src/composables/market/useMarketDataManagement.js'
-  import { ref, useSlots, watch } from 'vue'
+  import { ref, watch } from 'vue'
   import IconTablerLink from '~icons/tabler/link'
   import IconTablerRefresh from '~icons/tabler/refresh'
   import IconTablerSearch from '~icons/tabler/search'
 
   const props = defineProps<{ show: boolean }>()
   const emit = defineEmits<{ close: [] }>()
-  const slots = useSlots()
 
   const {
     groups,
@@ -197,44 +190,6 @@
     min-height: 0;
   }
 
-  .source-toolbar__action {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    transition:
-      background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
-      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .source-toolbar__action:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .source-toolbar__action:disabled {
-    cursor: default;
-    opacity: 0.55;
-  }
-
-  .source-toolbar__action:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 2px;
-  }
-
-  .source-toolbar__action svg {
-    width: 15px;
-    height: 15px;
-  }
-
   /* ── 列表：每个连接一张卡片 ── */
   .source-list {
     display: flex;
@@ -243,24 +198,6 @@
     padding: var(--klc-space-12, 12px) var(--base-modal-content-inset);
   }
 
-  .source-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--klc-space-8, 8px);
-    padding: var(--klc-space-24, 24px) var(--klc-space-16, 16px);
-    margin: 0;
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-copy-13-font-size, 13px);
-    text-align: center;
-  }
-
-  .source-empty__icon {
-    width: 28px;
-    height: 28px;
-    opacity: 0.4;
-  }
 
   .source-group {
     overflow: hidden;

@@ -13,7 +13,7 @@
     />
     <DropMenu
       v-else-if="type === 'select' && options"
-      class="settings-select"
+      class="selection-menu"
       :label="label"
       :groups="groups"
       density="compact"

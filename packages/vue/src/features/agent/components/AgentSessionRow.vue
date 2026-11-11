@@ -19,24 +19,18 @@
         @keydown.escape.stop.prevent="emit('cancel')"
       />
       <BaseTooltip :content="text.confirm" placement="bottom">
-        <button
+        <BaseIconButton
           type="submit"
-          class="agent-session-drawer__icon-button"
-          :aria-label="text.confirm"
+          :label="text.confirm"
           :disabled="!draft.trim()"
         >
           <IconCheck aria-hidden="true" />
-        </button>
+        </BaseIconButton>
       </BaseTooltip>
       <BaseTooltip :content="text.cancel" placement="bottom">
-        <button
-          type="button"
-          class="agent-session-drawer__icon-button"
-          :aria-label="text.cancel"
-          @click="emit('cancel')"
-        >
+        <BaseIconButton :label="text.cancel" @click="emit('cancel')">
           <IconX aria-hidden="true" />
-        </button>
+        </BaseIconButton>
       </BaseTooltip>
     </form>
     <div
@@ -74,24 +68,20 @@
       </button>
       <div class="agent-session-drawer__item-actions">
         <BaseTooltip :content="text.renameSession" placement="bottom">
-          <button
-            type="button"
-            class="agent-session-drawer__icon-button"
-            :aria-label="`${text.renameSession}: ${session.title}`"
+          <BaseIconButton
+            :label="`${text.renameSession}: ${session.title}`"
             @click="emit('requestRename')"
           >
             <IconPencil aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
         <BaseTooltip :content="text.deleteSession" placement="bottom">
-          <button
-            type="button"
-            class="agent-session-drawer__icon-button"
-            :aria-label="`${text.deleteSession}: ${session.title}`"
+          <BaseIconButton
+            :label="`${text.deleteSession}: ${session.title}`"
             @click="emit('requestDelete')"
           >
             <IconTrash aria-hidden="true" />
-          </button>
+          </BaseIconButton>
         </BaseTooltip>
       </div>
     </template>
@@ -103,6 +93,7 @@
   import './agent-icon-button.css'
   import './agent-session/impl/agent-session-row.css'
 
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import IconCheck from '~icons/tabler/check'
   import IconPencil from '~icons/tabler/pencil'
   import IconTrash from '~icons/tabler/trash'

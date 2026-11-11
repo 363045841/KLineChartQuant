@@ -59,7 +59,8 @@ describe('ScriptEditorWorkspace', () => {
       },
     })
     try {
-      const problemsTab = () => wrapper.get('[data-panel="problems"]').attributes('aria-selected')
+      const problemsTab = () =>
+        wrapper.get('.script-output').findAll('[role="tab"]')[1]!.attributes('aria-selected')
       expect(problemsTab()).toBe('false')
 
       await wrapper.setProps({ treeError: '文件夹仍被引用：均线' })
@@ -150,7 +151,7 @@ describe('ScriptEditorWorkspace', () => {
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('.ts')
       expect(wrapper.findAll('.script-files__file')).toHaveLength(2)
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('不存在')
-      expect(wrapper.get('.script-files__empty').text()).toContain('未找到匹配文件')
+      expect(wrapper.get('.script-files .base-empty-state').text()).toContain('未找到匹配文件')
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('')
       // 根目录也是文件夹行，新建入口在行右侧。
       await wrapper.get('button[aria-label="在库中新建文件"]').trigger('click')

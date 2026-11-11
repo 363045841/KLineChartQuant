@@ -2,7 +2,7 @@
   <span
     ref="triggerRef"
     class="base-tooltip__trigger"
-    :class="{ 'is-contents': triggerDisplay === 'contents' }"
+    :class="{ 'is-contents': triggerDisplay === 'contents', 'is-fill': fill }"
     @pointerenter="onPointerEnter"
     @pointerleave="onPointerLeave"
     @focusin="onFocusIn"
@@ -50,6 +50,8 @@
       offset?: number
       /** 触发层盒模型；contents 不参与父级布局（用于 grid/flex 子项） */
       triggerDisplay?: 'inline-flex' | 'contents'
+      /** 撑满父级：用于轴边、整格点击等需要 100% 命中区的场景。 */
+      fill?: boolean
       /** 显示延迟（ms） */
       showDelay?: number
       /** 隐藏延迟（ms） */
@@ -64,6 +66,7 @@
       placement: 'right',
       offset: 8,
       triggerDisplay: 'inline-flex',
+      fill: false,
       showDelay: 300,
       hideDelay: 0,
       disabled: false,
@@ -124,6 +127,13 @@
   /* 不生成盒模型，子元素直接参与父级 grid/flex 布局。 */
   .base-tooltip__trigger.is-contents {
     display: contents;
+  }
+
+  /* 撑满父级：轴边操作、整格命中区等场景。 */
+  .base-tooltip__trigger.is-fill {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
   }
 
   .base-tooltip {

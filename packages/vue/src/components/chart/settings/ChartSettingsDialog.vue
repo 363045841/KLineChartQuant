@@ -19,7 +19,7 @@
         <div class="settings-item">
           <span>缓存上限</span>
           <DropMenu
-            class="settings-select"
+            class="selection-menu"
             label="缓存上限"
             :groups="cacheLimitGroups"
             density="compact"
@@ -35,15 +35,14 @@
           <span>当前用量</span>
           <span class="cache-usage__value">
             {{ cacheUsageText }}
-            <button
-              type="button"
-              class="cache-clear-btn"
+            <BaseIconButton
+              size="lg"
+              label="清除缓存"
               title="清除缓存"
-              aria-label="清除缓存"
               @click="clearCache"
             >
               <IconTablerTrash aria-hidden="true" />
-            </button>
+            </BaseIconButton>
           </span>
         </div>
         <SettingsNavRow @select="showAggregationSourceModal = true">行情数据源</SettingsNavRow>
@@ -139,6 +138,7 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
@@ -344,35 +344,6 @@
     align-items: center;
     gap: var(--klc-spacing-sm);
     white-space: nowrap;
-  }
-
-  .cache-clear-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-inline-size: 28px;
-    min-block-size: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    color: var(--klc-color-ui-muted);
-    background: none;
-    cursor: pointer;
-    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .cache-clear-btn:hover {
-    color: var(--klc-color-ui-text);
-  }
-
-  .cache-clear-btn:focus-visible {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 2px;
-  }
-
-  .cache-clear-btn svg {
-    inline-size: 16px;
-    block-size: 16px;
   }
 
   /* 底部按钮 */

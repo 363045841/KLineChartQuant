@@ -21,24 +21,14 @@
           <h2 class="agent-session-drawer__title">{{ text.sessions }}</h2>
           <div class="agent-session-drawer__head-actions">
             <BaseTooltip :content="text.newSession" placement="bottom">
-              <button
-                type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.newSession"
-                @click="emit('create')"
-              >
+              <BaseIconButton :label="text.newSession" @click="emit('create')">
                 <IconPlus aria-hidden="true" />
-              </button>
+              </BaseIconButton>
             </BaseTooltip>
             <BaseTooltip :content="text.closeSessions" placement="bottom">
-              <button
-                type="button"
-                class="agent-session-drawer__icon-button"
-                :aria-label="text.closeSessions"
-                @click="emit('close')"
-              >
+              <BaseIconButton :label="text.closeSessions" @click="emit('close')">
                 <IconX aria-hidden="true" />
-              </button>
+              </BaseIconButton>
             </BaseTooltip>
           </div>
         </header>
@@ -70,6 +60,7 @@
 <script setup lang="ts">
   import './agent-icon-button.css'
 
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'

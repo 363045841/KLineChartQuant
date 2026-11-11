@@ -1,21 +1,9 @@
-/* Agent 顶栏与对话抽屉共用的图标按钮：固定方形点击区 + 悬浮/聚焦反色。 */
-.agent-header__top button,
-.agent-session-drawer__icon-button {
-  width: var(--workbench-header-control-size, 30px);
-  height: var(--workbench-header-control-size, 30px);
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 4px;
-  color: var(--agent-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.agent-header__top button:hover,
-.agent-header__top button:focus-visible,
-.agent-session-drawer__icon-button:hover,
-.agent-session-drawer__icon-button:focus-visible {
-  color: var(--agent-text);
-  background: var(--agent-hover);
+/* Agent 头部与会话抽屉的图标按钮：把 agent 主题映射到 BaseIconButton 变量，不再自带实现。 */
+.agent-header,
+.agent-session-drawer {
+  --base-icon-button-size: var(--workbench-header-control-size, 30px);
+  --base-icon-button-radius: var(--klc-radius-xs, 4px);
+  --base-icon-button-color: var(--agent-muted);
+  --base-icon-button-hover-color: var(--agent-text);
+  --base-icon-button-hover-bg: var(--agent-hover);
 }

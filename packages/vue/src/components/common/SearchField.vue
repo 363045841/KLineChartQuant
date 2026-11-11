@@ -3,7 +3,7 @@
   仅承载受控输入本身；宽度、聚焦时机等布局与业务逻辑由调用方决定。
 -->
 <template>
-  <div class="search-field" :class="{ 'search-field--flush': variant === 'flush' }">
+  <div class="search-field" :class="[`search-field--${variant}`, { 'search-field--disabled': disabled }]">
     <span class="search-field__icon" aria-hidden="true">
       <svg viewBox="0 0 16 16" fill="none">
         <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.6" />
@@ -26,12 +26,13 @@
       :placeholder="placeholder"
       :aria-label="ariaLabel"
       :autofocus="autofocus"
+      :disabled="disabled"
       autocomplete="off"
       spellcheck="false"
       @input="onInput"
     />
     <button
-      v-if="clearable && modelValue"
+      v-if="clearable && modelValue && !disabled"
       type="button"
       class="search-field__clear"
       aria-label="清空搜索"
@@ -69,14 +70,17 @@
       clearable?: boolean
       /** 挂载后是否自动聚焦内部输入框，供弹窗打开时聚焦搜索使用 */
       autofocus?: boolean
-      /** 外观变体：default 为独立圆角框；flush 用于弹窗头部，去掉边框与圆角 */
-      variant?: 'default' | 'flush'
+      /** 禁用态。 */
+      disabled?: boolean
+      /** 外观变体：default 为独立圆角框；flush 用于弹窗头部；compact 用于面板内嵌。 */
+      variant?: 'default' | 'flush' | 'compact'
     }>(),
     {
       placeholder: '搜索',
       ariaLabel: '搜索',
       clearable: true,
       autofocus: false,
+      disabled: false,
       variant: 'default',
     },
   )
@@ -108,14 +112,16 @@
 
 <style scoped>
   .search-field {
+    /* 高度契约：变体只覆盖 --search-field-height，调用方不写 height。
+       伸缩与宽度属于所在布局，由调用方决定，组件不自带 flex。 */
+    --search-field-height: var(--klc-density-default, 32px);
+    box-sizing: border-box;
     display: flex;
-    flex: 1 1 auto;
     min-width: 0;
     align-items: center;
     gap: 6px;
-    height: var(--klc-density-default, 32px);
+    height: var(--search-field-height);
     padding: 0 var(--klc-space-12, 12px);
-    box-sizing: border-box;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--klc-radius-sm, 6px);
     background: var(--klc-color-ui-control-background);
@@ -123,11 +129,38 @@
 
   /* 弹窗头部内嵌：去掉独立框，铺满整行；横向内边距跟随弹窗内容左缘。 */
   .search-field--flush {
-    height: 42px;
+    --search-field-height: 42px;
     padding: 0 var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  /* 面板内嵌的紧凑搜索：24 行高 + 上下各 2 的余量，与 BaseButton md(28px) 同高。 */
+  .search-field--compact {
+    --search-field-height: calc(
+      var(--klc-density-compact, 24px) + var(--klc-space-4, 4px)
+    );
+    gap: var(--klc-space-4, 4px);
+    padding: 0 calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
+    border-radius: var(--klc-radius-md, 8px);
+    background: var(--klc-color-ui-input);
+  }
+
+  .search-field--compact .search-field__input {
+    font-size: var(--klc-text-12-font-size, 12px);
+  }
+
+  .search-field:focus-within {
+    border-color: var(--klc-color-ui-border-strong);
+  }
+
+  .search-field--flush:focus-within {
+    border-color: transparent;
+  }
+
+  .search-field--disabled {
+    opacity: 0.6;
   }
 
   .search-field__icon {
