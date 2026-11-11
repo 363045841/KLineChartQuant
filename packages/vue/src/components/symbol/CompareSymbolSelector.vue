@@ -90,7 +90,7 @@
             v-for="item in comparisonSymbols"
             :key="symbolIdentityKey(item)"
             type="button"
-            class="compare-list__item"
+            class="compare-list__item modal-list-row"
             :class="{ 'is-selected': isSelected(item) }"
             role="option"
             :aria-selected="isSelected(item)"
@@ -126,6 +126,7 @@
 
 <script setup lang="ts">
   import '../common/control-button.css'
+  import '../common/modal-list.css'
   import '../common/symbol-list.css'
   import '../common/list-text.css'
   import '../common/control-cluster.css'
@@ -252,7 +253,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 12px;
+    padding: 12px var(--base-modal-content-inset);
     border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
@@ -336,7 +337,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 12px;
+    padding-block: 10px;
     margin: 0;
     border: none;
     border-bottom: 1px solid var(--klc-color-ui-border);

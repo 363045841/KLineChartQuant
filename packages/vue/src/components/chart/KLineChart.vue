@@ -49,7 +49,9 @@
         @add-watchlist="addWatchlistItem"
         @back="onBackFromTimeShare"
       >
-        <template #source-management><slot name="source-management" /></template>
+        <template v-if="slots['source-management']" #source-management>
+          <slot name="source-management" />
+        </template>
         <template v-if="slots['toolbar-start']" #start>
           <slot name="toolbar-start" />
         </template>
@@ -374,7 +376,9 @@
       @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
       @clear-market-data-cache="controller?.clearMarketDataCache()"
     >
-      <template #source-management><slot name="source-management" /></template>
+      <template v-if="slots['source-management']" #source-management>
+        <slot name="source-management" />
+      </template>
     </ChartSettingsDialog>
     <FootprintSettingsDialog
       v-model:open="footprintSettingsOpen"

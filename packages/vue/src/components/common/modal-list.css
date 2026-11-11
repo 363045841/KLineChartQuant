@@ -1,0 +1,17 @@
+/*
+ * 弹窗列表的横向留白契约。
+ *
+ * 滚动区与正文都不加横向 padding，由整行元素自己消费 --base-modal-content-inset，
+ * hover / 选中背景才能从内容区左缘铺到右缘，同时文字与 Tab 文字对齐。
+ * 非交互的整行内容（分组标题、空态）用 modal-list-item。
+ */
+.modal-list-item {
+  padding-inline: var(--base-modal-content-inset);
+}
+
+.modal-list-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-inline: var(--base-modal-content-inset);
+}

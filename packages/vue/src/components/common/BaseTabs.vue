@@ -1,4 +1,4 @@
-<!-- 共享下划线 Tabs：所有弹窗的 tab 栏共用同一套字号、内边距与指示器位置；标签溢出时支持滚轮与拖拽横向浏览。 -->
+<!-- 共享下划线 Tabs：所有弹窗的 tab 栏共用同一套字号、内边距与指示器位置；标签溢出时支持滚轮与拖拽横向浏览。弹窗内标签文字与内容左缘对齐，见 --base-tabs-tab-pad-inline。 -->
 <template>
   <nav
     ref="rootRef"
@@ -100,10 +100,17 @@
 
 <style scoped>
   .base-tabs {
+    /* 标签自身的内边距：容器内边距要扣掉它，才能让标签文字压在弹窗内容左缘上。 */
+    --base-tabs-tab-pad-inline: calc(var(--klc-spacing-sm, 8px) + var(--klc-space-2, 2px));
     position: relative;
     display: flex;
     gap: 2px;
-    padding: 0 20px;
+    /* 弹窗内 = inset − 标签内边距（文字落在 inset）；弹窗外 fallback 30px 等于原 20px 容器内边距。 */
+    padding: 0
+      max(
+        0px,
+        calc(var(--base-modal-content-inset, 30px) - var(--base-tabs-tab-pad-inline))
+      );
     border-bottom: 1px solid var(--klc-color-ui-border);
     overflow-x: auto;
     overflow-y: hidden;
@@ -116,7 +123,7 @@
 
   .base-tabs__tab {
     flex: 0 0 auto;
-    padding: var(--klc-spacing-sm) calc(var(--klc-spacing-sm) + 2px);
+    padding: var(--klc-spacing-sm, 8px) var(--base-tabs-tab-pad-inline);
     border: 0;
     border-bottom: 2px solid transparent;
     color: var(--klc-color-ui-muted);

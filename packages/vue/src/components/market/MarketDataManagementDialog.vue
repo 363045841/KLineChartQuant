@@ -6,10 +6,8 @@
   <BaseModal
     :open="show"
     title="行情数据源"
-    width="min(600px, calc(100vw - 32px))"
-    max-height="min(620px, 80dvh)"
-    overlay-padding="var(--klc-space-16, 16px)"
-    body-padding="0"
+    size="md"
+    body-flush
     @update:open="!$event && emit('close')"
   >
     <template #tabs>
@@ -242,7 +240,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--klc-space-12, 12px);
-    padding: var(--klc-space-12, 12px);
+    padding: var(--klc-space-12, 12px) var(--base-modal-content-inset);
   }
 
   .source-empty {
@@ -460,7 +458,7 @@
   /* ── 宿主入口 ── */
   .source-host {
     flex: 0 0 auto;
-    padding: var(--klc-space-12, 12px);
+    padding: var(--klc-space-12, 12px) var(--base-modal-content-inset);
     border-top: 1px solid var(--klc-color-ui-border);
   }
 

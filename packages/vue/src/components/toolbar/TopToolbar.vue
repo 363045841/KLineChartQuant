@@ -88,7 +88,9 @@
         :show="showSourceDialog"
         @close="showSourceDialog = false"
       >
-        <template #source-management><slot name="source-management" /></template>
+        <template v-if="$slots['source-management']" #source-management>
+          <slot name="source-management" />
+        </template>
       </MarketDataManagementDialog>
     </div>
     <div class="top-toolbar__actions" role="group" aria-label="布局与图表操作">

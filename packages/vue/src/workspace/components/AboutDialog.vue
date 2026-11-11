@@ -5,8 +5,6 @@
     :aria-label="`关于 ${APP_NAME}`"
     width="fit-content"
     min-width="320px"
-    max-height="min(680px, calc(100dvh - 48px))"
-    body-padding="0 var(--klc-spacing-lg) var(--klc-spacing-xl)"
     :draggable="false"
     @update:open="emit('update:open', $event)"
   >
@@ -48,7 +46,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-block: var(--klc-spacing-xs) var(--klc-spacing-sm);
+    /* 纵向留白统一由弹窗正文提供，这里不再叠加。 */
     text-align: center;
     font-size: var(--klc-typography-font-size-md);
     line-height: 1.5;

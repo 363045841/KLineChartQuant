@@ -2,8 +2,7 @@
   <BaseModal
     :open="show"
     title="预警"
-    width="min(92vw, 560px)"
-    max-height="min(680px, calc(100vh - 48px))"
+    size="md"
     @update:open="!$event && handleClose()"
   >
     <template #header-extra>

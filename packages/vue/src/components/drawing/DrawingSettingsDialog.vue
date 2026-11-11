@@ -2,7 +2,7 @@
   <BaseModal
     :open="show"
     title="图元设置"
-    width="min(92vw, 440px)"
+    size="sm"
     @update:open="!$event && emit('close')"
   >
     <template #tabs>

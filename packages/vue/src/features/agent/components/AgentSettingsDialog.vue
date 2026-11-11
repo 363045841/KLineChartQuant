@@ -2,9 +2,7 @@
   <BaseModal
     :open="providerSettings.open"
     :title="text.settings"
-    width="min(92vw, 780px)"
-    max-height="calc(100vh - 36px)"
-    body-padding="12px 20px 20px"
+    size="xl"
     :body-scrollable="false"
     @update:open="!$event && closeProviderSettings()"
   >

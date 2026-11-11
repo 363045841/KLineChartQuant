@@ -54,6 +54,21 @@ describe('source management', () => {
       },
     })
     expect(wrapper.get('[role="status"]').text()).toContain('暂无可用数据源')
+    expect(wrapper.get('.source-host').text()).toContain('连接我的行情源')
+    wrapper.unmount()
+    context.dispose()
+  })
+
+  it('omits the host entry when the slot is not provided', () => {
+    const context = new MarketDataContext()
+    const wrapper = mount(MarketDataManagementDialog, {
+      props: { show: true },
+      global: {
+        provide: { [MARKET_DATA_CONTEXT_KEY]: context },
+        stubs: { BaseModal: { template: '<section><slot /></section>' } },
+      },
+    })
+    expect(wrapper.find('.source-host').exists()).toBe(false)
     wrapper.unmount()
     context.dispose()
   })

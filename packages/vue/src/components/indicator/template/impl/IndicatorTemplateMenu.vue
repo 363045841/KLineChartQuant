@@ -23,10 +23,8 @@
     <BaseModal
       :open="open"
       title="指标模板"
-      width="min(640px, calc(100vw - 32px))"
-      max-height="min(560px, 75dvh)"
-      overlay-padding="var(--klc-space-16, 16px)"
-      body-padding="0"
+      size="lg"
+      body-flush
       :body-scrollable="false"
       @update:open="!$event && close()"
     >
@@ -42,13 +40,17 @@
       </template>
 
       <div class="indicator-template__content">
-        <div v-if="error" class="indicator-template__error" role="alert">{{ error }}</div>
-        <div v-if="message" class="indicator-template__message" role="status">{{ message }}</div>
+        <div v-if="error" class="indicator-template__error modal-list-item" role="alert">{{ error }}</div>
+        <div v-if="message" class="indicator-template__message modal-list-item" role="status">{{ message }}</div>
 
         <!-- 页签一：保存与打开入口、最近使用的模板。 -->
         <template v-if="tab === INDICATOR_TEMPLATE_TABS.indicators">
-          <OverlayScrollArea class="indicator-template__scroll">
-            <button type="button" class="indicator-template__row" @click="openSaveDialog">
+          <ModalScrollArea>
+            <button
+              type="button"
+              class="indicator-template__row modal-list-row"
+              @click="openSaveDialog"
+            >
               <IconTablerDeviceFloppy aria-hidden="true" />
               <span>保存指标模板</span>
               <span
@@ -62,19 +64,19 @@
             </button>
             <button
               type="button"
-              class="indicator-template__row"
+              class="indicator-template__row modal-list-row"
               @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
             >
               <IconTablerFolderOpen aria-hidden="true" />
               <span>打开模板</span>
             </button>
 
-            <div class="indicator-template__group-title">最近</div>
+            <div class="indicator-template__group-title modal-list-item">最近</div>
             <template v-if="recentTemplates.length > 0">
               <div
                 v-for="template in recentTemplates"
                 :key="template.id"
-                class="indicator-template__item"
+                class="indicator-template__item modal-list-row"
               >
                 <button
                   type="button"
@@ -112,17 +114,17 @@
                 </BaseTooltip>
               </div>
             </template>
-            <p v-else class="indicator-template__empty">暂无最近使用的模板</p>
-          </OverlayScrollArea>
+            <p v-else class="indicator-template__empty modal-list-item">暂无最近使用的模板</p>
+          </ModalScrollArea>
         </template>
 
         <!-- 页签二：搜索与完整模板列表。 -->
         <template v-else>
-          <OverlayScrollArea class="indicator-template__scroll">
+          <ModalScrollArea>
             <div
               v-for="template in visibleTemplates"
               :key="template.id"
-              class="indicator-template__item"
+              class="indicator-template__item modal-list-row"
             >
               <button
                 type="button"
@@ -167,10 +169,10 @@
                 </button>
               </BaseTooltip>
             </div>
-            <p v-if="visibleTemplates.length === 0" class="indicator-template__empty">
+            <p v-if="visibleTemplates.length === 0" class="indicator-template__empty modal-list-item">
               {{ searchQuery.trim() ? '未找到匹配的模板' : '暂无模板' }}
             </p>
-          </OverlayScrollArea>
+          </ModalScrollArea>
         </template>
       </div>
     </BaseModal>
@@ -200,6 +202,7 @@
 
 <script setup lang="ts">
   import '../../../common/control-button.css'
+  import '../../../common/modal-list.css'
 
   import type {
     ChartController,
@@ -210,8 +213,8 @@
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ControlTrigger from '@vue-src/components/common/ControlTrigger.vue'
+  import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
-  import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
   import {
     INDICATOR_TEMPLATE_TABS,
     type IndicatorTemplateTab,
@@ -384,7 +387,7 @@
   .indicator-template__error,
   .indicator-template__message {
     margin: 0;
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    padding-block: var(--klc-space-8, 8px);
     font-size: var(--klc-text-12-font-size, 12px);
   }
 
@@ -396,18 +399,11 @@
     color: var(--klc-color-ui-text-secondary);
   }
 
-  .indicator-template__scroll {
-    flex: 1;
-    min-height: 0;
-    padding: 0;
-  }
-
+  /* 横向留白由 .modal-list-row 统一提供，行只负责纵向节奏与自身排版。 */
   .indicator-template__row {
-    display: flex;
-    align-items: center;
     gap: var(--klc-space-8, 8px);
     width: 100%;
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    padding-block: var(--klc-space-8, 8px);
     border: 0;
     background: none;
     color: var(--klc-color-ui-text);
@@ -431,16 +427,13 @@
   }
 
   .indicator-template__group-title {
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    padding-block: var(--klc-space-8, 8px);
     font-size: var(--klc-text-12-font-size, 12px);
     color: var(--klc-color-ui-text-secondary);
   }
 
   .indicator-template__item {
-    display: flex;
-    align-items: center;
     gap: var(--klc-space-4, 4px);
-    padding-right: var(--klc-space-8, 8px);
   }
 
   /* 行 hover 用比胶囊更深的选中色，避免胶囊和行背景融在一起。 */
@@ -455,7 +448,7 @@
     flex-flow: row nowrap;
     align-items: center;
     gap: var(--klc-space-8, 8px);
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    padding: var(--klc-space-8, 8px) 0;
     border: 0;
     background: none;
     color: var(--klc-color-ui-text);
@@ -515,7 +508,7 @@
 
   .indicator-template__empty {
     margin: 0;
-    padding: var(--klc-space-24, 24px) var(--klc-space-12, 12px);
+    padding-block: var(--klc-space-24, 24px);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;

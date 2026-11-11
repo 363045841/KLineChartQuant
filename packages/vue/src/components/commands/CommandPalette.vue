@@ -7,9 +7,8 @@
     :open="open"
     @update:open="emit('update:open', $event)"
     title="命令面板"
-    width="min(560px, calc(100vw - 32px))"
-    max-height="calc(100dvh - 32px)"
-    body-padding="0"
+    size="md"
+    body-flush
     :body-scrollable="false"
   >
     <div class="command-palette" @keydown="onKeydown">
@@ -45,7 +44,7 @@
           v-for="(row, index) in results"
           :key="row.command.id"
           type="button"
-          class="command-palette__item"
+          class="command-palette__item modal-list-row"
           :class="{
             'is-active': keyboardNavigation && index === activeIndex,
             'is-disabled': !row.available,
@@ -69,6 +68,7 @@
 
 <script setup lang="ts">
   import '../common/list-text.css'
+  import '../common/modal-list.css'
 
   import {
     type CommandDef,
@@ -246,7 +246,7 @@
     justify-content: space-between;
     gap: 8px;
     margin: 0;
-    padding: 10px 12px;
+    padding-block: 10px;
     border: 0;
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: transparent;

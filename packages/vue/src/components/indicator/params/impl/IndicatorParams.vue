@@ -3,7 +3,7 @@
   <BaseModal
     :open="visible"
     :title="dialogTitle"
-    width="min(92vw, 360px)"
+    size="xs"
     footer-align="space-between"
     @update:open="!$event && emit('close')"
   >

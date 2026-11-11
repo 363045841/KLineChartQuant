@@ -85,11 +85,7 @@
 </script>
 
 <style scoped>
-  .color-preset-container {
-    padding: 4px 0;
-  }
-
-  /* ── 分组标签 ── */
+  /* 分组标签 */
   .color-group-label {
     margin: 18px 0 6px;
     color: var(--klc-color-axis-text);

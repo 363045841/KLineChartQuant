@@ -27,11 +27,9 @@
 
 
 <style scoped>
-  /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与留白。 */
+  /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与纵向留白；横向与条目一起用弹窗 inset。 */
   .settings-subsection-label {
     padding-block: var(--klc-spacing-sm) var(--klc-spacing-xs);
-    /* 与设置行共用水平内边距，保持分组小标题与条目对齐。 */
-    padding-inline: var(--klc-spacing-sm);
     font-size: var(--klc-typography-font-size-md);
     font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-muted);

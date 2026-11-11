@@ -3,7 +3,6 @@
   <BaseModal
     :open="open"
     title="足迹图设置"
-    width="min(92vw, 400px)"
     footer-align="space-between"
     @update:open="emit('update:open', $event)"
   >

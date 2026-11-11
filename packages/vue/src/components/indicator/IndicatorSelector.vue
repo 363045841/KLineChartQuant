@@ -4,10 +4,8 @@
     <BaseModal
       :open="menuOpen"
       :title="modalTitle"
-      width="min(640px, calc(100vw - 32px))"
-      max-height="min(560px, 75dvh)"
-      overlay-padding="var(--klc-space-16, 16px)"
-      body-padding="0"
+      size="lg"
+      body-flush
       :body-scrollable="false"
       @update:open="!$event && closeMenu()"
     >
@@ -29,7 +27,7 @@
         <nav class="selector-nav" aria-label="指标分类">
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.favorites }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.favorites ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.favorites"
@@ -38,7 +36,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.indicators }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.indicators ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.indicators"
@@ -47,7 +45,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
             v-if="scriptsEnabled !== false"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
@@ -56,13 +54,13 @@
             <IconTablerMathFunction aria-hidden="true" />用户自定义脚本
           </button>
         </nav>
-        <p v-if="removalError" role="alert">{{ removalError }}</p>
-        <OverlayScrollArea class="selector-results">
+        <p v-if="removalError" class="selector-error modal-list-item" role="alert">{{ removalError }}</p>
+        <ModalScrollArea>
           <div class="indicator-list" role="list" aria-label="指标列表">
             <div
               v-for="indicator in filteredIndicators"
               :key="indicator.id"
-              class="indicator-item"
+              class="indicator-item modal-list-row"
               role="listitem"
             >
               <button
@@ -154,7 +152,7 @@
             </div>
           </div>
 
-          <div v-if="filteredIndicators.length === 0" class="no-results">
+          <div v-if="filteredIndicators.length === 0" class="no-results modal-list-item">
             <template v-if="section === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.trim()">
               <p>暂无收藏指标</p>
             </template>
@@ -167,7 +165,7 @@
               <span class="no-results-hint">请尝试其他关键词</span>
             </template>
           </div>
-        </OverlayScrollArea>
+        </ModalScrollArea>
       </div>
     </BaseModal>
 
@@ -187,6 +185,7 @@
 
 <script setup lang="ts">
   import '../common/header-row.css'
+  import '../common/modal-list.css'
 
   import {
     type ChartController,
@@ -200,7 +199,7 @@
   import BasePopover from '@vue-src/components/common/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
-  import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
+  import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {
@@ -402,7 +401,6 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     min-height: 36px;
-    padding: 0 var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);
@@ -424,9 +422,11 @@
     flex: 0 0 auto;
   }
 
-  .selector-results {
-    flex: 1;
-    min-width: 0;
+  .selector-error {
+    margin: 0;
+    padding-block: var(--klc-space-8, 8px);
+    font-size: var(--klc-text-12-font-size, 12px);
+    color: var(--klc-color-danger, #e04a4a);
   }
 
   /* ── 无匹配 ── */
@@ -435,7 +435,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 48px 20px;
+    padding-block: 48px;
     color: var(--klc-color-axis-text);
     gap: 10px;
   }
@@ -462,13 +462,10 @@
     flex-direction: column;
   }
 
+  /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
   .indicator-item {
-    display: flex;
-    align-items: center;
     gap: var(--klc-space-4, 4px);
-    min-width: 0;
     min-height: 36px;
-    padding-right: var(--klc-space-8, 8px);
     background: transparent;
     transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     text-align: left;
@@ -480,7 +477,7 @@
     min-width: 0;
     justify-content: center;
     min-height: 36px;
-    padding: 6px var(--klc-space-4, 4px) 6px var(--klc-space-12, 12px);
+    padding: 6px 0;
     border: 0;
     background: transparent;
     color: inherit;

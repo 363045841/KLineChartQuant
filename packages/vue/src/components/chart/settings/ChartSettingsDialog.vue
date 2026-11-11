@@ -4,9 +4,7 @@
   <BaseModal
     :open="open"
     title="图表设置"
-    width="min(92vw, 460px)"
-    max-height="min(720px, calc(100vh - 48px))"
-    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm)) var(--klc-spacing-md) var(--klc-spacing-md)"
+    size="sm"
     footer-align="space-between"
     @update:open="emit('update:open', $event)"
   >
@@ -96,15 +94,16 @@
     :show="showAggregationSourceModal"
     @close="showAggregationSourceModal = false"
   >
-    <template #source-management><slot name="source-management" /></template>
+    <template v-if="$slots['source-management']" #source-management>
+      <slot name="source-management" />
+    </template>
   </MarketDataManagementDialog>
 
   <!-- 嵌套颜色预设弹窗 -->
   <BaseModal
     v-model:open="showColorPresetModal"
     title="颜色预设"
-    width="min(92vw, 460px)"
-    max-height="min(720px, calc(100vh - 48px))"
+    size="sm"
     footer-align="space-between"
   >
     <template #tabs>
@@ -322,11 +321,9 @@
 
 
 <style scoped>
-  /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
+  /* 区块只在边界留白，横向对齐交给弹窗内容的统一 inset。 */
   .settings-body--style > :first-child {
     margin-block-end: var(--klc-spacing-sm);
-    /* 与设置行共用水平内边距，保持主题面板与下方设置项对齐。 */
-    padding-inline: var(--klc-spacing-sm);
   }
 
   /* 设置行仅负责布局，交互状态由具体控件提供。 */

@@ -58,7 +58,7 @@
           <div
             v-for="item in picker.results"
             :key="symbolIdentityKey(item)"
-            class="symbol-list__item"
+            class="symbol-list__item modal-list-row"
             :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
             role="option"
             :aria-selected="symbolIdentityKey(item) === selectedKey"
@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
   import '../common/control-button.css'
+  import '../common/modal-list.css'
   import '../common/symbol-list.css'
   import '../common/list-text.css'
 
@@ -231,7 +232,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 12px;
+    padding-block: 10px;
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);

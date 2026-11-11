@@ -6,10 +6,8 @@
   <BaseModal
     :open="show"
     :title="dialogLabel"
-    width="min(560px, calc(100vw - 32px))"
-    max-height="calc(100dvh - 32px)"
-    overlay-padding="var(--klc-space-16, 16px)"
-    body-padding="0"
+    size="md"
+    body-flush
     @update:open="!$event && emit('close')"
   >
     <template #tabs>

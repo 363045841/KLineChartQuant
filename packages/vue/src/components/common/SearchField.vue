@@ -121,10 +121,10 @@
     background: var(--klc-color-ui-control-background);
   }
 
-  /* 弹窗头部内嵌：去掉独立框，铺满整行。 */
+  /* 弹窗头部内嵌：去掉独立框，铺满整行；横向内边距跟随弹窗内容左缘。 */
   .search-field--flush {
     height: 42px;
-    padding: 0 var(--klc-space-12, 12px);
+    padding: 0 var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border: 0;
     border-radius: 0;
     background: transparent;

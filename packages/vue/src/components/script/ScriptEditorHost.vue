@@ -147,7 +147,7 @@
           width: 'min(94vw, 1040px)',
           maxHeight: 'calc(100dvh - 48px)',
           bodyScrollable: false,
-          bodyPadding: '0',
+          bodyFlush: true,
           'onUpdate:open': (value: boolean) => emit('update:open', value),
         }
       : { class: 'script-editor-window' },

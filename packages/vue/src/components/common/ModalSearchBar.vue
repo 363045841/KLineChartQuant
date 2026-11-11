@@ -69,7 +69,7 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     min-height: 42px;
-    padding-inline-end: var(--klc-space-12, 12px);
+    padding-inline-end: var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: var(--klc-color-ui-surface);

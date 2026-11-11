@@ -3,7 +3,7 @@
   <BaseModal
     :open="show"
     title="保存图元模板"
-    width="min(92vw, 360px)"
+    size="xs"
     :close-on-overlay="!busy"
     :show-close="!busy"
     @update:open="!$event && emit('close')"

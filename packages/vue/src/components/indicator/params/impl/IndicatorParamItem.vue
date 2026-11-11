@@ -153,7 +153,7 @@
     --param-control-height: 32px;
     --param-control-radius: 8px;
 
-    padding: 10px 4px;
+    padding-block: 10px;
     border-radius: 10px;
   }
 
@@ -175,7 +175,6 @@
     align-items: baseline;
     gap: 6px;
     min-width: 0;
-    padding-inline-start: 4px;
   }
 
   .param-label-text {
@@ -219,7 +218,7 @@
 
   .param-description__text {
     margin: 0;
-    padding: 6px 4px 2px;
+    padding-block: 6px 2px;
     font-size: 12px;
     line-height: 1.55;
     color: var(--klc-color-ui-muted);

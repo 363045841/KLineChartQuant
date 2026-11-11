@@ -4,7 +4,10 @@
   - Tab 在对话框内循环（不逃逸到浏览器 UI），关闭后焦点回到打开前的元素；
   - aria-labelledby 指向标题；关闭按钮有 type 与可访问名称；
   - 进出场用 @starting-style + transition-behavior: allow-discrete，不用定时器；
-  - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态。
+  - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态；
+  - --base-modal-content-inset 是弹窗内容横向内边距的唯一来源：Tab 文字、搜索框、
+    正文与列表行都跟着它，消费方不再各自写横向 padding；
+  - 尺寸走 size 预设，宽度/高度/遮罩间距只在特殊弹窗用 props 覆盖。
 -->
 <template>
   <Teleport :to="teleportTarget">
@@ -67,14 +70,13 @@
           <slot name="subheader" />
         </div>
 
-        <div v-if="$slots.tabs" class="base-tabs">
+        <div v-if="$slots.tabs" class="base-modal__tabs">
           <slot name="tabs" />
         </div>
 
         <div
           class="base-body"
-          :class="{ 'base-body--scrollable': bodyScrollable }"
-          :style="{ padding: bodyPadding }"
+          :class="{ 'base-body--scrollable': bodyScrollable, 'base-body--flush': bodyFlush }"
         >
           <slot />
         </div>
@@ -118,6 +120,9 @@
       /** 默认允许拖动标题栏；控件与 data-modal-no-drag 区域不会触发拖动。 */
       draggable?: boolean
       title?: string
+      /** 尺寸预设；显式 width 优先。 */
+      size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+      /** 显式宽度：fit-content 或超宽弹窗使用，默认 min(92vw, 400px)。 */
       width?: string
       /** 内容自适应宽度时的下限，仍受视口可用宽度约束。 */
       minWidth?: string
@@ -126,7 +131,8 @@
       maxWidth?: string
       maxHeight?: string
       overlayPadding?: string
-      bodyPadding?: string
+      /** 正文贴边：内边距由内容自理（内部滚动区、编辑器等）。 */
+      bodyFlush?: boolean
       bodyScrollable?: boolean
       footerAlign?: 'flex-end' | 'center' | 'flex-start' | 'space-between'
       closeOnOverlay?: boolean
@@ -139,13 +145,12 @@
     {
       title: '',
       draggable: true,
-      width: 'min(92vw, 400px)',
+      width: '',
       minWidth: '',
       animateResize: true,
       maxWidth: '',
-      maxHeight: 'min(600px, calc(100dvh - 48px))',
+      maxHeight: '780px',
       overlayPadding: 'var(--klc-space-24, 24px)',
-      bodyPadding: 'var(--klc-space-16, 16px)',
       bodyScrollable: true,
       footerAlign: 'flex-end',
       closeOnOverlay: true,
@@ -183,8 +188,20 @@
   let returnFocusTo: HTMLElement | null = null
   let pointerDownOnBackdrop = false
 
+  /** 弹窗宽度预设；显式 width 优先。 */
+  const SIZE_WIDTHS = {
+    xs: 'min(92vw, 360px)',
+    sm: 'min(92vw, 440px)',
+    md: 'min(92vw, 560px)',
+    lg: 'min(92vw, 640px)',
+    xl: 'min(92vw, 780px)',
+  } as const
+  const resolvedWidth = computed(
+    () => props.width || (props.size ? SIZE_WIDTHS[props.size] : 'min(92vw, 400px)'),
+  )
+
   const modalStyle = computed(() => ({
-    '--base-modal-width': props.width,
+    '--base-modal-width': resolvedWidth.value,
     minWidth: props.minWidth
       ? `min(${props.minWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
       : undefined,
@@ -291,6 +308,8 @@
 
 <style scoped>
   .base-modal {
+    /* 弹窗内容横向内边距的唯一来源：Tab 文字、搜索框、正文与正文内滚动区都跟随它。 */
+    --base-modal-content-inset: var(--klc-space-24, 24px);
     /* UA 的 modal 居中（inset: 0; margin: auto），静止时没有 transform，
        内部 position: fixed 的元素仍相对视口定位。 */
     margin: auto;
@@ -459,10 +478,10 @@
 
   .base-subheader {
     flex-shrink: 0;
-    padding: var(--klc-space-16, 16px);
+    padding: var(--base-modal-content-inset);
   }
 
-  .base-tabs {
+  .base-modal__tabs {
     flex-shrink: 0;
   }
 
@@ -470,6 +489,12 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    /* 默认按弹窗 inset 排布；正文自带滚动区或编辑器用 bodyFlush 贴边。 */
+    padding: var(--base-modal-content-inset);
+  }
+
+  .base-body--flush {
+    padding: 0;
   }
 
   .base-body--scrollable {
