@@ -182,6 +182,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+
   import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
@@ -377,7 +379,6 @@
   }
 </script>
 
-<style scoped src="../common/control-button.css"></style>
 
 <style scoped>
   .top-toolbar {
@@ -499,7 +500,7 @@
     border-radius: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);
-    transition: color var(--klc-motion-duration-moderate) ease;
+    transition: color var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
   .top-toolbar .footprint-settings-button:hover:not(:disabled) {

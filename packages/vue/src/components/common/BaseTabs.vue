@@ -145,13 +145,8 @@
     border-radius: 1px;
     background: var(--klc-color-ui-accent);
     transition:
-      left var(--klc-motion-duration-moderate) ease,
-      width var(--klc-motion-duration-moderate) ease;
+      left var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      width var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-tabs__indicator {
-      transition: none;
-    }
-  }
 </style>

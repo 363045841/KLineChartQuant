@@ -88,7 +88,7 @@
     "lint:publish": "pnpm --filter @363045841yyt/klinechart lint:publish",
     "license:boundary": "node scripts/check-license-boundary.mjs",
     "lint:types": "node scripts/lint-types.mjs",
-    "lint": "biome check .",
+    "lint": "biome check . && node scripts/check-style-src.mjs",
     "script:run": "tsx scripts/run-script.mts",
     "lint:ui": "stylelint \"packages/vue/src/**/*.{vue,css}\"",
     "lint:ui:prune": "stylelint \"packages/vue/src/**/*.{vue,css}\" --suppress",

@@ -123,7 +123,7 @@
     color: var(--klc-color-foreground);
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .color-item:hover {

@@ -22,6 +22,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-quiet-button.css'
+
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconRefresh from '~icons/tabler/refresh'
@@ -73,4 +75,3 @@
   }
 </style>
 
-<style scoped src="./agent-quiet-button.css"></style>

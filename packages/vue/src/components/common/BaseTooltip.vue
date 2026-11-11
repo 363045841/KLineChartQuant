@@ -198,15 +198,4 @@
     transform: translateY(-4px);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-tooltip-enter-active,
-    .base-tooltip-leave-active {
-      transition: opacity 0.12s linear;
-    }
-
-    .base-tooltip.base-tooltip-enter-from,
-    .base-tooltip.base-tooltip-leave-to {
-      transform: none;
-    }
-  }
 </style>

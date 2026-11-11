@@ -214,6 +214,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/list-text.css'
+
   import type {
     AlertEvent,
     AlertPredicate,
@@ -751,4 +753,3 @@
   }
 </style>
 
-<style scoped src="../common/list-text.css"></style>

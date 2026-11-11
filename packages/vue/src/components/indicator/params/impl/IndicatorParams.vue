@@ -159,10 +159,4 @@
     margin-bottom: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .slide-enter-active,
-    .slide-leave-active {
-      transition: none;
-    }
-  }
 </style>

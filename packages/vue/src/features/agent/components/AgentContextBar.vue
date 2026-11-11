@@ -32,6 +32,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-truncate-text.css'
+
   import { computed } from 'vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
@@ -137,4 +139,3 @@
 
 </style>
 
-<style scoped src="./agent-truncate-text.css"></style>

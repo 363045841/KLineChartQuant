@@ -22,7 +22,7 @@
   border-radius: 6px;
   font: inherit;
   color: inherit;
-  transition: background-color var(--klc-motion-duration-fast) ease;
+  transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
 }
 
 .settings-item > span {

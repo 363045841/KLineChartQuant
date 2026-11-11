@@ -102,19 +102,12 @@
   /* 用 0fr→1fr 动画展开/收起，适配内容高度不定的预览面板。 */
   .injection-card-expand-enter-active,
   .injection-card-expand-leave-active {
-    transition: grid-template-rows 0.2s ease;
+    transition: grid-template-rows var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
   .injection-card-expand-enter-from,
   .injection-card-expand-leave-to {
     grid-template-rows: 0fr;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .injection-card-expand-enter-active,
-    .injection-card-expand-leave-active {
-      transition-duration: 0.01ms;
-    }
   }
 
   .injection-card__data {

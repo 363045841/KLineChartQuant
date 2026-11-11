@@ -101,6 +101,9 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+  import '../common/popover-surface.css'
+
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
@@ -301,8 +304,6 @@
   }
 </script>
 
-<style scoped src="../common/control-button.css"></style>
-<style scoped src="../common/popover-surface.css"></style>
 
 <style scoped>
   .watchlist {
@@ -466,7 +467,7 @@
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
-    transition: transform var(--klc-motion-duration-fast) ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .watchlist-group__chevron.is-collapsed {

@@ -16,6 +16,8 @@
 </template>
 
 <script setup lang="ts">
+  import './shortcut-key.css'
+
   import { computed } from 'vue'
 
   const props = withDefaults(
@@ -32,7 +34,6 @@
   const parts = computed(() => (props.shortcut ? props.shortcut.split('+') : []))
 </script>
 
-<style scoped src="./shortcut-key.css"></style>
 
 <style scoped>
   .shortcut-key-group--tooltip {

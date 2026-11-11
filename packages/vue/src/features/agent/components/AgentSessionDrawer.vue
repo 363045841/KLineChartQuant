@@ -68,6 +68,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-icon-button.css'
+
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
@@ -93,7 +95,6 @@
     useAgentSessionDrawer(props)
 </script>
 
-<style scoped src="./agent-icon-button.css"></style>
 
 <style scoped>
   .agent-session-drawer {
@@ -167,7 +168,7 @@
 
   .agent-session-drawer-enter-active,
   .agent-session-drawer-leave-active {
-    transition: opacity 0.2s ease;
+    transition: opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
   .agent-session-drawer-enter-from,
@@ -177,7 +178,7 @@
 
   .agent-session-drawer-enter-active .agent-session-drawer__panel,
   .agent-session-drawer-leave-active .agent-session-drawer__panel {
-    transition: transform 0.24s ease;
+    transition: transform var(--klc-motion-dur-slow) var(--klc-motion-ease-standard);
   }
 
   .agent-session-drawer-enter-from .agent-session-drawer__panel,
@@ -185,12 +186,4 @@
     transform: translateX(-100%);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .agent-session-drawer-enter-active,
-    .agent-session-drawer-leave-active,
-    .agent-session-drawer-enter-active .agent-session-drawer__panel,
-    .agent-session-drawer-leave-active .agent-session-drawer__panel {
-      transition-duration: 0.01ms;
-    }
-  }
 </style>

@@ -96,14 +96,14 @@
     opacity: 0;
     /* 收起时按钮不可点，避免点到看不见的按钮。 */
     pointer-events: none;
-    transition: opacity var(--klc-motion-dur-fast) ease;
+    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .chart-navigation__group {
     display: flex;
     gap: var(--klc-space-8);
     opacity: 1;
-    transition: opacity var(--klc-motion-dur-fast) ease;
+    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   /* 重置按钮淡出但保留占位：整排按钮不因单个按钮显隐而位移。 */
@@ -130,10 +130,4 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .chart-navigation__buttons,
-    .chart-navigation__group {
-      transition: none;
-    }
-  }
 </style>

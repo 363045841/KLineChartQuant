@@ -38,6 +38,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu from '@vue-src/components/common/DropMenu.vue'
@@ -74,7 +76,6 @@
   } = useLayouts(toRef(props, 'controller'))
 </script>
 
-<style scoped src="../common/control-button.css"></style>
 <style scoped>
-.symbol-chip__code { display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .symbol-chip__code { display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

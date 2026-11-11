@@ -13,7 +13,7 @@
         <IconTablerPlus />
       </span>
       <span class="compare-chip__text">比较商品</span>
-      <span v-if="comparisonLoading" class="compare-chip__spinner" />
+      <span v-if="comparisonLoading" class="compare-chip__spinner klc-spin" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
     </BaseTooltip>
@@ -125,6 +125,11 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+  import '../common/symbol-list.css'
+  import '../common/list-text.css'
+  import '../common/control-cluster.css'
+
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
@@ -197,10 +202,6 @@
   }
 </script>
 
-<style scoped src="../common/control-button.css"></style>
-<style scoped src="../common/symbol-list.css"></style>
-<style scoped src="../common/list-text.css"></style>
-<style scoped src="../common/control-cluster.css"></style>
 
 <style scoped>
   .compare-chip-wrap {
@@ -245,13 +246,6 @@
     border: 2px solid var(--klc-color-ui-muted);
     border-top-color: transparent;
     border-radius: 50%;
-    animation: compare-spin 0.6s linear infinite;
-  }
-
-  @keyframes compare-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .compare-selected {
@@ -352,7 +346,7 @@
     font: inherit;
     cursor: pointer;
     text-align: left;
-    transition: background 0.12s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 

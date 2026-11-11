@@ -158,9 +158,7 @@
   function isPanelResizeTarget(clientX: number): boolean {
     const bounds = panel.value?.getBoundingClientRect()
     if (!bounds) return false
-    return panelSide.value === 'right'
-      ? clientX - bounds.left <= 8
-      : bounds.right - clientX <= 8
+    return panelSide.value === 'right' ? clientX - bounds.left <= 8 : bounds.right - clientX <= 8
   }
 
   // 仅在面板内侧边缘附近显示横向拖拽光标。
@@ -401,15 +399,4 @@
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .agent-workbench-shell,
-    .agent-workbench-shell *,
-    .agent-workbench-shell *::before,
-    .agent-workbench-shell *::after {
-      scroll-behavior: auto !important;
-      transition-duration: 0.01ms !important;
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-    }
-  }
 </style>

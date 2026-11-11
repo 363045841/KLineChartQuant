@@ -334,6 +334,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/stepper-button.css'
+
   import type {
     AlertPredicate,
     AlertRule,
@@ -846,4 +848,3 @@
   }
 </style>
 
-<style scoped src="../common/stepper-button.css"></style>

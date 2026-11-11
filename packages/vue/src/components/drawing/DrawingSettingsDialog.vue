@@ -328,7 +328,7 @@
     font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 400;
     line-height: 1.2;
-    transition: color var(--klc-motion-dur-fast, 160ms) ease;
+    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .template-actions :deep(.drop-menu__trigger.drawing-template-menu-trigger:hover:not(:disabled)),

@@ -21,10 +21,11 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/settings-item.css'
+
   const emit = defineEmits<{ select: [] }>()
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>
 
 <style scoped>
   /* 导航项交互优化 */
@@ -52,14 +53,8 @@
 
   .nav-arrow {
     color: var(--klc-color-ui-muted);
-    transition: transform var(--klc-motion-duration-fast) ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .settings-item,
-    .nav-arrow {
-      transition: none;
-    }
-  }
 </style>

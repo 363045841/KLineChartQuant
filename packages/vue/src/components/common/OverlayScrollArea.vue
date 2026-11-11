@@ -70,7 +70,7 @@
     border-radius: var(--klc-radius-xs, 4px);
     background: var(--klc-color-ui-muted);
     opacity: 0;
-    transition: opacity var(--klc-motion-dur-fast, 160ms) ease;
+    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     pointer-events: none;
     touch-action: none;
     user-select: none;

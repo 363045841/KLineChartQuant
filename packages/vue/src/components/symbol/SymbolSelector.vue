@@ -93,6 +93,10 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+  import '../common/symbol-list.css'
+  import '../common/list-text.css'
+
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
@@ -187,9 +191,6 @@
   )
 </script>
 
-<style scoped src="../common/control-button.css"></style>
-<style scoped src="../common/symbol-list.css"></style>
-<style scoped src="../common/list-text.css"></style>
 
 <style scoped>
   .symbol-chip-wrap {
@@ -211,7 +212,7 @@
     gap: 8px;
     margin: 0;
     border-bottom: 1px solid var(--klc-color-ui-border);
-    transition: background 0.12s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 

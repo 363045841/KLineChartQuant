@@ -453,6 +453,11 @@
     type MarketDataContext,
     searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
+  import {
+    BRAND_MARK_PATH,
+    BRAND_MARK_STROKE_WIDTH,
+    BRAND_MARK_VIEWBOX,
+  } from '@vue-src/brandMark.js'
   import { useAggregationSources } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     provideMarketDataContext,
@@ -461,11 +466,6 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
-  import {
-    BRAND_MARK_PATH,
-    BRAND_MARK_STROKE_WIDTH,
-    BRAND_MARK_VIEWBOX,
-  } from '@vue-src/brandMark.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -1670,9 +1670,7 @@
     if (chartMode.value === 'timeshare') {
       return (leftAxisHostWidth.value - axisHostWidth.value) / 2
     }
-    return priceAxisPosition.value === 'left'
-      ? axisHostWidth.value / 2
-      : -axisHostWidth.value / 2
+    return priceAxisPosition.value === 'left' ? axisHostWidth.value / 2 : -axisHostWidth.value / 2
   })
 
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
@@ -2097,8 +2095,8 @@
       0 2px 8px rgba(0, 0, 0, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.04);
     transition:
-      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
-      border-color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
+      background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .drawing-line-label-editor.is-placeholder {

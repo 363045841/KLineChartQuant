@@ -32,6 +32,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/settings-item.css'
+
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
@@ -49,4 +51,3 @@
   )
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>

@@ -89,6 +89,10 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-primary-button.css'
+  import './agent-truncate-text.css'
+  import './agent-select-trigger.css'
+
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
@@ -167,9 +171,6 @@
   }
 </script>
 
-<style scoped src="./agent-primary-button.css"></style>
-<style scoped src="./agent-truncate-text.css"></style>
-<style src="./agent-select-trigger.css"></style>
 
 <style scoped>
   .composer__input {
@@ -290,7 +291,7 @@
     height: 14px;
     flex: 0 0 auto;
     color: var(--agent-muted);
-    transition: transform var(--klc-motion-duration-fast) ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .composer__model :deep(.drop-menu__trigger[aria-expanded='true']) .composer__model-chevron {

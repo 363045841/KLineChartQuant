@@ -244,7 +244,10 @@
                     :disabled="providerSettings.modelsLoading || !hasProviderConnection"
                     @click="providerSettings.refreshModelCatalog()"
                   >
-                    <IconRefresh aria-hidden="true" />
+                    <IconRefresh
+                      :class="{ 'klc-spin': providerSettings.modelsLoading }"
+                      aria-hidden="true"
+                    />
                   </BaseButton>
                 </BaseTooltip>
               </header>
@@ -406,6 +409,9 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../components/common/selection-menu.css'
+  import './agent-select-trigger.css'
+
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseInput from '@vue-src/components/common/BaseInput.vue'
@@ -673,7 +679,6 @@
 </script>
 
 <!-- 当前值与展开箭头的外观复用工具栏单选下拉，避免两套相似样式漂移。 -->
-<style scoped src="../../../components/common/selection-menu.css"></style>
 
 <style scoped>
   .language-control :deep(.drop-menu__trigger) {
@@ -783,8 +788,8 @@
     border-bottom: 1px solid var(--klc-color-ui-border);
     border-radius: 0;
     background: transparent;
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
   }
 
   /* 聚焦只提亮底线，不画四周框、不加外发光。 */
@@ -887,7 +892,7 @@
     line-height: var(--rail-row-line-height);
     text-align: left;
     cursor: pointer;
-    transition: padding-right 0.15s ease;
+    transition: padding-right var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .rail__select:focus-visible {
@@ -1175,8 +1180,8 @@
     background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 11px;
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
   }
 
   /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
@@ -1206,10 +1211,6 @@
     height: 16px;
   }
 
-  .models__refresh.is-loading svg {
-    animation: settings-spin 0.9s linear infinite;
-  }
-
   .models__list {
     margin: 0;
     padding: 4px;
@@ -1231,7 +1232,7 @@
     padding: 6px 8px;
     border-radius: 7px;
     font-size: 12px;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .model:hover {
@@ -1410,19 +1411,7 @@
     font-weight: 600;
   }
 
-  @keyframes settings-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .models__refresh.is-loading svg {
-      animation: none;
-    }
-  }
-
-  /* ───────── 窄屏 ───────── */
+/* ───────── 窄屏 ───────── */
   @media (max-width: 640px) {
     .provider {
       grid-template-columns: 1fr;
@@ -1442,4 +1431,3 @@
     }
   }
 </style>
-<style src="./agent-select-trigger.css"></style>

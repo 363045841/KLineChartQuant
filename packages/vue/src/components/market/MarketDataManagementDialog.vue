@@ -28,7 +28,10 @@
             aria-label="刷新数据源状态"
             @click="refreshAll"
           >
-            <IconTablerRefresh aria-hidden="true" />
+            <IconTablerRefresh
+              :class="{ 'klc-spin': refreshing }"
+              aria-hidden="true"
+            />
           </button>
         </BaseTooltip>
       </ModalSearchBar>
@@ -130,6 +133,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-cluster.css'
+
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
@@ -208,8 +213,8 @@
     color: var(--klc-color-ui-muted);
     cursor: pointer;
     transition:
-      background var(--klc-motion-dur-fast, 160ms) ease,
-      color var(--klc-motion-dur-fast, 160ms) ease;
+      background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .source-toolbar__action:hover:not(:disabled) {
@@ -230,16 +235,6 @@
   .source-toolbar__action svg {
     width: 15px;
     height: 15px;
-  }
-
-  .source-toolbar__action.is-busy svg {
-    animation: source-spin 0.8s linear infinite;
-  }
-
-  @keyframes source-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   /* ── 列表：每个连接一张卡片 ── */
@@ -305,8 +300,8 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     background: var(--klc-color-ui-surface);
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
   }
 
   /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
@@ -379,7 +374,7 @@
     justify-content: space-between;
     gap: var(--klc-space-12, 12px);
     padding: 10px 14px;
-    transition: background var(--klc-motion-dur-fast, 160ms) ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .provider-row + .provider-row {
@@ -483,4 +478,3 @@
   }
 </style>
 
-<style scoped src="../common/control-cluster.css"></style>

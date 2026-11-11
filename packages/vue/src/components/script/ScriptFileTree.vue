@@ -108,9 +108,9 @@
     background: var(--klc-color-ui-card);
     font-size: var(--klc-text-label-12-font-size, 12px);
     transition:
-      width var(--klc-motion-duration-moderate) ease,
-      opacity var(--klc-motion-duration-moderate) ease,
-      border-right-color var(--klc-motion-duration-moderate) ease;
+      width var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      border-right-color var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
   .script-files.is-collapsed {
     width: 0;
@@ -135,5 +135,4 @@
     overflow-wrap: anywhere;
   }
   @media (max-width: 600px) { .script-files { width: 140px; } }
-  @media (prefers-reduced-motion: reduce) { .script-files { transition: none; } }
 </style>

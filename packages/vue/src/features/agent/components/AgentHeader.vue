@@ -61,6 +61,9 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-icon-button.css'
+  import '../../../components/common/header-row.css'
+
   import { computed } from 'vue'
   import IconChevronLeft from '~icons/tabler/chevron-left'
   import IconChevronRight from '~icons/tabler/chevron-right'
@@ -137,5 +140,3 @@
   }
 </style>
 
-<style scoped src="./agent-icon-button.css"></style>
-<style scoped src="../../../components/common/header-row.css"></style>

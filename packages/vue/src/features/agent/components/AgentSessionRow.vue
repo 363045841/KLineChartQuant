@@ -99,6 +99,10 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../components/common/form-control.css'
+  import './agent-icon-button.css'
+  import './agent-session/impl/agent-session-row.css'
+
   import IconCheck from '~icons/tabler/check'
   import IconPencil from '~icons/tabler/pencil'
   import IconTrash from '~icons/tabler/trash'
@@ -131,6 +135,3 @@
   })
 </script>
 
-<style scoped src="../../../components/common/form-control.css"></style>
-<style scoped src="./agent-icon-button.css"></style>
-<style scoped src="./agent-session/impl/agent-session-row.css"></style>

@@ -44,6 +44,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/list-text.css'
+
   import type { CommandTitle } from '@363045841yyt/klinechart-core'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
   import type { Component } from 'vue'
@@ -178,4 +180,3 @@
   }
 </style>
 
-<style scoped src="../../common/list-text.css"></style>

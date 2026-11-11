@@ -78,6 +78,8 @@
 </template>
 
 <script setup lang="ts">
+  import './popover-surface.css'
+
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import { useRovingFocus } from '@vue-src/composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
@@ -202,7 +204,6 @@
   defineExpose({ show, hide })
 </script>
 
-<style scoped src="./popover-surface.css"></style>
 
 <style scoped>
   /* 设置弹窗内的菜单共用紧凑、透明的触发器。 */
@@ -446,7 +447,7 @@
     height: 12px;
     border-radius: 50%;
     background: var(--klc-color-ui-surface);
-    transition: transform var(--klc-motion-duration-moderate);
+    transition: transform var(--klc-motion-dur-base);
   }
 
   .drop-menu__item :deep(.drop-menu__switch[aria-checked='true'] span) {

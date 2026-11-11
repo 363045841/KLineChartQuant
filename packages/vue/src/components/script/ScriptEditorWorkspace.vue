@@ -309,8 +309,8 @@
     color: var(--klc-color-ui-muted);
     cursor: pointer;
     transition:
-      color var(--klc-motion-dur-fast, 160ms) ease,
-      background-color var(--klc-motion-dur-fast, 160ms) ease;
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .script-workspace__icon-button:hover,

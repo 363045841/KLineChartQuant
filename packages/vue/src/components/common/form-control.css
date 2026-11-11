@@ -13,8 +13,8 @@
   font: inherit;
   font-size: var(--klc-text-13-font-size, 13px);
   transition:
-    background-color var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
-    border-color var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out);
+    background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-out),
+    border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-out);
 }
 
 .form-control::placeholder,
@@ -64,10 +64,4 @@
   background: var(--klc-color-ui-input);
   font: inherit;
   font-size: var(--klc-text-12-font-size, 12px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .form-control {
-    transition: none;
-  }
 }

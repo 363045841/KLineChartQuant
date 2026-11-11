@@ -14,9 +14,9 @@
   height: 14px;
   flex: 0 0 auto;
   color: var(--klc-color-ui-muted);
-  transition: transform var(--klc-motion-duration-fast) ease;
+  transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
 }
 
-:deep(.drop-menu__trigger[aria-expanded='true']) .selection-menu__chevron {
+.drop-menu__trigger[aria-expanded="true"] .selection-menu__chevron {
   transform: rotate(180deg);
 }

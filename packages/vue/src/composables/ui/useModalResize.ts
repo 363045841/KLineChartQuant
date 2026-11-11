@@ -1,5 +1,6 @@
 /** 公共弹窗尺寸过渡：测量自然布局，动画结束后恢复由内容决定尺寸。 */
 import { onScopeDispose, type Ref, watch } from 'vue'
+import { prefersReducedMotion, readMotionDuration, readMotionToken } from './motion.js'
 
 interface ModalSize {
   width: number
@@ -43,18 +44,19 @@ export function useModalResize(
           !previous ||
           !enabled() ||
           typeof element.animate !== 'function' ||
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+          prefersReducedMotion() ||
           (previous.width === next.width && previous.height === next.height)
         )
           return
-        const style = getComputedStyle(element)
-        const duration = Number.parseFloat(style.getPropertyValue('--klc-motion-dur-base')) || 200
         const current = element.animate(
           [
             { width: `${previous.width}px`, height: `${previous.height}px` },
             { width: `${next.width}px`, height: `${next.height}px` },
           ],
-          { duration, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+          {
+            duration: readMotionDuration(element, 'dur-base'),
+            easing: readMotionToken(element, 'ease-out'),
+          },
         )
         animation = current
         current.onfinish = () => {

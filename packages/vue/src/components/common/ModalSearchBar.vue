@@ -73,8 +73,8 @@
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: var(--klc-color-ui-surface);
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
   }
 
   /* 搜索框聚焦时只提亮已有上下边线；不画框、不加外发光。 */

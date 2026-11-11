@@ -307,11 +307,11 @@
     scale: none;
     translate: none;
     transition:
-      opacity var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      scale var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      translate var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
-      display var(--klc-motion-dur-base, 200ms) allow-discrete;
+      opacity var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      scale var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      translate var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-base) allow-discrete,
+      display var(--klc-motion-dur-base) allow-discrete;
   }
 
   .base-modal--draggable .base-header {
@@ -342,7 +342,7 @@
     opacity: 0;
     scale: 0.98;
     translate: 0 8px;
-    transition-duration: var(--klc-motion-dur-fast, 160ms);
+    transition-duration: var(--klc-motion-dur-fast);
   }
 
   @starting-style {
@@ -357,9 +357,9 @@
   .base-modal::backdrop {
     background: transparent;
     transition:
-      background var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
-      display var(--klc-motion-dur-base, 200ms) allow-discrete;
+      background var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-base) allow-discrete,
+      display var(--klc-motion-dur-base) allow-discrete;
   }
 
   .base-modal[open]::backdrop {
@@ -373,23 +373,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-modal,
-    .base-modal:not([open]) {
-      scale: none;
-      translate: none;
-      transition-property: opacity, overlay, display;
-    }
-
-    @starting-style {
-      .base-modal[open] {
-        scale: none;
-        translate: none;
-      }
-    }
-  }
-
-  /* 标题栏和操作栏共用紧凑高度，内容在栏内垂直居中。 */
+/* 标题栏和操作栏共用紧凑高度，内容在栏内垂直居中。 */
   .base-header,
   .base-footer {
     box-sizing: border-box;
@@ -451,7 +435,7 @@
     justify-content: center;
     cursor: pointer;
     color: var(--klc-color-ui-muted);
-    transition: color var(--klc-motion-dur-fast, 160ms);
+    transition: color var(--klc-motion-dur-fast);
     padding: 0;
   }
 
@@ -541,7 +525,7 @@
     height: 1px;
     background: currentColor;
     translate: -50% 0;
-    transition: width var(--klc-motion-dur-fast, 160ms) ease;
+    transition: width var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   /* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
@@ -556,14 +540,7 @@
     width: calc(100% - 2 * var(--control-button-inline-padding, 8px));
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-footer :deep(.base-button)::after,
-    .base-footer :deep(.control-button)::after {
-      transition: none;
-    }
-  }
-
-  /* ── Responsive ── */
+/* ── Responsive ── */
   @media (max-width: 480px) {
     .base-modal {
       min-width: 0;

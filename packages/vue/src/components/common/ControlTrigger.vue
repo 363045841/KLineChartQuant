@@ -14,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+  import './control-button.css'
+
   import { useTemplateRef } from 'vue'
 
   defineOptions({ inheritAttrs: false })
@@ -34,4 +36,3 @@
   defineExpose({ element, focus })
 </script>
 
-<style scoped src="./control-button.css"></style>

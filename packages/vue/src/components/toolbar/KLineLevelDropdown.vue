@@ -14,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/selection-menu.css'
+
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
@@ -62,4 +64,3 @@
   }
 </script>
 
-<style scoped src="../common/selection-menu.css"></style>

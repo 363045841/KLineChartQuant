@@ -56,9 +56,9 @@
     color: var(--klc-color-ui-muted);
     background: transparent;
     transition:
-      background var(--klc-motion-dur-fast, 160ms) ease,
-      color var(--klc-motion-dur-fast, 160ms) ease,
-      border-color var(--klc-motion-dur-fast, 160ms) ease;
+      background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .base-button--sm {
@@ -88,9 +88,4 @@
     cursor: default;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-button {
-      transition: none;
-    }
-  }
 </style>

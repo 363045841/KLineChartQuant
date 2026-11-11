@@ -19,6 +19,8 @@
 </template>
 
 <script setup lang="ts">
+  import './form-control.css'
+
   import { useTemplateRef } from 'vue'
 
   withDefaults(
@@ -44,4 +46,3 @@
   })
 </script>
 
-<style scoped src="./form-control.css"></style>

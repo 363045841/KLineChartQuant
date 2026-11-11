@@ -77,6 +77,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-quiet-button.css'
+
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -205,7 +207,7 @@
 
   .tool-card__toggle {
     color: var(--agent-muted);
-    transition: transform 0.15s ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .tool-card[open] .tool-card__toggle {
@@ -295,4 +297,3 @@
   }
 </style>
 
-<style scoped src="./agent-quiet-button.css"></style>

@@ -186,6 +186,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/header-row.css'
+
   import {
     type ChartController,
     createIndicatorSelectorController,
@@ -468,7 +470,7 @@
     min-height: 36px;
     padding-right: var(--klc-space-8, 8px);
     background: transparent;
-    transition: background-color var(--klc-motion-dur-fast, 160ms) ease;
+    transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     text-align: left;
   }
 
@@ -578,8 +580,8 @@
     color: var(--klc-color-axis-text);
     cursor: pointer;
     transition:
-      color var(--klc-motion-dur-fast, 160ms) ease,
-      background-color var(--klc-motion-dur-fast, 160ms) ease;
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .item-action-btn:hover:not(:disabled),
@@ -635,4 +637,3 @@
 
 </style>
 
-<style scoped src="../common/header-row.css"></style>

@@ -36,6 +36,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/selection-menu.css'
+
   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
   import ColorPicker from '@vue-src/components/color/impl/ColorPicker.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
@@ -120,4 +122,3 @@
   }
 </script>
 
-<style scoped src="../common/selection-menu.css"></style>

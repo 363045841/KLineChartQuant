@@ -18,12 +18,13 @@
 </template>
 
 <script setup lang="ts">
+  import '../../components/common/settings-item.css'
+
   import { getOpenSourceCredits } from '@vue-src/credits/openSourceCredits.js'
 
   const credits = getOpenSourceCredits()
 </script>
 
-<style scoped src="../../components/common/settings-item.css"></style>
 
 <style scoped>
   /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与留白。 */

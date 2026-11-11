@@ -24,9 +24,9 @@
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background-color var(--klc-motion-duration-moderate) ease,
-    border-color var(--klc-motion-duration-moderate) ease,
-    box-shadow var(--klc-motion-duration-moderate) ease;
+    background-color var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+    border-color var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+    box-shadow var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
 }
 
 .control-button[aria-expanded="true"]:not(:disabled) {
@@ -70,11 +70,5 @@
     --control-button-inline-padding: 6px;
     height: 26px;
     gap: var(--control-button-content-gap);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .control-button {
-    transition: none;
   }
 }

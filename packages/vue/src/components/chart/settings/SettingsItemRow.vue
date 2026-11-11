@@ -39,6 +39,10 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/form-control.css'
+  import '../../common/settings-item.css'
+  import '../../common/selection-menu.css'
+
   import type { SettingItem } from '@363045841yyt/klinechart-core/config'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
@@ -92,9 +96,6 @@
   }
 </script>
 
-<style scoped src="../../common/form-control.css"></style>
-<style scoped src="../../common/settings-item.css"></style>
-<style scoped src="../../common/selection-menu.css"></style>
 <style scoped>
   .settings-number {
     width: 100px;

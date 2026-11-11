@@ -125,6 +125,9 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/settings-item.css'
+  import '../../common/selection-menu.css'
+
   import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
@@ -317,8 +320,6 @@
   }
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>
-<style scoped src="../../common/selection-menu.css"></style>
 
 <style scoped>
   /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
@@ -360,7 +361,7 @@
     color: var(--klc-color-ui-muted);
     background: none;
     cursor: pointer;
-    transition: color var(--klc-motion-duration-fast) ease;
+    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .cache-clear-btn:hover {
@@ -391,10 +392,4 @@
 
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .settings-item,
-    .cache-clear-btn {
-      transition: none;
-    }
-  }
 </style>

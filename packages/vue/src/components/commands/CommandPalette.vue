@@ -68,6 +68,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/list-text.css'
+
   import {
     type CommandDef,
     type CommandMatch,
@@ -252,7 +254,7 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background 0.12s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
@@ -302,4 +304,3 @@
   }
 </style>
 
-<style scoped src="../common/list-text.css"></style>

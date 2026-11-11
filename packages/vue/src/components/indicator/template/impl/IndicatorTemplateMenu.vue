@@ -199,6 +199,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../common/control-button.css'
+
   import type {
     ChartController,
     IndicatorTemplateSummary,
@@ -335,7 +337,6 @@
   defineExpose({ toggle, close })
 </script>
 
-<style scoped src="../../../common/control-button.css"></style>
 
 <style scoped>
   .indicator-template {

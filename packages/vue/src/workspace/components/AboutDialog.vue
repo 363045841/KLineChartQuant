@@ -106,11 +106,8 @@
     flex: none;
     width: 12px;
     height: 12px;
-    transition: transform var(--klc-motion-duration-fast) ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
   .about-dialog__credits[open] .about-dialog__expand-icon { transform: rotate(90deg); }
-  @media (prefers-reduced-motion: reduce) {
-    .about-dialog__expand-icon { transition: none; }
-  }
   .about-dialog__credits-list { margin-top: var(--klc-spacing-md); text-align: start; }
 </style>

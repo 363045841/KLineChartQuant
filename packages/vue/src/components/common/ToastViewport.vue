@@ -270,12 +270,12 @@
   .klc-toast-enter-active,
   .klc-toast-leave-active {
     transition:
-      opacity var(--klc-motion-dur-toast, 400ms) var(--klc-motion-ease-expo, ease-out),
-      translate var(--klc-motion-dur-toast, 400ms) var(--klc-motion-ease-expo, ease-out);
+      opacity var(--klc-motion-dur-toast) var(--klc-motion-ease-expo),
+      translate var(--klc-motion-dur-toast) var(--klc-motion-ease-expo);
   }
 
   .klc-toast-leave-active {
-    transition-duration: var(--klc-motion-dur-fast, 160ms);
+    transition-duration: var(--klc-motion-dur-fast);
   }
 
   .klc-toast-enter-from {
@@ -287,14 +287,4 @@
     opacity: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .klc-toast-enter-active,
-    .klc-toast-leave-active {
-      transition: opacity var(--klc-motion-dur-fast, 160ms) linear;
-    }
-
-    .klc-toast-enter-from {
-      translate: none;
-    }
-  }
 </style>

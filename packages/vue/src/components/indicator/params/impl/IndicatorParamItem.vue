@@ -72,6 +72,9 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../common/selection-menu.css'
+  import '../../../common/stepper-button.css'
+
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
@@ -290,13 +293,5 @@
     cursor: pointer;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .param-description,
-    .input-wrapper {
-      transition: none;
-    }
-  }
 </style>
 
-<style scoped src="../../../common/selection-menu.css"></style>
-<style scoped src="../../../common/stepper-button.css"></style>

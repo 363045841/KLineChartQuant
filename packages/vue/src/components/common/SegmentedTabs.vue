@@ -67,15 +67,8 @@
     border-radius: 7px;
     background: var(--klc-color-ui-accent);
     transform: translateX(calc(var(--segmented-tabs-index) * 100%));
-    transition: transform 0.2s ease;
+    transition: transform var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .segmented-tabs__thumb {
-      transition: none;
-    }
-  }
-
   .segmented-tab {
     position: relative;
     z-index: 1;
@@ -88,7 +81,7 @@
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
-    transition: color 0.15s ease;
+    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .segmented-tab:hover {

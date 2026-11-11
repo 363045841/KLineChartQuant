@@ -165,11 +165,8 @@
     border-radius: 1px;
     background: var(--klc-brand-accent-text);
     transition:
-      left var(--klc-motion-duration-moderate) ease,
-      width var(--klc-motion-duration-moderate) ease;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .script-output__indicator { transition: none; }
+      left var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      width var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
   .script-output__icon-button { width: 24px; height: 24px; border-radius: var(--klc-radius-sm, 4px); }
   .script-output__icon-button svg { width: 16px; height: 16px; }
@@ -182,14 +179,11 @@
     padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
     font-family: 'JetBrains Mono', monospace;
     transition:
-      height var(--klc-motion-duration-moderate) ease,
-      padding var(--klc-motion-duration-moderate) ease,
-      opacity var(--klc-motion-duration-moderate) ease;
+      height var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      padding var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
   .script-output__content.is-collapsed { padding-top: 0; padding-bottom: 0; opacity: 0; pointer-events: none; }
   .script-output--dragging .script-output__content { transition: none; }
-  @media (prefers-reduced-motion: reduce) {
-    .script-output__content { transition: none; }
-  }
   .script-output__empty { color: var(--klc-color-ui-muted); margin: var(--klc-space-8, 8px) 0; text-align: center; }
 </style>

@@ -15,7 +15,7 @@
         <span>{{ text.reasoning }}</span>
         <IconLoader2
           v-if="message.status === 'streaming'"
-          class="message__spinner"
+          class="message__spinner klc-spin"
           aria-hidden="true"
         />
       </summary>
@@ -55,7 +55,7 @@
               :aria-busy="editPending"
             >
               <span class="agent-primary-button__background" aria-hidden="true"></span>
-              <IconLoader2 v-if="editPending" class="message__spinner" aria-hidden="true" />
+              <IconLoader2 v-if="editPending" class="message__spinner klc-spin" aria-hidden="true" />
               <IconArrowUp v-else aria-hidden="true" />
             </button>
           </BaseTooltip>
@@ -104,6 +104,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-primary-button.css'
+
   import { computed } from 'vue'
   import IconActivity from '~icons/tabler/activity'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -193,7 +195,6 @@
   }
 </script>
 
-<style scoped src="./agent-primary-button.css"></style>
 
 <style scoped>
   .message__editor { position: relative; padding-bottom: 32px; }
@@ -493,18 +494,6 @@
   }
 
   .message__spinner {
-    animation: spin 850ms linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .message__spinner {
-      animation: none;
-    }
+    display: inline-block;
   }
 </style>
