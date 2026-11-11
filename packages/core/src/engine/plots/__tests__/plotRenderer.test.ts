@@ -15,6 +15,10 @@ import {
 import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import {
+  createPrimitivePreparer,
+  type GeometryPrimitive,
+} from '@/rendering/primitives/impl/prepare.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
@@ -101,7 +105,135 @@ function paint(
 }
 
 describe('Plot renderer', () => {
-  it('有数据变换时仍在上层将折线价格投影为屏幕坐标', () => {
+  it.each(['line', 'linebr', 'stepline', 'steplinebr'] as const)(
+    '%s 滚动和价格缩放复用路径与填充，GPU 不重写缓冲；跨窗口和数据更新正确失效',
+    (kind) => {
+      const submit = vi.fn<
+        (ctx: CanvasRenderingContext2D, commands: readonly PaintPrimitive[]) => boolean
+      >(() => true)
+      const { context, state } = paint(
+        {
+          series: [
+            { id: 'a', field: 'a', kind, color: () => 'red' },
+            { id: 'b', field: 'b', kind, color: () => 'blue' },
+          ],
+          fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
+        },
+        Array.from({ length: 2048 }, (_, i) => ({ a: 10 + (i % 5), b: 20 + (i % 5) })),
+        {},
+        {
+          range: { start: 100, end: 150 },
+          dataTransform: { offsetX: 10, yScale: -2, yOffset: 100 },
+          sceneRenderer: {
+            ...createCanvas2DRenderer(),
+            primitives: { paint: submit, dispose() {} },
+          },
+        },
+      )
+      const layer = createPlotLayer('plot-test', 'main', {
+        instanceId: 'plot-test',
+        axisId: 'main',
+      })
+      if (layer.kind !== 'draw-list') throw new Error('Expected draw-list')
+      const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+      const draw = (overrides: Partial<typeof context> = {}) => {
+        const current = { ...context, ...overrides }
+        layer.paint({ ...current, measureContext: context.ctx })
+        const commands = submit.mock.calls.at(-1)![1]
+        const geometry = commands.filter(
+          (command): command is GeometryPrimitive => command.kind !== 'text',
+        )
+        return {
+          commands,
+          batch: prepare.prepare(geometry, 800, 600, current.dpr, current.dataTransform),
+        }
+      }
+      const first = draw({ range: { start: 100, end: 164 } })
+      const next = draw({
+        range: { start: 101, end: 166 },
+        scrollLeft: 17,
+        dataTransform: { offsetX: 17, yScale: -4, yOffset: 200 },
+      })
+      for (let i = 0; i < first.commands.length; i++) {
+        const before = first.commands[i]!,
+          after = next.commands[i]!
+        if (
+          (before.kind === 'stroke' || before.kind === 'fill') &&
+          (after.kind === 'stroke' || after.kind === 'fill')
+        )
+          expect(after.paths[0]).toBe(before.paths[0])
+      }
+      expect(next.batch.uploads).toEqual({ vertices: null, instances: null, segments: null })
+      expect(next.batch.geometryBuilds).toBe(0)
+      const crossed = draw({ range: { start: 300, end: 350 } })
+      expect(crossed.batch.uploads.segments).not.toBeNull()
+      const stable = draw()
+      const updatedState = {
+        ...state,
+        plots: state.plots.map((plot) => {
+          if (
+            plot.kind !== 'line' &&
+            plot.kind !== 'linebr' &&
+            plot.kind !== 'stepline' &&
+            plot.kind !== 'steplinebr'
+          )
+            return plot
+          return {
+            ...plot,
+            data: plot.data.map((point) => point && { ...point, value: point.value + 1 }),
+          }
+        }),
+      }
+      const updatedReader = createContextWithInstanceState(
+        context.ctx,
+        'plot-test',
+        updatedState,
+      ).indicatorStateReader
+      const updated = draw({ indicatorStateReader: updatedReader })
+      expect(updated.batch.uploads.segments).not.toBeNull()
+      const before = stable.commands.find((command) => command.kind === 'stroke')
+      const after = updated.commands.find((command) => command.kind === 'stroke')
+      if (before?.kind !== 'stroke' || after?.kind !== 'stroke') throw new Error('Expected strokes')
+      expect(after.paths[0]).not.toBe(before.paths[0])
+      expect(after.paths[0]![0]!.y).toBe(before.paths[0]![0]!.y + 1)
+      const nonlinear = draw({ dataTransform: undefined })
+      for (const command of nonlinear.commands)
+        if (command.kind === 'fill' || command.kind === 'stroke')
+          expect(command.dataSpace).toBe(false)
+      layer.dispose()
+      const reset = draw()
+      expect(reset.batch.uploads.segments).not.toBeNull()
+    },
+  )
+
+  it('线与散点共享填充时统一使用屏幕坐标，避免混用价格和像素', () => {
+    const submit = vi.fn<
+      (ctx: CanvasRenderingContext2D, commands: readonly PaintPrimitive[]) => boolean
+    >(() => true)
+    paint(
+      {
+        series: [
+          { id: 'a', field: 'a', color: () => 'red' },
+          { id: 'b', field: 'b', kind: 'points', color: () => 'blue' },
+        ],
+        fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
+      },
+      [
+        { a: 1, b: 3 },
+        { a: 2, b: 4 },
+      ],
+      {},
+      {
+        dataTransform: { offsetX: 10, yScale: 2, yOffset: 5 },
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    for (const command of submit.mock.calls[0]![1])
+      if (command.kind === 'stroke' || command.kind === 'fill')
+        expect(command.dataSpace).toBe(false)
+  })
+
+  it('有线性数据变换时折线保留世界坐标与价格，交给后端重放', () => {
     const submit = vi.fn(() => true)
     const transform = { offsetX: 10, yScale: 10, yOffset: 0 }
     const { ctx } = paint(
@@ -120,11 +252,12 @@ describe('Plot renderer', () => {
           kind: 'stroke',
           paths: [
             [
-              { x: 5, y: 42.5 },
-              { x: 15, y: 45 },
+              { x: 5, y: 4.25 },
+              { x: 15, y: 4.5 },
             ],
           ],
           offsetX: 10,
+          dataSpace: true,
         }),
       ],
       1,
@@ -724,7 +857,7 @@ describe('Plot renderer', () => {
     ])
   })
 
-  it('填充与折线共享屏幕投影，数据变换不会重复应用', () => {
+  it('填充与折线共享数据坐标，后端只应用一次帧变换', () => {
     const submit = vi.fn<
       (context: unknown, commands: readonly PaintPrimitive[], dpr: number) => boolean
     >(() => true)
@@ -749,11 +882,11 @@ describe('Plot renderer', () => {
     const fill = submit.mock.calls[0]![1].find((command) => command.kind === 'fill')
     if (!fill || fill.kind !== 'fill') throw new Error('缺少填充原语')
     expect(fill).toMatchObject({ band: true, offsetX: 10 })
-    expect(fill).not.toHaveProperty('dataSpace')
-    expect(fill.paths[0]!.map((point) => point.y)).toEqual([10, 20, 40, 30])
+    expect(fill.dataSpace).toBe(true)
+    expect(fill.paths[0]!.map((point) => point.y)).toEqual([1, 2, 4, 3])
     const strokes = submit.mock.calls[0]![1].filter((command) => command.kind === 'stroke')
     expect(strokes).toHaveLength(2)
-    for (const stroke of strokes) expect(stroke).not.toHaveProperty('dataSpace')
+    for (const stroke of strokes) expect(stroke.dataSpace).toBe(true)
   })
 
   it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {

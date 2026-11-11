@@ -20,17 +20,18 @@ import {
   createFrameTransaction,
   type FrameTransaction,
 } from '../../../foundation/reactivity/frameTransaction.js'
+import {
+  createTimeFormatter,
+  resolveDisplayTimeZone,
+  type TimeFormatter,
+  type TimeTick,
+  type TimeZoneSetting,
+} from '../../../foundation/time/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import { resolveChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import type { ChartSeriesDatum, KLineData } from '../../../foundation/types/price.js'
 import { ScaleType } from '../../../foundation/types/scaleType.js'
 import { systemClock } from '../../../foundation/utils/clock.js'
-import {
-  createDisplayTimeFormatter,
-  type DisplayTimeFormatter,
-  type DisplayTimeZoneSetting,
-  resolveDisplayTimeZone,
-} from '../../../foundation/utils/dateFormat.js'
 import { createScene } from '../../../rendering/scene/createScene.js'
 import {
   type ContextLayer,
@@ -92,6 +93,7 @@ import {
   type ResolvedPanePriceRange,
   resolvePanePriceRange,
 } from './panePriceRange.js'
+import { projectFrameTimeTicks } from './timeTicks.js'
 
 /** 帧内共享的时间与倒计时派生结果。 */
 type FrameCountdown = {
@@ -136,6 +138,8 @@ type FrameContext = {
   indicatorStateReader: IndicatorRenderStateReader
   /** 本帧指标可用性读取器。 */
   indicatorAvailability: IndicatorAvailabilityReader
+  /** 本帧时间轴刻度；网格线与时间轴共享同一份结果。 */
+  timeTicks: readonly TimeTick[]
 }
 
 /** Overlay 帧复用的上一帧几何缓存。 */
@@ -147,6 +151,7 @@ type CachedDrawFrame = {
   kWidthPx: number
   timeShareGeometry: TimeShareGeometry | null
   visiblePriceExtrema: VisiblePriceExtrema | null
+  timeTicks: readonly TimeTick[]
 }
 
 /** 单个 Pane 的 canvas 上下文与布局形状。 */
@@ -368,8 +373,8 @@ export class ChartRenderer {
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
   private timeAxisLayer: ContextLayer<RenderContext> | null = null
-  private displayTimeZoneSetting: DisplayTimeZoneSetting = 'UTC'
-  private displayTimeFormatter: DisplayTimeFormatter = createDisplayTimeFormatter('UTC')
+  private displayTimeZoneSetting: TimeZoneSetting = 'UTC'
+  private displayTimeFormatter: TimeFormatter = createTimeFormatter('UTC')
   /** 上次已测量右轴的可视区绝对值数量级。 */
   private readonly axisWidthEstimator = new AxisWidthEstimator()
   private readonly retainedAxisLabels = new Map<string, AxisLabelsFrame>()
@@ -696,12 +701,12 @@ export class ChartRenderer {
   }
 
   /** 仅在持久化显示时区偏好变更时重建 formatter 状态。 */
-  private getDisplayTimeFormatter(): DisplayTimeFormatter {
+  private getDisplayTimeFormatter(): TimeFormatter {
     const configured = this.getSettings().displayTimeZone
-    const setting: DisplayTimeZoneSetting = configured === 'local' ? 'local' : 'UTC'
+    const setting: TimeZoneSetting = configured === 'local' ? 'local' : 'UTC'
     if (setting !== this.displayTimeZoneSetting) {
       this.displayTimeZoneSetting = setting
-      this.displayTimeFormatter = createDisplayTimeFormatter(resolveDisplayTimeZone(setting))
+      this.displayTimeFormatter = createTimeFormatter(resolveDisplayTimeZone(setting))
     }
     return this.displayTimeFormatter
   }
@@ -955,6 +960,18 @@ export class ChartRenderer {
     )
     const indicatorManager = this.deps.getIndicatorManager()
 
+    // 时间轴刻度只依赖可见区间与槽位网格；Overlay 帧沿用已缓存的一份。
+    const timeTicks = cached
+      ? cached.timeTicks
+      : projectFrameTimeTicks({
+          data: internalData,
+          grid: projection.grid,
+          scrollLeft: vp.scrollLeft,
+          plotWidth: vp.plotWidth,
+          period: dataManager.currentPeriod,
+          timeZone: this.getDisplayTimeFormatter().timeZone,
+        })
+
     return {
       viewSnapshot: this.deps.viewport.readonly.viewSnapshot.peek(),
       countdown,
@@ -965,6 +982,7 @@ export class ChartRenderer {
       data: internalData,
       dataRevision: dataManager.getRenderDataRevision(),
       visiblePriceExtrema,
+      timeTicks,
       // 价格轴范围在 render 回调里、visibleRange 更新之后统一收集。
       panePriceRanges: {},
       comparisonActive: false,
@@ -1421,6 +1439,7 @@ export class ChartRenderer {
       }),
       marketSession: this.deps.getMarketSession(),
       displayTimeFormatter: this.getDisplayTimeFormatter(),
+      timeTicks: frame.timeTicks,
       timeShareRange: optional(dataManager.getTimeShareRange()),
       timeShareGeometry: optional(frame.timeShareGeometry),
       comparisonData: dataManager.getComparisonData(),
@@ -1845,6 +1864,7 @@ export class ChartRenderer {
         data: renderData,
         dataView: this.deps.dataView$.peek(),
         displayTimeFormatter: this.getDisplayTimeFormatter(),
+        timeTicks: frame.timeTicks,
         timeShareRange: optional(dataManager.getTimeShareRange()),
         timeShareGeometry: optional(timeShareGeometry),
         range,
@@ -1901,6 +1921,7 @@ export class ChartRenderer {
       kWidthPx: frame.kWidthPx,
       timeShareGeometry: frame.timeShareGeometry,
       visiblePriceExtrema: frame.visiblePriceExtrema,
+      timeTicks: frame.timeTicks,
     }
   }
 

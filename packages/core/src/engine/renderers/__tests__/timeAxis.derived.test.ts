@@ -2,14 +2,14 @@
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { AXIS_LABEL_KIND, type AxisTickLabel, type RenderContext } from '@/foundation/plugin/index'
+import { createTimeFormatter } from '@/foundation/time/index'
 import type { KLineData } from '@/foundation/types/price'
-import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createTimeAxisLayer } from '../timeAxis'
 import { createDailyBars } from './helpers/dailyBarsTestKit'
 
 const DATA_LENGTH = 100
 const FIRST_BAR_TS = Date.UTC(2025, 9, 23)
-const formatter = createDisplayTimeFormatter('UTC')
+const formatter = createTimeFormatter('UTC')
 
 /** 以时间轴身份调用时间轴 Layer.paint。 */
 function paint(context: RenderContext, crosshair?: { x: number; index: number }): void {

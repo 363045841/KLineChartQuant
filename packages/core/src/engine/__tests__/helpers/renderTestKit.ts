@@ -8,11 +8,13 @@
  */
 import { vi } from 'vitest'
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
+import { projectFrameTimeTicks } from '@/engine/frame/impl/timeTicks.js'
 import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
+import { createKLineSlotGrid } from '@/engine/viewport/slotGrid'
+import { createTimeFormatter } from '@/foundation/time/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ChartDataViewId } from '@/foundation/types/chartView'
-import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import type { IndicatorRenderStateReader, PaneInfo, PluginHost, RenderContext } from '@/plugin'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import { createScene } from '@/rendering/scene/createScene.js'
@@ -224,28 +226,41 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
   const kWidth = rest.kWidth ?? 6
   const kGap = rest.kGap ?? 2
   const dpr = rest.dpr ?? 1
+  const scrollLeft = rest.scrollLeft ?? 0
+  const paneWidth = rest.paneWidth ?? 800
+  const period = rest.period ?? 'daily'
+  const formatter = rest.displayTimeFormatter ?? createTimeFormatter('UTC')
+  const grid = createKLineSlotGrid(kWidth, kGap, dpr)
   const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
   const defaults = {
     ctx: createMockCanvasContext(),
     data,
-    period: 'daily',
+    period,
     dataView: ChartDataViewId.KLine,
     pane: createMockPaneInfo(pane),
     range: { start: 0, end: count },
-    scrollLeft: 0,
-    slotGrid: { origin: 4, step: kWidth + kGap },
+    scrollLeft,
+    slotGrid: grid,
     kWidth,
     kGap,
     dpr,
     kWidthPx,
-    paneWidth: 800,
+    paneWidth,
     kLinePositions: data.map((_, i) => i * 8),
     kLineCenters: data.map((_, i) => i * 8 + 4),
-    viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 200 },
+    viewport: { scrollLeft, plotWidth: paneWidth, plotHeight: 200 },
     yAxisRanges: [],
     xAxisRanges: [],
     axisLabels: createAxisLabelsFrame(),
-    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+    displayTimeFormatter: formatter,
+    timeTicks: projectFrameTimeTicks({
+      data,
+      grid,
+      scrollLeft,
+      plotWidth: paneWidth,
+      period,
+      timeZone: formatter.timeZone,
+    }),
     theme: 'light',
   } satisfies Omit<RenderContext, 'coordinates'>
   const resolved = { ...defaults, ...rest }

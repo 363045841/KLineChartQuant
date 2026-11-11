@@ -1,10 +1,19 @@
-/** CPU 线性缓冲与上传差异跟踪：按容量增长，逐帧复用，只上传变化区间。 */
+/** CPU 线性缓冲：写入者声明变更区间，重放只推进游标，不扫描或复制 CPU 镜像。 */
 export class FloatArena {
   private storage = new Float32Array(256)
   length = 0
+  private firstWrite = Infinity
+  private lastWrite = 0
 
-  /** 保留已有内容并按倍数扩容。 */
+  /** 声明接下来写入的块，保留已有内容并按倍数扩容。 */
   reserve(additional: number): void {
+    this.firstWrite = Math.min(this.firstWrite, this.length)
+    this.lastWrite = Math.max(this.lastWrite, this.length + additional)
+    this.ensureCapacity(additional)
+  }
+
+  /** 容量与内容变更分开：复用既有区间不会触发上传。 */
+  private ensureCapacity(additional: number): void {
     const needed = this.length + additional
     if (needed <= this.storage.length) return
     const next = new Float32Array(Math.max(needed, this.storage.length * 2))
@@ -25,12 +34,22 @@ export class FloatArena {
   /** 清空游标而保留容量。 */
   reset(): void {
     this.length = 0
+    this.firstWrite = Infinity
+    this.lastWrite = 0
   }
 
   /** 复用上一批内容：只推进游标，不重写存储。 */
   skip(additional: number): void {
-    this.reserve(additional)
+    this.ensureCapacity(additional)
     this.length += additional
+  }
+
+  /** 本轮被写入的连续包络；尾部缩短不上传，重新增长必须由写入或保留区间提供内容。 */
+  uploadRange(): UploadRange | null {
+    const end = Math.min(this.lastWrite, this.length)
+    return this.firstWrite < end
+      ? { offset: this.firstWrite * 4, values: this.storage.subarray(this.firstWrite, end) }
+      : null
   }
 }
 
@@ -39,27 +58,11 @@ export interface UploadRange {
   values: Float32Array
 }
 
-/** 保留上一次 GPU 内容的 CPU 镜像，精确比较并合并成一个连续上传区间。 */
-export class UploadTracker {
-  private previous = new Float32Array(0)
-  private length = 0
-
-  /** force 用于新分配的 GPU buffer；完全未变时不产生上传。 */
-  update(values: Float32Array, force = false): UploadRange | null {
-    if (this.previous.length < values.length) {
-      this.previous = new Float32Array(Math.max(values.length, this.previous.length * 2))
-      force = true
-    }
-    let first = values.length,
-      last = -1
-    for (let i = 0; i < values.length; i++) {
-      if (force || i >= this.length || this.previous[i] !== values[i]) {
-        first = Math.min(first, i)
-        last = i
-        this.previous[i] = values[i]!
-      }
-    }
-    this.length = values.length
-    return last < first ? null : { offset: first * 4, values: values.subarray(first, last + 1) }
-  }
+/** 新 GPU 存储需要完整初始化；已分配存储直接消费生产者的变更区间。 */
+export function resolveUploadRange(
+  values: Float32Array,
+  dirty: UploadRange | null,
+  allocated: boolean,
+): UploadRange | null {
+  return allocated && values.length > 0 ? { offset: 0, values } : dirty
 }

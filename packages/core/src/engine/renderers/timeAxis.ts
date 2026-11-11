@@ -1,18 +1,14 @@
-/** X 轴刻度与十字线时间签的展示层：时间与位置全部来自本帧坐标服务。 */
+/** X 轴刻度与十字线时间签的展示层：刻度来自帧投影，位置来自本帧坐标服务。 */
 
 import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { AxisLabelCollector, RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { getMarketSessionTimeFormatter } from '../../foundation/time/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import {
-  isDailyPeriod,
-  isIntradayPeriod,
-  isTimeSharePeriod,
-} from '../../foundation/types/chartPeriod.js'
+import { isIntradayPeriod, isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import { getMarketSessionTimeFormatter } from '../../foundation/utils/dateFormat.js'
 import {
   ASHARE_MARKET_SESSION,
   computeTimeShareTimeLabels,
@@ -21,11 +17,8 @@ import {
 } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { ContextLayer } from '../../rendering/scene/types.js'
 import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import { createKLineSlotGrid } from '../viewport/slotGrid.js'
+import { TIME_AXIS_PADDING } from '../frame/impl/timeTicks.js'
 import { paintAxisLabels, registerAxisLabel } from './impl/labels/index.js'
-
-/** 时间轴文字与绘图区边界的留白。 */
-const AXIS_LABEL_PADDING = 8
 
 /** 将领域交易日格式化为五日轴标签。 */
 function formatTradingDateLabel(tradingDate: string): string {
@@ -50,10 +43,8 @@ function formatCrosshairTime(context: RenderContext, timestamp: number): string 
 /**
  * 生产底部时间轴刻度文字标签（普通 K 线 / 分时 / 五日分时）并注册到 xTicks 表面。
  *
- * 普通 K 线逐槽读取本帧坐标服务：位置来自 logicalToX，日期来自 logicalToTime。
- * 过去留白、真实行情与未来留白使用同一套推算，因此日期 key 变化即月界/日界，
- * 不再区分历史边界与相对索引占位。日线以下按日界，日线及以上按月 / 年界；
- * 刻度文字始终是日期，时分只出现在十字线时间签与绘图锚点时间签。
+ * 普通 K 线直接消费帧投影的刻度：文本与落点都已由同一份时间投影给出，
+ * 这里只做可见区过滤，不再逐槽推算日期。
  *
  * @param context 当前时间轴渲染上下文
  * @param surface xTicks 表面收集器
@@ -124,44 +115,18 @@ function collectTimeAxisTicks(
     return
   }
 
-  const displayTimeFormatter = context.displayTimeFormatter
-  // 日线以下按日界放刻度，周期越高的按年 / 月界放刻度；刻度文字始终是日期，不补时分。
-  const isIntraday = isIntradayPeriod(period)
-  const showOnlyYear = !isIntraday && !isDailyPeriod(period)
-  const labelFn = isIntraday
-    ? displayTimeFormatter.formatAxisDay
-    : displayTimeFormatter.formatAxisMonthOrYear
-  const keySize = isIntraday ? 10 : 7
-  const minX = AXIS_LABEL_PADDING
-  const maxX = Math.max(AXIS_LABEL_PADDING, width - AXIS_LABEL_PADDING)
-
-  // 可见槽位由同一横轴网格给出，包含左侧过去留白与右侧未来留白。
-  const grid = createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
-  const firstIndex = Math.floor((scrollLeft + minX - grid.origin) / grid.step)
-  const lastIndex = Math.ceil((scrollLeft + maxX - grid.origin) / grid.step)
-
-  /** 起始键取扫描起点前一槽，避免把视口左缘误当成月界；无时间时首槽自行成界。 */
-  const leadingTime = context.coordinates.logicalToTime(firstIndex - 1)
-  let previousKey =
-    leadingTime === null ? null : displayTimeFormatter.formatDate(leadingTime).slice(0, keySize)
-
-  for (let index = firstIndex; index <= lastIndex; index++) {
-    const timestamp = context.coordinates.logicalToTime(index)
-    if (timestamp === null) continue
-    const key = displayTimeFormatter.formatDate(timestamp).slice(0, keySize)
-    if (key === previousKey) continue
-    previousKey = key
-    const screenX = context.coordinates.logicalToX(index)
+  const minX = TIME_AXIS_PADDING
+  const maxX = Math.max(TIME_AXIS_PADDING, width - TIME_AXIS_PADDING)
+  for (const tick of context.timeTicks) {
+    const screenX = context.coordinates.logicalToX(tick.index)
     if (screenX === null || screenX < minX || screenX > maxX) continue
-    const { text, isYear } = labelFn(timestamp)
-    if (showOnlyYear && !isYear) continue
     surface.register({
       kind: AXIS_LABEL_KIND.TICK,
-      text,
+      text: tick.label,
       pos: screenX,
       color: textColor,
       fontSize,
-      bold: isYear,
+      bold: tick.major,
     })
   }
 }

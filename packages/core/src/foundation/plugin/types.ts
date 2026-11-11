@@ -396,8 +396,10 @@ export interface RenderDataContext {
   comparisonProjection?: import('../../engine/chartModel/index.js').ComparisonProjection
   /** 本帧唯一坐标服务：绝对时间 ↔ 逻辑槽位 ↔ 像素，以及本 Pane 的价格投影。 */
   coordinates: import('../geometry/frameCoordinates.js').FrameCoordinates
-  /** 当前图表的显示时区 formatter；仅用于普通 K 线的日期显示与边界。 */
-  displayTimeFormatter: import('../utils/dateFormat.js').DisplayTimeFormatter
+  /** 当前图表的显示时区 formatter；只做文本格式化，不参与刻度选择。 */
+  displayTimeFormatter: import('../time/index.js').TimeFormatter
+  /** 本帧时间轴刻度；网格线与时间轴共享同一份结果，不各自扫描槽位。 */
+  timeTicks: readonly import('../time/index.js').TimeTick[]
 }
 
 /** 数据空间 → 屏幕的线性变换：x 减去 offsetX，y 乘以 yScale 再加 yOffset。 */

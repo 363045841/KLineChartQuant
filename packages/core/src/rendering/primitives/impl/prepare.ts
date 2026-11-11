@@ -1,10 +1,11 @@
 /** 有序合批准备：提前剔除、缓存几何、实例化基础形状，复用 CPU 连续缓冲。 */
 import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { PaintPrimitive, PrimitiveFade, PrimitivePath, PrimitivePoint } from '../types.js'
-import { FloatArena } from './buffers.js'
+import { FloatArena, type UploadRange } from './buffers.js'
 import { type CachedGeometry, GeometryCache, type PrimitiveBounds } from './cache.js'
 import type { ColorResolver, PrimitiveColor } from './colors.js'
 import { bandTriangles, pathTriangles, simpleStrokePath, strokePaths } from './geometry.js'
+import { projectStrokeToScreen } from './projection.js'
 import { MESH_FLOATS, SEGMENT_FLAGS, SEGMENT_FLOATS } from './shaders.js'
 import { emitStrokePolygons, STROKE_REGION, strokeRegion } from './strokeRegions.js'
 
@@ -33,12 +34,18 @@ interface FillSpan {
   readonly draw: PreparedDraw
 }
 export interface PreparedBatch {
+  /** 数据顶点相对本批原点存储；后端在双精度里合并原点与帧变换。 */
+  dataOrigin: PrimitivePoint
   vertices: Float32Array
   instances: Float32Array
   segments: Float32Array
   draws: PreparedDraw[]
-  /** 本批各类缓冲是否被重写；false 表示可直接复用上一帧的 GPU 内容。 */
-  changed: { vertices: boolean; instances: boolean; segments: boolean }
+  /** 写入阶段给出的字节区间；null 表示复用 GPU 内容，不再逐 float 比较。 */
+  uploads: {
+    vertices: UploadRange | null
+    instances: UploadRange | null
+    segments: UploadRange | null
+  }
   culled: number
   geometryBuilds: number
   geometryHits: number
@@ -164,7 +171,7 @@ function sameStroke(
     a.join !== b.join ||
     a.miterLimit !== b.miterLimit ||
     a.dashOffset !== b.dashOffset ||
-    a.offsetX !== b.offsetX ||
+    (a.dataSpace !== true && a.offsetX !== b.offsetX) ||
     a.dataSpace !== b.dataSpace ||
     a.paths.length !== b.paths.length
   )
@@ -215,6 +222,8 @@ export function createPrimitivePreparer(
   let lastPrimitives: readonly GeometryPrimitive[] | undefined
   let lastSegments: Array<{ start: number; count: number } | undefined> = []
   let lastFills: Array<FillSpan | undefined> = []
+  let lastOrigin: PrimitivePoint = { x: 0, y: 0 }
+  let lastHasTransform = false
   return {
     prepare(
       primitives: readonly GeometryPrimitive[],
@@ -227,14 +236,27 @@ export function createPrimitivePreparer(
       instances.reset()
       segmentArena.reset()
       draws.length = 0
-      // 上一次调用的段布局用于复用；本次写入记录到新的数组，结束后再替换。
-      const previousSegments = lastSegments
+      const originPrimitive =
+        transform &&
+        primitives.find(
+          (primitive) =>
+            (primitive.kind === 'stroke' || primitive.kind === 'fill') &&
+            primitive.dataSpace === true &&
+            primitive.paths[0]?.[0],
+        )
+      const dataOrigin =
+        originPrimitive && (originPrimitive.kind === 'stroke' || originPrimitive.kind === 'fill')
+          ? originPrimitive.paths[0]![0]!
+          : { x: 0, y: 0 }
+      const sameOrigin =
+        dataOrigin.x === lastOrigin.x &&
+        dataOrigin.y === lastOrigin.y &&
+        (transform !== undefined) === lastHasTransform
+      // 原点改变时重新编码数据顶点；屏幕坐标不受局部原点影响。
+      const previousSegments = sameOrigin ? lastSegments : []
       const currentSegments: Array<{ start: number; count: number } | undefined> = []
-      const previousFills = lastFills
+      const previousFills = sameOrigin ? lastFills : []
       const currentFills: Array<FillSpan | undefined> = []
-      let wroteVertices = false,
-        wroteInstances = false,
-        wroteSegments = false
       geometryCache.beginBatch()
       let culled = 0,
         geometryBuilds = 0,
@@ -262,7 +284,6 @@ export function createPrimitivePreparer(
         mode = 0,
         fade?: PrimitiveFade,
       ): void {
-        wroteVertices = true
         // 顶点保留逻辑像素：屏幕几何原样写入，数据空间几何由着色器先变换再归一化。
         mesh.write(x)
         mesh.write(y)
@@ -316,7 +337,18 @@ export function createPrimitivePreparer(
         pendingBounds = undefined
       }
       for (let primitiveIndex = 0; primitiveIndex < primitives.length; primitiveIndex++) {
-        const primitive = primitives[primitiveIndex]!
+        const source = primitives[primitiveIndex]!
+        // 固定像素虚线、非圆连接与半透明描边必须先投影，再按屏幕单位扩宽。
+        // 实线圆连接在 GPU 顶点阶段扩宽，保持数据坐标及缓冲不随轴变换失效。
+        const primitive =
+          source.kind === 'stroke' &&
+          source.dataSpace === true &&
+          transform &&
+          (!segmentStrokes ||
+            strokeRegion(source) !== STROKE_REGION.capsule ||
+            resolveColor(source.color)[3] !== 1)
+            ? projectStrokeToScreen(source, transform)
+            : source
         // 矩形批次自带逐矩形裁剪，不做整批包围盒；图表投影端已按视口裁剪，
         // 这里保留逐根判定兜住其他生产者的原始批次。
         if (primitive.kind === 'rects') {
@@ -336,7 +368,6 @@ export function createPrimitivePreparer(
               continue
             }
             instances.reserve(INSTANCE_FLOATS)
-            wroteInstances = true
             instances.write(x + width / 2)
             instances.write(y + height / 2)
             instances.write(width / 2)
@@ -429,14 +460,16 @@ export function createPrimitivePreparer(
                     }
                   }
                   segmentArena.reserve(SEGMENT_FLOATS)
-                  segmentArena.write(a.x - shift)
-                  segmentArena.write(a.y)
-                  segmentArena.write(b.x - shift)
-                  segmentArena.write(b.y)
-                  segmentArena.write(prev.x - shift)
-                  segmentArena.write(prev.y)
-                  segmentArena.write(next.x - shift)
-                  segmentArena.write(next.y)
+                  const originX = dataSpace ? dataOrigin.x : 0
+                  const originY = dataSpace ? dataOrigin.y : 0
+                  segmentArena.write(a.x - shift - originX)
+                  segmentArena.write(a.y - originY)
+                  segmentArena.write(b.x - shift - originX)
+                  segmentArena.write(b.y - originY)
+                  segmentArena.write(prev.x - shift - originX)
+                  segmentArena.write(prev.y - originY)
+                  segmentArena.write(next.x - shift - originX)
+                  segmentArena.write(next.y - originY)
                   segmentArena.write(half)
                   for (const component of color) segmentArena.write(component)
                   // 数据空间标记与区域种类共用一个标志位字段，避免中途改 uniform。
@@ -462,7 +495,6 @@ export function createPrimitivePreparer(
               })
             }
             if (count > 0) {
-              wroteSegments = true
               currentSegments[primitiveIndex] = { start: first * SEGMENT_FLOATS, count }
               const last = draws.at(-1)
               if (last?.kind === 'segments') last.count += count
@@ -505,7 +537,6 @@ export function createPrimitivePreparer(
           const strokeWidth = primitive.strokeColor ? (primitive.strokeWidth ?? 1) : 0
           const first = instances.length / 16
           instances.reserve(16)
-          wroteInstances = true
           instances.write(centerX)
           instances.write(centerY)
           instances.write(halfWidth)
@@ -524,6 +555,23 @@ export function createPrimitivePreparer(
           else draws.push({ kind: 'instances', first, count: 1 })
           continue
         }
+        // 在路径哈希与几何缓存之前复用；纯轴变换不读取带子的任何顶点。
+        if (dataSpace && primitive.kind === 'fill') {
+          flush()
+          const previousFill = previousFills[primitiveIndex]
+          const previousPrimitive = lastPrimitives?.[primitiveIndex]
+          if (
+            previousFill &&
+            previousPrimitive?.kind === 'fill' &&
+            sameFill(previousPrimitive, primitive) &&
+            mesh.length === previousFill.start
+          ) {
+            mesh.skip(previousFill.floats)
+            draws.push(previousFill.draw)
+            currentFills[primitiveIndex] = previousFill
+            continue
+          }
+        }
         const style =
           primitive.kind === 'fill'
             ? `fill/${primitive.fillRule ?? 'nonzero'}`
@@ -537,23 +585,6 @@ export function createPrimitivePreparer(
         if (!geometry.positions.length) continue
         const color = resolveColor(primitive.color),
           opacity = primitive.kind === 'fill' ? (primitive.opacity ?? 1) : 1
-        // 数据空间带子的路径与样式不变时，直接跳到上一帧写好的顶点段。
-        const reusable = dataSpace && primitive.kind === 'fill'
-        const previousFill = reusable ? previousFills[primitiveIndex] : undefined
-        const previousPrimitive = reusable ? lastPrimitives?.[primitiveIndex] : undefined
-        if (
-          previousFill &&
-          previousPrimitive?.kind === 'fill' &&
-          primitive.kind === 'fill' &&
-          sameFill(previousPrimitive, primitive) &&
-          mesh.length === previousFill.start
-        ) {
-          flush()
-          mesh.skip(previousFill.floats)
-          draws.push(previousFill.draw)
-          currentFills[primitiveIndex] = previousFill
-          continue
-        }
         /**
          * 不透明描边直接栅格化三角形：轮廓之间重叠不会改变颜色，因此不需要 stencil，
          * 也就不会为整条线段的包围盒铺一次全幅 cover（多指标时的主要填充开销）。
@@ -565,8 +596,8 @@ export function createPrimitivePreparer(
           const shift = dataSpace ? 0 : offsetX
           for (let i = 0; i < geometry.positions.length; i += 2)
             vertex(
-              geometry.positions[i]! + cached.x - shift,
-              geometry.positions[i + 1]! + cached.y,
+              geometry.positions[i]! + cached.x - shift - (dataSpace ? dataOrigin.x : 0),
+              geometry.positions[i + 1]! + cached.y - (dataSpace ? dataOrigin.y : 0),
               color,
               opacity,
               dataSpace ? 1 : 0,
@@ -626,18 +657,32 @@ export function createPrimitivePreparer(
         }
       }
       flush()
-      lastPrimitives = primitives
+      // 快照描述符，调用方可复用原语列表；路径点本身由 readonly 契约保证不可变。
+      lastPrimitives = primitives.map((primitive) =>
+        primitive.kind === 'stroke'
+          ? {
+              ...primitive,
+              paths: [...primitive.paths],
+              dash: primitive.dash && [...primitive.dash],
+            }
+          : primitive.kind === 'fill'
+            ? { ...primitive, paths: [...primitive.paths] }
+            : primitive,
+      )
       lastSegments = currentSegments
       lastFills = currentFills
+      lastOrigin = { ...dataOrigin }
+      lastHasTransform = transform !== undefined
       return {
+        dataOrigin,
         vertices: mesh.view(),
         instances: instances.view(),
         segments: segmentArena.view(),
         draws,
-        changed: {
-          vertices: wroteVertices,
-          instances: wroteInstances,
-          segments: wroteSegments,
+        uploads: {
+          vertices: mesh.uploadRange(),
+          instances: instances.uploadRange(),
+          segments: segmentArena.uploadRange(),
         },
         culled,
         geometryBuilds,

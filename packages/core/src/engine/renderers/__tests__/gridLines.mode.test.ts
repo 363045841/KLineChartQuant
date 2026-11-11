@@ -6,9 +6,9 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit'
 import { createTimeShareGeometry } from '@/engine/__tests__/helpers/timeShareTestKit'
 import { createGridLinesLayer } from '@/engine/renderers/gridLines'
+import { createTimeFormatter } from '@/foundation/time/index'
 import type { ChartDataView } from '@/foundation/types/chartView'
 import { ChartDataViewId } from '@/foundation/types/chartView'
-import { createDisplayTimeFormatter } from '@/foundation/utils/dateFormat'
 import { createDailyBars } from './helpers/dailyBarsTestKit'
 
 /** 构造记录 fillRect 矩形的画布。 */
@@ -62,7 +62,7 @@ function buildContext(dataView: ChartDataView, paneTop = 0) {
     dataView,
     isAsiaMarket: true,
     colorPresetSettings: {},
-    displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+    displayTimeFormatter: createTimeFormatter('UTC'),
   })
   return { ctx, fillRects, context }
 }
@@ -126,7 +126,7 @@ describe('gridLines 未来区纵向网格', () => {
       dataView: ChartDataViewId.KLine,
       isAsiaMarket: true,
       colorPresetSettings: {},
-      displayTimeFormatter: createDisplayTimeFormatter('UTC'),
+      displayTimeFormatter: createTimeFormatter('UTC'),
       range: { start: 0, end: 160 },
       kLineCenters: Array.from({ length: 160 }, (_, i) => 8 * i + 4),
       pane: { top: 0, height: 400 },

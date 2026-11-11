@@ -2,6 +2,7 @@
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
+import { frameTimeTicks, type TimeTickUnit } from '@/foundation/time/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { isDailyPeriod, isMinutePeriod } from '@/foundation/types/chartPeriod.js'
 import { isTimeShareDataView } from '@/foundation/types/chartView.js'
@@ -74,19 +75,26 @@ function drawGridLines(context: PrimitiveRenderContext): void {
     }
   } else if (!isTimeShareDataView(context.dataView)) {
     const minutePeriod = isMinutePeriod(context.period)
-    const boundaries = minutePeriod
-      ? context.displayTimeFormatter.getDayBoundaries(klineData)
-      : context.displayTimeFormatter.getMonthBoundaries(klineData)
     const showOnlyYear = !minutePeriod && !isDailyPeriod(context.period)
-
-    for (const idx of boundaries) {
-      if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
-      if (
-        showOnlyYear &&
-        !context.displayTimeFormatter.formatAxisMonthOrYear(klineData[idx]!.timestamp).isYear
-      )
-        continue
-
+    const unit: TimeTickUnit = minutePeriod ? 'day' : 'month'
+    // 纵向网格只标历史月界与序列起点，未来留白不产生分隔线。
+    const indexes = new Set<number>()
+    if (range.start <= 0 && range.end > 0 && klineData.length > 0) indexes.add(0)
+    const lastHistoryIndex = Math.min(range.end, klineData.length) - 1
+    if (lastHistoryIndex >= range.start) {
+      const ticks = frameTimeTicks({
+        projection: context.coordinates,
+        firstIndex: range.start,
+        lastIndex: lastHistoryIndex,
+        unit,
+        timeZone: context.displayTimeFormatter.timeZone,
+      })
+      for (const tick of ticks) {
+        if (showOnlyYear && !tick.major) continue
+        indexes.add(tick.index)
+      }
+    }
+    for (const idx of [...indexes].sort((left, right) => left - right)) {
       // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
       const localIdx = idx - range.start
       if (localIdx < 0 || localIdx >= kLineCenters.length) continue

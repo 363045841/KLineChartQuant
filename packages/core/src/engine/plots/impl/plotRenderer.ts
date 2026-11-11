@@ -1,4 +1,4 @@
-/** 通用 Plot Layer：保留投影缓存，所有绘制按顺序提交公共屏幕原语。 */
+/** 通用 Plot Layer：按坐标空间保留几何，所有图形通过公共原语按帧重放。 */
 
 import type {
   ArrowPlot,
@@ -27,14 +27,13 @@ import { createIndicatorRendererLayer } from '@/engine/renderers/Indicator/share
 import { projectOhlc } from '@/engine/renderers/ohlcGeometry/impl/projectOhlc.js'
 import type { OhlcGeometryInput, OhlcRect } from '@/engine/renderers/ohlcGeometry/types.js'
 import { calcBarLeftPx } from '@/engine/viewport/klineConfig.js'
-import { createKLineSlotGrid, slotWorldX } from '@/engine/viewport/slotGrid.js'
+import { slotWorldX } from '@/engine/viewport/slotGrid.js'
 import type { PrimitiveRenderContext, RenderContext } from '@/foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '@/foundation/plugin/index.js'
 import { ChartDataViewId } from '@/foundation/types/chartView.js'
 import { worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive, PrimitivePath } from '@/rendering/primitives/types.js'
-import { createRetainedGeometry } from '@/rendering/scene/retainedGeometry.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { PlotRenderState } from '../types.js'
 import { projectColumnPrimitives } from './columnGeometry.js'
@@ -61,6 +60,7 @@ type LineSeriesPlot = LinePlot | LineBRPlot | StepLinePlot | StepLineBRPlot
 /** 折线的投影结果：批次供 GPU 或 Canvas2D 重放。 */
 interface LineProjection {
   readonly kind: 'line'
+  readonly dataSpace: boolean
   readonly plot: LineSeriesPlot
   readonly points: ReadonlyMap<number, Point>
   readonly lines: readonly LineBatch[]
@@ -122,6 +122,7 @@ interface OhlcProjection {
 /** 填充的投影结果：端点在此解析，重放时不再按 id 查找。 */
 interface FillProjection {
   readonly fill: PlotFill
+  readonly dataSpace: boolean
   readonly bands: readonly FillBand[]
 }
 
@@ -197,7 +198,8 @@ function projectX(index: number, context: PrimitiveRenderContext): number | null
 
 /** K 线视图从连续槽位网格取 X，避免用量化后的相邻中心反推槽距。 */
 function projectKLineGridX(index: number, context: PrimitiveRenderContext): number {
-  const grid = createKLineSlotGrid(context.kWidth, context.kGap, context.dpr)
+  // 槽位网格由帧准备阶段给出，逐点重建会重复派生物理像素参数。
+  const grid = context.slotGrid
   return (
     worldXToScreenX(slotWorldX(grid, index), context.scrollLeft, context.dpr) + context.scrollLeft
   )
@@ -254,18 +256,11 @@ function projectMarkerPoint(
   return y !== undefined && Number.isFinite(y) ? { x, y } : undefined
 }
 
-/** 只遍历视口附近的点，不扫描中间的不可见历史；margin 由需要缓存的折线单独开启。 */
+/** 只遍历投影窗口与序列的交集；位移后的未来点也由同一窗口裁剪。 */
 function* plotIndices(plot: Plot, context: PrimitiveRenderContext, margin = 0): Iterable<number> {
-  // 折线左右各留半屏：纯滚动时点集不变，几何缓存才能命中，避免每帧重新三角化。
   for (
     let index = Math.max(0, context.range.start - margin);
-    index < context.range.end + margin;
-    index++
-  )
-    yield index
-  for (
-    let index = Math.max(context.range.end, context.data.length);
-    index < plot.data.length + plot.offset;
+    index < Math.min(context.range.end + margin, plot.data.length + plot.offset);
     index++
   )
     yield index
@@ -420,31 +415,29 @@ function projectLineProjection(
   plot: Plot,
   context: PrimitiveRenderContext,
   needsPoints: boolean,
+  dataSpace = false,
 ): PlotProjection {
   if (!isLineSeriesPlot(plot)) throw new TypeError('Expected line plot')
-  const margin = lineMargin(context)
+  const margin = dataSpace ? 0 : lineMargin(context)
+  const project = (index: number): Point | undefined => {
+    if (!dataSpace) return projectPricePoint(plot, index, context)
+    const value = barValue(plot, index)
+    return value === undefined ? undefined : { x: slotWorldX(context.slotGrid, index), y: value }
+  }
   // 只有被填充引用的线才需要按下标保留点；其余线在单遍构建里直接投影。
   if (!needsPoints) {
     return {
       kind: 'line',
+      dataSpace,
       plot,
       points: EMPTY_POINTS,
-      lines: buildLineSegments(
-        plot,
-        context,
-        (index) => projectPricePoint(plot, index, context),
-        margin,
-      ),
+      lines: buildLineSegments(plot, context, project, margin),
     }
   }
-  const points = projectPoints(
-    plot,
-    context,
-    (index) => projectPricePoint(plot, index, context),
-    margin,
-  )
+  const points = projectPoints(plot, context, project, margin)
   return {
     kind: 'line',
+    dataSpace,
     plot,
     points,
     lines: buildLineSegments(plot, context, (index) => points.get(index), margin),
@@ -605,12 +598,10 @@ function markerAppearance(
 }
 
 /** 解析填充端点；id 引用已由 validatePlotFills 校验，缺失即契约违规。 */
-function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>): FillProjection {
-  const from = byId.get(fill.from)
-  const to = byId.get(fill.to)
-  if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
+function resolveFill(fill: PlotFill, from: PlotProjection, to: PlotProjection): FillProjection {
   return {
     fill,
+    dataSpace: from.kind === 'line' && from.dataSpace && to.kind === 'line' && to.dataSpace,
     bands: buildFillBands(
       from.points,
       to.points,
@@ -622,17 +613,113 @@ function resolveFill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>):
   }
 }
 
-/** 一次投影构建全部重放数据，滚动重放不重新投影也不重新查找。 */
-function collectGeometry(state: PlotRenderState, context: PrimitiveRenderContext): PlotGeometry {
+/** 统一选择填充连通分量的坐标空间，再按各图形的真实几何输入复用。 */
+function collectGeometry(
+  state: PlotRenderState,
+  context: PrimitiveRenderContext,
+  cache = createPlotProjectionCache(),
+): PlotGeometry {
   // 填充只按 id 引用两端，先收集引用集合，未被引用的线不必保留点表。
   const filled = new Set<string>()
   for (const fill of state.fills) {
     filled.add(fill.from)
     filled.add(fill.to)
   }
-  const plots = state.plots.map((plot) => projectPlot(plot, context, filled.has(plot.id)))
+  // 填充两端必须使用同一个坐标空间；连通的混合图形整体按屏幕空间投影。
+  const dataLines = new Set(state.plots.filter(isLineSeriesPlot).map((plot) => plot.id))
+  if (!context.dataTransform || context.dataView !== ChartDataViewId.KLine) dataLines.clear()
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const fill of state.fills) {
+      if (dataLines.has(fill.from) !== dataLines.has(fill.to)) {
+        changed = dataLines.delete(fill.from) || changed
+        changed = dataLines.delete(fill.to) || changed
+      }
+    }
+  }
+  let screenRevision: ProjectionRevision | undefined
+  const plots = state.plots.map((plot) => {
+    if (dataLines.has(plot.id)) return cache.project(plot, context, filled.has(plot.id), 'data')
+    screenRevision ??= createProjectionRevision(context, [
+      context.data,
+      context.theme,
+      context.zoomLevel,
+    ])
+    return cache.project(plot, context, filled.has(plot.id), screenRevision)
+  })
   const byId = new Map(plots.map((projection) => [projection.plot.id, projection]))
-  return { plots, fills: state.fills.map((fill) => resolveFill(fill, byId)) }
+  const fills = state.fills.map((fill) => cache.fill(fill, byId))
+  cache.prune(state)
+  return { plots, fills }
+}
+
+/** 缓存窗口按可见跨度分桶；轴变换在重放时消费，不参与数据空间版本。 */
+function createPlotProjectionCache() {
+  const projections = new Map<string, { revision: ProjectionRevision; value: PlotProjection }>()
+  const fills = new Map<
+    string,
+    { from: PlotProjection; to: PlotProjection; value: FillProjection }
+  >()
+  return {
+    project(
+      plot: Plot,
+      context: PrimitiveRenderContext,
+      needsPoints: boolean,
+      space: 'data' | ProjectionRevision,
+    ): PlotProjection {
+      // 由像素容量决定桶大小，避免滚动中可见整数槽数 ±1 导致二次幂边界来回失效。
+      const span = Math.max(1, Math.ceil(context.viewport.plotWidth / context.slotGrid.step))
+      const bucket = 2 ** Math.ceil(Math.log2(span))
+      const start = Math.max(0, Math.floor(context.range.start / bucket) * bucket - bucket)
+      const end = Math.ceil(context.range.end / bucket) * bucket + bucket
+      const revision: ProjectionRevision =
+        space === 'data'
+          ? {
+              inputs: [
+                plot,
+                plot.data.length,
+                needsPoints,
+                true,
+                context.slotGrid.origin,
+                context.slotGrid.step,
+                start,
+                end,
+              ],
+              centers: [],
+            }
+          : { inputs: [plot, needsPoints, false, ...space.inputs], centers: space.centers }
+      const previous = projections.get(plot.id)
+      if (previous && sameProjectionRevision(previous.revision, revision)) return previous.value
+      const value =
+        space === 'data'
+          ? projectLineProjection(plot, { ...context, range: { start, end } }, needsPoints, true)
+          : projectPlot(plot, context, needsPoints)
+      projections.set(plot.id, { revision, value })
+      return value
+    },
+    fill(fill: PlotFill, byId: ReadonlyMap<string, PlotProjection>): FillProjection {
+      const from = byId.get(fill.from)
+      const to = byId.get(fill.to)
+      if (!from || !to) throw new TypeError(`Unknown Plot fill source: ${fill.id}`)
+      const previous = fills.get(fill.id)
+      if (previous && previous.from === from && previous.to === to && previous.value.fill === fill)
+        return previous.value
+      const value = resolveFill(fill, from, to)
+      fills.set(fill.id, { from, to, value })
+      return value
+    },
+    prune(state: PlotRenderState): void {
+      const plotIds = new Set(state.plots.map((plot) => plot.id))
+      const fillIds = new Set(state.fills.map((fill) => fill.id))
+      for (const id of projections.keys()) if (!plotIds.has(id)) projections.delete(id)
+      for (const id of fills.keys()) if (!fillIds.has(id)) fills.delete(id)
+    },
+    clear(): void {
+      projections.clear()
+      fills.clear()
+    },
+  }
 }
 
 /** 绘制一个指标实例的全部填充、参考线和 Plot；几何按当前帧即时投影。 */
@@ -649,7 +736,14 @@ function paintFillBands(
   for (const fill of fills) {
     if (!fill.fill.visible) continue
     for (const band of fill.bands) {
-      commands.push({ kind: 'fill', paths: band.polygons, color: band.color, band: true, offsetX })
+      commands.push({
+        kind: 'fill',
+        paths: band.polygons,
+        color: band.color,
+        band: true,
+        offsetX,
+        dataSpace: fill.dataSpace,
+      })
     }
   }
 }
@@ -728,6 +822,7 @@ function paintLineProjection(
       cap: 'round',
       join: 'round',
       offsetX,
+      dataSpace: projection.dataSpace,
     })
   }
 }
@@ -831,7 +926,7 @@ function paintGeometry(
   geometry: PlotGeometry,
 ): void {
   const commands: PaintPrimitive[] = []
-  // 描边算法按屏幕像素计算线宽与连接；价格在投影阶段转换，后端只扣除横向滚动。
+  // 每个原语声明坐标空间；后端统一重放变换，并在屏幕空间扩宽描边。
   const offsetX = context.scrollLeft
   paintFillBands(commands, geometry.fills, offsetX)
   paintGuideFills(commands, state.guideFills, context)
@@ -934,7 +1029,7 @@ export function createPlotLayer(
   defaultPaneId: string,
   options: { instanceId: string; axisId: string },
 ): Layer<RenderContext> {
-  const retained = createRetainedGeometry<PlotGeometry, ProjectionRevision>(sameProjectionRevision)
+  const cache = createPlotProjectionCache()
   return createIndicatorRendererLayer({
     definitionId,
     paneId: defaultPaneId,
@@ -944,18 +1039,9 @@ export function createPlotLayer(
     draw(context) {
       const state = context.indicatorStateReader?.get<PlotRenderState>(options.instanceId)
       if (state?.kind !== 'plots') return
-      const geometry = retained.read(
-        createProjectionRevision(context, [
-          state.plots,
-          state.fills,
-          context.data,
-          context.theme,
-          context.zoomLevel ?? 1,
-        ]),
-        () => collectGeometry(state, context),
-      )
+      const geometry = collectGeometry(state, context, cache)
       paintGeometry(state, context, geometry)
     },
-    dispose: () => retained.clear(),
+    dispose: () => cache.clear(),
   })
 }

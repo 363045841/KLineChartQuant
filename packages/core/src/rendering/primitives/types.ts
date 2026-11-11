@@ -1,4 +1,4 @@
-/** 有序屏幕原语契约：几何使用逻辑像素，绘制目标保留调用方的裁剪与合成状态。 */
+/** 有序绘制原语：显式声明屏幕或数据坐标，目标保留调用方的裁剪与合成状态。 */
 import type { DataTransform } from '../../foundation/plugin/types.js'
 
 export type PrimitivePoint = Readonly<{ x: number; y: number }>
@@ -67,7 +67,7 @@ export type PaintPrimitive =
       miterLimit?: number
       /** 世界坐标的横向平移量；后端在绘制时统一扣除，路径本身保持不变。 */
       offsetX?: number
-      /** 点为数据空间（世界 x、价格 y），由帧变换还原屏幕坐标；仅解析式描边支持。 */
+      /** 点为数据空间（世界 x、价格 y）；所有后端先投影再按屏幕像素扩宽。 */
       dataSpace?: boolean
     }
   | {

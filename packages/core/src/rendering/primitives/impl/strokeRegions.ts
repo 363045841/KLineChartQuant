@@ -6,7 +6,7 @@
  * - polygon：尖角连接 + 平头/方头端帽，每段一个凸四边形；相邻段共享同一条切割边，
  *   互不重叠、不留缝，片元里取四边形距离即可，不需要归属判断。
  *
- * 只接管屏幕空间、开放路径；闭合路径、圆角与尖角混用、bevel 与数据空间折线仍走三角化。
+ * 圆角开放路径可保留数据坐标，由顶点着色器投影后扩宽；四边形切边只在屏幕空间计算。
  * 不透明度由调用方判断（半透明描边在共享切边上会二次混合，不进入解析式覆盖）。
  */
 
@@ -45,13 +45,14 @@ export type StrokePolygonSink = (
  * @returns 区域种类；null 表示继续走三角化
  */
 export function strokeRegion(stroke: Stroke): StrokeRegion | null {
-  if (!(stroke.width > 0) || stroke.closed === true || stroke.dataSpace === true) return null
+  if (!(stroke.width > 0) || stroke.closed === true) return null
   if (!stroke.paths.some((path) => path.length >= 2)) return null
   const join = stroke.join ?? 'miter'
   const cap = stroke.cap ?? 'butt'
   const dashed = stroke.dash?.some((value) => value > 0) === true
   // 圆角两端由胶囊端帽表达；虚线会在共享圆盘上取到半段，退回三角化。
   if (join === 'round') return cap === 'round' && !dashed ? STROKE_REGION.capsule : null
+  if (stroke.dataSpace === true) return null
   // 平头/方头端帽与尖角连接走四边形：端帽是垂直切边，尖角是角平分切边。
   if (join !== 'miter' || cap === 'round') return null
   return STROKE_REGION.polygon
@@ -115,9 +116,7 @@ function quadArea(
 ): number {
   // 对角线叉积，只用差值，避免大坐标相减的抵消误差。
   return (
-    ((third.x - first.x) * (fourth.y - second.y) -
-      (third.y - first.y) * (fourth.x - second.x)) /
-    2
+    ((third.x - first.x) * (fourth.y - second.y) - (third.y - first.y) * (fourth.x - second.x)) / 2
   )
 }
 

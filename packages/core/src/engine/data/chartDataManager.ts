@@ -1,5 +1,6 @@
 /** 行情协调器：管理 Repository、数据加载与各视图的数据投影。 */
 import type { IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
+import { formatDateInTimeZone } from '@/foundation/time/index.js'
 import {
   FIVE_DAY_TIME_SHARE_DAYS,
   FIVE_DAY_TIME_SHARE_PERIOD,
@@ -630,18 +631,9 @@ export class ChartDataManager {
     if (!instrument.sessionId) {
       throw new Error(`[MarketDataProvider] sessionId is required for "${instrument.id}" timeshare`)
     }
+    // 交易日与轴标签共用 Foundation 的显示时区格式化，不再就地构造 Intl。
     const timeZone = PROVIDER_MARKET_SESSIONS.getRequired(instrument.sessionId).timeZone
-    const values = Object.fromEntries(
-      new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      })
-        .formatToParts(new Date())
-        .map((part) => [part.type, part.value]),
-    )
-    return `${values.year}-${values.month}-${values.day}` as TradingDate
+    return formatDateInTimeZone(Date.now(), timeZone) as TradingDate
   }
 
   /** 从共享缓存获取单日分时并写入当前图表快照。 */

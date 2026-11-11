@@ -1,8 +1,9 @@
 /** 合批与缓存行为：透明顺序、坐标修改、平移、DPR 和提前剔除。 */
 import { describe, expect, it } from 'vitest'
-import { UploadTracker } from '../impl/buffers.js'
+import { FloatArena, resolveUploadRange } from '../impl/buffers.js'
 import { rectPath } from '../impl/geometry.js'
 import { createPrimitivePreparer, type GeometryPrimitive } from '../impl/prepare.js'
+import { projectStrokeToScreen, rebaseDataTransform } from '../impl/projection.js'
 import type { PaintPrimitive } from '../types.js'
 
 /** 使用固定 RGBA 隔离浏览器颜色解析，只检查真实几何准备器。 */
@@ -218,10 +219,10 @@ describe('ordered primitive batching', () => {
       color: 'red',
     }
     const first = prepare.prepare([stroke], 100, 100, 1)
-    expect(first.changed.segments).toBe(true)
+    expect(first.uploads.segments).not.toBeNull()
     // 新包装对象但复用同一批点数组：应跳过实例重写，只复用上一批内容。
     const repeated = prepare.prepare([{ ...stroke }], 100, 100, 1)
-    expect(repeated.changed.segments).toBe(false)
+    expect(repeated.uploads.segments).toBeNull()
     expect(repeated.draws).toEqual(first.draws)
     expect(Array.from(repeated.segments)).toEqual(Array.from(first.segments))
   })
@@ -279,7 +280,8 @@ describe('ordered primitive batching', () => {
     expect(first.draws).toEqual([{ kind: 'direct', first: 0, count: 12 }])
     // 世界 x 不烘焙滚动量；mode=1 让着色器在绘制时应用变换。
     expect(first.vertices[0]).toBe(0)
-    expect(first.vertices[1]).toBe(10)
+    expect(first.vertices[1]).toBe(0)
+    expect(first.dataOrigin).toEqual({ x: 0, y: 10 })
     expect(first.vertices[6]).toBe(1)
     const second = prepare.prepare([fill], 100, 100, 1, {
       offsetX: 50,
@@ -287,18 +289,182 @@ describe('ordered primitive batching', () => {
       yOffset: 10,
     })
     expect(second.draws).toEqual(first.draws)
-    expect(second.changed.vertices).toBe(false)
+    expect(second.uploads.vertices).toBeNull()
   })
 })
 
 describe('upload reuse', () => {
-  it('uploads once, skips unchanged data, and uploads only the changed interval', () => {
-    const tracker = new UploadTracker(),
-      values = new Float32Array([1, 2, 3, 4])
-    expect(tracker.update(values)?.values).toEqual(values)
-    expect(tracker.update(values)).toBeNull()
-    values[2] = 8
-    expect(tracker.update(values)).toEqual({ offset: 8, values: new Float32Array([8]) })
-    expect(tracker.update(values, true)?.values).toEqual(values)
+  it('keeps sub-cent price differences and large history coordinates precise after GPU rebasing', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const paths = [
+      [
+        { x: 100_000_000, y: 100_000.001 },
+        { x: 100_000_001, y: 100_000.002 },
+      ],
+    ]
+    const transform = { offsetX: 99_999_990, yScale: -10_000, yOffset: 1_000_000_100 }
+    const batch = prepare.prepare(
+      [
+        {
+          kind: 'stroke',
+          paths,
+          color: 'red',
+          width: 1,
+          cap: 'round',
+          join: 'round',
+          dataSpace: true,
+        },
+      ],
+      200,
+      200,
+      1,
+      transform,
+    )
+    const local = rebaseDataTransform(transform, batch.dataOrigin)!
+    expect(batch.segments[2]! - local.offsetX).toBeCloseTo(11, 5)
+    expect(batch.segments[3]! * local.yScale + local.yOffset).toBeCloseTo(80, 4)
+    expect(batch.segments[2]).toBe(1)
+  })
+
+  it('detects changed descriptors in a reused list and reencodes when the origin changes', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const commands: GeometryPrimitive[] = [
+      {
+        kind: 'stroke',
+        color: 'red',
+        width: 1,
+        cap: 'round',
+        join: 'round',
+        dataSpace: true,
+        paths: [
+          [
+            { x: 10, y: 3 },
+            { x: 20, y: 5 },
+          ],
+        ],
+      },
+    ]
+    const transform = { offsetX: 4, yScale: 2, yOffset: 10 }
+    prepare.prepare(commands, 100, 100, 1, transform)
+    commands[0] = {
+      kind: 'stroke',
+      color: 'red',
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      dataSpace: true,
+      paths: [
+        [
+          { x: 30, y: 9 },
+          { x: 40, y: 10 },
+          { x: 50, y: 11 },
+        ],
+      ],
+    }
+    const next = prepare.prepare(commands, 100, 100, 1, transform)
+    expect(next.dataOrigin).toEqual({ x: 30, y: 9 })
+    expect(next.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    expect(next.uploads.segments).not.toBeNull()
+    expect(next.segments[8]).toBe(1)
+  })
+
+  it('replays data-space round strokes without rewriting or uploading any segment', () => {
+    const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
+    const command: GeometryPrimitive = {
+      kind: 'stroke',
+      color: 'red',
+      width: 2,
+      cap: 'round',
+      join: 'round',
+      dataSpace: true,
+      paths: [
+        [
+          { x: 10, y: 3 },
+          { x: 20, y: 5 },
+          { x: 30, y: 2 },
+        ],
+      ],
+    }
+    const first = prepare.prepare([command], 100, 100, 1, { offsetX: 4, yScale: -2, yOffset: 50 })
+    const values = first.segments.slice()
+    expect(first.segments[0]).toBe(0)
+    expect(first.segments[1]).toBe(0)
+    expect(first.dataOrigin).toEqual({ x: 10, y: 3 })
+    expect(first.segments[13]).toBe(1)
+    expect(first.draws).toEqual([{ kind: 'segments', first: 0, count: 2 }])
+    const next = prepare.prepare([{ ...command, paths: [...command.paths] }], 200, 200, 2, {
+      offsetX: 12,
+      yScale: -5,
+      yOffset: 80,
+    })
+    expect(next.segments).toEqual(values)
+    expect(next.uploads.segments).toBeNull()
+    expect(next.geometryBuilds).toBe(0)
+  })
+
+  it.each(['dash', 'miter', 'alpha', 'closed', 'canvas'] as const)(
+    'projects %s strokes before pixel-width tessellation',
+    (mode) => {
+      const stroke: Extract<PaintPrimitive, { kind: 'stroke' }> = {
+        kind: 'stroke',
+        color: 'red',
+        width: 3,
+        cap: 'round',
+        join: 'round',
+        dataSpace: true,
+        paths: [
+          [
+            { x: 10, y: 3 },
+            { x: 20, y: 5 },
+            { x: 30, y: 2 },
+          ],
+        ],
+        ...(mode === 'dash' ? { dash: [4, 2], dashOffset: 1 } : {}),
+        ...(mode === 'miter' ? { join: 'miter', cap: 'butt' } : {}),
+        ...(mode === 'closed' ? { closed: true } : {}),
+      }
+      const transform = { offsetX: 2, yScale: -5, yOffset: 80 }
+      const color = (): [number, number, number, number] => [1, 0, 0, mode === 'alpha' ? 0.5 : 1]
+      const options = { segments: mode !== 'canvas' }
+      const actual = createPrimitivePreparer(color, options).prepare(
+        [stroke],
+        200,
+        200,
+        2,
+        transform,
+      )
+      const expected = createPrimitivePreparer(color, options).prepare(
+        [projectStrokeToScreen(stroke, transform)],
+        200,
+        200,
+        2,
+      )
+      expect(actual.vertices).toEqual(expected.vertices)
+      expect(actual.segments).toEqual(expected.segments)
+      expect(actual.draws).toEqual(expected.draws)
+    },
+  )
+
+  it('tracks writes between retained spans and initializes reallocated GPU storage', () => {
+    const arena = new FloatArena()
+    arena.reserve(4)
+    for (const value of [1, 2, 3, 4]) arena.write(value)
+    expect(arena.uploadRange()?.values).toEqual(arena.view())
+    arena.reset()
+    arena.skip(2)
+    arena.reserve(1)
+    arena.write(8)
+    arena.skip(1)
+    expect(arena.uploadRange()).toEqual({ offset: 8, values: new Float32Array([8]) })
+    expect(resolveUploadRange(arena.view(), arena.uploadRange(), true)).toEqual({
+      offset: 0,
+      values: arena.view(),
+    })
+    arena.reset()
+    arena.skip(4)
+    expect(arena.uploadRange()).toBeNull()
+    expect(resolveUploadRange(arena.view(), null, true)?.values).toEqual(
+      new Float32Array([1, 2, 8, 4]),
+    )
   })
 })

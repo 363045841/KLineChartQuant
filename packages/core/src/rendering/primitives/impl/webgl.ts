@@ -2,10 +2,11 @@
 
 import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
-import { UploadTracker } from './buffers.js'
+import { resolveUploadRange, type UploadRange } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
 import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
+import { rebaseDataTransform } from './projection.js'
 import {
   INSTANCE_FLOATS,
   MESH_FLOATS,
@@ -81,9 +82,6 @@ function createDevice(
     segmentVao = gl.createVertexArray()
   if (!meshBuffer || !instanceBuffer || !segmentBuffer || !meshVao || !shapeVao || !segmentVao)
     throw new Error('Primitive WebGL allocation failed')
-  const meshTracker = new UploadTracker(),
-    instanceTracker = new UploadTracker(),
-    segmentTracker = new UploadTracker()
   let meshCapacity = 0,
     instanceCapacity = 0,
     segmentCapacity = 0
@@ -132,6 +130,7 @@ function createDevice(
   }
   return {
     render(batch, width, height, dpr, clear = true, transform, clip?: PrimitiveClip) {
+      transform = rebaseDataTransform(transform, batch.dataOrigin)
       if (gl.isContextLost()) throw new Error('Primitive WebGL context lost')
       // 目标只增不减：多 pane 交替绘制不会每帧重分配 drawing buffer。
       if (canvas.width < width) canvas.width = width
@@ -141,7 +140,7 @@ function createDevice(
       const upload = (
         buffer: WebGLBuffer,
         values: Float32Array,
-        tracker: UploadTracker,
+        dirty: UploadRange | null,
         capacity: number,
       ): number => {
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -150,7 +149,7 @@ function createDevice(
           capacity = Math.max(values.byteLength, capacity * 2, 1024)
           gl.bufferData(gl.ARRAY_BUFFER, capacity, gl.DYNAMIC_DRAW)
         }
-        const range = tracker.update(values, grow)
+        const range = resolveUploadRange(values, dirty, grow)
         if (range) {
           gl.bufferSubData(gl.ARRAY_BUFFER, range.offset, range.values)
           metrics.uploads++
@@ -158,15 +157,19 @@ function createDevice(
         }
         return capacity
       }
-      meshCapacity = batch.changed.vertices
-        ? upload(meshBuffer, batch.vertices, meshTracker, meshCapacity)
-        : meshCapacity
-      instanceCapacity = batch.changed.instances
-        ? upload(instanceBuffer, batch.instances, instanceTracker, instanceCapacity)
-        : instanceCapacity
-      segmentCapacity = batch.changed.segments
-        ? upload(segmentBuffer, batch.segments, segmentTracker, segmentCapacity)
-        : segmentCapacity
+      meshCapacity = upload(meshBuffer, batch.vertices, batch.uploads.vertices, meshCapacity)
+      instanceCapacity = upload(
+        instanceBuffer,
+        batch.instances,
+        batch.uploads.instances,
+        instanceCapacity,
+      )
+      segmentCapacity = upload(
+        segmentBuffer,
+        batch.segments,
+        batch.uploads.segments,
+        segmentCapacity,
+      )
       // 离屏存储只增不减，合成器读取左上角；GL 的原点在左下，必须补齐存储高度差。
       const originY = canvas.height - height
       gl.viewport(0, originY, width, height)
