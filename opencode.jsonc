@@ -21,6 +21,16 @@
           "action": "codegraph_codegraph_explore",
           "resource": "*",
           "effect": "allow"
+        },
+        {
+          "action": "ts-mcp-server_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "codegraph_*",
+          "resource": "*",
+          "effect": "allow"
         }
       ]
     }
