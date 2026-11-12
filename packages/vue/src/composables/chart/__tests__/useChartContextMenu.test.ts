@@ -3,7 +3,9 @@ import {
   type CommandRegistry,
   createCommandRegistry,
   createIdleInteractionSnapshot,
+  type DrawingObject,
 } from '@363045841yyt/klinechart-core'
+import { drawingToolStyle } from '@363045841yyt/klinechart-core/engine/drawing'
 import { flushPromises } from '@vue/test-utils'
 import { createMockChartController } from '@vue-src/__tests__/_mockController'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -24,6 +26,7 @@ interface Fixture {
   readonly clearAllIndicators: ReturnType<typeof vi.fn>
   readonly lockCrosshairAt: ReturnType<typeof vi.fn>
   readonly unlockCrosshair: ReturnType<typeof vi.fn>
+  readonly createDrawing: ReturnType<typeof vi.fn>
   readonly menu: ReturnType<typeof useChartContextMenu>
 }
 
@@ -34,6 +37,8 @@ function createFixture(): Fixture {
   controller.resetChart = resetChart
   const clearAllIndicators = vi.fn()
   controller.clearAllIndicators = clearAllIndicators
+  const createDrawing = vi.fn((): DrawingObject => ({}) as DrawingObject)
+  controller.createDrawing = createDrawing
   const lockCrosshairAt = vi.fn()
   controller.lockCrosshairAt = lockCrosshairAt
   const unlockCrosshair = vi.fn()
@@ -65,6 +70,7 @@ function createFixture(): Fixture {
     clearAllIndicators,
     lockCrosshairAt,
     unlockCrosshair,
+    createDrawing,
     menu,
   }
 }
@@ -91,6 +97,7 @@ describe('图表右键菜单', () => {
     expect(items(menu).map((item) => item.label)).toEqual([
       '重置图表',
       '复制价格 123.46',
+      '在 123.46 绘制水平线',
       '锁定垂直光标',
       '移除所有指标',
       '设置',
@@ -106,12 +113,18 @@ describe('图表右键菜单', () => {
       'indicator',
       'settings',
     ])
-    expect(menu.groups.value.every((group) => group.items.length === 1)).toBe(true)
+    expect(menu.groups.value[1]?.items).toHaveLength(2)
+    expect(
+      menu.groups.value
+        .filter((_, index) => index !== 1)
+        .every((group) => group.items.length === 1),
+    ).toBe(true)
     expect(items(menu)[0]?.shortcut).toBe(registry.formatShortcut('Alt+R'))
     expect(items(menu)[1]?.shortcut).toBeUndefined()
     expect(items(menu)[2]?.shortcut).toBeUndefined()
     expect(items(menu)[3]?.shortcut).toBeUndefined()
-    expect(items(menu)[4]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
+    expect(items(menu)[4]?.shortcut).toBeUndefined()
+    expect(items(menu)[5]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
   })
 
   it('没有十字线价格时复制项禁用，且不写入剪贴板', async () => {
@@ -154,7 +167,7 @@ describe('图表右键菜单', () => {
 
   it('没有指标时移除项禁用，有指标时调用控制器的清空命令', () => {
     const { controller, menu, clearAllIndicators } = createFixture()
-    expect(items(menu)[3]?.disabled).toBe(true)
+    expect(items(menu)[4]?.disabled).toBe(true)
     controller._setIndicators([
       {
         id: 'instance-1',
@@ -166,7 +179,7 @@ describe('图表右键菜单', () => {
         params: {},
       },
     ])
-    expect(items(menu)[3]?.disabled).toBe(false)
+    expect(items(menu)[4]?.disabled).toBe(false)
     menu.select(CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS)
     expect(clearAllIndicators).toHaveBeenCalledOnce()
   })
@@ -175,7 +188,7 @@ describe('图表右键菜单', () => {
     const { controller, menu, lockCrosshairAt, unlockCrosshair } = createFixture()
     controller._setInteractionState(createIdleInteractionSnapshot())
     menu.captureCrosshair()
-    expect(items(menu)[2]?.disabled).toBe(true)
+    expect(items(menu)[3]?.disabled).toBe(true)
     expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeUndefined()
 
     controller._setInteractionState({
@@ -184,7 +197,7 @@ describe('图表右键菜单', () => {
       crosshairPrice: 10,
     })
     menu.captureCrosshair()
-    expect(items(menu)[2]?.disabled).toBe(false)
+    expect(items(menu)[3]?.disabled).toBe(false)
     menu.select(CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR)
     expect(lockCrosshairAt).toHaveBeenCalledWith(7)
     expect(unlockCrosshair).not.toHaveBeenCalled()
@@ -193,10 +206,49 @@ describe('图表右键菜单', () => {
       ...createIdleInteractionSnapshot(),
       crosshairLock: { timestamp: 1, intervalMs: 60_000 },
     })
-    expect(items(menu)[2]?.disabled).toBe(false)
+    expect(items(menu)[3]?.disabled).toBe(false)
     expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeDefined()
     menu.select(CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR)
     expect(unlockCrosshair).toHaveBeenCalledOnce()
     expect(lockCrosshairAt).toHaveBeenCalledOnce()
+  })
+
+  it('用快照价格在十字线所在 pane 创建水平线', () => {
+    const { controller, menu, createDrawing } = createFixture()
+    controller._setInteractionState({
+      ...createIdleInteractionSnapshot(),
+      activePaneId: 'main',
+      crosshairPrice: 12.345,
+    })
+    menu.captureCrosshair()
+    expect(items(menu)[2]?.label).toBe('在 12.35 绘制水平线')
+    expect(items(menu)[2]?.disabled).toBe(false)
+    menu.select(CHART_CONTEXT_MENU_ITEM.DRAW_HORIZONTAL_LINE)
+    expect(createDrawing).toHaveBeenCalledWith({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 12.345 }],
+      style: drawingToolStyle(),
+    })
+  })
+
+  it('没有价格或没有十字线所在 pane 时不创建水平线', () => {
+    const { controller, menu, createDrawing } = createFixture()
+    controller._setInteractionState({
+      ...createIdleInteractionSnapshot(),
+      activePaneId: 'main',
+    })
+    menu.captureCrosshair()
+    expect(items(menu)[2]?.disabled).toBe(true)
+    menu.select(CHART_CONTEXT_MENU_ITEM.DRAW_HORIZONTAL_LINE)
+
+    controller._setInteractionState({
+      ...createIdleInteractionSnapshot(),
+      crosshairPrice: 10,
+    })
+    menu.captureCrosshair()
+    expect(items(menu)[2]?.disabled).toBe(true)
+    menu.select(CHART_CONTEXT_MENU_ITEM.DRAW_HORIZONTAL_LINE)
+    expect(createDrawing).not.toHaveBeenCalled()
   })
 })

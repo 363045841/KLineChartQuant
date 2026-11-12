@@ -32,12 +32,13 @@ export type {
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
 } from './geometry/types.js'
-
+export { drawingToolStyle } from './interaction/impl/drawingToolStyle.js'
 export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
 export { DrawingInteractionController } from './interaction/impl/interaction.js'
 export {
   DOUBLE_ANCHOR_TOOLS,
   getAnchorCountForTool,
+  getDrawingKind,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
 } from './interaction/impl/toolConfig.js'

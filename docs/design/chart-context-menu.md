@@ -2,7 +2,7 @@
 
 ## 决策
 
-绘图区右键弹出统一菜单（重置图表 / 复制价格 / 锁定垂直光标 / 移除所有指标 / 设置），复用既有能力而不是新增第二套菜单实现：
+绘图区右键弹出统一菜单（重置图表 / 复制价格 / 在当前价格绘制水平线 / 锁定垂直光标 / 移除所有指标 / 设置），复用既有能力而不是新增第二套菜单实现：
 
 - **菜单外观与交互只有一份**：右键菜单直接使用 `DropMenu` 的 `context` 模式。该模式不渲染
   `ControlTrigger`，由宿主调用 `openAt(x, y)` 提供坐标锚点；分组、选中态、roving focus、
@@ -21,6 +21,13 @@
   不再实时读取。指针移入菜单会触发 `pointerleave` 清空 crosshair，实时读取会让标签闪烁。
   复制内容与价格轴价签一致使用两位小数；分时/比较等百分比轴仍复制原始价格（菜单语义是
   「价格」，不是轴展示文本）。无 crosshair 时该项禁用。
+- **绘制水平线复用公开的 `createDrawing`**：与「复制价格」同属价格分组，菜单只把打开瞬间快照的
+  `crosshairPrice` 与 `activePaneId` 交给 `controller.createDrawing()`，`kind`、锚点与默认样式与
+  手绘工具一致（`DrawingTool.HorizontalLine` → `horizontal-line`，单锚点只给价格，样式取
+  `drawingToolStyle()`）。
+  水平线必须落在十字线所在 pane：价格轴按 pane 独立，固定主图会把副图价格画到错位置。
+  没有价格或没有 pane 时该项禁用。图元仍进同一条命令链路与唯一的 kernel `drawings` 状态，
+  菜单不保存业务副本。
 - **移除所有指标走 Core 聚合命令**：`Chart.panes.clearAllIndicators()` 在一次 `batch` 内删除
   当前工作区的主图与副图实例，并回收空副图；工具栏「清除指标」与右键菜单都调用
   `controller.clearAllIndicators()`，不各自维护删除循环。没有指标实例时菜单项禁用。
@@ -42,6 +49,6 @@
 
 - `DropMenu` 现有键盘、焦点与选中用例保持通过。
 - `useChartContextMenu` 覆盖价格快照、无 crosshair 禁用、无指标时移除项禁用、`group` 分组、
-  快捷键文本、重置/设置走命令、清空指标走 controller、复制写剪贴板。
+  快捷键文本、重置/设置走命令、清空指标走 controller、复制写剪贴板、按当前价格与 pane 创建水平线。
 - `chart.lifecycle` 覆盖鼠标右键按下不进入拖拽，以及 `clearAllIndicators` 同时删除主图与副图
   实例并回收副图 Pane。
