@@ -52,12 +52,32 @@
       @pointermove="updateResizeCursor"
       @pointerleave="panelResizeReady = false"
     >
-      <AgentWorkspace
-        :bridge="bridge"
-        :panel-side="panelSide"
-        @close="panelOpen = false"
-        @toggle-panel-side="togglePanelSide"
-      />
+      <!-- 多面板时在内容之上加一行页签；只有一个面板时整行不出现，保持原有外观 -->
+      <div v-if="panelTabs.length > 1" class="workbench-panel-tabs" role="tablist">
+        <button
+          v-for="tab in panelTabs"
+          :key="tab.name"
+          type="button"
+          role="tab"
+          class="workbench-panel-tabs__tab"
+          :class="{ 'workbench-panel-tabs__tab--active': activeTab === tab.name }"
+          :aria-selected="activeTab === tab.name"
+          @click="activeTab = tab.name"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <div class="workbench-panel-body">
+        <AgentWorkspace
+          v-if="activeTab === AGENT_TAB_NAME"
+          :bridge="bridge"
+          :panel-side="panelSide"
+          @close="panelOpen = false"
+          @toggle-panel-side="togglePanelSide"
+        />
+        <slot v-else name="panel" :tab="activeTab"></slot>
+      </div>
     </aside>
   </div>
 </template>
@@ -81,23 +101,57 @@
   const MAX_PANEL_WIDTH = 640
   const DEFAULT_PANEL_WIDTH = 420
 
+  /** Agent 页签的固定名字；其余页签由宿主经 `panelTabs` 声明。 */
+  const AGENT_TAB_NAME = 'agent'
+
+  /** 面板页签声明。 */
+  interface PanelTab {
+    /** 唯一名字；宿主用它在 `#panel` 插槽里区分内容 */
+    readonly name: string
+    /** 显示文本 */
+    readonly label: string
+  }
+
   const props = withDefaults(
     defineProps<{
       bridge: AgentBridgeClient
       panelWidthStorage?: AgentPanelWidthStorage
       panelSideStorage?: AgentPanelSideStorage
       initialPanelOpen?: boolean
+      /**
+       * 额外页签。省略或只有 Agent 一项时不渲染页签行，外观与行为保持原样。
+       * Agent 固定占用 `agent` 这个名字，其余内容由宿主经 `#panel` 插槽提供。
+       */
+      panelTabs?: readonly PanelTab[]
+      /** 初始页签；不在声明列表里时回落到 Agent */
+      initialTab?: string
     }>(),
     {
       initialPanelOpen: false,
       panelWidthStorage: undefined,
       panelSideStorage: undefined,
+      panelTabs: () => [],
+      initialTab: AGENT_TAB_NAME,
     },
   )
+
+  /**
+   * 实际渲染的页签：Agent 始终在第一位，宿主声明的页签紧随其后。
+   * 宿主不需要（也不该）重复声明 Agent。
+   */
+  const panelTabs = computed<readonly PanelTab[]>(() => [
+    { name: AGENT_TAB_NAME, label: 'AI' },
+    ...props.panelTabs,
+  ])
 
   const shell = ref<HTMLElement | null>(null)
   const panel = ref<HTMLElement | null>(null)
   const panelOpen = ref(props.initialPanelOpen)
+  const activeTab = ref(
+    panelTabs.value.some((tab) => tab.name === props.initialTab)
+      ? props.initialTab
+      : AGENT_TAB_NAME,
+  )
   const panelSide = ref<AgentPanelSide>('right')
   const panelWidth = ref(DEFAULT_PANEL_WIDTH)
   const resizing = ref(false)
@@ -291,6 +345,55 @@
     transition:
       transform 0.28s ease,
       visibility 0s linear 0.28s;
+    /* 页签行与内容纵向排列，内容自己负责滚动 */
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workbench-panel-tabs {
+    flex: none;
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px 0;
+    border-bottom: 1px solid var(--klc-color-ui-border);
+  }
+
+  .workbench-panel-tabs__tab {
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--agent-text);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    opacity: 0.65;
+  }
+
+  .workbench-panel-tabs__tab:hover {
+    opacity: 1;
+  }
+
+  .workbench-panel-tabs__tab--active {
+    opacity: 1;
+    border-bottom-color: var(--agent-focus);
+  }
+
+  .workbench-panel-tabs__tab:focus-visible {
+    outline: 2px solid var(--agent-focus);
+    outline-offset: -2px;
+  }
+
+  .workbench-panel-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .workbench-panel-body > * {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
   }
 
   /* 左侧停靠时从左侧滑入，关闭态向左侧移出。 */

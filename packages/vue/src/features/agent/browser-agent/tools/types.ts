@@ -39,4 +39,9 @@ export interface BrowserToolRegistryDependencies {
    * 均可）；每次构造 registry 时求值一次。未提供时不追加。
    */
   readonly extraChartTools?: () => ReadonlyArray<RegisteredChartTool>
+  /**
+   * 订单流只读服务地址。省略时用内置默认（`analytics serve` 的默认端口）。
+   * 数据端与图表端是两个独立进程，地址因此由宿主注入而不是写死在业务代码里。
+   */
+  readonly getOrderflowBaseUrl?: () => string | undefined
 }

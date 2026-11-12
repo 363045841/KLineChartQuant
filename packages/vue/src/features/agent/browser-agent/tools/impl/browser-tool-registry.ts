@@ -17,6 +17,11 @@ import {
   getRegisteredChartTools,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { BrowserToolContext, BrowserToolRegistryDependencies } from '../types.js'
+import { createOrderflowClient } from '../../../../orderflow/impl/orderflow-client.js'
+import {
+  createOrderflowSnapshotTool,
+  ORDERFLOW_SNAPSHOT_TOOL_METADATA,
+} from '../../../../orderflow/impl/orderflow-snapshot-tool.js'
 
 type DrawingCreateError = Error & {
   readonly code?: string
@@ -53,6 +58,17 @@ export class BrowserToolRegistry {
     this.catalog.register({
       ...ASK_USER_TOOL_METADATA,
       create: () => createAskUserTool({ request: this.dependencies.requestQuestion }),
+    })
+    this.catalog.register({
+      ...ORDERFLOW_SNAPSHOT_TOOL_METADATA,
+      create: ({ agent }) => {
+        if (!agent) return undefined
+        const client = createOrderflowClient({
+          fetch: this.dependencies.fetch,
+          baseUrl: this.dependencies.getOrderflowBaseUrl?.(),
+        })
+        return createOrderflowSnapshotTool(client, () => agent.getContext().symbol)
+      },
     })
   }
 
