@@ -658,6 +658,8 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
+      removeInstancesByDefinition: (definitionId) =>
+        this.panes.removeInstancesByDefinition(definitionId),
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
     this.indicators = new ChartIndicatorFacade({
@@ -1593,7 +1595,8 @@ export class Chart {
       )
     this.cancelDrawingSession()
     const nextDrawingSymbol = primary === undefined ? undefined : symbolSpecIdentityKey(primary)
-    if (this.drawing.getSymbolKey() !== nextDrawingSymbol) {
+    const previousPeriod = this.dataManager.symbols.peek()[0]?.period
+    if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
       this.kernel.drawing.actions.setSelectedDrawingIds([])
     }
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
@@ -1668,6 +1671,10 @@ export class Chart {
 
   /** 设置目标周期，在数据切换之前完成视图转移。 */
   setCurrentPeriod(period: string): void {
+    const previousPeriod = this.dataManager.symbols.peek()[0]?.period
+    if (previousPeriod !== undefined && previousPeriod !== period) {
+      this.kernel.drawing.actions.setSelectedDrawingIds([])
+    }
     const transition = this.transitionView(this.dataManager.symbols.peek()[0] ?? null, period)
     this.dataManager.setCurrentPeriod(period)
     if (!transition.timeShare) this.dataManager.tryRestoreScrollFromSnapshot()

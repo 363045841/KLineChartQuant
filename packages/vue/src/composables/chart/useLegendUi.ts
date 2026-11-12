@@ -1,6 +1,8 @@
 /** 处理 Core 图例发出的界面请求，领域操作全部由 LegendApi 执行。 */
 import {
   type ChartController,
+  INDICATOR_ROLE,
+  type IndicatorRole,
   LEGEND_UI_EVENT,
   type LegendUiEventDetail,
 } from '@363045841yyt/klinechart-core/controllers'
@@ -19,7 +21,7 @@ export function useLegendUi(
   },
 ) {
   const replacementId = ref<string | null>(null)
-  const replacementRole = ref<'main' | 'sub'>('sub')
+  const replacementRole = ref<IndicatorRole>(INDICATOR_ROLE.SUB)
   let replacementLegendId: string | null = null
   watch(
     canvasLayer,
@@ -34,7 +36,8 @@ export function useLegendUi(
         else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {
           replacementLegendId = request.id
-          replacementId.value = request.role === 'main' ? request.definitionId : request.paneId
+          replacementId.value =
+            request.role === INDICATOR_ROLE.MAIN ? request.definitionId : request.paneId
           replacementRole.value = request.role
           options.openSelector()
         }

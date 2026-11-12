@@ -44,7 +44,9 @@ export class CrosshairOverlay {
 
   /** 每帧按引擎视口同步物理尺寸并重新绘制，隐藏十字线时同样清除旧像素。 */
   paint(frame: CrosshairOverlayFrame): void {
-    if (!frame.pos) {
+    const { pos, lockedX } = frame
+    // 锁定竖线与鼠标十字线是两条独立输入：鼠标离开后锁定竖线仍需保留。
+    if (!pos && lockedX === null) {
       this.dispose()
       return
     }
@@ -60,12 +62,16 @@ export class CrosshairOverlay {
     this.clear()
     if (width === 0 || height === 0) return
 
-    const { activePane, price, pos } = frame
+    const { activePane, price } = frame
     // 先在 chart 坐标中确定价格交点，再只对齐一次，避免各 pane 分别舍入导致相位偏差。
     const globalY =
-      activePane && price !== null ? activePane.top + activePane.yAxis.priceToY(price) : pos.y
-    const ix = alignToPhysicalPixelCenter(pos.x, dpr)
-    const iy = alignToPhysicalPixelCenter(globalY, dpr)
+      pos && activePane && price !== null
+        ? activePane.top + activePane.yAxis.priceToY(price)
+        : (pos?.y ?? null)
+    // 锁定后鼠标侧竖线不再跟随，只保留锁定位置这一条。
+    const verticalX = lockedX ?? pos?.x ?? null
+    const ix = verticalX === null ? null : alignToPhysicalPixelCenter(verticalX, dpr)
+    const iy = globalY === null ? null : alignToPhysicalPixelCenter(globalY, dpr)
     // 四向各留出至少 2 个逻辑像素，按整物理像素偏移以保持起点清晰。
     const gap = Math.ceil(CENTER_GAP * dpr) / dpr
     ctx.save()
@@ -89,13 +95,19 @@ export class CrosshairOverlay {
       })
     }
 
-    // 整条纵线只画一次，pane 分隔区域同样连续，不再投影或拼接局部线段。
-    if (iy - gap > 0) strokeRay(ix, iy - gap, ix, 0)
-    if (iy + gap < plotHeight) strokeRay(ix, iy + gap, ix, plotHeight)
+    // 整条纵线只画一次，pane 分隔区域同样连续；没有鼠标水平线时直接贯满。
+    if (ix !== null) {
+      if (iy === null) {
+        strokeRay(ix, 0, ix, plotHeight)
+      } else {
+        if (iy - gap > 0) strokeRay(ix, iy - gap, ix, 0)
+        if (iy + gap < plotHeight) strokeRay(ix, iy + gap, ix, plotHeight)
+      }
+    }
     primitiveSink()(ctx, commands, dpr)
     commands.length = 0
-    if (activePane && price !== null) {
-      // 水平线仍局限于活跃 pane，价格移出该 pane 时不画到相邻副图。
+    // 水平线仍局限于活跃 pane，价格移出该 pane 时不画到相邻副图。
+    if (pos && activePane && price !== null && ix !== null && iy !== null) {
       ctx.beginPath()
       ctx.rect(0, activePane.top, plotWidth, activePane.height)
       ctx.clip()

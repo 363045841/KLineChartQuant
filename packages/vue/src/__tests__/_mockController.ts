@@ -97,6 +97,8 @@ export interface MockChartController extends ChartController {
   /** test-only: 写入绘图剪贴板可用性 */
   _setDrawingClipboard: (available: boolean) => void
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
+  /** test-only: 写入指标实例集合 */
+  _setIndicators: (next: ReadonlyArray<IndicatorInstance>) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
   /** test-only: 切换图表模式，驱动轴布局显示。 */
@@ -146,6 +148,7 @@ export function createMockChartController(
   const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const hasDrawingClipboard = createSignal(false)
   const globalDrawingLock = createSignal(false)
+  const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([])
   const interactionState = createSignal(createIdleInteractionSnapshot())
   const optionsFacadeCalls: OptionsFacadePatch[] = []
   const alertController: AlertController = {
@@ -177,7 +180,7 @@ export function createMockChartController(
     }),
     chartMode,
     lastBarPeriod: createSignal('daily'),
-    indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
+    indicators,
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),
     drawings,
@@ -296,6 +299,21 @@ export function createMockChartController(
     addIndicator: () => null,
     moveIndicator: () => false,
     removeIndicator: () => false,
+    clearAllIndicators: () => indicators.set([]),
+    lockCrosshairAt: (index) => {
+      const bar = data.peek()[index]
+      if (!bar) return false
+      interactionState.set({
+        ...interactionState.peek(),
+        crosshairLock: Object.freeze({ timestamp: bar.timestamp, intervalMs: 0 }),
+      })
+      return true
+    },
+    unlockCrosshair: () => {
+      const current = interactionState.peek()
+      if (current.crosshairLock === null) return
+      interactionState.set({ ...current, crosshairLock: null })
+    },
     updateIndicator: () => false,
     updateOptionsFacade: (options) => {
       optionsFacadeCalls.push(options)
@@ -322,9 +340,12 @@ export function createMockChartController(
     importDrawings: () => {},
     undoDrawing: () => false,
     redoDrawing: () => false,
-    getFullDrawings: () => [],
+    getFullDrawings: () => drawings.peek(),
     setSelectedDrawingIds: () => {},
     getSelectedDrawingIds: () => [],
+    getDrawingPeriod: () => 'daily',
+    getDrawingSymbolKey: () => undefined,
+    getDrawingWorkspaceId: () => 'kline' as const,
     alertController,
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
@@ -381,6 +402,7 @@ export function createMockChartController(
       canRedoDrawing.set(redo)
     },
     _setDrawings: (next) => drawings.set(next),
+    _setIndicators: (next) => indicators.set(next),
     _setSelectedDrawingIds: (ids) => selectedDrawingIds.set(ids),
     _setDrawingClipboard: (available) => hasDrawingClipboard.set(available),
     disposeCalls: () => disposeCalls,

@@ -251,9 +251,7 @@
   .composer__reasoning {
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
-    --control-button-border-width: 0;
     --control-button-radius: var(--klc-radius-md, 8px);
-    --control-button-background: transparent;
     --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-shadow: none;
@@ -264,13 +262,10 @@
 
   .composer__reasoning {
     --control-button-color: var(--agent-text);
-    --control-button-background: var(--klc-color-agent-composer-control-background);
     --control-button-active-background: var(--klc-color-agent-composer-control-hover);
-    --control-button-focus-border: var(--agent-focus);
     --control-button-focus-background: var(--klc-color-agent-composer-control-hover);
     --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
     --control-button-disabled-opacity: 1;
-    --control-button-disabled-background: transparent;
     --control-button-disabled-color: var(--agent-text-soft);
   }
 

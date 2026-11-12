@@ -44,10 +44,7 @@
     --control-button-width: 30px;
     --control-button-height: 30px;
     --control-button-inline-padding: 0;
-    --control-button-border-width: 0;
-    --control-button-background: transparent;
     --control-button-active-background: transparent;
-    --control-button-active-border: transparent;
     --control-button-focus-shadow: none;
 
     flex: none;

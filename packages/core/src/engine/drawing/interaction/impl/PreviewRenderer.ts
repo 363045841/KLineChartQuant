@@ -37,15 +37,21 @@ export class PreviewRenderer {
     currentAnchor: InteractionDrawingAnchor,
     paneId: string,
     workspaceId: DrawingWorkspaceId,
+    symbolKey?: string,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
     const isDouble = DOUBLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
     const isTriple = TRIPLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
 
     if (!isSingle && !isDouble && !isTriple) return null
+    const identity = symbolKey === undefined ? {} : { symbolKey }
 
     if (isSingle) {
-      return { ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId), workspaceId }
+      return {
+        ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId),
+        workspaceId,
+        ...identity,
+      }
     }
 
     if (isDouble) {
@@ -53,12 +59,13 @@ export class PreviewRenderer {
       return {
         ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
         workspaceId,
+        ...identity,
       }
     }
 
     // Triple anchor tools
     const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
-    return preview ? { ...preview, workspaceId } : null
+    return preview ? { ...preview, workspaceId, ...identity } : null
   }
 
   /** 单锚点工具预览：虚线样式 */

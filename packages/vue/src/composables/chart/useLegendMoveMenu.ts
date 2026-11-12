@@ -50,16 +50,11 @@ export function useLegendMoveMenu(controller: Ref<ChartController | null>) {
       items: options.value.map((option, index) => ({
         id: itemId(index),
         label: option.label,
+        icon: iconOf(option.target),
         disabled: !option.enabled,
       })),
     },
   ])
-
-  const icons = computed<Readonly<Record<string, Component>>>(() => {
-    const result: Record<string, Component> = {}
-    for (const [index, option] of options.value.entries()) result[itemId(index)] = iconOf(option.target)
-    return result
-  })
 
   const origin = computed(() =>
     open.value && anchor.value
@@ -97,7 +92,6 @@ export function useLegendMoveMenu(controller: Ref<ChartController | null>) {
 
   return {
     groups,
-    icons,
     open,
     origin,
     offset: MENU_OFFSET_PX,

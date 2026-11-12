@@ -39,61 +39,111 @@
         @focusin="onMenuFocusIn"
         @pointerover="onMenuPointerOver"
         @pointerleave="hideHighlight"
+        @scroll.passive="closeSubmenu"
       >
         <template v-if="isOpen">
-          <div
-            ref="highlight"
-            class="drop-menu__highlight"
-            :style="highlightStyle"
-            aria-hidden="true"
-          ></div>
-          <div v-if="bodyMode" class="drop-menu__body">
-            <slot name="body" />
-          </div>
-          <template v-else>
-            <div v-if="$slots.header" class="drop-menu__header">
-              <slot name="header" />
+          <div ref="items" class="drop-menu__items">
+            <div
+              ref="highlight"
+              class="drop-menu__highlight"
+              :style="highlightStyle"
+              aria-hidden="true"
+            ></div>
+            <div v-if="bodyMode" class="drop-menu__body">
+              <slot name="body" />
             </div>
-            <div v-for="group in groups" :key="group.id" class="drop-menu__group">
-              <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
-              <div
-                v-for="item in group.items"
-                :key="item.id"
-                class="drop-menu__item"
-                :class="{ 'is-active': item.active }"
-              >
-                <slot
-                  name="item"
-                  :group="group"
-                  :item="item"
-                  :select="() => select(group.id, item.id)"
+            <template v-else>
+              <div v-if="$slots.header" class="drop-menu__header">
+                <slot name="header" />
+              </div>
+              <div v-for="group in groups" :key="group.id" class="drop-menu__group">
+                <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
+                <div
+                  v-for="item in group.items"
+                  :key="item.id"
+                  class="drop-menu__item"
+                  :class="{ 'is-active': item.active }"
+                  :data-group-id="group.id"
+                  :data-item-id="item.id"
+                  @pointerenter="onItemPointerEnter(item, $event)"
+                  @pointerleave="onItemPointerLeave"
                 >
-                  <button
-                    type="button"
-                    class="drop-menu__item-main"
-                    role="menuitem"
-                    :disabled="item.disabled"
-                    :title="item.disabled ? item.reason : undefined"
-                    @click="select(group.id, item.id)"
+                  <slot
+                    name="item"
+                    :group="group"
+                    :item="item"
+                    :select="() => activateItem(group.id, item)"
                   >
-                    <slot name="item-icon" :group="group" :item="item" />
-                    <span>{{ item.label }}</span>
-                    <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
-                  </button>
-                </slot>
-                <span v-if="$slots['item-action']" class="drop-menu__item-action">
-                  <slot name="item-action" :group="group" :item="item" />
+                    <button
+                      type="button"
+                      class="drop-menu__item-main"
+                      role="menuitem"
+                      :disabled="item.disabled"
+                      :title="item.disabled ? item.reason : undefined"
+                      :aria-haspopup="item.children?.length ? 'menu' : undefined"
+                      :aria-expanded="item.children?.length ? isSubmenuOpen(item) : undefined"
+                      @click="activateItem(group.id, item)"
+                    >
+                      <span v-if="hasMainIcons" class="drop-menu__icon">
+                        <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
+                      </span>
+                      <span>{{ item.label }}</span>
+                      <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
+                      <span v-if="item.children?.length" class="drop-menu__submenu-arrow">
+                        <IconTablerChevronRight aria-hidden="true" />
+                      </span>
+                    </button>
+                  </slot>
+                  <span v-if="$slots['item-action']" class="drop-menu__item-action">
+                    <slot name="item-action" :group="group" :item="item" />
+                  </span>
+                </div>
+                <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
+                  {{ emptyText }}
+                </div>
+              </div>
+              <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
+              <div v-if="$slots.footer" class="drop-menu__footer">
+                <slot name="footer" />
+              </div>
+            </template>
+          </div>
+          <div
+            v-if="openSubmenuItem"
+            ref="submenu"
+            class="drop-menu__submenu popover-surface"
+            :style="submenuStyle"
+            role="menu"
+            :aria-label="openSubmenuItem.label"
+            @keydown="onSubmenuKeydown"
+            @pointerenter="cancelSubmenuClose"
+            @pointerleave="scheduleSubmenuClose"
+          >
+            <div
+              v-for="child in openSubmenuItem.children"
+              :key="child.id"
+              class="drop-menu__item"
+              :class="{ 'is-active': child.active }"
+            >
+              <button
+                type="button"
+                class="drop-menu__item-main"
+                :role="child.checked === undefined ? 'menuitem' : 'menuitemcheckbox'"
+                :aria-checked="child.checked === undefined ? undefined : child.checked"
+                :disabled="child.disabled"
+                :title="child.disabled ? child.reason : undefined"
+                @click="selectSubmenuItem(openSubmenuGroupId, openSubmenuItem, child)"
+              >
+                <span v-if="hasSubmenuIcons" class="drop-menu__icon">
+                  <component :is="child.icon" v-if="child.icon" aria-hidden="true" />
                 </span>
-              </div>
-              <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
-                {{ emptyText }}
-              </div>
+                <span>{{ child.label }}</span>
+                <span class="drop-menu__check" aria-hidden="true">
+                  <IconTablerCheck v-if="child.checked" />
+                </span>
+              </button>
             </div>
-            <div v-if="message" class="drop-menu__message" role="alert">{{ message }}</div>
-            <div v-if="$slots.footer" class="drop-menu__footer">
-              <slot name="footer" />
-            </div>
-          </template>
+          </div>
         </template>
       </div>
     </Teleport>
@@ -106,25 +156,44 @@
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import { useRovingFocus } from '@vue-src/composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-  import { type CSSProperties, computed, shallowRef, useTemplateRef, watch } from 'vue'
+  import {
+    type Component,
+    type CSSProperties,
+    computed,
+    nextTick,
+    onScopeDispose,
+    shallowRef,
+    useTemplateRef,
+    watch,
+  } from 'vue'
+  import IconTablerCheck from '~icons/tabler/check'
+  import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import BaseTooltip from './BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
+
+  export interface DropMenuItem {
+    id: string
+    label: string
+    disabled?: boolean
+    active?: boolean
+    /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
+    icon?: Component
+    /** 复选项的勾选态；有值时按 menuitemcheckbox 渲染，且选择后不关闭菜单。 */
+    checked?: boolean
+    /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
+    shortcut?: string
+    /** 禁用原因；默认按钮通过 title 展示。 */
+    reason?: string
+    /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
+    deletable?: boolean
+    /** 二级菜单项；存在时该行只展开子菜单，不触发 select。 */
+    children?: ReadonlyArray<DropMenuItem>
+  }
 
   export interface DropMenuGroup {
     id: string
     label: string
-    items: ReadonlyArray<{
-      id: string
-      label: string
-      disabled?: boolean
-      active?: boolean
-      /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
-      shortcut?: string
-      /** 禁用原因；默认按钮通过 title 展示。 */
-      reason?: string
-      /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
-      deletable?: boolean
-    }>
+    items: ReadonlyArray<DropMenuItem>
   }
 
   const props = defineProps<{
@@ -168,7 +237,7 @@
     offset?: number
   }>()
   const emit = defineEmits<{
-    select: [groupId: string, itemId: string]
+    select: [groupId: string, itemId: string, parentId?: string]
     open: []
     close: []
     'update:open': [open: boolean]
@@ -176,10 +245,33 @@
   const triggerControl = useTemplateRef<InstanceType<typeof ControlTrigger>>('triggerControl')
   const triggerRef = computed(() => triggerControl.value?.element ?? null)
   const menuRef = useTemplateRef<HTMLElement>('menu')
+  /** 主菜单项容器；与二级菜单分开，roving focus 不会把子项算进主列表。 */
+  const itemsRef = useTemplateRef<HTMLElement>('items')
+  const submenuRef = useTemplateRef<HTMLElement>('submenu')
   const teleportTarget = useFullscreenTeleportTarget()
-  const roving = useRovingFocus(menuRef, {
+  const roving = useRovingFocus(itemsRef, {
     itemSelector: '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
   })
+  const submenuRoving = useRovingFocus(submenuRef, {
+    itemSelector: '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
+  })
+  // 同一时间只展开一个二级菜单；浮层浮在主面板之上，但不另起 popover。
+  // 只保存 id，子项内容始终从最新的 groups 派生，勾选态才能随 Core 快照更新。
+  const openSubmenuItemId = shallowRef<string | null>(null)
+  const openSubmenuGroupId = shallowRef<string | null>(null)
+  const submenuAnchor = shallowRef<HTMLElement | null>(null)
+  const submenuStyle = shallowRef<CSSProperties>({ display: 'none' })
+  const openSubmenuItem = computed(() => {
+    const group = props.groups.find((group) => group.id === openSubmenuGroupId.value)
+    return group?.items.find((item) => item.id === openSubmenuItemId.value) ?? null
+  })
+  // 图标槽位只在确实有图标时保留；全部项都没有图标时整列不占宽度。
+  const hasMainIcons = computed(() =>
+    props.groups.some((group) => group.items.some((item) => item.icon !== undefined)),
+  )
+  const hasSubmenuIcons = computed(() =>
+    (openSubmenuItem.value?.children ?? []).some((item) => item.icon !== undefined),
+  )
   // 命令式坐标（右键菜单）与受控坐标共用同一个原点。
   const contextOrigin = shallowRef<{ x: number; y: number } | null>(null)
   const origin = computed(() => props.origin ?? contextOrigin.value)
@@ -244,9 +336,153 @@
     highlightStyle.value = HIGHLIGHT_HIDDEN
   }
 
-  /** 面板级委托：指针在菜单项之间移动时让高亮块滑过去。 */
+  const SUBMENU_HOVER_DELAY = 120
+  const SUBMENU_CLOSE_DELAY = 160
+  let submenuTimer: ReturnType<typeof setTimeout> | undefined
+
+  /** 延迟展开二级菜单，避免指针快速划过时连环弹出。 */
+  function onItemPointerEnter(item: DropMenuItem, event: PointerEvent): void {
+    const anchor = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+    if (!anchor) return
+    if (!item.children?.length) {
+      if (openSubmenuItemId.value !== null) scheduleSubmenuClose()
+      return
+    }
+    cancelSubmenuClose()
+    if (openSubmenuItemId.value === item.id) return
+    submenuTimer = setTimeout(() => {
+      void showSubmenu(item, anchor, false)
+    }, SUBMENU_HOVER_DELAY)
+  }
+
+  function onItemPointerLeave(): void {
+    if (openSubmenuItemId.value !== null) scheduleSubmenuClose()
+  }
+
+  /** 指针在主菜单项与子菜单之间移动时留出容错时间，不立即收起。 */
+  function scheduleSubmenuClose(): void {
+    cancelSubmenuClose()
+    submenuTimer = setTimeout(closeSubmenu, SUBMENU_CLOSE_DELAY)
+  }
+
+  function cancelSubmenuClose(): void {
+    if (submenuTimer === undefined) return
+    clearTimeout(submenuTimer)
+    submenuTimer = undefined
+  }
+
+  function closeSubmenu(): void {
+    cancelSubmenuClose()
+    openSubmenuItemId.value = null
+    openSubmenuGroupId.value = null
+    submenuAnchor.value = null
+    submenuStyle.value = { display: 'none' }
+  }
+
+  function isSubmenuOpen(item: DropMenuItem): boolean {
+    return openSubmenuItemId.value === item.id
+  }
+
+  /** 展开二级菜单；先贴到父项右侧，再测量并按空间翻转。 */
+  async function showSubmenu(
+    item: DropMenuItem,
+    anchor: HTMLElement,
+    focusFirst: boolean,
+  ): Promise<void> {
+    cancelSubmenuClose()
+    openSubmenuItemId.value = item.id
+    openSubmenuGroupId.value =
+      anchor.dataset.groupId ?? props.groups.find((group) => group.items.includes(item))?.id ?? null
+    submenuAnchor.value = anchor
+    const anchorRect = anchor.getBoundingClientRect()
+    submenuStyle.value = {
+      display: 'block',
+      position: 'fixed',
+      left: `${anchorRect.right + 2}px`,
+      top: `${anchorRect.top}px`,
+    }
+    await nextTick()
+    if (openSubmenuItemId.value !== item.id) return
+    positionSubmenu()
+    if (focusFirst) submenuRoving.focusFirst()
+  }
+
+  function positionSubmenu(): void {
+    const panel = submenuRef.value
+    const anchor = submenuAnchor.value
+    if (!panel || !anchor) return
+    const anchorRect = anchor.getBoundingClientRect()
+    const size = panel.getBoundingClientRect()
+    const gap = 2
+    const padding = 8
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    let left = anchorRect.right + gap
+    if (left + size.width > viewportWidth - padding) {
+      left = anchorRect.left - size.width - gap
+    }
+    left = Math.max(padding, Math.min(left, viewportWidth - size.width - padding))
+    let top = anchorRect.top
+    if (top + size.height > viewportHeight - padding) {
+      top = viewportHeight - size.height - padding
+    }
+    top = Math.max(padding, top)
+    submenuStyle.value = {
+      display: 'block',
+      position: 'fixed',
+      left: `${left}px`,
+      top: `${top}px`,
+      maxHeight: `calc(100vh - ${padding * 2}px)`,
+      zIndex: 'var(--klc-z-index-popover, 1010)',
+    }
+  }
+
+  function findItemElement(groupId: string, itemId: string): HTMLElement | null {
+    const items = itemsRef.value?.querySelectorAll<HTMLElement>('.drop-menu__item') ?? []
+    return (
+      [...items].find(
+        (element) => element.dataset.groupId === groupId && element.dataset.itemId === itemId,
+      ) ?? null
+    )
+  }
+
+  /** 主菜单项激活：有子菜单只展开，不触发选择。 */
+  function activateItem(groupId: string, item: DropMenuItem): void {
+    if (item.disabled) return
+    if (item.children?.length) {
+      const anchor = findItemElement(groupId, item.id)
+      if (anchor) void showSubmenu(item, anchor, true)
+      return
+    }
+    select(groupId, item.id)
+  }
+
+  function selectSubmenuItem(
+    groupId: string | null,
+    parent: DropMenuItem | null,
+    child: DropMenuItem,
+  ): void {
+    if (child.disabled || groupId === null || parent === null) return
+    // 复选项切换后保持菜单打开，方便连续勾选多个周期。
+    if (child.checked !== undefined) {
+      emit('select', groupId, child.id, parent.id)
+      return
+    }
+    if (!props.keepOpenOnSelect) hide(true)
+    emit('select', groupId, child.id, parent.id)
+  }
+
+  function closeSubmenuAndFocusParent(): void {
+    const anchor = submenuAnchor.value
+    const focusTarget = anchor?.querySelector<HTMLElement>('.drop-menu__item-main') ?? anchor
+    closeSubmenu()
+    focusTarget?.focus()
+  }
+
+  /** 面板级委托：指针在菜单项之间移动时让高亮块滑过去；二级菜单有自己的 hover 底色。 */
   function onMenuPointerOver(event: PointerEvent): void {
     const target = event.target instanceof Element ? event.target : null
+    if (target && submenuRef.value?.contains(target)) return
     const item = target?.closest<HTMLElement>('.drop-menu__item') ?? null
     if (item) moveHighlight(item)
     else hideHighlight()
@@ -255,13 +491,16 @@
   /** 键盘焦点切换与指针同样驱动高亮块。 */
   function onMenuFocusIn(event: FocusEvent): void {
     const target = event.target instanceof Element ? event.target : null
+    if (target && submenuRef.value?.contains(target)) return
     const item = target?.closest<HTMLElement>('.drop-menu__item') ?? null
     if (item) moveHighlight(item)
   }
 
-  // 关闭后清空高亮，重新打开不会残留上一项的位置。
+  // 关闭后清空高亮与子菜单，重新打开不会残留上一项的位置。
   watch(isOpen, (next) => {
-    if (!isOpen) hideHighlight()
+    if (next) return
+    hideHighlight()
+    closeSubmenu()
   })
 
   /** 指针按下触发器：本次打开不移入焦点，避免菜单项常驻高亮。 */
@@ -276,11 +515,13 @@
   /** 坐标模式入口：记录指针位置后打开，已打开时只更新位置。 */
   function openAt(x: number, y: number): void {
     pointerOpened = false
+    closeSubmenu()
     contextOrigin.value = { x, y }
     show()
   }
 
   function hide(restoreFocus = false): void {
+    closeSubmenu()
     popover.hide({ restoreFocus })
   }
 
@@ -302,10 +543,47 @@
   }
 
   function onMenuKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null
+    // 子菜单自己处理方向键与返回；事件冒泡到面板时不再走主列表的 roving。
+    if (target && submenuRef.value?.contains(target)) return
     // 行内输入框（如命名表单）保留方向键与字符输入。
+    if (target?.matches('input, textarea, select, [contenteditable]')) return
+    if (event.key === 'Escape' && openSubmenuItem.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      closeSubmenuAndFocusParent()
+      return
+    }
+    if (event.key === 'ArrowRight') {
+      const row = target?.closest<HTMLElement>('.drop-menu__item')
+      const groupId = row?.dataset.groupId
+      const itemId = row?.dataset.itemId
+      const item =
+        groupId === undefined || itemId === undefined
+          ? undefined
+          : props.groups
+              .find((group) => group.id === groupId)
+              ?.items.find((entry) => entry.id === itemId)
+      if (row && item?.children?.length) {
+        event.preventDefault()
+        void showSubmenu(item, row, true)
+        return
+      }
+    }
+    if (roving.onKeydown(event) && openSubmenuItemId.value !== null) closeSubmenu()
+  }
+
+  /** 子菜单键盘：← / Esc 回到父项，↑↓ 在子项之间移动。 */
+  function onSubmenuKeydown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null
     if (target?.matches('input, textarea, select, [contenteditable]')) return
-    roving.onKeydown(event)
+    if (event.key === 'ArrowLeft' || event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      closeSubmenuAndFocusParent()
+      return
+    }
+    if (submenuRoving.onKeydown(event)) event.stopPropagation()
   }
 
   /** 焦点离开面板（Tab 出去或点击别处）时关闭。 */
@@ -320,6 +598,15 @@
     if (!props.keepOpenOnSelect) hide(true)
     emit('select', groupId, itemId)
   }
+
+  // 窗口尺寸变化时子菜单的 fixed 坐标会失效，直接收起，等下一次 hover/键盘重新测量。
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', closeSubmenu, { passive: true })
+  }
+  onScopeDispose(() => {
+    if (typeof window !== 'undefined') window.removeEventListener('resize', closeSubmenu)
+    cancelSubmenuClose()
+  })
 
   defineExpose({ show, hide, openAt, element: menuRef })
 </script>
@@ -479,6 +766,16 @@
     padding-bottom: var(--drop-menu-item-padding-block, 4px);
   }
 
+  /* 图标槽固定占位：条目没有图标时也保留同一宽度，避免文案左右跳动。 */
+  .drop-menu__icon {
+    display: inline-flex;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    align-items: center;
+    justify-content: center;
+  }
+
   /* 图标默认弱化，悬停整行时提亮并轻微放大，提示当前可操作项。 */
   .drop-menu__item :deep(.drop-menu__item-main svg) {
     width: 14px;
@@ -618,5 +915,49 @@
 
   .drop-menu__item :deep(.drop-menu__switch[aria-checked='true'] span) {
     transform: translateX(12px);
+  }
+
+  /* 二级菜单与主面板共用表面，但用 fixed 坐标逃出主面板的滚动裁剪。 */
+  .drop-menu__submenu {
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 160px;
+    max-width: calc(100vw - 16px);
+    padding: 0;
+    overflow-y: auto;
+    opacity: 1;
+    transition: opacity var(--klc-motion-dur-slow, 260ms) var(--klc-motion-ease-out, ease-out);
+  }
+
+  /* 首次插入时从透明开始，位置已经贴好，只做淡入。 */
+  @starting-style {
+    .drop-menu__submenu {
+      opacity: 0;
+    }
+  }
+
+  .drop-menu__submenu .drop-menu__item:hover,
+  .drop-menu__submenu .drop-menu__item:focus-within {
+    background: var(--klc-color-ui-hover);
+  }
+
+  .drop-menu__submenu-arrow {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    margin-left: var(--klc-space-4, 4px);
+    color: var(--klc-color-ui-text-soft);
+  }
+
+  .drop-menu__check {
+    display: inline-flex;
+    flex: 0 0 14px;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    margin-left: auto;
+    padding-left: var(--klc-space-8, 8px);
+    box-sizing: content-box;
+    color: var(--klc-color-ui-text);
   }
 </style>

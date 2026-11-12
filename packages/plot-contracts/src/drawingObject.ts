@@ -38,6 +38,9 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
     params,
     labels,
     anchors: input.anchors.map((anchor) => ({ ...anchor })),
+    ...(input.timeframeVisibility === undefined
+      ? {}
+      : { timeframeVisibility: { ...input.timeframeVisibility } }),
     style: { ...input.style },
     ...(input.text === undefined ? {} : { text: { ...input.text } }),
   }
@@ -52,6 +55,9 @@ export function applyDrawingPatch(drawing: DrawingObject, patch: DrawingPatch): 
     ...(patch.params === undefined ? {} : { params: patch.params }),
     ...(patch.labels === undefined ? {} : { labels: patch.labels }),
     ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+    ...(patch.timeframeVisibility === undefined
+      ? {}
+      : { timeframeVisibility: { ...patch.timeframeVisibility } }),
     ...(patch.locked === undefined ? {} : { locked: patch.locked }),
     ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
   }

@@ -157,13 +157,6 @@
         <template #trigger>
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
-        <template #item-icon="{ item }">
-          <IconTablerDownload
-            v-if="item.id === chartScreenshotActions.download"
-            aria-hidden="true"
-          />
-          <IconTablerClipboard v-else-if="item.id === chartScreenshotActions.copy" aria-hidden="true" />
-        </template>
       </DropMenu>
       <slot name="watchlist"></slot>
       <BaseTooltip content="设置" command="settings.open" placement="bottom">
@@ -232,8 +225,16 @@
       id: chartScreenshotLabels.capture,
       label: chartScreenshotLabels.capture,
       items: [
-        { id: chartScreenshotActions.download, label: chartScreenshotLabels.download },
-        { id: chartScreenshotActions.copy, label: chartScreenshotLabels.copy },
+        {
+          id: chartScreenshotActions.download,
+          label: chartScreenshotLabels.download,
+          icon: IconTablerDownload,
+        },
+        {
+          id: chartScreenshotActions.copy,
+          label: chartScreenshotLabels.copy,
+          icon: IconTablerClipboard,
+        },
       ],
     },
   ]
@@ -473,9 +474,7 @@
   .top-toolbar {
     --control-button-height: 30px;
     --control-button-inline-padding: 10px;
-    --control-button-border-width: 0;
     --control-button-radius: 4px;
-    --control-button-background: transparent;
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;

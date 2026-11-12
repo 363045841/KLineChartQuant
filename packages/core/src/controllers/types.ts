@@ -27,6 +27,7 @@ import type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   DrawingToolId,
   PersistedDrawingAnchor,
   DrawingObject as PluginDrawingObject,
@@ -35,6 +36,7 @@ import type {
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
 import type { InstanceMoveTarget, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
@@ -66,14 +68,10 @@ export interface ChartViewport {
   kGap: number
 }
 
-/** 指标角色运行时取值，供适配器判断主/副图。 */
-export const INDICATOR_ROLE = {
-  MAIN: 'main',
-  SUB: 'sub',
-} as const
-
 /** 指标实例与副图信息沿用引擎投影，避免控制器层重复定义。 */
 export type { IndicatorInstance, IndicatorRole, SubPaneInfo }
+/** 指标角色运行时取值由状态层定义；控制器层转出以保持适配器导入路径稳定。 */
+export { INDICATOR_ROLE }
 
 /** 组件受控指标实例配置。 */
 export interface ChartIndicatorConfig {
@@ -91,6 +89,7 @@ export type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   UpdateDrawingPatch,
 }
 
@@ -308,6 +307,10 @@ export interface DrawingViewportPort {
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   /** 当前绘图所属的数据工作区。 */
   getDrawingWorkspaceId(): import('../engine/drawing/index.js').DrawingWorkspaceId
+  /** 当前绘图所属的标的身份；无主品种时 undefined。 */
+  getDrawingSymbolKey(): string | undefined
+  /** 当前绘图所属的数据周期；周期可见性过滤使用。 */
+  getDrawingPeriod(): string
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
@@ -447,7 +450,9 @@ export interface ChartController
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
   /** 绘制完成后发布的帧几何；覆盖物必须使用它的投影，不能拼接实时状态。 */
-  readonly frameGeometry: ReadonlySignal<import('../engine/frame/types.js').ChartFrameGeometry | null>
+  readonly frameGeometry: ReadonlySignal<
+    import('../engine/frame/types.js').ChartFrameGeometry | null
+  >
   /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */
   readonly rightAxisEffectiveWidth: ReadonlySignal<number>
   readonly leftAxisEffectiveWidth: ReadonlySignal<number>
@@ -511,6 +516,10 @@ export interface ChartController
   /** 重置目标 Pane 的范围变换，保留自动/手动模式。 */
   resetPanePriceAxis(paneId: string): void
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  /** 在当前十字线所在的 K 线上锁定垂直光标；索引无效时返回 false。 */
+  lockCrosshairAt(index: number): boolean
+  /** 解除垂直光标锁定。 */
+  unlockCrosshair(): void
   /** 区间选择工具确认的时间范围。 */
   readonly selectedRange: ReadonlySignal<{ from: number; to: number } | null>
   /** 区间选择工具的完整权威状态。 */
@@ -607,6 +616,8 @@ export interface ChartController
   moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
   removeIndicator(instanceId: string): boolean
+  /** 删除当前工作区全部指标实例；副图一并回收。 */
+  clearAllIndicators(): void
   /** 更新实例参数、显隐、排序或定义。 */
   updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean
 

@@ -95,6 +95,7 @@
         <div ref="chartMainRef" class="chart-main">
           <ChartNavigation
             v-if="hasPrimarySymbol"
+            :controller="controller"
             :style="{
               bottom: `${props.bottomAxisHeight}px`,
               '--chart-nav-offset-x': `${navOffsetX}px`,
@@ -107,11 +108,7 @@
             :groups="contextMenuGroups"
             :focus-target="containerRef"
             @select="onContextMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
+          />
           <DropMenu
             context
             controlled
@@ -123,11 +120,7 @@
             :focus-target="containerRef"
             @update:open="onLegendMoveMenuUpdateOpen"
             @select="onLegendMoveMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="legendMoveMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
+          />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -555,6 +548,11 @@
     useControllerSignal,
     useControllerSignalValue,
   } from '@vue-src/composables/chart/useControllerSignal.js'
+  import {
+    type ContextMenuSource,
+    resolveContextMenuSource,
+    useDrawingContextMenu,
+  } from '@vue-src/composables/chart/useDrawingContextMenu.js'
   import { useDrawingManager } from '@vue-src/composables/chart/useDrawingManager.js'
   import { useIndicatorManager } from '@vue-src/composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '@vue-src/composables/chart/useInteractionBridge.js'
@@ -1161,15 +1159,32 @@
   )
   // 右键菜单与导航按钮共用命令注册表；价格快照在每次打开时刷新。
   const {
-    groups: contextMenuGroups,
-    icons: contextMenuIcons,
-    capturePrice: captureContextMenuPrice,
-    select: selectContextMenuItem,
+    groups: chartContextMenuGroups,
+    captureCrosshair: captureContextMenuPrice,
+    select: selectChartContextMenuItem,
   } = useChartContextMenu({ controller, commands })
+  // 图元菜单只消费打开瞬间的目标快照，动作按快照 ids 提交。
+  /** 周期可见性规则以当前 K 线周期为参考；分时视图不适用。 */
+  const drawingVisibilityPeriod = computed(() => (isTimeShareView.value ? null : kLineLevel.value))
+  const {
+    groups: drawingContextMenuGroups,
+    capture: captureDrawingContextMenu,
+    select: selectDrawingContextMenuItem,
+  } = useDrawingContextMenu({
+    controller,
+    commands,
+    currentPeriod: drawingVisibilityPeriod,
+  })
+  // 右键来源在打开瞬间确定；一个面板按来源切换菜单项，不并存两个菜单实例。
+  const contextMenuSource = shallowRef<ContextMenuSource>({ kind: 'chart' })
+  const contextMenuGroups = computed(() =>
+    contextMenuSource.value.kind === 'drawing'
+      ? drawingContextMenuGroups.value
+      : chartContextMenuGroups.value,
+  )
   // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。
   const {
     groups: legendMoveMenuGroups,
-    icons: legendMoveMenuIcons,
     open: legendMoveMenuOpen,
     origin: legendMoveMenuOrigin,
     offset: legendMoveMenuOffset,
@@ -1650,7 +1665,7 @@
     },
   }
 
-  /** 右键在绘图区打开图表菜单；编辑控件内保留浏览器原生菜单。 */
+  /** 右键在绘图区按命中来源打开图表或图元菜单；编辑控件内保留浏览器原生菜单。 */
   function onChartContextMenu(event: MouseEvent): void {
     if (
       event.target instanceof Element &&
@@ -1658,13 +1673,24 @@
     )
       return
     event.preventDefault()
-    captureContextMenuPrice()
+    const container = containerRef.value
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const source = resolveContextMenuSource(
+      drawingController.value,
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    )
+    contextMenuSource.value = source
+    if (source.kind === 'drawing') captureDrawingContextMenu(source.drawingId)
+    else captureContextMenuPrice()
     chartContextMenuRef.value?.openAt(event.clientX, event.clientY)
   }
 
-  /** 菜单项动作由菜单自身分发；这里只转交选中的命令/动作 id。 */
-  function onContextMenuSelect(_groupId: string, itemId: string): void {
-    selectContextMenuItem(itemId)
+  /** 菜单项动作按打开瞬间的来源分发；动作本身只读取各自快照。 */
+  function onContextMenuSelect(_groupId: string, itemId: string, parentId?: string): void {
+    if (contextMenuSource.value.kind === 'drawing') selectDrawingContextMenuItem(itemId, parentId)
+    else selectChartContextMenuItem(itemId)
   }
 
   /** 图例移动菜单选中目标后交给图例命令面执行。 */

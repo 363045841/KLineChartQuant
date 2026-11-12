@@ -1,18 +1,17 @@
 /**
  * PaneManager —— 实例归属与 Pane 容器的唯一领域写入口。
  *
- * 主图与副图共用同一套实例命令：add / moveInstance / removeInstance / updateInstance。
+ * 主图与副图共用同一套实例命令：add / moveInstance / removeInstance /
+ * updateInstance / clearAllIndicators。
  * Pane 容器操作只管理顺序、高度和可见性，不承担指标内容语义。
  */
 import { batch } from '../../../foundation/reactivity/signal.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
 import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.js'
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
-import type {
-  IndicatorInstancePatch,
-  IndicatorInstanceRole,
-  IndicatorInstanceSpec,
-} from '../../state/indicatorState.js'
+import { INDICATOR_ROLE, type IndicatorInstanceRole } from '../../state/indicatorRole.js'
+import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
+import { indicatorInstanceAxisKey } from '../instanceAxisKey.js'
 import type {
   InstanceMoveTarget,
   PaneLayoutCommands,
@@ -41,6 +40,8 @@ export class PaneManager {
     updatePane: (paneId, patch) => this.updatePane(paneId, patch),
     movePane: (paneId, targetIndex) => this.movePane(paneId, targetIndex),
     removePane: (paneId) => this.removePane(paneId),
+    removeInstancesByDefinition: (definitionId) => this.removeInstancesByDefinition(definitionId),
+    clearAllIndicators: () => this.clearAllIndicators(),
     clearPanes: () => this.clearPanes(),
     importLayout: (specs) => this.importLayout(specs),
     getLayoutSpecs: () => [...this.list()],
@@ -64,10 +65,10 @@ export class PaneManager {
     const resolved =
       target === undefined
         ? definition.category === 'main'
-          ? { paneId: MAIN_PANE_ID, role: 'main' as const }
+          ? { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
           : {
               paneId: generateUUID(),
-              role: 'sub' as const,
+              role: INDICATOR_ROLE.SUB,
               insert: {
                 anchorPaneId: specs[specs.length - 1]?.id ?? MAIN_PANE_ID,
                 placement: 'below' as const,
@@ -116,7 +117,7 @@ export class PaneManager {
       : specs
     // 源副图移出最后一个实例后不再保留空容器。
     if (
-      current.role === 'sub' &&
+      current.role === INDICATOR_ROLE.SUB &&
       !previous.some(
         (instance) => instance.instanceId !== instanceId && instance.paneId === current.paneId,
       )
@@ -140,23 +141,50 @@ export class PaneManager {
 
   /** 删除实例；空副图一并回收，独立轴偏好随实例删除。 */
   private removeInstance(instanceId: string): boolean {
-    const { indicator, pane } = this.dependencies
-    const previous = indicator.readonly.instances.peek()
-    const current = previous.find((instance) => instance.instanceId === instanceId)
+    const current = this.dependencies.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)
     if (!current) return false
-    const remaining = previous.filter((instance) => instance.instanceId !== instanceId)
-    const emptyPane =
-      current.role === 'sub' && !remaining.some((instance) => instance.paneId === current.paneId)
-    const nextSpecs = emptyPane
-      ? this.list().filter((spec) => spec.id !== current.paneId)
-      : this.list()
+    this.removeInstances([current])
+    return true
+  }
+
+  /**
+   * 批量删除实例并回收失去全部实例的副图。
+   *
+   * 只处理被删实例占用的副图：仍有其它实例的 Pane、主图和系统 Pane 都保留。
+   */
+  private removeInstances(instances: ReadonlyArray<IndicatorInstanceSpec>): void {
+    if (instances.length === 0) return
+    const { indicator, pane } = this.dependencies
+    const removedIds = new Set(instances.map((instance) => instance.instanceId))
+    const remaining = indicator.readonly.instances
+      .peek()
+      .filter((instance) => !removedIds.has(instance.instanceId))
+    const occupiedPaneIds = new Set(
+      remaining
+        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
+        .map((instance) => instance.paneId),
+    )
+    const touchedPaneIds = new Set(
+      instances
+        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
+        .map((instance) => instance.paneId),
+    )
+    const nextSpecs = this.list().filter(
+      (spec) => !touchedPaneIds.has(spec.id) || occupiedPaneIds.has(spec.id),
+    )
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
-      indicator.actions.removeInstance(instanceId)
+      for (const instance of instances) this.detachInstance(instance.instanceId)
       pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
-      pane.actions.removePaneScaleType(`instance:${instanceId}`)
     })
-    return true
+  }
+
+  /** 删除实例自身与实例级轴偏好；布局由调用方在 batch 内统一提交。 */
+  private detachInstance(instanceId: string): void {
+    this.dependencies.indicator.actions.removeInstance(instanceId)
+    this.dependencies.pane.actions.removePaneScaleType(indicatorInstanceAxisKey(instanceId))
   }
 
   /** 更新实例参数、显隐、排序或定义；归属变化走 moveInstance。 */
@@ -209,17 +237,17 @@ export class PaneManager {
 
   /** 删除 Pane 及其全部用户实例；主图不可删除。 */
   private removePane(paneId: string): boolean {
-    const { indicator, pane } = this.dependencies
+    const { pane } = this.dependencies
     if (paneId === MAIN_PANE_ID) return false
     const currentSpecs = this.list()
     if (!currentSpecs.some((item) => item.id === paneId)) return false
-    const instances = indicator.readonly.instances
+    const instances = this.dependencies.indicator.readonly.instances
       .peek()
       .filter((instance) => instance.paneId === paneId)
     const nextSpecs = currentSpecs.filter((item) => item.id !== paneId)
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
-      for (const instance of instances) indicator.actions.removeInstance(instance.instanceId)
+      for (const instance of instances) this.detachInstance(instance.instanceId)
       pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
     })
     return true
@@ -227,17 +255,25 @@ export class PaneManager {
 
   /** 删除全部用户副图及其实例，保留主图。 */
   private clearPanes(): void {
-    const { indicator, pane } = this.dependencies
-    const instances = indicator.readonly.instances
-      .peek()
-      .filter((instance) => instance.role === 'sub')
-    const subPaneIds = new Set(instances.map((instance) => instance.paneId))
-    const nextSpecs = this.list().filter((item) => !subPaneIds.has(item.id))
-    const ratios = this.normalizeRatios(nextSpecs)
-    batch(() => {
-      for (const instance of instances) indicator.actions.removeInstance(instance.instanceId)
-      pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
-    })
+    this.removeInstances(
+      this.dependencies.indicator.readonly.instances
+        .peek()
+        .filter((instance) => instance.role === INDICATOR_ROLE.SUB),
+    )
+  }
+
+  /** 删除指定定义创建的全部实例；定义注销与宿主清理共用。 */
+  private removeInstancesByDefinition(definitionId: string): void {
+    this.removeInstances(
+      this.dependencies.indicator.readonly.instances
+        .peek()
+        .filter((instance) => instance.indicatorId === definitionId),
+    )
+  }
+
+  /** 一次提交删除主图与副图全部实例，副图容器随之回收。 */
+  private clearAllIndicators(): void {
+    this.removeInstances(this.dependencies.indicator.readonly.instances.peek())
   }
 
   /** 受控导入完整布局；删除的用户副图内容随 pane 一并清理。 */
@@ -246,14 +282,13 @@ export class PaneManager {
     const nextIds = new Set(nextSpecs.map((item) => item.id))
     const removed = this.dependencies.indicator.readonly.instances
       .peek()
-      .filter((item) => item.role === 'sub' && !nextIds.has(item.paneId))
+      .filter((item) => item.role === INDICATOR_ROLE.SUB && !nextIds.has(item.paneId))
     // 完整布局导入以调用方快照为准，不能继承上一帧的 ratio。
     const ratios = this.buildRatios(nextSpecs, (item) =>
       Number.isFinite(item.ratio) ? item.ratio : 1,
     )
     batch(() => {
-      for (const instance of removed)
-        this.dependencies.indicator.actions.removeInstance(instance.instanceId)
+      for (const instance of removed) this.detachInstance(instance.instanceId)
       this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
     })
   }
@@ -263,18 +298,18 @@ export class PaneManager {
     target: InstanceMoveTarget,
     specs: ReadonlyArray<PaneSpec>,
   ): ResolvedTarget | null {
-    if (target.kind === 'main') return { paneId: MAIN_PANE_ID, role: 'main' }
+    if (target.kind === 'main') return { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
     if (target.kind === 'pane') {
       if (!specs.some((spec) => spec.id === target.paneId)) return null
       return {
         paneId: target.paneId,
-        role: target.paneId === MAIN_PANE_ID ? 'main' : 'sub',
+        role: target.paneId === MAIN_PANE_ID ? INDICATOR_ROLE.MAIN : INDICATOR_ROLE.SUB,
       }
     }
     if (!specs.some((spec) => spec.id === target.anchorPaneId)) return null
     return {
       paneId: generateUUID(),
-      role: 'sub',
+      role: INDICATOR_ROLE.SUB,
       insert: { anchorPaneId: target.anchorPaneId, placement: target.placement },
     }
   }

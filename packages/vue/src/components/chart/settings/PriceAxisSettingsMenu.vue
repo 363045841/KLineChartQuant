@@ -144,10 +144,8 @@
   .axis-settings-menu {
     --control-button-height: 100%;
     --control-button-inline-padding: 0;
-    --control-button-border-width: 0;
     --control-button-radius: 0;
     --control-button-justify: center;
-    --control-button-background: var(--klc-color-ui-background);
     --control-button-color: var(--klc-color-ui-muted);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-active-color: var(--klc-color-ui-text);

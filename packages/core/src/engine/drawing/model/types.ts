@@ -53,13 +53,28 @@ export interface CreateDrawingInput {
   readonly zIndex?: number
 }
 
+/** 绘图可见性与归属的作用域；渲染、命中、查询与价格范围共用同一份判断。 */
+export interface DrawingScope {
+  readonly workspaceId: DrawingWorkspaceId
+  readonly symbolKey?: string | undefined
+  readonly period: string
+}
+
+/** 指定 Pane 的绘图作用域；渲染、命中与价格范围使用。 */
+export interface PaneDrawingScope extends DrawingScope {
+  readonly paneId: string
+}
+
 /** 更新已确认图元的声明式 patch；只有锚点需要命令输入，其余字段沿用公共 patch。 */
 export interface UpdateDrawingPatch extends Omit<DrawingPatch, 'anchors'> {
   readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput> | undefined
 }
 
 /** 可同时应用到多个图元的公共属性。 */
-export type BatchDrawingPatch = Pick<DrawingPatch, 'style' | 'visible' | 'locked' | 'zIndex'>
+export type BatchDrawingPatch = Pick<
+  DrawingPatch,
+  'style' | 'visible' | 'timeframeVisibility' | 'locked' | 'zIndex'
+>
 
 /** DrawingStyle 的字段名。 */
 export type DrawingStyleKey = keyof DrawingStyle

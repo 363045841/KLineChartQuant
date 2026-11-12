@@ -49,6 +49,18 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     return removed
   }
 
+  /** 删除指定定义创建的全部实例；定义注销时与空副图回收一起提交。 */
+  removeInstancesByDefinition(definitionId: string): void {
+    this.deps.kernel.paneManager.actions.removeInstancesByDefinition(definitionId)
+    this.deps.invalidateDrawingHistory()
+  }
+
+  /** 删除当前工作区全部指标实例；副图回收后只保留主图与系统 Pane。 */
+  clearAllIndicators(): void {
+    this.deps.kernel.paneManager.actions.clearAllIndicators()
+    this.deps.invalidateDrawingHistory()
+  }
+
   /** 更新实例参数、显隐、排序或定义。 */
   updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean {
     return this.deps.kernel.paneManager.actions.updateInstance(instanceId, patch)

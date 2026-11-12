@@ -35,6 +35,7 @@ import {
   createIndicatorScaleLayer,
   hasIndicatorScaleCrosshairLayer,
 } from '../renderers/Indicator/scale/indicator_scale.js'
+import { INDICATOR_ROLE } from '../state/indicatorRole.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -124,6 +125,8 @@ export interface IndicatorDependencies {
   getLayer: (id: string) => Layer | null
   /** 主图/副图统一的指标实例配置状态 */
   indicator: IndicatorStateModule
+  /** 定义注销时统一走 Pane 命令，避免绕过布局与轴偏好清理。 */
+  removeInstancesByDefinition: (definitionId: string) => void
   runRendererTransaction: (run: () => void) => void
 }
 
@@ -216,10 +219,7 @@ export class ChartIndicatorManager {
   private removeCommittedDefinitions(definitions: readonly IndicatorMetadata[]): void {
     for (const definition of definitions) {
       const canonical = resolveCanonicalIndicatorId(definition)
-      for (const instance of this.deps.indicator.readonly.instances.peek()) {
-        if (instance.indicatorId !== canonical) continue
-        this.deps.indicator.actions.removeInstance(instance.instanceId)
-      }
+      this.deps.removeInstancesByDefinition(canonical)
       this.inlineExecutor.removeDefinitions([definition.name])
     }
   }
@@ -288,7 +288,7 @@ export class ChartIndicatorManager {
           label,
           name: label,
           role: instance.role,
-          paneId: instance.role === 'sub' ? instance.paneId : undefined,
+          paneId: instance.role === INDICATOR_ROLE.SUB ? instance.paneId : undefined,
           ordinal: instance.ordinal,
           params: { ...instance.params },
         }
@@ -556,7 +556,7 @@ export class ChartIndicatorManager {
           .slice()
           .sort((left, right) => left.ordinal - right.ordinal),
       listMainInstances: () =>
-        descriptors((instance) => instance.role === 'main')
+        descriptors((instance) => instance.role === INDICATOR_ROLE.MAIN)
           .slice()
           .sort((left, right) => left.ordinal - right.ordinal),
       listPaneInstances: (paneId: string) =>

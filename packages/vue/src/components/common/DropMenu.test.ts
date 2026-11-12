@@ -2,7 +2,7 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import DropMenu from './DropMenu.vue'
 
 const selectionGroups = [
@@ -198,6 +198,128 @@ describe('DropMenu 坐标模式（右键菜单）', () => {
     items[1]?.click()
     await flush()
     expect(wrapper.emitted('select')?.[0]).toEqual(['chart', 'copy-price'])
+    wrapper.unmount()
+  })
+})
+
+describe('DropMenu 图标槽位', () => {
+  const icon = defineComponent({ render: () => h('svg') })
+
+  it('只有存在图标时才保留左侧槽位，并为无图标项对齐', async () => {
+    const plain = mount(DropMenu, {
+      attachTo: document.body,
+      props: {
+        label: '菜单',
+        groups: [{ id: 'g', label: '', items: [{ id: '1', label: 'One' }] }],
+      },
+    })
+    ;(plain.get('button').element as HTMLButtonElement).click()
+    await flush()
+    expect(document.querySelector('.drop-menu__icon')).toBeNull()
+    plain.unmount()
+
+    const withIcon = mount(DropMenu, {
+      attachTo: document.body,
+      props: {
+        label: '菜单',
+        groups: [
+          {
+            id: 'g',
+            label: '',
+            items: [
+              { id: '1', label: 'One', icon },
+              { id: '2', label: 'Two' },
+            ],
+          },
+        ],
+      },
+    })
+    ;(withIcon.get('button').element as HTMLButtonElement).click()
+    await flush()
+    expect(document.querySelectorAll('.drop-menu__icon')).toHaveLength(2)
+    withIcon.unmount()
+  })
+})
+
+describe('DropMenu 二级菜单', () => {
+  const groups = [
+    {
+      id: 'g',
+      label: '',
+      items: [
+        {
+          id: 'period',
+          label: '时间周期可见性',
+          children: [
+            { id: 'above', label: '当前及以上时间周期', checked: false },
+            { id: 'all', label: '所有时间周期', checked: true },
+          ],
+        },
+      ],
+    },
+  ]
+
+  async function mountMenu() {
+    const wrapper = mount(DropMenu, {
+      attachTo: document.body,
+      props: { label: '菜单', groups, context: true },
+    })
+    ;(wrapper.vm as unknown as { openAt: (x: number, y: number) => void }).openAt(24, 36)
+    await flush()
+    return wrapper
+  }
+
+  it('父项展开、复选保持打开、勾选态更新，方向键进出子菜单', async () => {
+    const wrapper = await mountMenu()
+    const parent = document.querySelector<HTMLElement>('[data-item-id="period"] [role="menuitem"]')
+    expect(parent?.getAttribute('aria-haspopup')).toBe('menu')
+    parent?.click()
+    await flush()
+
+    const checkboxes = [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')]
+    expect(checkboxes.map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true'])
+    expect(parent?.getAttribute('aria-expanded')).toBe('true')
+
+    checkboxes[0]?.click()
+    await flush()
+    expect(wrapper.emitted('select')?.[0]).toEqual(['g', 'above', 'period'])
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(document.querySelector('[role="menuitemcheckbox"]')).not.toBeNull()
+
+    // 父项只保存 id，子项始终从最新 groups 派生，外部更新勾选态后立即反映。
+    await wrapper.setProps({
+      groups: [
+        {
+          id: 'g',
+          label: '',
+          items: [
+            {
+              id: 'period',
+              label: '时间周期可见性',
+              children: [
+                { id: 'above', label: '当前及以上时间周期', checked: true },
+                { id: 'all', label: '所有时间周期', checked: false },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    await flush()
+    const updated = [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')]
+    expect(updated.map((item) => item.getAttribute('aria-checked'))).toEqual(['true', 'false'])
+
+    updated[0]?.focus()
+    if (updated[0]) key(updated[0], 'ArrowLeft')
+    await flush()
+    expect(document.activeElement).toBe(parent)
+    expect(document.querySelector('[role="menuitemcheckbox"]')).toBeNull()
+
+    if (parent) key(parent, 'ArrowRight')
+    await flush()
+    expect(document.activeElement).toBe(
+      document.querySelector<HTMLElement>('[role="menuitemcheckbox"]'),
+    )
     wrapper.unmount()
   })
 })

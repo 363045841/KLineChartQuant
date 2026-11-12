@@ -4,13 +4,18 @@ import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import { batch } from '../../foundation/reactivity/signal.js'
+import { createSeriesTimeProjection, resolveSeriesInterval } from '../../foundation/time/index.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart/index.js'
 import { UpdateLevel } from '../pane/index.js'
 import type { ScaleXSnapshot } from '../scale/index.js'
-import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
+import type {
+  CrosshairLock,
+  InteractionSnapshot,
+  InteractionStateModule,
+} from '../state/interactionState.js'
 import { PinchTracker } from './pinchTracker.js'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
 
@@ -113,6 +118,9 @@ export class InteractionController {
   }
   get crosshairIndex(): number | null {
     return this._state.readonly.crosshairIndex.peek()
+  }
+  get crosshairLock(): CrosshairLock | null {
+    return this._state.readonly.crosshairLock.peek()
   }
 
   constructor(chart: Chart, state: InteractionStateModule) {
@@ -1103,5 +1111,35 @@ export class InteractionController {
   /** 获取十字线指向的 K 线索引 */
   getCrosshairIndex(): number | null {
     return this.crosshairIndex
+  }
+
+  /**
+   * 锁定垂直光标到指定槽位。
+   *
+   * 槽位是当前周期的逻辑索引，未来槽位没有真实 K 线：用序列时间投影按常规槽距
+   * 外推时间戳，锁定对象仍然只有时间与槽距，屏幕位置由渲染帧重新投影。
+   *
+   * @param index 当前序列的逻辑槽位；负槽位或无法推算时间时返回 false
+   */
+  lockCrosshairAt(index: number): boolean {
+    if (index < 0) return false
+    const data = this.chart.getInternalData()
+    const timestamp =
+      data[index]?.timestamp ?? createSeriesTimeProjection(data).logicalToTime(index)
+    if (timestamp === null) return false
+    const lock: CrosshairLock = Object.freeze({
+      timestamp,
+      intervalMs: resolveSeriesInterval(data),
+    })
+    this._state.actions.setCrosshairLock(lock)
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
+    return true
+  }
+
+  /** 解除锁定；没有锁定时不触发重绘。 */
+  unlockCrosshair(): void {
+    if (this._state.readonly.crosshairLock.peek() === null) return
+    this._state.actions.setCrosshairLock(null)
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
   }
 }

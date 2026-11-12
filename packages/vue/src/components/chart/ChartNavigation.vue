@@ -1,6 +1,6 @@
 <!-- 时间轴上方的导航浮层；仅声明按钮顺序，业务行为由命令层持有。 -->
 <template>
-  <div ref="root" class="chart-navigation" @pointerdown.stop @dblclick.stop>
+  <div class="chart-navigation" @pointerdown.stop @dblclick.stop>
     <div class="chart-navigation__buttons">
       <div
         v-for="group in commandGroups"
@@ -20,12 +20,11 @@
 </template>
 
 <script setup lang="ts">
+  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import { useResetChartVisibility } from '@vue-src/composables/chart/useResetChartVisibility.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
-  import { computed, ref, watch } from 'vue'
+  import { computed, toRef } from 'vue'
   import ChartCommandButton from '../commands/ChartCommandButton.vue'
-
-  /** 执行后单独淡出的命令：重置是一次性收尾动作，缩放与平移需要连续点击。 */
-  const DISMISS_COMMAND = 'view.reset'
 
   /** 一组命令按钮；分组只决定间隔，`dismissed` 控制该组当前的显隐。 */
   interface CommandGroup {
@@ -34,9 +33,12 @@
     readonly dismissed?: boolean
   }
 
-  const root = ref<HTMLElement | null>(null)
-  const dismissed = ref(false)
+  const props = defineProps<{ controller: ChartController | null }>()
+
   const device = useDeviceEnvironment()
+
+  /** 重置按钮的收起与恢复由 Core 的拖拽/缩放状态驱动，鼠标移动不再触发。 */
+  const { dismissed, onCommandExecuted } = useResetChartVisibility(toRef(props, 'controller'))
 
   /** 移动端与平板只保留重置：缩放和平移已由手势承担，按钮会挤占本就狭窄的绘图区。 */
   const compact = computed(() => device.value.deviceType !== 'desktop')
@@ -49,33 +51,13 @@
           { id: 'zoom', commands: ['view.zoomOut', 'view.zoomIn'] },
           { id: 'pan', commands: ['view.moveLeft', 'view.moveRight'] },
         ]
-    return [...groups, { id: 'reset', commands: [DISMISS_COMMAND], dismissed: dismissed.value }]
+    return [...groups, { id: 'reset', commands: ['view.reset'], dismissed: dismissed.value }]
   })
 
-  /** 重置执行后收起自己，避免停留遮挡刚复位后的图表。 */
+  /** 命令执行后交给显隐规则：重置自己收起，其他视图命令恢复。 */
   function onExecute(command: string): void {
-    if (command === DISMISS_COMMAND) dismissed.value = true
+    onCommandExecuted(command)
   }
-
-  /** 浮层之外的指针或键盘操作即视为“用户再次交互”，恢复重置按钮。 */
-  function resume(event: Event): void {
-    const target = event.target instanceof Node ? event.target : null
-    if (event instanceof KeyboardEvent || !root.value?.contains(target)) dismissed.value = false
-  }
-
-  // 只在收起期间监听文档级事件，恢复时立即摘除，不留常驻监听。
-  watch(dismissed, (active, _previous, onCleanup) => {
-    if (!active) return
-    const options = { capture: true, passive: true } as const
-    document.addEventListener('pointerdown', resume, options)
-    document.addEventListener('pointermove', resume, options)
-    document.addEventListener('keydown', resume, options)
-    onCleanup(() => {
-      document.removeEventListener('pointerdown', resume, options)
-      document.removeEventListener('pointermove', resume, options)
-      document.removeEventListener('keydown', resume, options)
-    })
-  })
 </script>
 
 <style scoped>
@@ -85,7 +67,8 @@
     left: calc(50% + var(--chart-nav-offset-x));
     transform: translateX(-50%);
     z-index: 30;
-    padding: 12px 16px 8px;
+    /* 左右留白同时是命中区；比按钮自身宽，指针靠近即显示浮层。 */
+    padding: 12px var(--klc-space-48) 8px;
     /* 留白同样是命中区：指针进入按钮附近即显示浮层，不必精确停在按钮上。 */
     pointer-events: auto;
   }
@@ -96,14 +79,14 @@
     opacity: 0;
     /* 收起时按钮不可点，避免点到看不见的按钮。 */
     pointer-events: none;
-    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+    transition: opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
   .chart-navigation__group {
     display: flex;
     gap: var(--klc-space-8);
     opacity: 1;
-    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+    transition: opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
 
   /* 重置按钮淡出但保留占位：整排按钮不因单个按钮显隐而位移。 */
@@ -129,5 +112,4 @@
       pointer-events: auto;
     }
   }
-
 </style>

@@ -28,7 +28,6 @@ import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
-import { belongsToDrawingSymbol } from '../../model/impl/drawingScope.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope, DrawingSource } from '../../render/types.js'
@@ -457,10 +456,8 @@ function resolveVisibleDrawing(
   definitions: DrawingDefinitionRegistry,
   context: RenderContext,
 ): ResolvedDrawingObject | null {
-  if (!storedDrawing.visible || context.range.end <= context.range.start) return null
-  // 未持久化的预览属于当前会话；已有标的归属的图元仍严格按标的过滤。
-  const isSessionPreview = storedDrawing.id === PREVIEW_ID && storedDrawing.symbolKey === undefined
-  if (!isSessionPreview && !belongsToDrawingSymbol(storedDrawing, context.symbolKey)) return null
+  if (context.range.end <= context.range.start) return null
+  // 标的作用域、工作区与周期可见性已由 DrawingStore 统一过滤；这里只判断时间范围与锚点可解析性。
   const drawing = resolveStoredDrawing(context, storedDrawing)
   if (!hasResolvableTimeAnchors(drawing)) return null
   return intersectsDrawingRange(definitions.extent(drawing), context.range) ? drawing : null
@@ -562,8 +559,16 @@ export function projectDrawingsForFrame(
     visibleData: seriesData.slice(context.range.start, context.range.end),
     seriesData,
   }
-  const workspaceId = resolveChartWorkspaceId(context.dataView)
-  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope, source)) {
+  for (const storedDrawing of store.getVisibleByPane(
+    {
+      paneId: context.pane.id,
+      workspaceId: resolveChartWorkspaceId(context.dataView),
+      symbolKey: context.symbolKey,
+      period: context.period,
+    },
+    scope,
+    source,
+  )) {
     projectStoredDrawing(state, storedDrawing, scope)
   }
   output.primitives.push(...state.handlePrimitives)

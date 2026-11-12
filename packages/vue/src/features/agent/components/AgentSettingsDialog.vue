@@ -418,8 +418,8 @@
   import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import SearchField from '@vue-src/components/common/SearchField.vue'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCheck from '~icons/tabler/check'
@@ -687,9 +687,7 @@
   .agent-settings-selects {
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
-    --control-button-border-width: 0;
     --control-button-radius: var(--klc-radius-xs, 4px);
-    --control-button-background: transparent;
     --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-shadow: none;
@@ -1115,11 +1113,8 @@
   /* 协议选择：触发器与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
   /* 协议选择：与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
   .protocol-control {
-    --control-button-background: var(--klc-color-ui-input);
     --control-button-color: var(--klc-color-ui-text);
-    --control-button-active-border: var(--klc-color-ui-border-strong);
     --control-button-active-background: var(--klc-color-ui-hover);
-    --control-button-focus-border: var(--klc-color-ui-accent);
     --control-button-focus-background: var(--klc-color-ui-hover);
     --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
   }

@@ -8,9 +8,9 @@ export {
 export { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 export { createDataState, type DataStateModule } from './dataState.js'
 export { createDrawingState, type DrawingStateModule } from './drawingState.js'
+export { INDICATOR_ROLE, type IndicatorInstanceRole } from './indicatorRole.js'
 export {
   createIndicatorState,
-  type IndicatorInstanceRole,
   type IndicatorInstanceSpec,
   type IndicatorStateModule,
   type SubPaneSpec,

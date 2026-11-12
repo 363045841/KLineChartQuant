@@ -53,6 +53,7 @@ export type {
   DrawingSessionPort,
   DrawingState,
   DrawingStyle,
+  DrawingTimeframeVisibility,
   DrawingViewportPort,
   IndicatorDefinition,
   IndicatorInstance,

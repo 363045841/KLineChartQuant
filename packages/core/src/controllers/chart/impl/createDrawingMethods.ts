@@ -42,8 +42,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   const drawingCommands = chart.drawingCommands
   /** 内部剪贴板快照；只存模型，不随原图元删除而失效。 */
   const drawingClipboard = createSignal<ReadonlyArray<DrawingObject>>(Object.freeze([]))
-  /** 剪贴板是否非空，供命令可用性判断。 */
-  const hasDrawingClipboard = computed(() => drawingClipboard.peek().length > 0)
+  /** 剪贴板是否非空，供命令可用性判断；必须用读取建立依赖，peek 不会触发派生失效。 */
+  const hasDrawingClipboard = computed(() => drawingClipboard().length > 0)
 
   /** 设置当前绘图工具，null 视为 cursor。 */
   function setDrawingTool(tool: DrawingToolId | null): void {
@@ -106,6 +106,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       getDrawingTimestampAtLogicalIndex,
       getLogicalIndexAtTimestamp,
       getDrawingWorkspaceId,
+      getDrawingSymbolKey,
+      getDrawingPeriod,
       priceToY,
       yToPrice,
       getPaneInfo,
@@ -265,10 +267,10 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return isDisposed() ? null : chart.getCoordinates(paneId)
   }
 
-  /** 读取全部图元列表（plugin 级 DrawingObject）。 */
+  /** 读取全部图元列表（plugin 级 DrawingObject），不做标的作用域过滤。 */
   function getFullDrawings(): ReadonlyArray<DrawingObject> {
     if (isDisposed()) return []
-    return drawingDocument.listCurrentDrawings()
+    return drawingDocument.listDrawings()
   }
 
   /** 请求一次重绘。 */
@@ -362,6 +364,18 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.drawing.getWorkspaceId()
   }
 
+  /** 读取当前绘图所属的标的身份。 */
+  function getDrawingSymbolKey(): string | undefined {
+    if (isDisposed()) return undefined
+    return chart.drawing.getSymbolKey()
+  }
+
+  /** 读取当前绘图所属的数据周期。 */
+  function getDrawingPeriod(): string {
+    if (isDisposed()) return ''
+    return chart.drawing.getPeriod()
+  }
+
   /** 指定 Pane 内 price → Y。 */
   function priceToY(paneId: string, price: number): number {
     return getCoordinates(paneId)?.priceToY(price) ?? Number.NaN
@@ -445,6 +459,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     getDrawingTimestampAtLogicalIndex,
     getLogicalIndexAtTimestamp,
     getDrawingWorkspaceId,
+    getDrawingSymbolKey,
+    getDrawingPeriod,
     priceToY,
     yToPrice,
     getPaneInfo,

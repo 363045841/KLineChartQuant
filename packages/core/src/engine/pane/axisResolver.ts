@@ -10,6 +10,7 @@ import type {
   IndicatorMetadata,
 } from '../indicators/indicatorMetadata.js'
 import type { IndicatorInstanceSpec } from '../state/indicatorState.js'
+import { indicatorInstanceAxisKey } from './instanceAxisKey.js'
 import { MAIN_PANE_ID } from './types.js'
 
 /** 一个 Pane 内的轴；顺序即右侧轴列顺序。 */
@@ -83,7 +84,7 @@ export function resolvePaneAxes(
         binding === 'own'
           ? axes.length === 0
             ? paneId
-            : `instance:${instance.instanceId}`
+            : indicatorInstanceAxisKey(instance.instanceId)
           : (axes.find((axis) => axis.shared && axis.kind === kind)?.axisId ??
             sharedAxisId(paneId, kind, axes))
       const existing = axes.find((axis) => axis.axisId === axisId)

@@ -102,26 +102,32 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
 }
 
 describe('会话预览的标的可见性', () => {
-  it.each([undefined, 'active-symbol'])('当前标的 %s 下预览保留连线和端点', (symbolKey) => {
-    const preview = createTrendDrawing({ id: PREVIEW_ID })
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
-      getOverlay: () => [preview],
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-    const projection = projectDrawingsForFrame(
-      store,
-      definitions,
-      createContext({ symbolKey }),
-      null,
-      'session',
-    )
+  it.each([undefined, 'active-symbol'])(
+    '当前标的 %s 下预览携带同一标的并保留连线和端点',
+    (symbolKey) => {
+      const preview = createTrendDrawing({
+        id: PREVIEW_ID,
+        ...(symbolKey === undefined ? {} : { symbolKey }),
+      })
+      const store = new DrawingStore({
+        drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+        selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+        getOverlay: () => [preview],
+      })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const projection = projectDrawingsForFrame(
+        store,
+        definitions,
+        createContext({ symbolKey }),
+        null,
+        'session',
+      )
 
-    expect(linePrimitives(projection.primitives)).toHaveLength(1)
-    expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
-  })
+      expect(linePrimitives(projection.primitives)).toHaveLength(1)
+      expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
+    },
+  )
 
   it('正式图元和已绑定其他标的的预览仍按标的过滤', () => {
     for (const drawing of [
