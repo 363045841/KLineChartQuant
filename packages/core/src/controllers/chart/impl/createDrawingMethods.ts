@@ -42,8 +42,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   const drawingCommands = chart.drawingCommands
   /** 内部剪贴板快照；只存模型，不随原图元删除而失效。 */
   const drawingClipboard = createSignal<ReadonlyArray<DrawingObject>>(Object.freeze([]))
-  /** 剪贴板是否非空，供命令可用性判断。 */
-  const hasDrawingClipboard = computed(() => drawingClipboard.peek().length > 0)
+  /** 剪贴板是否非空，供命令可用性判断；必须用读取建立依赖，peek 不会触发派生失效。 */
+  const hasDrawingClipboard = computed(() => drawingClipboard().length > 0)
 
   /** 设置当前绘图工具，null 视为 cursor。 */
   function setDrawingTool(tool: DrawingToolId | null): void {
