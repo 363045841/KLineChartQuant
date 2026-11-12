@@ -1,12 +1,12 @@
 <template>
   <CanvasToolbar>
+    <span v-if="drawings.length > 1" class="selection-count">{{ drawings.length }}</span>
+
     <DrawingStyleControls
       :drawings="drawings"
       :editable-style-keys="editableStyleKeys"
       @update-style="emit('updateStyle', $event)"
     />
-
-    <span v-if="drawings.length > 1" class="selection-count">已选 {{ drawings.length }}</span>
 
     <div
       v-if="lineLabelPosition"
@@ -145,10 +145,24 @@
 </script>
 
 <style scoped>
+  /* 多选计数：与激活态一致的强调色胶囊，数字居中，避免描边在深色工具栏上发灰。 */
   .selection-count {
-    padding: 0 4px;
-    color: var(--klc-color-ui-text-soft);
-    font-size: 12px;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    color: var(--klc-color-ui-accent);
+    font-size: var(--klc-text-12-font-size, 12px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
     white-space: nowrap;
   }
 

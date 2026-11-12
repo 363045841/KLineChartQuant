@@ -508,15 +508,11 @@
   }
 
   /*
-    Footer 里的下拉触发器同样是文本动作：用 control-button 暴露的变量清掉底色、边框与聚焦阴影。
-    变量靠继承生效，不与 control-button 的状态选择器比特异性。
+    Footer 里的下拉触发器同样是文本动作：清掉悬浮态与聚焦态的底色和聚焦阴影；
+    默认无边框、无底色由 control-button 提供。
   */
   .base-footer :deep(.control-button) {
-    --control-button-border: transparent;
-    --control-button-background: transparent;
-    --control-button-active-border: transparent;
     --control-button-active-background: transparent;
-    --control-button-focus-border: transparent;
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;
   }

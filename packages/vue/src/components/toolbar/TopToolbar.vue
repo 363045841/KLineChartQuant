@@ -473,9 +473,7 @@
   .top-toolbar {
     --control-button-height: 30px;
     --control-button-inline-padding: 10px;
-    --control-button-border-width: 0;
     --control-button-radius: 4px;
-    --control-button-background: transparent;
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;

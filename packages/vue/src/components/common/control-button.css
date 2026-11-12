@@ -1,4 +1,5 @@
 /* 工具栏按钮与下拉触发器的共享外观；通过 scoped 样式引入，避免影响其他按钮。 */
+/* 默认无底色、无边框；只有交互态给出 hover / 焦点反馈，需要的入口用变量覆盖。 */
 /* 共享默认外观只用组件自己的类：业务覆盖靠更高特异性，宿主 reset 必须是零特异性。 */
 /* 尺寸/颜色/焦点全部变量化：消费方在父级设置变量即可，不要穿透组件内部改样式。 */
 .control-button {
@@ -17,17 +18,12 @@
   /* 外壳可覆盖统一的行内控件高度；未覆盖时沿用间距推算值。 */
   height: var(--control-button-height, calc(12px + 2 * var(--klc-spacing-sm)));
   padding: 0 var(--control-button-inline-padding);
-  border-width: var(--control-button-border-width, 1px);
-  border-style: solid;
-  border-color: var(--control-button-border, var(--klc-color-ui-border));
+  border: 0;
   border-radius: var(--control-button-radius, var(--klc-radius-md, 8px));
-  background: var(--control-button-background, var(--klc-color-ui-control-background));
+  background: transparent;
   color: var(--control-button-color, var(--klc-color-ui-text));
   font-family: var(--klc-typography-font-family);
-  font-size: var(
-    --control-button-font-size,
-    calc(var(--klc-typography-font-size-md) + 1px)
-  );
+  font-size: var(--control-button-font-size, calc(var(--klc-typography-font-size-md) + 1px));
   font-weight: var(--control-button-font-weight, 500);
   line-height: var(--control-button-line-height, 1);
   white-space: nowrap;
@@ -39,21 +35,18 @@
 }
 
 .control-button[aria-expanded="true"]:not(:disabled) {
-  border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
   background: var(--control-button-active-background, var(--klc-color-ui-hover));
   color: var(--control-button-active-color, currentColor);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .control-button:hover:not(:disabled) {
-    border-color: var(--control-button-active-border, var(--klc-color-ui-border-strong));
     background: var(--control-button-active-background, var(--klc-color-ui-hover));
     color: var(--control-button-active-color, currentColor);
   }
 }
 
 .control-button:focus-visible {
-  border-color: var(--control-button-focus-border, var(--klc-color-ui-accent));
   background: var(--control-button-focus-background, var(--klc-color-ui-hover));
   box-shadow: var(
     --control-button-focus-shadow,
@@ -66,7 +59,6 @@
 .control-button:disabled {
   opacity: var(--control-button-disabled-opacity, 0.55);
   color: var(--control-button-disabled-color, inherit);
-  background: var(--control-button-disabled-background, unset);
   cursor: not-allowed;
 }
 
