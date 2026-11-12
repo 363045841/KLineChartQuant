@@ -8,7 +8,6 @@
     @update:open="emit('update:open', $event)"
     title="命令面板"
     size="md"
-    body-flush
     :body-scrollable="false"
   >
     <div class="command-palette" @keydown="onKeydown">

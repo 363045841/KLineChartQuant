@@ -7,7 +7,6 @@
     :open="show"
     title="行情数据源"
     size="md"
-    body-flush
     @update:open="!$event && emit('close')"
   >
     <template #tabs>

@@ -85,6 +85,13 @@
 </script>
 
 <style scoped>
+  /* 弹窗正文贴边：网格容器持有弹窗 inset，颜色条目保持自己的尺寸与间距。 */
+  .color-preset-container {
+    padding-inline: var(--base-modal-content-inset);
+    /* 与 tab 栏、动作栏之间保留 8px 安全区。 */
+    padding-block: var(--klc-space-8, 8px);
+  }
+
   /* 分组标签 */
   .color-group-label {
     margin: 18px 0 6px;

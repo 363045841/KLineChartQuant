@@ -5,8 +5,8 @@
     size="md"
     @update:open="!$event && handleClose()"
   >
-    <template #header-extra>
-      <BaseTabs v-model="activeTab" :tabs="tabs" variant="segmented" aria-label="预警视图">
+    <template #tabs>
+      <BaseTabs v-model="activeTab" :tabs="tabs" aria-label="预警视图">
         <template #tab="{ tab }">
           {{ tab.label }}
           <span v-if="tab.id === 'history' && unreadCount > 0" class="alert-tab-badge">
@@ -393,7 +393,8 @@
    Section Shell
 ══════════════════════════════════════════ */
   .alert-section {
-    padding: 2px 0 4px;
+    /* 正文默认贴边，section 自己补横向 inset 和底部安全区，顶部留 8px 与 tab 栏隔开。 */
+    padding: var(--klc-space-8, 8px) var(--base-modal-content-inset) var(--base-modal-content-inset);
   }
 
   .alert-section-toolbar {

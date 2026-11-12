@@ -197,12 +197,14 @@ export type {
   CreateLegendInput,
   LegendAction,
   LegendActionButton,
+  LegendAnchorRect,
   LegendApi,
   LegendComparisonRow,
   LegendCurrentBar,
   LegendEntry,
   LegendIndicatorRow,
   LegendLayout,
+  LegendMoveRequest,
   LegendOptions,
   LegendPatch,
   LegendRow,
@@ -210,6 +212,7 @@ export type {
   LegendTemplateContext,
   LegendText,
   LegendTimeshareRow,
+  LegendUiEventDetail,
   LegendUiRequest,
 } from '../engine/legend/types.js'
 export { LEGEND_UI_EVENT } from '../engine/legend/types.js'

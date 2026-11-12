@@ -30,10 +30,11 @@ function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: strin
   return { triggerStyle, panelStyle }
 }
 
-/** 把指针坐标包装成零尺寸虚拟元素，定位与视口翻转仍由 Floating UI 负责。 */
+/** 把坐标矩形包装成虚拟参考元素，定位与视口翻转仍由 Floating UI 负责。 */
 function pointReference(origin: PopoverOrigin): PointReference {
   return {
-    getBoundingClientRect: () => new DOMRect(origin.x, origin.y, 0, 0),
+    getBoundingClientRect: () =>
+      new DOMRect(origin.x, origin.y, origin.width ?? 0, origin.height ?? 0),
   }
 }
 
@@ -85,11 +86,21 @@ function useFloatingPosition(
     triggerStyle: computed(() => undefined),
     panelStyle: computed<CSSProperties>(() => {
       const origin = toValue(options.origin)
+      const offset = options.offset ?? 4
+      // 首次测量完成前不显示：兜底位置不一定等于翻转后的最终位置，
+      // 先画再纠正会让面板从下方瞬移到上方。
+      const positioned = Object.keys(measured.value).length > 0
       return {
         ...BASE_STYLE,
-        // 首次测量完成前先落在指针位置，避免原生 popover 先在默认位置闪一帧。
-        ...(origin ? { left: `${origin.x}px`, top: `${origin.y}px` } : {}),
+        // 首次测量完成前先落在锚点下方，避免原生 popover 先在默认位置闪一帧。
+        ...(origin
+          ? {
+              left: `${origin.x}px`,
+              top: `${origin.y + (origin.height ?? 0) + offset}px`,
+            }
+          : {}),
         ...measured.value,
+        ...(positioned ? {} : { opacity: 0, pointerEvents: 'none' }),
         zIndex: native ? undefined : 'var(--klc-z-index-popover, 1010)',
         display: open.value ? undefined : 'none',
       }

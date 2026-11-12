@@ -3,6 +3,7 @@
     :open="providerSettings.open"
     :title="text.settings"
     size="xl"
+    body-padded
     :body-scrollable="false"
     @update:open="!$event && closeProviderSettings()"
   >

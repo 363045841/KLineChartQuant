@@ -3,10 +3,14 @@ import type { MaybeRefOrGetter, Ref } from 'vue'
 /** Explicit directions stay fixed; auto may flip to fit the viewport. */
 export type AnchoredPlacement = 'auto' | 'top' | 'bottom'
 
-/** 指针坐标锚点；提供时面板相对该点弹出，不依赖触发器元素。 */
+/** 坐标锚点矩形；提供时面板相对该矩形弹出，不依赖触发器元素。 */
 export interface PopoverOrigin {
   x: number
   y: number
+  /** 虚拟参考矩形的宽度；指针锚点省略时为 0。 */
+  width?: number
+  /** 虚拟参考矩形的高度；指针锚点省略时为 0。 */
+  height?: number
 }
 
 export interface UseAnchoredPopoverOptions {

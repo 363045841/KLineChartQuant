@@ -53,6 +53,8 @@
     flex-direction: column;
     gap: var(--klc-spacing-md);
     min-inline-size: 0;
+    /* 正文贴边：网格容器持有弹窗 inset，卡片保持自己的尺寸与间距。 */
+    padding-inline: var(--base-modal-content-inset);
   }
 
   .theme-presets__heading {

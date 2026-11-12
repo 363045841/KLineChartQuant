@@ -2,6 +2,7 @@
   <BaseModal
     title="导出数据"
     :open="!!progress"
+    body-padded
     :close-on-overlay="false"
     footer-align="center"
     @update:open="!$event && emit('close')"

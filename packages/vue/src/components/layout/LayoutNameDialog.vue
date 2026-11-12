@@ -4,6 +4,7 @@
     :open="show"
     :title="title"
     size="xs"
+    body-padded
     :close-on-overlay="!busy"
     :show-close="!busy"
     @update:open="!$event && emit('close')"

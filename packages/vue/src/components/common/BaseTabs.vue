@@ -38,8 +38,8 @@
       tabs: ReadonlyArray<{ id: T; label: string }>
       /** tablist 的可访问名称。 */
       ariaLabel?: string
-      /** 外观变体：default 为弹窗下划线 Tab，compact 用于面板工具栏，segmented 为分段滑块。 */
-      variant?: 'default' | 'compact' | 'segmented'
+      /** 外观变体：default 为弹窗下划线 Tab，compact 用于面板工具栏。 */
+      variant?: 'default' | 'compact'
     }>(),
     { ariaLabel: undefined, variant: 'default' },
   )
@@ -166,43 +166,8 @@
     padding: var(--klc-space-8, 8px) 0;
   }
 
-  /* 分段变体：等宽标签 + 强调色滑块，用于弹窗头部视图切换。 */
-  .base-tabs--segmented {
-    gap: 0;
-    padding: 0;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: var(--klc-radius-md, 8px);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .base-tabs--segmented .base-tabs__tab {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    flex: 1 1 0;
-    align-items: center;
-    justify-content: center;
-    gap: var(--klc-space-8, 8px);
-    height: var(--klc-density-default, 32px);
-    padding: 0 var(--klc-space-12, 12px);
-    border-bottom: 0;
-    font-size: var(--klc-typography-font-size-md);
-  }
-
-  .base-tabs--segmented .base-tabs__tab.is-active {
-    color: var(--klc-color-ui-on-accent);
-  }
-
-  .base-tabs--segmented .base-tabs__indicator {
-    top: 0;
-    bottom: 0;
-    z-index: 0;
-    height: auto;
-    border-radius: calc(var(--klc-radius-md, 8px) - 1px);
-    background: var(--klc-color-ui-accent);
-  }
-
   .base-tabs__tab {
+    position: relative;
     flex: 0 0 auto;
     padding: var(--klc-spacing-sm, 8px) var(--base-tabs-tab-pad-inline);
     border: 0;

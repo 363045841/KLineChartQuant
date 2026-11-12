@@ -239,6 +239,8 @@
 <style scoped>
   .drawing-settings-body {
     min-height: 180px;
+    /* 与 tab 栏、动作栏之间保留 8px 安全区。 */
+    padding-block: var(--klc-space-8, 8px);
   }
 
   .color-row {
@@ -246,7 +248,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 8px 0;
+    padding-block: 8px;
+    /* 弹窗正文贴边，行自己消费横向 inset。 */
+    padding-inline: var(--base-modal-content-inset);
     font-size: 13px;
     cursor: pointer;
   }
@@ -255,6 +259,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-inline: var(--base-modal-content-inset);
     font-size: 13px;
   }
 
@@ -273,6 +278,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    padding-inline: var(--base-modal-content-inset);
     font-size: 13px;
   }
 

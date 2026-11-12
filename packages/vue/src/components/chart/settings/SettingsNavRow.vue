@@ -32,6 +32,8 @@
   .settings-item.nav-item {
     width: 100%;
     border: 0;
+    /* 通栏行贴合弹窗左右边缘，不用圆角。 */
+    border-radius: 0;
     background: transparent;
     text-align: start;
     cursor: pointer;

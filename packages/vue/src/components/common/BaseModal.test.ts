@@ -151,6 +151,22 @@ describe('BaseModal', () => {
     wrapper.unmount()
   })
 
+  it('正文默认贴边，需要安全区时显式开启 bodyPadded', async () => {
+    const wrapper = mount(BaseModal, {
+      attachTo: document.body,
+      props: { open: true, title: 'T' },
+      slots: { default: () => h('p', '内容') },
+    })
+    await flush()
+    const body = dialogEl().querySelector<HTMLElement>('.base-body')
+    expect(body?.classList.contains('base-body--padded')).toBe(false)
+
+    await wrapper.setProps({ bodyPadded: true })
+    await flush()
+    expect(body?.classList.contains('base-body--padded')).toBe(true)
+    wrapper.unmount()
+  })
+
   it('Esc 只请求父组件关闭，收到 open=false 后才关闭原生 dialog', async () => {
     const wrapper = mount(BaseModal, {
       attachTo: document.body,
