@@ -12,10 +12,9 @@
 
 <script setup lang="ts">
   import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
-  import type {
-    ChartController,
-    RegisteredChartTool,
-  } from '@363045841yyt/klinechart-core/controllers'
+  // 工具登记契约随 @Tool 注册表移到 /agent-tools 子入口，controllers 不再重导出。
+  import type { RegisteredChartTool } from '@363045841yyt/klinechart-core/agent-tools'
+  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { onBeforeUnmount, watch } from 'vue'
   import AgentWorkbenchShell from '../../features/agent/AgentWorkbenchShell.vue'
   import { BrowserAgentBridge } from '../../features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'

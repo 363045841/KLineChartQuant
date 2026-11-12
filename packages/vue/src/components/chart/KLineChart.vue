@@ -8,7 +8,6 @@
     <div class="chart-workspace">
       <TopToolbar
         :layout-controller="controller"
-        :active-indicator-labels="templateIndicatorLabels"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @toggle-indicator="onToggleIndicator"
@@ -463,8 +462,8 @@
   } from '@363045841yyt/klinechart-core/controllers'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
-    type InstrumentDescriptor,
     formatInstrumentLabel,
+    type InstrumentDescriptor,
     isKLineAdjustment,
     KLineAdjustment,
     KLinePeriod,
@@ -1167,7 +1166,6 @@
     subActiveIndicators,
     activeIndicators,
     indicatorParams,
-    templateIndicatorLabels,
     subPanes,
     buildPaneLayoutIntent,
     getDefaultParams,

@@ -28,10 +28,9 @@
 </template>
 
 <script setup lang="ts">
-  import type {
-    ChartController,
-    RegisteredChartTool,
-  } from '@363045841yyt/klinechart-core/controllers'
+  // 工具登记契约随 @Tool 注册表移到 /agent-tools 子入口，controllers 不再重导出。
+  import type { RegisteredChartTool } from '@363045841yyt/klinechart-core/agent-tools'
+  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import { defineAsyncComponent, shallowRef } from 'vue'
   import KlineChart from '../../components/chart/KLineChart.vue'
   import BaseButton from '../../components/common/BaseButton.vue'

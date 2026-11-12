@@ -1,9 +1,8 @@
 // 浏览器宿主的工具注册契约；实现位于 impl/，避免 Bridge 持有具体适配细节。
 
-import type {
-  ChartAgentController,
-  RegisteredChartTool,
-} from '@363045841yyt/klinechart-core/controllers'
+// 工具登记契约随 @Tool 注册表移到 /agent-tools 子入口，controllers 不再重导出。
+import type { RegisteredChartTool } from '@363045841yyt/klinechart-core/agent-tools'
+import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type { QuestionAnswerView } from '../../agent-contracts.js'
 
 /** Runtime Tool Catalog 解析工具时需要的浏览器宿主状态。 */

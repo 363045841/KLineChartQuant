@@ -96,11 +96,8 @@
     <div class="layout-actions">
       <LayoutMenu :controller="layoutController ?? null" />
       <!-- 指标模板与布局分开：模板只换指标组合，不动品种与周期。 -->
-      <IndicatorTemplateMenu
-        v-if="!showBackButton"
-        :controller="layoutController ?? null"
-        :active-indicator-labels="activeIndicatorLabels ?? []"
-      />
+      <!-- 指标摘要由菜单自己读 controller.currentIndicators，不再经属性传入。 -->
+      <IndicatorTemplateMenu v-if="!showBackButton" :controller="layoutController ?? null" />
     </div>
     <div class="chart-actions">
       <BaseTooltip v-if="showBackButton" content="返回" placement="bottom">
@@ -200,7 +197,6 @@
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import LayoutMenu from '@vue-src/components/layout/LayoutMenu.vue'
-  import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import CompareSymbolSelector from '@vue-src/components/symbol/CompareSymbolSelector.vue'
   import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
@@ -304,8 +300,6 @@
   const props = withDefaults(
     defineProps<{
       layoutController?: ChartController | null
-      /** 当前图表的指标摘要，供指标模板保存对话框展示。 */
-      activeIndicatorLabels?: ReadonlyArray<string>
       symbol?: string
       symbolItem?: SymbolItem
       kLineLevel?: string

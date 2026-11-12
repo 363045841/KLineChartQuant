@@ -5,10 +5,9 @@ import type {
   RedactionOptions,
 } from '@363045841yyt/klinechart-agent-runtime'
 import type { BrowserRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/browser'
-import type {
-  ChartAgentController,
-  RegisteredChartTool,
-} from '@363045841yyt/klinechart-core/controllers'
+// 工具登记契约随 @Tool 注册表移到 /agent-tools 子入口，controllers 不再重导出。
+import type { RegisteredChartTool } from '@363045841yyt/klinechart-core/agent-tools'
+import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 
 /** 浏览器 Agent bridge 的宿主依赖；未注入时使用 Web 端默认实现。 */
 export interface BrowserAgentBridgeOptions {

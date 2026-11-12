@@ -219,7 +219,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
    * RegisteredChartTool 登记后调用，工具即进入后续会话的可用目录。
    */
   registerExternalChartTools(
-    tools: ReadonlyArray<import('@363045841yyt/klinechart-core/controllers').RegisteredChartTool>,
+    tools: ReadonlyArray<import('@363045841yyt/klinechart-core/agent-tools').RegisteredChartTool>,
   ): void {
     this.tools.registerChartTools(tools)
   }
