@@ -13,6 +13,7 @@ import {
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
+import { indicatorInstanceAxisKey } from '../pane/instanceAxisKey'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
 import { createMockRenderContext } from './helpers/renderTestKit'
@@ -433,6 +434,74 @@ describe('Chart lifecycle without a market selection', () => {
       chart.resize()
       chart.draw()
       expect(chart.kernel.exportLayout().workspaces).toEqual(resized)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('clearAllIndicators removes main and sub instances and recycles sub panes', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      registerPlotDefinition({
+        id: 'clear-all-main',
+        name: 'clear-all-main',
+        source: 'script',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      registerEmptyPlot('clear-all-sub')
+      expect(chart.panes.add('clear-all-main')).not.toBeNull()
+      expect(chart.panes.add('clear-all-sub')).not.toBeNull()
+      const instances = chart.kernel.indicator.readonly.instances.peek()
+      const subPane = instances.find((instance) => instance.role === 'sub')
+      const mainInstance = instances.find((instance) => instance.role === 'main')
+      if (subPane?.paneId === undefined || mainInstance === undefined)
+        throw new Error('fixture requires main and sub instances')
+      const subAxisKey = indicatorInstanceAxisKey(subPane.instanceId)
+      chart.kernel.pane.actions.setPaneScaleType(subAxisKey, ScaleType.Log)
+
+      chart.panes.clearAllIndicators()
+
+      expect(chart.indicators.instances.peek()).toHaveLength(0)
+      expect(chart.panes.getLayoutSpecs().map((spec) => spec.id)).toEqual([MAIN_PANE_ID])
+      expect(chart.panes.hasPane(subPane.paneId)).toBe(false)
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(subAxisKey)).toBe(false)
+      expect(
+        chart.kernel.pane.readonly.paneScaleTypes
+          .peek()
+          .has(indicatorInstanceAxisKey(mainInstance.instanceId)),
+      ).toBe(false)
+      chart.panes.clearAllIndicators()
+      expect(chart.indicators.instances.peek()).toHaveLength(0)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('removeInstancesByDefinition removes only matching instances and their panes', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      registerEmptyPlot('definition-a')
+      registerEmptyPlot('definition-b')
+      expect(chart.panes.add('definition-a')).not.toBeNull()
+      expect(chart.panes.add('definition-b')).not.toBeNull()
+      const instances = chart.kernel.indicator.readonly.instances.peek()
+      const first = instances.find((instance) => instance.indicatorId === 'definition-a')
+      const second = instances.find((instance) => instance.indicatorId === 'definition-b')
+      if (first?.paneId === undefined || second?.paneId === undefined)
+        throw new Error('fixture requires two sub panes')
+      const firstAxisKey = indicatorInstanceAxisKey(first.instanceId)
+      chart.kernel.pane.actions.setPaneScaleType(firstAxisKey, ScaleType.Log)
+
+      chart.panes.removeInstancesByDefinition('definition-a')
+
+      expect(
+        chart.kernel.indicator.readonly.instances.peek().map((instance) => instance.indicatorId),
+      ).toEqual(['definition-b'])
+      expect(chart.panes.hasPane(first.paneId)).toBe(false)
+      expect(chart.panes.hasPane(second.paneId)).toBe(true)
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(firstAxisKey)).toBe(false)
     } finally {
       await chart.destroy()
     }

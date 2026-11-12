@@ -118,6 +118,10 @@ export interface PaneLayoutCommands {
   moveInstance(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
   removeInstance(instanceId: string): boolean
+  /** 删除指定定义创建的全部实例；空副图一并回收。 */
+  removeInstancesByDefinition(definitionId: string): void
+  /** 删除当前工作区全部实例；副图一并回收，主图与系统 Pane 保留。 */
+  clearAllIndicators(): void
   /** 更新实例参数、显隐、排序或定义；身份不变。 */
   updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean
   /** Pane 容器操作，不改变实例归属。 */

@@ -21,6 +21,7 @@ interface Fixture {
   readonly registry: CommandRegistry
   readonly openSettings: ReturnType<typeof vi.fn>
   readonly resetChart: ReturnType<typeof vi.fn>
+  readonly clearAllIndicators: ReturnType<typeof vi.fn>
   readonly menu: ReturnType<typeof useChartContextMenu>
 }
 
@@ -29,6 +30,8 @@ function createFixture(): Fixture {
   const controller = createMockChartController()
   const resetChart = vi.fn()
   controller.resetChart = resetChart
+  const clearAllIndicators = vi.fn()
+  controller.clearAllIndicators = clearAllIndicators
   const openSettings = vi.fn()
   const registry = createCommandRegistry()
   registry.register([
@@ -48,7 +51,7 @@ function createFixture(): Fixture {
     },
   ])
   const menu = useChartContextMenu({ controller: shallowRef(controller), commands: registry })
-  return { controller, registry, openSettings, resetChart, menu }
+  return { controller, registry, openSettings, resetChart, clearAllIndicators, menu }
 }
 
 /** 展平全部分组，避免用例依赖分组边界。 */
@@ -70,16 +73,27 @@ describe('图表右键菜单', () => {
       crosshairPrice: 123.456,
     })
     menu.capturePrice()
-    expect(items(menu).map((item) => item.label)).toEqual(['重置图表', '复制价格 123.46', '设置'])
+    expect(items(menu).map((item) => item.label)).toEqual([
+      '重置图表',
+      '复制价格 123.46',
+      '移除所有指标',
+      '设置',
+    ])
   })
 
   it('按 group 键拆分分组，并在右侧展示命令快捷键', () => {
     const { menu, registry } = createFixture()
-    expect(menu.groups.value.map((group) => group.id)).toEqual(['view', 'price', 'settings'])
+    expect(menu.groups.value.map((group) => group.id)).toEqual([
+      'view',
+      'price',
+      'indicator',
+      'settings',
+    ])
     expect(menu.groups.value.every((group) => group.items.length === 1)).toBe(true)
     expect(items(menu)[0]?.shortcut).toBe(registry.formatShortcut('Alt+R'))
     expect(items(menu)[1]?.shortcut).toBeUndefined()
-    expect(items(menu)[2]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
+    expect(items(menu)[2]?.shortcut).toBeUndefined()
+    expect(items(menu)[3]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
   })
 
   it('没有十字线价格时复制项禁用，且不写入剪贴板', async () => {
@@ -118,5 +132,24 @@ describe('图表右键菜单', () => {
     menu.select(CHART_CONTEXT_MENU_ITEM.SETTINGS)
     await flushPromises()
     expect(openSettings).toHaveBeenCalledOnce()
+  })
+
+  it('没有指标时移除项禁用，有指标时调用控制器的清空命令', () => {
+    const { controller, menu, clearAllIndicators } = createFixture()
+    expect(items(menu)[2]?.disabled).toBe(true)
+    controller._setIndicators([
+      {
+        id: 'instance-1',
+        definitionId: 'MA',
+        label: 'MA',
+        name: 'MA',
+        role: 'main',
+        ordinal: 0,
+        params: {},
+      },
+    ])
+    expect(items(menu)[2]?.disabled).toBe(false)
+    menu.select(CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS)
+    expect(clearAllIndicators).toHaveBeenCalledOnce()
   })
 })

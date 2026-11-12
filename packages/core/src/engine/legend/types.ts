@@ -9,6 +9,7 @@ import type { SymbolSpec } from '@/controllers/types.js'
 import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
 import type { ComparisonCommandsApi } from '@/engine/data/comparisonCommands.js'
 import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
+import type { IndicatorInstanceRole } from '@/engine/state/indicatorRole.js'
 import type { PluginHost } from '@/foundation/plugin/index.js'
 import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
@@ -219,7 +220,7 @@ export type LegendUiRequest =
       readonly id: string
       readonly paneId: string
       readonly definitionId: string
-      readonly role: 'main' | 'sub'
+      readonly role: IndicatorInstanceRole
     }
   | {
       readonly action: 'move-to'

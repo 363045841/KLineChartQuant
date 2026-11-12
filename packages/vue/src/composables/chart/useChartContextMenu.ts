@@ -6,13 +6,16 @@ import { useToast } from '@vue-src/composables/toast/useToast.js'
 import type { Component } from 'vue'
 import { computed, type Ref, ref } from 'vue'
 import IconTablerCopy from '~icons/tabler/copy'
+import IconTablerEraser from '~icons/tabler/eraser'
 import IconTablerRefresh from '~icons/tabler/refresh'
 import IconTablerSettings from '~icons/tabler/settings'
+import { useControllerSignalValue } from './useControllerSignal.js'
 
-/** 菜单项 id；视图与设置命令复用命令注册表，复制价格是菜单专属动作。 */
+/** 菜单项 id；视图与设置命令复用命令注册表，复制价格与清空指标是菜单专属动作。 */
 export const CHART_CONTEXT_MENU_ITEM = {
   RESET: 'view.reset',
   COPY_PRICE: 'copy-price',
+  CLEAR_INDICATORS: 'indicator.clearAll',
   SETTINGS: 'settings.open',
 } as const
 
@@ -20,6 +23,7 @@ export const CHART_CONTEXT_MENU_ITEM = {
 const ICONS: Readonly<Record<string, Component>> = {
   [CHART_CONTEXT_MENU_ITEM.RESET]: IconTablerRefresh,
   [CHART_CONTEXT_MENU_ITEM.COPY_PRICE]: IconTablerCopy,
+  [CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS]: IconTablerEraser,
   [CHART_CONTEXT_MENU_ITEM.SETTINGS]: IconTablerSettings,
 }
 
@@ -39,6 +43,11 @@ const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   { id: CHART_CONTEXT_MENU_ITEM.RESET, group: 'view', label: '重置图表', command: 'view.reset' },
   { id: CHART_CONTEXT_MENU_ITEM.COPY_PRICE, group: 'price', label: '复制价格' },
   {
+    id: CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS,
+    group: 'indicator',
+    label: '移除所有指标',
+  },
+  {
     id: CHART_CONTEXT_MENU_ITEM.SETTINGS,
     group: 'settings',
     label: '设置',
@@ -52,7 +61,7 @@ function formatPrice(price: number | null): string | null {
 }
 
 export interface ChartContextMenuOptions {
-  /** 当前图表 controller；未就绪时重置与复制不可用。 */
+  /** 当前图表 controller；未就绪时重置、清空指标与复制不可用。 */
   readonly controller: Readonly<Ref<ChartController | null>>
   /** 图表命令注册表；重置与设置调用与工具栏、快捷键同一份命令。 */
   readonly commands: CommandRegistry | null
@@ -62,6 +71,13 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
   const toast = useToast()
   // 打开瞬间快照十字线价格：指针移入菜单会触发 pointerleave 并清空 crosshair。
   const price = ref<number | null>(null)
+  // 指标实例由 Core 持有，经 Vue 桥接只投影“是否有指标”，避免菜单保存业务副本。
+  const hasIndicators = useControllerSignalValue(
+    options.controller,
+    (controller) => controller.indicators,
+    (instances) => instances.length > 0,
+    () => false,
+  )
 
   /** 菜单项文案；复制价格带当前十字线价格，其余直接取声明。 */
   function labelOf(item: MenuItemDeclaration): string {
@@ -78,10 +94,11 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return combo ? options.commands.formatShortcut(combo) : undefined
   }
 
-  /** 是否可用：controller 未就绪时重置禁用，无十字线时复制禁用。 */
+  /** 是否可用：无十字线时复制禁用，没有指标实例时清空禁用。 */
   function disabledOf(item: MenuItemDeclaration): boolean {
     if (item.id === CHART_CONTEXT_MENU_ITEM.RESET) return options.controller.value === null
     if (item.id === CHART_CONTEXT_MENU_ITEM.COPY_PRICE) return price.value === null
+    if (item.id === CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS) return !hasIndicators.value
     return options.commands === null
   }
 
@@ -113,10 +130,14 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     price.value = options.controller.value?.interactionState.peek().crosshairPrice ?? null
   }
 
-  /** 菜单选择：复制本地处理，其余交给命令层，和工具栏/快捷键共用同一动作。 */
+  /** 菜单选择：复制本地处理，清空指标走 controller 聚合命令，其余交给命令层。 */
   function select(itemId: string): void {
     if (itemId === CHART_CONTEXT_MENU_ITEM.COPY_PRICE) {
       void copyPrice()
+      return
+    }
+    if (itemId === CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS) {
+      options.controller.value?.clearAllIndicators()
       return
     }
     void options.commands?.execute(itemId)

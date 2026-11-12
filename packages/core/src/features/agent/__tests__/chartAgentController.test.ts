@@ -85,6 +85,8 @@ function createFixture() {
     add: vi.fn(() => 'new-instance'),
     moveInstance: vi.fn(() => true),
     removeInstance: vi.fn(() => true),
+    removeInstancesByDefinition: vi.fn(),
+    clearAllIndicators: vi.fn(),
     updateInstance: vi.fn(() => true),
     updatePane: vi.fn(() => true),
     removePane: vi.fn(() => true),
@@ -231,7 +233,7 @@ function createFixture() {
       loadedIndicators.has(indicatorId)
         ? ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' }[indicatorId] ?? null)
         : null,
-    paneManager: { actions: paneActions, list: () => panes },
+    panes: paneActions,
     comparisonCommands,
     isSubPaneRendererAvailable: (indicatorId) =>
       indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
@@ -749,7 +751,7 @@ describe('createChartAgentController', () => {
     expect(fixture.fetchBars).not.toHaveBeenCalled()
   })
 
-  it('registers pane tools as direct PaneManager action adapters', async () => {
+  it('registers pane tools as ChartPaneFacade adapters', async () => {
     const fixture = createFixture()
     const tool = (name: string) =>
       getRegisteredChartTools().find((item) => item.config.name === name)!

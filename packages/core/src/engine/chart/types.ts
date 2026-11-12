@@ -1,7 +1,7 @@
 /** chart 模块对外契约：图表装配层所需的 DOM、选项、视口与指标实例类型。 */
 
 import type { PaneSpec } from '../pane/types.js'
-import type { IndicatorInstanceRole } from '../state/indicatorState.js'
+import type { IndicatorInstanceRole } from '../state/indicatorRole.js'
 
 export type ChartDom = {
   container: HTMLDivElement

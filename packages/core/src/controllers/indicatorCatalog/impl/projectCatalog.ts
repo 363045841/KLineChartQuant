@@ -14,7 +14,7 @@ import {
   resolveIndicatorDefinitionId,
 } from '@/engine/indicators/pipeline/index.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
-import type { IndicatorDefinition, IndicatorParamDef } from '../../types.js'
+import { INDICATOR_ROLE, type IndicatorDefinition, type IndicatorParamDef } from '../../types.js'
 
 /** 参数值只接受标量；其它类型不进入参数面板。 */
 function isParamValue(value: unknown): value is number | string | boolean {
@@ -97,7 +97,8 @@ export const indicatorCatalog: ReadonlySignal<readonly IndicatorDefinition[]> = 
     .map(toIndicatorDefinition)
     .sort(
       (a, b) =>
-        (a.role === 'main' ? 0 : 1) - (b.role === 'main' ? 0 : 1) || a.label.localeCompare(b.label),
+        (a.role === INDICATOR_ROLE.MAIN ? 0 : 1) - (b.role === INDICATOR_ROLE.MAIN ? 0 : 1) ||
+        a.label.localeCompare(b.label),
     )
 })
 

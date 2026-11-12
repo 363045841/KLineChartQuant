@@ -4,11 +4,12 @@
  * indicator toggle/update/reorder logic. Indicator state is read directly
  * from Core controller signals; Vue keeps no business-state mirror.
  */
-import type {
-  ChartController,
-  IndicatorInstance,
-  PaneSpec,
-  SubIndicatorType,
+import {
+  type ChartController,
+  INDICATOR_ROLE,
+  type IndicatorInstance,
+  type PaneSpec,
+  type SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
 import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core/indicators'
 import { computed, type Ref } from 'vue'
@@ -41,7 +42,8 @@ export function useIndicatorManager(
   const mainActiveIndicators = computed(() =>
     indicatorInstances.value
       .filter(
-        (indicator): indicator is IndicatorInstance & { role: 'main' } => indicator.role === 'main',
+        (indicator): indicator is IndicatorInstance & { role: typeof INDICATOR_ROLE.MAIN } =>
+          indicator.role === INDICATOR_ROLE.MAIN,
       )
       .map((indicator) => indicator.definitionId),
   )
@@ -153,11 +155,9 @@ export function useIndicatorManager(
     }
   }
 
+  /** 清空主图与副图全部指标；删除与副图回收由 Core 聚合命令一次提交。 */
   function clearAllIndicators(): void {
-    const c = ctrl.value
-    if (!c) return
-    for (const id of mainActiveIndicators.value) c.removeIndicator(id)
-    clearAllSubPanes()
+    ctrl.value?.clearAllIndicators()
   }
 
   async function switchSubIndicator(
@@ -191,7 +191,7 @@ export function useIndicatorManager(
     if (isMain) {
       const existing = controller.indicators
         .peek()
-        .filter((item) => item.role === 'main' && item.definitionId === indicatorId)
+        .filter((item) => item.role === INDICATOR_ROLE.MAIN && item.definitionId === indicatorId)
       if (active && existing.length === 0) {
         const c = await loadIndicator(controller, indicatorId)
         if (!c) return

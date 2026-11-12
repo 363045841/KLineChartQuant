@@ -96,7 +96,7 @@
                     </BasePopover>
                   </span>
                   <span class="item-tags">
-                    <BaseChip size="sm">{{ indicator.role === 'main' ? '主图' : '副图' }}</BaseChip>
+                    <BaseChip size="sm">{{ indicator.role === INDICATOR_ROLE.MAIN ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
@@ -179,6 +179,8 @@
     type ChartController,
     createIndicatorSelectorController,
     findIndicatorDefinition,
+    INDICATOR_ROLE,
+    type IndicatorRole,
     indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
@@ -188,8 +190,8 @@
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BasePopover from '@vue-src/components/common/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
+  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {
@@ -216,7 +218,7 @@
     indicatorParams?: Record<string, Record<string, unknown>>
     replacePaneId?: string | null
     /** 替换目标所在位置；与 replacePaneId 同时提供。 */
-    replaceRole: 'main' | 'sub'
+    replaceRole: IndicatorRole
   }>()
 
   const emit = defineEmits<{

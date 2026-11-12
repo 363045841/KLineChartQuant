@@ -225,6 +225,12 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.panes.removeInstance(instanceId)
   }
 
+  /** 删除当前工作区全部指标实例；副图随之回收。 */
+  function clearAllIndicators(): void {
+    if (isDisposed()) return
+    chart.panes.clearAllIndicators()
+  }
+
   /** 更新实例参数、显隐、排序或定义。 */
   function updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean {
     if (isDisposed()) return false
@@ -305,6 +311,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     addIndicator,
     moveIndicator,
     removeIndicator,
+    clearAllIndicators,
     updateIndicator,
     setTooltipSize,
     setTooltipAnchorPositioning,

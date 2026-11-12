@@ -51,6 +51,7 @@ import { createDataManagerState, type DataManagerStateModule } from './dataManag
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
 import { createFootprintState } from './footprintState.js'
+import { INDICATOR_ROLE } from './indicatorRole.js'
 import {
   createIndicatorState,
   type IndicatorInstanceSpec,
@@ -138,7 +139,7 @@ function appendInstanceRenderers(
     'renderer',
     instance.instanceId,
   )
-  if (instance.role === 'main') {
+  if (instance.role === INDICATOR_ROLE.MAIN) {
     add(main, resolved.getRendererName(options), layerId)
     return
   }

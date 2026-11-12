@@ -13,6 +13,7 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../../data/provider/types.js'
+import type { ChartPaneFacade } from '../../engine/chart/impl/facade/chartPaneFacade.js'
 import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
 import type {
   DrawingCommands,
@@ -21,7 +22,6 @@ import type {
   DrawingObject,
 } from '../../engine/drawing/index.js'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
-import type { PaneManager } from '../../engine/pane/index.js'
 import type { DataStateModule } from '../../engine/state/dataState.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
@@ -199,6 +199,21 @@ export interface ChartAgentController {
   listDrawings(): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>>
 }
 
+/** Agent 可用的 Pane 命令面；由 ChartPaneFacade 提供，保证与 UI 共用同一组副作用。 */
+export type ChartAgentPaneCommands = Pick<
+  ChartPaneFacade,
+  | 'add'
+  | 'moveInstance'
+  | 'removeInstance'
+  | 'updateInstance'
+  | 'updatePane'
+  | 'movePane'
+  | 'removePane'
+  | 'clearPanes'
+  | 'getLayoutSpecs'
+  | 'hasPane'
+>
+
 /** Chart Agent facade 的构造依赖；由宿主组装后注入。 */
 export interface ChartAgentControllerDependencies {
   readonly chartId: string
@@ -217,7 +232,8 @@ export interface ChartAgentControllerDependencies {
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
-  readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  /** 与 UI 共用 Pane 命令面，删除和移动必须带上绘图历史失效等宿主副作用。 */
+  readonly panes: ChartAgentPaneCommands
   /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
   readonly comparisonCommands: ComparisonCommands
   /** 按需加载指标实现；解析与可用性判断只针对已加载的定义。 */

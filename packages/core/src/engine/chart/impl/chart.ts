@@ -658,6 +658,8 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
+      removeInstancesByDefinition: (definitionId) =>
+        this.panes.removeInstancesByDefinition(definitionId),
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
     this.indicators = new ChartIndicatorFacade({

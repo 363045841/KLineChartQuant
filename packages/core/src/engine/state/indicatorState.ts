@@ -8,8 +8,7 @@ import {
 import type { LayoutWorkspaces } from '../layout/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
-/** 指标实例所在的图表区域；由所属 pane 派生，不单独表达业务能力。 */
-export type IndicatorInstanceRole = 'main' | 'sub'
+import { INDICATOR_ROLE, type IndicatorInstanceRole } from './indicatorRole.js'
 
 /** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
 export interface IndicatorInstanceConfig {
@@ -147,7 +146,7 @@ export function createIndicatorState() {
     Object.freeze(
       readonly
         .instances()
-        .filter((instance) => instance.role === 'sub')
+        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
         .map((instance) =>
           Object.freeze({
             instanceId: instance.instanceId,
