@@ -35,8 +35,6 @@
     "lint:publish": "publint --strict ."
   },
   "devDependencies": {
-    "@363045841yyt/klinechart": "workspace:*",
-    "@363045841yyt/klinechart-core": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
     "@363045841yyt/klinechart-script-server": "workspace:*",
     "@babel/core": "^8.0.5",

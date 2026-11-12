@@ -633,12 +633,6 @@ importers:
 
   packages/script-editor:
     devDependencies:
-      '@363045841yyt/klinechart':
-        specifier: workspace:*
-        version: link:../vue
-      '@363045841yyt/klinechart-core':
-        specifier: workspace:*
-        version: link:../core
       '@363045841yyt/klinechart-script':
         specifier: workspace:*
         version: link:../script
