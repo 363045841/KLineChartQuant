@@ -2,11 +2,11 @@
 import {
   type ChartController,
   LEGEND_UI_EVENT,
-  type LegendUiRequest,
+  type LegendUiEventDetail,
 } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref, watch } from 'vue'
 
-/** 连接图例界面请求与指标选择器，返回原位替换入口。 */
+/** 连接图例界面请求与指标选择器/移动菜单，返回原位替换入口。 */
 export function useLegendUi(
   controller: Ref<ChartController | null>,
   canvasLayer: Ref<HTMLElement | null>,
@@ -14,6 +14,8 @@ export function useLegendUi(
     openSelector: () => void
     openIndicatorSettings: (definitionId: string) => void
     openScriptEditor?: (definitionId: string) => void
+    /** 移动目标列表由 Core 投影，宿主在按钮下方打开自己的菜单。 */
+    openMoveMenu: (request: LegendUiEventDetail & { action: 'move-to' }) => void
   },
 ) {
   const replacementId = ref<string | null>(null)
@@ -23,12 +25,12 @@ export function useLegendUi(
     canvasLayer,
     (layer, _previous, onCleanup) => {
       if (!layer) return
-      // DOM 事件只携带打开设置或选择器的请求，不包含领域写入分支。
+      // DOM 事件只携带打开界面或迁移目标的请求，不包含领域写入分支。
       function onRequest(event: Event): void {
-        if (!(event instanceof CustomEvent) || !isLegendUiRequest(event.detail)) return
+        if (!(event instanceof CustomEvent) || !isLegendUiEventDetail(event.detail)) return
         const request = event.detail
-        if (request.action === 'move-to') return
-        if (request.action === 'settings') options.openIndicatorSettings(request.definitionId)
+        if (request.action === 'move-to') options.openMoveMenu(request)
+        else if (request.action === 'settings') options.openIndicatorSettings(request.definitionId)
         else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {
           replacementLegendId = request.id
@@ -57,19 +59,13 @@ export function useLegendUi(
 }
 
 /** 校验跨 DOM 边界的界面请求。 */
-function isLegendUiRequest(value: unknown): value is LegendUiRequest {
+function isLegendUiEventDetail(value: unknown): value is LegendUiEventDetail {
+  if (!value || typeof value !== 'object' || !('action' in value)) return false
+  // 事件由本包 Core 发布，只需确认判别字段；字段契约由 LegendUiEventDetail 保证。
   return (
-    !!value &&
-    typeof value === 'object' &&
-    'action' in value &&
-    (value.action === 'settings' || value.action === 'replace' || value.action === 'edit-code') &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'paneId' in value &&
-    typeof value.paneId === 'string' &&
-    'definitionId' in value &&
-    typeof value.definitionId === 'string' &&
-    'role' in value &&
-    (value.role === 'main' || value.role === 'sub')
+    value.action === 'move-to' ||
+    value.action === 'settings' ||
+    value.action === 'replace' ||
+    value.action === 'edit-code'
   )
 }

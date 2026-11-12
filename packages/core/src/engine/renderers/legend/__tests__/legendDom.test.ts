@@ -5,7 +5,12 @@ import eyeOff from '@iconify-icons/tabler/eye-off'
 import { describe, expect, it, vi } from 'vitest'
 import { LEGEND_COLLAPSE_HEIGHT_PX } from '@/engine/legend/impl/legendGeometry.js'
 import { projectLegendActions } from '@/engine/legend/impl/projectLegendActions.js'
-import { type LegendAction, type LegendRow, type LegendUiRequest } from '@/engine/legend/types.js'
+import {
+  LEGEND_UI_EVENT,
+  type LegendAction,
+  type LegendRow,
+  type LegendUiRequest,
+} from '@/engine/legend/types.js'
 import { createLegendDomRenderer } from '../impl/createLegendDomRenderer.js'
 import type { LegendDomFrame } from '../types.js'
 
@@ -13,9 +18,8 @@ import type { LegendDomFrame } from '../types.js'
 function createHarness() {
   const host = document.createElement('div')
   const execute = vi.fn<(id: string, action: LegendAction) => LegendUiRequest | null>(() => null)
-  const moveTo = vi.fn(() => true)
   const setMainCollapsed = vi.fn<(collapsed: boolean) => void>()
-  const renderer = createLegendDomRenderer(host, setMainCollapsed, execute, moveTo)
+  const renderer = createLegendDomRenderer(host, setMainCollapsed, execute)
   const row: LegendRow = {
     key: 'main:MA',
     paneId: 'main',
@@ -43,7 +47,7 @@ function createHarness() {
       { text: 'MA5 100.000', color: 'blue', gapBefore: 10 },
     ],
   }
-  return { host, renderer, row, execute, moveTo, setMainCollapsed }
+  return { host, renderer, row, execute, setMainCollapsed }
 }
 
 /** 组装一帧图例投影；主图默认可收起，行按 pane 分组。 */
@@ -59,28 +63,34 @@ function frameOf(
 }
 
 describe('DOM Legend renderer', () => {
-  it('移动菜单隔离画布指针捕获，并把点击提交到移动命令', () => {
-    const { host, renderer, row, execute, moveTo } = createHarness()
+  it('移动按钮发布目标列表与按钮矩形，菜单 DOM 交给宿主渲染', () => {
+    const { host, renderer, row, execute } = createHarness()
     const target = { kind: 'newPane', anchorPaneId: 'main', placement: 'below' } as const
     execute.mockReturnValue({
       action: 'move-to',
       id: row.key,
       options: [{ target, label: '在下方新建副图', enabled: true }],
     })
+    renderer.update(frameOf([['main', [row]]]))
+    const button = host.querySelector<HTMLButtonElement>('[aria-label="移动指标"]')!
+    button.getBoundingClientRect = () => new DOMRect(10, 20, 22, 22)
+    let detail: unknown = null
+    host.addEventListener(LEGEND_UI_EVENT, (event) => {
+      detail = event instanceof CustomEvent ? event.detail : null
+    })
+    // 图例按钮不进入画布指针捕获；具体菜单交互由宿主组件承担。
     const canvasPointer = vi.fn()
     host.addEventListener('pointerdown', canvasPointer)
-    host.addEventListener('pointermove', canvasPointer)
-    host.addEventListener('pointerup', canvasPointer)
-    renderer.update(frameOf([['main', [row]]]))
-    host.querySelector<HTMLButtonElement>('[aria-label="移动指标"]')!.click()
-    const item = host.querySelector<HTMLButtonElement>('.klc-legend-menu-item')!
-    for (const type of ['pointermove', 'pointerdown', 'pointerup']) {
-      item.dispatchEvent(new Event(type, { bubbles: true }))
-    }
+    button.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     expect(canvasPointer).not.toHaveBeenCalled()
-    item.click()
-    expect(moveTo).toHaveBeenCalledExactlyOnceWith(row.key, target)
-    expect(host.querySelector<HTMLElement>('.klc-legend-menu')!.hidden).toBe(true)
+    button.click()
+    expect(detail).toEqual({
+      action: 'move-to',
+      id: row.key,
+      options: [{ target, label: '在下方新建副图', enabled: true }],
+      anchor: { left: 10, top: 20, width: 22, height: 22 },
+    })
+    expect(host.querySelector('.klc-legend-menu')).toBeNull()
     renderer.dispose()
   })
 

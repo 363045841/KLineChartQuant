@@ -162,8 +162,10 @@
     /** 受控打开状态；由 controlled + open + update:open 共同驱动。 */
     controlled?: boolean
     open?: boolean
-    /** 受控坐标锚点；提供时以该点弹出，无需调用 openAt。 */
-    origin?: { x: number; y: number } | null
+    /** 受控坐标锚点；提供时以该矩形弹出，无需调用 openAt。 */
+    origin?: { x: number; y: number; width?: number; height?: number } | null
+    /** 面板与锚点的间距；坐标模式默认贴住指针，普通下拉默认 4px。 */
+    offset?: number
   }>()
   const emit = defineEmits<{
     select: [groupId: string, itemId: string]
@@ -190,7 +192,7 @@
     origin: props.context || props.origin !== undefined ? origin : undefined,
     restoreFocusTo: () => props.focusTarget ?? null,
     placement: () => props.placement ?? 'auto',
-    offset: props.context ? 0 : 4,
+    offset: props.offset ?? (props.context ? 0 : 4),
     maxHeight: () => 'min(420px, calc(100vh - 24px))',
     disabled: () => props.disabled ?? false,
     onOpen: () => {

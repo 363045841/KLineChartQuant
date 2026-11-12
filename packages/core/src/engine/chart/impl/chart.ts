@@ -327,7 +327,6 @@ export class Chart {
       dom.canvasLayer,
       (collapsed) => this.legend.setMainCollapsed(collapsed),
       (id, action) => this.legend.execute(id, action),
-      (id, target) => this.legend.moveTo(id, target),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
     // 会话表只有一份：内置表 + 数据源声明 + 图表覆盖，动态注册的数据源也同步进来。

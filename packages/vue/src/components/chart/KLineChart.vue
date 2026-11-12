@@ -112,6 +112,22 @@
               <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
             </template>
           </DropMenu>
+          <DropMenu
+            context
+            controlled
+            label="移动指标"
+            :open="legendMoveMenuOpen"
+            :origin="legendMoveMenuOrigin"
+            :offset="legendMoveMenuOffset"
+            :groups="legendMoveMenuGroups"
+            :focus-target="containerRef"
+            @update:open="onLegendMoveMenuUpdateOpen"
+            @select="onLegendMoveMenuSelect"
+          >
+            <template #item-icon="{ item }">
+              <component :is="legendMoveMenuIcons[item.id]" aria-hidden="true" />
+            </template>
+          </DropMenu>
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -543,6 +559,7 @@
   import { useIndicatorManager } from '@vue-src/composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '@vue-src/composables/chart/useInteractionBridge.js'
   import { useKLineTooltip } from '@vue-src/composables/chart/useKLineTooltip.js'
+  import { useLegendMoveMenu } from '@vue-src/composables/chart/useLegendMoveMenu.js'
   import { useLegendUi } from '@vue-src/composables/chart/useLegendUi.js'
   import { usePaneAxisItems } from '@vue-src/composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
@@ -1149,6 +1166,17 @@
     capturePrice: captureContextMenuPrice,
     select: selectContextMenuItem,
   } = useChartContextMenu({ controller, commands })
+  // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。
+  const {
+    groups: legendMoveMenuGroups,
+    icons: legendMoveMenuIcons,
+    open: legendMoveMenuOpen,
+    origin: legendMoveMenuOrigin,
+    offset: legendMoveMenuOffset,
+    show: showLegendMoveMenu,
+    select: selectLegendMoveMenu,
+    onUpdateOpen: onLegendMoveMenuUpdateOpen,
+  } = useLegendMoveMenu(controller)
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
@@ -1230,6 +1258,7 @@
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
     openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
     openScriptEditor: (definitionId) => openScriptEditor(definitionId),
+    openMoveMenu: (request) => showLegendMoveMenu(request),
   })
 
   const {
@@ -1636,6 +1665,11 @@
   /** 菜单项动作由菜单自身分发；这里只转交选中的命令/动作 id。 */
   function onContextMenuSelect(_groupId: string, itemId: string): void {
     selectContextMenuItem(itemId)
+  }
+
+  /** 图例移动菜单选中目标后交给图例命令面执行。 */
+  function onLegendMoveMenuSelect(_groupId: string, itemId: string): void {
+    selectLegendMoveMenu(itemId)
   }
 
   function onDoubleClick(e: MouseEvent) {

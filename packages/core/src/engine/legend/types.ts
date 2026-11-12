@@ -204,7 +204,15 @@ export interface LegendActionButton {
 }
 export const LEGEND_UI_EVENT = 'klc:legend-ui'
 
-/** Core 只把需要宿主打开界面的操作发布给框架；移动菜单由 Core DOM 自行渲染。 */
+/** 触发按钮的视口矩形；宿主据此把移动菜单贴在按钮下方。 */
+export interface LegendAnchorRect {
+  readonly left: number
+  readonly top: number
+  readonly width: number
+  readonly height: number
+}
+
+/** Core 只把需要宿主打开界面的操作发布给框架。 */
 export type LegendUiRequest =
   | {
       readonly action: 'replace' | 'settings' | 'edit-code'
@@ -218,6 +226,14 @@ export type LegendUiRequest =
       readonly id: string
       readonly options: ReadonlyArray<import('@/engine/pane/types.js').InstanceMoveOption>
     }
+
+/** 移动目标请求；目标列表由 Core 投影，菜单由宿主框架渲染。 */
+export type LegendMoveRequest = Extract<LegendUiRequest, { action: 'move-to' }>
+
+/** 图例 UI 事件 detail：移动目标额外携带触发按钮矩形，供宿主定位菜单。 */
+export type LegendUiEventDetail =
+  | Exclude<LegendUiRequest, { action: 'move-to' }>
+  | (LegendMoveRequest & { readonly anchor: LegendAnchorRect })
 
 /** 内置图例写入其所属领域，自定义图例由图例模块持有。 */
 export interface LegendApi {
