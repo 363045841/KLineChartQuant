@@ -6,7 +6,7 @@
   - 进出场用 @starting-style + transition-behavior: allow-discrete，不用定时器；
   - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态；
   - --base-modal-content-inset 是弹窗内容横向内边距的唯一来源：Tab 文字、搜索框、
-    正文与列表行都跟着它，消费方不再各自写横向 padding；
+    需要安全区的正文（bodyPadded）与列表行都跟着它，消费方不再各自写横向 padding；
   - 尺寸走 size 预设，宽度/高度/遮罩间距只在特殊弹窗用 props 覆盖。
 -->
 <template>
@@ -75,7 +75,7 @@
 
         <div
           class="base-body"
-          :class="{ 'base-body--scrollable': bodyScrollable, 'base-body--flush': bodyFlush }"
+          :class="{ 'base-body--scrollable': bodyScrollable, 'base-body--padded': bodyPadded }"
         >
           <slot />
         </div>
@@ -130,8 +130,8 @@
       animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
-      /** 正文贴边：内边距由内容自理（内部滚动区、编辑器等）。 */
-      bodyFlush?: boolean
+      /** 普通表单正文需要弹窗安全区时开启；列表和自管理间距的内容保持贴边。 */
+      bodyPadded?: boolean
       bodyScrollable?: boolean
       footerAlign?: 'flex-end' | 'center' | 'flex-start' | 'space-between'
       closeOnOverlay?: boolean
@@ -149,6 +149,7 @@
       animateResize: true,
       maxWidth: '',
       maxHeight: '780px',
+      bodyPadded: false,
       bodyScrollable: true,
       footerAlign: 'flex-end',
       closeOnOverlay: true,
@@ -467,18 +468,17 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    /* 默认按弹窗 inset 排布；正文自带滚动区或编辑器用 bodyFlush 贴边。 */
-    padding: var(--base-modal-content-inset);
-  }
-
-  .base-body--flush {
+    /* 正文默认贴边：横向和纵向安全区由内容自己持有。 */
     padding: 0;
   }
 
-  /* 滚动正文只保留横向 inset；纵向留白由内容自己决定，避免滚动区上下出现固定空隙。 */
+  /* 普通表单/正文需要弹窗统一安全区时开启；列表与自管理间距的内容保持贴边。 */
+  .base-body--padded {
+    padding: var(--base-modal-content-inset);
+  }
+
   .base-body--scrollable {
     overflow-y: auto;
-    padding-block: 0;
   }
 
   /*

@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  /* 与 tab 栏、动作栏之间保留 8px 安全区，正文不贴边。 */
+  padding-block: var(--klc-space-8, 8px);
   font-family: var(--klc-typography-font-family);
   font-size: var(--klc-typography-font-size-md);
   line-height: var(--klc-typography-line-height-standard);
@@ -17,8 +19,9 @@
   justify-content: space-between;
   gap: var(--klc-spacing-md);
   min-block-size: 40px;
-  /* 横向对齐完全交给弹窗内容的统一 inset，行不再自带左右留白；hover 背景因此通栏。 */
+  /* 行自己消费弹窗的横向 inset：hover/选中背景通栏，文字仍停在统一键线。 */
   padding-block: var(--klc-spacing-sm);
+  padding-inline: var(--base-modal-content-inset);
   border-radius: 6px;
   font: inherit;
   color: inherit;

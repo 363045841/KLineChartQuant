@@ -24,7 +24,6 @@
       :open="open"
       title="指标模板"
       size="lg"
-      body-flush
       :body-scrollable="false"
       @update:open="!$event && close()"
     >

@@ -130,8 +130,14 @@
 
   .shortcut-settings__error {
     margin: 4px 0 0;
+    padding-inline: var(--base-modal-content-inset);
     color: var(--klc-color-ui-muted);
     font-size: 12px;
+  }
+
+  /* 正文贴边时空态也要留在安全区内。 */
+  .shortcut-settings > :deep(.base-empty-state) {
+    padding-inline: var(--base-modal-content-inset);
   }
 
   .shortcut-settings__list {

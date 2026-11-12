@@ -27,9 +27,10 @@
 
 
 <style scoped>
-  /* 开源致谢的分组小标题：字体继承弹窗全局字体，仅做层级与纵向留白；横向与条目一起用弹窗 inset。 */
+  /* 开源致谢的分组小标题：与致谢行共用弹窗 inset，保证标题和条目文字左对齐。 */
   .settings-subsection-label {
     padding-block: var(--klc-spacing-sm) var(--klc-spacing-xs);
+    padding-inline: var(--base-modal-content-inset);
     font-size: var(--klc-typography-font-size-md);
     font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-muted);
@@ -40,6 +41,8 @@
     /* 纯文本条目用 32px 的紧凑行高，比控件行的 40px 更紧凑但不过密。 */
     min-block-size: 32px;
     padding-block: var(--klc-spacing-xs);
+    /* 横向 inset 由 .settings-item 统一提供；通栏行贴合弹窗左右边缘，不用圆角。 */
+    border-radius: 0;
     cursor: pointer;
     text-decoration: none;
     /* 包名与版本号属于代码类内容，使用等宽字体。 */
@@ -51,8 +54,9 @@
   }
 
   .settings-item.credit-item:focus-visible {
+    /* 通栏行贴边，焦点环向内收才不会被正文的横向裁剪切掉。 */
     outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 
   /* 包名继承致谢条目的等宽字体，不再单独声明字体栈。 */

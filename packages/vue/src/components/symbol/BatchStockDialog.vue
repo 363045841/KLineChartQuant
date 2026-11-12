@@ -1,7 +1,8 @@
 <template>
   <BaseModal
-    title="批量设置股票代码"
+    title="批量导出代码"
     :open="show"
+    body-padded
     @update:open="!$event && emit('close')"
   >
     <BaseField

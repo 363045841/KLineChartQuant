@@ -87,6 +87,7 @@
   /* ── 指标描述 ── */
   .indicator-description {
     margin-bottom: 8px;
+    margin-inline: var(--base-modal-content-inset);
     padding: 10px 12px;
     border-radius: 8px;
     background: color-mix(in srgb, var(--klc-color-ui-accent) 8%, transparent);

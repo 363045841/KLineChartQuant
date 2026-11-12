@@ -7,7 +7,6 @@
     :open="show"
     :title="dialogLabel"
     size="md"
-    body-flush
     @update:open="!$event && emit('close')"
   >
     <template #tabs>

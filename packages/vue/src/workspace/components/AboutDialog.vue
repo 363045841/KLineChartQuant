@@ -46,7 +46,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* 纵向留白统一由弹窗正文提供，这里不再叠加。 */
+    /* 正文贴边：横向 inset 由致谢行自己消费，这里只补底部安全区。 */
+    padding-block: 0 var(--base-modal-content-inset);
     text-align: center;
     font-size: var(--klc-typography-font-size-md);
     line-height: 1.5;

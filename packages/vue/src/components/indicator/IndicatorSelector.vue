@@ -5,7 +5,6 @@
       :open="menuOpen"
       :title="modalTitle"
       size="lg"
-      body-flush
       :body-scrollable="false"
       @update:open="!$event && closeMenu()"
     >
@@ -27,7 +26,7 @@
         <nav class="selector-nav" aria-label="指标分类">
           <button
             type="button"
-            class="selector-nav-item modal-list-row"
+            class="selector-nav-item"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.favorites }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.favorites ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.favorites"
@@ -36,7 +35,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item modal-list-row"
+            class="selector-nav-item"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.indicators }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.indicators ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.indicators"
@@ -45,7 +44,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item modal-list-row"
+            class="selector-nav-item"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
             v-if="scriptsEnabled !== false"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
@@ -408,7 +407,10 @@
     display: flex;
     align-items: center;
     gap: var(--klc-space-8, 8px);
+    min-width: 0;
     min-height: 36px;
+    /* 侧栏只有 140px，导航行用比列表更小的横向留白，图标和文字才不被挤压。 */
+    padding-inline: var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);

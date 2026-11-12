@@ -154,6 +154,8 @@
     --param-control-radius: 8px;
 
     padding-block: 10px;
+    /* 弹窗正文贴边，参数行自己消费横向 inset。 */
+    padding-inline: var(--base-modal-content-inset);
     border-radius: 10px;
   }
 

@@ -82,6 +82,8 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     min-height: 52px;
+    /* 弹窗正文贴边，行自己消费横向 inset。 */
+    padding-inline: var(--base-modal-content-inset);
   }
 
   .shortcut-settings__label {

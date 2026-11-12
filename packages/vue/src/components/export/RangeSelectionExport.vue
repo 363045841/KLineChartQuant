@@ -25,7 +25,7 @@
         {{ formattedReturnRate }}
       </span>
     </BaseTooltip>
-    <button type="button" class="toolbar-btn" @click="emit('batchSetting')">批量设置</button>
+    <button type="button" class="toolbar-btn" @click="emit('batchSetting')">批量导出代码</button>
     <button type="button" class="toolbar-btn" @click="emit('export')">导出</button>
     <BaseTooltip content="取消选区" placement="top" trigger-display="contents">
     <button

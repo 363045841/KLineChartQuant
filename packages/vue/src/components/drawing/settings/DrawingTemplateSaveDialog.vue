@@ -4,6 +4,7 @@
     :open="show"
     title="保存图元模板"
     size="xs"
+    body-padded
     :close-on-overlay="!busy"
     :show-close="!busy"
     @update:open="!$event && emit('close')"
