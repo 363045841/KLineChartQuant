@@ -1,6 +1,7 @@
 /** 同一正式文档跨日线、小时线和分钟线绘制、命中和编辑；未来与过去槽位都按绝对时间定位。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import { createDrawingDocumentFixture } from '@/engine/drawing/__tests__/helpers/drawingDocumentFixture.js'
 import {
   CONTAINER,
@@ -51,8 +52,8 @@ function frame(minutes: number, symbolKey = 'asset-a') {
     getData: () => data,
     getDrawingData: () => data,
     getViewport: () => context.viewport,
-    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
-    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
+    getPaneInfo: () => ({ paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 200 }),
+    getPaneAtY: () => ({ paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 200 }),
   })
   return {
     context,

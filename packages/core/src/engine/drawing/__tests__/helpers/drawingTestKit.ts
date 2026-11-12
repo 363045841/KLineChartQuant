@@ -16,6 +16,7 @@ import type {
   PaneLayoutInfo,
 } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
@@ -259,7 +260,7 @@ export const OHLC_BARS = [
 const BAR_TIMESTAMPS = [500, 1000, 1500]
 
 /** 磁吸夹具的目标 Bar 与 Pane 布局（pane 局部坐标）。 */
-export const MAGNET_PANE: PaneLayoutInfo = { paneId: 'main', top: 0, height: 200 }
+export const MAGNET_PANE: PaneLayoutInfo = { paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 200 }
 
 /** 磁吸夹具的价格→Y 映射。 */
 const priceToY = (_paneId: string, price: number) => 200 - price
@@ -354,8 +355,8 @@ export function createDrawingViewportPort(
     getDrawingWorkspaceId: () => 'kline',
     priceToY,
     yToPrice,
-    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
-    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 240 }),
+    getPaneInfo: () => ({ paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 240 }),
+    getPaneAtY: () => ({ paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 240 }),
     getSnapLines: () => [],
     getIndicatorValues: () => [],
     ...overrides,
@@ -494,7 +495,7 @@ export function createSelectionAdapter(
     plotHeight = 100,
     globalLocked = false,
   } = options
-  const pane = { paneId: 'main', top: paneTop, height: paneHeight }
+  const pane = { paneId: 'main', scaleType: ScaleType.Linear, top: paneTop, height: paneHeight }
   const documentPort = createDrawingDocumentPort(drawings, {
     getDrawingToolId: () => tool,
     isGlobalDrawingLocked: () => globalLocked,
@@ -541,7 +542,7 @@ export function createAngleLockAdapter(
     {
       tool,
       document,
-      pane: { paneId: 'main', top: 0, height: 100 },
+      pane: { paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 100 },
       plotWidth: 100,
       plotHeight: 100,
     },

@@ -1,6 +1,7 @@
 /** 绘图适配层直接使用公共坐标服务，并保持 Pane 局部坐标与单轴语义。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import {
   CONTAINER,
   createDrawingAdapter,
@@ -31,9 +32,9 @@ function createAdapter() {
     viewport: {
       getCoordinates: () => coordinates,
       getViewport: () => ({ scrollLeft: 0, plotWidth: 800, plotHeight: 240 }),
-      getPaneInfo: () => ({ paneId: 'sub', top: 120, height: 80 }),
+      getPaneInfo: () => ({ paneId: 'sub', scaleType: ScaleType.Linear, top: 120, height: 80 }),
       getPaneAtY: (y) =>
-        y >= 120 && y <= 200 ? { paneId: 'sub', top: 120, height: 80 } : undefined,
+        y >= 120 && y <= 200 ? { paneId: 'sub', scaleType: ScaleType.Linear, top: 120, height: 80 } : undefined,
     },
   })
 }
