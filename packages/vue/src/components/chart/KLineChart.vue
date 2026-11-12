@@ -95,6 +95,7 @@
         <div ref="chartMainRef" class="chart-main">
           <ChartNavigation
             v-if="hasPrimarySymbol"
+            :controller="controller"
             :style="{
               bottom: `${props.bottomAxisHeight}px`,
               '--chart-nav-offset-x': `${navOffsetX}px`,
