@@ -54,6 +54,7 @@ import {
   BrowserProviderSettingsStore,
 } from '../../provider/impl/browser-provider-stores.js'
 import { ProviderModelPool } from '../../provider/impl/provider-model-pool.js'
+import { providerFetch } from '../../provider/impl/provider-transport.js'
 import type { BrowserProviderConnection, BrowserProviderProfile } from '../../provider/types.js'
 import { BrowserRunRegistry } from '../../session/impl/browser-run-registry.js'
 import { BrowserToolRegistry } from '../../tools/impl/browser-tool-registry.js'
@@ -405,7 +406,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         'The active Provider has no saved connection.',
       )
     }
-    return fetchOpenAiCompatibleModels({ ...connection, apiKey: await this.credentials.read() })
+    return fetchOpenAiCompatibleModels(
+      { ...connection, apiKey: await this.credentials.read() },
+      providerFetch(),
+    )
   }
 
   /** 返回当前 Profile 在统一模型池中可用的模型。 */

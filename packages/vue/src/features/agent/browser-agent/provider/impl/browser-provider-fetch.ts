@@ -1,5 +1,7 @@
 // Provider 请求的浏览器 fetch 适配：移除 Pi SDK 诊断头，避免 CORS 预检被拒。
 
+import { providerFetch } from './provider-transport.js'
+
 /** 移除 Pi SDK 的浏览器诊断头，避免不支持这些头的 OpenAI-compatible Provider 拒绝 CORS 预检。 */
 export async function fetchBrowserProvider(
   input: RequestInfo | URL,
@@ -9,5 +11,5 @@ export async function fetchBrowserProvider(
   for (const name of [...headers.keys()]) {
     if (name.startsWith('x-stainless-')) headers.delete(name)
   }
-  return fetch(input, { ...init, headers })
+  return providerFetch()(input, { ...init, headers })
 }

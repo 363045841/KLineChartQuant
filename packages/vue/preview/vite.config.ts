@@ -20,6 +20,7 @@ import {
 import { resolveBuildCommit } from '../../../scripts/build-commit.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
 import { compilerDependencyPlugin } from '../../../scripts/compiler-dependency-plugin.js'
+import { providerProxyPlugin } from './provider-proxy'
 
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
@@ -114,6 +115,7 @@ export default defineConfig({
     compilerDependencyPlugin(root),
     contractResourcesPlugin(),
     watchWorkspaceSources(root),
+    providerProxyPlugin(),
     decoratorTransform,
     vue(),
     Icons({ compiler: 'vue3', autoInstall: true }),
