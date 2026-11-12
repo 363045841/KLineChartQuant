@@ -6,11 +6,11 @@
     <div class="empty-state__prompts">
       <button
         v-for="prompt in prompts"
-        :key="prompt"
+        :key="prompt.label"
         type="button"
-        @click="emit('prompt', prompt)"
+        @click="emit('prompt', prompt.prompt)"
       >
-        <span>{{ prompt }}</span>
+        <span>{{ prompt.label }}</span>
         <IconArrowUpRight aria-hidden="true" />
       </button>
     </div>
@@ -22,16 +22,23 @@
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
+  /** 一个快捷提问：按钮显示短标签，发送完整指令。 */
+  interface EmptyStatePrompt {
+    readonly label: string
+    readonly prompt: string
+  }
+
   const props = defineProps<{ locale: AgentLocale }>()
   const emit = defineEmits<{ prompt: [prompt: string] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  // 空态只展示固定四条引导，顺序与产品文案对应。
-  const prompts = computed(() => [
-    text.value.promptTrend,
-    text.value.promptRsi,
-    text.value.promptEma,
-    text.value.promptBond,
+  // 空态只展示固定引导；订单流那一条标签短、发送的指令带标注规则，避免用户手写口径。
+  const prompts = computed<readonly EmptyStatePrompt[]>(() => [
+    { label: text.value.promptTrend, prompt: text.value.promptTrend },
+    { label: text.value.promptRsi, prompt: text.value.promptRsi },
+    { label: text.value.promptEma, prompt: text.value.promptEma },
+    { label: text.value.promptBond, prompt: text.value.promptBond },
+    { label: text.value.promptOrderflow, prompt: text.value.promptOrderflowDetail },
   ])
 </script>
 
@@ -68,27 +75,30 @@
   }
   .empty-state__prompts button {
     max-width: 100%;
-    min-height: 36px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 7px 14px;
+    gap: 6px;
+    padding: 8px 14px;
     border: 1px solid var(--agent-border);
     border-radius: 999px;
+    background: transparent;
     color: var(--agent-text);
-    background: var(--agent-surface);
     font: inherit;
     font-size: 12px;
-    text-align: center;
     cursor: pointer;
   }
   .empty-state__prompts button:hover {
-    border-color: var(--agent-border-strong);
-    background: var(--agent-hover);
+    border-color: var(--agent-accent);
+    color: var(--agent-accent);
   }
   .empty-state__prompts span {
-    min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .empty-state__prompts svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
   }
 </style>
