@@ -1,0 +1,27 @@
+{
+  "name": "@363045841yyt/klinechart-backtest",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KCQ 回测引擎：1h L2 信号 + 期权位 A/B 分级，理论结局结算与统计",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "run": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=26.0.0"
+  }
+}
