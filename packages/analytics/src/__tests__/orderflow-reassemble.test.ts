@@ -75,6 +75,110 @@ function flowRecord(granularity: FlowRecord['granularity']): FlowRecord {
   }
 }
 
+describe('reassemblePanel 的 CVD 曲线', () => {
+  it('按连续分钟累加净额，累计值从这段窗口起点算起', () => {
+    const panel = reassemblePanel(
+      {
+        symbol: 'BTCUSDT',
+        depth: [],
+        flow: [],
+        flowMinutes: recentMinutes(3),
+        positioning: [],
+        largeOrders: [],
+      },
+      ['bybit'],
+      NOW,
+    )
+    const cvd = panel.venues[0]?.cvd ?? []
+
+    expect(cvd).toHaveLength(3)
+    // 每分钟买 60 卖 40，净额 +20，累计 20 / 40 / 60
+    expect(cvd.map((point) => point.delta)).toEqual([20, 20, 20])
+    expect(cvd.map((point) => point.cumulative)).toEqual([20, 40, 60])
+    expect(cvd[2]?.minuteStart).toBe(HOUR + HOUR_MS - MINUTE_MS)
+  })
+
+  it('遇到缺口就断开重算，不跨缺口连线', () => {
+    const rows = recentMinutes(4)
+    // 抹掉倒数第二分钟，最后两分钟不连续
+    const withGap = rows.filter((row) => row.minuteStart !== HOUR + HOUR_MS - 2 * MINUTE_MS)
+    const panel = reassemblePanel(
+      {
+        symbol: 'BTCUSDT',
+        depth: [],
+        flow: [],
+        flowMinutes: withGap,
+        positioning: [],
+        largeOrders: [],
+      },
+      ['bybit'],
+      NOW,
+    )
+    const cvd = panel.venues[0]?.cvd ?? []
+
+    // 只剩最后那一分钟，累计值也重新起算
+    expect(cvd).toHaveLength(1)
+    expect(cvd[0]?.cumulative).toBe(20)
+  })
+
+  it('落盘晚一分钟时仍出曲线，锚点取不晚于上一个已结束分钟的最新一行', () => {
+    // 最新一行是两分钟前：上一个已结束分钟还没写，不应把整条曲线清空
+    const rows = recentMinutes(4).filter((row) => row.minuteStart !== HOUR + HOUR_MS - MINUTE_MS)
+    const panel = reassemblePanel(
+      {
+        symbol: 'BTCUSDT',
+        depth: [],
+        flow: [],
+        flowMinutes: rows,
+        positioning: [],
+        largeOrders: [],
+      },
+      ['bybit'],
+      NOW,
+    )
+
+    expect(panel.venues[0]?.cvd).toHaveLength(3)
+  })
+
+  it('最新一分钟落后太多时整条作废，不把旧数据当现在', () => {
+    const rows = recentMinutes(3).map((row) => ({
+      ...row,
+      minuteStart: row.minuteStart - 10 * MINUTE_MS,
+    }))
+    const panel = reassemblePanel(
+      {
+        symbol: 'BTCUSDT',
+        depth: [],
+        flow: [],
+        flowMinutes: rows,
+        positioning: [],
+        largeOrders: [],
+      },
+      ['bybit'],
+      NOW,
+    )
+
+    expect(panel.venues[0]?.cvd).toEqual([])
+  })
+
+  it('没有分钟记录时为空数组，不伪造曲线', () => {
+    const panel = reassemblePanel(
+      {
+        symbol: 'BTCUSDT',
+        depth: [],
+        flow: [],
+        flowMinutes: [],
+        positioning: [],
+        largeOrders: [],
+      },
+      ['bybit'],
+      NOW,
+    )
+
+    expect(panel.venues[0]?.cvd).toEqual([])
+  })
+})
+
 describe('reassemblePanel 的周期聚合', () => {
   it('满 60 分钟才给 1h，覆盖秒数等于周期', () => {
     const panel = reassemblePanel(

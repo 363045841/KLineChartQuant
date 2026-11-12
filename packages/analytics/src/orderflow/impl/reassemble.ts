@@ -13,6 +13,7 @@
  */
 import {
   type DepthRecord,
+  type FlowCvdPoint,
   type FlowMinuteRecord,
   type FlowRecord,
   type FlowStats,
@@ -25,6 +26,12 @@ import {
 import { FLOW_WINDOWS } from './flowVenues'
 import { MINUTE_MS, minuteStartOf } from './largeOrderAccumulator'
 import { buildTotals, detectContradictions } from './panel'
+
+/** CVD 曲线最多回看的连续分钟数。 */
+const CVD_MINUTES = 60
+
+/** 最新一分钟允许落后「上一个已结束分钟」的时长；超过就当作数据停摆，不出曲线。 */
+const CVD_STALE_MS = 5 * 60_000
 
 /** 重建所需的原始记录，已按时间升序。 */
 export interface PanelRecords {
@@ -130,6 +137,55 @@ function flowsFromMinutes(
 }
 
 /**
+ * 由单分钟记录生成 CVD 曲线。
+ *
+ * 锚点取「不晚于上一个已结束分钟的最新一行」，这样落盘晚一分钟不会把整条曲线清空；
+ * 再从锚点往回走，遇到缺行就断开，只保留最新的一段连续区间。
+ * 锚点比上一个已结束分钟旧太多时整条作废：把那时的 CVD 当成「现在」是伪精度。
+ *
+ * @param rows 该所的单分钟记录
+ * @param now 快照时刻
+ * @returns 按时间升序的点；没有可用连续段时为空
+ */
+function cvdFromMinutes(rows: readonly FlowMinuteRecord[], now: number): readonly FlowCvdPoint[] {
+  if (rows.length === 0) return []
+  const byMinute = new Map<number, FlowMinuteRecord>()
+  for (const row of rows) byMinute.set(row.minuteStart, row)
+  const lastFinished = minuteStartOf(now) - MINUTE_MS
+
+  let anchor: number | undefined
+  for (const minuteStart of byMinute.keys()) {
+    if (minuteStart > lastFinished) continue
+    if (anchor === undefined || minuteStart > anchor) anchor = minuteStart
+  }
+  if (anchor === undefined) return []
+  if (lastFinished - anchor > CVD_STALE_MS) return []
+
+  const run: FlowMinuteRecord[] = []
+  for (let minuteStart = anchor; ; minuteStart -= MINUTE_MS) {
+    const row = byMinute.get(minuteStart)
+    if (row === undefined) break
+    run.push(row)
+    if (run.length >= CVD_MINUTES) break
+  }
+
+  const points: FlowCvdPoint[] = []
+  let cumulative = 0
+  for (const row of run.reverse()) {
+    const delta = row.buy - row.sell
+    cumulative += delta
+    points.push({
+      minuteStart: row.minuteStart,
+      buy: row.buy,
+      sell: row.sell,
+      delta,
+      cumulative,
+    })
+  }
+  return points
+}
+
+/**
  * 合并官方聚合与自算周期，同一周期以官方为准。
  *
  * 官方按周期聚合的值就是交易所自己算的，比我们从逐笔重算更可信；
@@ -190,6 +246,7 @@ export function reassemblePanel(
       symbol: records.symbol,
       depth: depth === null ? null : { ...depth },
       flows: flows.map((row) => ({ ...row })),
+      cvd: cvdFromMinutes(minuteRows, timestamp),
       // 钟级大单只有整点封存后才有值；未封存时段为 null，面板会说明「无」
       largeOrders: sealed === null ? null : { ...sealed },
       positioning: positioning === null ? null : { ...positioning },

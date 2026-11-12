@@ -129,6 +129,23 @@ export function renderPanel(panel: OrderflowPanel): string {
     )
   }
 
+  // ── 3b. 分钟级 CVD ──
+  // 只显示连续分钟：缺行即断，累计值从缺口后重新起算，所以「覆盖」列可能远小于一小时。
+  lines.push(section('③b 分钟级 CVD（主动买 − 主动卖，按连续分钟累加）'))
+  lines.push('  交易所       覆盖        期间累计净额    最近 15 分钟净额')
+  for (const venue of panel.venues) {
+    const points = venue.cvd
+    if (points.length === 0) {
+      lines.push(`  ${venue.venue.padEnd(12)} —`)
+      continue
+    }
+    const last = points[points.length - 1]
+    const recentNet = points.slice(-15).reduce((sum, point) => sum + point.delta, 0)
+    lines.push(
+      `  ${venue.venue.padEnd(12)} ${`${points.length}m`.padStart(5)}  ${signedMoney(last.cumulative).padStart(15)}  ${signedMoney(recentNet).padStart(17)}`,
+    )
+  }
+
   // ── 4. 深度与价格墙 ──
   lines.push(section(`④ 深度（±${DEPTH_BANDS_DEFAULT}% 内挂单，实际覆盖见「覆盖」列）`))
   lines.push('  交易所        买盘       卖盘      区间失衡  覆盖            近端失衡  最大价格墙')

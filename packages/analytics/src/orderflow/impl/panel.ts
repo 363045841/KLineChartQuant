@@ -259,6 +259,8 @@ export function createPanelClient(options: PanelClientOptions): PanelClient {
             symbol,
             depth,
             flows: flows ?? [],
+            // 实时采集路径不读落盘的分钟记录，CVD 只有从记录重建面板时才有
+            cvd: [],
             largeOrders,
             positioning,
             errors,

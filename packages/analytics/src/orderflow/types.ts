@@ -149,6 +149,25 @@ export interface FlowStats {
   readonly granularity: 'aggregated' | 'self-aggregated' | 'recent-trades'
 }
 
+/**
+ * 分钟级 CVD 曲线上的一个点。
+ *
+ * `cumulative` 从这段连续窗口的第一分钟起算，不是全历史：采集中断后重新起算，
+ * 免得把两段不相连的行情接成一条曲线。单位为计价币。
+ */
+export interface FlowCvdPoint {
+  /** 该分钟的起始时刻（毫秒） */
+  readonly minuteStart: number
+  /** 该分钟主动买入名义额 */
+  readonly buy: number
+  /** 该分钟主动卖出名义额 */
+  readonly sell: number
+  /** 该分钟净额 = 买 − 卖 */
+  readonly delta: number
+  /** 自这段连续窗口起点累计的净额 */
+  readonly cumulative: number
+}
+
 /** 大单分层的一档。 */
 export interface LargeOrderBucket {
   /** 该档名义金额下限（含） */
@@ -226,6 +245,13 @@ export interface VenueSnapshot {
   readonly depth: DepthSnapshot | null
   /** 多周期主动买卖；失败为空数组 */
   readonly flows: readonly FlowStats[]
+  /**
+   * 最近一段连续分钟的 CVD 曲线，按时间升序。
+   *
+   * 只有逐笔采集的交易所才有（Binance 有官方 K 线，同样能算）；没有分钟记录时为空数组。
+   * 图上要画估算 CVD 时看脚本，这里的值是真实逐笔买卖，两者不可混用。
+   */
+  readonly cvd: readonly FlowCvdPoint[]
   /** 大单分层；只有支持逐笔成交流的交易所才有 */
   readonly largeOrders: LargeOrderProfile | null
   /** 持仓结构；失败为 null */
