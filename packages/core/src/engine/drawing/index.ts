@@ -74,6 +74,8 @@ export { MAGNET_RADIUS_STRONG, MAGNET_RADIUS_WEAK, MagnetMode } from './magnet/t
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
 export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/impl/drawingLabels.js'
+export { filterDrawingsInScope, isDrawingInScope } from './model/impl/drawingScope.js'
+export { isDrawingVisibleInPeriod } from './model/impl/drawingTimeframeVisibility.js'
 export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
 export { resolveDrawingTradingDate } from './model/impl/resolveTradingDate.js'
 export type {
@@ -85,7 +87,9 @@ export type {
   DrawingCommandsDocumentPort,
   DrawingDocumentDependencies,
   DrawingDuplicatePlacement,
+  DrawingScope,
   DrawingStyleKey,
+  PaneDrawingScope,
   UpdateDrawingPatch,
 } from './model/types.js'
 
@@ -143,6 +147,7 @@ export type {
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,
+  DrawingTimeframeVisibility,
   DrawingWorkspaceId,
   PersistedDrawingAnchor,
   ResolvedDrawingAnchor,

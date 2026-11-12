@@ -1081,8 +1081,12 @@ export class ChartRenderer {
           [],
         )
         const drawings = this.drawingStore.getVisibleByPane(
-          pane.id,
-          resolveChartWorkspaceId(this.deps.dataView$.peek()),
+          {
+            paneId: pane.id,
+            workspaceId: resolveChartWorkspaceId(this.deps.dataView$.peek()),
+            symbolKey: context.symbolKey,
+            period: context.period,
+          },
           'committed',
           'indicator',
         )

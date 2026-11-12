@@ -1,9 +1,14 @@
 /** 绘图图元右键菜单：判定右键来源、快照操作范围，并按快照调用 Core 绘图 API。 */
 import type { CommandRegistry } from '@363045841yyt/klinechart-core'
-import type { ChartController, DrawingObject } from '@363045841yyt/klinechart-core/controllers'
+import type {
+  ChartController,
+  DrawingObject,
+  DrawingTimeframeVisibility,
+} from '@363045841yyt/klinechart-core/controllers'
 import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
 import type { Component } from 'vue'
 import { computed, type Ref, shallowRef } from 'vue'
+import IconTablerClock from '~icons/tabler/clock'
 import IconTablerCopy from '~icons/tabler/copy'
 import IconTablerCopyPlus from '~icons/tabler/copy-plus'
 import IconTablerEyeOff from '~icons/tabler/eye-off'
@@ -15,10 +20,22 @@ import IconTablerTrash from '~icons/tabler/trash'
 export const DRAWING_CONTEXT_MENU_ITEM = {
   COPY: 'copy',
   CLONE: 'clone',
+  PERIOD_VISIBILITY: 'period-visibility',
   LOCK: 'lock',
   HIDE: 'hide',
   REMOVE: 'remove',
 } as const
+
+/** 周期可见性规则选项；参考周期取打开菜单时的当前周期。 */
+const TIMEFRAME_VISIBILITY_OPTIONS: ReadonlyArray<{
+  readonly id: DrawingTimeframeVisibility['mode']
+  readonly label: string
+}> = [
+  { id: 'above', label: '当前及以上时间周期' },
+  { id: 'below', label: '当前及以下时间周期' },
+  { id: 'current', label: '仅当前时间周期' },
+  { id: 'all', label: '所有时间周期' },
+]
 
 /** 右键命中的最小查询面；DrawingInteractionController 结构上满足该端口。 */
 export interface DrawingHitTestPort {
@@ -58,6 +75,11 @@ interface MenuItemDeclaration {
 const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   { id: DRAWING_CONTEXT_MENU_ITEM.COPY, group: 'copy', label: '复制', command: 'drawing.copy' },
   { id: DRAWING_CONTEXT_MENU_ITEM.CLONE, group: 'copy', label: '克隆', command: 'drawing.clone' },
+  {
+    id: DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY,
+    group: 'visibility',
+    label: '时间周期可见性',
+  },
   { id: DRAWING_CONTEXT_MENU_ITEM.LOCK, group: 'visibility', label: '锁定' },
   { id: DRAWING_CONTEXT_MENU_ITEM.HIDE, group: 'visibility', label: '隐藏' },
   { id: DRAWING_CONTEXT_MENU_ITEM.REMOVE, group: 'remove', label: '移除' },
@@ -67,6 +89,7 @@ const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
 const ICONS: Readonly<Record<string, Component>> = {
   [DRAWING_CONTEXT_MENU_ITEM.COPY]: IconTablerCopy,
   [DRAWING_CONTEXT_MENU_ITEM.CLONE]: IconTablerCopyPlus,
+  [DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY]: IconTablerClock,
   [DRAWING_CONTEXT_MENU_ITEM.HIDE]: IconTablerEyeOff,
   [DRAWING_CONTEXT_MENU_ITEM.REMOVE]: IconTablerTrash,
 }
@@ -76,12 +99,35 @@ export interface DrawingContextMenuOptions {
   readonly controller: Readonly<Ref<ChartController | null>>
   /** 图表命令注册表；只读取复制与克隆的快捷键文本。 */
   readonly commands: CommandRegistry | null
+  /** 当前 K 线周期；分时等不适用周期规则的视图传 null。 */
+  readonly currentPeriod?: Readonly<Ref<string | null>>
 }
 
 export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
-  // 打开瞬间快照目标与锁定态；菜单期间不重新读取选中集合。
+  // 打开瞬间快照目标与各图元的可见性规则；菜单期间不重新读取选中集合。
   const targetIds = shallowRef<ReadonlyArray<string>>(Object.freeze([]))
   const allLocked = shallowRef(false)
+  const targetTimeframes = shallowRef<ReadonlyArray<DrawingTimeframeVisibility | undefined>>([])
+
+  /** 按目标 id 读取完整图元；周期隐藏的图元在视图投影里会被过滤，因此这里走文档全量。 */
+  function collectTargets(): ReadonlyArray<DrawingObject> {
+    const controller = options.controller.value
+    if (!controller) return []
+    const targetSet = new Set(targetIds.value)
+    return controller.getFullDrawings().filter((drawing) => targetSet.has(drawing.id))
+  }
+
+  /** 规则是否与选项一致；受限规则还要求参考周期就是当前周期。 */
+  function matchesOption(
+    visibility: DrawingTimeframeVisibility | undefined,
+    mode: DrawingTimeframeVisibility['mode'],
+    period: string,
+  ): boolean {
+    const current = visibility ?? { mode: 'all' as const }
+    if (current.mode !== mode) return false
+    if (mode === 'all') return true
+    return current.mode !== 'all' && current.period === period
+  }
 
   /**
    * 快照本次右键的操作范围。
@@ -97,12 +143,11 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     if (!selectedHit) controller?.setSelectedDrawingIds(ids)
     targetIds.value = Object.freeze(ids)
 
-    const targetSet = new Set(ids)
-    const targets = (controller?.drawings.peek() ?? []).filter((drawing) =>
-      targetSet.has(drawing.id),
-    )
+    const targets = collectTargets()
     allLocked.value =
       targets.length === ids.length && targets.every((drawing) => drawing.locked === true)
+    targetTimeframes.value =
+      targets.length === ids.length ? targets.map((drawing) => drawing.timeframeVisibility) : []
   }
 
   /** 锁定项文案随快照切换；其余项使用固定文案。 */
@@ -125,6 +170,14 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     return combo ? options.commands.formatShortcut(combo) : undefined
   }
 
+  /** 锁定项按快照切换图标；其余项使用固定图标。 */
+  function iconOf(item: MenuItemDeclaration): Component | undefined {
+    if (item.id === DRAWING_CONTEXT_MENU_ITEM.LOCK) {
+      return allLocked.value ? IconTablerLockOpen : IconTablerLock
+    }
+    return ICONS[item.id]
+  }
+
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
     // 构建期使用可变数组，返回契约仍是只读分组。
     const result: Array<{
@@ -132,15 +185,37 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
       label: string
       items: Array<DropMenuGroup['items'][number]>
     }> = []
+    const period = options.currentPeriod?.value ?? null
     for (const item of MENU_ITEMS) {
       let group = result.at(-1)
       if (group?.id !== item.group) {
         group = { id: item.group, label: '', items: [] }
         result.push(group)
       }
+      if (item.id === DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY) {
+        // 分时等没有 K 线周期的视图不展示规则菜单。
+        if (period === null) continue
+        group.items.push({
+          id: item.id,
+          label: item.label,
+          icon: ICONS[item.id],
+          disabled: targetIds.value.length === 0,
+          children: TIMEFRAME_VISIBILITY_OPTIONS.map((option) => ({
+            id: option.id,
+            label: option.label,
+            checked:
+              targetTimeframes.value.length > 0 &&
+              targetTimeframes.value.every((visibility) =>
+                matchesOption(visibility, option.id, period),
+              ),
+          })),
+        })
+        continue
+      }
       group.items.push({
         id: item.id,
         label: labelOf(item),
+        icon: iconOf(item),
         shortcut: shortcutOf(item),
         disabled: disabledOf(item),
       })
@@ -148,16 +223,24 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     return result
   })
 
-  const icons = computed<Readonly<Record<string, Component | undefined>>>(() => ({
-    ...ICONS,
-    [DRAWING_CONTEXT_MENU_ITEM.LOCK]: allLocked.value ? IconTablerLockOpen : IconTablerLock,
-  }))
-
   /** 所有动作都按打开瞬间的 ids 提交；单图元同样走批量入口。 */
-  function select(itemId: string): void {
+  function select(itemId: string, parentId?: string): void {
     const controller = options.controller.value
     const ids = targetIds.value
     if (!controller || ids.length === 0) return
+    if (parentId === DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY) {
+      const period = options.currentPeriod?.value ?? null
+      if (period === null) return
+      const option = TIMEFRAME_VISIBILITY_OPTIONS.find((entry) => entry.id === itemId)
+      if (!option) return
+      const visibility: DrawingTimeframeVisibility =
+        option.id === 'all' ? { mode: 'all' } : { mode: option.id, period }
+      const updated = controller.updateBatch(ids, { timeframeVisibility: visibility })
+      if (updated.length > 0) {
+        targetTimeframes.value = updated.map((drawing) => drawing.timeframeVisibility)
+      }
+      return
+    }
     if (itemId === DRAWING_CONTEXT_MENU_ITEM.COPY) {
       controller.copyDrawingsToClipboard(ids)
       return
@@ -177,5 +260,5 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     if (itemId === DRAWING_CONTEXT_MENU_ITEM.REMOVE) controller.removeBatch(ids)
   }
 
-  return { groups, icons, capture, select }
+  return { groups, capture, select }
 }

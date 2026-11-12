@@ -125,6 +125,14 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return combo ? options.commands.formatShortcut(combo) : undefined
   }
 
+  /** 图标随状态变化：锁定时才显示对勾，其余项使用固定图标。 */
+  function iconOf(item: MenuItemDeclaration): Component | undefined {
+    if (item.id === CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR) {
+      return crosshairLocked.value ? IconTablerCheck : undefined
+    }
+    return ICONS[item.id]
+  }
+
   /** 是否可用：无十字线时复制禁用；未锁定且无十字线时锁定禁用；没有指标实例时清空禁用。 */
   function disabledOf(item: MenuItemDeclaration): boolean {
     if (item.id === CHART_CONTEXT_MENU_ITEM.RESET) return options.controller.value === null
@@ -155,6 +163,7 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
       group.items.push({
         id: item.id,
         label: labelOf(item),
+        icon: iconOf(item),
         shortcut: shortcutOf(item),
         disabled: disabledOf(item),
       })
@@ -227,11 +236,5 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     }
   }
 
-  const icons = computed<Readonly<Record<string, Component | undefined>>>(() =>
-    crosshairLocked.value
-      ? { ...ICONS, [CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]: IconTablerCheck }
-      : ICONS,
-  )
-
-  return { groups, icons, captureCrosshair, select }
+  return { groups, captureCrosshair, select }
 }

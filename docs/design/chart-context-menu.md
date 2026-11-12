@@ -37,8 +37,8 @@
 
 ## 图元菜单
 
-命中图元时弹出：复制 / 克隆 / 锁定 / 隐藏 / 移除。五个动作全部走现有 `ChartController` API，
-不新增 Core 入口，也不在 Vue 侧维护第二份图元状态。
+命中图元时弹出：复制 / 克隆 / 时间周期可见性 / 锁定 / 隐藏 / 移除。动作全部走现有
+`ChartController` API，不新增 Core 入口，也不在 Vue 侧维护第二份图元状态。
 
 - **操作范围在打开瞬间快照**：命中的图元已在选中集合内时，`targetIds` 取整个选中集合，保留
   多选语义；否则只取该图元，并调用 `setSelectedDrawingIds()` 让画面选择与操作范围一致。
@@ -51,6 +51,11 @@
 - **锁定与隐藏走批量补丁**：锁定调用 `updateBatch(ids, { locked })`，隐藏调用
   `updateBatch(ids, { visible: false })`；锁定图元仍接受这两个字段的 patch，Core 会在隐藏后
   把图元从选中集合中剪掉。
+- **时间周期可见性走规则**：子菜单固定四项，选择后调用
+  `updateBatch(ids, { timeframeVisibility })`；规则只保存模式与参考周期，过滤时按
+  `KLINE_PERIODS` 顺序求值，设计见 `docs/design/drawing/drawing-timeframe-visibility.md`。
+- **二级菜单由 DropMenu 承载**：父项右侧显示 `>`，同一顶层面板内渲染子菜单并固定在父项右侧，
+  空间不足时翻到左侧；复选项选择后保持菜单打开。
 - **移除走批量删除**：`removeBatch(ids)` 原子删除一次历史；Core 会过滤仍锁定的图元，全部锁定
   时返回 `false`。菜单在全部锁定时禁用「移除」；混合选中时只删除未锁定项，与浮动工具栏一致。
 - **命令只提供快捷键文案**：`drawing.copy` / `drawing.clone` 命令内部读取实时选中的图元集合，

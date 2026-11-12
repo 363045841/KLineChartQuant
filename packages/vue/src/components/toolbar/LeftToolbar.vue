@@ -257,9 +257,6 @@
     @select="onGroupMenuSelect"
     @close="openGroupId = null"
   >
-    <template #item-icon="{ item }">
-      <component :is="toolIcons[item.id]" aria-hidden="true" />
-    </template>
   </DropMenu>
 
   <AlertDialog
@@ -388,12 +385,6 @@
     ],
   }
 
-  /** 子项图标表：菜单插槽按 item id 取图标，菜单数据本身只携带文案与状态。 */
-  const toolIcons: Readonly<Record<string, Component>> = Object.fromEntries(
-    [...primaryTools, deleteGroup, magnetGroup].flatMap((group) =>
-      (group.children ?? []).map((child) => [child.id, child.icon] as const),
-    ),
-  )
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
@@ -522,6 +513,7 @@
         items: (group.children ?? []).map((child) => ({
           id: child.id,
           label: child.title,
+          icon: child.icon,
           active: isChildActive(group, child),
           disabled: isChildDisabled(group, child),
         })),

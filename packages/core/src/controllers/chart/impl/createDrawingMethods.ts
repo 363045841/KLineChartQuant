@@ -106,6 +106,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
       getDrawingTimestampAtLogicalIndex,
       getLogicalIndexAtTimestamp,
       getDrawingWorkspaceId,
+      getDrawingSymbolKey,
+      getDrawingPeriod,
       priceToY,
       yToPrice,
       getPaneInfo,
@@ -265,10 +267,10 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return isDisposed() ? null : chart.getCoordinates(paneId)
   }
 
-  /** 读取全部图元列表（plugin 级 DrawingObject）。 */
+  /** 读取全部图元列表（plugin 级 DrawingObject），不做标的作用域过滤。 */
   function getFullDrawings(): ReadonlyArray<DrawingObject> {
     if (isDisposed()) return []
-    return drawingDocument.listCurrentDrawings()
+    return drawingDocument.listDrawings()
   }
 
   /** 请求一次重绘。 */
@@ -362,6 +364,18 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.drawing.getWorkspaceId()
   }
 
+  /** 读取当前绘图所属的标的身份。 */
+  function getDrawingSymbolKey(): string | undefined {
+    if (isDisposed()) return undefined
+    return chart.drawing.getSymbolKey()
+  }
+
+  /** 读取当前绘图所属的数据周期。 */
+  function getDrawingPeriod(): string {
+    if (isDisposed()) return ''
+    return chart.drawing.getPeriod()
+  }
+
   /** 指定 Pane 内 price → Y。 */
   function priceToY(paneId: string, price: number): number {
     return getCoordinates(paneId)?.priceToY(price) ?? Number.NaN
@@ -445,6 +459,8 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     getDrawingTimestampAtLogicalIndex,
     getLogicalIndexAtTimestamp,
     getDrawingWorkspaceId,
+    getDrawingSymbolKey,
+    getDrawingPeriod,
     priceToY,
     yToPrice,
     getPaneInfo,

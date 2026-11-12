@@ -21,6 +21,7 @@ export type {
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,
+  DrawingTimeframeVisibility,
   DrawingWorkspaceId,
   PersistedDrawingAnchor,
 } from '@363045841yyt/klinechart-plot-contracts'

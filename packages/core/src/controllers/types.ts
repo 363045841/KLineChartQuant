@@ -27,6 +27,7 @@ import type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   DrawingToolId,
   PersistedDrawingAnchor,
   DrawingObject as PluginDrawingObject,
@@ -88,6 +89,7 @@ export type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   UpdateDrawingPatch,
 }
 
@@ -305,6 +307,10 @@ export interface DrawingViewportPort {
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   /** 当前绘图所属的数据工作区。 */
   getDrawingWorkspaceId(): import('../engine/drawing/index.js').DrawingWorkspaceId
+  /** 当前绘图所属的标的身份；无主品种时 undefined。 */
+  getDrawingSymbolKey(): string | undefined
+  /** 当前绘图所属的数据周期；周期可见性过滤使用。 */
+  getDrawingPeriod(): string
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */

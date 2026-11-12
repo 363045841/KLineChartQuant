@@ -189,7 +189,7 @@ describe('图表右键菜单', () => {
     controller._setInteractionState(createIdleInteractionSnapshot())
     menu.captureCrosshair()
     expect(items(menu)[3]?.disabled).toBe(true)
-    expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeUndefined()
+    expect(items(menu)[3]?.icon).toBeUndefined()
 
     controller._setInteractionState({
       ...createIdleInteractionSnapshot(),
@@ -207,7 +207,7 @@ describe('图表右键菜单', () => {
       crosshairLock: { timestamp: 1, intervalMs: 60_000 },
     })
     expect(items(menu)[3]?.disabled).toBe(false)
-    expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeDefined()
+    expect(items(menu)[3]?.icon).toBeDefined()
     menu.select(CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR)
     expect(unlockCrosshair).toHaveBeenCalledOnce()
     expect(lockCrosshairAt).toHaveBeenCalledOnce()

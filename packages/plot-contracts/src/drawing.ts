@@ -90,6 +90,14 @@ export type DrawingLabels = {
   area: Record<DrawingLabelIndex, DrawingLabel>
 }
 export type DrawingWorkspaceId = 'kline' | 'timeshare'
+/** 图元的周期可见性规则；参考周期在用户选择时确定。 */
+export type DrawingTimeframeVisibility =
+  | { readonly mode: 'all' }
+  | {
+      readonly mode: 'above' | 'below' | 'current'
+      readonly period: string
+    }
+
 /** 唯一图形模型；ownerId 存在时归指标管理，不参与用户交互及历史。 */
 export type DrawingObject<TParams = Record<string, unknown>> = {
   id: string
@@ -100,6 +108,8 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   symbolKey?: string
   ownerId?: string
   visible: boolean
+  /** 周期可见性规则；缺省表示所有周期可见。 */
+  timeframeVisibility?: DrawingTimeframeVisibility
   locked?: boolean
   zIndex?: number
   anchors: PersistedDrawingAnchor[]
@@ -344,6 +354,7 @@ export type DrawingPatch = {
   readonly params?: Readonly<Record<string, unknown>> | undefined
   readonly labels?: DrawingLabels | undefined
   readonly visible?: boolean | undefined
+  readonly timeframeVisibility?: DrawingTimeframeVisibility | undefined
   readonly locked?: boolean | undefined
   readonly zIndex?: number | undefined
 }

@@ -143,8 +143,6 @@ function crossLineSegments(screen: ScreenAnchor, right: number, bottom: number):
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
 const NO_SELECTION: ReadonlySet<string> = new Set()
 
-import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
-
 /**
  * Hit detection — test mouse position against drawing anchors and line segments.
  * Pure computation, no side effects.
@@ -163,19 +161,18 @@ export class HitTester {
     adapter: DrawingViewportPort,
     selectedDrawingIds: ReadonlySet<string> = NO_SELECTION,
   ): HitResult | null {
-    const visibleDrawings = drawings.filter((d) => d.visible && isDrawingInteractive(d))
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
     const pointer: Point = { x: mouseX, y: mouseY }
     return (
       this.hitTestHandles(
-        visibleDrawings,
+        drawings,
         pointer,
         adapter,
         selectedDrawingIds,
         regressionGeometryCache,
       ) ??
-      this.hitTestLineSegments(visibleDrawings, mouseX, mouseY, adapter, regressionGeometryCache) ??
-      this.hitTestFillRegions(visibleDrawings, pointer, adapter)
+      this.hitTestLineSegments(drawings, mouseX, mouseY, adapter, regressionGeometryCache) ??
+      this.hitTestFillRegions(drawings, pointer, adapter)
     )
   }
 
@@ -373,7 +370,6 @@ export class HitTester {
     let areaTarget: LineLabelTarget | null = null
 
     for (const drawing of drawings) {
-      if (!isDrawingInteractive(drawing)) continue
       const segments = this.getDrawingLabelSegments(drawing, adapter)
       const line = findLineLabelTarget(
         drawing,

@@ -352,6 +352,8 @@ export function createDrawingViewportPort(
       return index >= 0 ? index : null
     },
     getDrawingWorkspaceId: () => 'kline',
+    getDrawingSymbolKey: () => undefined,
+    getDrawingPeriod: () => 'daily',
     priceToY,
     yToPrice,
     getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),

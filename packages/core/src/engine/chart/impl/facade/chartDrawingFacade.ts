@@ -15,7 +15,7 @@ import {
   type DrawingToolId,
   type DrawingWorkspaceId,
 } from '../../../drawing/index.js'
-import { belongsToDrawingSymbol } from '../../../drawing/model/impl/drawingScope.js'
+import { filterDrawingsInScope } from '../../../drawing/model/impl/drawingScope.js'
 import type { ChartRenderer } from '../../../frame/index.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
 
@@ -36,10 +36,11 @@ export class ChartDrawingFacade {
   constructor(private readonly deps: ChartDrawingFacadeDependencies) {
     this.currentDrawings = computed(() => {
       const spec = deps.kernel.data.readonly.symbols()[0]
-      const key = spec === undefined ? undefined : symbolSpecIdentityKey(spec)
-      return deps.kernel.drawing.readonly
-        .drawings()
-        .filter((drawing) => belongsToDrawingSymbol(drawing, key))
+      return filterDrawingsInScope(deps.kernel.drawing.readonly.drawings(), {
+        workspaceId: resolveChartWorkspaceId(deps.kernel.mode.readonly.dataView()),
+        symbolKey: spec === undefined ? undefined : symbolSpecIdentityKey(spec),
+        period: spec?.period ?? '',
+      })
     })
   }
 
@@ -98,6 +99,11 @@ export class ChartDrawingFacade {
   getSymbolKey(): string | undefined {
     const spec = this.deps.kernel.data.readonly.symbols.peek()[0]
     return spec === undefined ? undefined : symbolSpecIdentityKey(spec)
+  }
+
+  /** 当前绘图所属的数据周期；周期可见性与交互过滤共用。 */
+  getPeriod(): string {
+    return this.deps.kernel.data.readonly.symbols.peek()[0]?.period ?? ''
   }
 
   /** 设置绘图工具，并同步清理会话副作用。 */

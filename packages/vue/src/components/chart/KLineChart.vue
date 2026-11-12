@@ -108,11 +108,7 @@
             :groups="contextMenuGroups"
             :focus-target="containerRef"
             @select="onContextMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
+          />
           <DropMenu
             context
             controlled
@@ -124,11 +120,7 @@
             :focus-target="containerRef"
             @update:open="onLegendMoveMenuUpdateOpen"
             @select="onLegendMoveMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="legendMoveMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
+          />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -1168,17 +1160,21 @@
   // 右键菜单与导航按钮共用命令注册表；价格快照在每次打开时刷新。
   const {
     groups: chartContextMenuGroups,
-    icons: chartContextMenuIcons,
     captureCrosshair: captureContextMenuPrice,
     select: selectChartContextMenuItem,
   } = useChartContextMenu({ controller, commands })
   // 图元菜单只消费打开瞬间的目标快照，动作按快照 ids 提交。
+  /** 周期可见性规则以当前 K 线周期为参考；分时视图不适用。 */
+  const drawingVisibilityPeriod = computed(() => (isTimeShareView.value ? null : kLineLevel.value))
   const {
     groups: drawingContextMenuGroups,
-    icons: drawingContextMenuIcons,
     capture: captureDrawingContextMenu,
     select: selectDrawingContextMenuItem,
-  } = useDrawingContextMenu({ controller, commands })
+  } = useDrawingContextMenu({
+    controller,
+    commands,
+    currentPeriod: drawingVisibilityPeriod,
+  })
   // 右键来源在打开瞬间确定；一个面板按来源切换菜单项，不并存两个菜单实例。
   const contextMenuSource = shallowRef<ContextMenuSource>({ kind: 'chart' })
   const contextMenuGroups = computed(() =>
@@ -1186,15 +1182,9 @@
       ? drawingContextMenuGroups.value
       : chartContextMenuGroups.value,
   )
-  const contextMenuIcons = computed(() =>
-    contextMenuSource.value.kind === 'drawing'
-      ? drawingContextMenuIcons.value
-      : chartContextMenuIcons.value,
-  )
   // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。
   const {
     groups: legendMoveMenuGroups,
-    icons: legendMoveMenuIcons,
     open: legendMoveMenuOpen,
     origin: legendMoveMenuOrigin,
     offset: legendMoveMenuOffset,
@@ -1698,8 +1688,8 @@
   }
 
   /** 菜单项动作按打开瞬间的来源分发；动作本身只读取各自快照。 */
-  function onContextMenuSelect(_groupId: string, itemId: string): void {
-    if (contextMenuSource.value.kind === 'drawing') selectDrawingContextMenuItem(itemId)
+  function onContextMenuSelect(_groupId: string, itemId: string, parentId?: string): void {
+    if (contextMenuSource.value.kind === 'drawing') selectDrawingContextMenuItem(itemId, parentId)
     else selectChartContextMenuItem(itemId)
   }
 
