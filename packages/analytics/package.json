@@ -1,0 +1,24 @@
+{
+  "name": "@363045841yyt/klinechart-analytics",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KCQ 分析数据采集器：Deribit 期权链聚合位与 Binance 买卖量拆分",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "collect": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=26.0.0"
+  }
+}
