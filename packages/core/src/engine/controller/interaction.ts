@@ -4,7 +4,7 @@ import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import { batch } from '../../foundation/reactivity/signal.js'
-import { resolveSeriesInterval } from '../../foundation/time/index.js'
+import { createSeriesTimeProjection, resolveSeriesInterval } from '../../foundation/time/index.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
@@ -1114,18 +1114,21 @@ export class InteractionController {
   }
 
   /**
-   * 锁定垂直光标到指定 K 线。
+   * 锁定垂直光标到指定槽位。
    *
-   * 只保存时间戳与当前序列的常规槽距；屏幕位置由渲染帧按目标周期重新投影。
+   * 槽位是当前周期的逻辑索引，未来槽位没有真实 K 线：用序列时间投影按常规槽距
+   * 外推时间戳，锁定对象仍然只有时间与槽距，屏幕位置由渲染帧重新投影。
    *
-   * @param index 当前序列中的 K 线下标；越界或未来槽位返回 false
+   * @param index 当前序列的逻辑槽位；负槽位或无法推算时间时返回 false
    */
   lockCrosshairAt(index: number): boolean {
+    if (index < 0) return false
     const data = this.chart.getInternalData()
-    const bar = data[index]
-    if (bar === undefined) return false
+    const timestamp =
+      data[index]?.timestamp ?? createSeriesTimeProjection(data).logicalToTime(index)
+    if (timestamp === null) return false
     const lock: CrosshairLock = Object.freeze({
-      timestamp: bar.timestamp,
+      timestamp,
       intervalMs: resolveSeriesInterval(data),
     })
     this._state.actions.setCrosshairLock(lock)

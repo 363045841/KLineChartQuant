@@ -65,27 +65,34 @@ const mappingCases = [
     lock: lockOf(fine.bars[76]!.timestamp, MINUTE_5),
     expected: 1,
   },
+  {
+    name: '未来槽位按常规槽距外推，不受数据长度限制',
+    bars: dayBars,
+    lock: lockOf(dayBars[2]!.timestamp + 2 * DAY, DAY),
+    expected: 4,
+  },
 ]
 
 describe('resolveLockedCrosshair', () => {
   it.each(mappingCases)('$name', ({ bars, lock, expected }) => {
     const coordinates = coordinatesOf(bars)
-    const result = resolveLockedCrosshair(lock, coordinates, bars.length)
+    const result = resolveLockedCrosshair(lock, coordinates)
     expect(result?.index).toBe(expected)
     expect(result?.x).toBe(coordinates.logicalToX(expected))
+  })
+
+  it('切到更粗周期时未来时间仍落在外推桶', () => {
+    const bars = daily(2)
+    const futureTime = START + 2 * DAY + OPEN
+    const result = resolveLockedCrosshair(lockOf(futureTime, MINUTE_5), coordinatesOf(bars))
+    expect(result?.index).toBe(2)
   })
 
   it('目标周期缺少对应 K 线时隐藏', () => {
     const skipped = intraday(3, 1)
     expect(
-      resolveLockedCrosshair(
-        lockOf(dayBars[1]!.timestamp, DAY),
-        coordinatesOf(skipped.bars),
-        skipped.bars.length,
-      ),
+      resolveLockedCrosshair(lockOf(dayBars[1]!.timestamp, DAY), coordinatesOf(skipped.bars)),
     ).toBeNull()
-    expect(
-      resolveLockedCrosshair(lockOf(START - DAY, DAY), coordinatesOf(dayBars), dayBars.length),
-    ).toBeNull()
+    expect(resolveLockedCrosshair(lockOf(START - DAY, DAY), coordinatesOf(dayBars))).toBeNull()
   })
 })

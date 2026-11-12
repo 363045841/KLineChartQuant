@@ -33,7 +33,8 @@
   `controller.clearAllIndicators()`，不各自维护删除循环。没有指标实例时菜单项禁用。
   实例删除与轴偏好清理的统一入口见 `docs/design/indicator-instance-removal.md`。
 - **锁定垂直光标走 Core 时间投影**：菜单只把打开瞬间快照的 `crosshairIndex` 交给
-  `controller.lockCrosshairAt()`，Core 保存 K 线时间与周期槽距，跨周期按时间重新投影。
+  `controller.lockCrosshairAt()`，Core 保存槽位时间与周期槽距，未来槽位同样可按槽距外推，
+  跨周期按时间重新投影。
   锁定时菜单项显示对勾，未锁定不显示图标；图标槽固定占位，文案不会左右位移。
   没有十字线且未锁定时禁用。设计见 `docs/design/crosshair-lock.md`。
 - **右键不启动图表会话**：`Chart.handlePointerEvent` 在 `pointerdown` 时忽略鼠标非主键，

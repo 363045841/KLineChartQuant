@@ -1,4 +1,4 @@
-// 锁定垂直光标：来源是 K 线时间与序列槽距，数据重置后仍保留，只有显式解锁才清除。
+// 锁定垂直光标：来源是槽位时间与序列槽距，未来槽位按常规槽距外推，数据重置后仍保留。
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { InteractionController } from '../interaction'
@@ -9,7 +9,7 @@ import {
 } from './helpers/interactionTestKit'
 
 describe('InteractionController 锁定垂直光标', () => {
-  it('记录 K 线时间与序列槽距，数据重置后保留，解锁后清除', () => {
+  it('记录槽位时间与序列槽距，数据重置后保留，解锁后清除', () => {
     const bars = createInteractionBars(5)
     const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, data: bars })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
@@ -25,17 +25,23 @@ describe('InteractionController 锁定垂直光标', () => {
     expect(interaction.crosshairLock).toBeNull()
   })
 
-  it('越界索引与未来槽位不建立锁定', () => {
-    const chart = createChartStub({
-      dpr: 1,
-      plotWidth: 300,
-      plotHeight: 160,
-      data: createInteractionBars(3),
-    })
+  it('未来槽位用序列槽距外推时间，负槽位与空数据拒绝', () => {
+    const bars = createInteractionBars(3)
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, data: bars })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
-    expect(interaction.lockCrosshairAt(3)).toBe(false)
+    expect(interaction.lockCrosshairAt(5)).toBe(true)
+    expect(interaction.crosshairLock).toEqual({
+      timestamp: bars[2]!.timestamp + 3,
+      intervalMs: 1,
+    })
+
+    interaction.unlockCrosshair()
     expect(interaction.lockCrosshairAt(-1)).toBe(false)
     expect(interaction.crosshairLock).toBeNull()
+
+    const empty = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, data: [] })
+    const emptyInteraction = new InteractionController(empty as never, createMockInteractionState())
+    expect(emptyInteraction.lockCrosshairAt(0)).toBe(false)
   })
 })

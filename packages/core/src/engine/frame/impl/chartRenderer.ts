@@ -860,9 +860,7 @@ export class ChartRenderer {
       return
     }
     const lock = interaction.crosshairLock
-    this.lockedCrosshair = lock
-      ? resolveLockedCrosshair(lock, context.coordinates, frame.data.length)
-      : null
+    this.lockedCrosshair = lock ? resolveLockedCrosshair(lock, context.coordinates) : null
     const activePane = renderers
       .find((renderer) => renderer.getPane().id === interaction.activePaneId)
       ?.getPane()
