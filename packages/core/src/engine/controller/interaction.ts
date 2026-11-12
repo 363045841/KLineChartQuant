@@ -4,13 +4,18 @@ import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import { batch } from '../../foundation/reactivity/signal.js'
+import { resolveSeriesInterval } from '../../foundation/time/index.js'
 import { isTimeShareDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart/index.js'
 import { UpdateLevel } from '../pane/index.js'
 import type { ScaleXSnapshot } from '../scale/index.js'
-import type { InteractionSnapshot, InteractionStateModule } from '../state/interactionState.js'
+import type {
+  CrosshairLock,
+  InteractionSnapshot,
+  InteractionStateModule,
+} from '../state/interactionState.js'
 import { PinchTracker } from './pinchTracker.js'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
 
@@ -113,6 +118,9 @@ export class InteractionController {
   }
   get crosshairIndex(): number | null {
     return this._state.readonly.crosshairIndex.peek()
+  }
+  get crosshairLock(): CrosshairLock | null {
+    return this._state.readonly.crosshairLock.peek()
   }
 
   constructor(chart: Chart, state: InteractionStateModule) {
@@ -1103,5 +1111,32 @@ export class InteractionController {
   /** 获取十字线指向的 K 线索引 */
   getCrosshairIndex(): number | null {
     return this.crosshairIndex
+  }
+
+  /**
+   * 锁定垂直光标到指定 K 线。
+   *
+   * 只保存时间戳与当前序列的常规槽距；屏幕位置由渲染帧按目标周期重新投影。
+   *
+   * @param index 当前序列中的 K 线下标；越界或未来槽位返回 false
+   */
+  lockCrosshairAt(index: number): boolean {
+    const data = this.chart.getInternalData()
+    const bar = data[index]
+    if (bar === undefined) return false
+    const lock: CrosshairLock = Object.freeze({
+      timestamp: bar.timestamp,
+      intervalMs: resolveSeriesInterval(data),
+    })
+    this._state.actions.setCrosshairLock(lock)
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
+    return true
+  }
+
+  /** 解除锁定；没有锁定时不触发重绘。 */
+  unlockCrosshair(): void {
+    if (this._state.readonly.crosshairLock.peek() === null) return
+    this._state.actions.setCrosshairLock(null)
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
   }
 }

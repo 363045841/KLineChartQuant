@@ -7,5 +7,7 @@ export interface CrosshairOverlayFrame {
   pos: { x: number; y: number } | null
   price: number | null
   activePane: PaneInfo | null
+  /** 锁定竖线的屏幕 x；null 表示没有锁定。锁定后只画这条竖线。 */
+  lockedX: number | null
   color: string
 }

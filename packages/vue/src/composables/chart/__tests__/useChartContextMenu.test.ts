@@ -22,6 +22,8 @@ interface Fixture {
   readonly openSettings: ReturnType<typeof vi.fn>
   readonly resetChart: ReturnType<typeof vi.fn>
   readonly clearAllIndicators: ReturnType<typeof vi.fn>
+  readonly lockCrosshairAt: ReturnType<typeof vi.fn>
+  readonly unlockCrosshair: ReturnType<typeof vi.fn>
   readonly menu: ReturnType<typeof useChartContextMenu>
 }
 
@@ -32,6 +34,10 @@ function createFixture(): Fixture {
   controller.resetChart = resetChart
   const clearAllIndicators = vi.fn()
   controller.clearAllIndicators = clearAllIndicators
+  const lockCrosshairAt = vi.fn()
+  controller.lockCrosshairAt = lockCrosshairAt
+  const unlockCrosshair = vi.fn()
+  controller.unlockCrosshair = unlockCrosshair
   const openSettings = vi.fn()
   const registry = createCommandRegistry()
   registry.register([
@@ -51,7 +57,16 @@ function createFixture(): Fixture {
     },
   ])
   const menu = useChartContextMenu({ controller: shallowRef(controller), commands: registry })
-  return { controller, registry, openSettings, resetChart, clearAllIndicators, menu }
+  return {
+    controller,
+    registry,
+    openSettings,
+    resetChart,
+    clearAllIndicators,
+    lockCrosshairAt,
+    unlockCrosshair,
+    menu,
+  }
 }
 
 /** 展平全部分组，避免用例依赖分组边界。 */
@@ -72,10 +87,11 @@ describe('图表右键菜单', () => {
       ...createIdleInteractionSnapshot(),
       crosshairPrice: 123.456,
     })
-    menu.capturePrice()
+    menu.captureCrosshair()
     expect(items(menu).map((item) => item.label)).toEqual([
       '重置图表',
       '复制价格 123.46',
+      '锁定垂直光标',
       '移除所有指标',
       '设置',
     ])
@@ -86,6 +102,7 @@ describe('图表右键菜单', () => {
     expect(menu.groups.value.map((group) => group.id)).toEqual([
       'view',
       'price',
+      'crosshair',
       'indicator',
       'settings',
     ])
@@ -93,7 +110,8 @@ describe('图表右键菜单', () => {
     expect(items(menu)[0]?.shortcut).toBe(registry.formatShortcut('Alt+R'))
     expect(items(menu)[1]?.shortcut).toBeUndefined()
     expect(items(menu)[2]?.shortcut).toBeUndefined()
-    expect(items(menu)[3]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
+    expect(items(menu)[3]?.shortcut).toBeUndefined()
+    expect(items(menu)[4]?.shortcut).toBe(registry.formatShortcut('Mod+,'))
   })
 
   it('没有十字线价格时复制项禁用，且不写入剪贴板', async () => {
@@ -101,7 +119,7 @@ describe('图表右键菜单', () => {
     controller._setInteractionState(createIdleInteractionSnapshot())
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    menu.capturePrice()
+    menu.captureCrosshair()
     expect(items(menu)[1]?.label).toBe('复制价格')
     expect(items(menu)[1]?.disabled).toBe(true)
     menu.select(CHART_CONTEXT_MENU_ITEM.COPY_PRICE)
@@ -117,7 +135,7 @@ describe('图表右键菜单', () => {
     })
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    menu.capturePrice()
+    menu.captureCrosshair()
     menu.select(CHART_CONTEXT_MENU_ITEM.COPY_PRICE)
     await flushPromises()
     expect(writeText).toHaveBeenCalledWith('100.00')
@@ -136,7 +154,7 @@ describe('图表右键菜单', () => {
 
   it('没有指标时移除项禁用，有指标时调用控制器的清空命令', () => {
     const { controller, menu, clearAllIndicators } = createFixture()
-    expect(items(menu)[2]?.disabled).toBe(true)
+    expect(items(menu)[3]?.disabled).toBe(true)
     controller._setIndicators([
       {
         id: 'instance-1',
@@ -148,8 +166,37 @@ describe('图表右键菜单', () => {
         params: {},
       },
     ])
-    expect(items(menu)[2]?.disabled).toBe(false)
+    expect(items(menu)[3]?.disabled).toBe(false)
     menu.select(CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS)
     expect(clearAllIndicators).toHaveBeenCalledOnce()
+  })
+
+  it('锁定项：无十字线禁用，锁定时显示对勾，选择时按快照锁定或解除', () => {
+    const { controller, menu, lockCrosshairAt, unlockCrosshair } = createFixture()
+    controller._setInteractionState(createIdleInteractionSnapshot())
+    menu.captureCrosshair()
+    expect(items(menu)[2]?.disabled).toBe(true)
+    expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeUndefined()
+
+    controller._setInteractionState({
+      ...createIdleInteractionSnapshot(),
+      crosshairIndex: 7,
+      crosshairPrice: 10,
+    })
+    menu.captureCrosshair()
+    expect(items(menu)[2]?.disabled).toBe(false)
+    menu.select(CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR)
+    expect(lockCrosshairAt).toHaveBeenCalledWith(7)
+    expect(unlockCrosshair).not.toHaveBeenCalled()
+
+    controller._setInteractionState({
+      ...createIdleInteractionSnapshot(),
+      crosshairLock: { timestamp: 1, intervalMs: 60_000 },
+    })
+    expect(items(menu)[2]?.disabled).toBe(false)
+    expect(menu.icons.value[CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]).toBeDefined()
+    menu.select(CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR)
+    expect(unlockCrosshair).toHaveBeenCalledOnce()
+    expect(lockCrosshairAt).toHaveBeenCalledOnce()
   })
 })

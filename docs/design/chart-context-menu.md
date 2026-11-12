@@ -2,7 +2,7 @@
 
 ## 决策
 
-绘图区右键弹出统一菜单（重置图表 / 复制价格 / 移除所有指标 / 设置），复用既有能力而不是新增第二套菜单实现：
+绘图区右键弹出统一菜单（重置图表 / 复制价格 / 锁定垂直光标 / 移除所有指标 / 设置），复用既有能力而不是新增第二套菜单实现：
 
 - **菜单外观与交互只有一份**：右键菜单直接使用 `DropMenu` 的 `context` 模式。该模式不渲染
   `ControlTrigger`，由宿主调用 `openAt(x, y)` 提供坐标锚点；分组、选中态、roving focus、
@@ -25,6 +25,10 @@
   当前工作区的主图与副图实例，并回收空副图；工具栏「清除指标」与右键菜单都调用
   `controller.clearAllIndicators()`，不各自维护删除循环。没有指标实例时菜单项禁用。
   实例删除与轴偏好清理的统一入口见 `docs/design/indicator-instance-removal.md`。
+- **锁定垂直光标走 Core 时间投影**：菜单只把打开瞬间快照的 `crosshairIndex` 交给
+  `controller.lockCrosshairAt()`，Core 保存 K 线时间与周期槽距，跨周期按时间重新投影。
+  锁定时菜单项显示对勾，未锁定不显示图标；图标槽固定占位，文案不会左右位移。
+  没有十字线且未锁定时禁用。设计见 `docs/design/crosshair-lock.md`。
 - **右键不启动图表会话**：`Chart.handlePointerEvent` 在 `pointerdown` 时忽略鼠标非主键，
   否则右键会进入平移或绘图锚点会话。该判断放在框架共用的输入入口，Vue/React/Angular
   适配器一致生效。

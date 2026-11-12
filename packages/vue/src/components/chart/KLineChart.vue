@@ -1163,7 +1163,7 @@
   const {
     groups: contextMenuGroups,
     icons: contextMenuIcons,
-    capturePrice: captureContextMenuPrice,
+    captureCrosshair: captureContextMenuPrice,
     select: selectContextMenuItem,
   } = useChartContextMenu({ controller, commands })
   // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。

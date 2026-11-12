@@ -24,6 +24,8 @@ export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null
   crosshairIndex: number | null
   crosshairPrice: number | null
+  /** 锁定的垂直光标；跨周期按时间重新投影，不属于瞬时交互状态。 */
+  crosshairLock: CrosshairLock | null
   hoveredIndex: number | null
   activePaneId: string | null
   tooltipPos: { x: number; y: number }
@@ -42,6 +44,17 @@ export interface InteractionSnapshot {
 export type DragMode = 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore'
 
 /**
+ * 锁定垂直光标的来源：K 线时间戳 + 锁定当时序列的常规槽距。
+ *
+ * 时间戳让锁定跨周期、跨数据前置插入保持稳定；槽距用于判断目标周期更粗还是更细。
+ * 屏幕坐标不保存，每帧由时间投影现算。
+ */
+export interface CrosshairLock {
+  readonly timestamp: number
+  readonly intervalMs: number
+}
+
+/**
  * 交互快照的空态（无指针、无拖拽）。
  * 供渲染/宿主测试构造初始 signal 使用，避免手抄字段而在新增字段时静默漏掉。
  */
@@ -50,6 +63,7 @@ export function createIdleInteractionSnapshot(): InteractionSnapshot {
     crosshairPos: null,
     crosshairIndex: null,
     crosshairPrice: null,
+    crosshairLock: null,
     hoveredIndex: null,
     activePaneId: null,
     tooltipPos: { x: 0, y: 0 },
@@ -97,6 +111,8 @@ export function createInteractionState(_deps: InteractionDeps) {
     crosshairPrice: null as number | null,
     /** 由 controller 在 flush hover 时写入，不再从几何 signal 推导 */
     crosshairIndex: null as number | null,
+    /** 锁定竖线来源；数据/周期切换后保留，只有显式解锁和 dispose 清除。 */
+    crosshairLock: null as CrosshairLock | null,
     hoveredIndex: null as number | null,
     activePaneId: null as string | null,
     isDragging: false,
@@ -134,6 +150,7 @@ export function createInteractionState(_deps: InteractionDeps) {
       crosshairPos,
       crosshairIndex: readonly.crosshairIndex(),
       crosshairPrice: readonly.crosshairPrice(),
+      crosshairLock: readonly.crosshairLock(),
       hoveredIndex,
       activePaneId: readonly.activePaneId(),
       tooltipPos: readonly.tooltipPos(),
@@ -167,7 +184,10 @@ export function createInteractionState(_deps: InteractionDeps) {
     }),
   }
 
-  /** 清空全部瞬时交互信号；reset 与 dispose 共用同一份清单，避免两处漏改。 */
+  /**
+   * 清空全部瞬时交互信号；reset 与 dispose 共用同一份清单，避免两处漏改。
+   * 锁定的垂直光标不是瞬时状态，不在此清空，由 `dispose` 或显式解锁处理。
+   */
   function clearTransientSignals(): void {
     batch(() => {
       signals.crosshairPos.set(null)
@@ -220,6 +240,12 @@ export function createInteractionState(_deps: InteractionDeps) {
       setCrosshairIndex(index: number | null) {
         if (signals.crosshairIndex.peek() === index) return
         signals.crosshairIndex.set(index)
+      },
+
+      /** 写入/解除锁定竖线；对象由调用方冻结，引用相等即视为未变。 */
+      setCrosshairLock(lock: CrosshairLock | null) {
+        if (signals.crosshairLock.peek() === lock) return
+        signals.crosshairLock.set(lock)
       },
 
       updateHover(index: number | null, paneId: string | null) {
@@ -353,6 +379,7 @@ export function createInteractionState(_deps: InteractionDeps) {
     },
 
     dispose() {
+      signals.crosshairLock.set(null)
       clearTransientSignals()
     },
   }

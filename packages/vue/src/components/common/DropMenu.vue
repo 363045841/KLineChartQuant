@@ -76,7 +76,9 @@
                     :title="item.disabled ? item.reason : undefined"
                     @click="select(group.id, item.id)"
                   >
-                    <slot name="item-icon" :group="group" :item="item" />
+                    <span v-if="$slots['item-icon']" class="drop-menu__icon">
+                      <slot name="item-icon" :group="group" :item="item" />
+                    </span>
                     <span>{{ item.label }}</span>
                     <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
                   </button>
@@ -477,6 +479,16 @@
     min-height: 28px;
     padding-top: var(--drop-menu-item-padding-block, 4px);
     padding-bottom: var(--drop-menu-item-padding-block, 4px);
+  }
+
+  /* 图标槽固定占位：条目没有图标时也保留同一宽度，避免文案左右跳动。 */
+  .drop-menu__icon {
+    display: inline-flex;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    align-items: center;
+    justify-content: center;
   }
 
   /* 图标默认弱化，悬停整行时提亮并轻微放大，提示当前可操作项。 */

@@ -300,6 +300,20 @@ export function createMockChartController(
     moveIndicator: () => false,
     removeIndicator: () => false,
     clearAllIndicators: () => indicators.set([]),
+    lockCrosshairAt: (index) => {
+      const bar = data.peek()[index]
+      if (!bar) return false
+      interactionState.set({
+        ...interactionState.peek(),
+        crosshairLock: Object.freeze({ timestamp: bar.timestamp, intervalMs: 0 }),
+      })
+      return true
+    },
+    unlockCrosshair: () => {
+      const current = interactionState.peek()
+      if (current.crosshairLock === null) return
+      interactionState.set({ ...current, crosshairLock: null })
+    },
     updateIndicator: () => false,
     updateOptionsFacade: (options) => {
       optionsFacadeCalls.push(options)

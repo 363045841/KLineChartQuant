@@ -1,25 +1,27 @@
-/** 图表右键菜单：按 group 键聚合菜单项、快照十字线价格并分发动作。 */
+/** 图表右键菜单：按 group 键聚合菜单项、快照十字线位置并分发动作。 */
 import type { CommandRegistry } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
 import { useToast } from '@vue-src/composables/toast/useToast.js'
 import type { Component } from 'vue'
 import { computed, type Ref, ref } from 'vue'
+import IconTablerCheck from '~icons/tabler/check'
 import IconTablerCopy from '~icons/tabler/copy'
 import IconTablerEraser from '~icons/tabler/eraser'
 import IconTablerRefresh from '~icons/tabler/refresh'
 import IconTablerSettings from '~icons/tabler/settings'
 import { useControllerSignalValue } from './useControllerSignal.js'
 
-/** 菜单项 id；视图与设置命令复用命令注册表，复制价格与清空指标是菜单专属动作。 */
+/** 菜单项 id；视图与设置命令复用命令注册表，复制价格、锁定光标与清空指标是菜单专属动作。 */
 export const CHART_CONTEXT_MENU_ITEM = {
   RESET: 'view.reset',
   COPY_PRICE: 'copy-price',
+  LOCK_CROSSHAIR: 'crosshair.lock',
   CLEAR_INDICATORS: 'indicator.clearAll',
   SETTINGS: 'settings.open',
 } as const
 
-/** 菜单项图标；与命令按钮使用同一套 tabler 图标。 */
+/** 菜单项图标；锁定光标的对勾按状态追加，未锁定时不占图标位。 */
 const ICONS: Readonly<Record<string, Component>> = {
   [CHART_CONTEXT_MENU_ITEM.RESET]: IconTablerRefresh,
   [CHART_CONTEXT_MENU_ITEM.COPY_PRICE]: IconTablerCopy,
@@ -42,6 +44,7 @@ interface MenuItemDeclaration {
 const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   { id: CHART_CONTEXT_MENU_ITEM.RESET, group: 'view', label: '重置图表', command: 'view.reset' },
   { id: CHART_CONTEXT_MENU_ITEM.COPY_PRICE, group: 'price', label: '复制价格' },
+  { id: CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR, group: 'crosshair', label: '锁定垂直光标' },
   {
     id: CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS,
     group: 'indicator',
@@ -61,7 +64,7 @@ function formatPrice(price: number | null): string | null {
 }
 
 export interface ChartContextMenuOptions {
-  /** 当前图表 controller；未就绪时重置、清空指标与复制不可用。 */
+  /** 当前图表 controller；未就绪时菜单动作不可用。 */
   readonly controller: Readonly<Ref<ChartController | null>>
   /** 图表命令注册表；重置与设置调用与工具栏、快捷键同一份命令。 */
   readonly commands: CommandRegistry | null
@@ -69,13 +72,21 @@ export interface ChartContextMenuOptions {
 
 export function useChartContextMenu(options: ChartContextMenuOptions) {
   const toast = useToast()
-  // 打开瞬间快照十字线价格：指针移入菜单会触发 pointerleave 并清空 crosshair。
+  // 打开瞬间快照十字线价格与 K 线下标：指针移入菜单会触发 pointerleave 并清空 crosshair。
   const price = ref<number | null>(null)
+  const crosshairIndex = ref<number | null>(null)
   // 指标实例由 Core 持有，经 Vue 桥接只投影“是否有指标”，避免菜单保存业务副本。
   const hasIndicators = useControllerSignalValue(
     options.controller,
     (controller) => controller.indicators,
     (instances) => instances.length > 0,
+    () => false,
+  )
+  // 锁定状态同样只投影布尔值，菜单不持有 Core 的时间戳与周期步长。
+  const crosshairLocked = useControllerSignalValue(
+    options.controller,
+    (controller) => controller.interactionState,
+    (state) => state.crosshairLock !== null,
     () => false,
   )
 
@@ -94,10 +105,13 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return combo ? options.commands.formatShortcut(combo) : undefined
   }
 
-  /** 是否可用：无十字线时复制禁用，没有指标实例时清空禁用。 */
+  /** 是否可用：无十字线时复制禁用；未锁定且无十字线时锁定禁用；没有指标实例时清空禁用。 */
   function disabledOf(item: MenuItemDeclaration): boolean {
     if (item.id === CHART_CONTEXT_MENU_ITEM.RESET) return options.controller.value === null
     if (item.id === CHART_CONTEXT_MENU_ITEM.COPY_PRICE) return price.value === null
+    if (item.id === CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR) {
+      return !crosshairLocked.value && crosshairIndex.value === null
+    }
     if (item.id === CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS) return !hasIndicators.value
     return options.commands === null
   }
@@ -125,15 +139,21 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return result
   })
 
-  /** 每次打开前刷新十字线价格；没有有效指针位置时复制项保持禁用。 */
-  function capturePrice(): void {
-    price.value = options.controller.value?.interactionState.peek().crosshairPrice ?? null
+  /** 每次打开前刷新十字线快照；没有有效指针位置时复制与锁定保持禁用。 */
+  function captureCrosshair(): void {
+    const state = options.controller.value?.interactionState.peek()
+    price.value = state?.crosshairPrice ?? null
+    crosshairIndex.value = state?.crosshairIndex ?? null
   }
 
-  /** 菜单选择：复制本地处理，清空指标走 controller 聚合命令，其余交给命令层。 */
+  /** 菜单选择：复制与锁定本地处理，清空指标走 controller 聚合命令，其余交给命令层。 */
   function select(itemId: string): void {
     if (itemId === CHART_CONTEXT_MENU_ITEM.COPY_PRICE) {
       void copyPrice()
+      return
+    }
+    if (itemId === CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR) {
+      toggleCrosshairLock()
       return
     }
     if (itemId === CHART_CONTEXT_MENU_ITEM.CLEAR_INDICATORS) {
@@ -141,6 +161,17 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
       return
     }
     void options.commands?.execute(itemId)
+  }
+
+  /** 开关锁定：已锁定时解除；未锁定时用打开菜单瞬间快照的 K 线下标建立锁定。 */
+  function toggleCrosshairLock(): void {
+    const controller = options.controller.value
+    if (!controller) return
+    if (crosshairLocked.value) {
+      controller.unlockCrosshair()
+      return
+    }
+    if (crosshairIndex.value !== null) controller.lockCrosshairAt(crosshairIndex.value)
   }
 
   /** 写入剪贴板；成功不打扰用户，失败才给出可重试原因。 */
@@ -154,5 +185,11 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     }
   }
 
-  return { groups, icons: ICONS, capturePrice, select }
+  const icons = computed<Readonly<Record<string, Component | undefined>>>(() =>
+    crosshairLocked.value
+      ? { ...ICONS, [CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR]: IconTablerCheck }
+      : ICONS,
+  )
+
+  return { groups, icons, captureCrosshair, select }
 }

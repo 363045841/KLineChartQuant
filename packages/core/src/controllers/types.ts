@@ -510,6 +510,10 @@ export interface ChartController
   /** 重置目标 Pane 的范围变换，保留自动/手动模式。 */
   resetPanePriceAxis(paneId: string): void
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  /** 在当前十字线所在的 K 线上锁定垂直光标；索引无效时返回 false。 */
+  lockCrosshairAt(index: number): boolean
+  /** 解除垂直光标锁定。 */
+  unlockCrosshair(): void
   /** 区间选择工具确认的时间范围。 */
   readonly selectedRange: ReadonlySignal<{ from: number; to: number } | null>
   /** 区间选择工具的完整权威状态。 */

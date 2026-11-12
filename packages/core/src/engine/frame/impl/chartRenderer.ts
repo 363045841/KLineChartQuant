@@ -63,6 +63,10 @@ import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
+import {
+  type LockedCrosshairProjection,
+  resolveLockedCrosshair,
+} from '../../renderers/crosshair/impl/resolveLockedCrosshair.js'
 import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
 import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
 import { computeFootprintPriceRange, createFootprintLayer } from '../../renderers/footprint.js'
@@ -359,6 +363,8 @@ export class ChartRenderer {
   private scene: Scene<RenderContext>
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
+  /** 本帧锁定竖线投影；时间轴标签在 renderCrosshair 之后复用同一份结果。 */
+  private lockedCrosshair: LockedCrosshairProjection | null = null
   private timeAxisLayer: ContextLayer<RenderContext> | null = null
   private displayTimeZoneSetting: TimeZoneSetting = 'UTC'
   private displayTimeFormatter: TimeFormatter = createTimeFormatter('UTC')
@@ -447,6 +453,8 @@ export class ChartRenderer {
       pos?.y,
       interaction.crosshairIndex,
       interaction.crosshairPrice,
+      // 锁定状态变化必须触发覆盖层重绘；屏幕 x 每帧由时间投影现算。
+      interaction.crosshairLock,
       interaction.activePaneId,
       interaction.isDraggingState(),
       interaction.hoveredIndex,
@@ -592,6 +600,9 @@ export class ChartRenderer {
       this.timeAxisLayer = createTimeAxisLayer({
         height: opt.bottomAxisHeight,
         getCrosshair: () => {
+          // 锁定的竖线由渲染帧解析；时间轴标签必须与它同一条线，而不是鼠标位置。
+          const locked = this.lockedCrosshair
+          if (locked) return { x: locked.x, index: locked.index }
           const pos = interaction.crosshairPos
           const idx = interaction.crosshairIndex
           if (pos && idx !== null) {
@@ -824,36 +835,43 @@ export class ChartRenderer {
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
     // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
+      this.lockedCrosshair = null
       this.clearAllCanvases()
       return
     }
 
     // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paint
     const { axisLabelsFrame, sharedXAxisRanges } = this.renderPanes(frame, level)
-    this.renderCrosshair(frame.vp)
+    this.renderCrosshair(frame)
 
     // 画底部时间轴（独立 layer，不进 scene）
     this.renderXAxis(frame, axisLabelsFrame, sharedXAxisRanges)
   }
 
   /** 在 pane 范围与绘制完成后，向整张图表的独立表面提交一次十字线。 */
-  private renderCrosshair(viewport: Viewport): void {
+  private renderCrosshair(frame: FrameContext): void {
     const interaction = this.deps.getInteraction()
     const renderers = this.deps.getPaneRenderers()
     const firstPane = renderers[0]?.getPane()
     const context = firstPane ? this.paneCtxMap.get(firstPane.id) : undefined
     if (!context) {
+      this.lockedCrosshair = null
       this.crosshairOverlay.clear()
       return
     }
+    const lock = interaction.crosshairLock
+    this.lockedCrosshair = lock
+      ? resolveLockedCrosshair(lock, context.coordinates, frame.data.length)
+      : null
     const activePane = renderers
       .find((renderer) => renderer.getPane().id === interaction.activePaneId)
       ?.getPane()
     this.crosshairOverlay.paint({
-      viewport,
+      viewport: frame.vp,
       pos: interaction.crosshairPos,
       price: interaction.crosshairPrice,
       activePane: activePane ? wrapPaneInfo(activePane) : null,
+      lockedX: this.lockedCrosshair?.x ?? null,
       color: resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
         .crosshairLine,
     })

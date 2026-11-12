@@ -231,6 +231,18 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.panes.clearAllIndicators()
   }
 
+  /** 锁定十字线所在 K 线；周期切换后由核心按时间重新投影。 */
+  function lockCrosshairAt(index: number): boolean {
+    if (isDisposed()) return false
+    return chart.interaction.lockCrosshairAt(index)
+  }
+
+  /** 解除垂直光标锁定。 */
+  function unlockCrosshair(): void {
+    if (isDisposed()) return
+    chart.interaction.unlockCrosshair()
+  }
+
   /** 更新实例参数、显隐、排序或定义。 */
   function updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean {
     if (isDisposed()) return false
@@ -312,6 +324,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     moveIndicator,
     removeIndicator,
     clearAllIndicators,
+    lockCrosshairAt,
+    unlockCrosshair,
     updateIndicator,
     setTooltipSize,
     setTooltipAnchorPositioning,
