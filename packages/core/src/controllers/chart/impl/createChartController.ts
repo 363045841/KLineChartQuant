@@ -137,6 +137,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
+  // Agent 工具宿主：经 registerToolHost/unregisterToolHost 动态增删，
+  // 供外部宿主（插件等）把 @Tool 标注的领域方法暴露给 Agent runtime
+  const extraToolHosts: object[] = []
   const layoutManager = new LayoutManager(
     {
       // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
@@ -217,6 +220,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
+    extraToolHosts: () => extraToolHosts,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
     resolveSubPaneIndicatorId: (indicatorId) => {
       const definition = getRegisteredIndicatorDefinition(indicatorId)
@@ -317,6 +321,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ...dataMethods.methods,
     ...chartMethods,
     ...drawingMethods,
+    // Agent 工具宿主注册（@Tool 方法归属解析；幂等去重）
+    registerToolHost: (host) => {
+      if (!extraToolHosts.includes(host)) extraToolHosts.push(host)
+    },
+    unregisterToolHost: (host) => {
+      const index = extraToolHosts.indexOf(host)
+      if (index !== -1) extraToolHosts.splice(index, 1)
+    },
     dispose,
   }
 }

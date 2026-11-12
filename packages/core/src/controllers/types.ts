@@ -42,6 +42,7 @@ import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
+import type { ScaleType } from '../foundation/types/scaleType.js'
 import type { ChartRendererAccess } from './renderers/index.js'
 
 export {
@@ -219,6 +220,8 @@ export interface PaneLayoutInfo {
   paneId: string
   top: number
   height: number
+  /** 该 Pane 的价格轴刻度类型；通道类图元的派生锚点按它换算价格空间。 */
+  scaleType: ScaleType
 }
 
 // ---------------------------------------------------------------------------
@@ -444,10 +447,16 @@ export interface ChartController
   readonly hasDrawingClipboard: ReadonlySignal<boolean>
   /** Stable, serializable Agent context and deterministic query facade. */
   readonly agent: ChartAgentController
+  /** 注册 Agent 工具宿主：调用时按方法函数身份在已注册宿主中解析执行目标；同一宿主重复注册只保留一份。 */
+  registerToolHost(host: object): void
+  /** 移除先前注册的 Agent 工具宿主。 */
+  unregisterToolHost(host: object): void
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
   /** 绘制完成后发布的帧几何；覆盖物必须使用它的投影，不能拼接实时状态。 */
-  readonly frameGeometry: ReadonlySignal<import('../engine/frame/types.js').ChartFrameGeometry | null>
+  readonly frameGeometry: ReadonlySignal<
+    import('../engine/frame/types.js').ChartFrameGeometry | null
+  >
   /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */
   readonly rightAxisEffectiveWidth: ReadonlySignal<number>
   readonly leftAxisEffectiveWidth: ReadonlySignal<number>

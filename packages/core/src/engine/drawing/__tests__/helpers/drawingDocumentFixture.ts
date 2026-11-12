@@ -15,6 +15,8 @@ export function createDrawingDocumentFixture(
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
     getSymbolKey,
+    // 通道类图元的派生锚点按价格空间换算；测试统一用线性价格空间。
+    getPriceSpace: () => 'price',
   })
   return { state, document }
 }

@@ -262,6 +262,11 @@ export class DrawingInteractionController {
         this.pendingPaneId = null
         this.completeDrawing(activeTool, pointer.paneId, result)
       } else {
+        const pane = this.adapter.getPaneInfo(pointer.paneId)
+        if (!pane) {
+          this.sessionOverlay.removePreview()
+          return false
+        }
         // 点击后立即刷新草稿，首点无需等待下一次 pointermove 才可见。
         const preview = this.previewRenderer.buildPreview(
           activeTool,
@@ -269,6 +274,7 @@ export class DrawingInteractionController {
           pointer,
           pointer.paneId,
           this.adapter.getDrawingWorkspaceId(),
+          priceSpaceOf(pane.scaleType),
         )
         if (preview) this.sessionOverlay.setPreview(preview)
       }
