@@ -47,4 +47,31 @@ describe('useAgentWorkspace availability', () => {
     expect(workspace.state.value.sessions.length).toBeGreaterThan(0)
     wrapper.unmount()
   })
+
+  it('recovers by itself when the lock holder closes', async () => {
+    vi.useFakeTimers()
+    const bridge = new FakeAgentBridge()
+    const listSessions = vi.spyOn(bridge, 'listSessions').mockRejectedValueOnce(
+      new AgentRuntimeError('SESSION_LOCKED', 'Agent sessions are open in another page.', {
+        retryable: true,
+      }),
+    )
+    const { wrapper, workspace } = mountWorkspace(bridge)
+
+    await flushPromises()
+    expect(workspace.availability.value).toMatchObject({ status: 'unavailable' })
+
+    // 锁释放后不需要用户点击：定时重试自行恢复
+    await vi.advanceTimersByTimeAsync(3_000)
+    await flushPromises()
+    expect(workspace.availability.value).toEqual({ status: 'ready' })
+
+    // 恢复后停止重试，避免继续轮询
+    const callsAfterRecovery = listSessions.mock.calls.length
+    await vi.advanceTimersByTimeAsync(9_000)
+    expect(listSessions.mock.calls.length).toBe(callsAfterRecovery)
+
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
 })

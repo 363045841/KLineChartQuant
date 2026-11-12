@@ -1,6 +1,6 @@
 // 订阅官方会话的完整快照，Vue 只维护输入、偏好与交互状态。
 
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
   AgentContextItem,
@@ -146,6 +146,33 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (availability.value.status === 'initializing') return
     await initialize()
   }
+
+  /** 独占锁冲突的自动重试间隔。 */
+  const LOCK_RETRY_INTERVAL_MS = 3_000
+  let lockRetryTimer: ReturnType<typeof setInterval> | undefined
+
+  /** 停止自动重试。 */
+  function stopLockRetry(): void {
+    if (lockRetryTimer === undefined) return
+    clearInterval(lockRetryTimer)
+    lockRetryTimer = undefined
+  }
+
+  // 锁冲突不是永久故障：另一页关闭后浏览器会自动释放锁，这里按固定间隔重试，
+  // 用户不需要回来手动点重试。其余不可用状态仍由用户决定何时重试。
+  watch(
+    availability,
+    (value) => {
+      if (value.status === 'unavailable' && value.error.code === 'SESSION_LOCKED') {
+        lockRetryTimer ??= setInterval(() => void retryInitialize(), LOCK_RETRY_INTERVAL_MS)
+        return
+      }
+      stopLockRetry()
+    },
+    { immediate: true },
+  )
+  onScopeDispose(stopLockRetry)
+  onUnmounted(stopLockRetry)
 
   async function createSession(): Promise<void> {
     const session = await bridge.createSession()
