@@ -75,6 +75,10 @@
       "types": "./dist/features/input/index.d.ts",
       "import": "./dist/features/input/index.js"
     },
+    "./structure": {
+      "types": "./dist/features/structure/index.d.ts",
+      "import": "./dist/features/structure/index.js"
+    },
     "./types/price": {
       "types": "./dist/foundation/types/price.d.ts",
       "import": "./dist/foundation/types/price.js"

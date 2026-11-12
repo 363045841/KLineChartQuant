@@ -554,6 +554,10 @@ export interface ThresholdProfile {
   /** 档案版本号，递增；用于回测溯源。 */
   readonly version: number
   readonly provenance: ThresholdProvenance
+  /** 主级别枢轴窗口：两侧各需要多少根 bar 才确认一个摆动点。 */
+  readonly swingLookbackBars: number
+  /** 次级别枢轴窗口；用于更早预警，必须小于等于主级别窗口。 */
+  readonly internalLookbackBars: number
   /** ① 判定「已越界」的最小深度比：`depthRatio >= 该值`。 */
   readonly depthRatio: number
   /** ② 是否要求收盘越界（只算影线不算突破）。 */
