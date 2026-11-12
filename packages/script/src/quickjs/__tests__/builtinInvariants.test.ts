@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   barsFromCloses,
+  BUILTIN_REQUEST_CONTEXT,
   builtinScriptNames,
   plotValues,
   runShipped,
@@ -20,13 +21,16 @@ describe.each(builtinScriptNames().filter((name) => !shippedSource(name).include
   it('空输入、重复运行、追加历史与预热都不破坏约定', async () => {
     const source = shippedSource(name)
     // 空输入不产生任何绘图。
-    expect(plotValues(await runQuickJSScript({ source, bars: [] })), `${name}: empty`).toEqual({})
+    expect(
+      plotValues(await runQuickJSScript({ source, bars: [], requestContext: BUILTIN_REQUEST_CONTEXT })),
+      `${name}: empty`,
+    ).toEqual({})
 
     // 同一行情重复运行必须完全一致，脚本状态不能跨运行泄漏。
     const prices = wavyCloses(80)
     const bars = barsFromCloses(prices, { spread: 0.5 })
-    const full = await runQuickJSScript({ source, bars })
-    const repeated = await runQuickJSScript({ source, bars })
+    const full = await runQuickJSScript({ source, bars, requestContext: BUILTIN_REQUEST_CONTEXT })
+    const repeated = await runQuickJSScript({ source, bars, requestContext: BUILTIN_REQUEST_CONTEXT })
     expect(repeated, `${name}: repeat`).toEqual(full)
 
     // 输出值全部有限；NaN 与无穷值不允许出现在数据列中。
@@ -40,12 +44,18 @@ describe.each(builtinScriptNames().filter((name) => !shippedSource(name).include
 
     // 历史不足时脚本不能抛错；窗口类脚本的预热另由 builtinIndicators 的名单用例覆盖。
     await expect(
-      runQuickJSScript({ source, bars: barsFromCloses([10, 11]) }),
+      runQuickJSScript({
+        source,
+        bars: barsFromCloses([10, 11]),
+        requestContext: BUILTIN_REQUEST_CONTEXT,
+      }),
     ).resolves.toBeDefined()
 
     // 追加历史不改写已有前缀；只输出末根的脚本不适用。
     if (lastBarOnly(name)) return
-    const prefix = plotValues(await runShipped(name, prices.slice(0, 60), {}, { spread: 0.5 }))
+    const prefix = plotValues(
+      await runShipped(name, prices.slice(0, 60), {}, { spread: 0.5 }, BUILTIN_REQUEST_CONTEXT),
+    )
     for (const [id, series] of Object.entries(prefix)) {
       expect(values[id]?.slice(0, 60), `${name}.${id}: prefix`).toEqual(series)
     }

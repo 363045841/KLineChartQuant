@@ -4,6 +4,7 @@ import { isOhlcPlot, type Plot, type ScalarPlot } from '@363045841yyt/klinechart
 import type { Bar } from '../contracts/input.js'
 import { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
+import type { ScriptRequestContext } from '../request/types.js'
 
 /** 一次脚本执行的结果，供取值 helper 复用。 */
 export type ScriptResult = Awaited<ReturnType<typeof runQuickJSScript>>
@@ -21,6 +22,13 @@ export interface BarFixture {
   readonly highs?: readonly number[]
   /** 逐根最低价；给出时覆盖 spread。 */
   readonly lows?: readonly number[]
+}
+
+/** 内置脚本共用的宿主时间上下文：UTC 全日交易，让 time/timeframe API 在测试里可求值。 */
+export const BUILTIN_REQUEST_CONTEXT: ScriptRequestContext = {
+  symbol: 'BUILTIN',
+  time: { period: '1', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
+  snapshots: [],
 }
 
 /** 内置脚本的唯一名单：直接读脚本目录，新增文件自动进入测试矩阵。 */
@@ -65,11 +73,13 @@ export async function runShipped(
   prices: readonly number[],
   params: Record<string, ScriptParamValue> = {},
   fixture: BarFixture = {},
+  context?: ScriptRequestContext,
 ): Promise<ScriptResult> {
   return runQuickJSScript({
     source: shippedSource(name),
     bars: barsFromCloses(prices, fixture),
     params,
+    requestContext: context,
   })
 }
 
