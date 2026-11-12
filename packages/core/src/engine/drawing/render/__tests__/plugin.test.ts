@@ -105,48 +105,6 @@ describe('createDrawingLayer', () => {
 })
 
 describe('createIndicatorDrawingLayer', () => {
-  /** 直出失败时先恢复完整目标再重放，不能把几何提交到 0×0 后备存储。 */
-  it('restores the main target before replaying a failed GPU batch', () => {
-    const main = createMockCanvasContext()
-    const ensureMainTarget = vi.fn(() => main)
-    const context = createMockRenderContext()
-    const scene = createScene<typeof context>()
-    scene.addLayer({
-      id: 'fallback',
-      pane: 'main',
-      role: 'indicator',
-      kind: 'draw-list',
-      z: 0,
-      visible: true,
-      paint(frame) {
-        frame.primitives?.(
-          [{ kind: 'rect', x: 10, y: 20, width: 30, height: 40, color: '#f00' }],
-          1,
-        )
-      },
-      dispose() {},
-    })
-    scene.paint({
-      panes: [
-        {
-          paneId: 'main',
-          context,
-          renderer: createCanvas2DRenderer(),
-          targets: { main, drawing: null, overlay: null },
-          gpuSurface: { canvas: main.canvas, paint: () => false, dispose() {} },
-          ensureMainTarget,
-          bounds: { width: 800, height: 200 },
-          dpr: 1,
-          frameNumber: 0,
-          deltaMs: 0,
-          clear: true,
-        },
-      ],
-    })
-    expect(ensureMainTarget).toHaveBeenCalledOnce()
-    expect(main.fillRect).toHaveBeenCalledWith(10, 20, 30, 40)
-  })
-
   /** 混合文字的指标图元必须拆到可见 GPU 与小文字表面，且不得再依赖主 ctx 像素。 */
   it('routes geometry directly to GPU and text to the pane text surface', () => {
     const main = createMockCanvasContext()

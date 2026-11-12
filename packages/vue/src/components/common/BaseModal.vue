@@ -4,7 +4,10 @@
   - Tab 在对话框内循环（不逃逸到浏览器 UI），关闭后焦点回到打开前的元素；
   - aria-labelledby 指向标题；关闭按钮有 type 与可访问名称；
   - 进出场用 @starting-style + transition-behavior: allow-discrete，不用定时器；
-  - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态。
+  - 只接受父组件控制的 open，通过 update:open 请求变更，不持有内部开关状态；
+  - --base-modal-content-inset 是弹窗内容横向内边距的唯一来源：Tab 文字、搜索框、
+    正文与列表行都跟着它，消费方不再各自写横向 padding；
+  - 尺寸走 size 预设，宽度/高度/遮罩间距只在特殊弹窗用 props 覆盖。
 -->
 <template>
   <Teleport :to="teleportTarget">
@@ -12,7 +15,11 @@
       v-if="rendered"
       ref="dialog"
       class="base-modal"
-      :class="{ 'base-modal--draggable': draggable, 'base-modal--dragging': dragging }"
+      :class="{
+        'base-modal--draggable': draggable,
+        'base-modal--dragging': dragging,
+        'base-modal--resizing': resizing,
+      }"
       :style="[modalStyle, dragStyle]"
       :aria-labelledby="labelledBy"
       :aria-label="labelledBy ? undefined : ariaLabel || undefined"
@@ -24,7 +31,7 @@
     >
       <div class="base-modal__surface">
         <div
-          v-if="$slots.header || $slots.title || title"
+          v-if="slots.header || slots.title || title"
           ref="dragHeader"
           class="base-header"
           @pointerdown="startDrag"
@@ -40,10 +47,9 @@
           </div>
           <div v-if="showClose" class="base-header-right">
             <slot name="header-extra" />
-            <button
-              type="button"
+            <BaseIconButton
               class="base-close-btn"
-              :aria-label="closeLabel"
+              :label="closeLabel"
               @click="requestClose"
             >
               <svg
@@ -55,27 +61,26 @@
               >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
-            </button>
+            </BaseIconButton>
           </div>
         </div>
 
-        <div v-if="$slots.subheader" class="base-subheader">
+        <div v-if="slots.subheader" class="base-subheader">
           <slot name="subheader" />
         </div>
 
-        <div v-if="$slots.tabs" class="base-tabs">
+        <div v-if="slots.tabs" class="base-modal__tabs">
           <slot name="tabs" />
         </div>
 
         <div
           class="base-body"
-          :class="{ 'base-body--scrollable': bodyScrollable }"
-          :style="{ padding: bodyPadding }"
+          :class="{ 'base-body--scrollable': bodyScrollable, 'base-body--flush': bodyFlush }"
         >
           <slot />
         </div>
 
-        <div v-if="$slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
+        <div v-if="slots.footer" class="base-footer" :style="{ justifyContent: footerAlign }">
           <slot name="footer" />
         </div>
       </div>
@@ -93,6 +98,7 @@
     useFullscreenTeleportTarget,
   } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useModalDrag } from '@vue-src/composables/ui/useModalDrag.js'
+  import { useModalResize } from '@vue-src/composables/ui/useModalResize.js'
   import {
     computed,
     nextTick,
@@ -104,6 +110,7 @@
     useTemplateRef,
     watch,
   } from 'vue'
+  import BaseIconButton from './BaseIconButton.vue'
   import ToastViewport from './ToastViewport.vue'
 
   const props = withDefaults(
@@ -113,11 +120,18 @@
       /** 默认允许拖动标题栏；控件与 data-modal-no-drag 区域不会触发拖动。 */
       draggable?: boolean
       title?: string
+      /** 尺寸预设；显式 width 优先。 */
+      size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+      /** 显式宽度：fit-content 或超宽弹窗使用，默认 min(92vw, 400px)。 */
       width?: string
+      /** 内容自适应宽度时的下限，仍受视口可用宽度约束。 */
+      minWidth?: string
+      /** 默认平滑过渡内容或配置引起的尺寸变化，尊重减少动态效果偏好。 */
+      animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
-      overlayPadding?: string
-      bodyPadding?: string
+      /** 正文贴边：内边距由内容自理（内部滚动区、编辑器等）。 */
+      bodyFlush?: boolean
       bodyScrollable?: boolean
       footerAlign?: 'flex-end' | 'center' | 'flex-start' | 'space-between'
       closeOnOverlay?: boolean
@@ -130,11 +144,11 @@
     {
       title: '',
       draggable: true,
-      width: 'min(92vw, 400px)',
+      width: '',
+      minWidth: '',
+      animateResize: true,
       maxWidth: '',
-      maxHeight: 'min(600px, calc(100dvh - 48px))',
-      overlayPadding: 'var(--klc-space-24, 24px)',
-      bodyPadding: 'var(--klc-space-16, 16px)',
+      maxHeight: '780px',
       bodyScrollable: true,
       footerAlign: 'flex-end',
       closeOnOverlay: true,
@@ -156,6 +170,7 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
+  const { resizing } = useModalResize(dialog, () => props.animateResize)
   const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
   const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
     dialog,
@@ -171,12 +186,30 @@
   let returnFocusTo: HTMLElement | null = null
   let pointerDownOnBackdrop = false
 
+  /** 弹窗宽度预设；显式 width 优先。 */
+  const SIZE_WIDTHS = {
+    xs: 'min(92vw, 360px)',
+    sm: 'min(92vw, 440px)',
+    md: 'min(92vw, 560px)',
+    lg: 'min(92vw, 640px)',
+    xl: 'min(92vw, 780px)',
+  } as const
+  const resolvedWidth = computed(
+    () => props.width || (props.size ? SIZE_WIDTHS[props.size] : 'min(92vw, 400px)'),
+  )
+
+  /** 弹窗与视口之间保留的间距；所有弹窗统一，不再逐弹窗覆盖。 */
+  const OVERLAY_PADDING = 'var(--klc-space-24, 24px)'
+
   const modalStyle = computed(() => ({
-    '--base-modal-width': props.width,
+    '--base-modal-width': resolvedWidth.value,
+    minWidth: props.minWidth
+      ? `min(${props.minWidth}, calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`
+      : undefined,
     maxWidth: props.maxWidth
-      ? `min(${props.maxWidth}, calc(100vw - ${props.overlayPadding} - ${props.overlayPadding}))`
-      : `calc(100vw - ${props.overlayPadding} - ${props.overlayPadding})`,
-    maxHeight: `min(${props.maxHeight}, calc(100dvh - ${props.overlayPadding} - ${props.overlayPadding}))`,
+      ? `min(${props.maxWidth}, calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`
+      : `calc(100vw - ${OVERLAY_PADDING} - ${OVERLAY_PADDING})`,
+    maxHeight: `min(${props.maxHeight}, calc(100dvh - ${OVERLAY_PADDING} - ${OVERLAY_PADDING}))`,
   }))
 
   async function openDialog(): Promise<void> {
@@ -276,6 +309,8 @@
 
 <style scoped>
   .base-modal {
+    /* 弹窗内容横向内边距的唯一来源：Tab 文字、搜索框、正文与正文内滚动区都跟随它。 */
+    --base-modal-content-inset: var(--klc-space-24, 24px);
     /* UA 的 modal 居中（inset: 0; margin: auto），静止时没有 transform，
        内部 position: fixed 的元素仍相对视口定位。 */
     margin: auto;
@@ -296,11 +331,11 @@
     scale: none;
     translate: none;
     transition:
-      opacity var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      scale var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      translate var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
-      display var(--klc-motion-dur-base, 200ms) allow-discrete;
+      opacity var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      scale var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      translate var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-base) allow-discrete,
+      display var(--klc-motion-dur-base) allow-discrete;
   }
 
   .base-modal--draggable .base-header {
@@ -331,7 +366,7 @@
     opacity: 0;
     scale: 0.98;
     translate: 0 8px;
-    transition-duration: var(--klc-motion-dur-fast, 160ms);
+    transition-duration: var(--klc-motion-dur-fast);
   }
 
   @starting-style {
@@ -346,9 +381,9 @@
   .base-modal::backdrop {
     background: transparent;
     transition:
-      background var(--klc-motion-dur-base, 200ms) var(--klc-motion-ease-out, ease-out),
-      overlay var(--klc-motion-dur-base, 200ms) allow-discrete,
-      display var(--klc-motion-dur-base, 200ms) allow-discrete;
+      background var(--klc-motion-dur-base) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-base) allow-discrete,
+      display var(--klc-motion-dur-base) allow-discrete;
   }
 
   .base-modal[open]::backdrop {
@@ -362,23 +397,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-modal,
-    .base-modal:not([open]) {
-      scale: none;
-      translate: none;
-      transition-property: opacity, overlay, display;
-    }
-
-    @starting-style {
-      .base-modal[open] {
-        scale: none;
-        translate: none;
-      }
-    }
-  }
-
-  /* 标题栏和操作栏共用紧凑高度，内容在栏内垂直居中。 */
+/* 标题栏和操作栏共用紧凑高度，内容在栏内垂直居中。 */
   .base-header,
   .base-footer {
     box-sizing: border-box;
@@ -430,40 +449,17 @@
   }
 
   .base-close-btn {
-    background: transparent;
-    border: 0;
-    border-radius: var(--klc-radius-md, 8px);
-    width: var(--base-modal-header-action-size);
-    height: var(--base-modal-header-action-size);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--klc-color-ui-muted);
-    transition: color var(--klc-motion-dur-fast, 160ms);
-    padding: 0;
-  }
-
-  .base-close-btn:hover {
-    color: var(--klc-color-ui-text);
-  }
-
-  .base-close-btn:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 2px;
-  }
-
-  .base-close-btn svg {
-    width: 14px;
-    height: 14px;
+    --base-icon-button-size: var(--base-modal-header-action-size);
+    --base-icon-button-icon-size: 14px;
+    --base-icon-button-hover-bg: transparent;
   }
 
   .base-subheader {
     flex-shrink: 0;
-    padding: var(--klc-space-16, 16px);
+    padding: var(--base-modal-content-inset);
   }
 
-  .base-tabs {
+  .base-modal__tabs {
     flex-shrink: 0;
   }
 
@@ -471,10 +467,26 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    /* 默认按弹窗 inset 排布；正文自带滚动区或编辑器用 bodyFlush 贴边。 */
+    padding: var(--base-modal-content-inset);
   }
 
+  .base-body--flush {
+    padding: 0;
+  }
+
+  /* 滚动正文只保留横向 inset；纵向留白由内容自己决定，避免滚动区上下出现固定空隙。 */
   .base-body--scrollable {
     overflow-y: auto;
+    padding-block: 0;
+  }
+
+  /*
+    尺寸过渡期间 dialog 的盒子比最终内容矮，此时的滚动条只是中间态伪影，
+    还会挤掉内容宽度；收起它，等动画结束由最终尺寸决定是否出现。
+  */
+  .base-modal--resizing .base-body {
+    overflow-y: hidden;
   }
 
   .base-footer {
@@ -530,7 +542,7 @@
     height: 1px;
     background: currentColor;
     translate: -50% 0;
-    transition: width var(--klc-motion-dur-fast, 160ms) ease;
+    transition: width var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   /* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
@@ -545,14 +557,7 @@
     width: calc(100% - 2 * var(--control-button-inline-padding, 8px));
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-footer :deep(.base-button)::after,
-    .base-footer :deep(.control-button)::after {
-      transition: none;
-    }
-  }
-
-  /* ── Responsive ── */
+/* ── Responsive ── */
   @media (max-width: 480px) {
     .base-modal {
       min-width: 0;

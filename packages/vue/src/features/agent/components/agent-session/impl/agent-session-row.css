@@ -37,7 +37,7 @@
   align-items: center;
   gap: var(--klc-space-2, 2px);
   padding-right: var(--klc-space-4, 4px);
-  transition: opacity 0.12s ease;
+  transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
 }
 
 /* 触摸设备始终显示操作，键盘聚焦时也显示。 */

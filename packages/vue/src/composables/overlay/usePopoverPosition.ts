@@ -1,6 +1,6 @@
 import { type CSSProperties, computed, nextTick, type Ref, shallowRef, toValue, watch } from 'vue'
-import { startFloatingPosition } from './floatingPosition.js'
-import type { UseAnchoredPopoverOptions } from './types.js'
+import { type PointReference, startFloatingPosition } from './floatingPosition.js'
+import type { PopoverOrigin, UseAnchoredPopoverOptions } from './types.js'
 
 const BASE_STYLE: CSSProperties = { position: 'fixed', inset: 'auto', margin: '0' }
 
@@ -30,6 +30,13 @@ function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: strin
   return { triggerStyle, panelStyle }
 }
 
+/** 把指针坐标包装成零尺寸虚拟元素，定位与视口翻转仍由 Floating UI 负责。 */
+function pointReference(origin: PopoverOrigin): PointReference {
+  return {
+    getBoundingClientRect: () => new DOMRect(origin.x, origin.y, 0, 0),
+  }
+}
+
 function useFloatingPosition(
   options: UseAnchoredPopoverOptions,
   open: Readonly<Ref<boolean>>,
@@ -42,6 +49,7 @@ function useFloatingPosition(
       open: open.value,
       trigger: options.trigger.value,
       panel: options.panel.value,
+      origin: toValue(options.origin) ?? null,
       placement: toValue(options.placement) ?? 'auto',
       matchTriggerWidth: toValue(options.matchTriggerWidth) ?? false,
       maxHeight: toValue(options.maxHeight),
@@ -49,18 +57,20 @@ function useFloatingPosition(
     async (state, _previous, onCleanup) => {
       const lifetime = new AbortController()
       onCleanup(() => lifetime.abort())
-      if (!state.open || !state.trigger || !state.panel) {
-        measured.value = {}
-        return
-      }
+      // 指针位置已经在面板样式里兜底，测量结果只用于翻转到可用方向。
+      measured.value = {}
+      const reference = state.origin ? pointReference(state.origin) : state.trigger
+      if (!state.open || !reference || !state.panel) return
       await nextTick()
       if (lifetime.signal.aborted) return
       await startFloatingPosition(
         {
-          ...state,
-          trigger: state.trigger,
+          reference,
           panel: state.panel,
+          placement: state.placement,
           offset: options.offset ?? 4,
+          matchTriggerWidth: state.matchTriggerWidth,
+          maxHeight: state.maxHeight,
           apply: (style) => {
             measured.value = style
           },
@@ -73,12 +83,17 @@ function useFloatingPosition(
   )
   return {
     triggerStyle: computed(() => undefined),
-    panelStyle: computed<CSSProperties>(() => ({
-      ...BASE_STYLE,
-      ...measured.value,
-      zIndex: native ? undefined : 'var(--klc-z-index-popover, 1010)',
-      display: open.value ? undefined : 'none',
-    })),
+    panelStyle: computed<CSSProperties>(() => {
+      const origin = toValue(options.origin)
+      return {
+        ...BASE_STYLE,
+        // 首次测量完成前先落在指针位置，避免原生 popover 先在默认位置闪一帧。
+        ...(origin ? { left: `${origin.x}px`, top: `${origin.y}px` } : {}),
+        ...measured.value,
+        zIndex: native ? undefined : 'var(--klc-z-index-popover, 1010)',
+        display: open.value ? undefined : 'none',
+      }
+    }),
   }
 }
 
@@ -91,7 +106,8 @@ export function usePopoverPosition(
   anchorName: string,
   onError: () => void,
 ) {
-  return anchored
+  // 坐标锚点没有真实元素可做 CSS anchor，固定走 Floating UI。
+  return anchored && options.origin === undefined
     ? useAnchorPosition(options, anchorName)
     : useFloatingPosition(options, open, native, onError)
 }

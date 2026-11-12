@@ -45,8 +45,10 @@ describe('contrast gate (WCAG 2 AA)', () => {
     expect(failing).toBeDefined()
     if (!failing) return
     expect(findRegressions([failing], { $comment: '', failures: {} })).toHaveLength(1)
+    // 用本次观测值作为模拟基线，避免真实配色改善后 0.1 的降幅仍优于历史基线。
+    const baseline: KnownFailures = { $comment: '', failures: { [failing.key]: failing.wcag } }
     const worse = { ...failing, wcag: failing.wcag - 0.1 }
-    expect(findRegressions([worse], known)).toHaveLength(1)
-    expect(findRegressions([failing], known)).toHaveLength(0)
+    expect(findRegressions([worse], baseline)).toHaveLength(1)
+    expect(findRegressions([failing], baseline)).toHaveLength(0)
   })
 })

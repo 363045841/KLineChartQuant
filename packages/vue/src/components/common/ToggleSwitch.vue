@@ -66,7 +66,7 @@
     height: 100%;
     border-radius: 10px;
       background: var(--toggle-switch-track-background, var(--klc-color-border-button));
-    transition: background 0.15s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .toggle-switch__thumb {
@@ -78,7 +78,7 @@
     border-radius: 50%;
       background: var(--toggle-switch-thumb-background, var(--klc-color-background));
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    transition: transform 0.15s ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .toggle-switch.is-compact .toggle-switch__thumb {
@@ -105,10 +105,4 @@
     outline-offset: 2px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .toggle-switch__track,
-    .toggle-switch__thumb {
-      transition: none;
-    }
-  }
 </style>

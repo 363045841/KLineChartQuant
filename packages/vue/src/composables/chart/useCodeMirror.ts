@@ -10,9 +10,10 @@ import { Compartment, EditorState, type Extension, Transaction } from '@codemirr
 import { EditorView } from 'codemirror'
 import { computed, type Ref, shallowRef, watch } from 'vue'
 import { useDeviceEnvironment } from '../useDeviceEnvironment.js'
+import { scriptEditorContextMenu } from './scriptEditor/impl/editorContextMenu.js'
 import { scriptEditorSetup } from './scriptEditor/impl/editorSetup.js'
 import { scriptEditorHighlight, scriptEditorTheme } from './scriptEditor/impl/editorTheme.js'
-import { scriptEditorContextMenu } from './scriptEditor/impl/editorContextMenu.js'
+import { createScriptMenuModel, type ScriptMenuModel } from './scriptEditor/impl/scriptMenuModel.js'
 import type { ScriptEditorProblem } from './scriptEditor/types.js'
 
 /** 在 host 元素上挂载编辑器，并把文档变化写回 value。 */
@@ -34,7 +35,10 @@ export function useCodeMirror(
   formatAvailable: Readonly<Ref<boolean>>
   formatDocument(): Promise<void>
   searchDocument(): void
+  /** 编辑器右键菜单状态；由 ScriptEditorWorkspace 渲染成 DropMenu。 */
+  scriptMenu: ScriptMenuModel
 } {
+  const scriptMenu = createScriptMenuModel()
   const view = shallowRef<EditorView | null>(null)
   const languageLoading = shallowRef(false)
   const languageError = shallowRef<string | null>(null)
@@ -109,23 +113,33 @@ export function useCodeMirror(
       if (!element) return
       const language = new Compartment()
       let languageExtensions: Extension = []
-      const states = new Map<string, { state: EditorState; scrollTop: number; scrollLeft: number }>()
+      const states = new Map<
+        string,
+        { state: EditorState; scrollTop: number; scrollLeft: number }
+      >()
       let shownKey = documentKey.value
       /** 每个标签独立创建状态，撤销历史和选区不会跨文件串用。 */
-      const createState = () => EditorState.create({
+      const createState = () =>
+        EditorState.create({
           doc: value.value,
           extensions: [
             scriptEditorSetup,
             javascript({ typescript: true }),
             scriptEditorTheme,
             highlighting.of(scriptEditorHighlight(theme.value)),
-            scriptEditorContextMenu(() => languageSupport, () => editable.value, () => theme.value, () => formatAvailable.value, formatDocument),
+            scriptEditorContextMenu(
+              scriptMenu,
+              () => languageSupport,
+              () => editable.value,
+              () => formatAvailable.value,
+              formatDocument,
+            ),
             EditorState.tabSize.of(2),
             editing.of([
               EditorState.readOnly.of(!editable.value),
               EditorView.editable.of(editable.value),
             ]),
-             language.of(languageExtensions),
+            language.of(languageExtensions),
             EditorView.updateListener.of((update) => {
               if (update.docChanged && editable.value) onChange(update.state.doc.toString())
               // 读取 CodeMirror 已接收、已映射到当前文档的诊断，不另起一轮 LSP 查询。
@@ -156,17 +170,37 @@ export function useCodeMirror(
       view.value = instance
       const stopDocuments = watch([documentKey, value], ([key, text]) => {
         if (key !== shownKey) {
-          if (shownKey && openKeys.value.includes(shownKey)) states.set(shownKey, { state: instance.state, scrollTop: instance.scrollDOM.scrollTop, scrollLeft: instance.scrollDOM.scrollLeft })
+          if (shownKey && openKeys.value.includes(shownKey))
+            states.set(shownKey, {
+              state: instance.state,
+              scrollTop: instance.scrollDOM.scrollTop,
+              scrollLeft: instance.scrollDOM.scrollLeft,
+            })
           shownKey = key
           const cached = key ? states.get(key) : undefined
           instance.setState(cached?.state.doc.toString() === text ? cached.state : createState())
-          instance.dispatch({ effects: [editing.reconfigure([EditorState.readOnly.of(!editable.value), EditorView.editable.of(editable.value)]), highlighting.reconfigure(scriptEditorHighlight(theme.value)), language.reconfigure(languageExtensions), setDiagnosticsEffect.of([])] })
+          instance.dispatch({
+            effects: [
+              editing.reconfigure([
+                EditorState.readOnly.of(!editable.value),
+                EditorView.editable.of(editable.value),
+              ]),
+              highlighting.reconfigure(scriptEditorHighlight(theme.value)),
+              language.reconfigure(languageExtensions),
+              setDiagnosticsEffect.of([]),
+            ],
+          })
           instance.scrollDOM.scrollTop = cached?.scrollTop ?? 0
           instance.scrollDOM.scrollLeft = cached?.scrollLeft ?? 0
           diagnostics.value = []
-          void languageSupport?.updateSource(text).catch((error: unknown) => { languageError.value = error instanceof Error ? error.message : String(error) })
+          void languageSupport?.updateSource(text).catch((error: unknown) => {
+            languageError.value = error instanceof Error ? error.message : String(error)
+          })
         } else if (instance.state.doc.toString() !== text) {
-          instance.dispatch({ changes: { from: 0, to: instance.state.doc.length, insert: text }, annotations: Transaction.addToHistory.of(false) })
+          instance.dispatch({
+            changes: { from: 0, to: instance.state.doc.length, insert: text },
+            annotations: Transaction.addToHistory.of(false),
+          })
         }
       })
       const stopClosed = watch(openKeys, (keys) => {
@@ -200,7 +234,10 @@ export function useCodeMirror(
               if (!active) return
               const support = createScriptLanguageSupport(showLanguageError)
               disposeLanguage = support.dispose
-              const extensions = await support.initialize(() => instance.state.doc.toString(), libraries.value)
+              const extensions = await support.initialize(
+                () => instance.state.doc.toString(),
+                libraries.value,
+              )
               if (!active) return
               languageSupport = support
               languageReady.value = true
@@ -261,5 +298,6 @@ export function useCodeMirror(
     formatAvailable,
     formatDocument,
     searchDocument,
+    scriptMenu,
   }
 }

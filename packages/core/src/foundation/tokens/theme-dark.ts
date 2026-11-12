@@ -19,14 +19,13 @@
  */
 
 import { darkInterfaceColors } from './interface-colors.js'
-import { motion, spacing, typography } from './theme-base.js'
+import { spacing, typography } from './theme-base.js'
 import type { Theme } from './types.js'
 
 export const darkTheme: Theme = {
   name: 'dark',
   spacing,
   typography,
-  motion,
   colors: {
     background: darkInterfaceColors.background,
     foreground: darkInterfaceColors.text,

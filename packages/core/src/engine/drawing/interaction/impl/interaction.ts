@@ -5,11 +5,12 @@ import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import {
   anchorToScreen,
   isScreenPoint,
+  resolveDrawingLocation,
   resolveDrawingPointer,
 } from '../../geometry/impl/coordinateUtils.js'
 import { priceSpaceOf } from '../../geometry/impl/priceSpace.js'
 import type {
-  DrawingPointerAnchor,
+  DrawingPointerLocation,
   PointerCoordinates,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
@@ -161,7 +162,7 @@ export class DrawingInteractionController {
       this.pointerSession.kind === 'duplicate-pending'
     )
       return null
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    const pointer = resolveDrawingLocation(e, container, this.adapter)
     if (!pointer) return null
     return this.hitTester.findLabelTarget(
       pointer.x,
@@ -260,6 +261,16 @@ export class DrawingInteractionController {
       if (result) {
         this.pendingPaneId = null
         this.completeDrawing(activeTool, pointer.paneId, result)
+      } else {
+        // 点击后立即刷新草稿，首点无需等待下一次 pointermove 才可见。
+        const preview = this.previewRenderer.buildPreview(
+          activeTool,
+          this.anchorCollector.pendingAnchors,
+          pointer,
+          pointer.paneId,
+          this.adapter.getDrawingWorkspaceId(),
+        )
+        if (preview) this.sessionOverlay.setPreview(preview)
       }
       return true
     }
@@ -355,6 +366,7 @@ export class DrawingInteractionController {
    */
   private resolvePlacementOptions(e: PointerEvent): ResolveDrawingPointerOptions {
     const options: ResolveDrawingPointerOptions = {
+      snapToSlot: true,
       ...this.resolvePlacementModifiers(e, this.resolveDraftAngleOrigin()),
       clampDataEnd: this.getActiveTool() === DrawingTool.RegressionChannel,
     }
@@ -388,7 +400,7 @@ export class DrawingInteractionController {
   }
 
   /** 命中未选中的图元时先改选择，再按整组已选图元开始拖拽。 */
-  private beginMove(pointer: DrawingPointerAnchor, hit: HitResult): void {
+  private beginMove(pointer: DrawingPointerLocation, hit: HitResult): void {
     const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
     const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
     if (!isSelected) this.setSelected([hit.drawing])
@@ -409,15 +421,15 @@ export class DrawingInteractionController {
   private findDrawingHit(
     e: PointerEvent,
     container: HTMLElement,
-  ): { pointer: DrawingPointerAnchor; hit: HitResult } | null {
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+  ): { pointer: DrawingPointerLocation; hit: HitResult } | null {
+    const pointer = resolveDrawingLocation(e, container, this.adapter)
     if (!pointer) return null
     const hit = this.findSelectableHit(pointer)
     return hit ? { pointer, hit } : null
   }
 
   /** 命中当前 Pane 与工作区内可选中图元的拖拽目标；手柄只在图元被选中时参与命中。 */
-  private findSelectableHit(pointer: DrawingPointerAnchor): HitResult | null {
+  private findSelectableHit(pointer: DrawingPointerLocation): HitResult | null {
     return this.hitTester.hitTest(
       pointer.x,
       pointer.y,
@@ -438,7 +450,7 @@ export class DrawingInteractionController {
     if (tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID) return null
     if (this.dragHandler.isDragging() || this.pointerSession.kind === 'duplicate-pending')
       return null
-    const resolved = resolveDrawingPointer(pointer, container, this.adapter)
+    const resolved = resolveDrawingLocation(pointer, container, this.adapter)
     if (!resolved) return null
     return this.findSelectableHit(resolved)
   }
@@ -478,7 +490,7 @@ export class DrawingInteractionController {
 
   /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；移动被锁的图元一律不参与。 */
   private startDrag(
-    pointer: DrawingPointerAnchor,
+    pointer: DrawingPointerLocation,
     hit: HitResult,
     selectedDrawings: ReadonlyArray<DrawingObject>,
   ): void {
@@ -497,7 +509,7 @@ export class DrawingInteractionController {
   /** Ctrl 按下只进入待复制会话；越过阈值才生成真实副本，未越过按 Ctrl+单击处理。 */
   private startDuplicatePending(
     e: PointerEvent,
-    pointer: DrawingPointerAnchor,
+    pointer: DrawingPointerLocation,
     hit: HitResult,
   ): void {
     const selectedDrawings = this.sessionOverlay.getSelectedDrawings()
@@ -531,7 +543,7 @@ export class DrawingInteractionController {
     const moved = Math.hypot(e.clientX - pending.startClientX, e.clientY - pending.startClientY)
     if (moved < DUPLICATE_DRAG_THRESHOLD_PX) return true
     // 副本只在原 Pane 内生成；指针离开该 Pane 时继续等待，避免在原地留下副本。
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    const pointer = resolveDrawingLocation(e, container, this.adapter)
     if (!pointer || pointer.paneId !== pending.targets[0]!.paneId) return true
     const copies = this.adapter.duplicateDrawings(
       pending.targets.map((target) => ({ id: target.id, anchors: target.anchors })),
@@ -548,7 +560,7 @@ export class DrawingInteractionController {
 
   /** 开始框选，坐标只在按下所在 Pane 内解释。 */
   private startSelectionMarquee(e: PointerEvent, container: HTMLElement): boolean {
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    const pointer = resolveDrawingLocation(e, container, this.adapter)
     if (!pointer) return false
     this.pointerSession = {
       kind: 'marquee',
@@ -566,7 +578,7 @@ export class DrawingInteractionController {
   private handleSelectionMarqueeMove(e: PointerEvent, container: HTMLElement): boolean {
     if (this.pointerSession.kind !== 'marquee') return false
     const marquee = this.pointerSession.marquee
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    const pointer = resolveDrawingLocation(e, container, this.adapter)
     if (pointer?.paneId === marquee.paneId) {
       marquee.end = { x: pointer.x, y: pointer.y }
       this.adapter.requestDraw?.()
@@ -654,8 +666,7 @@ export class DrawingInteractionController {
     this.sessionOverlay.removePreview()
     // 工具切换会清空选中，必须在创建（原子选中新图元）之前完成。
     if (!this.continuousDrawing) this.adapter.setDrawingToolId(CURSOR_DRAWING_TOOL_ID)
-    // 水平图元的命令锚只有价格坐标（类型联合里 futureOffset?: never）——未来区落点
-    // 解析出的 futureOffset 必须剥离，否则 DrawingDocument 拒绝该命令。
+    // 水平图元只保存价格，其余图元保存公共坐标服务解析的绝对时间。
     const kind = getDrawingKind(activeTool)
     this.adapter.createDrawing({
       kind,
@@ -665,7 +676,6 @@ export class DrawingInteractionController {
           ? { price: anchor.price }
           : {
               timestamp: anchor.time,
-              ...(anchor.futureOffset === undefined ? {} : { futureOffset: anchor.futureOffset }),
               price: anchor.price,
             },
       ),

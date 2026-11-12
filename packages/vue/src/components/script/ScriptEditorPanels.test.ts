@@ -43,7 +43,7 @@ describe('脚本输出面板', () => {
       props: { logs: [], problems: [problem] },
       global: { stubs: { BaseTooltip: { inheritAttrs: false, template: '<slot />' } } },
     })
-    const tab = wrapper.get('[data-panel="problems"]')
+    const tab = wrapper.get('.script-output').findAll('[role="tab"]')[1]!
     expect(tab.text()).toContain('问题 (1)')
     await tab.trigger('click')
     expect(tab.attributes('aria-selected')).toBe('true')
@@ -52,7 +52,7 @@ describe('脚本输出面板', () => {
     await wrapper.get('.script-problems__item').trigger('click')
     expect(wrapper.emitted('reveal-problem')).toEqual([[problem]])
     await tab.trigger('keydown', { key: 'ArrowLeft' })
-    expect(wrapper.get('[data-panel="output"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.findAll('[role="tab"]')[0]!.attributes('aria-selected')).toBe('true')
     wrapper.unmount()
   })
 })

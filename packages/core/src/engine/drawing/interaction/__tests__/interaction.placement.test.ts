@@ -1,7 +1,6 @@
 /** 验证绘图落点：出界时贴 Pane 边界继续预览与落点，未来槽位与创建顺序不受影响。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import { ScaleType } from '@/foundation/types/scaleType'
 import {
   CONTAINER,
   createDrawingAdapter,
@@ -14,6 +13,38 @@ import { DrawingInteractionController } from '../impl/interaction'
 import { DrawingTool } from '../types'
 
 describe('DrawingInteractionController placement', () => {
+  it.each([DrawingTool.TrendLine, DrawingTool.ParallelChannel])(
+    '%s 首点立即预览，移动只更新跟随点，切换工具清除草稿',
+    (tool) => {
+      const createDrawing = vi.fn(() => createDrawingObject({ id: 'created' }))
+      const requestDraw = vi.fn()
+      const adapter = createPlacementAdapter({
+        tool,
+        pane: { paneId: 'main', top: 0, height: 100 },
+        plotWidth: 100,
+        plotHeight: 100,
+        document: { createDrawing },
+        session: { requestDraw },
+      })
+      const controller = new DrawingInteractionController(adapter)
+
+      controller.onPointerDown(pointerDown(20, 30), CONTAINER)
+      expect(controller.getPaintOverlay()[0]?.anchors).toMatchObject([
+        { time: 20, price: 30 },
+        { time: 20, price: 30 },
+      ])
+      expect(requestDraw).toHaveBeenCalled()
+      controller.onPointerMove(pointerMove(80, 50), CONTAINER)
+      expect(controller.getPaintOverlay()[0]?.anchors).toMatchObject([
+        { time: 20, price: 30 },
+        { time: 80, price: 50 },
+      ])
+      expect(createDrawing).not.toHaveBeenCalled()
+      controller.applyToolSession()
+      expect(controller.getPaintOverlay()).toEqual([])
+    },
+  )
+
   it('clamps regression preview and confirmed endpoints to the last candle', () => {
     const createDrawing = vi.fn(() => createDrawingObject({ id: 'regression' }))
     const adapter = createDrawingAdapter({
@@ -27,7 +58,6 @@ describe('DrawingInteractionController placement', () => {
       expect(controller.onPointerMove(pointerMove(x, 80), CONTAINER)).toBe(true)
       const preview = controller.getPaintOverlay()[0]
       expect(preview?.anchors.map((anchor) => anchor.time)).toEqual([500, 1_500])
-      expect(preview?.anchors.every((anchor) => anchor.futureOffset === undefined)).toBe(true)
     }
 
     controller.onPointerDown(pointerDown(95, 80), CONTAINER)
@@ -42,24 +72,19 @@ describe('DrawingInteractionController placement', () => {
     })
   })
 
-  it('passes the future-slot offset through when creating a drawing in the right blank area', () => {
+  it('通过公开坐标服务在右侧空白区创建绝对时间锚点', () => {
     const createdDrawing = createDrawingObject({ id: 'future-line' })
     const createDrawing = vi.fn(() => createdDrawing)
-    const adapter = createPlacementAdapter({
-      tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
-      plotWidth: 100,
-      plotHeight: 100,
-      logicalIndex: 3,
-      document: { createDrawing, setDrawingToolId: vi.fn() },
+    const adapter = createDrawingAdapter({
+      document: { getDrawingToolId: () => 'v-line', createDrawing, setDrawingToolId: vi.fn() },
     })
     const controller = new DrawingInteractionController(adapter)
 
-    expect(controller.onPointerDown(pointerDown(10, 10), CONTAINER)).toBe(true)
+    expect(controller.onPointerDown(pointerDown(55, 10), CONTAINER)).toBe(true)
     expect(createDrawing).toHaveBeenCalledWith({
       kind: 'vertical-line',
       paneId: 'main',
-      anchors: [{ timestamp: 1, futureOffset: 3, price: 10 }],
+      anchors: [{ timestamp: 3000, price: 190 }],
       style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
     })
   })
@@ -69,10 +94,9 @@ describe('DrawingInteractionController placement', () => {
     const calls: string[] = []
     const adapter = createPlacementAdapter({
       tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
+      pane: { paneId: 'main', top: 0, height: 100 },
       plotWidth: 100,
       plotHeight: 100,
-      logicalIndex: 3,
       document: {
         createDrawing: vi.fn(() => {
           calls.push('createDrawing')
@@ -95,10 +119,9 @@ describe('DrawingInteractionController placement', () => {
     const setDrawingToolId = vi.fn()
     const adapter = createPlacementAdapter({
       tool: 'v-line',
-      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
+      pane: { paneId: 'main', top: 0, height: 100 },
       plotWidth: 100,
       plotHeight: 100,
-      logicalIndex: 0,
       document: { createDrawing, setDrawingToolId },
     })
     const controller = new DrawingInteractionController(adapter)
@@ -122,10 +145,9 @@ describe('DrawingInteractionController placement', () => {
     const setDrawingToolId = vi.fn()
     const adapter = createPlacementAdapter({
       tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
+      pane: { paneId: 'main', top: 0, height: 100 },
       plotWidth: 100,
       plotHeight: 100,
-      logicalIndex: 0,
       document: { createDrawing, setDrawingToolId },
     })
     const controller = new DrawingInteractionController(adapter)
@@ -148,13 +170,14 @@ describe('DrawingInteractionController placement', () => {
     expect(setDrawingToolId).not.toHaveBeenCalled()
   })
 
-  it('keeps the in-progress preview and clamps the next anchor to the pane edge', () => {
+  it('出界后在同一 Pane 边界预览并提交完整锚点', () => {
+    const createDrawing = vi.fn(() => createDrawingObject({ id: 'created' }))
     const adapter = createPlacementAdapter({
       tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 60, scaleType: ScaleType.Linear },
+      pane: { paneId: 'main', top: 0, height: 60 },
       plotWidth: 100,
       plotHeight: 100,
-      logicalIndex: 0,
+      document: { createDrawing, setDrawingToolId: vi.fn() },
     })
     const controller = new DrawingInteractionController(adapter)
 
@@ -166,33 +189,17 @@ describe('DrawingInteractionController placement', () => {
     const overlay = controller.getPaintOverlay()
     expect(overlay).toHaveLength(1)
     expect(overlay[0]!.anchors).toMatchObject([
-      { time: 1, price: 30 },
-      { time: 1, price: 60 },
+      { time: 20, price: 30 },
+      { time: 80, price: 60 },
     ])
-  })
-
-  it('completes the drawing at the clamped boundary when clicking outside the pane', () => {
-    const createdDrawing = createDrawingObject({ id: 'created' })
-    const createDrawing = vi.fn(() => createdDrawing)
-    const adapter = createPlacementAdapter({
-      tool: 'trend-line',
-      pane: { paneId: 'main', top: 0, height: 60, scaleType: ScaleType.Linear },
-      plotWidth: 100,
-      plotHeight: 100,
-      logicalIndex: 0,
-      document: { createDrawing, setDrawingToolId: vi.fn() },
-    })
-    const controller = new DrawingInteractionController(adapter)
-
-    expect(controller.onPointerDown(pointerDown(20, 30), CONTAINER)).toBe(true)
     expect(controller.onPointerDown(pointerDown(80, 250), CONTAINER)).toBe(true)
     expect(createDrawing).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
-          expect.objectContaining({ timestamp: 1, price: 30 }),
-          expect.objectContaining({ timestamp: 1, price: 60 }),
+          expect.objectContaining({ timestamp: 20, price: 30 }),
+          expect.objectContaining({ timestamp: 80, price: 60 }),
         ],
       }),
     )
@@ -200,17 +207,14 @@ describe('DrawingInteractionController placement', () => {
 })
 
 describe('DrawingInteractionController horizontal anchors', () => {
-  it('strips futureOffset when creating a horizontal line in the future zone', () => {
-    // 水平图元的命令锚只有价格坐标——未来区落点的 futureOffset 必须剥离，
-    // 否则 DrawingDocument 会以 INVALID_ANCHOR 拒绝该命令（工具已回置，创建无声失败）。
+  it('水平线只保存价格', () => {
     const createdDrawing = createDrawingObject({ id: 'h-line' })
     const createDrawing = vi.fn(() => createdDrawing)
     const adapter = createPlacementAdapter({
       tool: 'h-line',
-      pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
+      pane: { paneId: 'main', top: 0, height: 100 },
       plotWidth: 100,
       plotHeight: 100,
-      logicalIndex: 3,
       document: { createDrawing, setDrawingToolId: vi.fn() },
     })
     const controller = new DrawingInteractionController(adapter)

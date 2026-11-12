@@ -1,10 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import babel from 'vite-plugin-babel'
-import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 // Some modules and their transitive dependencies use `@/...` aliases
-// and `@Indicator()` decorators — so we mirror the babel transform here.
+// decorators — so we mirror the babel transform here.
 // tsconfig maps @/core/* → packages/core/src/engine/,
 // @/* → packages/core/src/. We replicate that for Vitest.
 const engineSrc = fileURLToPath(new URL('./src/engine/', import.meta.url))
@@ -15,7 +14,6 @@ const foundationUtilsSrc = fileURLToPath(new URL('./src/foundation/utils/', impo
 
 export default defineConfig({
   plugins: [
-    indicatorEntrypointsPlugin(),
     babel({
       include: [/\/src\/.*\.tsx?$/],
       exclude: [/node_modules/],

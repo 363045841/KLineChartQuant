@@ -2,8 +2,8 @@
 import { cssVarName } from './css-value.mjs'
 import { isToken, walkTokens } from './resolver.mjs'
 
-/** themeToCssVars 的族顺序：colors → spacing → typography → motion。 */
-const THEME_GROUP_ORDER = ['color', 'spacing', 'typography', 'motion']
+/** themeToCssVars 的族顺序：colors → spacing → typography；motion 只由 v2 foundation 提供。 */
+const THEME_GROUP_ORDER = ['color', 'spacing', 'typography']
 
 const GENERATED = (src) =>
   `// 生成文件：由 \`pnpm tokens:build\` 从 src/foundation/tokens/dtcg/${src} 生成，请勿手改。`
@@ -14,7 +14,7 @@ const GENERATED = (src) =>
 
 /**
  * 主题层 CSS：与 `toCssDeclarationBlock(themeToCssVars(theme))` 逐字节一致。
- * `isThemePath` 判定 token 是否属于 Theme 契约（colors/spacing/typography/motion）。
+ * `isThemePath` 判定 token 是否属于 Theme 契约（colors/spacing/typography）。
  */
 export function emitThemeCss(input, sdTree, isThemePath) {
   const decls = []
@@ -103,14 +103,13 @@ export function emitThemeTs(mode, raw, sdTree) {
     ...jsdoc(color.$description),
     '',
     `import { ${ident} } from './interface-colors.js'`,
-    "import { motion, spacing, typography } from './theme-base.js'",
+    "import { spacing, typography } from './theme-base.js'",
     "import type { Theme } from './types.js'",
     '',
     `export const ${mode}Theme: Theme = {`,
     `  name: '${mode}',`,
     '  spacing,',
     '  typography,',
-    '  motion,',
     '  colors: {',
     ...objectLiteral(color, sdTree[mode].color, '    ', { [`${mode}.interface`]: ident }),
     '  },',
@@ -132,13 +131,14 @@ export function emitInterfaceColorsTs(raw, sdTree) {
 }
 
 export function emitThemeBaseTs(raw, sdTree, themeBaseDoc) {
-  const types = { spacing: 'SpacingTokens', typography: 'TypographyTokens', motion: 'MotionTokens' }
+  const types = { spacing: 'SpacingTokens', typography: 'TypographyTokens' }
+  const groups = Object.keys(types)
   const out = [
     GENERATED('foundation/theme-base.tokens.json'),
-    "import type { MotionTokens, SpacingTokens, TypographyTokens } from './types.js'",
+    `import type { ${groups.map((group) => types[group]).join(', ')} } from './types.js'`,
     '',
   ]
-  for (const group of ['spacing', 'typography', 'motion']) {
+  for (const group of groups) {
     // 只输出 Theme 契约内的键（v2 新增的同组 token 不进入 legacy 家族）。
     const legacy = Object.fromEntries(
       Object.entries(raw[group]).filter(([k]) => k in themeBaseDoc[group]),

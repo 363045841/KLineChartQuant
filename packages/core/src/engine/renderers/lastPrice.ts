@@ -1,15 +1,13 @@
 /** 最新价 label 注册与点虚线 Layer 工厂（overlay 层，绘制到主图）。 */
 
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
+import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { Indicator } from '../indicators/indicatorDecorator.js'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
-import { IndicatorKind } from '../indicators/indicatorMetadata.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 import { registerAxisLabel } from './impl/labels/index.js'
 
@@ -42,7 +40,7 @@ function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
 export function createLastPriceLabelLayer(): Layer<RenderContext> {
   return {
     kind: 'draw-list',
-    id: resolveIndicatorLayerId('lastPriceLabelRegistrar', 'main'),
+    id: makePluginLayerId('lastPriceLabelRegistrar'),
     role: 'overlay',
     pane: 'main',
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
@@ -80,19 +78,6 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
   }
 }
 
-@Indicator({
-  name: 'lastPriceLabelRegistrar',
-  displayName: '最新价标签注册',
-  category: 'main',
-  defaultPaneId: 'main',
-  dataViews: [ChartDataViewId.KLine],
-  kind: IndicatorKind.System,
-  mainPane: {},
-})
-export class LastPriceLabelRegistrarIndicatorDefinition {
-  static rendererFactory = createLastPriceLabelLayer
-}
-
 /** 点虚线样式：1 个点 + 3 个间隔，圆头线帽让短划呈现为点。 */
 const LAST_PRICE_LINE_DASH = [1, 3]
 
@@ -102,7 +87,7 @@ const LAST_PRICE_LINE_DASH = [1, 3]
 export function createLastPriceLineLayer(): Layer<RenderContext> {
   return {
     kind: 'draw-list',
-    id: resolveIndicatorLayerId('lastPriceLine', 'main'),
+    id: makePluginLayerId('lastPriceLine'),
     role: 'overlay',
     pane: 'main',
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
@@ -143,17 +128,4 @@ export function createLastPriceLineLayer(): Layer<RenderContext> {
     },
     dispose() {},
   }
-}
-
-@Indicator({
-  name: 'lastPriceLine',
-  displayName: '最新价点虚线',
-  category: 'main',
-  defaultPaneId: 'main',
-  dataViews: [ChartDataViewId.KLine],
-  kind: IndicatorKind.System,
-  mainPane: {},
-})
-export class LastPriceLineIndicatorDefinition {
-  static rendererFactory = createLastPriceLineLayer
 }

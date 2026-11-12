@@ -3,7 +3,8 @@
  *
  * Acceptance criteria:
  *   1. Every theme key (color leaves including palette / scriptPalette families
- *      + spacing + typography + motion) maps to a CSS variable.
+ *      + spacing + typography) maps to a CSS variable. Motion is emitted only
+ *      by the v2 foundation.
  *   2. Variable names follow `--klc-{family}-{kebab-key}` exactly.
  *   3. Camel→kebab transform is correct on edge cases (single-letter,
  *      already-kebab, trailing digits).
@@ -16,6 +17,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { darkTheme, lightTheme, mergeTheme } from '..'
+import { lightFoundation } from '../foundation.js'
 import { camelToKebab, themeToCssVars, toCssDeclarationBlock } from '../themeToCssVars'
 
 describe('camelToKebab', () => {
@@ -50,8 +52,7 @@ describe('themeToCssVars — coverage', () => {
     const expectedCount =
       countColorLeaves(lightTheme.colors) +
       Object.keys(lightTheme.spacing).length +
-      Object.keys(lightTheme.typography).length +
-      Object.keys(lightTheme.motion).length
+      Object.keys(lightTheme.typography).length
     expect(Object.keys(vars)).toHaveLength(expectedCount)
   })
 
@@ -114,9 +115,11 @@ describe('themeToCssVars — naming', () => {
     )
   })
 
-  it('motion.durationFast → --klc-motion-duration-fast', () => {
-    const vars = themeToCssVars(lightTheme)
-    expect(vars['--klc-motion-duration-fast']).toBe(lightTheme.motion.durationFast)
+  it('motion is emitted only by the v2 foundation', () => {
+    expect(themeToCssVars(lightTheme)['--klc-motion-dur-fast']).toBeUndefined()
+    const vars = themeToCssVars({ ...lightTheme, foundation: lightFoundation })
+    expect(vars['--klc-motion-dur-fast']).toBe('160ms')
+    expect(vars['--klc-motion-ease-standard']).toBe('cubic-bezier(0.4, 0, 0.2, 1)')
   })
 })
 

@@ -68,12 +68,6 @@ function createFixture() {
   const drawingState = createDrawingState()
   const drawingDocument = new DrawingDocument({
     drawingState,
-    getLogicalIndexAtTimestamp: (timestamp) => {
-      const index = bars.findIndex((bar) => bar.timestamp === timestamp)
-      return index === -1 ? null : index
-    },
-    getDrawingTimestampAtLogicalIndex: (index) => bars[index]?.timestamp ?? null,
-    getDrawingData: () => bars,
     findAnchorAtTradingDate: (tradingDate) => {
       const bar = bars.find((item) => item.date === tradingDate)
       return bar === undefined
@@ -82,19 +76,23 @@ function createFixture() {
     },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
-    getPriceSpace: () => 'price',
+    getSymbolKey: () => undefined,
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })
   const panes = [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }]
   const paneActions = {
-    create: vi.fn(() => true),
-    update: vi.fn(() => true),
-    remove: vi.fn(() => true),
-    move: vi.fn(() => true),
-    replaceContent: vi.fn(() => true),
-    updateContent: vi.fn(() => true),
-    clear: vi.fn(),
+    add: vi.fn(() => 'new-instance'),
+    moveInstance: vi.fn(() => true),
+    removeInstance: vi.fn(() => true),
+    updateInstance: vi.fn(() => true),
+    updatePane: vi.fn(() => true),
+    removePane: vi.fn(() => true),
+    movePane: vi.fn(() => true),
+    clearPanes: vi.fn(),
+    importLayout: vi.fn(),
+    getLayoutSpecs: vi.fn(() => panes),
+    hasPane: vi.fn((paneId: string) => panes.some((pane) => pane.id === paneId)),
   }
 
   const currentSpec = createSignal<SymbolSpec | null>({
@@ -315,27 +313,6 @@ describe('createChartAgentController', () => {
 
     expect(snapshot.symbol).toBe('BTCUSDT')
     expect(snapshot.activeIndicators[0]?.params.period).toBe(14)
-  })
-
-  it('shows the perpetual display code with the .P suffix', () => {
-    const fixture = createFixture()
-
-    fixture.currentSpec.set({
-      symbol: 'BTCUSDT',
-      market: 'BINANCE_PERP',
-      instrument: {
-        id: 'fixture:perp:BTCUSDT',
-        sourceId: 'fixture',
-        symbol: 'BTCUSDT',
-        name: 'Bitcoin',
-        instrumentType: 'crypto',
-        exchange: 'BINANCE',
-        providerRef: { market: 'perp' },
-        capabilities: {},
-      },
-    })
-
-    expect(fixture.controller.getContext().symbol).toBe('BTCUSDT.P')
   })
 
   it('projects the server-provided K-line timezone', () => {
@@ -790,41 +767,50 @@ describe('createChartAgentController', () => {
     ).resolves.toBe(true)
     await tool('pane_update').execute(
       fixture.controller,
-      { paneId: 'rsi', patch: { ratio: 0.25 } },
+      { paneId: 'rsi-pane', patch: { ratio: 0.25 } },
       execution,
     )
     await tool('pane_move').execute(
       fixture.controller,
-      { paneId: 'rsi', targetIndex: 1 },
+      { paneId: 'rsi-pane', targetIndex: 1 },
       execution,
     )
     await tool('pane_replace_content').execute(
       fixture.controller,
-      { paneId: 'rsi', indicatorId: 'VOL', params: {} },
+      { paneId: 'rsi-pane', indicatorId: 'VOL', params: {} },
       execution,
     )
     await tool('pane_update_content').execute(
       fixture.controller,
-      { paneId: 'rsi', params: { fast: 6 } },
+      { paneId: 'rsi-pane', params: { fast: 6 } },
       execution,
     )
-    await tool('pane_remove').execute(fixture.controller, { paneId: 'rsi' }, execution)
+    await tool('pane_remove').execute(fixture.controller, { paneId: 'rsi-pane' }, execution)
     await tool('panes_clear').execute(fixture.controller, {}, execution)
 
     // 添加指标前只加载该指标自身的实现。
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(1, ['RSI'])
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(2, ['VOL'])
-    expect(fixture.paneActions.create).toHaveBeenCalledWith({
-      paneId: 'rsi',
-      indicatorId: 'rsi',
-      params: { period: 14 },
+    expect(fixture.paneActions.add).toHaveBeenCalledWith(
+      'rsi',
+      { period: 14 },
+      {
+        kind: 'newPane',
+        anchorPaneId: 'main',
+        placement: 'below',
+      },
+    )
+    expect(fixture.paneActions.updatePane).toHaveBeenCalledWith('rsi-pane', { ratio: 0.25 })
+    expect(fixture.paneActions.movePane).toHaveBeenCalledWith('rsi-pane', 1)
+    expect(fixture.paneActions.updateInstance).toHaveBeenCalledWith('rsi-1', {
+      indicatorId: 'volume',
+      params: {},
     })
-    expect(fixture.paneActions.update).toHaveBeenCalledWith('rsi', { ratio: 0.25 })
-    expect(fixture.paneActions.move).toHaveBeenCalledWith('rsi', 1)
-    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'volume', {})
-    expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
-    expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
-    expect(fixture.paneActions.clear).toHaveBeenCalledOnce()
+    expect(fixture.paneActions.updateInstance).toHaveBeenCalledWith('rsi-1', {
+      params: { fast: 6 },
+    })
+    expect(fixture.paneActions.removePane).toHaveBeenCalledWith('rsi-pane')
+    expect(fixture.paneActions.clearPanes).toHaveBeenCalledOnce()
   })
 
   it('rejects pane content without a valid sub-pane renderer before mutating state', async () => {
@@ -843,13 +829,13 @@ describe('createChartAgentController', () => {
     await expect(
       tool('pane_replace_content').execute(
         fixture.controller,
-        { paneId: 'rsi', indicatorId: 'EMPTY', params: {} },
+        { paneId: 'rsi-pane', indicatorId: 'EMPTY', params: {} },
         execution,
       ),
     ).resolves.toBe(false)
 
-    expect(fixture.paneActions.create).not.toHaveBeenCalled()
-    expect(fixture.paneActions.replaceContent).not.toHaveBeenCalled()
+    expect(fixture.paneActions.add).not.toHaveBeenCalled()
+    expect(fixture.paneActions.updateInstance).not.toHaveBeenCalled()
   })
 
   it('formats market query timestamps with the returned timezone', async () => {

@@ -1,0 +1,129 @@
+/* 脚本菜单自定义面板：状态、命名输入、二次确认与声明预览；面板底色和边框由 DropMenu 负责。 */
+.klc-script-menu-status {
+  padding: 8px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 20px;
+}
+
+.klc-script-menu-status.is-error {
+  color: var(--klc-color-ui-danger-text);
+}
+
+.script-menu__form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.klc-script-input {
+  box-sizing: border-box;
+  display: block;
+  width: min(220px, calc(100vw - 32px));
+  height: 28px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: var(--klc-radius-xs, 4px);
+  background: var(--klc-color-ui-surface);
+  color: var(--klc-color-ui-text);
+  font: inherit;
+  outline: none;
+}
+
+.script-menu__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  padding: 0 12px 10px;
+}
+
+.script-menu__confirm > .klc-script-menu-status {
+  padding-inline: 0;
+}
+
+.script-menu__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.script-menu__action {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: var(--klc-radius-xs, 4px);
+  background: transparent;
+  color: var(--klc-color-ui-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.script-menu__action:hover:not(:disabled) {
+  background: var(--klc-color-ui-hover);
+}
+
+.script-menu__action.is-danger {
+  border-color: var(--klc-color-ui-danger-border);
+  color: var(--klc-color-ui-danger-text);
+}
+
+.script-menu__action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.klc-script-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: min(640px, 80vw);
+  min-height: 36px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--klc-color-ui-border);
+}
+
+.klc-script-preview-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--klc-color-ui-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: var(--klc-text-12-font-size, 12px);
+}
+
+.klc-script-preview-close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--klc-radius-xs, 4px);
+  background: transparent;
+  color: var(--klc-color-ui-muted);
+  cursor: pointer;
+}
+
+.klc-script-preview-close:hover,
+.klc-script-preview-close:focus-visible {
+  background: var(--klc-color-ui-hover);
+  color: var(--klc-color-ui-text);
+}
+
+.klc-script-preview-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.klc-script-definition-preview {
+  width: min(640px, 80vw);
+  height: min(360px, 50dvh);
+}

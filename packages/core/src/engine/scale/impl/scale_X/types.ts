@@ -59,4 +59,6 @@ export interface ScaleXStrategy {
   project: (input: ScaleXInput) => ScaleXSnapshot
   zoomInput: (input: ScaleXInput, delta: number, kWidth: number) => ScaleXInput
   navigate: (snapshot: ScaleXSnapshot, requested: number) => number
+  /** 最新端位置；没有“最新端”语义的固定视图返回 null。 */
+  latest: (snapshot: ScaleXSnapshot) => number | null
 }

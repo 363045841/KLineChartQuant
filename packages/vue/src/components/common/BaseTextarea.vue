@@ -10,7 +10,11 @@
     ref="field"
     v-model="model"
     class="base-textarea"
-    :class="[`base-textarea--${size}`, { 'base-textarea--js-autosize': !nativeSizing }]"
+    :class="[
+      `base-textarea--${size}`,
+      `base-textarea--${variant}`,
+      { 'base-textarea--js-autosize': !nativeSizing },
+    ]"
     :rows="minRows"
     :style="sizeVars"
     @input="resize"
@@ -27,9 +31,11 @@
       minRows?: number
       /** 最多显示行数；超过后内部滚动。 */
       maxRows?: number
+      /** 外观变体：default 为四周描边，underline 只保留下边线。 */
+      variant?: 'default' | 'underline'
       size?: 'sm' | 'md'
     }>(),
-    { minRows: 2, maxRows: 8, size: 'md' },
+    { minRows: 2, maxRows: 8, variant: 'default', size: 'md' },
   )
 
   const model = defineModel<string>({ default: '' })
@@ -102,6 +108,21 @@
     padding-inline: var(--klc-space-8, 8px);
     font-size: var(--klc-text-12-font-size, 12px);
     line-height: var(--klc-text-12-line-height, 16px);
+  }
+
+  /* 下划线变体：嵌在设置卡片/连接表单里，只提亮底线，不画四周框。 */
+  .base-textarea--underline {
+    --base-textarea-border: 0;
+
+    padding-inline: var(--klc-space-2, 2px);
+    border-bottom: 1px solid var(--klc-color-ui-border);
+    border-radius: 0;
+    background: transparent;
+    transition: border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-out);
+  }
+
+  .base-textarea--underline:focus {
+    border-bottom-color: var(--klc-color-ui-border-strong);
   }
 
   .base-textarea::placeholder {

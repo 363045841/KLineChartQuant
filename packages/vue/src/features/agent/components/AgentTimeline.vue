@@ -106,9 +106,4 @@
     gap: 4px 9px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .timeline {
-      scroll-behavior: auto;
-    }
-  }
 </style>

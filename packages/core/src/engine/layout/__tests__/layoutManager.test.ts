@@ -1,12 +1,12 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
-import { beforeEach, expect, it } from 'vitest'
-import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
 import type { DrawingObject } from '../../drawing/types.js'
-import { registerIndicatorDescriptor } from '../../indicators/indicatorDefinitionRegistry.js'
-import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
+import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
+import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
@@ -21,16 +21,92 @@ beforeEach(async () => {
   })
 })
 
+afterEach(() => vi.useRealTimers())
+
 /** 以生产 Kernel 快照和恢复方法构造领域管理器。 */
-function createManager() {
+function createManager(restore = true, storageId?: string) {
   const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
-  const manager = new LayoutManager({
-    exportLayout: () => kernel.exportLayout(),
-    applyLayout: (document) => kernel.applyLayout(document),
-    createLayout: () => kernel.createLayout(),
-  })
+  const manager = new LayoutManager(
+    {
+      exportLayout: () => kernel.exportLayout(),
+      applyLayout: (document) => kernel.applyLayout(document),
+      createLayout: () => kernel.createLayout(),
+    },
+    { restore, storageId },
+  )
   return { kernel, manager }
 }
+
+it('独立标签归档并发自动保存，重新挂载恢复各自指标、参数、窗格与活动布局', async () => {
+  registerEmptyPlot('tab-layout-indicator')
+  const first = createManager(true, 'tab-a')
+  const second = createManager(true, 'tab-b')
+  await Promise.all([first.manager.initialize(), second.manager.initialize()])
+  const unsubscribe = [first, second].flatMap(({ kernel, manager }) => [
+    kernel.indicator.readonly.workspaces.subscribe(() => manager.scheduleAutoSave()),
+    kernel.pane.readonly.workspaces.subscribe(() => manager.scheduleAutoSave()),
+  ])
+  const firstId = first.kernel.paneManager.actions.add(
+    'tab-layout-indicator',
+    { period: 20 },
+    { kind: 'main' },
+  )!
+  const secondId = second.kernel.paneManager.actions.add('tab-layout-indicator', { period: 14 })!
+  first.kernel.paneManager.actions.moveInstance(firstId, {
+    kind: 'newPane',
+    anchorPaneId: MAIN_PANE_ID,
+    placement: 'below',
+  })
+  const firstPane = first.kernel.indicator.readonly.instances.peek()[0]!.paneId
+  first.kernel.paneManager.actions.add(
+    'tab-layout-indicator',
+    { period: 50 },
+    { kind: 'pane', paneId: firstPane },
+  )
+  second.kernel.paneManager.actions.updateInstance(secondId, {
+    hidden: true,
+    params: { period: 7 },
+  })
+  const firstSnapshot = first.kernel.exportLayout().workspaces
+  const secondSnapshot = second.kernel.exportLayout().workspaces
+  expect(first.manager.layoutAutoSave.peek()).toBe(true)
+  expect(second.manager.layoutAutoSave.peek()).toBe(true)
+  expect(first.manager.layoutDirty.peek()).toBe(true)
+  expect(second.manager.layoutDirty.peek()).toBe(true)
+  const namedId = await first.manager.saveLayout({ name: '标签 A 布局' })
+  for (const stop of unsubscribe) stop()
+  await Promise.all([first.manager.dispose(), second.manager.dispose()])
+  first.kernel.dispose()
+  second.kernel.dispose()
+
+  const restoredFirst = createManager(true, 'tab-a')
+  const restoredSecond = createManager(true, 'tab-b')
+  const defaultChart = createManager()
+  try {
+    await Promise.all([
+      restoredFirst.manager.initialize(),
+      restoredSecond.manager.initialize(),
+      defaultChart.manager.initialize(),
+    ])
+    expect(restoredFirst.kernel.exportLayout().workspaces).toEqual(firstSnapshot)
+    expect(restoredSecond.kernel.exportLayout().workspaces).toEqual(secondSnapshot)
+    expect(restoredFirst.manager.activeLayoutId.peek()).toBe(namedId)
+    expect(restoredSecond.manager.activeLayoutId.peek()).toBe('default')
+    expect(restoredSecond.manager.layouts.peek().map((layout) => layout.name)).not.toContain(
+      '标签 A 布局',
+    )
+    expect(defaultChart.kernel.indicator.readonly.instances.peek()).toEqual([])
+  } finally {
+    await Promise.all([
+      restoredFirst.manager.dispose(),
+      restoredSecond.manager.dispose(),
+      defaultChart.manager.dispose(),
+    ])
+    restoredFirst.kernel.dispose()
+    restoredSecond.kernel.dispose()
+    defaultChart.kernel.dispose()
+  }
+})
 
 it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
   const source = createManager()
@@ -108,14 +184,19 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
-  registerIndicatorDescriptor({
-    name: 'layout-test',
-    displayName: 'Layout test',
-    kind: IndicatorKind.Indicator,
-    category: 'main',
-    defaultPaneId: 'main',
-  })
-  const definition = allIndicatorDefinitions()[0]
+  registerIndicators([
+    {
+      kind: 'descriptor',
+      candidate: { key: 'layout-test', origin: 'third-party', identity: 'native' },
+      descriptor: {
+        name: 'layout-test',
+        displayName: 'Layout test',
+        category: 'main',
+        defaultPaneId: 'main',
+      },
+    },
+  ])
+  const definition = indicatorCatalog()[0]
   if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
   await first.manager.initialize()
@@ -507,13 +588,14 @@ it('高频视口变化合并为静止后的一次比较，销毁前补齐待检�
   })
   await manager.initialize()
   const id = await manager.saveLayout({ name: '视口' })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
   exports = 0
   kernel.settings.actions.patch({ theme: 'dark' })
   for (let frame = 0; frame < 60; frame++) manager.scheduleCoalescedAutoSave()
   // 逐帧通知不导出布局，静止后只比较一次。
   expect(exports).toBe(0)
   expect(manager.layoutDirty.peek()).toBe(false)
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  await vi.advanceTimersByTimeAsync(300)
   expect(exports).toBe(1)
   expect(manager.layoutDirty.peek()).toBe(true)
   await manager.saveLayout({ id, name: '视口' })
@@ -532,5 +614,27 @@ it('高频视口变化合并为静止后的一次比较，销毁前补齐待检�
   } finally {
     await restored.manager.dispose()
     restored.kernel.dispose()
+  }
+})
+
+it.each([true, false])('restore: %s 控制启动恢复，手动切换始终生效', async (restore) => {
+  const source = createManager()
+  source.kernel.settings.actions.patch({ theme: 'dark' })
+  const savedId = await source.manager.saveLayout({ name: 'saved' })
+  await source.manager.dispose()
+  source.kernel.dispose()
+
+  const target = createManager(restore)
+  try {
+    await target.manager.initialize()
+    expect(target.kernel.settings.readonly.settings.peek().theme).toBe(restore ? 'dark' : 'light')
+    expect(target.manager.activeLayoutId.peek()).toBe(savedId)
+
+    target.kernel.settings.actions.patch({ theme: 'light' })
+    await target.manager.switchLayout({ id: savedId })
+    expect(target.kernel.settings.readonly.settings.peek().theme).toBe('dark')
+  } finally {
+    await target.manager.dispose()
+    target.kernel.dispose()
   }
 })

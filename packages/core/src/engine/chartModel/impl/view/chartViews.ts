@@ -22,8 +22,8 @@ export interface ChartViewDefinition {
   readonly requiresMarketSession: boolean
   /** 视图横向交互能力。 */
   readonly capabilities: Readonly<ViewCapabilities>
-  /** 该视图在主图中必须激活的系统渲染实例。 */
-  readonly mainInstances: ReadonlyArray<MainInstanceDefinition>
+  /** 视图拥有的基础绘制图层，不进入指标定义或实例集合。 */
+  readonly systemLayers: ReadonlyArray<string>
 }
 
 /**
@@ -57,13 +57,6 @@ export interface ViewCapabilities {
   readonly allowRightAxisScale: boolean
 }
 
-/** mode 源主图实例声明；只想让图表定义实例 id 和渲染层，不关心参数细节。 */
-export interface MainInstanceDefinition {
-  readonly instanceId: string
-  readonly indicatorId: string
-  readonly params?: Readonly<Record<string, unknown>>
-}
-
 const BAR_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
   allowPan: true,
   allowZoom: true,
@@ -83,15 +76,11 @@ const SESSION_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
   allowRightAxisScale: false,
 })
 
-/** 主图实例统一挂在 main pane 且序号一致，实例明细由视图声明。 */
-const mainInstance = (instanceId: string, indicatorId: string): Readonly<MainInstanceDefinition> =>
-  Object.freeze({ instanceId, indicatorId })
-
-const KLINE_MAIN_INSTANCES = Object.freeze([
-  mainInstance('mode:candle', 'candle'),
-  mainInstance('mode:extrema-markers', 'extremaMarkers'),
-  mainInstance('mode:last-price-line', 'lastPriceLine'),
-  mainInstance('mode:last-price-label', 'lastPriceLabelRegistrar'),
+const KLINE_SYSTEM_LAYERS = Object.freeze([
+  'candle',
+  'extremaMarkers',
+  'lastPriceLine',
+  'lastPriceLabelRegistrar',
 ])
 
 /** 每个图表视图的唯一声明，渲染器/能力/市场 session/系统实例均由此派生。 */
@@ -101,19 +90,19 @@ export const CHART_VIEW_DEFINITIONS: Readonly<Record<ChartDataView, ChartViewDef
       primaryRenderer: 'candlestick',
       requiresMarketSession: false,
       capabilities: BAR_CAPABILITIES,
-      mainInstances: KLINE_MAIN_INSTANCES,
+      systemLayers: KLINE_SYSTEM_LAYERS,
     }),
     [ChartDataViewId.TimeShare]: Object.freeze({
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: FIXED_CAPABILITIES,
-      mainInstances: Object.freeze([mainInstance('mode:timeshare', 'timeShare')]),
+      systemLayers: Object.freeze(['timeShare']),
     }),
     [ChartDataViewId.FiveDayTimeShare]: Object.freeze({
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: SESSION_CAPABILITIES,
-      mainInstances: Object.freeze([mainInstance('mode:five-day-timeshare', 'fiveDayTimeShare')]),
+      systemLayers: Object.freeze(['fiveDayTimeShare']),
     }),
   })
 

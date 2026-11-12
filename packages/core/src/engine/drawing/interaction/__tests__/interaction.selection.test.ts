@@ -203,7 +203,6 @@ describe('DrawingInteractionController selection', () => {
         pane: { paneId: 'main', top: 0, height: 100, scaleType: ScaleType.Linear },
         plotWidth: 100,
         plotHeight: 100,
-        logicalIndex: 0,
         session: { freezeHoverTarget: freeze, unfreezeHoverTarget: unfreeze },
       },
       [drawing],

@@ -116,7 +116,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     if (disposed) return
     // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
-    // 可见 GPU 表面按 pane 累积；同一表面按裁切区分批次，帧末一次直出。
+    // 可见 GPU 表面按 pane 累积；仅合并裁切、DPR 和数据变换相同的相邻提交。
     const surfaces = new Map<PrimitiveSurface, SurfaceBatch[]>()
     let paneText: import('../primitives/types.js').TextPaintPrimitive[] = []
     let tileText = false
@@ -136,7 +136,11 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
       clip: PrimitiveClip | undefined,
     ): void => {
       let batches = surfaces.get(surface)
-      let entry = batches?.find((batch) => batch.clip === clip)
+      const previous = batches?.at(-1)
+      let entry =
+        previous?.clip === clip && previous?.dpr === dpr && previous?.transform === transform
+          ? previous
+          : undefined
       const text: import('../primitives/types.js').TextPaintPrimitive[] = []
       for (const primitive of primitives) {
         if (primitive.kind === 'text') {
@@ -148,11 +152,9 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           surfaces.set(surface, batches)
         }
         if (!entry) {
-          entry = { primitives: [], dpr, clip }
+          entry = { primitives: [], dpr, clip, transform }
           batches.push(entry)
         }
-        entry.dpr = dpr
-        entry.transform = transform
         entry.primitives.push(primitive)
       }
       if (tileText) paneText.push(...text)

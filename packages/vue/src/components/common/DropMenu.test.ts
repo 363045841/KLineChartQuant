@@ -152,4 +152,52 @@ describe('DropMenu', () => {
     expect(document.activeElement).toBe(items[0])
     wrapper.unmount()
   })
+  it('多个分组按分隔线排列，快捷键在右侧展示', async () => {
+    const grouped = [
+      { id: 'a', label: '', items: [{ id: '1', label: 'One', shortcut: 'Alt+R' }] },
+      { id: 'b', label: '', items: [{ id: '2', label: 'Two' }] },
+    ]
+    const wrapper = mount(DropMenu, {
+      attachTo: document.body,
+      props: { label: '菜单', groups: grouped },
+    })
+    ;(wrapper.get('button').element as HTMLButtonElement).click()
+    await flush()
+    expect(document.querySelectorAll('.drop-menu__group')).toHaveLength(2)
+    expect(document.querySelector('.drop-menu__shortcut')?.textContent).toBe('Alt+R')
+    wrapper.unmount()
+  })
+})
+
+describe('DropMenu 坐标模式（右键菜单）', () => {
+  const groups = [
+    {
+      id: 'chart',
+      label: '',
+      items: [
+        { id: 'view.reset', label: '重置图表' },
+        { id: 'copy-price', label: '复制价格' },
+      ],
+    },
+  ]
+
+  it('不渲染触发器，openAt 打开后不聚焦菜单项，选择后发出 select', async () => {
+    const wrapper = mount(DropMenu, {
+      attachTo: document.body,
+      props: { label: '图表菜单', groups, context: true },
+    })
+    expect(wrapper.find('.control-button').exists()).toBe(false)
+    ;(wrapper.vm as unknown as { openAt: (x: number, y: number) => void }).openAt(24, 36)
+    await flush()
+    const menu = document.querySelector('[role="menu"]') as HTMLElement
+    expect(menu.getAttribute('aria-label')).toBe('图表菜单')
+    const items = optionEls()
+    // 打开时不把焦点移入菜单项，避免首项常驻 hover 高亮；只预置 roving tabindex。
+    expect(document.activeElement).not.toBe(items[0])
+    expect(items[0]?.tabIndex).toBe(0)
+    items[1]?.click()
+    await flush()
+    expect(wrapper.emitted('select')?.[0]).toEqual(['chart', 'copy-price'])
+    wrapper.unmount()
+  })
 })

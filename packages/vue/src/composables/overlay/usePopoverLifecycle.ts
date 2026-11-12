@@ -103,13 +103,9 @@ export function usePopoverLifecycle(
     : fallbackDriver(callbacks, (restoreFocus) => hide({ restoreFocus }))
 
   function show(): void {
-    if (
-      disposed ||
-      open.value ||
-      toValue(options.disabled) ||
-      !options.panel.value ||
-      !options.trigger.value
-    )
+    // 坐标模式没有触发器，只要面板和原点都在就可以打开。
+    const anchored = options.trigger.value !== null || toValue(options.origin) !== null
+    if (disposed || open.value || toValue(options.disabled) || !options.panel.value || !anchored)
       return
     driver.show()
   }
@@ -120,7 +116,9 @@ export function usePopoverLifecycle(
     const shouldRestore =
       restoreFocus ?? panel?.contains(panel.ownerDocument.activeElement) ?? false
     driver.hide()
-    if (shouldRestore && !disposed) options.trigger.value?.focus()
+    if (!shouldRestore || disposed) return
+    const target = options.trigger.value ?? options.restoreFocusTo?.() ?? null
+    target?.focus()
   }
 
   function toggle(): void {

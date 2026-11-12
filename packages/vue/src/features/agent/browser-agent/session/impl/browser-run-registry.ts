@@ -1,4 +1,6 @@
 // 本文件仅保存浏览器当前运行计数与等待用户回答的提问，历史由 pi-durable 管理。
+import { generateUUID } from '@363045841yyt/klinechart-core'
+
 import type { PendingQuestion } from '../types.js'
 
 export class BrowserRunRegistry {
@@ -18,7 +20,7 @@ export class BrowserRunRegistry {
   }
   /** 生成跨刷新不重复的提问 ID。 */
   nextQuestionId(): string {
-    return globalThis.crypto.randomUUID()
+    return generateUUID()
   }
   /** 保存挂起中的提问。 */
   addQuestion(id: string, question: PendingQuestion): void {

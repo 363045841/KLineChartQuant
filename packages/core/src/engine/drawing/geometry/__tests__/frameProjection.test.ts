@@ -1,6 +1,10 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
-import { createKLineData, createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
+import {
+  createKLineData,
+  createMockRenderContext,
+  type MockRenderContextOverrides,
+} from '@/engine/__tests__/helpers/renderTestKit'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -17,11 +21,11 @@ import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
-import { projectDrawingsForFrame } from '../impl/frameProjection'
+import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
-function createContext(): RenderContext {
-  const context = createMockRenderContext({
+function createContext(overrides: MockRenderContextOverrides = {}): RenderContext {
+  return createMockRenderContext({
     data: [
       { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
       { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
@@ -35,17 +39,8 @@ function createContext(): RenderContext {
     kLineCenters: [10, 30],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
     pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
+    ...overrides,
   })
-  // 部分用例会替换 context.data，因此按调用时的数据重新解析时间戳；
-  // 命中多个同名时间戳时返回 null，避免把锚点解析到任意一根 Bar。
-  context.getLogicalIndexAtTimestamp = (timestamp) => {
-    const matches = context.data.reduce<number[]>((indices, item, index) => {
-      if (item.timestamp === timestamp) indices.push(index)
-      return indices
-    }, [])
-    return matches.length === 1 ? matches[0]! : null
-  }
-  return context
 }
 
 /** 基准趋势线图元，只声明用例关心的差异。 */
@@ -106,18 +101,115 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
-describe('projectDrawingsForFrame', () => {
-  it('projects profile reference lines inside the final five-minute candle without a future calendar', () => {
-    const start = Date.UTC(2026, 0, 5)
-    const context = createContext()
-    context.data = [
-      { timestamp: start, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: start + 300_000, open: 1, high: 2, low: 0, close: 1 },
+describe('会话预览的标的可见性', () => {
+  it.each([undefined, 'active-symbol'])('当前标的 %s 下预览保留连线和端点', (symbolKey) => {
+    const preview = createTrendDrawing({ id: PREVIEW_ID })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+      getOverlay: () => [preview],
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createContext({ symbolKey }),
+      null,
+      'session',
+    )
+
+    expect(linePrimitives(projection.primitives)).toHaveLength(1)
+    expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
+  })
+
+  it('正式图元和已绑定其他标的的预览仍按标的过滤', () => {
+    for (const drawing of [
+      createTrendDrawing(),
+      createTrendDrawing({ symbolKey: 'other-symbol' }),
+      createTrendDrawing({ id: PREVIEW_ID, symbolKey: 'other-symbol' }),
+    ]) {
+      expect(
+        projectSingleDrawing(drawing, false, createContext({ symbolKey: 'active-symbol' }))
+          .primitives,
+      ).toEqual([])
+    }
+  })
+})
+
+describe('computeDrawingPriceRange', () => {
+  it('滚动后只汇总当前可见图元，隐藏和非法坐标不污染极值', () => {
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const drawings = [0, 6].map((index) =>
+      createTrendDrawing({
+        id: `range-${index}`,
+        anchors: [
+          { id: 'a', logicalIndex: index, price: index + 10 },
+          { id: 'b', logicalIndex: index + 1, price: index + 20 },
+        ],
+      }),
+    )
+    const ignored = [
+      createTrendDrawing({ visible: false }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: 0, price: Number.NaN }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', logicalIndex: Number.NaN, price: 1000 }] }),
+      createTrendDrawing({ anchors: [{ id: 'a', time: -1000, price: 1000 }] }),
     ]
-    // 没有未来交易日历：真实bar时间以外的端点不能解析。
-    context.getTimestampAtLogicalIndex = (index) => context.data[index]?.timestamp ?? null
-    context.period = '5min'
-    context.marketSession = { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] }
+    const context = createRangeContext({ start: 0, end: 3 })
+
+    expect(computeDrawingPriceRange([...drawings, ...ignored], definitions, context)).toEqual({
+      min: 10,
+      max: 20,
+    })
+    expect(
+      computeDrawingPriceRange(
+        [...drawings, ...ignored],
+        definitions,
+        createRangeContext({ start: 6, end: 9 }),
+      ),
+    ).toEqual({ min: 16, max: 26 })
+    expect(
+      computeDrawingPriceRange(drawings, definitions, createRangeContext({ start: 3, end: 3 })),
+    ).toBeNull()
+  })
+})
+
+describe('projectDrawingsForFrame', () => {
+  it.each(['none', 'right', 'left', 'both'] as const)(
+    'uses the same time anchors and %s extension for drawing and price range',
+    (extend) => {
+      const context = createRangeContext({ start: 5, end: 8 })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const first = context.data[0]!.timestamp
+      const second = context.data[1]!.timestamp
+      const drawing = createTrendDrawing({
+        xloc: 'bar_time',
+        extend,
+        anchors: [
+          { id: 'a', time: first, price: 100 },
+          { id: 'b', time: first + (second - first) / 2, price: 200 },
+        ],
+      })
+      const range = computeDrawingPriceRange([drawing], definitions, context)
+      const projection = projectSingleDrawing(drawing, false, context)
+      const visible = extend === 'right' || extend === 'both'
+      expect(range).toEqual(visible ? { min: 100, max: 200 } : null)
+      expect(projection.primitives.length > 0).toBe(visible)
+    },
+  )
+
+  it('projects profile reference lines beyond the last candle through the shared cadence', () => {
+    const start = Date.UTC(2026, 0, 5)
+    const context = createContext({
+      data: [
+        { timestamp: start, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: start + 300_000, open: 1, high: 2, low: 0, close: 1 },
+      ],
+      period: '5min',
+      marketSession: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] },
+    })
     const bar = createDrawingObject({
       id: 'profile',
       kind: 'rectangle',
@@ -138,16 +230,17 @@ describe('projectDrawingsForFrame', () => {
       ],
     })
     expect(linePrimitives(projectSingleDrawing(line, false, context).primitives)).toHaveLength(1)
-    const beyondClose = createTrendDrawing({
+    // 末根之后的端点按常规槽距外推，不再依赖交易日历补齐未来开盘。
+    const beyondLast = createTrendDrawing({
       xloc: 'bar_time',
       anchors: [
         { id: 'a', time: start, price: 15 },
         { id: 'b', time: start + 660_000, price: 15 },
       ],
     })
-    expect(projectSingleDrawing(beyondClose, false, context).primitives).toEqual([])
-    context.getTimestampAtLogicalIndex = (index) => start + index * 300_000
-    expect(linePrimitives(projectSingleDrawing(line, false, context).primitives)).toHaveLength(1)
+    expect(
+      linePrimitives(projectSingleDrawing(beyondLast, false, context).primitives),
+    ).toHaveLength(1)
   })
 
   it('projects timestamp positions between bars through the shared continuous X axis', () => {
@@ -220,22 +313,7 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.primitives).not.toEqual([])
     expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
-    expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(2)
     expect(context.yAxisRanges).toHaveLength(0)
-  })
-
-  it('registers selected drawing axis labels through the frame collector on the context', () => {
-    const drawing = createTrendDrawing()
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-
-    projectDrawingsForFrame(store, definitions, context)
-
     expect(
       context.axisLabels
         .forSurface('yRightOverlay', 'main')
@@ -403,15 +481,16 @@ describe('projectDrawingsForFrame', () => {
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {
     // 创建时的 index 为 0/1；前方插入两根旧 K 线后它们应变为 2/3。
     const drawing = createTrendDrawing()
-    const context = createContext()
-    context.data = [
-      { timestamp: -1_000, open: 0, high: 1, low: -1, close: 0 },
-      { timestamp: 0, open: 0, high: 1, low: -1, close: 0 },
-      { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
-    ]
-    context.range = { start: 2, end: 4 }
-    context.kLineCenters = [10, 30]
+    const context = createContext({
+      data: [
+        { timestamp: -1_000, open: 0, high: 1, low: -1, close: 0 },
+        { timestamp: 0, open: 0, high: 1, low: -1, close: 0 },
+        { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
+      ],
+      range: { start: 2, end: 4 },
+      kLineCenters: [10, 30],
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
@@ -431,23 +510,6 @@ describe('projectDrawingsForFrame', () => {
     ])
   })
 
-  it('does not resolve an ambiguous timestamp to an arbitrary bar', () => {
-    const drawing = createTrendDrawing()
-    const context = createContext()
-    context.getLogicalIndexAtTimestamp = (timestamp) => (timestamp === 1_000 ? null : 1)
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-
-    const projection = projectDrawingsForFrame(store, definitions, context)
-
-    expect(projection.primitives).toEqual([])
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([])
-  })
-
   it('keeps the line geometry when an endpoint is after the visible range without registering it', () => {
     const drawing = createTrendDrawing({
       anchors: [
@@ -455,14 +517,15 @@ describe('projectDrawingsForFrame', () => {
         { id: 'b', time: 3_000, price: 20 },
       ],
     })
-    const context = createContext()
-    context.data = [
-      { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
-      { timestamp: 3_000, open: 3, high: 4, low: 2, close: 3 },
-    ]
-    context.paneWidth = 40
-    context.viewport = { scrollLeft: 0, plotWidth: 40, plotHeight: 100 }
+    const context = createContext({
+      data: [
+        { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
+        { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
+        { timestamp: 3_000, open: 3, high: 4, low: 2, close: 3 },
+      ],
+      paneWidth: 40,
+      viewport: { scrollLeft: 0, plotWidth: 40, plotHeight: 100 },
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
@@ -483,34 +546,11 @@ describe('projectDrawingsForFrame', () => {
     ).toEqual([10])
   })
 
-  it('projects a future-slot anchor from its creation-time base bar', () => {
-    const drawing = createTrendDrawing({
-      id: 'future-trend',
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 1_000, futureOffset: 2, price: 20 },
-      ],
-    })
-    const store = new DrawingStore({
-      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
-      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['future-trend']),
-    })
-    const definitions = new DrawingDefinitionRegistry()
-    registerDefaultDrawingDefinitions(definitions)
-
-    const projection = projectDrawingsForFrame(store, definitions, createContext())
-
-    expect(projection.primitives.find((primitive) => primitive.kind === 'line')).toMatchObject({
-      a: { x: 10 },
-      b: { x: 50 },
-    })
-  })
-
-  it('选中绘图的未来锚点无日历显示 T+X，日历到达及真实 bar 到达后显示对应日期', () => {
+  it('未来锚点按常规槽距投影，不依赖交易日历', () => {
     const drawing = createTrendDrawing({
       anchors: [
         { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, futureOffset: 2, price: 20 },
+        { id: 'b', time: 4_000, price: 20 },
       ],
     })
     const store = new DrawingStore({
@@ -519,36 +559,51 @@ describe('projectDrawingsForFrame', () => {
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    const context = createContext()
-    context.range = { start: 0, end: 5 }
-    context.kLineCenters = [10, 30, 50, 70, 90]
-    projectDrawingsForFrame(store, definitions, context)
-    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.text)).toEqual([
-      context.displayTimeFormatter.formatDate(1_000),
-      'T+2',
-    ])
-
-    const calendar = createContext()
-    calendar.range = { start: 0, end: 5 }
-    calendar.kLineCenters = [10, 30, 50, 70, 90]
-    const futureTimestamp = Date.UTC(2026, 1, 24)
-    calendar.getTimestampAtLogicalIndex = (index) => (index === 3 ? futureTimestamp : null)
-    projectDrawingsForFrame(store, definitions, calendar)
-    expect(calendar.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
-      calendar.displayTimeFormatter.formatDate(futureTimestamp),
+    const context = createContext({
+      range: { start: 0, end: 5 },
+      kLineCenters: [10, 30, 50, 70, 90],
+    })
+    const projection = projectDrawingsForFrame(store, definitions, context)
+    expect(linePrimitives(projection.primitives)).toHaveLength(1)
+    // 用户锚点吸附槽位：两根 K 线的常规槽距为 1000ms，4000ms 落在第 3 槽位。
+    expect(linePrimitives(projection.primitives)[0]).toMatchObject({ a: { x: 10 }, b: { x: 70 } })
+    expect(context.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
+      context.displayTimeFormatter.formatDate(4000),
     )
+    expect(drawing.anchors[1]?.time).toBe(4000)
+  })
 
-    const filled = createContext()
-    filled.data = [
-      ...filled.data,
-      { timestamp: 3_000, open: 1, high: 2, low: 0, close: 1 },
-      { timestamp: 4_000, open: 1, high: 2, low: 0, close: 1 },
-    ]
-    filled.range = { start: 0, end: 5 }
-    filled.kLineCenters = [10, 30, 50, 70, 90]
-    projectDrawingsForFrame(store, definitions, filled)
-    expect(filled.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
-      filled.displayTimeFormatter.formatDate(4_000),
+  it('intraday anchor time tags include the clock time', () => {
+    const start = Date.UTC(2026, 0, 5, 1, 35)
+    const drawing = createTrendDrawing({
+      anchors: [
+        { id: 'a', time: start, price: 10 },
+        { id: 'b', time: start + 5 * 60_000, price: 20 },
+      ],
+    })
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    const context = createContext({
+      data: Array.from({ length: 4 }, (_, index) => ({
+        timestamp: start + index * 5 * 60_000,
+        open: 1,
+        high: 2,
+        low: 0,
+        close: 1,
+      })),
+      range: { start: 0, end: 4 },
+      period: '5min',
+      kLineCenters: [10, 30, 50, 70],
+    })
+
+    projectDrawingsForFrame(store, definitions, context)
+
+    expect(context.axisLabels.forSurface('xLabels').labels[0]?.text).toBe(
+      context.displayTimeFormatter.formatDateTime(start),
     )
   })
 

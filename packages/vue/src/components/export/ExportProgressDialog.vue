@@ -68,7 +68,7 @@
     height: 100%;
     background: var(--klc-color-foreground);
     border-radius: 999px;
-    transition: width 0.25s ease;
+    transition: width var(--klc-motion-dur-slow) var(--klc-motion-ease-standard);
   }
 
   .export-counter {

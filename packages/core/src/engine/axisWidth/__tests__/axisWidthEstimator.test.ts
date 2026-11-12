@@ -37,26 +37,72 @@ describe('AxisWidthEstimator', () => {
     })
     const full = estimator.estimate({
       labels,
-      paneIds: ['main', 'sub'],
+      axes: [
+        { axisId: 'main', paneId: 'main' },
+        { axisId: 'sub', paneId: 'sub' },
+      ],
       updateStatic: true,
       updateOverlay: true,
     })
     expect(full.right).toBeGreaterThan(full.left)
     const overlay = estimator.estimate({
       labels: createAxisLabelsFrame(),
-      paneIds: ['main', 'sub'],
+      axes: [
+        { axisId: 'main', paneId: 'main' },
+        { axisId: 'sub', paneId: 'sub' },
+      ],
       updateStatic: false,
       updateOverlay: true,
     })
     expect(overlay).toEqual(full)
     const removed = estimator.estimate({
       labels,
-      paneIds: ['main'],
+      axes: [{ axisId: 'main', paneId: 'main' }],
       updateStatic: true,
       updateOverlay: true,
     })
     expect(removed.right).toBeLessThan(full.right)
     expect(removed.left).toBe(full.left)
+  })
+
+  it('副图双轴只累计自己的列宽，不把主图和其他副图的轴重复预留', () => {
+    const estimator = new AxisWidthEstimator()
+    const labels = createAxisLabelsFrame()
+    const axes = [
+      { axisId: 'main', paneId: 'main', text: '77792.00' },
+      { axisId: 'sub', paneId: 'sub', text: '96.09' },
+      { axisId: 'instance:second', paneId: 'sub', text: '123034.16' },
+      { axisId: 'other', paneId: 'other', text: '100.00' },
+    ]
+    for (const axis of axes) {
+      labels.forSurface('yRightStatic', axis.axisId).register({
+        kind: AXIS_LABEL_KIND.TICK,
+        text: axis.text,
+        pos: 0,
+        color: '',
+      })
+    }
+    const full = estimator.estimate({ labels, axes, updateStatic: true, updateOverlay: true })
+    const columns = full.rightByAxis
+    const subWidth = columns.sub! + columns['instance:second']!
+    expect(full.right).toBe(subWidth)
+    expect(full.right).toBe(Math.max(columns.main!, subWidth, columns.other!))
+    const layout = estimator.getLayout(['sub', 'instance:second'])
+    expect(layout.sub).toEqual({ left: 0, width: columns.sub })
+    expect(layout['instance:second']).toEqual({
+      left: columns.sub,
+      width: columns['instance:second'],
+    })
+    expect(layout['instance:second']!.left + layout['instance:second']!.width).toBe(full.right)
+
+    const removed = estimator.estimate({
+      labels,
+      axes: axes.filter((axis) => axis.axisId !== 'instance:second'),
+      updateStatic: true,
+      updateOverlay: true,
+    })
+    expect(removed.right).toBe(Math.max(columns.main!, columns.sub!, columns.other!))
+    expect(removed.right).toBeLessThan(full.right)
   })
 
   it('格式、字号与倒计时变化会改变估算宽度', () => {
@@ -74,7 +120,7 @@ describe('AxisWidthEstimator', () => {
       })
       return estimator.estimate({
         labels,
-        paneIds: ['main'],
+        axes: [{ axisId: 'main', paneId: 'main' }],
         updateStatic: true,
         updateOverlay: true,
       }).right

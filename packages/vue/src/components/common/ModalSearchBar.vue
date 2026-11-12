@@ -8,6 +8,7 @@
   <div class="modal-search-bar" :class="{ 'modal-search-bar--no-top': !topBorder }">
     <SearchField
       ref="field"
+      class="modal-search-bar__field"
       :model-value="modelValue"
       :placeholder="placeholder"
       :aria-label="ariaLabel"
@@ -69,12 +70,18 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     min-height: 42px;
-    padding-inline-end: var(--klc-space-12, 12px);
+    padding-inline-end: var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border-top: 1px solid var(--klc-color-ui-border);
     border-bottom: 1px solid var(--klc-color-ui-border);
     background: var(--klc-color-ui-surface);
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
+  }
+
+  /* 搜索框铺满整行，尾部动作按钮保持自身宽度。 */
+  .modal-search-bar__field {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* 搜索框聚焦时只提亮已有上下边线；不画框、不加外发光。 */

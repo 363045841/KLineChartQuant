@@ -4,10 +4,8 @@
     <BaseModal
       :open="menuOpen"
       :title="modalTitle"
-      width="min(640px, calc(100vw - 32px))"
-      max-height="min(560px, 75dvh)"
-      overlay-padding="var(--klc-space-16, 16px)"
-      body-padding="0"
+      size="lg"
+      body-flush
       :body-scrollable="false"
       @update:open="!$event && closeMenu()"
     >
@@ -29,7 +27,7 @@
         <nav class="selector-nav" aria-label="指标分类">
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.favorites }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.favorites ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.favorites"
@@ -38,7 +36,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.indicators }"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.indicators ? 'page' : undefined"
             @click="section = INDICATOR_SELECTOR_SECTIONS.indicators"
@@ -47,7 +45,7 @@
           </button>
           <button
             type="button"
-            class="selector-nav-item"
+            class="selector-nav-item modal-list-row"
             :class="{ selected: section === INDICATOR_SELECTOR_SECTIONS.scripts }"
             v-if="scriptsEnabled !== false"
             :aria-current="section === INDICATOR_SELECTOR_SECTIONS.scripts ? 'page' : undefined"
@@ -56,13 +54,13 @@
             <IconTablerMathFunction aria-hidden="true" />用户自定义脚本
           </button>
         </nav>
-        <p v-if="removalError" role="alert">{{ removalError }}</p>
-        <OverlayScrollArea class="selector-results">
+        <p v-if="removalError" class="selector-error modal-list-item" role="alert">{{ removalError }}</p>
+        <ModalScrollArea>
           <div class="indicator-list" role="list" aria-label="指标列表">
             <div
               v-for="indicator in filteredIndicators"
               :key="indicator.id"
-              class="indicator-item"
+              class="indicator-item modal-list-row"
               role="listitem"
             >
               <button
@@ -85,89 +83,78 @@
                       trigger="hover"
                     >
                       <template #trigger="{ props: triggerProps }">
-                        <button
-                          type="button"
+                        <BaseIconButton
+                          size="xs"
                           class="item-info-btn"
-                          :aria-label="`查看指标说明：${indicator.name}`"
+                          :label="`查看指标说明：${indicator.name}`"
                           v-bind="triggerProps"
                         >
                           <IconTablerInfoCircle aria-hidden="true" />
-                        </button>
+                        </BaseIconButton>
                       </template>
                       <p class="indicator-description__title">{{ indicator.name }}</p>
                       <p class="indicator-description">{{ indicator.description }}</p>
                     </BasePopover>
                   </span>
                   <span class="item-tags">
-                    <span class="type-badge">{{ indicator.role === 'main' ? '主图' : '副图' }}</span>
+                    <BaseChip size="sm">{{ indicator.role === 'main' ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
               <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
               <BaseTooltip v-if="scriptsEnabled !== false" content="编辑脚本" placement="top">
-                <button
-                  type="button"
+                <BaseIconButton
                   class="item-action-btn"
+                  :label="`编辑脚本：${indicator.name}`"
                   :disabled="indicator.source !== 'script'"
-                  :aria-label="`编辑脚本：${indicator.name}`"
                   @click="editScript(indicator.id)"
                 >
                   <IconTablerCode aria-hidden="true" />
-                </button>
+                </BaseIconButton>
               </BaseTooltip>
               <BaseTooltip v-if="indicator.source === 'script' && canRemove(indicator.id)" content="删除脚本" placement="top">
-                <button
-                  type="button"
+                <BaseIconButton
                   class="item-action-btn"
-                  :aria-label="`删除脚本：${indicator.name}`"
+                  tone="danger"
+                  :label="`删除脚本：${indicator.name}`"
                   :disabled="removing !== null"
                   @click="removeScript(indicator.id)"
                 >
                   <IconTablerTrash aria-hidden="true" />
-                </button>
+                </BaseIconButton>
               </BaseTooltip>
               <BaseTooltip content="编辑参数" placement="top">
-                <button
-                  type="button"
+                <BaseIconButton
                   class="item-action-btn"
+                  :label="`编辑参数：${indicator.name}`"
                   :disabled="!indicator.params?.length"
-                  :aria-label="`编辑参数：${indicator.name}`"
                   @click="showParams(indicator.id)"
                 >
                   <IconTablerSettings aria-hidden="true" />
-                </button>
+                </BaseIconButton>
               </BaseTooltip>
-              <button
-                type="button"
+              <BaseIconButton
                 class="item-favorite-btn"
-                :aria-label="`${favoriteSet.has(indicator.id) ? '取消收藏' : '收藏'}：${indicator.label}`"
+                :label="`${favoriteSet.has(indicator.id) ? '取消收藏' : '收藏'}：${indicator.label}`"
                 :aria-pressed="favoriteSet.has(indicator.id)"
                 :disabled="!chartController"
                 @click="toggleFavorite(indicator.id)"
               >
                 <IconTablerStarFilled v-if="favoriteSet.has(indicator.id)" aria-hidden="true" />
                 <IconTablerStar v-else aria-hidden="true" />
-              </button>
+              </BaseIconButton>
               <span v-if="isActive(indicator.id)" class="item-check" aria-hidden="true">
                 <IconTablerCheck />
               </span>
             </div>
           </div>
 
-          <div v-if="filteredIndicators.length === 0" class="no-results">
-            <template v-if="section === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.trim()">
-              <p>暂无收藏指标</p>
-            </template>
-            <template v-else-if="section === INDICATOR_SELECTOR_SECTIONS.scripts && !searchQuery.trim()">
-              <p>暂无用户自定义脚本</p>
-            </template>
-            <template v-else>
-              <IconTablerSearch class="no-results-icon" aria-hidden="true" />
-              <p>未找到匹配的指标</p>
-              <span class="no-results-hint">请尝试其他关键词</span>
-            </template>
-          </div>
-        </OverlayScrollArea>
+          <BaseEmptyState v-if="filteredIndicators.length === 0" class="modal-list-item" role="status">
+            <template v-if="isSearchEmpty" #icon><IconTablerSearch /></template>
+            {{ emptyTitle }}
+            <template v-if="isSearchEmpty" #hint>请尝试其他关键词</template>
+          </BaseEmptyState>
+        </ModalScrollArea>
       </div>
     </BaseModal>
 
@@ -175,7 +162,7 @@
       v-if="currentIndicator"
       :visible="paramsVisible"
       :indicator-id="currentIndicator.id"
-      :indicator-name="currentIndicator.name"
+      :indicator-name="currentIndicatorName"
       :indicator-description="currentIndicator.description"
       :params="currentIndicator.params || []"
       :values="getParamValues(currentIndicator.id)"
@@ -186,20 +173,26 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/header-row.css'
+  import '../common/modal-list.css'
+
   import {
     type ChartController,
     createIndicatorSelectorController,
-    findIndicator,
+    findIndicatorDefinition,
+    indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BasePopover from '@vue-src/components/common/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
-  import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
+  import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import { useIndicatorCatalog } from '@vue-src/composables/indicator/useIndicatorCatalog.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
@@ -237,9 +230,8 @@
     close: []
   }>()
 
-  // 目录来自编译期静态元数据，打开选择器不加载任何指标实现。
-  const controller = createIndicatorSelectorController()
-  useIndicatorCatalog(controller)
+  // 目录是 Core 注册表投影，选择器打开即已是最新，不再复制列表。
+  const controller = createIndicatorSelectorController({ catalog: indicatorCatalog })
   const { removing, removalError, canRemove, removeScript } = useScriptRemoval(
     inject(SCRIPT_SOURCE_STORE_KEY, undefined),
   )
@@ -252,7 +244,11 @@
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
   /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
-  const currentIndicator = ref<ReturnType<typeof findIndicator>>()
+  const currentIndicator = ref<ReturnType<typeof findIndicatorDefinition>>()
+  /** 参数弹窗标题优先用长名称，缺省回落到列表标签。 */
+  const currentIndicatorName = computed(
+    () => currentIndicator.value?.name ?? currentIndicator.value?.label ?? '',
+  )
   /** 更换指标时只展示目标位置，其余情况合并为 Compact 列表。 */
   const availableIndicators = computed(() => {
     const indicators = props.replacePaneId
@@ -269,6 +265,23 @@
     availableIndicators,
   )
 
+  /** 空态文案：收藏/脚本分区在无搜索词时各有专用文案。 */
+  const emptyTitle = computed(() => {
+    if (section.value === INDICATOR_SELECTOR_SECTIONS.favorites && !searchQuery.value.trim())
+      return '暂无收藏指标'
+    if (section.value === INDICATOR_SELECTOR_SECTIONS.scripts && !searchQuery.value.trim())
+      return '暂无用户自定义脚本'
+    return '未找到匹配的指标'
+  })
+  const isSearchEmpty = computed(
+    () =>
+      !(
+        (section.value === INDICATOR_SELECTOR_SECTIONS.favorites ||
+          section.value === INDICATOR_SELECTOR_SECTIONS.scripts) &&
+        !searchQuery.value.trim()
+      ),
+  )
+
   const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
   function isActive(indicatorId: string): boolean {
@@ -276,10 +289,9 @@
   }
 
   function addIndicator(indicatorId: string) {
-    const indicator = findIndicator(indicatorId)
-    // 声明多实例的指标允许重复添加，因此已启用不再是跳过条件。
+    if (isActive(indicatorId)) return
+    const indicator = findIndicatorDefinition(indicatorId)
     if (!indicator) return
-    if (indicator.multiInstance !== true && isActive(indicatorId)) return
     emit('toggle', indicatorId, true)
   }
 
@@ -290,15 +302,15 @@
   /** 切换指标启用状态。 */
   function toggleIndicator(indicatorId: string) {
     if (props.replacePaneId) {
-      const indicator = findIndicator(indicatorId)
-      if (!indicator || indicator.pane !== props.replaceRole) return
+      const indicator = findIndicatorDefinition(indicatorId)
+      if (!indicator || indicator.role !== props.replaceRole) return
       // 替换源本身不允许再次选中；主图和副图同一规则，避免出现重复指标。
       if (isActive(indicatorId)) return
       emit('replace', props.replacePaneId, indicatorId)
       closeMenu()
       return
     }
-    if (isActive(indicatorId) && findIndicator(indicatorId)?.multiInstance !== true) {
+    if (isActive(indicatorId)) {
       removeIndicator(indicatorId)
     } else {
       addIndicator(indicatorId)
@@ -306,7 +318,7 @@
   }
 
   function showParams(indicatorId: string) {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
     if (!indicator?.params?.length) return
     currentIndicatorId.value = indicatorId
@@ -322,7 +334,7 @@
 
   /** 打开当前脚本文档，官方身份由编辑器提供只读展示。 */
   function editScript(indicatorId: string) {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     // 原生指标没有脚本可编辑；入口按钮保持可见并置灰。
     if (indicator?.source !== 'script') return
     closeMenu()
@@ -336,7 +348,7 @@
   }
 
   function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
-    const indicator = findIndicator(indicatorId)
+    const indicator = findIndicatorDefinition(indicatorId)
     if (!indicator?.params) return {}
 
     const defaultParams: Record<string, number | string | boolean> = {}
@@ -397,7 +409,6 @@
     align-items: center;
     gap: var(--klc-space-8, 8px);
     min-height: 36px;
-    padding: 0 var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);
@@ -419,36 +430,11 @@
     flex: 0 0 auto;
   }
 
-  .selector-results {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* ── 无匹配 ── */
-  .no-results {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 48px 20px;
-    color: var(--klc-color-axis-text);
-    gap: 10px;
-  }
-
-  .no-results svg {
-    opacity: 0.5;
-  }
-
-  .no-results p {
+  .selector-error {
     margin: 0;
-    font-size: 14px;
-    color: var(--klc-color-axis-text);
-    font-weight: 500;
-  }
-
-  .no-results-hint {
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
+    padding-block: var(--klc-space-8, 8px);
+    font-size: var(--klc-text-12-font-size, 12px);
+    color: var(--klc-color-danger, #e04a4a);
   }
 
   /* 紧凑条目铺满内容区，类型标注与操作按钮共用一行。 */
@@ -457,15 +443,12 @@
     flex-direction: column;
   }
 
+  /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
   .indicator-item {
-    display: flex;
-    align-items: center;
     gap: var(--klc-space-4, 4px);
-    min-width: 0;
     min-height: 36px;
-    padding-right: var(--klc-space-8, 8px);
     background: transparent;
-    transition: background-color var(--klc-motion-dur-fast, 160ms) ease;
+    transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     text-align: left;
   }
 
@@ -475,7 +458,7 @@
     min-width: 0;
     justify-content: center;
     min-height: 36px;
-    padding: 6px var(--klc-space-4, 4px) 6px var(--klc-space-12, 12px);
+    padding: 6px 0;
     border: 0;
     background: transparent;
     color: inherit;
@@ -510,27 +493,9 @@
   }
 
   .item-info-btn {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    cursor: pointer;
-  }
-
-  .item-info-btn:hover {
-    color: var(--klc-color-foreground);
-  }
-
-  .item-info-btn svg {
-    width: 14px;
-    height: 14px;
+    --base-icon-button-color: var(--klc-color-axis-text);
+    --base-icon-button-hover-bg: transparent;
+    --base-icon-button-icon-size: 14px;
   }
 
   .item-name {
@@ -546,70 +511,20 @@
     gap: var(--klc-space-4, 4px);
   }
 
-  /* 图标方块：勾号与操作按钮共用居中布局，尺寸由各自规则覆盖。 */
-  .item-check,
-  .item-action-btn,
-  .item-favorite-btn {
+  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
+  .item-check {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-  }
-
-  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
-  .item-check {
     width: 16px;
     height: 16px;
     color: var(--klc-color-ui-text);
     pointer-events: none;
   }
 
-  .type-badge {
-    flex: 0 0 auto;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .item-action-btn,
-  .item-favorite-btn {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    cursor: pointer;
-    transition:
-      color var(--klc-motion-dur-fast, 160ms) ease,
-      background-color var(--klc-motion-dur-fast, 160ms) ease;
-  }
-
-  .item-action-btn:hover:not(:disabled),
-  .item-favorite-btn:hover:not(:disabled) {
-    background: var(--klc-color-tag-bg-hover);
-    color: var(--klc-color-foreground);
-  }
-
   .item-favorite-btn[aria-pressed='true'] {
     color: var(--klc-color-ui-text);
-  }
-
-  .item-action-btn:disabled,
-  .item-favorite-btn:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  .item-favorite-btn svg {
-    width: 15px;
-    height: 15px;
   }
 
   @media (max-width: 480px) {
@@ -644,4 +559,3 @@
 
 </style>
 
-<style scoped src="../common/header-row.css"></style>

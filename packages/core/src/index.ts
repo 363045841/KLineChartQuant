@@ -6,25 +6,9 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
-export type { BuiltinIndicatorName, IndicatorName } from './engine/indicators/indicatorContracts.js'
-export {
-  getIndicatorDescriptor,
-  getIndicatorDescriptors,
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-  Indicator,
-  type IndicatorDefinitionConfig,
-  type IndicatorDescriptor,
-  isIndicatorDefinitionLoaded,
-  loadIndicatorDefinitions,
-  registerIndicatorDefinition,
-  removeScriptIndicatorDefinition,
-  resolveCanonicalIndicatorId,
-  resolveIndicatorLayerId,
-} from './engine/indicators/indicatorDefinitionRegistry.js'
+export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
 export {
   type IndicatorInputDef,
-  IndicatorKind,
   type IndicatorMetadata,
   type IndicatorRendererOptions,
   type IndicatorRuntimeDescriptor,
@@ -32,9 +16,38 @@ export {
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
 export {
-  registerPlotIndicator,
-  updatePlotIndicator,
-} from './engine/indicators/registerPlotIndicator.js'
+  createPlotIndicatorDefinition,
+  getIndicatorDescriptor,
+  getRegisteredIndicatorDefinition,
+  type IndicatorCandidate,
+  type IndicatorCatalogCommit,
+  type IndicatorCollector,
+  type IndicatorCompiler,
+  type IndicatorDefinitionLoader,
+  type IndicatorDescriptor,
+  type IndicatorDocumentIdentity,
+  type IndicatorFailure,
+  type IndicatorOrigin,
+  type IndicatorPipelineReport,
+  type IndicatorStage,
+  indicatorCatalogRevision,
+  indicatorCommits,
+  indicatorFailures,
+  isIndicatorDefinitionLoaded,
+  loadAllIndicatorDefinitions,
+  loadIndicatorDefinitions,
+  logIndicatorFailure,
+  type RegistrableIndicator,
+  readIndicatorDescriptors,
+  readRegisteredDefinitions,
+  registerIndicators,
+  resolveCanonicalIndicatorId,
+  resolveIndicatorDefinitionId,
+  runIndicatorPipeline,
+  type StageResult,
+  setIndicatorFailures,
+  unregisterIndicator,
+} from './engine/indicators/pipeline/index.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {
@@ -80,12 +93,13 @@ export {
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
+export type { FrameCoordinates } from './foundation/geometry/frameCoordinates.js'
 export * from './foundation/persistence/index.js'
 export { makePluginLayerId } from './foundation/plugin/impl/rendererLayerId.js'
 export type { Plugin, PluginConfig, PluginHost, RenderContext } from './foundation/plugin/types.js'
 export * from './foundation/reactivity/index.js'
+export * from './foundation/time/index.js'
 export * from './foundation/tokens/index.js'
-export { formatDateTimeInTimeZone, formatTimeInTimeZone } from './foundation/utils/dateFormat.js'
 export * from './foundation/utils/rendererCapability.js'
 export type { MarketSessionConfig, OpenTimeRange } from './foundation/utils/sessionTimeLabels.js'
 export { generateUUID } from './foundation/utils/uuid.js'

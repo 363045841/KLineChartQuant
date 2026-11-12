@@ -7,23 +7,31 @@
  * 所有写操作串行执行，避免并发保存互相覆盖；读失败不阻断图表，写失败才上报。
  */
 
-import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
-import { createSignal } from '../../../foundation/reactivity/signal.js'
+import { createArchivePersistence } from '../../../foundation/persistence/index.js'
+import {
+  computed,
+  createSignal,
+  type ReadonlySignal,
+} from '../../../foundation/reactivity/signal.js'
+import type { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
+import type { IndicatorInstanceConfig } from '../../state/indicatorState.js'
 import {
   INDICATOR_TEMPLATE_VERSION,
   type IndicatorTemplateApi,
   type IndicatorTemplateApplyResult,
   type IndicatorTemplateArchive,
+  type IndicatorTemplateIndicator,
   type IndicatorTemplateSummary,
   type NamedIndicatorTemplate,
   type TemplateWorkspaces,
 } from '../types.js'
-import { collectTemplateIndicatorIds } from './templateCapture.js'
+import { collectTemplateIndicatorIds, selectTemplateIndicators } from './templateExtract.js'
 import {
   countWorkspaceInstances,
-  describeMissingIndicators,
-  describeTemplateIndicators,
-} from './templateLabels.js'
+  findMissingIndicators,
+  summarizeIndicators,
+  summarizeTemplateIndicators,
+} from './templateSummary.js'
 
 /** 「最近用过」保留的条数上限。 */
 const RECENT_LIMIT = 10
@@ -65,43 +73,51 @@ function requireName(name: string): string {
 }
 
 export class IndicatorTemplateManager implements IndicatorTemplateApi {
-  private readonly persistence = createIndexedDbPersistence<IndicatorTemplateArchive>({
+  private readonly archiveStore = createArchivePersistence<IndicatorTemplateArchive>({
     databaseName: '@363045841yyt/klinechart-indicator-templates',
     databaseVersion: INDICATOR_TEMPLATE_VERSION,
     storeName: 'templates',
     key: 'archive',
-    flushOnPageHide: false,
     codec: { decode: decodeArchive, encode: (value) => value },
+    disposedMessage: '图表已销毁',
   })
   private archive: IndicatorTemplateArchive = { documents: {}, recentIds: [] }
   private readonly listSignal = createSignal<ReadonlyArray<IndicatorTemplateSummary>>([])
   private readonly recentSignal = createSignal<ReadonlyArray<string>>([])
   private loaded = false
-  private disposed = false
-  private queue: Promise<unknown> = Promise.resolve()
   readonly templates = this.listSignal
   readonly recentTemplateIds = this.recentSignal
+  readonly currentIndicators: ReadonlySignal<ReadonlyArray<IndicatorTemplateIndicator>>
 
   /**
    * 注入图表侧能力，管理器不持有第二份运行时状态。
    *
-   * @param dependencies.captureIndicators 读取当前图表的指标组合快照。
+   * @param dependencies.extractIndicators 从当前图表提取模板需要的指标组合。
    * @param dependencies.applyIndicators 把指标组合恢复到当前图表。
+   * @param dependencies.userIndicatorConfigurations 当前两个数据视图的用户指标，供摘要派生。
    * @param dependencies.loadIndicators 恢复前加载指标实现；不改变恢复语义。
    */
   constructor(
     private readonly dependencies: {
-      captureIndicators(): TemplateWorkspaces
+      extractIndicators(): TemplateWorkspaces
       applyIndicators(workspaces: TemplateWorkspaces): void
+      userIndicatorConfigurations: ReadonlySignal<
+        Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceConfig>>>
+      >
       loadIndicators?(indicatorIds: ReadonlyArray<string>): Promise<void>
     },
-  ) {}
+  ) {
+    // 摘要与模板列表共用同一套名称汇总规则；这里只做派生，不复制指标状态。
+    this.currentIndicators = computed(() =>
+      summarizeIndicators(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+    )
+  }
 
   // ── 归档读写 ──
 
   /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
   private async saveArchive(archive: IndicatorTemplateArchive): Promise<void> {
-    await this.persistence.save(archive)
+    await this.archiveStore.save(archive)
     this.archive = archive
     this.publish()
   }
@@ -113,7 +129,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
         Object.freeze({
           id,
           name: document.name,
-          labels: describeTemplateIndicators(document.workspaces),
+          labels: summarizeTemplateIndicators(document.workspaces),
           instanceCount: countWorkspaceInstances(document.workspaces),
         }),
       ),
@@ -130,19 +146,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 串行处理归档操作，失败不会阻塞后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.queue.then(() => {
-      if (this.disposed) throw new Error('图表已销毁')
-      return operation()
-    })
-    this.queue = result.catch(() => undefined)
-    return result
+    return this.archiveStore.run(operation)
   }
 
   /** 首次读取归档；IndexedDB 不可用时抛错，由控制器转成界面文案。 */
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用模板存储')
-    const stored = await this.persistence.load()
+    const stored = await this.archiveStore.loadStored()
     if (stored) this.archive = stored
     this.loaded = true
     this.publish()
@@ -157,9 +168,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 释放存储资源；模板是显式保存的，销毁时不补写。 */
   async dispose(): Promise<void> {
-    this.disposed = true
-    await this.queue.catch(() => undefined)
-    await this.persistence.dispose()
+    await this.archiveStore.dispose()
   }
 
   // ── 领域操作 ──
@@ -173,11 +182,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   }
 
   /** 保存当前指标组合；同名模板按名称覆盖，不新增副本。 */
-  saveTemplate(input: { name: string }): Promise<string> {
+  saveTemplate(input: { name: string; indicatorIds?: ReadonlyArray<string> }): Promise<string> {
     return this.run(async () => {
       await this.load()
       const name = requireName(input.name)
-      const workspaces = this.dependencies.captureIndicators()
+      const workspaces = selectTemplateIndicators(
+        this.dependencies.extractIndicators(),
+        input.indicatorIds,
+      )
       const existing = Object.values(this.archive.documents).find(
         (document) => document.name === name,
       )
@@ -232,14 +244,13 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       const indicatorIds = collectTemplateIndicatorIds(template.workspaces)
       // 先加载实现再判定缺失：脚本指标注册完成后即可恢复，不必等下一次应用。
       await this.dependencies.loadIndicators?.(indicatorIds)
-      const skipped = describeMissingIndicators(template.workspaces)
+      const skipped = findMissingIndicators(template.workspaces)
       this.dependencies.applyIndicators(template.workspaces)
       const recentIds = [template.id, ...this.archive.recentIds.filter((id) => id !== template.id)]
       await this.saveArchive({ ...this.archive, recentIds: recentIds.slice(0, RECENT_LIMIT) })
       return Object.freeze({
         applied: countWorkspaceInstances(template.workspaces),
         skipped,
-        dropped: [],
       })
     })
   }

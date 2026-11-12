@@ -6,8 +6,13 @@ type FloatingBackend = Pick<
   'autoUpdate' | 'computePosition' | 'flip' | 'offset' | 'shift' | 'size'
 >
 
+/** 零尺寸虚拟参考点；Floating UI 只读取它的矩形，不要求真实元素。 */
+export interface PointReference {
+  getBoundingClientRect(): DOMRect
+}
+
 interface FloatingPositionOptions {
-  trigger: HTMLElement
+  reference: Element | PointReference
   panel: HTMLElement
   placement: AnchoredPlacement
   offset: number
@@ -41,7 +46,7 @@ export async function startFloatingPosition(
       const current = ++request
       let constraints: CSSProperties = {}
       try {
-        const position = await backend.computePosition(options.trigger, options.panel, {
+        const position = await backend.computePosition(options.reference, options.panel, {
           strategy: 'fixed',
           placement: options.placement === 'top' ? 'top-start' : 'bottom-start',
           middleware: [
@@ -71,7 +76,7 @@ export async function startFloatingPosition(
       }
     }
 
-    const cleanup = backend.autoUpdate(options.trigger, options.panel, () => {
+    const cleanup = backend.autoUpdate(options.reference, options.panel, () => {
       void update()
     })
     if (signal.aborted) cleanup()

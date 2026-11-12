@@ -1,9 +1,20 @@
 /**
  * 应用级脚本服务：启动恢复、串行持久化与目录操作。
  *
- * 文档读取、编译执行、库保存分别由独立模块负责，这里只做装配与事务边界。
+ * 文档读取、编译执行、库保存分别由独立模块负责；这里只做装配与事务边界。
+ * 指标注册一律调用 Core 的唯一写入口，不存在旁路。
  */
-import { generateUUID, removeScriptIndicatorDefinition } from '@363045841yyt/klinechart-core'
+import {
+  generateUUID,
+  indicatorFailures,
+  logIndicatorFailure,
+  registerIndicators,
+  runIndicatorPipeline,
+  setIndicatorFailures,
+  unregisterIndicator,
+  type IndicatorCandidate,
+  type RegistrableIndicator,
+} from '@363045841yyt/klinechart-core'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
   inspectScript,
@@ -21,7 +32,8 @@ import { createScriptOutput } from './createScriptOutput.js'
 import { restoreScriptWorkspace } from './restoreScriptWorkspace.js'
 import { saveScriptLibrary } from './saveScriptLibrary.js'
 import { createScriptDocumentStore } from './scriptDocumentStore.js'
-import { createScriptExecutor } from './scriptExecutor.js'
+import { createScriptExecutor, type CompiledScript } from './scriptExecutor.js'
+import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
 import {
   folderKey,
   foldersWithin,
@@ -30,6 +42,11 @@ import {
   requireFolder,
 } from './scriptFolderStore.js'
 import { createScriptPersistence } from './scriptPersistence.js'
+
+/** 脚本指标在注册失败清单里的稳定描述。 */
+function scriptCandidate(key: string): IndicatorCandidate {
+  return { key, origin: 'user-script', identity: 'user' }
+}
 
 /**
  * 创建脚本服务。
@@ -45,7 +62,20 @@ export async function createScriptService(
   const output = createScriptOutput()
   const store = createScriptDocumentStore(libraries)
   const executor = createScriptExecutor(store, output)
-  const folders = await restoreScriptWorkspace({ persistence, store, executor, options })
+  const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
+  const folders = restored.folders
+  const report = await runIndicatorPipeline([
+    createScriptIndicatorStage({
+      builtinSources: options.builtinSources ?? [],
+      documents: restored.scripts,
+      executor,
+    }),
+  ])
+  if (restored.failures.length > 0) {
+    for (const failure of restored.failures) logIndicatorFailure(failure)
+    setIndicatorFailures([...restored.failures, ...report.failures])
+  }
+
   // 异步写入串行执行，版本检查与快照生成均在队列内完成。
   let pending: Promise<unknown> = Promise.resolve()
   /** 串行提交，单次失败不会阻断后续保存。 */
@@ -55,7 +85,7 @@ export async function createScriptService(
     return result
   }
 
-  /** 持久化完成后才发布运行定义；保存失败保留当前版本。 */
+  /** 持久化完成后才注册运行定义；保存失败保留当前版本。 */
   async function persist(
     documents: readonly ScriptDocument[],
     nextFolders: readonly ScriptFolder[] = [...folders.values()],
@@ -84,8 +114,40 @@ export async function createScriptService(
     )
   }
 
+  /**
+   * 注册一条脚本指标。
+   *
+   * 调用前目录已持久化，且 `assertAvailable` 已排除全部可预期冲突；
+   * 因此注册失败只可能是契约被绕过，必须抛出而不是静默保留半成品。
+   */
+  function commitIndicator(
+    document: ScriptDocument & { kind: 'indicator' },
+    compiled: CompiledScript,
+  ): Promise<ScriptDocument> {
+    return (async () => {
+      const definition = await executor.createDefinition(compiled, {
+        id: document.id,
+        source: document.source,
+        revision: document.revision,
+        identity: 'user',
+        trusted: document.trusted,
+        folder: document.folder,
+      })
+      const item: RegistrableIndicator = {
+        kind: 'definition',
+        candidate: scriptCandidate(document.id),
+        definition,
+      }
+      const result = registerIndicators([item])
+      const [failure] = result.failures
+      if (failure) throw failure.error
+      return document
+    })()
+  }
+
   return Object.freeze({
     output: output.source,
+    failures: indicatorFailures,
     run(options: ScriptRunOptions) {
       return executor.run(options)
     },
@@ -111,33 +173,24 @@ export async function createScriptService(
             persist,
           })
         }
-        const prepared = await executor.prepare(source, trusted)
+        const compiled = await executor.compile(source, trusted)
         try {
-          const { definition } = prepared
-          store.assertAvailable(definition)
-          const document: ScriptDocument = {
+          store.assertAvailable(compiled.definition)
+          const document: ScriptDocument & { kind: 'indicator' } = {
             kind: 'indicator',
             id,
             identity: 'user',
             source,
             revision: 1,
-            definition,
+            definition: compiled.definition,
             trusted,
             folder: target,
           }
           await persist([...store.list(), document])
-          return await executor.publish(
-            document.id,
-            source,
-            prepared,
-            1,
-            false,
-            trusted,
-            'user',
-            target,
-          )
-        } finally {
-          await executor.releasePrepared(id, prepared.handle)
+          return await commitIndicator(document, compiled)
+        } catch (error) {
+          await executor.abandon(id, compiled.handle)
+          throw error
         }
       })
     },
@@ -184,7 +237,7 @@ export async function createScriptService(
         for (const key of removedKeys) folders.delete(key)
         for (const item of removed) {
           if (item.kind === 'library') store.deleteLibrary(item.id)
-          else removeScriptIndicatorDefinition(item.id)
+          else unregisterIndicator(item.id)
           output.remove(item.id)
           await executor.releaseDefinition(item.id)
         }
@@ -222,30 +275,25 @@ export async function createScriptService(
             persist,
           })
         }
-        const prepared = await executor.prepare(source, trusted)
+        const compiled = await executor.compile(source, trusted)
         try {
-          const { definition } = prepared
-          store.assertAvailable(definition, current.id)
+          store.assertAvailable(compiled.definition, current.id)
+          if (current.kind !== 'indicator') throw new Error('不能更改脚本文档类型')
           const revision = current.revision + 1
-          await persist(
-            store
-              .list()
-              .map((item) =>
-                item.id === current.id ? { ...item, source, revision, definition, trusted } : item,
-              ),
-          )
-          return await executor.publish(
-            current.id,
+          const document: ScriptDocument & { kind: 'indicator' } = {
+            ...current,
             source,
-            prepared,
             revision,
-            true,
+            definition: compiled.definition,
             trusted,
-            'user',
-            current.folder,
+          }
+          await persist(
+            store.list().map((item) => (item.id === current.id ? document : item)),
           )
-        } finally {
-          await executor.releasePrepared(current.id, prepared.handle)
+          return await commitIndicator(document, compiled)
+        } catch (error) {
+          await executor.abandon(current.id, compiled.handle)
+          throw error
         }
       })
     },
@@ -272,7 +320,7 @@ export async function createScriptService(
           return
         }
         await persist(store.list().filter((item) => item.id !== current.id))
-        removeScriptIndicatorDefinition(current.id)
+        unregisterIndicator(current.id)
         output.remove(current.id)
         await executor.releaseDefinition(current.id)
       })

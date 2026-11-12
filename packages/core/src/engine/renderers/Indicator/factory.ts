@@ -2,19 +2,16 @@
  * 指标渲染器 Layer 工厂。
  *
  * 指标定义的 `rendererFactory` 现已直接返回原生 `Layer`；本工厂负责两处：
- * 按显式 role 覆盖 role，以及按可见周期拦截不在当前周期内的绘制。
- * 可见周期有两级来源：定义声明的范围是能力上限，实例参数里的区间只能在其内收窄。
+ * 按显式 role 覆盖 role，以及按 `visiblePeriods` 拦截不在当前周期内的绘制。
  */
 
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
+import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
-import {
-  type IndicatorPeriodRange,
-  isIndicatorVisibleOnPeriod,
-  resolveIndicatorPeriodRange,
-} from '../../indicators/indicatorPeriodVisibility.js'
+import { isIndicatorVisibleOnPeriod } from '../../indicators/indicatorPeriodVisibility.js'
 import type { IndicatorRendererOptions } from './index.js'
+import { bindIndicatorAxis } from './shared/indicatorRendererLayer.js'
 
 /** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
 export interface IndicatorLayerOptions extends IndicatorRendererOptions {
@@ -23,51 +20,29 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   role?: Layer['role']
 }
 
-/** 解析该定义的可见周期区间；实例参数缺字段时用定义默认值补齐。 */
-function periodRangeOf(
-  definition: IndicatorMetadata,
-  params: Record<string, unknown> | undefined,
-): IndicatorPeriodRange {
-  const defaults: Record<string, unknown> = definition.runtime?.defaultParams ?? {}
-  return resolveIndicatorPeriodRange(defaults, params)
-}
-
-/** 该定义在该实例的当前周期是否应绘制；两级范围都不存在时恒为真。 */
-export function isLayerVisibleOnPeriod(
-  definition: IndicatorMetadata,
-  period: string,
-  params?: Record<string, unknown>,
-): boolean {
-  return isIndicatorVisibleOnPeriod(
-    period,
-    definition.visiblePeriods,
-    periodRangeOf(definition, params),
-  )
+/** 该定义在当前周期是否应绘制；未声明可见范围时恒为真。 */
+export function isLayerVisibleOnPeriod(definition: IndicatorMetadata, period: string): boolean {
+  const ranges = definition.visiblePeriods
+  if (ranges === undefined || ranges.length === 0) return true
+  return isIndicatorVisibleOnPeriod(period, ranges)
 }
 
 /**
- * 用可见周期约束包一层 paint；没有任何约束时直接复用原 Layer，避免每帧多一次判断。
+ * 用可见范围包一层 paint；未声明范围时直接复用原 Layer，避免每帧多一次判断。
  * @param layer 原始渲染器 Layer
  * @param definition 指标定义
- * @param params 指标实例参数，可携带可见周期区间
- * @returns 受可见周期约束的 Layer
+ * @returns 受可见范围约束的 Layer
  */
 function withPeriodVisibility(
   layer: Layer<RenderContext>,
   definition: IndicatorMetadata,
-  params: Record<string, unknown> | undefined,
 ): Layer<RenderContext> {
-  const declared = definition.visiblePeriods
-  const range = periodRangeOf(definition, params)
-  const constrained =
-    (declared !== undefined && declared.length > 0) ||
-    range.from !== undefined ||
-    range.to !== undefined
-  if (!constrained) return layer
+  const ranges = definition.visiblePeriods
+  if (ranges === undefined || ranges.length === 0) return layer
   return {
     ...layer,
     paint: (context) => {
-      if (!isIndicatorVisibleOnPeriod(context.period, declared, range)) return
+      if (!isLayerVisibleOnPeriod(definition, context.period)) return
       layer.paint(context)
     },
   }
@@ -83,9 +58,25 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     paneId: options.paneId,
     indicatorId: options.indicatorId,
     instanceId: options.instanceId,
+    axisId: options.axisId,
     params: options.params,
-    stacked: options.stacked,
   })
-  const layer = withPeriodVisibility(created, definition, options.params)
-  return role && role !== layer.role ? { ...layer, role } : layer
+  const layer = withPeriodVisibility(created, definition)
+  const identity = {
+    id: resolveIndicatorLayerId(definition.name, options.paneId, 'renderer', options.instanceId),
+    pane: options.paneId,
+    role: role ?? layer.role,
+  }
+  // 所有用户工厂都由框架绑定目标窗格与坐标轴，第三方不需要另写迁移逻辑。
+  if (layer.kind === 'draw-list')
+    return {
+      ...layer,
+      ...identity,
+      paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
+    }
+  return {
+    ...layer,
+    ...identity,
+    paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
+  }
 }

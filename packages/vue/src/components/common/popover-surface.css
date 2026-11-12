@@ -1,8 +1,9 @@
 /* 浮层面板表面：边框、圆角、底色、文字色与阴影；下拉菜单与自选面板共用。 */
 .popover-surface {
-  border: 0;
+  /* 浮层用灰色描边和抬高表面，避免深色图表背景上菜单与背景混在一起。 */
+  border: 1px solid var(--klc-color-ui-border);
   border-radius: var(--klc-radius-md, 8px);
-  background: var(--klc-color-ui-input);
+  background: var(--klc-color-ui-popover);
   color: var(--klc-color-ui-text);
   box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
 }

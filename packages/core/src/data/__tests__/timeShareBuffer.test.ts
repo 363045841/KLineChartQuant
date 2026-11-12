@@ -1,3 +1,4 @@
+/** 分时快照的去重、索引、发布原子性与查询状态。 */
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -12,16 +13,29 @@ function point(timestamp: number) {
 }
 
 describe('TimeShareBuffer', () => {
-  it('projects a cache-provided single-day snapshot', () => {
+  it('projects a single-day snapshot with last-write deduplication and unique indices', () => {
     const buffer = new TimeShareBuffer()
-    buffer.setInlineData([point(1), point(2)], 9.5)
+    const replacement = { ...point(2), price: 12 }
+    buffer.setInlineData([point(1), point(2), replacement], 9.5)
 
-    expect(buffer.getRawData()).toHaveLength(2)
+    expect(buffer.getRawData()).toEqual([point(1), replacement])
     expect(buffer.getPreClose()).toBe(9.5)
+    expect(buffer.getLogicalIndexAtTimestamp(1)).toBe(0)
+    expect(buffer.getLogicalIndexAtTimestamp(2)).toBe(1)
+    expect(buffer.getLogicalIndexAtTimestamp(3)).toBeNull()
   })
 
   it('projects a cache-provided multi-day snapshot atomically', () => {
     const buffer = new TimeShareBuffer()
+    const published: number[][] = []
+    const unsubscribe = buffer.data.subscribe(() => {
+      published.push([
+        buffer.getRawData().length,
+        buffer.getRange()!.days.length,
+        buffer.getPreClose()!,
+        buffer.getLogicalIndexAtTimestamp(2)!,
+      ])
+    })
     buffer.setRange({
       instrumentId: 'test:BTCUSDT',
       timezone: 'UTC',
@@ -33,20 +47,9 @@ describe('TimeShareBuffer', () => {
       ],
     })
 
-    expect(buffer.getRange()?.days).toHaveLength(2)
-    expect(buffer.getRawData()).toHaveLength(2)
     // 五日窗口统一取第一交易日昨收。
-    expect(buffer.getPreClose()).toBe(9)
-  })
-
-  it('按后写生效解析重复时间戳', () => {
-    const buffer = new TimeShareBuffer()
-    buffer.setInlineData([point(1), point(2), point(2)], 9.5)
-
-    expect(buffer.getRawData()).toHaveLength(2)
-    expect(buffer.getLogicalIndexAtTimestamp(1)).toBe(0)
-    expect(buffer.getLogicalIndexAtTimestamp(2)).toBe(1)
-    expect(buffer.getLogicalIndexAtTimestamp(3)).toBeNull()
+    expect(published).toEqual([[2, 2, 9, 1]])
+    unsubscribe()
   })
 
   it('publishes query loading and errors without owning a fetcher', () => {

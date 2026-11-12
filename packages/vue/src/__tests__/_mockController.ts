@@ -15,6 +15,7 @@ import type {
   ChartMountOptions,
   ChartViewport,
   DrawingObject,
+  IndicatorDefinition,
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
@@ -162,6 +163,7 @@ export function createMockChartController(
 
   const controller: Partial<ChartController> = {
     viewport,
+    frameGeometry: createSignal<ReturnType<ChartController['frameGeometry']['peek']>>(null),
     data,
     dataLoading: createSignal(false),
     dataError: createSignal<string | null>(null),
@@ -221,6 +223,7 @@ export function createMockChartController(
       update: () => false,
       remove: () => false,
       move: () => false,
+      moveTo: () => false,
       replace: () => false,
       execute: () => null,
     },
@@ -228,7 +231,7 @@ export function createMockChartController(
     comparisonLoading: createSignal(false),
     comparisonSpecs: createSignal<ReadonlyArray<SymbolSpec>>([]),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
-    catalog: [],
+    catalog: createSignal([] as ReadonlyArray<IndicatorDefinition>),
 
     getData: () => data.peek(),
     withIndicatorData: async () => {
@@ -291,8 +294,9 @@ export function createMockChartController(
       rangeSelection.set({ startTimestamp: null, endTimestamp: null, isDragging: false }),
     loadIndicators: async () => {},
     addIndicator: () => null,
+    moveIndicator: () => false,
     removeIndicator: () => false,
-    updateIndicatorParams: () => false,
+    updateIndicator: () => false,
     updateOptionsFacade: (options) => {
       optionsFacadeCalls.push(options)
     },
@@ -330,16 +334,9 @@ export function createMockChartController(
     priceToY: () => 0,
     yToPrice: () => 0,
     getPaneInfo: () => undefined,
-    createPane: () => false,
     updatePane: () => false,
     removePane: () => false,
-    moveMainIndicator: () => false,
-    replaceMainIndicator: () => false,
-    setMainIndicatorHidden: () => false,
-    setSubIndicatorHidden: () => false,
     movePane: () => false,
-    replacePaneContent: () => false,
-    updatePaneContent: () => false,
     clearPanes: () => {},
     setTooltipSize: () => {},
     setTooltipAnchorPositioning: () => {},

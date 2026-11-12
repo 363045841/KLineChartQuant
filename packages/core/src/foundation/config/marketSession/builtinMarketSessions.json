@@ -107,7 +107,7 @@
     "sessions": [{ "open": 0, "close": 1440 }],
     "slotMinutes": 1,
     "tradingDays": [0, 1, 2, 3, 4, 5, 6],
-    "sources": ["https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data"],
-    "notes": ["USDT本位永续每周七天连续交易，默认UTC划分K线；合约下架与临时维护由行情源状态决定，不是固定节假日。", "与现货时段相同但市场身份不同：sessionId为BINANCE_PERP，品种ID为binance:perp:*。"]
+    "sources": ["https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data"],
+    "notes": ["USDT-M永续每周七天连续交易，默认UTC划分K线；资金费率结算不中断交易。", "与现货分开声明：connector按市场下发不同sessionId，指标与脚本按sessionId取时区。"]
   }
 }

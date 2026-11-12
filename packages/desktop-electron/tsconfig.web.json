@@ -3,9 +3,19 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "./out",
+    "rootDir": "..",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@vue-src/*": ["../vue/src/*"]
+    },
     "types": ["vue", "vite/client", "unplugin-icons/types/vue"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "electron/*-bridge.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "src/**/*.d.ts",
+    "electron/*-bridge.ts",
+    "../vue/src/components/common/ColorAvatar.vue"
+  ]
 }

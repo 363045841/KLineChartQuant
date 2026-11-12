@@ -1,10 +1,9 @@
-/** 验证文件树右键菜单复用共用菜单的焦点契约：打开后可键盘导航与关闭。 */
+/** 验证文件树右键菜单按行生成条目、分隔线与禁用原因。 */
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { effectScope, ref } from 'vue'
 import { useScriptTreeMenu } from '../impl/useScriptTreeMenu.js'
 import type { ScriptTreeRow } from '../types.js'
-import { press } from './helpers/menuEvents.js'
 
 /** 被右键的文件行；菜单项只依赖身份和只读状态。 */
 const ROW: ScriptTreeRow = {
@@ -25,30 +24,31 @@ afterEach(() => {
 })
 
 describe('文件树菜单', () => {
-  it('右键后焦点进入菜单，Escape 关闭并把焦点还给触发元素', () => {
+  it('右键后生成文件菜单条目、分隔线与菜单标签', () => {
     const host = document.createElement('div')
-    const trigger = document.createElement('button')
-    host.append(trigger)
     document.body.append(host)
-    trigger.focus()
-    const treeHost = ref<HTMLElement | null>(host)
     const scope = effectScope()
     const session = scope.run(() =>
-      useScriptTreeMenu({ apply: () => {}, writable: () => true, treeHost }),
+      useScriptTreeMenu({ apply: () => {}, writable: () => true, treeHost: ref(host) }),
     )!
     try {
       session.openContextMenu(
         new MouseEvent('contextmenu', { clientX: 5, clientY: 5, bubbles: true, cancelable: true }),
         ROW,
       )
-      const first = host.querySelector<HTMLButtonElement>('.klc-script-menu button:not(:disabled)')
-      expect(first).not.toBeNull()
-      expect(document.activeElement).toBe(first)
-
-      press(first!, 'Escape')
-
-      expect(host.querySelector('.klc-script-menu')?.childElementCount).toBe(0)
-      expect(document.activeElement).toBe(trigger)
+      const state = session.menu.state.value
+      expect(state?.role).toBe('menu')
+      expect(state?.label).toBe('脚本文件菜单')
+      const items = state?.content.kind === 'menu' ? state.content.items : []
+      expect(items.map((item) => item.label)).toEqual([
+        '新建文件',
+        '新建文件夹',
+        '复制文件',
+        '删除文件',
+      ])
+      // 复制/删除与新建操作之间用分隔线隔开。
+      expect(items[2]?.separatorBefore).toBe(true)
+      expect(items.every((item) => !item.disabled)).toBe(true)
     } finally {
       scope.stop()
     }

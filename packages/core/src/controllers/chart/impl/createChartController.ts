@@ -5,16 +5,12 @@ import {
   getRegisteredIndicatorDefinition,
   loadIndicatorDefinitions,
   resolveCanonicalIndicatorId,
-} from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import {
-  loadBuiltinIndicators,
-  loadSystemIndicators,
-} from '@/engine/indicators/registerBuiltins.js'
-import { captureTemplate } from '@/engine/indicatorTemplate/impl/templateCapture.js'
+} from '@/engine/indicators/pipeline/index.js'
+import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
+import { extractTemplate } from '@/engine/indicatorTemplate/impl/templateExtract.js'
 import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
-import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
@@ -23,7 +19,7 @@ import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
-import { allIndicatorDefinitions } from '../../indicatorDefinitionCatalog.js'
+import { indicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -67,7 +63,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // 视图系统定义随图表创建；用户指标按需加载，布局恢复前再加载其引用的指标。
-  await (opts.indicatorLoading === 'all' ? loadBuiltinIndicators() : loadSystemIndicators())
+  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
   const mounted = mountChartDom(opts)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
@@ -141,41 +137,41 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, isDisposed)
-  // Agent 工具宿主：经 registerToolHost/unregisterToolHost 动态增删，
-  // 供外部宿主（插件等）把 @Tool 标注的领域方法暴露给 Agent runtime
-  const extraToolHosts: object[] = []
-
-  const layoutManager = new LayoutManager({
-    // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
-    exportLayout: () => {
-      chart.captureViewportSnapshot()
-      return chart.kernel.exportLayout()
+  const layoutManager = new LayoutManager(
+    {
+      // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
+      exportLayout: () => {
+        chart.captureViewportSnapshot()
+        return chart.kernel.exportLayout()
+      },
+      createLayout: () => chart.kernel.createLayout(),
+      loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
+      applyLayout: (document) => {
+        if (isDisposed()) throw new Error('图表已销毁')
+        batch(() => {
+          if (document.currentSymbol !== undefined) {
+            dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
+          }
+          // 品种切换清理旧范围后，再恢复布局中的锁定范围。
+          chart.kernel.applyLayout(document)
+        })
+        chart.drawingCommands.history.reset()
+        chart.scheduleDraw()
+      },
     },
-    createLayout: () => chart.kernel.createLayout(),
-    loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
-    applyLayout: (document) => {
-      if (isDisposed()) throw new Error('图表已销毁')
-      batch(() => {
-        if (document.currentSymbol !== undefined) {
-          dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
-        }
-        // 品种切换清理旧范围后，再恢复布局中的锁定范围。
-        chart.kernel.applyLayout(document)
-      })
-      chart.drawingCommands.history.reset()
-      chart.scheduleDraw()
-    },
-  })
+    { restore: opts.layoutRestore !== false, storageId: opts.layoutStorageId },
+  )
   await layoutManager.initialize()
 
   // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
   const templateManager = new IndicatorTemplateManager({
-    captureIndicators: () => captureTemplate(chart.kernel.snapshotViewWorkspaces()),
+    extractIndicators: () => extractTemplate(chart.kernel.snapshotViewWorkspaces()),
     applyIndicators: (workspaces) => {
       if (isDisposed()) throw new Error('图表已销毁')
       chart.kernel.applyIndicatorTemplate(workspaces)
       chart.scheduleDraw()
     },
+    userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
   })
   await templateManager.initialize().catch(() => {
@@ -221,7 +217,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
-    extraToolHosts: () => extraToolHosts,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
     resolveSubPaneIndicatorId: (indicatorId) => {
       const definition = getRegisteredIndicatorDefinition(indicatorId)
@@ -229,7 +224,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     },
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = getRegisteredIndicatorDefinition(indicatorId)
-      return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
+      return definition !== undefined
     },
   })
 
@@ -270,6 +265,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     deleteLayout: (input) => layoutManager.deleteLayout(input),
     templates: templateManager.templates,
     recentTemplateIds: templateManager.recentTemplateIds,
+    currentIndicators: templateManager.currentIndicators,
     listTemplates: () => templateManager.listTemplates(),
     saveTemplate: (input) => templateManager.saveTemplate(input),
     renameTemplate: (input) => templateManager.renameTemplate(input),
@@ -310,24 +306,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     interactionState,
     selectedRange: chart.selectedRange,
     rangeSelection: chart.rangeSelection,
+    frameGeometry: chart.frameGeometry,
     legend: chart.legend,
     comparisonColors: chart.comparisonColors,
     comparisonLoading: chart.comparisonLoading,
     comparisonSpecs: chart.comparisonSpecs,
     symbolCatalog,
-    catalog: allIndicatorDefinitions(),
+    catalog: indicatorCatalog,
     alertController: chart.alertController,
     ...dataMethods.methods,
     ...chartMethods,
     ...drawingMethods,
-    // Agent 工具宿主注册（@Tool 方法归属解析；幂等去重）
-    registerToolHost: (host) => {
-      if (!extraToolHosts.includes(host)) extraToolHosts.push(host)
-    },
-    unregisterToolHost: (host) => {
-      const index = extraToolHosts.indexOf(host)
-      if (index >= 0) extraToolHosts.splice(index, 1)
-    },
     dispose,
   }
 }

@@ -24,6 +24,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/symbol-list.css'
+
   withDefaults(
     defineProps<{
       error?: boolean
@@ -34,4 +36,3 @@
   )
 </script>
 
-<style scoped src="../common/symbol-list.css"></style>

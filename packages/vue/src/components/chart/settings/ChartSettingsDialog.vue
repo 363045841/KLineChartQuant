@@ -4,9 +4,7 @@
   <BaseModal
     :open="open"
     title="图表设置"
-    width="min(92vw, 460px)"
-    max-height="min(720px, calc(100vh - 48px))"
-    body-padding="var(--klc-spacing-md) calc(var(--klc-spacing-md) + var(--klc-spacing-sm))"
+    size="sm"
     footer-align="space-between"
     @update:open="emit('update:open', $event)"
   >
@@ -21,7 +19,7 @@
         <div class="settings-item">
           <span>缓存上限</span>
           <DropMenu
-            class="settings-select"
+            class="selection-menu"
             label="缓存上限"
             :groups="cacheLimitGroups"
             density="compact"
@@ -37,21 +35,18 @@
           <span>当前用量</span>
           <span class="cache-usage__value">
             {{ cacheUsageText }}
-            <button
-              type="button"
-              class="cache-clear-btn"
+            <BaseIconButton
+              size="lg"
+              label="清除缓存"
               title="清除缓存"
-              aria-label="清除缓存"
               @click="clearCache"
             >
               <IconTablerTrash aria-hidden="true" />
-            </button>
+            </BaseIconButton>
           </span>
         </div>
         <SettingsNavRow @select="showAggregationSourceModal = true">行情数据源</SettingsNavRow>
       </template>
-
-      <OpenSourceCredits v-else-if="activeSection === 'opensource'" />
 
       <template v-else>
         <ThemePresetPanel
@@ -59,11 +54,7 @@
           :settings="settings"
           :effective-theme="effectiveTheme"
           @update:settings="onThemePresetChange"
-        >
-          <template #actions>
-            <ThemeModeControl v-model="settings.theme" label="明暗模式" />
-          </template>
-        </ThemePresetPanel>
+        />
         <template v-for="item in sectionItems" :key="item.key">
           <SettingsItemRow
             :label="item.label"
@@ -102,15 +93,16 @@
     :show="showAggregationSourceModal"
     @close="showAggregationSourceModal = false"
   >
-    <template #source-management><slot name="source-management" /></template>
+    <template v-if="$slots['source-management']" #source-management>
+      <slot name="source-management" />
+    </template>
   </MarketDataManagementDialog>
 
   <!-- 嵌套颜色预设弹窗 -->
   <BaseModal
     v-model:open="showColorPresetModal"
     title="颜色预设"
-    width="min(92vw, 460px)"
-    max-height="min(720px, calc(100vh - 48px))"
+    size="sm"
     footer-align="space-between"
   >
     <template #tabs>
@@ -131,6 +123,9 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/settings-item.css'
+  import '../../common/selection-menu.css'
+
   import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
@@ -143,17 +138,16 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
   import { computed, ref, watch } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerTrash from '~icons/tabler/trash'
-  import OpenSourceCredits from './OpenSourceCredits.vue'
   import SettingsItemRow from './SettingsItemRow.vue'
   import SettingsNavRow from './SettingsNavRow.vue'
 
@@ -234,13 +228,7 @@
     return mainSettings.value.filter((item) => isSettingVisible(item, settings.value))
   })
 
-  type SettingsSectionId =
-    | 'shortcuts'
-    | 'main'
-    | 'style'
-    | 'experimental'
-    | 'dataSource'
-    | 'opensource'
+  type SettingsSectionId = 'shortcuts' | 'main' | 'style' | 'experimental' | 'dataSource'
 
   /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
   const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
@@ -252,7 +240,6 @@
     if (experimentalSettings.value.length > 0) {
       tabs.push({ id: 'experimental', label: '实验性' })
     }
-    tabs.push({ id: 'opensource', label: '开源致谢' })
     return tabs
   })
 
@@ -316,7 +303,9 @@
   }
 
   function confirmSettings() {
-    emit('confirm', { ...settings.value })
+    // 应用明暗模式归顶部菜单管理，图表设置只提交其余选项。
+    const { theme, ...chartSettings } = settings.value
+    emit('confirm', chartSettings)
   }
 
   /** 主题预设点击即生效：先写入草稿，再立即提交给上层应用并持久化，不关闭弹窗。 */
@@ -330,15 +319,11 @@
   }
 </script>
 
-<style scoped src="../../common/settings-item.css"></style>
-<style scoped src="../../common/selection-menu.css"></style>
 
 <style scoped>
-  /* 区块只在边界留白，避免说明文字、区块 padding 与设置行 padding 叠加。 */
+  /* 区块只在边界留白，横向对齐交给弹窗内容的统一 inset。 */
   .settings-body--style > :first-child {
     margin-block-end: var(--klc-spacing-sm);
-    /* 与设置行共用水平内边距，保持主题面板与下方设置项对齐。 */
-    padding-inline: var(--klc-spacing-sm);
   }
 
   /* 设置行仅负责布局，交互状态由具体控件提供。 */
@@ -361,35 +346,6 @@
     white-space: nowrap;
   }
 
-  .cache-clear-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-inline-size: 28px;
-    min-block-size: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    color: var(--klc-color-ui-muted);
-    background: none;
-    cursor: pointer;
-    transition: color var(--klc-motion-duration-fast) ease;
-  }
-
-  .cache-clear-btn:hover {
-    color: var(--klc-color-ui-text);
-  }
-
-  .cache-clear-btn:focus-visible {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 2px;
-  }
-
-  .cache-clear-btn svg {
-    inline-size: 16px;
-    block-size: 16px;
-  }
-
   /* 底部按钮 */
   .footer-right {
     display: flex;
@@ -404,10 +360,4 @@
 
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .settings-item,
-    .cache-clear-btn {
-      transition: none;
-    }
-  }
 </style>

@@ -2,9 +2,7 @@
   <BaseModal
     :open="providerSettings.open"
     :title="text.settings"
-    width="min(92vw, 780px)"
-    max-height="calc(100vh - 36px)"
-    body-padding="12px 20px 20px"
+    size="xl"
     :body-scrollable="false"
     @update:open="!$event && closeProviderSettings()"
   >
@@ -40,11 +38,10 @@
                   class="rail__inline"
                   @submit.prevent="submitProfileName()"
                 >
-                  <input
+                  <BaseInput
                     ref="profileNameInput"
-                    class="form-control-inline-name"
                     v-model="profileNameDraft"
-                    type="text"
+                    variant="inline"
                     autocomplete="off"
                     :aria-label="text.providerProfileName"
                     :aria-invalid="profileNameDialogError ? 'true' : undefined"
@@ -130,11 +127,10 @@
               class="rail__inline rail__inline--create"
               @submit.prevent="submitProfileName()"
             >
-              <input
+              <BaseInput
                 ref="profileNameInput"
-                class="form-control-inline-name"
                 v-model="profileNameDraft"
-                type="text"
+                variant="inline"
                 autocomplete="off"
                 :placeholder="`${text.providerProfileName}…`"
                 :aria-label="text.providerProfileName"
@@ -171,6 +167,7 @@
                   :label="text.apiProtocol"
                   :groups="protocolGroups"
                   class="protocol-control"
+                  fill
                   density="compact"
                   @select="selectProtocol"
                 >
@@ -187,10 +184,9 @@
               </label>
               <label class="field">
                 <span class="field__label">{{ text.baseUrl }}</span>
-                <input
-                  class="form-control"
+                <BaseInput
                   v-model="providerSettings.baseUrl"
-                  type="text"
+                  variant="underline"
                   autocomplete="off"
                   spellcheck="false"
                   @blur="providerSettings.persistConnection()"
@@ -198,10 +194,10 @@
               </label>
               <label class="field">
                 <span class="field__label">{{ text.apiKey }}</span>
-                <input
-                  class="form-control"
+                <BaseInput
                   v-model="providerSettings.apiKey"
                   type="password"
+                  variant="underline"
                   autocomplete="new-password"
                   :placeholder="
                     status.configured ? MASKED_SECRET_PLACEHOLDER : text.apiKeyPlaceholder
@@ -214,6 +210,7 @@
                 <BaseTextarea
                   v-model="providerSettings.headers"
                   class="field__mono"
+                  variant="underline"
                   size="sm"
                   :min-rows="3"
                   :max-rows="8"
@@ -231,11 +228,12 @@
                   {{ text.modelList }}
                   <em class="badge" :title="text.modelPool">{{ modelPoolIds.size }}</em>
                 </span>
-                <input
+                <SearchField
                   v-model="modelSearch"
+                  variant="compact"
                   class="models__search"
-                  type="search"
                   :placeholder="text.modelSearchPlaceholder"
+                  :aria-label="text.modelSearchPlaceholder"
                   :disabled="providerSettings.modelsLoading"
                 />
                 <BaseTooltip :content="text.refreshModels" placement="top">
@@ -247,7 +245,10 @@
                     :disabled="providerSettings.modelsLoading || !hasProviderConnection"
                     @click="providerSettings.refreshModelCatalog()"
                   >
-                    <IconRefresh aria-hidden="true" />
+                    <IconRefresh
+                      :class="{ 'klc-spin': providerSettings.modelsLoading }"
+                      aria-hidden="true"
+                    />
                   </BaseButton>
                 </BaseTooltip>
               </header>
@@ -256,9 +257,9 @@
                 <li v-for="model in filteredModels" :key="model.id" class="model">
                   <span class="model__name" :title="model.name">{{ model.name }}</span>
                   <span class="model__meta">
-                    <small v-if="model.contextWindow" class="chip">
+                    <BaseChip v-if="model.contextWindow" size="sm">
                       {{ formatContextWindow(model.contextWindow) }}
-                    </small>
+                    </BaseChip>
                     <ToggleSwitch
                       :model-value="modelPoolIds.has(model.id)"
                       :aria-label="`${text.modelPool}: ${model.name}`"
@@ -302,8 +303,7 @@
               <div v-if="tool.name === 'web_search'" class="field">
                 <span class="field__label">{{ text.exaApiKey }}</span>
                 <div class="field__row">
-                  <input
-                    class="form-control"
+                  <BaseInput
                     v-model="providerSettings.exaApiKey"
                     type="password"
                     autocomplete="new-password"
@@ -410,9 +410,14 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../components/common/selection-menu.css'
+
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
+  import SearchField from '@vue-src/components/common/SearchField.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -451,7 +456,7 @@
   const MASKED_SECRET_PLACEHOLDER = '••••••••'
 
   /** 行内命名输入；v-for 中的 ref 收集为数组，同一时间只渲染一个。 */
-  const profileNameInput = useTemplateRef<HTMLInputElement | HTMLInputElement[]>('profileNameInput')
+  const profileNameInput = useTemplateRef<InstanceType<typeof BaseInput>>('profileNameInput')
   const deleteCancelButton = useTemplateRef<HTMLButtonElement[]>('deleteCancelButton')
   const profileNameMode = ref<'create' | 'rename' | null>(null)
   const profileNameDraft = ref('')
@@ -590,8 +595,7 @@
   /** 聚焦行内命名输入；重命名时全选原名称。 */
   function focusProfileNameInput(select: boolean): void {
     void nextTick(() => {
-      const value = profileNameInput.value
-      const input = Array.isArray(value) ? value[0] : value
+      const input = profileNameInput.value
       input?.focus()
       if (select) input?.select()
     })
@@ -675,15 +679,24 @@
   )
 </script>
 
-<style scoped src="../../../components/common/form-control.css"></style>
-
 <!-- 当前值与展开箭头的外观复用工具栏单选下拉，避免两套相似样式漂移。 -->
-<style scoped src="../../../components/common/selection-menu.css"></style>
 
 <style scoped>
-  .language-control :deep(.drop-menu__trigger) {
-    min-width: 140px;
-    justify-content: space-between;
+  /* 设置弹窗里的下拉触发器统一紧凑外观：变量向下继承，不再穿透组件内部。 */
+  .agent-settings-selects {
+    --control-button-height: 26px;
+    --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
+    --control-button-border-width: 0;
+    --control-button-radius: var(--klc-radius-xs, 4px);
+    --control-button-background: transparent;
+    --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-focus-shadow: none;
+  }
+
+  .language-control {
+    --control-button-min-width: 140px;
+    --control-button-justify: space-between;
   }
 
   .language-chevron {
@@ -727,8 +740,7 @@
     text-align: center;
   }
 
-  .badge,
-  .chip {
+  .badge {
     display: inline-flex;
     align-items: center;
     height: 18px;
@@ -783,34 +795,7 @@
   }
 
   /* ───────── 单横线输入 ───────── */
-  /* 仅连接卡片的三个字段用下划线样式：去掉四周边框、圆角与填充底色，只保留一条底线。 */
-  .connection .form-control,
-  .connection :deep(.base-textarea) {
-    border: 0;
-    border-bottom: 1px solid var(--klc-color-ui-border);
-    border-radius: 0;
-    background: transparent;
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
-  }
-
-  /* 聚焦只提亮底线，不画四周框、不加外发光。 */
-  .connection .form-control:focus,
-  .connection :deep(.base-textarea:focus) {
-    border-bottom-color: var(--klc-color-ui-border-strong);
-  }
-
-  .connection .form-control {
-    height: var(--klc-density-default, 32px);
-    padding: 0 2px;
-  }
-
-  /* 多行输入高度仍随内容增长，只是不再画四周框线。 */
-  .connection :deep(.base-textarea) {
-    --base-textarea-border: 0;
-
-    padding: var(--klc-space-4, 4px) 2px;
-  }
+  /* 多行字段用 BaseTextarea 的 underline 变体，不再在这里穿透改样式。 */
 
   .field input::placeholder {
     color: var(--klc-color-ui-text-soft);
@@ -900,7 +885,7 @@
     line-height: var(--rail-row-line-height);
     text-align: left;
     cursor: pointer;
-    transition: padding-right 0.15s ease;
+    transition: padding-right var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .rail__select:focus-visible {
@@ -1127,22 +1112,18 @@
   }
 
   /* 协议选择：触发器与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
+  /* 协议选择：与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
   .protocol-control {
-    width: 100%;
-  }
-
-  .protocol-control :deep(.drop-menu__trigger) {
-    width: 100%;
-    box-sizing: border-box;
     --control-button-background: var(--klc-color-ui-input);
     --control-button-color: var(--klc-color-ui-text);
     --control-button-active-border: var(--klc-color-ui-border-strong);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-border: var(--klc-color-ui-accent);
     --control-button-focus-background: var(--klc-color-ui-hover);
+    --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
   }
 
-  .protocol-control :deep(.selection-menu__value) {
+  .protocol-control .selection-menu__value {
     flex: 1 1 auto;
     font-size: 11px;
     font-weight: 400;
@@ -1178,34 +1159,7 @@
 
   .models__search {
     min-width: 0;
-    height: 28px;
     flex: 1 1 auto;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    outline: none;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    font: inherit;
-    font-size: 11px;
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
-  }
-
-  /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
-  .models__search:focus {
-    border-color: var(--klc-color-ui-border-strong);
-  }
-
-  .models__search:disabled {
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    cursor: not-allowed;
-  }
-
-  .models__search::placeholder {
-    color: var(--klc-color-ui-text-soft);
-    opacity: 0.55;
   }
 
   .models__refresh {
@@ -1217,10 +1171,6 @@
   .models__refresh svg {
     width: 16px;
     height: 16px;
-  }
-
-  .models__refresh.is-loading svg {
-    animation: settings-spin 0.9s linear infinite;
   }
 
   .models__list {
@@ -1244,7 +1194,7 @@
     padding: 6px 8px;
     border-radius: 7px;
     font-size: 12px;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .model:hover {
@@ -1423,19 +1373,7 @@
     font-weight: 600;
   }
 
-  @keyframes settings-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .models__refresh.is-loading svg {
-      animation: none;
-    }
-  }
-
-  /* ───────── 窄屏 ───────── */
+/* ───────── 窄屏 ───────── */
   @media (max-width: 640px) {
     .provider {
       grid-template-columns: 1fr;
@@ -1455,4 +1393,3 @@
     }
   }
 </style>
-<style src="./agent-select-trigger.css"></style>

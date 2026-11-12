@@ -1,4 +1,9 @@
 export {
+  type ArchivePersistence,
+  createArchivePersistence,
+  type CreateArchivePersistenceOptions,
+} from './archivePersistence.js'
+export {
   type CreateIndexedDbPersistenceOptions,
   createIndexedDbPersistence,
   type IndexedDbPersistence,

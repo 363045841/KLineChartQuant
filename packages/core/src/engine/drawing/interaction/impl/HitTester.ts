@@ -641,18 +641,18 @@ function buildRegressionChannelGeometry(
   if (!paneInfo) return null
   const firstTimestamp = Number(drawing.anchors[0]!.time)
   const secondTimestamp = Number(drawing.anchors[1]!.time)
-  const firstIndex = adapter.getLogicalIndexAtTimestamp(firstTimestamp)
-  const secondIndex = adapter.getLogicalIndexAtTimestamp(secondTimestamp)
+  const coordinates = adapter.getCoordinates(drawing.paneId)
+  if (!coordinates) return null
+  const firstIndex = coordinates.timeToSlot(firstTimestamp)
+  const secondIndex = coordinates.timeToSlot(secondTimestamp)
   if (firstIndex === null || secondIndex === null) return null
-  const clampedFirst = Math.min(Math.max(firstIndex, 0), data.length - 1)
-  const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
   const params = drawing.params
   const sigma = typeof params?.sigma === 'number' ? params.sigma : 2
   const space = priceSpaceOf(paneInfo.scaleType)
   const regression = computeRegressionChannel(
     data.map((item: { close: number }) => item.close),
-    clampedFirst,
-    clampedSecond,
+    firstIndex,
+    secondIndex,
     sigma,
     space,
   )

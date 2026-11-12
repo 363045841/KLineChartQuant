@@ -1,5 +1,5 @@
 // 生成文件：由 `pnpm tokens:build` 从 src/foundation/tokens/dtcg/foundation/theme-base.tokens.json 生成，请勿手改。
-import type { MotionTokens, SpacingTokens, TypographyTokens } from './types.js'
+import type { SpacingTokens, TypographyTokens } from './types.js'
 
 export const spacing: SpacingTokens = {
   none: '0',
@@ -27,12 +27,4 @@ export const typography: TypographyTokens = {
   fontWeightBold: 700,
   lineHeightTight: 1.2,
   lineHeightStandard: 1.4,
-}
-
-export const motion: MotionTokens = {
-  durationInstant: '0ms',
-  durationFast: '120ms',
-  durationModerate: '200ms',
-  easingStandard: 'cubic-bezier(0.4, 0, 0.2, 1)',
-  easingDecelerate: 'cubic-bezier(0, 0, 0.2, 1)',
 }

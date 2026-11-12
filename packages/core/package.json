@@ -1,7 +1,7 @@
 {
   "name": "@363045841yyt/klinechart-core",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.11.1-alpha.0",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "Apache-2.0",
   "repository": {
@@ -96,12 +96,8 @@
       "import": "./dist/engine/renderers/Indicator/index.js"
     },
     "./indicators": {
-      "types": "./dist/engine/indicators/indicatorDefinitionRegistry.d.ts",
-      "import": "./dist/engine/indicators/indicatorDefinitionRegistry.js"
-    },
-    "./engine/renderers/Indicator/indicatorCatalog": {
-      "types": "./dist/engine/renderers/Indicator/indicatorCatalog.d.ts",
-      "import": "./dist/engine/renderers/Indicator/indicatorCatalog.js"
+      "types": "./dist/engine/indicators/pipeline/index.d.ts",
+      "import": "./dist/engine/indicators/pipeline/index.js"
     },
     "./engine/controller/interaction": {
       "types": "./dist/engine/controller/interaction.d.ts",
@@ -125,7 +121,7 @@
   },
   "scripts": {
     "version": "node -e \"require('fs').writeFileSync('src/version.ts', 'export const VERSION = ' + JSON.stringify(require('./package.json').version) + '\\\\n')\" && git add src/version.ts",
-    "build": "node ../../scripts/generate-indicator-entrypoints.mjs && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -148,6 +144,7 @@
     "colorjs.io": "0.5.2",
     "culori": "4.0.2",
     "fake-indexeddb": "^6.2.5",
+    "jsdom": "^31.0.0",
     "publint": "^0.3.0",
     "size-limit": "^12.1.0",
     "style-dictionary": "5.7.0",
@@ -158,6 +155,6 @@
   "dependencies": {
     "@363045841yyt/klinechart-plot-contracts": "workspace:*",
     "@iconify-icons/tabler": "^2.0.3",
-    "typebox": "1.4.2"
+    "typebox": "1.4.6"
   }
 }

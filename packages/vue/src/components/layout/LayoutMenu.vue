@@ -1,6 +1,6 @@
 <!-- 布局管理下拉：商品选择同款 trigger，保存、创建与布局列表在同一面板内，命名走弹窗。 -->
 <template>
-  <DropMenu :label="currentName" :groups="groups" :disabled="!controller" :message="message" empty-text="暂无布局" trigger-class="symbol-chip" tooltip-placement="bottom" placement="bottom" keep-open-on-select @open="refresh" @select="onSelect">
+  <DropMenu :label="currentName" :groups="groups" :disabled="!controller" :message="message" empty-text="暂无布局" tooltip-placement="bottom" placement="bottom" keep-open-on-select @open="refresh" @select="onSelect">
     <template #trigger><span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span></template>
     <template #item="{ group, item, select }">
       <button type="button" role="menuitem" class="drop-menu__item-main" :disabled="item.disabled" @click="select">
@@ -38,6 +38,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu from '@vue-src/components/common/DropMenu.vue'
@@ -74,7 +76,6 @@
   } = useLayouts(toRef(props, 'controller'))
 </script>
 
-<style scoped src="../common/control-button.css"></style>
 <style scoped>
-.symbol-chip__code { display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .symbol-chip__code { display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -29,7 +29,8 @@
   withDefaults(defineProps<KlineWorkbenchProps>(), {
     agent: true,
     scripts: true,
-    initialAgentPanelOpen: true,
+    initialAgentPanelOpen: false,
+    restoreLayout: true,
   })
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]

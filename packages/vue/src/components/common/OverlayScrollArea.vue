@@ -1,4 +1,8 @@
-<!-- 原生滚动区域与覆盖式滑块：隐藏原生滚动条，避免挤占内容宽度。 -->
+<!--
+  原生滚动区域与覆盖式滑块：隐藏原生滚动条，避免挤占内容宽度。
+  内容层不加横向留白（hover 背景才不会被裁进留白里）；弹窗内的列表行自己消费
+  --base-modal-content-inset，弹窗外保持贴边。
+-->
 <template>
   <div class="overlay-scroll-area">
     <div ref="viewport" class="overlay-scroll-area__viewport" @scroll.passive="onScroll(); emit('scroll', $event)">
@@ -70,7 +74,7 @@
     border-radius: var(--klc-radius-xs, 4px);
     background: var(--klc-color-ui-muted);
     opacity: 0;
-    transition: opacity var(--klc-motion-dur-fast, 160ms) ease;
+    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     pointer-events: none;
     touch-action: none;
     user-select: none;

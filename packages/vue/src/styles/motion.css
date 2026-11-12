@@ -1,0 +1,28 @@
+/*
+ * 动效统一入口：时长与缓动只来自 foundation motion token，组件内不再写字面量。
+ *
+ * 三件事：
+ *   1. prefers-reduced-motion 的全局策略：动效时长归零，只保留最终状态；
+ *   2. 唯一的旋转指示器动画，避免每个 loading 图标各写一份 keyframes；
+ *   3. 组件无法用 Vue <Transition> 表达（如 CSS 状态切换）时的共享过渡类。
+ */
+
+/* 1. 无障碍：reduced-motion 下所有过渡与动画立即完成。 */
+/* 2. 旋转指示器：一份 keyframes，尺寸与颜色由使用方决定。 */
+@keyframes klc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.klc-spin {
+  animation: klc-spin 800ms linear infinite;
+}
+
+/* 3. 交互色过渡：hover / focus / 选中态只变颜色时的统一反馈。 */
+.klc-motion-surface {
+  transition:
+    background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+    border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+    color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+}

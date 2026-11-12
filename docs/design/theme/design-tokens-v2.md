@@ -69,7 +69,11 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 品牌 | `--klc-brand-accent`、`--klc-brand-accent-text` | `#4C77C6`；文字 `#537ECD`（深）/ `#456FBD`（浅） | ADR 0007 |
 | 字体族 | `--klc-font-family-{brand,brand-cjk}` | `Outfit, sans-serif` / `'HarmonyOS Sans', sans-serif` | 品牌字与截图水印中文名；随包自托管（`@fontsource/outfit`、`assets/fonts/HarmonyOS_Sans_SC_Medium.ttf`），不依赖宿主系统或 CDN |
 
-旧的 `--klc-spacing-*`、`--klc-typography-*`、`--klc-motion-duration-*` / `-easing-*` 保留原值；新动效使用 `dur-*` / `ease-*`，名称不冲突。
+旧的 `--klc-spacing-*`、`--klc-typography-*` 保持不变。动效只有一套：`--klc-motion-dur-{0,press,fast,base,slow,sheet,toast}` 与 `--klc-motion-ease-{standard,out,in-out,drawer,expo}`，由 foundation 统一提供，`themeToCssVars` 不再输出 `--klc-motion-duration-*` / `-easing-*`；`Theme.motion` 已删除，`ThemeOverride` 也不再接受 motion 覆盖。
+
+动效在界面层的收敛点：`packages/vue/src/styles/motion.css`（`prefers-reduced-motion` 全局策略、唯一旋转指示器 `.klc-spin`、交互色过渡 `.klc-motion-surface`），以及 `packages/vue/src/composables/ui/motion.ts`（JS 动画读取 token 与 reduced-motion 判断的唯一入口）。组件内不再写时长/缓动字面量。
+
+共享样式文件从 `<script setup>` 导入（打包一份、全局生效），不再使用 `<style scoped src>`：`src` 样式块会让每个消费者各编译一份，并且在 Vitest 5 的持久化 transform 缓存下会因父 SFC 命中缓存而丢失 descriptor（vitejs/vite-plugin-vue#877）。该约束由 `scripts/check-style-src.mjs` 在 `pnpm lint` 中强制。
 
 ## 调色板生成器（仅提案）
 

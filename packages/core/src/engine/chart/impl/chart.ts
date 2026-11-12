@@ -12,6 +12,7 @@
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
+import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 
 import {
   CHART_RENDERERS_SERVICE,
@@ -33,7 +34,7 @@ import {
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
 import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
-import { DRAWING_ERROR_CODES, GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
   createVolumeLookbacks,
@@ -46,6 +47,7 @@ import {
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
+import { applyMarketSessions } from '../../../foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import {
@@ -98,12 +100,11 @@ import {
   DrawingDocument,
   type DrawingInteractionController,
   type DrawingToolId,
-  priceSpaceOf,
   resolveDrawingTradingDate,
 } from '../../drawing/index.js'
 import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
@@ -297,6 +298,7 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
+  private readonly unsubscribeMarketSessions: () => void
   private readonly marketDataProviderRegistry: MarketDataProviderRegistry
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
@@ -325,9 +327,21 @@ export class Chart {
       dom.canvasLayer,
       (collapsed) => this.legend.setMainCollapsed(collapsed),
       (id, action) => this.legend.execute(id, action),
+      (id, target) => this.legend.moveTo(id, target),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
-    this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
+    // 会话表只有一份：内置表 + 数据源声明 + 图表覆盖，动态注册的数据源也同步进来。
+    this.marketSessions = new MarketSessionRegistry()
+    const sessionOverrides = runtime?.marketSessions
+    const syncMarketSessions = () =>
+      applyMarketSessions(
+        this.marketSessions,
+        this.marketDataProviderRegistry.getAll().map((provider) => provider.source),
+        sessionOverrides,
+      )
+    syncMarketSessions()
+    this.unsubscribeMarketSessions =
+      this.marketDataProviderRegistry.state.subscribe(syncMarketSessions)
     this.pluginHost = createPluginHost()
     this.rendererHost = resolveRendererHost(runtime)
 
@@ -375,7 +389,7 @@ export class Chart {
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
     // ── Legacy managers ──
-    this.layoutManager = new ChartPaneLayout(opt.panes, {
+    this.layoutManager = new ChartPaneLayout({
       getDom: () => this.dom,
       getOption: () => {
         const o = this.kernel.options.readonly.options.peek()
@@ -526,7 +540,6 @@ export class Chart {
       getInteraction: () => this.interaction,
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
-      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       theme$: this.kernel.effectiveTheme$,
       zoom: this.kernel.zoom,
       options: this.kernel.options,
@@ -597,25 +610,11 @@ export class Chart {
     })
     this.drawingDocument = new DrawingDocument({
       drawingState: this.kernel.drawing,
-      getLogicalIndexAtTimestamp: (timestamp) => this.getLogicalIndexAtTimestamp(timestamp),
-      getDrawingTimestampAtLogicalIndex: (index) => this.drawing.getTimestampAtLogicalIndex(index),
-      getDrawingData: () => this.drawing.getData(),
       findAnchorAtTradingDate: (tradingDate) =>
         resolveDrawingTradingDate(this.getData(), tradingDate),
       hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
       getWorkspaceId: () => this.drawing.getWorkspaceId(),
-      getPriceSpace: (paneId) => {
-        const renderer = this.getPaneRenderers().find((item) => item.getPane().id === paneId)
-        // createDrawing 先校验 paneId，走到锚点物化时 Pane 必然存在。
-        if (!renderer) {
-          throw new KLineChartError(
-            DRAWING_ERROR_CODES.UNKNOWN_PANE,
-            `Unknown drawing pane '${paneId}'.`,
-            { details: { paneId } },
-          )
-        }
-        return priceSpaceOf(renderer.getPane().yAxis.getScaleType())
-      },
+      getSymbolKey: () => this.drawing.getSymbolKey(),
     })
     this.drawingCommands = new DrawingCommands({
       document: this.drawingDocument,
@@ -640,15 +639,19 @@ export class Chart {
       getRenderer: (id) => this.getRenderer(id),
       useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (id) => this.removeRenderer(id),
-      getVisibleMainIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
         Readonly<Record<string, number>>
       >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      projectPaneLayout: (specs, ratios) => {
-        this.layoutManager.projectState(specs, ratios)
+      projectPaneLayout: () => {
+        this.layoutManager.projectState()
         this.ensurePaneScaleTypesFromSettings()
+      },
+      projectPaneAxes: (axesByPane) => {
+        this.layoutManager.setPaneAxes(axesByPane)
+        this.projectPaneScaleTypes()
+        this.renderer.invalidateFrame()
       },
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
@@ -656,19 +659,6 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
-      subPaneOps: {
-        reconcileDefinition: (indicatorId, role) =>
-          this.kernel.paneManager.reconcileDefinition(indicatorId, role),
-        create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
-        // 同类叠加：只追加副图实例，面板与坐标轴沿用已有面板。
-        addToPane: (entry) => this.kernel.indicator.actions.addSub(entry),
-        remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
-        replace: (paneId, indicatorId, params) =>
-          this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),
-        setParams: (paneId, params) =>
-          this.kernel.paneManager.actions.updateContent(paneId, params),
-        clear: () => this.kernel.paneManager.actions.clear(),
-      },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
     this.indicators = new ChartIndicatorFacade({
@@ -676,14 +666,12 @@ export class Chart {
     })
     this.legend = new LegendManager({
       host: this.pluginHost,
-      indicators: this.indicators,
       panes: this.panes,
       comparisons: this.comparisonCommands,
       getComparisonHidden: (identity) =>
         this.dataManager.getComparisonHidden().get(identity) === true,
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
-      getVisibleIndicatorIds: () => this.kernel.visibleMainIndicatorIds$(),
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
       isScriptIndicator: (definitionId) =>
@@ -788,8 +776,6 @@ export class Chart {
   /** 构建模式激活/停用回调所需的图表能力入口。 */
   private createModeChartContext(): ChartModeChartContext {
     return {
-      enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
-      disableMainIndicator: (id) => this.indicators.disableMain(id),
       dataManager: this.dataManager,
     }
   }
@@ -823,6 +809,13 @@ export class Chart {
   /** 当前 Pane 已提交层的图元线段，供绘图磁吸候选。 */
   getSnapLines(paneId: string): ReadonlyArray<import('../../drawing/index.js').SnapLine> {
     return this.renderer.getCommittedSnapLines(paneId)
+  }
+
+  /** 返回当前 Pane 与绘图投影共用的公开坐标服务。 */
+  getCoordinates(
+    paneId: string,
+  ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
+    return this.renderer.getCoordinates(paneId)
   }
 
   /** 指定逻辑下标处该 Pane 的指标值，供绘图磁吸候选。 */
@@ -862,14 +855,13 @@ export class Chart {
     }
   }
 
-  /** 按用户坐标偏好生成各 pane 的刻度 Map */
+  /** 按用户坐标偏好生成各 pane 的刻度 Map；保留尚未创建 Pane 的已有偏好。 */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    const current = this.kernel.pane.getScalePreferences()
+    const next = new Map(this.kernel.pane.getScalePreferences())
     const panes = this.paneRenderers.map((renderer) => renderer.getPane())
-    const next = buildPaneScaleTypesFromSetting(panes, resolvePriceScaleTypeSetting(setting))
     for (const pane of panes) {
-      const existing = current.get(pane.id)
-      if (pane.id !== MAIN_PANE_ID && existing !== undefined) next.set(pane.id, existing)
+      if (pane.id === MAIN_PANE_ID) next.set(pane.id, resolvePriceScaleTypeSetting(setting))
+      else if (!next.has(pane.id)) next.set(pane.id, ScaleType.Linear)
     }
     return next
   }
@@ -1202,15 +1194,6 @@ export class Chart {
     return rollingVolume
   }
 
-  getTimestampAtLogicalIndex(index: number): number | null {
-    return this.dataManager.getTimestampAtLogicalIndex(index)
-  }
-
-  /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
-  getLogicalIndexAtTimestamp(timestamp: number): number | null {
-    return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
-  }
-
   /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
   getLogicalIndexAtX(mouseX: number): number | null {
     return this.interaction.getLogicalIndexAtScreenX(mouseX)
@@ -1399,6 +1382,7 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
+    this.unsubscribeMarketSessions()
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
     this.renderer.stopScheduling()
@@ -1444,6 +1428,11 @@ export class Chart {
   /** 视口状态信号 */
   get viewport(): ReadonlySignal<ViewportState> {
     return this.kernel.viewport.readonly.viewportState
+  }
+
+  /** 与 Canvas 和原生滚动一起提交的帧几何，供宿主覆盖物订阅。 */
+  get frameGeometry(): ChartRenderer['frameGeometry'] {
+    return this.renderer.frameGeometry
   }
 
   /** 数据信号 */
@@ -1603,6 +1592,11 @@ export class Chart {
       throw new RangeError(
         'setSymbols accepts one primary symbol; use setComparisonSpecs for comparisons',
       )
+    this.cancelDrawingSession()
+    const nextDrawingSymbol = primary === undefined ? undefined : symbolSpecIdentityKey(primary)
+    if (this.drawing.getSymbolKey() !== nextDrawingSymbol) {
+      this.kernel.drawing.actions.setSelectedDrawingIds([])
+    }
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
     // 激活 buffer 前完成视图转移，让滚动恢复读取目标视图几何。
@@ -1703,6 +1697,8 @@ export class Chart {
       this.interaction.stopInertia()
       this.zoomController.stopAnimation()
     }
+    // 鼠标非主键（右键）归上下文菜单：不进入平移、绘图或轴拖拽会话。
+    if (e.type === 'pointerdown' && e.pointerType === 'mouse' && e.button !== 0) return false
     const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
     const hadPointer = e.type === 'pointerup' && this.interaction.isPointerDown()
     const drawingHandler = resolveDrawingPointerHandler(e, drawingController)

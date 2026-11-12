@@ -46,6 +46,8 @@ export default defineConfig({
   },
   worker: { format: 'es' },
   build: {
+    // 主题在运行时切换，不能把 light-dark() 降级为静态辅助变量。
+    cssTarget: 'esnext',
     target: 'esnext',
     emptyOutDir: true,
     license: { fileName: 'THIRD-PARTY-LICENSES.md' },
@@ -54,6 +56,7 @@ export default defineConfig({
       entry: {
         index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
         agent: fileURLToPath(new URL('./src/agent.ts', import.meta.url)),
+        'workspace-tabs': fileURLToPath(new URL('./src/workspace-tabs.ts', import.meta.url)),
       },
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,

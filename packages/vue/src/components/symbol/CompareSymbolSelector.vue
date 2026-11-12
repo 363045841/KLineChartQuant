@@ -13,7 +13,7 @@
         <IconTablerPlus />
       </span>
       <span class="compare-chip__text">比较商品</span>
-      <span v-if="comparisonLoading" class="compare-chip__spinner" />
+      <span v-if="comparisonLoading" class="compare-chip__spinner klc-spin" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
     </BaseTooltip>
@@ -27,9 +27,8 @@
       @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
-      <template #tabs>
+      <template v-if="picker.sourceTabs.length > 0" #tabs>
         <BaseTabs
-          v-if="picker.sourceTabs.length > 0"
           v-model="picker.activeSourceTab"
           :tabs="picker.sourceTabs"
           aria-label="聚合源"
@@ -90,7 +89,7 @@
             v-for="item in comparisonSymbols"
             :key="symbolIdentityKey(item)"
             type="button"
-            class="compare-list__item"
+            class="compare-list__item modal-list-row"
             :class="{ 'is-selected': isSelected(item) }"
             role="option"
             :aria-selected="isSelected(item)"
@@ -125,6 +124,12 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+  import '../common/modal-list.css'
+  import '../common/symbol-list.css'
+  import '../common/list-text.css'
+  import '../common/control-cluster.css'
+
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
@@ -203,10 +208,6 @@
   }
 </script>
 
-<style scoped src="../common/control-button.css"></style>
-<style scoped src="../common/symbol-list.css"></style>
-<style scoped src="../common/list-text.css"></style>
-<style scoped src="../common/control-cluster.css"></style>
 
 <style scoped>
   .compare-chip-wrap {
@@ -251,20 +252,13 @@
     border: 2px solid var(--klc-color-ui-muted);
     border-top-color: transparent;
     border-radius: 50%;
-    animation: compare-spin 0.6s linear infinite;
-  }
-
-  @keyframes compare-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .compare-selected {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 12px;
+    padding: 12px var(--base-modal-content-inset);
     border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
@@ -348,7 +342,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 12px;
+    padding-block: 10px;
     margin: 0;
     border: none;
     border-bottom: 1px solid var(--klc-color-ui-border);
@@ -358,7 +352,7 @@
     font: inherit;
     cursor: pointer;
     text-align: left;
-    transition: background 0.12s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 

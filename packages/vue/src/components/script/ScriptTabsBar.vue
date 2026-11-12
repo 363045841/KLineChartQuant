@@ -192,18 +192,12 @@
     height: 1px;
     background: currentColor;
     transform: scaleX(0);
-    transition: transform var(--klc-motion-dur-fast, 160ms) ease;
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .script-underline-action:hover::after,
   .script-underline-action:focus-visible::after {
     transform: scaleX(1);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .script-underline-action::after {
-      transition: none;
-    }
   }
 
   .script-tabs button:focus-visible,

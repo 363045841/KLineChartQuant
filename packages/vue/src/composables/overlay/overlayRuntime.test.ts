@@ -46,7 +46,7 @@ function floatingFixture(computePosition: () => Promise<ComputePositionReturn>) 
   const apply = vi.fn()
   const onError = vi.fn()
   const options = {
-    trigger: document.createElement('button'),
+    reference: document.createElement('button'),
     panel: document.createElement('div'),
     placement: 'auto' as const,
     offset: 4,

@@ -12,17 +12,15 @@ import type { PersistedDrawingAnchor } from '../types.js'
 /**
  * 可投影为屏幕坐标的锚点形状。
  *
- * 投影只读取类型、时间、价格与未来槽位；持久化锚点与交互期待定锚点都满足它，
+ * 投影只读取类型、时间与价格；持久化锚点与交互期待定锚点都满足它，
  * 因此取参考点时不需要为待定锚点伪造持久化 id。
  */
 export type ProjectableAnchor = Omit<PersistedDrawingAnchor, 'id'> & { id?: string }
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {
-  /** 对应的时间戳（ms）；未来槽位时为创建时最后一根 K 线的时间。 */
+  /** 稳定的绝对时间戳（ms），未来位置同样由公开坐标服务解析为时间。 */
   time?: number
-  /** 基准 K 线之后的未来时间轴槽位数。 */
-  futureOffset?: number
   /** 价格 */
   price: number
 }
@@ -33,13 +31,17 @@ export interface ResolvedInteractionAnchor extends InteractionDrawingAnchor {
   time: number
 }
 
-/** 指针命中 Pane 后解析出的完整绘图锚点。 */
-export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
+/** 指针所在 Pane 的几何位置；只读命中不依赖该位置是否已有行情时间。 */
+export interface DrawingPointerLocation {
   paneId: string
   /** Pane 局部 X（逻辑像素）。 */
   x: number
   /** Pane 局部 Y（逻辑像素）。 */
   y: number
+}
+
+/** 指针命中 Pane 后解析出的完整绘图锚点。 */
+export interface DrawingPointerAnchor extends ResolvedInteractionAnchor, DrawingPointerLocation {
   /** 本次落点命中的磁吸候选；未开启磁吸或未命中时为 null。 */
   snap: SnapCandidate | null
 }
@@ -79,6 +81,8 @@ export interface AngleLockOptions {
  * 修饰键到这两者的映射由交互层统一决策，宿主只透传 PointerEvent。
  */
 export interface ResolveDrawingPointerOptions {
+  /** 创建或拖动锚点时吸附当前周期槽位；只读命中和整体平移保留连续坐标。 */
+  snapToSlot?: boolean
   /**
    * OHLC 磁吸配置：在坐标反解析前把指针吸附到最近 K 线的价格极值。
    * 仅允许绘图落点/预览路径传入；cursor 命中、框选、标签等路径不得传入，

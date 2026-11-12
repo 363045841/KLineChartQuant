@@ -85,7 +85,7 @@ describe('Script 编辑器设备策略', () => {
         ]),
       )
       await nextTick()
-      const tab = wrapper.get('[data-panel="problems"]')
+      const tab = wrapper.get('.script-output').findAll('[role="tab"]')[1]!
       expect(tab.text()).toContain('问题 (1)')
       await tab.trigger('click')
       expect(wrapper.get('.script-problems__location').text()).toContain('[1:7]')

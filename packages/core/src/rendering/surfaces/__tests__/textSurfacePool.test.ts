@@ -53,7 +53,8 @@ describe('TextSurfacePool', () => {
     pool.paint([{ ...text, x: 20 }], dpr, { width: 800, height: 200 }, 30)
     const tile = host.querySelector<HTMLCanvasElement>('canvas.text-tile')
     expect(tile?.width).toBe(256)
-    expect(tile?.style.width).toBe(`${256 / dpr}px`)
+    // jsdom 31 起按 CSSOM 序列化把长度裁到 6 位有效数字，断言数值而不是字符串。
+    expect(Number.parseFloat(tile?.style.width ?? '')).toBeCloseTo(256 / dpr, 3)
     pool.paint([{ ...text, x: 40 }], dpr, { width: 800, height: 200 }, 60)
     expect(host.querySelector('canvas.text-tile')).toBe(tile)
     expect(tile?.style.top).toBe('60px')

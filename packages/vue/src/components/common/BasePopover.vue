@@ -145,10 +145,10 @@
     opacity: 1;
     translate: 0 0;
     transition:
-      opacity var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
-      translate var(--klc-motion-dur-fast, 160ms) var(--klc-motion-ease-out, ease-out),
-      overlay var(--klc-motion-dur-fast, 160ms) allow-discrete,
-      display var(--klc-motion-dur-fast, 160ms) allow-discrete;
+      opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-out),
+      translate var(--klc-motion-dur-fast) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-fast) allow-discrete,
+      display var(--klc-motion-dur-fast) allow-discrete;
   }
 
   .base-popover:empty {
@@ -162,9 +162,4 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .base-popover {
-      transition: none;
-    }
-  }
 </style>

@@ -9,19 +9,22 @@
         {{ text.recommended }}: {{ error.recommendedAction }}
       </span>
     </div>
-    <button
+    <BaseButton
       v-if="error.retryable"
       class="agent-quiet-button"
-      type="button"
+      variant="outline"
       @click="emit('retry')"
     >
       <IconRefresh aria-hidden="true" />
       {{ text.retry }}
-    </button>
+    </BaseButton>
   </section>
 </template>
 
 <script setup lang="ts">
+  import './agent-quiet-button.css'
+
+  import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconRefresh from '~icons/tabler/refresh'
@@ -73,4 +76,3 @@
   }
 </style>
 
-<style scoped src="./agent-quiet-button.css"></style>

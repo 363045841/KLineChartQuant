@@ -23,36 +23,6 @@
           </span>
         </template>
       </DropMenu>
-      <div v-else-if="param.type === 'color'" class="color-field">
-        <button
-          type="button"
-          class="color-swatch"
-          :class="{ 'is-theme': colorValue === '' }"
-          :style="colorValue === '' ? undefined : { backgroundColor: colorValue }"
-          :aria-label="param.label"
-          @click="openColorPicker"
-        >
-          <span v-if="colorValue === ''">主题</span>
-        </button>
-        <button
-          v-if="colorValue !== ''"
-          type="button"
-          class="color-reset"
-          aria-label="恢复主题配色"
-          @click="emit('update', '')"
-        >
-          <IconTablerX aria-hidden="true" />
-        </button>
-        <input
-          ref="colorPicker"
-          type="color"
-          class="color-picker"
-          tabindex="-1"
-          aria-hidden="true"
-          :value="colorValue === '' ? THEME_PLACEHOLDER_COLOR : colorValue"
-          @input="onColorInput"
-        />
-      </div>
       <input
         v-else-if="param.type === 'boolean'"
         type="checkbox"
@@ -98,52 +68,24 @@
         </button>
       </div>
     </div>
-
-    <!-- 始终渲染，用 grid 行高过渡展开/收起，避免 margin 跳变 -->
-    <div
-      v-if="param.description"
-      class="param-description"
-      :class="{ 'is-open': showDescription }"
-      :aria-hidden="!showDescription"
-    >
-      <div class="param-description__clip">
-        <p class="param-description__text">{{ param.description }}</p>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+  import '../../../common/selection-menu.css'
+  import '../../../common/stepper-button.css'
+
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import { computed, ref } from 'vue'
+  import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
-  import IconTablerX from '~icons/tabler/x'
   import type { IndicatorParamItemProps } from '../types.js'
 
   const props = defineProps<IndicatorParamItemProps>()
 
   const emit = defineEmits<{ update: [value: number | string | boolean] }>()
-
-  /** 取色器在「跟随主题」时需要一个具体值，否则浏览器会显示初始黑。 */
-  const THEME_PLACEHOLDER_COLOR = '#000000'
-
-  /** 颜色参数当前值；非字符串一律按「跟随主题」处理。 */
-  const colorValue = computed(() => (typeof props.value === 'string' ? props.value : ''))
-  const colorPicker = ref<HTMLInputElement | null>(null)
-
-  /** 原生取色器不可直接美化，用色块按钮代为触发。 */
-  function openColorPicker(): void {
-    colorPicker.value?.click()
-  }
-
-  /** 取色器只产出六位十六进制，直接写入草稿。 */
-  function onColorInput(event: Event): void {
-    if (!(event.target instanceof HTMLInputElement)) return
-    emit('update', event.target.value)
-  }
 
   /** 数字参数当前值；非数字或缺失时按 0 处理。 */
   const numberValue = computed(() => (typeof props.value === 'number' ? props.value : 0))
@@ -211,7 +153,7 @@
     --param-control-height: 32px;
     --param-control-radius: 8px;
 
-    padding: 10px 4px;
+    padding-block: 10px;
     border-radius: 10px;
   }
 
@@ -233,7 +175,6 @@
     align-items: baseline;
     gap: 6px;
     min-width: 0;
-    padding-inline-start: 4px;
   }
 
   .param-label-text {
@@ -277,7 +218,7 @@
 
   .param-description__text {
     margin: 0;
-    padding: 6px 4px 2px;
+    padding-block: 6px 2px;
     font-size: 12px;
     line-height: 1.55;
     color: var(--klc-color-ui-muted);
@@ -351,82 +292,5 @@
     cursor: pointer;
   }
 
-  /* ── 颜色参数：色块 + 恢复按钮，原生取色器隐藏后由色块触发 ── */
-  .color-field {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .color-swatch {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    height: var(--param-control-height);
-    padding: 0;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: var(--param-control-radius);
-    font-size: 12px;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  /* 空值态用斜纹表示「跟随主题」，避免与纯白或纯黑混淆 */
-  .color-swatch.is-theme {
-    background-image: repeating-linear-gradient(
-      45deg,
-      transparent 0 4px,
-      color-mix(in srgb, var(--klc-color-ui-border) 70%, transparent) 4px 8px
-    );
-  }
-
-  .color-swatch:focus-visible,
-  .color-reset:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 1px;
-  }
-
-  .color-reset {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  .color-reset:hover {
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-text);
-  }
-
-  .color-reset svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  /* 原生取色器只作为系统弹窗入口，不参与布局 */
-  .color-picker {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .param-description,
-    .input-wrapper {
-      transition: none;
-    }
-  }
 </style>
 
-<style scoped src="../../../common/selection-menu.css"></style>
-<style scoped src="../../../common/stepper-button.css"></style>

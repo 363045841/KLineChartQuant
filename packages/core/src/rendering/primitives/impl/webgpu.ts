@@ -1,17 +1,17 @@
 /** WebGPU 有序合批设备：共享宿主 device、复用上传资源与目标纹理，文字不进入 GPU。 */
 
-import type { DataTransform } from '@/foundation/plugin/types.js'
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_UNIFORM,
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '@/rendering/render/webgpuGlobals.js'
-import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface } from '../types.js'
-import { UploadTracker } from './buffers.js'
+import { createPrimitivePreparer, type GeometryPrimitive } from '../preparation/index.js'
+import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface, UploadRange } from '../types.js'
+import { resolveUploadRange } from './buffers.js'
 import { createColorResolver } from './colors.js'
 import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
-import { createPrimitivePreparer, type GeometryPrimitive } from './prepare.js'
+import { rebaseDataTransform } from './projection.js'
 import {
   INSTANCE_FLOATS,
   MESH_FLOATS,
@@ -171,11 +171,9 @@ function createDevice(
     segmentCapacity = 0
   let targetWidth = 0,
     targetHeight = 0
-  const meshTracker = new UploadTracker(),
-    instanceTracker = new UploadTracker(),
-    segmentTracker = new UploadTracker()
   return {
     render(batch, width, height, dpr, clear = true, transform, clip?: PrimitiveClip) {
+      transform = rebaseDataTransform(transform, batch.dataOrigin)
       // 离屏目标只增不减；可见表面由 Pane 负责尺寸，直接沿用。
       const nextWidth = direct ? canvas.width : Math.max(width, targetWidth)
       const nextHeight = direct ? canvas.height : Math.max(height, targetHeight)
@@ -195,10 +193,10 @@ function createDevice(
         })
       }
       const metrics = { drawCalls: 0, uploads: 0, uploadedBytes: 0, submissions: 1 }
-      /** buffer 按容量增长，CPU 镜像决定本批实际需要上传的连续区间。 */
+      /** 按容量增长，直接上传准备器声明的区间；扩容后完整初始化新存储。 */
       const upload = (
         values: Float32Array,
-        tracker: UploadTracker,
+        dirty: UploadRange | null,
         buffer: GPUBuffer | undefined,
         capacity: number,
       ): { buffer: GPUBuffer; capacity: number } => {
@@ -211,7 +209,7 @@ function createDevice(
             usage: GPU_BUFFER_VERTEX | GPU_BUFFER_COPY_DST,
           })
         }
-        const range = tracker.update(values, grow)
+        const range = resolveUploadRange(values, dirty, grow)
         if (range) {
           device.queue.writeBuffer(
             buffer!,
@@ -225,19 +223,23 @@ function createDevice(
         }
         return { buffer: buffer!, capacity }
       }
-      const mesh = batch.changed.vertices
-        ? upload(batch.vertices, meshTracker, meshBuffer, meshCapacity)
-        : { buffer: meshBuffer!, capacity: meshCapacity }
+      const mesh = upload(batch.vertices, batch.uploads.vertices, meshBuffer, meshCapacity)
       meshBuffer = mesh.buffer
       meshCapacity = mesh.capacity
-      const instances = batch.changed.instances
-        ? upload(batch.instances, instanceTracker, instanceBuffer, instanceCapacity)
-        : { buffer: instanceBuffer!, capacity: instanceCapacity }
+      const instances = upload(
+        batch.instances,
+        batch.uploads.instances,
+        instanceBuffer,
+        instanceCapacity,
+      )
       instanceBuffer = instances.buffer
       instanceCapacity = instances.capacity
-      const segments = batch.changed.segments
-        ? upload(batch.segments, segmentTracker, segmentBuffer, segmentCapacity)
-        : { buffer: segmentBuffer!, capacity: segmentCapacity }
+      const segments = upload(
+        batch.segments,
+        batch.uploads.segments,
+        segmentBuffer,
+        segmentCapacity,
+      )
       segmentBuffer = segments.buffer
       segmentCapacity = segments.capacity
       if (

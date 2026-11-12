@@ -222,7 +222,7 @@ export interface DataSourceDescriptor {
   defaultBaseUrl?: string
   /** 宿主管理的凭据连接禁止通过图表偏好修改 Transport 地址。 */
   endpointEditable?: boolean
-  /** Provider 可声明额外交易时段，注册前仍由前端校验。 */
+  /** 仅声明内置会话表没有的私有时段；共享时段统一放 builtinMarketSessions.json，注册前由前端校验。 */
   marketSessions?: Readonly<Record<string, MarketSessionConfig>>
   /** 后端或本地 Provider 声明的源级能力。 */
   capabilities?: SourceCapabilities

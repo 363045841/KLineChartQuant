@@ -10,13 +10,24 @@ export function usePaneAxisItems(
 ) {
   const geometryRevision = shallowRef(0)
   // 像素布局不是用户配置：观察 Core 已提交的 DOM 几何，不要求配置产生额外通知。
-  watch(axisLayer, (layer, _previous, onCleanup) => {
-    if (!layer) return
-    const observer = new MutationObserver(() => { geometryRevision.value += 1 })
-    observer.observe(layer, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] })
-    onCleanup(() => observer.disconnect())
-    geometryRevision.value += 1
-  }, { immediate: true, flush: 'post' })
+  watch(
+    axisLayer,
+    (layer, _previous, onCleanup) => {
+      if (!layer) return
+      const observer = new MutationObserver(() => {
+        geometryRevision.value += 1
+      })
+      observer.observe(layer, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style'],
+      })
+      onCleanup(() => observer.disconnect())
+      geometryRevision.value += 1
+    },
+    { immediate: true, flush: 'post' },
+  )
   return computed(() => {
     void geometryRevision.value
     void layoutEpoch.value
@@ -27,7 +38,16 @@ export function usePaneAxisItems(
       .filter((pane) => pane.visible !== false)
       .flatMap((pane) => {
         const canvas = canvases.find((element) => element.id === `${pane.id}-rightAxis`)
-        return canvas ? [{ id: pane.id, top: canvas.offsetTop, height: canvas.offsetHeight }] : []
+        return canvas
+          ? [
+              {
+                id: pane.id,
+                top: canvas.offsetTop,
+                height: canvas.offsetHeight,
+                primaryAxisWidth: canvas.style.getPropertyValue('--klc-primary-axis-width'),
+              },
+            ]
+          : []
       })
   })
 }

@@ -1,8 +1,16 @@
+<!--
+  Canvas 浮动工具栏容器：只提供外壳、滚动与拖拽拦截。
+  按钮外观由 toolbar-button.css 的 .toolbar-btn 提供，消费方不再依赖穿透样式。
+-->
 <template>
   <div class="canvas-toolbar" @pointerdown.stop @pointermove.stop @pointerup.stop>
     <slot />
   </div>
 </template>
+
+<script setup lang="ts">
+  import './toolbar-button.css'
+</script>
 
 <style scoped>
   .canvas-toolbar {
@@ -28,85 +36,5 @@
 
   .canvas-toolbar::-webkit-scrollbar {
     display: none;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* 窄屏不做压缩：按钮保持 26px，宽度不够时交给父级 overflow-x 横向滚动。 */
-    flex: 0 0 auto;
-    height: 26px;
-    padding: 0 10px;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn:hover) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn:disabled),
-  .canvas-toolbar :deep(.toolbar-btn:hover:disabled) {
-    opacity: 0.4;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: not-allowed;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn--delete) {
-    width: 26px;
-    padding: 0;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn--delete:hover) {
-    color: var(--klc-color-ui-danger);
-    background: color-mix(in srgb, var(--klc-color-ui-danger) 10%, transparent);
-  }
-
-  .canvas-toolbar :deep(.delete-icon) {
-    width: 14px;
-    height: 14px;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn--lock),
-  .canvas-toolbar :deep(.toolbar-btn--visibility),
-  .canvas-toolbar :deep(.toolbar-btn--copy),
-  .canvas-toolbar :deep(.toolbar-btn--clone),
-  .canvas-toolbar :deep(.toolbar-btn--template),
-  .canvas-toolbar :deep(.toolbar-btn--settings) {
-    width: 26px;
-    padding: 0;
-  }
-
-  .canvas-toolbar :deep(.toolbar-btn--lock.is-locked) {
-    color: var(--klc-color-ui-text);
-  }
-
-  .canvas-toolbar :deep(.toolbar-separated) {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-    height: 18px;
-    margin-inline: 6px;
-    padding: 0 10px;
-    border-left: 1px solid var(--klc-color-ui-border);
-    border-right: 1px solid var(--klc-color-ui-border);
-  }
-
-  .canvas-toolbar :deep(.lock-icon),
-  .canvas-toolbar :deep(.toolbar-icon),
-  .canvas-toolbar :deep(.settings-icon) {
-    width: 14px;
-    height: 14px;
   }
 </style>

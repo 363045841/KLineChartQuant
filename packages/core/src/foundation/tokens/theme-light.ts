@@ -20,14 +20,13 @@
  */
 
 import { lightInterfaceColors } from './interface-colors.js'
-import { motion, spacing, typography } from './theme-base.js'
+import { spacing, typography } from './theme-base.js'
 import type { Theme } from './types.js'
 
 export const lightTheme: Theme = {
   name: 'light',
   spacing,
   typography,
-  motion,
   colors: {
     background: lightInterfaceColors.background,
     foreground: lightInterfaceColors.text,

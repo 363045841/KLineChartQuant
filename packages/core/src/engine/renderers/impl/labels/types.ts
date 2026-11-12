@@ -23,4 +23,6 @@ export interface AxisLabelMetrics {
   axisWidth: number
   /** 轴纵向尺寸（逻辑像素）：X 表面为轴高，Y 表面为 Pane 高。 */
   axisHeight: number
+  /** 右轴多列布局中的列左偏移（逻辑像素）；省略表示 0。 */
+  offsetX?: number
 }

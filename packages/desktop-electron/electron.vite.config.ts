@@ -7,7 +7,6 @@ import babel from 'vite-plugin-babel'
 import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 import { createWorkspaceSourceAliases } from '../../scripts/package-source-aliases.mjs'
 import { resolveBuildCommit } from '../../scripts/build-commit.mjs'
-import { indicatorEntrypointsPlugin } from '../../scripts/indicator-entrypoints-plugin.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
@@ -16,7 +15,10 @@ const buildCommit = resolveBuildCommit()
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@363045841yyt/klinechart'] })],
+    resolve: {
+      alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
+    },
     build: {
       rollupOptions: {
         input: entry('electron/main.ts'),
@@ -27,7 +29,10 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@363045841yyt/klinechart'] })],
+    resolve: {
+      alias: [{ find: '@363045841yyt/klinechart/workspace-tabs', replacement: entry('../vue/src/workspace-tabs.ts') }],
+    },
     build: {
       rollupOptions: {
         input: entry('electron/preload.ts'),
@@ -44,7 +49,6 @@ export default defineConfig({
       'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
     },
     plugins: [
-      indicatorEntrypointsPlugin(),
       babel({
         include: [/\/packages\/core\/src\/.*\.tsx?$/],
         exclude: [/node_modules/],
@@ -62,6 +66,7 @@ export default defineConfig({
       Icons({ compiler: 'vue3', autoInstall: true }),
     ],
     build: {
+      cssTarget: 'esnext',
       rollupOptions: {
         input: entry('index.html'),
       },

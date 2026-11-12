@@ -17,7 +17,6 @@ import {
   collectWorkspaceSourceDirs,
   createWorkspaceSourceAliases,
 } from '../../../scripts/package-source-aliases.mjs'
-import { indicatorEntrypointsPlugin } from '../../../scripts/indicator-entrypoints-plugin.mjs'
 import { resolveBuildCommit } from '../../../scripts/build-commit.mjs'
 import { contractResourcesPlugin } from '../../../packages/script/scripts/contract-resources-plugin.mjs'
 import { compilerDependencyPlugin } from '../../../scripts/compiler-dependency-plugin.js'
@@ -61,7 +60,11 @@ function watchWorkspaceSources(repoRoot: string): Plugin {
 }
 
 export default defineConfig({
+  // 明暗模式由运行时 color-scheme 决定，保留原生 light-dark()，避免静态降级失效。
+  build: { cssTarget: 'esnext' },
   root: fileURLToPath(new URL('.', import.meta.url)),
+  // 品牌资源目录同时作为站点 publicDir：标签页图标直接复用桌面应用图标的 SVG，不再另存副本。
+  publicDir: fileURLToPath(new URL('../src/workspace/assets', import.meta.url)),
   define: {
     'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
     'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
@@ -110,7 +113,6 @@ export default defineConfig({
   plugins: [
     compilerDependencyPlugin(root),
     contractResourcesPlugin(),
-    indicatorEntrypointsPlugin(),
     watchWorkspaceSources(root),
     decoratorTransform,
     vue(),

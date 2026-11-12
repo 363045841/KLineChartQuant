@@ -41,31 +41,22 @@ export function registerIndicatorLayerNaming(
   }
 }
 
-/** Layer 身份选项：取数据层还是坐标轴层，以及实例身份。 */
-export interface IndicatorLayerIdOptions {
-  readonly part?: 'renderer' | 'scale'
-  /** 允许同一指标多实例的定义必须给出，否则多个实例会争用同一层。 */
-  readonly instanceId?: string
-  /** 同一面板内叠加了同定义的多个实例；即使定义未声明多实例也要带实例身份。 */
-  readonly stacked?: boolean
-}
-
-/** 按定义身份解析数据或坐标轴 Layer ID；身份未登记时抛错。 */
+/** 按定义身份解析数据或坐标轴 Layer ID；实例图层必须带 instanceId 以保证多实例唯一。 */
 export function resolveIndicatorLayerId(
   definitionId: string,
   paneId: string,
-  options: IndicatorLayerIdOptions = {},
+  part: 'renderer' | 'scale' = 'renderer',
+  instanceId?: string,
 ): string {
-  const { part = 'renderer', instanceId, stacked } = options
   const rule = namingRules.get(normalizeIndicatorId(definitionId))
-  const nameOptions = { paneId, indicatorId: definitionId, instanceId, stacked }
-  const name = part === 'renderer' ? rule?.renderer(nameOptions) : rule?.scale(nameOptions)
+  const options = { paneId, indicatorId: definitionId, instanceId }
+  const name = part === 'renderer' ? rule?.renderer(options) : rule?.scale(options)
   if (!name)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
       `[Indicator] missing ${part} identity for '${definitionId}'`,
     )
-  return makePluginLayerId(name)
+  return makePluginLayerId(instanceId ? `${name}@${instanceId}` : name)
 }
 
 /** 清空测试用命名规则。 */

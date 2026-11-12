@@ -1,6 +1,7 @@
 /** 回归：PVP 通过脚本服务的公开计算入口，在前置插入历史后仍能正常输出。 */
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
+
 import { readFileSync } from 'node:fs'
+import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
@@ -52,20 +53,40 @@ describe('PVP service prepend', () => {
         config,
         market,
       )
-      expect(first).toBeDefined()
+      expect(first).toMatchObject({
+        plots: [],
+        drawings: expect.arrayContaining([
+          expect.objectContaining({ kind: 'rectangle' }),
+          expect.objectContaining({
+            kind: 'trend-line',
+            anchors: expect.arrayContaining([expect.objectContaining({ time: day + 86_400_000 })]),
+          }),
+        ]),
+      })
       const second = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)],
         config,
         market,
       )
-      expect(second).toBeDefined()
+      expect(second).toMatchObject({
+        plots: [],
+        drawings: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'trend-line',
+            anchors: expect.arrayContaining([expect.objectContaining({ time: day })]),
+          }),
+        ]),
+      })
+      const beforeTick = structuredClone(second)
       // 同一根 bar 实时更新
       const tick = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 99)],
         config,
         market,
       )
-      expect(tick).toBeDefined()
+      // 只有主图价格变化、低周期明细未变时，分布绘图应保持一致。
+      expect(tick).toEqual(beforeTick)
+      const beforePrepend = structuredClone(tick)
       // 低周期明细前置插入
       const older = { time: day - 86_400_000, open: 10, high: 11, low: 9, close: 10, volume: 10 }
       const prepended = await runtime.compute(
@@ -73,7 +94,8 @@ describe('PVP service prepend', () => {
         config,
         { ...market, loadBars: async () => [older, ...lower] },
       )
-      expect(prepended).toBeDefined()
+      // 主图起点之前的明细不能混入已显示的分布。
+      expect(prepended).toEqual(beforePrepend)
     } finally {
       service.dispose()
       vi.unstubAllGlobals()

@@ -6,10 +6,8 @@
   <BaseModal
     :open="show"
     title="行情数据源"
-    width="min(600px, calc(100vw - 32px))"
-    max-height="min(620px, 80dvh)"
-    overlay-padding="var(--klc-space-16, 16px)"
-    body-padding="0"
+    size="md"
+    body-flush
     @update:open="!$event && emit('close')"
   >
     <template #tabs>
@@ -20,29 +18,24 @@
         autofocus
       >
         <BaseTooltip content="重新检测" placement="bottom" trigger-display="contents">
-          <button
-            type="button"
-            class="source-toolbar__action"
-            :class="{ 'is-busy': refreshing }"
+          <BaseIconButton
+            :label="'刷新数据源状态'"
             :disabled="refreshing"
-            aria-label="刷新数据源状态"
             @click="refreshAll"
           >
-            <IconTablerRefresh aria-hidden="true" />
-          </button>
+            <IconTablerRefresh :class="{ 'klc-spin': refreshing }" aria-hidden="true" />
+          </BaseIconButton>
         </BaseTooltip>
       </ModalSearchBar>
     </template>
 
     <div class="source-body">
       <div class="source-list">
-          <p v-if="groups.length === 0" class="source-empty" role="status">
-            暂无可用数据源，请连接一个行情源。
-          </p>
-          <div v-else-if="filteredGroups.length === 0" class="source-empty" role="status">
-            <IconTablerSearch class="source-empty__icon" aria-hidden="true" />
-            <span>未找到匹配的数据源</span>
-          </div>
+        <BaseEmptyState v-if="groups.length === 0" role="status">暂无可用数据源，请连接一个行情源。</BaseEmptyState>
+        <BaseEmptyState v-else-if="filteredGroups.length === 0" role="status">
+          <template #icon><IconTablerSearch /></template>
+          未找到匹配的数据源
+        </BaseEmptyState>
 
           <section
             v-for="group in filteredGroups"
@@ -51,7 +44,7 @@
           >
             <header class="source-group__header">
               <span class="source-group__title">{{ group.title }}</span>
-              <span v-if="group.shared" class="source-group__tag">共用连接</span>
+              <BaseChip v-if="group.shared" variant="outline" size="sm">共用连接</BaseChip>
             </header>
 
             <!-- 地址是连接级配置：一个连接只出现一个编辑入口 -->
@@ -84,7 +77,7 @@
               <code class="source-endpoint__value">
                 {{ group.connection.baseUrl ?? group.connection.defaultBaseUrl }}
               </code>
-              <span class="source-group__tag">宿主托管</span>
+              <BaseChip variant="outline" size="sm">宿主托管</BaseChip>
             </div>
             <p v-if="errors[group.connection.id]" class="source-endpoint__error" role="alert">
               {{ errors[group.connection.id] }}
@@ -122,7 +115,7 @@
           </section>
         </div>
 
-      <div v-if="slots['source-management']" class="source-host">
+      <div v-if="$slots['source-management']" class="source-host">
         <slot name="source-management" />
       </div>
     </div>
@@ -130,20 +123,24 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-cluster.css'
+
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
   import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
   import { useMarketDataManagement } from '@vue-src/composables/market/useMarketDataManagement.js'
-  import { ref, useSlots, watch } from 'vue'
+  import { ref, watch } from 'vue'
   import IconTablerLink from '~icons/tabler/link'
   import IconTablerRefresh from '~icons/tabler/refresh'
   import IconTablerSearch from '~icons/tabler/search'
 
   const props = defineProps<{ show: boolean }>()
   const emit = defineEmits<{ close: [] }>()
-  const slots = useSlots()
 
   const {
     groups,
@@ -193,80 +190,14 @@
     min-height: 0;
   }
 
-  .source-toolbar__action {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    transition:
-      background var(--klc-motion-dur-fast, 160ms) ease,
-      color var(--klc-motion-dur-fast, 160ms) ease;
-  }
-
-  .source-toolbar__action:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .source-toolbar__action:disabled {
-    cursor: default;
-    opacity: 0.55;
-  }
-
-  .source-toolbar__action:focus-visible {
-    outline: 2px solid var(--klc-color-ui-accent);
-    outline-offset: 2px;
-  }
-
-  .source-toolbar__action svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  .source-toolbar__action.is-busy svg {
-    animation: source-spin 0.8s linear infinite;
-  }
-
-  @keyframes source-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   /* ── 列表：每个连接一张卡片 ── */
   .source-list {
     display: flex;
     flex-direction: column;
     gap: var(--klc-space-12, 12px);
-    padding: var(--klc-space-12, 12px);
+    padding: var(--klc-space-12, 12px) var(--base-modal-content-inset);
   }
 
-  .source-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--klc-space-8, 8px);
-    padding: var(--klc-space-24, 24px) var(--klc-space-16, 16px);
-    margin: 0;
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-copy-13-font-size, 13px);
-    text-align: center;
-  }
-
-  .source-empty__icon {
-    width: 28px;
-    height: 28px;
-    opacity: 0.4;
-  }
 
   .source-group {
     overflow: hidden;
@@ -293,18 +224,6 @@
     letter-spacing: 0.01em;
   }
 
-  .source-group__tag {
-    flex: 0 0 auto;
-    padding: 1px 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 999px;
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.6;
-    white-space: nowrap;
-  }
-
   /* ── 连接地址 ── */
   .source-endpoint {
     display: flex;
@@ -316,8 +235,8 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     background: var(--klc-color-ui-surface);
-    transition: border-color var(--klc-motion-dur-fast, 160ms)
-      var(--klc-motion-ease-out, ease-out);
+    transition: border-color var(--klc-motion-dur-fast)
+      var(--klc-motion-ease-out);
   }
 
   /* 聚焦只提亮已有边框，不画焦点环、不加外发光。 */
@@ -390,7 +309,7 @@
     justify-content: space-between;
     gap: var(--klc-space-12, 12px);
     padding: 10px 14px;
-    transition: background var(--klc-motion-dur-fast, 160ms) ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .provider-row + .provider-row {
@@ -476,7 +395,7 @@
   /* ── 宿主入口 ── */
   .source-host {
     flex: 0 0 auto;
-    padding: var(--klc-space-12, 12px);
+    padding: var(--klc-space-12, 12px) var(--base-modal-content-inset);
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
@@ -494,4 +413,3 @@
   }
 </style>
 
-<style scoped src="../common/control-cluster.css"></style>

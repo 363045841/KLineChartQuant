@@ -76,48 +76,6 @@ describe('registered data source', () => {
     }
   })
 
-  it('renews future calendar slots after invalidation without waiting for another live bar', async () => {
-    const bars = [100, 200, 300].map(makeKLine)
-    const fixture = createDataSourceFixture(bars)
-    fixture.source.capabilities.tradingCalendar = true
-    for (const instrument of fixture.instruments) instrument.capabilities.tradingCalendar = true
-    const calendar = vi.fn(async ({ anchorTimestamp }: { anchorTimestamp: number }) => ({
-      anchorTimestamp,
-      futureTimestamps: [400, 500],
-    }))
-    const host = new MarketDataContext()
-    host.registerDataSource({ ...fixture.source, tradingCalendar: { fetch: calendar } })
-    const { manager } = createTestChartDataManager(createTestDocument(), {
-      marketDataProviderRegistry: host.registry,
-      realtimeSubscriptionPool: host.realtime,
-      viewport: { scrollLeft: 800, visibleRange: { start: 0, end: 5 } },
-    })
-    let unsubscribe: (() => void) | undefined
-    try {
-      const instrument = await host.resolveInstrument('test', 'A')
-      manager.setSymbols([
-        { symbol: 'A', instrument, market: 'CN', source: 'test', period: 'daily' },
-      ])
-      await vi.waitFor(() => expect(manager.getData()).toHaveLength(3))
-      expect(manager.getAxisTimestampAtLogicalIndex(3)).toBeNull()
-      await vi.waitFor(() => expect(manager.getAxisTimestampAtLogicalIndex(3)).toBe(400))
-      const initialRequests = fixture.requests.length
-      // 模拟绘制订阅：完整快照发布时立即读取未来时隙，不能再被后续 clear 清掉。
-      unsubscribe = manager.dataBuffer.data.subscribe(() => {
-        manager.getAxisTimestampAtLogicalIndex(3)
-      })
-      fixture.observers.get('A')!.invalidate()
-      await vi.waitFor(() => expect(calendar).toHaveBeenCalledTimes(2))
-      await vi.waitFor(() => expect(manager.getAxisTimestampAtLogicalIndex(3)).toBe(400))
-      expect(manager.loading.peek()).toBe(false)
-      expect(fixture.requests).toHaveLength(initialRequests + 1)
-    } finally {
-      unsubscribe?.()
-      manager.destroy()
-      host.dispose()
-    }
-  })
-
   it('shares paged history, tail updates, explicit corrections and subscription lifetime through the Provider pipeline', async () => {
     const harness = setup()
     const { host, fixture, bars, manager } = harness

@@ -15,7 +15,9 @@ describe('projectLegendActions', () => {
 
   it('脚本指标提供代码编辑按钮，普通指标不提供', () => {
     const actions = (isScript: boolean) =>
-      projectLegendActions(entry, ['main'], () => isScript).map((item) => item.action)
+      projectLegendActions(entry, new Map([['main', [entry.id]]]), () => isScript, [
+        { id: 'main', ratio: 1 },
+      ]).map((item) => item.action)
 
     expect(actions(true)).toContain('edit-code')
     expect(actions(false)).not.toContain('edit-code')

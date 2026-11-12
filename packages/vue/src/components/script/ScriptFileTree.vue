@@ -8,10 +8,13 @@
     aria-label="脚本文件目录"
   >
     <div class="script-files__heading">文件</div>
-    <label class="script-files__search">
-      <IconTablerSearch aria-hidden="true" />
-      <input v-model="query" type="search" placeholder="搜索文件…" aria-label="搜索指标和库" />
-    </label>
+    <SearchField
+      v-model="query"
+      variant="compact"
+      class="script-files__search"
+      placeholder="搜索文件…"
+      aria-label="搜索指标和库"
+    />
     <p v-if="treeError" class="script-files__error" role="alert">{{ treeError }}</p>
     <div ref="treeHost" class="script-files__tree">
       <ul class="script-files__list">
@@ -25,13 +28,18 @@
             @create-file="emit('tree-action', { type: 'create-file', kind: row.kind, folder: rowPath(row) })"
           />
         </li>
-        <li v-if="!rows.length" class="script-files__empty" role="status">未找到匹配文件</li>
+        <BaseEmptyState v-if="!rows.length" as="li" size="compact" role="status">
+          未找到匹配文件
+        </BaseEmptyState>
       </ul>
     </div>
+    <ScriptContextMenu :model="menu" />
   </nav>
 </template>
 
 <script setup lang="ts">
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import SearchField from '@vue-src/components/common/SearchField.vue'
   import { useScriptTree } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTree.js'
   import { useScriptTreeMenu } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTreeMenu.js'
   import type {
@@ -42,7 +50,7 @@
     ScriptTreeRow,
   } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useTemplateRef } from 'vue'
-  import IconTablerSearch from '~icons/tabler/search'
+  import ScriptContextMenu from './ScriptContextMenu.vue'
   import ScriptFileTreeRow from './ScriptFileTreeRow.vue'
 
   const props = withDefaults(
@@ -88,7 +96,7 @@
     select: (id) => emit('select-tab', id),
     openFile: (id) => emit('open-script', id),
   })
-  const { openContextMenu } = useScriptTreeMenu({
+  const { menu, openContextMenu } = useScriptTreeMenu({
     apply: (action) => emit('tree-action', action),
     writable: () => !props.saving && !props.executing,
     treeHost,
@@ -108,9 +116,9 @@
     background: var(--klc-color-ui-card);
     font-size: var(--klc-text-label-12-font-size, 12px);
     transition:
-      width var(--klc-motion-duration-moderate) ease,
-      opacity var(--klc-motion-duration-moderate) ease,
-      border-right-color var(--klc-motion-duration-moderate) ease;
+      width var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      opacity var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
+      border-right-color var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
   }
   .script-files.is-collapsed {
     width: 0;
@@ -119,12 +127,10 @@
     pointer-events: none;
   }
   .script-files__heading { padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px); color: var(--klc-color-ui-muted); }
-  .script-files__search { display: flex; align-items: center; gap: var(--klc-space-4, 4px); margin: 0 var(--klc-space-8, 8px) var(--klc-space-8, 8px); padding: var(--klc-space-4, 4px); border: 1px solid var(--klc-color-ui-border); border-radius: var(--klc-radius-sm, 4px); color: var(--klc-color-ui-muted); }
-  .script-files__search:focus-within { border-color: var(--klc-color-ui-focus); }
-  .script-files__search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--klc-color-ui-text); font: inherit; }
+  /* 高度与外观由 SearchField 的 compact 变体自有；此处只负责外边距与纵向不伸缩。 */
+  .script-files__search { flex: 0 0 auto; margin: 0 var(--klc-space-8, 8px) var(--klc-space-8, 8px); }
   .script-files__tree { flex: 1; overflow: auto; }
   .script-files__list { margin: 0; padding: 0; list-style: none; }
-  .script-files__empty { padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px); color: var(--klc-color-ui-muted); text-align: center; }
   /* 目录操作失败留在目录区域，不混入代码问题列表。 */
   .script-files__error {
     margin: 0;
@@ -135,5 +141,4 @@
     overflow-wrap: anywhere;
   }
   @media (max-width: 600px) { .script-files { width: 140px; } }
-  @media (prefers-reduced-motion: reduce) { .script-files { transition: none; } }
 </style>

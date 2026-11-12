@@ -1,17 +1,15 @@
 /** 将统一图例上下文转换为 DOM 与外部模板共用的展示行。 */
 
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type {
   LegendComparisonRow,
   LegendIndicatorRow,
   LegendLayout,
-  LegendRow,
   LegendTemplateContext,
   LegendText,
 } from '../types.js'
 import { LEGEND_PARAM_GAP_PX } from './legendGeometry.js'
 import { formatLegendChange, formatLegendPrice, formatLegendSigned } from './legendQuote.js'
-import { createLegendRow, type LegendRowContent } from './legendRow.js'
+import type { LegendRowContent } from './legendRow.js'
 
 /** 行可选元信息：指标/比较身份、隐藏态与加载态。 */
 type LegendRowMeta = Pick<
@@ -22,35 +20,16 @@ type LegendRowMeta = Pick<
 type AddRow = (key: string, texts: LegendText[], meta?: LegendRowMeta) => void
 
 /** 左上角统一展示主品种行情、指标数值与比较品种真实行情。 */
-export function projectMainLegendRows(legend: LegendTemplateContext, paneTop: number): LegendRow[] {
+export function projectMainLegendContents(legend: LegendTemplateContext): LegendRowContent[] {
   const { layout, colors } = legend
-  const rows: LegendRow[] = []
-  /** 用同一行号维护紧凑布局和指标的位置。 */
+  const rows: LegendRowContent[] = []
+  /** 行情只提供内容；窄屏拆行之后由统一排版入口定位。 */
   const add: AddRow = (key, texts, meta = {}) => {
-    rows.push(
-      createLegendRow(
-        {
-          paneId: MAIN_PANE_ID,
-          paneTop,
-          paneWidth: layout.paneWidth,
-          index: rows.length,
-        },
-        { key, texts, ...meta },
-        { inset: layout.x, height: layout.lineHeight, gap: layout.gap },
-      ),
-    )
+    rows.push({ key, texts, ...meta })
   }
 
   if (legend.timeshare) pushTimeshareRows(legend.timeshare, layout, colors, add)
   if (legend.currentBar) pushBarRows(legend.currentBar, layout, colors, add)
-  for (const title of legend.indicators) {
-    add(title.instanceId, projectIndicatorTexts(title, colors), {
-      indicator: { instanceId: title.instanceId, definitionId: title.definitionId },
-      hidden: title.hidden,
-      loading: title.loading,
-      error: title.error,
-    })
-  }
   for (const comparison of legend.comparisons) {
     if (!comparison.identity) continue
     add(`comparison:${comparison.identity}`, projectComparisonTexts(comparison, colors), {

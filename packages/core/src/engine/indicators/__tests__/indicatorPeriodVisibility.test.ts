@@ -1,6 +1,10 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import {
+  clearIndicatorLayerNamingForTest,
+  registerIndicatorLayerNaming,
+} from '@/engine/indicators/indicatorLayerNaming.js'
 import {
   createIndicatorLayer,
   isLayerVisibleOnPeriod,
@@ -8,13 +12,16 @@ import {
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
-import {
-  INDICATOR_PERIOD_INPUT_OPTIONS,
-  isIndicatorVisibleOnPeriod,
-  isPeriodInRange,
-  parseIndicatorPeriod,
-  resolveIndicatorPeriodRange,
-} from '../indicatorPeriodVisibility.js'
+import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
+
+beforeAll(() =>
+  registerIndicatorLayerNaming(
+    ['fake'],
+    ({ paneId }) => `fake_${paneId}`,
+    () => null,
+  ),
+)
+afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
   it('识别已知周期，未知周期返回 undefined', () => {
@@ -23,54 +30,6 @@ describe('parseIndicatorPeriod', () => {
     expect(parseIndicatorPeriod('daily')).toEqual({ unit: 'day', value: 1 })
     expect(parseIndicatorPeriod('weekly')).toEqual({ unit: 'week', value: 1 })
     expect(parseIndicatorPeriod('bogus')).toBeUndefined()
-  })
-})
-
-describe('INDICATOR_PERIOD_INPUT_OPTIONS', () => {
-  it('选项值与周期表完全一致，且由短到长排列', () => {
-    expect(INDICATOR_PERIOD_INPUT_OPTIONS.map((option) => option.value)).toEqual([
-      '1min',
-      '5min',
-      '15min',
-      '30min',
-      '60min',
-      '4h',
-      'daily',
-      'weekly',
-      'monthly',
-      'quarterly',
-      'yearly',
-    ])
-  })
-})
-
-describe('isPeriodInRange', () => {
-  it('按周期顺序判定，两端都含', () => {
-    expect(isPeriodInRange('daily', '1min', '4h')).toBe(false)
-    expect(isPeriodInRange('4h', '1min', '4h')).toBe(true)
-    expect(isPeriodInRange('15min', '15min', '30min')).toBe(true)
-    expect(isPeriodInRange('1min', '15min', '30min')).toBe(false)
-  })
-
-  it('未声明或无法解析时不做约束', () => {
-    expect(isPeriodInRange('daily', undefined, undefined)).toBe(true)
-    expect(isPeriodInRange('bogus', '1min', '4h')).toBe(true)
-    expect(isPeriodInRange('daily', 'bogus', '4h')).toBe(true)
-  })
-})
-
-describe('resolveIndicatorPeriodRange', () => {
-  it('实例参数缺字段时用定义默认值补齐', () => {
-    expect(resolveIndicatorPeriodRange({ visibleTo: '4h' }, undefined)).toEqual({ to: '4h' })
-    expect(resolveIndicatorPeriodRange({ visibleTo: '4h' }, { visibleFrom: '1min' })).toEqual({
-      from: '1min',
-      to: '4h',
-    })
-    expect(resolveIndicatorPeriodRange(undefined, {})).toEqual({})
-    // 实例值优先于定义默认值
-    expect(resolveIndicatorPeriodRange({ visibleTo: '4h' }, { visibleTo: 'yearly' })).toEqual({
-      to: 'yearly',
-    })
   })
 })
 
@@ -86,17 +45,6 @@ describe('isIndicatorVisibleOnPeriod', () => {
     expect(isIndicatorVisibleOnPeriod('1min', bounded)).toBe(false)
     expect(isIndicatorVisibleOnPeriod('15min', bounded)).toBe(true)
     expect(isIndicatorVisibleOnPeriod('60min', bounded)).toBe(false)
-  })
-
-  it('实例区间收窄可见范围，且不能突破定义声明的上限', () => {
-    expect(isIndicatorVisibleOnPeriod('5min', undefined, { to: '4h' })).toBe(true)
-    expect(isIndicatorVisibleOnPeriod('daily', undefined, { to: '4h' })).toBe(false)
-    expect(
-      isIndicatorVisibleOnPeriod('weekly', [{ unit: 'minute' }], {
-        from: '1min',
-        to: 'yearly',
-      }),
-    ).toBe(false)
   })
 })
 
@@ -122,7 +70,6 @@ function fakeDefinition(
   return {
     name: 'fake',
     displayName: 'FAKE',
-    kind: 'indicator',
     category: 'main',
     defaultPaneId: 'main',
     getRendererName: () => 'fake',
@@ -133,7 +80,7 @@ function fakeDefinition(
 }
 
 describe('renderer layer gating', () => {
-  it('未声明范围时直接复用 Layer，声明后按周期拦截绘制', () => {
+  it('未声明范围时不增加额外绘制包装，但图层身份带实例 id', () => {
     const layer = fakeLayer()
     expect(isLayerVisibleOnPeriod(fakeDefinition(layer), 'daily')).toBe(true)
     const assembled = createIndicatorLayer({
@@ -141,56 +88,33 @@ describe('renderer layer gating', () => {
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
+      axisId: 'main',
     })
-    expect(assembled).toBe(layer)
-
-    const definition = fakeDefinition(fakeLayer(), [{ unit: 'minute' }, { unit: 'hour' }])
-    expect(isLayerVisibleOnPeriod(definition, '5min')).toBe(true)
-    expect(isLayerVisibleOnPeriod(definition, '4h')).toBe(true)
-    expect(isLayerVisibleOnPeriod(definition, 'daily')).toBe(false)
+    expect(assembled.id).toContain('fake_main')
+    expect(assembled.pane).toBe(layer.pane)
   })
 
-  it('声明范围时返回包裹后的新 Layer，并保留身份', () => {
+  it('声明范围时保留 Layer 身份，并实际拦截及恢复绘制', () => {
     const layer = fakeLayer()
+    const paint = vi.spyOn(layer, 'paint')
     const assembled = createIndicatorLayer({
       definition: fakeDefinition(layer, [{ unit: 'minute' }]),
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
+      axisId: 'main',
     })
     expect(assembled).not.toBe(layer)
-    expect(assembled.id).toBe(layer.id)
+    expect(assembled.id).toContain('fake_main')
     expect(assembled.pane).toBe(layer.pane)
-  })
-
-  it('仅在实例参数声明区间时包裹 Layer，并按周期拦截绘制', () => {
-    let painted = 0
-    const layer: Layer<RenderContext> = {
-      ...fakeLayer(),
-      paint: () => {
-        painted += 1
-      },
-    }
-    const definition = fakeDefinition(layer)
-    const unwrapped = createIndicatorLayer({
-      definition,
+    assembled.paint({
+      ...createMockRenderContext({ period: 'daily' }),
       paneId: 'main',
-      indicatorId: 'fake',
-      instanceId: 'fake_main',
+      clear: false,
     })
-    expect(unwrapped).toBe(layer)
-
-    const gated = createIndicatorLayer({
-      definition,
-      paneId: 'main',
-      indicatorId: 'fake',
-      instanceId: 'fake_main',
-      params: { visibleFrom: '1min', visibleTo: '4h' },
-    })
-    expect(gated).not.toBe(layer)
-    gated.paint(createMockRenderContext({ period: 'daily' }))
-    expect(painted).toBe(0)
-    gated.paint(createMockRenderContext({ period: '1min' }))
-    expect(painted).toBe(1)
+    expect(paint).not.toHaveBeenCalled()
+    const context = { ...createMockRenderContext({ period: '5min' }), paneId: 'main', clear: false }
+    assembled.paint(context)
+    expect(paint).toHaveBeenCalledExactlyOnceWith(context)
   })
 })

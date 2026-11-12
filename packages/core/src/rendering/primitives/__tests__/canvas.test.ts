@@ -8,6 +8,37 @@ afterEach(() => {
 })
 
 describe('Canvas 原语后端', () => {
+  it('数据空间描边只变换端点，线宽与虚线仍为屏幕像素', () => {
+    const ctx = createMockCanvasContext()
+    paintCanvasPrimitives(
+      ctx,
+      [
+        {
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 10, y: 3 },
+              { x: 20, y: 5 },
+            ],
+          ],
+          width: 2,
+          dash: [4, 2],
+          color: 'red',
+          cap: 'round',
+          join: 'round',
+          dataSpace: true,
+        },
+      ],
+      2,
+      { offsetX: 4, yScale: -5, yOffset: 80 },
+    )
+    expect(ctx.moveTo).toHaveBeenCalledWith(6, 65)
+    expect(ctx.lineTo).toHaveBeenCalledWith(16, 55)
+    expect(ctx.lineWidth).toBe(2)
+    expect(ctx.setLineDash).toHaveBeenCalledWith([4, 2])
+    expect(ctx.scale).not.toHaveBeenCalled()
+    expect(ctx.translate).not.toHaveBeenCalled()
+  })
   it('逐矩形剔除视口外的柱体', () => {
     const ctx = createMockCanvasContext()
     const data = new Float64Array([

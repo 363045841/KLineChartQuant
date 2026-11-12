@@ -13,7 +13,7 @@ export default mergeConfig(
         ...configDefaults.exclude,
         'e2e/**',
         '**/*.integration.test.ts',
-        // scripts 下的用例是 node:test 文件，由 `pnpm test:indicator-generation`
+        // scripts 下的用例是 node:test 文件，由 `pnpm test:scripts`
         // 通过 `node --test` 运行；vitest 收集它们会因为找不到 vitest 套件而失败。
         'scripts/**',
         // Sub-packages have their own vitest configs (jsdom for React/Vue,

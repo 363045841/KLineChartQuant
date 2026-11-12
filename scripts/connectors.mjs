@@ -17,6 +17,9 @@ import { attachPrefixedOutput, LOG_COLORS } from './prefixed-output.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PARENT = path.resolve(__dirname, '..', '..')
 
+// 公开演示页来源；loopback 始终放行，无需列入
+const DEMO_ORIGIN = 'https://363045841.github.io'
+
 // 各 connector 的启动命令；名称取对象键，desc 与 port 供统一的启动行模板渲染
 const CONNECTORS = {
   gotdx: {
@@ -36,6 +39,8 @@ const CONNECTORS = {
     dir: 'Binance-Connector',
     cmd: 'go',
     args: ['run', './cmd/binance-connector'],
+    // 允许公开演示页直连本机 connector，用户无需再配环境变量
+    env: { BINANCE_ALLOWED_ORIGINS: DEMO_ORIGIN },
   },
   baostock: {
     desc: 'BaoStock / TradingView',
@@ -139,6 +144,7 @@ export function startConnectors(names) {
     console.log(formatStartupLine(name, conn, cwd))
     const child = spawn(conn.cmd, conn.args, {
       cwd,
+      env: { ...process.env, ...conn.env },
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
     })

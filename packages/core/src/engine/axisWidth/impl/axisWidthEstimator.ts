@@ -1,6 +1,6 @@
 // 根据最终标签的字符组成估算轴宽，不依赖 DOM 或 Canvas 文本测量。
 import { AXIS_LABEL_KIND, type AxisLabel } from '../../../foundation/plugin/types.js'
-import type { AxisWidthFrame, AxisWidths } from '../types.js'
+import type { AxisColumnLayout, AxisWidthFrame, AxisWidths } from '../types.js'
 
 const DEFAULT_FONT_SIZE = 12
 const AXIS_PADDING = 12
@@ -39,11 +39,6 @@ function estimateLabelWidth(label: AxisLabel): number {
  *
  * 轴宽是布局属性，缩放、平移、悬停期间保持稳定；否则绘图区宽度会在运动途中
  * 改变，坐标轴与绘图区右缘跟着跳动。只有布局变化后传入 committed=null 才重新评估。
- *
- * @param floor 配置下限（轴内边距与价格标签预留）
- * @param requested 本帧标签估算宽度
- * @param committed 已提交宽度；null 表示布局已变化，按当前需求重新评估
- * @returns 本帧生效的轴宽
  */
 export function resolveAxisWidth(
   floor: number,
@@ -53,59 +48,81 @@ export function resolveAxisWidth(
   return Math.max(floor, requested, committed ?? 0)
 }
 
-/** 每个 Pane 的静态/动态轴宽缓存。 */
-type PaneAxisWidths = { static: AxisWidths; overlay: AxisWidths }
+/** 每条轴的静态/动态轴宽缓存。 */
+type AxisWidthParts = {
+  static: { left: number; right: number }
+  overlay: { left: number; right: number }
+}
 
 /** 某一侧轴表面在当前帧的标签最大宽度。 */
 function maxLabelWidth(
   frame: AxisWidthFrame,
   surface: 'yLeftStatic' | 'yLeftOverlay' | 'yRightStatic' | 'yRightOverlay',
-  paneId: string,
+  axisId: string,
 ): number {
-  const labels = frame.labels.forSurface(surface, paneId).labels
+  const labels = frame.labels.forSurface(surface, axisId).labels
   return Math.max(0, ...labels.map(estimateLabelWidth))
 }
 
-/** 按静态/动态分组更新 Pane 轴宽。 */
+/** 按静态/动态分组更新单条轴宽。 */
 function updatePartWidths(
   frame: AxisWidthFrame,
-  paneId: string,
+  axisId: string,
   part: 'static' | 'overlay',
-  widths: PaneAxisWidths,
+  widths: AxisWidthParts,
 ): void {
   const update = part === 'static' ? frame.updateStatic : frame.updateOverlay
   if (!update) return
   const left = part === 'static' ? 'yLeftStatic' : 'yLeftOverlay'
   const right = part === 'static' ? 'yRightStatic' : 'yRightOverlay'
   widths[part] = {
-    left: maxLabelWidth(frame, left, paneId),
-    right: maxLabelWidth(frame, right, paneId),
+    left: maxLabelWidth(frame, left, axisId),
+    right: maxLabelWidth(frame, right, axisId),
   }
 }
 
-/** 保留未重绘表面的宽度；Pane 删除时清除记录，每侧取所有可见 Pane 的最大值。 */
+/** 保留未重绘表面的宽度；同一窗格按列求和，不同窗格共享右侧空间。 */
 export class AxisWidthEstimator {
-  private readonly widths = new Map<string, PaneAxisWidths>()
+  private readonly widths = new Map<string, AxisWidthParts>()
 
-  /** 输入本帧最终标签，返回左右两侧所需宽度。 */
+  /** 输入本帧最终标签，返回左右两侧所需宽度与逐列宽度。 */
   estimate(frame: AxisWidthFrame): AxisWidths {
-    const visible = new Set(frame.paneIds)
+    const visible = new Set(frame.axes.map((axis) => axis.axisId))
     for (const id of this.widths.keys()) {
       if (!visible.has(id)) this.widths.delete(id)
     }
-    const result: AxisWidths = { left: 0, right: 0 }
-    for (const id of frame.paneIds) {
-      const widths = this.widths.get(id) ?? {
+    const result: AxisWidths = { left: 0, right: 0, rightByAxis: {} }
+    const rightByAxis: Record<string, number> = {}
+    const rightByPane = new Map<string, number>()
+    for (const axis of frame.axes) {
+      const widths = this.widths.get(axis.axisId) ?? {
         static: { left: 0, right: 0 },
         overlay: { left: 0, right: 0 },
       }
       for (const part of ['static', 'overlay'] as const) {
-        updatePartWidths(frame, id, part, widths)
+        updatePartWidths(frame, axis.axisId, part, widths)
         result.left = Math.max(result.left, widths[part].left)
-        result.right = Math.max(result.right, widths[part].right)
       }
-      this.widths.set(id, widths)
+      const right = Math.max(widths.static.right, widths.overlay.right)
+      rightByAxis[axis.axisId] = right
+      rightByPane.set(axis.paneId, (rightByPane.get(axis.paneId) ?? 0) + right)
+      this.widths.set(axis.axisId, widths)
     }
-    return result
+    // 窗格垂直排列，右侧只需要容纳最宽的一个窗格，不能跨窗格累加。
+    result.right = Math.max(0, ...rightByPane.values())
+    return { ...result, rightByAxis }
+  }
+
+  /** 按轴顺序生成右轴列布局；未测量过的轴宽度为 0。 */
+  getLayout(axisIds: ReadonlyArray<string>): Record<string, AxisColumnLayout> {
+    const layout: Record<string, AxisColumnLayout> = {}
+    let left = 0
+    for (const axisId of axisIds) {
+      const parts = this.widths.get(axisId)
+      const width = Math.max(parts?.static.right ?? 0, parts?.overlay.right ?? 0)
+      layout[axisId] = { left, width }
+      left += width
+    }
+    return layout
   }
 }

@@ -63,7 +63,6 @@ export type PersistedDrawingAnchor = {
   id: string
   type?: DrawingAnchorType
   time?: number | string
-  futureOffset?: number
   logicalIndex?: number
   price: number
 }
@@ -97,6 +96,8 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   kind: DrawingKind
   paneId: string
   workspaceId?: DrawingWorkspaceId
+  /** 用户文档的稳定标的身份；周期不参与身份，指标图元由运行上下文管理。 */
+  symbolKey?: string
   ownerId?: string
   visible: boolean
   locked?: boolean

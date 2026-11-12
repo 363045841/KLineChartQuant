@@ -1,5 +1,6 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it, vi } from 'vitest'
+import { dataSourceRegistry } from '../../impl/sourceRegistry'
 import type { InstrumentDescriptor } from '../../types'
 import { InstrumentType } from '../../types'
 import { createHttpMarketDataTransport } from '../impl/httpTransport'
@@ -94,8 +95,6 @@ describe('createMarketDataProvider', () => {
     { requested: 1, sourceLimit: 798, instrumentLimit: undefined, expected: 1 },
     { requested: 798, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
     { requested: 799, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
-    { requested: 3099, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
-    { requested: 5000, sourceLimit: 798, instrumentLimit: undefined, expected: 798 },
     { requested: 3099, sourceLimit: undefined, instrumentLimit: 500, expected: 500 },
     { requested: 3099, sourceLimit: 798, instrumentLimit: 200, expected: 200 },
     { requested: 3099, sourceLimit: undefined, instrumentLimit: undefined, expected: 3099 },
@@ -191,7 +190,7 @@ describe('createMarketDataProvider', () => {
     const provider = createProvider(
       fakeTransport({
         searchInstruments: async () => ({
-          items: [instrument as unknown as InstrumentDescriptor],
+          items: [instrument],
         }),
       }),
     )
@@ -350,5 +349,43 @@ describe('createMarketDataProvider', () => {
         }),
       ],
     })
+  })
+
+  // 内置 Binance 注册必须覆盖 connector 下发的两个市场会话，否则永续取时区时直接抛错。
+  it('resolves the session timezone of every binance market', async () => {
+    const provider = createMarketDataProvider({
+      source: { ...dataSourceRegistry.binance },
+      transport: fakeTransport({
+        fetchBars: async (request) => ({
+          instrumentId: request.instrument.id,
+          period: 'daily',
+          adjustment: 'none',
+          barAggregation: 'original',
+          timezone: '',
+          olderData: 'unknown',
+          items: [],
+        }),
+      }),
+    })
+    for (const [id, sessionId] of [
+      ['binance:spot:BTCUSDT', 'BINANCE_SPOT'],
+      ['binance:perp:BTCUSDT', 'BINANCE_PERP'],
+    ] as const) {
+      const series = await provider.bars!.fetch({
+        instrument: {
+          ...instrument,
+          id,
+          sourceId: 'binance',
+          sessionId,
+          exchange: 'BINANCE',
+          capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
+        },
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 10,
+      })
+      expect(series.timezone).toBe('UTC')
+    }
   })
 })

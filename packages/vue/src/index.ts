@@ -19,6 +19,7 @@ import type {
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
+  ReadonlySignal,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import { KlineChart } from '@vue-src/components/index.js'
@@ -32,8 +33,10 @@ import {
   watch,
 } from 'vue'
 import KlineWorkbench from './workbench/KlineWorkbench.vue'
+import './styles/theme-scheme.css'
 import './styles/fonts.css'
 import './styles/scrollbar.css'
+import './styles/motion.css'
 
 export type {
   ChartController,
@@ -156,6 +159,8 @@ export { KlineWorkbench }
 // factory via `__setControllerFactory` so the public API surface stays stable.
 // ---------------------------------------------------------------------------
 
+export type { FrameCoordinates } from '@363045841yyt/klinechart-core'
+
 let controllerFactory: ChartControllerFactory | null = null
 
 /**
@@ -271,16 +276,18 @@ export function useChart(
 export function useIndicators(controller: ChartController): {
   indicators: ComputedRef<ReadonlyArray<IndicatorInstance>>
   add: ChartController['addIndicator']
+  move: ChartController['moveIndicator']
   remove: ChartController['removeIndicator']
-  updateParams: ChartController['updateIndicatorParams']
+  update: ChartController['updateIndicator']
 } {
   const indicators = coreSignalToVueRef(controller.indicators)
 
   return {
     indicators,
     add: controller.addIndicator.bind(controller),
+    move: controller.moveIndicator.bind(controller),
     remove: controller.removeIndicator.bind(controller),
-    updateParams: controller.updateIndicatorParams.bind(controller),
+    update: controller.updateIndicator.bind(controller),
   }
 }
 
@@ -321,7 +328,7 @@ export function useViewport(controller: ChartController): ComputedRef<ChartViewp
  * ChartController engine methods.
  */
 export function useIndicatorSelector(controller: ChartController): {
-  catalog: ReadonlyArray<IndicatorDefinition>
+  catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
   filteredMain: ComputedRef<ReadonlyArray<IndicatorDefinition>>
   filteredSub: ComputedRef<ReadonlyArray<IndicatorDefinition>>
   menuOpen: ComputedRef<boolean>
@@ -347,7 +354,7 @@ export function useIndicatorSelector(controller: ChartController): {
 
   /** 先按需加载指标实现，再添加到对应位置。 */
   async function add(definitionId: string): Promise<string | null> {
-    const def = controller.catalog.find((d) => d.id === definitionId)
+    const def = controller.catalog.peek().find((d) => d.id === definitionId)
     if (def === undefined) return null
     await controller.loadIndicators([definitionId])
     return controller.addIndicator(definitionId)
@@ -408,3 +415,13 @@ import { createChartController } from '@363045841yyt/klinechart-core'
 __setControllerFactory(createChartController)
 
 export { CORE_VERSION, VERSION } from '@vue-src/version.js'
+export { useWorkspaceAppearance } from './workspace/impl/useWorkspaceAppearance.js'
+export { useWorkspaceTabs } from './workspace/impl/useWorkspaceTabs.js'
+export {
+  type TabDropTarget,
+  type TabPlacement,
+  tabLabelForSpec,
+} from './workspace/impl/workspace-tabs.js'
+export type { WorkspaceTab } from './workspace/types.js'
+export { default as WorkspaceContent } from './workspace/WorkspaceContent.vue'
+export { default as WorkspaceTabBar } from './workspace/WorkspaceTabBar.vue'

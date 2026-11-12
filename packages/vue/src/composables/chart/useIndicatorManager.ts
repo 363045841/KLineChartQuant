@@ -45,13 +45,18 @@ export function useIndicatorManager(
       )
       .map((indicator) => indicator.definitionId),
   )
-  const subPanes = computed<SubPaneSlot[]>(() =>
-    subPaneInfos.value.map((pane) => ({
-      id: pane.paneId,
-      indicatorId: pane.indicatorId as SubIndicatorType,
-      params: { ...pane.params },
-    })),
-  )
+  const subPanes = computed<SubPaneSlot[]>(() => {
+    const byPane = new Map<string, SubPaneSlot>()
+    for (const instance of subPaneInfos.value) {
+      if (byPane.has(instance.paneId)) continue
+      byPane.set(instance.paneId, {
+        id: instance.paneId,
+        indicatorId: instance.indicatorId as SubIndicatorType,
+        params: { ...instance.params },
+      })
+    }
+    return [...byPane.values()]
+  })
 
   const subActiveIndicators = computed(() => {
     const ids: string[] = []
@@ -69,25 +74,6 @@ export function useIndicatorManager(
     ...mainActiveIndicators.value,
     ...subActiveIndicators.value,
   ])
-
-  /**
-   * 当前图表的指标名摘要，供指标模板保存对话框展示。
-   *
-   * @remarks
-   * 与模板列表用同一套折叠规则：同一定义出现多次显示为「名称 x N」。
-   * 名称取自定义目录，未注册的定义退回定义 ID。
-   */
-  const templateIndicatorLabels = computed<ReadonlyArray<string>>(() => {
-    const counts = new Map<string, { label: string; count: number }>()
-    for (const instance of indicatorInstances.value) {
-      const definition = getIndicatorDescriptor(instance.definitionId)
-      const label = definition?.title ?? definition?.displayName ?? instance.definitionId
-      const entry = counts.get(instance.definitionId)
-      if (entry) entry.count += 1
-      else counts.set(instance.definitionId, { label, count: 1 })
-    }
-    return [...counts.values()].map(({ label, count }) => (count > 1 ? `${label} x ${count}` : label))
-  })
 
   const indicatorParams = computed<Record<string, Record<string, unknown>>>(() => {
     const params: Record<string, Record<string, unknown>> = {}
@@ -180,9 +166,11 @@ export function useIndicatorManager(
   ): Promise<void> {
     const controller = ctrl.value
     if (!controller) return
+    const instance = controller.indicators.peek().find((item) => item.paneId === paneId)
+    if (!instance) return
     const nextParams = getDefaultParams(newIndicatorId)
     const loaded = await loadIndicator(controller, newIndicatorId)
-    loaded?.replacePaneContent(paneId, newIndicatorId, nextParams)
+    loaded?.updateIndicator(instance.id, { indicatorId: newIndicatorId, params: nextParams })
   }
 
   /** 在副图序列中移动一个 Pane；主图始终固定在第 0 位。 */
@@ -201,16 +189,15 @@ export function useIndicatorManager(
     const def = getIndicatorDescriptor(indicatorId)
     const isMain = def?.category === 'main'
     if (isMain) {
-      const isMulti = def?.multiInstance === true
-      const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
-      // 声明多实例的指标允许同一身份再添加一个实例。
-      if (active && (!existingIndicator || isMulti)) {
+      const existing = controller.indicators
+        .peek()
+        .filter((item) => item.role === 'main' && item.definitionId === indicatorId)
+      if (active && existing.length === 0) {
         const c = await loadIndicator(controller, indicatorId)
         if (!c) return
-        if (!isMulti && mainActiveIndicators.value.includes(indicatorId)) return
         c.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else if (!active && existingIndicator) {
-        controller.removeIndicator(indicatorId)
+      } else if (!active) {
+        for (const instance of existing) controller.removeIndicator(instance.id)
       }
       return
     }
@@ -218,41 +205,25 @@ export function useIndicatorManager(
     if (isSubPaneIndicator(indicatorId)) {
       if (active) {
         const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-        if (existingPane) {
-          // 同类叠加：已有同定义面板时，把新实例挂到该面板而不是新开面板。
-          const loaded = await loadIndicator(controller, indicatorId)
-          loaded?.addIndicator(indicatorId, indicatorParams.value[indicatorId], {
-            paneId: existingPane.id,
-          })
-          return
-        }
+        if (existingPane) return
         if (subPanes.value.length >= maxSubPanes) return
-
         const loaded = await loadIndicator(controller, indicatorId)
-        if (!loaded || subPanes.value.some((p) => p.indicatorId === indicatorId)) return
-        const paneId = loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-        if (!paneId && subPanes.value.length > 0) {
-          const lastPane = subPanes.value[subPanes.value.length - 1]
-          await switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
-        }
+        if (!loaded) return
+        loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
       } else {
         const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-        panesToRemove.forEach((pane) => {
-          controller.removePane(pane.id)
-        })
+        panesToRemove.forEach((pane) => controller.removePane(pane.id))
       }
     }
   }
 
-  /** 将定义级参数设置提交到全部匹配实例；主图使用定义 ID，副图使用实例 ID。 */
+  /** 将参数设置提交到全部匹配实例；主图与副图都按实例身份写入。 */
   function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
     const controller = ctrl.value
     if (!controller) return
-
     for (const instance of controller.indicators.peek()) {
       if (instance.definitionId !== indicatorId) continue
-      const targetId = instance.role === 'main' ? instance.definitionId : instance.id
-      controller.updateIndicatorParams(targetId, params)
+      controller.updateIndicator(instance.id, { params })
     }
   }
 
@@ -299,7 +270,6 @@ export function useIndicatorManager(
     mainActiveIndicators,
     subActiveIndicators,
     activeIndicators,
-    templateIndicatorLabels,
     indicatorParams,
     subPanes,
     maxSubPanes,

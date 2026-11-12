@@ -3,7 +3,7 @@ import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { isPlotRenderState } from '@/engine/plots/impl/readPlotState.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry.js'
+import { getRegisteredIndicatorDefinition } from '../pipeline/index.js'
 import type {
   IndicatorParameters,
   IndicatorSeriesResult,

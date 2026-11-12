@@ -34,14 +34,14 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { CreatePaneInput, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { InstanceMoveTarget, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
 import type { ChartDataView } from '../foundation/types/chartView.js'
-import type { ScaleType } from '../foundation/types/scaleType.js'
 import type { ChartRendererAccess } from './renderers/index.js'
 
 export {
@@ -189,7 +189,7 @@ export interface IndicatorParamDef {
   max?: number
   step?: number
   options?: ReadonlyArray<{ value: string; label: string }>
-  visibleWhen?: import('../engine/renderers/Indicator/indicatorCatalog.js').ParamConfig['visibleWhen']
+  visibleWhen?: { key: string; values: readonly (number | string | boolean)[] }
 }
 
 export interface IndicatorDefinition {
@@ -201,7 +201,7 @@ export interface IndicatorDefinition {
   role: IndicatorPaneRole
   params: ReadonlyArray<IndicatorParamDef>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
-  documentIdentity?: 'builtin' | 'user'
+  documentIdentity?: import('../engine/indicators/pipeline/types.js').IndicatorDocumentIdentity
 }
 
 // ---------------------------------------------------------------------------
@@ -219,8 +219,6 @@ export interface PaneLayoutInfo {
   paneId: string
   top: number
   height: number
-  /** 该 Pane 的 Y 轴类型；绘图换算按它决定价格运算空间。 */
-  scaleType: ScaleType
 }
 
 // ---------------------------------------------------------------------------
@@ -286,6 +284,10 @@ export interface DrawingDocumentPort {
  * 只读，不修改图元或会话态。
  */
 export interface DrawingViewportPort {
+  /** 当前 Pane 的公开双向坐标服务；帧尚未就绪时返回 null。 */
+  getCoordinates(
+    paneId: string,
+  ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -385,6 +387,17 @@ export interface ChartMountOptions {
   settings?: Partial<ChartSettings>
 
   /**
+   * 挂载时是否恢复布局归档里的活动布局。
+   *
+   * - `true`（默认）：沿用布局功能，恢复上次保存的配置。
+   * - `false`：归档只作为手动保存/切换的仓库，图表从初始状态起步；
+   *   宿主自行管理图表快照时可关闭；多标签应通过 layoutStorageId 隔离归档。
+   */
+  layoutRestore?: boolean
+  /** 布局归档的稳定持有者身份；多标签使用标签 ID，省略时使用默认共享归档。 */
+  layoutStorageId?: string
+
+  /**
    * 指标实现的加载策略。
    * - `'on-demand'`（默认）：创建时只加载系统定义与已保存布局用到的指标，其余指标在
    *   `loadIndicators` / 布局切换 / Agent 工具时按需加载；同步的 `addIndicator` 等方法
@@ -431,15 +444,10 @@ export interface ChartController
   readonly hasDrawingClipboard: ReadonlySignal<boolean>
   /** Stable, serializable Agent context and deterministic query facade. */
   readonly agent: ChartAgentController
-  /**
-   * 注册 Agent 工具宿主：宿主的 @Tool 标注方法会成为 Agent 可调用工具，
-   * 调用时按方法函数身份在已注册宿主中解析执行目标。幂等（同一宿主重复注册只保留一份）。
-   */
-  registerToolHost(host: object): void
-  /** 移除先前注册的 Agent 工具宿主。 */
-  unregisterToolHost(host: object): void
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
+  /** 绘制完成后发布的帧几何；覆盖物必须使用它的投影，不能拼接实时状态。 */
+  readonly frameGeometry: ReadonlySignal<import('../engine/frame/types.js').ChartFrameGeometry | null>
   /** 右轴当前有效 CSS 宽度（包含用户配置的最小宽度）。 */
   readonly rightAxisEffectiveWidth: ReadonlySignal<number>
   readonly leftAxisEffectiveWidth: ReadonlySignal<number>
@@ -524,8 +532,8 @@ export interface ChartController
   /** Registered symbol catalog — adapters use for picker UI */
   readonly symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>>
 
-  // indicator catalog (static — adapters use for picker UI)
-  readonly catalog: ReadonlyArray<IndicatorDefinition>
+  // indicator catalog（注册表投影，随注册表变更自动重建）
+  readonly catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
 
   // ---- Alerts ----
   readonly alertController: AlertController
@@ -589,27 +597,18 @@ export interface ChartController
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
-  /**
-   * 添加指标实例。
-   * @param definitionId 指标定义标识
-   * @param params 可选的参数覆盖
-   * @param options 可选目标面板；副图给出已有面板且同定义时在同一面板内叠加实例
-   */
+  /** 创建实例；返回实例身份，主副图语义一致。 */
   addIndicator(
     definitionId: string,
     params?: Record<string, unknown>,
-    options?: { paneId?: string },
+    target?: InstanceMoveTarget,
   ): string | null
+  /** 迁移实例归属；源副图变空时自动回收。 */
+  moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean
+  /** 删除实例；空副图一并回收。 */
   removeIndicator(instanceId: string): boolean
-  /** 调整主图指标的 Legend 顺序。 */
-  moveMainIndicator(definitionId: string, direction: 'up' | 'down'): boolean
-  /** 在原有 Legend 位置原子替换主图指标。 */
-  replaceMainIndicator(definitionId: string, nextDefinitionId: string): boolean
-  /** 隐藏或显示主图指标；只影响绘制，保留实例与参数。 */
-  setMainIndicatorHidden(definitionId: string, hidden: boolean): boolean
-  /** 隐藏或显示指定 pane 的副图指标；只影响绘制，保留 pane 与参数。 */
-  setSubIndicatorHidden(paneId: string, hidden: boolean): boolean
-  updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
+  /** 更新实例参数、显隐、排序或定义。 */
+  updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean
 
   // ---- Drawing ----
   /**
@@ -637,12 +636,9 @@ export interface ChartController
   redoDrawing(): boolean
 
   // ---- Pane ----
-  createPane(input: CreatePaneInput): boolean
   updatePane(paneId: string, patch: PanePatch): boolean
   removePane(paneId: string): boolean
   movePane(paneId: string, targetIndex: number): boolean
-  replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean
-  updatePaneContent(paneId: string, params: Record<string, unknown>): boolean
   clearPanes(): void
 
   // ---- Interaction sub-methods ----

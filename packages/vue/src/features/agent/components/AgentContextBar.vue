@@ -13,7 +13,7 @@
     </BaseTooltip>
     <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
       <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
-        ><span class="context-bar__text">{{ symbolContext.value.symbol
+        ><span class="context-bar__text truncate-text">{{ symbolContext.value.symbol
         }}{{ symbolContext.value.name ? ` - ${symbolContext.value.name}` : '' }}</span></span
       >
       <BaseTooltip
@@ -23,7 +23,7 @@
         placement="top"
       >
         <span class="context-bar__pill context-bar__range-text" tabindex="0">
-          <span class="context-bar__text">{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span>
+          <span class="context-bar__text truncate-text">{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span>
         </span>
       </BaseTooltip>
     </div>
@@ -32,6 +32,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../../../components/common/truncate-text.css'
+
   import { computed } from 'vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
@@ -137,4 +139,3 @@
 
 </style>
 
-<style scoped src="./agent-truncate-text.css"></style>

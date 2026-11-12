@@ -4,34 +4,20 @@
  * 布局恢复在写入状态前加载其指标，静态目录与实现元数据一致。
  */
 import 'fake-indexeddb/auto'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createCanvasGetContextMock,
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
-import { BUILTIN_INDICATOR_MANIFEST } from '@/engine/indicators/generated/builtinIndicators'
 import {
-  clearRegisteredIndicatorDefinitionsForTest,
-  getIndicatorDescriptors,
+  clearIndicatorStoreForTest,
   getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '@/engine/indicators/indicatorDefinitionRegistry'
+  readIndicatorDescriptors,
+} from '@/engine/indicators/pipeline/index'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins'
-import { allIndicatorDefinitions } from '../indicatorDefinitionCatalog'
-
-/** 记录每个内置定义模块的加载次数；必须在注册表首次读取目录前安装。 */
-const loads = new Map<string, number>()
-beforeAll(() => {
-  for (const entry of BUILTIN_INDICATOR_MANIFEST) {
-    const load = entry.load
-    vi.spyOn(entry, 'load').mockImplementation(() => {
-      loads.set(entry.descriptor.name, (loads.get(entry.descriptor.name) ?? 0) + 1)
-      return load()
-    })
-  }
-})
+import { indicatorCatalog } from '../indicatorCatalog/index'
 
 beforeEach(async () => {
   // 每个用例使用独立的布局归档，避免前一用例的自动保存参与恢复。
@@ -40,8 +26,7 @@ beforeEach(async () => {
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
   })
-  clearRegisteredIndicatorDefinitionsForTest()
-  loads.clear()
+  clearIndicatorStoreForTest()
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   stubAnimationFrame()
   HTMLCanvasElement.prototype.getContext = createCanvasGetContextMock()
@@ -59,33 +44,37 @@ describe('indicator catalog without implementations', () => {
       compute: () => ({ plots: [], fills: [] }),
     })
     // 目录里的内置项是静态占位（kind: indicator），不加载实现；宿主注册项同样直接可见。
-    expect(allIndicatorDefinitions().map((definition) => definition.id)).toContain(
+    expect(indicatorCatalog().map((definition) => definition.id)).toContain('LateRegisteredFixture')
+    expect(readIndicatorDescriptors().map((definition) => definition.name)).toEqual([
       'LateRegisteredFixture',
-    )
-    expect(loads.size).toBe(0)
+    ])
   })
 })
 
 describe('static catalog fidelity', () => {
   it('matches the metadata of every loaded implementation', async () => {
+    registerPlotIndicatorFixture({
+      name: 'CatalogFixture',
+      category: 'sub',
+      compute: () => ({ plots: [], fills: [] }),
+    })
     await loadBuiltinIndicators()
-    const descriptors = getIndicatorDescriptors()
-    expect(descriptors).toHaveLength(BUILTIN_INDICATOR_MANIFEST.length)
+    const descriptors = readIndicatorDescriptors()
+    expect(descriptors).toHaveLength(1)
     for (const descriptor of descriptors) {
       const definition = getRegisteredIndicatorDefinition(descriptor.name)!
       const runtimeDefaults = definition.runtime?.defaultParams
       const runtimeInputDefs = definition.runtime?.inputDefs
-      expect(descriptor, descriptor.name).toEqual(
+      expect(JSON.parse(JSON.stringify(descriptor)), descriptor.name).toEqual(
         JSON.parse(
           JSON.stringify({
             name: definition.name,
-            kind: definition.kind,
+            source: definition.source,
             aliases: definition.aliases,
             displayName: definition.displayName,
             category: definition.category,
             defaultPaneId: definition.defaultPaneId,
             dataViews: definition.dataViews,
-            allowMainPane: definition.allowMainPane,
             visiblePeriods: definition.visiblePeriods,
             multiInstance: definition.multiInstance,
             documentIdentity: definition.document?.identity,

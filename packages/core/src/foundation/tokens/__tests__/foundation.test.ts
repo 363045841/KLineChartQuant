@@ -100,6 +100,7 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
 
   it('motion: easings, ordered durations, flash 500 / fade 1000', () => {
     expect(f.motion.ease).toEqual({
+      standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
       out: 'cubic-bezier(0.23, 1, 0.32, 1)',
       inOut: 'cubic-bezier(0.77, 0, 0.175, 1)',
       drawer: 'cubic-bezier(0.32, 0.72, 0, 1)',
@@ -181,7 +182,7 @@ describe('foundation tokens: per mode', () => {
     const lightBg = lightTheme.colors.ui.background
     // UI / focus ring ≥ 3:1（ADR 记录 4.10 与 4.05）。
     expect(contrast('#4C77C6', darkBg)).toBeCloseTo(4.1, 1)
-    expect(contrast('#4C77C6', lightBg)).toBeCloseTo(4.05, 1)
+    expect(contrast('#4C77C6', lightBg)).toBeCloseTo(4.15, 1)
     // 作为文字 ≥ 4.5:1。
     expect(contrast(darkFoundation.brand.accentText, darkBg)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(lightFoundation.brand.accentText, lightBg)).toBeGreaterThanOrEqual(4.5)
@@ -221,8 +222,7 @@ describe('foundation tokens: Theme integration', () => {
     expect(vars['--klc-brand-accent-text']).toBe('#537ECD')
     expect(vars['--klc-font-family-brand']).toBe('Outfit, sans-serif')
     expect(vars['--klc-font-family-brand-cjk']).toBe("'HarmonyOS Sans', sans-serif")
-    // 旧 motion 变量保持原值，与新 dur-* 不冲突。
-    expect(vars['--klc-motion-duration-fast']).toBe('120ms')
+    // 旧 motion 变量已删除：动效只有 foundation 一套。
     for (const g of FOUNDATION_GROUPS)
       expect(Object.keys(vars).some((k) => k.startsWith(`--klc-${camelToKebab(g)}-`))).toBe(true)
   })

@@ -150,6 +150,7 @@ export class DragHandler {
 
     const target = this.dragState.target
     const pointer = resolveDrawingPointer(e, container, adapter, {
+      snapToSlot: target.type === 'anchor',
       magnet: this.resolveDragMagnet(target, options),
       angleLock: options?.angleLock,
       clampDataEnd:
@@ -254,8 +255,7 @@ export class DragHandler {
       if (moving.index === index) {
         anchors[moving.index] = {
           ...anchors[moving.index]!,
-          time: pointer.time,
-          futureOffset: pointer.futureOffset,
+          time: dx === 0 ? anchors[moving.index]!.time : pointer.time,
           price: pointer.price,
         }
         continue
@@ -268,9 +268,8 @@ export class DragHandler {
       if (!resolved) continue
       anchors[moving.index] = {
         ...anchors[moving.index]!,
-        time: resolved.time,
-        futureOffset: resolved.futureOffset,
-        price: resolved.price,
+        time: moving.follow?.time === 0 || dx === 0 ? follower!.time : resolved.time,
+        price: moving.follow?.price === 0 || dy === 0 ? follower!.price : resolved.price,
       }
     }
     return { ...drawing, anchors }
@@ -293,7 +292,7 @@ export class DragHandler {
     const next: PersistedDrawingAnchor =
       anchor.type === 'horizontal'
         ? { ...anchor, type: 'horizontal', price: pointer.price }
-        : { ...anchor, type: 'vertical', time: pointer.time, futureOffset: pointer.futureOffset }
+        : { ...anchor, type: 'vertical', time: pointer.time }
     const anchors = drawing.anchors.map((item) => ({ ...item }))
     anchors[index] = next
     return { ...drawing, anchors }
@@ -352,7 +351,12 @@ export class DragHandler {
     middleY: number,
     adapter: DrawingViewportPort,
   ): void {
-    const priceDelta = adapter.yToPrice(paneId, pointerY) - adapter.yToPrice(paneId, middleY)
+    const coordinates = adapter.getCoordinates(paneId)
+    if (!coordinates) return
+    const pointerPrice = coordinates.yToPrice(pointerY)
+    const middlePrice = coordinates.yToPrice(middleY)
+    if (pointerPrice === null || middlePrice === null) return
+    const priceDelta = pointerPrice - middlePrice
     for (const index of [handle.from, handle.to]) {
       const anchor = anchors[index]
       if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
@@ -376,7 +380,7 @@ export class DragHandler {
       const resolved = screenToAnchor(screen.x + dx, screen.y, paneId, adapter)
       const anchor = anchors[index]
       if (resolved && anchor)
-        anchors[index] = { ...anchor, time: resolved.time, futureOffset: resolved.futureOffset }
+        anchors[index] = { ...anchor, time: dx === 0 ? anchor.time : resolved.time }
     }
   }
 
@@ -398,10 +402,12 @@ export class DragHandler {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       if (!screen) continue
       if (screen.type === 'horizontal') {
+        const price = adapter.getCoordinates(drawing.paneId)?.yToPrice(screen.y + dy)
+        if (price === undefined || price === null) continue
         anchors[index] = {
           ...anchor,
           type: 'horizontal',
-          price: adapter.yToPrice(drawing.paneId, screen.y + dy),
+          price,
         }
         continue
       }
@@ -412,7 +418,6 @@ export class DragHandler {
             ...anchor,
             type: 'vertical',
             time: resolved.time,
-            futureOffset: resolved.futureOffset,
           }
         continue
       }
@@ -421,9 +426,8 @@ export class DragHandler {
       if (resolved) {
         anchors[index] = {
           ...anchor,
-          time: resolved.time,
-          futureOffset: resolved.futureOffset,
-          price: resolved.price,
+          time: dx === 0 ? anchor.time : resolved.time,
+          price: dy === 0 ? anchor.price : resolved.price,
         }
       }
     }
@@ -437,8 +441,10 @@ export class DragHandler {
     adapter: DrawingViewportPort,
   ): number {
     if (drawing.kind !== DrawingTool.RegressionChannel) return dx
-    const lastX = adapter.getXAtLogicalIndex(adapter.getDrawingData().length - 1)
-    if (lastX === null) return dx
+    const lastX = adapter
+      .getCoordinates(drawing.paneId)
+      ?.logicalToX(adapter.getDrawingData().length - 1)
+    if (lastX === undefined || lastX === null) return dx
     return drawing.anchors.reduce((offset, anchor) => {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       return isScreenPoint(screen) ? Math.min(offset, lastX - screen.x) : offset

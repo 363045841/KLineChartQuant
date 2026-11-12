@@ -65,6 +65,17 @@ export function formatQuotePercent(quote: WatchlistQuote): string {
 }
 
 /**
+ * 涨跌幅自身的方向：只按相对昨收的正负判定，与最新价的逐笔方向无关。
+ *
+ * @param quote - 报价
+ */
+export function percentDirection(quote: WatchlistQuote): QuoteDirection {
+  if (quote.last > quote.prevClose) return 'up'
+  if (quote.last < quote.prevClose) return 'down'
+  return 'flat'
+}
+
+/**
  * 比较相邻两次展示的最新价，得到本次的涨跌方向。
  *
  * @param previous - 上一次展示的最新价

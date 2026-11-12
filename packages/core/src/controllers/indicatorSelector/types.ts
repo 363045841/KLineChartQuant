@@ -4,7 +4,7 @@
  * 指标选择器契约由此模块维护，公共指标定义仍从共享类型导入。
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal, Signal } from '../../foundation/reactivity/index.js'
 import type { IndicatorDefinition, IndicatorPaneRole } from '../types.js'
 
 export interface ActiveIndicator {
@@ -17,7 +17,7 @@ export interface ActiveIndicator {
 }
 
 export interface IndicatorSelectorController {
-  readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
+  readonly catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
   readonly active: Signal<ReadonlyArray<ActiveIndicator>>
   readonly menuOpen: Signal<boolean>
   readonly searchQuery: Signal<string>
@@ -35,8 +35,9 @@ export interface IndicatorSelectorController {
   dispose(): void
 }
 
-/** createIndicatorSelectorController 的可选初始化参数。 */
+/** createIndicatorSelectorController 的初始化参数。 */
 export interface IndicatorSelectorInit {
-  catalog?: ReadonlyArray<IndicatorDefinition>
+  /** 指标目录信号；所有选择器实例共享注册表投影。 */
+  catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
   active?: ReadonlyArray<ActiveIndicator>
 }

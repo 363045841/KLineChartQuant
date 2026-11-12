@@ -36,9 +36,8 @@
       @close="picker.closePopup"
       @manage-sources="emit('manageSources')"
     >
-      <template #tabs>
+      <template v-if="picker.sourceTabs.length > 0" #tabs>
         <BaseTabs
-          v-if="picker.sourceTabs.length > 0"
           v-model="picker.activeSourceTab"
           :tabs="picker.sourceTabs"
           aria-label="聚合源"
@@ -58,14 +57,14 @@
           <div
             v-for="item in picker.results"
             :key="symbolIdentityKey(item)"
-            class="symbol-list__item"
+            class="symbol-list__item modal-list-row"
             :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
             role="option"
             :aria-selected="symbolIdentityKey(item) === selectedKey"
           >
             <button type="button" class="symbol-list__select" @click="selectSymbol(item)">
               <span class="list-text">
-                <span class="symbol-list__code">{{ displayCode(item) }}</span>
+                <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.name }}</span>
               </span>
               <SymbolMetaBadge :symbol="item" />
@@ -76,14 +75,12 @@
               placement="left"
               trigger-display="contents"
             >
-              <button
-                type="button"
-                class="symbol-list__add"
-                :aria-label="`添加自选 ${displayCode(item)}`"
+              <BaseIconButton
+                :label="`添加自选 ${item.symbol}`"
                 @click.stop="emit('addWatchlist', item)"
               >
                 <IconTablerPlus aria-hidden="true" />
-              </button>
+              </BaseIconButton>
             </BaseTooltip>
           </div>
         </div>
@@ -93,6 +90,12 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/control-button.css'
+  import '../common/modal-list.css'
+  import '../common/symbol-list.css'
+  import '../common/list-text.css'
+
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
@@ -105,7 +108,6 @@
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
   import { computed, ref, watch } from 'vue'
-  import { formatInstrumentLabel } from '@363045841yyt/klinechart-core/market-data'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
   import SymbolPopover from './SymbolPopover.vue'
@@ -158,16 +160,14 @@
       : props.symbols.find((s) => s.symbol === props.symbol),
   )
 
-  /** 展示代码：永续追加 .P，与搜索输入保持同一写法；行情请求仍用 item.symbol。 */
-  function displayCode(item: SymbolItem): string {
-    return formatInstrumentLabel(item).code
-  }
-
   const displayText = computed(() => {
     const cur = currentSymbol.value
-    if (!cur) return props.symbol
-    const code = displayCode(cur)
-    return code === cur.name ? code : `${code} - ${cur.name}`
+    if (cur) {
+      const legacy = cur as SymbolItem & { description?: string }
+      const name = cur.name ?? legacy.description ?? cur.symbol
+      return cur.symbol === name ? cur.symbol : `${cur.symbol} - ${name}`
+    }
+    return props.symbol
   })
 
   const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')
@@ -190,9 +190,6 @@
   )
 </script>
 
-<style scoped src="../common/control-button.css"></style>
-<style scoped src="../common/symbol-list.css"></style>
-<style scoped src="../common/list-text.css"></style>
 
 <style scoped>
   .symbol-chip-wrap {
@@ -214,7 +211,7 @@
     gap: 8px;
     margin: 0;
     border-bottom: 1px solid var(--klc-color-ui-border);
-    transition: background 0.12s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
@@ -233,39 +230,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 12px;
+    padding-block: 10px;
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     cursor: pointer;
     font: inherit;
     text-align: left;
-  }
-
-  .symbol-list__add {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    margin-right: 12px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-  }
-
-  .symbol-list__add:hover {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .symbol-list__add svg {
-    width: 15px;
-    height: 15px;
   }
 
   .symbol-list__item:last-child {

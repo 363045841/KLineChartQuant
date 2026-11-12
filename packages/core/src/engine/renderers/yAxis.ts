@@ -43,11 +43,14 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
       )
       const targetCtx = yAxisCtx
       if (!targetCtx) return
-      const axisWidth = yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth
+      const layout = context.axisLayout?.[pane.id]
+      const axisWidth =
+        layout?.width ?? (yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth)
+      const offsetX = layout?.left ?? 0
       const isPercent = usesPercentAxis(context)
 
       if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
-        targetCtx.clearRect(0, 0, axisWidth, pane.height)
+        targetCtx.clearRect(offsetX, 0, axisWidth, pane.height)
 
         const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
         for (const tick of context.yAxisTicks) {
@@ -64,6 +67,7 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
           dpr,
           axisWidth,
           axisHeight: pane.height,
+          offsetX,
         })
         // 分时左右轴共用刻度坐标，左侧直接显示对应的原始价格。
         const leftCtx = context.leftAxisCtx
@@ -116,8 +120,11 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
         context.colorPresetSettings,
       )
 
-      const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
-      targetCtx.clearRect(0, 0, axisWidth, pane.height)
+      const layout = context.axisLayout?.[pane.id]
+      const axisWidth =
+        layout?.width ?? (targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth)
+      const offsetX = layout?.left ?? 0
+      targetCtx.clearRect(offsetX, 0, axisWidth, pane.height)
 
       const isPercent = usesPercentAxis(context)
 
@@ -134,10 +141,10 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
                 kind: 'fill',
                 paths: [
                   [
-                    { x: 0, y: topY },
-                    { x: axisWidth, y: topY },
-                    { x: axisWidth, y: topY + bandHeight },
-                    { x: 0, y: topY + bandHeight },
+                    { x: offsetX, y: topY },
+                    { x: offsetX + axisWidth, y: topY },
+                    { x: offsetX + axisWidth, y: topY + bandHeight },
+                    { x: offsetX, y: topY + bandHeight },
                   ],
                 ],
                 color: range.color,
@@ -193,7 +200,7 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
         targetCtx,
         context.axisLabels.forSurface('yRightOverlay', pane.id).labels,
         'yRightOverlay',
-        { dpr, axisWidth, axisHeight: pane.height },
+        { dpr, axisWidth, axisHeight: pane.height, offsetX },
       )
     },
     dispose() {},

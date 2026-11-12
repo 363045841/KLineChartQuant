@@ -49,25 +49,6 @@ export function useScriptEditorPanels(
     if (message) selectPanel('problems')
   })
 
-  /** Tab 支持左右方向键、Home 和 End，并把焦点移到所选标签。 */
-  function onTabKeyDown(event: KeyboardEvent): void {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-    event.preventDefault()
-    const panel =
-      event.key === 'Home'
-        ? 'output'
-        : event.key === 'End'
-          ? 'problems'
-          : activePanel.value === 'output'
-            ? 'problems'
-            : 'output'
-    selectPanel(panel)
-    if (event.currentTarget instanceof HTMLElement)
-      event.currentTarget.parentElement
-        ?.querySelector<HTMLButtonElement>(`[data-panel="${panel}"]`)
-        ?.focus()
-  }
-
   watch(activePanel, async (panel) => {
     await nextTick()
     const element = host.value
@@ -172,7 +153,6 @@ export function useScriptEditorPanels(
     expanded,
     activePanel,
     selectPanel,
-    onTabKeyDown,
     height,
     minHeight,
     maxHeight,

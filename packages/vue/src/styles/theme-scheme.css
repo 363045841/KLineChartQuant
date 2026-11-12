@@ -1,0 +1,17 @@
+/*
+  为 light-dark() 提供明确的 color-scheme 锚点。
+  原生浏览器按锚点选择明暗值；被 lightningcss 降级时也会在这里注入
+  --lightningcss-light / --lightningcss-dark 切换变量，避免所有 light-dark()
+  声明在消费方构建后失效。
+*/
+:root {
+  color-scheme: light dark;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}

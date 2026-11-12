@@ -14,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../common/selection-menu.css'
+
   import { type ChartSettings, DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
@@ -63,4 +65,3 @@
   }
 </script>
 
-<style scoped src="../common/selection-menu.css"></style>

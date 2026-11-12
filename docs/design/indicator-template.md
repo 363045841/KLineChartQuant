@@ -30,9 +30,9 @@
 浏览器逐项核对过（2026-11-09），照搬行为：
 
 - **入口**：工具栏独立按钮，与指标按钮并列。弹层分「指标」「模板」两个页签。
-- **指标页签**：置顶「保存指标模板…」，中间「最近用过」列表，底部「打开模板…」。
-- **模板页签**：搜索框 + 列出全部模板，每条两行：名称、逗号分隔的指标摘要。
-- **摘要折叠**：同一定义多次出现显示为「名称 x N」，例如 `PVP x 2`。
+- **指标页签**：保存与打开入口并列置顶，「最近」列表在下。
+- **模板页签**：搜索框位于弹窗头部；列表每条的名称与指标胶囊在同一行。
+- **指标名称汇总**：同一定义多次出现显示为「名称 x N」，例如 `PVP x 2`。
 - **行内操作**：删除（指标页签）、重命名与删除（模板页签），hover 才出现。
 - **应用语义**：替换图上现有指标，不追加。
 - **同名保存**：按名称覆盖，不新增副本。
@@ -45,20 +45,28 @@
 
 ## 数据形状
 
-`TemplateWorkspace` 与布局的 `LayoutWorkspace` 同构，但刻意不共用类型：
+`TemplateWorkspace` 从布局工作区投影，只保留模板关心的两个字段：
 
 ```ts
-interface TemplateWorkspace {
-  readonly instances: ReadonlyArray<IndicatorInstanceConfig>
-  readonly paneSpecs: ReadonlyArray<LayoutPaneConfig>
-}
+type TemplateWorkspace = Pick<LayoutWorkspace, 'instances' | 'paneSpecs'>
 ```
 
 `LayoutWorkspace` 还有 `paneScaleTypes`。模板不收它，因为轴类型描述「这张图表怎么显示」，
-不是「用了哪些指标」。共用一份类型会让模板被动继承布局以后新增的字段。
+不是「用了哪些指标」。用投影而不是重写一份类型：布局工作区增删字段时，
+模板这边的差异会直接由类型检查暴露，不会静默继承或静默丢失。
 
-`captureTemplate` 从 `kernel.snapshotViewWorkspaces()` 裁剪出 `instances` 与 `paneSpecs`，
+`extractTemplate` 从 `kernel.snapshotViewWorkspaces()` 提取 `instances` 与 `paneSpecs`，
 两个数据视图都存。
+
+## 当前指标摘要
+
+保存对话框里的「指标」由模板接口的 `currentIndicators` 只读信号提供，输入是内核当前
+两个数据视图的用户指标。它和模板列表摘要共用 `summarizeIndicators`，输出
+`{ id, label, count }`；`label` 取指标定义的 `name` 元数据，多实例显示为「名称 x N」。
+
+保存时每个指标是一个可关闭胶囊。关闭只从本次保存中移除，不改动当前图表；界面把保留的
+`indicatorIds` 传回 Core，由 `selectTemplateIndicators` 过滤指标实例，并移除没有实例
+引用的副图 `paneSpecs`。
 
 ## 应用模板
 
@@ -73,7 +81,7 @@ actions.setDataView(当前数据视图)
 复用布局的恢复路径而不是另写一套，因为对指标与窗格的写入语义完全相同。
 商品、周期、图表设置、绘图、视口与价格轴全部保持原样。
 
-系统实例（`source: 'mode'`）由 `restoreWorkspaces` 自动保留，模板无法把它们带到别的图表。
+系统图层由图表视图拥有，不属于指标状态，天然不进入模板提取与恢复链路。
 
 ## 无法注册的指标
 
@@ -82,7 +90,8 @@ actions.setDataView(当前数据视图)
 
 - 能加载的直接恢复。
 - 加载后仍缺失的，跳过恢复，但在返回值 `skipped` 里列出定义 ID。
-- 界面按「已恢复 N 个指标，M 个无法加载：a、b」提示，不静默少恢复。
+- 界面只在存在缺失时提示「已恢复 N 个指标，M 个无法加载：a、b」，不静默少恢复；
+  全部成功时不弹提示。
 
 ## 存储与失败处理
 
@@ -91,20 +100,23 @@ actions.setDataView(当前数据视图)
 - `decodeArchive` 只保留结构完整的模板，并丢弃指向已删除模板的最近记录。
 - IndexedDB 不可用时：读取失败不阻断图表（列表为空），写入失败通过界面报错。
 - 所有写操作串行执行，并发保存不会互相覆盖。
+- 串行队列、读取校验与销毁守卫由 `foundation/persistence/createArchivePersistence` 统一提供；
+  布局与模板各自只保留数据库名、文档 codec 与领域操作，不复制存储机制。
 
 ## 边界
 
 - 模板名去空白后不能为空。
 - 重命名到已存在的名称被拒绝，避免列表出现两条同名。
-- 「最近用过」最多保留 10 条，界面最多显示 5 条。
+- 「最近」最多保留 10 条，界面最多显示 5 条。
 - 副图数量上限（4）由界面侧的添加逻辑控制；应用模板走恢复路径，不在模板链路重复限制。
 
 ## 相关文件
 
 - `packages/core/src/engine/indicatorTemplate/types.ts` — 契约
-- `packages/core/src/engine/indicatorTemplate/impl/templateCapture.ts` — 从布局快照裁剪
+- `packages/core/src/engine/indicatorTemplate/impl/templateExtract.ts` — 从布局快照提取指标组合
 - `packages/core/src/engine/indicatorTemplate/impl/templateManager.ts` — 存储与领域操作
-- `packages/core/src/engine/indicatorTemplate/impl/templateLabels.ts` — 摘要与缺失判定
+- `packages/core/src/engine/indicatorTemplate/impl/templateSummary.ts` — 名称汇总与缺失判定
+- `packages/core/src/foundation/persistence/archivePersistence.ts` — 布局与模板共用的归档存储原语
 - `packages/core/src/engine/state/chartStateKernel.ts` — `applyIndicatorTemplate`
-- `packages/vue/src/components/indicator/template/impl/` — 弹层与两个对话框
+- `packages/vue/src/components/indicator/template/impl/` — 弹层与名称对话框
 - `packages/vue/src/composables/indicator/useIndicatorTemplates.ts` — 界面状态

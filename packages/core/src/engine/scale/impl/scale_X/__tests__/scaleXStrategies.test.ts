@@ -10,7 +10,7 @@ import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum } from '@/foundation/types/price'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
-import { SCALE_X_STRATEGIES } from '../scaleXStrategies'
+import { LATEST_RIGHT_MARGIN_BARS, SCALE_X_STRATEGIES } from '../scaleXStrategies'
 import type { ScaleXInput } from '../types'
 
 /** 分时点统一落在 A 股上午 session 内，保证 slot 索引与数组下标一致。 */
@@ -195,5 +195,56 @@ describe('SCALE_X_STRATEGIES', () => {
       'kline',
       'timeshare',
     ])
+  })
+})
+
+describe('最新端定位', () => {
+  it('K 线停在最新一根完整可见并保留固定未来槽位', () => {
+    const strategy = SCALE_X_STRATEGIES[ChartDataViewId.KLine]
+    const snapshot = strategy.project(
+      input({ view: ChartDataViewId.KLine, width: 600, data: bars(200), dataLength: 200 }),
+    )
+    const latest = strategy.latest(snapshot)!
+
+    const lastBarEnd = snapshot.seriesWidth + snapshot.kGap
+    expect(latest + snapshot.viewportWidth - lastBarEnd).toBeCloseTo(
+      LATEST_RIGHT_MARGIN_BARS * snapshot.grid.step,
+      6,
+    )
+  })
+
+  it('数据不足一屏时最新端停在左边界', () => {
+    const strategy = SCALE_X_STRATEGIES[ChartDataViewId.KLine]
+    const snapshot = strategy.project(
+      input({ view: ChartDataViewId.KLine, width: 600, data: bars(3), dataLength: 3 }),
+    )
+    expect(strategy.latest(snapshot)).toBe(0)
+  })
+
+  it('普通分时没有最新端，五日分时停在内容最右端', () => {
+    const single = SCALE_X_STRATEGIES[ChartDataViewId.TimeShare]
+    const singleSnapshot = single.project(
+      input({
+        view: ChartDataViewId.TimeShare,
+        data: timeSharePoints(10),
+        dataLength: 10,
+        marketSession: ASHARE_MARKET_SESSION,
+      }),
+    )
+    expect(single.latest(singleSnapshot)).toBeNull()
+
+    const fiveDay = SCALE_X_STRATEGIES[ChartDataViewId.FiveDayTimeShare]
+    const fiveDaySnapshot = fiveDay.project(
+      input({
+        view: ChartDataViewId.FiveDayTimeShare,
+        data: timeSharePoints(2),
+        dataLength: 2,
+        marketSession: ASHARE_MARKET_SESSION,
+        timeShareRange: fiveDayRange(),
+      }),
+    )
+    expect(fiveDay.latest(fiveDaySnapshot)).toBe(
+      Math.max(0, fiveDaySnapshot.contentWidth - fiveDaySnapshot.viewportWidth),
+    )
   })
 })

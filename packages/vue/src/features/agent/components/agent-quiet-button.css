@@ -1,15 +1,9 @@
-/* Agent 面板次级按钮（描边 + 输入底色）的公共样式。 */
+/* Agent 次级描边按钮：把 agent 主题映射到 BaseButton 的 outline 变量，不再自带实现。 */
 .agent-quiet-button {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  border: 1px solid var(--agent-border);
-  border-radius: 4px;
-  color: var(--agent-text);
-  background: var(--agent-input);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
+  --base-button-border-color: var(--agent-border);
+  --base-button-background: var(--agent-input);
+  --base-button-color: var(--agent-text);
+  --base-button-hover-background: var(--agent-hover);
+  --base-button-font-size: var(--klc-text-11-mono-font-size, 11px);
+  --base-button-gap: calc(var(--klc-space-4, 4px) + 1px);
 }

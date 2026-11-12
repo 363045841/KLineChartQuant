@@ -1,7 +1,7 @@
-/** pane 模块对外契约：pane 布局、分层画布、副图投影与领域写操作的公共类型。 */
-import type { PaneCapabilities, PaneRole, RenderContext } from '../../foundation/plugin/index.js'
-import type { Layer } from '../../rendering/scene/types.js'
-import type { IndicatorStateModule, SubPaneInput, SubPaneSpec } from '../state/indicatorState.js'
+/** pane 模块对外契约：pane 布局、分层画布、实例迁移命令与副图投影的公共类型。 */
+import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
+import type { IndicatorInstancePatch, IndicatorStateModule } from '../state/indicatorState.js'
 import type { PaneStateModule } from '../state/paneState.js'
 
 /** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
@@ -16,7 +16,7 @@ export const DEFAULT_PRICE_LABEL_WIDTH = 60
  */
 export const MAIN_PANE_ID = 'main' as const
 
-/** Pane 的布局规格与角色能力。 */
+/** Pane 的布局规格与角色能力；轴由实例派生，不进入持久化配置。 */
 export type PaneSpec = {
   id: string
   ratio: number
@@ -86,46 +86,53 @@ export type ResolvedPaneRendererOptions = Omit<PaneRendererOptions, 'priceLabelW
 /** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */
 export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
 
+/**
+ * 实例迁移目标。菜单项、公开命令与 Agent 工具共用同一形状。
+ * 已有副图以 paneId 持久身份寻址，菜单标签取该 Pane 的首个实例。
+ */
+export type InstanceMoveTarget =
+  | { readonly kind: 'main' }
+  | { readonly kind: 'pane'; readonly paneId: string }
+  | {
+      readonly kind: 'newPane'
+      readonly anchorPaneId: string
+      readonly placement: 'above' | 'below'
+    }
+
+/** Core 投影给菜单的目标项；UI 只渲染，不自行推导可用性。 */
+export interface InstanceMoveOption {
+  readonly target: InstanceMoveTarget
+  readonly label: string
+  readonly enabled: boolean
+}
+
+/** 实例布局命令：主图与副图共用同一套身份与写入语义。 */
+export interface PaneLayoutCommands {
+  /** 按定义创建实例；target 省略时主图定义进主图，其余进新副图。 */
+  add(
+    definitionId: string,
+    params?: Readonly<Record<string, unknown>>,
+    target?: InstanceMoveTarget,
+  ): string | null
+  /** 迁移实例归属；源副图变空时自动回收。 */
+  moveInstance(instanceId: string, target: InstanceMoveTarget): boolean
+  /** 删除实例；空副图一并回收。 */
+  removeInstance(instanceId: string): boolean
+  /** 更新实例参数、显隐、排序或定义；身份不变。 */
+  updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean
+  /** Pane 容器操作，不改变实例归属。 */
+  updatePane(paneId: string, patch: PanePatch): boolean
+  movePane(paneId: string, targetIndex: number): boolean
+  removePane(paneId: string): boolean
+  clearPanes(): void
+  importLayout(specs: ReadonlyArray<PaneSpec>): void
+  getLayoutSpecs(): PaneSpec[]
+  hasPane(paneId: string): boolean
+}
+
 /** PaneManager 的领域依赖，仅依赖业务状态而不依赖 DOM 或 renderer。 */
 export interface PaneManagerDependencies {
   readonly pane: PaneStateModule
   readonly indicator: IndicatorStateModule
-}
-
-/** 创建副图 pane 所需的内容；实例身份由 PaneManager 生成。 */
-export type CreatePaneInput = Omit<SubPaneInput, 'instanceId' | 'ordinal'>
-
-/** 副图投影所需的完整 renderer 资源标识。 */
-export interface SubPaneResources {
-  readonly paneId: string
-  readonly indicatorId: string
-  readonly rendererName: string
-  readonly scaleRendererName: string
-  readonly layerId: string
-  readonly scaleLayerId: string
-}
-
-/** 已解析副图 renderer 元数据的副图条目。 */
-export interface SubPaneEntry extends SubPaneSpec {
-  readonly rendererName?: string
-  readonly scaleRendererName?: string
-  readonly layerId?: string
-  readonly scaleLayerId?: string
-}
-
-/** 副图 renderer/layer 的运行时投影依赖。 */
-export interface SubPaneContext {
-  /** 副图增删改后通知实例链路重建渲染投影。 */
-  onPaneProjectionChanged: () => void
-  getRenderer: (id: string) => Layer<RenderContext> | undefined
-  useRenderer: (layer: Layer<RenderContext>) => void
-  removeRenderer: (id: string) => void
-  getOption: () => {
-    rightAxisWidth: number
-    priceLabelWidth?: number
-    yPaddingPx: number
-  }
-  getCrosshairPos: () => { x: number; y: number } | null
-  getCrosshairPrice: () => number | null
-  getActivePaneId: () => string | null
+  readonly getDefinition: (indicatorId: string) => IndicatorMetadata | undefined
 }

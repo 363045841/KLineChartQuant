@@ -8,6 +8,7 @@
 
 import type {
   ChartController,
+  IndicatorTemplateIndicator,
   IndicatorTemplateSummary,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
@@ -29,9 +30,9 @@ const SAVE_SUCCESS_DURATION_MS = 1200
 /** 「最近用过」分组最多展示几条。 */
 const RECENT_VISIBLE_LIMIT = 5
 
-/** 应用模板后的提示文案；被跳过的指标必须点名，不能静默少恢复。 */
+/** 应用模板后的提示文案；成功不提示，被跳过的指标必须点名，不能静默少恢复。 */
 export function describeApplyMessage(applied: number, skipped: ReadonlyArray<string>): string {
-  if (skipped.length === 0) return `已应用模板，恢复 ${applied} 个指标`
+  if (skipped.length === 0) return ''
   return `已恢复 ${applied} 个指标，${skipped.length} 个无法加载：${skipped.join('、')}`
 }
 
@@ -46,6 +47,11 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     controller,
     (api) => api.recentTemplateIds,
     () => [] as ReadonlyArray<string>,
+  )
+  const currentIndicators = useControllerSignal(
+    controller,
+    (api) => api.currentIndicators,
+    () => [] as ReadonlyArray<IndicatorTemplateIndicator>,
   )
 
   const tab = ref<IndicatorTemplateTab>(INDICATOR_TEMPLATE_TABS.indicators)
@@ -81,11 +87,6 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     return recent
   })
 
-  /** 模板的指标摘要文本，用于列表第二行。 */
-  function describeLabels(template: IndicatorTemplateSummary): string {
-    return template.labels.length === 0 ? '无指标' : template.labels.join('，')
-  }
-
   /** 统一的异步执行：失败写错误文案，成功后清空。 */
   async function run(operation: (api: ChartController) => Promise<unknown>): Promise<boolean> {
     const api = controller.value
@@ -108,9 +109,9 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     await run((api) => api.listTemplates())
   }
 
-  /** 保存当前指标组合，成功后短暂显示保存成功标记。 */
-  async function save(name: string): Promise<boolean> {
-    const done = await run((api) => api.saveTemplate({ name }))
+  /** 保存当前指标组合；indicatorIds 为本次保留的指标定义，省略表示全部。 */
+  async function save(name: string, indicatorIds?: ReadonlyArray<string>): Promise<boolean> {
+    const done = await run((api) => api.saveTemplate({ name, indicatorIds }))
     if (!done) return false
     clearTimeout(savedTimer)
     saved.value = true
@@ -133,7 +134,9 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
       skipped = result.skipped
     })
     if (!done) return false
-    message.value = describeApplyMessage(applied, skipped)
+    const notice = describeApplyMessage(applied, skipped)
+    if (!notice) return true
+    message.value = notice
     messageTimer = setTimeout(() => {
       message.value = ''
       messageTimer = undefined
@@ -178,9 +181,9 @@ export function useIndicatorTemplates(controller: Ref<ChartController | null>) {
     saving,
     saved,
     templates,
+    currentIndicators,
     visibleTemplates,
     recentTemplates,
-    describeLabels,
     refresh,
     save,
     apply,

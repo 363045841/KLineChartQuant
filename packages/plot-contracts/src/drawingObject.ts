@@ -104,6 +104,7 @@ export function createDrawingObjectApi(store: DrawingObjectStore) {
         previous.kind !== drawing.kind ||
         previous.paneId !== drawing.paneId ||
         previous.ownerId !== drawing.ownerId ||
+        previous.symbolKey !== drawing.symbolKey ||
         updates.has(drawing.id)
       )
         return []

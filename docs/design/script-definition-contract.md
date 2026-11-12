@@ -2,10 +2,7 @@
 
 ## 背景
 
-脚本指标当前必须伪装成 core 的指标定义才能上图：`script-chart` 的注册入口
-用 core 的 `@Indicator` 装饰出一个定义，声明 `plots: { source: 'collection' }` 并挂
-`runtime.compute`。于是**生产方（脚本）被迫依赖消费方（core）的私有定义模型**：
-core 一改定义结构，所有脚本被迫跟着改。这是反方向的耦合。
+脚本通过 `defineIndicator` 产出中立定义。Core 的适配器补齐计算、Plot 渲染与标题能力，返回可直接注册的定义对象；不再包装成装饰器类。
 
 ## 决策
 
@@ -18,7 +15,7 @@ core 按它消费。**注册表、实例生命周期、调度与渲染仍归 cor
 - 输入声明：`InputSchema` / `InputDef`
 - 计算端口：`compute(bars, params) => PlotCollection`
 
-`position` 表示「注册位置」——主图叠加或独立副图。刻意不叫 `pane`：core 里的 `pane` 是运行时窗格
+`position` 表示「默认添加位置」——主图叠加或独立副图。刻意不叫 `pane`：core 里的 `pane` 是运行时窗格
 实例（`paneId` / `PaneSpec`），定义上这个字段只表达放主图还是副图，两者命名分开。脚本层同步使用
 `position` 字段与 `Position` 枚举（`Position.Main` / `Position.Sub`）。
 
@@ -35,17 +32,6 @@ core 按它消费。**注册表、实例生命周期、调度与渲染仍归 cor
 | `script-chart` | 完整脚本文档的生命周期服务 `createScriptService` |
 | `core` | 定义注册表、实例生命周期、参数面板、pane、调度、渲染 |
 
-## 落地切片（顺序，每片独立可测）
+## 装配边界
 
-1. **输入声明契约入叶子**（不碰 core）：`InputDef` / `InputSchema` 迁至叶子，script 转发。
-2. **计算端口入叶子**：叶子定义 `IndicatorDefinition<P>`（含 `compute`）。
-3. **core 消费中立定义**：core 提供「按中立定义注册」的入口，`script-chart` 产出中立定义
-   而非 core 装饰；core 原生指标降级为适配到中立定义的生产者。
-4. **清理旧运行时**：删除 TS `onBar`/`Ctx` 引擎与独立源码 Map，改为单运行时（QuickJS）
-   加版本化文档，见 `script-source-definition.md`。
-
-## 风险与约束
-
-- 切片 3 会动 core 定义模型，是本迁移的主要风险点，需单独评审。
-- 不做兼容双写；core 原生指标与脚本指标在迁移窗口内共存，靠适配层而非运行期分支。
-- 每片必须保持现有测试全绿。
+`script-chart` 持有脚本文档与执行端口，Core 适配器负责将中立定义转换为 `IndicatorMetadata`。注册表只消费完整对象，没有类、私有 Symbol 或扫描生成入口。系统 Layer 不参与这条指标管线，见 [单向运行时投影](indicator-instance-runtime.md)。

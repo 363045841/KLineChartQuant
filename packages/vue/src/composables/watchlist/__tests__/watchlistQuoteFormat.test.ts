@@ -6,6 +6,7 @@ import {
   formatQuoteChange,
   formatQuotePercent,
   formatQuotePrice,
+  percentDirection,
   priceDecimals,
   priceDirection,
   QUOTE_PLACEHOLDER,
@@ -44,6 +45,12 @@ describe('watchlist quote format', () => {
 
   it('falls back to the placeholder when the previous close is unusable', () => {
     expect(formatQuotePercent(quote(12, 0))).toBe(QUOTE_PLACEHOLDER)
+  })
+
+  it('maps percentage direction by the sign against the previous close', () => {
+    expect(percentDirection(quote(12.345, 12))).toBe('up')
+    expect(percentDirection(quote(11.9, 12))).toBe('down')
+    expect(percentDirection(quote(12, 12))).toBe('flat')
   })
 
   it('maps direction by comparing two consecutive snapshots', () => {

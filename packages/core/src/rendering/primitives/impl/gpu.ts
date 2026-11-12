@@ -1,10 +1,14 @@
 /** GPU 原语调度：纯几何整批准备并一次合成，含文字的批次整批交给 Canvas 单次重放。 */
 
 import type { DataTransform } from '@/foundation/plugin/types.js'
+import {
+  createPrimitivePreparer,
+  type GeometryPrimitive,
+  type PreparedBatch,
+} from '../preparation/index.js'
 import type { PaintPrimitive, PrimitiveBackend, PrimitiveClip, PrimitiveMetrics } from '../types.js'
 import { paintCanvasPrimitives } from './canvas.js'
 import { createColorResolver } from './colors.js'
-import { createPrimitivePreparer, type GeometryPrimitive, type PreparedBatch } from './prepare.js'
 
 /** 设备侧计数是公开指标 `PrimitiveMetrics` 的切片，字段类型只在那里定义一次。 */
 export type DeviceMetrics = Pick<

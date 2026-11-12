@@ -44,6 +44,8 @@
 </template>
 
 <script setup lang="ts">
+  import '../../common/list-text.css'
+
   import type { CommandTitle } from '@363045841yyt/klinechart-core'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
   import type { Component } from 'vue'
@@ -86,7 +88,7 @@
     display: flex;
     align-items: center;
     flex: 1 1 auto;
-    gap: 6px;
+    gap: 10px;
     min-width: 0;
   }
 
@@ -94,14 +96,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 16px;
-    width: 16px;
+    flex: 0 0 20px;
+    width: 20px;
     color: var(--klc-color-ui-muted);
   }
 
   .shortcut-settings__icon svg {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
   }
 
   .shortcut-settings__title {
@@ -178,4 +180,3 @@
   }
 </style>
 
-<style scoped src="../../common/list-text.css"></style>

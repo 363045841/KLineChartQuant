@@ -20,7 +20,7 @@
       />
     </div>
 
-    <p v-else class="shortcut-settings__empty">暂无可配置的快捷键</p>
+    <BaseEmptyState v-else size="compact">暂无可配置的快捷键</BaseEmptyState>
     <p v-if="error" class="shortcut-settings__error" role="alert">{{ error }}</p>
   </section>
 </template>
@@ -35,6 +35,7 @@
   import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
   import { computed, nextTick, reactive, ref, watch } from 'vue'
+  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import ShortcutSettingsRow from './ShortcutSettingsRow.vue'
 
   const props = defineProps<{ registry?: CommandRegistry | null }>()
@@ -127,7 +128,6 @@
     min-width: 0;
   }
 
-  .shortcut-settings__empty,
   .shortcut-settings__error {
     margin: 4px 0 0;
     color: var(--klc-color-ui-muted);

@@ -1,11 +1,14 @@
+<h1 align="center">
+  <img src="../../docs/Pics/kcq-logo-horizontal.svg" alt="KlineChartQuant" width="640" />
+</h1>
+
+
 高性能金融图表基础设施，单帧生成时间仅需 2 ms，200 hz 环境下稳定滚动 190-200 fps，原生 AI-Native 图表架构，全链路 ResizeObserver 驱动清晰渲染，QuickJS 指标运行环境，支持自研 KCQ 金融分析 API 运行脚本实现指标渲染。
 
 
 <div align="center">
 
 [English](README.md) | 简体中文
-
-# 📈 KLineChartQuant
 
 **渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 
@@ -20,7 +23,7 @@
 
 轻量级金融 K 线图表库，专注量化交易场景。**Agent 是一等公民** — 支持 AI Agent 直接控制图表操作，提供 TradingView 级别的交互体验。
 
-![](https://files.seeusercontent.com/2026/10/19/yfD1/2026-10-19-19_36_21-601360.png)
+![KlineChartQuant 工作台展示 BTCUSDT 5 分钟 K 线与 PVP 成交量分布](../../docs/Pics/hero-workbench.webp)
 
 
 ## 🤖 Agent 原生架构

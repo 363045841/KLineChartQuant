@@ -8,19 +8,19 @@ import {
   installAnimationFrameQueue,
   installChartDomStubs,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
 import {
   type ChartController,
   type ChartRendererAccess,
   createChartController,
   getChartRenderers,
-  Indicator,
-  IndicatorKind,
+  type IndicatorMetadata,
   type IndicatorRendererOptions,
   type Layer,
   makePluginLayerId,
   type Plugin,
   type RenderContext,
-  registerIndicatorDefinition,
+  registerIndicators,
 } from '@/index'
 
 /** 构造第三方自有 Layer，记录真实 Scene 对其绘制和释放的调用。 */
@@ -39,21 +39,25 @@ function createExternalLayer(id: string, pane = 'main') {
 const indicatorName = 'vendorCustomLayer'
 const indicatorLayerId = makePluginLayerId(indicatorName)
 
-@Indicator({
+const ExternalIndicator = {
   name: indicatorName,
   displayName: 'Vendor Custom Layer',
-  kind: IndicatorKind.Indicator,
   category: 'main',
   defaultPaneId: 'main',
-  mainPane: {},
-})
-class ExternalIndicator {
+  getRendererName: () => indicatorName,
+  getScaleRendererName: () => null,
   /** 指标工厂在每次实例挂载时创建新的 Layer。 */
-  static rendererFactory = vi.fn((options?: IndicatorRendererOptions) =>
+  rendererFactory: vi.fn((options?: IndicatorRendererOptions) =>
     createExternalLayer(indicatorLayerId, options?.paneId),
-  )
-}
-registerIndicatorDefinition(ExternalIndicator)
+  ),
+} satisfies IndicatorMetadata
+registerIndicators([
+  {
+    kind: 'definition',
+    candidate: { key: indicatorName, origin: 'third-party', identity: 'native' },
+    definition: ExternalIndicator,
+  },
+])
 
 /** 读取指标工厂最近一次创建的 Layer。 */
 function lastIndicatorLayer(): Layer<RenderContext> {
@@ -91,10 +95,15 @@ describe('public chart renderer access', () => {
     containers.push(dom.container)
     const host = new MarketDataContext()
     hosts.push(host)
-    host.registerDataSource(createDataSourceFixture([
-      { timestamp: 60_000, open: 10, high: 12, low: 9, close: 11 },
-      { timestamp: 120_000, open: 11, high: 13, low: 10, close: 12 },
-    ], false).source)
+    host.registerDataSource(
+      createDataSourceFixture(
+        [
+          { timestamp: 60_000, open: 10, high: 12, low: 9, close: 11 },
+          { timestamp: 120_000, open: 11, high: 13, low: 10, close: 12 },
+        ],
+        false,
+      ).source,
+    )
     const instrument = await host.resolveInstrument('test', 'A')
     const controller = await createChartController({
       ...dom,
@@ -191,10 +200,11 @@ describe('public chart renderer access', () => {
     const instanceId = controller.addIndicator(indicatorName)
     expect(instanceId).not.toBeNull()
     const layer = lastIndicatorLayer()
-    expect(controller.getRenderer(indicatorLayerId)).toBe(layer)
+    const expectedLayerId = resolveIndicatorLayerId(indicatorName, 'main', 'renderer', instanceId!)
+    expect(controller.getRenderer(expectedLayerId)).toBeDefined()
 
     expect(controller.removeIndicator(instanceId!)).toBe(true)
-    expect(controller.getRenderer(indicatorLayerId)).toBeUndefined()
+    expect(controller.getRenderer(expectedLayerId)).toBeUndefined()
     expect(layer.dispose).toHaveBeenCalledTimes(1)
   })
 

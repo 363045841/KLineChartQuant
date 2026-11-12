@@ -81,12 +81,13 @@ function paintTick(
     return
   }
   ctx.textAlign = label.align ?? 'center'
+  const offsetX = metrics.offsetX ?? 0
   const x =
     label.align === 'right'
-      ? metrics.axisWidth - 4
+      ? offsetX + metrics.axisWidth - 4
       : label.align === 'left'
-        ? 4
-        : metrics.axisWidth / 2
+        ? offsetX + 4
+        : offsetX + metrics.axisWidth / 2
   commands.push(labelText(ctx, label.text, roundToPhysicalPixel(x, metrics.dpr), label.pos))
 }
 
@@ -148,10 +149,11 @@ function paintTag(
   const ry = roundToPhysicalPixel(yy - rectH / 2, dpr)
   const rw = metrics.axisWidth
   const rh = roundToPhysicalPixel(rectH, dpr)
+  const offsetX = metrics.offsetX ?? 0
   ctx.fillStyle = label.bgColor
-  commands.push({ kind: 'rect', x: 0, y: ry, width: rw, height: rh, color: label.bgColor })
+  commands.push({ kind: 'rect', x: offsetX, y: ry, width: rw, height: rh, color: label.bgColor })
   if (label.borderColor) {
-    const x = alignToPhysicalPixelCenter(0, dpr),
+    const x = alignToPhysicalPixelCenter(offsetX, dpr),
       y = alignToPhysicalPixelCenter(ry, dpr)
     const right = x + Math.max(0, rw - 1 / dpr),
       bottom = y + Math.max(0, rh - 1 / dpr)
@@ -170,7 +172,7 @@ function paintTag(
       width: 1,
     })
   }
-  const centerX = rw / 2
+  const centerX = offsetX + rw / 2
   ctx.fillStyle = label.textColor
   if (countdown) {
     commands.push(

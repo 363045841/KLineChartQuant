@@ -2,32 +2,31 @@
 
 ## 决策
 
-`indicatorState.instances` 是主图、副图指标实例以及 mode 自有序列实例的唯一状态来源。每个实例包含 `indicatorId`、`paneId`、`role` 与 `params`；不再由 `subPaneState` 单独保存副图指标。
+`indicatorState.instances` 是主图、副图指标实例的唯一状态来源。每个实例包含 `instanceId`、`indicatorId`、`paneId`、`role`、`ordinal` 与 `params`。
 
-用户实例与 mode 自有实例的区分由 `source` 表达：mode 自有实例带 `source: 'mode'`。
+系统行情与辅助图层不属于指标，不进入实例状态，也不需要来源字段。
 
 ## 约束
 
-- 主图实例的 `paneId` 固定为 `main`，按 `indicatorId` 唯一。
-- 副图实例按 `paneId` 唯一，允许相同 `indicatorId` 出现在多个 pane。
-- 新增主图实例排在全部副图实例之前，保持既有公开 `indicators` 信号的顺序。
+- 所有实例按 `instanceId` 唯一；同一窗格可容纳多个指标实例。
+- 主图实例的 `paneId` 为 `main`；移动命令原子更新归属与角色。
+- 主副图共用生命周期，定义分类只决定添加时的默认位置。
 
-## 兼容边界
+## 读取与写入
 
-`subPanes` 保留为从 `instances` 派生的只读 selector，供副图 pane 布局和框架绑定读取。主图 API 直接从 `instances` 按 `role: 'main'` 查询，全部变更只能通过 `indicatorState.actions`。
+`subPanes` 是从 `instances` 派生的只读 selector。公开实例命令统一经过 PaneManager，状态模块只接受已经解析完毕的变更。
 
-副图 create/remove/clear 仍在 `ChartStateKernel` 中与 pane layout 一起通过 `batch()` 执行，确保订阅者不会观察到指标实例与 pane layout 不一致的中间状态。
+实例归属与窗格布局通过 `batch()` 原子提交，订阅者不能观察到中间状态。
 
-## Mode 实例投影
+## 系统绘制
 
-- `kline` 写入 `candle` 主实例。
-- `timeshare` 只写入 `timeShare` 主实例。
-- `ChartStateKernel.actions.setDataView()` 只更新 data view 与 mode 自有主实例，不创建、删除或重排用户指标 pane。
+- 图表直接挂载系统 Layer，视图通过 `systemLayers` 声明可见图层。
+- `setDataView()` 更新视图及活动工作区，不创建伪指标实例。
 
-Core 主序列 Layer 只安装一次，可见性由 active 实例集合投影。`timeShare` renderer 只画价格线与均价线；volume renderer 拥有全部量柱，包括 `TimeShareData`。
+Core 主序列 Layer 只安装一次，可见性由视图状态派生，与指标目录无关。
 
-用户指标 actions 保留 `source: 'mode'` 实例。切换视图只替换 mode 自有主实例；受支持的用户指标及其 pane 保持不变。
+切换视图保留各工作区中的指标配置与窗格布局。
 
 ## 投影
 
-`activeRenderers`、指标资源 reconcile 以及实例计算链路都从统一实例集合读取，并依据 `role` 区分主图和副图的渲染资源需求。这样 `dataView` 兼容性过滤与 renderer 名称解析只保留一条遍历路径。
+所有指标从同一实例集合进入计算、轴、标题与资源投影，不保存主副图各自的挂载配置副本。完整决策见 [指标实例的单向运行时投影](../indicator-instance-runtime.md)。

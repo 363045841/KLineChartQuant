@@ -86,24 +86,11 @@ export function useRangeSelection(options: {
     () =>
       rangeSelection.value.startTimestamp !== null && rangeSelection.value.endTimestamp !== null,
   )
-  // 仅在区间已选中时跟随滚动刷新 overlay，普通滚动不进入 Vue 调度。
-  const viewportEpoch = ref(0)
-  watch(
-    [controller, rangeSelectionReady],
-    ([chart, ready], _previous, onCleanup) => {
-      if (!chart || !ready) return
-      let previous = ''
-      const sync = () => {
-        const viewport = chart.viewport.peek()
-        const next = `${viewport.visibleFrom}:${viewport.visibleTo}:${viewport.plotWidth}:${viewport.plotHeight}`
-        if (next === previous) return
-        previous = next
-        viewportEpoch.value += 1
-      }
-      sync()
-      onCleanup(chart.viewport.subscribe(sync))
-    },
-    { immediate: true },
+  // 仅有选区时订阅上屏帧；不读取尚未绘制的实时缩放或滚动状态。
+  const frameGeometry = useControllerSignal(
+    controller,
+    (chart) => (rangeSelectionReady.value ? chart.frameGeometry : undefined),
+    () => null,
   )
 
   const rangeSelectionBounds: ComputedRef<Bounds | null> = computed(() => {
@@ -150,16 +137,10 @@ export function useRangeSelection(options: {
   })
 
   const rangeSelectionOverlayStyle = computed(() => {
-    const bounds = rangeSelectionBounds.value
-    if (!bounds) return null
-
-    void viewportEpoch.value
-
-    const ctrl = controller.value
-    const vp = ctrl?.getViewport()
-    if (!ctrl || !vp) return null
-
-    const px = calcRangeOverlayPixel(bounds, ctrl, vp)
+    const frame = frameGeometry.value
+    if (!frame) return null
+    const px = calcRangeOverlayPixel(rangeSelection.value, frame)
+    if (!px) return null
     return {
       left: `${px.left}px`,
       width: `${px.width}px`,

@@ -23,29 +23,21 @@ export type IndicatorId = string
 /** 指标定义来源，与均线、动量等业务分类独立；由定义契约统一给出。 */
 export type { IndicatorSource }
 
-/** 指标定义身份：系统渲染器或用户可添加的指标。 */
-export const IndicatorKind = Object.freeze({
-  System: 'system',
-  Indicator: 'indicator',
-} as const)
-
-export type IndicatorKind = (typeof IndicatorKind)[keyof typeof IndicatorKind]
-
 export interface IndicatorRendererOptions {
   paneId: string
   indicatorId: IndicatorId
   /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
   instanceId: string
+  /** 框架派生的轴身份；渲染器据此把值映射到自己的轴。 */
+  axisId: string
   params?: Record<string, unknown>
-  /** 同一面板内叠加了同定义的多个实例，Layer 身份需要带上实例。 */
-  stacked?: boolean
 }
 
 export interface IndicatorScaleRendererOptions {
   paneId: string
   indicatorId: IndicatorId
-  /** 坐标轴绑定的实例身份。 */
-  instanceId: string
+  /** 框架派生的轴身份；一个轴只创建一个刻度层。 */
+  axisId: string
   axisWidth: number
   getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
 }
@@ -64,11 +56,15 @@ export type RendererFactory = (options: IndicatorRendererOptions) => Layer<Rende
 export interface IndicatorRendererNameOptions {
   paneId: string
   indicatorId: IndicatorId
-  /** 实例身份；允许同一指标多实例的定义用它区分渲染层。 */
+  /** 实例身份；多实例图层命名必须包含它。 */
   instanceId?: string
-  /** 同一面板内叠加了同定义的多个实例；此时层身份必须带实例，与定义声明无关。 */
-  stacked?: boolean
 }
+
+/** 指标值轴类型：价格类与值类决定能否共享轴。 */
+export type IndicatorAxisKind = 'price' | 'value'
+
+/** 定义默认轴绑定：共享 Pane 内同类轴，或为实例创建独立轴。 */
+export type IndicatorAxisBinding = 'shared' | 'own'
 
 /** 指标 renderer plugin 名称解析器。 */
 export type IndicatorRendererNameResolver = (options: IndicatorRendererNameOptions) => string
@@ -130,11 +126,6 @@ export interface IndicatorInputDef {
   readonly title?: string
   /** 下拉选项；仅字符串输入可声明，面板据此渲染选择菜单。 */
   readonly options?: readonly (string | IndicatorInputOption)[]
-  /**
-   * 颜色控件；值为 `#rrggbb`，空串表示跟随主题。
-   * 面板据此渲染取色块而不是文本框，业务侧负责把空串解析成主题色。
-   */
-  readonly color?: boolean
 }
 
 /**
@@ -213,13 +204,19 @@ export interface IndicatorMetadata<_T = unknown> {
    */
   displayName: string
 
-  /** 定义身份：系统渲染器或用户可添加的指标。 */
-  kind: IndicatorKind
-
   /**
    * 分类：主图/副图
    */
   category: IndicatorCategory
+
+  /** 值轴类型；缺省按分类推导（主图价格、其余值）。 */
+  readonly axisKind?: IndicatorAxisKind
+
+  /** 默认轴绑定；缺省主图共享、其余独立。 */
+  readonly defaultAxis?: IndicatorAxisBinding
+
+  /** 是否允许同一张图存在多份实例；缺省允许。 */
+  readonly multiInstance?: boolean
 
   /**
    * 在 configSnapshot 中的 paneId 字段名
@@ -267,34 +264,10 @@ export interface IndicatorMetadata<_T = unknown> {
   isEnabled?: (config: IndicatorConfig) => boolean
 
   /**
-   * 是否允许在主图显示（部分副图指标可切换至主图）
-   * - true：指标可放置在主图（如 WMA/SAR/Pivot 等叠加类指标）
-   * - false/undefined：仅限副图显示
-   */
-  allowMainPane?: boolean
-
-  /**
-   * 是否允许同一指标存在多个实例；缺省只允许一个。
-   * 声明后，主图添加同一个指标会新建实例而不是更新已有实例。
-   */
-  readonly multiInstance?: boolean
-
-  /**
    * 指标在哪些图表周期可见；未声明时所有周期都可见。
    * 声明后，不在范围内的周期既不绘制也不出现在图例里（TradingView 的「可见范围」）。
-   * 这是定义级的能力上限；需要用户自行收窄时，用 `visibleFrom` / `visibleTo` 参数。
    */
   visiblePeriods?: readonly IndicatorPeriodVisibility[]
-
-  /**
-   * 主图指标启停相关配置。
-   */
-  mainPane?: {
-    toActiveConfig?: (
-      params: Record<string, unknown>,
-      active: boolean,
-    ) => Record<string, unknown> | null
-  }
 
   /** 不创建 renderer 实例地解析其 plugin 名称。 */
   getRendererName: IndicatorRendererNameResolver

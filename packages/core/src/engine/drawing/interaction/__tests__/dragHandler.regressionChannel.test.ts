@@ -35,7 +35,6 @@ describe('DragHandler regression channel data boundary', () => {
 
     const updated = handler.handleDragMove(pointerMove(95, 80), CONTAINER, adapter)?.[0]
     expect(updated?.anchors[index]).toMatchObject({ time: 2_000, price: 120 })
-    expect(updated?.anchors[index]?.futureOffset).toBeUndefined()
     expect(updated?.anchors[1 - index]).toEqual(drawing.anchors[1 - index])
 
     // 越界后回拖仍基于起始快照，端点可以正常回到已有 K 线。
@@ -52,7 +51,6 @@ describe('DragHandler regression channel data boundary', () => {
     expect(updated?.anchors.map((anchor) => anchor.time)).toEqual(
       reversed ? [2_000, 1_000] : [1_000, 2_000],
     )
-    expect(updated?.anchors.every((anchor) => anchor.futureOffset === undefined)).toBe(true)
     expect(updated?.anchors.map((anchor) => anchor.price)).toEqual(reversed ? [120, 80] : [80, 120])
   })
 
@@ -62,6 +60,6 @@ describe('DragHandler regression channel data boundary', () => {
     handler.startDrag([drawing], { type: 'anchor', index: 1 }, 25, 60)
 
     const updated = handler.handleDragMove(pointerMove(95, 80), CONTAINER, adapter)?.[0]
-    expect(updated?.anchors[1]).toMatchObject({ time: 2_000, futureOffset: 6 })
+    expect(updated?.anchors[1]).toMatchObject({ time: 5_000 })
   })
 })

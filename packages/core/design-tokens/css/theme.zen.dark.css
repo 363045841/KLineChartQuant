@@ -165,6 +165,7 @@
   --klc-color-ui-surface: #1D2925;
   --klc-color-ui-card: #23312C;
   --klc-color-ui-input: #293A32;
+  --klc-color-ui-popover: #1E2025;
   --klc-color-ui-control-background: #293A32;
   --klc-color-ui-hover: #30443A;
   --klc-color-ui-selected: #2D4036;
@@ -214,9 +215,4 @@
   --klc-typography-font-weight-bold: 700;
   --klc-typography-line-height-tight: 1.2;
   --klc-typography-line-height-standard: 1.4;
-  --klc-motion-duration-instant: 0ms;
-  --klc-motion-duration-fast: 120ms;
-  --klc-motion-duration-moderate: 200ms;
-  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 }

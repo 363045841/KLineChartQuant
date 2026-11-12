@@ -6,6 +6,7 @@ export {
   type IndicatorTemplateApplyResult,
   type IndicatorTemplateArchive,
   type IndicatorTemplateDocument,
+  type IndicatorTemplateIndicator,
   type IndicatorTemplateSummary,
   type NamedIndicatorTemplate,
   type TemplateWorkspace,

@@ -9,7 +9,6 @@ import type { DrawingPatch } from '@363045841yyt/klinechart-plot-contracts'
 import type { TradingDate } from '@/data/provider/types.js'
 import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
-import type { PriceSpace } from '../geometry/types.js'
 import type { DrawingHistoryDocumentPort } from '../history/types.js'
 import type {
   DrawingKind,
@@ -25,22 +24,18 @@ export type DrawingAnchorCommandInput =
       /** 交易日锚点，按数据中的 date 字段定位。 */
       readonly tradingDate: TradingDate
       readonly timestamp?: never
-      readonly futureOffset?: never
       readonly price: number
     }
   | {
       /** 精确时间锚点，按毫秒时间戳定位。 */
       readonly timestamp: number
       readonly tradingDate?: never
-      /** 基准 K 线之后的未来时间轴槽位数。 */
-      readonly futureOffset?: number
       readonly price: number
     }
   | {
       /** 水平图元只使用价格坐标。 */
       readonly tradingDate?: never
       readonly timestamp?: never
-      readonly futureOffset?: never
       readonly price: number
     }
 
@@ -79,17 +74,13 @@ export type AnchorTradingDateResolution =
   | { readonly kind: 'not-trading' }
   | { readonly kind: 'date-unavailable' }
 
-/** 绘图文档解析锚点坐标所需的最小数据访问能力。 */
+/** 绘图文档只依赖稳定领域值，不依赖当前周期的行情索引。 */
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
-  readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
-  readonly getDrawingTimestampAtLogicalIndex: (index: number) => number | null
-  readonly getDrawingData: () => ReadonlyArray<{ timestamp: number }>
   readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => AnchorTradingDateResolution
   readonly hasPaneId: (paneId: string) => boolean
   readonly getWorkspaceId: () => DrawingWorkspaceId
-  /** 指定 Pane 的价格运算空间；通道类图元的派生锚点按它换算。 */
-  readonly getPriceSpace: (paneId: string) => PriceSpace
+  readonly getSymbolKey: () => string | undefined
 }
 
 /** 克隆一个图元所需的源快照与目标锚点；源快照可以已不在文档中。 */

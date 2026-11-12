@@ -21,6 +21,7 @@
  *     adequate for visual profiles; tick-snapped binning is a future option.
  */
 
+import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
 import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   VolumeProfileBar,
@@ -168,20 +169,9 @@ export function createVolumeProfileController(
   }
 
   // -------------------------------------------------------------------
-  // dispose — silence mutators (same pattern as IndicatorSelectorController)
+  // dispose — silence mutators (shared lifecycle guard)
   // -------------------------------------------------------------------
-  let disposed = false
-  function dispose(): void {
-    if (disposed) return
-    disposed = true
-  }
-
-  function guard<T extends (...args: never[]) => unknown>(fn: T): T {
-    return ((...args: Parameters<T>): ReturnType<T> => {
-      if (disposed) return undefined as ReturnType<T>
-      return fn(...args) as ReturnType<T>
-    }) as T
-  }
+  const { dispose, guard } = createDisposeGuard()
 
   return {
     config,

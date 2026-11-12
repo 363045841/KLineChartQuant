@@ -19,8 +19,14 @@ files:
 extraResources:
   - from: resources/backends
     to: backends
+  - from: build
+    to: icons
+    filter:
+      - icon.png
+      - icon.ico
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -33,6 +39,7 @@ nsis:
   deleteAppDataOnUninstall: false
 
 mac:
+  icon: build/icon.icns
   target:
     - target: dmg
       arch:
@@ -41,6 +48,7 @@ mac:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 linux:
+  icon: build/icon.png
   executableName: klinechart-desktop
   target:
     - target: AppImage

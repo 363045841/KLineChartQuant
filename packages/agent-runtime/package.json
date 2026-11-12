@@ -1,7 +1,7 @@
 {
   "name": "@363045841yyt/klinechart-agent-runtime",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.11.1-alpha.0",
   "description": "Framework-neutral Pi agent runtime, durable sessions, and typed host contracts for KLineChartQuant.",
   "license": "Apache-2.0",
   "repository": {
@@ -76,7 +76,7 @@
     "@earendil-works/pi-agent-core": "^1.0.2",
     "@earendil-works/pi-ai": "^1.0.2",
     "@earendil-works/pi-durable": "^1.0.2",
-    "typebox": "^1.4.2"
+    "typebox": "^1.4.6"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

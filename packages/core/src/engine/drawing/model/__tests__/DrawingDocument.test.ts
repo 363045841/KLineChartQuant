@@ -130,7 +130,7 @@ describe('DrawingDocument', () => {
     expect(document.getDrawing(drawing.id)?.labels?.area['0']?.text).toBe('导入\\n标签')
   })
 
-  it('persists a future-slot anchor from its existing base bar', () => {
+  it('保存任意绝对时间，文档不要求时间戳命中当前周期的 K 线', () => {
     const { document } = createDocument()
 
     const drawing = document.createDrawing({
@@ -139,11 +139,11 @@ describe('DrawingDocument', () => {
       paneId: 'main',
       anchors: [
         { timestamp: 1_000, price: 10 },
-        { timestamp: 1_000, futureOffset: 3, price: 12 },
+        { timestamp: 4_000, price: 12 },
       ],
     })
 
-    expect(drawing.anchors[1]).toMatchObject({ time: 1_000, futureOffset: 3, price: 12 })
+    expect(drawing.anchors[1]).toMatchObject({ time: 4_000, price: 12 })
   })
 
   it('creates a drawing from trading-date anchors using the stored bar timestamp', () => {
@@ -212,21 +212,21 @@ describe('DrawingDocument', () => {
         paneId: 'main',
         anchors: [
           { timestamp: 1_000, price: 10 },
-          { timestamp: 2_000, price: 12 },
+          { timestamp: Number.NaN, price: 12 },
         ],
       }),
-    ).toThrow('No chart data exists')
+    ).toThrow('timestamp must be a finite number')
     expect(() =>
       document.createDrawing({
         style: CREATE_DRAWING_STYLE,
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
-          { timestamp: 1_000, futureOffset: 0, price: 10 },
+          { timestamp: 1_000, price: Number.NaN },
           { timestamp: 1_000, price: 12 },
         ],
       }),
-    ).toThrow('future offset must be a positive integer')
+    ).toThrow('price must be a finite number')
     expect(document.listDrawings()).toEqual([])
   })
 

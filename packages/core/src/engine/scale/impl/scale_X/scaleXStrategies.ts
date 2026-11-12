@@ -13,6 +13,14 @@ const KLINE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.KLine]
 const TIMESHARE_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.TimeShare]
 const FIVE_DAY_DEFINITION = CHART_VIEW_DEFINITIONS[ChartDataViewId.FiveDayTimeShare]
 
+/**
+ * 最新端右侧保留的未来槽位数。
+ *
+ * @remarks 与 Vela 的 `margins.right` 默认值一致（10 根）：最新一根完整可见，
+ * 右侧留出足够容纳未来行情的空白，首次定位与重置都落在同一位置。
+ */
+export const LATEST_RIGHT_MARGIN_BARS = 10
+
 /** 由中心几何派生共享快照；位置、命中与指标都读同一份中心数组。 */
 function snapshot(
   input: ScaleXInput,
@@ -214,12 +222,24 @@ function navigateSessions(view: ScaleXSnapshot, requested: number): number {
   return Math.max(0, Math.min(requested, Math.max(0, view.contentWidth - view.viewportWidth)))
 }
 
+/** 最新端：最新一根完整可见，右侧保留固定未来槽位，不推出左边界。 */
+function latestBars(view: ScaleXSnapshot): number {
+  const lastBarEnd = view.seriesWidth + view.kGap
+  const futureSlots = LATEST_RIGHT_MARGIN_BARS * view.grid.step
+  return Math.max(0, navigateBars(view, lastBarEnd - view.viewportWidth + futureSlots))
+}
+/** 多日分时没有未来槽位，最新端就是内容最右端。 */
+function latestSessions(view: ScaleXSnapshot): number {
+  return Math.max(0, view.contentWidth - view.viewportWidth)
+}
+
 const bars: ScaleXStrategy = {
   requiresMarketSession: KLINE_DEFINITION.requiresMarketSession,
   capabilities: KLINE_DEFINITION.capabilities,
   project: projectBars,
   zoomInput: zoomBars,
   navigate: navigateBars,
+  latest: latestBars,
 }
 const single: ScaleXStrategy = {
   requiresMarketSession: TIMESHARE_DEFINITION.requiresMarketSession,
@@ -227,6 +247,7 @@ const single: ScaleXStrategy = {
   project: projectSingleSession,
   zoomInput: (input) => input,
   navigate: navigateFixed,
+  latest: () => null,
 }
 const multiple: ScaleXStrategy = {
   requiresMarketSession: FIVE_DAY_DEFINITION.requiresMarketSession,
@@ -234,6 +255,7 @@ const multiple: ScaleXStrategy = {
   project: projectMultipleSessions,
   zoomInput: zoomSessions,
   navigate: navigateSessions,
+  latest: latestSessions,
 }
 
 /** 唯一的视图策略选择点，新增视图必须完整实现同一契约。 */

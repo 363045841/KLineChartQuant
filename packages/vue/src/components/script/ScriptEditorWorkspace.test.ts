@@ -59,7 +59,8 @@ describe('ScriptEditorWorkspace', () => {
       },
     })
     try {
-      const problemsTab = () => wrapper.get('[data-panel="problems"]').attributes('aria-selected')
+      const problemsTab = () =>
+        wrapper.get('.script-output').findAll('[role="tab"]')[1]!.attributes('aria-selected')
       expect(problemsTab()).toBe('false')
 
       await wrapper.setProps({ treeError: '文件夹仍被引用：均线' })
@@ -150,7 +151,7 @@ describe('ScriptEditorWorkspace', () => {
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('.ts')
       expect(wrapper.findAll('.script-files__file')).toHaveLength(2)
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('不存在')
-      expect(wrapper.get('.script-files__empty').text()).toContain('未找到匹配文件')
+      expect(wrapper.get('.script-files .base-empty-state').text()).toContain('未找到匹配文件')
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('')
       // 根目录也是文件夹行，新建入口在行右侧。
       await wrapper.get('button[aria-label="在库中新建文件"]').trigger('click')
@@ -237,7 +238,9 @@ describe('ScriptEditorWorkspace', () => {
       attachTo: document.body,
     })
     const buttons = () =>
-      Array.from(document.querySelectorAll<HTMLButtonElement>('.klc-script-menu button'))
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('.drop-menu__panel [role="menuitem"]'),
+      )
     const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
     try {
       await nextTick()
@@ -268,6 +271,8 @@ describe('ScriptEditorWorkspace', () => {
       await nextTick()
       const input = document.querySelector<HTMLInputElement>('.klc-script-input')!
       input.value = '新目录'
+      // v-model 只在 input 事件后同步，直接改 DOM 值不会更新组件状态。
+      input.dispatchEvent(new Event('input', { bubbles: true }))
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
       await flush()
       expect(wrapper.emitted('tree-action')?.at(-1)).toEqual([
@@ -369,7 +374,9 @@ describe('ScriptEditorWorkspace', () => {
       attachTo: document.body,
     })
     const buttons = () =>
-      Array.from(document.querySelectorAll<HTMLButtonElement>('.klc-script-menu button'))
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('.drop-menu__panel [role="menuitem"]'),
+      )
     try {
       await nextTick()
       const file = wrapper.get('.script-files__file')
@@ -406,7 +413,9 @@ describe('ScriptEditorWorkspace', () => {
       attachTo: document.body,
     })
     const buttons = () =>
-      Array.from(document.querySelectorAll<HTMLButtonElement>('.klc-script-menu button'))
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('.drop-menu__panel [role="menuitem"]'),
+      )
     const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
     try {
       await nextTick()
@@ -433,8 +442,10 @@ describe('ScriptEditorWorkspace', () => {
       buttons()[2]!.click()
       await nextTick()
       // 删除先进入菜单内确认，不给误点直接删除的机会。
-      expect(buttons().map((button) => button.textContent)).toEqual(['取消', '删除文件夹'])
-      buttons()[1]!.click()
+      const confirmActions = () =>
+        Array.from(document.querySelectorAll<HTMLButtonElement>('.script-menu__action'))
+      expect(confirmActions().map((button) => button.textContent)).toEqual(['取消', '删除文件夹'])
+      confirmActions()[1]!.click()
       await flush()
       expect(wrapper.emitted('tree-action')).toEqual([
         [{ type: 'remove-folder', kind: 'indicator', path: '策略' }],

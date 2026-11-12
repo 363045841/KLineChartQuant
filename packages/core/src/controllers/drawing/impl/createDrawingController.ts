@@ -18,6 +18,7 @@
  */
 
 import type { DrawingToolId } from '@/engine/drawing/index.js'
+import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
 import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type { DrawingController, DrawingInit, DrawingState } from '../types.js'
 
@@ -59,22 +60,9 @@ export function createDrawingController(init?: DrawingInit): DrawingController {
   }
 
   // -------------------------------------------------------------------
-  // Disposal — idempotent. After dispose() all mutators silently no-op,
-  // matching the dispose semantics of createIndicatorSelectorController.
+  // Disposal — 销毁后所有变更方法静默 no-op，生命周期由共享守卫统一处理。
   // -------------------------------------------------------------------
-  let disposed = false
-
-  function dispose(): void {
-    if (disposed) return
-    disposed = true
-  }
-
-  function guard<T extends (...args: never[]) => unknown>(fn: T): T {
-    return ((...args: Parameters<T>): ReturnType<T> => {
-      if (disposed) return undefined as ReturnType<T>
-      return fn(...args) as ReturnType<T>
-    }) as T
-  }
+  const { dispose, guard } = createDisposeGuard()
 
   return {
     state,

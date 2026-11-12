@@ -15,10 +15,10 @@ describe('LeftToolbar 磁吸工具', () => {
     async function selectMode(label: string) {
       await wrapper.get('[aria-label="磁吸选项"]').trigger('click')
       expect(wrapper.get('[aria-label="磁吸选项"]').attributes('aria-expanded')).toBe('true')
-      const button = document.body.querySelector<HTMLButtonElement>(
-        `.tool-dropdown [aria-label="${label}"]`,
-      )
-      expect(button).not.toBeNull()
+      const button = [
+        ...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+      ].find((item) => item.textContent?.trim() === label)
+      expect(button).toBeDefined()
       button?.click()
       await nextTick()
     }

@@ -11,6 +11,7 @@
         :active-indicator-labels="templateIndicatorLabels"
         :is-fullscreen="effectiveIsFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
+        @toggle-indicator="onToggleIndicator"
         @settings="openChartSettings('main')"
         @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
@@ -49,7 +50,9 @@
         @add-watchlist="addWatchlistItem"
         @back="onBackFromTimeShare"
       >
-        <template #source-management><slot name="source-management" /></template>
+        <template v-if="slots['source-management']" #source-management>
+          <slot name="source-management" />
+        </template>
         <template v-if="slots['toolbar-start']" #start>
           <slot name="toolbar-start" />
         </template>
@@ -83,10 +86,7 @@
           @select-tool="handleSelectTool"
           @set-magnet-mode="setMagnetMode"
           @set-continuous-drawing="setContinuousDrawing"
-          @toggle-indicator="onToggleIndicator"
           @open-script-editor="openBlankScriptEditor"
-          @zoom-in="applyZoomToLevel(zoomLevel + 1)"
-          @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @clear-drawings="controller?.clearDrawings()"
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
@@ -94,7 +94,25 @@
           @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
-          <ChartNavigation :style="{ bottom: `${props.bottomAxisHeight}px` }" />
+          <ChartNavigation
+            v-if="hasPrimarySymbol"
+            :style="{
+              bottom: `${props.bottomAxisHeight}px`,
+              '--chart-nav-offset-x': `${navOffsetX}px`,
+            }"
+          />
+          <DropMenu
+            ref="chartContextMenuRef"
+            context
+            label="图表菜单"
+            :groups="contextMenuGroups"
+            :focus-target="containerRef"
+            @select="onContextMenuSelect"
+          >
+            <template #item-icon="{ item }">
+              <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
+            </template>
+          </DropMenu>
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
@@ -109,7 +127,25 @@
               }px`,
             }"
             aria-label="KlineChartQuant"
-          >KlineChartQuant</a>
+          >
+            <!-- 品牌折线取自应用图标 kcq-logo.svg，去掉圆底与磨砂后按当前文字色绘制。 -->
+            <svg
+              class="chart-brand-mark"
+              :viewBox="brandMarkViewBox"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                :d="BRAND_MARK_PATH"
+                fill="none"
+                stroke="currentColor"
+                :stroke-width="BRAND_MARK_STROKE_WIDTH"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>KlineChartQuant</span>
+          </a>
           <div
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"
@@ -132,7 +168,7 @@
             tabindex="0"
             class="chart-container"
             @dblclick="onDoubleClick"
-            @contextmenu.prevent
+            @contextmenu="onChartContextMenu"
           >
             <div class="scroll-content">
               <div ref="canvasLayerRef" class="canvas-layer">
@@ -284,7 +320,7 @@
               v-for="pane in paneAxisItems"
               :key="pane.id"
               class="pane-axis-controls-host"
-              :style="{ top: pane.top + 'px', height: pane.height + 'px' }"
+              :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth }"
             >
               <PriceAxisSettingsMenu
                 :controller="controller"
@@ -353,7 +389,9 @@
       @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
       @clear-market-data-cache="controller?.clearMarketDataCache()"
     >
-      <template #source-management><slot name="source-management" /></template>
+      <template v-if="slots['source-management']" #source-management>
+        <slot name="source-management" />
+      </template>
     </ChartSettingsDialog>
     <FootprintSettingsDialog
       v-model:open="footprintSettingsOpen"
@@ -433,6 +471,11 @@
     type MarketDataContext,
     searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
+  import {
+    BRAND_MARK_PATH,
+    BRAND_MARK_STROKE_WIDTH,
+    BRAND_MARK_VIEWBOX,
+  } from '@vue-src/brandMark.js'
   import { useAggregationSources } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     provideMarketDataContext,
@@ -469,6 +512,7 @@
   import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
+  import DropMenu from '@vue-src/components/common/DropMenu.vue'
   import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
@@ -488,6 +532,7 @@
   import WatchlistPanel from '@vue-src/components/watchlist/WatchlistPanel.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
+  import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
   import { useChartScreenshot } from '@vue-src/composables/chart/useChartScreenshot.js'
   import { useChartState } from '@vue-src/composables/chart/useChartState.js'
   import { useChartTheme } from '@vue-src/composables/chart/useChartTheme.js'
@@ -525,6 +570,13 @@
     defineProps<{
       /** 受控品种列表；传入时由组件同步到图表数据源。 */
       symbols?: ReadonlyArray<SymbolSpec>
+      /**
+       * 挂载时是否恢复布局归档里的活动布局，默认 `true`。
+       * 多窗口 / 多标签各自持有配置的宿主必须传 `false`。
+       */
+      restoreLayout?: boolean
+      /** 布局持久化身份；标签页传自身稳定 ID。 */
+      layoutStorageId?: string
       /** 受控指标实例列表；传入时完整替换当前指标实例。 */
       indicators?: ReadonlyArray<ChartIndicatorConfig>
 
@@ -578,6 +630,7 @@
       // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
       isFullscreen: undefined,
       timezone: 'Asia/Shanghai',
+      restoreLayout: true,
     },
   )
 
@@ -647,6 +700,8 @@
     (ctrl) => ctrl.symbols,
     () => [],
   )
+  /** 主品种是否已选定；没有品种时导航按钮没有可操作对象。 */
+  const hasPrimarySymbol = computed(() => controllerSymbols.value.length > 0)
   const symbolCatalog = useControllerSignal(
     controller,
     (ctrl) => ctrl.symbolCatalog,
@@ -928,8 +983,12 @@
     ctrl.setComparisonSpecs(comparisons)
   }
 
+  /** 品牌折线在图标坐标系中的紧包围盒，模板 viewBox 与画布绘制共用同一份数值。 */
+  const brandMarkViewBox = `${BRAND_MARK_VIEWBOX.x} ${BRAND_MARK_VIEWBOX.y} ${BRAND_MARK_VIEWBOX.width} ${BRAND_MARK_VIEWBOX.height}`
+
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
+  const chartContextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
@@ -1090,6 +1149,13 @@
       screenshot: (action) => void captureScreenshot(action),
     }),
   )
+  // 右键菜单与导航按钮共用命令注册表；价格快照在每次打开时刷新。
+  const {
+    groups: contextMenuGroups,
+    icons: contextMenuIcons,
+    capturePrice: captureContextMenuPrice,
+    select: selectContextMenuItem,
+  } = useChartContextMenu({ controller, commands })
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
@@ -1383,7 +1449,6 @@
     ctrl.updateOptionsFacade({
       legend: {
         visible: !external && props.legend?.visible !== false,
-        visibleIndicatorIds: props.legend?.visibleIndicatorIds,
       },
     })
   }
@@ -1565,6 +1630,23 @@
     },
   }
 
+  /** 右键在绘图区打开图表菜单；编辑控件内保留浏览器原生菜单。 */
+  function onChartContextMenu(event: MouseEvent): void {
+    if (
+      event.target instanceof Element &&
+      event.target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')
+    )
+      return
+    event.preventDefault()
+    captureContextMenuPrice()
+    chartContextMenuRef.value?.openAt(event.clientX, event.clientY)
+  }
+
+  /** 菜单项动作由菜单自身分发；这里只转交选中的命令/动作 id。 */
+  function onContextMenuSelect(_groupId: string, itemId: string): void {
+    selectContextMenuItem(itemId)
+  }
+
   function onDoubleClick(e: MouseEvent) {
     const container = containerRef.value
     if (!container) return
@@ -1631,6 +1713,18 @@
     () => _initialResolved.priceAxisPosition,
   )
 
+  /**
+   * 导航浮层相对 .chart-main 的水平偏移。
+   * 浮层挂在含轴的图表外框上，外框中点比可见绘图区中点偏出两轴宽度差的一半，
+   * 传入该差值让浮层对准绘图区；价格轴换边后轴移到左侧，偏移方向随之翻转。
+   */
+  const navOffsetX = computed(() => {
+    if (chartMode.value === 'timeshare') {
+      return (leftAxisHostWidth.value - axisHostWidth.value) / 2
+    }
+    return priceAxisPosition.value === 'left' ? axisHostWidth.value / 2 : -axisHostWidth.value / 2
+  })
+
   function applyZoomToLevel(targetLevel: number, anchorX?: number) {
     controller.value?.zoomToLevel(targetLevel, anchorX)
   }
@@ -1678,6 +1772,8 @@
       minKWidth: props.minKWidth,
       maxKWidth: props.maxKWidth,
       settings: props.settings,
+      layoutRestore: props.restoreLayout,
+      layoutStorageId: props.layoutStorageId,
     })
     return ctrl
   }
@@ -1949,6 +2045,16 @@
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-brand-mark {
+    display: block;
+    flex: none;
+    width: auto;
+    height: 14px;
   }
 
   .pane-separator-layer {
@@ -2041,8 +2147,8 @@
       0 2px 8px rgba(0, 0, 0, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.04);
     transition:
-      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
-      border-color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
+      background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .drawing-line-label-editor.is-placeholder {
@@ -2113,7 +2219,7 @@
 
   .pane-axis-controls-host {
     position: absolute;
-    width: 100%;
+    left: 0;
     z-index: 2;
   }
 

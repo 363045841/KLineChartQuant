@@ -25,7 +25,6 @@ export function createTestRendererLayer(name: string): Layer<never> {
 export interface TestIndicatorMetadataInput {
   name: string
   displayName: string
-  kind: IndicatorMetadata['kind']
   category: IndicatorCategory
 }
 
@@ -37,7 +36,6 @@ export function createTestIndicatorMetadata(
   return {
     name: input.name,
     displayName: input.displayName,
-    kind: input.kind,
     category: input.category,
     defaultPaneId: 'sub_test',
     rendererFactory: () => createTestRendererLayer(`${input.name}_renderer`),

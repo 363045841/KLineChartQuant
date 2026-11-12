@@ -1,3 +1,4 @@
+/** 预览只构造统一图形模型，锚点使用公开坐标服务已经解析的绝对时间。 */
 import type { DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 import type { InteractionDrawingAnchor, PriceSpace } from '../../geometry/types.js'
@@ -39,9 +40,9 @@ export class PreviewRenderer {
     workspaceId: DrawingWorkspaceId,
     space: PriceSpace,
   ): DrawingObject | null {
-    const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
-    const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
-    const isTriple = TRIPLE_ANCHOR_TOOLS.includes(activeTool as any)
+    const isSingle = SINGLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
+    const isDouble = DOUBLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
+    const isTriple = TRIPLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
 
     if (!isSingle && !isDouble && !isTriple) return null
 
@@ -93,14 +94,12 @@ export class PreviewRenderer {
                 id: `${PREVIEW_ID}-a`,
                 type: 'vertical',
                 time: anchor.time!,
-                futureOffset: anchor.futureOffset,
                 price: anchor.price,
               }
             : {
                 id: `${PREVIEW_ID}-a`,
                 type: 'point',
                 time: anchor.time,
-                futureOffset: anchor.futureOffset,
                 price: anchor.price,
               },
       ],
@@ -130,13 +129,11 @@ export class PreviewRenderer {
           {
             id: `${PREVIEW_ID}-a`,
             time: first.time,
-            futureOffset: first.futureOffset,
             price: first.price,
           },
           {
             id: `${PREVIEW_ID}-b`,
             time: second.time,
-            futureOffset: second.futureOffset,
             price: second.price,
           },
         ],
@@ -175,13 +172,11 @@ export class PreviewRenderer {
           {
             id: `${PREVIEW_ID}-a`,
             time: pendingAnchors[0]!.time,
-            futureOffset: pendingAnchors[0]!.futureOffset,
             price: pendingAnchors[0]!.price,
           },
           {
             id: `${PREVIEW_ID}-b`,
             time: currentAnchor.time,
-            futureOffset: currentAnchor.futureOffset,
             price: currentAnchor.price,
           },
         ],
@@ -200,19 +195,16 @@ export class PreviewRenderer {
         {
           id: `${PREVIEW_ID}-a`,
           time: pendingAnchors[0]!.time,
-          futureOffset: pendingAnchors[0]!.futureOffset,
           price: pendingAnchors[0]!.price,
         },
         {
           id: `${PREVIEW_ID}-b`,
           time: pendingAnchors[1]!.time,
-          futureOffset: pendingAnchors[1]!.futureOffset,
           price: pendingAnchors[1]!.price,
         },
         {
           id: `${PREVIEW_ID}-c`,
           time: currentAnchor.time,
-          futureOffset: currentAnchor.futureOffset,
           price: currentAnchor.price,
         },
       ],

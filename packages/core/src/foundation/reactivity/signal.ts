@@ -1,16 +1,19 @@
 /**
- * 轻量 push-based 响应式原语，零外部依赖。
+ * 轻量响应式原语，零外部依赖：原始 signal 推送通知，派生值按需求值。
  *
  * @remarks
  * 设计约束:
  *
  * 1. 非 batch 模式下 set 同步通知（无微任务调度）
- * 2. batch() 将所有通知推迟到最外层 batch 退出时
- * 3. 无 Proxy / 无深度追踪 —— 仅顶层读/写
- * 4. 相等性通过 Object.is 短路
- * 5. subscribe 返回取消订阅函数；可安全用于 React useSyncExternalStore、
+ * 2. batch() 只推迟通知，不推迟派生：最外层 batch 退出时一次性提交
+ * 3. 派生值写入后只标脏，读取（含 peek）时按当前输入重算，
+ *    因此"写原始状态后立即读派生"在任何位置都读到当前值
+ * 4. 无 Proxy / 无深度追踪 —— 仅顶层读/写
+ * 5. 相等性通过 Object.is 短路；派生值未变化不通知下游
+ * 6. 一次提交内每个订阅者（含 effect）只收到一次通知
+ * 7. subscribe 返回取消订阅函数；可安全用于 React useSyncExternalStore、
  *    Vue effect、Angular toSignal
- * 6. effect 在其内部读取的任何 signal 重新发出值时自动重跑
+ * 8. effect 在其内部读取的任何 signal 重新发出值时自动重跑
  */
 
 /**
@@ -93,7 +96,54 @@ type Tracker = {
 let activeTracker: Tracker | null = null
 
 let batchDepth = 0
-const pendingBatch = new Set<() => void>()
+
+/** 待执行任务：派生结算与订阅者通知按入队顺序执行。 */
+const pending = new Set<() => void>()
+let flushing = false
+
+/** 订阅者任务（外部监听与 effect）：同一次提交内只执行一次。 */
+const notificationTasks = new WeakSet<() => void>()
+/** 本次提交已执行过的订阅者任务。 */
+const notifiedTasks = new Set<() => void>()
+
+/** 把任务登记为订阅者通知，允许提交内去重；派生失效任务不登记（幂等且可能再次失效）。 */
+function asNotification(job: () => void): () => void {
+  notificationTasks.add(job)
+  return job
+}
+
+/** 入队一个任务；不在提交中时立即同步提交。 */
+function enqueue(job: () => void): void {
+  pending.add(job)
+  if (batchDepth === 0 && !flushing) flush()
+}
+
+/**
+ * 执行到队列为空。
+ *
+ * @remarks 派生结算过程中产生的新任务在同一轮提交内继续执行；
+ * 订阅者按去重表只收到一次通知，派生失效任务则按需重复执行。
+ */
+function flush(): void {
+  if (flushing) return
+  flushing = true
+  try {
+    while (pending.size > 0) {
+      const jobs = [...pending]
+      pending.clear()
+      for (const job of jobs) {
+        if (notificationTasks.has(job)) {
+          if (notifiedTasks.has(job)) continue
+          notifiedTasks.add(job)
+        }
+        notify(job)
+      }
+    }
+  } finally {
+    notifiedTasks.clear()
+    flushing = false
+  }
+}
 
 /**
  * 通知单个订阅者，并隔离它的异常。
@@ -133,18 +183,24 @@ export function createSignal<T>(initial: T): WritableSignal<T> {
   const set = (next: T): void => {
     if (Object.is(value, next)) return
     value = next
-    if (batchDepth > 0) {
-      for (const listener of subscribers) pendingBatch.add(listener)
-    } else {
-      // copy to allow listener self-unsubscribe during notify
-      for (const listener of [...subscribers]) notify(listener)
+    // 提交中的写入开启新一轮通知：订阅者可以再次收到后续变更。
+    if (flushing) notifiedTasks.clear()
+    // copy to allow listener self-unsubscribe during dispatch
+    const listeners = [...subscribers]
+    // 先同步传播派生失效，再入队通知：订阅者不会读到尚未失效的派生值。
+    for (const listener of listeners) {
+      if (!notificationTasks.has(listener)) listener()
+    }
+    for (const listener of listeners) {
+      if (notificationTasks.has(listener)) enqueue(listener)
     }
   }
 
   const subscribe = (listener: () => void): (() => void) => {
-    subscribers.add(listener)
+    const job = asNotification(listener)
+    subscribers.add(job)
     return () => {
-      subscribers.delete(listener)
+      subscribers.delete(job)
     }
   }
 
@@ -180,6 +236,8 @@ export function effect(fn: () => void): () => void {
       }
     },
   }
+  // effect 是订阅者：同一次提交内重复入队只执行一次。
+  asNotification(tracker.run)
   tracker.run()
   return () => {
     for (const dep of tracker.deps) dep.delete(tracker.run)
@@ -188,48 +246,120 @@ export function effect(fn: () => void): () => void {
 }
 
 /**
- * 创建一个派生（只读）signal。
+ * 创建一个按需求值的派生（只读）signal。
  *
  * @remarks
- * computed(fn) 立即执行 fn 一次，之后每当 fn 中读取的 signal 变更时自动重跑。
- * 返回的 ReadonlySignal 没有 .set() 方法，调用方无法写回，以此强制单向数据流：
- * source signals 到 computed 到 consumers。
+ * 上游变更只把派生值标脏，读取时（含 `peek`）按当前上游状态重算，因此不存在
+ * "写入后派生值尚未提交"的时间窗；通知在提交时按最终值发出，值未变化则不通知。
+ * 返回的 ReadonlySignal 没有 .set() 方法，调用方无法写回，以此强制单向数据流。
  *
- * @param fn - 派生函数
+ * @param fn - 派生函数，必须是纯函数，会按依赖变化重算
  * @returns 只读的派生 signal
  */
 export function computed<T>(fn: () => T): ReadonlySignal<T> {
-  const inner = createSignal<T>(undefined as unknown as T)
+  let value = undefined as unknown as T
   let initialized = false
-  effect(() => {
-    const next = fn()
-    if (!initialized) {
-      initialized = true
-      // bypass equality check on first run
-      ;(inner as unknown as { set: (v: T) => void }).set(next)
-      return
+  /** 上游已变更，下次读取必须重算。 */
+  let dirty = true
+  /** 重算进行中：派生函数直接或间接读回自身即为循环依赖。 */
+  let evaluating = false
+  /** 自上次提交以来值是否变化，提交时据此决定是否通知下游。 */
+  let changed = false
+  let settleScheduled = false
+  const subscribers = new Set<() => void>()
+  /** 上游订阅集合；每次重算整体重建，条件依赖不会残留。 */
+  const deps = new Set<Set<() => void>>()
+
+  /** 上游写入：同步把失效传播到整条派生链，并排队提交；不立即重算、不通知订阅者。 */
+  const invalidate = (): void => {
+    if (dirty) return
+    dirty = true
+    // 下游派生必须现在就失效，否则 batch 内读取链路会拿到旧值；订阅者通知留到提交。
+    for (const subscriber of [...subscribers]) {
+      if (!notificationTasks.has(subscriber)) subscriber()
     }
-    inner.set(next)
-  })
-  const read = (): T => inner()
-  return Object.assign(read, { peek: inner.peek, subscribe: inner.subscribe }) as ReadonlySignal<T>
+    if (settleScheduled) return
+    settleScheduled = true
+    enqueue(settle)
+  }
+
+  /** 读取当前派生值；脏则按当前上游状态重算。 */
+  const materialize = (): T => {
+    if (!dirty) return value
+    if (evaluating) throw new Error('[reactivity] computed 在读回自身，存在循环依赖')
+    evaluating = true
+    try {
+      for (const dependency of deps) dependency.delete(invalidate)
+      deps.clear()
+      const previousTracker = activeTracker
+      activeTracker = { deps, run: invalidate }
+      let next: T
+      try {
+        next = fn()
+      } finally {
+        activeTracker = previousTracker
+      }
+      if (!initialized) {
+        initialized = true
+      } else if (!Object.is(value, next)) {
+        changed = true
+      }
+      value = next
+      dirty = false
+      return value
+    } finally {
+      evaluating = false
+    }
+  }
+
+  /** 提交：按最终值决定是否通知下游；提交内的读取已重算的值不会重复通知。 */
+  const settle = (): void => {
+    settleScheduled = false
+    materialize()
+    if (!changed) return
+    changed = false
+    for (const subscriber of [...subscribers]) enqueue(subscriber)
+  }
+
+  const read = (): T => {
+    if (activeTracker !== null) {
+      subscribers.add(activeTracker.run)
+      activeTracker.deps.add(subscribers)
+    }
+    return materialize()
+  }
+
+  const peek = (): T => materialize()
+
+  const subscribe = (listener: () => void): (() => void) => {
+    const job = asNotification(listener)
+    subscribers.add(job)
+    return () => {
+      subscribers.delete(job)
+    }
+  }
+
+  // 首次求值与既有行为一致：创建即得到当前值，之后按需重算。
+  materialize()
+  return Object.assign(read, { peek, subscribe }) as ReadonlySignal<T>
 }
 
 /**
  * 将多个 signal 写入合并为一次通知周期。
  *
  * @remarks
- * 在 batch(fn) 内部，所有 signal.set() 调用将订阅者入队而非立即通知。
- * 最外层 batch 退出时，每个累积的订阅者恰好触发一次（已去重）。
- * 支持嵌套 —— 仅最外层 batch 触发 flush。
+ * 在 batch(fn) 内部，所有 signal.set() 只入队通知而非立即通知；派生值按需重算，
+ * 因此在 batch 内读取派生状态同样得到当前输入推导出的值，不存在陈旧快照。
+ * 最外层 batch 退出时提交：派生按最终值通知下游，每个订阅者恰好触发一次（已去重）。
+ * 支持嵌套 —— 仅最外层 batch 触发提交。
  *
  * @example
  * batch(() => {
  *   signalA.set(1)
- *   signalB.set('x')
- *   // subscribers haven't fired yet
+ *   // 派生的当前值已经是 1 的推导结果
+ *   derived.peek()
  * })
- * // all subscribers fire once, deduped
+ * // 订阅者在提交后各收到一次通知
  *
  * @param fn - 批量写入函数
  * @returns fn 的返回值
@@ -239,15 +369,8 @@ export function batch<T>(fn: () => T): T {
   try {
     return fn()
   } finally {
-    if (batchDepth === 1) {
-      // computed 可能在本轮执行中继续产生下游 listener，必须持续清空队列才能发布完整快照。
-      while (pendingBatch.size > 0) {
-        const toNotify = [...pendingBatch]
-        pendingBatch.clear()
-        for (const listener of toNotify) notify(listener)
-      }
-    }
     batchDepth--
+    if (batchDepth === 0) flush()
   }
 }
 

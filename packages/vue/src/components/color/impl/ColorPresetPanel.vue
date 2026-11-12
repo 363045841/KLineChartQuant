@@ -85,11 +85,7 @@
 </script>
 
 <style scoped>
-  .color-preset-container {
-    padding: 4px 0;
-  }
-
-  /* ── 分组标签 ── */
+  /* 分组标签 */
   .color-group-label {
     margin: 18px 0 6px;
     color: var(--klc-color-axis-text);
@@ -123,7 +119,7 @@
     color: var(--klc-color-foreground);
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .color-item:hover {
