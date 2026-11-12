@@ -168,6 +168,8 @@ export interface ProtocolKLineItem {
   low: number
   close: number
   volume?: number
+  /** 主动买入量；数据源不区分主动方向时缺省 */
+  buyVolume?: number
   turnover?: number
   amplitude?: number
   changePercent?: number

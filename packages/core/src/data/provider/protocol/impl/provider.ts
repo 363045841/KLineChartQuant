@@ -92,6 +92,7 @@ function mapBar(item: ProtocolKLineItem, symbol: string): KLineData {
     low: item.low,
     close: item.close,
     volume: item.volume,
+    buyVolume: item.buyVolume,
     turnover: item.turnover,
     amplitude: item.amplitude,
     changePercent: item.changePercent,
@@ -160,7 +161,9 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
         runtimeSource.capabilities = capabilities
         // 声明了能力却不合协议才降级：完全不上报能力的源保持原状态，只是不参与流转。
         const degraded =
-          result.capabilities !== undefined && capabilities === undefined && result.status !== 'offline'
+          result.capabilities !== undefined &&
+          capabilities === undefined &&
+          result.status !== 'offline'
         return {
           status: degraded ? 'degraded' : result.status,
           checkedAt: result.checkedAt,

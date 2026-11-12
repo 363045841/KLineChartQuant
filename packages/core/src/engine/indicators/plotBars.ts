@@ -11,5 +11,7 @@ export function toPlotBar(bar: KLineData): Bar {
     low: bar.low,
     close: bar.close,
     volume: bar.volume === undefined ? 0 : bar.volume,
+    // 主动买量只有部分数据源提供；缺省时不加字段，让指标能区分「没有」与「为 0」
+    ...(bar.buyVolume === undefined ? {} : { buyVolume: bar.buyVolume }),
   }
 }

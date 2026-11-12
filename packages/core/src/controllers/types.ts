@@ -109,6 +109,12 @@ export interface KLineData {
   low: number
   close: number
   volume?: number
+  /**
+   * 主动买入量（基础资产数量）。
+   *
+   * 只有按主动方向拆分的数据源才提供，例如 Binance K 线；缺省表示该数据源不分方向。
+   */
+  buyVolume?: number
   turnover?: number
   symbol?: string
   amplitude?: number

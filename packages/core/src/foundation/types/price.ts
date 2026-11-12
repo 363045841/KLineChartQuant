@@ -14,6 +14,13 @@ export interface KLineData {
   symbol?: string
   /** 成交量 */
   volume?: number
+  /**
+   * 主动买入量（基础资产数量）。
+   *
+   * 只有按主动方向拆分的数据源才提供（例如 Binance K 线）；缺省表示该数据源不分方向，
+   * 指标据此决定算精确净额还是回退估算。
+   */
+  buyVolume?: number
   /** 成交额 */
   turnover?: number
   /** 振幅 */

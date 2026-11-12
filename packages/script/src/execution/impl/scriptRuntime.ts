@@ -15,6 +15,8 @@ export const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
   low: (bar) => bar.low,
   close: (bar) => bar.close,
   volume: (bar) => bar.volume,
+  // 主动买量只有部分数据源提供；缺失返回 NaN，脚本据此回退到估算口径
+  buyVolume: (bar) => (bar.buyVolume === undefined ? Number.NaN : bar.buyVolume),
   time: (bar) => bar.time,
 }
 

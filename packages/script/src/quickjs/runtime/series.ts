@@ -114,6 +114,8 @@ const high = __series('high')
 const low = __series('low')
 const close = __series('close')
 const volume = __series('volume')
+/** 主动买入量：只有按主动方向拆分的数据源才提供，缺失时读出 NaN。 */
+const buyVolume = __series('buyVolume')
 /** time同时支持历史序列读取和Pine风格周期/时段查询。 */
 const time = new Proxy(
   Object.assign(

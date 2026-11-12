@@ -12,6 +12,13 @@ export interface Bar {
   close: number
   volume: number
   /**
+   * 主动买入量（基础资产数量）。
+   *
+   * 只有数据源按主动方向拆分的交易所才提供，例如 Binance K 线；缺省表示该数据源
+   * 不区分主动买卖方向。指标据此决定算精确净额还是用其它方式估算。
+   */
+  buyVolume?: number
+  /**
    * 该 K 线是否已收盘。
    * - 历史数据恒为 true
    * - 缺省视为 true

@@ -63,7 +63,7 @@ const FIXED_LOOKBACK: Readonly<Record<string, number>> = {
 }
 
 /** 内置行情序列名；动态下标视为无界回看。 */
-const SERIES_NAMES = new Set(['open', 'high', 'low', 'close', 'volume', 'time'])
+const SERIES_NAMES = new Set(['open', 'high', 'low', 'close', 'volume', 'buyVolume', 'time'])
 
 /** 绘图 API 的宿主对象；绘图状态是顺序的。 */
 const DRAWING_OWNERS = new Set(['line', 'box', 'label'])
