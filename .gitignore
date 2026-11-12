@@ -75,6 +75,7 @@ artifacts/product/
 
 # NexusAI Shell 批次工作区截图/临时产物
 temp/
+.tmp/
 .smoke/
 
 # 本地便携 Go 工具链（临时，验证 gotdx 用）
