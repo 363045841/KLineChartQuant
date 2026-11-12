@@ -68,7 +68,9 @@ export interface FlowView {
   readonly windowSeconds: number
   readonly takerBuyRatio: number
   readonly netNotional: number
-  readonly granularity: 'aggregated' | 'recent-trades'
+  /** 实际覆盖的秒数；小于周期只显示覆盖时长，null 表示服务端没给（旧版服务端） */
+  readonly coverageSeconds: number | null
+  readonly granularity: 'aggregated' | 'self-aggregated' | 'recent-trades'
 }
 
 /** 大单档。 */

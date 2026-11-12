@@ -143,7 +143,14 @@ function parseFlows(value: unknown): readonly FlowView[] {
       windowSeconds,
       takerBuyRatio: arrNum(item.takerBuyRatio),
       netNotional: arrNum(item.netNotional),
-      granularity: granularity === 'recent-trades' ? 'recent-trades' : 'aggregated',
+      // 服务端没给该字段时留 null：宁可显示未知，也不把不完整的周期当成完整周期
+      coverageSeconds: num(item.coverageSeconds),
+      granularity:
+        granularity === 'recent-trades'
+          ? 'recent-trades'
+          : granularity === 'self-aggregated'
+            ? 'self-aggregated'
+            : 'aggregated',
     })
   }
   return flows

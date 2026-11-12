@@ -66,11 +66,13 @@
               <td :class="signClass(hourFlow(venue)?.netNotional ?? 0)">
                 {{ hourFlow(venue) === null ? '—' : signedMoney(hourFlow(venue)?.netNotional ?? 0) }}
               </td>
-              <td>{{ percent(hourFlow(venue)?.takerBuyRatio ?? null) }}</td>
+              <td>{{ hourCell(venue) }}</td>
             </tr>
           </tbody>
         </table>
-        <p class="of-note">只有 Binance 与 OKX 提供官方 1 小时聚合，其余三家只有逐笔。</p>
+        <p class="of-note">
+          官方聚合优先；官方没有的周期按分钟累加逐笔成交自算。覆盖不足 1 小时时只显示覆盖时长。
+        </p>
       </section>
 
       <!-- ③ 分周期主动买 -->
@@ -90,10 +92,10 @@
           <tbody>
             <tr v-for="venue in panel.venues" :key="venue.venue">
               <td>{{ venue.venue }}</td>
-              <td>{{ percent(windowRatio(venue, 3600)) }}</td>
-              <td>{{ percent(windowRatio(venue, 900)) }}</td>
-              <td>{{ percent(windowRatio(venue, 300)) }}</td>
-              <td>{{ percent(windowRatio(venue, 60)) }}</td>
+              <td>{{ windowCell(venue, 3600) }}</td>
+              <td>{{ windowCell(venue, 900) }}</td>
+              <td>{{ windowCell(venue, 300) }}</td>
+              <td>{{ windowCell(venue, 60) }}</td>
               <td class="of-dim">{{ granularityText(venue) }}</td>
             </tr>
           </tbody>
@@ -354,14 +356,32 @@
   }
 
   /**
-   * 取某所指定窗口的主动买占比。
+   * 取某所指定窗口的主动买占比文本。
+   *
+   * 覆盖不足的周期不给百分比：那一段只代表它实际覆盖的时长，写成「1h 45%」会骗人。
    *
    * @param venue 单所快照
    * @param seconds 窗口秒数
-   * @returns 比例
+   * @returns 百分比、覆盖时长或破折号
    */
-  function windowRatio(venue: VenueView, seconds: number): number | null {
-    return venue.flows.find((flow) => flow.windowSeconds === seconds)?.takerBuyRatio ?? null
+  function windowCell(venue: VenueView, seconds: number): string {
+    const flow = venue.flows.find((item) => item.windowSeconds === seconds)
+    if (flow === undefined) return '—'
+    if (flow.coverageSeconds === null) return '—'
+    if (flow.coverageSeconds < flow.windowSeconds) {
+      return `覆盖${Math.round(flow.coverageSeconds / 60)}m`
+    }
+    return percent(flow.takerBuyRatio)
+  }
+
+  /**
+   * 取某所 1 小时主动买占比文本，覆盖不足时说明覆盖时长。
+   *
+   * @param venue 单所快照
+   * @returns 百分比、覆盖时长或破折号
+   */
+  function hourCell(venue: VenueView): string {
+    return windowCell(venue, 3600)
   }
 
   /**
@@ -371,9 +391,10 @@
    * @returns 说明文本
    */
   function granularityText(venue: VenueView): string {
-    const flow = venue.flows[0]
-    if (flow === undefined) return '—'
-    return flow.granularity === 'aggregated' ? '官方聚合' : '逐笔现算'
+    if (venue.flows.length === 0) return '—'
+    if (venue.flows.some((flow) => flow.granularity === 'self-aggregated')) return '官方+自算'
+    if (venue.flows.some((flow) => flow.granularity === 'recent-trades')) return '逐笔现算'
+    return '官方聚合'
   }
 
   /**
