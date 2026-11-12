@@ -102,6 +102,13 @@ export interface PositioningView {
 /** 单所快照。 */
 export interface VenueView {
   readonly venue: string
+  /**
+   * 该交易所各类记录里最新的时刻（毫秒）。
+   *
+   * 用来指认「哪一家停摆了多久」：面板级时间戳只说明快照时刻，
+   * 采集器只挂了某一家时它仍然是新的。没有任何带时间的记录时为 null。
+   */
+  readonly updatedAt: number | null
   readonly depth: DepthView | null
   readonly flows: readonly FlowView[]
   readonly largeOrders: LargeOrderView | null

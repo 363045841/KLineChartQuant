@@ -7,15 +7,24 @@
         <span class="of-perp-tag">永续</span>
         <span class="of-stale" :class="staleClass">{{ freshnessText }}</span>
       </div>
-      <button
-        type="button"
-        class="of-refresh"
-        :disabled="loading"
-        :aria-label="loading ? '正在刷新' : '刷新面板'"
-        @click="void refresh()"
-      >
-        {{ loading ? '刷新中' : '刷新' }}
-      </button>
+      <div class="of-header__actions">
+        <span
+          class="of-status"
+          :class="`of-status--${status.tone}`"
+          role="status"
+          :title="status.label"
+          :aria-label="status.label"
+        />
+        <button
+          type="button"
+          class="of-refresh"
+          :disabled="loading"
+          :aria-label="loading ? '正在刷新' : '刷新面板'"
+          @click="void refresh()"
+        >
+          {{ loading ? '刷新中' : '刷新' }}
+        </button>
+      </div>
     </header>
 
     <p v-if="error !== null" class="of-error" role="alert">{{ error }}</p>
@@ -209,6 +218,7 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import { describePanelStatus, staleVenues, withVenueHealth } from '../impl/panel-status'
   import type { DepthRange } from '../impl/use-orderflow-panel'
   import { useOrderflowPanel } from '../impl/use-orderflow-panel'
   import type { OrderflowPanelSource, VenueView } from '../types'
@@ -247,6 +257,24 @@
 
   /** 数据滞后阈值：超过它就把时间标黄。 */
   const STALE_MS = 10 * 60 * 1000
+
+  /**
+   * 刷新按钮左侧的指示灯。
+   *
+   * 判定与面板顶部的「几分钟前更新」共用同一份状态：请求失败报错，超时未更新算离线。
+   * 采集器停摆时服务仍返回 200，所以不能只看请求成败。
+   */
+  const status = computed(() => {
+    const now = Date.now()
+    const base = describePanelStatus({
+      error: state.error.value,
+      lastUpdated: state.lastUpdated.value,
+      now,
+      staleMs: STALE_MS,
+    })
+    // 服务在线不等于每家都在出数：有停摆的交易所就降为黄灯
+    return withVenueHealth(base, staleVenues(panel.value?.venues ?? [], now, STALE_MS))
+  })
 
   const staleClass = computed(() => {
     const updated = state.lastUpdated.value
@@ -571,6 +599,40 @@
   .of-refresh:disabled {
     cursor: default;
     opacity: 0.6;
+  }
+
+  /* 指示灯：绿=在线、黄=有交易所停摆、灰=整体离线、红=报错，颜色全部取自令牌。 */
+  .of-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .of-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--klc-color-ui-neutral);
+    flex: none;
+  }
+
+  .of-status--online {
+    background: var(--klc-color-ui-success);
+    box-shadow: 0 0 6px var(--klc-color-ui-success);
+  }
+
+  .of-status--warning {
+    background: var(--klc-color-ui-warning);
+    box-shadow: 0 0 6px var(--klc-color-ui-warning);
+  }
+
+  .of-status--offline {
+    background: var(--klc-color-ui-neutral);
+  }
+
+  .of-status--error {
+    background: var(--klc-color-ui-danger);
+    box-shadow: 0 0 6px var(--klc-color-ui-danger);
   }
 
   .of-card {

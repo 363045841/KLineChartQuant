@@ -224,6 +224,44 @@ function parsePositioning(value: unknown): PositioningView | null {
  * @param value 原始值
  * @returns 快照或 null
  */
+/**
+ * 取该交易所各类记录里最新的时刻。
+ *
+ * 面板级时间戳只说明「这次快照什么时候取的」，看不出某一家是否已经停摆。
+ * 逐家取最新记录时刻，才能指认「谁落后了多久」。
+ *
+ * @param value 原始交易所对象
+ * @returns 最新时刻；没有任何带时间的记录时为 null
+ */
+export function latestVenueTimestamp(value: Record<string, unknown>): number | null {
+  const candidates: number[] = []
+  const depth = isRecord(value.depth) ? num(value.depth.timestamp) : null
+  if (depth !== null) candidates.push(depth)
+  if (Array.isArray(value.flows)) {
+    for (const item of value.flows) {
+      const stamp = isRecord(item) ? num(item.timestamp) : null
+      if (stamp !== null) candidates.push(stamp)
+    }
+  }
+  if (isRecord(value.positioning)) {
+    const stamp = num(value.positioning.timestamp)
+    if (stamp !== null) candidates.push(stamp)
+  }
+  if (Array.isArray(value.cvd)) {
+    const last = value.cvd[value.cvd.length - 1]
+    const stamp = isRecord(last) ? num(last.minuteStart) : null
+    if (stamp !== null) candidates.push(stamp)
+  }
+  if (candidates.length === 0) return null
+  return Math.max(...candidates)
+}
+
+/**
+ * 解析单个交易所。
+ *
+ * @param value 原始值
+ * @returns 交易所视图或 null
+ */
 function parseVenue(value: unknown): VenueView | null {
   if (!isRecord(value)) return null
   const venue = str(value.venue)
@@ -240,6 +278,7 @@ function parseVenue(value: unknown): VenueView | null {
   }
   return {
     venue,
+    updatedAt: latestVenueTimestamp(value),
     depth: parseDepth(value.depth),
     flows: parseFlows(value.flows),
     largeOrders: parseLargeOrders(value.largeOrders),
