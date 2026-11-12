@@ -1,0 +1,36 @@
+# KCQ 分析数据采集器 · 群晖 NAS 部署
+#
+# 用法（在 /volume1/docker/kcq/app 下执行）：
+#   docker compose up -d --build
+#
+# 变量来自同目录 .env（或当前 shell 环境）：
+#   KCQ_DATA_ROOT_HOST  NAS 上存放数据的共享目录（挂到容器 /data）
+#   KCQ_PROXY_HOST      容器能访问到的代理主机
+#   KCQ_PROXY_PORT      代理端口
+services:
+  kcq-collector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kcq-nas-collector:local
+    container_name: kcq-collector
+    restart: unless-stopped
+    # 必须用 host 网络：群晖上代理是另一个容器的发布端口（0.0.0.0:7891），
+    # 从 bridge 容器里用 NAS 局域网 IP 访问会被 hairpin NAT 挡掉（实测 15s 超时）。
+    # 用 host 网络后容器内 127.0.0.1 就是 NAS 主机，直接 KCQ_PROXY_HOST=127.0.0.1。
+    network_mode: host
+    environment:
+      KCQ_DATA_ROOT: /data
+      KCQ_PROXY_HOST: ${KCQ_PROXY_HOST:-}
+      KCQ_PROXY_PORT: ${KCQ_PROXY_PORT:-}
+      KCQ_OPTION_INTERVAL: ${KCQ_OPTION_INTERVAL:-60}
+      KCQ_VOLUME_INTERVAL: ${KCQ_VOLUME_INTERVAL:-300}
+      KCQ_SYMBOLS: ${KCQ_SYMBOLS:-BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT}
+      KCQ_CURRENCIES: ${KCQ_CURRENCIES:-BTC,ETH}
+    volumes:
+      - ${KCQ_DATA_ROOT_HOST:-/volume1/docker/kcq/analytics}:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
