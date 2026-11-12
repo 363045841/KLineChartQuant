@@ -44,6 +44,12 @@ declare global {
   var low: Series
   var close: Series
   var volume: Series
+  /**
+   * 主动买入量（基础资产数量）。
+   *
+   * 只有按主动方向拆分的数据源才提供（例如 Binance K 线），缺失时读出 NaN。
+   */
+  var buyVolume: Series
   var time: Series & ((period: string, session?: string, timezone?: string) => number)
   /** 周期结束时间；自定义session外返回NaN。 */
   function time_close(period?: string, session?: string, timezone?: string): number
