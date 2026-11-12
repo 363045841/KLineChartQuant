@@ -11,17 +11,21 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DayAppendResult, DayShardStore } from '../../storage/types'
-import type { LargeOrderRecord, OrderflowVenue } from '../types'
+import type { FlowMinuteRecord, LargeOrderRecord, OrderflowVenue } from '../types'
+import { orderflowStream } from './collect'
 import type { FlowClient } from './flowVenues'
 import {
   type AccumulatedTrade,
   addTrades,
+  closedMinutesOf,
   createAccumulator,
   type HourAccumulator,
   hourStartOf,
+  type MinuteTradeSum,
   sealAccumulator,
   shouldSeal,
   type TradeCoverage,
+  withoutMinutes,
 } from './largeOrderAccumulator'
 
 /** 已见成交 ID 的保留上限：sampled 口径靠它去重，太大吃内存，太小会重复计数。 */
@@ -29,8 +33,8 @@ const SEEN_ID_LIMIT = 5000
 
 /** 持久化的小时状态。 */
 interface PersistedState {
-  /** 状态结构版本 */
-  readonly schemaVersion: 1
+  /** 状态结构版本；旧版没有分钟格，读到即重建 */
+  readonly schemaVersion: 2
   /** 续拉游标；sampled 口径为 null */
   readonly cursor: string | null
   /** 当前小时桶 */
@@ -98,30 +102,31 @@ function loadState(
   symbol: string,
   now: number,
 ): PersistedState {
-  if (!existsSync(path)) {
-    return {
-      schemaVersion: 1,
-      cursor: null,
-      accumulator: createAccumulator(venue, symbol, hourStartOf(now), 'exact'),
-      seenIds: [],
-    }
-  }
+  const fresh = (): PersistedState => ({
+    schemaVersion: 2,
+    cursor: null,
+    accumulator: createAccumulator(venue, symbol, hourStartOf(now), 'exact'),
+    seenIds: [],
+  })
+  if (!existsSync(path)) return fresh()
   const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    !('accumulator' in parsed) ||
-    !('cursor' in parsed)
-  ) {
+  if (typeof parsed !== 'object' || parsed === null || !('accumulator' in parsed)) {
     throw new Error(`状态文件结构不符：${path}`)
   }
-  const candidate = parsed as { cursor: unknown; accumulator: unknown; seenIds?: unknown }
+  const candidate = parsed as {
+    schemaVersion?: unknown
+    cursor: unknown
+    accumulator: unknown
+    seenIds?: unknown
+  }
+  // 旧版状态没有分钟格，继续用会让周期统计永远缺一分钟；重建代价只是丢掉未封存的当前小时
+  if (candidate.schemaVersion !== 2) return fresh()
   if (typeof candidate.accumulator !== 'object' || candidate.accumulator === null) {
     throw new Error(`状态文件缺少小时桶：${path}`)
   }
   const accumulator = candidate.accumulator as HourAccumulator
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     cursor: typeof candidate.cursor === 'string' ? candidate.cursor : null,
     accumulator,
     seenIds: Array.isArray(candidate.seenIds)
@@ -178,6 +183,45 @@ function sealInto(
 }
 
 /**
+ * 把已结束的分钟格落盘。
+ *
+ * 为什么不等到整点一起写：面板要看 1m/5m/15m，等到整点才有数据就失去意义。
+ * 每分钟一行，去重键是分钟起点，重复采集同一分钟不会写两行。
+ *
+ * @param store 分片存储
+ * @param venue 交易所
+ * @param symbol 交易对
+ * @param accumulator 提供覆盖口径
+ * @param minutes 已结束的分钟格
+ * @returns 落盘结果
+ */
+function persistMinutes(
+  store: DayShardStore,
+  venue: OrderflowVenue,
+  symbol: string,
+  accumulator: HourAccumulator,
+  minutes: readonly MinuteTradeSum[],
+): readonly DayAppendResult[] {
+  if (minutes.length === 0) return []
+  const rows: FlowMinuteRecord[] = minutes.map((minute) => ({
+    schemaVersion: 1,
+    venue,
+    symbol,
+    minuteStart: minute.minuteStart,
+    buy: minute.buy,
+    sell: minute.sell,
+    trades: minute.trades,
+    coverage: accumulator.coverage,
+  }))
+  return store.append({
+    stream: orderflowStream('flow-minutes', venue, symbol),
+    rows,
+    dayOf: (row) => row.minuteStart,
+    dedupeKey: (row) => String(row.minuteStart),
+  })
+}
+
+/**
  * 采集一轮逐笔成交并按小时累加。
  *
  * @param request 客户端、存储、状态目录、交易所与交易对
@@ -222,8 +266,8 @@ export async function collectTradeBuckets(
       // 保留最近 SEEN_ID_LIMIT 个，防止状态文件无限增长
       const seenIds = [...seen].slice(-SEEN_ID_LIMIT)
 
-      // 按小时分组：旧小时的成交先封存，再进新桶
-      let accumulator = state.accumulator
+      // 覆盖口径由本轮拉取方式决定：新建状态时的占位值不可信，必须用本轮的真实口径覆盖
+      let accumulator: HourAccumulator = { ...state.accumulator, coverage: batch.coverage }
       let sealedHour: number | null = null
       const appends: DayAppendResult[] = []
 
@@ -239,8 +283,11 @@ export async function collectTradeBuckets(
         (left, right) => left[0] - right[0],
       )) {
         if (hour !== accumulator.hourStart) {
-          // 跨小时：有内容的旧桶先封存
+          // 跨小时：有内容的旧桶先落分钟、再封存
           if (accumulator.trades > 0) {
+            appends.push(
+              ...persistMinutes(request.store, venue, symbol, accumulator, accumulator.minutes),
+            )
             appends.push(...sealInto(request.store, venue, symbol, accumulator))
             sealedHour = accumulator.hourStart
           }
@@ -250,13 +297,25 @@ export async function collectTradeBuckets(
       }
 
       if (shouldSeal(accumulator, nowMs) && accumulator.trades > 0) {
+        appends.push(
+          ...persistMinutes(request.store, venue, symbol, accumulator, accumulator.minutes),
+        )
         appends.push(...sealInto(request.store, venue, symbol, accumulator))
         sealedHour = accumulator.hourStart
         accumulator = createAccumulator(venue, symbol, hourStartOf(nowMs), batch.coverage)
       }
 
+      // 已结束的分钟落盘，未结束的留在状态里——半分钟当完整分钟会让比例失真
+      const closedMinutes = closedMinutesOf(accumulator, nowMs)
+      if (closedMinutes.length > 0) {
+        appends.push(
+          ...persistMinutes(request.store, venue, symbol, accumulator, closedMinutes),
+        )
+        accumulator = withoutMinutes(accumulator, closedMinutes)
+      }
+
       saveState(path, {
-        schemaVersion: 1,
+        schemaVersion: 2,
         cursor: batch.nextCursor,
         accumulator,
         seenIds,

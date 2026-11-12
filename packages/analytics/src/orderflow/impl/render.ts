@@ -89,7 +89,13 @@ export function renderPanel(panel: OrderflowPanel): string {
   for (const venue of panel.venues) {
     const flow = venue.flows.find((item) => item.windowSeconds === 3600)
     if (flow === undefined) {
-      lines.push(`  ${venue.venue.padEnd(12)} —（无 1h 聚合数据）`)
+      lines.push(`  ${venue.venue.padEnd(12)} —（无 1h 数据）`)
+      continue
+    }
+    if (flow.coverageSeconds < flow.windowSeconds) {
+      lines.push(
+        `  ${venue.venue.padEnd(12)} ${signedMoney(flow.netNotional).padStart(10)}   仅覆盖 ${Math.round(flow.coverageSeconds / 60)} 分钟（不足 1h）`,
+      )
       continue
     }
     lines.push(
@@ -102,23 +108,24 @@ export function renderPanel(panel: OrderflowPanel): string {
   }
 
   // ── 3. 主动买卖分周期 ──
+  // 覆盖不足的周期不给百分比：那一段只代表它实际覆盖的时长，写成「1h 45%」会骗人。
   lines.push(section('③ 主动买入占比（周期越短越贴近「刚刚」）'))
   lines.push('  交易所        1h      15m     5m      1m      备注')
   for (const venue of panel.venues) {
     const byWindow = new Map(venue.flows.map((flow) => [flow.windowSeconds, flow]))
     const cell = (seconds: number): string => {
       const flow = byWindow.get(seconds)
-      return flow === undefined ? '—' : pct(flow.takerBuyRatio)
+      if (flow === undefined) return '—'
+      if (flow.coverageSeconds < flow.windowSeconds) {
+        return `覆盖${Math.round(flow.coverageSeconds / 60)}m`
+      }
+      return pct(flow.takerBuyRatio)
     }
-    const short = venue.flows.find((flow) => flow.granularity === 'recent-trades')
-    if (short !== undefined) {
-      lines.push(
-        `  ${venue.venue.padEnd(12)} ${'—'.padStart(6)}  ${'—'.padStart(6)}  ${'—'.padStart(6)}  ${'—'.padStart(6)}  逐笔现算：${pct(short.takerBuyRatio)}（仅 ${short.windowSeconds}s）`,
-      )
-      continue
-    }
+    const granularity = venue.flows.some((flow) => flow.granularity === 'self-aggregated')
+      ? '官方+自算'
+      : '官方聚合'
     lines.push(
-      `  ${venue.venue.padEnd(12)} ${cell(3600).padStart(6)}  ${cell(900).padStart(6)}  ${cell(300).padStart(6)}  ${cell(60).padStart(6)}  官方聚合`,
+      `  ${venue.venue.padEnd(12)} ${cell(3600).padStart(6)}  ${cell(900).padStart(6)}  ${cell(300).padStart(6)}  ${cell(60).padStart(8)}  ${granularity}`,
     )
   }
 
@@ -198,9 +205,9 @@ export function renderPanel(panel: OrderflowPanel): string {
   lines.push('口径说明：')
   lines.push('  · 深度只用「实际覆盖范围内的挂单」，各所档数上限不同，覆盖不足的区间标为截断。')
   lines.push(
-    '  · 「主动买占比」在 Binance/OKX 是官方按周期聚合；Bybit/Bitget/Hyperliquid 是最近若干笔现算，',
+    '  · 「主动买占比」优先用交易所官方聚合（Binance 1m K 线、OKX RUBIK）；官方没有的周期，',
   )
-  lines.push('    只代表眼下这几分钟，不能与 1h 聚合值并列比较。')
+  lines.push('    由我们按分钟累加逐笔成交再向上聚合，标注「官方+自算」，覆盖不足时只报覆盖时长。')
   lines.push('  · 账户数多空比与大户持仓多空比是两种口径，实测方向可以相反，分开显示。')
   return lines.join('\n')
 }

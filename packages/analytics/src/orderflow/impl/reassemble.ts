@@ -13,13 +13,17 @@
  */
 import {
   type DepthRecord,
+  type FlowMinuteRecord,
   type FlowRecord,
+  type FlowStats,
   type LargeOrderRecord,
   type OrderflowPanel,
   type OrderflowVenue,
   type PositioningRecord,
   type VenueSnapshot,
 } from '../types'
+import { FLOW_WINDOWS } from './flowVenues'
+import { MINUTE_MS, minuteStartOf } from './largeOrderAccumulator'
 import { buildTotals, detectContradictions } from './panel'
 
 /** 重建所需的原始记录，已按时间升序。 */
@@ -30,6 +34,8 @@ export interface PanelRecords {
   readonly depth: readonly DepthRecord[]
   /** 成交记录（同一时刻会有多个窗口） */
   readonly flow: readonly FlowRecord[]
+  /** 单分钟主动买卖（我们自己按分钟累加的） */
+  readonly flowMinutes: readonly FlowMinuteRecord[]
   /** 持仓记录 */
   readonly positioning: readonly PositioningRecord[]
   /** 钟级大单记录（只有整点才有值，通常只有最近的几条） */
@@ -65,9 +71,92 @@ function latestFlowBatch(rows: readonly FlowRecord[]): readonly FlowRecord[] {
 }
 
 /**
+ * 由单分钟记录向上聚合成多周期主动买卖。
+ *
+ * 覆盖判定不用额外字段：缺行就是缺覆盖。窗口内应有 N 个已结束分钟，
+ * 只统计实际存在的行，覆盖秒数 = 行数 × 60，因此采集中断过的周期会自己变短。
+ *
+ * 锚点是「上一个已结束的分钟」而不是最新一行的分钟：这样采集停摆时周期会自然消失，
+ * 不会把半小时前的数据当成「刚刚的一小时」。
+ *
+ * @param rows 该所的单分钟记录
+ * @param venue 交易所
+ * @param symbol 交易对
+ * @param now 快照时刻
+ * @returns 按周期从大到小排列的统计；没有可用行时为空
+ */
+function flowsFromMinutes(
+  rows: readonly FlowMinuteRecord[],
+  venue: OrderflowVenue,
+  symbol: string,
+  now: number,
+): readonly FlowStats[] {
+  if (rows.length === 0) return []
+  const byMinute = new Map<number, FlowMinuteRecord>()
+  for (const row of rows) byMinute.set(row.minuteStart, row)
+  const lastFinished = minuteStartOf(now) - MINUTE_MS
+  const flows: FlowStats[] = []
+
+  for (const window of FLOW_WINDOWS) {
+    const slots = window / 60
+    let buy = 0
+    let sell = 0
+    let hits = 0
+    for (let index = 0; index < slots; index += 1) {
+      const row = byMinute.get(lastFinished - index * MINUTE_MS)
+      // 缺行就停：往回跳过缺口继续累加，会把两段不相连的时间拼成一个周期
+      if (row === undefined) break
+      hits += 1
+      buy += row.buy
+      sell += row.sell
+    }
+    if (hits === 0) continue
+    const total = buy + sell
+    flows.push({
+      venue,
+      symbol,
+      windowSeconds: window,
+      timestamp: lastFinished,
+      takerBuyNotional: buy,
+      takerSellNotional: sell,
+      takerBuyRatio: total > 0 ? buy / total : 0.5,
+      netNotional: buy - sell,
+      coverageSeconds: Math.min(window, hits * 60),
+      granularity: 'self-aggregated',
+    })
+  }
+
+  return flows
+}
+
+/**
+ * 合并官方聚合与自算周期，同一周期以官方为准。
+ *
+ * 官方按周期聚合的值就是交易所自己算的，比我们从逐笔重算更可信；
+ * 自算只补官方没有的周期（15m/5m/1m）。
+ *
+ * @param official 官方聚合记录
+ * @param selfAggregated 自算记录
+ * @returns 按周期从大到小排列
+ */
+function mergeFlows(
+  official: readonly FlowRecord[],
+  selfAggregated: readonly FlowStats[],
+): readonly FlowStats[] {
+  const byWindow = new Map<number, FlowStats>()
+  for (const flow of selfAggregated) byWindow.set(flow.windowSeconds, flow)
+  for (const flow of official) {
+    if (flow.granularity !== 'aggregated') continue
+    // 官方聚合的定义就是整周期：早期落盘记录没有覆盖字段，按周期补齐而不是当成未知
+    byWindow.set(flow.windowSeconds, { ...flow, coverageSeconds: flow.windowSeconds })
+  }
+  return [...byWindow.values()].sort((left, right) => right.windowSeconds - left.windowSeconds)
+}
+
+/**
  * 重建面板快照。
  *
- * @param records 三类记录
+ * @param records 五类记录
  * @param venues 参与的交易所（顺序即面板顺序）
  * @param timestamp 快照时刻
  * @returns 面板快照
@@ -80,11 +169,15 @@ export function reassemblePanel(
   const snapshots: VenueSnapshot[] = venues.map((venue) => {
     const depthRows = records.depth.filter((row) => row.venue === venue)
     const flowRows = records.flow.filter((row) => row.venue === venue)
+    const minuteRows = records.flowMinutes.filter((row) => row.venue === venue)
     const positioningRows = records.positioning.filter((row) => row.venue === venue)
 
     const depth = lastOf(depthRows)
     const positioning = lastOf(positioningRows)
-    const flows = latestFlowBatch(flowRows)
+    const flows = mergeFlows(
+      latestFlowBatch(flowRows),
+      flowsFromMinutes(minuteRows, venue, records.symbol, timestamp),
+    )
     const sealed = lastOf(records.largeOrders.filter((row) => row.venue === venue))
 
     const errors: VenueSnapshot['errors'][number][] = []

@@ -95,7 +95,10 @@ export function buildTotals(venues: readonly VenueSnapshot[]): PanelTotals {
         topRatios.push(venue.positioning.topPositionRatio)
       }
     }
-    const hourFlow = venue.flows.find((flow) => flow.windowSeconds === 3600)
+    // 只把完整周期的 1h 计入跨所合计：覆盖不足的样本会让合计比例系统性偏移
+    const hourFlow = venue.flows.find(
+      (flow) => flow.windowSeconds === 3600 && flow.coverageSeconds >= flow.windowSeconds,
+    )
     if (hourFlow !== undefined) {
       netFlow1h += hourFlow.netNotional
       buy1h += hourFlow.takerBuyNotional

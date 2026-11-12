@@ -133,11 +133,20 @@ export interface FlowStats {
   /** 净流 = 买 − 卖（计价币，正值为净流入） */
   readonly netNotional: number
   /**
+   * 实际覆盖的秒数。
+   *
+   * 只有它等于 `windowSeconds` 时，这一格才是完整的周期统计。
+   * 采集中断、进程重启、接口只给短窗口都会让它小于周期，此时比例仍有信息量，
+   * 但不能当「这一小时」用，更不能进入跨所合计。
+   */
+  readonly coverageSeconds: number
+  /**
    * 数据粒度。
    * - `aggregated`：交易所官方按周期聚合（Binance klines、OKX RUBIK），覆盖完整周期。
+   * - `self-aggregated`：我们自己的逐笔采集按分钟累加，再向上聚合成周期。
    * - `recent-trades`：用最近若干笔成交现算，只代表短窗口，不能与 aggregated 直接比较绝对值。
    */
-  readonly granularity: 'aggregated' | 'recent-trades'
+  readonly granularity: 'aggregated' | 'self-aggregated' | 'recent-trades'
 }
 
 /** 大单分层的一档。 */
@@ -316,4 +325,29 @@ export interface LargeOrderRecord extends LargeOrderProfile {
   readonly schemaVersion: 1
   /** 所属小时桶的起始时刻（毫秒，整点） */
   readonly hourStart: number
+}
+
+/**
+ * 落盘记录：单分钟主动买卖。
+ *
+ * 一行 = 一个已结束的分钟。周期统计由这些行向上累加，因此「缺行」就是「缺覆盖」，
+ * 不需要额外的覆盖率字段：采集中断的分钟根本没有行。
+ */
+export interface FlowMinuteRecord {
+  /** 记录结构版本 */
+  readonly schemaVersion: 1
+  /** 交易所 */
+  readonly venue: OrderflowVenue
+  /** 交易对 */
+  readonly symbol: string
+  /** 分钟起始时刻（毫秒，整分） */
+  readonly minuteStart: number
+  /** 主动买入名义金额 */
+  readonly buy: number
+  /** 主动卖出名义金额 */
+  readonly sell: number
+  /** 成交笔数 */
+  readonly trades: number
+  /** 增量口径：`exact` 不漏笔，`sampled` 两次拉取之间可能漏 */
+  readonly coverage: 'exact' | 'sampled'
 }

@@ -399,6 +399,7 @@ export function createFlowClient(options: FlowClientOptions): FlowClient {
               symbol,
               windowSeconds: window,
               timestamp: now,
+              coverageSeconds: window,
               granularity: 'aggregated',
             },
             buy,
@@ -429,6 +430,7 @@ export function createFlowClient(options: FlowClientOptions): FlowClient {
               symbol,
               windowSeconds: 3600,
               timestamp: Number(first[0]),
+              coverageSeconds: 3600,
               granularity: 'aggregated',
             },
             buy,
@@ -454,13 +456,15 @@ export function createFlowClient(options: FlowClientOptions): FlowClient {
         (sum, bucket) => sum + bucket.notional * (1 - bucket.takerBuyRatio),
         0,
       )
+      const spanSeconds = Math.max(1, Math.round(profile.spanMs / 1000))
       return [
         buildFlow(
           {
             venue,
             symbol,
-            windowSeconds: Math.max(1, Math.round(profile.spanMs / 1000)),
+            windowSeconds: spanSeconds,
             timestamp: profile.timestamp,
+            coverageSeconds: spanSeconds,
             granularity: 'recent-trades',
           },
           buy,

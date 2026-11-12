@@ -85,9 +85,10 @@ function depthOf(
  *
  * @param venue 交易所
  * @param net 净流
+ * @param coverageSeconds 实际覆盖秒数，缺省为完整小时
  * @returns 统计
  */
-function hourFlow(venue: OrderflowVenue, net: number): FlowStats {
+function hourFlow(venue: OrderflowVenue, net: number, coverageSeconds = 3600): FlowStats {
   const buy = net > 0 ? 1_000_000 + net / 2 : 1_000_000 + net / 2
   const sell = buy - net
   return {
@@ -99,6 +100,7 @@ function hourFlow(venue: OrderflowVenue, net: number): FlowStats {
     takerSellNotional: sell,
     takerBuyRatio: buy / (buy + sell),
     netNotional: net,
+    coverageSeconds,
     granularity: 'aggregated',
   }
 }
@@ -202,6 +204,18 @@ describe('buildTotals', () => {
     // 两所净流相互抵消，加权后应接近 50%，而不是 (95% + 5%) / 2 之外的其它值
     expect(totals.takerBuyRatio1h).toBeCloseTo(0.5, 2)
     expect(totals.netFlow1h).toBeCloseTo(0, 6)
+  })
+
+  it('覆盖不足 1 小时的样本不进跨所合计', () => {
+    const venues: VenueSnapshot[] = [
+      { ...emptyVenue('binance'), flows: [hourFlow('binance', 900_000)] },
+      // bybit 只覆盖了 20 分钟：净流再大也不能算进「1 小时合计」
+      { ...emptyVenue('bybit'), flows: [hourFlow('bybit', -5_000_000, 1200)] },
+    ]
+    const totals = buildTotals(venues)
+    expect(totals.netFlow1h).toBeCloseTo(900_000, 6)
+    // 只剩 binance 一家：买 145 万 / 总 200 万
+    expect(totals.takerBuyRatio1h).toBeCloseTo(0.725, 6)
   })
 
   it('OI 与深度各自累加', () => {

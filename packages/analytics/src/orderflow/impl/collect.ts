@@ -65,7 +65,7 @@ export interface CollectedOrderflow {
  * @returns 流标识
  */
 export function orderflowStream(
-  kind: 'depth' | 'flow' | 'positioning' | 'large-orders',
+  kind: 'depth' | 'flow' | 'flow-minutes' | 'positioning' | 'large-orders',
   venue: OrderflowVenue,
   symbol: string,
 ): string {

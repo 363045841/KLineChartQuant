@@ -21,8 +21,23 @@ const LARGE_ORDER_EDGES = [0, 10_000, 100_000, 500_000] as const
 /** 一小时的毫秒数。 */
 export const HOUR_MS = 3_600_000
 
+/** 一分钟的毫秒数。 */
+export const MINUTE_MS = 60_000
+
 /** 增量覆盖口径。 */
 export type TradeCoverage = 'exact' | 'sampled'
+
+/** 一分钟的主动买卖累计。 */
+export interface MinuteTradeSum {
+  /** 分钟起始时刻（毫秒，整分） */
+  readonly minuteStart: number
+  /** 主动买入名义金额 */
+  readonly buy: number
+  /** 主动卖出名义金额 */
+  readonly sell: number
+  /** 成交笔数 */
+  readonly trades: number
+}
 
 /** 一笔已归集的成交。 */
 export interface AccumulatedTrade {
@@ -54,6 +69,8 @@ export interface HourAccumulator {
   readonly totalNotional: number
   /** 全样本累计主动买入金额 */
   readonly totalBuy: number
+  /** 已归集的分钟格（按起始时刻升序，只保留尚未落盘的部分） */
+  readonly minutes: readonly MinuteTradeSum[]
 }
 
 /**
@@ -64,6 +81,16 @@ export interface HourAccumulator {
  */
 export function hourStartOf(timestamp: number): number {
   return Math.floor(timestamp / HOUR_MS) * HOUR_MS
+}
+
+/**
+ * 把时刻对齐到所在分钟的起点。
+ *
+ * @param timestamp 毫秒时间戳
+ * @returns 整分毫秒
+ */
+export function minuteStartOf(timestamp: number): number {
+  return Math.floor(timestamp / MINUTE_MS) * MINUTE_MS
 }
 
 /**
@@ -91,6 +118,7 @@ export function createAccumulator(
     bucketBuy: LARGE_ORDER_EDGES.map(() => 0),
     totalNotional: 0,
     totalBuy: 0,
+    minutes: [],
   }
 }
 
@@ -125,6 +153,9 @@ export function addTrades(
 ): HourAccumulator {
   const bucketNotional = [...accumulator.bucketNotional]
   const bucketBuy = [...accumulator.bucketBuy]
+  const minuteMap = new Map<number, MinuteTradeSum>(
+    accumulator.minutes.map((minute) => [minute.minuteStart, minute]),
+  )
   let totalNotional = accumulator.totalNotional
   let totalBuy = accumulator.totalBuy
   let count = accumulator.trades
@@ -142,6 +173,15 @@ export function addTrades(
     totalNotional += trade.notional
     if (trade.takerBuy) totalBuy += trade.notional
     count += 1
+
+    const minuteStart = minuteStartOf(trade.time)
+    const minute = minuteMap.get(minuteStart) ?? { minuteStart, buy: 0, sell: 0, trades: 0 }
+    minuteMap.set(minuteStart, {
+      minuteStart,
+      buy: minute.buy + (trade.takerBuy ? trade.notional : 0),
+      sell: minute.sell + (trade.takerBuy ? 0 : trade.notional),
+      trades: minute.trades + 1,
+    })
   }
 
   return {
@@ -151,6 +191,42 @@ export function addTrades(
     bucketBuy,
     totalNotional,
     totalBuy,
+    minutes: [...minuteMap.values()].sort((left, right) => left.minuteStart - right.minuteStart),
+  }
+}
+
+/**
+ * 取出已经结束的分钟格。
+ *
+ * 当前分钟还没走完，写盘会把不完整的分钟当成完整分钟，所以一律等它结束。
+ *
+ * @param accumulator 小时桶
+ * @param now 当前时刻
+ * @returns 已结束的分钟格，按起始时刻升序
+ */
+export function closedMinutesOf(
+  accumulator: HourAccumulator,
+  now: number,
+): readonly MinuteTradeSum[] {
+  const currentMinute = minuteStartOf(now)
+  return accumulator.minutes.filter((minute) => minute.minuteStart + MINUTE_MS <= currentMinute)
+}
+
+/**
+ * 从小时桶里剔除已落盘的分钟格，避免状态文件越写越大。
+ *
+ * @param accumulator 小时桶
+ * @param written 已落盘的分钟格
+ * @returns 只保留未落盘分钟的新桶
+ */
+export function withoutMinutes(
+  accumulator: HourAccumulator,
+  written: readonly MinuteTradeSum[],
+): HourAccumulator {
+  const done = new Set(written.map((minute) => minute.minuteStart))
+  return {
+    ...accumulator,
+    minutes: accumulator.minutes.filter((minute) => !done.has(minute.minuteStart)),
   }
 }
 

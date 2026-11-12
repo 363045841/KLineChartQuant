@@ -16,6 +16,7 @@ import { reassemblePanel } from '../../orderflow/impl/reassemble'
 import { renderPanel } from '../../orderflow/impl/render'
 import {
   type DepthRecord,
+  type FlowMinuteRecord,
   type FlowRecord,
   type LargeOrderRecord,
   ORDERFLOW_VENUES,
@@ -148,6 +149,7 @@ function readRecentDays(store: DayShardStore, stream: string, days: number): rea
 function buildPanelFor(store: DayShardStore, symbol: string) {
   const depth: DepthRecord[] = []
   const flow: FlowRecord[] = []
+  const flowMinutes: FlowMinuteRecord[] = []
   const positioning: PositioningRecord[] = []
   const largeOrders: LargeOrderRecord[] = []
 
@@ -157,6 +159,14 @@ function buildPanelFor(store: DayShardStore, symbol: string) {
       ...(readRecentDays(store, orderflowStream('depth', venue, symbol), 2) as DepthRecord[]),
     )
     flow.push(...(readRecentDays(store, orderflowStream('flow', venue, symbol), 2) as FlowRecord[]))
+    // 分钟流一天 1440 行，两天是聚合 1h 所需的最长回看
+    flowMinutes.push(
+      ...(readRecentDays(
+        store,
+        orderflowStream('flow-minutes', venue, symbol),
+        2,
+      ) as FlowMinuteRecord[]),
+    )
     positioning.push(
       ...(readRecentDays(
         store,
@@ -182,6 +192,7 @@ function buildPanelFor(store: DayShardStore, symbol: string) {
       symbol,
       depth: ascending(depth),
       flow: ascending(flow),
+      flowMinutes,
       positioning: ascending(positioning),
       largeOrders: ascending(largeOrders),
     },

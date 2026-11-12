@@ -8,12 +8,14 @@ import { describe, expect, it } from 'vitest'
 import {
   type AccumulatedTrade,
   addTrades,
+  closedMinutesOf,
   createAccumulator,
   HOUR_MS,
   type HourAccumulator,
   hourStartOf,
   sealAccumulator,
   shouldSeal,
+  withoutMinutes,
 } from '../orderflow/impl/largeOrderAccumulator'
 
 /**
@@ -114,5 +116,38 @@ describe('sealAccumulator', () => {
     const { buckets } = sealAccumulator(base)
     expect(buckets.map((bucket) => bucket.minNotional)).toEqual([0, 10_000, 100_000, 500_000])
     expect(buckets.map((bucket) => bucket.maxNotional)).toEqual([10_000, 100_000, 500_000, null])
+  })
+})
+
+describe('分钟格', () => {
+  it('按分钟累计主动买卖，跨分钟分格', () => {
+    const base = createAccumulator('bybit', 'BTCUSDT', HOUR, 'sampled')
+    const next = addTrades(base, [
+      trade(1_000, true, HOUR + 5_000),
+      trade(2_000, false, HOUR + 10_000),
+      trade(3_000, true, HOUR + 65_000),
+    ])
+    expect(next.minutes).toEqual([
+      { minuteStart: HOUR, buy: 1_000, sell: 2_000, trades: 2 },
+      { minuteStart: HOUR + 60_000, buy: 3_000, sell: 0, trades: 1 },
+    ])
+  })
+
+  it('只返回已经结束的分钟', () => {
+    const base = createAccumulator('bybit', 'BTCUSDT', HOUR, 'sampled')
+    const next = addTrades(base, [
+      trade(1_000, true, HOUR + 5_000),
+      trade(1_000, true, HOUR + 65_000),
+    ])
+    // 当前处在第二分钟中途：第一分钟已结束，第二分钟还在进行
+    expect(closedMinutesOf(next, HOUR + 70_000).map((minute) => minute.minuteStart)).toEqual([HOUR])
+  })
+
+  it('落盘后剔除已写分钟，小时累计不受影响', () => {
+    const base = createAccumulator('bybit', 'BTCUSDT', HOUR, 'sampled')
+    const next = addTrades(base, [trade(1_000, true, HOUR + 5_000)])
+    const trimmed = withoutMinutes(next, closedMinutesOf(next, HOUR + 120_000))
+    expect(trimmed.minutes).toEqual([])
+    expect(trimmed.totalNotional).toBe(1_000)
   })
 })
