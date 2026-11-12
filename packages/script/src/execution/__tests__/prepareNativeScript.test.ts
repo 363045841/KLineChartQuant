@@ -3,7 +3,7 @@
 import { Color, isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 import { BACKENDS } from '../../__tests__/backends.js'
-import { barsFromCloses, wavyCloses } from '../../__tests__/marketData.js'
+import { BUILTIN_REQUEST_CONTEXT, barsFromCloses, wavyCloses } from '../../__tests__/marketData.js'
 import { builtinScriptSources } from '../../quickjs/generated/builtinScripts.js'
 import { prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
 import { prepareNativeScript } from '../impl/prepareNativeScript.js'
@@ -88,8 +88,8 @@ describe('原生脚本后端', () => {
       const sandbox = prepareQuickJSScript(source)
       expect(native.definition).toEqual(sandbox.definition)
       const bars = barsFromCloses(wavyCloses(60))
-      const expected = sandbox.run(bars)
-      const actual = native.run(bars)
+      const expected = sandbox.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
+      const actual = native.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
       expect(actual.fills).toEqual(expected.fills)
       expect(actual.hlines).toEqual(expected.hlines)
       expect(actual.hlineFills).toEqual(expected.hlineFills)
@@ -110,8 +110,8 @@ describe('原生脚本后端', () => {
         })
       })
       expect(native.run([])).toEqual(sandbox.run([]))
-      expect(native.run(bars.slice(0, 10))).toEqual(
-        prepareNativeScript(source).run(bars.slice(0, 10)),
+      expect(native.run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT)).toEqual(
+        prepareNativeScript(source).run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT),
       )
     },
   )
