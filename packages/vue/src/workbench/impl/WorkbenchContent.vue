@@ -38,6 +38,10 @@
     <template #panel-watchlist>
       <WatchlistPanel @select="onWatchlistSelect" />
     </template>
+
+    <template #panel-object-tree>
+      <ObjectTreePanel :controller="controller" />
+    </template>
   </SidePanelShell>
 </template>
 
@@ -46,6 +50,7 @@
   import { computed, defineAsyncComponent, shallowRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconSparkles from '~icons/tabler/sparkles'
+  import IconStack2 from '~icons/tabler/stack-2'
   import KlineChart from '../../components/chart/KLineChart.vue'
   import BaseButton from '../../components/common/BaseButton.vue'
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
@@ -53,6 +58,7 @@
   import type { SearchableSymbol } from '../../composables/symbol/useSymbolSearch.js'
   import { useToast } from '../../composables/toast/useToast.js'
   import { provideWatchlist } from '../../composables/watchlist/useWatchlist.js'
+  import ObjectTreePanel from '../../features/object-tree/ObjectTreePanel.vue'
   import {
     createSidePanelSideStorage,
     createSidePanelWidthStorage,
@@ -77,12 +83,14 @@
     error: [error: Error]
   }>()
 
-  /** 侧边菜单：Agent 在前，自选股在后；关闭 Agent 时只剩自选股。 */
+  /** 侧边菜单：Agent 在前，自选股、对象树依次在后；关闭 Agent 时只保留后两项。 */
   const AGENT_PANEL_ID = 'agent'
   const WATCHLIST_PANEL_ID = 'watchlist'
+  const OBJECT_TREE_PANEL_ID = 'object-tree'
   const panels = computed<ReadonlyArray<SidePanelDefinition>>(() => [
     ...(props.agent ? [{ id: AGENT_PANEL_ID, label: 'Agent', icon: IconSparkles }] : []),
     { id: WATCHLIST_PANEL_ID, label: '自选股', icon: IconBookmark },
+    { id: OBJECT_TREE_PANEL_ID, label: '对象', icon: IconStack2 },
   ])
   const initialPanel = props.agent && props.initialAgentPanelOpen ? AGENT_PANEL_ID : null
 
