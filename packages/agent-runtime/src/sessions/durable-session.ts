@@ -18,6 +18,8 @@ export const SessionIdentityDoc = defineDoc({
   scope: 'conversation',
   history: 'latest',
   fork: 'initial',
+  // 身份文档以增量 delta 提交，不需要周期性基线快照。
+  checkpointWhen: () => false,
   // 每条 Conversation 显式记录所属应用会话与运行分支。
   initial: (): SessionIdentity => ({
     sessionId: '',

@@ -72,10 +72,10 @@
   },
   "dependencies": {
     "@363045841yyt/klinechart-core": "workspace:*",
-    "@earendil-works/chord": "^1.0.2",
-    "@earendil-works/pi-agent-core": "^1.0.2",
-    "@earendil-works/pi-ai": "^1.0.2",
-    "@earendil-works/pi-durable": "^1.0.2",
+    "@earendil-works/chord": "^1.5.2",
+    "@earendil-works/pi-agent-core": "^1.5.2",
+    "@earendil-works/pi-ai": "^1.5.2",
+    "@earendil-works/pi-durable": "^1.5.2",
     "typebox": "^1.4.6"
   },
   "devDependencies": {

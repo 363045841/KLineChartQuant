@@ -12,11 +12,13 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
-  - '@earendil-works/chord@1.0.2'
-  - '@earendil-works/pi-agent-core@1.0.2'
-  - '@earendil-works/pi-ai@1.0.2'
-  - '@earendil-works/pi-durable@1.0.2'
-  - '@earendil-works/pi-telemetry@1.0.2'
+  - '@earendil-works/chord@1.5.2'
+  - '@earendil-works/pi-agent-core@1.5.2'
+  - '@earendil-works/pi-ai@1.5.2'
+  - '@earendil-works/pi-codemode@1.5.2'
+  - '@earendil-works/pi-durable@1.5.2'
+  - '@earendil-works/pi-schema@1.5.2'
+  - '@earendil-works/pi-telemetry@1.5.2'
   - electron@45.2.2
 patchedDependencies:
   vite-plugin-babel@1.7.3: patches/vite-plugin-babel@1.7.3.patch
