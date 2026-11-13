@@ -1,5 +1,13 @@
 <template>
-  <nav class="left-toolbar" aria-label="图表工具栏">
+  <nav
+    class="left-toolbar"
+    aria-label="图表工具栏"
+    @pointerover="onPointerOver"
+    @pointerleave="hideHighlight"
+    @focusin="onFocusIn"
+    @focusout="hideHighlight"
+  >
+    <SlidingHighlight ref="highlight" class="left-toolbar__highlight" />
     <div class="left-toolbar__group">
       <BaseTooltip v-if="scriptsEnabled !== false" content="代码编辑器">
         <button
@@ -279,6 +287,7 @@
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
@@ -424,6 +433,37 @@
   )
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
+
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+
+  /** 指针移动到工具按钮时驱动滑动高亮块；展开箭头跟随其所属按钮。 */
+  function onPointerOver(event: PointerEvent): void {
+    const target = event.target instanceof Element ? event.target : null
+    const button =
+      target?.closest<HTMLElement>('.left-toolbar__button') ??
+      target
+        ?.closest<HTMLElement>('.tool-item')
+        ?.querySelector<HTMLElement>('.left-toolbar__button')
+    if (button) highlight.value?.moveTo(button)
+    else highlight.value?.hide()
+  }
+
+  /** 键盘焦点进入工具按钮时与指针同样驱动高亮块。 */
+  function onFocusIn(event: FocusEvent): void {
+    const target = event.target instanceof Element ? event.target : null
+    const button =
+      target?.closest<HTMLElement>('.left-toolbar__button') ??
+      target
+        ?.closest<HTMLElement>('.tool-item')
+        ?.querySelector<HTMLElement>('.left-toolbar__button')
+    if (button) highlight.value?.moveTo(button)
+    else highlight.value?.hide()
+  }
+
+  /** 指针或焦点离开工具栏时收起高亮块。 */
+  function hideHighlight(): void {
+    highlight.value?.hide()
+  }
 
   const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})
@@ -616,6 +656,7 @@
     border-top: 1px solid var(--klc-color-ui-border);
     border-right: 0;
     flex: 0 0 52px;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -653,26 +694,24 @@
   /* --- 工具按钮 --- */
   .left-toolbar__button {
     position: relative;
+    z-index: 1;
     width: var(--tool-button-size);
     height: var(--tool-button-size);
     padding: 0;
     border: 1px solid transparent;
-    border-radius: 3px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition:
-      border-color 0.15s ease,
-      background 0.15s ease,
-      color 0.15s ease;
+    transition: color 0.15s ease;
   }
 
-  .left-toolbar__button:hover {
-    border-color: var(--klc-color-ui-border);
-    background: var(--klc-color-ui-hover);
+  /* 悬停底色由滑动高亮块提供，按钮本身只提亮图标，避免两层底色叠加。 */
+  .left-toolbar__button:hover,
+  .left-toolbar__button:focus-visible {
     color: var(--klc-color-ui-text);
   }
 

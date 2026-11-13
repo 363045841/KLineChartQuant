@@ -43,12 +43,7 @@
       >
         <template v-if="isOpen">
           <div ref="items" class="drop-menu__items">
-            <div
-              ref="highlight"
-              class="drop-menu__highlight"
-              :style="highlightStyle"
-              aria-hidden="true"
-            ></div>
+            <SlidingHighlight ref="highlight" class="drop-menu__highlight" />
             <div v-if="bodyMode" class="drop-menu__body">
               <slot name="body" />
             </div>
@@ -170,6 +165,7 @@
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import BaseTooltip from './BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
+  import SlidingHighlight from './SlidingHighlight.vue'
 
   export interface DropMenuItem {
     id: string
@@ -312,28 +308,16 @@
     { flush: 'post', immediate: true },
   )
   // 整个面板共用一块悬停高亮：移动时只改位置和高度，形成滑动过渡而不是淡入淡出。
-  const HIGHLIGHT_HIDDEN: CSSProperties = { opacity: 0 }
-  const highlightStyle = shallowRef<CSSProperties>(HIGHLIGHT_HIDDEN)
+  const highlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('highlight')
 
-  /** 把高亮块对齐到目标菜单项；坐标相对面板内容区，兼容面板滚动。 */
+  /** 把高亮块对齐到目标菜单项。 */
   function moveHighlight(item: HTMLElement): void {
-    const panel = menuRef.value
-    if (!panel) return
-    const panelRect = panel.getBoundingClientRect()
-    const itemRect = item.getBoundingClientRect()
-    highlightStyle.value = {
-      height: `${itemRect.height}px`,
-      transform: `translateY(${
-        itemRect.top - panelRect.top - panel.clientTop + panel.scrollTop
-      }px)`,
-      opacity: 1,
-    }
+    highlight.value?.moveTo(item)
   }
 
   /** 指针或键盘离开菜单项时收起高亮块。 */
   function hideHighlight(): void {
-    if (highlightStyle.value.opacity === 0) return
-    highlightStyle.value = HIGHLIGHT_HIDDEN
+    highlight.value?.hide()
   }
 
   const SUBMENU_HOVER_DELAY = 120
@@ -714,19 +698,10 @@
     background: var(--klc-color-ui-selected);
   }
 
-  /* 共用悬停高亮块：z-index 高于选中底色、低于条目内容。 */
+  /* 悬停高亮块的位置、尺寸与过渡由 SlidingHighlight 统一提供。 */
   .drop-menu__highlight {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    z-index: 1;
-    background: var(--klc-color-ui-hover);
-    pointer-events: none;
-    transition:
-      transform var(--klc-motion-dur-press) var(--klc-motion-ease-out),
-      height var(--klc-motion-dur-press) var(--klc-motion-ease-out),
-      opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+    /* 菜单项铺满整宽、上下紧邻，沿用直角高亮避免边缘露出面板圆角。 */
+    --sliding-highlight-radius: 0;
   }
 
   /* 条目内容压在悬停高亮块之上。 */
