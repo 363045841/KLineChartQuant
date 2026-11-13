@@ -19,6 +19,11 @@ export type {
 } from '../features/agent/index.js'
 export { getRegisteredChartTools } from '../features/agent/index.js'
 export {
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+  TIME_SHARE_PERIOD,
+} from '../foundation/types/chartPeriod.js'
+export {
   type ChartDataView,
   ChartDataViewId,
   isTimeShareDataView,

@@ -158,7 +158,6 @@
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
       </DropMenu>
-      <slot name="watchlist"></slot>
       <BaseTooltip content="设置" command="settings.open" placement="bottom">
         <button
           type="button"

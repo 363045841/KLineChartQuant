@@ -86,10 +86,10 @@
 
 <script setup lang="ts">
   import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+  import type { SidePanelSide } from '../../side-panel/types.js'
   import type { AgentBridgeClient } from '../agent-contracts.js'
   import { getAgentCopy } from '../agent-copy.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
-  import type { AgentPanelSide } from '../workspace/types.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentHeader from './AgentHeader.vue'
@@ -99,7 +99,7 @@
   import AgentUnavailableNotice from './AgentUnavailableNotice.vue'
 
   const props = withDefaults(
-    defineProps<{ bridge: AgentBridgeClient; panelSide?: AgentPanelSide }>(),
+    defineProps<{ bridge: AgentBridgeClient; panelSide?: SidePanelSide }>(),
     { panelSide: 'right' },
   )
   const emit = defineEmits<{ close: []; 'toggle-panel-side': [] }>()

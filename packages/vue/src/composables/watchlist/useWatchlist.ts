@@ -7,7 +7,19 @@ import {
 } from '@363045841yyt/klinechart-core'
 import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
 import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
-import { computed, ref, shallowRef, toRaw } from 'vue'
+import {
+  type ComputedRef,
+  computed,
+  getCurrentInstance,
+  type InjectionKey,
+  inject,
+  provide,
+  type Ref,
+  ref,
+  type ShallowRef,
+  shallowRef,
+  toRaw,
+} from 'vue'
 
 export const WATCHLIST_DATABASE_NAME = '@363045841yyt/klinechart'
 const WATCHLIST_DATABASE_VERSION = 1
@@ -117,8 +129,26 @@ export async function disposeWatchlistPersistence(): Promise<void> {
   await Promise.all(stores.map((store) => store?.dispose()))
 }
 
-/** 管理自选股内存状态，并按操作顺序持久化最新快照。 */
-export function useWatchlist() {
+/** 自选股列表、分组偏好与全部写操作的单一状态快照。 */
+export interface WatchlistState {
+  readonly watchlistItems: ShallowRef<SearchableSymbol[]>
+  readonly watchlistKeys: ComputedRef<Set<string>>
+  readonly watchlistGrouping: Ref<WatchlistGrouping>
+  readonly watchlistError: Ref<string | null>
+  restoreWatchlist(): Promise<void>
+  addWatchlistItem(item: SearchableSymbol): Promise<void>
+  removeWatchlistItem(item: SearchableSymbol): Promise<void>
+  setWatchlistGrouping(grouping: WatchlistGrouping): Promise<void>
+}
+
+/** 宿主注入的自选股状态键；同一个组件树只允许存在一份。 */
+export const WATCHLIST_STATE_KEY: InjectionKey<WatchlistState> = Symbol('WatchlistState')
+
+/**
+ * 创建一份自选股状态。
+ * @returns 列表、分组偏好、错误状态与读写操作
+ */
+export function createWatchlistState(): WatchlistState {
   const watchlistItems = shallowRef<SearchableSymbol[]>([])
   const watchlistGrouping = ref<WatchlistGrouping>(DEFAULT_WATCHLIST_GROUPING)
   const watchlistError = ref<string | null>(null)
@@ -202,4 +232,23 @@ export function useWatchlist() {
     removeWatchlistItem,
     setWatchlistGrouping,
   }
+}
+
+/**
+ * 在组件树根部写入唯一一份自选股状态，供图表与自选股面板共同消费。
+ * @param state 复用的状态；省略时新建一份
+ * @returns 注入给子树的状态
+ */
+export function provideWatchlist(state: WatchlistState = createWatchlistState()): WatchlistState {
+  provide(WATCHLIST_STATE_KEY, state)
+  return state
+}
+
+/**
+ * 读取本组件树的自选股状态。
+ * @returns 宿主注入的状态；独立挂载（如单独使用 KlineChart）时自持一份
+ */
+export function useWatchlist(): WatchlistState {
+  const injected = getCurrentInstance() ? inject(WATCHLIST_STATE_KEY, null) : null
+  return injected ?? createWatchlistState()
 }

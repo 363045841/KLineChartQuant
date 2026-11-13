@@ -70,14 +70,14 @@
   import IconSettings from '~icons/tabler/settings'
   import BaseIconButton from '../../../components/common/BaseIconButton.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import type { SidePanelSide } from '../../side-panel/types.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
-  import type { AgentPanelSide } from '../workspace/types.js'
 
   const props = withDefaults(
     defineProps<{
       locale: AgentLocale
       sessionsOpen: boolean
-      panelSide?: AgentPanelSide
+      panelSide?: SidePanelSide
       /** 运行时可用时才允许操作会话；不可用时仅保留设置与关闭入口。 */
       available?: boolean
     }>(),

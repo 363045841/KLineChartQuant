@@ -8,7 +8,7 @@
 agent/
 ├── agent-contracts.ts              # Vue Agent UI 边界契约
 ├── agent-error-view.ts              # unknown 错误到 AgentErrorView 的统一投影
-├── AgentWorkbenchShell.vue          # 工作台壳层
+├── AgentWorkbenchShell.vue          # Agent 面板预设（通用侧边壳见 features/side-panel）
 ├── browser-agent/                   # 浏览器宿主能力
 │   ├── bridge/                      # AgentBridgeClient 编排门面
 │   ├── chart-context/               # 图表上下文投影与订阅

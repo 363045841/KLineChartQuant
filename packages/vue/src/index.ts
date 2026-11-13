@@ -148,6 +148,18 @@ export {
 } from '@363045841yyt/klinechart-core/market-data/sources'
 export { createPersistedMarketDataHost } from '@vue-src/features/market/impl/persisted-market-data-host.js'
 export type { PersistedMarketDataHost } from '@vue-src/features/market/types.js'
+export {
+  createSidePanelSideStorage,
+  createSidePanelWidthStorage,
+} from './features/side-panel/impl/side-panel-storage.js'
+export { default as SidePanelShell } from './features/side-panel/SidePanelShell.vue'
+export type {
+  SidePanelDefinition,
+  SidePanelSide,
+  SidePanelSideStorage,
+  SidePanelSlotProps,
+  SidePanelWidthStorage,
+} from './features/side-panel/types.js'
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
 export { KlineWorkbench }
 

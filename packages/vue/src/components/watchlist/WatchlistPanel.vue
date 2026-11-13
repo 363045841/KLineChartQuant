@@ -1,121 +1,105 @@
-<!-- TopBar 自选股入口：按数据源或品种类型分组，组可折叠，行内展示最新价、涨跌额与涨跌幅。 -->
+<!-- 自选股面板内容：按数据源或品种类型分组，行内展示最新价、涨跌额与涨跌幅。 -->
 <template>
-  <div class="watchlist">
-    <BaseTooltip :content="menuLabel" placement="bottom" :disabled="open">
+  <section class="watchlist" aria-label="自选股">
+    <header class="watchlist__head">
+      <div class="watchlist__title-row">
+        <h2 class="watchlist__title">自选股</h2>
+        <span v-if="watchlistItems.length > 0" class="watchlist__count">
+          {{ watchlistItems.length }}
+        </span>
+      </div>
+      <BaseTabs
+        :model-value="watchlistGrouping"
+        :tabs="GROUPING_TABS"
+        aria-label="自选分组方式"
+        @update:model-value="onGroupingChange"
+      />
+      <div v-if="groups.length > 0" class="watchlist__columns" aria-hidden="true">
+        <span class="watchlist__columns-spacer" />
+        <span>最新价</span>
+        <span>涨跌</span>
+        <span>涨跌幅</span>
+      </div>
+    </header>
+
+    <p v-if="watchlistError" class="watchlist__issue" role="status">{{ watchlistError }}</p>
+
+    <div
+      v-if="quoteIssues.length > 0 && !issuesDismissed"
+      class="watchlist__quote-issues"
+      role="status"
+    >
+      <p v-for="issue in quoteIssues" :key="issue.sourceId" class="watchlist__quote-issue">
+        <span class="watchlist__issue-source">{{ issue.label }}</span>
+        <span class="watchlist__issue-message" :title="issue.message">{{ issue.message }}</span>
+      </p>
       <button
-        ref="trigger"
         type="button"
-        class="control-button watchlist__trigger"
-        v-bind="popover.triggerBindings.value"
-        :aria-label="menuLabel"
-        aria-haspopup="dialog"
-        @click="popover.onTriggerClick"
+        class="watchlist__issue-close"
+        aria-label="关闭行情提示"
+        @click="issuesDismissed = true"
       >
-        <IconBookmark aria-hidden="true" />
+        <IconX aria-hidden="true" />
       </button>
-    </BaseTooltip>
-    <Teleport :to="teleportTarget">
-      <div
-        ref="panel"
-        class="watchlist-panel popover-surface popover-surface--scroll"
-        v-bind="popover.panelBindings.value"
-        role="dialog"
-        :aria-label="menuLabel"
-      >
-        <template v-if="open">
-          <div class="watchlist-panel__head">
-            <BaseTabs
-              :model-value="grouping"
-              :tabs="GROUPING_TABS"
-              aria-label="自选分组方式"
-              @update:model-value="onGroupingChange"
-            />
-            <div v-if="groups.length > 0" class="watchlist-panel__columns" aria-hidden="true">
-              <span class="watchlist-panel__columns-spacer" />
-              <span>最新价</span>
-              <span>涨跌</span>
-              <span>涨跌幅</span>
-            </div>
-          </div>
-          <BaseEmptyState v-if="groups.length === 0" size="compact">暂无自选股</BaseEmptyState>
-          <div
-            v-if="quoteIssues.length > 0 && !issuesDismissed"
-            class="watchlist-panel__issues"
-            role="status"
-          >
-            <p v-for="issue in quoteIssues" :key="issue.sourceId" class="watchlist-panel__issue">
-              <span class="watchlist-panel__issue-source">{{ issue.label }}</span>
-              <span class="watchlist-panel__issue-message" :title="issue.message">
-                {{ issue.message }}
+    </div>
+
+    <BaseEmptyState v-if="groups.length === 0" size="compact">暂无自选股</BaseEmptyState>
+
+    <div v-else class="watchlist__groups">
+      <section v-for="group in groups" :key="group.key" class="watchlist-group">
+        <button
+          type="button"
+          class="watchlist-group__header"
+          :aria-expanded="!group.collapsed"
+          @click="toggleGroup(group.key)"
+        >
+          <IconChevronDown
+            class="watchlist-group__chevron"
+            :class="{ 'is-collapsed': group.collapsed }"
+            aria-hidden="true"
+          />
+          <span class="watchlist-group__label">{{ group.label }}</span>
+          <span class="watchlist-group__count">{{ group.rows.length }}</span>
+        </button>
+        <ul v-if="!group.collapsed" class="watchlist-group__list">
+          <li v-for="row in group.rows" :key="row.key" class="watchlist-row">
+            <button type="button" class="watchlist-row__select" @click="onSelect(row.item)">
+              <ColorAvatar :color="row.avatarColor">{{ row.initial }}</ColorAvatar>
+              <span class="watchlist-row__symbol">{{ row.item.symbol }}</span>
+              <span class="watchlist-row__price" :class="`is-${row.tone}`">{{ row.price }}</span>
+              <span class="watchlist-row__change" :class="`is-${row.tone}`">{{ row.change }}</span>
+              <span class="watchlist-row__percent" :class="`is-${row.percentTone}`">
+                {{ row.percent }}
               </span>
-            </p>
+            </button>
             <button
               type="button"
-              class="watchlist-panel__issue-close"
-              aria-label="关闭行情提示"
-              @click="issuesDismissed = true"
+              class="watchlist-row__remove"
+              :aria-label="`移除自选 ${row.item.symbol}`"
+              @click.stop="onRemove(row.item)"
             >
               <IconX aria-hidden="true" />
             </button>
-          </div>
-          <section v-for="group in groups" :key="group.key" class="watchlist-group">
-            <button
-              type="button"
-              class="watchlist-group__header"
-              :aria-expanded="!group.collapsed"
-              @click="toggleGroup(group.key)"
-            >
-              <IconChevronDown
-                class="watchlist-group__chevron"
-                :class="{ 'is-collapsed': group.collapsed }"
-                aria-hidden="true"
-              />
-              <span class="watchlist-group__label">{{ group.label }}</span>
-            </button>
-            <ul v-if="!group.collapsed" class="watchlist-group__list">
-              <li v-for="row in group.rows" :key="row.key" class="watchlist-row">
-                <button type="button" class="watchlist-row__select" @click="onSelect(row.item)">
-                  <ColorAvatar :color="row.avatarColor">
-                    {{ row.initial }}
-                  </ColorAvatar>
-                  <span class="watchlist-row__symbol">{{ row.item.symbol }}</span>
-                  <span class="watchlist-row__price" :class="`is-${row.tone}`">{{ row.price }}</span>
-                  <span class="watchlist-row__change" :class="`is-${row.tone}`">{{ row.change }}</span>
-                  <span class="watchlist-row__percent" :class="`is-${row.percentTone}`">{{ row.percent }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="watchlist-row__remove"
-                  :aria-label="`移除自选 ${row.item.symbol}`"
-                  @click.stop="onRemove(row.item)"
-                >
-                  <IconX aria-hidden="true" />
-                </button>
-              </li>
-            </ul>
-          </section>
-        </template>
-      </div>
-    </Teleport>
-  </div>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
-  import '../common/popover-surface.css'
-
   import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
-  import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import {
     type SearchableSymbol,
     symbolIdentityKey,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-  import type { WatchlistGrouping } from '@vue-src/composables/watchlist/useWatchlist.js'
+  import {
+    useWatchlist,
+    type WatchlistGrouping,
+  } from '@vue-src/composables/watchlist/useWatchlist.js'
   import { useWatchlistGroups } from '@vue-src/composables/watchlist/useWatchlistGroups.js'
   import { useWatchlistQuotes } from '@vue-src/composables/watchlist/useWatchlistQuotes.js'
   import {
@@ -133,10 +117,11 @@
     percentDirection,
     QUOTE_PLACEHOLDER,
   } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
-  import { computed, ref, useTemplateRef, watch } from 'vue'
-  import IconBookmark from '~icons/tabler/bookmark'
+  import { computed, ref, watch } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconX from '~icons/tabler/x'
+
+  const emit = defineEmits<{ select: [item: SearchableSymbol] }>()
 
   /** 分组切换项；品种在前，数据源在后。 */
   const GROUPING_TABS: ReadonlyArray<{ id: WatchlistGrouping; label: string }> = [
@@ -169,27 +154,14 @@
     percentTone: QuoteTone
   }
 
-  const props = defineProps<{
-    items: ReadonlyArray<SearchableSymbol>
-    grouping: WatchlistGrouping
-  }>()
-  const emit = defineEmits<{
-    select: [item: SearchableSymbol]
-    remove: [item: SearchableSymbol]
-    'update:grouping': [grouping: WatchlistGrouping]
-  }>()
-
-  const trigger = useTemplateRef<HTMLElement>('trigger')
-  const panel = useTemplateRef<HTMLElement>('panel')
-  const teleportTarget = useFullscreenTeleportTarget()
-  const popover = useAnchoredPopover({
-    trigger,
-    panel,
-    placement: 'bottom',
-    offset: 4,
-    maxHeight: () => 'min(460px, calc(100vh - 24px))',
-  })
-  const open = popover.open
+  // 面板只消费工作台提供的同一份自选状态，不再自持列表或分组偏好。
+  const {
+    watchlistItems,
+    watchlistGrouping,
+    watchlistError,
+    removeWatchlistItem,
+    setWatchlistGrouping,
+  } = useWatchlist()
 
   /** 数据源显示名；键顺序即数据源分组顺序。 */
   const catalog = useMarketDataSourceCatalog()
@@ -198,12 +170,12 @@
   )
 
   const groupedItems = useWatchlistGroups(
-    () => props.items,
-    () => props.grouping,
+    () => watchlistItems.value,
+    () => watchlistGrouping.value,
     sourceLabels,
   )
 
-  const { quotes, sourceStatus, sourceErrors } = useWatchlistQuotes(() => props.items)
+  const { quotes, sourceStatus, sourceErrors } = useWatchlistQuotes(() => watchlistItems.value)
 
   /** 该行可用的报价：来源必须在线，断线时整行回到占位而不是展示旧值。 */
   function quoteOf(item: SearchableSymbol): WatchlistQuote | null {
@@ -237,7 +209,7 @@
   const quoteIssues = computed(() => {
     const issues: QuoteIssue[] = []
     const seen = new Set<string>()
-    for (const item of props.items) {
+    for (const item of watchlistItems.value) {
       if (seen.has(item.sourceId)) continue
       const error = sourceErrors.value.get(item.sourceId)
       const status = sourceStatus.value.get(item.sourceId)
@@ -262,7 +234,7 @@
   const collapsedGroups = ref<ReadonlySet<string>>(new Set())
 
   function groupStateKey(key: string): string {
-    return `${props.grouping}:${key}`
+    return `${watchlistGrouping.value}:${key}`
   }
 
   const groups = computed(() =>
@@ -283,120 +255,137 @@
     collapsedGroups.value = next
   }
 
-  /** 触发按钮同时承担可发现性：标题里带当前自选数量。 */
-  const menuLabel = computed(() =>
-    props.items.length > 0 ? `自选股（${props.items.length}）` : '自选股',
-  )
-
-  /** 切换分组维度；状态与持久化由图层统一持有。 */
+  /** 切换分组维度；状态与持久化由工作台统一持有。 */
   function onGroupingChange(grouping: WatchlistGrouping): void {
-    emit('update:grouping', grouping)
+    void setWatchlistGrouping(grouping)
   }
 
-  /** 选中品种：切图后关闭面板，焦点回到触发按钮。 */
+  /** 选中品种：由工作台决定如何切换图表，面板本身不感知图表。 */
   function onSelect(item: SearchableSymbol): void {
-    popover.hide({ restoreFocus: true })
     emit('select', item)
   }
 
-  /** 移除自选：面板保持打开，列表随 props 更新。 */
+  /** 移除自选：列表随共享状态更新，面板保持打开。 */
   function onRemove(item: SearchableSymbol): void {
-    emit('remove', item)
+    void removeWatchlistItem(item)
   }
 </script>
 
-
 <style scoped>
   .watchlist {
-    flex: 0 0 auto;
-  }
-
-  /* 触发器只保留图标，外观与工具栏其它入口一致。 */
-  .watchlist__trigger {
-    width: 30px;
-    min-width: 30px;
-    height: 30px;
-    padding: 0;
-    border-radius: 4px;
-    color: var(--klc-color-ui-muted);
-  }
-
-  .watchlist__trigger:hover:not(:disabled),
-  .watchlist__trigger[aria-expanded='true']:not(:disabled) {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .watchlist__trigger svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  /* 五列网格：图标、代码、最新价、涨跌额、涨跌幅；列标题与行共用同一模板。 */
-  .watchlist-panel {
+    /* 五列网格：图标、代码、最新价、涨跌额、涨跌幅；列标题与行共用同一模板。 */
     --watchlist-grid: 22px minmax(0, 1fr) 88px 78px 70px;
-    box-sizing: border-box;
-    width: min(440px, calc(100vw - 16px));
-    max-height: min(460px, calc(100vh - 24px));
-    /* 面板只做纵向滚动；横向溢出一律裁掉，避免出现左右滚动条。 */
-    overflow-x: hidden;
+
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-background);
+    font-family: var(--klc-typography-font-family);
   }
 
-  /* 分组切换与列标题随滚动固定在顶部，长列表滚动时列语义不丢。 */
-  .watchlist-panel__head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding-top: 4px;
-    background: var(--klc-color-ui-popover);
+  /* 标题与列语义随滚动固定在顶部，长列表滚动时不丢失表头。 */
+  .watchlist__head {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--klc-space-4, 4px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px) 0;
+    border-bottom: 1px solid var(--klc-color-border-light);
+    background: var(--klc-color-ui-background);
   }
 
-  .watchlist-panel__columns {
+  .watchlist__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    min-height: 28px;
+  }
+
+  .watchlist__title {
+    margin: 0;
+    color: var(--klc-color-ui-text);
+    font-size: var(--klc-text-14-font-size, 14px);
+    font-weight: 600;
+    line-height: 20px;
+  }
+
+  .watchlist__count {
+    min-width: 18px;
+    padding: 0 var(--klc-space-4, 4px);
+    border-radius: var(--klc-radius-full, 9999px);
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-label-12-font-size);
+    line-height: 16px;
+    text-align: center;
+  }
+
+  .watchlist__columns {
     display: grid;
     grid-template-columns: var(--watchlist-grid);
-    gap: 0 8px;
-    padding: 6px 30px 4px 12px;
+    gap: 0 var(--klc-space-8, 8px);
+    padding: var(--klc-space-4, 4px) var(--klc-space-24, 24px) var(--klc-space-4, 4px) 0;
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-label-12-font-size);
     line-height: 14px;
   }
 
-  .watchlist-panel__columns span {
+  .watchlist__columns span {
     text-align: right;
   }
 
-  .watchlist-panel__columns-spacer {
+  .watchlist__columns-spacer {
     grid-column: span 2;
   }
 
-  .watchlist-group + .watchlist-group {
-    margin-top: 2px;
+  .watchlist__groups {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: var(--klc-space-4, 4px) 0 var(--klc-space-8, 8px);
+    overscroll-behavior-y: contain;
   }
 
   /* 报价失败必须可见：与“暂无报价”的占位灰区分开。 */
-  .watchlist-panel__issues {
+  .watchlist__quote-issues {
     position: relative;
+    flex: 0 0 auto;
     margin: 0;
-    padding: 6px 28px 6px 12px;
+    padding: var(--klc-space-8, 8px) var(--klc-space-24, 24px) var(--klc-space-8, 8px) var(--klc-space-12, 12px);
     background: var(--klc-color-ui-warning-background);
     color: var(--klc-color-ui-warning-text);
-    font-size: 11px;
+    font-size: var(--klc-text-label-12-font-size);
     line-height: 16px;
   }
 
-  .watchlist-panel__issue {
+  .watchlist__issue {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
+    background: var(--klc-color-ui-danger-background);
+    color: var(--klc-color-ui-danger-text);
+    font-size: var(--klc-text-label-12-font-size);
+    line-height: 16px;
+  }
+
+  .watchlist__quote-issue {
     display: flex;
-    gap: 6px;
+    gap: var(--klc-space-8, 8px);
     min-width: 0;
     margin: 0;
   }
 
-  .watchlist-panel__issue-source {
+  .watchlist__issue-source {
     flex: 0 0 auto;
     font-weight: 600;
   }
 
-  .watchlist-panel__issue-message {
+  .watchlist__issue-message {
     flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -404,10 +393,10 @@
   }
 
   /* 关闭按钮只收起提示，垂直居中于整框，hover 只高亮图标本身。 */
-  .watchlist-panel__issue-close {
+  .watchlist__issue-close {
     position: absolute;
     top: 50%;
-    right: 8px;
+    right: var(--klc-space-8, 8px);
     transform: translateY(-50%);
     display: grid;
     place-items: center;
@@ -419,34 +408,36 @@
     cursor: pointer;
   }
 
-  .watchlist-panel__issue-close:hover,
-  .watchlist-panel__issue-close:focus-visible {
+  .watchlist__issue-close:hover,
+  .watchlist__issue-close:focus-visible {
     opacity: 1;
     outline: 0;
   }
 
-  .watchlist-panel__issue-close svg {
+  .watchlist__issue-close svg {
     width: 12px;
     height: 12px;
+  }
+
+  .watchlist-group + .watchlist-group {
+    margin-top: var(--klc-space-2, 2px);
   }
 
   .watchlist-group__header {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--klc-space-4, 4px);
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 12px;
+    padding: var(--klc-space-4, 4px) var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-muted);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--klc-text-label-12-font-size);
     font-weight: 600;
-    letter-spacing: 0.04em;
     line-height: 16px;
     text-align: left;
-    text-transform: uppercase;
     cursor: pointer;
   }
 
@@ -467,6 +458,19 @@
     transform: rotate(-90deg);
   }
 
+  .watchlist-group__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .watchlist-group__count {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+  }
+
   .watchlist-group__list {
     margin: 0;
     padding: 0;
@@ -482,17 +486,17 @@
     display: grid;
     grid-template-columns: var(--watchlist-grid);
     align-items: center;
-    gap: 0 8px;
+    gap: 0 var(--klc-space-8, 8px);
     width: 100%;
     box-sizing: border-box;
-    padding: 7px 30px 7px 12px;
+    padding: var(--klc-space-4, 4px) var(--klc-space-24, 24px) var(--klc-space-4, 4px) var(--klc-space-12, 12px);
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 600;
-    line-height: 16px;
+    line-height: 20px;
     text-align: left;
     cursor: pointer;
   }
@@ -542,7 +546,7 @@
   .watchlist-row__remove {
     position: absolute;
     top: 50%;
-    right: 6px;
+    right: var(--klc-space-4, 4px);
     display: grid;
     place-items: center;
     width: 22px;
@@ -570,11 +574,5 @@
   .watchlist-row__remove svg {
     width: 14px;
     height: 14px;
-  }
-
-  @media (max-width: 480px) {
-    .watchlist-panel {
-      --watchlist-grid: 20px minmax(0, 1fr) 76px 68px 64px;
-    }
   }
 </style>

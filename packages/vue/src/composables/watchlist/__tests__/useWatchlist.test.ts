@@ -2,17 +2,21 @@
 
 import 'fake-indexeddb/auto'
 
+import { mount } from '@vue/test-utils'
 import { TEST_SYMBOLS } from '@vue-src/composables/__tests__/testSymbols.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { reactive } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import {
+  createWatchlistState,
   disposeWatchlistPersistence,
   loadWatchlist,
   loadWatchlistGrouping,
+  provideWatchlist,
   saveWatchlist,
   saveWatchlistGrouping,
   useWatchlist,
   WATCHLIST_DATABASE_NAME,
+  type WatchlistState,
 } from '../useWatchlist'
 
 const symbol = TEST_SYMBOLS[0]!
@@ -89,5 +93,32 @@ describe('useWatchlist', () => {
 
     await restored.setWatchlistGrouping('source')
     expect(await loadWatchlistGrouping()).toBe('source')
+  })
+
+  it('shares the provided state across the tree and keeps standalone mounts self-owned', () => {
+    const provided = createWatchlistState()
+    let consumer: WatchlistState | undefined
+    const consumerComponent = defineComponent({
+      setup() {
+        consumer = useWatchlist()
+        return () => h('div')
+      },
+    })
+    const host = mount(
+      defineComponent({
+        setup() {
+          provideWatchlist(provided)
+          return () => h(consumerComponent)
+        },
+      }),
+    )
+    expect(consumer).toBe(provided)
+
+    // 独立挂载的图表（Web Component、直接使用组件）没有宿主注入，必须自给自足。
+    const standalone = mount(consumerComponent)
+    expect(consumer).not.toBe(provided)
+
+    host.unmount()
+    standalone.unmount()
   })
 })
