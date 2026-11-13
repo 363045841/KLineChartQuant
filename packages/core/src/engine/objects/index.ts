@@ -1,2 +1,2 @@
-/** 对象树契约 barrel。 */
-export type { ObjectTree, PaneObjectGroup, PaneObjectRow } from './types.js'
+/** 对象树与渲染对象契约的唯一公开出口（类型）。 */
+export type * from './types.js'

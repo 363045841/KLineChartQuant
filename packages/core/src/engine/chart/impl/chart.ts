@@ -78,7 +78,11 @@ import {
   type RendererBackend,
   type RendererHost,
 } from '../../../rendering/render/index.js'
-import type { Layer } from '../../../rendering/scene/types.js'
+import type {
+  Layer,
+  RenderObjectCommands,
+  RenderObjectMoveTarget,
+} from '../../../rendering/scene/types.js'
 // ===== 普通 imports，按路径字母排序 =====
 import { resolveAxisWidth } from '../../axisWidth/impl/axisWidthEstimator.js'
 import {
@@ -107,8 +111,16 @@ import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js
 import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
+import { createObjectTree } from '../../objects/impl/createObjectTree.js'
+import type { ObjectTree } from '../../objects/types.js'
 import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
-import { DEFAULT_PRICE_LABEL_WIDTH, MAIN_PANE_ID, type PaneSpec } from '../../pane/types.js'
+import {
+  DEFAULT_PRICE_LABEL_WIDTH,
+  INSTANCE_MOVE_KIND,
+  type InstanceMoveTarget,
+  MAIN_PANE_ID,
+  type PaneSpec,
+} from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import type { PriceRange } from '../../scale/index.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
@@ -290,6 +302,8 @@ export class Chart {
   private disposeSettingsProjection: (() => void) | null = null
   /** 图例领域操作与展示投影的唯一入口。 */
   readonly legend: LegendManager
+  /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
+  readonly objects: ObjectTree
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
   private readonly legendDom: import('../../renderers/legend/types.js').LegendDomRenderer
 
@@ -640,6 +654,7 @@ export class Chart {
       getRenderer: (id) => this.getRenderer(id),
       useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (id) => this.removeRenderer(id),
+      objectCommands: (instanceId) => this.createIndicatorObjectCommands(instanceId),
       getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
         Readonly<Record<string, number>>
@@ -676,6 +691,10 @@ export class Chart {
       isScriptIndicator: (definitionId) =>
         !!getRegisteredIndicatorDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
+    })
+    this.objects = createObjectTree({
+      layers: this.renderer.getScene().layers,
+      paneSpecs: this.kernel.pane.readonly.paneSpecs,
     })
 
     // 异步计算结果就绪后串联 Alert 管线
@@ -814,6 +833,39 @@ export class Chart {
   /** 移除渲染器 Layer。 */
   removeRenderer(id: string): void {
     if (this.renderer.getScene().removeLayer(id)) this.scheduleDraw()
+  }
+
+  /**
+   * 指标对象的领域命令。
+   *
+   * 所有写操作都走 Pane 命令面；锁定只阻止删除与迁移，显隐与排序照常。
+   */
+  private createIndicatorObjectCommands(instanceId: string): RenderObjectCommands {
+    return {
+      setVisible: (visible) => this.panes.updateInstance(instanceId, { hidden: !visible }),
+      setLocked: (locked) => this.panes.updateInstance(instanceId, { locked }),
+      move: (target) => this.moveIndicatorObject(instanceId, target),
+      remove: () => {
+        const instance = this.kernel.indicator.readonly.instances
+          .peek()
+          .find((item) => item.instanceId === instanceId)
+        if (instance === undefined || instance.locked === true) return false
+        return this.panes.removeInstance(instanceId)
+      },
+    }
+  }
+
+  /** 跨 pane 或同 pane 换位都交给唯一的移动命令；锁定后拒绝。 */
+  private moveIndicatorObject(instanceId: string, target: RenderObjectMoveTarget): boolean {
+    const current = this.kernel.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)
+    if (current === undefined || current.locked === true) return false
+    const move: InstanceMoveTarget =
+      target.paneId === MAIN_PANE_ID
+        ? { kind: INSTANCE_MOVE_KIND.MAIN, index: target.index }
+        : { kind: INSTANCE_MOVE_KIND.PANE, paneId: target.paneId, index: target.index }
+    return this.panes.moveInstance(instanceId, move)
   }
 
   /** 获取已注册渲染器 Layer。 */

@@ -799,7 +799,7 @@ describe('Chart lifecycle without a market selection', () => {
               .getPane(),
           ).toBe(mainPane)
           if (before.role === 'sub' && before.paneId !== targetPaneId)
-            expect(chart.panes.hasPane(before.paneId)).toBe(false)
+            expect(chart.panes.hasPane(before.paneId), 'source pane recycled').toBe(false)
           if (target.kind === 'newPane') {
             const ids = chart.panes.getLayoutSpecs().map((spec) => spec.id)
             expect(ids.indexOf(current.paneId) - ids.indexOf(MAIN_PANE_ID)).toBe(
@@ -809,11 +809,12 @@ describe('Chart lifecycle without a market selection', () => {
           chart.draw()
         }
         expect(chart.panes.updateInstance(instanceId, { hidden: true })).toBe(true)
+        // 隐藏只关闭可见性：对象常驻，才能从对象树重新打开。
         expect(
           chart.getRenderer(
             resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', instanceId),
-          ),
-        ).toBeUndefined()
+          )?.visible,
+        ).toBe(false)
         expect(chart.legend.moveTo(instanceId, { kind: 'pane', paneId: targetPaneId })).toBe(true)
         expect(
           chart.panes.updateInstance(instanceId, { hidden: false, params: { custom: 9 } }),
@@ -821,13 +822,94 @@ describe('Chart lifecycle without a market selection', () => {
         const finalId = resolveIndicatorLayerId(definitionId, targetPaneId, 'renderer', instanceId)
         expect(chart.getRenderer(finalId)?.pane).toBe(targetPaneId)
         expect(chart.panes.removeInstance(instanceId)).toBe(true)
-        expect(chart.getRenderer(finalId)).toBeUndefined()
-        expect(chart.panes.hasPane(targetPaneId)).toBe(true)
+        expect(chart.getRenderer(finalId), 'final layer removed').toBeUndefined()
+        expect(chart.panes.hasPane(targetPaneId), 'target pane kept').toBe(true)
       } finally {
         await chart.destroy()
       }
     },
   )
+
+  it('projects indicators into the object tree and routes commands through pane APIs', async () => {
+    const chart = mountChart()
+    const definitionId = 'object-tree-indicator'
+    registerPlotDefinition({
+      id: definitionId,
+      name: definitionId,
+      source: 'script',
+      position: 'main',
+      inputs: {},
+      compute: () => ({ plots: [], fills: [] }),
+    })
+    try {
+      const instanceId = chart.panes.add(definitionId)!
+      const locate = () =>
+        chart.objects.groups
+          .peek()
+          .find((group) => group.paneId === MAIN_PANE_ID)
+          ?.rows.find((row) => row.objectId.endsWith(`@${instanceId}`))
+
+      const row = locate()
+      if (row === undefined) throw new Error('indicator row missing')
+      expect(row).toMatchObject({ kind: 'indicator', visible: true, locked: false })
+      expect(row.capabilities).toMatchObject({
+        removable: true,
+        hideable: true,
+        orderable: true,
+        movable: true,
+        lockable: true,
+      })
+
+      const commands = chart.objects.commandsFor(row.objectId)
+      if (commands === null) throw new Error('indicator commands missing')
+      // 锁定只禁删除与迁移，显隐照常；隐藏后对象仍在树中。
+      expect(commands.setLocked(true)).toBe(true)
+      expect(commands.setVisible(false)).toBe(true)
+      expect(locate()?.visible).toBe(false)
+      expect(commands.remove()).toBe(false)
+      expect(commands.setLocked(false)).toBe(true)
+      expect(commands.remove()).toBe(true)
+      expect(locate()).toBeUndefined()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('maps instance ordinal onto layer z so object order is render order', async () => {
+    const chart = mountChart()
+    const definitionId = 'object-tree-order'
+    registerPlotDefinition({
+      id: definitionId,
+      name: definitionId,
+      source: 'script',
+      position: 'main',
+      inputs: {},
+      compute: () => ({ plots: [], fills: [] }),
+    })
+    try {
+      const firstId = chart.panes.add(definitionId)!
+      const secondId = chart.panes.add(definitionId)!
+      const firstLayerId = resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', firstId)
+      const secondLayerId = resolveIndicatorLayerId(
+        definitionId,
+        MAIN_PANE_ID,
+        'renderer',
+        secondId,
+      )
+      expect(chart.getRenderer(secondLayerId)!.z).toBeGreaterThan(
+        chart.getRenderer(firstLayerId)!.z,
+      )
+
+      const commands = chart.objects.commandsFor(secondLayerId)
+      if (commands === null) throw new Error('indicator commands missing')
+      expect(commands.move({ paneId: MAIN_PANE_ID, index: 0 })).toBe(true)
+
+      // 顺序写回 ordinal 后，绘制层 z 同步反转，对象树与画面一致。
+      expect(chart.getRenderer(secondLayerId)!.z).toBeLessThan(chart.getRenderer(firstLayerId)!.z)
+    } finally {
+      await chart.destroy()
+    }
+  })
 
   it.each([300, 800])(
     'lays out OHLC and indicator titles together at pane width %s',

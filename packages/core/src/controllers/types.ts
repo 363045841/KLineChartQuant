@@ -35,7 +35,13 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { InstanceMoveTarget, PaneGeometry, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type {
+  InstanceMoveOption,
+  InstanceMoveTarget,
+  PaneGeometry,
+  PanePatch,
+  PaneSpec,
+} from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -126,7 +132,7 @@ export interface TimeShareData {
   amount?: number
 }
 
-export type { PaneGeometry, PaneSpec }
+export type { InstanceMoveOption, InstanceMoveTarget, PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
 export type DataSourceParams = Readonly<Record<string, string | number | boolean>>
@@ -535,6 +541,8 @@ export interface ChartController
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
   readonly legend: import('../engine/legend/types.js').LegendApi
+  /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
+  readonly objects: import('../engine/objects/index.js').ObjectTree
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
   /** 当前对比品种集合（唯一业务状态）。 */

@@ -6,7 +6,7 @@
  */
 
 import type { RenderContext } from '@/foundation/plugin/index.js'
-import type { Layer } from '@/rendering/scene/types.js'
+import type { Layer, RenderObjectDescriptor } from '@/rendering/scene/types.js'
 import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod } from '../../indicators/indicatorPeriodVisibility.js'
@@ -18,6 +18,8 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   definition: IndicatorMetadata
   /** 显式 Layer role；缺省沿用渲染器按 pane 推导的结果（main → primary）。 */
   role?: Layer['role']
+  /** 业务对象身份与命令；轴层等装饰层不提供，因此不进入对象树。 */
+  object?: RenderObjectDescriptor
 }
 
 /** 该定义在当前周期是否应绘制；未声明可见范围时恒为真。 */
@@ -72,11 +74,13 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     return {
       ...layer,
       ...identity,
+      object: options.object,
       paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
     }
   return {
     ...layer,
     ...identity,
+    object: options.object,
     paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
   }
 }

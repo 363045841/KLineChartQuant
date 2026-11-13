@@ -19,7 +19,7 @@ import type {
   PanePatch,
   PaneSpec,
 } from '../types.js'
-import { MAIN_PANE_ID } from '../types.js'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../types.js'
 import { normalizeVisiblePaneRatios } from './layout/paneRatioMath.js'
 import { paneSpecsEqual } from './paneConfiguration.js'
 
@@ -103,7 +103,12 @@ export class PaneManager {
     return instanceId
   }
 
-  /** 迁移实例；源副图变空时回收，目标新建时按锚点插入。 */
+  /**
+   * 移动实例：目标 pane 与当前相同即同一 Pane 内换位，否则迁移归属。
+   *
+   * 目标位置在目标 Pane 内按 ordinal 顺序解释；`index` 缺省放到末尾。
+   * 源副图移出最后一个实例后回收，目标新建时按锚点插入。
+   */
   private moveInstance(instanceId: string, target: InstanceMoveTarget): boolean {
     const { indicator, pane } = this.dependencies
     const previous = indicator.readonly.instances.peek()
@@ -113,7 +118,10 @@ export class PaneManager {
     const specs = this.list()
     const resolved = this.resolveTarget(target, specs)
     if (!resolved) return false
-    if (resolved.paneId === current.paneId) return false
+
+    const index = target.kind === INSTANCE_MOVE_KIND.NEW_PANE ? undefined : target.index
+    if (resolved.paneId === current.paneId)
+      return this.reorderWithinPane(instanceId, current.paneId, index)
 
     let nextSpecs = resolved.insert
       ? this.insertPaneSpec(specs, resolved.paneId, resolved.insert)
@@ -128,6 +136,11 @@ export class PaneManager {
       nextSpecs = nextSpecs.filter((spec) => spec.id !== current.paneId)
     }
     const ratios = this.normalizeRatios(nextSpecs, resolved.insert ? resolved.paneId : undefined)
+    // 迁移后按目标位置重排整个目标 Pane，ordinal 不出现空洞或重复。
+    const ordered = this.paneInstanceIds(previous, resolved.paneId, instanceId)
+    const insertAt =
+      index === undefined ? ordered.length : Math.max(0, Math.min(index, ordered.length))
+    ordered.splice(insertAt, 0, instanceId)
     batch(() => {
       indicator.actions.moveInstance(
         instanceId,
@@ -135,11 +148,34 @@ export class PaneManager {
         resolved.role,
         this.nextOrdinal(resolved.paneId, instanceId),
       )
+      indicator.actions.applyPaneInstanceOrder(resolved.paneId, ordered)
       pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
       if (current.paneId !== MAIN_PANE_ID && !nextSpecs.some((spec) => spec.id === current.paneId))
         pane.actions.removePaneScaleType(current.paneId)
     })
     return true
+  }
+
+  /** 同一 Pane 内按目标位置换位；位置越界时收敛到首尾。 */
+  private reorderWithinPane(instanceId: string, paneId: string, index?: number): boolean {
+    const instances = this.dependencies.indicator.readonly.instances.peek()
+    const ordered = this.paneInstanceIds(instances, paneId, instanceId)
+    const insertAt =
+      index === undefined ? ordered.length : Math.max(0, Math.min(index, ordered.length))
+    ordered.splice(insertAt, 0, instanceId)
+    return this.dependencies.indicator.actions.applyPaneInstanceOrder(paneId, ordered)
+  }
+
+  /** 读取指定 Pane 内除目标外的实例身份，按 ordinal 升序排列。 */
+  private paneInstanceIds(
+    instances: ReadonlyArray<IndicatorInstanceSpec>,
+    paneId: string,
+    excludeInstanceId: string,
+  ): string[] {
+    return instances
+      .filter((instance) => instance.paneId === paneId && instance.instanceId !== excludeInstanceId)
+      .sort((left, right) => left.ordinal - right.ordinal)
+      .map((instance) => instance.instanceId)
   }
 
   /** 删除实例；空副图一并回收，独立轴偏好随实例删除。 */
@@ -322,8 +358,9 @@ export class PaneManager {
     target: InstanceMoveTarget,
     specs: ReadonlyArray<PaneSpec>,
   ): ResolvedTarget | null {
-    if (target.kind === 'main') return { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
-    if (target.kind === 'pane') {
+    if (target.kind === INSTANCE_MOVE_KIND.MAIN)
+      return { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
+    if (target.kind === INSTANCE_MOVE_KIND.PANE) {
       if (!specs.some((spec) => spec.id === target.paneId)) return null
       return {
         paneId: target.paneId,

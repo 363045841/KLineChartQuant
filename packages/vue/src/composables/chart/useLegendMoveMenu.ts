@@ -7,6 +7,7 @@ import type {
   LegendAnchorRect,
   LegendMoveRequest,
 } from '@363045841yyt/klinechart-core/controllers'
+import { INSTANCE_MOVE_KIND } from '@363045841yyt/klinechart-core/controllers'
 import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
 import { type Component, computed, type Ref, shallowRef } from 'vue'
 import IconTablerArrowBarDown from '~icons/tabler/arrow-bar-down'
@@ -29,8 +30,8 @@ function itemId(index: number): string {
 
 /** 目标类型决定图标：主图、已有副图、在锚点上下新建副图。 */
 function iconOf(target: MoveTarget): Component {
-  if (target.kind === 'main') return IconTablerChartLine
-  if (target.kind === 'pane') return IconTablerLayoutGrid
+  if (target.kind === INSTANCE_MOVE_KIND.MAIN) return IconTablerChartLine
+  if (target.kind === INSTANCE_MOVE_KIND.PANE) return IconTablerLayoutGrid
   return target.placement === 'above' ? IconTablerArrowBarUp : IconTablerArrowBarDown
 }
 

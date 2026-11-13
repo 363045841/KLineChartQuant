@@ -164,6 +164,8 @@ function resolveIndicatorRenderers(
 
   // 主副图指标从统一实例集合读取，图例由帧投影统一管理。
   for (const instance of instances) {
+    // 隐藏实例仍保留渲染对象（对象树据此重新打开），但不进入活跃层集合，可见性以实例状态为准。
+    if (instance.hidden === true) continue
     appendInstanceRenderers(instance, dataView, mainRenderers, subRenderers, add)
   }
   return [...mainRenderers, ...subRenderers]

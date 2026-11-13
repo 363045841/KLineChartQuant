@@ -13,7 +13,7 @@ import {
   KLINE_PERIODS,
   KNOWN_INSTRUMENT_TYPES,
 } from '@/data/provider/types.js'
-import type { PaneSpec } from '@/engine/pane/types.js'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID, type PaneSpec } from '@/engine/pane/types.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '@/engine/data/comparisonCommands.js'
 import {
@@ -553,10 +553,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
     const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
     if (!indicatorId) return false
-    const anchor = this.dependencies.panes.getLayoutSpecs().at(-1)?.id ?? 'main'
+    const anchor = this.dependencies.panes.getLayoutSpecs().at(-1)?.id ?? MAIN_PANE_ID
     return (
       this.dependencies.panes.add(indicatorId, input.params, {
-        kind: 'newPane',
+        kind: INSTANCE_MOVE_KIND.NEW_PANE,
         anchorPaneId: anchor,
         placement: 'below',
       }) !== null

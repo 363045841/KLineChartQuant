@@ -309,6 +309,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     rangeSelection: chart.rangeSelection,
     frameGeometry: chart.frameGeometry,
     legend: chart.legend,
+    objects: chart.objects,
     comparisonColors: chart.comparisonColors,
     comparisonLoading: chart.comparisonLoading,
     comparisonSpecs: chart.comparisonSpecs,

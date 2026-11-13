@@ -7,7 +7,7 @@ export type {
   IndicatorTemplateIndicator,
   IndicatorTemplateSummary,
 } from '../engine/indicatorTemplate/types.js'
-export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
+export { INSTANCE_MOVE_KIND, MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
@@ -66,6 +66,8 @@ export type {
   IndicatorPaneRole,
   IndicatorParamDef,
   IndicatorRole,
+  InstanceMoveOption,
+  InstanceMoveTarget,
   InteractionSnapshot,
   KLineData,
   PaneGeometry,

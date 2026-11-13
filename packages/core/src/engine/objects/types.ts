@@ -14,6 +14,21 @@ import type {
 } from '../../rendering/scene/types.js'
 
 /**
+ * 渲染对象契约的公开出口。
+ *
+ * 类型定义留在 Scene 层（`Layer` 依赖它们），这里与对象树一起重新导出，
+ * 让消费方只从 `engine/objects` 取得同一组 API。
+ */
+export type {
+  RenderObject,
+  RenderObjectCapabilities,
+  RenderObjectCommands,
+  RenderObjectDescriptor,
+  RenderObjectKind,
+  RenderObjectMoveTarget,
+} from '../../rendering/scene/types.js'
+
+/**
  * 对象树中的一行：一个渲染对象在所属 pane 内的只读投影。
  *
  * 行不缓存状态：显隐、锁定、顺序变化后由分组信号重新发布。

@@ -8,7 +8,7 @@ import {
 import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
 import type { InstanceMoveOption, InstanceMoveTarget } from '@/engine/pane/types.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -183,7 +183,7 @@ export class LegendManager implements LegendApi {
     return this.moveCustomRow(entry, direction)
   }
 
-  /** 指标在同一 Pane 内排序，目标序号取相邻两项之间，不影响窗格位置。 */
+  /** 指标在同一 Pane 内换位；目标序号交给唯一的移动命令。 */
   private moveIndicator(
     entry: Extract<LegendEntry, { kind: 'indicator' }>,
     direction: 'up' | 'down',
@@ -193,15 +193,15 @@ export class LegendManager implements LegendApi {
     )
     const instances = catalog?.listPaneInstances(entry.paneId) ?? []
     const index = instances.findIndex((instance) => instance.instanceId === entry.id)
-    const neighbour = instances[index + (direction === 'up' ? -1 : 1)]
-    if (index < 0 || !neighbour) return false
-    const outer = instances[index + (direction === 'up' ? -2 : 2)]
-    const ordinal = outer
-      ? (outer.ordinal + neighbour.ordinal) / 2
-      : neighbour.ordinal + (direction === 'up' ? -1 : 1)
-    return this.deps.panes.updateInstance(entry.id, {
-      ordinal,
-    })
+    const targetIndex = index + (direction === 'up' ? -1 : 1)
+    // 首项上移、末项下移都是无操作，保持原按钮的可用性语义。
+    if (index < 0 || targetIndex < 0 || targetIndex >= instances.length) return false
+    return this.deps.panes.moveInstance(
+      entry.id,
+      entry.paneId === MAIN_PANE_ID
+        ? { kind: INSTANCE_MOVE_KIND.MAIN, index: targetIndex }
+        : { kind: INSTANCE_MOVE_KIND.PANE, paneId: entry.paneId, index: targetIndex },
+    )
   }
 
   /** 迁移实例到菜单选择的目标；空副图由命令面回收。 */
@@ -271,7 +271,7 @@ export class LegendManager implements LegendApi {
     )
     const options: InstanceMoveOption[] = [
       {
-        target: { kind: 'main' },
+        target: { kind: INSTANCE_MOVE_KIND.MAIN },
         label: '移至主图',
         enabled: entry.paneId !== MAIN_PANE_ID,
       },
@@ -282,19 +282,27 @@ export class LegendManager implements LegendApi {
       if (!first) continue
       const name = getIndicatorDescriptor(first.definitionId)?.displayName ?? first.definitionId
       options.push({
-        target: { kind: 'pane', paneId: pane.id },
+        target: { kind: INSTANCE_MOVE_KIND.PANE, paneId: pane.id },
         label: `移至 ${name}`,
         enabled: true,
       })
     }
     options.push(
       {
-        target: { kind: 'newPane', anchorPaneId: entry.paneId, placement: 'above' },
+        target: {
+          kind: INSTANCE_MOVE_KIND.NEW_PANE,
+          anchorPaneId: entry.paneId,
+          placement: 'above',
+        },
         label: '在上方新建副图',
         enabled: true,
       },
       {
-        target: { kind: 'newPane', anchorPaneId: entry.paneId, placement: 'below' },
+        target: {
+          kind: INSTANCE_MOVE_KIND.NEW_PANE,
+          anchorPaneId: entry.paneId,
+          placement: 'below',
+        },
         label: '在下方新建副图',
         enabled: true,
       },

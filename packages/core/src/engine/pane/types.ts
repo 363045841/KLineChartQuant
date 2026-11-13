@@ -99,15 +99,31 @@ export type ResolvedPaneRendererOptions = Omit<PaneRendererOptions, 'priceLabelW
 /** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */
 export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
 
+/** 实例移动目标的判别值；菜单、命令、Agent 与测试共用同一份定义。 */
+export const INSTANCE_MOVE_KIND = {
+  MAIN: 'main',
+  PANE: 'pane',
+  NEW_PANE: 'newPane',
+} as const
+
+/** 实例移动目标种类；由 {@link INSTANCE_MOVE_KIND} 派生。 */
+export type InstanceMoveKind = (typeof INSTANCE_MOVE_KIND)[keyof typeof INSTANCE_MOVE_KIND]
+
 /**
- * 实例迁移目标。菜单项、公开命令与 Agent 工具共用同一形状。
- * 已有副图以 paneId 持久身份寻址，菜单标签取该 Pane 的首个实例。
+ * 实例移动目标。菜单项、公开命令与 Agent 工具共用同一形状。
+ *
+ * 目标 pane 与当前 pane 相同即为同一 Pane 内重排；`index` 是目标 Pane 内
+ * 自底层起的位置，缺省放到该 Pane 末尾（视觉最上层）。
  */
 export type InstanceMoveTarget =
-  | { readonly kind: 'main' }
-  | { readonly kind: 'pane'; readonly paneId: string }
+  | { readonly kind: typeof INSTANCE_MOVE_KIND.MAIN; readonly index?: number }
   | {
-      readonly kind: 'newPane'
+      readonly kind: typeof INSTANCE_MOVE_KIND.PANE
+      readonly paneId: string
+      readonly index?: number
+    }
+  | {
+      readonly kind: typeof INSTANCE_MOVE_KIND.NEW_PANE
       readonly anchorPaneId: string
       readonly placement: 'above' | 'below'
     }
@@ -127,7 +143,7 @@ export interface PaneLayoutCommands {
     params?: Readonly<Record<string, unknown>>,
     target?: InstanceMoveTarget,
   ): string | null
-  /** 迁移实例归属；源副图变空时自动回收。 */
+  /** 迁移实例归属或在同一 Pane 内换位；源副图变空时自动回收。 */
   moveInstance(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
   removeInstance(instanceId: string): boolean

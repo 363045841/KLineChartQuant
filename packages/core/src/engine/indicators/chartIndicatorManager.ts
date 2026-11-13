@@ -24,7 +24,11 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import type { Layer } from '../../rendering/scene/types.js'
+import type {
+  Layer,
+  RenderObjectCommands,
+  RenderObjectDescriptor,
+} from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { type PaneAxisSpec, resolveInstanceAxisMap, resolvePaneAxes } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
@@ -105,6 +109,30 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
   throw new TypeError(`Unsupported indicator parameter value: ${String(value)}`)
 }
 
+/**
+ * 指标实例的渲染对象身份。
+ *
+ * 能力按对象事实声明：可删除、可显隐、可排序、可跨 pane、可锁定；
+ * 命令由图表注入，管理器不直接写 kernel。
+ */
+function createIndicatorObjectDescriptor(
+  definition: IndicatorMetadata,
+  commands: RenderObjectCommands,
+): RenderObjectDescriptor {
+  return {
+    kind: 'indicator',
+    label: definition.title ?? definition.displayName,
+    capabilities: {
+      removable: true,
+      hideable: true,
+      orderable: true,
+      movable: true,
+      lockable: true,
+    },
+    commands,
+  }
+}
+
 export interface IndicatorDependencies {
   getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
   plotColors$: ReadonlySignal<ColorTokens>
@@ -113,6 +141,8 @@ export interface IndicatorDependencies {
   getRenderer: (id: string) => Layer<RenderContext> | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (id: string) => void
+  /** 对象的领域命令；由图表按实例闭包到 Pane 命令面。 */
+  objectCommands: (instanceId: string) => RenderObjectCommands
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
@@ -359,7 +389,6 @@ export class ChartIndicatorManager {
       this.syncPipeline(readyInstances)
       this.reprojectRenderStates()
       for (const instance of readyInstances) {
-        if (instance.hidden) continue
         const definition = getRegisteredIndicatorDefinition(instance.indicatorId)!
         const layer = createIndicatorLayer({
           definition,
@@ -368,7 +397,15 @@ export class ChartIndicatorManager {
           instanceId: instance.instanceId,
           axisId: instanceAxes.get(instance.instanceId)!,
           params: { ...instance.params },
+          object: createIndicatorObjectDescriptor(
+            definition,
+            this.deps.objectCommands(instance.instanceId),
+          ),
         })
+        // 隐藏只切换可见性：对象与命令常驻，对象树才能重新显示它。
+        layer.visible = instance.hidden !== true
+        // 同 pane 的实例按 ordinal 叠加：z 是层带内唯一排序键，对象树顺序与绘制顺序一致。
+        layer.z += instance.ordinal
         this.mountLayerResource(layer)
       }
       for (const axes of axesByPane.values()) {

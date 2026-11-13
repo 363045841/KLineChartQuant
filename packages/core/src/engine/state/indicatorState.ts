@@ -18,6 +18,8 @@ export interface IndicatorInstanceConfig {
   readonly role: IndicatorInstanceRole
   readonly ordinal: number
   readonly hidden?: boolean
+  /** 锁定只冻结删除、画布拖动与跨 pane 迁移，不影响显隐与排序。 */
+  readonly locked?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -32,6 +34,8 @@ export interface IndicatorInstanceSpec {
   readonly ordinal: number
   /** 隐藏只影响图表绘制，图例仍保留并置灰；不参与计算身份。 */
   readonly hidden?: boolean
+  /** 锁定只冻结删除、画布拖动与跨 pane 迁移，不影响显隐与排序。 */
+  readonly locked?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -44,6 +48,7 @@ export interface IndicatorInstancePatch {
   readonly indicatorId?: string
   readonly ordinal?: number
   readonly hidden?: boolean
+  readonly locked?: boolean
   readonly params?: Readonly<Record<string, unknown>>
 }
 
@@ -68,6 +73,7 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceConfi
     ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
     ...(entry.hidden ? { hidden: true as const } : {}),
+    ...(entry.locked ? { locked: true as const } : {}),
   }
   return Object.freeze(snapshot)
 }
@@ -261,12 +267,38 @@ export function createIndicatorState() {
         write(previous.filter((instance) => instance.instanceId !== instanceId))
         return true
       },
-      /** 同一 Pane 内按调用方顺序重排；只写 ordinal，不改变身份。 */
-      reorderInstances(orderedInstanceIds: ReadonlyArray<string>): boolean {
+      /** 按调用方给定的完整顺序写回 ordinal；顺序由调用方决定，只改序号。 */
+      applyInstanceOrder(orderedInstanceIds: ReadonlyArray<string>): boolean {
         const previous = currentInstances()
         const byId = new Map(previous.map((instance) => [instance.instanceId, instance]))
         if (orderedInstanceIds.some((id) => !byId.has(id))) return false
         const ordinals = new Map(orderedInstanceIds.map((id, index) => [id, index]))
+        write(
+          previous.map((instance) => {
+            const ordinal = ordinals.get(instance.instanceId)
+            return ordinal === undefined ? instance : snapshotInstance({ ...instance, ordinal })
+          }),
+        )
+        return true
+      },
+      /**
+       * 按调用方给定的完整顺序写回指定 Pane 的 ordinal，其他 Pane 不受影响。
+       *
+       * 排序决策不在这里：调用方已经算好位置；本方法只校验集合一致并整批写入，
+       * 不匹配时拒绝，避免出现半重排。
+       */
+      applyPaneInstanceOrder(paneId: string, orderedInstanceIds: ReadonlyArray<string>): boolean {
+        const previous = currentInstances()
+        const paneInstances = previous.filter((instance) => instance.paneId === paneId)
+        if (paneInstances.length !== orderedInstanceIds.length) return false
+        const byId = new Map(paneInstances.map((instance) => [instance.instanceId, instance]))
+        if (orderedInstanceIds.some((id) => !byId.has(id))) return false
+        const ordinals = new Map(orderedInstanceIds.map((id, index) => [id, index]))
+        // 顺序未变化时不写状态，避免无意义地重建指标图层。
+        if (
+          paneInstances.every((instance) => instance.ordinal === ordinals.get(instance.instanceId))
+        )
+          return true
         write(
           previous.map((instance) => {
             const ordinal = ordinals.get(instance.instanceId)
