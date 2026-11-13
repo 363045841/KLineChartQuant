@@ -304,11 +304,7 @@ export class ChartStateKernel extends StateKernel {
         ...spec,
         role: spec.role ?? (spec.id === MAIN_PANE_ID ? 'price' : 'indicator'),
       }))
-      const initialRatios: Record<string, number> = {}
-      for (const spec of initialPanes) {
-        initialRatios[spec.id] = spec.ratio ?? 1
-      }
-      this.pane.actions.commitLayout(initialRatios, initialPanes)
+      this.pane.actions.commitLayout(initialPanes)
     }
     this.paneManager = new PaneManager({
       pane: this.pane,
@@ -455,8 +451,7 @@ export class ChartStateKernel extends StateKernel {
       resetData: () => this.data.actions.reset(),
       setPaneRatios: (ratios: Record<string, number>) => this.pane.actions.setPaneRatios(ratios),
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),
-      commitPaneLayout: (ratios: Record<string, number>, specs: PaneSpec[]) =>
-        this.pane.actions.commitLayout(ratios, specs),
+      commitPaneLayout: (specs: PaneSpec[]) => this.pane.actions.commitLayout(specs),
       setTheme: (theme: 'light' | 'dark') => this.settings.actions.patch({ theme }),
       setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
       setRendererRuntime: (runtime: RendererBackendRuntime) =>

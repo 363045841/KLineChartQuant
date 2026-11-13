@@ -20,6 +20,8 @@ import type {
   PaneSpec,
 } from '../types.js'
 import { MAIN_PANE_ID } from '../types.js'
+import { normalizeVisiblePaneRatios } from './layout/paneRatioMath.js'
+import { paneSpecsEqual } from './paneConfiguration.js'
 
 /** 目标 Pane 解析结果：容器身份 + 实例角色 + 是否需要新建 Pane。 */
 interface ResolvedTarget {
@@ -39,6 +41,7 @@ export class PaneManager {
     updateInstance: (instanceId, patch) => this.updateInstance(instanceId, patch),
     updatePane: (paneId, patch) => this.updatePane(paneId, patch),
     movePane: (paneId, targetIndex) => this.movePane(paneId, targetIndex),
+    reorderPanes: (paneIds) => this.reorderPanes(paneIds),
     removePane: (paneId) => this.removePane(paneId),
     removeInstancesByDefinition: (definitionId) => this.removeInstancesByDefinition(definitionId),
     clearAllIndicators: () => this.clearAllIndicators(),
@@ -95,7 +98,7 @@ export class PaneManager {
           ...(params ?? {}),
         },
       })
-      this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      this.dependencies.pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     })
     return instanceId
   }
@@ -132,7 +135,7 @@ export class PaneManager {
         resolved.role,
         this.nextOrdinal(resolved.paneId, instanceId),
       )
-      pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
       if (current.paneId !== MAIN_PANE_ID && !nextSpecs.some((spec) => spec.id === current.paneId))
         pane.actions.removePaneScaleType(current.paneId)
     })
@@ -177,7 +180,7 @@ export class PaneManager {
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
       for (const instance of instances) this.detachInstance(instance.instanceId)
-      pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     })
   }
 
@@ -208,14 +211,22 @@ export class PaneManager {
 
   /** 修改单个 pane 的布局字段；不能通过 patch 改变 pane 身份。 */
   private updatePane(paneId: string, patch: PanePatch): boolean {
+    if (patch.ratio !== undefined && (!Number.isFinite(patch.ratio) || patch.ratio <= 0))
+      return false
+    if (
+      patch.minHeightPx !== undefined &&
+      (!Number.isFinite(patch.minHeightPx) || patch.minHeightPx <= 0)
+    )
+      return false
     const currentSpecs = this.list()
     const index = currentSpecs.findIndex((item) => item.id === paneId)
     if (index < 0) return false
     const nextSpecs = currentSpecs.map((item, itemIndex) =>
       itemIndex === index ? { ...item, ...patch, id: paneId } : { ...item },
     )
+    if (paneSpecsEqual(currentSpecs, nextSpecs)) return true
     const ratios = this.normalizeRatios(nextSpecs)
-    this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+    this.dependencies.pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     return true
   }
 
@@ -230,8 +241,21 @@ export class PaneManager {
     const [moving] = nextSpecs.splice(index, 1)
     if (!moving) return false
     nextSpecs.splice(boundedTarget, 0, moving)
-    const ratios = this.normalizeRatios(nextSpecs)
-    this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+    this.dependencies.pane.actions.commitLayout(nextSpecs)
+    return true
+  }
+
+  /** 完整顺序按持久 paneId 寻址，一次提交，拒绝缺失或重复身份。 */
+  private reorderPanes(paneIds: ReadonlyArray<string>): boolean {
+    const specs = this.list()
+    const byId = new Map(specs.map((pane) => [pane.id, pane]))
+    if (
+      paneIds.length !== specs.length ||
+      new Set(paneIds).size !== specs.length ||
+      paneIds.some((id) => !byId.has(id))
+    )
+      return false
+    this.dependencies.pane.actions.commitLayout(paneIds.map((id) => byId.get(id)!))
     return true
   }
 
@@ -248,7 +272,7 @@ export class PaneManager {
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
       for (const instance of instances) this.detachInstance(instance.instanceId)
-      pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     })
     return true
   }
@@ -289,7 +313,7 @@ export class PaneManager {
     )
     batch(() => {
       for (const instance of removed) this.detachInstance(instance.instanceId)
-      this.dependencies.pane.actions.commitLayout(ratios, this.withRatios(nextSpecs, ratios))
+      this.dependencies.pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     })
   }
 
@@ -349,20 +373,20 @@ export class PaneManager {
     specs: ReadonlyArray<PaneSpec>,
     createdPaneId?: string,
   ): Record<string, number> {
-    const raw = { ...this.dependencies.pane.readonly.paneRatios.peek() }
+    const raw = Object.fromEntries(specs.map((spec) => [spec.id, spec.ratio]))
     if (createdPaneId) {
       const visible = specs.filter((item) => item.visible !== false)
       const pricePanes = visible.filter((item) => item.role === 'price')
       if (pricePanes.length === 1) {
         // 只分配新窗格的份额，已有窗格之间的用户比例保持不变。
         const existing = visible.filter((item) => item.id !== createdPaneId)
-        const total = existing.reduce((sum, item) => sum + (raw[item.id] ?? item.ratio), 0)
+        const total = existing.reduce((sum, item) => sum + raw[item.id]!, 0)
         raw[createdPaneId] = total / (existing.length + 2)
       } else {
         raw[createdPaneId] = 1
       }
     }
-    return this.buildRatios(specs, (item) => raw[item.id] ?? item.ratio)
+    return this.buildRatios(specs, (item) => raw[item.id]!)
   }
 
   /**
@@ -373,14 +397,10 @@ export class PaneManager {
     specs: ReadonlyArray<PaneSpec>,
     rawValueOf: (item: PaneSpec) => number,
   ): Record<string, number> {
-    const visible = specs.filter((item) => item.visible !== false)
-    const total = visible.reduce((sum, item) => sum + rawValueOf(item), 0) || 1
-    const ratios: Record<string, number> = {}
-    for (const item of specs) {
-      const value = rawValueOf(item)
-      ratios[item.id] = item.visible === false ? value : value / total
-    }
-    return ratios
+    return normalizeVisiblePaneRatios(
+      specs,
+      Object.fromEntries(specs.map((item) => [item.id, rawValueOf(item)])),
+    )
   }
 
   /** 将 ratios 同步到 spec，保证单次提交的两个字段表达同一快照。 */
@@ -388,7 +408,7 @@ export class PaneManager {
     specs: ReadonlyArray<PaneSpec>,
     ratios: Readonly<Record<string, number>>,
   ): PaneSpec[] {
-    return specs.map((item) => ({ ...item, ratio: ratios[item.id] ?? item.ratio }))
+    return specs.map((item) => ({ ...item, ratio: ratios[item.id]! }))
   }
 }
 

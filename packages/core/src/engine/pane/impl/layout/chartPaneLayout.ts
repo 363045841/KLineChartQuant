@@ -6,10 +6,17 @@ import { ScaleType } from '../../../../foundation/types/scaleType.js'
 import type { ChartDom, Viewport } from '../../../chart/index.js'
 import type { PaneStateModule } from '../../../state/paneState.js'
 import type { ViewportStateModule } from '../../../state/viewportState.js'
-import type { PaneSpec, PaneSurfaceFactory } from '../../types.js'
+import {
+  DEFAULT_PRICE_LABEL_WIDTH,
+  MAIN_PANE_ID,
+  type PaneBoundaryResizeSession,
+  type PaneSpec,
+  type PaneSurfaceFactory,
+} from '../../types.js'
 import { PaneRenderer } from '../paneRenderer.js'
 
 import { Pane, UpdateLevel } from './pane.js'
+import { computePaneHeights, fitPaneMinimums } from './paneGeometry.js'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom
@@ -65,9 +72,9 @@ export class ChartPaneLayout {
     }
   }
 
-  private resolvePaneRole(spec: PaneSpec, index: number): PaneRole {
+  private resolvePaneRole(spec: PaneSpec): PaneRole {
     if (spec.role) return spec.role
-    return index === 0 ? 'price' : 'indicator'
+    return spec.id === MAIN_PANE_ID ? 'price' : 'indicator'
   }
 
   private createAxisCanvas(
@@ -159,10 +166,10 @@ export class ChartPaneLayout {
     const remaining = new Map(
       this.paneRenderers.map((renderer) => [renderer.getPane().id, renderer]),
     )
-    this.paneRenderers = this.paneSpecs.map((spec, index) => {
+    this.paneRenderers = this.paneSpecs.map((spec) => {
       const existing = remaining.get(spec.id)
       remaining.delete(spec.id)
-      const role = this.resolvePaneRole(spec, index)
+      const role = this.resolvePaneRole(spec)
       if (existing) {
         const current = existing.getPane()
         const expected = new Pane(spec.id, { role, capabilities: spec.capabilities })
@@ -222,13 +229,33 @@ export class ChartPaneLayout {
     const dom = this.deps.getDom()
     const canvasLayer = dom.canvasLayer
     const rightAxisLayer = dom.rightAxisLayer
-    this.paneRenderers.forEach((renderer) => {
-      const domEls = renderer.getDom()
-      canvasLayer.appendChild(domEls.mainCanvas)
-      canvasLayer.appendChild(domEls.overlayCanvas)
-      rightAxisLayer.appendChild(domEls.yAxisCanvas)
-      rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
-    })
+    // 仅在身份或顺序改变时移动节点，纯比例与显隐更新不产生 DOM 重挂载。
+    const order = (host: HTMLElement, canvases: HTMLCanvasElement[]) => {
+      let previous: HTMLCanvasElement | undefined
+      for (const canvas of canvases) {
+        if (canvas.parentElement !== host || (previous && previous.nextElementSibling !== canvas)) {
+          if (previous) previous.after(canvas)
+          else host.appendChild(canvas)
+        }
+        previous = canvas
+      }
+    }
+    order(
+      canvasLayer,
+      this.paneRenderers.flatMap((renderer) => {
+        const dom = renderer.getDom()
+        return [dom.mainGpuCanvas, dom.mainCanvas, dom.drawingCanvas, dom.overlayCanvas].filter(
+          (canvas): canvas is HTMLCanvasElement => canvas !== undefined,
+        )
+      }),
+    )
+    order(
+      rightAxisLayer,
+      this.paneRenderers.flatMap((renderer) => {
+        const dom = renderer.getDom()
+        return [dom.yAxisCanvas, dom.yAxisOverlayCanvas]
+      }),
+    )
   }
 
   private getPaneMinHeight(spec: PaneSpec, plotHeight: number): number {
@@ -238,52 +265,11 @@ export class ChartPaneLayout {
   }
 
   private computePaneHeightsByRatio(visibleSpecs: PaneSpec[], availableH: number): number[] {
-    if (visibleSpecs.length === 0) return []
-
-    const ratios = visibleSpecs.map((spec) => spec.ratio)
-    const ratioSum = ratios.reduce((s, r) => s + (r > 0 ? r : 0), 0)
-    const safeRatios =
-      ratioSum > 0
-        ? ratios.map((r) => (r > 0 ? r : 0) / ratioSum)
-        : visibleSpecs.map(() => 1 / visibleSpecs.length)
-
-    const heights = safeRatios.map((r) => Math.max(1, Math.round(availableH * r)))
-    const mins = visibleSpecs.map((spec) => this.getPaneMinHeight(spec, availableH))
-
-    for (let i = 0; i < heights.length; i++) {
-      heights[i] = Math.max(heights[i]!, Math.min(mins[i]!, availableH))
-    }
-
-    let total = heights.reduce((s, h) => s + h, 0)
-
-    if (total > availableH) {
-      let overflow = total - availableH
-      while (overflow > 0) {
-        let shrunk = false
-        for (let i = heights.length - 1; i >= 0 && overflow > 0; i--) {
-          const minH = Math.max(1, Math.min(mins[i]!, availableH))
-          const h = heights[i]!
-          if (h > minH) {
-            heights[i] = h - 1
-            overflow--
-            shrunk = true
-          }
-        }
-        if (!shrunk) break
-      }
-    } else if (total < availableH) {
-      heights[heights.length - 1] = (heights[heights.length - 1] ?? 1) + (availableH - total)
-    }
-
-    total = heights.reduce((s, h) => s + h, 0)
-    if (total !== availableH && heights.length > 0) {
-      heights[heights.length - 1] = Math.max(
-        1,
-        (heights[heights.length - 1] ?? 1) + (availableH - total),
-      )
-    }
-
-    return heights
+    return computePaneHeights(
+      visibleSpecs.map((spec) => spec.ratio),
+      visibleSpecs.map((spec) => this.getPaneMinHeight(spec, availableH)),
+      availableH,
+    )
   }
 
   /** viewWidth 为 0 表示尚未完成首帧尺寸 */
@@ -297,19 +283,20 @@ export class ChartPaneLayout {
     if (!vp) return
 
     const visibleSpecs = this.paneSpecs.filter((p) => p.visible !== false)
-    if (visibleSpecs.length === 0) return
     // 隐藏 pane 不参与布局，也不保留后备存储。
     for (const spec of this.paneSpecs) {
       if (spec.visible !== false) continue
-      this.paneRenderers.find((r) => r.getPane().id === spec.id)?.setVisible(false)
+      const renderer = this.paneRenderers.find((r) => r.getPane().id === spec.id)
+      renderer?.getPane().setLayout(vp.plotHeight, 0)
+      renderer?.setVisible(false)
     }
 
     const opt = this.deps.getOption()
-    const gap = Math.max(0, opt.paneGap ?? 0)
+    const gap = this.getPaneGap(visibleSpecs.length, vp.plotHeight)
     let y = 0
 
     const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
-    const availableH = Math.max(1, vp.plotHeight - totalGaps)
+    const availableH = Math.max(0, Math.floor(vp.plotHeight - totalGaps))
 
     const paneHeights = this.computePaneHeightsByRatio(visibleSpecs, availableH)
 
@@ -335,6 +322,47 @@ export class ChartPaneLayout {
 
       y += h + gap
     }
+    const widths = new Map(
+      this.deps.pane.readonly.paneGeometry.peek().map((pane) => [pane.id, pane.primaryAxisWidth]),
+    )
+    this.deps.pane.actions.setPaneGeometry(
+      visibleSpecs.flatMap((spec) => {
+        const pane = this.paneRenderers
+          .find((renderer) => renderer.getPane().id === spec.id)
+          ?.getPane()
+        return pane && pane.height > 0
+          ? [
+              {
+                id: pane.id,
+                top: pane.top,
+                height: pane.height,
+                primaryAxisWidth:
+                  widths.get(pane.id) ??
+                  opt.rightAxisWidth + (opt.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
+              },
+            ]
+          : []
+      }),
+    )
+  }
+
+  /** 间隔受绘图区预算限制，极小容器也不会仅因 gap 就溢出。 */
+  private getPaneGap(count: number, height: number): number {
+    return count < 2
+      ? 0
+      : Math.min(Math.max(0, this.deps.getOption().paneGap ?? 0), height / (count - 1))
+  }
+
+  /** 轴宽测量直接发布到只读几何，不再通过 CSS 变量传递给宿主。 */
+  setPrimaryAxisWidths(widths: Readonly<Record<string, number>>): void {
+    this.deps.pane.actions.setPaneGeometry(
+      this.deps.pane.readonly.paneGeometry.peek().map((geometry) => {
+        const pane = this.paneRenderers
+          .find((renderer) => renderer.getPane().id === geometry.id)!
+          .getPane()
+        return { ...geometry, primaryAxisWidth: widths[pane.axes[0]!.axisId]! }
+      }),
+    )
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */
@@ -343,29 +371,9 @@ export class ChartPaneLayout {
     this.layoutPanes()
   }
 
-  /**
-   * 公共读：用 kernel ratios + 本地 specs 定义组装快照，不写工作副本。
-   * commitLayout 走 buildLayoutSpecsFromWorkingCopy，避免公共读污染算法中间态。
-   */
+  /** 公共配置读取只复制 Kernel 规格，不从运行时 Pane 反推角色或比例。 */
   getPaneLayoutSpecs(): PaneSpec[] {
-    return this.buildLayoutSpecs(this.deps.pane.readonly.paneRatios.peek())
-  }
-
-  private buildLayoutSpecs(ratios: Readonly<Record<string, number>>): PaneSpec[] {
-    const visible = this.paneSpecs.filter((p) => p.visible !== false)
-    const sum = visible.reduce((s, p) => s + (ratios[p.id] ?? p.ratio ?? 0), 0)
-    const safeSum = sum > 0 ? sum : 1
-    return this.paneSpecs.map((spec) => {
-      const base = ratios[spec.id] ?? spec.ratio ?? 0
-      const ratio = spec.visible === false ? base : base / safeSum
-      const pane = this.paneRenderers.find((r) => r.getPane().id === spec.id)?.getPane()
-      return {
-        ...spec,
-        ratio,
-        role: pane?.role ?? spec.role,
-        capabilities: pane ? { ...pane.capabilities } : spec.capabilities,
-      }
-    })
+    return this.paneSpecs.map((spec) => ({ ...spec }))
   }
 
   /** 同步左轴可见性：可见时为主图 pane 创建左轴表面，隐藏时释放其后备存储。 */
@@ -383,73 +391,69 @@ export class ChartPaneLayout {
   }
 
   resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
-    if (!Number.isFinite(deltaY) || deltaY === 0) return false
-    const vp = this.peekViewport()
-    if (!vp) return false
+    return this.beginBoundaryResize(upperPaneId)?.resize(deltaY) ?? false
+  }
 
+  /** 捕获相邻 pane 的起始几何；总位移夹在两侧最小高度之间，不向其它 pane 借空间。 */
+  beginBoundaryResize(upperPaneId: string): PaneBoundaryResizeSession | null {
+    const vp = this.peekViewport()
+    if (!vp) return null
+    const initialSpecs = this.paneSpecs
     const visibleSpecs = this.paneSpecs.filter((p) => p.visible !== false)
     const boundaryIndex = visibleSpecs.findIndex((p) => p.id === upperPaneId)
-    if (boundaryIndex < 0 || boundaryIndex >= visibleSpecs.length - 1) return false
-
-    const upperSpec = visibleSpecs[boundaryIndex]
-    const lowerSpec = visibleSpecs[boundaryIndex + 1]
-    if (!upperSpec || !lowerSpec) return false
-
-    const heights = new Map<string, number>()
-    for (const spec of visibleSpecs) {
-      const renderer = this.paneRenderers.find((r) => r.getPane().id === spec.id)
-      if (renderer) {
-        heights.set(spec.id, renderer.getPane().height)
-      }
-    }
-
-    const expandIdx = deltaY > 0 ? boundaryIndex : boundaryIndex + 1
-    const shrinkIdx = deltaY > 0 ? boundaryIndex + 1 : boundaryIndex
-    const expandDir = deltaY > 0 ? -1 : 1
-    const shrinkDir = deltaY > 0 ? 1 : -1
-
-    let remaining = Math.abs(deltaY)
-
-    let shrinkCursor = shrinkIdx
-    while (remaining > 0 && shrinkCursor >= 0 && shrinkCursor < visibleSpecs.length) {
-      const spec = visibleSpecs[shrinkCursor]
-      if (!spec) break
-
-      const currentH = heights.get(spec.id) ?? 0
-      const minH = this.getPaneMinHeight(spec, vp.plotHeight)
-      const canShrink = Math.max(0, currentH - minH)
-
-      if (canShrink > 0) {
-        const shrink = Math.min(canShrink, remaining)
-        heights.set(spec.id, currentH - shrink)
-        remaining -= shrink
-      }
-
-      if (remaining > 0) {
-        shrinkCursor += shrinkDir
-      }
-    }
-
-    if (remaining > 0) return false
-
-    const expandSpec = visibleSpecs[expandIdx]
-    if (!expandSpec) return false
-    const expandCurrentH = heights.get(expandSpec.id) ?? 0
-    heights.set(expandSpec.id, expandCurrentH + Math.abs(deltaY))
-
-    const opt = this.deps.getOption()
-    const gap = Math.max(0, opt.paneGap ?? 0)
+    if (boundaryIndex < 0 || boundaryIndex >= visibleSpecs.length - 1) return null
+    const gap = this.getPaneGap(visibleSpecs.length, vp.plotHeight)
     const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
-    const availableH = Math.max(1, vp.plotHeight - totalGaps)
-
-    const ratios = { ...this.deps.pane.readonly.paneRatios.peek() }
-    for (const spec of visibleSpecs) ratios[spec.id] = heights.get(spec.id)! / availableH
-    this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecs(ratios))
-    this.deps.afterCommitLayout?.()
-
-    this.layoutPanes()
-    this.deps.scheduleDraw()
-    return true
+    const availableH = Math.max(0, Math.floor(vp.plotHeight - totalGaps))
+    if (availableH <= 0) return null
+    const heights = visibleSpecs.map(
+      (spec) =>
+        this.paneRenderers.find((renderer) => renderer.getPane().id === spec.id)!.getPane().height,
+    )
+    if (heights[boundaryIndex]! <= 0 || heights[boundaryIndex + 1]! <= 0) return null
+    const minimums = visibleSpecs.map((spec) => this.getPaneMinHeight(spec, availableH))
+    const mins = fitPaneMinimums(minimums, availableH)
+    const minimumDelta = Math.min(0, Math.ceil(mins[boundaryIndex]!) - heights[boundaryIndex]!)
+    const maximumDelta = Math.max(
+      0,
+      heights[boundaryIndex + 1]! - Math.ceil(mins[boundaryIndex + 1]!),
+    )
+    let expectedSpecs = initialSpecs
+    let previousDelta = 0
+    return {
+      resize: (totalDeltaY) => {
+        if (
+          !Number.isFinite(totalDeltaY) ||
+          this.paneSpecs !== expectedSpecs ||
+          this.peekViewport()?.plotHeight !== vp.plotHeight ||
+          this.getPaneGap(visibleSpecs.length, vp.plotHeight) !== gap ||
+          visibleSpecs.some(
+            (spec, index) => this.getPaneMinHeight(spec, availableH) !== minimums[index],
+          )
+        )
+          return false
+        const delta = Math.max(minimumDelta, Math.min(maximumDelta, Math.round(totalDeltaY)))
+        if (delta === previousDelta) return false
+        const nextHeights = [...heights]
+        nextHeights[boundaryIndex] = heights[boundaryIndex]! + delta
+        nextHeights[boundaryIndex + 1] = heights[boundaryIndex + 1]! - delta
+        const ratios = new Map(
+          visibleSpecs.map((spec, index) => [spec.id, nextHeights[index]! / availableH]),
+        )
+        // 回到原点恢复原始权重，不能把最小高度约束下的像素占比永久写成用户配置。
+        const nextSpecs =
+          delta === 0
+            ? initialSpecs
+            : initialSpecs.map((spec) =>
+                spec.visible === false ? spec : { ...spec, ratio: ratios.get(spec.id)! },
+              )
+        this.deps.pane.actions.commitLayout(nextSpecs)
+        expectedSpecs = this.paneSpecs
+        previousDelta = delta
+        this.deps.afterCommitLayout?.()
+        return true
+      },
+    }
   }
 
   destroy(): void {

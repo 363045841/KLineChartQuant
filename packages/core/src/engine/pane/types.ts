@@ -26,6 +26,19 @@ export type PaneSpec = {
   capabilities?: Partial<PaneCapabilities>
 }
 
+/** 已提交的可见 Pane 几何，坐标相对绘图区，单位为 CSS 像素；不持久化。 */
+export interface PaneGeometry {
+  readonly id: string
+  readonly top: number
+  readonly height: number
+  readonly primaryAxisWidth: number
+}
+
+/** 拖拽期间总位移始终相对按下时的布局，外部布局变化后会话失效。 */
+export interface PaneBoundaryResizeSession {
+  resize(totalDeltaY: number): boolean
+}
+
 /**
  * 单个 Pane 所持有的分层 canvas DOM 集合。
  *
@@ -127,6 +140,8 @@ export interface PaneLayoutCommands {
   /** Pane 容器操作，不改变实例归属。 */
   updatePane(paneId: string, patch: PanePatch): boolean
   movePane(paneId: string, targetIndex: number): boolean
+  /** 按 pane 身份提交完整顺序，不改变内容或主图位置规则。 */
+  reorderPanes(paneIds: ReadonlyArray<string>): boolean
   removePane(paneId: string): boolean
   clearPanes(): void
   importLayout(specs: ReadonlyArray<PaneSpec>): void

@@ -3,6 +3,7 @@
 
 import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
+import { createPaneState } from '@/engine/state/paneState'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
@@ -87,6 +88,15 @@ export function createChartStub(args: {
   let scrollLeft = args.scrollLeft ?? 0
 
   const paneDefs = args.paneByY ?? [{ id: 'main', top: 0, height: 160, candleHitTest: true }]
+  const paneState = createPaneState()
+  paneState.actions.setPaneGeometry(
+    paneDefs.map((pane) => ({
+      id: pane.id,
+      top: pane.top,
+      height: pane.height,
+      primaryAxisWidth: 0,
+    })),
+  )
   const paneRenderers = paneDefs.map((paneDef) => ({
     getPane: () => ({
       id: paneDef.id,
@@ -138,6 +148,7 @@ export function createChartStub(args: {
     getCurrentDpr: () => args.dpr,
     checkVisibleRangeGapWhenIdle: () => undefined,
     kernel: {
+      pane: paneState,
       viewport: {
         readonly: {
           scrollLeft: { peek: () => scrollLeft },
@@ -185,7 +196,7 @@ export function createChartStub(args: {
     updateDrawingHover: () => undefined,
     clearDrawingHover: () => undefined,
     scheduleDraw: args.scheduleDraw ?? (() => undefined),
-    panes: { resizeBoundary: () => false },
+    panes: { beginBoundaryResize: () => null },
     scalePrice: () => undefined,
   }
 

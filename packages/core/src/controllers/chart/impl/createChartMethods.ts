@@ -292,6 +292,13 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   return {
+    /** 按定义删除所有实例，副图回收由领域命令一次提交。 */
+    removeIndicatorsByDefinition: (definitionId: string): void => {
+      if (!isDisposed()) chart.panes.removeInstancesByDefinition(definitionId)
+    },
+    /** 以完整 paneId 顺序一次提交重排。 */
+    reorderPanes: (paneIds: ReadonlyArray<string>): boolean =>
+      !isDisposed() && chart.panes.reorderPanes(paneIds),
     resetMainPriceAxis,
     /** 逐 Pane 轴命令与 UI 共用核心入口。 */
     setPanePriceAxisScaleType: (

@@ -35,7 +35,7 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { InstanceMoveTarget, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { InstanceMoveTarget, PaneGeometry, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -126,7 +126,7 @@ export interface TimeShareData {
   amount?: number
 }
 
-export type { PaneSpec }
+export type { PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
 export type DataSourceParams = Readonly<Record<string, string | number | boolean>>
@@ -497,6 +497,8 @@ export interface ChartController
   readonly globalDrawingLock: ReadonlySignal<boolean>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  /** Core 已提交的可见 Pane 像素布局，不进入用户配置。 */
+  readonly paneGeometry: ReadonlySignal<ReadonlyArray<PaneGeometry>>
   /** 每个 Pane 的有效刻度和独立范围状态。 */
   readonly paneScaleTypes: ReadonlySignal<
     ReadonlyMap<string, import('../foundation/types/scaleType.js').ScaleType>
@@ -616,6 +618,8 @@ export interface ChartController
   moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
   removeIndicator(instanceId: string): boolean
+  /** 一次删除指定定义的全部实例，保留同 pane 中其它指标。 */
+  removeIndicatorsByDefinition(definitionId: string): void
   /** 删除当前工作区全部指标实例；副图一并回收。 */
   clearAllIndicators(): void
   /** 更新实例参数、显隐、排序或定义。 */
@@ -650,6 +654,7 @@ export interface ChartController
   updatePane(paneId: string, patch: PanePatch): boolean
   removePane(paneId: string): boolean
   movePane(paneId: string, targetIndex: number): boolean
+  reorderPanes(paneIds: ReadonlyArray<string>): boolean
   clearPanes(): void
 
   // ---- Interaction sub-methods ----

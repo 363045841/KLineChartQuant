@@ -303,6 +303,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     globalDrawingLock,
     paneRatios,
     paneLayout,
+    paneGeometry: chart.kernel.pane.readonly.paneGeometry,
     interactionState,
     selectedRange: chart.selectedRange,
     rangeSelection: chart.rangeSelection,

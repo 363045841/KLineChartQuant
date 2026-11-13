@@ -1,269 +1,165 @@
-/**
- * Manages indicator state for both main-pane and sub-pane indicators.
- * Provides pane layout construction, default param resolution,
- * indicator toggle/update/reorder logic. Indicator state is read directly
- * from Core controller signals; Vue keeps no business-state mirror.
- */
+/** 指标 UI 只投影 Core 实例与容器；开关按定义、编辑按实例、布局按 paneId 寻址。 */
 import {
   type ChartController,
   INDICATOR_ROLE,
-  type IndicatorInstance,
-  type PaneSpec,
   type SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
 import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core/indicators'
 import { computed, type Ref } from 'vue'
-
 import { useControllerSignal } from './useControllerSignal.js'
 
-interface SubPaneSlot {
-  id: string
-  indicatorId: SubIndicatorType
-  params: Record<string, unknown>
-}
-
-export function useIndicatorManager(
-  ctrl: Ref<ChartController | null>,
-  paneRatiosRef: Readonly<Ref<Readonly<Record<string, number>>>>,
-) {
+/** 保留所有实例，仅从 Core 配置读取容器身份和顺序。 */
+export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
   const maxSubPanes = 4
-
   const indicatorInstances = useControllerSignal(
     ctrl,
     (controller) => controller.indicators,
     () => [],
   )
-  const subPaneInfos = useControllerSignal(
+  const paneLayout = useControllerSignal(
     ctrl,
-    (controller) => controller.subPanes,
+    (controller) => controller.paneLayout,
     () => [],
   )
-
-  const mainActiveIndicators = computed(() =>
-    indicatorInstances.value
-      .filter(
-        (indicator): indicator is IndicatorInstance & { role: typeof INDICATOR_ROLE.MAIN } =>
-          indicator.role === INDICATOR_ROLE.MAIN,
-      )
-      .map((indicator) => indicator.definitionId),
-  )
-  const subPanes = computed<SubPaneSlot[]>(() => {
-    const byPane = new Map<string, SubPaneSlot>()
-    for (const instance of subPaneInfos.value) {
-      if (byPane.has(instance.paneId)) continue
-      byPane.set(instance.paneId, {
-        id: instance.paneId,
-        indicatorId: instance.indicatorId as SubIndicatorType,
-        params: { ...instance.params },
-      })
-    }
-    return [...byPane.values()]
-  })
-
-  const subActiveIndicators = computed(() => {
-    const ids: string[] = []
-    const seen = new Set<string>()
-    for (const pane of subPanes.value) {
-      if (!seen.has(pane.indicatorId)) {
-        seen.add(pane.indicatorId)
-        ids.push(pane.indicatorId)
-      }
-    }
-    return ids
-  })
-
-  const activeIndicators = computed(() => [
-    ...mainActiveIndicators.value,
-    ...subActiveIndicators.value,
+  const mainActiveIndicators = computed(() => [
+    ...new Set(
+      indicatorInstances.value
+        .filter((instance) => instance.role === INDICATOR_ROLE.MAIN)
+        .map((instance) => instance.definitionId),
+    ),
   ])
-
+  const subActiveIndicators = computed(() => [
+    ...new Set(
+      indicatorInstances.value
+        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
+        .map((instance) => instance.definitionId),
+    ),
+  ])
+  const activeIndicators = computed(() => [
+    ...new Set(indicatorInstances.value.map((instance) => instance.definitionId)),
+  ])
+  const subPanes = computed(() =>
+    paneLayout.value.flatMap((pane) => {
+      const instances = indicatorInstances.value.filter(
+        (instance) => instance.role === INDICATOR_ROLE.SUB && instance.paneId === pane.id,
+      )
+      return instances.length > 0 ? [{ id: pane.id, instances }] : []
+    }),
+  )
   const indicatorParams = computed<Record<string, Record<string, unknown>>>(() => {
     const params: Record<string, Record<string, unknown>> = {}
-    for (const indicator of indicatorInstances.value) {
-      if (indicator.params && Object.keys(indicator.params).length > 0) {
-        params[indicator.definitionId] = { ...indicator.params }
-      }
-    }
-    for (const pane of subPaneInfos.value) {
-      if (pane.params && Object.keys(pane.params).length > 0) {
-        params[pane.indicatorId] = { ...pane.params }
-      }
-    }
+    for (const instance of indicatorInstances.value)
+      params[instance.definitionId] = { ...instance.params }
     return params
   })
 
-  function buildPaneLayoutIntent(): PaneSpec[] {
-    const mainRatio = paneRatiosRef.value['main'] ?? 3
-    return subPanes.value.length === 0
-      ? [{ id: 'main', ratio: mainRatio, visible: true, role: 'price' }]
-      : [
-          { id: 'main', ratio: mainRatio, visible: true, role: 'price' },
-          ...subPanes.value.map((pane) => ({
-            id: pane.id,
-            ratio: paneRatiosRef.value[pane.id] ?? 1,
-            visible: true,
-            role: 'indicator' as const,
-          })),
-        ]
+  /** 创建入口读取目录默认值，已有实例参数不会被布局逻辑重新解释。 */
+  function getDefaultParams(indicatorId: SubIndicatorType): Record<string, unknown> {
+    return { ...getIndicatorDescriptor(indicatorId)?.defaultParams }
   }
 
-  function getDefaultParams(
-    indicatorId: SubIndicatorType,
-  ): Record<string, number | boolean | string> {
-    // 静态目录即可给出默认参数，无需加载指标实现。
-    const defaults = getIndicatorDescriptor(indicatorId)?.defaultParams
-    return defaults ? ({ ...defaults } as Record<string, number | boolean | string>) : {}
-  }
-
+  /** 目录类别仅决定默认创建位置，不决定实例当前归属。 */
   function isSubPaneIndicator(id: string): boolean {
-    const def = getIndicatorDescriptor(id)
-    return !!def && def.category !== 'main'
+    const definition = getIndicatorDescriptor(id)
+    return definition !== undefined && definition.category !== 'main'
   }
 
-  /** 指标实现按需加载：写入状态前先加载该指标自身的模块。 */
+  /** 加载期间控制器可能替换或销毁，完成后必须重新确认接收者。 */
   async function loadIndicator(
     controller: ChartController,
     indicatorId: string,
   ): Promise<ChartController | null> {
     await controller.loadIndicators([indicatorId])
-    // 加载期间图表可能已被替换或销毁。
     return ctrl.value === controller ? controller : null
   }
 
+  /** 用户主动添加副图，保留现有四副图的 UI 限制。 */
   async function addSubPane(
     indicatorId: SubIndicatorType,
     params?: Record<string, number | boolean | string>,
   ): Promise<boolean> {
     const controller = ctrl.value
-    if (!controller || subPanes.value.length >= maxSubPanes) {
-      return false
-    }
-
-    const mergedParams = params ?? getDefaultParams(indicatorId)
+    if (!controller || subPanes.value.length >= maxSubPanes) return false
     const loaded = await loadIndicator(controller, indicatorId)
     if (!loaded || subPanes.value.length >= maxSubPanes) return false
-    return loaded.addIndicator(indicatorId, mergedParams) !== null
+    return loaded.addIndicator(indicatorId, params ?? getDefaultParams(indicatorId)) !== null
   }
 
+  /** 明确删除容器及其全部内容。 */
   function removeSubPane(paneId: string): void {
     ctrl.value?.removePane(paneId)
   }
 
+  /** 清空副图由领域命令一次提交，不发布逐个删除的中间状态。 */
   function clearAllSubPanes(): void {
-    for (const pane of subPanes.value) {
-      ctrl.value?.removePane(pane.id)
-    }
+    ctrl.value?.clearPanes()
   }
 
-  /** 清空主图与副图全部指标；删除与副图回收由 Core 聚合命令一次提交。 */
+  /** 清空全部用户指标。 */
   function clearAllIndicators(): void {
     ctrl.value?.clearAllIndicators()
   }
 
+  /** 更换明确指定的指标实例；合并 pane 中其它实例保持不变。 */
   async function switchSubIndicator(
-    paneId: string,
+    instanceId: string,
     newIndicatorId: SubIndicatorType,
   ): Promise<void> {
     const controller = ctrl.value
     if (!controller) return
-    const instance = controller.indicators.peek().find((item) => item.paneId === paneId)
-    if (!instance) return
-    const nextParams = getDefaultParams(newIndicatorId)
     const loaded = await loadIndicator(controller, newIndicatorId)
-    loaded?.updateIndicator(instance.id, { indicatorId: newIndicatorId, params: nextParams })
+    loaded?.updateIndicator(instanceId, {
+      indicatorId: newIndicatorId,
+      params: getDefaultParams(newIndicatorId),
+    })
   }
 
-  /** 在副图序列中移动一个 Pane；主图始终固定在第 0 位。 */
+  /** 交换两个副图槽位，主图和系统容器保持当前位置，不假定主图索引为零。 */
   function moveSubPane(paneId: string, direction: 'up' | 'down'): void {
+    const controller = ctrl.value
     const index = subPanes.value.findIndex((pane) => pane.id === paneId)
     const target = direction === 'up' ? index - 1 : index + 1
-    if (index < 0 || target < 0 || target >= subPanes.value.length) return
-    ctrl.value?.movePane(paneId, target + 1)
+    const other = subPanes.value[target]
+    if (!controller || index < 0 || !other) return
+    const ids = controller.paneLayout.peek().map((pane) => pane.id)
+    const from = ids.indexOf(paneId)
+    const to = ids.indexOf(other.id)
+    if (from < 0 || to < 0) return
+    ;[ids[from], ids[to]] = [ids[to]!, ids[from]!]
+    controller.reorderPanes(ids)
   }
 
+  /** 定义开关查看全部实例；关闭只删除匹配定义，不删除其它指标所在的容器。 */
   async function handleIndicatorToggle(indicatorId: string, active: boolean): Promise<void> {
     const controller = ctrl.value
     if (!controller) return
-
-    // 角色判断只读静态目录；写入前才加载实现。
-    const def = getIndicatorDescriptor(indicatorId)
-    const isMain = def?.category === 'main'
-    if (isMain) {
-      const existing = controller.indicators
-        .peek()
-        .filter((item) => item.role === INDICATOR_ROLE.MAIN && item.definitionId === indicatorId)
-      if (active && existing.length === 0) {
-        const c = await loadIndicator(controller, indicatorId)
-        if (!c) return
-        c.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else if (!active) {
-        for (const instance of existing) controller.removeIndicator(instance.id)
-      }
+    if (!active) {
+      controller.removeIndicatorsByDefinition(indicatorId)
       return
     }
-
-    if (isSubPaneIndicator(indicatorId)) {
-      if (active) {
-        const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-        if (existingPane) return
-        if (subPanes.value.length >= maxSubPanes) return
-        const loaded = await loadIndicator(controller, indicatorId)
-        if (!loaded) return
-        loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else {
-        const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-        panesToRemove.forEach((pane) => controller.removePane(pane.id))
-      }
-    }
+    if (
+      !getIndicatorDescriptor(indicatorId) ||
+      controller.indicators.peek().some((instance) => instance.definitionId === indicatorId)
+    )
+      return
+    if (isSubPaneIndicator(indicatorId) && subPanes.value.length >= maxSubPanes) return
+    const loaded = await loadIndicator(controller, indicatorId)
+    if (
+      !loaded ||
+      loaded.indicators.peek().some((instance) => instance.definitionId === indicatorId) ||
+      (isSubPaneIndicator(indicatorId) && subPanes.value.length >= maxSubPanes)
+    )
+      return
+    loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
   }
 
-  /** 将参数设置提交到全部匹配实例；主图与副图都按实例身份写入。 */
-  function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
+  /** 目录参数设置适用于该定义的全部实例，逐实例身份提交。 */
+  function handleUpdateParams(indicatorId: string, params: Record<string, unknown>): void {
     const controller = ctrl.value
     if (!controller) return
     for (const instance of controller.indicators.peek()) {
-      if (instance.definitionId !== indicatorId) continue
-      controller.updateIndicator(instance.id, { params })
+      if (instance.definitionId === indicatorId) controller.updateIndicator(instance.id, { params })
     }
-  }
-
-  function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
-    if (!orderedIndicatorIds.length || subPanes.value.length <= 1) return
-
-    const validOrder = orderedIndicatorIds.filter((id): id is SubIndicatorType =>
-      isSubPaneIndicator(id),
-    )
-    if (!validOrder.length) return
-
-    const paneByIndicator = new Map(subPanes.value.map((pane) => [pane.indicatorId, pane] as const))
-    const nextSubPanes: SubPaneSlot[] = []
-
-    for (const indicatorId of validOrder) {
-      const pane = paneByIndicator.get(indicatorId)
-      if (pane) {
-        nextSubPanes.push(pane)
-        paneByIndicator.delete(indicatorId)
-      }
-    }
-
-    if (nextSubPanes.length === 0) return
-
-    for (const pane of subPanes.value) {
-      if (paneByIndicator.has(pane.indicatorId)) {
-        nextSubPanes.push(pane)
-        paneByIndicator.delete(pane.indicatorId)
-      }
-    }
-
-    const currentSubIds = subPanes.value.map((p) => p.id)
-    const nextSubIds = nextSubPanes.map((p) => p.id)
-    if (currentSubIds.join('|') === nextSubIds.join('|')) return
-
-    const c = ctrl.value
-    if (!c) return
-    nextSubPanes.forEach((pane, index) => {
-      c.movePane(pane.id, index + 1)
-    })
   }
 
   return {
@@ -273,7 +169,6 @@ export function useIndicatorManager(
     indicatorParams,
     subPanes,
     maxSubPanes,
-    buildPaneLayoutIntent,
     getDefaultParams,
     isSubPaneIndicator,
     addSubPane,
@@ -284,6 +179,5 @@ export function useIndicatorManager(
     moveSubPane,
     handleIndicatorToggle,
     handleUpdateParams,
-    handleReorderSubIndicators,
   }
 }

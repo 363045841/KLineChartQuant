@@ -23,7 +23,7 @@ describe('paneState', () => {
       })
     })
 
-    m.actions.commitLayout({ main: 1 }, [{ id: 'main', ratio: 1, role: 'price' }])
+    m.actions.commitLayout([{ id: 'main', ratio: 1, role: 'price' }])
 
     expect(m.readonly.paneRatios()).toEqual({ main: 1 })
     expect(m.readonly.paneSpecs()).toEqual([{ id: 'main', ratio: 1, role: 'price' }])
@@ -34,10 +34,8 @@ describe('paneState', () => {
 
   it('commitLayout copies ratios and specs', () => {
     const m = createState()
-    const ratios = { main: 1 }
     const specs = [{ id: 'main', ratio: 1, role: 'price' as const }]
-    m.actions.commitLayout(ratios, specs)
-    ratios.main = 0.5
+    m.actions.commitLayout(specs)
     specs[0]!.ratio = 0.5
     expect(m.readonly.paneRatios().main).toBe(1)
     expect(m.readonly.paneSpecs()[0]?.ratio).toBe(1)
@@ -45,13 +43,13 @@ describe('paneState', () => {
 
   it('commitLayout does not invent scale types for new panes', () => {
     const m = createState()
-    m.actions.commitLayout({ main: 1 }, [{ id: 'main', ratio: 1, role: 'price' }])
+    m.actions.commitLayout([{ id: 'main', ratio: 1, role: 'price' }])
     expect(m.readonly.paneScaleTypes.peek().has('main')).toBe(false)
   })
 
   it('setPaneScaleType / replacePaneScaleTypes / removePaneScaleType', () => {
     const m = createState()
-    m.actions.commitLayout({ main: 1, MACD: 1 }, [
+    m.actions.commitLayout([
       { id: 'main', ratio: 1, role: 'price' },
       { id: 'MACD', ratio: 1, role: 'indicator' },
     ])
@@ -66,9 +64,9 @@ describe('paneState', () => {
 
   it('commitLayout preserves existing scale types for surviving panes only', () => {
     const m = createState()
-    m.actions.commitLayout({ main: 1 }, [{ id: 'main', ratio: 1, role: 'price' }])
+    m.actions.commitLayout([{ id: 'main', ratio: 1, role: 'price' }])
     m.actions.setPaneScaleType('main', 'log')
-    m.actions.commitLayout({ main: 0.75, RSI: 0.25 }, [
+    m.actions.commitLayout([
       { id: 'main', ratio: 0.75, role: 'price' },
       { id: 'RSI', ratio: 0.25, role: 'indicator' },
     ])

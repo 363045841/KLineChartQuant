@@ -1300,14 +1300,6 @@ export class ChartRenderer {
     vp: ViewportFrame,
   ): void {
     const widths = this.measureAxisWidths(level, axisLabelsFrame)
-    // 宿主快捷入口消费已测量的主轴列几何，不能按整块多轴画布居中。
-    for (const renderer of this.deps.getPaneRenderers()) {
-      const primaryAxisId = renderer.getPane().axes[0]!.axisId
-      const width = `${widths.rightByAxis[primaryAxisId]}px`
-      const style = renderer.getDom().yAxisCanvas.style
-      if (style.getPropertyValue('--klc-primary-axis-width') !== width)
-        style.setProperty('--klc-primary-axis-width', width)
-    }
     this.retainAxisLabels(level, axisLabelsFrame)
     if (this.deps.commitAxisWidths?.(widths)) this.repaintAxisSurfaces(vp)
   }

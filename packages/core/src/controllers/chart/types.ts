@@ -23,6 +23,7 @@ export type {
   IndicatorRole,
   InteractionSnapshot,
   KLineData,
+  PaneGeometry,
   PaneLayoutInfo,
   PaneSpec,
   SubPaneInfo,

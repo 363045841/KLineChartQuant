@@ -328,7 +328,7 @@
               v-for="pane in paneAxisItems"
               :key="pane.id"
               class="pane-axis-controls-host"
-              :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth }"
+               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth + 'px' }"
             >
               <PriceAxisSettingsMenu
                 :controller="controller"
@@ -380,7 +380,6 @@
       :replace-role="replacementRole"
       @toggle="handleIndicatorToggle"
       @update-params="handleUpdateParams"
-      @reorder-sub-indicators="handleReorderSubIndicators"
       @replace="replaceLegend"
       @edit-code="openScriptEditor"
       @create-script="openBlankScriptEditor"
@@ -702,8 +701,6 @@
     dataLoading,
     dataError,
     zoomLevel,
-    paneRatios,
-    paneLayout,
     comparisonColorsMap,
     comparisonLoading,
     isRangeSelectMode,
@@ -1204,7 +1201,6 @@
     activeIndicators,
     indicatorParams,
     subPanes,
-    buildPaneLayoutIntent,
     getDefaultParams,
     isSubPaneIndicator,
     addSubPane,
@@ -1214,14 +1210,9 @@
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,
-    handleReorderSubIndicators,
-  } = useIndicatorManager(controller, paneRatios)
+  } = useIndicatorManager(controller)
 
-  // 画布几何（尺寸 / DPR）变化时刷新轴快捷入口布局；横向滚动改变 visible range 不触发。
-  const paneAxisLayoutEpoch = ref(0)
-
-  /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
-  const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
+  const paneAxisItems = usePaneAxisItems(controller)
 
   const scriptSourceStore = inject(SCRIPT_SOURCE_STORE_KEY, undefined)
   const scriptEditorSession = useScriptEditor(scriptSourceStore, controller)
@@ -1503,15 +1494,12 @@
     { deep: true },
   )
 
-  const paneSeparatorLines = computed(() => {
-    const borderTop = containerRef.value
-      ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
-      : 0
-    return paneAxisItems.value.slice(0, -1).map((pane) => ({
+  const paneSeparatorLines = computed(() =>
+    paneAxisItems.value.slice(0, -1).map((pane) => ({
       id: pane.id,
-      top: pane.top + pane.height + borderTop,
-    }))
-  })
+      top: pane.top + pane.height,
+    })),
+  )
   const deviceEnvironment = useDeviceEnvironment()
   const isCoarsePointer = computed(() => deviceEnvironment.value.isCoarsePointer)
 
@@ -1830,25 +1818,12 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
-    // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
-    let paneAxisViewportSignature = ''
-    const refreshPaneAxisLayout = () => {
-      const viewport = ctrl.viewport.peek()
-      const nextSignature = `${viewport.plotWidth}:${viewport.plotHeight}:${viewport.dpr}`
-      if (nextSignature === paneAxisViewportSignature) return
-      paneAxisViewportSignature = nextSignature
-      paneAxisLayoutEpoch.value += 1
-    }
-    refreshPaneAxisLayout()
-    const unsubscribeViewport = ctrl.viewport.subscribe(refreshPaneAxisLayout)
-
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
       emit('themeChange', newTheme)
     })
 
     return () => {
-      unsubscribeViewport()
       unsubscribeTheme()
     }
   }

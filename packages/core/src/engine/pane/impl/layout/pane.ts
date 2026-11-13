@@ -118,7 +118,7 @@ export class Pane {
    */
   setLayout(top: number, height: number) {
     this.top = top
-    this.height = Math.max(1, height)
+    this.height = Math.max(0, height)
     for (const axis of this.axisScales.values()) axis.setHeight(this.height)
   }
 

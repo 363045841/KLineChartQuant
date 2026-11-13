@@ -38,6 +38,15 @@ function mountChart(
   return new Chart(createChartDom(width, height), defaultOptions, runtime)
 }
 
+/** 三窗格布局供比例、命中、拖拽和批量顺序回归共用。 */
+function importPaneFixture(chart: Chart): void {
+  chart.panes.importLayout([
+    { id: MAIN_PANE_ID, role: 'price', ratio: 0.5, visible: true, minHeightPx: 40 },
+    { id: 'layout-a', role: 'indicator', ratio: 0.25, visible: true, minHeightPx: 40 },
+    { id: 'layout-b', role: 'indicator', ratio: 0.25, visible: true, minHeightPx: 40 },
+  ])
+}
+
 /** 通过真实 DOM 事件提供完整的 PointerEvent 结构。 */
 function pointerEvent(
   type: string,
@@ -403,6 +412,184 @@ describe('Chart lifecycle without a market selection', () => {
       expect(panes.map((pane) => pane.height)).toEqual(heights)
       expect(commit).not.toHaveBeenCalled()
       expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('late-pane-a')).toBe('log')
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('applies ratio patches without remounting indicator layers or publishing unchanged layouts', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      const id = 'layout-resource-fixture'
+      registerEmptyPlot(id)
+      const instanceId = chart.panes.add(id)!
+      const paneId = chart.indicators.instances
+        .peek()
+        .find((instance) => instance.id === instanceId)!.paneId!
+      const layerId = resolveIndicatorLayerId(id, paneId, 'renderer', instanceId)
+      const layer = chart.getRenderer(layerId)
+      expect(layer).toBeDefined()
+      const observer = new MutationObserver(() => {})
+      observer.observe(chart.getDom().rightAxisLayer, { childList: true })
+      expect(chart.panes.updatePane(MAIN_PANE_ID, { ratio: 0.25 })).toBe(true)
+      expect(chart.paneRatios.peek()).toEqual({ main: 0.5, [paneId]: 0.5 })
+      expect(chart.getRenderer(layerId)).toBe(layer)
+      expect(observer.takeRecords()).toEqual([])
+      observer.disconnect()
+      const notify = vi.fn()
+      const unsubscribe = chart.kernel.pane.readonly.workspaces.subscribe(notify)
+      const baseline = chart.paneLayout.peek()
+      chart.panes.updatePane(MAIN_PANE_ID, { ratio: 0.5 })
+      chart.panes.updatePane(MAIN_PANE_ID, {})
+      expect(chart.paneLayout.peek()).toBe(baseline)
+      expect(notify).not.toHaveBeenCalled()
+      expect(chart.panes.updatePane(MAIN_PANE_ID, { ratio: Number.NaN })).toBe(false)
+      expect(chart.panes.updatePane(MAIN_PANE_ID, { ratio: -1 })).toBe(false)
+      unsubscribe()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('clears hidden geometry and uses visible adjacency for hit testing, including after drawing', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      importPaneFixture(chart)
+      const hidden = chart
+        .getPaneRenderers()
+        .find((renderer) => renderer.getPane().id === 'layout-a')!
+      const oldCenter = hidden.getPane().top + hidden.getPane().height / 2
+      chart.panes.updatePane('layout-a', { visible: false })
+      chart.draw()
+      expect(hidden.getPane().height).toBe(0)
+      expect(hidden.getDom().mainCanvas.height).toBe(0)
+      const geometry = chart.kernel.pane.readonly.paneGeometry.peek()
+      expect(geometry.map((pane) => pane.id)).toEqual([MAIN_PANE_ID, 'layout-b'])
+      expect(chart.interaction['getPaneByY'](oldCenter)?.id).not.toBe('layout-a')
+      const first = geometry[0]!
+      const last = geometry[1]!
+      expect(chart.interaction['hitTestPaneSeparator'](first.top + first.height)).toBe(MAIN_PANE_ID)
+      expect(chart.interaction['hitTestPaneSeparator'](last.top + last.height)).toBeNull()
+      expect(chart.panes.beginBoundaryResize('layout-a')).toBeNull()
+      chart.panes.updatePane(MAIN_PANE_ID, { visible: false })
+      chart.panes.updatePane('layout-b', { visible: false })
+      expect(chart.kernel.pane.readonly.paneGeometry.peek()).toEqual([])
+      expect(chart.interaction['getPaneByY'](0)).toBeNull()
+      expect(chart.interaction['hitTestPaneSeparator'](0)).toBeNull()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('fits panes and gaps into a container shorter than their combined minimum heights', async () => {
+    const chart = mountChart(1000, 50)
+    try {
+      importPaneFixture(chart)
+      chart.updateOptions({ paneGap: 3 })
+      chart.draw()
+      const geometry = chart.kernel.pane.readonly.paneGeometry.peek()
+      const height = chart.getViewport()!.plotHeight
+      expect(geometry).toHaveLength(3)
+      expect(geometry.every((pane) => pane.height > 0 && pane.top + pane.height <= height)).toBe(
+        true,
+      )
+      expect(geometry.reduce((sum, pane) => sum + pane.height, 0) + 6).toBe(height)
+      expect(geometry.at(-1)!.top + geometry.at(-1)!.height).toBe(height)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('uses the initial drag snapshot regardless of move frequency and changes only adjacent panes', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      importPaneFixture(chart)
+      const geometry = chart.kernel.pane.readonly.paneGeometry.peek()
+      const session = chart.panes.beginBoundaryResize(MAIN_PANE_ID)!
+      for (const delta of [0.2, 0.4, 0.6, 1.2, 12.4, 100.4]) session.resize(delta)
+      const stepped = chart.paneLayout.peek()
+      expect(chart.kernel.pane.readonly.paneGeometry.peek()[2]!.height).toBe(geometry[2]!.height)
+      importPaneFixture(chart)
+      const direct = chart.panes.beginBoundaryResize(MAIN_PANE_ID)!
+      direct.resize(100.4)
+      expect(chart.paneLayout.peek()).toEqual(stepped)
+      direct.resize(10000)
+      expect(chart.kernel.pane.readonly.paneGeometry.peek()[1]!.height).toBe(40)
+      expect(chart.kernel.pane.readonly.paneGeometry.peek()[2]!.height).toBe(geometry[2]!.height)
+      direct.resize(0)
+      expect(chart.kernel.pane.readonly.paneGeometry.peek()).toEqual(geometry)
+      chart.panes.updatePane('layout-b', { visible: false })
+      const changed = chart.paneLayout.peek()
+      expect(direct.resize(10)).toBe(false)
+      expect(chart.paneLayout.peek()).toBe(changed)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('restores original weights on returning a constrained drag to its origin', async () => {
+    const chart = mountChart(1000, 1000)
+    try {
+      importPaneFixture(chart)
+      chart.panes.updatePane('layout-a', { minHeightPx: 300 })
+      const initial = chart.paneLayout.peek()
+      const session = chart.panes.beginBoundaryResize(MAIN_PANE_ID)!
+      expect(session.resize(-25)).toBe(true)
+      expect(session.resize(0)).toBe(true)
+      expect(chart.paneLayout.peek()).toEqual(initial)
+      chart.updateOptions({ paneGap: 4 })
+      expect(session.resize(25)).toBe(false)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('reorders all pane identities in one publication and preserves their roles', async () => {
+    const chart = mountChart()
+    try {
+      importPaneFixture(chart)
+      const notify = vi.fn()
+      const unsubscribe = chart.paneLayout.subscribe(notify)
+      const ids = ['layout-b', MAIN_PANE_ID, 'layout-a']
+      expect(chart.panes.reorderPanes(ids)).toBe(true)
+      expect(chart.paneLayout.peek().map((pane) => pane.id)).toEqual(ids)
+      expect(
+        chart
+          .getPaneRenderers()
+          .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
+          .getPane().role,
+      ).toBe('price')
+      expect(chart.panes.getLayoutSpecs()).toEqual(chart.paneLayout.peek())
+      expect(notify).toHaveBeenCalledOnce()
+      chart.panes.reorderPanes(ids)
+      expect(notify).toHaveBeenCalledOnce()
+      expect(chart.panes.reorderPanes([MAIN_PANE_ID, MAIN_PANE_ID, 'layout-a'])).toBe(false)
+      unsubscribe()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('removes only matching definition instances from a merged pane in one publication', async () => {
+    const chart = mountChart()
+    try {
+      registerEmptyPlot('merged-layout-a')
+      registerEmptyPlot('merged-layout-b')
+      const first = chart.panes.add('merged-layout-a')!
+      const paneId = chart.indicators.instances.peek().find((instance) => instance.id === first)!
+        .paneId!
+      const target = { kind: 'pane', paneId } as const
+      chart.panes.add('merged-layout-a', undefined, target)
+      const retained = chart.panes.add('merged-layout-b', undefined, target)!
+      const notify = vi.fn()
+      const unsubscribe = chart.kernel.indicator.readonly.instances.subscribe(notify)
+      chart.panes.removeInstancesByDefinition('merged-layout-a')
+      expect(chart.indicators.instances.peek().map((instance) => instance.id)).toEqual([retained])
+      expect(chart.panes.hasPane(paneId)).toBe(true)
+      expect(notify).toHaveBeenCalledOnce()
+      chart.panes.removeInstancesByDefinition('merged-layout-b')
+      expect(chart.panes.hasPane(paneId)).toBe(false)
+      unsubscribe()
     } finally {
       await chart.destroy()
     }

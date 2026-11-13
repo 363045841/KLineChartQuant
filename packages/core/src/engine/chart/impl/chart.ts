@@ -283,6 +283,7 @@ export class Chart {
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
   private disposeLeftAxisProjection: (() => void) | null = null
+  private disposePaneProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
   private footprintRuntime: ReturnType<typeof createFootprintRuntime>
   private disposeFootprintDraw: (() => void) | null = null
@@ -535,7 +536,8 @@ export class Chart {
       },
       getDom: () => this.dom,
       getOption: () => this.getRenderOptions(),
-      getPaneRenderers: () => this.paneRenderers,
+      getPaneRenderers: () =>
+        this.paneRenderers.filter((renderer) => renderer.getPane().height > 0),
       getInteraction: () => this.interaction,
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
@@ -643,10 +645,6 @@ export class Chart {
         Readonly<Record<string, number>>
       >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      projectPaneLayout: () => {
-        this.layoutManager.projectState()
-        this.ensurePaneScaleTypesFromSettings()
-      },
       projectPaneAxes: (axesByPane) => {
         this.layoutManager.setPaneAxes(axesByPane)
         this.projectPaneScaleTypes()
@@ -699,6 +697,18 @@ export class Chart {
 
   /** 在所有运行时依赖就绪后，统一将 kernel 状态投影为可绘制图表。 */
   private startRuntime(): void {
+    // 容器投影独立于指标资源；纯几何变更无需拆装指标图层。
+    const projectPanes = () =>
+      this.runRuntimeProjection(() => {
+        this.layoutManager.projectState()
+        this.indicatorManager.projectAxes()
+        this.ensurePaneScaleTypesFromSettings()
+        this.renderer.invalidateFrame()
+        this.interaction.invalidateHover()
+        this.scheduleDraw()
+      })
+    projectPanes()
+    this.disposePaneProjection = this.kernel.pane.readonly.paneSpecs.subscribe(projectPanes)
     this.indicatorManager.start()
     this.viewportManager.init()
     // init 已同步写入首帧尺寸；ResizeObserver 首次回调尺寸不变时不会触发 resize（WebKit 不支持
@@ -1266,6 +1276,7 @@ export class Chart {
    * @returns 是否改变了实际生效的宽度
    */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
+    this.layoutManager.setPrimaryAxisWidths(widths.rightByAxis)
     const options = this.kernel.options.readonly.options.peek()
     const right = resolveAxisWidth(
       options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
@@ -1393,6 +1404,8 @@ export class Chart {
     this.disposeActiveRendererProjection = null
     this.disposeLeftAxisProjection?.()
     this.disposeLeftAxisProjection = null
+    this.disposePaneProjection?.()
+    this.disposePaneProjection = null
     this.disposeTradeDemand?.()
     this.disposeTradeDemand = null
     this.disposeFootprintDraw?.()

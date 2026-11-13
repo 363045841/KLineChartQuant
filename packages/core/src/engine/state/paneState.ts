@@ -3,7 +3,8 @@ import { batch, computed, createSubState } from '../../foundation/reactivity/sig
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
-import type { PaneSpec } from '../pane/types.js'
+import { paneSpecsEqual } from '../pane/impl/paneConfiguration.js'
+import type { PaneGeometry, PaneSpec } from '../pane/types.js'
 import { MAIN_PANE_ID } from '../pane/types.js'
 import { immutableMap } from './immutable.js'
 
@@ -50,6 +51,7 @@ function scaleMapsEqual(
 export function createPaneState() {
   const { signals, readonly: stored } = createSubState({
     activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
+    paneGeometry: Object.freeze([]) as ReadonlyArray<PaneGeometry>,
     workspaces: Object.freeze({
       kline: initialWorkspace(),
       timeshare: initialWorkspace(),
@@ -72,10 +74,15 @@ export function createPaneState() {
 
   /** 用一次不可变快照提交当前工作区。 */
   function writeActive(next: PaneWorkspace): void {
+    const previous = currentWorkspace()
+    const sameSpecs = paneSpecsEqual(previous.paneSpecs, next.paneSpecs)
+    if (sameSpecs && scaleMapsEqual(previous.paneScaleTypes, next.paneScaleTypes)) return
     signals.workspaces.set(
       Object.freeze({
         ...stored.workspaces.peek(),
-        [stored.activeWorkspace.peek()]: next,
+        [stored.activeWorkspace.peek()]: sameSpecs
+          ? Object.freeze({ ...next, paneSpecs: previous.paneSpecs })
+          : next,
       }),
     )
   }
@@ -92,6 +99,24 @@ export function createPaneState() {
     readonly,
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
+      /** 布局与轴测量共用的运行时输出；数值不变时不广播。 */
+      setPaneGeometry(geometry: ReadonlyArray<PaneGeometry>): void {
+        const previous = stored.paneGeometry.peek()
+        if (
+          previous.length === geometry.length &&
+          previous.every((pane, index) => {
+            const next = geometry[index]!
+            return (
+              pane.id === next.id &&
+              pane.top === next.top &&
+              pane.height === next.height &&
+              pane.primaryAxisWidth === next.primaryAxisWidth
+            )
+          })
+        )
+          return
+        signals.paneGeometry.set(Object.freeze(geometry.map((pane) => Object.freeze({ ...pane }))))
+      },
       setActiveWorkspace(workspaceId: ChartWorkspaceId): void {
         if (stored.activeWorkspace.peek() !== workspaceId) signals.activeWorkspace.set(workspaceId)
       },
@@ -128,13 +153,13 @@ export function createPaneState() {
       setPaneSpecs(specs: ReadonlyArray<PaneSpec>): void {
         writeActive(snapshotWorkspace(specs, currentWorkspace().paneScaleTypes))
       },
-      /** 用户布局命令一次提交规格和权重；只保留仍存在的窗格轴偏好与实例独立轴偏好。 */
-      commitLayout(ratios: Readonly<Record<string, number>>, specs: ReadonlyArray<PaneSpec>): void {
+      /** 一次提交完整规格；比例只来自本次配置，不再接收第二份权重。 */
+      commitLayout(specs: ReadonlyArray<PaneSpec>): void {
         const previous = currentWorkspace()
         const ids = new Set(specs.map((spec) => spec.id))
         writeActive(
           snapshotWorkspace(
-            specs.map((spec) => ({ ...spec, ratio: ratios[spec.id] ?? spec.ratio })),
+            specs,
             new Map(
               [...previous.paneScaleTypes].filter(
                 ([id]) => ids.has(id) || id.startsWith('instance:'),
@@ -157,6 +182,7 @@ export function createPaneState() {
     },
     dispose(): void {
       batch(() => {
+        signals.paneGeometry.set(Object.freeze([]))
         signals.activeWorkspace.set(ChartWorkspaceId.KLine)
         signals.workspaces.set(
           Object.freeze({ kline: initialWorkspace(), timeshare: initialWorkspace() }),

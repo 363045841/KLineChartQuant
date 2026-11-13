@@ -191,6 +191,7 @@ export function createMockChartController(
     globalDrawingLock,
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
+    paneGeometry: createSignal<ReturnType<ChartController['paneGeometry']['peek']>>([]),
     paneScaleTypes,
     panePriceAxisRanges,
     setPanePriceAxisScaleType: (paneId, type) => {

@@ -19,6 +19,8 @@ import {
   computed,
   effect,
   type ReadonlySignal,
+  type SelectedSignal,
+  selectSignal,
 } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -114,7 +116,6 @@ export interface IndicatorDependencies {
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
-  projectPaneLayout: () => void
   /** 把框架派生的轴列表投影到 Pane 运行时。 */
   projectPaneAxes: (axesByPane: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>) => void
   getLastVisibleRange: () => VisibleRange
@@ -146,6 +147,7 @@ export class ChartIndicatorManager {
   private readonly layerResources = new Set<string>()
   /** 轴由 SSOT 派生，所有消费者读取同一个 computed。 */
   private readonly paneAxes: Computed<ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>>
+  private readonly paneStructure: SelectedSignal<string>
   /** destroy 后不再发起计算，也不把 Worker 的拆除错误当作运行期失败。 */
   private destroyed = false
 
@@ -235,13 +237,18 @@ export class ChartIndicatorManager {
 
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
-    this.paneAxes = computed(() =>
-      resolvePaneAxes(
-        deps.paneSpecs$().map((pane) => pane.id),
+    // 图层生命周期只依赖容器结构；比例、显隐和最小高度由布局投影独立处理。
+    this.paneStructure = selectSignal(deps.paneSpecs$, (panes) =>
+      JSON.stringify(panes.map((pane) => [pane.id, pane.role, pane.capabilities])),
+    )
+    this.paneAxes = computed(() => {
+      this.paneStructure()
+      return resolvePaneAxes(
+        deps.paneSpecs$.peek().map((pane) => pane.id),
         deps.indicator.readonly.instances(),
         getRegisteredIndicatorDefinition,
-      ),
-    )
+      )
+    })
 
     // 实例链路：Kernel 实例配置为输入，计算计划与结果池为输出。
     this.pipeline = createIndicatorInstancePipeline({
@@ -321,6 +328,11 @@ export class ChartIndicatorManager {
     this.disposeProjection = effect(() => this.syncRuntimeFromState())
   }
 
+  /** Pane 运行时重建后应用当前轴列表；不重建指标资源。 */
+  projectAxes(): void {
+    this.deps.projectPaneAxes(this.paneAxes.peek())
+  }
+
   /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
   invalidateMarketData(): void {
     this.requestCompute()
@@ -329,8 +341,6 @@ export class ChartIndicatorManager {
   /** 将 kernel 当前快照投影为 pane、轴、renderer 与实例链路的运行时状态。 */
   private syncRuntimeFromState(): void {
     this.deps.plotColors$()
-    this.deps.paneSpecs$()
-    this.deps.paneRatios$()
     const instances = this.deps.indicator.readonly.instances()
     const readyInstances = instances.filter((instance) =>
       getRegisteredIndicatorDefinition(instance.indicatorId),
@@ -345,7 +355,6 @@ export class ChartIndicatorManager {
     this.deps.runRendererTransaction(() => {
       // 配置变化完整向下应用，不保存上一份实例投影或参数比较键。
       this.releaseLayerResources()
-      this.deps.projectPaneLayout()
       this.deps.projectPaneAxes(axesByPane)
       this.syncPipeline(readyInstances)
       this.reprojectRenderStates()
@@ -827,6 +836,7 @@ export class ChartIndicatorManager {
     this.inlineExecutor.dispose()
     this.destroyed = true
     this.disposeDefinitionSubscription()
+    this.paneStructure.dispose()
     this.disposeProjection?.()
     this.disposeProjection = null
     this.deps.runRendererTransaction(() => this.releaseLayerResources())

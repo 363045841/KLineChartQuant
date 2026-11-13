@@ -7,6 +7,7 @@
 import type { ChartPaneLayout } from '../../../pane/index.js'
 import type {
   InstanceMoveTarget,
+  PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
   PaneSpec,
@@ -76,6 +77,11 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     return this.deps.kernel.paneManager.actions.movePane(paneId, targetIndex)
   }
 
+  /** 一次提交完整 Pane 顺序。 */
+  reorderPanes(paneIds: ReadonlyArray<string>): boolean {
+    return this.deps.kernel.paneManager.actions.reorderPanes(paneIds)
+  }
+
   /** 删除 Pane 及其用户实例。 */
   removePane(paneId: string): boolean {
     const removed = this.deps.kernel.paneManager.actions.removePane(paneId)
@@ -104,6 +110,11 @@ export class ChartPaneFacade implements PaneLayoutCommands {
   /** 调整相邻 Pane 的边界。 */
   resizeBoundary(upperPaneId: string, deltaY: number): boolean {
     return this.deps.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
+  }
+
+  /** 指针按下时创建会话，后续移动提交相对起点的总位移。 */
+  beginBoundaryResize(upperPaneId: string): PaneBoundaryResizeSession | null {
+    return this.deps.layoutManager.beginBoundaryResize(upperPaneId)
   }
 
   /** 判断指定 Pane 是否存在。 */

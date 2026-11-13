@@ -10,6 +10,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart/index.js'
 import { UpdateLevel } from '../pane/index.js'
+import type { PaneBoundaryResizeSession } from '../pane/types.js'
 import type { ScaleXSnapshot } from '../scale/index.js'
 import type {
   CrosshairLock,
@@ -63,7 +64,7 @@ export class InteractionController {
   /** maxScrollLeft at drag start, cached to prevent jumps when scrollWidth grows mid-drag */
   private _cachedMaxScrollLeft = -1
   private activePaneIdOnDrag: string | null = null
-  private activeSeparatorUpperPaneId: string | null = null
+  private separatorResizeSession: PaneBoundaryResizeSession | null = null
   /** 当前由本控制器拥有的拖拽指针。手势结束不能依赖元素边界事件。 */
   private activePointerId: number | null = null
   private pointerCaptureElement: HTMLElement | null = null
@@ -294,11 +295,14 @@ export class InteractionController {
     const { mouseY } = location
 
     const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)
-    if (separatorUpperPaneId) {
+    const resizeSession = separatorUpperPaneId
+      ? this.chart.panes.beginBoundaryResize(separatorUpperPaneId)
+      : null
+    if (resizeSession) {
       this._state.actions.startDrag('resize-separator')
       this.capturePointer(e, this.chart.getDom().container)
       this.dragStartY = e.clientY
-      this.activeSeparatorUpperPaneId = separatorUpperPaneId
+      this.separatorResizeSession = resizeSession
       this._state.actions.setSeparatorHover(separatorUpperPaneId)
       this.clearHover(true)
       this.chart.scheduleDraw()
@@ -462,12 +466,7 @@ export class InteractionController {
     if (this._state.readonly.isDragging.peek()) {
       if (this._state.readonly.dragMode.peek() === 'resize-separator') {
         const deltaY = e.clientY - this.dragStartY
-        if (deltaY !== 0 && this.activeSeparatorUpperPaneId) {
-          const resized = this.chart.panes.resizeBoundary(this.activeSeparatorUpperPaneId, deltaY)
-          if (resized) {
-            this.dragStartY = e.clientY
-          }
-        }
+        this.separatorResizeSession?.resize(deltaY)
         return
       }
 
@@ -692,14 +691,10 @@ export class InteractionController {
 
   /** 命中可拖拽分隔线（返回上方 paneId） */
   private hitTestPaneSeparator(mouseY: number): string | null {
-    const paneRenderers = this.chart.getPaneRenderers()
-    if (paneRenderers.length < 2) return null
-
+    const geometry = this.chart.kernel.pane.readonly.paneGeometry.peek()
     const SEP_HIT_HALF = 5
-    for (let i = 0; i < paneRenderers.length - 1; i++) {
-      const upper = paneRenderers[i]?.getPane()
-      const lower = paneRenderers[i + 1]?.getPane()
-      if (!upper || !lower) continue
+    for (let i = 0; i < geometry.length - 1; i++) {
+      const upper = geometry[i]!
       const boundaryY = upper.top + upper.height
       if (Math.abs(mouseY - boundaryY) <= SEP_HIT_HALF) {
         return upper.id
@@ -709,12 +704,15 @@ export class InteractionController {
   }
 
   private getPaneByY(mouseY: number) {
-    const paneRenderers = this.chart.getPaneRenderers()
-    const renderer = paneRenderers.find((r) => {
-      const pane = r.getPane()
-      return mouseY >= pane.top && mouseY <= pane.top + pane.height
-    })
-    return renderer?.getPane() || null
+    const geometry = this.chart.kernel.pane.readonly.paneGeometry
+      .peek()
+      .find((pane) => mouseY >= pane.top && mouseY < pane.top + pane.height)
+    return geometry
+      ? (this.chart
+          .getPaneRenderers()
+          .find((renderer) => renderer.getPane().id === geometry.id)
+          ?.getPane() ?? null)
+      : null
   }
 
   private getPlotPointerLocation(clientX: number, clientY: number): PointerLocation | null {
@@ -776,7 +774,7 @@ export class InteractionController {
     this.pointerCaptureElement = null
     this._state.actions.endDrag()
     this.activePaneIdOnDrag = null
-    this.activeSeparatorUpperPaneId = null
+    this.separatorResizeSession = null
     this._cachedMaxScrollLeft = -1
     if (releaseCapture && pointerId !== null && captureElement?.hasPointerCapture(pointerId)) {
       captureElement.releasePointerCapture(pointerId)
@@ -799,7 +797,7 @@ export class InteractionController {
   }
 
   private clearSeparatorState() {
-    this.activeSeparatorUpperPaneId = null
+    this.separatorResizeSession = null
     this._state.actions.setSeparatorHover(null)
     this._state.actions.setRightAxisHover(null)
   }
