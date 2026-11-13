@@ -59,6 +59,67 @@ export function scenePaintTarget(role: LayerRole): ScenePaintTarget {
 }
 
 /**
+ * 渲染对象分类。
+ *
+ * 系统对象是图表自带的绘制内容（K 线、对比线、Footprint 等），指标与绘图
+ * 是用户对象；分类用于对象树展示与领域命令归属，UI 是否可操作只看能力。
+ */
+export type RenderObjectKind = 'system' | 'indicator' | 'drawing'
+
+/**
+ * 对象树允许发起的操作集合。
+ *
+ * 能力由创建者按对象事实声明，UI 与 Agent 只读取能力，不按 kind 推断；
+ * 典型差异：K 线不可删除、系统对象不可跨 pane。
+ */
+export interface RenderObjectCapabilities {
+  /** 可删除。 */
+  readonly removable: boolean
+  /** 可切换显隐；锁定不改变该能力。 */
+  readonly hideable: boolean
+  /** 可在所属层带内重排。 */
+  readonly orderable: boolean
+  /** 可迁移到其他 pane。 */
+  readonly movable: boolean
+  /** 可锁定；没有任何可锁动作的对象为 false。 */
+  readonly lockable: boolean
+}
+
+/** 对象的移动目标：pane 身份 + 层带内的插入位置。 */
+export interface RenderObjectMoveTarget {
+  /** 目标 pane；必须能承载该对象，否则命令返回 false。 */
+  readonly paneId: string
+  /** 同层带内自底层起的插入位置；缺省表示该层带顶部。 */
+  readonly index?: number
+}
+
+/**
+ * 对象的领域命令面：对象树与图例的唯一写入口。
+ *
+ * 命令在创建对象时闭包到所属领域（指标实例、绘图文档、settings），
+ * Scene 从不调用它们，也不持有第二份状态。
+ */
+export interface RenderObjectCommands {
+  /** 切换显隐；锁定不阻止该操作。 */
+  setVisible(visible: boolean): boolean
+  /** 切换锁定；锁定只阻止删除、画布拖动与跨 pane 迁移。 */
+  setLocked(locked: boolean): boolean
+  /** 重排或迁移；能力不允许、目标非法时返回 false，不产生中间态。 */
+  move(target: RenderObjectMoveTarget): boolean
+  /** 删除对象及其领域记录；不可删或已锁定时返回 false。 */
+  remove(): boolean
+}
+
+/** 渲染对象的业务身份与命令声明；只有业务对象声明它。 */
+export interface RenderObjectDescriptor {
+  readonly kind: RenderObjectKind
+  /** 对象树显示名；由创建者按当前状态生成，不做二次拼接。 */
+  readonly label: string
+  readonly capabilities: RenderObjectCapabilities
+  readonly commands: RenderObjectCommands
+}
+
+/**
  * 单个 pane 在一帧内的绘制输入：Scene 透传给每个命中该 pane 的 Layer。
  */
 export interface FramePaint {
@@ -153,10 +214,28 @@ interface LayerBase<_TFrame> {
   readonly role: LayerRole
   /** 绘制目标 pane：具体 paneId 或 LAYER_PANE_GLOBAL。 */
   readonly pane: LayerPane
-  /** 同一合成目标内 z 小者先画；相同 z 按注册顺序。 */
-  readonly z: number
-  /** 运行时开关，不改变图层成员关系。 */
+  /**
+   * 同一合成目标内 z 小者先画；相同 z 按注册顺序。
+   *
+   * 业务对象由所属领域顺序决定该值（指标 ordinal、绘图 zIndex、系统固定），
+   * 领域命令写回后刷新这里；Scene 只读，不做二次换算。
+   */
+  z: number
+  /** 运行时开关，不改变图层成员关系；锁定不影响该值。 */
   visible: boolean
+  /**
+   * 锁定状态：禁止删除、画布拖动与跨 pane 迁移，不禁止显隐与排序。
+   *
+   * 由所属领域投影而来，缺省视为未锁定。
+   */
+  locked?: boolean
+  /**
+   * 业务对象身份与命令。
+   *
+   * 网格、坐标轴、刻度、十字线等装饰层不声明该字段，因此不会进入对象树；
+   * 声明后 Layer 即 {@link RenderObject}。
+   */
+  readonly object?: RenderObjectDescriptor
   dispose(): void
 }
 
@@ -181,6 +260,8 @@ export interface ContextLayer<TFrame = unknown> extends LayerBase<TFrame> {
  * - `paint()` 按 Scene 定义的顺序执行；z 小者先画，视觉上被 z 大者覆盖。
  * - `dispose()` 释放 Layer 申请的资源；dispose 后 Scene 不会再调用 paint。
  * - `visible` 是运行时开关；不可见的 Layer 被 Scene 跳过（不调用 paint）。
+ * - `z` / `visible` / `locked` 是所属领域状态的投影：唯一写入口是
+ *   `object.commands`，Scene 只读，不直接改写业务对象的这三个字段。
  * - `pane` 声明绘制目标，`LAYER_PANE_GLOBAL` 表示所有 pane。
  *
  * 判别联合决定合成边界：`draw-list` 拿不到 ctx，只能增量提交；`context` 保留完整
@@ -188,6 +269,20 @@ export interface ContextLayer<TFrame = unknown> extends LayerBase<TFrame> {
  * （图表侧为 `RenderContext`），Scene 只透传，不感知其结构。
  */
 export type Layer<TFrame = unknown> = DrawListLayer<TFrame> | ContextLayer<TFrame>
+
+/**
+ * 渲染对象：声明了业务身份的 Layer，对象树与命令面都作用于它。
+ *
+ * 契约：
+ * - 身份即 `Layer.id`，对象树与命令都按它寻址，不再另设对象 ID；
+ * - `object.commands` 是唯一写入口，命令落回所属领域，领域状态再投影回
+ *   `z` / `visible` / `locked`；
+ * - Scene 只读身份、顺序、显隐与 `paint`，从不调用领域命令；
+ * - 只有业务对象声明 `object`，装饰层保持普通 Layer。
+ */
+export type RenderObject<TFrame = unknown> = Layer<TFrame> & {
+  readonly object: RenderObjectDescriptor
+}
 
 /**
  * Scene 组合 Layer，并通过 Signal 暴露给订阅方。

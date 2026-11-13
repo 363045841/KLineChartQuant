@@ -7,6 +7,7 @@ export * from './components/orderBookHeatmap/index.js'
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
 export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
+export type * from './engine/objects/index.js'
 export {
   type IndicatorInputDef,
   type IndicatorMetadata,
