@@ -61,7 +61,6 @@ export { INSTANCE_MOVE_KIND } from '@363045841yyt/klinechart-core'
 // ---------------------------------------------------------------------------
 
 export type {
-  InstanceMoveOption,
   InstanceMoveTarget,
   LegendComparisonRow,
   LegendCurrentBar,

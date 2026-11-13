@@ -1,8 +1,11 @@
 /** pane 模块对外契约：pane 布局、分层画布、实例迁移命令与副图投影的公共类型。 */
 import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
+import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { IndicatorInstancePatch, IndicatorStateModule } from '../state/indicatorState.js'
 import type { PaneStateModule } from '../state/paneState.js'
+
+export type { PanePlacement } from '../../foundation/types/pane.js'
 
 /** Pane 左上角标题与右上角操作控件共用的逻辑像素内边距。 */
 export const PANE_HEADER_INSET_PX = 12
@@ -103,7 +106,6 @@ export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
 export const INSTANCE_MOVE_KIND = {
   MAIN: 'main',
   PANE: 'pane',
-  NEW_PANE: 'newPane',
 } as const
 
 /** 实例移动目标种类；由 {@link INSTANCE_MOVE_KIND} 派生。 */
@@ -114,6 +116,8 @@ export type InstanceMoveKind = (typeof INSTANCE_MOVE_KIND)[keyof typeof INSTANCE
  *
  * 目标 pane 与当前 pane 相同即为同一 Pane 内重排；`index` 是目标 Pane 内
  * 自底层起的位置，缺省放到该 Pane 末尾（视觉最上层）。
+ *
+ * 新建 Pane 不是移动目标：调用方先 `addPane`，再把实例移动到返回的 paneId。
  */
 export type InstanceMoveTarget =
   | { readonly kind: typeof INSTANCE_MOVE_KIND.MAIN; readonly index?: number }
@@ -122,27 +126,17 @@ export type InstanceMoveTarget =
       readonly paneId: string
       readonly index?: number
     }
-  | {
-      readonly kind: typeof INSTANCE_MOVE_KIND.NEW_PANE
-      readonly anchorPaneId: string
-      readonly placement: 'above' | 'below'
-    }
-
-/** Core 投影给菜单的目标项；UI 只渲染，不自行推导可用性。 */
-export interface InstanceMoveOption {
-  readonly target: InstanceMoveTarget
-  readonly label: string
-  readonly enabled: boolean
-}
 
 /** 实例布局命令：主图与副图共用同一套身份与写入语义。 */
 export interface PaneLayoutCommands {
-  /** 按定义创建实例；target 省略时主图定义进主图，其余进新副图。 */
+  /** 按定义创建实例；target 省略时主图定义进主图，其余进最后一个 Pane 下方的新副图。 */
   add(
     definitionId: string,
     params?: Readonly<Record<string, unknown>>,
     target?: InstanceMoveTarget,
   ): string | null
+  /** 在锚点旁新建空 Pane；返回身份，锚点不存在时返回 null。 */
+  addPane(anchorPaneId: string, placement: PanePlacement): string | null
   /** 迁移实例归属或在同一 Pane 内换位；源副图变空时自动回收。 */
   moveInstance(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
@@ -170,4 +164,6 @@ export interface PaneManagerDependencies {
   readonly pane: PaneStateModule
   readonly indicator: IndicatorStateModule
   readonly getDefinition: (indicatorId: string) => IndicatorMetadata | undefined
+  /** 指标以外的 Pane 内容（绘图、系统对象）；回收空副图前必须一并检查。 */
+  readonly hasPaneContent: (paneId: string) => boolean
 }

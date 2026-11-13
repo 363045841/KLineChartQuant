@@ -112,7 +112,7 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
 /**
  * 指标实例的渲染对象身份。
  *
- * 能力按对象事实声明：可删除、可显隐、可排序、可跨 pane、可锁定；
+ * 能力按对象事实声明：可删除、可显隐、可排序、可跨 pane；指标不参与锁定。
  * 命令由图表注入，管理器不直接写 kernel。
  */
 function createIndicatorObjectDescriptor(
@@ -121,13 +121,14 @@ function createIndicatorObjectDescriptor(
 ): RenderObjectDescriptor {
   return {
     kind: 'indicator',
-    label: definition.title ?? definition.displayName,
+    // 对象树显示指标 Name（displayName），不使用选择器里的长标题 title。
+    label: definition.displayName,
     capabilities: {
       removable: true,
       hideable: true,
       orderable: true,
       movable: true,
-      lockable: true,
+      lockable: false,
     },
     commands,
   }

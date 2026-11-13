@@ -27,6 +27,7 @@ import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
+import { drawingKindAxisLabels } from '../../model/impl/drawingKindSpecs.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
@@ -211,15 +212,6 @@ function attachAreaLabels(
   })
 }
 
-/** 水平类图元只有价格语义：锚点只投影价格轴标签。 */
-const PRICE_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set([
-  'horizontal-line',
-  'horizontal-ray',
-])
-
-/** 垂直类图元只有时间语义：锚点只投影时间轴标签。 */
-const TIME_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set(['vertical-line'])
-
 /** 锚点逻辑索引是否落在当前可见区间。 */
 function isAnchorIndexVisible(
   anchor: ResolvedDrawingAnchor,
@@ -362,8 +354,9 @@ function projectAxisDecorations(
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return
-  const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
-  const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
+  const axisLabels = drawingKindAxisLabels(kind)
+  const priceLabelOnly = axisLabels === 'price'
+  const timeLabelOnly = axisLabels === 'time'
   for (const anchor of anchors) {
     projectAnchorAxisLabels(
       anchor,
@@ -532,6 +525,8 @@ export function projectDrawingsForFrame(
   scope: DrawingPaintScope = 'all',
   snapIndicator: DrawingSnapIndicator | null = null,
   source: DrawingSource = 'all',
+  /** 按图元收集原语；提供时正式图元移出聚合结果，只留下手柄、框选与磁吸。 */
+  objects?: Map<string, ReadonlyArray<DrawingPrimitive>>,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -569,7 +564,13 @@ export function projectDrawingsForFrame(
     scope,
     source,
   )) {
+    if (objects === undefined) {
+      projectStoredDrawing(state, storedDrawing, scope)
+      continue
+    }
+    const start = output.primitives.length
     projectStoredDrawing(state, storedDrawing, scope)
+    objects.set(storedDrawing.id, output.primitives.splice(start))
   }
   output.primitives.push(...state.handlePrimitives)
   if (selectionMarquee?.paneId === context.pane.id) {

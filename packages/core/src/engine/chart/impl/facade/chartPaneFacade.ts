@@ -10,6 +10,7 @@ import type {
   PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
+  PanePlacement,
   PaneSpec,
 } from '../../../pane/types.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
@@ -34,6 +35,11 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     target?: InstanceMoveTarget,
   ): string | null {
     return this.deps.kernel.paneManager.actions.add(definitionId, params, target)
+  }
+
+  /** 新建空 Pane；返回身份，锚点不存在时返回 null。 */
+  addPane(anchorPaneId: string, placement: PanePlacement): string | null {
+    return this.deps.kernel.paneManager.actions.addPane(anchorPaneId, placement)
   }
 
   /** 迁移实例归属；源副图变空时自动回收。同 pane 时按 index 换位。 */

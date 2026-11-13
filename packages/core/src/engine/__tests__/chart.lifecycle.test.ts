@@ -744,7 +744,7 @@ describe('Chart lifecycle without a market selection', () => {
           .getPaneRenderers()
           .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
           .getPane()
-        const targets: import('../pane/types').InstanceMoveTarget[] = [
+        const targets: import('../legend/types').LegendMoveTarget[] = [
           { kind: 'pane', paneId: targetPaneId },
           { kind: 'main' },
           { kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'above' },
@@ -857,17 +857,16 @@ describe('Chart lifecycle without a market selection', () => {
         hideable: true,
         orderable: true,
         movable: true,
-        lockable: true,
+        lockable: false,
       })
 
       const commands = chart.objects.commandsFor(row.objectId)
       if (commands === null) throw new Error('indicator commands missing')
-      // 锁定只禁删除与迁移，显隐照常；隐藏后对象仍在树中。
-      expect(commands.setLocked(true)).toBe(true)
+      // 指标不参与锁定；显隐照常，隐藏后对象仍在树中。
+      expect(commands.setLocked(true)).toBe(false)
       expect(commands.setVisible(false)).toBe(true)
       expect(locate()?.visible).toBe(false)
-      expect(commands.remove()).toBe(false)
-      expect(commands.setLocked(false)).toBe(true)
+      expect(commands.setVisible(true)).toBe(true)
       expect(commands.remove()).toBe(true)
       expect(locate()).toBeUndefined()
     } finally {
@@ -902,10 +901,126 @@ describe('Chart lifecycle without a market selection', () => {
 
       const commands = chart.objects.commandsFor(secondLayerId)
       if (commands === null) throw new Error('indicator commands missing')
-      expect(commands.move({ paneId: MAIN_PANE_ID, index: 0 })).toBe(true)
+      expect(commands.move({ kind: 'pane', paneId: MAIN_PANE_ID, index: 0 })).toBe(true)
 
       // 顺序写回 ordinal 后，绘制层 z 同步反转，对象树与画面一致。
       expect(chart.getRenderer(secondLayerId)!.z).toBeLessThan(chart.getRenderer(firstLayerId)!.z)
+
+      // 拖到最底端分割线：新建 Pane，并走同一套 Pane 领域命令。
+      const paneCount = chart.panes.getLayoutSpecs().length
+      expect(
+        commands.move({ kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'below' }),
+      ).toBe(true)
+      expect(chart.panes.getLayoutSpecs().length).toBe(paneCount + 1)
+      const movedPane = chart.kernel.indicator.readonly.instances
+        .peek()
+        .find((instance) => instance.instanceId === secondId)?.paneId
+      expect(movedPane).not.toBe(MAIN_PANE_ID)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('projects user drawings as objects and routes drawing commands', async () => {
+    const chart = mountChart()
+    try {
+      chart.drawing.setDrawings([createTrendLine('d-a'), createTrendLine('d-b')])
+      const rowsOf = () =>
+        chart.objects.groups.peek().find((group) => group.paneId === MAIN_PANE_ID)?.rows ?? []
+      const drawingRows = () => rowsOf().filter((row) => row.kind === 'drawing')
+      const drawingIds = () =>
+        drawingRows().map((row) => (row.objectId.endsWith('d-a') ? 'd-a' : 'd-b'))
+
+      // 同 z 时后注册的图元画在上面，列表也排在前面。
+      expect(drawingIds()).toEqual(['d-b', 'd-a'])
+      expect(drawingRows()[0]?.label).toBe('趋势线')
+      expect(drawingRows()[0]?.capabilities.movable, 'movable').toBe(false)
+
+      const top = drawingRows()[0]!
+      const commands = chart.objects.commandsFor(top.objectId)
+      if (commands === null) throw new Error('drawing commands missing')
+
+      // 跨 pane 改变价格轴语义，命令层直接拒绝。
+      expect(commands.move({ kind: 'pane', paneId: 'rsi', index: 0 }), 'cross-pane move').toBe(
+        false,
+      )
+
+      // 锁定禁删除，但显隐与同 pane 排序照常。
+      expect(commands.setLocked(true)).toBe(true)
+      expect(commands.remove(), 'locked remove').toBe(false)
+      expect(commands.setVisible(false)).toBe(true)
+      expect(drawingRows().find((row) => row.objectId === top.objectId)?.visible).toBe(false)
+
+      const bottom = drawingRows().find((row) => row.objectId !== top.objectId)!
+      const bottomCommands = chart.objects.commandsFor(bottom.objectId)
+      if (bottomCommands === null) throw new Error('drawing commands missing')
+      expect(bottomCommands.move({ kind: 'pane', paneId: MAIN_PANE_ID, index: 1 })).toBe(true)
+      expect(drawingIds()).toEqual(['d-a', 'd-b'])
+
+      expect(commands.setLocked(false)).toBe(true)
+      expect(commands.remove()).toBe(true)
+      expect(drawingRows()).toHaveLength(1)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('projects the main series as a non-removable system object', async () => {
+    const chart = mountChart()
+    try {
+      const rowsOf = () =>
+        chart.objects.groups.peek().find((group) => group.paneId === MAIN_PANE_ID)?.rows ?? []
+      const systemRow = () => rowsOf().find((row) => row.kind === 'system')
+      const row = systemRow()
+      if (row === undefined) throw new Error('system object missing')
+
+      // 未选品种时用中性占位；有品种时读取 symbol 代码。
+      expect(row.label).toBe('未选择品种')
+      expect(row.capabilities).toMatchObject({
+        removable: false,
+        hideable: true,
+        orderable: true,
+        movable: true,
+        lockable: false,
+      })
+
+      const commands = chart.objects.commandsFor(row.objectId)
+      if (commands === null) throw new Error('system commands missing')
+      expect(commands.remove()).toBe(false)
+      expect(commands.setLocked(true)).toBe(false)
+
+      expect(commands.setVisible(false)).toBe(true)
+      expect(systemRow()?.visible).toBe(false)
+      expect(chart.getRenderer(row.objectId)?.visible).toBe(false)
+      expect(commands.setVisible(true)).toBe(true)
+      expect(systemRow()?.visible).toBe(true)
+      expect(chart.getRenderer(row.objectId)?.visible).toBe(true)
+
+      // 主序列可在主图层带内调整顺序：拖到指标下方后 z 变小。
+      const definitionId = 'system-order-indicator'
+      registerPlotDefinition({
+        id: definitionId,
+        name: definitionId,
+        source: 'script',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      const indicatorId = chart.panes.add(definitionId)
+      if (indicatorId === null) throw new Error('indicator missing')
+      const indicatorLayerId = resolveIndicatorLayerId(
+        definitionId,
+        MAIN_PANE_ID,
+        'renderer',
+        indicatorId,
+      )
+      expect(chart.getRenderer(row.objectId)!.z).toBeGreaterThan(
+        chart.getRenderer(indicatorLayerId)!.z,
+      )
+      expect(commands.move({ kind: 'pane', paneId: MAIN_PANE_ID, index: 0 })).toBe(true)
+      expect(chart.getRenderer(row.objectId)!.z).toBeLessThan(
+        chart.getRenderer(indicatorLayerId)!.z,
+      )
     } finally {
       await chart.destroy()
     }

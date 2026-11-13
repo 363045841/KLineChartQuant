@@ -284,11 +284,17 @@
     DrawingTool,
     MagnetMode,
   } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    type DrawingToolId,
+    drawingKindName,
+    getDrawingKind,
+  } from '@363045841yyt/klinechart-core/engine/drawing'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import { COMMIT_HASH, COMMIT_TIME, CORE_VERSION, VERSION } from '@vue-src/version.js'
@@ -334,6 +340,11 @@
     children?: ToolDef[]
   }
 
+  /** 绘图工具标题取种类声明，工具栏不再维护第二套名称。 */
+  function drawingToolTitle(toolId: DrawingToolId): string {
+    return drawingKindName(getDrawingKind(toolId))
+  }
+
   const primaryTools: ToolDef[] = [
     { id: CURSOR_DRAWING_TOOL_ID, title: '光标', icon: IconTablerPointer },
     { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerMarquee2 },
@@ -342,13 +353,41 @@
       title: '线条',
       icon: IconTablerChartLine,
       children: [
-        { id: DrawingTool.TrendLine, title: '线段', icon: IconTablerChartLine },
-        { id: DrawingTool.Ray, title: '射线', icon: IconTablerArrowUpRight },
-        { id: DrawingTool.HorizontalLine, title: '水平线', icon: IconTablerMinus },
-        { id: DrawingTool.HorizontalRay, title: '水平射线', icon: IconTablerArrowRight },
-        { id: DrawingTool.VerticalLine, title: '垂直线', icon: IconTablerMinusVertical },
-        { id: DrawingTool.CrosshairLine, title: '十字线', icon: IconTablerPlus },
-        { id: DrawingTool.InfoLine, title: '信息线', icon: IconTablerInfoCircle },
+        {
+          id: DrawingTool.TrendLine,
+          title: drawingToolTitle(DrawingTool.TrendLine),
+          icon: IconTablerChartLine,
+        },
+        {
+          id: DrawingTool.Ray,
+          title: drawingToolTitle(DrawingTool.Ray),
+          icon: IconTablerArrowUpRight,
+        },
+        {
+          id: DrawingTool.HorizontalLine,
+          title: drawingToolTitle(DrawingTool.HorizontalLine),
+          icon: IconTablerMinus,
+        },
+        {
+          id: DrawingTool.HorizontalRay,
+          title: drawingToolTitle(DrawingTool.HorizontalRay),
+          icon: IconTablerArrowRight,
+        },
+        {
+          id: DrawingTool.VerticalLine,
+          title: drawingToolTitle(DrawingTool.VerticalLine),
+          icon: IconTablerMinusVertical,
+        },
+        {
+          id: DrawingTool.CrosshairLine,
+          title: drawingToolTitle(DrawingTool.CrosshairLine),
+          icon: IconTablerPlus,
+        },
+        {
+          id: DrawingTool.InfoLine,
+          title: drawingToolTitle(DrawingTool.InfoLine),
+          icon: IconTablerInfoCircle,
+        },
       ],
     },
     {
@@ -356,10 +395,26 @@
       title: '通道',
       icon: IconTablerEqual,
       children: [
-        { id: DrawingTool.ParallelChannel, title: '平行通道', icon: IconTablerEqual },
-        { id: DrawingTool.RegressionChannel, title: '回归趋势', icon: IconTablerChartDots3 },
-        { id: DrawingTool.FlatLine, title: '平滑顶底', icon: IconTablerAngle },
-        { id: DrawingTool.DisjointChannel, title: '不相交通道', icon: IconTablerX },
+        {
+          id: DrawingTool.ParallelChannel,
+          title: drawingToolTitle(DrawingTool.ParallelChannel),
+          icon: IconTablerEqual,
+        },
+        {
+          id: DrawingTool.RegressionChannel,
+          title: drawingToolTitle(DrawingTool.RegressionChannel),
+          icon: IconTablerChartDots3,
+        },
+        {
+          id: DrawingTool.FlatLine,
+          title: drawingToolTitle(DrawingTool.FlatLine),
+          icon: IconTablerAngle,
+        },
+        {
+          id: DrawingTool.DisjointChannel,
+          title: drawingToolTitle(DrawingTool.DisjointChannel),
+          icon: IconTablerX,
+        },
       ],
     },
     {
@@ -367,9 +422,21 @@
       title: '标注',
       icon: IconTablerShape,
       children: [
-        { id: DrawingTool.FibRetracement, title: '斐波那契回撤', icon: IconTablerAlignJustified },
-        { id: DrawingTool.Rectangle, title: '矩形', icon: IconTablerShape },
-        { id: DrawingTool.Arrow, title: '箭头', icon: IconTablerArrowUpRight },
+        {
+          id: DrawingTool.FibRetracement,
+          title: drawingToolTitle(DrawingTool.FibRetracement),
+          icon: IconTablerAlignJustified,
+        },
+        {
+          id: DrawingTool.Rectangle,
+          title: drawingToolTitle(DrawingTool.Rectangle),
+          icon: IconTablerShape,
+        },
+        {
+          id: DrawingTool.Arrow,
+          title: drawingToolTitle(DrawingTool.Arrow),
+          icon: IconTablerArrowUpRight,
+        },
       ],
     },
     { id: RANGE_SELECT_UI_TOOL_ID, title: '区间选择', icon: IconTablerArrowsHorizontal },
@@ -435,35 +502,20 @@
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
   const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
-
-  /** 指针移动到工具按钮时驱动滑动高亮块；展开箭头跟随其所属按钮。 */
-  function onPointerOver(event: PointerEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    const button =
-      target?.closest<HTMLElement>('.left-toolbar__button') ??
+  // 主按钮优先；展开箭头命中时高亮其所属按钮。
+  const {
+    onPointerOver,
+    onFocusIn,
+    hide: hideHighlight,
+  } = useSlidingHighlight(
+    highlight,
+    (target) =>
+      target.closest<HTMLElement>('.left-toolbar__button') ??
       target
-        ?.closest<HTMLElement>('.tool-item')
-        ?.querySelector<HTMLElement>('.left-toolbar__button')
-    if (button) highlight.value?.moveTo(button)
-    else highlight.value?.hide()
-  }
-
-  /** 键盘焦点进入工具按钮时与指针同样驱动高亮块。 */
-  function onFocusIn(event: FocusEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    const button =
-      target?.closest<HTMLElement>('.left-toolbar__button') ??
-      target
-        ?.closest<HTMLElement>('.tool-item')
-        ?.querySelector<HTMLElement>('.left-toolbar__button')
-    if (button) highlight.value?.moveTo(button)
-    else highlight.value?.hide()
-  }
-
-  /** 指针或焦点离开工具栏时收起高亮块。 */
-  function hideHighlight(): void {
-    highlight.value?.hide()
-  }
+        .closest<HTMLElement>('.tool-item')
+        ?.querySelector<HTMLElement>('.left-toolbar__button') ??
+      null,
+  )
 
   const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})

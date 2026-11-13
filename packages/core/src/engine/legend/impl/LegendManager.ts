@@ -7,7 +7,8 @@ import {
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
 import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
-import type { InstanceMoveOption, InstanceMoveTarget } from '@/engine/pane/types.js'
+import { runInNewPane } from '@/engine/pane/index.js'
+import type { InstanceMoveTarget } from '@/engine/pane/types.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
@@ -19,6 +20,8 @@ import type {
   LegendApi,
   LegendEntry,
   LegendManagerDependencies,
+  LegendMoveOption,
+  LegendMoveTarget,
   LegendPatch,
   LegendRow,
   LegendTemplateContext,
@@ -196,19 +199,24 @@ export class LegendManager implements LegendApi {
     const targetIndex = index + (direction === 'up' ? -1 : 1)
     // 首项上移、末项下移都是无操作，保持原按钮的可用性语义。
     if (index < 0 || targetIndex < 0 || targetIndex >= instances.length) return false
-    return this.deps.panes.moveInstance(
-      entry.id,
-      entry.paneId === MAIN_PANE_ID
-        ? { kind: INSTANCE_MOVE_KIND.MAIN, index: targetIndex }
-        : { kind: INSTANCE_MOVE_KIND.PANE, paneId: entry.paneId, index: targetIndex },
-    )
+    return this.deps.panes.moveInstance(entry.id, {
+      kind: INSTANCE_MOVE_KIND.PANE,
+      paneId: entry.paneId,
+      index: targetIndex,
+    })
   }
 
-  /** 迁移实例到菜单选择的目标；空副图由命令面回收。 */
-  moveTo(id: string, target: InstanceMoveTarget): boolean {
+  /** 迁移实例到菜单选择的目标；新建 Pane 时先建后移，空副图由命令面回收。 */
+  moveTo(id: string, target: LegendMoveTarget): boolean {
     const entry = this.get(id)
     if (entry?.kind !== 'indicator') return false
-    return this.deps.panes.moveInstance(entry.id, target)
+    if (target.kind !== 'newPane') return this.deps.panes.moveInstance(entry.id, target)
+    return runInNewPane(this.deps.panes, target.anchorPaneId, target.placement, (paneId) =>
+      this.deps.panes.moveInstance(entry.id, {
+        kind: INSTANCE_MOVE_KIND.PANE,
+        paneId,
+      }),
+    )
   }
 
   /** 自定义行在同一 Pane 内与相邻行换位。 */
@@ -265,11 +273,11 @@ export class LegendManager implements LegendApi {
   }
 
   /** 菜单目标：主图、已有副图（首实例名）与锚点上下新建。 */
-  private moveOptions(entry: Extract<LegendEntry, { kind: 'indicator' }>): InstanceMoveOption[] {
+  private moveOptions(entry: Extract<LegendEntry, { kind: 'indicator' }>): LegendMoveOption[] {
     const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
       INDICATOR_INSTANCE_CATALOG_SERVICE,
     )
-    const options: InstanceMoveOption[] = [
+    const options: LegendMoveOption[] = [
       {
         target: { kind: INSTANCE_MOVE_KIND.MAIN },
         label: '移至主图',
@@ -290,7 +298,7 @@ export class LegendManager implements LegendApi {
     options.push(
       {
         target: {
-          kind: INSTANCE_MOVE_KIND.NEW_PANE,
+          kind: 'newPane',
           anchorPaneId: entry.paneId,
           placement: 'above',
         },
@@ -299,7 +307,7 @@ export class LegendManager implements LegendApi {
       },
       {
         target: {
-          kind: INSTANCE_MOVE_KIND.NEW_PANE,
+          kind: 'newPane',
           anchorPaneId: entry.paneId,
           placement: 'below',
         },

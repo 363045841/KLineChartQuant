@@ -11,13 +11,15 @@ import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2
 import { createScene } from '@/rendering/scene/createScene'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
 import {
-  createDrawingLayer,
+  createDrawingObjectLayer,
+  createDrawingOverlayLayer,
   createDrawingSessionLayer,
   createIndicatorDrawingLayer,
 } from '../impl/plugin'
+import type { RenderObjectDescriptor } from '@/rendering/scene/types'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'
 
-describe('createDrawingLayer', () => {
+describe('createDrawingOverlayLayer', () => {
   /** 默认适配器整层提交原语，GPU 目标不能误用行情画布。 */
   it.each(['committed', 'session'] as const)(
     'submits the default %s renderer through the backend',
@@ -45,7 +47,7 @@ describe('createDrawingLayer', () => {
         sessionDrawingProjection: projection,
         sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint, dispose() {} } },
       })
-      const layer = (scope === 'committed' ? createDrawingLayer : createDrawingSessionLayer)()
+      const layer = (scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer)()
       layer.paint({ ...context, paneId: 'main', clear: false })
       expect(paint).toHaveBeenCalledExactlyOnceWith(
         scope === 'committed' ? drawingCtx : overlayCtx,
@@ -83,7 +85,7 @@ describe('createDrawingLayer', () => {
       pane: { height: 400 },
     })
     context.sessionDrawingProjection = context.drawingProjection
-    const createLayer = scope === 'committed' ? createDrawingLayer : createDrawingSessionLayer
+    const createLayer = scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer
     const layer = createLayer({
       renderers: {
         point,
@@ -164,7 +166,7 @@ describe('createIndicatorDrawingLayer', () => {
   })
 
   /** 非 main 目标即使提供 GPU 主表面也不能把用户 drawing 或预览画到行情表面。 */
-  it.each([createDrawingLayer, createDrawingSessionLayer])(
+  it.each([createDrawingOverlayLayer, createDrawingSessionLayer])(
     'keeps drawing target bands isolated',
     (factory) => {
       const main = createMockCanvasContext()
@@ -249,6 +251,44 @@ describe('createIndicatorDrawingLayer', () => {
     layer.paint({ ...context, paneId: 'main', clear: false })
     expect(point).toHaveBeenCalledWith(mainCtx, primitive, 1)
     expect(drawingCtx.fill).not.toHaveBeenCalled()
+  })
+})
+
+describe('createDrawingObjectLayer', () => {
+  /** 每图元对象层只提交自己的投影切片，不会读到其他图元的原语。 */
+  it('submits only the primitives of its own object', () => {
+    const paint = vi.fn(() => true)
+    const primitive = {
+      kind: 'point',
+      point: { x: 10, y: 20 },
+      style: { stroke: '#f00' },
+    } satisfies DrawingPrimitive
+    const object: RenderObjectDescriptor = {
+      kind: 'drawing',
+      label: '趋势线',
+      capabilities: {
+        removable: true,
+        hideable: true,
+        orderable: true,
+        movable: false,
+        lockable: true,
+      },
+      commands: {
+        setVisible: () => true,
+        setLocked: () => true,
+        move: () => false,
+        remove: () => true,
+      },
+    }
+    const context = createMockRenderContext({
+      drawingObjectProjections: new Map([['d1', [primitive]]]),
+      sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint, dispose() {} } },
+    })
+    const layer = createDrawingObjectLayer('d1', 'main', object)
+
+    expect(layer.pane).toBe('main')
+    layer.paint({ ...context, paneId: 'main', clear: false })
+    expect(paint).toHaveBeenCalledTimes(1)
   })
 })
 

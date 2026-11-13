@@ -18,8 +18,6 @@ export interface IndicatorInstanceConfig {
   readonly role: IndicatorInstanceRole
   readonly ordinal: number
   readonly hidden?: boolean
-  /** 锁定只冻结删除、画布拖动与跨 pane 迁移，不影响显隐与排序。 */
-  readonly locked?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -34,8 +32,6 @@ export interface IndicatorInstanceSpec {
   readonly ordinal: number
   /** 隐藏只影响图表绘制，图例仍保留并置灰；不参与计算身份。 */
   readonly hidden?: boolean
-  /** 锁定只冻结删除、画布拖动与跨 pane 迁移，不影响显隐与排序。 */
-  readonly locked?: boolean
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -48,7 +44,6 @@ export interface IndicatorInstancePatch {
   readonly indicatorId?: string
   readonly ordinal?: number
   readonly hidden?: boolean
-  readonly locked?: boolean
   readonly params?: Readonly<Record<string, unknown>>
 }
 
@@ -73,7 +68,6 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceConfi
     ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
     ...(entry.hidden ? { hidden: true as const } : {}),
-    ...(entry.locked ? { locked: true as const } : {}),
   }
   return Object.freeze(snapshot)
 }

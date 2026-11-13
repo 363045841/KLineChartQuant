@@ -19,10 +19,10 @@ import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.
 import type { DrawingLine } from '../../geometry/types.js'
 import { resolveDrawingHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
+import { CHANNEL_KINDS, drawingKindExtend } from '../../model/impl/drawingKindSpecs.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingLabel, DrawingObject } from '../../types.js'
 import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
-import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
@@ -487,7 +487,7 @@ function extendSegment(
   plotWidth: number,
   plotHeight: number,
 ): LineSegment {
-  const extend = drawing.extend ?? getExtendMode(drawing.kind)
+  const extend = drawing.extend ?? drawingKindExtend(drawing.kind)
   const maxLen = Math.max(plotWidth, plotHeight) * 4
   const dx = b.x - a.x
   const dy = b.y - a.y

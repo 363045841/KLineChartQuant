@@ -3,11 +3,9 @@ import {
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
 } from '../../../foundation/config/priceAxisRangeMode.js'
-import type { PaneRole } from '../../../foundation/plugin/index.js'
 import type { ComparisonProjection } from '../../chartModel/impl/comparison/types.js'
 import type { ChartModeHandler, PaneAutoPriceRange } from '../../chartModel/impl/modes/types.js'
 import type { ChartDataManager } from '../../data/chartDataManager.js'
-import { MAIN_PANE_ID } from '../../pane/types.js'
 import type { PriceRange } from '../../scale/index.js'
 import type { VisibleRange } from '../../viewport/viewport.js'
 
@@ -23,42 +21,43 @@ export interface ResolvedPanePriceRange {
 
 /** 四条自动范围通道的输入；各通道的取数由调用方准备。 */
 export interface PaneAutoRangeInput {
-  readonly paneId: string
-  readonly role: PaneRole
+  /** 本 Pane 是否承载主价格序列（K 线等），与 Pane 身份无关。 */
+  readonly hasPriceSeries: boolean
   readonly range: VisibleRange
   readonly dataManager: ChartDataManager
   readonly mode: ChartModeHandler
-  readonly mainIndicatorRange: { min: number; max: number } | null
+  /** 本 Pane 主轴的指标输出极值。 */
+  readonly indicatorRange: { min: number; max: number } | null
   readonly comparisonActive: boolean
   readonly comparisonProjection: ComparisonProjection | null
-  readonly subIndicatorRange: { min: number; max: number } | null
   readonly closeOnly?: boolean
 }
 
 /**
- * 按 Pane 角色与数据视图分派自动范围通道：
- * 副图用指标 state 极值；主图比较叠加用比较投影；其余交给当前图表模式（K 线可见区 / 分时）。
+ * 按 Pane 内容分派自动范围通道：
+ * 有主价格序列时走行情范围并与指标极值合并；只有指标时用指标极值。
  * @returns 自动范围；无有效数据时返回 null
  */
 export function computePaneAutoRange(input: PaneAutoRangeInput): PaneAutoPriceRange | null {
-  if (input.role === 'indicator') {
-    // 副图坐标轴只由对应指标 state 驱动，与主图模式无关。
-    const sub = input.subIndicatorRange
-    return sub ? { range: { minPrice: sub.min, maxPrice: sub.max }, basePrice: null } : null
+  if (!input.hasPriceSeries) {
+    const indicator = input.indicatorRange
+    return indicator
+      ? { range: { minPrice: indicator.min, maxPrice: indicator.max }, basePrice: null }
+      : null
   }
 
-  if (input.paneId === MAIN_PANE_ID && input.comparisonActive && input.comparisonProjection) {
+  if (input.comparisonActive && input.comparisonProjection) {
     const { min, max, basePrice } = input.comparisonProjection
     return {
       range: {
-        minPrice: Math.min(min, input.mainIndicatorRange?.min ?? min),
-        maxPrice: Math.max(max, input.mainIndicatorRange?.max ?? max),
+        minPrice: Math.min(min, input.indicatorRange?.min ?? min),
+        maxPrice: Math.max(max, input.indicatorRange?.max ?? max),
       },
       basePrice,
     }
   }
 
-  const indicatorRange = input.mode.useIndicatorScheduler ? input.mainIndicatorRange : null
+  const indicatorRange = input.mode.useIndicatorScheduler ? input.indicatorRange : null
   return input.mode.computePaneRange(
     input.range,
     input.dataManager,

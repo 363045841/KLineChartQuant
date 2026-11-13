@@ -5,9 +5,10 @@ export { resolveInstanceAxisMap, resolvePaneAxes } from './axisResolver.js'
 export { ChartPaneLayout } from './impl/layout/chartPaneLayout.js'
 export { Pane, UpdateLevel } from './impl/layout/pane.js'
 export { PaneManager } from './impl/paneManager.js'
+export { type PanePlacementPort, runInNewPane } from './impl/panePlacement.js'
 export { PaneRenderer } from './impl/paneRenderer.js'
 export type {
-  InstanceMoveOption,
   InstanceMoveTarget,
   PaneLayoutCommands,
+  PanePlacement,
 } from './types.js'

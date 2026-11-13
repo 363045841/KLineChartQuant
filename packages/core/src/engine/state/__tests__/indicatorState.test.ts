@@ -47,20 +47,3 @@ describe('indicatorState.applyPaneInstanceOrder', () => {
     expect(state.readonly.instances.peek()).toBe(before)
   })
 })
-
-describe('indicatorState locked', () => {
-  it('锁定只写实例配置，不参与计算身份', () => {
-    const state = createStateWithInstances()
-    const revision = state.readonly.configRevision.peek()
-
-    expect(state.actions.updateInstance('main_a', { locked: true })).toBe(true)
-    const locked = state.readonly.instances.peek().find((item) => item.instanceId === 'main_a')
-    expect(locked?.locked).toBe(true)
-    // 参数与归属未变时，计算 revision 不因锁定而递增。
-    expect(state.readonly.configRevision.peek()).toBe(revision)
-
-    expect(state.actions.updateInstance('main_a', { locked: false })).toBe(true)
-    const unlocked = state.readonly.instances.peek().find((item) => item.instanceId === 'main_a')
-    expect(unlocked?.locked).toBeUndefined()
-  })
-})

@@ -232,12 +232,15 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
   const formatter = rest.displayTimeFormatter ?? createTimeFormatter('UTC')
   const grid = createKLineSlotGrid(kWidth, kGap, dpr)
   const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+  const paneInfo = createMockPaneInfo(pane)
   const defaults = {
     ctx: createMockCanvasContext(),
     data,
     period,
     dataView: ChartDataViewId.KLine,
-    pane: createMockPaneInfo(pane),
+    pane: paneInfo,
+    // 价格序列按 Pane 内容判定：夹具里只有价格 Pane 承载主序列。
+    hasPriceSeries: paneInfo.role === 'price',
     range: { start: 0, end: count },
     scrollLeft,
     slotGrid: grid,

@@ -52,8 +52,6 @@ function anchorHandlePrimitives(
 export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefinition {
   return {
     kind,
-    minAnchors: 1,
-    maxAnchors: 1,
     extent(drawing) {
       // 水平线与十字线横跨整条索引轴；水平射线向右无界；垂直线只占一个槽位。
       if (kind === 'horizontal-line' || kind === 'cross-line') return UNBOUNDED_DRAWING_EXTENT

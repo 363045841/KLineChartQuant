@@ -1,13 +1,24 @@
-/** 验证工具锚点数表的不变量：三张表互不重叠，且不含非绘图工具。 */
+/** 验证工具锚点数与种类声明一致：绘图工具都有数量，非绘图工具返回 null。 */
 import { describe, expect, it } from 'vitest'
+import { getDrawingInputAnchorCount } from '../../model/impl/materializeAnchors'
+import { getAnchorCountForTool, getDrawingKind } from '../impl/toolConfig'
+import type { DrawingToolId } from '../types'
+import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types'
 
-import { DOUBLE_ANCHOR_TOOLS, SINGLE_ANCHOR_TOOLS, TRIPLE_ANCHOR_TOOLS } from '@/controllers/index'
+describe('toolConfig anchor counts', () => {
+  it('绘图工具的锚点数等于所属种类声明的输入锚点数', () => {
+    const tools: DrawingToolId[] = Object.values(DrawingTool)
+    const drawingTools = tools.filter(
+      (tool) => tool !== CURSOR_DRAWING_TOOL_ID && tool !== BOX_SELECT_DRAWING_TOOL_ID,
+    )
+    expect(drawingTools.length).toBeGreaterThan(0)
+    for (const tool of drawingTools) {
+      expect(getAnchorCountForTool(tool)).toBe(getDrawingInputAnchorCount(getDrawingKind(tool)))
+    }
+  })
 
-describe('toolConfig anchor tables', () => {
-  it('三个锚点数表互不重叠，且不含非绘图工具', () => {
-    const all = [...SINGLE_ANCHOR_TOOLS, ...DOUBLE_ANCHOR_TOOLS, ...TRIPLE_ANCHOR_TOOLS]
-    expect(new Set(all).size).toBe(all.length)
-    expect(all).not.toContain('cursor')
-    expect(all).not.toContain('box-select')
+  it('非绘图工具没有锚点数', () => {
+    expect(getAnchorCountForTool(CURSOR_DRAWING_TOOL_ID)).toBeNull()
+    expect(getAnchorCountForTool(BOX_SELECT_DRAWING_TOOL_ID)).toBeNull()
   })
 })

@@ -26,3 +26,24 @@
     border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
     color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
 }
+
+/*
+ * 4. 图标反馈：可交互行/按钮内的图标在悬停与聚焦时提亮并轻微放大。
+ *
+ * 类加在宿主按钮上，尺寸由使用方决定；常态与悬停颜色可用
+ * `--klc-icon-feedback-color` / `--klc-icon-feedback-hover-color` 覆盖。
+ */
+.klc-motion-icon-feedback svg {
+  transform-origin: center;
+  color: var(--klc-icon-feedback-color, var(--klc-color-ui-text-soft));
+  transition:
+    color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+    transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+}
+
+.klc-motion-icon-feedback:hover svg,
+.klc-motion-icon-feedback:focus-visible svg,
+.klc-motion-icon-feedback:focus-within svg {
+  color: var(--klc-icon-feedback-hover-color, var(--klc-color-ui-text));
+  transform: scale(1.12);
+}

@@ -1,12 +1,11 @@
 <!-- 对象树面板：按 pane 分组展示渲染对象，支持显隐、锁定、删除与拖动排序/跨 pane 迁移。 -->
 <template>
-  <section class="object-tree" aria-label="对象">
+  <section class="object-tree" aria-label="对象树">
     <header class="object-tree__head">
       <div class="object-tree__title-row">
-        <h2 class="object-tree__title">对象</h2>
+        <h2 class="object-tree__title">对象树</h2>
         <span v-if="totalCount > 0" class="object-tree__count">{{ totalCount }}</span>
       </div>
-      <p v-if="!isEmpty" class="object-tree__hint">从上到下为图层顺序，拖动左侧手柄调整。</p>
     </header>
 
     <BaseEmptyState v-if="isEmpty" size="compact">
@@ -15,29 +14,20 @@
       <template #hint>添加指标后会出现在这里</template>
     </BaseEmptyState>
 
-    <div v-else class="object-tree__groups">
-      <section v-for="group in groups" :key="group.paneId" class="object-group">
-        <button
-          type="button"
-          class="object-group__header"
-          :aria-expanded="!isCollapsed(group.paneId)"
-          @click="toggleCollapsed(group.paneId)"
-          @dragover="onGroupDragOver($event, group, 0)"
-          @drop="onDrop($event, group, 0)"
-        >
-          <IconTablerChevronDown
-            class="object-group__chevron"
-            :class="{ 'is-collapsed': isCollapsed(group.paneId) }"
-            aria-hidden="true"
-          />
-          <span class="object-group__label">{{ group.label }}</span>
-          <span v-if="group.rows.length > 0" class="object-group__count">
-            {{ group.rows.length }}
-          </span>
-        </button>
-
+    <div
+      v-else
+      class="object-tree__groups"
+      @pointerover="onRowPointerOver"
+      @pointerleave="hideRowHighlight"
+      @focusin="onRowFocusIn"
+      @focusout="hideRowHighlight"
+    >
+      <SlidingHighlight ref="highlight" class="object-tree__highlight" />
+      <section v-for="group in visibleGroups" :key="group.paneId" class="object-group">
+        <div v-if="group.title" class="object-group__divider" aria-hidden="true">
+          <span class="object-group__title">{{ group.title }}</span>
+        </div>
         <ul
-          v-show="!isCollapsed(group.paneId)"
           class="object-group__list"
           @dragover="onGroupDragOver($event, group, group.rows.length)"
           @drop="onDrop($event, group, group.rows.length)"
@@ -54,20 +44,14 @@
               'is-drop-after': isDropAfter(group, index),
             }"
             tabindex="0"
+            :draggable="canDrag(row)"
+            @pointerdown="onRowPointerDown"
+            @dragstart="onDragStart($event, row)"
+            @dragend="onDragEnd"
             @keydown="onRowKeydown($event, group, row)"
             @dragover.stop="onRowDragOver($event, group, index)"
             @drop.stop="onRowDrop($event, group, index)"
           >
-            <span
-              class="object-row__handle"
-              :class="{ 'is-disabled': !canDrag(row) }"
-              :draggable="canDrag(row)"
-              :title="canDrag(row) ? '拖动调整顺序' : '已锁定，无法拖动'"
-              @dragstart="onDragStart($event, row)"
-              @dragend="onDragEnd"
-            >
-              <IconTablerGripVertical aria-hidden="true" />
-            </span>
             <component :is="iconOf(row)" class="object-row__icon" aria-hidden="true" />
             <span class="object-row__label" :title="row.label">{{ row.label }}</span>
             <span class="object-row__actions">
@@ -86,7 +70,12 @@
                   <IconTablerEyeOff v-else />
                 </BaseIconButton>
               </BaseTooltip>
-              <BaseTooltip :content="lockHint(row)" placement="left" trigger-display="contents">
+              <BaseTooltip
+                v-if="row.capabilities.lockable"
+                :content="lockHint(row)"
+                placement="left"
+                trigger-display="contents"
+              >
                 <BaseIconButton
                   class="object-row__lock"
                   :class="{ 'is-active': row.locked }"
@@ -98,12 +87,17 @@
                   <IconTablerLock />
                 </BaseIconButton>
               </BaseTooltip>
-              <BaseTooltip :content="removeHint(row)" placement="left" trigger-display="contents">
+              <BaseTooltip
+                v-if="row.capabilities.removable"
+                :content="removeHint(row)"
+                placement="left"
+                trigger-display="contents"
+              >
                 <BaseIconButton
                   :label="removeHint(row)"
                   size="sm"
                   tone="danger"
-                  :disabled="!row.capabilities.removable || row.locked"
+                  :disabled="row.locked"
                   @click.stop="removeRow(row)"
                 >
                   <IconTablerTrash />
@@ -111,9 +105,17 @@
               </BaseTooltip>
             </span>
           </li>
-          <li v-if="group.rows.length === 0" class="object-group__empty">暂无对象</li>
         </ul>
       </section>
+      <div
+        v-if="canCreatePane"
+        class="object-tree__new-pane"
+        :class="{ 'is-active': newPaneDropActive }"
+        @dragover="onNewPaneDragOver"
+        @drop="onNewPaneDrop"
+      >
+        <div class="object-tree__new-pane-title">新窗口</div>
+      </div>
     </div>
   </section>
 </template>
@@ -124,12 +126,12 @@
   import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import { type Component, toRef } from 'vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
+  import { type Component, computed, ref, toRef } from 'vue'
   import IconTablerChartLine from '~icons/tabler/chart-line'
-  import IconTablerChevronDown from '~icons/tabler/chevron-down'
   import IconTablerEye from '~icons/tabler/eye'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
-  import IconTablerGripVertical from '~icons/tabler/grip-vertical'
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerStack2 from '~icons/tabler/stack-2'
@@ -148,8 +150,7 @@
     groups,
     totalCount,
     isEmpty,
-    isCollapsed,
-    toggleCollapsed,
+    canCreatePane,
     toggleVisible,
     toggleLocked,
     removeRow,
@@ -158,16 +159,33 @@
     lockHint,
     removeHint,
     draggingId,
+    newPaneDropActive,
     onDragStart,
+    onRowPointerDown,
     onDragEnd,
     onRowDragOver,
     onGroupDragOver,
     onDrop,
     onRowDrop,
+    onNewPaneDragOver,
+    onNewPaneDrop,
     onRowKeydown,
     isDropBefore,
     isDropAfter,
   } = useObjectTreePanel(controller)
+
+  // 空 Pane 不渲染区块；Pane 之间只用分割线区分。
+  const visibleGroups = computed(() => groups.value.filter((group) => group.rows.length > 0))
+
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  // 拖动时收起高亮，避免落点指示与滑动块互相干扰。
+  const {
+    onPointerOver: onRowPointerOver,
+    onFocusIn: onRowFocusIn,
+    hide: hideRowHighlight,
+  } = useSlidingHighlight(highlight, (target) =>
+    draggingId.value ? null : target.closest<HTMLElement>('.object-row'),
+  )
 
   /** 对象类型只决定行图标，操作能力由行自身声明。 */
   const KIND_ICONS: Readonly<Record<RenderObjectKind, Component>> = {
@@ -223,87 +241,104 @@
     text-align: center;
   }
 
-  .object-tree__hint {
-    margin: var(--klc-space-4, 4px) 0 0;
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-label-12-font-size, 11px);
-    line-height: var(--klc-space-16, 16px);
-  }
-
   .object-tree__groups {
+    position: relative;
+    display: flex;
     flex: 1 1 auto;
+    flex-direction: column;
     min-height: 0;
     padding: var(--klc-space-4, 4px) 0 var(--klc-space-8, 8px);
     overflow-y: auto;
     overscroll-behavior-y: contain;
   }
 
+  /* 行背景由滑动高亮统一提供：直角、通栏。 */
+  .object-tree__highlight {
+    --sliding-highlight-radius: 0;
+  }
+
+  /* Pane 之间的分割线与右键菜单同款：线不画到头，标题居中放在线中间。 */
+  .object-group {
+    flex: 0 0 auto;
+  }
+
   .object-group + .object-group {
+    margin-top: var(--klc-space-2, 2px);
+  }
+
+  .object-group__divider {
+    display: flex;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-8, 8px)
+      var(--klc-space-4, 4px);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-label-12-font-size, 11px);
+    line-height: var(--klc-space-16, 16px);
+  }
+
+  .object-group__divider::before,
+  .object-group__divider::after {
+    flex: 1 1 auto;
+    border-top: 1px solid var(--klc-color-border-light);
+    content: '';
+  }
+
+  /* 最底端分割线：线以下整块区域都是“新建 Pane”的落点。 */
+  .object-tree__new-pane {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: var(--klc-space-32, 32px);
     margin-top: var(--klc-space-4, 4px);
   }
 
-  .object-group__header {
+  .object-tree__new-pane-title {
     display: flex;
     align-items: center;
-    gap: var(--klc-space-4, 4px);
-    width: 100%;
-    padding: var(--klc-space-4, 4px) var(--klc-space-12, 12px);
-    border: 0;
-    background: transparent;
+    gap: var(--klc-space-8, 8px);
+    padding: var(--klc-space-8, 8px) var(--klc-space-8, 8px)
+      var(--klc-space-4, 4px);
     color: var(--klc-color-ui-muted);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
+    font-size: var(--klc-text-label-12-font-size, 11px);
+    line-height: var(--klc-space-16, 16px);
+    transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
-  .object-group__header:hover {
-    color: var(--klc-color-ui-text);
+  .object-tree__new-pane-title::before,
+  .object-tree__new-pane-title::after {
+    flex: 1 1 auto;
+    border-top: 1px solid var(--klc-color-border-light);
+    content: '';
+    transition: border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
-  .object-group__chevron {
-    flex: 0 0 auto;
-    width: var(--klc-space-14, 14px);
-    height: var(--klc-space-14, 14px);
-    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  .object-tree__new-pane.is-active .object-tree__new-pane-title {
+    color: var(--klc-color-ui-accent);
   }
 
-  .object-group__chevron.is-collapsed {
-    transform: rotate(-90deg);
-  }
-
-  .object-group__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .object-group__count {
-    margin-left: auto;
-    color: var(--klc-color-ui-muted);
+  .object-tree__new-pane.is-active .object-tree__new-pane-title::before,
+  .object-tree__new-pane.is-active .object-tree__new-pane-title::after {
+    border-top-color: var(--klc-color-ui-accent);
   }
 
   .object-group__list {
     margin: 0;
-    padding: 0 var(--klc-space-4, 4px);
+    padding: 0;
     list-style: none;
   }
 
   .object-row {
     position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: var(--klc-space-4, 4px);
-    min-height: var(--klc-space-28, 28px);
+    min-height: var(--klc-space-32, 32px);
     padding: var(--klc-space-2, 2px) var(--klc-space-4, 4px)
       var(--klc-space-2, 2px) var(--klc-space-8, 8px);
-    border-radius: var(--klc-radius-xs, 4px);
+    border-radius: 0;
     outline: none;
     user-select: none;
-  }
-
-  .object-row:hover {
-    background: var(--klc-color-ui-hover);
   }
 
   .object-row:focus-visible {
@@ -321,8 +356,8 @@
   .object-row.is-drop-before::before,
   .object-row.is-drop-after::after {
     position: absolute;
-    right: var(--klc-space-4, 4px);
-    left: var(--klc-space-8, 8px);
+    right: 0;
+    left: 0;
     border-top: 2px solid var(--klc-color-ui-accent);
     content: '';
   }
@@ -335,28 +370,12 @@
     bottom: -1px;
   }
 
-  .object-row__handle {
-    display: inline-grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: var(--klc-space-14, 14px);
-    height: var(--klc-space-16, 16px);
-    color: var(--klc-color-ui-muted);
+  .object-row[draggable='true'] {
     cursor: grab;
   }
 
-  .object-row__handle:active {
+  .object-row[draggable='true']:active {
     cursor: grabbing;
-  }
-
-  .object-row__handle.is-disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .object-row__handle svg {
-    width: var(--klc-space-14, 14px);
-    height: var(--klc-space-14, 14px);
   }
 
   .object-row__icon {
@@ -379,15 +398,27 @@
     flex: 0 0 auto;
     align-items: center;
     gap: var(--klc-space-2, 2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  }
+
+  /* 操作按钮只在悬浮或键盘焦点进入行时出现。 */
+  .object-row:hover .object-row__actions,
+  .object-row:focus-within .object-row__actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 触屏没有 hover，保持常驻可点。 */
+  @media (hover: none) {
+    .object-row__actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 
   .object-row__lock.is-active {
     --base-icon-button-color: var(--klc-color-ui-accent);
-  }
-
-  .object-group__empty {
-    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px)
-      var(--klc-space-4, 4px) var(--klc-space-24, 24px);
-    color: var(--klc-color-ui-muted);
   }
 </style>

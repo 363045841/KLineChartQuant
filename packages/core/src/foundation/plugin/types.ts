@@ -455,6 +455,8 @@ export interface RenderAxisContext {
   xAxisRanges: XAxisRange[]
   /** 预计算的 Y 轴刻度列表（锚定数值 → priceToY 投影），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
+  /** 本 Pane 是否承载主价格序列；价格刻度与价签按内容显示，不看 Pane 身份。 */
+  hasPriceSeries?: boolean
   /** 本 Pane 的轴列布局：轴身份 → 在右轴画布内的左偏移与列宽。 */
   axisLayout?: Readonly<Record<string, { readonly left: number; readonly width: number }>>
 }
@@ -465,8 +467,10 @@ export interface RenderOverlayContext {
   countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
-  /** 用户图元的当前 Pane 帧投影，绘制到独立 drawing 画布。 */
+  /** 用户图元的当前 Pane 帧投影；正式图元只剩手柄、框选与磁吸提示。 */
   drawingProjection?: DrawingFrameProjection
+  /** 用户图元按对象身份拆分的原语；每个图元一条渲染对象按 id 取用。 */
+  drawingObjectProjections?: ReadonlyMap<string, ReadonlyArray<DrawingPrimitive>>
   /** 指标输出图元的当前 Pane 帧投影，直接绘制到 main 目标。 */
   indicatorDrawingProjection?: DrawingFrameProjection
   /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */

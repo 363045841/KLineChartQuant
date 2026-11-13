@@ -124,6 +124,9 @@ export interface DrawingCommandsDocumentPort extends DrawingHistoryDocumentPort 
     updates: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
   ): ReadonlyArray<DrawingObject>
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
+  /** 当前标的的图元；命令决定排序时与文档使用同一口径。 */
+  listCurrentDrawings(): ReadonlyArray<DrawingObject>
+  reorderDrawings(paneId: string, orderedIds: ReadonlyArray<string>): boolean
   removeDrawing(id: string): boolean
   removeBatch(ids: ReadonlyArray<string>): boolean
   clearDrawings(): void

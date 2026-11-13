@@ -1,6 +1,5 @@
 /** K 线蜡烛图 Layer：投影实体与影线，通过公共原语写入 Scene 指定目标。 */
 import { HOLLOW_BODY_KLINE_SHAPES } from '../../foundation/config/chartSettings.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
@@ -9,7 +8,8 @@ import { getKLineTrend } from '../../foundation/types/kLine.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
 import { createRetainedGeometry } from '../../rendering/scene/retainedGeometry.js'
-import type { DrawListLayer } from '../../rendering/scene/types.js'
+import type { DrawListLayer, RenderObjectDescriptor } from '../../rendering/scene/types.js'
+import { CANDLE_LAYER_ID } from './rendererIds.js'
 import {
   createProjectionRevision,
   sameProjectionRevision,
@@ -45,18 +45,26 @@ type PreparedCandles = {
   downWickCount: number
 }
 
-/** 创建 K 线主体 Layer。形态直接取 settings.klineShape，作为唯一事实来源。 */
-export function createCandleLayer(): DrawListLayer<RenderContext> {
+/**
+ * 创建 K 线主体 Layer。形态直接取 settings.klineShape，作为唯一事实来源。
+ * @param paneId 图层所属 Pane；由系统对象状态给出
+ * @param object 系统对象描述符
+ */
+export function createCandleLayer(
+  paneId: string,
+  object?: RenderObjectDescriptor,
+): DrawListLayer<RenderContext> {
   const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
   const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
     sameProjectionRevision,
   )
   return {
-    id: makePluginLayerId('candle'),
+    id: CANDLE_LAYER_ID,
     role: 'primary',
-    pane: 'main',
+    pane: paneId,
     z: RENDERER_PRIORITY.MAIN,
     visible: true,
+    object,
     kind: 'draw-list',
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return

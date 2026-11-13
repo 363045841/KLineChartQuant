@@ -15,6 +15,7 @@
  */
 
 import type { Signal } from '../../foundation/reactivity/signal.js'
+import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { Renderer } from '../render/Renderer.js'
 
 /**
@@ -81,17 +82,29 @@ export interface RenderObjectCapabilities {
   readonly orderable: boolean
   /** 可迁移到其他 pane。 */
   readonly movable: boolean
-  /** 可锁定；没有任何可锁动作的对象为 false。 */
+  /** 可锁定；当前只有绘图对象支持，指标与系统对象为 false。 */
   readonly lockable: boolean
 }
 
-/** 对象的移动目标：pane 身份 + 层带内的插入位置。 */
-export interface RenderObjectMoveTarget {
-  /** 目标 pane；必须能承载该对象，否则命令返回 false。 */
-  readonly paneId: string
-  /** 同层带内自底层起的插入位置；缺省表示该层带顶部。 */
-  readonly index?: number
+/**
+ * 对象迁移到新 Pane 的目标；对象树、图例菜单与公开命令共用。
+ *
+ * 新建 Pane 的落位规则属于 Pane 领域，这里只描述“在哪里建、建好放什么”。
+ */
+export type NewPaneMoveTarget = {
+  readonly kind: 'newPane'
+  readonly anchorPaneId: string
+  readonly placement: PanePlacement
 }
+
+/**
+ * 对象的移动目标：已有 Pane 内的位置，或新建 Pane。
+ *
+ * `index` 是目标 Pane 内自底层起的位置；新建 Pane 时锚点与方向走 Pane 领域命令。
+ */
+export type RenderObjectMoveTarget =
+  | { readonly kind: 'pane'; readonly paneId: string; readonly index?: number }
+  | NewPaneMoveTarget
 
 /**
  * 对象的领域命令面：对象树与图例的唯一写入口。

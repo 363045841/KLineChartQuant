@@ -28,15 +28,22 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     (chart) => chart.objects.groups,
     () => [],
   )
-  // 折叠只是面板的浏览状态，不进存档。
-  const collapsedPaneIds = ref<ReadonlySet<string>>(new Set())
   const draggingId = ref<string | null>(null)
   const dropTarget = ref<DropTarget | null>(null)
+  /** 最底端分割线是否处于“新建 Pane”的落点高亮。 */
+  const newPaneDropActive = ref(false)
+  // 从行内操作按钮按下时不应启动整行拖拽。
+  let dragFromAction = false
 
   const totalCount = computed(() =>
     groups.value.reduce((total, group) => total + group.rows.length, 0),
   )
   const isEmpty = computed(() => totalCount.value === 0)
+  /** 正在拖动的对象是否允许迁移到新 Pane；决定最底端“新窗口”是否出现。 */
+  const canCreatePane = computed(() => {
+    const source = draggingId.value === null ? null : findRow(draggingId.value)
+    return source?.row.capabilities.movable === true
+  })
 
   /** 按身份取对象的领域命令；对象已被移除时返回 null。 */
   function commandsFor(objectId: string) {
@@ -50,17 +57,6 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
       if (row) return { group, row }
     }
     return null
-  }
-
-  function isCollapsed(paneId: string): boolean {
-    return collapsedPaneIds.value.has(paneId)
-  }
-
-  function toggleCollapsed(paneId: string): void {
-    const next = new Set(collapsedPaneIds.value)
-    if (next.has(paneId)) next.delete(paneId)
-    else next.add(paneId)
-    collapsedPaneIds.value = next
   }
 
   /** 显隐不受锁定影响，只受对象能力限制。 */
@@ -98,12 +94,10 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
   }
 
   function lockHint(row: PaneObjectRow): string {
-    if (!row.capabilities.lockable) return '该对象不支持锁定'
     return row.locked ? '解锁' : '锁定'
   }
 
   function removeHint(row: PaneObjectRow): string {
-    if (!row.capabilities.removable) return '不可删除'
     return row.locked ? '已锁定，先解锁' : '删除'
   }
 
@@ -116,7 +110,8 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
   }
 
   function onDragStart(event: DragEvent, row: PaneObjectRow): void {
-    if (!canDrag(row)) {
+    if (!canDrag(row) || dragFromAction) {
+      dragFromAction = false
       event.preventDefault()
       return
     }
@@ -128,9 +123,48 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     }
   }
 
+  /** 记录按下位置，行内按钮不触发整行拖拽。 */
+  function onRowPointerDown(event: PointerEvent): void {
+    const target = event.target instanceof Element ? event.target : null
+    dragFromAction = target?.closest('.object-row__actions') !== null
+  }
+
   function onDragEnd(): void {
     draggingId.value = null
     dropTarget.value = null
+    newPaneDropActive.value = false
+  }
+
+  /** 最后一个有内容的分组；最底端拖放以它为锚点新建 Pane。 */
+  function lastGroupPaneId(): string | null {
+    for (let index = groups.value.length - 1; index >= 0; index--) {
+      const group = groups.value[index]
+      if (group && group.rows.length > 0) return group.paneId
+    }
+    return null
+  }
+
+  /** 拖到最底端分割线：只接受可迁移的对象，并高亮该分割线。 */
+  function onNewPaneDragOver(event: DragEvent): void {
+    const source = draggingId.value === null ? null : findRow(draggingId.value)
+    if (!source || !source.row.capabilities.movable) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    dropTarget.value = null
+    newPaneDropActive.value = true
+  }
+
+  /** 松手创建新 Pane：走对象自己的 move 命令，最终落到 Pane 领域命令。 */
+  function onNewPaneDrop(event: DragEvent): void {
+    event.preventDefault()
+    const objectId = draggingId.value
+    const source = objectId === null ? null : findRow(objectId)
+    const anchorPaneId = lastGroupPaneId()
+    newPaneDropActive.value = false
+    dropTarget.value = null
+    draggingId.value = null
+    if (!objectId || !source || !source.row.capabilities.movable || anchorPaneId === null) return
+    commandsFor(objectId)?.move({ kind: 'newPane', anchorPaneId, placement: 'below' })
   }
 
   /** 行上的拖动只更新落点指示，不改任何状态。 */
@@ -139,6 +173,7 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     if (!source || !canDropInto(group, source)) return
     event.preventDefault()
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    newPaneDropActive.value = false
     dropTarget.value = { paneId: group.paneId, displayIndex: pointerDisplayIndex(event, index) }
   }
 
@@ -148,6 +183,7 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     if (!source || !canDropInto(group, source)) return
     event.preventDefault()
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    newPaneDropActive.value = false
     dropTarget.value = { paneId: group.paneId, displayIndex }
   }
 
@@ -158,6 +194,7 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     const source = objectId === null ? null : findRow(objectId)
     dropTarget.value = null
     draggingId.value = null
+    newPaneDropActive.value = false
     if (!objectId || !source || !canDropInto(group, source)) return
     commandsFor(objectId)?.move(createMoveTarget(group, displayIndex, source.row))
   }
@@ -205,8 +242,7 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     groups,
     totalCount,
     isEmpty,
-    isCollapsed,
-    toggleCollapsed,
+    canCreatePane,
     toggleVisible,
     toggleLocked,
     removeRow,
@@ -216,12 +252,16 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     lockHint,
     removeHint,
     draggingId,
+    newPaneDropActive,
     onDragStart,
+    onRowPointerDown,
     onDragEnd,
     onRowDragOver,
     onGroupDragOver,
     onDrop,
     onRowDrop,
+    onNewPaneDragOver,
+    onNewPaneDrop,
     onRowKeydown,
     isDropBefore,
     isDropAfter,

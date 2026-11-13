@@ -33,8 +33,6 @@ function getAnchorDataIndex(anchor: ResolvedDrawingAnchor, data: KLineData[]): n
 export function createParallelChannelDefinition(): DrawingDefinition {
   return {
     kind: 'parallel-channel',
-    minAnchors: 4,
-    maxAnchors: 4,
     extent: (drawing) => anchorExtent(drawing.anchors, channelExtend(drawing)),
     compute(drawing, context) {
       const [first, second, third, fourth] = drawing.anchors
@@ -75,8 +73,6 @@ export function createParallelChannelDefinition(): DrawingDefinition {
 export function createFlatLineDefinition(): DrawingDefinition {
   return {
     kind: 'flat-line',
-    minAnchors: 4,
-    maxAnchors: 4,
     extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [first, second, third, fourth] = drawing.anchors
@@ -107,8 +103,6 @@ export function createFlatLineDefinition(): DrawingDefinition {
 export function createDisjointChannelDefinition(): DrawingDefinition {
   return {
     kind: 'disjoint-channel',
-    minAnchors: 4,
-    maxAnchors: 4,
     extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [firstStart, firstEnd, secondEnd, secondStart] = drawing.anchors
@@ -141,8 +135,6 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
 export function createRegressionChannelDefinition(): DrawingDefinition {
   return {
     kind: 'regression-channel',
-    minAnchors: 2,
-    maxAnchors: 2,
     extent: (drawing) => anchorExtent(drawing.anchors),
     compute(drawing, context) {
       const [first, second] = drawing.anchors

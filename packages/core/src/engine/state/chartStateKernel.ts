@@ -30,7 +30,7 @@ import {
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import type { DrawingToolId } from '../drawing/index.js'
-import { bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
+import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import {
@@ -46,6 +46,10 @@ import {
 } from '../layout/index.js'
 import { PaneManager } from '../pane/index.js'
 import { MAIN_PANE_ID, type PaneSpec } from '../pane/types.js'
+import {
+  COMPARISON_LINE_LAYER_ID,
+  COMPARISON_LINE_RENDERER_NAME,
+} from '../renderers/rendererIds.js'
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
@@ -68,6 +72,7 @@ import { createOptionsState, type OptionsStateModule } from './optionsState.js'
 import { createPaneState, type PaneStateModule } from './paneState.js'
 import { createRendererState, type RendererStateModule } from './rendererState.js'
 import { createSettingsState, type SettingsStateModule } from './settingsState.js'
+import { createSystemObjectState, type SystemObjectStateModule } from './systemObjectState.js'
 import { StateKernel, type SubStateModule } from './stateKernel.js'
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState.js'
 import {
@@ -210,6 +215,8 @@ export class ChartStateKernel extends StateKernel {
   readonly mainPriceAxis: MainPriceAxisStateModule
   readonly mode: ChartModelModule
   readonly drawing: DrawingStateModule
+  /** 系统对象（K 线等）的显隐与顺序；随布局文档存档。 */
+  readonly systemObjects: SystemObjectStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
@@ -312,6 +319,8 @@ export class ChartStateKernel extends StateKernel {
       pane: this.pane,
       indicator: this.indicator,
       getDefinition: getRegisteredIndicatorDefinition,
+      // 空副图回收前检查指标以外的内容；系统对象与当前标的的绘图都算占用。
+      hasPaneContent: (paneId) => this.hasPaneContent(paneId),
     })
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
@@ -349,7 +358,10 @@ export class ChartStateKernel extends StateKernel {
       ]
       // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
       if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {
-        renderers.push({ name: 'comparisonLine', layerId: makePluginLayerId('comparisonLine') })
+        renderers.push({
+          name: COMPARISON_LINE_RENDERER_NAME,
+          layerId: COMPARISON_LINE_LAYER_ID,
+        })
       }
       return Object.freeze([
         ...new Map(
@@ -359,6 +371,8 @@ export class ChartStateKernel extends StateKernel {
     })
     // ── Drawing state ──
     this.drawing = createDrawingState()
+    // ── 系统渲染对象状态 ──
+    this.systemObjects = createSystemObjectState()
 
     // ── Interaction state (reads viewport signals directly) ──
     this.interaction = createInteractionState({
@@ -496,6 +510,30 @@ export class ChartStateKernel extends StateKernel {
     this.actions.setDataView(ChartDataViewId.KLine)
   }
 
+  /**
+   * Pane 是否还承载指标以外的内容（系统对象、当前标的的绘图）。
+   *
+   * 指标实例由 PaneManager 按实例列表判断，这里不重复读取；
+   * 空副图回收与系统对象移出后的回收都走这一处，避免两份判定漂移。
+   *
+   * @param paneId 目标 Pane
+   * @returns 仍有指标以外的内容时为 true
+   */
+  hasPaneContent(paneId: string): boolean {
+    const systemState = this.systemObjects.readonly.state.peek()
+    if (Object.values(systemState.paneId).includes(paneId)) return true
+    const spec = this.dataManager.readonly.currentSpec.peek()
+    const symbolKey = spec ? symbolSpecIdentityKey(spec) : undefined
+    return this.drawing.readonly.drawings
+      .peek()
+      .some(
+        (drawing) =>
+          drawing.ownerId === undefined &&
+          drawing.paneId === paneId &&
+          belongsToDrawingSymbol(drawing, symbolKey),
+      )
+  }
+
   setViewportDomDeps(deps: ViewportDomDeps): void {
     this.viewport.setDomDeps(deps)
   }
@@ -549,6 +587,7 @@ export class ChartStateKernel extends StateKernel {
       ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
       drawings: this.drawing.readonly.drawings.peek(),
+      systemObjects: this.systemObjects.readonly.state.peek(),
       favoriteIndicatorIds: this.indicator.readonly.favoriteIndicatorIds.peek(),
       viewport: this.dataManager.readonly.viewportSnapshots.peek(),
     })
@@ -592,6 +631,7 @@ export class ChartStateKernel extends StateKernel {
         (document.drawings ?? []).map((drawing) => bindDrawingSymbol(drawing, drawingSymbol)),
         [],
       )
+      this.systemObjects.actions.restore(document.systemObjects)
       this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
       this.actions.setDataView(this.mode.readonly.dataView.peek())
     })
@@ -646,6 +686,7 @@ export class ChartStateKernel extends StateKernel {
     this.systemTheme.dispose()
     this.mode.dispose()
     this.drawing.dispose()
+    this.systemObjects.dispose()
     this.interaction.dispose()
     this.dataManager.dispose()
     this.comparison.dispose()

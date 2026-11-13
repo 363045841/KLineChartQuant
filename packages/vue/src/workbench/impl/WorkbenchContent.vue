@@ -90,7 +90,7 @@
   const panels = computed<ReadonlyArray<SidePanelDefinition>>(() => [
     ...(props.agent ? [{ id: AGENT_PANEL_ID, label: 'Agent', icon: IconSparkles }] : []),
     { id: WATCHLIST_PANEL_ID, label: '自选股', icon: IconBookmark },
-    { id: OBJECT_TREE_PANEL_ID, label: '对象', icon: IconStack2 },
+    { id: OBJECT_TREE_PANEL_ID, label: '对象树', icon: IconStack2 },
   ])
   const initialPanel = props.agent && props.initialAgentPanelOpen ? AGENT_PANEL_ID : null
 

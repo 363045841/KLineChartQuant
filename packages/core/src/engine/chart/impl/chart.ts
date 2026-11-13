@@ -100,6 +100,7 @@ import { ChartDataManager } from '../../data/chartDataManager.js'
 import { ComparisonCommands } from '../../data/comparisonCommands.js'
 import { symbolInfoFromSpec } from '../../data/symbolInfo.js'
 import {
+  createDrawingObjectLayers,
   DrawingCommands,
   DrawingDocument,
   type DrawingInteractionController,
@@ -112,8 +113,9 @@ import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/inde
 import { toPlotBar } from '../../indicators/plotBars.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { createObjectTree } from '../../objects/impl/createObjectTree.js'
+import { createSystemObjects } from '../../objects/impl/systemObjects.js'
 import type { ObjectTree } from '../../objects/types.js'
-import { ChartPaneLayout, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
+import { ChartPaneLayout, runInNewPane, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
 import {
   DEFAULT_PRICE_LABEL_WIDTH,
   INSTANCE_MOVE_KIND,
@@ -122,6 +124,7 @@ import {
   type PaneSpec,
 } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
+import { CANDLE_RENDERER_NAME } from '../../renderers/rendererIds.js'
 import type { PriceRange } from '../../scale/index.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
@@ -261,6 +264,13 @@ export class Chart {
   readonly drawing: ChartDrawingFacade
   readonly drawingDocument: DrawingDocument
   readonly drawingCommands: DrawingCommands
+  /** 用户绘图的对象层同步器；图元文档是唯一状态源。 */
+  private drawingObjects: ReturnType<typeof createDrawingObjectLayers>
+  private disposeDrawingObjects: ReadonlyArray<() => void> = []
+  /** 系统对象（K 线等）的显隐与顺序管理。 */
+  private systemObjects: ReturnType<typeof createSystemObjects>
+  /** 图层可见性投影完成后的版本；对象树据此在字段写入后重读。 */
+  private readonly layerRevision = createSignal(0)
 
   cancelDrawingSession(): void {
     this.drawingSession?.cancelPendingChanges()
@@ -540,6 +550,29 @@ export class Chart {
       controller: this.zoomController,
     })
 
+    // 系统对象（K 线等）的显隐、顺序与所属 Pane；图层在 initCoreRenderers 后注册。
+    this.systemObjects = createSystemObjects({
+      state: this.kernel.systemObjects,
+      getLayer: (layerId) => this.getRenderer(layerId) ?? null,
+      useRenderer: (layer) => this.useRenderer(layer),
+      removeRenderer: (layerId) => this.removeRenderer(layerId),
+      getRows: () => this.objects.groups.peek().flatMap((group) => group.rows),
+      // 主序列对象显示当前品种代码；未选品种时用中性占位文案。
+      getLabel: () =>
+        this.kernel.dataManager.readonly.currentSpec.peek()?.symbol ?? '未选择品种',
+      addPane: (anchorPaneId, placement) => this.panes.addPane(anchorPaneId, placement),
+      paneExists: (paneId) => this.panes.hasPane(paneId),
+      removePane: (paneId) => {
+        this.panes.removePane(paneId)
+      },
+      // 指标由图表侧直接判断，其余内容走 kernel 的唯一判定。
+      hasPaneObjects: (paneId) =>
+        this.kernel.indicator.readonly.instances
+          .peek()
+          .some((instance) => instance.paneId === paneId) || this.kernel.hasPaneContent(paneId),
+      requestDraw: () => this.scheduleDraw(),
+    })
+
     // 先创建 Scene，确保恢复的指标首次 projection 能直接挂载 Layer。
     this.renderer = new ChartRenderer({
       clock: runtime?.clock,
@@ -577,6 +610,8 @@ export class Chart {
       primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
       footprintState$: this.kernel.footprint.readonly.renderState,
       settings$: this.kernel.settings.readonly.settings,
+      getPricePaneId: () => this.systemObjects.paneIdOf(CANDLE_RENDERER_NAME),
+      systemObject: (objectId) => this.systemObjects.descriptorFor(objectId),
       mainPriceAxis: this.kernel.mainPriceAxis,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
@@ -615,6 +650,8 @@ export class Chart {
     } satisfies ChartRendererAccess)
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
+    // 系统层已注册：应用布局中保存的 z（可见性由 activeRenderers 投影统一写入）。
+    this.systemObjects.apply()
     this.drawing = new ChartDrawingFacade({
       kernel: this.kernel,
       dataManager: this.dataManager,
@@ -638,6 +675,26 @@ export class Chart {
         this.scheduleDraw()
       },
     })
+    // 用户绘图也以渲染对象进入对象树；跨 Pane 改变价格轴语义，因此只允许 Pane 内排序。
+    this.drawingObjects = createDrawingObjectLayers({
+      drawings$: this.kernel.drawing.readonly.drawings,
+      getScope: () => ({
+        workspaceId: this.drawing.getWorkspaceId(),
+        symbolKey: this.drawing.getSymbolKey(),
+        period: this.dataManager.currentPeriod,
+      }),
+      useRenderer: (layer) => this.useRenderer(layer),
+      removeRenderer: (id) => this.removeRenderer(id),
+      commands: this.drawingCommands,
+      hasPane: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
+    })
+    // 标的、周期、视图或 Pane 变化都会改变图元作用域，需要重新投影对象层。
+    this.disposeDrawingObjects = [
+      this.kernel.dataManager.readonly.currentSpec.subscribe(() => this.drawingObjects.sync()),
+      this.kernel.mode.readonly.lastBarPeriod.subscribe(() => this.drawingObjects.sync()),
+      this.kernel.mode.readonly.dataView.subscribe(() => this.drawingObjects.sync()),
+      this.kernel.pane.readonly.paneSpecs.subscribe(() => this.drawingObjects.sync()),
+    ]
 
     this.indicatorManager = new ChartIndicatorManager({
       getMarketData: () => this.dataManager.indicatorMarketData,
@@ -695,6 +752,13 @@ export class Chart {
     this.objects = createObjectTree({
       layers: this.renderer.getScene().layers,
       paneSpecs: this.kernel.pane.readonly.paneSpecs,
+      // 绘图与系统对象的显隐/锁定/顺序是原地字段，由各自状态信号通知对象树重读。
+      revision: computed(() => [
+        this.drawingObjects.revision(),
+        this.systemObjects.revision(),
+        this.layerRevision(),
+        this.kernel.dataManager.readonly.currentSpec(),
+      ]),
     })
 
     // 异步计算结果就绪后串联 Alert 管线
@@ -843,29 +907,31 @@ export class Chart {
   private createIndicatorObjectCommands(instanceId: string): RenderObjectCommands {
     return {
       setVisible: (visible) => this.panes.updateInstance(instanceId, { hidden: !visible }),
-      setLocked: (locked) => this.panes.updateInstance(instanceId, { locked }),
+      setLocked: () => false,
       move: (target) => this.moveIndicatorObject(instanceId, target),
-      remove: () => {
-        const instance = this.kernel.indicator.readonly.instances
-          .peek()
-          .find((item) => item.instanceId === instanceId)
-        if (instance === undefined || instance.locked === true) return false
-        return this.panes.removeInstance(instanceId)
-      },
+      remove: () => this.panes.removeInstance(instanceId),
     }
   }
 
-  /** 跨 pane 或同 pane 换位都交给唯一的移动命令；锁定后拒绝。 */
+  /** 同 pane 换位、跨 pane 迁移或先建 Pane 再迁移；统一落到 Pane 领域命令。 */
   private moveIndicatorObject(instanceId: string, target: RenderObjectMoveTarget): boolean {
     const current = this.kernel.indicator.readonly.instances
       .peek()
       .find((instance) => instance.instanceId === instanceId)
-    if (current === undefined || current.locked === true) return false
-    const move: InstanceMoveTarget =
-      target.paneId === MAIN_PANE_ID
-        ? { kind: INSTANCE_MOVE_KIND.MAIN, index: target.index }
-        : { kind: INSTANCE_MOVE_KIND.PANE, paneId: target.paneId, index: target.index }
-    return this.panes.moveInstance(instanceId, move)
+    if (current === undefined) return false
+    if (target.kind === 'newPane') {
+      return runInNewPane(this.panes, target.anchorPaneId, target.placement, (paneId) =>
+        this.panes.moveInstance(instanceId, {
+          kind: INSTANCE_MOVE_KIND.PANE,
+          paneId,
+        }),
+      )
+    }
+    return this.panes.moveInstance(instanceId, {
+      kind: INSTANCE_MOVE_KIND.PANE,
+      paneId: target.paneId,
+      index: target.index,
+    })
   }
 
   /** 获取已注册渲染器 Layer。 */
@@ -1420,13 +1486,15 @@ export class Chart {
       const desiredLayerIds = new Set(
         this.kernel.activeRenderers$().map((descriptor) => descriptor.layerId),
       )
+      // 系统对象隐藏状态参与同一投影，避免视图切换把用户隐藏的对象重新打开。
+      this.kernel.systemObjects.readonly.state()
       // 视图切换时投影一次可见指标，图例逐帧仅消费该快照，不重复判断 dataViews。
       // visibleMainIndicatorIds$ 变化由已注册的 effect 触发重绘。
       const scene = this.renderer?.getScene()
       let changed = false
 
       for (const layerId of new Set([...previousLayerIds, ...desiredLayerIds])) {
-        const visible = desiredLayerIds.has(layerId)
+        const visible = desiredLayerIds.has(layerId) && !this.systemObjects.isLayerHidden(layerId)
         const layer = scene?.getLayer(layerId)
         if (layer && layer.visible !== visible) {
           scene!.setLayerVisibility(layerId, visible)
@@ -1434,7 +1502,11 @@ export class Chart {
         }
       }
       previousLayerIds = desiredLayerIds
-      if (changed) this.scheduleDraw()
+      if (changed) {
+        // 可见性字段写入后递增版本，对象树才能读到最新值。
+        this.layerRevision.set(this.layerRevision.peek() + 1)
+        this.scheduleDraw()
+      }
     })
   }
 
@@ -1465,6 +1537,10 @@ export class Chart {
     this.footprintRuntime.dispose()
     this.disposeSettingsProjection?.()
     this.disposeSettingsProjection = null
+    for (const dispose of this.disposeDrawingObjects) dispose()
+    this.disposeDrawingObjects = []
+    this.drawingObjects.dispose()
+    this.systemObjects.dispose()
     this.indicatorManager.destroy()
     this.renderer.destroy()
     this.legend.dispose()

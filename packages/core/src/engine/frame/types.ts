@@ -63,6 +63,12 @@ export interface RendererDependencies {
   dataView$: ReadonlySignal<ChartDataView>
   primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
+  /** 主价格序列所在 paneId；自动范围按内容而不是 Pane 身份分派。 */
+  getPricePaneId: () => string
+  /** 系统对象描述符工厂；系统层注册时据此获得对象身份。 */
+  systemObject: (
+    objectId: import('../objects/index.js').SystemObjectId,
+  ) => import('../../rendering/scene/types.js').RenderObjectDescriptor | undefined
   footprintState$: ReadonlySignal<
     import('../../components/footprint/types.js').FootprintRenderState | null
   >

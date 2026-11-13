@@ -49,7 +49,10 @@ export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<Ren
       const offsetX = layout?.left ?? 0
       const isPercent = usesPercentAxis(context)
 
-      if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
+      if (
+        (pane.capabilities.showPriceAxisTicks || context.hasPriceSeries === true) &&
+        context.yAxisTicks
+      ) {
         targetCtx.clearRect(offsetX, 0, axisWidth, pane.height)
 
         const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
@@ -129,7 +132,7 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
       const isPercent = usesPercentAxis(context)
 
       // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
-      if (pane.role === 'price') {
+      if (context.hasPriceSeries === true) {
         for (const range of context.yAxisRanges) {
           const topY = range.topY + pane.top
           const bandHeight = range.bottomY - range.topY
@@ -159,7 +162,7 @@ export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<Re
       // 十字线价签：在装饰标签之后注册，保证绘制顺序与既有 overlay 语义一致。
       const crosshair = options.getCrosshair?.()
       if (
-        pane.role === 'price' &&
+        context.hasPriceSeries === true &&
         crosshair &&
         crosshair.activePaneId === pane.id &&
         crosshair.price !== null

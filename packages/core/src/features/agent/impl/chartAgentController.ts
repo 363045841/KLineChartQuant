@@ -14,12 +14,13 @@ import {
   KNOWN_INSTRUMENT_TYPES,
 } from '@/data/provider/types.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID, type PaneSpec } from '@/engine/pane/types.js'
+import { runInNewPane } from '@/engine/pane/index.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '@/engine/data/comparisonCommands.js'
 import {
+  AGENT_DRAWING_KINDS,
   DRAWING_LABEL_INDEX_PATTERN,
   type DrawingAnchorCommandInput,
-  type DrawingKind,
   type DrawingObject,
   getDrawingInputAnchorCount,
 } from '@/engine/drawing/index.js'
@@ -109,28 +110,10 @@ const TimeShareRangeQueryToolParameters = Type.Object({
   instrumentType: Type.Optional(InstrumentTypeToolParameter),
 })
 
-const DRAWING_KIND_VALUES = [
-  'trend-line',
-  'ray',
-  'extended-line',
-  'fib-retracement',
-  'rectangle',
-  'arrow',
-  'horizontal-line',
-  'horizontal-ray',
-  'vertical-line',
-  'cross-line',
-  'info-line',
-  'parallel-channel',
-  'regression-channel',
-  'flat-line',
-  'disjoint-channel',
-] as const satisfies ReadonlyArray<DrawingKind>
-
 /** 按输入锚点数量分组图元种类，供工具说明声明每种图元需要的锚点数。 */
 function groupDrawingKindsByAnchorCount(): string {
   const byCount = new Map<number, string[]>()
-  for (const kind of DRAWING_KIND_VALUES) {
+  for (const kind of AGENT_DRAWING_KINDS) {
     const count = getDrawingInputAnchorCount(kind)
     const kinds = byCount.get(count)
     if (kinds) kinds.push(kind)
@@ -142,12 +125,12 @@ function groupDrawingKindsByAnchorCount(): string {
     .join('; ')
 }
 
-// 锚点数量按图元种类不同，说明从领域实现派生，避免说明与实现漂移。
+// 锚点数量按图元种类不同，说明从种类声明派生，避免说明与实现漂移。
 const DRAWING_ANCHOR_TOOL_RULE =
   `Required anchor count by kind — ${groupDrawingKindsByAnchorCount()}. ` +
   'horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.'
 
-const DrawingKindToolParameter = Type.Enum(DRAWING_KIND_VALUES)
+const DrawingKindToolParameter = Type.Enum([...AGENT_DRAWING_KINDS])
 const AgentDrawingColorToolParameter = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
 const DrawingAnchorToolParameters = Type.Object({
   tradingDate: Type.Optional(TradingDateToolParameter),
@@ -554,12 +537,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
     if (!indicatorId) return false
     const anchor = this.dependencies.panes.getLayoutSpecs().at(-1)?.id ?? MAIN_PANE_ID
-    return (
+    return runInNewPane(this.dependencies.panes, anchor, 'below', (paneId) =>
       this.dependencies.panes.add(indicatorId, input.params, {
-        kind: INSTANCE_MOVE_KIND.NEW_PANE,
-        anchorPaneId: anchor,
-        placement: 'below',
-      }) !== null
+        kind: INSTANCE_MOVE_KIND.PANE,
+        paneId,
+      }) !== null,
     )
   }
 

@@ -71,7 +71,7 @@
                   >
                     <button
                       type="button"
-                      class="drop-menu__item-main"
+                      class="drop-menu__item-main klc-motion-icon-feedback"
                       role="menuitem"
                       :disabled="item.disabled"
                       :title="item.disabled ? item.reason : undefined"
@@ -122,7 +122,7 @@
             >
               <button
                 type="button"
-                class="drop-menu__item-main"
+                class="drop-menu__item-main klc-motion-icon-feedback"
                 :role="child.checked === undefined ? 'menuitem' : 'menuitemcheckbox'"
                 :aria-checked="child.checked === undefined ? undefined : child.checked"
                 :disabled="child.disabled"
@@ -151,6 +151,7 @@
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
   import { useRovingFocus } from '@vue-src/composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import {
     type Component,
     type CSSProperties,
@@ -310,16 +311,6 @@
   // 整个面板共用一块悬停高亮：移动时只改位置和高度，形成滑动过渡而不是淡入淡出。
   const highlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('highlight')
 
-  /** 把高亮块对齐到目标菜单项。 */
-  function moveHighlight(item: HTMLElement): void {
-    highlight.value?.moveTo(item)
-  }
-
-  /** 指针或键盘离开菜单项时收起高亮块。 */
-  function hideHighlight(): void {
-    highlight.value?.hide()
-  }
-
   const SUBMENU_HOVER_DELAY = 120
   const SUBMENU_CLOSE_DELAY = 160
   let submenuTimer: ReturnType<typeof setTimeout> | undefined
@@ -463,22 +454,16 @@
     focusTarget?.focus()
   }
 
-  /** 面板级委托：指针在菜单项之间移动时让高亮块滑过去；二级菜单有自己的 hover 底色。 */
-  function onMenuPointerOver(event: PointerEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    if (target && submenuRef.value?.contains(target)) return
-    const item = target?.closest<HTMLElement>('.drop-menu__item') ?? null
-    if (item) moveHighlight(item)
-    else hideHighlight()
-  }
-
-  /** 键盘焦点切换与指针同样驱动高亮块。 */
-  function onMenuFocusIn(event: FocusEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    if (target && submenuRef.value?.contains(target)) return
-    const item = target?.closest<HTMLElement>('.drop-menu__item') ?? null
-    if (item) moveHighlight(item)
-  }
+  // 面板级委托：指针与焦点在菜单项之间滑动；二级菜单和空白处收起高亮。
+  const {
+    onPointerOver: onMenuPointerOver,
+    onFocusIn: onMenuFocusIn,
+    hide: hideHighlight,
+  } = useSlidingHighlight(highlight, (target) =>
+    submenuRef.value?.contains(target)
+      ? null
+      : target.closest<HTMLElement>('.drop-menu__item'),
+  )
 
   // 关闭后清空高亮与子菜单，重新打开不会残留上一项的位置。
   watch(isOpen, (next) => {
@@ -751,22 +736,11 @@
     justify-content: center;
   }
 
-  /* 图标默认弱化，悬停整行时提亮并轻微放大，提示当前可操作项。 */
+  /* 图标尺寸固定，避免条目之间文字基线跳动；提亮与放大反馈由 .klc-motion-icon-feedback 统一提供。 */
   .drop-menu__item :deep(.drop-menu__item-main svg) {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
-    color: var(--klc-color-ui-text-soft);
-    transform-origin: center;
-    transition:
-      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
-      transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .drop-menu__item:hover :deep(.drop-menu__item-main svg),
-  .drop-menu__item:focus-within :deep(.drop-menu__item-main svg) {
-    color: var(--klc-color-ui-text);
-    transform: scale(1.12);
   }
 
   /* 快捷键右对齐并弱化，避免和菜单项文案争夺视觉重量。 */

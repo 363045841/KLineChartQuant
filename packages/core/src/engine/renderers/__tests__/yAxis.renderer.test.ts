@@ -66,6 +66,8 @@ describe('yAxis renderer', () => {
   it('does not draw ticks when pane capability showPriceAxisTicks is false', () => {
     const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
     const context = createContext({
+      // 无主价格序列的 Pane 关掉刻度能力后不画刻度。
+      hasPriceSeries: false,
       pane: createPane({
         capabilities: {
           showPriceAxisTicks: false,

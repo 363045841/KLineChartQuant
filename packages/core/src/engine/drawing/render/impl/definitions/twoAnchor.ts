@@ -1,5 +1,5 @@
 /**
- * 两锚点图形定义的公共骨架：统一锚点数量、缺失检查和屏幕投影。
+ * 两锚点图形定义的公共骨架：统一缺失检查与屏幕投影。
  *
  * 各图形只描述自己的 primitive，不再重复解析 anchors[0..1]。
  */
@@ -41,8 +41,6 @@ export function defineTwoAnchorDrawing<TParams = Record<string, unknown>>(
 ): DrawingDefinition<TParams> {
   return {
     kind,
-    minAnchors: 2,
-    maxAnchors: 2,
     extent,
     compute(drawing, context: DrawingComputeContext) {
       const [first, second] = drawing.anchors

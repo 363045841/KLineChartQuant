@@ -58,8 +58,8 @@ export interface PaneObjectRow {
  */
 export interface PaneObjectGroup {
   readonly paneId: string
-  /** pane 显示名（主图、指标名等），由 pane 状态派生。 */
-  readonly label: string
+  /** 分割线标题：取主序列或首个指标的对象名，内容为空时为 null；不代表 pane 身份。 */
+  readonly title: string | null
   readonly rows: ReadonlyArray<PaneObjectRow>
 }
 

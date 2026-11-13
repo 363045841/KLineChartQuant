@@ -67,6 +67,7 @@ export function createMoveTarget(
   row: PaneObjectRow,
 ): RenderObjectMoveTarget {
   return {
+    kind: 'pane',
     paneId: group.paneId,
     index: resolveDropIndex(group, displayIndex, row.objectId, row.band),
   }

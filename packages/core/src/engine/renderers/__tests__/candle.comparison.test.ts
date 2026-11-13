@@ -4,6 +4,7 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { MAIN_PANE_ID } from '@/engine/pane/types'
 import { createCandleLayer } from '../candle'
 
 describe('K 线比较叠加', () => {
@@ -17,7 +18,7 @@ describe('K 线比较叠加', () => {
       kLineCenters: [10],
       comparisonSymbols: comparison ? [{ symbol: 'CMP', market: 'CN', period: 'daily' }] : [],
     })
-    createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+    createCandleLayer(MAIN_PANE_ID).paint({ ...context, paneId: 'main', clear: false })
     expect(ctx.fillRect).toHaveBeenCalled()
   })
 })

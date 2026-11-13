@@ -52,10 +52,10 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
     { kind: 'main' },
   )!
   const secondId = second.kernel.paneManager.actions.add('tab-layout-indicator', { period: 14 })!
+  const createdPaneId = first.kernel.paneManager.actions.addPane(MAIN_PANE_ID, 'below')!
   first.kernel.paneManager.actions.moveInstance(firstId, {
-    kind: 'newPane',
-    anchorPaneId: MAIN_PANE_ID,
-    placement: 'below',
+    kind: 'pane',
+    paneId: createdPaneId,
   })
   const firstPane = first.kernel.indicator.readonly.instances.peek()[0]!.paneId
   first.kernel.paneManager.actions.add(

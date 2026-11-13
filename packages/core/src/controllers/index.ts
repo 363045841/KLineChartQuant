@@ -66,7 +66,6 @@ export type {
   IndicatorPaneRole,
   IndicatorParamDef,
   IndicatorRole,
-  InstanceMoveOption,
   InstanceMoveTarget,
   InteractionSnapshot,
   KLineData,
@@ -186,13 +185,10 @@ export type {
 export {
   BOX_SELECT_DRAWING_TOOL_ID,
   CURSOR_DRAWING_TOOL_ID,
-  DOUBLE_ANCHOR_TOOLS,
   DrawingInteractionController,
   DrawingTool,
   getAnchorCountForTool,
   MagnetMode,
-  SINGLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {

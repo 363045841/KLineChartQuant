@@ -6,6 +6,7 @@ import {
   isTimeShareDataView,
   resolveChartWorkspaceId,
 } from '../../../../foundation/types/chartView.js'
+import { CANDLE_RENDERER_NAME } from '../../../renderers/rendererIds.js'
 
 export {
   type ChartDataView,
@@ -77,7 +78,7 @@ const SESSION_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
 })
 
 const KLINE_SYSTEM_LAYERS = Object.freeze([
-  'candle',
+  CANDLE_RENDERER_NAME,
   'extremaMarkers',
   'lastPriceLine',
   'lastPriceLabelRegistrar',

@@ -1,52 +1,26 @@
-/** 绘图工具配置：工具 ID 到锚点数与图元种类的映射表。 */
+/** 绘图工具配置：工具 ID 到图元种类的映射；锚点数量统一取种类声明。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { getDrawingInputAnchorCount } from '../../model/impl/materializeAnchors.js'
 import type { DrawingKind } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 import { BOX_SELECT_DRAWING_TOOL_ID, CURSOR_DRAWING_TOOL_ID, DrawingTool } from '../types.js'
 
 export type { DrawingToolId } from '../types.js'
 
-// ---- Tool grouping ----
-// 按所需锚点数量分组：1 个锚点（水平/垂直线）、2 个锚点（趋势线）、3 个锚点（通道线）。
-// 新增工具类型时，加到对应数组即可，无需改其他模块。
+/** 非绘图工具：没有图元种类，也没有锚点数。 */
+const NON_DRAWING_TOOL_IDS: ReadonlySet<DrawingToolId> = new Set([
+  CURSOR_DRAWING_TOOL_ID,
+  BOX_SELECT_DRAWING_TOOL_ID,
+])
 
-/** 单锚点工具：点击一次即创建完成 */
-export const SINGLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  DrawingTool.HorizontalLine,
-  DrawingTool.HorizontalRay,
-  DrawingTool.VerticalLine,
-  DrawingTool.CrosshairLine,
-]
-
-/** 双锚点工具：需要两次点击才能完成 */
-export const DOUBLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  DrawingTool.TrendLine,
-  DrawingTool.Ray,
-  DrawingTool.FibRetracement,
-  DrawingTool.Rectangle,
-  DrawingTool.Arrow,
-  DrawingTool.InfoLine,
-  DrawingTool.RegressionChannel,
-]
-
-/** 三锚点工具：需要三次点击才能完成 */
-export const TRIPLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
-  DrawingTool.ParallelChannel,
-  DrawingTool.FlatLine,
-  DrawingTool.DisjointChannel,
-]
-
-/** 各锚点数分组的查询表；三张表不重叠，见 toolConfig 用例。 */
-const SINGLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(SINGLE_ANCHOR_TOOLS)
-const DOUBLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(DOUBLE_ANCHOR_TOOLS)
-const TRIPLE_ANCHOR_TOOL_SET: ReadonlySet<DrawingToolId> = new Set(TRIPLE_ANCHOR_TOOLS)
-
-/** 返回工具所需的锚点数量（cursor 返回 null） */
+/**
+ * 返回工具所需的锚点数量；cursor、box-select 返回 null。
+ *
+ * 数量来自所属种类的声明，工具侧不再维护第二份分组表。
+ */
 export function getAnchorCountForTool(toolId: DrawingToolId): 1 | 2 | 3 | null {
-  if (SINGLE_ANCHOR_TOOL_SET.has(toolId)) return 1
-  if (DOUBLE_ANCHOR_TOOL_SET.has(toolId)) return 2
-  if (TRIPLE_ANCHOR_TOOL_SET.has(toolId)) return 3
-  return null
+  if (NON_DRAWING_TOOL_IDS.has(toolId)) return null
+  return getDrawingInputAnchorCount(getDrawingKind(toolId))
 }
 
 // ---- Kind mapping ----
@@ -75,29 +49,3 @@ export function getDrawingKind(toolId: DrawingToolId): DrawingKind {
       return toolId
   }
 }
-
-// ---- Extend mode ----
-
-/**
- * 返回图元的线段延伸模式。
- * ray → 向右延伸，extended-line → 两端延伸，其他 → 不延伸。
- */
-export function getExtendMode(kind: DrawingKind): 'none' | 'left' | 'right' | 'both' {
-  switch (kind) {
-    case 'ray':
-      return 'right'
-    case 'extended-line':
-      return 'both'
-    default:
-      return 'none'
-  }
-}
-
-/** 所有带填充区域的通道类图元 kind 列表 */
-export const CHANNEL_KINDS: readonly DrawingKind[] = [
-  'rectangle',
-  'parallel-channel',
-  'regression-channel',
-  'flat-line',
-  'disjoint-channel',
-]

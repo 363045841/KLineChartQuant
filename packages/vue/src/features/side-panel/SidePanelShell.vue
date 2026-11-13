@@ -65,7 +65,7 @@
       >
         <button
           type="button"
-          class="side-panel-shell__rail-button"
+          class="side-panel-shell__rail-button klc-motion-icon-feedback"
           :class="{ 'is-active': item.id === activePanel }"
           :aria-label="item.label"
           :aria-pressed="item.id === activePanel"
@@ -82,6 +82,7 @@
   import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
   import BaseTooltip from '../../components/common/BaseTooltip.vue'
   import SlidingHighlight from '../../components/common/SlidingHighlight.vue'
+  import { useSlidingHighlight } from '../../composables/ui/useSlidingHighlight.js'
   import type {
     SidePanelDefinition,
     SidePanelSide,
@@ -92,8 +93,10 @@
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640
   const DEFAULT_PANEL_WIDTH = 420
-  /** 低于该宽度时面板改为覆盖层，避免压缩图表到不可用。 */
-  const COMPACT_SHELL_WIDTH = 880
+  /** 窄屏时面板改为覆盖层，图表至少保留这么多宽度，不再被挤压。 */
+  const MIN_CHART_WIDTH = 560
+  /** 侧边菜单栏宽度；与 CSS 的 `--side-panel-rail-width` 对应。 */
+  const RAIL_WIDTH = 40
   /** 面板内侧边缘的拖拽命中区宽度。 */
   const RESIZE_HIT_PX = 8
 
@@ -128,7 +131,14 @@
   const resizing = ref(false)
   const resizeReady = ref(false)
   const compact = ref(false)
+  const shellWidth = ref(0)
   let shellObserver: ResizeObserver | undefined
+
+  /** 面板打开后至少要给图表留下的宽度；不够时覆盖而不是挤压布局。 */
+  function syncCompact(): void {
+    compact.value =
+      shellWidth.value > 0 && shellWidth.value < width.value + RAIL_WIDTH + MIN_CHART_WIDTH
+  }
 
   // 只发布面板宽度，轨道宽度由 CSS 依开合状态与停靠侧派生，避免同一数值两处来源。
   const shellStyle = computed(() => ({ '--side-panel-width': `${width.value}px` }))
@@ -146,25 +156,10 @@
     }
   }
 
-  /** 指针移动到菜单按钮时驱动滑动高亮块。 */
-  function onRailPointerOver(event: PointerEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    const button = target?.closest<HTMLElement>('.side-panel-shell__rail-button')
-    if (button) railHighlight.value?.moveTo(button)
-    else railHighlight.value?.hide()
-  }
-
-  /** 键盘焦点进入菜单按钮时与指针同样驱动高亮块。 */
-  function onRailFocusIn(event: FocusEvent): void {
-    const target = event.target instanceof Element ? event.target : null
-    const button = target?.closest<HTMLElement>('.side-panel-shell__rail-button')
-    if (button) railHighlight.value?.moveTo(button)
-  }
-
-  /** 指针或焦点离开菜单时收起高亮块。 */
-  function hideRailHighlight(): void {
-    railHighlight.value?.hide()
-  }
+  const { onPointerOver: onRailPointerOver, onFocusIn: onRailFocusIn, hide: hideRailHighlight } =
+    useSlidingHighlight(railHighlight, (target) =>
+      target.closest<HTMLElement>('.side-panel-shell__rail-button'),
+    )
 
   /** 关闭面板，保留面板内容挂载状态。 */
   function closePanel(): void {
@@ -258,13 +253,19 @@
     if (storedSide === 'left' || storedSide === 'right') side.value = storedSide
 
     if (shell.value) {
-      compact.value = shell.value.getBoundingClientRect().width < COMPACT_SHELL_WIDTH
+      shellWidth.value = shell.value.getBoundingClientRect().width
+      syncCompact()
       shellObserver = new ResizeObserver(([entry]) => {
-        if (entry) compact.value = entry.contentRect.width < COMPACT_SHELL_WIDTH
+        if (!entry) return
+        shellWidth.value = entry.contentRect.width
+        syncCompact()
       })
       shellObserver.observe(shell.value)
     }
   })
+
+  // 面板宽度变化会改变“图表至少保留宽度”的阈值，压缩状态随之更新。
+  watch(width, syncCompact)
 
   // 面板清单收缩（例如宿主关闭 Agent）时，已打开的面板不能继续显示。
   watch(
@@ -354,8 +355,8 @@
     visibility: hidden;
     transform: translateX(100%);
     transition:
-      transform 0.28s ease,
-      visibility 0s linear 0.28s;
+      transform var(--klc-motion-dur-slow) var(--klc-motion-ease-drawer),
+      visibility 0s linear var(--klc-motion-dur-slow);
   }
 
   .side-panel-shell--left .side-panel-shell__panel {
@@ -368,7 +369,7 @@
     /* 动画结束后退出 transform 合成层，避免文字持续使用纹理栅格化。 */
     transform: none;
     transition:
-      transform 0.28s ease,
+      transform var(--klc-motion-dur-slow) var(--klc-motion-ease-drawer),
       visibility 0s;
   }
 
@@ -430,6 +431,9 @@
   }
 
   .side-panel-shell__rail-button.is-active {
+    /* 选中态图标跟随按钮文字色，不参与悬停提亮。 */
+    --klc-icon-feedback-color: currentColor;
+    --klc-icon-feedback-hover-color: currentColor;
     /* 与左侧工具栏一致：深色模式用浅灰选中底和深色图标。 */
     background: light-dark(
       color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
@@ -438,25 +442,10 @@
     color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
   }
 
-  /* 图标默认弱化，悬停时提亮并轻微放大，与右键菜单图标反馈一致。 */
+  /* 尺寸由菜单栏决定；图标反馈（提亮 + 轻微放大）由 .klc-motion-icon-feedback 统一提供。 */
   .side-panel-shell__rail-button svg {
     width: 16px;
     height: 16px;
-    color: var(--klc-color-ui-text-soft);
-    transform-origin: center;
-    transition:
-      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
-      transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .side-panel-shell__rail-button:hover svg,
-  .side-panel-shell__rail-button:focus-visible svg {
-    color: var(--klc-color-ui-text);
-    transform: scale(1.12);
-  }
-
-  .side-panel-shell__rail-button.is-active svg {
-    color: currentColor;
   }
 
   .side-panel-shell__backdrop {

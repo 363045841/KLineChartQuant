@@ -104,12 +104,11 @@ describe('createObjectTree', () => {
     const groups = tree.groups.peek()
 
     expect(groups.map((group) => group.paneId)).toEqual(['main', 'rsi', 'empty'])
-    expect(groups[0]?.label).toBe('主图')
+    expect(groups[0]?.title).toBe('K线')
     expect(groups[0]?.rows.map((row) => row.objectId)).toEqual(['candle', 'ma'])
-    expect(groups[1]?.label).toBe('RSI(14)')
+    expect(groups[1]?.title).toBe('RSI(14)')
     expect(groups[1]?.rows.map((row) => row.objectId)).toEqual(['rsi'])
-    // 没有指标行的副图只显示通用名称，不再回退去猜指标身份。
-    expect(groups[2]?.label).toBe('副图')
+    expect(groups[2]?.title).toBeNull()
     expect(groups[2]?.rows).toEqual([])
   })
 

@@ -6,6 +6,7 @@ import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
 import type { Layer, LayerPaint, LayerRole, PrimitiveDrawContext } from '@/rendering/scene/types.js'
+import type { RenderObject, RenderObjectDescriptor } from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
 import { createDrawingPrimitiveBuilder } from './primitiveRendererSet.js'
@@ -101,17 +102,62 @@ export interface DrawingLayerOptions {
   renderers?: PrimitiveRendererSet
 }
 
+/** 绘图对象层的身份前缀；同步器与渲染器共用同一份命名。 */
+const DRAWING_OBJECT_LAYER_PREFIX = 'drawingObject'
+
 /**
- * 创建绘图 Layer；投影由 ChartRenderer 在 paint 前生成。
- * 正式图元输出到独立 canvas，保持在所有行情图元之上。
+ * 用户图元的对象层身份。
+ *
+ * @param drawingId 图元身份
+ * @returns Scene 图层身份
  */
-export function createDrawingLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
+export function drawingObjectLayerId(drawingId: string): string {
+  return makePluginLayerId(`${DRAWING_OBJECT_LAYER_PREFIX}:${drawingId}`)
+}
+
+/**
+ * 每个用户图元一条渲染对象层，只提交本帧属于它的原语切片。
+ *
+ * @param drawingId 图元身份
+ * @param paneId 图元所属 Pane
+ * @param object 对象身份与命令
+ * @returns 可挂载到 Scene 的渲染对象
+ */
+export function createDrawingObjectLayer(
+  drawingId: string,
+  paneId: string,
+  object: RenderObjectDescriptor,
+): RenderObject<RenderContext> {
+  return {
+    id: drawingObjectLayerId(drawingId),
+    role: 'drawing',
+    pane: paneId,
+    z: 0,
+    visible: true,
+    object,
+    kind: 'draw-list',
+    paint(context) {
+      const primitives = context.drawingObjectProjections?.get(drawingId)
+      if (primitives) submitProjection(context, primitives)
+    },
+    dispose() {},
+  }
+}
+
+/**
+ * 正式图元的手柄/框选/磁吸层；几何已拆到每图元对象层。
+ *
+ * 投影由 ChartRenderer 在 paint 前生成。
+ */
+export function createDrawingOverlayLayer(
+  options: DrawingLayerOptions = {},
+): Layer<RenderContext> {
   return createProjectionLayer('drawingRenderer', 'drawing', 55, 'drawingProjection', options)
 }
 
 /**
  * 指标图元层：指标输出并入 main 目标，不再单独占用一张全尺寸 drawing 画布。
- * 用户手绘图元仍由 createDrawingLayer 走独立画布，二者在 Scene 内按 z 排序。
+ * 用户手绘图元由每图元对象层写入 drawing 画布，二者在 Scene 内按层带排序。
  */
 export function createIndicatorDrawingLayer(
   options: DrawingLayerOptions = {},

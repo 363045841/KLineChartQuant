@@ -24,7 +24,7 @@ function row(objectId: string, band: PaneObjectRow['band'] = 'main'): PaneObject
 }
 
 function group(rows: PaneObjectRow[]): PaneObjectGroup {
-  return { paneId: 'main', label: '主图', rows }
+  return { paneId: 'main', title: null, rows }
 }
 
 describe('object-tree-dnd', () => {

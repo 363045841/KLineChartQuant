@@ -83,6 +83,7 @@ function createFixture() {
   const panes = [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }]
   const paneActions = {
     add: vi.fn(() => 'new-instance'),
+    addPane: vi.fn(() => 'new-pane'),
     moveInstance: vi.fn(() => true),
     removeInstance: vi.fn(() => true),
     removeInstancesByDefinition: vi.fn(),
@@ -793,13 +794,13 @@ describe('createChartAgentController', () => {
     // 添加指标前只加载该指标自身的实现。
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(1, ['RSI'])
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(2, ['VOL'])
+    expect(fixture.paneActions.addPane).toHaveBeenCalledWith('main', 'below')
     expect(fixture.paneActions.add).toHaveBeenCalledWith(
       'rsi',
       { period: 14 },
       {
-        kind: 'newPane',
-        anchorPaneId: 'main',
-        placement: 'below',
+        kind: 'pane',
+        paneId: 'new-pane',
       },
     )
     expect(fixture.paneActions.updatePane).toHaveBeenCalledWith('rsi-pane', { ratio: 0.25 })

@@ -36,7 +36,6 @@ import type {
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
 import type {
-  InstanceMoveOption,
   InstanceMoveTarget,
   PaneGeometry,
   PanePatch,
@@ -132,7 +131,7 @@ export interface TimeShareData {
   amount?: number
 }
 
-export type { InstanceMoveOption, InstanceMoveTarget, PaneGeometry, PaneSpec }
+export type { InstanceMoveTarget, PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
 export type DataSourceParams = Readonly<Record<string, string | number | boolean>>

@@ -6,7 +6,7 @@
 <script setup lang="ts">
   import { type CSSProperties, shallowRef, useTemplateRef } from 'vue'
 
-  /** 完全隐藏：保留 transform，避免重新出现时从左上角滑入。 */
+  /** 完全隐藏的初始值：位置留给首次 moveTo 落位。 */
   const HIDDEN: CSSProperties = { opacity: 0 }
 
   const style = shallowRef<CSSProperties>(HIDDEN)
@@ -32,10 +32,10 @@
     }
   }
 
-  /** 指针或焦点离开条目集合时收起高亮块。 */
+  /** 指针或焦点离开条目集合时淡出，但保留当前位置，重新出现时继续从上一项滑过去。 */
   function hide(): void {
     if (style.value.opacity === 0) return
-    style.value = HIDDEN
+    style.value = { ...style.value, opacity: 0 }
   }
 
   /** 暴露给宿主：容器通过委托事件驱动位置。 */

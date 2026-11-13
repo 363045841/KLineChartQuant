@@ -17,17 +17,17 @@ import type {
   PaneLayoutCommands,
   PaneManagerDependencies,
   PanePatch,
+  PanePlacement,
   PaneSpec,
 } from '../types.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../types.js'
 import { normalizeVisiblePaneRatios } from './layout/paneRatioMath.js'
 import { paneSpecsEqual } from './paneConfiguration.js'
 
-/** 目标 Pane 解析结果：容器身份 + 实例角色 + 是否需要新建 Pane。 */
+/** 目标 Pane 解析结果：容器身份 + 实例角色。 */
 interface ResolvedTarget {
   readonly paneId: string
   readonly role: IndicatorInstanceRole
-  readonly insert?: { readonly anchorPaneId: string; readonly placement: 'above' | 'below' }
 }
 
 export class PaneManager {
@@ -36,6 +36,7 @@ export class PaneManager {
   /** 对外唯一布局写入口。 */
   readonly actions: PaneLayoutCommands = {
     add: (definitionId, params, target) => this.add(definitionId, params, target),
+    addPane: (anchorPaneId, placement) => this.addPane(anchorPaneId, placement),
     moveInstance: (instanceId, target) => this.moveInstance(instanceId, target),
     removeInstance: (instanceId) => this.removeInstance(instanceId),
     updateInstance: (instanceId, patch) => this.updateInstance(instanceId, patch),
@@ -65,33 +66,37 @@ export class PaneManager {
     const definition = this.dependencies.getDefinition(definitionId)
     if (!definition) return null
     const specs = this.list()
-    const resolved =
-      target === undefined
-        ? definition.category === 'main'
-          ? { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
-          : {
-              paneId: generateUUID(),
-              role: INDICATOR_ROLE.SUB,
-              insert: {
-                anchorPaneId: specs[specs.length - 1]?.id ?? MAIN_PANE_ID,
-                placement: 'below' as const,
-              },
-            }
-        : this.resolveTarget(target, specs)
-    if (!resolved) return null
-
-    const nextSpecs = resolved.insert
-      ? this.insertPaneSpec(specs, resolved.paneId, resolved.insert)
-      : specs
-    const ratios = this.normalizeRatios(nextSpecs, resolved.insert ? resolved.paneId : undefined)
+    let paneId: string
+    let role: IndicatorInstanceRole
+    let insertedPaneId: string | undefined
+    let nextSpecs = specs
+    if (target !== undefined) {
+      const resolved = this.resolveTarget(target, specs)
+      if (!resolved) return null
+      paneId = resolved.paneId
+      role = resolved.role
+    } else if (definition.category === 'main') {
+      paneId = MAIN_PANE_ID
+      role = INDICATOR_ROLE.MAIN
+    } else {
+      // 默认副图：先建 Pane，再把实例放进去。
+      paneId = generateUUID()
+      role = INDICATOR_ROLE.SUB
+      insertedPaneId = paneId
+      nextSpecs = this.insertPaneSpec(specs, paneId, {
+        anchorPaneId: specs[specs.length - 1]?.id ?? MAIN_PANE_ID,
+        placement: 'below',
+      })
+    }
+    const ratios = this.normalizeRatios(nextSpecs, insertedPaneId)
     const instanceId = createIndicatorInstanceId()
-    const ordinal = this.nextOrdinal(resolved.paneId)
+    const ordinal = this.nextOrdinal(paneId)
     batch(() => {
       this.dependencies.indicator.actions.addInstance({
         instanceId,
         indicatorId: definition.name,
-        paneId: resolved.paneId,
-        role: resolved.role,
+        paneId,
+        role,
         ordinal,
         params: {
           ...resolveDefinitionDefaultParams(definition),
@@ -101,6 +106,21 @@ export class PaneManager {
       this.dependencies.pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
     })
     return instanceId
+  }
+
+  /**
+   * 在锚点旁新建空 Pane。
+   *
+   * Pane 是独立布局实体；调用方随后再把指标或系统对象移动到返回的 paneId。
+   */
+  private addPane(anchorPaneId: string, placement: PanePlacement): string | null {
+    const specs = this.list()
+    if (!specs.some((spec) => spec.id === anchorPaneId)) return null
+    const paneId = generateUUID()
+    const nextSpecs = this.insertPaneSpec(specs, paneId, { anchorPaneId, placement })
+    const ratios = this.normalizeRatios(nextSpecs, paneId)
+    this.dependencies.pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
+    return paneId
   }
 
   /**
@@ -119,23 +139,21 @@ export class PaneManager {
     const resolved = this.resolveTarget(target, specs)
     if (!resolved) return false
 
-    const index = target.kind === INSTANCE_MOVE_KIND.NEW_PANE ? undefined : target.index
+    const index = target.index
     if (resolved.paneId === current.paneId)
       return this.reorderWithinPane(instanceId, current.paneId, index)
 
-    let nextSpecs = resolved.insert
-      ? this.insertPaneSpec(specs, resolved.paneId, resolved.insert)
-      : specs
-    // 源副图移出最后一个实例后不再保留空容器。
-    if (
+    // 源副图移出最后一个实例后不再保留空容器；绘图或系统对象仍占用时保留。
+    const sourceEmpty =
       current.role === INDICATOR_ROLE.SUB &&
       !previous.some(
         (instance) => instance.instanceId !== instanceId && instance.paneId === current.paneId,
-      )
-    ) {
-      nextSpecs = nextSpecs.filter((spec) => spec.id !== current.paneId)
-    }
-    const ratios = this.normalizeRatios(nextSpecs, resolved.insert ? resolved.paneId : undefined)
+      ) &&
+      !this.dependencies.hasPaneContent(current.paneId)
+    const nextSpecs = sourceEmpty
+      ? specs.filter((spec) => spec.id !== current.paneId)
+      : specs
+    const ratios = this.normalizeRatios(nextSpecs)
     // 迁移后按目标位置重排整个目标 Pane，ordinal 不出现空洞或重复。
     const ordered = this.paneInstanceIds(previous, resolved.paneId, instanceId)
     const insertAt =
@@ -211,7 +229,10 @@ export class PaneManager {
         .map((instance) => instance.paneId),
     )
     const nextSpecs = this.list().filter(
-      (spec) => !touchedPaneIds.has(spec.id) || occupiedPaneIds.has(spec.id),
+      (spec) =>
+        !touchedPaneIds.has(spec.id) ||
+        occupiedPaneIds.has(spec.id) ||
+        this.dependencies.hasPaneContent(spec.id),
     )
     const ratios = this.normalizeRatios(nextSpecs)
     batch(() => {
@@ -353,25 +374,17 @@ export class PaneManager {
     })
   }
 
-  /** 目标解析：已有 Pane 必须存在，新建 Pane 保留锚点与方向。 */
+  /** 目标解析：目标 Pane 必须存在。 */
   private resolveTarget(
     target: InstanceMoveTarget,
     specs: ReadonlyArray<PaneSpec>,
   ): ResolvedTarget | null {
     if (target.kind === INSTANCE_MOVE_KIND.MAIN)
       return { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
-    if (target.kind === INSTANCE_MOVE_KIND.PANE) {
-      if (!specs.some((spec) => spec.id === target.paneId)) return null
-      return {
-        paneId: target.paneId,
-        role: target.paneId === MAIN_PANE_ID ? INDICATOR_ROLE.MAIN : INDICATOR_ROLE.SUB,
-      }
-    }
-    if (!specs.some((spec) => spec.id === target.anchorPaneId)) return null
+    if (!specs.some((spec) => spec.id === target.paneId)) return null
     return {
-      paneId: generateUUID(),
-      role: INDICATOR_ROLE.SUB,
-      insert: { anchorPaneId: target.anchorPaneId, placement: target.placement },
+      paneId: target.paneId,
+      role: target.paneId === MAIN_PANE_ID ? INDICATOR_ROLE.MAIN : INDICATOR_ROLE.SUB,
     }
   }
 

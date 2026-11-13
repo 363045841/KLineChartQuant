@@ -2,17 +2,17 @@
 
 import { primitiveSink, submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { Layer } from '../../rendering/scene/types.js'
+import { COMPARISON_LINE_LAYER_ID } from './rendererIds.js'
 
 /** 创建 K 线主图比较 Layer，数据计算由共享比较投影负责。 */
 export function createComparisonLineLayer(): Layer<RenderContext> {
   return {
     kind: 'draw-list',
-    id: makePluginLayerId('comparisonLine'),
+    id: COMPARISON_LINE_LAYER_ID,
     role: 'primary',
     pane: 'main',
     z: RENDERER_PRIORITY.MAIN + 2,

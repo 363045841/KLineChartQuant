@@ -9,6 +9,7 @@ import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
   AxisLabelsFrame,
+  DrawingPrimitive,
   IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   RenderContext,
@@ -48,7 +49,7 @@ import { ChartDataViewId } from '../../chartModel/index.js'
 import type { ChartDataManager } from '../../data/chartDataManager.js'
 import type { DrawingObject, SnapIndicatorValue } from '../../drawing/index.js'
 import {
-  createDrawingLayer,
+  createDrawingOverlayLayer,
   createDrawingSessionLayer,
   createIndicatorDrawingLayer,
   DrawingDefinitionRegistry,
@@ -62,6 +63,10 @@ import { MAIN_PANE_ID } from '../../pane/types.js'
 import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
 import { createCandleLayer } from '../../renderers/candle.js'
 import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
+import {
+  CANDLE_RENDERER_NAME,
+  COMPARISON_LINE_LAYER_ID,
+} from '../../renderers/rendererIds.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
 import {
   type LockedCrosshairProjection,
@@ -353,7 +358,7 @@ export class ChartRenderer {
     readonly drawings: readonly DrawingObject[]
   } | null = null
   private readonly drawingDefinitions = new DrawingDefinitionRegistry()
-  private readonly drawingLayer = createDrawingLayer()
+  private readonly drawingLayer = createDrawingOverlayLayer()
   private readonly indicatorDrawingLayer = createIndicatorDrawingLayer()
   private xAxisCtx: CanvasRenderingContext2D | null = null
   private readonly crosshairOverlay: CrosshairOverlay
@@ -616,7 +621,9 @@ export class ChartRenderer {
       this.scene.addLayer(createGridLinesLayer())
     }
     {
-      this.scene.addLayer(createCandleLayer())
+      this.scene.addLayer(
+        createCandleLayer(this.deps.getPricePaneId(), this.deps.systemObject(CANDLE_RENDERER_NAME)),
+      )
       this.scene.addLayer(createFootprintLayer(() => this.deps.footprintState$.peek()))
     }
     {
@@ -1070,6 +1077,7 @@ export class ChartRenderer {
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
       const axes = pane.axes
+      const primaryAxisId = this.primaryAxisId(pane)
       for (const axis of axes) {
         const auto = this.resolveAxisAutoRange(frame, inputs, pane, axis.axisId)
         const context = this.createPaneRenderContext(
@@ -1091,7 +1099,7 @@ export class ChartRenderer {
           'indicator',
         )
         const drawingRange =
-          axis.axisId === axes[0]?.axisId
+          axis.axisId === primaryAxisId
             ? computeDrawingPriceRange(drawings, this.drawingDefinitions, context)
             : null
         const combined = drawingRange
@@ -1111,40 +1119,46 @@ export class ChartRenderer {
     return { panePriceRanges, pendingHandRanges }
   }
 
-  /** 单轴自动范围：主图价格轴沿用行情范围，其余轴取实例输出极值。 */
+  /** Pane 的主轴身份；没有轴时为 null，供价格轴与指标极值判定共用。 */
+  private primaryAxisId(pane: PaneLayout): string | null {
+    return pane.axes[0]?.axisId ?? null
+  }
+
+  /** 单轴自动范围：承载主价格序列的 Pane 走行情范围，其余轴取实例输出极值。 */
   private resolveAxisAutoRange(
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
     pane: PaneLayout,
     axisId: string,
   ): ReturnType<typeof computePaneAutoRange> {
-    if (pane.id === MAIN_PANE_ID && axisId === MAIN_PANE_ID) {
+    const pricePaneId = this.deps.getPricePaneId()
+    if (pane.id === pricePaneId && axisId === this.primaryAxisId(pane)) {
       return this.resolvePaneAutoRange(frame, inputs, pane)
     }
     const range = inputs.axisRanges.get(axisId)
     return range ? { range: { minPrice: range.min, maxPrice: range.max }, basePrice: null } : null
   }
 
-  /** 计算主图价格轴自动范围；足迹范围只在主图叠加。 */
+  /** 计算承载主价格序列的 Pane 自动范围；足迹范围只在价格 Pane 叠加。 */
   private resolvePaneAutoRange(
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
     pane: PaneLayout,
   ): ReturnType<typeof computePaneAutoRange> {
     const shape = this.deps.settings$.peek().klineShape
+    const primaryAxisId = this.primaryAxisId(pane)
     const auto = computePaneAutoRange({
-      paneId: pane.id,
-      role: pane.role,
+      hasPriceSeries: true,
       range: frame.range,
       dataManager: inputs.dataManager,
       mode: inputs.mode,
-      mainIndicatorRange: inputs.axisRanges.get(MAIN_PANE_ID) ?? null,
-      comparisonActive: inputs.comparisonActive,
+      indicatorRange:
+        primaryAxisId === null ? null : (inputs.axisRanges.get(primaryAxisId) ?? null),
+      comparisonActive: inputs.comparisonActive && this.hasComparisonSeries(pane.id),
       comparisonProjection: inputs.comparisonProjection,
-      subIndicatorRange: null,
       closeOnly: shape === 'line' || shape === 'area',
     })
-    if (pane.id !== MAIN_PANE_ID || inputs.comparisonActive) return auto
+    if (pane.id !== this.deps.getPricePaneId() || inputs.comparisonActive) return auto
     const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
     if (!footprintRange) return auto
     return {
@@ -1156,6 +1170,15 @@ export class ChartRenderer {
         : footprintRange,
       basePrice: auto?.basePrice ?? null,
     }
+  }
+
+  /** 比较线是否绘制在该 Pane；比较层当前属于 main，不按 Pane 身份推断。 */
+  private hasComparisonSeries(paneId: string): boolean {
+    const layer = this.scene
+      .layers
+      .peek()
+      .find((item) => item.id === COMPARISON_LINE_LAYER_ID)
+    return layer?.pane === paneId
   }
 
   /** 把自动范围与轴状态合成为最终范围。 */
@@ -1436,6 +1459,8 @@ export class ChartRenderer {
       overlayCtx: optional(contexts.overlayCtx),
       drawingCtx: optional(contexts.drawingCtx),
       pane: paneInfo,
+      /** 主价格序列所在 Pane 才绘制价格刻度与价签。 */
+      hasPriceSeries: pane.id === this.deps.getPricePaneId(),
       data: frame.data,
       dataRevision: frame.dataRevision,
       period: dataManager.currentPeriod,
@@ -1584,6 +1609,8 @@ export class ChartRenderer {
       .some(
         (layer) =>
           layer !== this.drawingLayer &&
+          // 每图元的对象层也属于 drawing 角色，但不是自定义渲染扩展。
+          layer.object === undefined &&
           layer.visible &&
           layer.role === 'drawing' &&
           (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
@@ -1600,12 +1627,14 @@ export class ChartRenderer {
   ): void {
     if (!shouldUpdateDrawing) {
       context.drawingProjection = previousContext?.drawingProjection
+      context.drawingObjectProjections = previousContext?.drawingObjectProjections
       context.indicatorDrawingProjection = previousContext?.indicatorDrawingProjection
       return
     }
     const labels = createAxisLabelsFrame()
     const projectionContext = { ...context, axisLabels: labels }
-    // 用户图元需要独立画布保持像素；指标图元直接并入 main，避免多一张全尺寸画布。
+    // 用户图元按对象拆分：几何进各自的对象层，聚合投影只留手柄/框选/磁吸。
+    const objectProjections = new Map<string, ReadonlyArray<DrawingPrimitive>>()
     context.drawingProjection = projectDrawingsForFrame(
       this.drawingStore,
       this.drawingDefinitions,
@@ -1614,7 +1643,9 @@ export class ChartRenderer {
       'committed',
       null,
       'user',
+      objectProjections,
     )
+    context.drawingObjectProjections = objectProjections
     context.indicatorDrawingProjection = projectDrawingsForFrame(
       this.drawingStore,
       this.drawingDefinitions,
@@ -1626,7 +1657,8 @@ export class ChartRenderer {
     )
     this.drawingAxisLabels.set(renderer, labels)
     if (context.drawingCtx) return
-    const hasPrimitives = (context.drawingProjection?.primitives.length ?? 0) > 0
+    const hasPrimitives =
+      (context.drawingProjection?.primitives.length ?? 0) > 0 || objectProjections.size > 0
     if (!hasPrimitives && !this.hasCustomDrawingLayer(pane)) return
     const created = renderer.ensureDrawingContext()
     if (!created) return
