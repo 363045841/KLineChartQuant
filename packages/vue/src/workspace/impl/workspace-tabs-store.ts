@@ -1,5 +1,5 @@
 /** 标签仓库：每项操作读取事务内的最新记录，跨窗口移交一次提交两边，禁止延迟快照覆盖。 */
-import { scopedPersistenceName } from '@363045841yyt/klinechart-core/persistence-scope'
+import { createIndexedDbDriver } from '@363045841yyt/klinechart-core'
 import {
   createBlankTab,
   readWorkspaceTabs,
@@ -20,64 +20,42 @@ interface AdoptionResult {
   readonly destination: WorkspaceTabs | null
 }
 
-/** 打开既有标签数据库，沿用原记录键和 schema，不迁移或复制用户数据。 */
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(scopedPersistenceName(DATABASE_NAME), DATABASE_VERSION)
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME)
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
 /** 数据库键只由工作区身份派生，与旧版本保持一致。 */
 function workspaceKey(id: string): string {
   return `workspace:${id}`
 }
 
-/** 在同一读写事务中完成读取、纯计算与写回；任一同步写入或异步请求失败都会整体回滚。 */
-async function transact<T>(
-  ids: readonly string[],
-  change: (records: ReadonlyMap<string, WorkspaceTabs | null>) => {
-    writes: ReadonlyMap<string, WorkspaceTabs>
-    result: T
-  },
-): Promise<T> {
-  const database = await openDatabase()
-  try {
-    return await new Promise<T>((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const records = new Map<string, WorkspaceTabs | null>()
-      let result: T
-      let failure: unknown
-      transaction.oncomplete = () => resolve(result)
-      transaction.onabort = () => reject(failure ?? transaction.error)
-      for (const id of ids) {
-        const request = store.get(workspaceKey(id))
-        request.onsuccess = () => {
-          records.set(id, readWorkspaceTabs(request.result))
-          if (records.size !== ids.length) return
-          try {
-            const changed = change(records)
-            result = changed.result
-            for (const [workspaceId, value] of changed.writes) {
-              store.put(value, workspaceKey(workspaceId))
-            }
-          } catch (error) {
-            failure = error
-            transaction.abort()
-          }
-        }
-      }
-    })
-  } finally {
-    database.close()
-  }
-}
-
 /** 绑定工作区身份；不缓存可变快照，也不注册页面退出时的旧快照补写。 */
 export function openWorkspaceTabsStore(workspaceId: string) {
+  const driver = createIndexedDbDriver({
+    databaseName: DATABASE_NAME,
+    version: DATABASE_VERSION,
+    upgrade: (database) => {
+      if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME)
+    },
+  })
+
+  /** 在同一读写事务中完成读取、纯计算与写回；任一同步写入或异步请求失败都会整体回滚。 */
+  async function transact<T>(
+    ids: readonly string[],
+    change: (records: ReadonlyMap<string, WorkspaceTabs | null>) => {
+      writes: ReadonlyMap<string, WorkspaceTabs>
+      result: T
+    },
+  ): Promise<T> {
+    return await driver.transaction([STORE_NAME], 'readwrite', async (transaction) => {
+      const records = new Map<string, WorkspaceTabs | null>()
+      for (const id of ids) {
+        records.set(id, readWorkspaceTabs(await transaction.get(STORE_NAME, workspaceKey(id))))
+      }
+      const changed = change(records)
+      for (const [id, value] of changed.writes) {
+        await transaction.put(STORE_NAME, value, workspaceKey(id))
+      }
+      return changed.result
+    })
+  }
+
   return {
     /** 读取最新提交记录，读取失败直接传播，不能解释成空白工作区。 */
     load(): Promise<WorkspaceTabs | null> {
@@ -151,6 +129,10 @@ export function openWorkspaceTabsStore(workspaceId: string) {
           },
         }
       })
+    },
+    /** 关闭该实例持有的数据库连接；之后的调用会重新打开。 */
+    dispose(): Promise<void> {
+      return driver.dispose()
     },
   }
 }

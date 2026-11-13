@@ -92,6 +92,14 @@ export type KLineChartErrorCode =
   | 'DRAWING_ANCHOR_DATE_NOT_TRADING'
   | 'DRAWING_ANCHOR_DATE_UNAVAILABLE'
   | 'DRAWING_INVALID_ANCHOR'
+  // persistence (IndexedDB / LocalStorage primitives)
+  | 'PERSISTENCE_UNAVAILABLE'
+  | 'PERSISTENCE_READ_FAILED'
+  | 'PERSISTENCE_WRITE_FAILED'
+  | 'PERSISTENCE_CORRUPT'
+  | 'PERSISTENCE_BLOCKED'
+  | 'PERSISTENCE_CLOSED'
+  | 'PERSISTENCE_VERSION_MISMATCH'
 
 export interface KLineChartErrorOptions {
   /** Lower-level error this wraps (preserved as the standard `.cause`). */
@@ -208,6 +216,17 @@ export const CHART_AGENT_ERROR_CODES = Object.freeze({
   NO_DATA: 'NO_DATA',
   INDICATOR_NOT_FOUND: 'INDICATOR_NOT_FOUND',
   DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
+
+// 持久化错误码：公共层用同一组码区分“没有数据、读坏了、写失败、被阻塞、已释放”。
+export const PERSISTENCE_ERROR_CODES = Object.freeze({
+  UNAVAILABLE: 'PERSISTENCE_UNAVAILABLE',
+  READ_FAILED: 'PERSISTENCE_READ_FAILED',
+  WRITE_FAILED: 'PERSISTENCE_WRITE_FAILED',
+  CORRUPT: 'PERSISTENCE_CORRUPT',
+  BLOCKED: 'PERSISTENCE_BLOCKED',
+  CLOSED: 'PERSISTENCE_CLOSED',
+  VERSION_MISMATCH: 'PERSISTENCE_VERSION_MISMATCH',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 绘图文档错误码，供交互层和 Agent 工具层识别可修正的输入失败。

@@ -3,9 +3,10 @@
 import 'fake-indexeddb/auto'
 
 import { TEST_SYMBOLS } from '@vue-src/composables/__tests__/testSymbols.js'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { reactive } from 'vue'
 import {
+  disposeWatchlistPersistence,
   loadWatchlist,
   loadWatchlistGrouping,
   saveWatchlist,
@@ -28,7 +29,12 @@ function deleteWatchlistDatabase(): Promise<void> {
 }
 
 describe('useWatchlist', () => {
-  beforeEach(deleteWatchlistDatabase)
+  /** 先关闭连接再删库，避免长连接阻塞测试清理。 */
+  beforeEach(async () => {
+    await disposeWatchlistPersistence()
+    await deleteWatchlistDatabase()
+  })
+  afterEach(disposeWatchlistPersistence)
 
   it('persists and restores symbols through IndexedDB', async () => {
     await saveWatchlist([symbol])

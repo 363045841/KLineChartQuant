@@ -1,18 +1,15 @@
 /** LocalStorage 持久化原语，存储实例绑定创建时的工作区。 */
+import { scopedPersistenceName } from '../persistence-scope.js'
+import type { PersistenceCodec } from '../types.js'
 import { createPendingWriteScheduler, DEFAULT_DEBOUNCE_MS } from './pendingWriteScheduler.js'
-import { scopedPersistenceName } from './persistence-scope.js'
+
+export type { PersistenceCodec } from '../types.js'
 
 /** 可替换的字符串键值存储后端。 */
 export interface KeyValueStorage {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
   removeItem(key: string): void
-}
-
-/** 将不可信的 JSON 值转换为领域值，并定义领域值的持久化表示。 */
-export interface PersistenceCodec<T> {
-  decode(value: unknown): T | null
-  encode(value: T): unknown
 }
 
 /** 一个已绑定 storage key 的 JSON 持久化实例。 */

@@ -7,7 +7,7 @@
  * 所有写操作串行执行，避免并发保存互相覆盖；读失败不阻断图表，写失败才上报。
  */
 
-import { createArchivePersistence } from '../../../foundation/persistence/index.js'
+import { createDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
 import {
   computed,
   createSignal,
@@ -73,15 +73,16 @@ function requireName(name: string): string {
 }
 
 export class IndicatorTemplateManager implements IndicatorTemplateApi {
-  private readonly archiveStore = createArchivePersistence<IndicatorTemplateArchive>({
-    databaseName: '@363045841yyt/klinechart-indicator-templates',
-    databaseVersion: INDICATOR_TEMPLATE_VERSION,
-    storeName: 'templates',
-    key: 'archive',
-    codec: { decode: decodeArchive, encode: (value) => value },
-    disposedMessage: '图表已销毁',
-  })
+  private readonly archiveStore: DocumentStore<IndicatorTemplateArchive> =
+    createDocumentStore<IndicatorTemplateArchive>({
+      databaseName: '@363045841yyt/klinechart-indicator-templates',
+      version: INDICATOR_TEMPLATE_VERSION,
+      storeName: 'templates',
+      key: 'archive',
+      codec: { decode: decodeArchive, encode: (value) => value },
+    })
   private archive: IndicatorTemplateArchive = { documents: {}, recentIds: [] }
+  private queue: Promise<unknown> = Promise.resolve()
   private readonly listSignal = createSignal<ReadonlyArray<IndicatorTemplateSummary>>([])
   private readonly recentSignal = createSignal<ReadonlyArray<string>>([])
   private loaded = false
@@ -115,11 +116,16 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   // ── 归档读写 ──
 
-  /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
-  private async saveArchive(archive: IndicatorTemplateArchive): Promise<void> {
-    await this.archiveStore.save(archive)
-    this.archive = archive
+  /** 在单个事务内基于磁盘上的最新归档应用变更，再把结果发布到内存。 */
+  private async updateArchive(
+    change: (current: IndicatorTemplateArchive) => IndicatorTemplateArchive,
+  ): Promise<IndicatorTemplateArchive> {
+    const next = await this.archiveStore.update((current) =>
+      change(current ?? { documents: {}, recentIds: [] }),
+    )
+    this.archive = next
     this.publish()
+    return next
   }
 
   /** 只派生摘要，按文档写入顺序稳定输出；覆盖同名模板不改变列表位置。 */
@@ -146,14 +152,16 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 串行处理归档操作，失败不会阻塞后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
-    return this.archiveStore.run(operation)
+    const result = this.queue.then(operation)
+    this.queue = result.catch(() => undefined)
+    return result
   }
 
   /** 首次读取归档；IndexedDB 不可用时抛错，由控制器转成界面文案。 */
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用模板存储')
-    const stored = await this.archiveStore.loadStored()
+    const stored = await this.archiveStore.read()
     if (stored) this.archive = stored
     this.loaded = true
     this.publish()
@@ -190,16 +198,17 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
         this.dependencies.extractIndicators(),
         input.indicatorIds,
       )
-      const existing = Object.values(this.archive.documents).find(
-        (document) => document.name === name,
-      )
-      const id = existing?.id ?? crypto.randomUUID()
-      await this.saveArchive({
-        ...this.archive,
-        documents: {
-          ...this.archive.documents,
-          [id]: { version: INDICATOR_TEMPLATE_VERSION, workspaces, id, name },
-        },
+      let id = ''
+      await this.updateArchive((current) => {
+        const existing = Object.values(current.documents).find((document) => document.name === name)
+        id = existing?.id ?? crypto.randomUUID()
+        return {
+          ...current,
+          documents: {
+            ...current.documents,
+            [id]: { version: INDICATOR_TEMPLATE_VERSION, workspaces, id, name },
+          },
+        }
       })
       return id
     })
@@ -210,14 +219,17 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     return this.run(async () => {
       await this.load()
       const name = requireName(input.name)
-      const target = this.requireTemplate(input.id)
-      const conflict = Object.values(this.archive.documents).find(
-        (document) => document.name === name && document.id !== target.id,
-      )
-      if (conflict) throw new Error('已存在同名模板')
-      await this.saveArchive({
-        ...this.archive,
-        documents: { ...this.archive.documents, [target.id]: { ...target, name } },
+      await this.updateArchive((current) => {
+        const target = current.documents[input.id]
+        if (!target) throw new Error('模板不存在')
+        const conflict = Object.values(current.documents).find(
+          (document) => document.name === name && document.id !== target.id,
+        )
+        if (conflict) throw new Error('已存在同名模板')
+        return {
+          ...current,
+          documents: { ...current.documents, [target.id]: { ...target, name } },
+        }
       })
     })
   }
@@ -226,12 +238,14 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   deleteTemplate(input: { id: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
-      const target = this.requireTemplate(input.id)
-      const documents = { ...this.archive.documents }
-      delete documents[target.id]
-      await this.saveArchive({
-        documents,
-        recentIds: this.archive.recentIds.filter((id) => id !== target.id),
+      await this.updateArchive((current) => {
+        if (!current.documents[input.id]) throw new Error('模板不存在')
+        const documents = { ...current.documents }
+        delete documents[input.id]
+        return {
+          documents,
+          recentIds: current.recentIds.filter((id) => id !== input.id),
+        }
       })
     })
   }
@@ -246,8 +260,10 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       await this.dependencies.loadIndicators?.(indicatorIds)
       const skipped = findMissingIndicators(template.workspaces)
       this.dependencies.applyIndicators(template.workspaces)
-      const recentIds = [template.id, ...this.archive.recentIds.filter((id) => id !== template.id)]
-      await this.saveArchive({ ...this.archive, recentIds: recentIds.slice(0, RECENT_LIMIT) })
+      await this.updateArchive((current) => {
+        const recentIds = [template.id, ...current.recentIds.filter((id) => id !== template.id)]
+        return { ...current, recentIds: recentIds.slice(0, RECENT_LIMIT) }
+      })
       return Object.freeze({
         applied: countWorkspaceInstances(template.workspaces),
         skipped,

@@ -27,4 +27,6 @@ export interface DrawingTemplateStore {
   upsert(kind: DrawingKind, template: DrawingTemplate): Promise<DrawingTemplate[]>
   /** 按名称删除模板，返回删除后的完整列表。 */
   remove(kind: DrawingKind, name: string): Promise<DrawingTemplate[]>
+  /** 关闭底层存储；长期存活的默认仓库不会调用。 */
+  dispose(): Promise<void>
 }

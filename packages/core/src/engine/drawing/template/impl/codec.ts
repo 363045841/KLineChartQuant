@@ -45,8 +45,8 @@ function isDrawingTemplate(value: unknown): value is DrawingTemplate {
   return entries.length > 0 && entries.every(([key, value]) => isValidStyleEntry(key, value))
 }
 
-/** 写盘前拷贝成纯对象：IndexedDB 无法克隆 Vue proxy。 */
-function toPlainTemplate(template: DrawingTemplate): DrawingTemplate {
+/** 写盘前拷贝成纯对象：IndexedDB 和内存仓库都无法克隆 Vue proxy。 */
+export function toPlainTemplate(template: DrawingTemplate): DrawingTemplate {
   return {
     name: template.name,
     style: subsetTemplateStyle(template, TEMPLATE_STYLE_KEYS),

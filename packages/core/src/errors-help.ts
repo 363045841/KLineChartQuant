@@ -144,6 +144,22 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   DRAWING_ANCHOR_DATE_UNAVAILABLE:
     'The loaded chart data exposes no per-bar date field, so anchoring by trading date is impossible here. Anchor by timestamp or bar position instead.',
   DRAWING_INVALID_ANCHOR: 'Each drawing anchor requires a finite price and a valid timestamp.',
+
+  // Persistence
+  PERSISTENCE_UNAVAILABLE:
+    'IndexedDB is not available in this environment (SSR, private mode or a restricted iframe). Keep working in memory and surface the degraded state instead of retrying writes.',
+  PERSISTENCE_READ_FAILED:
+    'The record could not be read. Do not treat it as an empty value and do not overwrite it; report the failure and retry after the connection is restored.',
+  PERSISTENCE_WRITE_FAILED:
+    'The transaction did not commit. Check quota and connection state, keep the in-memory value, and retry instead of reporting a successful save.',
+  PERSISTENCE_CORRUPT:
+    'A record exists but does not match the expected shape. Keep it untouched for recovery or inspection instead of replacing it with defaults.',
+  PERSISTENCE_BLOCKED:
+    'Another tab still holds an old connection. Close the other tabs (or reload them) so the upgrade can proceed.',
+  PERSISTENCE_CLOSED:
+    'The store was disposed. Create a new store instance before reading or writing again.',
+  PERSISTENCE_VERSION_MISMATCH:
+    'The database was upgraded by a newer build. Reload the page so this tab uses the same schema version.',
 }
 
 /**

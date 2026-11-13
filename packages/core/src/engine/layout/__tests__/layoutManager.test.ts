@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
-import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
+import { createDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
@@ -110,14 +110,14 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
 
 it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
   const source = createManager()
-  const oldStorage = createIndexedDbPersistence<unknown>({
+  const oldStorage = createDocumentStore<unknown>({
     databaseName: '@363045841yyt/klinechart-layouts',
+    version: LAYOUT_DOCUMENT_VERSION,
     storeName: 'layouts',
     key: 'documents',
-    flushOnPageHide: false,
-    codec: { decode: (value) => value, encode: (value) => value },
+    codec: { decode: (value) => value ?? null, encode: (value) => value },
   })
-  await oldStorage.save({
+  await oldStorage.write({
     activeId: 'old-layout',
     autoSave: true,
     documents: {
