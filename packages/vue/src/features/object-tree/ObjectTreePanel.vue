@@ -8,6 +8,17 @@
       </div>
     </header>
 
+    <!-- 顶部落点固定在滚动区之上，长列表滚动后仍可直接拖到；无行可拖时不会出现。 -->
+    <div
+      v-if="canCreatePane"
+      class="object-tree__new-pane object-tree__new-pane--top"
+      :class="{ 'is-active': newPaneDropSide === 'above' }"
+      @dragover="onNewPaneDragOver($event, 'above')"
+      @drop="onNewPaneDrop($event, 'above')"
+    >
+      <div class="object-tree__new-pane-title">新窗口</div>
+    </div>
+
     <BaseEmptyState v-if="isEmpty" size="compact">
       <template #icon><IconTablerStack2 /></template>
       当前没有可管理的对象
@@ -110,9 +121,9 @@
       <div
         v-if="canCreatePane"
         class="object-tree__new-pane"
-        :class="{ 'is-active': newPaneDropActive }"
-        @dragover="onNewPaneDragOver"
-        @drop="onNewPaneDrop"
+        :class="{ 'is-active': newPaneDropSide === 'below' }"
+        @dragover="onNewPaneDragOver($event, 'below')"
+        @drop="onNewPaneDrop($event, 'below')"
       >
         <div class="object-tree__new-pane-title">新窗口</div>
       </div>
@@ -159,7 +170,7 @@
     lockHint,
     removeHint,
     draggingId,
-    newPaneDropActive,
+    newPaneDropSide,
     onDragStart,
     onRowPointerDown,
     onDragEnd,
@@ -284,12 +295,19 @@
     content: '';
   }
 
-  /* 最底端分割线：线以下整块区域都是“新建 Pane”的落点。 */
+  /* 两端分割线：线一侧整块区域都是“新建 Pane”的落点。 */
   .object-tree__new-pane {
     position: relative;
     flex: 1 1 auto;
     min-height: var(--klc-space-32, 32px);
     margin-top: var(--klc-space-4, 4px);
+  }
+
+  /* 顶部落点只占分割线本身，剩余高度留给分组列表。 */
+  .object-tree__new-pane--top {
+    flex: 0 0 auto;
+    margin-top: 0;
+    margin-bottom: var(--klc-space-4, 4px);
   }
 
   .object-tree__new-pane-title {
@@ -302,6 +320,12 @@
     font-size: var(--klc-text-label-12-font-size, 11px);
     line-height: var(--klc-space-16, 16px);
     transition: color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  }
+
+  /* 顶部分割线的标题靠近线的下方，与底部的留白方向相反。 */
+  .object-tree__new-pane--top .object-tree__new-pane-title {
+    padding: var(--klc-space-4, 4px) var(--klc-space-8, 8px)
+      var(--klc-space-8, 8px);
   }
 
   .object-tree__new-pane-title::before,

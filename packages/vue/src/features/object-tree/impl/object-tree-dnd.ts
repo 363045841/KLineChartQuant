@@ -11,6 +11,12 @@ import type {
   RenderObjectMoveTarget,
 } from '@363045841yyt/klinechart-core'
 
+/** 新建 Pane 的落位方向；取自移动目标契约，不另行声明字面量。 */
+export type PaneDropSide = Extract<RenderObjectMoveTarget, { kind: 'newPane' }>['placement']
+
+/** 新建 Pane 的对象移动目标；锚点与方向都由对象树落点决定。 */
+export type NewPaneMoveTarget = Extract<RenderObjectMoveTarget, { kind: 'newPane' }>
+
 /**
  * 把展示插入位置换算成领域插入位置。
  *
@@ -71,4 +77,26 @@ export function createMoveTarget(
     paneId: group.paneId,
     index: resolveDropIndex(group, displayIndex, row.objectId, row.band),
   }
+}
+
+/**
+ * 生成“在新 Pane 中放置对象”的移动目标。
+ *
+ * 顶部落点以首个有内容的分组为锚点在其上方新建，底部落点以末个分组为锚点在其下方新建；
+ * 空分组不能作锚点，否则新窗口会挂在没有内容的容器上。
+ *
+ * @param groups 当前按 pane 分列的对象分组，顺序与面板一致
+ * @param side 落点方向
+ * @returns 新建 Pane 的移动目标；没有可作锚点的分组时返回 null
+ */
+export function createNewPaneTarget(
+  groups: ReadonlyArray<PaneObjectGroup>,
+  side: PaneDropSide,
+): NewPaneMoveTarget | null {
+  const anchor =
+    side === 'above'
+      ? groups.find((group) => group.rows.length > 0)
+      : [...groups].reverse().find((group) => group.rows.length > 0)
+  if (anchor === undefined) return null
+  return { kind: 'newPane', anchorPaneId: anchor.paneId, placement: side }
 }
