@@ -3,6 +3,13 @@ const vp = importLibrary('volumeProfile')
 
 /** 阶段单位是交易日，一个阶段最多 1440 根 1 分钟明细。 */
 const MINUTES_PER_DAY = 1440
+/**
+ * 明细窗口下限（天）。
+ *
+ * Request 选项在声明期求值，那里读到的保留期数可能还是默认值；窗口按它的最大值兜底，
+ * 用户把保留期数调大时才不会只拿到 8 天的明细。窗口上限仍由脚本声明控制。
+ */
+const DETAIL_WINDOW_DAYS = 32
 
 defineIndicator({
   name: 'SVP',
@@ -71,8 +78,8 @@ defineIndicator({
                 ? Number.NaN
                 : time_tradingday,
         ] as const,
-      // 明细只覆盖最近保留期数：不封顶会按图表整段历史拉数万根 1 分钟数据。
-      { calcBarsCount: (keepPeriods + 1) * MINUTES_PER_DAY },
+      // 至少一个月，避免声明期读到的保留期数仍是默认值；上限由脚本声明控制。
+      { calcBarsCount: Math.max(DETAIL_WINDOW_DAYS, keepPeriods + 1) * MINUTES_PER_DAY },
     )
     vp.collect(t, e, o, h, l, c, v, k, time[0])
     vp.render(
