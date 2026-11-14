@@ -69,6 +69,15 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     expect(script.run([]).drawings).toEqual([])
   })
 
+  it.each(['svp', 'pvp'])('随包 %s 把明细请求限制在保留期数内', (name) => {
+    const source = readFileSync(new URL(`../../../scripts/${name}.ts`, import.meta.url), 'utf8')
+    const script = prepare(source)
+    const request = script.requests()[0]
+    expect(request?.mode).toBe('lower_tf')
+    // 保留 8 期、多留 1 期给当前未结束阶段，每期最多 1440 根 1 分钟明细。
+    expect(request?.calcBarsCount).toBe(9 * 1440)
+  })
+
   it('reuses completed volume profiles when only the active period changes', () => {
     const source = readFileSync(new URL('../../../scripts/pvp.ts', import.meta.url), 'utf8')
     const script = prepare(source)

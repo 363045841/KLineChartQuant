@@ -36,6 +36,7 @@ describe('PVP service prepend', () => {
     ]
     const market = {
       symbol: 'TEST',
+      optionUnderlying: null,
       time: {
         period: 'daily',
         session: {
@@ -45,6 +46,7 @@ describe('PVP service prepend', () => {
         },
       },
       loadBars: async () => lower,
+      loadOptionLevels: async () => [],
     }
     const config = { rowSize: 4, periodUnit: 'day' }
     try {
