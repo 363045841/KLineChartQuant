@@ -26,6 +26,11 @@ import {
 import { createTradeBuffer } from '../../trades/impl/tradeBuffer.js'
 import { missingTradeRanges, TRADE_HISTORY_PAGE_MS } from '../../trades/impl/tradeRanges.js'
 import {
+  type BarPageStore,
+  createIndexedDbBarStore,
+  sameBarValues,
+} from './indexedDbBarStore.js'
+import {
   TRADE_MESSAGES,
   TRADE_STATUS,
   TRADE_STREAM_CODES,
@@ -56,6 +61,9 @@ export interface TradesCacheQuery {
   readonly range: TradeRange
   readonly signal?: AbortSignal
 }
+
+/** 落盘页超过这个年龄就抽一页回源比对，用于发现深历史被上游修正。 */
+const PERSIST_STALE_PROBE_MS = 24 * 60 * 60 * 1000
 
 export interface BarsCacheQuery {
   readonly symbol: string
@@ -147,6 +155,8 @@ export interface MarketDataCacheStats {
   readonly usedBytes: number
   readonly maxBytes: number
   readonly entryCount: number
+  /** 落盘缓存占用字节；估算值，用于设置面板展示。 */
+  readonly diskBytes: number
 }
 
 /** 将单页上游结果规范为时间升序且时间戳唯一的数据，保留同时间戳的最后一条修正值。 */
@@ -279,10 +289,15 @@ export class MarketDataCache {
     usedBytes: 0,
     maxBytes: DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
     entryCount: 0,
+    diskBytes: 0,
   })
   private lifecycleAbortController = new AbortController()
   private usedBytes = 0
   private maxBytes = DEFAULT_MARKET_DATA_CACHE_MAX_BYTES
+  /** 落盘占用字节；每次写盘或清理后刷新。 */
+  private diskBytes = 0
+  /** 本会话已做过陈旧探测的选择身份，避免每次命中都回源。 */
+  private readonly staleProbed = new Set<string>()
   private destroyed = false
   private readonly unsubscribeRegistry: () => void
 
@@ -290,9 +305,15 @@ export class MarketDataCache {
   readonly stats: ReadonlySignal<MarketDataCacheStats> = this.statsSignal
 
   /** 创建绑定一个 Provider Registry 的图表实例级缓存。 */
-  constructor(registry: MarketDataProviderRegistry) {
+  constructor(
+    registry: MarketDataProviderRegistry,
+    /** 落盘缓存；测试与隐私模式可注入空实现关闭持久化。 */
+    private readonly barStore: BarPageStore = createIndexedDbBarStore(),
+  ) {
     this.router = new SourceRouter(registry)
     this.registry = registry
+    // 首屏就把已有落盘占用带出来，设置面板不必等第一次取数。
+    void this.refreshDiskStats()
     let previous = registry.state.peek()
     this.unsubscribeRegistry = registry.state.subscribe(() => {
       const next = registry.state.peek()
@@ -653,6 +674,18 @@ export class MarketDataCache {
     this.publishStats()
   }
 
+  /** 清空内存与落盘缓存；设置面板的「清除行情缓存」走这里。 */
+  async clearAll(): Promise<void> {
+    this.clear()
+    try {
+      await this.barStore.clearAll()
+    } catch {
+      // 落盘清理失败不影响内存已清空的结果。
+    }
+    this.diskBytes = 0
+    this.publishStats()
+  }
+
   /** 更新缓存上限；降低上限时立即按 LRU 淘汰已缓存条目。 */
   setMaxBytes(maxBytes: number): void {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
@@ -676,6 +709,7 @@ export class MarketDataCache {
   /** 确保一页请求的根数可从缓存命中，未命中时等待已有请求后重新判断。 */
   private async ensurePage(key: string, query: BarsCacheQuery): Promise<void> {
     const signal = this.requestSignal(query.signal)
+    if (!this.coversPage(this.bars.get(key), query)) await this.hydratePage(key, query)
     let completed = false
     return this.ensureQuery(this.entryId('bars', key), signal, {
       next: () =>
@@ -686,6 +720,193 @@ export class MarketDataCache {
               completed = true
             },
     })
+  }
+
+  /**
+   * 内存未命中时先读落盘页。
+   *
+   * 读失败或数据不足都按未命中处理，绝不阻断网络取数：落盘只是加速层。
+   */
+  private async hydratePage(key: string, query: BarsCacheQuery): Promise<void> {
+    let page: Awaited<ReturnType<BarPageStore['read']>> = null
+    try {
+      page = await this.barStore.read(key, {
+        ...(query.beforeTimestamp === undefined ? {} : { beforeTimestamp: query.beforeTimestamp }),
+        limit: query.limit,
+      })
+    } catch {
+      return
+    }
+    if (page === null || page.bars.length === 0) return
+    const current = this.bars.get(key)
+    if (this.coversPage(current, query)) return
+    const data = mergeBars(current?.data ?? [], [...page.bars])
+    this.bars.set(key, {
+      ...page.meta,
+      data,
+      olderData: page.olderData,
+    })
+    this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(this.bars.get(key)!) })
+    // 最新一页必须回源校验：上游修正历史时，落盘页在这里被识别并整体作废。
+    if (query.beforeTimestamp === undefined) await this.revalidateLatest(key, query)
+    else void this.probeStaleHistory(key, page.savedAt)
+  }
+
+  /**
+   * 陈旧探测：命中较老的落盘页时，抽一页回源比对。
+   *
+   * 深历史修正不会与最新页重叠，靠这里按「每会话每选择一次」抽样发现；
+   * 抽样只查最旧的一页，避免把一次加载放大成上百次请求。
+   */
+  private async probeStaleHistory(key: string, savedAt: number): Promise<void> {
+    if (Date.now() - savedAt <= PERSIST_STALE_PROBE_MS || this.staleProbed.has(key)) return
+    this.staleProbed.add(key)
+    await this.verifyPersistent(key, 1)
+  }
+
+  /**
+   * 回源校验最新页，并把新鲜值并入内存条目。
+   *
+   * 命中落盘页时仍要发这一次请求，代价与没有落盘时相同；它换来的是
+   * 「供应商改了历史就立刻纠正」，以及落盘层收到 corrected 后整体作废。
+   */
+  private async revalidateLatest(key: string, query: BarsCacheQuery): Promise<void> {
+    let result: BarsCacheResult
+    try {
+      result = await this.requestPage(query, this.bars.get(key))
+    } catch {
+      // 校验失败保留落盘值，下次加载再试。
+      return
+    }
+    const current = this.bars.get(key)
+    const fresh = result.series.data
+    if (!current || fresh.length === 0) return
+    let corrected = false
+    try {
+      corrected = (
+        await this.barStore.write({
+          selectionKey: key,
+          bars: fresh,
+          olderData: result.series.olderData,
+          meta: { sourceId: result.sourceId, instrument: result.instrument, series: current.series },
+        })
+      ).corrected
+    } catch {
+      corrected = false
+    }
+    this.bars.set(key, {
+      ...current,
+      data: mergeBars(current.data, fresh),
+      olderData: result.series.olderData,
+    })
+    this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(this.bars.get(key)!) })
+    if (corrected) this.queryRevisionSignal.set(this.queryRevisionSignal.peek() + 1)
+  }
+
+  /** 把这次取到的新鲜页写入落盘缓存；失败只丢加速层，不影响本次结果。 */
+  private async persistPage(
+    key: string,
+    entry: CacheEntry,
+    fresh: readonly KLineData[],
+  ): Promise<void> {
+    if (fresh.length === 0) return
+    try {
+      await this.barStore.write({
+        selectionKey: key,
+        bars: fresh,
+        olderData: entry.olderData,
+        meta: {
+          sourceId: entry.sourceId,
+          instrument: entry.instrument,
+          series: entry.series,
+        },
+      })
+    } catch {
+      // 落盘失败不改变取数结果。
+    }
+    await this.refreshDiskStats()
+  }
+
+  /** 刷新落盘占用并发布统计；读失败保留上一次的值。 */
+  private async refreshDiskStats(): Promise<void> {
+    try {
+      this.diskBytes = (await this.barStore.stats()).bytes
+    } catch {
+      return
+    }
+    this.publishStats()
+  }
+
+  /**
+   * 校验落盘历史与上游是否一致，不一致就整体作废该选择。
+   *
+   * 校验按页回源：同一时间窗重新取一遍，逐根比对 O/H/L/C/V。
+   * 命中修正后整段选择作废，交给下次加载重新取，不在原地做逐页修补。
+   *
+   * @param selectionKey 目标选择身份；省略表示全部已落盘的选择
+   * @param maxPages 每个选择最多校验的页数（从最旧的页开始），省略表示全部
+   * @returns corrected 至少有一个选择被判定为已修正并作废
+   */
+  async verifyPersistent(
+    selectionKey?: string,
+    maxPages?: number,
+  ): Promise<{ corrected: boolean }> {
+    let selections: readonly string[]
+    try {
+      selections = selectionKey === undefined ? await this.barStore.listSelections() : [selectionKey]
+    } catch {
+      return { corrected: false }
+    }
+    let corrected = false
+    for (const key of selections) {
+      let pages: Awaited<ReturnType<BarPageStore['listSelection']>>
+      try {
+        pages = await this.barStore.listSelection(key)
+      } catch {
+        continue
+      }
+      const targets = maxPages === undefined ? pages : pages.slice(0, maxPages)
+      for (const page of targets) {
+        if (this.destroyed) break
+        const query: BarsCacheQuery = {
+          sourceId: page.meta.sourceId,
+          instrument: page.meta.instrument,
+          symbol: page.meta.instrument.symbol,
+          exchange: page.meta.instrument.exchange,
+          instrumentType: page.meta.instrument.instrumentType,
+          period: page.meta.series.period,
+          adjustment: page.meta.series.adjustment,
+          barAggregation: page.meta.series.barAggregation,
+          limit: page.bars.length,
+          beforeTimestamp: page.lastTimestamp + 1,
+        }
+        let fresh: readonly KLineData[]
+        try {
+          fresh = (await this.requestPage(query, undefined)).series.data
+        } catch {
+          continue
+        }
+        const freshByTimestamp = new Map(fresh.map((bar) => [bar.timestamp, bar]))
+        // 最新一页的最后一根还可能在形成中，取值变化不算历史修正。
+        const isNewestPage = page.lastTimestamp === pages[pages.length - 1]?.lastTimestamp
+        const comparable = isNewestPage ? page.bars.slice(0, -1) : page.bars
+        const changed = comparable.some((bar) => {
+          const candidate = freshByTimestamp.get(bar.timestamp)
+          return candidate !== undefined && !sameBarValues(bar, candidate)
+        })
+        if (!changed) continue
+        try {
+          await this.barStore.clearSelection(key)
+        } catch {
+          continue
+        }
+        corrected = true
+        break
+      }
+    }
+    if (corrected) this.queryRevisionSignal.set(this.queryRevisionSignal.peek() + 1)
+    await this.refreshDiskStats()
+    return { corrected }
   }
 
   /** K 线和成交共用单任务协调：等待在途请求后重新检查需求，避免复制分页请求链路。 */
@@ -778,6 +999,8 @@ export class MarketDataCache {
     }
     this.bars.set(key, value)
     this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(value) })
+    // 等待落盘完成：页写入是毫秒级，换来的是缓存内容与请求顺序一致，测试与调试都确定。
+    await this.persistPage(key, value, result.series.data)
     if (result.series.data.length === 0 || result.series.olderData === OLDER_DATA_STATUS.EXHAUSTED)
       return
     if (!progressed) {
@@ -900,6 +1123,7 @@ export class MarketDataCache {
       usedBytes: this.usedBytes,
       maxBytes: this.maxBytes,
       entryCount: this.entries.size,
+      diskBytes: this.diskBytes,
     })
   }
 

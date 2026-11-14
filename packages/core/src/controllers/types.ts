@@ -572,12 +572,25 @@ export interface ChartController
   switchToTimeShareForDate(dateYYYYMMDD: number): void
   /** 清除当前图表实例的行情缓存。 */
   clearMarketDataCache(): void
+  /**
+   * 校验落盘行情历史是否被数据源修正；发现修正就整体作废并重新取数。
+   *
+   * 界面的「校验历史缓存」入口使用它；校验按页回源，耗时与落盘页数成正比。
+   */
+  verifyMarketDataCache(): Promise<{ corrected: boolean }>
   getData(): ReadonlyArray<KLineData>
   /** 返回 K 线逻辑索引对应的时间戳，供双击切换分时等 UI 操作使用。 */
   getTimestampAtLogicalIndex(index: number): number | null
   getZoomLevelCount(): number
   /** Request data for dates earlier than the currently loaded window */
   ensureDataRange(startTs: number): void
+  /**
+   * 把当前品种的历史补到指定页数（每页 DEFAULT_BAR_PAGE_LIMIT 根）。
+   *
+   * 结构类指标需要较长前置历史才能成型，宿主在添加指标前调用它预热；
+   * 已满足、数据源耗尽或品种切换时提前返回。
+   */
+  preloadHistory(pages: number): Promise<void>
 
   // ---- Theme ----
   /** 设置主题偏好 light|dark（写 settings） */

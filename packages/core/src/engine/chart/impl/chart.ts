@@ -1133,6 +1133,11 @@ export class Chart {
     this.dataManager.ensureDataRange(startTs)
   }
 
+  /** 把当前品种的历史补到指定页数，供结构类指标在添加前预热。 */
+  preloadHistory(pages: number): Promise<void> {
+    return this.dataManager.preloadHistory(pages)
+  }
+
   /** K线原始数据（分时模式下为空） */
   getInternalData(): readonly KLineData[] {
     return this.dataManager.getInternalData()

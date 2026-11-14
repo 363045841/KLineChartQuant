@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import 'fake-indexeddb/auto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createIndexedDbBarStore, type BarPageStore } from '../buffer/impl/indexedDbBarStore'
 import { MarketDataCache } from '../buffer/impl/marketDataCache'
 import { MarketDataProviderRegistry } from '../provider/impl/registry'
 
@@ -24,6 +26,7 @@ function page(
 
 function createCache(
   fetch: (beforeTimestamp?: number, signal?: AbortSignal) => Promise<ReturnType<typeof page>>,
+  store?: BarPageStore,
 ) {
   const registry = new MarketDataProviderRegistry()
   const instrument = {
@@ -48,7 +51,7 @@ function createCache(
     catalog: { search: async () => [instrument] },
     bars: { fetch: ({ beforeTimestamp, signal }) => fetch(beforeTimestamp, signal) },
   })
-  return { cache: new MarketDataCache(registry), instrument }
+  return { cache: new MarketDataCache(registry, store), instrument }
 }
 
 function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
@@ -68,6 +71,10 @@ function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
 }
 
 describe('MarketDataCache', () => {
+  // 每个用例从空落盘缓存开始，避免上一个用例的磁盘页改变请求次数。
+  beforeEach(async () => {
+    await createIndexedDbBarStore().clearAll()
+  })
   it('serves a repeated latest page from the same in-memory snapshot', async () => {
     const fetch = vi.fn(async () => page([bar(20), bar(30)]))
     const { cache } = createCache(fetch)
@@ -220,5 +227,83 @@ describe('MarketDataCache', () => {
 
     await expect(cache.queryBars(target)).resolves.toBeDefined()
     await expect(cache.queryBars(target)).rejects.toThrow('did not advance cached coverage')
+  })
+
+  it('跨缓存实例读穿历史页，不再请求 Provider', async () => {
+    const store = createIndexedDbBarStore()
+    const fetch = vi.fn(async () => page([bar(10), bar(20)]))
+    const first = createCache(fetch, store)
+    await first.cache.queryBars(query({ limit: 2, beforeTimestamp: 30 }))
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+
+    const reopened = createCache(fetch, store)
+    const result = await reopened.cache.queryBars(query({ limit: 2, beforeTimestamp: 30 }))
+
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(result.series.data.map((item) => item.timestamp)).toEqual([10, 20])
+  })
+
+  it('最新页回源校验发现上游修正时采用新值并作废落盘页', async () => {
+    const store = createIndexedDbBarStore()
+    const stale = vi.fn(async () => page([bar(20), bar(30)]))
+    const first = createCache(stale, store)
+    await first.cache.queryBars(query({ limit: 2 }))
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+
+    const corrected = vi.fn(async () =>
+      page([
+        { ...bar(20), close: 9 },
+        { ...bar(30), close: 9 },
+      ]),
+    )
+    const reopened = createCache(corrected, store)
+    const result = await reopened.cache.queryBars(query({ limit: 2 }))
+
+    expect(result.series.data.map((item) => item.close)).toEqual([9, 9])
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+  })
+
+  it('落盘后把占用字节发布到缓存统计，供设置面板展示', async () => {
+    const store = createIndexedDbBarStore()
+    const fetch = vi.fn(async () => page([bar(10), bar(20)]))
+    const { cache } = createCache(fetch, store)
+
+    await cache.queryBars(query({ limit: 2, beforeTimestamp: 30 }))
+
+    expect(cache.stats.peek().diskBytes).toBeGreaterThan(0)
+  })
+
+  it('校验历史缓存发现深历史被修正时作废落盘页', async () => {
+    const store = createIndexedDbBarStore()
+    const stale = vi.fn(async () => page([bar(10), bar(20)]))
+    const first = createCache(stale, store)
+    await first.cache.queryBars(query({ limit: 2, beforeTimestamp: 30 }))
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+
+    const corrected = vi.fn(async () =>
+      page([
+        { ...bar(10), close: 9 },
+        { ...bar(20), close: 9 },
+      ]),
+    )
+    const reopened = createCache(corrected, store)
+    const result = await reopened.cache.verifyPersistent()
+
+    expect(result.corrected).toBe(true)
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(0))
+  })
+
+  it('校验历史缓存一致时保留落盘页', async () => {
+    const store = createIndexedDbBarStore()
+    const fetch = vi.fn(async () => page([bar(10), bar(20)]))
+    const first = createCache(fetch, store)
+    await first.cache.queryBars(query({ limit: 2, beforeTimestamp: 30 }))
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+
+    const reopened = createCache(fetch, store)
+    const result = await reopened.cache.verifyPersistent()
+
+    expect(result.corrected).toBe(false)
+    expect((await store.stats()).pages).toBe(1)
   })
 })

@@ -68,14 +68,31 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
 
+  /** 清空内存与落盘行情缓存；落盘清理异步进行，不阻塞界面。 */
   function clearMarketDataCache(): void {
     if (isDisposed()) return
-    chart.getMarketDataCache().clear()
+    void chart.getMarketDataCache().clearAll()
+  }
+
+  /**
+   * 校验落盘历史与上游是否一致，发现修正就整体作废并重新取数。
+   *
+   * 界面的「校验历史缓存」走这里；校验按页回源，耗时与页数成正比。
+   */
+  function verifyMarketDataCache(): Promise<{ corrected: boolean }> {
+    if (isDisposed()) return Promise.resolve({ corrected: false })
+    return chart.getMarketDataCache().verifyPersistent()
   }
 
   function ensureDataRange(startTs: number): void {
     if (isDisposed()) return
     chart.ensureDataRange(startTs)
+  }
+
+  /** 把历史补到指定页数；销毁后立即返回，不留下挂起的加载。 */
+  function preloadHistory(pages: number): Promise<void> {
+    if (isDisposed()) return Promise.resolve()
+    return chart.preloadHistory(pages)
   }
 
   function startRangeSelection(timestamp: number): void {
@@ -121,7 +138,9 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
       setCurrentPeriod,
       switchToTimeShareForDate,
       clearMarketDataCache,
+      verifyMarketDataCache,
       ensureDataRange,
+      preloadHistory,
       startRangeSelection,
       updateRangeSelection,
       finishRangeSelection,
