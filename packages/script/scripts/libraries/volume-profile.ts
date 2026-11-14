@@ -31,17 +31,29 @@ let profileBars: ProfileBar[] = []
 let stageGroups: ProfileBar[][] = []
 
 /** 从明细数组重建自然期分组；仅在同 bar 撤销或裁剪后使用。 */
+/**
+ * 按阶段 key 分组，返回按 key 升序排列的阶段列表。
+ *
+ * 明细不保证按时间到达：增量执行、回滚历史与重复计算都会打乱顺序。
+ * 因此按 key 归组而不是按相邻段切分，避免同一阶段被拆成多段、旧阶段挤掉新阶段。
+ *
+ * @param bars 明细
+ * @returns 按 key 升序的阶段数组
+ */
 function buildGroups(bars: readonly ProfileBar[]): ProfileBar[][] {
-  const groups: ProfileBar[][] = []
+  const byKey = new Map<number, ProfileBar[]>()
   for (const bar of bars) {
-    let group = groups[groups.length - 1]
-    if (!group || group[0]!.key !== bar.key) {
-      group = []
-      groups.push(group)
-    }
-    group.push(bar)
+    const group = byKey.get(bar.key)
+    if (group) group.push(bar)
+    else byKey.set(bar.key, [bar])
   }
-  return groups
+  return [...byKey.keys()]
+    .sort((left, right) => left - right)
+    .map((key) => {
+      const group = byKey.get(key)!
+      group.sort((left, right) => left.time - right.time)
+      return group
+    })
 }
 
 /** 追加已按主图bar分组的低周期明细；cutoff 为当前主图 bar 起点，同 bar 重算先撤销旧明细。 */
@@ -198,6 +210,8 @@ type StageDrawings = { readonly boxes: readonly ProfileRef[]; readonly lines: re
 const renderedStages = new Set<string>()
 /** 已完成阶段的绘图引用，按阶段 key 复用与回收。 */
 const stageDrawings = new Map<string, StageDrawings>()
+/** 活动期的绘图引用；每轮重算前先删除，避免跨 bar 累积把旧阶段挤出额度。 */
+let activeDrawings: StageDrawings | null = null
 
 /** 参考线延伸到后续第一根覆盖价格的明细；未触及时使用公共right延长语义。 */
 function profileLine(
@@ -256,6 +270,9 @@ function mergeStageGroups(groups: readonly ProfileBar[][], count: number): Profi
 function renderProfiles(config: ProfileConfig, isLast: boolean): void {
   // 历史阶段不输出；只在末根渲染保留期内的完成期与活动期，避免全历史建图。
   if (!isLast) return
+  // 明细到达顺序不保证（增量执行、回滚历史、重复计算都会打乱），
+  // 渲染前按阶段 key 重建，保证保留期取到的是最新阶段。
+  stageGroups = buildGroups(profileBars)
   const groups = config.count === 1 ? stageGroups : mergeStageGroups(stageGroups, config.count)
   const keep = Math.max(1, Math.min(config.keep, Math.floor(2000 / (config.rows * 2 + 1))))
   if (isLast && groups.length > keep) console.info(`成交量分布保留最近${keep}期（绘图对象预算）`)
@@ -286,7 +303,16 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
     const key = String(first.key)
     const active = index === kept.length - 1
     // 完成期已输出后冻结；活动期在提交检查点之后单独渲染。
-    if (active) __commitCheckpoint()
+    if (active) {
+      __commitCheckpoint()
+      // 活动期每根 K 线都重算：先撤销上一轮图元，否则累计越过 2000 后
+      // 额度淘汰会静默删掉最早的阶段，表现为历史分布缺行或整期消失。
+      if (activeDrawings) {
+        for (const ref of activeDrawings.boxes) box.delete(ref)
+        for (const stageLine of activeDrawings.lines) line.delete(stageLine.ref)
+        activeDrawings = null
+      }
+    }
     if (!active && renderedStages.has(key)) {
       const drawings = stageDrawings.get(key)
       if (drawings) for (const stageLine of drawings.lines) updateStageLine(stageLine)
@@ -353,8 +379,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
         '@token:volumeProfile.pointOfControl',
         config.extendPoc,
       )
-      if (!active)
-        lines.push({
+      lines.push({
           key,
           ref: result.ref,
           price: profile.bottom + (profile.poc + 0.5) * profile.step,
@@ -370,8 +395,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
         '@token:volumeProfile.valueAreaHigh',
         config.extendVah,
       )
-      if (!active)
-        lines.push({
+      lines.push({
           key,
           ref: result.ref,
           price: profile.bottom + (profile.hi + 1) * profile.step,
@@ -387,8 +411,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
         '@token:volumeProfile.valueAreaLow',
         config.extendVal,
       )
-      if (!active)
-        lines.push({
+      lines.push({
           key,
           ref: result.ref,
           price: profile.bottom + profile.lo * profile.step,
@@ -396,7 +419,8 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
           extending: result.extending,
         })
     }
-    if (!active) {
+    if (active) activeDrawings = { boxes, lines }
+    else {
       stageDrawings.set(key, { boxes, lines })
       renderedStages.add(key)
     }
@@ -439,6 +463,7 @@ const profileState = {
     renderedStages.clear()
     for (const key of value.stages) renderedStages.add(key)
     stageDrawings.clear()
+    activeDrawings = null
     for (const [key, drawings] of value.drawings) stageDrawings.set(key, drawings)
   },
 }
