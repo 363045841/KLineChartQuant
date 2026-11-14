@@ -298,9 +298,14 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
     if (!profile) continue
     const last = group[group.length - 1]!
     const width = ((last.end - first.time) * config.width) / 100
-    const left = config.side === 'left' ? first.time : last.end - width
+    // 完成期按位置参数贴在自己那一侧；活动期没有结束边界，改成右端贴住最新明细，
+    // 直方图随价格向右生长，否则它会一直停在阶段开盘后的 30% 处、看着像没画完。
+    const left = active
+      ? last.end - width
+      : config.side === 'left'
+        ? first.time
+        : last.end - width
     // 活动期没有结束边界：背景拉到最新一根明细，否则今天的分布会缩在阶段开盘附近看不见。
-    // 直方图仍按宽度参数贴在自己那一侧，只有背景区域跟到当前。
     const backgroundLeft = active ? first.time : left
     const backgroundRight = active ? last.end : left + width
     const background = profileBox(
