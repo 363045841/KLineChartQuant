@@ -1,7 +1,7 @@
 /** 指标行情加载器：负责实时共享 Buffer 的绑定、历史分页和并发合并。 */
 import {
   DEFAULT_INTRABAR_LIMIT,
-  DEFAULT_REQUEST_BARS,
+  DEFAULT_INTRABAR_PAGE_LIMIT,
   type IndicatorBarsRequest,
   type ScriptTimeContext,
   timeValue,
@@ -140,8 +140,11 @@ export async function loadIndicatorBars(
     instrument,
     adjustment: session.selection.adjustment,
     barAggregation: session.selection.barAggregation,
+    // 明细页按游标串行拉取，页大小直接决定往返次数；security 只要预热根数。
     limit:
-      request.mode === 'lower_tf' ? Math.min(DEFAULT_REQUEST_BARS, budget) : request.calcBarsCount,
+      request.mode === 'lower_tf'
+        ? Math.min(DEFAULT_INTRABAR_PAGE_LIMIT, budget)
+        : request.calcBarsCount,
     signal: abort.signal,
   }
   const clock = marketClock(session, deps.sessions)

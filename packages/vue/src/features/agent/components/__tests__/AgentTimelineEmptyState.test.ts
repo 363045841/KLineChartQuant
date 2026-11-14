@@ -26,6 +26,24 @@ describe('AgentTimelineEmptyState', () => {
     wrapper.unmount()
   })
 
+  it('期权这一条同样只显示短标签，发送带口径规则的完整指令', async () => {
+    const wrapper = mount(AgentTimelineEmptyState, { props: { locale: 'zh-CN' } })
+    const copy = getAgentCopy('zh-CN')
+    const option = wrapper.findAll('button').at(5)
+
+    expect(option?.text()).toContain(copy.promptOption)
+    expect(option?.text()).not.toContain(copy.promptOptionDetail)
+
+    await option?.trigger('click')
+
+    expect(wrapper.emitted('prompt')?.[0]).toEqual([copy.promptOptionDetail])
+    // 口径与边界都写进指令：先取数、标明加权墙、不给点位建议。
+    expect(copy.promptOptionDetail).toContain('option_snapshot')
+    expect(copy.promptOptionDetail).toContain('Gamma 加权')
+    expect(copy.promptOptionDetail).toContain('不给入场、止损、目标价')
+    wrapper.unmount()
+  })
+
   it('其余四条发送与标签相同的文本', async () => {
     const wrapper = mount(AgentTimelineEmptyState, { props: { locale: 'en' } })
     const copy = getAgentCopy('en')

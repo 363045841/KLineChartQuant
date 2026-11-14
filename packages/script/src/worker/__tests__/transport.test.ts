@@ -1,6 +1,7 @@
 /** 通信契约验收：真实转移、原地 tick、历史重排、跨周期释放和真实脚本绘图往返。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
+import { optionRow, optionSnapshot } from '../../__tests__/marketData.js'
 import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
 import { createScriptWorker } from '../impl/createScriptWorker.js'
 import {
@@ -56,6 +57,26 @@ describe('Worker input synchronization', () => {
     const reset = sender.encode([bar(7, 20)])
     expect(reset.bars.start).toBe(0)
     expect(receiver.decode(reset).bars).toStrictEqual([bar(7, 20)])
+  })
+
+  it('sends option snapshots only when they change and clears them on null', () => {
+    const sender = new WorkerInputSender()
+    const receiver = new WorkerInputReceiver()
+    const bars = [bar(1)]
+    const context = { symbol: 'BTCUSDT', snapshots: [] }
+    const optionLevels = optionSnapshot([optionRow(1_000)])
+    const first = receiver.decode(sender.encode(bars, { ...context, optionLevels }))
+    expect(first.context?.optionLevels).toStrictEqual(optionLevels)
+    // 数据未变化时不重发，接收端沿用已同步的快照。
+    const unchanged = sender.encode(bars, { ...context, optionLevels })
+    expect(unchanged.context?.optionLevels).toBeUndefined()
+    expect(receiver.decode(unchanged).context?.optionLevels).toStrictEqual(optionLevels)
+    // 快照更新后整份重发；插件层面不维护行级增量。
+    const next = optionSnapshot([optionRow(1_000), optionRow(2_000)])
+    expect(sender.encode(bars, { ...context, optionLevels: next }).context?.optionLevels).toStrictEqual(next)
+    // 宿主不再提供快照时显式清空，接收端不能留着上一轮的线。
+    const cleared = receiver.decode(sender.encode(bars, context))
+    expect(cleared.context?.optionLevels).toBeUndefined()
   })
 
   it('prunes low-timeframe baselines and isolates physical workers', () => {

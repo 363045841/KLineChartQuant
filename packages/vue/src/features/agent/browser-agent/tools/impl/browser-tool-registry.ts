@@ -10,13 +10,18 @@ import {
   type RuntimeToolDefinition,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-import { getRecoveryHint, isKLineChartError } from '@363045841yyt/klinechart-core'
+import { getRecoveryHint, isKLineChartError, resolveOptionUnderlying } from '@363045841yyt/klinechart-core'
 import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import {
   type ChartAgentController,
   getRegisteredChartTools,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { BrowserToolContext, BrowserToolRegistryDependencies } from '../types.js'
+import { createOptionClient } from '../../../../options/impl/option-client.js'
+import {
+  createOptionSnapshotTool,
+  OPTION_SNAPSHOT_TOOL_METADATA,
+} from '../../../../options/impl/option-snapshot-tool.js'
 import { createOrderflowClient } from '../../../../orderflow/impl/orderflow-client.js'
 import {
   createOrderflowSnapshotTool,
@@ -68,6 +73,21 @@ export class BrowserToolRegistry {
           baseUrl: this.dependencies.getOrderflowBaseUrl?.(),
         })
         return createOrderflowSnapshotTool(client, () => agent.getContext().symbol)
+      },
+    })
+    this.catalog.register({
+      ...OPTION_SNAPSHOT_TOOL_METADATA,
+      create: ({ agent }) => {
+        if (!agent) return undefined
+        const client = createOptionClient({
+          fetch: this.dependencies.fetch,
+          baseUrl: this.dependencies.getOrderflowBaseUrl?.(),
+        })
+        // 期权标的按品种映射表解析；没有映射的品种交给工具给出「没有数据」的提示。
+        return createOptionSnapshotTool(client, () => {
+          const symbol = agent.getContext().symbol
+          return typeof symbol === 'string' ? resolveOptionUnderlying(symbol) : null
+        })
       },
     })
   }

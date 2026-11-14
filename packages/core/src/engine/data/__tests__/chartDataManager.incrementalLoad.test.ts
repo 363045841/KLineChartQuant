@@ -35,6 +35,34 @@ describe('ChartDataManager incremental load', () => {
   })
 
   // 源级单页能力约束旧品种快照；短页继续推进真实游标，直到源明确声明耗尽。
+  it('preloadHistory 逐页补到目标根数，数据源耗尽后停止', async () => {
+    const now = Date.now()
+    let fetchCount = 0
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            fetchCount++
+            return makeBarsPage([makeKLine(now - fetchCount * 90 * MS_PER_DAY)], {
+              olderData: fetchCount >= 3 ? 'exhausted' : 'available',
+            })
+          },
+        },
+      }),
+    )
+    const harness = createTestChartDataManager(document, {
+      viewport: { scrollLeft: 0, visibleRange: { start: 0, end: 2 } },
+    })
+    manager = harness.manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    // 每页只返回 1 根，远达不到 4 页目标，只能靠 exhausted 收尾。
+    await manager.preloadHistory(4)
+    expect(fetchCount).toBe(3)
+    expect(manager.getData()).toHaveLength(3)
+  })
+
   it('continues protocol-limited pages without treating the first short page as exhausted', async () => {
     const instrument = instrumentFor('sh.600000')
     const start = Date.now() - 6 * MS_PER_DAY

@@ -33,7 +33,12 @@ describe('ScriptService', () => {
         { persistence },
       )
       const bars = [{ time: 1, open: 10, high: 10, low: 10, close: 10, volume: 1 }]
-      const market = { symbol: 'TEST', loadBars: vi.fn(async () => bars) }
+      const market = {
+        symbol: 'TEST',
+        optionUnderlying: null,
+        loadBars: vi.fn(async () => bars),
+        loadOptionLevels: vi.fn(async () => []),
+      }
       const debugSource = `const lib = importLibrary('debugLibrary'); defineIndicator({ name: 'DebugOnly', position: Position.Sub, onBar() { const other = request.security(syminfo.tickerid, Timeframe.Day, () => close); console.log(lib.value(other)); plot.Line(other, 'other') } })`
       let events: readonly LogEvent[] = []
       const unsubscribe = scripts.output.subscribe('debug-tab', (next) => {
@@ -67,6 +72,8 @@ describe('ScriptService', () => {
         scripts.dispose()
       }
     },
+    // 每题都要启动真实 Worker 编译两轮；并行跑整个包时 5 秒默认上限会被正常耗时触顶。
+    15_000,
   )
 
   // 同一用例串行启动真实 Worker，覆盖多轮编译、失败更新及持久化恢复。
@@ -378,8 +385,10 @@ describe('ScriptService', () => {
     }))
     const market: IndicatorMarketContext = {
       symbol: 'TEST',
+      optionUnderlying: null,
       time: { period: '1', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
       loadBars: async () => data.map(({ timestamp, ...bar }) => ({ time: timestamp, ...bar })),
+      loadOptionLevels: async () => [],
     }
     for (const source of builtinScriptSources) {
       const definition = scripts.list().find((document) => document.source === source)!.definition

@@ -15,6 +15,7 @@ import {
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  OPTION_PRELUDE,
   PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
@@ -30,6 +31,7 @@ import {
 import { SCRIPT_ENUM_GLOBALS } from '../../../quickjs/impl/scriptEnumGlobals.js'
 import type { QuickJSScriptDefinition, ScriptParamValue } from '../../../quickjs/types.js'
 import { CURRENT_SYMBOL } from '../../../request/impl/symbols.js'
+import type { ScriptOptionLevels } from '../../../option/types.js'
 import type { RequestExecution, RequestValue, SecurityRequest } from '../../../request/types.js'
 import { createScriptConsole } from '../../impl/createScriptConsole.js'
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../impl/scriptRuntime.js'
@@ -76,6 +78,8 @@ interface NativeState {
   params: Record<string, ScriptParamValue>
   defaults: Record<string, ScriptParamValue>
   execution: RequestExecution
+  /** 本次运行的期权快照；宿主没提供时沿用上一次挂载的数据。 */
+  optionLevels?: ScriptOptionLevels
   collector: PlotCollector
   emit?: (event: LogEvent) => void
   /** 顶层声明阶段产生的日志；首次运行时补发给本次运行的接收者。 */
@@ -123,6 +127,7 @@ function createScope(state: NativeState): Record<string, unknown> {
       () => state.index,
     ),
     __requestContext: state.execution,
+    __optionContext: state.optionLevels,
     __timeValue: (
       mode: string,
       period: string,
@@ -217,6 +222,7 @@ export function createNativeScriptRuntime(
         ${LIBRARY_PRELUDE}
         ${SCRIPT_PRELUDE}
         ${REQUEST_PRELUDE}
+        ${OPTION_PRELUDE}
         ${TIME_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
@@ -250,6 +256,9 @@ export function createNativeScriptRuntime(
     scope.params = state.params
     state.execution = input.execution
     scope.__requestContext = input.execution
+    // 期权快照由宿主每次运行显式给出；null 表示本次没有数据，必须清掉上一次的。
+    state.optionLevels = input.optionLevels ?? undefined
+    scope.__optionContext = state.optionLevels
     if (input.emit && state.pendingLogs.length) {
       for (const event of state.pendingLogs) input.emit(event)
       state.pendingLogs.length = 0

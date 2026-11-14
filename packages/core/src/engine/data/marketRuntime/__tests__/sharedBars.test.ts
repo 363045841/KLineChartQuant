@@ -1,4 +1,5 @@
 /** 使用真实仓库和现有 Provider 夹具验证比较品种与 Request 的共享使用权与来源约定。 */
+import { DEFAULT_INTRABAR_PAGE_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '@/data/buffer/impl/dataBuffer.js'
 import type { BarsCacheQuery } from '@/data/buffer/impl/marketDataCache.js'
@@ -339,6 +340,32 @@ describe('Request 来源约定', () => {
         }),
       ).resolves.toEqual([])
       expect(queries).toHaveLength(fetched)
+    } finally {
+      runtime.dispose()
+      cache.destroy()
+    }
+  })
+
+  it('lower_tf 明细页按统一页大小拉取，预算小于页大小时退化为预算', async () => {
+    const { runtime, cache, data, queries } = createHarness()
+    try {
+      const market = runtime.context('script', data)
+      await market.loadBars({
+        symbol: 'MAIN',
+        timeframe: 'D',
+        mode: 'lower_tf',
+        calcBarsCount: 9000,
+      })
+      expect(queries[0]?.limit).toBe(DEFAULT_INTRABAR_PAGE_LIMIT)
+      // 预算小于页大小：按预算取整，不超量请求。
+      queries.length = 0
+      await market.loadBars({
+        symbol: 'MAIN',
+        timeframe: 'D',
+        mode: 'lower_tf',
+        calcBarsCount: 40,
+      })
+      expect(queries[0]?.limit).toBe(40)
     } finally {
       runtime.dispose()
       cache.destroy()

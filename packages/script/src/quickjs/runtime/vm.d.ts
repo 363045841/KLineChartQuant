@@ -100,3 +100,6 @@ declare const params: Record<string, ScriptParamValue>
 /** 宿主注入的跨周期计算输入，仅包含可克隆数据。 */
 declare const __requestContext: import('../../request/types.js').RequestExecution
 declare function __emitRequestResult(value: import('../../request/types.js').RequestValue): void
+
+/** 宿主注入的期权快照；本次运行没有品种映射或取不到数据时保持缺省。 */
+declare const __optionContext: import('../../option/types.js').ScriptOptionLevels | undefined

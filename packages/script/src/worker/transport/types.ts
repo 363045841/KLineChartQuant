@@ -6,6 +6,7 @@ import type {
   ScalarPlot,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { ScriptRequestContext } from '../../request/types.js'
+import type { ScriptOptionLevels } from '../../option/types.js'
 
 /** 行情增量：prepended 表示在旧首根之前插入的根数；count 为本块根数。 */
 export interface BarPatch {
@@ -20,11 +21,21 @@ export interface BarPatch {
   readonly buffer: ArrayBuffer
 }
 
+/** 运行载荷的上下文：行情增量 + 本次运行的期权快照。 */
+export interface RunInputContext {
+  readonly symbol: string
+  readonly time?: ScriptRequestContext['time']
+  readonly snapshots: readonly { readonly id: string; readonly bars: BarPatch }[]
+  /**
+   * 期权快照：字段缺省表示沿用上次同步的数据，null 表示本次没有期权数据。
+   * 只带一个标的，且只在变化时发送。
+   */
+  readonly optionLevels?: ScriptOptionLevels | null
+}
+
 export interface RunInputPatch {
   readonly bars: BarPatch
-  readonly context?: Omit<ScriptRequestContext, 'snapshots'> & {
-    readonly snapshots: readonly { readonly id: string; readonly bars: BarPatch }[]
-  }
+  readonly context?: RunInputContext
 }
 
 /** 分布式 Omit 保留每一种 Plot 自己的声明字段。 */

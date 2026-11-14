@@ -50,6 +50,19 @@
         :read-only="readOnly"
         @read-only="setReadOnly"
       />
+      <div v-if="quickPrompts.length > 0" class="agent-quick">
+        <button
+          v-for="prompt in quickPrompts"
+          :key="prompt"
+          type="button"
+          class="agent-quick__item"
+          :title="`填入输入框：${prompt}`"
+          @click="draft = prompt"
+        >
+          <span class="agent-quick__tag">快速解读</span>
+          <span class="agent-quick__text">{{ prompt }}</span>
+        </button>
+      </div>
       <AgentComposer
         v-model:draft="draft"
         :running="isRunning"
@@ -85,6 +98,8 @@
 </template>
 
 <script setup lang="ts">
+  import './agent-quick-prompt.css'
+
   import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
   import type { AgentBridgeClient } from '../agent-contracts.js'
   import { getAgentCopy } from '../agent-copy.js'
@@ -99,8 +114,13 @@
   import AgentUnavailableNotice from './AgentUnavailableNotice.vue'
 
   const props = withDefaults(
-    defineProps<{ bridge: AgentBridgeClient; panelSide?: AgentPanelSide }>(),
-    { panelSide: 'right' },
+    defineProps<{
+      bridge: AgentBridgeClient
+      panelSide?: AgentPanelSide
+      /** 输入框上方的快捷提示；点击填入草稿，省略时不显示。 */
+      quickPrompts?: readonly string[]
+    }>(),
+    { panelSide: 'right', quickPrompts: () => [] },
   )
   const emit = defineEmits<{ close: []; 'toggle-panel-side': [] }>()
 

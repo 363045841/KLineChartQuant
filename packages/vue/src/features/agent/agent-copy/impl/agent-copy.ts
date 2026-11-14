@@ -29,6 +29,9 @@ const copy = {
     promptEma: 'Add EMA(20) to the main chart',
     promptBond: 'Compare bond trends across different durations',
     promptOrderflow: 'Read the current order flow and annotate the chart',
+    promptOption: 'Read the current option levels',
+    promptOptionDetail:
+      'Read the current option levels. Rules: 1) call option_snapshot first and use only the numbers it returns. 2) Answer in three parts: bias (which side of the gamma flip the spot sits, and whether gamma amplifies or dampens), corridor (the nearest gamma-weighted walls above and below with distances), and warnings (which calibers disagree, and how far the nearest level is). 3) Report conditions, not predictions: name the price that would switch the regime and say what becomes more likely there; never give entries, stops or targets. 4) Quote the numbers from the tool as they are; do not compute percentages yourself. 5) Name the caliber: gamma-weighted wall versus OI wall. 6) When every metric agrees, say there is no divergence instead of inventing one.',
     promptOrderflowDetail:
       'Read the current order flow and annotate the chart. Rules: 1) call orderflow_snapshot first and use only the numbers it returns. 2) Before drawing, list the existing drawings and delete the ones whose label starts with "Orderflow"; leave every other drawing untouched. 3) Draw only two things: each venue price wall as a horizontal line labelled "Orderflow <venue> <amount>", and cross-venue taker-buy divergence as a text note naming which venues disagree and their values. 4) Coverage gaps, large-order tiers and positioning stay in your reply as text, never on the chart. 5) Close with observed-zone notes: for each zone give the price band, the evidence (which venue rests how much on which side, and what the cross-venue divergence implies), and the invalidation condition (wall pulled, or price closing through the band on volume). Read the minute-level CVD as well: it agreeing with price means the move has participation, while a new price high without CVD following means weakening momentum. State the price range each venue actually covers as the panel reports it, rather than one blanket number, and say that walls can be cancelled. These are book observations, not support/resistance verdicts; do not give entries, stops or targets.',
     readOnly: 'Read-only',
@@ -159,6 +162,9 @@ const copy = {
     promptEma: '在主图添加 EMA(20)',
     promptBond: '比较不同久期的债券走势',
     promptOrderflow: '解读当前订单流并在图表上标注',
+    promptOption: '解读当前期权关键位',
+    promptOptionDetail:
+      '解读当前期权关键位。规则：①先调用 option_snapshot 取数，只用它返回的数字；②分三段说结构：基调（现价在翻转位哪一侧、gamma 是放大还是压制）、走廊（上下最近的 Gamma 加权墙与距离）、注意（哪两个口径在打架、距最近参考位多远）；③只给条件描述：写清站上或跌破哪个价位会换基调，用「更容易」「倾向于」，不给入场、止损、目标价；④数字照抄工具返回的原文，不要自己算百分比；⑤每条墙都标明口径（Gamma 加权还是 OI）；⑥各项同向时直接说没有背离，不要硬找矛盾。',
     promptOrderflowDetail:
       '解读当前订单流并在图表上标注。规则：①先调用 orderflow_snapshot 取数，只用它返回的数字；②标注前先列出现有图元，删掉标签以「订单流」开头的，其他图元不要动；③图上只画两类：各所价格墙画水平线，标签写「订单流 交易所 金额」；跨所主动买占比分歧画文本，写清哪几家方向相反及各自数值；④覆盖不足、大单分层、持仓结构只在回复里用文字说明，不画到图上；⑤最后给「观测区间」小结：每个区间写价位范围、依据（哪几家在哪一侧挂了多大金额、跨所分歧指向哪边）和失效条件（墙体撤单，或价格带量收在该区间之外）；同时读面板的分钟级 CVD，与价格同向说明动能配合，价格新高而 CVD 不跟说明动能减弱；同时按交易所说明各自实际覆盖的价格区间（面板每个区间都带覆盖标记），不要用一个统一数字概括，并说明挂单可能被撤。这些是盘口观测，不是支撑阻力定论，也不要给入场价、止损或目标位。',
     readOnly: '只读',

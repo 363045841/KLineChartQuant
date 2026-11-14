@@ -99,6 +99,10 @@ export interface MockChartController extends ChartController {
   _setDrawingHistory: (canUndo: boolean, canRedo: boolean) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
+  /** test-only: 写入指标实例快照，驱动指标开关与选择器的“已启用”判断 */
+  _setIndicators: (next: ReadonlyArray<IndicatorInstance>) => void
+  /** test-only: 写入副图信息快照 */
+  _setSubPanes: (next: ReadonlyArray<SubPaneInfo>) => void
   /** test-only: 切换图表模式，驱动轴布局显示。 */
   _setChartMode: (mode: ReturnType<ChartController['chartMode']['peek']>) => void
   /** spy: resetMainPriceAxis 调用次数 */
@@ -147,6 +151,8 @@ export function createMockChartController(
   const hasDrawingClipboard = createSignal(false)
   const globalDrawingLock = createSignal(false)
   const interactionState = createSignal(createIdleInteractionSnapshot())
+  const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([])
+  const subPanes = createSignal<ReadonlyArray<SubPaneInfo>>([])
   const optionsFacadeCalls: OptionsFacadePatch[] = []
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
@@ -177,8 +183,8 @@ export function createMockChartController(
     }),
     chartMode,
     lastBarPeriod: createSignal('daily'),
-    indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
-    subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
+    indicators,
+    subPanes,
     drawingTool: createSignal('cursor' as const),
     drawings,
     canUndoDrawing,
@@ -293,6 +299,7 @@ export function createMockChartController(
     clearRangeSelection: () =>
       rangeSelection.set({ startTimestamp: null, endTimestamp: null, isDragging: false }),
     loadIndicators: async () => {},
+    preloadHistory: async () => {},
     addIndicator: () => null,
     moveIndicator: () => false,
     removeIndicator: () => false,
@@ -392,6 +399,8 @@ export function createMockChartController(
     _setViewport: (vp) => viewport.set(vp),
     _setData: (next) => data.set(next),
     _setInteractionState: (snapshot) => interactionState.set(snapshot),
+    _setIndicators: (next) => indicators.set(next),
+    _setSubPanes: (next) => subPanes.set(next),
     _emitTheme: (next) => theme.set(next),
     _setLegendContext: (next) => legendContext.set(next),
   }

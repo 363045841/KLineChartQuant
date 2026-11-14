@@ -7,6 +7,7 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/output.js'
 import type { QuickJSScriptDefinition, ScriptParamValue } from '../../quickjs/types.js'
+import type { ScriptOptionLevels } from '../../option/types.js'
 import type {
   RequestExecution,
   RequestValue,
@@ -28,6 +29,11 @@ export interface ScriptRuntimeExecuteOptions {
   readonly endIndex: number
   readonly params: Readonly<Record<string, ScriptParamValue>>
   readonly execution: RequestExecution
+  /**
+   * 本次运行的期权快照；null 表示本次没有期权数据（没有品种映射、服务不可用或未提供上下文）。
+   * 必填是为了让「没有数据」与「沿用上次」在编译期区分开。
+   */
+  readonly optionLevels: ScriptOptionLevels | null
   readonly emit?: (event: LogEvent) => void
   /** 最后一根 bar 之前的状态下标；库在完成期渲染后用它提交检查点。 */
   readonly checkpointIndex?: number

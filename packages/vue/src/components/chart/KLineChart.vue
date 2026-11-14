@@ -403,6 +403,7 @@
       @confirm="confirmChartSettings"
       @apply-theme-preset="handleSettingsChange({ ...chartSettings, colorPresetSettings: $event })"
       @clear-market-data-cache="controller?.clearMarketDataCache()"
+      @verify-market-data-cache="controller?.verifyMarketDataCache()"
     >
       <template v-if="slots['source-management']" #source-management>
         <slot name="source-management" />
@@ -1084,7 +1085,7 @@
   const marketDataCacheStats = useControllerSignal(
     controller,
     (ctrl) => ctrl.marketDataCacheStats,
-    () => ({ usedBytes: 0, maxBytes: 0, entryCount: 0 }),
+    () => ({ usedBytes: 0, maxBytes: 0, entryCount: 0, diskBytes: 0 }),
   )
   const kLineLevel = computed(() => {
     if (chartMode.value === 'timeshare') return 'timeshare'
