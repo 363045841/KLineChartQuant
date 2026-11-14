@@ -6,7 +6,9 @@
  * - yAxis 方法通过闭包包装，隔离原始函数引用
  * - axes 由框架派生，插件只读
  */
-import type { PaneCapabilities, PaneInfo, PaneRole } from '../types.js'
+
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { PaneCapabilities, PaneInfo } from '../types.js'
 
 type AxisLike = PaneInfo['yAxis']
 
@@ -29,29 +31,40 @@ function wrapAxis(axis: AxisLike): PaneInfo['yAxis'] {
 
 export function wrapPaneInfo(pane: {
   id: string
-  role: PaneRole
   capabilities: PaneCapabilities
   top: number
   height: number
   yAxis: AxisLike
-  axes?: ReadonlyArray<{ readonly axisId: string; readonly yAxis: AxisLike }>
+  axes: ReadonlyArray<{ readonly axisId: string; readonly yAxis: AxisLike }>
+  objectAxis(objectId: string): string | null
   priceRange: PaneInfo['priceRange']
 }): Readonly<PaneInfo> {
-  const primary = wrapAxis(pane.yAxis)
-  const axes = (pane.axes ?? [{ axisId: pane.id, yAxis: pane.yAxis }]).map((axis) => ({
+  const axes = pane.axes.map((axis) => ({
     axisId: axis.axisId,
     yAxis: wrapAxis(axis.yAxis),
   }))
   const byId = new Map(axes.map((axis) => [axis.axisId, axis.yAxis]))
   return {
     id: pane.id,
-    role: pane.role,
     capabilities: { ...pane.capabilities },
     top: pane.top,
     height: pane.height,
-    yAxis: primary,
+    get yAxis() {
+      return wrapAxis(pane.yAxis)
+    },
     axes,
-    axis: (axisId) => byId.get(axisId) ?? primary,
-    priceRange: pane.priceRange,
+    axis: (axisId) => {
+      const axis = byId.get(axisId)
+      if (!axis)
+        throw new KLineChartError(
+          GENERIC_ERROR_CODES.NOT_REGISTERED,
+          `Pane ${pane.id} 中不存在轴 ${axisId}`,
+        )
+      return axis
+    },
+    objectAxis: (objectId) => pane.objectAxis(objectId),
+    get priceRange() {
+      return pane.priceRange
+    },
   }
 }

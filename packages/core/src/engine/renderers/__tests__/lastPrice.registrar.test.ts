@@ -9,15 +9,21 @@ import {
 import type { RenderContext } from '@/foundation/plugin/index'
 import { resolveThemeColors } from '@/foundation/tokens/index'
 import { ChartDataViewId } from '@/foundation/types/chartView'
+import { PRICE_SERIES_AXIS_ID } from '../rendererIds.js'
 
 /** 以主图身份调用最新价标签 Layer.paint。 */
 function paintLabel(context: RenderContext): void {
-  createLastPriceLabelLayer().paint({ ...context, paneId: 'main', clear: false })
+  createLastPriceLabelLayer(context.pane.id).paint({
+    ...context,
+    pane: { ...context.pane, axes: [{ axisId: PRICE_SERIES_AXIS_ID, yAxis: context.pane.yAxis }] },
+    paneId: context.pane.id,
+    clear: false,
+  })
 }
 
 /** 以主图身份调用最新价线 Layer.paint。 */
 function paintLine(context: RenderContext): void {
-  paintTestLayer(createLastPriceLineLayer(), context)
+  paintTestLayer(createLastPriceLineLayer(context.pane.id), context)
 }
 
 describe('createLastPriceLabelLayer', () => {
@@ -32,7 +38,7 @@ describe('createLastPriceLabelLayer', () => {
 
     paintLabel(context)
 
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+    expect(context.axisLabels.forSurface('yRightOverlay', PRICE_SERIES_AXIS_ID).labels).toEqual([
       expect.objectContaining({ kind: 'tag', type: 'lastPrice', text: '95.00' }),
     ])
   })
@@ -46,7 +52,7 @@ describe('createLastPriceLabelLayer', () => {
 
     paintLabel(context)
 
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+    expect(context.axisLabels.forSurface('yRightOverlay', PRICE_SERIES_AXIS_ID).labels).toEqual([
       expect.objectContaining({ type: 'lastPrice', countdown }),
     ])
   })
@@ -66,7 +72,7 @@ describe('createLastPriceLabelLayer', () => {
 
     paintLabel(context)
 
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
+    expect(context.axisLabels.forSurface('yRightOverlay', PRICE_SERIES_AXIS_ID).labels).toEqual([
       expect.objectContaining({ type: 'lastPrice', text: '+5.00%' }),
     ])
   })
@@ -83,7 +89,7 @@ describe('createLastPriceLabelLayer', () => {
 
     paintLabel(context)
 
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([])
+    expect(context.axisLabels.forSurface('yRightOverlay', PRICE_SERIES_AXIS_ID).labels).toEqual([])
   })
 })
 
@@ -105,7 +111,7 @@ describe('createLastPriceLineLayer', () => {
     paintLabel(context)
     paintLine(context)
 
-    const label = context.axisLabels.forSurface('yRightOverlay', 'main').labels[0]
+    const label = context.axisLabels.forSurface('yRightOverlay', PRICE_SERIES_AXIS_ID).labels[0]
     const colors = resolveThemeColors(
       context.theme,
       context.isAsiaMarket,

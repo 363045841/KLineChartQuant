@@ -126,7 +126,7 @@ export interface TimeShareData {
   amount?: number
 }
 
-export type { PaneGeometry, PaneSpec }
+export type { InstanceMoveTarget, PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
 export type DataSourceParams = Readonly<Record<string, string | number | boolean>>
@@ -286,7 +286,10 @@ export interface DrawingViewportPort {
   /** 当前 Pane 的公开双向坐标服务；帧尚未就绪时返回 null。 */
   getCoordinates(
     paneId: string,
+    axisId?: string,
   ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
+  /** 图元绑定的轴身份；由 Core 的对象轴投影决定，未绑定时返回 null。 */
+  getObjectAxis(paneId: string, objectId: string): string | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -504,7 +507,7 @@ export interface ChartController
     ReadonlyMap<string, import('../foundation/types/scaleType.js').ScaleType>
   >
   readonly panePriceAxisRanges: ReadonlySignal<
-    Readonly<Record<string, import('../engine/state/mainPriceAxisState.js').PanePriceAxisRange>>
+    Readonly<Record<string, import('../engine/state/axisState.js').PanePriceAxisRange>>
   >
   /** 设置目标 Pane 的轴状态；百分比仅支持主图。 */
   setPanePriceAxisScaleType(
@@ -535,6 +538,9 @@ export interface ChartController
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
   readonly legend: import('../engine/legend/types.js').LegendApi
+  /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
+  readonly objects: import('../engine/objects/index.js').ObjectTree
+  readonly axes: import('../engine/pane/axisTypes.js').ObjectAxesApi
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
   /** 当前对比品种集合（唯一业务状态）。 */
@@ -677,7 +683,6 @@ export interface ChartController
   // ---- Settings ----
   updateSettingsFacade(settings: Record<string, unknown>): void
   /** 按当前可见 range 的 Max/Min 适配主图纵轴，保留轴类型与范围模式。 */
-  resetMainPriceAxis(): void
   updateOptionsFacade(options: Record<string, unknown>): void
 
   /** tear down DOM + listeners; idempotent */

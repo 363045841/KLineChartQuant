@@ -24,7 +24,7 @@ import type {
   SymbolInfo,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
-import { createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
+import { createIdleInteractionSnapshot, objectAxisId } from '@363045841yyt/klinechart-core'
 import {
   type ChartSettings,
   PRICE_AXIS_RANGE_MODE,
@@ -101,10 +101,11 @@ export interface MockChartController extends ChartController {
   _setIndicators: (next: ReadonlyArray<IndicatorInstance>) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
+  _setObjectGroups: (groups: ReturnType<ChartController['objects']['groups']['peek']>) => void
   /** test-only: 切换图表模式，驱动轴布局显示。 */
   _setChartMode: (mode: ReturnType<ChartController['chartMode']['peek']>) => void
-  /** spy: resetMainPriceAxis 调用次数 */
-  resetMainPriceAxisCalls: () => number
+  /** spy: 显式轴重置调用次数。 */
+  resetAxisCalls: () => number
 }
 
 export function createMockChartController(
@@ -151,6 +152,37 @@ export function createMockChartController(
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([])
   const interactionState = createSignal(createIdleInteractionSnapshot())
   const optionsFacadeCalls: OptionsFacadePatch[] = []
+  const objectGroups = createSignal<ReturnType<ChartController['objects']['groups']['peek']>>([
+    {
+      paneId: MAIN_PANE_ID,
+      title: '品种行情',
+      rows: [
+        {
+          objectId: 'plugin:candle',
+          sourceId: 'candle',
+          kind: 'system',
+          label: '品种行情',
+          paneId: MAIN_PANE_ID,
+          band: 'main',
+          z: 0,
+          visible: true,
+          locked: false,
+          capabilities: {
+            removable: false,
+            hideable: true,
+            orderable: true,
+            movable: true,
+            lockable: false,
+          },
+        },
+      ],
+    },
+  ])
+  /** 菜单替身从对象归属识别行情窗口，不把初始 main 当作业务身份。 */
+  const hasPriceSeries = (paneId: string) =>
+    objectGroups
+      .peek()
+      .some((group) => group.paneId === paneId && group.rows.some((row) => row.kind === 'system'))
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
     events: createSignal<ReadonlyArray<AlertEvent>>([]),
@@ -193,10 +225,50 @@ export function createMockChartController(
     paneLayout,
     paneGeometry: createSignal<ReturnType<ChartController['paneGeometry']['peek']>>([]),
     paneScaleTypes,
+    objects: { groups: objectGroups, commandsFor: () => null },
+    axes: {
+      list: () =>
+        objectGroups.peek().flatMap((group) =>
+          group.rows.map((row) => ({
+            objectId: row.objectId,
+            paneId: group.paneId,
+            axisId: objectAxisId(row.objectId),
+          })),
+        ),
+      bindingFor: (objectId) => {
+        const row = objectGroups
+          .peek()
+          .flatMap((group) => group.rows)
+          .find((item) => item.objectId === objectId)
+        if (!row) throw new Error(`测试对象不存在：${objectId}`)
+        return { objectId, paneId: row.paneId, axisId: objectAxisId(objectId) }
+      },
+      get: () => {
+        throw new Error('菜单测试不提供轴几何')
+      },
+      configuration: (axisId) => ({
+        baseValue: 100,
+        scaleType: paneScaleTypes.peek().get(axisId) ?? ScaleType.Linear,
+        rangeMode: panePriceAxisRanges.peek()[axisId]?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+      }),
+      setScaleType: (axisId, type) =>
+        paneScaleTypes.set(new Map(paneScaleTypes.peek()).set(axisId, type)),
+      setRangeMode: (axisId, rangeMode) =>
+        panePriceAxisRanges.set({
+          ...panePriceAxisRanges.peek(),
+          [axisId]: { rangeMode, handRange: null },
+        }),
+      resetRange: () => {
+        resetPriceAxisCalls += 1
+      },
+      translate: () => {},
+      scale: () => {},
+      hitTest: () => null,
+    },
     panePriceAxisRanges,
     setPanePriceAxisScaleType: (paneId, type) => {
       paneScaleTypes.set(new Map(paneScaleTypes.peek()).set(paneId, type))
-      if (paneId === MAIN_PANE_ID)
+      if (hasPriceSeries(paneId))
         settings.set({ ...settings.peek(), mainRightAxisTypeSetting: type })
     },
     setPanePriceAxisRangeMode: (paneId, rangeMode) => {
@@ -204,7 +276,7 @@ export function createMockChartController(
         ...panePriceAxisRanges.peek(),
         [paneId]: { rangeMode, handRange: null },
       })
-      if (paneId === MAIN_PANE_ID)
+      if (hasPriceSeries(paneId))
         settings.set({ ...settings.peek(), mainPriceAxisRangeMode: rangeMode })
     },
     resetPanePriceAxis: () => {
@@ -369,9 +441,6 @@ export function createMockChartController(
     scrollByBars: () => {},
     resetChart: () => {},
     updateSettingsFacade: () => {},
-    resetMainPriceAxis: () => {
-      resetPriceAxisCalls += 1
-    },
     dispose: async () => {
       disposeCalls += 1
     },
@@ -380,24 +449,25 @@ export function createMockChartController(
   return {
     ...(controller as ChartController),
     _setChartMode: (mode) => chartMode.set(mode),
+    _setObjectGroups: (groups) => objectGroups.set(groups),
     _setSettings: (next) => {
       settings.set(next)
       const type = next.mainRightAxisTypeSetting
       paneScaleTypes.set(
         new Map(paneScaleTypes.peek()).set(
-          MAIN_PANE_ID,
+          objectAxisId('plugin:candle'),
           type === ScaleType.Log || type === ScaleType.Percent ? type : ScaleType.Linear,
         ),
       )
       panePriceAxisRanges.set({
         ...panePriceAxisRanges.peek(),
-        [MAIN_PANE_ID]: {
+        [objectAxisId('plugin:candle')]: {
           rangeMode: next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
           handRange: null,
         },
       })
     },
-    resetMainPriceAxisCalls: () => resetPriceAxisCalls,
+    resetAxisCalls: () => resetPriceAxisCalls,
     _setDrawingHistory: (undo, redo) => {
       canUndoDrawing.set(undo)
       canRedoDrawing.set(redo)

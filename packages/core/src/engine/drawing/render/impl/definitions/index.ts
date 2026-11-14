@@ -12,16 +12,16 @@ import {
 } from './channels.js'
 import { createFibRetracementDefinition } from './fibRetracement.js'
 import { createInfoLineDefinition } from './infoLine.js'
-import { createRectangleDefinition } from './rectangle.js'
 import { createLabelDefinition } from './label.js'
+import { createRectangleDefinition } from './rectangle.js'
 import { createSingleAnchorLineDefinition } from './singleAnchorLine.js'
 import { createTwoPointLineDefinition } from './twoPointLine.js'
 
 /** 注册内置绘图工具的全部图形定义。 */
 export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionRegistry): void {
-  registry.register(createTwoPointLineDefinition('trend-line', 'none'))
-  registry.register(createTwoPointLineDefinition('ray', 'right'))
-  registry.register(createTwoPointLineDefinition('extended-line', 'both'))
+  registry.register(createTwoPointLineDefinition('trend-line'))
+  registry.register(createTwoPointLineDefinition('ray'))
+  registry.register(createTwoPointLineDefinition('extended-line'))
   registry.register(createFibRetracementDefinition())
   registry.register(createRectangleDefinition())
   registry.register(createLabelDefinition())

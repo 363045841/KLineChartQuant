@@ -1,6 +1,6 @@
 // 本文件通过 pi-durable 的 Conversation、文档与原子事务管理应用会话。
-import type { Context, JsonValue } from '@earendil-works/chord'
-import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import { BACKGROUND_CONTEXT, type Context } from '@earendil-works/chord/context'
+import type { JsonValue } from '@earendil-works/chord/json'
 import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import type {
   ConversationId,
@@ -170,7 +170,13 @@ export class RuntimeSessionService {
         if (stopped) return
         const lane = await this.requireLane(sessionId)
         if (watch?.value.conversation.id === lane.conversationId) {
-          listener(await this.nativeSnapshot(sessionId, watch.value))
+          listener(
+            await this.nativeSnapshot(
+              sessionId,
+              watch.value,
+              await this.entries(lane.conversationId),
+            ),
+          )
           return
         }
         const generation = ++revision
@@ -179,10 +185,20 @@ export class RuntimeSessionService {
         if (!conversation)
           throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The current Conversation is missing.')
         watch = await conversation.watch(this.context)
-        const initial = await this.nativeSnapshot(sessionId, watch.value)
+        const initial = await this.nativeSnapshot(
+          sessionId,
+          watch.value,
+          await this.entries(lane.conversationId),
+        )
         if (!stopped && generation === revision) listener(initial)
-        watch.start(async (view) => {
-          const snapshot = await this.nativeSnapshot(sessionId, view)
+        // 官方 watch 以 tagged call 交付：失败帧没有新状态，等下一次 value 帧。
+        watch.start(async (call) => {
+          if (call.kind !== 'value') return
+          const snapshot = await this.nativeSnapshot(
+            sessionId,
+            call.value,
+            await this.entries(call.value.conversation.id),
+          )
           if (!stopped && generation === revision) listener(snapshot)
         })
       })
@@ -217,18 +233,19 @@ export class RuntimeSessionService {
   private async nativeSnapshot(
     sessionId: string,
     view: ConversationView,
+    entries: readonly EntryRecord[],
   ): Promise<AgentSessionSnapshot> {
     const main = await this.requireLane(sessionId, SESSION_LANE.main)
-    // 当前分支严格使用 watch 的这一帧，避免异步读取时把下一帧的最终消息和旧 partial 同时展示。
+    // 官方 ConversationView 只保留最近一页历史，展示所需的完整分支历史由调用方分页读取后传入。
     // 官方分支的继承历史是显示与模型上下文的共同来源，不能合并已放弃的分支。
-    const entries = [...view.entries].sort((left, right) => left.id - right.id)
+    const ordered = [...entries].sort((left, right) => left.id - right.id)
     const contexts = new Map(
-      entries
+      ordered
         .filter((entry) => entry.kind === KQ_CUSTOM_ENTRY.runStarted)
         .map((entry) => [entry.id, { sessionId, ...runStart(entry) }]),
     )
     const failures = new Map<string, import('../contracts/ui.js').AgentRunView>()
-    for (const entry of entries.filter((item) => item.kind === KQ_CUSTOM_ENTRY.runTerminal)) {
+    for (const entry of ordered.filter((item) => item.kind === KQ_CUSTOM_ENTRY.runTerminal)) {
       const value = entry.data
       if (!isObject(value) || typeof value.runId !== 'string' || typeof value.endedAt !== 'number')
         continue
@@ -274,7 +291,7 @@ export class RuntimeSessionService {
     }
     const submissions = await this.session.commit(async (tx) => {
       const records = await Promise.all(
-        entries.flatMap((entry) => {
+        ordered.flatMap((entry) => {
           const context = contexts.get(entry.id)
           return context ? [tx.submissionByRequest(entry.conversationId, context.runId)] : []
         }),
@@ -289,7 +306,7 @@ export class RuntimeSessionService {
         : undefined
     return projectConversation(
       await this.view(main),
-      entries,
+      ordered,
       view,
       contexts,
       submissions,
@@ -336,7 +353,8 @@ export class RuntimeSessionService {
       throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Conversation is missing.')
     const watch = await conversation.watch(this.context)
     try {
-      return await this.nativeSnapshot(sessionId, watch.value)
+      const entries = await this.entries(lane.conversationId)
+      return await this.nativeSnapshot(sessionId, watch.value, entries)
     } finally {
       await watch.stop()
     }

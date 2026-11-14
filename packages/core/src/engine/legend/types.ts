@@ -213,6 +213,18 @@ export interface LegendAnchorRect {
   readonly height: number
 }
 
+/** 图例菜单的移动目标：已有 Pane，或先建 Pane 再移动。 */
+export type LegendMoveTarget =
+  | import('@/engine/pane/types.js').InstanceMoveTarget
+  | import('@/rendering/scene/types.js').NewPaneMoveTarget
+
+/** Core 投影给菜单的目标项；UI 只渲染，不自行推导可用性。 */
+export interface LegendMoveOption {
+  readonly target: LegendMoveTarget
+  readonly label: string
+  readonly enabled: boolean
+}
+
 /** Core 只把需要宿主打开界面的操作发布给框架。 */
 export type LegendUiRequest =
   | {
@@ -225,7 +237,7 @@ export type LegendUiRequest =
   | {
       readonly action: 'move-to'
       readonly id: string
-      readonly options: ReadonlyArray<import('@/engine/pane/types.js').InstanceMoveOption>
+      readonly options: ReadonlyArray<LegendMoveOption>
     }
 
 /** 移动目标请求；目标列表由 Core 投影，菜单由宿主框架渲染。 */
@@ -252,8 +264,8 @@ export interface LegendApi {
   update(id: string, patch: LegendPatch): boolean
   remove(id: string): boolean
   move(id: string, direction: 'up' | 'down'): boolean
-  /** 迁移实例归属；菜单项直接调用这里。 */
-  moveTo(id: string, target: import('@/engine/pane/types.js').InstanceMoveTarget): boolean
+  /** 迁移实例归属；菜单项先建 Pane 再移动，最终都落到 Pane 领域命令。 */
+  moveTo(id: string, target: LegendMoveTarget): boolean
   replace(id: string, definitionId: string): boolean
   execute(id: string, action: LegendAction): LegendUiRequest | null
 }
@@ -268,6 +280,8 @@ export interface LegendManagerDependencies {
   getOptions: () => { legend?: LegendOptions }
   /** 主图是否已有品种；空图不展示收起入口。 */
   hasPrimarySymbol: () => boolean
+  /** 行情所在容器；图例不从 Pane 名称或角色推断业务归属。 */
+  getPricePaneId: () => string
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
   isScriptIndicator?: (definitionId: string) => boolean
   requestRender: () => void

@@ -1,5 +1,6 @@
 /** 轴标签管理模块实现：单帧标签收集器与按表面聚合的帧工厂。 */
 
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type {
   AxisLabel,
   AxisLabelCollector,
@@ -33,8 +34,10 @@ function isSharedSurface(surface: AxisLabelSurface): boolean {
 export function createAxisLabelsFrame(): AxisLabelsFrame {
   const bySurface = new Map<string, AxisLabelCollector>()
   return {
-    forSurface(surface: AxisLabelSurface, paneId?: string): AxisLabelCollector {
-      const key = isSharedSurface(surface) ? surface : `${surface}\n${paneId ?? ''}`
+    forSurface(surface: AxisLabelSurface, axisId?: string): AxisLabelCollector {
+      if (!isSharedSurface(surface) && (axisId === undefined || axisId.length === 0))
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Y 轴标签必须提供 axisId')
+      const key = isSharedSurface(surface) ? surface : `${surface}\n${axisId}`
       const existing = bySurface.get(key)
       if (existing) return existing
       const collector = createLabelCollector()

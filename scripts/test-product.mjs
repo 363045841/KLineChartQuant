@@ -239,6 +239,8 @@ try {
     await page.goto(origin)
     await page.waitForFunction(() => document.body.dataset.bars === '160', null, { timeout: 120_000 })
     await page.waitForFunction(() => document.body.dataset.loading === 'false')
+    // Agent 面板改为首次点开才挂载，先在侧边菜单中展开。
+    await page.getByRole('button', { name: 'Agent', exact: true }).click()
     await page.locator('.agent-workspace').waitFor({ timeout: 60_000 })
     await page.locator('.composer__input').waitFor({ timeout: 60_000 })
     await workerStarted

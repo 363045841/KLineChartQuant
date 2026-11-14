@@ -15,6 +15,7 @@ import {
 import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
 import {
   createPrimitivePreparer,
   type GeometryPrimitive,
@@ -28,11 +29,7 @@ import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
-  registerIndicatorLayerNaming(
-    ['plot-test'],
-    () => 'plot-test',
-    () => 'plot-test-scale',
-  )
+  registerIndicatorLayerNaming(['plot-test'], () => 'plot-test')
 })
 
 /** 公共原语已经投影到屏幕坐标，不再通过 Canvas translate 扣除滚动。 */
@@ -196,7 +193,15 @@ describe('Plot renderer', () => {
       if (before?.kind !== 'stroke' || after?.kind !== 'stroke') throw new Error('Expected strokes')
       expect(after.paths[0]).not.toBe(before.paths[0])
       expect(after.paths[0]![0]!.y).toBe(before.paths[0]![0]!.y + 1)
-      const nonlinear = draw({ dataTransform: undefined })
+      const nonlinearAxis = { ...context.pane.yAxis, getScaleType: () => ScaleType.Log }
+      const nonlinear = draw({
+        pane: {
+          ...context.pane,
+          yAxis: nonlinearAxis,
+          axes: [{ axisId: 'main', yAxis: nonlinearAxis }],
+          axis: () => nonlinearAxis,
+        },
+      })
       for (const command of nonlinear.commands)
         if (command.kind === 'fill' || command.kind === 'stroke')
           expect(command.dataSpace).toBe(false)

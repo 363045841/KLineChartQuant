@@ -10,6 +10,7 @@ import type {
   PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
+  PanePlacement,
   PaneSpec,
 } from '../../../pane/types.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
@@ -36,11 +37,24 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     return this.deps.kernel.paneManager.actions.add(definitionId, params, target)
   }
 
-  /** 迁移实例归属；源副图变空时自动回收。 */
+  /** 新建空 Pane；返回身份，锚点不存在时返回 null。 */
+  addPane(anchorPaneId: string, placement: PanePlacement): string | null {
+    return this.deps.kernel.paneManager.actions.addPane(anchorPaneId, placement)
+  }
+
+  /** 迁移实例归属；源副图变空时自动回收。同 pane 时按 index 换位。 */
   moveInstance(instanceId: string, target: InstanceMoveTarget): boolean {
+    const before = this.deps.kernel.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)?.paneId
     const moved = this.deps.kernel.paneManager.actions.moveInstance(instanceId, target)
-    if (moved) this.deps.invalidateDrawingHistory()
-    return moved
+    if (!moved) return false
+    const after = this.deps.kernel.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)?.paneId
+    // 只有归属变化才影响图元在 Pane 上的投影，纯换位不应重置绘图历史。
+    if (before !== after) this.deps.invalidateDrawingHistory()
+    return true
   }
 
   /** 删除实例；空副图一并回收。 */

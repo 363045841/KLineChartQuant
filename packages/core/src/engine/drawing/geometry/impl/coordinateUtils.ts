@@ -23,6 +23,21 @@ import type {
 } from '../types.js'
 import { lockAngle } from './angleLock.js'
 
+/** 已存在的图元在命中、拖动、复制时显式使用自己的轴，不借用 Pane 的初始化坐标。 */
+export function bindDrawingViewport<T extends DrawingViewportPort>(
+  adapter: T,
+  drawing: { id: string; paneId: string },
+): T {
+  const boundAxisId = adapter.getObjectAxis(drawing.paneId, drawing.id)
+  // 会话中的预览图元尚未进入轴投影：沿用 Pane 默认坐标。
+  if (boundAxisId === null) return adapter
+  return {
+    ...adapter,
+    getCoordinates: (paneId: string, axisId = boundAxisId) =>
+      adapter.getCoordinates(paneId, axisId),
+  }
+}
+
 /**
  * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。
  *

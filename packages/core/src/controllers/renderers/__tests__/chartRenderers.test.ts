@@ -45,7 +45,6 @@ const ExternalIndicator = {
   category: 'main',
   defaultPaneId: 'main',
   getRendererName: () => indicatorName,
-  getScaleRendererName: () => null,
   /** 指标工厂在每次实例挂载时创建新的 Layer。 */
   rendererFactory: vi.fn((options?: IndicatorRendererOptions) =>
     createExternalLayer(indicatorLayerId, options?.paneId),
@@ -143,13 +142,35 @@ describe('public chart renderer access', () => {
     expect(second.getRenderer(layer.id)).toBeUndefined()
   })
 
-  it('keeps the first layer for a duplicate id and leaves the loser to the caller', async () => {
+  it('同窗口主图指标并入行情对象轴，最新价签绘制到行情轴列', async () => {
+    const controller = await mount()
+    const price = controller.axes.bindingFor('plugin:candle')
+    const indicatorId = controller.addIndicator(
+      indicatorName,
+      {},
+      { kind: 'pane', paneId: price.paneId },
+    )!
+    expect(controller.axes.bindingFor(indicatorId).axisId).toBe(price.axisId)
+    const captured = controller.captureFrame(() => {
+      const canvas =
+        containers[containers.length - 1]!.querySelector<HTMLCanvasElement>('.right-axis-overlay')!
+      const context = canvas.getContext('2d')!
+      const latest = vi.mocked(context.fillText).mock.calls.filter(([text]) => text === '12.00')
+      expect(latest.length).toBeGreaterThan(0)
+      for (const [, x] of latest)
+        expect(controller.axes.hitTest(price.paneId, x)).toBe(price.axisId)
+    })
+    frames.flush()
+    await captured
+  })
+
+  it('重复 Layer 身份在 API 入口抛异常，既有对象不受影响', async () => {
     const controller = await mount()
     const winner = createExternalLayer('vendor:overlay')
     const loser = createExternalLayer(winner.id)
 
     controller.useRenderer(winner)
-    controller.useRenderer(loser)
+    expect(() => controller.useRenderer(loser)).toThrow(winner.id)
 
     expect(controller.getRenderer(winner.id)).toBe(winner)
     expect(loser.dispose).not.toHaveBeenCalled()

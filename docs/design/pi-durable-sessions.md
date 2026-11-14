@@ -1,10 +1,10 @@
-# Pi 1.0.2 会话持久化
+# Pi 1.5.2 会话持久化
 
-会话层直接使用 `@earendil-works/pi-durable` 的 Session、Conversation、文档与原子事务，移除旧 SessionRepo、Branch 和浏览器 Map 会话实现。
+会话层直接使用 `@earendil-works/pi-durable` 1.5.2 的 Session、Conversation、文档与原子事务，移除旧 SessionRepo、Branch 和浏览器 Map 会话实现。
 
 浏览器与 Node 的运行通过 `Harness.open()` 装配：工具安装到官方 Registry，模型由 Pi Models 提供，输入交给 `Conversation.submit()`，生成及工具调度、失败重试和任务状态由 Harness 管理，取消调用 `Conversation.abort()`。OpenAI SSE 只由 Pi 官方 Provider 解析，应用不重复处理 `delta`、`done` 或 `[DONE]`。
 
-`Conversation.watch()` 提供完整已提交视图，其中 Entry 保存最终模型消息，`pi.live` 保存完整流式 partial、思考过程与工具进度。`projectConversation()` 是无状态的展示投影：原样读取文本块，关联宿主轮次，并转换工具展示字段。Vue 用完整 `session.snapshot` 替换显示数组，不拼接文本、不累计用量、不重建运行过程。流式 partial 被官方最终 Entry 取代时，界面自然切换到最终完整文本。
+`Conversation.watch()` 提供已经提交的视图：其中 Entry 保存最终模型消息，`pi.live` 保存完整流式 partial、思考过程与工具进度。1.5.2 起 `ConversationView.entries` 只是最近一页窗口（默认 50/100 条），展示所需的完整分支历史由 `RuntimeSessionService` 分页读取后传入 `projectConversation()`；视图窗口不再被当作全量历史。`projectConversation()` 是无状态的展示投影：原样读取文本块，关联宿主轮次，并转换工具展示字段。Vue 用完整 `session.snapshot` 替换显示数组，不拼接文本、不累计用量、不重建运行过程。流式 partial 被官方最终 Entry 取代时，界面自然切换到最终完整文本。
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,9 @@ flowchart LR
 
 ## 浏览器
 
-官方包提供 MemoryStorage、可移植 JsonlStorage 与 SQLite 存储，没有现成的 IndexedDB Storage。浏览器使用官方 JsonlStorage，通过 IndexedDbFileSystem 将文件保存到 IndexedDB。应用不自行实现 Pi 记录、分支或事务模型。
+官方包提供 MemoryStorage、JsonlStorage、SQLite 与浏览器 `IndexedDbStorage`。浏览器直接使用官方 `IndexedDbStorage`（`@earendil-works/pi-durable/storage/indexeddb`），应用不自行实现 Pi 记录、分支或事务模型，也不再维护文件系统适配层。
+
+1.0.x 曾用 `JsonlStorage + IndexedDbFileSystem` 把 JSONL 文件写进 IndexedDB，该库（`kq-agent-durable-v1`）的 schema 与官方 Storage 不兼容；升级到 1.5.2 时浏览器库名切到 `kq-agent-durable-v2`，旧库原样保留但不再读取，浏览器端历史会话不做自动迁移。
 
 浏览器 Bridge 与 Node 使用同一个 AgentApplicationService 和 RuntimeSessionService。实时显示与刷新恢复都从官方状态投影同一种完整快照，不再另存或回放 UI 消息事件。
 
@@ -39,7 +41,7 @@ const session = await runtime.sessions.create('Market analysis')
 await runtime.close()
 ```
 
-需要 IndexedDB、Web Locks 与安全上下文（HTTPS 或 localhost）。同一个 origin 的同一数据库只允许一个宿主持有写锁；第二个页面会明确报告冲突。关闭宿主会等待写锁实际释放；页面退出时浏览器也会释放锁。浏览器存储遵循 origin 隔离与配额规则，清除站点数据会删除历史。
+需要 IndexedDB、Web Locks 与安全上下文（HTTPS 或 localhost）。官方 Storage 要求同一数据库只有一个所有者，因此同一 origin 的同一数据库只允许一个宿主持有写锁；第二个页面会明确报告冲突。关闭宿主会关闭官方 Storage 并等待写锁实际释放；页面退出时浏览器也会释放锁。浏览器存储遵循 origin 隔离与配额规则，清除站点数据会删除历史。
 
 ## Node
 
@@ -53,7 +55,6 @@ await runtime.close()
 ```
 
 底层 Session 由宿主创建并关闭；RuntimeSessionService 不拥有该资源。测试通过官方 MemoryStorage 注入独立会话，浏览器存储测试通过 IndexedDB 标准实现与真实 Web Locks 验证重开及独占写入。
-
 ## 数据边界
 
-仅接受当前会话 schema；旧版和未来版本均明确报错，不提供读取时迁移或旧格式导入。旧浏览器会话只存在内存中，没有可迁移的持久化历史。旧 SessionRepo SQLite 格式与官方 durable 格式不同，Node 宿主需要使用新的数据库文件。会话删除采用持久化删除标记，历史不再显示或参与运行；不会物理清除底层不可变历史。
+仅接受当前会话 schema；旧版和未来版本均明确报错，不提供读取时迁移或旧格式导入。`pi.live` 升到官方版本 3、SQLite 升到官方 schema v2，一旦被 1.5.2 写过就不允许回退到 1.0.x。旧浏览器 JSONL 库（`kq-agent-durable-v1`）与新库（`kq-agent-durable-v2`）并存但不互通，浏览器历史会话不做自动迁移。旧 SessionRepo SQLite 格式与官方 durable 格式不同，Node 宿主需要使用新的数据库文件。会话删除采用持久化删除标记，历史不再显示或参与运行；不会物理清除底层不可变历史。

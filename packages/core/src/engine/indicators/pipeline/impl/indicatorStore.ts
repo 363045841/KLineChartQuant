@@ -230,11 +230,7 @@ function applyDefinitionWrite(plan: WritePlan, metadata: IndicatorMetadata): voi
   if (plan.replaced) purgeStaleAliases(plan.replaced, metadata)
   definitions.set(plan.key, metadata)
   descriptors.set(plan.key, { descriptor: nextDescriptor(plan), origin: plan.origin })
-  registerIndicatorLayerNaming(
-    identityAliases(metadata),
-    metadata.getRendererName,
-    metadata.getScaleRendererName,
-  )
+  registerIndicatorLayerNaming(identityAliases(metadata), metadata.getRendererName)
 }
 
 /** 应用一条目录项计划；同名目录项已存在时保持原样。 */

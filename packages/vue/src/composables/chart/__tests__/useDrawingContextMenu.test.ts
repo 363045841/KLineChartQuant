@@ -101,11 +101,27 @@ function timeframeItems(menu: ReturnType<typeof useDrawingContextMenu>) {
 describe('绘图图元右键菜单', () => {
   it('按命中结果区分图表与图元来源', () => {
     const target = drawing('a')
-    expect(resolveContextMenuSource(null, 0, 0)).toEqual({ kind: 'chart' })
-    expect(resolveContextMenuSource({ hitTestAt: () => target }, 10, 20)).toEqual({
+    expect(resolveContextMenuSource(null, { kind: 'canvas', x: 0, y: 0 })).toEqual({
+      kind: 'chart',
+    })
+    expect(
+      resolveContextMenuSource({ hitTestAt: () => target }, { kind: 'canvas', x: 10, y: 20 }),
+    ).toEqual({
       kind: 'drawing',
       drawingId: 'a',
     })
+  })
+
+  it('对象树只有图元行命中图元来源', () => {
+    expect(
+      resolveContextMenuSource(null, { kind: 'object', sourceId: 'a', objectKind: 'drawing' }),
+    ).toEqual({ kind: 'drawing', drawingId: 'a' })
+    expect(
+      resolveContextMenuSource(null, { kind: 'object', sourceId: 'i', objectKind: 'indicator' }),
+    ).toBeNull()
+    expect(
+      resolveContextMenuSource(null, { kind: 'object', sourceId: 's', objectKind: 'system' }),
+    ).toBeNull()
   })
 
   it('按 group 拆分，并复用复制与克隆的命令快捷键文案', () => {

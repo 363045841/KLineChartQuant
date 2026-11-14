@@ -7,7 +7,7 @@ export type {
   IndicatorTemplateIndicator,
   IndicatorTemplateSummary,
 } from '../engine/indicatorTemplate/types.js'
-export { MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
+export { INSTANCE_MOVE_KIND, MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
@@ -18,6 +18,11 @@ export type {
   InstrumentLookupInput,
 } from '../features/agent/index.js'
 export { getRegisteredChartTools } from '../features/agent/index.js'
+export {
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+  TIME_SHARE_PERIOD,
+} from '../foundation/types/chartPeriod.js'
 export {
   type ChartDataView,
   ChartDataViewId,
@@ -61,6 +66,7 @@ export type {
   IndicatorPaneRole,
   IndicatorParamDef,
   IndicatorRole,
+  InstanceMoveTarget,
   InteractionSnapshot,
   KLineData,
   PaneGeometry,
@@ -179,13 +185,10 @@ export type {
 export {
   BOX_SELECT_DRAWING_TOOL_ID,
   CURSOR_DRAWING_TOOL_ID,
-  DOUBLE_ANCHOR_TOOLS,
   DrawingInteractionController,
   DrawingTool,
   getAnchorCountForTool,
   MagnetMode,
-  SINGLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
 } from '../engine/drawing/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
 export type {

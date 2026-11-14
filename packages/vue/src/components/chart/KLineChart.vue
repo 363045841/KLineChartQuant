@@ -58,15 +58,6 @@
         <template v-if="slots['toolbar-end']" #end>
           <slot name="toolbar-end" />
         </template>
-        <template #watchlist>
-          <WatchlistPanel
-            :items="watchlistItems"
-            :grouping="watchlistGrouping"
-            @select="onSymbolChange"
-            @remove="removeWatchlistItem"
-            @update:grouping="setWatchlistGrouping"
-          />
-        </template>
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
@@ -328,7 +319,7 @@
               v-for="pane in paneAxisItems"
               :key="pane.id"
               class="pane-axis-controls-host"
-               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth + 'px' }"
+               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.axisWidth + 'px' }"
             >
               <PriceAxisSettingsMenu
                 :controller="controller"
@@ -535,7 +526,6 @@
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
-  import WatchlistPanel from '@vue-src/components/watchlist/WatchlistPanel.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
   import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
@@ -564,9 +554,12 @@
   import { useScriptEditorWindow } from '@vue-src/composables/chart/useScriptEditorWindow.js'
   import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
   import {
+    bindChartCommandScope,
+    injectCommands,
     provideChartCommands,
     useRegisterCommands,
   } from '@vue-src/composables/commands/useCommands.js'
+  import { switchChartSymbol } from '@vue-src/composables/symbol/chartSymbolSwitch.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
@@ -767,15 +760,7 @@
   const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
   const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
   const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
-  const {
-    watchlistItems,
-    watchlistKeys,
-    watchlistGrouping,
-    restoreWatchlist,
-    addWatchlistItem,
-    removeWatchlistItem,
-    setWatchlistGrouping,
-  } = useWatchlist()
+  const { watchlistKeys, restoreWatchlist, addWatchlistItem } = useWatchlist()
 
   /** 分时入口统一校验：品种未声明分时能力或缺会话时写入错误态，返回是否允许进入。 */
   function ensureTimeShareSupported(): boolean {
@@ -836,38 +821,15 @@
     localSymbolStatus.value = 'loading'
     localSymbolError.value = null
     try {
-      const adjust = applyInstrumentCapabilities(item)
-      ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      ctrl.setSymbols([toSymbolSpec(item, adjust)])
+      switchChartSymbol(ctrl, item, {
+        period: kLineLevel.value,
+        adjust: kLineAdjust.value,
+        bounds: props.symbols?.[0],
+      })
     } catch (error) {
       localSymbolStatus.value = 'error'
       localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
     }
-  }
-
-  /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
-  function applyInstrumentCapabilities(item: SymbolItem): KLineAdjustment {
-    const capabilities = item.capabilities
-    if (!capabilities) return kLineAdjust.value
-    const supportedPeriods = capabilities.bars?.periods ?? []
-    const currentPeriodSupported =
-      kLineLevel.value === 'timeshare'
-        ? capabilities.timeShare === true
-        : supportedPeriods.includes(kLineLevel.value as (typeof supportedPeriods)[number])
-    if (!currentPeriodSupported) {
-      const nextLevel =
-        supportedPeriods[0] ?? (capabilities.timeShare ? 'timeshare' : kLineLevel.value)
-      controller.value?.setCurrentPeriod(nextLevel)
-    }
-
-    const adjustments = capabilities.bars?.adjustments ?? []
-    if (
-      adjustments.length > 0 &&
-      !adjustments.includes(kLineAdjust.value as (typeof adjustments)[number])
-    ) {
-      return adjustments[0]!
-    }
-    return kLineAdjust.value
   }
 
   function toSymbolSpec(item: SymbolItem, adjust = kLineAdjust.value): SymbolSpec {
@@ -930,25 +892,6 @@
       lotSize: info.lotSize,
       currency: info.currency,
       capabilities: info.capabilities ?? {},
-    }
-  }
-
-  /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
-  function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
-    return {
-      id: item.id,
-      instrumentType: item.instrumentType,
-      sessionId: item.sessionId,
-      capabilities: item.capabilities,
-      tickSize: item.tickSize,
-      lotSize: item.lotSize,
-      currency: item.currency,
-      symbol: item.symbol,
-      market: item.sessionId ?? '',
-      description: item.name,
-      exchange: item.exchange,
-      source: item.sourceId,
-      params: item.providerRef,
     }
   }
 
@@ -1141,8 +1084,10 @@
   )
 
   // ── Commands ──
-  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
-  const commands = provideChartCommands(chartWrapperRef)
+  // 撤销/重做走命令层；快捷键只作用于获得焦点的图表根元素。
+  // 命令表由共同父级提供时直接复用，独立挂载的图表自己创建一份。
+  const commands = injectCommands() ?? provideChartCommands()
+  bindChartCommandScope(commands, chartWrapperRef)
   useRegisterCommands(commands, () =>
     createChartCommands({
       controller: () => controller.value,
@@ -1196,8 +1141,6 @@
   )
 
   const {
-    mainActiveIndicators,
-    subActiveIndicators,
     activeIndicators,
     indicatorParams,
     subPanes,
@@ -1664,11 +1607,11 @@
     const container = containerRef.value
     if (!container) return
     const rect = container.getBoundingClientRect()
-    const source = resolveContextMenuSource(
-      drawingController.value,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-    )
+    const source = resolveContextMenuSource(drawingController.value, {
+      kind: 'canvas',
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    })
     contextMenuSource.value = source
     if (source.kind === 'drawing') captureDrawingContextMenu(source.drawingId)
     else captureContextMenuPrice()
@@ -1732,17 +1675,13 @@
     (ctrl) => ctrl.rightAxisEffectiveWidth,
     () => 0,
   )
-  const axisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
-  )
+  const axisHostWidth = computed(() => effectiveRightAxisWidth.value)
   const effectiveLeftAxisWidth = useControllerSignal(
     controller,
     (ctrl) => ctrl.leftAxisEffectiveWidth,
     () => 0,
   )
-  const leftAxisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveLeftAxisWidth.value),
-  )
+  const leftAxisHostWidth = computed(() => effectiveLeftAxisWidth.value)
 
   // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。
   const priceAxisPosition = useControllerSignalValue(

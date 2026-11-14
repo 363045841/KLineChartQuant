@@ -3,19 +3,19 @@
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import type { PluginHostImpl, RenderContext } from '../../foundation/plugin/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { Clock } from '../../foundation/utils/clock.js'
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
+import type { Clock } from '../../foundation/utils/clock.js'
 import type { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
 import type { Renderer } from '../../rendering/render/Renderer.js'
 import type { ChartDom, ChartOptions, Viewport } from '../chart/index.js'
-import type { ScaleXSnapshot } from '../scale/index.js'
 import type { ChartDataView, ChartModeHandler } from '../chartModel/index.js'
 import type { InteractionController } from '../controller/interaction.js'
 import type { ChartDataManager } from '../data/chartDataManager.js'
 import type { DrawingSelectionMarquee, DrawingStoreDeps } from '../drawing/index.js'
 import type { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
 import type { PaneRenderer } from '../pane/index.js'
-import type { MainPriceAxisStateModule } from '../state/mainPriceAxisState.js'
+import type { ScaleXSnapshot } from '../scale/index.js'
+import type { AxisStateModule } from '../state/axisState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
@@ -63,10 +63,12 @@ export interface RendererDependencies {
   dataView$: ReadonlySignal<ChartDataView>
   primaryRenderer$?: ReadonlySignal<import('../chartModel/index.js').PrimaryRendererType>
   settings$: ReadonlySignal<ChartSettings>
+  /** 主价格序列所在 paneId；自动范围按内容而不是 Pane 身份分派。 */
+  getPricePaneId: () => string
   footprintState$: ReadonlySignal<
     import('../../components/footprint/types.js').FootprintRenderState | null
   >
-  mainPriceAxis: MainPriceAxisStateModule
+  axesState: AxisStateModule
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
   getOverlay?: DrawingStoreDeps['getOverlay']

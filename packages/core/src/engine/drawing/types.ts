@@ -73,10 +73,32 @@ export type DrawingHorizontalExtent = {
   readonly end: number | null
 }
 
+/**
+ * 图元种类声明：每种 kind 一条，所有按种类分派的事实都从这里取。
+ *
+ * 只有声明性事实进表；几何计算属于渲染实现，留在各自的图形定义里。
+ */
+export interface DrawingKindSpec {
+  /** 对象树、图例、工具栏与 Agent 共用的显示名。 */
+  readonly label: string
+  /** 创建时用户点击的锚点数。 */
+  readonly inputAnchors: 1 | 2 | 3
+  /** 物化后的持久锚点数；缺省等于 inputAnchors（矩形与三锚点通道会补齐）。 */
+  readonly persistedAnchors?: 1 | 2 | 3 | 4
+  /** 通道类：创建时带半透明填充，命中包含内部区域。 */
+  readonly filled?: boolean
+  /** 锚点投影到哪些轴；缺省两侧都投。 */
+  readonly axisLabels?: 'both' | 'price' | 'time'
+  /** `drawing_create` 是否开放该种类。 */
+  readonly agentExposed: boolean
+  /** 线段缺省延伸方向；缺省不延伸。 */
+  readonly extend?: 'none' | 'left' | 'right' | 'both'
+  /** 创建时写入的缺省参数；缺省为空。 */
+  readonly defaultParams?: Readonly<Record<string, unknown>>
+}
+
 export interface DrawingDefinition<TParams = Record<string, unknown>> {
   kind: DrawingKind
-  minAnchors: number
-  maxAnchors: number
   /** 水平索引范围；投影阶段先裁剪再计算几何。 */
   extent(drawing: ResolvedDrawingObject<TParams>): DrawingHorizontalExtent
   compute(drawing: ResolvedDrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry

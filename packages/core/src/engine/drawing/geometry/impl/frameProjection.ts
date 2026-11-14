@@ -2,7 +2,10 @@
 
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
+import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
@@ -27,6 +30,7 @@ import { resolveLineMidHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
+import { drawingKindAxisLabels } from '../../model/impl/drawingKindSpecs.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
@@ -211,15 +215,6 @@ function attachAreaLabels(
   })
 }
 
-/** 水平类图元只有价格语义：锚点只投影价格轴标签。 */
-const PRICE_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set([
-  'horizontal-line',
-  'horizontal-ray',
-])
-
-/** 垂直类图元只有时间语义：锚点只投影时间轴标签。 */
-const TIME_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set(['vertical-line'])
-
 /** 锚点逻辑索引是否落在当前可见区间。 */
 function isAnchorIndexVisible(
   anchor: ResolvedDrawingAnchor,
@@ -247,17 +242,22 @@ function registerPriceAxisTag(
   textColor: string,
 ): void {
   if (point.y < 0 || point.y > context.pane.height) return
-  registerAxisLabel(context, 'yRightOverlay', {
-    kind: AXIS_LABEL_KIND.TAG,
-    text: anchor.price.toFixed(2),
-    pos: point.y + context.pane.top,
-    origin: context.pane.top,
-    variant: 'label',
-    bgColor: color,
-    borderColor: color,
-    textColor,
-    fontSize: 11,
-  })
+  registerAxisLabel(
+    context,
+    'yRightOverlay',
+    {
+      kind: AXIS_LABEL_KIND.TAG,
+      text: anchor.price.toFixed(2),
+      pos: point.y + context.pane.top,
+      origin: context.pane.top,
+      variant: 'label',
+      bgColor: color,
+      borderColor: color,
+      textColor,
+      fontSize: 11,
+    },
+    context.axisId!,
+  )
 }
 
 /** 时间轴标签只在锚点落在 Pane 宽度内时注册。 */
@@ -338,6 +338,7 @@ function projectAxisRangeBands(
   const bottomY = coordinates.priceToY(minPrice)
   if (minPrice !== maxPrice && topY !== null && bottomY !== null) {
     output.yAxisRanges.push({
+      axisId: context.axisId!,
       topY,
       bottomY,
       color,
@@ -361,9 +362,9 @@ function projectAxisDecorations(
   toScreen: (anchor: ResolvedDrawingAnchor) => Point,
   output: MutableDrawingFrameProjection,
 ): void {
-  if (context.pane.role !== 'price') return
-  const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
-  const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
+  const axisLabels = drawingKindAxisLabels(kind)
+  const priceLabelOnly = axisLabels === 'price'
+  const timeLabelOnly = axisLabels === 'time'
   for (const anchor of anchors) {
     projectAnchorAxisLabels(
       anchor,
@@ -488,7 +489,31 @@ function projectStoredDrawing(
   storedDrawing: DrawingObject,
   scope: DrawingPaintScope,
 ): void {
-  const { context, definitions } = state
+  // 绘图不拥有轴：绑定由对象轴投影决定，owner 轴或所在 Pane 的主轴。
+  const axisId = state.context.pane.objectAxis(storedDrawing.id)
+  if (axisId === null)
+    throw new KLineChartError(
+      GENERIC_ERROR_CODES.INVALID_STATE,
+      `绘图 ${storedDrawing.id} 未绑定轴`,
+    )
+  const bound = bindRenderAxis(state.context, axisId)
+  const context = {
+    ...bound,
+    coordinates: createFrameCoordinates({
+      data: bound.data,
+      range: bound.range,
+      kLineCenters: bound.kLineCenters,
+      scrollLeft: bound.scrollLeft,
+      dpr: bound.dpr,
+      kWidth: bound.kWidth,
+      kGap: bound.kGap,
+      dataView: bound.dataView,
+      priceAxis: bound.pane.yAxis,
+    }),
+  }
+  const toScreen = createToScreen(context)
+  state = { ...state, context, toScreen, handlePort: createHandlePort(context, toScreen) }
+  const { definitions } = state
   const drawing = resolveVisibleDrawing(storedDrawing, definitions, context)
   if (!drawing) return
   const geometry = definitions.compute(drawing, {
@@ -532,6 +557,8 @@ export function projectDrawingsForFrame(
   scope: DrawingPaintScope = 'all',
   snapIndicator: DrawingSnapIndicator | null = null,
   source: DrawingSource = 'all',
+  /** 按图元收集原语；提供时正式图元移出聚合结果，只留下手柄、框选与磁吸。 */
+  objects?: Map<string, ReadonlyArray<DrawingPrimitive>>,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -569,7 +596,13 @@ export function projectDrawingsForFrame(
     scope,
     source,
   )) {
+    if (objects === undefined) {
+      projectStoredDrawing(state, storedDrawing, scope)
+      continue
+    }
+    const start = output.primitives.length
     projectStoredDrawing(state, storedDrawing, scope)
+    objects.set(storedDrawing.id, output.primitives.splice(start))
   }
   output.primitives.push(...state.handlePrimitives)
   if (selectionMarquee?.paneId === context.pane.id) {

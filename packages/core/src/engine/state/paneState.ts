@@ -33,10 +33,7 @@ function snapshotWorkspace(
 
 /** 没有用户布局的工作区从单主图开始，不依赖指标目录补齐窗格。 */
 function initialWorkspace(): PaneWorkspace {
-  return snapshotWorkspace(
-    [{ id: MAIN_PANE_ID, ratio: 1, visible: true, role: 'price' }],
-    new Map(),
-  )
+  return snapshotWorkspace([{ id: MAIN_PANE_ID, ratio: 1, visible: true }], new Map())
 }
 
 /** 比较轴偏好，避免重复写入引发整张图的重投影。 */
@@ -99,7 +96,7 @@ export function createPaneState() {
     readonly,
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
-      /** 布局与轴测量共用的运行时输出；数值不变时不广播。 */
+      /** 已提交的可见 Pane 几何；轴区宽度取自已提交的列布局，数值不变时不广播。 */
       setPaneGeometry(geometry: ReadonlyArray<PaneGeometry>): void {
         const previous = stored.paneGeometry.peek()
         if (
@@ -110,15 +107,41 @@ export function createPaneState() {
               pane.id === next.id &&
               pane.top === next.top &&
               pane.height === next.height &&
-              pane.primaryAxisWidth === next.primaryAxisWidth
+              pane.axisWidth === next.axisWidth
             )
           })
         )
           return
         signals.paneGeometry.set(Object.freeze(geometry.map((pane) => Object.freeze({ ...pane }))))
       },
-      setActiveWorkspace(workspaceId: ChartWorkspaceId): void {
-        if (stored.activeWorkspace.peek() !== workspaceId) signals.activeWorkspace.set(workspaceId)
+      /** 切换指标工作区，同时保留仍被全局对象占用的容器身份。 */
+      setActiveWorkspace(
+        workspaceId: ChartWorkspaceId,
+        retainedPaneIds: ReadonlySet<string> = new Set(),
+      ): void {
+        if (stored.activeWorkspace.peek() === workspaceId) return
+        const previous = currentWorkspace()
+        const target = stored.workspaces.peek()[workspaceId]
+        const additions = previous.paneSpecs.filter(
+          (pane) =>
+            retainedPaneIds.has(pane.id) && !target.paneSpecs.some((spec) => spec.id === pane.id),
+        )
+        batch(() => {
+          if (additions.length > 0) {
+            const scaleTypes = new Map(target.paneScaleTypes)
+            for (const pane of additions) {
+              const type = previous.paneScaleTypes.get(pane.id)
+              if (type !== undefined) scaleTypes.set(pane.id, type)
+            }
+            signals.workspaces.set(
+              Object.freeze({
+                ...stored.workspaces.peek(),
+                [workspaceId]: snapshotWorkspace([...target.paneSpecs, ...additions], scaleTypes),
+              }),
+            )
+          }
+          signals.activeWorkspace.set(workspaceId)
+        })
       },
       /** 原样恢复完整布局，包含尚未加载指标的窗格。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces): void {
@@ -126,7 +149,6 @@ export function createPaneState() {
           snapshotWorkspace(
             workspaces[workspaceId].paneSpecs.map((spec) => ({
               ...spec,
-              role: spec.id === MAIN_PANE_ID ? 'price' : 'indicator',
             })),
             new Map(Object.entries(workspaces[workspaceId].paneScaleTypes)),
           )
@@ -162,7 +184,7 @@ export function createPaneState() {
             specs,
             new Map(
               [...previous.paneScaleTypes].filter(
-                ([id]) => ids.has(id) || id.startsWith('instance:'),
+                ([id]) => ids.has(id) || id.startsWith('object:'),
               ),
             ),
           ),

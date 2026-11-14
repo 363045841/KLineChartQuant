@@ -88,33 +88,10 @@ describe('chartModel', () => {
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
   })
 
-  it('publishes the data-view primary plugin through the kernel active renderer set', async () => {
+  it('比较叠加不替换行情对象，分时视图停用比较层', async () => {
     await loadBuiltinIndicators()
     const kernel = createTestChartStateKernel()
 
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'candle', layerId: 'plugin:candle' },
-      { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
-      { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
-      { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
-    ])
-    expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
-
-    kernel.actions.setDataView('timeshare')
-
-    expect(kernel.indicator.readonly.instances.peek()).toEqual([])
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'timeShare', layerId: 'plugin:timeShare' },
-    ])
-
-    kernel.actions.setDataView('fiveDayTimeShare')
-
-    expect(kernel.indicator.readonly.instances.peek()).toEqual([])
-    expect(kernel.activeRenderers$.peek()).toEqual([
-      { name: 'fiveDayTimeShare', layerId: 'plugin:fiveDayTimeShare' },
-    ])
-
-    kernel.actions.setDataView('kline')
     const before = kernel.activeRenderers$.peek()
     kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
     expect(kernel.activeRenderers$.peek()).toEqual([

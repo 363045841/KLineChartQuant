@@ -7,7 +7,7 @@ export const CHART_RENDERERS_SERVICE = 'chart:renderers'
 
 /** 所有查询和移除均使用完整 Layer.id，不转换名称或添加前缀。 */
 export interface ChartRendererAccess {
-  /** 挂载 Layer；同 ID 首个实例胜出，未挂载的实例由调用方释放。 */
+  /** 挂载 Layer；重复身份抛异常，成功挂载后才转交资源所有权。 */
   useRenderer(layer: Layer<RenderContext>): void
   /** 移除并释放 Layer，同时请求重绘。 */
   removeRenderer(id: string): void

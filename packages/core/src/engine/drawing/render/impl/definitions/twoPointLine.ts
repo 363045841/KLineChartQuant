@@ -3,15 +3,13 @@
  */
 
 import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
+import { drawingKindExtend } from '@/engine/drawing/model/impl/drawingKindSpecs.js'
 import type { DrawingDefinition, DrawingKind } from '@/engine/drawing/types.js'
-import type { LinePrimitive } from '@/foundation/plugin/index.js'
 import { defineTwoAnchorDrawing } from './twoAnchor.js'
 
-/** 创建两点线段定义；extend 决定线段向两端延长的语义。 */
-export function createTwoPointLineDefinition(
-  kind: DrawingKind,
-  extend: LinePrimitive['extend'],
-): DrawingDefinition {
+/** 创建两点线段定义；延伸语义由种类声明给出，实例可覆盖。 */
+export function createTwoPointLineDefinition(kind: DrawingKind): DrawingDefinition {
+  const extend = drawingKindExtend(kind)
   return defineTwoAnchorDrawing(
     kind,
     (drawing, a, b) => {

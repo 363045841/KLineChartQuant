@@ -8,6 +8,8 @@
  * 4. 由定义能力派生轴列表与实例绑轴，并维护每轴刻度层。
  */
 
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
 import type {
   IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
@@ -24,20 +26,19 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import type { Layer } from '../../rendering/scene/types.js'
+import type {
+  Layer,
+  RenderObjectCommands,
+  RenderObjectDescriptor,
+} from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
-import { type PaneAxisSpec, resolveInstanceAxisMap, resolvePaneAxes } from '../pane/axisResolver.js'
+import { type PaneAxisSpec, resolveObjectAxisMap, resolvePaneAxes } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
-import { MAIN_PANE_ID, type PaneSpec } from '../pane/types.js'
+import type { PaneSpec } from '../pane/types.js'
 import { updatePlotRange } from '../plots/impl/projectPlots.js'
 import { isPlotRenderState } from '../plots/impl/readPlotState.js'
 import type { PlotRenderState } from '../plots/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
-import {
-  createIndicatorScaleLayer,
-  hasIndicatorScaleCrosshairLayer,
-} from '../renderers/Indicator/scale/indicator_scale.js'
-import { INDICATOR_ROLE } from '../state/indicatorRole.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -105,6 +106,33 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
   throw new TypeError(`Unsupported indicator parameter value: ${String(value)}`)
 }
 
+/**
+ * 指标实例的渲染对象身份。
+ *
+ * 能力按对象事实声明：可删除、可显隐、可排序、可跨 pane；指标不参与锁定。
+ * 命令由图表注入，管理器不直接写 kernel。
+ */
+function createIndicatorObjectDescriptor(
+  instanceId: string,
+  definition: IndicatorMetadata,
+  commands: RenderObjectCommands,
+): RenderObjectDescriptor {
+  return {
+    kind: 'indicator',
+    sourceId: instanceId,
+    // 对象树显示指标 Name（displayName），不使用选择器里的长标题 title。
+    label: definition.displayName,
+    capabilities: {
+      removable: true,
+      hideable: true,
+      orderable: true,
+      movable: true,
+      lockable: false,
+    },
+    commands,
+  }
+}
+
 export interface IndicatorDependencies {
   getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
   plotColors$: ReadonlySignal<ColorTokens>
@@ -113,9 +141,12 @@ export interface IndicatorDependencies {
   getRenderer: (id: string) => Layer<RenderContext> | undefined
   useRenderer: (layer: Layer<RenderContext>) => void
   removeRenderer: (id: string) => void
+  /** 对象的领域命令；由图表按实例闭包到 Pane 命令面。 */
+  objectCommands: (instanceId: string) => RenderObjectCommands
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  getObjectAxes: () => ReadonlyArray<PaneAxisSpec>
   /** 把框架派生的轴列表投影到 Pane 运行时。 */
   projectPaneAxes: (axesByPane: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>) => void
   getLastVisibleRange: () => VisibleRange
@@ -146,7 +177,7 @@ export class ChartIndicatorManager {
   /** 只记录实际拥有的图层资源，不承载实例归属、参数或更新判断。 */
   private readonly layerResources = new Set<string>()
   /** 轴由 SSOT 派生，所有消费者读取同一个 computed。 */
-  private readonly paneAxes: Computed<ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>>
+  private readonly resolveAxes: () => ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>
   private readonly paneStructure: SelectedSignal<string>
   /** destroy 后不再发起计算，也不把 Worker 的拆除错误当作运行期失败。 */
   private destroyed = false
@@ -239,16 +270,15 @@ export class ChartIndicatorManager {
     this.deps = deps
     // 图层生命周期只依赖容器结构；比例、显隐和最小高度由布局投影独立处理。
     this.paneStructure = selectSignal(deps.paneSpecs$, (panes) =>
-      JSON.stringify(panes.map((pane) => [pane.id, pane.role, pane.capabilities])),
+      JSON.stringify(panes.map((pane) => [pane.id, pane.capabilities])),
     )
-    this.paneAxes = computed(() => {
+    this.resolveAxes = () => {
       this.paneStructure()
       return resolvePaneAxes(
         deps.paneSpecs$.peek().map((pane) => pane.id),
-        deps.indicator.readonly.instances(),
-        getRegisteredIndicatorDefinition,
+        deps.getObjectAxes(),
       )
-    })
+    }
 
     // 实例链路：Kernel 实例配置为输入，计算计划与结果池为输出。
     this.pipeline = createIndicatorInstancePipeline({
@@ -294,8 +324,7 @@ export class ChartIndicatorManager {
           definitionId: instance.indicatorId,
           label,
           name: label,
-          role: instance.role,
-          paneId: instance.role === INDICATOR_ROLE.SUB ? instance.paneId : undefined,
+          paneId: instance.paneId,
           ordinal: instance.ordinal,
           params: { ...instance.params },
         }
@@ -330,7 +359,7 @@ export class ChartIndicatorManager {
 
   /** Pane 运行时重建后应用当前轴列表；不重建指标资源。 */
   projectAxes(): void {
-    this.deps.projectPaneAxes(this.paneAxes.peek())
+    this.deps.projectPaneAxes(this.resolveAxes())
   }
 
   /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
@@ -350,8 +379,8 @@ export class ChartIndicatorManager {
       if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
     }
 
-    const axesByPane = this.paneAxes()
-    const instanceAxes = resolveInstanceAxisMap(axesByPane)
+    const axesByPane = this.resolveAxes()
+    const instanceAxes = resolveObjectAxisMap(axesByPane)
     this.deps.runRendererTransaction(() => {
       // 配置变化完整向下应用，不保存上一份实例投影或参数比较键。
       this.releaseLayerResources()
@@ -359,7 +388,6 @@ export class ChartIndicatorManager {
       this.syncPipeline(readyInstances)
       this.reprojectRenderStates()
       for (const instance of readyInstances) {
-        if (instance.hidden) continue
         const definition = getRegisteredIndicatorDefinition(instance.indicatorId)!
         const layer = createIndicatorLayer({
           definition,
@@ -368,19 +396,17 @@ export class ChartIndicatorManager {
           instanceId: instance.instanceId,
           axisId: instanceAxes.get(instance.instanceId)!,
           params: { ...instance.params },
+          object: createIndicatorObjectDescriptor(
+            instance.instanceId,
+            definition,
+            this.deps.objectCommands(instance.instanceId),
+          ),
         })
+        // 隐藏只切换可见性：对象与命令常驻，对象树才能重新显示它。
+        layer.visible = instance.hidden !== true
+        // 同 pane 的实例按 ordinal 叠加：z 是层带内唯一排序键，对象树顺序与绘制顺序一致。
+        layer.z += instance.ordinal
         this.mountLayerResource(layer)
-      }
-      for (const axes of axesByPane.values()) {
-        for (const axis of axes) {
-          if (axis.axisId === MAIN_PANE_ID || axis.instanceIds.length === 0) continue
-          const first = readyInstances.find(
-            (instance) => instance.instanceId === axis.instanceIds[0],
-          )!
-          const definition = getRegisteredIndicatorDefinition(first.indicatorId)!
-          const layer = this.createAxisScaleLayer(axis, definition)
-          if (layer) this.mountLayerResource(layer)
-        }
       }
       this.deps.scheduleDraw()
     })
@@ -562,10 +588,6 @@ export class ChartIndicatorManager {
     return Object.freeze({
       listInstances: () =>
         descriptors(() => true)
-          .slice()
-          .sort((left, right) => left.ordinal - right.ordinal),
-      listMainInstances: () =>
-        descriptors((instance) => instance.role === INDICATOR_ROLE.MAIN)
           .slice()
           .sort((left, right) => left.ordinal - right.ordinal),
       listPaneInstances: (paneId: string) =>
@@ -766,69 +788,45 @@ export class ChartIndicatorManager {
 
   /** 当前工作区的轴列表；供范围解析、轴宽和轴列布局读取。 */
   getPaneAxes(): ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>> {
-    return this.paneAxes.peek()
+    return this.resolveAxes()
   }
 
-  /** 某条轴上全部可见实例的输出极值；轴无数据时返回 null。 */
+  /** 容器查询必须命中已声明的轴集合；空容器返回空集合，未知容器抛异常。 */
+  getAxesInPane(paneId: string): ReadonlyArray<PaneAxisSpec> {
+    const axes = this.resolveAxes().get(paneId)
+    if (axes === undefined)
+      throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
+    return axes
+  }
+
+  /** 某条轴上全部可见对象的输出极值；同轴多对象时取并集，轴无数据时返回 null。 */
   getAxisIndicatorRange(axisId: string): { min: number; max: number } | null {
-    const axis = [...this.paneAxes.peek().values()]
+    const axes = [...this.resolveAxes().values()]
       .flat()
-      .find((candidate) => candidate.axisId === axisId)
-    if (!axis) return null
-    const visible = this.getRenderStatesSnapshot()
+      .filter((candidate) => candidate.axisId === axisId)
+    if (axes.length === 0) return null
+    const states = this.getRenderStatesSnapshot()
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
-    for (const instanceId of axis.instanceIds) {
-      const state = visible.get(instanceId)
+    for (const axis of axes) {
+      const state = states.get(axis.objectId)
       if (!isPlotRenderState(state) || state.visibleMin > state.visibleMax) continue
       min = Math.min(min, state.visibleMin)
       max = Math.max(max, state.visibleMax)
     }
-    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+    return min <= max ? { min, max } : null
   }
 
   /** 挂载实际资源，资源表只用于释放，不保存业务投影。 */
   private mountLayerResource(layer: Layer<RenderContext>): void {
     this.deps.useRenderer(layer)
     this.layerResources.add(layer.id)
-    if (hasIndicatorScaleCrosshairLayer(layer)) {
-      this.deps.useRenderer(layer.crosshairLayer)
-      this.layerResources.add(layer.crosshairLayer.id)
-    }
   }
 
   /** 统一释放全部窗格中的实例与轴图层，避免跨图迁移互相覆盖。 */
   private releaseLayerResources(): void {
     for (const layerId of this.layerResources) this.deps.removeRenderer(layerId)
     this.layerResources.clear()
-  }
-
-  /** 轴刻度层使用定义声明的格式化能力；一个轴只创建一次。 */
-  private createAxisScaleLayer(
-    axis: PaneAxisSpec,
-    definition: IndicatorMetadata,
-  ): Layer<RenderContext> | null {
-    const base = {
-      axisId: axis.axisId,
-      paneId: axis.paneId,
-      indicatorId: definition.name,
-      axisWidth: 0,
-      getCrosshair: () => {
-        const pos = this.deps.getCrosshairPos()
-        const price = this.deps.getCrosshairPrice()
-        if (!pos || price === null) return null
-        return { y: pos.y, price, activePaneId: this.deps.getActivePaneId() }
-      },
-    }
-    if (definition.scaleRendererFactory)
-      return definition.scaleRendererFactory({ ...base, indicatorId: definition.name })
-    if (!definition.scale) return null
-    return createIndicatorScaleLayer({
-      ...base,
-      indicatorKey: definition.scale.indicatorKey ?? definition.name,
-      label: definition.scale.label ?? definition.displayName,
-      decimals: definition.scale.decimals,
-    })
   }
 
   destroy(): void {

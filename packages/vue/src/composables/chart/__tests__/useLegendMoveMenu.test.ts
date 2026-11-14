@@ -17,7 +17,7 @@ function createRequest(): MoveRequest {
     action: 'move-to',
     id: 'sub_RSI:rsi',
     options: [
-      { target: { kind: 'main' }, label: '移至主图', enabled: true },
+      { target: { kind: 'pane', paneId: 'pane-1' }, label: '移至窗口 1', enabled: true },
       { target: { kind: 'pane', paneId: 'sub_MACD' }, label: '移至 MACD', enabled: false },
     ],
     anchor: { left: 40, top: 100, width: 22, height: 22 },
@@ -43,7 +43,7 @@ describe('图例移动指标菜单', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0]?.id).toBe('move-to')
     expect(groups[0]?.items.map(({ id, label, disabled }) => ({ id, label, disabled }))).toEqual([
-      { id: 'move-0', label: '移至主图', disabled: false },
+      { id: 'move-0', label: '移至窗口 1', disabled: false },
       { id: 'move-1', label: '移至 MACD', disabled: true },
     ])
     expect(groups[0]?.items.every((item) => item.icon !== undefined)).toBe(true)
@@ -53,7 +53,10 @@ describe('图例移动指标菜单', () => {
     const { menu, moveTo } = createFixture()
     menu.show(createRequest())
     menu.select('move-0')
-    expect(moveTo).toHaveBeenCalledExactlyOnceWith('sub_RSI:rsi', { kind: 'main' })
+    expect(moveTo).toHaveBeenCalledExactlyOnceWith('sub_RSI:rsi', {
+      kind: 'pane',
+      paneId: 'pane-1',
+    })
     expect(menu.open.value).toBe(false)
   })
 
@@ -67,6 +70,9 @@ describe('图例移动指标菜单', () => {
     menu.onUpdateOpen(false)
     expect(menu.open.value).toBe(false)
     menu.select('move-0')
-    expect(moveTo).toHaveBeenCalledExactlyOnceWith('sub_RSI:rsi', { kind: 'main' })
+    expect(moveTo).toHaveBeenCalledExactlyOnceWith('sub_RSI:rsi', {
+      kind: 'pane',
+      paneId: 'pane-1',
+    })
   })
 })

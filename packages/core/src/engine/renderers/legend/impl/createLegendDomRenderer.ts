@@ -196,6 +196,7 @@ export function createLegendDomRenderer(
 
   // 最近一帧的主图收起结果；真正的状态在 Core，这里只用于显隐与按钮定位。
   let mainCollapsed = false
+  let primaryPaneId: string | null = null
   // 收起时在图标右侧显示的主图指标数量。
   let mainIndicatorCount = 0
   // 收起按钮定位到首行；展开时定位到最后一行下方。
@@ -227,9 +228,9 @@ export function createLegendDomRenderer(
     // 收起态隐藏全部已发布行；行节点保留，展开时无需重绘即可恢复。
     const display = mainCollapsed ? 'none' : ''
     for (const [paneId, entries] of mounted) {
-      if (paneId !== MAIN_PANE_ID) continue
+      const paneDisplay = paneId === primaryPaneId ? display : ''
       for (const row of entries.values()) {
-        if (row.element.style.display !== display) row.element.style.display = display
+        if (row.element.style.display !== paneDisplay) row.element.style.display = paneDisplay
       }
     }
     const icon = mainCollapsed ? COLLAPSE_ICONS.collapsed : COLLAPSE_ICONS.expanded
@@ -325,7 +326,7 @@ export function createLegendDomRenderer(
       element.addEventListener(event, (event) => event.stopPropagation())
     }
     // 收起期间新建的行同样保持隐藏，避免展开前闪出。
-    if (data.paneId === MAIN_PANE_ID && mainCollapsed) element.style.display = 'none'
+    if (data.paneId === primaryPaneId && mainCollapsed) element.style.display = 'none'
     root.append(element)
     return row
   }
@@ -445,6 +446,7 @@ export function createLegendDomRenderer(
 
   return {
     update(frame: LegendDomFrame) {
+      primaryPaneId = frame.primaryPaneId
       mainCollapsed = frame.mainCollapsed
       prunePanes(frame.rowsByPane.map((pane) => pane.paneId))
       let mainRows: ReadonlyArray<LegendRow> = []
@@ -463,7 +465,7 @@ export function createLegendDomRenderer(
           syncState(row, data, previous)
           row.data = data
         }
-        if (paneId === MAIN_PANE_ID) mainRows = rows
+        if (paneId === primaryPaneId) mainRows = rows
       }
       syncMainCollapse(mainRows, frame.canCollapse)
     },

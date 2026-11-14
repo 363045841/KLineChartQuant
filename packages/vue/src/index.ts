@@ -38,18 +38,33 @@ import './styles/fonts.css'
 import './styles/scrollbar.css'
 import './styles/motion.css'
 
+// 对象树与渲染对象是同一组的公开契约，从产品入口一并导出，避免消费方到处找。
 export type {
+  AxisLabelRegistrar,
   ChartController,
   ChartMountOptions,
   ChartViewport,
   KLineData,
+  ObjectAxesApi,
+  ObjectAxisBinding,
+  ObjectTree,
+  PaneObjectGroup,
+  PaneObjectRow,
+  RenderObject,
+  RenderObjectCapabilities,
+  RenderObjectCommands,
+  RenderObjectDescriptor,
+  RenderObjectKind,
+  RenderObjectMoveTarget,
 } from '@363045841yyt/klinechart-core'
+export { INSTANCE_MOVE_KIND, objectAxisId, registerAxisLabel } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // SFC components (for consumers using Vite / SFC compiler)
 // ---------------------------------------------------------------------------
 
 export type {
+  InstanceMoveTarget,
   LegendComparisonRow,
   LegendCurrentBar,
   LegendIndicatorRow,
@@ -148,6 +163,18 @@ export {
 } from '@363045841yyt/klinechart-core/market-data/sources'
 export { createPersistedMarketDataHost } from '@vue-src/features/market/impl/persisted-market-data-host.js'
 export type { PersistedMarketDataHost } from '@vue-src/features/market/types.js'
+export {
+  createSidePanelSideStorage,
+  createSidePanelWidthStorage,
+} from './features/side-panel/impl/side-panel-storage.js'
+export { default as SidePanelShell } from './features/side-panel/SidePanelShell.vue'
+export type {
+  SidePanelDefinition,
+  SidePanelSide,
+  SidePanelSideStorage,
+  SidePanelSlotProps,
+  SidePanelWidthStorage,
+} from './features/side-panel/types.js'
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
 export { KlineWorkbench }
 

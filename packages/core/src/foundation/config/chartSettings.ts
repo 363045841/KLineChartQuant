@@ -441,7 +441,6 @@ export type {
   RightAxisTypeSetting,
 } from './axisSettings.js'
 export {
-  buildPaneScaleTypesFromSetting,
   resolveAxisDisplaySetting,
   resolveEffectiveAxisDisplay,
   resolvePriceScaleTypeSetting,

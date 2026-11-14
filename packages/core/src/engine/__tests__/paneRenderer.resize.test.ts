@@ -124,7 +124,7 @@ describe('PaneRenderer resize DPR mapping', () => {
     expect(dom.yAxisOverlayCanvas.height).toBe(dom.yAxisCanvas.height)
   })
 
-  it('uses parent clientWidth for yAxis canvas width when available', () => {
+  it('uses the committed axis columns for yAxis canvas width, ignoring the parent clientWidth', () => {
     const host = document.createElement('div')
     Object.defineProperty(host, 'clientWidth', {
       value: 168,
@@ -136,6 +136,7 @@ describe('PaneRenderer resize DPR mapping', () => {
     host.appendChild(dom.yAxisOverlayCanvas)
 
     const pane = new Pane('main')
+    pane.setAxisColumns([{ axisId: 'main', left: 0, width: 48 }])
     const renderer = new PaneRenderer(dom, pane, {
       rightAxisWidth: 100,
       leftAxisWidth: 60,
@@ -145,9 +146,9 @@ describe('PaneRenderer resize DPR mapping', () => {
 
     renderer.resize(500, 200, 1.5)
 
-    expect(dom.yAxisCanvas.width).toBe(Math.round(168 * 1.5))
+    expect(dom.yAxisCanvas.width).toBe(Math.round(48 * 1.5))
     expect(dom.yAxisCanvas.height).toBe(Math.round(200 * 1.5))
-    expect(dom.yAxisCanvas.style.width).toBe('168px')
+    expect(dom.yAxisCanvas.style.width).toBe('48px')
     expect(dom.yAxisCanvas.style.height).toBe('200px')
     expect(dom.yAxisOverlayCanvas.width).toBe(dom.yAxisCanvas.width)
   })

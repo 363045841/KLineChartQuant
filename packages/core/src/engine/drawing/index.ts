@@ -35,13 +35,7 @@ export type {
 export { drawingToolStyle } from './interaction/impl/drawingToolStyle.js'
 export type { DrawingLineLabelTarget } from './interaction/impl/interaction.js'
 export { DrawingInteractionController } from './interaction/impl/interaction.js'
-export {
-  DOUBLE_ANCHOR_TOOLS,
-  getAnchorCountForTool,
-  getDrawingKind,
-  SINGLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
-} from './interaction/impl/toolConfig.js'
+export { getAnchorCountForTool, getDrawingKind } from './interaction/impl/toolConfig.js'
 export type {
   DragFollow,
   DrawingDragTarget,
@@ -73,6 +67,11 @@ export { MAGNET_RADIUS_STRONG, MAGNET_RADIUS_WEAK, MagnetMode } from './magnet/t
 
 export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
+export {
+  AGENT_DRAWING_KINDS,
+  drawingKindName,
+  resolveDrawingLabel,
+} from './model/impl/drawingKindSpecs.js'
 export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/impl/drawingLabels.js'
 export { filterDrawingsInScope, isDrawingInScope } from './model/impl/drawingScope.js'
 export { isDrawingVisibleInPeriod } from './model/impl/drawingTimeframeVisibility.js'
@@ -92,7 +91,6 @@ export type {
   PaneDrawingScope,
   UpdateDrawingPatch,
 } from './model/types.js'
-
 export { DrawingDefinitionRegistry } from './render/impl/DrawingDefinitionRegistry.js'
 export { DrawingStore } from './render/impl/DrawingStore.js'
 export { createArrowDefinition } from './render/impl/definitions/arrow.js'
@@ -109,9 +107,15 @@ export { createRectangleDefinition } from './render/impl/definitions/rectangle.j
 export { createSingleAnchorLineDefinition } from './render/impl/definitions/singleAnchorLine.js'
 export { createTwoPointLineDefinition } from './render/impl/definitions/twoPointLine.js'
 export {
-  createDrawingLayer,
+  createDrawingObjectLayers,
+  type DrawingObjectLayerDependencies,
+} from './render/impl/drawingObjectLayers.js'
+export {
+  createDrawingObjectLayer,
+  createDrawingOverlayLayer,
   createDrawingSessionLayer,
   createIndicatorDrawingLayer,
+  drawingObjectLayerId,
 } from './render/impl/plugin.js'
 export { createDefaultPrimitiveRendererSet } from './render/impl/primitiveRendererSet.js'
 export type {
@@ -143,6 +147,7 @@ export type {
   DrawingDefinition,
   DrawingGeometry,
   DrawingKind,
+  DrawingKindSpec,
   DrawingLabel,
   DrawingLabelIndex,
   DrawingLabels,

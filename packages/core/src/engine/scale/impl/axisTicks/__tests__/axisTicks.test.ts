@@ -7,7 +7,7 @@ import { createYAxisTicks } from '../axisTicks.js'
 
 /** 用真实 PriceScale 构造 PaneInfo，其余字段复用共享夹具。 */
 function paneFor(scale: PriceScale): PaneInfo {
-  return { ...createMockPaneInfo({ height: 400, role: 'price' }), yAxis: scale }
+  return { ...createMockPaneInfo({ height: 400 }), yAxis: scale }
 }
 
 describe('value-anchored Y axis ticks', () => {
@@ -16,10 +16,10 @@ describe('value-anchored Y axis ticks', () => {
     scale.setHeight(400)
     scale.setContentInsets(20, 20)
     scale.setRange({ minPrice: 0, maxPrice: 100 })
-    const initial = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Linear })
+    const initial = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Linear }, true)
     // 纵向平移：18px 对应 100 跨度中的 5 个价格（viewHeight 360）。
     scale.setRange(scale.translateRange(scale.getRange(), 18))
-    const moved = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Linear })
+    const moved = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Linear }, true)
     const shared = initial.filter((tick) => moved.some((next) => next.value === tick.value))
     expect(shared.length).toBeGreaterThan(1)
     for (const tick of shared) {
@@ -35,10 +35,10 @@ describe('value-anchored Y axis ticks', () => {
     scale.setBasePrice(100)
     scale.setRange({ minPrice: 90, maxPrice: 110 })
     scale.setScaleType(ScaleType.Percent)
-    const before = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent })
+    const before = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent }, true)
     // 百分比空间平移 1 个点，等价于价格区间整体 +1。
     scale.setRange({ minPrice: 91, maxPrice: 111 })
-    const after = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent })
+    const after = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Percent }, true)
     expect(
       before.some((tick) => after.some((next) => next.value === tick.value && next.y !== tick.y)),
     ).toBe(true)
@@ -51,7 +51,7 @@ describe('value-anchored Y axis ticks', () => {
     scale.setContentInsets(20, 20)
     scale.setRange({ minPrice: 1, maxPrice: 1000 })
     scale.setScaleType(ScaleType.Log)
-    const ticks = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Log })
+    const ticks = createYAxisTicks(paneFor(scale), { rightTypeSetting: ScaleType.Log }, true)
     expect(ticks.length).toBeGreaterThan(1)
     for (const tick of ticks) {
       expect(tick.value).toBeGreaterThan(0)

@@ -1,6 +1,7 @@
 // 本文件仅装配宿主模型与工具并提交输入；执行和状态持久化完全由官方 Harness 管理。
-import { isJsonValue } from '@earendil-works/chord'
+
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import { isJsonValue } from '@earendil-works/chord/json'
 import type { createModels } from '@earendil-works/pi-ai'
 import {
   type Conversation,
@@ -87,7 +88,7 @@ export class DurableRunDriver {
           const details: unknown = JSON.parse(JSON.stringify({ ...result, presentation }))
           if (!isJsonValue(details)) throw new Error('Tool details must be JSON.')
           return {
-            content: [{ type: 'text', text: result.content }],
+            output: [{ type: 'text', text: result.content }],
             details,
             isError: result.failure !== undefined,
           }

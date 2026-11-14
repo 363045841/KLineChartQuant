@@ -10,8 +10,6 @@ import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 export function createRectangleDefinition(): DrawingDefinition {
   return {
     kind: 'rectangle',
-    minAnchors: 4,
-    maxAnchors: 4,
     extent: (drawing) => anchorExtent(drawing.anchors, drawing.extend),
     compute(drawing, context) {
       const [topLeftAnchor, topRightAnchor, bottomRightAnchor, bottomLeftAnchor] = drawing.anchors

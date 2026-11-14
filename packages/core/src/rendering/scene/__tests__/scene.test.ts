@@ -149,7 +149,7 @@ describe('createScene', () => {
     const targets = input.panes[0]!.targets
     const painted: CanvasRenderingContext2D[] = []
     for (const [id, role] of [
-      ['main', 'primary'],
+      ['main', 'content'],
       ['drawing', 'drawing'],
       ['overlay', 'overlay'],
     ] as const) {
@@ -175,7 +175,7 @@ describe('createScene', () => {
     }
   })
 
-  it.each(['primary', 'indicator', 'component', 'drawing'] as const)(
+  it.each(['content', 'drawing'] as const)(
     '%s 使用完整 Pane 边界，不把价格留白裁成上下空带',
     (dataRole) => {
       const scene = createScene<FrameStub>()
@@ -183,7 +183,7 @@ describe('createScene', () => {
       input.panes[0]!.context = { tag: 'main', priceMapping: { top: 60, bottom: 220 } }
       const target = input.panes[0]!.targets[dataRole === 'drawing' ? 'drawing' : 'main']!
       for (const [id, role, z] of [
-        ['grid', 'background', 0],
+        ['grid', 'overlay', 0],
         ['data', dataRole, 1],
       ] as const) {
         scene.addLayer({
@@ -223,7 +223,7 @@ describe('createScene', () => {
       const transform = transforms[index % 2]!
       scene.addLayer({
         id: `axis-${index}`,
-        role: 'indicator',
+        role: 'content',
         pane: 'main',
         z: index,
         visible: true,
@@ -293,7 +293,7 @@ describe('createScene', () => {
     pane.gpuSurface = { canvas: target.canvas, paint, dispose() {} }
     scene.addLayer({
       id: 'data',
-      role: 'primary',
+      role: 'content',
       pane: 'main',
       z: 0,
       visible: true,
@@ -357,7 +357,7 @@ describe('createScene', () => {
       ({ kind: 'circle', x, y: 0, radius: 1, color: '#ffffff' }) as const
     const contextLayer: ContextLayer<FrameStub> = {
       id: 'context',
-      role: 'primary',
+      role: 'content',
       pane: 'main',
       z: 0,
       visible: true,
@@ -368,7 +368,7 @@ describe('createScene', () => {
     }
     const drawListLayer: DrawListLayer<FrameStub> = {
       id: 'draw-list',
-      role: 'primary',
+      role: 'content',
       pane: 'main',
       z: 1,
       visible: true,
@@ -394,9 +394,11 @@ describe('createScene', () => {
 
   it('keeps the first layer per id and disposes it once across removal and shutdown', () => {
     const scene = createScene<FrameStub>()
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
+    const a = makeMockLayer({ id: 'a', role: 'content', pane: 'main', z: 0 })
     scene.addLayer(a)
-    scene.addLayer(makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 9 }))
+    expect(() =>
+      scene.addLayer(makeMockLayer({ id: 'a', role: 'content', pane: 'main', z: 9 })),
+    ).toThrow('a')
     expect(scene.getLayer('a')).toBe(a)
     expect(scene.layers.peek()).toHaveLength(1)
     expect(scene.getLayer('missing')).toBeNull()
@@ -416,18 +418,18 @@ describe('createScene', () => {
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
     const boom = makeMockLayer({
       id: 'boom',
-      role: 'primary',
+      role: 'content',
       pane: 'main',
       z: 0,
       onDispose: () => {
         throw new Error('cleanup failed')
       },
     })
-    const ok = makeMockLayer({ id: 'ok', role: 'primary', pane: 'main', z: 1 })
+    const ok = makeMockLayer({ id: 'ok', role: 'content', pane: 'main', z: 1 })
     scene.addLayer(boom)
     scene.addLayer(ok)
 
-    expect(() => scene.dispose()).not.toThrow()
+    expect(() => scene.dispose()).toThrow(AggregateError)
     expect(boom.disposeCalls).toBe(1)
     expect(ok.disposeCalls).toBe(1)
     errorLog.mockRestore()
@@ -439,8 +441,8 @@ describe('createScene', () => {
     const unsubscribe = scene.layers.subscribe(() => {
       seen.push(scene.layers.peek())
     })
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
-    const b = makeMockLayer({ id: 'b', role: 'primary', pane: 'main', z: 1 })
+    const a = makeMockLayer({ id: 'a', role: 'content', pane: 'main', z: 0 })
+    const b = makeMockLayer({ id: 'b', role: 'content', pane: 'main', z: 1 })
     scene.addLayer(a)
     scene.addLayer(b)
     scene.removeLayer('a')
@@ -454,7 +456,7 @@ describe('createScene', () => {
 
   it('setLayerVisibility toggles the field on the existing layer', () => {
     const scene = createScene<FrameStub>()
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
+    const a = makeMockLayer({ id: 'a', role: 'content', pane: 'main', z: 0 })
     scene.addLayer(a)
     expect(a.visible).toBe(true)
     expect(scene.setLayerVisibility('a', false)).toBe(true)
@@ -470,7 +472,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'a',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 5,
         onPaint: () => order.push('a'),
@@ -479,7 +481,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'b',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 1,
         onPaint: () => order.push('b'),
@@ -505,7 +507,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'a',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 0,
         visible: false,
@@ -515,7 +517,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'b',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 1,
         onPaint: () => order.push('b'),
@@ -534,7 +536,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'main-1',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 0,
         onPaint: () => order.push('main-1'),
@@ -543,7 +545,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'sub-1',
-        role: 'primary',
+        role: 'content',
         pane: 'RSI_0',
         z: 1,
         onPaint: () => order.push('sub-1'),
@@ -552,7 +554,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'global-1',
-        role: 'background',
+        role: 'content',
         pane: LAYER_PANE_GLOBAL,
         z: 2,
         onPaint: () => order.push('global-1'),
@@ -573,7 +575,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'primary',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 0,
         onPaint: () => order.push('primary'),
@@ -598,7 +600,7 @@ describe('createScene', () => {
     scene.addLayer(
       makeMockLayer({
         id: 'a',
-        role: 'primary',
+        role: 'content',
         pane: 'main',
         z: 0,
         onPaint: undefined,
@@ -613,7 +615,7 @@ describe('createScene', () => {
     expect(seen[0]).toMatchObject({ tag: 'main', paneId: 'main', clear: true })
   })
 
-  it('one layer throw does not abort sibling layers', () => {
+  it('绘制错误向上传递，不静默吞掉失败', () => {
     const scene = createScene<FrameStub>()
     const ok = vi.fn()
     const boom = vi.fn(() => {
@@ -621,20 +623,20 @@ describe('createScene', () => {
     })
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     scene.addLayer(
-      makeMockLayer({ id: 'boom', role: 'primary', pane: 'main', z: 0, onPaint: boom }),
+      makeMockLayer({ id: 'boom', role: 'content', pane: 'main', z: 0, onPaint: boom }),
     )
-    scene.addLayer(makeMockLayer({ id: 'ok', role: 'primary', pane: 'main', z: 1, onPaint: ok }))
+    scene.addLayer(makeMockLayer({ id: 'ok', role: 'content', pane: 'main', z: 1, onPaint: ok }))
 
-    expect(() => scene.paint(frame('main'))).not.toThrow()
+    expect(() => scene.paint(frame('main'))).toThrow('boom')
     expect(boom).toHaveBeenCalledOnce()
-    expect(ok).toHaveBeenCalledOnce()
+    expect(ok).not.toHaveBeenCalled()
     err.mockRestore()
   })
 
   it('dispose tears down every layer and freezes the scene', () => {
     const scene = createScene<FrameStub>()
-    const a = makeMockLayer({ id: 'a', role: 'primary', pane: 'main', z: 0 })
-    const b = makeMockLayer({ id: 'b', role: 'primary', pane: 'main', z: 1 })
+    const a = makeMockLayer({ id: 'a', role: 'content', pane: 'main', z: 0 })
+    const b = makeMockLayer({ id: 'b', role: 'content', pane: 'main', z: 1 })
     scene.addLayer(a)
     scene.addLayer(b)
 
@@ -644,7 +646,7 @@ describe('createScene', () => {
     expect(scene.layers.peek()).toEqual([])
 
     // A fresh layer object — addLayer must silently no-op, the scene is dead.
-    const late = makeMockLayer({ id: 'late', role: 'primary', pane: 'main', z: 2 })
+    const late = makeMockLayer({ id: 'late', role: 'content', pane: 'main', z: 2 })
     scene.addLayer(late)
     expect(scene.getLayer('late')).toBeNull()
     expect(() => scene.paint(frame('main'))).not.toThrow()

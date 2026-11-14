@@ -57,6 +57,8 @@ describe('workbench recovery', () => {
     host.registerDataSource(fixture.source)
     const wrapper = mount(KlineWorkbench, { props: {
       marketDataContext: host, instrument: { sourceId: 'test', id: 'A' }, scripts: false,
+      // Agent 面板改为首次展开才挂载，这里显式展开以验证错误恢复期间实例不被重建。
+      initialAgentPanelOpen: true,
     } })
     try {
       await flushPromises()

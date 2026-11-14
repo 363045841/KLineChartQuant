@@ -15,6 +15,7 @@ import type { ScaleType } from '../../foundation/types/scaleType.js'
 import type { DrawingObject } from '../drawing/index.js'
 import type { PriceRange } from '../scale/index.js'
 import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
+import type { SystemObjectSnapshot } from '../state/systemObjectState.js'
 
 /** Alpha 布局只接受当前版本，不迁移旧文档。 */
 export const LAYOUT_DOCUMENT_VERSION = 3
@@ -64,10 +65,14 @@ export interface LayoutDocument {
   readonly panePriceAxisModes: LayoutPanePriceAxisModes
   /** 锁定模式的价格范围，与模式一起保存和恢复。 */
   readonly panePriceAxisRanges?: Readonly<Record<string, PriceRange>>
+  /** 对象轴显式配置的百分比基准，按 axisId 存档。 */
+  readonly axisBaseValues?: Readonly<Record<string, number>>
   /** 图表级设置白名单子集；省略表示沿用当前设置。 */
   readonly settings?: Partial<ChartSettings>
   /** 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图。 */
   readonly drawings?: ReadonlyArray<DrawingObject>
+  /** 系统对象（K 线等）的显隐与顺序；旧文档省略时使用默认值。 */
+  readonly systemObjects?: SystemObjectSnapshot
   /** 布局级指标收藏，跨数据视图共享；旧文档省略时恢复为空。 */
   readonly favoriteIndicatorIds?: ReadonlyArray<string>
   /** 按 品种+周期+复权+数据视图 键的可恢复视口位置；省略表示不携带。 */

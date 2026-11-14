@@ -10,6 +10,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
 import { registerAxisLabel } from './impl/labels/index.js'
+import { PRICE_SERIES_AXIS_ID } from './rendererIds.js'
 
 function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
   const { pane, data } = context
@@ -37,12 +38,12 @@ function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
 /**
  * 最新价 label 注册 Layer（overlay 层，确保悬停时 label 也注册到右轴 overlay 表面）。
  */
-export function createLastPriceLabelLayer(): Layer<RenderContext> {
+export function createLastPriceLabelLayer(paneId: string): Layer<RenderContext> {
   return {
     kind: 'draw-list',
     id: makePluginLayerId('lastPriceLabelRegistrar'),
     role: 'overlay',
-    pane: 'main',
+    pane: paneId,
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
     visible: true,
     paint(context) {
@@ -59,20 +60,25 @@ export function createLastPriceLabelLayer(): Layer<RenderContext> {
       const isPercent = usesPercentAxis(context)
       const displayValue = isPercent ? context.pane.yAxis.toPercent(info.price) : info.price
 
-      registerAxisLabel(context, 'yRightOverlay', {
-        kind: AXIS_LABEL_KIND.TAG,
-        type: 'lastPrice',
-        text: formatAxisPriceValue(displayValue, isPercent),
-        countdown: context.countdown,
-        pos: info.y + context.pane.top,
-        origin: context.pane.top,
-        variant: 'label',
-        // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
-        bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
-        borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
-        textColor: colors.label.text,
-        fontSize: 12,
-      })
+      registerAxisLabel(
+        context,
+        'yRightOverlay',
+        {
+          kind: AXIS_LABEL_KIND.TAG,
+          type: 'lastPrice',
+          text: formatAxisPriceValue(displayValue, isPercent),
+          countdown: context.countdown,
+          pos: info.y + context.pane.top,
+          origin: context.pane.top,
+          variant: 'label',
+          // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
+          bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
+          borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
+          textColor: colors.label.text,
+          fontSize: 12,
+        },
+        PRICE_SERIES_AXIS_ID,
+      )
     },
     dispose() {},
   }
@@ -84,12 +90,12 @@ const LAST_PRICE_LINE_DASH = [1, 3]
 /**
  * 最新价点虚线 Layer（绘制点虚线）。
  */
-export function createLastPriceLineLayer(): Layer<RenderContext> {
+export function createLastPriceLineLayer(paneId: string): Layer<RenderContext> {
   return {
     kind: 'draw-list',
     id: makePluginLayerId('lastPriceLine'),
     role: 'overlay',
-    pane: 'main',
+    pane: paneId,
     z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
     visible: true,
     paint(context) {

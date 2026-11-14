@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
-import { createIndexedDbPersistence } from '../../../foundation/persistence/indexedDbPersistence.js'
+import { createDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
@@ -49,13 +49,13 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
   const firstId = first.kernel.paneManager.actions.add(
     'tab-layout-indicator',
     { period: 20 },
-    { kind: 'main' },
+    { kind: 'pane', paneId: MAIN_PANE_ID },
   )!
   const secondId = second.kernel.paneManager.actions.add('tab-layout-indicator', { period: 14 })!
+  const createdPaneId = first.kernel.paneManager.actions.addPane(MAIN_PANE_ID, 'below')!
   first.kernel.paneManager.actions.moveInstance(firstId, {
-    kind: 'newPane',
-    anchorPaneId: MAIN_PANE_ID,
-    placement: 'below',
+    kind: 'pane',
+    paneId: createdPaneId,
   })
   const firstPane = first.kernel.indicator.readonly.instances.peek()[0]!.paneId
   first.kernel.paneManager.actions.add(
@@ -110,14 +110,14 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
 
 it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
   const source = createManager()
-  const oldStorage = createIndexedDbPersistence<unknown>({
+  const oldStorage = createDocumentStore<unknown>({
     databaseName: '@363045841yyt/klinechart-layouts',
+    version: LAYOUT_DOCUMENT_VERSION,
     storeName: 'layouts',
     key: 'documents',
-    flushOnPageHide: false,
-    codec: { decode: (value) => value, encode: (value) => value },
+    codec: { decode: (value) => value ?? null, encode: (value) => value },
   })
-  await oldStorage.save({
+  await oldStorage.write({
     activeId: 'old-layout',
     autoSave: true,
     documents: {
@@ -142,7 +142,6 @@ it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未�
           {
             instanceId: 'pending-instance',
             indicatorId: 'pending-script',
-            role: 'sub',
             paneId: 'pending-pane',
             ordinal: 0,
             params: {},

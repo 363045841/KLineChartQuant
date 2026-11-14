@@ -12,7 +12,7 @@ import type { IndicatorCategory, IndicatorMetadata } from '../../indicatorMetada
 export function createTestRendererLayer(name: string): Layer<never> {
   return {
     id: makePluginLayerId(name),
-    role: 'indicator',
+    role: 'content',
     pane: 'test',
     z: 0,
     visible: true,
@@ -40,7 +40,6 @@ export function createTestIndicatorMetadata(
     defaultPaneId: 'sub_test',
     rendererFactory: () => createTestRendererLayer(`${input.name}_renderer`),
     getRendererName: ({ paneId }) => `${input.name}_${paneId}`,
-    getScaleRendererName: () => null,
     ...overrides,
   }
 }

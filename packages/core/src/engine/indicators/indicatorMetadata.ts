@@ -33,15 +33,6 @@ export interface IndicatorRendererOptions {
   params?: Record<string, unknown>
 }
 
-export interface IndicatorScaleRendererOptions {
-  paneId: string
-  indicatorId: IndicatorId
-  /** 框架派生的轴身份；一个轴只创建一个刻度层。 */
-  axisId: string
-  axisWidth: number
-  getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
-}
-
 /**
  * 指标分类：主图/副图
  */
@@ -60,21 +51,8 @@ export interface IndicatorRendererNameOptions {
   instanceId?: string
 }
 
-/** 指标值轴类型：价格类与值类决定能否共享轴。 */
-export type IndicatorAxisKind = 'price' | 'value'
-
-/** 定义默认轴绑定：共享 Pane 内同类轴，或为实例创建独立轴。 */
-export type IndicatorAxisBinding = 'shared' | 'own'
-
 /** 指标 renderer plugin 名称解析器。 */
 export type IndicatorRendererNameResolver = (options: IndicatorRendererNameOptions) => string
-
-/** 指标附属 renderer plugin 名称解析器，不创建 renderer 实例。 */
-export type IndicatorAuxiliaryRendererNameResolver = (
-  options: IndicatorRendererNameOptions,
-) => string | null
-
-export type ScaleRendererFactory = (options: IndicatorScaleRendererOptions) => Layer<RenderContext>
 
 /**
  * 标题值项：颜色 + 数值 + 标签
@@ -209,12 +187,6 @@ export interface IndicatorMetadata<_T = unknown> {
    */
   category: IndicatorCategory
 
-  /** 值轴类型；缺省按分类推导（主图价格、其余值）。 */
-  readonly axisKind?: IndicatorAxisKind
-
-  /** 默认轴绑定；缺省主图共享、其余独立。 */
-  readonly defaultAxis?: IndicatorAxisBinding
-
   /** 是否允许同一张图存在多份实例；缺省允许。 */
   readonly multiInstance?: boolean
 
@@ -234,17 +206,13 @@ export interface IndicatorMetadata<_T = unknown> {
   ui?: { name?: string; description?: string; params?: readonly unknown[] }
 
   /**
-   * 专用坐标轴渲染器工厂。未提供时可回退到 scale 通用配置。
-   */
-  scaleRendererFactory?: ScaleRendererFactory
-
-  /**
    * 通用指标坐标轴配置。
    */
   scale?: {
     indicatorKey?: string
     label?: string
     decimals?: number
+    format?: (value: number) => string
   }
 
   /**
@@ -271,9 +239,6 @@ export interface IndicatorMetadata<_T = unknown> {
 
   /** 不创建 renderer 实例地解析其 plugin 名称。 */
   getRendererName: IndicatorRendererNameResolver
-
-  /** 不创建 renderer 实例地解析副图坐标轴 plugin 名称；无坐标轴时返回 null。 */
-  getScaleRendererName: IndicatorAuxiliaryRendererNameResolver
 
   /**
    * 计算描述符（可选）

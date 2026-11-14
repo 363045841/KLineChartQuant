@@ -52,6 +52,8 @@ test('默认工作台能加载 Agent、打开编辑器并运行脚本', async ({
   await page.goto('/')
   await page.waitForFunction(() => document.body.dataset.bars === '160', undefined, { timeout: 120_000 })
   await page.waitForFunction(() => document.body.dataset.loading === 'false')
+  // Agent 面板只在首次点开时挂载，先通过侧边菜单展开。
+  await page.getByRole('button', { name: 'Agent', exact: true }).click()
   await page.locator('.agent-workspace').waitFor({ timeout: 60_000 })
 
   await settle(page)

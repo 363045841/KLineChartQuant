@@ -2,25 +2,24 @@
 
 import { primitiveSink, submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import { RENDERER_PRIORITY, type RenderContext } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { Layer } from '../../rendering/scene/types.js'
+import { COMPARISON_LINE_LAYER_ID } from './rendererIds.js'
 
 /** 创建 K 线主图比较 Layer，数据计算由共享比较投影负责。 */
-export function createComparisonLineLayer(): Layer<RenderContext> {
+export function createComparisonLineLayer(paneId: string): Layer<RenderContext> {
   return {
     kind: 'draw-list',
-    id: makePluginLayerId('comparisonLine'),
-    role: 'primary',
-    pane: 'main',
+    id: COMPARISON_LINE_LAYER_ID,
+    role: 'content',
+    pane: paneId,
     z: RENDERER_PRIORITY.MAIN + 2,
     visible: true,
     paint(context) {
       const projection = context.comparisonProjection
-      if (context.dataView !== ChartDataViewId.KLine || context.pane.id !== 'main' || !projection)
-        return
+      if (context.dataView !== ChartDataViewId.KLine || !projection) return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,

@@ -4,7 +4,7 @@
  */
 import { vi } from 'vitest'
 
-import type { KeyValueStorage } from '../localStoragePersistence.js'
+import type { KeyValueStorage } from '../impl/localStoragePersistence.js'
 
 /** 创建内存 KeyValueStorage 替身；initial 为预置的原始字符串值。 */
 export function createMemoryKeyValueStorage(initial: string | null = null) {

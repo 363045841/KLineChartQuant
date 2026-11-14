@@ -9,6 +9,7 @@ export interface LegendPaneFrame {
 
 /** 一帧图例投影：行按 pane 分组，收起状态由 Core 决定。 */
 export interface LegendDomFrame {
+  readonly primaryPaneId: string
   readonly rowsByPane: ReadonlyArray<LegendPaneFrame>
   readonly mainCollapsed: boolean
   readonly canCollapse: boolean

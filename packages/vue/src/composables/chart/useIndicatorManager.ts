@@ -10,7 +10,6 @@ import { useControllerSignal } from './useControllerSignal.js'
 
 /** 保留所有实例，仅从 Core 配置读取容器身份和顺序。 */
 export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
-  const maxSubPanes = 4
   const indicatorInstances = useControllerSignal(
     ctrl,
     (controller) => controller.indicators,
@@ -21,28 +20,12 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
     (controller) => controller.paneLayout,
     () => [],
   )
-  const mainActiveIndicators = computed(() => [
-    ...new Set(
-      indicatorInstances.value
-        .filter((instance) => instance.role === INDICATOR_ROLE.MAIN)
-        .map((instance) => instance.definitionId),
-    ),
-  ])
-  const subActiveIndicators = computed(() => [
-    ...new Set(
-      indicatorInstances.value
-        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
-        .map((instance) => instance.definitionId),
-    ),
-  ])
   const activeIndicators = computed(() => [
     ...new Set(indicatorInstances.value.map((instance) => instance.definitionId)),
   ])
   const subPanes = computed(() =>
     paneLayout.value.flatMap((pane) => {
-      const instances = indicatorInstances.value.filter(
-        (instance) => instance.role === INDICATOR_ROLE.SUB && instance.paneId === pane.id,
-      )
+      const instances = indicatorInstances.value.filter((instance) => instance.paneId === pane.id)
       return instances.length > 0 ? [{ id: pane.id, instances }] : []
     }),
   )
@@ -79,9 +62,9 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
     params?: Record<string, number | boolean | string>,
   ): Promise<boolean> {
     const controller = ctrl.value
-    if (!controller || subPanes.value.length >= maxSubPanes) return false
+    if (!controller) return false
     const loaded = await loadIndicator(controller, indicatorId)
-    if (!loaded || subPanes.value.length >= maxSubPanes) return false
+    if (!loaded) return false
     return loaded.addIndicator(indicatorId, params ?? getDefaultParams(indicatorId)) !== null
   }
 
@@ -142,12 +125,10 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
       controller.indicators.peek().some((instance) => instance.definitionId === indicatorId)
     )
       return
-    if (isSubPaneIndicator(indicatorId) && subPanes.value.length >= maxSubPanes) return
     const loaded = await loadIndicator(controller, indicatorId)
     if (
       !loaded ||
-      loaded.indicators.peek().some((instance) => instance.definitionId === indicatorId) ||
-      (isSubPaneIndicator(indicatorId) && subPanes.value.length >= maxSubPanes)
+      loaded.indicators.peek().some((instance) => instance.definitionId === indicatorId)
     )
       return
     loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
@@ -163,12 +144,9 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
   }
 
   return {
-    mainActiveIndicators,
-    subActiveIndicators,
     activeIndicators,
     indicatorParams,
     subPanes,
-    maxSubPanes,
     getDefaultParams,
     isSubPaneIndicator,
     addSubPane,

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { AXIS_LABEL_KIND } from '../../../foundation/plugin/types.js'
 import { createAxisLabelsFrame } from '../../renderers/impl/labels/impl/axisLabelCollector.js'
+import { layoutAxisColumns } from '../impl/axisColumns.js'
 import {
   AxisWidthEstimator,
   estimateAxisTextWidth,
@@ -82,18 +83,19 @@ describe('AxisWidthEstimator', () => {
         color: '',
       })
     }
-    const full = estimator.estimate({ labels, axes, updateStatic: true, updateOverlay: true })
-    const columns = full.rightByAxis
+    const layout = estimator.estimate({ labels, axes, updateStatic: true, updateOverlay: true })
+    const columns = layout.rightByAxis
     const subWidth = columns.sub! + columns['instance:second']!
-    expect(full.right).toBe(subWidth)
-    expect(full.right).toBe(Math.max(columns.main!, subWidth, columns.other!))
-    const layout = estimator.getLayout(['sub', 'instance:second'])
-    expect(layout.sub).toEqual({ left: 0, width: columns.sub })
-    expect(layout['instance:second']).toEqual({
+    expect(layout.right).toBe(subWidth)
+    expect(layout.right).toBe(Math.max(columns.main!, subWidth, columns.other!))
+    const committed = layoutAxisColumns(['sub', 'instance:second'], columns, layout.right)
+    expect(committed[0]).toEqual({ axisId: 'sub', left: 0, width: columns.sub })
+    expect(committed[1]).toEqual({
+      axisId: 'instance:second',
       left: columns.sub,
       width: columns['instance:second'],
     })
-    expect(layout['instance:second']!.left + layout['instance:second']!.width).toBe(full.right)
+    expect(committed[1]!.left + committed[1]!.width).toBe(layout.right)
 
     const removed = estimator.estimate({
       labels,
@@ -102,7 +104,7 @@ describe('AxisWidthEstimator', () => {
       updateOverlay: true,
     })
     expect(removed.right).toBe(Math.max(columns.main!, columns.sub!, columns.other!))
-    expect(removed.right).toBeLessThan(full.right)
+    expect(removed.right).toBeLessThan(layout.right)
   })
 
   it('格式、字号与倒计时变化会改变估算宽度', () => {

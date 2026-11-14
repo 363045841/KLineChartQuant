@@ -1,8 +1,5 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
-import {
-  type ArchivePersistence,
-  createArchivePersistence,
-} from '../../../foundation/persistence/index.js'
+import { createDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import {
   LAYOUT_DOCUMENT_VERSION,
@@ -60,7 +57,7 @@ function requireName(name: string): string {
 }
 
 export class LayoutManager implements LayoutApi {
-  private readonly archiveStore: ArchivePersistence<LayoutArchive>
+  private readonly archiveStore: DocumentStore<LayoutArchive>
   private archive: LayoutArchive = {
     documents: {},
     activeId: DEFAULT_LAYOUT_ID,
@@ -79,6 +76,7 @@ export class LayoutManager implements LayoutApi {
   private disposed = false
   private lastConfiguration = ''
   private loaded = false
+  private queue: Promise<unknown> = Promise.resolve()
   readonly layouts = this.layoutSignal
   readonly activeLayoutId = this.activeSignal
   readonly layoutAutoSave = this.autoSaveSignal
@@ -100,14 +98,13 @@ export class LayoutManager implements LayoutApi {
      */
     private readonly options: { restore?: boolean; storageId?: string } = {},
   ) {
-    this.archiveStore = createArchivePersistence<LayoutArchive>({
+    this.archiveStore = createDocumentStore<LayoutArchive>({
       databaseName: '@363045841yyt/klinechart-layouts',
-      databaseVersion: LAYOUT_DOCUMENT_VERSION,
+      version: LAYOUT_DOCUMENT_VERSION,
       storeName: 'layouts',
-      // 每个持有者独占自己的归档键，继续复用同一套保存、恢复和串行写入机制。
+      // 每个持有者独占自己的归档键；读改写由仓库在单个事务内完成。
       key: options.storageId === undefined ? 'documents' : ['documents', options.storageId],
       codec: { decode: decodeArchive, encode: (value) => value },
-      disposedMessage: '图表已销毁',
     })
     globalThis.addEventListener?.('pagehide', this.onPageHide)
   }
@@ -137,20 +134,22 @@ export class LayoutManager implements LayoutApi {
 
   // ── 归档读写 ──
 
-  /** 成功落盘后再发布状态，存储失败不显示虚假的成功结果。 */
-  private async saveArchive(archive: LayoutArchive): Promise<void> {
-    await this.archiveStore.save(archive)
-    this.archive = archive
+  /**
+   * 在单个事务内基于磁盘上的最新归档应用变更，再把结果发布到内存。
+   *
+   * 读取失败或归档缺失时直接抛错，绝不用内存快照覆盖未知状态。
+   */
+  private async updateArchive(
+    change: (current: LayoutArchive) => LayoutArchive,
+  ): Promise<LayoutArchive> {
+    const next = await this.archiveStore.update((current) => {
+      if (!current) throw new Error('布局归档尚未初始化')
+      return change(current)
+    })
+    this.archive = next
     this.errorSignal.set(null)
     this.publish()
-  }
-
-  /** 覆盖文档集（默认沿用当前活动身份）。 */
-  private saveDocuments(
-    documents: Readonly<Record<string, NamedLayoutDocument>>,
-    activeId = this.archive.activeId,
-  ): Promise<void> {
-    return this.saveArchive({ ...this.archive, documents, activeId })
+    return next
   }
 
   /** 只派生归档摘要，按文档创建顺序稳定输出；切换活动文档不改变列表位置。 */
@@ -177,7 +176,9 @@ export class LayoutManager implements LayoutApi {
 
   /** 串行处理归档操作，失败不会阻塞后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
-    return this.archiveStore.run(operation)
+    const result = this.queue.then(operation)
+    this.queue = result.catch(() => undefined)
+    return result
   }
 
   // ── 生命周期 ──
@@ -233,21 +234,30 @@ export class LayoutManager implements LayoutApi {
   private async load(): Promise<void> {
     if (this.loaded) return
     if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用布局存储')
-    const stored = await this.archiveStore.loadStored()
+    const stored = await this.archiveStore.read()
     if (stored) this.archive = stored
     const fallback = this.archive.documents[DEFAULT_LAYOUT_ID]
     if (!fallback) {
-      await this.saveDocuments(
-        {
-          ...this.archive.documents,
-          [DEFAULT_LAYOUT_ID]: {
-            ...this.exportLayout(),
-            id: DEFAULT_LAYOUT_ID,
-            name: DEFAULT_LAYOUT_NAME,
-          },
-        },
-        DEFAULT_LAYOUT_ID,
-      )
+      const defaultDocument: NamedLayoutDocument = {
+        ...this.exportLayout(),
+        id: DEFAULT_LAYOUT_ID,
+        name: DEFAULT_LAYOUT_NAME,
+      }
+      if (stored) {
+        await this.updateArchive((current) => ({
+          ...current,
+          documents: { ...current.documents, [DEFAULT_LAYOUT_ID]: defaultDocument },
+          activeId: DEFAULT_LAYOUT_ID,
+        }))
+      } else {
+        const initial: LayoutArchive = {
+          documents: { [DEFAULT_LAYOUT_ID]: defaultDocument },
+          activeId: DEFAULT_LAYOUT_ID,
+          autoSave: true,
+        }
+        await this.archiveStore.write(initial)
+        this.archive = initial
+      }
     } else if (stored) {
       const active = this.archive.documents[this.archive.activeId] ?? fallback
       // 关闭恢复时不改动图表，只把归档里的身份同步出来，手动切换仍然可用。
@@ -324,11 +334,18 @@ export class LayoutManager implements LayoutApi {
     clearTimeout(this.timer)
     this.timer = undefined
     if (!this.dirtySignal.peek()) return
-    const current = this.requireDocument(this.archive.activeId)
     const snapshot = this.exportLayout()
-    await this.saveDocuments({
-      ...this.archive.documents,
-      [current.id]: { ...snapshot, id: current.id, name: current.name },
+    const targetId = this.archive.activeId
+    await this.updateArchive((current) => {
+      const target = current.documents[targetId]
+      if (!target) throw new Error('布局不存在')
+      return {
+        ...current,
+        documents: {
+          ...current.documents,
+          [targetId]: { ...snapshot, id: target.id, name: target.name },
+        },
+      }
     })
     // 保存过程中若发生新变更，保留脏标记并安排下一次保存。
     if (this.currentConfiguration() === JSON.stringify(snapshot)) this.dirtySignal.set(false)
@@ -348,14 +365,16 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       const id = input.id ?? crypto.randomUUID()
-      if (input.id) this.requireDocument(input.id)
-      await this.saveDocuments(
-        {
-          ...this.archive.documents,
-          [id]: { ...this.exportLayout(), id, name: requireName(input.name) },
-        },
-        id,
-      )
+      const name = requireName(input.name)
+      const snapshot = this.exportLayout()
+      await this.updateArchive((current) => {
+        if (input.id && !current.documents[input.id]) throw new Error('布局不存在')
+        return {
+          ...current,
+          documents: { ...current.documents, [id]: { ...snapshot, id, name } },
+          activeId: id,
+        }
+      })
       this.markClean()
       return id
     })
@@ -371,7 +390,10 @@ export class LayoutManager implements LayoutApi {
       const next = this.requireDocument(input.id)
       try {
         this.applySnapshot(next)
-        await this.saveDocuments(this.archive.documents, input.id)
+        await this.updateArchive((current) => {
+          if (!current.documents[input.id]) throw new Error('布局不存在')
+          return { ...current, activeId: input.id }
+        })
       } catch (error) {
         this.applySnapshot(previous)
         throw error
@@ -385,9 +407,14 @@ export class LayoutManager implements LayoutApi {
   renameLayout(input: { id: string; name: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
-      await this.saveDocuments({
-        ...this.archive.documents,
-        [input.id]: { ...this.requireDocument(input.id), name: requireName(input.name) },
+      const name = requireName(input.name)
+      await this.updateArchive((current) => {
+        const target = current.documents[input.id]
+        if (!target) throw new Error('布局不存在')
+        return {
+          ...current,
+          documents: { ...current.documents, [input.id]: { ...target, name } },
+        }
       })
     })
   }
@@ -397,15 +424,15 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       const id = crypto.randomUUID()
-      await this.saveDocuments({
-        ...this.archive.documents,
-        [id]: {
-          ...(input.id === this.archive.activeId
-            ? this.exportLayout()
-            : this.requireDocument(input.id)),
-          id,
-          name: requireName(input.name),
-        },
+      const name = requireName(input.name)
+      const activeSnapshot = input.id === this.archive.activeId ? this.exportLayout() : null
+      await this.updateArchive((current) => {
+        const source = activeSnapshot ?? current.documents[input.id]
+        if (!source) throw new Error('布局不存在')
+        return {
+          ...current,
+          documents: { ...current.documents, [id]: { ...source, id, name } },
+        }
       })
       return id
     })
@@ -415,12 +442,14 @@ export class LayoutManager implements LayoutApi {
   deleteLayout(input: { id: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
-      this.requireDocument(input.id)
-      if (input.id === DEFAULT_LAYOUT_ID || input.id === this.archive.activeId)
-        throw new Error('默认布局和当前布局不能删除')
-      const next = { ...this.archive.documents }
-      delete next[input.id]
-      await this.saveDocuments(next)
+      await this.updateArchive((current) => {
+        if (!current.documents[input.id]) throw new Error('布局不存在')
+        if (input.id === DEFAULT_LAYOUT_ID || input.id === current.activeId)
+          throw new Error('默认布局和当前布局不能删除')
+        const documents = { ...current.documents }
+        delete documents[input.id]
+        return { ...current, documents }
+      })
     })
   }
 
@@ -431,7 +460,11 @@ export class LayoutManager implements LayoutApi {
       if (this.shouldAutoSave()) await this.saveActive()
       const id = crypto.randomUUID()
       const document = { ...this.dependencies.createLayout(), id, name: requireName(input.name) }
-      await this.saveDocuments({ ...this.archive.documents, [id]: document }, id)
+      await this.updateArchive((current) => ({
+        ...current,
+        documents: { ...current.documents, [id]: document },
+        activeId: id,
+      }))
       this.applySnapshot(document)
       this.markClean()
       await this.dependencies.loadContent?.(document)
@@ -444,7 +477,7 @@ export class LayoutManager implements LayoutApi {
     return this.run(async () => {
       await this.load()
       clearTimeout(this.timer)
-      await this.saveArchive({ ...this.archive, autoSave: input.enabled })
+      await this.updateArchive((current) => ({ ...current, autoSave: input.enabled }))
       if (this.shouldAutoSave()) await this.saveActive()
     })
   }

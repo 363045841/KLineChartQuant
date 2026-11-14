@@ -1,7 +1,10 @@
 /** LocalStorage 持久化原语测试：编解码边界、延迟写入与生命周期。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createLocalStoragePersistence, type PersistenceCodec } from '../localStoragePersistence.js'
+import {
+  createLocalStoragePersistence,
+  type PersistenceCodec,
+} from '../impl/localStoragePersistence.js'
 import { createMemoryKeyValueStorage } from './_memoryKeyValueStorage.js'
 
 interface Payload {

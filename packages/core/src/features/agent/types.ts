@@ -203,6 +203,7 @@ export interface ChartAgentController {
 export type ChartAgentPaneCommands = Pick<
   ChartPaneFacade,
   | 'add'
+  | 'addPane'
   | 'moveInstance'
   | 'removeInstance'
   | 'updateInstance'

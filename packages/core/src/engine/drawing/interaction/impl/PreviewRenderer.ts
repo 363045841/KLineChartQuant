@@ -2,19 +2,14 @@
 import type { DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 import type { InteractionDrawingAnchor } from '../../geometry/types.js'
+import { CHANNEL_KINDS } from '../../model/impl/drawingKindSpecs.js'
 import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 import { DrawingTool } from '../types.js'
 import { drawingToolStyle } from './drawingToolStyle.js'
-import {
-  CHANNEL_KINDS,
-  DOUBLE_ANCHOR_TOOLS,
-  getDrawingKind,
-  SINGLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig.js'
+import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 
 /** 预览沿用工具自身的线型；通道类额外给出填充透明度，不改变描边样式。 */
 function previewStyle(withFill: boolean): DrawingStyle {
@@ -39,14 +34,11 @@ export class PreviewRenderer {
     workspaceId: DrawingWorkspaceId,
     symbolKey?: string,
   ): DrawingObject | null {
-    const isSingle = SINGLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
-    const isDouble = DOUBLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
-    const isTriple = TRIPLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
-
-    if (!isSingle && !isDouble && !isTriple) return null
+    const anchorCount = getAnchorCountForTool(activeTool)
+    if (anchorCount === null) return null
     const identity = symbolKey === undefined ? {} : { symbolKey }
 
-    if (isSingle) {
+    if (anchorCount === 1) {
       return {
         ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId),
         workspaceId,
@@ -54,7 +46,7 @@ export class PreviewRenderer {
       }
     }
 
-    if (isDouble) {
+    if (anchorCount === 2) {
       if (pendingAnchors.length < 1) return null
       return {
         ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
