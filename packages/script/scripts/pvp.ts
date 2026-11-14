@@ -85,8 +85,13 @@ defineIndicator({
               )
             : time(periodUnit === 'day' ? '1D' : periodUnit === 'week' ? '1W' : '1M'),
         ] as const,
-      // 明细只覆盖最近画得出的阶段，不按图表整段历史拉数万根 1 分钟数据。
-      { calcBarsCount: (keepPeriods + 1) * periodCount * unitMinutesOf(periodUnit) },
+      // 至少一个月，避免声明期读到的保留期数仍是默认值；上限由脚本声明控制。
+      {
+        calcBarsCount: Math.max(
+          MINUTES_PER_DAY * 32,
+          (keepPeriods + 1) * periodCount * unitMinutesOf(periodUnit),
+        ),
+      },
     )
     vp.collect(t, e, o, h, l, c, v, periodUnit === 'candle' ? k.map(() => bar_index) : k, time[0])
     vp.render(
