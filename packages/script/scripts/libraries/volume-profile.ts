@@ -206,6 +206,11 @@ type StageLine = {
 /** 已完成阶段的全部绘图引用；保留期裁剪时精确删除，不依赖全局上限。 */
 type StageDrawings = { readonly boxes: readonly ProfileRef[]; readonly lines: readonly StageLine[] }
 
+/** 单个指标的绘图对象预算，与契约 MAX_DRAWING_COUNT 一致。 */
+const DRAWING_BUDGET = 2000
+/** 折让行数的下限；再低就看不出分布形状。 */
+const MIN_ROWS = 24
+
 /** 已完成阶段；活动阶段不进入此集合，每轮重算。 */
 const renderedStages = new Set<string>()
 /** 已完成阶段的绘图引用，按阶段 key 复用与回收。 */
@@ -259,6 +264,27 @@ function updateStageLine(stage: StageLine): void {
   }
 }
 
+/**
+ * 在绘图对象预算内解析实际行数与保留期数。
+ *
+ * 用户设定的保留期数优先：期数超预算时先按行数折让，最少保留 MIN_ROWS 行，
+ * 折让仍不够才削减期数。这样设 30 期也能看到 30 天，只是每档更粗。
+ *
+ * @param rows 用户设定的行数
+ * @param requested 用户设定的保留期数
+ * @returns 实际行数与实际保留期数
+ */
+function resolveBudget(rows: number, requested: number): { rows: number; keep: number } {
+  const fit = (value: number): number => Math.max(1, Math.floor(DRAWING_BUDGET / (value * 2 + 1)))
+  let resolvedRows = rows
+  let keep = Math.min(requested, fit(resolvedRows))
+  if (keep < requested) {
+    resolvedRows = Math.max(MIN_ROWS, Math.floor((DRAWING_BUDGET / requested - 1) / 2))
+    keep = Math.min(requested, fit(resolvedRows))
+  }
+  return { rows: resolvedRows, keep }
+}
+
 /** 合并相邻自然期；count 为 1 时直接复用现有分组，不复制数组。 */
 function mergeStageGroups(groups: readonly ProfileBar[][], count: number): ProfileBar[][] {
   const merged: ProfileBar[][] = []
@@ -274,7 +300,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
   // 渲染前按阶段 key 重建，保证保留期取到的是最新阶段。
   stageGroups = buildGroups(profileBars)
   const groups = config.count === 1 ? stageGroups : mergeStageGroups(stageGroups, config.count)
-  const keep = Math.max(1, Math.min(config.keep, Math.floor(2000 / (config.rows * 2 + 1))))
+  const { rows, keep } = resolveBudget(config.rows, config.keep)
   if (isLast && groups.length > keep) console.info(`成交量分布保留最近${keep}期（绘图对象预算）`)
   if (!profileBars.length) throw new Error('没有可用的低周期成交量明细，请检查行情源及计算周期')
   const kept = groups.slice(-keep)
@@ -320,7 +346,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
     }
     const boxes: ProfileRef[] = []
     const lines: StageLine[] = []
-    const profile = buildProfile(group, config.rows, config.area)
+    const profile = buildProfile(group, rows, config.area)
     if (!profile) continue
     const last = group[group.length - 1]!
     const width = ((last.end - first.time) * config.width) / 100
@@ -342,7 +368,7 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
       '@token:volumeProfile.boxBackground',
     )
     if (background) boxes.push(background)
-    for (let row = 0; row < config.rows; row++) {
+    for (let row = 0; row < rows; row++) {
       const inside = row >= profile.lo && row <= profile.hi
       const upColor = inside ? '@token:volumeProfile.valueAreaUp' : '@token:volumeProfile.up'
       const downColor = inside ? '@token:volumeProfile.valueAreaDown' : '@token:volumeProfile.down'
