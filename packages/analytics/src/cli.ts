@@ -19,9 +19,11 @@ import type { ProxyEndpoint } from './net/types'
 import {
   type CollectedOptionCurrency,
   collectOptionCurrencies,
+  OPTION_AGGREGATE_STREAM_PREFIX,
   OPTION_CHAIN_STREAM_PREFIX,
 } from './options/impl/collect'
 import { createDeribitClient } from './options/impl/deribit'
+import { pruneLegacyOptionsLevels } from './options/impl/legacyPrune'
 import {
   OPTION_CHAIN_RETENTION_DAYS,
   OPTION_CURRENCIES,
@@ -351,6 +353,29 @@ function formatMillions(value: number): string {
 }
 
 /**
+ * 格式化墙位，缺持仓时给出明确文案。
+ *
+ * @param wall 墙位；该视图没有该方向持仓时为 null
+ * @returns 形如 `75,000（OI 11,510.3）` 的字符串
+ */
+function formatStrike(
+  wall: { readonly strike: number; readonly openInterest: number } | null,
+): string {
+  if (wall === null) return '无'
+  return `${formatNumber(wall.strike, 0)}（OI ${formatNumber(wall.openInterest, 1)}）`
+}
+
+/**
+ * 格式化 P/C 持仓比，缺数据时给出明确文案。
+ *
+ * @param ratio 比值；call 持仓为 0 时为 null
+ * @returns 形如 `1.22` 的字符串
+ */
+function formatRatio(ratio: number | null): string {
+  return ratio === null ? '无' : ratio.toFixed(2)
+}
+
+/**
  * 计算滚动保留截止日。
  *
  * @param nowMs 当前毫秒
@@ -364,28 +389,34 @@ function cutoffDay(nowMs: number, days: number): string {
 /**
  * 打印单个标的的期权采集摘要。
  *
+ * 近月与全链各打一行：主图口径看近月，全链作为参考与翻转位兜底。
+ *
  * @param result 采集结果
  */
 function printOptionSummary(result: CollectedOptionCurrency): void {
   const snapshot = result.snapshot
-  const wallCall = snapshot.callWall
-  const wallPut = snapshot.putWall
+  const near = snapshot.nearTerm
+  const all = snapshot.allChain
   const flip =
-    snapshot.gammaFlipUsd === null
+    snapshot.gammaFlip.gammaFlipUsd === null
       ? '无（累计 GEX 未穿越零轴）'
-      : formatNumber(snapshot.gammaFlipUsd, 1)
+      : formatNumber(snapshot.gammaFlip.gammaFlipUsd, 1)
+  const flipNote = snapshot.gammaFlip.source === 'all-chain' ? '（全链兜底）' : '（近月）'
 
   console.log(
     `[${snapshot.currency}] 合约 ${formatNumber(snapshot.chainContractCount, 0)} 张 → 过滤 ${formatNumber(snapshot.filteredContractCount, 0)} 张 | 拉链 ${result.chainElapsedMs}ms | 指数 ${result.indexElapsedMs}ms | 现货 ${formatNumber(snapshot.spotIndex, 2)}`,
   )
   console.log(
-    `      净 GEX ${formatMillions(snapshot.netGexUsdPerPercent)} USD/1% | 翻转位 ${flip} | 最大痛点 ${formatNumber(snapshot.maxPainUsd, 0)}`,
+    `      翻转位 ${flip}${flipNote} | 近月 ${near.expiryIso} DTE ${formatNumber(near.dteDays, 2)} 天 ATM IV ${formatNumber(near.atmIvPercent, 2)}%`,
   )
   console.log(
-    `      Call 墙 ${formatNumber(wallCall.strike, 0)}（OI ${formatNumber(wallCall.openInterest, 1)}） | Put 墙 ${formatNumber(wallPut.strike, 0)}（OI ${formatNumber(wallPut.openInterest, 1)}）`,
+    `      近月 净 GEX ${formatMillions(near.netGexUsdPerPercent)} | Call 墙 ${formatStrike(near.callWall)} | Put 墙 ${formatStrike(near.putWall)} | 最大痛点 ${formatNumber(near.maxPainUsd, 0)} | P/C ${formatRatio(near.putCallOiRatio)}`,
   )
   console.log(
-    `      近月 ${snapshot.nearTermExpiryIso} DTE ${formatNumber(snapshot.nearTermDteDays, 2)} 天 ATM IV ${formatNumber(snapshot.nearTermAtmIvPercent, 2)}% | ±1σ ${formatNumber(snapshot.expectedMoveOneSigmaUsd, 1)} → [${formatNumber(snapshot.sigmaLowerUsd, 1)}, ${formatNumber(snapshot.sigmaUpperUsd, 1)}]`,
+    `      全链 净 GEX ${formatMillions(all.netGexUsdPerPercent)} | Call 墙 ${formatStrike(all.callWall)} | Put 墙 ${formatStrike(all.putWall)} | 最大痛点 ${formatNumber(all.maxPainUsd, 0)} | P/C ${formatRatio(all.putCallOiRatio)}`,
+  )
+  console.log(
+    `      ±1σ ${formatNumber(near.expectedMoveOneSigmaUsd, 1)} → [${formatNumber(near.sigmaLowerUsd, 1)}, ${formatNumber(near.sigmaUpperUsd, 1)}] | ±2σ → [${formatNumber(near.sigma2LowerUsd, 1)}, ${formatNumber(near.sigma2UpperUsd, 1)}]`,
   )
   const chainPart =
     result.chainAppend === null
@@ -482,7 +513,7 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
     for (const result of results) {
       printOptionSummary(result)
     }
-    pruneOptionChain(store, parsedCurrencies, startedAt)
+    pruneOptionStreams(store, parsedCurrencies, rootDir, startedAt)
     console.log(`本次耗时 ${Date.now() - startedAt}ms`)
   }
 
@@ -490,26 +521,38 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
 }
 
 /**
- * 清理超过保留期的原始链分片。
+ * 清理超过保留期的期权分片与旧版关键位文件。
+ *
+ * 三类一起清：原始链、聚合位、cloudtrade 时代留下的 `legacy/options-levels`。
+ * 保留期统一取 `OPTION_CHAIN_RETENTION_DAYS`。
  *
  * @param store 存储
  * @param currencies 标的列表
+ * @param rootDir 数据根目录，用于清理旧版目录
  * @param nowMs 当前毫秒
  */
-function pruneOptionChain(
+function pruneOptionStreams(
   store: DayShardStore,
   currencies: readonly OptionCurrency[],
+  rootDir: string,
   nowMs: number,
 ): void {
   const beforeDay = cutoffDay(nowMs, OPTION_CHAIN_RETENTION_DAYS)
   for (const currency of currencies) {
-    const removed = store.purgeBefore({
-      stream: `${OPTION_CHAIN_STREAM_PREFIX}/${currency}`,
-      beforeDay,
-    })
-    if (removed.length > 0) {
-      console.log(`[${currency}] 清理原始链过期分片 ${removed.length} 个（早于 ${beforeDay}）`)
+    for (const stream of [
+      `${OPTION_CHAIN_STREAM_PREFIX}/${currency}`,
+      `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`,
+    ]) {
+      const removed = store.purgeBefore({ stream, beforeDay })
+      if (removed.length > 0) {
+        console.log(`[${stream}] 清理过期分片 ${removed.length} 个（早于 ${beforeDay}）`)
+      }
     }
+  }
+  for (const result of pruneLegacyOptionsLevels(rootDir, beforeDay)) {
+    console.log(
+      `[legacy/options-levels/${result.symbol}] 清理 ${result.removed.length} 个（早于 ${beforeDay}）`,
+    )
   }
 }
 
