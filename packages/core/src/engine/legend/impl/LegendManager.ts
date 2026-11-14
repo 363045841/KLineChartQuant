@@ -9,7 +9,7 @@ import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
 import { runInNewPane } from '@/engine/pane/index.js'
 import type { InstanceMoveTarget } from '@/engine/pane/types.js'
-import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { INSTANCE_MOVE_KIND } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -69,7 +69,7 @@ export class LegendManager implements LegendApi {
     if (!this.deps.hasPrimarySymbol()) return false
     return this.rowsState
       .peek()
-      .some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+      .some((row) => row.paneId === this.deps.getPricePaneId() && row.indicator !== undefined)
   }
 
   /** 从当前领域状态枚举图例，不依赖是否已有行情或已绘制一帧。 */
@@ -92,7 +92,7 @@ export class LegendManager implements LegendApi {
       entries.push({
         id: `comparison:${comparison.identity}`,
         kind: 'comparison',
-        paneId: MAIN_PANE_ID,
+        paneId: this.deps.getPricePaneId(),
         identity: comparison.identity,
         spec: comparison.spec,
         hidden: this.deps.getComparisonHidden(comparison.identity),
@@ -267,7 +267,7 @@ export class LegendManager implements LegendApi {
         id,
         paneId: entry.paneId,
         definitionId: entry.definitionId,
-        role: entry.paneId === MAIN_PANE_ID ? 'main' : 'sub',
+        role: getIndicatorDescriptor(entry.definitionId)?.category === 'main' ? 'main' : 'sub',
       }
     return null
   }
@@ -277,21 +277,12 @@ export class LegendManager implements LegendApi {
     const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
       INDICATOR_INSTANCE_CATALOG_SERVICE,
     )
-    const options: LegendMoveOption[] = [
-      {
-        target: { kind: INSTANCE_MOVE_KIND.MAIN },
-        label: '移至主图',
-        enabled: entry.paneId !== MAIN_PANE_ID,
-      },
-    ]
-    for (const pane of this.deps.panes.getLayoutSpecs()) {
-      if (pane.id === MAIN_PANE_ID || pane.id === entry.paneId) continue
-      const first = catalog?.listPaneInstances(pane.id)[0]
-      if (!first) continue
-      const name = getIndicatorDescriptor(first.definitionId)?.displayName ?? first.definitionId
+    const options: LegendMoveOption[] = []
+    for (const [index, pane] of this.deps.panes.getLayoutSpecs().entries()) {
+      if (pane.id === entry.paneId) continue
       options.push({
         target: { kind: INSTANCE_MOVE_KIND.PANE, paneId: pane.id },
-        label: `移至 ${name}`,
+        label: `移至窗口 ${index + 1}`,
         enabled: true,
       })
     }
@@ -327,7 +318,9 @@ export class LegendManager implements LegendApi {
     if (!canCollapse && this.collapsedState.peek()) this.collapsedState.set(false)
     batch(() => {
       this.contextState.set(
-        template ? { ...template, rows: rows.filter((row) => row.paneId === MAIN_PANE_ID) } : null,
+        template
+          ? { ...template, rows: rows.filter((row) => row.paneId === this.deps.getPricePaneId()) }
+          : null,
       )
       this.rowsState.set(rows)
     })
@@ -337,7 +330,7 @@ export class LegendManager implements LegendApi {
   private canCollapseRows(rows: ReadonlyArray<LegendRow>): boolean {
     return (
       this.deps.hasPrimarySymbol() &&
-      rows.some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+      rows.some((row) => row.paneId === this.deps.getPricePaneId() && row.indicator !== undefined)
     )
   }
 
@@ -345,7 +338,7 @@ export class LegendManager implements LegendApi {
   private projectMainTemplate(
     contexts: ReadonlyArray<RenderContext>,
   ): LegendTemplateContext | null {
-    const main = contexts.find((context) => context.pane.id === MAIN_PANE_ID)
+    const main = contexts.find((context) => context.pane.id === this.deps.getPricePaneId())
     if (!main) return null
     return projectLegendContext({ context: main, host: this.deps.host })
   }
@@ -358,7 +351,7 @@ export class LegendManager implements LegendApi {
     const rows: LegendRow[] = []
     for (const context of contexts) {
       const paneId = context.pane.id
-      const mainTemplate = paneId === MAIN_PANE_ID ? template : null
+      const mainTemplate = paneId === this.deps.getPricePaneId() ? template : null
       const contents = [
         ...(mainTemplate ? projectMainLegendContents(mainTemplate) : []),
         ...this.collectInstanceContents(context),

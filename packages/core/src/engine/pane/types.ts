@@ -1,5 +1,5 @@
 /** pane 模块对外契约：pane 布局、分层画布、实例迁移命令与副图投影的公共类型。 */
-import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
+import type { PaneCapabilities } from '../../foundation/plugin/index.js'
 import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { IndicatorInstancePatch, IndicatorStateModule } from '../state/indicatorState.js'
@@ -25,7 +25,6 @@ export type PaneSpec = {
   ratio: number
   visible?: boolean
   minHeightPx?: number
-  role?: PaneRole
   capabilities?: Partial<PaneCapabilities>
 }
 
@@ -104,7 +103,6 @@ export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
 
 /** 实例移动目标的判别值；菜单、命令、Agent 与测试共用同一份定义。 */
 export const INSTANCE_MOVE_KIND = {
-  MAIN: 'main',
   PANE: 'pane',
 } as const
 
@@ -119,13 +117,11 @@ export type InstanceMoveKind = (typeof INSTANCE_MOVE_KIND)[keyof typeof INSTANCE
  *
  * 新建 Pane 不是移动目标：调用方先 `addPane`，再把实例移动到返回的 paneId。
  */
-export type InstanceMoveTarget =
-  | { readonly kind: typeof INSTANCE_MOVE_KIND.MAIN; readonly index?: number }
-  | {
-      readonly kind: typeof INSTANCE_MOVE_KIND.PANE
-      readonly paneId: string
-      readonly index?: number
-    }
+export type InstanceMoveTarget = {
+  readonly kind: typeof INSTANCE_MOVE_KIND.PANE
+  readonly paneId: string
+  readonly index?: number
+}
 
 /** 实例布局命令：主图与副图共用同一套身份与写入语义。 */
 export interface PaneLayoutCommands {

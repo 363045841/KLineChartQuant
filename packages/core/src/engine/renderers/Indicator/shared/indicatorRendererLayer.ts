@@ -6,7 +6,7 @@
  */
 
 import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
 import type {
   PrimitiveRenderContext,
   RenderContext,
@@ -22,14 +22,14 @@ type IndicatorRendererLayerIdentity = {
   /** 实例身份；图层命名与多实例唯一性都依赖它。 */
   instanceId?: string
   /** 框架派生的轴身份；绘制时把 pane.yAxis 绑定到该轴。 */
-  axisId?: string
+  axisId: string
   /** 叠放优先级，取 RENDERER_PRIORITY.*。 */
   z: number
   /** 显式 role；缺省按 pane 推导。 */
   role?: LayerRole
   /** 卸载清理；缺省无操作。 */
   dispose?: () => void
-} & ({ definitionId: string; part?: 'renderer' | 'scale' } | { layerId: string })
+} & ({ definitionId: string; part?: 'renderer' } | { layerId: string })
 
 /** 纯增量图层：只能提交原语，可与相邻同类图层合并成一次合成。 */
 export type IndicatorDrawListLayerSpec = IndicatorRendererLayerIdentity & {
@@ -50,15 +50,8 @@ export type IndicatorRendererLayerSpec = IndicatorDrawListLayerSpec | IndicatorC
 function noopDispose(): void {}
 
 /** 把上下文的价格轴切换到图层绑定的轴；无轴声明时保持 Pane 主轴。 */
-export function bindIndicatorAxis<T extends RenderGeometryContext>(context: T, axisId?: string): T {
-  if (!axisId) return context
-  const axis = context.pane.axis(axisId)
-  const yOffset = axis.priceToY(0)
-  const dataTransform =
-    context.dataTransform && axis.getScaleType() === ScaleType.Linear
-      ? { ...context.dataTransform, yOffset, yScale: axis.priceToY(1) - yOffset }
-      : undefined
-  return { ...context, pane: { ...context.pane, yAxis: axis }, dataTransform }
+export function bindIndicatorAxis<T extends RenderGeometryContext>(context: T, axisId: string): T {
+  return bindRenderAxis(context, axisId)
 }
 
 /** 身份与生命周期字段，两种 Layer 共用。 */
@@ -68,7 +61,7 @@ function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
       'definitionId' in spec
         ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, spec.part, spec.instanceId)
         : spec.layerId,
-    role: spec.role ?? (spec.paneId === MAIN_PANE_ID ? 'primary' : 'indicator'),
+    role: spec.role ?? 'content',
     pane: spec.paneId,
     z: spec.z,
     visible: true,

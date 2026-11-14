@@ -115,7 +115,6 @@ function createFixture() {
       definitionId: 'RSI',
       label: 'RSI',
       name: 'RSI',
-      role: 'sub',
       paneId: 'rsi-pane',
       ordinal: 0,
       params: indicatorParams,

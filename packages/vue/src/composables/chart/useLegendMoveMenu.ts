@@ -30,7 +30,6 @@ function itemId(index: number): string {
 
 /** 目标类型决定图标：主图、已有副图、在锚点上下新建副图。 */
 function iconOf(target: MoveTarget): Component {
-  if (target.kind === INSTANCE_MOVE_KIND.MAIN) return IconTablerChartLine
   if (target.kind === INSTANCE_MOVE_KIND.PANE) return IconTablerLayoutGrid
   return target.placement === 'above' ? IconTablerArrowBarUp : IconTablerArrowBarDown
 }

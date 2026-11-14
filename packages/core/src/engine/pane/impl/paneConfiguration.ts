@@ -15,7 +15,6 @@ export function paneSpecsEqual(
         pane.ratio === other.ratio &&
         pane.visible === other.visible &&
         pane.minHeightPx === other.minHeightPx &&
-        pane.role === other.role &&
         capabilitiesEqual(pane.capabilities, other.capabilities)
       )
     })
@@ -27,10 +26,5 @@ function capabilitiesEqual(
   left: PaneSpec['capabilities'],
   right: PaneSpec['capabilities'],
 ): boolean {
-  return (
-    left?.showPriceAxisTicks === right?.showPriceAxisTicks &&
-    left?.showCrosshairPriceLabel === right?.showCrosshairPriceLabel &&
-    left?.candleHitTest === right?.candleHitTest &&
-    left?.supportsPriceTranslate === right?.supportsPriceTranslate
-  )
+  return left?.supportsPriceTranslate === right?.supportsPriceTranslate
 }

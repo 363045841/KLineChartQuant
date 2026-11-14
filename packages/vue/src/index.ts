@@ -40,10 +40,13 @@ import './styles/motion.css'
 
 // 对象树与渲染对象是同一组的公开契约，从产品入口一并导出，避免消费方到处找。
 export type {
+  AxisLabelRegistrar,
   ChartController,
   ChartMountOptions,
   ChartViewport,
   KLineData,
+  ObjectAxesApi,
+  ObjectAxisBinding,
   ObjectTree,
   PaneObjectGroup,
   PaneObjectRow,
@@ -54,7 +57,7 @@ export type {
   RenderObjectKind,
   RenderObjectMoveTarget,
 } from '@363045841yyt/klinechart-core'
-export { INSTANCE_MOVE_KIND } from '@363045841yyt/klinechart-core'
+export { INSTANCE_MOVE_KIND, objectAxisId, registerAxisLabel } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // SFC components (for consumers using Vite / SFC compiler)

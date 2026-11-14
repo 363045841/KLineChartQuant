@@ -3,6 +3,7 @@
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
+import { bindRenderAxis, objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import type { SnapLine } from '@/foundation/plugin/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
@@ -59,22 +60,13 @@ import {
 } from '../../drawing/index.js'
 import type { PaneRenderer } from '../../pane/index.js'
 import { UpdateLevel } from '../../pane/index.js'
-import { MAIN_PANE_ID } from '../../pane/types.js'
 import { isPlotRenderState } from '../../plots/impl/readPlotState.js'
-import { createCandleLayer } from '../../renderers/candle.js'
-import { createComparisonLineLayer } from '../../renderers/comparisonLine.js'
-import {
-  CANDLE_RENDERER_NAME,
-  COMPARISON_LINE_LAYER_ID,
-} from '../../renderers/rendererIds.js'
 import { CrosshairOverlay } from '../../renderers/crosshair/impl/crosshairOverlay.js'
 import {
   type LockedCrosshairProjection,
   resolveLockedCrosshair,
 } from '../../renderers/crosshair/impl/resolveLockedCrosshair.js'
-import { createExtremaMarkersLayer } from '../../renderers/extremaMarkers.js'
-import { createFiveDayTimeShareLayer } from '../../renderers/fiveDayTimeShare.js'
-import { computeFootprintPriceRange, createFootprintLayer } from '../../renderers/footprint.js'
+import { computeFootprintPriceRange } from '../../renderers/footprint.js'
 import { createGridLinesLayer } from '../../renderers/gridLines.js'
 import {
   createAxisLabelsFrame,
@@ -83,13 +75,9 @@ import {
   paintAxisLabels,
   registerAxisLabel,
 } from '../../renderers/impl/labels/index.js'
-import { createLastPriceLabelLayer, createLastPriceLineLayer } from '../../renderers/lastPrice.js'
+import { COMPARISON_LINE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTimeAxisLayer } from '../../renderers/timeAxis.js'
-import { createTimeShareLayer } from '../../renderers/timeShare.js'
-import {
-  createYAxisOverlayRendererLayer,
-  createYAxisStaticRendererLayer,
-} from '../../renderers/yAxis.js'
+import { axisFrameApi } from '../../renderers/yAxis.js'
 import { createYAxisTicks, type PriceRange } from '../../scale/index.js'
 import type { VisibleRange } from '../../viewport/viewport.js'
 import {
@@ -174,7 +162,7 @@ function optional<T>(value: T | null | undefined): T | undefined {
 }
 
 /** Pane 三种表面的 layer 角色分组，避免每帧重建。 */
-const MAIN_CANVAS_ROLES: readonly LayerRole[] = ['background', 'primary', 'indicator', 'component']
+const MAIN_CANVAS_ROLES: readonly LayerRole[] = ['content']
 const OVERLAY_CANVAS_ROLES: readonly LayerRole[] = ['drawing', 'overlay']
 const SESSION_CANVAS_ROLES: readonly LayerRole[] = ['overlay']
 
@@ -223,18 +211,6 @@ function axisSurfaceUpdates(surface: AxisSurface, level: UpdateLevel): boolean {
   return level === UpdateLevel.Overlay || level === UpdateLevel.All
 }
 
-/** 数据空间折线的每帧映射；仅线性价格轴可生成。 */
-function createDataTransform(
-  pane: PaneLayout,
-  vp: ViewportFrame,
-): { offsetX: number; yScale: number; yOffset: number } | undefined {
-  const yOffset = pane.yAxis.priceToY(0)
-  const yScale = pane.yAxis.priceToY(1) - yOffset
-  if (pane.yAxis.getScaleType() !== ScaleType.Linear) return undefined
-  if (!Number.isFinite(yScale) || !Number.isFinite(yOffset) || yScale === 0) return undefined
-  return { offsetX: vp.scrollLeft, yScale, yOffset }
-}
-
 /** 清空单侧轴画布，保留 canvas 当前物理宽度。 */
 function clearAxisSurface(
   ctx: CanvasRenderingContext2D | null | undefined,
@@ -251,7 +227,7 @@ function clearAxisSurface(
 type PanePriceRangeInputs = Pick<FrameContext, 'comparisonActive' | 'comparisonProjection'> & {
   dataManager: ChartDataManager
   mode: ReturnType<RendererDependencies['getActiveMode']>
-  axisStates: ReturnType<RendererDependencies['mainPriceAxis']['readonly']['paneRanges']['peek']>
+  axisStates: ReturnType<RendererDependencies['axesState']['readonly']['paneRanges']['peek']>
   /** 每轴由实例输出派生的极值；主图价格轴也在其中。 */
   axisRanges: ReadonlyMap<string, { min: number; max: number } | null>
 }
@@ -422,7 +398,7 @@ export class ChartRenderer {
       this.deps.options.readonly.options.peek(),
       this.deps.settings$.peek(),
       this.deps.theme$.peek(),
-      this.deps.mainPriceAxis.readonly.paneRanges.peek(),
+      this.deps.axesState.readonly.paneRanges.peek(),
       this.deps.getIndicatorManager().getRenderStatesSnapshot(),
       // Legend 顺序也属于展示输入，实例重排无需计算变化即可刷新 DOM。
       this.deps.getIndicatorManager().indicatorsComputed.peek(),
@@ -436,7 +412,6 @@ export class ChartRenderer {
           pane.id,
           pane.top,
           pane.height,
-          pane.role,
           ...pane.axes.flatMap((axis) => [
             axis.axisId,
             axis.yAxis.getScaleType(),
@@ -503,6 +478,8 @@ export class ChartRenderer {
           }
         }
         const countdown = this.deriveCountdown((this.deps.clock ?? systemClock).now())
+        // 会话预览也声明自己的轴；同一入口同步正式对象与瞬时对象的坐标资源。
+        this.deps.getIndicatorManager().projectAxes()
         const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
         const overlayChanged = !this.sameVersion(
           this.paintedOverlayVersion,
@@ -595,10 +572,7 @@ export class ChartRenderer {
   }
 
   initCoreRenderers(): void {
-    this.scene.addLayer(createLastPriceLineLayer())
-    this.scene.addLayer(createLastPriceLabelLayer())
     const opt = this.deps.getOption()
-    const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 0)
     const interaction = this.deps.getInteraction()
 
     {
@@ -620,40 +594,6 @@ export class ChartRenderer {
     {
       this.scene.addLayer(createGridLinesLayer())
     }
-    {
-      this.scene.addLayer(
-        createCandleLayer(this.deps.getPricePaneId(), this.deps.systemObject(CANDLE_RENDERER_NAME)),
-      )
-      this.scene.addLayer(createFootprintLayer(() => this.deps.footprintState$.peek()))
-    }
-    {
-      this.scene.addLayer(createTimeShareLayer())
-    }
-    {
-      this.scene.addLayer(createFiveDayTimeShareLayer())
-    }
-    {
-      this.scene.addLayer(createComparisonLineLayer())
-    }
-    {
-      this.scene.addLayer(createExtremaMarkersLayer())
-    }
-    {
-      const yAxisOpts = {
-        axisWidth,
-        getCrosshair: () => {
-          const pos = interaction.crosshairPos
-          const price = interaction.crosshairPrice
-          const activePaneId = interaction.activePaneId
-          if (pos && price !== null) {
-            return { y: pos.y, price, activePaneId }
-          }
-          return null
-        },
-      }
-      this.scene.addLayer(createYAxisStaticRendererLayer(yAxisOpts))
-      this.scene.addLayer(createYAxisOverlayRendererLayer(yAxisOpts))
-    }
   }
 
   registerDrawingPlugins(): void {
@@ -666,6 +606,14 @@ export class ChartRenderer {
     return this.scene
   }
 
+  /** 当前轴列布局是命中与绘制共同使用的唯一几何。 */
+  getAxisLayout(paneId: string) {
+    const renderer = this.deps.getPaneRenderers().find((item) => item.getPane().id === paneId)
+    if (!renderer)
+      throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
+    return this.axisWidthEstimator.getLayout(renderer.getPane().axes.map((axis) => axis.axisId))
+  }
+
   getDrawingStore(): DrawingStore {
     return this.drawingStore
   }
@@ -676,6 +624,7 @@ export class ChartRenderer {
    */
   getCoordinates(
     paneId: string,
+    axisId?: string,
   ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
     const context = this.paneCtxMap.get(paneId)
     if (!context) return null
@@ -683,7 +632,18 @@ export class ChartRenderer {
     const symbol = dataManager.symbols.peek()[0]
     const symbolKey = symbol === undefined ? undefined : symbolSpecIdentityKey(symbol)
     if (context.symbolKey !== symbolKey || context.period !== dataManager.currentPeriod) return null
-    return context.coordinates
+    if (axisId === undefined) return context.coordinates
+    return createFrameCoordinates({
+      data: context.data,
+      range: context.range,
+      kLineCenters: context.kLineCenters,
+      scrollLeft: context.scrollLeft,
+      dpr: context.dpr,
+      kWidth: context.kWidth,
+      kGap: context.kGap,
+      dataView: context.dataView,
+      priceAxis: context.pane.axis(axisId),
+    })
   }
 
   /** 已提交图元的磁吸线段，来自同一帧投影。 */
@@ -703,7 +663,7 @@ export class ChartRenderer {
     const states = manager.getRenderStatesSnapshot()
     const values: SnapIndicatorValue[] = []
     for (const instance of manager.indicatorsComputed.peek()) {
-      if ((instance.paneId ?? MAIN_PANE_ID) !== paneId) continue
+      if (instance.paneId !== paneId) continue
       const state = states.get(instance.id)
       if (!isPlotRenderState(state)) continue
       for (const plot of state.plots) {
@@ -1062,7 +1022,7 @@ export class ChartRenderer {
       axisRanges,
       comparisonActive,
       comparisonProjection,
-      axisStates: this.deps.mainPriceAxis.readonly.paneRanges.peek(),
+      axisStates: this.deps.axesState.readonly.paneRanges.peek(),
     }
   }
 
@@ -1077,31 +1037,40 @@ export class ChartRenderer {
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
       const axes = pane.axes
-      const primaryAxisId = this.primaryAxisId(pane)
+      // 每个 Pane 只构造一次帧上下文，绘图按其所属轴一次分组，避免轴数乘绘图数。
+      const context = this.createPaneRenderContext(
+        frame,
+        pane,
+        renderer.getContexts(),
+        inputs.dataManager,
+        createAxisLabelsFrame(),
+        [],
+      )
+      const drawings = this.drawingStore.getVisibleByPane(
+        {
+          paneId: pane.id,
+          workspaceId: resolveChartWorkspaceId(this.deps.dataView$.peek()),
+          symbolKey: context.symbolKey,
+          period: context.period,
+        },
+        'committed',
+        'all',
+      )
+      const drawingRanges = new Map<string, { min: number; max: number }>()
+      const drawingsByAxis = new Map<string, DrawingObject[]>()
+      for (const drawing of drawings) {
+        const axisId = objectAxisId(drawing.ownerId === undefined ? drawing.id : drawing.ownerId)
+        const group = drawingsByAxis.get(axisId)
+        if (group) group.push(drawing)
+        else drawingsByAxis.set(axisId, [drawing])
+      }
+      for (const [axisId, group] of drawingsByAxis) {
+        const range = computeDrawingPriceRange(group, this.drawingDefinitions, context)
+        if (range) drawingRanges.set(axisId, range)
+      }
       for (const axis of axes) {
         const auto = this.resolveAxisAutoRange(frame, inputs, pane, axis.axisId)
-        const context = this.createPaneRenderContext(
-          frame,
-          pane,
-          renderer.getContexts(),
-          inputs.dataManager,
-          createAxisLabelsFrame(),
-          [],
-        )
-        const drawings = this.drawingStore.getVisibleByPane(
-          {
-            paneId: pane.id,
-            workspaceId: resolveChartWorkspaceId(this.deps.dataView$.peek()),
-            symbolKey: context.symbolKey,
-            period: context.period,
-          },
-          'committed',
-          'indicator',
-        )
-        const drawingRange =
-          axis.axisId === primaryAxisId
-            ? computeDrawingPriceRange(drawings, this.drawingDefinitions, context)
-            : null
+        const drawingRange = drawingRanges.get(axis.axisId) ?? null
         const combined = drawingRange
           ? {
               range: {
@@ -1119,11 +1088,6 @@ export class ChartRenderer {
     return { panePriceRanges, pendingHandRanges }
   }
 
-  /** Pane 的主轴身份；没有轴时为 null，供价格轴与指标极值判定共用。 */
-  private primaryAxisId(pane: PaneLayout): string | null {
-    return pane.axes[0]?.axisId ?? null
-  }
-
   /** 单轴自动范围：承载主价格序列的 Pane 走行情范围，其余轴取实例输出极值。 */
   private resolveAxisAutoRange(
     frame: FrameContext,
@@ -1132,7 +1096,7 @@ export class ChartRenderer {
     axisId: string,
   ): ReturnType<typeof computePaneAutoRange> {
     const pricePaneId = this.deps.getPricePaneId()
-    if (pane.id === pricePaneId && axisId === this.primaryAxisId(pane)) {
+    if (pane.id === pricePaneId && axisId === PRICE_SERIES_AXIS_ID) {
       return this.resolvePaneAutoRange(frame, inputs, pane)
     }
     const range = inputs.axisRanges.get(axisId)
@@ -1146,14 +1110,12 @@ export class ChartRenderer {
     pane: PaneLayout,
   ): ReturnType<typeof computePaneAutoRange> {
     const shape = this.deps.settings$.peek().klineShape
-    const primaryAxisId = this.primaryAxisId(pane)
     const auto = computePaneAutoRange({
       hasPriceSeries: true,
       range: frame.range,
       dataManager: inputs.dataManager,
       mode: inputs.mode,
-      indicatorRange:
-        primaryAxisId === null ? null : (inputs.axisRanges.get(primaryAxisId) ?? null),
+      indicatorRange: inputs.axisRanges.get(PRICE_SERIES_AXIS_ID) ?? null,
       comparisonActive: inputs.comparisonActive && this.hasComparisonSeries(pane.id),
       comparisonProjection: inputs.comparisonProjection,
       closeOnly: shape === 'line' || shape === 'area',
@@ -1174,10 +1136,7 @@ export class ChartRenderer {
 
   /** 比较线是否绘制在该 Pane；比较层当前属于 main，不按 Pane 身份推断。 */
   private hasComparisonSeries(paneId: string): boolean {
-    const layer = this.scene
-      .layers
-      .peek()
-      .find((item) => item.id === COMPARISON_LINE_LAYER_ID)
+    const layer = this.scene.layers.peek().find((item) => item.id === COMPARISON_LINE_LAYER_ID)
     return layer?.pane === paneId
   }
 
@@ -1223,7 +1182,7 @@ export class ChartRenderer {
     pendingHandRanges: PanePriceRangeResult['pendingHandRanges'],
   ): void {
     if (pendingHandRanges.length > 0) {
-      this.deps.mainPriceAxis.actions.initializeHandRanges(pendingHandRanges)
+      this.deps.axesState.actions.initializeHandRanges(pendingHandRanges)
     }
   }
 
@@ -1292,7 +1251,7 @@ export class ChartRenderer {
         cache = new WeakMap()
         this.indicatorDrawingWrappers.set(instance.id, cache)
       }
-      const paneId = instance.paneId ?? MAIN_PANE_ID
+      const paneId = instance.paneId
       return state.drawings.map((drawing) => {
         const wrapped = cache.get(drawing)
         if (
@@ -1324,7 +1283,8 @@ export class ChartRenderer {
   ): void {
     const widths = this.measureAxisWidths(level, axisLabelsFrame)
     this.retainAxisLabels(level, axisLabelsFrame)
-    if (this.deps.commitAxisWidths?.(widths)) this.repaintAxisSurfaces(vp)
+    this.deps.commitAxisWidths?.(widths)
+    this.repaintAxisSurfaces(vp)
   }
 
   /** 按本帧标签估算左右轴宽与逐列宽度。 */
@@ -1417,7 +1377,8 @@ export class ChartRenderer {
     for (const axis of pane.axes) {
       const resolved = frame.panePriceRanges[axis.axisId]
       if (!resolved) continue
-      axis.yAxis.setBasePrice(resolved.basePrice)
+      const override = this.deps.axesState.readonly.paneRanges.peek()[axis.axisId]?.baseValue
+      axis.yAxis.setBasePrice(override === undefined ? resolved.basePrice : override)
       if (resolved.range) axis.yAxis.setRange(resolved.range)
     }
   }
@@ -1474,7 +1435,10 @@ export class ChartRenderer {
         kWidth: opt.kWidth,
         kGap: opt.kGap,
         dataView,
-        priceAxis: paneInfo.yAxis,
+        priceAxis: {
+          priceToY: (value) => paneInfo.yAxis.priceToY(value),
+          yToPrice: (value) => paneInfo.yAxis.yToPrice(value),
+        },
       }),
       marketSession: this.deps.getMarketSession(),
       displayTimeFormatter: this.getDisplayTimeFormatter(),
@@ -1489,7 +1453,7 @@ export class ChartRenderer {
       range: frame.range,
       scrollLeft: vp.scrollLeft,
       slotGrid: frame.viewSnapshot.grid,
-      dataTransform: createDataTransform(pane, vp),
+      dataTransform: undefined,
       kWidth: opt.kWidth,
       kGap: opt.kGap,
       dpr: vp.dpr,
@@ -1604,17 +1568,15 @@ export class ChartRenderer {
 
   /** 场景里是否有当前 Pane 可绘制的自定义 drawing layer。 */
   private hasCustomDrawingLayer(pane: PaneLayout): boolean {
-    return this.scene.layers
-      .peek()
-      .some(
-        (layer) =>
-          layer !== this.drawingLayer &&
-          // 每图元的对象层也属于 drawing 角色，但不是自定义渲染扩展。
-          layer.object === undefined &&
-          layer.visible &&
-          layer.role === 'drawing' &&
-          (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
-      )
+    return this.scene.layers.peek().some(
+      (layer) =>
+        layer !== this.drawingLayer &&
+        // 每图元的对象层也属于 drawing 角色，但不是自定义渲染扩展。
+        layer.object === undefined &&
+        layer.visible &&
+        layer.role === 'drawing' &&
+        (layer.pane === pane.id || layer.pane === LAYER_PANE_GLOBAL),
+    )
   }
 
   /** 更新正式图元投影；需要时为首次出现的图元创建独立表面。 */
@@ -1688,9 +1650,9 @@ export class ChartRenderer {
   /** 把上一帧保留的绘图轴标签注册回当前 Pane 上下文。 */
   private registerRetainedDrawingLabels(renderer: PaneRenderer, context: RenderContext): void {
     const retainedLabels = this.drawingAxisLabels.get(renderer)
-    for (const label of retainedLabels?.forSurface('yRightOverlay', context.pane.id).labels ?? []) {
-      registerAxisLabel(context, 'yRightOverlay', label)
-    }
+    for (const axis of context.pane.axes)
+      for (const label of retainedLabels?.forSurface('yRightOverlay', axis.axisId).labels ?? [])
+        registerAxisLabel(context, 'yRightOverlay', label, axis.axisId)
     for (const label of retainedLabels?.forSurface('xLabels').labels ?? []) {
       registerAxisLabel(context, 'xLabels', label)
     }
@@ -1785,6 +1747,10 @@ export class ChartRenderer {
       )
 
       // 构造本 pane 的 RenderContext，供所有 layer 读取
+      if (!pane.hasAxes) {
+        this.paneCtxMap.delete(pane.id)
+        continue
+      }
       const context = this.createPaneRenderContext(
         frame,
         pane,
@@ -1799,14 +1765,26 @@ export class ChartRenderer {
       this.appendDrawingProjections(renderer, context, sharedXAxisRanges)
 
       // 刻度锚定轴数值，再投影到本帧的价格坐标系；网格与左右轴共用。
-      context.yAxisTicks = createYAxisTicks(pane, {
-        period: context.period,
-        comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
-        leftSetting: context.settings?.mainLeftAxisDisplaySetting,
-        rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
-      })
+      context.yAxisTicks = pane.axes.flatMap((axis) =>
+        createYAxisTicks(
+          bindRenderAxis(context, axis.axisId).pane,
+          {
+            period: context.period,
+            comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
+            leftSetting: context.settings?.mainLeftAxisDisplaySetting,
+            rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
+          },
+          axis.yAxis.getScaleType() === ScaleType.Percent,
+        ),
+      )
 
       this.paneCtxMap.set(pane.id, context)
+      const pos = this.deps.getInteraction().crosshairPos
+      axisFrameApi.collect(
+        context,
+        this.deps.getIndicatorManager().getAxesInPane(pane.id),
+        pos ? { y: pos.y, activePaneId: this.deps.getInteraction().activePaneId } : null,
+      )
       legendContexts.push(context)
 
       this.enqueuePanePaint(
@@ -1867,11 +1845,7 @@ export class ChartRenderer {
         ctx: xAxisCtx,
         pane: {
           id: 'xAxis',
-          role: 'auxiliary',
           capabilities: {
-            showPriceAxisTicks: false,
-            showCrosshairPriceLabel: false,
-            candleHitTest: false,
             supportsPriceTranslate: false,
           },
           top: 0,

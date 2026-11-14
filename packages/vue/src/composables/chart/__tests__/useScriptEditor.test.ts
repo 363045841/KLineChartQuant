@@ -87,7 +87,7 @@ describe('useScriptEditor', () => {
           definitionId: id,
           label: 'EditorDebug',
           name: 'EditorDebug',
-          role: 'sub',
+          paneId: 'pane-script',
           ordinal: 0,
           params: {},
         },

@@ -107,7 +107,7 @@ export class CrosshairOverlay {
     primitiveSink()(ctx, commands, dpr)
     commands.length = 0
     // 水平线仍局限于活跃 pane，价格移出该 pane 时不画到相邻副图。
-    if (pos && activePane && price !== null && ix !== null && iy !== null) {
+    if (pos && activePane && ix !== null && iy !== null) {
       ctx.beginPath()
       ctx.rect(0, activePane.top, plotWidth, activePane.height)
       ctx.clip()

@@ -8,6 +8,7 @@
 // 磁吸与锁角只作用于落点/预览路径，命中、框选等只读路径不得传入，以免范围漂移。
 
 import type { DrawingViewportPort, PaneLayoutInfo } from '@/controllers/types.js'
+import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import type { FrameCoordinates } from '@/foundation/geometry/frameCoordinates.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
@@ -22,6 +23,19 @@ import type {
   ResolvedInteractionAnchor,
 } from '../types.js'
 import { lockAngle } from './angleLock.js'
+
+/** 已存在的图元在命中、拖动、复制时显式使用自己的轴，不借用 Pane 的初始化坐标。 */
+export function bindDrawingViewport<T extends DrawingViewportPort>(
+  adapter: T,
+  drawing: { id: string; ownerId?: string },
+): T {
+  const boundAxisId = objectAxisId(drawing.ownerId === undefined ? drawing.id : drawing.ownerId)
+  return {
+    ...adapter,
+    getCoordinates: (paneId: string, axisId = boundAxisId) =>
+      adapter.getCoordinates(paneId, axisId),
+  }
+}
 
 /**
  * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。

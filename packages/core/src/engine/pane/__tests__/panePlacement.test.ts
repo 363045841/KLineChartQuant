@@ -1,38 +1,26 @@
-/** 新建 Pane 组合命令：成功保留容器，任一步失败都不留下空 Pane。 */
-import { describe, expect, it, vi } from 'vitest'
-import { runInNewPane } from '../impl/panePlacement'
+/** 新窗口迁移的异常原子性：真实布局命令回收临时容器并保留原始错误。 */
+import { describe, expect, it } from 'vitest'
+import { createIndicatorState } from '@/engine/state/indicatorState.js'
+import { createPaneState } from '@/engine/state/paneState.js'
+import { PaneManager } from '../impl/paneManager.js'
+import { runInNewPane } from '../impl/panePlacement.js'
 
-/** 构造只记录调用的 Pane 端口；createdPaneId 为 null 模拟锚点无效。 */
-function createPort(createdPaneId: string | null = 'pane-1') {
-  return {
-    addPane: vi.fn(() => createdPaneId),
-    removePane: vi.fn(() => true),
-  }
-}
-
-describe('runInNewPane', () => {
-  it('迁移成功时保留新 Pane', () => {
-    const port = createPort()
-    const run = vi.fn(() => true)
-
-    expect(runInNewPane(port, 'main', 'below', run)).toBe(true)
-    expect(port.addPane).toHaveBeenCalledWith('main', 'below')
-    expect(run).toHaveBeenCalledWith('pane-1')
-    expect(port.removePane).not.toHaveBeenCalled()
-  })
-
-  it('锚点无效时不执行迁移', () => {
-    const port = createPort(null)
-    const run = vi.fn(() => true)
-
-    expect(runInNewPane(port, 'main', 'below', run)).toBe(false)
-    expect(run).not.toHaveBeenCalled()
-  })
-
-  it('迁移失败时回收刚建的 Pane', () => {
-    const port = createPort()
-
-    expect(runInNewPane(port, 'main', 'below', () => false)).toBe(false)
-    expect(port.removePane).toHaveBeenCalledWith('pane-1')
+describe('新窗口迁移事务', () => {
+  it('迁移抛异常时布局恢复到原状，调用方收到同一个错误', () => {
+    const pane = createPaneState()
+    pane.actions.commitLayout([{ id: 'pane-7', ratio: 1 }])
+    const manager = new PaneManager({
+      pane,
+      indicator: createIndicatorState(),
+      getDefinition: () => undefined,
+      hasPaneContent: () => false,
+    })
+    const error = new Error('对象轴绑定非法')
+    expect(() =>
+      runInNewPane(manager.actions, 'pane-7', 'below', () => {
+        throw error
+      }),
+    ).toThrow(error)
+    expect(manager.actions.getLayoutSpecs()).toEqual([{ id: 'pane-7', ratio: 1 }])
   })
 })

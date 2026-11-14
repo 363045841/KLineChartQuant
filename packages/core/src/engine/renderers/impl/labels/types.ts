@@ -6,6 +6,23 @@
  * 本文件按模块公开面重导出，并补充模块自有的绘制度量契约。实现位于 `labels/impl/`。
  */
 
+import type { AxisLabel, AxisLabelSurface, RenderContext } from '@/foundation/plugin/types.js'
+
+/** 标签提交契约：Y 标签强制提供 axisId，X 标签属于唯一时间轴。 */
+export interface AxisLabelRegistrar {
+  (
+    context: Pick<RenderContext, 'axisLabels' | 'pane'>,
+    surface: Extract<AxisLabelSurface, 'xTicks' | 'xCrosshair' | 'xLabels'>,
+    label: AxisLabel,
+  ): void
+  (
+    context: Pick<RenderContext, 'axisLabels' | 'pane'>,
+    surface: Exclude<AxisLabelSurface, 'xTicks' | 'xCrosshair' | 'xLabels'>,
+    label: AxisLabel,
+    axisId: string,
+  ): void
+}
+
 export type {
   AxisLabel,
   AxisLabelCollector,

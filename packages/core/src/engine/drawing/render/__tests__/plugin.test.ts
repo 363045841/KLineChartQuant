@@ -9,6 +9,7 @@ import {
 import type { DrawingPrimitive } from '@/foundation/plugin/index'
 import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer'
 import { createScene } from '@/rendering/scene/createScene'
+import type { RenderObjectDescriptor } from '@/rendering/scene/types'
 import { LINE_LABEL_NORMAL_OFFSET } from '../../geometry/impl/labelLayout'
 import {
   createDrawingObjectLayer,
@@ -16,7 +17,6 @@ import {
   createDrawingSessionLayer,
   createIndicatorDrawingLayer,
 } from '../impl/plugin'
-import type { RenderObjectDescriptor } from '@/rendering/scene/types'
 import { createDefaultPrimitiveRendererSet } from '../impl/primitiveRendererSet'
 
 describe('createDrawingOverlayLayer', () => {
@@ -47,7 +47,9 @@ describe('createDrawingOverlayLayer', () => {
         sessionDrawingProjection: projection,
         sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint, dispose() {} } },
       })
-      const layer = (scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer)()
+      const layer = (
+        scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer
+      )()
       layer.paint({ ...context, paneId: 'main', clear: false })
       expect(paint).toHaveBeenCalledExactlyOnceWith(
         scope === 'committed' ? drawingCtx : overlayCtx,
@@ -85,7 +87,8 @@ describe('createDrawingOverlayLayer', () => {
       pane: { height: 400 },
     })
     context.sessionDrawingProjection = context.drawingProjection
-    const createLayer = scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer
+    const createLayer =
+      scope === 'committed' ? createDrawingOverlayLayer : createDrawingSessionLayer
     const layer = createLayer({
       renderers: {
         point,
@@ -247,7 +250,7 @@ describe('createIndicatorDrawingLayer', () => {
       },
     })
 
-    expect(layer.role).toBe('indicator')
+    expect(layer.role).toBe('content')
     layer.paint({ ...context, paneId: 'main', clear: false })
     expect(point).toHaveBeenCalledWith(mainCtx, primitive, 1)
     expect(drawingCtx.fill).not.toHaveBeenCalled()

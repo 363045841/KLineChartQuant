@@ -3,7 +3,7 @@
 import type { DrawingViewportPort } from '@/controllers/types.js'
 import type { ScreenDrawingAnchor } from '@/foundation/plugin/index.js'
 import type { DrawingObject, PersistedDrawingAnchor } from '../../types.js'
-import { anchorToScreen, screenToAnchor } from './coordinateUtils.js'
+import { anchorToScreen, bindDrawingViewport, screenToAnchor } from './coordinateUtils.js'
 
 const COPY_TIME_OFFSET_PX = 16
 const COPY_PRICE_OFFSET_PX = 48
@@ -80,7 +80,7 @@ export function resolveCopyPlacements(
     if (!pane) return []
     const screens: ScreenDrawingAnchor[] = []
     for (const anchor of drawing.anchors) {
-      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      const screen = anchorToScreen(anchor, drawing.paneId, bindDrawingViewport(adapter, drawing))
       if (!screen) return []
       if (screen.type !== 'horizontal') xs.push({ value: screen.x, limit: viewport.plotWidth })
       if (screen.type !== 'vertical') ys.push({ value: screen.y, limit: pane.height })
@@ -97,7 +97,14 @@ export function resolveCopyPlacements(
   for (const { drawing, screens } of projected) {
     const anchors: PersistedDrawingAnchor[] = []
     for (const [index, anchor] of drawing.anchors.entries()) {
-      const moved = offsetAnchor(anchor, screens[index]!, drawing.paneId, dx, dy, adapter)
+      const moved = offsetAnchor(
+        anchor,
+        screens[index]!,
+        drawing.paneId,
+        dx,
+        dy,
+        bindDrawingViewport(adapter, drawing),
+      )
       if (!moved) return []
       anchors.push(moved)
     }

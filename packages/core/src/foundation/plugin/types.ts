@@ -130,21 +130,14 @@ export interface PluginHost {
 
 // ============ 渲染器插件类型 ============
 
-/** Pane 角色 */
-export type PaneRole = 'price' | 'indicator' | 'auxiliary'
-
 /** Pane 能力开关 */
 export interface PaneCapabilities {
-  showPriceAxisTicks: boolean
-  showCrosshairPriceLabel: boolean
-  candleHitTest: boolean
   supportsPriceTranslate: boolean
 }
 
 /** Pane 信息接口 */
 export interface PaneInfo {
   id: string
-  role: PaneRole
   capabilities: PaneCapabilities
   top: number
   height: number
@@ -260,7 +253,7 @@ export interface AxisLabelsFrame {
    * @param surface - 目标轴表面
    * @param paneId - Y 表面的 Pane 隔离键；X 表面忽略
    */
-  forSurface(surface: AxisLabelSurface, paneId?: string): AxisLabelCollector
+  forSurface(surface: AxisLabelSurface, axisId?: string): AxisLabelCollector
 }
 
 /** Y轴范围带（半透明填充区域） */
@@ -411,6 +404,8 @@ export interface DataTransform {
 
 /** 渲染几何子契约：Pane、视口、K 线位置与缩放。 */
 export interface RenderGeometryContext {
+  /** 当前对象显式绑定的 Y 轴；全局绘制阶段为空。 */
+  axisId?: string
   pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number

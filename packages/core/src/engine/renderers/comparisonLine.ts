@@ -9,18 +9,17 @@ import type { Layer } from '../../rendering/scene/types.js'
 import { COMPARISON_LINE_LAYER_ID } from './rendererIds.js'
 
 /** 创建 K 线主图比较 Layer，数据计算由共享比较投影负责。 */
-export function createComparisonLineLayer(): Layer<RenderContext> {
+export function createComparisonLineLayer(paneId: string): Layer<RenderContext> {
   return {
     kind: 'draw-list',
     id: COMPARISON_LINE_LAYER_ID,
-    role: 'primary',
-    pane: 'main',
+    role: 'content',
+    pane: paneId,
     z: RENDERER_PRIORITY.MAIN + 2,
     visible: true,
     paint(context) {
       const projection = context.comparisonProjection
-      if (context.dataView !== ChartDataViewId.KLine || context.pane.id !== 'main' || !projection)
-        return
+      if (context.dataView !== ChartDataViewId.KLine || !projection) return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,

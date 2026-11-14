@@ -5,7 +5,9 @@
  * 因此统一放在这里，并随布局文档一起存档。
  */
 
-import { createSubState } from '../../foundation/reactivity/signal.js'
+import { computed, createSubState } from '../../foundation/reactivity/signal.js'
+import { MAIN_PANE_ID } from '../pane/types.js'
+import { CANDLE_RENDERER_NAME } from '../renderers/rendererIds.js'
 
 /** 系统对象状态快照；对象身份由渲染层注册表定义。 */
 export interface SystemObjectSnapshot {
@@ -54,7 +56,11 @@ export function createSystemObjectState() {
   }
 
   return {
-    readonly,
+    readonly: {
+      ...readonly,
+      // main 仅为未指定归属时的初始位置，不参与对象身份或绘制能力判断。
+      pricePaneId: computed(() => readonly.state().paneId[CANDLE_RENDERER_NAME] ?? MAIN_PANE_ID),
+    },
     actions: {
       /** 设置单个系统对象的显隐；隐藏集合保持唯一且有序。 */
       setHidden(objectId: string, hidden: boolean): boolean {

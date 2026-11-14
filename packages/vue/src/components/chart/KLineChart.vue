@@ -1137,8 +1137,6 @@
   )
 
   const {
-    mainActiveIndicators,
-    subActiveIndicators,
     activeIndicators,
     indicatorParams,
     subPanes,

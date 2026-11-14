@@ -2,6 +2,8 @@
 /** 与行情数组注入无关的 Chart 生命周期、DPR、设置和文档回归。 */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Chart, type ChartOptions } from '@/core/chart/index'
+import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
+import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import { ScaleType } from '@/foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
@@ -13,8 +15,8 @@ import {
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
-import { indicatorInstanceAxisKey } from '../pane/instanceAxisKey'
 import { MAIN_PANE_ID } from '../pane/types'
+import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
 import { createMockRenderContext } from './helpers/renderTestKit'
 
@@ -41,9 +43,9 @@ function mountChart(
 /** 三窗格布局供比例、命中、拖拽和批量顺序回归共用。 */
 function importPaneFixture(chart: Chart): void {
   chart.panes.importLayout([
-    { id: MAIN_PANE_ID, role: 'price', ratio: 0.5, visible: true, minHeightPx: 40 },
-    { id: 'layout-a', role: 'indicator', ratio: 0.25, visible: true, minHeightPx: 40 },
-    { id: 'layout-b', role: 'indicator', ratio: 0.25, visible: true, minHeightPx: 40 },
+    { id: MAIN_PANE_ID, ratio: 0.5, visible: true, minHeightPx: 40 },
+    { id: 'layout-a', ratio: 0.25, visible: true, minHeightPx: 40 },
+    { id: 'layout-b', ratio: 0.25, visible: true, minHeightPx: 40 },
   ])
 }
 
@@ -94,11 +96,11 @@ describe('Chart lifecycle without a market selection', () => {
       const initialZoom = chart.kernel.zoom.readonly.zoomLevel.peek()
       chart.zoom.toLevel(initialZoom + 2)
       const position = vi.spyOn(chart['dataManager'], 'scrollToRight')
-      const price = vi.spyOn(chart, 'resetPriceTransform')
+      const price = vi.spyOn(chart.axes, 'resetRange')
       chart.resetChart()
       expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(initialZoom)
       expect(position).toHaveBeenCalledOnce()
-      expect(price).toHaveBeenCalledWith(MAIN_PANE_ID)
+      expect(price).toHaveBeenCalledWith(PRICE_SERIES_AXIS_ID)
       expect(position.mock.invocationCallOrder[0]).toBeLessThan(price.mock.invocationCallOrder[0]!)
     } finally {
       await chart.destroy()
@@ -439,7 +441,7 @@ describe('Chart lifecycle without a market selection', () => {
       const notify = vi.fn()
       const unsubscribe = chart.kernel.pane.readonly.workspaces.subscribe(notify)
       const baseline = chart.paneLayout.peek()
-      chart.panes.updatePane(MAIN_PANE_ID, { ratio: 0.5 })
+      chart.panes.updatePane(MAIN_PANE_ID, { ratio: chart.paneRatios.peek()[MAIN_PANE_ID]! })
       chart.panes.updatePane(MAIN_PANE_ID, {})
       expect(chart.paneLayout.peek()).toBe(baseline)
       expect(notify).not.toHaveBeenCalled()
@@ -544,7 +546,7 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('reorders all pane identities in one publication and preserves their roles', async () => {
+  it('reorders all pane identities in one publication and preserves their content', async () => {
     const chart = mountChart()
     try {
       importPaneFixture(chart)
@@ -557,8 +559,9 @@ describe('Chart lifecycle without a market selection', () => {
         chart
           .getPaneRenderers()
           .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
-          .getPane().role,
-      ).toBe('price')
+          .getPane()
+          .axes.some((axis) => axis.axisId === PRICE_SERIES_AXIS_ID),
+      ).toBe(true)
       expect(chart.panes.getLayoutSpecs()).toEqual(chart.paneLayout.peek())
       expect(notify).toHaveBeenCalledOnce()
       chart.panes.reorderPanes(ids)
@@ -602,8 +605,9 @@ describe('Chart lifecycle without a market selection', () => {
       registerEmptyPlot(indicatorId)
       const first = chart.panes.add(indicatorId)
       expect(first).not.toBeNull()
-      const paneId = chart.indicators.instances.peek().find((instance) => instance.role === 'sub')!
-        .paneId!
+      const paneId = chart.indicators.instances
+        .peek()
+        .find((instance) => instance.paneId !== MAIN_PANE_ID)!.paneId!
       expect(chart.paneRatios.peek().main).toBeCloseTo(0.75)
       expect(chart.paneRatios.peek()[paneId]).toBeCloseTo(0.25)
       chart.panes.updatePane('main', { ratio: 0.8 })
@@ -641,11 +645,11 @@ describe('Chart lifecycle without a market selection', () => {
       expect(chart.panes.add('clear-all-main')).not.toBeNull()
       expect(chart.panes.add('clear-all-sub')).not.toBeNull()
       const instances = chart.kernel.indicator.readonly.instances.peek()
-      const subPane = instances.find((instance) => instance.role === 'sub')
-      const mainInstance = instances.find((instance) => instance.role === 'main')
+      const subPane = instances.find((instance) => instance.paneId !== MAIN_PANE_ID)
+      const mainInstance = instances.find((instance) => instance.paneId === MAIN_PANE_ID)
       if (subPane?.paneId === undefined || mainInstance === undefined)
         throw new Error('fixture requires main and sub instances')
-      const subAxisKey = indicatorInstanceAxisKey(subPane.instanceId)
+      const subAxisKey = objectAxisId(subPane.instanceId)
       chart.kernel.pane.actions.setPaneScaleType(subAxisKey, ScaleType.Log)
 
       chart.panes.clearAllIndicators()
@@ -655,9 +659,7 @@ describe('Chart lifecycle without a market selection', () => {
       expect(chart.panes.hasPane(subPane.paneId)).toBe(false)
       expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(subAxisKey)).toBe(false)
       expect(
-        chart.kernel.pane.readonly.paneScaleTypes
-          .peek()
-          .has(indicatorInstanceAxisKey(mainInstance.instanceId)),
+        chart.kernel.pane.readonly.paneScaleTypes.peek().has(objectAxisId(mainInstance.instanceId)),
       ).toBe(false)
       chart.panes.clearAllIndicators()
       expect(chart.indicators.instances.peek()).toHaveLength(0)
@@ -678,7 +680,7 @@ describe('Chart lifecycle without a market selection', () => {
       const second = instances.find((instance) => instance.indicatorId === 'definition-b')
       if (first?.paneId === undefined || second?.paneId === undefined)
         throw new Error('fixture requires two sub panes')
-      const firstAxisKey = indicatorInstanceAxisKey(first.instanceId)
+      const firstAxisKey = objectAxisId(first.instanceId)
       chart.kernel.pane.actions.setPaneScaleType(firstAxisKey, ScaleType.Log)
 
       chart.panes.removeInstancesByDefinition('definition-a')
@@ -746,11 +748,11 @@ describe('Chart lifecycle without a market selection', () => {
           .getPane()
         const targets: import('../legend/types').LegendMoveTarget[] = [
           { kind: 'pane', paneId: targetPaneId },
-          { kind: 'main' },
+          { kind: 'pane', paneId: MAIN_PANE_ID },
           { kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'above' },
           { kind: 'newPane', anchorPaneId: MAIN_PANE_ID, placement: 'below' },
           { kind: 'pane', paneId: targetPaneId },
-          { kind: 'main' },
+          { kind: 'pane', paneId: MAIN_PANE_ID },
         ]
         for (const target of targets) {
           const before = chart.kernel.indicator.readonly.instances
@@ -786,10 +788,7 @@ describe('Chart lifecycle without a market selection', () => {
             .find((renderer) => renderer.getPane().id === current.paneId)!
             .getPane()
           expect(pane.axes.length).toBe(
-            (current.paneId === MAIN_PANE_ID && position === 'sub') ||
-              current.paneId === targetPaneId
-              ? 2
-              : 1,
+            current.paneId === MAIN_PANE_ID || current.paneId === targetPaneId ? 2 : 1,
           )
           expect(new Set(pane.axes.map((axis) => axis.axisId)).size).toBe(pane.axes.length)
           expect(
@@ -798,7 +797,7 @@ describe('Chart lifecycle without a market selection', () => {
               .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
               .getPane(),
           ).toBe(mainPane)
-          if (before.role === 'sub' && before.paneId !== targetPaneId)
+          if (before.paneId !== MAIN_PANE_ID && before.paneId !== targetPaneId)
             expect(chart.panes.hasPane(before.paneId), 'source pane recycled').toBe(false)
           if (target.kind === 'newPane') {
             const ids = chart.panes.getLayoutSpecs().map((spec) => spec.id)
@@ -965,6 +964,103 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('行情及附属层跨 Pane、切换形态和恢复布局时保持同一个对象', async () => {
+    const chart = mountChart()
+    const layerIds = [
+      'plugin:candle',
+      'plugin:footprint',
+      'plugin:comparisonLine',
+      'plugin:lastPriceLine',
+      'plugin:lastPriceLabelRegistrar',
+      'plugin:extremaMarkers',
+    ]
+    try {
+      const paneId = chart.panes.addPane(MAIN_PANE_ID, 'below')!
+      const commands = chart.objects.commandsFor('plugin:candle')!
+      expect(commands.move({ kind: 'pane', paneId })).toBe(true)
+      const primary = chart.getRenderer('plugin:candle')
+      for (const id of layerIds) expect(chart.getRenderer(id)?.pane).toBe(paneId)
+      expect(chart.axes.bindingFor('plugin:candle')).toMatchObject({
+        paneId,
+        axisId: PRICE_SERIES_AXIS_ID,
+      })
+      expect(chart.panes.hasPane(MAIN_PANE_ID)).toBe(false)
+
+      commands.setVisible(false)
+      for (const view of ['timeshare', 'fiveDayTimeShare', 'kline'] as const) {
+        chart.kernel.actions.setDataView(view)
+        expect(chart.panes.hasPane(paneId)).toBe(true)
+        expect(chart.getRenderer('plugin:candle')).toBe(primary)
+        const rows = chart.objects.groups
+          .peek()
+          .flatMap((group) => group.rows)
+          .filter((row) => row.kind === 'system')
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({ objectId: 'plugin:candle', paneId, visible: false })
+        for (const id of layerIds) expect(chart.getRenderer(id)?.visible).toBe(false)
+      }
+      commands.setVisible(true)
+      chart.kernel.settings.actions.patch({ klineShape: 'footprint' })
+      expect(chart.getRenderer('plugin:footprint')?.visible).toBe(true)
+      commands.setVisible(false)
+      expect(chart.getRenderer('plugin:footprint')?.visible).toBe(false)
+      const saved = chart.kernel.exportLayout()
+      const otherPaneId = chart.panes.addPane(paneId, 'below')!
+      commands.move({ kind: 'pane', paneId: otherPaneId })
+      chart.kernel.applyLayout(saved)
+      for (const id of layerIds) expect(chart.getRenderer(id)?.pane).toBe(paneId)
+      expect(
+        chart.objects.groups
+          .peek()
+          .flatMap((group) => group.rows)
+          .find((row) => row.kind === 'system'),
+      ).toMatchObject({ paneId, visible: false })
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('每个对象独有轴，API 按轴配置，迁移保留身份，删除回收绑定', async () => {
+    const chart = mountChart()
+    registerEmptyPlot('axis-object-a')
+    registerEmptyPlot('axis-object-b')
+    try {
+      const target = { kind: 'pane', paneId: MAIN_PANE_ID } as const
+      const first = chart.panes.add('axis-object-a', {}, target)!
+      const second = chart.panes.add('axis-object-b', {}, target)!
+      const a = chart.axes.bindingFor(first)
+      const b = chart.axes.bindingFor(second)
+      expect(a.axisId).not.toBe(b.axisId)
+      expect(chart.getPaneRenderers()[0]!.getPane().axes).toHaveLength(3)
+      chart.axes.setScaleType(b.axisId, ScaleType.Log)
+      expect(chart.axes.configuration(a.axisId).scaleType).toBe(ScaleType.Linear)
+      expect(chart.axes.configuration(b.axisId).scaleType).toBe(ScaleType.Log)
+      expect(() => chart.axes.setScaleType(a.axisId, ScaleType.Percent)).toThrow('基准值')
+      expect(chart.axes.configuration(a.axisId).scaleType).toBe(ScaleType.Linear)
+      chart.axes.setScaleType(a.axisId, ScaleType.Percent, 100)
+      expect(chart.axes.get(a.axisId).toPercent(110)).toBe(10)
+      expect(chart.kernel.exportLayout().axisBaseValues?.[a.axisId]).toBe(100)
+      chart.axes.setRangeMode(b.axisId, PRICE_AXIS_RANGE_MODE.HAND)
+      const destination = chart.panes.addPane(MAIN_PANE_ID, 'below')!
+      chart.panes.moveInstance(second, { kind: 'pane', paneId: destination })
+      expect(chart.axes.bindingFor(second)).toMatchObject({ axisId: b.axisId, paneId: destination })
+      expect(chart.axes.configuration(b.axisId)).toMatchObject({
+        scaleType: ScaleType.Log,
+        rangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+      })
+      const before = chart.axes.list()
+      expect(() => chart.panes.moveInstance(first, { kind: 'pane', paneId: 'missing' })).toThrow(
+        'missing',
+      )
+      expect(chart.axes.list()).toEqual(before)
+      expect(() => chart.axes.setScaleType('missing', ScaleType.Linear)).toThrow('missing')
+      chart.panes.removeInstance(second)
+      expect(() => chart.axes.get(b.axisId)).toThrow(b.axisId)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('projects the main series as a non-removable system object', async () => {
     const chart = mountChart()
     try {
@@ -1082,7 +1178,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const first = chart.panes.add(definitionId)!
       const second = chart.panes.add(definitionId)!
-      const moved = chart.panes.add(definitionId, {}, { kind: 'main' })!
+      const moved = chart.panes.add(definitionId, {}, { kind: 'pane', paneId: MAIN_PANE_ID })!
       chart.legend.moveTo(moved, {
         kind: 'newPane',
         anchorPaneId: MAIN_PANE_ID,
@@ -1103,7 +1199,7 @@ describe('Chart lifecycle without a market selection', () => {
         chart.legend.projectFrame(contexts())
         return chart.legend.rows.peek().find((row) => row.key === id)!.actions
       }
-      expect(actions(moved).find((action) => action.action === 'move-pane-up')!.enabled).toBe(false)
+      expect(actions(moved).find((action) => action.action === 'move-pane-up')!.enabled).toBe(true)
       expect(actions(moved).find((action) => action.action === 'move-pane-down')!.enabled).toBe(
         true,
       )
@@ -1150,7 +1246,7 @@ describe('Chart lifecycle without a market selection', () => {
 
   it('can turn off a restored main log axis when settings are already linear', async () => {
     const source = mountChart()
-    source.setPanePriceAxisScaleType(MAIN_PANE_ID, ScaleType.Log)
+    source.axes.setScaleType(PRICE_SERIES_AXIS_ID, ScaleType.Log)
     const workspaces = source.kernel.snapshotViewWorkspaces()
     await source.destroy()
     const chart = mountChart(1000, 600, {
@@ -1162,9 +1258,11 @@ describe('Chart lifecycle without a market selection', () => {
         workspaces,
         panePriceAxisModes: {},
       })
-      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(ScaleType.Log)
-      chart.setPanePriceAxisScaleType(MAIN_PANE_ID, ScaleType.Linear)
-      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(MAIN_PANE_ID)).toBe(
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(PRICE_SERIES_AXIS_ID)).toBe(
+        ScaleType.Log,
+      )
+      chart.axes.setScaleType(PRICE_SERIES_AXIS_ID, ScaleType.Linear)
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get(PRICE_SERIES_AXIS_ID)).toBe(
         ScaleType.Linear,
       )
       expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe(ScaleType.Linear)

@@ -5,11 +5,12 @@ import {
   type MockPaneInfoOverrides,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext } from '@/foundation/plugin/index'
 import { MAIN_PANE_ID } from '@/engine/pane/types'
+import type { RenderContext } from '@/foundation/plugin/index'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 import type { Renderer, RendererName } from '@/rendering/render/Renderer'
-import { createCandleLayer } from '../candle'
+import { createPriceSeriesLayer as createCandleLayer } from '../priceSeries'
+import { PRICE_SERIES_AXIS_ID } from '../rendererIds.js'
 
 /** 以主图身份调用 K 线 Layer.paint；sceneRenderer 由上下文携带。 */
 function paint(context: RenderContext): void {
@@ -22,7 +23,6 @@ function makePane(): MockPaneInfoOverrides {
     id: 'main',
     top: 0,
     height: 400,
-    role: 'price',
     priceRange: { minPrice: 90, maxPrice: 110 },
     yAxis: {
       getDisplayRange: () => ({ maxPrice: 110, minPrice: 90 }),
@@ -41,7 +41,6 @@ function createCtx(
   overrides: MockRenderContextOverrides = {},
 ): RenderContext {
   return createMockRenderContext({
-    pane: makePane(),
     kWidth: 8,
     kGap: 2,
     dpr: 1,
@@ -51,6 +50,7 @@ function createCtx(
     sceneRenderer,
     zoomLevel: 1,
     ...overrides,
+    pane: { ...makePane(), ...overrides.pane, axisIds: [PRICE_SERIES_AXIS_ID] },
   })
 }
 

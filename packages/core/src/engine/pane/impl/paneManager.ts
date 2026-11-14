@@ -5,13 +5,14 @@
  * updateInstance / clearAllIndicators。
  * Pane 容器操作只管理顺序、高度和可见性，不承担指标内容语义。
  */
+
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { batch } from '../../../foundation/reactivity/signal.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
 import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.js'
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
-import { INDICATOR_ROLE, type IndicatorInstanceRole } from '../../state/indicatorRole.js'
 import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
-import { indicatorInstanceAxisKey } from '../instanceAxisKey.js'
 import type {
   InstanceMoveTarget,
   PaneLayoutCommands,
@@ -20,14 +21,12 @@ import type {
   PanePlacement,
   PaneSpec,
 } from '../types.js'
-import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../types.js'
 import { normalizeVisiblePaneRatios } from './layout/paneRatioMath.js'
 import { paneSpecsEqual } from './paneConfiguration.js'
 
 /** 目标 Pane 解析结果：容器身份 + 实例角色。 */
 interface ResolvedTarget {
   readonly paneId: string
-  readonly role: IndicatorInstanceRole
 }
 
 export class PaneManager {
@@ -67,24 +66,20 @@ export class PaneManager {
     if (!definition) return null
     const specs = this.list()
     let paneId: string
-    let role: IndicatorInstanceRole
     let insertedPaneId: string | undefined
     let nextSpecs = specs
     if (target !== undefined) {
       const resolved = this.resolveTarget(target, specs)
       if (!resolved) return null
       paneId = resolved.paneId
-      role = resolved.role
     } else if (definition.category === 'main') {
-      paneId = MAIN_PANE_ID
-      role = INDICATOR_ROLE.MAIN
+      paneId = specs[0]!.id
     } else {
       // 默认副图：先建 Pane，再把实例放进去。
       paneId = generateUUID()
-      role = INDICATOR_ROLE.SUB
       insertedPaneId = paneId
       nextSpecs = this.insertPaneSpec(specs, paneId, {
-        anchorPaneId: specs[specs.length - 1]?.id ?? MAIN_PANE_ID,
+        anchorPaneId: specs[specs.length - 1]!.id,
         placement: 'below',
       })
     }
@@ -96,7 +91,6 @@ export class PaneManager {
         instanceId,
         indicatorId: definition.name,
         paneId,
-        role,
         ordinal,
         params: {
           ...resolveDefinitionDefaultParams(definition),
@@ -115,7 +109,11 @@ export class PaneManager {
    */
   private addPane(anchorPaneId: string, placement: PanePlacement): string | null {
     const specs = this.list()
-    if (!specs.some((spec) => spec.id === anchorPaneId)) return null
+    if (!specs.some((spec) => spec.id === anchorPaneId))
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
+        `新窗口锚点不存在：${anchorPaneId}`,
+      )
     const paneId = generateUUID()
     const nextSpecs = this.insertPaneSpec(specs, paneId, { anchorPaneId, placement })
     const ratios = this.normalizeRatios(nextSpecs, paneId)
@@ -145,14 +143,10 @@ export class PaneManager {
 
     // 源副图移出最后一个实例后不再保留空容器；绘图或系统对象仍占用时保留。
     const sourceEmpty =
-      current.role === INDICATOR_ROLE.SUB &&
       !previous.some(
         (instance) => instance.instanceId !== instanceId && instance.paneId === current.paneId,
-      ) &&
-      !this.dependencies.hasPaneContent(current.paneId)
-    const nextSpecs = sourceEmpty
-      ? specs.filter((spec) => spec.id !== current.paneId)
-      : specs
+      ) && !this.dependencies.hasPaneContent(current.paneId)
+    const nextSpecs = sourceEmpty ? specs.filter((spec) => spec.id !== current.paneId) : specs
     const ratios = this.normalizeRatios(nextSpecs)
     // 迁移后按目标位置重排整个目标 Pane，ordinal 不出现空洞或重复。
     const ordered = this.paneInstanceIds(previous, resolved.paneId, instanceId)
@@ -163,12 +157,11 @@ export class PaneManager {
       indicator.actions.moveInstance(
         instanceId,
         resolved.paneId,
-        resolved.role,
         this.nextOrdinal(resolved.paneId, instanceId),
       )
       indicator.actions.applyPaneInstanceOrder(resolved.paneId, ordered)
       pane.actions.commitLayout(this.withRatios(nextSpecs, ratios))
-      if (current.paneId !== MAIN_PANE_ID && !nextSpecs.some((spec) => spec.id === current.paneId))
+      if (!nextSpecs.some((spec) => spec.id === current.paneId))
         pane.actions.removePaneScaleType(current.paneId)
     })
     return true
@@ -218,18 +211,11 @@ export class PaneManager {
     const remaining = indicator.readonly.instances
       .peek()
       .filter((instance) => !removedIds.has(instance.instanceId))
-    const occupiedPaneIds = new Set(
-      remaining
-        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
-        .map((instance) => instance.paneId),
-    )
-    const touchedPaneIds = new Set(
-      instances
-        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
-        .map((instance) => instance.paneId),
-    )
+    const occupiedPaneIds = new Set(remaining.map((instance) => instance.paneId))
+    const touchedPaneIds = new Set(instances.map((instance) => instance.paneId))
     const nextSpecs = this.list().filter(
       (spec) =>
+        this.list().length === 1 ||
         !touchedPaneIds.has(spec.id) ||
         occupiedPaneIds.has(spec.id) ||
         this.dependencies.hasPaneContent(spec.id),
@@ -244,7 +230,7 @@ export class PaneManager {
   /** 删除实例自身与实例级轴偏好；布局由调用方在 batch 内统一提交。 */
   private detachInstance(instanceId: string): void {
     this.dependencies.indicator.actions.removeInstance(instanceId)
-    this.dependencies.pane.actions.removePaneScaleType(indicatorInstanceAxisKey(instanceId))
+    this.dependencies.pane.actions.removePaneScaleType(objectAxisId(instanceId))
   }
 
   /** 更新实例参数、显隐、排序或定义；归属变化走 moveInstance。 */
@@ -319,7 +305,7 @@ export class PaneManager {
   /** 删除 Pane 及其全部用户实例；主图不可删除。 */
   private removePane(paneId: string): boolean {
     const { pane } = this.dependencies
-    if (paneId === MAIN_PANE_ID) return false
+    if (this.list().length === 1 || this.dependencies.hasPaneContent(paneId)) return false
     const currentSpecs = this.list()
     if (!currentSpecs.some((item) => item.id === paneId)) return false
     const instances = this.dependencies.indicator.readonly.instances
@@ -339,7 +325,7 @@ export class PaneManager {
     this.removeInstances(
       this.dependencies.indicator.readonly.instances
         .peek()
-        .filter((instance) => instance.role === INDICATOR_ROLE.SUB),
+        .filter((instance) => !this.dependencies.hasPaneContent(instance.paneId)),
     )
   }
 
@@ -359,11 +345,16 @@ export class PaneManager {
 
   /** 受控导入完整布局；删除的用户副图内容随 pane 一并清理。 */
   importLayout(specs: ReadonlyArray<PaneSpec>): void {
+    if (specs.length === 0 || new Set(specs.map((spec) => spec.id)).size !== specs.length)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        '布局必须包含非空且身份唯一的 Pane 列表',
+      )
     const nextSpecs = specs.map((item) => ({ ...item }))
     const nextIds = new Set(nextSpecs.map((item) => item.id))
     const removed = this.dependencies.indicator.readonly.instances
       .peek()
-      .filter((item) => item.role === INDICATOR_ROLE.SUB && !nextIds.has(item.paneId))
+      .filter((item) => !nextIds.has(item.paneId))
     // 完整布局导入以调用方快照为准，不能继承上一帧的 ratio。
     const ratios = this.buildRatios(nextSpecs, (item) =>
       Number.isFinite(item.ratio) ? item.ratio : 1,
@@ -379,12 +370,13 @@ export class PaneManager {
     target: InstanceMoveTarget,
     specs: ReadonlyArray<PaneSpec>,
   ): ResolvedTarget | null {
-    if (target.kind === INSTANCE_MOVE_KIND.MAIN)
-      return { paneId: MAIN_PANE_ID, role: INDICATOR_ROLE.MAIN }
-    if (!specs.some((spec) => spec.id === target.paneId)) return null
+    if (!specs.some((spec) => spec.id === target.paneId))
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
+        `目标 Pane 不存在：${target.paneId}`,
+      )
     return {
       paneId: target.paneId,
-      role: target.paneId === MAIN_PANE_ID ? INDICATOR_ROLE.MAIN : INDICATOR_ROLE.SUB,
     }
   }
 
@@ -403,7 +395,7 @@ export class PaneManager {
 
   /** 新 Pane 的初始规格；比例由归一化统一分配。 */
   private createPaneSpec(paneId: string): PaneSpec {
-    return { id: paneId, ratio: 1, visible: true, role: 'indicator' }
+    return { id: paneId, ratio: 1, visible: true }
   }
 
   /** 目标 Pane 的下一个显示序号；可排除正在迁移的实例。 */
@@ -426,15 +418,9 @@ export class PaneManager {
     const raw = Object.fromEntries(specs.map((spec) => [spec.id, spec.ratio]))
     if (createdPaneId) {
       const visible = specs.filter((item) => item.visible !== false)
-      const pricePanes = visible.filter((item) => item.role === 'price')
-      if (pricePanes.length === 1) {
-        // 只分配新窗格的份额，已有窗格之间的用户比例保持不变。
-        const existing = visible.filter((item) => item.id !== createdPaneId)
-        const total = existing.reduce((sum, item) => sum + raw[item.id]!, 0)
-        raw[createdPaneId] = total / (existing.length + 2)
-      } else {
-        raw[createdPaneId] = 1
-      }
+      const existing = visible.filter((item) => item.id !== createdPaneId)
+      const total = existing.reduce((sum, item) => sum + raw[item.id]!, 0)
+      raw[createdPaneId] = total / (existing.length + 2)
     }
     return this.buildRatios(specs, (item) => raw[item.id]!)
   }

@@ -174,7 +174,7 @@ describe('图表右键菜单', () => {
         definitionId: 'MA',
         label: 'MA',
         name: 'MA',
-        role: 'main',
+        paneId: 'pane-1',
         ordinal: 0,
         params: {},
       },

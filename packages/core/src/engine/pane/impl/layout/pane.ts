@@ -1,6 +1,8 @@
-import type { PaneCapabilities, PaneRole } from '../../../../foundation/plugin/index.js'
+/** 窗口几何与独立对象轴资源；容器没有主副身份，也不创建默认轴。 */
+
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { PaneCapabilities } from '../../../../foundation/plugin/index.js'
 import { type PriceRange, PriceScale } from '../../../scale/index.js'
-import { MAIN_PANE_ID } from '../../types.js'
 
 /**
  * 更新级别枚举 - 用于双层 Canvas 架构
@@ -15,56 +17,43 @@ export enum UpdateLevel {
 }
 
 export interface PaneInitOptions {
-  role?: PaneRole
   capabilities?: Partial<PaneCapabilities>
 }
 
-function defaultCapabilitiesByRole(role: PaneRole): PaneCapabilities {
-  if (role === 'price') {
-    return {
-      showPriceAxisTicks: true,
-      showCrosshairPriceLabel: true,
-      candleHitTest: true,
-      supportsPriceTranslate: true,
-    }
-  }
-  if (role === 'indicator') {
-    return {
-      showPriceAxisTicks: false,
-      showCrosshairPriceLabel: true,
-      candleHitTest: false,
-      supportsPriceTranslate: true,
-    }
-  }
+function defaultCapabilities(): PaneCapabilities {
   return {
-    showPriceAxisTicks: false,
-    showCrosshairPriceLabel: false,
-    candleHitTest: false,
-    supportsPriceTranslate: false,
+    supportsPriceTranslate: true,
   }
 }
 
 /**
- * Pane：代表一个"窗口区域"（主图 / 副图）。
+ * Pane：代表一个窗口区域。
  *
- * 一个 Pane 可以拥有多条轴；主轴沿用 `paneId` 作为轴身份，
- * 实例独立轴由框架派生后通过 `setAxes` 投影进来。
+ * 所有轴均由对象声明，经统一轴 API 投影，不从 Pane 身份推断。
  */
 export class Pane {
   readonly id: string
-  readonly role: PaneRole
   readonly capabilities: PaneCapabilities
   top = 0
   height = 0
 
   private readonly axisScales = new Map<string, PriceScale>()
-  private primaryAxisId: string
   private paddingTop = 0
   private paddingBottom = 0
 
-  /** Pane 主轴；兼容只消费单轴的绘制与交互路径。 */
+  /** 单轴容器的便捷查询；多轴必须显式提供 axisId。 */
   get yAxis(): PriceScale {
-    return this.axisScales.get(this.primaryAxisId)!
+    if (this.axisScales.size !== 1)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_STATE,
+        `Pane ${this.id} 有 ${this.axisScales.size} 条轴，必须指定 axisId`,
+      )
+    return this.axisScales.values().next().value!
+  }
+
+  /** 空容器没有隐式轴；交互只在已有坐标对象的区域解析数值。 */
+  get hasAxes(): boolean {
+    return this.axisScales.size > 0
   }
 
   /** 全部轴；顺序即右侧轴列顺序。 */
@@ -81,23 +70,28 @@ export class Pane {
 
   constructor(id: string, options: PaneInitOptions = {}) {
     this.id = id
-    this.role = options.role ?? (id === MAIN_PANE_ID ? 'price' : 'indicator')
     this.capabilities = {
-      ...defaultCapabilitiesByRole(this.role),
+      ...defaultCapabilities(),
       ...(options.capabilities ?? {}),
     }
-    this.primaryAxisId = id
-    this.axisScales.set(id, new PriceScale())
   }
 
-  /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
+  /** 按明确身份取轴；不存在时抛异常，不能替换为其他对象的轴。 */
   axis(axisId: string): PriceScale {
-    return this.axisScales.get(axisId) ?? this.yAxis
+    const axis = this.axisScales.get(axisId)
+    if (!axis)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
+        `Pane ${this.id} 中不存在轴 ${axisId}`,
+      )
+    return axis
   }
 
   /** 应用框架派生的轴列表；保留已有轴实例，避免每帧重建范围。 */
   setAxes(axisIds: ReadonlyArray<string>): void {
-    const next = new Set(axisIds.length > 0 ? axisIds : [this.id])
+    const next = new Set(axisIds)
+    if (next.size !== axisIds.length)
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `Pane ${this.id} 的轴身份重复`)
     for (const axisId of [...this.axisScales.keys()]) {
       if (!next.has(axisId)) this.axisScales.delete(axisId)
     }
@@ -108,7 +102,6 @@ export class Pane {
       scale.setContentInsets(this.paddingTop, this.paddingBottom)
       this.axisScales.set(axisId, scale)
     }
-    this.primaryAxisId = axisIds[0] ?? this.id
   }
 
   /**

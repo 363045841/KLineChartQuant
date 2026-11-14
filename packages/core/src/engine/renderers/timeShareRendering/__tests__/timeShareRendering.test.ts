@@ -8,13 +8,19 @@ import {
 } from '@/engine/__tests__/helpers/timeShareTestKit.js'
 import { ChartDataViewId } from '@/foundation/types/chartView.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import { createFiveDayTimeShareLayer } from '../../fiveDayTimeShare.js'
-import { createTimeShareLayer } from '../../timeShare.js'
+import { createPriceSeriesLayer } from '../../priceSeries.js'
+import { PRICE_SERIES_AXIS_ID } from '../../rendererIds.js'
 
 /** 复用共享帧夹具，去掉 ctx，只暴露 Scene 的原语提交入口。 */
 function frame() {
   const { ctx, ...context } = createTimeShareRenderContext({
     ctx: createMockCanvasContext(),
+    pane: {
+      id: 'market-pane',
+      height: 400,
+      axisIds: [PRICE_SERIES_AXIS_ID],
+      yAxis: { priceToY: (price) => 200 - (price - 10) * 50 },
+    },
     centers: [10, 30, 50],
     data: [
       { timestamp: 1, price: 11, average: 10.5 },
@@ -43,8 +49,8 @@ function area(paths: readonly (readonly { x: number; y: number }[])[]): number {
 }
 
 describe.each([
-  [ChartDataViewId.TimeShare, createTimeShareLayer],
-  [ChartDataViewId.FiveDayTimeShare, createFiveDayTimeShareLayer],
+  [ChartDataViewId.TimeShare, () => createPriceSeriesLayer('market-pane')],
+  [ChartDataViewId.FiveDayTimeShare, () => createPriceSeriesLayer('market-pane')],
 ] as const)('%s 分时原语绘制', (dataView, createLayer) => {
   it('无 Canvas 上下文仍输出完整线条，面积准确切在涨跌交点', () => {
     const layer = createLayer()
@@ -159,11 +165,10 @@ describe.each([
   it('滚动和主题不重新映射价格，数据变化立即更新几何，释放后不保留缓存', () => {
     const layer = createLayer()
     const context = { ...frame(), dataView }
-    const priceToY = vi.spyOn(context.pane.yAxis, 'priceToY')
     layer.paint(context)
-    const firstCount = priceToY.mock.calls.length
+    const firstPath = lines(context.primitives.mock.lastCall![0])[0]!.paths[0]
     layer.paint({ ...context, scrollLeft: 5, theme: 'dark' })
-    expect(priceToY).toHaveBeenCalledTimes(firstCount)
+    expect(lines(context.primitives.mock.lastCall![0])[0]!.paths[0]).toBe(firstPath)
     expect(lines(context.primitives.mock.lastCall![0])[0]!.offsetX).toBe(5)
     layer.paint({
       ...context,
@@ -173,10 +178,10 @@ describe.each([
     expect(
       lines(context.primitives.mock.lastCall![0])[0]!.paths[0]!.map((point) => point.y),
     ).toEqual([100, 100, 100])
-    const beforeDispose = priceToY.mock.calls.length
+    const updatedPath = lines(context.primitives.mock.lastCall![0])[0]!.paths[0]
     layer.dispose()
     layer.paint(context)
-    expect(priceToY.mock.calls.length).toBeGreaterThan(beforeDispose)
+    expect(lines(context.primitives.mock.lastCall![0])[0]!.paths[0]).not.toBe(updatedPath)
     expect(lines(context.primitives.mock.lastCall![0])[0]!.paths[0]![0]!.y).toBe(150)
   })
 

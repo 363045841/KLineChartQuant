@@ -48,7 +48,6 @@ function declareDefinition(
     scale: { indicatorKey: name },
     rendererFactory: () => createTestRendererLayer(name),
     getRendererName: ({ paneId }: { paneId: string }) => `${name}_${paneId}`,
-    getScaleRendererName: ({ paneId }: { paneId: string }) => `${name}Scale_${paneId}`,
   } satisfies IndicatorMetadata
 }
 
@@ -102,9 +101,6 @@ describe('Indicator pipeline', () => {
     expect(getRegisteredIndicatorDefinition('CUSTOM_RSI')?.name).toBe('customRsi')
     expect(getRegisteredIndicatorDefinition('custom rsi')?.name).toBe('customRsi')
     expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane')).toBe('plugin:customRsi_pane')
-    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane', 'scale')).toBe(
-      'plugin:customRsiScale_pane',
-    )
 
     const idempotentRevision = indicatorCatalogRevision.peek()
     registerIndicators([registrable('customRsi', first)])

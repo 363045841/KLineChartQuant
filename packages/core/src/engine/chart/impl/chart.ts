@@ -13,6 +13,12 @@
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
+import { filterDrawingsInScope } from '@/engine/drawing/model/impl/drawingScope.js'
+import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
+import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
+import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
+import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
+import { resolveChartWorkspaceId } from '@/foundation/types/chartView.js'
 
 import {
   CHART_RENDERERS_SERVICE,
@@ -43,7 +49,6 @@ import {
 } from '../../../features/alerts/impl/rollingVolume.js'
 import type { AlertController, MarketSnapshot } from '../../../features/alerts/types.js'
 import {
-  buildPaneScaleTypesFromSetting,
   type ChartSettings,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
@@ -115,7 +120,7 @@ import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { createObjectTree } from '../../objects/impl/createObjectTree.js'
 import { createSystemObjects } from '../../objects/impl/systemObjects.js'
 import type { ObjectTree } from '../../objects/types.js'
-import { ChartPaneLayout, runInNewPane, type PaneRenderer, UpdateLevel } from '../../pane/index.js'
+import { ChartPaneLayout, type PaneRenderer, runInNewPane, UpdateLevel } from '../../pane/index.js'
 import {
   DEFAULT_PRICE_LABEL_WIDTH,
   INSTANCE_MOVE_KIND,
@@ -314,6 +319,7 @@ export class Chart {
   readonly legend: LegendManager
   /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
   readonly objects: ObjectTree
+  readonly axes: ObjectAxesApi
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
   private readonly legendDom: import('../../renderers/legend/types.js').LegendDomRenderer
 
@@ -553,13 +559,15 @@ export class Chart {
     // 系统对象（K 线等）的显隐、顺序与所属 Pane；图层在 initCoreRenderers 后注册。
     this.systemObjects = createSystemObjects({
       state: this.kernel.systemObjects,
+      readFootprint: () => this.kernel.footprint.readonly.renderState.peek(),
+      isLayerActive: (layerId) =>
+        this.kernel.activeRenderers$().some((descriptor) => descriptor.layerId === layerId),
       getLayer: (layerId) => this.getRenderer(layerId) ?? null,
       useRenderer: (layer) => this.useRenderer(layer),
       removeRenderer: (layerId) => this.removeRenderer(layerId),
       getRows: () => this.objects.groups.peek().flatMap((group) => group.rows),
       // 主序列对象显示当前品种代码；未选品种时用中性占位文案。
-      getLabel: () =>
-        this.kernel.dataManager.readonly.currentSpec.peek()?.symbol ?? '未选择品种',
+      getLabel: () => this.kernel.dataManager.readonly.currentSpec.peek()?.symbol ?? '未选择品种',
       addPane: (anchorPaneId, placement) => this.panes.addPane(anchorPaneId, placement),
       paneExists: (paneId) => this.panes.hasPane(paneId),
       removePane: (paneId) => {
@@ -610,9 +618,8 @@ export class Chart {
       primaryRenderer$: this.kernel.mode.readonly.effectivePrimaryRenderer,
       footprintState$: this.kernel.footprint.readonly.renderState,
       settings$: this.kernel.settings.readonly.settings,
-      getPricePaneId: () => this.systemObjects.paneIdOf(CANDLE_RENDERER_NAME),
-      systemObject: (objectId) => this.systemObjects.descriptorFor(objectId),
-      mainPriceAxis: this.kernel.mainPriceAxis,
+      getPricePaneId: () => this.kernel.systemObjects.readonly.pricePaneId.peek(),
+      axesState: this.kernel.axesState,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
@@ -624,10 +631,11 @@ export class Chart {
         const rows = this.legend.rows.peek()
         const mainVisible = this.getOption().legend?.visible !== false
         this.legendDom.update({
+          primaryPaneId: this.kernel.systemObjects.readonly.pricePaneId.peek(),
           rowsByPane: paneOrder.map((paneId) => ({
             paneId,
             rows:
-              paneId === MAIN_PANE_ID && !mainVisible
+              paneId === this.kernel.systemObjects.readonly.pricePaneId.peek() && !mainVisible
                 ? []
                 : rows.filter((row) => row.paneId === paneId),
           })),
@@ -717,10 +725,15 @@ export class Chart {
         Readonly<Record<string, number>>
       >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
+      getObjectAxes: () => this.readObjectAxisDeclarations(),
       projectPaneAxes: (axesByPane) => {
-        this.layoutManager.setPaneAxes(axesByPane)
-        this.projectPaneScaleTypes()
-        this.renderer.invalidateFrame()
+        this.kernel.axesState.actions.retainAxes(
+          new Set([...axesByPane.values()].flatMap((axes) => axes.map((axis) => axis.axisId))),
+        )
+        if (this.layoutManager.setPaneAxes(axesByPane)) {
+          this.projectPaneScaleTypes()
+          this.renderer.invalidateFrame()
+        }
       },
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
@@ -731,6 +744,18 @@ export class Chart {
       removeInstancesByDefinition: (definitionId) =>
         this.panes.removeInstancesByDefinition(definitionId),
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
+    })
+    this.axes = createObjectAxesApi({
+      listBindings: () => [...this.indicatorManager.getPaneAxes().values()].flat(),
+      getPane: (paneId) => this.paneRenderer(paneId)?.getPane(),
+      getLayout: (paneId) => this.renderer.getAxisLayout(paneId),
+      paneState: this.kernel.pane,
+      ranges: this.kernel.axesState,
+      project: () => {
+        this.projectPaneScaleTypes()
+        this.renderer.invalidateFrame()
+        this.scheduleDraw()
+      },
     })
     this.indicators = new ChartIndicatorFacade({
       manager: this.indicatorManager,
@@ -744,6 +769,7 @@ export class Chart {
       setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
+      getPricePaneId: () => this.kernel.systemObjects.readonly.pricePaneId.peek(),
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
       isScriptIndicator: (definitionId) =>
         !!getRegisteredIndicatorDefinition(definitionId)?.document,
@@ -801,9 +827,12 @@ export class Chart {
     this.installActiveRendererProjection()
     // 左轴只在分时视图绘制刻度；其余视图不分配左轴后备存储。
     this.disposeLeftAxisProjection = effect(() => {
+      const pricePaneId = this.kernel.systemObjects.readonly.pricePaneId()
       this.layoutManager.setLeftAxisVisible(
         isTimeShareDataView(this.kernel.mode.readonly.dataView()),
+        pricePaneId,
       )
+      this.projectPaneScaleTypes()
     })
     this.scheduleDraw()
   }
@@ -849,17 +878,8 @@ export class Chart {
 
   /** 切换数据视图时同步主图价格轴类型：分时用百分比，K 线恢复设置类型。 */
   private applyDataViewScaleTypes(dataView: ChartDataView): void {
-    if (isTimeShareDataView(dataView)) {
-      const percentMap = new Map(this.kernel.pane.getScalePreferences())
-      for (const renderer of this.paneRenderers) {
-        const pane = renderer.getPane()
-        if (pane.role === 'price') percentMap.set(pane.id, ScaleType.Percent)
-      }
-      this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
-      this.projectPaneScaleTypes()
-      return
-    }
-    for (const renderer of this.paneRenderers) renderer.getPane().yAxis.setBasePrice(null)
+    for (const renderer of this.paneRenderers)
+      for (const axis of renderer.getPane().axes) axis.yAxis.setBasePrice(null)
     this.applyPriceScaleSettingToKernel(
       resolvePriceScaleTypeSetting(
         this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
@@ -886,7 +906,7 @@ export class Chart {
   // ========== 渲染器 API（唯一绘制契约：Layer；Scene 负责过滤与分发） ==========
 
   /**
-   * 注册渲染器 Layer（唯一绘制路径；幂等，首个同 id Layer 胜出）。
+   * 注册渲染器 Layer；Scene 校验身份唯一性，重复注册抛异常。
    * 绘制目标由 Layer.pane 声明；查询和移除直接使用 Layer.id。
    */
   useRenderer(layer: Layer<RenderContext>): void {
@@ -943,8 +963,9 @@ export class Chart {
   /** 返回当前 Pane 与绘图投影共用的公开坐标服务。 */
   getCoordinates(
     paneId: string,
+    axisId?: string,
   ): import('../../../foundation/geometry/frameCoordinates.js').FrameCoordinates | null {
-    return this.renderer.getCoordinates(paneId)
+    return this.renderer.getCoordinates(paneId, axisId)
   }
 
   /** 指定逻辑下标处该 Pane 的指标值，供绘图磁吸候选。 */
@@ -974,24 +995,88 @@ export class Chart {
     })
   }
 
-  /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
+  /** 对象轴的唯一声明边界：合并正式对象与预览，初始化轴配置，不写运行时资源。 */
+  private readObjectAxisDeclarations(): ReadonlyArray<PaneAxisSpec> {
+    const spec = this.kernel.dataManager.readonly.currentSpec()
+    const view = this.kernel.mode.readonly.dataView()
+    const workspaceId = resolveChartWorkspaceId(view)
+    const symbolKey = spec === null ? undefined : symbolSpecIdentityKey(spec)
+    const period = this.kernel.mode.readonly.lastBarPeriod()
+    const drawings = [
+      ...new Map(
+        [
+          ...this.kernel.drawing.readonly.drawings(),
+          ...(this.drawingSession?.getPaintOverlay() ?? []),
+        ].map((drawing) => [drawing.id, drawing]),
+      ).values(),
+    ]
+    const drawingAxes = this.kernel.pane.readonly.paneSpecs.peek().flatMap((pane) =>
+      filterDrawingsInScope(drawings, { paneId: pane.id, workspaceId, symbolKey, period })
+        .filter((drawing) => drawing.ownerId === undefined)
+        .map((drawing) => ({
+          objectId: drawing.id,
+          paneId: drawing.paneId,
+          axisId: objectAxisId(drawing.id),
+          decimals: 2,
+          visible: drawing.visible,
+        })),
+    )
+    const indicatorAxes = [...this.kernel.indicator.readonly.instances()]
+      .sort((left, right) => left.ordinal - right.ordinal)
+      .map((instance) => {
+        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+        return {
+          objectId: instance.instanceId,
+          paneId: instance.paneId,
+          axisId: objectAxisId(instance.instanceId),
+          visible: instance.hidden !== true,
+          decimals: definition?.scale?.decimals ?? 2,
+          format: definition?.scale?.format,
+        }
+      })
+    const seriesState = this.kernel.systemObjects.readonly.state()
+    const declarations = [
+      {
+        objectId: CANDLE_LAYER_ID,
+        paneId: this.kernel.systemObjects.readonly.pricePaneId(),
+        axisId: PRICE_SERIES_AXIS_ID,
+        decimals: 2,
+        visible: !seriesState.hidden.includes(CANDLE_RENDERER_NAME),
+      },
+      ...indicatorAxes,
+      ...drawingAxes,
+    ]
+    const preferences = this.kernel.pane.getScalePreferences()
+    const percentView = isTimeShareDataView(view) || this.kernel.comparison.readonly.active()
+    return declarations.map((axis) => ({
+      ...axis,
+      scaleType:
+        axis.axisId === PRICE_SERIES_AXIS_ID && percentView
+          ? ScaleType.Percent
+          : (preferences.get(axis.axisId) ?? ScaleType.Linear),
+    }))
+  }
+
+  /** 将对象轴的有效配置投影到运行时坐标映射。 */
   private projectPaneScaleTypes(): void {
-    const types = this.kernel.pane.getScalePreferences()
+    const declarations = this.indicatorManager.getPaneAxes()
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
-      const t = types.get(pane.id) ?? ScaleType.Linear
-      if (pane.yAxis.getScaleType() !== t) pane.yAxis.setScaleType(t)
+      for (const spec of declarations.get(pane.id)!) {
+        const axis = pane.axis(spec.axisId)
+        const configuredBase =
+          this.kernel.axesState.readonly.paneRanges.peek()[spec.axisId]?.baseValue
+        if (configuredBase !== undefined) axis.setBasePrice(configuredBase)
+        if (axis.getScaleType() !== spec.scaleType) axis.setScaleType(spec.scaleType)
+      }
     }
   }
 
   /** 按用户坐标偏好生成各 pane 的刻度 Map；保留尚未创建 Pane 的已有偏好。 */
   private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
     const next = new Map(this.kernel.pane.getScalePreferences())
-    const panes = this.paneRenderers.map((renderer) => renderer.getPane())
-    for (const pane of panes) {
-      if (pane.id === MAIN_PANE_ID) next.set(pane.id, resolvePriceScaleTypeSetting(setting))
-      else if (!next.has(pane.id)) next.set(pane.id, ScaleType.Linear)
-    }
+    if (!next.has(PRICE_SERIES_AXIS_ID))
+      next.set(PRICE_SERIES_AXIS_ID, resolvePriceScaleTypeSetting(setting))
     return next
   }
 
@@ -1000,22 +1085,17 @@ export class Chart {
    * commitLayout 只保留已有 id，不静默塞 linear，避免盖掉用户偏好。
    */
   private ensurePaneScaleTypesFromSettings(): void {
-    this.kernel.mainPriceAxis.actions.retainPanes(
-      new Set(this.paneRenderers.map((renderer) => renderer.getPane().id)),
+    this.kernel.axesState.actions.retainAxes(
+      new Set(
+        this.paneRenderers.flatMap((renderer) =>
+          renderer.getPane().axes.map((axis) => axis.axisId),
+        ),
+      ),
     )
     const setting = resolvePriceScaleTypeSetting(
       this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
     )
-    const seeded = this.buildScaleTypesFromSetting(setting)
-    const next = new Map(this.kernel.pane.getScalePreferences())
-    let changed = false
-    for (const renderer of this.paneRenderers) {
-      const pane = renderer.getPane()
-      if (next.has(pane.id)) continue
-      next.set(pane.id, seeded.get(pane.id) ?? ScaleType.Linear)
-      changed = true
-    }
-    if (changed) this.kernel.pane.actions.replacePaneScaleTypes(next)
+    this.kernel.pane.actions.replacePaneScaleTypes(this.buildScaleTypesFromSetting(setting))
     this.projectPaneScaleTypes()
   }
 
@@ -1024,14 +1104,8 @@ export class Chart {
    * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
-    if (isTimeShareDataView(this.kernel.mode.readonly.chartMode.peek())) {
-      return
-    }
     const next = this.buildScaleTypesFromSetting(setting)
-    // 比较只覆盖主图的生效刻度，移除后从 settings 重新派生用户偏好。
-    if (this.dataManager.getComparisonSpecs().length > 0) {
-      next.set(MAIN_PANE_ID, ScaleType.Percent)
-    }
+    next.set(PRICE_SERIES_AXIS_ID, setting)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.projectPaneScaleTypes()
   }
@@ -1134,6 +1208,19 @@ export class Chart {
     return this.paneRenderers.find((renderer) => renderer.getPane().id === paneId)
   }
 
+  /** 仅适用于单轴容器的便捷 API；多轴必须由调用方使用 axes 显式寻址。 */
+  private requirePaneAxisId(paneId: string): string {
+    const pane = this.paneRenderer(paneId)?.getPane()
+    if (!pane)
+      throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
+    if (pane.axes.length !== 1)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        `Pane ${paneId} 有 ${pane.axes.length} 条轴，必须明确指定 axisId`,
+      )
+    return pane.axes[0]!.axisId
+  }
+
   /**
    * 校验交互资格，以 HAND 保存范围为基准做纯计算，只写内核价格轴范围。
    * 品种切换后的首屏范围由新行情初始化，尚未保存时拒绝交互。
@@ -1147,10 +1234,11 @@ export class Chart {
   ): void {
     const pane = this.paneRenderer(paneId)?.getPane()
     if (!pane?.capabilities.supportsPriceTranslate) return
-    const state = this.kernel.mainPriceAxis.readonly.paneRanges.peek()[paneId]
+    const axisId = this.requirePaneAxisId(paneId)
+    const state = this.kernel.axesState.readonly.paneRanges.peek()[axisId]
     if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange === null) return
     const next = computeNext(pane.yAxis, state.handRange)
-    this.kernel.mainPriceAxis.actions.setHandRange(next, paneId)
+    this.kernel.axesState.actions.setHandRange(next, axisId)
     this.scheduleDraw()
   }
 
@@ -1165,50 +1253,24 @@ export class Chart {
 
   /** 清除纵轴变换，主图下一帧按当前可见 range 的 Max/Min 重新适配。 */
   resetPriceTransform(paneId: string): void {
-    if (!this.paneRenderer(paneId)) return
-    this.kernel.mainPriceAxis.actions.resetHandRange(paneId)
+    this.axes.resetRange(this.requirePaneAxisId(paneId))
     this.scheduleDraw()
   }
 
   /** 切换主图价格轴范围来源模式。 */
   setMainPriceAxisRangeMode(mode: PriceAxisRangeMode): void {
-    this.setPanePriceAxisRangeMode(MAIN_PANE_ID, mode)
+    this.kernel.settings.actions.patch({ mainPriceAxisRangeMode: mode })
+    this.axes.setRangeMode(PRICE_SERIES_AXIS_ID, mode)
   }
 
   /** 设置目标 Pane 的范围模式，关闭自动时保存该轴当前范围。 */
   setPanePriceAxisRangeMode(paneId: string, mode: PriceAxisRangeMode): void {
-    const renderer = this.paneRenderer(paneId)
-    if (!renderer) return
-    batch(() => {
-      if (paneId === MAIN_PANE_ID)
-        this.kernel.settings.actions.patch({ mainPriceAxisRangeMode: mode })
-      if (mode === PRICE_AXIS_RANGE_MODE.HAND) {
-        this.kernel.mainPriceAxis.actions.useHandRange(
-          renderer.getPane().yAxis.getDisplayRange(),
-          paneId,
-        )
-      } else {
-        this.kernel.mainPriceAxis.actions.useAutoRange(paneId)
-      }
-    })
-    this.scheduleDraw()
+    this.axes.setRangeMode(this.requirePaneAxisId(paneId), mode)
   }
 
   /** 只修改目标 Pane 刻度；百分比仅允许主图使用。 */
   setPanePriceAxisScaleType(paneId: string, type: ScaleType): void {
-    if (!this.paneRenderer(paneId) || (paneId !== MAIN_PANE_ID && type === ScaleType.Percent))
-      return
-    if (paneId === MAIN_PANE_ID) {
-      // Pane 状态是有效刻度的 SSOT；偏好相同也必须执行显式轴命令。
-      batch(() => {
-        this.kernel.settings.actions.patch({ mainRightAxisTypeSetting: type })
-        this.applyPriceScaleSettingToKernel(type)
-      })
-    } else {
-      this.kernel.pane.actions.setPaneScaleType(paneId, type)
-      this.projectPaneScaleTypes()
-    }
-    this.scheduleDraw()
+    this.axes.setScaleType(this.requirePaneAxisId(paneId), type)
   }
 
   /**
@@ -1377,7 +1439,7 @@ export class Chart {
   resetChart(): void {
     batch(() => {
       this.resetTimeAxis()
-      this.resetPriceTransform(MAIN_PANE_ID)
+      this.axes.resetRange(PRICE_SERIES_AXIS_ID)
     })
     this.unlockAxisWidth()
     this.checkVisibleRangeGapWhenIdle()

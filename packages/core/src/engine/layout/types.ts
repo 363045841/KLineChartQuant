@@ -65,6 +65,8 @@ export interface LayoutDocument {
   readonly panePriceAxisModes: LayoutPanePriceAxisModes
   /** 锁定模式的价格范围，与模式一起保存和恢复。 */
   readonly panePriceAxisRanges?: Readonly<Record<string, PriceRange>>
+  /** 对象轴显式配置的百分比基准，按 axisId 存档。 */
+  readonly axisBaseValues?: Readonly<Record<string, number>>
   /** 图表级设置白名单子集；省略表示沿用当前设置。 */
   readonly settings?: Partial<ChartSettings>
   /** 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图。 */

@@ -46,9 +46,16 @@ export class ResizeObserverMock {
  * jsdom 只提供可观测 Canvas2D，不伪造始终成功却无法绘制的 GPU 设备。
  */
 export function createCanvasGetContextMock(): typeof HTMLCanvasElement.prototype.getContext {
-  return vi.fn((type: string) => {
-    if (type === '2d') return createMockCanvasContext()
-    return null
+  const contexts = new WeakMap<HTMLCanvasElement, ReturnType<typeof createMockCanvasContext>>()
+  return vi.fn(function (this: HTMLCanvasElement, type: string) {
+    if (type !== '2d') return null
+    let context = contexts.get(this)
+    if (!context) {
+      // 与浏览器一致：同一 canvas 反复 getContext 返回同一个对象，尺寸也取真实画布。
+      context = createMockCanvasContext({ canvas: this })
+      contexts.set(this, context)
+    }
+    return context
   }) as unknown as typeof HTMLCanvasElement.prototype.getContext
 }
 

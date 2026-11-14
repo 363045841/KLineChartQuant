@@ -1,4 +1,6 @@
 // Pane 价格坐标映射：把价格范围投影到 pane 内 Y 坐标，并提供纯平移/缩放的 range 计算。
+
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { ScaleType } from '../../../../foundation/types/scaleType.js'
 
 import { fromLog, type LogFormula, logFormulaForPriceRange, toLog } from './logFormula.js'
@@ -38,13 +40,15 @@ export class PriceScale {
 
   /** 价格 → 百分比空间 */
   toPercent(price: number): number {
-    if (this.basePrice === null || this.basePrice === 0) return 0
+    if (this.basePrice === null || this.basePrice === 0)
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, '百分比变换缺少非零基准值')
     return ((price - this.basePrice) / this.basePrice) * 100
   }
 
   /** 百分比空间 → 价格 */
   fromPercent(pct: number): number {
-    if (this.basePrice === null || this.basePrice === 0) return 0
+    if (this.basePrice === null || this.basePrice === 0)
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, '百分比变换缺少非零基准值')
     return this.basePrice * (1 + pct / 100)
   }
 
@@ -58,7 +62,7 @@ export class PriceScale {
   }
 
   private isPercent(): boolean {
-    return this.scaleType === ScaleType.Percent && this.basePrice !== null && this.basePrice > 0
+    return this.scaleType === ScaleType.Percent
   }
 
   private isLog(): boolean {

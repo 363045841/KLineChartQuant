@@ -49,8 +49,10 @@ import { MAIN_PANE_ID, type PaneSpec } from '../pane/types.js'
 import {
   COMPARISON_LINE_LAYER_ID,
   COMPARISON_LINE_RENDERER_NAME,
+  PRICE_SERIES_AXIS_ID,
 } from '../renderers/rendererIds.js'
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
+import { type AxisStateModule, createAxisState } from './axisState.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
@@ -67,13 +69,12 @@ import {
   type InteractionDeps,
   type InteractionStateModule,
 } from './interactionState.js'
-import { createMainPriceAxisState, type MainPriceAxisStateModule } from './mainPriceAxisState.js'
 import { createOptionsState, type OptionsStateModule } from './optionsState.js'
 import { createPaneState, type PaneStateModule } from './paneState.js'
 import { createRendererState, type RendererStateModule } from './rendererState.js'
 import { createSettingsState, type SettingsStateModule } from './settingsState.js'
-import { createSystemObjectState, type SystemObjectStateModule } from './systemObjectState.js'
 import { StateKernel, type SubStateModule } from './stateKernel.js'
+import { createSystemObjectState, type SystemObjectStateModule } from './systemObjectState.js'
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState.js'
 import {
   createViewportState,
@@ -121,8 +122,7 @@ type RendererAdder = (
 function appendInstanceRenderers(
   instance: IndicatorInstanceSpec,
   dataView: ChartDataView,
-  main: ActiveRendererDescriptor[],
-  sub: ActiveRendererDescriptor[],
+  target: ActiveRendererDescriptor[],
   add: RendererAdder,
 ): void {
   const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
@@ -144,11 +144,7 @@ function appendInstanceRenderers(
     'renderer',
     instance.instanceId,
   )
-  if (instance.role === INDICATOR_ROLE.MAIN) {
-    add(main, resolved.getRendererName(options), layerId)
-    return
-  }
-  add(sub, resolved.getRendererName(options), layerId)
+  add(target, resolved.getRendererName(options), layerId)
 }
 
 /** 从已启用指标状态解析当前数据视图实际需要的 renderer layer。 */
@@ -156,8 +152,7 @@ function resolveIndicatorRenderers(
   dataView: ChartDataView,
   instances: ReadonlyArray<IndicatorInstanceSpec>,
 ): ReadonlyArray<ActiveRendererDescriptor> {
-  const mainRenderers: ActiveRendererDescriptor[] = []
-  const subRenderers: ActiveRendererDescriptor[] = []
+  const renderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
   const add = (target: ActiveRendererDescriptor[], name: string | null, layerId?: string): void => {
     if (!name) return
@@ -171,9 +166,9 @@ function resolveIndicatorRenderers(
   for (const instance of instances) {
     // 隐藏实例仍保留渲染对象（对象树据此重新打开），但不进入活跃层集合，可见性以实例状态为准。
     if (instance.hidden === true) continue
-    appendInstanceRenderers(instance, dataView, mainRenderers, subRenderers, add)
+    appendInstanceRenderers(instance, dataView, renderers, add)
   }
-  return [...mainRenderers, ...subRenderers]
+  return renderers
 }
 export interface ChartStateKernelDeps {
   initialOptions: {
@@ -212,7 +207,7 @@ export class ChartStateKernel extends StateKernel {
   /** 系统主题注入（非用户偏好）；用户偏好在 settings.theme */
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
-  readonly mainPriceAxis: MainPriceAxisStateModule
+  readonly axesState: AxisStateModule
   readonly mode: ChartModelModule
   readonly drawing: DrawingStateModule
   /** 系统对象（K 线等）的显隐与顺序；随布局文档存档。 */
@@ -309,10 +304,7 @@ export class ChartStateKernel extends StateKernel {
     {
       // 主图 role 是 PaneManager 分配新副图默认份额的依据，必须在进入 kernel 时补齐，
       // 不能只依赖调用方传入；与 restoreWorkspaces 的 role 归一化保持一致。
-      const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({
-        ...spec,
-        role: spec.role ?? (spec.id === MAIN_PANE_ID ? 'price' : 'indicator'),
-      }))
+      const initialPanes = deps.initialOptions.panes ?? []
       this.pane.actions.commitLayout(initialPanes)
     }
     this.paneManager = new PaneManager({
@@ -330,9 +322,10 @@ export class ChartStateKernel extends StateKernel {
       settings$: this.settings.readonly.settings,
       dataView$: this.mode.readonly.dataView,
     })
-    this.mainPriceAxis = createMainPriceAxisState(
-      this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-    )
+    this.axesState = createAxisState({
+      [PRICE_SERIES_AXIS_ID]:
+        this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+    })
     this.renderer = createRendererState(
       deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },
     )
@@ -362,6 +355,9 @@ export class ChartStateKernel extends StateKernel {
           name: COMPARISON_LINE_RENDERER_NAME,
           layerId: COMPARISON_LINE_LAYER_ID,
         })
+      }
+      if (this.footprint.readonly.enabled()) {
+        renderers.push({ name: 'footprint', layerId: makePluginLayerId('footprint') })
       }
       return Object.freeze([
         ...new Map(
@@ -411,8 +407,6 @@ export class ChartStateKernel extends StateKernel {
       theme: this.effectiveTheme$,
       // Settings
       settings: this.settings.readonly.settings,
-      mainPriceAxisRangeMode: this.mainPriceAxis.readonly.rangeMode,
-      mainPriceAxisHandRange: this.mainPriceAxis.readonly.handRange,
       rendererRuntime: this.renderer.readonly.runtime,
       // Mode
       chartMode: this.mode.readonly.chartMode,
@@ -451,7 +445,7 @@ export class ChartStateKernel extends StateKernel {
         const nextIdentity = next ? symbolSpecIdentityKey(next) : null
         batch(() => {
           // 手动价格范围属于本次品种展示，不缓存，也不随品种或数据源继承。
-          if (previousIdentity !== nextIdentity) this.mainPriceAxis.actions.resetAllHandRanges()
+          if (previousIdentity !== nextIdentity) this.axesState.actions.resetAllHandRanges()
           this.data.actions.setSymbols(snapshot)
         })
       },
@@ -477,7 +471,11 @@ export class ChartStateKernel extends StateKernel {
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
           this.indicator.actions.setActiveWorkspace(workspaceId)
-          this.pane.actions.setActiveWorkspace(workspaceId)
+          // 全局对象不随工作区切换身份，所属容器必须一起进入目标工作区。
+          this.pane.actions.setActiveWorkspace(
+            workspaceId,
+            new Set([this.systemObjects.readonly.pricePaneId.peek()]),
+          )
         })
       },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
@@ -520,8 +518,7 @@ export class ChartStateKernel extends StateKernel {
    * @returns 仍有指标以外的内容时为 true
    */
   hasPaneContent(paneId: string): boolean {
-    const systemState = this.systemObjects.readonly.state.peek()
-    if (Object.values(systemState.paneId).includes(paneId)) return true
+    if (this.systemObjects.readonly.pricePaneId.peek() === paneId) return true
     const spec = this.dataManager.readonly.currentSpec.peek()
     const symbolKey = spec ? symbolSpecIdentityKey(spec) : undefined
     return this.drawing.readonly.drawings
@@ -575,17 +572,22 @@ export class ChartStateKernel extends StateKernel {
       currentSymbol: this.dataManager.readonly.currentSpec.peek(),
       workspaces: this.snapshotViewWorkspaces(),
       panePriceAxisModes: Object.fromEntries(
-        Object.entries(this.mainPriceAxis.readonly.paneRanges.peek()).map(([id, state]) => [
+        Object.entries(this.axesState.readonly.paneRanges.peek()).map(([id, state]) => [
           id,
           state.rangeMode,
         ]),
       ),
       panePriceAxisRanges: Object.fromEntries(
-        Object.entries(this.mainPriceAxis.readonly.paneRanges.peek()).flatMap(([id, state]) =>
+        Object.entries(this.axesState.readonly.paneRanges.peek()).flatMap(([id, state]) =>
           state.handRange ? [[id, state.handRange]] : [],
         ),
       ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
+      axisBaseValues: Object.fromEntries(
+        Object.entries(this.axesState.readonly.paneRanges.peek()).flatMap(([axisId, state]) =>
+          state.baseValue === undefined ? [] : [[axisId, state.baseValue]],
+        ),
+      ),
       drawings: this.drawing.readonly.drawings.peek(),
       systemObjects: this.systemObjects.readonly.state.peek(),
       favoriteIndicatorIds: this.indicator.readonly.favoriteIndicatorIds.peek(),
@@ -604,7 +606,7 @@ export class ChartStateKernel extends StateKernel {
       version: LAYOUT_DOCUMENT_VERSION,
       currentSymbol: structuredClone(this.dataManager.readonly.currentSpec.peek()),
       workspaces: { kline: workspace(), timeshare: workspace() },
-      panePriceAxisModes: { [MAIN_PANE_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
+      panePriceAxisModes: { [PRICE_SERIES_AXIS_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
       drawings: [],
       favoriteIndicatorIds: [],
       settings: selectLayoutSettings(normalizeSettings()),
@@ -623,9 +625,10 @@ export class ChartStateKernel extends StateKernel {
       this.indicator.actions.restoreFavorites(document.favoriteIndicatorIds ?? [])
       this.pane.actions.restoreWorkspaces(document.workspaces)
       this.settings.actions.replace(selectLayoutSettings(document.settings ?? {}))
-      this.mainPriceAxis.actions.restoreModes(
+      this.axesState.actions.restoreModes(
         document.panePriceAxisModes,
         document.panePriceAxisRanges,
+        document.axisBaseValues,
       )
       this.drawing.actions.commitDocument(
         (document.drawings ?? []).map((drawing) => bindDrawingSymbol(drawing, drawingSymbol)),

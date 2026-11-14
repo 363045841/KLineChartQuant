@@ -49,7 +49,7 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
   const firstId = first.kernel.paneManager.actions.add(
     'tab-layout-indicator',
     { period: 20 },
-    { kind: 'main' },
+    { kind: 'pane', paneId: MAIN_PANE_ID },
   )!
   const secondId = second.kernel.paneManager.actions.add('tab-layout-indicator', { period: 14 })!
   const createdPaneId = first.kernel.paneManager.actions.addPane(MAIN_PANE_ID, 'below')!
@@ -142,7 +142,6 @@ it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未�
           {
             instanceId: 'pending-instance',
             indicatorId: 'pending-script',
-            role: 'sub',
             paneId: 'pending-pane',
             ordinal: 0,
             params: {},

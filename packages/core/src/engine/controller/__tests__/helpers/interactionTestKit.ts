@@ -102,10 +102,9 @@ export function createChartStub(args: {
       id: paneDef.id,
       top: paneDef.top,
       height: paneDef.height,
+      hasAxes: true,
+      axes: [{ axisId: paneDef.id }],
       capabilities: {
-        showPriceAxisTicks: true,
-        showCrosshairPriceLabel: true,
-        candleHitTest: paneDef.candleHitTest,
         supportsPriceTranslate: true,
       },
       yAxis: {
@@ -187,17 +186,31 @@ export function createChartStub(args: {
       },
     },
     getPaneRenderers: () => paneRenderers,
+    axes: {
+      bindingFor: () => {
+        const pane = paneDefs.find((item) => item.candleHitTest)
+        if (!pane) throw new Error('测试未声明行情对象所在窗口')
+        return { objectId: 'plugin:candle', paneId: pane.id, axisId: 'object:plugin:candle' }
+      },
+      get: () => paneRenderers[0]!.getPane().yAxis,
+      list: () => paneDefs.map((pane) => ({ objectId: pane.id, paneId: pane.id, axisId: pane.id })),
+      configuration: () => ({ scaleType: 'linear', rangeMode: 'auto' }),
+      hitTest: (paneId: string) => paneId,
+      scale: (axisId: string, deltaY: number, anchorY?: number) =>
+        chart.scalePrice(axisId, deltaY, anchorY),
+      translate: (axisId: string, deltaY: number) => chart.translatePrice(axisId, deltaY),
+    },
     getData: () => data,
     getRenderData: () => data,
     getInternalData: () => data,
     currentPeriod: 'daily',
     handlePinchZoom: () => undefined,
-    translatePrice: () => undefined,
+    translatePrice: (_axisId: string, _deltaY: number) => undefined,
     updateDrawingHover: () => undefined,
     clearDrawingHover: () => undefined,
     scheduleDraw: args.scheduleDraw ?? (() => undefined),
     panes: { beginBoundaryResize: () => null },
-    scalePrice: () => undefined,
+    scalePrice: (_axisId: string, _deltaY: number, _anchorY?: number) => undefined,
   }
 
   return chart

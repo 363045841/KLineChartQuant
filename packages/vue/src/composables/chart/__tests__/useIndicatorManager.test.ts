@@ -18,7 +18,6 @@ function createManager() {
       definitionId: 'A',
       label: 'A',
       name: 'A',
-      role: 'sub',
       paneId: 'merged',
       ordinal: 0,
       params: {},
@@ -28,7 +27,6 @@ function createManager() {
       definitionId: 'B',
       label: 'B',
       name: 'B',
-      role: 'sub',
       paneId: 'merged',
       ordinal: 1,
       params: {},
@@ -38,7 +36,6 @@ function createManager() {
       definitionId: 'A',
       label: 'A',
       name: 'A',
-      role: 'sub',
       paneId: 'other',
       ordinal: 0,
       params: {},
@@ -71,7 +68,7 @@ describe('useIndicatorManager pane and instance boundaries', () => {
         'b1',
       ])
       expect(fixture.manager.activeIndicators.value).toEqual(['A', 'B'])
-      expect(fixture.manager.subActiveIndicators.value).toEqual(['A', 'B'])
+      expect(fixture.manager.activeIndicators.value).toEqual(['A', 'B'])
       await fixture.manager.handleIndicatorToggle('A', false)
       expect(fixture.controller.removeIndicatorsByDefinition).toHaveBeenCalledExactlyOnceWith('A')
     } finally {

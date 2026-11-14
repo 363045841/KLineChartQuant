@@ -145,7 +145,7 @@ export function createTimeAxisLayer(options: TimeAxisLayerOptions): ContextLayer
   return {
     kind: 'context',
     id: makePluginLayerId('timeAxis'),
-    role: 'background',
+    role: 'content',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.SYSTEM_XAXIS,
     visible: true,

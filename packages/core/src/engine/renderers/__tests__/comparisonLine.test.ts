@@ -44,7 +44,7 @@ describe('比较视图绘制', () => {
         ],
       },
     })
-    createComparisonLineLayer().paint({ ...context, paneId: 'main', clear: false })
+    createComparisonLineLayer('main').paint({ ...context, paneId: 'main', clear: false })
     expect(ctx.moveTo).toHaveBeenCalledWith(0, 100)
     expect(ctx.lineTo).toHaveBeenCalledWith(300, 100)
     expect(ctx.moveTo).toHaveBeenCalledWith(20, 100)
@@ -60,7 +60,7 @@ describe('比较视图绘制', () => {
     (dataView) => {
       const ctx = createMockCanvasContext()
       const context = createMockRenderContext({ ctx, dataView })
-      createComparisonLineLayer().paint({ ...context, paneId: 'main', clear: false })
+      createComparisonLineLayer('main').paint({ ...context, paneId: 'main', clear: false })
       expect(ctx.save).not.toHaveBeenCalled()
     },
   )

@@ -1,171 +1,77 @@
-/** 价格轴静态刻度与动态价签的绘制测试。 */
+/** 统一轴入口回归：同窗格独立轴的刻度、十字线、装饰标签不会互相覆盖。 */
 import { describe, expect, it } from 'vitest'
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 import {
-  createYAxisOverlayRendererLayer,
-  createYAxisStaticRendererLayer,
-} from '@/core/renderers/yAxis'
-import {
-  createMockCanvasContext,
+  createMockPaneInfo,
   createMockRenderContext,
-  type MockPaneInfoOverrides,
-  type MockRenderContextOverrides,
-} from '@/engine/__tests__/helpers/renderTestKit'
-import type { RenderContext, YAxisTick } from '@/plugin'
+} from '@/engine/__tests__/helpers/renderTestKit.js'
+import { AxisWidthEstimator } from '@/engine/axisWidth/impl/axisWidthEstimator.js'
+import type { PaneAxisSpec } from '@/engine/pane/axisResolver.js'
+import { PriceScale } from '@/engine/scale/index.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
+import { registerAxisLabel } from '../impl/labels/index.js'
+import { axisFrameApi } from '../yAxis.js'
 
-/** yAxis 用例的 Pane 差异：价格区间 80~120、坐标恒等映射与价格偏移。 */
-function createPane(overrides: MockPaneInfoOverrides = {}): MockPaneInfoOverrides {
-  return {
-    height: 200,
-    yAxis: {
-      priceToY: (price) => price,
-      yToPrice: (y) => y,
-      getContentTop: () => 10,
-      getContentBottom: () => 190,
-      getContentHeight: () => 180,
-      getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 120, minPrice: 80 },
-    },
-    priceRange: { maxPrice: 120, minPrice: 80 },
-    ...overrides,
-  }
+/** 两条数值数量级不同的轴共用同一 Pane，轴身份与 Pane 名称无关。 */
+function fixture() {
+  const scales = [new PriceScale(), new PriceScale()]
+  scales.forEach((scale) => scale.setHeight(400))
+  scales[0]!.setRange({ minPrice: 90, maxPrice: 110 })
+  scales[1]!.setRange({ minPrice: 0, maxPrice: 1000 })
+  const specs: PaneAxisSpec[] = scales.map((_, index) => ({
+    objectId: `object-${index}`,
+    paneId: 'pane-7',
+    axisId: `axis-${index}`,
+    decimals: 2,
+    visible: true,
+    scaleType: ScaleType.Linear,
+  }))
+  const pane = createMockPaneInfo({
+    id: 'pane-7',
+    height: 400,
+    yAxis: scales[0],
+    axes: specs.map((spec, index) => ({ axisId: spec.axisId, yAxis: scales[index]! })),
+    axis: (id) => scales[specs.findIndex((spec) => spec.axisId === id)]!,
+  })
+  return { specs, context: createMockRenderContext({ pane }) }
 }
 
-const mockYAxisTicks: YAxisTick[] = [
-  { y: 10, value: 120 },
-  { y: 55, value: 110 },
-  { y: 100, value: 100 },
-  { y: 145, value: 90 },
-  { y: 190, value: 80 },
-]
-
-function createContext(overrides: MockRenderContextOverrides = {}): RenderContext {
-  const ctx = createMockCanvasContext()
-  return createMockRenderContext({
-    ctx,
-    yAxisCtx: ctx,
-    pane: createPane(),
-    data: [{ timestamp: 0, open: 101, high: 101, low: 101, close: 101 }],
-    range: { start: 0, end: 0 },
-    yAxisTicks: mockYAxisTicks,
-    ...overrides,
-  })
-}
-
-describe('yAxis renderer', () => {
-  it('draws ticks when pane capability showPriceAxisTicks is true', () => {
-    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
-    const context = createContext()
-
-    layer.paint(context)
-
-    const targetCtx = context.yAxisCtx!
-    expect(targetCtx.clearRect).toHaveBeenCalled()
-    expect(targetCtx.fillText).toHaveBeenCalled()
+describe('统一 Y 轴 API', () => {
+  it('每条轴独立生成刻度和十字线，业务标签保留在指定轴', () => {
+    const { specs, context } = fixture()
+    registerAxisLabel(
+      context,
+      'yRightOverlay',
+      { kind: 'tag', text: 'latest', pos: 30, bgColor: 'red', textColor: 'white' },
+      'axis-0',
+    )
+    axisFrameApi.collect(context, specs, { y: 200, activePaneId: 'pane-7' })
+    const first = context.axisLabels.forSurface('yRightOverlay', 'axis-0').labels
+    const second = context.axisLabels.forSurface('yRightOverlay', 'axis-1').labels
+    expect(first.map((label) => label.text)).toContain('latest')
+    expect(second.map((label) => label.text)).not.toContain('latest')
+    expect(first.some((label) => label.text === '100.00')).toBe(true)
+    expect(second.some((label) => label.text === '500.00')).toBe(true)
+    const estimator = new AxisWidthEstimator()
+    estimator.estimate({
+      labels: context.axisLabels,
+      axes: specs,
+      updateStatic: true,
+      updateOverlay: true,
+    })
+    const layout = estimator.getLayout(specs.map((spec) => spec.axisId))
+    expect(layout['axis-0']!.width).toBeGreaterThan(0)
+    expect(layout['axis-1']!.left).toBe(layout['axis-0']!.width)
   })
 
-  it('does not draw ticks when pane capability showPriceAxisTicks is false', () => {
-    const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
-    const context = createContext({
-      // 无主价格序列的 Pane 关掉刻度能力后不画刻度。
-      hasPriceSeries: false,
-      pane: createPane({
-        capabilities: {
-          showPriceAxisTicks: false,
-          showCrosshairPriceLabel: true,
-          candleHitTest: true,
-          supportsPriceTranslate: true,
-        },
-      }),
-    })
-
-    layer.paint(context)
-
-    const targetCtx = context.yAxisCtx!
-    expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
-  })
-
-  it.each(['timeshare', FIVE_DAY_TIME_SHARE_PERIOD])(
-    'draws %s price on left and percent on right',
-    (period) => {
-      const layer = createYAxisStaticRendererLayer({ axisWidth: 80 })
-      const context = createContext({
-        period,
-        leftAxisCtx: createMockCanvasContext(),
-        pane: createPane({
-          yAxis: {
-            ...createPane().yAxis,
-            getScaleType: () => 'percent',
-            toPercent: (price) => price - 100,
-          },
-        }),
-      })
-
-      layer.paint(context)
-
-      expect(context.yAxisCtx?.fillText).toHaveBeenCalledWith('+20.00%', expect.any(Number), 10)
-      expect(context.leftAxisCtx?.fillText).toHaveBeenCalledWith('120.00', expect.any(Number), 10)
-    },
-  )
-
-  it('paints registered decoration labels on the right overlay canvas', () => {
-    const layer = createYAxisOverlayRendererLayer({ axisWidth: 80 })
-    const context = createContext({
-      pane: createPane({ id: 'main' }),
-      yAxisOverlayCtx: createMockCanvasContext(),
-    })
-    context.axisLabels.forSurface('yRightOverlay', 'main').register({
-      kind: 'tag',
-      text: '101.00',
-      pos: 50,
-      bgColor: '#fff',
-      borderColor: '#f00',
-      textColor: '#000',
-    })
-
-    layer.paint(context)
-
-    // label 变体文本下移 1px：round(50) + 1 = 51
-    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalledWith('101.00', expect.any(Number), 51)
-  })
-
-  it('registers and paints the crosshair price tag for the active pane', () => {
-    const layer = createYAxisOverlayRendererLayer({
-      axisWidth: 80,
-      getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
-    })
-    const context = createContext({
-      pane: createPane({ id: 'main' }),
-      yAxisOverlayCtx: createMockCanvasContext(),
-    })
-
-    layer.paint(context)
-
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
-      expect.objectContaining({ kind: 'tag', text: '95.00', variant: 'crosshair' }),
-    ])
-    expect(context.yAxisOverlayCtx?.fillText).toHaveBeenCalled()
-  })
-
-  it('shows the timeshare crosshair as price on left and percent on right', () => {
-    const layer = createYAxisOverlayRendererLayer({
-      axisWidth: 80,
-      getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
-    })
-    const context = createContext({
-      period: 'timeshare',
-      pane: createPane({ id: 'main', yAxis: { toPercent: (price) => price - 100 } }),
-      yAxisOverlayCtx: createMockCanvasContext(),
-      leftAxisOverlayCtx: createMockCanvasContext(),
-    })
-
-    layer.paint(context)
-
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toEqual([
-      expect.objectContaining({ text: '-5.00%' }),
-    ])
-    expect(context.axisLabels.forSurface('yLeftOverlay', 'main').labels).toEqual([
-      expect.objectContaining({ text: '95.00' }),
-    ])
-    expect(context.leftAxisOverlayCtx?.fillText).toHaveBeenCalled()
+  it('指定不存在的目标轴时在 API 层抛异常', () => {
+    const { context } = fixture()
+    expect(() =>
+      registerAxisLabel(
+        context,
+        'yRightOverlay',
+        { kind: 'tick', text: 'bad', pos: 0, color: 'red' },
+        'missing',
+      ),
+    ).toThrow('missing')
   })
 })

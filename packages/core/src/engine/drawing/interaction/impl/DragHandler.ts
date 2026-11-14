@@ -3,6 +3,7 @@ import type { DrawingViewportPort } from '@/controllers/types.js'
 import { midpoint, type Point } from '@/foundation/geometry/index.js'
 import {
   anchorToScreen,
+  bindDrawingViewport,
   isScreenPoint,
   resolveDrawingPointer,
   screenToAnchor,
@@ -104,6 +105,7 @@ export class DragHandler {
     const drawing = state.drawings[0]
     const dragged = drawing?.anchors[state.target.index]
     if (!drawing || dragged === undefined || isSingleAxisAnchor(dragged)) return null
+    adapter = bindDrawingViewport(adapter, drawing)
     const draggedScreen = anchorToScreen(dragged, drawing.paneId, adapter)
     if (!isScreenPoint(draggedScreen)) return null
     return nearestPointAnchor(drawing, state.target.index, draggedScreen, adapter)
@@ -147,6 +149,7 @@ export class DragHandler {
     options?: ResolveDrawingPointerOptions,
   ): DrawingObject[] | null {
     if (!this.dragState) return null
+    adapter = bindDrawingViewport(adapter, this.dragState.drawings[0]!)
 
     const target = this.dragState.target
     const pointer = resolveDrawingPointer(e, container, adapter, {
@@ -203,7 +206,9 @@ export class DragHandler {
       pointer.x - state.startMouse.x,
     )
     const dy = pointer.y - state.startMouse.y
-    return state.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
+    return state.drawings.map((drawing) =>
+      this.moveDrawing(drawing, dx, dy, bindDrawingViewport(adapter, drawing)),
+    )
   }
 
   /**

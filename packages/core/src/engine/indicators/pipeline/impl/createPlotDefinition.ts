@@ -13,13 +13,11 @@ import {
 import {
   type IndicatorInputDef,
   type IndicatorMetadata,
-  type ScaleRendererFactory,
 } from '@/engine/indicators/indicatorMetadata.js'
 import { toPlotBar } from '@/engine/indicators/plotBars.js'
 import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
 import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
-import { createIndicatorScaleLayer } from '@/engine/renderers/Indicator/scale/indicator_scale.js'
 
 /** 提取参数展示声明；默认值与类型仍由 defaultParams 提供，两处不重复存默认值。 */
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
@@ -34,27 +32,6 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
     }
   }
   return defs
-}
-
-/** 非价格档位的指标级 format 覆盖坐标轴刻度；价格档位不提供覆盖，沿用自适应小数位。 */
-function createScaleRendererFactory(
-  format: Format,
-  label: string,
-  indicatorKey: string,
-): ScaleRendererFactory | undefined {
-  if (format === Format.Price) return undefined
-  return (options) =>
-    createIndicatorScaleLayer({
-      axisWidth: options.axisWidth,
-      paneId: options.paneId,
-      indicatorKey,
-      label,
-      decimals: 2,
-      getCrosshair: options.getCrosshair,
-      formatTickLabel: (value) => formatPlotValue(format, value),
-      formatCrosshairLabel: (value) => formatPlotValue(format, value),
-      axisId: options.axisId,
-    })
 }
 
 /**
@@ -81,11 +58,12 @@ export function createPlotIndicatorDefinition<P>(
     defaultPaneId: paneId,
     rendererFactory: plotRenderer(internalName),
     getRendererName: ({ paneId }) => `${internalName}_${paneId}`,
-    getScaleRendererName: ({ paneId }) => `${internalName}Scale_${paneId}`,
-    scale: { label: definition.name, decimals: 2 },
-    scaleRendererFactory: format
-      ? createScaleRendererFactory(format, definition.name, internalName)
-      : undefined,
+    scale: {
+      label: definition.name,
+      decimals: 2,
+      format:
+        format && format !== Format.Price ? (value) => formatPlotValue(format, value) : undefined,
+    },
     plots: { source: 'collection', series: [] },
     getTitleInfo: createPlotTitleInfo(definition.name, format),
     runtime: {

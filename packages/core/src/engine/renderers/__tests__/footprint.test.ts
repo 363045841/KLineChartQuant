@@ -35,7 +35,7 @@ describe('Footprint Layer', () => {
       minPrice: 100,
       maxPrice: 130,
     })
-    const layer = createFootprintLayer(() => state)
+    const layer = createFootprintLayer(() => state, 'main')
     expect(layer.role).toBe('overlay')
     paintTestLayer(
       layer,
@@ -71,7 +71,7 @@ describe('Footprint Layer', () => {
     ])
     const ctx = createMockCanvasContext()
     paintTestLayer(
-      createFootprintLayer(() => state),
+      createFootprintLayer(() => state, 'main'),
       createMockRenderContext({
         ctx,
         overlayCtx: ctx,
@@ -108,7 +108,7 @@ describe('Footprint Layer', () => {
       ])
       const ctx = createMockCanvasContext()
       paintTestLayer(
-        createFootprintLayer(() => state),
+        createFootprintLayer(() => state, 'main'),
         createMockRenderContext({
           ctx,
           overlayCtx: ctx,
@@ -147,7 +147,7 @@ describe('Footprint Layer', () => {
     const ctx = createMockCanvasContext()
     vi.mocked(ctx.measureText).mockReturnValue({ ...ctx.measureText(''), width: 8 })
     paintTestLayer(
-      createFootprintLayer(() => state),
+      createFootprintLayer(() => state, 'main'),
       createMockRenderContext({
         ctx,
         overlayCtx: ctx,

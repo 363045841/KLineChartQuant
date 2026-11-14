@@ -35,12 +35,7 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type {
-  InstanceMoveTarget,
-  PaneGeometry,
-  PanePatch,
-  PaneSpec,
-} from '../engine/pane/types.js'
+import type { InstanceMoveTarget, PaneGeometry, PanePatch, PaneSpec } from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -291,6 +286,7 @@ export interface DrawingViewportPort {
   /** 当前 Pane 的公开双向坐标服务；帧尚未就绪时返回 null。 */
   getCoordinates(
     paneId: string,
+    axisId?: string,
   ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
@@ -509,7 +505,7 @@ export interface ChartController
     ReadonlyMap<string, import('../foundation/types/scaleType.js').ScaleType>
   >
   readonly panePriceAxisRanges: ReadonlySignal<
-    Readonly<Record<string, import('../engine/state/mainPriceAxisState.js').PanePriceAxisRange>>
+    Readonly<Record<string, import('../engine/state/axisState.js').PanePriceAxisRange>>
   >
   /** 设置目标 Pane 的轴状态；百分比仅支持主图。 */
   setPanePriceAxisScaleType(
@@ -542,6 +538,7 @@ export interface ChartController
   readonly legend: import('../engine/legend/types.js').LegendApi
   /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
   readonly objects: import('../engine/objects/index.js').ObjectTree
+  readonly axes: import('../engine/pane/axisTypes.js').ObjectAxesApi
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
   /** 当前对比品种集合（唯一业务状态）。 */
@@ -684,7 +681,6 @@ export interface ChartController
   // ---- Settings ----
   updateSettingsFacade(settings: Record<string, unknown>): void
   /** 按当前可见 range 的 Max/Min 适配主图纵轴，保留轴类型与范围模式。 */
-  resetMainPriceAxis(): void
   updateOptionsFacade(options: Record<string, unknown>): void
 
   /** tear down DOM + listeners; idempotent */

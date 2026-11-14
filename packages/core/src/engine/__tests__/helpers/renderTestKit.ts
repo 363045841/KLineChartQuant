@@ -167,9 +167,6 @@ export function createMockCanvasContext(options: MockCanvasContextOptions = {}):
 
 /** 默认 PaneInfo 能力开关（price 角色）。 */
 const DEFAULT_PANE_CAPABILITIES: PaneInfo['capabilities'] = {
-  showPriceAxisTicks: true,
-  showCrosshairPriceLabel: true,
-  candleHitTest: true,
   supportsPriceTranslate: true,
 }
 
@@ -190,24 +187,33 @@ const DEFAULT_PANE_Y_AXIS: PaneInfo['yAxis'] = {
 
 /** PaneInfo 夹具入参：yAxis 只声明差异项。 */
 export interface MockPaneInfoOverrides extends Partial<Omit<PaneInfo, 'yAxis'>> {
+  /** 明确声明测试坐标映射的轴身份；未声明的轴查询必须失败。 */
+  axisIds?: ReadonlyArray<string>
   yAxis?: Partial<PaneInfo['yAxis']>
 }
 
 /** 构造完整 PaneInfo，只覆盖调用方声明的字段。 */
 export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneInfo {
-  const { yAxis, axes, axis, ...rest } = overrides
+  const { yAxis, axes, axis, axisIds, ...rest } = overrides
   const resolvedAxis = { ...DEFAULT_PANE_Y_AXIS, ...yAxis }
+  const declaredAxes =
+    axes ?? (axisIds ?? ['main']).map((axisId) => ({ axisId, yAxis: resolvedAxis }))
   return {
     id: 'main',
-    role: 'price',
     capabilities: { ...DEFAULT_PANE_CAPABILITIES },
     top: 0,
     height: 200,
     priceRange: { minPrice: 0, maxPrice: 200 },
     ...rest,
     yAxis: resolvedAxis,
-    axes: axes ?? [{ axisId: 'main', yAxis: resolvedAxis }],
-    axis: axis ?? (() => resolvedAxis),
+    axes: declaredAxes,
+    axis:
+      axis ??
+      ((axisId) => {
+        const found = declaredAxes.find((entry) => entry.axisId === axisId)
+        if (!found) throw new Error(`测试未声明目标轴：${axisId}`)
+        return found.yAxis
+      }),
   } satisfies PaneInfo
 }
 
@@ -240,7 +246,7 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     dataView: ChartDataViewId.KLine,
     pane: paneInfo,
     // 价格序列按 Pane 内容判定：夹具里只有价格 Pane 承载主序列。
-    hasPriceSeries: paneInfo.role === 'price',
+    hasPriceSeries: true,
     range: { start: 0, end: count },
     scrollLeft,
     slotGrid: grid,

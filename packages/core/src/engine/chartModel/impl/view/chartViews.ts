@@ -97,13 +97,13 @@ export const CHART_VIEW_DEFINITIONS: Readonly<Record<ChartDataView, ChartViewDef
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: FIXED_CAPABILITIES,
-      systemLayers: Object.freeze(['timeShare']),
+      systemLayers: Object.freeze([CANDLE_RENDERER_NAME]),
     }),
     [ChartDataViewId.FiveDayTimeShare]: Object.freeze({
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: SESSION_CAPABILITIES,
-      systemLayers: Object.freeze(['fiveDayTimeShare']),
+      systemLayers: Object.freeze([CANDLE_RENDERER_NAME]),
     }),
   })
 

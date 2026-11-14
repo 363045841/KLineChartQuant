@@ -8,14 +8,11 @@ import {
 import type { LayoutWorkspaces } from '../layout/index.js'
 import { deepFreezeSnapshot } from './immutable.js'
 
-import { INDICATOR_ROLE, type IndicatorInstanceRole } from './indicatorRole.js'
-
 /** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
 export interface IndicatorInstanceConfig {
   readonly instanceId: string
   readonly indicatorId: string
   readonly paneId: string
-  readonly role: IndicatorInstanceRole
   readonly ordinal: number
   readonly hidden?: boolean
   readonly params: Readonly<Record<string, unknown>>
@@ -27,7 +24,6 @@ export interface IndicatorInstanceSpec {
   readonly instanceId: string
   readonly indicatorId: string
   readonly paneId: string
-  readonly role: IndicatorInstanceRole
   /** 同一 Pane 内的显示序号，不参与任何身份或能力判断。 */
   readonly ordinal: number
   /** 隐藏只影响图表绘制，图例仍保留并置灰；不参与计算身份。 */
@@ -64,7 +60,6 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceConfi
     instanceId: entry.instanceId,
     indicatorId: entry.indicatorId,
     paneId: entry.paneId,
-    role: entry.role,
     ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
     ...(entry.hidden ? { hidden: true as const } : {}),
@@ -144,19 +139,16 @@ export function createIndicatorState() {
   /** 从统一实例集合派生副图读取接口。 */
   const subPanes = computed<ReadonlyArray<SubPaneSpec>>(() =>
     Object.freeze(
-      readonly
-        .instances()
-        .filter((instance) => instance.role === INDICATOR_ROLE.SUB)
-        .map((instance) =>
-          Object.freeze({
-            instanceId: instance.instanceId,
-            paneId: instance.paneId,
-            indicatorId: instance.indicatorId,
-            ordinal: instance.ordinal,
-            ...(instance.hidden ? { hidden: true as const } : {}),
-            params: instance.params,
-          }),
-        ),
+      readonly.instances().map((instance) =>
+        Object.freeze({
+          instanceId: instance.instanceId,
+          paneId: instance.paneId,
+          indicatorId: instance.indicatorId,
+          ordinal: instance.ordinal,
+          ...(instance.hidden ? { hidden: true as const } : {}),
+          params: instance.params,
+        }),
+      ),
     ),
   )
 
@@ -235,19 +227,14 @@ export function createIndicatorState() {
         return true
       },
       /** 迁移实例归属；角色随 pane 派生，不允许只改 role 不改 paneId。 */
-      moveInstance(
-        instanceId: string,
-        paneId: string,
-        role: IndicatorInstanceRole,
-        ordinal: number,
-      ): boolean {
+      moveInstance(instanceId: string, paneId: string, ordinal: number): boolean {
         const previous = currentInstances()
         const current = findInstance(previous, instanceId)
         if (!current) return false
         write(
           previous.map((instance) =>
             instance.instanceId === instanceId
-              ? snapshotInstance({ ...current, paneId, role, ordinal })
+              ? snapshotInstance({ ...current, paneId, ordinal })
               : instance,
           ),
         )

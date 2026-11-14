@@ -280,6 +280,8 @@ export interface LegendManagerDependencies {
   getOptions: () => { legend?: LegendOptions }
   /** 主图是否已有品种；空图不展示收起入口。 */
   hasPrimarySymbol: () => boolean
+  /** 行情所在容器；图例不从 Pane 名称或角色推断业务归属。 */
+  getPricePaneId: () => string
   /** 判断指标定义是否来自脚本，决定是否展示代码编辑入口。 */
   isScriptIndicator?: (definitionId: string) => boolean
   requestRender: () => void

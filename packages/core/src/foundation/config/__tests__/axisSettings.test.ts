@@ -2,11 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '@/controllers/types'
 
-import {
-  buildPaneScaleTypesFromSetting,
-  resolveEffectiveAxisDisplay,
-  resolvePriceScaleTypeSetting,
-} from '../axisSettings'
+import { resolveEffectiveAxisDisplay, resolvePriceScaleTypeSetting } from '../axisSettings'
 
 describe('axisSettings', () => {
   it.each(['timeshare', FIVE_DAY_TIME_SHARE_PERIOD])(
@@ -47,18 +43,6 @@ describe('axisSettings', () => {
         rightTypeSetting: 'none',
       }),
     ).toBe('none')
-  })
-
-  it.each(['percent', 'log'] as const)('maps %s setting only onto price panes', (setting) => {
-    const types = buildPaneScaleTypesFromSetting(
-      [
-        { id: 'main', role: 'price' },
-        { id: 'MACD_0', role: 'indicator' },
-      ],
-      setting,
-    )
-    expect(types.get('main')).toBe(setting)
-    expect(types.get('MACD_0')).toBe('linear')
   })
 
   it('defaults unknown scale values to linear', () => {

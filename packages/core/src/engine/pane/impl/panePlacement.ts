@@ -31,7 +31,12 @@ export function runInNewPane(
 ): boolean {
   const paneId = port.addPane(anchorPaneId, placement)
   if (paneId === null) return false
-  if (run(paneId)) return true
+  try {
+    if (run(paneId)) return true
+  } catch (error) {
+    port.removePane(paneId)
+    throw error
+  }
   port.removePane(paneId)
   return false
 }

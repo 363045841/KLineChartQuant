@@ -19,7 +19,7 @@ import {
   type SnapIndicatorValue,
   type SnapLine,
 } from '@/engine/drawing/index.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { CANDLE_LAYER_ID } from '@/engine/renderers/rendererIds.js'
 import { computed, createSignal } from '@/foundation/reactivity/index.js'
 import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import type {
@@ -263,8 +263,15 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   // ---- DrawingChartAdapter methods ----
 
   /** 对外暴露绘制和交互共同使用的当前帧坐标 Interface。 */
-  function getCoordinates(paneId: string) {
-    return isDisposed() ? null : chart.getCoordinates(paneId)
+  function getCoordinates(paneId: string, axisId?: string) {
+    return isDisposed() ? null : chart.getCoordinates(paneId, axisId)
+  }
+
+  /** 时间坐标来自行情对象当前绑定，初始 Pane 名称不参与寻址。 */
+  function getSeriesCoordinates() {
+    if (isDisposed()) return null
+    const binding = chart.axes.bindingFor(CANDLE_LAYER_ID)
+    return getCoordinates(binding.paneId, binding.axisId)
   }
 
   /** 读取全部图元列表（plugin 级 DrawingObject），不做标的作用域过滤。 */
@@ -327,18 +334,18 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** screen-x → 逻辑 bar 索引。 */
   function getLogicalIndexAtX(mouseX: number): number | null {
-    return getCoordinates(MAIN_PANE_ID)?.xToSlot(mouseX) ?? null
+    return getSeriesCoordinates()?.xToSlot(mouseX) ?? null
   }
 
   /** 逻辑 bar 索引 → 当前帧 screen x。 */
   function getXAtLogicalIndex(index: number): number | null {
-    return getCoordinates(MAIN_PANE_ID)?.logicalToX(index) ?? null
+    return getSeriesCoordinates()?.logicalToX(index) ?? null
   }
 
   /** 逻辑索引 → 时间戳（ms）。 */
   function getTimestampAtLogicalIndex(index: number): number | null {
     if (isDisposed()) return null
-    return getCoordinates(MAIN_PANE_ID)?.logicalToTime(index) ?? null
+    return getSeriesCoordinates()?.logicalToTime(index) ?? null
   }
 
   /** 当前绘制数据点，仅用于绘图坐标解析。 */
@@ -349,13 +356,13 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   /** 逻辑索引 → 当前绘制数据点的时间戳（ms）。 */
   function getDrawingTimestampAtLogicalIndex(index: number): number | null {
-    return getCoordinates(MAIN_PANE_ID)?.slotToTime(index) ?? null
+    return getSeriesCoordinates()?.slotToTime(index) ?? null
   }
 
   /** unix 时间戳（ms）→ 当前逻辑索引。 */
   function getLogicalIndexAtTimestamp(timestamp: number): number | null {
     if (isDisposed()) return null
-    return getCoordinates(MAIN_PANE_ID)?.timeToLogical(timestamp) ?? null
+    return getSeriesCoordinates()?.timeToLogical(timestamp) ?? null
   }
 
   /** 读取当前绘图所属的数据工作区。 */

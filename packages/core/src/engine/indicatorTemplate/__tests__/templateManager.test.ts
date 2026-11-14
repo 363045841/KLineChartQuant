@@ -70,7 +70,6 @@ function addSubIndicator(
     instanceId: `instance-${indicatorId}`,
     indicatorId,
     paneId,
-    role: 'sub',
     params,
   })
   return paneId
@@ -232,7 +231,6 @@ it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新'
       instanceId: 'macd-1',
       indicatorId: 'MACD',
       paneId: 'pane-macd-1',
-      role: 'sub',
       params: {},
     })
     expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 1 }])
@@ -241,7 +239,6 @@ it('当前指标摘要与模板摘要共用汇总规则并随指标状态更新'
       instanceId: 'macd-2',
       indicatorId: 'MACD',
       paneId: 'pane-macd-2',
-      role: 'sub',
       params: {},
     })
     expect(own.manager.currentIndicators.peek()).toEqual([{ id: 'MACD', label: 'MACD', count: 2 }])
@@ -306,7 +303,6 @@ it('按 indicatorIds 过滤模板实例并移除无引用副图', () => {
           instanceId: 'ma-1',
           indicatorId: 'MA',
           paneId: 'main',
-          role: 'main',
           ordinal: 0,
           params: {},
         },
@@ -314,7 +310,6 @@ it('按 indicatorIds 过滤模板实例并移除无引用副图', () => {
           instanceId: 'macd-1',
           indicatorId: 'MACD',
           paneId: 'pane-MACD',
-          role: 'sub',
           ordinal: 0,
           params: {},
         },

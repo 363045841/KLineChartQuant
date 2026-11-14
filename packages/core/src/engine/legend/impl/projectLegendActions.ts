@@ -1,7 +1,7 @@
 /** 按图例领域能力生成按钮集合与状态，DOM 不决定业务能力。 */
 
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
-import { MAIN_PANE_ID, type PaneSpec } from '@/engine/pane/types.js'
+import type { PaneSpec } from '@/engine/pane/types.js'
 import type { LegendActionButton, LegendEntry } from '../types.js'
 
 /**
@@ -37,20 +37,18 @@ export function projectLegendActions(
   }
   if (comparison) return [visibility, close]
   return [
-    ...(entry.paneId === MAIN_PANE_ID
-      ? []
-      : [
-          {
-            action: 'move-pane-up' as const,
-            label: '上移副图',
-            enabled: resolvePaneMoveIndex(panes, entry.paneId, 'up') !== null,
-          },
-          {
-            action: 'move-pane-down' as const,
-            label: '下移副图',
-            enabled: resolvePaneMoveIndex(panes, entry.paneId, 'down') !== null,
-          },
-        ]),
+    ...[
+      {
+        action: 'move-pane-up' as const,
+        label: '上移副图',
+        enabled: resolvePaneMoveIndex(panes, entry.paneId, 'up') !== null,
+      },
+      {
+        action: 'move-pane-down' as const,
+        label: '下移副图',
+        enabled: resolvePaneMoveIndex(panes, entry.paneId, 'down') !== null,
+      },
+    ],
     ...projectMoveButtons(entry, paneInstances.get(entry.paneId) ?? []),
     ...(isScriptIndicator(entry.definitionId)
       ? [{ action: 'edit-code' as const, label: '编辑脚本', enabled: true }]

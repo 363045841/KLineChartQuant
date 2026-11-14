@@ -61,8 +61,7 @@ export interface IndicatorInstance {
   definitionId: string
   label: string
   name: string
-  role: IndicatorRole
-  paneId?: string
+  paneId: string
   ordinal: number
   params: Record<string, unknown>
 }

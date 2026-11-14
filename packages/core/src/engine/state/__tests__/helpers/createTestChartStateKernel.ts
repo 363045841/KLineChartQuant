@@ -21,7 +21,7 @@ const TEST_KERNEL_OPTIONS = {
   rightAxisWidth: 0,
   leftAxisWidth: 0,
   yPaddingPx: 20,
-  panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
+  panes: [{ id: 'main', ratio: 1, visible: true }],
 } satisfies ChartStateKernelDeps['initialOptions']
 
 /** 测试 Kernel 依赖覆盖项；`options` 与默认布局浅合并。 */

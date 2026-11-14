@@ -5,18 +5,17 @@ import { createIndicatorState } from '../indicatorState.js'
 /** 建一个含两个 pane 的实例集合：main 三个、rsi 一个。 */
 function createStateWithInstances() {
   const state = createIndicatorState()
-  const add = (instanceId: string, paneId: string, role: 'main' | 'sub') =>
+  const add = (instanceId: string, paneId: string) =>
     state.actions.addInstance({
       instanceId,
       indicatorId: 'ma',
       paneId,
-      role,
       params: {},
     })
-  add('main_a', 'main', INDICATOR_ROLE.MAIN)
-  add('main_b', 'main', INDICATOR_ROLE.MAIN)
-  add('main_c', 'main', INDICATOR_ROLE.MAIN)
-  add('rsi_a', 'rsi', INDICATOR_ROLE.SUB)
+  add('main_a', 'main')
+  add('main_b', 'main')
+  add('main_c', 'main')
+  add('rsi_a', 'rsi')
   return state
 }
 

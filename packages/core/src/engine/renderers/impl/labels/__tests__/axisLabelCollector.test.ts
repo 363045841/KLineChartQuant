@@ -47,10 +47,10 @@ describe('registerAxisLabel', () => {
   it('writes Y labels to the current pane surface', () => {
     const context = createMockRenderContext({ pane: { id: 'sub' } })
 
-    registerAxisLabel(context, 'yRightStatic', tick('5'))
+    registerAxisLabel(context, 'yRightStatic', tick('5'), 'main')
 
-    expect(context.axisLabels.forSurface('yRightStatic', 'sub').labels).toEqual([tick('5')])
-    expect(context.axisLabels.forSurface('yRightStatic', 'main').labels).toEqual([])
+    expect(context.axisLabels.forSurface('yRightStatic', 'main').labels).toEqual([tick('5')])
+    expect(context.axisLabels.forSurface('yRightStatic', 'sub').labels).toEqual([])
   })
 
   it('honors an explicit paneId override', () => {

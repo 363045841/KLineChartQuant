@@ -13,7 +13,6 @@ import {
   resolveCanonicalIndicatorId,
 } from '@/engine/indicators/pipeline/index.js'
 import type { InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
@@ -273,12 +272,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.panes.movePane(paneId, targetIndex)
   }
 
-  /** 恢复主图价格轴的纵轴缩放和偏移。 */
-  function resetMainPriceAxis(): void {
-    if (isDisposed()) return
-    chart.resetPriceTransform(MAIN_PANE_ID)
-  }
-
   /** 更新设置（高层 API）。 */
   function updateSettingsFacade(settings: Record<string, unknown>): void {
     if (isDisposed()) return
@@ -299,7 +292,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     /** 以完整 paneId 顺序一次提交重排。 */
     reorderPanes: (paneIds: ReadonlyArray<string>): boolean =>
       !isDisposed() && chart.panes.reorderPanes(paneIds),
-    resetMainPriceAxis,
     /** 逐 Pane 轴命令与 UI 共用核心入口。 */
     setPanePriceAxisScaleType: (
       paneId: string,

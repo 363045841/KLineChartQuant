@@ -16,6 +16,8 @@ import type {
   PaneLayoutInfo,
 } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
+import type { RenderContext } from '@/foundation/plugin/types.js'
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
 import type { DrawingToolId } from '../../interaction/impl/toolConfig'
@@ -28,6 +30,30 @@ import type {
   SnapLine,
 } from '../../magnet/types'
 import type { DrawingObject } from '../../types'
+
+/** 几何夹具显式声明对象坐标；不执行投影，也不从被测 Store 自动补齐绑定。 */
+export function createDrawingFrame(
+  context: RenderContext,
+  drawings: ReadonlyArray<Pick<DrawingObject, 'id' | 'ownerId'>>,
+): RenderContext {
+  const axes = [
+    ...new Set(
+      drawings.map((drawing) =>
+        objectAxisId(drawing.ownerId === undefined ? drawing.id : drawing.ownerId),
+      ),
+    ),
+  ].map((axisId) => ({ axisId, yAxis: context.pane.yAxis }))
+  const pane = {
+    ...context.pane,
+    axes,
+    axis: (axisId: string) => {
+      const axis = axes.find((item) => item.axisId === axisId)
+      if (!axis) throw new Error(`测试没有安装对象轴 ${axisId}`)
+      return axis.yAxis
+    },
+  }
+  return { ...context, pane }
+}
 
 /** 测试图元默认描边色。 */
 const TEST_STROKE = '#2962ff'

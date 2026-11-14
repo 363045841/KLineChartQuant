@@ -5,8 +5,14 @@ import type { DrawingPrimitive, RenderContext } from '@/foundation/plugin/index.
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
-import type { Layer, LayerPaint, LayerRole, PrimitiveDrawContext } from '@/rendering/scene/types.js'
-import type { RenderObject, RenderObjectDescriptor } from '@/rendering/scene/types.js'
+import type {
+  Layer,
+  LayerPaint,
+  LayerRole,
+  PrimitiveDrawContext,
+  RenderObject,
+  RenderObjectDescriptor,
+} from '@/rendering/scene/types.js'
 
 import type { PrimitiveRendererSet } from '../types.js'
 import { createDrawingPrimitiveBuilder } from './primitiveRendererSet.js'
@@ -149,9 +155,7 @@ export function createDrawingObjectLayer(
  *
  * 投影由 ChartRenderer 在 paint 前生成。
  */
-export function createDrawingOverlayLayer(
-  options: DrawingLayerOptions = {},
-): Layer<RenderContext> {
+export function createDrawingOverlayLayer(options: DrawingLayerOptions = {}): Layer<RenderContext> {
   return createProjectionLayer('drawingRenderer', 'drawing', 55, 'drawingProjection', options)
 }
 
@@ -164,7 +168,7 @@ export function createIndicatorDrawingLayer(
 ): Layer<RenderContext> {
   return createProjectionLayer(
     'indicatorDrawingRenderer',
-    'indicator',
+    'content',
     54,
     'indicatorDrawingProjection',
     options,

@@ -37,7 +37,11 @@ function niceStep(rough: number, pixelsPerUnit: number): number {
 }
 
 /** 返回 pane 内的刻度坐标和原始价格；标签文本由轴渲染器格式化。 */
-export function createYAxisTicks(pane: PaneInfo, display: EffectiveAxisDisplayInput): YAxisTick[] {
+export function createYAxisTicks(
+  pane: PaneInfo,
+  display: EffectiveAxisDisplayInput,
+  usePercentDisplay: boolean,
+): YAxisTick[] {
   const { yAxis } = pane
   const top = yAxis.getContentTop()
   const bottom = yAxis.getContentBottom()
@@ -47,7 +51,7 @@ export function createYAxisTicks(pane: PaneInfo, display: EffectiveAxisDisplayIn
   const right = resolveEffectiveAxisDisplay('right', display)
   const left = resolveEffectiveAxisDisplay('left', display)
   const percent =
-    pane.role === 'price' && (yAxis.getBasePrice() ?? 0) > 0 && usesPercentAxis(right, left)
+    usePercentDisplay && (yAxis.getBasePrice() ?? 0) > 0 && usesPercentAxis(right, left)
   const log = !percent && scaleType === ScaleType.Log && topPrice > 0 && bottomPrice > 0
   const toAxis = (price: number) =>
     percent ? yAxis.toPercent(price) : log ? Math.log10(price) : price

@@ -11,6 +11,7 @@ import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 import type { Chart } from '../chart/index.js'
 import { UpdateLevel } from '../pane/index.js'
 import type { PaneBoundaryResizeSession } from '../pane/types.js'
+import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import type { ScaleXSnapshot } from '../scale/index.js'
 import type {
   CrosshairLock,
@@ -64,6 +65,7 @@ export class InteractionController {
   /** maxScrollLeft at drag start, cached to prevent jumps when scrollWidth grows mid-drag */
   private _cachedMaxScrollLeft = -1
   private activePaneIdOnDrag: string | null = null
+  private activeAxisIdOnDrag: string | null = null
   private separatorResizeSession: PaneBoundaryResizeSession | null = null
   /** 当前由本控制器拥有的拖拽指针。手势结束不能依赖元素边界事件。 */
   private activePointerId: number | null = null
@@ -472,8 +474,8 @@ export class InteractionController {
 
       if (this._state.readonly.dragMode.peek() === 'scale-price') {
         const deltaY = e.clientY - this.dragStartY
-        if (deltaY !== 0 && this.activePaneIdOnDrag) {
-          this.chart.scalePrice(this.activePaneIdOnDrag, deltaY)
+        if (deltaY !== 0 && this.activeAxisIdOnDrag) {
+          this.chart.axes.scale(this.activeAxisIdOnDrag, deltaY)
           this.dragStartY = e.clientY
         }
         return
@@ -519,13 +521,15 @@ export class InteractionController {
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
         if (deltaY !== 0 && this.activePaneIdOnDrag) {
-          if (
-            this.chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[this.activePaneIdOnDrag]
-              ?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND
-          ) {
-            // 手动范围允许平移当前 Pane，其他 Pane 的纵轴不受影响；隐藏十字线但保留取值索引。
+          for (const binding of this.chart.axes
+            .list()
+            .filter((axis) => axis.paneId === this.activePaneIdOnDrag)) {
+            if (
+              this.chart.axes.configuration(binding.axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND
+            )
+              continue
             this.clearHover(true)
-            this.chart.translatePrice(this.activePaneIdOnDrag, deltaY)
+            this.chart.axes.translate(binding.axisId, deltaY)
           }
         }
       }
@@ -619,16 +623,19 @@ export class InteractionController {
   /** 将价格轴滚轮增量归一到像素，以鼠标所在 pane 价位为锚点缩放。 */
   onRightAxisWheel(e: WheelEvent): void {
     if (this.isPointerDown() || !Number.isFinite(e.deltaY) || e.deltaY === 0) return
-    const { mouseY } = this.getRightAxisPointerLocation(e.clientX, e.clientY)
+    const { mouseX, mouseY } = this.getRightAxisPointerLocation(e.clientX, e.clientY)
     const pane = this.getPaneByY(mouseY)
     if (!pane?.capabilities.supportsPriceTranslate) return
+    const axisId = this.chart.axes.hitTest(pane.id, mouseX)
+    if (axisId === null) return
+    if (this.chart.axes.configuration(axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND) return
     const pixelsPerLine = 16
     const maxWheelPixels = 100
     const wheelSensitivity = 0.1
     const unit = e.deltaMode === 1 ? pixelsPerLine : e.deltaMode === 2 ? pane.height : 1
     const delta = Math.max(-maxWheelPixels, Math.min(maxWheelPixels, e.deltaY * unit))
     e.preventDefault()
-    this.chart.scalePrice(pane.id, delta * wheelSensitivity, mouseY - pane.top)
+    this.chart.axes.scale(axisId, delta * wheelSensitivity, mouseY - pane.top)
   }
 
   onRightAxisPointerDown(e: PointerEvent) {
@@ -636,7 +643,7 @@ export class InteractionController {
     this.isTouchSession = e.pointerType === 'touch'
     const location = this.getRightAxisPointerLocation(e.clientX, e.clientY)
     if (!location) return
-    if (this.beginScalePriceDrag(e.clientY, location.mouseY)) {
+    if (this.beginScalePriceDrag(e.clientY, location.mouseY, location.mouseX)) {
       this.capturePointer(e, this.chart.getDom().rightAxisLayer)
       this.chart.scheduleDraw()
     }
@@ -655,8 +662,8 @@ export class InteractionController {
       this._state.readonly.dragMode.peek() === 'scale-price'
     ) {
       const deltaY = e.clientY - this.dragStartY
-      if (deltaY !== 0 && this.activePaneIdOnDrag) {
-        this.chart.scalePrice(this.activePaneIdOnDrag, deltaY)
+      if (deltaY !== 0 && this.activeAxisIdOnDrag) {
+        this.chart.axes.scale(this.activeAxisIdOnDrag, deltaY)
         this.dragStartY = e.clientY
       }
       return
@@ -710,7 +717,7 @@ export class InteractionController {
     return geometry
       ? (this.chart
           .getPaneRenderers()
-          .find((renderer) => renderer.getPane().id === geometry.id)
+          .find((renderer) => renderer.getPane().id === geometry.id && renderer.getPane().hasAxes)
           ?.getPane() ?? null)
       : null
   }
@@ -731,18 +738,20 @@ export class InteractionController {
     return { mouseX, mouseY }
   }
 
-  private beginScalePriceDrag(clientY: number, mouseY: number) {
+  private beginScalePriceDrag(clientY: number, mouseY: number, mouseX: number) {
     const pane = this.getPaneByY(mouseY)
     if (!pane) return false
+    const axisId = this.chart.axes.hitTest(pane.id, mouseX)
     if (
-      this.chart.kernel.mainPriceAxis.readonly.paneRanges.peek()[pane.id]?.rangeMode !==
-      PRICE_AXIS_RANGE_MODE.HAND
+      axisId === null ||
+      this.chart.axes.configuration(axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND
     ) {
       return false
     }
     this._state.actions.startDrag('scale-price')
     this.dragStartY = clientY
     this.activePaneIdOnDrag = pane.id
+    this.activeAxisIdOnDrag = axisId
     this._state.actions.setRightAxisHover(pane.id)
     this._state.actions.setSeparatorHover(null)
     // 纵向缩放价格轴同样隐藏十字线，但保留取值索引，Legend 数值不随之变化。
@@ -774,6 +783,7 @@ export class InteractionController {
     this.pointerCaptureElement = null
     this._state.actions.endDrag()
     this.activePaneIdOnDrag = null
+    this.activeAxisIdOnDrag = null
     this.separatorResizeSession = null
     this._cachedMaxScrollLeft = -1
     if (releaseCapture && pointerId !== null && captureElement?.hasPointerCapture(pointerId)) {
@@ -966,7 +976,8 @@ export class InteractionController {
     const centerX = bar.kLineStartX + bar.widthLogical / 2
     const snappedX = centerX - scrollLeft
 
-    const price = pane ? pane.yAxis.yToPrice(mouseY - pane.top) : null
+    // 多轴不存在单一数值；各轴标签从同一屏幕 Y 分别反算，不能借用第一条轴。
+    const price = pane && pane.axes.length === 1 ? pane.yAxis.yToPrice(mouseY - pane.top) : null
     this._state.actions.updateCrosshair(
       {
         x: Math.min(Math.max(snappedX, 0), plotWidth),
@@ -1006,13 +1017,14 @@ export class InteractionController {
         : undefined
     const pane = this.getPaneByY(mouseY)
 
-    if (!k || !pane || !pane.capabilities.candleHitTest) return false
+    if (!k || !pane || this.chart.axes.bindingFor(CANDLE_LAYER_ID).paneId !== pane.id) return false
 
     const localY = mouseY - pane.top
-    const openY = pane.yAxis.priceToY(k.open)
-    const closeY = pane.yAxis.priceToY(k.close)
-    const highY = pane.yAxis.priceToY(k.high)
-    const lowY = pane.yAxis.priceToY(k.low)
+    const axis = this.chart.axes.get(PRICE_SERIES_AXIS_ID)
+    const openY = axis.priceToY(k.open)
+    const closeY = axis.priceToY(k.close)
+    const highY = axis.priceToY(k.high)
+    const lowY = axis.priceToY(k.low)
     const bodyTop = Math.min(openY, closeY)
     const bodyBottom = Math.max(openY, closeY)
 
@@ -1097,6 +1109,7 @@ export class InteractionController {
     this.dragStartY = 0
     this.scrollStartX = 0
     this.activePaneIdOnDrag = null
+    this.activeAxisIdOnDrag = null
     this.clearSeparatorState()
     this.isTouchSession = false
     this.pinchTracker.reset()

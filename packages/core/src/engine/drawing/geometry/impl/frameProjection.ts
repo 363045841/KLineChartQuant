@@ -2,7 +2,9 @@
 
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
+import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
+import { bindRenderAxis, objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
   AXIS_LABEL_KIND,
@@ -239,17 +241,22 @@ function registerPriceAxisTag(
   textColor: string,
 ): void {
   if (point.y < 0 || point.y > context.pane.height) return
-  registerAxisLabel(context, 'yRightOverlay', {
-    kind: AXIS_LABEL_KIND.TAG,
-    text: anchor.price.toFixed(2),
-    pos: point.y + context.pane.top,
-    origin: context.pane.top,
-    variant: 'label',
-    bgColor: color,
-    borderColor: color,
-    textColor,
-    fontSize: 11,
-  })
+  registerAxisLabel(
+    context,
+    'yRightOverlay',
+    {
+      kind: AXIS_LABEL_KIND.TAG,
+      text: anchor.price.toFixed(2),
+      pos: point.y + context.pane.top,
+      origin: context.pane.top,
+      variant: 'label',
+      bgColor: color,
+      borderColor: color,
+      textColor,
+      fontSize: 11,
+    },
+    context.axisId!,
+  )
 }
 
 /** 时间轴标签只在锚点落在 Pane 宽度内时注册。 */
@@ -353,7 +360,6 @@ function projectAxisDecorations(
   toScreen: (anchor: ResolvedDrawingAnchor) => Point,
   output: MutableDrawingFrameProjection,
 ): void {
-  if (context.pane.role !== 'price') return
   const axisLabels = drawingKindAxisLabels(kind)
   const priceLabelOnly = axisLabels === 'price'
   const timeLabelOnly = axisLabels === 'time'
@@ -481,7 +487,27 @@ function projectStoredDrawing(
   storedDrawing: DrawingObject,
   scope: DrawingPaintScope,
 ): void {
-  const { context, definitions } = state
+  const axisId = objectAxisId(
+    storedDrawing.ownerId === undefined ? storedDrawing.id : storedDrawing.ownerId,
+  )
+  const bound = bindRenderAxis(state.context, axisId)
+  const context = {
+    ...bound,
+    coordinates: createFrameCoordinates({
+      data: bound.data,
+      range: bound.range,
+      kLineCenters: bound.kLineCenters,
+      scrollLeft: bound.scrollLeft,
+      dpr: bound.dpr,
+      kWidth: bound.kWidth,
+      kGap: bound.kGap,
+      dataView: bound.dataView,
+      priceAxis: bound.pane.yAxis,
+    }),
+  }
+  const toScreen = createToScreen(context)
+  state = { ...state, context, toScreen, handlePort: createHandlePort(context, toScreen) }
+  const { definitions } = state
   const drawing = resolveVisibleDrawing(storedDrawing, definitions, context)
   if (!drawing) return
   const geometry = definitions.compute(drawing, {

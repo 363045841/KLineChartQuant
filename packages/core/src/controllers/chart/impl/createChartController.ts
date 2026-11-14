@@ -190,12 +190,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       chart.kernel.pane.readonly.workspaces,
       chart.kernel.settings.readonly.settings,
       chart.kernel.drawing.readonly.drawings,
+      chart.kernel.systemObjects.readonly.state,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
     // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
     ...[
       chart.kernel.viewport.readonly.scrollLeft,
       chart.kernel.zoom.readonly.zoomLevel,
-      chart.kernel.mainPriceAxis.readonly.paneRanges,
+      chart.kernel.axesState.readonly.paneRanges,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
   ]
 
@@ -288,7 +289,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     theme: themeSignal,
     settings: chart.kernel.settings.readonly.settings,
     paneScaleTypes: chart.kernel.pane.readonly.paneScaleTypes,
-    panePriceAxisRanges: chart.kernel.mainPriceAxis.readonly.paneRanges,
+    panePriceAxisRanges: chart.kernel.axesState.readonly.paneRanges,
     rendererRuntime: chart.kernel.renderer.readonly.runtime,
     chartMode: chart.kernel.mode.readonly.chartMode,
     lastBarPeriod: chart.kernel.mode.readonly.lastBarPeriod,
@@ -310,6 +311,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     frameGeometry: chart.frameGeometry,
     legend: chart.legend,
     objects: chart.objects,
+    axes: chart.axes,
     comparisonColors: chart.comparisonColors,
     comparisonLoading: chart.comparisonLoading,
     comparisonSpecs: chart.comparisonSpecs,

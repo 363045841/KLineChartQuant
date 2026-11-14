@@ -23,7 +23,7 @@ import { LAYER_PANE_GLOBAL } from '@/rendering/scene/types.js'
 export function createGridLinesLayer(): DrawListLayer<RenderContext> {
   return {
     id: makePluginLayerId('gridLines'),
-    role: 'background',
+    role: 'content',
     pane: LAYER_PANE_GLOBAL,
     z: RENDERER_PRIORITY.GRID,
     visible: true,

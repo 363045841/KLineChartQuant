@@ -4,6 +4,7 @@
  * 与 `types.ts` 的分工：本文件只有运行时装配，类型契约全部在 `types.ts`。
  */
 
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { DataTransform } from '@/foundation/plugin/types.js'
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import { createSignal } from '../../foundation/reactivity/signal.js'
@@ -26,12 +27,7 @@ import type {
 import { LAYER_PANE_GLOBAL, SCENE_TARGET_Z, scenePaintTarget } from './types.js'
 
 /** 数据角色只按完整 Pane 边界裁切；背景网格与 overlay 由自身表面约束。 */
-const CLIPPED_ROLES: ReadonlySet<LayerRole> = new Set([
-  'primary',
-  'indicator',
-  'component',
-  'drawing',
-])
+const CLIPPED_ROLES: ReadonlySet<LayerRole> = new Set(['content', 'drawing'])
 
 /** 同一可见表面上按裁切区分的直出批次。 */
 interface SurfaceBatch {
@@ -69,9 +65,9 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
 
   const addLayer = (layer: Layer<TFrame>): void => {
     if (disposed) return
-    // 重复 id 静默忽略——防两个系统（如指标控制器 + 配置恢复）同时注册同一 Layer，
-    // 先注册者胜出。
-    if (layerList.some((existing) => existing.id === layer.id)) return
+    scenePaintTarget(layer.role)
+    if (layerList.some((existing) => existing.id === layer.id))
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Layer 身份重复：${layer.id}`)
     layerList = [...layerList, layer]
     publish()
   }
@@ -90,9 +86,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
 
   /** 隔离单个 Layer 的释放错误，确保其余资源仍可清理。 */
   const disposeLayer = (layer: Layer<TFrame>): void => {
-    try {
-      layer.dispose()
-    } catch (_error) {}
+    layer.dispose()
   }
 
   const getLayer = (id: string): Layer<TFrame> | null => {
@@ -204,80 +198,80 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         clipActive = false
       }
       // 依次绘制这批 Layer
-      for (const layer of candidates) {
-        const overlay = scenePaintTarget(layer.role) === 'overlay'
-        if (overlay && layer.kind !== 'draw-list' && pane.ensureOverlayTarget) {
-          pane.ensureOverlayTarget()
-          overlayUsed = true
-        }
-        const target = pane.targets[scenePaintTarget(layer.role)]
-        if (!target) continue
-        const clip = CLIPPED_ROLES.has(layer.role) ? paneClip : undefined
-        if (target !== clipTarget) {
-          releaseClip()
-          clipTarget = target
-        }
-        if ((clip !== undefined) !== clipActive) {
-          composerFor(target, pane.renderer).flush()
-          if (clip) {
-            target.save()
-            target.beginPath()
-            target.rect(clip.x, clip.y, clip.width, clip.height)
-            target.clip()
-            clipActive = true
-          } else {
-            target.restore()
-            clipActive = false
+      try {
+        for (const layer of candidates) {
+          const overlay = scenePaintTarget(layer.role) === 'overlay'
+          if (overlay && layer.kind !== 'draw-list' && pane.ensureOverlayTarget) {
+            pane.ensureOverlayTarget()
+            overlayUsed = true
           }
-        }
-        const composer = composerFor(target, pane.renderer)
-        if (layer.kind === 'draw-list') {
-          // 纯增量图层：没有 ctx；有可见 GPU 表面时直接写入，否则进入合成器。
-          const surface = scenePaintTarget(layer.role) === 'main' ? pane.gpuSurface : undefined
-          const context: PrimitiveDrawContext<TFrame> = {
-            ...withoutContext(pane.context as TFrame),
-            primitives: surface
-              ? (primitives, dpr, transform) =>
-                  submitToSurface(surface, composer, primitives, dpr, transform, clip)
-              : overlay && pane.ensureOverlayTarget
-                ? (primitives, dpr, transform) => {
-                    if (primitives.length === 0) return
-                    if (!overlayUsed) pane.ensureOverlayTarget?.()
-                    overlayUsed = true
-                    composer.submit(primitives, dpr, transform)
-                  }
-                : composer.submit,
-            measureContext: target,
+          const target = pane.targets[scenePaintTarget(layer.role)]
+          if (!target) continue
+          const clip = CLIPPED_ROLES.has(layer.role) ? paneClip : undefined
+          if (target !== clipTarget) {
+            releaseClip()
+            clipTarget = target
+          }
+          if ((clip !== undefined) !== clipActive) {
+            composerFor(target, pane.renderer).flush()
+            if (clip) {
+              target.save()
+              target.beginPath()
+              target.rect(clip.x, clip.y, clip.width, clip.height)
+              target.clip()
+              clipActive = true
+            } else {
+              target.restore()
+              clipActive = false
+            }
+          }
+          const composer = composerFor(target, pane.renderer)
+          if (layer.kind === 'draw-list') {
+            // 纯增量图层：没有 ctx；有可见 GPU 表面时直接写入，否则进入合成器。
+            const surface = scenePaintTarget(layer.role) === 'main' ? pane.gpuSurface : undefined
+            const context: PrimitiveDrawContext<TFrame> = {
+              ...withoutContext(pane.context as TFrame),
+              primitives: surface
+                ? (primitives, dpr, transform) =>
+                    submitToSurface(surface, composer, primitives, dpr, transform, clip)
+                : overlay && pane.ensureOverlayTarget
+                  ? (primitives, dpr, transform) => {
+                      if (primitives.length === 0) return
+                      if (!overlayUsed) pane.ensureOverlayTarget?.()
+                      overlayUsed = true
+                      composer.submit(primitives, dpr, transform)
+                    }
+                  : composer.submit,
+              measureContext: target,
+              paneId: pane.paneId,
+              clear: pane.clear,
+              sceneRenderer: pane.renderer,
+            }
+            layer.paint(context)
+            continue
+          }
+          // 完整上下文图层可能自带裁剪或局部坐标系：前后各自落盘。
+          composer.flush()
+          const ctx: LayerPaint<TFrame> = {
+            ...(pane.context as TFrame),
+            ctx: target,
             paneId: pane.paneId,
             clear: pane.clear,
+            // 本帧渲染后端与目标已绑定的提交入口由 Scene 注入。
             sceneRenderer: pane.renderer,
+            primitives: composer.submit,
           }
+          target.save()
           try {
-            layer.paint(context)
-          } catch (_e) {}
-          continue
+            layer.paint(ctx)
+          } finally {
+            target.restore()
+          }
+          composer.flush()
         }
-        // 完整上下文图层可能自带裁剪或局部坐标系：前后各自落盘。
-        composer.flush()
-        const ctx: LayerPaint<TFrame> = {
-          ...(pane.context as TFrame),
-          ctx: target,
-          paneId: pane.paneId,
-          clear: pane.clear,
-          // 本帧渲染后端与目标已绑定的提交入口由 Scene 注入。
-          sceneRenderer: pane.renderer,
-          primitives: composer.submit,
-        }
-        target.save()
-        try {
-          layer.paint(ctx)
-        } catch (_e) {
-        } finally {
-          target.restore()
-        }
-        composer.flush()
+      } finally {
+        releaseClip()
       }
-      releaseClip()
       // 主图带直出：按裁切批次写入可见表面；失败整批回落到 2D 合成路径。
       const surface = pane.gpuSurface
       if (surface) {
@@ -326,10 +320,16 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     // 先快照，因为 layer.dispose 可能经过期引用触发进一步修改——迭代需要可预测。
     const snapshot = layerList
     layerList = []
+    const errors: unknown[] = []
     for (const layer of snapshot) {
-      disposeLayer(layer)
+      try {
+        disposeLayer(layer)
+      } catch (error) {
+        errors.push(error)
+      }
     }
     layersSignal.set([] as ReadonlyArray<Layer<TFrame>>)
+    if (errors.length > 0) throw new AggregateError(errors, 'Scene 图层资源释放失败')
   }
 
   return {

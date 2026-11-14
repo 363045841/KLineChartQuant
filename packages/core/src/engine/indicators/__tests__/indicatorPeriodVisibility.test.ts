@@ -14,13 +14,7 @@ import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
 
-beforeAll(() =>
-  registerIndicatorLayerNaming(
-    ['fake'],
-    ({ paneId }) => `fake_${paneId}`,
-    () => null,
-  ),
-)
+beforeAll(() => registerIndicatorLayerNaming(['fake'], ({ paneId }) => `fake_${paneId}`))
 afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
@@ -54,7 +48,7 @@ function fakeLayer(): Layer<RenderContext> {
     id: 'fake_layer',
     kind: 'context',
     pane: 'main',
-    role: 'primary',
+    role: 'content',
     z: 1,
     visible: true,
     paint: () => {},
@@ -73,7 +67,6 @@ function fakeDefinition(
     category: 'main',
     defaultPaneId: 'main',
     getRendererName: () => 'fake',
-    getScaleRendererName: () => null,
     visiblePeriods,
     rendererFactory: () => layer,
   }
@@ -115,6 +108,6 @@ describe('renderer layer gating', () => {
     expect(paint).not.toHaveBeenCalled()
     const context = { ...createMockRenderContext({ period: '5min' }), paneId: 'main', clear: false }
     assembled.paint(context)
-    expect(paint).toHaveBeenCalledExactlyOnceWith(context)
+    expect(paint).toHaveBeenCalledOnce()
   })
 })

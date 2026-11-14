@@ -1,7 +1,6 @@
 /** Pane 表面布局：DOM 层序复用 Scene 合成目标契约。 */
 import { SCENE_TARGET_Z } from '@/rendering/scene/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../../errors.js'
-import type { PaneRole } from '../../../../foundation/plugin/index.js'
 import { ScaleType } from '../../../../foundation/types/scaleType.js'
 import type { ChartDom, Viewport } from '../../../chart/index.js'
 import type { PaneStateModule } from '../../../state/paneState.js'
@@ -48,6 +47,7 @@ export class ChartPaneLayout {
   private paneRenderers: PaneRenderer[] = []
   /** 左轴是否可见；只有可见时主图 pane 才分配左轴表面。 */
   private leftAxisVisible = false
+  private leftAxisPaneId: string | null = null
   /** 配置只从 Kernel 读取，布局模块不持有规格或比例的工作副本。 */
   private get paneSpecs(): ReadonlyArray<PaneSpec> {
     return this.deps.pane.readonly.paneSpecs.peek()
@@ -63,18 +63,22 @@ export class ChartPaneLayout {
   }
 
   /** 应用框架派生的轴列表；Pane 只消费轴身份，不反向解释指标能力。 */
-  setPaneAxes(axesByPane: ReadonlyMap<string, ReadonlyArray<{ readonly axisId: string }>>): void {
+  setPaneAxes(
+    axesByPane: ReadonlyMap<string, ReadonlyArray<{ readonly axisId: string }>>,
+  ): boolean {
+    let changed = false
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       const axes = axesByPane.get(pane.id)
-      if (!axes) continue
-      pane.setAxes(axes.map((axis) => axis.axisId))
+      if (!axes)
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Pane ${pane.id} 缺少轴投影`)
+      const ids = axes.map((axis) => axis.axisId)
+      const current = pane.axes.map((axis) => axis.axisId)
+      if (ids.length === current.length && ids.every((id, index) => id === current[index])) continue
+      pane.setAxes(ids)
+      changed = true
     }
-  }
-
-  private resolvePaneRole(spec: PaneSpec): PaneRole {
-    if (spec.role) return spec.role
-    return spec.id === MAIN_PANE_ID ? 'price' : 'indicator'
+    return changed
   }
 
   private createAxisCanvas(
@@ -107,13 +111,12 @@ export class ChartPaneLayout {
 
   /**
    * 按需表面工厂：正式图元表面插在同 pane overlay 之下（同 z-index 按 DOM 顺序叠放），
-   * 左轴表面仅主图 pane 可创建，挂到左轴宿主（缺省回退到绘图层）。
+   * 每个 Pane 都可按实际内容申请左轴表面。
    */
   private createSurfaceFactory(
     spec: PaneSpec,
     mainCanvas: HTMLCanvasElement,
     overlayCanvas: HTMLCanvasElement,
-    isMain: boolean,
   ): PaneSurfaceFactory {
     const leftAxisHost = this.deps.getDom().leftAxisLayer
     return {
@@ -142,12 +145,6 @@ export class ChartPaneLayout {
         return drawingCanvas
       },
       createLeftAxisCanvases: () => {
-        if (!isMain) {
-          throw new KLineChartError(
-            GENERIC_ERROR_CODES.INVALID_STATE,
-            `[ChartPaneLayout] pane '${spec.id}' has no left price axis`,
-          )
-        }
         const base = this.createAxisCanvas(spec, 'left')
         const overlay = this.createAxisCanvas(spec, 'left', 'overlay')
         const host = leftAxisHost ?? this.deps.getDom().canvasLayer
@@ -162,42 +159,31 @@ export class ChartPaneLayout {
   }
 
   private initPanes() {
-    const kernelScaleTypes = this.deps.pane.readonly.paneScaleTypes.peek()
     const remaining = new Map(
       this.paneRenderers.map((renderer) => [renderer.getPane().id, renderer]),
     )
     this.paneRenderers = this.paneSpecs.map((spec) => {
       const existing = remaining.get(spec.id)
       remaining.delete(spec.id)
-      const role = this.resolvePaneRole(spec)
       if (existing) {
         const current = existing.getPane()
-        const expected = new Pane(spec.id, { role, capabilities: spec.capabilities })
-        if (
-          current.role === role &&
-          JSON.stringify(current.capabilities) === JSON.stringify(expected.capabilities)
-        ) {
+        const expected = new Pane(spec.id, { capabilities: spec.capabilities })
+        if (JSON.stringify(current.capabilities) === JSON.stringify(expected.capabilities)) {
           return existing
         }
         existing.destroy()
       }
       const pane = new Pane(spec.id, {
-        role,
         capabilities: spec.capabilities,
       })
-
-      const scaleType = kernelScaleTypes.get(spec.id) ?? ScaleType.Linear
-      pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')
       const yAxisCanvas = this.createAxisCanvas(spec, 'right', 'base')
       const yAxisOverlayCanvas = this.createAxisCanvas(spec, 'right', 'overlay')
 
-      const isMain = pane.role === 'price'
-
       mainCanvas.id = `${spec.id}-main`
-      mainCanvas.className = isMain ? 'main-canvas main' : 'main-canvas sub'
+      mainCanvas.className = 'main-canvas'
       mainCanvas.style.position = 'absolute'
       mainCanvas.style.left = '0'
       mainCanvas.style.top = '0'
@@ -221,7 +207,7 @@ export class ChartPaneLayout {
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
-        this.createSurfaceFactory(spec, mainCanvas, overlayCanvas, isMain),
+        this.createSurfaceFactory(spec, mainCanvas, overlayCanvas),
       )
     })
     for (const renderer of remaining.values()) renderer.destroy()
@@ -360,7 +346,10 @@ export class ChartPaneLayout {
         const pane = this.paneRenderers
           .find((renderer) => renderer.getPane().id === geometry.id)!
           .getPane()
-        return { ...geometry, primaryAxisWidth: widths[pane.axes[0]!.axisId]! }
+        return {
+          ...geometry,
+          primaryAxisWidth: pane.axes.length === 0 ? 0 : widths[pane.axes[0]!.axisId]!,
+        }
       }),
     )
   }
@@ -377,13 +366,16 @@ export class ChartPaneLayout {
   }
 
   /** 同步左轴可见性：可见时为主图 pane 创建左轴表面，隐藏时释放其后备存储。 */
-  setLeftAxisVisible(visible: boolean): void {
+  setLeftAxisVisible(visible: boolean, paneId: string): void {
     this.leftAxisVisible = visible
+    this.leftAxisPaneId = paneId
     for (const renderer of this.paneRenderers) this.syncLeftAxis(renderer)
   }
 
   private syncLeftAxis(renderer: PaneRenderer): void {
-    renderer.setLeftAxisVisible(this.leftAxisVisible && renderer.getPane().role === 'price')
+    renderer.setLeftAxisVisible(
+      this.leftAxisVisible && renderer.getPane().id === this.leftAxisPaneId,
+    )
   }
 
   hasPane(paneId: string): boolean {

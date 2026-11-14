@@ -14,6 +14,7 @@
  * 框架适配层与指标控制器可直接编译而不引入实现。
  */
 
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { Signal } from '../../foundation/reactivity/signal.js'
 import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { Renderer } from '../render/Renderer.js'
@@ -24,13 +25,7 @@ import type { Renderer } from '../render/Renderer.js'
  *
  * 角色映射到 main / drawing / overlay 合成目标；同一目标内由 z 决定顺序。
  */
-export type LayerRole =
-  | 'background' // grid, axes
-  | 'primary' // candles, time-share line
-  | 'indicator' // MA, BOLL, sub-pane volume, indicator-defined plots
-  | 'component' // Volume Profile, Heatmap, Footprint
-  | 'drawing' // user drawings
-  | 'overlay' // crosshair, hover, legends
+export type LayerRole = 'content' | 'drawing' | 'overlay'
 
 /**
  * Layer 所属的 pane 身份：
@@ -56,7 +51,19 @@ export const SCENE_PAINT_TARGETS: readonly ScenePaintTarget[] = ['main', 'drawin
 
 /** 角色到合成目标的唯一映射，Scene 与 DOM 使用相同层带语义。 */
 export function scenePaintTarget(role: LayerRole): ScenePaintTarget {
-  return role === 'drawing' ? 'drawing' : role === 'overlay' ? 'overlay' : 'main'
+  switch (role) {
+    case 'content':
+      return 'main'
+    case 'drawing':
+      return 'drawing'
+    case 'overlay':
+      return 'overlay'
+    default:
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_PARAM,
+        `非法 Layer role：${String(role)}`,
+      )
+  }
 }
 
 /**
@@ -318,7 +325,7 @@ export interface Scene<TFrame = unknown> {
   getLayer(id: string): Layer<TFrame> | null
   setLayerVisibility(id: string, visible: boolean): boolean
 
-  /** 绘制一整帧（覆盖所有 pane），逐 Layer 异常隔离。 */
+  /** 绘制一整帧；API 与绘制错误向上传递，不吞掉无效绑定。 */
   paint(frame: SceneFrame): void
 
   dispose(): void

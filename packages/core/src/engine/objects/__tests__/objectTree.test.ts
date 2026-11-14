@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
-import type { PaneSpec } from '../../pane/types.js'
 import type { Layer, RenderObjectDescriptor } from '../../../rendering/scene/types.js'
+import type { PaneSpec } from '../../pane/types.js'
 import { createObjectTree } from '../impl/createObjectTree.js'
 
 /** 构造一个只带对象身份的最小图层；绘制行为与对象树无关。 */
@@ -28,7 +28,16 @@ function objectLayer(
 
 /** 装饰层：没有对象身份，对象树必须忽略。 */
 function chromeLayer(id: string, paneId: string, role: Layer['role'], z: number): Layer {
-  return { id, pane: paneId, role, z, visible: true, kind: 'draw-list', paint: () => {}, dispose: () => {} }
+  return {
+    id,
+    pane: paneId,
+    role,
+    z,
+    visible: true,
+    kind: 'draw-list',
+    paint: () => {},
+    dispose: () => {},
+  }
 }
 
 /** 被测对象树使用的命令桩；断言只关心是否原样取回。 */
@@ -47,9 +56,9 @@ function commands(name: string) {
 let lastRemoved: string | null = null
 
 const PANES: ReadonlyArray<PaneSpec> = [
-  { id: 'main', ratio: 1, role: 'price' },
-  { id: 'rsi', ratio: 1, role: 'indicator' },
-  { id: 'empty', ratio: 1, role: 'indicator' },
+  { id: 'main', ratio: 1 },
+  { id: 'rsi', ratio: 1 },
+  { id: 'empty', ratio: 1 },
 ]
 
 function createFixture() {
@@ -84,11 +93,11 @@ function createFixture() {
     commands: commands('rsi'),
   }
   const layers = createSignal<ReadonlyArray<Layer>>([
-    objectLayer('candle', 'main', 'primary', 50, candleObject),
-    objectLayer('ma', 'main', 'indicator', 30, maObject),
-    objectLayer('rsi', 'rsi', 'indicator', 30, rsiObject),
+    objectLayer('candle', 'main', 'content', 50, candleObject),
+    objectLayer('ma', 'main', 'content', 30, maObject),
+    objectLayer('rsi', 'rsi', 'content', 30, rsiObject),
     // 装饰层没有对象身份，不进对象树。
-    chromeLayer('grid', 'main', 'background', 10),
+    chromeLayer('grid', 'main', 'content', 10),
   ])
   const paneSpecs = createSignal<ReadonlyArray<PaneSpec>>(PANES)
   return {
