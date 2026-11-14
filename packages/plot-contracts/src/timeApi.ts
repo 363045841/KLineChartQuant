@@ -138,6 +138,16 @@ function parts(timestamp: number, zone: string): DateParts {
 }
 
 /** 交易所当地墙钟转为UTC；迭代修正同时覆盖夏令时与跨午夜。 */
+/** 把 `HH:mm` 解析成当日分钟数；配置写错时直接报错，不做静默回退。 */
+function dayBoundaryMinutes(value: string): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value)
+  if (!match) throw new TypeError(`dayBoundary.time 必须是 HH:mm：${value}`)
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour > 23 || minute > 59) throw new TypeError(`dayBoundary.time 超出范围：${value}`)
+  return hour * 60 + minute
+}
+
 function wall(dayIndex: number, minute: number, zone: string): number {
   const desired = dayIndex * DAY + minute * 60_000
   const clock = zoneClock(zone)
@@ -279,7 +289,18 @@ export function timeValue(
   const local = parts(timestamp, zone)
   const dayIndex = active?.day ?? local.dayIndex
   const tradingDay = dayIndex + (active && active.range.close > 1440 ? 1 : 0)
-  if (mode === 'tradingday') return tradingDay * DAY
+  if (mode === 'tradingday') {
+    const boundary = context.session.dayBoundary
+    if (boundary) {
+      // 换日不落在午夜的品种（外汇 17:00 纽约、股指期货 18:00 纽约）按配置的时刻切分：
+      // 本地时刻晚于日界的 bar 归下一个交易日，与「跨午夜会话记到收盘那天」的旧规则一致。
+      const offset = dayBoundaryMinutes(boundary.time)
+      const wallParts = parts(timestamp, boundary.zone)
+      const shift = offset > 0 && wallParts.minute >= offset ? 1 : 0
+      return (wallParts.dayIndex + shift) * DAY
+    }
+    return tradingDay * DAY
+  }
   const normalized = pinePeriod(period || context.period)
   const match = /^(\d+)([SDWM]?)$/.exec(normalized)
   if (!match) throw new TypeError(`未知周期：${period}`)

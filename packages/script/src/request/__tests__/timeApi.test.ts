@@ -114,3 +114,53 @@ describe('time API bounded reuse', () => {
     expect(timeValue(context, 'open', '1D', time)).toBe(Date.UTC(2026, 0, 5, 14, 30))
   })
 })
+
+describe('dayBoundary', () => {
+  it('按配置的时区与时刻切分交易日', () => {
+    const crypto: ScriptTimeContext = {
+      period: '15',
+      session: {
+        timeZone: 'UTC',
+        sessions: [{ open: 0, close: 1440 }],
+        dayBoundary: { time: '00:00', zone: 'Asia/Shanghai' },
+      },
+    }
+    // 北京 11-15 02:30 → 交易日 11-15；北京 11-14 23:00 → 交易日 11-14。
+    expect(timeValue(crypto, 'tradingday', '', Date.UTC(2026, 10, 14, 18, 30))).toBe(
+      Date.UTC(2026, 10, 15),
+    )
+    expect(timeValue(crypto, 'tradingday', '', Date.UTC(2026, 10, 14, 15, 0))).toBe(
+      Date.UTC(2026, 10, 14),
+    )
+
+    const fx: ScriptTimeContext = {
+      period: '60',
+      session: {
+        timeZone: 'UTC',
+        sessions: [{ open: 0, close: 1440 }],
+        dayBoundary: { time: '17:00', zone: 'America/New_York' },
+      },
+    }
+    // 周一 10:00 纽约 与 周日 18:00 纽约 属于同一个交易日（周一）。
+    expect(timeValue(fx, 'tradingday', '', Date.UTC(2026, 10, 16, 15, 0))).toBe(
+      Date.UTC(2026, 10, 16),
+    )
+    expect(timeValue(fx, 'tradingday', '', Date.UTC(2026, 10, 15, 23, 0))).toBe(
+      Date.UTC(2026, 10, 16),
+    )
+  })
+
+  it('日界写错时直接报错', () => {
+    const broken: ScriptTimeContext = {
+      period: '60',
+      session: {
+        timeZone: 'UTC',
+        sessions: [{ open: 0, close: 1440 }],
+        dayBoundary: { time: '25:99', zone: 'UTC' },
+      },
+    }
+    expect(() => timeValue(broken, 'tradingday', '', Date.UTC(2026, 10, 14))).toThrow(
+      'dayBoundary.time',
+    )
+  })
+})

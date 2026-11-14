@@ -1,13 +1,14 @@
 /** 交易时段成交量分布：低周期明细在自身市场时区分组，通过公共box/line输出。 */
 const vp = importLibrary('volumeProfile')
 
-/** 一天的分钟数；阶段是交易日，一个阶段最多 1440 根 1 分钟明细。 */
+/** 阶段单位是交易日，一个阶段最多 1440 根 1 分钟明细。 */
 const MINUTES_PER_DAY = 1440
+
 defineIndicator({
   name: 'SVP',
   title: '交易时段成交量分布',
   position: Position.Main,
-  info: '按交易日统计各价格区间的成交量，可选择完整交易日、常规盘或自定义时段；横条越长，成交量越大。使用低周期 K 线的高低价区间近似分摊成交量，上/下按 K 线涨跌划分，并非逐笔成交或真实买卖量。POC 为成交量最大的价位，VAH/VAL 为价值区上下沿。计算周期控制明细粒度，行数控制价格分档，价值区百分比控制覆盖的成交量比例；自定义时区留空时使用交易所时区。宽度、位置和保留期数控制显示，延长线在后续价格首次触及时停止。',
+  info: '按交易日统计各价格区间的成交量，可选择完整交易日、常规盘或自定义时段；横条越长，成交量越大。使用低周期 K 线的高低价区间近似分摊成交量，上/下按 K 线涨跌划分，并非逐笔成交或真实买卖量。POC 为成交量最大的价位，VAH/VAL 为价值区上下沿。计算周期控制明细粒度，行数控制价格分档，价值区百分比控制覆盖的成交量比例；自定义时区留空时使用交易所时区。宽度、位置和保留期数控制显示，延长线在后续价格首次触及时停止。日界时区留空时按交易所会话切分，填了则按该时区自然日切分（加密永续默认 UTC，日界在北京 08:00）。',
   max_boxes_count: 2000,
   max_lines_count: 2000,
   onBar() {
@@ -22,6 +23,9 @@ defineIndicator({
     })
     const sessionHours = input.session('0930-1600', { title: '自定义时段' })
     const sessionTimezone = input.string('', { title: '自定义时区（空为交易所时区）' })
+    // 分组日界：留空跟随交易所会话（time_tradingday），填了就按该时区的自然日切。
+    // 加密永续的会话时区是 UTC，日界落在北京 08:00；填 Asia/Shanghai 可以按本地日分组。
+    const dayZone = input.string('', { title: '日界时区（空为交易所时区）' })
     const volumeMode = input.string('updown', {
       title: '成交量',
       options: [
@@ -59,14 +63,16 @@ defineIndicator({
           low,
           close,
           volume,
-          sessionMode === 'custom'
-            ? time('1D', sessionHours, sessionTimezone || undefined)
-            : sessionMode === 'regular' && !session.ismarket
-              ? Number.NaN
-              : time_tradingday,
+          dayZone !== ''
+            ? time('1D', '0000-2400', dayZone)
+            : sessionMode === 'custom'
+              ? time('1D', sessionHours, sessionTimezone || undefined)
+              : sessionMode === 'regular' && !session.ismarket
+                ? Number.NaN
+                : time_tradingday,
         ] as const,
-      // 明细窗口按保留期数取足：阶段跨度由指标决定，不能停在图表可见范围。
-      { calcBarsCount: Math.max(12, keepPeriods + 1) * MINUTES_PER_DAY },
+      // 明细只覆盖最近保留期数：不封顶会按图表整段历史拉数万根 1 分钟数据。
+      { calcBarsCount: (keepPeriods + 1) * MINUTES_PER_DAY },
     )
     vp.collect(t, e, o, h, l, c, v, k, time[0])
     vp.render(
