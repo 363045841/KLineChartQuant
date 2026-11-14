@@ -113,11 +113,13 @@ function toIndicatorParameterValue(value: unknown): IndicatorParameterValue {
  * 命令由图表注入，管理器不直接写 kernel。
  */
 function createIndicatorObjectDescriptor(
+  instanceId: string,
   definition: IndicatorMetadata,
   commands: RenderObjectCommands,
 ): RenderObjectDescriptor {
   return {
     kind: 'indicator',
+    sourceId: instanceId,
     // 对象树显示指标 Name（displayName），不使用选择器里的长标题 title。
     label: definition.displayName,
     capabilities: {
@@ -395,6 +397,7 @@ export class ChartIndicatorManager {
           axisId: instanceAxes.get(instance.instanceId)!,
           params: { ...instance.params },
           object: createIndicatorObjectDescriptor(
+            instance.instanceId,
             definition,
             this.deps.objectCommands(instance.instanceId),
           ),

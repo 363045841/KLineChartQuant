@@ -2,14 +2,25 @@
 
 ## 触发源
 
-绘图区只有一个 `contextmenu` 入口，先用容器局部坐标查询命中，再按来源打开对应菜单：
+右键有两个入口，来源判定只有一份 `resolveContextMenuSource`：
 
-- `DrawingInteractionController.hitTestAt(x, y)` 命中可见图元 → `ContextMenuSource` 为
-  `{ kind: 'drawing', drawingId }`；
-- 未命中 → `{ kind: 'chart' }`。
+- **绘图区**：先用容器局部坐标查询命中。
+  `DrawingInteractionController.hitTestAt(x, y)` 命中可见图元 → `ContextMenuSource` 为
+  `{ kind: 'drawing', drawingId }`；未命中 → `{ kind: 'chart' }`。
+- **对象树**：图元行的 `contextmenu` 只传行的 `kind` 与领域身份 `sourceId`。
+  图元行 → `{ kind: 'drawing', drawingId: sourceId }`；指标、系统对象行返回 `null`，不接管右键。
 
-来源只保留图元 id，不携带完整图元快照。菜单外观仍复用 `DropMenu` 的 `context` 模式，只保留一个面板
-实例，由 `source.kind` 切换分组、图标与动作分发，因此不会出现图表菜单和图元菜单同时打开。
+对象树行保存两个身份，职责不混用：
+
+- `objectId` 等于 `Layer.id`，用于 Scene 寻址与 `commandsFor`；
+- `sourceId` 是领域身份（图元文档 id、指标实例 id、系统对象 id），用于领域操作与菜单。
+
+`sourceId` 由 `RenderObjectDescriptor` 在创建对象时声明，`PaneObjectRow` 只透传；不从
+`Layer.id` 反解身份，图层命名变化不会影响消费侧。
+
+来源只保留图元 id，不携带完整图元快照。菜单外观仍复用 `DropMenu` 的 `context` 模式：绘图区只保留
+一个面板实例，由 `source.kind` 切换分组、图标与动作分发，因此不会出现图表菜单和图元菜单同时打开；
+对象树入口使用同一份 `useDrawingContextMenu` 菜单模型，只负责判定行来源、快照目标并打开面板。
 命中检测使用公开的 `hitTestAt`，双击图元打开设置也走同一入口，没有第二套命中实现。
 
 右键不会改变选中集合：`Chart.handlePointerEvent` 在 `pointerdown` 时忽略鼠标非主键，右键不会进入
@@ -60,11 +71,13 @@
   时返回 `false`。菜单在全部锁定时禁用「移除」；混合选中时只删除未锁定项，与浮动工具栏一致。
 - **命令只提供快捷键文案**：`drawing.copy` / `drawing.clone` 命令内部读取实时选中的图元集合，
   菜单若执行命令会偏离打开瞬间的快照，因此只读取其快捷键文本，执行仍直接用快照 ids 调用 API。
+- **快捷键文案来自共享命令表**：Workbench 创建并 `provide` 命令注册表，图表根元素只登记快捷键
+  作用域；图表与侧栏注入同一份，对象树菜单因此显示与画布一致的平台快捷键。
 - **分组**：复制/克隆一组，锁定/隐藏一组，移除单独一组；移除与其它动作之间保留视觉分隔。
 
 ## 边界
 
-- 右键菜单只覆盖绘图区 `.chart-container`；价格轴有自己的设置入口，不弹出该菜单。
+- 右键菜单覆盖绘图区与对象树图元行；指标/系统对象行、价格轴不弹出该菜单。
 - 行内编辑控件（绘图文本输入等）内的右键不拦截，保留浏览器原生文本菜单。
 - `hitTestAt` 只命中当前 Pane、当前工作区和可见图元；锁定图元仍可命中，因此可以右键解锁。
 - 绘图工具激活时右键同样按命中打开图元菜单；克隆会取消当前绘制会话，其余动作不改变会话。
@@ -77,5 +90,7 @@
   快捷键文本、重置/设置走命令、清空指标走 controller、复制写剪贴板、按当前价格与 pane 创建水平线。
 - `useDrawingContextMenu` 覆盖来源判定、打开瞬间的操作范围快照、多选保留、未选中时同步选中、
   锁定/解锁文案、全部锁定禁用移除、复制/克隆/锁定/隐藏/移除的 API 参数，以及动作不随选中变化。
+- `useObjectTreeContextMenu` 覆盖图元行接管、非图元行不接管、按行 `sourceId` 快照目标，以及
+  快捷键文案来自共享命令表。
 - `chart.lifecycle` 覆盖鼠标右键按下不进入拖拽，以及 `clearAllIndicators` 同时删除主图与副图
   实例并回收副图 Pane。

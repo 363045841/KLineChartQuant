@@ -4,7 +4,10 @@ import { mount } from '@vue/test-utils'
 import { createMockChartController } from '@vue-src/__tests__/_mockController.js'
 import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
 import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
-import { provideChartCommands } from '@vue-src/composables/commands/useCommands.js'
+import {
+  bindChartCommandScope,
+  provideChartCommands,
+} from '@vue-src/composables/commands/useCommands.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { resetTooltipGroup } from '../useTooltip.js'
@@ -70,7 +73,8 @@ describe('BaseTooltip 分组延迟', () => {
     const Host = defineComponent({
       setup() {
         const root = ref<HTMLElement | null>(null)
-        const registry = provideChartCommands(root)
+        const registry = provideChartCommands()
+        bindChartCommandScope(registry, root)
         registry.register(
           createChartCommands({
             controller: () => controller,

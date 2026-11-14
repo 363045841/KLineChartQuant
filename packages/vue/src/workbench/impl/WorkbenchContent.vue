@@ -54,6 +54,7 @@
   import KlineChart from '../../components/chart/KLineChart.vue'
   import BaseButton from '../../components/common/BaseButton.vue'
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
+  import { provideChartCommands } from '../../composables/commands/useCommands.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'
   import type { SearchableSymbol } from '../../composables/symbol/useSymbolSearch.js'
   import { useToast } from '../../composables/toast/useToast.js'
@@ -95,6 +96,8 @@
   const initialPanel = props.agent && props.initialAgentPanelOpen ? AGENT_PANEL_ID : null
 
   const controller = shallowRef<ChartController | null>(null)
+  // 命令表由工作台创建：图表与侧栏面板共用同一份，快捷键作用域仍绑定图表根元素。
+  provideChartCommands()
   const WorkbenchAgent = defineAsyncComponent(() => import('./WorkbenchAgent.vue'))
   // 自选股状态在工作台根部创建一次，图表与面板共享同一份，独立挂载的图表不受影响。
   provideWatchlist()

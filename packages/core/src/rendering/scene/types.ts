@@ -133,6 +133,13 @@ export interface RenderObjectCommands {
 /** 渲染对象的业务身份与命令声明；只有业务对象声明它。 */
 export interface RenderObjectDescriptor {
   readonly kind: RenderObjectKind
+  /**
+   * 领域身份：系统对象 id、指标实例 id、图元文档 id。
+   *
+   * 对象树行按 Layer.id 寻址 Scene，领域操作（如图元菜单）只依赖本字段，
+   * 不从图层命名反解身份。
+   */
+  readonly sourceId: string
   /** 对象树显示名；由创建者按当前状态生成，不做二次拼接。 */
   readonly label: string
   readonly capabilities: RenderObjectCapabilities

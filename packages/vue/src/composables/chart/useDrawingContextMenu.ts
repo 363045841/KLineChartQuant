@@ -1,5 +1,5 @@
 /** 绘图图元右键菜单：判定右键来源、快照操作范围，并按快照调用 Core 绘图 API。 */
-import type { CommandRegistry } from '@363045841yyt/klinechart-core'
+import type { CommandRegistry, RenderObjectKind } from '@363045841yyt/klinechart-core'
 import type {
   ChartController,
   DrawingObject,
@@ -42,22 +42,52 @@ export interface DrawingHitTestPort {
   hitTestAt(x: number, y: number): DrawingObject | null
 }
 
+/** 图元来源：只保留图元 id，菜单不持有图元快照。 */
+export type DrawingContextMenuSource = { readonly kind: 'drawing'; readonly drawingId: string }
+
 /** 右键触发源：由唯一命中检测决定，菜单只消费这个判别值。 */
-export type ContextMenuSource =
-  | { readonly kind: 'chart' }
-  | { readonly kind: 'drawing'; readonly drawingId: string }
+export type ContextMenuSource = { readonly kind: 'chart' } | DrawingContextMenuSource
+
+/** 画布右键目标：容器局部坐标。 */
+export interface CanvasContextMenuTarget {
+  readonly kind: 'canvas'
+  readonly x: number
+  readonly y: number
+}
+
+/** 对象树右键目标：行的领域身份与对象类型。 */
+export interface ObjectContextMenuTarget {
+  readonly kind: 'object'
+  /** 领域身份，由 `RenderObjectDescriptor.sourceId` 透传到对象树行。 */
+  readonly sourceId: string
+  readonly objectKind: RenderObjectKind
+}
 
 /**
- * 判定右键来源：命中可见图元时返回图元来源，否则返回图表来源。
+ * 判定右键来源：画布按坐标命中，对象树按对象类型。
  *
  * 只保留图元 id，菜单不持有图元快照；操作范围与锁定态在打开时另行快照。
+ * 对象树行直接携带领域身份，不从 Layer.id 反解。
+ *
+ * @param drawing 图元命中端口；对象树目标不需要
+ * @param target 画布坐标或对象树行身份
+ * @returns 画布目标必定得到图表或图元来源；对象树非图元行返回 null
  */
 export function resolveContextMenuSource(
   drawing: DrawingHitTestPort | null,
-  x: number,
-  y: number,
-): ContextMenuSource {
-  const hit = drawing?.hitTestAt(x, y) ?? null
+  target: CanvasContextMenuTarget,
+): ContextMenuSource
+export function resolveContextMenuSource(
+  drawing: DrawingHitTestPort | null,
+  target: ObjectContextMenuTarget,
+): DrawingContextMenuSource | null
+export function resolveContextMenuSource(
+  drawing: DrawingHitTestPort | null,
+  target: CanvasContextMenuTarget | ObjectContextMenuTarget,
+): ContextMenuSource | null {
+  if (target.kind === 'object')
+    return target.objectKind === 'drawing' ? { kind: 'drawing', drawingId: target.sourceId } : null
+  const hit = drawing?.hitTestAt(target.x, target.y) ?? null
   return hit ? { kind: 'drawing', drawingId: hit.id } : { kind: 'chart' }
 }
 

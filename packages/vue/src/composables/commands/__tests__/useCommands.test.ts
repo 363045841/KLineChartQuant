@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import {
   __resetCommandScopesForTest,
+  bindChartCommandScope,
   provideChartCommands,
   useRegisterCommands,
 } from '../useCommands.js'
@@ -16,7 +17,8 @@ function chartHost(name: string, onDelete: () => void, onPalette: () => void) {
   return defineComponent({
     setup() {
       const root = ref<HTMLElement | null>(null)
-      const registry = provideChartCommands(root)
+      const registry = provideChartCommands()
+      bindChartCommandScope(registry, root)
       useRegisterCommands(registry, () => [
         {
           id: 'drawing.delete',

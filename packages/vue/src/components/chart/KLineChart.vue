@@ -554,6 +554,8 @@
   import { useScriptEditorWindow } from '@vue-src/composables/chart/useScriptEditorWindow.js'
   import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
   import {
+    bindChartCommandScope,
+    injectCommands,
     provideChartCommands,
     useRegisterCommands,
   } from '@vue-src/composables/commands/useCommands.js'
@@ -1082,8 +1084,10 @@
   )
 
   // ── Commands ──
-  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
-  const commands = provideChartCommands(chartWrapperRef)
+  // 撤销/重做走命令层；快捷键只作用于获得焦点的图表根元素。
+  // 命令表由共同父级提供时直接复用，独立挂载的图表自己创建一份。
+  const commands = injectCommands() ?? provideChartCommands()
+  bindChartCommandScope(commands, chartWrapperRef)
   useRegisterCommands(commands, () =>
     createChartCommands({
       controller: () => controller.value,
@@ -1603,11 +1607,11 @@
     const container = containerRef.value
     if (!container) return
     const rect = container.getBoundingClientRect()
-    const source = resolveContextMenuSource(
-      drawingController.value,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-    )
+    const source = resolveContextMenuSource(drawingController.value, {
+      kind: 'canvas',
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    })
     contextMenuSource.value = source
     if (source.kind === 'drawing') captureDrawingContextMenu(source.drawingId)
     else captureContextMenuPrice()

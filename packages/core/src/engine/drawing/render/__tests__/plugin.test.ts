@@ -268,6 +268,7 @@ describe('createDrawingObjectLayer', () => {
     } satisfies DrawingPrimitive
     const object: RenderObjectDescriptor = {
       kind: 'drawing',
+      sourceId: 'd1',
       label: '趋势线',
       capabilities: {
         removable: true,

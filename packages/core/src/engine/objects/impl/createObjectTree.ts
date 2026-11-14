@@ -6,14 +6,14 @@
  */
 
 import { computed, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
-import type { PaneSpec } from '../../pane/types.js'
-import type { ObjectTree, PaneObjectGroup, PaneObjectRow } from '../types.js'
 import {
   type Layer,
   type RenderObjectDescriptor,
   SCENE_TARGET_Z,
   scenePaintTarget,
 } from '../../../rendering/scene/types.js'
+import type { PaneSpec } from '../../pane/types.js'
+import type { ObjectTree, PaneObjectGroup, PaneObjectRow } from '../types.js'
 
 /** 对象树投影依赖：只读取状态与渲染对象，不接收命令副本。 */
 export interface ObjectTreeDependencies {
@@ -34,6 +34,7 @@ export interface ObjectTreeDependencies {
 function toRow(layer: Layer, descriptor: RenderObjectDescriptor, paneId: string): PaneObjectRow {
   return {
     objectId: layer.id,
+    sourceId: descriptor.sourceId,
     kind: descriptor.kind,
     label: descriptor.label,
     paneId,

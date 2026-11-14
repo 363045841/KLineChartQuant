@@ -48,6 +48,7 @@ export function createDrawingObjectLayers(deps: DrawingObjectLayerDependencies) 
   function descriptorFor(drawing: DrawingObject): RenderObjectDescriptor {
     return {
       kind: 'drawing',
+      sourceId: drawing.id,
       label: resolveDrawingLabel(drawing),
       capabilities: {
         removable: true,

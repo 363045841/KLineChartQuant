@@ -1,6 +1,6 @@
 <!-- 对象树面板：按 pane 分组展示渲染对象，支持显隐、锁定、删除与拖动排序/跨 pane 迁移。 -->
 <template>
-  <section class="object-tree" aria-label="对象树">
+  <section ref="panelRef" class="object-tree" aria-label="对象树">
     <header class="object-tree__head">
       <div class="object-tree__title-row">
         <h2 class="object-tree__title">对象树</h2>
@@ -57,6 +57,7 @@
             tabindex="0"
             :draggable="canDrag(row)"
             @pointerdown="onRowPointerDown"
+            @contextmenu="openRowContextMenu($event, row)"
             @dragstart="onDragStart($event, row)"
             @dragend="onDragEnd"
             @keydown="onRowKeydown($event, group, row)"
@@ -128,6 +129,15 @@
         <div class="object-tree__new-pane-title">新窗口</div>
       </div>
     </div>
+
+    <DropMenu
+      ref="contextMenuRef"
+      context
+      label="图元菜单"
+      :groups="contextMenuGroups"
+      :focus-target="panelRef"
+      @select="onContextMenuSelect"
+    />
   </section>
 </template>
 
@@ -137,6 +147,7 @@
   import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import DropMenu from '@vue-src/components/common/DropMenu.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { type Component, computed, ref, toRef } from 'vue'
@@ -147,6 +158,7 @@
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerStack2 from '~icons/tabler/stack-2'
   import IconTablerTrash from '~icons/tabler/trash'
+  import { useObjectTreeContextMenu } from './impl/useObjectTreeContextMenu.js'
   import { useObjectTreePanel } from './impl/useObjectTreePanel.js'
 
   const props = withDefaults(
@@ -184,6 +196,14 @@
     isDropBefore,
     isDropAfter,
   } = useObjectTreePanel(controller)
+
+  // 图元行右键复用画布上的同一份图元菜单；非图元行不接管。
+  const panelRef = ref<HTMLElement | null>(null)
+  const contextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  const { contextMenuGroups, openRowContextMenu, onContextMenuSelect } = useObjectTreeContextMenu(
+    controller,
+    contextMenuRef,
+  )
 
   // 空 Pane 不渲染区块；Pane 之间只用分割线区分。
   const visibleGroups = computed(() => groups.value.filter((group) => group.rows.length > 0))

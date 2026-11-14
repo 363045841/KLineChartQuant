@@ -1,13 +1,13 @@
 /** 导航按钮与快捷键共用命令，改绑后 Tooltip 同步读取注册表。 */
-import {
-  type CommandRegistry,
-  createIdleInteractionSnapshot,
-} from '@363045841yyt/klinechart-core'
+import { type CommandRegistry, createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
 import type { DeviceEnvironment } from '@363045841yyt/klinechart-core/config'
 import { mount } from '@vue/test-utils'
 import { createMockChartController } from '@vue-src/__tests__/_mockController.js'
 import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
-import { provideChartCommands } from '@vue-src/composables/commands/useCommands.js'
+import {
+  bindChartCommandScope,
+  provideChartCommands,
+} from '@vue-src/composables/commands/useCommands.js'
 import { resetTooltipGroup } from '@vue-src/composables/ui/useTooltip.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
@@ -35,7 +35,8 @@ function mountNavigation() {
   const Host = defineComponent({
     setup() {
       const root = ref<HTMLElement | null>(null)
-      registry = provideChartCommands(root)
+      registry = provideChartCommands()
+      bindChartCommandScope(registry, root)
       registry.register(
         createChartCommands({
           controller: () => controller,

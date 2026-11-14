@@ -1,5 +1,5 @@
 /**
- * Vue 侧命令层：每张图表一个 Core CommandRegistry，页面只装一个 keydown 桥。
+ * Vue 侧命令层：命令表与快捷键作用域分开，页面只装一个 keydown 桥。
  *
  * - 作用域：快捷键默认只在焦点位于该图表根元素内时生效（避免多图表同时响应
  *   Delete）；scope: 'global' 的命令（⌘K、?）在焦点不属于任何图表时，交给最近
@@ -7,6 +7,9 @@
  * - 文本输入：除 allowInEditable 的命令外，在 input / textarea / contenteditable
  *   中不触发。
  * - 页面级 document 监听按引用计数挂载与卸载，多个图表共享同一个监听。
+ *
+ * 注册表与快捷键作用域分开：注册表可由图表与侧栏的共同父级提供，图表根元素
+ * 只登记为快捷键作用域，因此同一份命令表可以跨图表子树共享。
  *
  * 这里只做 DOM 桥与 provide/inject，不含任何命令目录；命令由各组件通过
  * useRegisterCommands 注册。
@@ -28,7 +31,7 @@ import {
   watch,
 } from 'vue'
 
-/** 当前图表命令注册表的注入键；KLineChart 提供，子组件注入。 */
+/** 当前图表命令注册表的注入键；由共同父级或 KLineChart 提供，子组件注入。 */
 const KLC_COMMANDS_KEY: InjectionKey<CommandRegistry> = Symbol('klc-commands')
 
 interface CommandScopeEntry {
@@ -103,26 +106,42 @@ function detachDocument(): void {
 }
 
 /**
- * 创建并提供某张图表的命令注册表，并绑定 root 元素作为快捷键作用域。
+ * 创建命令注册表并提供给子树；生命周期跟随调用方。
  *
- * @param root - 图表根元素（快捷键作用域）
- * @returns 该图表的命令注册表
+ * 图表与侧栏面板共用一份命令表时由共同父级调用；独立使用的 KLineChart
+ * 自己调用，行为与之前一致。
+ *
+ * @returns 该命令表的注册表
  */
-export function provideChartCommands(root: Ref<HTMLElement | null>): CommandRegistry {
+export function provideChartCommands(): CommandRegistry {
   const registry = createCommandRegistry()
+  provide(KLC_COMMANDS_KEY, registry)
+  onScopeDispose(() => registry.dispose())
+  return registry
+}
+
+/**
+ * 把注册表绑定到图表根元素，登记快捷键作用域。
+ *
+ * 注册表可能由父级持有，因此本函数销毁时只解除作用域，不销毁注册表。
+ *
+ * @param registry - 命令注册表
+ * @param root - 图表根元素（快捷键作用域）
+ */
+export function bindChartCommandScope(
+  registry: CommandRegistry,
+  root: Ref<HTMLElement | null>,
+): void {
   const entry: CommandScopeEntry = { registry, root: () => root.value }
   scopes.add(entry)
   // 第一张挂载的图表默认作为 global 命令目标，直到用户聚焦其他图表。
   lastActive ??= entry
   attachDocument()
-  provide(KLC_COMMANDS_KEY, registry)
   onScopeDispose(() => {
     scopes.delete(entry)
     if (lastActive === entry) lastActive = scopes.values().next().value ?? null
     detachDocument()
-    registry.dispose()
   })
-  return registry
 }
 
 /**

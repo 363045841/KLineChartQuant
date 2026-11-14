@@ -36,6 +36,8 @@ export type {
 export interface PaneObjectRow {
   /** 稳定身份，等于 `Layer.id`；展示与命令都按它寻址。 */
   readonly objectId: string
+  /** 领域身份（图元文档 id、指标实例 id、系统对象 id）；领域操作按它寻址。 */
+  readonly sourceId: string
   readonly kind: RenderObjectKind
   /** 显示名，由对象创建者按当前状态生成。 */
   readonly label: string
