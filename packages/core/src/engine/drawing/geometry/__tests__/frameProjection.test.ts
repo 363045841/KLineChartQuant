@@ -16,7 +16,10 @@ import {
 import { createSignal } from '@/foundation/reactivity/signal'
 import { lightTheme } from '@/foundation/tokens/index.js'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
-import { createDrawingFrame } from '../../__tests__/helpers/drawingTestKit.js'
+import {
+  createDrawingFrame,
+  DRAWING_FRAME_AXIS_ID,
+} from '../../__tests__/helpers/drawingTestKit.js'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
@@ -322,12 +325,14 @@ describe('projectDrawingsForFrame', () => {
     )
 
     expect(projection.primitives).not.toEqual([])
-    expect(context.axisLabels.forSurface('yRightOverlay', 'object:trend').labels).toHaveLength(2)
+    expect(
+      context.axisLabels.forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID).labels,
+    ).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
     expect(context.yAxisRanges).toHaveLength(0)
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'object:trend')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
     ).toEqual(['10.00', '20.00'])
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
@@ -524,7 +529,7 @@ describe('projectDrawingsForFrame', () => {
 
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'object:trend')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
     ).toEqual(['10.00', '20.00'])
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
@@ -567,7 +572,7 @@ describe('projectDrawingsForFrame', () => {
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([10])
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'object:trend')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0)),
     ).toEqual([10])
   })
@@ -691,7 +696,7 @@ describe('projectDrawingsForFrame', () => {
     ({ kind, anchors, yAxisPrices, xAxisLabelCount }) => {
       const { context } = projectSingleAnchor(kind, anchors)
       const yLabels = context.axisLabels
-        .forSurface('yRightOverlay', 'object:subject')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0))
       expect(yLabels).toEqual(yAxisPrices)
       expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)

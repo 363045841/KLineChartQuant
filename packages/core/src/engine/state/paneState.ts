@@ -96,7 +96,7 @@ export function createPaneState() {
     readonly,
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
-      /** 布局与轴测量共用的运行时输出；数值不变时不广播。 */
+      /** 已提交的可见 Pane 几何；轴区宽度取自已提交的列布局，数值不变时不广播。 */
       setPaneGeometry(geometry: ReadonlyArray<PaneGeometry>): void {
         const previous = stored.paneGeometry.peek()
         if (
@@ -107,7 +107,7 @@ export function createPaneState() {
               pane.id === next.id &&
               pane.top === next.top &&
               pane.height === next.height &&
-              pane.primaryAxisWidth === next.primaryAxisWidth
+              pane.axisWidth === next.axisWidth
             )
           })
         )

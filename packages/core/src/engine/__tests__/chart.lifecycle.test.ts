@@ -787,9 +787,16 @@ describe('Chart lifecycle without a market selection', () => {
             .getPaneRenderers()
             .find((renderer) => renderer.getPane().id === current.paneId)!
             .getPane()
-          expect(pane.axes.length).toBe(
-            current.paneId === MAIN_PANE_ID || current.paneId === targetPaneId ? 2 : 1,
-          )
+          // 主图指标并入价格轴；副图指标按定义独占一条轴；新 Pane 里对象即该 Pane 的主轴。
+          const expectedAxes =
+            current.paneId === MAIN_PANE_ID
+              ? position === 'main'
+                ? 1
+                : 2
+              : current.paneId === targetPaneId
+                ? 2
+                : 1
+          expect(pane.axes.length).toBe(expectedAxes)
           expect(new Set(pane.axes.map((axis) => axis.axisId)).size).toBe(pane.axes.length)
           expect(
             chart
@@ -1020,18 +1027,49 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('每个对象独有轴，API 按轴配置，迁移保留身份，删除回收绑定', async () => {
+  it('同量纲合并轴：主图并入价格轴，副图按定义合并，迁移重绑目标轴', async () => {
     const chart = mountChart()
+    registerPlotDefinition({
+      id: 'axis-main-overlay',
+      name: 'axis-main-overlay',
+      source: 'script',
+      position: 'main',
+      inputs: {},
+      compute: () => ({ plots: [], fills: [] }),
+    })
     registerEmptyPlot('axis-object-a')
     registerEmptyPlot('axis-object-b')
+    const paneOf = (instanceId: string) =>
+      chart.kernel.indicator.readonly.instances
+        .peek()
+        .find((instance) => instance.instanceId === instanceId)!.paneId
+    const axesOf = (paneId: string) =>
+      chart
+        .getPaneRenderers()
+        .find((renderer) => renderer.getPane().id === paneId)!
+        .getPane().axes
     try {
-      const target = { kind: 'pane', paneId: MAIN_PANE_ID } as const
-      const first = chart.panes.add('axis-object-a', {}, target)!
-      const second = chart.panes.add('axis-object-b', {}, target)!
+      // 主图指标与价格序列共用价格轴，右轴列数不随对象增加。
+      const overlay = chart.panes.add(
+        'axis-main-overlay',
+        {},
+        { kind: 'pane', paneId: MAIN_PANE_ID },
+      )!
+      expect(chart.axes.bindingFor(overlay).axisId).toBe(PRICE_SERIES_AXIS_ID)
+      expect(axesOf(MAIN_PANE_ID)).toHaveLength(1)
+
+      // 副图：不同定义各一条轴，同一定义的多实例合并。
+      const first = chart.panes.add('axis-object-a')!
+      const paneId = paneOf(first)
+      const second = chart.panes.add('axis-object-b', {}, { kind: 'pane', paneId })!
+      const third = chart.panes.add('axis-object-b', {}, { kind: 'pane', paneId })!
       const a = chart.axes.bindingFor(first)
       const b = chart.axes.bindingFor(second)
       expect(a.axisId).not.toBe(b.axisId)
-      expect(chart.getPaneRenderers()[0]!.getPane().axes).toHaveLength(3)
+      expect(chart.axes.bindingFor(third).axisId).toBe(b.axisId)
+      expect(axesOf(paneId)).toHaveLength(2)
+
+      // 轴配置按轴生效，同轴对象共享同一份坐标语义。
       chart.axes.setScaleType(b.axisId, ScaleType.Log)
       expect(chart.axes.configuration(a.axisId).scaleType).toBe(ScaleType.Linear)
       expect(chart.axes.configuration(b.axisId).scaleType).toBe(ScaleType.Log)
@@ -1041,21 +1079,29 @@ describe('Chart lifecycle without a market selection', () => {
       expect(chart.axes.get(a.axisId).toPercent(110)).toBe(10)
       expect(chart.kernel.exportLayout().axisBaseValues?.[a.axisId]).toBe(100)
       chart.axes.setRangeMode(b.axisId, PRICE_AXIS_RANGE_MODE.HAND)
+
+      // 迁移到新 Pane：轴属于 Pane 的量纲组，对象重绑目标轴，旧轴配置不随对象走。
       const destination = chart.panes.addPane(MAIN_PANE_ID, 'below')!
       chart.panes.moveInstance(second, { kind: 'pane', paneId: destination })
-      expect(chart.axes.bindingFor(second)).toMatchObject({ axisId: b.axisId, paneId: destination })
-      expect(chart.axes.configuration(b.axisId)).toMatchObject({
-        scaleType: ScaleType.Log,
-        rangeMode: PRICE_AXIS_RANGE_MODE.HAND,
+      const moved = chart.axes.bindingFor(second)
+      expect(moved.paneId).toBe(destination)
+      expect(moved.axisId).not.toBe(b.axisId)
+      expect(chart.axes.configuration(moved.axisId)).toMatchObject({
+        scaleType: ScaleType.Linear,
+        rangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
       })
+      // 源 Pane 仍保留同定义另一实例的轴。
+      expect(chart.axes.bindingFor(third).axisId).toBe(b.axisId)
+
       const before = chart.axes.list()
       expect(() => chart.panes.moveInstance(first, { kind: 'pane', paneId: 'missing' })).toThrow(
         'missing',
       )
       expect(chart.axes.list()).toEqual(before)
       expect(() => chart.axes.setScaleType('missing', ScaleType.Linear)).toThrow('missing')
+      chart.panes.removeInstance(third)
       chart.panes.removeInstance(second)
-      expect(() => chart.axes.get(b.axisId)).toThrow(b.axisId)
+      expect(() => chart.axes.get(moved.axisId)).toThrow(moved.axisId)
     } finally {
       await chart.destroy()
     }

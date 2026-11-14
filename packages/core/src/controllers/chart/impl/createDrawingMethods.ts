@@ -96,6 +96,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   function resolvePlacements(drawings: ReadonlyArray<DrawingObject>) {
     return resolveCopyPlacements(drawings, {
       getCoordinates,
+      getObjectAxis,
       getViewport,
       getKWidthKGap,
       getCurrentDpr,
@@ -267,6 +268,13 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
     return isDisposed() ? null : chart.getCoordinates(paneId, axisId)
   }
 
+  /** 图元绑定的轴身份；由对象轴投影决定，未绑定的会话预览返回 null。 */
+  function getObjectAxis(paneId: string, objectId: string): string | null {
+    if (isDisposed()) return null
+    const renderer = chart.getPaneRenderers().find((item) => item.getPane().id === paneId)
+    return renderer?.getPane().objectAxis(objectId) ?? null
+  }
+
   /** 时间坐标来自行情对象当前绑定，初始 Pane 名称不参与寻址。 */
   function getSeriesCoordinates() {
     if (isDisposed()) return null
@@ -426,6 +434,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
 
   return {
     getCoordinates,
+    getObjectAxis,
     setDrawingTool,
     setDrawingToolId,
     getDrawingToolId,

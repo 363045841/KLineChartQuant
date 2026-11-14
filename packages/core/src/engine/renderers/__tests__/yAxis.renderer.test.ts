@@ -4,7 +4,7 @@ import {
   createMockPaneInfo,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { AxisWidthEstimator } from '@/engine/axisWidth/impl/axisWidthEstimator.js'
+import { layoutAxisColumns } from '@/engine/axisWidth/impl/axisColumns.js'
 import type { PaneAxisSpec } from '@/engine/pane/axisResolver.js'
 import { PriceScale } from '@/engine/scale/index.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
@@ -51,16 +51,15 @@ describe('统一 Y 轴 API', () => {
     expect(second.map((label) => label.text)).not.toContain('latest')
     expect(first.some((label) => label.text === '100.00')).toBe(true)
     expect(second.some((label) => label.text === '500.00')).toBe(true)
-    const estimator = new AxisWidthEstimator()
-    estimator.estimate({
-      labels: context.axisLabels,
-      axes: specs,
-      updateStatic: true,
-      updateOverlay: true,
-    })
-    const layout = estimator.getLayout(specs.map((spec) => spec.axisId))
-    expect(layout['axis-0']!.width).toBeGreaterThan(0)
-    expect(layout['axis-1']!.left).toBe(layout['axis-0']!.width)
+    // 列几何按轴顺序展开：主轴列在前，列宽之和等于提交的轴区宽度。
+    const columns = layoutAxisColumns(
+      specs.map((spec) => spec.axisId),
+      { 'axis-0': 40, 'axis-1': 60 },
+      100,
+    )
+    expect(columns[0]!.width).toBe(40)
+    expect(columns[1]!.left).toBe(40)
+    expect(columns[1]!.left + columns[1]!.width).toBe(100)
   })
 
   it('指定不存在的目标轴时在 API 层抛异常', () => {

@@ -164,6 +164,8 @@ export interface PaneInfo {
   axes: ReadonlyArray<{ readonly axisId: string; readonly yAxis: PaneInfo['yAxis'] }>
   /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
   axis(axisId: string): PaneInfo['yAxis']
+  /** 对象绑定的轴身份；未绑定的对象返回 null。绘图等派生对象借用已有轴。 */
+  objectAxis(objectId: string): string | null
   priceRange: {
     maxPrice: number
     minPrice: number
@@ -258,6 +260,8 @@ export interface AxisLabelsFrame {
 
 /** Y轴范围带（半透明填充区域） */
 export interface YAxisRange {
+  /** 范围带所属轴身份；同一 Pane 可能有多条轴列。 */
+  axisId: string
   /** 范围上界Y坐标（相对pane，canvas方向：小值=上方） */
   topY: number
   /** 范围下界Y坐标（相对pane，canvas方向：大值=下方） */

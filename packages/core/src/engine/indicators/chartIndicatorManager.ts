@@ -796,16 +796,22 @@ export class ChartIndicatorManager {
     return axes
   }
 
-  /** 某条轴上全部可见实例的输出极值；轴无数据时返回 null。 */
+  /** 某条轴上全部可见对象的输出极值；同轴多对象时取并集，轴无数据时返回 null。 */
   getAxisIndicatorRange(axisId: string): { min: number; max: number } | null {
-    const axis = [...this.resolveAxes().values()]
+    const axes = [...this.resolveAxes().values()]
       .flat()
-      .find((candidate) => candidate.axisId === axisId)
-    if (!axis) return null
-    const state = this.getRenderStatesSnapshot().get(axis.objectId)
-    return isPlotRenderState(state) && state.visibleMin <= state.visibleMax
-      ? { min: state.visibleMin, max: state.visibleMax }
-      : null
+      .filter((candidate) => candidate.axisId === axisId)
+    if (axes.length === 0) return null
+    const states = this.getRenderStatesSnapshot()
+    let min = Number.POSITIVE_INFINITY
+    let max = Number.NEGATIVE_INFINITY
+    for (const axis of axes) {
+      const state = states.get(axis.objectId)
+      if (!isPlotRenderState(state) || state.visibleMin > state.visibleMax) continue
+      min = Math.min(min, state.visibleMin)
+      max = Math.max(max, state.visibleMax)
+    }
+    return min <= max ? { min, max } : null
   }
 
   /** 挂载实际资源，资源表只用于释放，不保存业务投影。 */

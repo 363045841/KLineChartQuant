@@ -6,8 +6,8 @@ import type { ChartDom, Viewport } from '../../../chart/index.js'
 import type { PaneStateModule } from '../../../state/paneState.js'
 import type { ViewportStateModule } from '../../../state/viewportState.js'
 import {
-  DEFAULT_PRICE_LABEL_WIDTH,
   MAIN_PANE_ID,
+  type PaneAxisColumn,
   type PaneBoundaryResizeSession,
   type PaneSpec,
   type PaneSurfaceFactory,
@@ -62,21 +62,20 @@ export class ChartPaneLayout {
     return this.paneRenderers
   }
 
-  /** 应用框架派生的轴列表；Pane 只消费轴身份，不反向解释指标能力。 */
+  /** 应用框架派生的对象轴绑定；Pane 只消费绑定，不反向解释指标能力。 */
   setPaneAxes(
-    axesByPane: ReadonlyMap<string, ReadonlyArray<{ readonly axisId: string }>>,
+    axesByPane: ReadonlyMap<
+      string,
+      ReadonlyArray<{ readonly objectId: string; readonly axisId: string }>
+    >,
   ): boolean {
     let changed = false
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       const axes = axesByPane.get(pane.id)
-      if (!axes)
-        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Pane ${pane.id} 缺少轴投影`)
-      const ids = axes.map((axis) => axis.axisId)
-      const current = pane.axes.map((axis) => axis.axisId)
-      if (ids.length === current.length && ids.every((id, index) => id === current[index])) continue
-      pane.setAxes(ids)
-      changed = true
+      // 容器投影按帧回收 Pane，回收前它可能已不在轴投影里：保留上一份轴直到容器消失。
+      if (!axes) continue
+      if (pane.setAxes(axes)) changed = true
     }
     return changed
   }
@@ -308,25 +307,13 @@ export class ChartPaneLayout {
 
       y += h + gap
     }
-    const widths = new Map(
-      this.deps.pane.readonly.paneGeometry.peek().map((pane) => [pane.id, pane.primaryAxisWidth]),
-    )
     this.deps.pane.actions.setPaneGeometry(
       visibleSpecs.flatMap((spec) => {
         const pane = this.paneRenderers
           .find((renderer) => renderer.getPane().id === spec.id)
           ?.getPane()
         return pane && pane.height > 0
-          ? [
-              {
-                id: pane.id,
-                top: pane.top,
-                height: pane.height,
-                primaryAxisWidth:
-                  widths.get(pane.id) ??
-                  opt.rightAxisWidth + (opt.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
-              },
-            ]
+          ? [{ id: pane.id, top: pane.top, height: pane.height, axisWidth: pane.axisWidth }]
           : []
       }),
     )
@@ -339,19 +326,16 @@ export class ChartPaneLayout {
       : Math.min(Math.max(0, this.deps.getOption().paneGap ?? 0), height / (count - 1))
   }
 
-  /** 轴宽测量直接发布到只读几何，不再通过 CSS 变量传递给宿主。 */
-  setPrimaryAxisWidths(widths: Readonly<Record<string, number>>): void {
-    this.deps.pane.actions.setPaneGeometry(
-      this.deps.pane.readonly.paneGeometry.peek().map((geometry) => {
-        const pane = this.paneRenderers
-          .find((renderer) => renderer.getPane().id === geometry.id)!
-          .getPane()
-        return {
-          ...geometry,
-          primaryAxisWidth: pane.axes.length === 0 ? 0 : widths[pane.axes[0]!.axisId]!,
-        }
-      }),
-    )
+  /**
+   * 提交本帧轴列几何。
+   *
+   * @param columnsByPane Pane → 列几何；缺项按空轴区处理
+   */
+  commitAxisColumns(columnsByPane: ReadonlyMap<string, ReadonlyArray<PaneAxisColumn>>): void {
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
+      pane.setAxisColumns(columnsByPane.get(pane.id) ?? [])
+    }
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */

@@ -12,12 +12,19 @@
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
+import { layoutAxisColumns } from '@/engine/axisWidth/impl/axisColumns.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { filterDrawingsInScope } from '@/engine/drawing/model/impl/drawingScope.js'
+import {
+  AXIS_GROUP_DRAWING,
+  AXIS_GROUP_PRICE,
+  axisGroupId,
+  indicatorAxisGroupKey,
+} from '@/engine/pane/axisGroups.js'
 import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
+import type { PaneAxisColumn } from '@/engine/pane/types.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
-import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { resolveChartWorkspaceId } from '@/foundation/types/chartView.js'
 
 import {
@@ -445,6 +452,13 @@ export class Chart {
       ensureScaleTypes: () => this.ensurePaneScaleTypesFromSettings(),
       invalidateDrawingHistory: () => this.drawingCommands.history.reset(),
     })
+
+    // 首帧测量前按配置下限占位：宿主与轴区共用同一份宽度，避免从 0 展开。
+    const initialOptions = this.kernel.options.readonly.options.peek()
+    this._effectiveRightAxisWidth.set(
+      initialOptions.rightAxisWidth + (initialOptions.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
+    )
+    this._effectiveLeftAxisWidth.set(initialOptions.leftAxisWidth)
 
     this.alertController = createAlertController()
 
@@ -995,13 +1009,58 @@ export class Chart {
     })
   }
 
-  /** 对象轴的唯一声明边界：合并正式对象与预览，初始化轴配置，不写运行时资源。 */
+  /**
+   * 对象轴的唯一声明边界：先把对象归入量纲组，再让绘图借用已有轴。
+   *
+   * 价格类（价格序列 + 主图指标）共用价格轴，其余指标按定义合并；绘图不建轴，
+   * 跟随同 Pane 的 owner 轴或所在 Pane 的主轴。合并与预览都在这里完成，不写运行时资源。
+   */
   private readObjectAxisDeclarations(): ReadonlyArray<PaneAxisSpec> {
     const spec = this.kernel.dataManager.readonly.currentSpec()
     const view = this.kernel.mode.readonly.dataView()
     const workspaceId = resolveChartWorkspaceId(view)
     const symbolKey = spec === null ? undefined : symbolSpecIdentityKey(spec)
     const period = this.kernel.mode.readonly.lastBarPeriod()
+    const pricePaneId = this.kernel.systemObjects.readonly.pricePaneId()
+    /** 量纲组在 Pane 内的轴身份；价格 Pane 的价格组复用价格序列对象的轴。 */
+    const groupAxis = (paneId: string, groupKey: string): string =>
+      paneId === pricePaneId && groupKey === AXIS_GROUP_PRICE
+        ? PRICE_SERIES_AXIS_ID
+        : axisGroupId(paneId, groupKey)
+    const indicatorAxes = [...this.kernel.indicator.readonly.instances()]
+      .sort((left, right) => left.ordinal - right.ordinal)
+      .map((instance) => {
+        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+        const groupKey =
+          definition?.category === 'main'
+            ? AXIS_GROUP_PRICE
+            : indicatorAxisGroupKey(instance.indicatorId)
+        return {
+          objectId: instance.instanceId,
+          paneId: instance.paneId,
+          axisId: groupAxis(instance.paneId, groupKey),
+          visible: instance.hidden !== true,
+          decimals: definition?.scale?.decimals ?? 2,
+          format: definition?.scale?.format,
+        }
+      })
+    const seriesState = this.kernel.systemObjects.readonly.state()
+    const objectAxes = [
+      {
+        objectId: CANDLE_LAYER_ID,
+        paneId: pricePaneId,
+        axisId: PRICE_SERIES_AXIS_ID,
+        decimals: 2,
+        visible: !seriesState.hidden.includes(CANDLE_RENDERER_NAME),
+      },
+      ...indicatorAxes,
+    ]
+    // 主轴是 Pane 内第一条轴；没有对象的 Pane 只可能承载绘图，其轴由该 Pane 的绘图构成。
+    const masterByPane = new Map<string, string>()
+    for (const axis of objectAxes) {
+      if (!masterByPane.has(axis.paneId)) masterByPane.set(axis.paneId, axis.axisId)
+    }
+    const axisByObjectId = new Map(objectAxes.map((axis) => [axis.objectId, axis]))
     const drawings = [
       ...new Map(
         [
@@ -1010,45 +1069,24 @@ export class Chart {
         ].map((drawing) => [drawing.id, drawing]),
       ).values(),
     ]
-    const drawingAxes = this.kernel.pane.readonly.paneSpecs.peek().flatMap((pane) =>
-      filterDrawingsInScope(drawings, { paneId: pane.id, workspaceId, symbolKey, period })
-        .filter((drawing) => drawing.ownerId === undefined)
-        .map((drawing) => ({
-          objectId: drawing.id,
-          paneId: drawing.paneId,
-          axisId: objectAxisId(drawing.id),
-          decimals: 2,
-          visible: drawing.visible,
-        })),
-    )
-    const indicatorAxes = [...this.kernel.indicator.readonly.instances()]
-      .sort((left, right) => left.ordinal - right.ordinal)
-      .map((instance) => {
-        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
-        return {
-          objectId: instance.instanceId,
-          paneId: instance.paneId,
-          axisId: objectAxisId(instance.instanceId),
-          visible: instance.hidden !== true,
-          decimals: definition?.scale?.decimals ?? 2,
-          format: definition?.scale?.format,
-        }
-      })
-    const seriesState = this.kernel.systemObjects.readonly.state()
-    const declarations = [
-      {
-        objectId: CANDLE_LAYER_ID,
-        paneId: this.kernel.systemObjects.readonly.pricePaneId(),
-        axisId: PRICE_SERIES_AXIS_ID,
+    const drawingAxes = this.kernel.pane.readonly.paneSpecs.peek().flatMap((pane) => {
+      const masterAxisId = masterByPane.get(pane.id) ?? axisGroupId(pane.id, AXIS_GROUP_DRAWING)
+      return filterDrawingsInScope(drawings, {
+        paneId: pane.id,
+        workspaceId,
+        symbolKey,
+        period,
+      }).map((drawing) => ({
+        objectId: drawing.id,
+        paneId: drawing.paneId,
+        axisId: this.resolveDrawingAxisId(drawing, axisByObjectId, masterAxisId),
         decimals: 2,
-        visible: !seriesState.hidden.includes(CANDLE_RENDERER_NAME),
-      },
-      ...indicatorAxes,
-      ...drawingAxes,
-    ]
+        visible: drawing.visible,
+      }))
+    })
     const preferences = this.kernel.pane.getScalePreferences()
     const percentView = isTimeShareDataView(view) || this.kernel.comparison.readonly.active()
-    return declarations.map((axis) => ({
+    return [...objectAxes, ...drawingAxes].map((axis) => ({
       ...axis,
       scaleType:
         axis.axisId === PRICE_SERIES_AXIS_ID && percentView
@@ -1057,12 +1095,33 @@ export class Chart {
     }))
   }
 
+  /**
+   * 绘图不拥有轴：跟随同 Pane 的 owner 轴，否则跟随所在 Pane 的主轴。
+   *
+   * @param drawing 绘图的 Pane 归属与可选 owner
+   * @param axisByObjectId 已有对象的轴绑定
+   * @param masterAxisId 绘图所在 Pane 的主轴
+   * @returns 绘图借用的轴身份
+   */
+  private resolveDrawingAxisId(
+    drawing: { readonly paneId: string; readonly ownerId?: string },
+    axisByObjectId: ReadonlyMap<string, { readonly paneId: string; readonly axisId: string }>,
+    masterAxisId: string,
+  ): string {
+    if (drawing.ownerId === undefined) return masterAxisId
+    const owner = axisByObjectId.get(drawing.ownerId)
+    return owner !== undefined && owner.paneId === drawing.paneId ? owner.axisId : masterAxisId
+  }
+
   /** 将对象轴的有效配置投影到运行时坐标映射。 */
   private projectPaneScaleTypes(): void {
     const declarations = this.indicatorManager.getPaneAxes()
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
-      for (const spec of declarations.get(pane.id)!) {
+      // 容器投影按帧回收 Pane，回收前它可能已不在轴投影里：跳过，等容器消失。
+      const axes = declarations.get(pane.id)
+      if (axes === undefined) continue
+      for (const spec of axes) {
         const axis = pane.axis(spec.axisId)
         const configuredBase =
           this.kernel.axesState.readonly.paneRanges.peek()[spec.axisId]?.baseValue
@@ -1455,11 +1514,18 @@ export class Chart {
    * @param widths 本帧标签估算出的轴宽需求
    * @returns 是否改变了实际生效的宽度
    */
+  /**
+   * 提交本帧轴宽：列几何是唯一来源，下限差额并入主轴列。
+   *
+   * 生效右栏宽由最宽 Pane 决定，所以差额只补给该 Pane，保证 `Σ列宽 === axisWidth`；
+   * 宿主控件区、轴 canvas 与命中都读这份列几何，不再各自测量。
+   */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
-    this.layoutManager.setPrimaryAxisWidths(widths.rightByAxis)
     const options = this.kernel.options.readonly.options.peek()
+    const rightFloor =
+      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH)
     const right = resolveAxisWidth(
-      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
+      rightFloor,
       widths.right,
       this.axisWidthLocked ? this._effectiveRightAxisWidth.peek() : null,
     )
@@ -1469,16 +1535,40 @@ export class Chart {
       this.axisWidthLocked ? this._effectiveLeftAxisWidth.peek() : null,
     )
     this.axisWidthLocked = true
+    const panes = this.paneRenderers.map((renderer) => {
+      const pane = renderer.getPane()
+      const axisIds = pane.axes.map((axis) => axis.axisId)
+      const total = axisIds.reduce((sum, axisId) => sum + (widths.rightByAxis[axisId] ?? 0), 0)
+      return { pane, axisIds, total }
+    })
+    const widest = panes.reduce((max, entry) => Math.max(max, entry.total), 0)
+    const columnsByPane = new Map<string, ReadonlyArray<PaneAxisColumn>>()
+    for (const entry of panes) {
+      columnsByPane.set(
+        entry.pane.id,
+        layoutAxisColumns(
+          entry.axisIds,
+          widths.rightByAxis,
+          entry.total === widest ? right : entry.total,
+        ),
+      )
+    }
+    this.layoutManager.commitAxisColumns(columnsByPane)
     const changed =
       this._effectiveRightAxisWidth.peek() !== right || this._effectiveLeftAxisWidth.peek() !== left
-    if (!changed) return false
-    batch(() => {
-      this._effectiveRightAxisWidth.set(right)
-      this._effectiveLeftAxisWidth.set(left)
-    })
-    if (this.dom.rightAxisLayer) this.dom.rightAxisLayer.style.width = `${right}px`
-    if (this.dom.leftAxisLayer) this.dom.leftAxisLayer.style.width = `${left}px`
-    return true
+    if (changed) {
+      batch(() => {
+        this._effectiveRightAxisWidth.set(right)
+        this._effectiveLeftAxisWidth.set(left)
+      })
+    }
+    const rightCss = `${right}px`
+    const leftCss = `${left}px`
+    if (this.dom.rightAxisLayer && this.dom.rightAxisLayer.style.width !== rightCss)
+      this.dom.rightAxisLayer.style.width = rightCss
+    if (this.dom.leftAxisLayer && this.dom.leftAxisLayer.style.width !== leftCss)
+      this.dom.leftAxisLayer.style.width = leftCss
+    return changed
   }
 
   /** 布局或设置变化后允许重新评估轴宽；下一帧按新标签提交并重新锁定。 */

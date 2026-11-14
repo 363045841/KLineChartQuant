@@ -73,6 +73,7 @@ import {
   formatLastPriceCountdown,
   getLastPriceRemainingMs,
   paintAxisLabels,
+  paintAxisRanges,
   registerAxisLabel,
 } from '../../renderers/impl/labels/index.js'
 import { COMPARISON_LINE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
@@ -611,7 +612,7 @@ export class ChartRenderer {
     const renderer = this.deps.getPaneRenderers().find((item) => item.getPane().id === paneId)
     if (!renderer)
       throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
-    return this.axisWidthEstimator.getLayout(renderer.getPane().axes.map((axis) => axis.axisId))
+    return renderer.getPane().axisLayout
   }
 
   getDrawingStore(): DrawingStore {
@@ -632,7 +633,9 @@ export class ChartRenderer {
     const symbol = dataManager.symbols.peek()[0]
     const symbolKey = symbol === undefined ? undefined : symbolSpecIdentityKey(symbol)
     if (context.symbolKey !== symbolKey || context.period !== dataManager.currentPeriod) return null
-    if (axisId === undefined) return context.coordinates
+    // 未指定轴时使用 Pane 的主轴（轴列第一条），与绘图/交互的默认坐标一致。
+    const targetAxisId = axisId ?? context.pane.axes[0]?.axisId
+    if (targetAxisId === undefined) return context.coordinates
     return createFrameCoordinates({
       data: context.data,
       range: context.range,
@@ -642,7 +645,7 @@ export class ChartRenderer {
       kWidth: context.kWidth,
       kGap: context.kGap,
       dataView: context.dataView,
-      priceAxis: context.pane.axis(axisId),
+      priceAxis: context.pane.axis(targetAxisId),
     })
   }
 
@@ -1057,9 +1060,25 @@ export class ChartRenderer {
         'all',
       )
       const drawingRanges = new Map<string, { min: number; max: number }>()
+      // 绘图不扩张主轴的自动范围：带 owner 的脚本绘图并入其所属轴；用户手绘图只在
+      // 该 Pane 没有其它对象时参与，否则拖动图元会牵动价格窗口。
+      const drawingIds = new Set(this.drawingStore.getAll().map((drawing) => drawing.id))
+      const objectAxes = new Set(
+        this.deps
+          .getIndicatorManager()
+          .getAxesInPane(pane.id)
+          .filter((axis) => !drawingIds.has(axis.objectId))
+          .map((axis) => axis.axisId),
+      )
       const drawingsByAxis = new Map<string, DrawingObject[]>()
       for (const drawing of drawings) {
-        const axisId = objectAxisId(drawing.ownerId === undefined ? drawing.id : drawing.ownerId)
+        const axisId = pane.objectAxis(drawing.id)
+        if (axisId === null)
+          throw new KLineChartError(
+            GENERIC_ERROR_CODES.INVALID_STATE,
+            `绘图 ${drawing.id} 未绑定轴`,
+          )
+        if (drawing.ownerId === undefined && objectAxes.has(axisId)) continue
         const group = drawingsByAxis.get(axisId)
         if (group) group.push(drawing)
         else drawingsByAxis.set(axisId, [drawing])
@@ -1341,7 +1360,9 @@ export class ChartRenderer {
         contexts.leftAxisOverlayCtx,
       ]
       const axisIds = pane.axes.map((axis) => axis.axisId)
-      const layout = this.axisWidthEstimator.getLayout(axisIds)
+      const layout = pane.axisLayout
+      // 区间带与时间轴同源：读本帧已合并的上下文数据，拖拽中的会话层也在其中。
+      const ranges = this.paneCtxMap.get(pane.id)?.yAxisRanges ?? []
       for (const target of targets) {
         if (target) clearAxisSurface(target, vp.dpr, pane.height)
       }
@@ -1351,16 +1372,25 @@ export class ChartRenderer {
         const axisList = surface.startsWith('yRight') ? axisIds : [axisIds[0]!]
         for (const axisId of axisList) {
           const column = layout[axisId]
+          if (column === undefined) continue
+          const metrics = {
+            dpr: vp.dpr,
+            axisWidth: column.width,
+            axisHeight: pane.height,
+            offsetX: column.left,
+          }
+          // 选中图元的区间带铺在静态层，标签随后覆盖其上。
+          if (surface === 'yRightStatic')
+            paintAxisRanges(
+              target,
+              ranges.filter((range) => range.axisId === axisId),
+              metrics,
+            )
           paintAxisLabels(
             target,
             this.retainedAxisLabels.get(axisId)?.forSurface(surface, axisId).labels ?? [],
             surface,
-            {
-              dpr: vp.dpr,
-              axisWidth: column.width,
-              axisHeight: pane.height,
-              offsetX: column.left,
-            },
+            metrics,
           )
         }
       }
@@ -1482,7 +1512,7 @@ export class ChartRenderer {
       yAxisRanges: [],
       xAxisRanges: sharedXAxisRanges,
       axisLabels: axisLabelsFrame,
-      axisLayout: this.axisWidthEstimator.getLayout(pane.axes.map((axis) => axis.axisId)),
+      axisLayout: pane.axisLayout,
       theme: this.deps.theme$.peek(),
       isAsiaMarket: this.getSettings().isAsiaMarket as boolean,
       colorPresetSettings: this.getSettings().colorPresetSettings,
@@ -1877,6 +1907,7 @@ export class ChartRenderer {
             fromPercent: () => 0,
             getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
           }),
+          objectAxis: () => null,
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,

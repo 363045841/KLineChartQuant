@@ -142,7 +142,7 @@ describe('public chart renderer access', () => {
     expect(second.getRenderer(layer.id)).toBeUndefined()
   })
 
-  it('同窗口多个对象分别布局右轴，最新价签绘制到行情对象的轴列', async () => {
+  it('同窗口主图指标并入行情对象轴，最新价签绘制到行情轴列', async () => {
     const controller = await mount()
     const price = controller.axes.bindingFor('plugin:candle')
     const indicatorId = controller.addIndicator(
@@ -150,7 +150,7 @@ describe('public chart renderer access', () => {
       {},
       { kind: 'pane', paneId: price.paneId },
     )!
-    expect(controller.axes.bindingFor(indicatorId).axisId).not.toBe(price.axisId)
+    expect(controller.axes.bindingFor(indicatorId).axisId).toBe(price.axisId)
     const captured = controller.captureFrame(() => {
       const canvas =
         containers[containers.length - 1]!.querySelector<HTMLCanvasElement>('.right-axis-overlay')!

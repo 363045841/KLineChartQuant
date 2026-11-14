@@ -28,12 +28,20 @@ export type PaneSpec = {
   capabilities?: Partial<PaneCapabilities>
 }
 
+/** 一条已提交的右轴列：left 为 Pane 轴区内的左偏移，width 已含下限差额。 */
+export interface PaneAxisColumn {
+  readonly axisId: string
+  readonly left: number
+  readonly width: number
+}
+
 /** 已提交的可见 Pane 几何，坐标相对绘图区，单位为 CSS 像素；不持久化。 */
 export interface PaneGeometry {
   readonly id: string
   readonly top: number
   readonly height: number
-  readonly primaryAxisWidth: number
+  /** 该 Pane 的轴区宽度，等于各轴列宽度之和。 */
+  readonly axisWidth: number
 }
 
 /** 拖拽期间总位移始终相对按下时的布局，外部布局变化后会话失效。 */

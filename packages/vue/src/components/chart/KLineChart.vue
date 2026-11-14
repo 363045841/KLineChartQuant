@@ -319,7 +319,7 @@
               v-for="pane in paneAxisItems"
               :key="pane.id"
               class="pane-axis-controls-host"
-               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth + 'px' }"
+               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.axisWidth + 'px' }"
             >
               <PriceAxisSettingsMenu
                 :controller="controller"
@@ -1671,17 +1671,13 @@
     (ctrl) => ctrl.rightAxisEffectiveWidth,
     () => 0,
   )
-  const axisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
-  )
+  const axisHostWidth = computed(() => effectiveRightAxisWidth.value)
   const effectiveLeftAxisWidth = useControllerSignal(
     controller,
     (ctrl) => ctrl.leftAxisEffectiveWidth,
     () => 0,
   )
-  const leftAxisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveLeftAxisWidth.value),
-  )
+  const leftAxisHostWidth = computed(() => effectiveLeftAxisWidth.value)
 
   // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。
   const priceAxisPosition = useControllerSignalValue(

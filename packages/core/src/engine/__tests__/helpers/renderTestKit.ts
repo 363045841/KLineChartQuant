@@ -194,7 +194,7 @@ export interface MockPaneInfoOverrides extends Partial<Omit<PaneInfo, 'yAxis'>> 
 
 /** 构造完整 PaneInfo，只覆盖调用方声明的字段。 */
 export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneInfo {
-  const { yAxis, axes, axis, axisIds, ...rest } = overrides
+  const { yAxis, axes, axis, axisIds, objectAxis, ...rest } = overrides
   const resolvedAxis = { ...DEFAULT_PANE_Y_AXIS, ...yAxis }
   const declaredAxes =
     axes ?? (axisIds ?? ['main']).map((axisId) => ({ axisId, yAxis: resolvedAxis }))
@@ -214,6 +214,8 @@ export function createMockPaneInfo(overrides: MockPaneInfoOverrides = {}): PaneI
         if (!found) throw new Error(`测试未声明目标轴：${axisId}`)
         return found.yAxis
       }),
+    // 默认全部对象绑定主轴，与"绘图借用已有轴"的投影一致。
+    objectAxis: objectAxis ?? (() => declaredAxes[0]?.axisId ?? null),
   } satisfies PaneInfo
 }
 

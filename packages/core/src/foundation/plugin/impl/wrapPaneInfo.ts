@@ -36,6 +36,7 @@ export function wrapPaneInfo(pane: {
   height: number
   yAxis: AxisLike
   axes: ReadonlyArray<{ readonly axisId: string; readonly yAxis: AxisLike }>
+  objectAxis(objectId: string): string | null
   priceRange: PaneInfo['priceRange']
 }): Readonly<PaneInfo> {
   const axes = pane.axes.map((axis) => ({
@@ -61,6 +62,7 @@ export function wrapPaneInfo(pane: {
         )
       return axis
     },
+    objectAxis: (objectId) => pane.objectAxis(objectId),
     get priceRange() {
       return pane.priceRange
     },
