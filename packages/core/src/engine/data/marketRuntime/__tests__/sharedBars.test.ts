@@ -28,8 +28,17 @@ import type { ReadyMarketSession } from '../types.js'
 afterEach(unregisterTestProvider)
 
 /** 注册测试 Provider 并构造真实缓存、MarketRuntime 与查询记录；图表品种固定为 MAIN。 */
-function createHarness(realtime?: RealtimeSubscriptionPool) {
-  const data = [makeKLine(100), makeKLine(200)]
+/**
+ * 注册测试 Provider 并构造真实缓存、MarketRuntime 与查询记录。
+ *
+ * @param realtime 可选的实时订阅池；省略时不建立实时连接
+ * @param chartBars 主图 K 线；明细请求的窗口由它决定
+ */
+function createHarness(
+  realtime?: RealtimeSubscriptionPool,
+  chartBars: readonly KLineData[] = [makeKLine(100), makeKLine(200)],
+) {
+  const data = chartBars
   const provider = createTestProvider({ fetchBars: { fetch: async () => makeBarsPage(data) } })
   registerTestProvider(provider)
   const capabilities = provider.source.capabilities
@@ -204,6 +213,41 @@ describe('Request 来源约定', () => {
       runtime.retain(new Set())
       expect(signal.aborted).toBe(true)
       await Promise.all([firstRejected, secondRejected])
+    } finally {
+      runtime.dispose()
+      cache.destroy()
+    }
+  })
+
+  it('明细按声明根数取足，不因图表首根而提前停止', async () => {
+    const now = Date.UTC(2026, 10, 15)
+    const chartBars = Array.from({ length: 4 }, (_value, index) => makeKLine(now - index * 60_000))
+    const { runtime, cache } = createHarness(undefined, chartBars)
+    try {
+      vi.mocked(cache.queryBars).mockImplementation(async (query) => {
+        const before = query.beforeTimestamp ?? now
+        const page = Array.from({ length: 1000 }, (_value, index) =>
+          makeKLine(before - (1000 - index) * 60_000),
+        )
+        return {
+          sourceId: 'test',
+          instrument: instrumentFor('MAIN'),
+          series: {
+            period: '1min',
+            adjustment: 'none',
+            barAggregation: 'original',
+            timezone: 'UTC',
+            data: page,
+            olderData: 'unknown',
+          },
+        }
+      })
+      // 保留 3000 根明细，约三页；图表只覆盖 4 根 5 分钟，旧逻辑会停在第一页。
+      runtime.retain(new Set(['a']))
+      await runtime
+        .context('a', chartBars)
+        .loadBars({ symbol: 'MAIN', timeframe: '1', mode: 'lower_tf', calcBarsCount: 3000 })
+      expect(cache.queryBars).toHaveBeenCalledTimes(3)
     } finally {
       runtime.dispose()
       cache.destroy()

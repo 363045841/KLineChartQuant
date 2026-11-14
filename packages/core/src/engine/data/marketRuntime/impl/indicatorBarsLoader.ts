@@ -58,10 +58,14 @@ async function fetchPages(
     pages.unshift(page)
     loaded += page.length
     warmup += page.filter((bar) => bar.timestamp < demand.from).length
+    // 明细按脚本声明的 calcBarsCount 取足：阶段跨度由指标决定，不能停在图表首根。
+    // 只覆盖 demand.from 会让「保留期数」失效，早期阶段永远缺明细。
+    // 明细按脚本声明的 calcBarsCount 取足：阶段跨度由指标决定，不能停在图表首根。
+    // 只覆盖 demand.from 会让「保留期数」失效，早期阶段永远缺明细。
+    // 明细按脚本声明的 calcBarsCount 取足：阶段跨度由指标决定，不能停在图表首根。
+    // 只覆盖 demand.from 会让「保留期数」失效，早期阶段永远缺明细。
     const covered =
-      request.mode === 'lower_tf'
-        ? loaded >= budget || (page[0]?.timestamp ?? Infinity) <= demand.from
-        : warmup >= request.calcBarsCount
+      request.mode === 'lower_tf' ? loaded >= budget : warmup >= request.calcBarsCount
     if (
       covered ||
       !page.length ||
