@@ -44,6 +44,24 @@ function scaleMapsEqual(
   return left.size === right.size && [...right].every(([id, type]) => left.get(id) === type)
 }
 
+/** 轴列几何逐项比较：列宽不变但列的轴身份变化时也必须广播。 */
+function axisColumnsEqual(
+  previous: PaneGeometry['axisColumns'],
+  next: PaneGeometry['axisColumns'],
+): boolean {
+  return (
+    previous.length === next.length &&
+    previous.every((column, index) => {
+      const target = next[index]!
+      return (
+        column.axisId === target.axisId &&
+        column.left === target.left &&
+        column.width === target.width
+      )
+    })
+  )
+}
+
 /** 配置由恢复和用户命令写入；指标是否加载不参与 pane 的存在性、顺序或高度。 */
 export function createPaneState() {
   const { signals, readonly: stored } = createSubState({
@@ -96,7 +114,7 @@ export function createPaneState() {
     readonly,
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
-      /** 已提交的可见 Pane 几何；轴区宽度取自已提交的列布局，数值不变时不广播。 */
+      /** 已提交的可见 Pane 几何；轴区宽度与轴列取自已提交的列布局，数值不变时不广播。 */
       setPaneGeometry(geometry: ReadonlyArray<PaneGeometry>): void {
         const previous = stored.paneGeometry.peek()
         if (
@@ -107,7 +125,8 @@ export function createPaneState() {
               pane.id === next.id &&
               pane.top === next.top &&
               pane.height === next.height &&
-              pane.axisWidth === next.axisWidth
+              pane.axisWidth === next.axisWidth &&
+              axisColumnsEqual(pane.axisColumns, next.axisColumns)
             )
           })
         )

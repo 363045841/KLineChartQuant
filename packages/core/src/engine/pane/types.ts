@@ -42,6 +42,8 @@ export interface PaneGeometry {
   readonly height: number
   /** 该 Pane 的轴区宽度，等于各轴列宽度之和。 */
   readonly axisWidth: number
+  /** 已提交的右轴列几何，顺序即列显示顺序；宿主控件按列定位，不反推轴身份。 */
+  readonly axisColumns: ReadonlyArray<PaneAxisColumn>
 }
 
 /** 拖拽期间总位移始终相对按下时的布局，外部布局变化后会话失效。 */

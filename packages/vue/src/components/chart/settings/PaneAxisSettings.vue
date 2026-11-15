@@ -1,12 +1,12 @@
-<!-- 价格轴与时间轴交叉处的设置入口，不承担 Pane 快捷按钮布局。 -->
+<!-- 单条轴列底部的设置入口：目标轴由所在列决定，菜单不再列轴供选择。 -->
 <template>
   <DropMenu
-    class="axis-settings-menu"
-    :style="{ height: height + 'px' }"
+    class="pane-axis-settings"
     :label="MENU_LABEL"
     :groups="groups"
     placement="top"
     density="compact"
+    keep-open-on-select
     fill
     @pointerdown.stop
     @pointermove.stop
@@ -17,11 +17,6 @@
     <template #trigger>
       <IconTablerSettings aria-hidden="true" />
     </template>
-    <template #item-action="{ group, item }">
-      <span v-if="isSelected(group.id, item.id)" class="drop-menu__status">
-        <IconTablerCheck aria-hidden="true" />
-      </span>
-    </template>
   </DropMenu>
 </template>
 
@@ -31,23 +26,23 @@
   import DropMenu from '@vue-src/components/common/DropMenu.vue'
   import { usePriceAxisMenu } from '@vue-src/composables/chart/usePriceAxisMenu.js'
   import { toRef } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconTablerSettings from '~icons/tabler/settings'
 
   const props = defineProps<{
     controller: ChartController | null
-    height: number
+    axisId: string
   }>()
   const emit = defineEmits<{ 'settings-change': [settings: ChartSettings] }>()
-  const MENU_LABEL = '价格轴设置'
-  const { groups, select, isSelected } = usePriceAxisMenu(
+  const MENU_LABEL = '坐标轴设置'
+  const { groups, select } = usePriceAxisMenu(
     toRef(() => props.controller),
     (settings) => emit('settings-change', settings),
+    props.axisId,
   )
 </script>
 
 <style scoped>
-  .axis-settings-menu {
+  .pane-axis-settings {
     --control-button-height: 100%;
     --control-button-inline-padding: 0;
     --control-button-radius: 0;
@@ -59,15 +54,17 @@
     --control-button-focus-outline-offset: -2px;
     --control-button-focus-shadow: none;
 
+    /* 宿主给列左边与列宽，本组件贴在该轴带最底部。 */
     position: absolute;
-    right: 0;
     bottom: 0;
     z-index: 30;
-    width: 100%;
+    height: 20px;
+    /* 父层整体不接收指针，入口自己恢复，避免挡住上方的悬停快捷按钮。 */
+    pointer-events: auto;
   }
 
-  .axis-settings-menu svg {
-    width: 16px;
-    height: 16px;
+  .pane-axis-settings svg {
+    width: 14px;
+    height: 14px;
   }
 </style>

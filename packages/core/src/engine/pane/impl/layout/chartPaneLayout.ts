@@ -314,7 +314,15 @@ export class ChartPaneLayout {
       this.paneRenderers.flatMap((renderer) => {
         const pane = renderer.getPane()
         return pane.height > 0
-          ? [{ id: pane.id, top: pane.top, height: pane.height, axisWidth: pane.axisWidth }]
+          ? [
+              {
+                id: pane.id,
+                top: pane.top,
+                height: pane.height,
+                axisWidth: pane.axisWidth,
+                axisColumns: pane.axisColumns,
+              },
+            ]
           : []
       }),
     )

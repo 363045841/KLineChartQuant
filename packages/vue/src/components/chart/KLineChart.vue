@@ -316,15 +316,12 @@
             @contextmenu.prevent
           >
             <PaneAxisControls
-              v-for="pane in paneAxisItems"
-              :key="pane.id"
+              v-for="entry in paneAxisEntries"
+              :key="entry.pane.id"
               :controller="controller"
-              :pane="pane"
-              @settings-change="handleSettingsChange"
-            />
-            <PriceAxisSettingsMenu
-              :controller="controller"
-              :height="props.bottomAxisHeight"
+              :pane="entry.pane"
+              :columns="entry.columns"
+              :ends-at-chart-bottom="entry.endsAtChartBottom"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -498,7 +495,6 @@
   import './tooltip.css'
   import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
   import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
-  import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
   import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
@@ -541,6 +537,7 @@
   import { useKLineTooltip } from '@vue-src/composables/chart/useKLineTooltip.js'
   import { useLegendMoveMenu } from '@vue-src/composables/chart/useLegendMoveMenu.js'
   import { useLegendUi } from '@vue-src/composables/chart/useLegendUi.js'
+  import { usePaneAxisColumns } from '@vue-src/composables/chart/usePaneAxisColumns.js'
   import { usePaneAxisItems } from '@vue-src/composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
   import { useScriptEditor } from '@vue-src/composables/chart/useScriptEditor.js'
@@ -1149,6 +1146,21 @@
   } = useIndicatorManager(controller)
 
   const paneAxisItems = usePaneAxisItems(controller)
+  /** 每条轴列一个设置入口，入口拿到的轴身份来自 Core 已提交的列几何。 */
+  const paneAxisColumns = usePaneAxisColumns(controller)
+  /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
+  const paneAxisEntries = computed(() => {
+    const entries = paneAxisItems.value
+      .map((pane) => ({
+        pane,
+        columns: paneAxisColumns.value.filter((column) => column.paneId === pane.id),
+      }))
+      .filter((entry) => entry.columns.length > 0)
+    return entries.map((entry, index) => ({
+      ...entry,
+      endsAtChartBottom: index === entries.length - 1,
+    }))
+  })
 
   const scriptSourceStore = inject(SCRIPT_SOURCE_STORE_KEY, undefined)
   const scriptEditorSession = useScriptEditor(scriptSourceStore, controller)

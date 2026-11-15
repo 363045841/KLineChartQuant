@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import DropMenu from './DropMenu.vue'
+import type { DropMenuGroup } from './dropMenuTypes.js'
 
 const selectionGroups = [
   {
@@ -241,8 +242,55 @@ describe('DropMenu 图标槽位', () => {
   })
 })
 
+describe('DropMenu 顶层选择语义', () => {
+  it('单选不因再次点击而取消，开关切换后保持打开', async () => {
+    const wrapper = mount(DropMenu, {
+      attachTo: document.body,
+      props: {
+        label: '菜单',
+        groups: [
+          {
+            id: 'g',
+            label: '',
+            items: [
+              { id: 'auto', label: '自动', checked: true, selection: 'radio' },
+              {
+                id: 'price-only',
+                label: '仅缩放价格图表',
+                checked: true,
+                selection: 'checkbox',
+              },
+            ],
+          },
+        ],
+      },
+    })
+    ;(wrapper.get('button').element as HTMLButtonElement).click()
+    await flush()
+
+    const radio = document.querySelector<HTMLElement>('[role="menuitemradio"]')
+    const checkbox = document.querySelector<HTMLElement>('[role="menuitemcheckbox"]')
+    // 两种勾互不排斥，各自渲染勾选图标。
+    expect(radio?.getAttribute('aria-checked')).toBe('true')
+    expect(checkbox?.getAttribute('aria-checked')).toBe('true')
+    expect(document.querySelectorAll('.drop-menu__check svg')).toHaveLength(2)
+
+    checkbox?.click()
+    await flush()
+    expect(wrapper.emitted('select')?.[0]).toEqual(['g', 'price-only'])
+    expect(wrapper.emitted('close')).toBeUndefined()
+
+    // 单选再点一次仍是一次选择，不会变成未勾选，按常规则关闭菜单。
+    radio?.click()
+    await flush()
+    expect(wrapper.emitted('select')?.[1]).toEqual(['g', 'auto'])
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+})
+
 describe('DropMenu 二级菜单', () => {
-  const groups = [
+  const groups: ReadonlyArray<DropMenuGroup> = [
     {
       id: 'g',
       label: '',
@@ -251,8 +299,8 @@ describe('DropMenu 二级菜单', () => {
           id: 'period',
           label: '时间周期可见性',
           children: [
-            { id: 'above', label: '当前及以上时间周期', checked: false },
-            { id: 'all', label: '所有时间周期', checked: true },
+            { id: 'above', label: '当前及以上时间周期', checked: false, selection: 'checkbox' },
+            { id: 'all', label: '所有时间周期', checked: true, selection: 'checkbox' },
           ],
         },
       ],
@@ -297,8 +345,8 @@ describe('DropMenu 二级菜单', () => {
               id: 'period',
               label: '时间周期可见性',
               children: [
-                { id: 'above', label: '当前及以上时间周期', checked: true },
-                { id: 'all', label: '所有时间周期', checked: false },
+                { id: 'above', label: '当前及以上时间周期', checked: true, selection: 'checkbox' },
+                { id: 'all', label: '所有时间周期', checked: false, selection: 'checkbox' },
               ],
             },
           ],

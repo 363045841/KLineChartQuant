@@ -69,25 +69,12 @@
                     :item="item"
                     :select="() => activateItem(group.id, item)"
                   >
-                    <button
-                      type="button"
-                      class="drop-menu__item-main klc-motion-icon-feedback"
-                      role="menuitem"
-                      :disabled="item.disabled"
-                      :title="item.disabled ? item.reason : undefined"
-                      :aria-haspopup="item.children?.length ? 'menu' : undefined"
-                      :aria-expanded="item.children?.length ? isSubmenuOpen(item) : undefined"
-                      @click="activateItem(group.id, item)"
-                    >
-                      <span v-if="hasMainIcons" class="drop-menu__icon">
-                        <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
-                      </span>
-                      <span>{{ item.label }}</span>
-                      <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
-                      <span v-if="item.children?.length" class="drop-menu__submenu-arrow">
-                        <IconTablerChevronRight aria-hidden="true" />
-                      </span>
-                    </button>
+                    <DropMenuItemButton
+                      :item="item"
+                      :show-icon="hasMainIcons"
+                      :expanded="item.children?.length ? isSubmenuOpen(item) : undefined"
+                      @activate="activateItem(group.id, item)"
+                    />
                   </slot>
                   <span v-if="$slots['item-action']" class="drop-menu__item-action">
                     <slot name="item-action" :group="group" :item="item" />
@@ -120,23 +107,11 @@
               class="drop-menu__item"
               :class="{ 'is-active': child.active }"
             >
-              <button
-                type="button"
-                class="drop-menu__item-main klc-motion-icon-feedback"
-                :role="child.checked === undefined ? 'menuitem' : 'menuitemcheckbox'"
-                :aria-checked="child.checked === undefined ? undefined : child.checked"
-                :disabled="child.disabled"
-                :title="child.disabled ? child.reason : undefined"
-                @click="selectSubmenuItem(openSubmenuGroupId, openSubmenuItem, child)"
-              >
-                <span v-if="hasSubmenuIcons" class="drop-menu__icon">
-                  <component :is="child.icon" v-if="child.icon" aria-hidden="true" />
-                </span>
-                <span>{{ child.label }}</span>
-                <span class="drop-menu__check" aria-hidden="true">
-                  <IconTablerCheck v-if="child.checked" />
-                </span>
-              </button>
+              <DropMenuItemButton
+                :item="child"
+                :show-icon="hasSubmenuIcons"
+                @activate="selectSubmenuItem(openSubmenuGroupId, openSubmenuItem, child)"
+              />
             </div>
           </div>
         </template>
@@ -153,7 +128,6 @@
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import {
-    type Component,
     type CSSProperties,
     computed,
     nextTick,
@@ -162,36 +136,13 @@
     useTemplateRef,
     watch,
   } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
-  import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import BaseTooltip from './BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
+  import type { DropMenuGroup, DropMenuItem } from './dropMenuTypes.js'
+  import DropMenuItemButton from './DropMenuItemButton.vue'
   import SlidingHighlight from './SlidingHighlight.vue'
 
-  export interface DropMenuItem {
-    id: string
-    label: string
-    disabled?: boolean
-    active?: boolean
-    /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
-    icon?: Component
-    /** 复选项的勾选态；有值时按 menuitemcheckbox 渲染，且选择后不关闭菜单。 */
-    checked?: boolean
-    /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
-    shortcut?: string
-    /** 禁用原因；默认按钮通过 title 展示。 */
-    reason?: string
-    /** 管理菜单用来决定是否展示删除操作；普通列表可省略。 */
-    deletable?: boolean
-    /** 二级菜单项；存在时该行只展开子菜单，不触发 select。 */
-    children?: ReadonlyArray<DropMenuItem>
-  }
-
-  export interface DropMenuGroup {
-    id: string
-    label: string
-    items: ReadonlyArray<DropMenuItem>
-  }
+  export type { DropMenuGroup, DropMenuItem } from './dropMenuTypes.js'
 
   const props = defineProps<{
     label: string
@@ -429,7 +380,20 @@
       if (anchor) void showSubmenu(item, anchor, true)
       return
     }
-    select(groupId, item.id)
+    activateLeaf(groupId, item)
+  }
+
+  /**
+   * 叶子项激活：开关切换后保持菜单打开，单选与命令按 keepOpenOnSelect 决定是否关闭。
+   *
+   * @param groupId 所属分组
+   * @param item 被激活的项
+   * @param parentId 来自二级菜单时的父项 id
+   */
+  function activateLeaf(groupId: string, item: DropMenuItem, parentId?: string): void {
+    if (!props.keepOpenOnSelect && item.selection !== 'checkbox') hide(true)
+    if (parentId === undefined) emit('select', groupId, item.id)
+    else emit('select', groupId, item.id, parentId)
   }
 
   function selectSubmenuItem(
@@ -438,13 +402,7 @@
     child: DropMenuItem,
   ): void {
     if (child.disabled || groupId === null || parent === null) return
-    // 复选项切换后保持菜单打开，方便连续勾选多个周期。
-    if (child.checked !== undefined) {
-      emit('select', groupId, child.id, parent.id)
-      return
-    }
-    if (!props.keepOpenOnSelect) hide(true)
-    emit('select', groupId, child.id, parent.id)
+    activateLeaf(groupId, child, parent.id)
   }
 
   function closeSubmenuAndFocusParent(): void {
@@ -561,11 +519,6 @@
     if (!next) return
     if (menuRef.value?.contains(next) || triggerRef.value?.contains(next)) return
     hide()
-  }
-
-  function select(groupId: string, itemId: string) {
-    if (!props.keepOpenOnSelect) hide(true)
-    emit('select', groupId, itemId)
   }
 
   // 窗口尺寸变化时子菜单的 fixed 坐标会失效，直接收起，等下一次 hover/键盘重新测量。
@@ -727,7 +680,7 @@
   }
 
   /* 图标槽固定占位：条目没有图标时也保留同一宽度，避免文案左右跳动。 */
-  .drop-menu__icon {
+  .drop-menu__item :deep(.drop-menu__icon) {
     display: inline-flex;
     flex: 0 0 14px;
     width: 14px;
@@ -744,7 +697,7 @@
   }
 
   /* 快捷键右对齐并弱化，避免和菜单项文案争夺视觉重量。 */
-  .drop-menu__shortcut {
+  .drop-menu__item :deep(.drop-menu__shortcut) {
     flex: 0 0 auto;
     margin-left: auto;
     padding-left: var(--klc-space-16, 16px);
@@ -890,7 +843,7 @@
     background: var(--klc-color-ui-hover);
   }
 
-  .drop-menu__submenu-arrow {
+  .drop-menu__item :deep(.drop-menu__submenu-arrow) {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -898,7 +851,7 @@
     color: var(--klc-color-ui-text-soft);
   }
 
-  .drop-menu__check {
+  .drop-menu__item :deep(.drop-menu__check) {
     display: inline-flex;
     flex: 0 0 14px;
     align-items: center;
