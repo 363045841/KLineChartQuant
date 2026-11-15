@@ -88,7 +88,7 @@ defineIndicator({
       // 至少一个月，避免声明期读到的保留期数仍是默认值；上限由脚本声明控制。
       {
         calcBarsCount: Math.max(
-          MINUTES_PER_DAY * 32,
+          MINUTES_PER_DAY * 12,
           (keepPeriods + 1) * periodCount * unitMinutesOf(periodUnit),
         ),
       },
