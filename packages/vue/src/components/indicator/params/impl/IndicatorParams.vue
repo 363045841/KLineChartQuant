@@ -90,8 +90,8 @@
     margin-inline: var(--base-modal-content-inset);
     padding: 10px 12px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
+    background: var(--klc-color-ui-highlight);
+    border: 1px solid var(--klc-color-ui-border);
   }
 
   .indicator-description p {
@@ -110,7 +110,7 @@
   .toggle-desc-btn.active {
     --base-icon-button-color: var(--klc-color-ui-accent);
     --base-icon-button-hover-color: var(--klc-color-ui-accent);
-    --base-icon-button-hover-bg: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    --base-icon-button-hover-bg: var(--klc-color-ui-hover);
   }
 
   /* ── 底部 ── */

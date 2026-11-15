@@ -396,7 +396,6 @@
     box-sizing: border-box;
     padding: var(--klc-space-8, 8px) 0;
     /* 用弱边框 token：菜单栏与图表之间只需一条很轻的分隔线。 */
-    border-left: 1px solid var(--klc-color-border-light);
     background: var(--klc-color-ui-surface);
     user-select: none;
   }
@@ -434,12 +433,9 @@
     /* 选中态图标跟随按钮文字色，不参与悬停提亮。 */
     --klc-icon-feedback-color: currentColor;
     --klc-icon-feedback-hover-color: currentColor;
-    /* 与左侧工具栏一致：深色模式用浅灰选中底和深色图标。 */
-    background: light-dark(
-      color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
+    /* 选中底与左侧工具栏同一语义 Token。 */
+    background: var(--klc-color-ui-selected);
+    color: var(--klc-color-ui-text);
   }
 
   /* 尺寸由菜单栏决定；图标反馈（提亮 + 轻微放大）由 .klc-motion-icon-feedback 统一提供。 */
@@ -485,7 +481,6 @@
     width: min(var(--side-panel-width), calc(100% - var(--side-panel-rail-width) - 28px));
     min-width: min(360px, calc(100% - var(--side-panel-rail-width) - 28px));
     z-index: var(--klc-z-index-chart-overlay);
-    border-left: 1px solid var(--klc-color-border-light);
     /* 全局面板投影 token：与 Agent 会话抽屉共用同一个来源。 */
     box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
   }
@@ -493,8 +488,6 @@
   .side-panel-shell--compact.side-panel-shell--left .side-panel-shell__panel {
     right: auto;
     left: var(--side-panel-rail-width);
-    border-left: 0;
-    border-right: 1px solid var(--klc-color-border-light);
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 </style>

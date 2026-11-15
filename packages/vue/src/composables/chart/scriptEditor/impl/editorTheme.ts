@@ -33,7 +33,7 @@ const editorTheme = EditorView.theme({
     fontWeight: '400',
     // 行高同时驱动正文行与折叠标记高度，避免两处各写一份。
     '--cm-line-height': '1.8',
-    '--cm-selection-color': 'color-mix(in srgb, var(--klc-color-ui-accent) 42%, transparent)',
+    '--cm-selection-color': 'var(--klc-color-ui-selection)',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
@@ -92,7 +92,7 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'var(--cm-selection-color)',
   },
   '& > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 26%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-selection)',
   },
   '.cm-content ::selection, .cm-content::selection': {
     backgroundColor: 'var(--cm-selection-color)',
@@ -105,7 +105,7 @@ const editorTheme = EditorView.theme({
   },
   '.cm-selectionMatch-main': { backgroundColor: 'transparent', boxShadow: 'none' },
   '&.cm-focused .cm-matchingBracket': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-highlight)',
     outline: '1px solid var(--klc-color-ui-border)',
     borderRadius: '2px',
   },
@@ -206,7 +206,7 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-text)',
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-selected)',
     color: 'var(--klc-color-ui-text)',
   },
   '.cm-tooltip-autocomplete .cm-completionMatchedText': {

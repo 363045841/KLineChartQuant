@@ -327,7 +327,7 @@
   }
 
   .compare-selected__remove:hover {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    background: var(--klc-color-ui-highlight);
     color: var(--klc-color-ui-accent);
   }
 

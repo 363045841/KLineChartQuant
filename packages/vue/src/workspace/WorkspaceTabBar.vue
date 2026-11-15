@@ -352,8 +352,12 @@
     position: relative;
     flex: none;
     /* 高度以系统给出的覆盖层高度为准：用常量对齐一旦差 1px，画在底部的线就会落进覆盖层。 */
-    height: env(titlebar-area-height, var(--desktop-titlebar-height));
-    background: var(--klc-color-ui-background);
+    --tab-bar-height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    /* 标签胶囊高度：Tab、新建按钮与应用图标都按这一档高度对齐。 */
+    --tab-pill-height: 26px;
+    height: var(--tab-bar-height);
+    /* 窗口/标签栏与工具栏共用同一表面色，顶部 chrome 连成一体，图表画布保持纯白。 */
+    background: var(--klc-color-ui-surface);
     /* 分隔线画在内容区顶边：标题栏高度内会落在系统覆盖层下面而缺一段。 */
     -webkit-app-region: drag;
     app-region: drag;
@@ -366,9 +370,10 @@
     left: env(titlebar-area-x, 0px);
     top: env(titlebar-area-y, 0px);
     width: env(titlebar-area-width, 100%);
-    height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    height: var(--tab-bar-height);
     display: flex;
-    align-items: center;
+    /* 标签、菜单、新建按钮都撑满栏高：上下都不再留边距。 */
+    align-items: stretch;
     gap: 8px;
     padding: 0 8px;
     overflow: hidden;
@@ -379,15 +384,21 @@
     width: 36px;
     flex: none;
     display: flex;
+    align-items: center;
     justify-content: center;
   }
 
   /* 红绿灯固定在左上角；左右对称留位。 */
   /* Web 标签栏属于页面，不预留系统标题栏区域。 */
   .tab-bar--web {
-    height: 40px;
+    /* 26px 胶囊 + 6px 上方留白：标签贴底，下方不再和工具栏的留白叠加。 */
+    --tab-bar-height: 32px;
     -webkit-app-region: no-drag;
     app-region: no-drag;
+  }
+
+  .tab-bar--web .tab-bar__inner {
+    align-items: flex-end;
   }
 
   .tab-bar--web .tab-bar__inner {
@@ -447,7 +458,7 @@
     /* 未选中的标签给一层很浅的底色，让左右两侧都有可见边界，分隔线才落得居中。 */
     padding: 0 8px;
     max-width: 220px;
-    height: 26px;
+    height: var(--tab-pill-height);
     border-radius: 6px;
     background: transparent;
     border: 1px solid transparent;
@@ -532,7 +543,7 @@
     flex: none;
     place-items: center;
     width: 26px;
-    height: 26px;
+    height: var(--tab-pill-height);
     padding: 0;
     border: 0;
     border-radius: 6px;

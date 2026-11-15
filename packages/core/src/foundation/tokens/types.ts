@@ -299,6 +299,16 @@ export interface UiColors {
   readonly hover: ColorValue
   /** 选中项常驻底色（列表项、菜单项）；比 hover 更轻，避免整行过重。 */
   readonly selected: ColorValue
+  /** 品牌标记的 tonal 容器（应用图标这类标记专用），不承担交互态。 */
+  readonly brandSurface: ColorValue
+  /** 品牌标记容器上的图形色，满足非文本 3:1。 */
+  readonly brandOn: ColorValue
+  /** 轻强调底：说明框、标签胶囊、hover 强调；中性透明层，不跟随 accent。 */
+  readonly highlight: ColorValue
+  /** 文本选区底（编辑器 selection），比 highlight 强一档。 */
+  readonly selection: ColorValue
+  /** box-shadow 聚焦环颜色；满足非文本对比度，组件不得用 accent 百分比现算。 */
+  readonly focusRing: ColorValue
   readonly border: ColorValue
   readonly borderStrong: ColorValue
   readonly text: ColorValue

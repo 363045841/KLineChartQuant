@@ -392,10 +392,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    /* 底边由下方绘图区画框；保留透明占位，使内容盒与 AgentHeader 完全一致。 */
-    border-bottom: 1px solid transparent;
-    border-radius: 0;
+    border: 0;
     background: var(--klc-color-ui-surface);
     box-sizing: border-box;
     user-select: none;

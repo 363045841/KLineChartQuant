@@ -886,7 +886,7 @@
 
   .rail__select:focus-visible {
     outline: 0;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 28%, transparent);
+    box-shadow: 0 0 0 2px var(--klc-color-ui-focus-ring);
   }
 
   .rail__name {

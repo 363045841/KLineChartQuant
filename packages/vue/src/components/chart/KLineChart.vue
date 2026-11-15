@@ -1971,7 +1971,7 @@
   }
 
   .chart-workspace {
-    --chart-frame-radius: 3px;
+    --chart-frame-radius: 8px;
     min-width: 0;
     flex: 1 1 auto;
     display: flex;
@@ -1989,16 +1989,20 @@
     display: flex;
     align-items: stretch;
     gap: 0;
+    /* 绘图区圆角外侧露出的必须是 chrome 底色，否则页面白底会在角上形成一个尖角白块。 */
+    background: var(--klc-color-ui-surface);
   }
 
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    /* 外框只由绘图区承担：工具栏与左栏无边框，顶部两角随外壳圆角，底部贴边。 */
     border: 1px solid var(--chart-border);
+    border-radius: var(--chart-frame-radius) var(--chart-frame-radius) 0 0;
+    /* 圆角处裁掉画布与轴的直角，避免外框出现白边。 */
+    overflow: hidden;
     /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
     box-sizing: border-box;
-    border-bottom-right-radius: var(--chart-frame-radius);
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -2177,7 +2181,6 @@
   .right-axis-host {
     flex: 0 0 auto;
     border-left: 1px solid var(--chart-border);
-    border-bottom-right-radius: var(--chart-frame-radius);
   }
 
   /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
@@ -2215,13 +2218,10 @@
     top: 0;
     z-index: 25;
     box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    /* 选区与图表共用 chart.selection* Token，不在组件里按 accent 百分比现算。 */
+    border: 1px solid var(--klc-color-selection-stroke);
+    background: var(--klc-color-selection-fill);
     pointer-events: none;
-  }
-
-  .range-selection-overlay.is-dragging {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
   }
 
   .range-selection-handle {

@@ -169,6 +169,11 @@
   --klc-color-ui-control-background: #1E2329;
   --klc-color-ui-hover: #252B32;
   --klc-color-ui-selected: #22272E;
+  --klc-color-ui-brand-surface: #35784A;
+  --klc-color-ui-brand-on: #FFFFFF;
+  --klc-color-ui-highlight: #FFFFFF1F;
+  --klc-color-ui-selection: #FFFFFF2E;
+  --klc-color-ui-focus-ring: #FFFFFF8C;
   --klc-color-ui-border: #30363F;
   --klc-color-ui-border-strong: #596372;
   --klc-color-ui-text: #EAECEF;
