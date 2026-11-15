@@ -17,11 +17,6 @@
           <span class="selection-menu__value">{{ optionLabel }}</span>
           <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
         </template>
-        <template #item-action="{ item }">
-          <span v-if="isOptionSelected(item.id)" class="drop-menu__status">
-            <IconTablerCheck aria-hidden="true" />
-          </span>
-        </template>
       </DropMenu>
       <input
         v-else-if="param.type === 'boolean'"
@@ -77,7 +72,6 @@
 
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
@@ -100,6 +94,8 @@
       items: (props.param.options ?? []).map((option) => ({
         id: option.value,
         label: option.label,
+        checked: option.value === props.value,
+        selection: 'radio',
       })),
     },
   ])
@@ -108,11 +104,6 @@
   const optionLabel = computed(
     () => props.param.options?.find((option) => option.value === props.value)?.label ?? '',
   )
-
-  /** 选项是否处于选中态。 */
-  function isOptionSelected(optionValue: string): boolean {
-    return props.value === optionValue
-  }
 
   /** 写入菜单选择的选项值。 */
   function onSelect(_groupId: string, itemId: string): void {

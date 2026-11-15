@@ -30,11 +30,6 @@
                 aria-hidden="true"
               />
             </template>
-            <template #item-action="{ item }">
-              <span v-if="item.id === provider.modelId" class="drop-menu__status">
-                <IconCheck aria-hidden="true" />
-              </span>
-            </template>
           </DropMenu>
           <DropMenu
             v-if="provider.reasoningEfforts?.length"
@@ -102,7 +97,6 @@
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
-  import IconCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
@@ -133,7 +127,12 @@
     {
       id: 'models',
       label: props.provider.profileName ?? props.provider.providerLabel,
-      items: props.models.map((model) => ({ id: model.id, label: model.name })),
+      items: props.models.map((model) => ({
+        id: model.id,
+        label: model.name,
+        checked: model.id === props.provider.modelId,
+        selection: 'radio',
+      })),
     },
   ])
   const modelTriggerLabel = computed(() => {

@@ -8,6 +8,7 @@ interface DropMenuItemBase {
   id: string
   label: string
   disabled?: boolean
+  /** 当前项：渲染为高亮，并作为键盘打开时的首个焦点落点；勾选标记只用 checked。 */
   active?: boolean
   /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
   icon?: Component

@@ -176,11 +176,6 @@
                     <span class="selection-menu__value">{{ selectedProtocolLabel }}</span>
                     <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
                   </template>
-                  <template #item-action="{ item }">
-                    <span v-if="item.id === providerSettings.protocol" class="drop-menu__status">
-                      <IconCheck aria-hidden="true" />
-                    </span>
-                  </template>
                 </DropMenu>
               </label>
               <label class="field">
@@ -501,6 +496,8 @@
       items: PROVIDER_API_PROTOCOLS.map((protocol) => ({
         id: protocol,
         label: protocolLabel(protocol),
+        checked: protocol === props.providerSettings.protocol,
+        selection: 'radio',
       })),
     },
   ])

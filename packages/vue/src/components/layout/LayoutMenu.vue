@@ -7,6 +7,7 @@
         <IconDeviceFloppy v-if="group.id === LAYOUT_MENU.group.actions" aria-hidden="true" />
         <IconPlus v-else-if="group.id === LAYOUT_MENU.group.create" aria-hidden="true" />
         <span>{{ item.label }}</span>
+        <span v-if="group.id === LAYOUT_MENU.group.layouts && item.checked" class="drop-menu__check" aria-label="当前布局"><IconCheck aria-hidden="true" /></span>
         <span v-if="item.id === LAYOUT_MENU.item.autosave" class="drop-menu__switch" role="switch" :aria-checked="autoSave" aria-label="自动保存"><span /></span>
       </button>
     </template>
@@ -21,7 +22,6 @@
       <BaseTooltip v-if="group.id === LAYOUT_MENU.group.layouts && item.deletable" content="删除" placement="top">
         <button type="button" class="drop-menu__action--danger" :disabled="busy" :aria-label="`删除 ${item.label}`" @click.stop="remove(item.id)"><IconTrash aria-hidden="true" /></button>
       </BaseTooltip>
-      <span v-if="group.id === LAYOUT_MENU.group.layouts && item.active" class="drop-menu__status"><IconCheck aria-label="当前布局" /></span>
     </template>
   </DropMenu>
 
