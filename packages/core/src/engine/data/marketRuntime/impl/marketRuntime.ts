@@ -14,6 +14,8 @@ import {
 import type { KLineBuffer } from '@/data/buffer/types.js'
 import { RealtimeBarsConnector } from '@/data/live/impl/barsConnector.js'
 import type { RealtimeSubscription, RealtimeSubscriptionPool } from '@/data/live/types.js'
+import { resolveOptionUnderlying } from '@/foundation/config/optionUnderlying.js'
+import { loadOptionLevels } from './optionLevelsLoader.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
@@ -185,6 +187,7 @@ export class MarketRuntime implements IndicatorMarketData {
     const venue = profile?.extendedSessions?.[session!.instrument.exchange]
     return Object.freeze({
       symbol,
+      optionUnderlying: resolveOptionUnderlying(symbol),
       time:
         session === null || profile === undefined
           ? undefined
@@ -197,6 +200,7 @@ export class MarketRuntime implements IndicatorMarketData {
             },
       loadBars: (request: IndicatorBarsRequest, signal?: AbortSignal) =>
         this.requests.read(owner, bars, request, session, signal),
+      loadOptionLevels: (request, signal) => loadOptionLevels(request, signal),
     })
   }
 

@@ -42,7 +42,7 @@ function setup(shared = false) {
     () => ({
       revision: 0,
       retain() {},
-      context: () => ({ symbol: 'TEST', loadBars: async () => [] }),
+      context: () => ({ symbol: 'TEST', optionUnderlying: null, loadBars: async () => [], loadOptionLevels: async () => [] }),
     }),
   )
   const commits: InstanceCalculationCommit[] = []

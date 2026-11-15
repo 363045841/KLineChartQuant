@@ -73,6 +73,7 @@
           v-if="activeTab === AGENT_TAB_NAME"
           :bridge="bridge"
           :panel-side="panelSide"
+          :quick-prompts="quickPrompts"
           @close="panelOpen = false"
           @toggle-panel-side="togglePanelSide"
         />
@@ -125,6 +126,11 @@
       panelTabs?: readonly PanelTab[]
       /** 初始页签；不在声明列表里时回落到 Agent */
       initialTab?: string
+      /**
+       * 输入框上方的快捷提示。宿主用它把「快速解读」这类现成一键句递给 Agent 面板，
+       * 省略时不显示任何提示。
+       */
+      quickPrompts?: readonly string[]
     }>(),
     {
       initialPanelOpen: false,
@@ -132,6 +138,7 @@
       panelSideStorage: undefined,
       panelTabs: () => [],
       initialTab: AGENT_TAB_NAME,
+      quickPrompts: () => [],
     },
   )
 

@@ -91,6 +91,7 @@ export {
   unregisterChartTool,
 } from './foundation/agent/chartToolRegistry.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
+export { resolveOptionUnderlying } from './foundation/config/optionUnderlying.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
 export type { FrameCoordinates } from './foundation/geometry/frameCoordinates.js'

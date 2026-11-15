@@ -16,6 +16,7 @@ import type {
   ScriptRequestContext,
   SecurityRequest,
 } from '../../../request/types.js'
+import type { ScriptOptionLevels } from '../../../option/types.js'
 import type {
   ScriptExecutionSession,
   ScriptRuntime,
@@ -161,6 +162,7 @@ export function createScriptExecutionSession<Checkpoint>(
         results: {},
       }
       let values: readonly RequestValue[]
+      // Request 表达式运行时不读期权数据；显式给 null，避免沿用主运行时的快照。
       if (snapshot.bars.length > 1) {
         state.runtime.execute({
           bars: snapshot.bars,
@@ -168,6 +170,7 @@ export function createScriptExecutionSession<Checkpoint>(
           endIndex: snapshot.bars.length - 1,
           params: input.params,
           execution,
+          optionLevels: null,
         })
         state.checkpoint = state.runtime.checkpoint()
         values = state.runtime.execute({
@@ -176,6 +179,7 @@ export function createScriptExecutionSession<Checkpoint>(
           endIndex: snapshot.bars.length,
           params: input.params,
           execution,
+          optionLevels: null,
         }).values
       } else {
         state.checkpoint = state.runtime.checkpoint()
@@ -185,6 +189,7 @@ export function createScriptExecutionSession<Checkpoint>(
           endIndex: snapshot.bars.length,
           params: input.params,
           execution,
+          optionLevels: null,
         }).values
       }
       results[request.id] = state.aligner.update({
@@ -226,6 +231,7 @@ export function createScriptExecutionSession<Checkpoint>(
     bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>>,
     execution: RequestExecution,
+    optionLevels: ScriptOptionLevels | null,
   ): ScriptSessionOutput {
     const reset = runtimeFresh
     if (bars.length > 1) {
@@ -235,6 +241,7 @@ export function createScriptExecutionSession<Checkpoint>(
         endIndex: bars.length - 1,
         params,
         execution,
+        optionLevels,
         emit: options.onLog,
       })
       checkpoint = main.checkpoint()
@@ -244,6 +251,7 @@ export function createScriptExecutionSession<Checkpoint>(
         endIndex: bars.length,
         params,
         execution,
+        optionLevels,
         emit: options.onLog,
         checkpointIndex: bars.length - 1,
       })
@@ -257,6 +265,7 @@ export function createScriptExecutionSession<Checkpoint>(
       endIndex: 1,
       params,
       execution,
+      optionLevels,
       emit: options.onLog,
       checkpointIndex: 0,
     })
@@ -282,6 +291,7 @@ export function createScriptExecutionSession<Checkpoint>(
     run(input: ScriptSessionRunOptions): ScriptSessionOutput {
       const params = input.params ?? {}
       const symbol = input.context?.symbol ?? mainSymbol
+      const optionLevels = input.context?.optionLevels ?? null
       if (dirty || !sameParams(mainParams, params) || symbol !== mainSymbol) {
         resetMain(params, symbol)
         dirty = false
@@ -325,7 +335,7 @@ export function createScriptExecutionSession<Checkpoint>(
         if (stateful) {
           if (tailOnly && checkpoint !== undefined) main.rollback(checkpoint)
           const from = tailOnly ? Math.min(range.start, previousLength - 1, bars.length - 1) : 0
-          return runStateful(from, bars, params, execution)
+          return runStateful(from, bars, params, execution, optionLevels)
         }
 
         // 无状态：只重算区间，区间外的派生缓存与结果保持不变。
@@ -336,6 +346,7 @@ export function createScriptExecutionSession<Checkpoint>(
           endIndex: range.end,
           params,
           execution,
+          optionLevels,
           emit: options.onLog,
         })
         return commit(result, runtimeFresh, bars, params)

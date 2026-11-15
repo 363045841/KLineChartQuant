@@ -21,6 +21,14 @@ interface SubPaneSlot {
   params: Record<string, unknown>
 }
 
+/**
+ * 添加指标前预加载的历史页数。
+ *
+ * 一页 500 根；10 页约 5000 根，够缠论这类结构指标在小级别图上成型。
+ * 先补历史再建实例，避免首帧结构残缺后反复重算。
+ */
+const PRELOAD_HISTORY_PAGES = 10
+
 export function useIndicatorManager(
   ctrl: Ref<ChartController | null>,
   paneRatiosRef: Readonly<Ref<Readonly<Record<string, number>>>>,
@@ -181,40 +189,41 @@ export function useIndicatorManager(
     ctrl.value?.movePane(paneId, target + 1)
   }
 
+  /** 该定义当前的全部实例，不区分实例落在哪个面板。 */
+  function instancesOf(controller: ChartController, indicatorId: string): IndicatorInstance[] {
+    return controller.indicators.peek().filter((item) => item.definitionId === indicatorId)
+  }
+
+  /**
+   * 开关指标：关闭时删除该定义的全部实例，不区分当前归属；打开时按定义声明新建实例。
+   *
+   * 归属只按实例删，不按 role 或副图列表过滤：实例的 pane 可能来自旧版本存档
+   * （脚本把 position 从副图改成主图后，老实例仍留在副图、role 仍是 sub），
+   * 按 role 过滤会漏掉它，开关就永远关不掉，这个指标也再也回不到声明的主图。
+   * 空副图由实例删除一并回收，不需要单独的 removePane。
+   */
   async function handleIndicatorToggle(indicatorId: string, active: boolean): Promise<void> {
     const controller = ctrl.value
     if (!controller) return
 
-    // 角色判断只读静态目录；写入前才加载实现。
-    const def = getIndicatorDescriptor(indicatorId)
-    const isMain = def?.category === 'main'
-    if (isMain) {
-      const existing = controller.indicators
-        .peek()
-        .filter((item) => item.role === 'main' && item.definitionId === indicatorId)
-      if (active && existing.length === 0) {
-        const c = await loadIndicator(controller, indicatorId)
-        if (!c) return
-        c.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else if (!active) {
-        for (const instance of existing) controller.removeIndicator(instance.id)
-      }
+    const instances = instancesOf(controller, indicatorId)
+    if (!active) {
+      for (const instance of instances) controller.removeIndicator(instance.id)
       return
     }
+    // 已有实例就保持原样；它若落在别的面板，先关再开一次即可按声明重建。
+    if (instances.length > 0) return
 
-    if (isSubPaneIndicator(indicatorId)) {
-      if (active) {
-        const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-        if (existingPane) return
-        if (subPanes.value.length >= maxSubPanes) return
-        const loaded = await loadIndicator(controller, indicatorId)
-        if (!loaded) return
-        loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
-      } else {
-        const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-        panesToRemove.forEach((pane) => controller.removePane(pane.id))
-      }
+    // 角色判断只读静态目录；写入前才加载实现。
+    const isMain = getIndicatorDescriptor(indicatorId)?.category === 'main'
+    if (!isMain) {
+      if (!isSubPaneIndicator(indicatorId)) return
+      if (subPanes.value.length >= maxSubPanes) return
     }
+    await controller.preloadHistory(PRELOAD_HISTORY_PAGES)
+    const loaded = await loadIndicator(controller, indicatorId)
+    if (!loaded) return
+    loaded.addIndicator(indicatorId, indicatorParams.value[indicatorId])
   }
 
   /** 将参数设置提交到全部匹配实例；主图与副图都按实例身份写入。 */

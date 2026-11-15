@@ -1,5 +1,6 @@
 /** 每个物理 Worker 一份当前输入：按数值比较行情，传输变化尾段，退出数据集立即释放旧快照。 */
 import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
+import type { ScriptOptionLevels } from '../../../option/types.js'
 import type { ScriptRequestContext } from '../../../request/types.js'
 import type { BarPatch, RunInputPatch } from '../types.js'
 
@@ -136,10 +137,26 @@ class BarReceiver {
   }
 }
 
+/** 期权快照身份：标的、行数与首末采集时刻都相同即视为同一份数据。 */
+function sameOptionLevels(
+  previous: ScriptOptionLevels | null,
+  next: ScriptOptionLevels | null,
+): boolean {
+  if (previous === null || next === null) return previous === next
+  const length = next.levels.length
+  if (previous.underlying !== next.underlying || previous.levels.length !== length) return false
+  if (length === 0) return true
+  return (
+    previous.levels[0]?.capturedAt === next.levels[0]?.capturedAt &&
+    previous.levels[length - 1]?.capturedAt === next.levels[length - 1]?.capturedAt
+  )
+}
+
 /** 编码器归物理端口所有，不绑定脚本 ID；线程迁移天然从新端口的全量快照开始。 */
 export class WorkerInputSender {
   private main = new BarSender()
   private snapshots = new Map<string, BarSender>()
+  private optionLevels: ScriptOptionLevels | null = null
 
   /** 每次只保留本次用到的跨周期序列，不建立无界历史缓存。 */
   encode(bars: readonly Bar[], context?: ScriptRequestContext): RunInputPatch {
@@ -152,13 +169,26 @@ export class WorkerInputSender {
     })
     this.snapshots = next
     if (!context || !snapshots) return { bars: main }
-    return { bars: main, context: { ...context, snapshots } }
+    // 期权快照分钟级变化，逐帧重发等于每帧复制几千行；只在身份变化时随载荷发送。
+    const optionLevels = context.optionLevels ?? null
+    const sendOptionLevels = !sameOptionLevels(this.optionLevels, optionLevels)
+    this.optionLevels = optionLevels
+    return {
+      bars: main,
+      context: {
+        symbol: context.symbol,
+        time: context.time,
+        snapshots,
+        ...(sendOptionLevels ? { optionLevels } : {}),
+      },
+    }
   }
 
   /** release 与端口销毁同时清掉同步基线。 */
   clear(): void {
     this.main = new BarSender()
     this.snapshots.clear()
+    this.optionLevels = null
   }
 }
 
@@ -166,6 +196,7 @@ export class WorkerInputSender {
 export class WorkerInputReceiver {
   private main = new BarReceiver()
   private snapshots = new Map<string, BarReceiver>()
+  private optionLevels: ScriptOptionLevels | null = null
 
   /** 先同步输入再执行脚本，下一次请求不依赖上次计算是否成功。 */
   decode(input: RunInputPatch): {
@@ -180,14 +211,26 @@ export class WorkerInputReceiver {
       return { id: snapshot.id, bars: receiver.decode(snapshot.bars) }
     })
     this.snapshots = next
-    if (!input.context || !snapshots) return { bars }
-    return { bars, context: { ...input.context, snapshots } }
+    const received = input.context
+    if (!received || !snapshots) return { bars }
+    // 载荷缺省表示沿用上次同步的快照；显式 null 表示本次没有期权数据。
+    if ('optionLevels' in received) this.optionLevels = received.optionLevels ?? null
+    return {
+      bars,
+      context: {
+        symbol: received.symbol,
+        ...(received.time === undefined ? {} : { time: received.time }),
+        snapshots,
+        ...(this.optionLevels === null ? {} : { optionLevels: this.optionLevels }),
+      },
+    }
   }
 
   /** 与发送端保持相同的显式生命周期。 */
   clear(): void {
     this.main = new BarReceiver()
     this.snapshots.clear()
+    this.optionLevels = null
   }
 }
 

@@ -1,7 +1,13 @@
 /** 脚本测试共用的行情构造、脚本执行与结果读取，避免各用例重复维护同一套数据替身。 */
 import { readdirSync, readFileSync } from 'node:fs'
-import { isOhlcPlot, type Plot, type ScalarPlot } from '@363045841yyt/klinechart-plot-contracts'
+import {
+  isOhlcPlot,
+  type OptionLevelsRow,
+  type Plot,
+  type ScalarPlot,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
+import type { ScriptOptionLevels } from '../option/types.js'
 import { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext } from '../request/types.js'
@@ -65,6 +71,52 @@ export function barsFromCloses(closes: readonly number[], fixture: BarFixture = 
 /** 生成平滑波动的收盘价，避免常量序列让各算法退化。 */
 export function wavyCloses(count: number): number[] {
   return Array.from({ length: count }, (_, index) => 100 + Math.sin(index / 7) * 5)
+}
+
+/**
+ * 一条期权快照；未显式给出的字段用真实采集量级填充。
+ *
+ * @param capturedAt 采集时刻（毫秒）
+ * @param overrides 需要改写的字段，用例只声明差异
+ * @returns 完整的一行期权关键位
+ */
+export function optionRow(
+  capturedAt: number,
+  overrides: Partial<OptionLevelsRow> = {},
+): OptionLevelsRow {
+  return {
+    capturedAt,
+    nearTermExpiryIso: '2026-11-14',
+    nearTermDteDays: 0.6,
+    atmIvPercent: 44.4,
+    spotIndex: 69000,
+    gammaFlipUsd: 68000,
+    gammaFlipSource: 'near-term',
+    callWallUsd: 75000,
+    putWallUsd: 68000,
+    callGammaWallUsd: 74000,
+    putGammaWallUsd: 67000,
+    maxPainUsd: 72000,
+    sigmaLowerUsd: 68074.8,
+    sigmaUpperUsd: 69580.7,
+    sigma2LowerUsd: 64000,
+    sigma2UpperUsd: 74000,
+    allChainGammaFlipUsd: 70000,
+    allChainCallWallUsd: 80000,
+    allChainPutWallUsd: 60000,
+    allChainMaxPainUsd: 71000,
+    putCallOiRatio: 0.92,
+    allChainPutCallOiRatio: 0.8,
+    ...overrides,
+  }
+}
+
+/** 一次运行用的期权快照；levels 必须按采集时刻升序。 */
+export function optionSnapshot(
+  levels: readonly OptionLevelsRow[],
+  underlying = 'BTC',
+): ScriptOptionLevels {
+  return { underlying, levels }
 }
 
 /** 执行随包脚本并返回完整结果，供需要检查图形元数据的用例使用。 */

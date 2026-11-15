@@ -25,6 +25,16 @@ function sampleTool() {
   return tool
 }
 
+describe('BrowserToolRegistry 内置快照工具', () => {
+  it('订单流与期权两个只读快照工具都在目录里', () => {
+    const registry = new BrowserToolRegistry(createDependencies())
+
+    for (const name of ['orderflow_snapshot', 'option_snapshot']) {
+      expect(registry.catalog.check(name, { agent: null, readOnly: false })).toBeDefined()
+    }
+  })
+})
+
 describe('BrowserToolRegistry extraChartTools', () => {
   it('registers tools supplied by the host factory', () => {
     const tool = sampleTool()

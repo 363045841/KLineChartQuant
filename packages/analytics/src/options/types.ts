@@ -55,10 +55,87 @@ export interface OptionStrikeExposure {
   readonly openInterest: number
 }
 
-/** 一次期权链快照算出的聚合位。 */
+/** Gamma 加权的墙位：OI×Γ 合计最大的行权价。 */
+export interface OptionGammaWall {
+  /** 行权价 */
+  readonly strike: number
+  /** 该行权价的 OI×Γ 合计，单位 1/USD */
+  readonly gammaWeight: number
+}
+
+/** 一套关键位，近月与全链各算一份。 */
+export interface OptionLevelSet {
+  /**
+   * Gamma 翻转位：按行权价累计净 GEX 由负转正的价位；无穿越时为 null。
+   * 近月口径样本少，常见 null，主图用全链兜底。
+   */
+  readonly gammaFlipUsd: number | null
+  /** Call 墙：call 未平仓量最大的行权价；该视图没有 call 持仓时为 null */
+  readonly callWall: OptionStrikeExposure | null
+  /** Put 墙：put 未平仓量最大的行权价；该视图没有 put 持仓时为 null */
+  readonly putWall: OptionStrikeExposure | null
+  /**
+   * Gamma 加权 Call 墙：OI×Γ 合计最大的行权价，代表日内对冲火力最密集处。
+   * 这是主口径；`callWall` 保留为 OI 口径的仓位聚集位。
+   */
+  readonly callGammaWall: OptionGammaWall | null
+  /** Gamma 加权 Put 墙；口径同 `callGammaWall` */
+  readonly putGammaWall: OptionGammaWall | null
+  /** 最大痛点：到期赔付总额最小的行权价 */
+  readonly maxPainUsd: number
+  /** 净 GEX：单位「USD / 1% 波动」，call 记正、put 记负 */
+  readonly netGexUsdPerPercent: number
+  /** 认沽与认购未平仓量之比；call 持仓为 0 时为 null */
+  readonly putCallOiRatio: number | null
+  /** 该视图内的总未平仓量 */
+  readonly totalOpenInterest: number
+  /** 该视图参与计算的合约数 */
+  readonly contractCount: number
+}
+
+/** 近月视图：比全链多出到期、平值 IV 与波动区间。 */
+export interface OptionNearTermLevels extends OptionLevelSet {
+  /** 近月到期日（UTC 日期） */
+  readonly expiryIso: string
+  /** 近月剩余天数 */
+  readonly dteDays: number
+  /** 近月平值隐含波动率，百分数 */
+  readonly atmIvPercent: number
+  /** 由平值 IV 推算出的一倍标准差预期波动（USD） */
+  readonly expectedMoveOneSigmaUsd: number
+  /** 由平值 IV 推算出的两倍标准差预期波动（USD） */
+  readonly expectedMoveTwoSigmaUsd: number
+  /** 一倍标准差下界 */
+  readonly sigmaLowerUsd: number
+  /** 一倍标准差上界 */
+  readonly sigmaUpperUsd: number
+  /** 两倍标准差下界 */
+  readonly sigma2LowerUsd: number
+  /** 两倍标准差上界 */
+  readonly sigma2UpperUsd: number
+}
+
+/**
+ * 主图采用的翻转位与来源。
+ *
+ * 近月算出翻转位就用近月，近月为 null 时用全链兜底，来源字段让界面能标明口径。
+ */
+export interface OptionGammaFlip {
+  /** 实际采用的翻转位 */
+  readonly gammaFlipUsd: number | null
+  /** 该值来自近月还是全链 */
+  readonly source: 'near-term' | 'all-chain'
+}
+
+/**
+ * 一次期权链快照算出的聚合位。
+ *
+ * schemaVersion 1 的行只有扁平字段（callWall/putWall/maxPainUsd/gammaFlipUsd 等，
+ * 全链口径、无 σ2、无 P/C 比）；版本 2 起改成 nearTerm + allChain 两块。
+ */
 export interface OptionAggregateSnapshot {
   /** 记录结构版本，消费方据此判断字段兼容性 */
-  readonly schemaVersion: 1
+  readonly schemaVersion: 2
   /** 标的 */
   readonly currency: OptionCurrency
   /** 本地采集时刻（毫秒） */
@@ -71,31 +148,12 @@ export interface OptionAggregateSnapshot {
   readonly chainContractCount: number
   /** 过滤 `0 < DTE <= 90` 且持仓为正后参与计算的合约数 */
   readonly filteredContractCount: number
-  /** 近月到期日 */
-  readonly nearTermExpiryIso: string
-  /** 近月剩余天数 */
-  readonly nearTermDteDays: number
-  /** 近月平值隐含波动率，百分数 */
-  readonly nearTermAtmIvPercent: number
-  /**
-   * 净 GEX：单位「USD / 1% 波动」，call 记正、put 记负。
-   * 口径：gamma × OI × 1 张 × 现货指数² × 0.01；gamma 用各到期日自己的期货价与 mark_iv 反算。
-   */
-  readonly netGexUsdPerPercent: number
-  /** Gamma 翻转位：按行权价累计净 GEX 由负转正的价位；无穿越时为 null */
-  readonly gammaFlipUsd: number | null
-  /** Call 墙：call 未平仓量最大的行权价 */
-  readonly callWall: OptionStrikeExposure
-  /** Put 墙：put 未平仓量最大的行权价 */
-  readonly putWall: OptionStrikeExposure
-  /** 最大痛点：到期赔付总额最小的行权价 */
-  readonly maxPainUsd: number
-  /** 近月平值 IV 推算出的一倍标准差预期波动（USD） */
-  readonly expectedMoveOneSigmaUsd: number
-  /** 一倍标准差下界 */
-  readonly sigmaLowerUsd: number
-  /** 一倍标准差上界 */
-  readonly sigmaUpperUsd: number
+  /** 近月视图：最近一个到期日的关键位与波动区间 */
+  readonly nearTerm: OptionNearTermLevels
+  /** 全链视图：`0 < DTE <= 90` 全部到期合并 */
+  readonly allChain: OptionLevelSet
+  /** 主图采用的翻转位 */
+  readonly gammaFlip: OptionGammaFlip
 }
 
 /** 原始期权链的一行（层 3），用于按天积累历史。 */

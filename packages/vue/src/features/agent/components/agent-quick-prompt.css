@@ -1,0 +1,45 @@
+/* 输入框上方的快捷提示条：一行显示、超出省略，点击把整句填进草稿。 */
+.agent-quick {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px 6px;
+}
+
+.agent-quick__item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--klc-color-ui-text);
+  text-align: left;
+  background: var(--klc-color-ui-surface);
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.agent-quick__item:hover {
+  background: var(--klc-color-ui-hover);
+}
+
+/* 标签与正文分开：标签告诉用户这是「现成句子」，正文是句子本身。 */
+.agent-quick__tag {
+  flex: none;
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 14px;
+  background: var(--klc-color-ui-background);
+  border-radius: 3px;
+  opacity: 0.75;
+}
+
+.agent-quick__text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}

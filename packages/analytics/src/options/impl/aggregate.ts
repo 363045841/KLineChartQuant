@@ -8,7 +8,9 @@
  * - gamma 用各到期日自己的期货价（`underlying_price`）与 `mark_iv` 本地反算；
  *   美元口径的 GEX 统一乘现货指数²，避免长到期合约的基差把量纲带偏。
  * - 净 GEX 单位是「USD / 1% 波动」：gamma × OI × 1 张 × S² × 0.01，call 记正、put 记负。
- * - Gamma 翻转位按行权价累计净 GEX 由负转正的位置线性插值；全程同号时返回 null。
+ * - Gamma 翻转位是「净 GEX 过零的现价」：把现价按 ±20% 扫 41 个候选点，每个点等比平移期货价
+ *   重新定 gamma，累计全链净 GEX，取离现价最近的一次过零；网格内不过零、或过零点偏离现价
+ *   超过 10%，都视为本轮没有有效翻转（深虚位的偶然过零没有经济意义）。
  * - Call/Put 墙取该方向未平仓量最大的行权价；并列时取较小行权价。
  * - 最大痛点取「到期赔付总额最小」的行权价；并列时取最接近现货的。
  */
@@ -17,7 +19,9 @@ import type {
   OptionAggregateSnapshot,
   OptionContract,
   OptionCurrency,
+  OptionLevelSet,
   OptionStrikeExposure,
+  OptionGammaWall,
 } from '../types'
 import { OPTION_CHAIN_MAX_DTE_DAYS } from '../types'
 import { black76Gamma } from './black76'
@@ -44,6 +48,10 @@ interface StrikeBucket {
   readonly putOpenInterest: number
   /** 该行权价的净 GEX（USD/1%） */
   readonly netGexUsdPerPercent: number
+  /** call 侧的 OI×Γ 合计，单位 1/USD */
+  readonly callGammaWeight: number
+  /** put 侧的 OI×Γ 合计，单位 1/USD */
+  readonly putGammaWeight: number
 }
 
 /** 聚合输入。 */
@@ -89,7 +97,10 @@ function buildStrikeBuckets(
   spotIndex: number,
   capturedAt: number,
 ): StrikeBucket[] {
-  const buckets = new Map<number, { call: number; put: number; gex: number }>()
+  const buckets = new Map<
+    number,
+    { call: number; put: number; gex: number; callWeight: number; putWeight: number }
+  >()
 
   for (const contract of contracts) {
     const timeToExpiryYears = (contract.expiryMs - capturedAt) / MS_PER_YEAR
@@ -99,6 +110,8 @@ function buildStrikeBuckets(
       volatility: contract.markIvPercent / 100,
       timeToExpiryYears,
     })
+    // Gamma 加权墙按「OI×Γ」比较，与 GEX 的美元口径无关，所以这里不乘 S²。
+    const gammaWeight = gamma * contract.openInterest * CONTRACT_SIZE
     const signedGex =
       gamma *
       contract.openInterest *
@@ -108,11 +121,19 @@ function buildStrikeBuckets(
       PERCENT_MOVE *
       (contract.optionType === 'call' ? 1 : -1)
 
-    const bucket = buckets.get(contract.strike) ?? { call: 0, put: 0, gex: 0 }
+    const bucket = buckets.get(contract.strike) ?? {
+      call: 0,
+      put: 0,
+      gex: 0,
+      callWeight: 0,
+      putWeight: 0,
+    }
     if (contract.optionType === 'call') {
       bucket.call += contract.openInterest
+      bucket.callWeight += gammaWeight
     } else {
       bucket.put += contract.openInterest
+      bucket.putWeight += gammaWeight
     }
     bucket.gex += signedGex
     buckets.set(contract.strike, bucket)
@@ -124,6 +145,8 @@ function buildStrikeBuckets(
       callOpenInterest: bucket.call,
       putOpenInterest: bucket.put,
       netGexUsdPerPercent: bucket.gex,
+      callGammaWeight: bucket.callWeight,
+      putGammaWeight: bucket.putWeight,
     }))
     .sort((left, right) => left.strike - right.strike)
 }
@@ -133,9 +156,12 @@ function buildStrikeBuckets(
  *
  * @param buckets 按行权价升序的聚合桶
  * @param side 方向
- * @returns 墙位；并列时取较小行权价
+ * @returns 墙位；该方向没有持仓时为 null，并列时取较小行权价
  */
-function selectWall(buckets: readonly StrikeBucket[], side: 'call' | 'put'): OptionStrikeExposure {
+function selectWall(
+  buckets: readonly StrikeBucket[],
+  side: 'call' | 'put',
+): OptionStrikeExposure | null {
   let best: OptionStrikeExposure | null = null
   for (const bucket of buckets) {
     const openInterest = side === 'call' ? bucket.callOpenInterest : bucket.putOpenInterest
@@ -146,12 +172,30 @@ function selectWall(buckets: readonly StrikeBucket[], side: 'call' | 'put'): Opt
       best = { strike: bucket.strike, openInterest }
     }
   }
-  if (best === null) {
-    throw new AnalyticsError(
-      ANALYTICS_ERROR_CODES.AGGREGATE_EMPTY,
-      `${side} 方向没有未平仓合约，无法确定墙位`,
-      { side },
-    )
+  return best
+}
+
+/**
+ * 取某方向 OI×Γ 合计最大的行权价。
+ *
+ * OI 墙读「仓位聚集」，Gamma 加权墙读「日内对冲火力」：平值附近 Γ 呈钟形，
+ * 加权后自然偏向现价周围真正需要调仓的行权价，远端彩票 Call 不会抢位。
+ *
+ * @param buckets 按行权价升序的聚合桶
+ * @param side 方向
+ * @returns 加权墙位；该方向没有持仓时为 null，并列时取较小行权价
+ */
+function selectGammaWall(
+  buckets: readonly StrikeBucket[],
+  side: 'call' | 'put',
+): OptionGammaWall | null {
+  let best: OptionGammaWall | null = null
+  for (const bucket of buckets) {
+    const gammaWeight = side === 'call' ? bucket.callGammaWeight : bucket.putGammaWeight
+    if (!(gammaWeight > 0)) continue
+    if (best === null || gammaWeight > best.gammaWeight) {
+      best = { strike: bucket.strike, gammaWeight }
+    }
   }
   return best
 }
@@ -201,37 +245,135 @@ function computeMaxPain(buckets: readonly StrikeBucket[], spotIndex: number): nu
   return bestStrike
 }
 
-/**
- * 计算 Gamma 翻转位：按行权价累计净 GEX 由负转正的位置。
- *
- * @param buckets 按行权价升序的聚合桶
- * @returns 翻转价位；累计净 GEX 始终同号时返回 null
- */
-function computeGammaFlip(buckets: readonly StrikeBucket[]): number | null {
-  let cumulative = 0
-  let previousCumulative = 0
-  let previousStrike = buckets[0].strike
+/** Gamma 翻转扫描的带宽：现价上下各 20%。 */
+const FLIP_BAND = 0.2
 
-  for (const bucket of buckets) {
-    previousCumulative = cumulative
-    cumulative += bucket.netGexUsdPerPercent
-    if (previousCumulative < 0 && cumulative >= 0) {
-      const span = cumulative - previousCumulative
-      if (span === 0) {
-        return bucket.strike
-      }
-      const ratio = -previousCumulative / span
-      return previousStrike + ratio * (bucket.strike - previousStrike)
-    }
-    previousStrike = bucket.strike
+/** 扫描网格的分段数：41 个采样点足够分辨一次过零。 */
+const FLIP_GRID_STEPS = 40
+
+/** 翻转位偏离现价超过该比例时，视为本轮没有有效翻转。 */
+const FLIP_MAX_DISTANCE_RATIO = 0.1
+
+/**
+ * 假设现价为 spot 时的净 GEX（USD/1%）。
+ *
+ * 期货价按 `spot / spotIndex` 等比平移，gamma 随候选价重新计算，量纲与快照里的
+ * `netGexUsdPerPercent` 一致。
+ *
+ * @param contracts 该视图的合约
+ * @param spot 假设的现价
+ * @param spotIndex 实际现价
+ * @param capturedAt 采集时刻
+ * @returns 该候选价下的净 GEX
+ */
+function netGexAt(
+  contracts: readonly OptionContract[],
+  spot: number,
+  spotIndex: number,
+  capturedAt: number,
+): number {
+  const ratio = spot / spotIndex
+  let net = 0
+  for (const contract of contracts) {
+    const gamma = black76Gamma({
+      forward: contract.underlyingPrice * ratio,
+      strike: contract.strike,
+      volatility: contract.markIvPercent / 100,
+      timeToExpiryYears: (contract.expiryMs - capturedAt) / MS_PER_YEAR,
+    })
+    net +=
+      gamma *
+      contract.openInterest *
+      CONTRACT_SIZE *
+      spot *
+      spot *
+      PERCENT_MOVE *
+      (contract.optionType === 'call' ? 1 : -1)
   }
-  return null
+  return net
+}
+
+/**
+ * 计算 Gamma 翻转位：净 GEX 过零的那个现价。
+ *
+ * Deribit 只给逐合约 IV，没有现成的翻转位，只能扫：把现价按 ±20% 分成 41 个候选点，
+ * 每个点重新定 gamma 后累计净 GEX，取离现价最近的一次过零并线性插值。
+ * 不按行权价累计：那是价格轴的代理，单方向持仓占优时几乎总是同号，实测长期给 null。
+ *
+ * @param contracts 该视图的合约
+ * @param spotIndex 现货指数价格
+ * @param capturedAt 采集时刻
+ * @returns 翻转位；网格内不过零或偏离现价超过 10% 时返回 null
+ */
+function computeGammaFlip(
+  contracts: readonly OptionContract[],
+  spotIndex: number,
+  capturedAt: number,
+): number | null {
+  let previousSpot = spotIndex * (1 - FLIP_BAND)
+  let previousGex = netGexAt(contracts, previousSpot, spotIndex, capturedAt)
+  let flip: number | null = null
+  for (let step = 1; step <= FLIP_GRID_STEPS; step++) {
+    const spot = spotIndex * (1 - FLIP_BAND + (2 * FLIP_BAND * step) / FLIP_GRID_STEPS)
+    const gex = netGexAt(contracts, spot, spotIndex, capturedAt)
+    if ((previousGex >= 0) !== (gex >= 0)) {
+      const span = Math.abs(previousGex) + Math.abs(gex)
+      const cross = previousSpot + ((spot - previousSpot) * Math.abs(previousGex)) / span
+      if (flip === null || Math.abs(cross - spotIndex) < Math.abs(flip - spotIndex)) flip = cross
+    }
+    previousSpot = spot
+    previousGex = gex
+  }
+  if (flip === null) return null
+  if (Math.abs(flip - spotIndex) > FLIP_MAX_DISTANCE_RATIO * spotIndex) return null
+  return Math.round(flip * 100) / 100
+}
+
+/** 近月桶的最小剩余天数：低于它说明已进入交割前的 gamma 坍缩区，换下一个桶。 */
+const NEAR_TERM_MIN_DTE_DAYS = 0.15
+
+/** 近月桶的最大剩余天数：超出的桶只进全链视图，不参与近月口径。 */
+const NEAR_TERM_MAX_DTE_DAYS = 14
+
+/** 近月桶的持仓门槛：达到窗口内最大桶的这一比例才算可交易。 */
+const NEAR_TERM_MIN_OI_RATIO = 0.3
+
+/**
+ * 选出近月到期桶。
+ *
+ * 先按到期日累计持仓，限定在 [0.15, 14] 天的窗口内，再取「持仓达到窗口最大桶 30%」
+ * 的最近一个：既跳过得没人交易的日签（几千张的桶，一笔大单就能翻墙），
+ * 又不会让月底大桶把当周周签挤掉。窗口内一个桶都没有时退回最近的未来到期日。
+ *
+ * @param contracts 已过滤的合约
+ * @param capturedAt 采集时刻
+ * @returns 选中的到期毫秒时刻
+ */
+function selectNearTermExpiry(contracts: readonly OptionContract[], capturedAt: number): number {
+  const buckets = new Map<number, number>()
+  for (const contract of contracts) {
+    const dteDays = remainingDays(contract.expiryMs, capturedAt)
+    if (dteDays < NEAR_TERM_MIN_DTE_DAYS || dteDays > NEAR_TERM_MAX_DTE_DAYS) continue
+    buckets.set(contract.expiryMs, (buckets.get(contract.expiryMs) ?? 0) + contract.openInterest)
+  }
+  const ranked = [...buckets.entries()].sort((left, right) => left[0] - right[0])
+  if (ranked.length === 0) {
+    // 窗口内没有可用桶（例如全部进入交割前 3.6 小时），退回最近的未来到期日。
+    return contracts.reduce(
+      (earliest, contract) => (contract.expiryMs < earliest ? contract.expiryMs : earliest),
+      contracts[0].expiryMs,
+    )
+  }
+  const best = Math.max(...ranked.map(([, openInterest]) => openInterest))
+  const threshold = best * NEAR_TERM_MIN_OI_RATIO
+  const chosen = ranked.find(([, openInterest]) => openInterest >= threshold)
+  return chosen?.[0] ?? ranked[0][0]
 }
 
 /**
  * 计算近月平值 IV 与剩余天数。
  *
- * 口径：取剩余天数最小的到期日，选行权价最接近该到期日期货价的合约，
+ * 口径：先用 `selectNearTermExpiry` 选定到期桶，再选行权价最接近该桶期货价的合约，
  * 该行权价的 call/put 隐含波动率取平均作为平值 IV。
  *
  * @param contracts 已过滤的合约
@@ -239,13 +381,7 @@ function computeGammaFlip(buckets: readonly StrikeBucket[]): number | null {
  * @returns 近月到期日、剩余天数与平值 IV
  */
 function computeNearTermAtm(contracts: readonly OptionContract[], capturedAt: number): NearTermAtm {
-  let nearTermExpiryMs = contracts[0].expiryMs
-  for (const contract of contracts) {
-    if (contract.expiryMs < nearTermExpiryMs) {
-      nearTermExpiryMs = contract.expiryMs
-    }
-  }
-
+  const nearTermExpiryMs = selectNearTermExpiry(contracts, capturedAt)
   const nearTermContracts = contracts.filter((contract) => contract.expiryMs === nearTermExpiryMs)
   const forward = nearTermContracts[0].underlyingPrice
   if (!(forward > 0)) {
@@ -277,7 +413,49 @@ function computeNearTermAtm(contracts: readonly OptionContract[], capturedAt: nu
 }
 
 /**
+ * 由聚合桶与合约算出一套关键位。
+ *
+ * 翻转位要沿现价轴重新定 gamma，这里同时需要逐合约的 IV、DTE 与期货价，所以桶不够用。
+ *
+ * @param buckets 按行权价升序的聚合桶
+ * @param contracts 该视图的合约
+ * @param spotIndex 现货指数价格
+ * @param capturedAt 采集时刻
+ * @returns 该视图的关键位（墙位、最大痛点、翻转位、净 GEX、P/C 比与总持仓）
+ */
+function buildLevelSet(
+  buckets: readonly StrikeBucket[],
+  contracts: readonly OptionContract[],
+  spotIndex: number,
+  capturedAt: number,
+): OptionLevelSet {
+  let callOpenInterest = 0
+  let putOpenInterest = 0
+  let netGexUsdPerPercent = 0
+  for (const bucket of buckets) {
+    callOpenInterest += bucket.callOpenInterest
+    putOpenInterest += bucket.putOpenInterest
+    netGexUsdPerPercent += bucket.netGexUsdPerPercent
+  }
+  return {
+    gammaFlipUsd: computeGammaFlip(contracts, spotIndex, capturedAt),
+    callWall: selectWall(buckets, 'call'),
+    putWall: selectWall(buckets, 'put'),
+    callGammaWall: selectGammaWall(buckets, 'call'),
+    putGammaWall: selectGammaWall(buckets, 'put'),
+    maxPainUsd: computeMaxPain(buckets, spotIndex),
+    netGexUsdPerPercent,
+    putCallOiRatio: callOpenInterest > 0 ? putOpenInterest / callOpenInterest : null,
+    totalOpenInterest: callOpenInterest + putOpenInterest,
+    contractCount: buckets.length,
+  }
+}
+
+/**
  * 聚合一次期权链快照。
+ *
+ * 同时算两份关键位：近月（最近一个到期日，主图口径）与全链（`0 < DTE <= 90` 合并，参考口径）。
+ * 近月样本少时翻转位常为 null，此时主图采用全链的值，并在 `gammaFlip.source` 标明来源。
  *
  * @param input 全链合约、现货指数与采集时刻
  * @returns 聚合位快照
@@ -304,35 +482,58 @@ export function aggregateOptionChain(input: AggregateOptionChainInput): OptionAg
     )
   }
 
-  const buckets = buildStrikeBuckets(filtered, input.spotIndex, input.capturedAt)
-  const netGexUsdPerPercent = buckets.reduce((sum, bucket) => sum + bucket.netGexUsdPerPercent, 0)
-  const nearTerm = computeNearTermAtm(filtered, input.capturedAt)
+  const nearTermAtm = computeNearTermAtm(filtered, input.capturedAt)
+  const allChain = buildLevelSet(
+    buildStrikeBuckets(filtered, input.spotIndex, input.capturedAt),
+    filtered,
+    input.spotIndex,
+    input.capturedAt,
+  )
+  const nearTermContracts = filtered.filter(
+    (contract) => contract.expiryIso === nearTermAtm.expiryIso,
+  )
+  const nearTermSet = buildLevelSet(
+    buildStrikeBuckets(nearTermContracts, input.spotIndex, input.capturedAt),
+    nearTermContracts,
+    input.spotIndex,
+    input.capturedAt,
+  )
+
   const expectedMoveOneSigmaUsd =
-    input.spotIndex * (nearTerm.atmIvPercent / 100) * Math.sqrt(nearTerm.dteDays / 365)
+    input.spotIndex * (nearTermAtm.atmIvPercent / 100) * Math.sqrt(nearTermAtm.dteDays / 365)
+  const expectedMoveTwoSigmaUsd = expectedMoveOneSigmaUsd * 2
 
   const sourceTimestamp = input.contracts.reduce(
     (latest, contract) => Math.max(latest, contract.creationTimestamp),
     0,
   )
 
+  const flipped = nearTermSet.gammaFlipUsd === null
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     currency: input.currency,
     capturedAt: input.capturedAt,
     sourceTimestamp,
     spotIndex: input.spotIndex,
     chainContractCount: input.contracts.length,
     filteredContractCount: filtered.length,
-    nearTermExpiryIso: nearTerm.expiryIso,
-    nearTermDteDays: nearTerm.dteDays,
-    nearTermAtmIvPercent: nearTerm.atmIvPercent,
-    netGexUsdPerPercent,
-    gammaFlipUsd: computeGammaFlip(buckets),
-    callWall: selectWall(buckets, 'call'),
-    putWall: selectWall(buckets, 'put'),
-    maxPainUsd: computeMaxPain(buckets, input.spotIndex),
-    expectedMoveOneSigmaUsd,
-    sigmaLowerUsd: input.spotIndex - expectedMoveOneSigmaUsd,
-    sigmaUpperUsd: input.spotIndex + expectedMoveOneSigmaUsd,
+    nearTerm: {
+      ...nearTermSet,
+      expiryIso: nearTermAtm.expiryIso,
+      dteDays: nearTermAtm.dteDays,
+      atmIvPercent: nearTermAtm.atmIvPercent,
+      expectedMoveOneSigmaUsd,
+      expectedMoveTwoSigmaUsd,
+      sigmaLowerUsd: input.spotIndex - expectedMoveOneSigmaUsd,
+      sigmaUpperUsd: input.spotIndex + expectedMoveOneSigmaUsd,
+      sigma2LowerUsd: input.spotIndex - expectedMoveTwoSigmaUsd,
+      sigma2UpperUsd: input.spotIndex + expectedMoveTwoSigmaUsd,
+    },
+    allChain,
+    gammaFlip: {
+      gammaFlipUsd: flipped ? allChain.gammaFlipUsd : nearTermSet.gammaFlipUsd,
+      source: flipped ? 'all-chain' : 'near-term',
+    },
   }
 }
+

@@ -69,8 +69,10 @@ describe('realtime script lifecycle', () => {
         retain() {},
         context: () => ({
           symbol: 'TEST',
+          optionUnderlying: null,
           time: { period: '5', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
           loadBars,
+          loadOptionLevels: async () => [],
         }),
       }),
     )

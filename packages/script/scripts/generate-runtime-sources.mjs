@@ -14,6 +14,7 @@ const entries = [
   { file: 'library.ts', exportName: 'LIBRARY_PRELUDE' },
   { file: 'series.ts', exportName: 'SCRIPT_PRELUDE' },
   { file: 'request.ts', exportName: 'REQUEST_PRELUDE' },
+  { file: 'option.ts', exportName: 'OPTION_PRELUDE' },
   { file: 'time.ts', exportName: 'TIME_PRELUDE' },
   { file: 'rolling.ts', exportName: 'ROLLING_PRELUDE' },
   { file: 'indicator.ts', exportName: 'INDICATOR_PRELUDE' },

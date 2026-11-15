@@ -102,3 +102,8 @@ export type {
   SecurityRequest,
 } from './request/types.js'
 export type { Series } from './series/types.js'
+export type {
+  ScriptOptionApi,
+  ScriptOptionLevels,
+  ScriptOptionQuery,
+} from './option/types.js'

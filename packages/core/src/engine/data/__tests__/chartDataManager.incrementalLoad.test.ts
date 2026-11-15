@@ -34,7 +34,6 @@ describe('ChartDataManager incremental load', () => {
     vi.unstubAllGlobals()
   })
 
-  // 源级单页能力约束旧品种快照；短页继续推进真实游标，直到源明确声明耗尽。
   it('continues protocol-limited pages without treating the first short page as exhausted', async () => {
     const instrument = instrumentFor('sh.600000')
     const start = Date.now() - 6 * MS_PER_DAY

@@ -34,6 +34,8 @@ import type {
 } from '../../execution/session/types.js'
 import type { CompiledScriptSources } from '../../execution/types.js'
 import { requestExecutionSource } from '../../request/impl/requestExecutionSource.js'
+import { optionContextSource } from '../../option/impl/optionContextSource.js'
+import type { ScriptOptionLevels } from '../../option/types.js'
 import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
 import type {
   RequestExecution,
@@ -46,6 +48,7 @@ import {
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
+  OPTION_PRELUDE,
   PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
@@ -85,6 +88,8 @@ interface QuickJSState {
   index: number
   params: Readonly<Record<string, ScriptParamValue>>
   execution: RequestExecution
+  /** 已经挂载到 VM 的期权快照；同一份数据不重复序列化。 */
+  optionLevels?: ScriptOptionLevels
   collector: PlotCollector
   emit?: (event: LogEvent) => void
   /** 顶层声明阶段产生的日志；首次运行时补发给本次运行的接收者。 */
@@ -439,6 +444,7 @@ function createQuickJSScriptRuntime(
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, OPTION_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, TIME_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, INDICATOR_PRELUDE, 'compile', timeout).dispose()
@@ -548,6 +554,16 @@ function createQuickJSScriptRuntime(
         'run',
         timeout,
       ).dispose()
+      // 期权快照只在数据变化时重新序列化；null 表示本次没有数据，必须清掉上一次的。
+      if (input.optionLevels !== state.optionLevels) {
+        state.optionLevels = input.optionLevels ?? undefined
+        evalOrThrow(
+          vm,
+          `globalThis.__optionContext = ${state.optionLevels === undefined ? 'undefined' : optionContextSource(state.optionLevels)}`,
+          'run',
+          timeout,
+        ).dispose()
+      }
       if (options.expressionId !== undefined) state.values.length = input.startIndex
       try {
         for (state.index = input.startIndex; state.index < input.endIndex; state.index++) {

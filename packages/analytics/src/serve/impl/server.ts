@@ -11,6 +11,7 @@
  * 不提供写接口，也不返回数据目录之外的任何文件。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { OPTION_AGGREGATE_STREAM_PREFIX } from '../../options/impl/collect'
 import { orderflowStream } from '../../orderflow/impl/collect'
 import { reassemblePanel } from '../../orderflow/impl/reassemble'
 import { renderPanel } from '../../orderflow/impl/render'
@@ -32,6 +33,9 @@ const STREAM_PATTERN = /^[A-Za-z0-9._/-]+$/
 
 /** 日期分片允许的格式。 */
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/** 期权标的允许的格式：大写字母或数字。 */
+const CURRENCY_PATTERN = /^[A-Z0-9]{2,10}$/
 
 /** 组装面板的路由。 */
 export const ORDERFLOW_PANEL_PATH = '/orderflow/panel'
@@ -231,6 +235,66 @@ export async function startOrderflowServer(
 
     if (url.pathname === '/health') {
       sendJson(response, 200, { ok: true })
+      return
+    }
+
+    // 期权关键位序列：跨日取最近若干条，供画历史线
+    if (url.pathname === '/options/series') {
+      const currency = queryParam(url, 'currency')
+      if (currency === null) {
+        sendJson(response, 400, { error: '缺少 currency 参数' })
+        return
+      }
+      if (!CURRENCY_PATTERN.test(currency)) {
+        sendJson(response, 400, { error: 'currency 需为大写字母或数字' })
+        return
+      }
+      const limitText = queryParam(url, 'limit')
+      const limit = limitText === null ? 500 : Number(limitText)
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 5000) {
+        sendJson(response, 400, { error: 'limit 需为 1..5000 的整数' })
+        return
+      }
+      const stream = `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`
+      const days = listDays(options.store, stream)
+      const rows = readRecentDays(options.store, stream, days.length)
+      sendJson(response, 200, {
+        currency,
+        days,
+        rows: rows.slice(Math.max(0, rows.length - limit)),
+      })
+      return
+    }
+    // 期权聚合位：返回某标的可用日期与该日最新一行
+    if (url.pathname === '/options/levels') {
+      const currency = queryParam(url, 'currency')
+      if (currency === null) {
+        sendJson(response, 400, { error: '缺少 currency 参数' })
+        return
+      }
+      if (!CURRENCY_PATTERN.test(currency)) {
+        sendJson(response, 400, { error: 'currency 需为大写字母或数字' })
+        return
+      }
+      const stream = `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`
+      const days = listDays(options.store, stream)
+      const requestedDay = queryParam(url, 'day')
+      if (requestedDay !== null && !DAY_PATTERN.test(requestedDay)) {
+        sendJson(response, 400, { error: 'day 需为 YYYY-MM-DD' })
+        return
+      }
+      const day = requestedDay ?? (days.length === 0 ? null : days[days.length - 1])
+      if (day === null) {
+        sendJson(response, 404, { error: '没有可用的期权数据', stream })
+        return
+      }
+      const rows = options.store.read({ stream, day })
+      sendJson(response, 200, {
+        currency,
+        day,
+        days,
+        latest: rows.length === 0 ? null : rows[rows.length - 1],
+      })
       return
     }
 

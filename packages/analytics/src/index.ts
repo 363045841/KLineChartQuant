@@ -62,6 +62,11 @@ export {
 } from './options/impl/deribit'
 export { type ParsedInstrumentName, parseInstrumentName } from './options/impl/instrument'
 export {
+  LEGACY_OPTIONS_LEVELS_DIR,
+  type LegacyPruneResult,
+  pruneLegacyOptionsLevels,
+} from './options/impl/legacyPrune'
+export {
   type DeribitClient,
   type DeribitIndexPrice,
   type DeribitOptionChain,
@@ -72,6 +77,9 @@ export {
   type OptionChainRecord,
   type OptionContract,
   type OptionCurrency,
+  type OptionGammaFlip,
+  type OptionLevelSet,
+  type OptionNearTermLevels,
   type OptionStrikeExposure,
   type OptionType,
 } from './options/types'

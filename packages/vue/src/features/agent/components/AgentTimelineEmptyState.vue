@@ -39,6 +39,7 @@
     { label: text.value.promptEma, prompt: text.value.promptEma },
     { label: text.value.promptBond, prompt: text.value.promptBond },
     { label: text.value.promptOrderflow, prompt: text.value.promptOrderflowDetail },
+    { label: text.value.promptOption, prompt: text.value.promptOptionDetail },
   ])
 </script>
 

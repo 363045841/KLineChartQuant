@@ -59,9 +59,11 @@ describe('useScriptEditor', () => {
     vi.spyOn(chart, 'withIndicatorData').mockImplementation((compute) =>
       compute([{ time: 1, open: 10, high: 10, low: 10, close: 10, volume: 0 }], {
         symbol: 'TEST',
+        optionUnderlying: null,
         loadBars: async () => {
           throw new Error('此用例不请求跨周期行情')
         },
+        loadOptionLevels: async () => [],
       }),
     )
     const add = vi.spyOn(chart, 'addIndicator').mockReturnValue('debug-instance')

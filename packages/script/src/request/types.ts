@@ -2,6 +2,7 @@
 
 import type { DataSource, Timeframe, ScriptTimeContext } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
+import type { ScriptOptionLevels } from '../option/types.js'
 import type { Series } from '../series/types.js'
 
 export type RequestValue = number | string | boolean | null | readonly RequestValue[]
@@ -91,6 +92,8 @@ export interface ScriptRequestContext {
   readonly symbol: string
   readonly time?: ScriptTimeContext
   readonly snapshots: readonly RequestSnapshot[]
+  /** 期权快照；宿主没有品种映射、或服务取不到数据时缺省。 */
+  readonly optionLevels?: ScriptOptionLevels
 }
 
 export interface RequestExecution {

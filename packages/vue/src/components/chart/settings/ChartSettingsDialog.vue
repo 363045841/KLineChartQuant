@@ -37,6 +37,14 @@
             {{ cacheUsageText }}
             <BaseIconButton
               size="lg"
+              label="校验历史缓存"
+              title="校验历史缓存：发现数据源修正就重新取数"
+              @click="verifyCache"
+            >
+              <IconTablerRefresh aria-hidden="true" />
+            </BaseIconButton>
+            <BaseIconButton
+              size="lg"
               label="清除缓存"
               title="清除缓存"
               @click="clearCache"
@@ -147,7 +155,8 @@
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
   import { computed, ref, watch } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
-  import IconTablerTrash from '~icons/tabler/trash'
+  import IconTablerRefresh from '~icons/tabler/refresh'
+import IconTablerTrash from '~icons/tabler/trash'
   import SettingsItemRow from './SettingsItemRow.vue'
   import SettingsNavRow from './SettingsNavRow.vue'
 
@@ -168,6 +177,7 @@
     (e: 'update:open', value: boolean): void
     (e: 'confirm', settings: ChartSettings): void
     (e: 'clearMarketDataCache'): void
+    (e: 'verifyMarketDataCache'): void
     /** 主题预设点击即生效，无需等“确定”。 */
     (
       e: 'applyThemePreset',
@@ -270,7 +280,8 @@
   const cacheUsageText = computed(() => {
     const stats = props.marketDataCacheStats
     if (!stats) return '尚未初始化'
-    return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.maxBytes)}（${stats.entryCount} 项）`
+    const disk = stats.diskBytes > 0 ? `，落盘 ${formatBytes(stats.diskBytes)}` : '，暂无落盘'
+    return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.maxBytes)}（${stats.entryCount} 项）${disk}`
   })
 
   function formatBytes(bytes: number): string {
@@ -316,6 +327,11 @@
 
   function clearCache() {
     emit('clearMarketDataCache')
+  }
+
+  /** 校验落盘历史；耗时与落盘页数成正比，完成后占用统计自动刷新。 */
+  function verifyCache() {
+    emit('verifyMarketDataCache')
   }
 </script>
 
