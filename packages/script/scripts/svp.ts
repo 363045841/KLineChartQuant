@@ -9,7 +9,7 @@ const MINUTES_PER_DAY = 1440
  * Request 选项在声明期求值，那里读到的保留期数可能还是默认值；窗口按它的最大值兜底，
  * 用户把保留期数调大时才不会只拿到 8 天的明细。窗口上限仍由脚本声明控制。
  */
-const DETAIL_WINDOW_DAYS = 32
+const DETAIL_WINDOW_DAYS = 12
 
 defineIndicator({
   name: 'SVP',
