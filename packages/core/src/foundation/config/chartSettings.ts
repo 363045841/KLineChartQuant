@@ -274,6 +274,13 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
+    key: 'mainPriceAxisPriceOnly',
+    label: '仅缩放价格图表',
+    type: 'boolean',
+    default: false,
+    group: 'priceAxis',
+  },
+  {
     key: 'klineDensity',
     label: 'K 线密度',
     type: 'select',

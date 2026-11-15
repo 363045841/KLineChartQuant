@@ -231,6 +231,8 @@ type PanePriceRangeInputs = Pick<FrameContext, 'comparisonActive' | 'comparisonP
   axisStates: ReturnType<RendererDependencies['axesState']['readonly']['paneRanges']['peek']>
   /** 每轴由实例输出派生的极值；主图价格轴也在其中。 */
   axisRanges: ReadonlyMap<string, { min: number; max: number } | null>
+  /** 仅缩放价格图表：主轴自动范围只取可见 K 线价格，指标、比较、绘图与足迹都不参与。 */
+  priceOnly: boolean
 }
 
 /** 范围决策结果及待提交的锁定初始化意图。 */
@@ -1026,6 +1028,7 @@ export class ChartRenderer {
       comparisonActive,
       comparisonProjection,
       axisStates: this.deps.axesState.readonly.paneRanges.peek(),
+      priceOnly: this.deps.settings$.peek().mainPriceAxisPriceOnly === true,
     }
   }
 
@@ -1089,7 +1092,11 @@ export class ChartRenderer {
       }
       for (const axis of axes) {
         const auto = this.resolveAxisAutoRange(frame, inputs, pane, axis.axisId)
-        const drawingRange = drawingRanges.get(axis.axisId) ?? null
+        // 仅缩放价格图表时绘图不参与主轴自动范围，拖动图元不再牵动价格窗口。
+        const drawingRange =
+          inputs.priceOnly && axis.axisId === PRICE_SERIES_AXIS_ID
+            ? null
+            : (drawingRanges.get(axis.axisId) ?? null)
         const combined = drawingRange
           ? {
               range: {
@@ -1122,7 +1129,12 @@ export class ChartRenderer {
     return range ? { range: { minPrice: range.min, maxPrice: range.max }, basePrice: null } : null
   }
 
-  /** 计算承载主价格序列的 Pane 自动范围；足迹范围只在价格 Pane 叠加。 */
+  /**
+   * 计算承载主价格序列的 Pane 自动范围；足迹范围只在价格 Pane 叠加。
+   *
+   * 仅缩放价格图表时只取可见 K 线的价格：指标极值、比较投影和足迹都不并轴，
+   * 它们照常绘制，只是落在 K 线窗口之外的部分会画到 Pane 边缘以外。
+   */
   private resolvePaneAutoRange(
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
@@ -1134,11 +1146,16 @@ export class ChartRenderer {
       range: frame.range,
       dataManager: inputs.dataManager,
       mode: inputs.mode,
-      indicatorRange: inputs.axisRanges.get(PRICE_SERIES_AXIS_ID) ?? null,
-      comparisonActive: inputs.comparisonActive && this.hasComparisonSeries(pane.id),
-      comparisonProjection: inputs.comparisonProjection,
+      indicatorRange: inputs.priceOnly
+        ? null
+        : (inputs.axisRanges.get(PRICE_SERIES_AXIS_ID) ?? null),
+      comparisonActive: inputs.priceOnly
+        ? false
+        : inputs.comparisonActive && this.hasComparisonSeries(pane.id),
+      comparisonProjection: inputs.priceOnly ? null : inputs.comparisonProjection,
       closeOnly: shape === 'line' || shape === 'area',
     })
+    if (inputs.priceOnly) return auto
     if (pane.id !== this.deps.getPricePaneId() || inputs.comparisonActive) return auto
     const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
     if (!footprintRange) return auto
