@@ -362,23 +362,16 @@
       }
     ],
     "slotMinutes": 1440,
-    "tradingDays": [
-      1,
-      2,
-      3,
-      4,
-      5
-    ],
     "approximate": true,
     "sources": [
       "https://www.mql5.com/en/docs/marketinformation/symbolinfosessiontrade",
       "https://www.mql5.com/en/book/automation/symbols/symbols_sessions"
     ],
     "notes": [
-      "仅保留现有工作日全天展示画像，不是实际外汇交易日历。",
       "MT5是平台而非单一市场；股票、外汇、金属、指数及加密资产的交易时间必须按经纪商和品种获取。",
       "实际时段由SymbolInfoSessionTrade按星期及session序号读取，时钟为经纪商服务器时间；周日开盘、每日维护及跨午夜归属不可由UTC工作日画像推算。",
-      "日界按服务器时间（UTC）午夜切分：MT5 平台显示的交易日从服务器 00:00 开始，对应北京 08:00。"
+      "日界按服务器时间（UTC）午夜切分：MT5 平台显示的交易日从服务器 00:00 开始，对应北京 08:00。",
+      "不声明 tradingDays：MT5 同时覆盖外汇、金属、指数与加密，周末是否有 K 线由经纪商与品种决定；平台按数据源实际 K 线判断，不在配置里一刀切。"
     ],
     "dayBoundary": {
       "time": "00:00",
