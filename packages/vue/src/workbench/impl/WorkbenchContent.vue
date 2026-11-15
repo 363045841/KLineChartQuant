@@ -6,6 +6,8 @@
     :initial-panel="initialPanel"
     :width-storage="widthStorage"
     :side-storage="sideStorage"
+    :rail-footer="railFooter"
+    @rail-footer="chartComponent?.openSettings()"
   >
     <template #chart>
       <div v-if="market.error.value" class="kline-workbench__market-error" role="alert">
@@ -13,6 +15,7 @@
         <BaseButton @click="market.retry">重试</BaseButton>
       </div>
       <KlineChart
+        ref="chart"
         v-bind="{ ...chart, ...$attrs }"
         :market-data-context="market.context"
         :restore-layout="restoreLayout"
@@ -21,17 +24,15 @@
         :scripts-enabled="scripts"
         @controller-ready="onControllerReady"
         @theme-change="emit('theme-change', $event)"
-        @update:is-fullscreen="emit('update:is-fullscreen', $event)"
       />
     </template>
 
-    <template v-if="agent" #panel-agent="{ side, close, toggleSide }">
+    <template v-if="agent" #panel-agent="{ side, close }">
       <WorkbenchAgent
         :controller="controller"
         :credentials="credentials"
         :panel-side="side"
         @close="close"
-        @toggle-panel-side="toggleSide"
       />
     </template>
 
@@ -47,8 +48,9 @@
 
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import { computed, defineAsyncComponent, shallowRef } from 'vue'
+  import { computed, defineAsyncComponent, shallowRef, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
+  import IconSettings from '~icons/tabler/settings'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconStack2 from '~icons/tabler/stack-2'
   import KlineChart from '../../components/chart/KLineChart.vue'
@@ -80,7 +82,6 @@
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]
     'theme-change': [theme: 'light' | 'dark']
-    'update:is-fullscreen': [fullscreen: boolean]
     error: [error: Error]
   }>()
 
@@ -96,6 +97,9 @@
   const initialPanel = props.agent && props.initialAgentPanelOpen ? AGENT_PANEL_ID : null
 
   const controller = shallowRef<ChartController | null>(null)
+  /** 图表设置由 KLineChart 持有，侧栏底部只负责触发。 */
+  const chartComponent = useTemplateRef<InstanceType<typeof KlineChart>>('chart')
+  const railFooter = { label: '设置', icon: IconSettings } as const
   // 命令表由工作台创建：图表与侧栏面板共用同一份，快捷键作用域仍绑定图表根元素。
   provideChartCommands()
   const WorkbenchAgent = defineAsyncComponent(() => import('./WorkbenchAgent.vue'))

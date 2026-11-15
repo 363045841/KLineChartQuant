@@ -74,12 +74,47 @@
           <component :is="item.icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
+      <div class="side-panel-shell__rail-footer">
+        <BaseTooltip
+          :content="sideToggleLabel"
+          :placement="side === 'right' ? 'left' : 'right'"
+          trigger-display="contents"
+        >
+          <button
+            type="button"
+            class="side-panel-shell__rail-button klc-motion-icon-feedback"
+            :aria-label="sideToggleLabel"
+            @click="toggleSide"
+          >
+            <IconLayoutSidebarLeftExpand v-if="side === 'right'" aria-hidden="true" />
+            <IconLayoutSidebarRightExpand v-else aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip
+          v-if="railFooter"
+          :content="railFooter.label"
+          :placement="side === 'right' ? 'left' : 'right'"
+          trigger-display="contents"
+        >
+          <button
+            type="button"
+            class="side-panel-shell__rail-button klc-motion-icon-feedback"
+            :aria-label="railFooter.label"
+            @click="emit('railFooter')"
+          >
+            <component :is="railFooter.icon" aria-hidden="true" />
+          </button>
+        </BaseTooltip>
+      </div>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
+  import type { Component } from 'vue'
   import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+  import IconLayoutSidebarLeftExpand from '~icons/tabler/layout-sidebar-left-expand'
+  import IconLayoutSidebarRightExpand from '~icons/tabler/layout-sidebar-right-expand'
   import BaseTooltip from '../../components/common/BaseTooltip.vue'
   import SlidingHighlight from '../../components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '../../composables/ui/useSlidingHighlight.js'
@@ -93,10 +128,8 @@
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640
   const DEFAULT_PANEL_WIDTH = 420
-  /** 窄屏时面板改为覆盖层，图表至少保留这么多宽度，不再被挤压。 */
-  const MIN_CHART_WIDTH = 560
-  /** 侧边菜单栏宽度；与 CSS 的 `--side-panel-rail-width` 对应。 */
-  const RAIL_WIDTH = 40
+  /** 仅在工作区小于此宽度时改用覆盖面板，不随用户拖动面板宽度改变。 */
+  const COMPACT_BREAKPOINT = 768
   /** 面板内侧边缘的拖拽命中区宽度。 */
   const RESIZE_HIT_PX = 8
 
@@ -110,9 +143,13 @@
       widthStorage?: SidePanelWidthStorage
       /** 面板停靠侧持久化端口。 */
       sideStorage?: SidePanelSideStorage
+      /** 侧栏底部的独立动作（不参与面板互斥），例如“设置”。 */
+      railFooter?: { readonly label: string; readonly icon: Component }
     }>(),
-    { initialPanel: null, widthStorage: undefined, sideStorage: undefined },
+    { initialPanel: null, widthStorage: undefined, sideStorage: undefined, railFooter: undefined },
   )
+
+  const emit = defineEmits<{ (e: 'railFooter'): void }>()
 
   const shell = ref<HTMLElement | null>(null)
   const panel = ref<HTMLElement | null>(null)
@@ -127,6 +164,7 @@
     props.panels.filter((item) => item.id === activePanel.value),
   )
   const side = ref<SidePanelSide>('right')
+  const sideToggleLabel = computed(() => (side.value === 'right' ? '切换到左侧' : '切换到右侧'))
   const width = ref(DEFAULT_PANEL_WIDTH)
   const resizing = ref(false)
   const resizeReady = ref(false)
@@ -134,10 +172,9 @@
   const shellWidth = ref(0)
   let shellObserver: ResizeObserver | undefined
 
-  /** 面板打开后至少要给图表留下的宽度；不够时覆盖而不是挤压布局。 */
+  /** 按工作区实际宽度切换窄屏布局。 */
   function syncCompact(): void {
-    compact.value =
-      shellWidth.value > 0 && shellWidth.value < width.value + RAIL_WIDTH + MIN_CHART_WIDTH
+    compact.value = shellWidth.value > 0 && shellWidth.value < COMPACT_BREAKPOINT
   }
 
   // 只发布面板宽度，轨道宽度由 CSS 依开合状态与停靠侧派生，避免同一数值两处来源。
@@ -152,14 +189,20 @@
     activePanel.value = activePanel.value === id ? null : id
     if (!activePanel.value) return
     if (!mountedPanels.value.some((item) => item.id === id)) {
-      mountedPanels.value = [...mountedPanels.value, ...props.panels.filter((item) => item.id === id)]
+      mountedPanels.value = [
+        ...mountedPanels.value,
+        ...props.panels.filter((item) => item.id === id),
+      ]
     }
   }
 
-  const { onPointerOver: onRailPointerOver, onFocusIn: onRailFocusIn, hide: hideRailHighlight } =
-    useSlidingHighlight(railHighlight, (target) =>
-      target.closest<HTMLElement>('.side-panel-shell__rail-button'),
-    )
+  const {
+    onPointerOver: onRailPointerOver,
+    onFocusIn: onRailFocusIn,
+    hide: hideRailHighlight,
+  } = useSlidingHighlight(railHighlight, (target) =>
+    target.closest<HTMLElement>('.side-panel-shell__rail-button'),
+  )
 
   /** 关闭面板，保留面板内容挂载状态。 */
   function closePanel(): void {
@@ -264,9 +307,6 @@
     }
   })
 
-  // 面板宽度变化会改变“图表至少保留宽度”的阈值，压缩状态随之更新。
-  watch(width, syncCompact)
-
   // 面板清单收缩（例如宿主关闭 Agent）时，已打开的面板不能继续显示。
   watch(
     () => props.panels,
@@ -302,7 +342,7 @@
     /* 三列网格：图表、面板轨道、常驻菜单栏；菜单栏始终贴在最外侧。 */
     grid-template-columns: minmax(0, 1fr) var(--side-panel-track) var(--side-panel-rail-width);
     grid-template-rows: minmax(0, 1fr);
-    background: var(--klc-color-ui-background);
+    background: var(--klc-color-ui-surround-background);
   }
 
   .side-panel-shell--open {
@@ -349,9 +389,10 @@
     justify-self: end;
     width: var(--side-panel-width);
     min-height: 0;
+    box-sizing: border-box;
     z-index: var(--klc-z-index-chart-overlay);
     overflow: hidden;
-    background: var(--klc-color-ui-background);
+    background: var(--klc-color-ui-surround-background);
     visibility: hidden;
     transform: translateX(100%);
     transition:
@@ -378,6 +419,11 @@
     min-height: 0;
   }
 
+  /* 侧栏内容自身提供留白，页签容器不再叠加弹窗默认的左右内边距。 */
+  .side-panel-shell__panel :deep(.base-tabs--default) {
+    padding-inline: 0;
+  }
+
   /* 悬浮在面板内侧边缘时提示左右拖拽。 */
   .side-panel-shell--resize-ready .side-panel-shell__panel {
     cursor: ew-resize;
@@ -395,16 +441,21 @@
     gap: var(--klc-space-4, 4px);
     box-sizing: border-box;
     padding: var(--klc-space-8, 8px) 0;
-    /* 用弱边框 token：菜单栏与图表之间只需一条很轻的分隔线。 */
-    border-left: 1px solid var(--klc-color-border-light);
-    background: var(--klc-color-ui-surface);
+    background: var(--klc-color-ui-surround-background);
     user-select: none;
+  }
+
+  /* 独立动作贴住侧栏底部，不参与面板互斥。 */
+  .side-panel-shell__rail-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--klc-space-4, 4px);
   }
 
   .side-panel-shell--left .side-panel-shell__rail {
     grid-column: 1;
-    border-left: 0;
-    border-right: 1px solid var(--klc-color-border-light);
   }
 
   /* 菜单按钮与图表左侧工具栏同形：圆角方块，悬停由滑动高亮块提示。 */
@@ -434,12 +485,9 @@
     /* 选中态图标跟随按钮文字色，不参与悬停提亮。 */
     --klc-icon-feedback-color: currentColor;
     --klc-icon-feedback-hover-color: currentColor;
-    /* 与左侧工具栏一致：深色模式用浅灰选中底和深色图标。 */
-    background: light-dark(
-      color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
+    /* 选中底与左侧工具栏同一语义 Token。 */
+    background: var(--klc-color-ui-selected);
+    color: var(--klc-color-ui-text);
   }
 
   /* 尺寸由菜单栏决定；图标反馈（提亮 + 轻微放大）由 .klc-motion-icon-feedback 统一提供。 */
@@ -479,13 +527,15 @@
 
   .side-panel-shell--compact .side-panel-shell__panel {
     position: absolute;
+    /* 脱离零宽的面板轨道，以整个外壳作为绝对定位与百分比宽度的参照。 */
+    grid-area: auto;
+    justify-self: auto;
     top: 0;
     bottom: 0;
     right: var(--side-panel-rail-width);
     width: min(var(--side-panel-width), calc(100% - var(--side-panel-rail-width) - 28px));
     min-width: min(360px, calc(100% - var(--side-panel-rail-width) - 28px));
     z-index: var(--klc-z-index-chart-overlay);
-    border-left: 1px solid var(--klc-color-border-light);
     /* 全局面板投影 token：与 Agent 会话抽屉共用同一个来源。 */
     box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
   }
@@ -493,8 +543,6 @@
   .side-panel-shell--compact.side-panel-shell--left .side-panel-shell__panel {
     right: auto;
     left: var(--side-panel-rail-width);
-    border-left: 0;
-    border-right: 1px solid var(--klc-color-border-light);
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 </style>

@@ -5,11 +5,6 @@
       <span class="selection-menu__value">{{ selectedLabel }}</span>
       <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
     </template>
-    <template #item-action="{ item }">
-      <span v-if="item.id === modelValue" class="drop-menu__status">
-        <IconTablerCheck aria-hidden="true" />
-      </span>
-    </template>
   </DropMenu>
 </template>
 
@@ -19,7 +14,6 @@
   import { type ChartSettings, DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
 
   type KLineShape = NonNullable<ChartSettings['klineShape']>
@@ -53,6 +47,8 @@
         id: option.value,
         label: option.label,
         disabled: props.disabledValues.includes(option.value),
+        checked: option.value === props.modelValue,
+        selection: 'radio',
       })),
     },
   ])

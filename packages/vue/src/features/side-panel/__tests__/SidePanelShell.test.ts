@@ -1,8 +1,8 @@
 /** 通用侧边面板：菜单互斥、内容懒挂载与停靠侧持久化。 */
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, nextTick } from 'vue'
 import SidePanelShell from '../SidePanelShell.vue'
 import type { SidePanelDefinition, SidePanelSide } from '../types.js'
 
@@ -13,16 +13,20 @@ const PANELS: ReadonlyArray<SidePanelDefinition> = [
 ]
 
 /** 挂载带图表与两个面板内容的最小宿主。 */
-function mountShell(options: {
-  initialPanel?: string | null
-  sideStorage?: { load(): SidePanelSide | null | undefined; save(side: SidePanelSide): void }
-} = {}) {
+function mountShell(
+  options: {
+    initialPanel?: string | null
+    sideStorage?: { load(): SidePanelSide | null | undefined; save(side: SidePanelSide): void }
+  } = {},
+) {
   return mount(SidePanelShell, {
     props: { panels: PANELS, ...options },
     slots: {
       chart: () => h('div', { 'data-chart': '' }),
       'panel-agent': ({ toggleSide }: { toggleSide(): void }) =>
-        h('div', { 'data-agent': '' }, [h('button', { 'data-toggle-side': '', onClick: toggleSide })]),
+        h('div', { 'data-agent': '' }, [
+          h('button', { 'data-toggle-side': '', onClick: toggleSide }),
+        ]),
       'panel-watchlist': () => h('div', { 'data-watchlist': '' }),
     },
   })
@@ -69,8 +73,13 @@ describe('SidePanelShell', () => {
     await nextTick()
     expect(wrapper.classes()).toContain('side-panel-shell--left')
 
-    await wrapper.get('[data-toggle-side]').trigger('click')
+    await wrapper
+      .get('.side-panel-shell__rail-footer button[aria-label="切换到右侧"]')
+      .trigger('click')
     expect(wrapper.classes()).not.toContain('side-panel-shell--left')
+    expect(
+      wrapper.find('.side-panel-shell__rail-footer button[aria-label="切换到左侧"]').exists(),
+    ).toBe(true)
     expect(sideStorage.save).toHaveBeenCalledWith('right')
     wrapper.unmount()
   })

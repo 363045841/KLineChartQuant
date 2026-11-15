@@ -1,6 +1,7 @@
 /** 编辑器身份直接约束 CodeMirror，内置展示与用户草稿切换不另建编辑器。 */
 
 import { undo } from '@codemirror/commands'
+import { openSearchPanel, replaceAll, SearchQuery, setSearchQuery } from '@codemirror/search'
 import { EditorView } from '@codemirror/view'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +14,33 @@ import {
 import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
 
 describe('ScriptEditorWorkspace', () => {
+  it('查找面板使用中文，替换功能仍可正常修改文档', async () => {
+    const wrapper = mount(ScriptEditorWorkspace, {
+      props: {
+        ...createEditorTabState(),
+        source: 'const a = 1; const b = 1;',
+        identity: 'user',
+        trusted: false,
+        theme: 'light',
+      },
+    })
+    try {
+      await nextTick()
+      const view = EditorView.findFromDOM(wrapper.get('.cm-editor').element as HTMLElement)!
+      openSearchPanel(view)
+      expect(wrapper.get('input[name="search"]').attributes('placeholder')).toBe('查找')
+      expect(wrapper.get('input[name="replace"]').attributes('placeholder')).toBe('替换为')
+      expect(wrapper.get('.cm-search').text()).toContain('区分大小写')
+      expect(wrapper.get('button[name="replaceAll"]').text()).toBe('全部替换')
+      expect(wrapper.get('button[name="close"]').attributes('aria-label')).toBe('关闭查找')
+      view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: '1', replace: '2' })) })
+      replaceAll(view)
+      expect(view.state.doc.toString()).toBe('const a = 2; const b = 2;')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('拖动标签发出统一移动命令，未保存圆点在标签左侧、目录右侧且无文件图标', async () => {
     const state = createEditorTabState()
     const first = state.tabs[0]!
@@ -353,7 +381,7 @@ describe('ScriptEditorWorkspace', () => {
     }
   })
 
-  it('未保存草稿仍是文件菜单，复制和删除禁用并说明原因', async () => {
+  it('未保存草稿的文件菜单支持删除，复制仍禁用并说明原因', async () => {
     const draft = {
       id: 'draft-tab',
       definitionId: null,
@@ -393,7 +421,12 @@ describe('ScriptEditorWorkspace', () => {
       ])
       expect(buttons()[2]!.disabled).toBe(true)
       expect(buttons()[2]!.title).toBe('未保存的草稿，请先保存')
-      expect(buttons()[3]!.disabled).toBe(true)
+      expect(buttons()[3]!.disabled).toBe(false)
+      buttons()[3]!.click()
+      await nextTick()
+      expect(wrapper.emitted('tree-action')).toContainEqual([
+        { type: 'delete-draft', tabId: draft.id },
+      ])
     } finally {
       wrapper.unmount()
     }

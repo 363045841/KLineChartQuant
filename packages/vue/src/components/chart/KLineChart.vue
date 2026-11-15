@@ -8,10 +8,9 @@
     <div class="chart-workspace">
       <TopToolbar
         :layout-controller="controller"
-        :is-fullscreen="effectiveIsFullscreen"
+        :is-fullscreen="isFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @toggle-indicator="onToggleIndicator"
-        @settings="openChartSettings('main')"
         @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
@@ -83,12 +82,16 @@
           @set-all-drawings-visible="onSetAllDrawingsVisible"
           @open-command-palette="paletteOpen = true"
         />
-        <div ref="chartMainRef" class="chart-main">
+        <div
+          ref="chartMainRef"
+          class="chart-main"
+          :style="{ '--chart-plot-bottom': `${props.bottomAxisHeight}px` }"
+        >
           <ChartNavigation
             v-if="hasPrimarySymbol"
             :controller="controller"
             :style="{
-              bottom: `${props.bottomAxisHeight}px`,
+              bottom: 'var(--chart-plot-bottom)',
               '--chart-nav-offset-x': `${navOffsetX}px`,
             }"
           />
@@ -118,7 +121,7 @@
             target="_blank"
             rel="noopener noreferrer"
             :style="{
-              bottom: `${props.bottomAxisHeight + 8}px`,
+              bottom: 'calc(var(--chart-plot-bottom) + 8px)',
               '--chart-brand-axis-width': `${
                 chartMode === 'timeshare'
                   ? leftAxisHostWidth
@@ -315,24 +318,13 @@
             :style="{ width: axisHostWidth + 'px' }"
             @contextmenu.prevent
           >
-            <div
-              v-for="pane in paneAxisItems"
-              :key="pane.id"
-              class="pane-axis-controls-host"
-               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.axisWidth + 'px' }"
-            >
-              <PriceAxisSettingsMenu
-                :controller="controller"
-                :pane-id="pane.id"
-                :height="0"
-                :show-settings="false"
-                @settings-change="handleSettingsChange"
-              />
-            </div>
-            <PriceAxisSettingsMenu
+            <PaneAxisControls
+              v-for="entry in paneAxisEntries"
+              :key="entry.pane.id"
               :controller="controller"
-              :height="props.bottomAxisHeight"
-              :show-shortcuts="false"
+              :pane="entry.pane"
+              :columns="entry.columns"
+              :ends-at-chart-bottom="entry.endsAtChartBottom"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -506,7 +498,7 @@
   import './tooltip.css'
   import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
   import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
-  import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
+  import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
   import DropMenu from '@vue-src/components/common/DropMenu.vue'
@@ -548,6 +540,7 @@
   import { useKLineTooltip } from '@vue-src/composables/chart/useKLineTooltip.js'
   import { useLegendMoveMenu } from '@vue-src/composables/chart/useLegendMoveMenu.js'
   import { useLegendUi } from '@vue-src/composables/chart/useLegendUi.js'
+  import { usePaneAxisColumns } from '@vue-src/composables/chart/usePaneAxisColumns.js'
   import { usePaneAxisItems } from '@vue-src/composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
   import { useScriptEditor } from '@vue-src/composables/chart/useScriptEditor.js'
@@ -561,7 +554,6 @@
   } from '@vue-src/composables/commands/useCommands.js'
   import { switchChartSymbol } from '@vue-src/composables/symbol/chartSymbolSwitch.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
   // ── Props & Emits ──
@@ -608,8 +600,6 @@
       zoomLevels?: number
       /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
       initialZoomLevel?: number
-      /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
-      isFullscreen?: boolean
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
 
@@ -631,9 +621,6 @@
       priceLabelWidth: 60,
       zoomLevels: 80,
       initialZoomLevel: 3,
-      // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
-      // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
-      isFullscreen: undefined,
       timezone: 'Asia/Shanghai',
       restoreLayout: true,
     },
@@ -647,8 +634,6 @@
     useAggregationSources(aggregationSources, marketDataContext)
 
   const emit = defineEmits<{
-    (e: 'toggleFullscreen'): void
-    (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
@@ -952,10 +937,9 @@
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
-  provideFullscreenTeleportTarget(chartWrapperRef)
 
-  // ── Fullscreen (controlled / uncontrolled) ──
-  const internalIsFullscreen = ref(false)
+  // ── Browser fullscreen ──
+  const isFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
   const footprintSettingsOpen = ref(false)
   const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
@@ -970,19 +954,14 @@
     chartSettingsOpen.value = false
   }
   const paletteOpen = ref(false)
-  const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
-  let onFullscreenChange: (() => void) | null = null
+  function onFullscreenChange(): void {
+    isFullscreen.value = !!document.fullscreenElement
+  }
 
   function handleToggleFullscreen() {
-    // 受控模式：保持旧行为，仅通知，不操作 DOM
-    if (props.isFullscreen !== undefined) {
-      emit('toggleFullscreen')
-      return
-    }
-
-    // 非受控模式：组件内部接管全屏 DOM 操作
+    // 整个页面进入浏览器全屏，保留标签栏、工具栏与侧边面板。
     if (typeof document !== 'undefined') {
-      const el = chartWrapperRef.value
+      const el = document.documentElement
       if (!document.fullscreenElement) {
         if (el && typeof el.requestFullscreen === 'function') {
           el.requestFullscreen().catch(() => {
@@ -995,7 +974,6 @@
         })
       }
     }
-    emit('toggleFullscreen')
   }
 
   // ── Controller & Composable Wiring ──
@@ -1156,6 +1134,21 @@
   } = useIndicatorManager(controller)
 
   const paneAxisItems = usePaneAxisItems(controller)
+  /** 每条轴列一个设置入口，入口拿到的轴身份来自 Core 已提交的列几何。 */
+  const paneAxisColumns = usePaneAxisColumns(controller)
+  /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
+  const paneAxisEntries = computed(() => {
+    const entries = paneAxisItems.value
+      .map((pane) => ({
+        pane,
+        columns: paneAxisColumns.value.filter((column) => column.paneId === pane.id),
+      }))
+      .filter((entry) => entry.columns.length > 0)
+    return entries.map((entry, index) => ({
+      ...entry,
+      endsAtChartBottom: index === entries.length - 1,
+    }))
+  })
 
   const scriptSourceStore = inject(SCRIPT_SOURCE_STORE_KEY, undefined)
   const scriptEditorSession = useScriptEditor(scriptSourceStore, controller)
@@ -1719,6 +1712,8 @@
     getZoomLevel: () => zoomLevel.value,
     getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
     getController: () => controller.value,
+    /** 由宿主（侧栏底部设置项）打开图表设置。 */
+    openSettings: (section: 'main' | 'shortcuts' = 'main') => openChartSettings(section),
   })
 
   // ── Lifecycle Setup ──
@@ -1818,12 +1813,9 @@
   onMounted(async () => {
     void restoreWatchlist()
 
-    // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
+    // 挂载时读取当前状态，切换标签与 Esc 退出后按钮仍与浏览器一致。
     if (typeof document !== 'undefined') {
-      onFullscreenChange = () => {
-        internalIsFullscreen.value = !!document.fullscreenElement
-        emit('update:isFullscreen', internalIsFullscreen.value)
-      }
+      onFullscreenChange()
       document.addEventListener('fullscreenchange', onFullscreenChange)
     }
 
@@ -1884,10 +1876,9 @@
 
   // ── onUnmounted & Watchers ──
   onUnmounted(() => {
-    if (typeof document !== 'undefined' && onFullscreenChange) {
+    if (typeof document !== 'undefined') {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
-    onFullscreenChange = null
     disposeChartInput?.()
     disposeChartInput = null
     cleanupChartCallbacks?.()
@@ -1962,7 +1953,7 @@
   }
 
   .chart-workspace {
-    --chart-frame-radius: 3px;
+    --chart-frame-radius: 8px;
     min-width: 0;
     flex: 1 1 auto;
     display: flex;
@@ -1980,16 +1971,20 @@
     display: flex;
     align-items: stretch;
     gap: 0;
+    /* 绘图区圆角外侧露出的必须是 chrome 底色，否则页面白底会在角上形成一个尖角白块。 */
+    background: var(--klc-color-ui-surface);
   }
 
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    /* 外框只由绘图区承担：工具栏与左栏无边框，顶部两角随外壳圆角，底部贴边。 */
     border: 1px solid var(--chart-border);
+    border-radius: var(--chart-frame-radius) var(--chart-frame-radius) 0 0;
+    /* 圆角处裁掉画布与轴的直角，避免外框出现白边。 */
+    overflow: hidden;
     /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
     box-sizing: border-box;
-    border-bottom-right-radius: var(--chart-frame-radius);
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -2168,7 +2163,6 @@
   .right-axis-host {
     flex: 0 0 auto;
     border-left: 1px solid var(--chart-border);
-    border-bottom-right-radius: var(--chart-frame-radius);
   }
 
   /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
@@ -2180,17 +2174,6 @@
 
   .left-axis-host :deep(> canvas) {
     display: block;
-  }
-
-  .pane-axis-controls-host {
-    position: absolute;
-    left: 0;
-    z-index: 2;
-  }
-
-  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
-    visibility: visible;
-    pointer-events: auto;
   }
 
   .price-axis-host--left {
@@ -2217,13 +2200,10 @@
     top: 0;
     z-index: 25;
     box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    /* 选区与图表共用 chart.selection* Token，不在组件里按 accent 百分比现算。 */
+    border: 1px solid var(--klc-color-selection-stroke);
+    background: var(--klc-color-selection-fill);
     pointer-events: none;
-  }
-
-  .range-selection-overlay.is-dragging {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
   }
 
   .range-selection-handle {

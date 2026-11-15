@@ -238,6 +238,7 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
               targetTimeframes.value.every((visibility) =>
                 matchesOption(visibility, option.id, period),
               ),
+            selection: 'checkbox',
           })),
         })
         continue

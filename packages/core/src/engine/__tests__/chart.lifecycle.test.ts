@@ -15,7 +15,9 @@ import {
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
-import { MAIN_PANE_ID } from '../pane/types'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../pane/types'
+import { batch } from '@/foundation/reactivity/signal.js'
+import { axisGroupId, AXIS_GROUP_PRICE } from '../pane/axisGroups.js'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
 import { createMockRenderContext } from './helpers/renderTestKit'
@@ -339,13 +341,117 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('projectState does not commitLayout back to kernel', async () => {
+  it('fills every pane axis to the shared right width and publishes column changes immediately', async () => {
+    const chart = mountChart()
+    try {
+      const id = 'shared-axis-width'
+      registerEmptyPlot(id)
+      const instanceId = chart.panes.add(id)!
+      const binding = chart.axes.bindingFor(instanceId)
+      for (const requested of [80, 120]) {
+        chart['commitAxisWidths']({
+          left: 0,
+          right: requested,
+          rightByAxis: { [PRICE_SERIES_AXIS_ID]: requested, [binding.axisId]: 40 },
+        })
+        const geometry = chart.kernel.pane.readonly.paneGeometry.peek()
+        for (const renderer of chart.getPaneRenderers()) {
+          const pane = renderer.getPane()
+          expect(pane.axisWidth).toBe(requested)
+          expect(pane.axisColumns[0]!.width).toBe(requested)
+          expect(geometry.find((entry) => entry.id === pane.id)?.axisWidth).toBe(requested)
+        }
+        expect(chart.getDom().rightAxisLayer.style.width).toBe(`${requested}px`)
+      }
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('runtime synchronization does not commitLayout back to kernel', async () => {
     const chart = mountChart()
     try {
       const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
       commit.mockClear()
-      chart['layoutManager'].projectState()
+      chart['runtimeProjection'].synchronize()
       expect(commit).not.toHaveBeenCalled()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('installs price axes before configuring layers through repeated pane migrations', async () => {
+    const chart = mountChart()
+    const errors = vi.spyOn(console, 'error')
+    try {
+      const id = 'price-axis-migration'
+      registerPlotDefinition({
+        id,
+        name: id,
+        source: 'native',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      const instanceId = chart.panes.add(id)!
+      const first = chart.panes.addPane(MAIN_PANE_ID, 'above')!
+      const second = chart.panes.addPane(MAIN_PANE_ID, 'below')!
+      for (const paneId of [first, second, MAIN_PANE_ID]) {
+        batch(() => {
+          chart.panes.moveInstance(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId })
+          chart.kernel.pane.actions.setPaneScaleType(
+            paneId === MAIN_PANE_ID ? PRICE_SERIES_AXIS_ID : axisGroupId(paneId, AXIS_GROUP_PRICE),
+            ScaleType.Log,
+          )
+        })
+        const binding = chart.axes.bindingFor(instanceId)
+        expect(binding.paneId).toBe(paneId)
+        const pane = chart.getPaneRenderers().find((renderer) => renderer.getPane().id === paneId)!.getPane()
+        expect(pane.axis(binding.axisId).getScaleType()).toBe(ScaleType.Log)
+        expect(chart.getRenderer(resolveIndicatorLayerId(id, paneId, 'renderer', instanceId))?.pane).toBe(paneId)
+        expect(chart.axes.configuration(binding.axisId).rangeMode).toBe(PRICE_AXIS_RANGE_MODE.AUTO)
+      }
+      expect(chart.panes.hasPane(first)).toBe(false)
+      expect(chart.panes.hasPane(second)).toBe(false)
+      expect(errors).not.toHaveBeenCalled()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('keeps layers mounted when only axis configuration changes and keeps observing later migrations', async () => {
+    const chart = mountChart()
+    const errors = vi.spyOn(console, 'error')
+    try {
+      const id = 'projection-configuration'
+      registerEmptyPlot(id)
+      const instanceId = chart.panes.add(id)!
+      const original = chart.axes.bindingFor(instanceId)
+      const layerId = resolveIndicatorLayerId(id, original.paneId, 'renderer', instanceId)
+      const layer = chart.getRenderer(layerId)
+      chart.axes.setScaleType(original.axisId, ScaleType.Log)
+      expect(chart.getRenderer(layerId)).toBe(layer)
+      chart.panes.updatePane(original.paneId, { ratio: 0.4 })
+      expect(chart.axes.configuration(original.axisId).scaleType).toBe(ScaleType.Log)
+      chart.kernel.pane.actions.setPaneScaleType(original.axisId, ScaleType.Linear)
+      expect(chart.axes.configuration(original.axisId).scaleType).toBe(ScaleType.Linear)
+      chart.axes.setScaleType(original.axisId, ScaleType.Percent, 10)
+      expect(chart.axes.configuration(original.axisId).baseValue).toBe(10)
+      expect(chart.getRenderer(layerId)).toBe(layer)
+      chart.panes.moveInstance(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: MAIN_PANE_ID })
+      expect(chart.axes.bindingFor(instanceId).paneId).toBe(MAIN_PANE_ID)
+      expect(chart.panes.hasPane(original.paneId)).toBe(false)
+      expect(errors).not.toHaveBeenCalled()
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('derives the initial primary scale from settings without writing projection defaults into layout', async () => {
+    const chart = mountChart(1000, 600, { initialSettings: { mainRightAxisTypeSetting: ScaleType.Log } })
+    try {
+      expect(chart.axes.configuration(PRICE_SERIES_AXIS_ID).scaleType).toBe(ScaleType.Log)
+      expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(PRICE_SERIES_AXIS_ID)).toBe(false)
     } finally {
       await chart.destroy()
     }

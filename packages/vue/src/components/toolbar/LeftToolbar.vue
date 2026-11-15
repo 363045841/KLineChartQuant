@@ -696,17 +696,12 @@
 <style scoped>
   .left-toolbar {
     --tool-button-size: 28px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 3px;
-    background: var(--klc-color-ui-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    /* 边框由绘图区承担，左栏只保留表面色。 */
+    background: var(--klc-color-ui-surround-background);
     box-sizing: border-box;
   }
 
   .left-toolbar {
-    border-radius: 0 0 0 var(--chart-frame-radius, 3px);
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-right: 0;
     flex: 0 0 52px;
     position: relative;
     display: flex;
@@ -778,12 +773,9 @@
 
   .left-toolbar__button.active {
     border-color: transparent;
-    /* 深色模式使用浅灰选中底和深色图标，跟随系统时按实际明暗模式生效。 */
-    background: light-dark(
-      color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
+    /* 选中态用语义 Token：底为 selected，图标回到正文色。 */
+    background: var(--klc-color-ui-selected);
+    color: var(--klc-color-ui-text);
   }
 
   .left-toolbar__button:focus-visible {

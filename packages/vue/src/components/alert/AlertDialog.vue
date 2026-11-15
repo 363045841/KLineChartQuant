@@ -442,7 +442,7 @@
   .alert-add-btn:hover {
     border-color: var(--klc-color-ui-accent);
     color: var(--klc-color-ui-accent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 10%, transparent);
+    background: var(--klc-color-ui-highlight);
   }
 
   .alert-add-btn:active {

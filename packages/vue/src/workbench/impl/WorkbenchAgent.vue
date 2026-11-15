@@ -4,7 +4,6 @@
     :bridge="bridge"
     :panel-side="panelSide"
     @close="emit('close')"
-    @toggle-panel-side="emit('toggle-panel-side')"
   />
 </template>
 
@@ -26,7 +25,7 @@
     }>(),
     { panelSide: 'right', credentials: undefined },
   )
-  const emit = defineEmits<{ close: []; 'toggle-panel-side': [] }>()
+  const emit = defineEmits<{ close: [] }>()
 
   const bridge = new BrowserAgentBridge({
     getChartAgent: () => props.controller?.agent,

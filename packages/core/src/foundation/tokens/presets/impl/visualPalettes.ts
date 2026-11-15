@@ -31,7 +31,7 @@ export const exchange = {
     borderStrong: '#8C8C8C',
     text: '#262626',
     muted: '#666666',
-    accent: '#5A5A5A',
+    accent: '#171717', // 浅色交互强调色与 Pro Light 同源：墨黑；交易界面不使用蓝色强调。
     onAccent: '#FFFFFF',
     gridMajor: '#E6E6E6',
     gridMinor: '#F0F0F0',

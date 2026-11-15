@@ -154,6 +154,10 @@
 </script>
 
 <style scoped>
+  :global(.base-modal:has(.script-editor-host__body)) {
+    background: var(--klc-color-ui-surround-background);
+  }
+
   .script-editor-host__body {
     display: flex;
     flex-direction: column;
@@ -183,7 +187,7 @@
     position: fixed;
     inset: 0;
     display: flex;
-    background: var(--klc-color-ui-surface);
+    background: var(--klc-color-ui-surround-background);
     color: var(--klc-color-ui-text);
   }
 
@@ -194,9 +198,7 @@
   /* 独立窗口里工作区撑满可用空间；选择器带上根类以稳定压过组件自身固定高度规则。 */
   .script-editor-host__body--window :deep(.script-workspace) {
     max-height: none;
-    display: flex;
     flex: 1;
-    flex-direction: row;
     min-height: 0;
   }
 

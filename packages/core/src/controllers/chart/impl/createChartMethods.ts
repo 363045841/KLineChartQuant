@@ -15,6 +15,7 @@ import {
 import type { InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
 import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { ChartSettings } from '@/foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
@@ -273,7 +274,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   /** 更新设置（高层 API）。 */
-  function updateSettingsFacade(settings: Record<string, unknown>): void {
+  function updateSettingsFacade(settings: ChartSettings): void {
     if (isDisposed()) return
     chart.updateSettingsFacade(settings)
   }

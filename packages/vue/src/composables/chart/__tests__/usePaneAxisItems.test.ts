@@ -8,15 +8,38 @@ import { usePaneAxisItems } from '../usePaneAxisItems.js'
 
 it('bridges Core geometry and releases its subscription with the scope', () => {
   const geometry = createSignal<ReadonlyArray<PaneGeometry>>([
-    { id: 'main', top: 0, height: 420, axisWidth: 72 },
-    { id: 'sub', top: 420, height: 180, axisWidth: 48 },
+    {
+      id: 'main',
+      top: 0,
+      height: 420,
+      axisWidth: 72,
+      axisColumns: [
+        { axisId: 'object:price', left: 0, width: 40 },
+        { axisId: 'object:ma', left: 40, width: 32 },
+      ],
+    },
+    {
+      id: 'sub',
+      top: 420,
+      height: 180,
+      axisWidth: 48,
+      axisColumns: [{ axisId: 'object:volume', left: 0, width: 48 }],
+    },
   ])
   const controller = { ...createMockChartController(), paneGeometry: geometry }
   const scope = effectScope()
   const items = scope.run(() => usePaneAxisItems(shallowRef(controller)))!
   expect(items.value).toEqual(geometry.peek())
   const layout = controller.paneLayout.peek()
-  geometry.set([{ id: 'main', top: 0, height: 350, axisWidth: 56 }])
+  geometry.set([
+    {
+      id: 'main',
+      top: 0,
+      height: 350,
+      axisWidth: 56,
+      axisColumns: [{ axisId: 'object:price', left: 0, width: 56 }],
+    },
+  ])
   expect(items.value).toEqual(geometry.peek())
   expect(controller.paneLayout.peek()).toBe(layout)
   scope.stop()

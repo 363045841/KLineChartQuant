@@ -49,6 +49,8 @@ export {
 } from './engine/indicators/pipeline/index.js'
 export type * from './engine/objects/index.js'
 export type { ObjectAxesApi } from './engine/pane/axisTypes.js'
+// 主价格轴身份是 UI 与引擎共用的 SSOT：宿主据此区分价格轴与指标轴。
+export { PRICE_SERIES_AXIS_ID } from './engine/renderers/rendererIds.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {

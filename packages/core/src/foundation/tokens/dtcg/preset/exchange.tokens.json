@@ -44,7 +44,8 @@
       },
       "accent": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$description": "浅色交互强调色与 Pro Light 同源：墨黑；交易界面不使用蓝色强调。"
       },
       "onAccent": {
         "$type": "color",
@@ -64,9 +65,9 @@
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.3529, 0.3529, 0.3529],
+          "components": [0.0902, 0.0902, 0.0902],
           "alpha": 0.149,
-          "hex": "#5A5A5A"
+          "hex": "#171717"
         },
         "$description": "= visual.accent at alpha 0x26."
       }

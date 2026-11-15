@@ -5,7 +5,7 @@
  * 1. 把 Kernel 的指标实例状态投影为 instances/ 链路的实例快照与计算计划；
  * 2. 执行计划并提交按 instanceId 索引的结果池；
  * 3. 逐实例生成渲染投影，主图与副图共用同一套实例身份；
- * 4. 由定义能力派生轴列表与实例绑轴，并维护每轴刻度层。
+ * 4. 消费协调者提交的轴绑定，维护对应指标图层，不自行调度结构投影。
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
@@ -21,8 +21,6 @@ import {
   computed,
   effect,
   type ReadonlySignal,
-  type SelectedSignal,
-  selectSignal,
 } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -32,7 +30,7 @@ import type {
   RenderObjectDescriptor,
 } from '../../rendering/scene/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
-import { type PaneAxisSpec, resolveObjectAxisMap, resolvePaneAxes } from '../pane/axisResolver.js'
+import { type PaneAxisSpec, resolveObjectAxisMap } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
 import type { PaneSpec } from '../pane/types.js'
 import { updatePlotRange } from '../plots/impl/projectPlots.js'
@@ -146,9 +144,6 @@ export interface IndicatorDependencies {
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
-  getObjectAxes: () => ReadonlyArray<PaneAxisSpec>
-  /** 把框架派生的轴列表投影到 Pane 运行时。 */
-  projectPaneAxes: (axesByPane: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>) => void
   getLastVisibleRange: () => VisibleRange
   getCrosshairPos: () => { x: number; y: number } | null
   getCrosshairPrice: () => number | null
@@ -159,7 +154,13 @@ export interface IndicatorDependencies {
   indicator: IndicatorStateModule
   /** 定义注销时统一走 Pane 命令，避免绕过布局与轴偏好清理。 */
   removeInstancesByDefinition: (definitionId: string) => void
-  runRendererTransaction: (run: () => void) => void
+}
+
+/** 协调者一次捕获的指标资源输入；与行情计算结果分离。 */
+export interface IndicatorRuntimeInputs {
+  readonly instances: readonly IndicatorInstanceSpec[]
+  readonly colors: ColorTokens
+  readonly definitionRevision: number
 }
 
 export class ChartIndicatorManager {
@@ -173,12 +174,10 @@ export class ChartIndicatorManager {
   private readonly calculationScheduler: ReturnType<typeof createInstanceCalculationScheduler>
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
-  private disposeProjection: (() => void) | null = null
   /** 只记录实际拥有的图层资源，不承载实例归属、参数或更新判断。 */
   private readonly layerResources = new Set<string>()
-  /** 轴由 SSOT 派生，所有消费者读取同一个 computed。 */
-  private readonly resolveAxes: () => ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>
-  private readonly paneStructure: SelectedSignal<string>
+  /** 已安装到 Pane 的轴声明；帧消费者不重新派生尚未安装的轴。 */
+  private paneAxes: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>> = new Map()
   /** destroy 后不再发起计算，也不把 Worker 的拆除错误当作运行期失败。 */
   private destroyed = false
 
@@ -268,18 +267,6 @@ export class ChartIndicatorManager {
 
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
-    // 图层生命周期只依赖容器结构；比例、显隐和最小高度由布局投影独立处理。
-    this.paneStructure = selectSignal(deps.paneSpecs$, (panes) =>
-      JSON.stringify(panes.map((pane) => [pane.id, pane.capabilities])),
-    )
-    this.resolveAxes = () => {
-      this.paneStructure()
-      return resolvePaneAxes(
-        deps.paneSpecs$.peek().map((pane) => pane.id),
-        deps.getObjectAxes(),
-      )
-    }
-
     // 实例链路：Kernel 实例配置为输入，计算计划与结果池为输出。
     this.pipeline = createIndicatorInstancePipeline({
       createId: createIndicatorInstanceId,
@@ -351,15 +338,18 @@ export class ChartIndicatorManager {
     })
   }
 
-  /** 在 Scene 与 layout 就绪后投影当前完整状态，并订阅后续变更。 */
-  start(): void {
-    if (this.disposeProjection) return
-    this.disposeProjection = effect(() => this.syncRuntimeFromState())
+  /** 仅捕获资源输入，追踪依赖由协调者的唯一订阅负责。 */
+  readRuntimeInputs(): IndicatorRuntimeInputs {
+    return {
+      instances: this.deps.indicator.readonly.instances(),
+      colors: this.deps.plotColors$(),
+      definitionRevision: indicatorCommits()?.revision ?? 0,
+    }
   }
 
-  /** Pane 运行时重建后应用当前轴列表；不重建指标资源。 */
-  projectAxes(): void {
-    this.deps.projectPaneAxes(this.resolveAxes())
+  /** 轴安装阶段发布绑定，后续范围、图层和标签读取同一份声明。 */
+  acceptPaneAxes(axes: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>>): void {
+    this.paneAxes = axes
   }
 
   /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
@@ -367,10 +357,9 @@ export class ChartIndicatorManager {
     this.requestCompute()
   }
 
-  /** 将 kernel 当前快照投影为 pane、轴、renderer 与实例链路的运行时状态。 */
-  private syncRuntimeFromState(): void {
-    this.deps.plotColors$()
-    const instances = this.deps.indicator.readonly.instances()
+  /** 消费协调者快照和已安装绑定，只同步指标实例、输出与图层。 */
+  projectLayers(inputs: IndicatorRuntimeInputs): void {
+    const instances = inputs.instances
     const readyInstances = instances.filter((instance) =>
       getRegisteredIndicatorDefinition(instance.indicatorId),
     )
@@ -379,37 +368,34 @@ export class ChartIndicatorManager {
       if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
     }
 
-    const axesByPane = this.resolveAxes()
+    const axesByPane = this.paneAxes
     const instanceAxes = resolveObjectAxisMap(axesByPane)
-    this.deps.runRendererTransaction(() => {
-      // 配置变化完整向下应用，不保存上一份实例投影或参数比较键。
-      this.releaseLayerResources()
-      this.deps.projectPaneAxes(axesByPane)
-      this.syncPipeline(readyInstances)
-      this.reprojectRenderStates()
-      for (const instance of readyInstances) {
-        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)!
-        const layer = createIndicatorLayer({
+    // 协调者已经判断资源输入变化，这里完整应用同一份输入。
+    this.releaseLayerResources()
+    this.syncPipeline(readyInstances)
+    this.reprojectRenderStates(inputs.colors)
+    for (const instance of readyInstances) {
+      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)!
+      const layer = createIndicatorLayer({
+        definition,
+        paneId: instance.paneId,
+        indicatorId: instance.indicatorId,
+        instanceId: instance.instanceId,
+        axisId: instanceAxes.get(instance.instanceId)!,
+        params: { ...instance.params },
+        object: createIndicatorObjectDescriptor(
+          instance.instanceId,
           definition,
-          paneId: instance.paneId,
-          indicatorId: instance.indicatorId,
-          instanceId: instance.instanceId,
-          axisId: instanceAxes.get(instance.instanceId)!,
-          params: { ...instance.params },
-          object: createIndicatorObjectDescriptor(
-            instance.instanceId,
-            definition,
-            this.deps.objectCommands(instance.instanceId),
-          ),
-        })
-        // 隐藏只切换可见性：对象与命令常驻，对象树才能重新显示它。
-        layer.visible = instance.hidden !== true
-        // 同 pane 的实例按 ordinal 叠加：z 是层带内唯一排序键，对象树顺序与绘制顺序一致。
-        layer.z += instance.ordinal
-        this.mountLayerResource(layer)
-      }
-      this.deps.scheduleDraw()
-    })
+          this.deps.objectCommands(instance.instanceId),
+        ),
+      })
+      // 隐藏只切换可见性：对象与命令常驻，对象树才能重新显示它。
+      layer.visible = instance.hidden !== true
+      // 同 pane 的实例按 ordinal 叠加：z 是层带内唯一排序键，对象树顺序与绘制顺序一致。
+      layer.z += instance.ordinal
+      this.mountLayerResource(layer)
+    }
+    this.deps.scheduleDraw()
   }
 
   /** 把 Kernel 的实例配置单向投影为实例链路的计算实例。 */
@@ -671,14 +657,17 @@ export class ChartIndicatorManager {
   }
 
   /** 用当前结果池重算渲染投影，不触发计算。 */
-  private reprojectRenderStates(): boolean {
+  private reprojectRenderStates(colors: ColorTokens = this.deps.plotColors$.peek()): boolean {
     if (!this.resultPool) return false
-    this.renderStates = this.composeRenderStates(this.resultPool)
+    this.renderStates = this.composeRenderStates(this.resultPool, colors)
     return true
   }
 
   /** 逐实例生成渲染投影；结果池是唯一事实来源。 */
-  private composeRenderStates(pool: IndicatorResultPool): ReadonlyMap<string, unknown> {
+  private composeRenderStates(
+    pool: IndicatorResultPool,
+    colors: ColorTokens = this.deps.plotColors$.peek(),
+  ): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
     const renderStates = new Map<string, unknown>()
     for (const instance of this.pipeline.snapshot().instances.values()) {
@@ -686,7 +675,6 @@ export class ChartIndicatorManager {
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
       const timeline = this.getTimelineProjection(result.timestamps ?? pool.timestamps)
-      const colors = this.deps.plotColors$.peek()
       const previous = this.plotProjections.get(result)
       if (
         metadata.plots &&
@@ -788,12 +776,12 @@ export class ChartIndicatorManager {
 
   /** 当前工作区的轴列表；供范围解析、轴宽和轴列布局读取。 */
   getPaneAxes(): ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>> {
-    return this.resolveAxes()
+    return this.paneAxes
   }
 
   /** 容器查询必须命中已声明的轴集合；空容器返回空集合，未知容器抛异常。 */
   getAxesInPane(paneId: string): ReadonlyArray<PaneAxisSpec> {
-    const axes = this.resolveAxes().get(paneId)
+    const axes = this.paneAxes.get(paneId)
     if (axes === undefined)
       throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
     return axes
@@ -801,7 +789,7 @@ export class ChartIndicatorManager {
 
   /** 某条轴上全部可见对象的输出极值；同轴多对象时取并集，轴无数据时返回 null。 */
   getAxisIndicatorRange(axisId: string): { min: number; max: number } | null {
-    const axes = [...this.resolveAxes().values()]
+    const axes = [...this.paneAxes.values()]
       .flat()
       .filter((candidate) => candidate.axisId === axisId)
     if (axes.length === 0) return null
@@ -834,10 +822,8 @@ export class ChartIndicatorManager {
     this.inlineExecutor.dispose()
     this.destroyed = true
     this.disposeDefinitionSubscription()
-    this.paneStructure.dispose()
-    this.disposeProjection?.()
-    this.disposeProjection = null
-    this.deps.runRendererTransaction(() => this.releaseLayerResources())
+    this.releaseLayerResources()
+    this.paneAxes = new Map()
     this.onResultsAppliedCallback = null
   }
 }

@@ -1,12 +1,7 @@
 <!-- 对象树面板：按 pane 分组展示渲染对象，支持显隐、锁定、删除与拖动排序/跨 pane 迁移。 -->
 <template>
   <section ref="panelRef" class="object-tree" aria-label="对象树">
-    <header class="object-tree__head">
-      <div class="object-tree__title-row">
-        <h2 class="object-tree__title">对象树</h2>
-        <span v-if="totalCount > 0" class="object-tree__count">{{ totalCount }}</span>
-      </div>
-    </header>
+    <SidePanelHeader title="对象树" :count="totalCount" />
 
     <!-- 顶部落点固定在滚动区之上，长列表滚动后仍可直接拖到；无行可拖时不会出现。 -->
     <div
@@ -158,6 +153,7 @@
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerStack2 from '~icons/tabler/stack-2'
   import IconTablerTrash from '~icons/tabler/trash'
+  import SidePanelHeader from '../side-panel/SidePanelHeader.vue'
   import { useObjectTreeContextMenu } from './impl/useObjectTreeContextMenu.js'
   import { useObjectTreePanel } from './impl/useObjectTreePanel.js'
 
@@ -239,37 +235,6 @@
     min-height: 0;
     color: var(--klc-color-ui-text);
     font-size: var(--klc-text-12-font-size, 12px);
-  }
-
-  .object-tree__head {
-    flex: 0 0 auto;
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px);
-    border-bottom: 1px solid var(--klc-color-border-light);
-    background: var(--klc-color-ui-background);
-  }
-
-  .object-tree__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-  }
-
-  .object-tree__title {
-    margin: 0;
-    font-size: var(--klc-text-14-font-size, 14px);
-    font-weight: 600;
-    line-height: var(--klc-space-20, 20px);
-  }
-
-  .object-tree__count {
-    min-width: var(--klc-space-18, 18px);
-    padding: 0 var(--klc-space-4, 4px);
-    border-radius: var(--klc-radius-full, 9999px);
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-label-12-font-size, 11px);
-    line-height: var(--klc-space-16, 16px);
-    text-align: center;
   }
 
   .object-tree__groups {

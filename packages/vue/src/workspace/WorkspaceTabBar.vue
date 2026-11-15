@@ -11,7 +11,18 @@
     @dragover.prevent
     @drop="onDrop"
   >
-    <div class="tab-bar__inner">
+    <div ref="inner" class="tab-bar__inner">
+      <svg
+        v-if="outlineWidth > 0"
+        class="tab-bar__outline"
+        :width="outlineWidth"
+        :height="outlineHeight"
+        :viewBox="`0 0 ${outlineWidth} ${outlineHeight}`"
+        aria-hidden="true"
+      >
+        <path class="tab-bar__outline-fill" :d="outlineFillPath" />
+        <path class="tab-bar__outline-stroke" :d="outlineStrokePath" />
+      </svg>
       <div class="tab-bar__application-menu">
         <WorkspaceMenu :accent="accent" :theme-mode="themeMode" @theme-change="emit('theme-change', $event)" />
       </div>
@@ -121,7 +132,7 @@
 
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-  import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import WorkspaceMenu from './components/WorkspaceMenu.vue'
@@ -178,6 +189,151 @@
   /** 标题与标签内容之间保留的最小间隔。 */
   const TITLE_GAP = 12
 
+  /** 活动标签轮廓：整条底边线 + 标签轮廓由同一个 SVG 路径绘制，节点不会重叠。 */
+  const OUTLINE_FLARE = 8
+  const OUTLINE_RADIUS = 6
+
+  const innerEl = useTemplateRef<HTMLElement>('inner')
+  const outlineWidth = ref(0)
+  const outlineHeight = ref(0)
+  const outlineTabLeft = ref(0)
+  const outlineTabRight = ref(0)
+  const outlineTabTop = ref(0)
+  let outlineTarget: HTMLElement | null = null
+  let outlineObserver: ResizeObserver | null = null
+  let outlineFrame: number | null = null
+  const outlineTransitions = new Map<EventTarget, Set<string>>()
+
+  /** 前方标签变窄也会移动活动标签；位置变化不会触发 ResizeObserver。 */
+  function trackOutlinePosition(): void {
+    outlineFrame = null
+    for (const target of outlineTransitions.keys()) {
+      if (!(target instanceof Element) || !list.value?.contains(target)) {
+        outlineTransitions.delete(target)
+      }
+    }
+    syncOutlineSize()
+    if (outlineTransitions.size > 0) {
+      outlineFrame = requestAnimationFrame(trackOutlinePosition)
+    }
+  }
+
+  function onOutlineTransitionRun(event: TransitionEvent): void {
+    if (!event.target || !['width', 'margin-left'].includes(event.propertyName)) return
+    const properties = outlineTransitions.get(event.target) ?? new Set<string>()
+    properties.add(event.propertyName)
+    outlineTransitions.set(event.target, properties)
+    if (outlineFrame === null) {
+      outlineFrame = requestAnimationFrame(trackOutlinePosition)
+    }
+  }
+
+  function onOutlineTransitionFinish(event: TransitionEvent): void {
+    if (!event.target) return
+    const properties = outlineTransitions.get(event.target)
+    if (!properties?.delete(event.propertyName)) return
+    if (properties.size === 0) outlineTransitions.delete(event.target)
+    // 结束和中断都读取最终布局；下一帧再次校准后自动停止。
+    syncOutlineSize()
+  }
+
+  function onListScroll(): void {
+    updateTitleVisibility()
+    syncOutlineSize()
+  }
+
+  function syncOutlineSize(): void {
+    const inner = innerEl.value
+    const element = outlineTarget
+    if (!inner || !element) {
+      outlineWidth.value = 0
+      outlineHeight.value = 0
+      return
+    }
+    const innerRect = inner.getBoundingClientRect()
+    const tabRect = element.getBoundingClientRect()
+    // 保留布局的小数精度，让 SVG 尺寸与测量坐标使用同一坐标系。
+    outlineWidth.value = innerRect.width
+    outlineHeight.value = innerRect.height
+    outlineTabLeft.value = tabRect.left - innerRect.left
+    outlineTabRight.value = tabRect.right - innerRect.left
+    outlineTabTop.value = tabRect.top - innerRect.top
+  }
+
+  /** 切换测量目标；自身尺寸由 ResizeObserver 监听，动画位移由逐帧测量同步。 */
+  function measureOutline(): void {
+    const element =
+      list.value?.querySelector<HTMLElement>(`[data-tab-id="${props.activeTabId}"]`) ?? null
+    if (element !== outlineTarget) {
+      outlineObserver?.disconnect()
+      outlineObserver = null
+      outlineTarget = element
+      if (element) {
+        outlineObserver = new ResizeObserver(syncOutlineSize)
+        outlineObserver.observe(element)
+      }
+    }
+    syncOutlineSize()
+  }
+
+  /** 标签填充：闭合路径延伸至栏底，与下方内容连通。 */
+  const outlineFillPath = computed(() => {
+    const width = outlineWidth.value
+    const height = outlineHeight.value
+    const left = outlineTabLeft.value
+    const right = outlineTabRight.value
+    const top = outlineTabTop.value
+    if (width <= 0 || height <= 0 || right <= left) return ''
+    const flare = OUTLINE_FLARE
+    const radius = OUTLINE_RADIUS
+    return [
+      `M${left + radius} ${top}`,
+      `L${right - radius} ${top}`,
+      `A${radius} ${radius} 0 0 1 ${right} ${top + radius}`,
+      `L${right} ${height - flare}`,
+      `A${flare} ${flare} 0 0 0 ${right + flare} ${height}`,
+      `L${left - flare} ${height}`,
+      `A${flare} ${flare} 0 0 0 ${left} ${height - flare}`,
+      `L${left} ${top + radius}`,
+      `A${radius} ${radius} 0 0 1 ${left + radius} ${top}`,
+      'Z',
+    ].join(' ')
+  })
+
+  /** 描边同时画整条底边线与标签轮廓，底边在标签两侧连续接入圆弧。 */
+  const outlineStrokePath = computed(() => {
+    const width = outlineWidth.value
+    const height = outlineHeight.value
+    const left = outlineTabLeft.value
+    const right = outlineTabRight.value
+    const top = outlineTabTop.value
+    if (width <= 0 || height <= 0 || right <= left) return ''
+    const flare = OUTLINE_FLARE
+    const radius = OUTLINE_RADIUS
+    // 线宽 1px，落在最后一行像素的中线上。
+    const line = height - 0.5
+    return [
+      `M0 ${line}`,
+      `L${left - flare} ${line}`,
+      `A${flare} ${flare} 0 0 0 ${left} ${line - flare}`,
+      `L${left} ${top + radius}`,
+      `A${radius} ${radius} 0 0 1 ${left + radius} ${top}`,
+      `L${right - radius} ${top}`,
+      `A${radius} ${radius} 0 0 1 ${right} ${top + radius}`,
+      `L${right} ${line - flare}`,
+      `A${flare} ${flare} 0 0 0 ${right + flare} ${line}`,
+      `L${width} ${line}`,
+    ].join(' ')
+  })
+
+  watch(
+    () => [props.activeTabId, props.tabs.map((tab) => tab.id)] as const,
+    () => {
+      void nextTick(measureOutline)
+    },
+    { flush: 'post' },
+  )
+
   /** 标签内容右边缘越过标题左边缘时隐藏标题，避免文字叠压。 */
   function updateTitleVisibility(): void {
     const listEl = list.value
@@ -201,10 +357,17 @@
     const listEl = list.value
     if (!listEl) return
     // 尺寸变化（窗口缩放、字体加载）与标签增减都会改变可用宽度。
-    listObserver = new ResizeObserver(updateTitleVisibility)
+    listObserver = new ResizeObserver(() => {
+      updateTitleVisibility()
+      syncOutlineSize()
+    })
     listObserver.observe(listEl)
-    listEl.addEventListener('scroll', updateTitleVisibility, { passive: true })
+    listEl.addEventListener('scroll', onListScroll, { passive: true })
+    listEl.addEventListener('transitionrun', onOutlineTransitionRun)
+    listEl.addEventListener('transitionend', onOutlineTransitionFinish)
+    listEl.addEventListener('transitioncancel', onOutlineTransitionFinish)
     updateTitleVisibility()
+    void nextTick(measureOutline)
   })
 
   watch(() => props.tabs, updateTitleVisibility, { flush: 'post' })
@@ -265,7 +428,13 @@
   onBeforeUnmount(() => {
     endDrag()
     listObserver?.disconnect()
-    list.value?.removeEventListener('scroll', updateTitleVisibility)
+    outlineObserver?.disconnect()
+    if (outlineFrame !== null) cancelAnimationFrame(outlineFrame)
+    outlineTransitions.clear()
+    list.value?.removeEventListener('scroll', onListScroll)
+    list.value?.removeEventListener('transitionrun', onOutlineTransitionRun)
+    list.value?.removeEventListener('transitionend', onOutlineTransitionFinish)
+    list.value?.removeEventListener('transitioncancel', onOutlineTransitionFinish)
   })
 
   /** 按指针横坐标解析插入点：命中标签中线前插前面，越过最后一个插末尾。 */
@@ -352,9 +521,12 @@
     position: relative;
     flex: none;
     /* 高度以系统给出的覆盖层高度为准：用常量对齐一旦差 1px，画在底部的线就会落进覆盖层。 */
-    height: env(titlebar-area-height, var(--desktop-titlebar-height));
-    background: var(--klc-color-ui-background);
-    /* 分隔线画在内容区顶边：标题栏高度内会落在系统覆盖层下面而缺一段。 */
+    --tab-bar-height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    /* 标签胶囊高度：Tab、新建按钮与应用图标都按这一档高度对齐。 */
+    --tab-pill-height: 26px;
+    height: var(--tab-bar-height);
+    /* 窗口/标签栏与工具栏共用同一表面色，顶部 chrome 连成一体，图表画布保持纯白。 */
+    background: var(--klc-color-ui-surround-background);
     -webkit-app-region: drag;
     app-region: drag;
     user-select: none;
@@ -366,11 +538,14 @@
     left: env(titlebar-area-x, 0px);
     top: env(titlebar-area-y, 0px);
     width: env(titlebar-area-width, 100%);
-    height: env(titlebar-area-height, var(--desktop-titlebar-height));
+    height: var(--tab-bar-height);
     display: flex;
+    /* 标签居中，与底部分隔线之间自然留出上下同档的间距。 */
     align-items: center;
     gap: 8px;
     padding: 0 8px;
+    /* 分隔线与活动标签轮廓由内部 SVG 一起绘制，这里只负责裁剪溢出。 */
+    isolation: isolate;
     overflow: hidden;
   }
 
@@ -379,13 +554,14 @@
     width: 36px;
     flex: none;
     display: flex;
+    align-items: center;
     justify-content: center;
   }
 
-  /* 红绿灯固定在左上角；左右对称留位。 */
   /* Web 标签栏属于页面，不预留系统标题栏区域。 */
   .tab-bar--web {
-    height: 40px;
+    /* 6px 上留白 + 26px 标签 + 6px 到底部分隔线的留白。 */
+    --tab-bar-height: 38px;
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
@@ -399,35 +575,21 @@
     box-sizing: border-box;
   }
 
+  /* macOS 为系统红绿灯留位，左右留白对称。 */
   .tab-bar--mac .tab-bar__inner {
     padding-inline: 82px;
-  }
-
-  /* 圆底由公共标识组件提供；只内联静态 SVG，保持与 README 相同的折线与留白。 */
-  .tab-bar__brand {
-    pointer-events: none;
-  }
-
-  .tab-bar__brand-mark,
-  .tab-bar__brand :deep(svg) {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .tab-bar__brand :deep(circle) {
-    fill: none;
-  }
-
-  .tab-bar__brand :deep(path) {
-    stroke: currentColor;
   }
 
   .tab-bar__list {
     display: flex;
     flex: 1;
-    /* 标签之间的间距。 */
-    gap: 6px;
+    /* 撑满栏高，让活动标签可以单独贴底，其余标签仍居中留出间距。 */
+    align-self: stretch;
+    /* 列表两端保留 8px 内边距，以负外边距维持标签与相邻控件的位置。 */
+    padding-inline: 8px;
+    margin-inline: -8px;
+    /* 标签之间的间距；与底部圆弧同宽，弧线正好接到相邻标签。 */
+    gap: 8px;
     align-items: center;
     min-width: 0;
     overflow-x: auto;
@@ -444,10 +606,9 @@
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    /* 未选中的标签给一层很浅的底色，让左右两侧都有可见边界，分隔线才落得居中。 */
     padding: 0 8px;
     max-width: 220px;
-    height: 26px;
+    height: var(--tab-pill-height);
     border-radius: 6px;
     background: transparent;
     border: 1px solid transparent;
@@ -460,18 +621,43 @@
     app-region: no-drag;
   }
 
-  .tab-bar__tab:hover,
-  .tab-bar__tab:focus-visible {
+  .tab-bar__tab:hover:not(.is-active),
+  .tab-bar__tab:focus-visible:not(.is-active) {
     background: var(--klc-color-ui-hover);
     color: var(--klc-color-ui-text);
     outline: 0;
   }
 
   .tab-bar__tab.is-active {
-    /* 跟随图表设置的实际 color-scheme，自动模式也使用对应的选中背景。 */
-    background: light-dark(transparent, var(--klc-color-ui-hover));
-    border-color: var(--klc-color-ui-border);
+    /* 活动标签贴住分隔线：轮廓与填充全部由栏内 SVG 路径绘制。 */
+    align-self: flex-end;
+    /* 26px 胶囊 + 6px 连接段；padding-bottom 把文字顶回 26px 那一档，与非活动标签齐平。 */
+    height: calc(var(--tab-pill-height) + 6px);
+    padding-bottom: 6px;
+    border: 0;
+    border-radius: 0;
     color: var(--klc-color-ui-text);
+  }
+
+  /* 轮廓覆盖整个标签栏：底边线与活动标签轮廓一次画完。 */
+  .tab-bar__outline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .tab-bar__outline-fill {
+    fill: light-dark(var(--klc-color-ui-surface), var(--klc-color-ui-hover));
+    stroke: none;
+  }
+
+  .tab-bar__outline-stroke {
+    fill: none;
+    stroke: var(--klc-color-ui-border);
+    stroke-width: 1;
   }
 
   /* 插入指示线：贴在标签内边缘，颜色跟随工作区标识。 */
@@ -532,11 +718,11 @@
     flex: none;
     place-items: center;
     width: 26px;
-    height: 26px;
+    height: var(--tab-pill-height);
     padding: 0;
     border: 0;
     border-radius: 6px;
-    /* 用底色表示实体，不画边框；与未选中标签同一层浅灰。 */
+    /* 默认透明，悬停和键盘聚焦时显示状态底色。 */
     background: transparent;
     color: var(--klc-color-text-tertiary);
     cursor: pointer;

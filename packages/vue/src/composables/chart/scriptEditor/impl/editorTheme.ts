@@ -27,13 +27,13 @@ const tooltipBoxStyle = {
 const editorTheme = EditorView.theme({
   '&': {
     height: '100%',
-    backgroundColor: 'var(--klc-color-ui-surface)',
+    backgroundColor: 'var(--klc-color-ui-background)',
     color: 'var(--klc-color-ui-text)',
     fontSize: 'var(--klc-text-label-13-font-size, 13px)',
     fontWeight: '400',
     // 行高同时驱动正文行与折叠标记高度，避免两处各写一份。
     '--cm-line-height': '1.8',
-    '--cm-selection-color': 'color-mix(in srgb, var(--klc-color-ui-accent) 42%, transparent)',
+    '--cm-selection-color': 'var(--klc-color-ui-selection)',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
@@ -44,10 +44,9 @@ const editorTheme = EditorView.theme({
   '.cm-content': { padding: '16px 0', caretColor: 'var(--klc-color-ui-accent)' },
   '.cm-line': { padding: '0 20px 0 14px' },
   '.cm-gutters': {
-    backgroundColor: 'var(--klc-color-ui-surface)',
+    backgroundColor: 'var(--klc-color-ui-background)',
     color: 'var(--klc-color-ui-muted)',
     border: 'none',
-    borderRight: '1px solid var(--klc-color-ui-border)',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '40px', padding: '0 8px 0 12px' },
   '.cm-foldGutter .cm-gutterElement': { padding: '0 6px', cursor: 'pointer' },
@@ -92,7 +91,7 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'var(--cm-selection-color)',
   },
   '& > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 26%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-selection)',
   },
   '.cm-content ::selection, .cm-content::selection': {
     backgroundColor: 'var(--cm-selection-color)',
@@ -105,16 +104,92 @@ const editorTheme = EditorView.theme({
   },
   '.cm-selectionMatch-main': { backgroundColor: 'transparent', boxShadow: 'none' },
   '&.cm-focused .cm-matchingBracket': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-highlight)',
     outline: '1px solid var(--klc-color-ui-border)',
     borderRadius: '2px',
   },
-  '.cm-panels, .cm-tooltip': {
+  '.cm-panels': {
+    backgroundColor: 'var(--klc-color-ui-surround-background)',
+    color: 'var(--klc-color-ui-text)',
+    border: 'none',
+  },
+  '.cm-panel.cm-search': {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 'var(--klc-space-8, 8px)',
+    padding: 'var(--klc-space-12, 12px) 40px var(--klc-space-12, 12px) var(--klc-space-12, 12px)',
+    fontFamily: 'var(--klc-typography-font-family)',
+    fontSize: 'var(--klc-text-12-font-size, 12px)',
+  },
+  '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
+    margin: '0',
+  },
+  '.cm-panel.cm-search br': { flexBasis: '100%', height: '0' },
+  '.cm-panel.cm-search .cm-textfield': {
+    boxSizing: 'border-box',
+    width: 'min(240px, 100%)',
+    minWidth: '0',
+    height: 'var(--klc-density-default, 32px)',
+    padding: '0 var(--klc-space-8, 8px)',
+    border: '1px solid var(--klc-color-ui-border)',
+    borderRadius: 'var(--klc-radius-sm, 6px)',
+    background: 'var(--klc-color-ui-input-background)',
+    color: 'var(--klc-color-ui-text)',
+    font: 'inherit',
+    boxShadow: 'none',
+    outline: 'none',
+  },
+  '.cm-panel.cm-search .cm-textfield::placeholder': { color: 'var(--klc-color-ui-muted)' },
+  '.cm-panel.cm-search .cm-button': {
+    minHeight: 'var(--klc-density-default, 32px)',
+    padding: '0 var(--klc-space-12, 12px)',
+    border: '0',
+    borderRadius: 'var(--klc-radius-sm, 6px)',
+    background: 'var(--klc-color-ui-control-background)',
+    color: 'var(--klc-color-ui-text)',
+    font: 'inherit',
+    boxShadow: 'none',
+    cursor: 'pointer',
+  },
+  '.cm-panel.cm-search .cm-button:hover': { background: 'var(--klc-color-ui-hover)' },
+  '.cm-panel.cm-search label': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--klc-space-4, 4px)',
+    minHeight: 'var(--klc-density-default, 32px)',
+    fontSize: 'inherit',
+    color: 'var(--klc-color-ui-muted)',
+    cursor: 'pointer',
+  },
+  '.cm-panel.cm-search input[type=checkbox]': {
+    margin: '0',
+    accentColor: 'var(--klc-color-ui-accent)',
+    width: '14px',
+    height: '14px',
+  },
+  '.cm-panel.cm-search button[name=close]': {
+    top: 'var(--klc-space-12, 12px)',
+    right: 'var(--klc-space-8, 8px)',
+    width: '24px',
+    height: '32px',
+    borderRadius: 'var(--klc-radius-xs, 4px)',
+    color: 'var(--klc-color-ui-muted)',
+    cursor: 'pointer',
+  },
+  '.cm-panel.cm-search button[name=close]:hover': {
+    background: 'var(--klc-color-ui-hover)',
+    color: 'var(--klc-color-ui-text)',
+  },
+  '.cm-panel.cm-search button:focus-visible, .cm-panel.cm-search input[type=checkbox]:focus-visible':
+    {
+      outline: '2px solid var(--klc-color-ui-focus)',
+      outlineOffset: '2px',
+    },
+  '.cm-tooltip': {
     backgroundColor: 'var(--klc-color-ui-surface)',
     color: 'var(--klc-color-ui-text)',
     border: '1px solid var(--klc-color-ui-border)',
-  },
-  '.cm-tooltip': {
     borderRadius: 'var(--klc-radius-md, 8px)',
     overflow: 'hidden',
   },
@@ -206,7 +281,7 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-text)',
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-    backgroundColor: 'color-mix(in srgb, var(--klc-color-ui-accent) 22%, transparent)',
+    backgroundColor: 'var(--klc-color-ui-selected)',
     color: 'var(--klc-color-ui-text)',
   },
   '.cm-tooltip-autocomplete .cm-completionMatchedText': {

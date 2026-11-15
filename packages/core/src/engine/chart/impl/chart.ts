@@ -7,7 +7,7 @@
  * - 提供 scheduleDraw / draw 入口供外部（交互、数据、插件）触发重绘
  * - 协调插件宿主、指标控制器、标注管理器等子系统的初始化与销毁
  *
- * 不是绘制管线的一部分。绘制由 ChartRenderer 完成，Chart 仅负责代理调用并维护 runtimeProjection（批量投影）屏障。
+ * 绘制由 ChartRenderer 完成；Chart 通过 RuntimeProjectionCoordinator 按固定顺序提交运行时资源。
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
@@ -22,9 +22,12 @@ import {
   indicatorAxisGroupKey,
 } from '@/engine/pane/axisGroups.js'
 import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
+import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
 import type { PaneAxisColumn } from '@/engine/pane/types.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
+import { RuntimeProjectionCoordinator } from '@/engine/runtimeProjection/impl/runtimeProjectionCoordinator.js'
+import type { RuntimeProjectionSnapshot } from '@/engine/runtimeProjection/types.js'
 import { resolveChartWorkspaceId } from '@/foundation/types/chartView.js'
 
 import {
@@ -119,7 +122,7 @@ import {
   type DrawingToolId,
   resolveDrawingTradingDate,
 } from '../../drawing/index.js'
-import { ChartRenderer, mergeUpdateLevel } from '../../frame/index.js'
+import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
@@ -310,14 +313,10 @@ export class Chart {
 
   /** 渲染器 */
   private renderer: ChartRenderer
-  /** runRuntimeProjection 嵌套深度，大于 0 时推迟 scheduleDraw */
-  private runtimeProjectionDepth = 0
-  /** 被推迟的绘制级别，退出嵌套后统一 flush */
-  private pendingProjectionLevel: UpdateLevel | null = null
+  /** Pane、轴、配置和指标图层的唯一提交入口。 */
+  private runtimeProjection: RuntimeProjectionCoordinator
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
-  private disposeLeftAxisProjection: (() => void) | null = null
-  private disposePaneProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
   private footprintRuntime: ReturnType<typeof createFootprintRuntime>
   private disposeFootprintDraw: (() => void) | null = null
@@ -442,14 +441,10 @@ export class Chart {
       viewport: this.kernel.viewport,
       scheduleDraw: (level) => this.scheduleDraw(level),
       pane: this.kernel.pane,
-      afterCommitLayout: () => {
-        this.ensurePaneScaleTypesFromSettings()
-      },
     })
     this.panes = new ChartPaneFacade({
       kernel: this.kernel,
       layoutManager: this.layoutManager,
-      ensureScaleTypes: () => this.ensurePaneScaleTypesFromSettings(),
       invalidateDrawingHistory: () => this.drawingCommands.history.reset(),
     })
 
@@ -615,6 +610,7 @@ export class Chart {
       options: this.kernel.options,
       viewport: this.kernel.viewport,
       commitPendingLayout: () => this.commitPendingLayout(),
+      synchronizeRuntime: () => this.runtimeProjection.synchronize(),
       commitViewportScroll: (targetScrollLeft) =>
         this.viewportScrollBridge.commit(
           targetScrollLeft,
@@ -739,16 +735,6 @@ export class Chart {
         Readonly<Record<string, number>>
       >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      getObjectAxes: () => this.readObjectAxisDeclarations(),
-      projectPaneAxes: (axesByPane) => {
-        this.kernel.axesState.actions.retainAxes(
-          new Set([...axesByPane.values()].flatMap((axes) => axes.map((axis) => axis.axisId))),
-        )
-        if (this.layoutManager.setPaneAxes(axesByPane)) {
-          this.projectPaneScaleTypes()
-          this.renderer.invalidateFrame()
-        }
-      },
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
       getCrosshairPrice: () => this.interaction.crosshairPrice,
@@ -757,7 +743,25 @@ export class Chart {
       indicator: this.kernel.indicator,
       removeInstancesByDefinition: (definitionId) =>
         this.panes.removeInstancesByDefinition(definitionId),
-      runRendererTransaction: (run) => this.runRuntimeProjection(run),
+    })
+    this.runtimeProjection = new RuntimeProjectionCoordinator({
+      capture: () => this.captureRuntimeProjection(),
+      projectPanes: (snapshot) => this.layoutManager.projectState(snapshot.panes),
+      projectAxes: (snapshot) => {
+        this.layoutManager.setPaneAxes(snapshot.axes)
+        this.indicatorManager.acceptPaneAxes(snapshot.axes)
+        this.kernel.axesState.actions.retainAxes(
+          new Set([...snapshot.axes.values()].flatMap((axes) => axes.map((axis) => axis.axisId))),
+        )
+      },
+      configureAxes: (snapshot) => this.configureRuntimeAxes(snapshot),
+      projectLayers: (snapshot) => this.indicatorManager.projectLayers(snapshot.indicators),
+      invalidateFrame: () => {
+        this.unlockAxisWidth()
+        this.renderer.invalidateFrame()
+        this.interaction.invalidateHover()
+      },
+      requestDraw: (level) => this.renderer.scheduleDraw(level),
     })
     this.axes = createObjectAxesApi({
       listBindings: () => [...this.indicatorManager.getPaneAxes().values()].flat(),
@@ -766,7 +770,7 @@ export class Chart {
       paneState: this.kernel.pane,
       ranges: this.kernel.axesState,
       project: () => {
-        this.projectPaneScaleTypes()
+        this.runtimeProjection.synchronize()
         this.renderer.invalidateFrame()
         this.scheduleDraw()
       },
@@ -820,35 +824,27 @@ export class Chart {
 
   /** 在所有运行时依赖就绪后，统一将 kernel 状态投影为可绘制图表。 */
   private startRuntime(): void {
-    // 容器投影独立于指标资源；纯几何变更无需拆装指标图层。
-    const projectPanes = () =>
-      this.runRuntimeProjection(() => {
-        this.layoutManager.projectState()
-        this.indicatorManager.projectAxes()
-        this.ensurePaneScaleTypesFromSettings()
-        this.renderer.invalidateFrame()
-        this.interaction.invalidateHover()
-        this.scheduleDraw()
-      })
-    projectPanes()
-    this.disposePaneProjection = this.kernel.pane.readonly.paneSpecs.subscribe(projectPanes)
-    this.indicatorManager.start()
+    this.runtimeProjection.start()
     this.viewportManager.init()
     // init 已同步写入首帧尺寸；ResizeObserver 首次回调尺寸不变时不会触发 resize（WebKit 不支持
     // device-pixel-content-box，DPR 也不会变化），pane 若不在此布局，画布高度会停留在 0。
     if (this.getViewport()) this.layoutManager.layoutPanes()
-    this.ensurePaneScaleTypesFromSettings()
     this.installActiveRendererProjection()
-    // 左轴只在分时视图绘制刻度；其余视图不分配左轴后备存储。
-    this.disposeLeftAxisProjection = effect(() => {
-      const pricePaneId = this.kernel.systemObjects.readonly.pricePaneId()
-      this.layoutManager.setLeftAxisVisible(
-        isTimeShareDataView(this.kernel.mode.readonly.dataView()),
-        pricePaneId,
-      )
-      this.projectPaneScaleTypes()
-    })
     this.scheduleDraw()
+  }
+
+  /** 捕获一次业务快照，投影阶段不再各自派生对象轴。 */
+  private captureRuntimeProjection(): RuntimeProjectionSnapshot {
+    const panes = this.kernel.pane.readonly.paneSpecs()
+    return {
+      panes,
+      axes: resolvePaneAxes(panes.map((pane) => pane.id), this.readObjectAxisDeclarations()),
+      indicators: this.indicatorManager.readRuntimeInputs(),
+      ranges: this.kernel.axesState.readonly.paneRanges(),
+      pricePaneId: this.kernel.systemObjects.readonly.pricePaneId(),
+      leftAxisVisible: isTimeShareDataView(this.kernel.mode.readonly.dataView()),
+      layoutOptions: this.kernel.options.readonly.options(),
+    }
   }
 
   getViewport(): Viewport | null {
@@ -1084,13 +1080,19 @@ export class Chart {
         visible: drawing.visible,
       }))
     })
-    const preferences = this.kernel.pane.getScalePreferences()
+    const preferences = this.kernel.pane.readonly.paneScaleTypes()
+    // 未保存逐轴偏好时，主价格轴由用户设置决定；其它量纲组默认线性。
+    const priceScaleType =
+      preferences.get(PRICE_SERIES_AXIS_ID) ??
+      resolvePriceScaleTypeSetting(
+        this.kernel.settings.readonly.settings().mainRightAxisTypeSetting,
+      )
     const percentView = isTimeShareDataView(view) || this.kernel.comparison.readonly.active()
     return [...objectAxes, ...drawingAxes].map((axis) => ({
       ...axis,
       scaleType:
-        axis.axisId === PRICE_SERIES_AXIS_ID && percentView
-          ? ScaleType.Percent
+        axis.axisId === PRICE_SERIES_AXIS_ID
+          ? (percentView ? ScaleType.Percent : priceScaleType)
           : (preferences.get(axis.axisId) ?? ScaleType.Linear),
     }))
   }
@@ -1114,17 +1116,17 @@ export class Chart {
   }
 
   /** 将对象轴的有效配置投影到运行时坐标映射。 */
-  private projectPaneScaleTypes(): void {
-    const declarations = this.indicatorManager.getPaneAxes()
+  private configureRuntimeAxes(snapshot: RuntimeProjectionSnapshot): void {
+    this.layoutManager.setLeftAxisVisible(snapshot.leftAxisVisible, snapshot.pricePaneId)
+    const declarations = snapshot.axes
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
-      // 容器投影按帧回收 Pane，回收前它可能已不在轴投影里：跳过，等容器消失。
       const axes = declarations.get(pane.id)
-      if (axes === undefined) continue
+      if (axes === undefined)
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Pane ${pane.id} 缺少轴投影`)
       for (const spec of axes) {
         const axis = pane.axis(spec.axisId)
-        const configuredBase =
-          this.kernel.axesState.readonly.paneRanges.peek()[spec.axisId]?.baseValue
+        const configuredBase = snapshot.ranges[spec.axisId]?.baseValue
         if (configuredBase !== undefined) axis.setBasePrice(configuredBase)
         if (axis.getScaleType() !== spec.scaleType) axis.setScaleType(spec.scaleType)
       }
@@ -1140,25 +1142,6 @@ export class Chart {
   }
 
   /**
-   * 为缺失 paneScaleTypes 的 pane 按用户坐标偏好补齐，再投影。
-   * commitLayout 只保留已有 id，不静默塞 linear，避免盖掉用户偏好。
-   */
-  private ensurePaneScaleTypesFromSettings(): void {
-    this.kernel.axesState.actions.retainAxes(
-      new Set(
-        this.paneRenderers.flatMap((renderer) =>
-          renderer.getPane().axes.map((axis) => axis.axisId),
-        ),
-      ),
-    )
-    const setting = resolvePriceScaleTypeSetting(
-      this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-    )
-    this.kernel.pane.actions.replacePaneScaleTypes(this.buildScaleTypesFromSetting(setting))
-    this.projectPaneScaleTypes()
-  }
-
-  /**
    * 将用户坐标偏好写入 paneScaleTypes。
    * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
    */
@@ -1166,7 +1149,7 @@ export class Chart {
     const next = this.buildScaleTypesFromSetting(setting)
     next.set(PRICE_SERIES_AXIS_ID, setting)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
-    this.projectPaneScaleTypes()
+    this.runtimeProjection.synchronize()
   }
 
   /**
@@ -1517,7 +1500,7 @@ export class Chart {
   /**
    * 提交本帧轴宽：列几何是唯一来源，下限差额并入主轴列。
    *
-   * 生效右栏宽由最宽 Pane 决定，所以差额只补给该 Pane，保证 `Σ列宽 === axisWidth`；
+   * 生效右栏宽由最宽 Pane 决定，每个 Pane 的轴列都铺满这份公共宽度；
    * 宿主控件区、轴 canvas 与命中都读这份列几何，不再各自测量。
    */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
@@ -1535,21 +1518,15 @@ export class Chart {
       this.axisWidthLocked ? this._effectiveLeftAxisWidth.peek() : null,
     )
     this.axisWidthLocked = true
-    const panes = this.paneRenderers.map((renderer) => {
-      const pane = renderer.getPane()
-      const axisIds = pane.axes.map((axis) => axis.axisId)
-      const total = axisIds.reduce((sum, axisId) => sum + (widths.rightByAxis[axisId] ?? 0), 0)
-      return { pane, axisIds, total }
-    })
-    const widest = panes.reduce((max, entry) => Math.max(max, entry.total), 0)
     const columnsByPane = new Map<string, ReadonlyArray<PaneAxisColumn>>()
-    for (const entry of panes) {
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
       columnsByPane.set(
-        entry.pane.id,
+        pane.id,
         layoutAxisColumns(
-          entry.axisIds,
+          pane.axes.map((axis) => axis.axisId),
           widths.rightByAxis,
-          entry.total === widest ? right : entry.total,
+          right,
         ),
       )
     }
@@ -1604,30 +1581,9 @@ export class Chart {
    * @param level 更新级别，默认为 All
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
-    // 正在批量安装/卸载 renderer（pane 重排、指标切换、子图增删），等全部完成再 flush
-    if (this.runtimeProjectionDepth > 0) {
-      this.pendingProjectionLevel = this.pendingProjectionLevel
-        ? mergeUpdateLevel(this.pendingProjectionLevel, level)
-        : level
-      return
-    }
-    this.renderer.scheduleDraw(level)
-  }
-
-  /** 统一批量投影入口：run 期间的所有 scheduleDraw 推迟到最外层统一 flush */
-  private runRuntimeProjection(run: () => void): void {
-    this.unlockAxisWidth()
-    this.runtimeProjectionDepth++
-    try {
-      run()
-    } finally {
-      this.runtimeProjectionDepth--
-      if (this.runtimeProjectionDepth === 0 && this.pendingProjectionLevel !== null) {
-        const level = this.pendingProjectionLevel
-        this.pendingProjectionLevel = null
-        this.renderer?.scheduleDraw(level)
-      }
-    }
+    // 构造期间尚未建立协调者，Scene 的初始注册只请求后续首帧。
+    if (this.runtimeProjection) this.runtimeProjection.requestDraw(level)
+    else this.renderer?.scheduleDraw(level)
   }
 
   /** 当活跃渲染器列表变化时，仅对发生变化的图层执行显示或隐藏操作，而不是每帧重建所有图层状态 */
@@ -1678,10 +1634,7 @@ export class Chart {
     await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
-    this.disposeLeftAxisProjection?.()
-    this.disposeLeftAxisProjection = null
-    this.disposePaneProjection?.()
-    this.disposePaneProjection = null
+    this.runtimeProjection.dispose()
     this.disposeTradeDemand?.()
     this.disposeTradeDemand = null
     this.disposeFootprintDraw?.()
@@ -2093,8 +2046,8 @@ export class Chart {
    * 更新设置（高层 API）
    * 代理到现有的 updateSettings
    */
-  updateSettingsFacade(settings: Record<string, unknown>): void {
-    this.updateSettings(settings as ChartSettings)
+  updateSettingsFacade(settings: ChartSettings): void {
+    this.updateSettings(settings)
   }
 
   /**

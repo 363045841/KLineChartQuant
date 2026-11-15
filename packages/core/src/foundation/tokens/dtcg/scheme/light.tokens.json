@@ -2,14 +2,29 @@
   "$description": "Pro light scheme: the base values every preset starts from. Mirrors theme-light.ts and interface-colors.ts.",
   "light": {
     "interface": {
-      "$description": "图表、工具栏与 Agent 共用的中性灰界面；灰阶不混入蓝紫色，行情与指标承担主要色彩。",
+      "$description": "图表、工具栏与 Agent 共用的中性表面：白底 + 黑色透明描边/状态层，交互由墨黑强调色与背景层区分。",
       "background": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9725, 0.9725, 0.9725], "hex": "#F8F8F8" }
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" }
       },
       "surface": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9882, 0.9882, 0.9882], "hex": "#FCFCFC" }
+        "$value": { "colorSpace": "srgb", "components": [0.9765, 0.9765, 0.9765], "hex": "#F9F9F9" }
+      },
+      "surroundBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9686, 0.9686], "hex": "#F7F7F7" },
+        "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
+      },
+      "noticeBackground": {
+        "$type": "color",
+        "$value": "{light.interface.surroundBackground}",
+        "$description": "一般提示与说明区域的背景，不表示警告、错误或交互强调。"
+      },
+      "inputBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9686, 0.9686], "hex": "#F7F7F7" },
+        "$description": "输入区域的常驻背景，包含组合式数值输入框。"
       },
       "card": {
         "$type": "color",
@@ -25,19 +40,46 @@
       },
       "controlBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.9176, 0.9176], "hex": "#EAEAEA" }
+        "$value": { "colorSpace": "srgb", "components": [0.9569, 0.9569, 0.9569], "hex": "#F4F4F4" }
       },
       "hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.898], "hex": "#E5E5E5" }
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.0392, "hex": "#000000" },
+        "$description": "黑色 3.9%：叠在任意表面色上都成立，不随背景换配方（参考 Vercel Light 的 interactive.hover #0000000a）。"
       },
       "selected": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.9333, 0.9333], "hex": "#EEEEEE" }
+        "$value": { "colorSpace": "srgb", "components": [0.8941, 0.8941, 0.8941], "hex": "#E4E4E4" }
+      },
+      "brandSurface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1804, 0.4196, 0.2275], "hex": "#2E6B3A" },
+        "$description": "品牌标记的实心绿底；不透明度 100%，配白色折线。"
+      },
+      "brandOn": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" },
+        "$description": "品牌标记容器上的图形色：纯白，对 #2E6B3A 约 8.4:1。"
+      },
+      "highlight": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.102, "hex": "#000000" },
+        "$description": "轻强调底：说明框、标签胶囊、悬停强调。中性透明层，不跟随各预设的 accent。"
+      },
+      "selection": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.18, "hex": "#000000" },
+        "$description": "文本选区底（编辑器 selection），比 highlight 强一档，仍保持中性。"
+      },
+      "focusRing": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "alpha": 0.55, "hex": "#171717" },
+        "$description": "box-shadow 聚焦环：55% 墨黑，对白底约 4:1，满足非文本 3:1；组件不得再用 accent 百分比现算。"
       },
       "border": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.8667, 0.8667, 0.8667], "hex": "#DDDDDD" }
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.0745, "hex": "#000000" },
+        "$description": "黑色 7.5%：中性描边，压在白底上接近 Vercel Light 的 interactive.border #00000013。"
       },
       "borderStrong": {
         "$type": "color",
@@ -45,27 +87,30 @@
       },
       "text": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.149, 0.149, 0.149], "hex": "#262626" }
+        "$value": { "colorSpace": "srgb", "components": [0.1922, 0.1922, 0.1922], "hex": "#313131" }
       },
       "textSoft": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4627], "hex": "#767676" }
+        "$value": { "colorSpace": "srgb", "components": [0.451, 0.451, 0.451], "hex": "#737373" }
       },
       "muted": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.3765], "hex": "#606060" }
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4, 0.4], "hex": "#666666" }
       },
       "accent": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$description": "浅色唯一的交互强调色取墨黑：交易界面里蓝色与涨跌色、状态色争夺注意力，改用灰阶深端做“墨”，白字 18.9:1。中间灰在近白底上会读作脏色，不用。"
       },
       "accentStrong": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.2667, 0.2667, 0.2667], "hex": "#444444" }
+        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "hex": "#000000" },
+        "$description": "accent 的悬停/按下阶，压到纯黑。"
       },
       "focus": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$description": "焦点环与 accent 同色，靠 outline-offset 与元素分离；焦点不靠半透明自造。"
       },
       "warningBackground": {
         "$type": "color",
@@ -109,7 +154,7 @@
       },
       "neutral": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4627, 0.4627, 0.4627], "hex": "#767676" }
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4, 0.4], "hex": "#666666" }
       },
       "onAccent": {
         "$type": "color",
@@ -117,7 +162,7 @@
       },
       "secondaryButtonText": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3765, 0.3765, 0.3765], "hex": "#606060" }
+        "$value": { "colorSpace": "srgb", "components": [0.4, 0.4, 0.4], "hex": "#666666" }
       }
     },
     "color": {
@@ -195,11 +240,11 @@
       "axisTick": { "$type": "color", "$value": "{light.interface.border}" },
       "gridMajor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.898, 0.898, 0.898], "hex": "#E5E5E5" }
+        "$value": { "colorSpace": "srgb", "components": [0.9098, 0.9098, 0.9098], "hex": "#E8E8E8" }
       },
       "gridMinor": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9412, 0.9412, 0.9412], "hex": "#F0F0F0" }
+        "$value": { "colorSpace": "srgb", "components": [0.949, 0.949, 0.949], "hex": "#F2F2F2" }
       },
       "crosshairLine": {
         "$type": "color",
@@ -211,14 +256,15 @@
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.1765, 0.498, 0.9765],
+          "components": [0.0902, 0.0902, 0.0902],
           "alpha": 0.2,
-          "hex": "#2D7FF9"
-        }
+          "hex": "#171717"
+        },
+        "$description": "= interface.accent at alpha 0.2；图表选区与界面强调色同源。"
       },
       "selectionStroke": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1765, 0.498, 0.9765], "hex": "#2D7FF9" }
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" }
       },
       "tooltipBg": { "$type": "color", "$value": "{light.interface.surface}" },
       "tooltipText": { "$type": "color", "$value": "{light.interface.text}" },
@@ -1234,12 +1280,24 @@
       "ui": {
         "background": { "$type": "color", "$value": "{light.interface.background}" },
         "surface": { "$type": "color", "$value": "{light.interface.surface}" },
+        "surroundBackground": {
+          "$type": "color",
+          "$value": "{light.interface.surroundBackground}",
+          "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
+        },
+        "noticeBackground": { "$type": "color", "$value": "{light.interface.noticeBackground}" },
+        "inputBackground": { "$type": "color", "$value": "{light.interface.inputBackground}" },
         "card": { "$type": "color", "$value": "{light.interface.card}" },
         "input": { "$type": "color", "$value": "{light.interface.input}" },
         "popover": { "$type": "color", "$value": "{light.interface.popover}" },
         "controlBackground": { "$type": "color", "$value": "{light.interface.controlBackground}" },
         "hover": { "$type": "color", "$value": "{light.interface.hover}" },
         "selected": { "$type": "color", "$value": "{light.interface.selected}" },
+        "brandSurface": { "$type": "color", "$value": "{light.interface.brandSurface}" },
+        "brandOn": { "$type": "color", "$value": "{light.interface.brandOn}" },
+        "highlight": { "$type": "color", "$value": "{light.interface.highlight}" },
+        "selection": { "$type": "color", "$value": "{light.interface.selection}" },
+        "focusRing": { "$type": "color", "$value": "{light.interface.focusRing}" },
         "border": { "$type": "color", "$value": "{light.interface.border}" },
         "borderStrong": { "$type": "color", "$value": "{light.interface.borderStrong}" },
         "text": { "$type": "color", "$value": "{light.interface.text}" },

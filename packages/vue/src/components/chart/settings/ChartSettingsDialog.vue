@@ -59,12 +59,12 @@
           <SettingsItemRow
             :label="item.label"
             :type="item.type"
-            :value="settings[item.key]"
+            :value="readSetting(settings, item.key)"
              :options="optionsFor(item)"
              :min="item.min"
              :max="item.max"
              :step="item.step"
-            @update="settings[item.key] = $event"
+            @update="writeSetting(settings, item.key, $event)"
           />
           <div
             v-if="item.key === 'rendererBackend' && runtimeHint"
@@ -132,8 +132,10 @@
     DEFAULT_SETTINGS,
     isSettingVisible,
     normalizeSettings,
+    readSetting,
     resolveSettingDefault,
     type SettingItem,
+    writeSetting,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'

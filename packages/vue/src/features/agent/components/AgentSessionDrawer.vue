@@ -17,9 +17,8 @@
         tabindex="-1"
         @keydown.escape.stop.prevent="emit('close')"
       >
-        <header class="agent-session-drawer__head">
-          <h2 class="agent-session-drawer__title">{{ text.sessions }}</h2>
-          <div class="agent-session-drawer__head-actions">
+        <SidePanelHeader :title="text.sessions">
+          <template #actions>
             <BaseTooltip :content="text.newSession" placement="bottom">
               <BaseIconButton :label="text.newSession" @click="emit('create')">
                 <IconPlus aria-hidden="true" />
@@ -30,8 +29,8 @@
                 <IconX aria-hidden="true" />
               </BaseIconButton>
             </BaseTooltip>
-          </div>
-        </header>
+          </template>
+        </SidePanelHeader>
         <p v-if="sessions.length === 0" class="agent-session-drawer__empty">
           {{ text.noSessions }}
         </p>
@@ -64,6 +63,7 @@
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import SidePanelHeader from '../../side-panel/SidePanelHeader.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import type { AgentLocale } from '../agent-copy.js'
   import AgentSessionRow from './AgentSessionRow.vue'
@@ -111,39 +111,17 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--agent-border);
-    background: var(--agent-surface);
+    border-right: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-surface);
     box-shadow: 12px 0 32px var(--klc-color-agent-panel-shadow);
     outline: none;
-  }
-
-  .agent-session-drawer__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 12px 12px 10px;
-    border-bottom: 1px solid var(--agent-border);
-  }
-
-  .agent-session-drawer__title {
-    margin: 0;
-    color: var(--agent-text);
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .agent-session-drawer__head-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
   }
 
   .agent-session-drawer__empty {
     flex: 1;
     margin: 0;
     padding: 24px 16px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     text-align: center;
   }
@@ -152,7 +130,7 @@
     flex: 1;
     min-height: 0;
     margin: 0;
-    padding: 6px;
+    padding: 0 6px 6px;
     overflow-y: auto;
     list-style: none;
   }

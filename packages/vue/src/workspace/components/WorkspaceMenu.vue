@@ -42,19 +42,30 @@
   .workspace-menu {
     /* 只保留语义与焦点，不给应用图标再包底色、描边或阴影；外观走 control-button 变量。 */
     --control-button-width: 30px;
-    --control-button-height: 30px;
+    --control-button-height: var(--tab-pill-height, 26px);
     --control-button-inline-padding: 0;
     --control-button-active-background: transparent;
     --control-button-focus-shadow: none;
 
     flex: none;
+    /* 触发器是 inline-flex，这里必须消掉行盒的基线留白，图标才与标签胶囊同心。 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--tab-pill-height, 26px);
+    line-height: 0;
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
   .workspace-menu__brand { display: block; width: 100%; height: 100%; }
   .workspace-menu__brand :deep(svg) { display: block; width: 100%; height: 100%; }
   .workspace-menu__brand :deep(circle) { fill: none; }
-  .workspace-menu__brand :deep(path) { stroke: currentColor; }
+  .workspace-menu__brand :deep(path) {
+    /* 与应用图标一致：纯白折线，去掉 SVG 自带的半透明与磨砂滤镜。 */
+    stroke: currentColor;
+    stroke-opacity: 1;
+    filter: none;
+  }
   .workspace-menu__appearance {
     display: flex;
     align-items: center;

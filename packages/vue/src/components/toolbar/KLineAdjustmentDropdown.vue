@@ -5,11 +5,6 @@
       <span class="selection-menu__value">{{ selectedLabel }}</span>
       <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
     </template>
-    <template #item-action="{ item }">
-      <span v-if="item.id === selectedValue" class="drop-menu__status">
-        <IconTablerCheck aria-hidden="true" />
-      </span>
-    </template>
   </DropMenu>
 </template>
 
@@ -19,7 +14,6 @@
   import { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
 
   export type { KLineAdjustment }
@@ -48,19 +42,24 @@
     return adjustmentOptions.filter((option) => supported.has(option.value))
   })
 
-  const groups = computed<DropMenuGroup[]>(() => [
-    {
-      id: 'adjustment',
-      label: TITLE,
-      items: visibleOptions.value.map((option) => ({ id: option.value, label: option.label })),
-    },
-  ])
-
   /** 当前选中复权方式；非法或缺失值回退到首个可见选项。 */
   const selectedValue = computed(() => {
     const options = visibleOptions.value
     return options.find((option) => option.value === props.modelValue)?.value ?? options[0]?.value
   })
+
+  const groups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'adjustment',
+      label: TITLE,
+      items: visibleOptions.value.map((option) => ({
+        id: option.value,
+        label: option.label,
+        checked: option.value === selectedValue.value,
+        selection: 'radio',
+      })),
+    },
+  ])
 
   const selectedLabel = computed(
     () => visibleOptions.value.find((option) => option.value === selectedValue.value)?.label ?? '',

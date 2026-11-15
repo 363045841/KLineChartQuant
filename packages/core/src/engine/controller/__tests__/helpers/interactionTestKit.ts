@@ -95,6 +95,7 @@ export function createChartStub(args: {
       top: pane.top,
       height: pane.height,
       axisWidth: 0,
+      axisColumns: [],
     })),
   )
   const paneRenderers = paneDefs.map((paneDef) => ({

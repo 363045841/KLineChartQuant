@@ -117,10 +117,10 @@
     display: grid;
     gap: 9px;
     padding: 11px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--agent-card);
-    color: var(--agent-text);
+    background: var(--klc-color-ui-card);
+    color: var(--klc-color-ui-text);
   }
 
   header {
@@ -130,7 +130,7 @@
   }
   header > svg {
     flex: 0 0 auto;
-    color: var(--agent-accent);
+    color: var(--klc-color-ui-accent);
   }
   header div {
     min-width: 0;
@@ -138,7 +138,7 @@
     gap: 2px;
   }
   header span {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     text-transform: uppercase;
   }
@@ -157,26 +157,26 @@
     align-items: flex-start;
     gap: 8px;
     padding: 7px 8px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 5px;
-    color: var(--agent-text);
-    background: var(--agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 12px;
     text-align: left;
     cursor: pointer;
   }
   .question__option:hover {
-    border-color: var(--agent-border-strong);
-    background: var(--agent-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
   .question__option[aria-checked='true'] {
-    border-color: var(--agent-accent);
+    border-color: var(--klc-color-ui-accent);
   }
   .question__index {
     flex: 0 0 auto;
     min-width: 14px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     line-height: 18px;
     text-align: right;
@@ -189,8 +189,8 @@
     height: 14px;
     position: relative;
     margin-top: 2px;
-    border: 1px solid var(--agent-border-strong);
-    background: var(--agent-surface);
+    border: 1px solid var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-surface);
   }
   .question__option[role='radio'] .question__mark {
     border-radius: 50%;
@@ -199,8 +199,8 @@
     border-radius: 3px;
   }
   .question__option[aria-checked='true'] .question__mark {
-    border-color: var(--agent-accent-strong);
-    background: var(--agent-accent-strong);
+    border-color: var(--klc-color-ui-accent-strong);
+    background: var(--klc-color-ui-accent-strong);
   }
   .question__option[aria-checked='true'][role='radio'] .question__mark::after {
     content: '';
@@ -232,7 +232,7 @@
   }
   .question__option-text small {
     overflow-wrap: anywhere;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
   }
 
@@ -246,10 +246,10 @@
     flex: 1;
     height: 28px;
     padding: 0 8px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
-    color: var(--agent-text);
-    background: var(--agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 12px;
   }
@@ -259,10 +259,10 @@
     align-items: center;
     gap: 5px;
     padding: 0 10px;
-    border: 1px solid var(--agent-accent-strong);
+    border: 1px solid var(--klc-color-ui-accent-strong);
     border-radius: 4px;
     color: var(--klc-color-ui-on-accent);
-    background: var(--agent-accent-strong);
+    background: var(--klc-color-ui-accent-strong);
     font: inherit;
     font-size: 11px;
     cursor: pointer;
@@ -277,7 +277,7 @@
     gap: 2px;
   }
   .question__resolved span {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     text-transform: uppercase;
   }

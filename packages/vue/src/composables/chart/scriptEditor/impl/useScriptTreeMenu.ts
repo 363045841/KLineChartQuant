@@ -78,9 +78,10 @@ function menuEntries(
     },
     {
       label: '删除文件',
-      disabled: row.readonly ? '内置脚本只读，无法删除' : blocked || draftBlocked,
+      disabled: row.readonly ? '内置脚本只读，无法删除' : blocked,
       run: () => {
         if (target.kind === 'document') apply({ type: 'delete-file', id: target.documentId })
+        else apply({ type: 'delete-draft', tabId: target.tabId })
       },
     },
   ]

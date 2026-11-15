@@ -1,6 +1,5 @@
-/* 标题行两端对齐：指标列表条目与 Agent 头部共用。 */
-.item-header,
-.agent-header__top {
+/* 列表条目的标题行两端对齐。 */
+.item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;

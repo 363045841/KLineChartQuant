@@ -157,7 +157,7 @@
     box-sizing: border-box;
     border: none;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    background: var(--klc-color-ui-highlight);
     color: var(--klc-color-ui-accent);
     font-size: var(--klc-text-12-font-size, 12px);
     font-weight: 600;
@@ -187,6 +187,6 @@
 
   .label-position__button.is-active {
     color: var(--klc-color-ui-accent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    background: var(--klc-color-ui-highlight);
   }
 </style>

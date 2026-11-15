@@ -176,11 +176,6 @@
                     <span class="selection-menu__value">{{ selectedProtocolLabel }}</span>
                     <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
                   </template>
-                  <template #item-action="{ item }">
-                    <span v-if="item.id === providerSettings.protocol" class="drop-menu__status">
-                      <IconCheck aria-hidden="true" />
-                    </span>
-                  </template>
                 </DropMenu>
               </label>
               <label class="field">
@@ -501,6 +496,8 @@
       items: PROVIDER_API_PROTOCOLS.map((protocol) => ({
         id: protocol,
         label: protocolLabel(protocol),
+        checked: protocol === props.providerSettings.protocol,
+        selection: 'radio',
       })),
     },
   ])
@@ -889,7 +886,7 @@
 
   .rail__select:focus-visible {
     outline: 0;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 28%, transparent);
+    box-shadow: 0 0 0 2px var(--klc-color-ui-focus-ring);
   }
 
   .rail__name {

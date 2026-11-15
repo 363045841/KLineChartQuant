@@ -50,7 +50,7 @@
   background: var(--control-button-focus-background, var(--klc-color-ui-hover));
   box-shadow: var(
     --control-button-focus-shadow,
-    0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent)
+    0 0 0 2px var(--klc-color-ui-focus-ring)
   );
   outline: var(--control-button-focus-outline, 0);
   outline-offset: var(--control-button-focus-outline-offset, 0);

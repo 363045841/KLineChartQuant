@@ -1,4 +1,4 @@
-<!-- 指标参数单行：标签、取值范围、按类型渲染的控件与说明。 -->
+<!-- 指标参数单行：标签、取值范围与按类型渲染的控件。 -->
 <template>
   <div class="param-item">
     <div class="param-header">
@@ -16,11 +16,6 @@
         <template #trigger>
           <span class="selection-menu__value">{{ optionLabel }}</span>
           <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
-        </template>
-        <template #item-action="{ item }">
-          <span v-if="isOptionSelected(item.id)" class="drop-menu__status">
-            <IconTablerCheck aria-hidden="true" />
-          </span>
         </template>
       </DropMenu>
       <input
@@ -77,7 +72,6 @@
 
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
@@ -100,6 +94,8 @@
       items: (props.param.options ?? []).map((option) => ({
         id: option.value,
         label: option.label,
+        checked: option.value === props.value,
+        selection: 'radio',
       })),
     },
   ])
@@ -108,11 +104,6 @@
   const optionLabel = computed(
     () => props.param.options?.find((option) => option.value === props.value)?.label ?? '',
   )
-
-  /** 选项是否处于选中态。 */
-  function isOptionSelected(optionValue: string): boolean {
-    return props.value === optionValue
-  }
 
   /** 写入菜单选择的选项值。 */
   function onSelect(_groupId: string, itemId: string): void {
@@ -194,39 +185,6 @@
     opacity: 0.8;
   }
 
-  /* ── 参数描述：作为所属控件的次级提示，紧贴上方、与标签左对齐 ── */
-  .param-description {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      grid-template-rows 0.2s ease,
-      opacity 0.2s ease,
-      visibility 0s linear 0.2s;
-  }
-
-  .param-description.is-open {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    visibility: visible;
-    transition-delay: 0s;
-  }
-
-  .param-description__clip {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .param-description__text {
-    margin: 0;
-    padding-block: 6px 2px;
-    font-size: 12px;
-    line-height: 1.55;
-    color: var(--klc-color-ui-muted);
-    text-wrap: pretty;
-  }
-
   /* ── 步进输入框：[-] 20 [+] 作为一个整体 ── */
   .input-wrapper {
     display: inline-flex;
@@ -235,7 +193,7 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--param-control-radius);
     overflow: hidden;
-    background: var(--klc-color-ui-control-background);
+    background: var(--klc-color-ui-input-background);
   }
 
   .input-wrapper .stepper-btn {
@@ -295,4 +253,3 @@
   }
 
 </style>
-

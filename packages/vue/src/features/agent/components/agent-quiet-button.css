@@ -1,9 +1,9 @@
 /* Agent 次级描边按钮：把 agent 主题映射到 BaseButton 的 outline 变量，不再自带实现。 */
 .agent-quiet-button {
-  --base-button-border-color: var(--agent-border);
-  --base-button-background: var(--agent-input);
-  --base-button-color: var(--agent-text);
-  --base-button-hover-background: var(--agent-hover);
+  --base-button-border-color: var(--klc-color-ui-border);
+  --base-button-background: var(--klc-color-agent-composer-input-background);
+  --base-button-color: var(--klc-color-ui-text);
+  --base-button-hover-background: var(--klc-color-ui-hover);
   --base-button-font-size: var(--klc-text-11-mono-font-size, 11px);
   --base-button-gap: calc(var(--klc-space-4, 4px) + 1px);
 }

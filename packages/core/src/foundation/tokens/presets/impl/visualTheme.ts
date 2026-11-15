@@ -39,6 +39,7 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
         ...base.colors.ui,
         background: p.background,
         surface: p.surface,
+        surroundBackground: base.name === 'dark' ? p.surface : base.colors.ui.surroundBackground,
         card: p.card,
         input: p.input,
         hover: p.hover,
