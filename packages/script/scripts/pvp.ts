@@ -1,5 +1,22 @@
 /** 周期成交量分布：统计周期独立于图表周期，算法只在共享脚本库维护。 */
 const vp = importLibrary('volumeProfile')
+
+/** 一天的分钟数；阶段单位换算成明细根数上界时使用。 */
+const MINUTES_PER_DAY = 1440
+
+/**
+ * 一个阶段覆盖的明细分钟数上界。
+ *
+ * 必须是顶层函数：请求选项在声明期求值，不能引用 onBar 的局部变量。
+ *
+ * @param unit 阶段单位
+ * @returns 该阶段最多覆盖的 1 分钟明细根数
+ */
+function unitMinutesOf(unit: string): number {
+  if (unit === 'week') return 7 * MINUTES_PER_DAY
+  if (unit === 'month') return 31 * MINUTES_PER_DAY
+  return MINUTES_PER_DAY
+}
 defineIndicator({
   name: 'PVP',
   title: '周期成交量分布',
@@ -58,6 +75,13 @@ defineIndicator({
           volume,
           time(periodUnit === 'day' ? '1D' : periodUnit === 'week' ? '1W' : '1M'),
         ] as const,
+      // 明细窗口按保留期数取足：阶段跨度由指标决定，不能停在图表可见范围。
+      {
+        calcBarsCount: Math.max(
+          MINUTES_PER_DAY * 12,
+          (keepPeriods + 1) * periodCount * unitMinutesOf(periodUnit),
+        ),
+      },
     )
     vp.collect(t, e, o, h, l, c, v, periodUnit === 'candle' ? k.map(() => bar_index) : k, time[0])
     vp.render(

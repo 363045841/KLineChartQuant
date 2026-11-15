@@ -1,7 +1,7 @@
 /** 指标行情加载器：负责实时共享 Buffer 的绑定、历史分页和并发合并。 */
 import {
   DEFAULT_INTRABAR_LIMIT,
-  DEFAULT_REQUEST_BARS,
+  DEFAULT_INTRABAR_PAGE_LIMIT,
   type IndicatorBarsRequest,
   type ScriptTimeContext,
   timeValue,
@@ -58,10 +58,10 @@ async function fetchPages(
     pages.unshift(page)
     loaded += page.length
     warmup += page.filter((bar) => bar.timestamp < demand.from).length
+    // 明细按脚本声明的 calcBarsCount 取足：阶段跨度由指标决定，不能停在图表首根。
+    // 只覆盖 demand.from 会让「保留期数」失效，早期阶段永远没有明细。
     const covered =
-      request.mode === 'lower_tf'
-        ? loaded >= budget || (page[0]?.timestamp ?? Infinity) <= demand.from
-        : warmup >= request.calcBarsCount
+      request.mode === 'lower_tf' ? loaded >= budget : warmup >= request.calcBarsCount
     if (
       covered ||
       !page.length ||
@@ -140,8 +140,11 @@ export async function loadIndicatorBars(
     instrument,
     adjustment: session.selection.adjustment,
     barAggregation: session.selection.barAggregation,
+    // 明细页按游标串行拉取，页大小直接决定往返次数；security 只要预热根数。
     limit:
-      request.mode === 'lower_tf' ? Math.min(DEFAULT_REQUEST_BARS, budget) : request.calcBarsCount,
+      request.mode === 'lower_tf'
+        ? Math.min(DEFAULT_INTRABAR_PAGE_LIMIT, budget)
+        : request.calcBarsCount,
     signal: abort.signal,
   }
   const clock = marketClock(session, deps.sessions)

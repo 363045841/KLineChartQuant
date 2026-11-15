@@ -1,5 +1,8 @@
 /** 交易时段成交量分布：低周期明细在自身市场时区分组，通过公共box/line输出。 */
 const vp = importLibrary('volumeProfile')
+
+/** 一天的分钟数；阶段是交易日，一个阶段最多 1440 根 1 分钟明细。 */
+const MINUTES_PER_DAY = 1440
 defineIndicator({
   name: 'SVP',
   title: '交易时段成交量分布',
@@ -62,6 +65,8 @@ defineIndicator({
               ? Number.NaN
               : time_tradingday,
         ] as const,
+      // 明细窗口按保留期数取足：阶段跨度由指标决定，不能停在图表可见范围。
+      { calcBarsCount: Math.max(12, keepPeriods + 1) * MINUTES_PER_DAY },
     )
     vp.collect(t, e, o, h, l, c, v, k, time[0])
     vp.render(
