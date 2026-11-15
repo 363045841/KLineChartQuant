@@ -83,12 +83,16 @@
           @set-all-drawings-visible="onSetAllDrawingsVisible"
           @open-command-palette="paletteOpen = true"
         />
-        <div ref="chartMainRef" class="chart-main">
+        <div
+          ref="chartMainRef"
+          class="chart-main"
+          :style="{ '--chart-plot-bottom': `${props.bottomAxisHeight}px` }"
+        >
           <ChartNavigation
             v-if="hasPrimarySymbol"
             :controller="controller"
             :style="{
-              bottom: `${props.bottomAxisHeight}px`,
+              bottom: 'var(--chart-plot-bottom)',
               '--chart-nav-offset-x': `${navOffsetX}px`,
             }"
           />
@@ -118,7 +122,7 @@
             target="_blank"
             rel="noopener noreferrer"
             :style="{
-              bottom: `${props.bottomAxisHeight + 8}px`,
+              bottom: 'calc(var(--chart-plot-bottom) + 8px)',
               '--chart-brand-axis-width': `${
                 chartMode === 'timeshare'
                   ? leftAxisHostWidth
