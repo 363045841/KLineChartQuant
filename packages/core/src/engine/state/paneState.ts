@@ -178,17 +178,9 @@ export function createPaneState() {
       /** 一次提交完整规格；比例只来自本次配置，不再接收第二份权重。 */
       commitLayout(specs: ReadonlyArray<PaneSpec>): void {
         const previous = currentWorkspace()
-        const ids = new Set(specs.map((spec) => spec.id))
-        writeActive(
-          snapshotWorkspace(
-            specs,
-            new Map(
-              [...previous.paneScaleTypes].filter(
-                ([id]) => ids.has(id) || id.startsWith('object:'),
-              ),
-            ),
-          ),
-        )
+        // 偏好按轴身份保存，不能用 Pane 身份过滤；布局变化不重置用户轴配置。
+        // 运行时轴及其范围状态的回收由协调者依据完整轴声明负责。
+        writeActive(snapshotWorkspace(specs, previous.paneScaleTypes))
       },
       setPaneScaleType(paneId: string, scaleType: ScaleType): void {
         const next = new Map(currentWorkspace().paneScaleTypes)

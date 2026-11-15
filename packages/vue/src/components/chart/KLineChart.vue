@@ -315,24 +315,16 @@
             :style="{ width: axisHostWidth + 'px' }"
             @contextmenu.prevent
           >
-            <div
+            <PaneAxisControls
               v-for="pane in paneAxisItems"
               :key="pane.id"
-              class="pane-axis-controls-host"
-               :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.axisWidth + 'px' }"
-            >
-              <PriceAxisSettingsMenu
-                :controller="controller"
-                :pane-id="pane.id"
-                :height="0"
-                :show-settings="false"
-                @settings-change="handleSettingsChange"
-              />
-            </div>
+              :controller="controller"
+              :pane="pane"
+              @settings-change="handleSettingsChange"
+            />
             <PriceAxisSettingsMenu
               :controller="controller"
               :height="props.bottomAxisHeight"
-              :show-shortcuts="false"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -507,6 +499,7 @@
   import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
   import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
   import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
+  import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
   import DropMenu from '@vue-src/components/common/DropMenu.vue'
@@ -2180,17 +2173,6 @@
 
   .left-axis-host :deep(> canvas) {
     display: block;
-  }
-
-  .pane-axis-controls-host {
-    position: absolute;
-    left: 0;
-    z-index: 2;
-  }
-
-  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
-    visibility: visible;
-    pointer-events: auto;
   }
 
   .price-axis-host--left {

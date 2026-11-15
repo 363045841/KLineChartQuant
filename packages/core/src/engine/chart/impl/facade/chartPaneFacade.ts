@@ -20,7 +20,6 @@ import type { IndicatorInstancePatch } from '../../../state/indicatorState.js'
 export interface ChartPaneFacadeDependencies {
   kernel: ChartStateKernel
   layoutManager: ChartPaneLayout
-  ensureScaleTypes: () => void
   invalidateDrawingHistory: () => void
 }
 
@@ -113,7 +112,6 @@ export class ChartPaneFacade implements PaneLayoutCommands {
   importLayout(panes: ReadonlyArray<PaneSpec>): void {
     this.deps.kernel.paneManager.actions.importLayout(panes)
     this.deps.invalidateDrawingHistory()
-    this.deps.ensureScaleTypes()
   }
 
   /** 返回当前 Pane 布局快照。 */

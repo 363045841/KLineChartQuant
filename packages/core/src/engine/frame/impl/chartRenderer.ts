@@ -479,8 +479,8 @@ export class ChartRenderer {
           }
         }
         const countdown = this.deriveCountdown((this.deps.clock ?? systemClock).now())
-        // 会话预览也声明自己的轴；同一入口同步正式对象与瞬时对象的坐标资源。
-        this.deps.getIndicatorManager().projectAxes()
+        // 帧也只能通过统一协调者安装正式与预览对象的坐标资源。
+        this.deps.synchronizeRuntime()
         const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
         const overlayChanged = !this.sameVersion(
           this.paintedOverlayVersion,

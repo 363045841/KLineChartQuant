@@ -55,6 +55,8 @@ export interface RendererDependencies {
   viewport: ViewportStateModule
   /** 绘制前统一提交容器尺寸变化，避免观察器提前清空像素。 */
   commitPendingLayout: () => void
+  /** 任何帧派生前先完成 Pane、轴、配置和图层的有序投影。 */
+  synchronizeRuntime: () => void
   /** 由 Chart 的 ViewportScrollBridge 在 render frame 内提交原生滚动。 */
   commitViewportScroll: (targetScrollLeft: number) => void
   getDataManager: () => ChartDataManager

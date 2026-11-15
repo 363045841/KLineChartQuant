@@ -32,8 +32,6 @@ export interface PaneLayoutDependencies {
   scheduleDraw: (level?: UpdateLevel) => void
   /** pane ratios / specs / scaleTypes SSOT */
   pane: PaneStateModule
-  /** commitLayout 写入 kernel 后的副作用（如 ensurePaneScaleTypes） */
-  afterCommitLayout?: () => void
 }
 
 /**
@@ -55,7 +53,7 @@ export class ChartPaneLayout {
 
   constructor(deps: PaneLayoutDependencies) {
     this.deps = deps
-    this.initPanes()
+    this.initPanes(this.paneSpecs)
   }
 
   getPaneRenderers(): PaneRenderer[] {
@@ -73,8 +71,8 @@ export class ChartPaneLayout {
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       const axes = axesByPane.get(pane.id)
-      // 容器投影按帧回收 Pane，回收前它可能已不在轴投影里：保留上一份轴直到容器消失。
-      if (!axes) continue
+      if (!axes)
+        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Pane ${pane.id} 缺少轴声明`)
       if (pane.setAxes(axes)) changed = true
     }
     return changed
@@ -157,11 +155,11 @@ export class ChartPaneLayout {
     }
   }
 
-  private initPanes() {
+  private initPanes(specs: ReadonlyArray<PaneSpec>) {
     const remaining = new Map(
       this.paneRenderers.map((renderer) => [renderer.getPane().id, renderer]),
     )
-    this.paneRenderers = this.paneSpecs.map((spec) => {
+    this.paneRenderers = specs.map((spec) => {
       const existing = remaining.get(spec.id)
       remaining.delete(spec.id)
       if (existing) {
@@ -263,13 +261,13 @@ export class ChartPaneLayout {
     return this.deps.viewport.readonly.viewport.peek()
   }
 
-  layoutPanes() {
+  layoutPanes(specs: ReadonlyArray<PaneSpec> = this.paneSpecs) {
     const vp = this.peekViewport()
     if (!vp) return
 
-    const visibleSpecs = this.paneSpecs.filter((p) => p.visible !== false)
+    const visibleSpecs = specs.filter((p) => p.visible !== false)
     // 隐藏 pane 不参与布局，也不保留后备存储。
-    for (const spec of this.paneSpecs) {
+    for (const spec of specs) {
       if (spec.visible !== false) continue
       const renderer = this.paneRenderers.find((r) => r.getPane().id === spec.id)
       renderer?.getPane().setLayout(vp.plotHeight, 0)
@@ -307,12 +305,15 @@ export class ChartPaneLayout {
 
       y += h + gap
     }
+    this.publishPaneGeometry()
+  }
+
+  /** 尺寸和轴列提交共用一个发布入口，宿主控件不保留上一帧的轴宽。 */
+  private publishPaneGeometry(): void {
     this.deps.pane.actions.setPaneGeometry(
-      visibleSpecs.flatMap((spec) => {
-        const pane = this.paneRenderers
-          .find((renderer) => renderer.getPane().id === spec.id)
-          ?.getPane()
-        return pane && pane.height > 0
+      this.paneRenderers.flatMap((renderer) => {
+        const pane = renderer.getPane()
+        return pane.height > 0
           ? [{ id: pane.id, top: pane.top, height: pane.height, axisWidth: pane.axisWidth }]
           : []
       }),
@@ -336,12 +337,13 @@ export class ChartPaneLayout {
       const pane = renderer.getPane()
       pane.setAxisColumns(columnsByPane.get(pane.id) ?? [])
     }
+    this.publishPaneGeometry()
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */
-  projectState(): void {
-    this.initPanes()
-    this.layoutPanes()
+  projectState(specs: ReadonlyArray<PaneSpec>): void {
+    this.initPanes(specs)
+    this.layoutPanes(specs)
   }
 
   /** 公共配置读取只复制 Kernel 规格，不从运行时 Pane 反推角色或比例。 */
@@ -426,7 +428,6 @@ export class ChartPaneLayout {
         this.deps.pane.actions.commitLayout(nextSpecs)
         expectedSpecs = this.paneSpecs
         previousDelta = delta
-        this.deps.afterCommitLayout?.()
         return true
       },
     }
