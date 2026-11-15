@@ -1125,6 +1125,41 @@ export class ChartDataManager {
 
   // ── Comparison management ──
 
+  /**
+   * 连续向前加载历史，直到达到目标根数、数据源耗尽或无法继续前进。
+   *
+   * 首屏只加载一页，结构类指标（缠论笔画中枢）需要更长的前置历史才能成型；
+   * 由宿主在添加指标前把历史补到目标长度，避免用户反复手翻边缘。
+   *
+   * @param pages 目标页数，按 DEFAULT_BAR_PAGE_LIMIT 换算根数；已满足时立即返回
+   */
+  async preloadHistory(pages: number): Promise<void> {
+    const target = Math.max(1, Math.floor(pages)) * DEFAULT_BAR_PAGE_LIMIT
+    const buffer = this.getActiveDataBuffer()
+    const selection = this._activeSelection
+    const spec = buffer?.currentSpec
+    if (!buffer || !selection || selection.kind !== SERIES_SELECTION_KIND.bars || !spec) return
+    while (!this.disposed) {
+      const loaded = buffer.loadedTimeRange
+      if (
+        buffer.getRawData().length >= target ||
+        !loaded ||
+        buffer.olderData === OLDER_DATA_STATUS.EXHAUSTED ||
+        spec.incremental === false
+      ) {
+        return
+      }
+      const before = buffer.getRawData().length
+      await this.loadBars(selection, buffer, spec, {
+        limit: DEFAULT_BAR_PAGE_LIMIT,
+        beforeTimestamp: loaded.earliestTs,
+      })
+      // 品种切换、用户操作或数据源没有更早数据时停止，不把缺口当成错误。
+      if (this.disposed || this.getActiveDataBuffer() !== buffer) return
+      if (buffer.getRawData().length <= before) return
+    }
+  }
+
   private reconcileComparisonBuffers(): void {
     this._comparisonManager.reconcile()
   }
