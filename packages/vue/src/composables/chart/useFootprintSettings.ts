@@ -4,6 +4,7 @@ import {
   DEFAULT_SETTINGS,
   isSettingVisible,
   normalizeSettings,
+  readSetting,
   resolveSettingDefault,
   type SettingItem,
 } from '@363045841yyt/klinechart-core/config'
@@ -40,7 +41,9 @@ export function useFootprintSettings(open: () => boolean, initialSettings: () =>
 
   /** 提交全部足迹参数（包括暂时隐藏的参数），不覆盖其他图表设置。 */
   function snapshot(): ChartSettings {
-    return Object.fromEntries(footprintSettings.map((item) => [item.key, settings.value[item.key]]))
+    return Object.fromEntries(
+      footprintSettings.map((item) => [item.key, readSetting(settings.value, item.key)]),
+    )
   }
 
   return { settings, items, reset, snapshot }

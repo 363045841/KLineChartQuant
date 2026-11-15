@@ -2046,8 +2046,8 @@ export class Chart {
    * 更新设置（高层 API）
    * 代理到现有的 updateSettings
    */
-  updateSettingsFacade(settings: Record<string, unknown>): void {
-    this.updateSettings(settings as ChartSettings)
+  updateSettingsFacade(settings: ChartSettings): void {
+    this.updateSettings(settings)
   }
 
   /**

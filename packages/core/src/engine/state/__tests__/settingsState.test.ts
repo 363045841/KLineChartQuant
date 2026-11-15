@@ -54,4 +54,12 @@ describe('settingsState', () => {
     expect(s.readonly.settings.peek().preClose).toBe(12.34)
     expect(s.readonly.settings.peek().showGridLines).toBe(false)
   })
+
+  it('drops extension keys that are not declared in ChartSettingsExtensions', () => {
+    // 外部存档可能带着旧键；归一化只复制声明过的扩展字段。
+    const external = { theme: 'dark', retiredFlag: true } as unknown as Partial<ChartSettings>
+    const normalized = normalizeSettings(external)
+    expect(normalized.theme).toBe('dark')
+    expect('retiredFlag' in normalized).toBe(false)
+  })
 })

@@ -131,7 +131,7 @@ export function createMockChartController(
   const themePreference = opts.theme ?? 'light'
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const chartMode = createSignal<ReturnType<ChartController['chartMode']['peek']>>('kline')
-  const settings = createSignal({ theme: themePreference } as Record<string, unknown>)
+  const settings = createSignal<ChartSettings>({ theme: themePreference })
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const paneScaleTypes = createSignal<ReadonlyMap<string, ScaleType>>(new Map())
   const panePriceAxisRanges = createSignal<

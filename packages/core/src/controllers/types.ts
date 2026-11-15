@@ -681,7 +681,7 @@ export interface ChartController
   resetChart(): void
 
   // ---- Settings ----
-  updateSettingsFacade(settings: Record<string, unknown>): void
+  updateSettingsFacade(settings: ChartSettings): void
   /** 按当前可见 range 的 Max/Min 适配主图纵轴，保留轴类型与范围模式。 */
   updateOptionsFacade(options: Record<string, unknown>): void
 
