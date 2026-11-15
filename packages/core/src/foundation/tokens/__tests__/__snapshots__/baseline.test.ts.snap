@@ -165,6 +165,9 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-wmsr-grid: rgba(255, 255, 255, 0.1);
   --klc-color-ui-background: #151619;
   --klc-color-ui-surface: #191A1E;
+  --klc-color-ui-surround-background: #191A1E;
+  --klc-color-ui-notice-background: #191A1E;
+  --klc-color-ui-input-background: #27292E;
   --klc-color-ui-card: #1D1F24;
   --klc-color-ui-input: #1B1D22;
   --klc-color-ui-popover: #1E2025;
@@ -455,6 +458,9 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-wmsr-grid: rgba(0, 0, 0, 0.1);
   --klc-color-ui-background: #FFFFFF;
   --klc-color-ui-surface: #F9F9F9;
+  --klc-color-ui-surround-background: #F7F7F7;
+  --klc-color-ui-notice-background: #F7F7F7;
+  --klc-color-ui-input-background: #F7F7F7;
   --klc-color-ui-card: #FFFFFF;
   --klc-color-ui-input: #FFFFFF;
   --klc-color-ui-popover: #FFFFFF;

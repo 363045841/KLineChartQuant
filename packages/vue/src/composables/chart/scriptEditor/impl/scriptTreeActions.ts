@@ -14,7 +14,7 @@ export interface DroppedTreeItems {
 
 /** 树动作所需的仓库、命名与结果回写。 */
 export interface TreeActionRequest {
-  readonly action: Exclude<ScriptTreeAction, { type: 'create-file' }>
+  readonly action: Exclude<ScriptTreeAction, { type: 'create-file' | 'delete-draft' }>
   readonly store: ScriptSourceStore | undefined
   /** 为副本生成不与现有文档冲突的名称。 */
   uniqueName(base: string): string

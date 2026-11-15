@@ -56,6 +56,9 @@ export type ColorPresetOverrides = Partial<Record<ColorPresetKey, ColorValue>> &
 export const UI_COLOR_PRESET_ITEMS = [
   { key: 'background', label: '页面背景', group: 'interface' },
   { key: 'surface', label: '面板背景', group: 'interface' },
+  { key: 'surroundBackground', label: '环绕区域背景', group: 'interface' },
+  { key: 'noticeBackground', label: '一般提示背景', group: 'interface' },
+  { key: 'inputBackground', label: '输入区域背景', group: 'interface' },
   { key: 'card', label: '卡片背景', group: 'interface' },
   { key: 'border', label: '界面边框', group: 'interface' },
   { key: 'accent', label: '按钮与强调色', group: 'interface' },

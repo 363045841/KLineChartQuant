@@ -8,10 +8,9 @@
     <div class="chart-workspace">
       <TopToolbar
         :layout-controller="controller"
-        :is-fullscreen="effectiveIsFullscreen"
+        :is-fullscreen="isFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @toggle-indicator="onToggleIndicator"
-        @settings="openChartSettings('main')"
         @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
@@ -555,7 +554,6 @@
   } from '@vue-src/composables/commands/useCommands.js'
   import { switchChartSymbol } from '@vue-src/composables/symbol/chartSymbolSwitch.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
   // ── Props & Emits ──
@@ -602,8 +600,6 @@
       zoomLevels?: number
       /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
       initialZoomLevel?: number
-      /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
-      isFullscreen?: boolean
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
 
@@ -625,9 +621,6 @@
       priceLabelWidth: 60,
       zoomLevels: 80,
       initialZoomLevel: 3,
-      // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
-      // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
-      isFullscreen: undefined,
       timezone: 'Asia/Shanghai',
       restoreLayout: true,
     },
@@ -641,8 +634,6 @@
     useAggregationSources(aggregationSources, marketDataContext)
 
   const emit = defineEmits<{
-    (e: 'toggleFullscreen'): void
-    (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
@@ -946,10 +937,9 @@
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
-  provideFullscreenTeleportTarget(chartWrapperRef)
 
-  // ── Fullscreen (controlled / uncontrolled) ──
-  const internalIsFullscreen = ref(false)
+  // ── Browser fullscreen ──
+  const isFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
   const footprintSettingsOpen = ref(false)
   const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
@@ -964,19 +954,14 @@
     chartSettingsOpen.value = false
   }
   const paletteOpen = ref(false)
-  const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
-  let onFullscreenChange: (() => void) | null = null
+  function onFullscreenChange(): void {
+    isFullscreen.value = !!document.fullscreenElement
+  }
 
   function handleToggleFullscreen() {
-    // 受控模式：保持旧行为，仅通知，不操作 DOM
-    if (props.isFullscreen !== undefined) {
-      emit('toggleFullscreen')
-      return
-    }
-
-    // 非受控模式：组件内部接管全屏 DOM 操作
+    // 整个页面进入浏览器全屏，保留标签栏、工具栏与侧边面板。
     if (typeof document !== 'undefined') {
-      const el = chartWrapperRef.value
+      const el = document.documentElement
       if (!document.fullscreenElement) {
         if (el && typeof el.requestFullscreen === 'function') {
           el.requestFullscreen().catch(() => {
@@ -989,7 +974,6 @@
         })
       }
     }
-    emit('toggleFullscreen')
   }
 
   // ── Controller & Composable Wiring ──
@@ -1728,6 +1712,8 @@
     getZoomLevel: () => zoomLevel.value,
     getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
     getController: () => controller.value,
+    /** 由宿主（侧栏底部设置项）打开图表设置。 */
+    openSettings: (section: 'main' | 'shortcuts' = 'main') => openChartSettings(section),
   })
 
   // ── Lifecycle Setup ──
@@ -1827,12 +1813,9 @@
   onMounted(async () => {
     void restoreWatchlist()
 
-    // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
+    // 挂载时读取当前状态，切换标签与 Esc 退出后按钮仍与浏览器一致。
     if (typeof document !== 'undefined') {
-      onFullscreenChange = () => {
-        internalIsFullscreen.value = !!document.fullscreenElement
-        emit('update:isFullscreen', internalIsFullscreen.value)
-      }
+      onFullscreenChange()
       document.addEventListener('fullscreenchange', onFullscreenChange)
     }
 
@@ -1893,10 +1876,9 @@
 
   // ── onUnmounted & Watchers ──
   onUnmounted(() => {
-    if (typeof document !== 'undefined' && onFullscreenChange) {
+    if (typeof document !== 'undefined') {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
-    onFullscreenChange = null
     disposeChartInput?.()
     disposeChartInput = null
     cleanupChartCallbacks?.()

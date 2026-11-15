@@ -1,26 +1,15 @@
 <!-- 自选股面板内容：按数据源或品种类型分组，行内展示最新价、涨跌额与涨跌幅。 -->
 <template>
   <section class="watchlist" aria-label="自选股">
-    <header class="watchlist__head">
-      <div class="watchlist__title-row">
-        <h2 class="watchlist__title">自选股</h2>
-        <span v-if="watchlistItems.length > 0" class="watchlist__count">
-          {{ watchlistItems.length }}
-        </span>
-      </div>
+    <SidePanelHeader title="自选股" :count="watchlistItems.length" />
+    <div class="watchlist__grouping">
       <BaseTabs
         :model-value="watchlistGrouping"
         :tabs="GROUPING_TABS"
         aria-label="自选分组方式"
         @update:model-value="onGroupingChange"
       />
-      <div v-if="groups.length > 0" class="watchlist__columns" aria-hidden="true">
-        <span class="watchlist__columns-spacer" />
-        <span>最新价</span>
-        <span>涨跌</span>
-        <span>涨跌幅</span>
-      </div>
-    </header>
+    </div>
 
     <p v-if="watchlistError" class="watchlist__issue" role="status">{{ watchlistError }}</p>
 
@@ -46,6 +35,12 @@
     <BaseEmptyState v-if="groups.length === 0" size="compact">暂无自选股</BaseEmptyState>
 
     <div v-else class="watchlist__groups">
+      <div class="watchlist__columns" aria-hidden="true">
+        <span class="watchlist__columns-spacer" />
+        <span>最新价</span>
+        <span>涨跌</span>
+        <span>涨跌幅</span>
+      </div>
       <section v-for="group in groups" :key="group.key" class="watchlist-group">
         <button
           type="button"
@@ -117,6 +112,7 @@
     percentDirection,
     QUOTE_PLACEHOLDER,
   } from '@vue-src/composables/watchlist/watchlistQuoteFormat.js'
+  import SidePanelHeader from '@vue-src/features/side-panel/SidePanelHeader.vue'
   import { computed, ref, watch } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconX from '~icons/tabler/x'
@@ -274,7 +270,7 @@
 <style scoped>
   .watchlist {
     /* 五列网格：图标、代码、最新价、涨跌额、涨跌幅；列标题与行共用同一模板。 */
-    --watchlist-grid: 22px minmax(0, 1fr) 88px 78px 70px;
+    --watchlist-grid: 22px minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
 
     height: 100%;
     min-width: 0;
@@ -283,59 +279,33 @@
     flex-direction: column;
     overflow: hidden;
     color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-background);
+    background: var(--klc-color-ui-surround-background);
     font-family: var(--klc-typography-font-family);
   }
 
-  /* 标题与列语义随滚动固定在顶部，长列表滚动时不丢失表头。 */
-  .watchlist__head {
+  /* 分组页签独立于公共标题行，标题高度始终与 TopToolbar 一致。 */
+  .watchlist__grouping {
     flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--klc-space-4, 4px);
-    padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px) 0;
-    border-bottom: 1px solid var(--klc-color-border-light);
-    background: var(--klc-color-ui-background);
-  }
-
-  .watchlist__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-    min-height: 28px;
-  }
-
-  .watchlist__title {
-    margin: 0;
-    color: var(--klc-color-ui-text);
-    font-size: var(--klc-text-14-font-size, 14px);
-    font-weight: 600;
-    line-height: 20px;
-  }
-
-  .watchlist__count {
-    min-width: 18px;
-    padding: 0 var(--klc-space-4, 4px);
-    border-radius: var(--klc-radius-full, 9999px);
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-text-label-12-font-size);
-    line-height: 16px;
-    text-align: center;
+    padding-inline: var(--klc-space-12, 12px);
   }
 
   .watchlist__columns {
+    /* 表头与数据行共用滚动容器，滚动条出现时列宽仍然一致。 */
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: grid;
     grid-template-columns: var(--watchlist-grid);
     gap: 0 var(--klc-space-8, 8px);
-    padding: var(--klc-space-4, 4px) var(--klc-space-24, 24px) var(--klc-space-4, 4px) 0;
+    padding: var(--klc-space-4, 4px) var(--klc-space-24, 24px) var(--klc-space-4, 4px) var(--klc-space-12, 12px);
+    background: var(--klc-color-ui-surround-background);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-label-12-font-size);
     line-height: 14px;
   }
 
   .watchlist__columns span {
-    text-align: right;
+    text-align: center;
   }
 
   .watchlist__columns-spacer {
@@ -508,6 +478,7 @@
   }
 
   .watchlist-row__symbol {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -520,7 +491,7 @@
     color: var(--watchlist-quote-color);
     font-family: var(--klc-typography-font-family-mono);
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

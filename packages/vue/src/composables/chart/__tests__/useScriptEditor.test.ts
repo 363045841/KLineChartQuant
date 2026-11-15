@@ -14,6 +14,26 @@ import { useScriptEditor } from '../useScriptEditor.js'
 vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('useScriptEditor', () => {
+  it('无需仓库即可删除未保存文件并选择相邻标签', async () => {
+    const scope = effectScope()
+    const editor = scope.run(() => useScriptEditor(undefined))!
+    try {
+      editor.openBlank()
+      const first = editor.activeTabId.value!
+      editor.openBlank()
+      const second = editor.activeTabId.value!
+      await editor.applyTreeAction({ type: 'delete-draft', tabId: second })
+      expect(editor.tabs.value.map((tab) => tab.id)).toEqual([first])
+      expect(editor.activeTabId.value).toBe(first)
+      await editor.applyTreeAction({ type: 'delete-draft', tabId: first })
+      expect(editor.tabs.value).toEqual([])
+      expect(editor.activeTabId.value).toBeNull()
+      expect(editor.treeError.value).toBeNull()
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('服务稍后就绪时同步目录，保留草稿并启用脚本删除', async () => {
     const scripts = await createScriptService([], {
       persistence: { load: async () => null, save: async () => true },

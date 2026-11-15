@@ -5,6 +5,9 @@ import type { UiColors } from './types.js'
 export const darkInterfaceColors: UiColors = {
   background: '#151619',
   surface: '#191A1E',
+  surroundBackground: '#191A1E', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+  noticeBackground: '#191A1E', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
+  inputBackground: '#27292E', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#1D1F24',
   input: '#1B1D22',
   popover: '#1E2025', // 浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。
@@ -42,6 +45,9 @@ export const darkInterfaceColors: UiColors = {
 export const lightInterfaceColors: UiColors = {
   background: '#FFFFFF',
   surface: '#F9F9F9',
+  surroundBackground: '#F7F7F7', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+  noticeBackground: '#F7F7F7', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
+  inputBackground: '#F7F7F7', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#FFFFFF',
   input: '#FFFFFF',
   popover: '#FFFFFF',

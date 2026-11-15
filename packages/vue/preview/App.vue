@@ -14,7 +14,7 @@
       @reorder="tabs.moveTab"
       @theme-change="appearance.setMode"
     />
-    <div class="embed-container" :class="{ 'is-fullscreen': isFullscreen }">
+    <div class="embed-container">
       <WorkspaceContent
         v-if="tabs.ready.value"
         :tabs="tabs.tabs.value"
@@ -24,7 +24,6 @@
         @spec-change="tabs.setSpec"
         @theme-change="currentTheme = $event"
         @active-controller="bindDocumentTitle"
-        @update:is-fullscreen="isFullscreen = $event"
       />
     </div>
   </div>
@@ -38,7 +37,6 @@
   const workspaceId = 'web'
   const tabs = useWorkspaceTabs(workspaceId)
   const appearance = useWorkspaceAppearance()
-  const isFullscreen = ref(false)
   const themePreference = appearance.mode.value
   const currentTheme = ref<'light' | 'dark'>(
     themePreference === 'dark' ||
@@ -67,13 +65,5 @@
     overflow: hidden;
     --kmap-chart-height: 100%;
     --kmap-chart-width: 100%;
-  }
-  .embed-container:fullscreen,
-  .embed-container.is-fullscreen {
-    border: none;
-    margin: 0;
-    width: 100vw !important;
-    height: 100dvh !important;
-    background: var(--klc-color-background);
   }
 </style>

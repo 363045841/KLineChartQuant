@@ -43,7 +43,7 @@
     justify-content: center;
     align-items: center;
     gap: 8px;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     text-align: center;
   }
 
@@ -54,7 +54,7 @@
   }
   .empty-state > p {
     margin: 0 0 8px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     line-height: 1.45;
   }
@@ -74,18 +74,18 @@
     justify-content: center;
     gap: 8px;
     padding: 7px 14px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 999px;
-    color: var(--agent-text);
-    background: var(--agent-surface);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-surface);
     font: inherit;
     font-size: 12px;
     text-align: center;
     cursor: pointer;
   }
   .empty-state__prompts button:hover {
-    border-color: var(--agent-border-strong);
-    background: var(--agent-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
   .empty-state__prompts span {
     min-width: 0;

@@ -163,6 +163,9 @@
   --klc-color-wmsr-grid: rgba(0, 0, 0, 0.1);
   --klc-color-ui-background: #F8F9F5;
   --klc-color-ui-surface: #FDFEFA;
+  --klc-color-ui-surround-background: #F7F7F7;
+  --klc-color-ui-notice-background: #F7F7F7;
+  --klc-color-ui-input-background: #F7F7F7;
   --klc-color-ui-card: #F3F5ED;
   --klc-color-ui-input: #EFF2E8;
   --klc-color-ui-popover: #FFFFFF;

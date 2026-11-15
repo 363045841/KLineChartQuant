@@ -697,7 +697,7 @@
   .left-toolbar {
     --tool-button-size: 28px;
     /* 边框由绘图区承担，左栏只保留表面色。 */
-    background: var(--klc-color-ui-surface);
+    background: var(--klc-color-ui-surround-background);
     box-sizing: border-box;
   }
 

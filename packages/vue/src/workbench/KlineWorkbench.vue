@@ -10,7 +10,6 @@
       v-bind="{ ...$props, ...$attrs }"
       @controller-ready="emit('controller-ready', $event)"
       @theme-change="onThemeChange"
-      @update:is-fullscreen="emit('update:is-fullscreen', $event)"
       @error="emit('error', $event)"
     />
   </div>
@@ -32,7 +31,6 @@
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]
     'theme-change': [theme: 'light' | 'dark']
-    'update:is-fullscreen': [fullscreen: boolean]
     error: [error: Error]
   }>()
   const content = shallowRef<KlineWorkbenchHandle | null>(null)

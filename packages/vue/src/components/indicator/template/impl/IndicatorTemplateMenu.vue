@@ -34,7 +34,6 @@
           v-model="searchQuery"
           placeholder="搜索模板名称..."
           aria-label="搜索模板"
-          :top-border="false"
         />
       </template>
 

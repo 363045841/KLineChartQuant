@@ -158,16 +158,6 @@
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
       </DropMenu>
-      <BaseTooltip content="设置" command="settings.open" placement="bottom">
-        <button
-          type="button"
-          class="control-button history-button"
-          aria-label="设置"
-          @click="emit('settings')"
-        >
-          <IconTablerSettings class="history-button__icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
     </div>
     </div>
     <div v-if="$slots.end" class="top-toolbar__host"><slot name="end" /></div>
@@ -344,7 +334,6 @@
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
     (e: 'toggleFullscreen'): void
-    (e: 'settings'): void
     (e: 'footprintSettings'): void
     (e: 'toggleIndicator'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
@@ -393,7 +382,7 @@
     gap: 6px;
     padding: 0 8px;
     border: 0;
-    background: var(--klc-color-ui-surface);
+    background: var(--klc-color-ui-surround-background);
     box-sizing: border-box;
     user-select: none;
   }

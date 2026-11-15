@@ -16,7 +16,6 @@
         v-model="query"
         placeholder="搜索命令…"
         aria-label="搜索命令"
-        :top-border="false"
         autofocus
       >
         <slot name="search-actions">
@@ -269,4 +268,3 @@
     }
   }
 </style>
-

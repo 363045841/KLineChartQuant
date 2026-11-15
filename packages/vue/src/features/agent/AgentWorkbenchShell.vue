@@ -7,12 +7,11 @@
     :side-storage="panelSideStorage"
   >
     <template #chart><slot name="chart"></slot></template>
-    <template #panel-agent="{ side, close, toggleSide }">
+    <template #panel-agent="{ side, close }">
       <AgentWorkspace
         :bridge="bridge"
         :panel-side="side"
         @close="close"
-        @toggle-panel-side="toggleSide"
       />
     </template>
   </SidePanelShell>

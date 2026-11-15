@@ -134,10 +134,10 @@
   .tool-card {
     --tool-card-radius: 6px;
     padding: 10px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--tool-card-radius);
-    background: var(--agent-card);
-    color: var(--agent-text);
+    background: var(--klc-color-ui-card);
+    color: var(--klc-color-ui-text);
   }
 
   .tool-card[open] > :not(summary) {
@@ -164,8 +164,8 @@
     display: grid;
     place-items: center;
     border-radius: 4px;
-    color: var(--agent-muted);
-    background: var(--agent-hover);
+    color: var(--klc-color-ui-muted);
+    background: var(--klc-color-ui-hover);
   }
 
   .tool-card[data-status='succeeded'] .tool-card__icon {
@@ -195,19 +195,19 @@
     font-size: 12px;
   }
   .tool-card__title span {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
 
   .tool-card__safety {
     max-width: 88px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     text-align: right;
   }
 
   .tool-card__toggle {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -226,7 +226,7 @@
     gap: 2px;
   }
   dt {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     text-transform: uppercase;
   }
@@ -247,7 +247,7 @@
     padding: 7px;
     border-radius: var(--tool-card-radius);
     color: var(--klc-color-ui-danger-text);
-    background: var(--agent-danger-bg);
+    background: var(--klc-color-ui-danger-background);
   }
 
   .tool-card__error dt {
@@ -256,20 +256,20 @@
   }
 
   .tool-card__recommended-action {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
   }
 
   .tool-card__progress {
     display: grid;
     gap: 4px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
 
   progress {
     width: 100%;
     height: 4px;
-    accent-color: var(--agent-accent);
+    accent-color: var(--klc-color-ui-accent);
   }
 
   .tool-card__evidence {
@@ -277,13 +277,13 @@
     flex-wrap: wrap;
     gap: 4px 7px;
     padding-top: 8px;
-    border-top: 1px solid var(--agent-border);
-    color: var(--agent-muted);
+    border-top: 1px solid var(--klc-color-ui-border);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
   }
 
   .tool-card__evidence strong {
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
   }
 
   .tool-card__actions {
@@ -294,7 +294,7 @@
   }
 
   button:hover {
-    background: var(--agent-hover);
+    background: var(--klc-color-ui-hover);
   }
 </style>
 

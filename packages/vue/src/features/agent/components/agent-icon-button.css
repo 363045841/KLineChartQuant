@@ -3,7 +3,7 @@
 .agent-session-drawer {
   --base-icon-button-size: var(--workbench-header-control-size, 30px);
   --base-icon-button-radius: var(--klc-radius-xs, 4px);
-  --base-icon-button-color: var(--agent-muted);
-  --base-icon-button-hover-color: var(--agent-text);
-  --base-icon-button-hover-bg: var(--agent-hover);
+  --base-icon-button-color: var(--klc-color-ui-muted);
+  --base-icon-button-hover-color: var(--klc-color-ui-text);
+  --base-icon-button-hover-bg: var(--klc-color-ui-hover);
 }

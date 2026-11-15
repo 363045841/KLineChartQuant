@@ -292,6 +292,12 @@ export interface VolumeProfileColors {
 export interface UiColors {
   readonly background: ColorValue
   readonly surface: ColorValue
+  /** 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。 */
+  readonly surroundBackground: ColorValue
+  /** 一般提示与说明区域的背景，不表示警告、错误或交互强调。 */
+  readonly noticeBackground: ColorValue
+  /** 输入区域的常驻背景，包含组合式数值输入框。 */
+  readonly inputBackground: ColorValue
   readonly card: ColorValue
   readonly input: ColorValue
   /** 浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。 */

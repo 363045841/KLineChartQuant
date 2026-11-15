@@ -1,4 +1,4 @@
-<!-- 指标参数单行：标签、取值范围、按类型渲染的控件与说明。 -->
+<!-- 指标参数单行：标签、取值范围与按类型渲染的控件。 -->
 <template>
   <div class="param-item">
     <div class="param-header">
@@ -185,39 +185,6 @@
     opacity: 0.8;
   }
 
-  /* ── 参数描述：作为所属控件的次级提示，紧贴上方、与标签左对齐 ── */
-  .param-description {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      grid-template-rows 0.2s ease,
-      opacity 0.2s ease,
-      visibility 0s linear 0.2s;
-  }
-
-  .param-description.is-open {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    visibility: visible;
-    transition-delay: 0s;
-  }
-
-  .param-description__clip {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .param-description__text {
-    margin: 0;
-    padding-block: 6px 2px;
-    font-size: 12px;
-    line-height: 1.55;
-    color: var(--klc-color-ui-muted);
-    text-wrap: pretty;
-  }
-
   /* ── 步进输入框：[-] 20 [+] 作为一个整体 ── */
   .input-wrapper {
     display: inline-flex;
@@ -226,7 +193,7 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--param-control-radius);
     overflow: hidden;
-    background: var(--klc-color-ui-control-background);
+    background: var(--klc-color-ui-input-background);
   }
 
   .input-wrapper .stepper-btn {
@@ -286,4 +253,3 @@
   }
 
 </style>
-

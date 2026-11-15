@@ -24,11 +24,11 @@
     align-items: center;
     justify-content: flex-end;
     min-width: 0;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     gap: 9px;
   }
   .run-status__usage span,
   .run-status__usage strong { white-space: nowrap; }
-  .run-status__usage strong { color: var(--agent-text); }
+  .run-status__usage strong { color: var(--klc-color-ui-text); }
 </style>

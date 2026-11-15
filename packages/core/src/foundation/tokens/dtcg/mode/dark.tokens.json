@@ -220,6 +220,9 @@
     "ui": {
       "background": { "$type": "color", "$value": "{dark.color.ui.background}" },
       "surface": { "$type": "color", "$value": "{dark.color.ui.surface}" },
+      "surroundBackground": { "$type": "color", "$value": "{dark.color.ui.surroundBackground}" },
+      "noticeBackground": { "$type": "color", "$value": "{dark.color.ui.noticeBackground}" },
+      "inputBackground": { "$type": "color", "$value": "{dark.color.ui.inputBackground}" },
       "card": { "$type": "color", "$value": "{dark.color.ui.card}" },
       "input": { "$type": "color", "$value": "{dark.color.ui.input}" },
       "popover": { "$type": "color", "$value": "{dark.color.ui.popover}" },

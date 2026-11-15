@@ -9,7 +9,7 @@
 .agent-session-drawer__item:hover,
 .agent-session-drawer__item.is-active,
 .agent-session-drawer__item.is-editing {
-  background: var(--agent-hover);
+  background: var(--klc-color-ui-hover);
 }
 
 .agent-session-drawer__select {
@@ -18,7 +18,7 @@
   padding: var(--klc-space-8, 8px) calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
   border: 0;
   border-radius: var(--klc-radius-sm, 6px);
-  color: var(--agent-text);
+  color: var(--klc-color-ui-text);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -70,7 +70,7 @@
   flex: 1;
   min-width: 0;
   padding-left: var(--klc-space-4, 4px);
-  color: var(--agent-text);
+  color: var(--klc-color-ui-text);
   font-size: var(--klc-text-12-font-size, 12px);
 }
 
@@ -80,7 +80,7 @@
   padding: 0 var(--klc-space-8, 8px);
   border: 0;
   border-radius: var(--klc-radius-xs, 4px);
-  color: var(--agent-text);
+  color: var(--klc-color-ui-text);
   background: transparent;
   font: inherit;
   font-size: var(--klc-text-12-font-size, 12px);
@@ -89,7 +89,7 @@
 
 .agent-session-drawer__text-button:hover,
 .agent-session-drawer__text-button:focus-visible {
-  background: var(--agent-hover);
+  background: var(--klc-color-ui-hover);
 }
 
 .agent-session-drawer__text-button--danger {

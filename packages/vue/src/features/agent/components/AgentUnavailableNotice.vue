@@ -42,8 +42,6 @@
     align-content: center;
     gap: 10px;
     padding: 24px;
-    /* 与时间线一致：表头分隔线由内容区顶部绘制。 */
-    border-top: 1px solid var(--agent-border);
     text-align: center;
   }
   .agent-unavailable > svg {
@@ -59,10 +57,10 @@
     margin: 0;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
   }
   .agent-unavailable__detail {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
   button {
@@ -71,15 +69,15 @@
     align-items: center;
     gap: 6px;
     padding: 0 12px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    color: var(--agent-text);
-    background: var(--agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
   }
   button:hover {
-    background: var(--agent-hover);
+    background: var(--klc-color-ui-hover);
   }
 </style>

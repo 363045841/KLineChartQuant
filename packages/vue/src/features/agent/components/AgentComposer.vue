@@ -197,14 +197,14 @@
     padding: var(--composer-inset);
     border: 0;
     border-radius: var(--agent-control-radius, 8px);
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     background: transparent;
     font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: 1.5;
   }
 
   .composer__input .composer__textarea::placeholder {
-    color: var(--agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
   }
 
   .composer__footer {
@@ -221,8 +221,8 @@
     position: relative;
     border-radius: 50%;
     background: conic-gradient(
-      var(--agent-accent) var(--usage-progress),
-      var(--agent-border-strong) 0
+      var(--klc-color-ui-accent) var(--usage-progress),
+      var(--klc-color-ui-border-strong) 0
     );
   }
 
@@ -235,7 +235,7 @@
   }
 
   .composer__usage-ring:focus-visible {
-    outline: 2px solid var(--agent-focus);
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 3px;
   }
 
@@ -260,19 +260,19 @@
   }
 
   .composer__reasoning {
-    --control-button-color: var(--agent-text);
+    --control-button-color: var(--klc-color-ui-text);
     --control-button-active-background: var(--klc-color-agent-composer-control-hover);
     --control-button-focus-background: var(--klc-color-agent-composer-control-hover);
-    --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
+    --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-focus) 24%, transparent);
     --control-button-disabled-opacity: 1;
-    --control-button-disabled-color: var(--agent-text-soft);
+    --control-button-disabled-color: var(--klc-color-ui-text-soft);
   }
 
   .composer__model-chevron {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -283,7 +283,7 @@
   .composer__reasoning-value {
     min-width: 0;
     overflow: hidden;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     font-size: 11px;
     font-weight: 400;
     text-overflow: ellipsis;

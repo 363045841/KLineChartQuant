@@ -9,7 +9,6 @@
       :restore-layout="true"
       :layout-storage-id="tab.id"
       @controller-ready="charts.onControllerReady(tab.id, $event)"
-      @update:is-fullscreen="emit('update:is-fullscreen', $event)"
     />
   </div>
 </template>
@@ -33,7 +32,6 @@
     'spec-change': [tabId: string, spec: SymbolSpec | null]
     'active-controller': [controller: ChartController]
     'theme-change': [theme: 'light' | 'dark']
-    'update:is-fullscreen': [fullscreen: boolean]
   }>()
   /**
    * 新建标签时把当前明暗偏好作为图表的初始设置下传。

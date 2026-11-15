@@ -90,7 +90,7 @@
     margin-inline: var(--base-modal-content-inset);
     padding: 10px 12px;
     border-radius: 8px;
-    background: var(--klc-color-ui-highlight);
+    background: var(--klc-color-ui-notice-background);
     border: 1px solid var(--klc-color-ui-border);
   }
 

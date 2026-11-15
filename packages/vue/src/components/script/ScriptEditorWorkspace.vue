@@ -235,13 +235,12 @@
     flex-direction: row;
     max-height: calc(100dvh - 160px);
     overflow: hidden;
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-bottom: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-surround-background);
   }
   .script-workspace__body { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-  .script-workspace__main { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+  .script-workspace__main { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
   .script-workspace__empty { display: grid; flex: 1; place-content: center; padding: var(--klc-space-16, 16px); color: var(--klc-color-ui-muted); text-align: center; }
-  .script-quick-actions { display: flex; flex-shrink: 0; align-items: center; gap: var(--klc-space-4); padding: 0 var(--klc-space-4); border-bottom: 1px solid var(--klc-color-ui-border); background: var(--klc-color-ui-card); }
+  .script-quick-actions { display: flex; flex-shrink: 0; align-items: center; gap: var(--klc-space-4); padding: 0 var(--klc-space-4); }
   .script-quick-actions .script-workspace__icon-button { width: 24px; height: 24px; }
   .script-quick-actions .script-workspace__icon-button svg { width: 16px; height: 16px; }
 
@@ -256,8 +255,7 @@
     gap: var(--klc-space-8, 8px);
     padding-block: var(--klc-space-8, 8px);
     overflow-y: auto;
-    background: var(--klc-color-ui-card);
-    border-right: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-surround-background);
   }
 
   .script-workspace__activity-actions,
@@ -293,7 +291,7 @@
     height: 10px;
     padding: 1px;
     border-radius: 50%;
-    background: var(--klc-color-ui-card);
+    background: var(--klc-color-ui-surround-background);
     color: var(--klc-brand-accent-text);
     box-sizing: content-box;
   }
@@ -343,6 +341,8 @@
     flex: 1 1 auto;
     height: clamp(200px, 52dvh, 480px);
     max-height: calc(100dvh - 180px);
+    background: var(--klc-color-ui-background);
+    border-radius: var(--klc-radius-md, 8px) 0 0 var(--klc-radius-md, 8px);
     overflow: hidden;
   }
 </style>
