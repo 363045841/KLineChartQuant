@@ -9,6 +9,7 @@
       class="drop-menu__panel popover-surface popover-surface--scroll"
       :class="{ 'drop-menu__panel--compact': density === 'compact' }"
       v-bind="popover.panelBindings.value"
+      :style="surfaceStyle"
       :role="bodyMode ? 'dialog' : 'menu'"
       :aria-label="label"
       @keydown="onMenuKeydown"
@@ -167,6 +168,19 @@
   const triggerElement = computed(() =>
     props.anchor?.kind === 'trigger' ? props.anchor.element : null,
   )
+  /** 面板圆角只写变量，默认值仍归 popover-surface.css；二级菜单是面板子节点，自动继承。 */
+  const surfaceRadius = shallowRef<string | null>(null)
+  const surfaceStyle = computed<CSSProperties | undefined>(() =>
+    surfaceRadius.value === null ? undefined : { '--popover-surface-radius': surfaceRadius.value },
+  )
+
+  /** 读触发元素的 computed 圆角；坐标锚点没有触发器，返回 null 交给表面默认值。 */
+  function readTriggerRadius(): string | null {
+    const element = triggerElement.value
+    if (!element) return null
+    const radius = getComputedStyle(element).borderRadius
+    return radius.length > 0 ? radius : null
+  }
   const origin = computed(() => {
     const anchor = props.anchor
     if (anchor?.kind !== 'point') return null
@@ -189,6 +203,8 @@
     offset: props.offset ?? (props.anchor?.kind === 'point' ? 0 : 4),
     maxHeight: () => 'min(420px, calc(100vh - 24px))',
     onOpen: () => {
+      // 面板是触发器的延伸：圆角只从触发按钮读，宿主无需再传一份。
+      surfaceRadius.value = readTriggerRadius()
       emit('open')
       // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
       // 优先落到已勾选项：单选项里它就是当前值，键盘继续用方向键即可切换。

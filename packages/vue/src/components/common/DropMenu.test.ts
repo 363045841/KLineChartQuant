@@ -3,6 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
+import { resetTooltipGroup } from '@vue-src/composables/ui/useTooltip.js'
 import DropMenu from './DropMenu.vue'
 import MenuSurface from './MenuSurface.vue'
 import type { DropMenuGroup } from './dropMenuTypes.js'
@@ -34,6 +35,13 @@ function key(target: Element, name: string, init: KeyboardEventInit = {}): Keybo
   })
   target.dispatchEvent(event)
   return event
+}
+
+/** 面板根节点上写入的圆角覆盖变量；不覆盖时为空。 */
+function panelRadius(): string {
+  return document.querySelector<HTMLElement>('.drop-menu__panel')?.style.getPropertyValue(
+    '--popover-surface-radius',
+  ) ?? ''
 }
 
 function optionEls(): HTMLElement[] {
@@ -176,6 +184,57 @@ describe('DropMenu', () => {
     expect(rendered[1]?.classList).toContain('drop-menu__group--titled')
     expect(document.querySelector('.drop-menu__shortcut')?.textContent).toBe('Alt+R')
     wrapper.unmount()
+  })
+
+  it('触发器提示默认在按钮上方，与菜单弹出方向无关', async () => {
+    resetTooltipGroup()
+    const wrapper = mount(DropMenu, {
+      attachTo: document.body,
+      props: { label: '菜单', groups, placement: 'bottom' },
+    })
+    wrapper.get('.base-tooltip__trigger').trigger('pointerenter')
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await flush()
+    expect(document.querySelector('.base-tooltip.is-open')?.classList).toContain('base-tooltip--top')
+    wrapper.unmount()
+
+    const overridden = mount(DropMenu, {
+      attachTo: document.body,
+      props: { label: '菜单', groups, tooltipPlacement: 'bottom' },
+    })
+    overridden.get('.base-tooltip__trigger').trigger('pointerenter')
+    await flush()
+    expect(document.querySelector('.base-tooltip.is-open')?.classList).toContain(
+      'base-tooltip--bottom',
+    )
+    overridden.unmount()
+  })
+
+  it('面板圆角跟随触发器，坐标锚点沿用表面默认值', async () => {
+    const trigger = document.createElement('button')
+    trigger.style.borderRadius = '4px'
+    document.body.append(trigger)
+
+    const anchored = mount(MenuSurface, {
+      attachTo: document.body,
+      props: { label: '菜单', groups, open: false, anchor: { kind: 'trigger', element: trigger } },
+    })
+    await flush()
+    await anchored.setProps({ open: true })
+    await flush()
+    // 触发器是圆角唯一来源，宿主不必再传一份。
+    expect(panelRadius()).toBe('4px')
+    anchored.unmount()
+    trigger.remove()
+
+    const pointed = mount(MenuSurface, {
+      attachTo: document.body,
+      props: { label: '菜单', groups, open: true, anchor: { kind: 'point', x: 10, y: 10 } },
+    })
+    await flush()
+    // 坐标锚点没有触发器，交给 popover-surface.css 的默认圆角。
+    expect(panelRadius()).toBe('')
+    pointed.unmount()
   })
 })
 
