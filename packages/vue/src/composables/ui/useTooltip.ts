@@ -1,15 +1,14 @@
 /**
  * useTooltip：提示的显示状态机。
  *
- * 只负责延迟、分组预热与 Esc 关闭；定位、层级与开合驱动统一交给 useAnchoredPopover，
- * 与菜单、气泡共用同一套锚定引擎（CSS anchor positioning，不支持时回退 floating-ui）。
+ * 只负责延迟、分组预热与 Esc 关闭；定位交给共享的锚定浮层（测量策略，锚在触发控件上）。
  */
 import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
 import type { AnchoredPlacement } from '@vue-src/composables/overlay/types.js'
 import { onBeforeUnmount, onScopeDispose, type Ref, watch } from 'vue'
 
-/** 提示框相对触发元素的显示位置。 */
-export type TooltipPlacement = AnchoredPlacement
+/** 提示相对触发控件的显示方向；提示没有 auto 语义，方向必须显式。 */
+export type TooltipPlacement = Exclude<AnchoredPlacement, 'auto'>
 
 /** useTooltip 配置；读取函数形式传入以保持响应式。 */
 export interface UseTooltipOptions {

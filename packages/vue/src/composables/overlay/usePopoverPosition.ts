@@ -1,24 +1,13 @@
 import { type CSSProperties, computed, nextTick, type Ref, shallowRef, toValue, watch } from 'vue'
-import type { AnchoredPlacement } from './types.js'
 import { type PointReference, startFloatingPosition } from './floatingPosition.js'
 import type { PopoverOrigin, UseAnchoredPopoverOptions } from './types.js'
 
 const BASE_STYLE: CSSProperties = { position: 'fixed', inset: 'auto', margin: '0' }
 
-/** 四个方向对应的 position-area：提示/面板整体落在锚点的某一侧，并沿另一轴铺满锚点。 */
-const POSITION_AREA: Record<Exclude<AnchoredPlacement, 'auto'>, string> = {
-  top: 'block-start span-inline-end',
-  bottom: 'block-end span-inline-end',
-  left: 'inline-start span-block-end',
-  right: 'inline-end span-block-end',
-}
-
-/** 显式方向只翻转垂直于弹出轴的那一轴，保证仍在同侧；auto 才允许换到另一侧。 */
-const POSITION_FALLBACK: Record<Exclude<AnchoredPlacement, 'auto'>, string> = {
-  top: 'flip-inline',
-  bottom: 'flip-inline',
-  left: 'flip-block',
-  right: 'flip-block',
+/** CSS anchor 只负责块轴方向与起点对齐；行内方向、居中一律交给测量定位。 */
+function canUseAnchorPosition(options: UseAnchoredPopoverOptions): boolean {
+  const placement = toValue(options.placement) ?? 'auto'
+  return placement !== 'left' && placement !== 'right' && (options.align ?? 'start') === 'start'
 }
 
 function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: string) {
@@ -26,21 +15,15 @@ function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: strin
   const panelStyle = computed<CSSProperties>(() => {
     const placement = toValue(options.placement) ?? 'auto'
     const maxHeight = toValue(options.maxHeight)
-    const offset = `${options.offset ?? 4}px`
-    const inline = placement === 'left' || placement === 'right'
-    const center = options.align === 'center'
     return {
       ...BASE_STYLE,
       positionAnchor: anchorName,
-      positionArea: placement === 'auto' ? POSITION_AREA.bottom : POSITION_AREA[placement],
+      // 进入本函数前已确认是块轴方向，left / right 不会走到这里。
+      positionArea:
+        placement === 'top' ? 'block-start span-inline-end' : 'block-end span-inline-end',
       positionTryFallbacks:
-        placement === 'auto'
-          ? 'flip-block, flip-inline, flip-block flip-inline'
-          : POSITION_FALLBACK[placement],
-      ...(inline ? { marginInline: offset } : { marginBlock: offset }),
-      // 居中用于提示：anchor-center 才能真正对齐锚点中心。
-      justifySelf: center ? 'anchor-center' : undefined,
-      alignSelf: center ? 'anchor-center' : undefined,
+        placement === 'auto' ? 'flip-block, flip-inline, flip-block flip-inline' : 'flip-inline',
+      marginBlock: `${options.offset ?? 4}px`,
       maxHeight:
         placement === 'auto'
           ? (maxHeight ?? 'calc(100vh - 16px)')
@@ -142,8 +125,11 @@ export function usePopoverPosition(
   anchorName: string,
   onError: () => void,
 ) {
-  // 坐标锚点没有真实元素可做 CSS anchor，固定走 Floating UI。
-  return anchored && options.origin === undefined && options.positioning !== 'floating'
+  // 坐标锚点没有真实元素可做 CSS anchor；行内方向与居中由能力判断交给测量定位。
+  return anchored &&
+    options.origin === undefined &&
+    options.positioning !== 'floating' &&
+    canUseAnchorPosition(options)
     ? useAnchorPosition(options, anchorName)
     : useFloatingPosition(options, open, native, onError)
 }
