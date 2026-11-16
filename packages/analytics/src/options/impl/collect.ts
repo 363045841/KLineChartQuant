@@ -31,7 +31,7 @@ export interface CollectOptionsRequest {
   readonly currencies: readonly OptionCurrency[]
   /**
    * 原始链采样间隔（分钟）；null 表示不落链。
-   * 只有采集时刻落在采样分钟的轮次才写 `options/chain/`，其余轮次只写聚合位。
+   * 只有轮次起点落在采样分钟的轮次才写 `options/chain/`，其余轮次只写聚合位。
    */
   readonly chainEveryMinutes: number | null
   /** 采集时钟（毫秒），测试可注入固定值 */
@@ -88,6 +88,11 @@ export async function collectOptionCurrencies(
   request: CollectOptionsRequest,
 ): Promise<readonly CollectedOptionCurrency[]> {
   const collected: CollectedOptionCurrency[] = []
+  // 采样门按整轮判定一次：一轮里各标的的捕获时刻会跨分钟，按标的分头判定会写出半轮链
+  // （实测 NAS 上 5 个品种一轮约 80 秒，Deribit 两个品种与 Binance 三个品种可能分落两个分钟）。
+  const roundAt = request.now()
+  const chainDue =
+    request.chainEveryMinutes !== null && isChainCaptureMinute(roundAt, request.chainEveryMinutes)
 
   for (const currency of request.currencies) {
     const market = optionMarketOf(currency)
@@ -125,10 +130,6 @@ export async function collectOptionCurrencies(
       )
     }
 
-    // 采样门按本次快照的采集时刻判定：节奏与聚合位对齐，不引入额外状态。
-    const chainDue =
-      request.chainEveryMinutes !== null &&
-      isChainCaptureMinute(capturedAt, request.chainEveryMinutes)
     let chainAppend: DayAppendResult | null = null
     if (chainDue) {
       const chainResults = request.store.append({

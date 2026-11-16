@@ -235,7 +235,7 @@ docker compose up -d --build
 
 - **Deribit 只有 BTC/ETH**：`KCQ_CURRENCIES` 填其他币种不会报错，但采集结果为空。SOL/BNB/XRP/ADA 只采 Binance 成交量。
 - **本部署同时落期权聚合位与原始链**：`options_worker` 传 `--with-chain --with-chain-every $KCQ_CHAIN_EVERY`，原始链按 5 分钟节奏落 `options/chain/<标的>/`。体积实测（2026-11-17 单次快照）：BTC 982 行 23KB、ETH 816 行 19KB、SOL 122 行 2.6KB、BNB 200 行 4.2KB、XRP 84 行 1.8KB；乘 288 次/天的上界约 BTC 6.5MB、ETH 5MB、五品种合计 14MB（日文件内重复键压缩更好，实际更低）。90 天保留期下 BTC 约 600MB、五品种合计约 1.3GB；聚合位另计约 1MB/天/品种。
-  采样分钟按时钟对齐（`isChainCaptureMinute`）：期权轮次保持 60 秒，才会每 5 分钟采到一次全链；把 `KCQ_OPTION_INTERVAL` 调大不影响聚合位，但会减少全链采样次数。要彻底关掉原始链，从 `options_worker` 删掉这两个开关，并清理共享目录里的 `options/chain/`。
+  采样分钟按时钟对齐（`isChainCaptureMinute`，按整轮判定一次，不按单个标的）：期权轮次保持 60 秒，才会每 5 分钟采到一次全链；把 `KCQ_OPTION_INTERVAL` 调大不影响聚合位，但会减少全链采样次数。要彻底关掉原始链，从 `options_worker` 删掉这两个开关，并清理共享目录里的 `options/chain/`。
 - **代理必须能从运行环境访问**：容器里不能用 `127.0.0.1` 指代 NAS 主机。先在 NAS 上验证：`curl -x http://PROXY_HOST:PROXY_PORT -m 10 -o /dev/null -w "%{http_code}\n" https://api.binance.com/api/v3/ping`，返回 `200` 才算通。容器内连通性：`docker exec kcq-collector sh -c 'nc -z -w 3 PROXY_HOST PROXY_PORT && echo 代理可达'`。
 - **采集失败不会退出脚本**：单轮失败写日志并按 5→10→20→40→60 秒退避重试，成功后间隔恢复；配置错误（缺 `KCQ_DATA_ROOT`、代理只给一半、端口非法）启动即退出码 2。
 - **权限**：共享目录必须可写。Docker 默认 root 写入，若目录归属特定用户，在 `docker-compose.yml` 里取消 `user:` 注释并填 `id` 查到的 UID/GID。

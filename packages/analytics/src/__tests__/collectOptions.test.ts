@@ -31,6 +31,24 @@ const FAKE_SOURCE: OptionVenueSource = {
 /** 两个场所都指到同一份替身，路由差异不是本文件的测试目标。 */
 const FAKE_SOURCES = { deribit: FAKE_SOURCE, binance: FAKE_SOURCE }
 
+/**
+ * 逐次前进的时钟替身：第 n 次调用返回 `start + n * stepMs`。
+ *
+ * 一轮里 `now()` 先被采样门取一次，再被每个标的取一次，用它模拟「轮次跨分钟」。
+ *
+ * @param start 首次取值
+ * @param stepMs 每次调用前进的毫秒数
+ * @returns 时钟
+ */
+function steppingClock(start: number, stepMs: number): () => number {
+  let calls = 0
+  return () => {
+    const value = start + calls * stepMs
+    calls += 1
+    return value
+  }
+}
+
 describe('collectOptionCurrencies', () => {
   const dirs: string[] = []
 
@@ -106,6 +124,44 @@ describe('collectOptionCurrencies', () => {
     expect(results[0].aggregateAppend.appended).toBe(1)
     expect(results[0].chainAppend).toBeNull()
     expect(store.listDays('options/chain/BTC')).toEqual([])
+  })
+
+  it('轮次起点不在采样分钟：即使后续标的跨进采样分钟，整轮都不落链', async () => {
+    const dir = createTempDir()
+    dirs.push(dir)
+    const store = createDayShardStore(dir)
+
+    // 轮次起点 00:04:59，BTC 到 00:05:04、ETH 到 00:05:09，都已在采样分钟内。
+    const results = await collectOptionCurrencies({
+      sources: FAKE_SOURCES,
+      store,
+      currencies: ['BTC', 'ETH'],
+      chainEveryMinutes: 5,
+      now: steppingClock(CAPTURED_AT + 4 * 60_000 + 59_000, 5_000),
+    })
+
+    expect(results.map((result) => result.chainAppend)).toEqual([null, null])
+    expect(store.listDays('options/chain/BTC')).toEqual([])
+    expect(store.listDays('options/chain/ETH')).toEqual([])
+  })
+
+  it('轮次起点在采样分钟：后续标的跨出采样分钟也照整轮落链', async () => {
+    const dir = createTempDir()
+    dirs.push(dir)
+    const store = createDayShardStore(dir)
+
+    // 轮次起点 00:05:00，BTC 到 00:06:10、ETH 到 00:07:20，都已离开采样分钟。
+    const results = await collectOptionCurrencies({
+      sources: FAKE_SOURCES,
+      store,
+      currencies: ['BTC', 'ETH'],
+      chainEveryMinutes: 5,
+      now: steppingClock(CAPTURED_AT + 5 * 60_000, 70_000),
+    })
+
+    expect(results.map((result) => result.chainAppend?.appended)).toEqual([2, 2])
+    expect(store.listDays('options/chain/BTC')).toEqual(['2026-11-10'])
+    expect(store.listDays('options/chain/ETH')).toEqual(['2026-11-10'])
   })
 
   it('同一时刻重复采集不产生重复行', async () => {
