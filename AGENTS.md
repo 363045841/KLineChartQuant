@@ -58,6 +58,7 @@
 ## Committing
 
 - 提交必须先用 `skill("commit-message-generator")` 加载 `.opencode/skills/commit-message-generator/SKILL.md`,以生成 Conventional Commits 信息.
+- 个人会话技能目录用 `node scripts/sync-skill.mjs <name>` 从仓库 `.opencode/skills/` 镜像;改了仓库源要同步一次,`--check` 只比对不写(不一致时退出码 1).
 - PR 说明覆盖整个分支的全部提交,而不是只描述最后一个 commit.
 - 只有用户明确要求时才能提交.
 
