@@ -68,7 +68,9 @@ class BarSender {
   encode(bars: readonly Bar[]): BarPatch {
     const previousLength = this.previous.length / BAR_WIDTH
     const prepended = bars.length - previousLength
-    if (previousLength > 0 && prepended > 0 && this.isPrepend(bars, prepended))
+    // 插入量超过已同步长度属历史替换，不是可右移表达的前置插入：按全量重发，
+    // 保留接收端「prepended 大于当前序列即失同步」的断言，不放宽协议校验。
+    if (previousLength > 0 && prepended > 0 && prepended <= previousLength && this.isPrepend(bars, prepended))
       return this.prepend(bars, prepended)
 
     let offset = 0

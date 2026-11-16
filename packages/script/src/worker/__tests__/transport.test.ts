@@ -79,6 +79,16 @@ describe('Worker input synchronization', () => {
     expect(cleared.context?.optionLevels).toBeUndefined()
   })
 
+  it('accepts a prepend longer than the synchronized sequence', () => {
+    const sender = new WorkerInputSender()
+    const receiver = new WorkerInputReceiver()
+    // 首帧只拿到末尾少量行情，随后完整历史一次到达：前缀比已同步序列更长。
+    const partial = [bar(10), bar(11)]
+    expect(receiver.decode(sender.encode(partial)).bars).toStrictEqual(partial)
+    const full = [bar(5), bar(6), bar(7), bar(8), bar(9), ...partial]
+    expect(receiver.decode(sender.encode(full)).bars).toStrictEqual(full)
+  })
+
   it('prunes low-timeframe baselines and isolates physical workers', () => {
     const sender = new WorkerInputSender()
     const receiver = new WorkerInputReceiver()
@@ -154,6 +164,30 @@ describe('Worker drawing transport', () => {
     expect(collection.drawings![0]!.style.stroke).toBe('inherit')
   })
 })
+
+it('accepts full history arriving after a partial first frame', async () => {
+  vi.stubGlobal('Worker', NodeScriptWorker)
+  const worker = createScriptWorker()
+  const source = `defineIndicator({name:'HistoryArrival',position:Position.Main,onBar(){plot.Line(close,'close')}})`
+  const full: Bar[] = Array.from({ length: 200 }, (_, index) => ({
+    time: index * 60000,
+    open: 10,
+    high: 11,
+    low: 9,
+    close: 10,
+    volume: 1,
+    closed: true,
+  }))
+  try {
+    await worker.prepare('history', source, [], true)
+    // 首帧只有末尾 20 根，随后完整历史一次到达，前缀 180 根超过已同步长度。
+    expect((await worker.run('history', full.slice(180))).plots[0]?.data).toHaveLength(20)
+    expect((await worker.run('history', full)).plots[0]?.data).toHaveLength(200)
+  } finally {
+    worker.dispose()
+    vi.unstubAllGlobals()
+  }
+}, 15_000)
 
 it('keeps port-owned baselines correct across real thread calculations and failures', async () => {
   const transfers: number[][] = []
