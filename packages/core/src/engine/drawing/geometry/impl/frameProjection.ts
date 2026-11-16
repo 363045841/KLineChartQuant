@@ -4,7 +4,6 @@ import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
-import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
@@ -35,6 +34,7 @@ import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope, DrawingSource } from '../../render/types.js'
+import { resolveDrawingRenderAxis } from './drawingAxis.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type {
   DrawingGeometry,
@@ -489,13 +489,7 @@ function projectStoredDrawing(
   storedDrawing: DrawingObject,
   scope: DrawingPaintScope,
 ): void {
-  // 绘图不拥有轴：绑定由对象轴投影决定，owner 轴或所在 Pane 的主轴。
-  const axisId = state.context.pane.objectAxis(storedDrawing.id)
-  if (axisId === null)
-    throw new KLineChartError(
-      GENERIC_ERROR_CODES.INVALID_STATE,
-      `绘图 ${storedDrawing.id} 未绑定轴`,
-    )
+  const axisId = resolveDrawingRenderAxis(state.context.pane, storedDrawing)
   const bound = bindRenderAxis(state.context, axisId)
   const context = {
     ...bound,

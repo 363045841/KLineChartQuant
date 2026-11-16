@@ -5,6 +5,7 @@ import {
   createMockRenderContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { Pane } from '@/engine/pane/impl/layout/pane.js'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -13,6 +14,7 @@ import {
   type PointPrimitive,
   type RenderContext,
 } from '@/foundation/plugin'
+import { wrapPaneInfo } from '@/foundation/plugin/impl/wrapPaneInfo.js'
 import { createSignal } from '@/foundation/reactivity/signal'
 import { lightTheme } from '@/foundation/tokens/index.js'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
@@ -25,6 +27,7 @@ import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
+import { resolveDrawingRenderAxis } from '../impl/drawingAxis.js'
 import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
@@ -104,6 +107,46 @@ function projectSingleDrawing(
 function createRangeContext(range: { start: number; end: number }): RenderContext {
   return createMockRenderContext({ data: createKLineData(10), range })
 }
+
+describe('指标图元继承 owner 坐标', () => {
+  it.each(['first-output', 'replacement-output'])('图元 %s 无需轴绑定即可使用指标所在轴', (id) => {
+    const pane = new Pane('main')
+    pane.setLayout(0, 100)
+    pane.setAxes([
+      { objectId: 'price-series', axisId: 'price-axis' },
+      { objectId: 'indicator', axisId: 'indicator-axis' },
+    ])
+    pane.axis('price-axis').setRange({ minPrice: 0, maxPrice: 1000 })
+    pane.axis('indicator-axis').setRange({ minPrice: 0, maxPrice: 100 })
+    const drawing = createTrendDrawing({ id, ownerId: 'indicator' })
+    const context = { ...createContext(), pane: wrapPaneInfo(pane) }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+      getIndicatorDrawings: () => [drawing],
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+
+    expect(pane.objectAxis(drawing.id)).toBeNull()
+    expect(resolveDrawingRenderAxis(pane, drawing)).toBe('indicator-axis')
+    const projection = projectDrawingsForFrame(store, definitions, context)
+    expect(linePrimitives(projection.primitives)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ a: { x: 10, y: 90 }, b: { x: 30, y: 80 } }),
+      ]),
+    )
+    expect(pane.objectAxis(drawing.id)).toBeNull()
+  })
+
+  it('owner 缺失时不会使用图元身份或其它对象的轴', () => {
+    const pane = new Pane('main')
+    pane.setAxes([{ objectId: 'drawing', axisId: 'unrelated-axis' }])
+    expect(() =>
+      resolveDrawingRenderAxis(pane, { id: 'drawing', ownerId: 'missing-indicator' }),
+    ).toThrow('所属对象 missing-indicator 未绑定轴')
+  })
+})
 
 describe('会话预览的标的可见性', () => {
   it.each([undefined, 'active-symbol'])(
