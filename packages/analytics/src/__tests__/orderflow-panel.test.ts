@@ -141,6 +141,7 @@ function emptyVenue(venue: OrderflowVenue): VenueSnapshot {
     symbol: 'BTCUSDT',
     depth: null,
     flows: [],
+    cvd: [],
     largeOrders: null,
     positioning: null,
     errors: [],
