@@ -158,10 +158,10 @@ describe('DropMenu', () => {
     expect(document.activeElement).toBe(items[0])
     wrapper.unmount()
   })
-  it('多个分组按分隔线排列，快捷键在右侧展示', async () => {
+  it('多个分组按分隔线排列：带标题的分组自己承担分隔，快捷键在右侧展示', async () => {
     const grouped = [
       { id: 'a', label: '', items: [{ id: '1', label: 'One', shortcut: 'Alt+R' }] },
-      { id: 'b', label: '', items: [{ id: '2', label: 'Two' }] },
+      { id: 'b', label: '组', items: [{ id: '2', label: 'Two' }] },
     ]
     const wrapper = mount(DropMenu, {
       attachTo: document.body,
@@ -169,7 +169,11 @@ describe('DropMenu', () => {
     })
     ;(wrapper.get('button').element as HTMLButtonElement).click()
     await flush()
-    expect(document.querySelectorAll('.drop-menu__group')).toHaveLength(2)
+    const rendered = [...document.querySelectorAll<HTMLElement>('.drop-menu__group')]
+    expect(rendered).toHaveLength(2)
+    // 无标题分组才画普通横线；带标题分组由标题两侧的线分隔，两种形态互斥。
+    expect(rendered[0]?.classList).not.toContain('drop-menu__group--titled')
+    expect(rendered[1]?.classList).toContain('drop-menu__group--titled')
     expect(document.querySelector('.drop-menu__shortcut')?.textContent).toBe('Alt+R')
     wrapper.unmount()
   })

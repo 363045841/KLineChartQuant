@@ -28,7 +28,12 @@
             <div v-if="$slots.header" class="drop-menu__header">
               <slot name="header" />
             </div>
-            <div v-for="group in groups" :key="group.id" class="drop-menu__group">
+            <div
+              v-for="group in groups"
+              :key="group.id"
+              class="drop-menu__group"
+              :class="{ 'drop-menu__group--titled': group.label }"
+            >
               <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
               <div
                 v-for="item in group.items"
@@ -485,16 +490,20 @@
     min-width: 0;
   }
 
-  /* 组间分隔线内缩，和菜单项文字的左右边界对齐，不顶到面板圆角。 */
-  .drop-menu__group + .drop-menu__group {
+  /*
+   * 一个分组边界只有一条线：带标题的分组由标题两侧的线承担分隔，无标题的分组才画普通横线。
+   * 两种形态互斥，避免同一个边界被两套规则各画一次。
+   */
+  .drop-menu__group + .drop-menu__group:not(.drop-menu__group--titled) {
     position: relative;
   }
 
-  .drop-menu__group + .drop-menu__group::before {
+  /* 横线内缩与菜单项文字、标题两侧的线对齐，不顶到面板圆角。 */
+  .drop-menu__group + .drop-menu__group:not(.drop-menu__group--titled)::before {
     position: absolute;
     top: 0;
-    right: var(--klc-space-8, 8px);
-    left: var(--klc-space-8, 8px);
+    right: var(--klc-space-12, 12px);
+    left: var(--klc-space-12, 12px);
     border-top: 1px solid var(--klc-color-ui-border);
     content: '';
   }
@@ -513,7 +522,7 @@
     display: none;
   }
 
-  /* 分组标题居中对齐，两侧各一条延伸到面板边缘的分隔线。 */
+  /* 分组标题居中对齐，两侧各一条延伸到面板边缘的线；这条线就是带标题分组的分隔。 */
   .drop-menu__heading {
     display: flex;
     align-items: center;
