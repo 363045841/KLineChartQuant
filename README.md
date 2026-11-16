@@ -1,5 +1,8 @@
 <h1 align="center">
-  <img src="docs/Pics/kcq-logo-horizontal.svg" alt="KlineChartQuant" width="640" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/Pics/kcq-logo-horizontal-dark.svg" />
+    <img src="docs/Pics/kcq-logo-horizontal.svg" alt="KlineChartQuant" width="640" />
+  </picture>
 </h1>
 
 

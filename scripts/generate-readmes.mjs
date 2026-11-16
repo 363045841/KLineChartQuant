@@ -1,7 +1,8 @@
 /**
  * generate-readmes.mjs
  *
- * Generates README.md files from templates + fragments.
+ * Generates README.md files from templates + fragments, plus the dark-theme
+ * brand logo variant derived from the light one.
  * Usage:
  *   node scripts/generate-readmes.mjs          # generate all
  *   node scripts/generate-readmes.mjs --check   # diff check (exit 1 if stale)
@@ -57,6 +58,27 @@ function resolveVars(content, vars) {
   })
 }
 
+// ── Dark brand logo ─────────────────────────────────────────────────
+// README 的横向标识通过 <picture> 按主题切换。深色变体不手写第二份字标路径，
+// 而是从浅色源替换字标填充生成，避免两份资源各自漂移。
+const BRAND_LOGO = path.join(DOCS, 'Pics/kcq-logo-horizontal.svg')
+const BRAND_LOGO_DARK = path.join(DOCS, 'Pics/kcq-logo-horizontal-dark.svg')
+/** 浅色石墨字标在深色底上不足 1.5:1，深色变体改用 GitHub 深色正文色。 */
+const WORDMARK_FILL_LIGHT = 'class="wordmark" fill="#273142"'
+const WORDMARK_FILL_DARK = 'class="wordmark" fill="#E6EDF3"'
+
+/**
+ * 由浅色横向标识派生深色变体，只改字标填充色。
+ * @returns 深色版 SVG 文本
+ */
+function buildDarkBrandLogo() {
+  const source = fs.readFileSync(BRAND_LOGO, 'utf-8')
+  if (!source.includes(WORDMARK_FILL_LIGHT)) {
+    throw new Error(`Wordmark fill not found in ${path.relative(ROOT, BRAND_LOGO)}`)
+  }
+  return source.replace(WORDMARK_FILL_LIGHT, WORDMARK_FILL_DARK)
+}
+
 function generateOne(templateName, vars) {
   const templatePath = path.join(TEMPLATES, templateName)
   if (!fs.existsSync(templatePath)) {
@@ -75,6 +97,22 @@ function generateOne(templateName, vars) {
 const args = process.argv.slice(2)
 const isCheck = args.includes('--check')
 const filter = args.filter((a) => !a.startsWith('--'))
+
+const darkBrandLogo = buildDarkBrandLogo()
+if (isCheck) {
+  const existing = fs.existsSync(BRAND_LOGO_DARK) ? fs.readFileSync(BRAND_LOGO_DARK, 'utf-8') : ''
+  if (existing !== darkBrandLogo) {
+    console.error(
+      `  ✗ STALE: ${path.relative(ROOT, BRAND_LOGO_DARK)} — run "node scripts/generate-readmes.mjs" to regenerate`,
+    )
+    process.exitCode = 1
+  } else {
+    console.log(`  ✓ ${path.relative(ROOT, BRAND_LOGO_DARK)}`)
+  }
+} else {
+  fs.writeFileSync(BRAND_LOGO_DARK, darkBrandLogo, 'utf-8')
+  console.log(`  ✓ ${path.relative(ROOT, BRAND_LOGO_DARK)}`)
+}
 
 let entries = Object.entries(CONFIG)
 if (filter.length > 0) {
