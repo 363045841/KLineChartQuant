@@ -9,25 +9,21 @@
  */
 import { ANALYTICS_ERROR_CODES, AnalyticsError } from '../../errors'
 import type { DayAppendResult, DayShardStore } from '../../storage/types'
+import { type OptionVenue, optionMarketOf } from '../markets'
 import type {
-  DeribitClient,
   OptionAggregateSnapshot,
   OptionChainRecord,
   OptionContract,
   OptionCurrency,
+  OptionVenueSource,
 } from '../types'
 import { aggregateOptionChain } from './aggregate'
-
-/** 聚合位流前缀。 */
-export const OPTION_AGGREGATE_STREAM_PREFIX = 'options/aggregate'
-
-/** 原始链流前缀。 */
-export const OPTION_CHAIN_STREAM_PREFIX = 'options/chain'
+import { optionChainStream, optionLayerStream } from './streams'
 
 /** 采集请求。 */
 export interface CollectOptionsRequest {
-  /** Deribit 客户端 */
-  readonly client: DeribitClient
+  /** 各场所的数据源；按注册表里的 venue 取用 */
+  readonly sources: Readonly<Record<OptionVenue, OptionVenueSource>>
   /** 分片存储 */
   readonly store: DayShardStore
   /** 要采集的标的 */
@@ -78,26 +74,6 @@ function toChainRecord(contract: OptionContract, capturedAt: number): OptionChai
 }
 
 /**
- * 取聚合位流的完整标识。
- *
- * @param currency 标的
- * @returns 流标识
- */
-function aggregateStream(currency: OptionCurrency): string {
-  return `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`
-}
-
-/**
- * 取原始链流的完整标识。
- *
- * @param currency 标的
- * @returns 流标识
- */
-function chainStream(currency: OptionCurrency): string {
-  return `${OPTION_CHAIN_STREAM_PREFIX}/${currency}`
-}
-
-/**
  * 采集指定标的的期权数据。
  *
  * @param request 客户端、存储、标的与时钟
@@ -110,17 +86,27 @@ export async function collectOptionCurrencies(
   const collected: CollectedOptionCurrency[] = []
 
   for (const currency of request.currencies) {
-    const chain = await request.client.getOptionChain(currency)
-    const index = await request.client.getIndexPrice(currency)
+    const market = optionMarketOf(currency)
+    if (market === null) {
+      throw new AnalyticsError(
+        ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+        `没有登记的期权标的：${currency}`,
+        { currency },
+      )
+    }
+    const source = request.sources[market.venue]
+    const chain = await source.getOptionChain(currency)
+    const index = await source.getIndexPrice(currency)
     const capturedAt = request.now()
     const snapshot = aggregateOptionChain({
       currency,
+      venue: market.venue,
       contracts: chain.contracts,
       spotIndex: index.indexPrice,
       capturedAt,
     })
 
-    const stream = aggregateStream(currency)
+    const stream = optionLayerStream(currency, 'minute')
     const aggregateResults = request.store.append({
       stream,
       rows: [snapshot],
@@ -138,7 +124,7 @@ export async function collectOptionCurrencies(
     let chainAppend: DayAppendResult | null = null
     if (request.persistChain) {
       const chainResults = request.store.append({
-        stream: chainStream(currency),
+        stream: optionChainStream(currency),
         rows: chain.contracts.map((contract) => toChainRecord(contract, capturedAt)),
         dayOf: (row) => row.capturedAt,
         dedupeKey: (row) => `${row.capturedAt}|${row.instrumentName}`,

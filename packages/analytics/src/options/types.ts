@@ -6,11 +6,10 @@
  * 不关心传输方式与落盘位置。
  */
 
-/** 支持的期权标的。 */
-export const OPTION_CURRENCIES = ['BTC', 'ETH'] as const
+import type { OptionCurrency, OptionVenue } from './markets'
 
-/** 期权标的类型。 */
-export type OptionCurrency = (typeof OPTION_CURRENCIES)[number]
+export type { OptionCurrency, OptionMarket, OptionVenue } from './markets'
+export { OPTION_CURRENCIES, OPTION_MARKETS, optionMarketOf } from './markets'
 
 /** 期权方向。 */
 export type OptionType = 'call' | 'put'
@@ -20,6 +19,15 @@ export const OPTION_CHAIN_MAX_DTE_DAYS = 90
 
 /** 原始期权链按天分片的滚动保留天数。 */
 export const OPTION_CHAIN_RETENTION_DAYS = 90
+
+/** 分钟行的保留天数：一年，供研究与训练回看。 */
+export const OPTION_MINUTE_RETENTION_DAYS = 365
+
+/** 小时行的保留天数：与分钟行一致，避免同一段时间只有一种颗粒度。 */
+export const OPTION_HOURLY_RETENTION_DAYS = 365
+
+/** 日行的保留天数：十年，日级样本的体积可以忽略。 */
+export const OPTION_DAILY_RETENTION_DAYS = 3650
 
 /** Deribit 全链快照中的一张合约。字段来自 `get_book_summary_by_currency`，greeks 不存在，需本地自算。 */
 export interface OptionContract {
@@ -131,13 +139,16 @@ export interface OptionGammaFlip {
  * 一次期权链快照算出的聚合位。
  *
  * schemaVersion 1 的行只有扁平字段（callWall/putWall/maxPainUsd/gammaFlipUsd 等，
- * 全链口径、无 σ2、无 P/C 比）；版本 2 起改成 nearTerm + allChain 两块。
+ * 全链口径、无 σ2、无 P/C 比）；版本 2 起改成 nearTerm + allChain 两块；
+ * 版本 3 增加逐到期汇总（`expiries`）与 25Δ 偏斜。
  */
 export interface OptionAggregateSnapshot {
   /** 记录结构版本，消费方据此判断字段兼容性 */
-  readonly schemaVersion: 2
+  readonly schemaVersion: 3
   /** 标的 */
   readonly currency: OptionCurrency
+  /** 该行的数据场所：同一品种只登记一个主场所，读方据此说明来源 */
+  readonly venue: OptionVenue
   /** 本地采集时刻（毫秒） */
   readonly capturedAt: number
   /** 链的来源时刻：全部合约 `creation_timestamp` 的最大值 */
@@ -154,6 +165,96 @@ export interface OptionAggregateSnapshot {
   readonly allChain: OptionLevelSet
   /** 主图采用的翻转位 */
   readonly gammaFlip: OptionGammaFlip
+  /**
+   * 该行覆盖的分钟行数。小时行与日行是时段边界那一刻的快照，这里记时段内
+   * 实际有过几条分钟行，用来判断覆盖度；分钟行本身不写该字段。
+   */
+  readonly aggregatedRows?: number
+  /** 逐到期的汇总，按到期升序 */
+  readonly expiries: readonly OptionExpirySummary[]
+  /** 25Δ 风险逆转（波动点）；没有可用到期或缺翼时为 null */
+  readonly skew25dVolPoints: number | null
+  /** 25Δ 偏斜使用的到期日；不可用时为 null */
+  readonly skew25dExpiryIso: string | null
+  /** 偏斜不可用的原因；有值时恒为 null */
+  readonly skew25dReason: OptionSkewUnavailableReason | null
+}
+
+/** 一个到期上的汇总：期限结构与逐到期持仓。 */
+export interface OptionExpirySummary {
+  /** 到期日（UTC 日期） */
+  readonly expiryIso: string
+  /** 剩余天数 */
+  readonly dteDays: number
+  /** 该到期的平值 IV（百分数）；该到期期货价不可用时为 null */
+  readonly atmIvPercent: number | null
+  /** 认沽与认购未平仓量之比；call 持仓为 0 时为 null */
+  readonly putCallOiRatio: number | null
+  /** 该到期的总未平仓量（张） */
+  readonly totalOpenInterest: number
+}
+
+/** 25Δ 风险逆转不可用的原因。 */
+export type OptionSkewUnavailableReason =
+  | 'no-eligible-expiry'
+  | 'invalid-forward'
+  | 'missing-call-wing'
+  | 'missing-put-wing'
+  | 'missing-wings'
+
+/** 统计的样本来源层：优先日行，缺失时回退小时行。 */
+export type OptionStatsSource = 'daily' | 'hourly' | 'none'
+
+/** 一个窗口内的波动分位统计。 */
+export interface OptionWindowStats {
+  /** 窗口天数（UTC 日历天） */
+  readonly windowDays: number
+  /** 窗口内真实存在的样本天数；不补齐缺失日 */
+  readonly sampleDays: number
+  /** 窗口天数，等于要满窗需要的样本天数 */
+  readonly expectedDays: number
+  /** 窗口内最新一个平值 IV 样本（百分数） */
+  readonly ivLatest: number | null
+  /** 窗口内最高平值 IV */
+  readonly ivHigh: number | null
+  /** 窗口内最低平值 IV */
+  readonly ivLow: number | null
+  /** IV Rank：`(最新 − 最低) / (最高 − 最低) × 100`；样本不足或高低相同为 null */
+  readonly ivRank: number | null
+  /** IV Percentile：窗口内严格低于最新值的样本占比；样本不足为 null */
+  readonly ivPercentile: number | null
+}
+
+/** 期限结构上的一个到期点。 */
+export interface OptionTermPoint {
+  /** 到期日（UTC 日期） */
+  readonly expiryIso: string
+  /** 剩余天数 */
+  readonly dteDays: number
+  /** 该到期的平值 IV，百分数 */
+  readonly atmIvPercent: number
+}
+
+/** 一次波动统计的结果。 */
+export interface OptionVolatilityStats {
+  /** 样本来源层 */
+  readonly source: OptionStatsSource
+  /** 最新样本是否已过期（日行 26 小时、小时行 3 小时） */
+  readonly stale: boolean
+  /** 最新样本的采集时刻；没有样本时为 null */
+  readonly latestCapturedAt: number | null
+  /** 20 日年化已实现波动率（百分数）；收盘样本不足 21 个为 null */
+  readonly rv20: number | null
+  /** 方差风险溢价：最新平值 IV − rv20，百分点 */
+  readonly vrp: number | null
+  /** 期限结构；最新样本行没有逐到期 IV 时为 null */
+  readonly termStructure: readonly OptionTermPoint[] | null
+  /** 25Δ 风险逆转（波动点）；没有 7–90 天的到期或缺翼时为 null */
+  readonly skew25dVolPoints: number | null
+  /** 25Δ 偏斜使用的到期日；不可用时为 null */
+  readonly skew25dExpiryIso: string | null
+  /** 各请求窗口的统计，顺序与请求一致 */
+  readonly windows: readonly OptionWindowStats[]
 }
 
 /** 原始期权链的一行（层 3），用于按天积累历史。 */
@@ -182,8 +283,8 @@ export interface OptionChainRecord {
   readonly underlyingPrice: number
 }
 
-/** 期权链拉取结果。 */
-export interface DeribitOptionChain {
+/** 一次全链拉取的结果。 */
+export interface OptionChainSnapshot {
   /** 合约列表（未过滤，保持数据源原样） */
   readonly contracts: readonly OptionContract[]
   /** 请求耗时（毫秒） */
@@ -191,30 +292,33 @@ export interface DeribitOptionChain {
 }
 
 /** 现货指数拉取结果。 */
-export interface DeribitIndexPrice {
+export interface SpotIndexSnapshot {
   /** 指数价 */
   readonly indexPrice: number
-  /** 估算交割价 */
-  readonly estimatedDeliveryPrice: number
   /** 请求耗时（毫秒） */
   readonly elapsedMs: number
 }
 
-/** Deribit 客户端契约。 */
-export interface DeribitClient {
+/**
+ * 一个场所的期权数据源。
+ *
+ * 输入统一的标的代码，输出统一的合约结构：聚合、滚上、保留期与面板都不关心场所差异，
+ * 场所差异只存在于各适配器的解析里（Deribit 反向合约、Binance 的字符串数字与指数近似）。
+ */
+export interface OptionVenueSource {
   /**
    * 拉取某标的的全部期权合约。
    *
-   * @param currency 标的
+   * @param currency 统一标的代码
    * @returns 合约列表与耗时
    */
-  readonly getOptionChain: (currency: OptionCurrency) => Promise<DeribitOptionChain>
+  readonly getOptionChain: (currency: OptionCurrency) => Promise<OptionChainSnapshot>
 
   /**
    * 拉取某标的的现货指数。
    *
-   * @param currency 标的
-   * @returns 指数价与估算交割价
+   * @param currency 统一标的代码
+   * @returns 指数价与耗时
    */
-  readonly getIndexPrice: (currency: OptionCurrency) => Promise<DeribitIndexPrice>
+  readonly getIndexPrice: (currency: OptionCurrency) => Promise<SpotIndexSnapshot>
 }

@@ -8,6 +8,9 @@ describe('品种到期权标的映射', () => {
     ['BTCUSDT.P', 'BTC'],
     [' btcusdt.p ', 'BTC'],
     ['ETHUSDT', 'ETH'],
+    ['SOLUSDT.P', 'SOL'],
+    ['BNBUSDT', 'BNB'],
+    ['XRPUSDT', 'XRP'],
     ['XAUUSD', 'XAUUSD'],
   ])('%s → %s', (symbol, expected) => {
     expect(resolveOptionUnderlying(symbol)).toBe(expected)

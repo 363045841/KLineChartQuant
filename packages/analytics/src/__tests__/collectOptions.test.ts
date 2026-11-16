@@ -3,7 +3,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { collectOptionCurrencies } from '../options/impl/collect'
-import type { DeribitClient, OptionChainRecord } from '../options/types'
+import type { OptionChainRecord, OptionVenueSource } from '../options/types'
 import { createDayShardStore } from '../storage/impl/dayShardStore'
 import { createTempDir, makeContract, removeTempDir } from './testUtils'
 
@@ -19,15 +19,14 @@ const CONTRACTS = [
   makeContract({ strike: 110, optionType: 'call', openInterest: 10, expiryMs: EXPIRY }),
 ]
 
-/** 替身客户端：不触网，返回固定链与固定指数价。 */
-const FAKE_CLIENT: DeribitClient = {
+/** 替身数据源：不触网，返回固定链与固定指数价。 */
+const FAKE_SOURCE: OptionVenueSource = {
   getOptionChain: async () => ({ contracts: CONTRACTS, elapsedMs: 3 }),
-  getIndexPrice: async () => ({
-    indexPrice: 100,
-    estimatedDeliveryPrice: 100,
-    elapsedMs: 2,
-  }),
+  getIndexPrice: async () => ({ indexPrice: 100, elapsedMs: 2 }),
 }
+
+/** 两个场所都指到同一份替身，路由差异不是本文件的测试目标。 */
+const FAKE_SOURCES = { deribit: FAKE_SOURCE, binance: FAKE_SOURCE }
 
 describe('collectOptionCurrencies', () => {
   const dirs: string[] = []
@@ -44,7 +43,7 @@ describe('collectOptionCurrencies', () => {
     const store = createDayShardStore(dir)
 
     const results = await collectOptionCurrencies({
-      client: FAKE_CLIENT,
+      sources: FAKE_SOURCES,
       store,
       currencies: ['BTC'],
       persistChain: true,
@@ -74,7 +73,7 @@ describe('collectOptionCurrencies', () => {
     dirs.push(dir)
     const store = createDayShardStore(dir)
     const request = {
-      client: FAKE_CLIENT,
+      sources: FAKE_SOURCES,
       store,
       currencies: ['BTC'] as const,
       persistChain: true,

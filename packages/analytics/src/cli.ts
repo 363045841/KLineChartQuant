@@ -3,7 +3,8 @@
  * 分析数据采集器命令行。
  *
  * 子命令：
- * - `collect-options`：拉 Deribit BTC/ETH 期权链 → 算聚合位 → 落盘 → 读回校验
+ * - `collect-options`：拉 Deribit BTC/ETH 期权链 → 算聚合位 → 落盘 → 读回校验 → 滚上
+ * - `backfill-options`：从已落盘的分钟分片补齐小时行与日行（幂等，可反复跑）
  * - `collect-volume`：拉 Binance K 线买卖量 → 守恒断言 → 落盘 → 读回校验
  * - `migrate-cloudtrade`：把 cloudtrade 历史导入 `legacy/` 子树
  *
@@ -16,14 +17,12 @@ import { ANALYTICS_ERROR_CODES, AnalyticsError, toError } from './errors'
 import { migrateCloudtradeData } from './migration/impl/migrate'
 import { createNodeHttpsClient } from './net/impl/nodeHttpsClient'
 import type { ProxyEndpoint } from './net/types'
-import {
-  type CollectedOptionCurrency,
-  collectOptionCurrencies,
-  OPTION_AGGREGATE_STREAM_PREFIX,
-  OPTION_CHAIN_STREAM_PREFIX,
-} from './options/impl/collect'
+import { createBinanceOptionsClient } from './options/impl/binance'
+import { type CollectedOptionCurrency, collectOptionCurrencies } from './options/impl/collect'
 import { createDeribitClient } from './options/impl/deribit'
 import { pruneLegacyOptionsLevels } from './options/impl/legacyPrune'
+import { purgeOptionStreams, retentionCutoffDay } from './options/impl/retention'
+import { rollupOptionDays } from './options/impl/rollup'
 import {
   OPTION_CHAIN_RETENTION_DAYS,
   OPTION_CURRENCIES,
@@ -404,7 +403,7 @@ function printOptionSummary(result: CollectedOptionCurrency): void {
   const flipNote = snapshot.gammaFlip.source === 'all-chain' ? '（全链兜底）' : '（近月）'
 
   console.log(
-    `[${snapshot.currency}] 合约 ${formatNumber(snapshot.chainContractCount, 0)} 张 → 过滤 ${formatNumber(snapshot.filteredContractCount, 0)} 张 | 拉链 ${result.chainElapsedMs}ms | 指数 ${result.indexElapsedMs}ms | 现货 ${formatNumber(snapshot.spotIndex, 2)}`,
+    `[${snapshot.currency}/${snapshot.venue}] 合约 ${formatNumber(snapshot.chainContractCount, 0)} 张 → 过滤 ${formatNumber(snapshot.filteredContractCount, 0)} 张 | 拉链 ${result.chainElapsedMs}ms | 指数 ${result.indexElapsedMs}ms | 现货 ${formatNumber(snapshot.spotIndex, 2)}`,
   )
   console.log(
     `      翻转位 ${flip}${flipNote} | 近月 ${near.expiryIso} DTE ${formatNumber(near.dteDays, 2)} 天 ATM IV ${formatNumber(near.atmIvPercent, 2)}%`,
@@ -461,6 +460,28 @@ async function runOnceOrRepeat(
 }
 
 /**
+ * 校验并转换期权标的列表。
+ *
+ * @param names 命令行传入的标的
+ * @returns 标的列表
+ * @throws AnalyticsError 存在不支持的标的
+ */
+function parseOptionCurrencies(names: readonly string[]): OptionCurrency[] {
+  return names.map((currency) => {
+    for (const candidate of OPTION_CURRENCIES) {
+      if (candidate === currency) {
+        return candidate
+      }
+    }
+    throw new AnalyticsError(
+      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+      `不支持的期权标的：${currency}`,
+      { currency, supported: OPTION_CURRENCIES },
+    )
+  })
+}
+
+/**
  * 执行期权采集子命令。
  *
  * @param parsed 已解析参数
@@ -478,25 +499,18 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
   if (proxy === null) {
     throw new AnalyticsError(
       ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
-      'Deribit 采集必须通过代理：本机直连会超时后 ECONNRESET，请用 --proxy host:port 指定',
+      '期权采集必须通过代理：Deribit 与 Binance 在本机都会被拦，请用 --proxy host:port 指定',
     )
   }
 
-  const parsedCurrencies: OptionCurrency[] = currencies.map((currency) => {
-    for (const candidate of OPTION_CURRENCIES) {
-      if (candidate === currency) {
-        return candidate
-      }
-    }
-    throw new AnalyticsError(
-      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
-      `不支持的期权标的：${currency}`,
-      { currency, supported: OPTION_CURRENCIES },
-    )
-  })
+  const parsedCurrencies = parseOptionCurrencies(currencies)
 
   const store = createDayShardStore(rootDir)
-  const client = createDeribitClient({ httpClient: createNodeHttpsClient(), proxy })
+  const httpClient = createNodeHttpsClient()
+  const sources = {
+    deribit: createDeribitClient({ httpClient, proxy }),
+    binance: createBinanceOptionsClient({ httpClient, proxy }),
+  }
 
   console.log(`数据目录 ${rootDir}`)
   console.log(`代理 ${proxy.host}:${proxy.port}`)
@@ -504,7 +518,7 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
   const run = async (): Promise<void> => {
     const startedAt = Date.now()
     const results = await collectOptionCurrencies({
-      client,
+      sources,
       store,
       currencies: parsedCurrencies,
       persistChain,
@@ -512,6 +526,12 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
     })
     for (const result of results) {
       printOptionSummary(result)
+    }
+    for (const currency of parsedCurrencies) {
+      const rolled = rollupOptionDays({ store, currency, now: () => Date.now() })
+      if (rolled.hourRows > 0 || rolled.dayRows > 0) {
+        console.log(`[${currency}] 滚上 小时行 +${rolled.hourRows} | 日行 +${rolled.dayRows}`)
+      }
     }
     pruneOptionStreams(store, parsedCurrencies, rootDir, startedAt)
     console.log(`本次耗时 ${Date.now() - startedAt}ms`)
@@ -521,10 +541,50 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
 }
 
 /**
+ * 执行期权滚上回填子命令。
+ *
+ * 只读分钟分片、写小时行与日行，可重复执行；`--from` 用于指定起点，
+ * 省略时自动挑「缺日行的历史分片 + 最近两天」。
+ *
+ * @param parsed 已解析参数
+ */
+async function runBackfillOptions(parsed: ParsedArguments): Promise<void> {
+  const rootDir = readRootDir(parsed)
+  const parsedCurrencies = parseOptionCurrencies(
+    readListFlag(parsed, 'currencies', OPTION_CURRENCIES),
+  )
+  const fromDay = readOptionalStringFlag(parsed, 'from')
+  if (fromDay !== null && !/^\d{4}-\d{2}-\d{2}$/.test(fromDay)) {
+    throw new AnalyticsError(
+      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+      `--from 需为 YYYY-MM-DD：${fromDay}`,
+    )
+  }
+
+  const store = createDayShardStore(rootDir)
+  console.log(`数据目录 ${rootDir}`)
+
+  for (const currency of parsedCurrencies) {
+    const startedAt = Date.now()
+    const result = rollupOptionDays({
+      store,
+      currency,
+      now: () => Date.now(),
+      fromDay: fromDay ?? undefined,
+    })
+    const first = result.days[0] ?? '—'
+    const last = result.days[result.days.length - 1] ?? '—'
+    console.log(
+      `[${currency}] 分钟分片 ${result.days.length} 个（${first} → ${last}）| 小时行 +${result.hourRows}（跳过 ${result.skippedHourRows}）| 日行 +${result.dayRows}（跳过 ${result.skippedDayRows}）| ${Date.now() - startedAt}ms`,
+    )
+  }
+}
+
+/**
  * 清理超过保留期的期权分片与旧版关键位文件。
  *
- * 三类一起清：原始链、聚合位、cloudtrade 时代留下的 `legacy/options-levels`。
- * 保留期统一取 `OPTION_CHAIN_RETENTION_DAYS`。
+ * 各层保留期不同（见 `options/types.ts` 的保留常量），由 retention 模块统一处理；
+ * cloudtrade 时代留下的 `legacy/options-levels` 单独清理。
  *
  * @param store 存储
  * @param currencies 标的列表
@@ -537,21 +597,17 @@ function pruneOptionStreams(
   rootDir: string,
   nowMs: number,
 ): void {
-  const beforeDay = cutoffDay(nowMs, OPTION_CHAIN_RETENTION_DAYS)
-  for (const currency of currencies) {
-    for (const stream of [
-      `${OPTION_CHAIN_STREAM_PREFIX}/${currency}`,
-      `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`,
-    ]) {
-      const removed = store.purgeBefore({ stream, beforeDay })
-      if (removed.length > 0) {
-        console.log(`[${stream}] 清理过期分片 ${removed.length} 个（早于 ${beforeDay}）`)
-      }
-    }
-  }
-  for (const result of pruneLegacyOptionsLevels(rootDir, beforeDay)) {
+  for (const result of purgeOptionStreams({ store, currencies, now: () => nowMs })) {
+    if (result.days.length === 0) continue
+    const beforeDay = retentionCutoffDay(nowMs, result.retentionDays)
     console.log(
-      `[legacy/options-levels/${result.symbol}] 清理 ${result.removed.length} 个（早于 ${beforeDay}）`,
+      `[${result.stream}] 清理过期分片 ${result.days.length} 个（早于 ${beforeDay}，保留 ${result.retentionDays} 天）`,
+    )
+  }
+  const legacyBeforeDay = cutoffDay(nowMs, OPTION_CHAIN_RETENTION_DAYS)
+  for (const result of pruneLegacyOptionsLevels(rootDir, legacyBeforeDay)) {
+    console.log(
+      `[legacy/options-levels/${result.symbol}] 清理 ${result.removed.length} 个（早于 ${legacyBeforeDay}）`,
     )
   }
 }
@@ -709,6 +765,8 @@ async function runServe(parsed: ParsedArguments): Promise<void> {
   console.log('  GET /health')
   console.log('  GET /orderflow/days?stream=orderflow/depth/binance/BTCUSDT')
   console.log('  GET /orderflow/records?stream=...&day=YYYY-MM-DD')
+  console.log('  GET /options/series?currency=BTC&step=minute|hour|day&days=30&limit=500')
+  console.log('  GET /options/stats?currency=BTC&windows=30,90,365')
   console.log('按 Ctrl+C 结束')
 
   await new Promise<void>((resolve) => {
@@ -845,6 +903,11 @@ function printHelp(): void {
       --with-chain                 同时落原始期权链
       --repeat-seconds <n>         每 n 秒重复一次，Ctrl+C 退出
 
+  backfill-options     从分钟分片补齐小时行与日行（可重复执行）
+      --root <dir>                 数据目录
+      --currencies BTC,ETH         标的列表（默认 BTC,ETH）
+      --from <YYYY-MM-DD>          只处理该日及之后；省略时挑缺日行的历史 + 最近两天
+
   collect-volume       拉 Binance K 线买卖量
       --root <dir>                 数据目录
       --symbols BTCUSDT,ETHUSDT    交易对列表
@@ -904,6 +967,9 @@ async function main(): Promise<void> {
   switch (parsed.command) {
     case 'collect-options':
       await runCollectOptions(parsed)
+      return
+    case 'backfill-options':
+      await runBackfillOptions(parsed)
       return
     case 'collect-volume':
       await runCollectVolume(parsed)

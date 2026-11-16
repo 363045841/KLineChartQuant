@@ -46,13 +46,17 @@ export {
   type AggregateOptionChainInput,
   aggregateOptionChain,
 } from './options/impl/aggregate'
+export {
+  BINANCE_OPTIONS_API_BASE,
+  type BinanceOptionsClientOptions,
+  createBinanceOptionsClient,
+  DEFAULT_BINANCE_OPTIONS_TIMEOUT_MS,
+} from './options/impl/binance'
 export { type Black76GammaInput, black76Gamma, standardNormalDensity } from './options/impl/black76'
 export {
   type CollectedOptionCurrency,
   type CollectOptionsRequest,
   collectOptionCurrencies,
-  OPTION_AGGREGATE_STREAM_PREFIX,
-  OPTION_CHAIN_STREAM_PREFIX,
 } from './options/impl/collect'
 export {
   createDeribitClient,
@@ -67,21 +71,67 @@ export {
   pruneLegacyOptionsLevels,
 } from './options/impl/legacyPrune'
 export {
-  type DeribitClient,
-  type DeribitIndexPrice,
-  type DeribitOptionChain,
+  type OptionPurgeRequest,
+  type OptionPurgeResult,
+  purgeOptionStreams,
+  retentionCutoffDay,
+} from './options/impl/retention'
+export {
+  buildDayRows,
+  buildHourRows,
+  type OptionRollupRequest,
+  type OptionRollupResult,
+  rollupCandidateDays,
+  rollupOptionDays,
+} from './options/impl/rollup'
+export {
+  computeOptionStats,
+  ivPercentileOf,
+  ivRankOf,
+  OPTION_RV_WINDOW,
+  OPTION_STATS_DEFAULT_WINDOWS,
+  OPTION_STATS_MIN_SAMPLE_DAYS,
+  type OptionStatSample,
+  type OptionStatsRequest,
+  realizedVolatilityOf,
+} from './options/impl/stats'
+export {
+  OPTION_AGGREGATE_STREAM_PREFIX,
+  OPTION_CHAIN_STREAM_PREFIX,
+  OPTION_STEP_LAYERS,
+  type OptionLayer,
+  optionChainStream,
+  optionLayerStream,
+} from './options/impl/streams'
+export {
+  OPTION_MARKETS,
+  type OptionMarket,
+  type OptionVenue,
+  optionMarketOf,
+} from './options/markets'
+export {
   OPTION_CHAIN_MAX_DTE_DAYS,
   OPTION_CHAIN_RETENTION_DAYS,
   OPTION_CURRENCIES,
+  OPTION_DAILY_RETENTION_DAYS,
+  OPTION_HOURLY_RETENTION_DAYS,
+  OPTION_MINUTE_RETENTION_DAYS,
   type OptionAggregateSnapshot,
   type OptionChainRecord,
+  type OptionChainSnapshot,
   type OptionContract,
   type OptionCurrency,
   type OptionGammaFlip,
   type OptionLevelSet,
   type OptionNearTermLevels,
+  type OptionStatsSource,
   type OptionStrikeExposure,
+  type OptionTermPoint,
   type OptionType,
+  type OptionVenueSource,
+  type OptionVolatilityStats,
+  type OptionWindowStats,
+  type SpotIndexSnapshot,
 } from './options/types'
 export {
   type CollectedOrderflow,

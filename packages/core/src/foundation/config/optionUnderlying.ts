@@ -16,6 +16,12 @@ const OPTION_UNDERLYING_BY_SYMBOL: ReadonlyMap<string, string> = new Map([
   ['BTCUSDT', 'BTC'],
   /** 币安 ETH 永续 / 现货 → Deribit ETH 期权 */
   ['ETHUSDT', 'ETH'],
+  /** 币安 SOL 永续 / 现货 → Binance SOL 期权 */
+  ['SOLUSDT', 'SOL'],
+  /** 币安 BNB 永续 / 现货 → Binance BNB 期权 */
+  ['BNBUSDT', 'BNB'],
+  /** 币安 XRP 永续 / 现货 → Binance XRP 期权 */
+  ['XRPUSDT', 'XRP'],
   /** 黄金：目前没有原生期权源；接入 GLD ETF 代理后把右侧改成 GLD，脚本不用动。 */
   ['XAUUSD', 'XAUUSD'],
 ])

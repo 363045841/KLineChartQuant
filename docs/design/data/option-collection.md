@@ -13,7 +13,7 @@
 ## 链路
 
 ```text
-NAS 采集器（Node，60 秒一轮）
+NAS 采集器（Node，60 秒一轮；BTC/ETH 走 Deribit，SOL/BNB/XRP 走 Binance）
   → K:\analytics\options\aggregate\<标的>\<日期>.jsonl.gz
   → analytics serve（GET /options/levels）
   → KCQ 脚本接口（待做）
@@ -22,7 +22,29 @@ NAS 采集器（Node，60 秒一轮）
 
 采集器代码在仓库 `deploy/nas-collector/`，计算在 `packages/analytics/src/options/`。
 
-## 快照字段（schemaVersion 2）
+## 品种与场所
+
+一个品种只登记一个主场所，注册表在 `packages/analytics/src/options/markets.ts`（新增品种只改那里一处）：
+
+| 标的 | 场所 | 场内写法 | 可采到期 |
+| --- | --- | --- | --- |
+| BTC | Deribit | `BTC` | 8 个（最远 90 天） |
+| ETH | Deribit | `ETH` | 8 个（最远 90 天） |
+| SOL | Binance | `SOLUSDT` | 4 个（最远 10.6 天） |
+| BNB | Binance | `BNBUSDT` | 5 个（最远 10.6 天） |
+| XRP | Binance | `XRPUSDT` | 2 个（最远 10.6 天；1 张 = 100 XRP） |
+
+ADA 等品种没有任何期权场所，不登记：面板按「没有期权标的」提示，不猜、不沿用上一个品种。数据目录用统一标的代码（`options/aggregate/SOL/`），场所随行落盘（`venue` 字段）。
+
+两个场所的差异都收在适配器里：
+
+- Deribit 用每个到期自己的期货价当远期价格，反向合约、标记价以币计价。
+- Binance 没有每个到期的期货价，**用现货指数价近似远期价格**（短期限误差小，期限越长越明显）；
+  数字多以字符串返回；持仓量按张数返回，乘 `exchangeInfo.unit` 折成标的数量，与 Deribit 口径对齐。
+- alt 期权只有 10 天内的到期，所以期限结构只有 2–4 个点；25Δ 偏斜按「7–90 天里最接近 30 天」的规则会落到 10.5 天，报告里必须带上实际到期日。
+- 持仓规模比 BTC/ETH 小两到三个数量级：按名义价值实测 SOL 约 230 万美元、BNB 约 300 万美元、XRP 约 2100 万美元，BTC/ETH 是十亿美元级。XRP 的 `unit` 是 100（1 张 = 100 XRP），持仓已按 `unit` 折成标的数量，所以墙位与 GEX 仍可与 BTC/ETH 同口径比较——但只能当薄数据参考，不能当 BTC 那种量级的锚点。
+
+## 快照字段（schemaVersion 3）
 
 一份快照同时给两套视图：
 
@@ -58,25 +80,70 @@ NAS 采集器（Node，60 秒一轮）
 
 墙位在该视图没有对应方向持仓时为 `null`，不用另一套视图的数据顶替。
 
+### 逐到期汇总与 25Δ 偏斜（schema 3）
+
+版本 3 起每行带 `expiries[]`，按到期升序：
+
+| 字段 | 含义 |
+| --- | --- |
+| `expiryIso` / `dteDays` | 到期日与剩余天数 |
+| `atmIvPercent` | 该到期的平值 IV：取行权价最接近该到期期货价的合约，call 与 put 取平均 |
+| `putCallOiRatio` | 该到期的 put OI ÷ call OI；call 持仓为 0 时为 null |
+| `totalOpenInterest` | 该到期的总持仓 |
+
+行级另有三个 25Δ 偏斜字段：`skew25dVolPoints`、`skew25dExpiryIso`、`skew25dReason`。口径：
+
+- 目标期限 30 天，在 `7 <= DTE <= 90` 的到期里取最接近的那一个（Deribit BTC 实测 8 个到期，选中 38.8 天的月度）。
+- delta 用 Black-76 远期口径（r = 0）：call 为 N(d1)、put 为 N(d1) − 1。
+- 两翼按 |delta| 在相邻行权价之间线性插值到 0.25，不取最近行权价：实测最近点可偏离 0.25 达 7–12%。
+- 结果 = IV(25Δ call) − IV(25Δ put)，单位波动点；负值表示下行保护更贵。
+- 不可用时 `skew25dReason` 写明原因：`no-eligible-expiry`（没有 7 天以上到期）、`missing-call-wing` / `missing-put-wing` / `missing-wings`（链没伸到 25Δ）、`invalid-forward`。
+
+不用近月：近月到期每天滚动（DTE 0.2–14 天），偏斜随期限变化（实测同期 0.83 天为 −6.89、38.83 天为 −5.07 个波动点），混着期限的数字无法跨日比较。
+
 ### 与 schemaVersion 1 的差异
 
-版本 1 只有扁平字段（`callWall`、`putWall`、`maxPainUsd`、`gammaFlipUsd` 等，全链口径），没有 `nearTerm`、P/C 比与 ±2σ。版本 2 改成两块视图，消费方按 `schemaVersion` 判断。
+版本 1 只有扁平字段（`callWall`、`putWall`、`maxPainUsd`、`gammaFlipUsd` 等，全链口径），没有 `nearTerm`、P/C 比与 ±2σ。版本 2 改成两块视图；版本 3 增加 `expiries[]` 与 25Δ 偏斜。消费方按 `schemaVersion` 判断。
 
-## 保留期
+## 保留期与分层
 
-`OPTION_CHAIN_RETENTION_DAYS = 90`，每次采集后清理三条流与旧目录：
+四类分片各自一段保留期，都在 `packages/analytics/src/options/types.ts` 里具名：
 
-- `options/chain/<标的>`
-- `options/aggregate/<标的>`
-- `legacy/options-levels/<品种>`（cloudtrade 时代的数据，只删 `YYYY-MM-DD.jsonl.gz`）
+- 分钟行：`options/aggregate/<标的>/YYYY-MM-DD.jsonl.gz`，365 天（`OPTION_MINUTE_RETENTION_DAYS`）
+- 小时行：`options/aggregate/<标的>/hourly/YYYY-MM-DD.jsonl.gz`，365 天（`OPTION_HOURLY_RETENTION_DAYS`）
+- 日行：`options/aggregate/<标的>/daily/YYYY-MM-DD.jsonl.gz`，3650 天（`OPTION_DAILY_RETENTION_DAYS`）
+- 原始链：`options/chain/<标的>/`，90 天（`OPTION_CHAIN_RETENTION_DAYS`）
 
-清理函数在 `packages/analytics/src/options/impl/legacyPrune.ts` 与 `cli.ts` 的 `pruneOptionStreams`。
+分钟层就是聚合流的根目录，没有 `minute/` 子目录：采集器一直在写这个路径，加一层要迁移历史文件，而目录层级不承载任何计算口径。层与路径的对应只在 `options/impl/streams.ts` 定义一次。
+
+小时行与日行是**边界那一刻的分钟行原样快照**（`aggregatedRows` 记时段内实际分钟行数），不做均值——IV 是瞬时报价，均值没有金融含义。
+
+滚上由 `options/impl/rollup.ts` 完成：只处理已结束的时段、去重键取时段起点，幂等；`collect-options` 每轮调用，断线期间漏掉的时段自动补上。也可以单独补历史：
+
+```bash
+cd packages/analytics
+./node_modules/.bin/tsx src/cli.ts backfill-options --root K:/analytics --currencies BTC,ETH --from 2026-11-10
+```
+
+清理走 `options/impl/retention.ts` 的 `purgeOptionStreams`（按层保留期），`legacyPrune.ts` 只清理 cloudtrade 时代的 `legacy/options-levels/`。
 
 ## 只读接口
 
 `GET /options/levels?currency=BTC[&day=YYYY-MM-DD]`
 
-返回 `{ currency, day, days, latest }`：`days` 是可用日期，`latest` 是当日最后一行。服务沿用 `analytics serve`，默认端口 8093，只绑 127.0.0.1。
+返回 `{ currency, day, days, latest }`：`days` 是可用日期，`latest` 是当日最后一行。
+
+`GET /options/series?currency=BTC[&step=minute|hour|day][&days=N][&limit=M]`
+
+返回 `{ currency, step, days, rows, rowCount, truncated }`。`days` 是实际读取的日分片；`limit` 上限 20000，超出时只返回最后 `limit` 行并标 `truncated`。缺参数或取值非法返回 400，没有数据返回 200 与空 `rows`。
+
+`GET /options/stats?currency=BTC[&windows=30,90,365]`
+
+返回 `{ currency, source, stale, latestCapturedAt, rv20, vrp, termStructure, skew25dVolPoints, skew25dExpiryIso, windows }`。每个窗口给 `windowDays`、`expectedDays`、`sampleDays`、`ivLatest`、`ivHigh`、`ivLow`、`ivRank`、`ivPercentile`。只读日行（缺失回退小时行），**不读分钟行**；样本天数不足 5 天时两个分位返回 null。
+
+`termStructure` 与 `skew25dVolPoints` 取**参与统计的最新样本行**：该行是 schema 3 时带上逐到期 ATM IV 与偏斜，schema 2 及更早时为 null。因此这两个字段是收盘口径（可能滞后到 24 小时），面板上的实时 ATM IV 仍来自分钟行。
+
+服务沿用 `analytics serve`，默认端口 8093，只绑 127.0.0.1。统计口径与读法见 `docs/design/analytics/options-reading-guide.md`。
 
 ## ETF 代理品种（待做）
 

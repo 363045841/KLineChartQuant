@@ -8,7 +8,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect } from 'vitest'
 import { AnalyticsError, type AnalyticsErrorCode } from '../errors'
-import type { OptionContract, OptionCurrency, OptionType } from '../options/types'
+import type {
+  OptionAggregateSnapshot,
+  OptionContract,
+  OptionCurrency,
+  OptionExpirySummary,
+  OptionLevelSet,
+  OptionSkewUnavailableReason,
+  OptionType,
+  OptionVenue,
+} from '../options/types'
 
 /**
  * 断言调用抛出指定错误码的 AnalyticsError。
@@ -93,4 +102,85 @@ export function createTempDir(prefix = 'kcq-analytics-'): string {
  */
 export function removeTempDir(path: string): void {
   rmSync(path, { recursive: true, force: true })
+}
+
+/** 快照行构造参数：只给差异项。 */
+export interface SnapshotParams {
+  /** 采集时刻（毫秒） */
+  readonly capturedAt: number
+  /** 现货指数，默认 100 */
+  readonly spotIndex?: number
+  /** 近月平值 IV 百分数，默认 50 */
+  readonly atmIvPercent?: number
+  /** 标的，默认 BTC */
+  readonly currency?: OptionCurrency
+  /** 数据场所，默认 deribit（与 BTC/ETH 的场所一致） */
+  readonly venue?: OptionVenue
+  /** 逐到期汇总，默认空数组 */
+  readonly expiries?: readonly OptionExpirySummary[]
+  /** 25Δ 风险逆转；默认 null */
+  readonly skew25dVolPoints?: number | null
+  /** 偏斜使用的到期日；默认 null */
+  readonly skew25dExpiryIso?: string | null
+  /** 偏斜不可用原因；默认 null（与「没有偏斜值」一致时由用例显式给） */
+  readonly skew25dReason?: OptionSkewUnavailableReason | null
+}
+
+/**
+ * 构造一套空的关键位；用例只关心波动字段时用它兜底。
+ *
+ * @returns 关键位
+ */
+function emptyLevelSet(): OptionLevelSet {
+  return {
+    gammaFlipUsd: null,
+    callWall: null,
+    putWall: null,
+    callGammaWall: null,
+    putGammaWall: null,
+    maxPainUsd: 0,
+    netGexUsdPerPercent: 0,
+    putCallOiRatio: null,
+    totalOpenInterest: 0,
+    contractCount: 0,
+  }
+}
+
+/**
+ * 构造一行期权聚合位快照。
+ *
+ * @param params 差异项
+ * @returns 快照行
+ */
+export function makeSnapshotRow(params: SnapshotParams): OptionAggregateSnapshot {
+  const spot = params.spotIndex ?? 100
+  const atmIv = params.atmIvPercent ?? 50
+  return {
+    schemaVersion: 3,
+    currency: params.currency ?? 'BTC',
+    venue: params.venue ?? 'deribit',
+    capturedAt: params.capturedAt,
+    sourceTimestamp: params.capturedAt,
+    spotIndex: spot,
+    chainContractCount: 0,
+    filteredContractCount: 0,
+    nearTerm: {
+      ...emptyLevelSet(),
+      expiryIso: '2026-11-20',
+      dteDays: 4,
+      atmIvPercent: atmIv,
+      expectedMoveOneSigmaUsd: 1,
+      expectedMoveTwoSigmaUsd: 2,
+      sigmaLowerUsd: spot - 1,
+      sigmaUpperUsd: spot + 1,
+      sigma2LowerUsd: spot - 2,
+      sigma2UpperUsd: spot + 2,
+    },
+    allChain: emptyLevelSet(),
+    gammaFlip: { gammaFlipUsd: null, source: 'all-chain' },
+    expiries: params.expiries ?? [],
+    skew25dVolPoints: params.skew25dVolPoints ?? null,
+    skew25dExpiryIso: params.skew25dExpiryIso ?? null,
+    skew25dReason: params.skew25dReason ?? null,
+  }
 }

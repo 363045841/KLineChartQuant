@@ -47,7 +47,7 @@ node deploy/nas-collector/build.mjs
 | `KCQ_OPTION_INTERVAL` | 否 | `60` | 期权每轮间隔（秒） |
 | `KCQ_VOLUME_INTERVAL` | 否 | `300` | 成交量每轮间隔（秒） |
 | `KCQ_SYMBOLS` | 否 | `BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT` | Binance 成交量品种 |
-| `KCQ_CURRENCIES` | 否 | `BTC,ETH` | Deribit 期权标的；只有 BTC/ETH 有数据 |
+| `KCQ_CURRENCIES` | 否 | `BTC,ETH` | 期权标的；BTC/ETH 走 Deribit，SOL/BNB/XRP 走 Binance（需在 `.env` 显式加上才会采） |
 | `KCQ_NODE_BIN` | 否 | `node` | Node 可执行文件；找不到时填绝对路径 |
 | `KCQ_BUNDLE` | 否 | 脚本同级 `dist/collector.mjs` | 采集器产物路径 |
 

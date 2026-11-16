@@ -13,18 +13,23 @@
  *   超过 10%，都视为本轮没有有效翻转（深虚位的偶然过零没有经济意义）。
  * - Call/Put 墙取该方向未平仓量最大的行权价；并列时取较小行权价。
  * - 最大痛点取「到期赔付总额最小」的行权价；并列时取最接近现货的。
+ * - 逐到期汇总与 25Δ 偏斜（schema 3）：偏斜取 7–90 天里最接近 30 天的到期，
+ *   两翼按 |delta| 在相邻行权价之间线性插值，不用最近行权价顶替。
  */
 import { ANALYTICS_ERROR_CODES, AnalyticsError } from '../../errors'
+import type { OptionVenue } from '../markets'
 import type {
   OptionAggregateSnapshot,
   OptionContract,
   OptionCurrency,
-  OptionLevelSet,
-  OptionStrikeExposure,
+  OptionExpirySummary,
   OptionGammaWall,
+  OptionLevelSet,
+  OptionSkewUnavailableReason,
+  OptionStrikeExposure,
 } from '../types'
 import { OPTION_CHAIN_MAX_DTE_DAYS } from '../types'
-import { black76Gamma } from './black76'
+import { black76Delta, black76Gamma } from './black76'
 
 /** 一天的毫秒数。 */
 const MS_PER_DAY = 86_400_000
@@ -58,6 +63,8 @@ interface StrikeBucket {
 export interface AggregateOptionChainInput {
   /** 标的 */
   readonly currency: OptionCurrency
+  /** 数据场所：随行落盘，读方据此说明来源 */
+  readonly venue: OptionVenue
   /** 全链合约（未过滤） */
   readonly contracts: readonly OptionContract[]
   /** 现货指数价格 */
@@ -316,7 +323,7 @@ function computeGammaFlip(
   for (let step = 1; step <= FLIP_GRID_STEPS; step++) {
     const spot = spotIndex * (1 - FLIP_BAND + (2 * FLIP_BAND * step) / FLIP_GRID_STEPS)
     const gex = netGexAt(contracts, spot, spotIndex, capturedAt)
-    if ((previousGex >= 0) !== (gex >= 0)) {
+    if (previousGex >= 0 !== gex >= 0) {
       const span = Math.abs(previousGex) + Math.abs(gex)
       const cross = previousSpot + ((spot - previousSpot) * Math.abs(previousGex)) / span
       if (flip === null || Math.abs(cross - spotIndex) < Math.abs(flip - spotIndex)) flip = cross
@@ -371,10 +378,36 @@ function selectNearTermExpiry(contracts: readonly OptionContract[], capturedAt: 
 }
 
 /**
+ * 取一个到期日的平值 IV。
+ *
+ * 先选行权价最接近该到期期货价的合约，再把该行权价上 call 与 put 的 mark IV 取平均。
+ *
+ * @param contracts 同一到期日的合约
+ * @param forward 该到期日的期货价
+ * @returns 平值 IV 百分数；期货价无效或没有合约时为 null
+ */
+function atmIvOf(contracts: readonly OptionContract[], forward: number): number | null {
+  if (!(forward > 0) || contracts.length === 0) return null
+  let atmStrike = contracts[0].strike
+  for (const contract of contracts) {
+    if (Math.abs(contract.strike - forward) < Math.abs(atmStrike - forward)) {
+      atmStrike = contract.strike
+    }
+  }
+  let sum = 0
+  let count = 0
+  for (const contract of contracts) {
+    if (contract.strike !== atmStrike) continue
+    sum += contract.markIvPercent
+    count += 1
+  }
+  return count === 0 ? null : sum / count
+}
+
+/**
  * 计算近月平值 IV 与剩余天数。
  *
- * 口径：先用 `selectNearTermExpiry` 选定到期桶，再选行权价最接近该桶期货价的合约，
- * 该行权价的 call/put 隐含波动率取平均作为平值 IV。
+ * 口径：先用 `selectNearTermExpiry` 选定到期桶，再用 `atmIvOf` 取该桶的平值 IV。
  *
  * @param contracts 已过滤的合约
  * @param capturedAt 采集时刻
@@ -392,24 +425,200 @@ function computeNearTermAtm(contracts: readonly OptionContract[], capturedAt: nu
     )
   }
 
-  let atmStrike = nearTermContracts[0].strike
-  for (const contract of nearTermContracts) {
-    if (Math.abs(contract.strike - forward) < Math.abs(atmStrike - forward)) {
-      atmStrike = contract.strike
-    }
+  const atmIvPercent = atmIvOf(nearTermContracts, forward)
+  if (atmIvPercent === null) {
+    throw new AnalyticsError(
+      ANALYTICS_ERROR_CODES.AGGREGATE_INPUT_INVALID,
+      '近月合约缺少有效的平值 IV',
+      { expiryMs: nearTermExpiryMs },
+    )
   }
-
-  const ivSum = nearTermContracts
-    .filter((contract) => contract.strike === atmStrike)
-    .reduce((sum, contract) => sum + contract.markIvPercent, 0)
-  const ivCount = nearTermContracts.filter((contract) => contract.strike === atmStrike).length
-  const atmIvPercent = ivSum / ivCount
 
   return {
     expiryIso: nearTermContracts[0].expiryIso,
     dteDays: remainingDays(nearTermExpiryMs, capturedAt),
     atmIvPercent,
   }
+}
+
+/**
+ * 25Δ 偏斜的目标期限：取最接近 30 天的到期，与 30 天常数期限口径一致。
+ */
+const SKEW_TARGET_DTE_DAYS = 30
+
+/** 25Δ 偏斜允许使用的最小 DTE：更短到期的翼位由事件风险主导，delta 对价格也极敏感。 */
+const SKEW_MIN_DTE_DAYS = 7
+
+/** 风险逆转的翼位 delta。 */
+const SKEW_DELTA = 0.25
+
+/** 一个翼位候选：|delta| 与对应的 mark IV。 */
+interface DeltaIvPoint {
+  /** |delta|；call 与 put 都取绝对值 */
+  readonly absDelta: number
+  /** 该合约的 mark IV 百分数 */
+  readonly ivPercent: number
+}
+
+/**
+ * 按 |delta| 线性插值出目标 delta 上的 IV。
+ *
+ * 只在夹住目标值的相邻两点之间插值：链没伸到目标 delta 时返回 null，不用最近点顶替。
+ * 实测最近行权价的 delta 可偏离 0.25 达 7–12%（20NOV put 为 0.233Δ），偏差与日间变化同量级。
+ *
+ * @param points 候选点，顺序不限
+ * @param target 目标 |delta|
+ * @returns IV 百分数；没有夹住目标值时为 null
+ */
+export function interpolateIvAtDelta(
+  points: readonly DeltaIvPoint[],
+  target: number,
+): number | null {
+  const ordered = [...points].sort((left, right) => left.absDelta - right.absDelta)
+  for (let index = 1; index < ordered.length; index += 1) {
+    const low = ordered[index - 1]
+    const high = ordered[index]
+    if (low === undefined || high === undefined) continue
+    if (low.absDelta > target || high.absDelta < target) continue
+    const span = high.absDelta - low.absDelta
+    if (!(span > 0)) continue
+    const weight = (target - low.absDelta) / span
+    return low.ivPercent + weight * (high.ivPercent - low.ivPercent)
+  }
+  return null
+}
+
+/**
+ * 算一个到期日的 25Δ 风险逆转。
+ *
+ * 口径：Black-76 远期 delta（r = 0），call 取 N(d1)、put 取 N(d1) − 1，两翼按 |delta| 插值；
+ * 结果 = IV(25Δ call) − IV(25Δ put)，单位波动点。负值表示下行保护更贵。
+ *
+ * @param contracts 同一到期日的合约
+ * @param forward 该到期日的期货价
+ * @param timeToExpiryYears 剩余年数
+ * @returns 偏斜值与不可用原因
+ */
+function skew25dOf(
+  contracts: readonly OptionContract[],
+  forward: number,
+  timeToExpiryYears: number,
+): { value: number | null; reason: OptionSkewUnavailableReason | null } {
+  if (!(forward > 0) || !(timeToExpiryYears > 0)) {
+    return { value: null, reason: 'invalid-forward' }
+  }
+  const calls: DeltaIvPoint[] = []
+  const puts: DeltaIvPoint[] = []
+  for (const contract of contracts) {
+    if (!(contract.markIvPercent > 0)) continue
+    const delta = black76Delta({
+      forward,
+      strike: contract.strike,
+      volatility: contract.markIvPercent / 100,
+      timeToExpiryYears,
+      optionType: contract.optionType,
+    })
+    const point: DeltaIvPoint = { absDelta: Math.abs(delta), ivPercent: contract.markIvPercent }
+    if (contract.optionType === 'call') calls.push(point)
+    else puts.push(point)
+  }
+  const callIv = interpolateIvAtDelta(calls, SKEW_DELTA)
+  const putIv = interpolateIvAtDelta(puts, SKEW_DELTA)
+  if (callIv === null && putIv === null) return { value: null, reason: 'missing-wings' }
+  if (callIv === null) return { value: null, reason: 'missing-call-wing' }
+  if (putIv === null) return { value: null, reason: 'missing-put-wing' }
+  return { value: callIv - putIv, reason: null }
+}
+
+/** 一个到期日的合约分组与汇总。 */
+interface ExpiryGroup {
+  /** 到期毫秒时间戳 */
+  readonly expiryMs: number
+  /** 到期日（UTC 日期） */
+  readonly expiryIso: string
+  /** 剩余天数 */
+  readonly dteDays: number
+  /** 该到期日的期货价 */
+  readonly forward: number
+  /** 该到期日的合约 */
+  readonly contracts: readonly OptionContract[]
+  /** 落盘的逐到期汇总 */
+  readonly summary: OptionExpirySummary
+}
+
+/**
+ * 按到期日分组并汇总。
+ *
+ * @param contracts 已过滤的合约
+ * @param capturedAt 采集时刻
+ * @returns 按到期升序的分组
+ */
+function groupExpiriesOf(contracts: readonly OptionContract[], capturedAt: number): ExpiryGroup[] {
+  const order: number[] = []
+  const grouped = new Map<number, OptionContract[]>()
+  for (const contract of contracts) {
+    const bucket = grouped.get(contract.expiryMs)
+    if (bucket === undefined) {
+      order.push(contract.expiryMs)
+      grouped.set(contract.expiryMs, [contract])
+      continue
+    }
+    bucket.push(contract)
+  }
+  order.sort((left, right) => left - right)
+
+  const groups: ExpiryGroup[] = []
+  for (const expiryMs of order) {
+    const groupContracts = grouped.get(expiryMs) ?? []
+    const first = groupContracts[0]
+    if (first === undefined) continue
+    const forward = first.underlyingPrice
+    let callOpenInterest = 0
+    let putOpenInterest = 0
+    for (const contract of groupContracts) {
+      if (contract.optionType === 'call') callOpenInterest += contract.openInterest
+      else putOpenInterest += contract.openInterest
+    }
+    const dteDays = remainingDays(expiryMs, capturedAt)
+    groups.push({
+      expiryMs,
+      expiryIso: first.expiryIso,
+      dteDays,
+      forward,
+      contracts: groupContracts,
+      summary: {
+        expiryIso: first.expiryIso,
+        dteDays,
+        atmIvPercent: atmIvOf(groupContracts, forward),
+        putCallOiRatio: callOpenInterest > 0 ? putOpenInterest / callOpenInterest : null,
+        totalOpenInterest: callOpenInterest + putOpenInterest,
+      },
+    })
+  }
+  return groups
+}
+
+/**
+ * 选出 25Δ 偏斜使用的到期日：7 天以上、最接近 30 天。
+ *
+ * 不用近月：近月到期每天滚动（DTE 0.2–14 天），同一条序列会混着不同期限，
+ * 而偏斜本身随期限变化（实测同期 0.83 天为 −6.89、38.83 天为 −5.07 个波动点）。
+ *
+ * @param groups 按到期升序的分组
+ * @returns 选中的分组；没有 7 天以上到期时为 null
+ */
+function selectSkewGroup(groups: readonly ExpiryGroup[]): ExpiryGroup | null {
+  let best: ExpiryGroup | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const group of groups) {
+    if (group.dteDays < SKEW_MIN_DTE_DAYS) continue
+    const distance = Math.abs(group.dteDays - SKEW_TARGET_DTE_DAYS)
+    if (distance < bestDistance) {
+      best = group
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 /**
@@ -499,6 +708,17 @@ export function aggregateOptionChain(input: AggregateOptionChainInput): OptionAg
     input.capturedAt,
   )
 
+  const expiryGroups = groupExpiriesOf(filtered, input.capturedAt)
+  const skewGroup = selectSkewGroup(expiryGroups)
+  const skew: { value: number | null; reason: OptionSkewUnavailableReason | null } =
+    skewGroup === null
+      ? { value: null, reason: 'no-eligible-expiry' }
+      : skew25dOf(
+          skewGroup.contracts,
+          skewGroup.forward,
+          (skewGroup.expiryMs - input.capturedAt) / MS_PER_YEAR,
+        )
+
   const expectedMoveOneSigmaUsd =
     input.spotIndex * (nearTermAtm.atmIvPercent / 100) * Math.sqrt(nearTermAtm.dteDays / 365)
   const expectedMoveTwoSigmaUsd = expectedMoveOneSigmaUsd * 2
@@ -510,8 +730,9 @@ export function aggregateOptionChain(input: AggregateOptionChainInput): OptionAg
 
   const flipped = nearTermSet.gammaFlipUsd === null
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     currency: input.currency,
+    venue: input.venue,
     capturedAt: input.capturedAt,
     sourceTimestamp,
     spotIndex: input.spotIndex,
@@ -534,6 +755,9 @@ export function aggregateOptionChain(input: AggregateOptionChainInput): OptionAg
       gammaFlipUsd: flipped ? allChain.gammaFlipUsd : nearTermSet.gammaFlipUsd,
       source: flipped ? 'all-chain' : 'near-term',
     },
+    expiries: expiryGroups.map((group) => group.summary),
+    skew25dVolPoints: skew.value,
+    skew25dExpiryIso: skew.value === null || skewGroup === null ? null : skewGroup.expiryIso,
+    skew25dReason: skew.reason,
   }
 }
-

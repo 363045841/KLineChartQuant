@@ -1,22 +1,24 @@
 /**
- * Deribit 公开 REST 客户端。
+ * Deribit 公开 REST 客户端：只服务 BTC 与 ETH。
  *
  * 只用两个端点：
- * - `public/get_book_summary_by_currency?currency=BTC|ETH&kind=option`：一次拿全链（BTC 876 张 / ETH 746 张）
- * - `public/get_index_price?index_name=btc_usd|eth_usd`：现货指数，用于 ±1σ 与 GEX 的美元口径
+ * - `public/get_book_summary_by_currency?currency=BTC|ETH&kind=option`：一次拿全链
+ * - `public/get_index_price?index_name=btc_usd|eth_usd`：现货指数
  *
  * 全链快照不含 `greeks` 字段，gamma 由本地 Black-76 反算，这里不做任何 greeks 取值。
  * 本机直连 Deribit 会超时后 ECONNRESET，所以代理端点由调用方显式传入。
  */
 import { ANALYTICS_ERROR_CODES, AnalyticsError } from '../../errors'
 import type { HttpClient, ProxyEndpoint } from '../../net/types'
+import { optionMarketOf } from '../markets'
 import type {
-  DeribitClient,
-  DeribitIndexPrice,
-  DeribitOptionChain,
+  OptionChainSnapshot,
   OptionContract,
   OptionCurrency,
+  OptionVenueSource,
+  SpotIndexSnapshot,
 } from '../types'
+import { isRecord, parseJsonBody, readFiniteNumber, readText } from './httpJson'
 import { parseInstrumentName } from './instrument'
 
 /** Deribit REST 基址。 */
@@ -24,12 +26,6 @@ export const DERIBIT_API_BASE = 'https://www.deribit.com/api/v2'
 
 /** 默认超时：全链中位 0.5 秒、冷启动 1.8 秒，15 秒足够暴露网络问题。 */
 export const DEFAULT_DERIBIT_TIMEOUT_MS = 15_000
-
-/** 标的 → Deribit 指数名。 */
-const INDEX_NAME_BY_CURRENCY: Readonly<Record<OptionCurrency, string>> = {
-  BTC: 'btc_usd',
-  ETH: 'eth_usd',
-}
 
 /** 客户端构造参数。 */
 export interface DeribitClientOptions {
@@ -42,75 +38,22 @@ export interface DeribitClientOptions {
 }
 
 /**
- * 判断值是否为普通对象。
+ * 取 Deribit 的场内写法；该场所没有这个标的时直接报错，不做静默降级。
  *
- * @param value 任意值
- * @returns 是否对象
+ * @param currency 统一标的代码
+ * @returns 场内写法（BTC / ETH）
+ * @throws AnalyticsError 标的未登记或登记的场所不是 Deribit
  */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-/**
- * 解析 JSON 响应体。
- *
- * @param body 响应文本
- * @param url 请求 URL（用于错误上下文）
- * @returns 解析后的任意值
- * @throws AnalyticsError 不是合法 JSON
- */
-function parseJsonBody(body: string, url: string): unknown {
-  try {
-    return JSON.parse(body)
-  } catch (error) {
+function deribitSymbolOf(currency: OptionCurrency): string {
+  const market = optionMarketOf(currency)
+  if (market === null || market.venue !== 'deribit') {
     throw new AnalyticsError(
-      ANALYTICS_ERROR_CODES.RESPONSE_INVALID_JSON,
-      `响应不是合法 JSON：${url}`,
-      { url, excerpt: body.slice(0, 200) },
+      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+      `Deribit 没有该标的的期权：${currency}`,
+      { currency },
     )
   }
-}
-
-/**
- * 读取必填数字字段。
- *
- * @param record 响应对象
- * @param key 字段名
- * @param context 错误上下文（合约名或端点）
- * @returns 有限数字
- * @throws AnalyticsError 字段缺失或不是数字
- */
-function readFiniteNumber(record: Record<string, unknown>, key: string, context: string): number {
-  const value = record[key]
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new AnalyticsError(
-      ANALYTICS_ERROR_CODES.RESPONSE_SHAPE_INVALID,
-      `${context} 的 ${key} 不是有限数字`,
-      { context, key, valueType: typeof value },
-    )
-  }
-  return value
-}
-
-/**
- * 读取必填字符串字段。
- *
- * @param record 响应对象
- * @param key 字段名
- * @param context 错误上下文
- * @returns 字符串
- * @throws AnalyticsError 字段缺失或不是字符串
- */
-function readText(record: Record<string, unknown>, key: string, context: string): string {
-  const value = record[key]
-  if (typeof value !== 'string' || value === '') {
-    throw new AnalyticsError(
-      ANALYTICS_ERROR_CODES.RESPONSE_SHAPE_INVALID,
-      `${context} 的 ${key} 不是非空字符串`,
-      { context, key, valueType: typeof value },
-    )
-  }
-  return value
+  return market.venueSymbol
 }
 
 /**
@@ -184,17 +127,18 @@ function readResult(payload: unknown, url: string): unknown {
 }
 
 /**
- * 创建 Deribit 客户端。
+ * 创建 Deribit 期权数据源。
  *
  * @param options HTTP 客户端、代理与超时
  * @returns 期权链与指数价拉取接口
  */
-export function createDeribitClient(options: DeribitClientOptions): DeribitClient {
+export function createDeribitClient(options: DeribitClientOptions): OptionVenueSource {
   const timeoutMs = options.timeoutMs ?? DEFAULT_DERIBIT_TIMEOUT_MS
 
   return {
-    async getOptionChain(currency: OptionCurrency): Promise<DeribitOptionChain> {
-      const url = `${DERIBIT_API_BASE}/public/get_book_summary_by_currency?currency=${currency}&kind=option`
+    async getOptionChain(currency: OptionCurrency): Promise<OptionChainSnapshot> {
+      const symbol = deribitSymbolOf(currency)
+      const url = `${DERIBIT_API_BASE}/public/get_book_summary_by_currency?currency=${symbol}&kind=option`
       const response = await options.httpClient.getText({
         url,
         timeoutMs,
@@ -221,8 +165,8 @@ export function createDeribitClient(options: DeribitClientOptions): DeribitClien
       return { contracts, elapsedMs: response.elapsedMs }
     },
 
-    async getIndexPrice(currency: OptionCurrency): Promise<DeribitIndexPrice> {
-      const indexName = INDEX_NAME_BY_CURRENCY[currency]
+    async getIndexPrice(currency: OptionCurrency): Promise<SpotIndexSnapshot> {
+      const indexName = `${deribitSymbolOf(currency).toLowerCase()}_usd`
       const url = `${DERIBIT_API_BASE}/public/get_index_price?index_name=${indexName}`
       const response = await options.httpClient.getText({
         url,
@@ -238,7 +182,6 @@ export function createDeribitClient(options: DeribitClientOptions): DeribitClien
       }
       return {
         indexPrice: readFiniteNumber(result, 'index_price', indexName),
-        estimatedDeliveryPrice: readFiniteNumber(result, 'estimated_delivery_price', indexName),
         elapsedMs: response.elapsedMs,
       }
     },

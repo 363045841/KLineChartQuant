@@ -37,11 +37,7 @@ function requireNumber(source: Record<string, unknown>, key: string): number {
 }
 
 /** 读嵌套对象里的数值。 */
-function nestedNumber(
-  source: Record<string, unknown>,
-  group: string,
-  key: string,
-): number | null {
+function nestedNumber(source: Record<string, unknown>, group: string, key: string): number | null {
   const block = source[group]
   if (typeof block !== 'object' || block === null) return null
   return readNumber(block as Record<string, unknown>, key)
@@ -63,7 +59,7 @@ function nestedStrike(wall: Record<string, unknown>, key: string): number | null
 
 /** 把 analytics 的聚合记录转成脚本可见的一行。 */
 function toRow(record: Record<string, unknown>): OptionLevelsRow | null {
-  // 只认 schemaVersion 2：没有 nearTerm 与 allChain 的旧记录直接跳过。
+  // 只认带 nearTerm 与 allChain 的行（schema 2 起）：schema 1 的扁平行直接跳过。
   if (!isRecord(record.nearTerm) || !isRecord(record.allChain)) return null
   const gammaFlip = record.gammaFlip
   const source =
@@ -74,12 +70,15 @@ function toRow(record: Record<string, unknown>): OptionLevelsRow | null {
       : 'near-term'
   return {
     capturedAt: requireNumber(record, 'capturedAt'),
-    nearTermExpiryIso: String(record[`nearTermExpiryIso`] ?? nestedText(record, 'nearTerm', 'expiryIso')),
+    nearTermExpiryIso: String(
+      record[`nearTermExpiryIso`] ?? nestedText(record, 'nearTerm', 'expiryIso'),
+    ),
     nearTermDteDays: nestedNumber(record, 'nearTerm', 'dteDays') ?? 0,
     atmIvPercent: nestedNumber(record, 'nearTerm', 'atmIvPercent'),
     spotIndex: requireNumber(record, 'spotIndex'),
     gammaFlipUsd:
-      nestedNumber(record, 'nearTerm', 'gammaFlipUsd') ?? nestedNumber(record, 'allChain', 'gammaFlipUsd'),
+      nestedNumber(record, 'nearTerm', 'gammaFlipUsd') ??
+      nestedNumber(record, 'allChain', 'gammaFlipUsd'),
     gammaFlipSource: source,
     callWallUsd: wallStrike(record, 'nearTerm', 'callWall'),
     putWallUsd: wallStrike(record, 'nearTerm', 'putWall'),
