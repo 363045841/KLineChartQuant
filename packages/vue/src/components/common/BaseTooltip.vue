@@ -1,44 +1,59 @@
+<!--
+  悬浮提示：本组件负责显示时机、内容与描述关系，定位交给共享的测量引擎（floating-ui）。
+  触发器必须包含一个可聚焦控件：它既是提示锚点，也是 aria-describedby 的挂载点；
+  包装层只提供事件与布局通道（trigger-display / fill），不参与定位。
+
+  用法：
+  <BaseTooltip content="保存"><button aria-label="保存">…</button></BaseTooltip>
+-->
 <template>
   <span
     ref="triggerRef"
     class="base-tooltip__trigger"
     :class="{ 'is-contents': triggerDisplay === 'contents', 'is-fill': fill }"
-    @pointerenter="onPointerEnter"
+    @pointerenter="onTriggerEnter"
     @pointerleave="onPointerLeave"
-    @focusin="onFocusIn"
+    @focusin="onTriggerFocus"
     @focusout="onFocusOut"
   >
     <slot />
   </span>
 
-  <Teleport :to="teleportTarget">
-    <Transition name="base-tooltip">
-      <div
-        v-if="visible"
-        ref="tooltipRef"
-        class="base-tooltip"
-        :class="[`base-tooltip--${placement}`, { 'is-styled': styled }]"
-        :style="tooltipStyle"
-        :popover="topLayer ? 'manual' : undefined"
-        role="tooltip"
-      >
+  <Teleport v-if="hasContent" :to="teleportTarget">
+    <div
+      ref="panel"
+      class="base-tooltip"
+      :class="[`base-tooltip--${placement}`, { 'is-open': visible }]"
+      v-bind="panelBindings"
+      role="tooltip"
+    >
+      <template v-if="visible">
         <span class="base-tooltip__content"><slot name="content">{{ content }}</slot></span>
         <span v-if="shortcut" class="base-tooltip__shortcut" aria-label="快捷键">
           <ShortcutKeys :shortcut="shortcut" variant="tooltip" />
         </span>
-      </div>
-    </Transition>
+      </template>
+    </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
   import { primaryShortcut } from '@363045841yyt/klinechart-core'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
-  import { supportsPopover } from '@vue-src/composables/overlay/platform.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { type TooltipPlacement, useTooltip } from '@vue-src/composables/ui/useTooltip.js'
-  import { computed, watch } from 'vue'
+  import {
+    computed,
+    onBeforeUnmount,
+    shallowRef,
+    useSlots,
+    useTemplateRef,
+    watch,
+  } from 'vue'
   import ShortcutKeys from './ShortcutKeys.vue'
+
+  /** 触发层里可作为描述对象的控件；包装层本身不可聚焦，不能承载 aria-describedby。 */
+  const CONTROL_SELECTOR = 'button, a[href], input, select, textarea, [tabindex]'
 
   const props = withDefaults(
     defineProps<{
@@ -74,9 +89,17 @@
     },
   )
 
+  const slots = useSlots()
   const teleportTarget = useFullscreenTeleportTarget()
   const registry = injectCommands()
   const commands = useCommandList(registry)
+  const triggerRef = useTemplateRef<HTMLElement>('triggerRef')
+  const panel = useTemplateRef<HTMLElement>('panel')
+  /** 定位锚点：触发层里的可聚焦控件，等价于 `aria-describedby` 的目标。 */
+  const anchorEl = shallowRef<HTMLElement | null>(null)
+
+  /** 没有文本也没有内容插槽时不弹提示，避免出现空框。 */
+  const hasContent = computed(() => props.content.length > 0 || Boolean(slots.content))
   const shortcut = computed(() => {
     if (!props.command || !registry) return null
     const command = commands.value.find((entry) => entry.id === props.command)
@@ -85,36 +108,75 @@
   })
 
   const {
-    triggerRef,
-    tooltipRef,
+    id: tooltipId,
     visible,
-    styled,
-    tooltipStyle,
+    panelBindings,
     onPointerEnter,
     onPointerLeave,
     onFocusIn,
     onFocusOut,
   } = useTooltip({
+    trigger: anchorEl,
+    panel,
     placement: () => props.placement,
     offset: () => props.offset,
     showDelay: () => props.showDelay,
     hideDelay: () => props.hideDelay,
-    disabled: () => props.disabled,
+    disabled: () => props.disabled || !hasContent.value,
   })
 
-  /**
-   * 提示进入 top layer（popover="manual"），才能显示在 Popover API 菜单与模态 dialog 之上；
-   * 坐标仍由 useTooltip 以视口 fixed 坐标计算（top layer 不受祖先 transform 影响）。
-   */
-  const topLayer = supportsPopover()
-  watch(tooltipRef, (element) => {
-    if (!topLayer || !element) return
-    try {
-      element.showPopover()
-    } catch {
-      // 已打开或尚未连接到文档。
+  let describedControl: HTMLElement | null = null
+  let previousDescribedBy: string | null = null
+
+  /** 提示锚定并描述触发层里的可聚焦控件；包装层只负责布局与事件，不参与定位。 */
+  function syncControl(): void {
+    const wrapper = triggerRef.value
+    const control = wrapper?.querySelector<HTMLElement>(CONTROL_SELECTOR) ?? null
+    // 没有可聚焦控件时退回包装层，至少保证提示仍有锚点。
+    anchorEl.value = control ?? wrapper
+    if (!hasContent.value) {
+      restoreDescription()
+      return
     }
-  })
+    bindDescription(control)
+  }
+
+  /** 宿主已有的描述追加保留，卸载时还原。 */
+  function bindDescription(control: HTMLElement | null): void {
+    if (control === describedControl) return
+    restoreDescription()
+    describedControl = control
+    if (!control) return
+    previousDescribedBy = control.getAttribute('aria-describedby')
+    control.setAttribute(
+      'aria-describedby',
+      previousDescribedBy ? `${previousDescribedBy} ${tooltipId}` : tooltipId,
+    )
+  }
+
+  function restoreDescription(): void {
+    if (!describedControl) return
+    if (previousDescribedBy === null) describedControl.removeAttribute('aria-describedby')
+    else describedControl.setAttribute('aria-describedby', previousDescribedBy)
+    describedControl = null
+    previousDescribedBy = null
+  }
+
+  // 触发内容可能在条件渲染后变化；包装层与内容就绪后重新解析锚点与描述关系。
+  watch([triggerRef, hasContent], syncControl, { flush: 'post', immediate: true })
+
+  /** 进入事件时先同步解析锚点：锚点来自 DOM，首次交互可能早于挂载后的一致性刷新。 */
+  function onTriggerEnter(): void {
+    syncControl()
+    onPointerEnter()
+  }
+
+  function onTriggerFocus(event: FocusEvent): void {
+    syncControl()
+    onFocusIn(event)
+  }
+
+  onBeforeUnmount(restoreDescription)
 </script>
 
 <style scoped>
@@ -157,12 +219,44 @@
     user-select: none;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    /* 尺寸测量完成前保持隐藏，避免在默认坐标处闪现。 */
-    visibility: hidden;
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-out),
+      translate var(--klc-motion-dur-fast) var(--klc-motion-ease-out),
+      overlay var(--klc-motion-dur-fast) allow-discrete,
+      display var(--klc-motion-dur-fast) allow-discrete;
   }
 
-  .base-tooltip.is-styled {
-    visibility: visible;
+  /* 首次出现从提示方向一侧滑入；收起沿用浏览器默认的离散隐藏。 */
+  @starting-style {
+    .base-tooltip:popover-open,
+    .base-tooltip.is-open {
+      opacity: 0;
+      translate: var(--tooltip-enter-translate, 0 4px);
+    }
+  }
+
+  .base-tooltip--top {
+    --tooltip-enter-translate: 0 4px;
+  }
+
+  .base-tooltip--bottom {
+    --tooltip-enter-translate: 0 -4px;
+  }
+
+  .base-tooltip--left {
+    --tooltip-enter-translate: 4px 0;
+  }
+
+  .base-tooltip--right {
+    --tooltip-enter-translate: -4px 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .base-tooltip {
+      transition: none;
+    }
   }
 
   .base-tooltip__content {
@@ -175,37 +269,4 @@
     align-items: center;
     margin-left: 8px;
   }
-
-  .base-tooltip-enter-active,
-  .base-tooltip-leave-active {
-    transition:
-      opacity 0.12s ease,
-      transform 0.12s ease;
-  }
-
-  .base-tooltip-enter-from,
-  .base-tooltip-leave-to {
-    opacity: 0;
-  }
-
-  .base-tooltip--right.base-tooltip-enter-from,
-  .base-tooltip--right.base-tooltip-leave-to {
-    transform: translateX(-4px);
-  }
-
-  .base-tooltip--left.base-tooltip-enter-from,
-  .base-tooltip--left.base-tooltip-leave-to {
-    transform: translateX(4px);
-  }
-
-  .base-tooltip--top.base-tooltip-enter-from,
-  .base-tooltip--top.base-tooltip-leave-to {
-    transform: translateY(4px);
-  }
-
-  .base-tooltip--bottom.base-tooltip-enter-from,
-  .base-tooltip--bottom.base-tooltip-leave-to {
-    transform: translateY(-4px);
-  }
-
 </style>

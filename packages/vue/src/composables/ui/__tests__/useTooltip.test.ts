@@ -26,8 +26,11 @@ function trigger(id: string): HTMLElement {
   return document.getElementById(id)?.parentElement as HTMLElement
 }
 
+/** 只收集有内容的提示；未展开的提示节点存在但不渲染内容。 */
 function tooltipTexts(): string[] {
-  return [...document.querySelectorAll('[role="tooltip"]')].map((el) => el.textContent ?? '')
+  return [...document.querySelectorAll('[role="tooltip"]')]
+    .map((el) => el.textContent ?? '')
+    .filter((text) => text.length > 0)
 }
 
 describe('BaseTooltip 分组延迟', () => {
@@ -66,6 +69,26 @@ describe('BaseTooltip 分组延迟', () => {
     await nextTick()
     expect(tooltipTexts()).toEqual([])
     wrapper.unmount()
+  })
+
+  it('提示通过 aria-describedby 关联到可聚焦控件，空内容不渲染', async () => {
+    const wrapper = mount(Pair, { attachTo: document.body })
+    await nextTick()
+    const button = document.getElementById('a') as HTMLElement
+    const describedBy = button.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    // 描述目标就是提示面板本身，读屏在聚焦控件时能读到提示内容。
+    expect(document.getElementById(describedBy!)?.getAttribute('role')).toBe('tooltip')
+    wrapper.unmount()
+
+    const empty = mount(BaseTooltip, {
+      attachTo: document.body,
+      slots: { default: () => h('button', { id: 'c' }) },
+    })
+    await nextTick()
+    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(0)
+    expect(document.getElementById('c')?.hasAttribute('aria-describedby')).toBe(false)
+    empty.unmount()
   })
 
   it('关联命令时在提示里展示该命令的平台化快捷键', async () => {

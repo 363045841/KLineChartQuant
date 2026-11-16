@@ -26,7 +26,11 @@ function nativeDriver({ options, change, ready }: DriverOptions, id: string) {
 
   return {
     trigger: { popovertarget: id },
-    panel: { popover: 'auto' as const, onBeforetoggle: onBeforeToggle, onToggle },
+    panel: {
+      popover: options.popover ?? ('auto' as const),
+      onBeforetoggle: onBeforeToggle,
+      onToggle,
+    },
     show() {
       try {
         options.panel.value?.showPopover()
