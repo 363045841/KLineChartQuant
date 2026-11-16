@@ -1123,6 +1123,11 @@ export class Chart {
     )
   }
 
+  /** 构建一次临时计算的市场上下文；Agent 指标查询与脚本指标共用同一份会话与明细加载。 */
+  withMarketContext<T>(compute: (market: IndicatorMarketContext) => Promise<T>): Promise<T> {
+    return this.dataManager.withIndicatorMarketContext(this.data.peek(), compute)
+  }
+
   /** 捕获当前 K 线视图的视口锚点，供布局文档持久化。 */
   captureViewportSnapshot(): void {
     this.dataManager.saveActiveKLineViewportSnapshot()

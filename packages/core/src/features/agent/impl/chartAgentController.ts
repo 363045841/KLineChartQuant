@@ -51,6 +51,10 @@ import type {
   TimeShareRangeQueryResult,
 } from '../types.js'
 import { createMarketDataTextFormatter } from './marketDataTextFormatter.js'
+import {
+  computeVolumeProfileSummary,
+  formatVolumeProfileSummary,
+} from './volumeProfile/volumeProfileQuery.js'
 
 const InstrumentLookupToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
@@ -58,6 +62,20 @@ const InstrumentLookupToolParameters = Type.Object({
 })
 
 const INDICATOR_QUERY_MAX_LIMIT = 2000
+
+const VolumeProfileToolParameters = Type.Object({
+  bars: Type.Optional(Type.Integer({ minimum: 20, maximum: 2000 })),
+  binCount: Type.Optional(Type.Integer({ minimum: 10, maximum: 300 })),
+  valueAreaPercent: Type.Optional(Type.Number({ minimum: 0.5, maximum: 0.99 })),
+  mode: Type.Optional(Type.Union([Type.Literal('typical-price'), Type.Literal('proportional')])),
+})
+
+/** 价格分布的默认统计范围：最近 300 根。 */
+const DEFAULT_VOLUME_PROFILE_BARS = 300
+/** 价格分布的默认分桶数。 */
+const DEFAULT_VOLUME_PROFILE_BINS = 60
+/** 价值区默认占比，CME 常用 70%。 */
+const DEFAULT_VOLUME_PROFILE_VALUE_AREA = 0.7
 /** GoTDX V1 /bars 接口单页最大返回条数。 */
 const MARKET_BARS_QUERY_MAX_LIMIT = 798
 // Type.Enum 保留清单的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
@@ -701,6 +719,39 @@ class ChartAgentControllerImpl implements ChartAgentController {
       params: input.params,
       limit: input.limit,
     })
+  }
+
+  @Tool({
+    name: 'volume_profile_query',
+    label: 'Query volume profile',
+    description:
+      'Aggregate chart K-line volume by price over a bounded recent window and return the ' +
+      'point of control (POC), the value area high/low (VAH/VAL, CME 70% convention by default), the ' +
+      'current close position relative to them, and the window high/low. Inputs are optional: bars ' +
+      '(20-2000, default 300), binCount (10-300, default 60), valueAreaPercent (0.5-0.99, default 0.7), ' +
+      'mode (proportional default, or typical-price for speed). The distribution is estimated from each ' +
+      'bar high/low range, not from tick data: report it as a range estimate, never as exact ' +
+      'volume-at-price. Independent from the SVP/PVP chart indicators.',
+    parameters: VolumeProfileToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async queryVolumeProfile(input: Static<typeof VolumeProfileToolParameters>): Promise<string> {
+    const buffer = this.dependencies.dataState.readonly.activeBuffer.peek()
+    if (buffer.kind !== ACTIVE_BUFFER_KIND.bars || buffer.data.length === 0) {
+      throw new KLineChartError(
+        CHART_AGENT_ERROR_CODES.NO_DATA,
+        'volume_profile_query requires active K-line data',
+      )
+    }
+    return formatVolumeProfileSummary(
+      computeVolumeProfileSummary(buffer.data, {
+        bars: input.bars ?? DEFAULT_VOLUME_PROFILE_BARS,
+        binCount: input.binCount ?? DEFAULT_VOLUME_PROFILE_BINS,
+        valueAreaPercent: input.valueAreaPercent ?? DEFAULT_VOLUME_PROFILE_VALUE_AREA,
+        mode: input.mode ?? 'proportional',
+      }),
+    )
   }
 
   /** 执行面向前端联想搜索的模糊品种查询。 */

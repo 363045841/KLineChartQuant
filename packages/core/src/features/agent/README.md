@@ -48,9 +48,23 @@ agent/
 │       ├── indicatorQuery.ts              # 保留既有入参的查询编排与纯计算调用
 │       ├── indicatorTextFormatter.ts      # 专用转义器注册与 Markdown 降级选择
 │       └── indicatorMarkdownFormatter.ts  # 未注册结果的通用 Markdown 表格
+│   └── volumeProfile/
+│       └── volumeProfileQuery.ts           # 价格分布查询：POC 与价值区（VAH / VAL）
 ├── __tests__/                             # agent 模块测试
 └── README.md
 ```
+
+## 市场上下文
+
+脚本类指标（VWAP、SVP、PVP 等）依赖图表周期与交易时段。`indicators_query` 由宿主传入
+`withIndicatorMarketContext` 构造的市场上下文；缺了它，脚本时间 API 会直接报「需要宿主提供
+图表周期和市场交易时段」。
+
+## 价格分布
+
+`volume_profile_query` 把图表最近 N 根 K 线的成交量按价格分桶，返回 POC、VAH、VAL 与现价位置。
+算法复用 `components/volumeProfile` 的 `binBarToBuckets`、`findPOCIndex`、`computeValueArea`，
+与脚本包的 SVP / PVP 指标相互独立。它按 K 线高低区间摊量，是估计值，不是逐笔成交。
 
 ## 查询规则
 

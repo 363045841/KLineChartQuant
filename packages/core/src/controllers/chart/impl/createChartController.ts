@@ -1,3 +1,4 @@
+import type { IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { defaultMarketDataContext } from '@/data/management/impl/context.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
@@ -209,7 +210,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chartMode: chart.kernel.mode.readonly.chartMode,
     selectedRange: chart.selectedRange,
     indicators,
-    indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
+    indicatorQuery: createIndicatorQuery({
+      dataState: chart.kernel.data,
+      marketContext: (): Promise<IndicatorMarketContext | undefined> =>
+        chart.withMarketContext(async (market) => market),
+    }),
     marketDataProviderRegistry: (opts.marketDataContext ?? defaultMarketDataContext).registry,
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument: chart.drawingDocument,

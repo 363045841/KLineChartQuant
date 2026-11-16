@@ -309,4 +309,35 @@ describe('createIndicatorQuery', () => {
     })
     expect(calculationCount).toBe(2)
   })
+
+  it('把市场上下文传给指标计算，脚本类指标才有周期与会话', async () => {
+    const dataState = createDataState()
+    publishBars(dataState, createBars(4))
+    const seen: unknown[] = []
+    const market = {
+      symbol: 'TEST',
+      optionUnderlying: null,
+      loadBars: async () => [],
+      loadOptionLevels: async () => [],
+    }
+    const definition: Pick<IndicatorMetadata, 'name' | 'runtime'> = {
+      name: 'session-aware',
+      runtime: {
+        defaultParams: {},
+        compute: (data, _config, context) => {
+          seen.push(context)
+          return data.map(() => 1)
+        },
+      },
+    }
+    const query = createIndicatorQuery({
+      dataState,
+      resolveDefinition: () => definition,
+      marketContext: async () => market,
+    })
+
+    await query.queryIndicator({ definitionId: 'session-aware' })
+
+    expect(seen).toEqual([market])
+  })
 })

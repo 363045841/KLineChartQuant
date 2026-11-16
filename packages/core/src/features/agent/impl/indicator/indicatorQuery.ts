@@ -1,7 +1,7 @@
 // 本文件执行指标计算，并将纯计算结果直接转义为紧凑文本。
 
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
+import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
 import { ACTIVE_BUFFER_KIND } from '@/engine/state/dataState.js'
 import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type {
@@ -144,7 +144,9 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
         }
 
         // 使用完整行情计算，避免 from/to 截断指标所需的历史窗口。
-        const series = await runtime.compute([...dataSnapshot.data], calculationConfig)
+        // 脚本指标依赖周期与会话，缺了市场上下文就会直接报「需要宿主提供周期和交易时段」。
+        const market = await dependencies.marketContext?.()
+        const series = await runtime.compute([...dataSnapshot.data], calculationConfig, market)
         const latestDataSnapshot = dependencies.dataState.readonly.activeBuffer.peek()
         if (latestDataSnapshot.dataRevision !== dataSnapshot.dataRevision) continue
 

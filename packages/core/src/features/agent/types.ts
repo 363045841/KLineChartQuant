@@ -1,4 +1,6 @@
 /** Agent 功能模块的对外契约：查询输入输出、facade 接口与依赖接口；实现位于 impl/。 */
+
+import type { IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
@@ -274,6 +276,8 @@ export interface IndicatorQuery {
 /** 指标查询服务依赖，允许测试或宿主替换指标定义解析器和文本转义器。 */
 export interface IndicatorQueryDependencies {
   readonly dataState: DataStateModule
+  /** 构建临时计算的市场上下文；缺省时脚本类指标拿不到周期与交易时段。 */
+  readonly marketContext?: () => Promise<IndicatorMarketContext | undefined>
   readonly resolveDefinition?: (
     definitionId: string,
   ) => Pick<IndicatorMetadata, 'name' | 'runtime'> | undefined
