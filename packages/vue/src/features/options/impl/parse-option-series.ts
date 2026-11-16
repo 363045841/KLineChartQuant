@@ -8,8 +8,23 @@ import type {
   OptionLevelSetView,
   OptionNearTermView,
   OptionPanelView,
+  OptionStatsSource,
+  OptionTermPoint,
+  OptionTrendRange,
+  OptionVolatilityContext,
+  OptionVolatilityStats,
   OptionWallView,
+  OptionWindowStats,
 } from '../types.js'
+
+/** 一天的毫秒数；用于找 24 小时前的基准采样。 */
+const DAY_MS = 86_400_000
+
+/** 一列采样：采集时刻与取值。 */
+interface Sample {
+  readonly at: number
+  readonly value: number
+}
 
 /** 判断是否为普通对象。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,6 +123,103 @@ function nearTermOf(source: unknown): OptionNearTermView {
 }
 
 /**
+ * 收集一列数值。
+ *
+ * @param rows 序列行
+ * @param read 从一行里取出目标数值
+ * @returns 采集时刻与取值都齐全的采样
+ */
+function samplesOf(
+  rows: readonly unknown[],
+  read: (row: Record<string, unknown>) => number | null,
+): Sample[] {
+  const samples: Sample[] = []
+  for (const row of rows) {
+    if (!isRecord(row)) continue
+    const at = numberOf(row, 'capturedAt')
+    const value = read(row)
+    if (at === null || value === null) continue
+    samples.push({ at, value })
+  }
+  return samples
+}
+
+/**
+ * 一段窗口内的区间与变化。
+ *
+ * @param samples 采样；按采集时刻升序
+ * @returns 区间；少于两个样本时返回 null
+ */
+function rangeOf(samples: readonly Sample[]): OptionTrendRange | null {
+  const first = samples[0]
+  const last = samples[samples.length - 1]
+  if (samples.length < 2 || first === undefined || last === undefined) return null
+  let min = first.value
+  let max = first.value
+  for (const sample of samples) {
+    if (sample.value < min) min = sample.value
+    if (sample.value > max) max = sample.value
+  }
+  return { min, max, latest: last.value, change: last.value - first.value }
+}
+
+/**
+ * 不晚于 24 小时前的最新取值。
+ *
+ * @param samples 采样；按采集时刻升序
+ * @param latestAt 最新采样的采集时刻
+ * @returns 基准值；窗口不足 24 小时时为 null
+ */
+function dayAgoOf(samples: readonly Sample[], latestAt: number): number | null {
+  const limit = latestAt - DAY_MS
+  let value: number | null = null
+  for (const sample of samples) if (sample.at <= limit) value = sample.value
+  return value
+}
+
+/**
+ * 最新值在窗口内的分位。
+ *
+ * @param samples 采样；按采集时刻升序
+ * @returns 0–100 的整数；少于两个样本时返回 null
+ */
+function percentileOf(samples: readonly Sample[]): number | null {
+  const last = samples[samples.length - 1]
+  if (samples.length < 2 || last === undefined) return null
+  const atOrBelow = samples.filter((sample) => sample.value <= last.value).length
+  return Math.round((atOrBelow / samples.length) * 100)
+}
+
+/**
+ * 用整段序列算波动上下文。
+ *
+ * @param rows 序列行
+ * @param latestAt 最新一行的采集时刻
+ * @returns 波动上下文；只有一行采样时各项为 null
+ */
+function trendOf(rows: readonly unknown[], latestAt: number): OptionVolatilityContext {
+  const first = isRecord(rows[0]) ? numberOf(rows[0], 'capturedAt') : null
+  const atmIvSamples = samplesOf(rows, (row) => numberOf(recordOf(row, 'nearTerm'), 'atmIvPercent'))
+  const putCallSamples = samplesOf(rows, (row) =>
+    numberOf(recordOf(row, 'nearTerm'), 'putCallOiRatio'),
+  )
+  const atmIv = rangeOf(atmIvSamples)
+  const putCall = rangeOf(putCallSamples)
+  const atmIvDayAgo = dayAgoOf(atmIvSamples, latestAt)
+  const putCallDayAgo = dayAgoOf(putCallSamples, latestAt)
+  return {
+    samples: rows.length,
+    windowMs: first === null ? 0 : latestAt - first,
+    atmIv,
+    putCall,
+    atmIvPercentile: percentileOf(atmIvSamples),
+    atmIvChange24h: atmIv === null || atmIvDayAgo === null ? null : atmIv.latest - atmIvDayAgo,
+    putCallChange24h:
+      putCall === null || putCallDayAgo === null ? null : putCall.latest - putCallDayAgo,
+  }
+}
+
+/**
  * 解析一次序列响应，取最后一行的快照。
  *
  * @param raw 响应原文解析后的值
@@ -125,11 +237,101 @@ export function parseOptionSeries(raw: unknown): OptionPanelView | null {
   const mainFlip = numberOf(gammaFlip, 'gammaFlipUsd') ?? numberOf(last, 'gammaFlipUsd')
   return {
     currency,
+    venue: textOf(last, 'venue'),
     capturedAt,
     spotIndex: numberOf(last, 'spotIndex'),
     nearTerm: nearTermOf(recordOf(last, 'nearTerm')),
     allChain: levelSetOf(recordOf(last, 'allChain')),
     gammaFlipUsd: mainFlip,
     gammaFlipSource: textOf(gammaFlip, 'source'),
+    trend: trendOf(rows, capturedAt),
+    volatility: null,
+  }
+}
+
+/**
+ * 读统计来源层。
+ *
+ * @param raw 响应
+ * @returns 来源层；取值不在枚举内时为 null
+ */
+function statsSourceOf(raw: unknown): OptionStatsSource | null {
+  const value = textOf(raw, 'source')
+  if (value === 'daily' || value === 'hourly' || value === 'none') return value
+  return null
+}
+
+/**
+ * 解析一个窗口的统计。
+ *
+ * @param raw 窗口对象
+ * @returns 窗口统计；缺少窗口天数或样本天数时返回 null
+ */
+function windowStatsOf(raw: unknown): OptionWindowStats | null {
+  const windowDays = numberOf(raw, 'windowDays')
+  const sampleDays = numberOf(raw, 'sampleDays')
+  const expectedDays = numberOf(raw, 'expectedDays')
+  if (windowDays === null || sampleDays === null || expectedDays === null) return null
+  return {
+    windowDays,
+    sampleDays,
+    expectedDays,
+    ivLatest: numberOf(raw, 'ivLatest'),
+    ivHigh: numberOf(raw, 'ivHigh'),
+    ivLow: numberOf(raw, 'ivLow'),
+    ivRank: numberOf(raw, 'ivRank'),
+    ivPercentile: numberOf(raw, 'ivPercentile'),
+  }
+}
+
+/**
+ * 解析期限结构。
+ *
+ * @param raw 期限结构字段
+ * @returns 到期点列表；字段缺失或不合法时返回 null
+ */
+function termStructureOf(raw: unknown): readonly OptionTermPoint[] | null {
+  if (!Array.isArray(raw)) return null
+  const points: OptionTermPoint[] = []
+  for (const item of raw) {
+    const expiryIso = textOf(item, 'expiryIso')
+    const dteDays = numberOf(item, 'dteDays')
+    const atmIvPercent = numberOf(item, 'atmIvPercent')
+    if (expiryIso === null || dteDays === null || atmIvPercent === null) return null
+    points.push({ expiryIso, dteDays, atmIvPercent })
+  }
+  return points
+}
+
+/**
+ * 解析一次波动统计响应。
+ *
+ * @param raw 响应原文解析后的值
+ * @returns 统计；结构不符合预期时返回 null
+ */
+export function parseOptionStats(raw: unknown): OptionVolatilityStats | null {
+  if (!isRecord(raw)) return null
+  const source = statsSourceOf(raw)
+  if (source === null) return null
+  const stale = raw.stale
+  if (typeof stale !== 'boolean') return null
+  const windowsRaw = raw.windows
+  if (!Array.isArray(windowsRaw)) return null
+  const windows: OptionWindowStats[] = []
+  for (const item of windowsRaw) {
+    const window = windowStatsOf(item)
+    if (window === null) return null
+    windows.push(window)
+  }
+  return {
+    source,
+    stale,
+    latestCapturedAt: numberOf(raw, 'latestCapturedAt'),
+    rv20: numberOf(raw, 'rv20'),
+    vrp: numberOf(raw, 'vrp'),
+    termStructure: termStructureOf(raw.termStructure),
+    skew25dVolPoints: numberOf(raw, 'skew25dVolPoints'),
+    skew25dExpiryIso: textOf(raw, 'skew25dExpiryIso'),
+    windows,
   }
 }

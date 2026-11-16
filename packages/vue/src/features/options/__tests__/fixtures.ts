@@ -4,6 +4,33 @@
 
 import type { OptionLevelSetView, OptionNearTermView, OptionPanelView } from '../types.js'
 
+/** 工具执行上下文的最小替身：工具只用到取消信号与进度回调。 */
+export function toolContext(): {
+  readonly runId: string
+  readonly toolCallId: string
+  readonly signal: AbortSignal
+  readonly progress: () => void
+} {
+  return {
+    runId: 'run-1',
+    toolCallId: 'call-1',
+    signal: new AbortController().signal,
+    progress: () => {},
+  }
+}
+
+/**
+ * 读取工具结果的正文。
+ *
+ * @param result 工具执行结果
+ * @returns 正文；没有正文时返回空串
+ */
+export function contentOf(result: unknown): string {
+  if (typeof result !== 'object' || result === null) return ''
+  const content = Reflect.get(result, 'content')
+  return typeof content === 'string' ? content : ''
+}
+
 /** 没有墙位与翻转位的一套空关键位。 */
 export const EMPTY_LEVELS: OptionLevelSetView = {
   gammaFlipUsd: null,
@@ -42,10 +69,13 @@ export const EMPTY_NEAR_TERM: OptionNearTermView = {
 export function sampleView(overrides: Partial<OptionPanelView> = {}): OptionPanelView {
   return {
     currency: 'BTC',
+    venue: 'Deribit',
     capturedAt: 1_764_000_000_000,
     spotIndex: 67_144.55,
     gammaFlipUsd: 68_138.87,
     gammaFlipSource: 'near-term',
+    trend: null,
+    volatility: null,
     nearTerm: {
       ...EMPTY_NEAR_TERM,
       gammaFlipUsd: 68_138.87,

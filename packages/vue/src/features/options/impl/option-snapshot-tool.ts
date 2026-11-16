@@ -4,12 +4,20 @@
 // 描述里写死了口径：墙位 = 该方向持仓最集中的行权价，翻转位 = 净 GEX 过零的现价，
 // 两者都是观察锚点；数据只覆盖有期权源的标的（当前是 BTC 与 ETH）。
 
-import { resolveOptionUnderlying } from '@363045841yyt/klinechart-core'
 import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 import { Type } from 'typebox'
-import type { OptionLevelSetView, OptionPanelSource, OptionPanelView } from '../types.js'
-import { describeOptionLevels } from './option-summary.js'
-import { parseOptionSeries } from './parse-option-series.js'
+import type {
+  OptionLevelSetView,
+  OptionPanelSource,
+  OptionPanelView,
+  OptionVolatilityStats,
+} from '../types.js'
+import { describeOptionLevels, describeVolatilityStats, signed } from './option-summary.js'
+import { readCurrency, readFormat, resolveCurrency } from './option-tool-input.js'
+import { parseOptionSeries, parseOptionStats } from './parse-option-series.js'
+
+/** 取整段序列用于波动上下文；服务端上限 5000 行，约 3.5 天的分钟级采样。 */
+const TREND_SAMPLE_LIMIT = 5_000
 
 /** 工具名。 */
 export const OPTION_SNAPSHOT_TOOL_NAME = 'option_snapshot'
@@ -19,11 +27,21 @@ export const OPTION_SNAPSHOT_TOOL_METADATA = {
   name: OPTION_SNAPSHOT_TOOL_NAME,
   label: 'Read option levels',
   description:
-    'Read the Deribit option levels of one underlying: gamma flip (the spot where net GEX crosses zero), ' +
+    'Read the option levels of one underlying (BTC/ETH from Deribit, SOL/BNB/XRP from Binance): gamma flip ' +
+    '(the spot where net GEX crosses zero), ' +
     'call and put walls (the strike holding the most open interest on that side), max pain, near-term ATM ' +
     'implied volatility, DTE, the ±1σ / ±2σ expected move, the Put/Call open-interest ratio and net GEX. ' +
-    'Only BTC and ETH have an option source today. The collector samples once per minute and the panel reads ' +
-    'the latest row, so the numbers are at most a few minutes old. ' +
+    'Coverage: BTC, ETH, SOL, BNB and XRP. ADA and other symbols have no option venue — say there is no option ' +
+    'data instead of substituting another symbol. The collector samples once per minute and the panel reads ' +
+    'the latest row, so the numbers are at most a few minutes old. It also reports the volatility context of the ' +
+    'whole sampled series: the ATM implied-volatility range and where the latest value sits in it, the put/call ' +
+    'range, and the 24-hour changes. It also reports long-window statistics computed from the daily layer: IV Rank ' +
+    'and IV Percentile over 30/90/365 calendar days with the number of sample days, plus RV20 and VRP. ' +
+    'When you quote a percentile, always give its window and sample days; a low percentile is the position of ' +
+    'current IV inside that window, NOT evidence that risk is low, and never a stop-loss or sizing input. ' +
+    'Do not compute indicators that are absent from the report; when term structure or the 25Δ skew is missing, ' +
+    'say it is unavailable instead of estimating it. ' +
+    'Reset your reading after an expiry roll: the near-term IV then refers to a different contract. ' +
     'IMPORTANT: these are observation anchors, NOT trading signals. A wall marks where open interest is ' +
     'concentrated, not a guaranteed support or resistance; the gamma flip describes how dealer hedging behaves, ' +
     'not the direction price will take. Report the levels, the distance from spot, and the volatility context; ' +
@@ -49,52 +67,6 @@ const OptionSnapshotParameters = Type.Object(
   { additionalProperties: false },
 )
 
-/** 判断是否为普通对象；模型给的参数已过 Schema，这里只做类型收敛。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-/**
- * 读取显式传入的标的。
- *
- * @param input 工具输入
- * @returns 标的原文；未传或不是字符串时为 undefined
- */
-function readCurrency(input: unknown): string | undefined {
-  if (!isRecord(input)) return undefined
-  const value = input.currency
-  return typeof value === 'string' && value.trim() !== '' ? value : undefined
-}
-
-/**
- * 读取输出格式。
- *
- * @param input 工具输入
- * @returns json 或默认的 text
- */
-function readFormat(input: unknown): 'text' | 'json' {
-  if (!isRecord(input)) return 'text'
-  return input.format === 'json' ? 'json' : 'text'
-}
-
-/**
- * 把请求里的标的收成期权标的。
- *
- * 既接受品种代码（BTCUSDT、BTCUSDT.P），也接受直接写标的（BTC）；
- * 前者走宿主映射表，后者按大写原样交给服务，由服务决定有没有数据。
- *
- * @param requested 请求里的标的
- * @param fallback 省略参数时的回落来源
- * @returns 期权标的；两者都拿不到时为 null
- */
-function resolveCurrency(requested: string | undefined, fallback: () => string | null): string | null {
-  if (requested === undefined) return fallback()
-  const mapped = resolveOptionUnderlying(requested)
-  if (mapped !== null) return mapped
-  const upper = requested.trim().toUpperCase()
-  return upper === '' ? null : upper
-}
-
 /**
  * 价格文本。
  *
@@ -103,6 +75,41 @@ function resolveCurrency(requested: string | undefined, fallback: () => string |
  */
 function price(value: number | null): string {
   return value === null ? '—' : value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+/** 一天的毫秒数；用于把窗口跨度写成天数。 */
+const DAY_MS = 86_400_000
+
+/**
+ * 波动上下文一行：窗口、区间、分位与 24 小时变化。
+ *
+ * 序列来自同一次请求，不额外取数；样本不足时直说，不输出 0。
+ *
+ * @param view 面板视图
+ * @returns 一行文本
+ */
+function trendLine(view: OptionPanelView): string {
+  const trend = view.trend
+  if (trend === null) return '波动上下文：样本不足。'
+  const parts: string[] = [`近 ${(trend.windowMs / DAY_MS).toFixed(1)} 天 ${trend.samples} 个采样`]
+  if (trend.atmIv !== null) {
+    const percentile = trend.atmIvPercentile === null ? '' : `，分位 ${trend.atmIvPercentile}%`
+    parts.push(
+      `ATM IV ${trend.atmIv.min.toFixed(1)}%–${trend.atmIv.max.toFixed(1)}%` +
+        `（现 ${trend.atmIv.latest.toFixed(1)}%${percentile}）`,
+    )
+  }
+  if (trend.putCall !== null) {
+    parts.push(
+      `P/C ${trend.putCall.min.toFixed(2)}–${trend.putCall.max.toFixed(2)}` +
+        `（现 ${trend.putCall.latest.toFixed(2)}）`,
+    )
+  }
+  const changes: string[] = []
+  if (trend.atmIvChange24h !== null) changes.push(`IV 24h ${signed(trend.atmIvChange24h, 2)}pp`)
+  if (trend.putCallChange24h !== null) changes.push(`P/C 24h ${signed(trend.putCallChange24h, 3)}`)
+  if (changes.length > 0) parts.push(changes.join(' | '))
+  return `波动上下文：${parts.join(' | ')}`
 }
 
 /**
@@ -131,9 +138,10 @@ function levelLine(label: string, levels: OptionLevelSetView): string {
  * 第一行是一句人话解读，后面按口径分行，便于模型引用具体数字。
  *
  * @param view 面板视图
+ * @param stats 长窗口统计；取不到时为 null
  * @returns 多行报告
  */
-function formatReport(view: OptionPanelView): string {
+function formatReport(view: OptionPanelView, stats: OptionVolatilityStats | null): string {
   const nearTerm = view.nearTerm
   const chain = view.allChain
   const lines = [
@@ -147,9 +155,35 @@ function formatReport(view: OptionPanelView): string {
       ` | ±2σ ${price(nearTerm.sigma2LowerUsd)}–${price(nearTerm.sigma2UpperUsd)}`,
     `持仓：近月 P/C ${nearTerm.putCallOiRatio?.toFixed(2) ?? '—'} | 张数 ${price(nearTerm.totalOpenInterest)}` +
       ` | 全链 P/C ${chain.putCallOiRatio?.toFixed(2) ?? '—'} | 张数 ${price(chain.totalOpenInterest)}`,
+    trendLine(view),
+    describeVolatilityStats(stats),
     `采集：${new Date(view.capturedAt).toISOString()}（翻转位来源 ${view.gammaFlipSource ?? '—'}）`,
   ]
   return lines.join('\n')
+}
+
+/**
+ * 取长窗口波动统计。
+ *
+ * 统计来自 `/options/stats`（日行样本）；取不到时只让这一行为空，不影响关键位——
+ * 关键位与历史分位是两个独立的服务面，一个挂了不该让另一个也变成错误。
+ *
+ * @param source 期权数据来源
+ * @param currency 期权标的
+ * @param signal 取消信号
+ * @returns 统计；失败或结构不符时为 null
+ */
+async function fetchVolatilityStats(
+  source: OptionPanelSource,
+  currency: string,
+  signal: AbortSignal,
+): Promise<OptionVolatilityStats | null> {
+  try {
+    return parseOptionStats(await source.fetchStats(currency, undefined, signal))
+  } catch (error) {
+    signal.throwIfAborted()
+    return null
+  }
 }
 
 /**
@@ -186,7 +220,9 @@ export function createOptionSnapshotTool(
       }
       context.progress({ label: `读取期权关键位 ${currency}`, current: 1, total: 1 })
       try {
-        const view = parseOptionSeries(await source.fetchSeries(currency, context.signal))
+        const view = parseOptionSeries(
+          await source.fetchSeries(currency, context.signal, TREND_SAMPLE_LIMIT),
+        )
         if (view === null) {
           return {
             content:
@@ -197,13 +233,15 @@ export function createOptionSnapshotTool(
           }
         }
         if (readFormat(input) === 'json') {
+          const stats = await fetchVolatilityStats(source, currency, context.signal)
           return {
-            content: JSON.stringify(view),
+            content: JSON.stringify({ ...view, volatility: stats }),
             summary: `已返回 ${currency} 的期权快照。`,
           }
         }
+        const stats = await fetchVolatilityStats(source, currency, context.signal)
         return {
-          content: formatReport(view),
+          content: formatReport(view, stats),
           summary: `已返回 ${currency} 的期权关键位。`,
         }
       } catch (error) {

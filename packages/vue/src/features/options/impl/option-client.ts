@@ -8,8 +8,11 @@ const DEFAULT_OPTION_SERVICE_BASE_URL = 'http://127.0.0.1:8093'
 /** 单次请求超时（毫秒）。本地服务正常在几十毫秒量级。 */
 const REQUEST_TIMEOUT_MS = 8000
 
-/** 一次请求取几行；面板只画最新一行，多取一行便于判断是否在更新。 */
+/** 面板一次请求取几行；面板只画最新一行，历史由 Agent 工具按需另取。 */
 const SERIES_LIMIT = 1
+
+/** 面板统计窗口：一个月、一个季度、一年。 */
+const STATS_WINDOWS: readonly number[] = [30, 90, 365]
 
 /**
  * 创建期权序列客户端。
@@ -20,18 +23,39 @@ const SERIES_LIMIT = 1
 export function createOptionClient(options: OptionClientOptions): OptionPanelSource {
   const baseUrl = (options.baseUrl ?? DEFAULT_OPTION_SERVICE_BASE_URL).replace(/\/+$/, '')
 
+  /**
+   * 发一次请求并解析 JSON。
+   *
+   * @param path 路径与查询
+   * @param signal 取消信号
+   * @returns 解析后的值
+   */
+  async function request(path: string, signal?: AbortSignal): Promise<unknown> {
+    const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    const merged = signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+    const response = await options.fetch(`${baseUrl}${path}`, { signal: merged })
+    if (!response.ok) {
+      throw new Error(`期权服务返回 ${response.status}：${path}`)
+    }
+    return JSON.parse(await response.text()) as unknown
+  }
+
   return {
-    async fetchSeries(currency: string, signal?: AbortSignal): Promise<unknown> {
-      const query = new URLSearchParams({ currency, limit: String(SERIES_LIMIT) })
-      const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-      const merged = signal === undefined ? timeout : AbortSignal.any([signal, timeout])
-      const response = await options.fetch(`${baseUrl}/options/series?${query.toString()}`, {
-        signal: merged,
+    async fetchSeries(currency: string, signal?: AbortSignal, limit?: number): Promise<unknown> {
+      const query = new URLSearchParams({ currency, limit: String(limit ?? SERIES_LIMIT) })
+      return request(`/options/series?${query.toString()}`, signal)
+    },
+
+    async fetchStats(
+      currency: string,
+      windows?: readonly number[],
+      signal?: AbortSignal,
+    ): Promise<unknown> {
+      const query = new URLSearchParams({
+        currency,
+        windows: (windows ?? STATS_WINDOWS).join(','),
       })
-      if (!response.ok) {
-        throw new Error(`期权服务返回 ${response.status}：${currency}`)
-      }
-      return JSON.parse(await response.text()) as unknown
+      return request(`/options/stats?${query.toString()}`, signal)
     },
   }
 }

@@ -9,14 +9,23 @@ import {
   OPTION_SNAPSHOT_TOOL_NAME,
 } from '../impl/option-snapshot-tool.js'
 import type { OptionPanelSource } from '../types.js'
+import { contentOf, toolContext } from './fixtures.js'
+
+/** 更早一行采样的摘要字段。 */
+interface OlderRow {
+  readonly capturedAt: number
+  readonly atmIv: number
+  readonly putCall: number
+}
 
 /**
  * 造一份服务端原始响应。
  *
+ * @param older 追加一条更早的采样，用于验证波动上下文
  * @returns 序列响应
  */
-function seriesPayload(): unknown {
-  return {
+function seriesPayload(older?: OlderRow): unknown {
+  const base = {
     currency: 'BTC',
     days: ['2026-11-14'],
     rows: [
@@ -59,57 +68,82 @@ function seriesPayload(): unknown {
       },
     ],
   }
-}
-
-/**
- * 构造工具执行上下文。
- *
- * @returns 带取消信号与进度回调的上下文
- */
-function toolContext(): {
-  readonly runId: string
-  readonly toolCallId: string
-  readonly signal: AbortSignal
-  readonly progress: () => void
-} {
-  return {
-    runId: 'run-1',
-    toolCallId: 'call-1',
-    signal: new AbortController().signal,
-    progress: () => {},
+  if (older === undefined) return base
+  const olderRow = {
+    currency: 'BTC',
+    capturedAt: older.capturedAt,
+    nearTerm: { atmIvPercent: older.atmIv, putCallOiRatio: older.putCall },
   }
+  return { ...base, rows: [olderRow, ...base.rows] }
 }
 
 /**
  * 造一个记录调用的假数据源。
  *
- * @param payload 返回值；省略时返回正常序列
+ * @param payload 序列返回值；省略时返回正常序列
+ * @param statsPayload 统计返回值；省略时返回正常统计
  * @returns 数据源与调用记录
  */
-function fakeSource(payload?: unknown): { source: OptionPanelSource; calls: string[] } {
+function fakeSource(
+  payload?: unknown,
+  statsPayload?: unknown,
+): {
+  source: OptionPanelSource
+  calls: string[]
+  limits: Array<number | undefined>
+  statsCalls: Array<string | undefined>
+} {
   const calls: string[] = []
+  const limits: Array<number | undefined> = []
+  const statsCalls: Array<string | undefined> = []
   return {
     calls,
+    limits,
+    statsCalls,
     source: {
-      async fetchSeries(currency: string): Promise<unknown> {
+      async fetchSeries(currency: string, _signal?: AbortSignal, limit?: number): Promise<unknown> {
         calls.push(currency)
+        limits.push(limit)
         if (payload instanceof Error) throw payload
         return payload ?? seriesPayload()
+      },
+      async fetchStats(currency: string, windows?: readonly number[]): Promise<unknown> {
+        statsCalls.push(windows === undefined ? currency : `${currency}:${windows.join(',')}`)
+        if (statsPayload instanceof Error) throw statsPayload
+        return statsPayload ?? statsPayloadOf()
       },
     },
   }
 }
 
 /**
- * 读取工具结果正文。
+ * 造一份统计响应。
  *
- * @param result 工具执行结果
- * @returns 正文
+ * @returns 统计响应原文
  */
-function contentOf(result: unknown): string {
-  if (typeof result !== 'object' || result === null) return ''
-  const content = Reflect.get(result, 'content')
-  return typeof content === 'string' ? content : ''
+function statsPayloadOf(): unknown {
+  return {
+    currency: 'BTC',
+    source: 'daily',
+    stale: false,
+    latestCapturedAt: 1_764_000_000_000,
+    rv20: 43.2,
+    vrp: 3.4,
+    termStructure: null,
+    skew25dVolPoints: null,
+    windows: [
+      {
+        windowDays: 30,
+        sampleDays: 6,
+        expectedDays: 30,
+        ivLatest: 51.6,
+        ivHigh: 55.1,
+        ivLow: 44,
+        ivRank: 68.47,
+        ivPercentile: 83.33,
+      },
+    ],
+  }
 }
 
 describe('createOptionSnapshotTool', () => {
@@ -132,6 +166,46 @@ describe('createOptionSnapshotTool', () => {
     expect(text).toContain('全链 P/C 0.74')
   })
 
+  it('文本报告带上整段序列的波动上下文', async () => {
+    const payload = seriesPayload({ capturedAt: 1_763_913_600_000, atmIv: 30, putCall: 1.2 })
+    const fake = fakeSource(payload)
+    const tool = createOptionSnapshotTool(fake.source, () => 'BTC')
+
+    const result = await tool.execute({}, toolContext())
+    const text = result.content
+
+    // 面板只取一行；工具要取整段，服务端上限 5000。
+    expect(fake.limits).toEqual([5000])
+
+    expect(text).toContain('波动上下文：近 1.0 天 2 个采样')
+    expect(text).toContain('ATM IV 30.0%–35.5%（现 35.5%，分位 100%）')
+    expect(text).toContain('P/C 0.70–1.20（现 0.70）')
+    expect(text).toContain('IV 24h +5.50pp | P/C 24h -0.500')
+  })
+
+  it('文本报告带上长窗口分位与样本天数', async () => {
+    const fake = fakeSource()
+    const tool = createOptionSnapshotTool(fake.source, () => 'BTC')
+
+    const text = contentOf(await tool.execute({}, toolContext()))
+
+    // 不传窗口：默认窗口由服务端定义，客户端不复制这份口径。
+    expect(fake.statsCalls).toEqual(['BTC'])
+    expect(text).toContain('历史分位：30 天 IVR 68 / IVP 83（样本 6/30 天）')
+    expect(text).toContain('RV20 43.2%')
+    expect(text).toContain('VRP +3.4pp')
+  })
+
+  it('统计服务失败时只缺分位一行，关键位照常返回', async () => {
+    const fake = fakeSource(undefined, new Error('connect ECONNREFUSED 127.0.0.1:8093'))
+    const tool = createOptionSnapshotTool(fake.source, () => 'BTC')
+
+    const text = contentOf(await tool.execute({}, toolContext()))
+
+    expect(text).toContain('Gamma 翻转 68,241.66')
+    expect(text).toContain('历史分位：统计不可用。')
+  })
+
   it('json 格式返回结构化快照', async () => {
     const { source } = fakeSource()
     const tool = createOptionSnapshotTool(source, () => 'BTC')
@@ -142,6 +216,7 @@ describe('createOptionSnapshotTool', () => {
     expect(typeof parsed).toBe('object')
     expect(text).toContain('"gammaFlipUsd":68241.66')
     expect(text).toContain('"putCallOiRatio":0.7')
+    expect(text).toContain('"volatility":{"source":"daily"')
   })
 
   it('显式传品种代码时走映射表，直接传标的时按大写使用', async () => {
@@ -191,7 +266,8 @@ describe('createOptionSnapshotTool', () => {
 
     const result = await tool.execute({}, toolContext())
     const text = contentOf(result)
-    const failure = typeof result === 'object' && result !== null ? Reflect.get(result, 'failure') : undefined
+    const failure =
+      typeof result === 'object' && result !== null ? Reflect.get(result, 'failure') : undefined
 
     expect(text).toContain('读取期权关键位失败')
     expect(text).toContain('ECONNREFUSED')

@@ -31,28 +31,23 @@
   import { BrowserAgentBridge } from '../../features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
   import { createAgentPanelSideStorage } from '../../features/agent/workspace/impl/agent-panel-side-storage.js'
   import { createAgentPanelWidthStorage } from '../../features/agent/workspace/impl/agent-panel-width-storage.js'
-  import { describeOptionStructure } from '../../features/options/impl/option-structure.js'
-  import { createOptionClient } from '../../features/options/impl/option-client.js'
-  import { useOptionPanel } from '../../features/options/impl/use-option-panel.js'
   import OptionPanel from '../../features/options/components/OptionPanel.vue'
+  import { createOptionClient } from '../../features/options/impl/option-client.js'
+  import { describeOptionStructure } from '../../features/options/impl/option-structure.js'
+  import {
+    describeVolatility,
+    describeVolatilityStats,
+  } from '../../features/options/impl/option-summary.js'
+  import { useOptionPanel } from '../../features/options/impl/use-option-panel.js'
   import OrderflowPanel from '../../features/orderflow/components/OrderflowPanel.vue'
   import { createOrderflowClient } from '../../features/orderflow/impl/orderflow-client.js'
-  import { normalizeOrderflowSymbol } from '../../features/orderflow/impl/orderflow-snapshot-tool.js'
+  import { useChartSymbol } from './use-chart-symbol.js'
 
   /** 订单流页签的名字，与 `#panel` 插槽里的判断保持一致。 */
   const ORDERFLOW_TAB_NAME = 'orderflow'
 
   /** 期权页签的名字。 */
   const OPTIONS_TAB_NAME = 'options'
-
-  /**
-   * 图表没有品种时的回落品种。
-   *
-   * 订单流的数据源与图表行情是两条独立链路：行情后端没起、或图表还在加载时，
-   * 面板本身仍然可用。没有回落的话，用户会看到一块空白，误以为功能坏了。
-   * 面板顶部始终显示当前品种，所以回落到 BTCUSDT 不会造成「以为在看别的币」。
-   */
-  const DEFAULT_ORDERFLOW_SYMBOL = 'BTCUSDT'
 
   const props = defineProps<{
     controller: ChartController | null
@@ -89,13 +84,8 @@
     baseUrl: props.orderflowBaseUrl,
   })
 
-  /** 图表当前品种归一化成订单流用的交易对；图表没有品种时回落到默认品种。 */
-  const chartSymbol = computed<string>(() => {
-    const agent = props.controller?.agent
-    if (agent === undefined) return DEFAULT_ORDERFLOW_SYMBOL
-    const context = agent.context()
-    return normalizeOrderflowSymbol(context?.symbol ?? null) ?? DEFAULT_ORDERFLOW_SYMBOL
-  })
+  /** 图表当前品种：经 Core signal 桥接，换品种后两个面板一起切换。 */
+  const chartSymbol = useChartSymbol(() => props.controller)
 
   /** 图品种到期权标的的映射；没有期权源的品种返回 null，面板据此显示提示。 */
   const optionUnderlying = computed<string | null>(() => resolveOptionUnderlying(chartSymbol.value))
@@ -118,11 +108,16 @@
     const reading = describeOptionStructure(view)
     const lines = ['期权结构（实采数据）：', `基调：${reading.bias}`]
     if (reading.zones !== '') lines.push(`走廊：${reading.zones}`)
+    const volatility = describeVolatility(view)
+    if (volatility !== '') lines.push(volatility)
+    lines.push(describeVolatilityStats(view.volatility))
     for (const item of reading.watch) lines.push(`注意：${item}`)
     lines.push(
       '请只解读结构：①指出最突出的跨指标矛盾；②说明改变结构的具体价位与条件；' +
         '③只用上面出现的数字，不要自己算；④不给入场、止损、目标价，用「更容易」「倾向于」这类条件句；' +
-        '⑤各项同向时直接说没有背离。',
+        '⑤各项同向时直接说没有背离；' +
+        '⑥引用分位必须带窗口与样本天数，样本不足就说「仅 N 天」；分位是当前 IV 在窗口内的位置，' +
+        '不是风险大小；近月到期或换月后历史分位的样本口径已变，要在结论里说明。',
     )
     return [lines.join('\n')]
   })

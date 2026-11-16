@@ -91,6 +91,7 @@
           <dt>±2σ</dt>
           <dd>{{ rangeText(view.nearTerm.sigma2LowerUsd, view.nearTerm.sigma2UpperUsd) }}</dd>
         </dl>
+        <p class="op-stats">{{ volatilityLine }}</p>
       </section>
 
       <!-- ③ 持仓 -->
@@ -152,6 +153,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { describeOptionStructure } from '../impl/option-structure.js'
+  import { describeVolatilityStats } from '../impl/option-summary.js'
   import type { OptionPanelState } from '../impl/use-option-panel.js'
 
   const props = defineProps<{
@@ -167,8 +169,22 @@
   const error = computed(() => props.state.error.value)
   const refresh = () => props.state.refresh()
 
-  /** 标题：标的 + 期权，让「BTC」和图表上的 BTCUSDT.P 区分开。 */
-  const title = computed(() => (view.value === null ? '期权' : `${view.value.currency} 期权`))
+  /** 场所的展示名。行里存的是枚举值（deribit / binance），界面要给人读的写法。 */
+  const VENUE_LABELS: Readonly<Record<string, string>> = {
+    deribit: 'Deribit',
+    binance: 'Binance',
+  }
+
+  /**
+   * 标题：标的 + 期权 + 数据场所，让「BTC」和图表上的 BTCUSDT.P 区分开，
+   * 也让 Deribit 与 Binance 的数据不被当成同一个来源。
+   */
+  const title = computed(() => {
+    if (view.value === null) return '期权'
+    const raw = view.value.venue
+    if (raw === null) return `${view.value.currency} 期权`
+    return `${view.value.currency} 期权 · ${VENUE_LABELS[raw] ?? raw}`
+  })
 
   const staleClass = computed(() => {
     const updated = props.state.lastUpdated.value
@@ -198,9 +214,10 @@
     return statusTone.value === 'warning' ? '数据超过 10 分钟未更新' : '在线'
   })
 
-  const reading = computed(() =>
-  view.value === null ? null : describeOptionStructure(view.value),
-)
+  const reading = computed(() => (view.value === null ? null : describeOptionStructure(view.value)))
+
+  /** 长窗口分位一行；统计不可用时说明缺口，不留空白。 */
+  const volatilityLine = computed(() => describeVolatilityStats(view.value?.volatility ?? null))
 
   /**
    * 价格文本。
@@ -495,6 +512,17 @@
     font-size: 11px;
     line-height: 1.5;
     opacity: 0.6;
+  }
+
+  /* 长窗口分位：一行文字，数字用等宽，扫读时不跳动。 */
+  .op-stats {
+    margin: 8px 0 0;
+    padding-top: 6px;
+    border-top: 1px dashed var(--klc-color-ui-border);
+    font-size: 11px;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
   }
 
   .op-structure {

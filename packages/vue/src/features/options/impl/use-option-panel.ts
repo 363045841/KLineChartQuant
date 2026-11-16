@@ -1,8 +1,9 @@
 // 期权面板的轮询状态：换标的立即重取，卸载时停表，失败保留上一次成功的数据。
+// 统计请求与序列请求并行发出；统计失败只让 volatility 为空，不影响关键位显示。
 
-import { onBeforeUnmount, shallowRef, watch, type ShallowRef } from 'vue'
+import { onBeforeUnmount, type ShallowRef, shallowRef, watch } from 'vue'
 import type { OptionPanelSource, OptionPanelView } from '../types.js'
-import { parseOptionSeries } from './parse-option-series.js'
+import { parseOptionSeries, parseOptionStats } from './parse-option-series.js'
 
 /** 默认刷新间隔：采集器 60 秒一轮，面板跟着采集间隔走就够。 */
 const DEFAULT_REFRESH_MS = 60_000
@@ -60,16 +61,25 @@ export function useOptionPanel(options: UseOptionPanelOptions): OptionPanelState
     inFlight = true
     loading.value = true
     try {
-      const parsed = parseOptionSeries(await options.source.fetchSeries(currency))
+      const [seriesResult, statsResult] = await Promise.allSettled([
+        options.source.fetchSeries(currency),
+        options.source.fetchStats(currency),
+      ])
+      if (seriesResult.status === 'rejected') throw seriesResult.reason
+      const parsed = parseOptionSeries(seriesResult.value)
       if (parsed === null) {
         error.value = '期权服务返回的结构不符合预期。'
         return
       }
-      view.value = parsed
+      // 统计失败不阻塞关键位：历史分位缺失时面板照常显示结构数据。
+      const stats = statsResult.status === 'fulfilled' ? parseOptionStats(statsResult.value) : null
+      view.value = { ...parsed, volatility: stats }
       lastUpdated.value = Date.now()
       error.value = null
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : String(cause)
+      // 浏览器原生的 "Failed to fetch" 对用户没有信息量：补上下文再显示。
+      const reason = cause instanceof Error ? cause.message : String(cause)
+      error.value = `读取期权数据失败：${reason}`
     } finally {
       inFlight = false
       loading.value = false
