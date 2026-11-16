@@ -252,12 +252,16 @@
     }
     const innerRect = inner.getBoundingClientRect()
     const tabRect = element.getBoundingClientRect()
-    // 保留布局的小数精度，让 SVG 尺寸与测量坐标使用同一坐标系。
-    outlineWidth.value = innerRect.width
-    outlineHeight.value = innerRect.height
-    outlineTabLeft.value = tabRect.left - innerRect.left
-    outlineTabRight.value = tabRect.right - innerRect.left
-    outlineTabTop.value = tabRect.top - innerRect.top
+    // SVG 描边不像 CSS 边框那样参与设备像素吸附：测量值要自己落到设备像素网格上，
+    // 否则 1px 线会横跨两行被抗锯齿摊开，和 ChartMain 的边框粗细对不上。
+    const dpr = window.devicePixelRatio || 1
+    const snap = (value: number, origin: number) =>
+      Math.round((origin + value) * dpr) / dpr - origin
+    outlineWidth.value = snap(innerRect.width, innerRect.left)
+    outlineHeight.value = snap(innerRect.height, innerRect.top)
+    outlineTabLeft.value = snap(tabRect.left - innerRect.left, innerRect.left)
+    outlineTabRight.value = snap(tabRect.right - innerRect.left, innerRect.left)
+    outlineTabTop.value = snap(tabRect.top - innerRect.top, innerRect.top)
   }
 
   /** 切换测量目标；自身尺寸由 ResizeObserver 监听，动画位移由逐帧测量同步。 */
@@ -310,7 +314,7 @@
     if (width <= 0 || height <= 0 || right <= left) return ''
     const flare = OUTLINE_FLARE
     const radius = OUTLINE_RADIUS
-    // 线宽 1px，落在最后一行像素的中线上。
+    // 1px 描边落在最后一行像素的中线上。
     const line = height - 0.5
     return [
       `M0 ${line}`,
@@ -649,8 +653,9 @@
     overflow: visible;
   }
 
+  /* 活动标签贴住分隔线：轮廓与填充全部由栏内 SVG 路径绘制。填充取标题栏色，只留 1px 轮廓分界。 */
   .tab-bar__outline-fill {
-    fill: light-dark(var(--klc-color-ui-surface), var(--klc-color-ui-hover));
+    fill: var(--klc-color-ui-tab-active-background);
     stroke: none;
   }
 
