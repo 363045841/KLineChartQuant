@@ -114,6 +114,14 @@ ADA 等品种没有任何期权场所，不登记：面板按「没有期权标�
 - 日行：`options/aggregate/<标的>/daily/YYYY-MM-DD.jsonl.gz`，3650 天（`OPTION_DAILY_RETENTION_DAYS`）
 - 原始链：`options/chain/<标的>/`，90 天（`OPTION_CHAIN_RETENTION_DAYS`）
 
+原始链只在**采样分钟**落盘：`collect-options --with-chain --with-chain-every <分钟>`（默认 5，最小 1）。
+判定用采集时刻本身（`isChainCaptureMinute`，`options/impl/chainCadence.ts`）：自 epoch 起的分钟数能被间隔整除即采样分钟。
+不靠进程内计数，因为 `collector.sh` 每轮起一个新进程、在 shell 层 sleep，进程内状态跨不了轮；用时钟对齐则重启、
+补跑、并发多进程都不改变口径。
+
+为什么不像聚合位那样每分钟落：Deribit BTC 全链约 980 张合约，每分钟落即约 141 万行/天、原始约 200MB/天；
+5 分钟节奏降到约 28 万行/天，单次快照实测 23KB（982 行），gzip 约 5–6.5MB/天，与 #17 规格的体积假设一致。`--with-chain-every 1` 可回到每分钟。
+
 分钟层就是聚合流的根目录，没有 `minute/` 子目录：采集器一直在写这个路径，加一层要迁移历史文件，而目录层级不承载任何计算口径。层与路径的对应只在 `options/impl/streams.ts` 定义一次。
 
 小时行与日行是**边界那一刻的分钟行原样快照**（`aggregatedRows` 记时段内实际分钟行数），不做均值——IV 是瞬时报价，均值没有金融含义。

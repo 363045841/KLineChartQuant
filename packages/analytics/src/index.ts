@@ -53,6 +53,7 @@ export {
   DEFAULT_BINANCE_OPTIONS_TIMEOUT_MS,
 } from './options/impl/binance'
 export { type Black76GammaInput, black76Gamma, standardNormalDensity } from './options/impl/black76'
+export { isChainCaptureMinute } from './options/impl/chainCadence'
 export {
   type CollectedOptionCurrency,
   type CollectOptionsRequest,

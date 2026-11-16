@@ -1,5 +1,5 @@
 /**
- * 期权采集编排单元测试：用替身 Deribit 客户端验证落盘、读回校验与幂等。
+ * 期权采集编排单元测试：用替身 Deribit 客户端验证落盘、采样门、读回校验与幂等。
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { collectOptionCurrencies } from '../options/impl/collect'
@@ -7,8 +7,11 @@ import type { OptionChainRecord, OptionVenueSource } from '../options/types'
 import { createDayShardStore } from '../storage/impl/dayShardStore'
 import { createTempDir, makeContract, removeTempDir } from './testUtils'
 
-/** 采集时刻：2026-11-10T00:00:00Z。 */
+/** 采集时刻：2026-11-10T00:00:00Z，落在间隔 5 分钟的采样分钟上。 */
 const CAPTURED_AT = Date.UTC(2026, 10, 10, 0, 0, 0)
+
+/** 采样分钟之外的时刻：2026-11-10T00:01:00Z。 */
+const OFF_MINUTE_AT = CAPTURED_AT + 60_000
 
 /** 到期时刻：2026-11-11T08:00:00Z。 */
 const EXPIRY = Date.UTC(2026, 10, 11, 8, 0, 0)
@@ -37,7 +40,7 @@ describe('collectOptionCurrencies', () => {
     }
   })
 
-  it('落盘聚合位与原始链，并通过读回校验', async () => {
+  it('采样分钟落盘聚合位与原始链，并通过读回校验', async () => {
     const dir = createTempDir()
     dirs.push(dir)
     const store = createDayShardStore(dir)
@@ -46,7 +49,7 @@ describe('collectOptionCurrencies', () => {
       sources: FAKE_SOURCES,
       store,
       currencies: ['BTC'],
-      persistChain: true,
+      chainEveryMinutes: 5,
       now: () => CAPTURED_AT,
     })
 
@@ -68,6 +71,43 @@ describe('collectOptionCurrencies', () => {
     expect(chainRows[0].capturedAt).toBe(CAPTURED_AT)
   })
 
+  it('不在采样分钟的轮次只写聚合位', async () => {
+    const dir = createTempDir()
+    dirs.push(dir)
+    const store = createDayShardStore(dir)
+
+    const results = await collectOptionCurrencies({
+      sources: FAKE_SOURCES,
+      store,
+      currencies: ['BTC'],
+      chainEveryMinutes: 5,
+      now: () => OFF_MINUTE_AT,
+    })
+
+    expect(results[0].aggregateAppend.appended).toBe(1)
+    expect(results[0].chainAppend).toBeNull()
+    expect(store.listDays('options/chain/BTC')).toEqual([])
+    expect(store.listDays('options/aggregate/BTC')).toEqual(['2026-11-10'])
+  })
+
+  it('未开启落链时不写原始链', async () => {
+    const dir = createTempDir()
+    dirs.push(dir)
+    const store = createDayShardStore(dir)
+
+    const results = await collectOptionCurrencies({
+      sources: FAKE_SOURCES,
+      store,
+      currencies: ['BTC'],
+      chainEveryMinutes: null,
+      now: () => CAPTURED_AT,
+    })
+
+    expect(results[0].aggregateAppend.appended).toBe(1)
+    expect(results[0].chainAppend).toBeNull()
+    expect(store.listDays('options/chain/BTC')).toEqual([])
+  })
+
   it('同一时刻重复采集不产生重复行', async () => {
     const dir = createTempDir()
     dirs.push(dir)
@@ -76,7 +116,7 @@ describe('collectOptionCurrencies', () => {
       sources: FAKE_SOURCES,
       store,
       currencies: ['BTC'] as const,
-      persistChain: true,
+      chainEveryMinutes: 5,
       now: () => CAPTURED_AT,
     }
 

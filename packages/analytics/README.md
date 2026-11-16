@@ -11,7 +11,7 @@ KCQ 分析数据业务线的采集器：Deribit 期权链聚合位 + Binance 买
 | --- | --- | --- | --- |
 | L1 | 期权聚合位：净 GEX、Gamma 翻转位、Call/Put 墙、最大痛点、±1σ、现货 | 30–60 秒 | 永久 |
 | L2 | Binance 买卖量拆分：taker buy base / sell = volume − buy | 跟 K 线刷新（1m…1M） | 短周期 90 天，日线及以上永久 |
-| L3 | 期权原始链：instrument_name、strike、expiry、OI、mark_iv、mark_price、underlying_price | 5 分钟 | 90 天滚动 |
+| L3 | 期权原始链：instrument_name、strike、expiry、OI、mark_iv、mark_price、underlying_price | 5 分钟（`--with-chain-every`） | 90 天滚动 |
 
 ## 关键口径
 
@@ -30,7 +30,7 @@ KCQ 分析数据业务线的采集器：Deribit 期权链聚合位 + Binance 买
 ```
 <数据目录>/
   options/aggregate/{BTC|ETH}/YYYY-MM-DD.jsonl.gz     # L1 聚合位，永久
-  options/chain/{BTC|ETH}/YYYY-MM-DD.jsonl.gz         # L3 原始链，90 天滚动
+  options/chain/{BTC|ETH}/YYYY-MM-DD.jsonl.gz         # L3 原始链，每 5 分钟一组，90 天滚动
   volume/{BTCUSDT|ETHUSDT}/{interval}/YYYY-MM-DD.jsonl.gz
   legacy/options-levels/{BTCUSD|ETHUSD}/YYYY-MM-DD.jsonl.gz   # cloudtrade 迁移
   legacy/volume/{BTCUSDT|ETHUSDT}/{interval}/YYYY-MM-DD.jsonl.gz
@@ -49,8 +49,9 @@ Windows `%APPDATA%\KLineChart Quant\analytics`，macOS `~/Library/Application Su
 # 期权聚合位（默认走本机代理 127.0.0.1:7078；本机直连 Deribit 会超时后 ECONNRESET）
 pnpm exec tsx packages/analytics/src/cli.ts collect-options --currencies BTC,ETH
 
-# 同时落原始链
-pnpm exec tsx packages/analytics/src/cli.ts collect-options --currencies BTC,ETH --with-chain
+# 同时落原始链：只在采样分钟写全链，默认 5 分钟一次（--with-chain-every 1 即每分钟）
+pnpm exec tsx packages/analytics/src/cli.ts collect-options --currencies BTC,ETH \
+  --with-chain --with-chain-every 5
 
 # 买卖量（默认直连币安，可加 --proxy host:port）
 pnpm exec tsx packages/analytics/src/cli.ts collect-volume --symbols BTCUSDT,ETHUSDT \

@@ -35,6 +35,9 @@ ORDERFLOW_SYMBOLS=${KCQ_ORDERFLOW_SYMBOLS:-BTCUSDT,ETHUSDT}
 ORDERFLOW_VENUES=${KCQ_ORDERFLOW_VENUES:-binance,okx,bybit,bitget,hyperliquid}
 TRADES_VENUES=${KCQ_TRADES_VENUES:-binance,bybit,bitget,hyperliquid}
 CURRENCIES=${KCQ_CURRENCIES:-BTC,ETH}
+# 原始链采样间隔（分钟）：只有落在采样分钟的轮次才落全链，其余轮次只写聚合位。
+# 采样分钟按时钟对齐，期权轮次保持 60 秒才能每 CHAIN_EVERY 分钟采到一次全链。
+CHAIN_EVERY=${KCQ_CHAIN_EVERY:-5}
 # 选择本进程负责哪些循环。默认四个全跑（容器内使用）；
 # 在宿主机上单独补跑订单流时用 KCQ_WORKERS=orderflow,trades，避免与容器里的期权/成交量重复采集。
 WORKERS=${KCQ_WORKERS:-options,volume,orderflow,trades}
@@ -63,6 +66,7 @@ is_positive_int "$OPTION_INTERVAL" || fail "KCQ_OPTION_INTERVAL 必须是正整�
 is_positive_int "$VOLUME_INTERVAL" || fail "KCQ_VOLUME_INTERVAL 必须是正整数（秒），当前：$VOLUME_INTERVAL"
 is_positive_int "$ORDERFLOW_INTERVAL" || fail "KCQ_ORDERFLOW_INTERVAL 必须是正整数（秒），当前：$ORDERFLOW_INTERVAL"
 is_positive_int "$TRADES_INTERVAL" || fail "KCQ_TRADES_INTERVAL 必须是正整数（秒），当前：$TRADES_INTERVAL"
+is_positive_int "$CHAIN_EVERY" || fail "KCQ_CHAIN_EVERY 必须是正整数（分钟），当前：$CHAIN_EVERY"
 
 # 判断某个循环是否由本进程负责。
 has_worker() {
@@ -149,7 +153,7 @@ run_worker() {
 }
 
 options_worker() {
-  set -- collect-options --root "$DATA_ROOT" --currencies "$CURRENCIES"
+  set -- collect-options --root "$DATA_ROOT" --currencies "$CURRENCIES" --with-chain --with-chain-every "$CHAIN_EVERY"
   if [ "$PROXY_CONFIGURED" -eq 1 ]; then
     set -- "$@" --proxy "$PROXY"
   fi
@@ -215,6 +219,7 @@ else
   echo "[supervisor] 未设置代理：期权采集将使用 127.0.0.1:7078 默认值，成交量走直连"
 fi
 echo "[supervisor] 期权间隔 ${OPTION_INTERVAL}s（$CURRENCIES），成交量间隔 ${VOLUME_INTERVAL}s（$SYMBOLS）"
+echo "[supervisor] 原始链每 ${CHAIN_EVERY} 分钟落一次（采样分钟对齐）"
 echo "[supervisor] 订单流间隔 ${ORDERFLOW_INTERVAL}s，逐笔间隔 ${TRADES_INTERVAL}s（$ORDERFLOW_SYMBOLS）"
 echo "[supervisor] 本进程负责的循环：$WORKERS"
 

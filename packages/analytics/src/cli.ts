@@ -66,6 +66,9 @@ const DEFAULT_VOLUME_INTERVALS: readonly VolumeInterval[] = ['1m', '5m', '15m', 
 /** 默认拉取的 K 线根数。 */
 const DEFAULT_KLINE_LIMIT = 500
 
+/** 原始链默认采样间隔（分钟）：5 分钟一轮时单品种约 5MB/天。 */
+const DEFAULT_CHAIN_EVERY_MINUTES = 5
+
 /** 默认采集订单流的交易对。 */
 const DEFAULT_ORDERFLOW_SYMBOLS: readonly string[] = ['BTCUSDT', 'ETHUSDT']
 
@@ -214,6 +217,29 @@ function readBooleanFlag(parsed: ParsedArguments, name: string): boolean {
     )
   }
   return true
+}
+
+/**
+ * 读取原始链采样间隔。
+ *
+ * @param parsed 已解析参数
+ * @returns 采样间隔（分钟，整数且不小于 1）
+ * @throws AnalyticsError 不是不小于 1 的整数
+ */
+function readChainEveryMinutes(parsed: ParsedArguments): number {
+  const raw = readOptionalStringFlag(parsed, 'with-chain-every')
+  if (raw === null) {
+    return DEFAULT_CHAIN_EVERY_MINUTES
+  }
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1) {
+    throw new AnalyticsError(
+      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+      `参数 --with-chain-every 需为不小于 1 的整数分钟：${raw}`,
+      { raw },
+    )
+  }
+  return value
 }
 
 /**
@@ -490,6 +516,13 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
   const rootDir = readRootDir(parsed)
   const currencies = readListFlag(parsed, 'currencies', OPTION_CURRENCIES)
   const persistChain = readBooleanFlag(parsed, 'with-chain')
+  if (!persistChain && parsed.flags.has('with-chain-every')) {
+    throw new AnalyticsError(
+      ANALYTICS_ERROR_CODES.ARGUMENT_INVALID,
+      '--with-chain-every 需要同时加 --with-chain：只给间隔不会落链',
+    )
+  }
+  const chainEveryMinutes = persistChain ? readChainEveryMinutes(parsed) : null
   const repeatSeconds =
     readOptionalStringFlag(parsed, 'repeat-seconds') === null
       ? NO_REPEAT
@@ -514,6 +547,11 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
 
   console.log(`数据目录 ${rootDir}`)
   console.log(`代理 ${proxy.host}:${proxy.port}`)
+  console.log(
+    chainEveryMinutes === null
+      ? '原始链 不落盘'
+      : `原始链 每 ${chainEveryMinutes} 分钟落一次（只在采样分钟写 options/chain/）`,
+  )
 
   const run = async (): Promise<void> => {
     const startedAt = Date.now()
@@ -521,7 +559,7 @@ async function runCollectOptions(parsed: ParsedArguments): Promise<void> {
       sources,
       store,
       currencies: parsedCurrencies,
-      persistChain,
+      chainEveryMinutes,
       now: () => Date.now(),
     })
     for (const result of results) {
@@ -901,6 +939,7 @@ function printHelp(): void {
       --currencies BTC,ETH         标的列表（默认 BTC,ETH）
       --proxy <host:port>          Deribit 代理（默认 127.0.0.1:7078，必填）
       --with-chain                 同时落原始期权链
+      --with-chain-every <分钟>    原始链采样间隔（默认 5，最小 1；只在采样分钟落链）
       --repeat-seconds <n>         每 n 秒重复一次，Ctrl+C 退出
 
   backfill-options     从分钟分片补齐小时行与日行（可重复执行）

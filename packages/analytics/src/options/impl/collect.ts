@@ -2,8 +2,8 @@
  * 期权数据采集编排：拉链 → 聚合 → 落盘 → 读回校验。
  *
  * 写入两条流：
- * - `options/aggregate/{BTC|ETH}`：聚合位，永久保留
- * - `options/chain/{BTC|ETH}`：原始链，按天分片滚动保留 90 天
+ * - `options/aggregate/{BTC|ETH}`：聚合位，保留期见 `types.ts`，每轮都写
+ * - `options/chain/{BTC|ETH}`：原始链，按天分片滚动保留 90 天，只在采样分钟写
  *
  * 落盘后立刻按 capturedAt 读回并逐字段比对，确保「写成功」不是假象。
  */
@@ -18,6 +18,7 @@ import type {
   OptionVenueSource,
 } from '../types'
 import { aggregateOptionChain } from './aggregate'
+import { isChainCaptureMinute } from './chainCadence'
 import { optionChainStream, optionLayerStream } from './streams'
 
 /** 采集请求。 */
@@ -28,8 +29,11 @@ export interface CollectOptionsRequest {
   readonly store: DayShardStore
   /** 要采集的标的 */
   readonly currencies: readonly OptionCurrency[]
-  /** 是否同时落原始链 */
-  readonly persistChain: boolean
+  /**
+   * 原始链采样间隔（分钟）；null 表示不落链。
+   * 只有采集时刻落在采样分钟的轮次才写 `options/chain/`，其余轮次只写聚合位。
+   */
+  readonly chainEveryMinutes: number | null
   /** 采集时钟（毫秒），测试可注入固定值 */
   readonly now: () => number
 }
@@ -121,8 +125,12 @@ export async function collectOptionCurrencies(
       )
     }
 
+    // 采样门按本次快照的采集时刻判定：节奏与聚合位对齐，不引入额外状态。
+    const chainDue =
+      request.chainEveryMinutes !== null &&
+      isChainCaptureMinute(capturedAt, request.chainEveryMinutes)
     let chainAppend: DayAppendResult | null = null
-    if (request.persistChain) {
+    if (chainDue) {
       const chainResults = request.store.append({
         stream: optionChainStream(currency),
         rows: chain.contracts.map((contract) => toChainRecord(contract, capturedAt)),

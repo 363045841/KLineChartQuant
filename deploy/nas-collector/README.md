@@ -45,6 +45,7 @@ node deploy/nas-collector/build.mjs
 | `KCQ_PROXY_HOST` | 否 | 空 | HTTP 代理主机（CONNECT 隧道）。与 `KCQ_PROXY_PORT` 必须同时给 |
 | `KCQ_PROXY_PORT` | 否 | 空 | 代理端口。例：`7078` |
 | `KCQ_OPTION_INTERVAL` | 否 | `60` | 期权每轮间隔（秒） |
+| `KCQ_CHAIN_EVERY` | 否 | `5` | 原始期权链采样间隔（分钟，最小 1）；只有落在采样分钟的轮次才落全链 |
 | `KCQ_VOLUME_INTERVAL` | 否 | `300` | 成交量每轮间隔（秒） |
 | `KCQ_SYMBOLS` | 否 | `BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT` | Binance 成交量品种 |
 | `KCQ_CURRENCIES` | 否 | `BTC,ETH` | 期权标的；BTC/ETH 走 Deribit，SOL/BNB/XRP 走 Binance（需在 `.env` 显式加上才会采） |
@@ -58,6 +59,7 @@ node deploy/nas-collector/build.mjs
 ```
 $KCQ_DATA_ROOT/
   options/aggregate/BTC/2026-11-10.jsonl.gz
+  options/chain/BTC/2026-11-10.jsonl.gz   # 原始链，每 5 分钟一组，90 天滚动
   volume/BTCUSDT/1h/2026-11-10.jsonl.gz
   logs/options.log  options.log.1  options.heartbeat  options.pid
   logs/volume.log   volume.log.1   volume.heartbeat   volume.pid
@@ -232,7 +234,8 @@ docker compose up -d --build
 ## 7. 已知边界
 
 - **Deribit 只有 BTC/ETH**：`KCQ_CURRENCIES` 填其他币种不会报错，但采集结果为空。SOL/BNB/XRP/ADA 只采 Binance 成交量。
-- **本部署只落期权聚合位**：`collector.sh` 没加 `--with-chain`，原始期权链不落盘（聚合位约 1MB/天，原始链体积大得多）。需要原始链时在 `options_worker` 的 `collect-options` 参数里加 `--with-chain`，并确认共享目录空间足够。
+- **本部署同时落期权聚合位与原始链**：`options_worker` 传 `--with-chain --with-chain-every $KCQ_CHAIN_EVERY`，原始链按 5 分钟节奏落 `options/chain/<标的>/`。体积实测（2026-11-17 单次快照）：BTC 982 行 23KB、ETH 816 行 19KB、SOL 122 行 2.6KB、BNB 200 行 4.2KB、XRP 84 行 1.8KB；乘 288 次/天的上界约 BTC 6.5MB、ETH 5MB、五品种合计 14MB（日文件内重复键压缩更好，实际更低）。90 天保留期下 BTC 约 600MB、五品种合计约 1.3GB；聚合位另计约 1MB/天/品种。
+  采样分钟按时钟对齐（`isChainCaptureMinute`）：期权轮次保持 60 秒，才会每 5 分钟采到一次全链；把 `KCQ_OPTION_INTERVAL` 调大不影响聚合位，但会减少全链采样次数。要彻底关掉原始链，从 `options_worker` 删掉这两个开关，并清理共享目录里的 `options/chain/`。
 - **代理必须能从运行环境访问**：容器里不能用 `127.0.0.1` 指代 NAS 主机。先在 NAS 上验证：`curl -x http://PROXY_HOST:PROXY_PORT -m 10 -o /dev/null -w "%{http_code}\n" https://api.binance.com/api/v3/ping`，返回 `200` 才算通。容器内连通性：`docker exec kcq-collector sh -c 'nc -z -w 3 PROXY_HOST PROXY_PORT && echo 代理可达'`。
 - **采集失败不会退出脚本**：单轮失败写日志并按 5→10→20→40→60 秒退避重试，成功后间隔恢复；配置错误（缺 `KCQ_DATA_ROOT`、代理只给一半、端口非法）启动即退出码 2。
 - **权限**：共享目录必须可写。Docker 默认 root 写入，若目录归属特定用户，在 `docker-compose.yml` 里取消 `user:` 注释并填 `id` 查到的 UID/GID。
