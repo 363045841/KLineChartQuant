@@ -218,7 +218,8 @@
       items: [50, 100, 150, 200, 500].map((value) => ({
         id: String(value),
         label: `${value} MiB`,
-        active: settings.value.marketDataCacheMaxMiB === value,
+        selection: 'radio',
+        checked: settings.value.marketDataCacheMaxMiB === value,
       })),
     },
   ])

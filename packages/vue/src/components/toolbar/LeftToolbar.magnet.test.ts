@@ -16,7 +16,9 @@ describe('LeftToolbar 磁吸工具', () => {
       await wrapper.get('[aria-label="磁吸选项"]').trigger('click')
       expect(wrapper.get('[aria-label="磁吸选项"]').attributes('aria-expanded')).toBe('true')
       const button = [
-        ...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+        ...document.body.querySelectorAll<HTMLButtonElement>(
+          '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]',
+        ),
       ].find((item) => item.textContent?.trim() === label)
       expect(button).toBeDefined()
       button?.click()

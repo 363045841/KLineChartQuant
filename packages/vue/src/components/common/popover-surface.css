@@ -1,14 +1,13 @@
-/* 浮层面板表面：边框、圆角、底色、文字色与阴影；下拉菜单与自选面板共用。 */
+/* 浮层菜单表面：圆角、浮层底色与阴影。层次由阴影与底色承担；border:0 显式取消 UA 的 [popover] 默认边框。 */
 .popover-surface {
-  /* 浮层用灰色描边和抬高表面，避免深色图表背景上菜单与背景混在一起。 */
-  border: 1px solid var(--klc-color-ui-border);
+  border: 0;
   border-radius: var(--klc-radius-md, 8px);
   background: var(--klc-color-ui-popover);
   color: var(--klc-color-ui-text);
   box-shadow: var(--klc-elevation-2, 0 6px 12px rgb(0 0 0 / 0.18));
 }
 
-/* 面板纵向滚动；横向溢出由各面板自行决定。 */
+/* 长选项列表在面板内部滚动，不撑破浮层高度。 */
 .popover-surface--scroll {
   overflow-y: auto;
 }

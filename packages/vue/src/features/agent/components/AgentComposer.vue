@@ -147,7 +147,8 @@
       items: (props.provider.reasoningEfforts ?? []).map((effort) => ({
         id: effort,
         label: effort,
-        active: effort === props.provider.reasoningEffort,
+        selection: 'radio',
+        checked: effort === props.provider.reasoningEffort,
       })),
     },
   ])

@@ -256,16 +256,14 @@
 
   </nav>
 
-  <DropMenu
-    ref="groupMenuRef"
-    context
+  <MenuSurface
+    v-bind="groupMenu.bindings.value"
     :label="openGroup?.title ?? '工具菜单'"
     :groups="openGroup ? menuGroups(openGroup) : []"
-    :focus-target="groupTrigger"
+    :restore-focus-to="groupTrigger"
     @select="onGroupMenuSelect"
     @close="openGroupId = null"
-  >
-  </DropMenu>
+  />
 
   <AlertDialog
     :show="showAlerts"
@@ -291,7 +289,9 @@
   } from '@363045841yyt/klinechart-core/engine/drawing'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
@@ -539,7 +539,7 @@
       magnetGroup.children!.find((child) => child.id === props.magnetMode) ??
       magnetGroup.children![2]!,
   )
-  const groupMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  const groupMenu = useMenuAnchor()
   // 当前打开菜单的折叠箭头与所属工具组；关闭事件先于 select 到达，选择动作不能依赖 openGroup。
   const groupTrigger = shallowRef<HTMLElement | null>(null)
   const groupMenuTarget = shallowRef<ToolDef | null>(null)
@@ -596,19 +596,30 @@
     { immediate: true },
   )
 
-  /** 把工具组转成 DropMenu 分组：选中态与禁用态沿用工具栏规则。 */
+  /** 把工具组转成 DropMenu 分组：单选项用勾选表示当前工具，删除组是命令。 */
   function menuGroups(group: ToolDef): ReadonlyArray<DropMenuGroup> {
+    const commandOnly = group.id === deleteGroup.id
     return [
       {
         id: group.id,
         label: group.title,
-        items: (group.children ?? []).map((child) => ({
-          id: child.id,
-          label: child.title,
-          icon: child.icon,
-          active: isChildActive(group, child),
-          disabled: isChildDisabled(group, child),
-        })),
+        items: (group.children ?? []).map((child) =>
+          commandOnly
+            ? {
+                id: child.id,
+                label: child.title,
+                icon: child.icon,
+                disabled: isChildDisabled(group, child),
+              }
+            : {
+                id: child.id,
+                label: child.title,
+                icon: child.icon,
+                selection: 'radio' as const,
+                checked: isChildActive(group, child),
+                disabled: isChildDisabled(group, child),
+              },
+        ),
       },
     ]
   }
@@ -644,7 +655,7 @@
     groupTrigger.value = trigger
     groupMenuTarget.value = group
     openGroupId.value = group.id
-    groupMenuRef.value?.openAt(bounds.right + 4, bounds.top)
+    groupMenu.anchorAt(bounds.right + 4, bounds.top)
   }
 
   /** 菜单选择：动作归属打开菜单的工具组，避免关闭事件先清空 openGroup。 */

@@ -8,10 +8,7 @@ interface ModalSize {
 }
 
 /** 跟踪内容、属性和视口造成的尺寸变化；不使用 transform，避免影响内部固定定位浮层。 */
-export function useModalResize(
-  dialog: Readonly<Ref<HTMLDialogElement | null>>,
-  enabled: () => boolean,
-) {
+export function useModalResize(dialog: Readonly<Ref<HTMLDialogElement | null>>) {
   /** 高度过渡进行中：调用方在此时收起滚动条，由动画结束后的最终尺寸决定是否出现。 */
   const resizing = ref(false)
   let cleanup: (() => void) | undefined
@@ -49,7 +46,6 @@ export function useModalResize(
         size = next
         if (
           !previous ||
-          !enabled() ||
           typeof element.animate !== 'function' ||
           prefersReducedMotion() ||
           (previous.width === next.width && previous.height === next.height)

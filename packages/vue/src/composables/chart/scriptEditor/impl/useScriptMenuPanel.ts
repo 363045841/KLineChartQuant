@@ -1,8 +1,9 @@
 /**
- * 脚本右键菜单的视图逻辑：把 ScriptMenuModel 映射成 DropMenu 的受控坐标面板。
- * 打开状态与坐标直接来自模型，组件不再需要同步命令式 openAt。
+ * 脚本右键菜单的视图逻辑：把 ScriptMenuModel 映射成受控菜单面板。
+ * 打开状态与坐标直接来自模型，面板只按 open 与 anchor 渲染。
  */
 import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+import type { MenuAnchor } from '@vue-src/components/common/dropMenuTypes.js'
 import { computed, useTemplateRef } from 'vue'
 import type { ScriptMenuModel, ScriptMenuState } from './scriptMenuModel.js'
 
@@ -18,10 +19,11 @@ export function useScriptMenuPanel(model: ScriptMenuModel) {
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => buildGroups(state.value))
   const bodyMode = computed(() => content.value !== null && content.value.kind !== 'menu')
   const label = computed(() => state.value?.label ?? '脚本菜单')
-  const panelRole = computed(() => state.value?.role ?? 'menu')
   const focusTarget = computed(() => state.value?.returnFocus ?? null)
   const open = computed(() => state.value !== null)
-  const origin = computed(() => (state.value ? { x: state.value.x, y: state.value.y } : null))
+  const anchor = computed<MenuAnchor | null>(() =>
+    state.value === null ? null : { kind: 'point', x: state.value.x, y: state.value.y },
+  )
 
   /** 面板打开后登记自身元素，快捷键据此忽略菜单内部按键。 */
   function onOpen(): void {
@@ -45,10 +47,9 @@ export function useScriptMenuPanel(model: ScriptMenuModel) {
     groups,
     bodyMode,
     label,
-    panelRole,
     focusTarget,
     open,
-    origin,
+    anchor,
     onOpen,
     onUpdateOpen,
     onSelect,

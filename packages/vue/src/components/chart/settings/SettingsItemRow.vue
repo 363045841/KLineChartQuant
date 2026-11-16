@@ -77,7 +77,8 @@
             items: props.options.map((option) => ({
               id: option.value,
               label: option.label,
-              active: option.value === String(props.value),
+              selection: 'radio',
+              checked: option.value === String(props.value),
             })),
           },
         ]

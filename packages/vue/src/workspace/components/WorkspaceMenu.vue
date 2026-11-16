@@ -4,7 +4,6 @@
     class="workspace-menu"
     label="应用菜单"
     placement="bottom"
-    tooltip-placement="bottom"
     density="loose"
     :groups="menu.groups"
     @select="menu.select"
