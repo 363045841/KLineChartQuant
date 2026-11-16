@@ -26,8 +26,11 @@ function trigger(id: string): HTMLElement {
   return document.getElementById(id)?.parentElement as HTMLElement
 }
 
+/** 只收集有内容的提示；未展开的提示节点存在但不渲染内容。 */
 function tooltipTexts(): string[] {
-  return [...document.querySelectorAll('[role="tooltip"]')].map((el) => el.textContent ?? '')
+  return [...document.querySelectorAll('[role="tooltip"]')]
+    .map((el) => el.textContent ?? '')
+    .filter((text) => text.length > 0)
 }
 
 describe('BaseTooltip 分组延迟', () => {
@@ -66,6 +69,50 @@ describe('BaseTooltip 分组延迟', () => {
     await nextTick()
     expect(tooltipTexts()).toEqual([])
     wrapper.unmount()
+  })
+
+  it('控件禁用时不提示，重新启用后恢复', async () => {
+    const wrapper = mount(BaseTooltip, {
+      attachTo: document.body,
+      props: { content: '删除' },
+      slots: { default: () => h('button', { id: 'd', disabled: true }) },
+    })
+    await nextTick()
+    const trigger = wrapper.get('.base-tooltip__trigger').element
+    trigger.dispatchEvent(new PointerEvent('pointerenter'))
+    vi.advanceTimersByTime(400)
+    await nextTick()
+    // 禁用控件点不动，说明它做什么只是噪音。
+    expect(tooltipTexts()).toEqual([])
+
+    const button = document.getElementById('d') as HTMLButtonElement
+    button.disabled = false
+    await nextTick()
+    trigger.dispatchEvent(new PointerEvent('pointerenter'))
+    vi.advanceTimersByTime(400)
+    await nextTick()
+    expect(tooltipTexts()).toEqual(['删除'])
+    wrapper.unmount()
+  })
+
+  it('提示通过 aria-describedby 关联到可聚焦控件，空内容不渲染', async () => {
+    const wrapper = mount(Pair, { attachTo: document.body })
+    await nextTick()
+    const button = document.getElementById('a') as HTMLElement
+    const describedBy = button.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    // 描述目标就是提示面板本身，读屏在聚焦控件时能读到提示内容。
+    expect(document.getElementById(describedBy!)?.getAttribute('role')).toBe('tooltip')
+    wrapper.unmount()
+
+    const empty = mount(BaseTooltip, {
+      attachTo: document.body,
+      slots: { default: () => h('button', { id: 'c' }) },
+    })
+    await nextTick()
+    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(0)
+    expect(document.getElementById('c')?.hasAttribute('aria-describedby')).toBe(false)
+    empty.unmount()
   })
 
   it('关联命令时在提示里展示该命令的平台化快捷键', async () => {

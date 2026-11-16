@@ -15,6 +15,7 @@ interface FloatingPositionOptions {
   reference: Element | PointReference
   panel: HTMLElement
   placement: AnchoredPlacement
+  align: 'start' | 'center'
   offset: number
   matchTriggerWidth: boolean
   maxHeight?: string
@@ -23,6 +24,24 @@ interface FloatingPositionOptions {
 }
 
 const VIEWPORT_PADDING = 8
+
+/** 显式方向落到 floating-ui 的同侧；row 对齐由 align 决定（菜单贴起点，提示居中）。 */
+const FLOATING_PLACEMENT = {
+  start: {
+    auto: 'bottom-start',
+    top: 'top-start',
+    bottom: 'bottom-start',
+    left: 'left-start',
+    right: 'right-start',
+  },
+  center: {
+    auto: 'bottom',
+    top: 'top',
+    bottom: 'bottom',
+    left: 'left',
+    right: 'right',
+  },
+} as const
 
 async function loadBackend(): Promise<FloatingBackend> {
   const { autoUpdate, computePosition, flip, offset, shift, size } = await import(
@@ -48,7 +67,7 @@ export async function startFloatingPosition(
       try {
         const position = await backend.computePosition(options.reference, options.panel, {
           strategy: 'fixed',
-          placement: options.placement === 'top' ? 'top-start' : 'bottom-start',
+          placement: FLOATING_PLACEMENT[options.align][options.placement],
           middleware: [
             backend.offset(options.offset),
             options.placement === 'auto' ? backend.flip({ padding: VIEWPORT_PADDING }) : undefined,

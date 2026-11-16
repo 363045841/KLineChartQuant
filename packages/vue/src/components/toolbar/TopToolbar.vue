@@ -151,6 +151,7 @@
         command="chart.snapshot"
         class="screenshot-menu"
         placement="bottom"
+        tooltip-placement="bottom"
         @select="onScreenshotSelect"
       >
         <template #trigger>

@@ -4,35 +4,33 @@
     <ColorPicker label="颜色" :model-value="style.stroke" @update:model-value="onColorChange" />
   </BaseTooltip>
 
-  <BaseTooltip v-if="canEdit('strokeWidth')" content="线宽" placement="top" trigger-display="contents">
-    <DropMenu
-      label="线宽"
-      :groups="widthGroups"
-      density="compact"
-      trigger-class="control-button--sm"
-      @select="(_groupId, value) => onWidthChange(Number(value))"
-    >
-      <template #trigger>
-        <span class="selection-menu__value">{{ style?.strokeWidth ?? 1 }}px</span>
-        <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
-      </template>
-    </DropMenu>
-  </BaseTooltip>
+  <DropMenu
+    v-if="canEdit('strokeWidth')"
+    label="线宽"
+    :groups="widthGroups"
+    density="compact"
+    trigger-class="control-button--sm"
+    @select="(_groupId, value) => onWidthChange(Number(value))"
+  >
+    <template #trigger>
+      <span class="selection-menu__value">{{ style?.strokeWidth ?? 1 }}px</span>
+      <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+    </template>
+  </DropMenu>
 
-  <BaseTooltip v-if="canEdit('strokeStyle')" content="线型" placement="top" trigger-display="contents">
-    <DropMenu
-      label="线型"
-      :groups="styleGroups"
-      density="compact"
-      trigger-class="control-button--sm"
-      @select="selectLineStyle"
-    >
-      <template #trigger>
-        <span class="selection-menu__value">{{ selectedStyleLabel }}</span>
-        <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
-      </template>
-    </DropMenu>
-  </BaseTooltip>
+  <DropMenu
+    v-if="canEdit('strokeStyle')"
+    label="线型"
+    :groups="styleGroups"
+    density="compact"
+    trigger-class="control-button--sm"
+    @select="selectLineStyle"
+  >
+    <template #trigger>
+      <span class="selection-menu__value">{{ selectedStyleLabel }}</span>
+      <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+    </template>
+  </DropMenu>
 </template>
 
 <script setup lang="ts">

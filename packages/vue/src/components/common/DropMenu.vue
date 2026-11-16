@@ -4,9 +4,10 @@
 -->
 <template>
   <div class="drop-menu" :class="{ 'drop-menu--fill': fill }">
+    <!-- 触发器提示固定向上：提示方向与菜单弹出方向无关，同一工具栏里不会出现一上一下。 -->
     <BaseTooltip
       :content="label"
-      :placement="placement === 'top' ? 'top' : 'bottom'"
+      :placement="tooltipPlacement"
       :disabled="open || disabled"
       :command="command"
       :fill="fill"
@@ -61,6 +62,7 @@
 
 <script setup lang="ts">
   import { computed, ref, useTemplateRef } from 'vue'
+  import type { TooltipPlacement } from '@vue-src/composables/ui/useTooltip.js'
   import BaseTooltip from './BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
   import type { DropMenuGroup, MenuAnchor } from './dropMenuTypes.js'
@@ -68,26 +70,31 @@
 
   export type { DropMenuGroup, DropMenuItem } from './dropMenuTypes.js'
 
-  const props = defineProps<{
-    label: string
-    /** 分组列表；body 模式不需要分组内容，可省略。 */
-    groups?: ReadonlyArray<DropMenuGroup>
-    disabled?: boolean
-    triggerClass?: string
-    /** 菜单相对触发按钮的弹出方向。 */
-    placement?: 'auto' | 'top' | 'bottom'
-    /** 关联命令 id；存在时按钮提示追加该命令的快捷键。 */
-    command?: string
-    message?: string
-    /** 分组为空时展示的提示；未提供时不渲染空提示。 */
-    emptyText?: string
-    /** 菜单项行高；默认松散，短选项列表可使用紧凑模式。 */
-    density?: 'compact' | 'loose'
-    /** 菜单项选中后是否保持打开。 */
-    keepOpenOnSelect?: boolean
-    /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
-    fill?: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      label: string
+      /** 分组列表；body 模式不需要分组内容，可省略。 */
+      groups?: ReadonlyArray<DropMenuGroup>
+      disabled?: boolean
+      triggerClass?: string
+      /** 菜单相对触发按钮的弹出方向。 */
+      placement?: 'auto' | 'top' | 'bottom'
+      /** 关联命令 id；存在时按钮提示追加该命令的快捷键。 */
+      command?: string
+      /** 触发器提示方向；默认向上，顶部工具栏这类触发器贴页面顶边时传 bottom。 */
+      tooltipPlacement?: TooltipPlacement
+      message?: string
+      /** 分组为空时展示的提示；未提供时不渲染空提示。 */
+      emptyText?: string
+      /** 菜单项行高；默认松散，短选项列表可使用紧凑模式。 */
+      density?: 'compact' | 'loose'
+      /** 菜单项选中后是否保持打开。 */
+      keepOpenOnSelect?: boolean
+      /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
+      fill?: boolean
+    }>(),
+    { tooltipPlacement: 'top' },
+  )
 
   const emit = defineEmits<{
     select: [groupId: string, itemId: string, parentId?: string]

@@ -9,6 +9,7 @@
       class="drop-menu__panel popover-surface popover-surface--scroll"
       :class="{ 'drop-menu__panel--compact': density === 'compact' }"
       v-bind="popover.panelBindings.value"
+      :style="surfaceStyle"
       :role="bodyMode ? 'dialog' : 'menu'"
       :aria-label="label"
       @keydown="onMenuKeydown"
@@ -28,7 +29,12 @@
             <div v-if="$slots.header" class="drop-menu__header">
               <slot name="header" />
             </div>
-            <div v-for="group in groups" :key="group.id" class="drop-menu__group">
+            <div
+              v-for="group in groups"
+              :key="group.id"
+              class="drop-menu__group"
+              :class="{ 'drop-menu__group--titled': group.label }"
+            >
               <div v-if="group.label" class="drop-menu__heading">{{ group.label }}</div>
               <div
                 v-for="item in group.items"
@@ -162,6 +168,19 @@
   const triggerElement = computed(() =>
     props.anchor?.kind === 'trigger' ? props.anchor.element : null,
   )
+  /** 面板圆角只写变量，默认值仍归 popover-surface.css；二级菜单是面板子节点，自动继承。 */
+  const surfaceRadius = shallowRef<string | null>(null)
+  const surfaceStyle = computed<CSSProperties | undefined>(() =>
+    surfaceRadius.value === null ? undefined : { '--popover-surface-radius': surfaceRadius.value },
+  )
+
+  /** 读触发元素的 computed 圆角；坐标锚点没有触发器，返回 null 交给表面默认值。 */
+  function readTriggerRadius(): string | null {
+    const element = triggerElement.value
+    if (!element) return null
+    const radius = getComputedStyle(element).borderRadius
+    return radius.length > 0 ? radius : null
+  }
   const origin = computed(() => {
     const anchor = props.anchor
     if (anchor?.kind !== 'point') return null
@@ -184,6 +203,8 @@
     offset: props.offset ?? (props.anchor?.kind === 'point' ? 0 : 4),
     maxHeight: () => 'min(420px, calc(100vh - 24px))',
     onOpen: () => {
+      // 面板是触发器的延伸：圆角只从触发按钮读，宿主无需再传一份。
+      surfaceRadius.value = readTriggerRadius()
       emit('open')
       // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
       // 优先落到已勾选项：单选项里它就是当前值，键盘继续用方向键即可切换。
@@ -485,16 +506,20 @@
     min-width: 0;
   }
 
-  /* 组间分隔线内缩，和菜单项文字的左右边界对齐，不顶到面板圆角。 */
-  .drop-menu__group + .drop-menu__group {
+  /*
+   * 一个分组边界只有一条线：带标题的分组由标题两侧的线承担分隔，无标题的分组才画普通横线。
+   * 两种形态互斥，避免同一个边界被两套规则各画一次。
+   */
+  .drop-menu__group + .drop-menu__group:not(.drop-menu__group--titled) {
     position: relative;
   }
 
-  .drop-menu__group + .drop-menu__group::before {
+  /* 横线内缩与菜单项文字、标题两侧的线对齐，不顶到面板圆角。 */
+  .drop-menu__group + .drop-menu__group:not(.drop-menu__group--titled)::before {
     position: absolute;
     top: 0;
-    right: var(--klc-space-8, 8px);
-    left: var(--klc-space-8, 8px);
+    right: var(--klc-space-12, 12px);
+    left: var(--klc-space-12, 12px);
     border-top: 1px solid var(--klc-color-ui-border);
     content: '';
   }
@@ -513,7 +538,7 @@
     display: none;
   }
 
-  /* 分组标题居中对齐，两侧各一条延伸到面板边缘的分隔线。 */
+  /* 分组标题居中对齐，两侧各一条延伸到面板边缘的线；这条线就是带标题分组的分隔。 */
   .drop-menu__heading {
     display: flex;
     align-items: center;

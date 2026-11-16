@@ -92,18 +92,13 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
       : source.row.capabilities.movable
   }
 
-  /** 行内按钮的提示文案；不可用时说明原因。 */
+  /** 行内按钮文案：禁用按钮不显示提示，文案只表达动作本身。 */
   function visibilityHint(row: PaneObjectRow): string {
-    if (!row.capabilities.hideable) return '该对象不支持显隐'
     return row.visible ? '隐藏' : '显示'
   }
 
   function lockHint(row: PaneObjectRow): string {
     return row.locked ? '解锁' : '锁定'
-  }
-
-  function removeHint(row: PaneObjectRow): string {
-    return row.locked ? '已锁定，先解锁' : '删除'
   }
 
   /** 指针落在行的上半部分插到前面，下半部分插到后面。 */
@@ -246,7 +241,6 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     canDropInto,
     visibilityHint,
     lockHint,
-    removeHint,
     draggingId,
     newPaneDropSide,
     onDragStart,

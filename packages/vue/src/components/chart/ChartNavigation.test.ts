@@ -60,6 +60,15 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** 同屏可能有多个提示节点，取当前真正展开的那个。 */
+function visibleTooltip(): Element | null {
+  return (
+    [...document.querySelectorAll('[role="tooltip"]')].find(
+      (element) => (element.textContent ?? '').length > 0,
+    ) ?? null
+  )
+}
+
 describe('ChartNavigation', () => {
   it('executes the same five controller actions as the registered keys', async () => {
     const { wrapper, controller } = mountNavigation()
@@ -161,10 +170,10 @@ describe('ChartNavigation', () => {
       button.element.parentElement?.dispatchEvent(new PointerEvent('pointerenter'))
       vi.advanceTimersByTime(300)
       await nextTick()
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('Alt+R')
+      expect(visibleTooltip()?.textContent).toContain('Alt+R')
       registry.setShortcut('view.reset', 'Alt+T')
       await nextTick()
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('Alt+T')
+      expect(visibleTooltip()?.textContent).toContain('Alt+T')
       registry.setShortcut('view.reset', null)
       await nextTick()
       expect(document.querySelector('[role="tooltip"] .base-tooltip__shortcut')).toBeNull()

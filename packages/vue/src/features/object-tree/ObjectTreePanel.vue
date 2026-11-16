@@ -44,7 +44,6 @@
             class="object-row"
             :class="{
               'is-hidden': !row.visible,
-              'is-locked': row.locked,
               'is-dragging': draggingId === row.objectId,
               'is-drop-before': isDropBefore(group, index),
               'is-drop-after': isDropAfter(group, index),
@@ -64,7 +63,7 @@
             <span class="object-row__actions">
               <BaseTooltip
                 :content="visibilityHint(row)"
-                placement="left"
+                placement="bottom"
                 trigger-display="contents"
               >
                 <BaseIconButton
@@ -80,28 +79,27 @@
               <BaseTooltip
                 v-if="row.capabilities.lockable"
                 :content="lockHint(row)"
-                placement="left"
+                placement="bottom"
                 trigger-display="contents"
               >
                 <BaseIconButton
-                  class="object-row__lock"
-                  :class="{ 'is-active': row.locked }"
                   :label="lockHint(row)"
                   size="sm"
                   :disabled="!row.capabilities.lockable"
                   @click.stop="toggleLocked(row)"
                 >
-                  <IconTablerLock />
+                  <IconTablerLock v-if="row.locked" />
+                  <IconTablerLockOpen v-else />
                 </BaseIconButton>
               </BaseTooltip>
               <BaseTooltip
                 v-if="row.capabilities.removable"
-                :content="removeHint(row)"
-                placement="left"
+                content="删除"
+                placement="bottom"
                 trigger-display="contents"
               >
                 <BaseIconButton
-                  :label="removeHint(row)"
+                  label="删除"
                   size="sm"
                   tone="danger"
                   :disabled="row.locked"
@@ -150,6 +148,7 @@
   import IconTablerEye from '~icons/tabler/eye'
   import IconTablerEyeOff from '~icons/tabler/eye-off'
   import IconTablerLock from '~icons/tabler/lock'
+  import IconTablerLockOpen from '~icons/tabler/lock-open'
   import IconTablerPencil from '~icons/tabler/pencil'
   import IconTablerStack2 from '~icons/tabler/stack-2'
   import IconTablerTrash from '~icons/tabler/trash'
@@ -176,7 +175,6 @@
     canDrag,
     visibilityHint,
     lockHint,
-    removeHint,
     draggingId,
     newPaneDropSide,
     onDragStart,
@@ -409,6 +407,8 @@
     gap: var(--klc-space-2, 2px);
     opacity: 0;
     pointer-events: none;
+    /* 行内操作只换颜色，悬停不铺底色。 */
+    --base-icon-button-hover-bg: transparent;
     transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -427,7 +427,5 @@
     }
   }
 
-  .object-row__lock.is-active {
-    --base-icon-button-color: var(--klc-color-ui-accent);
-  }
+  /* 锁定状态用图标区分，行内图标共用同一条描线色。 */
 </style>
