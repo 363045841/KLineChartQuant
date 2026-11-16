@@ -3,7 +3,7 @@
  *
  * 仅启动数据源后端（connector），不启动前端。参数可选，选择启动哪个 connector：
  *
- *   node scripts/start-connector.mjs            # 启动全部 connector（gotdx + binance + baostock，不含 mt5 / ths）
+ *   node scripts/start-connector.mjs            # 启动全部 connector（gotdx + binance + baostock + mt5，不含 ths）
  *   node scripts/start-connector.mjs gotdx      # gotdx 通达信（:8080）
  *   node scripts/start-connector.mjs binance    # Binance 现货行情与逐笔成交（:8091）
  *   node scripts/start-connector.mjs baostock   # BaoStock / TradingView（:8000）
@@ -17,7 +17,7 @@
 import { startConnectors } from './connectors.mjs'
 import { manageShutdown } from './lib/managed-shutdown.mjs'
 
-// 无参时启动 `all`（不含依赖本机 MT5 终端的 mt5）
+// 无参时启动 `all`（不含需要 API Key 的 ths）
 const names = process.argv.slice(2)
 const children = startConnectors(names.length > 0 ? names : ['all'])
 

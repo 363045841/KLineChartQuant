@@ -4,8 +4,8 @@
  * 数据源后端（connector）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connector.mjs` 复用。
  * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、mt5（别名 m）、
  * ths（别名 t）、all（全部）。
- * `all` 不含 mt5 与 ths：前者依赖 Windows + 已登录的 MT5 (Exness) 终端，
- * 后者依赖同花顺 API Key，均仅显式启动。
+ * `all` 含 mt5：本机已登录 MT5 (Exness) 终端时可用；未登录时该进程会自行退出，不影响其他 connector。
+ * `all` 不含 ths：它依赖同花顺 API Key，仅显式启动。
  */
 
 import { spawn } from 'node:child_process'
@@ -19,6 +19,10 @@ const PARENT = path.resolve(__dirname, '..', '..')
 
 // 公开演示页来源；loopback 始终放行，无需列入
 const DEMO_ORIGIN = 'https://363045841.github.io'
+
+// 本机开发出网代理（MonoCloud）。Binance connector 默认走 6666（Clash），
+// 未启动时 probe 会离线；这里统一给一个可用默认，需要覆盖时设 BINANCE_PROXY。
+const DEV_PROXY = 'http://127.0.0.1:7078'
 
 // 各 connector 的启动命令；名称取对象键，desc 与 port 供统一的启动行模板渲染
 const CONNECTORS = {
@@ -40,7 +44,10 @@ const CONNECTORS = {
     cmd: 'go',
     args: ['run', './cmd/binance-connector'],
     // 允许公开演示页直连本机 connector，用户无需再配环境变量
-    env: { BINANCE_ALLOWED_ORIGINS: DEMO_ORIGIN },
+    env: {
+      BINANCE_ALLOWED_ORIGINS: DEMO_ORIGIN,
+      BINANCE_PROXY: process.env.BINANCE_PROXY ?? DEV_PROXY,
+    },
   },
   baostock: {
     desc: 'BaoStock / TradingView',
@@ -59,8 +66,7 @@ const CONNECTORS = {
     dir: 'KCQ-MT5-connector',
     cmd: 'uv',
     args: ['run', 'python', './server.py'],
-    // 依赖 Windows + 本机已登录的 MT5 (Exness) 终端，不纳入 `all`，仅显式启动
-    includeInAll: false,
+    // 依赖 Windows + 本机已登录的 MT5 (Exness) 终端；终端未登录时进程会退出，不影响其他 connector
   },
   ths: {
     desc: '同花顺 A股/指数/ETF/期货/期权 日线',
@@ -78,7 +84,7 @@ const CONNECTORS = {
 
 const CONNECTOR_NAMES = Object.keys(CONNECTORS)
 
-// `all` 展开的集合：跳过 includeInAll === false 的 connector（如 mt5）
+// `all` 展开的集合：跳过 includeInAll === false 的 connector（如 ths）
 const ALL_CONNECTOR_NAMES = CONNECTOR_NAMES.filter(
   (name) => CONNECTORS[name].includeInAll !== false,
 )
