@@ -11,7 +11,8 @@
  * 不提供写接口，也不返回数据目录之外的任何文件。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { OPTION_AGGREGATE_STREAM_PREFIX } from '../../options/impl/collect'
+import { OPTION_STATS_DEFAULT_WINDOWS } from '../../options/impl/stats'
+import { OPTION_STEP_LAYERS, optionLayerStream } from '../../options/impl/streams'
 import { orderflowStream } from '../../orderflow/impl/collect'
 import { reassemblePanel } from '../../orderflow/impl/reassemble'
 import { renderPanel } from '../../orderflow/impl/render'
@@ -24,6 +25,7 @@ import {
   type PositioningRecord,
 } from '../../orderflow/types'
 import type { DayShardStore } from '../../storage/types'
+import { createOptionDataReader } from './optionData'
 
 /** 默认端口：避开 gotdx 8080 / baostock 8000 / binance 8091 / mt5 8090 / ths 8092。 */
 export const DEFAULT_ORDERFLOW_PORT = 8093
@@ -40,6 +42,18 @@ const CURRENCY_PATTERN = /^[A-Z0-9]{2,10}$/
 /** 组装面板的路由。 */
 export const ORDERFLOW_PANEL_PATH = '/orderflow/panel'
 
+/** 序列默认取几行。 */
+const OPTION_SERIES_DEFAULT_LIMIT = 500
+
+/** 序列单次最多返回多少行：20000 行覆盖约 13.9 天的分钟行。 */
+const OPTION_SERIES_MAX_LIMIT = 20_000
+
+/** 窗口天数上限：日行保留 3650 天。 */
+const OPTION_DAYS_MAX = 3_650
+
+/** 一次最多请求几个统计窗口。 */
+const OPTION_WINDOWS_MAX = 3
+
 /** 服务构造参数。 */
 export interface OrderflowServerOptions {
   /** 分片存储（只读使用） */
@@ -48,6 +62,8 @@ export interface OrderflowServerOptions {
   readonly port: number
   /** 监听地址，默认 127.0.0.1 */
   readonly host?: string
+  /** 时钟（毫秒）；测试注入固定时间，生产用 Date.now */
+  readonly now?: () => number
 }
 
 /** 服务句柄。 */
@@ -89,6 +105,47 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
 function queryParam(url: URL, name: string): string | null {
   const value = url.searchParams.get(name)
   return value === null || value === '' ? null : value
+}
+
+/**
+ * 读可选整数参数。
+ *
+ * @param url 请求地址
+ * @param name 参数名
+ * @param min 允许的最小值
+ * @param max 允许的最大值
+ * @returns 未提供为 undefined；非法为 null；合法为数值
+ */
+function optionalIntegerParam(
+  url: URL,
+  name: string,
+  min: number,
+  max: number,
+): number | undefined | null {
+  const text = queryParam(url, name)
+  if (text === null) return undefined
+  const value = Number(text)
+  if (!Number.isSafeInteger(value) || value < min || value > max) return null
+  return value
+}
+
+/**
+ * 读统计窗口参数。
+ *
+ * @param url 请求地址
+ * @returns 窗口天数（去重、保序）；非法为 null
+ */
+function parseWindowParam(url: URL): readonly number[] | null {
+  const text = queryParam(url, 'windows')
+  if (text === null) return OPTION_STATS_DEFAULT_WINDOWS
+  const parts = text.split(',').map((part) => Number(part.trim()))
+  if (parts.length === 0 || parts.length > OPTION_WINDOWS_MAX) return null
+  const windows: number[] = []
+  for (const value of parts) {
+    if (!Number.isSafeInteger(value) || value < 1 || value > OPTION_DAYS_MAX) return null
+    if (!windows.includes(value)) windows.push(value)
+  }
+  return windows
 }
 
 /**
@@ -215,6 +272,7 @@ export async function startOrderflowServer(
   options: OrderflowServerOptions,
 ): Promise<OrderflowServerHandle> {
   const host = options.host ?? '127.0.0.1'
+  const dataReader = createOptionDataReader({ store: options.store, now: options.now ?? Date.now })
 
   const server: Server = createServer((request: IncomingMessage, response: ServerResponse) => {
     if (request.method === 'OPTIONS') {
@@ -238,7 +296,7 @@ export async function startOrderflowServer(
       return
     }
 
-    // 期权关键位序列：跨日取最近若干条，供画历史线
+    // 期权序列：按层（step）与窗口（days）取数，limit 只作为最后一道保护
     if (url.pathname === '/options/series') {
       const currency = queryParam(url, 'currency')
       if (currency === null) {
@@ -249,20 +307,57 @@ export async function startOrderflowServer(
         sendJson(response, 400, { error: 'currency 需为大写字母或数字' })
         return
       }
-      const limitText = queryParam(url, 'limit')
-      const limit = limitText === null ? 500 : Number(limitText)
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 5000) {
-        sendJson(response, 400, { error: 'limit 需为 1..5000 的整数' })
+      const step = queryParam(url, 'step') ?? 'minute'
+      const layer = OPTION_STEP_LAYERS[step]
+      if (layer === undefined) {
+        sendJson(response, 400, { error: 'step 需为 minute、hour 或 day' })
         return
       }
-      const stream = `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`
-      const days = listDays(options.store, stream)
-      const rows = readRecentDays(options.store, stream, days.length)
+      const requestedDays = optionalIntegerParam(url, 'days', 1, OPTION_DAYS_MAX)
+      if (requestedDays === null) {
+        sendJson(response, 400, { error: `days 需为 1..${OPTION_DAYS_MAX} 的整数` })
+        return
+      }
+      const requestedLimit = optionalIntegerParam(url, 'limit', 1, OPTION_SERIES_MAX_LIMIT)
+      if (requestedLimit === null) {
+        sendJson(response, 400, { error: `limit 需为 1..${OPTION_SERIES_MAX_LIMIT} 的整数` })
+        return
+      }
+      const read = dataReader.readSeries({
+        currency,
+        layer,
+        days: requestedDays,
+        limit: requestedLimit ?? OPTION_SERIES_DEFAULT_LIMIT,
+      })
       sendJson(response, 200, {
         currency,
-        days,
-        rows: rows.slice(Math.max(0, rows.length - limit)),
+        step,
+        days: read.days,
+        rows: read.rows,
+        rowCount: read.rows.length,
+        truncated: read.truncated,
       })
+      return
+    }
+    // 期权波动统计：只读日行（缺失回退小时行），窗口按 UTC 日历天
+    if (url.pathname === '/options/stats') {
+      const currency = queryParam(url, 'currency')
+      if (currency === null) {
+        sendJson(response, 400, { error: '缺少 currency 参数' })
+        return
+      }
+      if (!CURRENCY_PATTERN.test(currency)) {
+        sendJson(response, 400, { error: 'currency 需为大写字母或数字' })
+        return
+      }
+      const windows = parseWindowParam(url)
+      if (windows === null) {
+        sendJson(response, 400, {
+          error: `windows 需为 1..${OPTION_WINDOWS_MAX} 个 1..${OPTION_DAYS_MAX} 的整数`,
+        })
+        return
+      }
+      sendJson(response, 200, { currency, ...dataReader.readStats(currency, windows) })
       return
     }
     // 期权聚合位：返回某标的可用日期与该日最新一行
@@ -276,7 +371,7 @@ export async function startOrderflowServer(
         sendJson(response, 400, { error: 'currency 需为大写字母或数字' })
         return
       }
-      const stream = `${OPTION_AGGREGATE_STREAM_PREFIX}/${currency}`
+      const stream = optionLayerStream(currency, 'minute')
       const days = listDays(options.store, stream)
       const requestedDay = queryParam(url, 'day')
       if (requestedDay !== null && !DAY_PATTERN.test(requestedDay)) {
