@@ -73,6 +73,14 @@ describe('K 线密度', () => {
   })
 })
 
+describe('交易日间隔', () => {
+  it('属于外观分组，默认开启', () => {
+    const item = DEFAULT_SETTINGS.find((entry) => entry.key === 'showTradingDaySeparator')
+    expect(item).toMatchObject({ type: 'boolean', group: 'style', default: true })
+    expect(normalizeSettings().showTradingDaySeparator).toBe(true)
+  })
+})
+
 describe('normalizeSettings input', () => {
   it('fills omitted keys with defaults', () => {
     const resolved = normalizeSettings({ showGridLines: false })

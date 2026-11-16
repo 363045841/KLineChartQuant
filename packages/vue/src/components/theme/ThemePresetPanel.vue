@@ -1,9 +1,8 @@
 <!-- 五种独立视觉风格，卡片和实际图表共用 Core Token。 -->
 <template>
-  <section class="theme-presets" aria-label="主题预设">
+  <section class="theme-presets" aria-label="主题">
     <div class="theme-presets__heading">
-      <span>主题预设</span>
-      <slot name="actions" />
+      <span>主题</span>
     </div>
     <div class="theme-presets__grid">
       <button
@@ -25,7 +24,6 @@
         <strong>{{ preset.label }}</strong>
       </button>
     </div>
-    <p class="theme-presets__hint">风格只调整配色，不改变明暗模式、涨跌习惯与界面尺寸，已有自定义颜色优先。点击即生效并保存。</p>
   </section>
 </template>
 
@@ -49,19 +47,14 @@
 
 <style scoped>
   .theme-presets {
-    display: flex;
-    flex-direction: column;
-    gap: var(--klc-spacing-md);
     min-inline-size: 0;
-    /* 正文贴边：网格容器持有弹窗 inset，卡片保持自己的尺寸与间距。 */
+    /* 正文贴边：面板持有弹窗 inset，卡片保持自己的尺寸与间距。 */
     padding-inline: var(--base-modal-content-inset);
   }
 
   .theme-presets__heading {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--klc-spacing-sm);
     min-block-size: 32px;
     font-size: var(--klc-typography-font-size-md);
     font-weight: var(--klc-typography-font-weight-bold);
@@ -132,12 +125,5 @@
   .theme-preset__choose svg {
     inline-size: var(--klc-spacing-lg);
     block-size: var(--klc-spacing-lg);
-  }
-
-  .theme-presets__hint {
-    margin: 0;
-    color: var(--klc-color-ui-muted);
-    font-size: var(--klc-typography-font-size-sm);
-    line-height: var(--klc-typography-line-height-standard);
   }
 </style>

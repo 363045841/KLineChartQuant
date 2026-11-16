@@ -80,6 +80,7 @@ pnpm workspace at `packages/*`。唯一对外发布包为 `packages/vue` (`@3630
 - **类型是契约,不是障碍.**禁止用 `as` / `as unknown as` / `any` / `@ts-nocheck` 绕过类型检查;契约加字段,替身缺成员必须在编译期暴露,而不是静默通过.
 - **单一事实来源,复用优先.**同一份构造,替身,常量,映射只能有一处实现;用例只声明差异,禁止复制粘贴同一套东西;可复用 setup 抽成 helper 或表驱动(`it.each`).
 - **测试代码与生产代码同权.**测试同样受类型检查和门禁约束,不得靠关闭检查换取"能跑";不许引入脆弱的 MOCK.
+- **表驱动优先,只留有价值的用例.**能用参数表表达的用例一律用 `it.each`;无意义、低价值或与其他用例重复的用例不要保留,能合并的合并.
 - Root 测试用 `pnpm test:unit`,packages 被其排除,跨包测试用 `pnpm test:packages`;`*.integration.test.ts` 默认不被收集.
 - 日期测试依赖 `TZ=Asia/Shanghai`;Windows 本地失败时先设 `$env:TZ='Asia/Shanghai'`.
 

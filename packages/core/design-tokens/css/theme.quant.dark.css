@@ -24,6 +24,7 @@
   --klc-color-axis-tick: #38415F;
   --klc-color-grid-major: #262C43;
   --klc-color-grid-minor: #1D2236;
+  --klc-color-trading-day-separator: #4A9EFF;
   --klc-color-crosshair-line: #ACB8D2;
   --klc-color-crosshair-label-bg: #282F49;
   --klc-color-crosshair-label-text: #E1E7F5;
@@ -37,14 +38,14 @@
   --klc-color-footprint-cell-bid: #d64b4b;
   --klc-color-footprint-cell-ask: #929292;
   --klc-color-footprint-cell-text: #eeeeee;
-  --klc-color-volume-profile-up: #9E9E9E80;
-  --klc-color-volume-profile-down: #9E9E9E80;
+  --klc-color-volume-profile-up: #9E9E9E59;
+  --klc-color-volume-profile-down: #9E9E9E99;
   --klc-color-volume-profile-value-area-up: #4A9EFFB3;
   --klc-color-volume-profile-value-area-down: #E8C15AB3;
   --klc-color-volume-profile-point-of-control: #EF5350;
   --klc-color-volume-profile-value-area-high: #4A9EFFCC;
   --klc-color-volume-profile-value-area-low: #4A9EFFCC;
-  --klc-color-volume-profile-box-background: #FFFFFF0A;
+  --klc-color-volume-profile-box-background: #FFFFFF14;
   --klc-color-alert-active: #4A9EFF;
   --klc-color-alert-triggered: #FFA94D;
   --klc-color-alert-muted: #6B727A;

@@ -256,6 +256,10 @@
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.949, 0.949, 0.949], "hex": "#F2F2F2" }
       },
+      "tradingDaySeparator": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1451, 0.3882, 0.9216], "hex": "#2563EB" }
+      },
       "crosshairLine": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.549, 0.549, 0.549], "hex": "#8C8C8C" }

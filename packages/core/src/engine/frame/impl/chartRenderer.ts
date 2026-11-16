@@ -2,6 +2,7 @@
 
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
+import { resolveDrawingRenderAxis } from '@/engine/drawing/geometry/impl/drawingAxis.js'
 import { computeDrawingPriceRange } from '@/engine/drawing/geometry/impl/frameProjection.js'
 import { bindRenderAxis, objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import type { SnapLine } from '@/foundation/plugin/index.js'
@@ -1075,12 +1076,7 @@ export class ChartRenderer {
       )
       const drawingsByAxis = new Map<string, DrawingObject[]>()
       for (const drawing of drawings) {
-        const axisId = pane.objectAxis(drawing.id)
-        if (axisId === null)
-          throw new KLineChartError(
-            GENERIC_ERROR_CODES.INVALID_STATE,
-            `绘图 ${drawing.id} 未绑定轴`,
-          )
+        const axisId = resolveDrawingRenderAxis(pane, drawing)
         if (drawing.ownerId === undefined && objectAxes.has(axisId)) continue
         const group = drawingsByAxis.get(axisId)
         if (group) group.push(drawing)

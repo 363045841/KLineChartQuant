@@ -51,6 +51,7 @@ export const darkTheme: Theme = {
     axisTick: darkInterfaceColors.border,
     gridMajor: '#24272E',
     gridMinor: '#1D2026',
+    tradingDaySeparator: '#4A9EFF',
     crosshairLine: '#686C72',
     crosshairLabelBg: darkInterfaceColors.controlBackground, // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
     crosshairLabelText: darkInterfaceColors.text,
@@ -67,16 +68,16 @@ export const darkTheme: Theme = {
       ask: '#929292',
       text: '#eeeeee',
     },
-    // 成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。
+    // 成交量分布：价值区外用同一中灰的两档透明度区分涨/跌（深色背景下更亮的一档表示下跌），价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。
     volumeProfile: {
-      up: '#9E9E9E80',
-      down: '#9E9E9E80',
+      up: '#9E9E9E59',
+      down: '#9E9E9E99',
       valueAreaUp: '#4A9EFFB3',
       valueAreaDown: '#E8C15AB3',
       pointOfControl: '#EF5350',
       valueAreaHigh: '#4A9EFFCC',
       valueAreaLow: '#4A9EFFCC',
-      boxBackground: '#FFFFFF0A',
+      boxBackground: '#FFFFFF14',
     },
     alertActive: '#4A9EFF',
     alertTriggered: '#FFA94D',
