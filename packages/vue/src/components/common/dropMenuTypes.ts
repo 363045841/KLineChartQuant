@@ -8,8 +8,6 @@ interface DropMenuItemBase {
   id: string
   label: string
   disabled?: boolean
-  /** 当前项：渲染为高亮，并作为键盘打开时的首个焦点落点；勾选标记只用 checked。 */
-  active?: boolean
   /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
   icon?: Component
   /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
@@ -39,3 +37,14 @@ export interface DropMenuGroup {
   label: string
   items: ReadonlyArray<DropMenuItem>
 }
+
+/** 面板打开锚点：触发器元素（下拉）或指针坐标（右键菜单）。 */
+export type MenuAnchor =
+  | { readonly kind: 'trigger'; readonly element: HTMLElement }
+  | {
+      readonly kind: 'point'
+      readonly x: number
+      readonly y: number
+      readonly width?: number
+      readonly height?: number
+    }

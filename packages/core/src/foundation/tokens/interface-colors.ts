@@ -6,7 +6,8 @@ export const darkInterfaceColors: UiColors = {
   background: '#151619',
   surface: '#191A1E',
   surroundBackground: '#191A1E', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
-  noticeBackground: '#191A1E', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
+  tabActiveBackground: '#191A1E', // 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。
+  noticeBackground: '#27292E', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
   inputBackground: '#27292E', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#1D1F24',
   input: '#1B1D22',
@@ -46,6 +47,7 @@ export const lightInterfaceColors: UiColors = {
   background: '#FFFFFF',
   surface: '#F9F9F9',
   surroundBackground: '#F7F7F7', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+  tabActiveBackground: '#F7F7F7', // 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。
   noticeBackground: '#F7F7F7', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
   inputBackground: '#F7F7F7', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#FFFFFF',
@@ -62,7 +64,7 @@ export const lightInterfaceColors: UiColors = {
   border: '#00000013', // 黑色 7.5%：中性描边，压在白底上接近 Vercel Light 的 interactive.border #00000013。
   borderStrong: '#8C8C8C',
   text: '#313131',
-  textSoft: '#737373',
+  textSoft: '#6C6C6C',
   muted: '#666666',
   accent: '#171717', // 浅色唯一的交互强调色取墨黑：交易界面里蓝色与涨跌色、状态色争夺注意力，改用灰阶深端做“墨”，白字 18.9:1。中间灰在近白底上会读作脏色，不用。
   accentStrong: '#000000', // accent 的悬停/按下阶，压到纯黑。

@@ -30,8 +30,9 @@ export const darkTheme: Theme = {
     background: darkInterfaceColors.background,
     foreground: darkInterfaceColors.text,
     chartBackground: darkInterfaceColors.background,
+    legendBackground: '#151619CC', // = chartBackground at alpha 0xCC：图例文字背后的画布色遮罩。
     floatingSurface: darkInterfaceColors.surface,
-    chartNavigationBackground: '#222222',
+    chartNavigationBackground: darkInterfaceColors.controlBackground,
     candleUpBody: '#089981',
     candleUpBorder: '#089981',
     candleUpWick: '#089981',
@@ -252,11 +253,13 @@ export const darkTheme: Theme = {
       background: darkInterfaceColors.background,
       surface: darkInterfaceColors.surface,
       surroundBackground: '#191A1E', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+      // 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。
+      tabActiveBackground: darkInterfaceColors.tabActiveBackground,
       noticeBackground: darkInterfaceColors.noticeBackground,
       inputBackground: darkInterfaceColors.inputBackground,
       card: darkInterfaceColors.card,
       input: darkInterfaceColors.input,
-      popover: darkInterfaceColors.popover,
+      popover: darkInterfaceColors.card,
       controlBackground: darkInterfaceColors.controlBackground,
       hover: darkInterfaceColors.hover,
       selected: darkInterfaceColors.selected,

@@ -294,6 +294,8 @@ export interface UiColors {
   readonly surface: ColorValue
   /** 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。 */
   readonly surroundBackground: ColorValue
+  /** 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。 */
+  readonly tabActiveBackground: ColorValue
   /** 一般提示与说明区域的背景，不表示警告、错误或交互强调。 */
   readonly noticeBackground: ColorValue
   /** 输入区域的常驻背景，包含组合式数值输入框。 */
@@ -358,6 +360,8 @@ export interface ColorTokens {
   readonly background: ColorValue
   readonly foreground: ColorValue
   readonly chartBackground: ColorValue
+  /** 图例遮罩：画布色 + 20% 透明，压淡图例文字背后的蜡烛与网格。 */
+  readonly legendBackground: ColorValue
   // 浮层表面：下拉菜单、弹出菜单等需要与承载表面区分的无边框容器。
   readonly floatingSurface: ColorValue
   /** 图表底部导航按钮的常驻底色。 */

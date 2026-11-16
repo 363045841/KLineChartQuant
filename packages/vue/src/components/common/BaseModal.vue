@@ -126,8 +126,6 @@
       width?: string
       /** 内容自适应宽度时的下限，仍受视口可用宽度约束。 */
       minWidth?: string
-      /** 默认平滑过渡内容或配置引起的尺寸变化，尊重减少动态效果偏好。 */
-      animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
       /** 普通表单正文需要弹窗安全区时开启；列表和自管理间距的内容保持贴边。 */
@@ -146,7 +144,6 @@
       draggable: true,
       width: '',
       minWidth: '',
-      animateResize: true,
       maxWidth: '',
       maxHeight: '780px',
       bodyPadded: false,
@@ -171,7 +168,7 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
-  const { resizing } = useModalResize(dialog, () => props.animateResize)
+  const { resizing } = useModalResize(dialog)
   const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
   const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
     dialog,

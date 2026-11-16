@@ -16,6 +16,11 @@
         "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9686, 0.9686], "hex": "#F7F7F7" },
         "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
       },
+      "tabActiveBackground": {
+        "$type": "color",
+        "$value": "{light.interface.surroundBackground}",
+        "$description": "活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。"
+      },
       "noticeBackground": {
         "$type": "color",
         "$value": "{light.interface.surroundBackground}",
@@ -91,7 +96,7 @@
       },
       "textSoft": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.451, 0.451, 0.451], "hex": "#737373" }
+        "$value": { "colorSpace": "srgb", "components": [0.4235, 0.4235, 0.4235], "hex": "#6C6C6C" }
       },
       "muted": {
         "$type": "color",
@@ -170,6 +175,11 @@
       "background": { "$type": "color", "$value": "{light.interface.background}" },
       "foreground": { "$type": "color", "$value": "{light.interface.text}" },
       "chartBackground": { "$type": "color", "$value": "{light.interface.background}" },
+      "legendBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.8, "hex": "#FFFFFF" },
+        "$description": "= chartBackground at alpha 0xCC：图例文字背后的画布色遮罩。"
+      },
       "floatingSurface": { "$type": "color", "$value": "{light.interface.surface}" },
       "chartNavigationBackground": { "$type": "color", "$value": "{light.interface.surface}" },
       "candleUpBody": {
@@ -1284,6 +1294,11 @@
           "$type": "color",
           "$value": "{light.interface.surroundBackground}",
           "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
+        },
+        "tabActiveBackground": {
+          "$type": "color",
+          "$value": "{light.interface.tabActiveBackground}",
+          "$description": "活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。"
         },
         "noticeBackground": { "$type": "color", "$value": "{light.interface.noticeBackground}" },
         "inputBackground": { "$type": "color", "$value": "{light.interface.inputBackground}" },

@@ -16,7 +16,7 @@
   withDefaults(
     defineProps<{
       /** 渲染标签；列表内用 li，其余用 div。 */
-      as?: 'div' | 'li' | 'section'
+      as?: 'div' | 'li'
       /** compact 用于列表内联空态，default 用于整块内容区。 */
       size?: 'compact' | 'default'
       /** 可访问角色；纯装饰空态可不传。 */

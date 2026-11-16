@@ -125,12 +125,11 @@
       </div>
     </div>
 
-    <DropMenu
-      ref="contextMenuRef"
-      context
+    <MenuSurface
+      v-bind="contextMenu.bindings.value"
       label="图元菜单"
       :groups="contextMenuGroups"
-      :focus-target="panelRef"
+      :restore-focus-to="panelRef"
       @select="onContextMenuSelect"
     />
   </section>
@@ -142,7 +141,8 @@
   import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { type Component, computed, ref, toRef } from 'vue'
@@ -195,10 +195,10 @@
 
   // 图元行右键复用画布上的同一份图元菜单；非图元行不接管。
   const panelRef = ref<HTMLElement | null>(null)
-  const contextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  const contextMenu = useMenuAnchor()
   const { contextMenuGroups, openRowContextMenu, onContextMenuSelect } = useObjectTreeContextMenu(
     controller,
-    contextMenuRef,
+    contextMenu,
   )
 
   // 空 Pane 不渲染区块；Pane 之间只用分割线区分。

@@ -6,7 +6,7 @@
   <span
     v-if="parts.length > 0"
     class="shortcut-key-group"
-    :class="{ 'shortcut-key-group--tooltip': variant === 'tooltip', 'shortcut-key-group--muted': tone === 'muted' }"
+    :class="{ 'shortcut-key-group--tooltip': variant === 'tooltip' }"
   >
     <template v-for="(part, index) in parts" :key="index">
       <kbd class="shortcut-key">{{ part }}</kbd>
@@ -26,10 +26,8 @@
       shortcut?: string | null
       /** 外观变体：default 用于界面，tooltip 用于深色提示框。 */
       variant?: 'default' | 'tooltip'
-      /** 文字色调：muted 用于禁用/次级条目。 */
-      tone?: 'default' | 'muted'
     }>(),
-    { shortcut: null, variant: 'default', tone: 'default' },
+    { shortcut: null, variant: 'default' },
   )
 
   /** 组合串按 + 拆成独立按键块。 */
@@ -56,10 +54,5 @@
 
   .shortcut-key-group--tooltip .shortcut-key__plus {
     color: var(--klc-color-tooltip-text);
-  }
-
-  .shortcut-key-group--muted .shortcut-key,
-  .shortcut-key-group--muted .shortcut-key__plus {
-    color: var(--klc-color-ui-text-soft);
   }
 </style>

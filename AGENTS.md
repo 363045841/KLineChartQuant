@@ -27,6 +27,7 @@
 - 理解或修改代码前必须先查 CodeGraph:用 `codegraph_explore` 分析调用链,影响范围和现有实现,只有它未索引的内容才退回 grep/read.
 - CodeGraph 工具可能不在初始工具列表里;这时先通过运行时 `search({ query: 'CodeGraph' })` 取得准确工具路径再调用,禁止臆测或自行拼装工具名,禁止以"工具不存在"为由放弃.
 - 启动子代理探索代码时,必须在提示词中要求其优先使用 CodeGraph MCP.
+- 仓库内搜索一律用 `git grep`(含未跟踪文件时加 `--untracked`),禁止用 `Get-ChildItem`/`Select-String` 递归扫盘.
 
 ## Committing
 

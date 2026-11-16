@@ -4,16 +4,17 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import DropMenu from './DropMenu.vue'
+import MenuSurface from './MenuSurface.vue'
 import type { DropMenuGroup } from './dropMenuTypes.js'
 
-const selectionGroups = [
+const selectionGroups: DropMenuGroup[] = [
   {
     id: 'selection',
     label: '',
     items: [
-      { label: 'Alpha', id: 'a' },
-      { label: 'Beta', id: 'b', active: true },
-      { label: 'Gamma', id: 'g' },
+      { label: 'Alpha', id: 'a', selection: 'radio', checked: false },
+      { label: 'Beta', id: 'b', selection: 'radio', checked: true },
+      { label: 'Gamma', id: 'g', selection: 'radio', checked: false },
     ],
   },
 ]
@@ -36,7 +37,11 @@ function key(target: Element, name: string, init: KeyboardEventInit = {}): Keybo
 }
 
 function optionEls(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+  return [
+    ...document.querySelectorAll<HTMLElement>(
+      '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]',
+    ),
+  ]
 }
 
 describe('DropMenu 单选（无 Popover API 的退化模式）', () => {
@@ -170,7 +175,7 @@ describe('DropMenu', () => {
   })
 })
 
-describe('DropMenu 坐标模式（右键菜单）', () => {
+describe('MenuSurface 指针锚点（右键菜单）', () => {
   const groups = [
     {
       id: 'chart',
@@ -182,14 +187,18 @@ describe('DropMenu 坐标模式（右键菜单）', () => {
     },
   ]
 
-  it('不渲染触发器，openAt 打开后不聚焦菜单项，选择后发出 select', async () => {
-    const wrapper = mount(DropMenu, {
+  it('按坐标打开且不聚焦菜单项，选择后发出 select', async () => {
+    const wrapper = mount(MenuSurface, {
       attachTo: document.body,
-      props: { label: '图表菜单', groups, context: true },
+      props: {
+        label: '图表菜单',
+        groups,
+        open: true,
+        anchor: { kind: 'point', x: 24, y: 36 },
+      },
     })
-    expect(wrapper.find('.control-button').exists()).toBe(false)
-    ;(wrapper.vm as unknown as { openAt: (x: number, y: number) => void }).openAt(24, 36)
     await flush()
+    expect(wrapper.find('.control-button').exists()).toBe(false)
     const menu = document.querySelector('[role="menu"]') as HTMLElement
     expect(menu.getAttribute('aria-label')).toBe('图表菜单')
     const items = optionEls()
@@ -308,11 +317,16 @@ describe('DropMenu 二级菜单', () => {
   ]
 
   async function mountMenu() {
-    const wrapper = mount(DropMenu, {
+    const wrapper = mount(MenuSurface, {
       attachTo: document.body,
-      props: { label: '菜单', groups, context: true },
+      props: {
+        label: '菜单',
+        groups,
+        open: true,
+        anchor: { kind: 'point', x: 24, y: 36 },
+        keepOpenOnSelect: true,
+      },
     })
-    ;(wrapper.vm as unknown as { openAt: (x: number, y: number) => void }).openAt(24, 36)
     await flush()
     return wrapper
   }

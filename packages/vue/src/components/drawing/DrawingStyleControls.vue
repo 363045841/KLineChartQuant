@@ -77,7 +77,8 @@
       items: widthOptions.map((option) => ({
         id: option.value,
         label: option.label,
-        active: Number(option.value) === (style.value?.strokeWidth ?? 1),
+        selection: 'radio',
+        checked: Number(option.value) === (style.value?.strokeWidth ?? 1),
       })),
     },
   ])
@@ -89,7 +90,8 @@
       items: styleOptions.map((option) => ({
         id: option.value,
         label: option.label,
-        active: option.value === (style.value?.strokeStyle ?? 'solid'),
+        selection: 'radio',
+        checked: option.value === (style.value?.strokeStyle ?? 'solid'),
       })),
     },
   ])

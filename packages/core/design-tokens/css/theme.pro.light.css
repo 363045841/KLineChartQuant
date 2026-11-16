@@ -3,6 +3,7 @@
   --klc-color-background: #FFFFFF;
   --klc-color-foreground: #313131;
   --klc-color-chart-background: #FFFFFF;
+  --klc-color-legend-background: #FFFFFFCC;
   --klc-color-floating-surface: #F9F9F9;
   --klc-color-chart-navigation-background: #F9F9F9;
   --klc-color-candle-up-body: #089981;
@@ -88,7 +89,7 @@
   --klc-color-script-palette-foreground: #313131;
   --klc-color-text-primary: #313131;
   --klc-color-text-secondary: #666666;
-  --klc-color-text-tertiary: #737373;
+  --klc-color-text-tertiary: #6C6C6C;
   --klc-color-text-weak: hsl(210, 7%, 65%);
   --klc-color-text-white: rgba(255, 255, 255, 0.92);
   --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
@@ -164,6 +165,7 @@
   --klc-color-ui-background: #FFFFFF;
   --klc-color-ui-surface: #F9F9F9;
   --klc-color-ui-surround-background: #F7F7F7;
+  --klc-color-ui-tab-active-background: #F7F7F7;
   --klc-color-ui-notice-background: #F7F7F7;
   --klc-color-ui-input-background: #F7F7F7;
   --klc-color-ui-card: #FFFFFF;
@@ -180,7 +182,7 @@
   --klc-color-ui-border: #00000013;
   --klc-color-ui-border-strong: #8C8C8C;
   --klc-color-ui-text: #313131;
-  --klc-color-ui-text-soft: #737373;
+  --klc-color-ui-text-soft: #6C6C6C;
   --klc-color-ui-muted: #666666;
   --klc-color-ui-accent: #171717;
   --klc-color-ui-accent-strong: #000000;

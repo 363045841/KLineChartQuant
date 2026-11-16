@@ -82,7 +82,7 @@ function createStyles(document: Document): HTMLStyleElement {
       font-family:${FONT_FAMILY}; font-size:12px; font-weight:400; font-style:normal;
       line-height:${LEGEND_TEXT_LINE_HEIGHT}px; letter-spacing:normal; white-space:nowrap; pointer-events:none;
       margin-left:-4px; padding-inline:4px;
-      background:color-mix(in srgb,var(--klc-color-ui-surface) 80%,transparent); }
+      background:var(--klc-color-legend-background); }
     .klc-legend-row[data-actions] { pointer-events:auto; }
     .klc-legend-name { position:relative; display:flex; align-items:center; justify-content:center;
       flex:0 0 auto; min-height:inherit; z-index:1; }
@@ -94,7 +94,7 @@ function createStyles(document: Document): HTMLStyleElement {
       height:28px; box-sizing:border-box;
       display:none; align-items:center; justify-content:flex-end; padding:2px 3px;
       border:1px solid var(--klc-color-ui-border); border-radius:4px;
-      background:color-mix(in srgb,var(--klc-color-ui-surface) 80%,transparent); z-index:-1; pointer-events:auto; }
+      background:var(--klc-color-legend-background); z-index:-1; pointer-events:auto; }
     .klc-legend-actions { display:flex; align-items:center; gap:2px; }
     .klc-legend-row[data-actions]:hover, .klc-legend-row[data-actions]:focus-within { z-index:1; }
     .klc-legend-row:hover .klc-legend-frame, .klc-legend-row:focus-within .klc-legend-frame { display:flex; }
@@ -102,7 +102,7 @@ function createStyles(document: Document): HTMLStyleElement {
       width:22px; height:22px; padding:0; border:0; border-radius:3px;
       background:transparent; color:var(--klc-color-ui-text-soft); cursor:pointer; }
     .klc-legend-button:hover, .klc-legend-button:focus-visible {
-      background:color-mix(in srgb,var(--klc-color-ui-text) 8%,transparent); outline:none; }
+      background:var(--klc-color-ui-highlight); outline:none; }
     .klc-legend-button:disabled { opacity:.3; cursor:default; }
     .klc-legend-button:disabled:hover { background:transparent; }
     .klc-legend-button > svg { display:block; width:14px; height:14px; overflow:visible; }
@@ -120,7 +120,7 @@ function createStyles(document: Document): HTMLStyleElement {
       color:var(--klc-color-ui-text-soft); animation:klc-legend-spin 0.6s linear infinite; }
     .klc-legend-spinner[hidden] { display:none; }
     .klc-legend-error-banner { padding:1px 8px; border-radius:3px;
-      background:color-mix(in srgb,var(--klc-color-ui-danger-background) 80%,transparent); color:var(--klc-color-ui-danger-text); }
+      background:var(--klc-color-ui-danger-background); color:var(--klc-color-ui-danger-text); }
     @keyframes klc-legend-spin { to { transform:rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .klc-legend-spinner { animation:none; } }
   `

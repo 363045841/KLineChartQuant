@@ -95,23 +95,20 @@
               '--chart-nav-offset-x': `${navOffsetX}px`,
             }"
           />
-          <DropMenu
-            ref="chartContextMenuRef"
-            context
+          <MenuSurface
+            v-bind="chartMenu.bindings.value"
             label="图表菜单"
             :groups="contextMenuGroups"
-            :focus-target="containerRef"
+            :restore-focus-to="containerRef"
             @select="onContextMenuSelect"
           />
-          <DropMenu
-            context
-            controlled
+          <MenuSurface
             label="移动指标"
             :open="legendMoveMenuOpen"
-            :origin="legendMoveMenuOrigin"
+            :anchor="legendMoveMenuAnchor"
             :offset="legendMoveMenuOffset"
             :groups="legendMoveMenuGroups"
-            :focus-target="containerRef"
+            :restore-focus-to="containerRef"
             @update:open="onLegendMoveMenuUpdateOpen"
             @select="onLegendMoveMenuSelect"
           />
@@ -501,7 +498,9 @@
   import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
+  import type { MenuAnchor } from '@vue-src/components/common/dropMenuTypes.js'
   import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
@@ -921,7 +920,8 @@
 
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
-  const chartContextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  // 画布右键菜单的开关与指针锚点；面板只按这两个值渲染。
+  const chartMenu = useMenuAnchor()
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
@@ -1112,6 +1112,12 @@
     select: selectLegendMoveMenu,
     onUpdateOpen: onLegendMoveMenuUpdateOpen,
   } = useLegendMoveMenu(controller)
+  // 图例菜单以模型给出的坐标作为锚点，与画布右键菜单共用同一套受控面板。
+  const legendMoveMenuAnchor = computed<MenuAnchor | null>(() =>
+    legendMoveMenuOrigin.value === null
+      ? null
+      : { kind: 'point', ...legendMoveMenuOrigin.value },
+  )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
@@ -1608,7 +1614,7 @@
     contextMenuSource.value = source
     if (source.kind === 'drawing') captureDrawingContextMenu(source.drawingId)
     else captureContextMenuPrice()
-    chartContextMenuRef.value?.openAt(event.clientX, event.clientY)
+    chartMenu.anchorAt(event.clientX, event.clientY)
   }
 
   /** 菜单项动作按打开瞬间的来源分发；动作本身只读取各自快照。 */
@@ -1972,7 +1978,7 @@
     align-items: stretch;
     gap: 0;
     /* 绘图区圆角外侧露出的必须是 chrome 底色，否则页面白底会在角上形成一个尖角白块。 */
-    background: var(--klc-color-ui-surface);
+    background: var(--klc-color-ui-surround-background);
   }
 
   .chart-main {

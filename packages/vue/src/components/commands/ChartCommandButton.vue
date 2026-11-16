@@ -54,14 +54,6 @@
     color: var(--klc-color-ui-text);
   }
 
-  :global([data-theme='dark']) .chart-command-button {
-    color: var(--klc-color-ui-text);
-  }
-
-  :global([data-theme='dark']) .chart-command-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--klc-color-ui-hover) 85%, var(--klc-color-ui-text));
-  }
-
   .chart-command-button:focus-visible {
     outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;

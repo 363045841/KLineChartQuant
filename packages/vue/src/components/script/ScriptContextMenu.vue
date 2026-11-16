@@ -1,18 +1,15 @@
-<!-- 脚本右键菜单：分组列表、命名输入、二次确认与声明预览统一走 DropMenu 面板。 -->
+<!-- 脚本右键菜单：分组列表、命名输入、二次确认与声明预览统一走菜单面板。 -->
 <template>
-  <DropMenu
+  <MenuSurface
     ref="menu"
-    context
-    controlled
+    :open="open"
+    :anchor="anchor"
+    :body-mode="bodyMode"
     keep-open-on-select
     focus-on-open
-    :open="open"
-    :origin="origin"
-    :body-mode="bodyMode"
-    :panel-role="panelRole"
     :label="label"
     :groups="groups"
-    :focus-target="focusTarget"
+    :restore-focus-to="focusTarget"
     @open="onOpen"
     @update:open="onUpdateOpen"
     @select="onSelect"
@@ -78,11 +75,11 @@
         <ScriptDefinitionPreview :preview="content.preview" :theme="theme" />
       </div>
     </template>
-  </DropMenu>
+  </MenuSurface>
 </template>
 
 <script setup lang="ts">
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
   import type { ScriptMenuModel } from '@vue-src/composables/chart/scriptEditor/impl/scriptMenuModel.js'
   import { useScriptMenuPanel } from '@vue-src/composables/chart/scriptEditor/impl/useScriptMenuPanel.js'
   import { vAutoFocus } from '@vue-src/utils/autoFocus.js'
@@ -105,10 +102,9 @@
     groups,
     bodyMode,
     label,
-    panelRole,
     focusTarget,
     open,
-    origin,
+    anchor,
     onOpen,
     onUpdateOpen,
     onSelect,

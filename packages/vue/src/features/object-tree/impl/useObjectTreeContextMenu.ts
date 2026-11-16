@@ -16,21 +16,21 @@ import {
 import { injectCommands } from '@vue-src/composables/commands/useCommands.js'
 import { computed, type Ref } from 'vue'
 
-/** 坐标模式 DropMenu 的打开能力；实例由面板持有并通过 ref 传入。 */
+/** 菜单锚点能力；由面板的 useMenuAnchor 提供，右键时在指针处打开。 */
 export interface DrawingContextMenuHandle {
-  openAt(x: number, y: number): void
+  anchorAt(x: number, y: number): void
 }
 
 /**
  * 创建对象树的图元右键菜单。
  *
  * @param controller 图表控制器；行来源与菜单动作都作用于它
- * @param menu 面板内的菜单实例；只用于在指针处打开
+ * @param menu 菜单锚点；在指针处打开图元菜单
  * @returns 菜单分组、行右键入口与选择事件转发
  */
 export function useObjectTreeContextMenu(
   controller: Readonly<Ref<ChartController | null>>,
-  menu: Readonly<Ref<DrawingContextMenuHandle | null>>,
+  menu: DrawingContextMenuHandle,
 ) {
   // 命令表由共同父级提供，菜单与画布共用同一份快捷键文案。
   const commands = injectCommands()
@@ -71,7 +71,7 @@ export function useObjectTreeContextMenu(
     event.preventDefault()
     event.stopPropagation()
     capture(source.drawingId)
-    menu.value?.openAt(event.clientX, event.clientY)
+    menu.anchorAt(event.clientX, event.clientY)
     return true
   }
 

@@ -24,7 +24,9 @@ Exchange 浅色主题的强调色与 Pro 同源，其余表面沿用自身的分
 | role | 值 | 对应 Vercel Light / 说明 |
 | --- | --- | --- |
 | background / chartBackground | `#FFFFFF` | `surface.background`；K 线画布用纯白 |
-| surface | `#F9F9F9` | `surface.muted`；工具栏、标签栏、导航条 |
+| surface | `#F9F9F9` | `surface.muted`；内容面（弹窗、编辑区、卡片底） |
+| surroundBackground | `#F7F7F7` | chrome：标题栏、工具栏、侧边栏与面板外壳 |
+| noticeBackground / inputBackground | `#F7F7F7` | 提示说明块与输入区；深色按预设派生，见 `theme/theme-presets.md` |
 | card / input / popover | `#FFFFFF` | 卡片、输入框、浮层 |
 | controlBackground | `#F4F4F4` | `surface.elevated` |
 | hover | `#0000000A` | `interactive.hover`，黑色 3.9% |
@@ -35,7 +37,7 @@ Exchange 浅色主题的强调色与 Pro 同源，其余表面沿用自身的分
 | border | `#00000013` | `interactive.border`，黑色 7.5% |
 | borderStrong | `#8C8C8C` | 强调描边，3.4:1，不低于非文本门槛 |
 | text | `#313131` | `surface.foreground` |
-| textSoft | `#737373` | 4.7:1 |
+| textSoft | `#6C6C6C` | 5.25:1；最浅的浅色背景上仍 4.7:1 |
 | muted | `#666666` | `surface.mutedForeground`，5.7:1 |
 | accent | `#171717` | 墨黑；白字 18.9:1，不使用蓝色系 |
 | accentStrong | `#000000` | accent 的悬停/按下阶 |

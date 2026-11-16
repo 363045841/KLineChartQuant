@@ -127,12 +127,13 @@
     background: var(--klc-color-ui-input-background);
   }
 
-  /* 弹窗头部内嵌：去掉独立框，铺满整行；横向内边距跟随弹窗内容左缘。 */
+  /* 弹窗头部内嵌：去掉独立框与底色，铺满整行；横向内边距跟随弹窗内容左缘。 */
   .search-field--flush {
     --search-field-height: 42px;
     padding: 0 var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border: 0;
     border-radius: 0;
+    background: transparent;
   }
 
   /* 面板内嵌的紧凑搜索：24 行高 + 上下各 2 的余量，与 BaseButton md(28px) 同高。 */

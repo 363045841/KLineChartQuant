@@ -1,6 +1,6 @@
 <!-- K 线形态选择：选项复用 Core 设置定义，状态由图表设置提供；不支持的形态由能力置灰。 -->
 <template>
-  <DropMenu :label="settingLabel" :groups="groups" density="compact" tooltip-placement="bottom" @select="select">
+  <DropMenu :label="settingLabel" :groups="groups" density="compact" @select="select">
     <template #trigger>
       <span class="selection-menu__value">{{ selectedLabel }}</span>
       <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />

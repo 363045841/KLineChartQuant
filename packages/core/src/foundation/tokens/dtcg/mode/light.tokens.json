@@ -4,6 +4,7 @@
     "background": { "$type": "color", "$value": "{light.color.background}" },
     "foreground": { "$type": "color", "$value": "{light.color.foreground}" },
     "chartBackground": { "$type": "color", "$value": "{light.color.chartBackground}" },
+    "legendBackground": { "$type": "color", "$value": "{light.color.legendBackground}" },
     "floatingSurface": { "$type": "color", "$value": "{light.color.floatingSurface}" },
     "chartNavigationBackground": {
       "$type": "color",
@@ -224,6 +225,7 @@
       "background": { "$type": "color", "$value": "{light.color.ui.background}" },
       "surface": { "$type": "color", "$value": "{light.color.ui.surface}" },
       "surroundBackground": { "$type": "color", "$value": "{light.color.ui.surroundBackground}" },
+      "tabActiveBackground": { "$type": "color", "$value": "{light.color.ui.tabActiveBackground}" },
       "noticeBackground": { "$type": "color", "$value": "{light.color.ui.noticeBackground}" },
       "inputBackground": { "$type": "color", "$value": "{light.color.ui.inputBackground}" },
       "card": { "$type": "color", "$value": "{light.color.ui.card}" },

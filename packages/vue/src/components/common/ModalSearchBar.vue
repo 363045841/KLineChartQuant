@@ -1,7 +1,7 @@
 <!--
   模态贴边搜索条：flush 变体 SearchField 加下边线，尾部默认插槽放动作按钮。
   指标选择、行情数据源、商品选择（搜索/比较/添加）与命令面板共用同一外观；
-  聚焦时保持搜索条外观不变。
+  整条不画底色，直接落在弹窗表面上，只用下边线分隔；聚焦时外观不变。
 -->
 <template>
   <div class="modal-search-bar">
@@ -68,7 +68,6 @@
     min-height: 42px;
     padding-inline-end: var(--base-modal-content-inset, var(--klc-space-12, 12px));
     border-bottom: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-surface);
   }
 
   /* 搜索框铺满整行，尾部动作按钮保持自身宽度。 */

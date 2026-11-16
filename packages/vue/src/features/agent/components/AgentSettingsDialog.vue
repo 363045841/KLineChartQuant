@@ -469,7 +469,8 @@
       items: AGENT_LOCALE_OPTIONS.map((option) => ({
         id: option.value,
         label: option.label,
-        active: option.value === props.locale,
+        selection: 'radio',
+        checked: option.value === props.locale,
       })),
     },
   ])

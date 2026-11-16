@@ -150,7 +150,6 @@
         :disabled="screenshotCapturing"
         command="chart.snapshot"
         class="screenshot-menu"
-        tooltip-placement="bottom"
         placement="bottom"
         @select="onScreenshotSelect"
       >

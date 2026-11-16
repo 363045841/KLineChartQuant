@@ -108,8 +108,9 @@ const editorTheme = EditorView.theme({
     outline: '1px solid var(--klc-color-ui-border)',
     borderRadius: '2px',
   },
+  // 面板压在编辑区表面上：取 card 档，浅色与深色都与编辑区有差值，不会在深色里消失。
   '.cm-panels': {
-    backgroundColor: 'var(--klc-color-ui-surround-background)',
+    backgroundColor: 'var(--klc-color-ui-card)',
     color: 'var(--klc-color-ui-text)',
     border: 'none',
   },

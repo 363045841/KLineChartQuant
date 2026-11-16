@@ -52,15 +52,12 @@ function drawing(id: string): DrawingObject {
 
 /** 父级提供命令表，子组件使用对象树菜单，与正式运行结构一致。 */
 function mountContextMenu(controller: ReturnType<typeof createMockChartController>) {
-  const menu = { openAt: vi.fn() }
+  const menu: DrawingContextMenuHandle = { anchorAt: vi.fn() }
   let api!: ReturnType<typeof useObjectTreeContextMenu>
   let registry!: CommandRegistry
   const Child = defineComponent({
     setup() {
-      api = useObjectTreeContextMenu(
-        shallowRef(controller),
-        shallowRef<DrawingContextMenuHandle | null>(menu),
-      )
+      api = useObjectTreeContextMenu(shallowRef(controller), menu)
       return () => null
     },
   })
@@ -100,7 +97,7 @@ describe('对象树图元右键菜单', () => {
     expect(api.openRowContextMenu(event, row('a', 'drawing'))).toBe(true)
     expect(event.defaultPrevented).toBe(true)
     expect(setSelectedDrawingIds).toHaveBeenCalledWith(['a'])
-    expect(menu.openAt).toHaveBeenCalledWith(12, 34)
+    expect(menu.anchorAt).toHaveBeenCalledWith(12, 34)
     wrapper.unmount()
   })
 
@@ -110,7 +107,7 @@ describe('对象树图元右键菜单', () => {
 
     expect(api.openRowContextMenu(event, row('i', 'indicator'))).toBe(false)
     expect(event.defaultPrevented).toBe(false)
-    expect(menu.openAt).not.toHaveBeenCalled()
+    expect(menu.anchorAt).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

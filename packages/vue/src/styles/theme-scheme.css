@@ -1,8 +1,8 @@
 /*
-  为 light-dark() 提供明确的 color-scheme 锚点。
-  原生浏览器按锚点选择明暗值；被 lightningcss 降级时也会在这里注入
-  --lightningcss-light / --lightningcss-dark 切换变量，避免所有 light-dark()
-  声明在消费方构建后失效。
+  为整个界面提供明确的 color-scheme 锚点：原生 checkbox、下拉框与滚动条
+  按锚点选择明暗渲染。被 lightningcss 降级时会在这里注入
+  --lightningcss-light / --lightningcss-dark 切换变量，消费方构建后的
+  light-dark() 声明仍然有效。
 */
 :root {
   color-scheme: light dark;
