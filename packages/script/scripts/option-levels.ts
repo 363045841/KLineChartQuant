@@ -18,6 +18,9 @@
  * 另外两点容易误读的地方也写进画法：近月 DTE 小于 1 天时在末根标注「今天到期」，
  * 避免把到期前的持仓收缩读成墙位消失；期权线只画最近一段（见 RECENT_DAYS），
  * 长历史让给结构类指标。
+ *
+ * 三条线各有「显示」开关与颜色选项，默认全开；日内只看其中一条时把另外两条关掉，
+ * 图上不会堆满参考线。VM 当前没有颜色输入控件，颜色用字符串选项 + 固定映射实现。
  */
 /** 只画最近多少天的关键位；更早的历史交给结构与价格类指标。 */
 const RECENT_DAYS = 30
@@ -30,6 +33,17 @@ const DAY_MS = 86_400_000
  * 目的是把逐分钟的小幅漂移压掉，让阶梯线读起来是「水平位在移动」。
  */
 const GENERATION_TOLERANCE = 0.0015
+
+/** 颜色名到绘图颜色的映射；未知值回落到 fallback，保证不会画出透明线。 */
+function pickColor(name: string, fallback: Color): Color {
+  if (name === 'purple') return Color.Purple
+  if (name === 'green') return Color.Green
+  if (name === 'red') return Color.Red
+  if (name === 'orange') return Color.Orange
+  if (name === 'teal') return Color.Teal
+  if (name === 'gray') return Color.Gray
+  return fallback
+}
 
 /** 一个关键位的换代点：从 at（毫秒）起取 value。 */
 interface Step {
@@ -159,10 +173,52 @@ function addNotice(text: string, color: Color): void {
 defineIndicator({
   name: 'OptionLevels',
   title: '期权关键位（主图）',
-  info: '近月 Gamma 翻转、近月 Call 墙与 Put 墙，墙位按 OI×Γ 加权（对冲火力最密集处）。三条都按阶梯线画：换代前保持水平，换代处跳一档，相对变化超过 0.15% 才算换代。末根写价签，近月剩余天数小于 1 天时标注「今天到期」。不画 ±σ 区间，避免填充带遮挡价格。数据由宿主按品种映射取回（BTCUSDT→BTC），没有映射或取不到数据时画空。',
+  info: '近月 Gamma 翻转、近月 Call 墙与 Put 墙，墙位按 OI×Γ 加权（对冲火力最密集处）。三条都按阶梯线画：换代前保持水平，换代处跳一档，相对变化超过 0.15% 才算换代。末根写价签，近月剩余天数小于 1 天时标注「今天到期」。三条各有显示开关与颜色选项，默认全部显示。不画 ±σ 区间，避免填充带遮挡价格。数据由宿主按品种映射取回（BTCUSDT→BTC），没有映射或取不到数据时画空。',
   position: Position.Main,
   max_labels_count: 8,
   onBar() {
+    const showFlip = input.bool(true, { title: '显示翻转位' })
+    const showCallWall = input.bool(true, { title: '显示 Call 墙' })
+    const showPutWall = input.bool(true, { title: '显示 Put 墙' })
+    // 输入声明必须是「直接初始化顶层 const」，且参数只能是常量字面量，色板无法共用一份
+    // 顶层常量，只能三处各写一份。
+    const flipColorName = input.string('purple', {
+      title: '翻转位颜色',
+      options: [
+        { value: 'purple', label: '紫' },
+        { value: 'green', label: '绿' },
+        { value: 'red', label: '红' },
+        { value: 'orange', label: '橙' },
+        { value: 'teal', label: '青' },
+        { value: 'gray', label: '灰' },
+      ],
+    })
+    const callWallColorName = input.string('green', {
+      title: 'Call 墙颜色',
+      options: [
+        { value: 'purple', label: '紫' },
+        { value: 'green', label: '绿' },
+        { value: 'red', label: '红' },
+        { value: 'orange', label: '橙' },
+        { value: 'teal', label: '青' },
+        { value: 'gray', label: '灰' },
+      ],
+    })
+    const putWallColorName = input.string('red', {
+      title: 'Put 墙颜色',
+      options: [
+        { value: 'purple', label: '紫' },
+        { value: 'green', label: '绿' },
+        { value: 'red', label: '红' },
+        { value: 'orange', label: '橙' },
+        { value: 'teal', label: '青' },
+        { value: 'gray', label: '灰' },
+      ],
+    })
+    const flipColor = pickColor(flipColorName, Color.Purple)
+    const callWallColor = pickColor(callWallColorName, Color.Green)
+    const putWallColor = pickColor(putWallColorName, Color.Red)
+
     const barTime = time[0]
     // 采集发生在 bar 之内：按 bar 的收盘时刻取，当前 bar 才拿得到本周期内的换代。
     const barEnd = barTime + timeframe.in_seconds() * 1000
@@ -172,21 +228,21 @@ defineIndicator({
     const inWindow = latest !== null && barEnd >= latest.capturedAt - RECENT_DAYS * DAY_MS
     const at = (key: SeriesKey): number | null => (inWindow ? valueAt(steps[key], barEnd) : null)
 
-    const flip = price(at('flip'))
-    const callWall = price(at('callWall'))
-    const putWall = price(at('putWall'))
+    const flip = showFlip ? price(at('flip')) : null
+    const callWall = showCallWall ? price(at('callWall')) : null
+    const putWall = showPutWall ? price(at('putWall')) : null
 
-    // 关键位是水位不是趋势，一律阶梯线；颜色沿用 cloudtradeagent 的语义（Call 绿 / Put 红 / 翻转紫）。
-    plot.StepLine(flip, 'flip', { label: 'Gamma 翻转', color: Color.Purple, dash: [6, 4] })
-    plot.StepLine(callWall, 'call-wall', { label: 'Call 墙', color: Color.Green })
-    plot.StepLine(putWall, 'put-wall', { label: 'Put 墙', color: Color.Red })
+    // 关键位是水位不是趋势，一律阶梯线；默认沿用 cloudtradeagent 的语义（Call 绿 / Put 红 / 翻转紫）。
+    plot.StepLine(flip, 'flip', { label: 'Gamma 翻转', color: flipColor, dash: [6, 4] })
+    plot.StepLine(callWall, 'call-wall', { label: 'Call 墙', color: callWallColor })
+    plot.StepLine(putWall, 'put-wall', { label: 'Put 墙', color: putWallColor })
 
     // 价签只在末根出现：历史段不重复写文字，避免每根 bar 都堆一列数值。
     clearTags()
     if (!barstate.islast) return
-    addTag(callWall, 'Call 墙', Color.Green)
-    addTag(putWall, 'Put 墙', Color.Red)
-    addTag(flip, 'Gamma 翻转', Color.Purple)
+    if (showCallWall) addTag(callWall, 'Call 墙', callWallColor)
+    if (showPutWall) addTag(putWall, 'Put 墙', putWallColor)
+    if (showFlip) addTag(flip, 'Gamma 翻转', flipColor)
     // 近月 DTE 小于 1 天：到期前持仓天然收缩，必须提示，否则墙位看起来像消失了。
     if (latest !== null && latest.nearTermDteDays < 1) {
       addNotice(
