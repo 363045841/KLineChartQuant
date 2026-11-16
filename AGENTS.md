@@ -87,7 +87,7 @@ pnpm workspace at `packages/*`。唯一对外发布包为 `packages/vue` (`@3630
 
 ## 数据源
 
-本地行情后端位于本仓库同级目录:`GoTDX-Connector`(gotdx),`Binance-Connector`(Binance 现货 K 线 / 逐笔成交),`Baostock-Tradingview-Connector`(BaoStock,TradingView),`KCQ-MT5-connector`(MT5,Windows + 已登录终端)和 `KCQ-THS-connector`(同花顺 A 股/指数/ETF/期货/期权**日线**,需同花顺 API Key).后两者不纳入 `-c all`,需显式指定.涉及后端时先阅读对应仓库的 `AGENTS.md`;用 `pnpm setup:backends` 安装,`pnpm dev -c <name>` 或 `pnpm connector <name>` 启动.
+本地行情后端位于本仓库同级目录:`GoTDX-Connector`(gotdx),`Binance-Connector`(Binance 现货 K 线 / 逐笔成交),`Baostock-Tradingview-Connector`(BaoStock,TradingView),`KCQ-MT5-connector`(MT5,Windows + 已登录终端)和 `KCQ-THS-connector`(同花顺 A 股/指数/ETF/期货/期权**日线**,需同花顺 API Key).同花顺不纳入 `-c all`(需 API Key),`pnpm dev -c all` 已包含 MT5(Windows + 已登录终端时可用).Binance 出网代理由 `scripts/connectors.mjs` 的 `DEV_PROXY` 提供,默认 MonoCloud 7078,可用 `BINANCE_PROXY` 覆盖.涉及后端时先阅读对应仓库的 `AGENTS.md`;用 `pnpm setup:backends` 安装,`pnpm dev -c <name>` 或 `pnpm connector <name>` 启动.
 
 ## 测试
 
