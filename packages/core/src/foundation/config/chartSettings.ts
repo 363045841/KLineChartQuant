@@ -293,6 +293,14 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
+    // 只在日线以下周期生效；交易日归属由市场会话的 tradingDayStartMinute 决定。
+    key: 'showTradingDaySeparator',
+    label: '交易日间隔',
+    type: 'boolean',
+    default: true,
+    group: 'style',
+  },
+  {
     key: 'isAsiaMarket',
     label: '亚洲市场颜色（红涨绿跌）',
     type: 'boolean',

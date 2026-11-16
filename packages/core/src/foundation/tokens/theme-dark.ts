@@ -51,6 +51,7 @@ export const darkTheme: Theme = {
     axisTick: darkInterfaceColors.border,
     gridMajor: '#24272E',
     gridMinor: '#1D2026',
+    tradingDaySeparator: '#4A9EFF',
     crosshairLine: '#686C72',
     crosshairLabelBg: darkInterfaceColors.controlBackground, // 深色下用中灰而非近白，避免标签在轴上形成刺眼亮块；文字取浅色保证对比度。
     crosshairLabelText: darkInterfaceColors.text,

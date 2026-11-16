@@ -12,7 +12,7 @@
       <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
 
-    <div class="settings-body" :class="{ 'settings-body--style': activeSection === 'style' }">
+    <div class="settings-body">
       <ShortcutSettings v-if="activeSection === 'shortcuts'" />
 
       <template v-else-if="activeSection === 'dataSource'">
@@ -236,10 +236,10 @@
   /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
   const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
     const tabs: { id: SettingsSectionId; label: string }[] = []
-    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '图表设置' })
+    tabs.push({ id: 'style', label: '外观' })
     tabs.push({ id: 'shortcuts', label: '快捷键' })
     tabs.push({ id: 'dataSource', label: '数据源' })
-    tabs.push({ id: 'style', label: '外观' })
     if (experimentalSettings.value.length > 0) {
       tabs.push({ id: 'experimental', label: '实验性' })
     }
@@ -322,13 +322,7 @@
   }
 </script>
 
-
 <style scoped>
-  /* 区块只在边界留白，横向对齐交给弹窗内容的统一 inset。 */
-  .settings-body--style > :first-child {
-    margin-block-end: var(--klc-spacing-sm);
-  }
-
   /* 设置行仅负责布局，交互状态由具体控件提供。 */
   .settings-item.runtime-hint {
     min-block-size: auto;

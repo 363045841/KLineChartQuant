@@ -52,4 +52,26 @@ describe('MarketSessionRegistry', () => {
       }),
     ).toThrow('Invalid market session: BROKEN')
   })
+
+  it.each([-1, 1440, 12.5])('rejects trading day start %s outside the wall clock', (minute) => {
+    const registry = new MarketSessionRegistry()
+
+    expect(() =>
+      registry.register('BROKEN', {
+        timeZone: 'Asia/Shanghai',
+        sessions: [{ open: 0, close: 60 }],
+        tradingDayStartMinute: minute,
+      }),
+    ).toThrow('Invalid market session: BROKEN')
+  })
+
+  it('registers the futures venues with their night-session day start', () => {
+    const registry = new MarketSessionRegistry()
+
+    for (const venue of ['SHFE', 'INE', 'DCE', 'CZCE', 'GFEX']) {
+      expect(registry.getRequired(venue).tradingDayStartMinute).toBe(1200)
+    }
+    // 中金所没有夜盘，交易日按自然日划分。
+    expect(registry.getRequired('CFFEX').tradingDayStartMinute).toBeUndefined()
+  })
 })

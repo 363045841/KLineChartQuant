@@ -52,6 +52,7 @@ export const lightTheme: Theme = {
     axisTick: lightInterfaceColors.border,
     gridMajor: '#E8E8E8',
     gridMinor: '#F2F2F2',
+    tradingDaySeparator: '#2563EB',
     crosshairLine: '#8C8C8C',
     crosshairLabelBg: lightInterfaceColors.text,
     crosshairLabelText: lightInterfaceColors.background,

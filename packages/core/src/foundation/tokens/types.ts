@@ -394,6 +394,8 @@ export interface ColorTokens {
   // Grid
   readonly gridMajor: ColorValue
   readonly gridMinor: ColorValue
+  /** 交易日分隔线：日线以下周期在相邻交易日交界处绘制的虚线。 */
+  readonly tradingDaySeparator: ColorValue
 
   // Crosshair
   readonly crosshairLine: ColorValue

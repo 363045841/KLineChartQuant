@@ -6,6 +6,9 @@ import { BUILTIN_MARKET_SESSIONS } from './builtinMarketSessions.js'
 function isValidSession(config: MarketSessionConfig): boolean {
   if (!config.timeZone.trim() || config.sessions.length === 0) return false
   if (config.slotMinutes !== undefined && config.slotMinutes <= 0) return false
+  const dayStart = config.tradingDayStartMinute
+  if (dayStart !== undefined && (!Number.isInteger(dayStart) || dayStart < 0 || dayStart >= 1440))
+    return false
   return config.sessions.every(
     ({ open, close }) =>
       Number.isFinite(open) && Number.isFinite(close) && open >= 0 && close > open,

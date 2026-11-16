@@ -28,6 +28,7 @@
     "axisTick": { "$type": "color", "$value": "{light.color.axisTick}" },
     "gridMajor": { "$type": "color", "$value": "{light.color.gridMajor}" },
     "gridMinor": { "$type": "color", "$value": "{light.color.gridMinor}" },
+    "tradingDaySeparator": { "$type": "color", "$value": "{light.color.tradingDaySeparator}" },
     "crosshairLine": { "$type": "color", "$value": "{light.color.crosshairLine}" },
     "crosshairLabelBg": { "$type": "color", "$value": "{light.color.crosshairLabelBg}" },
     "crosshairLabelText": { "$type": "color", "$value": "{light.color.crosshairLabelText}" },
