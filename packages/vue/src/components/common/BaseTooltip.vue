@@ -2,6 +2,7 @@
   悬浮提示：本组件负责显示时机、内容与描述关系，定位交给共享的测量引擎（floating-ui）。
   触发器必须包含一个可聚焦控件：它既是提示锚点，也是 aria-describedby 的挂载点；
   包装层只提供事件与布局通道（trigger-display / fill），不参与定位。
+  控件处于禁用态（disabled / aria-disabled）时不提示：禁用按钮本来就点不动。
 
   用法：
   <BaseTooltip content="保存"><button aria-label="保存">…</button></BaseTooltip>
@@ -97,6 +98,8 @@
   const panel = useTemplateRef<HTMLElement>('panel')
   /** 定位锚点：触发层里的可聚焦控件，等价于 `aria-describedby` 的目标。 */
   const anchorEl = shallowRef<HTMLElement | null>(null)
+  /** 控件禁用时不提示：说明一个点不动的按钮只是噪音。 */
+  const controlDisabled = shallowRef(false)
 
   /** 没有文本也没有内容插槽时不弹提示，避免出现空框。 */
   const hasContent = computed(() => props.content.length > 0 || Boolean(slots.content))
@@ -122,11 +125,13 @@
     offset: () => props.offset,
     showDelay: () => props.showDelay,
     hideDelay: () => props.hideDelay,
-    disabled: () => props.disabled || !hasContent.value,
+    disabled: () => props.disabled || !hasContent.value || controlDisabled.value,
   })
 
   let describedControl: HTMLElement | null = null
   let previousDescribedBy: string | null = null
+  let observedControl: HTMLElement | null = null
+  let disabledObserver: MutationObserver | null = null
 
   /** 提示锚定并描述触发层里的可聚焦控件；包装层只负责布局与事件，不参与定位。 */
   function syncControl(): void {
@@ -134,11 +139,34 @@
     const control = wrapper?.querySelector<HTMLElement>(CONTROL_SELECTOR) ?? null
     // 没有可聚焦控件时退回包装层，至少保证提示仍有锚点。
     anchorEl.value = control ?? wrapper
+    trackDisabled(control)
     if (!hasContent.value) {
       restoreDescription()
       return
     }
     bindDescription(control)
+  }
+
+  /** 跟随控件的禁用态：禁用后立刻收起提示，重新启用后恢复。 */
+  function trackDisabled(control: HTMLElement | null): void {
+    if (control === observedControl) return
+    disabledObserver?.disconnect()
+    disabledObserver = null
+    observedControl = control
+    controlDisabled.value = control ? isDisabled(control) : false
+    if (!control || typeof MutationObserver === 'undefined') return
+    disabledObserver = new MutationObserver(() => {
+      controlDisabled.value = isDisabled(control)
+    })
+    disabledObserver.observe(control, {
+      attributes: true,
+      attributeFilter: ['disabled', 'aria-disabled'],
+    })
+  }
+
+  /** 原生禁用与 aria-disabled 都算不可操作。 */
+  function isDisabled(control: HTMLElement): boolean {
+    return control.matches(':disabled, [aria-disabled="true"]')
   }
 
   /** 宿主已有的描述追加保留，卸载时还原。 */
@@ -176,7 +204,10 @@
     onFocusIn(event)
   }
 
-  onBeforeUnmount(restoreDescription)
+  onBeforeUnmount(() => {
+    disabledObserver?.disconnect()
+    restoreDescription()
+  })
 </script>
 
 <style scoped>

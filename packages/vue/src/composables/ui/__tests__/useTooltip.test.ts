@@ -71,6 +71,30 @@ describe('BaseTooltip 分组延迟', () => {
     wrapper.unmount()
   })
 
+  it('控件禁用时不提示，重新启用后恢复', async () => {
+    const wrapper = mount(BaseTooltip, {
+      attachTo: document.body,
+      props: { content: '删除' },
+      slots: { default: () => h('button', { id: 'd', disabled: true }) },
+    })
+    await nextTick()
+    const trigger = wrapper.get('.base-tooltip__trigger').element
+    trigger.dispatchEvent(new PointerEvent('pointerenter'))
+    vi.advanceTimersByTime(400)
+    await nextTick()
+    // 禁用控件点不动，说明它做什么只是噪音。
+    expect(tooltipTexts()).toEqual([])
+
+    const button = document.getElementById('d') as HTMLButtonElement
+    button.disabled = false
+    await nextTick()
+    trigger.dispatchEvent(new PointerEvent('pointerenter'))
+    vi.advanceTimersByTime(400)
+    await nextTick()
+    expect(tooltipTexts()).toEqual(['删除'])
+    wrapper.unmount()
+  })
+
   it('提示通过 aria-describedby 关联到可聚焦控件，空内容不渲染', async () => {
     const wrapper = mount(Pair, { attachTo: document.body })
     await nextTick()
