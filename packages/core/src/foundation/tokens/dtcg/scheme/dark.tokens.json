@@ -317,13 +317,13 @@
         }
       },
       "volumeProfile": {
-        "$description": "成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。",
+        "$description": "成交量分布：价值区外用同一中灰的两档透明度区分涨/跌（深色背景下更亮的一档表示下跌），价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。",
         "up": {
           "$type": "color",
           "$value": {
             "colorSpace": "srgb",
             "components": [0.6196, 0.6196, 0.6196],
-            "alpha": 0.502,
+            "alpha": 0.349,
             "hex": "#9E9E9E"
           }
         },
@@ -332,7 +332,7 @@
           "$value": {
             "colorSpace": "srgb",
             "components": [0.6196, 0.6196, 0.6196],
-            "alpha": 0.502,
+            "alpha": 0.6,
             "hex": "#9E9E9E"
           }
         },
@@ -385,7 +385,7 @@
           "$value": {
             "colorSpace": "srgb",
             "components": [1, 1, 1],
-            "alpha": 0.039,
+            "alpha": 0.078,
             "hex": "#FFFFFF"
           }
         }
