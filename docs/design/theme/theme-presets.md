@@ -37,6 +37,35 @@
 
 涨跌、成交量与收益颜色继承原版基底；品牌强调色不作为上涨或下跌颜色。十色分类色盘不重新发明，未覆盖指标继续复用原有 Token。
 
+## 表层角色的派生关系
+
+浅色把 chrome、提示、输入三档压成同一个中性色，靠 1px 边线分层；深色这些角色必须分开才看得见，
+所以浅色值固定、深色值从预设色表派生：
+
+| 角色 | 浅色 | 深色 |
+| --- | --- | --- |
+| `ui.surface` 内容面（弹窗、编辑区、卡片底） | 各预设的浅色表面 | 预设 `surface` |
+| `ui.surroundBackground` chrome（标题栏、工具栏、侧边栏、面板外壳） | 固定 `#F7F7F7` | 预设 `surface` |
+| `ui.noticeBackground` 提示与说明块 | 固定 `#F7F7F7` | 预设 `controlBackground` |
+| `ui.inputBackground` 输入区与组合式输入框 | 固定 `#F7F7F7` | 预设 `controlBackground` |
+| `ui.popover` 浮层菜单与弹层 | 固定 `#FFFFFF` | 预设 `card` |
+| `color.chartNavigationBackground` 图表浮层控件底 | 固定 `#F9F9F9` | 预设 `controlBackground` |
+| `agent.composer*` Agent 输入区与控件 | 固定浅色中性档 | 预设 `card` / `controlBackground` / `hover` |
+| `ui.tabActiveBackground` 活动标签填充 | 与标题栏同色 | 与标题栏同色 |
+
+约束：
+
+- **预设不改写正文颜色**：`ui.text` / `ui.textSoft` / `ui.muted` / `ui.secondaryButtonText` / `foreground` 与 `text.*` 一律沿用模式基色
+  （浅色 `#313131` / `#666666`，深色 `#DCE0E8` / `#ACB2BE`），换预设不改变正文与辅助文字的色相。
+  图表内容色（轴文字、十字线标签、tooltip 文字）仍在各自色板里，跟随预设。
+- 深色不能沿用浅色的常量，必须由预设派生；DTCG 侧改 `preset/visual-mapping.tokens.json`，
+  运行时侧同步 `createVisualTheme()`，`pipeline.test.ts` 会校验两侧一致；`themePresets.test.ts` 守住正文色不随预设漂移。
+- 一个区域只画一层底色：父级画了，子级保持透明（模态搜索条整条透明、只用下边线分隔；
+  活动标签填充取 `ui.tabActiveBackground`，与标题栏同色，边界由栏内 SVG 轮廓负责）。
+- 图例遮罩 `color.legendBackground` = 画布色 + 80% 不透明（`chartBackground` 的 `0xCC` 版本），
+  由图例渲染器直接消费；组件不再用 `color-mix` 现算半透明底。
+- 组件里不写 `light-dark()`，也不用 `[data-theme='dark']` 补丁补色差；模式差异只能落在 Token 关系里。
+
 ## UI 与验证
 
 设置入口位于“样式 / 颜色”，与现有市场方向开关相邻。选择只更新弹窗草稿，确认通过既有持久化和 Controller 快照更新生效，取消不保存。卡片随明确的明暗偏好展示；auto 模式卡片使用深色缩略样式，实际图表继续跟随系统。

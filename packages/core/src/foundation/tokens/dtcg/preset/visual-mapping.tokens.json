@@ -3,7 +3,6 @@
   "light": {
     "color": {
       "background": { "$type": "color", "$value": "{light.visual.background}" },
-      "foreground": { "$type": "color", "$value": "{light.visual.text}" },
       "chartBackground": { "$type": "color", "$value": "{light.visual.background}" },
       "floatingSurface": { "$type": "color", "$value": "{light.visual.surface}" },
       "axisText": { "$type": "color", "$value": "{light.visual.muted}" },
@@ -18,11 +17,6 @@
       "tooltipBg": { "$type": "color", "$value": "{light.visual.surface}" },
       "tooltipText": { "$type": "color", "$value": "{light.visual.text}" },
       "tooltipBorder": { "$type": "color", "$value": "{light.visual.borderStrong}" },
-      "text": {
-        "primary": { "$type": "color", "$value": "{light.visual.text}" },
-        "secondary": { "$type": "color", "$value": "{light.visual.muted}" },
-        "tertiary": { "$type": "color", "$value": "{light.visual.muted}" }
-      },
       "tagBg": {
         "active": { "$type": "color", "$value": "{light.visual.accent}" },
         "activeHover": { "$type": "color", "$value": "{light.visual.accent}" },
@@ -36,21 +30,18 @@
       "ui": {
         "background": { "$type": "color", "$value": "{light.visual.background}" },
         "surface": { "$type": "color", "$value": "{light.visual.surface}" },
+        "tabActiveBackground": { "$type": "color", "$value": "{light.color.ui.surroundBackground}" },
         "card": { "$type": "color", "$value": "{light.visual.card}" },
         "input": { "$type": "color", "$value": "{light.visual.input}" },
         "hover": { "$type": "color", "$value": "{light.visual.hover}" },
         "selected": { "$type": "color", "$value": "{light.visual.selected}" },
         "border": { "$type": "color", "$value": "{light.visual.border}" },
         "borderStrong": { "$type": "color", "$value": "{light.visual.borderStrong}" },
-        "text": { "$type": "color", "$value": "{light.visual.text}" },
-        "textSoft": { "$type": "color", "$value": "{light.visual.muted}" },
-        "muted": { "$type": "color", "$value": "{light.visual.muted}" },
         "accent": { "$type": "color", "$value": "{light.visual.accent}" },
         "accentStrong": { "$type": "color", "$value": "{light.visual.accent}" },
         "focus": { "$type": "color", "$value": "{light.visual.accent}" },
         "onAccent": { "$type": "color", "$value": "{light.visual.onAccent}" },
-        "controlBackground": { "$type": "color", "$value": "{light.visual.input}" },
-        "secondaryButtonText": { "$type": "color", "$value": "{light.visual.muted}" }
+        "controlBackground": { "$type": "color", "$value": "{light.visual.input}" }
       },
       "agent": {
         "userMessage": { "$type": "color", "$value": "{light.visual.card}" }
@@ -60,9 +51,9 @@
   "dark": {
     "color": {
       "background": { "$type": "color", "$value": "{dark.visual.background}" },
-      "foreground": { "$type": "color", "$value": "{dark.visual.text}" },
       "chartBackground": { "$type": "color", "$value": "{dark.visual.background}" },
       "floatingSurface": { "$type": "color", "$value": "{dark.visual.surface}" },
+      "chartNavigationBackground": { "$type": "color", "$value": "{dark.color.ui.controlBackground}" },
       "axisText": { "$type": "color", "$value": "{dark.visual.muted}" },
       "axisLine": { "$type": "color", "$value": "{dark.visual.border}" },
       "axisTick": { "$type": "color", "$value": "{dark.visual.border}" },
@@ -75,11 +66,6 @@
       "tooltipBg": { "$type": "color", "$value": "{dark.visual.surface}" },
       "tooltipText": { "$type": "color", "$value": "{dark.visual.text}" },
       "tooltipBorder": { "$type": "color", "$value": "{dark.visual.borderStrong}" },
-      "text": {
-        "primary": { "$type": "color", "$value": "{dark.visual.text}" },
-        "secondary": { "$type": "color", "$value": "{dark.visual.muted}" },
-        "tertiary": { "$type": "color", "$value": "{dark.visual.muted}" }
-      },
       "tagBg": {
         "active": { "$type": "color", "$value": "{dark.visual.accent}" },
         "activeHover": { "$type": "color", "$value": "{dark.visual.accent}" },
@@ -93,24 +79,30 @@
       "ui": {
         "background": { "$type": "color", "$value": "{dark.visual.background}" },
         "surface": { "$type": "color", "$value": "{dark.visual.surface}" },
+        "tabActiveBackground": { "$type": "color", "$value": "{dark.color.ui.surroundBackground}" },
+        "noticeBackground": { "$type": "color", "$value": "{dark.color.ui.controlBackground}" },
         "card": { "$type": "color", "$value": "{dark.visual.card}" },
+        "popover": { "$type": "color", "$value": "{dark.color.ui.card}" },
         "input": { "$type": "color", "$value": "{dark.visual.input}" },
+        "inputBackground": { "$type": "color", "$value": "{dark.color.ui.controlBackground}" },
         "hover": { "$type": "color", "$value": "{dark.visual.hover}" },
         "selected": { "$type": "color", "$value": "{dark.visual.selected}" },
         "border": { "$type": "color", "$value": "{dark.visual.border}" },
         "borderStrong": { "$type": "color", "$value": "{dark.visual.borderStrong}" },
-        "text": { "$type": "color", "$value": "{dark.visual.text}" },
-        "textSoft": { "$type": "color", "$value": "{dark.visual.muted}" },
-        "muted": { "$type": "color", "$value": "{dark.visual.muted}" },
         "accent": { "$type": "color", "$value": "{dark.visual.accent}" },
         "accentStrong": { "$type": "color", "$value": "{dark.visual.accent}" },
         "focus": { "$type": "color", "$value": "{dark.visual.accent}" },
         "onAccent": { "$type": "color", "$value": "{dark.visual.onAccent}" },
-        "controlBackground": { "$type": "color", "$value": "{dark.visual.input}" },
-        "secondaryButtonText": { "$type": "color", "$value": "{dark.visual.muted}" }
+        "controlBackground": { "$type": "color", "$value": "{dark.visual.input}" }
       },
       "agent": {
-        "userMessage": { "$type": "color", "$value": "{dark.visual.card}" }
+        "userMessage": { "$type": "color", "$value": "{dark.visual.card}" },
+        "composerInputBackground": { "$type": "color", "$value": "{dark.color.ui.card}" },
+        "composerControlBackground": {
+          "$type": "color",
+          "$value": "{dark.color.ui.controlBackground}"
+        },
+        "composerControlHover": { "$type": "color", "$value": "{dark.color.ui.hover}" }
       }
     }
   }

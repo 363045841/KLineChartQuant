@@ -3,8 +3,9 @@
   --klc-color-background: #151619;
   --klc-color-foreground: #DCE0E8;
   --klc-color-chart-background: #151619;
+  --klc-color-legend-background: #151619CC;
   --klc-color-floating-surface: #191A1E;
-  --klc-color-chart-navigation-background: #222222;
+  --klc-color-chart-navigation-background: #27292E;
   --klc-color-candle-up-body: #089981;
   --klc-color-candle-up-border: #089981;
   --klc-color-candle-up-wick: #089981;
@@ -164,11 +165,12 @@
   --klc-color-ui-background: #151619;
   --klc-color-ui-surface: #191A1E;
   --klc-color-ui-surround-background: #191A1E;
-  --klc-color-ui-notice-background: #191A1E;
+  --klc-color-ui-tab-active-background: #191A1E;
+  --klc-color-ui-notice-background: #27292E;
   --klc-color-ui-input-background: #27292E;
   --klc-color-ui-card: #1D1F24;
   --klc-color-ui-input: #1B1D22;
-  --klc-color-ui-popover: #1E2025;
+  --klc-color-ui-popover: #1D1F24;
   --klc-color-ui-control-background: #27292E;
   --klc-color-ui-hover: #2D3036;
   --klc-color-ui-selected: #25272D;

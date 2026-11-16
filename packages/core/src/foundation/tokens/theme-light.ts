@@ -31,6 +31,7 @@ export const lightTheme: Theme = {
     background: lightInterfaceColors.background,
     foreground: lightInterfaceColors.text,
     chartBackground: lightInterfaceColors.background,
+    legendBackground: '#FFFFFFCC', // = chartBackground at alpha 0xCC：图例文字背后的画布色遮罩。
     floatingSurface: lightInterfaceColors.surface,
     chartNavigationBackground: lightInterfaceColors.surface,
     candleUpBody: '#089981',

@@ -61,6 +61,11 @@
       }
     },
     "color": {
+      "legendBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9804], "alpha": 0.8, "hex": "#FAFAFA" },
+        "$description": "= visual.background at alpha 0xCC."
+      },
       "selectionFill": {
         "$type": "color",
         "$value": {
@@ -133,6 +138,11 @@
       }
     },
     "color": {
+      "legendBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0431, 0.0549, 0.0667], "alpha": 0.8, "hex": "#0B0E11" },
+        "$description": "= visual.background at alpha 0xCC."
+      },
       "selectionFill": {
         "$type": "color",
         "$value": {
