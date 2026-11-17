@@ -72,7 +72,8 @@ describe('SVP 日界', () => {
     const chartBars = Array.from({ length: 2 * 96 }, (_value, index) =>
       bar(start + index * 15 * MINUTE, 100 + Math.floor(index / 96) * 10),
     )
-    const market = (session: typeof EXCHANGE_SESSION | Record<string, unknown>) => ({
+    // 会话必须满足 ScriptMarketSession 契约：早期的 Record<string, unknown> 联合类型会让上下文失去类型约束。
+    const market = (session: typeof EXCHANGE_SESSION) => ({
       symbol: 'TEST',
       optionUnderlying: null,
       time: { period: '15', session },
