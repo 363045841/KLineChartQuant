@@ -6,7 +6,6 @@ import type {
   AgentErrorView,
   AgentRunMode,
   AgentTranscriptView,
-  AgentUsageView,
   AgentWorkspaceEvent,
   EntryId,
   ProviderModelView,
@@ -25,7 +24,6 @@ import {
   readLiveAnswer,
   readLiveTools,
   readRunFailure,
-  readUsage,
 } from './agent-live.js'
 import {
   agentWorkspacePreferencesPersistence,
@@ -75,7 +73,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const liveAnswer = computed(() => readLiveAnswer(docs.value))
   const liveTools = computed(() => readLiveTools(docs.value))
   const runError = computed<AgentErrorView | null>(() => readRunFailure(docs.value) ?? null)
-  const usage = computed<AgentUsageView | undefined>(() => readUsage(docs.value))
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
   )
@@ -336,7 +333,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     liveAnswer,
     liveTools,
     runError,
-    usage,
     createSession,
     selectSession,
     renameSession,

@@ -1,8 +1,7 @@
-// 从官方会话文档读取运行状态、实时工具与用量；UI 只做展示映射，不保存第二份状态。
-import { LiveDoc, UsageDoc } from '@earendil-works/pi-durable'
+// 从官方会话文档读取运行状态与实时工具；UI 只做展示映射，不保存第二份状态。
+import { LiveDoc } from '@earendil-works/pi-durable'
 import type {
   AgentErrorView,
-  AgentUsageView,
   JsonObject,
   JsonValue,
   TextContent,
@@ -112,29 +111,4 @@ export function readRunFailure(
     message: isString(failure.detail) ? failure.detail : failure.reason,
     retryable: true,
   }
-}
-
-/** 累加官方 `pi.usage` 文档中的模型与工具花费。 */
-export function readUsage(docs: Readonly<Record<string, JsonObject>>): AgentUsageView | undefined {
-  const doc = docs[UsageDoc.definition.kind]
-  if (!isObject(doc)) return undefined
-  const buckets = [doc.models, doc.tools].flatMap((bucket) =>
-    isObject(bucket) ? Object.values(bucket) : [],
-  )
-  let inputTokens = 0
-  let outputTokens = 0
-  let costUsd = 0
-  let seen = false
-  for (const bucket of buckets) {
-    if (!isObject(bucket)) continue
-    seen = true
-    const input = typeof bucket.input === 'number' ? bucket.input : 0
-    const cacheRead = typeof bucket.cacheRead === 'number' ? bucket.cacheRead : 0
-    const cacheWrite = typeof bucket.cacheWrite === 'number' ? bucket.cacheWrite : 0
-    inputTokens += input + cacheRead + cacheWrite
-    outputTokens += typeof bucket.output === 'number' ? bucket.output : 0
-    costUsd +=
-      isObject(bucket.cost) && typeof bucket.cost.total === 'number' ? bucket.cost.total : 0
-  }
-  return seen ? { inputTokens, outputTokens, costUsd } : undefined
 }
