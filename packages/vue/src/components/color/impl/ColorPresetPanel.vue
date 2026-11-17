@@ -144,11 +144,6 @@
 
   /* ── 响应式 ── */
   @media (max-width: 480px) {
-    .color-preset-tools {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
     .color-grid {
       grid-template-columns: 1fr;
     }
