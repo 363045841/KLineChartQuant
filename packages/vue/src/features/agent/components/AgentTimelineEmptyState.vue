@@ -36,8 +36,8 @@
 </script>
 
 <style scoped>
+  /* 高度由父级空态行拉伸给定，这里只负责把标题、说明与快捷提问整体居中。 */
   .empty-state {
-    min-height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;

@@ -6,9 +6,9 @@
     :aria-label="text.timeline"
     @scroll.passive="updateAutoScroll"
   >
-    <div class="timeline__body">
+    <div class="timeline__body" :class="{ 'timeline__body--empty': empty }">
       <AgentTimelineEmptyState
-        v-if="rows.length === 0 && !liveAnswer"
+        v-if="empty"
         :locale="locale"
         @prompt="emit('prompt', $event)"
       />
@@ -181,6 +181,9 @@
     }),
   )
 
+  /** 没有任何可渲染内容即为空态；空态需要撑满滚动视口才能垂直居中。 */
+  const empty = computed(() => rows.value.length === 0 && !props.liveAnswer)
+
   /** 运行失败后的重试以最后一条用户输入为目标。 */
   function emitLastRetry(): void {
     const entryId = index.value.lastUserEntryId
@@ -226,6 +229,11 @@
 
   .timeline__body > * {
     min-width: 0;
+  }
+
+  /* 空态独占滚动视口：单行网格拉伸到整屏，由空态自身把内容居中。 */
+  .timeline__body--empty {
+    min-height: 100%;
   }
 
   /* 间距只有这一个来源：条目之间与条目内部块之间同为 6px。 */
