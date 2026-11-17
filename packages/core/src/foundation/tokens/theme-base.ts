@@ -22,8 +22,6 @@ export const typography: TypographyTokens = {
   fontSizeSm: '10px',
   fontSizeMd: '12px',
   fontSizeLg: '14px',
-  fontWeightRegular: 400,
-  fontWeightMedium: 500,
   fontWeightBold: 700,
   lineHeightTight: 1.2,
   lineHeightStandard: 1.4,

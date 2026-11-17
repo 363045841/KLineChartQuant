@@ -4,11 +4,9 @@
  */
 import { computed, type ComputedRef, shallowRef } from 'vue'
 import type { MenuAnchor } from './dropMenuTypes.js'
-import { useMenuAnchor, type MenuAnchorState } from './useMenuAnchor.js'
+import { useMenuAnchor } from './useMenuAnchor.js'
 
 export interface MenuButtonState {
-  /** 菜单当前是否展开。 */
-  readonly open: MenuAnchorState['open']
   /** v-bind 给锚点按钮：aria 关系、点击开合与方向键打开。 */
   readonly buttonProps: ComputedRef<{
     'aria-haspopup': 'menu'
@@ -23,8 +21,6 @@ export interface MenuButtonState {
     focusOnOpen: boolean
     'onUpdate:open': (next: boolean) => void
   }>
-  /** 关闭菜单。 */
-  close(): void
 }
 
 /**
@@ -61,5 +57,5 @@ export function useMenuButton(): MenuButtonState {
 
   const menuProps = computed(() => ({ ...menu.bindings.value, focusOnOpen: focusOnOpen.value }))
 
-  return { open: menu.open, buttonProps, menuProps, close: menu.close }
+  return { buttonProps, menuProps }
 }

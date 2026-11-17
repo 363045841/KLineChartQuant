@@ -8,8 +8,7 @@
         "$type": "number",
         "$value": 0,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-      },
-      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+      }
     },
     "13": {
       "$description": "Secondary label, dense UI body. Basis: Geist label/copy-13 (S4); Basement body 13/16 (S14); tracking Inter dynmetrics (S22). Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
@@ -19,8 +18,7 @@
         "$type": "number",
         "$value": -0.003,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-      },
-      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+      }
     },
     "14": {
       "$description": "Default UI text, table rows. Basis: Geist copy-14 \"most used\" (S4); Carbon rows 14px (S29); tracking S22. Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
@@ -30,8 +28,7 @@
         "$type": "number",
         "$value": -0.006,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-      },
-      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+      }
     },
     "16": {
       "$description": "Mobile inputs (≥16px avoids iOS zoom, S1), long copy. Basis: Basement blog 16/24 (S14); tracking S22. Line-height [derived]: Geist gives labels \"ample line-height for single lines\" and copy more; rounded to a 2/4px grid (CP §4.2).",
@@ -41,8 +38,7 @@
         "$type": "number",
         "$value": -0.011,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-      },
-      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+      }
     },
     "20": {
       "$description": "Dialog titles, section heads. Basis: Basement h4 20/20 -0.02em (S14); tracking S22.",
@@ -119,8 +115,7 @@
         "$type": "number",
         "$value": 0,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-      },
-      "fontWeight": { "$type": "fontWeight", "$value": 400 }
+      }
     },
     "label": {
       "12": {
@@ -158,11 +153,6 @@
           "$type": "number",
           "$value": "{text.14.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": {
-          "$type": "fontWeight",
-          "$value": 500,
-          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
         }
       },
       "16": {
@@ -172,11 +162,6 @@
           "$type": "number",
           "$value": "{text.16.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": {
-          "$type": "fontWeight",
-          "$value": 500,
-          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
         }
       },
       "20": {
@@ -186,8 +171,7 @@
           "$type": "number",
           "$value": "{text.20.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.20.fontWeight}" }
+        }
       },
       "$description": "Label role: single-line UI text aligned with icons (Geist Label 12/13/14/16/18/20, S4; CP 18). Sizes outside the scale (18) are dropped."
     },
@@ -199,8 +183,7 @@
           "$type": "number",
           "$value": "{text.13.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.13.fontWeight}" }
+        }
       },
       "14": {
         "fontSize": { "$type": "dimension", "$value": "{text.14.fontSize}" },
@@ -209,8 +192,7 @@
           "$type": "number",
           "$value": "{text.14.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.14.fontWeight}" }
+        }
       },
       "16": {
         "fontSize": { "$type": "dimension", "$value": "{text.16.fontSize}" },
@@ -219,8 +201,7 @@
           "$type": "number",
           "$value": "{text.16.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.16.fontWeight}" }
+        }
       },
       "20": {
         "fontSize": { "$type": "dimension", "$value": "{text.20.fontSize}" },
@@ -229,8 +210,7 @@
           "$type": "number",
           "$value": "{text.20.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.20.fontWeight}" }
+        }
       },
       "24": {
         "fontSize": { "$type": "dimension", "$value": "{text.24.fontSize}" },
@@ -239,8 +219,7 @@
           "$type": "number",
           "$value": "{text.24.letterSpacing}",
           "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
-        },
-        "fontWeight": { "$type": "fontWeight", "$value": "{text.24.fontWeight}" }
+        }
       },
       "$description": "Copy role: multi-line text (Geist Copy 13/14/16/18/20/24, S4; CP 18). Pair with text-wrap: pretty (CP 20). Copy 14 is the default; 13 and 12 are secondary/tertiary (S4)."
     }

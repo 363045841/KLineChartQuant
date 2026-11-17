@@ -108,10 +108,10 @@ describe('themeToCssVars — naming', () => {
     expect(vars['--klc-spacing-md']).toBe(lightTheme.spacing.md)
   })
 
-  it('typography.fontWeightRegular → string-cast number', () => {
+  it('typography.fontWeightBold → string-cast number', () => {
     const vars = themeToCssVars(lightTheme)
-    expect(vars['--klc-typography-font-weight-regular']).toBe(
-      String(lightTheme.typography.fontWeightRegular),
+    expect(vars['--klc-typography-font-weight-bold']).toBe(
+      String(lightTheme.typography.fontWeightBold),
     )
   })
 
