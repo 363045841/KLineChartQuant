@@ -1,0 +1,10 @@
+/*
+  字重角色：整个界面只有两档真实字面可用。
+  - UI：HarmonyOS Sans 随包只有 Medium(500)
+  - 等宽：JetBrains Mono 随包只有 400 / 500，代码正文用原始 400
+  组件只引用这两个变量，不再各自写字重字面量；标题等需要强调的地方直接用 token。
+*/
+:root {
+  --klc-font-weight-ui: 500;
+  --klc-font-weight-mono: 400;
+}

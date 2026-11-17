@@ -82,6 +82,6 @@
     padding-block: var(--klc-space-4, 4px);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-normal);
+    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 </style>

@@ -884,6 +884,7 @@
   .github-tooltip__value {
     color: var(--klc-color-tooltip-text);
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
@@ -893,6 +894,7 @@
     grid-column: 1 / -1;
     color: color-mix(in srgb, var(--klc-color-tooltip-text) 62%, transparent);
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: center;
   }

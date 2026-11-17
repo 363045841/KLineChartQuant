@@ -523,7 +523,7 @@
   .item-name {
     margin-left: var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
-    font-weight: 400;
+    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 
   /* 类型列：胶囊在自己的列内水平居中。 */

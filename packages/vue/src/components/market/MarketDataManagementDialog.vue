@@ -266,6 +266,7 @@
     color: var(--klc-color-ui-text);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 12px;
+    font-weight: var(--klc-font-weight-mono);
     outline: none;
   }
 
@@ -283,6 +284,7 @@
     color: var(--klc-color-ui-muted);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 12px;
+    font-weight: var(--klc-font-weight-mono);
   }
 
   .source-endpoint__error {

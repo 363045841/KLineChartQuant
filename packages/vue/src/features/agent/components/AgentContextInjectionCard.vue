@@ -133,6 +133,7 @@
     background: var(--klc-color-agent-composer-input-background);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 10px;
+    font-weight: var(--klc-font-weight-mono);
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;

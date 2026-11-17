@@ -177,7 +177,8 @@
   .script-output__content {
     box-sizing: border-box;
     padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
     transition:
       height var(--klc-motion-dur-base) var(--klc-motion-ease-standard),
       padding var(--klc-motion-dur-base) var(--klc-motion-ease-standard),

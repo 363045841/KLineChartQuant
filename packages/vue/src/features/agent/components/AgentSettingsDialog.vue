@@ -775,6 +775,7 @@
 
   .field__mono {
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
   }
 
   /* ───────── 单横线输入 ───────── */
@@ -1107,7 +1108,7 @@
   .protocol-control .selection-menu__value {
     flex: 1 1 auto;
     font-size: 11px;
-    font-weight: 400;
+    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-align: left;
   }
 
@@ -1279,7 +1280,7 @@
     border-radius: 8px;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
-    font: 11px/1.5 var(--klc-typography-font-family-mono);
+    font: var(--klc-font-weight-mono) 11px/1.5 var(--klc-typography-font-family-mono);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

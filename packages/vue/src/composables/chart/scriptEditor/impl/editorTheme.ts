@@ -30,14 +30,16 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'var(--klc-color-ui-background)',
     color: 'var(--klc-color-ui-text)',
     fontSize: 'var(--klc-text-label-13-font-size, 13px)',
-    fontWeight: '400',
+    // 代码用 JetBrains Mono 的原始字重 400，避免浏览器合成。
+    fontWeight: 'var(--klc-font-weight-mono, 400)',
     // 行高同时驱动正文行与折叠标记高度，避免两处各写一份。
     '--cm-line-height': '1.8',
     '--cm-selection-color': 'var(--klc-color-ui-selection)',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
-    fontFamily: "'JetBrains Mono'",
+    // 宿主可能用全局 `font-family … !important` 注入 UI 字体；编辑器必须钉住等宽字体。
+    fontFamily: 'var(--klc-typography-font-family-mono) !important',
     lineHeight: 'var(--cm-line-height)',
     overflow: 'auto',
   },
@@ -202,7 +204,7 @@ const editorTheme = EditorView.theme({
   // 两种形态都存在的内容节点，负责内边距与换行。
   '.cm-script-tooltip': {
     padding: 'var(--klc-space-4, 4px) var(--klc-space-8, 8px)',
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: 'var(--klc-typography-font-family-mono)',
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
     boxSizing: 'border-box',
@@ -241,7 +243,9 @@ const editorTheme = EditorView.theme({
       whiteSpace: 'nowrap',
       overflowWrap: 'normal',
     },
-  '.cm-script-hover-documentation code': { fontFamily: "'JetBrains Mono', monospace" },
+  '.cm-script-hover-documentation code': {
+    fontFamily: 'var(--klc-typography-font-family-mono)',
+  },
   '.cm-script-hover-signature .cm-editor': { display: 'block' },
   '.cm-script-hover-signature': { whiteSpace: 'pre-wrap' },
   '.cm-script-hover-documentation pre': {
@@ -273,7 +277,7 @@ const editorTheme = EditorView.theme({
     color: 'var(--klc-color-ui-muted)',
     fontFamily: 'var(--klc-typography-font-family)',
     fontSize: '0.8em',
-    fontWeight: '400',
+    fontWeight: 'var(--klc-text-label-12-font-weight, 500)',
     fontStyle: 'normal',
   },
   // 鼠标悬停显示界面 hover 色，键盘选中态保留更强的高亮。
@@ -288,7 +292,8 @@ const editorTheme = EditorView.theme({
   '.cm-tooltip-autocomplete .cm-completionMatchedText': {
     textDecoration: 'none',
     color: 'var(--klc-color-ui-accent)',
-    fontWeight: '600',
+    // 只有 400/500 两档真实字面，600 只会得到合成粗体。
+    fontWeight: '500',
   },
   '.cm-tooltip-autocomplete .cm-completionIcon-property': { display: 'none' },
   '.cm-script-property-icon svg': { verticalAlign: 'middle' },

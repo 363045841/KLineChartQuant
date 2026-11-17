@@ -490,6 +490,7 @@
     overflow: hidden;
     color: var(--watchlist-quote-color);
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: center;
     text-overflow: ellipsis;

@@ -330,7 +330,6 @@
     --control-button-color: var(--klc-color-ui-muted);
     --control-button-active-color: var(--klc-color-ui-text);
     --control-button-font-size: var(--klc-text-12-font-size, 12px);
-    --control-button-font-weight: 400;
     --control-button-line-height: 1.2;
     --control-button-focus-outline: 2px solid var(--klc-color-ui-focus);
     --control-button-focus-outline-offset: 2px;

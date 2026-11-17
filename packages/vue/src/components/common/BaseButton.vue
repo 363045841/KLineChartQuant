@@ -50,7 +50,7 @@
     border-radius: var(--klc-radius-xs, 4px);
     font-family: var(--klc-typography-font-family);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 400;
+    font-weight: var(--klc-text-label-13-font-weight, 500);
     line-height: 1.2;
     white-space: nowrap;
     cursor: pointer;
@@ -69,7 +69,6 @@
 
   .base-button--primary {
     color: var(--klc-color-ui-text);
-    font-weight: 500;
   }
 
   /* 描边变体：用于卡片内的次级操作，颜色由 --base-button-* 变量提供。 */

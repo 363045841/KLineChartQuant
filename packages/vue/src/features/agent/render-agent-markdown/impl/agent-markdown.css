@@ -81,6 +81,7 @@
   background: var(--klc-color-ui-hover);
   font-family: var(--klc-typography-font-family-mono);
   font-size: 12px;
+  font-weight: var(--klc-font-weight-mono);
 }
 
 .agent-markdown pre {
