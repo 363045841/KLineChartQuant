@@ -75,6 +75,13 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 
 共享样式文件从 `<script setup>` 导入（打包一份、全局生效），不再使用 `<style scoped src>`：`src` 样式块会让每个消费者各编译一份，并且在 Vitest 5 的持久化 transform 缓存下会因父 SFC 命中缓存而丢失 descriptor（vitejs/vite-plugin-vue#877）。该约束由 `scripts/check-style-src.mjs` 在 `pnpm lint` 中强制。
 
+## 字体族与占位符
+
+- 字体族只在三个排版根声明一次（`packages/vue/src/styles/typography.css`）：`.kline-workbench`（产品根）、`.chart-wrapper`（legacy 图表单独挂载）、`.klc-overlay`（teleport 到 `body` 的浮层根：弹窗、菜单、气泡、取色器）。组件不再自己写 `font-family`，由 `klc/no-raw-font-family` 门禁拦住新增字面量。
+- 表单控件按 MDN 的约定回到根排版：`:where(根) :where(input, textarea, select, button) { font: inherit }`；组件只覆盖字号与字重。
+- 占位符只有一条规则：颜色 `--klc-color-ui-muted`，其余 `font: inherit`。组件不再各写 `::placeholder`，透明度差异一并取消。
+- 字号档不携带字体族：`text.11Mono` 已删除 `fontFamily`，等宽族只有 `--klc-typography-font-family-mono` 一个来源。
+
 ## 调色板生成器（仅提案）
 
 `pnpm tokens:palettes` 读取每个 preset × mode 当前解析出的输入，在 OKLCH 中生成 Radix 12 级语义阶梯（CP 1、CP 4；culori），写入 `design-tokens/proposals/palettes.{json,md}`（本地生成产物，不入库）。运行时主题不读取这些文件，Canvas 颜色不变；接入属于 Phase 3。

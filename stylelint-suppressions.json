@@ -1,134 +1,4 @@
 {
-  "packages/vue/src/components/AggregationSourceButton.vue": {
-    "klc/no-raw-length": {
-      "count": 1
-    }
-  },
-  "packages/vue/src/components/AggregationSourceDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 21
-    }
-  },
-  "packages/vue/src/components/BaseTabs.vue": {
-    "klc/no-raw-length": {
-      "count": 8
-    }
-  },
-  "packages/vue/src/components/ChartSettingsDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 1
-    }
-  },
-  "packages/vue/src/components/ColorPicker.vue": {
-    "klc/no-raw-length": {
-      "count": 22
-    }
-  },
-  "packages/vue/src/components/ColorPresetPanel.vue": {
-    "klc/no-raw-length": {
-      "count": 8
-    }
-  },
-  "packages/vue/src/components/CompareSymbolSelector.vue": {
-    "klc/no-raw-length": {
-      "count": 17
-    }
-  },
-  "packages/vue/src/components/DrawingSettingsDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 12
-    }
-  },
-  "packages/vue/src/components/DrawingStyleToolbar.vue": {
-    "klc/no-raw-length": {
-      "count": 3
-    }
-  },
-  "packages/vue/src/components/ExportProgressDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 5
-    }
-  },
-  "packages/vue/src/components/indicator-params/impl/IndicatorParamItem.vue": {
-    "klc/no-raw-length": {
-      "count": 12
-    }
-  },
-  "packages/vue/src/components/indicator-params/impl/IndicatorParams.vue": {
-    "klc/no-raw-length": {
-      "count": 6
-    }
-  },
-  "packages/vue/src/components/IndicatorSelector.vue": {
-    "klc/no-raw-length": {
-      "count": 10
-    }
-  },
-  "packages/vue/src/components/KLineChart.vue": {
-    "klc/no-raw-color": {
-      "count": 1
-    },
-    "klc/no-raw-length": {
-      "count": 4
-    },
-    "klc/no-raw-z-index": {
-      "count": 10
-    }
-  },
-  "packages/vue/src/components/LayoutNameDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 3
-    }
-  },
-  "packages/vue/src/components/LeftToolbar.vue": {
-    "klc/no-raw-color": {
-      "count": 1
-    },
-    "klc/no-raw-length": {
-      "count": 18
-    },
-    "klc/no-raw-z-index": {
-      "count": 1
-    }
-  },
-  "packages/vue/src/components/PriceAxisSettingsMenu.vue": {
-    "klc/no-raw-length": {
-      "count": 4
-    },
-    "klc/no-raw-z-index": {
-      "count": 1
-    }
-  },
-  "packages/vue/src/components/RangeSelectionExport.vue": {
-    "klc/no-raw-length": {
-      "count": 7
-    }
-  },
-  "packages/vue/src/components/SegmentedTabs.vue": {
-    "klc/no-raw-length": {
-      "count": 4
-    }
-  },
-  "packages/vue/src/components/SymbolSelector.vue": {
-    "klc/no-raw-length": {
-      "count": 8
-    }
-  },
-  "packages/vue/src/components/ThemePresetPanel.vue": {
-    "klc/no-raw-length": {
-      "count": 2
-    }
-  },
-  "packages/vue/src/components/TopToolbar.vue": {
-    "klc/no-raw-length": {
-      "count": 10
-    }
-  },
-  "packages/vue/src/components/WatchlistPanel.vue": {
-    "klc/no-raw-length": {
-      "count": 5
-    }
-  },
   "packages/vue/src/styles/scrollbar.css": {
     "klc/no-raw-length": {
       "count": 1
@@ -145,11 +15,6 @@
   "packages/vue/src/components/alert/AlertRuleForm.vue": {
     "klc/no-raw-length": {
       "count": 36
-    }
-  },
-  "packages/vue/src/components/drawing-settings/DrawingTemplateSaveDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 3
     }
   },
   "packages/vue/src/components/common/CanvasToolbar.vue": {
@@ -193,7 +58,7 @@
   },
   "packages/vue/src/features/agent/components/AgentContextBar.vue": {
     "klc/no-raw-length": {
-      "count": 6
+      "count": 5
     }
   },
   "packages/vue/src/features/agent/components/AgentContextInjectionCard.vue": {
@@ -201,29 +66,9 @@
       "count": 5
     }
   },
-  "packages/vue/src/features/agent/components/AgentErrorNotice.vue": {
-    "klc/no-raw-length": {
-      "count": 8
-    }
-  },
-  "packages/vue/src/features/agent/components/AgentHeader.vue": {
-    "klc/no-raw-length": {
-      "count": 1
-    }
-  },
-  "packages/vue/src/features/agent/components/AgentMessageItem.vue": {
-    "klc/no-raw-length": {
-      "count": 37
-    }
-  },
-  "packages/vue/src/features/agent/components/AgentRunStatus.vue": {
-    "klc/no-raw-length": {
-      "count": 2
-    }
-  },
   "packages/vue/src/features/agent/components/AgentSessionDrawer.vue": {
     "klc/no-raw-length": {
-      "count": 7
+      "count": 3
     },
     "klc/no-raw-z-index": {
       "count": 1
@@ -239,37 +84,6 @@
       "count": 3
     }
   },
-  "packages/vue/src/features/agent/components/ConfirmationCard.vue": {
-    "klc/no-raw-length": {
-      "count": 18
-    }
-  },
-  "packages/vue/src/features/agent/components/QuestionCard.vue": {
-    "klc/no-raw-length": {
-      "count": 28
-    }
-  },
-  "packages/vue/src/features/agent/components/ToolCallCard.vue": {
-    "klc/no-raw-length": {
-      "count": 19
-    }
-  },
-  "packages/vue/src/features/agent/components/agent-select-trigger.css": {
-    "klc/no-raw-length": {
-      "count": 4
-    }
-  },
-  "packages/vue/src/components/tooltip.css": {
-    "klc/no-raw-color": {
-      "count": 1
-    },
-    "klc/no-raw-length": {
-      "count": 7
-    },
-    "klc/no-raw-z-index": {
-      "count": 1
-    }
-  },
   "packages/vue/src/components/common/form-control.css": {
     "klc/no-raw-length": {
       "count": 1
@@ -283,16 +97,6 @@
   "packages/vue/src/features/agent/components/AgentUnavailableNotice.vue": {
     "klc/no-raw-length": {
       "count": 9
-    }
-  },
-  "packages/vue/src/components/MarketDataManagementDialog.vue": {
-    "klc/no-raw-length": {
-      "count": 23
-    }
-  },
-  "packages/vue/src/components/ShortcutSettings.vue": {
-    "klc/no-raw-length": {
-      "count": 2
     }
   },
   "packages/vue/src/components/alert/AlertDirectionButtons.vue": {
@@ -333,11 +137,6 @@
       "count": 2
     }
   },
-  "packages/vue/src/components/shortcut-settings/ShortcutSettingsRow.vue": {
-    "klc/no-raw-length": {
-      "count": 5
-    }
-  },
   "packages/vue/src/workspace/WorkspaceTabBar.vue": {
     "klc/no-raw-length": {
       "count": 12
@@ -359,7 +158,7 @@
       "count": 5
     },
     "klc/no-raw-z-index": {
-      "count": 10
+      "count": 9
     }
   },
   "packages/vue/src/components/chart/tooltip.css": {
@@ -459,24 +258,13 @@
     }
   },
   "packages/vue/src/components/toolbar/LeftToolbar.vue": {
-    "klc/no-raw-color": {
-      "count": 1
-    },
     "klc/no-raw-length": {
-      "count": 12
+      "count": 11
     }
   },
   "packages/vue/src/components/toolbar/TopToolbar.vue": {
     "klc/no-raw-length": {
       "count": 9
-    }
-  },
-  "packages/vue/src/components/chart/settings/PriceAxisSettingsMenu.vue": {
-    "klc/no-raw-length": {
-      "count": 4
-    },
-    "klc/no-raw-z-index": {
-      "count": 1
     }
   },
   "packages/vue/src/components/chart/settings/SettingsItemRow.vue": {
@@ -511,7 +299,7 @@
   },
   "packages/vue/src/components/indicator/params/impl/IndicatorParamItem.vue": {
     "klc/no-raw-length": {
-      "count": 11
+      "count": 9
     }
   },
   "packages/vue/src/components/indicator/params/impl/IndicatorParams.vue": {

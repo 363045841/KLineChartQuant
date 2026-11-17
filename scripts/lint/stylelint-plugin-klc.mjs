@@ -6,6 +6,8 @@
  * klc/no-raw-z-index：z-index 只能是 var(--klc-z-index-*) 或局部层叠的 -1 / 0 / 1。
  * klc/no-raw-color：不得写原始颜色（#hex、rgb()/rgba()/hsl()/hsla()），改用 --klc-color-* /
  *   --klc-elevation-*；color-mix() 内引用 token 是允许的。
+ * klc/no-raw-font-family：font-family 只能消费 --klc-* 字体 token（@font-face 定义字面时除外），
+ *   字体族只在 styles/typography.css 的排版根声明一次。
  *
  * `var(--token, 16px)` 中的回退值不计入：组件可以带回退值消费尚未发布的 token。
  */
@@ -120,4 +122,30 @@ const noRawColor = createPlugin(colorRule, (enabled) => (root, result) => {
 noRawColor.ruleName = colorRule
 noRawColor.messages = colorMessages
 
-export default [noRawLength, noRawZIndex, noRawColor]
+const familyRule = 'klc/no-raw-font-family'
+const familyMessages = ruleMessages(familyRule, {
+  rejected: (value) =>
+    `Raw font family "${value}": use a --klc-typography-font-family[-mono] / --klc-font-family-* token (ADR 0004)`,
+})
+
+const noRawFontFamily = createPlugin(familyRule, (enabled) => (root, result) => {
+  if (!validateOptions(result, familyRule, { actual: enabled })) return
+  root.walkDecls((decl) => {
+    if (decl.prop.toLowerCase() !== 'font-family') return
+    // @font-face 是在定义字面本身，只能写真实族名。
+    if (decl.parent?.type === 'atrule' && decl.parent.name.toLowerCase() === 'font-face') return
+    const value = decl.value.trim()
+    if (value.startsWith('var(--klc-')) return
+    if (value === 'inherit') return
+    report({
+      ruleName: familyRule,
+      result,
+      node: decl,
+      message: familyMessages.rejected(value),
+    })
+  })
+})
+noRawFontFamily.ruleName = familyRule
+noRawFontFamily.messages = familyMessages
+
+export default [noRawLength, noRawZIndex, noRawColor, noRawFontFamily]

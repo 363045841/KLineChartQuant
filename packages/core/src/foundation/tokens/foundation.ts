@@ -65,8 +65,6 @@ const shared = {
       fontWeight: 600,
     },
     '11Mono': {
-      fontFamily:
-        "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
       fontSize: '11px',
       lineHeight: '16px',
       letterSpacing: '0',

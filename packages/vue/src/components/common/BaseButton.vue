@@ -17,8 +17,8 @@
       type?: 'button' | 'submit' | 'reset'
       /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景。 */
       size?: 'md' | 'sm'
-      /** 操作层级：default / primary 为文字按钮；outline 为卡片内的次级描边按钮。 */
-      variant?: 'default' | 'primary' | 'outline'
+      /** 操作层级：default / primary / link 为文字按钮；outline 为卡片内的次级描边按钮。 */
+      variant?: 'default' | 'primary' | 'link' | 'outline'
       /** 禁用态。 */
       disabled?: boolean
     }>(),
@@ -36,6 +36,8 @@
   .base-button {
     /* 行内留白同时决定 Footer 下划线的宽度，两者共用同一个值。 */
     --base-button-inline-padding: var(--klc-space-8, 8px);
+    /* 下划线与按钮下缘的距离；小尺寸按钮单独收窄，避免线贴到文字底边。 */
+    --base-button-underline-offset: 5px;
     position: relative;
     box-sizing: border-box;
     display: inline-flex;
@@ -48,13 +50,12 @@
     padding: 0 var(--base-button-inline-padding);
     border: 1px solid transparent;
     border-radius: var(--klc-radius-xs, 4px);
-    font-family: var(--klc-typography-font-family);
     font-size: var(--klc-text-label-13-font-size, 13px);
     font-weight: var(--klc-text-label-13-font-weight, 500);
     line-height: 1.2;
     white-space: nowrap;
     cursor: pointer;
-    color: var(--klc-color-ui-muted);
+    color: var(--base-button-color, var(--klc-color-ui-muted));
     background: transparent;
     transition:
       background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
@@ -63,12 +64,29 @@
   }
 
   .base-button--sm {
+    --base-button-underline-offset: 3px;
+
     height: var(--base-button-height, 24px);
     font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .base-button--primary {
     color: var(--klc-color-ui-text);
+  }
+
+  /*
+    链接档：句子内的动作。蓝色文字、无内边距，下划线复用与 footer 相同的展开动画，
+    hover 不变色也不加底色；只在真正像链接的位置使用（例如失败提示、表单内联操作）。
+  */
+  .base-button--link {
+    /* 0px 而不是 0：无单位零会让 calc(100% - 2 * 0) 在计算值阶段非法。 */
+    --base-button-inline-padding: 0px;
+    --base-button-underline: '';
+    --base-button-color: var(--klc-brand-accent-text);
+    --base-button-hover-color: var(--klc-brand-accent-text);
+    --base-button-hover-background: transparent;
+
+    gap: 0;
   }
 
   /* 描边变体：用于卡片内的次级操作，颜色由 --base-button-* 变量提供。 */
@@ -89,7 +107,7 @@
     content: var(--base-button-underline, none);
     position: absolute;
     left: 50%;
-    bottom: 5px;
+    bottom: var(--base-button-underline-offset);
     width: 0;
     height: 1px;
     background: currentColor;
@@ -105,7 +123,7 @@
   @media (hover: hover) and (pointer: fine) {
     .base-button:hover:not(:disabled) {
       background: var(--base-button-hover-background, var(--klc-color-ui-hover));
-      color: var(--klc-color-ui-text);
+      color: var(--base-button-hover-color, var(--klc-color-ui-text));
     }
   }
 

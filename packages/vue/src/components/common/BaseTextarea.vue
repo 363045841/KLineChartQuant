@@ -125,10 +125,6 @@
     border-bottom-color: var(--klc-color-ui-border-strong);
   }
 
-  .base-textarea::placeholder {
-    color: var(--klc-color-ui-muted);
-  }
-
   .base-textarea:disabled {
     opacity: 0.6;
     cursor: not-allowed;

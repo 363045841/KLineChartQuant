@@ -270,11 +270,6 @@
     outline: none;
   }
 
-  .source-endpoint__input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.6;
-  }
-
   .source-endpoint__value {
     flex: 1;
     min-width: 0;

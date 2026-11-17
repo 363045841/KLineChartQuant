@@ -182,11 +182,6 @@
     line-height: 1;
   }
 
-  .search-field__input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.7;
-  }
-
   .search-field__clear {
     flex: 0 0 auto;
     display: inline-flex;

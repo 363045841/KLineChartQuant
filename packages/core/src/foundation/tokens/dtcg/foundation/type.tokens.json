@@ -107,8 +107,7 @@
       }
     },
     "11Mono": {
-      "$description": "Axis ticks, dense meta: mono/tabular only. Basis: Geist mono labels (S4); Inter dynmetrics +0.005em ≈ 0 (S22). Weight 400 of CP §4.2's 400-500.",
-      "fontFamily": { "$type": "fontFamily", "$value": "{typography.fontFamilyMono}" },
+      "$description": "Axis ticks, dense meta: mono/tabular only. Basis: Geist mono labels (S4); Inter dynmetrics +0.005em ≈ 0 (S22). Weight 400 of CP §4.2's 400-500. 字体族由 theme 的 typography.fontFamilyMono 统一提供，字号档不携带 family。",
       "fontSize": { "$type": "dimension", "$value": { "value": 11, "unit": "px" } },
       "lineHeight": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
       "letterSpacing": {

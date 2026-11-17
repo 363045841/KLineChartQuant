@@ -59,7 +59,6 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
     const steps: TextScaleStep[] = [12, 13, 14, 16, 20, 24, 32, 48, 72]
     expect(steps.map((s) => f.text[s].fontSize)).toEqual(steps.map((s) => `${s}px`))
     expect(f.text['11Mono']).toMatchObject({ fontSize: '11px', lineHeight: '16px' })
-    expect(f.text['11Mono'].fontFamily).toContain('monospace')
     const all = JSON.stringify(f.text)
     expect(all).not.toContain('"10px"')
     expect(f.text.numeric).toBe('tabular-nums')

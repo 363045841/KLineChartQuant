@@ -14,7 +14,7 @@
     <dialog
       v-if="rendered"
       ref="dialog"
-      class="base-modal"
+      class="base-modal klc-overlay"
       :class="{
         'base-modal--draggable': draggable,
         'base-modal--dragging': dragging,

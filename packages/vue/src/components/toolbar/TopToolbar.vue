@@ -481,7 +481,7 @@
 
   /* 截图入口只保留图标。 */
   .screenshot-button {
-    --control-button-inline-padding: 0;
+    --control-button-inline-padding: 0px;
     --control-button-min-width: 30px;
   }
 

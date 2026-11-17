@@ -23,7 +23,6 @@
   border-radius: var(--control-button-radius, var(--klc-radius-md, 8px));
   background: transparent;
   color: var(--control-button-color, var(--klc-color-ui-text));
-  font-family: var(--klc-typography-font-family);
   font-size: var(--control-button-font-size, calc(var(--klc-typography-font-size-md) + 1px));
   font-weight: var(--control-button-font-weight, 500);
   line-height: var(--control-button-line-height, 1);

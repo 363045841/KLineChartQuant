@@ -143,7 +143,6 @@ const editorTheme = EditorView.theme({
     boxShadow: 'none',
     outline: 'none',
   },
-  '.cm-panel.cm-search .cm-textfield::placeholder': { color: 'var(--klc-color-ui-muted)' },
   '.cm-panel.cm-search .cm-button': {
     minHeight: 'var(--klc-density-default, 32px)',
     padding: '0 var(--klc-space-12, 12px)',

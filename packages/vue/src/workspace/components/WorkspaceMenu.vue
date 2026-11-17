@@ -58,7 +58,7 @@
   .workspace-menu__button {
     --control-button-width: 30px;
     --control-button-height: var(--tab-pill-height, 26px);
-    --control-button-inline-padding: 0;
+    --control-button-inline-padding: 0px;
     --control-button-active-background: transparent;
     --control-button-focus-background: transparent;
     --control-button-focus-outline: 2px solid var(--klc-color-ui-focus);

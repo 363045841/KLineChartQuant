@@ -6,7 +6,7 @@
   <Teleport :to="teleportTarget">
     <div
       ref="menu"
-      class="drop-menu__panel popover-surface popover-surface--scroll"
+      class="drop-menu__panel popover-surface popover-surface--scroll klc-overlay"
       :class="{ 'drop-menu__panel--compact': density === 'compact' }"
       v-bind="popover.panelBindings.value"
       :style="surfaceStyle"

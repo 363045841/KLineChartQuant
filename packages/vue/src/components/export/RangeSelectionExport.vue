@@ -93,17 +93,11 @@
     min-width: 60px;
     height: 26px;
     box-sizing: border-box;
-    font-family: inherit;
     border-radius: 4px;
     text-align: center;
     transition:
       background 0.15s ease,
       color 0.15s ease;
-  }
-
-  .range-input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.6;
   }
 
   .range-input:hover,

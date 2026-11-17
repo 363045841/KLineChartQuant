@@ -64,7 +64,7 @@
   .pane-axis-settings__button {
     --control-button-height: 100%;
     --control-button-width: 100%;
-    --control-button-inline-padding: 0;
+    --control-button-inline-padding: 0px;
     --control-button-radius: 0;
     --control-button-color: var(--klc-color-ui-muted);
     --control-button-active-background: var(--klc-color-ui-hover);

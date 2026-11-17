@@ -1928,7 +1928,6 @@
 
 <style scoped>
   .chart-wrapper {
-    font-family: var(--klc-typography-font-family);
     font-variant-numeric: tabular-nums;
     --kmap-height: var(--kmap-chart-height, 100%);
     --kmap-width: var(--kmap-chart-width, 100%);
@@ -2150,10 +2149,6 @@
     line-height: inherit;
     text-align: inherit;
     outline: none;
-  }
-
-  .drawing-line-label-editor__input::placeholder {
-    color: var(--klc-color-ui-muted);
   }
 
   .chart-container::-webkit-scrollbar {
