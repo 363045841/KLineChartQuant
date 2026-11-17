@@ -109,8 +109,8 @@
     pointer-events: none;
   }
 
-  .pane-axis-shortcuts-layer:hover .price-axis-shortcuts,
-  .pane-axis-shortcuts-layer:focus-within .price-axis-shortcuts {
+  /* 只跟随指针：键盘等价入口是轴列底部的设置菜单，隐藏时不可达的焦点规则不要写。 */
+  .pane-axis-shortcuts-layer:hover .price-axis-shortcuts {
     visibility: visible;
     pointer-events: auto;
   }
