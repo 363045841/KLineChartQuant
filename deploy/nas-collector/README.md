@@ -39,20 +39,12 @@ node deploy/nas-collector/build.mjs
 
 ## 3. 环境变量
 
-| 变量 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `KCQ_DATA_ROOT` | 是 | — | 数据根目录，脚本在其下建 `logs/`。例：`/volume1/docker/kcq/analytics` |
-| `KCQ_PROXY_HOST` | 否 | 空 | HTTP 代理主机（CONNECT 隧道）。与 `KCQ_PROXY_PORT` 必须同时给 |
-| `KCQ_PROXY_PORT` | 否 | 空 | 代理端口。例：`7078` |
-| `KCQ_OPTION_INTERVAL` | 否 | `60` | 期权每轮间隔（秒） |
-| `KCQ_CHAIN_EVERY` | 否 | `5` | 原始期权链采样间隔（分钟，最小 1）；只有落在采样分钟的轮次才落全链 |
-| `KCQ_VOLUME_INTERVAL` | 否 | `300` | 成交量每轮间隔（秒） |
-| `KCQ_SYMBOLS` | 否 | `BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT` | Binance 成交量品种 |
-| `KCQ_CURRENCIES` | 否 | `BTC,ETH` | 期权标的；BTC/ETH 走 Deribit，SOL/BNB/XRP 走 Binance（需在 `.env` 显式加上才会采） |
-| `KCQ_NODE_BIN` | 否 | `node` | Node 可执行文件；找不到时填绝对路径 |
-| `KCQ_BUNDLE` | 否 | 脚本同级 `dist/collector.mjs` | 采集器产物路径 |
+全部 `KCQ_*` 变量的含义、默认值与解释顺序见 [deploy/collector.env.example](../collector.env.example)——那是唯一事实来源，本文不再排第二份表。
 
-不设代理时：期权采集会用采集器内置默认 `127.0.0.1:7078`，成交量走直连。**NAS 上通常两者都不对，请务必显式设置。**
+本配方只需要额外记住两条 NAS 专属事实：
+
+- **Docker 路径**：compose 从部署目录的 `.env` 读配置，容器内 `KCQ_DATA_ROOT` 固定为 `/data`（挂载点），宿主路径写在 `KCQ_DATA_ROOT_HOST`。线上实例的副本见 [deploy/instances/nas.env](../instances/nas.env)。
+- **代理**：NAS 的出网代理是另一个容器发布的端口（实测 `7891`），compose 用 host 网络，所以容器里填 `127.0.0.1` 即可。不设代理时期权采集会退回采集器内置的 `127.0.0.1:7078`，成交量走直连——**NAS 上通常两者都不对，务必显式设置。**
 
 采集器落盘结构（按天 gzip 分片）：
 

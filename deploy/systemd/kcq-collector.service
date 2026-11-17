@@ -1,0 +1,30 @@
+# KCQ 分析采集器 · systemd 单元（Linux 主机 / 云 VM）
+#
+# 采集器本身是"四个循环 + 失败退避 + 日志轮转"的 shell 守护脚本（collector.sh），
+# 所以 systemd 只负责拉起与重启，不需要额外的进程管理代码。
+#
+# 安装步骤见 deploy/README.md 的「Linux 主机 / 云 VM」一节。要点：
+#   1. collector.sh 与 dist/collector.mjs 放到 /opt/kcq；
+#   2. 配置放 /etc/kcq/collector.env（模板见 deploy/collector.env.example）；
+#   3. 数据根目录必须可写，且剩余空间够放保留期内的分片。
+#
+# 注意：默认以 root 运行（写数据根最省事）。要换成专用用户时加 User=/Group=，
+# 并确保该用户对 KCQ_DATA_ROOT 有写权限。
+
+[Unit]
+Description=KCQ analytics collector (options, volume, orderflow, trades)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/kcq/collector.env
+ExecStart=/bin/sh /opt/kcq/collector.sh
+Restart=always
+RestartSec=10
+# collector.sh 收到 SIGTERM 会先结束四个采集子进程再退出，给足时间。
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
