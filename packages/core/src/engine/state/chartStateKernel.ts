@@ -498,8 +498,8 @@ export class ChartStateKernel extends StateKernel {
         this.interaction.actions.setSeparatorHover(paneId),
       setRightAxisHover: (paneId: string | null) =>
         this.interaction.actions.setRightAxisHover(paneId),
-      updateTooltip: (pos: { x: number; y: number }, placement: 'right-bottom' | 'left-bottom') =>
-        this.interaction.actions.updateTooltip(pos, placement),
+      updateTooltip: (pos: { x: number; y: number }) =>
+        this.interaction.actions.updateTooltip(pos),
       resetInteraction: () => this.interaction.actions.reset(),
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),

@@ -88,7 +88,6 @@ export class InteractionController {
    */
   private frameView: ScaleXSnapshot | null = null
   private lastHoverRenderKey = ''
-  private useTooltipAnchorPositioning = false
   private tooltipPositionMode: TooltipPositionMode = 'crosshair'
   private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
   tooltipSize: { width: number; height: number } = { width: 220, height: 180 }
@@ -115,9 +114,6 @@ export class InteractionController {
   }
   get tooltipPos(): { x: number; y: number } {
     return this._state.readonly.tooltipPos.peek()
-  }
-  get tooltipAnchorPlacement(): 'right-bottom' | 'left-bottom' {
-    return this._state.readonly.tooltipAnchorPlacement.peek()
   }
   get crosshairIndex(): number | null {
     return this._state.readonly.crosshairIndex.peek()
@@ -341,10 +337,6 @@ export class InteractionController {
    */
   setTooltipSize(size: { width: number; height: number }) {
     this.tooltipSize = size
-  }
-
-  setTooltipAnchorPositioning(enabled: boolean) {
-    this.useTooltipAnchorPositioning = enabled
   }
 
   /**
@@ -1071,10 +1063,10 @@ export class InteractionController {
   /**
    * 更新 tooltip 位置
    *
-   * 使用 computeTooltipPosition 计算 tooltip 的显示位置和锚点方向。
+   * 使用 computeTooltipPosition 计算 tooltip 的显示位置。
    */
   private updateTooltip(ctx: HoverContext): void {
-    const { mouseX, mouseY, viewWidth, viewHeight, plotWidth, plotHeight } = ctx
+    const { mouseX, mouseY, viewWidth, viewHeight } = ctx
 
     if (this.tooltipPositionMode === 'adaptive' && this.tooltipAdaptiveLock === null) {
       this.tooltipAdaptiveLock = isOnRightHalf(mouseX, viewWidth) ? 'top-left' : 'top-right'
@@ -1085,18 +1077,12 @@ export class InteractionController {
       mouseY,
       viewWidth,
       viewHeight,
-      plotWidth,
-      plotHeight,
       tooltipSize: this.tooltipSize,
-      useAnchorPositioning: this.useTooltipAnchorPositioning,
       mode: this.tooltipPositionMode,
       adaptiveCorner: this.tooltipAdaptiveLock ?? undefined,
       crosshairX: this.crosshairPos?.x,
     })
-    this._state.actions.updateTooltip(
-      tooltipResult.pos,
-      tooltipResult.anchorPlacement ?? 'right-bottom',
-    )
+    this._state.actions.updateTooltip(tooltipResult.pos)
   }
 
   /**

@@ -665,7 +665,6 @@ export interface ChartController
 
   // ---- Interaction sub-methods ----
   setTooltipSize(size: { width: number; height: number }): void
-  setTooltipAnchorPositioning(enabled: boolean): void
 
   // ---- Narrow queries ----
   getIndicatorTitle(instanceId: string): string | undefined

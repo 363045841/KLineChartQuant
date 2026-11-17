@@ -29,7 +29,6 @@ export interface InteractionSnapshot {
   hoveredIndex: number | null
   activePaneId: string | null
   tooltipPos: { x: number; y: number }
-  tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
   isDragging: boolean
   isResizingPaneBoundary: boolean
   isHoveringPaneBoundary: boolean
@@ -67,7 +66,6 @@ export function createIdleInteractionSnapshot(): InteractionSnapshot {
     hoveredIndex: null,
     activePaneId: null,
     tooltipPos: { x: 0, y: 0 },
-    tooltipAnchorPlacement: 'right-bottom',
     isDragging: false,
     isResizingPaneBoundary: false,
     isHoveringPaneBoundary: false,
@@ -120,7 +118,6 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredSeparatorUpperPaneId: null as string | null,
     hoveredRightAxisPaneId: null as string | null,
     tooltipPos: { x: 0, y: 0 },
-    tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
     /** 实时绘图悬停命中：目标语义与光标一起写入，快照直接透传。 */
     hoveredDrawing: null as DrawingHoverHit | null,
     /**
@@ -154,7 +151,6 @@ export function createInteractionState(_deps: InteractionDeps) {
       hoveredIndex,
       activePaneId: readonly.activePaneId(),
       tooltipPos: readonly.tooltipPos(),
-      tooltipAnchorPlacement: readonly.tooltipAnchorPlacement(),
       isDragging: readonly.isDragging(),
       isResizingPaneBoundary: dragMode === 'resize-separator',
       isHoveringPaneBoundary: hoveredSep !== null,
@@ -200,7 +196,6 @@ export function createInteractionState(_deps: InteractionDeps) {
       signals.hoveredSeparatorUpperPaneId.set(null)
       signals.hoveredRightAxisPaneId.set(null)
       signals.tooltipPos.set({ x: 0, y: 0 })
-      signals.tooltipAnchorPlacement.set('right-bottom')
       signals.hoveredDrawing.set(null)
       signals.rangeSelection.set(
         Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
@@ -315,22 +310,12 @@ export function createInteractionState(_deps: InteractionDeps) {
       },
 
       /**
-       * 更新 tooltip。位置与锚点均未变时跳过写入。
+       * 更新 tooltip 位置。位置未变时跳过写入。
        */
-      updateTooltip(pos: { x: number; y: number }, placement: 'right-bottom' | 'left-bottom') {
+      updateTooltip(pos: { x: number; y: number }) {
         const prevPos = signals.tooltipPos.peek()
-        const prevPlacement = signals.tooltipAnchorPlacement.peek()
-        if (prevPos.x === pos.x && prevPos.y === pos.y && prevPlacement === placement) {
-          return
-        }
-        batch(() => {
-          if (prevPos.x !== pos.x || prevPos.y !== pos.y) {
-            signals.tooltipPos.set(pos)
-          }
-          if (prevPlacement !== placement) {
-            signals.tooltipAnchorPlacement.set(placement)
-          }
-        })
+        if (prevPos.x === pos.x && prevPos.y === pos.y) return
+        signals.tooltipPos.set(pos)
       },
 
       /** 开始区间选择。 */

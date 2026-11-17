@@ -159,12 +159,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.interaction.setTooltipSize(size)
   }
 
-  /** 开关 tooltip 锚点定位。 */
-  function setTooltipAnchorPositioning(enabled: boolean): void {
-    if (isDisposed()) return
-    chart.interaction.setTooltipAnchorPositioning(enabled)
-  }
-
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth）。 */
   function getContentWidth(): number {
     if (isDisposed()) return 0
@@ -328,7 +322,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     unlockCrosshair,
     updateIndicator,
     setTooltipSize,
-    setTooltipAnchorPositioning,
     getContentWidth,
     getLeftLoadBufferWidth,
     useRenderer,

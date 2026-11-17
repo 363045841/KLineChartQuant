@@ -9,10 +9,7 @@ export interface TooltipPositionInput {
   mouseY: number
   viewWidth: number
   viewHeight: number
-  plotWidth: number
-  plotHeight: number
   tooltipSize: { width: number; height: number }
-  useAnchorPositioning: boolean
   mode: TooltipPositionMode
   adaptiveCorner?: 'top-left' | 'top-right'
   crosshairX?: number
@@ -20,7 +17,6 @@ export interface TooltipPositionInput {
 
 export interface TooltipPositionOutput {
   pos: { x: number; y: number }
-  anchorPlacement?: 'right-bottom' | 'left-bottom'
 }
 
 const PADDING = 12
@@ -52,19 +48,6 @@ export function computeTooltipPosition(input: TooltipPositionInput): TooltipPosi
 
   const padding = PADDING
   const preferGap = 14
-
-  if (input.useAnchorPositioning) {
-    const tooltipW = input.tooltipSize.width
-    const rightCandidateX = input.mouseX + preferGap
-    const rightWouldOverflow = rightCandidateX + tooltipW + padding > input.plotWidth
-    return {
-      anchorPlacement: rightWouldOverflow ? 'left-bottom' : 'right-bottom',
-      pos: {
-        x: Math.min(Math.max(input.mouseX, padding), Math.max(padding, input.plotWidth - padding)),
-        y: Math.min(Math.max(input.mouseY, padding), Math.max(padding, input.plotHeight - padding)),
-      },
-    }
-  }
 
   const tooltipW = input.tooltipSize.width
   const tooltipH = input.tooltipSize.height

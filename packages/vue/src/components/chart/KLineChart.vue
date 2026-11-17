@@ -1871,7 +1871,6 @@
     setupDrawing(ctrl)
 
     // 6) 交互初始化与图例接线（interactionState 订阅由 useInteractionBridge 管理）
-    ctrl.setTooltipAnchorPositioning(false)
     applyLegendRenderMode(ctrl, hasLegendSlot.value)
   })
 
@@ -2249,17 +2248,6 @@
     inset: 0;
     pointer-events: none;
     z-index: 30;
-  }
-
-  .tooltip-anchor {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-  }
-
-  .tooltip-anchor.kline-tooltip-anchor.use-anchor {
-    anchor-name: --kline-tooltip-anchor;
   }
 
 </style>

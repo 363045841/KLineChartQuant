@@ -433,7 +433,6 @@ export function createMockChartController(
     movePane: () => false,
     clearPanes: () => {},
     setTooltipSize: () => {},
-    setTooltipAnchorPositioning: () => {},
     getIndicatorTitle: () => undefined,
     getContentWidth: () => 0,
     getLeftLoadBufferWidth: () => 0,

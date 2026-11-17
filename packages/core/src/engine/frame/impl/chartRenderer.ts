@@ -444,7 +444,6 @@ export class ChartRenderer {
       interaction.hoveredIndex,
       interaction.tooltipPos.x,
       interaction.tooltipPos.y,
-      interaction.tooltipAnchorPlacement,
       this.deps.drawings$.peek(),
       this.deps.selectedDrawingIds$.peek(),
       this.deps.getLegendConfiguration(),
