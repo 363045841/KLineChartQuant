@@ -350,19 +350,13 @@ function renderProfiles(config: ProfileConfig, isLast: boolean): void {
     if (!profile) continue
     const last = group[group.length - 1]!
     const width = ((last.end - first.time) * config.width) / 100
-    // 完成期按位置参数贴在自己那一侧；活动期没有结束边界，改成右端贴住最新明细，
-    // 直方图随价格向右生长，否则它会一直停在阶段开盘后的 30% 处、看着像没画完。
-    const left = active
-      ? last.end - width
-      : config.side === 'left'
-        ? first.time
-        : last.end - width
-    // 活动期没有结束边界：背景拉到最新一根明细，否则今天的分布会缩在阶段开盘附近看不见。
-    const backgroundLeft = active ? first.time : left
-    const backgroundRight = active ? last.end : left + width
+    // 直方图按「位置」参数贴在自己那一侧；活动期与完成期同一规则。
+    const left = config.side === 'left' ? first.time : last.end - width
+    // 背景标的是这一期的时间跨度，必须从阶段开盘铺到阶段结束：活动期没有结束边界，
+    // 右端就是最新一根明细；直方图宽度另由「宽度」参数控制。
     const background = profileBox(
-      backgroundLeft,
-      backgroundRight,
+      first.time,
+      last.end,
       profile.bottom,
       profile.top,
       '@token:volumeProfile.boxBackground',

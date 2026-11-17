@@ -1,4 +1,4 @@
-/** 回归：活动期的直方图右端跟随最新明细，而不是停在阶段开盘后的宽度处。 */
+/** 回归：每个阶段的背景铺满时间跨度，直方图按「位置」参数贴边（默认左）。 */
 
 import { readFileSync } from 'node:fs'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
@@ -7,6 +7,7 @@ import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWo
 import { createScriptService } from '../impl/createScriptService.js'
 
 const MINUTE = 60_000
+const DAY = 86_400_000
 
 /**
  * 造一根 K 线。
@@ -19,8 +20,31 @@ function bar(timestamp: number, close: number) {
   return { timestamp, open: close, high: close + 1, low: close - 1, close, volume: 10 }
 }
 
-describe('SVP 活动期锚点', () => {
-  it('直方图右端贴着最新明细，不再缩在阶段开盘处', async () => {
+/**
+ * 一个矩形在时间轴上的跨度。
+ *
+ * @param item 绘图对象
+ * @returns 左端与右端时间
+ */
+function rangeOf(item: unknown) {
+  const anchors = Reflect.get(item as object, 'anchors') as readonly { time: number }[]
+  const times = anchors.map((anchor) => anchor.time)
+  return { min: Math.min(...times), max: Math.max(...times) }
+}
+
+/**
+ * 读取矩形的填充色，用于区分背景与直方图。
+ *
+ * @param item 绘图对象
+ * @returns 填充色
+ */
+function fillOf(item: unknown) {
+  const style = Reflect.get(item as object, 'style') as { fill?: string } | undefined
+  return String(style?.fill ?? '')
+}
+
+describe('SVP 阶段背景与位置', () => {
+  it('背景铺满整期，直方图按位置贴左', async () => {
     vi.stubGlobal('Worker', NodeScriptWorker)
     const source = readFileSync(new URL('../../../../script/scripts/svp.ts', import.meta.url), 'utf8')
     const service = await createScriptService([], {
@@ -30,11 +54,10 @@ describe('SVP 活动期锚点', () => {
     const runtime = getRegisteredIndicatorDefinition('SVP')?.runtime
     if (!runtime) throw new Error('SVP 未注册')
 
-    // 一天里跑 12 小时，明细到最后一分钟。
+    // 两天整的明细，最后一天是活动期。
     const start = Date.UTC(2026, 10, 13)
-    const hours = 12
-    const details = Array.from({ length: hours * 60 }, (_value, index) => {
-      const close = 100 + (index % 120) * 0.1
+    const details = Array.from({ length: 2 * 1440 }, (_value, index) => {
+      const close = 100 + Math.floor(index / 1440) * 10 + (index % 60) * 0.1
       return {
         time: start + index * MINUTE,
         open: close,
@@ -44,8 +67,8 @@ describe('SVP 活动期锚点', () => {
         volume: 10,
       }
     })
-    const chartBars = Array.from({ length: hours * 4 }, (_value, index) =>
-      bar(start + index * 15 * MINUTE, 100),
+    const chartBars = Array.from({ length: 2 * 96 }, (_value, index) =>
+      bar(start + index * 15 * MINUTE, 100 + Math.floor(index / 96) * 10),
     )
     const market = {
       symbol: 'TEST',
@@ -59,22 +82,24 @@ describe('SVP 活动期锚点', () => {
       const result = await runtime.compute(chartBars, {}, market)
       const drawings = ((result as { drawings?: readonly unknown[] }).drawings ?? []) as readonly unknown[]
       const boxes = drawings.filter(
-        (item) =>
-          typeof item === 'object' &&
-          item !== null &&
-          Reflect.get(item, 'kind') === 'rectangle',
+        (item) => typeof item === 'object' && item !== null && Reflect.get(item, 'kind') === 'rectangle',
       )
-      const ranges = boxes.map((item) => {
-        const anchors = Reflect.get(item as object, 'anchors') as readonly { time: number }[]
-        const times = anchors.map((anchor) => anchor.time)
-        return { min: Math.min(...times), max: Math.max(...times) }
-      })
-      const latest = Math.max(...ranges.map((range) => range.max))
-      const lastDetailEnd = details[details.length - 1]!.time + MINUTE
-      // 右端贴住最新明细（容差一分钟）。
-      expect(Math.abs(latest - lastDetailEnd)).toBeLessThanOrEqual(MINUTE)
-      // 活动期的块不再从阶段开盘起：至少有一个块左端明显晚于开盘。
-      expect(ranges.some((range) => range.min > start + 60 * MINUTE)).toBe(true)
+      const backgroundFill = '@token:volumeProfile.boxBackground'
+      const backgrounds = boxes.filter((item) => fillOf(item) === backgroundFill).map(rangeOf)
+      const histogram = boxes.filter((item) => fillOf(item) !== backgroundFill).map(rangeOf)
+
+      // 每一期恰好一块背景，且铺满该期的时间跨度。
+      expect(backgrounds).toHaveLength(2)
+      expect(backgrounds[0]).toEqual({ min: start, max: start + DAY })
+      expect(backgrounds[1]!.min).toBe(start + DAY)
+
+      // 直方图按「位置=左」贴住阶段起点，完成期与活动期同一规则。
+      const firstDay = histogram.filter((range) => range.min < start + DAY)
+      const secondDay = histogram.filter((range) => range.min >= start + DAY)
+      expect(firstDay.length).toBeGreaterThan(0)
+      expect(secondDay.length).toBeGreaterThan(0)
+      expect(Math.min(...firstDay.map((range) => range.min))).toBe(start)
+      expect(Math.min(...secondDay.map((range) => range.min))).toBe(start + DAY)
     } finally {
       service.dispose()
       vi.unstubAllGlobals()
