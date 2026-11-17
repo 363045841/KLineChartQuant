@@ -4,8 +4,14 @@ import type { ScriptOptionLevels } from '../../../option/types.js'
 import type { ScriptRequestContext } from '../../../request/types.js'
 import type { BarPatch, RunInputPatch } from '../types.js'
 
-const BAR_WIDTH = 7
+/** 单根行情的通信宽度：time、OHLC、volume、closed 码，以及主动买量（缺失编码为 NaN）。 */
+export const BAR_WIDTH = 8
 const Closed = { Missing: 0, Undefined: 1, Open: 2, Closed: 3 }
+
+/** 主动买量只有按方向拆分的交易所才提供；缺失编码成 NaN，接收端据此不写该字段。 */
+function buyVolumeValue(bar: Bar): number {
+  return bar.buyVolume === undefined ? Number.NaN : bar.buyVolume
+}
 
 /** closed 的缺省、显式 undefined 与布尔值分别编码，不把历史根错误地变成未收盘。 */
 function closedValue(bar: Bar): number {
@@ -23,7 +29,8 @@ function equalBar(previous: Float64Array, offset: number, bar: Bar): boolean {
     Object.is(previous[offset + 3], bar.low) &&
     Object.is(previous[offset + 4], bar.close) &&
     Object.is(previous[offset + 5], bar.volume) &&
-    previous[offset + 6] === closedValue(bar)
+    previous[offset + 6] === closedValue(bar) &&
+    Object.is(previous[offset + 7], buyVolumeValue(bar))
   )
 }
 
@@ -36,6 +43,7 @@ function writeBar(values: Float64Array, offset: number, bar: Bar): void {
   values[offset + 4] = bar.close
   values[offset + 5] = bar.volume
   values[offset + 6] = closedValue(bar)
+  values[offset + 7] = buyVolumeValue(bar)
 }
 
 /** 单条序列只保存最近一次输入；扫描比较不创建对象，只为变化块分配通信内存。 */
@@ -70,7 +78,12 @@ class BarSender {
     const prepended = bars.length - previousLength
     // 插入量超过已同步长度属历史替换，不是可右移表达的前置插入：按全量重发，
     // 保留接收端「prepended 大于当前序列即失同步」的断言，不放宽协议校验。
-    if (previousLength > 0 && prepended > 0 && prepended <= previousLength && this.isPrepend(bars, prepended))
+    if (
+      previousLength > 0 &&
+      prepended > 0 &&
+      prepended <= previousLength &&
+      this.isPrepend(bars, prepended)
+    )
       return this.prepend(bars, prepended)
 
     let offset = 0
@@ -133,6 +146,9 @@ class BarReceiver {
       if (closed !== Closed.Missing) {
         bar.closed = closed === Closed.Undefined ? undefined : closed === Closed.Closed
       }
+      // 缺字段与「为 0」必须区分：CVD 据此决定用精确口径还是估算口径。
+      const buyVolume = values[offset + 7]!
+      if (Number.isFinite(buyVolume)) bar.buyVolume = buyVolume
       this.bars[target] = bar
     }
     return this.bars

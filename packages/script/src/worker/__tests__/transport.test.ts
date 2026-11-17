@@ -5,6 +5,7 @@ import { optionRow, optionSnapshot } from '../../__tests__/marketData.js'
 import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
 import { createScriptWorker } from '../impl/createScriptWorker.js'
 import {
+  BAR_WIDTH,
   inputTransferList,
   WorkerInputReceiver,
   WorkerInputSender,
@@ -32,7 +33,7 @@ describe('Worker input synchronization', () => {
     bars[1]!.closed = false
     const tick = sender.encode(bars)
     expect(tick.bars.start).toBe(1)
-    expect(tick.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(tick.bars.buffer.byteLength).toBe(BAR_WIDTH * Float64Array.BYTES_PER_ELEMENT)
     expect(receiver.decode(tick).bars).toStrictEqual(bars)
     bars.push({ ...bar(3), closed: undefined })
     const append = sender.encode(bars)
@@ -43,8 +44,29 @@ describe('Worker input synchronization', () => {
     const prepend = sender.encode(prependedBars)
     expect(prepend.bars.prepended).toBe(1)
     expect(prepend.bars.count).toBe(1)
-    expect(prepend.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(prepend.bars.buffer.byteLength).toBe(BAR_WIDTH * Float64Array.BYTES_PER_ELEMENT)
     expect(receiver.decode(prepend).bars).toStrictEqual(prependedBars)
+  })
+
+  it('carries taker buy volume without inventing it for sources that lack it', () => {
+    const sender = new WorkerInputSender()
+    const receiver = new WorkerInputReceiver()
+    const exact: Bar = { ...bar(1), buyVolume: 1.5 }
+    const missing = bar(2)
+    const zero: Bar = { ...bar(3), buyVolume: 0 }
+    const [first, second, third] = receiver.decode(sender.encode([exact, missing, zero])).bars
+    expect(first).toStrictEqual(exact)
+    expect(second).toStrictEqual(missing)
+    expect(third).toStrictEqual(zero)
+    // 缺字段的数据源不能被补成 0：CVD 据此区分精确口径与估算口径。
+    expect(Object.hasOwn(first!, 'buyVolume')).toBe(true)
+    expect(Object.hasOwn(second!, 'buyVolume')).toBe(false)
+    expect(third!.buyVolume).toBe(0)
+    // 买量变化必须触发重发，否则精确口径会停在上一根。
+    exact.buyVolume = 2.5
+    const changed = sender.encode([exact, missing, zero])
+    expect(changed.bars.start).toBe(0)
+    expect(receiver.decode(changed).bars[0]!.buyVolume).toBe(2.5)
   })
 
   it('handles history corrections, truncation, empty data and reset', () => {
@@ -73,7 +95,9 @@ describe('Worker input synchronization', () => {
     expect(receiver.decode(unchanged).context?.optionLevels).toStrictEqual(optionLevels)
     // 快照更新后整份重发；插件层面不维护行级增量。
     const next = optionSnapshot([optionRow(1_000), optionRow(2_000)])
-    expect(sender.encode(bars, { ...context, optionLevels: next }).context?.optionLevels).toStrictEqual(next)
+    expect(
+      sender.encode(bars, { ...context, optionLevels: next }).context?.optionLevels,
+    ).toStrictEqual(next)
     // 宿主不再提供快照时显式清空，接收端不能留着上一轮的线。
     const cleared = receiver.decode(sender.encode(bars, context))
     expect(cleared.context?.optionLevels).toBeUndefined()
