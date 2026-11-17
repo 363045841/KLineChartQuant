@@ -111,6 +111,7 @@ pnpm workspace at `packages/*`。唯一对外发布包为 `packages/vue` (`@3630
 - **测试代码与生产代码同权.**测试同样受类型检查和门禁约束,不得靠关闭检查换取"能跑";不许引入脆弱的 MOCK.
 - Root 测试用 `pnpm test:unit`,packages 被其排除,跨包测试用 `pnpm test:packages`;`*.integration.test.ts` 默认不被收集.
 - 日期测试依赖 `TZ=Asia/Shanghai`;Windows 本地失败时先设 `$env:TZ='Asia/Shanghai'`.
+- **一个提交不改两件事.**加新功能时不要顺手改动同一函数里已定的既有规则(例如背景几何,默认参数),这类顺带改动在评审里最容易漏看.既有视觉规则要有用例守住;决定被推翻时同步改用例,否则用例会变成保护错误行为的守门员.
 
 ## Code Conventions
 
