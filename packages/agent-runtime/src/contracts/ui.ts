@@ -1,27 +1,12 @@
-/** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 6 as const
+// 宿主与 UI 的稳定契约：会话视图直接复用官方条目记录，不再维护第二套消息模型。
+import type {
+  ConversationRecord,
+  EntryId,
+  JsonObject,
+  TranscriptItem,
+} from '@earendil-works/pi-durable'
 
-export type AgentRunStatus =
-  | 'idle'
-  | 'running'
-  | 'cancelling'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'partial'
-  | 'interrupted'
-
-export type AgentMessageStatus = 'streaming' | 'complete' | 'cancelled' | 'failed'
-export type ToolCallStatus =
-  | 'queued'
-  | 'running'
-  | 'requires-confirmation'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'rejected'
-  | 'undone'
-export type ToolSafety = 'read-only' | 'reversible-write' | 'destructive'
+export const AGENT_UI_PROTOCOL_VERSION = 7 as const
 
 /** Agent 正文中引用来源的稳定标记边界。 */
 export const AGENT_CITATION_MARKER_PREFIX = '[[cite:'
@@ -33,7 +18,7 @@ export function formatAgentCitation(id: string): string {
 }
 
 /** 可由 Agent 正文引用的外部来源。 */
-export interface SourceCitation {
+export type SourceCitation = {
   readonly id: string
   readonly title: string
   readonly url: string
@@ -41,7 +26,8 @@ export interface SourceCitation {
   readonly publishedAt?: string
 }
 
-export interface EvidenceView {
+/** 工具结果携带的图表证据。 */
+export type EvidenceView = {
   symbol?: string
   period?: string
   source?: string
@@ -50,53 +36,33 @@ export interface EvidenceView {
   returned?: number
 }
 
-export interface AgentMessageView {
-  id: string
-  /** 消息所属运行，供历史回复的重新生成操作使用。 */
-  runId?: string
-  role: 'user' | 'assistant' | 'action' | 'reasoning'
-  content: string
-  createdAt: number
-  status?: AgentMessageStatus
-  evidence?: EvidenceView
-  citations?: readonly SourceCitation[]
-}
-
-export interface ToolProgressView {
+/** 工具执行进度。 */
+export type ToolProgressView = {
   label: string
   current?: number
   total?: number
 }
 
-export interface AgentErrorView {
+/** 一次运行的用量摘要，展示在输入区。 */
+export type AgentUsageView = {
+  inputTokens?: number
+  outputTokens?: number
+  /** 最后一次模型请求实际占用的输入上下文 token。 */
+  contextTokens?: number
+  /** 当前模型可用的上下文窗口。 */
+  contextWindow?: number
+  costUsd?: number
+  durationMs?: number
+}
+
+/** 可展示的运行时错误。 */
+export type AgentErrorView = {
   code: string
   message: string
   providerCode?: string
   raw?: string
   retryable: boolean
   recommendedAction?: string
-}
-
-export interface ToolCallView {
-  id: string
-  runId: string
-  name: string
-  label: string
-  status: ToolCallStatus
-  inputSummary: string
-  resultSummary?: string
-  /** 已脱敏的工具结果正文，供 UI 展示。 */
-  resultContent?: string
-  error?: AgentErrorView
-  progress?: ToolProgressView
-  safety: ToolSafety
-  reversible: boolean
-  canLocate?: boolean
-  startedAt?: number
-  finishedAt?: number
-  durationMs?: number
-  undoToken?: string
-  evidence?: EvidenceView
 }
 
 /** 用户可管理的 Agent 工具设置项。 */
@@ -115,18 +81,6 @@ export interface AgentToolView {
 export interface AgentToolDebugResult {
   content: string
   summary: string
-}
-
-export type ConfirmationStatus = 'pending' | 'confirmed' | 'rejected' | 'expired'
-export interface ConfirmationView {
-  id: string
-  toolCallId: string
-  title: string
-  description: string
-  impact: string
-  reversible: boolean
-  expiresAt: number
-  status: ConfirmationStatus
 }
 
 /** Ask Question 卡片的一个可选项。 */
@@ -153,24 +107,6 @@ export interface QuestionView {
   multiSelect: boolean
   status: QuestionStatus
   answer?: QuestionAnswerView
-}
-
-export interface AgentUsageView {
-  inputTokens?: number
-  outputTokens?: number
-  /** 最后一次模型请求实际占用的输入上下文 token。 */
-  contextTokens?: number
-  /** 当前模型可用的上下文窗口。 */
-  contextWindow?: number
-  costUsd?: number
-  durationMs?: number
-}
-
-export interface ChartContextView {
-  symbol: string | null
-  period: string | null
-  visibleRange?: string | null
-  selectedBar?: string | null
 }
 
 /** 可安全跨 UI、Bridge 与 Provider 传递的上下文对象。 */
@@ -268,11 +204,6 @@ export interface AgentRunContext {
   readonly items: ReadonlyArray<AgentContextItem>
 }
 
-/** Agent 单次运行的权限与可见图表范围。 */
-export interface AgentRunScope extends ChartContextView {
-  readOnly: boolean
-}
-
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
 export const PROVIDER_API_PROTOCOLS = ['openai-responses', 'openai-completions'] as const
@@ -319,111 +250,19 @@ export interface ProviderModelPoolEntry extends ProviderModelView {
   provider: string
 }
 
+/** 会话目录项；标题与最近活动时间由 KQ 会话文档提供。 */
 export interface AgentSessionView {
   id: string
   title: string
   updatedAt: number
 }
 
-export interface AgentRunView {
-  retryOfRunId?: string
-  /** 该运行替换的历史用户输入所属运行。 */
-  editOfRunId?: string
-  id: string | null
-  sessionId: string | null
-  status: AgentRunStatus
-  startedAt?: number
-  endedAt?: number
-  usage?: AgentUsageView
-  error?: AgentErrorView
-}
-
-interface EventEnvelope {
-  protocolVersion: typeof AGENT_UI_PROTOCOL_VERSION
-  /** Monotonic per-runtime cursor. Fake/browser bridges may omit it. */
-  sequence?: number
-}
-
-interface RunEventEnvelope extends EventEnvelope {
-  runId: string
-  sessionId: string
-}
-
-export type AgentUiEvent =
-  | (EventEnvelope & { type: 'session.snapshot'; snapshot: AgentSessionSnapshot })
-  | (RunEventEnvelope & { type: 'run.started'; startedAt: number; retryOfRunId?: string })
-  | (RunEventEnvelope & { type: 'run.cancelling' })
-  | (RunEventEnvelope & { type: 'run.cancelled'; partial: boolean; endedAt: number })
-  | (RunEventEnvelope & { type: 'run.completed'; endedAt: number; usage?: AgentUsageView })
-  | (RunEventEnvelope & { type: 'run.failed'; endedAt: number; error: AgentErrorView })
-  | (RunEventEnvelope & { type: 'run.interrupted'; endedAt: number; error: AgentErrorView })
-  | (RunEventEnvelope & { type: 'user.message.created'; message: AgentMessageView })
-  | (RunEventEnvelope & {
-      type: 'assistant.message.started'
-      messageId: string
-      createdAt: number
-    })
-  | (RunEventEnvelope & { type: 'assistant.text.delta'; messageId: string; delta: string })
-  | (RunEventEnvelope & {
-      type: 'assistant.message.completed'
-      messageId: string
-      citations?: readonly SourceCitation[]
-    })
-  | (RunEventEnvelope & { type: 'assistant.message.failed'; messageId: string })
-  | (RunEventEnvelope & {
-      type: 'assistant.thinking.started'
-      messageId: string
-      createdAt: number
-    })
-  | (RunEventEnvelope & { type: 'assistant.thinking.delta'; messageId: string; delta: string })
-  | (RunEventEnvelope & {
-      type: 'assistant.thinking.completed'
-      messageId: string
-    })
-  | (RunEventEnvelope & { type: 'action.summary'; message: AgentMessageView })
-  | (RunEventEnvelope & { type: 'tool.started'; call: ToolCallView })
-  | (RunEventEnvelope & {
-      type: 'tool.progress'
-      toolCallId: string
-      progress: ToolProgressView
-    })
-  | (RunEventEnvelope & { type: 'tool.confirmation.required'; request: ConfirmationView })
-  | (RunEventEnvelope & {
-      type: 'tool.confirmation.resolved'
-      confirmationId: string
-      decision: 'confirmed' | 'rejected'
-    })
-  | (RunEventEnvelope & { type: 'tool.question.required'; request: QuestionView })
-  | (RunEventEnvelope & {
-      type: 'tool.question.resolved'
-      questionId: string
-      status: 'answered' | 'cancelled'
-      answer?: QuestionAnswerView
-    })
-  | (RunEventEnvelope & { type: 'tool.finished'; result: ToolCallView })
-  | (RunEventEnvelope & { type: 'tool.undone'; toolCallId: string; undoneAt: number })
-  | (EventEnvelope & { type: 'sessions.changed'; sessions: AgentSessionView[] })
-  | (EventEnvelope & { type: 'provider.status.changed'; status: ProviderStatusView })
-
-export type AgentUiEventInput = AgentUiEvent extends infer Event
-  ? Event extends AgentUiEvent
-    ? Omit<Event, 'protocolVersion' | 'sequence'>
-    : never
-  : never
-type AgentRunUiEvent = Extract<AgentUiEvent, { runId: string }>
-export type AgentRunUiEventInput = AgentRunUiEvent extends infer Event
-  ? Event extends AgentRunUiEvent
-    ? Omit<Event, 'protocolVersion' | 'sequence' | 'runId' | 'sessionId'>
-    : never
-  : never
-
-export interface AgentSessionSnapshot {
-  session: AgentSessionView
-  messages: AgentMessageView[]
-  toolCalls: ToolCallView[]
-  runs: AgentRunView[]
-  questions?: QuestionView[]
-  confirmations?: ConfirmationView[]
+/** UI 渲染所需的一份完整读取结果：官方会话记录、客户端条目流与官方文档。 */
+export interface AgentTranscriptView {
+  readonly conversation: ConversationRecord
+  readonly items: readonly TranscriptItem[]
+  readonly docs: Readonly<Record<string, JsonObject>>
+  readonly title: string
 }
 
 export interface StartRunInput {
@@ -432,6 +271,25 @@ export interface StartRunInput {
   readOnly: boolean
   context?: AgentRunContext
 }
+
+/** 重新生成或编辑重发时定位的历史用户条目。 */
+export interface BranchMessageInput {
+  sessionId: string
+  entryId: EntryId
+  readOnly: boolean
+  context?: AgentRunContext
+}
+
+export interface EditMessageInput extends BranchMessageInput {
+  prompt: string
+}
+
+/** 一次运行启动后的定位信息；分支运行会返回新的会话标识。 */
+export interface AgentRunStartedView {
+  runId: string
+  sessionId: string
+}
+
 export interface ProviderTestInput {
   baseUrl: string
   apiKey?: string
@@ -481,11 +339,48 @@ export interface ProviderTestResult {
   stages: ProviderProbeStageResult[]
 }
 
+interface EventEnvelope {
+  protocolVersion: typeof AGENT_UI_PROTOCOL_VERSION
+}
+
+/** 工作区事件：会话视图、目录、Provider 状态与宿主提问。 */
+export type AgentWorkspaceEvent =
+  | (EventEnvelope & {
+      type: 'session.changed'
+      sessionId: string
+      transcript: AgentTranscriptView
+    })
+  | (EventEnvelope & { type: 'session.closed'; sessionId: string })
+  | (EventEnvelope & { type: 'sessions.changed'; sessions: AgentSessionView[] })
+  | (EventEnvelope & { type: 'provider.status.changed'; status: ProviderStatusView })
+  | (EventEnvelope & {
+      type: 'tool.question.required'
+      sessionId: string
+      request: QuestionView
+    })
+  | (EventEnvelope & {
+      type: 'tool.question.resolved'
+      sessionId: string
+      questionId: string
+      status: 'answered' | 'cancelled'
+      answer?: QuestionAnswerView
+    })
+
+export type AgentWorkspaceEventInput = AgentWorkspaceEvent extends infer Event
+  ? Event extends AgentWorkspaceEvent
+    ? Omit<Event, 'protocolVersion'>
+    : never
+  : never
+
 export interface AgentBridgeClient {
   getContextItems(): ReadonlyArray<AgentContextItem>
   subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void
   listSessions(): Promise<AgentSessionView[]>
-  openSession(sessionId: string): Promise<AgentSessionSnapshot>
+  openSession(sessionId: string): Promise<AgentTranscriptView>
+  /** 加载更早的一页条目。 */
+  loadEarlier(sessionId: string): Promise<AgentTranscriptView>
+  /** 补齐条目流中的缺失区间。 */
+  fillGap(sessionId: string, after: EntryId, upTo: EntryId): Promise<AgentTranscriptView>
   getProviderStatus(): Promise<ProviderStatusView>
   listTools(): Promise<AgentToolView[]>
   setToolEnabled(name: string, enabled: boolean): Promise<void>
@@ -493,14 +388,12 @@ export interface AgentBridgeClient {
   createSession(): Promise<AgentSessionView>
   renameSession(sessionId: string, title: string): Promise<void>
   deleteSession(sessionId: string): Promise<void>
-  startRun(input: StartRunInput): Promise<{ runId: string }>
-  cancelRun(runId: string): Promise<void>
-  retryRun(runId: string): Promise<{ runId: string }>
-  /** 编辑指定运行的用户输入，并从该输入之前创建分支。 */
-  editMessage(runId: string, prompt: string): Promise<{ runId: string }>
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
+  startRun(input: StartRunInput): Promise<AgentRunStartedView>
+  cancelRun(sessionId: string): Promise<void>
+  retryRun(input: BranchMessageInput): Promise<AgentRunStartedView>
+  /** 编辑指定历史用户输入，并从该输入之前创建分支。 */
+  editMessage(input: EditMessageInput): Promise<AgentRunStartedView>
   answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void>
-  undoTurn(runId: string): Promise<void>
   listProviderModelCatalog(): Promise<ProviderModelsResult>
   listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
   addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]>
@@ -518,21 +411,3 @@ export interface AgentBridgeClient {
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }
-
-/** 面板只接收完整会话快照、目录/设置和宿主提问；不接收模型增量事件。 */
-export type AgentWorkspaceEvent = Extract<
-  AgentUiEvent,
-  {
-    type:
-      | 'session.snapshot'
-      | 'sessions.changed'
-      | 'provider.status.changed'
-      | 'tool.question.required'
-      | 'tool.question.resolved'
-  }
->
-export type AgentWorkspaceEventInput = AgentWorkspaceEvent extends infer Event
-  ? Event extends AgentWorkspaceEvent
-    ? Omit<Event, 'protocolVersion'>
-    : never
-  : never

@@ -14,11 +14,9 @@ import type {
   ProviderTestInput,
   ProviderTestResult,
 } from '../contracts/ui.js'
-import type { PiRunPlan } from '../pi/types.js'
+import type { AgentRunPlan } from '../pi/types.js'
 import {
   normalizeProviderBaseUrl,
-  parseProviderErrorDetails,
-  parseRetryAfter,
   providerHttpError,
   redactProviderUrl,
   requestProviderJson,
@@ -29,7 +27,7 @@ import {
   parseProviderModelCatalog,
   providerModelView,
 } from './model-catalog.js'
-import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
+import { getProviderApiProtocolAdapter } from './protocol.js'
 import type {
   OpenAiCompatibleProviderSettings,
   OpenAiCompatibleRuntimeOptions,
@@ -363,12 +361,10 @@ export function createOpenAiCompatibleRuntimeSupport(
 
   /**
    * 基于已验证设置构造 Pi 的单次流式运行计划。
-   * @param context 当前 Agent 运行上下文。
-   * @returns 含模型、工具、流函数及错误分类器的运行计划。
+   * @param input 本次运行的会话、提示词、权限与界面上下文。
+   * @returns 含模型、工具、流参数与系统提示词的运行计划。
    */
-  async function createPlan(
-    context: Parameters<RuntimeSupport['createPlan']>[0],
-  ): Promise<PiRunPlan> {
+  async function createPlan(run: Parameters<RuntimeSupport['createPlan']>[0]): Promise<AgentRunPlan> {
     const [apiKey, settings] = await Promise.all([
       options.credentials.read(),
       options.settings.read(),
@@ -411,24 +407,15 @@ export function createOpenAiCompatibleRuntimeSupport(
     })
     const models = createModels()
     models.setProvider(provider)
-    const observation: ProviderStreamObservation = { networkFailure: false }
     const providerFetch = createProviderFetch(fetchImplementation, settings.headers)
-    // 包装 Pi 的 fetch，采集脱敏诊断并保留流式错误分类所需的 HTTP 信息。
+    // 包装 Pi 的 fetch，只采集方法、URL、状态与耗时，不记录请求正文。
     const trackedFetch: FetchFunction = async (input, init) => {
-      observation.status = undefined
-      observation.retryAfterMs = undefined
-      observation.networkFailure = false
       const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
       const method = init?.method?.toUpperCase() ?? 'POST'
       const startedAt = now()
       options.diagnostics?.({ phase: 'request', method, url, attempt: 1, stage: 'stream' })
       try {
         const response = await providerFetch(input, init)
-        observation.status = response.status
-        observation.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now())
-        if (response.status >= 400) {
-          observation.error = parseProviderErrorDetails(await response.clone().text())
-        }
         options.diagnostics?.({
           phase: 'response',
           method,
@@ -441,7 +428,6 @@ export function createOpenAiCompatibleRuntimeSupport(
         })
         return response
       } catch (error) {
-        if (!init?.signal?.aborted) observation.networkFailure = true
         options.diagnostics?.({
           phase: 'failure',
           method,
@@ -454,48 +440,28 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
-    // 工具由宿主按运行上下文提供，运行时本身不持有业务能力。
-    const availableTools = options.tools?.(context) ?? []
-    const tools = context.readOnly
+    // 工具由宿主按运行上下文提供，只读运行过滤掉写操作。
+    const availableTools = options.tools?.(run) ?? []
+    const tools = run.readOnly
       ? availableTools.filter((tool) => tool.safety === 'read-only')
       : availableTools
     return {
-      sessionId: context.sessionId,
       models,
+      model,
+      tools,
+      reasoningEffort: settings.reasoningEffort,
       streamOptions: adapter.streamOptions({
         fetch: trackedFetch,
         timeoutMs,
         maxRetries,
         maxRetryDelayMs,
       }),
-      runId: context.runId,
-      turnId: context.turnId,
-      prompt: context.prompt,
-      readOnly: context.readOnly,
-      scope: { symbol: null, period: null, readOnly: context.readOnly },
-      tools,
-      model,
-      reasoningEffort: settings.reasoningEffort,
-      streamFn: (streamModel, streamContext, streamOptions) =>
-        models.streamSimple(
-          streamModel,
-          streamContext,
-          adapter.streamOptions({
-            ...streamOptions,
-            fetch: trackedFetch,
-            timeoutMs,
-            maxRetries,
-            maxRetryDelayMs,
-          }),
-        ),
-      classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
       systemPrompt: createSystemPrompt(
         tools.length > 0,
         tools.some((tool) => tool.name === 'web_search'),
         formatReferenceTime(now()),
-        context.context,
+        run.context,
       ),
-      contextWindow: settings.contextWindow,
     }
   }
 

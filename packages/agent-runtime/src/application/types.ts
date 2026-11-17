@@ -1,6 +1,9 @@
+// 应用服务的输入输出契约：会话服务、运行计划工厂与 Provider 附加能力。
+import type { EntryId } from '@earendil-works/pi-durable'
 import type {
-  AgentSessionSnapshot,
+  AgentRunContext,
   AgentSessionView,
+  AgentTranscriptView,
   AgentWorkspaceEvent,
   ProviderModelsInput,
   ProviderModelsResult,
@@ -9,8 +12,8 @@ import type {
   ProviderTestResult,
   StartRunInput,
 } from '../contracts/ui.js'
-import type { PiRunPlan } from '../pi/types.js'
-import type { RunPersistenceContext } from '../sessions/types.js'
+import type { AgentRunPlan } from '../pi/types.js'
+import type { AgentSessionService } from '../sessions/session-service.js'
 
 export interface RuntimeLogRecord {
   level: 'debug' | 'info' | 'warn' | 'error'
@@ -25,33 +28,53 @@ export interface RuntimeLogSink {
   write(record: RuntimeLogRecord): void
 }
 
+/** 生成运行计划所需的宿主输入；运行标识由会话服务分配。 */
+export interface RunPlanInput {
+  sessionId: string
+  prompt: string
+  readOnly: boolean
+  context?: AgentRunContext
+}
+
+/** Provider 相关的附加能力，由宿主注入。 */
+export interface ProviderApi {
+  getStatus(): Promise<ProviderStatusView> | ProviderStatusView
+  listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
+  test(input: ProviderTestInput): Promise<ProviderTestResult>
+  deleteCredential(): Promise<void>
+}
+
 export interface AgentApplicationServiceOptions {
-  sessions: import('../sessions/runtime-session-service.js').RuntimeSessionService
-  createPlan(context: RunPersistenceContext): Promise<PiRunPlan> | PiRunPlan
-  provider?: {
-    getStatus(): Promise<ProviderStatusView> | ProviderStatusView
-    listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
-    test(input: ProviderTestInput): Promise<ProviderTestResult>
-    deleteCredential(): Promise<void>
-  }
+  sessions: AgentSessionService
+  createPlan(input: RunPlanInput): Promise<AgentRunPlan> | AgentRunPlan
+  provider?: ProviderApi
   now?: () => number
-  id?: () => string
   logger?: RuntimeLogSink
 }
 
 export interface AgentApplicationApi {
   listSessions(): Promise<AgentSessionView[]>
-  openSession(sessionId: string): Promise<AgentSessionSnapshot>
-  getProviderStatus(): Promise<ProviderStatusView>
+  openSession(sessionId: string): Promise<AgentTranscriptView>
+  loadEarlier(sessionId: string): Promise<AgentTranscriptView>
   createSession(): Promise<AgentSessionView>
   renameSession(sessionId: string, title: string): Promise<void>
   deleteSession(sessionId: string): Promise<void>
-  startRun(input: StartRunInput): Promise<{ runId: string }>
-  cancelRun(runId: string): Promise<void>
-  retryRun(runId: string): Promise<{ runId: string }>
-  editMessage(runId: string, prompt: string): Promise<{ runId: string }>
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
-  undoTurn(runId: string): Promise<void>
+  startRun(input: StartRunInput): Promise<{ runId: string; sessionId: string }>
+  cancelRun(sessionId: string): Promise<void>
+  retryRun(input: {
+    sessionId: string
+    entryId: EntryId
+    readOnly: boolean
+    context?: AgentRunContext
+  }): Promise<{ runId: string; sessionId: string }>
+  editMessage(input: {
+    sessionId: string
+    entryId: EntryId
+    prompt: string
+    readOnly: boolean
+    context?: AgentRunContext
+  }): Promise<{ runId: string; sessionId: string }>
+  getProviderStatus(): Promise<ProviderStatusView>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>

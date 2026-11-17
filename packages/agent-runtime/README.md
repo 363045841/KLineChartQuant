@@ -1,8 +1,8 @@
 # KLineChart Agent Runtime
 
 Framework-neutral Pi orchestration for KLineChartQuant. The package owns the
-stable Agent UI/IPC contracts, run lifecycle, durable Pi sessions, event replay,
-redaction, and deterministic test support.
+stable Agent UI contracts, run submission, durable Pi sessions, and
+deterministic test support.
 
 > **Internal module.** This package is not published to npm. It ships inside the product package
 > [`@363045841yyt/klinechart`](../vue/README.md); install only that package. Import paths below
@@ -11,7 +11,7 @@ redaction, and deterministic test support.
 ```ts
 import {
   AgentApplicationService,
-  RuntimeSessionService,
+  AgentSessionService,
 } from '@363045841yyt/klinechart-agent-runtime'
 import { createNodeRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/node'
 ```
@@ -21,9 +21,12 @@ from a Node or Electron Main process because it loads `node:sqlite`. The
 `./testing` entry supplies the official Pi faux-provider composition and never
 contacts a network service.
 
-Renderer code consumes `AgentBridgeClient` and `AgentUiEvent`; Pi events,
-Provider payloads, credentials, Electron objects, and raw tool results remain
-behind the runtime and host adapters.
+Renderer code consumes `AgentBridgeClient` and `AgentWorkspaceEvent`. Session
+content is the official Pi record stream: `AgentTranscriptView` carries the
+`ConversationRecord`, the client `items` from `ConversationTranscript`, and the
+built-in documents (`pi.live`, `pi.usage`, …). Pi events, Provider payloads,
+credentials, Electron objects, and raw tool results stay behind the runtime and
+host adapters.
 
 ## OpenAI-compatible protocols
 

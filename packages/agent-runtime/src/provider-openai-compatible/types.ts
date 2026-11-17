@@ -102,12 +102,7 @@ export interface OpenAiCompatibleRuntimeOptions {
   /** 接收不含凭据的 Provider 请求诊断信息。 */
   diagnostics?: (diagnostic: ProviderDiagnostic) => void
   /** 根据当前运行上下文提供可用的只读工具。 */
-  tools?: (context: {
-    readonly sessionId: string
-    readonly runId: string
-    readonly turnId: string
-    readonly prompt: string
-    readonly readOnly: boolean
-    readonly context?: AgentRunContext
-  }) => readonly import('../pi/types.js').RuntimeToolDefinition[]
+  tools?: (
+    input: import('../application/types.js').RunPlanInput,
+  ) => readonly import('../pi/types.js').RuntimeToolDefinition[]
 }

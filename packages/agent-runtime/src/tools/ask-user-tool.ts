@@ -60,8 +60,6 @@ export function createAskUserTool(host: AskUserHost): RuntimeToolDefinition {
     safety: 'read-only',
     reversible: false,
     executionMode: 'sequential',
-    // 答复耗时由人决定：驱动器在本工具执行期间停掉无活动 deadline。
-    waitsForUserInput: true,
     summarizeInput: (input) => (input as AskUserInput).question,
     async execute(input, context) {
       context.signal.throwIfAborted()

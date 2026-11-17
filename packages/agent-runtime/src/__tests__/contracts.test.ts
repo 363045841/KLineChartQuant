@@ -1,156 +1,26 @@
+// 契约测试：引用标记、错误视图与稳定协议版本。
 import { describe, expect, it } from 'vitest'
+import { AGENT_UI_PROTOCOL_VERSION, AgentRuntimeError, formatAgentCitation } from '../index.js'
 
-import {
-  AGENT_IPC_PAYLOAD_VERSION,
-  AGENT_IPC_PROTOCOL_VERSION,
-  AgentRuntimeError,
-  type AgentRuntimeErrorCode,
-  createUnavailableRuntimeSupport,
-  parseAgentIpcRequest,
-  redactString,
-} from '../index'
-
-function request(overrides: Record<string, unknown> = {}) {
-  return {
-    protocolVersion: AGENT_IPC_PROTOCOL_VERSION,
-    payloadVersion: AGENT_IPC_PAYLOAD_VERSION,
-    windowId: 'window-1',
-    chartId: 'chart-1',
-    requestId: 'request-1',
-    deadlineAt: 2_000,
-    command: 'run.start',
-    payload: { sessionId: 'session-1', prompt: 'Inspect RSI', readOnly: true },
-    ...overrides,
-  }
-}
-
-describe('Agent IPC contracts', () => {
-  it('accepts a strict versioned command envelope', () => {
-    expect(parseAgentIpcRequest(request(), 1_000).command).toBe('run.start')
+describe('agent contracts', () => {
+  it('encodes citation markers for the assistant body', () => {
+    expect(formatAgentCitation('web:run-1:call-1:1')).toBe('[[cite:web:run-1:call-1:1]]')
   })
 
-  const malformedEnvelopeCases: Array<[Record<string, unknown>, AgentRuntimeErrorCode]> = [
-    [request({ forged: true }), 'INVALID_PAYLOAD'],
-    [request({ protocolVersion: 99 }), 'INVALID_PROTOCOL'],
-    [request({ deadlineAt: 999 }), 'DEADLINE_EXCEEDED'],
-    [
-      request({ payload: { sessionId: 'session-1', prompt: 'x', readOnly: true, rawIpc: {} } }),
-      'INVALID_PAYLOAD',
-    ],
-  ]
-
-  it.each(malformedEnvelopeCases)(
-    'rejects malformed envelopes with stable errors',
-    (input, code) => {
-      expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
-        expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
-      )
-    },
-  )
-
-  it('rejects oversized values before dispatch', () => {
-    const input = request({
-      payload: { sessionId: 'session-1', prompt: 'x'.repeat(300_000), readOnly: true },
-    })
-    expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'PAYLOAD_TOO_LARGE' }),
-    )
-  })
-
-  it('maps non-JSON values to a stable invalid-payload error', () => {
-    const cyclic: Record<string, unknown> = request()
-    cyclic.payload = { cyclic }
-    expect(() => parseAgentIpcRequest(cyclic, 1_000)).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
-    )
-  })
-
-  it('accepts a bounded model refresh command without requiring a replacement key', () => {
-    const parsed = parseAgentIpcRequest(
-      request({
-        command: 'provider.models',
-        payload: {
-          baseUrl: 'https://models.example.test/v1',
-          protocol: 'openai-responses',
-        },
-      }),
-      1_000,
-    )
-    expect(parsed).toMatchObject({
-      command: 'provider.models',
-      payload: {
-        baseUrl: 'https://models.example.test/v1',
-        protocol: 'openai-responses',
-      },
+  it('serializes runtime errors into the UI view', () => {
+    const view = new AgentRuntimeError('SESSION_LOCKED', 'busy', {
+      retryable: true,
+      recommendedAction: 'Close the other tab.',
+    }).toView()
+    expect(view).toEqual({
+      code: 'SESSION_LOCKED',
+      message: 'busy',
+      retryable: true,
+      recommendedAction: 'Close the other tab.',
     })
   })
 
-  it('rejects an unknown Provider API protocol at the IPC boundary', () => {
-    expect(() =>
-      parseAgentIpcRequest(
-        request({
-          command: 'provider.models',
-          payload: {
-            baseUrl: 'https://models.example.test/v1',
-            protocol: 'future-protocol',
-          },
-        }),
-        1_000,
-      ),
-    ).toThrowError(expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }))
-  })
-})
-
-describe('redaction', () => {
-  it('redacts registered values, auth headers and local usernames in input text', () => {
-    const secret = 'temporary-provider-value'
-    const result = redactString(
-      `Bearer abc.def.ghi failure at /Users/alice/project with ${secret} and sk-abcdefghijklmnop`,
-      { secretValues: [secret] },
-    )
-    const serialized = JSON.stringify(result)
-    expect(serialized).not.toContain(secret)
-    expect(serialized).not.toContain('abc.def.ghi')
-    expect(serialized).not.toContain('alice')
-    expect(serialized).not.toContain('sk-abcdefghijklmnop')
-  })
-
-  it('strips a registered value whose shape the built-in patterns miss', () => {
-    const key = 'glm-4-not-an-openai-shaped-key'
-    // 先证明内置正则漏掉该形态，再证明 secretValues 逐字剔除。
-    expect(redactString(`leaked ${key}`)).toContain(key)
-    expect(redactString(`leaked ${key}`, { secretValues: [key] })).not.toContain(key)
-  })
-})
-
-describe('production Provider fallback', () => {
-  it('fails closed instead of returning faux Provider results', async () => {
-    const support = createUnavailableRuntimeSupport()
-
-    expect(await support.provider.getStatus()).toEqual({
-      state: 'not-configured',
-      providerLabel: 'OpenAI-compatible',
-      configured: false,
-      compatibility: 'unknown',
-    })
-    await expect(
-      support.provider.test({
-        baseUrl: 'https://models.example.test/v1',
-        apiKey: 'ephemeral',
-        model: 'fast-model',
-        protocol: 'openai-completions',
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
-    await expect(
-      support.provider.listModels({
-        baseUrl: 'https://models.example.test/v1',
-        apiKey: 'ephemeral',
-        protocol: 'openai-completions',
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
-    expect(() => support.createPlan(undefined as never)).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'PROVIDER_NOT_CONFIGURED' }),
-    )
-    await expect(support.provider.deleteCredential()).resolves.toBeUndefined()
+  it('keeps the workspace protocol version stable', () => {
+    expect(AGENT_UI_PROTOCOL_VERSION).toBe(7)
   })
 })

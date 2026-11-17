@@ -1,20 +1,17 @@
-// Pi Agent 运行计划、工具适配和 UI 事件投影的数据契约。
-
-import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
-import type { Api, AssistantMessage, Model } from '@earendil-works/pi-ai'
+// Agent 运行计划与工具适配契约：驱动只消费官方 Harness 需要的模型、工具与提示词。
+import type { Api, AssistantMessage, Model, Models, ModelsSimpleStreamOptions } from '@earendil-works/pi-ai'
 import type { TSchema } from 'typebox'
 import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   AgentErrorView,
-  AgentRunScope,
-  AgentRunUiEventInput,
   AgentUsageView,
   EvidenceView,
   ProviderReasoningEffort,
   SourceCitation,
   ToolProgressView,
-  ToolSafety,
 } from '../contracts/ui.js'
+/** 工具对图表状态的安全等级。 */
+export type ToolSafety = 'read-only' | 'reversible-write' | 'destructive'
 
 /** 图表工具执行完成后返回给 Pi 与 UI 的标准结果。 */
 export interface RuntimeToolResult {
@@ -53,19 +50,18 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   reversible: boolean
   /** 同一轮中工具调用的执行策略。 */
   executionMode?: 'parallel' | 'sequential'
-  /** 执行时间完全取决于用户输入的等待型工具；执行期间 Run 的无活动 deadline 停表。 */
-  waitsForUserInput?: boolean
   /** 将已验证输入压缩为可展示摘要的函数。 */
   summarizeInput?: (input: unknown) => string
   /**
    * 执行工具。
    * @param input 已通过 Schema 校验的工具输入。
-   * @param context 当前运行、调用、取消和进度上下文。
+   * @param context 当前会话、运行、调用、取消和进度上下文。
    * @returns 标准化的工具执行结果。
    */
   execute(
     input: unknown,
     context: {
+      sessionId: string
       runId: string
       toolCallId: string
       signal: AbortSignal
@@ -74,54 +70,20 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   ): Promise<RuntimeToolResult>
 }
 
-/** Pi 单次 Agent 运行所需的完整不可变计划。 */
-export interface PiRunPlan {
-  /** 官方 Harness 使用的 Provider 集合与流选项。 */
-  models?: import('@earendil-works/pi-ai').Models
-  streamOptions?: import('@earendil-works/pi-ai').ModelsSimpleStreamOptions
-  /** 所属 Agent 会话 ID。 */
-  sessionId: string
-  /** 本次运行 ID。 */
-  runId: string
-  /** 本次用户轮次 ID。 */
-  turnId: string
-  /** 用户输入提示词。 */
-  prompt: string
-  /** 是否仅允许只读工具。 */
-  readOnly: boolean
-  /** 当前图表上下文快照。 */
-  scope: Readonly<AgentRunScope>
-  /** 作为上下文传递给模型的历史消息。 */
-  transcript?: readonly AgentMessage[]
+/** 一次 Agent 运行交给驱动的最小计划：模型、工具、提示词与流参数。 */
+export interface AgentRunPlan {
+  /** 官方 Harness 使用的 Provider 集合。 */
+  readonly models: Models
+  /** 本次请求使用的模型。 */
+  readonly model: Model<Api>
   /** 本次运行允许调用的工具列表。 */
-  tools: readonly RuntimeToolDefinition[]
-  /** Pi 使用的模型描述。 */
-  model: Model<Api>
-  /** 当前模型的上下文窗口，用于回传实际上下文占用。 */
-  contextWindow?: number
-  /** 当前请求使用的模型思考强度。 */
-  reasoningEffort?: ProviderReasoningEffort
-  /** 宿主提供的模型流式调用函数。 */
-  streamFn: StreamFn
-  /** 将 Pi 流式错误归类为运行时错误的可选函数。 */
-  classifyProviderError?: (message: AssistantMessage) => AgentRuntimeError | undefined
+  readonly tools: readonly RuntimeToolDefinition[]
   /** 覆盖默认行为的系统提示词。 */
-  systemPrompt?: string
-  /** 单次运行的总超时时间。 */
-  timeoutMs?: number
+  readonly systemPrompt?: string
+  /** 当前请求使用的模型思考强度。 */
+  readonly reasoningEffort?: ProviderReasoningEffort
+  /** 覆盖 Provider 流式调用参数。 */
+  readonly streamOptions?: ModelsSimpleStreamOptions
+  /** 将 Pi 流式错误归类为运行时错误的可选函数。 */
+  readonly classifyProviderError?: (message: AssistantMessage) => AgentRuntimeError | undefined
 }
-
-/** Pi 驱动器完成一次运行后返回的结果。 */
-export interface PiRunResult {
-  /** 聚合后的助手文本。 */
-  text: string
-  /** 聚合后的模型用量。 */
-  usage?: AgentUsageView
-  /** 成功完成的工具调用数量。 */
-  completedToolCount: number
-  /** 本次运行中成功工具返回的可引用来源。 */
-  citations: readonly SourceCitation[]
-}
-
-/** 接收投影后 Agent UI 事件的同步或异步函数。 */
-export type PiRunEventSink = (event: AgentRunUiEventInput) => Promise<void> | void

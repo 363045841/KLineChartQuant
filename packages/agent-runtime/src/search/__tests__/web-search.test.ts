@@ -62,6 +62,7 @@ describe('web search', () => {
     const result = await tool.execute(
       { query: 'example' },
       {
+        sessionId: 'session-1',
         runId: 'run-1',
         toolCallId: 'tool-1',
         signal: new AbortController().signal,
@@ -96,6 +97,7 @@ describe('web search', () => {
     const result = await tool.execute(
       { query: 'example' },
       {
+        sessionId: 'session-1',
         runId: 'run-1',
         toolCallId: 'tool-1',
         signal: new AbortController().signal,

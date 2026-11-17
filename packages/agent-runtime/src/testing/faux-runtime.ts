@@ -1,3 +1,4 @@
+// Electron 与测试使用的确定性 Provider 支持：不访问网络，按输入返回固定工具与回答。
 import {
   createModels,
   fauxAssistantMessage,
@@ -5,8 +6,8 @@ import {
   fauxToolCall,
 } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
-import type { AgentApplicationServiceOptions } from '../application/types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
+import type { RunPlanInput } from '../application/types.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   ProviderModelsInput,
@@ -15,7 +16,7 @@ import type {
   ProviderTestInput,
   ProviderTestResult,
 } from '../contracts/ui.js'
-import type { PiRunPlan, RuntimeToolDefinition } from '../pi/types.js'
+import type { AgentRunPlan, RuntimeToolDefinition } from '../pi/types.js'
 
 export function createFauxRuntimeSupport(): RuntimeSupport {
   let configured = false
@@ -67,16 +68,14 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
     },
   }
 
-  const createPlan = (
-    context: Parameters<AgentApplicationServiceOptions['createPlan']>[0],
-  ): PiRunPlan => {
+  const createPlan = (input: RunPlanInput): AgentRunPlan => {
     if (!configured) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
         'Configure an Agent Provider before starting a run.',
       )
     }
-    const mutation = !context.readOnly && /add|switch|clear|delete|move|theme/i.test(context.prompt)
+    const mutation = !input.readOnly && /add|switch|clear|delete|move|theme/i.test(input.prompt)
     const toolName = mutation ? 'chart.preview_change' : 'chart.inspect'
     const faux = fauxProvider({
       tokensPerSecond: mutation ? 18 : 10_000,
@@ -84,7 +83,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
     })
     faux.setResponses([
       fauxAssistantMessage(
-        fauxToolCall(toolName, { request: context.prompt }, { id: 'scripted-tool-call' }),
+        fauxToolCall(toolName, { request: input.prompt }, { id: 'scripted-tool-call' }),
         { stopReason: 'toolUse' },
       ),
       fauxAssistantMessage(
@@ -107,10 +106,10 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       safety: mutation ? 'reversible-write' : 'read-only',
       reversible: mutation,
       executionMode: mutation ? 'sequential' : 'parallel',
-      summarizeInput: () => context.prompt,
-      execute: async (_input, toolContext) => {
-        toolContext.signal.throwIfAborted()
-        toolContext.progress({ label: 'Validating chart scope', current: 1, total: 1 })
+      summarizeInput: () => input.prompt,
+      execute: async (_args, context) => {
+        context.signal.throwIfAborted()
+        context.progress({ label: 'Validating chart scope', current: 1, total: 1 })
         return {
           content: mutation
             ? 'Preview mutation completed.'
@@ -127,21 +126,10 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       },
     }
     return {
-      sessionId: context.sessionId,
       models,
-      runId: context.runId,
-      turnId: context.turnId,
-      prompt: context.prompt,
-      readOnly: context.readOnly,
-      scope: {
-        symbol: 'BTCUSDT',
-        period: '1h',
-        visibleRange: 'Latest 7 days',
-        readOnly: context.readOnly,
-      },
-      tools: [tool],
       model: faux.getModel(),
-      streamFn: models.streamSimple.bind(models),
+      tools: [tool],
+      systemPrompt: `You are the KLineChartQuant chart analyst. Current chart context: ${JSON.stringify(input.context?.items ?? [])}.`,
     }
   }
 
