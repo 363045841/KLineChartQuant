@@ -1,41 +1,13 @@
-// 本文件实现 AI-Native 的 Chart Agent 查询 API。
-import { type Static, Type } from 'typebox'
+// 本文件实现 AI-Native 的 Chart Agent 上下文投影；工具定义见 tools/。
+
 import type { IndicatorInstance } from '@/controllers/types.js'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
-import {
-  lookupInstrumentsBySymbol,
-  searchInstruments,
-} from '@/data/provider/impl/instrumentSearch.js'
 import type { TradingDate } from '@/data/provider/types.js'
-import {
-  BAR_AGGREGATIONS,
-  KLINE_ADJUSTMENTS,
-  KLINE_PERIODS,
-  KNOWN_INSTRUMENT_TYPES,
-} from '@/data/provider/types.js'
-import { INSTANCE_MOVE_KIND, MAIN_PANE_ID, type PaneSpec } from '@/engine/pane/types.js'
-import { runInNewPane } from '@/engine/pane/index.js'
-// 副作用导入：加载对比原语模块以执行其 @Tool 注册。
-import '@/engine/data/comparisonCommands.js'
-import {
-  AGENT_DRAWING_KINDS,
-  DRAWING_LABEL_INDEX_PATTERN,
-  type DrawingAnchorCommandInput,
-  type DrawingObject,
-  getDrawingInputAnchorCount,
-} from '@/engine/drawing/index.js'
+import type { DrawingObject } from '@/engine/drawing/index.js'
 import { ACTIVE_BUFFER_KIND, type DataStateModule } from '@/engine/state/dataState.js'
 import { CHART_AGENT_ERROR_CODES, KLineChartError } from '@/errors.js'
-import {
-  type ChartToolExecutionContext,
-  getRegisteredChartTools,
-  Tool,
-} from '@/foundation/agent/chartToolRegistry.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
-import { AGENT_DRAWING_COLOR_VALUES } from '@/foundation/tokens/agentDrawingColors.js'
 import type {
-  BarsQueryInput,
-  BarsQueryResult,
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
@@ -43,215 +15,10 @@ import type {
   ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
-  IndicatorQueryInput,
+  ChartAgentToolDeps,
   MarketDataTextFormatter,
-  TimeShareQueryInput,
-  TimeShareQueryResult,
-  TimeShareRangeQueryInput,
-  TimeShareRangeQueryResult,
 } from '../types.js'
 import { createMarketDataTextFormatter } from './marketDataTextFormatter.js'
-
-const InstrumentLookupToolParameters = Type.Object({
-  symbol: Type.String({ minLength: 1 }),
-  sourceIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
-})
-
-const INDICATOR_QUERY_MAX_LIMIT = 2000
-/** GoTDX V1 /bars 接口单页最大返回条数。 */
-const MARKET_BARS_QUERY_MAX_LIMIT = 798
-// Type.Enum 保留清单的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
-const KLinePeriodToolParameter = Type.Enum(KLINE_PERIODS)
-const KLineAdjustmentToolParameter = Type.Enum(KLINE_ADJUSTMENTS)
-const BarAggregationToolParameter = Type.Enum(BAR_AGGREGATIONS)
-// unknown 只描述数据源未归一化状态，禁止作为工具输入的路由筛选条件。
-const InstrumentTypeToolParameter = Type.Enum(KNOWN_INSTRUMENT_TYPES)
-const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
-
-const IndicatorQueryToolParameters = Type.Object(
-  {
-    definitionId: Type.String({ minLength: 1 }),
-    params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
-  },
-  { additionalProperties: false },
-)
-
-const BarsQueryToolParameters = Type.Object(
-  {
-    symbol: Type.String({ minLength: 1 }),
-    period: KLinePeriodToolParameter,
-    adjustment: KLineAdjustmentToolParameter,
-    barAggregation: BarAggregationToolParameter,
-    limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
-    sourceId: Type.Optional(Type.String({ minLength: 1 })),
-    exchange: Type.Optional(Type.String({ minLength: 1 })),
-    instrumentType: Type.Optional(InstrumentTypeToolParameter),
-  },
-  { additionalProperties: false },
-)
-
-type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
-
-const TimeShareQueryToolParameters = Type.Object({
-  symbol: Type.String({ minLength: 1 }),
-  tradingDate: TradingDateToolParameter,
-  sourceId: Type.Optional(Type.String({ minLength: 1 })),
-  exchange: Type.Optional(Type.String({ minLength: 1 })),
-  instrumentType: Type.Optional(InstrumentTypeToolParameter),
-})
-
-const TimeShareRangeQueryToolParameters = Type.Object({
-  symbol: Type.String({ minLength: 1 }),
-  endTradingDate: TradingDateToolParameter,
-  days: Type.Integer({ minimum: 1 }),
-  sourceId: Type.Optional(Type.String({ minLength: 1 })),
-  exchange: Type.Optional(Type.String({ minLength: 1 })),
-  instrumentType: Type.Optional(InstrumentTypeToolParameter),
-})
-
-/** 按输入锚点数量分组图元种类，供工具说明声明每种图元需要的锚点数。 */
-function groupDrawingKindsByAnchorCount(): string {
-  const byCount = new Map<number, string[]>()
-  for (const kind of AGENT_DRAWING_KINDS) {
-    const count = getDrawingInputAnchorCount(kind)
-    const kinds = byCount.get(count)
-    if (kinds) kinds.push(kind)
-    else byCount.set(count, [kind])
-  }
-  return [...byCount.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([count, kinds]) => `${count}: ${kinds.join(', ')}`)
-    .join('; ')
-}
-
-// 锚点数量按图元种类不同，说明从种类声明派生，避免说明与实现漂移。
-const DRAWING_ANCHOR_TOOL_RULE =
-  `Required anchor count by kind — ${groupDrawingKindsByAnchorCount()}. ` +
-  'horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.'
-
-const DrawingKindToolParameter = Type.Enum([...AGENT_DRAWING_KINDS])
-const AgentDrawingColorToolParameter = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
-const DrawingAnchorToolParameters = Type.Object({
-  tradingDate: Type.Optional(TradingDateToolParameter),
-  price: Type.Number(),
-})
-const DrawingStyleToolParameters = Type.Partial(
-  Type.Object({
-    stroke: AgentDrawingColorToolParameter,
-    strokeWidth: Type.Number({ exclusiveMinimum: 0 }),
-    strokeStyle: Type.Union([
-      Type.Literal('solid'),
-      Type.Literal('dashed'),
-      Type.Literal('dotted'),
-    ]),
-    fill: AgentDrawingColorToolParameter,
-    fillOpacity: Type.Number({ minimum: 0, maximum: 1 }),
-    pointRadius: Type.Number({ exclusiveMinimum: 0 }),
-    textColor: AgentDrawingColorToolParameter,
-    fontSize: Type.Number({ exclusiveMinimum: 0 }),
-  }),
-)
-/** 创建时的完整样式：stroke 必填，其余字段按需覆盖；更新 patch 仍沿用可选样式。 */
-const DrawingCreateStyleToolParameters = Type.Object({
-  stroke: AgentDrawingColorToolParameter,
-  strokeWidth: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
-  strokeStyle: Type.Optional(
-    Type.Union([Type.Literal('solid'), Type.Literal('dashed'), Type.Literal('dotted')]),
-  ),
-  fill: Type.Optional(AgentDrawingColorToolParameter),
-  fillOpacity: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
-  pointRadius: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
-  textColor: Type.Optional(AgentDrawingColorToolParameter),
-  fontSize: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
-})
-const DrawingLabelToolParameters = Type.Object(
-  {
-    text: Type.String({ description: '标签文本。使用字面量 \\n 作为唯一换行控制码。' }),
-    position: Type.Union([Type.Literal('start'), Type.Literal('center'), Type.Literal('end')]),
-  },
-  { additionalProperties: false },
-)
-// 标签以渲染输出的线段 / 区域序号为键；additionalProperties:false 拒绝序号以外的键，避免畸形形状通过校验。
-const DrawingLabelRecordToolParameter = Type.Record(
-  Type.String({ pattern: DRAWING_LABEL_INDEX_PATTERN }),
-  DrawingLabelToolParameters,
-  {
-    additionalProperties: false,
-    description: '键为渲染输出的线段或区域序号，从 "0" 起的字符串数字。',
-  },
-)
-const DrawingLabelsToolParameters = Type.Object(
-  { line: DrawingLabelRecordToolParameter, area: DrawingLabelRecordToolParameter },
-  { additionalProperties: false },
-)
-const DrawingCreateToolParameters = Type.Object({
-  kind: DrawingKindToolParameter,
-  paneId: Type.String({ minLength: 1 }),
-  anchors: Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 }),
-  style: DrawingCreateStyleToolParameters,
-  labels: Type.Optional(DrawingLabelsToolParameters),
-  visible: Type.Optional(Type.Boolean()),
-  locked: Type.Optional(Type.Boolean()),
-  zIndex: Type.Optional(Type.Number()),
-})
-const DrawingUpdatePatchToolParameters = Type.Object(
-  {
-    anchors: Type.Optional(Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 })),
-    style: Type.Optional(DrawingStyleToolParameters),
-    labels: Type.Optional(DrawingLabelsToolParameters),
-    visible: Type.Optional(Type.Boolean()),
-    locked: Type.Optional(Type.Boolean()),
-    zIndex: Type.Optional(Type.Number()),
-  },
-  { minProperties: 1 },
-)
-const DrawingUpdateToolParameters = Type.Object({
-  drawingId: Type.String({ minLength: 1 }),
-  patch: DrawingUpdatePatchToolParameters,
-})
-const DrawingDeleteToolParameters = Type.Object({
-  drawingId: Type.String({ minLength: 1 }),
-})
-const DrawingCopyToolParameters = Type.Object({
-  drawingIds: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, uniqueItems: true }),
-})
-const DrawingsListToolParameters = Type.Object({})
-const DrawingsClearToolParameters = Type.Object({})
-const PaneParamsToolParameter = Type.Record(Type.String(), Type.Unknown())
-const PanePatchToolParameters = Type.Partial(
-  Type.Object({
-    ratio: Type.Number({ exclusiveMinimum: 0 }),
-    visible: Type.Boolean(),
-    minHeightPx: Type.Number({ exclusiveMinimum: 0 }),
-  }),
-  { minProperties: 1 },
-)
-const PaneCreateToolParameters = Type.Object({
-  paneId: Type.String({ minLength: 1 }),
-  indicatorId: Type.String({ minLength: 1 }),
-  params: PaneParamsToolParameter,
-})
-const PaneUpdateToolParameters = Type.Object({
-  paneId: Type.String({ minLength: 1 }),
-  patch: PanePatchToolParameters,
-})
-const PaneIdToolParameters = Type.Object({ paneId: Type.String({ minLength: 1 }) })
-const PaneMoveToolParameters = Type.Object({
-  paneId: Type.String({ minLength: 1 }),
-  targetIndex: Type.Integer({ minimum: 0 }),
-})
-const PaneReplaceContentToolParameters = Type.Object({
-  paneId: Type.String({ minLength: 1 }),
-  indicatorId: Type.String({ minLength: 1 }),
-  params: PaneParamsToolParameter,
-})
-const PaneUpdateContentToolParameters = Type.Object({
-  paneId: Type.String({ minLength: 1 }),
-  params: PaneParamsToolParameter,
-})
-const PanesListToolParameters = Type.Object({})
-const PanesClearToolParameters = Type.Object({})
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
 function projectIndicators(
@@ -273,11 +40,14 @@ function projectIndicators(
 }
 
 /** 将内部图元投影为不含渲染派生坐标与会话态的 Agent 快照。 */
-function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
+function projectDrawing(
+  drawing: DrawingObject,
+  placement: string | null,
+): ChartAgentDrawingSnapshot {
   return Object.freeze({
     id: drawing.id,
     kind: drawing.kind,
-    paneId: drawing.paneId,
+    placement,
     visible: drawing.visible,
     locked: drawing.locked ?? false,
     zIndex: drawing.zIndex ?? null,
@@ -302,29 +72,18 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
 function projectDrawingSelection(
   drawings: ReadonlyArray<DrawingObject>,
   selectedIds: ReadonlyArray<string>,
+  readPlacement: (paneId: string) => string | null,
 ): ChartAgentDrawingSelection | null {
   if (selectedIds.length === 0) return null
-
   const drawingsById = new Map(drawings.map((drawing) => [drawing.id, drawing]))
   const selectedDrawings = selectedIds
     .map((id) => drawingsById.get(id))
     .filter((drawing): drawing is DrawingObject => drawing !== undefined)
-    .map(projectDrawing)
+    .map((drawing) => projectDrawing(drawing, readPlacement(drawing.paneId)))
   if (selectedDrawings.length === 0) return null
-
   return Object.freeze({
     selectedIds: Object.freeze(selectedDrawings.map((drawing) => drawing.id)),
     drawings: Object.freeze(selectedDrawings),
-  })
-}
-
-/** 将 Agent 提供的交易日锚点转换为 Core 绘图 API 使用的声明式输入。 */
-function parseDrawingAnchors(
-  anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
-): ReadonlyArray<DrawingAnchorCommandInput> {
-  return anchors.map(({ tradingDate, price }) => {
-    if (tradingDate === undefined) return { price }
-    return { tradingDate: tradingDate as TradingDate, price }
   })
 }
 
@@ -349,7 +108,8 @@ function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number 
   return { from, to }
 }
 
-/** 实现 UI 和 Agent 共用的图表查询 API。 */
+type AgentSymbolSpec = ReturnType<ChartAgentControllerDependencies['currentSpec']>
+
 /** 返回第一个真值，用于兼容旧 spec 字段与空字符串回退。 */
 function firstTruthy<T>(...values: ReadonlyArray<T | null | undefined>): T | null {
   for (const value of values) {
@@ -357,8 +117,6 @@ function firstTruthy<T>(...values: ReadonlyArray<T | null | undefined>): T | nul
   }
   return null
 }
-
-type AgentSymbolSpec = ReturnType<ChartAgentControllerDependencies['currentSpec']>
 
 /** spec 的标识字段分散在 instrument 与旧平面字段，逐项收敛避免调用方堆叠可选链。 */
 function specSymbol(spec: AgentSymbolSpec): string | null {
@@ -381,20 +139,19 @@ function specDataSource(spec: AgentSymbolSpec, sourceId: string): string | null 
   return firstTruthy(sourceId, spec?.source, spec?.instrument?.sourceId)
 }
 
+/** 图表的 Agent 上下文投影；工具能力由 tools/ 声明并注入。 */
 class ChartAgentControllerImpl implements ChartAgentController {
   /** 图表状态的响应式只读上下文投影。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
+  /** Agent 工具执行所需的领域能力。 */
+  readonly tools: ChartAgentToolDeps
   private readonly marketDataTextFormatter: MarketDataTextFormatter
   /** 创建图表 Agent facade，并使用图表共享的行情缓存。 */
   constructor(private readonly dependencies: ChartAgentControllerDependencies) {
     this.context = computed(() => this.createContext())
+    this.tools = dependencies.tools
     this.marketDataTextFormatter =
       dependencies.marketDataTextFormatter ?? createMarketDataTextFormatter()
-  }
-
-  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主。 */
-  get toolHosts(): ReadonlyArray<object> {
-    return [this.dependencies.comparisonCommands]
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */
@@ -419,6 +176,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const drawingSelection = projectDrawingSelection(
       this.dependencies.drawings(),
       this.dependencies.selectedDrawingIds(),
+      this.dependencies.readPlacement,
     )
 
     return Object.freeze({
@@ -473,450 +231,6 @@ class ChartAgentControllerImpl implements ChartAgentController {
     }
     return snapshot
   }
-
-  /** 返回当前启用数据源的精确 ID，避免 Agent 根据常见 Provider 名称猜测。 */
-  getAvailableMarketDataSourceIds(): ReadonlyArray<string> {
-    return this.dependencies.marketDataProviderRegistry
-      .getEnabledByPriority()
-      .map((provider) => provider.source.id)
-  }
-
-  /** 返回当前可用于创建图元的 pane ID。 */
-  getAvailableDrawingPaneIds(): ReadonlyArray<string> {
-    return Object.freeze([...this.dependencies.getDrawingPaneIds()])
-  }
-
-  /** 返回 Agent 可引用的 pane 布局快照。 */
-  @Tool({
-    name: 'panes_list',
-    label: 'List panes',
-    description:
-      'List the current pane layout and capabilities. Use paneId values from this result when creating drawings or changing a pane.',
-    parameters: PanesListToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async listPanes(
-    _input?: Static<typeof PanesListToolParameters>,
-  ): Promise<ReadonlyArray<PaneSpec>> {
-    return Object.freeze(
-      this.dependencies.panes.getLayoutSpecs().map((pane) =>
-        Object.freeze({
-          ...pane,
-          ...(pane.capabilities ? { capabilities: Object.freeze({ ...pane.capabilities }) } : {}),
-        }),
-      ),
-    )
-  }
-
-  /**
-   * 按需加载副图指标定义，并解析为可在目标 pane 渲染的指标 ID。
-   * @returns 可渲染的指标 ID；定义缺失或无法在该 pane 渲染时返回 null。
-   */
-  private async resolveRenderableSubIndicator(
-    indicatorId: string,
-    paneId: string,
-  ): Promise<string | null> {
-    await this.dependencies.loadIndicators([indicatorId])
-    const resolved = this.dependencies.resolveSubPaneIndicatorId(indicatorId)
-    if (!resolved || !this.dependencies.isSubPaneRendererAvailable(resolved, paneId)) return null
-    return resolved
-  }
-
-  /** 创建带副图指标内容的 pane。 */
-  @Tool({
-    name: 'pane_create',
-    label: 'Create pane',
-    description:
-      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
-    parameters: PaneCreateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
-    const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
-    if (!indicatorId) return false
-    const anchor = this.dependencies.panes.getLayoutSpecs().at(-1)?.id ?? MAIN_PANE_ID
-    return runInNewPane(this.dependencies.panes, anchor, 'below', (paneId) =>
-      this.dependencies.panes.add(indicatorId, input.params, {
-        kind: INSTANCE_MOVE_KIND.PANE,
-        paneId,
-      }) !== null,
-    )
-  }
-
-  /** 更新单个 pane 的布局属性。 */
-  @Tool({
-    name: 'pane_update',
-    label: 'Update pane',
-    description:
-      'Update one pane layout patch. ratio is relative among visible panes; minHeightPx is a positive CSS-pixel constraint.',
-    parameters: PaneUpdateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async updatePane(input: Static<typeof PaneUpdateToolParameters>): Promise<boolean> {
-    return this.dependencies.panes.updatePane(input.paneId, input.patch)
-  }
-
-  /** 删除一个 pane 及其用户副图内容。 */
-  @Tool({
-    name: 'pane_remove',
-    label: 'Remove pane',
-    description:
-      'Remove one user pane and its indicator content. System-owned mode panes cannot be removed.',
-    parameters: PaneIdToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async removePane(input: Static<typeof PaneIdToolParameters>): Promise<boolean> {
-    return this.dependencies.panes.removePane(input.paneId)
-  }
-
-  /** 调整 pane 的显示顺序。 */
-  @Tool({
-    name: 'pane_move',
-    label: 'Move pane',
-    description:
-      'Move one pane to a zero-based layout index without changing its indicator content.',
-    parameters: PaneMoveToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async movePane(input: Static<typeof PaneMoveToolParameters>): Promise<boolean> {
-    return this.dependencies.panes.movePane(input.paneId, input.targetIndex)
-  }
-
-  /** 替换 pane 的副图指标内容。 */
-  @Tool({
-    name: 'pane_replace_content',
-    label: 'Replace pane content',
-    description:
-      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
-    parameters: PaneReplaceContentToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async replacePaneContent(
-    input: Static<typeof PaneReplaceContentToolParameters>,
-  ): Promise<boolean> {
-    const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
-    if (!indicatorId) return false
-    const instance = this.dependencies.indicators
-      .peek()
-      .find((item) => item.paneId === input.paneId)
-    if (!instance) return false
-    return this.dependencies.panes.updateInstance(instance.id, {
-      indicatorId,
-      params: input.params,
-    })
-  }
-
-  /** 更新 pane 副图指标的完整参数。 */
-  @Tool({
-    name: 'pane_update_content',
-    label: 'Update pane content',
-    description: 'Replace the complete parameter object of one user pane indicator.',
-    parameters: PaneUpdateContentToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async updatePaneContent(input: Static<typeof PaneUpdateContentToolParameters>): Promise<boolean> {
-    const instance = this.dependencies.indicators
-      .peek()
-      .find((item) => item.paneId === input.paneId)
-    if (!instance) return false
-    return this.dependencies.panes.updateInstance(instance.id, {
-      params: input.params,
-    })
-  }
-
-  /** 删除全部用户副图 pane。 */
-  @Tool({
-    name: 'panes_clear',
-    label: 'Clear panes',
-    description:
-      'Remove every user-created indicator pane and its content. Main and mode-owned panes are retained.',
-    parameters: PanesClearToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async clearPanes(_input?: Static<typeof PanesClearToolParameters>): Promise<void> {
-    this.dependencies.panes.clearPanes()
-  }
-
-  /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */
-  private requireEnabledMarketDataSource(sourceId: string | undefined): void {
-    if (sourceId === undefined) return
-    const availableSourceIds = this.getAvailableMarketDataSourceIds()
-    if (availableSourceIds.includes(sourceId)) return
-    throw new KLineChartError(
-      CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-      `Unknown or disabled sourceId '${sourceId}'. Available sourceIds: ${availableSourceIds.join(', ') || 'none'}. Omit sourceId to allow automatic routing across every enabled source.`,
-    )
-  }
-
-  /** 查询当前图表数据上的指标值；前端和 Agent 调用同一领域 API。 */
-  @Tool({
-    name: 'indicators_query',
-    label: 'Query indicator',
-    description:
-      'Calculate a registered chart indicator over all active K-line data and return compact text. Use definitionId, optional numeric calculation params, and a bounded result limit.',
-    parameters: IndicatorQueryToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async queryIndicator(
-    input: IndicatorQueryInput,
-    _context?: ChartToolExecutionContext,
-  ): Promise<string> {
-    await this.dependencies.loadIndicators([input.definitionId])
-    return this.dependencies.indicatorQuery.queryIndicator({
-      definitionId: input.definitionId,
-      params: input.params,
-      limit: input.limit,
-    })
-  }
-
-  /** 执行面向前端联想搜索的模糊品种查询。 */
-  searchInstruments(input: Parameters<typeof searchInstruments>[1]) {
-    return searchInstruments(this.dependencies.marketDataProviderRegistry, input)
-  }
-
-  /** 按证券代码精确查询标准品种，输出全部匹配的 Markdown 表格；前端和 Agent 调用同一领域 API。 */
-  @Tool({
-    name: 'instruments_query_name',
-    label: 'Query instrument name',
-    description:
-      "Look up security names by an exact symbol through the active market-data sources. Optionally restrict the lookup to sourceIds. Returns a Markdown table of every exact match with all instrument fields; never infer a name from a partial match. When the table contains more than one row, do not pick a candidate yourself: call ask_user with one option per row, where value is that row's id, label is its name, and description lists its source, exchange, and instrumentType; wait for the user to choose before continuing.",
-    parameters: InstrumentLookupToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async lookupInstrumentsBySymbol(
-    input: Parameters<typeof lookupInstrumentsBySymbol>[1],
-    context?: ChartToolExecutionContext,
-  ): Promise<string> {
-    const instruments = await lookupInstrumentsBySymbol(
-      this.dependencies.marketDataProviderRegistry,
-      {
-        ...input,
-        signal: context?.signal ?? input.signal,
-      },
-    )
-    return this.marketDataTextFormatter.formatInstrumentLookup({
-      symbol: input.symbol,
-      instruments,
-    })
-  }
-
-  /** 查询任意品种的最新一页 K 线。 */
-  async queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string> {
-    this.requireEnabledMarketDataSource(input.sourceId)
-    const result = await this.dependencies.marketDataCache.queryBars({
-      sourceId: input.sourceId,
-      symbol: input.symbol,
-      exchange: input.exchange,
-      instrumentType: input.instrumentType,
-      period: input.period,
-      adjustment: input.adjustment,
-      barAggregation: input.barAggregation,
-      limit: input.limit,
-      signal: context?.signal,
-    })
-    return this.marketDataTextFormatter.formatBars({
-      sourceId: result.sourceId,
-      instrument: result.instrument,
-      series: result.series,
-      olderData: result.series.olderData,
-    })
-  }
-
-  /** 查询任意品种的最新一页 K 线。 */
-  @Tool({
-    name: 'market_bars_query',
-    label: 'Query market bars',
-    description:
-      'Fetch the latest page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Pagination and retries are handled by the cache.',
-    parameters: BarsQueryToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  queryLatestBars(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
-    return this.queryBars(input, context)
-  }
-
-  /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */
-  @Tool({
-    name: 'market_timeshare_query',
-    label: 'Query market time share',
-    description:
-      'Fetch one trading day of intraday time-share data for any symbol without changing the chart.',
-    parameters: TimeShareQueryToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async queryTimeShare(
-    input: TimeShareQueryInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string> {
-    this.requireEnabledMarketDataSource(input.sourceId)
-    const result = await this.dependencies.marketDataCache.queryTimeShare({
-      sourceId: input.sourceId,
-      symbol: input.symbol,
-      exchange: input.exchange,
-      instrumentType: input.instrumentType,
-      tradingDate: input.tradingDate as TradingDate,
-      signal: context?.signal,
-    })
-    return this.marketDataTextFormatter.formatTimeShare({
-      sourceId: result.sourceId,
-      instrument: result.instrument,
-      series: result.series,
-    })
-  }
-
-  /** 查询任意品种多个交易日的分时；不读取或修改图表运行时状态。 */
-  @Tool({
-    name: 'market_timeshare_range_query',
-    label: 'Query market time-share range',
-    description:
-      'Fetch multiple trading days of intraday time-share data for any symbol without changing the chart.',
-    parameters: TimeShareRangeQueryToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async queryTimeShareRange(
-    input: TimeShareRangeQueryInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string> {
-    this.requireEnabledMarketDataSource(input.sourceId)
-    const result = await this.dependencies.marketDataCache.queryTimeShareRange({
-      sourceId: input.sourceId,
-      symbol: input.symbol,
-      exchange: input.exchange,
-      instrumentType: input.instrumentType,
-      endTradingDate: input.endTradingDate as TradingDate,
-      days: input.days,
-      signal: context?.signal,
-    })
-    return this.marketDataTextFormatter.formatTimeShareRange({
-      sourceId: result.sourceId,
-      instrument: result.instrument,
-      range: result.range,
-    })
-  }
-
-  /** 返回当前已确认图元，不暴露内部 index 与会话预览。 */
-  @Tool({
-    name: 'drawings_list',
-    label: 'List drawings',
-    description:
-      'List every committed chart drawing. Anchors use timestamp and price; rendering indexes and interaction previews are not exposed.',
-    parameters: DrawingsListToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async listDrawings(
-    _input?: Static<typeof DrawingsListToolParameters>,
-  ): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>> {
-    return this.dependencies.drawingDocument.listDrawings().map(projectDrawing)
-  }
-
-  /** 创建一个图表已确认图元。 */
-  @Tool({
-    name: 'drawing_create',
-    label: 'Create drawing',
-    description:
-      'Create a committed chart drawing using a supported kind and an existing paneId. ' +
-      `${DRAWING_ANCHOR_TOOL_RULE} ` +
-      'labels is the complete text model keyed by the rendered line or area index.',
-    parameters: DrawingCreateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async createDrawing(
-    input: Static<typeof DrawingCreateToolParameters>,
-  ): Promise<ChartAgentDrawingSnapshot> {
-    return projectDrawing(
-      this.dependencies.drawingCommands.create({
-        ...input,
-        anchors: parseDrawingAnchors(input.anchors),
-      }),
-    )
-  }
-
-  /** 按当前视口克隆指定图元，与 Canvas Toolbar 的克隆按钮使用相同入口。 */
-  @Tool({
-    name: 'drawings_copy',
-    label: 'Clone drawings',
-    description:
-      'Clone drawings by ID with a shared screen offset. Selects visible, unlocked copies; the entire group is one undo step.',
-    parameters: DrawingCopyToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async copyDrawings(
-    input: Static<typeof DrawingCopyToolParameters>,
-  ): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>> {
-    return this.dependencies.copyDrawings(input.drawingIds).map(projectDrawing)
-  }
-
-  /** 更新一个图表已确认图元。 */
-  @Tool({
-    name: 'drawing_update',
-    label: 'Update drawing',
-    description:
-      'Update a committed chart drawing by id. labels replaces the complete text model; obtain it from drawings_list before changing it. ' +
-      `Supply at least one patch field. ${DRAWING_ANCHOR_TOOL_RULE}`,
-    parameters: DrawingUpdateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async updateDrawing(
-    input: Static<typeof DrawingUpdateToolParameters>,
-  ): Promise<ChartAgentDrawingSnapshot | null> {
-    const patch = input.patch
-    const { anchors, ...rest } = patch
-    const drawing = this.dependencies.drawingCommands.updateFromInput(input.drawingId, {
-      ...rest,
-      ...(anchors === undefined ? {} : { anchors: parseDrawingAnchors(anchors) }),
-    })
-    return drawing ? projectDrawing(drawing) : null
-  }
-
-  /** 删除一个图表已确认图元。 */
-  @Tool({
-    name: 'drawing_delete',
-    label: 'Delete drawing',
-    description: 'Delete one committed chart drawing by id. Returns whether a drawing was removed.',
-    parameters: DrawingDeleteToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async deleteDrawing(
-    input: Static<typeof DrawingDeleteToolParameters>,
-  ): Promise<{ removed: boolean }> {
-    return { removed: this.dependencies.drawingCommands.remove(input.drawingId) }
-  }
-
-  /** 清除当前图表的全部已确认图元。 */
-  @Tool({
-    name: 'drawings_clear',
-    label: 'Clear drawings',
-    description:
-      'Delete every committed chart drawing. Interaction previews are not persisted and are unaffected.',
-    parameters: DrawingsClearToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async clearDrawings(
-    _input: Static<typeof DrawingsClearToolParameters>,
-  ): Promise<{ removed: number }> {
-    const removed = this.dependencies.drawingDocument.listDrawings().length
-    this.dependencies.drawingCommands.clear()
-    return { removed }
-  }
 }
 
 /** 创建稳定的 Chart Agent facade。 */
@@ -925,6 +239,3 @@ export function createChartAgentController(
 ): ChartAgentController {
   return new ChartAgentControllerImpl(dependencies)
 }
-
-/** 返回已标注的 Chart Agent API，导入本模块时确保装饰器完成注册。 */
-export { getRegisteredChartTools }

@@ -1,9 +1,8 @@
 /**
  * PaneManager —— 实例归属与 Pane 容器的唯一领域写入口。
  *
- * 主图与副图共用同一套实例命令：add / moveInstance / removeInstance /
- * updateInstance / clearAllIndicators。
- * Pane 容器操作只管理顺序、高度和可见性，不承担指标内容语义。
+ * 两套命令面分开暴露：`instances` 管理指标实例生命周期，`actions` 只做
+ * Pane 容器布局。实例身份与所属容器全部由这里分配，调用方不生成 id。
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
@@ -14,6 +13,8 @@ import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.j
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
 import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
 import type {
+  IndicatorInstanceCommands,
+  IndicatorPlacement,
   InstanceMoveTarget,
   PaneLayoutCommands,
   PaneManagerDependencies,
@@ -32,23 +33,27 @@ interface ResolvedTarget {
 export class PaneManager {
   constructor(private readonly dependencies: PaneManagerDependencies) {}
 
-  /** 对外唯一布局写入口。 */
+  /** Pane 容器布局写入口。 */
   readonly actions: PaneLayoutCommands = {
-    add: (definitionId, params, target) => this.add(definitionId, params, target),
     addPane: (anchorPaneId, placement) => this.addPane(anchorPaneId, placement),
-    moveInstance: (instanceId, target) => this.moveInstance(instanceId, target),
-    removeInstance: (instanceId) => this.removeInstance(instanceId),
-    updateInstance: (instanceId, patch) => this.updateInstance(instanceId, patch),
     updatePane: (paneId, patch) => this.updatePane(paneId, patch),
     movePane: (paneId, targetIndex) => this.movePane(paneId, targetIndex),
     reorderPanes: (paneIds) => this.reorderPanes(paneIds),
     removePane: (paneId) => this.removePane(paneId),
-    removeInstancesByDefinition: (definitionId) => this.removeInstancesByDefinition(definitionId),
-    clearAllIndicators: () => this.clearAllIndicators(),
     clearPanes: () => this.clearPanes(),
     importLayout: (specs) => this.importLayout(specs),
     getLayoutSpecs: () => [...this.list()],
     hasPane: (paneId) => this.list().some((spec) => spec.id === paneId),
+  }
+
+  /** 指标实例写入口；身份由状态生成。 */
+  readonly instances: IndicatorInstanceCommands = {
+    add: (definitionId, params, placement) => this.add(definitionId, params, placement),
+    move: (instanceId, target) => this.moveInstance(instanceId, target),
+    remove: (instanceId) => this.removeInstance(instanceId),
+    removeByDefinition: (definitionId) => this.removeInstancesByDefinition(definitionId),
+    clear: () => this.clearAllIndicators(),
+    update: (instanceId, patch) => this.updateInstance(instanceId, patch),
   }
 
   /** 返回当前 pane 布局快照。 */
@@ -56,26 +61,24 @@ export class PaneManager {
     return this.dependencies.pane.readonly.paneSpecs.peek()
   }
 
-  /** 创建实例；主图定义默认进主图，其余默认在最后一个 Pane 下方新建副图。 */
+  /** 创建实例；placement 缺省时主图定义进主图，其余默认新建副图。 */
   private add(
     definitionId: string,
     params: Readonly<Record<string, unknown>> | undefined,
-    target: InstanceMoveTarget | undefined,
+    placement: IndicatorPlacement | undefined,
   ): string | null {
     const definition = this.dependencies.getDefinition(definitionId)
     if (!definition) return null
     const specs = this.list()
+    const wantsOwnPane =
+      placement === 'sub' || (placement === undefined && definition.category !== 'main')
     let paneId: string
     let insertedPaneId: string | undefined
     let nextSpecs = specs
-    if (target !== undefined) {
-      const resolved = this.resolveTarget(target, specs)
-      if (!resolved) return null
-      paneId = resolved.paneId
-    } else if (definition.category === 'main') {
+    if (!wantsOwnPane) {
       paneId = specs[0]!.id
     } else {
-      // 默认副图：先建 Pane，再把实例放进去。
+      // 副图落点：先建 Pane，再把实例放进去。
       paneId = generateUUID()
       insertedPaneId = paneId
       nextSpecs = this.insertPaneSpec(specs, paneId, {

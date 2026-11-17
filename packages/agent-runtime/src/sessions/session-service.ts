@@ -14,7 +14,7 @@ import type {
 } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type { AgentSessionView } from '../contracts/ui.js'
-import { submitAgentRun, type DurableExecution } from '../pi/impl/run.js'
+import { type DurableExecution, submitAgentRun } from '../pi/impl/run.js'
 import type { AgentRunPlan } from '../pi/types.js'
 import {
   LEGACY_MAIN_LANE,
@@ -115,14 +115,11 @@ export class AgentSessionService {
       if (!identity || identity.lane !== LEGACY_MAIN_LANE || identity.deleted) continue
       const updatedAt = await this.legacyUpdatedAt(record.id)
       if (updatedAt === undefined) continue
-      await this.execution.harness.commit(
-        async (tx) => {
-          const doc = await tx.doc(KqSessionDoc, record.id)
-          doc.title = identity.title
-          doc.updatedAt = updatedAt
-        },
-        BACKGROUND_CONTEXT,
-      )
+      await this.execution.harness.commit(async (tx) => {
+        const doc = await tx.doc(KqSessionDoc, record.id)
+        doc.title = identity.title
+        doc.updatedAt = updatedAt
+      }, BACKGROUND_CONTEXT)
     }
   }
 
@@ -225,10 +222,7 @@ export class AgentSessionService {
    * @returns 用户输入原文。
    */
   async readUserPrompt(entryId: EntryId): Promise<string> {
-    const entry = await this.execution.harness.commit(
-      (tx) => tx.entry(entryId),
-      BACKGROUND_CONTEXT,
-    )
+    const entry = await this.execution.harness.commit((tx) => tx.entry(entryId), BACKGROUND_CONTEXT)
     if (!entry) {
       throw new AgentRuntimeError('INVALID_PAYLOAD', 'The edited message is not in the session.')
     }
@@ -324,14 +318,11 @@ export class AgentSessionService {
   /** 写入会话标题与最近活动时间；标题保持不变时只更新时间。 */
   private async writeSessionDoc(conversationId: ConversationId, title?: string): Promise<void> {
     const updatedAt = this.now()
-    await this.execution.harness.commit(
-      async (tx) => {
-        const doc = await tx.doc(KqSessionDoc, conversationId)
-        if (title !== undefined) doc.title = title
-        doc.updatedAt = updatedAt
-      },
-      BACKGROUND_CONTEXT,
-    )
+    await this.execution.harness.commit(async (tx) => {
+      const doc = await tx.doc(KqSessionDoc, conversationId)
+      if (title !== undefined) doc.title = title
+      doc.updatedAt = updatedAt
+    }, BACKGROUND_CONTEXT)
   }
 
   /** 分页扫描全部官方会话记录。 */
@@ -397,27 +388,20 @@ export class AgentSessionService {
     }
     const predecessor = page.items.find((item) => item.id < entryId)
     const branch = predecessor
-      ? await source.fork(
-          predecessor.id,
-          { ownership: { kind: 'ownerless' } },
-          BACKGROUND_CONTEXT,
-        )
+      ? await source.fork(predecessor.id, { ownership: { kind: 'ownerless' } }, BACKGROUND_CONTEXT)
       : await this.execution.harness.createConversation(
           { ownership: { kind: 'ownerless' } },
           BACKGROUND_CONTEXT,
         )
     const runId = this.id()
     const updatedAt = this.now()
-    await this.execution.harness.commit(
-      async (tx) => {
-        const doc = await tx.doc(KqSessionDoc, branch.id)
-        doc.title = sourceDoc.title
-        doc.updatedAt = updatedAt
-        // 源会话从目录移除，保留的官方历史仍可通过分支追溯。
-        await tx.retireDoc(KqSessionDoc, source.id)
-      },
-      BACKGROUND_CONTEXT,
-    )
+    await this.execution.harness.commit(async (tx) => {
+      const doc = await tx.doc(KqSessionDoc, branch.id)
+      doc.title = sourceDoc.title
+      doc.updatedAt = updatedAt
+      // 源会话从目录移除，保留的官方历史仍可通过分支追溯。
+      await tx.retireDoc(KqSessionDoc, source.id)
+    }, BACKGROUND_CONTEXT)
     const submission = await submitAgentRun(this.execution, branch, plan, {
       runId,
       sessionId: String(branch.id),

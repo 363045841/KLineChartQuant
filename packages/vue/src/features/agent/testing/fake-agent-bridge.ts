@@ -30,7 +30,11 @@ import { AGENT_UI_PROTOCOL_VERSION } from '../agent-contracts.js'
 
 interface FakeProfile {
   name: string
-  connection?: { baseUrl: string; headers: Record<string, string>; protocol: 'openai-responses' | 'openai-completions' }
+  connection?: {
+    baseUrl: string
+    headers: Record<string, string>
+    protocol: 'openai-responses' | 'openai-completions'
+  }
   settings?: ProviderProfileView
   pool: ProviderModelView[]
 }
@@ -194,9 +198,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
     const profile = this.activeProfile()
-    return profile
-      ? profile.pool.map((model) => ({ ...model, provider: profile.name }))
-      : []
+    return profile ? profile.pool.map((model) => ({ ...model, provider: profile.name })) : []
   }
 
   async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
@@ -352,7 +354,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
         api: 'openai-responses',
         provider: 'fake',
         model: 'fake-model',
-        usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 2,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
         stopReason: 'toolUse',
         timestamp,
       },
@@ -380,7 +389,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
         api: 'openai-responses',
         provider: 'fake',
         model: 'fake-model',
-        usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 2,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
         stopReason: 'stop',
         timestamp,
       },

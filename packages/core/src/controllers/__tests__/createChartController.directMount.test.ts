@@ -2,16 +2,15 @@
 /** 非 Vue 宿主的直接挂载：自建 DOM 骨架、首帧 pane 布局、挂载数据与布局恢复的先后。 */
 import 'fake-indexeddb/auto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MarketDataContext } from '@/data/management/impl/context.js'
+import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createCanvasGetContextMock,
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
-
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
 import { createChartController } from '../chart/index'
-import { MarketDataContext } from '@/data/management/impl/context.js'
-import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 
 import type { KLineData } from '../types'
 
@@ -131,7 +130,11 @@ describe('createChartController direct mount', () => {
     // 第二次挂载会恢复第一次保存的布局；其 currentSymbol 为空。
     const second = document.createElement('div')
     document.body.appendChild(second)
-    const ctrlB = await createChartController({ container: second, marketDataContext: host, symbols })
+    const ctrlB = await createChartController({
+      container: second,
+      marketDataContext: host,
+      symbols,
+    })
     await vi.waitFor(() => expect(ctrlB.getData()).toHaveLength(300))
     ctrlB.dispose()
     host.dispose()

@@ -2,8 +2,8 @@
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import type { createModels } from '@earendil-works/pi-ai'
 import {
-  ConversationBusy,
   type Conversation,
+  ConversationBusy,
   defineExtension,
   type Harness,
   type Registry,
@@ -71,8 +71,6 @@ export async function submitAgentRun(
       execute: async (args, api, context) => {
         const presentation = {
           label: definition.label,
-          safety: definition.safety,
-          reversible: definition.reversible,
           inputSummary: definition.summarizeInput?.(args) ?? '',
         }
         await api.details(presentation, context)

@@ -20,6 +20,6 @@ Agent tool registration is the next integration step: it must wrap a documented 
 
 ## Agent Tools
 
-The Agent exposes `panes_list` as a read-only projection. Mutation tools map one-to-one to the public PaneManager actions: `pane_create`, `pane_update`, `pane_remove`, `pane_move`, `pane_replace_content`, `pane_update_content`, and `panes_clear`.
+The Agent sees indicators, not panes: `indicators_list` and `indicators_write` (add / update / move / remove / clear) address instances and express placement as `main` or `sub`. Pane allocation stays inside `PaneManager`, and `ChartPaneFacade` no longer exposes instance commands — only layout.
 
-Agent inputs never include `instanceId` or `ordinal`; PaneManager creates those identities. The indicator orchestration path can provide a previously allocated identity through its internal `createFromIndicator()` integration method so `addIndicator()` retains its returned instance contract.
+Agent inputs never include `instanceId`, `paneId` or `ordinal`; the domain allocates those identities and returns them.

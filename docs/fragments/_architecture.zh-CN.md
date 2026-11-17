@@ -2,7 +2,7 @@
 
 KLineChartQuant 是一个 pnpm monorepo，只发布一个产品包 `@363045841yyt/klinechart`。核心引擎不依赖
 任何 UI 框架，通过统一的 `ChartController`（只读信号 + 命令方法）对外暴露能力；Vue 层只负责挂载、
-事件转发与响应式桥接。AI Agent 通过与 UI 相同的 `@Tool` 原语直接驱动图表，共享同一状态源，而非
+事件转发与响应式桥接。AI Agent 通过声明式工具目录调用与 UI 相同的领域原语直接驱动图表，共享同一状态源，而非
 桥接层。Vue 层以下的全部模块都随产品 tarball 交付。
 
 ```mermaid
@@ -35,7 +35,7 @@ flowchart TB
     UI --> VuePkg
     Agent --> AgentRt
     VuePkg --> Ctl
-    AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
+    AgentRt -->|"工具目录（与 UI 同原语）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -61,7 +61,7 @@ flowchart TB
   （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。
-- **Agent 原生** — 随包交付的 Agent 运行时编排 Agent，直接调用核心 `@Tool` 注册的原语——
+- **Agent 原生** — 随包交付的 Agent 运行时编排 Agent，通过工具目录调用核心领域原语——
   与 UI 使用同一入口。
 
 完整架构文档见 [docs/architecture/architecture.md]({{root}}docs/architecture/architecture.md)。

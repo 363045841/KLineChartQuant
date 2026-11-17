@@ -1,7 +1,7 @@
-// 应用服务的输入输出契约：会话服务、运行计划工厂与 Provider 附加能力。
 import type { EntryId } from '@earendil-works/pi-durable'
 import type {
   AgentRunContext,
+  AgentRunMode,
   AgentSessionView,
   AgentTranscriptView,
   AgentWorkspaceEvent,
@@ -32,7 +32,7 @@ export interface RuntimeLogSink {
 export interface RunPlanInput {
   sessionId: string
   prompt: string
-  readOnly: boolean
+  mode: AgentRunMode
   context?: AgentRunContext
 }
 
@@ -64,14 +64,14 @@ export interface AgentApplicationApi {
   retryRun(input: {
     sessionId: string
     entryId: EntryId
-    readOnly: boolean
+    mode: AgentRunMode
     context?: AgentRunContext
   }): Promise<{ runId: string; sessionId: string }>
   editMessage(input: {
     sessionId: string
     entryId: EntryId
     prompt: string
-    readOnly: boolean
+    mode: AgentRunMode
     context?: AgentRunContext
   }): Promise<{ runId: string; sessionId: string }>
   getProviderStatus(): Promise<ProviderStatusView>

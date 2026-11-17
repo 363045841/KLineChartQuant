@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MarketDataContext } from '@/data/management/impl/context.js'
+import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createCanvasGetContextMock,
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
-
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
 import { createChartController } from '../chart/index'
-import { MarketDataContext } from '@/data/management/impl/context.js'
-import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 
 import type { KLineData } from '../types'
 
@@ -143,10 +142,26 @@ describe('createChartController mount theme', () => {
     host.registerDataSource(createDataSourceFixture(data, false).source)
     const firstInstrument = await host.resolveInstrument('test', 'A')
     const secondInstrument = await host.resolveInstrument('test', 'B')
-    const first = await createChartController({ container: firstContainer, marketDataContext: host,
-      symbols: [{ instrument: firstInstrument, market: 'CN', symbol: 'A', source: 'test', period: 'daily' }] })
-    const second = await createChartController({ container: secondContainer, marketDataContext: host,
-      symbols: [{ instrument: secondInstrument, market: 'CN', symbol: 'B', source: 'test', period: 'daily' }] })
+    const first = await createChartController({
+      container: firstContainer,
+      marketDataContext: host,
+      symbols: [
+        { instrument: firstInstrument, market: 'CN', symbol: 'A', source: 'test', period: 'daily' },
+      ],
+    })
+    const second = await createChartController({
+      container: secondContainer,
+      marketDataContext: host,
+      symbols: [
+        {
+          instrument: secondInstrument,
+          market: 'CN',
+          symbol: 'B',
+          source: 'test',
+          period: 'daily',
+        },
+      ],
+    })
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     await vi.waitFor(() => expect(second.getData()).toHaveLength(30))
 
@@ -161,7 +176,9 @@ describe('createChartController mount theme', () => {
     })
     first.setTheme('light')
 
-    first.setSymbols([{ instrument: secondInstrument, symbol: 'B', market: 'CN', source: 'test', period: 'daily' }])
+    first.setSymbols([
+      { instrument: secondInstrument, symbol: 'B', market: 'CN', source: 'test', period: 'daily' },
+    ])
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     const afterData = first.agent.getContext()
     expect(afterData.symbol).toBe('B')

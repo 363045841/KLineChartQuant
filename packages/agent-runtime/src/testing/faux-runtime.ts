@@ -6,8 +6,8 @@ import {
   fauxToolCall,
 } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
-import type { RuntimeSupport } from '../application/unavailable-runtime.js'
 import type { RunPlanInput } from '../application/types.js'
+import type { RuntimeSupport } from '../application/unavailable-runtime.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   ProviderModelsInput,
@@ -75,7 +75,8 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
         'Configure an Agent Provider before starting a run.',
       )
     }
-    const mutation = !input.readOnly && /add|switch|clear|delete|move|theme/i.test(input.prompt)
+    const mutation =
+      input.mode === 'build' && /add|switch|clear|delete|move|theme/i.test(input.prompt)
     const toolName = mutation ? 'chart.preview_change' : 'chart.inspect'
     const faux = fauxProvider({
       tokensPerSecond: mutation ? 18 : 10_000,
@@ -103,8 +104,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
         ? 'Exercise a reversible fake Renderer tool.'
         : 'Inspect deterministic chart context.',
       parameters: Type.Object({ request: Type.String() }),
-      safety: mutation ? 'reversible-write' : 'read-only',
-      reversible: mutation,
+      effect: mutation ? 'write' : 'read',
       executionMode: mutation ? 'sequential' : 'parallel',
       summarizeInput: () => input.prompt,
       execute: async (_args, context) => {

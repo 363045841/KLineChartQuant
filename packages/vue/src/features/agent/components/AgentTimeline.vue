@@ -96,8 +96,8 @@
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentTimelineEmptyState from './AgentTimelineEmptyState.vue'
   import AgentUserEntry from './AgentUserEntry.vue'
-  import QuestionCard from './QuestionCard.vue'
   import { indexTranscript, isAssistantEntry, isUserEntry } from './impl/use-agent-transcript.js'
+  import QuestionCard from './QuestionCard.vue'
 
   /** 距底部超过该像素值即视为用户已离开最新消息。 */
   const AUTO_SCROLL_AWAY_PX = 48

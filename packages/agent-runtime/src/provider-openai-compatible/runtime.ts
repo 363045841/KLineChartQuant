@@ -94,11 +94,12 @@ function formatReferenceTime(timestamp: number): string {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`
 }
 
-/** 构造注入当前行情时间参照的系统提示词。 */
+/** 构造系统提示词；能力说明由本轮工具清单推导，不再读运行模式。 */
 function createSystemPrompt(
   hasTools: boolean,
   hasWebSearch: boolean,
   referenceTime: string,
+  writesAllowed: boolean,
   context?: AgentRunContext,
 ): string {
   const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
@@ -115,9 +116,13 @@ function createSystemPrompt(
   const ambiguityInstruction = hasTools
     ? ' When a tool result reports { "status": "ambiguous" }, never guess: call ask_user with one option per returned candidate, wait for the user to choose, then retry the original tool with the chosen candidate\'s routing fields.'
     : ''
-  return hasTools
-    ? `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.${ambiguityInstruction}`
-    : `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+  if (!hasTools) {
+    return `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+  }
+  const capabilityInstruction = writesAllowed
+    ? ' Use the supplied chart tools when chart evidence is needed. You may change the chart through the write tools; make each change deliberately and never claim a change you did not make.'
+    : ' Only read-only tools are available in this run, so you cannot change the chart. Investigate, then propose the exact change you would make and let the user enable the write tools to apply it. Never claim you changed the chart.'
+  return `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction}${capabilityInstruction}${ambiguityInstruction}`
 }
 
 /**
@@ -364,7 +369,9 @@ export function createOpenAiCompatibleRuntimeSupport(
    * @param input 本次运行的会话、提示词、权限与界面上下文。
    * @returns 含模型、工具、流参数与系统提示词的运行计划。
    */
-  async function createPlan(run: Parameters<RuntimeSupport['createPlan']>[0]): Promise<AgentRunPlan> {
+  async function createPlan(
+    run: Parameters<RuntimeSupport['createPlan']>[0],
+  ): Promise<AgentRunPlan> {
     const [apiKey, settings] = await Promise.all([
       options.credentials.read(),
       options.settings.read(),
@@ -440,11 +447,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
-    // 工具由宿主按运行上下文提供，只读运行过滤掉写操作。
+    // 工具由宿主按运行上下文提供；运行模式决定本轮暴露哪些工具。
     const availableTools = options.tools?.(run) ?? []
-    const tools = run.readOnly
-      ? availableTools.filter((tool) => tool.safety === 'read-only')
-      : availableTools
+    const tools = availableTools
     return {
       models,
       model,
@@ -460,6 +465,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         tools.length > 0,
         tools.some((tool) => tool.name === 'web_search'),
         formatReferenceTime(now()),
+        tools.some((tool) => tool.effect === 'write'),
         run.context,
       ),
     }

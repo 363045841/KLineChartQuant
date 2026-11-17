@@ -1,5 +1,11 @@
 // Agent 运行计划与工具适配契约：驱动只消费官方 Harness 需要的模型、工具与提示词。
-import type { Api, AssistantMessage, Model, Models, ModelsSimpleStreamOptions } from '@earendil-works/pi-ai'
+import type {
+  Api,
+  AssistantMessage,
+  Model,
+  Models,
+  ModelsSimpleStreamOptions,
+} from '@earendil-works/pi-ai'
 import type { TSchema } from 'typebox'
 import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
@@ -10,8 +16,14 @@ import type {
   SourceCitation,
   ToolProgressView,
 } from '../contracts/ui.js'
-/** 工具对图表状态的安全等级。 */
-export type ToolSafety = 'read-only' | 'reversible-write' | 'destructive'
+
+/**
+ * 工具是否会改变宿主状态。
+ *
+ * read 表示只读取；write 表示产生副作用（改图表、写文件、执行代码）。
+ * 运行模式据此决定本轮暴露哪些工具，工具本身不再携带安全等级。
+ */
+export type ToolEffect = 'read' | 'write'
 
 /** 图表工具执行完成后返回给 Pi 与 UI 的标准结果。 */
 export interface RuntimeToolResult {
@@ -44,11 +56,9 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   description: string
   /** 用于 Pi 参数验证的 TypeBox Schema。 */
   parameters: TParameters
-  /** 工具对图表状态的安全等级。 */
-  safety: ToolSafety
-  /** 工具结果是否支持撤销。 */
-  reversible: boolean
-  /** 同一轮中工具调用的执行策略。 */
+  /** 工具是否产生副作用；运行模式据此过滤。 */
+  effect: ToolEffect
+  /** 同一轮中工具调用的执行策略；只读工具并行，写工具串行。 */
   executionMode?: 'parallel' | 'sequential'
   /** 将已验证输入压缩为可展示摘要的函数。 */
   summarizeInput?: (input: unknown) => string

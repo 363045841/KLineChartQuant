@@ -8,11 +8,11 @@ const AGENT_WORKSPACE_PREFERENCES_STORAGE_KEY = 'agent.workspace-preferences'
 function isAgentWorkspacePreferences(value: unknown): value is AgentWorkspacePreferences {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const locale = Object.getOwnPropertyDescriptor(value, 'locale')?.value
-  const readOnly = Object.getOwnPropertyDescriptor(value, 'readOnly')?.value
+  const mode = Object.getOwnPropertyDescriptor(value, 'mode')?.value
   const collapseReasoning = Object.getOwnPropertyDescriptor(value, 'collapseReasoning')?.value
   return (
     (locale === 'en' || locale === 'zh-CN') &&
-    typeof readOnly === 'boolean' &&
+    (mode === 'plan' || mode === 'build') &&
     typeof collapseReasoning === 'boolean'
   )
 }
@@ -36,7 +36,7 @@ export function defaultAgentWorkspacePreferences(): AgentWorkspacePreferences {
   return {
     locale:
       typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
-    readOnly: false,
+    mode: 'build',
     collapseReasoning: false,
   }
 }

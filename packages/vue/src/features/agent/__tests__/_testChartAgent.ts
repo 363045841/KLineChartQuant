@@ -1,18 +1,16 @@
 /**
  * 测试用最小 ChartAgentController 替身。
  *
- * 完整实现 `ChartAgentController` 的全部成员（默认 no-op），并通过 overrides 按用例
- * 覆盖所需字段，替代此前散落的 `{ ... } as ChartAgentController` 部分对象强转。
- * 额外允许注入 `dependencies`，供 `drawing_create` 等原语宿主在测试中解析执行目标。
+ * 控制器现在只持有上下文与工具依赖；用例通过 overrides 覆盖所需字段，
+ * 工具依赖用会抛错的替身，避免"静默成功"掩盖接线错误。
  */
 
-import type { ChartAgentContextSnapshot, ChartAgentController } from '@363045841yyt/klinechart-core'
+import type {
+  ChartAgentContextSnapshot,
+  ChartAgentController,
+  ChartAgentToolDeps,
+} from '@363045841yyt/klinechart-core'
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
-
-/** overrides 在接口字段之外还允许注入原语宿主依赖。 */
-export type TestChartAgentOverrides = Partial<ChartAgentController> & {
-  dependencies?: Record<string, unknown>
-}
 
 /** ChartAgent context 测试快照的默认值；用例只声明差异字段。 */
 const DEFAULT_CONTEXT_SNAPSHOT: ChartAgentContextSnapshot = {
@@ -38,29 +36,65 @@ export function createTestChartAgentContext(overrides: Partial<ChartAgentContext
   return createSignal<ChartAgentContextSnapshot>({ ...DEFAULT_CONTEXT_SNAPSHOT, ...overrides })
 }
 
+/** 未被用例接管的领域能力直接失败，避免测试掩盖接线错误。 */
+function unused(what: string): never {
+  throw new Error(`Test ChartAgent tool dependency not configured: ${what}`)
+}
+
+/** 空工具依赖；用例按需覆盖单个命令面。 */
+export function createTestToolDeps(
+  overrides: Partial<ChartAgentToolDeps> = {},
+): ChartAgentToolDeps {
+  return {
+    indicators: {
+      list: () => [],
+      add: () => unused('indicators.add'),
+      update: () => unused('indicators.update'),
+      move: () => unused('indicators.move'),
+      remove: () => unused('indicators.remove'),
+      clear: () => unused('indicators.clear'),
+      resolveDefinition: async () => unused('indicators.resolveDefinition'),
+    },
+    drawings: {
+      list: () => [],
+      create: () => unused('drawings.create'),
+      update: () => unused('drawings.update'),
+      remove: () => unused('drawings.remove'),
+      copy: () => unused('drawings.copy'),
+      clear: () => unused('drawings.clear'),
+    },
+    comparisons: {
+      list: () => [],
+      add: () => unused('comparisons.add'),
+      create: async () => unused('comparisons.create'),
+      remove: () => unused('comparisons.remove'),
+      clear: () => unused('comparisons.clear'),
+    },
+    market: {
+      listSourceIds: () => [],
+      lookupInstrument: async () => unused('market.lookupInstrument'),
+      bars: async () => unused('market.bars'),
+      timeShare: async () => unused('market.timeShare'),
+      indicatorValues: async () => unused('market.indicatorValues'),
+    },
+    ...overrides,
+  }
+}
+
 /** 创建一个最小可用的 ChartAgentController；未覆盖的方法均为 no-op。 */
 export function createTestChartAgent(
-  overrides: TestChartAgentOverrides = {},
+  overrides: Partial<ChartAgentController> & { tools?: ChartAgentToolDeps } = {},
 ): ChartAgentController {
   const context = createSignal<ReturnType<ChartAgentController['getContext']> | null>(null)
 
   const base: ChartAgentController = {
     context,
-    toolHosts: [],
+    tools: createTestToolDeps(),
     getContext() {
       const snapshot = context.peek()
       if (snapshot === null) throw new Error('Test Agent context is not configured')
       return snapshot
     },
-    getAvailableDrawingPaneIds: () => [],
-    getAvailableMarketDataSourceIds: () => [],
-    queryIndicator: () => Promise.resolve(''),
-    searchInstruments: () => Promise.resolve([]),
-    lookupInstrumentsBySymbol: () => Promise.resolve(''),
-    queryBars: () => Promise.resolve(''),
-    queryTimeShare: () => Promise.resolve(''),
-    queryTimeShareRange: () => Promise.resolve(''),
-    listDrawings: () => Promise.resolve([]),
   }
 
   return { ...base, ...overrides }

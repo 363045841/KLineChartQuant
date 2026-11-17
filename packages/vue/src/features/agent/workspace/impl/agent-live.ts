@@ -5,9 +5,9 @@ import type {
   AgentUsageView,
   JsonObject,
   JsonValue,
-  ToolCall,
   TextContent,
   ThinkingContent,
+  ToolCall,
 } from '../../agent-contracts.js'
 
 /** 当前流式回答的可见块，仅保留 UI 能渲染的类型。 */
@@ -115,9 +115,7 @@ export function readRunFailure(
 }
 
 /** 累加官方 `pi.usage` 文档中的模型与工具花费。 */
-export function readUsage(
-  docs: Readonly<Record<string, JsonObject>>,
-): AgentUsageView | undefined {
+export function readUsage(docs: Readonly<Record<string, JsonObject>>): AgentUsageView | undefined {
   const doc = docs[UsageDoc.definition.kind]
   if (!isObject(doc)) return undefined
   const buckets = [doc.models, doc.tools].flatMap((bucket) =>
@@ -135,7 +133,8 @@ export function readUsage(
     const cacheWrite = typeof bucket.cacheWrite === 'number' ? bucket.cacheWrite : 0
     inputTokens += input + cacheRead + cacheWrite
     outputTokens += typeof bucket.output === 'number' ? bucket.output : 0
-    costUsd += isObject(bucket.cost) && typeof bucket.cost.total === 'number' ? bucket.cost.total : 0
+    costUsd +=
+      isObject(bucket.cost) && typeof bucket.cost.total === 'number' ? bucket.cost.total : 0
   }
   return seen ? { inputTokens, outputTokens, costUsd } : undefined
 }

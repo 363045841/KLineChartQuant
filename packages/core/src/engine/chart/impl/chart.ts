@@ -742,7 +742,7 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
       removeInstancesByDefinition: (definitionId) =>
-        this.panes.removeInstancesByDefinition(definitionId),
+        this.indicators.removeByDefinition(definitionId),
     })
     this.runtimeProjection = new RuntimeProjectionCoordinator({
       capture: () => this.captureRuntimeProjection(),
@@ -778,10 +778,13 @@ export class Chart {
     })
     this.indicators = new ChartIndicatorFacade({
       manager: this.indicatorManager,
+      commands: this.kernel.paneManager.instances,
+      invalidateDrawingHistory: () => this.drawingCommands.history.reset(),
     })
     this.legend = new LegendManager({
       host: this.pluginHost,
       panes: this.panes,
+      indicators: this.indicators,
       comparisons: this.comparisonCommands,
       getComparisonHidden: (identity) =>
         this.dataManager.getComparisonHidden().get(identity) === true,
@@ -940,10 +943,10 @@ export class Chart {
    */
   private createIndicatorObjectCommands(instanceId: string): RenderObjectCommands {
     return {
-      setVisible: (visible) => this.panes.updateInstance(instanceId, { hidden: !visible }),
+      setVisible: (visible) => this.indicators.update(instanceId, { hidden: !visible }),
       setLocked: () => false,
       move: (target) => this.moveIndicatorObject(instanceId, target),
-      remove: () => this.panes.removeInstance(instanceId),
+      remove: () => this.indicators.remove(instanceId),
     }
   }
 
@@ -955,13 +958,13 @@ export class Chart {
     if (current === undefined) return false
     if (target.kind === 'newPane') {
       return runInNewPane(this.panes, target.anchorPaneId, target.placement, (paneId) =>
-        this.panes.moveInstance(instanceId, {
+        this.indicators.move(instanceId, {
           kind: INSTANCE_MOVE_KIND.PANE,
           paneId,
         }),
       )
     }
-    return this.panes.moveInstance(instanceId, {
+    return this.indicators.move(instanceId, {
       kind: INSTANCE_MOVE_KIND.PANE,
       paneId: target.paneId,
       index: target.index,

@@ -37,15 +37,17 @@ pointer 交互 / Controller API / Agent Tool
 
 ## Agent Tool
 
-`ChartAgentController` 已使用 TypeBox schema 注册以下工具，并全部委托同一个 `DrawingDocument`：
+`features/agent/tools` 以纯数据声明以下工具，并全部委托同一个 `DrawingDocument`：
 
-- `drawings_list`：read-only，返回不含 `index` 与 preview 的图元快照。
-- `drawing_create`：destructive，输入 `kind`、现有 `paneId` 与 `time + price` 锚点。
-- `drawing_update`：destructive，按 id 应用非空 patch。
-- `drawing_delete`：destructive，按 id 删除。
-- `drawings_clear`：destructive，清除全部已确认图元。
+- `drawings_list`：read，返回不含 `index` 与 preview 的图元快照，落点用 `main` 或指标实例身份表达。
+- `drawings_write`：write，按 `action` 分发：
+  - `create`：`placement`、`kind`、`time + price` 锚点与完整样式。
+  - `update`：按 id 应用非空 patch。
+  - `delete`：按 id 删除。
+  - `copy`：按 id 列表复制。
+  - `clear`：清除全部已确认图元。
 
-浏览器 Agent 的 read-only 运行模式会按既有 `ChartToolSafety` 过滤 destructive 工具。destructive 工具的人工审批策略仍统一依赖 Agent 协议 issue #121。
+落点由 Core 解析成容器，调用方不接触 `paneId`。浏览器 Agent 的 plan 模式按工具的 `effect` 过滤，写工具整只不暴露。
 
 ## 后果
 

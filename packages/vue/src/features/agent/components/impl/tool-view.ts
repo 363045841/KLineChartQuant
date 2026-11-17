@@ -5,8 +5,6 @@ import type { AgentErrorView, EvidenceView, JsonValue } from '../../agent-contra
 export interface ToolPresentation {
   readonly label?: string
   readonly inputSummary?: string
-  readonly safety?: string
-  readonly reversible?: boolean
   readonly summary?: string
   readonly evidence?: EvidenceView
   readonly failure?: AgentErrorView
@@ -57,8 +55,6 @@ export function readToolPresentation(details: JsonValue | undefined): ToolPresen
   return {
     ...(text(details.label) ? { label: text(details.label) } : {}),
     ...(text(details.inputSummary) ? { inputSummary: text(details.inputSummary) } : {}),
-    ...(text(details.safety) ? { safety: text(details.safety) } : {}),
-    ...(details.reversible === true ? { reversible: true } : {}),
     ...(text(details.summary) ? { summary: text(details.summary) } : {}),
     ...(evidence(details.evidence) ? { evidence: evidence(details.evidence) } : {}),
     ...(failure(details.failure) ? { failure: failure(details.failure) } : {}),
@@ -67,11 +63,15 @@ export function readToolPresentation(details: JsonValue | undefined): ToolPresen
 
 /** 拼接工具结果正文中的文本块。 */
 export function readResultText(content: readonly { type: string; text?: string }[]): string {
-  return content.flatMap((block) => (block.type === 'text' && block.text ? [block.text] : [])).join('')
+  return content
+    .flatMap((block) => (block.type === 'text' && block.text ? [block.text] : []))
+    .join('')
 }
 
 /** 从工具结果 details 中读取可引用的来源。 */
-export function readCitations(details: JsonValue | undefined): readonly import('../../agent-contracts.js').SourceCitation[] {
+export function readCitations(
+  details: JsonValue | undefined,
+): readonly import('../../agent-contracts.js').SourceCitation[] {
   if (!isObject(details) || !Array.isArray(details.citations)) return []
   return details.citations.flatMap((item) => {
     if (!isObject(item)) return []
@@ -80,6 +80,14 @@ export function readCitations(details: JsonValue | undefined): readonly import('
     const url = text(item.url)
     const snippet = text(item.snippet)
     if (!id || !title || !url || snippet === undefined) return []
-    return [{ id, title, url, snippet, ...(text(item.publishedAt) ? { publishedAt: text(item.publishedAt) } : {}) }]
+    return [
+      {
+        id,
+        title,
+        url,
+        snippet,
+        ...(text(item.publishedAt) ? { publishedAt: text(item.publishedAt) } : {}),
+      },
+    ]
   })
 }

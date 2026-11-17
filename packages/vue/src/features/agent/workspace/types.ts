@@ -2,8 +2,9 @@
 
 import type {
   AgentErrorView,
-  AgentTranscriptView,
+  AgentRunMode,
   AgentSessionView,
+  AgentTranscriptView,
   ProviderStatusView,
   QuestionView,
 } from '../agent-contracts.js'
@@ -26,6 +27,6 @@ export type AgentWorkspaceAvailability =
 /** Agent 工作区的用户偏好。 */
 export interface AgentWorkspacePreferences {
   readonly locale: 'en' | 'zh-CN'
-  readonly readOnly: boolean
+  readonly mode: AgentRunMode
   readonly collapseReasoning: boolean
 }

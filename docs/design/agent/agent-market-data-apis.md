@@ -6,7 +6,7 @@
 
 ## 决策
 
-在 `ChartAgentController` 上直接提供并以 `@Tool` 注册 `queryBars`、`queryTimeShare` 与 `queryTimeShareRange`。UI 直接调用这些公开方法，Agent 从同一个注册表调用它们；不建立 Agent 专用服务或适配层。
+行情查询收敛在 `ChartAgentMarketQueries`：`instruments_query`、`market_bars_query`、`market_timeshare_query`（`days` 吸收单日与多日）与 `indicator_values_query` 四只只读工具都调用它，UI 仍然直接调用 `ChartAgentController` 的公开方法；不建立 Agent 专用服务或适配层。
 
 每个 API 都使用图表实例级 `MarketDataCache`。缓存通过同一 `MarketDataProviderRegistry` 创建 `SourceRouter`，负责内存命中、`limit`/`before` 游标分页、重试、并发请求去重和 auto source 锁定。图表 `ChartDataManager` 与 Agent facade 持有同一个缓存实例，不存在第二条取数链路。
 
@@ -30,7 +30,7 @@
 
 - `searchInstruments()` 服务前端联想搜索，保留关键词、多候选和调用方指定的 `limit`。
 - `lookupInstrumentsBySymbol()` 统一处理空白与大小写，再过滤为精确代码匹配；保留同代码、不同 `sourceId` 或 `exchange` 的结果。
-- `@Tool` 直接标注在 `ChartAgentController.lookupInstrumentsBySymbol()`；Agent Runtime 只适配 Core 注册的方法，不承担候选筛选或 symbol 比较规则。
+- `ChartAgentMarketQueries.lookupInstrument()` 交给同一实现，`instruments_query` 只是它的契约外壳；候选筛选与 symbol 比较规则不进入工具层。
 
 候选获取：当前 Provider Catalog 仅提供有上限的 `search()`。精确查询以代码作为关键词，使用由 Core 持有的候选上限，再进行精确过滤。若后续 Catalog 增加原生精确查询能力，`lookupInstrumentsBySymbol()` 是唯一替换候选获取实现的位置，UI 与 Agent 调用方无需调整。
 

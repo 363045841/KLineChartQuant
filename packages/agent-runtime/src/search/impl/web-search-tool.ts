@@ -31,8 +31,7 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
       `${WEB_SEARCH_TOOL_METADATA.description} If Web search is not configured, ` +
       'tell the user to add an Exa API key in Agent settings and do not invent search results.',
     parameters: WebSearchParameters,
-    safety: 'read-only',
-    reversible: false,
+    effect: 'read',
     executionMode: 'parallel',
     summarizeInput: (input) => (input as WebSearchInput).query,
     async execute(input, context) {

@@ -101,7 +101,7 @@ export interface OpenAiCompatibleRuntimeOptions {
   maxRetryDelayMs?: number
   /** 接收不含凭据的 Provider 请求诊断信息。 */
   diagnostics?: (diagnostic: ProviderDiagnostic) => void
-  /** 根据当前运行上下文提供可用的只读工具。 */
+  /** 根据当前运行上下文提供可用工具；模式过滤由宿主完成。 */
   tools?: (
     input: import('../application/types.js').RunPlanInput,
   ) => readonly import('../pi/types.js').RuntimeToolDefinition[]

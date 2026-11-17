@@ -12,7 +12,7 @@ import {
   isIndicatorDefinitionLoaded,
   resolveCanonicalIndicatorId,
 } from '@/engine/indicators/pipeline/index.js'
-import type { InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
+import type { IndicatorPlacement, InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
 import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { ChartSettings } from '@/foundation/config/chartSettings.js'
@@ -201,28 +201,28 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   function addIndicator(
     definitionId: string,
     params?: Record<string, unknown>,
-    target?: InstanceMoveTarget,
+    placement?: IndicatorPlacement,
   ): string | null {
     if (isDisposed() || !isLoaded(definitionId)) return null
-    return chart.panes.add(definitionId, params, target)
+    return chart.indicators.add(definitionId, params, placement)
   }
 
   /** 迁移实例归属；源副图变空时自动回收。 */
   function moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean {
     if (isDisposed()) return false
-    return chart.panes.moveInstance(instanceId, target)
+    return chart.indicators.move(instanceId, target)
   }
 
   /** 删除实例；空副图一并回收。 */
   function removeIndicator(instanceId: string): boolean {
     if (isDisposed()) return false
-    return chart.panes.removeInstance(instanceId)
+    return chart.indicators.remove(instanceId)
   }
 
   /** 删除当前工作区全部指标实例；副图随之回收。 */
   function clearAllIndicators(): void {
     if (isDisposed()) return
-    chart.panes.clearAllIndicators()
+    chart.indicators.clear()
   }
 
   /** 锁定十字线所在 K 线；周期切换后由核心按时间重新投影。 */
@@ -240,7 +240,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   /** 更新实例参数、显隐、排序或定义。 */
   function updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean {
     if (isDisposed()) return false
-    return chart.panes.updateInstance(instanceId, patch)
+    return chart.indicators.update(instanceId, patch)
   }
 
   /** 清空所有子窗格。 */
@@ -282,7 +282,7 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   return {
     /** 按定义删除所有实例，副图回收由领域命令一次提交。 */
     removeIndicatorsByDefinition: (definitionId: string): void => {
-      if (!isDisposed()) chart.panes.removeInstancesByDefinition(definitionId)
+      if (!isDisposed()) chart.indicators.removeByDefinition(definitionId)
     },
     /** 以完整 paneId 顺序一次提交重排。 */
     reorderPanes: (paneIds: ReadonlyArray<string>): boolean =>

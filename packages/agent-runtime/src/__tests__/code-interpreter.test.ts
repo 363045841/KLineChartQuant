@@ -6,13 +6,14 @@ import { readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/agent-tools'
 import { describe, expect, it } from 'vitest'
 
 import {
   CODE_INTERPRETER_TOOL_NAME,
   CodeInterpreterService,
   CodeInterpreterTool,
+  CodeInterpreterToolParameters,
+  createCodeInterpreterTool,
   ExecutionRejectedError,
   type ExecutionResult,
   MAX_STREAM_BYTES,
@@ -111,31 +112,13 @@ describe('LocalProvider isolation selection (issue #193)', () => {
   )
 })
 
-describe('code_interpreter registration (AC1)', () => {
-  it('registers into the core ChartToolRegistry as a destructive tool', () => {
-    const tool = getRegisteredChartTools().find(
-      (candidate) => candidate.config.name === CODE_INTERPRETER_TOOL_NAME,
-    )
-    expect(tool).toBeDefined()
-    expect(tool?.config.safety).toBe('destructive')
-    expect(tool?.methodName).toBe('runPython')
-    expect(tool?.owns(new CodeInterpreterTool(createService()))).toBe(true)
-  })
-
-  it('rejects invalid input through the registry validation path', async () => {
-    const tool = getRegisteredChartTools().find(
-      (candidate) => candidate.config.name === CODE_INTERPRETER_TOOL_NAME,
-    )
-    await expect(
-      tool?.execute(
-        new CodeInterpreterTool(createService()),
-        { code: 123 },
-        {
-          signal: new AbortController().signal,
-          progress: () => undefined,
-        },
-      ),
-    ).rejects.toThrow(TypeError)
+describe('code_interpreter tool definition (AC1)', () => {
+  it('is declared as one write tool with a stable name and execution mode', () => {
+    const tool = createCodeInterpreterTool(createService())
+    expect(tool.name).toBe(CODE_INTERPRETER_TOOL_NAME)
+    expect(tool.effect).toBe('write')
+    expect(tool.executionMode).toBe('sequential')
+    expect(tool.parameters).toBe(CodeInterpreterToolParameters)
   })
 })
 
@@ -214,16 +197,20 @@ describePython('CodeInterpreterService over a real Python subprocess (AC2)', () 
     expect(result.status).toBe('cancelled')
   })
 
-  it('drives the registered tool end to end and reports progress', async () => {
-    const tool = getRegisteredChartTools().find(
-      (candidate) => candidate.config.name === CODE_INTERPRETER_TOOL_NAME,
-    )
+  it('drives the tool end to end and reports progress', async () => {
+    const tool = createCodeInterpreterTool(createService())
     const labels: string[] = []
-    const result = (await tool?.execute(
-      new CodeInterpreterTool(createService()),
+    const outcome = await tool.execute(
       { code: 'print("hello from tool")', timeoutMs: 20_000 },
-      { signal: new AbortController().signal, progress: (update) => labels.push(update.label) },
-    )) as ExecutionResult
+      {
+        sessionId: 's-1',
+        runId: 'r-1',
+        toolCallId: 'c-1',
+        signal: new AbortController().signal,
+        progress: (update) => labels.push(update.label),
+      },
+    )
+    const result = JSON.parse(outcome.content) as ExecutionResult
     expect(result.status).toBe('succeeded')
     expect(result.stdout).toContain('hello from tool')
     expect(labels).toContain('queued')
@@ -745,15 +732,11 @@ describePython('code_interpreter agent integration: CSV in, stdout + PNG out (AC
     'print("png_sha256", hashlib.sha256(png).hexdigest())',
   ].join('\n')
 
-  it('runs through getRegisteredChartTools() and returns a byte-identical PNG', async () => {
-    const tool = getRegisteredChartTools().find(
-      (candidate) => candidate.config.name === CODE_INTERPRETER_TOOL_NAME,
-    )
-    expect(tool).toBeDefined()
+  it('runs through the tool definition and returns a byte-identical PNG', async () => {
+    const tool = createCodeInterpreterTool(createService())
 
     const labels: string[] = []
-    const result = (await tool?.execute(
-      new CodeInterpreterTool(createService()),
+    const outcome = await tool.execute(
       {
         code: SANDBOX_CODE,
         files: [
@@ -764,8 +747,15 @@ describePython('code_interpreter agent integration: CSV in, stdout + PNG out (AC
         ],
         timeoutMs: 30_000,
       },
-      { signal: new AbortController().signal, progress: (update) => labels.push(update.label) },
-    )) as ExecutionResult
+      {
+        sessionId: 's-1',
+        runId: 'r-1',
+        toolCallId: 'c-1',
+        signal: new AbortController().signal,
+        progress: (update) => labels.push(update.label),
+      },
+    )
+    const result = JSON.parse(outcome.content) as ExecutionResult
 
     expect(result.status).toBe('succeeded')
     expect(result.exitCode).toBe(0)

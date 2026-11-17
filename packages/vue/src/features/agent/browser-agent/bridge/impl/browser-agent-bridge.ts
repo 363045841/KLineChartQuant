@@ -22,6 +22,7 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentRunContext,
+  AgentRunMode,
   AgentRunStartedView,
   AgentSessionView,
   AgentTranscriptView,
@@ -97,8 +98,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       fetch: fetchBrowserProvider,
       tools: (input) => {
         const enabledNames = this.enabledToolNames()
-        return this.tools.catalog
-          .resolve(this.toolContext(input.readOnly))
+        return this.tools
+          .resolveTools(this.toolContext(input.mode))
           .filter((tool) => enabledNames.has(tool.name))
       },
     })
@@ -162,22 +163,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回当前 Browser 宿主中可管理的图表与网络工具。 */
   async listTools() {
     const enabledNames = this.enabledToolNames()
-    return this.tools.catalog
-      .list(this.toolContext(false))
-      .map((tool) => ({ ...tool, enabled: tool.available && enabledNames.has(tool.name) }))
+    return this.tools.listTools().map((tool) => ({ ...tool, enabled: enabledNames.has(tool.name) }))
   }
 
   /** 保存用户对当前可用工具的启用选择。 */
   async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    const availability = this.tools.catalog.check(name, this.toolContext(false))
-    if (!availability) {
+    if (!this.tools.listTools().some((tool) => tool.name === name)) {
       throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown Agent tool '${name}'.`)
-    }
-    if (enabled && !availability.available) {
-      throw new AgentRuntimeError(
-        'TOOL_NOT_ALLOWED',
-        availability.unavailableReason ?? `Agent tool '${name}' is unavailable.`,
-      )
     }
     const enabledNames = this.enabledToolNames()
     if (enabled) enabledNames.add(name)
@@ -187,8 +179,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 手动执行一个当前可用工具，复用 Agent 调用的 schema 与宿主绑定。 */
   async debugTool(name: string, input: unknown) {
-    const tool = this.tools.catalog
-      .resolve(this.toolContext(false))
+    const tool = this.tools
+      .resolveTools(this.toolContext('build'))
       .find((item) => item.name === name)
     if (!tool) {
       throw new AgentRuntimeError('TOOL_NOT_ALLOWED', `Agent tool '${name}' is unavailable.`)
@@ -212,12 +204,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 返回当前配置可用的图表与网络工具名称。 */
   private availableToolNames(): readonly string[] {
-    return this.tools.catalog.list(this.toolContext(false)).map((tool) => tool.name)
+    return this.tools.listTools().map((tool) => tool.name)
   }
 
   /** 返回当前 Browser 宿主中的运行时工具解析上下文。 */
-  private toolContext(readOnly: boolean): BrowserToolContext {
-    return { agent: this.getChartAgent(), readOnly }
+  private toolContext(mode: AgentRunMode): BrowserToolContext {
+    return { agent: this.getChartAgent(), mode }
   }
 
   /**

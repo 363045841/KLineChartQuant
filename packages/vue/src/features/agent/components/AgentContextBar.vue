@@ -1,15 +1,12 @@
 <template>
   <div class="context-bar">
-    <BaseTooltip :content="text.readOnlyHint" placement="top" trigger-display="contents">
-      <div class="context-bar__pill context-bar__readonly">
-        {{ text.readOnly }}
-        <ToggleSwitch
-          :model-value="readOnly"
-          :aria-label="text.readOnly"
-          size="compact"
-          @update:model-value="emit('read-only', $event)"
-        />
-      </div>
+    <BaseTooltip :content="text.modeHint" placement="top" trigger-display="contents">
+      <AgentModeControl
+        :model-value="mode"
+        :label="text.mode"
+        :options="modeOptions"
+        @update:model-value="emit('mode-change', $event)"
+      />
     </BaseTooltip>
     <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
       <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
@@ -34,9 +31,9 @@
 <script setup lang="ts">
   import '../../../components/common/truncate-text.css'
 
+  import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
   import { computed } from 'vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
@@ -44,15 +41,22 @@
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
+  import AgentModeControl from './AgentModeControl.vue'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
-    readOnly: boolean
+    mode: AgentRunMode
   }>()
-  const emit = defineEmits<{ 'read-only': [value: boolean] }>()
+  const emit = defineEmits<{ 'mode-change': [value: AgentRunMode] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  const modeOptions = computed(
+    (): ReadonlyArray<{ readonly value: AgentRunMode; readonly label: string }> => [
+      { value: 'plan', label: text.value.planMode },
+      { value: 'build', label: text.value.buildMode },
+    ],
+  )
   const symbolContext = computed(() =>
     props.contextItems.find(
       (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
@@ -106,15 +110,6 @@
   .context-bar__range-text {
     width: 100%;
     min-width: 0;
-  }
-
-  .context-bar__readonly {
-    order: -2;
-    flex: 0 0 auto;
-    color: var(--klc-color-ui-muted);
-    gap: 6px;
-    border: 0;
-    background: var(--klc-color-agent-composer-input-background);
   }
 
   .context-bar__symbol {

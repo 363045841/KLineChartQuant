@@ -79,7 +79,9 @@
   const resultText = computed(() =>
     props.result ? readResultText(props.result.content) : undefined,
   )
-  const runningOutput = computed(() => (status.value === 'running' ? props.slot?.output : undefined))
+  const runningOutput = computed(() =>
+    status.value === 'running' ? props.slot?.output : undefined,
+  )
   const failure = computed(() => presentation.value.failure)
   const evidence = computed(() => presentation.value.evidence)
   const statusIcon = computed(() =>

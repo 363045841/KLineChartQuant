@@ -17,7 +17,13 @@ export type {
   IndicatorQueryInput,
   InstrumentLookupInput,
 } from '../features/agent/index.js'
-export { getRegisteredChartTools } from '../features/agent/index.js'
+export {
+  CHART_TOOL_METADATA,
+  type ChartToolDefinition,
+  type ChartToolMetadata,
+  type ChartToolResult,
+  createChartToolCatalog,
+} from '../features/agent/index.js'
 export {
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,

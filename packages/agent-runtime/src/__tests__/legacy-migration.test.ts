@@ -36,18 +36,15 @@ async function createLegacyConversation(options: LegacyOptions): Promise<string>
     },
     BACKGROUND_CONTEXT,
   )
-  await execution.harness.commit(
-    async (tx) => {
-      await tx.appendEntry(conversation.id, { kind: 'kq.message' })
-      if (options.metadata !== false) {
-        await tx.appendEntry(conversation.id, {
-          kind: 'kq.session.metadata',
-          data: { schemaVersion: 1, updatedAt: options.updatedAt ?? 100 },
-        })
-      }
-    },
-    BACKGROUND_CONTEXT,
-  )
+  await execution.harness.commit(async (tx) => {
+    await tx.appendEntry(conversation.id, { kind: 'kq.message' })
+    if (options.metadata !== false) {
+      await tx.appendEntry(conversation.id, {
+        kind: 'kq.session.metadata',
+        data: { schemaVersion: 1, updatedAt: options.updatedAt ?? 100 },
+      })
+    }
+  }, BACKGROUND_CONTEXT)
   return String(conversation.id)
 }
 
@@ -59,9 +56,7 @@ describe('legacy session adoption', () => {
 
     expect(await service.list()).toEqual([])
     await service.adoptLegacySessions()
-    expect(await service.list()).toEqual([
-      { id: legacyId, title: 'Legacy title', updatedAt: 555 },
-    ])
+    expect(await service.list()).toEqual([{ id: legacyId, title: 'Legacy title', updatedAt: 555 }])
 
     const watch = await service.watch(legacyId, () => undefined)
     expect(watch.title).toBe('Legacy title')

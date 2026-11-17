@@ -4,6 +4,7 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentErrorView,
+  AgentRunMode,
   AgentTranscriptView,
   AgentUsageView,
   AgentWorkspaceEvent,
@@ -20,16 +21,16 @@ import {
 } from '../../browser-agent/provider-settings/impl/agent-provider-settings-store.js'
 import type { AgentWorkspaceAvailability } from '../types.js'
 import {
-  agentWorkspacePreferencesPersistence,
-  defaultAgentWorkspacePreferences,
-} from './agent-workspace-preferences.js'
-import {
   isRunActive,
   readLiveAnswer,
   readLiveTools,
   readRunFailure,
   readUsage,
 } from './agent-live.js'
+import {
+  agentWorkspacePreferencesPersistence,
+  defaultAgentWorkspacePreferences,
+} from './agent-workspace-preferences.js'
 import { applyTranscript, clearTranscript, createWorkspaceState } from './workspace-state.js'
 
 /** 工作区无法启动且错误形状不可识别时的兜底视图。 */
@@ -50,7 +51,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
   const submitting = ref(false)
-  const readOnly = ref(preferences.readOnly)
+  const mode = ref<AgentRunMode>(preferences.mode)
   const collapseReasoning = ref(preferences.collapseReasoning)
   const models = shallowRef<readonly ProviderModelView[]>([])
   const modelsLoading = ref(false)
@@ -213,7 +214,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       await openSession(sessionId)
     }
     draft.value = ''
-    await submitRun(() => bridge.startRun({ sessionId, prompt, readOnly: readOnly.value }))
+    await submitRun(() => bridge.startRun({ sessionId, prompt, mode: mode.value }))
   }
 
   async function stop(): Promise<void> {
@@ -225,9 +226,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function retry(entryId: EntryId): Promise<void> {
     const sessionId = state.value.activeSessionId
     if (!sessionId || isRunning.value) return
-    const started = await submitRun(() =>
-      bridge.retryRun({ sessionId, entryId, readOnly: readOnly.value }),
-    )
+    const started = await submitRun(() => bridge.retryRun({ sessionId, entryId, mode: mode.value }))
     await openSession(started.sessionId)
   }
 
@@ -237,7 +236,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (!sessionId) throw new Error(getAgentCopy(locale.value).editUnavailable)
     if (isRunning.value) throw new Error(getAgentCopy(locale.value).editBusy)
     const started = await submitRun(() =>
-      bridge.editMessage({ sessionId, entryId, prompt, readOnly: readOnly.value }),
+      bridge.editMessage({ sessionId, entryId, prompt, mode: mode.value }),
     )
     await openSession(started.sessionId)
   }
@@ -270,8 +269,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await bridge.answerQuestion(questionId, answer)
   }
 
-  function setReadOnly(value: boolean): void {
-    readOnly.value = value
+  function setMode(value: AgentRunMode): void {
+    mode.value = value
   }
 
   /** 加载当前 Provider 在统一模型池中已加入的模型。 */
@@ -310,10 +309,10 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     () => void loadModels(),
     { immediate: true },
   )
-  watch([locale, readOnly, collapseReasoning], () => {
+  watch([locale, mode, collapseReasoning], () => {
     agentWorkspacePreferencesPersistence.schedule(() => ({
       locale: locale.value,
-      readOnly: readOnly.value,
+      mode: mode.value,
       collapseReasoning: collapseReasoning.value,
     }))
   })
@@ -328,7 +327,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     availability,
     contextItems,
     draft,
-    readOnly,
+    mode,
     models,
     modelsLoading,
     providerSettings,
@@ -352,7 +351,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     loadEarlier,
     fillGap,
     answerQuestion,
-    setReadOnly,
+    setMode,
     loadModels,
     setModel,
     setReasoningEffort,

@@ -2,7 +2,7 @@
 
 ## 背景
 
-`comparison_create` 在代码命中多个标的时（如 `000012` 同时是南玻A / 国债指数）静默选择第一个候选，用户得到错误标的且无从察觉。同时 `comparison_create` 的 schema 缺少 `instrumentType`，即使模型知道意图也无法表达。
+`comparisons_write` 在代码命中多个标的时（如 `000012` 同时是南玻A / 国债指数）静默选择第一个候选，用户得到错误标的且无从察觉。同时 `comparisons_write` 的 schema 缺少 `instrumentType`，即使模型知道意图也无法表达。
 
 ## 决策
 

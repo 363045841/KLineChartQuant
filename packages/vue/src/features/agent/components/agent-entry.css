@@ -108,11 +108,11 @@
   background: var(--klc-color-ui-hover);
 }
 
-.agent-entry__actions button[data-status='copied'] {
+.agent-entry__actions button[data-status="copied"] {
   color: var(--klc-color-ui-success);
 }
 
-.agent-entry__actions button[data-status='failed'] {
+.agent-entry__actions button[data-status="failed"] {
   color: var(--klc-color-ui-danger-text);
 }
 

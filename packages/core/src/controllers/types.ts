@@ -35,7 +35,13 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { InstanceMoveTarget, PaneGeometry, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type {
+  IndicatorPlacement,
+  InstanceMoveTarget,
+  PaneGeometry,
+  PanePatch,
+  PaneSpec,
+} from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
@@ -614,11 +620,11 @@ export interface ChartController
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>
-  /** 创建实例；返回实例身份，主副图语义一致。 */
+  /** 创建实例；返回实例身份，placement 缺省时按定义类别决定主图叠加或新建副图。 */
   addIndicator(
     definitionId: string,
     params?: Record<string, unknown>,
-    target?: InstanceMoveTarget,
+    placement?: IndicatorPlacement,
   ): string | null
   /** 迁移实例归属；源副图变空时自动回收。 */
   moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean

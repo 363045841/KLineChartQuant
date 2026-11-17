@@ -1,7 +1,13 @@
 // 会话服务测试：标题文档、官方条目顺序、分支重跑与取消入口。
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AgentRuntimeError } from '../index.js'
-import { entryItems, entryText, createTestRuntime, type TestRuntime, waitForSession } from './_runtime-fixture.js'
+import {
+  createTestRuntime,
+  entryItems,
+  entryText,
+  type TestRuntime,
+  waitForSession,
+} from './_runtime-fixture.js'
 
 let runtime: TestRuntime
 
@@ -21,7 +27,7 @@ afterEach(async () => {
 /** 创建一个会话并跑完一轮，返回会话标识与完整读取结果。 */
 async function runOnce(prompt = 'summarize the current trend') {
   const session = await runtime.app.createSession()
-  await runtime.app.startRun({ sessionId: session.id, prompt, readOnly: true })
+  await runtime.app.startRun({ sessionId: session.id, prompt, mode: 'plan' })
   const view = await waitForSession(runtime.app, session.id, (candidate) =>
     entryItems(candidate).some(
       (entry) => entry.kind === 'pi.assistant' && entryText(entry).length > 0,
@@ -77,7 +83,7 @@ describe('AgentSessionService', () => {
     const started = await runtime.app.retryRun({
       sessionId: session.id,
       entryId: userEntry!.id,
-      readOnly: true,
+      mode: 'plan',
     })
     expect(started.sessionId).not.toBe(session.id)
 
@@ -85,17 +91,14 @@ describe('AgentSessionService', () => {
     expect(sessions.map((item) => item.id)).toEqual([started.sessionId])
     expect(sessions[0]?.title).toBe(session.title)
 
-    await waitForSession(
-      runtime.app,
-      started.sessionId,
-      (candidate) =>
-        entryItems(candidate).some(
-          (entry) => entry.kind === 'pi.assistant' && entryText(entry).length > 0,
-        ),
+    await waitForSession(runtime.app, started.sessionId, (candidate) =>
+      entryItems(candidate).some(
+        (entry) => entry.kind === 'pi.assistant' && entryText(entry).length > 0,
+      ),
     )
-    await expect(
-      runtime.sessions.watch(session.id, () => undefined),
-    ).rejects.toBeInstanceOf(AgentRuntimeError)
+    await expect(runtime.sessions.watch(session.id, () => undefined)).rejects.toBeInstanceOf(
+      AgentRuntimeError,
+    )
   })
 
   it('replaces the prompt when an edit is submitted', async () => {
@@ -106,7 +109,7 @@ describe('AgentSessionService', () => {
       sessionId: session.id,
       entryId: userEntry!.id,
       prompt: 'edited request',
-      readOnly: true,
+      mode: 'plan',
     })
     const edited = await waitForSession(runtime.app, started.sessionId, (candidate) =>
       entryItems(candidate).some(

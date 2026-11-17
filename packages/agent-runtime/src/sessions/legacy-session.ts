@@ -35,9 +35,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * @param entry 旧版元数据 entry。
  * @returns 合法的更新时间；形状不符时返回 undefined。
  */
-export function readLegacyUpdatedAt(
-  entry: Pick<EntryRecord, 'kind' | 'data'>,
-): number | undefined {
+export function readLegacyUpdatedAt(entry: Pick<EntryRecord, 'kind' | 'data'>): number | undefined {
   if (entry.kind !== LEGACY_SESSION_METADATA_KIND || !isObject(entry.data)) return undefined
   return typeof entry.data.updatedAt === 'number' ? entry.data.updatedAt : undefined
 }

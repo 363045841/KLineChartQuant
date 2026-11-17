@@ -57,8 +57,7 @@ export function createAskUserTool(host: AskUserHost): RuntimeToolDefinition {
   return {
     ...ASK_USER_TOOL_METADATA,
     parameters: AskUserParameters,
-    safety: 'read-only',
-    reversible: false,
+    effect: 'read',
     executionMode: 'sequential',
     summarizeInput: (input) => (input as AskUserInput).question,
     async execute(input, context) {

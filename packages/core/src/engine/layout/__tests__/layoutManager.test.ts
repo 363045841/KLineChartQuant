@@ -46,24 +46,21 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
     kernel.indicator.readonly.workspaces.subscribe(() => manager.scheduleAutoSave()),
     kernel.pane.readonly.workspaces.subscribe(() => manager.scheduleAutoSave()),
   ])
-  const firstId = first.kernel.paneManager.actions.add(
+  const firstId = first.kernel.paneManager.instances.add(
     'tab-layout-indicator',
     { period: 20 },
-    { kind: 'pane', paneId: MAIN_PANE_ID },
+    'main',
   )!
-  const secondId = second.kernel.paneManager.actions.add('tab-layout-indicator', { period: 14 })!
+  const secondId = second.kernel.paneManager.instances.add('tab-layout-indicator', { period: 14 })!
   const createdPaneId = first.kernel.paneManager.actions.addPane(MAIN_PANE_ID, 'below')!
-  first.kernel.paneManager.actions.moveInstance(firstId, {
+  first.kernel.paneManager.instances.move(firstId, {
     kind: 'pane',
     paneId: createdPaneId,
   })
   const firstPane = first.kernel.indicator.readonly.instances.peek()[0]!.paneId
-  first.kernel.paneManager.actions.add(
-    'tab-layout-indicator',
-    { period: 50 },
-    { kind: 'pane', paneId: firstPane },
-  )
-  second.kernel.paneManager.actions.updateInstance(secondId, {
+  const mergedId = first.kernel.paneManager.instances.add('tab-layout-indicator', { period: 50 })!
+  first.kernel.paneManager.instances.move(mergedId, { kind: 'pane', paneId: firstPane })
+  second.kernel.paneManager.instances.update(secondId, {
     hidden: true,
     params: { period: 7 },
   })

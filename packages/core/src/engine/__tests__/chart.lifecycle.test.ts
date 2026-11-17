@@ -5,6 +5,7 @@ import { Chart, type ChartOptions } from '@/core/chart/index'
 import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
+import { batch } from '@/foundation/reactivity/signal.js'
 import { ScaleType } from '@/foundation/types/scaleType'
 import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { DrawingInteractionController } from '../drawing/index'
@@ -15,9 +16,8 @@ import {
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
+import { AXIS_GROUP_PRICE, axisGroupId } from '../pane/axisGroups.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../pane/types'
-import { batch } from '@/foundation/reactivity/signal.js'
-import { axisGroupId, AXIS_GROUP_PRICE } from '../pane/axisGroups.js'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
 import { createMockRenderContext } from './helpers/renderTestKit'
@@ -346,7 +346,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const id = 'shared-axis-width'
       registerEmptyPlot(id)
-      const instanceId = chart.panes.add(id)!
+      const instanceId = chart.indicators.add(id)!
       const binding = chart.axes.bindingFor(instanceId)
       for (const requested of [80, 120]) {
         chart['commitAxisWidths']({
@@ -393,12 +393,12 @@ describe('Chart lifecycle without a market selection', () => {
         inputs: {},
         compute: () => ({ plots: [], fills: [] }),
       })
-      const instanceId = chart.panes.add(id)!
+      const instanceId = chart.indicators.add(id)!
       const first = chart.panes.addPane(MAIN_PANE_ID, 'above')!
       const second = chart.panes.addPane(MAIN_PANE_ID, 'below')!
       for (const paneId of [first, second, MAIN_PANE_ID]) {
         batch(() => {
-          chart.panes.moveInstance(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId })
+          chart.indicators.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId })
           chart.kernel.pane.actions.setPaneScaleType(
             paneId === MAIN_PANE_ID ? PRICE_SERIES_AXIS_ID : axisGroupId(paneId, AXIS_GROUP_PRICE),
             ScaleType.Log,
@@ -406,9 +406,14 @@ describe('Chart lifecycle without a market selection', () => {
         })
         const binding = chart.axes.bindingFor(instanceId)
         expect(binding.paneId).toBe(paneId)
-        const pane = chart.getPaneRenderers().find((renderer) => renderer.getPane().id === paneId)!.getPane()
+        const pane = chart
+          .getPaneRenderers()
+          .find((renderer) => renderer.getPane().id === paneId)!
+          .getPane()
         expect(pane.axis(binding.axisId).getScaleType()).toBe(ScaleType.Log)
-        expect(chart.getRenderer(resolveIndicatorLayerId(id, paneId, 'renderer', instanceId))?.pane).toBe(paneId)
+        expect(
+          chart.getRenderer(resolveIndicatorLayerId(id, paneId, 'renderer', instanceId))?.pane,
+        ).toBe(paneId)
         expect(chart.axes.configuration(binding.axisId).rangeMode).toBe(PRICE_AXIS_RANGE_MODE.AUTO)
       }
       expect(chart.panes.hasPane(first)).toBe(false)
@@ -425,7 +430,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const id = 'projection-configuration'
       registerEmptyPlot(id)
-      const instanceId = chart.panes.add(id)!
+      const instanceId = chart.indicators.add(id)!
       const original = chart.axes.bindingFor(instanceId)
       const layerId = resolveIndicatorLayerId(id, original.paneId, 'renderer', instanceId)
       const layer = chart.getRenderer(layerId)
@@ -438,7 +443,7 @@ describe('Chart lifecycle without a market selection', () => {
       chart.axes.setScaleType(original.axisId, ScaleType.Percent, 10)
       expect(chart.axes.configuration(original.axisId).baseValue).toBe(10)
       expect(chart.getRenderer(layerId)).toBe(layer)
-      chart.panes.moveInstance(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: MAIN_PANE_ID })
+      chart.indicators.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: MAIN_PANE_ID })
       expect(chart.axes.bindingFor(instanceId).paneId).toBe(MAIN_PANE_ID)
       expect(chart.panes.hasPane(original.paneId)).toBe(false)
       expect(errors).not.toHaveBeenCalled()
@@ -448,7 +453,9 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('derives the initial primary scale from settings without writing projection defaults into layout', async () => {
-    const chart = mountChart(1000, 600, { initialSettings: { mainRightAxisTypeSetting: ScaleType.Log } })
+    const chart = mountChart(1000, 600, {
+      initialSettings: { mainRightAxisTypeSetting: ScaleType.Log },
+    })
     try {
       expect(chart.axes.configuration(PRICE_SERIES_AXIS_ID).scaleType).toBe(ScaleType.Log)
       expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(PRICE_SERIES_AXIS_ID)).toBe(false)
@@ -530,7 +537,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const id = 'layout-resource-fixture'
       registerEmptyPlot(id)
-      const instanceId = chart.panes.add(id)!
+      const instanceId = chart.indicators.add(id)!
       const paneId = chart.indicators.instances
         .peek()
         .find((instance) => instance.id === instanceId)!.paneId!
@@ -684,19 +691,20 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       registerEmptyPlot('merged-layout-a')
       registerEmptyPlot('merged-layout-b')
-      const first = chart.panes.add('merged-layout-a')!
+      const first = chart.indicators.add('merged-layout-a')!
       const paneId = chart.indicators.instances.peek().find((instance) => instance.id === first)!
         .paneId!
-      const target = { kind: 'pane', paneId } as const
-      chart.panes.add('merged-layout-a', undefined, target)
-      const retained = chart.panes.add('merged-layout-b', undefined, target)!
+      const second = chart.indicators.add('merged-layout-a')!
+      chart.indicators.move(second, { kind: 'pane', paneId })
+      const retained = chart.indicators.add('merged-layout-b')!
+      chart.indicators.move(retained, { kind: 'pane', paneId })
       const notify = vi.fn()
       const unsubscribe = chart.kernel.indicator.readonly.instances.subscribe(notify)
-      chart.panes.removeInstancesByDefinition('merged-layout-a')
+      chart.indicators.removeByDefinition('merged-layout-a')
       expect(chart.indicators.instances.peek().map((instance) => instance.id)).toEqual([retained])
       expect(chart.panes.hasPane(paneId)).toBe(true)
       expect(notify).toHaveBeenCalledOnce()
-      chart.panes.removeInstancesByDefinition('merged-layout-b')
+      chart.indicators.removeByDefinition('merged-layout-b')
       expect(chart.panes.hasPane(paneId)).toBe(false)
       unsubscribe()
     } finally {
@@ -709,7 +717,7 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       const indicatorId = 'pane-ratio-fixture'
       registerEmptyPlot(indicatorId)
-      const first = chart.panes.add(indicatorId)
+      const first = chart.indicators.add(indicatorId)
       expect(first).not.toBeNull()
       const paneId = chart.indicators.instances
         .peek()
@@ -719,7 +727,7 @@ describe('Chart lifecycle without a market selection', () => {
       chart.panes.updatePane('main', { ratio: 0.8 })
       chart.panes.updatePane(paneId, { ratio: 0.2 })
       const previous = chart.paneRatios.peek()
-      chart.panes.add(indicatorId)
+      chart.indicators.add(indicatorId)
       const next = chart.paneRatios.peek()
       expect(next.main! / next[paneId]!).toBeCloseTo(previous.main! / previous[paneId]!)
       chart.draw()
@@ -748,8 +756,8 @@ describe('Chart lifecycle without a market selection', () => {
         compute: () => ({ plots: [], fills: [] }),
       })
       registerEmptyPlot('clear-all-sub')
-      expect(chart.panes.add('clear-all-main')).not.toBeNull()
-      expect(chart.panes.add('clear-all-sub')).not.toBeNull()
+      expect(chart.indicators.add('clear-all-main')).not.toBeNull()
+      expect(chart.indicators.add('clear-all-sub')).not.toBeNull()
       const instances = chart.kernel.indicator.readonly.instances.peek()
       const subPane = instances.find((instance) => instance.paneId !== MAIN_PANE_ID)
       const mainInstance = instances.find((instance) => instance.paneId === MAIN_PANE_ID)
@@ -758,7 +766,7 @@ describe('Chart lifecycle without a market selection', () => {
       const subAxisKey = objectAxisId(subPane.instanceId)
       chart.kernel.pane.actions.setPaneScaleType(subAxisKey, ScaleType.Log)
 
-      chart.panes.clearAllIndicators()
+      chart.indicators.clear()
 
       expect(chart.indicators.instances.peek()).toHaveLength(0)
       expect(chart.panes.getLayoutSpecs().map((spec) => spec.id)).toEqual([MAIN_PANE_ID])
@@ -767,7 +775,7 @@ describe('Chart lifecycle without a market selection', () => {
       expect(
         chart.kernel.pane.readonly.paneScaleTypes.peek().has(objectAxisId(mainInstance.instanceId)),
       ).toBe(false)
-      chart.panes.clearAllIndicators()
+      chart.indicators.clear()
       expect(chart.indicators.instances.peek()).toHaveLength(0)
     } finally {
       await chart.destroy()
@@ -779,8 +787,8 @@ describe('Chart lifecycle without a market selection', () => {
     try {
       registerEmptyPlot('definition-a')
       registerEmptyPlot('definition-b')
-      expect(chart.panes.add('definition-a')).not.toBeNull()
-      expect(chart.panes.add('definition-b')).not.toBeNull()
+      expect(chart.indicators.add('definition-a')).not.toBeNull()
+      expect(chart.indicators.add('definition-b')).not.toBeNull()
       const instances = chart.kernel.indicator.readonly.instances.peek()
       const first = instances.find((instance) => instance.indicatorId === 'definition-a')
       const second = instances.find((instance) => instance.indicatorId === 'definition-b')
@@ -789,7 +797,7 @@ describe('Chart lifecycle without a market selection', () => {
       const firstAxisKey = objectAxisId(first.instanceId)
       chart.kernel.pane.actions.setPaneScaleType(firstAxisKey, ScaleType.Log)
 
-      chart.panes.removeInstancesByDefinition('definition-a')
+      chart.indicators.removeByDefinition('definition-a')
 
       expect(
         chart.kernel.indicator.readonly.instances.peek().map((instance) => instance.indicatorId),
@@ -813,9 +821,9 @@ describe('Chart lifecycle without a market selection', () => {
     }
     try {
       registerPlotDefinition(definition)
-      const first = chart.panes.add(definition.id)
+      const first = chart.indicators.add(definition.id)
       chart.kernel.actions.setDataView('timeshare')
-      const second = chart.panes.add(definition.id)
+      const second = chart.indicators.add(definition.id)
       const baseline = chart.kernel.snapshotViewWorkspaces()
       registerPlotDefinition({ ...definition, position: 'main' })
       expect(chart.kernel.snapshotViewWorkspaces()).toEqual(baseline)
@@ -843,11 +851,11 @@ describe('Chart lifecycle without a market selection', () => {
       })
       registerEmptyPlot(`target-${position}`)
       try {
-        const targetId = chart.panes.add(`target-${position}`)!
+        const targetId = chart.indicators.add(`target-${position}`)!
         const targetPaneId = chart.kernel.indicator.readonly.instances
           .peek()
           .find((instance) => instance.instanceId === targetId)!.paneId
-        const instanceId = chart.panes.add(definitionId, { custom: 7 })!
+        const instanceId = chart.indicators.add(definitionId, { custom: 7 })!
         const mainPane = chart
           .getPaneRenderers()
           .find((renderer) => renderer.getPane().id === MAIN_PANE_ID)!
@@ -920,7 +928,7 @@ describe('Chart lifecycle without a market selection', () => {
           }
           chart.draw()
         }
-        expect(chart.panes.updateInstance(instanceId, { hidden: true })).toBe(true)
+        expect(chart.indicators.update(instanceId, { hidden: true })).toBe(true)
         // 隐藏只关闭可见性：对象常驻，才能从对象树重新打开。
         expect(
           chart.getRenderer(
@@ -928,12 +936,12 @@ describe('Chart lifecycle without a market selection', () => {
           )?.visible,
         ).toBe(false)
         expect(chart.legend.moveTo(instanceId, { kind: 'pane', paneId: targetPaneId })).toBe(true)
-        expect(
-          chart.panes.updateInstance(instanceId, { hidden: false, params: { custom: 9 } }),
-        ).toBe(true)
+        expect(chart.indicators.update(instanceId, { hidden: false, params: { custom: 9 } })).toBe(
+          true,
+        )
         const finalId = resolveIndicatorLayerId(definitionId, targetPaneId, 'renderer', instanceId)
         expect(chart.getRenderer(finalId)?.pane).toBe(targetPaneId)
-        expect(chart.panes.removeInstance(instanceId)).toBe(true)
+        expect(chart.indicators.remove(instanceId)).toBe(true)
         expect(chart.getRenderer(finalId), 'final layer removed').toBeUndefined()
         expect(chart.panes.hasPane(targetPaneId), 'target pane kept').toBe(true)
       } finally {
@@ -954,7 +962,7 @@ describe('Chart lifecycle without a market selection', () => {
       compute: () => ({ plots: [], fills: [] }),
     })
     try {
-      const instanceId = chart.panes.add(definitionId)!
+      const instanceId = chart.indicators.add(definitionId)!
       const locate = () =>
         chart.objects.groups
           .peek()
@@ -998,8 +1006,8 @@ describe('Chart lifecycle without a market selection', () => {
       compute: () => ({ plots: [], fills: [] }),
     })
     try {
-      const firstId = chart.panes.add(definitionId)!
-      const secondId = chart.panes.add(definitionId)!
+      const firstId = chart.indicators.add(definitionId)!
+      const secondId = chart.indicators.add(definitionId)!
       const firstLayerId = resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', firstId)
       const secondLayerId = resolveIndicatorLayerId(
         definitionId,
@@ -1156,19 +1164,17 @@ describe('Chart lifecycle without a market selection', () => {
         .getPane().axes
     try {
       // 主图指标与价格序列共用价格轴，右轴列数不随对象增加。
-      const overlay = chart.panes.add(
-        'axis-main-overlay',
-        {},
-        { kind: 'pane', paneId: MAIN_PANE_ID },
-      )!
+      const overlay = chart.indicators.add('axis-main-overlay', {}, 'main')!
       expect(chart.axes.bindingFor(overlay).axisId).toBe(PRICE_SERIES_AXIS_ID)
       expect(axesOf(MAIN_PANE_ID)).toHaveLength(1)
 
       // 副图：不同定义各一条轴，同一定义的多实例合并。
-      const first = chart.panes.add('axis-object-a')!
+      const first = chart.indicators.add('axis-object-a')!
       const paneId = paneOf(first)
-      const second = chart.panes.add('axis-object-b', {}, { kind: 'pane', paneId })!
-      const third = chart.panes.add('axis-object-b', {}, { kind: 'pane', paneId })!
+      const second = chart.indicators.add('axis-object-b')!
+      chart.indicators.move(second, { kind: 'pane', paneId })
+      const third = chart.indicators.add('axis-object-b')!
+      chart.indicators.move(third, { kind: 'pane', paneId })
       const a = chart.axes.bindingFor(first)
       const b = chart.axes.bindingFor(second)
       expect(a.axisId).not.toBe(b.axisId)
@@ -1188,7 +1194,7 @@ describe('Chart lifecycle without a market selection', () => {
 
       // 迁移到新 Pane：轴属于 Pane 的量纲组，对象重绑目标轴，旧轴配置不随对象走。
       const destination = chart.panes.addPane(MAIN_PANE_ID, 'below')!
-      chart.panes.moveInstance(second, { kind: 'pane', paneId: destination })
+      chart.indicators.move(second, { kind: 'pane', paneId: destination })
       const moved = chart.axes.bindingFor(second)
       expect(moved.paneId).toBe(destination)
       expect(moved.axisId).not.toBe(b.axisId)
@@ -1200,13 +1206,13 @@ describe('Chart lifecycle without a market selection', () => {
       expect(chart.axes.bindingFor(third).axisId).toBe(b.axisId)
 
       const before = chart.axes.list()
-      expect(() => chart.panes.moveInstance(first, { kind: 'pane', paneId: 'missing' })).toThrow(
+      expect(() => chart.indicators.move(first, { kind: 'pane', paneId: 'missing' })).toThrow(
         'missing',
       )
       expect(chart.axes.list()).toEqual(before)
       expect(() => chart.axes.setScaleType('missing', ScaleType.Linear)).toThrow('missing')
-      chart.panes.removeInstance(third)
-      chart.panes.removeInstance(second)
+      chart.indicators.remove(third)
+      chart.indicators.remove(second)
       expect(() => chart.axes.get(moved.axisId)).toThrow(moved.axisId)
     } finally {
       await chart.destroy()
@@ -1254,7 +1260,7 @@ describe('Chart lifecycle without a market selection', () => {
         inputs: {},
         compute: () => ({ plots: [], fills: [] }),
       })
-      const indicatorId = chart.panes.add(definitionId)
+      const indicatorId = chart.indicators.add(definitionId)
       if (indicatorId === null) throw new Error('indicator missing')
       const indicatorLayerId = resolveIndicatorLayerId(
         definitionId,
@@ -1288,7 +1294,7 @@ describe('Chart lifecycle without a market selection', () => {
         compute: () => ({ plots: [], fills: [] }),
       })
       try {
-        const instanceId = chart.panes.add(definitionId)!
+        const instanceId = chart.indicators.add(definitionId)!
         chart.legend.create({
           kind: 'custom',
           id: 'note',
@@ -1314,7 +1320,7 @@ describe('Chart lifecycle without a market selection', () => {
             rows[index - 1]!.y + rows[index - 1]!.height,
           )
         expect(chart.legend.context.peek()!.rows).toEqual(rows)
-        expect(chart.panes.updateInstance(instanceId, { hidden: true })).toBe(true)
+        expect(chart.indicators.update(instanceId, { hidden: true })).toBe(true)
         chart.legend.projectFrame([context])
         expect(chart.legend.rows.peek().map((row) => row.y)).toEqual(rows.map((row) => row.y))
       } finally {
@@ -1328,9 +1334,9 @@ describe('Chart lifecycle without a market selection', () => {
     const definitionId = 'independent-order'
     registerEmptyPlot(definitionId)
     try {
-      const first = chart.panes.add(definitionId)!
-      const second = chart.panes.add(definitionId)!
-      const moved = chart.panes.add(definitionId, {}, { kind: 'pane', paneId: MAIN_PANE_ID })!
+      const first = chart.indicators.add(definitionId)!
+      const second = chart.indicators.add(definitionId)!
+      const moved = chart.indicators.add(definitionId, {}, 'main')!
       chart.legend.moveTo(moved, {
         kind: 'newPane',
         anchorPaneId: MAIN_PANE_ID,

@@ -12,8 +12,8 @@ import {
   type ProviderApiProtocol,
   type ProviderDiagnostic,
   parseRetryAfter,
-  requestProviderJson,
   type RuntimeToolDefinition,
+  requestProviderJson,
 } from '../index'
 
 const secret = 'temporary-provider-credential'
@@ -119,14 +119,14 @@ async function configure(
 }
 
 /** 构造一个只用于计划断言的最简工具定义。 */
-function tool(name: string, safety: RuntimeToolDefinition['safety']): RuntimeToolDefinition {
+function tool(name: string, effect: RuntimeToolDefinition['effect']): RuntimeToolDefinition {
   return {
     name,
     label: name,
     description: name,
     parameters: Type.Object({}),
-    safety,
-    reversible: safety !== 'read-only',
+    effect,
+    executionMode: effect === 'read' ? 'parallel' : 'sequential',
     async execute() {
       return { content: name, summary: name }
     },
@@ -236,7 +236,12 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     await requestProviderJson(
       'https://user:pass@example.test/v1?token=secret#fragment',
       {},
-      { fetch: async () => json({ ok: true }), now: () => 10, sleep: async () => undefined, diagnostics: record },
+      {
+        fetch: async () => json({ ok: true }),
+        now: () => 10,
+        sleep: async () => undefined,
+        diagnostics: record,
+      },
     )
     await expect(
       requestProviderJson(
@@ -269,8 +274,16 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     expect(diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: 'request', url: 'https://example.test/v1' }),
-        expect.objectContaining({ phase: 'response', status: 200, contentType: 'application/json' }),
-        expect.objectContaining({ phase: 'failure', code: 'PROVIDER_MALFORMED_RESPONSE', stage: 'tool' }),
+        expect.objectContaining({
+          phase: 'response',
+          status: 200,
+          contentType: 'application/json',
+        }),
+        expect.objectContaining({
+          phase: 'failure',
+          code: 'PROVIDER_MALFORMED_RESPONSE',
+          stage: 'tool',
+        }),
         expect.objectContaining({ phase: 'failure', code: 'PROVIDER_UNAVAILABLE' }),
       ]),
     )
@@ -288,12 +301,12 @@ describe('OpenAI-compatible runtime support', () => {
       settings,
       fetch: providerFetch(),
       now: () => Date.UTC(2026, 10, 17, 1, 0, 0),
-      tools: () => [tool('chart.read', 'read-only')],
+      tools: () => [tool('chart.read', 'read')],
     })
     const plan = await support.createPlan({
       sessionId: '1',
       prompt: 'Inspect',
-      readOnly: true,
+      mode: 'plan',
       context: {
         items: [{ kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: null } }],
       },
@@ -315,24 +328,30 @@ describe('OpenAI-compatible runtime support', () => {
       fetch: providerFetch(),
     })
     await expect(
-      support.createPlan({ sessionId: '1', prompt: 'Inspect', readOnly: true }),
+      support.createPlan({ sessionId: '1', prompt: 'Inspect', mode: 'plan' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
   })
 
-  it('filters write tools out of read-only runs', async () => {
+  it('derives the capability sentence from the offered tools, not from the mode', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
       fetch: providerFetch(),
-      tools: () => [tool('chart.read', 'read-only'), tool('chart.write', 'reversible-write')],
+      tools: (input) =>
+        input.mode === 'plan'
+          ? [tool('chart.read', 'read')]
+          : [tool('chart.read', 'read'), tool('chart.write', 'write')],
     })
 
-    const readPlan = await support.createPlan({ sessionId: '1', prompt: 'x', readOnly: true })
-    expect(readPlan.tools.map((item) => item.name)).toEqual(['chart.read'])
-    const writePlan = await support.createPlan({ sessionId: '1', prompt: 'x', readOnly: false })
-    expect(writePlan.tools.map((item) => item.name)).toEqual(['chart.read', 'chart.write'])
+    const planMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' })
+    expect(planMode.tools.map((item) => item.name)).toEqual(['chart.read'])
+    expect(planMode.systemPrompt).toContain('Only read-only tools are available')
+
+    const buildMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'build' })
+    expect(buildMode.tools.map((item) => item.name)).toEqual(['chart.read', 'chart.write'])
+    expect(buildMode.systemPrompt).toContain('You may change the chart through the write tools')
   })
 
   it('discovers models, passes every probe, and persists the verified configuration', async () => {
@@ -391,7 +410,7 @@ describe('OpenAI-compatible runtime support', () => {
     })
     await support.provider.deleteCredential()
     await expect(
-      support.createPlan({ sessionId: '1', prompt: 'x', readOnly: true }),
+      support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
   })
 })

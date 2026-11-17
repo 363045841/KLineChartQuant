@@ -179,7 +179,8 @@ export interface AgentDrawingSelectionAnchor extends AgentContextObject {
 export interface AgentDrawingSelectionDrawing extends AgentContextObject {
   readonly id: string
   readonly kind: string
-  readonly paneId: string
+  /** 图元落点：主图或指标实例身份；宿主无法用 Agent 词汇表寻址时为 null。 */
+  readonly placement: string | null
   readonly visible: boolean
   readonly locked: boolean
   readonly zIndex: number | null
@@ -265,10 +266,17 @@ export interface AgentTranscriptView {
   readonly title: string
 }
 
+/**
+ * 一次运行的权限模式。
+ *
+ * plan 只暴露只读工具，用于分析并给出方案；build 暴露全部工具，允许改动图表。
+ */
+export type AgentRunMode = 'plan' | 'build'
+
 export interface StartRunInput {
   sessionId: string
   prompt: string
-  readOnly: boolean
+  mode: AgentRunMode
   context?: AgentRunContext
 }
 
@@ -276,7 +284,7 @@ export interface StartRunInput {
 export interface BranchMessageInput {
   sessionId: string
   entryId: EntryId
-  readOnly: boolean
+  mode: AgentRunMode
   context?: AgentRunContext
 }
 

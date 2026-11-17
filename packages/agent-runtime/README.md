@@ -50,19 +50,19 @@ itself does not establish Agent compatibility.
 
 ## Code interpreter
 
-`code_interpreter` executes agent-generated Python in a sandbox and registers
-itself into the core `ChartToolRegistry` as a `destructive` tool. Importing
-`@363045841yyt/klinechart-agent-runtime/code-interpreter` performs the
-registration; not importing it is the rollback.
+`code_interpreter` executes agent-generated Python in a sandbox. The execution
+logic lives in `CodeInterpreterTool`; `createCodeInterpreterTool()` wraps it in a
+`write` tool definition. Nothing registers on import, so the host decides whether
+the tool exists.
 
 ```ts
 import {
   CodeInterpreterService,
-  CodeInterpreterTool,
+  createCodeInterpreterTool,
 } from '@363045841yyt/klinechart-agent-runtime/code-interpreter'
 import { LocalProvider } from '@363045841yyt/klinechart-agent-runtime/code-interpreter/local'
 
-const tool = new CodeInterpreterTool(
+const tool = createCodeInterpreterTool(
   new CodeInterpreterService({ provider: new LocalProvider() }),
 )
 ```

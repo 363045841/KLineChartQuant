@@ -1,8 +1,8 @@
 // 应用服务：把官方会话视图转成 UI 读取结果，并转发运行、目录与 Provider 命令。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import {
-  ConversationTranscript,
   type Conversation,
+  ConversationTranscript,
   type EntryId,
   type TranscriptItem,
   type TranscriptView,
@@ -10,6 +10,7 @@ import {
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  type AgentRunMode,
   type AgentSessionView,
   type AgentTranscriptView,
   type AgentWorkspaceEvent,
@@ -138,7 +139,7 @@ export class AgentApplicationService implements AgentApplicationApi {
     const plan = await this.createPlan({
       sessionId: input.sessionId,
       prompt: input.prompt,
-      readOnly: input.readOnly,
+      mode: input.mode,
       context: input.context,
     })
     const started = await this.options.sessions.startRun(input.sessionId, input.prompt, plan)
@@ -155,22 +156,17 @@ export class AgentApplicationService implements AgentApplicationApi {
   async retryRun(input: {
     sessionId: string
     entryId: EntryId
-    readOnly: boolean
+    mode: AgentRunMode
     context?: StartRunInput['context']
   }): Promise<{ runId: string; sessionId: string }> {
     const prompt = await this.options.sessions.readUserPrompt(input.entryId)
     const plan = await this.createPlan({
       sessionId: input.sessionId,
       prompt,
-      readOnly: input.readOnly,
+      mode: input.mode,
       context: input.context,
     })
-    const started = await this.options.sessions.retry(
-      input.sessionId,
-      input.entryId,
-      prompt,
-      plan,
-    )
+    const started = await this.options.sessions.retry(input.sessionId, input.entryId, prompt, plan)
     await this.switchSession(started.sessionId)
     return started
   }
@@ -180,7 +176,7 @@ export class AgentApplicationService implements AgentApplicationApi {
     const plan = await this.createPlan({
       sessionId: input.sessionId,
       prompt: input.prompt,
-      readOnly: input.readOnly,
+      mode: input.mode,
       context: input.context,
     })
     const started = await this.options.sessions.edit(
@@ -228,10 +224,7 @@ export class AgentApplicationService implements AgentApplicationApi {
   /** 走一遍客户端条目流合并，并把结果广播给工作区。 */
   private async step(
     sessionId: string,
-    change: (
-      transcript: ConversationTranscript,
-      open: OpenSession,
-    ) => Promise<TranscriptView>,
+    change: (transcript: ConversationTranscript, open: OpenSession) => Promise<TranscriptView>,
   ): Promise<AgentTranscriptView> {
     const open = this.open.get(sessionId)
     if (!open) {

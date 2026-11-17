@@ -10,7 +10,11 @@ import { BrowserAgentBridge as ProductionBrowserAgentBridge } from '../browser-a
 import { BrowserToolRegistry } from '../browser-agent/tools/impl/browser-tool-registry'
 import { createOpenAiCompatibleFetchStub } from './_agentProviderFixtures'
 import { readStoredAgentModelSettings } from './_agentSettingsFixtures'
-import { createTestChartAgent, createTestChartAgentContext } from './_testChartAgent'
+import {
+  createTestChartAgent,
+  createTestChartAgentContext,
+  createTestToolDeps,
+} from './_testChartAgent'
 import { BrowserAgentBridge } from './browser-agent-fixture'
 
 /** 清理每个测试写入的浏览器全局状态；LocalStorage 由全局 test-setup 统一清理。 */
@@ -93,18 +97,18 @@ describe('BrowserAgentBridge', () => {
 
     await expect(bridge.listTools()).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'instruments_query_name', enabled: true }),
+        expect.objectContaining({ name: 'instruments_query', enabled: true }),
       ]),
     )
-    await bridge.setToolEnabled('instruments_query_name', false)
+    await bridge.setToolEnabled('instruments_query', false)
     await expect(bridge.listTools()).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'instruments_query_name', enabled: false }),
+        expect.objectContaining({ name: 'instruments_query', enabled: false }),
       ]),
     )
     await expect(new BrowserAgentBridge().listTools()).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'instruments_query_name', enabled: false }),
+        expect.objectContaining({ name: 'instruments_query', enabled: false }),
       ]),
     )
   })
@@ -116,7 +120,6 @@ describe('BrowserAgentBridge', () => {
       expect.objectContaining({
         name: 'web_search',
         enabled: true,
-        available: true,
       }),
     )
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
@@ -416,7 +419,7 @@ describe('BrowserAgentBridge', () => {
     await bridge.selectProviderProfile('Provider one')
     expect(readStoredAgentModelSettings()).toMatchObject({ exaApiKey: 'exa-key' })
     await expect(bridge.listTools()).resolves.toContainEqual(
-      expect.objectContaining({ name: 'web_search', enabled: true, available: true }),
+      expect.objectContaining({ name: 'web_search', enabled: true }),
     )
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({ exaConfigured: true })
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
@@ -450,7 +453,7 @@ describe('BrowserAgentBridge', () => {
     const [session] = await bridge.listSessions()
     const opened = await bridge.openSession(session!.id)
 
-    await bridge.startRun({ sessionId: session!.id, prompt: 'Analyze RSI', readOnly: true })
+    await bridge.startRun({ sessionId: session!.id, prompt: 'Analyze RSI', mode: 'plan' })
 
     expect(opened.items).toEqual([])
   })
@@ -472,7 +475,7 @@ describe('BrowserAgentBridge', () => {
     await connectChartProvider(bridge, { profileName: 'Provider example' })
     const [session] = await bridge.listSessions()
 
-    await bridge.startRun({ sessionId: session!.id, prompt: '分析 RSI', readOnly: true })
+    await bridge.startRun({ sessionId: session!.id, prompt: '分析 RSI', mode: 'plan' })
     await waitForAnswer(bridge, session!.id, '分析 RSI')
     const userEntry = entriesOf(await bridge.openSession(session!.id)).find(
       (entry) => entry.kind === 'pi.user',
@@ -482,7 +485,7 @@ describe('BrowserAgentBridge', () => {
     const retried = await bridge.retryRun({
       sessionId: session!.id,
       entryId: userEntry!.id,
-      readOnly: true,
+      mode: 'plan',
     })
     expect(retried.sessionId).not.toBe(session!.id)
     await waitForAnswer(bridge, retried.sessionId, '分析 RSI')
@@ -495,7 +498,7 @@ describe('BrowserAgentBridge', () => {
       sessionId: retried.sessionId,
       entryId: retriedUser!.id,
       prompt: '分析 EMA',
-      readOnly: true,
+      mode: 'plan',
     })
     await waitForAnswer(bridge, edited.sessionId, '分析 EMA')
     const branchUser = entriesOf(await bridge.openSession(edited.sessionId)).find(
@@ -522,9 +525,9 @@ describe('BrowserAgentBridge', () => {
     await connectChartProvider(bridge, { profileName: 'Provider example' })
     const [session] = await bridge.listSessions()
 
-    await bridge.startRun({ sessionId: session!.id, prompt: '第一轮问题', readOnly: true })
+    await bridge.startRun({ sessionId: session!.id, prompt: '第一轮问题', mode: 'plan' })
     await waitForAnswer(bridge, session!.id, '第一轮问题')
-    await bridge.startRun({ sessionId: session!.id, prompt: '你刚刚说了什么', readOnly: true })
+    await bridge.startRun({ sessionId: session!.id, prompt: '你刚刚说了什么', mode: 'plan' })
     await waitForAnswer(bridge, session!.id, '你刚刚说了什么')
 
     const secondRequest = JSON.parse(String(fetchMock.mock.calls[1]![1]?.body)) as {
@@ -592,7 +595,7 @@ describe('BrowserAgentBridge', () => {
           {
             id: 'line-1',
             kind: 'trend-line',
-            paneId: 'main',
+            placement: 'main',
             visible: true,
             locked: false,
             zIndex: null,
@@ -603,7 +606,7 @@ describe('BrowserAgentBridge', () => {
           {
             id: 'line-2',
             kind: 'horizontal-line',
-            paneId: 'main',
+            placement: 'main',
             visible: true,
             locked: true,
             zIndex: 2,
@@ -631,41 +634,57 @@ describe('BrowserAgentBridge', () => {
     })
   })
 
-  it('executes destructive tools through the manual debug entrypoint', async () => {
-    const drawingCommands = {
-      create: vi.fn(() => ({
-        id: 'drawing-1',
-        kind: 'horizontal-line',
-        paneId: 'main',
-        visible: true,
-        anchors: [{ id: 'anchor-1', index: 0, time: Date.parse('2026-09-02'), price: 9 }],
-        params: {},
-        style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
-      })),
-    }
+  it('runs a write tool through the manual debug entrypoint', async () => {
+    const create = vi.fn(() => ({
+      id: 'drawing-1',
+      kind: 'horizontal-line',
+      placement: 'main',
+      visible: true,
+      locked: false,
+      zIndex: null,
+      anchors: [{ timestamp: Date.parse('2026-09-02'), price: 9 }],
+      style: { stroke: '#2962ff' },
+      labels: { line: {}, area: {} },
+    }))
     const agent = createTestChartAgent({
-      getAvailableMarketDataSourceIds: () => [],
-      getAvailableDrawingPaneIds: () => ['main'],
-      dependencies: { drawingCommands },
+      tools: createTestToolDeps({
+        drawings: {
+          list: () => [],
+          create,
+          update: () => null,
+          remove: () => false,
+          copy: () => [],
+          clear: () => 0,
+        },
+      }),
     })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
     await expect(
-      bridge.debugTool('drawing_create', {
+      bridge.debugTool('drawings_write', {
+        action: 'create',
+        placement: 'main',
         kind: 'horizontal-line',
-        paneId: 'main',
         anchors: [{ price: 9 }],
         style: { stroke: '#4A90D9' },
       }),
-    ).resolves.toMatchObject({ summary: 'Tool completed.' })
-    expect(drawingCommands.create).toHaveBeenCalledOnce()
+    ).resolves.toMatchObject({ content: expect.stringContaining('drawing-1') })
+    expect(create).toHaveBeenCalledOnce()
   })
 
-  it('preserves non-drawing chart tool contract errors for the model', async () => {
+  it('returns market tool contract errors to the model', async () => {
     const agent = createTestChartAgent({
-      queryBars: () => {
-        throw new KLineChartError('INVALID_ARGUMENTS', 'The requested period is unavailable.')
-      },
+      tools: createTestToolDeps({
+        market: {
+          listSourceIds: () => [],
+          lookupInstrument: async () => '',
+          bars: async () => {
+            throw new KLineChartError('INVALID_ARGUMENTS', 'The requested period is unavailable.')
+          },
+          timeShare: async () => '',
+          indicatorValues: async () => '',
+        },
+      }),
     })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
@@ -682,35 +701,33 @@ describe('BrowserAgentBridge', () => {
     })
   })
 
-  it('routes a chart tool to the primitive host that owns it, falling back to the facade', () => {
-    const primitiveHost = { create: () => true }
-    const agent = createTestChartAgent({ toolHosts: [primitiveHost] })
+  it('exposes only read tools in plan mode and every tool in build mode', () => {
     const registry = createTestToolRegistry()
-    // 读取私有方法：private 无法静态访问，测试只断言其路由行为。
-    const chartToolTarget: (
-      tool: { owns(host: object): boolean },
-      agent: ChartAgentController,
-    ) => object = Reflect.get(registry, 'chartToolTarget')
-    const resolveTarget = (tool: { owns(host: object): boolean }, agent: ChartAgentController) =>
-      chartToolTarget.call(registry, tool, agent)
+    const agent = createTestChartAgent()
 
-    // 原语工具由其真实方法宿主识别，而非按工具名匹配。
-    expect(resolveTarget({ owns: (host) => host === primitiveHost }, agent)).toBe(primitiveHost)
-    // 未命中原语宿主时归属 Agent facade 自身工具。
-    expect(resolveTarget({ owns: () => false }, agent)).toBe(agent)
+    expect(registry.resolveTools({ agent, mode: 'plan' }).map((tool) => tool.name)).toEqual([
+      'indicators_list',
+      'drawings_list',
+      'comparisons_list',
+      'instruments_query',
+      'market_bars_query',
+      'market_timeshare_query',
+      'indicator_values_query',
+      'web_search',
+      'ask_user',
+    ])
+    expect(registry.resolveTools({ agent, mode: 'build' }).map((tool) => tool.name)).toContain(
+      'indicators_write',
+    )
   })
 
-  it('adds the exact runtime pane IDs to the create-drawing tool description', () => {
-    const agent = createTestChartAgent({
-      getAvailableMarketDataSourceIds: () => [],
-      getAvailableDrawingPaneIds: () => ['main', 'volume'],
-    })
+  it('lists every host tool once, regardless of the bound chart', () => {
     const registry = createTestToolRegistry()
-    const resolveTools = registry.catalog.resolve({ agent, readOnly: false })
-
-    expect(resolveTools.find((tool) => tool.name === 'drawing_create')?.description).toContain(
-      'Available runtime paneIds: main, volume.',
-    )
+    const names = registry.listTools().map((tool) => tool.name)
+    expect(names).toHaveLength(12)
+    expect(new Set(names).size).toBe(12)
+    expect(names).toContain('indicators_write')
+    expect(names).toContain('ask_user')
   })
 
   it('retries runtime initialization after a locked start and closes safely', async () => {

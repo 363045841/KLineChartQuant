@@ -45,8 +45,8 @@
       <AgentContextBar
         :context-items="contextItems"
         :locale="locale"
-        :read-only="readOnly"
-        @read-only="setReadOnly"
+        :mode="mode"
+        @mode-change="setMode"
       />
       <AgentComposer
         v-model:draft="draft"
@@ -114,7 +114,6 @@
     draft,
     providerSettings,
     locale,
-    readOnly,
     collapseReasoning,
     models,
     modelsLoading,
@@ -135,7 +134,8 @@
     loadEarlier,
     fillGap,
     answerQuestion,
-    setReadOnly,
+    mode,
+    setMode,
     setModel,
     loadModels,
     setReasoningEffort,
@@ -169,7 +169,8 @@
   watch(
     () => [runError.value?.message, state.value.questions.at(-1)?.status],
     ([errorMessage, questionStatus]) => {
-      const announcement = errorMessage ?? (questionStatus === 'pending' ? text.value.question.required : '')
+      const announcement =
+        errorMessage ?? (questionStatus === 'pending' ? text.value.question.required : '')
       if (!announcement) return
       if (announcementTimer) clearTimeout(announcementTimer)
       announcementTimer = setTimeout(() => {
