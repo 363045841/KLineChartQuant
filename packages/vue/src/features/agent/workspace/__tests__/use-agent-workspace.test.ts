@@ -48,3 +48,38 @@ describe('useAgentWorkspace availability', () => {
     wrapper.unmount()
   })
 })
+
+describe('useAgentWorkspace run failure', () => {
+  it('projects the official failure and resumes with the native continue', async () => {
+    const bridge = new FakeAgentBridge({ providerConfigured: true })
+    const { wrapper, workspace } = mountWorkspace(bridge)
+    await flushPromises()
+
+    bridge.failRun('1', { reason: 'model_error', detail: 'upstream 502' })
+    await flushPromises()
+    expect(workspace.runFailure.value).toEqual({ reason: 'model_error', detail: 'upstream 502' })
+
+    const continueRun = vi.spyOn(bridge, 'continueRun')
+    await workspace.resume()
+    expect(continueRun).toHaveBeenCalledWith({ sessionId: '1', mode: 'build' })
+    wrapper.unmount()
+  })
+
+  it('surfaces a failed reopen instead of keeping an empty timeline', async () => {
+    const bridge = new FakeAgentBridge()
+    const { wrapper, workspace } = mountWorkspace(bridge)
+    await flushPromises()
+
+    vi.spyOn(bridge, 'openSession').mockRejectedValueOnce(
+      new AgentRuntimeError('SESSION_NOT_FOUND', 'The Agent session does not exist.'),
+    )
+    await workspace.selectSession('1')
+    await flushPromises()
+
+    expect(workspace.availability.value).toEqual({
+      status: 'unavailable',
+      error: expect.objectContaining({ code: 'SESSION_NOT_FOUND' }),
+    })
+    wrapper.unmount()
+  })
+})

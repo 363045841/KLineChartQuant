@@ -31,6 +31,7 @@ import type {
   AgentWorkspaceEvent,
   AgentWorkspaceEventInput,
   BranchMessageInput,
+  ContinueRunInput,
   EditMessageInput,
   EntryId,
   ProviderModelPoolEntry,
@@ -408,6 +409,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 重新生成：Bridge 负责补上当前上下文并返回分支后的会话标识。 */
   async retryRun(input: BranchMessageInput): Promise<AgentRunStartedView> {
     return (await this.runtime()).retryRun({
+      ...input,
+      context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
+    })
+  }
+
+  /** 继续运行：官方 continue 不追加用户消息，Bridge 只补上当前图表上下文。 */
+  async continueRun(input: ContinueRunInput): Promise<AgentRunStartedView> {
+    return (await this.runtime()).continueRun({
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
     })

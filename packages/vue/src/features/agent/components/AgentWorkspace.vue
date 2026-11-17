@@ -29,7 +29,7 @@
         :live-answer="liveAnswer"
         :live-tools="liveTools"
         :questions="state.questions"
-        :error="runError"
+        :run-failure="runFailure"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
         :edit-message="editMessage"
@@ -38,7 +38,8 @@
         @answer="answerQuestion"
         @cancel="cancelQuestion"
         @retry="retry"
-        @retry-last="retry"
+        @resume="resume"
+        @configure="openProviderSettings"
         @load-earlier="loadEarlier"
         @fill-gap="fillGap"
       />
@@ -117,7 +118,7 @@
     isRunning,
     liveAnswer,
     liveTools,
-    runError,
+    runFailure,
     createSession,
     selectSession,
     renameSession,
@@ -125,6 +126,7 @@
     send,
     stop,
     retry,
+    resume,
     retryInitialize,
     editMessage,
     loadEarlier,
@@ -163,24 +165,32 @@
     void nextTick(() => workspace.value?.querySelector<HTMLElement>(selector)?.focus())
   }
 
-  // 提问卡片内联在回答里，焦点与播报按同一条待答提问推进。
+  /** 延迟播报，连续变化时只保留最后一次。 */
+  function announce(message: string): void {
+    if (announcementTimer) clearTimeout(announcementTimer)
+    announcementTimer = setTimeout(() => {
+      liveAnnouncement.value = message
+      announcementTimer = undefined
+    }, 180)
+  }
+
+  /** 失败提示里的「打开模型设置」直接复用同一份 Provider 设置面板。 */
+  function openProviderSettings(): void {
+    providerSettings.show(state.value.provider)
+  }
+
+  // 提问卡片内联在回答里，焦点与播报按同一条待答提问推进；
+  // 失败提示自带 role 与焦点接管，这里不再重复播报。
   const pendingQuestion = computed(() =>
     state.value.questions.find((question) => question.status === 'pending'),
   )
 
   watch(
-    () => [runError.value?.message, pendingQuestion.value?.id],
-    ([errorMessage, questionId]) => {
-      const announcement =
-        errorMessage ?? (questionId ? text.value.question.required : '')
-      if (!announcement) return
-      if (announcementTimer) clearTimeout(announcementTimer)
-      announcementTimer = setTimeout(() => {
-        liveAnnouncement.value = announcement
-        announcementTimer = undefined
-      }, 180)
-      if (errorMessage) focusTarget('[data-focus="error"]')
-      else focusTarget('[data-focus="question"] button')
+    () => pendingQuestion.value?.id,
+    (questionId) => {
+      if (!questionId) return
+      announce(text.value.question.required)
+      focusTarget('[data-focus="question"] button')
     },
   )
 
@@ -213,7 +223,6 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
-    font-family: var(--klc-typography-font-family);
     letter-spacing: 0;
   }
 

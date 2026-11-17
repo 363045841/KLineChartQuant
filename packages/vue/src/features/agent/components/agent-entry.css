@@ -1,8 +1,12 @@
 /* 时间线条目共享样式：消息容器、操作按钮与编辑输入。 */
 
 .agent-entry {
+  /* 条目内联元信息：思考行、工具行与提问摘要共用同一份间距与图标尺寸。 */
+  --agent-inline-gap: var(--klc-space-8);
+  --agent-inline-icon: 16px;
+
   display: grid;
-  gap: 6px;
+  gap: var(--klc-space-8);
   min-width: 0;
   /* 条目内所有文本默认允许断行；代码块靠自身滚动，不受影响。 */
   overflow-wrap: anywhere;
@@ -22,10 +26,17 @@
 .agent-disclosure > summary {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--agent-inline-gap);
   min-width: 0;
   cursor: pointer;
   list-style: none;
+}
+
+/* 摘要行里的图标统一尺寸，光学大小与被文字对齐的距离都来自同两个变量。 */
+.agent-disclosure > summary > svg {
+  flex: 0 0 auto;
+  width: var(--agent-inline-icon);
+  height: var(--agent-inline-icon);
 }
 
 .agent-disclosure > summary::-webkit-details-marker {
@@ -34,7 +45,7 @@
 
 .agent-disclosure__body {
   display: grid;
-  gap: 6px;
+  gap: var(--klc-space-8);
   margin: 6px 0 0 7px;
   padding-left: 10px;
   border-left: 1px solid var(--klc-color-ui-border);
@@ -62,7 +73,7 @@
 
 .agent-entry__editor {
   display: grid;
-  gap: 6px;
+  gap: var(--klc-space-8);
   min-width: 240px;
 }
 
@@ -86,20 +97,22 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  min-height: 18px;
+  gap: var(--klc-space-8, 8px);
+  min-height: 16px;
   color: var(--klc-color-ui-muted);
 }
 
 .agent-entry__actions button {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--klc-radius-xs, 4px);
   background: transparent;
+  /* 图标是 1em，字号就是图标边长：16px 的按钮里放 12px 图标。 */
+  font-size: var(--klc-text-12-font-size, 12px);
   color: inherit;
   cursor: pointer;
 }

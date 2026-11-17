@@ -71,7 +71,12 @@
         @cancel="(questionId) => emit('cancel', questionId)"
       />
 
-      <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="emitLastRetry" />
+      <AgentRunFailureNotice
+        :run-failure="runFailure"
+        :locale="locale"
+        @resume="emit('resume')"
+        @configure="emit('configure')"
+      />
     </div>
   </main>
 </template>
@@ -79,7 +84,6 @@
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
   import type {
-    AgentErrorView,
     AgentTranscriptView,
     EntryId,
     EntryRecord,
@@ -88,10 +92,10 @@
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import type { EditMessageAction } from '../message-edit/types.js'
-  import type { LiveAnswerView, LiveToolView } from '../workspace/impl/agent-live.js'
+  import type { LiveAnswerView, LiveToolView, RunFailureView } from '../workspace/impl/agent-live.js'
   import AgentAnswerBlocks from './AgentAnswerBlocks.vue'
   import AgentAssistantEntry from './AgentAssistantEntry.vue'
-  import AgentErrorNotice from './AgentErrorNotice.vue'
+  import AgentRunFailureNotice from './AgentRunFailureNotice.vue'
   import AgentTimelineEmptyState from './AgentTimelineEmptyState.vue'
   import AgentUserEntry from './AgentUserEntry.vue'
   import { indexTranscript, isAssistantEntry, isUserEntry } from './impl/use-agent-transcript.js'
@@ -121,7 +125,7 @@
     liveAnswer?: LiveAnswerView
     liveTools: ReadonlyMap<string, LiveToolView>
     questions: readonly QuestionView[]
-    error: AgentErrorView | null
+    runFailure?: RunFailureView
     collapseReasoning: boolean
     locale: AgentLocale
     editMessage?: EditMessageAction
@@ -132,7 +136,8 @@
     answer: [questionId: string, answer: QuestionAnswerView]
     cancel: [questionId: string]
     retry: [entryId: EntryId]
-    retryLast: [entryId: EntryId]
+    resume: []
+    configure: []
     loadEarlier: []
     fillGap: [after: EntryId, upTo: EntryId]
   }>()
@@ -184,12 +189,6 @@
   /** 没有任何可渲染内容即为空态；空态需要撑满滚动视口才能垂直居中。 */
   const empty = computed(() => rows.value.length === 0 && !props.liveAnswer)
 
-  /** 运行失败后的重试以最后一条用户输入为目标。 */
-  function emitLastRetry(): void {
-    const entryId = index.value.lastUserEntryId
-    if (entryId !== undefined) emit('retryLast', entryId)
-  }
-
   /** 用户离开底部后保留当前阅读位置，直到主动滚回消息末尾。 */
   function updateAutoScroll(): void {
     const element = scroller.value
@@ -198,9 +197,9 @@
       element.scrollHeight - element.scrollTop - element.clientHeight <= AUTO_SCROLL_AWAY_PX
   }
 
-  // 条目数量、流式正文长度与待答提问变化时按需推进到底部。
+  // 条目数量、流式正文长度、待答提问与运行失败变化时按需推进到底部。
   watch(
-    () => [rows.value.length, props.liveAnswer?.blocks.length, props.questions.length, props.error],
+    () => [rows.value.length, props.liveAnswer?.blocks.length, props.questions.length, props.runFailure],
     async () => {
       await nextTick()
       if (!shouldAutoScroll) return
@@ -236,9 +235,9 @@
     min-height: 100%;
   }
 
-  /* 间距只有这一个来源：条目之间与条目内部块之间同为 6px。 */
+  /* 间距只有这一个来源：条目之间与条目内部块之间同为 8px。 */
   .timeline__body > * + * {
-    margin-top: 6px;
+    margin-top: var(--klc-space-8);
   }
 
   /* 用户消息是唯一的角色分隔，额外加一段上间距。 */

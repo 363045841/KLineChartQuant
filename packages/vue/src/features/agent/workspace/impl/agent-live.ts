@@ -1,7 +1,6 @@
 // 从官方会话文档读取运行状态与实时工具；UI 只做展示映射，不保存第二份状态。
-import { LiveDoc } from '@earendil-works/pi-durable'
+import { LiveDoc, type RunFailure, type RunFailureReason } from '@earendil-works/pi-durable'
 import type {
-  AgentErrorView,
   JsonObject,
   JsonValue,
   TextContent,
@@ -98,17 +97,35 @@ export function readLiveTools(
   return slots
 }
 
-/** 最近一次运行失败的展示视图；成功或进行中时返回 undefined。 */
+/** 最近一次没有作答的运行失败；只保留界面需要的失败原因与详情。 */
+export type RunFailureView = Pick<RunFailure, 'reason' | 'detail'>
+
+/** 官方失败原因全集；Pi 新增原因时这个 Record 会在编译期要求同步。 */
+const RUN_FAILURE_REASONS: Record<RunFailureReason, true> = {
+  model_error: true,
+  no_model: true,
+  aborted: true,
+  reset: true,
+  faulted: true,
+  orphaned: true,
+  interrupted: true,
+  restart_limit: true,
+  nothing_to_answer: true,
+  turn_limit: true,
+}
+
+/** 判断官方失败原因；未知值（例如版本错配）不进入界面。 */
+function isRunFailureReason(value: unknown): value is RunFailureReason {
+  return typeof value === 'string' && Object.hasOwn(RUN_FAILURE_REASONS, value)
+}
+
+/** 最近一次运行失败的展示视图；成功、进行中或原因未知时返回 undefined。 */
 export function readRunFailure(
   docs: Readonly<Record<string, JsonObject>>,
-): AgentErrorView | undefined {
+): RunFailureView | undefined {
   const live = liveDoc(docs)
   if (!live || !isObject(live.runFailure)) return undefined
-  const failure = live.runFailure
-  if (!isString(failure.reason)) return undefined
-  return {
-    code: failure.reason.toUpperCase(),
-    message: isString(failure.detail) ? failure.detail : failure.reason,
-    retryable: true,
-  }
+  const { reason, detail } = live.runFailure
+  if (!isRunFailureReason(reason)) return undefined
+  return { reason, ...(isString(detail) ? { detail } : {}) }
 }

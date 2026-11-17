@@ -6,7 +6,6 @@ import type {
   ToolResultMessage,
   TranscriptItem,
 } from '../../agent-contracts.js'
-import type { LiveAnswerView, LiveToolView } from '../../workspace/impl/agent-live.js'
 import { readCitations } from './tool-view.js'
 
 /** 时间线渲染所需的派生索引，只做查找不做重排。 */
@@ -17,16 +16,8 @@ export interface TranscriptIndex {
   readonly retryTargets: ReadonlyMap<EntryId, EntryId>
   /** 全部工具结果携带的来源。 */
   readonly citations: readonly SourceCitation[]
-  /** 最后一条用户条目，供运行失败后重试。 */
-  readonly lastUserEntryId?: EntryId
   /** 最后一条助手条目，用于决定操作栏位置。 */
   readonly finalAssistantId?: EntryId
-}
-
-/** 流式回答与实时工具槽的派生视图。 */
-export interface LiveTranscript {
-  readonly answer: LiveAnswerView | undefined
-  readonly tools: ReadonlyMap<string, LiveToolView>
 }
 
 /**
@@ -57,7 +48,8 @@ export function indexTranscript(items: readonly TranscriptItem[]): TranscriptInd
     }
     if (entry.kind !== 'pi.assistant' || entry.model?.[0]?.role !== 'assistant') continue
     if (lastUserEntryId !== undefined) retryTargets.set(entry.id, lastUserEntryId)
-    finalAssistantId = entry.id
+    // 只有以回答结束的条目才是"最终答案"；工具轮同样会进入 retryTargets，但不占操作栏。
+    if (isAnswerEntry(entry)) finalAssistantId = entry.id
     for (const block of entry.model[0].content) {
       if (block.type !== 'toolCall') continue
       const result = toolResults.get(block.id)
@@ -69,7 +61,6 @@ export function indexTranscript(items: readonly TranscriptItem[]): TranscriptInd
     toolResults,
     retryTargets,
     citations,
-    ...(lastUserEntryId === undefined ? {} : { lastUserEntryId }),
     ...(finalAssistantId === undefined ? {} : { finalAssistantId }),
   }
 }
@@ -82,6 +73,17 @@ export function isUserEntry(entry: EntryRecord): boolean {
 /** 判断条目是否为可渲染的助手回答。 */
 export function isAssistantEntry(entry: EntryRecord): boolean {
   return entry.kind === 'pi.assistant' && entry.model?.[0]?.role === 'assistant'
+}
+
+/**
+ * 判断助手条目是否以「回答」结束：Pi 的 `stopReason` 为 `toolUse` / `pending`
+ * 时这一轮还在等工具或还没生成，不算回答；其余原因必须有正文才算。
+ */
+function isAnswerEntry(entry: EntryRecord): boolean {
+  const message = entry.model?.[0]
+  if (!isAssistantEntry(entry) || message?.role !== 'assistant') return false
+  if (message.stopReason === 'toolUse' || message.stopReason === 'pending') return false
+  return answerText(entry).length > 0
 }
 
 /** 拼接助手条目的正文，供复制与操作栏判断。 */

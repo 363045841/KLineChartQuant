@@ -1,4 +1,4 @@
-// 运行驱动：把一次运行的工具、模型与提示词写进官方 Conversation，并提交用户输入。
+// 运行驱动：把一次运行的工具、模型与提示词写进官方 Conversation，并提交运行。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import type { createModels } from '@earendil-works/pi-ai'
 import {
@@ -8,6 +8,7 @@ import {
   type Harness,
   type Registry,
   type Submission,
+  type SubmissionDraft,
 } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../../contracts/errors.js'
 import type { AgentRunPlan, RuntimeToolDefinition } from '../types.js'
@@ -29,21 +30,21 @@ export interface AgentRunInput {
   readonly prompt: string
 }
 
+/** 继续运行的宿主输入：官方 continue 不携带用户正文。 */
+export type AgentContinueInput = Omit<AgentRunInput, 'prompt'>
 /**
- * 安装扩展、写入模型与提示词，然后提交用户输入。
- * 提交失败（会话忙、模型缺失）直接抛出；运行结果由官方 `pi.live` 与条目记录表达。
+ * 按运行计划配置会话：注册工具扩展、写入模型与系统提示词。
  * @param execution 官方运行时句柄。
  * @param conversation 目标会话。
  * @param plan 本次运行计划。
- * @param input 运行标识、会话标识与用户输入。
- * @returns 官方提交句柄，调用方可用它等待运行结算。
+ * @param run 运行标识与会话标识，工具回调据此回报宿主。
  */
-export async function submitAgentRun(
+async function configureConversation(
   execution: DurableExecution,
   conversation: Conversation,
   plan: AgentRunPlan,
-  input: AgentRunInput,
-): Promise<Submission> {
+  run: Pick<AgentRunInput, 'runId' | 'sessionId'>,
+): Promise<void> {
   const provider = plan.models.getProvider(plan.model.provider)
   if (!provider) {
     throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'The model Provider is missing.')
@@ -76,8 +77,8 @@ export async function submitAgentRun(
         }
         await api.details(presentation, context)
         const result = await definition.execute(args, {
-          sessionId: input.sessionId,
-          runId: input.runId,
+          sessionId: run.sessionId,
+          runId: run.runId,
           toolCallId: api.callId,
           signal: context.abortSignal ?? new AbortController().signal,
           progress: (progress) => api.output(progress.label),
@@ -108,16 +109,20 @@ export async function submitAgentRun(
     },
     BACKGROUND_CONTEXT,
   )
+}
+
+/**
+ * 提交官方 submission，并把「会话忙」翻译成运行时错误。
+ * @param conversation 目标会话。
+ * @param draft 官方提交；新输入与 continue 共用这条提交路径。
+ * @returns 官方提交句柄，调用方可用它等待运行结算。
+ */
+async function submitOrReportBusy(
+  conversation: Conversation,
+  draft: SubmissionDraft,
+): Promise<Submission> {
   try {
-    return await conversation.submit(
-      {
-        type: 'input',
-        content: input.prompt,
-        requestId: input.runId,
-        whenBusy: 'reject',
-      },
-      BACKGROUND_CONTEXT,
-    )
+    return await conversation.submit(draft, BACKGROUND_CONTEXT)
   } catch (error) {
     if (error instanceof ConversationBusy) {
       throw new AgentRuntimeError('RUN_ACTIVE', 'The Agent session is still running.', {
@@ -127,4 +132,47 @@ export async function submitAgentRun(
     }
     throw error
   }
+}
+
+/**
+ * 安装扩展、写入模型与提示词，然后提交用户输入。
+ * 提交失败（会话忙、模型缺失）直接抛出；运行结果由官方 `pi.live` 与条目记录表达。
+ * @param execution 官方运行时句柄。
+ * @param conversation 目标会话。
+ * @param plan 本次运行计划。
+ * @param input 运行标识、会话标识与用户输入。
+ * @returns 官方提交句柄，调用方可用它等待运行结算。
+ */
+export async function submitAgentRun(
+  execution: DurableExecution,
+  conversation: Conversation,
+  plan: AgentRunPlan,
+  input: AgentRunInput,
+): Promise<Submission> {
+  await configureConversation(execution, conversation, plan, input)
+  return submitOrReportBusy(conversation, {
+    type: 'input',
+    content: input.prompt,
+    requestId: input.runId,
+    whenBusy: 'reject',
+  })
+}
+
+/**
+ * 在会话现有上下文上继续运行：官方 continue 不追加用户消息，
+ * 只让模型回答仍然欠着答案的上下文（例如上一次运行没有作答）。
+ * @param execution 官方运行时句柄。
+ * @param conversation 目标会话。
+ * @param plan 本次运行计划。
+ * @param input 运行标识与会话标识。
+ * @returns 官方提交句柄，调用方可用它等待运行结算。
+ */
+export async function continueAgentRun(
+  execution: DurableExecution,
+  conversation: Conversation,
+  plan: AgentRunPlan,
+  input: AgentContinueInput,
+): Promise<Submission> {
+  await configureConversation(execution, conversation, plan, input)
+  return submitOrReportBusy(conversation, { type: 'continue', requestId: input.runId })
 }

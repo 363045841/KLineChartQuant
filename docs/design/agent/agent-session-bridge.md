@@ -38,6 +38,13 @@ Workspace 事件只有五类：`session.changed`、`session.closed`、`sessions.
 - `pi-run-driver` 事件投影驱动与增量事件契约（`tool.started`、`assistant.*.delta`）：`pi.live` 已提供流式窗口。
 - `security/redaction`：脱敏不在本版本范围内，删除后 prompt 与工具结果原样落盘。
 
+## 运行失败与继续
+
+- 失败只来自官方 `pi.live.runFailure`（`reason: RunFailureReason` + 可选 `detail`）。UI 直接按其原因渲染，不把它翻译成自定义错误码，也不把它塞进条目流：官方 `TranscriptItem` 只有 `entry / gap / earlier`，运行失败本来就不是条目。
+- 是否打扰用户由原因决定：`aborted`（用户主动中止）与 `reset`（官方在 post-tools 边界自动续跑）不展示；其余原因给出本地化标题，`detail` 原文展示。
+- 恢复动作也按原因给出：`no_model` 打开模型设置；上下文仍欠答案的原因（`model_error` / `interrupted` / `restart_limit` / `turn_limit`）调用官方 `continue`（`Conversation.submit({ type: 'continue' })`），不追加用户消息、不创建分支。
+- 「重新生成」仍是官方 `fork` + 重发原文，与 `continue` 是两条不同的路径。
+
 ## 分页
 
 `Conversation.watch()` 只给最近一页（默认 50）。更早历史由 `ConversationTranscript.loadEarlier()` 通过官方 `Conversation.entries()` 分页补齐；缺失区间显示为 `gap` 占位，点击调用 `fillGap()`。UI 不再全量扫描历史。

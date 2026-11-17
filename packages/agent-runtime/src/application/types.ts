@@ -5,6 +5,7 @@ import type {
   AgentSessionView,
   AgentTranscriptView,
   AgentWorkspaceEvent,
+  ContinueRunInput,
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderStatusView,
@@ -26,10 +27,10 @@ export interface RuntimeLogSink {
   write(record: RuntimeLogRecord): void
 }
 
-/** 生成运行计划所需的宿主输入；运行标识由会话服务分配。 */
+/** 构造运行计划所需的宿主输入；运行标识由会话服务分配，continue 不携带正文。 */
 export interface RunPlanInput {
   sessionId: string
-  prompt: string
+  prompt?: string
   mode: AgentRunMode
   context?: AgentRunContext
 }
@@ -64,6 +65,7 @@ export interface AgentApplicationApi {
     mode: AgentRunMode
     context?: AgentRunContext
   }): Promise<{ runId: string; sessionId: string }>
+  continueRun(input: ContinueRunInput): Promise<{ runId: string; sessionId: string }>
   editMessage(input: {
     sessionId: string
     entryId: EntryId

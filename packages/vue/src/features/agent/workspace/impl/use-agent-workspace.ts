@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
   AgentContextItem,
-  AgentErrorView,
   AgentRunMode,
   AgentTranscriptView,
   AgentWorkspaceEvent,
@@ -72,7 +71,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const isRunning = computed(() => submitting.value || isRunActive(docs.value))
   const liveAnswer = computed(() => readLiveAnswer(docs.value))
   const liveTools = computed(() => readLiveTools(docs.value))
-  const runError = computed<AgentErrorView | null>(() => readRunFailure(docs.value) ?? null)
+  const runFailure = computed(() => readRunFailure(docs.value))
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
   )
@@ -161,9 +160,16 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await openSession(session.id)
   }
 
+  /** 切换会话；打开失败落到可见的不可用态，而不是留下空白时间线。 */
   async function selectSession(sessionId: string): Promise<void> {
-    if (sessionId === state.value.activeSessionId) return
-    await openSession(sessionId)
+    try {
+      await openSession(sessionId)
+    } catch (error) {
+      availability.value = {
+        status: 'unavailable',
+        error: toAgentErrorView(error, WORKSPACE_UNAVAILABLE_FALLBACK),
+      }
+    }
   }
 
   /** 重命名指定会话；标题为空时忽略。 */
@@ -218,6 +224,13 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (!sessionId || isRunning.value) return
     const started = await submitRun(() => bridge.retryRun({ sessionId, entryId, mode: mode.value }))
     await openSession(started.sessionId)
+  }
+
+  /** 继续运行：官方 continue 不追加用户消息，也不切换分支。 */
+  async function resume(): Promise<void> {
+    const sessionId = state.value.activeSessionId
+    if (!sessionId || isRunning.value) return
+    await submitRun(() => bridge.continueRun({ sessionId, mode: mode.value }))
   }
 
   /** 编辑重发：只接受当前读取结果中的用户条目。 */
@@ -332,7 +345,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     collapseReasoning,
     liveAnswer,
     liveTools,
-    runError,
+    runFailure,
     createSession,
     selectSession,
     renameSession,
@@ -340,6 +353,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     send,
     stop,
     retry,
+    resume,
     retryInitialize,
     editMessage,
     loadEarlier,

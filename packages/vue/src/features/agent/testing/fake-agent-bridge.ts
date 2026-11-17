@@ -1,17 +1,18 @@
 // 测试用 Bridge：只用官方条目形状的内存会话，不复制生产端的投影与状态机。
-import { type ConversationId, type EntryId } from '@earendil-works/pi-durable'
+import { type ConversationId, type EntryId, LiveDoc } from '@earendil-works/pi-durable'
 import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentRunStartedView,
   AgentSessionView,
   AgentTranscriptView,
-  AgentUsageView,
   AgentWorkspaceEvent,
   AgentWorkspaceEventInput,
   BranchMessageInput,
+  ContinueRunInput,
   EditMessageInput,
   EntryRecord,
+  JsonObject,
   ProviderModelPoolEntry,
   ProviderModelsResult,
   ProviderModelView,
@@ -19,11 +20,18 @@ import type {
   ProviderReasoningEffort,
   ProviderSaveInput,
   ProviderStatusView,
+  RunFailureReason,
   StartRunInput,
   ToolCall,
   TranscriptItem,
 } from '../agent-contracts.js'
 import { AGENT_UI_PROTOCOL_VERSION } from '../agent-contracts.js'
+
+/** 测试桥梁里记录的运行失败：写入官方 `pi.live.runFailure`，与生产读取路径一致。 */
+interface FakeRunFailure {
+  readonly reason: RunFailureReason
+  readonly detail?: string
+}
 
 interface FakeProfile {
   name: string
@@ -42,10 +50,10 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private readonly contextListeners = new Set<(items: ReadonlyArray<AgentContextItem>) => void>()
   private readonly entries = new Map<string, EntryRecord[]>()
   private readonly sessions: AgentSessionView[] = []
+  private readonly runFailures = new Map<string, FakeRunFailure>()
   private readonly profiles: FakeProfile[] = []
   private nextId = 1
   private exaConfigured = false
-  private usage: AgentUsageView | undefined
   /** 当前激活的 Profile 名称。 */
   private active = ''
 
@@ -130,7 +138,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async startRun(input: StartRunInput): Promise<AgentRunStartedView> {
     const runId = `run-${this.nextId++}`
-    this.appendRun(input.sessionId, input.prompt)
+    this.appendRound(input.sessionId, input.prompt, input.prompt)
     return { runId, sessionId: input.sessionId }
   }
 
@@ -144,7 +152,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
     const prompt = this.userText(entries[target]) ?? 'Retried prompt'
     if (target >= 0) entries.splice(target)
     const runId = `run-${this.nextId++}`
-    this.appendRun(input.sessionId, prompt)
+    this.appendRound(input.sessionId, prompt, prompt)
+    return { runId, sessionId: input.sessionId }
+  }
+
+  /** 继续运行：不追加用户消息，只补一轮回答。 */
+  async continueRun(input: ContinueRunInput): Promise<AgentRunStartedView> {
+    const runId = `run-${this.nextId++}`
+    this.appendRound(input.sessionId, 'Continue the run')
     return { runId, sessionId: input.sessionId }
   }
 
@@ -153,8 +168,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
     const target = entries.findIndex((entry) => entry.id === input.entryId)
     if (target >= 0) entries.splice(target)
     const runId = `run-${this.nextId++}`
-    this.appendRun(input.sessionId, input.prompt)
+    this.appendRound(input.sessionId, input.prompt, input.prompt)
     return { runId, sessionId: input.sessionId }
+  }
+
+  /** 模拟一次没有作答的运行：写入官方 `pi.live.runFailure` 并广播读取结果。 */
+  failRun(sessionId: string, failure: FakeRunFailure): void {
+    this.runFailures.set(sessionId, failure)
+    this.emit({ type: 'session.changed', sessionId, transcript: this.view(sessionId) })
   }
 
   /** 内存 Bridge 不模拟宿主提问：挂起与结算只存在于真实 Bridge。 */
@@ -310,8 +331,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return typeof message.content === 'string' ? message.content : ''
   }
 
-  /** 追加一轮确定性运行并广播视图。 */
-  private appendRun(sessionId: string, prompt: string): void {
+  /** 追加一轮确定性运行并广播视图；带 input 时先落一条官方用户条目。 */
+  private appendRound(sessionId: string, request: string, input?: string): void {
     const entries = this.entries.get(sessionId)
     const session = this.sessions.find((item) => item.id === sessionId)
     if (!entries || !session) return
@@ -325,12 +346,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
       })
     }
     const timestamp = Date.now()
-    push('pi.user', [{ role: 'user', content: prompt, timestamp }])
+    if (input !== undefined) push('pi.user', [{ role: 'user', content: input, timestamp }])
     const call: ToolCall = {
       type: 'toolCall',
       id: `call-${this.nextId++}`,
       name: 'chart.inspect',
-      arguments: { request: prompt },
+      arguments: { request },
     }
     push('pi.assistant', [
       {
@@ -356,10 +377,10 @@ export class FakeAgentBridge implements AgentBridgeClient {
         role: 'toolResult',
         toolCallId: call.id,
         toolName: call.name,
-        content: [{ type: 'text', text: `Result for ${prompt}` }],
+        content: [{ type: 'text', text: `Result for ${request}` }],
         details: {
           label: 'Inspect chart context',
-          inputSummary: prompt,
+          inputSummary: request,
           summary: 'Chart context inspected.',
         },
         isError: false,
@@ -369,7 +390,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     push('pi.assistant', [
       {
         role: 'assistant',
-        content: [{ type: 'text', text: `Answer to: ${prompt}` }],
+        content: [{ type: 'text', text: `Answer to: ${request}` }],
         api: 'openai-responses',
         provider: 'fake',
         model: 'fake-model',
@@ -386,7 +407,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       },
     ])
     session.updatedAt = timestamp
-    this.usage = { inputTokens: 8, outputTokens: 4 }
     this.emit({
       type: 'session.changed',
       sessionId,
@@ -395,30 +415,18 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.emit({ type: 'sessions.changed', sessions: this.sessions.map((item) => ({ ...item })) })
   }
 
-  /** 由内存条目构造只读读取结果。 */
+  /** 由内存条目构造只读读取结果；运行失败按官方文档形状写入 `pi.live`。 */
   private view(sessionId: string): AgentTranscriptView {
     const session = this.sessions.find((item) => item.id === sessionId)
     const entries = this.entries.get(sessionId) ?? []
     const items: TranscriptItem[] = entries.map((entry) => ({ kind: 'entry', entry }))
+    const docs: Record<string, JsonObject> = {}
+    const failure = this.runFailures.get(sessionId)
+    if (failure) docs[LiveDoc.definition.kind] = { runFailure: { ...failure } }
     return {
       conversation: { id: Number(sessionId) as ConversationId },
       items,
-      docs: this.usage
-        ? {
-            'pi.usage': {
-              models: {
-                'fake/fake-model': {
-                  input: this.usage.inputTokens ?? 0,
-                  output: this.usage.outputTokens ?? 0,
-                  cacheRead: 0,
-                  cacheWrite: 0,
-                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-                },
-              },
-              tools: {},
-            },
-          }
-        : {},
+      docs,
       title: session?.title ?? '',
     }
   }

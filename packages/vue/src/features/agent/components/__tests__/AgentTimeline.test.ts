@@ -11,6 +11,7 @@ import type {
   ToolCall,
 } from '../../agent-contracts.js'
 import AgentTimeline from '../AgentTimeline.vue'
+import type { RunFailureView } from '../../workspace/impl/agent-live.js'
 
 /** 官方条目共用的用量字段。 */
 const USAGE = {
@@ -72,6 +73,7 @@ function toolResult(
 function mountTimeline(input: {
   readonly entries: readonly EntryRecord[]
   readonly questions?: readonly QuestionView[]
+  readonly runFailure?: RunFailureView
 }) {
   const transcript: AgentTranscriptView = {
     conversation: { id: 1 as ConversationId },
@@ -84,7 +86,7 @@ function mountTimeline(input: {
       transcript,
       liveTools: new Map(),
       questions: input.questions ?? [],
-      error: null,
+      runFailure: input.runFailure,
       collapseReasoning: false,
       locale: 'en',
       actionsDisabled: false,
@@ -141,28 +143,51 @@ describe('AgentTimeline', () => {
     const card = wrapper.find('[data-focus="question"]')
     expect(wrapper.findAll('.tool-row')).toHaveLength(0)
     expect(card.text()).toContain(PROMPT)
+    expect(card.text()).not.toContain('Clarification required')
+    expect(card.find('input').attributes('placeholder')).toBe('Type a requirement')
+
+    const submit = card.find('.question__submit')
+    expect(submit.attributes('aria-label')).toBe('Send answer')
+    expect(submit.text()).toBe('')
 
     await card.findAll('.question__option')[1]!.trigger('click')
-    await card.findAll('.question__reply button')[0]!.trigger('click')
+    await submit.trigger('click')
 
     expect(wrapper.emitted('answer')).toEqual([['q-1', { selectedValues: ['b'] }]])
   })
 
-  it.each<[string, string, string]>([
-    [
-      '已回答',
-      JSON.stringify({ status: 'answered', selected: ['b'], note: '偶数' }),
-      'Chosen: 国债指数 · 偶数',
-    ],
-    ['已取消', JSON.stringify({ status: 'cancelled' }), 'Not answered'],
-  ])('把%s的提问折叠成一行，不再保留工具行', (_label, text, expected) => {
+  it('把已回答的提问折叠成一行，不再保留工具行', () => {
     const wrapper = mountTimeline({
-      entries: [assistantWithTool(ASK), toolResult(ASK, text, { details: { presentation: 'question' } })],
+      entries: [
+        assistantWithTool(ASK),
+        toolResult(ASK, JSON.stringify({ status: 'answered', selected: ['b'], note: '偶数' }), {
+          details: { presentation: 'question' },
+        }),
+      ],
     })
 
     expect(wrapper.findAll('.tool-row')).toHaveLength(0)
     expect(wrapper.find('[data-focus="question"]').exists()).toBe(false)
-    expect(wrapper.find('.question-summary').text()).toBe(expected)
+    expect(wrapper.find('.question-summary').text()).toBe('Ask(Chosen: 国债指数 · 偶数)')
+  })
+
+  it('未作答时在只读卡片上方给出一行 Ask(未作答)', () => {
+    const wrapper = mountTimeline({
+      entries: [
+        assistantWithTool(ASK),
+        toolResult(ASK, JSON.stringify({ status: 'cancelled' }), {
+          details: { presentation: 'question' },
+        }),
+      ],
+    })
+
+    const card = wrapper.find('[data-focus="question"]')
+    expect(wrapper.findAll('.tool-row')).toHaveLength(0)
+    expect(wrapper.find('.question-summary').text()).toBe('Ask(Not answered)')
+    expect(card.find('.question__prompt').text()).toBe(PROMPT)
+    expect(card.findAll('.question__option')).toHaveLength(OPTIONS.length)
+    expect(card.findAll('.question__option')[0]!.attributes('disabled')).toBeDefined()
+    expect(card.find('.question__reply').exists()).toBe(false)
   })
 
   it('falls back to the tool row when the call cannot be read as a question', () => {
@@ -178,5 +203,18 @@ describe('AgentTimeline', () => {
 
     expect(wrapper.findAll('.tool-row')).toHaveLength(1)
     expect(wrapper.find('[data-focus="question"]').exists()).toBe(false)
+  })
+
+  it('shows the official run failure after the entries and continues the run', async () => {
+    const wrapper = mountTimeline({
+      entries: [],
+      runFailure: { reason: 'model_error', detail: 'upstream 502' },
+    })
+
+    const notice = wrapper.find('[data-focus="run-failure"]')
+    expect(notice.text()).toContain('The model request failed.')
+    expect(notice.text()).toContain('upstream 502')
+    await notice.find('button').trigger('click')
+    expect(wrapper.emitted('resume')).toHaveLength(1)
   })
 })

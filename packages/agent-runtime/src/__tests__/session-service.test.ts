@@ -1,5 +1,8 @@
-// 会话服务测试：标题文档、官方条目顺序、分支重跑与取消入口。
+// 会话服务测试：标题文档、官方条目顺序、分支重跑、继续运行与取消入口。
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
+import { LiveDoc } from '@earendil-works/pi-durable'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { AgentTranscriptView } from '../contracts/ui.js'
 import { AgentRuntimeError } from '../index.js'
 import {
   createTestRuntime,
@@ -29,6 +32,15 @@ async function runOnce(prompt = 'summarize the current trend') {
     ),
   )
   return { session, view }
+}
+
+/** 读取官方 `pi.live.runFailure.reason`，用于断言运行失败原因。 */
+function runFailureReason(view: AgentTranscriptView): string | undefined {
+  const live = view.docs[LiveDoc.definition.kind]
+  if (typeof live !== 'object' || live === null || Array.isArray(live)) return undefined
+  const failure = live.runFailure
+  if (typeof failure !== 'object' || failure === null || Array.isArray(failure)) return undefined
+  return typeof failure.reason === 'string' ? failure.reason : undefined
 }
 
 describe('AgentSessionService', () => {
@@ -115,8 +127,44 @@ describe('AgentSessionService', () => {
     expect(firstEntry ? entryText(firstEntry) : '').toBe('edited request')
   })
 
-  it('pages the official entry history newest first', async () => {
-    const { session } = await runOnce('page this session')
+  it('continues a context that still owes an answer without adding a user entry', async () => {
+    const session = await runtime.app.createSession()
+    const handle = await runtime.sessions.watch(session.id, () => undefined)
+    await runtime.execution.harness.commit(
+      (tx) =>
+        tx.appendEntry(handle.conversation.id, {
+          kind: 'pi.user',
+          model: [{ role: 'user', content: 'answer the pending question', timestamp: 1 }],
+        }),
+      BACKGROUND_CONTEXT,
+    )
+    await handle.stop()
+    await runtime.app.openSession(session.id)
+
+    const started = await runtime.app.continueRun({ sessionId: session.id, mode: 'plan' })
+    expect(started.sessionId).toBe(session.id)
+
+    const view = await waitForSession(runtime.app, session.id, (candidate) =>
+      entryItems(candidate).some(
+        (entry) => entry.kind === 'pi.assistant' && entryText(entry).length > 0,
+      ),
+    )
+    expect(entryItems(view).filter((entry) => entry.kind === 'pi.user')).toHaveLength(1)
+  })
+
+  it('records nothing_to_answer when a continue has nothing to answer', async () => {
+    const { session } = await runOnce('summarize the current trend')
+
+    await runtime.app.continueRun({ sessionId: session.id, mode: 'plan' })
+    const view = await waitForSession(
+      runtime.app,
+      session.id,
+      (candidate) => runFailureReason(candidate) !== undefined,
+    )
+    expect(runFailureReason(view)).toBe('nothing_to_answer')
+  })
+
+  it('pages the official entry history newest first', async () => {    const { session } = await runOnce('page this session')
     const page = await runtime.sessions.entries(session.id, { order: 'descending' }, 2)
     expect(page.items).toHaveLength(2)
     expect(page.items[0]!.id).toBeGreaterThan(page.items[1]!.id)

@@ -235,10 +235,6 @@
     line-height: 1.5;
   }
 
-  .composer__input .composer__textarea::placeholder {
-    color: var(--klc-color-ui-text-soft);
-  }
-
   .composer__footer {
     display: flex;
     align-items: center;

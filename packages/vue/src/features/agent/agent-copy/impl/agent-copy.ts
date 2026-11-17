@@ -1,6 +1,13 @@
 // Agent 界面文案数据与按语言取用的访问器。
 
-import type { AgentLocale } from '../types.js'
+import type { AgentLocale, VisibleRunFailureReason } from '../types.js'
+
+/**
+ * 编译期约束：每种可见的失败原因都必须有文案，新增原因时这里先报错。
+ * @param value 单一语言的失败原因文案表。
+ * @returns 原样返回，用于保留字面量类型。
+ */
+const runFailureCopy = (value: Record<VisibleRunFailureReason, string>) => value
 
 const copy = {
   en: {
@@ -14,11 +21,9 @@ const copy = {
     closeSessions: 'Hide conversations',
     noSessions: 'No conversations yet',
     settings: 'Model settings',
-    openPanel: 'Open Agent panel',
     closePanel: 'Close Agent panel',
     interface: 'Interface',
     language: 'Language',
-    connected: 'Connected',
     emptyTitle: 'Start a new exploration',
     emptyBody: 'AI-native chart, with the agent as a first-class citizen.',
     promptTrend: 'Summarize the current trend and key levels',
@@ -43,9 +48,20 @@ const copy = {
     total: 'Total',
     result: 'Result',
     evidence: 'Evidence',
-    locate: 'Locate on chart',
     undo: 'Undo',
     retry: 'Retry',
+    resumeRun: 'Continue',
+    openModelSettings: 'Open model settings',
+    runFailure: runFailureCopy({
+      model_error: 'The model request failed.',
+      no_model: 'No model is available.',
+      faulted: 'The run failed.',
+      orphaned: 'The run could not continue.',
+      interrupted: 'The run was interrupted.',
+      restart_limit: 'The run was interrupted repeatedly.',
+      nothing_to_answer: 'The run ended without an answer.',
+      turn_limit: 'Reached the tool round limit.',
+    }),
     copyMessage: 'Copy',
     copiedMessage: 'Copied',
     copyFailed: 'Copy failed',
@@ -60,14 +76,14 @@ const copy = {
     reject: 'Reject',
     recommended: 'Recommended action',
     question: {
+      label: 'Ask',
       required: 'Clarification required',
       submit: 'Send answer',
-      freeText: 'Or type your own requirement',
+      freeText: 'Type a requirement',
       cancel: 'Skip',
       chosen: 'Chosen',
       declined: 'Not answered',
     },
-    tokens: 'tokens',
     providerSettings: 'Provider settings',
     tools: 'Tools',
     noTools: 'No Agent tools are registered.',
@@ -140,11 +156,9 @@ const copy = {
     closeSessions: '收起对话列表',
     noSessions: '暂无对话',
     settings: '模型设置',
-    openPanel: '打开智能体面板',
     closePanel: '关闭 Agent 面板',
     interface: '界面',
     language: '语言',
-    connected: '已连接',
     emptyTitle: '开始新的探索',
     emptyBody: 'AI 原生图表，智能体是一等公民',
     promptTrend: '总结当前趋势和关键价位',
@@ -169,9 +183,20 @@ const copy = {
     total: '共计',
     result: '结果',
     evidence: '证据',
-    locate: '在图表中定位',
     undo: '撤销',
     retry: '重试',
+    resumeRun: '继续',
+    openModelSettings: '打开模型设置',
+    runFailure: runFailureCopy({
+      model_error: '模型请求失败。',
+      no_model: '当前没有可用的模型。',
+      faulted: '运行失败。',
+      orphaned: '运行中断后无法继续。',
+      interrupted: '运行被中断。',
+      restart_limit: '运行被反复中断。',
+      nothing_to_answer: '这次运行没有可回答的内容。',
+      turn_limit: '已达到工具轮次上限。',
+    }),
     copyMessage: '复制',
     copiedMessage: '已复制',
     copyFailed: '复制失败',
@@ -186,14 +211,14 @@ const copy = {
     reject: '拒绝',
     recommended: '建议操作',
     question: {
+      label: 'Ask',
       required: '需要澄清',
       submit: '提交回答',
-      freeText: '或直接输入你的要求',
+      freeText: '输入要求',
       cancel: '跳过',
       chosen: '已选择',
       declined: '未作答',
     },
-    tokens: 'tokens',
     providerSettings: '供应商设置',
     tools: '工具',
     noTools: '当前没有已注册的 Agent 工具。',

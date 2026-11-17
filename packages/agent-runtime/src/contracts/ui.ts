@@ -41,13 +41,6 @@ export type ToolProgressView = {
   label: string
 }
 
-/** 一次运行的用量摘要，展示在输入区。 */
-export type AgentUsageView = {
-  inputTokens?: number
-  outputTokens?: number
-  costUsd?: number
-}
-
 /** 可展示的运行时错误。 */
 export type AgentErrorView = {
   code: string
@@ -261,6 +254,13 @@ export interface StartRunInput {
   context?: AgentRunContext
 }
 
+/** 继续一次没有作答的运行：官方 continue 不追加用户消息，也不切换分支。 */
+export interface ContinueRunInput {
+  sessionId: string
+  mode: AgentRunMode
+  context?: AgentRunContext
+}
+
 /** 重新生成或编辑重发时定位的历史用户条目。 */
 export interface BranchMessageInput {
   sessionId: string
@@ -360,6 +360,8 @@ export interface AgentBridgeClient {
   startRun(input: StartRunInput): Promise<AgentRunStartedView>
   cancelRun(sessionId: string): Promise<void>
   retryRun(input: BranchMessageInput): Promise<AgentRunStartedView>
+  /** 继续运行：走官方 continue，不追加用户消息，也不创建分支。 */
+  continueRun(input: ContinueRunInput): Promise<AgentRunStartedView>
   /** 编辑指定历史用户输入，并从该输入之前创建分支。 */
   editMessage(input: EditMessageInput): Promise<AgentRunStartedView>
   /** 投递用户答复；未知或已结算的提问忽略。 */

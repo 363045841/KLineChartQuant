@@ -64,8 +64,9 @@ export function createFauxRuntimeSupport(
         'Configure an Agent Provider before starting a run.',
       )
     }
-    const mutation =
-      input.mode === 'build' && /add|switch|clear|delete|move|theme/i.test(input.prompt)
+    // continue 没有新正文；给确定性工具一个可读的占位参数，而不是虚构用户输入。
+    const request = input.prompt ?? 'Continue the run'
+    const mutation = input.mode === 'build' && /add|switch|clear|delete|move|theme/i.test(request)
     const toolName = mutation ? 'chart.preview_change' : 'chart.inspect'
     const faux = fauxProvider({
       tokensPerSecond: mutation ? 18 : 10_000,
@@ -73,7 +74,7 @@ export function createFauxRuntimeSupport(
     })
     faux.setResponses([
       fauxAssistantMessage(
-        fauxToolCall(toolName, { request: input.prompt }, { id: 'scripted-tool-call' }),
+        fauxToolCall(toolName, { request }, { id: 'scripted-tool-call' }),
         { stopReason: 'toolUse' },
       ),
       fauxAssistantMessage(
@@ -95,7 +96,7 @@ export function createFauxRuntimeSupport(
       parameters: Type.Object({ request: Type.String() }),
       effect: mutation ? 'write' : 'read',
       executionMode: mutation ? 'sequential' : 'parallel',
-      summarizeInput: () => input.prompt,
+      summarizeInput: () => request,
       execute: async (_args, context) => {
         context.signal.throwIfAborted()
         context.progress({ label: 'Validating chart scope' })

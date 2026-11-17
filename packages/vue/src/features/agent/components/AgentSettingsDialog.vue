@@ -781,11 +781,6 @@
   /* ───────── 单横线输入 ───────── */
   /* 多行字段用 BaseTextarea 的 underline 变体，不再在这里穿透改样式。 */
 
-  .field input::placeholder {
-    color: var(--klc-color-ui-text-soft);
-    opacity: 0.55;
-  }
-
   /* ───────── Provider 布局 ───────── */
   .provider {
     width: 100%;

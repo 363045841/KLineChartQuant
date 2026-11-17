@@ -17,5 +17,7 @@ export type {
   EntryId,
   EntryRecord,
   JsonObject,
+  RunFailure,
+  RunFailureReason,
   TranscriptItem,
 } from '@earendil-works/pi-durable'

@@ -14,6 +14,7 @@ import {
   type AgentSessionView,
   type AgentTranscriptView,
   type AgentWorkspaceEvent,
+  type ContinueRunInput,
   type EditMessageInput,
   type ProviderModelsInput,
   type ProviderModelsResult,
@@ -140,6 +141,22 @@ export class AgentApplicationService implements AgentApplicationApi {
       context: input.context,
     })
     const started = await this.options.sessions.startRun(input.sessionId, input.prompt, plan)
+    await this.publishSessions()
+    return { runId: started.runId, sessionId: input.sessionId }
+  }
+
+  /**
+   * 继续运行：官方 continue 不追加用户消息，只让模型回答仍然欠着答案的上下文。
+   * @param input 会话、权限模式与界面上下文。
+   * @returns 运行标识与会话标识（continue 不切换分支）。
+   */
+  async continueRun(input: ContinueRunInput): Promise<{ runId: string; sessionId: string }> {
+    const plan = await this.createPlan({
+      sessionId: input.sessionId,
+      mode: input.mode,
+      context: input.context,
+    })
+    const started = await this.options.sessions.continue(input.sessionId, plan)
     await this.publishSessions()
     return { runId: started.runId, sessionId: input.sessionId }
   }

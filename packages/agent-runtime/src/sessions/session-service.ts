@@ -14,7 +14,7 @@ import type {
 } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type { AgentSessionView } from '../contracts/ui.js'
-import { type DurableExecution, submitAgentRun } from '../pi/impl/run.js'
+import { type DurableExecution, continueAgentRun, submitAgentRun } from '../pi/impl/run.js'
 import type { AgentRunPlan } from '../pi/types.js'
 import {
   LEGACY_MAIN_LANE,
@@ -258,6 +258,25 @@ export class AgentSessionService {
     return { runId }
   }
 
+  /**
+   * 在会话现有上下文上继续运行：不追加用户消息，也不创建分支。
+   * @param sessionId 会话标识。
+   * @param plan 本次运行计划。
+   * @returns 运行标识。
+   */
+  async continue(sessionId: string, plan: AgentRunPlan): Promise<{ runId: string }> {
+    const conversation = await this.conversation(sessionId)
+    const runId = this.id()
+    await this.writeSessionDoc(conversation.id)
+    const submission = await continueAgentRun(this.execution, conversation, plan, {
+      runId,
+      sessionId,
+    })
+    // 等待句柄让运行错误可被宿主观测，调度本身由官方 Harness 推进。
+    void submission.wait(BACKGROUND_CONTEXT).catch(() => undefined)
+    return { runId }
+  }
+
   /** 中止会话当前运行：官方实现会撤回排队输入并等待任务结束。 */
   async cancel(sessionId: string): Promise<void> {
     const conversation = await this.conversation(sessionId)
@@ -296,11 +315,6 @@ export class AgentSessionService {
     plan: AgentRunPlan,
   ): Promise<{ sessionId: string; runId: string }> {
     return this.branchAndRun(sessionId, entryId, prompt, plan)
-  }
-
-  /** 关闭底层官方 Harness；进程退出时调用。 */
-  async close(): Promise<void> {
-    await this.execution.harness.close(BACKGROUND_CONTEXT)
   }
 
   /** 读取会话句柄，不存在时抛出 SESSION_NOT_FOUND。 */
