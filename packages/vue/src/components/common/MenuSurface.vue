@@ -123,7 +123,7 @@
   const props = defineProps<{
     /** 是否展开；面板不持有开关状态。 */
     open: boolean
-    /** 打开位置：触发器元素，或指针坐标。 */
+    /** 打开位置：锚点按钮元素，或指针坐标。 */
     anchor: MenuAnchor | null
     label: string
     /** 分组列表；body 模式不需要分组内容，可省略。 */
@@ -141,7 +141,7 @@
     placement?: 'auto' | 'top' | 'bottom'
     /** 面板与锚点的间距；坐标锚点默认贴住指针，元素锚点默认 4px。 */
     offset?: number
-    /** 关闭后归还焦点的元素；不传时焦点留在原地。 */
+    /** 关闭后归还焦点的元素；默认归还给元素锚点，坐标锚点不归还。 */
     restoreFocusTo?: HTMLElement | null
     /** 打开后把焦点移入首个可用项；指针打开的面板保持 false。 */
     focusOnOpen?: boolean
@@ -164,9 +164,9 @@
 
   /** 分组是 body 模式的可选项：缺省为空数组，模板与派生逻辑共用同一份。 */
   const groups = computed(() => props.groups ?? [])
-  /** 元素锚点交给 popover 的触发器位置；坐标锚点走原点矩形。 */
-  const triggerElement = computed(() =>
-    props.anchor?.kind === 'trigger' ? props.anchor.element : null,
+  /** 元素锚点交给 popover 的锚点位置；坐标锚点走原点矩形。 */
+  const anchorElement = computed(() =>
+    props.anchor?.kind === 'element' ? props.anchor.element : null,
   )
   /** 面板圆角只写变量，默认值仍归 popover-surface.css；二级菜单是面板子节点，自动继承。 */
   const surfaceRadius = shallowRef<string | null>(null)
@@ -174,12 +174,12 @@
     surfaceRadius.value === null ? undefined : { '--popover-surface-radius': surfaceRadius.value },
   )
 
-  /** 读触发元素的 computed 圆角；坐标锚点没有触发器，返回 null 交给表面默认值。 */
-  function readTriggerRadius(): string | null {
-    const element = triggerElement.value
+  /** 读锚点元素的 computed 圆角；0 圆角是贴边单元格的写法，沿用表面默认值。 */
+  function readAnchorRadius(): string | null {
+    const element = anchorElement.value
     if (!element) return null
     const radius = getComputedStyle(element).borderRadius
-    return radius.length > 0 ? radius : null
+    return radius === '' || radius === '0px' ? null : radius
   }
   const origin = computed(() => {
     const anchor = props.anchor
@@ -195,16 +195,16 @@
   })
 
   const popover = useAnchoredPopover({
-    trigger: triggerElement,
+    trigger: anchorElement,
     panel: menuRef,
     origin,
-    restoreFocusTo: () => props.restoreFocusTo ?? null,
+    restoreFocusTo: () => props.restoreFocusTo ?? anchorElement.value,
     placement: () => props.placement ?? 'auto',
     offset: props.offset ?? (props.anchor?.kind === 'point' ? 0 : 4),
     maxHeight: () => 'min(420px, calc(100vh - 24px))',
     onOpen: () => {
       // 面板是触发器的延伸：圆角只从触发按钮读，宿主无需再传一份。
-      surfaceRadius.value = readTriggerRadius()
+      surfaceRadius.value = readAnchorRadius()
       emit('open')
       // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
       // 优先落到已勾选项：单选项里它就是当前值，键盘继续用方向键即可切换。
@@ -471,7 +471,7 @@
   function onMenuFocusOut(event: FocusEvent): void {
     const next = event.relatedTarget as Node | null
     if (!next) return
-    if (menuRef.value?.contains(next) || triggerElement.value?.contains(next)) return
+    if (menuRef.value?.contains(next) || anchorElement.value?.contains(next)) return
     hide()
   }
 

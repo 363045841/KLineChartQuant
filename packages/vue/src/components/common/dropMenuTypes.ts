@@ -38,9 +38,9 @@ export interface DropMenuGroup {
   items: ReadonlyArray<DropMenuItem>
 }
 
-/** 面板打开锚点：触发器元素（下拉）或指针坐标（右键菜单）。 */
+/** 面板打开锚点：锚点按钮元素（普通按钮）或指针坐标（右键菜单）。 */
 export type MenuAnchor =
-  | { readonly kind: 'trigger'; readonly element: HTMLElement }
+  | { readonly kind: 'element'; readonly element: HTMLElement }
   | {
       readonly kind: 'point'
       readonly x: number

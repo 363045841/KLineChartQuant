@@ -37,7 +37,6 @@
       :density="density"
       :keep-open-on-select="keepOpenOnSelect"
       :placement="placement"
-      :restore-focus-to="triggerElement"
       :focus-on-open="focusOnOpen"
       @update:open="open = $event"
       @open="emit('open')"
@@ -109,7 +108,7 @@
   const triggerControl = useTemplateRef<InstanceType<typeof ControlTrigger>>('triggerControl')
   const triggerElement = computed(() => triggerControl.value?.element ?? null)
   const anchor = computed<MenuAnchor | null>(() =>
-    triggerElement.value ? { kind: 'trigger', element: triggerElement.value } : null,
+    triggerElement.value ? { kind: 'element', element: triggerElement.value } : null,
   )
   const surface = useTemplateRef<InstanceType<typeof MenuSurface>>('surface')
 

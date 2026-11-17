@@ -144,20 +144,24 @@
       <span v-if="screenshotMessage" class="screenshot-message" role="status">
         {{ screenshotMessage }}
       </span>
-      <DropMenu
-        :label="screenshotCapturing ? chartScreenshotLabels.capturing : chartScreenshotLabels.capture"
-        :groups="screenshotMenuGroups"
-        :disabled="screenshotCapturing"
-        command="chart.snapshot"
-        class="screenshot-menu"
-        placement="bottom"
-        tooltip-placement="bottom"
-        @select="onScreenshotSelect"
-      >
-        <template #trigger>
+      <BaseTooltip :content="screenshotLabel" placement="bottom" command="chart.snapshot">
+        <button
+          v-bind="screenshotMenu.buttonProps.value"
+          type="button"
+          class="control-button screenshot-button"
+          :aria-label="screenshotLabel"
+          :disabled="screenshotCapturing"
+        >
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
-        </template>
-      </DropMenu>
+        </button>
+      </BaseTooltip>
+      <MenuSurface
+        v-bind="screenshotMenu.menuProps.value"
+        :label="screenshotLabel"
+        :groups="screenshotMenuGroups"
+        placement="bottom"
+        @select="onScreenshotSelect"
+      />
     </div>
     </div>
     <div v-if="$slots.end" class="top-toolbar__host"><slot name="end" /></div>
@@ -173,7 +177,9 @@
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import LayoutMenu from '@vue-src/components/layout/LayoutMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
@@ -341,6 +347,12 @@
 
   const displaySymbol = computed(() => props.symbol?.trim() ?? '')
 
+  /** 截图菜单与按钮共用同一份标签：进行中提示状态，其余时候提示动作。 */
+  const screenshotLabel = computed(() =>
+    props.screenshotCapturing ? chartScreenshotLabels.capturing : chartScreenshotLabels.capture,
+  )
+  const screenshotMenu = useMenuButton()
+
   /** 当前品种可展示的周期；undefined 表示尚未迁移能力模型。 */
   const supportedKLineLevels = computed<ReadonlyArray<KLineLevel> | undefined>(() => {
     const capabilities = props.symbolItem?.capabilities
@@ -468,7 +480,7 @@
   }
 
   /* 截图入口只保留图标。 */
-  .screenshot-menu {
+  .screenshot-button {
     --control-button-inline-padding: 0;
     --control-button-min-width: 30px;
   }

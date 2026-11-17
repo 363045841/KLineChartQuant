@@ -217,7 +217,7 @@ describe('DropMenu', () => {
 
     const anchored = mount(MenuSurface, {
       attachTo: document.body,
-      props: { label: '菜单', groups, open: false, anchor: { kind: 'trigger', element: trigger } },
+      props: { label: '菜单', groups, open: false, anchor: { kind: 'element', element: trigger } },
     })
     await flush()
     await anchored.setProps({ open: true })
