@@ -21,7 +21,7 @@ import {
   LegacySessionIdentityDoc,
   readLegacyUpdatedAt,
 } from './legacy-session.js'
-import { KqSessionDoc, readSessionDoc } from './session-docs.js'
+import { KqSessionDoc } from './session-docs.js'
 
 /** 会话目录分页大小。 */
 const SESSION_SCAN_PAGE_SIZE = 100

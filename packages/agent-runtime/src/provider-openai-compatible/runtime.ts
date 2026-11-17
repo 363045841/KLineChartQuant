@@ -9,15 +9,11 @@ import type {
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderModelView,
-  ProviderProbeStageResult,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
 } from '../contracts/ui.js'
 import type { AgentRunPlan } from '../pi/types.js'
 import {
   normalizeProviderBaseUrl,
-  providerHttpError,
   redactProviderUrl,
   requestProviderJson,
   sleepWithSignal,
@@ -36,7 +32,6 @@ import type {
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
-  PROVIDER_SETTINGS_VERSION,
 } from './types.js'
 
 /** 合并 Provider 附加请求头，保留运行时生成的鉴权和协议头优先级。 */
@@ -70,11 +65,6 @@ function safeProviderError(error: unknown): AgentRuntimeError {
     recommendedAction: 'Retry the operation or test the Provider connection.',
     cause: error,
   })
-}
-
-/** 计算非负耗时，防御测试时钟或系统时钟回拨。 */
-function elapsed(now: () => number, startedAt: number): number {
-  return Math.max(0, now() - startedAt)
 }
 
 /** 将毫秒时间戳格式化为行情时区的可读日期时间，供系统提示词注入。 */
@@ -125,20 +115,6 @@ function createSystemPrompt(
   return `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction}${capabilityInstruction}${ambiguityInstruction}`
 }
 
-/**
- * 生成 API Key 的短 SHA-256 指纹，供状态界面识别凭据变化。
- *
- * @param value 原始 API Key。
- * @returns 不可逆的短哈希标识，不返回密钥内容。
- */
-async function fingerprint(value: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
-  return `sha256:${[...new Uint8Array(digest)]
-    .slice(0, 6)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')}`
-}
-
 /** 创建 OpenAI-compatible Provider 的运行时支持对象。 */
 export function createOpenAiCompatibleRuntimeSupport(
   options: OpenAiCompatibleRuntimeOptions,
@@ -151,7 +127,6 @@ export function createOpenAiCompatibleRuntimeSupport(
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
   let catalog: ProviderCatalogModel[] = []
   let lastError: AgentRuntimeError | undefined
-  let lastRefreshAt: number | undefined
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
   const httpOptions = (
@@ -220,7 +195,6 @@ export function createOpenAiCompatibleRuntimeSupport(
     const refreshedAt = now()
     // 仅在完整目录通过校验后替换缓存，避免部分响应污染后续运行。
     catalog = models
-    lastRefreshAt = refreshedAt
     return { baseUrl, apiKey, models, refreshedAt }
   }
 
@@ -232,89 +206,10 @@ export function createOpenAiCompatibleRuntimeSupport(
   async function listModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     try {
       const refreshed = await fetchCatalog(input)
-      const settings = await options.settings.read()
-      const models: ProviderModelView[] = refreshed.models.map((model) => ({
-        ...providerModelView(model),
-        compatibility:
-          settings?.compatibility === 'compatible' &&
-          settings.modelId === model.id &&
-          settings.protocol === input.protocol
-            ? 'compatible'
-            : 'unknown',
-      }))
       lastError = undefined
-      return { models, refreshedAt: refreshed.refreshedAt }
-    } catch (error) {
-      lastError = safeProviderError(error)
-      throw lastError
-    }
-  }
-
-  /**
-   * 验证模型存在性并以凭据、设置两阶段写入保存连接。
-   * @param input Provider 连接测试参数。
-   * @returns 验证阶段及总耗时。
-   */
-  async function testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    try {
-      const catalogStartedAt = now()
-      const refreshed = await fetchCatalog(input)
-      const selected = refreshed.models.find((model) => model.id === input.model)
-      if (!selected) throw providerHttpError(404)
-      const stages: ProviderProbeStageResult[] = [
-        { stage: 'catalog', ok: true, latencyMs: elapsed(now, catalogStartedAt) },
-      ]
-      const adapter = getProviderApiProtocolAdapter(input.protocol)
-      const textStartedAt = now()
-      await adapter.probeText({
-        baseUrl: refreshed.baseUrl,
-        apiKey: refreshed.apiKey,
-        modelId: selected.id,
-        http: httpOptions(input.headers, undefined, 'text'),
-      })
-      stages.push({ stage: 'text', ok: true, latencyMs: elapsed(now, textStartedAt) })
-      const toolStartedAt = now()
-      await adapter.probeTool({
-        baseUrl: refreshed.baseUrl,
-        apiKey: refreshed.apiKey,
-        modelId: selected.id,
-        nonce: globalThis.crypto.randomUUID(),
-        http: httpOptions(input.headers, undefined, 'tool'),
-      })
-      stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
-
-      const previousKey = await options.credentials.read()
-      await options.credentials.write(refreshed.apiKey)
-      const settings: OpenAiCompatibleProviderSettings = {
-        version: PROVIDER_SETTINGS_VERSION,
-        baseUrl: refreshed.baseUrl,
-        headers: input.headers ?? {},
-        modelId: selected.id,
-        modelName: selected.name,
-        ...(selected.contextWindow === undefined ? {} : { contextWindow: selected.contextWindow }),
-        maxOutputTokens: selected.maxOutputTokens ?? 16_384,
-        reasoningEfforts: selected.reasoningEfforts,
-        reasoningEffort: selected.defaultReasoningEffort,
-        protocol: adapter.protocol,
-        compatibility: 'compatible',
-        lastTestedAt: now(),
-        lastModelsRefreshAt: refreshed.refreshedAt,
-      }
-      try {
-        await options.settings.write(settings)
-      } catch (error) {
-        // 设置写入失败时恢复旧凭据，避免留下无法配对的新 Key。
-        if (previousKey) await options.credentials.write(previousKey)
-        else await options.credentials.delete()
-        throw error
-      }
-      lastError = undefined
-      const latencyMs = elapsed(now, catalogStartedAt)
       return {
-        compatible: true,
-        model: selected.id,
-        latencyMs,
-        stages,
+        models: refreshed.models.map((model) => providerModelView(model)),
+        refreshedAt: refreshed.refreshedAt,
       }
     } catch (error) {
       lastError = safeProviderError(error)
@@ -323,7 +218,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   }
 
   /**
-   * 读取 Provider 当前配置、验证状态与最近错误。
+   * 读取 Provider 当前配置与最近错误。
    * @returns 可直接渲染的 Provider 状态视图。
    */
   async function getStatus(): Promise<ProviderStatusView> {
@@ -336,9 +231,8 @@ export function createOpenAiCompatibleRuntimeSupport(
       lastError = safeProviderError(error)
     }
     const configured = Boolean(apiKey)
-    const compatible = configured && settings?.compatibility === 'compatible'
     return {
-      state: lastError ? 'error' : compatible ? 'connected' : 'not-configured',
+      state: lastError ? 'error' : configured && settings ? 'connected' : 'not-configured',
       providerLabel: OPENAI_COMPATIBLE_PROVIDER_LABEL,
       configured,
       baseUrl: settings?.baseUrl,
@@ -350,10 +244,6 @@ export function createOpenAiCompatibleRuntimeSupport(
       maxOutputTokens: settings?.maxOutputTokens,
       reasoningEfforts: settings?.reasoningEfforts,
       reasoningEffort: settings?.reasoningEffort,
-      fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
-      compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
-      lastTestedAt: settings?.lastTestedAt,
-      lastModelsRefreshAt: lastRefreshAt ?? settings?.lastModelsRefreshAt,
       error: lastError?.toView(),
     }
   }
@@ -376,11 +266,11 @@ export function createOpenAiCompatibleRuntimeSupport(
       options.credentials.read(),
       options.settings.read(),
     ])
-    if (!apiKey || settings?.compatibility !== 'compatible') {
+    if (!apiKey || !settings) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
         'Configure an Agent-compatible model before starting a run.',
-        { recommendedAction: 'Open Provider settings and test a model.' },
+        { recommendedAction: 'Open Provider settings and choose a model.' },
       )
     }
     // 目录缓存可为空，使用已验证设置作为离线运行的回退模型描述。
@@ -472,7 +362,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   }
 
   return {
-    provider: { getStatus, listModels, test: testProvider, deleteCredential },
+    provider: { getStatus, listModels, deleteCredential },
     createPlan: async (context) => {
       try {
         return await createPlan(context)

@@ -273,12 +273,7 @@
         <!-- ───────────── Tools ───────────── -->
         <section v-else-if="activeTab === 'tools'" class="tools" role="tabpanel">
           <template v-if="providerSettings.tools.length">
-            <article
-              v-for="tool in providerSettings.tools"
-              :key="tool.name"
-              class="card tool"
-              :class="{ 'is-disabled': tool.available === false }"
-            >
+            <article v-for="tool in providerSettings.tools" :key="tool.name" class="card tool">
               <header class="tool__head">
                 <span class="tool__text">
                   <strong>{{ tool.label }}</strong>
@@ -286,15 +281,10 @@
                 </span>
                 <ToggleSwitch
                   :model-value="tool.enabled"
-                  :disabled="tool.available === false"
                   :aria-label="tool.label"
                   @update:model-value="setToolEnabled(tool.name, $event)"
                 />
               </header>
-
-              <p v-if="tool.unavailableReason" class="tool__note">
-                {{ tool.unavailableReason }}
-              </p>
 
               <div v-if="tool.name === 'web_search'" class="field">
                 <span class="field__label">{{ text.exaApiKey }}</span>
@@ -336,11 +326,7 @@
               <div class="tool__foot">
                 <BaseButton
                   size="sm"
-                  :disabled="
-                    !tool.enabled ||
-                    tool.available === false ||
-                    providerSettings.runningToolName !== null
-                  "
+                  :disabled="!tool.enabled || providerSettings.runningToolName !== null"
                   @click="providerSettings.debugTool(tool.name)"
                 >
                   {{
@@ -1223,10 +1209,6 @@
     padding: var(--_pad);
   }
 
-  .tool.is-disabled {
-    opacity: 0.7;
-  }
-
   .tool__head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1250,18 +1232,10 @@
     line-height: 1.45;
   }
 
-  .tool__note,
   .tool__error {
     margin: 0;
     font-size: 11px;
     line-height: 1.45;
-  }
-
-  .tool__note {
-    color: var(--klc-color-ui-muted);
-  }
-
-  .tool__error {
     color: var(--klc-color-ui-danger-text);
   }
 

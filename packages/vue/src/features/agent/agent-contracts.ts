@@ -13,12 +13,9 @@ export type {
 } from '@earendil-works/pi-ai'
 export type {
   ConversationId,
-  ConversationRecord,
   Cursor,
   EntryId,
   EntryRecord,
   JsonObject,
-  Page,
   TranscriptItem,
-  TranscriptView,
 } from '@earendil-works/pi-durable'

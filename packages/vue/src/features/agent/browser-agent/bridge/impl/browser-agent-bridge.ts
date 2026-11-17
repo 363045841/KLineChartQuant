@@ -5,6 +5,8 @@ import {
   AGENT_UI_PROTOCOL_VERSION,
   AgentApplicationService,
   AgentRuntimeError,
+  type AskUserExecutionContext,
+  type AskUserOutcome,
   type AskUserRequest,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
@@ -38,10 +40,7 @@ import type {
   ProviderReasoningEffort,
   ProviderSaveInput,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
   QuestionAnswerView,
-  QuestionView,
   StartRunInput,
 } from '../../../agent-contracts.js'
 import { BrowserChartContextSource } from '../../chart-context/impl/browser-chart-context-source.js'
@@ -73,7 +72,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly createSessions: () => Promise<BrowserRuntimeSessions>
   private runtimePromise: Promise<AgentApplicationService> | undefined
   private durable: BrowserRuntimeSessions | undefined
-  private readonly questions = new BrowserPendingQuestions()
+  private readonly questions = new BrowserPendingQuestions((event) => this.emit(event))
   private readonly context: ChartContextSource
   private readonly tools: BrowserToolRegistry
   private readonly credentials: ProviderCredentialStore
@@ -151,7 +150,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       protocol: connection.protocol,
       profileName: profile.name,
       exaConfigured,
-      compatibility: 'unknown',
     }
   }
 
@@ -216,50 +214,19 @@ export class BrowserAgentBridge implements AgentBridgeClient {
    * 渲染一次提问并挂起等待用户答复。
    * @param request 提问内容与选项。
    * @param context 提问所属会话、工具调用与取消信号。
-   * @returns 用户答复；signal 中止时以 ABORTED 拒绝。
+   * @returns 用户答复或用户放弃；运行中止由工具侧转成 ABORTED。
    */
-  private async requestQuestion(
+  private requestQuestion(
     request: AskUserRequest,
-    context: { sessionId: string; toolCallId: string; signal: AbortSignal },
-  ): Promise<QuestionAnswerView> {
-    const id = this.questions.nextId()
-    return new Promise<QuestionAnswerView>((resolve, reject) => {
-      const settle = () => {
-        this.questions.remove(id)
-        context.signal.removeEventListener('abort', onAbort)
-      }
-      const onAbort = () => {
-        settle()
-        this.emit({
-          type: 'tool.question.resolved',
-          sessionId: context.sessionId,
-          questionId: id,
-          status: 'cancelled',
-        })
-        reject(
-          new AgentRuntimeError('ABORTED', 'The Agent run ended while waiting for the answer.'),
-        )
-      }
-      context.signal.addEventListener('abort', onAbort, { once: true })
-      this.questions.add(id, {
-        sessionId: context.sessionId,
-        resolve: (answer) => {
-          settle()
-          resolve(answer)
-        },
-      })
-      this.emit({
-        type: 'tool.question.required',
-        sessionId: context.sessionId,
-        request: {
-          id,
-          toolCallId: context.toolCallId,
-          prompt: request.prompt,
-          options: request.options,
-          multiSelect: request.multiSelect,
-          status: 'pending',
-        } satisfies QuestionView,
-      })
+    context: AskUserExecutionContext,
+  ): Promise<AskUserOutcome> {
+    return this.questions.open({
+      sessionId: context.sessionId,
+      toolCallId: context.toolCallId,
+      prompt: request.prompt,
+      options: request.options,
+      multiSelect: request.multiSelect,
+      signal: context.signal,
     })
   }
 
@@ -405,9 +372,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       maxOutputTokens: model.maxOutputTokens ?? 16_384,
       reasoningEfforts: model.reasoningEfforts ?? [],
       reasoningEffort: model.defaultReasoningEffort,
-      compatibility: 'compatible' as const,
-      lastTestedAt: Date.now(),
-      lastModelsRefreshAt: Date.now(),
     }
     this.profiles.updateActive({ settings, connection })
     await this.emitProviderStatus()
@@ -459,24 +423,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 把用户的回答投递给挂起中的提问，使 ask_user 工具继续执行；未知问题直接忽略。 */
   async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    const pending = this.questions.find(questionId)
-    if (!pending) return
-    this.emit({
-      type: 'tool.question.resolved',
-      sessionId: pending.sessionId,
-      questionId,
-      status: 'answered',
-      answer,
-    })
-    pending.resolve(answer)
+    this.questions.answer(questionId, answer)
   }
 
-  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const apiKey = input.apiKey?.trim() || (await this.credentials.read())
-    if (!apiKey) {
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
-    }
-    return await this.support.provider.test({ ...input, apiKey })
+  /** 用户放弃这次提问：工具正常返回 cancelled，模型据此停止追问。 */
+  async cancelQuestion(questionId: string): Promise<void> {
+    this.questions.cancel(questionId)
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {

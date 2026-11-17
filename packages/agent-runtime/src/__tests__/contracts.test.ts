@@ -1,6 +1,6 @@
 // 契约测试：引用标记、错误视图与稳定协议版本。
 import { describe, expect, it } from 'vitest'
-import { AGENT_UI_PROTOCOL_VERSION, AgentRuntimeError, formatAgentCitation } from '../index.js'
+import { AgentRuntimeError, formatAgentCitation } from '../index.js'
 
 describe('agent contracts', () => {
   it('encodes citation markers for the assistant body', () => {
@@ -18,9 +18,5 @@ describe('agent contracts', () => {
       retryable: true,
       recommendedAction: 'Close the other tab.',
     })
-  })
-
-  it('keeps the workspace protocol version stable', () => {
-    expect(AGENT_UI_PROTOCOL_VERSION).toBe(7)
   })
 })

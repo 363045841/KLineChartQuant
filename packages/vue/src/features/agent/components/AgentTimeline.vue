@@ -48,9 +48,12 @@
           :citations="index.citations"
           :results="index.toolResults"
           :slots="liveTools"
+          :questions="questions"
           :retry-entry-id="row.retryEntryId"
           :actions-disabled="actionsDisabled"
           @retry="emit('retry', $event)"
+          @answer="(questionId, answer) => emit('answer', questionId, answer)"
+          @cancel="(questionId) => emit('cancel', questionId)"
         />
       </template>
 
@@ -60,17 +63,12 @@
         :citations="index.citations"
         :results="index.toolResults"
         :slots="liveTools"
+        :questions="questions"
         :streaming="true"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
-      />
-
-      <QuestionCard
-        v-for="question in pendingQuestions"
-        :key="question.id"
-        :question="question"
-        :locale="locale"
-        @answer="emit('answer', question.id, $event)"
+        @answer="(questionId, answer) => emit('answer', questionId, answer)"
+        @cancel="(questionId) => emit('cancel', questionId)"
       />
 
       <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="emitLastRetry" />
@@ -97,7 +95,6 @@
   import AgentTimelineEmptyState from './AgentTimelineEmptyState.vue'
   import AgentUserEntry from './AgentUserEntry.vue'
   import { indexTranscript, isAssistantEntry, isUserEntry } from './impl/use-agent-transcript.js'
-  import QuestionCard from './QuestionCard.vue'
 
   /** 距底部超过该像素值即视为用户已离开最新消息。 */
   const AUTO_SCROLL_AWAY_PX = 48
@@ -133,6 +130,7 @@
   const emit = defineEmits<{
     prompt: [prompt: string]
     answer: [questionId: string, answer: QuestionAnswerView]
+    cancel: [questionId: string]
     retry: [entryId: EntryId]
     retryLast: [entryId: EntryId]
     loadEarlier: []
@@ -183,10 +181,6 @@
     }),
   )
 
-  const pendingQuestions = computed(() =>
-    props.questions.filter((question) => question.status === 'pending'),
-  )
-
   /** 运行失败后的重试以最后一条用户输入为目标。 */
   function emitLastRetry(): void {
     const entryId = index.value.lastUserEntryId
@@ -201,9 +195,9 @@
       element.scrollHeight - element.scrollTop - element.clientHeight <= AUTO_SCROLL_AWAY_PX
   }
 
-  // 条目数量、流式正文长度变化时按需推进到底部。
+  // 条目数量、流式正文长度与待答提问变化时按需推进到底部。
   watch(
-    () => [rows.value.length, props.liveAnswer?.blocks.length, props.error],
+    () => [rows.value.length, props.liveAnswer?.blocks.length, props.questions.length, props.error],
     async () => {
       await nextTick()
       if (!shouldAutoScroll) return

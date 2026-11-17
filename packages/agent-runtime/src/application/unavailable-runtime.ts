@@ -23,12 +23,6 @@ export function createUnavailableRuntimeSupport(): RuntimeSupport {
           'The production Provider adapter is not installed yet.',
         )
       },
-      test: async () => {
-        throw new AgentRuntimeError(
-          'PROVIDER_NOT_CONFIGURED',
-          'The production Provider adapter is not installed yet.',
-        )
-      },
       deleteCredential: async () => undefined,
     },
     createPlan: () => {

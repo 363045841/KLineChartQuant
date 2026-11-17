@@ -51,19 +51,6 @@
             </template>
           </DropMenu>
         </div>
-        <BaseTooltip
-          v-if="contextUsage"
-          :content="contextUsage.label"
-          placement="top"
-        >
-          <span
-            class="composer__usage-ring"
-            :style="{ '--usage-progress': `${contextUsage.percent * 3.6}deg` }"
-            :aria-label="contextUsage.accessibleLabel"
-            role="img"
-            tabindex="0"
-          ></span>
-        </BaseTooltip>
         <BaseTooltip v-if="running" :content="text.stop" placement="top">
           <BaseIconButton
             shape="circle"
@@ -152,19 +139,6 @@
       })),
     },
   ])
-  const contextUsage = computed(() => {
-    const used = props.usage?.contextTokens
-    const window = props.usage?.contextWindow ?? props.provider.contextWindow
-    if (used === undefined || !window) return null
-    const percent = Math.min(100, Math.max(0, Math.round((used / window) * 100)))
-    const label = `${used.toLocaleString()} / ${window.toLocaleString()} tokens (${percent}%)`
-    return {
-      percent,
-      label,
-      accessibleLabel: label,
-    }
-  })
-
   /** 从模型菜单选择模型并上报。 */
   function selectModel(_groupId: string, modelId: string): void {
     emit('model', modelId)
@@ -213,31 +187,6 @@
     align-items: center;
     gap: 8px;
     padding: 0 var(--composer-inset) var(--composer-inset);
-  }
-
-  .composer__usage-ring {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    position: relative;
-    border-radius: 50%;
-    background: conic-gradient(
-      var(--klc-color-ui-accent) var(--usage-progress),
-      var(--klc-color-ui-border-strong) 0
-    );
-  }
-
-  .composer__usage-ring::before {
-    position: absolute;
-    inset: 2px;
-    border-radius: 50%;
-    background: var(--klc-color-agent-composer-input-background);
-    content: '';
-  }
-
-  .composer__usage-ring:focus-visible {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 3px;
   }
 
   .composer__meta {

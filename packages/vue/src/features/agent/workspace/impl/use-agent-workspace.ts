@@ -31,7 +31,14 @@ import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,
 } from './agent-workspace-preferences.js'
-import { applyTranscript, clearTranscript, createWorkspaceState } from './workspace-state.js'
+import {
+  activateSession,
+  addQuestion,
+  applyTranscript,
+  clearTranscript,
+  createWorkspaceState,
+  settleQuestion,
+} from './workspace-state.js'
 
 /** 工作区无法启动且错误形状不可识别时的兜底视图。 */
 const WORKSPACE_UNAVAILABLE_FALLBACK = {
@@ -97,30 +104,16 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     }
     if (event.sessionId !== state.value.activeSessionId) return
     if (event.type === 'tool.question.required') {
-      state.value = { ...state.value, questions: [...state.value.questions, event.request] }
+      state.value = addQuestion(state.value, event.request)
       return
     }
-    state.value = {
-      ...state.value,
-      questions: state.value.questions.map((question) =>
-        question.id === event.questionId
-          ? { ...question, status: event.status, answer: event.answer }
-          : question,
-      ),
-    }
+    state.value = settleQuestion(state.value, event)
   }
 
   /** 打开会话；只接受最后一次选择的结果。 */
   async function openSession(sessionId: string): Promise<void> {
     const selection = ++selectionGeneration
-    if (state.value.activeSessionId !== sessionId) {
-      state.value = {
-        ...state.value,
-        activeSessionId: sessionId,
-        transcript: null,
-        questions: [],
-      }
-    }
+    state.value = activateSession(state.value, sessionId)
     const transcript = await bridge.openSession(sessionId)
     if (selection === selectionGeneration) {
       state.value = applyTranscript(state.value, transcript)
@@ -269,6 +262,11 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await bridge.answerQuestion(questionId, answer)
   }
 
+  /** 用户放弃这次提问；模型收到「用户未作答」。 */
+  async function cancelQuestion(questionId: string): Promise<void> {
+    await bridge.cancelQuestion(questionId)
+  }
+
   function setMode(value: AgentRunMode): void {
     mode.value = value
   }
@@ -351,6 +349,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     loadEarlier,
     fillGap,
     answerQuestion,
+    cancelQuestion,
     setMode,
     loadModels,
     setModel,

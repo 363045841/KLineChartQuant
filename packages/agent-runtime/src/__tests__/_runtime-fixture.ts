@@ -16,9 +16,11 @@ export interface TestRuntime {
 }
 
 /** 创建一套基于官方内存存储的完整运行时。 */
-export async function createTestRuntime(): Promise<TestRuntime> {
+export async function createTestRuntime(
+  options: { configured?: boolean } = {},
+): Promise<TestRuntime> {
   const execution = await openDurableExecution(new MemoryStorage())
-  const support = createFauxRuntimeSupport()
+  const support = createFauxRuntimeSupport(options)
   const sessions = new AgentSessionService({ execution })
   const app = new AgentApplicationService({
     sessions,

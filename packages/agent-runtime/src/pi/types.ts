@@ -10,7 +10,6 @@ import type { TSchema } from 'typebox'
 import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   AgentErrorView,
-  AgentUsageView,
   EvidenceView,
   ProviderReasoningEffort,
   SourceCitation,
@@ -35,10 +34,6 @@ export interface RuntimeToolResult {
   evidence?: EvidenceView
   /** 可由最终 assistant 正文引用的外部来源。 */
   citations?: readonly SourceCitation[]
-  /** 可逆工具操作对应的撤销令牌。 */
-  undoToken?: string
-  /** 工具执行产生的资源用量。 */
-  usage?: AgentUsageView
   /** 业务工具失败时传给模型和 UI 的可修正错误。 */
   failure?: AgentErrorView
 }
@@ -58,6 +53,8 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   parameters: TParameters
   /** 工具是否产生副作用；运行模式据此过滤。 */
   effect: ToolEffect
+  /** 调用在界面上的呈现方式；只有需要非默认视图的工具声明，缺省即普通折叠行。 */
+  presentation?: 'question'
   /** 同一轮中工具调用的执行策略；只读工具并行，写工具串行。 */
   executionMode?: 'parallel' | 'sequential'
   /** 将已验证输入压缩为可展示摘要的函数。 */

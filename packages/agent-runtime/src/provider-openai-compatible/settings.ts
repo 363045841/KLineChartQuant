@@ -46,18 +46,13 @@ export function parseOpenAiCompatibleProviderSettings(
     (value.reasoningEffort !== undefined &&
       (!PROVIDER_REASONING_EFFORTS.includes(value.reasoningEffort as ProviderReasoningEffort) ||
         !value.reasoningEfforts.includes(value.reasoningEffort))) ||
-    value.compatibility !== 'compatible' ||
-    typeof value.lastTestedAt !== 'number' ||
-    !Number.isFinite(value.lastTestedAt) ||
-    typeof value.lastModelsRefreshAt !== 'number' ||
-    !Number.isFinite(value.lastModelsRefreshAt) ||
     !protocol ||
     (value.headers !== undefined &&
       (!isRecord(value.headers) ||
         Object.values(value.headers).some((header) => typeof header !== 'string')))
   ) {
     throw new AgentRuntimeError('PROVIDER_ERROR', 'The saved Provider settings are invalid.', {
-      recommendedAction: 'Test the Provider connection again.',
+      recommendedAction: 'Save the Provider connection again.',
     })
   }
   return {
@@ -71,9 +66,6 @@ export function parseOpenAiCompatibleProviderSettings(
     reasoningEfforts: [...value.reasoningEfforts] as ProviderReasoningEffort[],
     reasoningEffort: value.reasoningEffort as ProviderReasoningEffort | undefined,
     protocol,
-    compatibility: value.compatibility,
-    lastTestedAt: value.lastTestedAt,
-    lastModelsRefreshAt: value.lastModelsRefreshAt,
   }
 }
 

@@ -1,6 +1,10 @@
 // 验证浏览器 Agent bridge 可通过 runtime 根入口完成 Provider 目录请求。
 
-import type { AgentChartSymbolContextItem } from '@363045841yyt/klinechart-agent-runtime'
+import type {
+  AgentChartSymbolContextItem,
+  AgentWorkspaceEvent,
+  AskUserOutcome,
+} from '@363045841yyt/klinechart-agent-runtime'
 import { AgentRuntimeError } from '@363045841yyt/klinechart-agent-runtime'
 import { createMemoryRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/testing'
 import { KLineChartError } from '@363045841yyt/klinechart-core'
@@ -27,7 +31,10 @@ function createTestToolRegistry(): BrowserToolRegistry {
   return new BrowserToolRegistry({
     fetch,
     getWebSearchApiKey: () => undefined,
-    requestQuestion: async () => ({ selectedValues: [] }),
+    requestQuestion: async (): Promise<AskUserOutcome> => ({
+      status: 'answered',
+      answer: { selectedValues: [] },
+    }),
   })
 }
 
@@ -86,7 +93,6 @@ async function connectChartProvider(
   await bridge.addProviderModelPoolModel({
     id: 'chart-model',
     name: 'Chart model',
-    compatibility: 'compatible',
   })
   await bridge.setProviderModel('chart-model')
 }
@@ -188,18 +194,9 @@ describe('BrowserAgentBridge', () => {
     expect(status).not.toHaveProperty('modelId')
   })
 
-  it('saves a successfully tested Provider and reports a connected status', async () => {
+  it('saves a Provider connection and reports a connected status once a model is chosen', async () => {
     vi.stubGlobal('fetch', createOpenAiCompatibleFetchStub())
     const bridge = new BrowserAgentBridge()
-
-    await expect(
-      bridge.testProvider({
-        baseUrl: 'https://provider.example/v1',
-        apiKey: 'test-key',
-        model: 'chart-model',
-        protocol: 'openai-completions',
-      }),
-    ).resolves.toMatchObject({ compatible: true, model: 'chart-model' })
 
     await bridge.saveProvider({
       baseUrl: 'https://provider.example/v1',
@@ -224,25 +221,19 @@ describe('BrowserAgentBridge', () => {
     const first = {
       baseUrl: 'https://provider-one.example/v1',
       apiKey: 'first-key',
-      model: 'chart-model',
-      protocol: 'openai-completions' as const,
     }
     const second = {
       baseUrl: 'https://provider-two.example/v1',
       apiKey: 'second-key',
-      model: 'chart-model',
-      protocol: 'openai-completions' as const,
     }
 
     await bridge.createProviderProfile('Provider one')
-    await bridge.testProvider(first)
     await connectChartProvider(bridge, {
       profileName: 'Provider one',
       baseUrl: first.baseUrl,
       apiKey: first.apiKey,
     })
     await bridge.createProviderProfile('Provider two')
-    await bridge.testProvider(second)
     await connectChartProvider(bridge, {
       profileName: 'Provider two',
       baseUrl: second.baseUrl,
@@ -328,7 +319,6 @@ describe('BrowserAgentBridge', () => {
     await bridge.addProviderModelPoolModel({
       id: 'chart-model',
       name: 'Chart model',
-      compatibility: 'compatible',
     })
 
     await bridge.renameProviderProfile('Provider one', 'Provider renamed')
@@ -356,7 +346,6 @@ describe('BrowserAgentBridge', () => {
     await bridge.addProviderModelPoolModel({
       id: 'chart-model',
       name: 'Chart model',
-      compatibility: 'compatible',
     })
     await bridge.createProviderProfile('Provider two')
 
@@ -379,23 +368,6 @@ describe('BrowserAgentBridge', () => {
 
     expect(pool).toEqual([])
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({ state: 'not-configured' })
-  })
-
-  it('saves and enables a Provider without a connection test', async () => {
-    const bridge = new BrowserAgentBridge()
-
-    await bridge.saveProvider({
-      baseUrl: 'https://provider.example/v1',
-      apiKey: 'test-key',
-      profileName: 'Untested provider',
-      protocol: 'openai-completions',
-    })
-
-    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
-      state: 'not-configured',
-      baseUrl: 'https://provider.example/v1',
-      exaConfigured: false,
-    })
   })
 
   it('persists one global Exa key and exposes the web search tool without a Provider Profile', async () => {
@@ -699,6 +671,40 @@ describe('BrowserAgentBridge', () => {
     ).resolves.toMatchObject({
       content: expect.stringContaining('INVALID_ARGUMENTS'),
     })
+  })
+
+  it('settles a pending question as an answer or as a skip', async () => {
+    const bridge = new BrowserAgentBridge()
+    const required: Extract<AgentWorkspaceEvent, { type: 'tool.question.required' }>[] = []
+    const resolved: Extract<AgentWorkspaceEvent, { type: 'tool.question.resolved' }>[] = []
+    bridge.subscribe((event) => {
+      if (event.type === 'tool.question.required') required.push(event)
+      if (event.type === 'tool.question.resolved') resolved.push(event)
+    })
+
+    const ask = () =>
+      bridge.debugTool('ask_user', {
+        question: 'Which instrument?',
+        options: [
+          { value: 'a', label: 'A' },
+          { value: 'b', label: 'B' },
+        ],
+      })
+
+    const answered = ask()
+    await bridge.answerQuestion(required[0]!.request.id, { selectedValues: ['a'] })
+    await expect(answered).resolves.toMatchObject({
+      content: JSON.stringify({ status: 'answered', selected: ['a'] }),
+    })
+
+    const skipped = ask()
+    await bridge.cancelQuestion(required[1]!.request.id)
+    await expect(skipped).resolves.toMatchObject({
+      content: JSON.stringify({ status: 'cancelled' }),
+      summary: expect.stringContaining('declined'),
+    })
+
+    expect(resolved.map((event) => event.status)).toEqual(['answered', 'cancelled'])
   })
 
   it('exposes only read tools in plan mode and every tool in build mode', () => {

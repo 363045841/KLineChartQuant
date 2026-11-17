@@ -1,9 +1,17 @@
-// Agent 会话层契约：宿主提问的挂起状态与应答入口。
+// Agent 会话层契约：宿主提问的登记输入与广播入口。
 
-import type { QuestionAnswerView } from '../../agent-contracts.js'
+import type { AgentWorkspaceEventInput, QuestionOptionView } from '../../agent-contracts.js'
 
-/** 一次工具等待用户答复的提问；signal 终止路径由发起方负责收尾。 */
-export interface PendingQuestion {
-  sessionId: string
-  resolve(answer: QuestionAnswerView): void
+/** 一次待答提问的登记输入。 */
+export interface PendingQuestionInput {
+  readonly sessionId: string
+  readonly toolCallId: string
+  readonly prompt: string
+  readonly options: readonly QuestionOptionView[]
+  readonly multiSelect: boolean
+  /** 运行中止信号；中止时按取消结算，工具侧再抛 ABORTED。 */
+  readonly signal: AbortSignal
 }
+
+/** 事件广播入口；由 Bridge 注入，提问表不直接持有 Bridge。 */
+export type PendingQuestionEmit = (event: AgentWorkspaceEventInput) => void

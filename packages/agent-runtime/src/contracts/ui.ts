@@ -39,20 +39,13 @@ export type EvidenceView = {
 /** 工具执行进度。 */
 export type ToolProgressView = {
   label: string
-  current?: number
-  total?: number
 }
 
 /** 一次运行的用量摘要，展示在输入区。 */
 export type AgentUsageView = {
   inputTokens?: number
   outputTokens?: number
-  /** 最后一次模型请求实际占用的输入上下文 token。 */
-  contextTokens?: number
-  /** 当前模型可用的上下文窗口。 */
-  contextWindow?: number
   costUsd?: number
-  durationMs?: number
 }
 
 /** 可展示的运行时错误。 */
@@ -71,10 +64,6 @@ export interface AgentToolView {
   label: string
   description: string
   enabled: boolean
-  /** 工具的当前配置是否允许启用。 */
-  available?: boolean
-  /** 工具不可启用时向用户展示的原因。 */
-  unavailableReason?: string
 }
 
 /** 工具管理页手动执行一次工具后的可展示结果。 */
@@ -205,8 +194,7 @@ export interface AgentRunContext {
   readonly items: ReadonlyArray<AgentContextItem>
 }
 
-export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
-export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
+export type ProviderConnectionState = 'not-configured' | 'connected' | 'error'
 export const PROVIDER_API_PROTOCOLS = ['openai-responses', 'openai-completions'] as const
 export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
 export const PROVIDER_REASONING_EFFORTS = ['high', 'medium', 'low', 'none'] as const
@@ -223,10 +211,6 @@ export interface ProviderStatusView {
   profileName?: string
   protocol?: ProviderApiProtocol
   headers?: Record<string, string>
-  fingerprint?: string
-  compatibility?: ProviderCompatibility
-  lastTestedAt?: number
-  lastModelsRefreshAt?: number
   contextWindow?: number
   maxOutputTokens?: number
   reasoningEfforts?: readonly ProviderReasoningEffort[]
@@ -237,9 +221,6 @@ export interface ProviderStatusView {
 export interface ProviderModelView {
   id: string
   name: string
-  compatibility: Exclude<ProviderCompatibility, 'testing'>
-  latencyMs?: number
-  ttftMs?: number
   contextWindow?: number
   maxOutputTokens?: number
   reasoningEfforts?: readonly ProviderReasoningEffort[]
@@ -298,13 +279,6 @@ export interface AgentRunStartedView {
   sessionId: string
 }
 
-export interface ProviderTestInput {
-  baseUrl: string
-  apiKey?: string
-  headers?: Record<string, string>
-  model: string
-  protocol: ProviderApiProtocol
-}
 export interface ProviderSaveInput {
   baseUrl: string
   apiKey?: string
@@ -332,19 +306,6 @@ export interface ProviderModelsInput {
 export interface ProviderModelsResult {
   models: ProviderModelView[]
   refreshedAt: number
-}
-export interface ProviderProbeStageResult {
-  stage: 'catalog' | 'text' | 'tool'
-  ok: boolean
-  latencyMs: number
-  ttftMs?: number
-}
-export interface ProviderTestResult {
-  compatible: boolean
-  model: string
-  latencyMs: number
-  ttftMs?: number
-  stages: ProviderProbeStageResult[]
 }
 
 interface EventEnvelope {
@@ -401,13 +362,15 @@ export interface AgentBridgeClient {
   retryRun(input: BranchMessageInput): Promise<AgentRunStartedView>
   /** 编辑指定历史用户输入，并从该输入之前创建分支。 */
   editMessage(input: EditMessageInput): Promise<AgentRunStartedView>
+  /** 投递用户答复；未知或已结算的提问忽略。 */
   answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void>
+  /** 用户主动放弃这次提问；未知或已结算的提问忽略。 */
+  cancelQuestion(questionId: string): Promise<void>
   listProviderModelCatalog(): Promise<ProviderModelsResult>
   listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
   addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]>
   removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]>
   setProviderModel(modelId: string): Promise<void>
-  testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   listProviderProfiles(): Promise<ProviderProfileView[]>
   createProviderProfile(profileName: string): Promise<void>
   renameProviderProfile(profileName: string, nextProfileName: string): Promise<void>

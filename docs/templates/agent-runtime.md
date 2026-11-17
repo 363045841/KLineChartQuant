@@ -31,22 +31,16 @@ host adapters.
 ## OpenAI-compatible protocols
 
 The Provider adapter supports both `openai-completions` and `openai-responses`.
-The selected protocol is persisted with the tested Base URL and model; existing
-version 1 settings migrate to `openai-completions` because that was the only
-previous runtime behavior.
+The selected protocol is persisted with the Base URL and model.
 
-A Provider becomes runnable only after one connection test completes all three
-stages against the selected model:
+A Provider becomes runnable in three steps; each writes only its own state:
 
-1. `GET /models` verifies catalog access and authentication.
-2. A minimal text request verifies the selected protocol endpoint
-   (`POST /chat/completions` or `POST /responses`).
-3. An exact, side-effect-free function call verifies tool compatibility.
+1. Save the connection: the API root, protocol, and credentials.
+2. Refresh the catalog (`GET /models`) and add the models you want to the pool.
+3. Select a pooled model; that selection is what the runtime loads.
 
 For a third-party Provider, configure the API root as the Base URL (for example,
-`https://provider.example/v1`), choose the protocol implemented by that endpoint,
-refresh the catalog, and run the connection test. A successful model catalog by
-itself does not establish Agent compatibility.
+`https://provider.example/v1`) and choose the protocol that endpoint implements.
 
 ## Code interpreter
 

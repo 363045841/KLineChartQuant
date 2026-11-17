@@ -36,6 +36,7 @@
         :actions-disabled="isRunning"
         @prompt="draft = $event"
         @answer="answerQuestion"
+        @cancel="cancelQuestion"
         @retry="retry"
         @retry-last="retry"
         @load-earlier="loadEarlier"
@@ -134,6 +135,7 @@
     loadEarlier,
     fillGap,
     answerQuestion,
+    cancelQuestion,
     mode,
     setMode,
     setModel,
@@ -166,11 +168,16 @@
     void nextTick(() => workspace.value?.querySelector<HTMLElement>(selector)?.focus())
   }
 
+  // 提问卡片内联在回答里，焦点与播报按同一条待答提问推进。
+  const pendingQuestion = computed(() =>
+    state.value.questions.find((question) => question.status === 'pending'),
+  )
+
   watch(
-    () => [runError.value?.message, state.value.questions.at(-1)?.status],
-    ([errorMessage, questionStatus]) => {
+    () => [runError.value?.message, pendingQuestion.value?.id],
+    ([errorMessage, questionId]) => {
       const announcement =
-        errorMessage ?? (questionStatus === 'pending' ? text.value.question.required : '')
+        errorMessage ?? (questionId ? text.value.question.required : '')
       if (!announcement) return
       if (announcementTimer) clearTimeout(announcementTimer)
       announcementTimer = setTimeout(() => {

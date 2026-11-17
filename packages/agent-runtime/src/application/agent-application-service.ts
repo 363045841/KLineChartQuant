@@ -18,8 +18,6 @@ import {
   type ProviderModelsInput,
   type ProviderModelsResult,
   type ProviderStatusView,
-  type ProviderTestInput,
-  type ProviderTestResult,
   type StartRunInput,
 } from '../contracts/ui.js'
 import type { AgentApplicationApi, AgentApplicationServiceOptions, RunPlanInput } from './types.js'
@@ -37,7 +35,6 @@ const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
   state: 'not-configured',
   providerLabel: 'OpenAI-compatible',
   configured: false,
-  compatibility: 'unknown',
 }
 
 /**
@@ -200,10 +197,6 @@ export class AgentApplicationService implements AgentApplicationApi {
 
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     return this.requireProvider().listModels(input)
-  }
-
-  testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    return this.requireProvider().test(input)
   }
 
   deleteProviderCredential(): Promise<void> {

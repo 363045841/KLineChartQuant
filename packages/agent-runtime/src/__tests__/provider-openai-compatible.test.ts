@@ -33,61 +33,11 @@ function configuredStores() {
   }
 }
 
-/** 模拟模型目录与两种协议的工具探测响应。 */
-function providerFetch(options: { invalidTool?: boolean; protocol?: ProviderApiProtocol } = {}) {
-  const protocol = options.protocol ?? 'openai-completions'
-  return vi.fn<FetchFunction>(async (input, init) => {
-    const url = String(input)
-    if (url.endsWith('/models')) {
+/** 模拟 Provider 的模型目录响应。 */
+function providerFetch(): typeof globalThis.fetch {
+  return vi.fn<FetchFunction>(async (input) => {
+    if (String(input).endsWith('/models')) {
       return json({ object: 'list', data: [{ id: 'frontier-fast', name: 'Frontier Fast' }] })
-    }
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown>
-    if (protocol === 'openai-completions' && url.endsWith('/chat/completions')) {
-      const tool = body.tools as
-        | { function: { name: string; parameters: { properties: { nonce: { const: string } } } } }[]
-        | undefined
-      if (!tool?.[0]) return json({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })
-      return json({
-        choices: [
-          {
-            message: {
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: 'probe-1',
-                  type: 'function',
-                  function: {
-                    name: options.invalidTool ? 'wrong_tool' : tool[0].function.name,
-                    arguments: JSON.stringify({
-                      nonce: tool[0].function.parameters.properties.nonce.const,
-                    }),
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      })
-    }
-    if (protocol === 'openai-responses' && url.endsWith('/responses')) {
-      const tool = body.tools as
-        | { name: string; parameters: { properties: { nonce: { const: string } } } }[]
-        | undefined
-      if (!tool?.[0]) {
-        return json({
-          output: [{ type: 'message', content: [{ type: 'output_text', text: 'OK' }] }],
-        })
-      }
-      return json({
-        output: [
-          {
-            type: 'function_call',
-            name: options.invalidTool ? 'wrong_tool' : tool[0].name,
-            arguments: JSON.stringify({ nonce: tool[0].parameters.properties.nonce.const }),
-          },
-        ],
-      })
     }
     return new Response('', { status: 404 })
   })
@@ -109,9 +59,6 @@ async function configure(
     maxOutputTokens: 16_384,
     reasoningEfforts: [],
     protocol,
-    compatibility: 'compatible',
-    lastTestedAt: 10,
-    lastModelsRefreshAt: 9,
   }
   await credentials.write(secret)
   await settings.write(value)
@@ -252,7 +199,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
           now: () => 20,
           sleep: async () => undefined,
           diagnostics: record,
-          stage: 'tool',
+          stage: 'stream',
         },
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_MALFORMED_RESPONSE' })
@@ -282,7 +229,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
         expect.objectContaining({
           phase: 'failure',
           code: 'PROVIDER_MALFORMED_RESPONSE',
-          stage: 'tool',
+          stage: 'stream',
         }),
         expect.objectContaining({ phase: 'failure', code: 'PROVIDER_UNAVAILABLE' }),
       ]),
@@ -354,7 +301,7 @@ describe('OpenAI-compatible runtime support', () => {
     expect(buildMode.systemPrompt).toContain('You may change the chart through the write tools')
   })
 
-  it('discovers models, passes every probe, and persists the verified configuration', async () => {
+  it('discovers models from the Provider catalog', async () => {
     const { credentials, settings } = configuredStores()
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
@@ -369,35 +316,6 @@ describe('OpenAI-compatible runtime support', () => {
       protocol: 'openai-completions',
     })
     expect(catalog.models.map((model) => model.id)).toEqual(['frontier-fast'])
-
-    const tested = await support.provider.test({
-      baseUrl,
-      apiKey: secret,
-      model: 'frontier-fast',
-      protocol: 'openai-completions',
-    })
-    expect(tested.compatible).toBe(true)
-    expect(tested.stages.map((stage) => stage.stage)).toEqual(['catalog', 'text', 'tool'])
-    expect((await settings.read())?.compatibility).toBe('compatible')
-  })
-
-  it('keeps the previous configuration when a protocol tool probe fails', async () => {
-    const { credentials, settings } = configuredStores()
-    const previous = await configure(credentials, settings)
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: providerFetch({ invalidTool: true }),
-    })
-    await expect(
-      support.provider.test({
-        baseUrl,
-        apiKey: secret,
-        model: 'frontier-fast',
-        protocol: 'openai-completions',
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_INCOMPATIBLE_TOOLS' })
-    expect(await settings.read()).toEqual(previous)
   })
 
   it('blocks subsequent runs after the credential is deleted', async () => {

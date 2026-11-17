@@ -42,14 +42,25 @@ export interface AskUserRequest {
 
 /** 宿主提问所需的执行控制信息。 */
 export interface AskUserExecutionContext {
+  readonly sessionId: string
   readonly runId: string
   readonly toolCallId: string
   readonly signal: AbortSignal
 }
 
-/** 宿主提问通道：渲染提问卡片并挂起到用户答复；signal 中止时由宿主以 ABORTED 拒绝。 */
+/**
+ * 提问的处置结果。
+ *
+ * 取消不是失败：用户主动放弃时工具正常返回 `cancelled`，模型据此停止追问；
+ * 若按失败返回，模型会把「没人回答」当成需要重试的错误。
+ */
+export type AskUserOutcome =
+  | { readonly status: 'answered'; readonly answer: QuestionAnswerView }
+  | { readonly status: 'cancelled' }
+
+/** 宿主提问通道：渲染提问卡片并挂起到用户答复或取消。 */
 export interface AskUserHost {
-  request(request: AskUserRequest, context: AskUserExecutionContext): Promise<QuestionAnswerView>
+  request(request: AskUserRequest, context: AskUserExecutionContext): Promise<AskUserOutcome>
 }
 
 /** 创建由宿主提问通道支撑的标准澄清工具。 */
@@ -59,19 +70,28 @@ export function createAskUserTool(host: AskUserHost): RuntimeToolDefinition {
     parameters: AskUserParameters,
     effect: 'read',
     executionMode: 'sequential',
+    // 这次调用没有可折叠的工具结果，宿主按提问卡片渲染。
+    presentation: 'question',
     summarizeInput: (input) => (input as AskUserInput).question,
     async execute(input, context) {
       context.signal.throwIfAborted()
       const request = input as AskUserInput
-      const answer = await host.request(
+      const outcome = await host.request(
         {
           prompt: request.question,
           options: request.options,
           multiSelect: request.multiSelect ?? false,
         },
-        { runId: context.runId, toolCallId: context.toolCallId, signal: context.signal },
+        { runId: context.runId, toolCallId: context.toolCallId, sessionId: context.sessionId, signal: context.signal },
       )
       context.signal.throwIfAborted()
+      if (outcome.status === 'cancelled') {
+        return {
+          content: JSON.stringify({ status: 'cancelled' }),
+          summary: 'User declined to answer.',
+        }
+      }
+      const answer = outcome.answer
       return {
         content: JSON.stringify({
           status: 'answered',

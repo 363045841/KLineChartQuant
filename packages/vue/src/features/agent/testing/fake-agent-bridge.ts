@@ -19,9 +19,6 @@ import type {
   ProviderReasoningEffort,
   ProviderSaveInput,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
-  QuestionAnswerView,
   StartRunInput,
   ToolCall,
   TranscriptItem,
@@ -46,7 +43,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private readonly entries = new Map<string, EntryRecord[]>()
   private readonly sessions: AgentSessionView[] = []
   private readonly profiles: FakeProfile[] = []
-  private readonly questions = new Map<string, (answer: QuestionAnswerView) => void>()
   private nextId = 1
   private exaConfigured = false
   private usage: AgentUsageView | undefined
@@ -161,9 +157,13 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return { runId, sessionId: input.sessionId }
   }
 
-  async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    this.questions.get(questionId)?.(answer)
-    this.questions.delete(questionId)
+  /** 内存 Bridge 不模拟宿主提问：挂起与结算只存在于真实 Bridge。 */
+  async answerQuestion(): Promise<void> {
+    return undefined
+  }
+
+  async cancelQuestion(): Promise<void> {
+    return undefined
   }
 
   async getProviderStatus(): Promise<ProviderStatusView> {
@@ -177,7 +177,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: profile?.connection?.baseUrl,
       protocol: profile?.connection?.protocol,
       modelId: profile?.settings?.modelId,
-      compatibility: profile?.settings ? 'compatible' : 'unknown',
       exaConfigured: this.exaConfigured,
     }
   }
@@ -229,20 +228,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
       ...(model.maxOutputTokens === undefined ? {} : { maxOutputTokens: model.maxOutputTokens }),
     }
-  }
-
-  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const profile = this.activeProfile()
-    if (profile) {
-      profile.settings = {
-        name: profile.name,
-        baseUrl: input.baseUrl,
-        protocol: input.protocol,
-        modelId: input.model,
-        modelName: input.model,
-      }
-    }
-    return { compatible: true, model: input.model, latencyMs: 1, stages: [] }
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
@@ -375,7 +360,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
         details: {
           label: 'Inspect chart context',
           inputSummary: prompt,
-          reversible: false,
           summary: 'Chart context inspected.',
         },
         isError: false,

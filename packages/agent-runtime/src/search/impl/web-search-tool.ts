@@ -44,7 +44,7 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
           summary: 'Web search requires an Exa API key.',
         }
       }
-      context.progress({ label: 'Searching the web', current: 1, total: 1 })
+      context.progress({ label: 'Searching the web' })
       try {
         const sources = await provider.search(
           { query: request.query, limit: request.limit ?? WEB_SEARCH_DEFAULT_LIMIT },

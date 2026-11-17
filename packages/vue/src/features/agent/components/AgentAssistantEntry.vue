@@ -6,9 +6,12 @@
       :citations="citations"
       :results="results"
       :slots="slots"
+      :questions="questions"
       :streaming="false"
       :collapse-reasoning="collapseReasoning"
       :locale="locale"
+      @answer="(questionId, answer) => emit('answer', questionId, answer)"
+      @cancel="(questionId) => emit('cancel', questionId)"
     />
     <div v-if="showActions" class="agent-entry__actions">
       <BaseTooltip :content="copyLabel" placement="bottom">
@@ -44,6 +47,8 @@
   import type {
     EntryId,
     EntryRecord,
+    QuestionAnswerView,
+    QuestionView,
     SourceCitation,
     ToolResultMessage,
   } from '../agent-contracts.js'
@@ -60,10 +65,15 @@
     citations: readonly SourceCitation[]
     results: ReadonlyMap<string, ToolResultMessage>
     slots: ReadonlyMap<string, LiveToolView>
+    questions: readonly QuestionView[]
     retryEntryId?: EntryId
     actionsDisabled: boolean
   }>()
-  const emit = defineEmits<{ retry: [entryId: EntryId] }>()
+  const emit = defineEmits<{
+    retry: [entryId: EntryId]
+    answer: [questionId: string, answer: QuestionAnswerView]
+    cancel: [questionId: string]
+  }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const blocks = computed(() => {

@@ -71,6 +71,7 @@ export async function submitAgentRun(
       execute: async (args, api, context) => {
         const presentation = {
           label: definition.label,
+          ...(definition.presentation === undefined ? {} : { presentation: definition.presentation }),
           inputSummary: definition.summarizeInput?.(args) ?? '',
         }
         await api.details(presentation, context)
@@ -88,8 +89,6 @@ export async function submitAgentRun(
             summary: result.summary,
             ...(result.evidence === undefined ? {} : { evidence: result.evidence }),
             ...(result.citations === undefined ? {} : { citations: [...result.citations] }),
-            ...(result.undoToken === undefined ? {} : { undoToken: result.undoToken }),
-            ...(result.usage === undefined ? {} : { usage: result.usage }),
             ...(result.failure === undefined ? {} : { failure: result.failure }),
           },
           isError: result.failure !== undefined,

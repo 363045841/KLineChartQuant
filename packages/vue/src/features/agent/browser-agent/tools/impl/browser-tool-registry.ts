@@ -64,7 +64,7 @@ export class BrowserToolRegistry {
       ...(tool.summarizeInput === undefined ? {} : { summarizeInput: tool.summarizeInput }),
       execute: async (input, context) => {
         context.signal.throwIfAborted()
-        context.progress({ label: `Running ${tool.label}`, current: 1, total: 1 })
+        context.progress({ label: `Running ${tool.label}` })
         try {
           const result = await tool.execute(input, {
             signal: context.signal,

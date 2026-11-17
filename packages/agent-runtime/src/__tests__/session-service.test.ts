@@ -12,12 +12,7 @@ import {
 let runtime: TestRuntime
 
 beforeEach(async () => {
-  runtime = await createTestRuntime()
-  await runtime.app.testProvider({
-    baseUrl: 'https://provider.example.test/v1',
-    model: 'faux-fast',
-    protocol: 'openai-responses',
-  })
+  runtime = await createTestRuntime({ configured: true })
 })
 
 afterEach(async () => {

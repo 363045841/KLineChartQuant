@@ -13,13 +13,19 @@ import type {
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
 } from '../contracts/ui.js'
 import type { AgentRunPlan, RuntimeToolDefinition } from '../pi/types.js'
 
-export function createFauxRuntimeSupport(): RuntimeSupport {
-  let configured = false
+/** 构造 faux 运行时的选项；测试可以直接以已配置状态启动。 */
+export interface FauxRuntimeSupportOptions {
+  /** 是否把 Provider 视为已配置；默认 false，由测试显式打开。 */
+  configured?: boolean
+}
+
+export function createFauxRuntimeSupport(
+  options: FauxRuntimeSupportOptions = {},
+): RuntimeSupport {
+  let configured = options.configured ?? false
   let modelLabel = 'KQ Faux Fast'
 
   const provider = {
@@ -32,35 +38,18 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
             baseUrl: 'https://api.example.com/v1',
             modelId: modelLabel,
             modelLabel,
-            compatibility: 'compatible',
           }
         : {
             state: 'not-configured',
             providerLabel: 'OpenAI-compatible',
             configured: false,
             baseUrl: 'https://api.example.com/v1',
-            compatibility: 'unknown',
           }
     },
     async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
       return {
-        models: [{ id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 }],
+        models: [{ id: modelLabel, name: modelLabel }],
         refreshedAt: Date.now(),
-      }
-    },
-    async test(input: ProviderTestInput): Promise<ProviderTestResult> {
-      configured = true
-      modelLabel = input.model
-      return {
-        compatible: true,
-        model: input.model,
-        latencyMs: 1,
-        ttftMs: 1,
-        stages: [
-          { stage: 'catalog', ok: true, latencyMs: 1 },
-          { stage: 'text', ok: true, latencyMs: 1, ttftMs: 1 },
-          { stage: 'tool', ok: true, latencyMs: 1 },
-        ],
       }
     },
     async deleteCredential(): Promise<void> {
@@ -101,7 +90,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       name: toolName,
       label: mutation ? 'Preview chart update' : 'Inspect chart context',
       description: mutation
-        ? 'Exercise a reversible fake Renderer tool.'
+        ? 'Exercise a write fake Renderer tool.'
         : 'Inspect deterministic chart context.',
       parameters: Type.Object({ request: Type.String() }),
       effect: mutation ? 'write' : 'read',
@@ -109,13 +98,12 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       summarizeInput: () => input.prompt,
       execute: async (_args, context) => {
         context.signal.throwIfAborted()
-        context.progress({ label: 'Validating chart scope', current: 1, total: 1 })
+        context.progress({ label: 'Validating chart scope' })
         return {
           content: mutation
             ? 'Preview mutation completed.'
             : 'Deterministic chart evidence returned.',
           summary: mutation ? 'Chart preview changed and verified.' : 'Chart context inspected.',
-          undoToken: mutation ? `undo:${context.runId}` : undefined,
           evidence: {
             symbol: 'BTCUSDT',
             period: '1h',

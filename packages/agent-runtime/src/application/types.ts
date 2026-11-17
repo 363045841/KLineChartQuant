@@ -8,8 +8,6 @@ import type {
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
   StartRunInput,
 } from '../contracts/ui.js'
 import type { AgentRunPlan } from '../pi/types.js'
@@ -40,7 +38,6 @@ export interface RunPlanInput {
 export interface ProviderApi {
   getStatus(): Promise<ProviderStatusView> | ProviderStatusView
   listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
-  test(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteCredential(): Promise<void>
 }
 
@@ -76,7 +73,6 @@ export interface AgentApplicationApi {
   }): Promise<{ runId: string; sessionId: string }>
   getProviderStatus(): Promise<ProviderStatusView>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
-  testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }
