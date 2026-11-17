@@ -74,8 +74,9 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const script = prepare(source)
     const request = script.requests()[0]
     expect(request?.mode).toBe('lower_tf')
-    // 保留 8 期、多留 1 期给当前未结束阶段，每期最多 1440 根 1 分钟明细。
-    expect(request?.calcBarsCount).toBe(9 * 1440)
+    // 脚本声明「至少 12 天」的明细窗口（svp 的 DETAIL_WINDOW_DAYS、pvp 的 MINUTES_PER_DAY * 12），
+    // 默认保留 8 期只需要 9 天，所以取窗口下限：12 天 × 1440 根/天。
+    expect(request?.calcBarsCount).toBe(12 * 1440)
   })
 
   it('reuses completed volume profiles when only the active period changes', () => {
