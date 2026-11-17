@@ -1,9 +1,0 @@
-/* 列表条目的标题行两端对齐。 */
-.item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--klc-space-8, 8px);
-  width: 100%;
-  min-width: 0;
-}

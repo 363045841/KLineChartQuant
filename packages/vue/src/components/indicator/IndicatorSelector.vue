@@ -70,9 +70,12 @@
               >
                 <div class="item-header">
                   <span class="item-label">
-                    {{ indicator.label }}
-                    <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
-                      {{ indicator.name }}
+                    <!-- 文本单独一层：省略号只裁文本，说明图标不被裁掉。 -->
+                    <span class="item-label__text">
+                      {{ indicator.label }}
+                      <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
+                        {{ indicator.name }}
+                      </span>
                     </span>
                     <BasePopover
                       v-if="indicator.description"
@@ -172,7 +175,6 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/header-row.css'
   import '../common/modal-list.css'
 
   import {
@@ -456,18 +458,27 @@
     text-align: left;
   }
 
+  /* 标题行是两列区域：名称列吃掉剩余宽度，类型列按内容宽；对齐由各区域自己负责。 */
+  .item-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--klc-space-8, 8px);
+    width: 100%;
+    min-width: 0;
+  }
+
   .item-select {
     display: flex;
     flex: 1;
+    align-items: center;
     min-width: 0;
-    justify-content: center;
     min-height: 36px;
     padding: 6px 0;
     border: 0;
     background: transparent;
     color: inherit;
     cursor: pointer;
-    text-align: left;
   }
 
   .item-select:focus-visible,
@@ -483,17 +494,24 @@
     background: var(--klc-color-ui-hover);
   }
 
+  /* 名称列：内容靠左对齐；类型列仍按内容宽在自己的列内居中。 */
   .item-label {
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: var(--klc-space-4, 4px);
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--klc-color-foreground);
+  }
+
+  /* 可截断的文本层：省略号只作用于文本，说明图标始终完整可见。 */
+  .item-label__text {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--klc-color-foreground);
   }
 
   .item-info-btn {
@@ -508,10 +526,11 @@
     font-weight: 400;
   }
 
+  /* 类型列：胶囊在自己的列内水平居中。 */
   .item-tags {
     display: flex;
-    flex: 0 0 auto;
     align-items: center;
+    justify-self: center;
     gap: var(--klc-space-4, 4px);
   }
 
@@ -542,8 +561,8 @@
     }
 
     .item-header {
-      flex-wrap: wrap;
-      gap: var(--klc-space-4, 4px);
+      /* 窄屏只把两列变一列：名称靠左，类型在自己的行内居中。 */
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
