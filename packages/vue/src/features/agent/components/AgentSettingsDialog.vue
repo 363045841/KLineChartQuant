@@ -883,8 +883,9 @@
     white-space: nowrap;
   }
 
+  /* 键盘聚焦才让位给行内操作；鼠标点击产生的焦点不常驻。 */
   .rail__item:has(.rail__actions):hover .rail__select,
-  .rail__item:has(.rail__actions):focus-within .rail__select {
+  .rail__item:has(.rail__actions):has(:focus-visible) .rail__select {
     padding-right: 54px;
   }
 
@@ -899,7 +900,7 @@
   }
 
   .rail__item:hover .rail__actions,
-  .rail__item:focus-within .rail__actions {
+  .rail__item:has(:focus-visible) .rail__actions {
     visibility: visible;
   }
 

@@ -135,11 +135,12 @@
     position: relative;
     display: flex;
     gap: 2px;
-    /* 弹窗内 = inset − 标签内边距（文字落在 inset）；弹窗外 fallback 30px 等于原 20px 容器内边距。 */
+    /* 弹窗内 = inset − 标签内边距（文字落在 inset）；弹窗外 fallback 30px 等于原 20px 容器内边距。
+       宿主可用 --base-tabs-inline-padding 整体压掉，不再从外面改组件样式。 */
     padding: 0
-      max(
-        0px,
-        calc(var(--base-modal-content-inset, 30px) - var(--base-tabs-tab-pad-inline))
+      var(
+        --base-tabs-inline-padding,
+        max(0px, calc(var(--base-modal-content-inset, 30px) - var(--base-tabs-tab-pad-inline)))
       );
     border-bottom: 1px solid var(--klc-color-ui-border);
     overflow-x: auto;

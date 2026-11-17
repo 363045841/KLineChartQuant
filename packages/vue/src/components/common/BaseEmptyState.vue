@@ -34,7 +34,7 @@
     justify-content: center;
     gap: var(--klc-space-8, 8px);
     padding-block: var(--klc-space-24, 24px);
-    padding-inline: 0;
+    padding-inline: var(--base-empty-state-inline-padding, 0);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;

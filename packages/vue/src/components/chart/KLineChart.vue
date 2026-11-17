@@ -2172,7 +2172,7 @@
     border-right: 1px solid var(--chart-border);
   }
 
-  .left-axis-host :deep(> canvas) {
+  .left-axis-host > canvas {
     display: block;
   }
 
@@ -2184,7 +2184,7 @@
   }
 
   /* 轴画布由 Core 动态创建，定位与叠层由 Core 管理，Vue 只负责显示样式。 */
-  .right-axis-host :deep(> canvas) {
+  .right-axis-host > canvas {
     display: block;
   }
 

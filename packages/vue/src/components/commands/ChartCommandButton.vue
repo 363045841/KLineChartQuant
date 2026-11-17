@@ -64,7 +64,7 @@
     cursor: default;
   }
 
-  .chart-command-button :deep(svg) {
+  .chart-command-button svg {
     width: 16px;
     height: 16px;
   }

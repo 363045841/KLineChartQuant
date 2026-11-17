@@ -710,7 +710,7 @@
     opacity: 0.75;
   }
 
-  .rule-form-kind-icon :deep(svg) {
+  .rule-form-kind-icon svg {
     width: 16px;
     height: 16px;
   }

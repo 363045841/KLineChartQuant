@@ -7,6 +7,7 @@
   align-items: center;
   justify-content: var(--control-button-justify, center);
   flex: 0 0 auto;
+  position: relative;
   box-sizing: border-box;
   --control-button-content-gap: 6px;
   gap: var(--control-button-content-gap);
@@ -68,6 +69,29 @@
   height: calc(8px + 2 * var(--klc-spacing-sm));
   gap: var(--control-button-content-gap);
   font-size: var(--klc-typography-font-size-md);
+}
+
+/*
+  文字动作下划线：默认不生成伪元素，Footer 这类容器用 --control-button-underline 打开。
+  宽度用 width 展开而不是 scaleX，动画结束时合成层回收不会让线突然变细。
+*/
+.control-button::after {
+  content: var(--control-button-underline, none);
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  translate: -50% 0;
+  transition: width var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+}
+
+/* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
+.control-button:not(:disabled):hover::after,
+.control-button:not(:disabled):focus-visible::after,
+.control-button[aria-expanded="true"]::after {
+  width: calc(100% - 2 * var(--control-button-inline-padding, 8px));
 }
 
 @media (max-width: 768px), (max-height: 640px) {

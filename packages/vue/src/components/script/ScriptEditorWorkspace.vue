@@ -233,7 +233,10 @@
   .script-workspace {
     display: flex;
     flex-direction: row;
-    max-height: calc(100dvh - 160px);
+    /* 工作区始终填满宿主：高度只由外层容器决定，宿主不再穿透改尺寸。 */
+    flex: 1;
+    min-height: 0;
+    max-height: none;
     overflow: hidden;
     background: var(--klc-color-ui-surround-background);
   }
@@ -337,10 +340,10 @@
   }
 
   .script-editor {
-    min-height: 80px;
+    min-height: 0;
     flex: 1 1 auto;
-    height: clamp(200px, 52dvh, 480px);
-    max-height: calc(100dvh - 180px);
+    height: auto;
+    max-height: none;
     background: var(--klc-color-ui-background);
     border-radius: var(--klc-radius-md, 8px) 0 0 var(--klc-radius-md, 8px);
     overflow: hidden;

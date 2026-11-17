@@ -354,10 +354,8 @@
     grid-template-columns: var(--side-panel-rail-width) var(--side-panel-track) minmax(0, 1fr);
   }
 
-  .side-panel-shell :deep(button),
-  .side-panel-shell :deep(input),
-  .side-panel-shell :deep(select),
-  .side-panel-shell :deep(textarea) {
+  /* 面板内容继承外壳的零字距，不再穿透改表单控件。 */
+  .side-panel-shell {
     letter-spacing: 0;
   }
 
@@ -419,9 +417,9 @@
     min-height: 0;
   }
 
-  /* 侧栏内容自身提供留白，页签容器不再叠加弹窗默认的左右内边距。 */
-  .side-panel-shell__panel :deep(.base-tabs--default) {
-    padding-inline: 0;
+  /* 侧栏内容自身提供留白：用变量把页签容器的左右内边距压掉，不改组件内部样式。 */
+  .side-panel-shell__panel {
+    --base-tabs-inline-padding: 0;
   }
 
   /* 悬浮在面板内侧边缘时提示左右拖拽。 */

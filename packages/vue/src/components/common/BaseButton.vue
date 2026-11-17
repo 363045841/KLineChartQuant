@@ -36,6 +36,7 @@
   .base-button {
     /* 行内留白同时决定 Footer 下划线的宽度，两者共用同一个值。 */
     --base-button-inline-padding: var(--klc-space-8, 8px);
+    position: relative;
     box-sizing: border-box;
     display: inline-flex;
     flex: 0 0 auto;
@@ -78,6 +79,28 @@
     background: var(--base-button-background, var(--klc-color-ui-control-background));
     color: var(--base-button-color, var(--klc-color-ui-text));
     font-size: var(--base-button-font-size, var(--klc-text-12-font-size, 12px));
+  }
+
+  /*
+    文字动作下划线：默认不生成伪元素，Footer 这类容器用 --base-button-underline 打开。
+    宽度用 width 展开而不是 scaleX：合成层回收时缩放会突然变细；
+    宽度由控件自己的行内留白变量推导，换尺寸或响应式留白都不会和文字错位。
+  */
+  .base-button::after {
+    content: var(--base-button-underline, none);
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    width: 0;
+    height: 1px;
+    background: currentColor;
+    translate: -50% 0;
+    transition: width var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  }
+
+  .base-button:not(:disabled):hover::after,
+  .base-button:not(:disabled):focus-visible::after {
+    width: calc(100% - 2 * var(--base-button-inline-padding, 8px));
   }
 
   @media (hover: hover) and (pointer: fine) {

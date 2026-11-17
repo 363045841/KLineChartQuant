@@ -8,7 +8,7 @@
       aria-label="应用菜单"
     >
       <ColorAvatar :color="accent" variant="contrast">
-        <span class="workspace-menu__brand" v-html="brandLogoMarkup" />
+        <KcqLogo />
       </ColorAvatar>
     </button>
   </BaseTooltip>
@@ -43,9 +43,9 @@
   import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
   import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
-  import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
   import { useWorkspaceMenu } from '../impl/useWorkspaceMenu.js'
   import AboutDialog from './AboutDialog.vue'
+  import KcqLogo from './KcqLogo.vue'
 
   defineProps<{ accent: string; themeMode?: ChartSettings['theme'] }>()
   const emit = defineEmits<{ 'theme-change': [mode: ChartSettings['theme']] }>()
@@ -70,29 +70,6 @@
     line-height: 0;
     -webkit-app-region: no-drag;
     app-region: no-drag;
-  }
-
-  .workspace-menu__brand {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .workspace-menu__brand :deep(svg) {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .workspace-menu__brand :deep(circle) {
-    fill: none;
-  }
-
-  .workspace-menu__brand :deep(path) {
-    /* 与应用图标一致：纯白折线，去掉 SVG 自带的半透明与磨砂滤镜。 */
-    stroke: currentColor;
-    stroke-opacity: 1;
-    filter: none;
   }
 
   .workspace-menu__appearance {

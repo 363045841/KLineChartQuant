@@ -179,7 +179,7 @@
     box-sizing: border-box;
   }
 
-  .label-position__button :deep(svg) {
+  .label-position__button svg {
     flex: none;
     width: 18px;
     height: 18px;
