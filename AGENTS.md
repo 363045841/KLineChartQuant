@@ -172,6 +172,10 @@ Issue 与需求单在仓库 GitHub Issues（gh CLI 读写；PRs 不作为 triage
 
 单上下文：根 `CONTEXT.md` + `docs/adr/`。See `docs/agents/domain.md`.
 
+### 部署与采集器
+
+采集器的部署契约见 `deploy/README.md`：两个角色（collector / serve）、数据根分片布局、四种形态（本机 / Linux systemd / Docker / NAS 原生）、Agent 十步清单与验收判据。配置面只有一处：`deploy/collector.env.example`（全部 `KCQ_*` 变量），线上实例的非机密配置记在 `deploy/instances/<名字>.env`。改动部署脚本或配置项时，三处必须同步：脚本默认值、配置模板、部署总览。
+
 ### 仓库拓扑（三个 remote）
 
 本仓是「私有主仓 + 公开 PR 桥」两段式：`origin` = 私有仓（日常开发），`pr` = 公开 fork（只放准备提上游 PR 的分支），`upstream` = 上游（只读）。
