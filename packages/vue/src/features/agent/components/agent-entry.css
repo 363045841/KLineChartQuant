@@ -1,0 +1,142 @@
+/* 时间线条目共享样式：消息容器、操作按钮与编辑输入。 */
+
+.agent-entry {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  /* 条目内所有文本默认允许断行；代码块靠自身滚动，不受影响。 */
+  overflow-wrap: anywhere;
+}
+
+.agent-entry > * {
+  min-width: 0;
+}
+
+/* 可折叠行：思考与工具调用共用同一套行样式与展开竖线。 */
+.agent-disclosure {
+  min-width: 0;
+  color: var(--klc-color-ui-muted);
+  font-size: 12px;
+}
+
+.agent-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-disclosure__body {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0 7px;
+  padding-left: 10px;
+  border-left: 1px solid var(--klc-color-ui-border);
+}
+
+.agent-entry--user {
+  justify-items: end;
+}
+
+.agent-entry__bubble {
+  max-width: 88%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--klc-color-ui-hover);
+  color: var(--klc-color-ui-text);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.agent-entry__content {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.agent-entry__editor {
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+}
+
+.agent-entry__edit-input {
+  width: 100%;
+}
+
+.agent-entry__edit-error {
+  margin: 0;
+  color: var(--klc-color-ui-danger-text);
+  font-size: 11px;
+}
+
+.agent-entry__editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.agent-entry__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  color: var(--klc-color-ui-muted);
+}
+
+.agent-entry__actions button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.agent-entry__actions button:hover {
+  background: var(--klc-color-ui-hover);
+}
+
+.agent-entry__actions button[data-status='copied'] {
+  color: var(--klc-color-ui-success);
+}
+
+.agent-entry__actions button[data-status='failed'] {
+  color: var(--klc-color-ui-danger-text);
+}
+
+.agent-entry__icon-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--klc-color-ui-muted);
+  cursor: pointer;
+}
+
+.agent-entry__icon-button:hover {
+  background: var(--klc-color-ui-hover);
+}
+
+.agent-entry__edit-send {
+  justify-self: end;
+}
+
+.agent-entry__spinner {
+  color: var(--klc-color-ui-accent);
+}

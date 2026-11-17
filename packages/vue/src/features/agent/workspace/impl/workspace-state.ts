@@ -1,5 +1,5 @@
-// 界面状态只保存最新完整会话快照及用户交互状态，不重建模型运行过程。
-import type { AgentSessionSnapshot } from '../../agent-contracts.js'
+// 工作区状态的创建与整体替换：会话内容只来自官方读取结果。
+import type { AgentTranscriptView } from '../../agent-contracts.js'
 import type { AgentWorkspaceState } from '../types.js'
 
 /** 创建未选择会话的界面状态。 */
@@ -7,45 +7,35 @@ export function createWorkspaceState(): AgentWorkspaceState {
   return {
     sessions: [],
     activeSessionId: null,
-    messages: [],
-    toolCalls: [],
-    confirmations: [],
+    transcript: null,
     questions: [],
-    run: { id: null, sessionId: null, status: 'idle' },
-    previousRuns: [],
     provider: {
       state: 'not-configured',
       providerLabel: 'OpenAI-compatible',
       configured: false,
       compatibility: 'unknown',
     },
-    error: null,
-    announcement: '',
   }
 }
 
-/** 用官方状态的完整投影替换会话显示；Vue 不拼接文本或累计用量。 */
-export function displayConversation(
+/**
+ * 用官方读取结果替换当前会话内容。
+ * @param state 当前工作区状态。
+ * @param transcript 官方会话读取结果。
+ * @returns 新的工作区状态。
+ */
+export function applyTranscript(
   state: AgentWorkspaceState,
-  snapshot: AgentSessionSnapshot,
+  transcript: AgentTranscriptView,
 ): AgentWorkspaceState {
-  const run = snapshot.runs.at(-1) ?? { id: null, sessionId: null, status: 'idle' as const }
-  const changed = state.activeSessionId !== snapshot.session.id
-  const visibleTools = new Set(snapshot.toolCalls.map((tool) => tool.id))
-  return {
-    ...state,
-    activeSessionId: snapshot.session.id,
-    messages: snapshot.messages,
-    toolCalls: snapshot.toolCalls,
-    run,
-    previousRuns: snapshot.runs.slice(0, -1),
-    error: run.error ?? null,
-    confirmations: (snapshot.confirmations ?? (changed ? [] : state.confirmations)).filter((item) =>
-      visibleTools.has(item.toolCallId),
-    ),
-    questions: (snapshot.questions ?? (changed ? [] : state.questions)).filter((item) =>
-      visibleTools.has(item.toolCallId),
-    ),
-    announcement: run.status === 'running' ? '' : (run.error?.message ?? ''),
-  }
+  return { ...state, transcript }
+}
+
+/**
+ * 清除当前会话内容并保留目录与 Provider 状态。
+ * @param state 当前工作区状态。
+ * @returns 新的工作区状态。
+ */
+export function clearTranscript(state: AgentWorkspaceState): AgentWorkspaceState {
+  return { ...state, transcript: null, questions: [] }
 }

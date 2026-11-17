@@ -11,6 +11,7 @@ export interface BrowserToolContext {
 
 /** ask_user 工具回调所需的最小执行上下文。 */
 export interface BrowserQuestionContext {
+  readonly sessionId: string
   readonly runId: string
   readonly toolCallId: string
   readonly signal: AbortSignal

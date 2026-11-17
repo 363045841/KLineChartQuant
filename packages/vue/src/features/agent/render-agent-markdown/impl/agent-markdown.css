@@ -1,0 +1,138 @@
+/* Agent Markdown 排版契约：宿主如何重置 UA 样式都不影响正文间距与列表缩进。 */
+
+.agent-markdown {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* 首尾元素不额外占位，避免与条目间距叠加；标题不参与首元素清零，保持上下对称。 */
+.agent-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown p {
+  margin: 0 0 8px;
+}
+
+.agent-markdown h1,
+.agent-markdown h2,
+.agent-markdown h3,
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  margin-block: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.agent-markdown h1 {
+  font-size: 17px;
+}
+
+.agent-markdown h2 {
+  font-size: 16px;
+}
+
+.agent-markdown h3 {
+  font-size: 15px;
+}
+
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  font-size: 13px;
+}
+
+/* 列表缩进由这里定义：marker 落在列表自身的 padding 内，不会画到正文盒之外。 */
+.agent-markdown ul,
+.agent-markdown ol {
+  margin: 0 0 8px;
+  padding-inline-start: 1.5em;
+  list-style-position: outside;
+}
+
+.agent-markdown li {
+  margin: 2px 0;
+}
+
+.agent-markdown li > ul,
+.agent-markdown li > ol {
+  margin: 2px 0;
+}
+
+.agent-markdown blockquote {
+  margin: 0 0 8px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--klc-color-ui-border);
+  color: var(--klc-color-ui-muted);
+}
+
+.agent-markdown hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--klc-color-ui-border);
+}
+
+.agent-markdown code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--klc-color-ui-hover);
+  font-family: var(--klc-typography-font-family-mono);
+  font-size: 12px;
+}
+
+.agent-markdown pre {
+  margin: 8px 0;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--klc-color-ui-hover);
+}
+
+/* 代码块内的代码不再叠加行内边距与背景。 */
+.agent-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.agent-markdown a {
+  color: var(--klc-color-ui-accent);
+}
+
+/* 媒体缩放，表格内部滚动：任何内容都不能撑宽消息列。 */
+.agent-markdown img,
+.agent-markdown video {
+  max-width: 100%;
+}
+
+.agent-markdown table {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.agent-markdown th,
+.agent-markdown td {
+  padding: 4px 8px;
+  border: 1px solid var(--klc-color-ui-border);
+}
+
+.agent-markdown th {
+  background: var(--klc-color-ui-hover);
+  font-weight: 600;
+}
+
+.agent-markdown button[data-agent-citation-id] {
+  margin-left: 2px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--klc-color-ui-accent);
+  background: var(--klc-color-ui-hover);
+  font-size: 10px;
+  cursor: pointer;
+}

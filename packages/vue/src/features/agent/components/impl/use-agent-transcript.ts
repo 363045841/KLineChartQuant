@@ -1,0 +1,92 @@
+// 时间线索引：把官方条目流中散落的工具结果、引用与前一条用户输入整理成只读映射。
+import type {
+  EntryId,
+  EntryRecord,
+  SourceCitation,
+  ToolResultMessage,
+  TranscriptItem,
+} from '../../agent-contracts.js'
+import type { LiveAnswerView, LiveToolView } from '../../workspace/impl/agent-live.js'
+import { readCitations } from './tool-view.js'
+
+/** 时间线渲染所需的派生索引，只做查找不做重排。 */
+export interface TranscriptIndex {
+  /** 工具调用 ID → 已提交的工具结果。 */
+  readonly toolResults: ReadonlyMap<string, ToolResultMessage>
+  /** 助手条目 → 该轮对应的用户条目，用于重新生成。 */
+  readonly retryTargets: ReadonlyMap<EntryId, EntryId>
+  /** 全部工具结果携带的来源。 */
+  readonly citations: readonly SourceCitation[]
+  /** 最后一条用户条目，供运行失败后重试。 */
+  readonly lastUserEntryId?: EntryId
+  /** 最后一条助手条目，用于决定操作栏位置。 */
+  readonly finalAssistantId?: EntryId
+}
+
+/** 流式回答与实时工具槽的派生视图。 */
+export interface LiveTranscript {
+  readonly answer: LiveAnswerView | undefined
+  readonly tools: ReadonlyMap<string, LiveToolView>
+}
+
+/**
+ * 遍历官方条目流，建立工具结果、引用与重试目标的查找表。
+ * @param items 官方条目窗口。
+ * @returns 只读派生索引。
+ */
+export function indexTranscript(items: readonly TranscriptItem[]): TranscriptIndex {
+  const toolResults = new Map<string, ToolResultMessage>()
+  const retryTargets = new Map<EntryId, EntryId>()
+  const citations: SourceCitation[] = []
+  let lastUserEntryId: EntryId | undefined
+  let finalAssistantId: EntryId | undefined
+
+  // 第一遍收集工具结果，第二遍按助手条目建立引用与重试目标映射。
+  for (const item of items) {
+    if (item.kind !== 'entry') continue
+    const message = item.entry.model?.[0]
+    if (message?.role === 'toolResult') toolResults.set(message.toolCallId, message)
+  }
+
+  for (const item of items) {
+    if (item.kind !== 'entry') continue
+    const entry = item.entry
+    if (entry.kind === 'pi.user' && entry.model?.[0]?.role === 'user') {
+      lastUserEntryId = entry.id
+      continue
+    }
+    if (entry.kind !== 'pi.assistant' || entry.model?.[0]?.role !== 'assistant') continue
+    if (lastUserEntryId !== undefined) retryTargets.set(entry.id, lastUserEntryId)
+    finalAssistantId = entry.id
+    for (const block of entry.model[0].content) {
+      if (block.type !== 'toolCall') continue
+      const result = toolResults.get(block.id)
+      if (result) citations.push(...readCitations(result.details))
+    }
+  }
+
+  return {
+    toolResults,
+    retryTargets,
+    citations,
+    ...(lastUserEntryId === undefined ? {} : { lastUserEntryId }),
+    ...(finalAssistantId === undefined ? {} : { finalAssistantId }),
+  }
+}
+
+/** 判断条目是否为可渲染的用户消息。 */
+export function isUserEntry(entry: EntryRecord): boolean {
+  return entry.kind === 'pi.user' && entry.model?.[0]?.role === 'user'
+}
+
+/** 判断条目是否为可渲染的助手回答。 */
+export function isAssistantEntry(entry: EntryRecord): boolean {
+  return entry.kind === 'pi.assistant' && entry.model?.[0]?.role === 'assistant'
+}
+
+/** 拼接助手条目的正文，供复制与操作栏判断。 */
+export function answerText(entry: EntryRecord): string {
+  const message = entry.model?.[0]
+  if (message?.role !== 'assistant') return ''
+  return message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+}

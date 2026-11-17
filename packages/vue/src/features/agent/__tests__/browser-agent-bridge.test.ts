@@ -27,6 +27,47 @@ function createTestToolRegistry(): BrowserToolRegistry {
   })
 }
 
+/** 取出读取结果中的真实条目。 */
+function entriesOf(view: import('../agent-contracts').AgentTranscriptView) {
+  return view.items.flatMap((item) => (item.kind === 'entry' ? [item.entry] : []))
+}
+
+/** 读取用户条目正文。 */
+function userText(entry: ReturnType<typeof entriesOf>[number] | undefined): string | undefined {
+  const message = entry?.model?.[0]
+  if (message?.role !== 'user') return undefined
+  return typeof message.content === 'string'
+    ? message.content
+    : message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+}
+
+/** 轮询会话读取结果，直到指定用户输入之后的助手回答落盘。 */
+async function waitForAnswer(
+  bridge: BrowserAgentBridge,
+  sessionId: string,
+  prompt: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const entries = entriesOf(await bridge.openSession(sessionId))
+    const userIndex = entries.findIndex(
+      (entry) => entry.kind === 'pi.user' && userText(entry) === prompt,
+    )
+    const answered =
+      userIndex >= 0 &&
+      entries.slice(userIndex + 1).some((entry) => {
+        const message = entry.model?.[0]
+        return (
+          entry.kind === 'pi.assistant' &&
+          message?.role === 'assistant' &&
+          message.content.some((block) => block.type === 'text' && block.text.length > 0)
+        )
+      })
+    if (answered) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`The Agent did not answer '${prompt}' in time.`)
+}
+
 /** 保存一个 Provider 连接，把默认 chart-model 加入模型池并选中。 */
 async function connectChartProvider(
   bridge: BrowserAgentBridge,
@@ -403,53 +444,65 @@ describe('BrowserAgentBridge', () => {
     expect(readStoredAgentModelSettings()).not.toHaveProperty('profiles.0.exaApiKey')
   })
 
-  it('keeps an opened message snapshot isolated from a new run', async () => {
+  it('keeps an opened transcript isolated from a new run', async () => {
     const bridge = new BrowserAgentBridge()
+    await connectChartProvider(bridge, { profileName: 'Provider example' })
     const [session] = await bridge.listSessions()
-    const snapshot = await bridge.openSession(session!.id)
+    const opened = await bridge.openSession(session!.id)
 
     await bridge.startRun({ sessionId: session!.id, prompt: 'Analyze RSI', readOnly: true })
 
-    expect(snapshot.messages).toEqual([])
+    expect(opened.items).toEqual([])
   })
 
-  it('recovers the last run input when retrying a finished run', async () => {
+  it('retries and edits through official conversation branches', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          [
+            'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"chart-model","choices":[{"index":0,"delta":{"role":"assistant","content":"回答"},"finish_reason":null}]}\n',
+            'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"chart-model","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n',
+            'data: [DONE]\n',
+          ].join('\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
+    await connectChartProvider(bridge, { profileName: 'Provider example' })
     const [session] = await bridge.listSessions()
-    const waitForTerminal = (runId: string) =>
-      new Promise<void>((resolve) => {
-        const unsubscribe = bridge.subscribe((event) => {
-          if (event.type !== 'session.snapshot') return
-          const run = event.snapshot.runs.find((item) => item.id === runId)
-          if (!run || !['completed', 'cancelled', 'failed'].includes(run.status)) return
-          unsubscribe()
-          resolve()
-        })
-      })
 
-    const first = await bridge.startRun({
+    await bridge.startRun({ sessionId: session!.id, prompt: '分析 RSI', readOnly: true })
+    await waitForAnswer(bridge, session!.id, '分析 RSI')
+    const userEntry = entriesOf(await bridge.openSession(session!.id)).find(
+      (entry) => entry.kind === 'pi.user',
+    )
+    expect(userEntry).toBeDefined()
+
+    const retried = await bridge.retryRun({
       sessionId: session!.id,
-      prompt: '分析 RSI',
+      entryId: userEntry!.id,
       readOnly: true,
     })
-    await waitForTerminal(first.runId)
+    expect(retried.sessionId).not.toBe(session!.id)
+    await waitForAnswer(bridge, retried.sessionId, '分析 RSI')
+    expect((await bridge.listSessions()).map((item) => item.id)).toEqual([retried.sessionId])
 
-    const retry = await bridge.retryRun(first.runId)
-
-    expect(retry.runId).not.toBe(first.runId)
-    await waitForTerminal(retry.runId)
-    const snapshot = await bridge.openSession(session!.id)
-    expect(snapshot.runs.map((run) => run.id)).toEqual([retry.runId])
-    expect(snapshot.messages).toEqual([
-      expect.objectContaining({ role: 'user', content: '分析 RSI', runId: retry.runId }),
-    ])
-    const edited = await bridge.editMessage(retry.runId, '分析 EMA')
-    await waitForTerminal(edited.runId)
-    const branch = await bridge.openSession(session!.id)
-    expect(branch.messages).toEqual([
-      expect.objectContaining({ role: 'user', content: '分析 EMA', runId: edited.runId }),
-    ])
-    expect(branch.runs[0]).toMatchObject({ editOfRunId: retry.runId })
+    const retriedUser = entriesOf(await bridge.openSession(retried.sessionId)).find(
+      (entry) => entry.kind === 'pi.user',
+    )
+    const edited = await bridge.editMessage({
+      sessionId: retried.sessionId,
+      entryId: retriedUser!.id,
+      prompt: '分析 EMA',
+      readOnly: true,
+    })
+    await waitForAnswer(bridge, edited.sessionId, '分析 EMA')
+    const branchUser = entriesOf(await bridge.openSession(edited.sessionId)).find(
+      (entry) => entry.kind === 'pi.user',
+    )
+    expect(branchUser ? userText(branchUser) : undefined).toBe('分析 EMA')
+    expect((await bridge.listSessions()).map((item) => item.id)).toEqual([edited.sessionId])
   })
 
   it('includes completed turns in the next Provider request', async () => {
@@ -469,30 +522,10 @@ describe('BrowserAgentBridge', () => {
     await connectChartProvider(bridge, { profileName: 'Provider example' })
     const [session] = await bridge.listSessions()
 
-    const waitForCompletion = (prompt: string) =>
-      new Promise<void>((resolve) => {
-        const unsubscribe = bridge.subscribe((event) => {
-          if (
-            event.type !== 'session.snapshot' ||
-            event.snapshot.runs.at(-1)?.status !== 'completed'
-          )
-            return
-          if (
-            event.snapshot.messages.filter((message) => message.role === 'user').at(-1)?.content !==
-            prompt
-          )
-            return
-          unsubscribe()
-          resolve()
-        })
-      })
-
-    const firstCompleted = waitForCompletion('第一轮问题')
     await bridge.startRun({ sessionId: session!.id, prompt: '第一轮问题', readOnly: true })
-    await firstCompleted
-    const secondCompleted = waitForCompletion('你刚刚说了什么')
+    await waitForAnswer(bridge, session!.id, '第一轮问题')
     await bridge.startRun({ sessionId: session!.id, prompt: '你刚刚说了什么', readOnly: true })
-    await secondCompleted
+    await waitForAnswer(bridge, session!.id, '你刚刚说了什么')
 
     const secondRequest = JSON.parse(String(fetchMock.mock.calls[1]![1]?.body)) as {
       messages: Array<{ role: string; content: unknown }>
@@ -683,7 +716,7 @@ describe('BrowserAgentBridge', () => {
   it('retries runtime initialization after a locked start and closes safely', async () => {
     let attempts = 0
     const bridge = new ProductionBrowserAgentBridge({
-      createSessions: async (redaction) => {
+      createSessions: async () => {
         attempts += 1
         if (attempts === 1) {
           throw new AgentRuntimeError(
@@ -692,7 +725,7 @@ describe('BrowserAgentBridge', () => {
             { retryable: true },
           )
         }
-        return createMemoryRuntimeSessions(redaction)
+        return createMemoryRuntimeSessions()
       },
     })
 

@@ -1,32 +1,23 @@
-// Agent 工作区与会话 UI 状态的数据契约层；reducer、持久化与 composable 实现位于 impl/。
+// Agent 工作区 UI 状态：会话目录、当前会话读取结果与宿主提问。
 
 import type {
   AgentErrorView,
-  AgentMessageView,
-  AgentRunView,
+  AgentTranscriptView,
   AgentSessionView,
-  ConfirmationView,
   ProviderStatusView,
   QuestionView,
-  ToolCallView,
 } from '../agent-contracts.js'
 
-/** Renderer 侧的单一 Agent 工作区视图状态，由事件回放与实时事件共同投影得到。 */
+/** Renderer 持有的 Agent 工作区状态；会话内容只保存官方读取结果。 */
 export interface AgentWorkspaceState {
   sessions: AgentSessionView[]
   activeSessionId: string | null
-  messages: AgentMessageView[]
-  toolCalls: ToolCallView[]
-  confirmations: ConfirmationView[]
+  transcript: AgentTranscriptView | null
   questions: QuestionView[]
-  run: AgentRunView
-  previousRuns: AgentRunView[]
   provider: ProviderStatusView
-  error: AgentErrorView | null
-  announcement: string
 }
 
-/** Agent 工作区运行时可用性；与单次运行错误相互独立。 */
+/** Agent 工作区的运行时可用性，与单次运行错误相互独立。 */
 export type AgentWorkspaceAvailability =
   | { readonly status: 'initializing' }
   | { readonly status: 'ready' }

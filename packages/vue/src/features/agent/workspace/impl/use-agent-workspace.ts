@@ -1,10 +1,13 @@
-// 订阅官方会话的完整快照，Vue 只维护输入、偏好与交互状态。
-
+// 组装 Agent 工作区：订阅官方会话读取结果，只维护输入、偏好与宿主提问。
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
   AgentContextItem,
+  AgentErrorView,
+  AgentTranscriptView,
+  AgentUsageView,
   AgentWorkspaceEvent,
+  EntryId,
   ProviderModelView,
   ProviderReasoningEffort,
   QuestionAnswerView,
@@ -20,7 +23,14 @@ import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,
 } from './agent-workspace-preferences.js'
-import { createWorkspaceState, displayConversation } from './workspace-state.js'
+import {
+  isRunActive,
+  readLiveAnswer,
+  readLiveTools,
+  readRunFailure,
+  readUsage,
+} from './agent-live.js'
+import { applyTranscript, clearTranscript, createWorkspaceState } from './workspace-state.js'
 
 /** 工作区无法启动且错误形状不可识别时的兜底视图。 */
 const WORKSPACE_UNAVAILABLE_FALLBACK = {
@@ -50,62 +60,70 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
   let selectionGeneration = 0
-  let snapshotDelivery = 0
   let modelLoadGeneration = 0
 
-  const isRunning = computed(
-    () => submitting.value || ['running', 'cancelling'].includes(state.value.run.status),
-  )
+  const docs = computed(() => state.value.transcript?.docs ?? {})
+  const isRunning = computed(() => submitting.value || isRunActive(docs.value))
+  const liveAnswer = computed(() => readLiveAnswer(docs.value))
+  const liveTools = computed(() => readLiveTools(docs.value))
+  const runError = computed<AgentErrorView | null>(() => readRunFailure(docs.value) ?? null)
+  const usage = computed<AgentUsageView | undefined>(() => readUsage(docs.value))
   const providerReady = computed(
     () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
   )
 
+  /** 处理 Bridge 事件：只接收会话读取结果与宿主交互。 */
   function project(event: AgentWorkspaceEvent): void {
-    if (event.type === 'session.snapshot') {
-      if (event.snapshot.session.id === state.value.activeSessionId) {
-        snapshotDelivery++
-        state.value = displayConversation(state.value, event.snapshot)
+    if (event.type === 'session.changed') {
+      if (event.sessionId === state.value.activeSessionId) {
+        state.value = applyTranscript(state.value, event.transcript)
       }
-    } else if (event.type === 'sessions.changed') {
+      return
+    }
+    if (event.type === 'session.closed') {
+      if (event.sessionId === state.value.activeSessionId) {
+        state.value = clearTranscript(state.value)
+      }
+      return
+    }
+    if (event.type === 'sessions.changed') {
       state.value = { ...state.value, sessions: event.sessions }
-    } else if (event.type === 'provider.status.changed') {
+      return
+    }
+    if (event.type === 'provider.status.changed') {
       state.value = { ...state.value, provider: event.status }
-    } else if ('sessionId' in event && event.sessionId === state.value.activeSessionId) {
-      // 提问是宿主交互，不是模型流式状态；由 Bridge 管理待答 Promise。
-      if (event.type === 'tool.question.required')
-        state.value = { ...state.value, questions: [...state.value.questions, event.request] }
-      if (event.type === 'tool.question.resolved')
-        state.value = {
-          ...state.value,
-          questions: state.value.questions.map((question) =>
-            question.id === event.questionId
-              ? { ...question, status: event.status, answer: event.answer }
-              : question,
-          ),
-        }
+      return
+    }
+    if (event.sessionId !== state.value.activeSessionId) return
+    if (event.type === 'tool.question.required') {
+      state.value = { ...state.value, questions: [...state.value.questions, event.request] }
+      return
+    }
+    state.value = {
+      ...state.value,
+      questions: state.value.questions.map((question) =>
+        question.id === event.questionId
+          ? { ...question, status: event.status, answer: event.answer }
+          : question,
+      ),
     }
   }
 
+  /** 打开会话；只接受最后一次选择的结果。 */
   async function openSession(sessionId: string): Promise<void> {
     const selection = ++selectionGeneration
-    const delivered = snapshotDelivery
     if (state.value.activeSessionId !== sessionId) {
       state.value = {
         ...state.value,
         activeSessionId: sessionId,
-        messages: [],
-        toolCalls: [],
+        transcript: null,
         questions: [],
-        confirmations: [],
-        run: { id: null, sessionId, status: 'idle' },
-        previousRuns: [],
-        error: null,
       }
     }
-    const snapshot = await bridge.openSession(sessionId)
-    // 异步切换只接受最新选择；加载期间收到的官方新快照不能被较早读取覆盖。
-    if (selection === selectionGeneration && delivered === snapshotDelivery)
-      state.value = displayConversation(state.value, snapshot)
+    const transcript = await bridge.openSession(sessionId)
+    if (selection === selectionGeneration) {
+      state.value = applyTranscript(state.value, transcript)
+    }
   }
 
   async function initialize(): Promise<void> {
@@ -153,19 +171,18 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function selectSession(sessionId: string): Promise<void> {
-    if (state.value.sessions.some((session) => session.id === sessionId)) {
-      await openSession(sessionId)
-    }
+    if (sessionId === state.value.activeSessionId) return
+    await openSession(sessionId)
   }
 
-  // 重命名指定会话；标题为空时忽略。
+  /** 重命名指定会话；标题为空时忽略。 */
   async function renameSession(sessionId: string, title: string): Promise<void> {
     const nextTitle = title.trim()
     if (!nextTitle) return
     await bridge.renameSession(sessionId, nextTitle)
   }
 
-  // 删除指定会话；仅当删除的是活动会话时才切换或重置工作区。
+  /** 删除指定会话；活动会话被删除时切换或重置工作区。 */
   async function deleteSession(sessionId: string): Promise<void> {
     await bridge.deleteSession(sessionId)
     const sessions = state.value.sessions.filter((session) => session.id !== sessionId)
@@ -174,12 +191,12 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       return
     }
     const nextSessionId = sessions[0]?.id ?? null
+    state.value = { ...state.value, sessions }
     if (nextSessionId) {
-      state.value = { ...state.value, sessions }
       await openSession(nextSessionId)
       return
     }
-    state.value = { ...createWorkspaceState(), provider: state.value.provider }
+    state.value = { ...createWorkspaceState(), sessions, provider: state.value.provider }
   }
 
   async function send(): Promise<void> {
@@ -189,7 +206,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       void providerSettings.show(state.value.provider)
       return
     }
-
     let sessionId = state.value.activeSessionId
     if (!sessionId) {
       const session = await bridge.createSession()
@@ -197,54 +213,61 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       await openSession(sessionId)
     }
     draft.value = ''
-    await submitRun(() =>
-      bridge.startRun({
-        sessionId,
-        prompt,
-        readOnly: readOnly.value,
-      }),
-    )
+    await submitRun(() => bridge.startRun({ sessionId, prompt, readOnly: readOnly.value }))
   }
 
   async function stop(): Promise<void> {
-    if (state.value.run.id) await bridge.cancelRun(state.value.run.id)
+    const sessionId = state.value.activeSessionId
+    if (sessionId) await bridge.cancelRun(sessionId)
   }
 
-  async function retry(runId = state.value.run.id): Promise<void> {
-    if (runId && !isRunning.value) await submitRun(() => bridge.retryRun(runId))
+  /** 重新生成：Bridge 会在该输入之前创建分支并返回新的会话标识。 */
+  async function retry(entryId: EntryId): Promise<void> {
+    const sessionId = state.value.activeSessionId
+    if (!sessionId || isRunning.value) return
+    const started = await submitRun(() =>
+      bridge.retryRun({ sessionId, entryId, readOnly: readOnly.value }),
+    )
+    await openSession(started.sessionId)
   }
 
-  /** 编辑仅接受当前可见用户消息的运行，避免陈旧草稿提交到其他会话。 */
-  async function editMessage(runId: string, prompt: string): Promise<void> {
+  /** 编辑重发：只接受当前读取结果中的用户条目。 */
+  async function editMessage(entryId: EntryId, prompt: string): Promise<void> {
+    const sessionId = state.value.activeSessionId
+    if (!sessionId) throw new Error(getAgentCopy(locale.value).editUnavailable)
     if (isRunning.value) throw new Error(getAgentCopy(locale.value).editBusy)
-    if (!state.value.messages.some((message) => message.role === 'user' && message.runId === runId))
-      throw new Error(getAgentCopy(locale.value).editUnavailable)
-    await submitRun(() => bridge.editMessage(runId, prompt))
+    const started = await submitRun(() =>
+      bridge.editMessage({ sessionId, entryId, prompt, readOnly: readOnly.value }),
+    )
+    await openSession(started.sessionId)
   }
 
-  /** 在官方运行快照到达前锁住提交入口，消除准备阶段的重复点击窗口。 */
-  async function submitRun(action: () => Promise<{ runId: string }>): Promise<void> {
+  /** 加载更早的一页条目。 */
+  async function loadEarlier(): Promise<void> {
+    const sessionId = state.value.activeSessionId
+    if (!sessionId) return
+    state.value = applyTranscript(state.value, await bridge.loadEarlier(sessionId))
+  }
+
+  /** 补齐条目流中的缺失区间。 */
+  async function fillGap(after: EntryId, upTo: EntryId): Promise<void> {
+    const sessionId = state.value.activeSessionId
+    if (!sessionId) return
+    state.value = applyTranscript(state.value, await bridge.fillGap(sessionId, after, upTo))
+  }
+
+  /** 在官方读取结果到达前锁住提交入口，消除准备阶段的重复点击窗口。 */
+  async function submitRun<T>(action: () => Promise<T>): Promise<T> {
     submitting.value = true
     try {
-      await action()
+      return await action()
     } finally {
       submitting.value = false
     }
   }
 
-  async function confirmTool(
-    confirmationId: string,
-    decision: 'confirmed' | 'rejected',
-  ): Promise<void> {
-    await bridge.confirmTool(confirmationId, decision)
-  }
-
   async function answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
     await bridge.answerQuestion(questionId, answer)
-  }
-
-  async function undoTurn(): Promise<void> {
-    if (state.value.run.id) await bridge.undoTurn(state.value.run.id)
   }
 
   function setReadOnly(value: boolean): void {
@@ -313,6 +336,10 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     isRunning,
     providerReady,
     collapseReasoning,
+    liveAnswer,
+    liveTools,
+    runError,
+    usage,
     createSession,
     selectSession,
     renameSession,
@@ -322,9 +349,9 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     retry,
     retryInitialize,
     editMessage,
-    confirmTool,
+    loadEarlier,
+    fillGap,
     answerQuestion,
-    undoTurn,
     setReadOnly,
     loadModels,
     setModel,

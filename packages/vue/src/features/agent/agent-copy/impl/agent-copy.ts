@@ -120,6 +120,7 @@ const copy = {
       partial: 'Partially completed',
       interrupted: 'Interrupted',
       queued: 'Queued',
+      pending: 'Pending',
       'requires-confirmation': 'Waiting for confirmation',
       succeeded: 'Succeeded',
       confirmed: 'Confirmed',
@@ -127,6 +128,8 @@ const copy = {
       expired: 'Expired',
       undone: 'Undone',
     },
+    loadEarlier: 'Load earlier messages',
+    fillGap: 'Load missing messages',
   },
   'zh-CN': {
     agent: 'Agent Alpha',
@@ -244,6 +247,7 @@ const copy = {
       partial: '部分完成',
       interrupted: '已中断',
       queued: '排队中',
+      pending: '等待中',
       'requires-confirmation': '等待确认',
       succeeded: '成功',
       confirmed: '已确认',
@@ -251,6 +255,8 @@ const copy = {
       expired: '已过期',
       undone: '已撤销',
     },
+    loadEarlier: '加载更早消息',
+    fillGap: '加载缺失消息',
   },
 } as const
 

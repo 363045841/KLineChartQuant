@@ -25,22 +25,21 @@
       />
 
       <AgentTimeline
-        :messages="state.messages"
-        :tool-calls="state.toolCalls"
-        :confirmations="state.confirmations"
+        :transcript="state.transcript"
+        :live-answer="liveAnswer"
+        :live-tools="liveTools"
         :questions="state.questions"
-        :run="state.run"
-        :runs="[...state.previousRuns, state.run]"
-        :error="state.error"
+        :error="runError"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
-        @prompt="draft = $event"
         :edit-message="editMessage"
         :actions-disabled="isRunning"
-        @confirm="confirmTool"
+        @prompt="draft = $event"
         @answer="answerQuestion"
         @retry="retry"
-        @undo="undoTurn"
+        @retry-last="retry"
+        @load-earlier="loadEarlier"
+        @fill-gap="fillGap"
       />
 
       <AgentContextBar
@@ -55,7 +54,7 @@
         :provider="state.provider"
         :models="models"
         :models-loading="modelsLoading"
-        :usage="state.run.usage"
+        :usage="usage"
         :locale="locale"
         @send="send"
         @stop="stop"
@@ -120,6 +119,10 @@
     models,
     modelsLoading,
     isRunning,
+    liveAnswer,
+    liveTools,
+    runError,
+    usage,
     createSession,
     selectSession,
     renameSession,
@@ -129,9 +132,9 @@
     retry,
     retryInitialize,
     editMessage,
-    confirmTool,
+    loadEarlier,
+    fillGap,
     answerQuestion,
-    undoTurn,
     setReadOnly,
     setModel,
     loadModels,
@@ -164,35 +167,17 @@
   }
 
   watch(
-    () => state.value.announcement,
-    (announcement) => {
+    () => [runError.value?.message, state.value.questions.at(-1)?.status],
+    ([errorMessage, questionStatus]) => {
+      const announcement = errorMessage ?? (questionStatus === 'pending' ? text.value.question.required : '')
       if (!announcement) return
       if (announcementTimer) clearTimeout(announcementTimer)
       announcementTimer = setTimeout(() => {
         liveAnnouncement.value = announcement
         announcementTimer = undefined
       }, 180)
-    },
-  )
-
-  watch(
-    () => state.value.confirmations.at(-1)?.status,
-    (status) => {
-      if (status === 'pending') focusTarget('[data-focus="confirmation"] button')
-    },
-  )
-
-  watch(
-    () => state.value.questions.at(-1)?.status,
-    (status) => {
-      if (status === 'pending') focusTarget('[data-focus="question"] button')
-    },
-  )
-
-  watch(
-    () => state.value.error,
-    (error) => {
-      if (error) focusTarget('[data-focus="error"]')
+      if (errorMessage) focusTarget('[data-focus="error"]')
+      else focusTarget('[data-focus="question"] button')
     },
   )
 
@@ -200,15 +185,6 @@
     () => availability.value.status,
     (status) => {
       if (status === 'unavailable') focusTarget('[data-focus="availability"]')
-    },
-  )
-
-  watch(
-    () => state.value.run.status,
-    (status) => {
-      if (['completed', 'cancelled', 'partial'].includes(status)) {
-        focusTarget('[data-focus="completion"]')
-      }
     },
   )
 
@@ -248,7 +224,7 @@
     width: 1px;
     height: 1px;
     position: absolute;
-    overflow: hidden;
+    overflow: clip;
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;

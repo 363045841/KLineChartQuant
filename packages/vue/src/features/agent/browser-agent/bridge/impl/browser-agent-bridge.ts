@@ -1,10 +1,6 @@
-// 浏览器 Agent bridge：组合图表上下文、Provider 持久化、会话与运行状态，对外暴露 AgentBridgeClient。
+// 浏览器 Agent bridge：组合图表上下文、Provider 持久化与会话读取结果，实现 AgentBridgeClient。
 
-import type {
-  OpenAiCompatibleProviderSettings,
-  ProviderCredentialStore,
-  RedactionOptions,
-} from '@363045841yyt/klinechart-agent-runtime'
+import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime'
 import {
   AGENT_UI_PROTOCOL_VERSION,
   AgentApplicationService,
@@ -26,10 +22,14 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentRunContext,
-  AgentSessionSnapshot,
+  AgentRunStartedView,
   AgentSessionView,
+  AgentTranscriptView,
   AgentWorkspaceEvent,
   AgentWorkspaceEventInput,
+  BranchMessageInput,
+  EditMessageInput,
+  EntryId,
   ProviderModelPoolEntry,
   ProviderModelsResult,
   ProviderModelView,
@@ -55,7 +55,7 @@ import {
 } from '../../provider/impl/browser-provider-stores.js'
 import { ProviderModelPool } from '../../provider/impl/provider-model-pool.js'
 import type { BrowserProviderConnection, BrowserProviderProfile } from '../../provider/types.js'
-import { BrowserRunRegistry } from '../../session/impl/browser-run-registry.js'
+import { BrowserPendingQuestions } from '../../session/impl/browser-pending-questions.js'
 import { BrowserToolRegistry } from '../../tools/impl/browser-tool-registry.js'
 import type { BrowserToolContext } from '../../tools/types.js'
 import type { BrowserAgentBridgeOptions } from '../types.js'
@@ -69,11 +69,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   )
   private readonly profiles = new BrowserProviderProfiles(this.modelSettings)
   private readonly enabledTools = new BrowserEnabledTools(this.modelSettings)
-  private readonly createSessions: (redaction: RedactionOptions) => Promise<BrowserRuntimeSessions>
-  private readonly redactionSecrets: string[] = []
+  private readonly createSessions: () => Promise<BrowserRuntimeSessions>
   private runtimePromise: Promise<AgentApplicationService> | undefined
   private durable: BrowserRuntimeSessions | undefined
-  private readonly runs = new BrowserRunRegistry()
+  private readonly questions = new BrowserPendingQuestions()
   private readonly context: ChartContextSource
   private readonly tools: BrowserToolRegistry
   private readonly credentials: ProviderCredentialStore
@@ -82,8 +81,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly getChartAgent: () => ChartAgentController | null | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
-    this.createSessions =
-      options.createSessions ?? ((redaction) => createBrowserRuntimeSessions({ redaction }))
+    this.createSessions = options.createSessions ?? (() => createBrowserRuntimeSessions())
     this.getChartAgent = options.getChartAgent ?? (() => null)
     this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
     this.settings = new BrowserProviderSettingsStore(this.profiles)
@@ -97,10 +95,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       credentials: this.credentials,
       settings: this.settings,
       fetch: fetchBrowserProvider,
-      tools: (context) => {
+      tools: (input) => {
         const enabledNames = this.enabledToolNames()
         return this.tools.catalog
-          .resolve(this.toolContext(context.readOnly))
+          .resolve(this.toolContext(input.readOnly))
           .filter((tool) => enabledNames.has(tool.name))
       },
     })
@@ -119,12 +117,20 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.context.bind(agent)
   }
 
-  async listSessions(): Promise<AgentSessionView[]> {
-    return (await this.runtime()).listSessions()
+  listSessions(): Promise<AgentSessionView[]> {
+    return this.runtime().then((runtime) => runtime.listSessions())
   }
 
-  async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
-    return (await this.runtime()).openSession(sessionId)
+  openSession(sessionId: string): Promise<AgentTranscriptView> {
+    return this.runtime().then((runtime) => runtime.openSession(sessionId))
+  }
+
+  loadEarlier(sessionId: string): Promise<AgentTranscriptView> {
+    return this.runtime().then((runtime) => runtime.loadEarlier(sessionId))
+  }
+
+  fillGap(sessionId: string, after: EntryId, upTo: EntryId): Promise<AgentTranscriptView> {
+    return this.runtime().then((runtime) => runtime.fillGap(sessionId, after, upTo))
   }
 
   async getProviderStatus(): Promise<ProviderStatusView> {
@@ -188,6 +194,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       throw new AgentRuntimeError('TOOL_NOT_ALLOWED', `Agent tool '${name}' is unavailable.`)
     }
     const result = await tool.execute(input, {
+      sessionId: 'debug',
       runId: `debug:${generateUUID()}`,
       toolCallId: `debug:${generateUUID()}`,
       signal: new AbortController().signal,
@@ -216,30 +223,24 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /**
    * 渲染一次提问并挂起等待用户答复。
    * @param request 提问内容与选项。
-   * @param context 提问所属运行、工具调用与取消信号。
+   * @param context 提问所属会话、工具调用与取消信号。
    * @returns 用户答复；signal 中止时以 ABORTED 拒绝。
    */
   private async requestQuestion(
     request: AskUserRequest,
-    context: { runId: string; toolCallId: string; signal: AbortSignal },
+    context: { sessionId: string; toolCallId: string; signal: AbortSignal },
   ): Promise<QuestionAnswerView> {
-    await this.runtime()
-    const run = await this.durable?.sessions.findRun(context.runId)
-    if (!run)
-      throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'Ask question requires an active Agent run.')
-    const sessionId = run.sessionId
-    const id = this.runs.nextQuestionId()
+    const id = this.questions.nextId()
     return new Promise<QuestionAnswerView>((resolve, reject) => {
       const settle = () => {
-        this.runs.removeQuestion(id)
+        this.questions.remove(id)
         context.signal.removeEventListener('abort', onAbort)
       }
       const onAbort = () => {
         settle()
         this.emit({
           type: 'tool.question.resolved',
-          runId: context.runId,
-          sessionId,
+          sessionId: context.sessionId,
           questionId: id,
           status: 'cancelled',
         })
@@ -248,9 +249,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         )
       }
       context.signal.addEventListener('abort', onAbort, { once: true })
-      this.runs.addQuestion(id, {
-        runId: context.runId,
-        sessionId,
+      this.questions.add(id, {
+        sessionId: context.sessionId,
         resolve: (answer) => {
           settle()
           resolve(answer)
@@ -258,8 +258,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       })
       this.emit({
         type: 'tool.question.required',
-        runId: context.runId,
-        sessionId,
+        sessionId: context.sessionId,
         request: {
           id,
           toolCallId: context.toolCallId,
@@ -275,20 +274,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回全局保存的 Web Search 凭据。 */
   private webSearchApiKey(): string | undefined {
     return this.modelSettings.webSearchApiKey()
-  }
-
-  /** 当前生效的凭据，只在用户输入保存与提交前用于脱敏。 */
-  private async secretValues(): Promise<readonly string[]> {
-    const values: string[] = []
-    try {
-      const apiKey = await this.credentials.read()
-      if (apiKey) values.push(apiKey)
-    } catch {
-      // 凭据不可读不应阻断运行；此时仅内置正则生效。
-    }
-    const exaApiKey = this.webSearchApiKey()
-    if (exaApiKey) values.push(exaApiKey)
-    return values
   }
 
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
@@ -352,17 +337,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     await this.emitProviderStatus()
   }
 
-  /** 删除已保存配置及其模型池；删除激活配置前必须停止运行。 */
+  /** 删除已保存配置及其模型池。 */
   async deleteProviderProfile(profileName: string): Promise<void> {
     const profile = this.profiles.read().find((item) => item.name === profileName)
     if (!profile) {
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
-    }
-    if (profile.active && this.runs.activeCount) {
-      throw new AgentRuntimeError(
-        'RUN_ACTIVE',
-        'Stop the active Agent run before deleting Provider.',
-      )
     }
     this.profiles.remove(profileName)
     this.modelPool.removeGroup(profileName)
@@ -371,12 +350,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 原子切换当前运行时使用的 Provider 配置。 */
   async selectProviderProfile(profileName: string): Promise<void> {
-    if (this.runs.activeCount) {
-      throw new AgentRuntimeError(
-        'RUN_ACTIVE',
-        'Stop the active Agent run before switching Provider.',
-      )
-    }
     const profile = this.profiles.read().find((item) => item.name === profileName)
     if (!profile)
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
@@ -431,7 +404,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const model = this.modelPool.list(profile.name).find((item) => item.id === modelId)
     if (!model)
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The model is not in this Provider model pool.')
-    const settings: OpenAiCompatibleProviderSettings = {
+    const settings = {
       version: PROVIDER_SETTINGS_VERSION,
       ...connection,
       modelId: model.id,
@@ -440,7 +413,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       maxOutputTokens: model.maxOutputTokens ?? 16_384,
       reasoningEfforts: model.reasoningEfforts ?? [],
       reasoningEffort: model.defaultReasoningEffort,
-      compatibility: 'compatible',
+      compatibility: 'compatible' as const,
       lastTestedAt: Date.now(),
       lastModelsRefreshAt: Date.now(),
     }
@@ -449,7 +422,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async createSession(): Promise<AgentSessionView> {
-    return (await this.runtime()).createSession()
+    return this.runtime().then(async (runtime) => {
+      const session = await runtime.createSession()
+      return session
+    })
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
@@ -457,13 +433,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    if (this.runs.activeCount)
-      throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run first.')
     await (await this.runtime()).deleteSession(sessionId)
   }
 
-  async startRun(input: StartRunInput): Promise<{ runId: string }> {
-    await this.refreshRedaction()
+  /** 提交运行，并把当前图表上下文冻结进运行计划。 */
+  async startRun(input: StartRunInput): Promise<AgentRunStartedView> {
     const runInput: StartRunInput = {
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
@@ -471,42 +445,38 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return (await this.runtime()).startRun(runInput)
   }
 
-  async cancelRun(runId: string): Promise<void> {
-    await (await this.runtime()).cancelRun(runId)
+  cancelRun(sessionId: string): Promise<void> {
+    return this.runtime().then((runtime) => runtime.cancelRun(sessionId))
   }
 
-  async retryRun(runId: string): Promise<{ runId: string }> {
-    await this.refreshRedaction()
-    return (await this.runtime()).retryRun(runId)
+  /** 重新生成：Bridge 负责补上当前上下文并返回分支后的会话标识。 */
+  async retryRun(input: BranchMessageInput): Promise<AgentRunStartedView> {
+    return (await this.runtime()).retryRun({
+      ...input,
+      context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
+    })
   }
 
-  /** 沿历史输入的 Fork 运行修改后的正文，保留该轮冻结的图表上下文。 */
-  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
-    await this.refreshRedaction()
-    return (await this.runtime()).editMessage(runId, prompt)
-  }
-
-  async confirmTool(): Promise<void> {
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
+  /** 编辑重发：在该用户输入之前创建分支并提交新正文。 */
+  async editMessage(input: EditMessageInput): Promise<AgentRunStartedView> {
+    return (await this.runtime()).editMessage({
+      ...input,
+      context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
+    })
   }
 
   /** 把用户的回答投递给挂起中的提问，使 ask_user 工具继续执行；未知问题直接忽略。 */
   async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    const pending = this.runs.findQuestion(questionId)
+    const pending = this.questions.find(questionId)
     if (!pending) return
     this.emit({
       type: 'tool.question.resolved',
-      runId: pending.runId,
       sessionId: pending.sessionId,
       questionId,
       status: 'answered',
       answer,
     })
     pending.resolve(answer)
-  }
-
-  async undoTurn(): Promise<void> {
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No reversible tool result is available.')
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
@@ -547,8 +517,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         ? previousProfile.settings
         : undefined
     // apiKey 一律不进 profile 对象：它随 profiles.write() 会被 JSON.stringify 进
-    // localStorage。Key 统一经 credentials 存储写入——默认实现写回 localStorage（Web 端
-    // 行为不变），Electron 实现写进 safeStorage。
+    // localStorage。Key 统一经 credentials 存储写入。
     const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
     const profile: BrowserProviderProfile = {
       name: profileName,
@@ -615,26 +584,16 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 统一浏览器与 Node 的会话、运行和事件持久化逻辑。 */
   private async initializeRuntime(): Promise<AgentApplicationService> {
-    await this.refreshRedaction()
-    const redaction = { secretValues: this.redactionSecrets }
-    const durable = await this.createSessions(redaction)
+    const durable = await this.createSessions()
     try {
       const runtime = new AgentApplicationService({
         sessions: durable.sessions,
-        createPlan: (context) => this.support.createPlan(context),
+        createPlan: (input) => this.support.createPlan(input),
         provider: this.support.provider,
       })
       runtime.subscribe((event) => {
-        if (event.type === 'session.snapshot') {
-          for (const run of event.snapshot.runs) {
-            if (!run.id) continue
-            if (run.status === 'running' || run.status === 'cancelling') this.runs.register(run.id)
-            else this.runs.complete(run.id)
-          }
-        }
         for (const listener of this.listeners) listener(event)
       })
-      await runtime.initialize()
       if (!(await runtime.listSessions()).length) await runtime.createSession()
       this.durable = durable
       return runtime
@@ -651,14 +610,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (!pending) return
     const runtime = await pending.catch(() => undefined)
     if (!runtime) return
-    await runtime.interruptOwnedRuns()
+    await runtime.close()
     await this.durable?.close()
     this.durable = undefined
-  }
-
-  /** 在每次运行前更新共享脱敏名单，覆盖初始化后更改的凭据。 */
-  private async refreshRedaction(): Promise<void> {
-    this.redactionSecrets.splice(0, this.redactionSecrets.length, ...(await this.secretValues()))
   }
 
   /** 向所有 UI 事件订阅者广播，并统一补上协议版本。 */
