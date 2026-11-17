@@ -1,70 +1,77 @@
-<!-- 标签栏应用图标菜单：复用 Dropdown Menu 与关于弹窗。 -->
+<!-- 标签栏应用图标菜单：普通按钮作为锚点，菜单与外观切换共用同一面板。 -->
 <template>
-  <DropMenu
-    class="workspace-menu"
+  <BaseTooltip content="应用菜单" placement="bottom" trigger-display="contents">
+    <button
+      v-bind="dropdown.buttonProps.value"
+      type="button"
+      class="control-button workspace-menu__button"
+      aria-label="应用菜单"
+    >
+      <ColorAvatar :color="accent" variant="contrast">
+        <KcqLogo />
+      </ColorAvatar>
+    </button>
+  </BaseTooltip>
+  <MenuSurface
+    v-bind="dropdown.menuProps.value"
     label="应用菜单"
     placement="bottom"
     density="loose"
     :groups="menu.groups"
     @select="menu.select"
   >
-    <template #trigger>
-      <ColorAvatar :color="accent" variant="contrast">
-        <span class="workspace-menu__brand" v-html="brandLogoMarkup" />
-      </ColorAvatar>
-    </template>
     <template #footer>
       <div class="workspace-menu__appearance">
         <span>外观</span>
-        <ThemeModeControl :model-value="themeMode" label="明暗模式" @update:model-value="emit('theme-change', $event)" />
+        <ThemeModeControl
+          :model-value="themeMode"
+          label="明暗模式"
+          @update:model-value="emit('theme-change', $event)"
+        />
       </div>
     </template>
-  </DropMenu>
+  </MenuSurface>
   <AboutDialog v-model:open="menu.aboutOpen.value" />
 </template>
 
 <script setup lang="ts">
+  import '../../components/common/control-button.css'
+
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
-  import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
   import { useWorkspaceMenu } from '../impl/useWorkspaceMenu.js'
   import AboutDialog from './AboutDialog.vue'
+  import KcqLogo from './KcqLogo.vue'
 
   defineProps<{ accent: string; themeMode?: ChartSettings['theme'] }>()
   const emit = defineEmits<{ 'theme-change': [mode: ChartSettings['theme']] }>()
   const menu = useWorkspaceMenu()
+  const dropdown = useMenuButton()
 </script>
 
 <style scoped>
-  .workspace-menu {
-    /* 只保留语义与焦点，不给应用图标再包底色、描边或阴影；外观走 control-button 变量。 */
+  /* 应用图标按钮：沿用共享 button 尺寸与底色，只压掉行内留白与 hover 底色。 */
+  .workspace-menu__button {
     --control-button-width: 30px;
     --control-button-height: var(--tab-pill-height, 26px);
-    --control-button-inline-padding: 0;
+    --control-button-inline-padding: 0px;
     --control-button-active-background: transparent;
+    --control-button-focus-background: transparent;
+    --control-button-focus-outline: 2px solid var(--klc-color-ui-focus);
+    --control-button-focus-outline-offset: -2px;
     --control-button-focus-shadow: none;
 
     flex: none;
-    /* 触发器是 inline-flex，这里必须消掉行盒的基线留白，图标才与标签胶囊同心。 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--tab-pill-height, 26px);
+    /* 消掉行盒的基线留白，图标才与标签胶囊同心。 */
     line-height: 0;
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
-  .workspace-menu__brand { display: block; width: 100%; height: 100%; }
-  .workspace-menu__brand :deep(svg) { display: block; width: 100%; height: 100%; }
-  .workspace-menu__brand :deep(circle) { fill: none; }
-  .workspace-menu__brand :deep(path) {
-    /* 与应用图标一致：纯白折线，去掉 SVG 自带的半透明与磨砂滤镜。 */
-    stroke: currentColor;
-    stroke-opacity: 1;
-    filter: none;
-  }
+
   .workspace-menu__appearance {
     display: flex;
     align-items: center;
@@ -75,6 +82,6 @@
     padding-block: var(--klc-space-4, 4px);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-normal);
+    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 </style>

@@ -1,23 +1,20 @@
+// OpenAI-compatible Provider 测试：HTTP 边界、诊断、连接验证与运行计划构造。
 import type { FetchFunction } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
 import { describe, expect, it, vi } from 'vitest'
-import { AgentApplicationService } from '../application/agent-application-service'
 import {
   AgentRuntimeError,
   createOpenAiCompatibleRuntimeSupport,
-  DEFAULT_PROVIDER_CONTEXT_WINDOW,
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
   normalizeProviderBaseUrl,
   type OpenAiCompatibleProviderSettings,
-  PiRunDriver,
   type ProviderApiProtocol,
   type ProviderDiagnostic,
-  parseOpenAiCompatibleProviderSettings,
   parseRetryAfter,
+  type RuntimeToolDefinition,
   requestProviderJson,
 } from '../index'
-import { createMemoryRuntimeSessions } from '../testing/memory-sessions'
 
 const secret = 'temporary-provider-credential'
 const baseUrl = 'https://models.example.test/v1'
@@ -30,154 +27,29 @@ function json(value: unknown, status = 200, headers?: HeadersInit): Response {
 }
 
 function configuredStores() {
-  const credentials = new InMemoryProviderCredentialStore()
-  const settings = new InMemoryProviderSettingsStore()
-  return { credentials, settings }
+  return {
+    credentials: new InMemoryProviderCredentialStore(),
+    settings: new InMemoryProviderSettingsStore(),
+  }
 }
 
-function providerFetch(options: { invalidTool?: boolean; protocol?: ProviderApiProtocol } = {}) {
-  const protocol = options.protocol ?? 'openai-completions'
-  return vi.fn(async (input, init) => {
-    const url = String(input)
-    if (url.endsWith('/models')) {
+/** 模拟 Provider 的模型目录响应。 */
+function providerFetch(): typeof globalThis.fetch {
+  return vi.fn<FetchFunction>(async (input) => {
+    if (String(input).endsWith('/models')) {
       return json({ object: 'list', data: [{ id: 'frontier-fast', name: 'Frontier Fast' }] })
-    }
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown>
-    if (protocol === 'openai-completions' && url.endsWith('/chat/completions')) {
-      if (!Array.isArray(body.tools)) {
-        return json({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })
-      }
-      const tool = body.tools[0] as {
-        function: { name: string; parameters: { properties: { nonce: { const: string } } } }
-      }
-      return json({
-        choices: [
-          {
-            message: {
-              role: 'assistant',
-              content: null,
-              tool_calls: [
-                {
-                  id: 'probe-1',
-                  type: 'function',
-                  function: {
-                    name: options.invalidTool ? 'wrong_tool' : tool.function.name,
-                    arguments: JSON.stringify({
-                      nonce: tool.function.parameters.properties.nonce.const,
-                    }),
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      })
-    }
-    if (protocol === 'openai-responses' && url.endsWith('/responses')) {
-      if (!Array.isArray(body.tools)) {
-        return json({
-          output: [{ type: 'message', content: [{ type: 'output_text', text: 'OK' }] }],
-        })
-      }
-      const tool = body.tools[0] as {
-        name: string
-        parameters: { properties: { nonce: { const: string } } }
-      }
-      return json({
-        output: [
-          {
-            type: 'function_call',
-            name: options.invalidTool ? 'wrong_tool' : tool.name,
-            arguments: JSON.stringify({ nonce: tool.parameters.properties.nonce.const }),
-          },
-        ],
-      })
     }
     return new Response('', { status: 404 })
   })
 }
 
-function streamResponse(protocol: ProviderApiProtocol, finalText = 'Real response'): Response {
-  const events =
-    protocol === 'openai-completions'
-      ? [
-          {
-            id: 'chat-1',
-            object: 'chat.completion.chunk',
-            created: 1,
-            model: 'frontier-fast',
-            choices: [
-              { index: 0, delta: { role: 'assistant', content: 'Real ' }, finish_reason: null },
-            ],
-          },
-          {
-            id: 'chat-1',
-            object: 'chat.completion.chunk',
-            created: 1,
-            model: 'frontier-fast',
-            choices: [{ index: 0, delta: { content: 'response' }, finish_reason: null }],
-          },
-          {
-            id: 'chat-1',
-            object: 'chat.completion.chunk',
-            created: 1,
-            model: 'frontier-fast',
-            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          },
-        ]
-      : [
-          { type: 'response.created', response: { id: 'response-1' } },
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { id: 'message-1', type: 'message', role: 'assistant', content: [] },
-          },
-          { type: 'response.output_text.delta', output_index: 0, delta: 'Real ' },
-          { type: 'response.output_text.delta', output_index: 0, delta: 'response' },
-          { type: 'response.output_text.done', output_index: 0, content_index: 0, text: finalText },
-          {
-            type: 'response.content_part.done',
-            output_index: 0,
-            content_index: 0,
-            part: { type: 'output_text', text: finalText, annotations: [] },
-          },
-          {
-            type: 'response.output_item.done',
-            output_index: 0,
-            item: {
-              id: 'message-1',
-              type: 'message',
-              role: 'assistant',
-              content: [{ type: 'output_text', text: finalText, annotations: [] }],
-            },
-          },
-          {
-            type: 'response.completed',
-            response: {
-              id: 'response-1',
-              status: 'completed',
-              output: [],
-              usage: { input_tokens: 1, output_tokens: 2, total_tokens: 3 },
-            },
-          },
-        ]
-  const stream = [
-    ...events.map((event) => `data: ${JSON.stringify(event)}\n`),
-    'data: [DONE]\n',
-  ].join('\n')
-  return new Response(stream, {
-    status: 200,
-    headers: { 'content-type': 'text/event-stream' },
-  })
-}
-
+/** 写入一份已验证通过的 Provider 设置。 */
 async function configure(
   credentials: InMemoryProviderCredentialStore,
   settings: InMemoryProviderSettingsStore,
   protocol: ProviderApiProtocol = 'openai-completions',
-): Promise<void> {
-  await credentials.write(secret)
-  await settings.write({
+): Promise<OpenAiCompatibleProviderSettings> {
+  const value: OpenAiCompatibleProviderSettings = {
     version: 4,
     baseUrl,
     headers: {},
@@ -187,10 +59,25 @@ async function configure(
     maxOutputTokens: 16_384,
     reasoningEfforts: [],
     protocol,
-    compatibility: 'compatible',
-    lastTestedAt: 10,
-    lastModelsRefreshAt: 9,
-  })
+  }
+  await credentials.write(secret)
+  await settings.write(value)
+  return value
+}
+
+/** 构造一个只用于计划断言的最简工具定义。 */
+function tool(name: string, effect: RuntimeToolDefinition['effect']): RuntimeToolDefinition {
+  return {
+    name,
+    label: name,
+    description: name,
+    parameters: Type.Object({}),
+    effect,
+    executionMode: effect === 'read' ? 'parallel' : 'sequential',
+    async execute() {
+      return { content: name, summary: name }
+    },
+  }
 }
 
 describe('OpenAI-compatible Provider HTTP boundary', () => {
@@ -230,17 +117,12 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
       },
       status,
     )
-    const fetch = vi.fn(async () => response)
+    const fetch = vi.fn<FetchFunction>(async () => response)
     await expect(
       requestProviderJson(
         'https://example.test',
         {},
-        {
-          fetch,
-          now: () => 0,
-          sleep: async () => undefined,
-          maxRetries: 0,
-        },
+        { fetch, now: () => 0, sleep: async () => undefined, maxRetries: 0 },
       ),
     ).rejects.toMatchObject({
       code,
@@ -260,12 +142,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     const result = await requestProviderJson(
       'https://example.test',
       {},
-      {
-        fetch,
-        now: () => 1_000,
-        sleep,
-        maxRetries: 1,
-      },
+      { fetch, now: () => 1_000, sleep, maxRetries: 1 },
     )
     expect(result.value).toEqual({ ok: true })
     expect(sleep).toHaveBeenCalledWith(2_000, undefined)
@@ -280,12 +157,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
       requestProviderJson(
         'https://example.test',
         {},
-        {
-          fetch: hanging,
-          now: Date.now,
-          sleep: async () => undefined,
-          timeoutMs: 5,
-        },
+        { fetch: hanging, now: Date.now, sleep: async () => undefined, timeoutMs: 5 },
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_TIMEOUT' })
 
@@ -305,7 +177,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     })
   })
 
-  it('emits redacted request, response, and failure diagnostics', async () => {
+  it('emits request, response, and failure diagnostics without credentials', async () => {
     const diagnostics: ProviderDiagnostic[] = []
     const record = (diagnostic: ProviderDiagnostic) => diagnostics.push(diagnostic)
     await requestProviderJson(
@@ -327,7 +199,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
           now: () => 20,
           sleep: async () => undefined,
           diagnostics: record,
-          stage: 'tool',
+          stage: 'stream',
         },
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_MALFORMED_RESPONSE' })
@@ -348,10 +220,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
 
     expect(diagnostics).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          phase: 'request',
-          url: 'https://example.test/v1',
-        }),
+        expect.objectContaining({ phase: 'request', url: 'https://example.test/v1' }),
         expect.objectContaining({
           phase: 'response',
           status: 200,
@@ -360,14 +229,9 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
         expect.objectContaining({
           phase: 'failure',
           code: 'PROVIDER_MALFORMED_RESPONSE',
-          stage: 'tool',
-          responseBodyBytes: 8,
-          responseBodyShape: 'other',
+          stage: 'stream',
         }),
-        expect.objectContaining({
-          phase: 'failure',
-          code: 'PROVIDER_UNAVAILABLE',
-        }),
+        expect.objectContaining({ phase: 'failure', code: 'PROVIDER_UNAVAILABLE' }),
       ]),
     )
     expect(JSON.stringify(diagnostics)).not.toContain('secret')
@@ -376,487 +240,95 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
 })
 
 describe('OpenAI-compatible runtime support', () => {
-  it('projects the complete Responses text without duplicating done payloads and replays it unchanged', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings, 'openai-responses')
-    const finalText =
-      '你好\n\n✅ **完整答案**\n\n保留 sk-abcdefghijklmnop 和 /Users/alice，以及最后一句。'
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: async () => streamResponse('openai-responses', finalText),
-    })
-    const runtime = await createMemoryRuntimeSessions()
-    const app = new AgentApplicationService({
-      sessions: runtime.sessions,
-      createPlan: support.createPlan,
-    })
-    let stop = () => {}
-    try {
-      const session = await app.createSession()
-      const completed = new Promise<void>((resolve, reject) => {
-        stop = app.subscribe((event) => {
-          if (event.type !== 'session.snapshot') return
-          const run = event.snapshot.runs.at(-1)
-          if (run?.status === 'completed') resolve()
-          if (run?.status === 'failed') reject(new Error(run.error?.message))
-        })
-      })
-      await app.startRun({ sessionId: session.id, prompt: '你好', readOnly: true })
-      await completed
-      const snapshot = await app.openSession(session.id)
-      expect(
-        snapshot.messages
-          .filter((message) => message.role === 'assistant')
-          .map((message) => message.content),
-      ).toEqual([finalText])
-      expect(snapshot.runs[0]?.usage).toMatchObject({ inputTokens: 1, outputTokens: 2 })
-    } finally {
-      stop()
-      await app.close()
-      await runtime.close()
-    }
-  })
-
-  it.each([
-    ['openai-completions', '/chat/completions'],
-    ['openai-responses', '/responses'],
-  ] as const)(
-    'validates and creates a %s run plan through its protocol adapter',
-    async (protocol, endpoint) => {
-      const { credentials, settings } = configuredStores()
-      const fetch = providerFetch({ protocol })
-      const support = createOpenAiCompatibleRuntimeSupport({
-        credentials,
-        settings,
-        fetch,
-        sleep: async () => undefined,
-      })
-
-      const discovered = await support.provider.listModels({ baseUrl, apiKey: secret, protocol })
-      expect(discovered.models).toHaveLength(1)
-      await expect(
-        support.provider.test({ baseUrl, apiKey: secret, model: 'frontier-fast', protocol }),
-      ).resolves.toMatchObject({
-        compatible: true,
-        stages: [{ stage: 'catalog' }, { stage: 'text' }, { stage: 'tool' }],
-      })
-      const plan = await support.createPlan({
-        sessionId: 'session-1',
-        runId: 'run-1',
-        turnId: 'turn-1',
-        lane: 'main',
-        prompt: 'Hello',
-        readOnly: true,
-        startedAt: 1,
-        userEntryId: 'user-1',
-      })
-
-      expect(plan.model.api).toBe(protocol)
-      expect(plan.model.contextWindow).toBe(DEFAULT_PROVIDER_CONTEXT_WINDOW)
-      const savedSettings = await settings.read()
-      expect(savedSettings).toMatchObject({
-        version: 4,
-        protocol,
-      })
-      expect(savedSettings).not.toHaveProperty('contextWindow')
-      expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
-        `${baseUrl}/models`,
-        `${baseUrl}/models`,
-        `${baseUrl}${endpoint}`,
-        `${baseUrl}${endpoint}`,
-      ])
-    },
-  )
-
-  it('sends configured headers during connection tests and streamed runs', async () => {
-    const { credentials, settings } = configuredStores()
-    const probeFetch = providerFetch()
-    const fetch = vi.fn<FetchFunction>(async (input, init) => {
-      const body = String(init?.body)
-      return body.includes('"stream":true')
-        ? streamResponse('openai-completions')
-        : probeFetch(input, init)
-    })
-    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
-    const headers = { 'HTTP-Referer': 'https://example.com', 'X-OpenRouter-Title': 'KMap' }
-
-    await support.provider.test({
-      baseUrl,
-      apiKey: secret,
-      headers,
-      model: 'frontier-fast',
-      protocol: 'openai-completions',
-    })
-    const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Hello',
-      readOnly: true,
-      startedAt: 1,
-      userEntryId: 'user-1',
-    })
-    await new PiRunDriver().run(plan, () => undefined)
-
-    for (const [, init] of fetch.mock.calls) {
-      const requestHeaders = new Headers(init?.headers)
-      expect(requestHeaders.get('HTTP-Referer')).toBe(headers['HTTP-Referer'])
-      expect(requestHeaders.get('X-OpenRouter-Title')).toBe(headers['X-OpenRouter-Title'])
-    }
-  })
-
-  it('injects the current Asia/Shanghai date and time into the system prompt', async () => {
+  it('builds a run plan from verified settings and injects the frozen context', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
       fetch: providerFetch(),
-      now: () => 1_700_000_000_000,
+      now: () => Date.UTC(2026, 10, 17, 1, 0, 0),
+      tools: () => [tool('chart.read', 'read')],
     })
-
     const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Hello',
-      readOnly: true,
-      startedAt: 1,
-      userEntryId: 'user-1',
-    })
-
-    expect(plan.systemPrompt).toContain(
-      'Current date and time (Asia/Shanghai): 2023-11-15 06:13:20',
-    )
-  })
-
-  it('injects the frozen UI context and avoids redundant chart discovery tools', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: providerFetch(),
-    })
-
-    const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Analyze this range.',
-      readOnly: true,
+      sessionId: '1',
+      prompt: 'Inspect',
+      mode: 'plan',
       context: {
-        items: [
-          { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
-          {
-            kind: 'selected-time-range',
-            value: { from: '2023-11-15 06:13', to: '2023-11-16 06:13' },
-          },
-          {
-            kind: 'selected-kline-bars',
-            value: {
-              content:
-                'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
-            },
-          },
-        ],
+        items: [{ kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: null } }],
       },
-      startedAt: 1,
-      userEntryId: 'user-1',
     })
 
-    expect(plan.systemPrompt).toContain('"kind":"chart-symbol"')
-    expect(plan.systemPrompt).toContain('"kind":"selected-time-range"')
-    expect(plan.systemPrompt).toContain('Do not use tools to rediscover the current symbol')
-    expect(plan.systemPrompt).toContain(
-      'The selected-kline-bars context contains the complete OHLCV data',
-    )
-    expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
+    expect(plan.model.id).toBe('frontier-fast')
+    expect(plan.streamOptions).toBeDefined()
+    expect(plan.systemPrompt).toContain('2026-11-17')
+    expect(plan.systemPrompt).toContain('BTCUSDT')
+    expect(plan.systemPrompt).toContain('ask_user')
   })
 
-  it('requires ask_user for ambiguous tool results when tools are available', async () => {
+  it('rejects runs before network access when settings are not verified', async () => {
     const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: providerFetch(),
-      tools: () => [
-        {
-          name: 'dummy',
-          label: 'Dummy',
-          description: 'Dummy tool',
-          parameters: Type.Object({}),
-          safety: 'read-only',
-          reversible: false,
-          execute: async () => ({ content: '{}', summary: 'done' }),
-        },
-      ],
-    })
-
-    const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Add 000012 as comparison',
-      readOnly: false,
-      startedAt: 1,
-      userEntryId: 'user-1',
-    })
-
-    expect(plan.tools.map((tool) => tool.name)).toContain('dummy')
-    expect(plan.systemPrompt).toContain('never guess: call ask_user')
-    expect(plan.systemPrompt).toContain('wait for the user to choose')
-  })
-
-  it('rejects persisted settings without verified model capabilities', () => {
-    expect(() =>
-      parseOpenAiCompatibleProviderSettings({
-        version: 1,
-        baseUrl,
-        modelId: 'frontier-fast',
-        modelName: 'Frontier Fast',
-        compatibility: 'compatible',
-        lastTestedAt: 10,
-        lastModelsRefreshAt: 9,
-      }),
-    ).toThrow('The saved Provider settings are invalid.')
-  })
-
-  it('discovers models, passes all probes, and persists only the successful configuration', async () => {
-    const { credentials, settings } = configuredStores()
-    let currentTime = 100
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: providerFetch(),
-      now: () => ++currentTime,
-      sleep: async () => undefined,
-    })
-
-    const discovered = await support.provider.listModels({
-      baseUrl,
-      apiKey: secret,
-      protocol: 'openai-completions',
-    })
-    expect(discovered.models).toEqual([
-      { id: 'frontier-fast', name: 'Frontier Fast', compatibility: 'unknown' },
-    ])
-    const result = await support.provider.test({
-      baseUrl,
-      apiKey: secret,
-      model: 'frontier-fast',
-      protocol: 'openai-completions',
-    })
-    expect(result).toMatchObject({
-      compatible: true,
-      model: 'frontier-fast',
-      stages: [
-        { stage: 'catalog', ok: true },
-        { stage: 'text', ok: true },
-        { stage: 'tool', ok: true },
-      ],
-    })
-    expect(await credentials.read()).toBe(secret)
-    expect(await settings.read()).toMatchObject<Partial<OpenAiCompatibleProviderSettings>>({
-      baseUrl,
-      modelId: 'frontier-fast',
-      protocol: 'openai-completions',
-      compatibility: 'compatible',
-    })
-    const status = await support.provider.getStatus()
-    expect(status).toMatchObject({
-      state: 'connected',
-      configured: true,
-      compatibility: 'compatible',
-      modelId: 'frontier-fast',
-    })
-    expect(JSON.stringify(status)).not.toContain(secret)
-    expect(status.fingerprint).toMatch(/^sha256:[0-9a-f]{12}$/)
-  })
-
-  it('does not replace a working configuration when a protocol tool probe fails', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const fetch = providerFetch({ invalidTool: true })
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch,
-      sleep: async () => undefined,
-    })
-
-    await expect(
-      support.provider.test({
-        baseUrl,
-        apiKey: 'replacement-credential',
-        model: 'frontier-fast',
-        protocol: 'openai-completions',
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_INCOMPATIBLE_TOOLS' })
-    expect(fetch).toHaveBeenCalledTimes(3)
-    expect(String(fetch.mock.calls[0][0])).toBe(`${baseUrl}/models`)
-    expect(String(fetch.mock.calls[1][0])).toBe(`${baseUrl}/chat/completions`)
-    expect(String(fetch.mock.calls[2][0])).toBe(`${baseUrl}/chat/completions`)
-    expect(await credentials.read()).toBe(secret)
-    expect(await settings.read()).toMatchObject({
-      modelId: 'frontier-fast',
-      protocol: 'openai-completions',
-    })
-    const status = await support.provider.getStatus()
-    expect(status.state).toBe('error')
-  })
-
-  it('deletes only the credential and blocks subsequent runs before network access', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const fetch = providerFetch()
-    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
-    await support.provider.deleteCredential()
-    await expect(
-      support.createPlan({
-        sessionId: 'session-1',
-        runId: 'run-1',
-        turnId: 'turn-1',
-        lane: 'main',
-        prompt: 'Hello',
-        readOnly: true,
-        startedAt: 1,
-        userEntryId: 'user-1',
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
-    expect(fetch).not.toHaveBeenCalled()
-    expect(await settings.read()).toMatchObject({ modelId: 'frontier-fast' })
-  })
-
-  it.each(['openai-completions', 'openai-responses'] as const)(
-    'streams real %s SSE through Pi with no scripted tools',
-    async (protocol) => {
-      const { credentials, settings } = configuredStores()
-      await configure(credentials, settings, protocol)
-      const fetch = vi.fn<FetchFunction>(async () => streamResponse(protocol))
-      const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
-      const plan = await support.createPlan({
-        sessionId: 'session-1',
-        runId: 'run-1',
-        turnId: 'turn-1',
-        lane: 'main',
-        prompt: 'Say hello',
-        readOnly: true,
-        startedAt: 1,
-        userEntryId: 'user-1',
-      })
-      const deltas: string[] = []
-      const result = await new PiRunDriver().run(plan, (event) => {
-        if (event.type === 'assistant.text.delta') deltas.push(event.delta)
-      })
-      expect(plan.tools).toEqual([])
-      expect(result.text).toBe('Real response')
-      expect(deltas.join('')).toBe('Real response')
-      expect(fetch).toHaveBeenCalledOnce()
-      expect(String(fetch.mock.calls[0][0])).toContain(
-        protocol === 'openai-responses' ? '/responses' : '/chat/completions',
-      )
-    },
-  )
-
-  it.each(['openai-completions', 'openai-responses'] as const)(
-    'projects %s streamed HTTP failures with Provider error fields',
-    async (protocol) => {
-      const { credentials, settings } = configuredStores()
-      await configure(credentials, settings, protocol)
-      const support = createOpenAiCompatibleRuntimeSupport({
-        credentials,
-        settings,
-        fetch: async () =>
-          json(
-            {
-              error: {
-                message: 'Provider returned error',
-                code: 'invalid_api_key',
-                metadata: { raw: 'Invalid API key provided' },
-              },
-            },
-            401,
-          ),
-        maxRetries: 0,
-      })
-      const plan = await support.createPlan({
-        sessionId: 'session-1',
-        runId: 'run-1',
-        turnId: 'turn-1',
-        lane: 'main',
-        prompt: 'Hello',
-        readOnly: true,
-        startedAt: 1,
-        userEntryId: 'user-1',
-      })
-      await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
-        code: 'PROVIDER_AUTHENTICATION',
-        message: 'Provider returned error',
-        providerCode: 'invalid_api_key',
-        raw: 'Invalid API key provided',
-      })
-    },
-  )
-
-  it('maps a truncated Responses stream to a stable malformed-response error', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings, 'openai-responses')
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: async () =>
-        new Response(
-          [
-            'data: {"type":"response.created","response":{"id":"response-1"}}',
-            '',
-            'data: [DONE]',
-            '',
-          ].join('\n'),
-          { headers: { 'content-type': 'text/event-stream' } },
-        ),
-    })
-    const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Hello',
-      readOnly: true,
-      startedAt: 1,
-      userEntryId: 'user-1',
-    })
-
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
-      code: 'PROVIDER_MALFORMED_RESPONSE',
-    })
-  })
-
-  it('returns a safe removable error status when persisted settings are corrupt', async () => {
-    const credentials = new InMemoryProviderCredentialStore()
     await credentials.write(secret)
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
-      settings: {
-        read: async () => {
-          throw new Error(`corrupt settings near ${secret}`)
-        },
-        write: async () => undefined,
-      },
+      settings,
       fetch: providerFetch(),
     })
-    const status = await support.provider.getStatus()
-    expect(status).toMatchObject({
-      state: 'error',
-      configured: true,
-      error: { code: 'PROVIDER_ERROR', message: 'The Provider operation failed.' },
+    await expect(
+      support.createPlan({ sessionId: '1', prompt: 'Inspect', mode: 'plan' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
+  })
+
+  it('derives the capability sentence from the offered tools, not from the mode', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings)
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+      tools: (input) =>
+        input.mode === 'plan'
+          ? [tool('chart.read', 'read')]
+          : [tool('chart.read', 'read'), tool('chart.write', 'write')],
     })
-    expect(JSON.stringify(status)).not.toContain(secret)
+
+    const planMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' })
+    expect(planMode.tools.map((item) => item.name)).toEqual(['chart.read'])
+    expect(planMode.systemPrompt).toContain('Only read-only tools are available')
+
+    const buildMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'build' })
+    expect(buildMode.tools.map((item) => item.name)).toEqual(['chart.read', 'chart.write'])
+    expect(buildMode.systemPrompt).toContain('You may change the chart through the write tools')
+  })
+
+  it('discovers models from the Provider catalog', async () => {
+    const { credentials, settings } = configuredStores()
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+    })
+    await credentials.write(secret)
+
+    const catalog = await support.provider.listModels({
+      baseUrl,
+      apiKey: secret,
+      protocol: 'openai-completions',
+    })
+    expect(catalog.models.map((model) => model.id)).toEqual(['frontier-fast'])
+  })
+
+  it('blocks subsequent runs after the credential is deleted', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings)
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+    })
+    await support.provider.deleteCredential()
+    await expect(
+      support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
   })
 })

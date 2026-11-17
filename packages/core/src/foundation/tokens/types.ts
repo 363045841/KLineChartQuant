@@ -497,8 +497,6 @@ export interface TypographyTokens {
   readonly fontSizeSm: CssLength // '10px' (axis ticks)
   readonly fontSizeMd: CssLength // '12px' (default body)
   readonly fontSizeLg: CssLength // '14px' (legends)
-  readonly fontWeightRegular: number // 400
-  readonly fontWeightMedium: number // 500
   readonly fontWeightBold: number // 700
   readonly lineHeightTight: number // 1.2
   readonly lineHeightStandard: number // 1.4
@@ -529,9 +527,8 @@ export interface TextStyleTokens {
   /** px for UI sizes; a unitless ratio for display sizes (72 → 0.9). */
   readonly lineHeight: CssLength | number
   readonly letterSpacing: CssLength
-  readonly fontWeight: number
-  /** Set only where a step pins a family (11Mono → the mono stack). */
-  readonly fontFamily?: string
+  /** 只在角色层声明（label 固定 500）；纯尺寸档不再携带字重。 */
+  readonly fontWeight?: number
 }
 
 export type TextScaleStep = 12 | 13 | 14 | 16 | 20 | 24 | 32 | 48 | 72
@@ -541,7 +538,7 @@ export type TextCopyStep = 13 | 14 | 16 | 20 | 24
 /** Type scale plus the label (single-line) and copy (multi-line) roles. */
 export interface TextTokens extends Readonly<Record<TextScaleStep, TextStyleTokens>> {
   /** 11px is allowed only in mono / tabular contexts (axis ticks, meta). */
-  readonly '11Mono': TextStyleTokens & { readonly fontFamily: string }
+  readonly '11Mono': TextStyleTokens
   readonly label: Readonly<Record<TextLabelStep, TextStyleTokens>>
   readonly copy: Readonly<Record<TextCopyStep, TextStyleTokens>>
   /** Default `font-variant-numeric` for numeric UI: `tabular-nums`. */

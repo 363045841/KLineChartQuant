@@ -1,15 +1,26 @@
+<!-- 图元模板菜单：普通按钮作为锚点，保存与应用模板共用同一面板。 -->
 <template>
-  <DropMenu
+  <BaseTooltip :content="label" placement="top" trigger-display="contents" :disabled="disabled">
+    <button
+      v-bind="menu.buttonProps.value"
+      type="button"
+      class="control-button"
+      :class="buttonClass"
+      :aria-label="label"
+      :disabled="disabled"
+    >
+      <slot>{{ label }}</slot>
+    </button>
+  </BaseTooltip>
+  <MenuSurface
+    v-bind="menu.menuProps.value"
     :label="label"
     :groups="groups"
-    :disabled="disabled"
     :message="message"
     empty-text="暂无模板"
-    :trigger-class="triggerClass"
     @open="emit('open')"
     @select="select"
   >
-    <template #trigger><slot name="trigger">{{ label }}</slot></template>
     <template #item-action="{ group, item }">
       <button
         v-if="group.id === 'apply' && canSave"
@@ -31,11 +42,16 @@
         @click.stop="emit('remove', item.id)"
       ><IconTablerTrash aria-hidden="true" /></button>
     </template>
-  </DropMenu>
+  </MenuSurface>
 </template>
 
 <script setup lang="ts">
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import '../common/control-button.css'
+
+  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
@@ -50,7 +66,8 @@
       canSave?: boolean
       canApply?: boolean
       savedName?: string | null
-      triggerClass?: string
+      /** 锚点按钮的附加外观类；按钮外观由所在区域决定。 */
+      buttonClass?: string
       showSave?: boolean
     }>(),
     { disabled: false, canSave: false, canApply: true, savedName: null, showSave: false },
@@ -62,6 +79,7 @@
     saveExisting: [name: string]
     remove: [name: string]
   }>()
+  const menu = useMenuButton()
   const groups = computed<DropMenuGroup[]>(() => [
     ...(props.showSave
       ? [

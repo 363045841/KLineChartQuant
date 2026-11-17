@@ -109,12 +109,13 @@
     pointer-events: none;
   }
 
-  .pane-axis-shortcuts-layer:hover .price-axis-shortcuts,
-  .pane-axis-shortcuts-layer:focus-within .price-axis-shortcuts {
+  /* 只跟随指针：键盘等价入口是轴列底部的设置菜单，隐藏时不可达的焦点规则不要写。 */
+  .pane-axis-shortcuts-layer:hover .price-axis-shortcuts {
     visibility: visible;
     pointer-events: auto;
   }
 
+  /* 控件底色打底；hover 是叠加层，用渐变压在底色上，不直接叠到图表上。 */
   .price-axis-shortcuts button {
     box-sizing: border-box;
     width: 24px;
@@ -123,7 +124,8 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
     color: var(--klc-color-ui-muted);
-    background: var(--klc-color-ui-background);
+    background-color: var(--klc-color-ui-control-background);
+    background-image: none;
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -132,14 +134,16 @@
   .price-axis-shortcuts button:hover,
   .price-axis-shortcuts button:focus-visible {
     outline: none;
-    background: var(--klc-color-ui-hover);
+    background-image: linear-gradient(var(--klc-color-ui-hover), var(--klc-color-ui-hover));
   }
 
   .price-axis-shortcuts button[aria-pressed='true'] {
-    background: var(--klc-color-ui-border);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background-color: var(--klc-color-ui-selected);
   }
 
   .price-axis-shortcuts button[aria-pressed='true']:hover {
-    background: var(--klc-color-ui-border-strong);
+    background-image: linear-gradient(var(--klc-color-ui-hover), var(--klc-color-ui-hover));
   }
 </style>

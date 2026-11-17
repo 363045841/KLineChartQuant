@@ -1,8 +1,8 @@
 # KLineChart Agent Runtime
 
 Framework-neutral Pi orchestration for KLineChartQuant. The package owns the
-stable Agent UI/IPC contracts, run lifecycle, durable Pi sessions, event replay,
-redaction, and deterministic test support.
+stable Agent UI contracts, run submission, durable Pi sessions, and
+deterministic test support.
 
 > **Internal module.** This package is not published to npm. It ships inside the product package
 > [`@363045841yyt/klinechart`](../vue/README.md); install only that package. Import paths below
@@ -11,7 +11,7 @@ redaction, and deterministic test support.
 ```ts
 import {
   AgentApplicationService,
-  RuntimeSessionService,
+  AgentSessionService,
 } from '@363045841yyt/klinechart-agent-runtime'
 import { createNodeRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/node'
 ```
@@ -21,45 +21,42 @@ from a Node or Electron Main process because it loads `node:sqlite`. The
 `./testing` entry supplies the official Pi faux-provider composition and never
 contacts a network service.
 
-Renderer code consumes `AgentBridgeClient` and `AgentUiEvent`; Pi events,
-Provider payloads, credentials, Electron objects, and raw tool results remain
-behind the runtime and host adapters.
+Renderer code consumes `AgentBridgeClient` and `AgentWorkspaceEvent`. Session
+content is the official Pi record stream: `AgentTranscriptView` carries the
+`ConversationRecord`, the client `items` from `ConversationTranscript`, and the
+built-in documents (`pi.live`, `pi.usage`, …). Pi events, Provider payloads,
+credentials, Electron objects, and raw tool results stay behind the runtime and
+host adapters.
 
 ## OpenAI-compatible protocols
 
 The Provider adapter supports both `openai-completions` and `openai-responses`.
-The selected protocol is persisted with the tested Base URL and model; existing
-version 1 settings migrate to `openai-completions` because that was the only
-previous runtime behavior.
+The selected protocol is persisted with the Base URL and model.
 
-A Provider becomes runnable only after one connection test completes all three
-stages against the selected model:
+A Provider becomes runnable in three steps; each writes only its own state:
 
-1. `GET /models` verifies catalog access and authentication.
-2. A minimal text request verifies the selected protocol endpoint
-   (`POST /chat/completions` or `POST /responses`).
-3. An exact, side-effect-free function call verifies tool compatibility.
+1. Save the connection: the API root, protocol, and credentials.
+2. Refresh the catalog (`GET /models`) and add the models you want to the pool.
+3. Select a pooled model; that selection is what the runtime loads.
 
 For a third-party Provider, configure the API root as the Base URL (for example,
-`https://provider.example/v1`), choose the protocol implemented by that endpoint,
-refresh the catalog, and run the connection test. A successful model catalog by
-itself does not establish Agent compatibility.
+`https://provider.example/v1`) and choose the protocol that endpoint implements.
 
 ## Code interpreter
 
-`code_interpreter` executes agent-generated Python in a sandbox and registers
-itself into the core `ChartToolRegistry` as a `destructive` tool. Importing
-`@363045841yyt/klinechart-agent-runtime/code-interpreter` performs the
-registration; not importing it is the rollback.
+`code_interpreter` executes agent-generated Python in a sandbox. The execution
+logic lives in `CodeInterpreterTool`; `createCodeInterpreterTool()` wraps it in a
+`write` tool definition. Nothing registers on import, so the host decides whether
+the tool exists.
 
 ```ts
 import {
   CodeInterpreterService,
-  CodeInterpreterTool,
+  createCodeInterpreterTool,
 } from '@363045841yyt/klinechart-agent-runtime/code-interpreter'
 import { LocalProvider } from '@363045841yyt/klinechart-agent-runtime/code-interpreter/local'
 
-const tool = new CodeInterpreterTool(
+const tool = createCodeInterpreterTool(
   new CodeInterpreterService({ provider: new LocalProvider() }),
 )
 ```

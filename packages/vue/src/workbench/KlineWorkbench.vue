@@ -32,7 +32,8 @@
   const content = shallowRef<KlineWorkbenchHandle | null>(null)
   const theme = shallowRef<'light' | 'dark'>('light')
   onErrorCaptured((error) => {
-    // 错误向宿主报告；局部操作异常不改变整个工作台的生命周期。
+    // 组件错误不能静默丢失：宿主订阅 error 事件，同时保留控制台线索。
+    console.error('[workbench]', error)
     emit('error', error)
     return false
   })
@@ -45,5 +46,12 @@
 </script>
 
 <style>
-  .kline-workbench { width: 100%; height: 100%; min-width: 0; min-height: 0; }
+  .kline-workbench {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    /* 根节点定基础字重：未显式声明字重的文本继承 UI 角色，不再落回宿主 UA 的 400。 */
+    font-weight: var(--klc-font-weight-ui, 500);
+  }
 </style>

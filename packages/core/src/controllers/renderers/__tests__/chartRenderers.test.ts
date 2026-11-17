@@ -145,11 +145,7 @@ describe('public chart renderer access', () => {
   it('同窗口主图指标并入行情对象轴，最新价签绘制到行情轴列', async () => {
     const controller = await mount()
     const price = controller.axes.bindingFor('plugin:candle')
-    const indicatorId = controller.addIndicator(
-      indicatorName,
-      {},
-      { kind: 'pane', paneId: price.paneId },
-    )!
+    const indicatorId = controller.addIndicator(indicatorName, {}, 'main')!
     expect(controller.axes.bindingFor(indicatorId).axisId).toBe(price.axisId)
     const captured = controller.captureFrame(() => {
       const canvas =

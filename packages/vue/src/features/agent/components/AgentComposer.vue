@@ -18,6 +18,7 @@
             :groups="modelGroups"
             :empty-text="text.noModelsInPool"
             :disabled="running || !provider.configured"
+            :tooltip="false"
             placement="top"
             @open="emit('models-open')"
             @select="selectModel"
@@ -25,7 +26,7 @@
             <template #trigger="{ open }">
               <span class="composer__model-value truncate-text">{{ modelTriggerLabel }}</span>
               <IconChevronDown
-                class="composer__model-chevron"
+                class="composer__trigger-chevron"
                 :class="{ 'is-open': open }"
                 aria-hidden="true"
               />
@@ -39,31 +40,37 @@
             :groups="reasoningGroups"
             :label="text.reasoningEffort"
             :disabled="running"
+            :tooltip="false"
             @select="(_groupId, value) => emit('reasoning-effort', value)"
           >
             <template #trigger="{ open }">
               <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
               <IconChevronDown
-                class="composer__model-chevron"
+                class="composer__trigger-chevron"
                 :class="{ 'is-open': open }"
                 aria-hidden="true"
               />
             </template>
           </DropMenu>
         </div>
-        <BaseTooltip
-          v-if="contextUsage"
-          :content="contextUsage.label"
+        <DropMenu
+          class="composer__mode"
+          density="compact"
+          :label="modeMenuLabel"
+          :groups="modeGroups"
+          :tooltip="false"
           placement="top"
+          @select="selectMode"
         >
-          <span
-            class="composer__usage-ring"
-            :style="{ '--usage-progress': `${contextUsage.percent * 3.6}deg` }"
-            :aria-label="contextUsage.accessibleLabel"
-            role="img"
-            tabindex="0"
-          ></span>
-        </BaseTooltip>
+          <template #trigger="{ open }">
+            <span class="composer__mode-value">{{ modeLabel }}</span>
+            <IconChevronDown
+              class="composer__trigger-chevron"
+              :class="{ 'is-open': open }"
+              aria-hidden="true"
+            />
+          </template>
+        </DropMenu>
         <BaseTooltip v-if="running" :content="text.stop" placement="top">
           <BaseIconButton
             shape="circle"
@@ -93,6 +100,7 @@
   import './agent-primary-button.css'
   import '../../../components/common/truncate-text.css'
 
+  import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
@@ -101,17 +109,17 @@
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
+  import type { ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     draft: string
     running: boolean
+    mode: AgentRunMode
     locale: AgentLocale
     provider: ProviderStatusView
     models: readonly ProviderModelView[]
     modelsLoading: boolean
-    usage?: AgentUsageView
   }>()
   const emit = defineEmits<{
     'update:draft': [value: string]
@@ -120,6 +128,7 @@
     model: [value: string]
     'models-open': []
     'reasoning-effort': [value: string]
+    'mode-change': [value: AgentRunMode]
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
@@ -152,19 +161,41 @@
       })),
     },
   ])
-  const contextUsage = computed(() => {
-    const used = props.usage?.contextTokens
-    const window = props.usage?.contextWindow ?? props.provider.contextWindow
-    if (used === undefined || !window) return null
-    const percent = Math.min(100, Math.max(0, Math.round((used / window) * 100)))
-    const label = `${used.toLocaleString()} / ${window.toLocaleString()} tokens (${percent}%)`
-    return {
-      percent,
-      label,
-      accessibleLabel: label,
-    }
-  })
-
+  /** 模式色点：Plan 只读分析用危险色，Build 会改动图表用成功色。 */
+  const MODE_DOT: Record<AgentRunMode, string> = {
+    plan: 'var(--klc-color-ui-danger)',
+    build: 'var(--klc-color-ui-success)',
+  }
+  const modeLabel = computed(() =>
+    props.mode === 'plan' ? text.value.planMode : text.value.buildMode,
+  )
+  const modeMenuLabel = computed(() => `${text.value.mode}: ${modeLabel.value}`)
+  const modeGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'mode',
+      label: '',
+      items: [
+        {
+          id: 'plan',
+          label: text.value.planMode,
+          dot: MODE_DOT.plan,
+          checked: props.mode === 'plan',
+          selection: 'radio',
+        },
+        {
+          id: 'build',
+          label: text.value.buildMode,
+          dot: MODE_DOT.build,
+          checked: props.mode === 'build',
+          selection: 'radio',
+        },
+      ],
+    },
+  ])
+  /** 模式 id 只可能来自本组菜单的两个取值，其余值忽略。 */
+  function selectMode(_groupId: string, value: string): void {
+    if (value === 'plan' || value === 'build') emit('mode-change', value)
+  }
   /** 从模型菜单选择模型并上报。 */
   function selectModel(_groupId: string, modelId: string): void {
     emit('model', modelId)
@@ -204,40 +235,11 @@
     line-height: 1.5;
   }
 
-  .composer__input .composer__textarea::placeholder {
-    color: var(--klc-color-ui-text-soft);
-  }
-
   .composer__footer {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 0 var(--composer-inset) var(--composer-inset);
-  }
-
-  .composer__usage-ring {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    position: relative;
-    border-radius: 50%;
-    background: conic-gradient(
-      var(--klc-color-ui-accent) var(--usage-progress),
-      var(--klc-color-ui-border-strong) 0
-    );
-  }
-
-  .composer__usage-ring::before {
-    position: absolute;
-    inset: 2px;
-    border-radius: 50%;
-    background: var(--klc-color-agent-composer-input-background);
-    content: '';
-  }
-
-  .composer__usage-ring:focus-visible {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 3px;
   }
 
   .composer__meta {
@@ -248,7 +250,8 @@
     gap: 8px;
   }
   .composer__model,
-  .composer__reasoning {
+  .composer__reasoning,
+  .composer__mode {
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
     --control-button-radius: var(--klc-radius-md, 8px);
@@ -269,7 +272,7 @@
     --control-button-disabled-color: var(--klc-color-ui-text-soft);
   }
 
-  .composer__model-chevron {
+  .composer__trigger-chevron {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
@@ -277,16 +280,17 @@
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
-  .composer__model-chevron.is-open {
+  .composer__trigger-chevron.is-open {
     transform: rotate(180deg);
   }
 
-  .composer__reasoning-value {
+  .composer__reasoning-value,
+  .composer__mode-value {
     min-width: 0;
     overflow: hidden;
     color: var(--klc-color-ui-text);
     font-size: 11px;
-    font-weight: 400;
+    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

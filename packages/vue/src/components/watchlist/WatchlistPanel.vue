@@ -280,7 +280,6 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
-    font-family: var(--klc-typography-font-family);
   }
 
   /* 分组页签独立于公共标题行，标题高度始终与 TopToolbar 一致。 */
@@ -490,6 +489,7 @@
     overflow: hidden;
     color: var(--watchlist-quote-color);
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: center;
     text-overflow: ellipsis;

@@ -78,7 +78,6 @@ export function providerModelView(model: ProviderCatalogModel): ProviderModelVie
   return {
     id: model.id,
     name: model.name,
-    compatibility: 'unknown',
     ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
     ...(model.maxOutputTokens ? { maxOutputTokens: model.maxOutputTokens } : {}),
     ...(model.reasoningEfforts.length ? { reasoningEfforts: model.reasoningEfforts } : {}),

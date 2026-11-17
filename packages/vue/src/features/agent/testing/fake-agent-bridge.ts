@@ -1,519 +1,317 @@
-/** Drive complete UI states deterministically without Provider or chart business logic. */
-import { fetchOpenAiCompatibleModels } from '@363045841yyt/klinechart-agent-runtime'
-import {
-  AGENT_UI_PROTOCOL_VERSION,
-  type AgentBridgeClient,
-  type AgentContextItem,
-  type AgentRunUiEventInput,
-  type AgentSessionSnapshot,
-  type AgentSessionView,
-  type AgentToolDebugResult,
-  type AgentToolView,
-  type AgentUiEvent,
-  type AgentUiEventInput,
-  type AgentWorkspaceEvent,
-  type ConfirmationView,
-  type ProviderModelPoolEntry,
-  type ProviderModelsResult,
-  type ProviderModelView,
-  type ProviderProfileView,
-  type ProviderReasoningEffort,
-  type ProviderSaveInput,
-  type ProviderStatusView,
-  type ProviderTestInput,
-  type ProviderTestResult,
-  type QuestionAnswerView,
-  type QuestionView,
-  type StartRunInput,
-  type ToolCallView,
+// 测试用 Bridge：只用官方条目形状的内存会话，不复制生产端的投影与状态机。
+import { type ConversationId, type EntryId, LiveDoc } from '@earendil-works/pi-durable'
+import type {
+  AgentBridgeClient,
+  AgentContextItem,
+  AgentRunStartedView,
+  AgentSessionView,
+  AgentTranscriptView,
+  AgentWorkspaceEvent,
+  AgentWorkspaceEventInput,
+  BranchMessageInput,
+  ContinueRunInput,
+  EditMessageInput,
+  EntryRecord,
+  JsonObject,
+  ProviderModelPoolEntry,
+  ProviderModelsResult,
+  ProviderModelView,
+  ProviderProfileView,
+  ProviderReasoningEffort,
+  ProviderSaveInput,
+  ProviderStatusView,
+  RunFailureReason,
+  StartRunInput,
+  ToolCall,
+  TranscriptItem,
 } from '../agent-contracts.js'
-import { ProviderModelPool } from '../browser-agent/provider/impl/provider-model-pool.js'
-import { createInitialAgentState, reduceAgentUiEvent } from './script-state.js'
+import { AGENT_UI_PROTOCOL_VERSION } from '../agent-contracts.js'
 
-/** 会话 UI 归约状态，与 states 字段共用同一来源类型。 */
-type FakeSessionState = ReturnType<typeof createInitialAgentState>
-
-interface FakeRun {
-  id: string
-  sessionId: string
-  prompt: string
-  readOnly: boolean
-  tool?: ToolCallView
-  timers: Set<ReturnType<typeof setTimeout>>
-  hasMutation: boolean
+/** 测试桥梁里记录的运行失败：写入官方 `pi.live.runFailure`，与生产读取路径一致。 */
+interface FakeRunFailure {
+  readonly reason: RunFailureReason
+  readonly detail?: string
 }
 
-interface PendingConfirmation {
-  runId: string
-  request: ConfirmationView
+interface FakeProfile {
+  name: string
+  connection?: {
+    baseUrl: string
+    headers: Record<string, string>
+    protocol: 'openai-responses' | 'openai-completions'
+  }
+  settings?: ProviderProfileView
+  pool: ProviderModelView[]
 }
 
-export interface FakeAgentBridgeOptions {
-  stepDelayMs?: number
-  providerConfigured?: boolean
-}
-
-/** 面板订阅直接消费的事件类型；Record 保证与契约联合类型逐项对齐。 */
-const WORKSPACE_EVENT_TYPES: Record<AgentWorkspaceEvent['type'], true> = {
-  'session.snapshot': true,
-  'sessions.changed': true,
-  'provider.status.changed': true,
-  'tool.question.required': true,
-  'tool.question.resolved': true,
-}
-
-/** 判断事件是否属于面板可直接接收的类型。 */
-function isWorkspaceEvent(event: AgentUiEvent): event is AgentWorkspaceEvent {
-  return event.type in WORKSPACE_EVENT_TYPES
-}
-
+/** 内存 Bridge：确定性内容，用于组件与工作区测试。 */
 export class FakeAgentBridge implements AgentBridgeClient {
-  private readonly states = new Map<string, FakeSessionState>()
   private readonly listeners = new Set<(event: AgentWorkspaceEvent) => void>()
-  private readonly runs = new Map<string, FakeRun>()
-  private readonly confirmations = new Map<string, PendingConfirmation>()
-  private readonly questions = new Map<string, string>()
-  private modelEntries: ProviderModelPoolEntry[] = []
-  private readonly modelPool = new ProviderModelPool(
-    () => this.modelEntries,
-    (models) => {
-      this.modelEntries = [...models]
-    },
-  )
-  private readonly stepDelayMs: number
-  private sessions: AgentSessionView[] = [
-    { id: 'session-1', title: 'BTC momentum review', updatedAt: Date.now() },
-  ]
-  private provider: ProviderStatusView
-  private profiles: ProviderProfileView[] = []
-  private tools: AgentToolView[] = [
-    {
-      name: 'instruments_query_name',
-      label: 'Query instrument name',
-      description: 'Look up a security name by its exact symbol.',
-      enabled: true,
-    },
-  ]
-  private nextSessionId = 2
-  private nextRunId = 1
-  private readonly contextItems: ReadonlyArray<AgentContextItem> = [
-    { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
-  ]
+  private readonly contextListeners = new Set<(items: ReadonlyArray<AgentContextItem>) => void>()
+  private readonly entries = new Map<string, EntryRecord[]>()
+  private readonly sessions: AgentSessionView[] = []
+  private readonly runFailures = new Map<string, FakeRunFailure>()
+  private readonly profiles: FakeProfile[] = []
+  private nextId = 1
+  private exaConfigured = false
+  /** 当前激活的 Profile 名称。 */
+  private active = ''
 
-  constructor(options: FakeAgentBridgeOptions = {}) {
-    this.stepDelayMs = options.stepDelayMs ?? 90
-    this.provider = options.providerConfigured
-      ? {
-          state: 'connected',
-          providerLabel: 'OpenAI-compatible',
-          configured: true,
-          modelId: 'Scripted Alpha',
-          modelLabel: 'Scripted Alpha',
-          profileName: 'Fake Provider',
-          protocol: 'openai-completions',
-          compatibility: 'compatible',
-        }
-      : {
-          state: 'not-configured',
-          providerLabel: 'OpenAI-compatible',
-          configured: false,
-          compatibility: 'unknown',
-        }
+  constructor(options: { providerConfigured?: boolean; sessions?: AgentSessionView[] } = {}) {
+    const initial = options.sessions ?? [{ id: '1', title: 'Session 1', updatedAt: 1 }]
+    for (const session of initial) {
+      this.sessions.push({ ...session })
+      this.entries.set(session.id, [])
+    }
     if (options.providerConfigured) {
-      this.modelEntries = [
-        {
-          provider: 'Fake Provider',
-          id: 'Scripted Alpha',
-          name: 'Scripted Alpha',
-          compatibility: 'compatible',
+      this.profiles.push({
+        name: 'Default',
+        pool: [],
+        connection: {
+          baseUrl: 'https://provider.example/v1',
+          headers: {},
+          protocol: 'openai-responses',
         },
-      ]
+        settings: {
+          name: 'Default',
+          baseUrl: 'https://provider.example/v1',
+          modelId: 'fake-model',
+          modelName: 'Fake model',
+          protocol: 'openai-responses',
+        },
+      })
+      this.active = 'Default'
     }
   }
 
   getContextItems(): ReadonlyArray<AgentContextItem> {
-    return this.contextItems
+    return []
   }
 
   subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void {
-    listener(this.contextItems)
-    return () => {}
+    this.contextListeners.add(listener)
+    return () => this.contextListeners.delete(listener)
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
-    return [...this.sessions]
+    return this.sessions.map((session) => ({ ...session }))
   }
 
-  async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
-    const session = this.sessions.find((item) => item.id === sessionId)
-    if (!session) throw new Error(`Unknown fake session: ${sessionId}`)
-    const state = this.states.get(sessionId) ?? createInitialAgentState()
-    return {
-      session,
-      messages: state.messages,
-      toolCalls: state.toolCalls,
-      runs: state.run.id ? [...state.previousRuns, state.run] : [],
-      questions: state.questions,
-      confirmations: state.confirmations,
-    }
+  async openSession(sessionId: string): Promise<AgentTranscriptView> {
+    return this.view(sessionId)
   }
 
-  async getProviderStatus(): Promise<ProviderStatusView> {
-    return this.provider
+  async loadEarlier(sessionId: string): Promise<AgentTranscriptView> {
+    return this.view(sessionId)
   }
 
-  async listTools(): Promise<AgentToolView[]> {
-    return this.tools.map((tool) => ({ ...tool }))
-  }
-
-  async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    const tool = this.tools.find((item) => item.name === name)
-    if (!tool) throw new Error(`Unknown fake Agent tool: ${name}`)
-    tool.enabled = enabled
-  }
-
-  async debugTool(name: string, input: unknown): Promise<AgentToolDebugResult> {
-    if (!this.tools.some((tool) => tool.name === name))
-      throw new Error(`Unknown fake Agent tool: ${name}`)
-    return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
-  }
-
-  async listProviderModelCatalog(): Promise<ProviderModelsResult> {
-    return fetchOpenAiCompatibleModels({
-      baseUrl: this.provider.baseUrl ?? 'https://models.example.test/v1',
-      apiKey: 'test-key',
-      protocol: this.provider.protocol ?? 'openai-responses',
-    })
-  }
-
-  async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
-    const provider = this.provider.profileName
-    return provider ? this.modelPool.list(provider) : []
-  }
-
-  async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
-    const provider = this.provider.profileName
-    if (!provider) return []
-    this.modelPool.add(provider, model)
-    this.emit({ type: 'provider.status.changed', status: this.provider })
-    return this.modelPool.list(provider)
-  }
-
-  async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
-    const provider = this.provider.profileName
-    if (!provider) return []
-    this.modelPool.remove(provider, modelId)
-    if (this.provider.modelId === modelId) {
-      this.provider = {
-        ...this.provider,
-        state: 'not-configured',
-        modelId: undefined,
-        modelLabel: undefined,
-      }
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
-    return this.modelPool.list(provider)
-  }
-
-  async setProviderModel(modelId: string): Promise<void> {
-    const provider = this.provider.profileName
-    const model = provider
-      ? this.modelPool.list(provider).find((item) => item.id === modelId)
-      : undefined
-    if (!model) return
-    this.provider = {
-      ...this.provider,
-      state: 'connected',
-      modelId: model.id,
-      modelLabel: model.name,
-      contextWindow: model.contextWindow,
-      maxOutputTokens: model.maxOutputTokens,
-      reasoningEfforts: model.reasoningEfforts,
-      reasoningEffort: model.defaultReasoningEffort,
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
-  }
-
-  async listProviderProfiles(): Promise<ProviderProfileView[]> {
-    return [...this.profiles]
-  }
-
-  async createProviderProfile(profileName: string): Promise<void> {
-    if (this.profiles.some((profile) => profile.name === profileName)) {
-      throw new Error(`Duplicate fake Provider profile: ${profileName}`)
-    }
-    this.profiles.push({
-      name: profileName,
-      baseUrl: '',
-      modelId: '',
-      modelName: '',
-      protocol: 'openai-responses',
-    })
-  }
-
-  async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
-    const nextName = nextProfileName.trim()
-    const profile = this.profiles.find((item) => item.name === profileName)
-    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileName}`)
-    if (this.profiles.some((item) => item.name === nextName)) {
-      throw new Error(`Duplicate fake Provider profile: ${nextName}`)
-    }
-    profile.name = nextName
-    this.modelPool.renameGroup(profileName, nextName)
-    if (this.provider.profileName === profileName) {
-      this.provider = { ...this.provider, profileName: nextName }
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
-  }
-
-  async deleteProviderProfile(profileName: string): Promise<void> {
-    const index = this.profiles.findIndex((item) => item.name === profileName)
-    if (index < 0) throw new Error(`Unknown fake Provider profile: ${profileName}`)
-    this.profiles.splice(index, 1)
-    this.modelPool.removeGroup(profileName)
-    if (this.provider.profileName === profileName) {
-      this.provider = {
-        state: 'not-configured',
-        providerLabel: 'OpenAI-compatible',
-        configured: false,
-        compatibility: 'unknown',
-      }
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
-  }
-
-  async selectProviderProfile(profileName: string): Promise<void> {
-    const profile = this.profiles.find((item) => item.name === profileName)
-    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileName}`)
-    this.provider = {
-      state: 'connected',
-      providerLabel: 'OpenAI-compatible',
-      configured: true,
-      baseUrl: profile.baseUrl,
-      modelId: profile.modelId,
-      modelLabel: profile.modelName,
-      profileName: profile.name,
-      protocol: profile.protocol,
-      compatibility: 'compatible',
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
+  async fillGap(sessionId: string): Promise<AgentTranscriptView> {
+    return this.view(sessionId)
   }
 
   async createSession(): Promise<AgentSessionView> {
     const session = {
-      id: `session-${this.nextSessionId++}`,
-      title: 'New analysis',
+      id: String(this.nextId++),
+      title: 'New session',
       updatedAt: Date.now(),
     }
-    this.sessions = [session, ...this.sessions]
-    this.emit({ type: 'sessions.changed', sessions: [...this.sessions] })
+    this.sessions.push(session)
+    this.entries.set(session.id, [])
+    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
     return session
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
-    this.sessions = this.sessions.map((session) =>
-      session.id === sessionId ? { ...session, title, updatedAt: Date.now() } : session,
-    )
-    this.emit({ type: 'sessions.changed', sessions: [...this.sessions] })
+    const session = this.sessions.find((item) => item.id === sessionId)
+    if (!session) return
+    session.title = title.trim()
+    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    this.sessions = this.sessions.filter((session) => session.id !== sessionId)
-    this.emit({ type: 'sessions.changed', sessions: [...this.sessions] })
+    const index = this.sessions.findIndex((item) => item.id === sessionId)
+    if (index >= 0) this.sessions.splice(index, 1)
+    this.entries.delete(sessionId)
+    this.emit({ type: 'session.closed', sessionId })
+    this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
-  async startRun(input: StartRunInput): Promise<{ runId: string }> {
-    const runId = `run-${this.nextRunId++}`
-    const run: FakeRun = {
-      id: runId,
-      sessionId: input.sessionId,
-      prompt: input.prompt,
-      readOnly: input.readOnly,
-      timers: new Set(),
-      hasMutation: false,
-    }
-    this.runs.set(runId, run)
-    this.startScript(run)
-    return { runId }
+  async startRun(input: StartRunInput): Promise<AgentRunStartedView> {
+    const runId = `run-${this.nextId++}`
+    this.appendRound(input.sessionId, input.prompt, input.prompt)
+    return { runId, sessionId: input.sessionId }
   }
 
-  async cancelRun(runId: string): Promise<void> {
-    const run = this.runs.get(runId)
-    if (!run) return
-    this.clearTimers(run)
-    this.emitRun(run, { type: 'run.cancelling' })
-    this.emitRun(run, {
-      type: 'run.cancelled',
-      partial: run.hasMutation,
-      endedAt: Date.now(),
-    })
+  async cancelRun(): Promise<void> {
+    return undefined
   }
 
-  async retryRun(runId: string): Promise<{ runId: string }> {
-    return this.forkRun(runId)
+  async retryRun(input: BranchMessageInput): Promise<AgentRunStartedView> {
+    const entries = this.entries.get(input.sessionId) ?? []
+    const target = entries.findIndex((entry) => entry.id === input.entryId)
+    const prompt = this.userText(entries[target]) ?? 'Retried prompt'
+    if (target >= 0) entries.splice(target)
+    const runId = `run-${this.nextId++}`
+    this.appendRound(input.sessionId, prompt, prompt)
+    return { runId, sessionId: input.sessionId }
   }
 
-  /** 脚本演示沿用生产分支语义，丢弃当前视图中的后续轮次。 */
-  async editMessage(runId: string, prompt: string): Promise<{ runId: string }> {
-    if (!prompt.trim()) throw new Error('The edited message is empty.')
-    return this.forkRun(runId, prompt.trim())
+  /** 继续运行：不追加用户消息，只补一轮回答。 */
+  async continueRun(input: ContinueRunInput): Promise<AgentRunStartedView> {
+    const runId = `run-${this.nextId++}`
+    this.appendRound(input.sessionId, 'Continue the run')
+    return { runId, sessionId: input.sessionId }
   }
 
-  /** 将脚本状态切回原用户输入之前，再启动新的运行。 */
-  private async forkRun(runId: string, prompt?: string): Promise<{ runId: string }> {
-    const run = this.runs.get(runId)
-    if (!run) throw new Error(`Unknown fake run: ${runId}`)
-    const state = this.states.get(run.sessionId)
-    if (!state) throw new Error(`Unknown fake session: ${run.sessionId}`)
-    const index = state.messages.findIndex(
-      (message) => message.role === 'user' && message.runId === runId,
-    )
-    if (index < 0) throw new Error(`Unknown fake message: ${runId}`)
-    const messages = state.messages.slice(0, index)
-    const retained = new Set(messages.map((message) => message.runId))
-    this.states.set(run.sessionId, {
-      ...state,
-      messages,
-      toolCalls: state.toolCalls.filter((tool) => retained.has(tool.runId)),
-      previousRuns: [...state.previousRuns, state.run].filter(
-        (item) => item.id && retained.has(item.id),
-      ),
-      run: { id: null, sessionId: run.sessionId, status: 'idle' },
-      questions: [],
-      confirmations: [],
-      error: null,
-    })
-    return this.startRun({
-      sessionId: run.sessionId,
-      prompt: prompt ?? run.prompt,
-      readOnly: run.readOnly,
-    })
+  async editMessage(input: EditMessageInput): Promise<AgentRunStartedView> {
+    const entries = this.entries.get(input.sessionId) ?? []
+    const target = entries.findIndex((entry) => entry.id === input.entryId)
+    if (target >= 0) entries.splice(target)
+    const runId = `run-${this.nextId++}`
+    this.appendRound(input.sessionId, input.prompt, input.prompt)
+    return { runId, sessionId: input.sessionId }
   }
 
-  async confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
-    const pending = this.confirmations.get(confirmationId)
-    if (!pending) return
-    const run = this.runs.get(pending.runId)
-    if (!run) return
+  /** 模拟一次没有作答的运行：写入官方 `pi.live.runFailure` 并广播读取结果。 */
+  failRun(sessionId: string, failure: FakeRunFailure): void {
+    this.runFailures.set(sessionId, failure)
+    this.emit({ type: 'session.changed', sessionId, transcript: this.view(sessionId) })
+  }
 
-    this.emitRun(run, {
-      type: 'tool.confirmation.resolved',
-      confirmationId,
-      decision,
-    })
-    this.confirmations.delete(confirmationId)
+  /** 内存 Bridge 不模拟宿主提问：挂起与结算只存在于真实 Bridge。 */
+  async answerQuestion(): Promise<void> {
+    return undefined
+  }
 
-    if (decision === 'confirmed') {
-      run.hasMutation = true
-      const finished = {
-        ...run.tool!,
-        status: 'succeeded' as const,
-        resultSummary: 'All 4 drawings cleared. Undo is available.',
-        finishedAt: Date.now(),
-        durationMs: 182,
-        undoToken: `undo-${run.id}`,
-      }
-      this.emitRun(run, { type: 'tool.finished', result: finished })
-      this.finishRun(run, 'The drawings were cleared and the chart state was verified.')
-    } else {
-      this.finishRun(run, 'No chart changes were made because you rejected the action.')
+  async cancelQuestion(): Promise<void> {
+    return undefined
+  }
+
+  async getProviderStatus(): Promise<ProviderStatusView> {
+    const profile = this.activeProfile()
+    const configured = Boolean(profile?.connection)
+    return {
+      state: profile?.settings ? 'connected' : 'not-configured',
+      providerLabel: 'OpenAI-compatible',
+      configured,
+      profileName: profile?.name,
+      baseUrl: profile?.connection?.baseUrl,
+      protocol: profile?.connection?.protocol,
+      modelId: profile?.settings?.modelId,
+      exaConfigured: this.exaConfigured,
     }
   }
 
-  async undoTurn(runId: string): Promise<void> {
-    const run = this.runs.get(runId)
-    if (!run?.tool) return
-    this.emitRun(run, { type: 'tool.undone', toolCallId: run.tool.id, undoneAt: Date.now() })
+  async listProviderProfiles(): Promise<ProviderProfileView[]> {
+    return this.profiles.map((profile) => ({
+      name: profile.name,
+      baseUrl: profile.connection?.baseUrl ?? '',
+      protocol: profile.connection?.protocol ?? 'openai-responses',
+      modelId: profile.settings?.modelId ?? '',
+      modelName: profile.settings?.modelName ?? '',
+    }))
   }
 
-  async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    const runId = this.questions.get(questionId)
-    if (runId === undefined) return
-    this.questions.delete(questionId)
-    const run = this.runs.get(runId)
-    if (!run?.tool) return
-    const selected = answer.selectedValues.join(', ') || answer.note || ''
-    this.emitRun(run, {
-      type: 'tool.question.resolved',
-      questionId,
-      status: 'answered',
-      answer,
-    })
-    this.emitRun(run, {
-      type: 'tool.finished',
-      result: {
-        ...run.tool,
-        status: 'succeeded',
-        resultSummary: `User answered: ${selected}.`,
-        resultContent: JSON.stringify({
-          status: 'answered',
-          selected: answer.selectedValues,
-          ...(answer.note ? { note: answer.note } : {}),
-        }),
-        finishedAt: Date.now(),
-        durationMs: 182,
-      },
-    })
-    this.finishRun(run, `Received your choice "${selected}" and continued the run with it.`)
+  async listProviderModelCatalog(): Promise<ProviderModelsResult> {
+    return { models: this.activeProfile()?.pool ?? [], refreshedAt: Date.now() }
+  }
+
+  async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
+    const profile = this.activeProfile()
+    return profile ? profile.pool.map((model) => ({ ...model, provider: profile.name })) : []
+  }
+
+  async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
+    const profile = this.activeProfile()
+    if (!profile) return []
+    if (!profile.pool.some((item) => item.id === model.id)) profile.pool.push(model)
+    return this.listProviderModelPool()
+  }
+
+  async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
+    const profile = this.activeProfile()
+    if (!profile) return []
+    profile.pool = profile.pool.filter((model) => model.id !== modelId)
+    if (profile.settings?.modelId === modelId) profile.settings = undefined
+    return this.listProviderModelPool()
+  }
+
+  async setProviderModel(modelId: string): Promise<void> {
+    const profile = this.activeProfile()
+    const model = profile?.pool.find((item) => item.id === modelId)
+    if (!profile || !model) return
+    profile.settings = {
+      name: profile.name,
+      baseUrl: profile.connection?.baseUrl ?? '',
+      protocol: profile.connection?.protocol ?? 'openai-responses',
+      modelId: model.id,
+      modelName: model.name,
+      ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
+      ...(model.maxOutputTokens === undefined ? {} : { maxOutputTokens: model.maxOutputTokens }),
+    }
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const profile: ProviderProfileView = {
-      name: input.profileName,
+    const name = input.profileName.trim()
+    let profile = this.profiles.find((item) => item.name === name)
+    if (!profile) {
+      profile = { name, pool: [] }
+      this.profiles.push(profile)
+    }
+    profile.connection = {
       baseUrl: input.baseUrl,
-      modelId: '',
-      modelName: '',
+      headers: input.headers ?? {},
       protocol: input.protocol,
     }
-    const existingIndex = this.profiles.findIndex((item) => item.name === input.profileName)
-    if (existingIndex >= 0) this.profiles[existingIndex] = profile
-    else this.profiles.push(profile)
-    this.provider = {
-      state: 'not-configured',
-      providerLabel: 'OpenAI-compatible',
-      configured: true,
-      baseUrl: input.baseUrl,
-      modelId: undefined,
-      modelLabel: undefined,
-      profileName: input.profileName,
-      protocol: input.protocol,
-      compatibility: 'unknown',
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
+    this.active = name
   }
 
-  async saveWebSearchApiKey(apiKey: string): Promise<void> {
-    if (!apiKey.trim()) return
-    this.provider = { ...this.provider, exaConfigured: true }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
+  async createProviderProfile(profileName: string): Promise<void> {
+    if (!this.profiles.some((item) => item.name === profileName)) {
+      this.profiles.push({ name: profileName, pool: [] })
+    }
   }
 
-  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    return {
-      compatible: true,
-      model: input.model,
-      latencyMs: 0,
-      stages: [],
-    }
+  async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
+    const profile = this.profiles.find((item) => item.name === profileName)
+    if (!profile) return
+    profile.name = nextProfileName
+    if (profile.settings) profile.settings = { ...profile.settings, name: nextProfileName }
+  }
+
+  async deleteProviderProfile(profileName: string): Promise<void> {
+    const index = this.profiles.findIndex((item) => item.name === profileName)
+    if (index >= 0) this.profiles.splice(index, 1)
+  }
+
+  async selectProviderProfile(profileName: string): Promise<void> {
+    this.active = profileName
   }
 
   async setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void> {
-    this.provider = { ...this.provider, reasoningEffort: effort }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
+    const settings = this.activeProfile()?.settings
+    if (settings) settings.reasoningEffort = effort
   }
 
   async deleteProviderCredential(): Promise<void> {
-    this.provider = {
-      state: 'not-configured',
-      providerLabel: 'OpenAI-compatible',
-      configured: false,
-      baseUrl: this.provider.baseUrl,
-      modelId: this.provider.modelId,
-      modelLabel: this.provider.modelLabel,
-      protocol: this.provider.protocol,
-      compatibility: 'unknown',
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
+    const profile = this.activeProfile()
+    if (profile) profile.settings = undefined
+  }
+
+  async saveWebSearchApiKey(apiKey: string): Promise<void> {
+    this.exaConfigured = apiKey.length > 0
+  }
+
+  async listTools() {
+    return []
+  }
+
+  async setToolEnabled(): Promise<void> {
+    return undefined
+  }
+
+  async debugTool() {
+    return { content: '', summary: '' }
   }
 
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
@@ -521,241 +319,121 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return () => this.listeners.delete(listener)
   }
 
-  private startScript(run: FakeRun): void {
-    const startedAt = Date.now()
-    this.emitRun(run, { type: 'run.started', startedAt })
-    this.emitRun(run, {
-      type: 'user.message.created',
-      message: {
-        id: `user-${run.id}`,
-        runId: run.id,
-        role: 'user',
-        content: run.prompt,
-        createdAt: startedAt + 1,
+  /** 当前激活的 Profile 名称。 */
+  private activeProfile(): FakeProfile | undefined {
+    return this.profiles.find((item) => item.name === this.active) ?? this.profiles[0]
+  }
+
+  /** 读取用户条目正文。 */
+  private userText(entry: EntryRecord | undefined): string | undefined {
+    const message = entry?.model?.[0]
+    if (message?.role !== 'user') return undefined
+    return typeof message.content === 'string' ? message.content : ''
+  }
+
+  /** 追加一轮确定性运行并广播视图；带 input 时先落一条官方用户条目。 */
+  private appendRound(sessionId: string, request: string, input?: string): void {
+    const entries = this.entries.get(sessionId)
+    const session = this.sessions.find((item) => item.id === sessionId)
+    if (!entries || !session) return
+    const conversationId = Number(sessionId) as ConversationId
+    const push = (kind: string, model: EntryRecord['model']): void => {
+      entries.push({
+        id: this.nextId++ as EntryId,
+        conversationId,
+        kind,
+        model,
+      })
+    }
+    const timestamp = Date.now()
+    if (input !== undefined) push('pi.user', [{ role: 'user', content: input, timestamp }])
+    const call: ToolCall = {
+      type: 'toolCall',
+      id: `call-${this.nextId++}`,
+      name: 'chart.inspect',
+      arguments: { request },
+    }
+    push('pi.assistant', [
+      {
+        role: 'assistant',
+        content: [{ type: 'thinking', thinking: 'Inspecting the chart context.' }, call],
+        api: 'openai-responses',
+        provider: 'fake',
+        model: 'fake-model',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 2,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: 'toolUse',
+        timestamp,
       },
-    })
-    this.schedule(run, 1, {
-      type: 'action.summary',
-      message: {
-        id: `action-${run.id}`,
-        runId: run.id,
-        role: 'action',
-        content: 'Reading the current chart context',
-        createdAt: startedAt + 2,
+    ])
+    push('pi.tool-result', [
+      {
+        role: 'toolResult',
+        toolCallId: call.id,
+        toolName: call.name,
+        content: [{ type: 'text', text: `Result for ${request}` }],
+        details: {
+          label: 'Inspect chart context',
+          inputSummary: request,
+          summary: 'Chart context inspected.',
+        },
+        isError: false,
+        timestamp,
       },
-    })
-
-    const destructive = /clear|delete all/i.test(run.prompt)
-    const ambiguous = /ambiguous/i.test(run.prompt)
-    const mutation = !run.readOnly && /add|switch|dark|move|clear|delete/i.test(run.prompt)
-    const failing = /fail|error|unavailable/i.test(run.prompt)
-    const tool = this.createTool(run, mutation, destructive)
-    run.tool = tool
-
-    this.schedule(run, 2, { type: 'tool.started', call: tool })
-    this.schedule(run, 3, {
-      type: 'tool.progress',
-      toolCallId: tool.id,
-      progress: { label: 'Validating chart context', current: 1, total: 2 },
-    })
-
-    if (destructive) {
-      const request: ConfirmationView = {
-        id: `confirm-${run.id}`,
-        toolCallId: tool.id,
-        title: 'Clear all drawings?',
-        description: 'This removes every drawing object from the active chart.',
-        impact: '4 drawing objects in the current chart',
-        reversible: true,
-        expiresAt: Date.now() + 30_000,
-        status: 'pending',
-      }
-      this.confirmations.set(request.id, { runId: run.id, request })
-      this.schedule(run, 4, { type: 'tool.confirmation.required', request })
-      return
-    }
-
-    if (ambiguous) {
-      const request: QuestionView = {
-        id: `question-${run.id}`,
-        toolCallId: tool.id,
-        prompt: '代码 000012 对应多个标的，要添加哪一个作为对比？',
-        options: [
-          { value: 'stock:000012', label: '南玻A', description: 'gotdx · stock · SZ' },
-          { value: 'index:000012', label: '国债指数', description: 'gotdx · index · SH' },
-        ],
-        multiSelect: false,
-        status: 'pending',
-      }
-      this.questions.set(request.id, run.id)
-      this.schedule(run, 4, { type: 'tool.question.required', request })
-      return
-    }
-
-    if (failing) {
-      this.schedule(run, 4, {
-        type: 'tool.finished',
-        result: {
-          ...tool,
-          status: 'failed',
-          finishedAt: Date.now(),
-          durationMs: 214,
-          error: {
-            code: 'PROVIDER_ERROR',
-            message: 'The scripted provider is temporarily unavailable.',
-            retryable: true,
-            recommendedAction: 'Retry this run.',
-          },
+    ])
+    push('pi.assistant', [
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: `Answer to: ${request}` }],
+        api: 'openai-responses',
+        provider: 'fake',
+        model: 'fake-model',
+        usage: {
+          input: 1,
+          output: 1,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 2,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
         },
-      })
-      this.schedule(run, 5, {
-        type: 'run.failed',
-        endedAt: Date.now(),
-        error: {
-          code: 'PROVIDER_ERROR',
-          message: 'The scripted provider is temporarily unavailable.',
-          retryable: true,
-          recommendedAction: 'Retry this run.',
-        },
-      })
-      return
-    }
-
-    this.scheduleCallback(run, 4, () => {
-      run.hasMutation = mutation
-      this.emitRun(run, {
-        type: 'tool.finished',
-        result: {
-          ...tool,
-          status: 'succeeded',
-          resultSummary: mutation ? 'Chart state changed and verified.' : '20 RSI values returned.',
-          finishedAt: Date.now(),
-          durationMs: 186,
-          undoToken: mutation ? `undo-${run.id}` : undefined,
-          evidence: {
-            symbol: 'BTCUSDT',
-            period: '1h',
-            source: 'Binance fixture',
-            timezone: 'UTC',
-            range: 'Latest 20 bars',
-            returned: 20,
-          },
-        },
-      })
+        stopReason: 'stop',
+        timestamp,
+      },
+    ])
+    session.updatedAt = timestamp
+    this.emit({
+      type: 'session.changed',
+      sessionId,
+      transcript: this.view(sessionId),
     })
-    this.scheduleCallback(run, 5, () => {
-      this.finishRun(
-        run,
-        mutation
-          ? 'The requested chart update is complete and its postcondition was verified.'
-          : 'RSI(14) is neutral across the latest 20 bars. The conclusion uses the displayed evidence.',
-      )
-    })
+    this.emit({ type: 'sessions.changed', sessions: this.sessions.map((item) => ({ ...item })) })
   }
 
-  private createTool(run: FakeRun, mutation: boolean, destructive: boolean): ToolCallView {
+  /** 由内存条目构造只读读取结果；运行失败按官方文档形状写入 `pi.live`。 */
+  private view(sessionId: string): AgentTranscriptView {
+    const session = this.sessions.find((item) => item.id === sessionId)
+    const entries = this.entries.get(sessionId) ?? []
+    const items: TranscriptItem[] = entries.map((entry) => ({ kind: 'entry', entry }))
+    const docs: Record<string, JsonObject> = {}
+    const failure = this.runFailures.get(sessionId)
+    if (failure) docs[LiveDoc.definition.kind] = { runFailure: { ...failure } }
     return {
-      id: `tool-${run.id}`,
-      runId: run.id,
-      name: destructive ? 'drawing.clear' : mutation ? 'indicators.add' : 'indicators_query',
-      label: destructive ? 'Clear drawings' : mutation ? 'Update chart' : 'Query RSI(14)',
-      status: 'running',
-      inputSummary: destructive
-        ? 'All drawings on active chart'
-        : mutation
-          ? 'Apply requested chart change'
-          : 'RSI(14), latest 20 bars',
-      safety: destructive ? 'destructive' : mutation ? 'reversible-write' : 'read-only',
-      reversible: mutation,
-      startedAt: Date.now(),
+      conversation: { id: Number(sessionId) as ConversationId },
+      items,
+      docs,
+      title: session?.title ?? '',
     }
   }
 
-  private finishRun(run: FakeRun, answer: string): void {
-    const messageId = `assistant-${run.id}`
-    this.emitRun(run, {
-      type: 'assistant.message.started',
-      messageId,
-      createdAt: Date.now(),
-    })
-    const chunks = answer.match(/.{1,18}(?:\s|$)/g) ?? [answer]
-    chunks.forEach((delta, index) => {
-      this.schedule(run, index + 1, { type: 'assistant.text.delta', messageId, delta })
-    })
-    this.schedule(run, chunks.length + 1, { type: 'assistant.message.completed', messageId })
-    this.schedule(run, chunks.length + 2, {
-      type: 'run.completed',
-      endedAt: Date.now(),
-      usage: { inputTokens: 148, outputTokens: 72, durationMs: 824, costUsd: 0.0014 },
-    })
-  }
-
-  private schedule(run: FakeRun, step: number, payload: AgentRunUiEventInput): void {
-    this.scheduleCallback(run, step, () => this.emitRun(run, payload))
-  }
-
-  private scheduleCallback(run: FakeRun, step: number, callback: () => void): void {
-    const timer = setTimeout(() => {
-      run.timers.delete(timer)
-      callback()
-    }, step * this.stepDelayMs)
-    run.timers.add(timer)
-  }
-
-  private clearTimers(run: FakeRun): void {
-    for (const timer of run.timers) clearTimeout(timer)
-    run.timers.clear()
-  }
-
-  private emitRun(run: FakeRun, payload: AgentRunUiEventInput): void {
-    this.emit({ ...payload, runId: run.id, sessionId: run.sessionId } as AgentUiEventInput)
-  }
-
-  private emit(event: AgentUiEventInput): void {
-    const normalized = { protocolVersion: AGENT_UI_PROTOCOL_VERSION, ...event } as AgentUiEvent
-    if (this.publishSessionSnapshot(normalized)) return
-    this.forwardWorkspaceEvent(normalized)
-  }
-
-  /** 已知会话的事件归约为快照并广播；会话未知时返回 false 交给后续分派。 */
-  private publishSessionSnapshot(event: AgentUiEvent): boolean {
-    if (!('sessionId' in event)) return false
-    const session = this.sessions.find((item) => item.id === event.sessionId)
-    if (!session) return false
-    const state = reduceAgentUiEvent(this.stateOf(session.id), event)
-    this.states.set(session.id, state)
-    this.broadcast({
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      type: 'session.snapshot',
-      snapshot: this.createSnapshot(session, state),
-    })
-    return true
-  }
-
-  /** 读取会话当前状态；首次出现的会话从初始状态起算。 */
-  private stateOf(sessionId: string): FakeSessionState {
-    return this.states.get(sessionId) ?? createInitialAgentState()
-  }
-
-  /** 把归约后的状态组装成面板消费的完整会话快照。 */
-  private createSnapshot(session: AgentSessionView, state: FakeSessionState): AgentSessionSnapshot {
-    return {
-      session,
-      messages: state.messages,
-      toolCalls: state.toolCalls,
-      runs: state.run.id ? [...state.previousRuns, state.run] : [],
-      questions: state.questions,
-      confirmations: state.confirmations,
-    }
-  }
-
-  /** 目录、Provider 状态与提问事件不归约进快照，直接转发给订阅者。 */
-  private forwardWorkspaceEvent(event: AgentUiEvent): void {
-    if (isWorkspaceEvent(event)) this.broadcast(event)
-  }
-
-  /** 向所有订阅者推送一个面板事件。 */
-  private broadcast(event: AgentWorkspaceEvent): void {
-    for (const listener of this.listeners) listener(event)
+  /** 广播事件。 */
+  private emit(event: AgentWorkspaceEventInput): void {
+    const next: AgentWorkspaceEvent = { ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION }
+    for (const listener of this.listeners) listener(next)
   }
 }

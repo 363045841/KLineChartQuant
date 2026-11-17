@@ -1,6 +1,6 @@
 /**
- * Agent 界面文案模块的公共入口：保持既有 `agent-copy` 导入路径可用，
- * 类型与实现已迁至 `agent-copy/`。
+ * Agent 界面文案模块的公共入口：按语言取用 `agent-copy` 公共路径的调用方由此进入，
+ * 具体实现已经迁入 `agent-copy/`。
  */
 
 export { getAgentCopy } from './agent-copy/impl/agent-copy.js'

@@ -10,7 +10,7 @@
   >
     <template #header><span aria-hidden="true" /></template>
     <section class="about-dialog">
-      <span class="about-dialog__logo" aria-hidden="true" v-html="brandLogoMarkup" />
+      <span class="about-dialog__logo" aria-hidden="true"><KcqLogo /></span>
       <h2 class="about-dialog__name">{{ APP_NAME }}</h2>
       <p class="about-dialog__version">版本 {{ APP_VERSION }}</p>
       <a class="about-dialog__github" :href="APP_GITHUB_URL" target="_blank" rel="noopener noreferrer">
@@ -33,8 +33,8 @@
 <script setup lang="ts">
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import IconBrandGithub from '~icons/tabler/brand-github'
-  import brandLogoMarkup from '../assets/kcq-logo.svg?raw'
   import { APP_GITHUB_URL, APP_NAME, APP_VERSION } from '../impl/appMetadata.js'
+  import KcqLogo from './KcqLogo.vue'
   import OpenSourceCredits from './OpenSourceCredits.vue'
 
   defineProps<{ open: boolean }>()
@@ -62,13 +62,6 @@
     border-radius: var(--klc-radius-full, 9999px);
     background: var(--klc-color-ui-brand-surface);
     color: var(--klc-color-ui-brand-on);
-  }
-  .about-dialog__logo :deep(svg) { display: block; width: 100%; height: 100%; }
-  .about-dialog__logo :deep(circle) { fill: none; }
-  .about-dialog__logo :deep(path) {
-    stroke: currentColor;
-    stroke-opacity: 1;
-    filter: none;
   }
   .about-dialog__name {
     margin: 0;

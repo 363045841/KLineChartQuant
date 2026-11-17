@@ -40,7 +40,7 @@ export function projectContextItems(
         drawings: context.drawingSelection.drawings.map((drawing) => ({
           id: drawing.id,
           kind: drawing.kind,
-          paneId: drawing.paneId,
+          placement: drawing.placement,
           visible: drawing.visible,
           locked: drawing.locked,
           zIndex: drawing.zIndex,

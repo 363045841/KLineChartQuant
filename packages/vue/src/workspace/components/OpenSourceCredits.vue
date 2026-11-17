@@ -47,6 +47,7 @@
     text-decoration: none;
     /* 包名与版本号属于代码类内容，使用等宽字体。 */
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
   }
 
   .settings-item.credit-item:hover {

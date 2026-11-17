@@ -17,7 +17,7 @@
     <section
       v-if="isOpen"
       ref="panelRef"
-      class="color-picker__panel"
+      class="color-picker__panel klc-overlay"
       :style="panelStyle"
       role="dialog"
       :aria-label="`${label}选择器`"
@@ -173,7 +173,6 @@
     background: var(--klc-color-floating-surface);
     color: var(--klc-color-ui-text);
     box-shadow: var(--klc-elevation-2, 0 4px 16px rgb(0 0 0 / 0.14));
-    font-family: var(--klc-typography-font-family);
     font-size: 12px;
   }
   .color-picker__heading {

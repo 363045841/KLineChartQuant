@@ -31,8 +31,7 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
       `${WEB_SEARCH_TOOL_METADATA.description} If Web search is not configured, ` +
       'tell the user to add an Exa API key in Agent settings and do not invent search results.',
     parameters: WebSearchParameters,
-    safety: 'read-only',
-    reversible: false,
+    effect: 'read',
     executionMode: 'parallel',
     summarizeInput: (input) => (input as WebSearchInput).query,
     async execute(input, context) {
@@ -45,7 +44,7 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
           summary: 'Web search requires an Exa API key.',
         }
       }
-      context.progress({ label: 'Searching the web', current: 1, total: 1 })
+      context.progress({ label: 'Searching the web' })
       try {
         const sources = await provider.search(
           { query: request.query, limit: request.limit ?? WEB_SEARCH_DEFAULT_LIMIT },

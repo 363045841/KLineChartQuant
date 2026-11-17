@@ -1,16 +1,5 @@
 <template>
   <div class="context-bar">
-    <BaseTooltip :content="text.readOnlyHint" placement="top" trigger-display="contents">
-      <div class="context-bar__pill context-bar__readonly">
-        {{ text.readOnly }}
-        <ToggleSwitch
-          :model-value="readOnly"
-          :aria-label="text.readOnly"
-          size="compact"
-          @update:model-value="emit('read-only', $event)"
-        />
-      </div>
-    </BaseTooltip>
     <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
       <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
         ><span class="context-bar__text truncate-text">{{ symbolContext.value.symbol
@@ -36,7 +25,6 @@
 
   import { computed } from 'vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
@@ -48,9 +36,7 @@
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
-    readOnly: boolean
   }>()
-  const emit = defineEmits<{ 'read-only': [value: boolean] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const symbolContext = computed(() =>
@@ -108,28 +94,9 @@
     min-width: 0;
   }
 
-  .context-bar__readonly {
-    order: -2;
-    flex: 0 0 auto;
-    color: var(--klc-color-ui-muted);
-    gap: 6px;
-    border: 0;
-    background: var(--klc-color-agent-composer-input-background);
-  }
-
   .context-bar__symbol {
     flex: 0 1 auto;
     max-width: 100%;
-  }
-
-  .context-bar :deep(.injection-card__summary) {
-    order: 0;
-    flex: 0 0 26px;
-  }
-
-  .context-bar :deep(.injection-card__content) {
-    order: 1;
-    flex: 0 0 100%;
   }
 
   .context-bar__pill {

@@ -35,6 +35,7 @@ import {
 import KlineWorkbench from './workbench/KlineWorkbench.vue'
 import './styles/theme-scheme.css'
 import './styles/fonts.css'
+import './styles/typography.css'
 import './styles/scrollbar.css'
 import './styles/motion.css'
 

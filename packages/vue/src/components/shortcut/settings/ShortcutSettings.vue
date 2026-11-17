@@ -136,8 +136,8 @@
   }
 
   /* 正文贴边时空态也要留在安全区内。 */
-  .shortcut-settings > :deep(.base-empty-state) {
-    padding-inline: var(--base-modal-content-inset);
+  .shortcut-settings {
+    --base-empty-state-inline-padding: var(--base-modal-content-inset);
   }
 
   .shortcut-settings__list {

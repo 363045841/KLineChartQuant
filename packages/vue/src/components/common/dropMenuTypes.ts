@@ -10,6 +10,8 @@ interface DropMenuItemBase {
   disabled?: boolean
   /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
   icon?: Component
+  /** 左侧状态点颜色；与图标共用槽位，item 未提供 icon 时展示。 */
+  dot?: string
   /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
   shortcut?: string
   /** 禁用原因；默认按钮通过 title 展示。 */
@@ -38,9 +40,9 @@ export interface DropMenuGroup {
   items: ReadonlyArray<DropMenuItem>
 }
 
-/** 面板打开锚点：触发器元素（下拉）或指针坐标（右键菜单）。 */
+/** 面板打开锚点：锚点按钮元素（普通按钮）或指针坐标（右键菜单）。 */
 export type MenuAnchor =
-  | { readonly kind: 'trigger'; readonly element: HTMLElement }
+  | { readonly kind: 'element'; readonly element: HTMLElement }
   | {
       readonly kind: 'point'
       readonly x: number

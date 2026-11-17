@@ -59,7 +59,6 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
     const steps: TextScaleStep[] = [12, 13, 14, 16, 20, 24, 32, 48, 72]
     expect(steps.map((s) => f.text[s].fontSize)).toEqual(steps.map((s) => `${s}px`))
     expect(f.text['11Mono']).toMatchObject({ fontSize: '11px', lineHeight: '16px' })
-    expect(f.text['11Mono'].fontFamily).toContain('monospace')
     const all = JSON.stringify(f.text)
     expect(all).not.toContain('"10px"')
     expect(f.text.numeric).toBe('tabular-nums')
@@ -73,12 +72,13 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
     expect(f.text[72].lineHeight).toBe(0.9)
   })
 
-  it('label and copy roles reuse the scale; labels ≤ 16 are 500, copy keeps the scale weight', () => {
-    for (const s of [12, 13, 14, 16] as const) {
+  it('label 角色只在 12 / 13 声明 500；其它尺寸档不携带字重', () => {
+    for (const s of [12, 13] as const) {
       expect(f.text.label[s]).toEqual({ ...f.text[s], fontWeight: 500 })
     }
-    expect(f.text.label[20]).toEqual(f.text[20])
-    for (const s of [13, 14, 16, 20, 24] as const) expect(f.text.copy[s]).toEqual(f.text[s])
+    for (const s of [14, 16, 20] as const) expect(f.text.label[s].fontWeight).toBeUndefined()
+    for (const s of [13, 14, 16, 20, 24] as const)
+      expect(f.text.copy[s].fontWeight).toBeUndefined()
   })
 
   it('space follows Carbon 2..160 (S28)', () => {

@@ -14,11 +14,11 @@ agent/
 │   ├── chart-context/               # 图表上下文投影与订阅
 │   ├── provider/                    # Provider profile、凭据、模型池
 │   ├── provider-settings/           # Provider 设置面板状态
-│   ├── session/                     # 会话、运行与问答状态
+│   ├── session/                     # 待答提问表（会话事实来自 Pi）
 │   └── tools/                       # Core 图表工具到 Runtime 工具的适配
-├── workspace/                       # Vue 工作台 reducer、composable、偏好
+├── workspace/                       # Vue 工作台状态、composable、偏好
 ├── agent-copy/                      # 多语言文案
-├── render-agent-markdown/           # Markdown 与 citation 渲染
+├── render-agent-markdown/           # Markdown、citation 渲染与正文排版样式
 ├── components/                      # 展示组件
 ├── testing/                         # Fake bridge 与测试辅助
 └── __tests__/                       # 跨模块与门面测试

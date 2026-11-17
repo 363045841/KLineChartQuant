@@ -41,7 +41,7 @@ describe('AgentProviderSettingsStore', () => {
     store.bindBridge(bridge)
     await store.show(await bridge.getProviderStatus())
     store.modelCatalog = [
-      { id: 'provider-model-a', name: 'Provider Model A', compatibility: 'compatible' },
+      { id: 'provider-model-a', name: 'Provider Model A' },
     ]
 
     await store.setModelPoolMembership('provider-model-a', true)

@@ -1,7 +1,6 @@
 /* 随包自托管的字体：@fontsource 由构建把它们引用的 woff2 打进产物，不使用 CDN。
    等宽字体对应 --klc-typography-font-family-mono；品牌字体对应 --klc-font-family-brand。 */
 @import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/outfit/latin-600.css";
 
 /* 中文界面字体：单一字重 Medium，由 --klc-typography-font-family 的第二种字体命中。
@@ -11,6 +10,6 @@
   font-family: "HarmonyOS Sans";
   src: url("../assets/fonts/HarmonyOS_Sans_SC_Subset.woff2") format("woff2");
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 500;
   font-display: swap;
 }

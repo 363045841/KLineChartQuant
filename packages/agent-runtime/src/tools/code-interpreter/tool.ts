@@ -1,8 +1,6 @@
-// 本文件把代码解释器注册进 Core 的 ChartToolRegistry。
-// 注册表是 Core 提供的「机制」，本工具是住在 agent-runtime 的「内容」——
-// 二者共享同一个模块实例即可跨包注册（design.md §1.1）。
-import { type ChartToolExecutionContext, Tool } from '@363045841yyt/klinechart-core/agent-tools'
+// 本文件把代码解释器包装成标准工具定义；执行逻辑留在 CodeInterpreterTool。
 import { type Static, Type } from 'typebox'
+import type { RuntimeToolDefinition } from '../../pi/types.js'
 import type { CodeInterpreter, ExecutionRequest, ExecutionResult, InputFile } from './contract.js'
 import { MAX_TIMEOUT_MS } from './contract.js'
 
@@ -38,15 +36,18 @@ export const CodeInterpreterToolParameters = Type.Object(
 
 export type CodeInterpreterToolInput = Static<typeof CodeInterpreterToolParameters>
 
+/** 执行期只需要取消信号与进度回报。 */
+interface ExecutionControl {
+  readonly signal: AbortSignal
+  progress(update: { readonly label: string }): void
+}
+
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
 
-/**
- * `code_interpreter` 工具宿主。
- * 参数校验复用 ChartToolRegistry 的 TypeBox 路径，不另造校验层。
- */
+/** 代码解释器执行逻辑；工具契约由 {@link createCodeInterpreterTool} 声明。 */
 export class CodeInterpreterTool {
   readonly #interpreter: CodeInterpreter
 
@@ -54,20 +55,10 @@ export class CodeInterpreterTool {
     this.#interpreter = interpreter
   }
 
-  @Tool({
-    name: CODE_INTERPRETER_TOOL_NAME,
-    label: 'Run Python',
-    description:
-      'Execute Python code in an isolated sandbox with numpy and pandas available and outbound network disabled. ' +
-      'Read inputs from $INPUT_DIR and write files you want returned into $OUTPUT_DIR.',
-    parameters: CodeInterpreterToolParameters,
-    // 执行 Agent 生成的代码有副作用，按 PRD R5 标注为 destructive。
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
+  /** 提交并轮询一次执行；取消时先终止沙箱任务再返回最终结果。 */
   async runPython(
     input: CodeInterpreterToolInput,
-    context?: ChartToolExecutionContext,
+    context?: ExecutionControl,
   ): Promise<ExecutionResult> {
     const request: ExecutionRequest = {
       language: 'python',
@@ -99,5 +90,31 @@ export class CodeInterpreterTool {
       await this.#interpreter.cancel(task.taskId).catch(() => undefined)
       throw error
     }
+  }
+}
+
+/** 把执行逻辑包装成 Pi 可调用的工具；执行代码有副作用，plan 模式不暴露。 */
+export function createCodeInterpreterTool(interpreter: CodeInterpreter): RuntimeToolDefinition {
+  const tool = new CodeInterpreterTool(interpreter)
+  return {
+    name: CODE_INTERPRETER_TOOL_NAME,
+    label: 'Run Python',
+    description:
+      'Execute Python code in an isolated sandbox with numpy and pandas available and outbound network disabled. ' +
+      'Read inputs from $INPUT_DIR and write files you want returned into $OUTPUT_DIR.',
+    parameters: CodeInterpreterToolParameters,
+    effect: 'write',
+    executionMode: 'sequential',
+    summarizeInput: (input) => `${(input as CodeInterpreterToolInput).code.length} bytes of Python`,
+    async execute(input, context) {
+      const result = await tool.runPython(input as CodeInterpreterToolInput, context)
+      return {
+        content: JSON.stringify(result),
+        summary:
+          result.exitCode === undefined
+            ? `Code interpreter finished with status ${result.status}.`
+            : `Code interpreter exited with code ${result.exitCode}.`,
+      }
+    },
   }
 }

@@ -1,29 +1,36 @@
-<!-- 单条轴列底部的设置入口：目标轴由所在列决定，菜单不再列轴供选择。 -->
+<!-- 单条轴列底部的设置入口：普通按钮只提供菜单锚点，目标轴由所在列决定。 -->
 <template>
-  <DropMenu
-    class="pane-axis-settings"
-    :label="MENU_LABEL"
-    :groups="groups"
-    placement="top"
-    density="compact"
-    keep-open-on-select
-    fill
-    @pointerdown.stop
-    @pointermove.stop
-    @pointerup.stop
-    @click.stop
-    @select="select"
-  >
-    <template #trigger>
-      <IconTablerSettings aria-hidden="true" />
-    </template>
-  </DropMenu>
+  <div class="pane-axis-settings" @pointerdown.stop @pointermove.stop @pointerup.stop @click.stop>
+    <BaseTooltip :content="MENU_LABEL" placement="top" trigger-display="contents">
+      <button
+        v-bind="menu.buttonProps.value"
+        type="button"
+        class="control-button pane-axis-settings__button"
+        :aria-label="MENU_LABEL"
+      >
+        <IconTablerSettings aria-hidden="true" />
+      </button>
+    </BaseTooltip>
+    <MenuSurface
+      v-bind="menu.menuProps.value"
+      :label="MENU_LABEL"
+      :groups="groups"
+      placement="top"
+      density="compact"
+      keep-open-on-select
+      @select="select"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
+  import '../../common/control-button.css'
+
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import { usePriceAxisMenu } from '@vue-src/composables/chart/usePriceAxisMenu.js'
   import { toRef } from 'vue'
   import IconTablerSettings from '~icons/tabler/settings'
@@ -34,6 +41,7 @@
   }>()
   const emit = defineEmits<{ 'settings-change': [settings: ChartSettings] }>()
   const MENU_LABEL = '坐标轴设置'
+  const menu = useMenuButton()
   const { groups, select } = usePriceAxisMenu(
     toRef(() => props.controller),
     (settings) => emit('settings-change', settings),
@@ -43,17 +51,6 @@
 
 <style scoped>
   .pane-axis-settings {
-    --control-button-height: 100%;
-    --control-button-inline-padding: 0;
-    --control-button-radius: 0;
-    --control-button-justify: center;
-    --control-button-color: var(--klc-color-ui-muted);
-    --control-button-active-background: var(--klc-color-ui-hover);
-    --control-button-active-color: var(--klc-color-ui-text);
-    --control-button-focus-outline: 2px solid var(--klc-color-ui-accent);
-    --control-button-focus-outline-offset: -2px;
-    --control-button-focus-shadow: none;
-
     /* 宿主给列左边与列宽，本组件贴在该轴带最底部。 */
     position: absolute;
     bottom: 0;
@@ -63,7 +60,21 @@
     pointer-events: auto;
   }
 
-  .pane-axis-settings svg {
+  /* 按钮外观沿用共享 button 底色，只把几何压成轴列底部的一格。 */
+  .pane-axis-settings__button {
+    --control-button-height: 100%;
+    --control-button-width: 100%;
+    --control-button-inline-padding: 0px;
+    --control-button-radius: 0;
+    --control-button-color: var(--klc-color-ui-muted);
+    --control-button-active-background: var(--klc-color-ui-hover);
+    --control-button-active-color: var(--klc-color-ui-text);
+    --control-button-focus-outline: 2px solid var(--klc-color-ui-accent);
+    --control-button-focus-outline-offset: -2px;
+    --control-button-focus-shadow: none;
+  }
+
+  .pane-axis-settings__button svg {
     width: 14px;
     height: 14px;
   }

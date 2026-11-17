@@ -1,24 +1,16 @@
+/**
+ * Agent 上下文投影测试：上下文只读取图表状态，不携带工具定义。
+ */
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
-import { MarketDataCache } from '@/data/buffer/impl/marketDataCache'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
-import { MarketDataProviderRegistry } from '@/data/provider/impl/registry'
-import type {
-  BarSeries,
-  InstrumentDescriptor,
-  InstrumentSearchQuery,
-  TimeShareRange,
-  TimeShareSeries,
-} from '@/data/provider/types'
-import { ComparisonCommands } from '@/engine/data/comparisonCommands'
-import { DrawingCommands, DrawingDocument } from '@/engine/drawing/index'
+import type { DrawingObject } from '@/engine/drawing/index'
 import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'
-import { createDrawingState } from '@/engine/state/drawingState'
 import { CHART_AGENT_ERROR_CODES } from '@/errors'
 import { createSignal } from '@/foundation/reactivity/signal'
-import { AGENT_DRAWING_COLOR_VALUES } from '@/foundation/tokens/agentDrawingColors'
 import type { KLineData } from '@/foundation/types/price'
-import { createChartAgentController, getRegisteredChartTools } from '../impl/chartAgentController'
+import { createChartAgentController } from '../impl/chartAgentController'
+import type { ChartAgentToolDeps } from '../types'
 
 const BAR_SELECTION = {
   kind: SERIES_SELECTION_KIND.bars,
@@ -29,844 +21,212 @@ const BAR_SELECTION = {
   barAggregation: 'original' as const,
 }
 
+/** 构造一段带日期的 K 线。 */
 function createBars(): KLineData[] {
-  return ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].map((date, index) => {
-    const timestamp = Date.parse(date) + (index === 0 ? 25_200_000 : 0)
-    return {
-      timestamp,
-      date,
-      open: timestamp,
-      high: timestamp + 1,
-      low: timestamp - 1,
-      close: timestamp,
-      volume: 100,
-    }
+  return ['2026-09-01', '2026-09-02', '2026-09-03'].map((date) => {
+    const timestamp = Date.parse(date)
+    return { timestamp, date, open: 1, high: 2, low: 1, close: 2, volume: 100 }
   })
 }
 
-function publishBars(
-  dataState: ReturnType<typeof createDataState>,
-  bars = createBars(),
-  timezone: string | null = null,
-): void {
+/** 空工具依赖；上下文投影不触碰工具。 */
+function stubTools(): ChartAgentToolDeps {
+  return {
+    indicators: {
+      list: () => [],
+      add: () => {
+        throw new Error('not used')
+      },
+      update: () => false,
+      move: () => false,
+      remove: () => false,
+      clear: () => 0,
+      resolveDefinition: async () => null,
+    },
+    drawings: {
+      list: () => [],
+      create: () => {
+        throw new Error('not used')
+      },
+      update: () => null,
+      remove: () => false,
+      copy: () => [],
+      clear: () => 0,
+    },
+    comparisons: {
+      list: () => [],
+      add: () => false,
+      create: async () => ({ status: 'added', symbol: '', name: '' }),
+      remove: () => false,
+      clear: () => 0,
+    },
+    market: {
+      listSourceIds: () => [],
+      lookupInstrument: async () => '',
+      bars: async () => '',
+      timeShare: async () => '',
+      indicatorValues: async () => '',
+    },
+  }
+}
+
+/** 组装控制器；返回可写的状态信号以便逐项断言投影。 */
+function createFixture() {
+  const dataState = createDataState()
+  const selectedRange = createSignal<{ from: number; to: number } | null>(null)
+  const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
+  const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
+  const controller = createChartAgentController({
+    chartId: 'chart-1',
+    dataState,
+    currentSpec: createSignal<SymbolSpec | null>({
+      symbol: 'BTCUSDT',
+      market: 'crypto',
+      exchange: 'BINANCE',
+      period: 'daily',
+      adjust: 'none',
+      source: 'fixture',
+    }),
+    chartMode: createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline'),
+    selectedRange,
+    indicators: createSignal<ReadonlyArray<IndicatorInstance>>([
+      {
+        id: 'rsi-1',
+        definitionId: 'RSI',
+        label: 'RSI',
+        name: 'RSI',
+        paneId: 'pane-a',
+        ordinal: 0,
+        params: { period: 14, showLabel: true, invalid: Number.NaN },
+      },
+    ]),
+    drawings,
+    selectedDrawingIds,
+    readPlacement: (paneId) => (paneId === 'main' ? 'main' : paneId === 'pane-a' ? 'rsi-1' : null),
+    tools: stubTools(),
+    marketDataTextFormatter: {
+      formatBars: () => '',
+      formatChartBars: () => 'chart bars text',
+      formatInstrumentLookup: () => '',
+      formatTimeShare: () => '',
+      formatTimeShareRange: () => '',
+    },
+  })
+  return { controller, dataState, selectedRange, drawings, selectedDrawingIds }
+}
+
+/** 发布一段可读的 K 线快照。 */
+function publishBars(dataState: ReturnType<typeof createDataState>, bars = createBars()): void {
   dataState.actions.applyActiveBufferSnapshot({
     kind: ACTIVE_BUFFER_KIND.bars,
     selection: BAR_SELECTION,
     data: bars,
     loading: false,
     error: null,
-    timezone,
+    timezone: 'UTC',
     timeShareRange: null,
     timeSharePreClose: null,
   })
 }
 
-function createFixture() {
-  const dataState = createDataState()
-  const bars = createBars()
-  publishBars(dataState, bars)
-  const drawingState = createDrawingState()
-  const drawingDocument = new DrawingDocument({
-    drawingState,
-    findAnchorAtTradingDate: (tradingDate) => {
-      const bar = bars.find((item) => item.date === tradingDate)
-      return bar === undefined
-        ? { kind: 'not-trading' }
-        : { kind: 'resolved', timestamp: bar.timestamp }
-    },
-    hasPaneId: (paneId) => paneId === 'main',
-    getWorkspaceId: () => 'kline',
-    getSymbolKey: () => undefined,
-  })
-  const requestDraw = vi.fn()
-  const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })
-  const panes = [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }]
-  const paneActions = {
-    add: vi.fn(() => 'new-instance'),
-    addPane: vi.fn(() => 'new-pane'),
-    moveInstance: vi.fn(() => true),
-    removeInstance: vi.fn(() => true),
-    removeInstancesByDefinition: vi.fn(),
-    clearAllIndicators: vi.fn(),
-    updateInstance: vi.fn(() => true),
-    updatePane: vi.fn(() => true),
-    removePane: vi.fn(() => true),
-    movePane: vi.fn(() => true),
-    clearPanes: vi.fn(),
-    importLayout: vi.fn(),
-    getLayoutSpecs: vi.fn(() => panes),
-    hasPane: vi.fn((paneId: string) => panes.some((pane) => pane.id === paneId)),
-  }
-
-  const currentSpec = createSignal<SymbolSpec | null>({
-    symbol: 'BTCUSDT',
-    market: 'crypto',
-    exchange: 'BINANCE',
-    period: 'daily',
-    adjust: 'none',
-    source: 'fixture',
-  })
-  const selectedRange = createSignal<{ from: number; to: number } | null>(null)
-  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline')
-  const indicatorParams = { period: 14, showLabel: true, invalid: Number.NaN }
-  const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([
-    {
-      id: 'rsi-1',
-      definitionId: 'RSI',
-      label: 'RSI',
-      name: 'RSI',
-      paneId: 'rsi-pane',
-      ordinal: 0,
-      params: indicatorParams,
-    },
-  ])
-  const queryIndicator = vi.fn(async () => 'RSI compact text')
-  const marketDataProviderRegistry = new MarketDataProviderRegistry()
-  const instrument = {
-    id: 'fixture:BTCUSDT',
-    sourceId: 'fixture',
-    symbol: 'BTCUSDT',
-    name: 'Bitcoin',
-    instrumentType: 'crypto' as const,
-    exchange: 'BINANCE',
-    capabilities: {
-      bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
-      timeShare: true,
-      timeShareRange: { maxTradingDays: 5 },
-    },
-  }
-  const search = vi.fn<
-    (query: InstrumentSearchQuery) => Promise<ReadonlyArray<InstrumentDescriptor>>
-  >(async () => [instrument])
-  const fetchBars = vi.fn(
-    async (): Promise<BarSeries> => ({
-      instrumentId: instrument.id,
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-      timezone: 'UTC',
-      data: createBars(),
-      olderData: 'exhausted',
-    }),
-  )
-  const fetchTimeShare = vi.fn(
-    async (): Promise<TimeShareSeries> => ({
-      instrumentId: instrument.id,
-      tradingDate: '2026-09-01' as const,
-      timezone: 'UTC',
-      preClose: 100,
-      data: [{ timestamp: 3_600_000, price: 101, average: 100, volume: 10 }],
-    }),
-  )
-  const fetchTimeShareRange = vi.fn(
-    async (): Promise<TimeShareRange> => ({
-      instrumentId: instrument.id,
-      timezone: 'UTC',
-      requestedDays: 2,
-      olderData: 'available' as const,
-      days: [
-        {
-          tradingDate: '2026-09-01' as const,
-          preClose: 100,
-          data: [{ timestamp: 7_200_000, price: 102, average: 101, volume: 20 }],
-        },
-      ],
-    }),
-  )
-  marketDataProviderRegistry.register({
-    source: {
-      id: 'fixture',
-      displayName: 'Fixture',
-      capabilities: {
-        instrumentTypes: ['crypto'],
-        bars: { periods: ['daily'], adjustments: ['none'] },
-        timeShare: true,
-        timeShareRange: { maxTradingDays: 5 },
-      },
-    },
-    probe: async () => ({ status: 'online', checkedAt: 1 }),
-    catalog: {
-      search,
-    },
-    bars: { fetch: fetchBars },
-    timeShare: { fetch: fetchTimeShare },
-    timeShareRange: { fetch: fetchTimeShareRange },
-  })
-  const comparisonCommands = new ComparisonCommands({
-    getSpecs: () => [],
-    setSpecs: () => {},
-    registerSpec: () => {},
-    resolveInstrument: async () => ({
-      candidates: [],
-      searchedSourceIds: [],
-      foundElsewhereSourceIds: [],
-    }),
-    getColor: () => undefined,
-    scheduleDraw: () => {},
-  })
-  const copyDrawings = vi.fn<
-    (ids: ReadonlyArray<string>) => ReturnType<typeof drawingDocument.listDrawings>
-  >(() => [])
-  // 指标实现按需加载：解析只认已加载的定义，工具必须先加载再解析。
-  const loadedIndicators = new Set<string>()
-  const loadIndicators = vi.fn(async (ids: ReadonlyArray<string>) => {
-    for (const id of ids) loadedIndicators.add(id)
-  })
-  const controller = createChartAgentController({
-    chartId: 'chart-fixture',
-    dataState,
-    currentSpec,
-    chartMode,
-    selectedRange,
-    indicators,
-    indicatorQuery: { queryIndicator },
-    marketDataProviderRegistry,
-    marketDataCache: new MarketDataCache(marketDataProviderRegistry),
-    drawingDocument,
-    drawingCommands,
-    copyDrawings,
-    drawings: drawingState.readonly.drawings,
-    selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
-    getDrawingPaneIds: () => ['main'],
-    loadIndicators,
-    resolveSubPaneIndicatorId: (indicatorId) =>
-      loadedIndicators.has(indicatorId)
-        ? ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' }[indicatorId] ?? null)
-        : null,
-    panes: paneActions,
-    comparisonCommands,
-    isSubPaneRendererAvailable: (indicatorId) =>
-      indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
-  })
-
-  return {
-    controller,
-    currentSpec,
-    chartMode,
-    dataState,
-    selectedRange,
-    indicatorParams,
-    indicators,
-    queryIndicator,
-    search,
-    fetchBars,
-    fetchTimeShare,
-    fetchTimeShareRange,
-    drawingDocument,
-    drawingCommands,
-    copyDrawings,
-    drawingState,
-    requestDraw,
-    paneActions,
-    loadIndicators,
-  }
-}
-
-describe('createChartAgentController', () => {
-  it('routes drawing copies through the same operation as the UI', async () => {
-    const { controller, copyDrawings } = createFixture()
-    const tool = getRegisteredChartTools().find((item) => item.config.name === 'drawings_copy')!
-    await tool.execute(
-      controller,
-      { drawingIds: ['first', 'second'] },
-      {
-        signal: new AbortController().signal,
-        progress: () => undefined,
-      },
+describe('chart agent context', () => {
+  it('没有行情数据时投影为空，取上下文抛出可纠正错误', () => {
+    const { controller } = createFixture()
+    expect(controller.context()).toBeNull()
+    expect(() => controller.getContext()).toThrow(
+      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.NO_DATA }),
     )
-    expect(copyDrawings).toHaveBeenCalledWith(['first', 'second'])
   })
 
-  it('returns a detached, deeply immutable, serializable context snapshot', () => {
-    const fixture = createFixture()
-
-    const snapshot = fixture.controller.getContext()
-
-    expect(snapshot).toEqual({
-      chartId: 'chart-fixture',
+  it('投影标的信息、数据范围与已启用指标', () => {
+    const { controller, dataState } = createFixture()
+    publishBars(dataState)
+    const context = controller.getContext()
+    expect(context).toMatchObject({
+      chartId: 'chart-1',
       symbol: 'BTCUSDT',
-      symbolName: null,
       market: 'crypto',
       exchange: 'BINANCE',
       period: 'kline',
       dataSource: 'fixture',
-      timezone: null,
       adjustMode: 'none',
-      dataRange: {
-        from: Date.parse('2026-09-01') + 25_200_000,
-        to: Date.parse('2026-09-04'),
-        bars: 4,
-      },
-      visibleRange: null,
-      selectedKLineBars: null,
-      activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
-      drawingSelection: null,
-      dataRevision: 1,
+      timezone: 'UTC',
+      dataRange: { bars: 3 },
     })
-    expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)
-    expect(Object.isFrozen(snapshot)).toBe(true)
-    expect(Object.isFrozen(snapshot.dataRange)).toBe(true)
-    expect(Object.isFrozen(snapshot.activeIndicators)).toBe(true)
-    expect(Object.isFrozen(snapshot.activeIndicators[0])).toBe(true)
-    expect(Object.isFrozen(snapshot.activeIndicators[0]?.params)).toBe(true)
-
-    fixture.currentSpec.set({ symbol: 'ETHUSDT', market: 'crypto' })
-    fixture.indicatorParams.period = 9
-
-    expect(snapshot.symbol).toBe('BTCUSDT')
-    expect(snapshot.activeIndicators[0]?.params.period).toBe(14)
+    expect(context.activeIndicators).toEqual([
+      { instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } },
+    ])
+    expect(context.drawingSelection).toBeNull()
   })
 
-  it('projects the server-provided K-line timezone', () => {
-    const fixture = createFixture()
-
-    publishBars(fixture.dataState, createBars(), 'America/New_York')
-
-    expect(fixture.controller.getContext().timezone).toBe('America/New_York')
+  it('选定范围存在时附带已加载 K 线文本', () => {
+    const { controller, dataState, selectedRange } = createFixture()
+    publishBars(dataState)
+    selectedRange.set({ from: Date.parse('2026-09-01'), to: Date.parse('2026-09-03') })
+    expect(controller.getContext().selectedKLineBars).toBe('chart bars text')
   })
 
-  it('formats every loaded K-line in the selected range with the market-bars formatter', () => {
-    const fixture = createFixture()
-    publishBars(fixture.dataState, createBars(), 'UTC')
-    fixture.selectedRange.set({
-      from: Date.parse('2026-09-02'),
-      to: Date.parse('2026-09-03'),
-    })
-
-    const selectedKLineBars = fixture.controller.getContext().selectedKLineBars
-
-    expect(selectedKLineBars).toContain(
-      'market bars | symbol=BTCUSDT | source=fixture | timezone=UTC | period=daily | adjustment=none | olderData=-',
-    )
-    expect(selectedKLineBars).toContain('| time | open | high | low | close | volume |')
-    expect(selectedKLineBars).toContain('| 2026-09-02 00:00 |')
-    expect(selectedKLineBars).toContain('| 2026-09-03 00:00 |')
-    expect(selectedKLineBars).not.toContain('| 2026-09-01 07:00 |')
-    expect(selectedKLineBars).not.toContain('| 2026-09-04 00:00 |')
-  })
-
-  it('returns a stable chart identity and fresh read-only snapshots', () => {
-    const fixture = createFixture()
-
-    const first = fixture.controller.getContext()
-    const second = fixture.controller.getContext()
-
-    expect(first).not.toBe(second)
-    expect(first.chartId).toBe(second.chartId)
-  })
-
-  it('projects every selected drawing into the Agent context in selection order', () => {
-    const fixture = createFixture()
-    fixture.drawingState.actions.setDrawings([
+  it('选中图元按落点投影，无法寻址的容器保留为 null', () => {
+    const { controller, dataState, drawings, selectedDrawingIds } = createFixture()
+    publishBars(dataState)
+    drawings.set([
       {
-        id: 'line-a',
+        id: 'd-main',
         kind: 'horizontal-line',
         paneId: 'main',
         visible: true,
-        anchors: [{ id: 'a', price: 100 }],
+        anchors: [{ id: 'a1', type: 'horizontal', time: 1_000, price: 10 }],
         params: {},
-        style: { stroke: '#2962ff' },
+        style: { stroke: '#fff' },
       },
       {
-        id: 'line-b',
+        id: 'd-sub',
         kind: 'horizontal-line',
-        paneId: 'main',
+        paneId: 'pane-a',
         visible: true,
-        anchors: [{ id: 'b', price: 101 }],
+        anchors: [{ id: 'a2', type: 'horizontal', time: 1_000, price: 12 }],
         params: {},
-        style: { stroke: '#f00', strokeWidth: 2 },
+        style: { stroke: '#fff' },
       },
-    ])
-    fixture.drawingState.actions.setSelectedDrawingIds(['line-b', 'line-a'])
-
-    expect(fixture.controller.getContext().drawingSelection).toEqual({
-      selectedIds: ['line-b', 'line-a'],
-      drawings: [
-        expect.objectContaining({ id: 'line-b', style: { stroke: '#f00', strokeWidth: 2 } }),
-        expect.objectContaining({ id: 'line-a', style: { stroke: '#2962ff' } }),
-      ],
-    })
-  })
-
-  it('rejects an unavailable market-data source ID with enabled IDs needed to retry', async () => {
-    const fixture = createFixture()
-
-    await expect(
-      fixture.controller.queryBars({
-        symbol: 'BTCUSDT',
-        sourceId: 'akshare',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
-        limit: 100,
-      }),
-    ).rejects.toMatchObject({
-      code: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-      message:
-        "Unknown or disabled sourceId 'akshare'. Available sourceIds: fixture. Omit sourceId to allow automatic routing across every enabled source.",
-    })
-  })
-
-  it('projects StateKernel changes through the context signal', () => {
-    const fixture = createFixture()
-    const observed: Array<string | null> = []
-    const unsubscribe = fixture.controller.context.subscribe(() => {
-      observed.push(fixture.controller.context()?.symbol ?? null)
-    })
-
-    fixture.currentSpec.set({ symbol: 'ETHUSDT', market: 'crypto' })
-
-    expect(fixture.controller.context()?.symbol).toBe('ETHUSDT')
-    expect(observed).toEqual(['ETHUSDT'])
-    unsubscribe()
-  })
-
-  it('uses only the StateKernel range-selection for its displayed range', () => {
-    const fixture = createFixture()
-
-    fixture.selectedRange.set({ from: 1_000, to: 3_000 })
-
-    expect(fixture.controller.context()?.visibleRange).toEqual({ from: 1_000, to: 3_000 })
-    fixture.selectedRange.set(null)
-    expect(fixture.controller.context()?.visibleRange).toBeNull()
-  })
-
-  it('uses the StateKernel chart mode without inferring from the data buffer', () => {
-    const fixture = createFixture()
-
-    fixture.chartMode.set('fiveDayTimeShare')
-
-    expect(fixture.controller.context()?.period).toBe('fiveDayTimeShare')
-  })
-
-  it('throws a typed no-data error for an absent or empty active series', () => {
-    const fixture = createFixture()
-    fixture.dataState.actions.reset()
-
-    expect(() => fixture.controller.getContext()).toThrowError(
-      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.NO_DATA }),
-    )
-
-    publishBars(fixture.dataState, [])
-    expect(() => fixture.controller.getContext()).toThrowError(
-      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.NO_DATA }),
-    )
-  })
-
-  it('delegates indicator queries and preserves compact text verbatim', async () => {
-    const fixture = createFixture()
-    const input = { definitionId: 'RSI', params: { period: 14 }, limit: 20 }
-    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
-
-    await expect(fixture.controller.queryIndicator(input)).resolves.toBe('RSI compact text')
-    await expect(
-      tool?.execute(fixture.controller, input, {
-        signal: new AbortController().signal,
-        progress: () => undefined,
-      }),
-    ).resolves.toBe('RSI compact text')
-    expect(fixture.queryIndicator).toHaveBeenCalledTimes(2)
-    expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
-    expect(fixture.loadIndicators).toHaveBeenCalledWith(['RSI'])
-  })
-
-  it('rejects timestamp ranges from the registered indicator tool', async () => {
-    const fixture = createFixture()
-    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
-
-    await expect(
-      tool?.execute(
-        fixture.controller,
-        { definitionId: 'RSI', from: Date.parse('2026-09-01') },
-        { signal: new AbortController().signal, progress: () => undefined },
-      ),
-    ).rejects.toThrow('must not have additional properties')
-
-    expect(fixture.queryIndicator).not.toHaveBeenCalled()
-  })
-
-  it('executes drawing CRUD through the registered document tools', async () => {
-    const fixture = createFixture()
-    const signal = new AbortController().signal
-    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
-    const update = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_update')!
-    const list = getRegisteredChartTools().find((tool) => tool.config.name === 'drawings_list')!
-    const remove = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_delete')!
-
-    const created = (await create.execute(
-      fixture.controller,
       {
-        kind: 'trend-line',
-        paneId: 'main',
-        anchors: [
-          { tradingDate: '2026-09-01', price: 10 },
-          { tradingDate: '2026-09-02', price: 12 },
-        ],
-        style: { stroke: AGENT_DRAWING_COLOR_VALUES[0] },
-        labels: { line: { 0: { text: '初始趋势', position: 'center' } }, area: {} },
-      },
-      { signal, progress: () => undefined },
-    )) as { id: string; anchors: Array<{ timestamp: number; price: number; index?: number }> }
-
-    expect(created.anchors).toEqual([
-      { timestamp: Date.parse('2026-09-01') + 25_200_000, price: 10 },
-      { timestamp: Date.parse('2026-09-02'), price: 12 },
-    ])
-    expect(created).toMatchObject({
-      labels: { line: { 0: { text: '初始趋势', position: 'center' } }, area: {} },
-    })
-    await expect(
-      update.execute(
-        fixture.controller,
-        {
-          drawingId: created.id,
-          patch: {
-            labels: { line: { 0: { text: '更新趋势', position: 'end' } }, area: {} },
-            anchors: [
-              { tradingDate: '2026-09-03', price: 11 },
-              { tradingDate: '2026-09-04', price: 13 },
-            ],
-          },
-        },
-        { signal, progress: () => undefined },
-      ),
-    ).resolves.toMatchObject({
-      id: created.id,
-      anchors: [
-        { timestamp: Date.parse('2026-09-03'), price: 11 },
-        { timestamp: Date.parse('2026-09-04'), price: 13 },
-      ],
-      labels: { line: { 0: { text: '更新趋势', position: 'end' } }, area: {} },
-    })
-    await expect(
-      list.execute(fixture.controller, {}, { signal, progress: () => undefined }),
-    ).resolves.toEqual([expect.objectContaining({ id: created.id })])
-    await expect(
-      remove.execute(
-        fixture.controller,
-        { drawingId: created.id },
-        { signal, progress: () => undefined },
-      ),
-    ).resolves.toEqual({ removed: true })
-    expect(fixture.drawingDocument.listDrawings()).toEqual([])
-    expect(fixture.requestDraw).toHaveBeenCalledTimes(3)
-    expect(fixture.drawingCommands.history.undo()).toBe(true)
-    expect(fixture.drawingDocument.getDrawing(created.id)?.labels?.line['0']?.text).toBe('更新趋势')
-    fixture.drawingCommands.updateBatch([created.id], { locked: true })
-    expect(fixture.drawingCommands.history.canRedo.peek()).toBe(false)
-    expect(fixture.drawingCommands.history.undo()).toBe(true)
-    expect(fixture.drawingDocument.getDrawing(created.id)?.locked).toBeUndefined()
-  })
-
-  it('creates a horizontal line from a price-only Agent anchor', async () => {
-    const fixture = createFixture()
-    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
-    const signal = new AbortController().signal
-
-    await expect(
-      create.execute(
-        fixture.controller,
-        {
-          kind: 'horizontal-line',
-          paneId: 'main',
-          anchors: [{ price: 9 }],
-          style: { stroke: AGENT_DRAWING_COLOR_VALUES[0] },
-        },
-        { signal, progress: () => undefined },
-      ),
-    ).resolves.toMatchObject({ kind: 'horizontal-line', anchors: [{ timestamp: null, price: 9 }] })
-  })
-
-  it('limits Agent drawing colors to the dedicated token presets', async () => {
-    const fixture = createFixture()
-    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
-    const update = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_update')!
-    const execution = { signal: new AbortController().signal, progress: () => undefined }
-    const [stroke, fill, textColor] = AGENT_DRAWING_COLOR_VALUES
-
-    const created = (await create.execute(
-      fixture.controller,
-      {
+        id: 'd-other',
         kind: 'horizontal-line',
-        paneId: 'main',
-        anchors: [{ price: 9 }],
-        style: { stroke, fill, textColor },
+        paneId: 'pane-other',
+        visible: true,
+        anchors: [{ id: 'a3', type: 'horizontal', time: 1_000, price: 14 }],
+        params: {},
+        style: { stroke: '#fff' },
       },
-      execution,
-    )) as { id: string; style: Record<string, string> }
-
-    expect(created.style).toMatchObject({ stroke, fill, textColor })
-    await expect(
-      update.execute(
-        fixture.controller,
-        { drawingId: created.id, patch: { style: { stroke: '#0F8B5C' } } },
-        execution,
-      ),
-    ).rejects.toThrow('must be equal to one of the allowed values')
-    await expect(
-      create.execute(
-        fixture.controller,
-        {
-          kind: 'horizontal-line',
-          paneId: 'main',
-          anchors: [{ price: 10 }],
-          style: { stroke: '#C2363B' },
-        },
-        execution,
-      ),
-    ).rejects.toThrow('must be equal to one of the allowed values')
-    expect(fixture.drawingDocument.listDrawings()).toHaveLength(1)
-    expect(fixture.requestDraw).toHaveBeenCalledOnce()
-  })
-
-  it('delegates instrument searches through the shared Provider registry', async () => {
-    const fixture = createFixture()
-    const input = { keyword: '600519', limit: 20, sourceIds: ['fixture'] }
-
-    await expect(fixture.controller.searchInstruments(input)).resolves.toEqual([
-      expect.objectContaining({ symbol: 'BTCUSDT' }),
     ])
-    expect(fixture.search).toHaveBeenCalledWith({
-      keyword: '600519',
-      limit: 20,
-      sourceIds: undefined,
-      instrumentTypes: undefined,
-      signal: undefined,
-    })
+    selectedDrawingIds.set(['d-main', 'd-sub', 'd-other'])
+    const selection = controller.getContext().drawingSelection
+    expect(selection?.selectedIds).toEqual(['d-main', 'd-sub', 'd-other'])
+    expect(selection?.drawings.map((item) => item.placement)).toEqual(['main', 'rsi-1', null])
   })
+})
 
-  it('exposes exact instrument lookup through the same decorated Core method', async () => {
-    const fixture = createFixture()
-    const match = {
-      id: 'stock:600519',
-      sourceId: 'fixture',
-      symbol: '600519',
-      name: '贵州茅台',
-      instrumentType: 'stock' as const,
-      exchange: 'SH',
-      capabilities: {},
-    }
-    fixture.search.mockResolvedValue([match])
-    const input = { symbol: '600519', sourceIds: ['fixture'] }
-    const tool = getRegisteredChartTools().find(
-      (item) => item.config.name === 'instruments_query_name',
-    )
-
-    const direct = await fixture.controller.lookupInstrumentsBySymbol(input)
-    expect(direct).toContain('instrument lookup | symbol=600519 | matches=1')
-    expect(direct).toContain('| stock:600519 | fixture | 600519 | 贵州茅台 | stock | SH | {} |')
-    await expect(
-      tool?.execute(fixture.controller, input, {
-        signal: new AbortController().signal,
-        progress: () => undefined,
-      }),
-    ).resolves.toEqual(direct)
-    expect(fixture.search).toHaveBeenLastCalledWith({
-      keyword: '600519',
-      limit: 100,
-      signal: expect.any(AbortSignal),
-    })
-  })
-
-  it('queries market data through the same decorated APIs without changing chart state', async () => {
-    const fixture = createFixture()
-    const signal = new AbortController().signal
-    const barsInput = {
-      symbol: 'BTCUSDT',
-      sourceId: 'fixture',
-      exchange: 'BINANCE',
-      instrumentType: 'crypto' as const,
-      period: 'daily' as const,
-      adjustment: 'none' as const,
-      barAggregation: 'original' as const,
-      limit: 100,
-    }
-    const timeShareInput = {
-      symbol: 'BTCUSDT',
-      sourceId: 'fixture',
-      tradingDate: '2026-09-01' as const,
-    }
-    const rangeInput = {
-      symbol: 'BTCUSDT',
-      sourceId: 'fixture',
-      endTradingDate: '2026-09-01' as const,
-      days: 2,
-    }
-
-    const barsTool = getRegisteredChartTools().find(
-      (item) => item.config.name === 'market_bars_query',
-    )
-    const timeShareTool = getRegisteredChartTools().find(
-      (item) => item.config.name === 'market_timeshare_query',
-    )
-    const rangeTool = getRegisteredChartTools().find(
-      (item) => item.config.name === 'market_timeshare_range_query',
-    )
-
-    await expect(fixture.controller.queryBars(barsInput)).resolves.toContain('source=fixture')
-    await expect(
-      barsTool?.execute(fixture.controller, barsInput, { signal, progress: () => undefined }),
-    ).resolves.toContain('source=fixture')
-    await expect(fixture.controller.queryTimeShare(timeShareInput)).resolves.toContain(
-      'source=fixture',
-    )
-    await expect(
-      timeShareTool?.execute(fixture.controller, timeShareInput, {
-        signal,
-        progress: () => undefined,
-      }),
-    ).resolves.toContain('source=fixture')
-    await expect(fixture.controller.queryTimeShareRange(rangeInput)).resolves.toContain(
-      'source=fixture',
-    )
-    await expect(
-      rangeTool?.execute(fixture.controller, rangeInput, { signal, progress: () => undefined }),
-    ).resolves.toContain('source=fixture')
-
-    expect(fixture.fetchBars).toHaveBeenCalledOnce()
-    expect(fixture.fetchTimeShare).toHaveBeenCalledOnce()
-    expect(fixture.fetchTimeShareRange).toHaveBeenCalledOnce()
-    expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
-  })
-
-  it('rejects timestamp cursors from the registered market bars tool', async () => {
-    const fixture = createFixture()
-    const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
-
-    await expect(
-      tool?.execute(
-        fixture.controller,
-        {
-          symbol: 'BTCUSDT',
-          sourceId: 'fixture',
-          period: 'daily',
-          adjustment: 'none',
-          limit: 100,
-          beforeTimestamp: Date.parse('2026-09-01'),
-        },
-        { signal: new AbortController().signal, progress: () => undefined },
-      ),
-    ).rejects.toThrow('must not have additional properties')
-
-    expect(fixture.fetchBars).not.toHaveBeenCalled()
-  })
-
-  it('registers pane tools as ChartPaneFacade adapters', async () => {
-    const fixture = createFixture()
-    const tool = (name: string) =>
-      getRegisteredChartTools().find((item) => item.config.name === name)!
-    const execution = { signal: new AbortController().signal, progress: () => undefined }
-
-    await expect(tool('panes_list').execute(fixture.controller, {}, execution)).resolves.toEqual([
-      { id: 'main', ratio: 1, visible: true, role: 'price' },
-    ])
-    await expect(
-      tool('pane_create').execute(
-        fixture.controller,
-        { paneId: 'rsi', indicatorId: 'RSI', params: { period: 14 } },
-        execution,
-      ),
-    ).resolves.toBe(true)
-    await tool('pane_update').execute(
-      fixture.controller,
-      { paneId: 'rsi-pane', patch: { ratio: 0.25 } },
-      execution,
-    )
-    await tool('pane_move').execute(
-      fixture.controller,
-      { paneId: 'rsi-pane', targetIndex: 1 },
-      execution,
-    )
-    await tool('pane_replace_content').execute(
-      fixture.controller,
-      { paneId: 'rsi-pane', indicatorId: 'VOL', params: {} },
-      execution,
-    )
-    await tool('pane_update_content').execute(
-      fixture.controller,
-      { paneId: 'rsi-pane', params: { fast: 6 } },
-      execution,
-    )
-    await tool('pane_remove').execute(fixture.controller, { paneId: 'rsi-pane' }, execution)
-    await tool('panes_clear').execute(fixture.controller, {}, execution)
-
-    // 添加指标前只加载该指标自身的实现。
-    expect(fixture.loadIndicators).toHaveBeenNthCalledWith(1, ['RSI'])
-    expect(fixture.loadIndicators).toHaveBeenNthCalledWith(2, ['VOL'])
-    expect(fixture.paneActions.addPane).toHaveBeenCalledWith('main', 'below')
-    expect(fixture.paneActions.add).toHaveBeenCalledWith(
-      'rsi',
-      { period: 14 },
-      {
-        kind: 'pane',
-        paneId: 'new-pane',
+describe('chart agent tool wiring', () => {
+  it('控制器暴露组合根注入的工具依赖，不自行构造', () => {
+    const tools = stubTools()
+    const controller = createChartAgentController({
+      chartId: 'chart-2',
+      dataState: createDataState(),
+      currentSpec: createSignal<SymbolSpec | null>(null),
+      chartMode: createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline'),
+      selectedRange: createSignal<{ from: number; to: number } | null>(null),
+      indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
+      drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+      selectedDrawingIds: createSignal<ReadonlyArray<string>>([]),
+      readPlacement: () => null,
+      tools,
+      marketDataTextFormatter: {
+        formatBars: vi.fn(() => ''),
+        formatChartBars: vi.fn(() => ''),
+        formatInstrumentLookup: vi.fn(() => ''),
+        formatTimeShare: vi.fn(() => ''),
+        formatTimeShareRange: vi.fn(() => ''),
       },
-    )
-    expect(fixture.paneActions.updatePane).toHaveBeenCalledWith('rsi-pane', { ratio: 0.25 })
-    expect(fixture.paneActions.movePane).toHaveBeenCalledWith('rsi-pane', 1)
-    expect(fixture.paneActions.updateInstance).toHaveBeenCalledWith('rsi-1', {
-      indicatorId: 'volume',
-      params: {},
     })
-    expect(fixture.paneActions.updateInstance).toHaveBeenCalledWith('rsi-1', {
-      params: { fast: 6 },
-    })
-    expect(fixture.paneActions.removePane).toHaveBeenCalledWith('rsi-pane')
-    expect(fixture.paneActions.clearPanes).toHaveBeenCalledOnce()
-  })
-
-  it('rejects pane content without a valid sub-pane renderer before mutating state', async () => {
-    const fixture = createFixture()
-    const tool = (name: string) =>
-      getRegisteredChartTools().find((item) => item.config.name === name)!
-    const execution = { signal: new AbortController().signal, progress: () => undefined }
-
-    await expect(
-      tool('pane_create').execute(
-        fixture.controller,
-        { paneId: 'invalid-pane', indicatorId: 'EMPTY', params: {} },
-        execution,
-      ),
-    ).resolves.toBe(false)
-    await expect(
-      tool('pane_replace_content').execute(
-        fixture.controller,
-        { paneId: 'rsi-pane', indicatorId: 'EMPTY', params: {} },
-        execution,
-      ),
-    ).resolves.toBe(false)
-
-    expect(fixture.paneActions.add).not.toHaveBeenCalled()
-    expect(fixture.paneActions.updateInstance).not.toHaveBeenCalled()
-  })
-
-  it('formats market query timestamps with the returned timezone', async () => {
-    const fixture = createFixture()
-
-    await expect(
-      fixture.controller.queryBars({
-        symbol: 'BTCUSDT',
-        sourceId: 'fixture',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
-        limit: 100,
-      }),
-    ).resolves.toMatch(/\| 2026-09-01/)
-    await expect(
-      fixture.controller.queryTimeShare({
-        symbol: 'BTCUSDT',
-        sourceId: 'fixture',
-        tradingDate: '2026-09-01',
-      }),
-    ).resolves.toContain('| 1970-01-01 01:00 |')
-    await expect(
-      fixture.controller.queryTimeShareRange({
-        symbol: 'BTCUSDT',
-        sourceId: 'fixture',
-        endTradingDate: '2026-09-01',
-        days: 2,
-      }),
-    ).resolves.toContain('| 1970-01-01 02:00 |')
+    expect(controller.tools).toBe(tools)
   })
 })

@@ -6,6 +6,7 @@
  */
 
 import type { SymbolSpec } from '@/controllers/types.js'
+import type { ChartIndicatorFacade } from '@/engine/chart/impl/facade/chartIndicatorFacade.js'
 import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
 import type { ComparisonCommandsApi } from '@/engine/data/comparisonCommands.js'
 import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
@@ -274,6 +275,8 @@ export interface LegendApi {
 export interface LegendManagerDependencies {
   host: PluginHost
   panes: ChartPaneFacade
+  /** 指标实例写入口；图例的增删改排序只走这里。 */
+  indicators: ChartIndicatorFacade
   comparisons: ComparisonCommandsApi
   getComparisonHidden: (identity: string) => boolean
   setComparisonHidden: (identity: string, hidden: boolean) => void

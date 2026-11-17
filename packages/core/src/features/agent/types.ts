@@ -13,8 +13,7 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../../data/provider/types.js'
-import type { ChartPaneFacade } from '../../engine/chart/impl/facade/chartPaneFacade.js'
-import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
+import type { ComparisonCommandsApi } from '../../engine/data/comparisonCommands.js'
 import type {
   DrawingCommands,
   DrawingDocument,
@@ -22,8 +21,9 @@ import type {
   DrawingObject,
 } from '../../engine/drawing/index.js'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
+import type { IndicatorPlacement } from '../../engine/pane/types.js'
 import type { DataStateModule } from '../../engine/state/dataState.js'
-import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry.js'
+import type { ChartToolExecutionContext } from '../../foundation/agent/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
@@ -79,11 +79,20 @@ export interface ChartAgentDrawingLabels {
   readonly area: Readonly<DrawingLabels['area']>
 }
 
+/**
+ * 图元的落点。
+ *
+ * main 表示主图；其余取值是指标实例身份，代表该实例独占的副图。
+ * Agent 只能寻址主图与已存在的指标副图，其它容器属于宿主界面。
+ */
+export type ChartAgentPlacement = string
+
 /** Agent 可读取的已确认图元快照。 */
 export interface ChartAgentDrawingSnapshot {
   readonly id: string
   readonly kind: string
-  readonly paneId: string
+  /** 图元所在落点；无法用 Agent 词汇表寻址时为 null。 */
+  readonly placement: ChartAgentPlacement | null
   readonly visible: boolean
   readonly locked: boolean
   readonly zIndex: number | null
@@ -96,6 +105,23 @@ export interface ChartAgentDrawingSnapshot {
 export interface ChartAgentDrawingSelection {
   readonly selectedIds: ReadonlyArray<string>
   readonly drawings: ReadonlyArray<ChartAgentDrawingSnapshot>
+}
+
+/** Agent 看到的单个指标实例；身份、落点与参数都在这里。 */
+export interface ChartAgentIndicatorView {
+  readonly instanceId: string
+  readonly definitionId: string
+  readonly params: Readonly<Record<string, unknown>>
+  readonly placement: IndicatorPlacement
+  /** 所在栏的 0 起顺序；主图叠加的指标为 null。 */
+  readonly row: number | null
+}
+
+/** 指标实例的可写补丁；换指标时 params 会按新定义补齐默认值。 */
+export interface ChartAgentIndicatorPatch {
+  readonly definitionId?: string
+  readonly params?: Readonly<Record<string, unknown>>
+  readonly placement?: IndicatorPlacement
 }
 
 /** Bounded parameters accepted by the compact indicator query. */
@@ -173,47 +199,88 @@ export interface TimeShareRangeQueryResult extends MarketDataQueryMeta {
   readonly range: TimeShareRange
 }
 
+/** 指标实例命令面：身份由状态分配，落点用语义表达。 */
+export interface ChartAgentIndicatorCommands {
+  list(): ReadonlyArray<ChartAgentIndicatorView>
+  add(
+    definitionId: string,
+    params?: Readonly<Record<string, unknown>>,
+    placement?: IndicatorPlacement,
+  ): string
+  update(instanceId: string, patch: ChartAgentIndicatorPatch): boolean
+  move(instanceId: string, row: number): boolean
+  remove(instanceId: string): boolean
+  clear(): number
+  /**
+   * 加载并解析可在图表中渲染的指标定义。
+   * @returns 规范定义 ID；未注册或没有渲染器时为 null。
+   */
+  resolveDefinition(definitionId: string): Promise<string | null>
+}
+
+/** 图元写入输入：落点用 Agent 词汇表，锚点用交易日或价格。 */
+export interface ChartAgentDrawingCreateInput {
+  readonly placement: ChartAgentPlacement
+  readonly kind: string
+  readonly anchors: ReadonlyArray<{ readonly tradingDate?: string; readonly price: number }>
+  readonly style: Readonly<Record<string, string | number | undefined>>
+  readonly labels?: Readonly<DrawingLabels>
+  readonly visible?: boolean
+  readonly locked?: boolean
+  readonly zIndex?: number
+}
+
+/** 图元补丁：可改锚点、样式、标签与显隐。 */
+export interface ChartAgentDrawingPatch {
+  readonly anchors?: ReadonlyArray<{ readonly tradingDate?: string; readonly price: number }>
+  readonly style?: Readonly<Record<string, string | number | undefined>>
+  readonly labels?: ChartAgentDrawingCreateInput['labels']
+  readonly visible?: boolean
+  readonly locked?: boolean
+  readonly zIndex?: number
+}
+
+/** 图元命令面：落点解析与快照投影都在 Core 内完成。 */
+export interface ChartAgentDrawingCommands {
+  list(): ReadonlyArray<ChartAgentDrawingSnapshot>
+  create(input: ChartAgentDrawingCreateInput): ChartAgentDrawingSnapshot
+  update(drawingId: string, patch: ChartAgentDrawingPatch): ChartAgentDrawingSnapshot | null
+  remove(drawingId: string): boolean
+  copy(drawingIds: ReadonlyArray<string>): ReadonlyArray<ChartAgentDrawingSnapshot>
+  clear(): number
+}
+
+/** 无状态行情查询面；不读取也不修改当前图表选择。 */
+export interface ChartAgentMarketQueries {
+  listSourceIds(): ReadonlyArray<string>
+  lookupInstrument(
+    input: InstrumentLookupInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<string>
+  bars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string>
+  timeShare(
+    input: TimeShareQueryInput & { readonly days: number },
+    context?: ChartToolExecutionContext,
+  ): Promise<string>
+  indicatorValues(input: IndicatorQueryInput): Promise<string>
+}
+
+/** Agent 工具执行所需的全部领域能力；由图表组合根一次装配。 */
+export interface ChartAgentToolDeps {
+  readonly indicators: ChartAgentIndicatorCommands
+  readonly drawings: ChartAgentDrawingCommands
+  readonly comparisons: ComparisonCommandsApi
+  readonly market: ChartAgentMarketQueries
+}
+
 /** Stable Agent-facing facade attached to every ChartController. */
 export interface ChartAgentController {
   /** 图表状态的只读上下文投影；无有效行情数据时为 null。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
-  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主；Agent runtime 据此解析执行目标。 */
-  readonly toolHosts: ReadonlyArray<object>
+  /** Agent 工具执行所需的领域能力。 */
+  readonly tools: ChartAgentToolDeps
   getContext(): ChartAgentContextSnapshot
-  /** 返回当前可创建图元的 pane ID，供 Agent 修正绘图请求。 */
-  getAvailableDrawingPaneIds(): ReadonlyArray<string>
-  /** 返回当前启用数据源的精确 ID，供 Agent 生成合法的 sourceId 参数。 */
-  getAvailableMarketDataSourceIds(): ReadonlyArray<string>
-  queryIndicator(input: IndicatorQueryInput): Promise<string>
-  searchInstruments(input: InstrumentSearchInput): Promise<ReadonlyArray<InstrumentDescriptor>>
-  lookupInstrumentsBySymbol(
-    input: InstrumentLookupInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string>
-  queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string>
-  queryTimeShare(input: TimeShareQueryInput, context?: ChartToolExecutionContext): Promise<string>
-  queryTimeShareRange(
-    input: TimeShareRangeQueryInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string>
-  listDrawings(): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>>
 }
-
-/** Agent 可用的 Pane 命令面；由 ChartPaneFacade 提供，保证与 UI 共用同一组副作用。 */
-export type ChartAgentPaneCommands = Pick<
-  ChartPaneFacade,
-  | 'add'
-  | 'addPane'
-  | 'moveInstance'
-  | 'removeInstance'
-  | 'updateInstance'
-  | 'updatePane'
-  | 'movePane'
-  | 'removePane'
-  | 'clearPanes'
-  | 'getLayoutSpecs'
-  | 'hasPane'
->
 
 /** Chart Agent facade 的构造依赖；由宿主组装后注入。 */
 export interface ChartAgentControllerDependencies {
@@ -223,26 +290,73 @@ export interface ChartAgentControllerDependencies {
   readonly chartMode: ReadonlySignal<ChartDataView>
   readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
-  readonly indicatorQuery: IndicatorQuery
-  readonly marketDataProviderRegistry: MarketDataProviderRegistry
-  readonly marketDataCache: MarketDataCache
-  readonly drawingDocument: DrawingDocument
-  readonly drawingCommands: DrawingCommands
-  /** 与 UI 共用当前视口的复制入口。 */
-  readonly copyDrawings: (ids: ReadonlyArray<string>) => ReadonlyArray<DrawingObject>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
-  readonly getDrawingPaneIds: () => ReadonlyArray<string>
-  /** 与 UI 共用 Pane 命令面，删除和移动必须带上绘图历史失效等宿主副作用。 */
-  readonly panes: ChartAgentPaneCommands
-  /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
-  readonly comparisonCommands: ComparisonCommands
-  /** 按需加载指标实现；解析与可用性判断只针对已加载的定义。 */
-  readonly loadIndicators: (indicatorIds: ReadonlyArray<string>) => Promise<void>
-  /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
-  readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
-  readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
+  /** 把 Pane 反向投影为 Agent 落点；不可寻址时返回 null。 */
+  readonly readPlacement: (paneId: string) => string | null
+  readonly tools: ChartAgentToolDeps
   readonly marketDataTextFormatter?: MarketDataTextFormatter
+}
+
+/** 图元命令面的装配依赖。 */
+export interface ChartAgentDrawingCommandsDependencies {
+  readonly drawingDocument: Pick<DrawingDocument, 'listDrawings'>
+  readonly drawingCommands: Pick<DrawingCommands, 'create' | 'updateFromInput' | 'remove' | 'clear'>
+  readonly copyDrawings: (ids: ReadonlyArray<string>) => ReadonlyArray<DrawingObject>
+  /** 把主图与指标实例解析为 Pane；不可寻址时返回 null。 */
+  readonly resolvePaneId: (placement: ChartAgentPlacement) => string | null
+  /** 把 Pane 反向投影为 Agent 落点；不可寻址时返回 null。 */
+  readonly readPlacement: (paneId: string) => ChartAgentPlacement | null
+}
+
+/** 指标命令面的装配依赖。 */
+export interface ChartAgentIndicatorCommandsDependencies {
+  readonly facade: {
+    add(
+      definitionId: string,
+      params?: Readonly<Record<string, unknown>>,
+      placement?: IndicatorPlacement,
+    ): string | null
+    update(
+      instanceId: string,
+      patch: {
+        indicatorId?: string
+        params?: Readonly<Record<string, unknown>>
+        hidden?: boolean
+      },
+    ): boolean
+    move(
+      instanceId: string,
+      target: {
+        kind: 'pane'
+        paneId: string
+        index?: number
+      },
+    ): boolean
+    remove(instanceId: string): boolean
+    clear(): void
+    instances: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  }
+  readonly panes: {
+    getLayoutSpecs(): ReadonlyArray<{ readonly id: string }>
+    movePane(paneId: string, targetIndex: number): boolean
+    addPane(anchorPaneId: string, placement: 'above' | 'below'): string | null
+    removePane(paneId: string): boolean
+  }
+  readonly loadIndicators: (indicatorIds: ReadonlyArray<string>) => Promise<void>
+  readonly resolveCanonicalId: (indicatorId: string) => string | null
+  readonly isRendererAvailable: (indicatorId: string) => boolean
+}
+
+/** 行情查询面的装配依赖。 */
+export interface ChartAgentMarketQueriesDependencies {
+  /** 当前启用数据源的精确 ID；用于白名单校验与描述提示。 */
+  readonly sources: () => ReadonlyArray<string>
+  /** 按代码精确查询品种；由组合根绑定当前数据源注册表。 */
+  readonly lookup: (input: InstrumentLookupInput) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  readonly cache: Pick<MarketDataCache, 'queryBars' | 'queryTimeShare' | 'queryTimeShareRange'>
+  readonly formatter: MarketDataTextFormatter
+  readonly indicatorQuery: IndicatorQuery
 }
 
 /** 市场查询文本转义服务。 */

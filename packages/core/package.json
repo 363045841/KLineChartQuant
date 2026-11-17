@@ -44,8 +44,8 @@
       "import": "./dist/engine/objects/index.js"
     },
     "./agent-tools": {
-      "types": "./dist/foundation/agent/chartToolRegistry.d.ts",
-      "import": "./dist/foundation/agent/chartToolRegistry.js"
+      "types": "./dist/foundation/agent/index.d.ts",
+      "import": "./dist/foundation/agent/index.js"
     },
     "./agent": {
       "types": "./dist/features/agent/index.d.ts",

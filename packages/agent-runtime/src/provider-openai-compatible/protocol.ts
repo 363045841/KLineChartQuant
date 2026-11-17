@@ -11,24 +11,17 @@ import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.l
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/ui.js'
-import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
-import { providerHttpError, requestProviderJson } from './http.js'
+import type { ProviderErrorDetails } from './http.js'
+import { providerHttpError } from './http.js'
 import {
   DEFAULT_PROVIDER_CONTEXT_WINDOW,
   OPENAI_COMPATIBLE_PROVIDER_ID,
-  type ProviderDiagnostic,
 } from './types.js'
 
 // 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
 // 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。
 // Agent 单次推理默认可生成的最大 token 数。
 const DEFAULT_MAX_TOKENS = 16_384
-// Provider 连接探针使用的最小生成 token 预算。
-const PROBE_MAX_TOKENS = 32
-// 文本连接探针要求模型返回的固定标识。
-const PROBE_TEXT = 'KLC_PROVIDER_OK'
-// 工具连接探针调用的无副作用函数名称。
-const PROBE_TOOL_NAME = 'klinechartquant_connection_probe'
 
 export interface ProviderCatalogModel {
   id: string
@@ -46,23 +39,10 @@ export interface ProviderStreamObservation {
   networkFailure: boolean
 }
 
-interface ProviderProbeInput {
-  baseUrl: string
-  apiKey: string
-  modelId: string
-  http: ProviderHttpOptions
-}
-
-interface ProviderToolProbeInput extends ProviderProbeInput {
-  nonce: string
-}
-
 export interface ProviderApiProtocolAdapter {
   readonly protocol: ProviderApiProtocol
   createApi(): ProviderStreams
   createModel(baseUrl: string, model: ProviderCatalogModel): Model<ProviderApiProtocol>
-  probeText(input: ProviderProbeInput): Promise<void>
-  probeTool(input: ProviderToolProbeInput): Promise<void>
   streamOptions(options: SimpleStreamOptions): SimpleStreamOptions
   classifyStreamError(
     message: AssistantMessage,
@@ -75,60 +55,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-// 生成不含业务数据的函数参数约束，探针只验证协议能力。
-function probeParameters(nonce: string): Record<string, unknown> {
-  return {
-    type: 'object',
-    properties: { nonce: { type: 'string', const: nonce } },
-    required: ['nonce'],
-    additionalProperties: false,
-  }
-}
-
-// 所有协议共用相同 HTTP 安全边界，仅请求路径和载荷由适配器提供。
-async function postProbe(
-  input: ProviderProbeInput,
-  path: string,
-  body: Record<string, unknown>,
-  stage: ProviderDiagnostic['stage'],
-): Promise<unknown> {
-  const result = await requestProviderJson(
-    `${input.baseUrl}${path}`,
-    {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${input.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    },
-    { ...input.http, stage },
-  )
-  return result.value
-}
-
-// 文本探针只要求非空内容，不依赖模型对固定措辞的遵循程度。
-function requireText(value: unknown): void {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw malformedResponse()
-  }
-}
-
-// 工具探针必须回传同名函数与逐请求 nonce，避免仅凭普通文本误判兼容。
-function requireToolCall(name: unknown, rawArguments: unknown, nonce: string): void {
-  if (name !== PROBE_TOOL_NAME || typeof rawArguments !== 'string') {
-    throw incompatibleTools()
-  }
-  try {
-    const args = JSON.parse(rawArguments) as unknown
-    if (!isRecord(args) || args.nonce !== nonce) throw incompatibleTools()
-  } catch (error) {
-    if (error instanceof AgentRuntimeError) throw error
-    throw incompatibleTools()
-  }
-}
-
 // 创建不携带上游响应正文的稳定错误。
 function malformedResponse(): AgentRuntimeError {
   return new AgentRuntimeError(
@@ -137,17 +63,6 @@ function malformedResponse(): AgentRuntimeError {
     {
       retryable: true,
       recommendedAction: 'Retry the connection test or select another model.',
-    },
-  )
-}
-
-// 创建工具协议不兼容错误，供 UI 引导用户更换模型。
-function incompatibleTools(): AgentRuntimeError {
-  return new AgentRuntimeError(
-    'PROVIDER_INCOMPATIBLE_TOOLS',
-    'The Provider did not return the required harmless tool call.',
-    {
-      recommendedAction: 'Select a model with function tool support.',
     },
   )
 }
@@ -234,63 +149,6 @@ const completionsAdapter: ProviderApiProtocolAdapter = {
       },
     }
   },
-  async probeText(input) {
-    const value = await postProbe(
-      input,
-      '/chat/completions',
-      {
-        model: input.modelId,
-        messages: [{ role: 'user', content: `Reply with exactly ${PROBE_TEXT}.` }],
-        max_tokens: PROBE_MAX_TOKENS,
-        stream: false,
-      },
-      'text',
-    )
-    if (!isRecord(value) || !Array.isArray(value.choices) || !isRecord(value.choices[0])) {
-      throw malformedResponse()
-    }
-    const message = value.choices[0].message
-    if (!isRecord(message)) throw malformedResponse()
-    requireText(message.content)
-  },
-  async probeTool(input) {
-    const value = await postProbe(
-      input,
-      '/chat/completions',
-      {
-        model: input.modelId,
-        messages: [
-          {
-            role: 'user',
-            content: `Call ${PROBE_TOOL_NAME} once with nonce ${input.nonce}.`,
-          },
-        ],
-        max_tokens: PROBE_MAX_TOKENS,
-        stream: false,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: PROBE_TOOL_NAME,
-              description: 'Validates function calling without side effects.',
-              parameters: probeParameters(input.nonce),
-            },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: PROBE_TOOL_NAME } },
-      },
-      'tool',
-    )
-    if (!isRecord(value) || !Array.isArray(value.choices) || !isRecord(value.choices[0])) {
-      throw incompatibleTools()
-    }
-    const message = value.choices[0].message
-    if (!isRecord(message) || !Array.isArray(message.tool_calls)) throw incompatibleTools()
-    if (message.tool_calls.length !== 1) throw incompatibleTools()
-    const call = message.tool_calls[0]
-    if (!isRecord(call) || !isRecord(call.function)) throw incompatibleTools()
-    requireToolCall(call.function.name, call.function.arguments, input.nonce)
-  },
   streamOptions: (options) => options,
   classifyStreamError: (message, observation) =>
     classifyStreamError(
@@ -313,63 +171,6 @@ const responsesAdapter: ProviderApiProtocolAdapter = {
         supportsReasoningEffort: (model.reasoningEfforts?.length ?? 0) > 0,
       },
     }
-  },
-  async probeText(input) {
-    const value = await postProbe(
-      input,
-      '/responses',
-      {
-        model: input.modelId,
-        input: `Reply with exactly ${PROBE_TEXT}.`,
-        max_output_tokens: PROBE_MAX_TOKENS,
-        store: false,
-        stream: false,
-      },
-      'text',
-    )
-    if (!isRecord(value)) throw malformedResponse()
-    if (typeof value.output_text === 'string') {
-      requireText(value.output_text)
-      return
-    }
-    if (!Array.isArray(value.output)) throw malformedResponse()
-    const text = value.output.flatMap((item) => {
-      if (!isRecord(item) || !Array.isArray(item.content)) return []
-      return item.content.flatMap((content) =>
-        isRecord(content) && content.type === 'output_text' ? [content.text] : [],
-      )
-    })[0]
-    requireText(text)
-  },
-  async probeTool(input) {
-    const value = await postProbe(
-      input,
-      '/responses',
-      {
-        model: input.modelId,
-        input: `Call ${PROBE_TOOL_NAME} once with nonce ${input.nonce}.`,
-        max_output_tokens: PROBE_MAX_TOKENS,
-        store: false,
-        stream: false,
-        tools: [
-          {
-            type: 'function',
-            name: PROBE_TOOL_NAME,
-            description: 'Validates function calling without side effects.',
-            parameters: probeParameters(input.nonce),
-          },
-        ],
-        tool_choice: { type: 'function', name: PROBE_TOOL_NAME },
-      },
-      'tool',
-    )
-    if (!isRecord(value) || !Array.isArray(value.output)) throw incompatibleTools()
-    const calls = value.output.filter(
-      (item): item is Record<string, unknown> => isRecord(item) && item.type === 'function_call',
-    )
-    if (calls.length !== 1) throw incompatibleTools()
-    const call = calls[0]
-    requireToolCall(call?.name, call?.arguments, input.nonce)
   },
   // 第三方 Responses 实现通常不支持 OpenAI 的会话缓存扩展字段。
   streamOptions: (options) => ({ ...options, cacheRetention: 'none' }),

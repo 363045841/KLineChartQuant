@@ -110,6 +110,17 @@
     grid-template-rows: 0fr;
   }
 
+  /* 上下文注入卡片的展开面板换行到整行：布局由卡片自己决定，容器不穿透改写。 */
+  .injection-card__summary {
+    flex: 0 0 26px;
+    order: 0;
+  }
+
+  .injection-card__content {
+    flex: 0 0 100%;
+    order: 1;
+  }
+
   .injection-card__data {
     min-width: 0;
     max-height: 220px;
@@ -122,6 +133,7 @@
     background: var(--klc-color-agent-composer-input-background);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 10px;
+    font-weight: var(--klc-font-weight-mono);
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;

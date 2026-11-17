@@ -138,27 +138,41 @@ export type InstanceMoveTarget = {
   readonly index?: number
 }
 
-/** 实例布局命令：主图与副图共用同一套身份与写入语义。 */
-export interface PaneLayoutCommands {
-  /** 按定义创建实例；target 省略时主图定义进主图，其余进最后一个 Pane 下方的新副图。 */
+/**
+ * 指标实例落点。
+ *
+ * main 叠加到主图；sub 独占一条新副图；缺省按定义类别决定。
+ */
+export type IndicatorPlacement = 'main' | 'sub'
+
+/**
+ * 指标实例写命令：主图与副图共用同一套身份语义。
+ *
+ * 实例身份与所属容器由状态分配，入参只表达意图，不接收调用方生成的 id。
+ */
+export interface IndicatorInstanceCommands {
+  /** 按定义创建实例；返回新实例身份，失败返回 null。 */
   add(
     definitionId: string,
     params?: Readonly<Record<string, unknown>>,
-    target?: InstanceMoveTarget,
+    placement?: IndicatorPlacement,
   ): string | null
+  /** 迁移实例归属或在同一 Pane 内换位；源副图变空时自动回收。 */
+  move(instanceId: string, target: InstanceMoveTarget): boolean
+  /** 删除实例；空副图一并回收。 */
+  remove(instanceId: string): boolean
+  /** 删除指定定义创建的全部实例；空副图一并回收。 */
+  removeByDefinition(definitionId: string): void
+  /** 删除当前工作区全部实例；副图一并回收，主图与系统 Pane 保留。 */
+  clear(): void
+  /** 更新实例参数、显隐、排序或定义；身份不变。 */
+  update(instanceId: string, patch: IndicatorInstancePatch): boolean
+}
+
+/** Pane 容器布局命令：只管理顺序、高度与可见性，不改变实例归属。 */
+export interface PaneLayoutCommands {
   /** 在锚点旁新建空 Pane；返回身份，锚点不存在时返回 null。 */
   addPane(anchorPaneId: string, placement: PanePlacement): string | null
-  /** 迁移实例归属或在同一 Pane 内换位；源副图变空时自动回收。 */
-  moveInstance(instanceId: string, target: InstanceMoveTarget): boolean
-  /** 删除实例；空副图一并回收。 */
-  removeInstance(instanceId: string): boolean
-  /** 删除指定定义创建的全部实例；空副图一并回收。 */
-  removeInstancesByDefinition(definitionId: string): void
-  /** 删除当前工作区全部实例；副图一并回收，主图与系统 Pane 保留。 */
-  clearAllIndicators(): void
-  /** 更新实例参数、显隐、排序或定义；身份不变。 */
-  updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean
-  /** Pane 容器操作，不改变实例归属。 */
   updatePane(paneId: string, patch: PanePatch): boolean
   movePane(paneId: string, targetIndex: number): boolean
   /** 按 pane 身份提交完整顺序，不改变内容或主图位置规则。 */

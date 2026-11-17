@@ -1,7 +1,6 @@
 // 验证网络搜索供应商适配与运行时工具的标准契约。
 import { describe, expect, it, vi } from 'vitest'
 
-import { RuntimeToolCatalog } from '../../tools/runtime-tool-registry.js'
 import { createExaWebSearchProvider } from '../impl/exa-web-search-provider.js'
 import { createWebSearchTool } from '../impl/web-search-tool.js'
 
@@ -62,6 +61,7 @@ describe('web search', () => {
     const result = await tool.execute(
       { query: 'example' },
       {
+        sessionId: 'session-1',
         runId: 'run-1',
         toolCallId: 'tool-1',
         signal: new AbortController().signal,
@@ -96,6 +96,7 @@ describe('web search', () => {
     const result = await tool.execute(
       { query: 'example' },
       {
+        sessionId: 'session-1',
         runId: 'run-1',
         toolCallId: 'tool-1',
         signal: new AbortController().signal,
@@ -107,27 +108,5 @@ describe('web search', () => {
       summary: 'Web search requires an Exa API key.',
       content: expect.stringContaining('open Agent settings and enter an Exa API key'),
     })
-  })
-
-  it('reports when a registered tool cannot be enabled', () => {
-    const registry = new RuntimeToolCatalog<{ enabled: boolean }>()
-    registry.register({
-      name: 'web_search',
-      label: 'Web search',
-      description: 'Search the web.',
-      check: ({ enabled }) => (enabled ? undefined : 'Configure Web search first.'),
-      create: () => createWebSearchTool({ search: async () => [] }),
-    })
-
-    expect(registry.list({ enabled: false })).toEqual([
-      {
-        name: 'web_search',
-        label: 'Web search',
-        description: 'Search the web.',
-        available: false,
-        unavailableReason: 'Configure Web search first.',
-      },
-    ])
-    expect(registry.resolve({ enabled: false })).toEqual([])
   })
 })

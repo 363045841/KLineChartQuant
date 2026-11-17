@@ -44,7 +44,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.setComparisonHidden(identity, hidden)
   }
 
-
   function setCurrentSymbol(symbol: string): void {
     if (isDisposed()) return
     chart.clearRangeSelection()
@@ -66,7 +65,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     if (isDisposed()) return
     chart.registerSymbols(infos)
   }
-
 
   function clearMarketDataCache(): void {
     if (isDisposed()) return
@@ -102,7 +100,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     if (isDisposed()) return
     chart.clearRangeSelection()
   }
-
 
   function getData(): ReadonlyArray<KLineData> {
     if (isDisposed()) return []

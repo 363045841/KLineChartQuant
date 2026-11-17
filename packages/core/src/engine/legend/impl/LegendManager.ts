@@ -108,7 +108,8 @@ export class LegendManager implements LegendApi {
   /** 创建领域内容或自定义展示行，返回稳定图例 ID。 */
   create(input: CreateLegendInput): string | null {
     if (this.disposed) return null
-    if (input.kind === 'indicator') return this.deps.panes.add(input.definitionId, input.params)
+    if (input.kind === 'indicator')
+      return this.deps.indicators.add(input.definitionId, input.params)
     if (input.kind === 'comparison') return this.createComparison(input)
     return this.createCustom(input)
   }
@@ -158,7 +159,7 @@ export class LegendManager implements LegendApi {
       return true
     }
     if (entry.kind === 'indicator')
-      return this.deps.panes.updateInstance(entry.id, {
+      return this.deps.indicators.update(entry.id, {
         ...(patch.params ? { params: patch.params } : {}),
         ...(patch.hidden === undefined ? {} : { hidden: patch.hidden }),
       })
@@ -170,7 +171,7 @@ export class LegendManager implements LegendApi {
   remove(id: string): boolean {
     const entry = this.get(id)
     if (!entry) return false
-    if (entry.kind === 'indicator') return this.deps.panes.removeInstance(entry.id)
+    if (entry.kind === 'indicator') return this.deps.indicators.remove(entry.id)
     if (entry.kind === 'comparison')
       return this.deps.comparisons.remove({ identity: entry.identity })
     this.customState.set(this.customState.peek().filter((item) => item.id !== id))
@@ -199,7 +200,7 @@ export class LegendManager implements LegendApi {
     const targetIndex = index + (direction === 'up' ? -1 : 1)
     // 首项上移、末项下移都是无操作，保持原按钮的可用性语义。
     if (index < 0 || targetIndex < 0 || targetIndex >= instances.length) return false
-    return this.deps.panes.moveInstance(entry.id, {
+    return this.deps.indicators.move(entry.id, {
       kind: INSTANCE_MOVE_KIND.PANE,
       paneId: entry.paneId,
       index: targetIndex,
@@ -210,9 +211,9 @@ export class LegendManager implements LegendApi {
   moveTo(id: string, target: LegendMoveTarget): boolean {
     const entry = this.get(id)
     if (entry?.kind !== 'indicator') return false
-    if (target.kind !== 'newPane') return this.deps.panes.moveInstance(entry.id, target)
+    if (target.kind !== 'newPane') return this.deps.indicators.move(entry.id, target)
     return runInNewPane(this.deps.panes, target.anchorPaneId, target.placement, (paneId) =>
-      this.deps.panes.moveInstance(entry.id, {
+      this.deps.indicators.move(entry.id, {
         kind: INSTANCE_MOVE_KIND.PANE,
         paneId,
       }),
@@ -242,7 +243,7 @@ export class LegendManager implements LegendApi {
   replace(id: string, definitionId: string): boolean {
     const entry = this.get(id)
     if (entry?.kind !== 'indicator') return false
-    return this.deps.panes.updateInstance(entry.id, { indicatorId: definitionId })
+    return this.deps.indicators.update(entry.id, { indicatorId: definitionId })
   }
 
   /** 执行图例按钮操作；设置、替换与脚本编辑返回宿主界面请求。 */

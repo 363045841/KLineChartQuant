@@ -6,7 +6,7 @@
   <Teleport :to="teleportTarget">
     <div
       ref="menu"
-      class="drop-menu__panel popover-surface popover-surface--scroll"
+      class="drop-menu__panel popover-surface popover-surface--scroll klc-overlay"
       :class="{ 'drop-menu__panel--compact': density === 'compact' }"
       v-bind="popover.panelBindings.value"
       :style="surfaceStyle"
@@ -101,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+  import './drop-menu-item.css'
   import './popover-surface.css'
 
   import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
@@ -123,7 +124,7 @@
   const props = defineProps<{
     /** 是否展开；面板不持有开关状态。 */
     open: boolean
-    /** 打开位置：触发器元素，或指针坐标。 */
+    /** 打开位置：锚点按钮元素，或指针坐标。 */
     anchor: MenuAnchor | null
     label: string
     /** 分组列表；body 模式不需要分组内容，可省略。 */
@@ -141,7 +142,7 @@
     placement?: 'auto' | 'top' | 'bottom'
     /** 面板与锚点的间距；坐标锚点默认贴住指针，元素锚点默认 4px。 */
     offset?: number
-    /** 关闭后归还焦点的元素；不传时焦点留在原地。 */
+    /** 关闭后归还焦点的元素；默认归还给元素锚点，坐标锚点不归还。 */
     restoreFocusTo?: HTMLElement | null
     /** 打开后把焦点移入首个可用项；指针打开的面板保持 false。 */
     focusOnOpen?: boolean
@@ -164,9 +165,9 @@
 
   /** 分组是 body 模式的可选项：缺省为空数组，模板与派生逻辑共用同一份。 */
   const groups = computed(() => props.groups ?? [])
-  /** 元素锚点交给 popover 的触发器位置；坐标锚点走原点矩形。 */
-  const triggerElement = computed(() =>
-    props.anchor?.kind === 'trigger' ? props.anchor.element : null,
+  /** 元素锚点交给 popover 的锚点位置；坐标锚点走原点矩形。 */
+  const anchorElement = computed(() =>
+    props.anchor?.kind === 'element' ? props.anchor.element : null,
   )
   /** 面板圆角只写变量，默认值仍归 popover-surface.css；二级菜单是面板子节点，自动继承。 */
   const surfaceRadius = shallowRef<string | null>(null)
@@ -174,12 +175,12 @@
     surfaceRadius.value === null ? undefined : { '--popover-surface-radius': surfaceRadius.value },
   )
 
-  /** 读触发元素的 computed 圆角；坐标锚点没有触发器，返回 null 交给表面默认值。 */
-  function readTriggerRadius(): string | null {
-    const element = triggerElement.value
+  /** 读锚点元素的 computed 圆角；0 圆角是贴边单元格的写法，沿用表面默认值。 */
+  function readAnchorRadius(): string | null {
+    const element = anchorElement.value
     if (!element) return null
     const radius = getComputedStyle(element).borderRadius
-    return radius.length > 0 ? radius : null
+    return radius === '' || radius === '0px' ? null : radius
   }
   const origin = computed(() => {
     const anchor = props.anchor
@@ -195,16 +196,16 @@
   })
 
   const popover = useAnchoredPopover({
-    trigger: triggerElement,
+    trigger: anchorElement,
     panel: menuRef,
     origin,
-    restoreFocusTo: () => props.restoreFocusTo ?? null,
+    restoreFocusTo: () => props.restoreFocusTo ?? anchorElement.value,
     placement: () => props.placement ?? 'auto',
     offset: props.offset ?? (props.anchor?.kind === 'point' ? 0 : 4),
     maxHeight: () => 'min(420px, calc(100vh - 24px))',
     onOpen: () => {
       // 面板是触发器的延伸：圆角只从触发按钮读，宿主无需再传一份。
-      surfaceRadius.value = readTriggerRadius()
+      surfaceRadius.value = readAnchorRadius()
       emit('open')
       // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
       // 优先落到已勾选项：单选项里它就是当前值，键盘继续用方向键即可切换。
@@ -248,12 +249,16 @@
     const group = groups.value.find((group) => group.id === openSubmenuGroupId.value)
     return group?.items.find((item) => item.id === openSubmenuItemId.value) ?? null
   })
-  // 图标槽位只在确实有图标时保留；全部项都没有图标时整列不占宽度。
+  // 图标槽位只在确实有图标或状态点时保留；全部项都没有时整列不占宽度。
   const hasMainIcons = computed(() =>
-    groups.value.some((group) => group.items.some((item) => item.icon !== undefined)),
+    groups.value.some((group) =>
+      group.items.some((item) => item.icon !== undefined || item.dot !== undefined),
+    ),
   )
   const hasSubmenuIcons = computed(() =>
-    (openSubmenuItem.value?.children ?? []).some((item) => item.icon !== undefined),
+    (openSubmenuItem.value?.children ?? []).some(
+      (item) => item.icon !== undefined || item.dot !== undefined,
+    ),
   )
 
   /** 延迟展开二级菜单，避免指针快速划过时连环弹出。 */
@@ -471,7 +476,7 @@
   function onMenuFocusOut(event: FocusEvent): void {
     const next = event.relatedTarget as Node | null
     if (!next) return
-    if (menuRef.value?.contains(next) || triggerElement.value?.contains(next)) return
+    if (menuRef.value?.contains(next) || anchorElement.value?.contains(next)) return
     hide()
   }
 
@@ -585,162 +590,12 @@
   }
 
   /* 条目内容压在悬停高亮块之上。 */
-  .drop-menu__item :deep(.drop-menu__item-main),
-  .drop-menu__item :deep(.drop-menu__item-action) {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* item 插槽可用同一 class 复用默认按钮样式。 */
-  .drop-menu__item :deep(.drop-menu__item-main) {
-    display: flex;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-    flex: 1;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    min-height: 36px;
-    padding: var(--drop-menu-item-padding-block, 8px) var(--klc-space-12, 12px);
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 400;
-    line-height: 20px;
-    text-align: left;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-  }
-
-  .drop-menu__panel--compact .drop-menu__item :deep(.drop-menu__item-main) {
-    min-height: 28px;
-    padding-top: var(--drop-menu-item-padding-block, 4px);
-    padding-bottom: var(--drop-menu-item-padding-block, 4px);
-  }
-
-  /* 图标槽固定占位：条目没有图标时也保留同一宽度，避免文案左右跳动。 */
-  .drop-menu__item :deep(.drop-menu__icon) {
-    display: inline-flex;
-    flex: 0 0 14px;
-    width: 14px;
-    height: 14px;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* 图标尺寸固定，避免条目之间文字基线跳动；提亮与放大反馈由 .klc-motion-icon-feedback 统一提供。 */
-  .drop-menu__item :deep(.drop-menu__item-main svg) {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-  }
-
-  /* 快捷键右对齐并弱化，避免和菜单项文案争夺视觉重量。 */
-  .drop-menu__item :deep(.drop-menu__shortcut) {
-    flex: 0 0 auto;
-    margin-left: auto;
-    padding-left: var(--klc-space-16, 16px);
-    color: var(--klc-color-ui-text-soft);
-    font-size: var(--klc-text-12-font-size, 12px);
-    font-variant-numeric: tabular-nums;
-  }
-
   .drop-menu__item-action {
     display: flex;
     align-items: center;
     flex: 0 0 auto;
     /* 与选项文字左侧内边距一致，状态标记的右侧留白不会大于文字的左侧留白。 */
     padding-right: var(--klc-space-8, 8px);
-  }
-
-  .drop-menu__item:hover .drop-menu__item-action :deep(button),
-  .drop-menu__item:focus-within .drop-menu__item-action :deep(button) {
-    visibility: visible;
-  }
-
-  .drop-menu__item-action :deep(button) {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    visibility: hidden;
-  }
-
-  /* 状态标记始终可见，管理按钮仅在悬停或聚焦时出现。 */
-  .drop-menu__item-action :deep(.drop-menu__status) {
-    display: grid;
-    place-items: center;
-    /* 宽度贴合图标，避免居中留白叠加后勾选标记右侧间距大于文字左侧。 */
-    width: 14px;
-    height: 26px;
-    color: var(--klc-color-ui-text);
-  }
-
-  .drop-menu__item-action :deep(button:hover),
-  .drop-menu__item-action :deep(button:focus-visible) {
-    color: var(--klc-color-ui-text);
-  }
-
-  .drop-menu__item-action :deep(.drop-menu__action--danger:hover),
-  .drop-menu__item-action :deep(.drop-menu__action--danger:focus-visible) {
-    color: var(--klc-color-ui-danger-text);
-  }
-
-  .drop-menu__item-action :deep(button:disabled) {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  /* 保存成功后的勾选态：保持实色，不随禁用态变淡。 */
-  .drop-menu__item-action :deep(button.drop-menu__action--success:disabled) {
-    color: var(--klc-color-ui-success);
-    opacity: 1;
-  }
-
-  .drop-menu__item-action :deep(svg) {
-    width: 14px;
-    height: 14px;
-  }
-
-  .drop-menu__item :deep(.drop-menu__item-main:disabled) {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .drop-menu__item :deep(.drop-menu__switch) {
-    margin-left: auto;
-    width: 28px;
-    height: 16px;
-    padding: var(--klc-space-2, 2px);
-    box-sizing: border-box;
-    border-radius: var(--klc-radius-full, 9999px);
-    background: var(--klc-color-ui-muted);
-  }
-
-  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true']) {
-    background: var(--klc-color-ui-accent);
-  }
-
-  .drop-menu__item :deep(.drop-menu__switch span) {
-    display: block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--klc-color-ui-surface);
-    transition: transform var(--klc-motion-dur-base);
-  }
-
-  .drop-menu__item :deep(.drop-menu__switch[aria-checked='true'] span) {
-    transform: translateX(12px);
   }
 
   /* 二级菜单与主面板共用表面，但用 fixed 坐标逃出主面板的滚动裁剪。 */
@@ -765,25 +620,5 @@
   .drop-menu__submenu .drop-menu__item:hover,
   .drop-menu__submenu .drop-menu__item:focus-within {
     background: var(--klc-color-ui-hover);
-  }
-
-  .drop-menu__item :deep(.drop-menu__submenu-arrow) {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    margin-left: var(--klc-space-4, 4px);
-    color: var(--klc-color-ui-text-soft);
-  }
-
-  .drop-menu__item :deep(.drop-menu__check) {
-    display: inline-flex;
-    flex: 0 0 14px;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    margin-left: auto;
-    padding-left: var(--klc-space-8, 8px);
-    box-sizing: content-box;
-    color: var(--klc-color-ui-text);
   }
 </style>

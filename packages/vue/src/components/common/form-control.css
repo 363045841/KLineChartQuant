@@ -17,11 +17,6 @@
     border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-out);
 }
 
-.form-control::placeholder,
-.form-control-inline-name::placeholder {
-  color: var(--klc-color-ui-muted);
-}
-
 .form-control[aria-invalid="true"],
 .form-control-inline-name[aria-invalid="true"] {
   border-color: var(--klc-color-ui-danger);

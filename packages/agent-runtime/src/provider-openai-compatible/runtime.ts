@@ -9,17 +9,11 @@ import type {
   ProviderModelsInput,
   ProviderModelsResult,
   ProviderModelView,
-  ProviderProbeStageResult,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
 } from '../contracts/ui.js'
-import type { PiRunPlan } from '../pi/types.js'
+import type { AgentRunPlan } from '../pi/types.js'
 import {
   normalizeProviderBaseUrl,
-  parseProviderErrorDetails,
-  parseRetryAfter,
-  providerHttpError,
   redactProviderUrl,
   requestProviderJson,
   sleepWithSignal,
@@ -29,7 +23,7 @@ import {
   parseProviderModelCatalog,
   providerModelView,
 } from './model-catalog.js'
-import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
+import { getProviderApiProtocolAdapter } from './protocol.js'
 import type {
   OpenAiCompatibleProviderSettings,
   OpenAiCompatibleRuntimeOptions,
@@ -38,7 +32,6 @@ import type {
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
-  PROVIDER_SETTINGS_VERSION,
 } from './types.js'
 
 /** 合并 Provider 附加请求头，保留运行时生成的鉴权和协议头优先级。 */
@@ -74,11 +67,6 @@ function safeProviderError(error: unknown): AgentRuntimeError {
   })
 }
 
-/** 计算非负耗时，防御测试时钟或系统时钟回拨。 */
-function elapsed(now: () => number, startedAt: number): number {
-  return Math.max(0, now() - startedAt)
-}
-
 /** 将毫秒时间戳格式化为行情时区的可读日期时间，供系统提示词注入。 */
 function formatReferenceTime(timestamp: number): string {
   const parts = new Intl.DateTimeFormat('zh-CN', {
@@ -96,11 +84,12 @@ function formatReferenceTime(timestamp: number): string {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`
 }
 
-/** 构造注入当前行情时间参照的系统提示词。 */
+/** 构造系统提示词；能力说明由本轮工具清单推导，不再读运行模式。 */
 function createSystemPrompt(
   hasTools: boolean,
   hasWebSearch: boolean,
   referenceTime: string,
+  writesAllowed: boolean,
   context?: AgentRunContext,
 ): string {
   const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
@@ -117,23 +106,13 @@ function createSystemPrompt(
   const ambiguityInstruction = hasTools
     ? ' When a tool result reports { "status": "ambiguous" }, never guess: call ask_user with one option per returned candidate, wait for the user to choose, then retry the original tool with the chosen candidate\'s routing fields.'
     : ''
-  return hasTools
-    ? `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.${ambiguityInstruction}`
-    : `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
-}
-
-/**
- * 生成 API Key 的短 SHA-256 指纹，供状态界面识别凭据变化。
- *
- * @param value 原始 API Key。
- * @returns 不可逆的短哈希标识，不返回密钥内容。
- */
-async function fingerprint(value: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
-  return `sha256:${[...new Uint8Array(digest)]
-    .slice(0, 6)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')}`
+  if (!hasTools) {
+    return `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+  }
+  const capabilityInstruction = writesAllowed
+    ? ' Use the supplied chart tools when chart evidence is needed. You may change the chart through the write tools; make each change deliberately and never claim a change you did not make.'
+    : ' Only read-only tools are available in this run, so you cannot change the chart. Investigate, then propose the exact change you would make and let the user enable the write tools to apply it. Never claim you changed the chart.'
+  return `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction}${capabilityInstruction}${ambiguityInstruction}`
 }
 
 /** 创建 OpenAI-compatible Provider 的运行时支持对象。 */
@@ -148,7 +127,6 @@ export function createOpenAiCompatibleRuntimeSupport(
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
   let catalog: ProviderCatalogModel[] = []
   let lastError: AgentRuntimeError | undefined
-  let lastRefreshAt: number | undefined
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
   const httpOptions = (
@@ -217,7 +195,6 @@ export function createOpenAiCompatibleRuntimeSupport(
     const refreshedAt = now()
     // 仅在完整目录通过校验后替换缓存，避免部分响应污染后续运行。
     catalog = models
-    lastRefreshAt = refreshedAt
     return { baseUrl, apiKey, models, refreshedAt }
   }
 
@@ -229,89 +206,10 @@ export function createOpenAiCompatibleRuntimeSupport(
   async function listModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     try {
       const refreshed = await fetchCatalog(input)
-      const settings = await options.settings.read()
-      const models: ProviderModelView[] = refreshed.models.map((model) => ({
-        ...providerModelView(model),
-        compatibility:
-          settings?.compatibility === 'compatible' &&
-          settings.modelId === model.id &&
-          settings.protocol === input.protocol
-            ? 'compatible'
-            : 'unknown',
-      }))
       lastError = undefined
-      return { models, refreshedAt: refreshed.refreshedAt }
-    } catch (error) {
-      lastError = safeProviderError(error)
-      throw lastError
-    }
-  }
-
-  /**
-   * 验证模型存在性并以凭据、设置两阶段写入保存连接。
-   * @param input Provider 连接测试参数。
-   * @returns 验证阶段及总耗时。
-   */
-  async function testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    try {
-      const catalogStartedAt = now()
-      const refreshed = await fetchCatalog(input)
-      const selected = refreshed.models.find((model) => model.id === input.model)
-      if (!selected) throw providerHttpError(404)
-      const stages: ProviderProbeStageResult[] = [
-        { stage: 'catalog', ok: true, latencyMs: elapsed(now, catalogStartedAt) },
-      ]
-      const adapter = getProviderApiProtocolAdapter(input.protocol)
-      const textStartedAt = now()
-      await adapter.probeText({
-        baseUrl: refreshed.baseUrl,
-        apiKey: refreshed.apiKey,
-        modelId: selected.id,
-        http: httpOptions(input.headers, undefined, 'text'),
-      })
-      stages.push({ stage: 'text', ok: true, latencyMs: elapsed(now, textStartedAt) })
-      const toolStartedAt = now()
-      await adapter.probeTool({
-        baseUrl: refreshed.baseUrl,
-        apiKey: refreshed.apiKey,
-        modelId: selected.id,
-        nonce: globalThis.crypto.randomUUID(),
-        http: httpOptions(input.headers, undefined, 'tool'),
-      })
-      stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
-
-      const previousKey = await options.credentials.read()
-      await options.credentials.write(refreshed.apiKey)
-      const settings: OpenAiCompatibleProviderSettings = {
-        version: PROVIDER_SETTINGS_VERSION,
-        baseUrl: refreshed.baseUrl,
-        headers: input.headers ?? {},
-        modelId: selected.id,
-        modelName: selected.name,
-        ...(selected.contextWindow === undefined ? {} : { contextWindow: selected.contextWindow }),
-        maxOutputTokens: selected.maxOutputTokens ?? 16_384,
-        reasoningEfforts: selected.reasoningEfforts,
-        reasoningEffort: selected.defaultReasoningEffort,
-        protocol: adapter.protocol,
-        compatibility: 'compatible',
-        lastTestedAt: now(),
-        lastModelsRefreshAt: refreshed.refreshedAt,
-      }
-      try {
-        await options.settings.write(settings)
-      } catch (error) {
-        // 设置写入失败时恢复旧凭据，避免留下无法配对的新 Key。
-        if (previousKey) await options.credentials.write(previousKey)
-        else await options.credentials.delete()
-        throw error
-      }
-      lastError = undefined
-      const latencyMs = elapsed(now, catalogStartedAt)
       return {
-        compatible: true,
-        model: selected.id,
-        latencyMs,
-        stages,
+        models: refreshed.models.map((model) => providerModelView(model)),
+        refreshedAt: refreshed.refreshedAt,
       }
     } catch (error) {
       lastError = safeProviderError(error)
@@ -320,7 +218,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   }
 
   /**
-   * 读取 Provider 当前配置、验证状态与最近错误。
+   * 读取 Provider 当前配置与最近错误。
    * @returns 可直接渲染的 Provider 状态视图。
    */
   async function getStatus(): Promise<ProviderStatusView> {
@@ -333,9 +231,8 @@ export function createOpenAiCompatibleRuntimeSupport(
       lastError = safeProviderError(error)
     }
     const configured = Boolean(apiKey)
-    const compatible = configured && settings?.compatibility === 'compatible'
     return {
-      state: lastError ? 'error' : compatible ? 'connected' : 'not-configured',
+      state: lastError ? 'error' : configured && settings ? 'connected' : 'not-configured',
       providerLabel: OPENAI_COMPATIBLE_PROVIDER_LABEL,
       configured,
       baseUrl: settings?.baseUrl,
@@ -347,10 +244,6 @@ export function createOpenAiCompatibleRuntimeSupport(
       maxOutputTokens: settings?.maxOutputTokens,
       reasoningEfforts: settings?.reasoningEfforts,
       reasoningEffort: settings?.reasoningEffort,
-      fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
-      compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
-      lastTestedAt: settings?.lastTestedAt,
-      lastModelsRefreshAt: lastRefreshAt ?? settings?.lastModelsRefreshAt,
       error: lastError?.toView(),
     }
   }
@@ -363,21 +256,21 @@ export function createOpenAiCompatibleRuntimeSupport(
 
   /**
    * 基于已验证设置构造 Pi 的单次流式运行计划。
-   * @param context 当前 Agent 运行上下文。
-   * @returns 含模型、工具、流函数及错误分类器的运行计划。
+   * @param input 本次运行的会话、提示词、权限与界面上下文。
+   * @returns 含模型、工具、流参数与系统提示词的运行计划。
    */
   async function createPlan(
-    context: Parameters<RuntimeSupport['createPlan']>[0],
-  ): Promise<PiRunPlan> {
+    run: Parameters<RuntimeSupport['createPlan']>[0],
+  ): Promise<AgentRunPlan> {
     const [apiKey, settings] = await Promise.all([
       options.credentials.read(),
       options.settings.read(),
     ])
-    if (!apiKey || settings?.compatibility !== 'compatible') {
+    if (!apiKey || !settings) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
         'Configure an Agent-compatible model before starting a run.',
-        { recommendedAction: 'Open Provider settings and test a model.' },
+        { recommendedAction: 'Open Provider settings and choose a model.' },
       )
     }
     // 目录缓存可为空，使用已验证设置作为离线运行的回退模型描述。
@@ -411,24 +304,15 @@ export function createOpenAiCompatibleRuntimeSupport(
     })
     const models = createModels()
     models.setProvider(provider)
-    const observation: ProviderStreamObservation = { networkFailure: false }
     const providerFetch = createProviderFetch(fetchImplementation, settings.headers)
-    // 包装 Pi 的 fetch，采集脱敏诊断并保留流式错误分类所需的 HTTP 信息。
+    // 包装 Pi 的 fetch，只采集方法、URL、状态与耗时，不记录请求正文。
     const trackedFetch: FetchFunction = async (input, init) => {
-      observation.status = undefined
-      observation.retryAfterMs = undefined
-      observation.networkFailure = false
       const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
       const method = init?.method?.toUpperCase() ?? 'POST'
       const startedAt = now()
       options.diagnostics?.({ phase: 'request', method, url, attempt: 1, stage: 'stream' })
       try {
         const response = await providerFetch(input, init)
-        observation.status = response.status
-        observation.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now())
-        if (response.status >= 400) {
-          observation.error = parseProviderErrorDetails(await response.clone().text())
-        }
         options.diagnostics?.({
           phase: 'response',
           method,
@@ -441,7 +325,6 @@ export function createOpenAiCompatibleRuntimeSupport(
         })
         return response
       } catch (error) {
-        if (!init?.signal?.aborted) observation.networkFailure = true
         options.diagnostics?.({
           phase: 'failure',
           method,
@@ -454,53 +337,32 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
-    // 工具由宿主按运行上下文提供，运行时本身不持有业务能力。
-    const availableTools = options.tools?.(context) ?? []
-    const tools = context.readOnly
-      ? availableTools.filter((tool) => tool.safety === 'read-only')
-      : availableTools
+    // 工具由宿主按运行上下文提供；运行模式决定本轮暴露哪些工具。
+    const availableTools = options.tools?.(run) ?? []
+    const tools = availableTools
     return {
-      sessionId: context.sessionId,
       models,
+      model,
+      tools,
+      reasoningEffort: settings.reasoningEffort,
       streamOptions: adapter.streamOptions({
         fetch: trackedFetch,
         timeoutMs,
         maxRetries,
         maxRetryDelayMs,
       }),
-      runId: context.runId,
-      turnId: context.turnId,
-      prompt: context.prompt,
-      readOnly: context.readOnly,
-      scope: { symbol: null, period: null, readOnly: context.readOnly },
-      tools,
-      model,
-      reasoningEffort: settings.reasoningEffort,
-      streamFn: (streamModel, streamContext, streamOptions) =>
-        models.streamSimple(
-          streamModel,
-          streamContext,
-          adapter.streamOptions({
-            ...streamOptions,
-            fetch: trackedFetch,
-            timeoutMs,
-            maxRetries,
-            maxRetryDelayMs,
-          }),
-        ),
-      classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
       systemPrompt: createSystemPrompt(
         tools.length > 0,
         tools.some((tool) => tool.name === 'web_search'),
         formatReferenceTime(now()),
-        context.context,
+        tools.some((tool) => tool.effect === 'write'),
+        run.context,
       ),
-      contextWindow: settings.contextWindow,
     }
   }
 
   return {
-    provider: { getStatus, listModels, test: testProvider, deleteCredential },
+    provider: { getStatus, listModels, deleteCredential },
     createPlan: async (context) => {
       try {
         return await createPlan(context)

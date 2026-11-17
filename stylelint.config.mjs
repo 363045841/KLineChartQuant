@@ -28,6 +28,7 @@ export default {
     ],
     // 原始颜色 / 刻度外长度 / z-index：var(--token, 回退值) 中的回退值不计入。
     'klc/no-raw-color': true,
+    'klc/no-raw-font-family': true,
     'klc/no-raw-length': true,
     'klc/no-raw-z-index': true,
   },

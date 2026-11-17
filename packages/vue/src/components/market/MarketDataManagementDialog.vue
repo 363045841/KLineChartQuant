@@ -266,12 +266,8 @@
     color: var(--klc-color-ui-text);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 12px;
+    font-weight: var(--klc-font-weight-mono);
     outline: none;
-  }
-
-  .source-endpoint__input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.6;
   }
 
   .source-endpoint__value {
@@ -283,6 +279,7 @@
     color: var(--klc-color-ui-muted);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 12px;
+    font-weight: var(--klc-font-weight-mono);
   }
 
   .source-endpoint__error {

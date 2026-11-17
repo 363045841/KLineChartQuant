@@ -273,12 +273,7 @@
         <!-- ───────────── Tools ───────────── -->
         <section v-else-if="activeTab === 'tools'" class="tools" role="tabpanel">
           <template v-if="providerSettings.tools.length">
-            <article
-              v-for="tool in providerSettings.tools"
-              :key="tool.name"
-              class="card tool"
-              :class="{ 'is-disabled': tool.available === false }"
-            >
+            <article v-for="tool in providerSettings.tools" :key="tool.name" class="card tool">
               <header class="tool__head">
                 <span class="tool__text">
                   <strong>{{ tool.label }}</strong>
@@ -286,15 +281,10 @@
                 </span>
                 <ToggleSwitch
                   :model-value="tool.enabled"
-                  :disabled="tool.available === false"
                   :aria-label="tool.label"
                   @update:model-value="setToolEnabled(tool.name, $event)"
                 />
               </header>
-
-              <p v-if="tool.unavailableReason" class="tool__note">
-                {{ tool.unavailableReason }}
-              </p>
 
               <div v-if="tool.name === 'web_search'" class="field">
                 <span class="field__label">{{ text.exaApiKey }}</span>
@@ -336,11 +326,7 @@
               <div class="tool__foot">
                 <BaseButton
                   size="sm"
-                  :disabled="
-                    !tool.enabled ||
-                    tool.available === false ||
-                    providerSettings.runningToolName !== null
-                  "
+                  :disabled="!tool.enabled || providerSettings.runningToolName !== null"
                   @click="providerSettings.debugTool(tool.name)"
                 >
                   {{
@@ -789,15 +775,11 @@
 
   .field__mono {
     font-family: var(--klc-typography-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
   }
 
   /* ───────── 单横线输入 ───────── */
   /* 多行字段用 BaseTextarea 的 underline 变体，不再在这里穿透改样式。 */
-
-  .field input::placeholder {
-    color: var(--klc-color-ui-text-soft);
-    opacity: 0.55;
-  }
 
   /* ───────── Provider 布局 ───────── */
   .provider {
@@ -897,8 +879,9 @@
     white-space: nowrap;
   }
 
+  /* 键盘聚焦才让位给行内操作；鼠标点击产生的焦点不常驻。 */
   .rail__item:has(.rail__actions):hover .rail__select,
-  .rail__item:has(.rail__actions):focus-within .rail__select {
+  .rail__item:has(.rail__actions):has(:focus-visible) .rail__select {
     padding-right: 54px;
   }
 
@@ -913,7 +896,7 @@
   }
 
   .rail__item:hover .rail__actions,
-  .rail__item:focus-within .rail__actions {
+  .rail__item:has(:focus-visible) .rail__actions {
     visibility: visible;
   }
 
@@ -1120,7 +1103,7 @@
   .protocol-control .selection-menu__value {
     flex: 1 1 auto;
     font-size: 11px;
-    font-weight: 400;
+    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-align: left;
   }
 
@@ -1223,10 +1206,6 @@
     padding: var(--_pad);
   }
 
-  .tool.is-disabled {
-    opacity: 0.7;
-  }
-
   .tool__head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1250,18 +1229,10 @@
     line-height: 1.45;
   }
 
-  .tool__note,
   .tool__error {
     margin: 0;
     font-size: 11px;
     line-height: 1.45;
-  }
-
-  .tool__note {
-    color: var(--klc-color-ui-muted);
-  }
-
-  .tool__error {
     color: var(--klc-color-ui-danger-text);
   }
 
@@ -1304,7 +1275,7 @@
     border-radius: 8px;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
-    font: 11px/1.5 var(--klc-typography-font-family-mono);
+    font: var(--klc-font-weight-mono) 11px/1.5 var(--klc-typography-font-family-mono);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

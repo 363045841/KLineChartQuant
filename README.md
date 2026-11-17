@@ -48,7 +48,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 
 ## ✨ Core Features
 
-- **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
+- **Agent Native** - The chart core exposes its capabilities through a declarative tool catalog, and the Agent calls the same domain primitives as the UI. Tools are contract shells: one shared state, one execution path, no bridge layer
 - **Script Indicators** - Write indicators in plain TypeScript. Sandboxed QuickJS execution with time and memory budgets, a built-in editor with completions and hover signatures, and plots that flow through the normal rendering chain
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
@@ -76,8 +76,8 @@ Benchmark: 1180 × 640 viewport, DPR 2, 4× MSAA, 300–10,000 visible K-lines, 
 KLineChartQuant is a pnpm monorepo that publishes one product package, `@363045841yyt/klinechart`.
 The framework-agnostic core engine exposes a unified `ChartController` (readonly signals +
 commands); the Vue layer handles mounting, event forwarding, and reactivity bridging. The AI Agent
-drives the chart through the same `@Tool` primitives as the UI, sharing one state source instead of
-a bridge. Everything below the Vue layer ships inside the product tarball.
+drives the chart through a declarative tool catalog over the same primitives as the UI, sharing one
+state source instead of a bridge. Everything below the Vue layer ships inside the product tarball.
 
 ```mermaid
 flowchart TB
@@ -109,7 +109,7 @@ flowchart TB
     UI --> VuePkg
     Agent --> AgentRt
     VuePkg --> Ctl
-    AgentRt -->|"@Tool primitives (same path as UI)"| Ctl
+    AgentRt -->|"tool catalog (same primitives as UI)"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -136,7 +136,7 @@ flowchart TB
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.
 - **Agent Native** — the bundled Agent runtime orchestrates the Agent, which invokes the core's
-  `@Tool`-registered primitives—the same entry points the UI uses.
+  tool catalog over the domain primitives—the same entry points the UI uses.
 
 See [docs/architecture/architecture.md](docs/architecture/architecture.md) for the full architecture document.
 
@@ -460,10 +460,10 @@ The complete product includes AGPL-3.0-or-later script modules and is distribute
 
 ### 4. (Optional) Add AI Agent Control
 
-`KlineWorkbench` ships the Agent panel. The chart core exposes its domain capabilities as `@Tool`
-primitives, and the Agent calls the same primitives as the UI: one shared state, one execution path,
-no MCP bridge, no side-channel state. Advanced Agent APIs live in the same package at
-`@363045841yyt/klinechart/agent`.
+`KlineWorkbench` ships the Agent panel. The chart core exposes its domain capabilities through a
+declarative tool catalog over the same primitives, and the Agent calls the same primitives as the
+UI: one shared state, one execution path, no MCP bridge, no side-channel state. Advanced Agent APIs
+live in the same package at `@363045841yyt/klinechart/agent`.
 
 
 ## 📖 More Documentation

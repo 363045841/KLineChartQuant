@@ -52,7 +52,7 @@
 .compare-list__desc,
 .symbol-list__desc {
   font-size: 11px;
-  font-weight: 400;
+  font-weight: var(--klc-text-label-12-font-weight, 500);
   line-height: 1.2;
   color: var(--klc-color-ui-muted);
   overflow-wrap: anywhere;

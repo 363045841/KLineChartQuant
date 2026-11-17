@@ -25,40 +25,37 @@
       />
 
       <AgentTimeline
-        :messages="state.messages"
-        :tool-calls="state.toolCalls"
-        :confirmations="state.confirmations"
+        :transcript="state.transcript"
+        :live-answer="liveAnswer"
+        :live-tools="liveTools"
         :questions="state.questions"
-        :run="state.run"
-        :runs="[...state.previousRuns, state.run]"
-        :error="state.error"
+        :run-failure="runFailure"
         :collapse-reasoning="collapseReasoning"
         :locale="locale"
-        @prompt="draft = $event"
         :edit-message="editMessage"
         :actions-disabled="isRunning"
-        @confirm="confirmTool"
+        @prompt="draft = $event"
         @answer="answerQuestion"
+        @cancel="cancelQuestion"
         @retry="retry"
-        @undo="undoTurn"
+        @resume="resume"
+        @configure="openProviderSettings"
+        @load-earlier="loadEarlier"
+        @fill-gap="fillGap"
       />
 
-      <AgentContextBar
-        :context-items="contextItems"
-        :locale="locale"
-        :read-only="readOnly"
-        @read-only="setReadOnly"
-      />
+      <AgentContextBar :context-items="contextItems" :locale="locale" />
       <AgentComposer
         v-model:draft="draft"
         :running="isRunning"
+        :mode="mode"
         :provider="state.provider"
         :models="models"
         :models-loading="modelsLoading"
-        :usage="state.run.usage"
         :locale="locale"
         @send="send"
         @stop="stop"
+        @mode-change="setMode"
         @model="setModel"
         @models-open="loadModels"
         @reasoning-effort="setReasoningEffort"
@@ -115,11 +112,13 @@
     draft,
     providerSettings,
     locale,
-    readOnly,
     collapseReasoning,
     models,
     modelsLoading,
     isRunning,
+    liveAnswer,
+    liveTools,
+    runFailure,
     createSession,
     selectSession,
     renameSession,
@@ -127,12 +126,15 @@
     send,
     stop,
     retry,
+    resume,
     retryInitialize,
     editMessage,
-    confirmTool,
+    loadEarlier,
+    fillGap,
     answerQuestion,
-    undoTurn,
-    setReadOnly,
+    cancelQuestion,
+    mode,
+    setMode,
     setModel,
     loadModels,
     setReasoningEffort,
@@ -163,36 +165,32 @@
     void nextTick(() => workspace.value?.querySelector<HTMLElement>(selector)?.focus())
   }
 
-  watch(
-    () => state.value.announcement,
-    (announcement) => {
-      if (!announcement) return
-      if (announcementTimer) clearTimeout(announcementTimer)
-      announcementTimer = setTimeout(() => {
-        liveAnnouncement.value = announcement
-        announcementTimer = undefined
-      }, 180)
-    },
+  /** 延迟播报，连续变化时只保留最后一次。 */
+  function announce(message: string): void {
+    if (announcementTimer) clearTimeout(announcementTimer)
+    announcementTimer = setTimeout(() => {
+      liveAnnouncement.value = message
+      announcementTimer = undefined
+    }, 180)
+  }
+
+  /** 失败提示里的「打开模型设置」直接复用同一份 Provider 设置面板。 */
+  function openProviderSettings(): void {
+    providerSettings.show(state.value.provider)
+  }
+
+  // 提问卡片内联在回答里，焦点与播报按同一条待答提问推进；
+  // 失败提示自带 role 与焦点接管，这里不再重复播报。
+  const pendingQuestion = computed(() =>
+    state.value.questions.find((question) => question.status === 'pending'),
   )
 
   watch(
-    () => state.value.confirmations.at(-1)?.status,
-    (status) => {
-      if (status === 'pending') focusTarget('[data-focus="confirmation"] button')
-    },
-  )
-
-  watch(
-    () => state.value.questions.at(-1)?.status,
-    (status) => {
-      if (status === 'pending') focusTarget('[data-focus="question"] button')
-    },
-  )
-
-  watch(
-    () => state.value.error,
-    (error) => {
-      if (error) focusTarget('[data-focus="error"]')
+    () => pendingQuestion.value?.id,
+    (questionId) => {
+      if (!questionId) return
+      announce(text.value.question.required)
+      focusTarget('[data-focus="question"] button')
     },
   )
 
@@ -200,15 +198,6 @@
     () => availability.value.status,
     (status) => {
       if (status === 'unavailable') focusTarget('[data-focus="availability"]')
-    },
-  )
-
-  watch(
-    () => state.value.run.status,
-    (status) => {
-      if (['completed', 'cancelled', 'partial'].includes(status)) {
-        focusTarget('[data-focus="completion"]')
-      }
     },
   )
 
@@ -234,21 +223,14 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
-    font-family: var(--klc-typography-font-family);
     letter-spacing: 0;
-  }
-
-  .agent-workspace :deep(button:focus-visible),
-  .agent-workspace :deep(select:focus-visible) {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 1px;
   }
 
   .sr-only {
     width: 1px;
     height: 1px;
     position: absolute;
-    overflow: hidden;
+    overflow: clip;
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;

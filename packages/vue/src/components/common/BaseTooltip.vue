@@ -23,7 +23,7 @@
   <Teleport v-if="hasContent" :to="teleportTarget">
     <div
       ref="panel"
-      class="base-tooltip"
+      class="base-tooltip klc-overlay"
       :class="[`base-tooltip--${placement}`, { 'is-open': visible }]"
       v-bind="panelBindings"
       role="tooltip"

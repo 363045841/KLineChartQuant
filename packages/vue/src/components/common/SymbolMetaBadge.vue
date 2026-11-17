@@ -31,7 +31,7 @@
     color: var(--klc-color-ui-muted);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 11px;
-    font-weight: 400;
+    font-weight: var(--klc-font-weight-mono);
     line-height: 1.4;
     letter-spacing: 0.03em;
     text-transform: uppercase;

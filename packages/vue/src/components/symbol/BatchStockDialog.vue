@@ -62,7 +62,7 @@
 
 <style scoped>
   .batch-textarea {
-    font-family: var(--klc-text-11-mono-font-family, ui-monospace, monospace);
+    font-family: var(--klc-typography-font-family-mono);
     font-variant-numeric: tabular-nums;
   }
 </style>

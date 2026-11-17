@@ -6,7 +6,7 @@
   <div class="drop-menu" :class="{ 'drop-menu--fill': fill }">
     <!-- 触发器提示固定向上：提示方向与菜单弹出方向无关，同一工具栏里不会出现一上一下。 -->
     <BaseTooltip
-      :content="label"
+      :content="tooltip ? label : ''"
       :placement="tooltipPlacement"
       :disabled="open || disabled"
       :command="command"
@@ -37,7 +37,6 @@
       :density="density"
       :keep-open-on-select="keepOpenOnSelect"
       :placement="placement"
-      :restore-focus-to="triggerElement"
       :focus-on-open="focusOnOpen"
       @update:open="open = $event"
       @open="emit('open')"
@@ -83,6 +82,8 @@
       command?: string
       /** 触发器提示方向；默认向上，顶部工具栏这类触发器贴页面顶边时传 bottom。 */
       tooltipPlacement?: TooltipPlacement
+      /** 触发器是否展示提示；文字已表达含义的入口可关闭。 */
+      tooltip?: boolean
       message?: string
       /** 分组为空时展示的提示；未提供时不渲染空提示。 */
       emptyText?: string
@@ -93,7 +94,7 @@
       /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
       fill?: boolean
     }>(),
-    { tooltipPlacement: 'top' },
+    { tooltipPlacement: 'top', tooltip: true },
   )
 
   const emit = defineEmits<{
@@ -109,7 +110,7 @@
   const triggerControl = useTemplateRef<InstanceType<typeof ControlTrigger>>('triggerControl')
   const triggerElement = computed(() => triggerControl.value?.element ?? null)
   const anchor = computed<MenuAnchor | null>(() =>
-    triggerElement.value ? { kind: 'trigger', element: triggerElement.value } : null,
+    triggerElement.value ? { kind: 'element', element: triggerElement.value } : null,
   )
   const surface = useTemplateRef<InstanceType<typeof MenuSurface>>('surface')
 

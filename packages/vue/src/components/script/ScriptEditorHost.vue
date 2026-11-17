@@ -147,6 +147,7 @@
           width: 'min(94vw, 1040px)',
           maxHeight: 'calc(100dvh - 48px)',
           bodyScrollable: false,
+          surface: 'surround',
           'onUpdate:open': (value: boolean) => emit('update:open', value),
         }
       : { class: 'script-editor-window' },
@@ -154,10 +155,6 @@
 </script>
 
 <style scoped>
-  :global(.base-modal:has(.script-editor-host__body)) {
-    background: var(--klc-color-ui-surround-background);
-  }
-
   .script-editor-host__body {
     display: flex;
     flex-direction: column;
@@ -168,18 +165,6 @@
   .script-editor-host__body--dialog {
     height: min(80dvh, 780px);
     max-height: calc(100dvh - 128px);
-  }
-
-  .script-editor-host__body--dialog :deep(.script-workspace) {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-  }
-
-  .script-editor-host__body--dialog :deep(.script-editor) {
-    flex: 1;
-    height: auto;
-    min-height: 0;
   }
 
   /* 固定定位铺满窗口，不受新文档 <body> 默认外边距影响。 */
@@ -193,19 +178,5 @@
 
   .script-editor-host__body--window {
     flex: 1;
-  }
-
-  /* 独立窗口里工作区撑满可用空间；选择器带上根类以稳定压过组件自身固定高度规则。 */
-  .script-editor-host__body--window :deep(.script-workspace) {
-    max-height: none;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .script-editor-host__body--window :deep(.script-workspace .script-editor) {
-    flex: 1;
-    height: auto;
-    max-height: none;
-    min-height: 0;
   }
 </style>

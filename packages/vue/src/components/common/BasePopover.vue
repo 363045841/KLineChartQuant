@@ -25,7 +25,7 @@
   <Teleport :to="teleportTarget">
     <div
       ref="panel"
-      class="base-popover"
+      class="base-popover klc-overlay"
       v-bind="popover.panelBindings.value"
       :role="role"
       :aria-label="label"

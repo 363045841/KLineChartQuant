@@ -14,11 +14,12 @@
     <dialog
       v-if="rendered"
       ref="dialog"
-      class="base-modal"
+      class="base-modal klc-overlay"
       :class="{
         'base-modal--draggable': draggable,
         'base-modal--dragging': dragging,
         'base-modal--resizing': resizing,
+        'base-modal--surface-surround': surface === 'surround',
       }"
       :style="[modalStyle, dragStyle]"
       :aria-labelledby="labelledBy"
@@ -138,6 +139,8 @@
       ariaLabel?: string
       /** 关闭按钮的可访问名称。 */
       closeLabel?: string
+      /** 弹窗表面底色：内容自带底色的界面（如脚本编辑器）跟随工作区底色，避免卡片框感。 */
+      surface?: 'default' | 'surround'
     }>(),
     {
       title: '',
@@ -153,6 +156,7 @@
       showClose: true,
       ariaLabel: '',
       closeLabel: '关闭',
+      surface: 'default',
     },
   )
 
@@ -336,6 +340,11 @@
       display var(--klc-motion-dur-base) allow-discrete;
   }
 
+  /* 内容自带底色的弹窗：表面跟随工作区底色，不再叠一层卡片底。 */
+  .base-modal--surface-surround {
+    background: var(--klc-color-ui-surround-background);
+  }
+
   .base-modal--draggable .base-header {
     cursor: move;
     touch-action: none;
@@ -487,8 +496,18 @@
   }
 
   .base-footer {
-    /* Footer 内的按钮统一使用紧凑高度。 */
+    /*
+      Footer 动作只保留文字：悬停不出底色，下划线从文字下方由中间向两侧展开。
+      按钮外观由 BaseButton / ControlTrigger 自己实现，这里只提供继承变量。
+    */
     --base-button-height: calc(var(--klc-density-default, 32px) - var(--klc-space-4, 4px));
+    --base-button-hover-background: transparent;
+    --base-button-underline: '';
+    --control-button-active-background: transparent;
+    --control-button-focus-background: transparent;
+    --control-button-focus-shadow: none;
+    --control-button-underline: '';
+
     position: relative;
     display: flex;
     align-items: center;
@@ -498,57 +517,6 @@
     flex-shrink: 0;
   }
 
-  /* Footer 动作只保留文字：悬浮不出底色，下划线由文字下方从中间向两侧展开。 */
-  .base-footer :deep(.base-button),
-  .base-footer :deep(.control-button) {
-    position: relative;
-  }
-
-  /*
-    Footer 里的下拉触发器同样是文本动作：清掉悬浮态与聚焦态的底色和聚焦阴影；
-    默认无边框、无底色由 control-button 提供。
-  */
-  .base-footer :deep(.control-button) {
-    --control-button-active-background: transparent;
-    --control-button-focus-background: transparent;
-    --control-button-focus-shadow: none;
-  }
-
-  .base-footer :deep(.base-button:hover:not(:disabled)) {
-    background-color: transparent;
-  }
-
-  /*
-    下划线用 width 展开，不用 transform: scaleX。
-    transform 过渡走合成层，动画结束时该层被回收、线重新栅格化，视觉上会突然变细。
-    left 50% + 静态 translate 让宽度从中心向两侧生长；宽度由控件自己声明的行内留白变量推导，
-    等于文字宽度（按钮内容区），控件更换尺寸或响应式留白时不会与文字错位。
-    线高 1px、离按钮下缘 5px：与文字留出间距的同时不贴着按钮下缘。
-  */
-  .base-footer :deep(.base-button)::after,
-  .base-footer :deep(.control-button)::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 5px;
-    width: 0;
-    height: 1px;
-    background: currentColor;
-    translate: -50% 0;
-    transition: width var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  /* 菜单展开期间同样保持下划线，提示该入口仍处于激活态。 */
-  .base-footer :deep(.base-button:not(:disabled):hover)::after,
-  .base-footer :deep(.base-button:not(:disabled):focus-visible)::after {
-    width: calc(100% - 2 * var(--base-button-inline-padding, 8px));
-  }
-
-  .base-footer :deep(.control-button:not(:disabled):hover)::after,
-  .base-footer :deep(.control-button:not(:disabled):focus-visible)::after,
-  .base-footer :deep(.control-button[aria-expanded='true'])::after {
-    width: calc(100% - 2 * var(--control-button-inline-padding, 8px));
-  }
 
 /* ── Responsive ── */
   @media (max-width: 480px) {

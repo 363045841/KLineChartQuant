@@ -590,11 +590,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .rule-form-input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.7;
-  }
-
   /* 隐藏原生 number 步进器，改由自定义 stepper 提供加减 */
   .rule-form-input[type='number'] {
     -moz-appearance: textfield;
@@ -710,7 +705,7 @@
     opacity: 0.75;
   }
 
-  .rule-form-kind-icon :deep(svg) {
+  .rule-form-kind-icon svg {
     width: 16px;
     height: 16px;
   }

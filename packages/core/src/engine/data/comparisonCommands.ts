@@ -8,7 +8,6 @@ import {
   KNOWN_INSTRUMENT_TYPES,
 } from '../../data/provider/types.js'
 import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { Tool } from '../../foundation/agent/chartToolRegistry.js'
 
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
@@ -50,9 +49,6 @@ const ComparisonRemoveToolParameters = Type.Object(
   { additionalProperties: false },
 )
 
-const ComparisonsListToolParameters = Type.Object({})
-const ComparisonsClearToolParameters = Type.Object({})
-
 /** 主品种输入：显式传入的路由字段，仅用于补齐缺省值。 */
 export type ComparisonPrimaryInput = Static<typeof ComparisonPrimaryToolParameters>
 export type ComparisonCreateInput = Static<typeof ComparisonCreateToolParameters>
@@ -84,7 +80,7 @@ export interface ComparisonInstrumentResolution {
   readonly foundElsewhereSourceIds: readonly string[]
 }
 
-/** 歧义消解时的单个候选条目；路由字段可原样用作 comparison_create 的重试过滤参数。 */
+/** 歧义消解时的单个候选条目；路由字段可原样用作 comparisons_write create 的重试过滤参数。 */
 export interface ComparisonCandidateView {
   readonly id: string
   readonly sourceId: string
@@ -94,7 +90,7 @@ export interface ComparisonCandidateView {
   readonly instrumentType: InstrumentType
 }
 
-/** comparison_create 的结果：成功添加，或命中多个标的而拒绝写入并等待用户澄清。 */
+/** comparisons_write create 的结果：成功添加，或命中多个标的而拒绝写入并等待用户澄清。 */
 export type ComparisonCreateResult =
   | { readonly status: 'added'; readonly symbol: string; readonly name: string }
   | {
@@ -144,15 +140,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
   constructor(private readonly dependencies: ComparisonCommandsDependencies) {}
 
   /** 返回当前全部对比品种及其颜色。 */
-  @Tool({
-    name: 'comparisons_list',
-    label: 'List comparison symbols',
-    description:
-      'List every comparison symbol currently overlaid on the chart. Each item exposes the stable identity, the complete symbol spec, and the assigned line color. Use identity with comparison_remove.',
-    parameters: ComparisonsListToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
   list(): ReadonlyArray<ComparisonSnapshot> {
     return this.comparisonSpecs().map((spec) => {
       const identity = symbolSpecIdentityKey(spec)
@@ -165,15 +152,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
   }
 
   /** 新增一个对比品种；多个标的命中时不写入并返回歧义结果，其余失败抛出可纠正错误。 */
-  @Tool({
-    name: 'comparison_create',
-    label: 'Add comparison symbol',
-    description:
-      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and instrumentType restrict which instrument the code may resolve to; instrumentType only accepts a known class, never unknown. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source and exchange (add instrumentType only when its class is not unknown). Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
-    parameters: ComparisonCreateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
   async create(input: ComparisonCreateInput): Promise<ComparisonCreateResult> {
     const { instrumentType, primary, ...specInput } = input
     const resolution = await this.dependencies.resolveInstrument({
@@ -219,15 +197,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
   }
 
   /** 按 identity（或品种代码）删除一个对比品种。 */
-  @Tool({
-    name: 'comparison_remove',
-    label: 'Remove comparison symbol',
-    description:
-      'Remove one comparison line by its identity from comparisons_list; a matching symbol code also works. The primary symbol and chart mode remain unchanged.',
-    parameters: ComparisonRemoveToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
   remove(input: ComparisonRemoveInput): boolean {
     const specs = this.comparisonSpecs()
     const matches = (spec: SymbolSpec) =>
@@ -240,15 +209,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
   }
 
   /** 删除全部比较折线，保留主品种与图表视图，返回删除数量。 */
-  @Tool({
-    name: 'comparisons_clear',
-    label: 'Clear comparison symbols',
-    description:
-      'Remove every comparison line while keeping the primary symbol and chart mode unchanged. Returns the number of removed symbols.',
-    parameters: ComparisonsClearToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
   clear(): number {
     const specs = this.comparisonSpecs()
     if (specs.length === 0) return 0
@@ -321,8 +281,8 @@ function instrumentNotFoundError(
     )
   }
   const hint = resolution.foundElsewhereSourceIds.length
-    ? ` It exists in: ${resolution.foundElsewhereSourceIds.join(', ')}. Retry comparison_create with source set to one of those.`
-    : ' Use instruments_query_name to find the exact symbol.'
+    ? ` It exists in: ${resolution.foundElsewhereSourceIds.join(', ')}. Retry comparisons_write with action=create and source set to one of those.`
+    : ' Use instruments_query to find the exact symbol.'
   return new KLineChartError(
     COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
     `No instrument matched symbol "${symbol}". Searched ${searched}.${hint}`,
@@ -350,7 +310,7 @@ function ambiguousComparisonResult(
 ): ComparisonCreateResult {
   return Object.freeze({
     status: 'ambiguous' as const,
-    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparison_create with that candidate's source and exchange (add instrumentType only when its class is not unknown).`,
+    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparisons_write with action=create and that candidate's source and exchange (add instrumentType only when its class is not unknown).`,
     candidates: Object.freeze(
       matches.map((item) =>
         Object.freeze({

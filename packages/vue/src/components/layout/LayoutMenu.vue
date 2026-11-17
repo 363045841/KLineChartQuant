@@ -1,7 +1,22 @@
-<!-- 布局管理下拉：商品选择同款 trigger，保存、创建与布局列表在同一面板内，命名走弹窗。 -->
+<!-- 布局管理菜单：普通按钮作为锚点，保存、创建与布局列表在同一面板内，命名走弹窗。 -->
 <template>
-  <DropMenu :label="currentName" :groups="groups" :disabled="!controller" :message="message" empty-text="暂无布局" placement="bottom" tooltip-placement="bottom" keep-open-on-select @open="refresh" @select="onSelect">
-    <template #trigger><span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span></template>
+  <BaseTooltip :content="currentName" placement="bottom" trigger-display="contents">
+    <button v-bind="menu.buttonProps.value" type="button" class="control-button" :disabled="!controller">
+      <span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span>
+    </button>
+  </BaseTooltip>
+
+  <MenuSurface
+    v-bind="menu.menuProps.value"
+    :label="currentName"
+    :groups="groups"
+    :message="message"
+    empty-text="暂无布局"
+    placement="bottom"
+    keep-open-on-select
+    @open="refresh"
+    @select="onSelect"
+  >
     <template #item="{ group, item, select }">
       <button type="button" role="menuitem" class="drop-menu__item-main" :disabled="item.disabled" @click="select">
         <IconDeviceFloppy v-if="group.id === LAYOUT_MENU.group.actions" aria-hidden="true" />
@@ -23,7 +38,7 @@
         <button type="button" class="drop-menu__action--danger" :disabled="busy" :aria-label="`删除 ${item.label}`" @click.stop="remove(item.id)"><IconTrash aria-hidden="true" /></button>
       </BaseTooltip>
     </template>
-  </DropMenu>
+  </MenuSurface>
 
   <LayoutNameDialog
     :show="naming !== null"
@@ -42,7 +57,8 @@
 
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
   import { LAYOUT_MENU, useLayouts } from '@vue-src/composables/chart/useLayouts.js'
   import { toRef } from 'vue'
   import IconCheck from '~icons/tabler/check'
@@ -54,6 +70,7 @@
   import LayoutNameDialog from './LayoutNameDialog.vue'
 
   const props = defineProps<{ controller: ChartController | null }>()
+  const menu = useMenuButton()
   const {
     groups,
     currentName,

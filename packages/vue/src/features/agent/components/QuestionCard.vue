@@ -1,98 +1,124 @@
+<!-- 提问卡片：待答时可选项或输入，已取消时在卡片上方加一行状态并保留只读卡片。 -->
 <template>
-  <section
-    class="question"
-    :data-status="question.status"
-    :tabindex="question.status === 'pending' ? -1 : undefined"
-    data-focus="question"
-  >
-    <header>
+  <template v-if="question.status !== 'answered'">
+    <!-- 已取消：像「思考」一样的一行状态，下面保留只读卡片 -->
+    <div
+      v-if="settled"
+      class="question-summary"
+      data-status="cancelled"
+      :title="question.prompt"
+    >
       <IconHelp aria-hidden="true" />
-      <div>
-        <span>{{ text.question.required }}</span>
-        <strong>{{ question.prompt }}</strong>
-      </div>
-    </header>
+      <span class="question-summary__text">
+        {{ text.question.label }}({{ text.question.declined }})
+      </span>
+    </div>
 
-    <template v-if="question.status === 'pending'">
+    <section class="question" tabindex="-1" data-focus="question">
+      <p class="question__prompt">
+        <IconHelp aria-hidden="true" />
+        <strong>{{ question.prompt }}</strong>
+      </p>
+
       <div
         class="question__options"
         :role="question.multiSelect ? 'group' : 'radiogroup'"
         :aria-label="question.prompt"
       >
         <button
-          v-for="(option, index) in question.options"
+          v-for="option in question.options"
           :key="option.value"
           type="button"
           class="question__option"
           :role="question.multiSelect ? 'checkbox' : 'radio'"
           :aria-checked="isSelected(option.value)"
+          :disabled="settled || submitted"
           @click="toggle(option.value)"
         >
-          <span class="question__index">{{ index + 1 }}</span>
           <span class="question__mark" aria-hidden="true"></span>
-          <span class="question__option-text">
-            <span>{{ option.label }}</span>
-            <small v-if="option.description">{{ option.description }}</small>
-          </span>
+          <span>{{ option.label }}</span>
+          <small v-if="option.description">{{ option.description }}</small>
         </button>
       </div>
 
-      <div class="question__reply">
-        <input
+      <div v-if="!settled" class="question__reply">
+        <BaseInput
           v-model="note"
-          type="text"
           :placeholder="text.question.freeText"
+          :disabled="submitted"
           @keydown.enter.prevent="submit"
         />
-        <button type="button" class="question__submit" :disabled="!canSubmit" @click="submit">
-          <IconCheck aria-hidden="true" />
-          {{ text.question.submit }}
-        </button>
+        <IconArrowUp
+          class="question__submit"
+          :class="{ 'is-disabled': !canSubmit }"
+          role="button"
+          tabindex="0"
+          :aria-label="text.question.submit"
+          :aria-disabled="!canSubmit"
+          @click="submit"
+          @keydown.enter.prevent="submit"
+          @keydown.space.prevent="submit"
+        />
+        <BaseButton variant="link" size="sm" :disabled="submitted" @click="emit('cancel')">
+          {{ text.question.cancel }}
+        </BaseButton>
       </div>
-    </template>
+    </section>
+  </template>
 
-    <div v-else-if="question.status === 'answered'" class="question__resolved">
-      <span>{{ text.question.answered }}</span>
-      <strong>{{ answeredSummary }}</strong>
-    </div>
-    <div v-else class="question__resolved">
-      <strong>{{ text.question.cancelled }}</strong>
-    </div>
-  </section>
+  <div v-else class="question-summary" data-status="answered" :title="question.prompt">
+    <IconCheck aria-hidden="true" />
+    <span class="question-summary__text">{{ summary }}</span>
+  </div>
 </template>
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
+  import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
   import IconHelp from '~icons/tabler/help'
+  import BaseButton from '../../../components/common/BaseButton.vue'
+  import BaseInput from '../../../components/common/BaseInput.vue'
   import type { QuestionAnswerView, QuestionView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ question: QuestionView; locale: AgentLocale }>()
-  const emit = defineEmits<{ answer: [answer: QuestionAnswerView] }>()
+  const emit = defineEmits<{ answer: [answer: QuestionAnswerView]; cancel: [] }>()
 
   const selectedValues = ref<string[]>([])
   const note = ref('')
+  /** 提交后立即禁用本卡片，避免连点重复投递；结算状态由父级事件覆盖。 */
+  const submitted = ref(false)
 
   const text = computed(() => getAgentCopy(props.locale))
-  const canSubmit = computed(() => selectedValues.value.length > 0 || note.value.trim().length > 0)
-  /** 按 value 反查展示文本；value 可能不在当前选项中时回退为原值。 */
+  /** 已取消的提问没有结算入口（pending 表里不存在），卡片只做只读回显。 */
+  const settled = computed(() => props.question.status === 'cancelled')
+  const canSubmit = computed(
+    () => !submitted.value && (selectedValues.value.length > 0 || note.value.trim().length > 0),
+  )
+
+  /** 按 value 反查展示文本；value 不在当前选项中时回退为原值。 */
   const optionLabel = (value: string): string =>
     props.question.options.find((option) => option.value === value)?.label ?? value
-  const answeredSummary = computed(() => {
+
+  /** 已回答压成一行：Ask(已选择: … · 备注)。 */
+  const summary = computed(() => {
     const answer = props.question.answer
-    if (!answer) return ''
-    return [answer.selectedValues.map(optionLabel).join(', '), answer.note]
+    const chosen = (answer?.selectedValues ?? []).map(optionLabel).join(', ')
+    const detail = [chosen ? `${text.value.question.chosen}: ${chosen}` : '', answer?.note ?? '']
       .filter(Boolean)
       .join(' · ')
+    return detail ? `${text.value.question.label}(${detail})` : text.value.question.label
   })
 
+  /** 判断选项是否已选。 */
   function isSelected(value: string): boolean {
     return selectedValues.value.includes(value)
   }
 
   /** 单选直接替换选中项并支持再次点击取消；多选切换命中项。 */
   function toggle(value: string): void {
+    if (settled.value || submitted.value) return
     if (props.question.multiSelect) {
       selectedValues.value = isSelected(value)
         ? selectedValues.value.filter((item) => item !== value)
@@ -102,8 +128,10 @@
     selectedValues.value = isSelected(value) ? [] : [value]
   }
 
+  /** 提交答复；选项与自由文本至少有一项。 */
   function submit(): void {
     if (!canSubmit.value) return
+    submitted.value = true
     const trimmedNote = note.value.trim()
     emit('answer', {
       selectedValues: [...selectedValues.value],
@@ -115,71 +143,65 @@
 <style scoped>
   .question {
     display: grid;
-    gap: 9px;
-    padding: 11px;
+    gap: var(--klc-space-8);
+    padding: var(--klc-space-12, 12px);
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
+    border-radius: var(--klc-radius-sm, 6px);
     background: var(--klc-color-ui-card);
     color: var(--klc-color-ui-text);
   }
 
-  header {
+  .question__prompt {
     display: flex;
-    gap: 8px;
-    align-items: flex-start;
+    align-items: center;
+    gap: var(--klc-space-8);
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--klc-text-label-13-font-size, 13px);
   }
-  header > svg {
+  .question__prompt > svg {
     flex: 0 0 auto;
     color: var(--klc-color-ui-accent);
   }
-  header div {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-  header span {
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    text-transform: uppercase;
-  }
-  header strong {
-    overflow-wrap: anywhere;
-    font-size: 13px;
+  .question__prompt strong {
+    font-weight: var(--klc-text-label-13-font-weight, 500);
   }
 
   .question__options {
     display: grid;
-    gap: 5px;
+    gap: var(--klc-space-4);
   }
+  /* 竖直平铺的选项行：没有独立卡片边框/底色，选择状态只由左侧标记承担。 */
   .question__option {
     min-width: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 7px 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 5px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--klc-space-2) var(--klc-space-8);
+    padding-block: var(--klc-space-2);
+    border: 0;
+    background: transparent;
     color: var(--klc-color-ui-text);
-    background: var(--klc-color-agent-composer-input-background);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: left;
     cursor: pointer;
   }
-  .question__option:hover {
-    border-color: var(--klc-color-ui-border-strong);
-    background: var(--klc-color-ui-hover);
+  .question__option > span {
+    overflow-wrap: anywhere;
   }
-  .question__option[aria-checked='true'] {
+  .question__option small {
+    grid-column: 2;
+    overflow-wrap: anywhere;
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
+  }
+  .question__option:hover:not(:disabled) .question__mark {
     border-color: var(--klc-color-ui-accent);
   }
-  .question__index {
-    flex: 0 0 auto;
-    min-width: 14px;
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    line-height: 18px;
-    text-align: right;
+  .question__option:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 
   /* 自绘选择控件：radio 圆点与 checkbox 对勾均用伪元素绘制，不渲染原生控件外观。 */
@@ -188,7 +210,7 @@
     width: 14px;
     height: 14px;
     position: relative;
-    margin-top: 2px;
+    margin-top: var(--klc-space-2);
     border: 1px solid var(--klc-color-ui-border-strong);
     background: var(--klc-color-ui-surface);
   }
@@ -196,7 +218,7 @@
     border-radius: 50%;
   }
   .question__option[role='checkbox'] .question__mark {
-    border-radius: 3px;
+    border-radius: var(--klc-radius-xs, 4px);
   }
   .question__option[aria-checked='true'] .question__mark {
     border-color: var(--klc-color-ui-accent-strong);
@@ -222,68 +244,53 @@
     transform: rotate(-45deg);
   }
 
-  .question__option-text {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-  .question__option-text > span {
-    overflow-wrap: anywhere;
-  }
-  .question__option-text small {
-    overflow-wrap: anywhere;
-    color: var(--klc-color-ui-muted);
-    font-size: 10px;
-  }
-
   .question__reply {
     display: flex;
-    gap: 6px;
     align-items: center;
+    gap: var(--klc-space-8);
   }
   .question__reply input {
     min-width: 0;
-    flex: 1;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-agent-composer-input-background);
-    font: inherit;
-    font-size: 12px;
+    flex: 1 1 auto;
   }
+  /* 提交就是一个图标本身：没有按钮容器、没有底色，只有图标和命中区。 */
   .question__submit {
-    min-height: 30px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-ui-accent-strong);
-    border-radius: 4px;
-    color: var(--klc-color-ui-on-accent);
-    background: var(--klc-color-ui-accent-strong);
-    font: inherit;
-    font-size: 11px;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    color: var(--klc-color-ui-accent);
     cursor: pointer;
   }
-  .question__submit:disabled {
-    opacity: 0.5;
+  .question__submit.is-disabled {
+    color: var(--klc-color-ui-muted);
     cursor: default;
   }
+  .question__submit:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: 2px;
+  }
 
-  .question__resolved {
-    display: grid;
-    gap: 2px;
-  }
-  .question__resolved span {
+  /* 结算后的一行状态：图标 + 结果，长文本省略并靠 title 提供全文。 */
+  .question-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--agent-inline-gap, var(--klc-space-8));
+    min-width: 0;
     color: var(--klc-color-ui-muted);
-    font-size: 10px;
-    text-transform: uppercase;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
-  .question__resolved strong {
-    overflow-wrap: anywhere;
-    font-size: 12px;
-    font-weight: 600;
+  .question-summary > svg {
+    flex: 0 0 auto;
+    width: var(--agent-inline-icon, 16px);
+    height: var(--agent-inline-icon, 16px);
+  }
+  .question-summary[data-status='answered'] > svg {
+    color: var(--klc-color-ui-success);
+  }
+  .question-summary__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

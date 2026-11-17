@@ -1,4 +1,5 @@
 import { defaultMarketDataContext } from '@/data/management/impl/context.js'
+import { lookupInstrumentsBySymbol } from '@/data/provider/impl/instrumentSearch.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import {
@@ -13,8 +14,15 @@ import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createChartAgentController } from '@/features/agent/impl/chartAgentController.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
+import {
+  createChartAgentController,
+  createChartAgentDrawingCommands,
+  createChartAgentIndicatorCommands,
+  createChartAgentMarketQueries,
+  createChartAgentToolDeps,
+  createMarketDataTextFormatter,
+} from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { generateUUID } from '@/foundation/utils/uuid.js'
@@ -200,6 +208,51 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
   ]
 
+  const marketRegistry = (opts.marketDataContext ?? defaultMarketDataContext).registry
+  const marketFormatter = createMarketDataTextFormatter()
+  // 落点解析：主图用 'main'，副图用其指标实例身份；其它容器不对 Agent 开放。
+  const resolvePlacementPaneId = (placement: string): string | null => {
+    if (placement === MAIN_PANE_ID) return MAIN_PANE_ID
+    return (
+      chart.indicators.instances.peek().find((instance) => instance.id === placement)?.paneId ??
+      null
+    )
+  }
+  const readPlacement = (paneId: string): string | null => {
+    if (paneId === MAIN_PANE_ID) return MAIN_PANE_ID
+    return (
+      chart.indicators.instances.peek().find((instance) => instance.paneId === paneId)?.id ?? null
+    )
+  }
+  const agentTools = createChartAgentToolDeps({
+    indicators: createChartAgentIndicatorCommands({
+      facade: chart.indicators,
+      panes: chart.panes,
+      loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+      resolveCanonicalId: (indicatorId) => {
+        const definition = getRegisteredIndicatorDefinition(indicatorId)
+        return definition ? resolveCanonicalIndicatorId(definition) : null
+      },
+      isRendererAvailable: (indicatorId) =>
+        getRegisteredIndicatorDefinition(indicatorId) !== undefined,
+    }),
+    drawings: createChartAgentDrawingCommands({
+      drawingDocument: chart.drawingDocument,
+      drawingCommands: chart.drawingCommands,
+      copyDrawings: drawingMethods.copyDrawings,
+      resolvePaneId: resolvePlacementPaneId,
+      readPlacement,
+    }),
+    comparisons: chart.comparisonCommands,
+    market: createChartAgentMarketQueries({
+      sources: () => marketRegistry.getEnabledByPriority().map((provider) => provider.source.id),
+      lookup: (input) => lookupInstrumentsBySymbol(marketRegistry, input),
+      cache: chart.getMarketDataCache(),
+      formatter: marketFormatter,
+      indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
+    }),
+  })
+
   const agent = createChartAgentController({
     chartId: generateUUID(),
     dataState: chart.kernel.data,
@@ -207,26 +260,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chartMode: chart.kernel.mode.readonly.chartMode,
     selectedRange: chart.selectedRange,
     indicators,
-    indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
-    marketDataProviderRegistry: (opts.marketDataContext ?? defaultMarketDataContext).registry,
-    marketDataCache: chart.getMarketDataCache(),
-    drawingDocument: chart.drawingDocument,
-    drawingCommands: chart.drawingCommands,
-    copyDrawings: drawingMethods.copyDrawings,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
-    getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
-    panes: chart.panes,
-    comparisonCommands: chart.comparisonCommands,
-    loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
-    resolveSubPaneIndicatorId: (indicatorId) => {
-      const definition = getRegisteredIndicatorDefinition(indicatorId)
-      return definition ? resolveCanonicalIndicatorId(definition) : null
-    },
-    isSubPaneRendererAvailable: (indicatorId, paneId) => {
-      const definition = getRegisteredIndicatorDefinition(indicatorId)
-      return definition !== undefined
-    },
+    readPlacement,
+    tools: agentTools,
+    marketDataTextFormatter: marketFormatter,
   })
 
   let disposal: Promise<void> | undefined

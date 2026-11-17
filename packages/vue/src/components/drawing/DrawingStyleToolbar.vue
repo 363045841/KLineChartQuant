@@ -46,14 +46,14 @@
       :saved-name="templateSaved"
       :disabled="false"
       :show-save="drawings.length === 1"
-      trigger-class="toolbar-btn toolbar-btn--template"
+      button-class="toolbar-btn toolbar-btn--template"
       @open="emit('openTemplates')"
       @save-new="emit('saveTemplate')"
       @apply="emit('applyTemplate', $event)"
       @save-existing="emit('saveExistingTemplate', $event)"
       @remove="emit('deleteTemplate', $event)"
     >
-      <template #trigger><IconTablerBookmarks class="toolbar-icon" aria-hidden="true" /></template>
+      <IconTablerBookmarks class="toolbar-icon" aria-hidden="true" />
     </DrawingTemplateMenu>
 
     <BaseTooltip v-if="drawings.length === 1" content="图元设置" placement="top" trigger-display="contents">
@@ -179,7 +179,7 @@
     box-sizing: border-box;
   }
 
-  .label-position__button :deep(svg) {
+  .label-position__button svg {
     flex: none;
     width: 18px;
     height: 18px;

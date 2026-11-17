@@ -16,9 +16,7 @@ const CHART_PROVIDER_MODELS: ReadonlyArray<ProviderModelFixture> = [
 ]
 
 /** 构造 OpenAI-compatible 模型目录响应。 */
-function providerModelCatalogResponse(
-  models: ReadonlyArray<ProviderModelFixture>,
-): Response {
+function providerModelCatalogResponse(models: ReadonlyArray<ProviderModelFixture>): Response {
   return new Response(JSON.stringify({ data: models }), {
     headers: { 'content-type': 'application/json' },
   })

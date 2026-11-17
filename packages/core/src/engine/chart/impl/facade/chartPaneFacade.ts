@@ -1,12 +1,11 @@
 /**
- * ChartPaneFacade —— 实例归属与 Pane 布局的公开命令面。
+ * ChartPaneFacade —— Pane 容器的公开布局命令面。
  *
- * 主图与副图共用同一套实例身份；图例、Agent 和宿主都从这里写入，
- * 不允许再绕过 facade 直接改指标状态或 Pane 容器。
+ * 只管理顺序、高度、可见性与边界拖拽，不承担指标实例语义；
+ * 实例的创建、更新与删除走 ChartIndicatorFacade。
  */
 import type { ChartPaneLayout } from '../../../pane/index.js'
 import type {
-  InstanceMoveTarget,
   PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
@@ -14,7 +13,6 @@ import type {
   PaneSpec,
 } from '../../../pane/types.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
-import type { IndicatorInstancePatch } from '../../../state/indicatorState.js'
 
 /** Pane Facade 所需依赖。 */
 export interface ChartPaneFacadeDependencies {
@@ -23,61 +21,13 @@ export interface ChartPaneFacadeDependencies {
   invalidateDrawingHistory: () => void
 }
 
-/** 提供实例迁移与 Pane 容器的公开业务操作，不管理 DOM 生命周期。 */
+/** 提供 Pane 容器的业务布局操作，不管理 DOM 生命周期。 */
 export class ChartPaneFacade implements PaneLayoutCommands {
   constructor(private readonly deps: ChartPaneFacadeDependencies) {}
-
-  /** 按定义创建实例；返回实例身份，主副图语义一致。 */
-  add(
-    definitionId: string,
-    params?: Readonly<Record<string, unknown>>,
-    target?: InstanceMoveTarget,
-  ): string | null {
-    return this.deps.kernel.paneManager.actions.add(definitionId, params, target)
-  }
 
   /** 新建空 Pane；返回身份，锚点不存在时返回 null。 */
   addPane(anchorPaneId: string, placement: PanePlacement): string | null {
     return this.deps.kernel.paneManager.actions.addPane(anchorPaneId, placement)
-  }
-
-  /** 迁移实例归属；源副图变空时自动回收。同 pane 时按 index 换位。 */
-  moveInstance(instanceId: string, target: InstanceMoveTarget): boolean {
-    const before = this.deps.kernel.indicator.readonly.instances
-      .peek()
-      .find((instance) => instance.instanceId === instanceId)?.paneId
-    const moved = this.deps.kernel.paneManager.actions.moveInstance(instanceId, target)
-    if (!moved) return false
-    const after = this.deps.kernel.indicator.readonly.instances
-      .peek()
-      .find((instance) => instance.instanceId === instanceId)?.paneId
-    // 只有归属变化才影响图元在 Pane 上的投影，纯换位不应重置绘图历史。
-    if (before !== after) this.deps.invalidateDrawingHistory()
-    return true
-  }
-
-  /** 删除实例；空副图一并回收。 */
-  removeInstance(instanceId: string): boolean {
-    const removed = this.deps.kernel.paneManager.actions.removeInstance(instanceId)
-    if (removed) this.deps.invalidateDrawingHistory()
-    return removed
-  }
-
-  /** 删除指定定义创建的全部实例；定义注销时与空副图回收一起提交。 */
-  removeInstancesByDefinition(definitionId: string): void {
-    this.deps.kernel.paneManager.actions.removeInstancesByDefinition(definitionId)
-    this.deps.invalidateDrawingHistory()
-  }
-
-  /** 删除当前工作区全部指标实例；副图回收后只保留主图与系统 Pane。 */
-  clearAllIndicators(): void {
-    this.deps.kernel.paneManager.actions.clearAllIndicators()
-    this.deps.invalidateDrawingHistory()
-  }
-
-  /** 更新实例参数、显隐、排序或定义。 */
-  updateInstance(instanceId: string, patch: IndicatorInstancePatch): boolean {
-    return this.deps.kernel.paneManager.actions.updateInstance(instanceId, patch)
   }
 
   /** 更新单个 Pane 的布局字段。 */

@@ -40,11 +40,6 @@ export interface OpenAiCompatibleProviderSettings {
   /** 当前 Profile 选择的思考强度。 */
   reasoningEffort?: ProviderReasoningEffort
   protocol: ProviderApiProtocol
-  compatibility: 'compatible'
-  /** 最近一次成功验证连接的时间戳。 */
-  lastTestedAt: number
-  /** 最近一次刷新模型目录的时间戳。 */
-  lastModelsRefreshAt: number
 }
 
 /** 定义 Provider 非敏感设置的持久化边界。 */
@@ -74,7 +69,7 @@ export interface ProviderDiagnostic {
   /** 归一化后的 Agent 运行时错误码。 */
   code?: string
   /** 发起请求的 Agent 流程阶段。 */
-  stage?: 'catalog' | 'text' | 'tool' | 'stream'
+  stage?: 'catalog' | 'stream'
   /** 无法解析的响应体字节数。 */
   responseBodyBytes?: number
   /** 无法解析的响应体外形，用于排查协议不兼容。 */
@@ -101,13 +96,8 @@ export interface OpenAiCompatibleRuntimeOptions {
   maxRetryDelayMs?: number
   /** 接收不含凭据的 Provider 请求诊断信息。 */
   diagnostics?: (diagnostic: ProviderDiagnostic) => void
-  /** 根据当前运行上下文提供可用的只读工具。 */
-  tools?: (context: {
-    readonly sessionId: string
-    readonly runId: string
-    readonly turnId: string
-    readonly prompt: string
-    readonly readOnly: boolean
-    readonly context?: AgentRunContext
-  }) => readonly import('../pi/types.js').RuntimeToolDefinition[]
+  /** 根据当前运行上下文提供可用工具；模式过滤由宿主完成。 */
+  tools?: (
+    input: import('../application/types.js').RunPlanInput,
+  ) => readonly import('../pi/types.js').RuntimeToolDefinition[]
 }

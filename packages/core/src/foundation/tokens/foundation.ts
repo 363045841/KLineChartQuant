@@ -18,25 +18,21 @@ const shared = {
       fontSize: '12px',
       lineHeight: '16px',
       letterSpacing: '0',
-      fontWeight: 400,
     },
     13: {
       fontSize: '13px',
       lineHeight: '18px',
       letterSpacing: '-0.003em',
-      fontWeight: 400,
     },
     14: {
       fontSize: '14px',
       lineHeight: '20px',
       letterSpacing: '-0.006em',
-      fontWeight: 400,
     },
     16: {
       fontSize: '16px',
       lineHeight: '24px',
       letterSpacing: '-0.011em',
-      fontWeight: 400,
     },
     20: {
       fontSize: '20px',
@@ -69,12 +65,9 @@ const shared = {
       fontWeight: 600,
     },
     '11Mono': {
-      fontFamily:
-        "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
       fontSize: '11px',
       lineHeight: '16px',
       letterSpacing: '0',
-      fontWeight: 400,
     },
     label: {
       12: {
@@ -93,19 +86,16 @@ const shared = {
         fontSize: '14px',
         lineHeight: '20px',
         letterSpacing: '-0.006em',
-        fontWeight: 500,
       },
       16: {
         fontSize: '16px',
         lineHeight: '24px',
         letterSpacing: '-0.011em',
-        fontWeight: 500,
       },
       20: {
         fontSize: '20px',
         lineHeight: '24px',
         letterSpacing: '-0.017em',
-        fontWeight: 600,
       },
     },
     copy: {
@@ -113,31 +103,26 @@ const shared = {
         fontSize: '13px',
         lineHeight: '18px',
         letterSpacing: '-0.003em',
-        fontWeight: 400,
       },
       14: {
         fontSize: '14px',
         lineHeight: '20px',
         letterSpacing: '-0.006em',
-        fontWeight: 400,
       },
       16: {
         fontSize: '16px',
         lineHeight: '24px',
         letterSpacing: '-0.011em',
-        fontWeight: 400,
       },
       20: {
         fontSize: '20px',
         lineHeight: '24px',
         letterSpacing: '-0.017em',
-        fontWeight: 600,
       },
       24: {
         fontSize: '24px',
         lineHeight: '28px',
         letterSpacing: '-0.02em',
-        fontWeight: 600,
       },
     },
     numeric: 'tabular-nums',
