@@ -18,6 +18,7 @@
             :groups="modelGroups"
             :empty-text="text.noModelsInPool"
             :disabled="running || !provider.configured"
+            :tooltip="false"
             placement="top"
             @open="emit('models-open')"
             @select="selectModel"
@@ -25,7 +26,7 @@
             <template #trigger="{ open }">
               <span class="composer__model-value truncate-text">{{ modelTriggerLabel }}</span>
               <IconChevronDown
-                class="composer__model-chevron"
+                class="composer__trigger-chevron"
                 :class="{ 'is-open': open }"
                 aria-hidden="true"
               />
@@ -39,18 +40,37 @@
             :groups="reasoningGroups"
             :label="text.reasoningEffort"
             :disabled="running"
+            :tooltip="false"
             @select="(_groupId, value) => emit('reasoning-effort', value)"
           >
             <template #trigger="{ open }">
               <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
               <IconChevronDown
-                class="composer__model-chevron"
+                class="composer__trigger-chevron"
                 :class="{ 'is-open': open }"
                 aria-hidden="true"
               />
             </template>
           </DropMenu>
         </div>
+        <DropMenu
+          class="composer__mode"
+          density="compact"
+          :label="modeMenuLabel"
+          :groups="modeGroups"
+          :tooltip="false"
+          placement="top"
+          @select="selectMode"
+        >
+          <template #trigger="{ open }">
+            <span class="composer__mode-value">{{ modeLabel }}</span>
+            <IconChevronDown
+              class="composer__trigger-chevron"
+              :class="{ 'is-open': open }"
+              aria-hidden="true"
+            />
+          </template>
+        </DropMenu>
         <BaseTooltip v-if="running" :content="text.stop" placement="top">
           <BaseIconButton
             shape="circle"
@@ -80,6 +100,7 @@
   import './agent-primary-button.css'
   import '../../../components/common/truncate-text.css'
 
+  import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
@@ -88,17 +109,17 @@
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
+  import type { ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     draft: string
     running: boolean
+    mode: AgentRunMode
     locale: AgentLocale
     provider: ProviderStatusView
     models: readonly ProviderModelView[]
     modelsLoading: boolean
-    usage?: AgentUsageView
   }>()
   const emit = defineEmits<{
     'update:draft': [value: string]
@@ -107,6 +128,7 @@
     model: [value: string]
     'models-open': []
     'reasoning-effort': [value: string]
+    'mode-change': [value: AgentRunMode]
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
@@ -139,6 +161,41 @@
       })),
     },
   ])
+  /** 模式色点：Plan 只读分析用危险色，Build 会改动图表用成功色。 */
+  const MODE_DOT: Record<AgentRunMode, string> = {
+    plan: 'var(--klc-color-ui-danger)',
+    build: 'var(--klc-color-ui-success)',
+  }
+  const modeLabel = computed(() =>
+    props.mode === 'plan' ? text.value.planMode : text.value.buildMode,
+  )
+  const modeMenuLabel = computed(() => `${text.value.mode}: ${modeLabel.value}`)
+  const modeGroups = computed<DropMenuGroup[]>(() => [
+    {
+      id: 'mode',
+      label: '',
+      items: [
+        {
+          id: 'plan',
+          label: text.value.planMode,
+          dot: MODE_DOT.plan,
+          checked: props.mode === 'plan',
+          selection: 'radio',
+        },
+        {
+          id: 'build',
+          label: text.value.buildMode,
+          dot: MODE_DOT.build,
+          checked: props.mode === 'build',
+          selection: 'radio',
+        },
+      ],
+    },
+  ])
+  /** 模式 id 只可能来自本组菜单的两个取值，其余值忽略。 */
+  function selectMode(_groupId: string, value: string): void {
+    if (value === 'plan' || value === 'build') emit('mode-change', value)
+  }
   /** 从模型菜单选择模型并上报。 */
   function selectModel(_groupId: string, modelId: string): void {
     emit('model', modelId)
@@ -197,7 +254,8 @@
     gap: 8px;
   }
   .composer__model,
-  .composer__reasoning {
+  .composer__reasoning,
+  .composer__mode {
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
     --control-button-radius: var(--klc-radius-md, 8px);
@@ -218,7 +276,7 @@
     --control-button-disabled-color: var(--klc-color-ui-text-soft);
   }
 
-  .composer__model-chevron {
+  .composer__trigger-chevron {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
@@ -226,11 +284,12 @@
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
-  .composer__model-chevron.is-open {
+  .composer__trigger-chevron.is-open {
     transform: rotate(180deg);
   }
 
-  .composer__reasoning-value {
+  .composer__reasoning-value,
+  .composer__mode-value {
     min-width: 0;
     overflow: hidden;
     color: var(--klc-color-ui-text);

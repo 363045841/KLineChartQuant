@@ -10,6 +10,8 @@ interface DropMenuItemBase {
   disabled?: boolean
   /** 左侧图标；菜单内所有项都没有图标时不保留图标槽位。 */
   icon?: Component
+  /** 左侧状态点颜色；与图标共用槽位，item 未提供 icon 时展示。 */
+  dot?: string
   /** 键盘快捷键文本；右侧弱化展示，由调用方决定是否提供。 */
   shortcut?: string
   /** 禁用原因；默认按钮通过 title 展示。 */

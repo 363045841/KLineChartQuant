@@ -43,22 +43,18 @@
         @fill-gap="fillGap"
       />
 
-      <AgentContextBar
-        :context-items="contextItems"
-        :locale="locale"
-        :mode="mode"
-        @mode-change="setMode"
-      />
+      <AgentContextBar :context-items="contextItems" :locale="locale" />
       <AgentComposer
         v-model:draft="draft"
         :running="isRunning"
+        :mode="mode"
         :provider="state.provider"
         :models="models"
         :models-loading="modelsLoading"
-        :usage="usage"
         :locale="locale"
         @send="send"
         @stop="stop"
+        @mode-change="setMode"
         @model="setModel"
         @models-open="loadModels"
         @reasoning-effort="setReasoningEffort"
@@ -122,7 +118,6 @@
     liveAnswer,
     liveTools,
     runError,
-    usage,
     createSession,
     selectSession,
     renameSession,
@@ -220,12 +215,6 @@
     background: var(--klc-color-ui-surround-background);
     font-family: var(--klc-typography-font-family);
     letter-spacing: 0;
-  }
-
-  .agent-workspace :deep(button:focus-visible),
-  .agent-workspace :deep(select:focus-visible) {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 1px;
   }
 
   .sr-only {

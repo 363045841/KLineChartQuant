@@ -1,13 +1,5 @@
 <template>
   <div class="context-bar">
-    <BaseTooltip :content="text.modeHint" placement="top" trigger-display="contents">
-      <AgentModeControl
-        :model-value="mode"
-        :label="text.mode"
-        :options="modeOptions"
-        @update:model-value="emit('mode-change', $event)"
-      />
-    </BaseTooltip>
     <div v-if="symbolContext || rangeContext" class="context-bar__chips" :aria-label="scopeLabel">
       <span v-if="symbolContext" class="context-bar__pill context-bar__symbol"
         ><span class="context-bar__text truncate-text">{{ symbolContext.value.symbol
@@ -31,7 +23,6 @@
 <script setup lang="ts">
   import '../../../components/common/truncate-text.css'
 
-  import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
   import { computed } from 'vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type {
@@ -41,22 +32,13 @@
   } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
-  import AgentModeControl from './AgentModeControl.vue'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
-    mode: AgentRunMode
   }>()
-  const emit = defineEmits<{ 'mode-change': [value: AgentRunMode] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  const modeOptions = computed(
-    (): ReadonlyArray<{ readonly value: AgentRunMode; readonly label: string }> => [
-      { value: 'plan', label: text.value.planMode },
-      { value: 'build', label: text.value.buildMode },
-    ],
-  )
   const symbolContext = computed(() =>
     props.contextItems.find(
       (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
@@ -115,16 +97,6 @@
   .context-bar__symbol {
     flex: 0 1 auto;
     max-width: 100%;
-  }
-
-  .context-bar :deep(.injection-card__summary) {
-    order: 0;
-    flex: 0 0 26px;
-  }
-
-  .context-bar :deep(.injection-card__content) {
-    order: 1;
-    flex: 0 0 100%;
   }
 
   .context-bar__pill {

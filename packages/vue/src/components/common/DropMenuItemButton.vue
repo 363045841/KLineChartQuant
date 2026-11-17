@@ -11,8 +11,18 @@
     :title="item.disabled ? item.reason : undefined"
     @click="emit('activate')"
   >
-    <span v-if="showIcon" class="drop-menu__icon">
+    <span
+      v-if="showIcon"
+      class="drop-menu__icon"
+      :class="{ 'drop-menu__icon--dot': item.dot !== undefined && item.icon === undefined }"
+    >
       <component :is="item.icon" v-if="item.icon" aria-hidden="true" />
+      <span
+        v-else-if="item.dot"
+        class="drop-menu__dot"
+        :style="{ background: item.dot }"
+        aria-hidden="true"
+      />
     </span>
     <span>{{ item.label }}</span>
     <span v-if="item.shortcut" class="drop-menu__shortcut">{{ item.shortcut }}</span>
