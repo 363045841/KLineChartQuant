@@ -120,7 +120,10 @@ export class KLineDataStore {
    *
    * 分页可以整体早于首根、整体晚于末根，或同时跨过首尾；两端同时扩展时拆成
    * 前置与后置两次提交，前置只移动 origin。命中既有时间戳的条目丢弃；
-   * 中间补洞属于数据源违约，直接拒绝。
+   * 落在首尾之间却是新时间戳的条目属于内部补洞，只能整段重建。
+   *
+   * 内部补洞不是数据源违约：落盘缓存与远端历史不一致、或数据源补齐历史时都会出现。
+   * 补一根会改变它之后所有 bar 的序号，增量提交表达不了，所以走 replace 重建序号。
    */
   mergePage(page: readonly KLineData[]): void {
     if (page.length === 0) return
@@ -134,11 +137,21 @@ export class KLineDataStore {
     const lastTimestamp = this._data[this._data.length - 1]!.timestamp
     const older: KLineData[] = []
     const newer: KLineData[] = []
+    let gap = false
     for (const bar of normalized) {
       if (bar.timestamp < firstTimestamp) older.push(bar)
       else if (bar.timestamp > lastTimestamp) newer.push(bar)
-      else if (this.timestampIndex.getOrdinal(bar.timestamp) === null)
-        throw new RangeError('分页不能插入既有序列内部')
+      else if (this.timestampIndex.getOrdinal(bar.timestamp) === null) gap = true
+    }
+
+    if (gap) {
+      const next = normalizeBars([...this._data, ...normalized])
+      this.commit(next, 0, {
+        kind: DATA_CHANGE_KINDS.replace,
+        start: 0,
+        end: next.length,
+      })
+      return
     }
 
     if (older.length > 0) {

@@ -86,11 +86,20 @@ describe('KLineDataStore', () => {
     unsubscribe()
   })
 
-  it('分页插入既有区间内部时直接拒绝', () => {
+  it('分页补上既有区间内部的缺口时整段重建', () => {
     const store = new KLineDataStore()
     store.replace([bar(10, 1), bar(30, 3)])
+    const kinds: string[] = []
+    const unsubscribe = store.data.subscribe(() => kinds.push(store.data().kind))
 
-    expect(() => store.mergePage([bar(20, 2)])).toThrow('分页不能插入既有序列内部')
+    store.mergePage([bar(20, 2)])
+
+    // 内部补洞会改变后续 bar 的序号，只能整段重建。
+    expect(kinds).toEqual([DATA_CHANGE_KINDS.replace])
+    expect(store.getRawData().map((item) => item.timestamp)).toEqual([10, 20, 30])
+    expect(store.getRawData().map((item) => item.close)).toEqual([1, 2, 3])
+    expect(store.getOrdinalAtTimestamp(30)).toBe(2)
+    unsubscribe()
   })
 
   it('实时尾段替换 forming bar、追加新根并拒绝陈旧帧', () => {
