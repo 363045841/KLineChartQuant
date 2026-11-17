@@ -56,7 +56,10 @@ function axisColumnsEqual(
       return (
         column.axisId === target.axisId &&
         column.left === target.left &&
-        column.width === target.width
+        column.width === target.width &&
+        column.configuration.scaleType === target.configuration.scaleType &&
+        column.configuration.rangeMode === target.configuration.rangeMode &&
+        column.configuration.baseValue === target.configuration.baseValue
       )
     })
   )
@@ -114,7 +117,7 @@ export function createPaneState() {
     readonly,
     getScalePreferences: (): ReadonlyMap<string, ScaleType> => currentWorkspace().paneScaleTypes,
     actions: {
-      /** 已提交的可见 Pane 几何；轴区宽度与轴列取自已提交的列布局，数值不变时不广播。 */
+      /** 协调者唯一发布入口：轴配置与几何一起提交，数值不变时不广播。 */
       setPaneGeometry(geometry: ReadonlyArray<PaneGeometry>): void {
         const previous = stored.paneGeometry.peek()
         if (
@@ -131,7 +134,23 @@ export function createPaneState() {
           })
         )
           return
-        signals.paneGeometry.set(Object.freeze(geometry.map((pane) => Object.freeze({ ...pane }))))
+        signals.paneGeometry.set(
+          Object.freeze(
+            geometry.map((pane) =>
+              Object.freeze({
+                ...pane,
+                axisColumns: Object.freeze(
+                  pane.axisColumns.map((column) =>
+                    Object.freeze({
+                      ...column,
+                      configuration: Object.freeze({ ...column.configuration }),
+                    }),
+                  ),
+                ),
+              }),
+            ),
+          ),
+        )
       },
       /** 切换指标工作区，同时保留仍被全局对象占用的容器身份。 */
       setActiveWorkspace(

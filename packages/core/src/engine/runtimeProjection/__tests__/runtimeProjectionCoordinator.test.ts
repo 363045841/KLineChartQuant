@@ -1,7 +1,7 @@
 /** 协调提交契约：重入状态必须再次收敛，失败阶段不能提交绘制。 */
 import { describe, expect, it, vi } from 'vitest'
-import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { createSignal } from '@/foundation/reactivity/signal.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { RuntimeProjectionCoordinator } from '../impl/runtimeProjectionCoordinator.js'
 import type { RuntimeProjectionDependencies, RuntimeProjectionSnapshot } from '../types.js'
 
@@ -23,6 +23,7 @@ function createHarness() {
     configureAxes: vi.fn<RuntimeProjectionDependencies['configureAxes']>(),
     projectLayers: vi.fn<RuntimeProjectionDependencies['projectLayers']>(),
     invalidateFrame: vi.fn<RuntimeProjectionDependencies['invalidateFrame']>(),
+    publishView: vi.fn<RuntimeProjectionDependencies['publishView']>(),
     requestDraw: vi.fn<RuntimeProjectionDependencies['requestDraw']>(),
   }
   return { state, deps, coordinator: new RuntimeProjectionCoordinator(deps) }
@@ -50,7 +51,9 @@ describe('RuntimeProjectionCoordinator', () => {
   it('does not draw failed partial resources and retries the complete projection on the next synchronization', () => {
     const failure = new Error('configuration failed')
     const harness = createHarness()
-    harness.deps.configureAxes.mockImplementationOnce(() => { throw failure })
+    harness.deps.configureAxes.mockImplementationOnce(() => {
+      throw failure
+    })
     expect(() => harness.coordinator.synchronize()).toThrow(failure)
     expect(harness.deps.projectLayers).not.toHaveBeenCalled()
     expect(harness.deps.requestDraw).not.toHaveBeenCalled()

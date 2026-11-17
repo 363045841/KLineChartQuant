@@ -1,11 +1,7 @@
 <!-- 单一产品入口：立即挂载界面，脚本与 Agent 独立异步加载。 -->
 <template>
   <div class="kline-workbench" :data-theme="theme">
-    <slot v-if="failure" name="error" :error="failure">
-      <p role="alert">{{ failure.message }}</p>
-    </slot>
     <WorkbenchContent
-      v-else
       ref="content"
       v-bind="{ ...$props, ...$attrs }"
       @controller-ready="emit('controller-ready', $event)"
@@ -34,10 +30,9 @@
     error: [error: Error]
   }>()
   const content = shallowRef<KlineWorkbenchHandle | null>(null)
-  const failure = shallowRef<Error | null>(null)
   const theme = shallowRef<'light' | 'dark'>('light')
   onErrorCaptured((error) => {
-    failure.value = error
+    // 错误向宿主报告；局部操作异常不改变整个工作台的生命周期。
     emit('error', error)
     return false
   })

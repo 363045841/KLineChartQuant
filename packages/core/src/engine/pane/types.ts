@@ -4,6 +4,7 @@ import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
 import type { IndicatorInstancePatch, IndicatorStateModule } from '../state/indicatorState.js'
 import type { PaneStateModule } from '../state/paneState.js'
+import type { ObjectAxesApi } from './axisTypes.js'
 
 export type { PanePlacement } from '../../foundation/types/pane.js'
 
@@ -42,8 +43,12 @@ export interface PaneGeometry {
   readonly height: number
   /** 该 Pane 的轴区宽度，等于各轴列宽度之和。 */
   readonly axisWidth: number
-  /** 已提交的右轴列几何，顺序即列显示顺序；宿主控件按列定位，不反推轴身份。 */
-  readonly axisColumns: ReadonlyArray<PaneAxisColumn>
+  /** 同一次提交的轴身份、配置与列几何；消费方不再反查运行时轴。 */
+  readonly axisColumns: ReadonlyArray<
+    PaneAxisColumn & {
+      readonly configuration: ReturnType<ObjectAxesApi['configuration']>
+    }
+  >
 }
 
 /** 拖拽期间总位移始终相对按下时的布局，外部布局变化后会话失效。 */

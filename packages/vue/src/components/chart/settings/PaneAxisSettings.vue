@@ -37,7 +37,7 @@
   const { groups, select } = usePriceAxisMenu(
     toRef(() => props.controller),
     (settings) => emit('settings-change', settings),
-    props.axisId,
+    () => props.axisId,
   )
 </script>
 

@@ -1,7 +1,7 @@
 /** Pane、轴、配置和指标资源的唯一有序投影入口。 */
 import { mergeUpdateLevel } from '@/engine/frame/index.js'
-import { UpdateLevel } from '@/engine/pane/index.js'
 import type { PaneAxisSpec } from '@/engine/pane/axisTypes.js'
+import { UpdateLevel } from '@/engine/pane/index.js'
 import { batch, effect } from '@/foundation/reactivity/signal.js'
 import type { RuntimeProjectionDependencies, RuntimeProjectionSnapshot } from '../types.js'
 
@@ -91,6 +91,7 @@ export class RuntimeProjectionCoordinator {
       do {
         this.pending = false
         batch(() => this.commit(snapshot))
+        if (!this.pending) batch(() => this.deps.publishView())
         if (this.pending) snapshot = this.deps.capture()
       } while (this.pending)
     } catch (error) {
@@ -110,11 +111,13 @@ export class RuntimeProjectionCoordinator {
   private commit(snapshot: RuntimeProjectionSnapshot): void {
     const previous = this.previous
     const panesChanged =
-      previous === null || previous.panes !== snapshot.panes ||
+      previous === null ||
+      previous.panes !== snapshot.panes ||
       previous.layoutOptions !== snapshot.layoutOptions
     const axesChanged = previous === null || !sameAxes(previous.axes, snapshot.axes)
     const configurationChanged =
-      previous === null || previous.ranges !== snapshot.ranges ||
+      previous === null ||
+      previous.ranges !== snapshot.ranges ||
       previous.pricePaneId !== snapshot.pricePaneId ||
       previous.leftAxisVisible !== snapshot.leftAxisVisible
     const indicatorsChanged =
@@ -132,6 +135,12 @@ export class RuntimeProjectionCoordinator {
     this.deps.invalidateFrame()
     this.previous = snapshot
     this.requestDraw(UpdateLevel.All)
+  }
+
+  /** 帧测量完成后仍经同一入口发布；提交中的发布由 synchronize 统一完成。 */
+  publishView(): void {
+    if (this.stopped || this.running || this.previous === null) return
+    batch(() => this.deps.publishView())
   }
 
   /** 先停止订阅和绘制，再由 Chart 释放具体资源。 */

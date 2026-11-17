@@ -40,7 +40,6 @@
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController, PaneGeometry } from '@363045841yyt/klinechart-core/controllers'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import type { PaneAxisColumnItem } from '@vue-src/composables/chart/usePaneAxisColumns.js'
   import { usePriceAxisMenu } from '@vue-src/composables/chart/usePriceAxisMenu.js'
   import { computed, toRef } from 'vue'
   import PaneAxisSettings from './PaneAxisSettings.vue'
@@ -49,7 +48,7 @@
     controller: ChartController | null
     pane: PaneGeometry
     /** 本 Pane 的轴列，每条轴一个设置入口。 */
-    columns: ReadonlyArray<PaneAxisColumnItem>
+    columns: PaneGeometry['axisColumns']
     /** 最后一条轴列没有下一个 Pane，带子直接延伸到图表底。 */
     endsAtChartBottom: boolean
   }>()
@@ -57,7 +56,7 @@
   const { shortcuts, selectShortcut, isShortcutSelected } = usePriceAxisMenu(
     toRef(() => props.controller),
     (settings) => emit('settings-change', settings),
-    props.columns[0]!.axisId,
+    () => props.columns[0]?.axisId,
   )
 
   /** 快捷按钮所在带子就是本 Pane 的绘图区，不进入底部时间轴那一行。 */
@@ -75,7 +74,7 @@
   }))
 
   /** 列几何只决定横向位置，纵向统一贴带底。 */
-  const columnStyle = (column: PaneAxisColumnItem) => ({
+  const columnStyle = (column: PaneGeometry['axisColumns'][number]) => ({
     left: `${column.left}px`,
     width: `${column.width}px`,
   })

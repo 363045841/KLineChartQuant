@@ -498,10 +498,10 @@
   import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
   import type { MenuAnchor } from '@vue-src/components/common/dropMenuTypes.js'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
   import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
   import DrawingTemplateSaveDialog from '@vue-src/components/drawing/settings/DrawingTemplateSaveDialog.vue'
@@ -539,7 +539,6 @@
   import { useKLineTooltip } from '@vue-src/composables/chart/useKLineTooltip.js'
   import { useLegendMoveMenu } from '@vue-src/composables/chart/useLegendMoveMenu.js'
   import { useLegendUi } from '@vue-src/composables/chart/useLegendUi.js'
-  import { usePaneAxisColumns } from '@vue-src/composables/chart/usePaneAxisColumns.js'
   import { usePaneAxisItems } from '@vue-src/composables/chart/usePaneAxisItems.js'
   import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
   import { useScriptEditor } from '@vue-src/composables/chart/useScriptEditor.js'
@@ -1114,9 +1113,7 @@
   } = useLegendMoveMenu(controller)
   // 图例菜单以模型给出的坐标作为锚点，与画布右键菜单共用同一套受控面板。
   const legendMoveMenuAnchor = computed<MenuAnchor | null>(() =>
-    legendMoveMenuOrigin.value === null
-      ? null
-      : { kind: 'point', ...legendMoveMenuOrigin.value },
+    legendMoveMenuOrigin.value === null ? null : { kind: 'point', ...legendMoveMenuOrigin.value },
   )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
@@ -1140,14 +1137,12 @@
   } = useIndicatorManager(controller)
 
   const paneAxisItems = usePaneAxisItems(controller)
-  /** 每条轴列一个设置入口，入口拿到的轴身份来自 Core 已提交的列几何。 */
-  const paneAxisColumns = usePaneAxisColumns(controller)
   /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
   const paneAxisEntries = computed(() => {
     const entries = paneAxisItems.value
       .map((pane) => ({
         pane,
-        columns: paneAxisColumns.value.filter((column) => column.paneId === pane.id),
+        columns: pane.axisColumns,
       }))
       .filter((entry) => entry.columns.length > 0)
     return entries.map((entry, index) => ({

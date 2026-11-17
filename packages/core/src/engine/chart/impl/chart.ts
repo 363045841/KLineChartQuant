@@ -21,8 +21,8 @@ import {
   axisGroupId,
   indicatorAxisGroupKey,
 } from '@/engine/pane/axisGroups.js'
-import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
 import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
+import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
 import type { PaneAxisColumn } from '@/engine/pane/types.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
@@ -761,6 +761,7 @@ export class Chart {
         this.renderer.invalidateFrame()
         this.interaction.invalidateHover()
       },
+      publishView: () => this.publishPaneView(),
       requestDraw: (level) => this.renderer.scheduleDraw(level),
     })
     this.axes = createObjectAxesApi({
@@ -838,7 +839,10 @@ export class Chart {
     const panes = this.kernel.pane.readonly.paneSpecs()
     return {
       panes,
-      axes: resolvePaneAxes(panes.map((pane) => pane.id), this.readObjectAxisDeclarations()),
+      axes: resolvePaneAxes(
+        panes.map((pane) => pane.id),
+        this.readObjectAxisDeclarations(),
+      ),
       indicators: this.indicatorManager.readRuntimeInputs(),
       ranges: this.kernel.axesState.readonly.paneRanges(),
       pricePaneId: this.kernel.systemObjects.readonly.pricePaneId(),
@@ -1092,7 +1096,9 @@ export class Chart {
       ...axis,
       scaleType:
         axis.axisId === PRICE_SERIES_AXIS_ID
-          ? (percentView ? ScaleType.Percent : priceScaleType)
+          ? percentView
+            ? ScaleType.Percent
+            : priceScaleType
           : (preferences.get(axis.axisId) ?? ScaleType.Linear),
     }))
   }
@@ -1113,6 +1119,34 @@ export class Chart {
     if (drawing.ownerId === undefined) return masterAxisId
     const owner = axisByObjectId.get(drawing.ownerId)
     return owner !== undefined && owner.paneId === drawing.paneId ? owner.axisId : masterAxisId
+  }
+
+  /** 协调者发布唯一宿主视图；轴迁移立即重排列，后续帧只修正测量宽度。 */
+  private publishPaneView(): void {
+    this.kernel.pane.actions.setPaneGeometry(
+      this.paneRenderers.flatMap((renderer) => {
+        const pane = renderer.getPane()
+        if (pane.height <= 0) return []
+        const columns = layoutAxisColumns(
+          pane.axes.map((axis) => axis.axisId),
+          Object.fromEntries(pane.axisColumns.map((column) => [column.axisId, column.width])),
+          pane.axisWidth,
+        )
+        pane.setAxisColumns(columns)
+        return [
+          {
+            id: pane.id,
+            top: pane.top,
+            height: pane.height,
+            axisWidth: pane.axisWidth,
+            axisColumns: columns.map((column) => ({
+              ...column,
+              configuration: this.axes.configuration(column.axisId),
+            })),
+          },
+        ]
+      }),
+    )
   }
 
   /** 将对象轴的有效配置投影到运行时坐标映射。 */
@@ -1545,6 +1579,7 @@ export class Chart {
       this.dom.rightAxisLayer.style.width = rightCss
     if (this.dom.leftAxisLayer && this.dom.leftAxisLayer.style.width !== leftCss)
       this.dom.leftAxisLayer.style.width = leftCss
+    this.runtimeProjection.publishView()
     return changed
   }
 

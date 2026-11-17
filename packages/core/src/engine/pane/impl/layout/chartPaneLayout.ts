@@ -305,27 +305,6 @@ export class ChartPaneLayout {
 
       y += h + gap
     }
-    this.publishPaneGeometry()
-  }
-
-  /** 尺寸和轴列提交共用一个发布入口，宿主控件不保留上一帧的轴宽。 */
-  private publishPaneGeometry(): void {
-    this.deps.pane.actions.setPaneGeometry(
-      this.paneRenderers.flatMap((renderer) => {
-        const pane = renderer.getPane()
-        return pane.height > 0
-          ? [
-              {
-                id: pane.id,
-                top: pane.top,
-                height: pane.height,
-                axisWidth: pane.axisWidth,
-                axisColumns: pane.axisColumns,
-              },
-            ]
-          : []
-      }),
-    )
   }
 
   /** 间隔受绘图区预算限制，极小容器也不会仅因 gap 就溢出。 */
@@ -345,7 +324,6 @@ export class ChartPaneLayout {
       const pane = renderer.getPane()
       pane.setAxisColumns(columnsByPane.get(pane.id) ?? [])
     }
-    this.publishPaneGeometry()
   }
 
   /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */

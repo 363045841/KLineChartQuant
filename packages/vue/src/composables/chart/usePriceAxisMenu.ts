@@ -30,33 +30,30 @@ export interface PriceAxisShortcut {
   text: string
 }
 
-type AxisConfiguration = ReturnType<ChartController['axes']['configuration']>
-
 /**
  * 生成单条轴的类型、范围、重置与位置命令。
  *
  * @param controller 图表控制器
  * @param applySettings 写回图表级设置（位置与仅缩放价格图表）
- * @param axisId 宿主控件所在列的轴身份
+ * @param axisId 读取宿主当前目标；不保存初始化时的轴身份
  */
 export function usePriceAxisMenu(
   controller: Ref<ChartController | null>,
   applySettings: (settings: ChartSettings) => void,
-  axisId: string,
+  axisId: () => string | undefined,
 ) {
   const settings = useControllerSignal(controller, (chart) => chart.settings, normalizeSettings)
-  const scaleTypes = useControllerSignal<ReadonlyMap<string, ScaleType>>(
+  const panes = useControllerSignal(
     controller,
-    (chart) => chart.paneScaleTypes,
-    () => new Map(),
+    (chart) => chart.paneGeometry,
+    () => [],
   )
-  const ranges = useControllerSignal<ReturnType<ChartController['panePriceAxisRanges']['peek']>>(
-    controller,
-    (chart) => chart.panePriceAxisRanges,
-    () => ({}),
+  // 身份、配置和失效均来自同一次提交；旧控件尚未卸载时也不会反查已注销轴。
+  const axis = computed(() =>
+    panes.value.flatMap((pane) => pane.axisColumns).find((column) => column.axisId === axisId()),
   )
   /** 仅主价格轴承载行情价格，指标轴没有可拟合的 K 线。 */
-  const isPriceAxis = axisId === PRICE_SERIES_AXIS_ID
+  const isPriceAxis = computed(() => axis.value?.axisId === PRICE_SERIES_AXIS_ID)
   const shortcuts: ReadonlyArray<PriceAxisShortcut> = [
     {
       group: GROUP.RANGE,
@@ -68,17 +65,9 @@ export function usePriceAxisMenu(
     { group: GROUP.TYPE, on: ScaleType.Log, off: ScaleType.Linear, label: '对数', text: 'L' },
   ]
 
-  /** 绑定轴的运行时配置；没有控制器时菜单整体禁用。 */
-  function configuration(): AxisConfiguration | null {
-    return controller.value ? controller.value.axes.configuration(axisId) : null
-  }
-
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
-    // 订阅轴配置信号，配置变化后重建勾选态与禁用态。
-    scaleTypes.value
-    ranges.value
-    const config = configuration()
-    const blocked = config === null
+    const config = axis.value?.configuration
+    const blocked = config === undefined
     const base = config?.baseValue ?? null
     const percentReady = base !== null && base !== 0
     const rangeItems: DropMenuItem[] = [
@@ -90,7 +79,7 @@ export function usePriceAxisMenu(
         selection: 'checkbox',
       },
     ]
-    if (isPriceAxis) {
+    if (isPriceAxis.value) {
       // 自动范围下的口径：锁定范围时不影响，但随时可改。
       rangeItems.push({
         id: PRICE_ONLY,
@@ -100,7 +89,7 @@ export function usePriceAxisMenu(
         disabled: blocked,
       })
     }
-    const positionGroup: DropMenuGroup[] = isPriceAxis
+    const positionGroup: DropMenuGroup[] = isPriceAxis.value
       ? [
           {
             id: GROUP.POSITION,
@@ -163,7 +152,9 @@ export function usePriceAxisMenu(
   /** 轴命令只作用于绑定轴；位置与仅缩放价格图表是整图设置。 */
   function select(groupId: string, itemId: string): void {
     const chart = controller.value
-    if (!chart) return
+    const target = axis.value
+    if (!chart || !target) return
+    const { axisId, configuration: config } = target
     if (groupId === GROUP.POSITION && (itemId === 'left' || itemId === 'right')) {
       applySettings({ ...settings.value, priceAxisPosition: itemId })
       return
@@ -175,7 +166,6 @@ export function usePriceAxisMenu(
       })
       return
     }
-    const config = chart.axes.configuration(axisId)
     if (
       groupId === GROUP.TYPE &&
       (itemId === ScaleType.Log || itemId === ScaleType.Linear || itemId === ScaleType.Percent)
