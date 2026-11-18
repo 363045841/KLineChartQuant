@@ -14,6 +14,7 @@ import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import {
   createChartAgentController,
@@ -22,10 +23,10 @@ import {
   createChartAgentMarketQueries,
   createChartAgentToolDeps,
   createMarketDataTextFormatter,
+  type ChartAgentDrawingScope,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
-import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { indicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
@@ -210,20 +211,23 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   const marketRegistry = (opts.marketDataContext ?? defaultMarketDataContext).registry
   const marketFormatter = createMarketDataTextFormatter()
-  // 落点解析：主图用 'main'，副图用其指标实例身份；其它容器不对 Agent 开放。
-  const resolvePlacementPaneId = (placement: string): string | null => {
-    if (placement === MAIN_PANE_ID) return MAIN_PANE_ID
-    return (
-      chart.indicators.instances.peek().find((instance) => instance.id === placement)?.paneId ??
-      null
-    )
+  // 窗格身份只来自布局：行号是唯一坐标，指标实例身份不参与落点解析。
+  const layoutPanes = () => chart.panes.getLayoutSpecs()
+  const readPaneRow = (paneId: string): number | null => {
+    const index = layoutPanes().findIndex((pane) => pane.id === paneId)
+    return index < 0 ? null : index
   }
-  const readPlacement = (paneId: string): string | null => {
-    if (paneId === MAIN_PANE_ID) return MAIN_PANE_ID
-    return (
-      chart.indicators.instances.peek().find((instance) => instance.paneId === paneId)?.id ?? null
-    )
-  }
+  /** 图表时区：图元时间读写都用它，不跟随宿主本地时区。 */
+  const chartTimezone = (): string =>
+    chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
+  const drawingScope = (): ChartAgentDrawingScope => ({
+    rows: layoutPanes().map((pane) => pane.id),
+    period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+    timezone: chartTimezone(),
+    workspace: chart.drawing.getWorkspaceId(),
+  })
+  const formatAnchorTime = (timestamp: number): string =>
+    formatDrawingAnchorTime(timestamp, chartTimezone())
   const agentTools = createChartAgentToolDeps({
     indicators: createChartAgentIndicatorCommands({
       facade: chart.indicators,
@@ -241,9 +245,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     drawings: createChartAgentDrawingCommands({
       drawingDocument: chart.drawingDocument,
       drawingCommands: chart.drawingCommands,
-      copyDrawings: drawingMethods.copyDrawings,
-      resolvePaneId: resolvePlacementPaneId,
-      readPlacement,
+      scope: drawingScope,
+      bars: () => chart.getData(),
     }),
     comparisons: chart.comparisonCommands,
     market: createChartAgentMarketQueries({
@@ -256,15 +259,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
 
   const agent = createChartAgentController({
-    chartId: generateUUID(),
     dataState: chart.kernel.data,
     currentSpec: chart.kernel.dataManager.readonly.currentSpec,
-    chartMode: chart.kernel.mode.readonly.chartMode,
     selectedRange: chart.selectedRange,
-    indicators,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
-    readPlacement,
+    readPaneRow,
+    formatAnchorTime,
     tools: agentTools,
     marketDataTextFormatter: marketFormatter,
   })

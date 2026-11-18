@@ -14,21 +14,12 @@ import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 /** ChartAgent context 测试快照的默认值；用例只声明差异字段。 */
 const DEFAULT_CONTEXT_SNAPSHOT: ChartAgentContextSnapshot = {
-  chartId: 'chart-1',
   symbol: 'BTCUSDT',
   symbolName: null,
-  market: 'crypto',
-  exchange: 'BINANCE',
-  period: '1h',
-  dataSource: 'fixture',
   timezone: null,
-  adjustMode: null,
-  dataRange: { from: 1, to: 2, bars: 2 },
   visibleRange: { from: 1, to: 2 },
   selectedKLineBars: null,
-  activeIndicators: [],
   drawingSelection: null,
-  dataRevision: 1,
 }
 
 /** 构造可写、可订阅的 ChartAgent context signal；overrides 只声明差异快照字段。 */
@@ -56,12 +47,10 @@ export function createTestToolDeps(
       resolveDefinition: async () => unused('indicators.resolveDefinition'),
     },
     drawings: {
-      list: () => [],
+      list: () => ({ timezone: 'UTC', period: '1h', drawings: [] }),
       create: () => unused('drawings.create'),
       update: () => unused('drawings.update'),
       remove: () => unused('drawings.remove'),
-      copy: () => unused('drawings.copy'),
-      clear: () => unused('drawings.clear'),
     },
     comparisons: {
       list: () => [],

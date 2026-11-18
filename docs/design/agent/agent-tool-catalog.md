@@ -25,8 +25,8 @@
 | --- | --- | --- |
 | `indicators_list` | read | 列出现有指标实例 |
 | `indicators_write` | write | add / update / move / remove |
-| `drawings_list` | read | 列出已提交图元 |
-| `drawings_write` | write | create / update / delete / copy / clear |
+| `drawings_list` | read | 列出当前标的的图元 |
+| `drawings_write` | write | create / update / delete |
 | `comparisons_list` | read | 列出对比品种 |
 | `comparisons_write` | write | create / remove / clear |
 | `instruments_query` | read | 精确代码查询 |
@@ -39,7 +39,7 @@
 ### 硬约束
 
 1. **身份只出不进**：`add` 只接收指标名称、参数与落点，实例与容器身份由状态分配；内部实例 ID 与 `paneId` 都不出现在工具入参里。
-2. **落点是语义不是容器**：图元用 `placement: "main" | <instanceId>` 寻址，`paneId` 不出现在任何工具契约里。
+2. **落点是语义不是容器**：窗格身份就是显示行 `row`，`paneId` 与指标实例 ID 都不出现在任何工具契约里。
 3. **模式只过滤一次**：`resolveTools({ mode, enabled })` 是唯一裁剪点；`plan` 只保留 `effect === 'read'`，`build` 全量。Provider 与注册表只消费解析结果。
 4. **提示词从清单推导**：能力说明看本轮是否提供了 `effect === 'write'` 的工具，而不是再看一次 `mode`。模式只剩“挑工具”一个消费点，提示词不会和清单漂移。
 5. **呈现方式由工具声明**：需要非默认视图的工具写 `presentation: 'question'`，宿主按这个字段渲染提问卡片；缺省是普通折叠行。视图不认识任何工具名，新增同类工具不需要改渲染层。声明随 `details` 落到运行中槽位与最终结果，刷新后仍能还原。
@@ -62,6 +62,15 @@
 - 校验失败时必须带回可执行信息：未知键列出合法键与约束；`update` 缺键时直接附上当前实例参数，模型不需要额外调用 `indicators_list` 也能补齐重试。
 - `move` 只移动指标实例（行号是显示行，0 是最上面一行；主图可能不在 0），不移动 Pane；越界直接报错而不是静默截断。
 - 不暴露 `clear`：清空牵连副图回收、主图语义与绘图历史，收益低且破坏面大，保留给产品按钮。
+
+### 图元寻址与时间契约
+
+- **窗格 = 显示行，图元 = 系统分配的 id**：`drawings_list` 返回 `id / kind / row / anchors / style / labels / visible / locked / zIndex / timeframeVisibility / visibleInCurrentPeriod`。`row` 来自图表布局（0 是最上面一行，主图可能在任何行），不从指标实例推导；`id` 由 `create` 返回，后续 `update` / `delete` 只做引用。
+- **时间只有一种写法**：RFC 3339 带偏移量，时区取图表当前时区。读到的字符串可以原样写回，模型不做换算；日线及以上允许只写 `YYYY-MM-DD`，日内周期只给日期直接报错，避免所有锚点落到当天首根 K 线。
+- **锚点按种类分轴**：锚点数量与所需坐标轴来自 `DRAWING_KIND_SPECS`，工具描述由它生成。垂直线只有 `time`，水平线只有 `price`，其余种类两者都有；该种类不用的轴出现在入参里即报错。
+- **`update` 只改属性**：style / labels / visible / locked / zIndex / timeframeVisibility；几何变化走 delete + create，避免读写两侧锚点形状不一致。
+- **失败不伪装成成功**：未知 `row`、未知 `id`、锁定图元、锚点形状错误都抛稳定错误码，并带回有效行、当前图元身份或该种类需要的锚点形状。
+- 不暴露 `clear` 与 `copy`：前者是没有范围界定的批量删除，后者能用 create 表达。
 
 ## 后果
 

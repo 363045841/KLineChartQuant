@@ -71,7 +71,8 @@ agent/
 一侧只过滤一次：`build` 全量，`plan` 只保留 `effect === 'read'`。
 
 三条硬约束：身份只出不进（指标按 `indicator / row / order` 寻址，入参不含实例 ID；`add` 返回名称与位置）；
-落点是语义（指标用 `placement: "main" | "sub"`，图元用 `"main" | <instanceId>`）；`executionMode` 由 `effect` 推导。完整决策见
+落点是语义（窗格用显示行 `row` 寻址，指标 `placement` 只表达主图/副图，图元的身份是系统分配的 `id`）；
+`executionMode` 由 `effect` 推导。完整决策见
 [`docs/design/agent/agent-tool-catalog.md`](../../../../../docs/design/agent/agent-tool-catalog.md)。
 
 ## 查询规则

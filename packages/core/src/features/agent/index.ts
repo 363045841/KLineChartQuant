@@ -12,14 +12,14 @@ export type { ChartToolDefinition, ChartToolMetadata, ChartToolResult } from './
 export { CHART_TOOL_METADATA, createChartToolCatalog } from './tools/index.js'
 export type {
   BarsQueryInput,
-  ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentControllerDependencies,
-  ChartAgentDataRange,
   ChartAgentDrawingCommands,
+  ChartAgentDrawingScope,
   ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
+  ChartAgentDrawingView,
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentIndicatorTarget,

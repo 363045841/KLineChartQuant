@@ -1,7 +1,12 @@
 /** 创建图元时的锚点物化：把输入锚点补齐为全部持久化锚点，之后只持久化坐标。 */
 
-import type { DrawingKind, PersistedDrawingAnchor } from '../../types.js'
+import type { DrawingKind, PersistedDrawingAnchor, PointDrawingAnchor } from '../../types.js'
 import { drawingKindSpec } from './drawingKindSpecs.js'
+
+/** 物化只补齐点锚点；垂直线与水平线不会走到补齐分支。 */
+function isPointAnchor(anchor: PersistedDrawingAnchor): anchor is PointDrawingAnchor {
+  return anchor.type === undefined || anchor.type === 'point'
+}
 
 /** 图元创建时用户输入的锚点数；来自种类声明。 */
 export function getDrawingInputAnchorCount(kind: DrawingKind): 1 | 2 | 3 {
@@ -28,15 +33,17 @@ export function materializeDrawingAnchors(
   createAnchorId: () => string,
 ): PersistedDrawingAnchor[] {
   if (anchors.length !== getDrawingInputAnchorCount(kind)) return [...anchors]
+  const points = anchors.filter(isPointAnchor)
+  if (points.length !== anchors.length) return [...anchors]
   switch (kind) {
     case 'parallel-channel':
-      return appendParallelAnchors(anchors, createAnchorId)
+      return appendParallelAnchors(points, createAnchorId)
     case 'disjoint-channel':
-      return appendDisjointAnchors(anchors, createAnchorId)
+      return appendDisjointAnchors(points, createAnchorId)
     case 'flat-line':
-      return appendFlatLineAnchors(anchors, createAnchorId)
+      return appendFlatLineAnchors(points, createAnchorId)
     case 'rectangle':
-      return appendRectangleAnchors(anchors, createAnchorId)
+      return appendRectangleAnchors(points, createAnchorId)
     default:
       return [...anchors]
   }
@@ -44,7 +51,7 @@ export function materializeDrawingAnchors(
 
 /** 复制来源锚点的稳定时间，按给定价格构造点锚点。 */
 function pointAt(
-  source: PersistedDrawingAnchor,
+  source: PointDrawingAnchor,
   id: string,
   price: number,
 ): PersistedDrawingAnchor {
@@ -56,7 +63,7 @@ function pointAt(
  * 3 落在次点 X 上、价格取第三个输入点（即光标所在时间槽跟手）；2 落在首点 X 上，价格按第一条线的价格增量反向回推。
  */
 function appendParallelAnchors(
-  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  anchors: ReadonlyArray<PointDrawingAnchor>,
   createAnchorId: () => string,
 ): PersistedDrawingAnchor[] {
   const [first, second, third] = anchors
@@ -71,7 +78,7 @@ function appendParallelAnchors(
 
 /** 平滑顶底：两个水平端点分别落在首两点的时间上，价格取第三个输入点。 */
 function appendFlatLineAnchors(
-  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  anchors: ReadonlyArray<PointDrawingAnchor>,
   createAnchorId: () => string,
 ): PersistedDrawingAnchor[] {
   const [first, second, third] = anchors
@@ -89,7 +96,7 @@ function appendFlatLineAnchors(
  * 2 与次点同 X、价格取第三个输入点；3 与首点同 X，价格由第一条线的价格增量取反推出。
  */
 function appendDisjointAnchors(
-  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  anchors: ReadonlyArray<PointDrawingAnchor>,
   createAnchorId: () => string,
 ): PersistedDrawingAnchor[] {
   const [first, second, third] = anchors
@@ -107,7 +114,7 @@ function appendDisjointAnchors(
  * 时间与价格分别取两输入点的较小 / 较大者，因此两个对角点谁先谁后都不影响结果。
  */
 function appendRectangleAnchors(
-  anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  anchors: ReadonlyArray<PointDrawingAnchor>,
   createAnchorId: () => string,
 ): PersistedDrawingAnchor[] {
   const [first, second] = anchors

@@ -2,7 +2,7 @@
 import type { Color } from './color.js'
 import type { ChartPoint, DrawingLineApi, DrawingLineContext, DrawingObjectStore, LineExtend, LineOptions, LineRef, LineXLoc } from './drawing.js'
 import { extend, LineStyle, xloc } from './drawing.js'
-import { checkedDrawingMember, createOwnedDrawingApi, drawingAnchor, drawingAnchorX, drawingWidth } from './drawingApi.js'
+import { checkedDrawingMember, createOwnedDrawingApi, drawingAnchor, drawingAnchorPrice, drawingAnchorX, drawingWidth } from './drawingApi.js'
 export { DRAWING_FUTURE_BARS } from './drawingApi.js'
 
 /** 绑定仓库和运行上下文，不保留可变对象副本。 */
@@ -13,7 +13,7 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
     const value = api.get(ref)
     if (!value) return
     const anchor = value.anchors[index]!
-    const next = drawingAnchor(anchor.id, x === undefined ? drawingAnchorX(anchor) : x, y === undefined ? anchor.price : y, value.xloc!, context.barCount)
+    const next = drawingAnchor(anchor.id, x === undefined ? drawingAnchorX(anchor) : x, y === undefined ? drawingAnchorPrice(anchor) : y, value.xloc!, context.barCount)
     api.update(ref, { anchors: value.anchors.map((item, i) => i === index ? next : item) })
   }
   type Tail = [xloc?: LineXLoc, extend?: LineExtend, color?: Color | (string & {}), style?: LineStyle, width?: number]
@@ -90,8 +90,8 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
     set_extend: (id: LineRef, extension: LineExtend) => api.update(id, { extend: checkedDrawingMember(extension, Object.values(extend), 'extend') }),
     get_x1: (id: LineRef) => { const value = api.get(id); return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN },
     get_x2: (id: LineRef) => { const value = api.get(id); return value ? drawingAnchorX(value.anchors[1]!) : Number.NaN },
-    get_y1: (id: LineRef) => api.get(id)?.anchors[0]?.price ?? Number.NaN,
-    get_y2: (id: LineRef) => api.get(id)?.anchors[1]?.price ?? Number.NaN,
+    get_y1: (id: LineRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
+    get_y2: (id: LineRef) => drawingAnchorPrice(api.get(id)?.anchors[1]),
     get_color: (id: LineRef) => api.get(id)?.style.stroke ?? null,
     get_style: (id: LineRef) => api.get(id)?.style.strokeStyle ?? null,
     get_width: (id: LineRef) => api.get(id)?.style.strokeWidth ?? Number.NaN,
@@ -105,7 +105,7 @@ export function createDrawingLineApi(store: DrawingObjectStore, context: Drawing
       const a = first!
       const b = second!
       const dx = drawingAnchorX(b) - drawingAnchorX(a)
-      return dx === 0 ? Number.NaN : a.price + (b.price - a.price) * (x - drawingAnchorX(a)) / dx
+      return dx === 0 ? Number.NaN : drawingAnchorPrice(a) + (drawingAnchorPrice(b) - drawingAnchorPrice(a)) * (x - drawingAnchorX(a)) / dx
     },
     copy: api.copy, delete: api.delete,
   })

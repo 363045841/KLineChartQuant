@@ -69,6 +69,7 @@ export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
 export {
   AGENT_DRAWING_KINDS,
+  drawingAnchorAxes,
   drawingKindName,
   resolveDrawingLabel,
 } from './model/impl/drawingKindSpecs.js'
@@ -142,7 +143,6 @@ export type {
 
 /** 图元领域模型契约。 */
 export type {
-  DrawingAnchorType,
   DrawingComputeContext,
   DrawingDefinition,
   DrawingGeometry,

@@ -136,7 +136,11 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
 
   // Drawing document
   DRAWING_UNKNOWN_PANE:
-    'Use one of the pane IDs currently present in the chart layout before creating the drawing.',
+    'Use one of the pane rows reported by drawings_list before creating the drawing.',
+  DRAWING_NOT_FOUND:
+    'Drawings are addressed by the id returned from drawings_list; call it again before retrying.',
+  DRAWING_LOCKED:
+    'The drawing is locked. Update it with locked=false first, then retry the delete.',
   DRAWING_INVALID_ANCHOR_COUNT:
     'Provide exactly the number of anchors required by the selected drawing kind.',
   DRAWING_ANCHOR_NOT_FOUND:

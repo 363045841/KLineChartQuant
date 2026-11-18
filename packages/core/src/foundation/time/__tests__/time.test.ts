@@ -6,6 +6,7 @@ import {
   createTimeFormatter,
   formatDateInTimeZone,
   formatDateTimeInTimeZone,
+  formatRfc3339InTimeZone,
   formatTimeInTimeZone,
   frameTimeTicks,
   resolveDisplayTimeZone,
@@ -81,6 +82,41 @@ describe('time formatter', () => {
   it('formats market session time in the exchange zone', () => {
     const market = createMarketSessionTimeFormatter('America/New_York')
     expect(market.formatAxisTime(Date.parse('2025-01-15T14:30:00Z'))).toBe('09:30')
+  })
+
+  it.each([
+    {
+      name: '东八区正偏移',
+      timeZone: 'Asia/Shanghai',
+      timestamp: Date.parse('2025-01-15T14:30:00Z'),
+      expected: '2025-01-15T22:30:00+08:00',
+    },
+    {
+      name: 'UTC 零偏移',
+      timeZone: 'UTC',
+      timestamp: Date.parse('2025-01-15T14:30:00Z'),
+      expected: '2025-01-15T14:30:00+00:00',
+    },
+    {
+      name: '西五区负偏移',
+      timeZone: 'America/New_York',
+      timestamp: Date.parse('2025-01-15T14:30:00Z'),
+      expected: '2025-01-15T09:30:00-05:00',
+    },
+    {
+      name: 'DST 生效后偏移变化',
+      timeZone: 'America/New_York',
+      timestamp: Date.parse('2025-07-15T14:30:00Z'),
+      expected: '2025-07-15T10:30:00-04:00',
+    },
+  ])('RFC 3339 自描述时间：$name', ({ timeZone, timestamp, expected }) => {
+    expect(formatRfc3339InTimeZone(timestamp, timeZone)).toBe(expected)
+  })
+
+  it('RFC 3339 输出可以被 Date.parse 原样读回', () => {
+    const timestamp = Date.parse('2025-01-15T14:30:00Z')
+    const text = formatRfc3339InTimeZone(timestamp, 'Asia/Shanghai')
+    expect(Date.parse(text)).toBe(timestamp)
   })
 })
 

@@ -5,62 +5,41 @@
  * 与快照投影在这里一次完成，工具层只声明合同，不接触 paneId 或实例 id 生成。
  */
 import type { TradingDate } from '../../../data/provider/types.js'
-import type { DrawingAnchorCommandInput, DrawingObject } from '../../../engine/drawing/index.js'
+import type {
+  DrawingAnchorCommandInput,
+  DrawingKind,
+  DrawingObject,
+} from '../../../engine/drawing/index.js'
+import {
+  drawingAnchorAxes,
+  getDrawingInputAnchorCount,
+  isDrawingVisibleInPeriod,
+} from '../../../engine/drawing/index.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../../../engine/pane/types.js'
 import { CHART_AGENT_ERROR_CODES, DRAWING_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import { ToolInputValidationError } from '../../../foundation/agent/index.js'
 import type {
+  ChartAgentDrawingAnchor,
   ChartAgentDrawingCommands,
   ChartAgentDrawingCommandsDependencies,
-  ChartAgentDrawingCreateInput,
   ChartAgentDrawingPatch,
-  ChartAgentDrawingSnapshot,
+  ChartAgentDrawingScope,
+  ChartAgentDrawingView,
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorCommandsDependencies,
   ChartAgentIndicatorTarget,
   ChartAgentIndicatorView,
   ChartAgentMarketQueries,
   ChartAgentMarketQueriesDependencies,
-  ChartAgentPlacement,
   ChartAgentToolDeps,
 } from '../types.js'
-
-/** 把核心图元投影为不含渲染派生坐标的 Agent 快照。 */
-function projectDrawing(
-  drawing: DrawingObject,
-  placement: ChartAgentPlacement | null,
-): ChartAgentDrawingSnapshot {
-  return Object.freeze({
-    id: drawing.id,
-    kind: drawing.kind,
-    placement,
-    visible: drawing.visible,
-    locked: drawing.locked ?? false,
-    zIndex: drawing.zIndex ?? null,
-    anchors: Object.freeze(
-      drawing.anchors.map((anchor) =>
-        Object.freeze({
-          timestamp:
-            typeof anchor.time === 'number' && Number.isFinite(anchor.time) ? anchor.time : null,
-          price: anchor.price,
-        }),
-      ),
-    ),
-    style: Object.freeze({ ...drawing.style }),
-    labels: Object.freeze({
-      line: Object.freeze({ ...(drawing.labels?.line ?? {}) }),
-      area: Object.freeze({ ...(drawing.labels?.area ?? {}) }),
-    }),
-  })
-}
-
-/** 把 Agent 的交易日锚点转换为 Core 绘图命令的声明式输入。 */
-function parseAnchors(
-  anchors: ChartAgentDrawingCreateInput['anchors'],
-): ReadonlyArray<DrawingAnchorCommandInput> {
-  return anchors.map(({ tradingDate, price }) =>
-    tradingDate === undefined ? { price } : { tradingDate: tradingDate as TradingDate, price },
-  )
-}
+import { describeDrawingAnchorShape } from './drawingAnchorContract.js'
+import {
+  formatDrawingAnchorTime,
+  parseDrawingAnchorTime,
+  type DrawingAnchorTimeInput,
+} from './drawingAnchorTime.js'
+import { projectDrawingSnapshot, toDrawingView } from './drawingSnapshot.js'
 
 /** 构造指标实例命令面。 */
 export function createChartAgentIndicatorCommands(
@@ -225,59 +204,181 @@ export function createChartAgentIndicatorCommands(
   }
 }
 
-/** 构造图元命令面。 */
+/**
+ * 按 kind 的坐标轴把契约锚点转成领域输入。
+ *
+ * 形状错误在这里一次说清，避免把缺失或多余的轴带进领域层再报一个无关错误。
+ */
+function toDomainAnchors(
+  kind: DrawingKind,
+  anchors: ReadonlyArray<ChartAgentDrawingAnchor>,
+  time: DrawingAnchorTimeInput,
+): ReadonlyArray<DrawingAnchorCommandInput> {
+  const axes = drawingAnchorAxes(kind)
+  const expected = getDrawingInputAnchorCount(kind)
+  const problems: string[] = []
+  if (anchors.length !== expected) {
+    problems.push(`expected ${expected} anchor${expected > 1 ? 's' : ''}, got ${anchors.length}`)
+  }
+  anchors.forEach((anchor, index) => {
+    if (axes.time && anchor.time === undefined) problems.push(`anchor ${index} needs time`)
+    if (!axes.time && anchor.time !== undefined) problems.push(`anchor ${index} must not include time`)
+    if (axes.price && anchor.price === undefined) problems.push(`anchor ${index} needs price`)
+    if (!axes.price && anchor.price !== undefined)
+      problems.push(`anchor ${index} must not include price`)
+  })
+  if (problems.length > 0) {
+    throw new ToolInputValidationError(
+      `Invalid anchors for kind '${kind}': it takes ${describeDrawingAnchorShape(kind)}. ${problems.join('; ')}.`,
+    )
+  }
+  return anchors.map((anchor) =>
+    axes.time
+      ? { timestamp: parseDrawingAnchorTime(anchor.time!, time), price: anchor.price }
+      : { price: anchor.price! },
+  )
+}
+
+/** 越界行错误：给出有效范围，模型可在同一轮修正。 */
+function rowOutOfRange(row: number, rowCount: number): KLineChartError {
+  const valid = rowCount === 0 ? 'none' : `0 through ${rowCount - 1}`
+  return new KLineChartError(
+    CHART_AGENT_ERROR_CODES.TARGET_ROW_OUT_OF_RANGE,
+    `row ${row} is outside the chart layout. Valid rows: ${valid}.`,
+    { details: { row, rowCount } },
+  )
+}
+
+/** 图元不存在错误：候选与 list 使用同一份投影，不会列出不可见的对象。 */
+function drawingNotFound(
+  drawingId: string,
+  available: ReadonlyArray<ChartAgentDrawingView>,
+): KLineChartError {
+  const current =
+    available.length === 0
+      ? 'No drawings are on this symbol.'
+      : `Current drawings: ${available
+          .map((drawing) => `${drawing.id} (${drawing.kind})`)
+          .join('; ')}.`
+  return new KLineChartError(
+    DRAWING_ERROR_CODES.NOT_FOUND,
+    `Unknown drawing '${drawingId}'. ${current} Use the id returned by drawings_list.`,
+    { details: { drawingId } },
+  )
+}
+
+/** 构造图元命令面：窗格用显示行寻址，图元身份由文档分配。 */
 export function createChartAgentDrawingCommands(
   deps: ChartAgentDrawingCommandsDependencies,
 ): ChartAgentDrawingCommands {
-  const project = (drawing: DrawingObject): ChartAgentDrawingSnapshot =>
-    projectDrawing(drawing, deps.readPlacement(drawing.paneId))
+  /** 把文档对象投影成带当前周期可见性的视图。 */
+  const view = (
+    drawing: DrawingObject,
+    row: number,
+    scope: ChartAgentDrawingScope,
+  ): ChartAgentDrawingView =>
+    toDrawingView(
+      projectDrawingSnapshot(drawing, row, (timestamp) =>
+        formatDrawingAnchorTime(timestamp, scope.timezone),
+      ),
+      isDrawingVisibleInPeriod(drawing.timeframeVisibility, scope.period),
+    )
+
+  /** 当前作用域内 Agent 可见的图元：工作区一致且所在行属于布局。 */
+  function projectVisible(scope: ChartAgentDrawingScope): ChartAgentDrawingView[] {
+    const items: ChartAgentDrawingView[] = []
+    for (const drawing of deps.drawingDocument.listCurrentDrawings()) {
+      if ((drawing.workspaceId ?? 'kline') !== scope.workspace) continue
+      const row = scope.rows.indexOf(drawing.paneId)
+      if (row < 0) continue
+      items.push(view(drawing, row, scope))
+    }
+    return items.sort(
+      (left, right) => left.row - right.row || (left.zIndex ?? 0) - (right.zIndex ?? 0),
+    )
+  }
+
+  /** 读取当前工作区内的图元；不在作用域内与不存在按同一种错误处理。 */
+  function requireCurrent(
+    drawingId: string,
+    scope: ChartAgentDrawingScope,
+  ): DrawingObject {
+    const drawing = deps.drawingDocument.getDrawing(drawingId)
+    if (drawing !== null && (drawing.workspaceId ?? 'kline') === scope.workspace) return drawing
+    throw drawingNotFound(drawingId, projectVisible(scope))
+  }
 
   return {
     list() {
-      return deps.drawingDocument.listDrawings().map(project)
+      const scope = deps.scope()
+      return Object.freeze({
+        timezone: scope.timezone,
+        period: scope.period,
+        drawings: Object.freeze(projectVisible(scope)),
+      })
     },
 
     create(input) {
-      const paneId = deps.resolvePaneId(input.placement)
-      if (paneId === null) throw unknownPlacement(input.placement)
-      return project(
-        deps.drawingCommands.create({
-          kind: input.kind as Parameters<typeof deps.drawingCommands.create>[0]['kind'],
-          paneId,
-          anchors: parseAnchors(input.anchors),
-          style: input.style as Parameters<typeof deps.drawingCommands.create>[0]['style'],
-          ...(input.labels === undefined ? {} : { labels: input.labels }),
-          ...(input.visible === undefined ? {} : { visible: input.visible }),
-          ...(input.locked === undefined ? {} : { locked: input.locked }),
-          ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
+      const scope = deps.scope()
+      const paneId = scope.rows[input.row]
+      if (paneId === undefined) throw rowOutOfRange(input.row, scope.rows.length)
+      const drawing = deps.drawingCommands.create({
+        kind: input.kind,
+        paneId,
+        anchors: toDomainAnchors(input.kind, input.anchors, {
+          bars: deps.bars(),
+          period: scope.period,
         }),
-      )
+        style: input.style as Parameters<typeof deps.drawingCommands.create>[0]['style'],
+        ...(input.labels === undefined ? {} : { labels: input.labels }),
+        ...(input.visible === undefined ? {} : { visible: input.visible }),
+        ...(input.locked === undefined ? {} : { locked: input.locked }),
+        ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
+        ...(input.timeframeVisibility === undefined
+          ? {}
+          : { timeframeVisibility: input.timeframeVisibility }),
+      })
+      return view(drawing, input.row, scope)
     },
 
-    update(drawingId, patch: ChartAgentDrawingPatch) {
+    update(drawingId: string, patch: ChartAgentDrawingPatch) {
+      const scope = deps.scope()
+      requireCurrent(drawingId, scope)
       const drawing = deps.drawingCommands.updateFromInput(drawingId, {
-        ...(patch.anchors === undefined ? {} : { anchors: parseAnchors(patch.anchors) }),
         ...(patch.style === undefined ? {} : { style: patch.style }),
         ...(patch.labels === undefined ? {} : { labels: patch.labels }),
         ...(patch.visible === undefined ? {} : { visible: patch.visible }),
         ...(patch.locked === undefined ? {} : { locked: patch.locked }),
         ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+        ...(patch.timeframeVisibility === undefined
+          ? {}
+          : { timeframeVisibility: patch.timeframeVisibility }),
       })
-      return drawing ? project(drawing) : null
+      if (drawing === null) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.NOT_FOUND,
+          `Drawing ${drawingId} disappeared before it could be updated. Call drawings_list and retry.`,
+          { details: { drawingId } },
+        )
+      }
+      const row = scope.rows.indexOf(drawing.paneId)
+      if (row < 0) throw drawingNotFound(drawingId, projectVisible(scope))
+      return view(drawing, row, scope)
     },
 
-    remove(drawingId) {
-      return deps.drawingCommands.remove(drawingId)
-    },
-
-    copy(drawingIds) {
-      return deps.copyDrawings(drawingIds).map(project)
-    },
-
-    clear() {
-      const removed = deps.drawingDocument.listDrawings().length
-      deps.drawingCommands.clear()
-      return removed
+    remove(drawingId: string) {
+      const scope = deps.scope()
+      const current = requireCurrent(drawingId, scope)
+      if (!deps.drawingCommands.remove(drawingId)) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.LOCKED,
+          `Drawing ${drawingId} is locked. Update it with locked=false first, then delete it.`,
+          { details: { drawingId } },
+        )
+      }
+      const row = scope.rows.indexOf(current.paneId)
+      if (row < 0) throw drawingNotFound(drawingId, projectVisible(scope))
+      return view(current, row, scope)
     },
   }
 }
@@ -390,14 +491,6 @@ export function createChartAgentToolDeps(input: {
     comparisons: input.comparisons,
     market: input.market,
   })
-}
-
-/** 落点无法解析为容器时的可纠正错误。 */
-function unknownPlacement(placement: string): KLineChartError {
-  return new KLineChartError(
-    DRAWING_ERROR_CODES.UNKNOWN_PANE,
-    `Unknown placement '${placement}'. Use "main" for the price chart, or an indicator instanceId from indicators_list for its pane.`,
-  )
 }
 
 /** 指标定位的可读描述，用于“找不到”提示。 */

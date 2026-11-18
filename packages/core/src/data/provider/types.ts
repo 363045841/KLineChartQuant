@@ -143,6 +143,11 @@ export type VolumeUnit = 'share' | 'lot' | 'contract' | 'baseAsset'
 /** 品种所在交易时区的 YYYY-MM-DD 日历日。 */
 export type TradingDate = `${number}-${number}-${number}`
 
+/** 交易日字符串守卫：正则已经限制了形状，这里只把收窄结果交给领域类型。 */
+export function isTradingDate(value: string): value is TradingDate {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
 /** 数据源私有路由引用；除对应 Provider 外其他模块不得解析。 */
 export type ProviderRef = Readonly<Record<string, string | number | boolean>>
 

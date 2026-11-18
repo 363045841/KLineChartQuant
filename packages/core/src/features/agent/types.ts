@@ -1,4 +1,9 @@
 /** Agent 功能模块的对外契约：查询输入输出、facade 接口与依赖接口；实现位于 impl/。 */
+import type {
+  DrawingKind,
+  DrawingTimeframeVisibility,
+  DrawingWorkspaceId,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorInstance, IndicatorParamDef, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
@@ -25,7 +30,6 @@ import type { IndicatorPlacement } from '../../engine/pane/types.js'
 import type { DataStateModule } from '../../engine/state/dataState.js'
 import type { ChartToolExecutionContext } from '../../foundation/agent/index.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
@@ -34,43 +38,33 @@ export interface ChartAgentTimeRange {
   readonly to: number
 }
 
-/** Loaded timestamp coverage and bar count. */
-export interface ChartAgentDataRange extends ChartAgentTimeRange {
-  readonly bars: number
-}
-
-/** Serializable active-indicator projection. */
-export interface ChartAgentActiveIndicator {
-  readonly instanceId: string
-  readonly definitionId: string
-  readonly params: Readonly<Record<string, number>>
-}
-
-/** Minimum sufficient, detached chart context for Agent runs and tools. */
+/**
+ * 宿主真正投影进 Agent 上下文的最小快照。
+ *
+ * 只保留 `projectContextItems` 会读取的字段：标的、时区、可见范围、范围内的 K 线文本
+ * 与当前选中的图元。不在这里重复渲染状态或身份，避免出现无人消费的字段。
+ */
 export interface ChartAgentContextSnapshot {
-  readonly chartId: string
   readonly symbol: string | null
   readonly symbolName: string | null
-  readonly market: string | null
-  readonly exchange: string | null
-  readonly period: string | null
-  readonly dataSource: string | null
   readonly timezone: string | null
-  readonly adjustMode: string | null
-  readonly dataRange: ChartAgentDataRange
   readonly visibleRange: ChartAgentTimeRange | null
   /** 当前选定时间范围内已加载 K 线的 formatter 文本；无范围或非 K 线视图时为 null。 */
   readonly selectedKLineBars: string | null
-  readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
   /** 当前选中图元；无选择时为 null。 */
   readonly drawingSelection: ChartAgentDrawingSelection | null
-  readonly dataRevision: number
 }
 
-/** Agent 可读取的绘图锚点快照；渲染派生 index 不属于公共协议。 */
+/**
+ * Agent 读写的图元锚点。
+ *
+ * 坐标轴由 kind 决定：垂直线只有 time，水平线只有 price，其余种类两者都有。
+ * 该 kind 不使用的轴不会出现在对象里，调用方不需要为一个不参与定位的字段编值。
+ */
 export interface ChartAgentDrawingAnchor {
-  readonly timestamp: number | null
-  readonly price: number
+  /** RFC 3339 带偏移量的图表时间，与 drawings_list 返回的字符串完全同形。 */
+  readonly time?: string
+  readonly price?: number
 }
 
 /** Agent 可读写的绘图附属文本完整快照。 */
@@ -79,26 +73,31 @@ export interface ChartAgentDrawingLabels {
   readonly area: Readonly<DrawingLabels['area']>
 }
 
-/**
- * 图元的落点。
- *
- * main 表示主图；其余取值是指标实例身份，代表该实例独占的副图。
- * Agent 只能寻址主图与已存在的指标副图，其它容器属于宿主界面。
- */
-export type ChartAgentPlacement = string
-
-/** Agent 可读取的已确认图元快照。 */
+/** Agent 可读取的已确认图元快照；身份是系统分配的 id，落点是显示行。 */
 export interface ChartAgentDrawingSnapshot {
   readonly id: string
-  readonly kind: string
-  /** 图元所在落点；无法用 Agent 词汇表寻址时为 null。 */
-  readonly placement: ChartAgentPlacement | null
+  readonly kind: DrawingKind
+  /** 图表显示行：0 是最上面一行；主图可能在任何行。 */
+  readonly row: number
   readonly visible: boolean
   readonly locked: boolean
   readonly zIndex: number | null
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
   readonly labels: ChartAgentDrawingLabels
+  readonly timeframeVisibility: DrawingTimeframeVisibility
+}
+
+/** 工具返回的图元视图：文档快照加上当前周期的可见性。 */
+export interface ChartAgentDrawingView extends ChartAgentDrawingSnapshot {
+  readonly visibleInCurrentPeriod: boolean
+}
+
+/** 图元列表：附带读取时刻的时区与周期，模型据此理解返回值而不必自行推断。 */
+export interface ChartAgentDrawingList {
+  readonly timezone: string
+  readonly period: string
+  readonly drawings: ReadonlyArray<ChartAgentDrawingView>
 }
 
 /** Agent 可读取的当前绘图选择。 */
@@ -212,36 +211,35 @@ export interface ChartAgentIndicatorCommands {
   resolveDefinition(indicator: string): Promise<ChartAgentIndicatorDefinition | null>
 }
 
-/** 图元写入输入：落点用 Agent 词汇表，锚点用交易日或价格。 */
+/** 图元创建输入：落点用显示行，时间用 RFC 3339。 */
 export interface ChartAgentDrawingCreateInput {
-  readonly placement: ChartAgentPlacement
-  readonly kind: string
-  readonly anchors: ReadonlyArray<{ readonly tradingDate?: string; readonly price: number }>
+  readonly row: number
+  readonly kind: DrawingKind
+  readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
   readonly labels?: Readonly<DrawingLabels>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
+  readonly timeframeVisibility?: DrawingTimeframeVisibility
 }
 
-/** 图元补丁：可改锚点、样式、标签与显隐。 */
+/** 图元补丁：只改属性；几何变化由删除后重建表达。 */
 export interface ChartAgentDrawingPatch {
-  readonly anchors?: ReadonlyArray<{ readonly tradingDate?: string; readonly price: number }>
   readonly style?: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: ChartAgentDrawingCreateInput['labels']
+  readonly labels?: Readonly<DrawingLabels>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
+  readonly timeframeVisibility?: DrawingTimeframeVisibility
 }
 
-/** 图元命令面：落点解析与快照投影都在 Core 内完成。 */
+/** 图元命令面：行号解析与快照投影都在 Core 内完成。 */
 export interface ChartAgentDrawingCommands {
-  list(): ReadonlyArray<ChartAgentDrawingSnapshot>
-  create(input: ChartAgentDrawingCreateInput): ChartAgentDrawingSnapshot
-  update(drawingId: string, patch: ChartAgentDrawingPatch): ChartAgentDrawingSnapshot | null
-  remove(drawingId: string): boolean
-  copy(drawingIds: ReadonlyArray<string>): ReadonlyArray<ChartAgentDrawingSnapshot>
-  clear(): number
+  list(): ChartAgentDrawingList
+  create(input: ChartAgentDrawingCreateInput): ChartAgentDrawingView
+  update(drawingId: string, patch: ChartAgentDrawingPatch): ChartAgentDrawingView
+  remove(drawingId: string): ChartAgentDrawingView
 }
 
 /** 无状态行情查询面；不读取也不修改当前图表选择。 */
@@ -278,29 +276,36 @@ export interface ChartAgentController {
 
 /** Chart Agent facade 的构造依赖；由宿主组装后注入。 */
 export interface ChartAgentControllerDependencies {
-  readonly chartId: string
   readonly dataState: DataStateModule
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
-  readonly chartMode: ReadonlySignal<ChartDataView>
   readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
-  readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
-  /** 把 Pane 反向投影为 Agent 落点；不可寻址时返回 null。 */
-  readonly readPlacement: (paneId: string) => string | null
+  /** 把 Pane 反向投影为显示行；不在图表布局内时返回 null。 */
+  readonly readPaneRow: (paneId: string) => number | null
+  /** 绝对时间戳 → RFC 3339（图表时区）。 */
+  readonly formatAnchorTime: (timestamp: number) => string
   readonly tools: ChartAgentToolDeps
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
+/** 图元命令看到的图表作用域：行、周期、时区与工作区一次取齐。 */
+export interface ChartAgentDrawingScope {
+  /** 显示行 → Pane；索引即行号。 */
+  readonly rows: ReadonlyArray<string>
+  readonly period: string
+  readonly timezone: string
+  readonly workspace: DrawingWorkspaceId
+}
+
 /** 图元命令面的装配依赖。 */
 export interface ChartAgentDrawingCommandsDependencies {
-  readonly drawingDocument: Pick<DrawingDocument, 'listDrawings'>
-  readonly drawingCommands: Pick<DrawingCommands, 'create' | 'updateFromInput' | 'remove' | 'clear'>
-  readonly copyDrawings: (ids: ReadonlyArray<string>) => ReadonlyArray<DrawingObject>
-  /** 把主图与指标实例解析为 Pane；不可寻址时返回 null。 */
-  readonly resolvePaneId: (placement: ChartAgentPlacement) => string | null
-  /** 把 Pane 反向投影为 Agent 落点；不可寻址时返回 null。 */
-  readonly readPlacement: (paneId: string) => ChartAgentPlacement | null
+  readonly drawingDocument: Pick<DrawingDocument, 'listCurrentDrawings' | 'getDrawing'>
+  readonly drawingCommands: Pick<DrawingCommands, 'create' | 'updateFromInput' | 'remove'>
+  /** 当前图表作用域；行号、周期、时区与工作区只有一个来源。 */
+  readonly scope: () => ChartAgentDrawingScope
+  /** 当前已加载的 K 线；日期简写按它查表。 */
+  readonly bars: () => ReadonlyArray<{ readonly date?: string; readonly timestamp: number }>
 }
 
 /** 指标命令面的装配依赖。 */

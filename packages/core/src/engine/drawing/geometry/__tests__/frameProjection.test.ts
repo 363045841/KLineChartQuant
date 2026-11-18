@@ -756,7 +756,7 @@ describe('projectDrawingsForFrame', () => {
     {
       label: 'vertical line',
       kind: 'vertical-line',
-      anchors: [{ id: 'a', type: 'vertical', time: 1_000, price: 40 }],
+      anchors: [{ id: 'a', type: 'vertical', time: 1_000 }],
       yAxisPrices: [],
       xAxisLabelCount: 1,
     },
@@ -784,7 +784,7 @@ describe('projectDrawingsForFrame', () => {
     {
       label: 'vertical line',
       kind: 'vertical-line' as const,
-      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000, price: 40 }],
+      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000 }],
       expected: { x: 10, y: 60 },
     },
   ])('projects the edge translate handle of a selected $label', ({ kind, anchors, expected }) => {

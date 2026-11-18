@@ -36,7 +36,7 @@ describe('DragHandler 单锚点线', () => {
     const drawing = createDrawingObject({
       id: 'vertical',
       kind: 'vertical-line',
-      anchors: [{ id: 'a', type: 'vertical', time: 500, price: 20 }],
+      anchors: [{ id: 'a', type: 'vertical', time: 500 }],
     })
     const handler = new DragHandler()
     // 手柄在下方内边距 (5, 200)；拖到 x=25 即 Bar 2（time 1500）。
@@ -44,6 +44,6 @@ describe('DragHandler 单锚点线', () => {
 
     const updated = handler.handleDragMove(pointerMove(25, 200), CONTAINER, adapter)
 
-    expect(updated?.[0]?.anchors[0]).toMatchObject({ type: 'vertical', time: 1_500, price: 20 })
+    expect(updated?.[0]?.anchors[0]).toMatchObject({ type: 'vertical', time: 1_500 })
   })
 })

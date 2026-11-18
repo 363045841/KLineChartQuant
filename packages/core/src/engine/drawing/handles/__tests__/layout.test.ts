@@ -72,7 +72,7 @@ describe('手柄布局', () => {
     const drawing = createDrawingObject({
       id: 'vertical',
       kind: 'vertical-line',
-      anchors: [{ id: 'a', type: 'vertical', time: 500, price: 20 }],
+      anchors: [{ id: 'a', type: 'vertical', time: 500 }],
     })
     expect(resolveAnchorHandles(drawing, port, { selected: true })).toEqual([
       { kind: 'anchor', anchorIndex: 0, point: { x: 5, y: 200 }, cursor: 'ew-resize' },

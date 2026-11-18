@@ -5,7 +5,10 @@
  * 调用方依赖本文件，不反向依赖 impl/。
  */
 
-import type { DrawingPatch } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  DrawingPatch,
+  DrawingTimeframeVisibility,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { TradingDate } from '@/data/provider/types.js'
 import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
@@ -24,13 +27,13 @@ export type DrawingAnchorCommandInput =
       /** 交易日锚点，按数据中的 date 字段定位。 */
       readonly tradingDate: TradingDate
       readonly timestamp?: never
-      readonly price: number
+      readonly price?: number
     }
   | {
       /** 精确时间锚点，按毫秒时间戳定位。 */
       readonly timestamp: number
       readonly tradingDate?: never
-      readonly price: number
+      readonly price?: number
     }
   | {
       /** 水平图元只使用价格坐标。 */
@@ -51,6 +54,8 @@ export interface CreateDrawingInput {
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
+  /** 周期可见性规则；缺省表示所有周期可见。 */
+  readonly timeframeVisibility?: DrawingTimeframeVisibility
 }
 
 /** 绘图可见性与归属的作用域；渲染、命中、查询与价格范围共用同一份判断。 */

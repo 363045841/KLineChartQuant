@@ -56,6 +56,15 @@ export function drawingAnchorX(anchor: PersistedDrawingAnchor): number {
   return typeof anchor.time === 'number' ? anchor.time : Number.NaN
 }
 
+/**
+ * 读取锚点的价格轴。
+ *
+ * 垂直线没有价格轴，按不可绘制处理返回 `NaN`；需要区分“没有价格”时改用类型判断。
+ */
+export function drawingAnchorPrice(anchor: PersistedDrawingAnchor | undefined): number {
+  return anchor === undefined || anchor.type === 'vertical' ? Number.NaN : anchor.price
+}
+
 /** 在 API 边界拒绝未知枚举成员。 */
 export function checkedDrawingMember<T extends string>(
   value: T,

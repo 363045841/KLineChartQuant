@@ -559,7 +559,6 @@ describe('BrowserAgentBridge', () => {
 
   it('projects selected drawings as one drawing-selection context item', () => {
     const context = createTestChartAgentContext({
-      period: 'kline',
       visibleRange: null,
       drawingSelection: {
         selectedIds: ['line-1', 'line-2'],
@@ -567,24 +566,29 @@ describe('BrowserAgentBridge', () => {
           {
             id: 'line-1',
             kind: 'trend-line',
-            placement: 'main',
+            row: 0,
             visible: true,
             locked: false,
             zIndex: null,
-            anchors: [{ timestamp: 1, price: 10 }],
+            anchors: [
+              { time: '2026-09-01T09:30:00+08:00', price: 10 },
+              { time: '2026-09-02T09:30:00+08:00', price: 11 },
+            ],
             style: { stroke: '#2962ff', fill: undefined },
             labels: { line: {}, area: {} },
+            timeframeVisibility: { mode: 'all' },
           },
           {
             id: 'line-2',
             kind: 'horizontal-line',
-            placement: 'main',
+            row: 0,
             visible: true,
             locked: true,
             zIndex: 2,
-            anchors: [{ timestamp: null, price: 11 }],
+            anchors: [{ price: 11 }],
             style: { stroke: '#f00' },
             labels: { line: {}, area: {} },
+            timeframeVisibility: { mode: 'all' },
           },
         ],
       },
@@ -609,24 +613,28 @@ describe('BrowserAgentBridge', () => {
   it('runs a write tool through the manual debug entrypoint', async () => {
     const create = vi.fn(() => ({
       id: 'drawing-1',
-      kind: 'horizontal-line',
-      placement: 'main',
+      kind: 'horizontal-line' as const,
+      row: 0,
       visible: true,
       locked: false,
       zIndex: null,
-      anchors: [{ timestamp: Date.parse('2026-09-02'), price: 9 }],
+      anchors: [{ price: 9 }],
       style: { stroke: '#2962ff' },
       labels: { line: {}, area: {} },
+      timeframeVisibility: { mode: 'all' as const },
+      visibleInCurrentPeriod: true,
     }))
     const agent = createTestChartAgent({
       tools: createTestToolDeps({
         drawings: {
-          list: () => [],
+          list: () => ({ timezone: 'UTC', period: '1h', drawings: [] }),
           create,
-          update: () => null,
-          remove: () => false,
-          copy: () => [],
-          clear: () => 0,
+          update: () => {
+            throw new Error('not used')
+          },
+          remove: () => {
+            throw new Error('not used')
+          },
         },
       }),
     })
@@ -635,7 +643,7 @@ describe('BrowserAgentBridge', () => {
     await expect(
       bridge.debugTool('drawings_write', {
         action: 'create',
-        placement: 'main',
+        row: 0,
         kind: 'horizontal-line',
         anchors: [{ price: 9 }],
         style: { stroke: '#4A90D9' },

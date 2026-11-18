@@ -12,6 +12,7 @@ import type {
 } from './drawing.js'
 import { xloc } from './drawing.js'
 import {
+  drawingAnchorPrice,
   checkedDrawingMember,
   createOwnedDrawingApi,
   drawingAnchor,
@@ -41,7 +42,7 @@ export function createDrawingLabelApi(
         drawingAnchor(
           anchor.id,
           x === undefined ? drawingAnchorX(anchor) : x,
-          y === undefined ? anchor.price : y,
+          y === undefined ? drawingAnchorPrice(anchor) : y,
           value.xloc!,
           context.barCount,
         ),
@@ -176,7 +177,7 @@ export function createDrawingLabelApi(
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN
     },
-    get_y: (id: LabelRef) => api.get(id)?.anchors[0]?.price ?? Number.NaN,
+    get_y: (id: LabelRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
     get_text: (id: LabelRef) => api.get(id)?.text?.value ?? null,
     get_yoffset: (id: LabelRef) => api.get(id)?.text?.offsetY ?? 0,
     copy: api.copy,

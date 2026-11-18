@@ -40,7 +40,7 @@ function getTimeOffset(
 
 /** 转换单个锚点，水平线只改价格，垂直线只改时间；不可解析时返回 null。 */
 function offsetAnchor(
-  anchor: PersistedDrawingAnchor,
+  anchorId: string,
   screen: ScreenDrawingAnchor,
   paneId: string,
   dx: number,
@@ -49,7 +49,7 @@ function offsetAnchor(
 ): PersistedDrawingAnchor | null {
   if (screen.type === 'horizontal') {
     const price = adapter.getCoordinates(paneId)?.yToPrice(screen.y + dy)
-    return price === undefined || price === null ? null : { ...anchor, price }
+    return price === undefined || price === null ? null : { id: anchorId, type: 'horizontal', price }
   }
   const resolved = screenToAnchor(
     screen.x + dx,
@@ -58,11 +58,9 @@ function offsetAnchor(
     adapter,
   )
   if (!resolved || !Number.isFinite(resolved.price)) return null
-  return {
-    ...anchor,
-    time: resolved.time,
-    price: screen.type === 'vertical' ? anchor.price : resolved.price,
-  }
+  // 垂直线只有时间轴：价格不参与定位，也不进入文档。
+  if (screen.type === 'vertical') return { id: anchorId, type: 'vertical', time: resolved.time }
+  return { id: anchorId, type: 'point', time: resolved.time, price: resolved.price }
 }
 
 /** 先解析全部落点，再返回复制计划；任一图元不可投影时整批不复制。 */
@@ -98,7 +96,7 @@ export function resolveCopyPlacements(
     const anchors: PersistedDrawingAnchor[] = []
     for (const [index, anchor] of drawing.anchors.entries()) {
       const moved = offsetAnchor(
-        anchor,
+        anchor.id,
         screens[index]!,
         drawing.paneId,
         dx,

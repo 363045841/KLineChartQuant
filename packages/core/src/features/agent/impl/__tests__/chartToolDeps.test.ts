@@ -15,6 +15,7 @@ import {
   createChartAgentIndicatorCommands,
   createChartAgentMarketQueries,
 } from '../chartToolDeps'
+import { formatDrawingAnchorTime } from '../drawingAnchorTime'
 
 /** 构造一个最小指标实例。 */
 function instance(
@@ -35,16 +36,21 @@ function instance(
   }
 }
 
-/** 构造一个最小图元。 */
-function drawing(id: string, paneId: string): DrawingObject {
+/** 构造一个最小图元；默认是主图水平线。 */
+function drawing(
+  id: string,
+  paneId: string,
+  overrides: Partial<DrawingObject> = {},
+): DrawingObject {
   return {
     id,
     kind: 'horizontal-line',
     paneId,
     visible: true,
-    anchors: [{ id: `${id}-a`, type: 'horizontal', time: 1_000, price: 10 }],
+    anchors: [{ id: `${id}-a`, type: 'horizontal', price: 10 }],
     params: {},
     style: { stroke: '#fff' },
+    ...overrides,
   }
 }
 
@@ -317,71 +323,246 @@ describe('indicator commands', () => {
 })
 
 describe('drawing commands', () => {
-  /** 组装图元命令面替身；主图与指标副图之间互转落点。 */
-  function fixture() {
+  /** 两行布局：行 0 是主图，行 1 是副图。 */
+  const ROWS = ['main', 'pane-a'] as const
+  const ANCHOR_TIME = '2026-11-18T09:31:00+08:00'
+  const ANCHOR_MS = Date.parse(ANCHOR_TIME)
+  const LATER_TIME = '2026-11-19T09:31:00+08:00'
+
+  /** 组装图元命令面替身：行号来自布局，图元身份由文档分配。 */
+  function fixture(drawings: DrawingObject[] = []) {
     const created: unknown[] = []
-    const readPlacement = (paneId: string) =>
-      paneId === MAIN_PANE_ID ? 'main' : paneId === 'pane-a' ? 'sub-1' : null
-    const resolvePaneId = (placement: string) =>
-      placement === 'main' ? MAIN_PANE_ID : placement === 'sub-1' ? 'pane-a' : null
+    const updated: Array<[string, unknown]> = []
+    const removed: string[] = []
     const commands = createChartAgentDrawingCommands({
       drawingDocument: {
-        listDrawings: () => [drawing('d-1', MAIN_PANE_ID), drawing('d-2', 'pane-a')],
+        listCurrentDrawings: () => drawings,
+        getDrawing: (id) => drawings.find((item) => item.id === id) ?? null,
       },
       drawingCommands: {
         create: (input) => {
           created.push(input)
-          return drawing('d-3', input.paneId)
+          return drawing('d-new', input.paneId, { kind: input.kind })
         },
-        updateFromInput: () => null,
-        remove: () => true,
-        clear: () => undefined,
+        updateFromInput: (id, patch) => {
+          updated.push([id, patch])
+          const current = drawings.find((item) => item.id === id)
+          if (current === undefined) return null
+          return {
+            ...current,
+            ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
+            ...(patch.labels === undefined ? {} : { labels: patch.labels }),
+            ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+            ...(patch.locked === undefined ? {} : { locked: patch.locked }),
+            ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+            ...(patch.timeframeVisibility === undefined
+              ? {}
+              : { timeframeVisibility: patch.timeframeVisibility }),
+          }
+        },
+        remove: (id) => {
+          removed.push(id)
+          const current = drawings.find((item) => item.id === id)
+          return current !== undefined && current.locked !== true
+        },
       },
-      copyDrawings: () => [drawing('d-4', MAIN_PANE_ID)],
-      resolvePaneId,
-      readPlacement,
+      scope: () => ({
+        rows: ROWS,
+        period: '5min',
+        timezone: 'Asia/Shanghai',
+        workspace: 'kline',
+      }),
+      bars: () => [],
     })
-    return { commands, created }
+    return { commands, created, updated, removed }
   }
 
-  it('图元按落点寻址，快照把容器反投影为落点', () => {
-    const { commands } = fixture()
-    expect(commands.list().map((item) => item.placement)).toEqual(['main', 'sub-1'])
+  it('列表用显示行定位，锚点按种类裁剪坐标轴，布局外的图元不暴露', () => {
+    const { commands } = fixture([
+      drawing('d-1', 'main'),
+      drawing('d-2', 'pane-a', {
+        kind: 'vertical-line',
+        anchors: [{ id: 'a', type: 'vertical', time: 1_000 }],
+      }),
+      drawing('d-3', 'gone'),
+      drawing('d-4', 'main', { workspaceId: 'timeshare' }),
+    ])
+    expect(commands.list().drawings).toEqual([
+      expect.objectContaining({
+        id: 'd-1',
+        row: 0,
+        anchors: [{ price: 10 }],
+        timeframeVisibility: { mode: 'all' },
+        visibleInCurrentPeriod: true,
+      }),
+      expect.objectContaining({
+        id: 'd-2',
+        row: 1,
+        anchors: [{ time: formatDrawingAnchorTime(1_000, 'Asia/Shanghai') }],
+      }),
+    ])
   })
 
-  it('未知落点拒绝创建，并列出可用词汇', () => {
-    const { commands } = fixture()
+  it('周期规则决定当前周期可见性', () => {
+    const { commands } = fixture([
+      drawing('d-1', 'main', {
+        timeframeVisibility: { mode: 'current', period: 'daily' },
+      }),
+    ])
+    expect(commands.list().drawings[0]).toMatchObject({
+      timeframeVisibility: { mode: 'current', period: 'daily' },
+      visibleInCurrentPeriod: false,
+    })
+  })
+
+  it('未知行拒绝创建并给出行数', () => {
+    const { commands, created } = fixture()
     expect(() =>
       commands.create({
-        placement: 'pane-9',
+        row: 5,
         kind: 'horizontal-line',
         anchors: [{ price: 10 }],
         style: { stroke: '#fff' },
       }),
-    ).toThrow(
-      expect.objectContaining({
-        code: DRAWING_ERROR_CODES.UNKNOWN_PANE,
-      }),
-    )
+    ).toThrow(/row 5 is outside the chart layout. Valid rows: 0 through 1/)
+    expect(created).toEqual([])
   })
 
-  it('创建时把落点解析成容器身份', () => {
+  it.each([
+    {
+      kind: 'horizontal-line',
+      anchors: [{ price: 10 }],
+      expected: [{ price: 10 }],
+    },
+    {
+      kind: 'vertical-line',
+      anchors: [{ time: ANCHOR_TIME }],
+      expected: [{ timestamp: ANCHOR_MS }],
+    },
+    {
+      kind: 'trend-line',
+      anchors: [
+        { time: ANCHOR_TIME, price: 10 },
+        { time: LATER_TIME, price: 12 },
+      ],
+      expected: [
+        { timestamp: ANCHOR_MS, price: 10 },
+        { timestamp: Date.parse(LATER_TIME), price: 12 },
+      ],
+    },
+  ] as const)('按种类把锚点转成领域输入：$kind', ({ kind, anchors, expected }) => {
     const { commands, created } = fixture()
-    const snapshot = commands.create({
-      placement: 'sub-1',
+    commands.create({ row: 0, kind, anchors: [...anchors], style: { stroke: '#fff' } })
+    expect(created).toEqual([
+      expect.objectContaining({ kind, paneId: 'main', anchors: expected }),
+    ])
+  })
+
+  it.each([
+    {
+      name: '垂直线不接受价格',
+      kind: 'vertical-line',
+      anchors: [{ time: ANCHOR_TIME, price: 10 }],
+      pattern: /takes 1 anchor with time only.*anchor 0 must not include price/,
+    },
+    {
+      name: '水平线不接受时间',
+      kind: 'horizontal-line',
+      anchors: [{ time: ANCHOR_TIME, price: 10 }],
+      pattern: /takes 1 anchor with price only.*anchor 0 must not include time/,
+    },
+    {
+      name: '点数与种类不符',
+      kind: 'trend-line',
+      anchors: [{ price: 10 }],
+      pattern: /takes 2 anchors with time and price.*expected 2 anchors, got 1/,
+    },
+    {
+      name: '缺少时间轴',
+      kind: 'trend-line',
+      anchors: [{ price: 10 }, { price: 12 }],
+      pattern: /anchor 0 needs time; anchor 1 needs time/,
+    },
+    {
+      name: '缺少价格轴',
+      kind: 'trend-line',
+      anchors: [{ time: ANCHOR_TIME }, { time: LATER_TIME }],
+      pattern: /anchor 0 needs price; anchor 1 needs price/,
+    },
+  ] as const)('锚点形状错误一次说清：$name', ({ kind, anchors, pattern }) => {
+    const { commands, created } = fixture()
+    expect(() =>
+      commands.create({ row: 0, kind, anchors: [...anchors], style: { stroke: '#fff' } }),
+    ).toThrow(pattern)
+    expect(created).toEqual([])
+  })
+
+  it('创建把显示行解析为 Pane，并投影新图元', () => {    const { commands, created } = fixture()
+    const view = commands.create({
+      row: 1,
       kind: 'horizontal-line',
       anchors: [{ price: 10 }],
       style: { stroke: '#fff' },
     })
     expect(created).toEqual([
-      {
-        kind: 'horizontal-line',
-        paneId: 'pane-a',
-        anchors: [{ price: 10 }],
-        style: { stroke: '#fff' },
-      },
+      expect.objectContaining({ paneId: 'pane-a', kind: 'horizontal-line' }),
     ])
-    expect(snapshot.placement).toBe('sub-1')
+    expect(view).toMatchObject({ id: 'd-new', row: 1 })
+  })
+
+  it('创建把周期可见性与样式一并交给领域层', () => {
+    const { commands, created } = fixture()
+    commands.create({
+      row: 0,
+      kind: 'horizontal-line',
+      anchors: [{ price: 10 }],
+      style: { stroke: '#fff' },
+      timeframeVisibility: { mode: 'current', period: 'daily' },
+      visible: false,
+    })
+    expect(created).toEqual([
+      expect.objectContaining({
+        paneId: 'main',
+        timeframeVisibility: { mode: 'current', period: 'daily' },
+        visible: false,
+      }),
+    ])
+  })
+
+  it('更新只提交属性并返回最新快照', () => {
+    const { commands, updated } = fixture([drawing('d-1', 'main')])
+    const view = commands.update('d-1', { visible: false })
+    expect(updated).toEqual([['d-1', { visible: false }]])
+    expect(view).toMatchObject({ id: 'd-1', row: 0 })
+  })
+
+  it('更新不存在的图元列出当前身份', () => {
+    const { commands } = fixture([drawing('d-1', 'main')])
+    expect(() => commands.update('missing', { visible: false })).toThrow(
+      /Unknown drawing 'missing'.*d-1 \(horizontal-line\)/,
+    )
+  })
+
+  it('删除返回被删快照', () => {
+    const { commands, removed } = fixture([drawing('d-1', 'main')])
+    expect(commands.remove('d-1')).toMatchObject({ id: 'd-1', row: 0 })
+    expect(removed).toEqual(['d-1'])
+  })
+
+  it('锁定的图元拒绝删除并给出解锁步骤', () => {
+    const { commands } = fixture([drawing('d-1', 'main', { locked: true })])
+    expect(() => commands.remove('d-1')).toThrow(/locked.*locked=false/)
+    expect(() => commands.remove('d-1')).toThrow(
+      expect.objectContaining({ code: DRAWING_ERROR_CODES.LOCKED }),
+    )
+  })
+
+  it('布局外的图元容器不再可寻址', () => {
+    const { commands } = fixture([drawing('d-1', 'main')])
+    expect(commands.list().drawings).toHaveLength(1)
+    expect(() => commands.remove('missing')).toThrow(
+      expect.objectContaining({ code: DRAWING_ERROR_CODES.NOT_FOUND }),
+    )
   })
 })
 

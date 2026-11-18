@@ -15,7 +15,12 @@ import type { PersistedDrawingAnchor } from '../types.js'
  * 投影只读取类型、时间与价格；持久化锚点与交互期待定锚点都满足它，
  * 因此取参考点时不需要为待定锚点伪造持久化 id。
  */
-export type ProjectableAnchor = Omit<PersistedDrawingAnchor, 'id'> & { id?: string }
+/** 可投影锚点：按联合成员分别去掉 id，再让 id 可选；不能对联合直接 Omit。 */
+export type ProjectableAnchor = PersistedDrawingAnchor extends infer Anchor
+  ? Anchor extends PersistedDrawingAnchor
+    ? Omit<Anchor, 'id'> & { id?: string }
+    : never
+  : never
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {

@@ -7,6 +7,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type {
   ChartAgentDrawingCommands,
+  ChartAgentDrawingCreateInput,
+  ChartAgentDrawingPatch,
+  ChartAgentDrawingView,
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentMarketQueries,
@@ -84,33 +87,47 @@ function createIndicators(): ChartAgentIndicatorCommands & {
   }
 }
 
-/** 记录调用的图元命令面替身。 */
+/** 记录调用的图元命令面替身；视图形状与真实命令面一致。 */
 function createDrawings(): ChartAgentDrawingCommands & {
-  readonly created: unknown[]
+  readonly created: ChartAgentDrawingCreateInput[]
+  readonly updated: Array<[string, ChartAgentDrawingPatch]>
+  readonly removed: string[]
 } {
-  const created: unknown[] = []
-  const snapshot = {
+  const created: ChartAgentDrawingCreateInput[] = []
+  const updated: Array<[string, ChartAgentDrawingPatch]> = []
+  const removed: string[] = []
+  /** 构造与投影一致的工具视图。 */
+  const view = (overrides: Partial<ChartAgentDrawingView> = {}): ChartAgentDrawingView => ({
     id: 'd-1',
     kind: 'horizontal-line',
-    placement: 'main',
+    row: 0,
+    anchors: [{ price: 10 }],
+    style: { stroke: '#ef5350' },
+    labels: { line: {}, area: {} },
     visible: true,
     locked: false,
     zIndex: null,
-    anchors: [{ timestamp: 1, price: 10 }],
-    style: { stroke: '#fff' },
-    labels: { line: {}, area: {} },
-  }
+    timeframeVisibility: { mode: 'all' },
+    visibleInCurrentPeriod: true,
+    ...overrides,
+  })
   return {
     created,
-    list: () => [snapshot],
+    updated,
+    removed,
+    list: () => ({ timezone: 'Asia/Shanghai', period: '5min', drawings: [view()] }),
     create: (input) => {
       created.push(input)
-      return snapshot
+      return view({ kind: input.kind, row: input.row, anchors: input.anchors })
     },
-    update: () => snapshot,
-    remove: () => true,
-    copy: () => [snapshot],
-    clear: () => 1,
+    update: (drawingId, patch) => {
+      updated.push([drawingId, patch])
+      return view({ id: drawingId })
+    },
+    remove: (drawingId) => {
+      removed.push(drawingId)
+      return view({ id: drawingId })
+    },
   }
 }
 
@@ -340,46 +357,136 @@ describe('chart tool catalog', () => {
     )
   })
 
-  it('图元创建要求落点、种类、锚点与样式，并把落点原样交给命令面', async () => {
-    const deps = createDeps()
-    const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
-    await expect(tool.execute({ action: 'create' }, context())).rejects.toThrow(
-      /action=create requires placement, kind, anchors, style/,
-    )
-    await tool.execute(
-      {
+  it('图元列表返回工具信封：身份是 id，落点是显示行', async () => {
+    const tool = toolOf(createChartToolCatalog(createDeps()), 'drawings_list')
+    const result = await tool.execute({}, context())
+    expect(JSON.parse(result.content)).toEqual({
+      timezone: 'Asia/Shanghai',
+      period: '5min',
+      drawings: [
+        {
+          id: 'd-1',
+          kind: 'horizontal-line',
+          row: 0,
+          anchors: [{ price: 10 }],
+          style: { stroke: '#ef5350' },
+          labels: { line: {}, area: {} },
+          visible: true,
+          locked: false,
+          zIndex: null,
+          timeframeVisibility: { mode: 'all' },
+          visibleInCurrentPeriod: true,
+        },
+      ],
+    })
+  })
+
+  it.each([
+    {
+      name: '缺少必填字段',
+      input: { action: 'create' },
+      pattern: /action=create requires row, kind, anchors, style/,
+    },
+    {
+      name: '缺少描边色',
+      input: {
         action: 'create',
-        placement: 'i-1',
+        row: 0,
         kind: 'horizontal-line',
         anchors: [{ price: 10 }],
-        style: { stroke: 'red' },
+        style: {},
       },
+      pattern: /style\.stroke/,
+    },
+    {
+      name: '拒绝错放的 drawingId',
+      input: {
+        action: 'create',
+        row: 0,
+        kind: 'horizontal-line',
+        anchors: [{ price: 10 }],
+        style: { stroke: '#ef5350' },
+        drawingId: 'd-1',
+      },
+      pattern: /action=create does not accept drawingId/,
+    },
+  ])('图元创建拒绝：$name', async ({ input, pattern }) => {
+    const tool = toolOf(createChartToolCatalog(createDeps()), 'drawings_write')
+    await expect(tool.execute(input, context())).rejects.toThrow(pattern)
+  })
+
+  it('图元创建把显示行与锚点原样交给命令面，并返回完整快照', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
+    const anchors = [
+      { time: '2026-11-17T09:30:00+08:00', price: 12.3 },
+      { time: '2026-11-18T09:30:00+08:00', price: 13.1 },
+    ]
+    const result = await tool.execute(
+      { action: 'create', row: 1, kind: 'trend-line', anchors, style: { stroke: '#ef5350' } },
       context(),
     )
     expect((deps.drawings as ReturnType<typeof createDrawings>).created).toEqual([
-      {
-        placement: 'i-1',
-        kind: 'horizontal-line',
-        anchors: [{ price: 10 }],
-        style: { stroke: 'red' },
-      },
+      { row: 1, kind: 'trend-line', anchors, style: { stroke: '#ef5350' } },
     ])
+    expect(JSON.parse(result.content)).toMatchObject({
+      drawing: { id: 'd-1', kind: 'trend-line', row: 1, anchors },
+    })
   })
 
-  it('图元创建缺少描边色时拒绝写入', async () => {
+  it.each([
+    {
+      name: '缺少任何可写属性',
+      input: { action: 'update', drawingId: 'd-1' },
+      pattern: /at least one of style, labels/,
+    },
+    {
+      name: '拒绝几何字段 anchors',
+      input: { action: 'update', drawingId: 'd-1', anchors: [] },
+      pattern: /action=update does not accept anchors/,
+    },
+    {
+      name: '拒绝 kind',
+      input: { action: 'update', drawingId: 'd-1', kind: 'ray' },
+      pattern: /action=update does not accept kind/,
+    },
+    {
+      name: '周期可见性缺参考周期',
+      input: { action: 'update', drawingId: 'd-1', timeframeVisibility: { mode: 'above' } },
+      pattern: /mode 'above' requires period/,
+    },
+  ])('图元更新拒绝：$name', async ({ input, pattern }) => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'drawings_write')
-    await expect(
-      tool.execute(
-        {
-          action: 'create',
-          placement: 'main',
-          kind: 'horizontal-line',
-          anchors: [{ price: 10 }],
-          style: {},
-        },
-        context(),
-      ),
-    ).rejects.toThrow(/style\.stroke/)
+    await expect(tool.execute(input, context())).rejects.toThrow(pattern)
+  })
+
+  it('图元更新只提交属性，并返回新快照', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
+    const result = await tool.execute(
+      { action: 'update', drawingId: 'd-1', visible: false },
+      context(),
+    )
+    expect((deps.drawings as ReturnType<typeof createDrawings>).updated).toEqual([
+      ['d-1', { visible: false }],
+    ])
+    expect(JSON.parse(result.content)).toMatchObject({ drawing: { id: 'd-1' } })
+  })
+
+  it('图元删除返回被删快照', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
+    const result = await tool.execute({ action: 'delete', drawingId: 'd-1' }, context())
+    expect((deps.drawings as ReturnType<typeof createDrawings>).removed).toEqual(['d-1'])
+    expect(JSON.parse(result.content)).toMatchObject({ deleted: { id: 'd-1' } })
+  })
+
+  it('锚点契约在描述里由种类声明生成', () => {
+    const text = toolOf(createChartToolCatalog(createDeps()), 'drawings_write').description
+    expect(text).toContain('vertical-line: 1 anchor with time only')
+    expect(text).toContain('horizontal-line: 1 anchor with price only')
+    expect(text).toContain('horizontal-ray, cross-line: 1 anchor with time and price')
+    expect(text).toContain('parallel-channel, flat-line, disjoint-channel: 3 anchors with time and price')
   })
 
   it('对比品种歧义结果原样返回，交由模型向用户澄清', async () => {

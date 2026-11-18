@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { PersistedDrawingAnchor } from '../../types.js'
 import { createDrawingCommandsFixture } from '../../__tests__/helpers/drawingDocumentFixture'
+
+/** 复制测试用图元时整体平移价格；垂直线没有价格轴。 */
+function shiftAnchorPrice(anchor: PersistedDrawingAnchor, delta: number): PersistedDrawingAnchor {
+  if (anchor.type === 'vertical') return anchor
+  return { ...anchor, price: anchor.price + delta }
+}
 
 function fixture() {
   const requestDraw = vi.fn()
@@ -41,7 +48,7 @@ describe('drawing history', () => {
     const copies = commands.duplicate(
       [a, b].map((drawing) => ({
         source: drawing,
-        anchors: drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 5 })),
+        anchors: drawing.anchors.map((anchor) => shiftAnchorPrice(anchor, 5)),
       })),
     )
     unsubscribe()
@@ -153,8 +160,8 @@ describe('drawing history', () => {
     expect(document.listDrawings().every((drawing) => drawing.locked)).toBe(true)
     commands.updateBatch([a.id, b.id], { locked: false })
     commands.commitDrags([
-      { id: a.id, anchors: [{ ...a.anchors[0]!, price: 30 }] },
-      { id: b.id, anchors: [{ ...b.anchors[0]!, price: 40 }] },
+      { id: a.id, anchors: [shiftAnchorPrice(a.anchors[0]!, 20)] },
+      { id: b.id, anchors: [shiftAnchorPrice(b.anchors[0]!, 20)] },
     ])
     expect(commands.history.undo()).toBe(true)
     expect(document.listDrawings().map((drawing) => drawing.anchors[0]?.price)).toEqual([10, 20])
@@ -194,7 +201,9 @@ describe('drawing history', () => {
     const a = addLine(commands)
     commands.updateBatch([a.id], { locked: true })
     const count = requestDraw.mock.calls.length
-    expect(commands.commitDrag(a.id, [{ ...a.anchors[0]!, price: 99 }])).toBeNull()
+    expect(
+      commands.commitDrag(a.id, [{ id: a.anchors[0]!.id, type: 'horizontal', price: 99 }]),
+    ).toBeNull()
     expect(requestDraw).toHaveBeenCalledTimes(count)
     expect(commands.history.undo()).toBe(true)
     expect(document.getDrawing(a.id)?.locked).toBeUndefined()

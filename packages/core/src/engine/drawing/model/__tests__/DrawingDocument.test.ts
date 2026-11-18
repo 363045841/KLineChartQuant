@@ -1,8 +1,15 @@
 // 本文件验证绘图文档将声明式 CRUD 原子提交到 drawingState。
 import { describe, expect, it } from 'vitest'
 
+import type { PersistedDrawingAnchor } from '../../types.js'
 import { createDrawingDocumentFixture as createDocument } from '../../__tests__/helpers/drawingDocumentFixture'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
+
+/** 只改价格轴；垂直线没有价格，保持原样。 */
+function withPrice(anchor: PersistedDrawingAnchor, price: number): PersistedDrawingAnchor {
+  if (anchor.type === 'vertical') return anchor
+  return { ...anchor, price }
+}
 
 /** 文档创建用例共用的完整样式；颜色由调用方在上游给出，文档层不补默认。 */
 const CREATE_DRAWING_STYLE = { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' } as const
@@ -53,7 +60,9 @@ describe('DrawingDocument', () => {
     expect(drawing.anchors[2]).toMatchObject({ time: 1_000, price: 20 })
     expect(drawing.anchors[3]).toMatchObject({ time: 1_000, price: 30 })
 
-    const moved = drawing.anchors.map((anchor) => ({ ...anchor, price: anchor.price + 1 }))
+    const moved = drawing.anchors.map((anchor) =>
+      anchor.type === 'vertical' ? anchor : withPrice(anchor, anchor.price + 1),
+    )
     expect(document.commitDrawingDrag(drawing.id, moved)?.anchors[2]).toMatchObject({ price: 21 })
   })
 
@@ -295,8 +304,8 @@ describe('DrawingDocument', () => {
 
     expect(
       document.commitDrawingDrags([
-        { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
-        { id: second.id, anchors: [{ ...second.anchors[0]!, price: 21 }] },
+        { id: first.id, anchors: first.anchors.map((anchor) => withPrice(anchor, 11)) },
+        { id: second.id, anchors: [withPrice(second.anchors[0]!, 21)] },
       ]),
     ).toEqual([])
     expect(document.listDrawings()).toEqual(before)
@@ -304,8 +313,8 @@ describe('DrawingDocument', () => {
     expect(
       document
         .commitDrawingDrags([
-          { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
-          { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
+          { id: first.id, anchors: first.anchors.map((anchor) => withPrice(anchor, 11)) },
+          { id: second.id, anchors: second.anchors.map((anchor) => withPrice(anchor, 21)) },
         ])
         .map((drawing) => drawing.id),
     ).toEqual([first.id, second.id])
@@ -422,7 +431,7 @@ describe('DrawingDocument', () => {
       paneId: 'main',
       anchors: [{ price: 10 }],
     })
-    const anchors = [{ ...drawing.anchors[0]!, price: 11 }]
+    const anchors = [withPrice(drawing.anchors[0]!, 11)]
 
     expect(document.commitDrawingDrag(drawing.id, anchors)?.anchors).toEqual(anchors)
   })
@@ -452,14 +461,14 @@ describe('DrawingDocument', () => {
     expect(
       document.updateDrawing({
         ...current,
-        anchors: [{ ...current.anchors[0]!, price: 11 }],
+        anchors: [withPrice(current.anchors[0]!, 11)],
       }),
     ).toBeNull()
     expect(document.updateDrawingFromInput(drawing.id, { anchors: [{ price: 11 }] })).toBeNull()
 
     // 拖动与删除仍然被冻结。
     expect(
-      document.commitDrawingDrag(drawing.id, [{ ...current.anchors[0]!, price: 11 }]),
+      document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)]),
     ).toBeNull()
     expect(document.removeDrawing(drawing.id)).toBe(false)
 
@@ -516,11 +525,11 @@ describe('DrawingDocument', () => {
     expect(
       document.updateDrawing({
         ...current,
-        anchors: [{ ...current.anchors[0]!, price: 11 }],
+        anchors: [withPrice(current.anchors[0]!, 11)],
       }),
     ).toBeNull()
     expect(
-      document.commitDrawingDrag(drawing.id, [{ ...current.anchors[0]!, price: 11 }]),
+      document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)]),
     ).toBeNull()
 
     // 全局锁不改写图元自身 locked，也不阻止删除。

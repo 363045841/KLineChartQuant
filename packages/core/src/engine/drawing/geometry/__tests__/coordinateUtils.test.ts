@@ -40,13 +40,11 @@ function createAdapter() {
 
 describe('绘图公共坐标适配', () => {
   it.each([
-    ['point', { type: 'point', x: 137, y: 30 }],
-    ['horizontal', { type: 'horizontal', y: 30 }],
-    ['vertical', { type: 'vertical', x: 137 }],
-  ] as const)('投影 %s 锚点时保持坐标轴语义', (type, expected) => {
-    expect(anchorToScreen({ type, time: 1000, price: 20 }, 'sub', createAdapter())).toEqual(
-      expected,
-    )
+    ['point', { id: 'a', type: 'point', time: 1000, price: 20 }, { type: 'point', x: 137, y: 30 }],
+    ['horizontal', { id: 'a', type: 'horizontal', price: 20 }, { type: 'horizontal', y: 30 }],
+    ['vertical', { id: 'a', type: 'vertical', time: 1000 }, { type: 'vertical', x: 137 }],
+  ] as const)('投影 %s 锚点时保持坐标轴语义', (_type, anchor, expected) => {
+    expect(anchorToScreen(anchor, 'sub', createAdapter())).toEqual(expected)
   })
 
   it('指针坐标先定位副图，再通过同一公共接口反算时间和价格', () => {

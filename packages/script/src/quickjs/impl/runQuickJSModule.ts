@@ -351,11 +351,15 @@ function mountHostFunctions(vm: QuickJSContext, state: QuickJSState, timeout: Sc
 }
 
 /** QuickJS 复合值通道会把 NaN 变成 null；只恢复已知数值字段的缺省语义。 */
-type DumpedAnchor = Omit<PersistedDrawingAnchor, 'logicalIndex' | 'time' | 'price'> & {
-  readonly logicalIndex?: number | null
-  readonly time?: number | string | null
-  readonly price: number | null
-}
+type DumpedAnchor = PersistedDrawingAnchor extends infer Anchor
+  ? Anchor extends PersistedDrawingAnchor
+    ? Omit<Anchor, 'logicalIndex' | 'time' | 'price'> & {
+        readonly logicalIndex?: number | null
+        readonly time?: number | string | null
+        readonly price?: number | null
+      }
+    : never
+  : never
 type DumpedDrawing = Omit<DrawingObject, 'anchors'> & {
   readonly anchors: readonly DumpedAnchor[]
 }
@@ -368,14 +372,15 @@ type DumpedDrawingDelta = {
 /** 恢复锚点的 NaN 语义；null 只表示 VM 序列化后的缺值。 */
 function normalizeAnchor(anchor: DumpedAnchor): PersistedDrawingAnchor {
   const { logicalIndex, time, price, ...rest } = anchor
-  return {
-    ...rest,
-    ...(logicalIndex === undefined
+  const index =
+    logicalIndex === undefined
       ? {}
-      : { logicalIndex: logicalIndex === null ? Number.NaN : logicalIndex }),
-    ...(time === undefined ? {} : { time: time === null ? Number.NaN : time }),
-    price: price === null ? Number.NaN : price,
-  }
+      : { logicalIndex: logicalIndex === null ? Number.NaN : logicalIndex }
+  const resolvedTime = time === undefined ? {} : { time: time === null ? Number.NaN : time }
+  if (rest.type === 'vertical') return { ...rest, type: 'vertical', ...resolvedTime, ...index }
+  if (rest.type === 'horizontal')
+    return { ...rest, type: 'horizontal', ...index, price: price ?? Number.NaN }
+  return { ...rest, type: 'point', ...resolvedTime, ...index, price: price ?? Number.NaN }
 }
 
 /** 把 VM 增量恢复成领域对象；未变化对象仍由消费端保留原引用。 */

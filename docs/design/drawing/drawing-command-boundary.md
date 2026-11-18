@@ -37,17 +37,15 @@ pointer 交互 / Controller API / Agent Tool
 
 ## Agent Tool
 
-`features/agent/tools` 以纯数据声明以下工具，并全部委托同一个 `DrawingDocument`：
+`features/agent/tools` 以纯数据声明以下工具，并全部委托同一组图元命令：
 
-- `drawings_list`：read，返回不含 `index` 与 preview 的图元快照，落点用 `main` 或指标实例身份表达。
+- `drawings_list`：read，返回 `{ timezone, period, drawings }`。每个图元给出 `id`、`kind`、`row`、`anchors`、`style`、`labels`、`visible`、`locked`、`zIndex`、`timeframeVisibility` 与 `visibleInCurrentPeriod`；`row` 是窗格身份，`id` 由系统分配。
 - `drawings_write`：write，按 `action` 分发：
-  - `create`：`placement`、`kind`、`time + price` 锚点与完整样式。
-  - `update`：按 id 应用非空 patch。
-  - `delete`：按 id 删除。
-  - `copy`：按 id 列表复制。
-  - `clear`：清除全部已确认图元。
+  - `create`：`row`、`kind`、按种类声明的锚点与样式，返回完整快照。
+  - `update`：按 `id` 修改属性（style / labels / visible / locked / zIndex / timeframeVisibility）。
+  - `delete`：按 `id` 删除，返回被删快照。
 
-落点由 Core 解析成容器，调用方不接触 `paneId`。浏览器 Agent 的 plan 模式按工具的 `effect` 过滤，写工具整只不暴露。
+锚点时间用图表时区的 RFC 3339，日线及以上允许日期简写；写入不做槽位吸附。行号由 Core 解析成 Pane，调用方不接触 `paneId`。浏览器 Agent 的 plan 模式按工具的 `effect` 过滤，写工具整只不暴露。
 
 ## 后果
 

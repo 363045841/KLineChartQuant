@@ -6,7 +6,7 @@
  */
 
 import type { MarketSessionTimeFormatter, TimeFormatter, TimeZoneSetting } from '../types.js'
-import { readParts } from './dtf.js'
+import { readParts, zoneOffsetMs } from './dtf.js'
 
 /** 在渲染高频路径外，一次性解析持久化的显示时区偏好。 */
 export function resolveDisplayTimeZone(setting: TimeZoneSetting): string {
@@ -76,6 +76,45 @@ export function formatDateInTimeZone(timestamp: number, timeZone: string): strin
 /** 使用明确的 IANA 时区格式化非渲染用途的日期时间文本。 */
 export function formatDateTimeInTimeZone(timestamp: number, timeZone = 'Asia/Shanghai'): string {
   return standaloneFormatter(timeZone).formatDateTime(timestamp)
+}
+
+/**
+ * 使用明确的 IANA 时区格式化为 RFC 3339（带偏移量）。
+ *
+ * Agent 读写图元时间共用这一种形态：字符串自己说明偏移量，读到什么就能原样写回，
+ * 调用方不需要在本地时间与 UTC 之间做换算。
+ *
+ * @param timestamp 绝对时间戳（毫秒）
+ * @param timeZone IANA 时区标识
+ * @returns `YYYY-MM-DDTHH:mm:ss±HH:MM`
+ */
+export function formatRfc3339InTimeZone(timestamp: number, timeZone: string): string {
+  const offsetMs = zoneOffsetMs(timestamp, timeZone)
+  // 加上偏移后的 UTC 字段就是该时区的墙上时间，避免再构造一个 Intl 实例。
+  const wall = new Date(timestamp + offsetMs)
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  const totalMinutes = Math.round(offsetMs / 60_000)
+  const absolute = Math.abs(totalMinutes)
+  const offset = `${totalMinutes < 0 ? '-' : '+'}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`
+  return (
+    `${wall.getUTCFullYear()}-${pad(wall.getUTCMonth() + 1)}-${pad(wall.getUTCDate())}` +
+    `T${pad(wall.getUTCHours())}:${pad(wall.getUTCMinutes())}:${pad(wall.getUTCSeconds())}${offset}`
+  )
+}
+
+/**
+ * 解析带偏移量的 RFC 3339 时间。
+ *
+ * 只接受带 `Z` 或 `±HH:MM` 的完整时间：没有偏移的本地时间无法确定瞬间，
+ * 一律返回 null，由调用方给出可执行的错误。
+ *
+ * @param value 待解析文本
+ * @returns 毫秒时间戳；格式不符或无法解析时为 null
+ */
+export function parseRfc3339WithOffset(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/.test(value)) return null
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 /** 使用明确的时区格式化独立文本，不进入图表渲染状态。 */

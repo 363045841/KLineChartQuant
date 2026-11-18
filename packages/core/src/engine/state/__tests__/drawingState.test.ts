@@ -57,7 +57,7 @@ describe('drawingState', () => {
       }),
       mk('vertical', {
         kind: 'vertical-line',
-        anchors: [{ id: 'v', type: 'vertical', time: 1_000, price: 0 }],
+        anchors: [{ id: 'v', type: 'vertical', time: 1_000 }],
       }),
     ])
 

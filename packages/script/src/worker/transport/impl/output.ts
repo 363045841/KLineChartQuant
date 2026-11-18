@@ -118,7 +118,8 @@ function writeAnchor(
   )
   writer.put(typeof anchor.time === 'string' ? texts.code(anchor.time) : (anchor.time ?? 0))
   writer.put(anchor.logicalIndex ?? 0)
-  writer.put(anchor.price)
+  // 垂直线没有价格轴；线上编码保留固定宽度槽位，读取时按类型丢弃。
+  writer.put(anchor.price ?? 0)
 }
 
 /** 打包全部大数组；hlines 等图表级小声明仍保持共享契约。 */
@@ -231,29 +232,45 @@ function readAnchor(
   const flags = values[offset + 1]!
   const type = values[offset + 2]!
   const timeType = values[offset + 3]!
-  const anchor: PersistedDrawingAnchor = {
-    id: textAt(strings, values[offset]!),
-    price: values[offset + 6]!,
-  }
-  if (flags & AnchorFlag.Type)
-    anchor.type =
-      type === AnchorType.Point
+  const id = textAt(strings, values[offset]!)
+  const price = values[offset + 6]!
+  const time =
+    flags & AnchorFlag.Time
+      ? timeType === TimeType.Number
+        ? values[offset + 4]!
+        : timeType === TimeType.String
+          ? textAt(strings, values[offset + 4]!)
+          : undefined
+      : undefined
+  const logicalIndex =
+    flags & AnchorFlag.Logical
+      ? flags & AnchorFlag.LogicalValue
+        ? values[offset + 5]!
+        : undefined
+      : undefined
+  const clock = time === undefined ? {} : { time }
+  const index = logicalIndex === undefined ? {} : { logicalIndex }
+  const resolvedType =
+    flags & AnchorFlag.Type
+      ? type === AnchorType.Point
         ? 'point'
         : type === AnchorType.Horizontal
           ? 'horizontal'
           : type === AnchorType.Vertical
             ? 'vertical'
             : undefined
-  if (flags & AnchorFlag.Time)
-    anchor.time =
-      timeType === TimeType.Number
-        ? values[offset + 4]!
-        : timeType === TimeType.String
-          ? textAt(strings, values[offset + 4]!)
-          : undefined
-  if (flags & AnchorFlag.Logical)
-    anchor.logicalIndex = flags & AnchorFlag.LogicalValue ? values[offset + 5]! : undefined
-  return anchor
+      : undefined
+  // 按锚点类型只重建它拥有的坐标轴：垂直线不写回价格。
+  if (resolvedType === 'vertical') return { id, type: 'vertical', ...clock, ...index }
+  if (resolvedType === 'horizontal') return { id, type: 'horizontal', price, ...index }
+  // 早期数据没有类型字段：不要凭空补一个，保持往返后的对象形状不变。
+  return {
+    id,
+    ...(resolvedType === 'point' ? { type: 'point' as const } : {}),
+    ...clock,
+    ...index,
+    price,
+  }
 }
 
 /** 只在消费端重建领域对象；一个响应的 buffer 不被协议层长期持有。 */

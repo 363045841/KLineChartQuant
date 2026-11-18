@@ -20,7 +20,7 @@ import type {
   UpdateDrawingPatch,
 } from '../types.js'
 import { areAnchorsIdentical, isDrawingLocked, isDrawingMovementLocked } from './drawingAccess.js'
-import { drawingKindDefaultParams, isFilledDrawingKind } from './drawingKindSpecs.js'
+import { drawingAnchorAxes, drawingKindDefaultParams, isFilledDrawingKind } from './drawingKindSpecs.js'
 import { normalizeDrawingLabels } from './drawingLabels.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from './drawingScope.js'
 import {
@@ -43,8 +43,7 @@ const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
 /** 已确认图元的唯一 CRUD 入口。 */
 /** 水平线锚点只保存价格。 */
 function resolveHorizontalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-  assertFiniteAnchorPrice(input.price, 'Horizontal')
-  return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price }
+  return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: requireAnchorPrice(input.price) }
 }
 
 /** 水平线锚点只要求类型正确且价格有限。 */
@@ -74,12 +73,12 @@ function isAnchorValid(drawing: DrawingObject, anchor: PersistedDrawingAnchor): 
   return isPointAnchorValid(anchor)
 }
 
-/** 校验锚点价格为有限数。 */
-function assertFiniteAnchorPrice(price: number, axis: 'Horizontal' | 'Vertical'): void {
-  if (Number.isFinite(price)) return
+/** 校验锚点价格为有限数；缺失与非有限值都按同一种领域错误处理。 */
+function requireAnchorPrice(price: number | undefined): number {
+  if (price !== undefined && Number.isFinite(price)) return price
   throw new KLineChartError(
     DRAWING_ERROR_CODES.INVALID_ANCHOR,
-    `${axis} drawing anchor price must be a finite number.`,
+    'Drawing anchor price must be a finite number.',
     { details: { price } },
   )
 }
@@ -180,6 +179,9 @@ export class DrawingDocument {
         visible: input.visible ?? true,
         ...(input.locked === undefined ? {} : { locked: input.locked }),
         ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
+        ...(input.timeframeVisibility === undefined
+          ? {}
+          : { timeframeVisibility: input.timeframeVisibility }),
         anchors,
         params: input.params ?? drawingKindDefaultParams(input.kind),
         labels: normalizeDrawingLabels(input.labels),
@@ -462,25 +464,24 @@ export class DrawingDocument {
     }))
   }
 
-  /** 解析单个声明式锚点，按图元种类持久化所需坐标轴。 */
+  /** 解析单个声明式锚点，按图元种类声明的坐标轴持久化。 */
   private resolveAnchor(
     kind: DrawingKind,
     input: DrawingAnchorCommandInput,
   ): PersistedDrawingAnchor {
-    if (kind === 'horizontal-line') return resolveHorizontalAnchor(input)
-    if (kind === 'vertical-line') return this.resolveVerticalAnchor(input)
+    const axes = drawingAnchorAxes(kind)
+    if (!axes.price) return this.resolveVerticalAnchor(input)
+    if (!axes.time) return resolveHorizontalAnchor(input)
     return this.resolvePointAnchor(input)
   }
 
-  /** 水平线只持久化价格，不允许未来偏移。 */
+  /** 垂直线只持久化时间；价格轴不属于它的文档模型。 */
   private resolveVerticalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-    assertFiniteAnchorPrice(input.price, 'Vertical')
     if (input.tradingDate !== undefined) {
       return {
         id: `anchor-${generateUUID()}`,
         type: 'vertical',
         time: this.resolveAnchorTradingDate(input.tradingDate),
-        price: input.price,
       }
     }
     const anchor = this.resolveTimestampAnchor(input)
@@ -488,7 +489,6 @@ export class DrawingDocument {
       id: `anchor-${generateUUID()}`,
       type: 'vertical',
       time: anchor.timestamp,
-      price: input.price,
     }
   }
 
@@ -526,14 +526,12 @@ export class DrawingDocument {
   }
 
   /** 校验并创建同时包含时间与价格的普通锚点。 */
-  private createPointAnchor(timestamp: number, price: number): PersistedDrawingAnchor {
-    if (!Number.isFinite(price)) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing point anchor price must be a finite number.',
-        { details: { timestamp, price } },
-      )
+  private createPointAnchor(timestamp: number, price: number | undefined): PersistedDrawingAnchor {
+    return {
+      id: `anchor-${generateUUID()}`,
+      type: 'point',
+      time: timestamp,
+      price: requireAnchorPrice(price),
     }
-    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, price }
   }
 }
