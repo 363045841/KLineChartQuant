@@ -339,8 +339,8 @@
     position: relative;
     overflow: hidden;
     display: grid;
-    /* 三列网格：图表、面板轨道、常驻菜单栏；菜单栏始终贴在最外侧。 */
-    grid-template-columns: minmax(0, 1fr) var(--side-panel-track) var(--side-panel-rail-width);
+    /* 两列网格：图表 + 面板轨道；菜单栏浮在图表边缘之上，不占布局宽度。 */
+    grid-template-columns: minmax(0, 1fr) var(--side-panel-track);
     grid-template-rows: minmax(0, 1fr);
     background: var(--klc-color-ui-surround-background);
   }
@@ -349,9 +349,9 @@
     --side-panel-track: var(--side-panel-width);
   }
 
-  /* 左侧停靠时镜像三列顺序，图表仍占满剩余空间。 */
+  /* 左侧停靠时镜像两列顺序，图表仍占满剩余空间。 */
   .side-panel-shell--left {
-    grid-template-columns: var(--side-panel-rail-width) var(--side-panel-track) minmax(0, 1fr);
+    grid-template-columns: var(--side-panel-track) minmax(0, 1fr);
   }
 
   .side-panel-shell :deep(button),
@@ -377,7 +377,7 @@
   }
 
   .side-panel-shell--left .side-panel-shell__chart {
-    grid-column: 3;
+    grid-column: 2;
   }
 
   /* 面板占轨道；贴外壳边缘固定，轨道收缩时不会横向跳位，关闭态滑到菜单栏下方隐藏。 */
@@ -401,6 +401,7 @@
   }
 
   .side-panel-shell--left .side-panel-shell__panel {
+    grid-column: 1;
     justify-self: start;
     transform: translateX(-100%);
   }
@@ -429,11 +430,13 @@
     cursor: ew-resize;
   }
 
-  /* 常驻菜单栏：外层边缘固定，面板滑入时从其下方穿过。 */
+  /* 菜单栏浮在图表边缘之上：不参与网格，面板关闭时图表仍占满外壳宽度。 */
   .side-panel-shell__rail {
-    position: relative;
-    grid-column: 3;
-    grid-row: 1;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: var(--side-panel-track);
+    width: var(--side-panel-rail-width);
     z-index: var(--klc-z-index-sticky);
     display: flex;
     flex-direction: column;
@@ -441,8 +444,16 @@
     gap: var(--klc-space-4, 4px);
     box-sizing: border-box;
     padding: var(--klc-space-8, 8px) 0;
-    background: var(--klc-color-ui-surround-background);
+    /* 常态半透明，让被覆盖的价格轴仍可读；悬停或聚焦时恢复不透明。 */
+    background: color-mix(in srgb, var(--klc-color-ui-surround-background) 72%, transparent);
+    backdrop-filter: blur(6px);
+    transition: background-color 0.15s ease;
     user-select: none;
+  }
+
+  .side-panel-shell__rail:hover,
+  .side-panel-shell__rail:focus-within {
+    background: var(--klc-color-ui-surround-background);
   }
 
   /* 独立动作贴住侧栏底部，不参与面板互斥。 */
@@ -455,7 +466,8 @@
   }
 
   .side-panel-shell--left .side-panel-shell__rail {
-    grid-column: 1;
+    left: var(--side-panel-track);
+    right: auto;
   }
 
   /* 菜单按钮与图表左侧工具栏同形：圆角方块，悬停由滑动高亮块提示。 */
