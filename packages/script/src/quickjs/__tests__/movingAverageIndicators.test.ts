@@ -110,7 +110,7 @@ describe('均线与通道脚本', () => {
     expect(lsma).toEqual([undefined, undefined, 3, 4, 5])
   })
 
-  it('MA 五线各自预热，EXPMA 快慢线按 EMA 窗口初始化', async () => {
+  it('MA 五线各自预热，EMA 快慢线按 EMA 窗口初始化', async () => {
     const prices = [1, 2, 3, 4, 5]
     const ma = plotValues(
       await runShipped('ma', prices, {
@@ -124,9 +124,9 @@ describe('均线与通道脚本', () => {
     expect(ma.ma1).toEqual([undefined, 1.5, 2.5, 3.5, 4.5])
     expect(ma.ma2).toEqual([undefined, undefined, 2, 3, 4])
     expect(ma.ma5).toEqual(prices)
-    const expma = plotValues(await runShipped('expma', prices, { fastPeriod: 2, slowPeriod: 3 }))
-    expect(expma.fast).toEqual(ma.ma1)
-    expect(expma.slow).toEqual(ma.ma2)
+    const ema = plotValues(await runShipped('ema', prices, { fastPeriod: 2, slowPeriod: 3 }))
+    expect(ema.fast).toEqual(ma.ma1)
+    expect(ema.slow).toEqual(ma.ma2)
     const hidden = await runShipped('ma', prices, { showMA1: false })
     expect(hidden.plots.find((plot) => plot.id === 'ma1')?.visible).toBe(false)
   })
