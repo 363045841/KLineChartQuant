@@ -96,6 +96,8 @@ export type KLineChartErrorCode =
   | 'DRAWING_ANCHOR_DATE_NOT_TRADING'
   | 'DRAWING_ANCHOR_DATE_UNAVAILABLE'
   | 'DRAWING_INVALID_ANCHOR'
+  // market data
+  | 'INVALID_TRADING_DATE'
   // persistence (IndexedDB / LocalStorage primitives)
   | 'PERSISTENCE_UNAVAILABLE'
   | 'PERSISTENCE_READ_FAILED'
@@ -108,9 +110,21 @@ export type KLineChartErrorCode =
 export interface KLineChartErrorOptions {
   /** Lower-level error this wraps (preserved as the standard `.cause`). */
   cause?: unknown
-  /** 供上层将领域失败转换为可操作反馈的非敏感上下文。 */
-  details?: Readonly<Record<string, unknown>>
+  /** 供上层将领域失败转换为可操作反馈的非敏感上下文；必须可序列化。 */
+  details?: ErrorDetails
 }
+
+/** 可序列化的错误细节值；它会原样进入 Agent 的失败信封。 */
+type ErrorDetailValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ErrorDetailValue[]
+  | { [key: string]: ErrorDetailValue }
+
+/** 错误细节的键值集合。 */
+export type ErrorDetails = { [key: string]: ErrorDetailValue }
 
 /**
  * Base error for everything thrown by `@klinechart-quant/*` that's
@@ -121,7 +135,7 @@ export interface KLineChartErrorOptions {
  */
 export class KLineChartError extends Error {
   readonly code: KLineChartErrorCode
-  readonly details?: Readonly<Record<string, unknown>>
+  readonly details?: ErrorDetails
   // 显式声明下层错误引用，ES2022 标准 Error.cause 的稳定访问入口
   // declare 仅作类型声明，避免 useDefineForClassFields 把 cause 覆盖为 undefined
   declare readonly cause?: unknown
@@ -187,6 +201,11 @@ type FetchErrorCodeName =
   | 'UNSUPPORTED_CAPABILITY'
   | 'INSTRUMENT_NOT_FOUND'
 
+// 行情查询错误码：日期类失败由调用方直接纠正。
+export const MARKET_QUERY_ERROR_CODES = Object.freeze({
+  INVALID_TRADING_DATE: 'INVALID_TRADING_DATE',
+} as const satisfies Readonly<Record<'INVALID_TRADING_DATE', KLineChartErrorCode>>)
+
 // 通用错误码具名常量：生命周期与入参类错误，供各模块统一引用，避免散落字符串字面量。
 export const GENERIC_ERROR_CODES = {
   INVALID_PARAM: 'INVALID_PARAM',
@@ -229,15 +248,14 @@ export const PERSISTENCE_ERROR_CODES = Object.freeze({
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 绘图文档错误码，供交互层和 Agent 工具层识别可修正的输入失败。
+// DRAWING_ANCHOR_DATE_* 三个码按 append-only 保留在公共协议里，但已无生产者：
+// 交易日锚点在命令入口解析，失败以 ToolInputValidationError 返回。
 export const DRAWING_ERROR_CODES = Object.freeze({
   UNKNOWN_PANE: 'DRAWING_UNKNOWN_PANE',
   NOT_FOUND: 'DRAWING_NOT_FOUND',
   LOCKED: 'DRAWING_LOCKED',
   INVALID_ANCHOR_COUNT: 'DRAWING_INVALID_ANCHOR_COUNT',
   ANCHOR_NOT_FOUND: 'DRAWING_ANCHOR_NOT_FOUND',
-  ANCHOR_DATE_OUT_OF_RANGE: 'DRAWING_ANCHOR_DATE_OUT_OF_RANGE',
-  ANCHOR_DATE_NOT_TRADING: 'DRAWING_ANCHOR_DATE_NOT_TRADING',
-  ANCHOR_DATE_UNAVAILABLE: 'DRAWING_ANCHOR_DATE_UNAVAILABLE',
   INVALID_ANCHOR: 'DRAWING_INVALID_ANCHOR',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 

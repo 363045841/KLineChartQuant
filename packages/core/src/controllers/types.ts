@@ -119,7 +119,6 @@ export interface KLineData {
   changePercent?: number
   changeAmount?: number
   turnoverRate?: number
-  date?: string
 }
 
 export interface TimeShareData {

@@ -65,11 +65,10 @@ function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor
   }
 }
 
-// 将 K 线条目映射为核心 KLineData
+// 将 K 线条目映射为核心 KLineData；协议里的 date 是数据源方言，领域层只保留时间戳。
 function mapBar(item: ProtocolKLineItem, symbol: string): KLineData {
   return {
     timestamp: item.timestamp,
-    date: item.date,
     open: item.open,
     high: item.high,
     low: item.low,

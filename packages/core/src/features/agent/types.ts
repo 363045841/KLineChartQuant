@@ -8,20 +8,19 @@ import type { IndicatorInstance, IndicatorParamDef, SymbolSpec } from '../../con
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
 import type {
-  BarAggregation,
   BarSeries,
   InstrumentDescriptor,
-  InstrumentType,
   KLineAdjustment,
   KLinePeriod,
   OlderDataStatus,
-  TimeShareRange,
-  TimeShareSeries,
+  TimeShareDay,
+  TradingDate,
 } from '../../data/provider/types.js'
 import type { ComparisonCommandsApi } from '../../engine/data/comparisonCommands.js'
 import type {
   DrawingCommands,
   DrawingDocument,
+  DrawingLabelGroups,
   DrawingLabels,
   DrawingObject,
 } from '../../engine/drawing/index.js'
@@ -67,12 +66,6 @@ export interface ChartAgentDrawingAnchor {
   readonly price?: number
 }
 
-/** Agent 可读写的绘图附属文本完整快照。 */
-export interface ChartAgentDrawingLabels {
-  readonly line: Readonly<DrawingLabels['line']>
-  readonly area: Readonly<DrawingLabels['area']>
-}
-
 /** Agent 可读取的已确认图元快照；身份是系统分配的 id，落点是显示行。 */
 export interface ChartAgentDrawingSnapshot {
   readonly id: string
@@ -84,7 +77,7 @@ export interface ChartAgentDrawingSnapshot {
   readonly zIndex: number | null
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
-  readonly labels: ChartAgentDrawingLabels
+  readonly labels: Readonly<DrawingLabels>
   readonly timeframeVisibility: DrawingTimeframeVisibility
 }
 
@@ -138,54 +131,69 @@ export interface IndicatorQueryInput {
   readonly limit?: number
 }
 
-/** Agent 按标准代码精确查询品种目录的输入。 */
+/** Agent 品种查询输入：代码或名称，精确命中优先，未命中再走关键字。 */
 export interface InstrumentLookupInput {
-  readonly symbol: string
+  readonly query: string
   readonly sourceIds?: ReadonlyArray<string>
+  readonly limit: number
   readonly signal?: AbortSignal
 }
 
-/** 无状态最新 K 线查询输入；拉多少就请求多少，不依赖当前图表选择或视口。 */
+/** 单条品种匹配；exact 表示代码精确命中，否则是关键字候选。 */
+export interface InstrumentMatch {
+  readonly instrument: InstrumentDescriptor
+  readonly exact: boolean
+}
+
+/** 品种查询结果：查询词与全部匹配，零匹配由调用方转成可纠正错误。 */
+export interface InstrumentLookupResult {
+  readonly query: string
+  readonly matches: ReadonlyArray<InstrumentMatch>
+}
+
+/**
+ * 无状态 K 线查询输入。
+ *
+ * `from` / `to` 是日期窗口：日线及以上写 `YYYY-MM-DD`，日内写 RFC 3339；
+ * 覆盖窗口所需的翻页由缓存完成，`limit` 始终是"最多返回多少根"。
+ */
 export interface BarsQueryInput {
   readonly symbol: string
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
-  readonly barAggregation: BarAggregation
   readonly limit: number
+  readonly from?: string
+  readonly to?: string
   readonly sourceId?: string
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
+  readonly signal?: AbortSignal
 }
 
-/** 单日分时查询输入；交易日必须由调用方显式给出。 */
-export interface TimeShareQueryInput {
-  readonly symbol: string
-  readonly tradingDate: string
-  readonly sourceId?: string
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
-}
-
-/** 行情查询的可序列化来源信息。 */
-export interface MarketDataQueryMeta {
+/** 无状态 K 线查询结果；truncated 表示窗口未覆盖完就被 limit 截断。 */
+export interface BarsQueryResult {
   readonly sourceId: string
   readonly instrument: InstrumentDescriptor
-}
-
-/** 无状态 K 线查询结果。 */
-export interface BarsQueryResult extends MarketDataQueryMeta {
   readonly series: BarSeries
-  readonly olderData: OlderDataStatus
+  readonly requested: number
+  readonly truncated: boolean
 }
 
-/** 无状态单日分时查询结果。 */
-export interface TimeShareQueryResult extends MarketDataQueryMeta {
-  readonly series: TimeShareSeries
+/** 分时查询输入；缺省交易日由 Core 解析成最近一个有数据的交易日。 */
+export interface TimeShareQueryInput {
+  readonly symbol: string
+  readonly tradingDate?: TradingDate
+  readonly days: number
+  readonly sourceId?: string
+  readonly signal?: AbortSignal
 }
 
-/** 无状态多日分时查询结果。 */
-export interface TimeShareRangeQueryResult extends MarketDataQueryMeta {
-  readonly range: TimeShareRange
+/** 分时查询结果：始终按日返回，单日与多日共用同一形状。 */
+export interface TimeShareDaysResult {
+  readonly sourceId: string
+  readonly instrument: InstrumentDescriptor
+  readonly timezone: string
+  readonly requestedDate: TradingDate | null
+  readonly resolvedDate: TradingDate
+  readonly days: ReadonlyArray<TimeShareDay>
 }
 
 /** 指标实例命令面：按名称定位，身份由状态分配并在内部解析。 */
@@ -217,7 +225,7 @@ export interface ChartAgentDrawingCreateInput {
   readonly kind: DrawingKind
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabels>
+  readonly labels?: Readonly<DrawingLabelGroups>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -227,7 +235,7 @@ export interface ChartAgentDrawingCreateInput {
 /** 图元补丁：只改属性；几何变化由删除后重建表达。 */
 export interface ChartAgentDrawingPatch {
   readonly style?: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabels>
+  readonly labels?: Readonly<DrawingLabelGroups>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -242,18 +250,31 @@ export interface ChartAgentDrawingCommands {
   remove(drawingId: string): ChartAgentDrawingView
 }
 
+/** 数据源的可读描述：只声明它是谁，不声明它覆盖哪些品种。 */
+export interface ChartAgentMarketSource {
+  readonly id: string
+  readonly description?: string
+}
+
+/** 行情工具的能力视图；品种查询与两类行情各有自己的源集合。 */
+export type ChartAgentMarketCapability = 'instrument' | 'bars' | 'timeShare'
+
+/** 行情查询返回的文本与折叠行摘要；摘要必须描述本次结果而不是常量。 */
+export interface MarketQueryText {
+  readonly content: string
+  readonly summary: string
+}
+
 /** 无状态行情查询面；不读取也不修改当前图表选择。 */
 export interface ChartAgentMarketQueries {
-  listSourceIds(): ReadonlyArray<string>
-  lookupInstrument(
-    input: InstrumentLookupInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string>
-  bars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string>
+  /** 当前能服务该能力的源，用于工具描述与错误提示。 */
+  listSources(capability: ChartAgentMarketCapability): ReadonlyArray<ChartAgentMarketSource>
+  lookup(input: InstrumentLookupInput, context?: ChartToolExecutionContext): Promise<MarketQueryText>
+  bars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<MarketQueryText>
   timeShare(
-    input: TimeShareQueryInput & { readonly days: number },
+    input: TimeShareQueryInput,
     context?: ChartToolExecutionContext,
-  ): Promise<string>
+  ): Promise<MarketQueryText>
   indicatorValues(input: IndicatorQueryInput): Promise<string>
 }
 
@@ -304,8 +325,8 @@ export interface ChartAgentDrawingCommandsDependencies {
   readonly drawingCommands: Pick<DrawingCommands, 'create' | 'updateFromInput' | 'remove'>
   /** 当前图表作用域；行号、周期、时区与工作区只有一个来源。 */
   readonly scope: () => ChartAgentDrawingScope
-  /** 当前已加载的 K 线；日期简写按它查表。 */
-  readonly bars: () => ReadonlyArray<{ readonly date?: string; readonly timestamp: number }>
+  /** 当前已加载的 K 线；日期简写按时间戳与图表时区解析。 */
+  readonly bars: () => ReadonlyArray<{ readonly timestamp: number }>
 }
 
 /** 指标命令面的装配依赖。 */
@@ -347,22 +368,39 @@ export interface ChartAgentIndicatorCommandsDependencies {
 
 /** 行情查询面的装配依赖。 */
 export interface ChartAgentMarketQueriesDependencies {
-  /** 当前启用数据源的精确 ID；用于白名单校验与描述提示。 */
-  readonly sources: () => ReadonlyArray<string>
+  /** 能服务指定能力的源；描述、校验与提示都读它。 */
+  readonly listSources: (
+    capability: ChartAgentMarketCapability,
+  ) => ReadonlyArray<ChartAgentMarketSource>
   /** 按代码精确查询品种；由组合根绑定当前数据源注册表。 */
-  readonly lookup: (input: InstrumentLookupInput) => Promise<ReadonlyArray<InstrumentDescriptor>>
-  readonly cache: Pick<MarketDataCache, 'queryBars' | 'queryTimeShare' | 'queryTimeShareRange'>
+  readonly lookup: (input: {
+    readonly query: string
+    readonly sourceIds?: ReadonlyArray<string>
+    readonly signal?: AbortSignal
+  }) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  /** 关键字搜索；只在精确查询没有命中时作为候选通道使用。 */
+  readonly search: (input: {
+    readonly query: string
+    readonly sourceIds?: ReadonlyArray<string>
+    readonly limit: number
+    readonly signal?: AbortSignal
+  }) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  readonly cache: Pick<
+    MarketDataCache,
+    'queryBars' | 'queryBarsWindow' | 'queryTimeShare' | 'queryTimeShareRange'
+  >
+  /** 当前时刻；缺省交易日的判定与测试都用它，不在实现里直接读时钟。 */
+  readonly now: () => number
   readonly formatter: MarketDataTextFormatter
   readonly indicatorQuery: IndicatorQuery
 }
 
 /** 市场查询文本转义服务。 */
 export interface MarketDataTextFormatter {
+  formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string
   formatBars(result: BarsQueryResult): string
   formatChartBars(input: ChartBarsTextFormatInput): string
-  formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string
-  formatTimeShare(result: TimeShareQueryResult): string
-  formatTimeShareRange(result: TimeShareRangeQueryResult): string
+  formatTimeShareDays(result: TimeShareDaysResult): string
 }
 
 /** 当前图表 K 线投影为 Agent 文本时所需的最小行情元数据。 */
@@ -376,10 +414,10 @@ export interface ChartBarsTextFormatInput {
   readonly olderData: OlderDataStatus | null
 }
 
-/** 精确品种查询投影为 Agent 文本时的输入。 */
+/** 品种查询投影为 Agent 文本时的输入。 */
 export interface InstrumentLookupTextFormatInput {
-  readonly symbol: string
-  readonly instruments: ReadonlyArray<InstrumentDescriptor>
+  readonly query: string
+  readonly matches: ReadonlyArray<InstrumentMatch>
 }
 
 /** 指标计算的内部输入，可按时间范围筛选结果；不作为 Agent 工具契约暴露。 */

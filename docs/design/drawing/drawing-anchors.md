@@ -104,40 +104,31 @@ X 轴标签注册 `timestamp` 和当前帧派生的世界 X 坐标；Y 轴标签
   - `rectangle`：拖一个角时，同横边的对角保持 X、跟随价格（`follow: { time: 0, price: 1 }`），同竖边的对角保持价格、跟随 X（`follow: { time: 1, price: 0 }`），对角点固定，矩形始终保持轴对齐。
   - `regression-channel`：不做拖拽策略，命中映射回范围锚点后走缺省行为。
 
-## 交易日解析错误码
+## 交易日解析
 
-`findAnchorAtTradingDate` 返回可判别联合，并按原因抛不同错误码；不再用 `null` 同时表示范围外、非交易日与能力缺失。
+**时间只有一种写法，交易日只有一种来源。**
+
+- 领域模型只保存绝对时间戳；`DrawingAnchorCommandInput` 不再接受 `tradingDate`。
+- 交易日由 bar 时间戳在该序列时区下的日期派生，不依赖任何按日缓存字段：`KLineData` 没有 `date`。
+- 日期到时间戳的换算只在**命令入口**做一次（Agent 的 `parseDrawingAnchorTime`、脚本 API 的同类入口），`DrawingDocument` 只接收时间戳。
+- 因为不再有第二份日期副本，实时帧替换末尾 K 线不会让日期失效——这正是"最后一根是 18 号却报超出范围"的根因。
+
+解析结果按三类互斥原因给出：
 
 | 原因 | 语义 | 可自纠的修正 |
 | --- | --- | --- |
 | 日期早于已加载最早 / 晚于最晚 | 范围外 | 改到 `[earliest, latest]` 内 |
 | 日期在范围内但没有 bar | 非交易日 / 停牌 | 改成一个有 bar 的日期 |
-| 数据源未提供每根 bar 的 `date` | 能力缺失 | 与日期无关，重试无效 |
-
-契约：
-
-```ts
-export type AnchorTradingDateResolution =
-  | { readonly kind: 'resolved'; readonly timestamp: number }
-  | { readonly kind: 'out-of-range'; readonly earliest: string; readonly latest: string }
-  | { readonly kind: 'not-trading' }
-  | { readonly kind: 'date-unavailable' }
-```
-
-- `DrawingDocumentDependencies.findAnchorAtTradingDate` 返回该联合，不再返回 `null`。
-- 原因判别在适配器完成（它持有 `chart.getData()`），错误码映射留在 `DrawingDocument`（领域语义的唯一归属）。
-- `earliest` / `latest` 用 `string`：`KLineData.date` 从协议层起就是可选 `string`，不做不安全断言。
+| 没有任何已加载 K 线 | 数据缺失 | 先加载行情，重试无效 |
 
 错误码（append-only）：
 
-| 错误码 | 触发条件 | details |
+| 错误码 | 触发条件 | 当前状态 |
 | --- | --- | --- |
-| `DRAWING_ANCHOR_DATE_OUT_OF_RANGE` | 日期在已加载范围之外 | `tradingDate, earliest, latest` |
-| `DRAWING_ANCHOR_DATE_NOT_TRADING` | 日期在范围内但当天无 bar | `tradingDate` |
-| `DRAWING_ANCHOR_DATE_UNAVAILABLE` | 数据无 per-bar `date` | `tradingDate` |
+| `DRAWING_ANCHOR_DATE_OUT_OF_RANGE` | 日期在已加载范围之外 | Agent 入口以输入校验错误给出 `earliest/latest` |
+| `DRAWING_ANCHOR_DATE_NOT_TRADING` | 日期在范围内但当天无 bar | 同上，提示换成有 bar 的日期 |
+| `DRAWING_ANCHOR_DATE_UNAVAILABLE` | 数据缺少可派生日期的来源 | **不再产生**：日期总可由时间戳派生，保留编号遵守 append-only |
 
 有限时间戳直接作为文档事实保存，不要求精确命中当前周期的 K 线。`DRAWING_ANCHOR_NOT_FOUND` 按错误码 append-only 规则保留编号，当前时间戳创建路径不再抛出该码；视图未就绪时公共坐标接口返回空值，数据区间之外由常规槽距外推。
-
-Agent 层把这些错误原样交给模型：范围外带出 `earliest` / `latest`，非交易日与缺少逐根日期各自给出可执行的下一步。
 
 边界：不注入全量交易日；不把「日期在范围内但无 bar」改为吸附（会改变用户意图）。域内按交易日解析仍然命中当天首根 bar；Agent 层在日内周期直接拒绝日期简写，要求带偏移量的完整时间。

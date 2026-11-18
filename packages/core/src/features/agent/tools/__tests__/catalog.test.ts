@@ -4,8 +4,10 @@
  * 目录是纯数据：断言工具名、读写分组、必填字段校验与领域调用，不需要图表实例。
  */
 import { describe, expect, it, vi } from 'vitest'
+import { Check } from 'typebox/value'
 
 import type {
+  BarsQueryInput,
   ChartAgentDrawingCommands,
   ChartAgentDrawingCreateInput,
   ChartAgentDrawingPatch,
@@ -14,6 +16,8 @@ import type {
   ChartAgentIndicatorDefinition,
   ChartAgentMarketQueries,
   ChartAgentToolDeps,
+  InstrumentLookupInput,
+  TimeShareQueryInput,
 } from '../../types.js'
 import { CHART_TOOL_METADATA, createChartToolCatalog } from '../impl/catalog.js'
 import type { ChartToolDefinition } from '../types.js'
@@ -131,19 +135,32 @@ function createDrawings(): ChartAgentDrawingCommands & {
   }
 }
 
-/** 记录调用的行情查询面替身。 */
+/** 记录调用的行情查询面替身；返回值形状与真实查询面一致。 */
 function createMarket(): ChartAgentMarketQueries & {
-  readonly timeShareCalls: number[]
+  readonly lookupCalls: InstrumentLookupInput[]
+  readonly barCalls: BarsQueryInput[]
+  readonly timeShareCalls: TimeShareQueryInput[]
 } {
-  const timeShareCalls: number[] = []
+  const lookupCalls: InstrumentLookupInput[] = []
+  const barCalls: BarsQueryInput[] = []
+  const timeShareCalls: TimeShareQueryInput[] = []
   return {
+    lookupCalls,
+    barCalls,
     timeShareCalls,
-    listSourceIds: () => ['binance', 'tdx'],
-    lookupInstrument: async () => 'instrument table',
-    bars: async () => 'bars text',
+    listSources: (capability) =>
+      capability === 'instrument' ? [{ id: 'tdx' }] : [{ id: 'tdx', description: 'A股日线' }],
+    lookup: async (input) => {
+      lookupCalls.push(input)
+      return { content: 'instrument table', summary: 'Matched 1 instrument(s).' }
+    },
+    bars: async (input) => {
+      barCalls.push(input)
+      return { content: 'bars text', summary: 'Returned bars.' }
+    },
     timeShare: async (input) => {
-      timeShareCalls.push(input.days)
-      return 'timeshare text'
+      timeShareCalls.push(input)
+      return { content: 'timeshare text', summary: 'Returned time share.' }
     },
     indicatorValues: async () => 'values text',
   }
@@ -489,6 +506,57 @@ describe('chart tool catalog', () => {
     expect(text).toContain('parallel-channel, flat-line, disjoint-channel: 3 anchors with time and price')
   })
 
+  it.each([
+    {
+      name: '只给区域组',
+      labels: { area: { '0': { text: '箱体', position: 'center' } } },
+      valid: true,
+    },
+    {
+      name: '只给线段组',
+      labels: { line: { '0': { text: '边', position: 'start' } } },
+      valid: true,
+    },
+    { name: '不给标签', labels: undefined, valid: true },
+    { name: '未知组名', labels: { body: {} }, valid: false },
+  ])('图元标签按组可选：$name', ({ labels, valid }) => {
+    const tool = toolOf(createChartToolCatalog(createDeps()), 'drawings_write')
+    const input = {
+      action: 'create',
+      row: 0,
+      kind: 'rectangle',
+      anchors: [
+        { time: '2026-11-18T09:31:00+08:00', price: 10 },
+        { time: '2026-11-18T09:31:00+08:00', price: 12 },
+      ],
+      ...(labels === undefined ? {} : { labels }),
+    }
+
+    expect(Check(tool.parameters, input)).toBe(valid)
+  })
+
+  it('只给区域组时把标签原样交给命令面', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
+    const labels = { area: { '0': { text: '箱体', position: 'center' as const } } }
+    await tool.execute(
+      {
+        action: 'create',
+        row: 0,
+        kind: 'rectangle',
+        anchors: [
+          { time: '2026-11-18T09:31:00+08:00', price: 10 },
+          { time: '2026-11-18T09:31:00+08:00', price: 12 },
+        ],
+        style: { stroke: '#4A90D9' },
+        labels,
+      },
+      context(),
+    )
+
+    expect((deps.drawings as ReturnType<typeof createDrawings>).created[0]?.labels).toEqual(labels)
+  })
+
   it('对比品种歧义结果原样返回，交由模型向用户澄清', async () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'comparisons_write')
@@ -505,14 +573,52 @@ describe('chart tool catalog', () => {
     const tool = toolOf(createChartToolCatalog(deps), 'market_timeshare_query')
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01' }, context())
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01', days: 5 }, context())
-    expect((deps.market as ReturnType<typeof createMarket>).timeShareCalls).toEqual([1, 5])
+    expect((deps.market as ReturnType<typeof createMarket>).timeShareCalls.map((c) => c.days)).toEqual(
+      [1, 5],
+    )
   })
 
   it('查询工具在描述中声明当前可用的数据源', () => {
     const catalog = createChartToolCatalog(createDeps())
     for (const name of ['instruments_query', 'market_bars_query', 'market_timeshare_query']) {
-      expect(toolOf(catalog, name).description).toContain('binance, tdx')
+      expect(toolOf(catalog, name).description).toContain('Available sources: tdx')
     }
+  })
+
+  it.each([
+    {
+      name: 'K 线省略周期、复权与根数',
+      tool: 'market_bars_query',
+      input: { symbol: '600519' },
+      expected: { period: 'daily', adjustment: 'none', limit: 200 },
+    },
+    {
+      name: 'K 线显式区间不被改写',
+      tool: 'market_bars_query',
+      input: { symbol: '600519', from: '2026-08-01', to: '2026-10-31', limit: 60 },
+      expected: { from: '2026-08-01', to: '2026-10-31', limit: 60 },
+    },
+    {
+      name: '分时省略日期',
+      tool: 'market_timeshare_query',
+      input: { symbol: '600519' },
+      expected: { days: 1 },
+    },
+  ])('$name', async ({ tool: name, input, expected }) => {
+    const deps = createDeps()
+    await toolOf(createChartToolCatalog(deps), name).execute(input, context())
+    const market = deps.market as ReturnType<typeof createMarket>
+    const calls = name === 'market_bars_query' ? market.barCalls : market.timeShareCalls
+    expect(calls.at(-1)).toMatchObject(expected)
+  })
+
+  it('查询结果同时提供文本与可读摘要', async () => {
+    const deps = createDeps()
+    const result = await toolOf(createChartToolCatalog(deps), 'market_bars_query').execute(
+      { symbol: '600519' },
+      context(),
+    )
+    expect(result).toEqual({ content: 'bars text', summary: 'Returned bars.' })
   })
 })
 

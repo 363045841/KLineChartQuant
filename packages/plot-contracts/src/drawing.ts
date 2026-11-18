@@ -115,6 +115,8 @@ export type DrawingLabels = {
   area: Record<DrawingLabelIndex, DrawingLabel>
 }
 export type DrawingWorkspaceId = 'kline' | 'timeshare'
+/** 标签按渲染输出分组：线段与填充区域各自独立。 */
+export type DrawingLabelGroups = Partial<DrawingLabels>
 /** 图元的周期可见性规则；参考周期在用户选择时确定。 */
 export type DrawingTimeframeVisibility =
   | { readonly mode: 'all' }
@@ -377,7 +379,7 @@ export type DrawingPatch = {
   readonly anchors?: ReadonlyArray<PersistedDrawingAnchor> | undefined
   readonly style?: Partial<DrawingStyle> | undefined
   readonly params?: Readonly<Record<string, unknown>> | undefined
-  readonly labels?: DrawingLabels | undefined
+  readonly labels?: DrawingLabelGroups | undefined
   readonly visible?: boolean | undefined
   readonly timeframeVisibility?: DrawingTimeframeVisibility | undefined
   readonly locked?: boolean | undefined

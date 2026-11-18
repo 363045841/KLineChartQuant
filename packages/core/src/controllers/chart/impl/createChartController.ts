@@ -1,5 +1,6 @@
 import { defaultMarketDataContext } from '@/data/management/impl/context.js'
-import { lookupInstrumentsBySymbol } from '@/data/provider/impl/instrumentSearch.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/impl/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import {
@@ -24,6 +25,8 @@ import {
   createChartAgentToolDeps,
   createMarketDataTextFormatter,
   type ChartAgentDrawingScope,
+  type ChartAgentMarketCapability,
+  type ChartAgentMarketSource,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
@@ -55,6 +58,28 @@ function mapViewportState(vp: EngineViewportState): ChartViewport {
     kWidth: vp.kWidth,
     kGap: vp.kGap,
   }
+}
+
+/**
+ * 行情工具的源视图。
+ *
+ * 品种查询与行情各有自己的源集合：查询只看参与目录搜索的源，行情按能力筛选。
+ * 工具描述、sourceId 校验与路由都读这一份，避免出现三套不一致的答案。
+ */
+function listAgentMarketSources(
+  registry: MarketDataProviderRegistry,
+  capability: ChartAgentMarketCapability,
+): ReadonlyArray<ChartAgentMarketSource> {
+  const providers =
+    capability === 'instrument'
+      ? registry.getSearchableByPriority()
+      : registry.getEnabledByCapability({ capability })
+  return providers.map((provider) => ({
+    id: provider.source.id,
+    ...(provider.source.description === undefined
+      ? {}
+      : { description: provider.source.description }),
+  }))
 }
 
 export async function createChartController(opts: ChartMountOptions): Promise<ChartController> {
@@ -250,9 +275,22 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     }),
     comparisons: chart.comparisonCommands,
     market: createChartAgentMarketQueries({
-      sources: () => marketRegistry.getEnabledByPriority().map((provider) => provider.source.id),
-      lookup: (input) => lookupInstrumentsBySymbol(marketRegistry, input),
+      listSources: (capability) => listAgentMarketSources(marketRegistry, capability),
+      lookup: (input) =>
+        lookupInstrumentsBySymbol(marketRegistry, {
+          symbol: input.query,
+          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+        }),
+      search: (input) =>
+        searchInstruments(marketRegistry, {
+          keyword: input.query,
+          limit: input.limit,
+          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+        }),
       cache: chart.getMarketDataCache(),
+      now: Date.now,
       formatter: marketFormatter,
       indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     }),

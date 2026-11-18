@@ -2,6 +2,7 @@
  * 持久化错误构造：把底层 DOMException 和连接状态收敛为统一错误码。
  */
 import {
+  type ErrorDetails,
   KLineChartError,
   type KLineChartErrorCode,
   type KLineChartErrorOptions,
@@ -9,11 +10,11 @@ import {
 } from '../../../errors.js'
 
 /** 构造持久化错误；消息保持可读，底层错误放进 cause。 */
-export function persistenceFailure(
+function persistenceFailure(
   code: KLineChartErrorCode,
   message: string,
   cause?: unknown,
-  details?: Readonly<Record<string, unknown>>,
+  details?: ErrorDetails,
 ): KLineChartError {
   const options: KLineChartErrorOptions = { cause, details }
   return new KLineChartError(code, message, options)

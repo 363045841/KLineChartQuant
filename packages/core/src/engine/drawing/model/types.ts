@@ -6,38 +6,34 @@
  */
 
 import type {
+  DrawingLabelGroups,
   DrawingPatch,
   DrawingTimeframeVisibility,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { TradingDate } from '@/data/provider/types.js'
 import type { DrawingStyle } from '@/foundation/plugin/index.js'
 import type { DrawingStateModule } from '../../state/drawingState.js'
 import type { DrawingHistoryDocumentPort } from '../history/types.js'
 import type {
   DrawingKind,
-  DrawingLabels,
   DrawingObject,
   DrawingWorkspaceId,
   PersistedDrawingAnchor,
 } from '../types.js'
 
-/** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
+/**
+ * 外部命令按图元需要提供价格和（可选）时间。
+ *
+ * 时间只有绝对毫秒一种写法：交易日到时间戳的换算在命令入口完成，
+ * 文档不再接受日期或第二套时间表示。
+ */
 export type DrawingAnchorCommandInput =
   | {
-      /** 交易日锚点，按数据中的 date 字段定位。 */
-      readonly tradingDate: TradingDate
-      readonly timestamp?: never
-      readonly price?: number
-    }
-  | {
-      /** 精确时间锚点，按毫秒时间戳定位。 */
+      /** 精确时间锚点；垂直线也用它，只取时间轴。 */
       readonly timestamp: number
-      readonly tradingDate?: never
       readonly price?: number
     }
   | {
       /** 水平图元只使用价格坐标。 */
-      readonly tradingDate?: never
       readonly timestamp?: never
       readonly price: number
     }
@@ -50,7 +46,7 @@ export interface CreateDrawingInput {
   /** 完整样式；颜色等取值由调用方（工具或脚本 API）在上游决定。 */
   readonly style: DrawingStyle
   readonly params?: Readonly<Record<string, unknown>>
-  readonly labels?: DrawingLabels
+  readonly labels?: DrawingLabelGroups
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -84,20 +80,9 @@ export type BatchDrawingPatch = Pick<
 /** DrawingStyle 的字段名。 */
 export type DrawingStyleKey = keyof DrawingStyle
 
-/**
- * 交易日锚点的解析结果；把“找不到”拆成互相排斥的原因，
- * 让上层按语义抛不同错误码，而不是用一个错误码覆盖多种失败。
- */
-export type AnchorTradingDateResolution =
-  | { readonly kind: 'resolved'; readonly timestamp: number }
-  | { readonly kind: 'out-of-range'; readonly earliest: string; readonly latest: string }
-  | { readonly kind: 'not-trading' }
-  | { readonly kind: 'date-unavailable' }
-
 /** 绘图文档只依赖稳定领域值，不依赖当前周期的行情索引。 */
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
-  readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => AnchorTradingDateResolution
   readonly hasPaneId: (paneId: string) => boolean
   readonly getWorkspaceId: () => DrawingWorkspaceId
   readonly getSymbolKey: () => string | undefined

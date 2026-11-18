@@ -17,6 +17,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 export type {
   DrawingKind,
   DrawingLabel,
+  DrawingLabelGroups,
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,

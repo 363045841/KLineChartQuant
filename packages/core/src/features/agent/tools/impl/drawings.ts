@@ -9,7 +9,7 @@ import { Type } from 'typebox'
 import {
   AGENT_DRAWING_KINDS,
   DRAWING_LABEL_INDEX_PATTERN,
-  type DrawingLabels,
+  type DrawingLabelGroups,
   type DrawingTimeframeVisibility,
 } from '../../../../engine/drawing/index.js'
 import { ToolInputValidationError } from '../../../../foundation/agent/index.js'
@@ -64,18 +64,26 @@ const DrawingLabel = Type.Object(
   { additionalProperties: false },
 )
 
-const DrawingLabelRecord = Type.Record(
-  Type.String({ pattern: DRAWING_LABEL_INDEX_PATTERN }),
-  DrawingLabel,
-  {
-    additionalProperties: false,
-    description: '键为渲染输出的线段或区域序号，从 "0" 起的字符串数字。',
-  },
-)
+/** 标签组：键为渲染输出的线段或区域序号，从 "0" 起的字符串数字。 */
+function labelGroup(description: string) {
+  return Type.Optional(
+    Type.Record(Type.String({ pattern: DRAWING_LABEL_INDEX_PATTERN }), DrawingLabel, {
+      additionalProperties: false,
+      description,
+    }),
+  )
+}
 
 const DrawingLabels = Type.Object(
-  { line: DrawingLabelRecord, area: DrawingLabelRecord },
-  { additionalProperties: false },
+  {
+    line: labelGroup(
+      'Labels on line segments (trend-line, ray, channel edges). Omit when this kind has no segment label; on update, an omitted group keeps its current labels.',
+    ),
+    area: labelGroup(
+      'Labels inside filled regions (rectangle, channel fill). Omit when this kind has no filled area; on update, an omitted group keeps its current labels.',
+    ),
+  },
+  { additionalProperties: false, description: 'Optional text labels, grouped by render output.' },
 )
 
 const TimeframeVisibility = Type.Object(
@@ -143,7 +151,7 @@ interface DrawingsWriteInput {
   readonly kind?: (typeof AGENT_DRAWING_KINDS)[number]
   readonly anchors?: ReadonlyArray<{ readonly time?: string; readonly price?: number }>
   readonly style?: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabels>
+  readonly labels?: Readonly<DrawingLabelGroups>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number

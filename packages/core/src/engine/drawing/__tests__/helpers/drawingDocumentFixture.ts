@@ -8,10 +8,6 @@ export function createDrawingDocumentFixture(
   const state = createDrawingState()
   const document = new DrawingDocument({
     drawingState: state,
-    findAnchorAtTradingDate: (tradingDate) =>
-      tradingDate === '2026-04-10'
-        ? { kind: 'resolved' as const, timestamp: 1_000 }
-        : { kind: 'not-trading' as const },
     hasPaneId: (paneId) => paneId === 'main',
     getWorkspaceId: () => 'kline',
     getSymbolKey,

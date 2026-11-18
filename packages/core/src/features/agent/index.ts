@@ -12,6 +12,7 @@ export type { ChartToolDefinition, ChartToolMetadata, ChartToolResult } from './
 export { CHART_TOOL_METADATA, createChartToolCatalog } from './tools/index.js'
 export type {
   BarsQueryInput,
+  BarsQueryResult,
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentControllerDependencies,
@@ -24,9 +25,16 @@ export type {
   ChartAgentIndicatorDefinition,
   ChartAgentIndicatorTarget,
   ChartAgentIndicatorView,
+  ChartAgentMarketCapability,
   ChartAgentMarketQueries,
+  ChartAgentMarketSource,
   ChartAgentTimeRange,
   ChartAgentToolDeps,
   IndicatorQueryInput,
   InstrumentLookupInput,
+  InstrumentLookupResult,
+  InstrumentMatch,
+  MarketQueryText,
+  TimeShareDaysResult,
+  TimeShareQueryInput,
 } from './types.js'

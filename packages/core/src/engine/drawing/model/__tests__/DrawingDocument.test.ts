@@ -152,8 +152,32 @@ describe('DrawingDocument', () => {
     expect(document.getDrawing(drawing.id)?.labels?.area['0']?.text).toBe('导入\\n标签')
   })
 
-  it('保存任意绝对时间，文档不要求时间戳命中当前周期的 K 线', () => {
+  it('标签按组写入：只给一组建图，update 保留另一组', () => {
     const { document } = createDocument()
+    const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
+      kind: 'rectangle',
+      paneId: 'main',
+      anchors: [
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 2_000, price: 12 },
+      ],
+      labels: { area: { 0: { text: '箱体', position: 'center' } } },
+    })
+
+    expect(drawing.labels).toEqual({ line: {}, area: { 0: { text: '箱体', position: 'center' } } })
+
+    const updated = document.updateDrawingFromInput(drawing.id, {
+      labels: { line: { 0: { text: '边', position: 'start' } } },
+    })
+
+    expect(updated?.labels).toEqual({
+      line: { 0: { text: '边', position: 'start' } },
+      area: { 0: { text: '箱体', position: 'center' } },
+    })
+  })
+
+  it('保存任意绝对时间，文档不要求时间戳命中当前周期的 K 线', () => {    const { document } = createDocument()
 
     const drawing = document.createDrawing({
       style: CREATE_DRAWING_STYLE,
@@ -168,15 +192,15 @@ describe('DrawingDocument', () => {
     expect(drawing.anchors[1]).toMatchObject({ time: 4_000, price: 12 })
   })
 
-  it('creates a drawing from trading-date anchors using the stored bar timestamp', () => {
+  it('creates a drawing from absolute timestamps', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
       style: CREATE_DRAWING_STYLE,
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
-        { tradingDate: '2026-04-10', price: 10 },
-        { tradingDate: '2026-04-10', price: 12 },
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, price: 12 },
       ],
     })
 

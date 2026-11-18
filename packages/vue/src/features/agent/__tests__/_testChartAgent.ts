@@ -60,8 +60,8 @@ export function createTestToolDeps(
       clear: () => unused('comparisons.clear'),
     },
     market: {
-      listSourceIds: () => [],
-      lookupInstrument: async () => unused('market.lookupInstrument'),
+      listSources: () => [],
+      lookup: async () => unused('market.lookup'),
       bars: async () => unused('market.bars'),
       timeShare: async () => unused('market.timeShare'),
       indicatorValues: async () => unused('market.indicatorValues'),

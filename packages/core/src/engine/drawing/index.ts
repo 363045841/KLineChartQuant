@@ -77,9 +77,7 @@ export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/imp
 export { filterDrawingsInScope, isDrawingInScope } from './model/impl/drawingScope.js'
 export { isDrawingVisibleInPeriod } from './model/impl/drawingTimeframeVisibility.js'
 export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
-export { resolveDrawingTradingDate } from './model/impl/resolveTradingDate.js'
 export type {
-  AnchorTradingDateResolution,
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingAnchorCommandInput,
@@ -149,6 +147,7 @@ export type {
   DrawingKind,
   DrawingKindSpec,
   DrawingLabel,
+  DrawingLabelGroups,
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,

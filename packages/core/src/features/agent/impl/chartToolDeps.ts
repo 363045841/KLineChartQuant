@@ -4,7 +4,18 @@
  * 三个命令面都只依赖领域对象：指标实例、图元与行情查询。身份分配、落点解析
  * 与快照投影在这里一次完成，工具层只声明合同，不接触 paneId 或实例 id 生成。
  */
-import type { TradingDate } from '../../../data/provider/types.js'
+import type {
+  InstrumentDescriptor,
+  TimeShareDay,
+  TimeShareSeries,
+  TradingDate,
+} from '../../../data/provider/types.js'
+import {
+  isTradingDate,
+  KLineAdjustment,
+  KLinePeriod,
+  ORIGINAL_BAR_AGGREGATION,
+} from '../../../data/provider/types.js'
 import type {
   DrawingAnchorCommandInput,
   DrawingKind,
@@ -16,8 +27,16 @@ import {
   isDrawingVisibleInPeriod,
 } from '../../../engine/drawing/index.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../../../engine/pane/types.js'
-import { CHART_AGENT_ERROR_CODES, DRAWING_ERROR_CODES, KLineChartError } from '../../../errors.js'
+import {
+  CHART_AGENT_ERROR_CODES,
+  DRAWING_ERROR_CODES,
+  ERROR_CODES,
+  KLineChartError,
+  MARKET_QUERY_ERROR_CODES,
+} from '../../../errors.js'
 import { ToolInputValidationError } from '../../../foundation/agent/index.js'
+import { formatDateInTimeZone, parseRfc3339WithOffset } from '../../../foundation/time/index.js'
+import { isIntradayPeriod } from '../../../foundation/types/chartPeriod.js'
 import type {
   ChartAgentDrawingAnchor,
   ChartAgentDrawingCommands,
@@ -29,9 +48,12 @@ import type {
   ChartAgentIndicatorCommandsDependencies,
   ChartAgentIndicatorTarget,
   ChartAgentIndicatorView,
+  ChartAgentMarketCapability,
   ChartAgentMarketQueries,
   ChartAgentMarketQueriesDependencies,
   ChartAgentToolDeps,
+  InstrumentLookupInput,
+  InstrumentLookupResult,
 } from '../types.js'
 import { describeDrawingAnchorShape } from './drawingAnchorContract.js'
 import {
@@ -328,6 +350,7 @@ export function createChartAgentDrawingCommands(
         anchors: toDomainAnchors(input.kind, input.anchors, {
           bars: deps.bars(),
           period: scope.period,
+          timezone: scope.timezone,
         }),
         style: input.style as Parameters<typeof deps.drawingCommands.create>[0]['style'],
         ...(input.labels === undefined ? {} : { labels: input.labels }),
@@ -383,89 +406,220 @@ export function createChartAgentDrawingCommands(
   }
 }
 
-/** 构造行情查询面；数据源白名单与错误提示都在这里收口。 */
+/** 构造行情查询面：面对齐、日期解析与错误提示都在这里收口。 */
 export function createChartAgentMarketQueries(
   deps: ChartAgentMarketQueriesDependencies,
 ): ChartAgentMarketQueries {
-  /** 校验显式 sourceId，并向 Agent 返回可直接修正下一次调用的可用值。 */
-  function requireEnabledSource(sourceId: string | undefined): void {
+  /** 显式 sourceId 必须能服务当前能力；错误里直接给出可用值。 */
+  function requireSource(sourceId: string | undefined, capability: ChartAgentMarketCapability): void {
     if (sourceId === undefined) return
-    const available = deps.sources()
+    const available = deps.listSources(capability).map((source) => source.id)
     if (available.includes(sourceId)) return
+    throw new ToolInputValidationError(
+      `sourceId '${sourceId}' cannot serve ${capability}. Available sourceIds: ${available.join(', ') || 'none'}. Omit sourceId to let Core choose.`,
+    )
+  }
+
+  /** 精确命中优先；未命中再按关键字取候选，两者都空时由调用方报错。 */
+  async function resolveMatches(
+    input: InstrumentLookupInput & { readonly signal?: AbortSignal },
+  ): Promise<InstrumentLookupResult> {
+    const scope = {
+      ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    }
+    const exact = await deps.lookup({ query: input.query, ...scope })
+    if (exact.length > 0) {
+      return { query: input.query, matches: exact.map((instrument) => ({ instrument, exact: true })) }
+    }
+    const candidates = await deps.search({ query: input.query, limit: input.limit, ...scope })
+    return {
+      query: input.query,
+      matches: candidates.map((instrument) => ({ instrument, exact: false })),
+    }
+  }
+
+  /** 失败路径专用：从日线里找出请求日期之前最近的交易日。 */
+  async function previousTradingDay(
+    scope: { readonly symbol: string; readonly sourceId?: string; readonly signal?: AbortSignal },
+    requested: TradingDate,
+  ): Promise<TradingDate | null> {
+    const bars = await deps.cache.queryBarsWindow({
+      ...scope,
+      period: KLinePeriod.Daily,
+      adjustment: KLineAdjustment.None,
+      barAggregation: ORIGINAL_BAR_AGGREGATION,
+      limit: 2,
+      to: requested,
+    })
+    const earlier = bars.series.data
+      .map((bar) => toTradingDate(formatDateInTimeZone(bar.timestamp, bars.series.timezone)))
+      .filter((date) => date < requested)
+      .at(-1)
+    return earlier ?? null
+  }
+
+  /** 非交易日或当日无分时：给出最近的更早交易日，模型一次就能改对。 */
+  async function rejectTradingDay(
+    scope: { readonly symbol: string; readonly sourceId?: string; readonly signal?: AbortSignal },
+    symbol: string,
+    requested: TradingDate,
+  ): Promise<never> {
+    const previous = await previousTradingDay(scope, requested)
     throw new KLineChartError(
-      CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-      `Unknown or disabled sourceId '${sourceId}'. Available sourceIds: ${available.join(', ') || 'none'}. Omit sourceId to allow automatic routing across every enabled source.`,
+      MARKET_QUERY_ERROR_CODES.INVALID_TRADING_DATE,
+      previous === null
+        ? `No time share for '${symbol}' on ${requested}, and no earlier trading day has daily bars. Omit tradingDate to use the latest trading day.`
+        : `No time share for '${symbol}' on ${requested}. The nearest earlier trading day is ${previous}.`,
+      { details: { requested, previous } },
     )
   }
 
   return {
-    listSourceIds: deps.sources,
+    listSources: deps.listSources,
 
-    async lookupInstrument(input, context) {
-      const signal = input.signal ?? context?.signal
-      const instruments = await deps.lookup({
-        symbol: input.symbol,
-        ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
-        ...(signal === undefined ? {} : { signal }),
+    async lookup(input, context) {
+      const result = await resolveMatches({
+        ...input,
+        ...(context?.signal === undefined ? {} : { signal: context.signal }),
       })
-      return deps.formatter.formatInstrumentLookup({
-        symbol: input.symbol,
-        instruments,
-      })
+      if (result.matches.length === 0) {
+        const available = deps.listSources('instrument').map((source) => source.id)
+        throw new KLineChartError(
+          ERROR_CODES.INSTRUMENT_NOT_FOUND,
+          `No instrument matches '${input.query}'. Searched sourceIds: ${available.join(', ') || 'none'}. Pass a different code or name, or restrict sourceIds to one of the searched sources.`,
+          { details: { query: input.query, sourceIds: available } },
+        )
+      }
+      const exact = result.matches.filter((match) => match.exact).length
+      return {
+        content: deps.formatter.formatInstrumentLookup(result),
+        summary: `Matched ${result.matches.length} instrument(s) for '${input.query}' (exact ${exact}).`,
+      }
     },
 
     async bars(input, context) {
-      requireEnabledSource(input.sourceId)
-      const result = await deps.cache.queryBars({
-        sourceId: input.sourceId,
+      requireSource(input.sourceId, 'bars')
+      for (const [name, value] of [
+        ['from', input.from],
+        ['to', input.to],
+      ] as const) {
+        if (value === undefined) continue
+        if (isIntradayPeriod(input.period)) {
+          if (parseRfc3339WithOffset(value) === null) {
+            throw new ToolInputValidationError(
+              `${name} must be an RFC 3339 time with an offset for ${input.period}, for example "2026-11-18T09:31:00+08:00".`,
+            )
+          }
+          continue
+        }
+        if (!isTradingDate(value)) {
+          throw new ToolInputValidationError(
+            `${name} must be a trading date "YYYY-MM-DD" for ${input.period}.`,
+          )
+        }
+      }
+      if (input.from !== undefined && input.to !== undefined && input.from > input.to) {
+        throw new ToolInputValidationError(
+          `from '${input.from}' must not be later than to '${input.to}'.`,
+        )
+      }
+      const result = await deps.cache.queryBarsWindow({
         symbol: input.symbol,
-        exchange: input.exchange,
-        instrumentType: input.instrumentType,
         period: input.period,
         adjustment: input.adjustment,
-        barAggregation: input.barAggregation,
+        barAggregation: ORIGINAL_BAR_AGGREGATION,
         limit: input.limit,
-        signal: context?.signal,
+        ...(input.from === undefined ? {} : { from: input.from }),
+        ...(input.to === undefined ? {} : { to: input.to }),
+        ...(input.sourceId === undefined ? {} : { sourceId: input.sourceId }),
+        ...(context?.signal === undefined ? {} : { signal: context.signal }),
       })
-      return deps.formatter.formatBars({
-        sourceId: result.sourceId,
-        instrument: result.instrument,
-        series: result.series,
-        olderData: result.series.olderData,
-      })
-    },
-
-    async timeShare(input, context) {
-      requireEnabledSource(input.sourceId)
-      if (input.days <= 1) {
-        const result = await deps.cache.queryTimeShare({
-          sourceId: input.sourceId,
-          symbol: input.symbol,
-          exchange: input.exchange,
-          instrumentType: input.instrumentType,
-          tradingDate: input.tradingDate as TradingDate,
-          signal: context?.signal,
-        })
-        return deps.formatter.formatTimeShare({
+      return {
+        content: deps.formatter.formatBars({
           sourceId: result.sourceId,
           instrument: result.instrument,
           series: result.series,
-        })
+          requested: input.limit,
+          truncated: result.truncated,
+        }),
+        summary: `Returned ${result.series.data.length}/${input.limit} ${input.period} bars for ${input.symbol} from ${result.sourceId}${result.truncated ? ' (truncated)' : ''}.`,
       }
-      const result = await deps.cache.queryTimeShareRange({
-        sourceId: input.sourceId,
+    },
+
+    async timeShare(input, context) {
+      requireSource(input.sourceId, 'timeShare')
+      const scope = {
         symbol: input.symbol,
-        exchange: input.exchange,
-        instrumentType: input.instrumentType,
-        endTradingDate: input.tradingDate as TradingDate,
-        days: input.days,
-        signal: context?.signal,
+        ...(input.sourceId === undefined ? {} : { sourceId: input.sourceId }),
+        ...(context?.signal === undefined ? {} : { signal: context.signal }),
+      }
+      // 交易日以该品种日线为准：日线最后一根就是最近一个已完成的交易日。
+      const daily = await deps.cache.queryBarsWindow({
+        ...scope,
+        period: KLinePeriod.Daily,
+        adjustment: KLineAdjustment.None,
+        barAggregation: ORIGINAL_BAR_AGGREGATION,
+        limit: 1,
       })
-      return deps.formatter.formatTimeShareRange({
-        sourceId: result.sourceId,
-        instrument: result.instrument,
-        range: result.range,
-      })
+      const latest = daily.series.data.at(-1)
+      if (latest === undefined) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.NO_DATA,
+          `No daily bars for '${input.symbol}'; time share needs a trading day to anchor on.`,
+        )
+      }
+      const latestDate = toTradingDate(formatDateInTimeZone(latest.timestamp, daily.series.timezone))
+      const requestedDate = input.tradingDate ?? null
+
+      // 缺省日期优先今天：盘中当日分时已经存在，节假日与开盘前自然回退到日线最后一根。
+      let endDate = requestedDate ?? latestDate
+      let todayResult: Awaited<ReturnType<typeof deps.cache.queryTimeShare>> | null = null
+      if (requestedDate === null) {
+        const today = toTradingDate(formatDateInTimeZone(deps.now(), daily.series.timezone))
+        if (today !== latestDate) {
+          const probe = await deps.cache.queryTimeShare({ ...scope, tradingDate: today })
+          if (probe.series.data.length > 0) {
+            todayResult = probe
+            endDate = today
+          }
+        }
+      }
+
+      if (input.days > 1) {
+        const range = await deps.cache.queryTimeShareRange({
+          ...scope,
+          endTradingDate: endDate,
+          days: input.days,
+        })
+        if (range.range.days.length === 0) await rejectTradingDay(scope, input.symbol, endDate)
+        return {
+          content: deps.formatter.formatTimeShareDays({
+            sourceId: range.sourceId,
+            instrument: range.instrument,
+            timezone: range.range.timezone,
+            requestedDate,
+            resolvedDate: range.range.days.at(-1)!.tradingDate,
+            days: range.range.days,
+          }),
+          summary: `Returned ${range.range.days.length} time-share day(s) for ${input.symbol} ending ${endDate} from ${range.sourceId}.`,
+        }
+      }
+
+      const single =
+        todayResult ?? (await deps.cache.queryTimeShare({ ...scope, tradingDate: endDate }))
+      if (single.series.data.length === 0) await rejectTradingDay(scope, input.symbol, endDate)
+      return {
+        content: deps.formatter.formatTimeShareDays({
+          sourceId: single.sourceId,
+          instrument: single.instrument,
+          timezone: single.series.timezone,
+          requestedDate,
+          resolvedDate: single.series.tradingDate,
+          days: [toTimeShareDay(single.series)],
+        }),
+        summary: `Returned time share for ${input.symbol} on ${single.series.tradingDate} from ${single.sourceId}.`,
+      }
     },
 
     indicatorValues(input) {
@@ -476,6 +630,19 @@ export function createChartAgentMarketQueries(
       })
     },
   }
+}
+
+/** 单日分时序列投影为按日结构，和 range 共用同一形状。 */
+function toTimeShareDay(series: TimeShareSeries): TimeShareDay {
+  return { tradingDate: series.tradingDate, preClose: series.preClose, data: series.data }
+}
+
+/** 已格式化的日期文本转成交易日；形状不符说明格式化输出被破坏，直接失败。 */
+function toTradingDate(value: string): TradingDate {
+  if (!isTradingDate(value)) {
+    throw new TypeError(`[ChartAgent] '${value}' is not a trading date`)
+  }
+  return value
 }
 
 /** 组合三块能力，得到工具层唯一依赖。 */

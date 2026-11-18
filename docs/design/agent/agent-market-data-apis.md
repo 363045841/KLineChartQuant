@@ -10,7 +10,7 @@
 
 每个 API 都使用图表实例级 `MarketDataCache`。缓存通过同一 `MarketDataProviderRegistry` 创建 `SourceRouter`，负责内存命中、`limit`/`before` 游标分页、重试、并发请求去重和 auto source 锁定。图表 `ChartDataManager` 与 Agent facade 持有同一个缓存实例，不存在第二条取数链路。
 
-公开的 `queryBars` 接受 `limit`（拉多少根）与可选 `before`（排他时间戳游标，省略表示最新一页），拉多少就请求多少，不做时间范围覆盖外推。查询返回实际来源、品种描述和该页数据；不会直接写入当前图表选择、StateKernel、指标或 Renderer。
+公开的 `queryBars` 接受 `limit`（一页取多少根）与可选 `beforeTimestamp`（排他时间戳游标，省略表示最新一页）。Agent 侧额外提供 `queryBarsWindow`：调用方只给 `from`/`to` 日期窗口与 `limit`（返回根数上限），向前翻多少页由缓存决定，窗口没覆盖完时用 `truncated` 明示。查询返回实际来源、品种描述和该页数据；不会直接写入当前图表选择、StateKernel、指标或 Renderer。
 
 ## 当前范围
 
@@ -22,7 +22,7 @@
 
 估算值基于缓存对象的 JSON 有效载荷并计入 JS 对象与数组的保守开销，不等同于浏览器 heap 的精确占用。用户可在图表设置中把上限调整为 5 至 512 MiB，并查看当前实例的估算用量和条目数；设置变更立即触发淘汰。
 
-## 精确品种查询
+## 品种查询
 
 在 Core 的 `data/provider` 增加 `lookupInstrumentsBySymbol()`，用于按标准代码返回精确匹配的 `InstrumentDescriptor[]`。该 API 不替换现有 `searchInstruments()`。
 
@@ -30,8 +30,15 @@
 
 - `searchInstruments()` 服务前端联想搜索，保留关键词、多候选和调用方指定的 `limit`。
 - `lookupInstrumentsBySymbol()` 统一处理空白与大小写，再过滤为精确代码匹配；保留同代码、不同 `sourceId` 或 `exchange` 的结果。
-- `ChartAgentMarketQueries.lookupInstrument()` 交给同一实现，`instruments_query` 只是它的契约外壳；候选筛选与 symbol 比较规则不进入工具层。
+- `ChartAgentMarketQueries.lookup()` 先走精确匹配，未命中再用 `searchInstruments()` 取关键字候选；`instruments_query` 只是它的契约外壳，候选筛选与 symbol 比较规则不进入工具层。
+- 零匹配不是一个成功结果：查询面抛 `INSTRUMENT_NOT_FOUND`，并在 `details` 里带出查询词与已搜索的源。
 
 候选获取：当前 Provider Catalog 仅提供有上限的 `search()`。精确查询以代码作为关键词，使用由 Core 持有的候选上限，再进行精确过滤。若后续 Catalog 增加原生精确查询能力，`lookupInstrumentsBySymbol()` 是唯一替换候选获取实现的位置，UI 与 Agent 调用方无需调整。
+
+## 数据源与日期
+
+- **源是结果不是入参**：读工具不接受 `sourceId`，除非用户点名了数据源；描述里只列能服务该能力的源，覆盖范围靠 `instruments_query` 的 `sourceId` 与失败信封里的 `details.attempts` 发现。
+- **交易日来自日线**：分时缺省交易日取该品种日线最后一根；给定日期没有数据时报 `INVALID_TRADING_DATE`，并带出更早的交易日。`tradingCalendar` 只提供未来槽位，不参与这里的解析。
+- **K 线窗口**：`from`/`to` 在日线及以上写 `YYYY-MM-DD`，日内写 RFC 3339；`limit` 是返回根数上限，未覆盖完窗口时 `truncated=true`。
 
 对比标的的歧义裁决策略在 `ComparisonCommands`，见 [对比图表模式](../comparison/comparison.md) 与 [对比标的歧义裁决与 Ask Question 工具](../comparison/comparison-ambiguity-ask-user.md)。

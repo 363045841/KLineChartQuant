@@ -29,9 +29,9 @@
 | `drawings_write` | write | create / update / delete |
 | `comparisons_list` | read | 列出对比品种 |
 | `comparisons_write` | write | create / remove / clear |
-| `instruments_query` | read | 精确代码查询 |
-| `market_bars_query` | read | 最新一页 K 线 |
-| `market_timeshare_query` | read | 分时，`days` 表达单日与多日 |
+| `instruments_query` | read | 代码或名称查询品种，返回固定列 |
+| `market_bars_query` | read | K 线，`from`/`to` 日期窗口 + `limit` |
+| `market_timeshare_query` | read | 分时，`days` 表达单日与多日，缺省最近交易日 |
 | `indicator_values_query` | read | 指标数值序列 |
 
 共 10 只图表工具；浏览器宿主再加 `web_search` 与 `ask_user`，模型可见 12 只。`code_interpreter` 已在 agent-runtime 实现，由宿主按需装配。

@@ -146,12 +146,16 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   DRAWING_ANCHOR_NOT_FOUND:
     'The anchor timestamp is not a bar in the loaded chart data. Anchor to a timestamp that is already loaded.',
   DRAWING_ANCHOR_DATE_OUT_OF_RANGE:
-    'The anchor trading date is outside the loaded range. Use a date between the earliest and latest loaded trading dates reported in the error details.',
+    'The anchor trading date is outside the loaded data range. Use a date inside the loaded range.',
   DRAWING_ANCHOR_DATE_NOT_TRADING:
     'The anchor trading date has no bar in the loaded data (holiday, suspension, or a non-trading day). Pick a date that actually has a bar.',
   DRAWING_ANCHOR_DATE_UNAVAILABLE:
-    'The loaded chart data exposes no per-bar date field, so anchoring by trading date is impossible here. Anchor by timestamp or bar position instead.',
+    'The loaded chart data cannot resolve a trading date. Load market data first, or anchor by timestamp.',
   DRAWING_INVALID_ANCHOR: 'Each drawing anchor requires a finite price and a valid timestamp.',
+
+  // Market data
+  INVALID_TRADING_DATE:
+    'The requested trading date has no data for this instrument. Use the nearest earlier trading day reported in the error details, or omit tradingDate to let Core pick the latest trading day.',
 
   // Persistence
   PERSISTENCE_UNAVAILABLE:

@@ -319,6 +319,73 @@ describe('SourceRouter', () => {
     })
   })
 
+  // 错误码来自流转链：全源都没有该品种时报 INSTRUMENT_NOT_FOUND 而不是取数失败。
+  it('derives INSTRUMENT_NOT_FOUND when every source lacks the instrument', async () => {
+    for (const sourceId of ['gotdx', 'baostock'] as const) {
+      registry.register(
+        createMockMarketDataProvider({
+          sourceId,
+          fetchBars: async () => {
+            throw new Error('should not fetch')
+          },
+        }),
+        { priority: sourceId === 'gotdx' ? 2 : 1 },
+      )
+    }
+
+    await expect(
+      new SourceRouter(registry).bars({
+        symbol: '600519',
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 10,
+      }),
+    ).rejects.toMatchObject({
+      code: 'INSTRUMENT_NOT_FOUND',
+      details: {
+        symbol: '600519',
+        attempts: [
+          { sourceId: 'gotdx', code: 'INSTRUMENT_NOT_FOUND' },
+          { sourceId: 'baostock', code: 'INSTRUMENT_NOT_FOUND' },
+        ],
+      },
+    })
+  })
+
+  // 混合原因保留为取数失败，避免把个别源的明确拒绝误读成通用事实。
+  it('falls back to FETCH_FAILED when rejections differ', async () => {
+    registry.register(
+      createMockMarketDataProvider({
+        sourceId: 'gotdx',
+        fetchBars: async () => {
+          throw new KLineChartError('UNSUPPORTED_CAPABILITY', 'unsupported')
+        },
+        search: async () => [baseInstrument],
+      }),
+      { priority: 2 },
+    )
+    registry.register(
+      createMockMarketDataProvider({
+        sourceId: 'baostock',
+        fetchBars: async () => {
+          throw new Error('should not fetch')
+        },
+      }),
+      { priority: 1 },
+    )
+
+    await expect(
+      new SourceRouter(registry).bars({
+        symbol: '600519',
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 10,
+      }),
+    ).rejects.toMatchObject({ code: 'FETCH_FAILED' })
+  })
+
   // 验证 instrumentType 为 unknown 的品种不会被源级 instrumentTypes 声明误杀，仍会发出取数请求。
   it('routes unknown instrumentType instruments instead of filtering the source out', async () => {
     const unknownInstrument: InstrumentDescriptor = {

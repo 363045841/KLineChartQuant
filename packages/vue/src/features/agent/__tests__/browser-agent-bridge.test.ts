@@ -7,7 +7,11 @@ import type {
 } from '@363045841yyt/klinechart-agent-runtime'
 import { AgentRuntimeError } from '@363045841yyt/klinechart-agent-runtime'
 import { createMemoryRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/testing'
-import { KLineChartError } from '@363045841yyt/klinechart-core'
+import {
+  ERROR_CODES,
+  KLineChartError,
+  MARKET_QUERY_ERROR_CODES,
+} from '@363045841yyt/klinechart-core'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge as ProductionBrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
@@ -652,32 +656,46 @@ describe('BrowserAgentBridge', () => {
     expect(create).toHaveBeenCalledOnce()
   })
 
-  it('returns market tool contract errors to the model', async () => {
+  it.each([
+    {
+      name: '取数失败可重试，并带出结构化细节',
+      error: new KLineChartError(ERROR_CODES.FETCH_FAILED, 'Upstream is down.', {
+        details: { sourceId: 'tdx' },
+      }),
+      expected: { retryable: true, details: { sourceId: 'tdx' } },
+    },
+    {
+      name: '非交易日不可重试，错误里带出最近的交易日',
+      error: new KLineChartError(
+        MARKET_QUERY_ERROR_CODES.INVALID_TRADING_DATE,
+        '2026-11-15 is not a trading day.',
+        { details: { requested: '2026-11-15', previous: '2026-11-14' } },
+      ),
+      expected: {
+        retryable: false,
+        details: { requested: '2026-11-15', previous: '2026-11-14' },
+      },
+    },
+  ])('把行情工具失败原样交给模型：$name', async ({ error, expected }) => {
     const agent = createTestChartAgent({
       tools: createTestToolDeps({
         market: {
-          listSourceIds: () => [],
-          lookupInstrument: async () => '',
+          listSources: () => [],
+          lookup: async () => ({ content: '', summary: '' }),
           bars: async () => {
-            throw new KLineChartError('INVALID_ARGUMENTS', 'The requested period is unavailable.')
+            throw error
           },
-          timeShare: async () => '',
+          timeShare: async () => ({ content: '', summary: '' }),
           indicatorValues: async () => '',
         },
       }),
     })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
-    await expect(
-      bridge.debugTool('market_bars_query', {
-        symbol: 'BTCUSDT',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
-        limit: 1,
-      }),
-    ).resolves.toMatchObject({
-      content: expect.stringContaining('INVALID_ARGUMENTS'),
+    const result = await bridge.debugTool('market_bars_query', { symbol: 'BTCUSDT' })
+    expect(JSON.parse(result.content)).toMatchObject({
+      success: false,
+      error: { code: error.code, ...expected },
     })
   })
 

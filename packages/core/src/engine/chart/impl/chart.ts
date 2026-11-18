@@ -120,7 +120,6 @@ import {
   DrawingDocument,
   type DrawingInteractionController,
   type DrawingToolId,
-  resolveDrawingTradingDate,
 } from '../../drawing/index.js'
 import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
@@ -680,8 +679,6 @@ export class Chart {
     })
     this.drawingDocument = new DrawingDocument({
       drawingState: this.kernel.drawing,
-      findAnchorAtTradingDate: (tradingDate) =>
-        resolveDrawingTradingDate(this.getData(), tradingDate),
       hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
       getWorkspaceId: () => this.drawing.getWorkspaceId(),
       getSymbolKey: () => this.drawing.getSymbolKey(),

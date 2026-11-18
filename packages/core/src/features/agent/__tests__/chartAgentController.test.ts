@@ -58,10 +58,10 @@ function stubTools(): ChartAgentToolDeps {
       clear: () => 0,
     },
     market: {
-      listSourceIds: () => [],
-      lookupInstrument: async () => '',
-      bars: async () => '',
-      timeShare: async () => '',
+      listSources: () => [],
+      lookup: async () => ({ content: '', summary: '' }),
+      bars: async () => ({ content: '', summary: '' }),
+      timeShare: async () => ({ content: '', summary: '' }),
       indicatorValues: async () => '',
     },
   }
@@ -93,8 +93,7 @@ function createFixture() {
       formatBars: () => '',
       formatChartBars: () => 'chart bars text',
       formatInstrumentLookup: () => '',
-      formatTimeShare: () => '',
-      formatTimeShareRange: () => '',
+      formatTimeShareDays: () => '',
     },
   })
   return { controller, dataState, selectedRange, drawings, selectedDrawingIds }
@@ -200,8 +199,7 @@ describe('chart agent tool wiring', () => {
         formatBars: vi.fn(() => ''),
         formatChartBars: vi.fn(() => ''),
         formatInstrumentLookup: vi.fn(() => ''),
-        formatTimeShare: vi.fn(() => ''),
-        formatTimeShareRange: vi.fn(() => ''),
+        formatTimeShareDays: vi.fn(() => ''),
       },
     })
     expect(controller.tools).toBe(tools)

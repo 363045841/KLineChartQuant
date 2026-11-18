@@ -9,7 +9,7 @@ import {
   type RuntimeToolDefinition,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-import { getRecoveryHint, isKLineChartError } from '@363045841yyt/klinechart-core'
+import { ERROR_CODES, getRecoveryHint, isKLineChartError } from '@363045841yyt/klinechart-core'
 import { ToolInputValidationError } from '@363045841yyt/klinechart-core/agent-tools'
 import {
   CHART_TOOL_METADATA,
@@ -116,8 +116,9 @@ function toolFailure(
   const failure = {
     code: error.code,
     message: error.message,
-    retryable: true,
+    retryable: RETRYABLE_CODES.has(error.code),
     recommendedAction: getRecoveryHint(error.code),
+    ...(error.details === undefined ? {} : { details: error.details }),
   }
   return {
     content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
@@ -125,3 +126,6 @@ function toolFailure(
     failure,
   }
 }
+
+/** 只有真实取数故障值得原样重试；输入、品种与能力错误重试同一个调用只会再失败一次。 */
+const RETRYABLE_CODES: ReadonlySet<string> = new Set([ERROR_CODES.FETCH_FAILED, ERROR_CODES.FETCH_ABORTED])

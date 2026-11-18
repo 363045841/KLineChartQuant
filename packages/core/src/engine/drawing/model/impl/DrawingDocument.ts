@@ -2,7 +2,6 @@
 
 import type { DrawingObjectInput } from '@363045841yyt/klinechart-plot-contracts'
 import { applyDrawingPatch, createDrawingObjectApi } from '@363045841yyt/klinechart-plot-contracts'
-import type { TradingDate } from '@/data/provider/types.js'
 import { DRAWING_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch } from '@/foundation/reactivity/signal.js'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
@@ -79,7 +78,7 @@ function requireAnchorPrice(price: number | undefined): number {
   throw new KLineChartError(
     DRAWING_ERROR_CODES.INVALID_ANCHOR,
     'Drawing anchor price must be a finite number.',
-    { details: { price } },
+    { details: price === undefined ? {} : { price } },
   )
 }
 
@@ -412,31 +411,47 @@ export class DrawingDocument {
     )
   }
 
-  /** 解析交易日锚点；按互相排斥的失败原因抛出语义明确的错误码。 */
-  private resolveAnchorTradingDate(tradingDate: TradingDate): number {
-    const resolution = this.dependencies.findAnchorAtTradingDate(tradingDate)
-    switch (resolution.kind) {
-      case 'resolved':
-        return resolution.timestamp
-      case 'out-of-range':
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.ANCHOR_DATE_OUT_OF_RANGE,
-          `Drawing anchor date ${tradingDate} is outside the loaded range ${resolution.earliest}..${resolution.latest}.`,
-          { details: { tradingDate, earliest: resolution.earliest, latest: resolution.latest } },
-        )
-      case 'not-trading':
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.ANCHOR_DATE_NOT_TRADING,
-          `No bar exists on ${tradingDate} in the loaded chart data.`,
-          { details: { tradingDate } },
-        )
-      case 'date-unavailable':
-        throw new KLineChartError(
-          DRAWING_ERROR_CODES.ANCHOR_DATE_UNAVAILABLE,
-          'The loaded chart data exposes no per-bar date to resolve a trading-date anchor.',
-          { details: { tradingDate } },
-        )
+  /** 解析单个声明式锚点，按图元种类声明的坐标轴持久化。 */
+  private resolveAnchor(
+    kind: DrawingKind,
+    input: DrawingAnchorCommandInput,
+  ): PersistedDrawingAnchor {
+    const axes = drawingAnchorAxes(kind)
+    if (!axes.price) return this.resolveVerticalAnchor(input)
+    if (!axes.time) return resolveHorizontalAnchor(input)
+    return this.resolvePointAnchor(input)
+  }
+
+  /** 垂直线只持久化时间；价格轴不属于它的文档模型。 */
+  private resolveVerticalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+    return {
+      id: `anchor-${generateUUID()}`,
+      type: 'vertical',
+      time: this.requireTimestamp(input),
     }
+  }
+
+  /** 普通点锚点同时持久化时间与价格。 */
+  private resolvePointAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+    return this.createPointAnchor(this.requireTimestamp(input), input.price)
+  }
+
+  /** 文档接受任意有限时间；是否可见由当前视图的公共坐标服务决定。 */
+  private requireTimestamp(input: DrawingAnchorCommandInput): number {
+    const timestamp = input.timestamp
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor timestamp must be a finite number.',
+        {
+          details: {
+            timestamp: typeof timestamp === 'number' ? timestamp : null,
+            ...(input.price === undefined ? {} : { price: input.price }),
+          },
+        },
+      )
+    }
+    return timestamp
   }
 
   /** 按输入顺序读取唯一图元；任一 id 不存在时返回空数组。 */
@@ -462,67 +477,6 @@ export class DrawingDocument {
       ...anchor,
       id: drawing.anchors[index]?.id ?? anchor.id,
     }))
-  }
-
-  /** 解析单个声明式锚点，按图元种类声明的坐标轴持久化。 */
-  private resolveAnchor(
-    kind: DrawingKind,
-    input: DrawingAnchorCommandInput,
-  ): PersistedDrawingAnchor {
-    const axes = drawingAnchorAxes(kind)
-    if (!axes.price) return this.resolveVerticalAnchor(input)
-    if (!axes.time) return resolveHorizontalAnchor(input)
-    return this.resolvePointAnchor(input)
-  }
-
-  /** 垂直线只持久化时间；价格轴不属于它的文档模型。 */
-  private resolveVerticalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-    if (input.tradingDate !== undefined) {
-      return {
-        id: `anchor-${generateUUID()}`,
-        type: 'vertical',
-        time: this.resolveAnchorTradingDate(input.tradingDate),
-      }
-    }
-    const anchor = this.resolveTimestampAnchor(input)
-    return {
-      id: `anchor-${generateUUID()}`,
-      type: 'vertical',
-      time: anchor.timestamp,
-    }
-  }
-
-  /** 普通点锚点同时持久化时间与价格。 */
-  private resolvePointAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-    const anchor = this.resolveTimeAnchorInput(input)
-    return this.createPointAnchor(anchor.timestamp, input.price)
-  }
-
-  /** 将声明式交易日或时间戳解析为稳定时间。 */
-  private resolveTimeAnchorInput(input: DrawingAnchorCommandInput): {
-    timestamp: number
-  } {
-    if (input.tradingDate !== undefined) {
-      return {
-        timestamp: this.resolveAnchorTradingDate(input.tradingDate),
-      }
-    }
-    return this.resolveTimestampAnchor(input)
-  }
-
-  /** 文档接受任意有限时间；是否可见由当前视图的公共坐标服务决定。 */
-  private resolveTimestampAnchor(input: DrawingAnchorCommandInput): {
-    timestamp: number
-  } {
-    const timestamp = input.timestamp
-    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor timestamp must be a finite number.',
-        { details: { timestamp: input.timestamp, price: input.price } },
-      )
-    }
-    return { timestamp }
   }
 
   /** 校验并创建同时包含时间与价格的普通锚点。 */
