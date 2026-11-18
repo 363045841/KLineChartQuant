@@ -6,13 +6,18 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'
 
+/** 工作台侧栏面板标识；与 SidePanelShell 的 `panel-<id>` 插槽一一对应。 */
+export type KlineWorkbenchPanelId = 'agent' | 'orderflow' | 'options' | 'watchlist' | 'object-tree'
+
 export interface KlineWorkbenchProps {
   /** 默认启用 Agent；关闭后不创建浏览器 Agent 宿主。 */
   agent?: boolean
   /** 默认加载内置脚本指标；关闭后不创建脚本执行 Worker。 */
   scripts?: boolean
-  /** 智能体面板初始是否展开，默认收起。 */
+  /** 智能体面板初始是否展开，默认收起；被 `initialPanel` 取代，保留以兼容旧调用方。 */
   initialAgentPanelOpen?: boolean
+  /** 首次挂载展开的侧栏面板；省略时沿用 `initialAgentPanelOpen`。 */
+  initialPanel?: KlineWorkbenchPanelId
   /** 行情实例归调用方所有，工作台卸载时不会销毁它。 */
   marketDataContext?: MarketDataContext
   /**

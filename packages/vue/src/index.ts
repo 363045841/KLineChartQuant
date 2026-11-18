@@ -175,7 +175,11 @@ export type {
   SidePanelSlotProps,
   SidePanelWidthStorage,
 } from './features/side-panel/types.js'
-export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
+export type {
+  KlineWorkbenchHandle,
+  KlineWorkbenchPanelId,
+  KlineWorkbenchProps,
+} from './workbench/types.js'
 export { KlineWorkbench }
 
 // ---------------------------------------------------------------------------

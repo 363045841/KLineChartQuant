@@ -95,6 +95,7 @@
   import SidePanelShell from '../../features/side-panel/SidePanelShell.vue'
   import type { SidePanelDefinition } from '../../features/side-panel/types.js'
   import type { KlineWorkbenchProps } from '../types.js'
+  import { resolveInitialPanel } from './resolveInitialPanel.js'
   import { useChartSymbol } from './use-chart-symbol.js'
   import { useWorkbenchMarket } from './useWorkbenchMarket.js'
   import { useWorkbenchServices } from './useWorkbenchServices.js'
@@ -125,7 +126,11 @@
     { id: WATCHLIST_PANEL_ID, label: '自选股', icon: IconBookmark },
     { id: OBJECT_TREE_PANEL_ID, label: '对象树', icon: IconStack2 },
   ])
-  const initialPanel = props.agent && props.initialAgentPanelOpen ? AGENT_PANEL_ID : null
+  /** 首次展开的面板：显式 initialPanel 优先，无效 id 由 SidePanelShell 过滤。 */
+  const initialPanel = resolveInitialPanel({
+    initialPanel: props.initialPanel,
+    initialAgentPanelOpen: props.initialAgentPanelOpen,
+  })
 
   const controller = shallowRef<ChartController | null>(null)
   // 订单流与期权共用同一个只读分析服务；地址省略时用客户端内置默认。
