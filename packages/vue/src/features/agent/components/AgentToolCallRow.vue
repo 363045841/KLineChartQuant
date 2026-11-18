@@ -2,12 +2,11 @@
 <template>
   <details class="tool-row agent-disclosure" :data-status="status">
     <summary>
-      <span class="tool-row__icon" aria-hidden="true">
+      <span class="tool-row__icon" role="img" :aria-label="statusLabel">
         <LoadingSpinner v-if="status === 'running'" />
         <component :is="statusIcon" v-else />
       </span>
       <span class="tool-row__label">{{ label }}</span>
-      <span class="tool-row__meta">{{ statusLabel }}</span>
       <span v-if="durationLabel" class="tool-row__meta">{{ durationLabel }}</span>
       <IconChevronRight class="tool-row__toggle" aria-hidden="true" />
     </summary>
@@ -101,9 +100,17 @@
 
 <style scoped>
   .tool-row__icon {
-    display: inline-flex;
+    display: grid;
+    place-items: center;
     flex: none;
+    width: var(--agent-inline-icon);
+    height: var(--agent-inline-icon);
     color: var(--klc-color-ui-muted);
+  }
+
+  .tool-row__icon > svg {
+    width: var(--agent-inline-icon);
+    height: var(--agent-inline-icon);
   }
 
   .tool-row[data-status='succeeded'] .tool-row__icon {
