@@ -27,6 +27,9 @@ export default defineConfig({
     // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
     fsModuleCache: true,
     environment: 'node',
+    // 真实子进程用例（code-interpreter / browser-durable）在本机首次拉起进程常超过默认 5s，
+    // 统一放宽到 30s；逻辑错误仍会以断言失败暴露，不会因为超时被掩盖。
+    testTimeout: 30000,
     include: ['src/**/*.test.ts'],
     coverage: {
       provider: 'v8',
