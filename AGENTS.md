@@ -34,7 +34,7 @@
 
 1. **类型与单测**：`pnpm type-check` 加三包测试（analytics / vue / core）。临时目录必须指到工作区：`export TEMP=D:/AI/KCQ-NexusAI/.tmp-test TMP=D:/AI/KCQ-NexusAI/.tmp-test`（沙箱下 `os.tmpdir()` 不可写，vitest 会报 `EPERM: mkdtemp`）。
 2. **起后端**：订单流与期权共用 8093（`scripts/start-analytics.ps1`）；行情连接器按需要起（8090 MT5 / 8091 Binance / 其他见 `scripts/connectors.mjs`）。
-3. **起前端**：开发页固定 `http://localhost:5175/`（工作台，右侧有 AI / 订单流 / 期权三个页签）。
+3. **起前端**：开发页固定 `http://localhost:5175/`（工作台，右侧侧栏有 Agent / 订单流 / 期权 / 自选股 / 对象树五个面板）。
 4. **真实页面验证**：用 `/ego-browser` 技能在 5175 上点开目标页签，读**渲染出的文字**做断言（标题、卡片行、状态），并截图留证。只验接口不算面板已验证。
 5. **动过行情或缓存**：按上面「验证前必须重置后端与缓存」三步走。
 
@@ -136,7 +136,9 @@ pnpm workspace at `packages/*`。唯一对外发布包是 `packages/vue`(`@36304
 - 除非用户明确要求,否则不要启动子代理;最多同时起三个.
 
 ## 包管理
-- 使用pnpm,不许使用npm
+- 使用pnpm,不许使用npm.
+- **`pnpm install` 必须在 PowerShell 里跑**,不要用 MSYS bash / Git Bash:bash 装出的 `node_modules` 是带 `Global\` 前缀的 junction,Node 26 解析不到包内依赖(`import('vite')` 报 `Cannot find package 'rolldown'`,`pnpm build:packages` 会在 `packages/script` 的 build-worker 处失败).判据:`node -e "import('vite').then(()=>console.log('ok')).catch(e=>console.log('FAIL', e.code))"`.
+- 安装前先停 `pnpm dev` 与连接器:pnpm 会重建 `node_modules`,占用中的目录删不干净,后续链接会缺项.
 
 ## Agent skills
 
