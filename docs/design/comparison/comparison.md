@@ -54,7 +54,7 @@ kline 主品种要出现在对比视图，必须由调用方把它作为普通�
 
 ## 工具注册
 
-对比品种的工具契约在 `features/agent/tools` 里以纯数据声明：`comparisons_list` 与 `comparisons_write`（create / remove / clear）。`Chart.comparisonCommands` 是唯一实例，`ChartController` 与 Agent 共用，不再有 `@Tool` 装饰器与全局注册表。
+对比品种的工具契约在 `features/agent/tools` 里以纯数据声明：`comparisons_list` 与 `comparisons_write`（create / remove / clear）。`Chart.comparisonCommands` 是唯一实例，`ChartController` 与 Agent 共用。
 
 Agent runtime 通过 `ChartAgentController.tools.comparisons` 直接拿到这个实例；读写按工具分开，运行模式据此过滤。工具定义的装配见 `docs/design/agent/agent-tool-catalog.md`。
 
