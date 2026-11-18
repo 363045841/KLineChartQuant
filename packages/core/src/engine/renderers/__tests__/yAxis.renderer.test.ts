@@ -5,7 +5,7 @@ import {
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { layoutAxisColumns } from '@/engine/axisWidth/impl/axisColumns.js'
-import type { PaneAxisSpec } from '@/engine/pane/axisResolver.js'
+import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
 import { PriceScale } from '@/engine/scale/index.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import { registerAxisLabel } from '../impl/labels/index.js'
@@ -17,7 +17,7 @@ function fixture() {
   scales.forEach((scale) => scale.setHeight(400))
   scales[0]!.setRange({ minPrice: 90, maxPrice: 110 })
   scales[1]!.setRange({ minPrice: 0, maxPrice: 1000 })
-  const specs: PaneAxisSpec[] = scales.map((_, index) => ({
+  const objects = scales.map((_, index) => ({
     objectId: `object-${index}`,
     paneId: 'pane-7',
     axisId: `axis-${index}`,
@@ -25,6 +25,10 @@ function fixture() {
     visible: true,
     scaleType: ScaleType.Linear,
   }))
+  const specs = resolvePaneAxes(['pane-7'], [
+    ...objects,
+    { ...objects[0]!, objectId: 'same-price-axis' },
+  ]).get('pane-7')!
   const pane = createMockPaneInfo({
     id: 'pane-7',
     height: 400,
@@ -50,7 +54,11 @@ describe('统一 Y 轴 API', () => {
     expect(first.map((label) => label.text)).toContain('latest')
     expect(second.map((label) => label.text)).not.toContain('latest')
     expect(first.some((label) => label.text === '100.00')).toBe(true)
+    expect(first.filter((label) => label.text === '100.00')).toHaveLength(1)
     expect(second.some((label) => label.text === '500.00')).toBe(true)
+    const ticks = context.axisLabels.forSurface('yRightStatic', 'axis-0').labels
+    expect(ticks.length).toBeGreaterThan(0)
+    expect(new Set(ticks.map((tick) => tick.pos)).size).toBe(ticks.length)
     // 列几何按轴顺序展开：主轴列在前，列宽之和等于提交的轴区宽度。
     const columns = layoutAxisColumns(
       specs.map((spec) => spec.axisId),

@@ -39,7 +39,7 @@ export class Pane {
   top = 0
   height = 0
 
-  private readonly axisScales = new Map<string, PriceScale>()
+  private axisScales = new Map<string, PriceScale>()
   /** 对象 → 轴身份；绘图等派生对象借用已有轴，不自行派生。 */
   private readonly objectAxes = new Map<string, string>()
   /** 绑定签名：只有对象归属或轴顺序变化时才重建轴资源。 */
@@ -131,43 +131,32 @@ export class Pane {
   }
 
   /**
-   * 应用框架派生的对象轴绑定：同一条轴可被多个对象共享。
+   * 应用窗格轴及其数据对象绑定。
    *
-   * 保留已有轴实例，避免每帧重建范围；轴列顺序取各轴首次出现的顺序。
+   * 保留已有轴实例及其范围，按声明顺序排列轴列。
    *
-   * @param bindings 对象 → 轴身份，顺序即声明顺序
+   * @param axes 窗格轴及其绑定对象
    * @returns 轴列表或对象绑定是否变化
    */
   setAxes(
-    bindings: ReadonlyArray<{ readonly objectId: string; readonly axisId: string }>,
+    axes: ReadonlyArray<{ readonly objectIds: readonly string[]; readonly axisId: string }>,
   ): boolean {
-    const axisIds: string[] = []
-    const objectAxes = new Map<string, string>()
-    for (const binding of bindings) {
-      if (objectAxes.has(binding.objectId))
-        throw new KLineChartError(
-          GENERIC_ERROR_CODES.INVALID_PARAM,
-          `Pane ${this.id} 的对象 ${binding.objectId} 重复绑定轴`,
-        )
-      objectAxes.set(binding.objectId, binding.axisId)
-      if (!axisIds.includes(binding.axisId)) axisIds.push(binding.axisId)
-    }
-    const signature = bindings
-      .map((binding) => `${binding.axisId}\u0000${binding.objectId}`)
-      .join('\u0001')
+    const signature = JSON.stringify(axes.map(({ axisId, objectIds }) => [axisId, objectIds]))
     if (signature === this.axisSignature) return false
+    const scales = new Map<string, PriceScale>()
+    const objectAxes = new Map<string, string>()
+    for (const { axisId, objectIds } of axes) {
+      let scale = this.axisScales.get(axisId)
+      if (scale === undefined) {
+        scale = new PriceScale()
+        scale.setHeight(this.height)
+        scale.setContentInsets(this.paddingTop, this.paddingBottom)
+      }
+      scales.set(axisId, scale)
+      for (const objectId of objectIds) objectAxes.set(objectId, axisId)
+    }
     this.axisSignature = signature
-    const next = new Set(axisIds)
-    for (const axisId of [...this.axisScales.keys()]) {
-      if (!next.has(axisId)) this.axisScales.delete(axisId)
-    }
-    for (const axisId of axisIds) {
-      if (this.axisScales.has(axisId)) continue
-      const scale = new PriceScale()
-      scale.setHeight(this.height)
-      scale.setContentInsets(this.paddingTop, this.paddingBottom)
-      this.axisScales.set(axisId, scale)
-    }
+    this.axisScales = scales
     this.objectAxes.clear()
     for (const [objectId, axisId] of objectAxes) this.objectAxes.set(objectId, axisId)
     return true

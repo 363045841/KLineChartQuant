@@ -1,26 +1,21 @@
 /** 对象轴的唯一命令入口：先校验身份与所属容器，再写状态并投影。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
-import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
 import { batch } from '@/foundation/reactivity/signal.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import type { ObjectAxesApi, ObjectAxesDependencies } from '../axisTypes.js'
 
 /** API 不缓存业务绑定；每次从对象状态的统一投影读取。 */
 export function createObjectAxesApi(deps: ObjectAxesDependencies): ObjectAxesApi {
-  const requireBinding = (axisId: string): ObjectAxisBinding => {
-    const binding = deps.listBindings().find((item) => item.axisId === axisId)
-    if (!binding)
-      throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `轴未注册：${axisId}`)
-    return binding
-  }
   const requireAxis = (axisId: string) => {
-    const binding = requireBinding(axisId)
-    const pane = deps.getPane(binding.paneId)
+    const paneId = deps.getAxisPaneId(axisId)
+    if (paneId === undefined)
+      throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `轴未注册：${axisId}`)
+    const pane = deps.getPane(paneId)
     if (!pane)
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_STATE,
-        `轴 ${axisId} 所属 Pane ${binding.paneId} 不存在`,
+        `轴 ${axisId} 所属 Pane ${paneId} 不存在`,
       )
     return pane.axis(axisId)
   }

@@ -294,8 +294,6 @@ export interface DrawingViewportPort {
     paneId: string,
     axisId?: string,
   ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
-  /** 图元绑定的轴身份；由 Core 的对象轴投影决定，未绑定时返回 null。 */
-  getObjectAxis(paneId: string, objectId: string): string | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */

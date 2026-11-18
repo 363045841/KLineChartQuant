@@ -8,17 +8,28 @@ import type { PriceScale } from '../scale/index.js'
 import type { AxisStateModule } from '../state/axisState.js'
 import type { PaneStateModule } from '../state/paneState.js'
 
-/** 对象轴的完整声明；坐标、格式和可见性均在 API 边界解析。 */
-export interface PaneAxisSpec extends ObjectAxisBinding {
+/** 单条轴的配置。 */
+export interface AxisSpec {
+  readonly paneId: string
+  readonly axisId: string
   readonly decimals: number
   readonly visible: boolean
   readonly scaleType: ScaleType
   readonly format?: (value: number) => string
 }
 
+/** 行情序列或指标对所在量纲轴的声明。 */
+export interface ObjectAxisSpec extends AxisSpec, ObjectAxisBinding {}
+
+/** 按量纲合并后的窗格轴；仅绘图窗格的轴没有数据对象。 */
+export interface PaneAxisSpec extends AxisSpec {
+  readonly objectIds: readonly string[]
+}
+
 /** 统一轴 API 所需端口；实现不直接依赖 Chart 或指标管理器。 */
 export interface ObjectAxesDependencies {
   listBindings(): ReadonlyArray<ObjectAxisBinding>
+  getAxisPaneId(axisId: string): string | undefined
   getPane(paneId: string): { axis(axisId: string): PriceScale } | undefined
   getLayout(
     paneId: string,

@@ -8,7 +8,6 @@ import {
 import { arrowHead } from '../../geometry/impl/arrowGeometry.js'
 import {
   anchorToScreen,
-  bindDrawingViewport,
   isScreenPoint,
 } from '../../geometry/impl/coordinateUtils.js'
 import { fibLevelLines } from '../../geometry/impl/fibLevels.js'
@@ -251,7 +250,6 @@ export class HitTester {
     drawing: DrawingObject,
     adapter: DrawingViewportPort,
   ): DrawingHandlePort {
-    adapter = bindDrawingViewport(adapter, drawing)
     const viewport = adapter.getViewport()
     const pane = adapter.getPaneInfo(drawing.paneId)
     return {
@@ -269,7 +267,6 @@ export class HitTester {
     regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
   ): LineSegment[] {
     const viewport = adapter.getViewport()
-    adapter = bindDrawingViewport(adapter, drawing)
     if (!viewport) return []
 
     if (drawing.kind === 'regression-channel')
@@ -348,7 +345,6 @@ export class HitTester {
 
   /** 组合图元的填充多边形：所有锚点可投影时按登记的环绕顺序成环，否则不参与命中。 */
   private getDrawingFillPolygon(drawing: DrawingObject, adapter: DrawingViewportPort): Point[] {
-    adapter = bindDrawingViewport(adapter, drawing)
     const anchorsOnScreen: Point[] = []
     for (const anchor of drawing.anchors) {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
@@ -401,7 +397,6 @@ export class HitTester {
     drawing: DrawingObject,
     adapter: DrawingViewportPort,
   ): LineSegment[] {
-    adapter = bindDrawingViewport(adapter, drawing)
     if (
       (drawing.kind === 'ray' || drawing.kind === 'extended-line') &&
       drawing.anchors.length === 2
@@ -422,7 +417,6 @@ export class HitTester {
     adapter: DrawingViewportPort,
     cache?: Map<string, RegressionChannelGeometry | null>,
   ): RegressionChannelGeometry | null {
-    adapter = bindDrawingViewport(adapter, drawing)
     const cached = cache?.get(drawing.id)
     if (cached !== undefined) return cached
     const geometry = buildRegressionChannelGeometry(drawing, adapter)

@@ -64,7 +64,7 @@ export class ChartPaneLayout {
   setPaneAxes(
     axesByPane: ReadonlyMap<
       string,
-      ReadonlyArray<{ readonly objectId: string; readonly axisId: string }>
+      ReadonlyArray<{ readonly objectIds: readonly string[]; readonly axisId: string }>
     >,
   ): boolean {
     let changed = false

@@ -336,7 +336,6 @@ export function createDrawingViewportPort(
 ): DrawingViewportPort {
   const port: DrawingViewportPort = {
     // 夹具只有一个 Pane 轴，图元绑定它就是默认坐标系。
-    getObjectAxis: () => 'main',
     getCoordinates: (paneId) => {
       const pane = port.getPaneInfo(paneId)
       const viewport = port.getViewport()

@@ -22,7 +22,8 @@ function sameAxes(
 /** 身份、显示配置和格式器共同组成一条轴声明。 */
 function sameAxis(previous: PaneAxisSpec, next: PaneAxisSpec): boolean {
   return (
-    previous.objectId === next.objectId &&
+    previous.objectIds.length === next.objectIds.length &&
+    previous.objectIds.every((id, index) => id === next.objectIds[index]) &&
     previous.paneId === next.paneId &&
     previous.axisId === next.axisId &&
     previous.visible === next.visible &&
@@ -38,14 +39,18 @@ function sameBindings(
   next: RuntimeProjectionSnapshot['axes'],
 ): boolean {
   const before = new Map(
-    [...previous.values()].flatMap((axes) => axes.map((axis) => [axis.objectId, axis])),
+    [...previous.values()].flatMap((axes) =>
+      axes.flatMap((axis) => axis.objectIds.map((id) => [id, axis] as const)),
+    ),
   )
   const after = [...next.values()].flat()
   return (
-    before.size === after.length &&
+    before.size === after.reduce((count, axis) => count + axis.objectIds.length, 0) &&
     after.every((axis) => {
-      const binding = before.get(axis.objectId)
-      return binding?.paneId === axis.paneId && binding.axisId === axis.axisId
+      return axis.objectIds.every((id) => {
+        const binding = before.get(id)
+        return binding?.paneId === axis.paneId && binding.axisId === axis.axisId
+      })
     })
   )
 }

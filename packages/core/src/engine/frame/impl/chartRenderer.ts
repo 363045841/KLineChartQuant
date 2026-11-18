@@ -1065,12 +1065,11 @@ export class ChartRenderer {
       const drawingRanges = new Map<string, { min: number; max: number }>()
       // 绘图不扩张主轴的自动范围：带 owner 的脚本绘图并入其所属轴；用户手绘图只在
       // 该 Pane 没有其它对象时参与，否则拖动图元会牵动价格窗口。
-      const drawingIds = new Set(this.drawingStore.getAll().map((drawing) => drawing.id))
       const objectAxes = new Set(
         this.deps
           .getIndicatorManager()
           .getAxesInPane(pane.id)
-          .filter((axis) => !drawingIds.has(axis.objectId))
+          .filter((axis) => axis.objectIds.length > 0)
           .map((axis) => axis.axisId),
       )
       const drawingsByAxis = new Map<string, DrawingObject[]>()
