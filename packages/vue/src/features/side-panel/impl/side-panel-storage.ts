@@ -7,6 +7,10 @@ import type { SidePanelSide, SidePanelSideStorage, SidePanelWidthStorage } from 
 const SIDE_PANEL_WIDTH_STORAGE_KEY = 'workbench.sidePanel.width'
 const SIDE_PANEL_SIDE_STORAGE_KEY = 'workbench.sidePanel.side'
 
+/** 旧 Agent 面板的键名：面板合并进通用侧栏前用的是它们，首次读取时迁移一次。 */
+const LEGACY_AGENT_PANEL_WIDTH_KEY = 'agent.panelWidth'
+const LEGACY_AGENT_PANEL_SIDE_KEY = 'agent.panelSide'
+
 const widthCodec: PersistenceCodec<number> = {
   decode(value): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -25,15 +29,26 @@ const sideCodec: PersistenceCodec<SidePanelSide> = {
   },
 }
 
-/** 创建面板宽度的公共持久化适配器。 */
-export function createSidePanelWidthStorage(): SidePanelWidthStorage {
+/** 创建面板宽度的公共持久化适配器；旧键只读一次并写回新键。 */
+export function createSidePanelWidthStorage(storage?: Storage): SidePanelWidthStorage {
   const persistence = createLocalStoragePersistence({
     key: SIDE_PANEL_WIDTH_STORAGE_KEY,
     codec: widthCodec,
+    storage,
+  })
+  const legacy = createLocalStoragePersistence({
+    key: LEGACY_AGENT_PANEL_WIDTH_KEY,
+    codec: widthCodec,
+    storage,
   })
   return {
     load(): number | undefined {
-      return persistence.load() ?? undefined
+      const current = persistence.load()
+      if (current !== null) return current
+      const previous = legacy.load()
+      if (previous === null) return undefined
+      persistence.save(previous)
+      return previous
     },
     save(width: number): void {
       persistence.save(width)
@@ -41,15 +56,26 @@ export function createSidePanelWidthStorage(): SidePanelWidthStorage {
   }
 }
 
-/** 创建面板停靠侧的公共持久化适配器。 */
-export function createSidePanelSideStorage(): SidePanelSideStorage {
+/** 创建面板停靠侧的公共持久化适配器；旧键只读一次并写回新键。 */
+export function createSidePanelSideStorage(storage?: Storage): SidePanelSideStorage {
   const persistence = createLocalStoragePersistence({
     key: SIDE_PANEL_SIDE_STORAGE_KEY,
     codec: sideCodec,
+    storage,
+  })
+  const legacy = createLocalStoragePersistence({
+    key: LEGACY_AGENT_PANEL_SIDE_KEY,
+    codec: sideCodec,
+    storage,
   })
   return {
     load(): SidePanelSide | undefined {
-      return persistence.load() ?? undefined
+      const current = persistence.load()
+      if (current !== null) return current
+      const previous = legacy.load()
+      if (previous === null) return undefined
+      persistence.save(previous)
+      return previous
     },
     save(side: SidePanelSide): void {
       persistence.save(side)
