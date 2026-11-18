@@ -15,15 +15,16 @@ import type { DrawingPrimitive, PaneInfo } from '../../foundation/plugin/types.j
 import type { KLineData } from '../../foundation/types/price.js'
 
 export type {
-  DrawingAnchorType,
   DrawingKind,
   DrawingLabel,
+  DrawingLabelGroups,
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,
   DrawingTimeframeVisibility,
   DrawingWorkspaceId,
   PersistedDrawingAnchor,
+  PointDrawingAnchor,
 } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 当前帧或交互会话使用的已解析锚点；用户文档持久化时间，脚本结果可以显式使用索引。 */

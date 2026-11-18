@@ -14,13 +14,12 @@ export type ComputeDependency =
 export interface ComputeRange {
   readonly start: number
   readonly end: number
+  /** 旧计算结果已失效，需要从空运行态重算。 */
+  readonly reset?: boolean
 }
 
-/** 数据层的变化区间；只依赖 start/end，不把 core 的变更类型带进来。 */
-export interface ComputeChange {
-  readonly start: number
-  readonly end: number
-}
+/** 数据层提供变化区间和缓存失效信息。 */
+export type ComputeChange = ComputeRange
 
 /** 构造可证明的无状态依赖。 */
 export function stateless(lookback: number | 'unbounded'): ComputeDependency {
@@ -40,6 +39,7 @@ export function resolveComputeRange(
   dependency: ComputeDependency,
   length: number,
 ): ComputeRange {
+  if (change.reset) return { start: 0, end: length, reset: true }
   if (dependency.kind === 'stateful' || dependency.lookback === 'unbounded')
     return { start: 0, end: length }
   return {

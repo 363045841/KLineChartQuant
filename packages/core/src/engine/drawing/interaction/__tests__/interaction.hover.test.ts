@@ -37,7 +37,7 @@ describe('DrawingInteractionController 悬停命中', () => {
   const vertical = createDrawingObject({
     id: 'vertical',
     kind: 'vertical-line',
-    anchors: [{ id: 'a', type: 'vertical', time: 500, price: 20 }],
+    anchors: [{ id: 'a', type: 'vertical', time: 500 }],
   })
 
   it('选中水平线的右侧手柄 → 价格轴锚点与 ns-resize', () => {

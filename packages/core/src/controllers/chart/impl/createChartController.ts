@@ -1,5 +1,6 @@
 import { defaultMarketDataContext } from '@/data/management/impl/context.js'
-import { lookupInstrumentsBySymbol } from '@/data/provider/impl/instrumentSearch.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/impl/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import {
@@ -14,6 +15,7 @@ import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import {
   createChartAgentController,
@@ -22,10 +24,12 @@ import {
   createChartAgentMarketQueries,
   createChartAgentToolDeps,
   createMarketDataTextFormatter,
+  type ChartAgentDrawingScope,
+  type ChartAgentMarketCapability,
+  type ChartAgentMarketSource,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
-import { generateUUID } from '@/foundation/utils/uuid.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { indicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
@@ -54,6 +58,28 @@ function mapViewportState(vp: EngineViewportState): ChartViewport {
     kWidth: vp.kWidth,
     kGap: vp.kGap,
   }
+}
+
+/**
+ * 行情工具的源视图。
+ *
+ * 品种查询与行情各有自己的源集合：查询只看参与目录搜索的源，行情按能力筛选。
+ * 工具描述、sourceId 校验与路由都读这一份，避免出现三套不一致的答案。
+ */
+function listAgentMarketSources(
+  registry: MarketDataProviderRegistry,
+  capability: ChartAgentMarketCapability,
+): ReadonlyArray<ChartAgentMarketSource> {
+  const providers =
+    capability === 'instrument'
+      ? registry.getSearchableByPriority()
+      : registry.getEnabledByCapability({ capability })
+  return providers.map((provider) => ({
+    id: provider.source.id,
+    ...(provider.source.description === undefined
+      ? {}
+      : { description: provider.source.description }),
+  }))
 }
 
 export async function createChartController(opts: ChartMountOptions): Promise<ChartController> {
@@ -210,20 +236,23 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   const marketRegistry = (opts.marketDataContext ?? defaultMarketDataContext).registry
   const marketFormatter = createMarketDataTextFormatter()
-  // 落点解析：主图用 'main'，副图用其指标实例身份；其它容器不对 Agent 开放。
-  const resolvePlacementPaneId = (placement: string): string | null => {
-    if (placement === MAIN_PANE_ID) return MAIN_PANE_ID
-    return (
-      chart.indicators.instances.peek().find((instance) => instance.id === placement)?.paneId ??
-      null
-    )
+  // 窗格身份只来自布局：行号是唯一坐标，指标实例身份不参与落点解析。
+  const layoutPanes = () => chart.panes.getLayoutSpecs()
+  const readPaneRow = (paneId: string): number | null => {
+    const index = layoutPanes().findIndex((pane) => pane.id === paneId)
+    return index < 0 ? null : index
   }
-  const readPlacement = (paneId: string): string | null => {
-    if (paneId === MAIN_PANE_ID) return MAIN_PANE_ID
-    return (
-      chart.indicators.instances.peek().find((instance) => instance.paneId === paneId)?.id ?? null
-    )
-  }
+  /** 图表时区：图元时间读写都用它，不跟随宿主本地时区。 */
+  const chartTimezone = (): string =>
+    chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
+  const drawingScope = (): ChartAgentDrawingScope => ({
+    rows: layoutPanes().map((pane) => pane.id),
+    period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+    timezone: chartTimezone(),
+    workspace: chart.drawing.getWorkspaceId(),
+  })
+  const formatAnchorTime = (timestamp: number): string =>
+    formatDrawingAnchorTime(timestamp, chartTimezone())
   const agentTools = createChartAgentToolDeps({
     indicators: createChartAgentIndicatorCommands({
       facade: chart.indicators,
@@ -235,34 +264,46 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       },
       isRendererAvailable: (indicatorId) =>
         getRegisteredIndicatorDefinition(indicatorId) !== undefined,
+      readParamDefs: (indicatorId) =>
+        indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.params,
     }),
     drawings: createChartAgentDrawingCommands({
       drawingDocument: chart.drawingDocument,
       drawingCommands: chart.drawingCommands,
-      copyDrawings: drawingMethods.copyDrawings,
-      resolvePaneId: resolvePlacementPaneId,
-      readPlacement,
+      scope: drawingScope,
+      bars: () => chart.getData(),
     }),
     comparisons: chart.comparisonCommands,
     market: createChartAgentMarketQueries({
-      sources: () => marketRegistry.getEnabledByPriority().map((provider) => provider.source.id),
-      lookup: (input) => lookupInstrumentsBySymbol(marketRegistry, input),
+      listSources: (capability) => listAgentMarketSources(marketRegistry, capability),
+      lookup: (input) =>
+        lookupInstrumentsBySymbol(marketRegistry, {
+          symbol: input.query,
+          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+        }),
+      search: (input) =>
+        searchInstruments(marketRegistry, {
+          keyword: input.query,
+          limit: input.limit,
+          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.signal === undefined ? {} : { signal: input.signal }),
+        }),
       cache: chart.getMarketDataCache(),
+      now: Date.now,
       formatter: marketFormatter,
       indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     }),
   })
 
   const agent = createChartAgentController({
-    chartId: generateUUID(),
     dataState: chart.kernel.data,
     currentSpec: chart.kernel.dataManager.readonly.currentSpec,
-    chartMode: chart.kernel.mode.readonly.chartMode,
     selectedRange: chart.selectedRange,
-    indicators,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
-    readPlacement,
+    readPaneRow,
+    formatAnchorTime,
     tools: agentTools,
     marketDataTextFormatter: marketFormatter,
   })

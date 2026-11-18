@@ -69,6 +69,7 @@ export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
 export {
   AGENT_DRAWING_KINDS,
+  drawingAnchorAxes,
   drawingKindName,
   resolveDrawingLabel,
 } from './model/impl/drawingKindSpecs.js'
@@ -76,9 +77,7 @@ export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/imp
 export { filterDrawingsInScope, isDrawingInScope } from './model/impl/drawingScope.js'
 export { isDrawingVisibleInPeriod } from './model/impl/drawingTimeframeVisibility.js'
 export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
-export { resolveDrawingTradingDate } from './model/impl/resolveTradingDate.js'
 export type {
-  AnchorTradingDateResolution,
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingAnchorCommandInput,
@@ -142,13 +141,13 @@ export type {
 
 /** 图元领域模型契约。 */
 export type {
-  DrawingAnchorType,
   DrawingComputeContext,
   DrawingDefinition,
   DrawingGeometry,
   DrawingKind,
   DrawingKindSpec,
   DrawingLabel,
+  DrawingLabelGroups,
   DrawingLabelIndex,
   DrawingLabels,
   DrawingObject,

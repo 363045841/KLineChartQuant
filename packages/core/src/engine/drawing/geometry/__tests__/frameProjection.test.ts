@@ -108,13 +108,13 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
-describe('指标图元继承 owner 坐标', () => {
+describe('绘图图元借用窗格坐标轴', () => {
   it.each(['first-output', 'replacement-output'])('图元 %s 无需轴绑定即可使用指标所在轴', (id) => {
     const pane = new Pane('main')
     pane.setLayout(0, 100)
     pane.setAxes([
-      { objectId: 'price-series', axisId: 'price-axis' },
-      { objectId: 'indicator', axisId: 'indicator-axis' },
+      { objectIds: ['price-series'], axisId: 'price-axis' },
+      { objectIds: ['indicator'], axisId: 'indicator-axis' },
     ])
     pane.axis('price-axis').setRange({ minPrice: 0, maxPrice: 1000 })
     pane.axis('indicator-axis').setRange({ minPrice: 0, maxPrice: 100 })
@@ -139,9 +139,37 @@ describe('指标图元继承 owner 坐标', () => {
     expect(pane.objectAxis(drawing.id)).toBeNull()
   })
 
+  it('手绘图元直接用多轴窗格的主轴，无需图元绑定', () => {
+    const pane = new Pane('main')
+    pane.setLayout(0, 100)
+    pane.setAxes([
+      { objectIds: ['volume'], axisId: 'volume-axis' },
+      { objectIds: ['indicator'], axisId: 'indicator-axis' },
+    ])
+    pane.axis('volume-axis').setRange({ minPrice: 0, maxPrice: 100 })
+    pane.axis('indicator-axis').setRange({ minPrice: 0, maxPrice: 1000 })
+    const drawing = createTrendDrawing({ id: 'hand-drawing' })
+    const context = { ...createContext(), pane: wrapPaneInfo(pane) }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+
+    expect(pane.objectAxis(drawing.id)).toBeNull()
+    expect(resolveDrawingRenderAxis(pane, drawing)).toBe('volume-axis')
+    const projection = projectDrawingsForFrame(store, definitions, context)
+    expect(linePrimitives(projection.primitives)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ a: { x: 10, y: 90 }, b: { x: 30, y: 80 } }),
+      ]),
+    )
+  })
+
   it('owner 缺失时不会使用图元身份或其它对象的轴', () => {
     const pane = new Pane('main')
-    pane.setAxes([{ objectId: 'drawing', axisId: 'unrelated-axis' }])
+    pane.setAxes([{ objectIds: ['drawing'], axisId: 'unrelated-axis' }])
     expect(() =>
       resolveDrawingRenderAxis(pane, { id: 'drawing', ownerId: 'missing-indicator' }),
     ).toThrow('所属对象 missing-indicator 未绑定轴')
@@ -728,7 +756,7 @@ describe('projectDrawingsForFrame', () => {
     {
       label: 'vertical line',
       kind: 'vertical-line',
-      anchors: [{ id: 'a', type: 'vertical', time: 1_000, price: 40 }],
+      anchors: [{ id: 'a', type: 'vertical', time: 1_000 }],
       yAxisPrices: [],
       xAxisLabelCount: 1,
     },
@@ -756,7 +784,7 @@ describe('projectDrawingsForFrame', () => {
     {
       label: 'vertical line',
       kind: 'vertical-line' as const,
-      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000, price: 40 }],
+      anchors: [{ id: 'a', type: 'vertical' as const, time: 1_000 }],
       expected: { x: 10, y: 60 },
     },
   ])('projects the edge translate handle of a selected $label', ({ kind, anchors, expected }) => {

@@ -10,8 +10,8 @@
 
 KLineChartQuant 是一个 pnpm workspace monorepo。核心引擎（`packages/core`）不依赖任何
 UI 框架，通过统一的 `ChartController` 对外暴露只读信号（ReadonlySignal）与命令方法；
-Vue / React / Angular 绑定层只负责容器挂载、输入事件转发与响应式桥接。AI Agent 通过与 UI
-相同的 `@Tool` 原语直接驱动图表，共享同一状态源，是项目的一等公民。
+Vue / React / Angular 绑定层只负责容器挂载、输入事件转发与响应式桥接。AI Agent 与 UI 共用
+同一套图表命令面与纯数据工具定义直接驱动图表，共享同一状态源，是项目的一等公民。
 
 React 绑定（`@363045841yyt/klinechart-react`）的 `KLineChartWC` 直接封装由
 `@363045841yyt/klinechart-web-component` 提供的 `<kline-chart>` 自定义元素（独立发布的单文件产物），
@@ -57,7 +57,7 @@ flowchart TB
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
+    AgentRt -->|"工具目录（与 UI 同路径）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -83,7 +83,7 @@ flowchart TB
 | 层 | 负责 | 不负责 |
 |---|---|---|
 | 框架绑定（Framework bindings） | 容器挂载、输入事件转发、信号桥接、组件生命周期 | 业务状态与绘制细节 |
-| `ChartController` | 统一命令面、只读信号投影、`@Tool` 原语 | 引擎内部实现 |
+| `ChartController` | 统一命令面、只读信号投影、Agent 工具目录 | 引擎内部实现 |
 | `Chart` | 依赖组装、绘制调度、交互路由、主题/数据协调 | 单帧绘制细节 |
 | `StateKernel` | 业务状态单一事实源（readonly signals + actions） | DOM 监听与绘制副作用 |
 | 数据层 | 统一序列仓库、增量缓冲、拉取调度、数据源路由 | 图表状态 |
@@ -157,8 +157,8 @@ flowchart TB
   indicators、theme、paneLayout、interactionState 等）。
 - 暴露命令方法（`setData`、`setSymbols`、`zoomToLevel`、`addIndicator`、
   `setDrawingTool`、`handlePointerEvent` 等），全部委托给 `Chart` 门面。
-- 通过 `@Tool` 装饰的领域方法注册 Agent 工具（`getRegisteredChartTools()`），与命令方法同源，
-  无独立桥接层。
+- Agent 工具以 `packages/core/src/features/agent/tools/` 的纯数据定义声明，由组合根注入领域命令，
+  与 UI 命令方法同源。
 
 ### 3.2 Chart（引擎门面）
 
@@ -265,11 +265,11 @@ flowchart TB
 
 ### 4.4 Agent 原生
 
-1. Core 以 `@Tool` 装饰领域方法，`getRegisteredChartTools()` 暴露统一工具契约
-   （参数 schema、safety 等级与执行器）。
-2. `@363045841yyt/klinechart-agent-runtime` 在应用内（浏览器 / Electron）编排 Agent，
-   直接调用这些原语，与 UI 走同一条链路。
-3. Agent 与用户共享 StateKernel 状态，无桥接层、无状态副本。
+1. Core 在 `features/agent/tools/` 以纯数据声明统一工具契约
+   （参数 schema、effect 与执行器）。
+2. `@363045841yyt/klinechart-agent-runtime` 的宿主把工具定义适配为 Pi 的
+   `RuntimeToolDefinition`，在应用内（浏览器 / Electron）编排 Agent，与 UI 走同一条命令链路。
+3. Agent 与用户共享 StateKernel 状态，无状态副本。
 
 ## 5. 外部数据源
 

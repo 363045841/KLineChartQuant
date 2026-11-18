@@ -834,7 +834,11 @@ export class ChartDataManager {
       // 指标计算异步提交，提交后由结果链路回调 scheduleDraw / 预警。
       this.deps.updateIndicatorData(
         bufferData,
-        change,
+        {
+          start: change.start,
+          end: change.end,
+          reset: change.kind !== DATA_CHANGE_KINDS.append && change.kind !== DATA_CHANGE_KINDS.tail,
+        },
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
       )

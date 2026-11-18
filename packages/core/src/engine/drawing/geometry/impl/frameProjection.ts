@@ -57,14 +57,19 @@ type MutableDrawingFrameProjection = {
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => Point {
   return (anchor) => ({
     x: context.coordinates.logicalToX(anchor.index) ?? Number.NaN,
-    y: context.coordinates.priceToY(anchor.price) ?? Number.NaN,
+    // 垂直线没有价格轴，纵向坐标按不可用处理；绘制只消费 x。
+    y:
+      anchor.type === 'vertical'
+        ? Number.NaN
+        : (context.coordinates.priceToY(anchor.price) ?? Number.NaN),
   })
 }
 
 /** 缺失时间锚点对应的数据时不能生成几何，禁止复用旧位置。 */
 function hasResolvableTimeAnchors(drawing: ResolvedDrawingObject): boolean {
   return drawing.anchors.every((anchor) => {
-    if (!Number.isFinite(anchor.price)) return false
+    // 垂直线没有价格轴：只要时间可解析就能生成几何。
+    if (anchor.type !== 'vertical' && !Number.isFinite(anchor.price)) return false
     if (anchor.logicalIndex !== undefined) return Number.isFinite(anchor.index)
     const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
     return timestamp === undefined || Number.isFinite(anchor.index)
@@ -236,7 +241,7 @@ function resolveAnchorTimestamp(
 /** 价格轴标签只在锚点落在 Pane 高度内时注册。 */
 function registerPriceAxisTag(
   context: RenderContext,
-  anchor: ResolvedDrawingAnchor,
+  price: number,
   point: Point,
   color: string,
   textColor: string,
@@ -247,7 +252,7 @@ function registerPriceAxisTag(
     'yRightOverlay',
     {
       kind: AXIS_LABEL_KIND.TAG,
-      text: anchor.price.toFixed(2),
+      text: price.toFixed(2),
       pos: point.y + context.pane.top,
       origin: context.pane.top,
       variant: 'label',
@@ -305,15 +310,17 @@ function projectAnchorAxisLabels(
   context: RenderContext,
   toScreen: (anchor: ResolvedDrawingAnchor) => Point,
 ): void {
-  if (!Number.isFinite(anchor.price)) return
   // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
   const indexVisible = isAnchorIndexVisible(anchor, context.range)
-  const wantsPrice = !timeLabelOnly && (priceLabelOnly || indexVisible)
+  // 垂直线没有价格轴：只按时间轴注册标签，不能因为缺价格而整条跳过。
+  const price =
+    anchor.type === 'vertical' || !Number.isFinite(anchor.price) ? null : anchor.price
+  const wantsPrice = !timeLabelOnly && price !== null && (priceLabelOnly || indexVisible)
   const timeText = resolveTimeLabelText(anchor, priceLabelOnly, indexVisible, context)
   if (!wantsPrice && timeText === null) return
 
   const point = toScreen(anchor)
-  if (wantsPrice) registerPriceAxisTag(context, anchor, point, color, labelTextColor)
+  if (wantsPrice && price !== null) registerPriceAxisTag(context, price, point, color, labelTextColor)
   if (timeText !== null) registerTimeAxisTag(context, timeText, point, color, labelTextColor)
 }
 
@@ -326,7 +333,10 @@ function projectAxisRangeBands(
   output: MutableDrawingFrameProjection,
 ): void {
   const valid = anchors.filter(
-    (anchor) => isAnchorIndexVisible(anchor, context.range) && Number.isFinite(anchor.price),
+    (anchor): anchor is ResolvedDrawingAnchor & { readonly price: number } =>
+      anchor.type !== 'vertical' &&
+      isAnchorIndexVisible(anchor, context.range) &&
+      Number.isFinite(anchor.price),
   )
   if (valid.length < 2) return
   const prices = valid.map((anchor) => anchor.price)
@@ -476,6 +486,8 @@ export function computeDrawingPriceRange(
     const drawing = resolveVisibleDrawing(storedDrawing, definitions, context)
     if (!drawing) continue
     for (const anchor of drawing.anchors) {
+      // 垂直线没有价格轴，不参与图元价格范围。
+      if (anchor.type === 'vertical') continue
       min = Math.min(min, anchor.price)
       max = Math.max(max, anchor.price)
     }

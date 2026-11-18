@@ -2,6 +2,7 @@
 import type { KLineData } from '@/controllers/types.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { formatDateInTimeZone } from '@/foundation/time/index.js'
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
 import type {
@@ -49,8 +50,10 @@ import {
   type TradesSelection,
 } from './seriesRepository.js'
 
-/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */
-export interface TradesCacheQuery {
+/** Agent 日期窗口查询最多向前翻的页数；用尽仍未覆盖 `from` 时如实标记截断。 */
+const BARS_WINDOW_PAGE_BUDGET = 12
+
+/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */export interface TradesCacheQuery {
   readonly selection: TradesSelection
   readonly instrument: InstrumentDescriptor
   readonly range: TradeRange
@@ -77,6 +80,17 @@ export interface BarsCacheResult {
   readonly sourceId: string
   readonly instrument: InstrumentDescriptor
   readonly series: BarSeries
+}
+
+/** Agent 的日期窗口查询：`from` / `to` 为该品种时区下的交易日或 RFC 3339。 */
+export interface BarsWindowCacheQuery extends BarsCacheQuery {
+  readonly from?: string
+  readonly to?: string
+}
+
+/** 窗口查询结果；truncated 表示 limit 用尽仍未覆盖到 from。 */
+export interface BarsWindowCacheResult extends BarsCacheResult {
+  readonly truncated: boolean
 }
 
 export interface TimeShareCacheQuery {
@@ -477,6 +491,56 @@ export class MarketDataCache {
       sourceId: entry.sourceId,
       instrument: entry.instrument,
       series: { ...entry.series, data: [...data], olderData: entry.olderData },
+    }
+  }
+
+  /**
+   * 按日期窗口查询 K 线。
+   *
+   * 调用方只表达"要哪段、最多多少根"，向前翻多少页由这里决定：先取最新一页，
+   * 再以最早一根为游标回退，直到覆盖 `from`、历史耗尽或页预算用完。
+   * `limit` 始终是返回根数上限，窗口未被覆盖时用 `truncated` 明示。
+   */
+  async queryBarsWindow(query: BarsWindowCacheQuery): Promise<BarsWindowCacheResult> {
+    const collected: KLineData[] = []
+    const seen = new Set<number>()
+    // 窗口只有一个下界：有 from 就覆盖到 from，只给 to 就覆盖到 to。
+    const lowerBound = query.from ?? query.to
+    let page = await this.queryBars(query)
+    const timezone = page.series.timezone
+    let olderData = page.series.olderData
+    let covered = lowerBound === undefined
+
+    for (let pageIndex = 0; ; pageIndex++) {
+      for (const bar of page.series.data) {
+        if (seen.has(bar.timestamp)) continue
+        seen.add(bar.timestamp)
+        const date = formatDateInTimeZone(bar.timestamp, timezone)
+        if (query.to !== undefined && date > query.to) continue
+        if (query.from !== undefined && date < query.from) continue
+        collected.push(bar)
+      }
+      const earliest = page.series.data[0]
+      if (lowerBound !== undefined && earliest !== undefined) {
+        covered = formatDateInTimeZone(earliest.timestamp, timezone) <= lowerBound
+      }
+      olderData = page.series.olderData
+      if (covered || olderData === OLDER_DATA_STATUS.EXHAUSTED) break
+      if (collected.length >= query.limit || pageIndex + 1 >= BARS_WINDOW_PAGE_BUDGET) break
+      const next = await this.queryBars({ ...query, beforeTimestamp: earliest!.timestamp })
+      olderData = next.series.olderData
+      if (next.series.data.length === 0) break
+      page = next
+    }
+
+    collected.sort((left, right) => left.timestamp - right.timestamp)
+    const data =
+      collected.length > query.limit ? collected.slice(collected.length - query.limit) : collected
+    return {
+      sourceId: page.sourceId,
+      instrument: page.instrument,
+      series: { ...page.series, data, olderData },
+      truncated: !covered && olderData !== OLDER_DATA_STATUS.EXHAUSTED,
     }
   }
 

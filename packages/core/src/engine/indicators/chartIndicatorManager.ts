@@ -797,10 +797,12 @@ export class ChartIndicatorManager {
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
     for (const axis of axes) {
-      const state = states.get(axis.objectId)
-      if (!isPlotRenderState(state) || state.visibleMin > state.visibleMax) continue
-      min = Math.min(min, state.visibleMin)
-      max = Math.max(max, state.visibleMax)
+      for (const objectId of axis.objectIds) {
+        const state = states.get(objectId)
+        if (!isPlotRenderState(state) || state.visibleMin > state.visibleMax) continue
+        min = Math.min(min, state.visibleMin)
+        max = Math.max(max, state.visibleMax)
+      }
     }
     return min <= max ? { min, max } : null
   }

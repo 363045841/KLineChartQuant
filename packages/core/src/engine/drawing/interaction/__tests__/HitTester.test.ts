@@ -93,7 +93,7 @@ describe('HitTester', () => {
       kind: 'vertical-line',
       paneId: 'main',
       visible: true,
-      anchors: [{ id: 'anchor', type: 'vertical', time: 1_000, price: 20 }],
+      anchors: [{ id: 'anchor', type: 'vertical', time: 1_000 }],
       params: {},
       style: { stroke: '#2962ff' },
     }
@@ -137,7 +137,7 @@ describe('HitTester', () => {
       kind: 'vertical-line',
       paneId: 'main',
       visible: true,
-      anchors: [{ id: 'anchor', type: 'vertical', time: 1_000, price: 100 }],
+      anchors: [{ id: 'anchor', type: 'vertical', time: 1_000 }],
       params: {},
       style: { stroke: '#2962ff' },
     }

@@ -67,11 +67,11 @@ describe('复制落点', () => {
     const vertical = createDrawingObject({
       id: 'vertical',
       kind: 'vertical-line',
-      anchors: [{ id: 'v', type: 'vertical', time: 1000, price: 100 }],
+      anchors: [{ id: 'v', type: 'vertical', time: 1000 }],
     })
     const copies = resolveCopyPlacements([horizontal, vertical], adapter)
     expect(copies[0]!.anchors[0]).toEqual({ id: 'h', type: 'horizontal', price: 52 })
-    expect(copies[1]!.anchors[0]).toMatchObject({ time: 3000, price: 100 })
+    expect(copies[1]!.anchors[0]).toEqual({ id: 'v', type: 'vertical', time: 3000 })
   })
 
   it('越过最后一根时通过交易日历保存绝对时间', () => {

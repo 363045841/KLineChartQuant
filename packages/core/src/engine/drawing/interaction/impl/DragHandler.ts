@@ -3,7 +3,6 @@ import type { DrawingViewportPort } from '@/controllers/types.js'
 import { midpoint, type Point } from '@/foundation/geometry/index.js'
 import {
   anchorToScreen,
-  bindDrawingViewport,
   isScreenPoint,
   resolveDrawingPointer,
   screenToAnchor,
@@ -105,7 +104,6 @@ export class DragHandler {
     const drawing = state.drawings[0]
     const dragged = drawing?.anchors[state.target.index]
     if (!drawing || dragged === undefined || isSingleAxisAnchor(dragged)) return null
-    adapter = bindDrawingViewport(adapter, drawing)
     const draggedScreen = anchorToScreen(dragged, drawing.paneId, adapter)
     if (!isScreenPoint(draggedScreen)) return null
     return nearestPointAnchor(drawing, state.target.index, draggedScreen, adapter)
@@ -149,7 +147,6 @@ export class DragHandler {
     options?: ResolveDrawingPointerOptions,
   ): DrawingObject[] | null {
     if (!this.dragState) return null
-    adapter = bindDrawingViewport(adapter, this.dragState.drawings[0]!)
 
     const target = this.dragState.target
     const pointer = resolveDrawingPointer(e, container, adapter, {
@@ -206,9 +203,7 @@ export class DragHandler {
       pointer.x - state.startMouse.x,
     )
     const dy = pointer.y - state.startMouse.y
-    return state.drawings.map((drawing) =>
-      this.moveDrawing(drawing, dx, dy, bindDrawingViewport(adapter, drawing)),
-    )
+    return state.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
   }
 
   /**
@@ -257,12 +252,21 @@ export class DragHandler {
     const dy = pointer.y - originScreen.y
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
     for (const moving of resolveAnchorFollowers(drawing.kind, index)) {
+      const current = anchors[moving.index]
+      if (!current) continue
       if (moving.index === index) {
-        anchors[moving.index] = {
-          ...anchors[moving.index]!,
-          time: dx === 0 ? anchors[moving.index]!.time : pointer.time,
-          price: pointer.price,
-        }
+        // 只写锚点自己拥有的轴：垂直线没有价格，水平线没有时间。
+        anchors[moving.index] =
+          current.type === 'vertical'
+            ? { id: current.id, type: 'vertical', time: dx === 0 ? current.time : pointer.time }
+            : current.type === 'horizontal'
+              ? { id: current.id, type: 'horizontal', price: pointer.price }
+              : {
+                  id: current.id,
+                  type: 'point',
+                  time: dx === 0 ? current.time : pointer.time,
+                  price: pointer.price,
+                }
         continue
       }
       const follower = snapshot?.anchors[moving.index]
@@ -270,12 +274,15 @@ export class DragHandler {
       if (!isScreenPoint(screen)) continue
       const offset = offsetScreen(screen, dx, dy, moving.follow)
       const resolved = screenToAnchor(offset.x, offset.y, drawing.paneId, adapter)
-      if (!resolved) continue
-      anchors[moving.index] = {
-        ...anchors[moving.index]!,
-        time: moving.follow?.time === 0 || dx === 0 ? follower!.time : resolved.time,
-        price: moving.follow?.price === 0 || dy === 0 ? follower!.price : resolved.price,
-      }
+      if (!resolved || !follower) continue
+      const time = moving.follow?.time === 0 || dx === 0 ? follower.time : resolved.time
+      const price = moving.follow?.price === 0 || dy === 0 ? follower.price : resolved.price
+      anchors[moving.index] =
+        current.type === 'vertical'
+          ? { id: current.id, type: 'vertical', time }
+          : current.type === 'horizontal'
+            ? { id: current.id, type: 'horizontal', price: price ?? current.price }
+            : { id: current.id, type: 'point', time, price: price ?? current.price }
     }
     return { ...drawing, anchors }
   }
@@ -294,10 +301,11 @@ export class DragHandler {
   ): DrawingObject {
     const anchor = drawing.anchors[index]
     if (!anchor) return drawing
+    // 单轴锚点只写自己的轴：水平线改价格，垂直线改时间。
     const next: PersistedDrawingAnchor =
       anchor.type === 'horizontal'
-        ? { ...anchor, type: 'horizontal', price: pointer.price }
-        : { ...anchor, type: 'vertical', time: pointer.time }
+        ? { id: anchor.id, type: 'horizontal', price: pointer.price }
+        : { id: anchor.id, type: 'vertical', time: pointer.time }
     const anchors = drawing.anchors.map((item) => ({ ...item }))
     anchors[index] = next
     return { ...drawing, anchors }
@@ -364,7 +372,16 @@ export class DragHandler {
     const priceDelta = pointerPrice - middlePrice
     for (const index of [handle.from, handle.to]) {
       const anchor = anchors[index]
-      if (anchor) anchors[index] = { ...anchor, price: anchor.price + priceDelta }
+      if (!anchor || anchor.type === 'vertical') continue
+      anchors[index] =
+        anchor.type === 'horizontal'
+          ? { id: anchor.id, type: 'horizontal', price: anchor.price + priceDelta }
+          : {
+              id: anchor.id,
+              type: 'point',
+              time: anchor.time,
+              price: anchor.price + priceDelta,
+            }
     }
   }
 
@@ -384,8 +401,16 @@ export class DragHandler {
     ] as const) {
       const resolved = screenToAnchor(screen.x + dx, screen.y, paneId, adapter)
       const anchor = anchors[index]
-      if (resolved && anchor)
-        anchors[index] = { ...anchor, time: dx === 0 ? anchor.time : resolved.time }
+      if (resolved && anchor && anchor.type !== 'horizontal')
+        anchors[index] =
+          anchor.type === 'vertical'
+            ? { id: anchor.id, type: 'vertical', time: dx === 0 ? anchor.time : resolved.time }
+            : {
+                id: anchor.id,
+                type: 'point',
+                time: dx === 0 ? anchor.time : resolved.time,
+                price: anchor.price,
+              }
     }
   }
 
@@ -409,28 +434,20 @@ export class DragHandler {
       if (screen.type === 'horizontal') {
         const price = adapter.getCoordinates(drawing.paneId)?.yToPrice(screen.y + dy)
         if (price === undefined || price === null) continue
-        anchors[index] = {
-          ...anchor,
-          type: 'horizontal',
-          price,
-        }
+        anchors[index] = { id: anchor.id, type: 'horizontal', price }
         continue
       }
       if (screen.type === 'vertical') {
         const resolved = screenToAnchor(screen.x + dx, 0, drawing.paneId, adapter)
-        if (resolved)
-          anchors[index] = {
-            ...anchor,
-            type: 'vertical',
-            time: resolved.time,
-          }
+        if (resolved) anchors[index] = { id: anchor.id, type: 'vertical', time: resolved.time }
         continue
       }
       // 整体拖拽始终使用完整位移，不按分量过滤。
       const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
-      if (resolved) {
+      if (resolved && anchor.type !== 'vertical') {
         anchors[index] = {
-          ...anchor,
+          id: anchor.id,
+          type: 'point',
           time: dx === 0 ? anchor.time : resolved.time,
           price: dy === 0 ? anchor.price : resolved.price,
         }

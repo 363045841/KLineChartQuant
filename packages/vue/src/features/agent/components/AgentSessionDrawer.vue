@@ -34,7 +34,7 @@
         <p v-if="sessions.length === 0" class="agent-session-drawer__empty">
           {{ text.noSessions }}
         </p>
-        <ul v-else class="agent-session-drawer__list">
+        <AgentRowList v-else class="agent-session-drawer__list">
           <AgentSessionRow
             v-for="session in sessions"
             :key="session.id"
@@ -50,7 +50,7 @@
             @delete="emit('delete', session.id)"
             @cancel="closeInteraction"
           />
-        </ul>
+        </AgentRowList>
       </aside>
     </div>
   </Transition>
@@ -66,6 +66,7 @@
   import SidePanelHeader from '../../side-panel/SidePanelHeader.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import type { AgentLocale } from '../agent-copy.js'
+  import AgentRowList from './AgentRowList.vue'
   import AgentSessionRow from './AgentSessionRow.vue'
   import { useAgentSessionDrawer } from './agent-session/impl/useAgentSessionDrawer.js'
 
@@ -127,12 +128,10 @@
   }
 
   .agent-session-drawer__list {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
-    margin: 0;
     padding: 0 6px 6px;
     overflow-y: auto;
-    list-style: none;
   }
 
   .agent-session-drawer-enter-active,

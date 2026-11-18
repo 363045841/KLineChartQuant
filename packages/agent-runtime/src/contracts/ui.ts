@@ -41,6 +41,15 @@ export type ToolProgressView = {
   label: string
 }
 
+/** 可序列化的错误细节值。 */
+export type AgentErrorDetail =
+  | string
+  | number
+  | boolean
+  | null
+  | AgentErrorDetail[]
+  | { [key: string]: AgentErrorDetail }
+
 /** 可展示的运行时错误。 */
 export type AgentErrorView = {
   code: string
@@ -49,6 +58,8 @@ export type AgentErrorView = {
   raw?: string
   retryable: boolean
   recommendedAction?: string
+  /** 领域错误带回的结构化修正线索，例如可用值、候选或最近交易日。 */
+  details?: { [key: string]: AgentErrorDetail }
 }
 
 /** 用户可管理的 Agent 工具设置项。 */

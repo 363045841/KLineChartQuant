@@ -1,113 +1,55 @@
-<!-- 单个会话行：展示、重命名及删除确认，编辑模式由抽屉统一控制。 -->
+<!-- 会话行：把会话字段适配到共享可编辑行，结构、样式与行内交互全部由 AgentListRow 提供。 -->
 <template>
-  <li
-    class="agent-session-drawer__item"
-    :class="{ 'is-active': active, 'is-editing': mode !== 'idle' }"
+  <AgentListRow
+    v-model:draft="draft"
+    :mode="mode"
+    :active="active"
+    :locale="locale"
+    :rename-label="text.sessionNamePrompt"
+    :confirm-label="text.deleteSession"
+    @select="emit('select')"
+    @submit="submitRename"
+    @delete="confirmDelete"
+    @cancel="emit('cancel')"
   >
-    <form
-      v-if="mode === 'rename'"
-      class="agent-session-drawer__rename"
-      @submit.prevent="submitRename"
-    >
-      <input
-        ref="renameInput"
-        v-model="draft"
-        class="form-control-inline-name"
-        type="text"
-        autocomplete="off"
-        :aria-label="text.sessionNamePrompt"
-        @keydown.escape.stop.prevent="emit('cancel')"
-      />
-      <BaseTooltip :content="text.confirm" placement="bottom">
+    {{ session.title }}
+    <template #actions>
+      <BaseTooltip :content="text.renameSession" placement="bottom">
         <BaseIconButton
-          type="submit"
-          :label="text.confirm"
-          :disabled="!draft.trim()"
+          :label="`${text.renameSession}: ${session.title}`"
+          @click="emit('requestRename')"
         >
-          <IconCheck aria-hidden="true" />
+          <IconPencil aria-hidden="true" />
         </BaseIconButton>
       </BaseTooltip>
-      <BaseTooltip :content="text.cancel" placement="bottom">
-        <BaseIconButton :label="text.cancel" @click="emit('cancel')">
-          <IconX aria-hidden="true" />
+      <BaseTooltip :content="text.deleteSession" placement="bottom">
+        <BaseIconButton
+          tone="danger"
+          :label="`${text.deleteSession}: ${session.title}`"
+          @click="emit('requestDelete')"
+        >
+          <IconTrash aria-hidden="true" />
         </BaseIconButton>
       </BaseTooltip>
-    </form>
-    <div
-      v-else-if="mode === 'delete'"
-      class="agent-session-drawer__confirm"
-      role="group"
-      :aria-label="text.deleteSession"
-      @keydown.escape.stop.prevent="emit('cancel')"
-    >
-      <span class="agent-session-drawer__confirm-text">{{ text.deleteSessionConfirm }}</span>
-      <button
-        ref="deleteCancel"
-        type="button"
-        class="agent-session-drawer__text-button"
-        @click="emit('cancel')"
-      >
-        {{ text.cancel }}
-      </button>
-      <button
-        type="button"
-        class="agent-session-drawer__text-button agent-session-drawer__text-button--danger"
-        @click="confirmDelete"
-      >
-        {{ text.deleteSession }}
-      </button>
-    </div>
-    <template v-else>
-      <button
-        type="button"
-        class="agent-session-drawer__select"
-        :aria-current="active ? 'true' : undefined"
-        @click="emit('select')"
-      >
-        <span class="agent-session-drawer__item-title">{{ session.title }}</span>
-      </button>
-      <div class="agent-session-drawer__item-actions">
-        <BaseTooltip :content="text.renameSession" placement="bottom">
-          <BaseIconButton
-            :label="`${text.renameSession}: ${session.title}`"
-            @click="emit('requestRename')"
-          >
-            <IconPencil aria-hidden="true" />
-          </BaseIconButton>
-        </BaseTooltip>
-        <BaseTooltip :content="text.deleteSession" placement="bottom">
-          <BaseIconButton
-            :label="`${text.deleteSession}: ${session.title}`"
-            @click="emit('requestDelete')"
-          >
-            <IconTrash aria-hidden="true" />
-          </BaseIconButton>
-        </BaseTooltip>
-      </div>
     </template>
-  </li>
+  </AgentListRow>
 </template>
 
 <script setup lang="ts">
-  import '../../../components/common/form-control.css'
-  import './agent-icon-button.css'
-  import './agent-session/impl/agent-session-row.css'
-
   import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import IconCheck from '~icons/tabler/check'
   import IconPencil from '~icons/tabler/pencil'
   import IconTrash from '~icons/tabler/trash'
-  import IconX from '~icons/tabler/x'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import type { AgentLocale } from '../agent-copy.js'
+  import AgentListRow from './AgentListRow.vue'
+  import type { AgentListRowMode } from './agent-row/types.js'
   import { useAgentSessionRow } from './agent-session/impl/useAgentSessionRow.js'
-  import type { AgentSessionRowMode } from './agent-session/types.js'
 
   const props = defineProps<{
     session: AgentSessionView
     active: boolean
-    mode: AgentSessionRowMode
+    mode: AgentListRowMode
     locale: AgentLocale
   }>()
   const draft = defineModel<string>('draft', { required: true })
@@ -119,10 +61,9 @@
     delete: []
     cancel: []
   }>()
-  const { text, submitRename, confirmDelete } = useAgentSessionRow(props, draft, {
+  const { text, submitRename, confirmDelete } = useAgentSessionRow(props, {
     rename: (title) => emit('rename', title),
     delete: () => emit('delete'),
     cancel: () => emit('cancel'),
   })
 </script>
-

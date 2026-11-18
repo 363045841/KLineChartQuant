@@ -16,7 +16,7 @@ import {
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
-import { AXIS_GROUP_PRICE, axisGroupId } from '../pane/axisGroups.js'
+import { AXIS_GROUP_DRAWING, AXIS_GROUP_PRICE, axisGroupId } from '../pane/axisGroups.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, installChartDomStubs, ResizeObserverMock } from './helpers/chartDomTestKit'
@@ -686,6 +686,28 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('adds a main-chart indicator to MAIN_PANE_ID after the main pane is moved', async () => {
+    const chart = mountChart()
+    try {
+      importPaneFixture(chart)
+      chart.panes.reorderPanes(['layout-b', MAIN_PANE_ID, 'layout-a'])
+      const id = 'main-overlay-after-reorder'
+      registerPlotDefinition({
+        id,
+        name: id,
+        source: 'native',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      const instanceId = chart.indicators.add(id, undefined, 'main')!
+      const instance = chart.indicators.instances.peek().find((item) => item.id === instanceId)!
+      expect(instance.paneId).toBe(MAIN_PANE_ID)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('removes only matching definition instances from a merged pane in one publication', async () => {
     const chart = mountChart()
     try {
@@ -1214,6 +1236,38 @@ describe('Chart lifecycle without a market selection', () => {
       chart.indicators.remove(third)
       chart.indicators.remove(second)
       expect(() => chart.axes.get(moved.axisId)).toThrow(moved.axisId)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
+  it('手绘横线借用指标所在窗格的主轴，移除指标后由窗格提供共享轴', async () => {
+    const chart = mountChart()
+    registerEmptyPlot('drawing-host')
+    try {
+      const indicatorId = chart.indicators.add('drawing-host')!
+      const { paneId, axisId } = chart.axes.bindingFor(indicatorId)
+      const pane = chart.getPaneRenderers().find((renderer) => renderer.getPane().id === paneId)!
+        .getPane()
+      const axis = pane.axis(axisId)
+      const drawing = chart.drawingCommands.create({
+        kind: 'horizontal-line',
+        paneId,
+        anchors: [{ price: 100 }],
+        style: { stroke: '#2962ff' },
+      })
+      expect(pane.axes).toEqual([{ axisId, yAxis: axis }])
+      expect(pane.objectAxis(drawing.id)).toBeNull()
+      expect(chart.axes.list().filter((binding) => binding.paneId === paneId)).toEqual([
+        { paneId, axisId, objectId: indicatorId },
+      ])
+
+      chart.indicators.remove(indicatorId)
+      const sharedAxis = axisGroupId(paneId, AXIS_GROUP_DRAWING)
+      expect(pane.axes).toEqual([{ axisId: sharedAxis, yAxis: chart.axes.get(sharedAxis) }])
+      expect(pane.objectAxis(drawing.id)).toBeNull()
+      expect(chart.drawingCommands.remove(drawing.id)).toBe(true)
+      expect(() => chart.axes.get(sharedAxis)).toThrow(sharedAxis)
     } finally {
       await chart.destroy()
     }

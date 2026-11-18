@@ -19,6 +19,7 @@ import {
   checkedDrawingMember,
   createOwnedDrawingApi,
   drawingAnchor,
+  drawingAnchorPrice,
   drawingAnchorX,
   drawingWidth,
 } from './drawingApi.js'
@@ -49,7 +50,7 @@ export function createDrawingBoxApi(
         return drawingAnchor(
           anchor.id,
           patch.x ?? drawingAnchorX(anchor),
-          patch.y ?? anchor.price,
+          patch.y ?? drawingAnchorPrice(anchor),
           mode,
           context.barCount,
         )
@@ -248,7 +249,7 @@ export function createDrawingBoxApi(
             drawingAnchor(
               a.id,
               LEFT_CORNERS.includes(i) ? left : right,
-              a.price,
+              drawingAnchorPrice(a),
               mode,
               context.barCount,
             ),
@@ -293,12 +294,12 @@ export function createDrawingBoxApi(
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN
     },
-    get_top: (id: BoxRef) => api.get(id)?.anchors[0]?.price ?? Number.NaN,
+    get_top: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
     get_right: (id: BoxRef) => {
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[1]!) : Number.NaN
     },
-    get_bottom: (id: BoxRef) => api.get(id)?.anchors[2]?.price ?? Number.NaN,
+    get_bottom: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[2]),
     copy: api.copy,
     delete: api.delete,
   })

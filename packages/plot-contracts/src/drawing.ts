@@ -57,15 +57,40 @@ export type DrawingStyle = {
   fontSize?: number
 }
 export type DrawingLabelPosition = 'start' | 'center' | 'end'
-export type DrawingAnchorType = 'point' | 'horizontal' | 'vertical'
-/** 时间锚点用于用户文档；logicalIndex 对应脚本当前运行的数据。 */
-export type PersistedDrawingAnchor = {
+
+/** 点锚点：时间（或脚本索引）与价格共同定位。 */
+export type PointDrawingAnchor = {
   id: string
-  type?: DrawingAnchorType
+  /** 缺省即点锚点，用于兼容早期持久化数据。 */
+  type?: 'point'
   time?: number | string
   logicalIndex?: number
   price: number
 }
+
+/** 水平类锚点：只有价格轴，时间轴不参与定位。 */
+export type HorizontalDrawingAnchor = {
+  id: string
+  type: 'horizontal'
+  logicalIndex?: number
+  price: number
+  time?: never
+}
+
+/** 垂直类锚点：只有时间轴；渲染与命中都不需要价格。 */
+export type VerticalDrawingAnchor = {
+  id: string
+  type: 'vertical'
+  time?: number | string
+  logicalIndex?: number
+  price?: never
+}
+
+/** 时间锚点用于用户文档；logicalIndex 对应脚本当前运行的数据。 */
+export type PersistedDrawingAnchor =
+  | PointDrawingAnchor
+  | HorizontalDrawingAnchor
+  | VerticalDrawingAnchor
 export type DrawingKind =
   | 'trend-line'
   | 'ray'
@@ -90,6 +115,8 @@ export type DrawingLabels = {
   area: Record<DrawingLabelIndex, DrawingLabel>
 }
 export type DrawingWorkspaceId = 'kline' | 'timeshare'
+/** 标签按渲染输出分组：线段与填充区域各自独立。 */
+export type DrawingLabelGroups = Partial<DrawingLabels>
 /** 图元的周期可见性规则；参考周期在用户选择时确定。 */
 export type DrawingTimeframeVisibility =
   | { readonly mode: 'all' }
@@ -352,7 +379,7 @@ export type DrawingPatch = {
   readonly anchors?: ReadonlyArray<PersistedDrawingAnchor> | undefined
   readonly style?: Partial<DrawingStyle> | undefined
   readonly params?: Readonly<Record<string, unknown>> | undefined
-  readonly labels?: DrawingLabels | undefined
+  readonly labels?: DrawingLabelGroups | undefined
   readonly visible?: boolean | undefined
   readonly timeframeVisibility?: DrawingTimeframeVisibility | undefined
   readonly locked?: boolean | undefined

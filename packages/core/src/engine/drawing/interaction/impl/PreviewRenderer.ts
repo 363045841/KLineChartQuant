@@ -79,7 +79,6 @@ export class PreviewRenderer {
                 id: `${PREVIEW_ID}-a`,
                 type: 'vertical',
                 time: anchor.time!,
-                price: anchor.price,
               }
             : {
                 id: `${PREVIEW_ID}-a`,

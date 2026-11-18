@@ -82,7 +82,7 @@ data/
 ### 1. 渲染 primitive 与领域模型分层
 
 - **保留在 `foundation/plugin/types.ts`**：`DrawingStyle`、`ScreenPoint`、`DrawingLabelPosition`、`PrimitiveTextAttachment`、`ScreenDrawingAnchor`、`DrawingPrimitive` 及全部 `*Primitive`、`DrawingFrameProjection`。原因：`RenderContext` / `RenderOverlayContext`（foundation 的渲染契约）依赖这些屏幕原语，foundation 不能反向依赖 engine。
-- **迁入 `engine/drawing/types.ts`**：`DrawingObject`、`ResolvedDrawingObject`、`DrawingKind`、`PersistedDrawingAnchor`、`ResolvedDrawingAnchor`、`DrawingAnchorType`、`DrawingLabel(s)`、`DrawingLabelIndex`、`DrawingWorkspaceId`、`DrawingGeometry`、`DrawingComputeContext`、`DrawingDefinition`。原因：这些是绘图领域模型，与插件系统无关，属于本模块对外契约。
+- **迁入 `engine/drawing/types.ts`**：`DrawingObject`、`ResolvedDrawingObject`、`DrawingKind`、`PersistedDrawingAnchor`、`ResolvedDrawingAnchor`、`DrawingLabel(s)`、`DrawingLabelIndex`、`DrawingWorkspaceId`、`DrawingGeometry`、`DrawingComputeContext`、`DrawingDefinition`。原因：这些是绘图领域模型，与插件系统无关，属于本模块对外契约。
 
 ### 2. 子模块语义划分
 

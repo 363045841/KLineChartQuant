@@ -71,8 +71,10 @@ export type { AxisLabelRegistrar } from './engine/renderers/impl/labels/types.js
 export {
   createMarketDataError,
   createMissingSessionError,
+  ERROR_CODES,
   isKLineChartError,
   KLineChartError,
+  MARKET_QUERY_ERROR_CODES,
   type KLineChartErrorCode,
   type KLineChartErrorOptions,
 } from './errors.js'

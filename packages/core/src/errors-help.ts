@@ -56,7 +56,11 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'The requested time range does not overlap the active chart data. Read the current Agent context and choose a range inside dataRange.',
   NO_DATA: 'Load an active K-line series before reading Agent context or querying an indicator.',
   INDICATOR_NOT_FOUND:
-    'Use a registered indicator definition that exposes a calculator runtime before retrying the query.',
+    'Use an exact registered indicator name; if the name exists, make sure it exposes a calculator runtime.',
+  INDICATOR_INSTANCE_NOT_FOUND:
+    'The instanceId does not exist on this chart. Call indicators_list and use one of the returned instanceId values; never invent ids.',
+  TARGET_ROW_OUT_OF_RANGE:
+    'targetRow must be an existing chart row: 0 is the main chart, 1..n are the sub-pane rows returned by indicators_list.',
   DATA_REVISION_CHANGED:
     'Market data changed throughout the bounded query attempts. Retry from a fresh context snapshot when the active series stabilizes.',
 
@@ -132,18 +136,26 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
 
   // Drawing document
   DRAWING_UNKNOWN_PANE:
-    'Use one of the pane IDs currently present in the chart layout before creating the drawing.',
+    'Use one of the pane rows reported by drawings_list before creating the drawing.',
+  DRAWING_NOT_FOUND:
+    'Drawings are addressed by the id returned from drawings_list; call it again before retrying.',
+  DRAWING_LOCKED:
+    'The drawing is locked. Update it with locked=false first, then retry the delete.',
   DRAWING_INVALID_ANCHOR_COUNT:
     'Provide exactly the number of anchors required by the selected drawing kind.',
   DRAWING_ANCHOR_NOT_FOUND:
     'The anchor timestamp is not a bar in the loaded chart data. Anchor to a timestamp that is already loaded.',
   DRAWING_ANCHOR_DATE_OUT_OF_RANGE:
-    'The anchor trading date is outside the loaded range. Use a date between the earliest and latest loaded trading dates reported in the error details.',
+    'The anchor trading date is outside the loaded data range. Use a date inside the loaded range.',
   DRAWING_ANCHOR_DATE_NOT_TRADING:
     'The anchor trading date has no bar in the loaded data (holiday, suspension, or a non-trading day). Pick a date that actually has a bar.',
   DRAWING_ANCHOR_DATE_UNAVAILABLE:
-    'The loaded chart data exposes no per-bar date field, so anchoring by trading date is impossible here. Anchor by timestamp or bar position instead.',
+    'The loaded chart data cannot resolve a trading date. Load market data first, or anchor by timestamp.',
   DRAWING_INVALID_ANCHOR: 'Each drawing anchor requires a finite price and a valid timestamp.',
+
+  // Market data
+  INVALID_TRADING_DATE:
+    'The requested trading date has no data for this instrument. Use the nearest earlier trading day reported in the error details, or omit tradingDate to let Core pick the latest trading day.',
 
   // Persistence
   PERSISTENCE_UNAVAILABLE:

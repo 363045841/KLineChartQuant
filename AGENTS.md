@@ -79,7 +79,7 @@ pnpm workspace at `packages/*`。唯一对外发布包是 `packages/vue`(`@36304
 - **Plugin subsystem**: `packages/core/src/foundation/plugin/` —— PluginHost,HookSystem,EventBus,ConfigManager,StateStore,RendererPluginManager(只负责 register/config,paint 走 Scene).
 - **Rendering**: 管线 SSOT 是 `docs/rendering/rendering-pipeline.md`;分层更新由 `UpdateLevel` Main|Overlay|All 与正式 drawing 保留策略负责.已删除的 architecture/plugin 渲染文档不要复活.
 - **StateKernel**: 图表业务状态的唯一事实来源,契约与目录见 `packages/core/src/engine/state/README.md`.硬约束:每段状态只有一个 writable signal;派生值只放 `computed()`;对外只暴露 `ReadonlySignal`;多字段写入用 `batch()` 合成一次通知;有相关语义的数据必须通过一次完整快照 Action 写入.
-- **Core Native Agent Tools**: Agent 与用户等权,用户在 UI 能调用的入口就是 Agent 工具的入口;工具统一在 agent-runtime 中实现,通过 core 原生 `@Tool` 注册.
+- **Agent Tools**: Agent 与用户等权,用户在 UI 能调用的入口就是 Agent 工具的入口.图表工具是 `packages/core/src/features/agent/tools/` 里的纯数据定义,运行时与宿主动作在 `packages/agent-runtime/src/{tools,search}/`,由宿主适配为 Pi 的 `RuntimeToolDefinition`.
 
 ## Known Quirks
 

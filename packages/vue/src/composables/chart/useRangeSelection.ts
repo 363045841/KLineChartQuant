@@ -1,5 +1,8 @@
 /** 区间选择状态、统计指标与 CSV 导出逻辑。 */
-import { formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
+import {
+  formatDateInTimeZone,
+  formatDateTimeInTimeZone,
+} from '@363045841yyt/klinechart-core'
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
 import type { KLineAdjustment, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import {
@@ -20,18 +23,20 @@ export function calculateRangeReturnRate(startClose: number, endClose: number): 
   return ((endClose - startClose) / startClose) * 100
 }
 
-function fmtDate(item: KLineData | undefined): string {
-  if (!item) return '?'
-  if (item.date) return item.date
-  return new Date(item.timestamp).toISOString().slice(0, 10)
+/** 图表时区来自当前序列；未加载数据时为 null，调用方据此跳过日期文本。 */
+function chartTimeZone(controller: ChartController | null): string | null {
+  return controller?.agent.context.peek()?.timezone ?? null
 }
 
-function toYYYYMMDD(ts: number): string {
-  const d = new Date(ts)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}${m}${day}`
+/** 日期文本只由时间戳与序列时区生成，不读取任何按日缓存字段。 */
+function fmtDate(item: KLineData | undefined, timezone: string | null): string {
+  if (!item || timezone === null) return '?'
+  return formatDateInTimeZone(item.timestamp, timezone)
+}
+
+/** 文件名用的紧凑日期。 */
+function toCompactDate(timestamp: number, timezone: string): string {
+  return formatDateInTimeZone(timestamp, timezone).replaceAll('-', '')
 }
 
 function normalizeDateInput(input: string): string | null {
@@ -109,14 +114,14 @@ export function useRangeSelection(options: {
     const bounds = rangeSelectionBounds.value
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return ''
-    return fmtDate(data[bounds.start])
+    return fmtDate(data[bounds.start], chartTimeZone(controller.value))
   })
 
   const rangeSelectionEndLabel: ComputedRef<string> = computed(() => {
     const bounds = rangeSelectionBounds.value
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return ''
-    return fmtDate(data[bounds.end])
+    return fmtDate(data[bounds.end], chartTimeZone(controller.value))
   })
 
   const rangeSelectionCount = computed(() => {
@@ -307,25 +312,26 @@ export function useRangeSelection(options: {
   ]
 
   function downloadCsv(
-    items: ReadonlyArray<KLineData>,
+    items: ReadonlyArray<{ readonly bar: KLineData; readonly timezone: string }>,
     prefix: string,
     startTs: number,
     endTs: number,
+    timezone: string,
   ) {
     const header = `symbol,time,${CSV_FIELDS.join(',')}`
     const rows = [
       header,
-      ...items.map((item) => {
-        const timeStr = toCsvCell(formatDateTimeInTimeZone(item.timestamp))
-        const code = toCsvCell(item.symbol ?? prefix)
-        return `${code},${timeStr},${CSV_FIELDS.map((field) => toCsvCell(item[field])).join(',')}`
+      ...items.map(({ bar, timezone: seriesTimeZone }) => {
+        const timeStr = toCsvCell(formatDateTimeInTimeZone(bar.timestamp, seriesTimeZone))
+        const code = toCsvCell(bar.symbol ?? prefix)
+        return `${code},${timeStr},${CSV_FIELDS.map((field) => toCsvCell(bar[field])).join(',')}`
       }),
     ]
     const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${prefix}-${toYYYYMMDD(startTs)}-${toYYYYMMDD(endTs)}.csv`
+    a.download = `${prefix}-${toCompactDate(startTs, timezone)}-${toCompactDate(endTs, timezone)}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -337,6 +343,8 @@ export function useRangeSelection(options: {
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return
 
+    const timezone = chartTimeZone(controller.value)
+    if (timezone === null) return
     const startTs = data[bounds.start]!.timestamp
     const endTs = data[bounds.end]!.timestamp
     const mainSymbol = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
@@ -345,13 +353,13 @@ export function useRangeSelection(options: {
     const prefix =
       batchSymbols.value.length > 0 ? `batch${batchSymbols.value.length + 1}` : mainSymbol
 
-    const allItems: KLineData[] = []
+    const allItems: Array<{ bar: KLineData; timezone: string }> = []
 
     exportingProgress.value = { current: 0, total, label: '正在准备主品种数据...' }
 
     // Main stock
-    for (const item of data.slice(bounds.start, bounds.end + 1)) {
-      allItems.push(item)
+    for (const bar of data.slice(bounds.start, bounds.end + 1)) {
+      allItems.push({ bar, timezone })
     }
     exportingProgress.value = { current: 1, total, label: '主品种数据已就绪' }
 
@@ -377,8 +385,10 @@ export function useRangeSelection(options: {
             limit: 500,
             beforeTimestamp: endTs + 86_400_000,
           })
-          for (const item of result.series.data) {
-            if (item.timestamp >= startTs && item.timestamp <= endTs) allItems.push(item)
+          for (const bar of result.series.data) {
+            if (bar.timestamp >= startTs && bar.timestamp <= endTs) {
+              allItems.push({ bar, timezone: result.series.timezone })
+            }
           }
         } catch {
           continue
@@ -387,7 +397,7 @@ export function useRangeSelection(options: {
     }
 
     exportingProgress.value = { current: total, total, label: '正在生成文件...' }
-    downloadCsv(allItems, prefix, startTs, endTs)
+    downloadCsv(allItems, prefix, startTs, endTs, timezone)
     exportingProgress.value = { current: total, total, label: '导出完成' }
   }
 

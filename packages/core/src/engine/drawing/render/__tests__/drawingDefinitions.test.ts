@@ -1,6 +1,7 @@
 /** 核心绘图工具几何定义测试，验证新增工具的 primitive 输出与默认参数。 */
 
 import { describe, expect, it } from 'vitest'
+import { drawingAnchorPrice } from '@363045841yyt/klinechart-plot-contracts'
 import { getAnchorCountForTool, getDrawingKind } from '../../interaction/impl/toolConfig'
 import type { DrawingComputeContext, ResolvedDrawingObject } from '../../types'
 import { createArrowDefinition } from '../impl/definitions/arrow'
@@ -26,7 +27,7 @@ function context(): DrawingComputeContext {
     dpr: 1,
     paneWidth: 800,
     viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
-    toScreen: (anchor) => ({ x: anchor.index * 10, y: 200 - anchor.price }),
+    toScreen: (anchor) => ({ x: anchor.index * 10, y: 200 - drawingAnchorPrice(anchor) }),
   }
 }
 
@@ -37,8 +38,8 @@ function drawing(kind: ResolvedDrawingObject['kind']): ResolvedDrawingObject {
     paneId: 'main',
     visible: true,
     anchors: [
-      { id: 'a', index: 2, price: 100 },
-      { id: 'b', index: 12, price: 40 },
+      { id: 'a', type: 'point', index: 2, price: 100 },
+      { id: 'b', type: 'point', index: 12, price: 40 },
     ],
     params: {},
     style: { stroke: '#2962ff' },
@@ -50,15 +51,15 @@ function rectangleDrawing(overrides: Partial<ResolvedDrawingObject> = {}): Resol
   const anchors = drawing('rectangle').anchors
   const left = anchors[0]!
   const right = anchors[1]!
-  const top = Math.max(left.price, right.price)
-  const bottom = Math.min(left.price, right.price)
+  const top = Math.max(drawingAnchorPrice(left), drawingAnchorPrice(right))
+  const bottom = Math.min(drawingAnchorPrice(left), drawingAnchorPrice(right))
   return {
     ...drawing('rectangle'),
     anchors: [
-      { ...left, price: top },
-      { ...right, price: top },
-      { ...right, price: bottom },
-      { ...left, price: bottom },
+      { id: left.id, type: 'point', time: left.time, index: left.index, price: top },
+      { id: right.id, type: 'point', time: right.time, index: right.index, price: top },
+      { id: right.id, type: 'point', time: right.time, index: right.index, price: bottom },
+      { id: left.id, type: 'point', time: left.time, index: left.index, price: bottom },
     ],
     ...overrides,
   }

@@ -222,3 +222,68 @@ describe('MarketDataCache', () => {
     await expect(cache.queryBars(target)).rejects.toThrow('did not advance cached coverage')
   })
 })
+
+describe('MarketDataCache window queries', () => {
+  /** 2026-11 的第 n 天；窗口按 UTC 日期比较。 */
+  const day = (n: number): number => Date.UTC(2026, 10, n)
+
+  /** 按游标分页的取数替身：先给最新两天，再给更早两天，然后耗尽。 */
+  function pagedFetch() {
+    return vi.fn(async (beforeTimestamp?: number) => {
+      if (beforeTimestamp === undefined) return page([bar(day(17)), bar(day(18))], 'available')
+      if (beforeTimestamp === day(17)) return page([bar(day(15)), bar(day(16))], 'available')
+      return page([])
+    })
+  }
+
+  /** 窗口查询入参；用例只声明差异字段。 */
+  function windowQuery(overrides: {
+    limit?: number
+    from?: string
+    to?: string
+  }): Parameters<MarketDataCache['queryBarsWindow']>[0] {
+    return { ...query({ limit: overrides.limit ?? 10 }), ...overrides }
+  }
+
+  it('向前翻页直到覆盖 from，并裁剪到窗口内', async () => {
+    const fetch = pagedFetch()
+    const { cache } = createCache(fetch)
+
+    const result = await cache.queryBarsWindow(windowQuery({ from: '2026-11-15', to: '2026-11-18' }))
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(result.series.data.map((item) => item.timestamp)).toEqual([
+      day(15),
+      day(16),
+      day(17),
+      day(18),
+    ])
+    expect(result.truncated).toBe(false)
+  })
+
+  it('limit 用尽仍未覆盖 from 时标记截断', async () => {
+    const { cache } = createCache(pagedFetch())
+
+    const result = await cache.queryBarsWindow(windowQuery({ from: '2026-11-01', limit: 2 }))
+
+    expect(result.series.data.map((item) => item.timestamp)).toEqual([day(17), day(18)])
+    expect(result.truncated).toBe(true)
+  })
+
+  it('历史耗尽不是截断', async () => {
+    const { cache } = createCache(pagedFetch())
+
+    const result = await cache.queryBarsWindow(windowQuery({ from: '2026-11-01' }))
+
+    expect(result.series.data).toHaveLength(4)
+    expect(result.truncated).toBe(false)
+  })
+
+  it('to 之前的数据才进入结果', async () => {
+    const { cache } = createCache(pagedFetch())
+
+    const result = await cache.queryBarsWindow(windowQuery({ to: '2026-11-17' }))
+
+    expect(result.series.data.map((item) => item.timestamp)).toEqual([day(17)])
+  })
+})

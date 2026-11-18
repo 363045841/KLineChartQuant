@@ -160,6 +160,7 @@ export interface ProtocolTradingCalendar {
 // K 线条目
 export interface ProtocolKLineItem {
   timestamp: number
+  /** 数据源方言的日历字符串；领域层不消费，日期一律由时间戳派生。 */
   date?: string
   open: number
   high: number

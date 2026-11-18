@@ -7,7 +7,11 @@ import type {
 } from '@363045841yyt/klinechart-agent-runtime'
 import { AgentRuntimeError } from '@363045841yyt/klinechart-agent-runtime'
 import { createMemoryRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/testing'
-import { KLineChartError } from '@363045841yyt/klinechart-core'
+import {
+  ERROR_CODES,
+  KLineChartError,
+  MARKET_QUERY_ERROR_CODES,
+} from '@363045841yyt/klinechart-core'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge as ProductionBrowserAgentBridge } from '../browser-agent/bridge/impl/browser-agent-bridge'
@@ -559,7 +563,6 @@ describe('BrowserAgentBridge', () => {
 
   it('projects selected drawings as one drawing-selection context item', () => {
     const context = createTestChartAgentContext({
-      period: 'kline',
       visibleRange: null,
       drawingSelection: {
         selectedIds: ['line-1', 'line-2'],
@@ -567,24 +570,29 @@ describe('BrowserAgentBridge', () => {
           {
             id: 'line-1',
             kind: 'trend-line',
-            placement: 'main',
+            row: 0,
             visible: true,
             locked: false,
             zIndex: null,
-            anchors: [{ timestamp: 1, price: 10 }],
+            anchors: [
+              { time: '2026-09-01T09:30:00+08:00', price: 10 },
+              { time: '2026-09-02T09:30:00+08:00', price: 11 },
+            ],
             style: { stroke: '#2962ff', fill: undefined },
             labels: { line: {}, area: {} },
+            timeframeVisibility: { mode: 'all' },
           },
           {
             id: 'line-2',
             kind: 'horizontal-line',
-            placement: 'main',
+            row: 0,
             visible: true,
             locked: true,
             zIndex: 2,
-            anchors: [{ timestamp: null, price: 11 }],
+            anchors: [{ price: 11 }],
             style: { stroke: '#f00' },
             labels: { line: {}, area: {} },
+            timeframeVisibility: { mode: 'all' },
           },
         ],
       },
@@ -609,24 +617,28 @@ describe('BrowserAgentBridge', () => {
   it('runs a write tool through the manual debug entrypoint', async () => {
     const create = vi.fn(() => ({
       id: 'drawing-1',
-      kind: 'horizontal-line',
-      placement: 'main',
+      kind: 'horizontal-line' as const,
+      row: 0,
       visible: true,
       locked: false,
       zIndex: null,
-      anchors: [{ timestamp: Date.parse('2026-09-02'), price: 9 }],
+      anchors: [{ price: 9 }],
       style: { stroke: '#2962ff' },
       labels: { line: {}, area: {} },
+      timeframeVisibility: { mode: 'all' as const },
+      visibleInCurrentPeriod: true,
     }))
     const agent = createTestChartAgent({
       tools: createTestToolDeps({
         drawings: {
-          list: () => [],
+          list: () => ({ timezone: 'UTC', period: '1h', drawings: [] }),
           create,
-          update: () => null,
-          remove: () => false,
-          copy: () => [],
-          clear: () => 0,
+          update: () => {
+            throw new Error('not used')
+          },
+          remove: () => {
+            throw new Error('not used')
+          },
         },
       }),
     })
@@ -635,7 +647,7 @@ describe('BrowserAgentBridge', () => {
     await expect(
       bridge.debugTool('drawings_write', {
         action: 'create',
-        placement: 'main',
+        row: 0,
         kind: 'horizontal-line',
         anchors: [{ price: 9 }],
         style: { stroke: '#4A90D9' },
@@ -644,32 +656,46 @@ describe('BrowserAgentBridge', () => {
     expect(create).toHaveBeenCalledOnce()
   })
 
-  it('returns market tool contract errors to the model', async () => {
+  it.each([
+    {
+      name: '取数失败可重试，并带出结构化细节',
+      error: new KLineChartError(ERROR_CODES.FETCH_FAILED, 'Upstream is down.', {
+        details: { sourceId: 'tdx' },
+      }),
+      expected: { retryable: true, details: { sourceId: 'tdx' } },
+    },
+    {
+      name: '非交易日不可重试，错误里带出最近的交易日',
+      error: new KLineChartError(
+        MARKET_QUERY_ERROR_CODES.INVALID_TRADING_DATE,
+        '2026-11-15 is not a trading day.',
+        { details: { requested: '2026-11-15', previous: '2026-11-14' } },
+      ),
+      expected: {
+        retryable: false,
+        details: { requested: '2026-11-15', previous: '2026-11-14' },
+      },
+    },
+  ])('把行情工具失败原样交给模型：$name', async ({ error, expected }) => {
     const agent = createTestChartAgent({
       tools: createTestToolDeps({
         market: {
-          listSourceIds: () => [],
-          lookupInstrument: async () => '',
+          listSources: () => [],
+          lookup: async () => ({ content: '', summary: '' }),
           bars: async () => {
-            throw new KLineChartError('INVALID_ARGUMENTS', 'The requested period is unavailable.')
+            throw error
           },
-          timeShare: async () => '',
+          timeShare: async () => ({ content: '', summary: '' }),
           indicatorValues: async () => '',
         },
       }),
     })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
-    await expect(
-      bridge.debugTool('market_bars_query', {
-        symbol: 'BTCUSDT',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
-        limit: 1,
-      }),
-    ).resolves.toMatchObject({
-      content: expect.stringContaining('INVALID_ARGUMENTS'),
+    const result = await bridge.debugTool('market_bars_query', { symbol: 'BTCUSDT' })
+    expect(JSON.parse(result.content)).toMatchObject({
+      success: false,
+      error: { code: error.code, ...expected },
     })
   })
 

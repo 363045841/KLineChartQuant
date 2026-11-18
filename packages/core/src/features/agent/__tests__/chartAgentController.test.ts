@@ -31,27 +31,24 @@ function createBars(): KLineData[] {
 
 /** 空工具依赖；上下文投影不触碰工具。 */
 function stubTools(): ChartAgentToolDeps {
+  const unused = (): never => {
+    throw new Error('not used')
+  }
   return {
     indicators: {
       list: () => [],
-      add: () => {
-        throw new Error('not used')
-      },
-      update: () => false,
-      move: () => false,
-      remove: () => false,
-      clear: () => 0,
+      add: unused,
+      read: unused,
+      update: unused,
+      move: unused,
+      remove: unused,
       resolveDefinition: async () => null,
     },
     drawings: {
-      list: () => [],
-      create: () => {
-        throw new Error('not used')
-      },
-      update: () => null,
-      remove: () => false,
-      copy: () => [],
-      clear: () => 0,
+      list: () => ({ timezone: 'UTC', period: 'daily', drawings: [] }),
+      create: unused,
+      update: unused,
+      remove: unused,
     },
     comparisons: {
       list: () => [],
@@ -61,10 +58,10 @@ function stubTools(): ChartAgentToolDeps {
       clear: () => 0,
     },
     market: {
-      listSourceIds: () => [],
-      lookupInstrument: async () => '',
-      bars: async () => '',
-      timeShare: async () => '',
+      listSources: () => [],
+      lookup: async () => ({ content: '', summary: '' }),
+      bars: async () => ({ content: '', summary: '' }),
+      timeShare: async () => ({ content: '', summary: '' }),
       indicatorValues: async () => '',
     },
   }
@@ -77,7 +74,6 @@ function createFixture() {
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const controller = createChartAgentController({
-    chartId: 'chart-1',
     dataState,
     currentSpec: createSignal<SymbolSpec | null>({
       symbol: 'BTCUSDT',
@@ -87,29 +83,17 @@ function createFixture() {
       adjust: 'none',
       source: 'fixture',
     }),
-    chartMode: createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline'),
     selectedRange,
-    indicators: createSignal<ReadonlyArray<IndicatorInstance>>([
-      {
-        id: 'rsi-1',
-        definitionId: 'RSI',
-        label: 'RSI',
-        name: 'RSI',
-        paneId: 'pane-a',
-        ordinal: 0,
-        params: { period: 14, showLabel: true, invalid: Number.NaN },
-      },
-    ]),
     drawings,
     selectedDrawingIds,
-    readPlacement: (paneId) => (paneId === 'main' ? 'main' : paneId === 'pane-a' ? 'rsi-1' : null),
+    readPaneRow: (paneId) => (paneId === 'main' ? 0 : paneId === 'pane-a' ? 1 : null),
+    formatAnchorTime: (timestamp) => `t:${timestamp}`,
     tools: stubTools(),
     marketDataTextFormatter: {
       formatBars: () => '',
       formatChartBars: () => 'chart bars text',
       formatInstrumentLookup: () => '',
-      formatTimeShare: () => '',
-      formatTimeShareRange: () => '',
+      formatTimeShareDays: () => '',
     },
   })
   return { controller, dataState, selectedRange, drawings, selectedDrawingIds }
@@ -138,25 +122,18 @@ describe('chart agent context', () => {
     )
   })
 
-  it('投影标的信息、数据范围与已启用指标', () => {
+  it('投影标的、时区与当前选择', () => {
     const { controller, dataState } = createFixture()
     publishBars(dataState)
     const context = controller.getContext()
-    expect(context).toMatchObject({
-      chartId: 'chart-1',
+    expect(context).toEqual({
       symbol: 'BTCUSDT',
-      market: 'crypto',
-      exchange: 'BINANCE',
-      period: 'kline',
-      dataSource: 'fixture',
-      adjustMode: 'none',
+      symbolName: null,
       timezone: 'UTC',
-      dataRange: { bars: 3 },
+      visibleRange: null,
+      selectedKLineBars: null,
+      drawingSelection: null,
     })
-    expect(context.activeIndicators).toEqual([
-      { instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } },
-    ])
-    expect(context.drawingSelection).toBeNull()
   })
 
   it('选定范围存在时附带已加载 K 线文本', () => {
@@ -175,7 +152,7 @@ describe('chart agent context', () => {
         kind: 'horizontal-line',
         paneId: 'main',
         visible: true,
-        anchors: [{ id: 'a1', type: 'horizontal', time: 1_000, price: 10 }],
+        anchors: [{ id: 'a1', type: 'horizontal', price: 10 }],
         params: {},
         style: { stroke: '#fff' },
       },
@@ -184,7 +161,7 @@ describe('chart agent context', () => {
         kind: 'horizontal-line',
         paneId: 'pane-a',
         visible: true,
-        anchors: [{ id: 'a2', type: 'horizontal', time: 1_000, price: 12 }],
+        anchors: [{ id: 'a2', type: 'horizontal', price: 12 }],
         params: {},
         style: { stroke: '#fff' },
       },
@@ -193,15 +170,16 @@ describe('chart agent context', () => {
         kind: 'horizontal-line',
         paneId: 'pane-other',
         visible: true,
-        anchors: [{ id: 'a3', type: 'horizontal', time: 1_000, price: 14 }],
+        anchors: [{ id: 'a3', type: 'horizontal', price: 14 }],
         params: {},
         style: { stroke: '#fff' },
       },
     ])
     selectedDrawingIds.set(['d-main', 'd-sub', 'd-other'])
     const selection = controller.getContext().drawingSelection
-    expect(selection?.selectedIds).toEqual(['d-main', 'd-sub', 'd-other'])
-    expect(selection?.drawings.map((item) => item.placement)).toEqual(['main', 'rsi-1', null])
+    expect(selection?.selectedIds).toEqual(['d-main', 'd-sub'])
+    expect(selection?.drawings.map((item) => item.row)).toEqual([0, 1])
+    expect(selection?.drawings[0]?.anchors).toEqual([{ price: 10 }])
   })
 })
 
@@ -209,22 +187,19 @@ describe('chart agent tool wiring', () => {
   it('控制器暴露组合根注入的工具依赖，不自行构造', () => {
     const tools = stubTools()
     const controller = createChartAgentController({
-      chartId: 'chart-2',
       dataState: createDataState(),
       currentSpec: createSignal<SymbolSpec | null>(null),
-      chartMode: createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare'>('kline'),
       selectedRange: createSignal<{ from: number; to: number } | null>(null),
-      indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
       drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
       selectedDrawingIds: createSignal<ReadonlyArray<string>>([]),
-      readPlacement: () => null,
+      readPaneRow: () => null,
+      formatAnchorTime: (timestamp) => `t:${timestamp}`,
       tools,
       marketDataTextFormatter: {
         formatBars: vi.fn(() => ''),
         formatChartBars: vi.fn(() => ''),
         formatInstrumentLookup: vi.fn(() => ''),
-        formatTimeShare: vi.fn(() => ''),
-        formatTimeShareRange: vi.fn(() => ''),
+        formatTimeShareDays: vi.fn(() => ''),
       },
     })
     expect(controller.tools).toBe(tools)

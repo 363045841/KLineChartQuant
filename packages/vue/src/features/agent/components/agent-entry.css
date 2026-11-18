@@ -1,10 +1,15 @@
 /* 时间线条目共享样式：消息容器、操作按钮与编辑输入。 */
 
-.agent-entry {
-  /* 条目内联元信息：思考行、工具行与提问摘要共用同一份间距与图标尺寸。 */
+/* 条目与折叠行共用布局变量：历史消息和运行中的实时块都能继承到同一列。 */
+.agent-entry,
+.agent-disclosure {
   --agent-inline-gap: var(--klc-space-8);
   --agent-inline-icon: 16px;
+  /* 内容列：摘要行的名称、展开体正文与提问摘要都对齐到这一列。 */
+  --agent-disclosure-indent: calc(var(--agent-inline-icon) + var(--agent-inline-gap));
+}
 
+.agent-entry {
   display: grid;
   gap: var(--klc-space-8);
   min-width: 0;
@@ -44,10 +49,20 @@
 }
 
 .agent-disclosure__body {
+  position: relative;
   display: grid;
   gap: var(--klc-space-8);
-  margin: 6px 0 0 7px;
-  padding-left: 10px;
+  margin: 6px 0 0;
+  padding-left: var(--agent-disclosure-indent);
+}
+
+/* 竖线是装饰，独立于文字列：放在摘要图标的中线，不参与对齐。 */
+.agent-disclosure__body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--agent-inline-icon) / 2);
   border-left: 1px solid var(--klc-color-ui-border);
 }
 

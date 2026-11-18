@@ -1,0 +1,87 @@
+/* 可编辑列表行：空闲、重命名、删除确认三态共用同一行高，操作区随悬停与键盘聚焦出现。 */
+.agent-list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-2, 2px);
+  /* 行内容压在高亮块之上；悬停底色由 AgentRowList 的滑动高亮提供。 */
+  z-index: 1;
+  /* 字重只在这里声明一次，行内文字与按钮全部继承。 */
+  font-weight: var(--klc-text-label-12-font-weight, 500);
+}
+
+.agent-list-row.is-active,
+.agent-list-row.is-editing {
+  background: var(--klc-color-ui-hover);
+}
+
+.agent-list-row__select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--klc-space-8, 8px);
+  border: 0;
+  color: var(--klc-color-ui-text);
+  background: transparent;
+  font: inherit;
+  font-size: var(--klc-text-12-font-size, 12px);
+  line-height: var(--klc-text-12-line-height, 16px);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-list-row__select:focus-visible {
+  outline: 2px solid var(--klc-color-ui-focus-ring);
+  outline-offset: -2px;
+}
+
+.agent-list-row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 操作区常驻占位、只切换不透明度：文字不因悬停重新折行，也不需要放大内边距让位。 */
+.agent-list-row__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-2, 2px);
+  padding-right: var(--klc-space-4, 4px);
+  transition: opacity var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+}
+
+/* 触摸设备常驻操作；键盘聚焦同样显示，鼠标点击产生的焦点不常驻。 */
+@media (hover: hover) {
+  .agent-list-row__actions {
+    opacity: 0;
+  }
+
+  .agent-list-row:hover .agent-list-row__actions,
+  .agent-list-row:has(:focus-visible) .agent-list-row__actions {
+    opacity: 1;
+  }
+}
+
+.agent-list-row__editor,
+.agent-list-row__confirm {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--klc-space-4, 4px);
+  padding: var(--klc-space-4, 4px);
+}
+
+/* 行内输入取紧凑档高度，与空闲态行高对齐，进入编辑时列表不跳动。 */
+.agent-list-row__editor input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--klc-density-compact, 24px);
+}
+
+/* 危险操作用现有文字按钮，只换色，不再自带一套按钮实现。 */
+.agent-list-row__danger {
+  --base-button-color: var(--klc-color-ui-danger-text);
+  --base-button-hover-color: var(--klc-color-ui-danger-text);
+}

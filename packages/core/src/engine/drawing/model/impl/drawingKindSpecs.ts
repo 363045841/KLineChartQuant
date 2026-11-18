@@ -8,7 +8,7 @@
 import type { DrawingKind, DrawingKindSpec, DrawingObject } from '../../types.js'
 
 /** 无专属缺省参数的图元共用的冻结空对象。 */
-export const EMPTY_DRAWING_PARAMS: Readonly<Record<string, unknown>> = Object.freeze({})
+const EMPTY_DRAWING_PARAMS: Readonly<Record<string, unknown>> = Object.freeze({})
 
 /**
  * 种类声明。
@@ -118,6 +118,28 @@ const DRAWING_KIND_SPECS: Readonly<Record<DrawingKind, DrawingKindSpec>> = {
 export const DRAWING_KIND_VALUES: ReadonlyArray<DrawingKind> = Object.keys(
   DRAWING_KIND_SPECS,
 ) as DrawingKind[]
+
+/** 输入锚点需要的坐标轴；false 表示该轴不参与这个 kind 的锚点。 */
+export interface DrawingAnchorAxes {
+  readonly time: boolean
+  readonly price: boolean
+}
+
+const TIME_AND_PRICE_AXES: DrawingAnchorAxes = Object.freeze({ time: true, price: true })
+const TIME_ONLY_AXES: DrawingAnchorAxes = Object.freeze({ time: true, price: false })
+const PRICE_ONLY_AXES: DrawingAnchorAxes = Object.freeze({ time: false, price: true })
+
+/**
+ * 返回该 kind 的输入锚点轴。
+ *
+ * 垂直线只落在时间轴上，水平线只落在价格轴上；其余种类（含十字线与水平射线）
+ * 都需要同时给出时间和价格。写入契约与 `DrawingDocument` 的锚点解析共用这一份判定。
+ */
+export function drawingAnchorAxes(kind: DrawingKind): DrawingAnchorAxes {
+  if (kind === 'vertical-line') return TIME_ONLY_AXES
+  if (kind === 'horizontal-line') return PRICE_ONLY_AXES
+  return TIME_AND_PRICE_AXES
+}
 
 /** 取种类声明。 */
 export function drawingKindSpec(kind: DrawingKind): DrawingKindSpec {

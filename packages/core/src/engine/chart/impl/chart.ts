@@ -22,7 +22,7 @@ import {
   indicatorAxisGroupKey,
 } from '@/engine/pane/axisGroups.js'
 import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
-import type { ObjectAxesApi, PaneAxisSpec } from '@/engine/pane/axisTypes.js'
+import type { AxisSpec, ObjectAxesApi, ObjectAxisSpec } from '@/engine/pane/axisTypes.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
 import type { PaneAxisColumn } from '@/engine/pane/types.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
@@ -120,7 +120,6 @@ import {
   DrawingDocument,
   type DrawingInteractionController,
   type DrawingToolId,
-  resolveDrawingTradingDate,
 } from '../../drawing/index.js'
 import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
@@ -680,8 +679,6 @@ export class Chart {
     })
     this.drawingDocument = new DrawingDocument({
       drawingState: this.kernel.drawing,
-      findAnchorAtTradingDate: (tradingDate) =>
-        resolveDrawingTradingDate(this.getData(), tradingDate),
       hasPaneId: (paneId) => this.panes.getLayoutSpecs().some((pane) => pane.id === paneId),
       getWorkspaceId: () => this.drawing.getWorkspaceId(),
       getSymbolKey: () => this.drawing.getSymbolKey(),
@@ -765,7 +762,16 @@ export class Chart {
       requestDraw: (level) => this.renderer.scheduleDraw(level),
     })
     this.axes = createObjectAxesApi({
-      listBindings: () => [...this.indicatorManager.getPaneAxes().values()].flat(),
+      listBindings: () =>
+        [...this.indicatorManager.getPaneAxes().values()].flatMap((axes) =>
+          axes.flatMap(({ paneId, axisId, objectIds }) =>
+            objectIds.map((objectId) => ({ objectId, paneId, axisId })),
+          ),
+        ),
+      getAxisPaneId: (axisId) =>
+        this.paneRenderers.find((renderer) =>
+          renderer.getPane().axes.some((axis) => axis.axisId === axisId),
+        )?.getPane().id,
       getPane: (paneId) => this.paneRenderer(paneId)?.getPane(),
       getLayout: (paneId) => this.renderer.getAxisLayout(paneId),
       paneState: this.kernel.pane,
@@ -840,11 +846,13 @@ export class Chart {
   /** 捕获一次业务快照，投影阶段不再各自派生对象轴。 */
   private captureRuntimeProjection(): RuntimeProjectionSnapshot {
     const panes = this.kernel.pane.readonly.paneSpecs()
+    const objects = this.readObjectAxisDeclarations()
     return {
       panes,
       axes: resolvePaneAxes(
         panes.map((pane) => pane.id),
-        this.readObjectAxisDeclarations(),
+        objects,
+        this.readStandaloneDrawingAxes(panes.map((pane) => pane.id), objects),
       ),
       indicators: this.indicatorManager.readRuntimeInputs(),
       ranges: this.kernel.axesState.readonly.paneRanges(),
@@ -1013,17 +1021,10 @@ export class Chart {
   }
 
   /**
-   * 对象轴的唯一声明边界：先把对象归入量纲组，再让绘图借用已有轴。
-   *
-   * 价格类（价格序列 + 主图指标）共用价格轴，其余指标按定义合并；绘图不建轴，
-   * 跟随同 Pane 的 owner 轴或所在 Pane 的主轴。合并与预览都在这里完成，不写运行时资源。
+   * 行情序列和指标按量纲声明轴，手绘图元直接使用所在窗格的主轴。
    */
-  private readObjectAxisDeclarations(): ReadonlyArray<PaneAxisSpec> {
-    const spec = this.kernel.dataManager.readonly.currentSpec()
+  private readObjectAxisDeclarations(): ReadonlyArray<ObjectAxisSpec> {
     const view = this.kernel.mode.readonly.dataView()
-    const workspaceId = resolveChartWorkspaceId(view)
-    const symbolKey = spec === null ? undefined : symbolSpecIdentityKey(spec)
-    const period = this.kernel.mode.readonly.lastBarPeriod()
     const pricePaneId = this.kernel.systemObjects.readonly.pricePaneId()
     /** 量纲组在 Pane 内的轴身份；价格 Pane 的价格组复用价格序列对象的轴。 */
     const groupAxis = (paneId: string, groupKey: string): string =>
@@ -1058,35 +1059,6 @@ export class Chart {
       },
       ...indicatorAxes,
     ]
-    // 主轴是 Pane 内第一条轴；没有对象的 Pane 只可能承载绘图，其轴由该 Pane 的绘图构成。
-    const masterByPane = new Map<string, string>()
-    for (const axis of objectAxes) {
-      if (!masterByPane.has(axis.paneId)) masterByPane.set(axis.paneId, axis.axisId)
-    }
-    const axisByObjectId = new Map(objectAxes.map((axis) => [axis.objectId, axis]))
-    const drawings = [
-      ...new Map(
-        [
-          ...this.kernel.drawing.readonly.drawings(),
-          ...(this.drawingSession?.getPaintOverlay() ?? []),
-        ].map((drawing) => [drawing.id, drawing]),
-      ).values(),
-    ]
-    const drawingAxes = this.kernel.pane.readonly.paneSpecs.peek().flatMap((pane) => {
-      const masterAxisId = masterByPane.get(pane.id) ?? axisGroupId(pane.id, AXIS_GROUP_DRAWING)
-      return filterDrawingsInScope(drawings, {
-        paneId: pane.id,
-        workspaceId,
-        symbolKey,
-        period,
-      }).map((drawing) => ({
-        objectId: drawing.id,
-        paneId: drawing.paneId,
-        axisId: this.resolveDrawingAxisId(drawing, axisByObjectId, masterAxisId),
-        decimals: 2,
-        visible: drawing.visible,
-      }))
-    })
     const preferences = this.kernel.pane.readonly.paneScaleTypes()
     // 未保存逐轴偏好时，主价格轴由用户设置决定；其它量纲组默认线性。
     const priceScaleType =
@@ -1095,7 +1067,7 @@ export class Chart {
         this.kernel.settings.readonly.settings().mainRightAxisTypeSetting,
       )
     const percentView = isTimeShareDataView(view) || this.kernel.comparison.readonly.active()
-    return [...objectAxes, ...drawingAxes].map((axis) => ({
+    return objectAxes.map((axis) => ({
       ...axis,
       scaleType:
         axis.axisId === PRICE_SERIES_AXIS_ID
@@ -1106,22 +1078,41 @@ export class Chart {
     }))
   }
 
-  /**
-   * 绘图不拥有轴：跟随同 Pane 的 owner 轴，否则跟随所在 Pane 的主轴。
-   *
-   * @param drawing 绘图的 Pane 归属与可选 owner
-   * @param axisByObjectId 已有对象的轴绑定
-   * @param masterAxisId 绘图所在 Pane 的主轴
-   * @returns 绘图借用的轴身份
-   */
-  private resolveDrawingAxisId(
-    drawing: { readonly paneId: string; readonly ownerId?: string },
-    axisByObjectId: ReadonlyMap<string, { readonly paneId: string; readonly axisId: string }>,
-    masterAxisId: string,
-  ): string {
-    if (drawing.ownerId === undefined) return masterAxisId
-    const owner = axisByObjectId.get(drawing.ownerId)
-    return owner !== undefined && owner.paneId === drawing.paneId ? owner.axisId : masterAxisId
+  /** 仅承载绘图的窗格声明自己的共享轴。 */
+  private readStandaloneDrawingAxes(
+    paneIds: readonly string[],
+    objects: readonly ObjectAxisSpec[],
+  ): readonly AxisSpec[] {
+    const dataPanes = new Set(objects.map((object) => object.paneId))
+    const standalonePanes = paneIds.filter((paneId) => !dataPanes.has(paneId))
+    if (standalonePanes.length === 0) return []
+    const spec = this.kernel.dataManager.readonly.currentSpec()
+    const drawings = [
+      ...new Map(
+        [
+          ...this.kernel.drawing.readonly.drawings(),
+          ...(this.drawingSession?.getPaintOverlay() ?? []),
+        ].map((drawing) => [drawing.id, drawing]),
+      ).values(),
+    ]
+    const scope = {
+      workspaceId: resolveChartWorkspaceId(this.kernel.mode.readonly.dataView()),
+      symbolKey: spec === null ? undefined : symbolSpecIdentityKey(spec),
+      period: this.kernel.mode.readonly.lastBarPeriod(),
+    }
+    const preferences = this.kernel.pane.readonly.paneScaleTypes()
+    return standalonePanes.flatMap((paneId) => {
+      const scoped = filterDrawingsInScope(drawings, { ...scope, paneId })
+      if (scoped.length === 0) return []
+      const axisId = axisGroupId(paneId, AXIS_GROUP_DRAWING)
+      return [{
+        paneId,
+        axisId,
+        decimals: 2,
+        visible: scoped.some((drawing) => drawing.visible),
+        scaleType: preferences.get(axisId) ?? ScaleType.Linear,
+      }]
+    })
   }
 
   /** 协调者发布唯一宿主视图；轴迁移立即重排列，后续帧只修正测量宽度。 */

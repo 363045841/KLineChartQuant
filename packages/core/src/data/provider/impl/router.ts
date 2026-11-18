@@ -1,6 +1,13 @@
 /** 行情 Provider 能力流转层：按源级能力选择 Provider，并在确定性拒绝时切换数据源。 */
 
-import { ERROR_CODES, GENERIC_ERROR_CODES, isKLineChartError, KLineChartError } from '@/errors.js'
+import {
+  ERROR_CODES,
+  GENERIC_ERROR_CODES,
+  isKLineChartError,
+  KLineChartError,
+  type ErrorDetails,
+  type KLineChartErrorCode,
+} from '@/errors.js'
 import type {
   BarSeries,
   InstrumentCapabilities,
@@ -24,18 +31,48 @@ import type { MarketDataProviderRegistry } from './registry.js'
 export class SourceRoutingError extends KLineChartError {
   readonly attempts: ReadonlyArray<SourceRouteAttempt>
 
-  /** 创建包含完整流转链的统一错误。 */
-  constructor(attempts: ReadonlyArray<SourceRouteAttempt>) {
+  /**
+   * 创建包含完整流转链的统一错误。
+   *
+   * 错误码由流转链推导：所有源都"没有这个品种"就报 INSTRUMENT_NOT_FOUND，
+   * 都"不支持该能力"就报 UNSUPPORTED_CAPABILITY，只有真实取数失败才是 FETCH_FAILED。
+   * 这样模型拿到的是可纠正的事实，而不是"检查网络"。
+   */
+  constructor(attempts: ReadonlyArray<SourceRouteAttempt>, label: string, details: ErrorDetails) {
     super(
-      ERROR_CODES.FETCH_FAILED,
+      routeErrorCode(attempts),
       attempts.length === 0
-        ? '[SourceRouter] no enabled Provider supports the requested capability'
-        : `[SourceRouter] all candidate Providers rejected the request: ${attempts
+        ? `No enabled source can serve ${label}.`
+        : `${label} was rejected by every candidate source: ${attempts
             .map((attempt) => `${attempt.sourceId}:${attempt.code}`)
             .join(' -> ')}`,
+      { details: { ...details, attempts: serializeAttempts(attempts) } },
     )
     this.attempts = attempts
   }
+}
+
+/** 流转链转为可序列化的错误细节。 */
+function serializeAttempts(
+  attempts: ReadonlyArray<SourceRouteAttempt>,
+): Array<{ sourceId: string; code: string; message: string }> {
+  return attempts.map((attempt) => ({
+    sourceId: attempt.sourceId,
+    code: attempt.code,
+    message: attempt.message,
+  }))
+}
+
+/** 由流转链推导对外错误码；混合原因才归为取数失败。 */
+function routeErrorCode(attempts: ReadonlyArray<SourceRouteAttempt>): KLineChartErrorCode {
+  if (attempts.length === 0) return ERROR_CODES.UNSUPPORTED_CAPABILITY
+  if (attempts.every((attempt) => attempt.code === ERROR_CODES.INSTRUMENT_NOT_FOUND)) {
+    return ERROR_CODES.INSTRUMENT_NOT_FOUND
+  }
+  if (attempts.every((attempt) => attempt.code === ERROR_CODES.UNSUPPORTED_CAPABILITY)) {
+    return ERROR_CODES.UNSUPPORTED_CAPABILITY
+  }
+  return ERROR_CODES.FETCH_FAILED
 }
 
 /** 将未知异常转换为 Router 可分类的错误。 */
@@ -216,6 +253,9 @@ export class SourceRouter {
     const attempts: SourceRouteAttempt[] = []
     signal?.throwIfAborted()
     const candidates = await this.getCandidates(query, preferredSourceId, signal)
+    const label = [capability, identity.symbol, query.period, query.adjustment]
+      .filter((part): part is string => typeof part === 'string')
+      .join(' ')
     for (const provider of candidates) {
       try {
         signal?.throwIfAborted()
@@ -229,7 +269,12 @@ export class SourceRouter {
         if (!isRoutableRejection(code)) throw normalized
       }
     }
-    throw new SourceRoutingError(attempts)
+    throw new SourceRoutingError(attempts, label, {
+      capability,
+      symbol: identity.symbol,
+      ...(query.period === undefined ? {} : { period: query.period }),
+      ...(query.adjustment === undefined ? {} : { adjustment: query.adjustment }),
+    })
   }
 
   /** 请求 K 线并在确定性源拒绝时自动流转。 */

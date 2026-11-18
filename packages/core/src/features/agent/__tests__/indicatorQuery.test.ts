@@ -240,8 +240,11 @@ describe('createIndicatorQuery', () => {
     const dataState = createDataState()
     const query = createIndicatorQuery({
       dataState,
-      resolveDefinition: (definitionId) =>
-        definitionId === 'average' ? createAverageDefinition() : undefined,
+      resolveDefinition: (definitionId) => {
+        if (definitionId === 'average') return createAverageDefinition()
+        if (definitionId === 'display-only') return { name: 'display-only' }
+        return undefined
+      },
     })
 
     await expect(query.queryIndicator({ definitionId: 'average' })).rejects.toMatchObject({
@@ -252,6 +255,12 @@ describe('createIndicatorQuery', () => {
     await expect(query.queryIndicator({ definitionId: 'missing' })).rejects.toMatchObject({
       code: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
     })
+    await expect(query.queryIndicator({ definitionId: 'missing' })).rejects.toThrow(
+      /Unknown indicator 'missing'/,
+    )
+    await expect(query.queryIndicator({ definitionId: 'display-only' })).rejects.toThrow(
+      /has no calculator runtime/,
+    )
     await expect(
       query.queryIndicator({ definitionId: 'average', from: 10_000, to: 20_000 }),
     ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE })
