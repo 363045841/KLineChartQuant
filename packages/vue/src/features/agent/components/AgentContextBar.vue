@@ -74,7 +74,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
 
@@ -111,7 +111,7 @@
   .context-bar__readonly {
     order: -2;
     flex: 0 0 auto;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     gap: 6px;
     border: 0;
     background: var(--klc-color-agent-composer-input-background);

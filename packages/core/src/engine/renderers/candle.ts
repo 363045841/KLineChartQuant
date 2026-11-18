@@ -1,8 +1,6 @@
 /** K 线蜡烛图 Layer：投影实体与影线，通过公共原语写入 Scene 指定目标。 */
 import { HOLLOW_BODY_KLINE_SHAPES } from '../../foundation/config/chartSettings.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import { getKLineTrend } from '../../foundation/types/kLine.js'
@@ -45,19 +43,15 @@ type PreparedCandles = {
   downWickCount: number
 }
 
-/** 创建 K 线主体 Layer。形态直接取 settings.klineShape，作为唯一事实来源。 */
-export function createCandleLayer(): DrawListLayer<RenderContext> {
+/**
+ * 创建 K 线画笔；归属、身份和显示形态分派由行情对象统一负责。
+ */
+export function createCandlePainter(): Pick<DrawListLayer<RenderContext>, 'paint' | 'dispose'> {
   const buffers: CandleBuffers = { upBody: null, downBody: null, upWick: null, downWick: null }
   const retained = createRetainedGeometry<PreparedCandles, ProjectionRevision>(
     sameProjectionRevision,
   )
   return {
-    id: makePluginLayerId('candle'),
-    role: 'primary',
-    pane: 'main',
-    z: RENDERER_PRIORITY.MAIN,
-    visible: true,
-    kind: 'draw-list',
     paint(context) {
       if (context.dataView !== ChartDataViewId.KLine) return
       const { pane, data, range, kWidthPx, dpr, kLineCenters, settings } = context

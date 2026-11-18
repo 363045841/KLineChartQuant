@@ -1,18 +1,19 @@
 /** 公共图形构造入口：手绘文档和脚本 API 统一补齐对象与样式。 */
 import type { DrawingObject, DrawingObjectStore, DrawingPatch, DrawingStyle } from './drawing.js'
 
-/** 对象构造输入；可见性、参数与样式由调用方在上游给全，构造层不补默认值。 */
+/** 对象构造输入；可见性、参数与周期可见性由构造层补默认值，样式仍由调用方给全。 */
 export type DrawingObjectInput = Omit<DrawingObject, 'visible' | 'params' | 'style'> & {
   readonly visible?: boolean
   readonly params?: Record<string, unknown>
   readonly style: DrawingStyle
 }
 
-/** 复制调用方的锚点和样式，避免图形模型持有可变输入引用。 */
+/** 复制调用方的锚点和样式，避免图形模型持有可变输入引用；新建图元默认所有周期可见。 */
 export function createDrawingObject(input: DrawingObjectInput): DrawingObject {
   return snapshotDrawingObject({
     ...input,
     visible: input.visible ?? true,
+    timeframeVisibility: input.timeframeVisibility ?? { mode: 'all' },
     params: input.params ?? {},
   })
 }
@@ -38,6 +39,9 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
     params,
     labels,
     anchors: input.anchors.map((anchor) => ({ ...anchor })),
+    ...(input.timeframeVisibility === undefined
+      ? {}
+      : { timeframeVisibility: { ...input.timeframeVisibility } }),
     style: { ...input.style },
     ...(input.text === undefined ? {} : { text: { ...input.text } }),
   }
@@ -52,6 +56,9 @@ export function applyDrawingPatch(drawing: DrawingObject, patch: DrawingPatch): 
     ...(patch.params === undefined ? {} : { params: patch.params }),
     ...(patch.labels === undefined ? {} : { labels: patch.labels }),
     ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+    ...(patch.timeframeVisibility === undefined
+      ? {}
+      : { timeframeVisibility: { ...patch.timeframeVisibility } }),
     ...(patch.locked === undefined ? {} : { locked: patch.locked }),
     ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
   }

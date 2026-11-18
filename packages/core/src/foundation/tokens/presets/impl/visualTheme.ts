@@ -11,6 +11,8 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
     base.name === 'dark'
       ? { crosshairLabelBg: p.input, crosshairLabelText: p.text }
       : { crosshairLabelBg: p.text, crosshairLabelText: p.background }
+  // 浅色沿用固定的 chrome 中性色，深色取预设表面色：标题栏与活动标签共用这一档。
+  const surround = base.name === 'dark' ? p.surface : base.colors.ui.surroundBackground
   const theme: Theme = {
     ...base,
     name: `${id}-${base.name}`,
@@ -18,8 +20,12 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
       ...base.colors,
       background: p.background,
       chartBackground: p.background,
-      foreground: p.text,
+      // 图例遮罩跟随画布色，只固定 20% 透明把文字背后的蜡烛压淡。
+      legendBackground: `${p.background}CC`,
       floatingSurface: p.surface,
+      // 图表浮层控件底：深色必须随预设，否则会与画布脱节并逼出组件级明暗补丁。
+      chartNavigationBackground:
+        base.name === 'dark' ? p.input : base.colors.chartNavigationBackground,
       axisText: p.muted,
       axisLine: p.border,
       axisTick: p.border,
@@ -32,30 +38,40 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
       tooltipBg: p.surface,
       tooltipText: p.text,
       tooltipBorder: p.borderStrong,
-      text: { ...base.colors.text, primary: p.text, secondary: p.muted, tertiary: p.muted },
       tagBg: { ...base.colors.tagBg, active: p.accent, activeHover: p.accent, hover: p.hover },
       border: { ...base.colors.border, button: p.border, chart: p.border, separator: p.border },
       ui: {
         ...base.colors.ui,
         background: p.background,
         surface: p.surface,
+        surroundBackground: surround,
+        tabActiveBackground: surround,
+        // 浅色下提示与输入同为 #F7F7F7；深色必须抬到控件底才在弹窗表面上可见，随预设派生。
+        noticeBackground: base.name === 'dark' ? p.input : base.colors.ui.noticeBackground,
+        inputBackground: base.name === 'dark' ? p.input : base.colors.ui.inputBackground,
         card: p.card,
         input: p.input,
         hover: p.hover,
         selected: p.selected,
         border: p.border,
         borderStrong: p.borderStrong,
-        text: p.text,
-        textSoft: p.muted,
-        muted: p.muted,
         accent: p.accent,
         accentStrong: p.accent,
         focus: p.accent,
         onAccent: p.onAccent,
+        popover: base.name === 'dark' ? p.card : base.colors.ui.popover,
         controlBackground: p.input,
-        secondaryButtonText: p.muted,
       },
-      agent: { ...base.colors.agent, userMessage: p.card },
+      agent: {
+        ...base.colors.agent,
+        userMessage: p.card,
+        composerInputBackground:
+          base.name === 'dark' ? p.card : base.colors.agent.composerInputBackground,
+        composerControlBackground:
+          base.name === 'dark' ? p.input : base.colors.agent.composerControlBackground,
+        composerControlHover:
+          base.name === 'dark' ? p.hover : base.colors.agent.composerControlHover,
+      },
     },
   }
   if (id === 'terminal')

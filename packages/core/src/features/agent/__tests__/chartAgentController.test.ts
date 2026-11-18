@@ -85,8 +85,11 @@ function createFixture() {
   const panes = [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }]
   const paneActions = {
     add: vi.fn(() => 'new-instance'),
+    addPane: vi.fn(() => 'new-pane'),
     moveInstance: vi.fn(() => true),
     removeInstance: vi.fn(() => true),
+    removeInstancesByDefinition: vi.fn(),
+    clearAllIndicators: vi.fn(),
     updateInstance: vi.fn(() => true),
     updatePane: vi.fn(() => true),
     removePane: vi.fn(() => true),
@@ -114,7 +117,6 @@ function createFixture() {
       definitionId: 'RSI',
       label: 'RSI',
       name: 'RSI',
-      role: 'sub',
       paneId: 'rsi-pane',
       ordinal: 0,
       params: indicatorParams,
@@ -233,7 +235,7 @@ function createFixture() {
       loadedIndicators.has(indicatorId)
         ? ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' }[indicatorId] ?? null)
         : null,
-    paneManager: { actions: paneActions, list: () => panes },
+    panes: paneActions,
     comparisonCommands,
     isSubPaneRendererAvailable: (indicatorId) =>
       indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
@@ -751,7 +753,7 @@ describe('createChartAgentController', () => {
     expect(fixture.fetchBars).not.toHaveBeenCalled()
   })
 
-  it('registers pane tools as direct PaneManager action adapters', async () => {
+  it('registers pane tools as ChartPaneFacade adapters', async () => {
     const fixture = createFixture()
     const tool = (name: string) =>
       getRegisteredChartTools().find((item) => item.config.name === name)!
@@ -793,13 +795,13 @@ describe('createChartAgentController', () => {
     // 添加指标前只加载该指标自身的实现。
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(1, ['RSI'])
     expect(fixture.loadIndicators).toHaveBeenNthCalledWith(2, ['VOL'])
+    expect(fixture.paneActions.addPane).toHaveBeenCalledWith('main', 'below')
     expect(fixture.paneActions.add).toHaveBeenCalledWith(
       'rsi',
       { period: 14 },
       {
-        kind: 'newPane',
-        anchorPaneId: 'main',
-        placement: 'below',
+        kind: 'pane',
+        paneId: 'new-pane',
       },
     )
     expect(fixture.paneActions.updatePane).toHaveBeenCalledWith('rsi-pane', { ratio: 0.25 })

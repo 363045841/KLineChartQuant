@@ -12,12 +12,12 @@
         :key="item.key"
         :label="item.label"
         :type="item.type"
-        :value="settings[item.key]"
+        :value="readSetting(settings, item.key)"
         :options="item.options"
         :min="item.min"
         :max="item.max"
         :step="item.step"
-        @update="settings[item.key] = $event"
+        @update="writeSetting(settings, item.key, $event)"
       />
     </div>
     <template #footer>
@@ -34,6 +34,7 @@
   import '../../common/settings-item.css'
 
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import { readSetting, writeSetting } from '@363045841yyt/klinechart-core/config'
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import { useFootprintSettings } from '@vue-src/composables/chart/useFootprintSettings.js'

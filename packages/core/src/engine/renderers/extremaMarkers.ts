@@ -73,12 +73,12 @@ function buildMarkers(
 }
 
 /** 可视区最高/最低价标注 Layer（绘制到所有 pane 的 overlay 层）。 */
-export function createExtremaMarkersLayer(): Layer<RenderContext> {
+export function createExtremaMarkersLayer(paneId: string): Layer<RenderContext> {
   return {
     kind: 'draw-list',
     id: makePluginLayerId('extremaMarkers'),
     role: 'overlay',
-    pane: LAYER_PANE_GLOBAL,
+    pane: paneId,
     z: RENDERER_PRIORITY.OVERLAY,
     visible: true,
     paint(context) {
@@ -89,7 +89,6 @@ export function createExtremaMarkersLayer(): Layer<RenderContext> {
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      if (pane.role !== 'price') return
       if (!visiblePriceExtrema) return
       const { max, min, maxIndex, minIndex } = visiblePriceExtrema
 

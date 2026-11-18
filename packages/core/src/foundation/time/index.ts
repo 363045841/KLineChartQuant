@@ -9,9 +9,11 @@ export {
   getMarketSessionTimeFormatter,
   resolveDisplayTimeZone,
 } from './impl/format.js'
-export { createSeriesTimeProjection } from './impl/seriesTime.js'
+export { createSeriesTimeProjection, resolveSeriesInterval } from './impl/seriesTime.js'
 export type { TimeTickRequest } from './impl/ticks.js'
 export { frameTimeTicks, resolveTimeTickTarget, resolveTimeTickUnit } from './impl/ticks.js'
+export type { TradingDaySession } from './impl/tradingDay.js'
+export { createTradingDayIndexer } from './impl/tradingDay.js'
 export type {
   MarketSessionTimeFormatter,
   TimeFormatter,

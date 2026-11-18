@@ -15,7 +15,7 @@
     defineProps<{
       /** 由调用方提供主题 Token 颜色，组件只负责同色系的视觉呈现。 */
       color: string
-      /** 浅色用同色系；contrast 在深色下改用高对比反色。 */
+      /** default 用同色系淡底；contrast 为实心反色标记，用于应用图标。 */
       variant?: 'default' | 'contrast'
     }>(),
     { variant: 'default' },
@@ -37,12 +37,12 @@
     line-height: 1;
   }
 
-  /* 深色工作台下用高对比反色，浅色仍保留工作区标识色。 */
+  /*
+   * 应用图标：实心绿底 + 白色折线，不掺透明度。
+   * 浅色 #2E6B3A（白线 8.4:1），深色 #35784A（白线 5.4:1）；叶绿色相避开行情青绿与 success。
+   */
   .color-avatar--contrast {
-    background: light-dark(
-      color-mix(in srgb, var(--avatar-color) 22%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--avatar-color), var(--klc-color-ui-background));
+    background: var(--klc-color-ui-brand-surface);
+    color: var(--klc-color-ui-brand-on);
   }
 </style>

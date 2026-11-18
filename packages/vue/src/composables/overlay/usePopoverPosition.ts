@@ -4,6 +4,12 @@ import type { PopoverOrigin, UseAnchoredPopoverOptions } from './types.js'
 
 const BASE_STYLE: CSSProperties = { position: 'fixed', inset: 'auto', margin: '0' }
 
+/** CSS anchor 只负责块轴方向与起点对齐；行内方向、居中一律交给测量定位。 */
+function canUseAnchorPosition(options: UseAnchoredPopoverOptions): boolean {
+  const placement = toValue(options.placement) ?? 'auto'
+  return placement !== 'left' && placement !== 'right' && (options.align ?? 'start') === 'start'
+}
+
 function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: string) {
   const triggerStyle = computed<CSSProperties>(() => ({ anchorName }))
   const panelStyle = computed<CSSProperties>(() => {
@@ -12,9 +18,9 @@ function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: strin
     return {
       ...BASE_STYLE,
       positionAnchor: anchorName,
+      // 进入本函数前已确认是块轴方向，left / right 不会走到这里。
       positionArea:
         placement === 'top' ? 'block-start span-inline-end' : 'block-end span-inline-end',
-      // Only auto placement may flip to the opposite block direction.
       positionTryFallbacks:
         placement === 'auto' ? 'flip-block, flip-inline, flip-block flip-inline' : 'flip-inline',
       marginBlock: `${options.offset ?? 4}px`,
@@ -52,6 +58,7 @@ function useFloatingPosition(
       panel: options.panel.value,
       origin: toValue(options.origin) ?? null,
       placement: toValue(options.placement) ?? 'auto',
+      align: options.align ?? 'start',
       matchTriggerWidth: toValue(options.matchTriggerWidth) ?? false,
       maxHeight: toValue(options.maxHeight),
     }),
@@ -69,6 +76,7 @@ function useFloatingPosition(
           reference,
           panel: state.panel,
           placement: state.placement,
+          align: state.align,
           offset: options.offset ?? 4,
           matchTriggerWidth: state.matchTriggerWidth,
           maxHeight: state.maxHeight,
@@ -117,8 +125,11 @@ export function usePopoverPosition(
   anchorName: string,
   onError: () => void,
 ) {
-  // 坐标锚点没有真实元素可做 CSS anchor，固定走 Floating UI。
-  return anchored && options.origin === undefined
+  // 坐标锚点没有真实元素可做 CSS anchor；行内方向与居中由能力判断交给测量定位。
+  return anchored &&
+    options.origin === undefined &&
+    options.positioning !== 'floating' &&
+    canUseAnchorPosition(options)
     ? useAnchorPosition(options, anchorName)
     : useFloatingPosition(options, open, native, onError)
 }

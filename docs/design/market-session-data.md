@@ -1,6 +1,8 @@
 # 内置市场交易时段数据
 
-`packages/core/src/foundation/config/marketSession/builtinMarketSessions.json` 是内置配置的唯一来源，覆盖当前注册的 CN、HK、KR、US、MT5、BINANCE_SPOT。原有具名常量与注册表读取同一份数据。时钟以 IANA 时区下的当地分钟表示；默认 `sessions` 只包含常规盘，保留分时图既有网格语义。
+`packages/core/src/foundation/config/marketSession/builtinMarketSessions.json` 是内置配置的唯一来源，覆盖当前注册的 CN、HK、KR、US、MT5、BINANCE_SPOT/BINANCE_PERP，以及国内期货交易所 SHFE、INE、DCE、CZCE、GFEX、CFFEX。原有具名常量与注册表读取同一份数据。时钟以 IANA 时区下的当地分钟表示；默认 `sessions` 只包含常规盘，保留分时图既有网格语义。
+
+`tradingDayStartMinute` 是交易日起点，只在需要把跨零点夜盘归入同一交易日时声明（国内商品期货为 1200，即 20:00）；省略表示自然日 00:00。它不进入 `sessions`：夜盘属于下一交易日，不能改写常规盘的槽位语义。用途与规则见[交易日分隔线](session/trading-day-separator.md)。
 
 扩展时段与常规盘分开。US 按具体交易所列出盘前盘后，不把 NYSE 订单接收时段当成可成交盘前；港股集合竞价随机结束，不能硬写成连续交易。KR 的盘前盘后交易方式与连续竞价不同，记录在 notes。板块、产品、交易场所不同的时段须用宿主 `marketSessions` 配置覆盖，不以地区代码推断所有证券。
 

@@ -8,10 +8,9 @@
     <div class="chart-workspace">
       <TopToolbar
         :layout-controller="controller"
-        :is-fullscreen="effectiveIsFullscreen"
+        :is-fullscreen="isFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @toggle-indicator="onToggleIndicator"
-        @settings="openChartSettings('main')"
         @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
@@ -58,15 +57,6 @@
         <template v-if="slots['toolbar-end']" #end>
           <slot name="toolbar-end" />
         </template>
-        <template #watchlist>
-          <WatchlistPanel
-            :items="watchlistItems"
-            :grouping="watchlistGrouping"
-            @select="onSymbolChange"
-            @remove="removeWatchlistItem"
-            @update:grouping="setWatchlistGrouping"
-          />
-        </template>
       </TopToolbar>
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
@@ -92,49 +82,43 @@
           @set-all-drawings-visible="onSetAllDrawingsVisible"
           @open-command-palette="paletteOpen = true"
         />
-        <div ref="chartMainRef" class="chart-main">
+        <div
+          ref="chartMainRef"
+          class="chart-main"
+          :style="{ '--chart-plot-bottom': `${props.bottomAxisHeight}px` }"
+        >
           <ChartNavigation
             v-if="hasPrimarySymbol"
+            :controller="controller"
             :style="{
-              bottom: `${props.bottomAxisHeight}px`,
+              bottom: 'var(--chart-plot-bottom)',
               '--chart-nav-offset-x': `${navOffsetX}px`,
             }"
           />
-          <DropMenu
-            ref="chartContextMenuRef"
-            context
+          <MenuSurface
+            v-bind="chartMenu.bindings.value"
             label="图表菜单"
             :groups="contextMenuGroups"
-            :focus-target="containerRef"
+            :restore-focus-to="containerRef"
             @select="onContextMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="contextMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
-          <DropMenu
-            context
-            controlled
+          />
+          <MenuSurface
             label="移动指标"
             :open="legendMoveMenuOpen"
-            :origin="legendMoveMenuOrigin"
+            :anchor="legendMoveMenuAnchor"
             :offset="legendMoveMenuOffset"
             :groups="legendMoveMenuGroups"
-            :focus-target="containerRef"
+            :restore-focus-to="containerRef"
             @update:open="onLegendMoveMenuUpdateOpen"
             @select="onLegendMoveMenuSelect"
-          >
-            <template #item-icon="{ item }">
-              <component :is="legendMoveMenuIcons[item.id]" aria-hidden="true" />
-            </template>
-          </DropMenu>
+          />
           <a
             class="chart-brand"
             :href="PROJECT_REPOSITORY_URL"
             target="_blank"
             rel="noopener noreferrer"
             :style="{
-              bottom: `${props.bottomAxisHeight + 8}px`,
+              bottom: 'calc(var(--chart-plot-bottom) + 8px)',
               '--chart-brand-axis-width': `${
                 chartMode === 'timeshare'
                   ? leftAxisHostWidth
@@ -331,24 +315,13 @@
             :style="{ width: axisHostWidth + 'px' }"
             @contextmenu.prevent
           >
-            <div
-              v-for="pane in paneAxisItems"
-              :key="pane.id"
-              class="pane-axis-controls-host"
-              :style="{ top: pane.top + 'px', height: pane.height + 'px', width: pane.primaryAxisWidth }"
-            >
-              <PriceAxisSettingsMenu
-                :controller="controller"
-                :pane-id="pane.id"
-                :height="0"
-                :show-settings="false"
-                @settings-change="handleSettingsChange"
-              />
-            </div>
-            <PriceAxisSettingsMenu
+            <PaneAxisControls
+              v-for="entry in paneAxisEntries"
+              :key="entry.pane.id"
               :controller="controller"
-              :height="props.bottomAxisHeight"
-              :show-shortcuts="false"
+              :pane="entry.pane"
+              :columns="entry.columns"
+              :ends-at-chart-bottom="entry.endsAtChartBottom"
               @settings-change="handleSettingsChange"
             />
           </div>
@@ -387,7 +360,6 @@
       :replace-role="replacementRole"
       @toggle="handleIndicatorToggle"
       @update-params="handleUpdateParams"
-      @reorder-sub-indicators="handleReorderSubIndicators"
       @replace="replaceLegend"
       @edit-code="openScriptEditor"
       @create-script="openBlankScriptEditor"
@@ -525,11 +497,13 @@
   import './tooltip.css'
   import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
   import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
-  import PriceAxisSettingsMenu from '@vue-src/components/chart/settings/PriceAxisSettingsMenu.vue'
+  import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
   import CanvasToolbarStack from '@vue-src/components/common/CanvasToolbarStack.vue'
-  import DropMenu from '@vue-src/components/common/DropMenu.vue'
+  import type { MenuAnchor } from '@vue-src/components/common/dropMenuTypes.js'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
   import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
   import DrawingTemplateSaveDialog from '@vue-src/components/drawing/settings/DrawingTemplateSaveDialog.vue'
@@ -545,7 +519,6 @@
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
-  import WatchlistPanel from '@vue-src/components/watchlist/WatchlistPanel.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
   import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
@@ -557,6 +530,11 @@
     useControllerSignal,
     useControllerSignalValue,
   } from '@vue-src/composables/chart/useControllerSignal.js'
+  import {
+    type ContextMenuSource,
+    resolveContextMenuSource,
+    useDrawingContextMenu,
+  } from '@vue-src/composables/chart/useDrawingContextMenu.js'
   import { useDrawingManager } from '@vue-src/composables/chart/useDrawingManager.js'
   import { useIndicatorManager } from '@vue-src/composables/chart/useIndicatorManager.js'
   import { useInteractionBridge } from '@vue-src/composables/chart/useInteractionBridge.js'
@@ -569,11 +547,13 @@
   import { useScriptEditorWindow } from '@vue-src/composables/chart/useScriptEditorWindow.js'
   import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
   import {
+    bindChartCommandScope,
+    injectCommands,
     provideChartCommands,
     useRegisterCommands,
   } from '@vue-src/composables/commands/useCommands.js'
+  import { switchChartSymbol } from '@vue-src/composables/symbol/chartSymbolSwitch.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { provideFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
   // ── Props & Emits ──
@@ -620,8 +600,6 @@
       zoomLevels?: number
       /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
       initialZoomLevel?: number
-      /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
-      isFullscreen?: boolean
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
 
@@ -643,9 +621,6 @@
       priceLabelWidth: 60,
       zoomLevels: 80,
       initialZoomLevel: 3,
-      // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
-      // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
-      isFullscreen: undefined,
       timezone: 'Asia/Shanghai',
       restoreLayout: true,
     },
@@ -659,8 +634,6 @@
     useAggregationSources(aggregationSources, marketDataContext)
 
   const emit = defineEmits<{
-    (e: 'toggleFullscreen'): void
-    (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
@@ -706,8 +679,6 @@
     dataLoading,
     dataError,
     zoomLevel,
-    paneRatios,
-    paneLayout,
     comparisonColorsMap,
     comparisonLoading,
     isRangeSelectMode,
@@ -779,15 +750,7 @@
   const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
   const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
   const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
-  const {
-    watchlistItems,
-    watchlistKeys,
-    watchlistGrouping,
-    restoreWatchlist,
-    addWatchlistItem,
-    removeWatchlistItem,
-    setWatchlistGrouping,
-  } = useWatchlist()
+  const { watchlistKeys, restoreWatchlist, addWatchlistItem } = useWatchlist()
 
   /** 分时入口统一校验：品种未声明分时能力或缺会话时写入错误态，返回是否允许进入。 */
   function ensureTimeShareSupported(): boolean {
@@ -848,38 +811,15 @@
     localSymbolStatus.value = 'loading'
     localSymbolError.value = null
     try {
-      const adjust = applyInstrumentCapabilities(item)
-      ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      ctrl.setSymbols([toSymbolSpec(item, adjust)])
+      switchChartSymbol(ctrl, item, {
+        period: kLineLevel.value,
+        adjust: kLineAdjust.value,
+        bounds: props.symbols?.[0],
+      })
     } catch (error) {
       localSymbolStatus.value = 'error'
       localSymbolError.value = formatUnsupportedSymbolMessage(item, error)
     }
-  }
-
-  /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
-  function applyInstrumentCapabilities(item: SymbolItem): KLineAdjustment {
-    const capabilities = item.capabilities
-    if (!capabilities) return kLineAdjust.value
-    const supportedPeriods = capabilities.bars?.periods ?? []
-    const currentPeriodSupported =
-      kLineLevel.value === 'timeshare'
-        ? capabilities.timeShare === true
-        : supportedPeriods.includes(kLineLevel.value as (typeof supportedPeriods)[number])
-    if (!currentPeriodSupported) {
-      const nextLevel =
-        supportedPeriods[0] ?? (capabilities.timeShare ? 'timeshare' : kLineLevel.value)
-      controller.value?.setCurrentPeriod(nextLevel)
-    }
-
-    const adjustments = capabilities.bars?.adjustments ?? []
-    if (
-      adjustments.length > 0 &&
-      !adjustments.includes(kLineAdjust.value as (typeof adjustments)[number])
-    ) {
-      return adjustments[0]!
-    }
-    return kLineAdjust.value
   }
 
   function toSymbolSpec(item: SymbolItem, adjust = kLineAdjust.value): SymbolSpec {
@@ -945,25 +885,6 @@
     }
   }
 
-  /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
-  function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
-    return {
-      id: item.id,
-      instrumentType: item.instrumentType,
-      sessionId: item.sessionId,
-      capabilities: item.capabilities,
-      tickSize: item.tickSize,
-      lotSize: item.lotSize,
-      currency: item.currency,
-      symbol: item.symbol,
-      market: item.sessionId ?? '',
-      description: item.name,
-      exchange: item.exchange,
-      source: item.sourceId,
-      params: item.providerRef,
-    }
-  }
-
   function symbolItemForSpec(spec: SymbolSpec): SymbolItem {
     if (spec.instrument) return spec.instrument
     const info = symbolCatalog.value.find((item) =>
@@ -1005,7 +926,8 @@
 
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
-  const chartContextMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  // 画布右键菜单的开关与指针锚点；面板只按这两个值渲染。
+  const chartMenu = useMenuAnchor()
   const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
@@ -1021,10 +943,9 @@
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
-  provideFullscreenTeleportTarget(chartWrapperRef)
 
-  // ── Fullscreen (controlled / uncontrolled) ──
-  const internalIsFullscreen = ref(false)
+  // ── Browser fullscreen ──
+  const isFullscreen = ref(false)
   const chartSettingsOpen = ref(false)
   const footprintSettingsOpen = ref(false)
   const chartSettingsSection = ref<'main' | 'shortcuts'>('main')
@@ -1039,19 +960,14 @@
     chartSettingsOpen.value = false
   }
   const paletteOpen = ref(false)
-  const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
-  let onFullscreenChange: (() => void) | null = null
+  function onFullscreenChange(): void {
+    isFullscreen.value = !!document.fullscreenElement
+  }
 
   function handleToggleFullscreen() {
-    // 受控模式：保持旧行为，仅通知，不操作 DOM
-    if (props.isFullscreen !== undefined) {
-      emit('toggleFullscreen')
-      return
-    }
-
-    // 非受控模式：组件内部接管全屏 DOM 操作
+    // 整个页面进入浏览器全屏，保留标签栏、工具栏与侧边面板。
     if (typeof document !== 'undefined') {
-      const el = chartWrapperRef.value
+      const el = document.documentElement
       if (!document.fullscreenElement) {
         if (el && typeof el.requestFullscreen === 'function') {
           el.requestFullscreen().catch(() => {
@@ -1064,7 +980,6 @@
         })
       }
     }
-    emit('toggleFullscreen')
   }
 
   // ── Controller & Composable Wiring ──
@@ -1153,8 +1068,10 @@
   )
 
   // ── Commands ──
-  // 每张图表一个命令注册表；撤销/重做走命令层，快捷键只作用于获得焦点的图表。
-  const commands = provideChartCommands(chartWrapperRef)
+  // 撤销/重做走命令层；快捷键只作用于获得焦点的图表根元素。
+  // 命令表由共同父级提供时直接复用，独立挂载的图表自己创建一份。
+  const commands = injectCommands() ?? provideChartCommands()
+  bindChartCommandScope(commands, chartWrapperRef)
   useRegisterCommands(commands, () =>
     createChartCommands({
       controller: () => controller.value,
@@ -1168,15 +1085,32 @@
   )
   // 右键菜单与导航按钮共用命令注册表；价格快照在每次打开时刷新。
   const {
-    groups: contextMenuGroups,
-    icons: contextMenuIcons,
-    capturePrice: captureContextMenuPrice,
-    select: selectContextMenuItem,
+    groups: chartContextMenuGroups,
+    captureCrosshair: captureContextMenuPrice,
+    select: selectChartContextMenuItem,
   } = useChartContextMenu({ controller, commands })
+  // 图元菜单只消费打开瞬间的目标快照，动作按快照 ids 提交。
+  /** 周期可见性规则以当前 K 线周期为参考；分时视图不适用。 */
+  const drawingVisibilityPeriod = computed(() => (isTimeShareView.value ? null : kLineLevel.value))
+  const {
+    groups: drawingContextMenuGroups,
+    capture: captureDrawingContextMenu,
+    select: selectDrawingContextMenuItem,
+  } = useDrawingContextMenu({
+    controller,
+    commands,
+    currentPeriod: drawingVisibilityPeriod,
+  })
+  // 右键来源在打开瞬间确定；一个面板按来源切换菜单项，不并存两个菜单实例。
+  const contextMenuSource = shallowRef<ContextMenuSource>({ kind: 'chart' })
+  const contextMenuGroups = computed(() =>
+    contextMenuSource.value.kind === 'drawing'
+      ? drawingContextMenuGroups.value
+      : chartContextMenuGroups.value,
+  )
   // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。
   const {
     groups: legendMoveMenuGroups,
-    icons: legendMoveMenuIcons,
     open: legendMoveMenuOpen,
     origin: legendMoveMenuOrigin,
     offset: legendMoveMenuOffset,
@@ -1184,6 +1118,10 @@
     select: selectLegendMoveMenu,
     onUpdateOpen: onLegendMoveMenuUpdateOpen,
   } = useLegendMoveMenu(controller)
+  // 图例菜单以模型给出的坐标作为锚点，与画布右键菜单共用同一套受控面板。
+  const legendMoveMenuAnchor = computed<MenuAnchor | null>(() =>
+    legendMoveMenuOrigin.value === null ? null : { kind: 'point', ...legendMoveMenuOrigin.value },
+  )
   const rendererRuntime = useControllerSignal<RendererBackendRuntime | null>(
     controller,
     (ctrl) => ctrl.rendererRuntime,
@@ -1191,12 +1129,9 @@
   )
 
   const {
-    mainActiveIndicators,
-    subActiveIndicators,
     activeIndicators,
     indicatorParams,
     subPanes,
-    buildPaneLayoutIntent,
     getDefaultParams,
     isSubPaneIndicator,
     addSubPane,
@@ -1206,14 +1141,22 @@
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,
-    handleReorderSubIndicators,
-  } = useIndicatorManager(controller, paneRatios)
+  } = useIndicatorManager(controller)
 
-  // 画布几何（尺寸 / DPR）变化时刷新轴快捷入口布局；横向滚动改变 visible range 不触发。
-  const paneAxisLayoutEpoch = ref(0)
-
-  /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
-  const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
+  const paneAxisItems = usePaneAxisItems(controller)
+  /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
+  const paneAxisEntries = computed(() => {
+    const entries = paneAxisItems.value
+      .map((pane) => ({
+        pane,
+        columns: pane.axisColumns,
+      }))
+      .filter((entry) => entry.columns.length > 0)
+    return entries.map((entry, index) => ({
+      ...entry,
+      endsAtChartBottom: index === entries.length - 1,
+    }))
+  })
 
   const scriptSourceStore = inject(SCRIPT_SOURCE_STORE_KEY, undefined)
   const scriptEditorSession = useScriptEditor(scriptSourceStore, controller)
@@ -1495,15 +1438,12 @@
     { deep: true },
   )
 
-  const paneSeparatorLines = computed(() => {
-    const borderTop = containerRef.value
-      ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
-      : 0
-    return paneAxisItems.value.slice(0, -1).map((pane) => ({
+  const paneSeparatorLines = computed(() =>
+    paneAxisItems.value.slice(0, -1).map((pane) => ({
       id: pane.id,
-      top: pane.top + pane.height + borderTop,
-    }))
-  })
+      top: pane.top + pane.height,
+    })),
+  )
   const deviceEnvironment = useDeviceEnvironment()
   const isCoarsePointer = computed(() => deviceEnvironment.value.isCoarsePointer)
 
@@ -1658,7 +1598,7 @@
     },
   }
 
-  /** 右键在绘图区打开图表菜单；编辑控件内保留浏览器原生菜单。 */
+  /** 右键在绘图区按命中来源打开图表或图元菜单；编辑控件内保留浏览器原生菜单。 */
   function onChartContextMenu(event: MouseEvent): void {
     if (
       event.target instanceof Element &&
@@ -1666,13 +1606,24 @@
     )
       return
     event.preventDefault()
-    captureContextMenuPrice()
-    chartContextMenuRef.value?.openAt(event.clientX, event.clientY)
+    const container = containerRef.value
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const source = resolveContextMenuSource(drawingController.value, {
+      kind: 'canvas',
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    })
+    contextMenuSource.value = source
+    if (source.kind === 'drawing') captureDrawingContextMenu(source.drawingId)
+    else captureContextMenuPrice()
+    chartMenu.anchorAt(event.clientX, event.clientY)
   }
 
-  /** 菜单项动作由菜单自身分发；这里只转交选中的命令/动作 id。 */
-  function onContextMenuSelect(_groupId: string, itemId: string): void {
-    selectContextMenuItem(itemId)
+  /** 菜单项动作按打开瞬间的来源分发；动作本身只读取各自快照。 */
+  function onContextMenuSelect(_groupId: string, itemId: string, parentId?: string): void {
+    if (contextMenuSource.value.kind === 'drawing') selectDrawingContextMenuItem(itemId, parentId)
+    else selectChartContextMenuItem(itemId)
   }
 
   /** 图例移动菜单选中目标后交给图例命令面执行。 */
@@ -1726,17 +1677,13 @@
     (ctrl) => ctrl.rightAxisEffectiveWidth,
     () => 0,
   )
-  const axisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveRightAxisWidth.value),
-  )
+  const axisHostWidth = computed(() => effectiveRightAxisWidth.value)
   const effectiveLeftAxisWidth = useControllerSignal(
     controller,
     (ctrl) => ctrl.leftAxisEffectiveWidth,
     () => 0,
   )
-  const leftAxisHostWidth = computed(() =>
-    Math.max(props.rightAxisWidth + props.priceLabelWidth, effectiveLeftAxisWidth.value),
-  )
+  const leftAxisHostWidth = computed(() => effectiveLeftAxisWidth.value)
 
   // 位置只改变同一 DOM 轴的 flex 顺序，Canvas、范围与交互实例保持同一份。
   const priceAxisPosition = useControllerSignalValue(
@@ -1774,6 +1721,8 @@
     getZoomLevel: () => zoomLevel.value,
     getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
     getController: () => controller.value,
+    /** 由宿主（侧栏底部设置项）打开图表设置。 */
+    openSettings: (section: 'main' | 'shortcuts' = 'main') => openChartSettings(section),
   })
 
   // ── Lifecycle Setup ──
@@ -1812,25 +1761,12 @@
   }
 
   function setupChartCallbacks(ctrl: ChartController): () => void {
-    // 轴快捷入口读取画布真实几何；容器尺寸或 DPR 变化后需重新读取，横向滚动不触发。
-    let paneAxisViewportSignature = ''
-    const refreshPaneAxisLayout = () => {
-      const viewport = ctrl.viewport.peek()
-      const nextSignature = `${viewport.plotWidth}:${viewport.plotHeight}:${viewport.dpr}`
-      if (nextSignature === paneAxisViewportSignature) return
-      paneAxisViewportSignature = nextSignature
-      paneAxisLayoutEpoch.value += 1
-    }
-    refreshPaneAxisLayout()
-    const unsubscribeViewport = ctrl.viewport.subscribe(refreshPaneAxisLayout)
-
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
       emit('themeChange', newTheme)
     })
 
     return () => {
-      unsubscribeViewport()
       unsubscribeTheme()
     }
   }
@@ -1886,12 +1822,9 @@
   onMounted(async () => {
     void restoreWatchlist()
 
-    // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
+    // 挂载时读取当前状态，切换标签与 Esc 退出后按钮仍与浏览器一致。
     if (typeof document !== 'undefined') {
-      onFullscreenChange = () => {
-        internalIsFullscreen.value = !!document.fullscreenElement
-        emit('update:isFullscreen', internalIsFullscreen.value)
-      }
+      onFullscreenChange()
       document.addEventListener('fullscreenchange', onFullscreenChange)
     }
 
@@ -1946,16 +1879,14 @@
     setupDrawing(ctrl)
 
     // 6) 交互初始化与图例接线（interactionState 订阅由 useInteractionBridge 管理）
-    ctrl.setTooltipAnchorPositioning(false)
     applyLegendRenderMode(ctrl, hasLegendSlot.value)
   })
 
   // ── onUnmounted & Watchers ──
   onUnmounted(() => {
-    if (typeof document !== 'undefined' && onFullscreenChange) {
+    if (typeof document !== 'undefined') {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
-    onFullscreenChange = null
     disposeChartInput?.()
     disposeChartInput = null
     cleanupChartCallbacks?.()
@@ -2030,7 +1961,7 @@
   }
 
   .chart-workspace {
-    --chart-frame-radius: 3px;
+    --chart-frame-radius: 8px;
     min-width: 0;
     flex: 1 1 auto;
     display: flex;
@@ -2048,16 +1979,20 @@
     display: flex;
     align-items: stretch;
     gap: 0;
+    /* 绘图区圆角外侧露出的必须是 chrome 底色，否则页面白底会在角上形成一个尖角白块。 */
+    background: var(--klc-color-ui-surround-background);
   }
 
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    /* 截图区域独立绘制完整外框，子容器只负责坐标轴分隔线。 */
+    /* 外框只由绘图区承担：工具栏与左栏无边框，顶部两角随外壳圆角，底部贴边。 */
     border: 1px solid var(--chart-border);
+    border-radius: var(--chart-frame-radius) var(--chart-frame-radius) 0 0;
+    /* 圆角处裁掉画布与轴的直角，避免外框出现白边。 */
+    overflow: hidden;
     /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
     box-sizing: border-box;
-    border-bottom-right-radius: var(--chart-frame-radius);
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -2236,7 +2171,6 @@
   .right-axis-host {
     flex: 0 0 auto;
     border-left: 1px solid var(--chart-border);
-    border-bottom-right-radius: var(--chart-frame-radius);
   }
 
   /* 分时左轴独立占据 flex 宽度，容器缩放由 Core 的 ResizeObserver 感知。 */
@@ -2248,17 +2182,6 @@
 
   .left-axis-host :deep(> canvas) {
     display: block;
-  }
-
-  .pane-axis-controls-host {
-    position: absolute;
-    left: 0;
-    z-index: 2;
-  }
-
-  .pane-axis-controls-host:hover :deep(.price-axis-shortcuts) {
-    visibility: visible;
-    pointer-events: auto;
   }
 
   .price-axis-host--left {
@@ -2285,13 +2208,10 @@
     top: 0;
     z-index: 25;
     box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
+    /* 选区与图表共用 chart.selection* Token，不在组件里按 accent 百分比现算。 */
+    border: 1px solid var(--klc-color-selection-stroke);
+    background: var(--klc-color-selection-fill);
     pointer-events: none;
-  }
-
-  .range-selection-overlay.is-dragging {
-    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
   }
 
   .range-selection-handle {
@@ -2336,17 +2256,6 @@
     inset: 0;
     pointer-events: none;
     z-index: 30;
-  }
-
-  .tooltip-anchor {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-  }
-
-  .tooltip-anchor.kline-tooltip-anchor.use-anchor {
-    anchor-name: --kline-tooltip-anchor;
   }
 
 </style>

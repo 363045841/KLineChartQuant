@@ -1,0 +1,51 @@
+# 手动构建和正式发版共用构建步骤，上传方式由调用方决定。
+name: Build desktop package
+description: Build a desktop installer for the selected architecture
+inputs:
+  arch:
+    description: Target CPU architecture
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 12.4.1
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 26.13.0
+        cache: pnpm
+    - name: Cache Electron
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+        key: ${{ runner.os }}-electron-${{ inputs.arch }}-${{ hashFiles('pnpm-lock.yaml', 'packages/desktop-electron/package.json') }}
+    - name: Install system deps (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y libfuse2
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    # Go connector 随包分发，构建机必须有 Go；源码按 backends.json 的 commit 克隆。
+    - name: Setup Go for the bundled connectors
+      uses: actions/setup-go@v6
+      with:
+        go-version: stable
+        # Go 源码在独立仓库里按 commit 克隆，仓库内没有 go.sum 可供缓存判定。
+        cache: false
+    - name: Build Vue product and its internal resources
+      shell: bash
+      run: pnpm build:product
+    - name: Build Mac package
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: pnpm --filter @363045841yyt/klinechart-desktop build:mac --arch "$ARCH"
+    - name: Build Windows or Linux package
+      if: runner.os != 'macOS'
+      shell: bash
+      run: pnpm --filter @363045841yyt/klinechart-desktop build

@@ -64,7 +64,7 @@
     padding: 3px;
     border: 0;
     border-radius: var(--agent-control-radius, 8px);
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     background: var(--klc-color-agent-composer-input-background);
     font: inherit;
     font-size: 11px;
@@ -74,7 +74,7 @@
 
   .injection-card__summary:hover,
   .injection-card__summary[aria-expanded='true'] {
-    background: var(--agent-hover);
+    background: var(--klc-color-ui-hover);
   }
 
   .injection-card__action {
@@ -116,10 +116,10 @@
     margin: 0;
     overflow-y: auto;
     padding: 8px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--agent-control-radius, 8px);
-    color: var(--agent-text-soft);
-    background: var(--agent-input);
+    color: var(--klc-color-ui-text-soft);
+    background: var(--klc-color-agent-composer-input-background);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 10px;
     line-height: 1.45;

@@ -56,15 +56,43 @@ describe('独立主题维度', () => {
     }
   })
 
+  it.each(THEME_PRESETS)('$id 不改写正文颜色：文字 Token 与基础主题一致', (preset) => {
+    for (const mode of ['light', 'dark'] as const) {
+      const base = mode === 'dark' ? darkTheme : lightTheme
+      const colors = preset.schemes[mode].colors
+      expect(colors.foreground).toBe(base.colors.foreground)
+      expect(colors.text).toEqual(base.colors.text)
+      expect(colors.ui.text).toBe(base.colors.ui.text)
+      expect(colors.ui.textSoft).toBe(base.colors.ui.textSoft)
+      expect(colors.ui.muted).toBe(base.colors.ui.muted)
+      expect(colors.ui.secondaryButtonText).toBe(base.colors.ui.secondaryButtonText)
+    }
+  })
+
+  it.each(THEME_PRESETS)('$id 的活动标签填充与标题栏同色', (preset) => {
+    for (const mode of ['light', 'dark'] as const) {
+      const ui = preset.schemes[mode].colors.ui
+      expect(ui.tabActiveBackground).toBe(ui.surroundBackground)
+    }
+  })
+
+  it.each(THEME_PRESETS)('$id 的图例遮罩 = 画布色 + 80% 不透明', (preset) => {
+    for (const mode of ['light', 'dark'] as const) {
+      const colors = preset.schemes[mode].colors
+      expect(colors.legendBackground).toBe(`${colors.chartBackground}CC`)
+    }
+  })
+
   it.each(THEME_PRESETS)('$id 的十字线标签按面板取色，深色下不反相成亮块', (preset) => {
     const light = preset.schemes.light.colors
     const dark = preset.schemes.dark.colors
     // 标签是轴上的控件：浅色用前景底 + 背景字，深色用控件底 + 前景字，
     // 两种模式都保持暗底浅字，不允许把深色主题反相成近白底块。
-    expect(light.crosshairLabelBg).toBe(light.foreground)
+    // 深色标签文字与 tooltip 同源（预设前景色），因为它压在预设的控件底上，不跟随正文色。
+    expect(light.crosshairLabelBg).toBe(light.tooltipText)
     expect(light.crosshairLabelText).toBe(light.background)
     expect(dark.crosshairLabelBg).toBe(dark.ui.controlBackground)
-    expect(dark.crosshairLabelText).toBe(dark.foreground)
+    expect(dark.crosshairLabelText).toBe(dark.tooltipText)
   })
 
   it('Pro 默认深色完整复用项目原版，浅色保留 Paper 基底', () => {

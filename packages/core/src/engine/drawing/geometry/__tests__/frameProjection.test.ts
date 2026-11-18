@@ -5,6 +5,7 @@ import {
   createMockRenderContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { Pane } from '@/engine/pane/impl/layout/pane.js'
 import {
   type DrawingFrameProjection,
   type DrawingPrimitive,
@@ -13,14 +14,20 @@ import {
   type PointPrimitive,
   type RenderContext,
 } from '@/foundation/plugin'
+import { wrapPaneInfo } from '@/foundation/plugin/impl/wrapPaneInfo.js'
 import { createSignal } from '@/foundation/reactivity/signal'
 import { lightTheme } from '@/foundation/tokens/index.js'
 import { createDrawingObject } from '../../__tests__/helpers/drawingTestKit'
+import {
+  createDrawingFrame,
+  DRAWING_FRAME_AXIS_ID,
+} from '../../__tests__/helpers/drawingTestKit.js'
 import { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry'
 import { DrawingStore } from '../../render/impl/DrawingStore'
 import { registerDefaultDrawingDefinitions } from '../../render/impl/definitions/index'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
 import type { DrawingKind, DrawingObject } from '../../types'
+import { resolveDrawingRenderAxis } from '../impl/drawingAxis.js'
 import { computeDrawingPriceRange, projectDrawingsForFrame } from '../impl/frameProjection'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
@@ -38,7 +45,7 @@ function createContext(overrides: MockRenderContextOverrides = {}): RenderContex
     kLinePositions: [7, 27],
     kLineCenters: [10, 30],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
-    pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
+    pane: { id: 'main', height: 100, yAxis: { priceToY: (price) => 100 - price } },
     ...overrides,
   })
 }
@@ -93,7 +100,7 @@ function projectSingleDrawing(
   })
   const definitions = new DrawingDefinitionRegistry()
   registerDefaultDrawingDefinitions(definitions)
-  return projectDrawingsForFrame(store, definitions, context)
+  return projectDrawingsForFrame(store, definitions, createDrawingFrame(context, [drawing]))
 }
 
 /** 10 根 K 线的上下文；可见区间由用例指定，用于验证投影裁剪。 */
@@ -101,27 +108,73 @@ function createRangeContext(range: { start: number; end: number }): RenderContex
   return createMockRenderContext({ data: createKLineData(10), range })
 }
 
-describe('会话预览的标的可见性', () => {
-  it.each([undefined, 'active-symbol'])('当前标的 %s 下预览保留连线和端点', (symbolKey) => {
-    const preview = createTrendDrawing({ id: PREVIEW_ID })
+describe('指标图元继承 owner 坐标', () => {
+  it.each(['first-output', 'replacement-output'])('图元 %s 无需轴绑定即可使用指标所在轴', (id) => {
+    const pane = new Pane('main')
+    pane.setLayout(0, 100)
+    pane.setAxes([
+      { objectId: 'price-series', axisId: 'price-axis' },
+      { objectId: 'indicator', axisId: 'indicator-axis' },
+    ])
+    pane.axis('price-axis').setRange({ minPrice: 0, maxPrice: 1000 })
+    pane.axis('indicator-axis').setRange({ minPrice: 0, maxPrice: 100 })
+    const drawing = createTrendDrawing({ id, ownerId: 'indicator' })
+    const context = { ...createContext(), pane: wrapPaneInfo(pane) }
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
-      getOverlay: () => [preview],
+      getIndicatorDrawings: () => [drawing],
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    const projection = projectDrawingsForFrame(
-      store,
-      definitions,
-      createContext({ symbolKey }),
-      null,
-      'session',
-    )
 
-    expect(linePrimitives(projection.primitives)).toHaveLength(1)
-    expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
+    expect(pane.objectAxis(drawing.id)).toBeNull()
+    expect(resolveDrawingRenderAxis(pane, drawing)).toBe('indicator-axis')
+    const projection = projectDrawingsForFrame(store, definitions, context)
+    expect(linePrimitives(projection.primitives)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ a: { x: 10, y: 90 }, b: { x: 30, y: 80 } }),
+      ]),
+    )
+    expect(pane.objectAxis(drawing.id)).toBeNull()
   })
+
+  it('owner 缺失时不会使用图元身份或其它对象的轴', () => {
+    const pane = new Pane('main')
+    pane.setAxes([{ objectId: 'drawing', axisId: 'unrelated-axis' }])
+    expect(() =>
+      resolveDrawingRenderAxis(pane, { id: 'drawing', ownerId: 'missing-indicator' }),
+    ).toThrow('所属对象 missing-indicator 未绑定轴')
+  })
+})
+
+describe('会话预览的标的可见性', () => {
+  it.each([undefined, 'active-symbol'])(
+    '当前标的 %s 下预览携带同一标的并保留连线和端点',
+    (symbolKey) => {
+      const preview = createTrendDrawing({
+        id: PREVIEW_ID,
+        ...(symbolKey === undefined ? {} : { symbolKey }),
+      })
+      const store = new DrawingStore({
+        drawings$: createSignal<ReadonlyArray<DrawingObject>>([]),
+        selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+        getOverlay: () => [preview],
+      })
+      const definitions = new DrawingDefinitionRegistry()
+      registerDefaultDrawingDefinitions(definitions)
+      const projection = projectDrawingsForFrame(
+        store,
+        definitions,
+        createDrawingFrame(createContext({ symbolKey }), [preview]),
+        null,
+        'session',
+      )
+
+      expect(linePrimitives(projection.primitives)).toHaveLength(1)
+      expect(linePrimitives(projection.primitives)[0]?.showEndpoints).not.toBe(false)
+    },
+  )
 
   it('正式图元和已绑定其他标的的预览仍按标的过滤', () => {
     for (const drawing of [
@@ -308,15 +361,21 @@ describe('projectDrawingsForFrame', () => {
     registerDefaultDrawingDefinitions(definitions)
     const context = createContext()
 
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
+    )
 
     expect(projection.primitives).not.toEqual([])
-    expect(context.axisLabels.forSurface('yRightOverlay', 'main').labels).toHaveLength(2)
+    expect(
+      context.axisLabels.forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID).labels,
+    ).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
     expect(context.yAxisRanges).toHaveLength(0)
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'main')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
     ).toEqual(['10.00', '20.00'])
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
@@ -350,7 +409,11 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    const projection = projectDrawingsForFrame(store, definitions, createContext())
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(createContext(), [preview]),
+    )
 
     // 预览未选中，但正在放置的锚点仍要投影。
     expect(pointPrimitives(projection.primitives).map((primitive) => primitive.role)).toEqual([
@@ -442,7 +505,11 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    const projection = projectDrawingsForFrame(store, definitions, createContext())
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(createContext(), [drawing]),
+    )
 
     expect(projection.primitives).toEqual([
       expect.objectContaining({
@@ -470,7 +537,10 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    expect(projectDrawingsForFrame(store, definitions, createContext()).primitives).toEqual([
+    expect(
+      projectDrawingsForFrame(store, definitions, createDrawingFrame(createContext(), [drawing]))
+        .primitives,
+    ).toEqual([
       expect.objectContaining({
         kind: 'arrow',
         text: expect.objectContaining({ text: '箭头', position: 'end' }),
@@ -498,11 +568,11 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    projectDrawingsForFrame(store, definitions, context)
+    projectDrawingsForFrame(store, definitions, createDrawingFrame(context, [drawing]))
 
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'main')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
     ).toEqual(['10.00', '20.00'])
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
@@ -533,7 +603,11 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
+    )
     expect(projection.primitives.find((primitive) => primitive.kind === 'line')).toMatchObject({
       a: { x: 10 },
       b: { x: 50 },
@@ -541,7 +615,7 @@ describe('projectDrawingsForFrame', () => {
     expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([10])
     expect(
       context.axisLabels
-        .forSurface('yRightOverlay', 'main')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0)),
     ).toEqual([10])
   })
@@ -563,7 +637,11 @@ describe('projectDrawingsForFrame', () => {
       range: { start: 0, end: 5 },
       kLineCenters: [10, 30, 50, 70, 90],
     })
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
+    )
     expect(linePrimitives(projection.primitives)).toHaveLength(1)
     // 用户锚点吸附槽位：两根 K 线的常规槽距为 1000ms，4000ms 落在第 3 槽位。
     expect(linePrimitives(projection.primitives)[0]).toMatchObject({ a: { x: 10 }, b: { x: 70 } })
@@ -600,7 +678,7 @@ describe('projectDrawingsForFrame', () => {
       kLineCenters: [10, 30, 50, 70],
     })
 
-    projectDrawingsForFrame(store, definitions, context)
+    projectDrawingsForFrame(store, definitions, createDrawingFrame(context, [drawing]))
 
     expect(context.axisLabels.forSurface('xLabels').labels[0]?.text).toBe(
       context.displayTimeFormatter.formatDateTime(start),
@@ -617,7 +695,11 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
     const context = createContext()
-    const projection = projectDrawingsForFrame(store, definitions, context)
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
+    )
     return { projection, context }
   }
 
@@ -657,7 +739,7 @@ describe('projectDrawingsForFrame', () => {
     ({ kind, anchors, yAxisPrices, xAxisLabelCount }) => {
       const { context } = projectSingleAnchor(kind, anchors)
       const yLabels = context.axisLabels
-        .forSurface('yRightOverlay', 'main')
+        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
         .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0))
       expect(yLabels).toEqual(yAxisPrices)
       expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
@@ -719,14 +801,20 @@ describe('projectDrawingsForFrame snap sources', () => {
     const committed = projectDrawingsForFrame(
       store,
       definitions,
-      createContext(),
+      createDrawingFrame(createContext(), [{ id: 't1' }]),
       null,
       'committed',
     )
     expect(committed.snapLines).toHaveLength(1)
     expect(committed.snapLines[0]!.drawingId).toBe('t1')
 
-    const session = projectDrawingsForFrame(store, definitions, createContext(), null, 'session')
+    const session = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(createContext(), [{ id: 't1' }]),
+      null,
+      'session',
+    )
     expect(session.snapLines).toHaveLength(0)
   })
 
@@ -736,7 +824,7 @@ describe('projectDrawingsForFrame snap sources', () => {
     const committed = projectDrawingsForFrame(
       store,
       createRegistry(),
-      createContext(),
+      createDrawingFrame(createContext(), [{ id: 'f1' }]),
       null,
       'committed',
     )
@@ -884,7 +972,11 @@ describe('projectDrawingsForFrame range culling', () => {
     })
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
-    const projection = projectDrawingsForFrame(store, definitions, createContext())
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(createContext(), [drawing]),
+    )
     // 投影后渲染端只见到主题色值，别名不会漏进 primitive。
     expect(linePrimitives(projection.primitives)[0]!.style.stroke).toBe(
       lightTheme.colors.scriptPalette.red,

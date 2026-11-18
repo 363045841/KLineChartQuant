@@ -274,6 +274,13 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
+    key: 'mainPriceAxisPriceOnly',
+    label: '仅缩放价格图表',
+    type: 'boolean',
+    default: false,
+    group: 'priceAxis',
+  },
+  {
     key: 'klineDensity',
     label: 'K 线密度',
     type: 'select',
@@ -284,6 +291,14 @@ export const DEFAULT_SETTINGS = [
       { value: KLINE_DENSITY.Standard, label: '标准' },
       { value: KLINE_DENSITY.Loose, label: '宽松' },
     ],
+  },
+  {
+    // 只在日线以下周期生效；交易日归属由市场会话的 tradingDayStartMinute 决定。
+    key: 'showTradingDaySeparator',
+    label: '交易日间隔',
+    type: 'boolean',
+    default: true,
+    group: 'style',
   },
   {
     key: 'isAsiaMarket',
@@ -349,6 +364,9 @@ export const DEFAULT_SETTINGS = [
 
 type _SettingTuple = typeof DEFAULT_SETTINGS
 
+/** 已声明的设置键；DEFAULT_SETTINGS 是唯一清单。 */
+export type SettingKey = _SettingTuple[number]['key']
+
 type _SettingByKey = {
   [Item in _SettingTuple[number] as Item['key']]: Item['type'] extends 'boolean'
     ? boolean
@@ -359,19 +377,58 @@ type _SettingByKey = {
         : string
 }
 
-/** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，同时兼容扩展） */
+/**
+ * 设置之外的业务元数据。
+ *
+ * 只允许显式声明的键：它们随内存设置一起保存，但不进入布局文档。
+ * 不在这里声明的字段会被归一化丢弃，键名写错在编译期就暴露。
+ */
+export interface ChartSettingsExtensions {
+  /** 分时昨收；由数据层写入，百分比轴与面积基准共用同一口径。 */
+  preClose?: number
+}
+
+/** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，扩展字段需显式声明） */
 export type ChartSettings = {
   [K in keyof _SettingByKey]?: _SettingByKey[K]
-} & Record<string, unknown> & {
+} & ChartSettingsExtensions & {
     colorPresetSettings?: ColorPresetSettings
   }
+
+/**
+ * 按运行期键读取设置。
+ *
+ * 键来自配置数据而非字面量，只有这一处需要擦除键的类型；字面量访问仍由编译器检查。
+ *
+ * @param settings 设置片段
+ * @param key DEFAULT_SETTINGS 里声明的键
+ * @returns 该键的值；未设置时为 undefined
+ */
+export function readSetting(settings: Partial<ChartSettings>, key: string): unknown {
+  return (settings as Partial<Record<string, unknown>>)[key]
+}
+
+/**
+ * 按运行期键写入设置。
+ *
+ * @param settings 可写的设置对象（响应式代理同样适用）
+ * @param key DEFAULT_SETTINGS 里声明的键
+ * @param value 新值
+ */
+export function writeSetting(
+  settings: Partial<ChartSettings>,
+  key: string,
+  value: unknown,
+): void {
+  ;(settings as Record<string, unknown>)[key] = value
+}
 
 /** 设置显示条件只影响编辑入口，隐藏时仍保存用户参数。 */
 export function isSettingVisible(item: SettingItem, settings: ChartSettings): boolean {
   return (
     item.visibleWhen === undefined ||
     item.visibleWhen.every((condition) =>
-      condition.values.some((value) => settings[condition.key] === value),
+      condition.values.some((value) => readSetting(settings, condition.key) === value),
     )
   )
 }
@@ -391,14 +448,13 @@ export const HOLLOW_BODY_KLINE_SHAPES: ReadonlySet<KLineShapeValue> = new Set<KL
   FOOTPRINT_SHAPE,
 ])
 
-/** DEFAULT_SETTINGS 已覆盖的 key 及单独归一化的 colorPresetSettings，其余视为扩展字段保留。 */
-const KNOWN_SETTING_KEYS = new Set<string>([
-  ...DEFAULT_SETTINGS.map((item) => item.key),
-  'colorPresetSettings',
-])
+/** 允许随设置一起保存的扩展字段；新增字段必须在 ChartSettingsExtensions 里声明。 */
+const EXTENSION_SETTING_KEYS = ['preClose'] as const satisfies ReadonlyArray<
+  keyof ChartSettingsExtensions
+>
 
 /**
- * 归一化设置：用 DEFAULT_SETTINGS 补齐缺失 key、保留业务扩展字段。
+ * 归一化设置：用 DEFAULT_SETTINGS 补齐缺失 key，只保留已声明的扩展字段。
  * 只解析传入设置，不读取存储；设置持久化由布局管理器负责。
  *
  * @param partial - 设置片段
@@ -406,27 +462,23 @@ const KNOWN_SETTING_KEYS = new Set<string>([
  */
 export function normalizeSettings(partial?: Partial<ChartSettings>): ChartSettings {
   const source = partial
-  // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
-  const result: Partial<_SettingByKey> = {}
+  const result: ChartSettings = {}
   DEFAULT_SETTINGS.forEach((item) => {
     // 未在 partial 中指定的 key 回退到 DEFAULT_SETTINGS 的默认值
     // 用 ?? 而非 ||，确保显式传入 false / '' 不会被默认值覆盖
-    ;(result as Record<string, unknown>)[item.key] =
-      source?.[item.key] ?? resolveSettingDefault(item.default)
+    writeSetting(
+      result,
+      item.key,
+      readSetting(source ?? {}, item.key) ?? resolveSettingDefault(item.default),
+    )
   })
-  // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
-  ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(
-    source?.colorPresetSettings,
-  )
-  // 保留扩展字段（如 preClose），避免业务元数据被归一化清掉
-  if (source) {
-    for (const [key, value] of Object.entries(source)) {
-      if (KNOWN_SETTING_KEYS.has(key)) continue
-      if (value === undefined) continue
-      ;(result as Record<string, unknown>)[key] = value
-    }
+  result.colorPresetSettings = normalizeColorPresetSettings(source?.colorPresetSettings)
+  // 扩展字段只复制声明过的键，未声明的业务元数据一律丢弃。
+  for (const key of EXTENSION_SETTING_KEYS) {
+    const value = source?.[key]
+    if (value !== undefined) result[key] = value
   }
-  return result as ChartSettings
+  return result
 }
 
 import {
@@ -441,7 +493,6 @@ export type {
   RightAxisTypeSetting,
 } from './axisSettings.js'
 export {
-  buildPaneScaleTypesFromSetting,
   resolveAxisDisplaySetting,
   resolveEffectiveAxisDisplay,
   resolvePriceScaleTypeSetting,

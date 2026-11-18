@@ -54,8 +54,6 @@ export interface IndicatorInstanceDescriptor {
 export interface IndicatorInstanceCatalog {
   /** 全部用户可见实例，按工作区实例顺序。 */
   listInstances(): ReadonlyArray<IndicatorInstanceDescriptor>
-  /** 主图实例，按启用顺序。 */
-  listMainInstances(): ReadonlyArray<IndicatorInstanceDescriptor>
   /** 指定 pane 的实例；一个 pane 可以有多条。 */
   listPaneInstances(paneId: string): ReadonlyArray<IndicatorInstanceDescriptor>
 }

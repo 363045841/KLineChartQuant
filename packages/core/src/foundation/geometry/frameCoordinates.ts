@@ -4,6 +4,8 @@
  * 时间轴、绘图投影、命中与拖拽共享同一个实现；数据两端按常规槽距外推。
  */
 export interface FrameCoordinates {
+  /** 本帧序列的常规槽距（毫秒）；0 表示无法统计。 */
+  readonly seriesInterval: number
   /** 毫秒时间戳映射为连续逻辑位置；真实行情之间插值，两端按常规槽距外推。 */
   timeToLogical(timestamp: number): number | null
   /** 跨周期绘图使用的最近整数槽位；仅派生位置，不改变原始时间。 */

@@ -12,7 +12,6 @@ export {
   type IndicatorMetadata,
   type IndicatorRendererOptions,
   type IndicatorRuntimeDescriptor,
-  type IndicatorScaleRendererOptions,
   type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
 export {
@@ -48,6 +47,10 @@ export {
   setIndicatorFailures,
   unregisterIndicator,
 } from './engine/indicators/pipeline/index.js'
+export type * from './engine/objects/index.js'
+export type { ObjectAxesApi } from './engine/pane/axisTypes.js'
+// 主价格轴身份是 UI 与引擎共用的 SSOT：宿主据此区分价格轴与指标轴。
+export { PRICE_SERIES_AXIS_ID } from './engine/renderers/rendererIds.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {
@@ -62,6 +65,8 @@ export type {
   ShapePlot,
 } from './engine/plots/types.js'
 export { PlotKind, ShapeLocation, ShapeSize, ShapeStyle } from './engine/plots/types.js'
+export { registerAxisLabel } from './engine/renderers/impl/labels/impl/registerAxisLabel.js'
+export type { AxisLabelRegistrar } from './engine/renderers/impl/labels/types.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,
@@ -94,6 +99,8 @@ export type { ChartSettings } from './foundation/config/chartSettings.js'
 export { resolveOptionUnderlying } from './foundation/config/optionUnderlying.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'
+export type { ObjectAxisBinding } from './foundation/geometry/axisBinding.js'
+export { objectAxisId } from './foundation/geometry/axisBinding.js'
 export type { FrameCoordinates } from './foundation/geometry/frameCoordinates.js'
 export * from './foundation/persistence/index.js'
 export { makePluginLayerId } from './foundation/plugin/impl/rendererLayerId.js'

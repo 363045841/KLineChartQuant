@@ -121,6 +121,19 @@ describe('DrawingStyleToolbar 模板菜单', () => {
     wrapper.unmount()
   })
 
+  it('多选时在工具栏首位显示计数徽标', () => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: {
+        drawings: [createDrawingObject('a'), createDrawingObject('b')],
+        editableStyleKeys: [],
+      },
+    })
+    const badge = wrapper.get('.selection-count')
+    expect(badge.text()).toBe('2')
+    expect(wrapper.element.firstElementChild).toBe(badge.element)
+    wrapper.unmount()
+  })
+
   it('shows icon positions in the canvas toolbar while editing text', async () => {
     const wrapper = mount(DrawingStyleToolbar, {
       props: { drawings: [], editableStyleKeys: [], lineLabelPosition: 'center' },

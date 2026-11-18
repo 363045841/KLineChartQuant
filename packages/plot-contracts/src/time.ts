@@ -16,6 +16,14 @@ export interface ScriptMarketSession {
   readonly slotMinutes?: number
   readonly timeZone: string
   readonly sessions: readonly ScriptSessionRange[]
+  /**
+   * 交易日起点：市场时区墙钟分钟数（0–1439）。
+   *
+   * 交易日从该时刻开始计数，用于把跨零点夜盘归入同一交易日；省略表示自然日 00:00。
+   * 它只描述归属规则，不扩展 `sessions`：夜盘仍属于下一交易日的行情，而不改变
+   * 常规盘时段的槽位语义。
+   */
+  readonly tradingDayStartMinute?: number
   readonly tradingDays?: readonly number[]
   /**
    * 可选的交易日边界。配置后 `time_tradingday` 按它切分，而不是按会话时区的午夜；

@@ -39,6 +39,10 @@
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
     },
+    "./objects": {
+      "types": "./dist/engine/objects/index.d.ts",
+      "import": "./dist/engine/objects/index.js"
+    },
     "./agent-tools": {
       "types": "./dist/foundation/agent/chartToolRegistry.d.ts",
       "import": "./dist/foundation/agent/chartToolRegistry.js"

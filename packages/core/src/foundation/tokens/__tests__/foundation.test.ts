@@ -180,9 +180,9 @@ describe('foundation tokens: per mode', () => {
     expect(lightFoundation.brand.accentText).toBe('#456FBD')
     const darkBg = darkTheme.colors.ui.background
     const lightBg = lightTheme.colors.ui.background
-    // UI / focus ring ≥ 3:1（ADR 记录 4.10 与 4.05）。
+    // UI / focus ring ≥ 3:1（ADR 记录 4.10 与 4.41）。
     expect(contrast('#4C77C6', darkBg)).toBeCloseTo(4.1, 1)
-    expect(contrast('#4C77C6', lightBg)).toBeCloseTo(4.15, 1)
+    expect(contrast('#4C77C6', lightBg)).toBeCloseTo(4.41, 1)
     // 作为文字 ≥ 4.5:1。
     expect(contrast(darkFoundation.brand.accentText, darkBg)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(lightFoundation.brand.accentText, lightBg)).toBeGreaterThanOrEqual(4.5)

@@ -21,6 +21,19 @@ describe('DrawingDocument', () => {
     expect(drawing.anchors).toEqual([expect.objectContaining({ price: 9 })])
   })
 
+  it('新建图元默认所有周期可见', () => {
+    const { document } = createDocument()
+
+    const drawing = document.createDrawing({
+      style: CREATE_DRAWING_STYLE,
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 9 }],
+    })
+
+    expect(drawing.timeframeVisibility).toEqual({ mode: 'all' })
+  })
+
   it('persists the derived parallel-channel anchor and accepts it on drag', () => {
     const { document } = createDocument()
 

@@ -44,7 +44,8 @@ describe('KlineWorkbench agent tools', () => {
   it('forwards extraChartTools to the agent host and exposes late registration', async () => {
     const tool = sampleTool()
     const extraChartTools = () => [tool]
-    const wrapper = mount(KlineWorkbench, { props: { extraChartTools } })
+    // Agent 宿主挂在侧边面板的插槽里，面板未展开时不渲染宿主，因此测试先展开面板。
+    const wrapper = mount(KlineWorkbench, { props: { extraChartTools, initialAgentPanelOpen: true } })
     try {
       await vi.waitFor(() => expect(agent.extraChartTools.length).toBeGreaterThan(0))
       expect(agent.extraChartTools[0]).toBe(extraChartTools)

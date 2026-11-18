@@ -91,9 +91,7 @@
     gap: 12px;
     overflow: auto;
     padding: 14px 12px 18px;
-    /* 表头分隔线由内容区顶部绘制，与图表框线同高。 */
-    border-top: 1px solid var(--agent-border);
-    background: var(--agent-bg);
+    background: var(--klc-color-ui-surround-background);
     scrollbar-gutter: stable;
   }
 

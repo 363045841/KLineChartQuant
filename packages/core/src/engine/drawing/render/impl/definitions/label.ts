@@ -8,8 +8,6 @@ import type { DrawingDefinition } from '@/engine/drawing/types.js'
 export function createLabelDefinition(): DrawingDefinition {
   return {
     kind: 'label',
-    minAnchors: 1,
-    maxAnchors: 1,
     extent(drawing) {
       const [anchor] = drawing.anchors
       if (!anchor || !Number.isFinite(anchor.index)) return UNBOUNDED_DRAWING_EXTENT

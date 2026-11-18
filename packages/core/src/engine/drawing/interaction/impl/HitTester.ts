@@ -6,7 +6,11 @@ import {
   pointToSegmentDistanceSq,
 } from '@/foundation/geometry/index.js'
 import { arrowHead } from '../../geometry/impl/arrowGeometry.js'
-import { anchorToScreen, isScreenPoint } from '../../geometry/impl/coordinateUtils.js'
+import {
+  anchorToScreen,
+  bindDrawingViewport,
+  isScreenPoint,
+} from '../../geometry/impl/coordinateUtils.js'
 import { fibLevelLines } from '../../geometry/impl/fibLevels.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
 import {
@@ -20,10 +24,10 @@ import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.
 import type { DrawingLine, PriceSpace } from '../../geometry/types.js'
 import { resolveDrawingHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
+import { CHANNEL_KINDS, drawingKindExtend } from '../../model/impl/drawingKindSpecs.js'
 import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingLabel, DrawingObject } from '../../types.js'
 import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
-import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
@@ -144,8 +148,6 @@ function crossLineSegments(screen: ScreenAnchor, right: number, bottom: number):
 /** 未传选中集合时手柄一律不参与命中：手柄只在选中态可见。 */
 const NO_SELECTION: ReadonlySet<string> = new Set()
 
-import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
-
 /**
  * Hit detection — test mouse position against drawing anchors and line segments.
  * Pure computation, no side effects.
@@ -164,19 +166,18 @@ export class HitTester {
     adapter: DrawingViewportPort,
     selectedDrawingIds: ReadonlySet<string> = NO_SELECTION,
   ): HitResult | null {
-    const visibleDrawings = drawings.filter((d) => d.visible && isDrawingInteractive(d))
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
     const pointer: Point = { x: mouseX, y: mouseY }
     return (
       this.hitTestHandles(
-        visibleDrawings,
+        drawings,
         pointer,
         adapter,
         selectedDrawingIds,
         regressionGeometryCache,
       ) ??
-      this.hitTestLineSegments(visibleDrawings, mouseX, mouseY, adapter, regressionGeometryCache) ??
-      this.hitTestFillRegions(visibleDrawings, pointer, adapter)
+      this.hitTestLineSegments(drawings, mouseX, mouseY, adapter, regressionGeometryCache) ??
+      this.hitTestFillRegions(drawings, pointer, adapter)
     )
   }
 
@@ -251,6 +252,7 @@ export class HitTester {
     drawing: DrawingObject,
     adapter: DrawingViewportPort,
   ): DrawingHandlePort {
+    adapter = bindDrawingViewport(adapter, drawing)
     const viewport = adapter.getViewport()
     const pane = adapter.getPaneInfo(drawing.paneId)
     return {
@@ -268,6 +270,7 @@ export class HitTester {
     regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
   ): LineSegment[] {
     const viewport = adapter.getViewport()
+    adapter = bindDrawingViewport(adapter, drawing)
     if (!viewport) return []
 
     if (drawing.kind === 'regression-channel')
@@ -346,6 +349,7 @@ export class HitTester {
 
   /** 组合图元的填充多边形：所有锚点可投影时按登记的环绕顺序成环，否则不参与命中。 */
   private getDrawingFillPolygon(drawing: DrawingObject, adapter: DrawingViewportPort): Point[] {
+    adapter = bindDrawingViewport(adapter, drawing)
     const anchorsOnScreen: Point[] = []
     for (const anchor of drawing.anchors) {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
@@ -374,7 +378,6 @@ export class HitTester {
     let areaTarget: LineLabelTarget | null = null
 
     for (const drawing of drawings) {
-      if (!isDrawingInteractive(drawing)) continue
       const segments = this.getDrawingLabelSegments(drawing, adapter)
       const line = findLineLabelTarget(
         drawing,
@@ -399,6 +402,7 @@ export class HitTester {
     drawing: DrawingObject,
     adapter: DrawingViewportPort,
   ): LineSegment[] {
+    adapter = bindDrawingViewport(adapter, drawing)
     if (
       (drawing.kind === 'ray' || drawing.kind === 'extended-line') &&
       drawing.anchors.length === 2
@@ -419,6 +423,7 @@ export class HitTester {
     adapter: DrawingViewportPort,
     cache?: Map<string, RegressionChannelGeometry | null>,
   ): RegressionChannelGeometry | null {
+    adapter = bindDrawingViewport(adapter, drawing)
     const cached = cache?.get(drawing.id)
     if (cached !== undefined) return cached
     const geometry = buildRegressionChannelGeometry(drawing, adapter)
@@ -492,7 +497,7 @@ function extendSegment(
   plotWidth: number,
   plotHeight: number,
 ): LineSegment {
-  const extend = drawing.extend ?? getExtendMode(drawing.kind)
+  const extend = drawing.extend ?? drawingKindExtend(drawing.kind)
   const maxLen = Math.max(plotWidth, plotHeight) * 4
   const dx = b.x - a.x
   const dy = b.y - a.y

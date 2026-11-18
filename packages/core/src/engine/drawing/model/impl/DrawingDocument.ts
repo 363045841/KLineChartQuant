@@ -20,6 +20,7 @@ import type {
   UpdateDrawingPatch,
 } from '../types.js'
 import { areAnchorsIdentical, isDrawingLocked, isDrawingMovementLocked } from './drawingAccess.js'
+import { drawingKindDefaultParams, isFilledDrawingKind } from './drawingKindSpecs.js'
 import { normalizeDrawingLabels } from './drawingLabels.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from './drawingScope.js'
 import {
@@ -39,17 +40,6 @@ const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
   'textColor',
   'fontSize',
 ]
-/** 判断图元是否需要默认半透明填充。 */
-function isChannel(kind: DrawingKind): boolean {
-  return [
-    'rectangle',
-    'parallel-channel',
-    'regression-channel',
-    'flat-line',
-    'disjoint-channel',
-  ].includes(kind)
-}
-
 /** 已确认图元的唯一 CRUD 入口。 */
 /** 水平线锚点只保存价格。 */
 function resolveHorizontalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
@@ -191,11 +181,10 @@ export class DrawingDocument {
         ...(input.locked === undefined ? {} : { locked: input.locked }),
         ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
         anchors,
-        params:
-          input.params ?? (input.kind === 'regression-channel' ? { sigma: 2 } : Object.freeze({})),
+        params: input.params ?? drawingKindDefaultParams(input.kind),
         labels: normalizeDrawingLabels(input.labels),
         style: {
-          ...(isChannel(input.kind) ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
+          ...(isFilledDrawingKind(input.kind) ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
           ...input.style,
         },
       },
@@ -307,7 +296,7 @@ export class DrawingDocument {
     if (drawings.length === 0) return Object.freeze([])
     // 通道类的填充能力由 kind 固有（渲染端必有 area 图元，fill 缺省时从 stroke 派生），
     // 因此全通道类集合的 fill 总是可批量修改，不依赖 style 上是否显式存在该键。
-    const fillSupported = drawings.every((drawing) => isChannel(drawing.kind))
+    const fillSupported = drawings.every((drawing) => isFilledDrawingKind(drawing.kind))
     return Object.freeze(
       DRAWING_STYLE_KEYS.filter(
         (key) =>
@@ -332,6 +321,38 @@ export class DrawingDocument {
     }
 
     return this.objects.updateMany(drawings.map((drawing) => applyDrawingPatch(drawing, patch)))
+  }
+
+  /**
+   * 按给定完整顺序重写同一 Pane 内用户图元的 zIndex。
+   *
+   * 排序决策不在这里：调用方已经算好顺序；本方法只校验集合一致并整批写入。
+   * 指标图元不参与用户排序；顺序未变化时不提交。
+   *
+   * @param paneId 目标 Pane
+   * @param orderedIds 该 Pane 内用户图元的完整顺序，自底层起
+   * @returns 顺序合法并已提交（或本来就是这个顺序）时为 true
+   */
+  reorderDrawings(paneId: string, orderedIds: ReadonlyArray<string>): boolean {
+    const paneDrawings = this.listCurrentDrawings().filter(
+      (drawing) => drawing.paneId === paneId && drawing.ownerId === undefined,
+    )
+    if (paneDrawings.length !== orderedIds.length) return false
+    const byId = new Map(paneDrawings.map((drawing) => [drawing.id, drawing]))
+    if (orderedIds.some((id) => !byId.has(id))) return false
+    const next: DrawingObject[] = []
+    for (const [index, id] of orderedIds.entries()) {
+      const drawing = byId.get(id)
+      if (!drawing) return false
+      next.push({ ...drawing, zIndex: index })
+    }
+    if (
+      paneDrawings.every(
+        (drawing, index) => drawing.id === orderedIds[index] && drawing.zIndex === index,
+      )
+    )
+      return true
+    return this.objects.updateMany(next).length > 0
   }
 
   /** 移除指定图元；锁定图元不可移除。 */

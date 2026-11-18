@@ -44,7 +44,8 @@
       },
       "accent": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3529, 0.3529], "hex": "#5A5A5A" }
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$description": "浅色交互强调色与 Pro Light 同源：墨黑；交易界面不使用蓝色强调。"
       },
       "onAccent": {
         "$type": "color",
@@ -60,13 +61,18 @@
       }
     },
     "color": {
+      "legendBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9804, 0.9804, 0.9804], "alpha": 0.8, "hex": "#FAFAFA" },
+        "$description": "= visual.background at alpha 0xCC."
+      },
       "selectionFill": {
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.3529, 0.3529, 0.3529],
+          "components": [0.0902, 0.0902, 0.0902],
           "alpha": 0.149,
-          "hex": "#5A5A5A"
+          "hex": "#171717"
         },
         "$description": "= visual.accent at alpha 0x26."
       }
@@ -132,6 +138,11 @@
       }
     },
     "color": {
+      "legendBackground": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.0431, 0.0549, 0.0667], "alpha": 0.8, "hex": "#0B0E11" },
+        "$description": "= visual.background at alpha 0xCC."
+      },
       "selectionFill": {
         "$type": "color",
         "$value": {

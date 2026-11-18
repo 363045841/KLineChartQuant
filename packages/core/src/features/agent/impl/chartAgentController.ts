@@ -14,13 +14,14 @@ import {
   KLINE_PERIODS,
   KNOWN_INSTRUMENT_TYPES,
 } from '@/data/provider/types.js'
-import type { PaneSpec } from '@/engine/pane/types.js'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID, type PaneSpec } from '@/engine/pane/types.js'
+import { runInNewPane } from '@/engine/pane/index.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
 import '@/engine/data/comparisonCommands.js'
 import {
+  AGENT_DRAWING_KINDS,
   DRAWING_LABEL_INDEX_PATTERN,
   type DrawingAnchorCommandInput,
-  type DrawingKind,
   type DrawingObject,
   getDrawingInputAnchorCount,
 } from '@/engine/drawing/index.js'
@@ -128,28 +129,10 @@ const TimeShareRangeQueryToolParameters = Type.Object({
   instrumentType: Type.Optional(InstrumentTypeToolParameter),
 })
 
-const DRAWING_KIND_VALUES = [
-  'trend-line',
-  'ray',
-  'extended-line',
-  'fib-retracement',
-  'rectangle',
-  'arrow',
-  'horizontal-line',
-  'horizontal-ray',
-  'vertical-line',
-  'cross-line',
-  'info-line',
-  'parallel-channel',
-  'regression-channel',
-  'flat-line',
-  'disjoint-channel',
-] as const satisfies ReadonlyArray<DrawingKind>
-
 /** 按输入锚点数量分组图元种类，供工具说明声明每种图元需要的锚点数。 */
 function groupDrawingKindsByAnchorCount(): string {
   const byCount = new Map<number, string[]>()
-  for (const kind of DRAWING_KIND_VALUES) {
+  for (const kind of AGENT_DRAWING_KINDS) {
     const count = getDrawingInputAnchorCount(kind)
     const kinds = byCount.get(count)
     if (kinds) kinds.push(kind)
@@ -161,12 +144,12 @@ function groupDrawingKindsByAnchorCount(): string {
     .join('; ')
 }
 
-// 锚点数量按图元种类不同，说明从领域实现派生，避免说明与实现漂移。
+// 锚点数量按图元种类不同，说明从种类声明派生，避免说明与实现漂移。
 const DRAWING_ANCHOR_TOOL_RULE =
   `Required anchor count by kind — ${groupDrawingKindsByAnchorCount()}. ` +
   'horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.'
 
-const DrawingKindToolParameter = Type.Enum(DRAWING_KIND_VALUES)
+const DrawingKindToolParameter = Type.Enum([...AGENT_DRAWING_KINDS])
 const AgentDrawingColorToolParameter = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
 const DrawingAnchorToolParameters = Type.Object({
   tradingDate: Type.Optional(TradingDateToolParameter),
@@ -542,7 +525,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     _input?: Static<typeof PanesListToolParameters>,
   ): Promise<ReadonlyArray<PaneSpec>> {
     return Object.freeze(
-      this.dependencies.paneManager.list().map((pane) =>
+      this.dependencies.panes.getLayoutSpecs().map((pane) =>
         Object.freeze({
           ...pane,
           ...(pane.capabilities ? { capabilities: Object.freeze({ ...pane.capabilities }) } : {}),
@@ -578,13 +561,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
     const indicatorId = await this.resolveRenderableSubIndicator(input.indicatorId, input.paneId)
     if (!indicatorId) return false
-    const anchor = this.dependencies.paneManager.list().at(-1)?.id ?? 'main'
-    return (
-      this.dependencies.paneManager.actions.add(indicatorId, input.params, {
-        kind: 'newPane',
-        anchorPaneId: anchor,
-        placement: 'below',
-      }) !== null
+    const anchor = this.dependencies.panes.getLayoutSpecs().at(-1)?.id ?? MAIN_PANE_ID
+    return runInNewPane(this.dependencies.panes, anchor, 'below', (paneId) =>
+      this.dependencies.panes.add(indicatorId, input.params, {
+        kind: INSTANCE_MOVE_KIND.PANE,
+        paneId,
+      }) !== null,
     )
   }
 
@@ -599,7 +581,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async updatePane(input: Static<typeof PaneUpdateToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.updatePane(input.paneId, input.patch)
+    return this.dependencies.panes.updatePane(input.paneId, input.patch)
   }
 
   /** 删除一个 pane 及其用户副图内容。 */
@@ -613,7 +595,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async removePane(input: Static<typeof PaneIdToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.removePane(input.paneId)
+    return this.dependencies.panes.removePane(input.paneId)
   }
 
   /** 调整 pane 的显示顺序。 */
@@ -627,7 +609,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async movePane(input: Static<typeof PaneMoveToolParameters>): Promise<boolean> {
-    return this.dependencies.paneManager.actions.movePane(input.paneId, input.targetIndex)
+    return this.dependencies.panes.movePane(input.paneId, input.targetIndex)
   }
 
   /** 替换 pane 的副图指标内容。 */
@@ -649,7 +631,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       .peek()
       .find((item) => item.paneId === input.paneId)
     if (!instance) return false
-    return this.dependencies.paneManager.actions.updateInstance(instance.id, {
+    return this.dependencies.panes.updateInstance(instance.id, {
       indicatorId,
       params: input.params,
     })
@@ -669,7 +651,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       .peek()
       .find((item) => item.paneId === input.paneId)
     if (!instance) return false
-    return this.dependencies.paneManager.actions.updateInstance(instance.id, {
+    return this.dependencies.panes.updateInstance(instance.id, {
       params: input.params,
     })
   }
@@ -685,7 +667,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async clearPanes(_input?: Static<typeof PanesClearToolParameters>): Promise<void> {
-    this.dependencies.paneManager.actions.clearPanes()
+    this.dependencies.panes.clearPanes()
   }
 
   /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */

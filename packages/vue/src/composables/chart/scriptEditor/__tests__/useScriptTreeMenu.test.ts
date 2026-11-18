@@ -1,6 +1,6 @@
 /** 验证文件树右键菜单按行生成条目、分隔线与禁用原因。 */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
 import { useScriptTreeMenu } from '../impl/useScriptTreeMenu.js'
 import type { ScriptTreeRow } from '../types.js'
@@ -24,6 +24,31 @@ afterEach(() => {
 })
 
 describe('文件树菜单', () => {
+  it('未保存草稿可以删除，删除动作使用标签身份', async () => {
+    const host = document.createElement('div')
+    const apply = vi.fn()
+    const scope = effectScope()
+    const session = scope.run(() =>
+      useScriptTreeMenu({ apply, writable: () => true, treeHost: ref(host) }),
+    )!
+    try {
+      session.openContextMenu(new MouseEvent('contextmenu'), {
+        ...ROW,
+        target: { kind: 'draft', tabId: 'draft_1' },
+        tabId: 'draft_1',
+        dirty: true,
+      })
+      const state = session.menu.state.value
+      const items = state?.content.kind === 'menu' ? state.content.items : []
+      const remove = items.find((item) => item.label === '删除文件')!
+      expect(remove.disabled).toBe(false)
+      await session.menu.run(remove.id)
+      expect(apply).toHaveBeenCalledWith({ type: 'delete-draft', tabId: 'draft_1' })
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('右键后生成文件菜单条目、分隔线与菜单标签', () => {
     const host = document.createElement('div')
     document.body.append(host)

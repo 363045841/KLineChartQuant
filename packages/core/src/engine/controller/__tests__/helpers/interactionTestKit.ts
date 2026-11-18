@@ -3,6 +3,7 @@
 
 import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
+import { createPaneState } from '@/engine/state/paneState'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { writableRef } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
@@ -87,15 +88,24 @@ export function createChartStub(args: {
   let scrollLeft = args.scrollLeft ?? 0
 
   const paneDefs = args.paneByY ?? [{ id: 'main', top: 0, height: 160, candleHitTest: true }]
+  const paneState = createPaneState()
+  paneState.actions.setPaneGeometry(
+    paneDefs.map((pane) => ({
+      id: pane.id,
+      top: pane.top,
+      height: pane.height,
+      axisWidth: 0,
+      axisColumns: [],
+    })),
+  )
   const paneRenderers = paneDefs.map((paneDef) => ({
     getPane: () => ({
       id: paneDef.id,
       top: paneDef.top,
       height: paneDef.height,
+      hasAxes: true,
+      axes: [{ axisId: paneDef.id }],
       capabilities: {
-        showPriceAxisTicks: true,
-        showCrosshairPriceLabel: true,
-        candleHitTest: paneDef.candleHitTest,
         supportsPriceTranslate: true,
       },
       yAxis: {
@@ -138,6 +148,7 @@ export function createChartStub(args: {
     getCurrentDpr: () => args.dpr,
     checkVisibleRangeGapWhenIdle: () => undefined,
     kernel: {
+      pane: paneState,
       viewport: {
         readonly: {
           scrollLeft: { peek: () => scrollLeft },
@@ -176,17 +187,31 @@ export function createChartStub(args: {
       },
     },
     getPaneRenderers: () => paneRenderers,
+    axes: {
+      bindingFor: () => {
+        const pane = paneDefs.find((item) => item.candleHitTest)
+        if (!pane) throw new Error('测试未声明行情对象所在窗口')
+        return { objectId: 'plugin:candle', paneId: pane.id, axisId: 'object:plugin:candle' }
+      },
+      get: () => paneRenderers[0]!.getPane().yAxis,
+      list: () => paneDefs.map((pane) => ({ objectId: pane.id, paneId: pane.id, axisId: pane.id })),
+      configuration: () => ({ scaleType: 'linear', rangeMode: 'auto' }),
+      hitTest: (paneId: string) => paneId,
+      scale: (axisId: string, deltaY: number, anchorY?: number) =>
+        chart.scalePrice(axisId, deltaY, anchorY),
+      translate: (axisId: string, deltaY: number) => chart.translatePrice(axisId, deltaY),
+    },
     getData: () => data,
     getRenderData: () => data,
     getInternalData: () => data,
     currentPeriod: 'daily',
     handlePinchZoom: () => undefined,
-    translatePrice: () => undefined,
+    translatePrice: (_axisId: string, _deltaY: number) => undefined,
     updateDrawingHover: () => undefined,
     clearDrawingHover: () => undefined,
     scheduleDraw: args.scheduleDraw ?? (() => undefined),
-    panes: { resizeBoundary: () => false },
-    scalePrice: () => undefined,
+    panes: { beginBoundaryResize: () => null },
+    scalePrice: (_axisId: string, _deltaY: number, _anchorY?: number) => undefined,
   }
 
   return chart

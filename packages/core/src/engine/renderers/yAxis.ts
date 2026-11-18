@@ -1,208 +1,82 @@
-/** 价格轴刻度、范围带与十字线价签的静态和动态绘制。 */
+/** Y 轴统一帧入口：按轴生成刻度和十字线标签；绘制由帧提交阶段一次完成。 */
+import type { AxisFrameApi } from '@/engine/pane/axisTypes.js'
+import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
+import { AXIS_LABEL_KIND, type RenderContext } from '@/foundation/plugin/index.js'
+import { resolveThemeColors } from '@/foundation/tokens/index.js'
+import { ScaleType } from '@/foundation/types/scaleType.js'
+import { createYAxisTicks } from '../scale/impl/axisTicks/axisTicks.js'
+import { formatScaleValue, resolveAdaptiveDecimals } from './Indicator/scale/scaleFormat.js'
+import { registerAxisLabel } from './impl/labels/index.js'
 
-import { primitiveSink } from '@/rendering/primitives/impl/paint.js'
-import { AXIS_DISPLAY } from '../../foundation/config/axisSettings.js'
-import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
-import type { RenderContext } from '../../foundation/plugin/index.js'
-import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
-import { resolveThemeColors } from '../../foundation/tokens/index.js'
-import { isTimeSharePeriod } from '../../foundation/types/chartPeriod.js'
-import type { Layer } from '../../rendering/scene/types.js'
-import { LAYER_PANE_GLOBAL } from '../../rendering/scene/types.js'
-import {
-  formatAxisPriceValue,
-  resolvePriceAxisDisplay,
-  usesPercentAxis,
-} from './axisValueFormat.js'
-import { paintAxisLabels, registerAxisLabel } from './impl/labels/index.js'
-
-type YAxisOptions = {
-  axisWidth: number
-  getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
-}
-
-/**
- * Y 轴静态层：刻度，画到 yAxisCtx（main 级刷新）
- */
-export function createYAxisStaticRendererLayer(options: YAxisOptions): Layer<RenderContext> {
-  return {
-    kind: 'draw-list',
-    id: makePluginLayerId('yAxis'),
-    role: 'background',
-    pane: LAYER_PANE_GLOBAL,
-    z: RENDERER_PRIORITY.SYSTEM_YAXIS,
-    visible: true,
-    paint(context) {
-      const { pane, dpr, yAxisCtx } = context
-      if (resolvePriceAxisDisplay(context) === AXIS_DISPLAY.NONE) return
-
-      const tokenColors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      const targetCtx = yAxisCtx
-      if (!targetCtx) return
-      const layout = context.axisLayout?.[pane.id]
-      const axisWidth =
-        layout?.width ?? (yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth)
-      const offsetX = layout?.left ?? 0
-      const isPercent = usesPercentAxis(context)
-
-      if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
-        targetCtx.clearRect(offsetX, 0, axisWidth, pane.height)
-
-        const labels = context.axisLabels.forSurface('yRightStatic', pane.id)
-        for (const tick of context.yAxisTicks) {
-          const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
-          labels.register({
+/** 每条轴只生成一份刻度，所有标签均带明确轴身份。 */
+export const axisFrameApi: AxisFrameApi = {
+  collect(context, axes, crosshair) {
+    const colors = resolveThemeColors(
+      context.theme,
+      context.isAsiaMarket,
+      context.colorPresetSettings,
+    )
+    for (const spec of axes) {
+      if (!spec.visible) continue
+      const bound = bindRenderAxis(context, spec.axisId)
+      const axis = bound.pane.yAxis
+      const percent = axis.getScaleType() === ScaleType.Percent
+      const decimals = resolveAdaptiveDecimals(axis.getDisplayRange(), spec.decimals)
+      const format =
+        spec.format ??
+        ((value: number): string =>
+          percent
+            ? `${axis.toPercent(value) >= 0 ? '+' : ''}${axis.toPercent(value).toFixed(decimals)}%`
+            : formatScaleValue(value, decimals))
+      const ticks = createYAxisTicks(bound.pane, { rightTypeSetting: axis.getScaleType() }, percent)
+      for (const tick of ticks)
+        registerAxisLabel(
+          bound,
+          'yRightStatic',
+          {
             kind: AXIS_LABEL_KIND.TICK,
-            text: formatAxisPriceValue(displayValue, isPercent),
+            text: format(tick.value),
             pos: tick.y,
-            color: tokenColors.text.secondary,
+            color: colors.text.secondary,
             fontSize: 12,
-          })
-        }
-        paintAxisLabels(targetCtx, labels.labels, 'yRightStatic', {
-          dpr,
-          axisWidth,
-          axisHeight: pane.height,
-          offsetX,
-        })
-        // 分时左右轴共用刻度坐标，左侧直接显示对应的原始价格。
-        const leftCtx = context.leftAxisCtx
-        if (leftCtx && isTimeSharePeriod(context.period) && pane.role === 'price') {
-          const leftWidth = leftCtx.canvas.width / dpr
-          const leftLabels = context.axisLabels.forSurface('yLeftStatic', pane.id)
-          for (const tick of context.yAxisTicks) {
-            leftLabels.register({
-              kind: AXIS_LABEL_KIND.TICK,
-              text: formatAxisPriceValue(tick.value, false),
-              pos: tick.y,
-              color: tokenColors.text.secondary,
-              fontSize: 12,
-            })
-          }
-          paintAxisLabels(leftCtx, leftLabels.labels, 'yLeftStatic', {
-            dpr,
-            axisWidth: leftWidth,
-            axisHeight: pane.height,
-          })
-        }
-      }
-    },
-    dispose() {},
-  }
-}
-
-/**
- * Y 轴动态层：价格范围带、装饰标签与十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
- */
-export function createYAxisOverlayRendererLayer(options: YAxisOptions): Layer<RenderContext> {
-  return {
-    kind: 'draw-list',
-    id: makePluginLayerId('yAxisOverlay'),
-    role: 'overlay',
-    pane: LAYER_PANE_GLOBAL,
-    z: RENDERER_PRIORITY.SYSTEM_YAXIS + 1,
-    visible: true,
-    paint(context) {
-      const { pane, dpr, yAxisOverlayCtx, yAxisCtx } = context
-      if (resolvePriceAxisDisplay(context) === AXIS_DISPLAY.NONE) return
-
-      const targetCtx = yAxisOverlayCtx ?? yAxisCtx
-      if (!targetCtx) return
-
-      // 标签默认底色/文字色统一取自 theme tokens，与静态层一致
-      const tokenColors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-
-      const layout = context.axisLayout?.[pane.id]
-      const axisWidth =
-        layout?.width ?? (targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth)
-      const offsetX = layout?.left ?? 0
-      targetCtx.clearRect(offsetX, 0, axisWidth, pane.height)
-
-      const isPercent = usesPercentAxis(context)
-
-      // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
-      if (pane.role === 'price') {
-        for (const range of context.yAxisRanges) {
-          const topY = range.topY + pane.top
-          const bandHeight = range.bottomY - range.topY
-          if (bandHeight <= 0) continue
-          primitiveSink()(
-            targetCtx,
-            [
-              {
-                kind: 'fill',
-                paths: [
-                  [
-                    { x: offsetX, y: topY },
-                    { x: offsetX + axisWidth, y: topY },
-                    { x: offsetX + axisWidth, y: topY + bandHeight },
-                    { x: offsetX, y: topY + bandHeight },
-                  ],
-                ],
-                color: range.color,
-                opacity: range.opacity,
-              },
-            ],
-            dpr,
-          )
-        }
-      }
-
-      // 十字线价签：在装饰标签之后注册，保证绘制顺序与既有 overlay 语义一致。
-      const crosshair = options.getCrosshair?.()
-      if (
-        pane.role === 'price' &&
-        crosshair &&
-        crosshair.activePaneId === pane.id &&
-        crosshair.price !== null
-      ) {
-        const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
-        registerAxisLabel(context, 'yRightOverlay', {
-          kind: AXIS_LABEL_KIND.TAG,
-          text: formatAxisPriceValue(crosshairPrice, isPercent),
-          pos: crosshair.y,
-          origin: pane.top,
-          variant: 'crosshair',
-          bgColor: tokenColors.crosshairLabelBg,
-          textColor: tokenColors.crosshairLabelText,
-          fontSize: 12,
-        })
-        const leftCtx = context.leftAxisOverlayCtx
-        if (leftCtx && isTimeSharePeriod(context.period) && pane.role === 'price') {
-          registerAxisLabel(context, 'yLeftOverlay', {
+          },
+          spec.axisId,
+        )
+      if (crosshair?.activePaneId === context.pane.id) {
+        const localY = Math.max(
+          axis.getContentTop(),
+          Math.min(axis.getContentBottom(), crosshair.y - context.pane.top),
+        )
+        registerAxisLabel(
+          bound,
+          'yRightOverlay',
+          {
             kind: AXIS_LABEL_KIND.TAG,
-            text: formatAxisPriceValue(crosshair.price, false),
-            pos: crosshair.y,
-            origin: pane.top,
+            text: format(axis.yToPrice(localY)),
+            pos: localY + context.pane.top,
+            origin: context.pane.top,
             variant: 'crosshair',
-            bgColor: tokenColors.crosshairLabelBg,
-            textColor: tokenColors.crosshairLabelText,
+            bgColor: colors.crosshairLabelBg,
+            textColor: colors.crosshairLabelText,
             fontSize: 12,
-          })
-          paintAxisLabels(
-            leftCtx,
-            context.axisLabels.forSurface('yLeftOverlay', pane.id).labels,
-            'yLeftOverlay',
-            { dpr, axisWidth: leftCtx.canvas.width / dpr, axisHeight: pane.height },
-          )
-        }
+          },
+          spec.axisId,
+        )
       }
-
-      paintAxisLabels(
-        targetCtx,
-        context.axisLabels.forSurface('yRightOverlay', pane.id).labels,
-        'yRightOverlay',
-        { dpr, axisWidth, axisHeight: pane.height, offsetX },
-      )
-    },
-    dispose() {},
-  }
+      if (context.leftAxisCtx && percent)
+        for (const tick of ticks)
+          registerAxisLabel(
+            bound,
+            'yLeftStatic',
+            {
+              kind: AXIS_LABEL_KIND.TICK,
+              text: formatScaleValue(tick.value, decimals),
+              pos: tick.y,
+              color: colors.text.secondary,
+              fontSize: 12,
+            },
+            spec.axisId,
+          )
+    }
+  },
 }

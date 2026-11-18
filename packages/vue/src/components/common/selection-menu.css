@@ -21,14 +21,12 @@
   transform: rotate(180deg);
 }
 
-/* 设置行里的紧凑单选下拉：透明底、24px、两端对齐；变量向下传给触发按钮。 */
+/* 设置行里的紧凑单选下拉：24px、两端对齐；变量向下传给触发按钮。 */
 .selection-menu {
   --control-button-min-width: 100px;
   --control-button-height: var(--klc-space-24, 24px);
   --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
-  --control-button-border-width: 0;
   --control-button-radius: var(--klc-radius-xs, 4px);
-  --control-button-background: transparent;
   --control-button-font-size: var(--klc-typography-font-size-md);
   --control-button-justify: space-between;
   --control-button-active-background: var(--klc-color-ui-hover);

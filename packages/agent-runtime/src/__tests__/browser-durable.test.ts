@@ -1,4 +1,4 @@
-// 本文件验证官方 JSONL 存储通过 IndexedDB 在关闭与重开后恢复历史。
+// 本文件验证官方 IndexedDB Storage 在关闭与重开后恢复历史。
 import 'fake-indexeddb/auto'
 import { createModels, fauxAssistantMessage, fauxProvider } from '@earendil-works/pi-ai'
 import { afterEach, describe, expect, it } from 'vitest'

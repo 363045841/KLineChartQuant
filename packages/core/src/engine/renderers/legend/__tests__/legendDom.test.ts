@@ -53,9 +53,10 @@ function createHarness() {
 /** 组装一帧图例投影；主图默认可收起，行按 pane 分组。 */
 function frameOf(
   panes: ReadonlyArray<readonly [string, ReadonlyArray<LegendRow>]>,
-  options: { canCollapse?: boolean; mainCollapsed?: boolean } = {},
+  options: { canCollapse?: boolean; mainCollapsed?: boolean; primaryPaneId?: string } = {},
 ): LegendDomFrame {
   return {
+    primaryPaneId: options.primaryPaneId ?? 'main',
     rowsByPane: panes.map(([paneId, rows]) => ({ paneId, rows })),
     mainCollapsed: options.mainCollapsed ?? false,
     canCollapse: options.canCollapse ?? false,

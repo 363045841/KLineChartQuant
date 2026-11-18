@@ -93,6 +93,7 @@ export type ScriptTreeAction =
     }
   | { readonly type: 'copy-file'; readonly id: string }
   | { readonly type: 'delete-file'; readonly id: string }
+  | { readonly type: 'delete-draft'; readonly tabId: string }
 
 /** 宿主提供的源码读写接口，统一访问脚本注册时使用的仓库。 */
 export interface ScriptSourceStore {

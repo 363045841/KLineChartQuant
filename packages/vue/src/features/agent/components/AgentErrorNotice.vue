@@ -44,8 +44,8 @@
     gap: 8px;
     padding: 10px;
     border-radius: 6px;
-    color: var(--agent-text);
-    background: var(--agent-danger-bg);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-danger-background);
   }
   .error-notice > svg {
     color: var(--klc-color-ui-danger-text);
@@ -66,12 +66,12 @@
     line-height: 1.4;
   }
   .error-notice__raw {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     line-height: 1.3;
   }
   span {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
   }
 </style>

@@ -3,9 +3,10 @@
  */
 
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
-import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
+import { filterDrawingsInScope } from '../../model/impl/drawingScope.js'
+import type { PaneDrawingScope } from '../../model/types.js'
 import { mergePaint } from '../../session/impl/DrawingSessionOverlay.js'
-import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
+import type { DrawingObject } from '../../types.js'
 import type { DrawingPaintScope, DrawingSource, DrawingStoreDeps } from '../types.js'
 
 /** 绘图投影器 —— kernel 业务 SSOT ⊕ 会话 overlay，供渲染插件读取。 */
@@ -15,7 +16,9 @@ export class DrawingStore {
     readonly indicators: readonly DrawingObject[]
     readonly drawings: readonly DrawingObject[]
     readonly paneId: string
-    readonly workspaceId: DrawingWorkspaceId
+    readonly workspaceId: PaneDrawingScope['workspaceId']
+    readonly symbolKey: PaneDrawingScope['symbolKey']
+    readonly period: PaneDrawingScope['period']
     readonly source: DrawingSource
     readonly value: DrawingObject[]
   } | null = null
@@ -60,44 +63,42 @@ export class DrawingStore {
   }
 
   /**
-   * 返回指定 Pane 与工作区下可见的绘制对象，按 zIndex 升序。
+   * 返回作用域内可见的绘制对象，按 zIndex 升序。
    *
    * source 把指标输出与用户文档分开：指标图元走 main 目标，用户图元才需要
    * 独立 drawing 画布。会话覆盖只属于用户文档，指标没有 session 投影。
    */
   getVisibleByPane(
-    paneId: string,
-    workspaceId: DrawingWorkspaceId,
-    scope: DrawingPaintScope = 'all',
+    scope: PaneDrawingScope,
+    paintScope: DrawingPaintScope = 'all',
     source: DrawingSource = 'all',
   ): DrawingObject[] {
     const indicators = source === 'user' ? [] : this.indicatorDrawings()
     const overlay = source === 'indicator' ? [] : (this.deps.getOverlay?.() ?? [])
     const committed = source === 'indicator' ? [] : this.deps.drawings$.peek()
-    if (scope === 'committed' && overlay.length === 0) {
+    if (paintScope === 'committed' && overlay.length === 0) {
       const cached = this.committedVisibleCache
       if (
         cached !== null &&
         cached.indicators === indicators &&
         cached.drawings === committed &&
-        cached.paneId === paneId &&
-        cached.workspaceId === workspaceId &&
+        cached.paneId === scope.paneId &&
+        cached.workspaceId === scope.workspaceId &&
+        cached.symbolKey === scope.symbolKey &&
+        cached.period === scope.period &&
         cached.source === source
       )
         return cached.value
-      const value = [...indicators, ...committed]
-        .filter(
-          (drawing) =>
-            drawing.visible &&
-            drawing.paneId === paneId &&
-            (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
-        )
+      const value = filterDrawingsInScope([...indicators, ...committed], scope)
+        .filter((drawing) => drawing.visible)
         .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
       this.committedVisibleCache = {
         indicators,
         drawings: committed,
-        paneId,
-        workspaceId,
+        paneId: scope.paneId,
+        workspaceId: scope.workspaceId,
+        symbolKey: scope.symbolKey,
+        period: scope.period,
         source,
         value,
       }
@@ -105,19 +106,13 @@ export class DrawingStore {
     }
     const overriddenIds = new Set(overlay.map((drawing) => drawing.id))
     const drawings =
-      scope === 'session'
+      paintScope === 'session'
         ? overlay
-        : scope === 'committed'
+        : paintScope === 'committed'
           ? [...indicators, ...committed.filter((drawing) => !overriddenIds.has(drawing.id))]
           : [...indicators, ...mergePaint(committed, overlay)]
-    return drawings
-      .filter(
-        (drawing) =>
-          drawing.visible &&
-          drawing.paneId === paneId &&
-          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
-      )
-      .slice()
+    return filterDrawingsInScope(drawings, scope)
+      .filter((drawing) => drawing.visible)
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
   }
 }

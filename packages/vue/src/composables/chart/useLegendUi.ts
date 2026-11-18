@@ -1,10 +1,19 @@
 /** 处理 Core 图例发出的界面请求，领域操作全部由 LegendApi 执行。 */
 import {
   type ChartController,
+  INDICATOR_ROLE,
+  type IndicatorRole,
   LEGEND_UI_EVENT,
   type LegendUiEventDetail,
 } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref, watch } from 'vue'
+
+/** 图例替换 UI 的公开投影，显式引用公共角色类型，避免声明泄露 Core 内部路径。 */
+export interface LegendUiBindings {
+  replacementId: Ref<string | null>
+  replacementRole: Ref<IndicatorRole>
+  replaceLegend(selectorId: string, definitionId: string): Promise<void>
+}
 
 /** 连接图例界面请求与指标选择器/移动菜单，返回原位替换入口。 */
 export function useLegendUi(
@@ -17,9 +26,9 @@ export function useLegendUi(
     /** 移动目标列表由 Core 投影，宿主在按钮下方打开自己的菜单。 */
     openMoveMenu: (request: LegendUiEventDetail & { action: 'move-to' }) => void
   },
-) {
+): LegendUiBindings {
   const replacementId = ref<string | null>(null)
-  const replacementRole = ref<'main' | 'sub'>('sub')
+  const replacementRole: Ref<IndicatorRole> = ref(INDICATOR_ROLE.SUB)
   let replacementLegendId: string | null = null
   watch(
     canvasLayer,
@@ -34,7 +43,8 @@ export function useLegendUi(
         else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {
           replacementLegendId = request.id
-          replacementId.value = request.role === 'main' ? request.definitionId : request.paneId
+          replacementId.value =
+            request.role === INDICATOR_ROLE.MAIN ? request.definitionId : request.paneId
           replacementRole.value = request.role
           options.openSelector()
         }

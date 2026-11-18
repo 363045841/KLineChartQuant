@@ -58,8 +58,8 @@
     padding: 11px;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--agent-warning-bg);
-    color: var(--agent-text);
+    background: var(--klc-color-ui-warning-background);
+    color: var(--klc-color-ui-text);
   }
 
   header {
@@ -77,7 +77,7 @@
     gap: 2px;
   }
   header span {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     text-transform: uppercase;
   }
@@ -102,7 +102,7 @@
     gap: 2px;
   }
   dt {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
   }
   dd {
@@ -121,15 +121,15 @@
     align-items: center;
     gap: 5px;
     padding: 0 10px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
     font: inherit;
     font-size: 11px;
     cursor: pointer;
   }
   .confirmation__reject {
-    color: var(--agent-text);
-    background: var(--agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-agent-composer-input-background);
   }
   .confirmation__confirm {
     border-color: var(--klc-color-ui-border);
@@ -137,7 +137,7 @@
     background: var(--klc-color-ui-warning-strong);
   }
   .confirmation__resolved {
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 600;
   }

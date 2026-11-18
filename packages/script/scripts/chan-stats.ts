@@ -251,7 +251,7 @@ defineIndicator({
     plot.Line(
       highSegHub === undefined ? null : close > highSegHub.high ? 1 : close < highSegHub.low ? -1 : 0,
       'segHubPos',
-      { label: '段中枢位置', color: Color.Navy },
+      { label: '段中枢位置', color: Color.Indigo },
     )
     plot.Line(highHub === undefined ? null : ((highHub.high - close) / close) * 100, 'biHubHighPct', {
       label: '笔中枢上沿%',

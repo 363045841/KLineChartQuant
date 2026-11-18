@@ -1,10 +1,13 @@
 /** 导航按钮与快捷键共用命令，改绑后 Tooltip 同步读取注册表。 */
-import type { CommandRegistry } from '@363045841yyt/klinechart-core'
+import { type CommandRegistry, createIdleInteractionSnapshot } from '@363045841yyt/klinechart-core'
 import type { DeviceEnvironment } from '@363045841yyt/klinechart-core/config'
 import { mount } from '@vue/test-utils'
 import { createMockChartController } from '@vue-src/__tests__/_mockController.js'
 import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
-import { provideChartCommands } from '@vue-src/composables/commands/useCommands.js'
+import {
+  bindChartCommandScope,
+  provideChartCommands,
+} from '@vue-src/composables/commands/useCommands.js'
 import { resetTooltipGroup } from '@vue-src/composables/ui/useTooltip.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
@@ -32,7 +35,8 @@ function mountNavigation() {
   const Host = defineComponent({
     setup() {
       const root = ref<HTMLElement | null>(null)
-      registry = provideChartCommands(root)
+      registry = provideChartCommands()
+      bindChartCommandScope(registry, root)
       registry.register(
         createChartCommands({
           controller: () => controller,
@@ -42,7 +46,7 @@ function mountNavigation() {
           screenshot: vi.fn(),
         }),
       )
-      return () => h('div', { ref: root, tabindex: 0 }, h(ChartNavigation))
+      return () => h('div', { ref: root, tabindex: 0 }, h(ChartNavigation, { controller }))
     },
   })
   const wrapper = mount(Host, { attachTo: document.body })
@@ -55,6 +59,15 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
+
+/** 同屏可能有多个提示节点，取当前真正展开的那个。 */
+function visibleTooltip(): Element | null {
+  return (
+    [...document.querySelectorAll('[role="tooltip"]')].find(
+      (element) => (element.textContent ?? '').length > 0,
+    ) ?? null
+  )
+}
 
 describe('ChartNavigation', () => {
   it('executes the same five controller actions as the registered keys', async () => {
@@ -91,8 +104,8 @@ describe('ChartNavigation', () => {
     }
   })
 
-  it('fades out only the reset button after reset and restores it on the next interaction', async () => {
-    const { wrapper } = mountNavigation()
+  it('fades out only the reset button after reset and restores it when the view changes', async () => {
+    const { wrapper, controller } = mountNavigation()
     try {
       await wrapper.get('[data-command="view.zoomIn"]').trigger('click')
       await nextTick()
@@ -104,7 +117,44 @@ describe('ChartNavigation', () => {
       expect(faded.find('[data-command="view.reset"]').exists()).toBe(true)
       expect(faded.find('[data-command="view.zoomIn"]').exists()).toBe(false)
 
-      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      // 鼠标移动不是视图交互，不得恢复按钮。
+      document.body.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))
+      await nextTick()
+      expect(wrapper.find('.is-dismissed').exists()).toBe(true)
+
+      // 缩放改变了 zoomLevel，恢复按钮。
+      controller._setViewport({
+        ...controller.viewport.peek(),
+        zoomLevel: controller.viewport.peek().zoomLevel + 1,
+      })
+      await nextTick()
+      expect(wrapper.find('.is-dismissed').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('restores the reset button after a drag that changes the view but not after a click', async () => {
+    const { wrapper, controller } = mountNavigation()
+    try {
+      await wrapper.get('[data-command="view.reset"]').trigger('click')
+      await nextTick()
+      expect(wrapper.find('.is-dismissed').exists()).toBe(true)
+
+      const idle = createIdleInteractionSnapshot()
+      // 点击：拖拽起止，但视图没有变化。
+      controller._setInteractionState({ ...idle, isDragging: true })
+      controller._setInteractionState(idle)
+      await nextTick()
+      expect(wrapper.find('.is-dismissed').exists()).toBe(true)
+
+      // 拖拽：结束前可见区间发生平移。
+      controller._setInteractionState({ ...idle, isDragging: true })
+      controller._setViewport({
+        ...controller.viewport.peek(),
+        visibleTo: controller.viewport.peek().visibleTo + 3,
+      })
+      controller._setInteractionState(idle)
       await nextTick()
       expect(wrapper.find('.is-dismissed').exists()).toBe(false)
     } finally {
@@ -120,10 +170,10 @@ describe('ChartNavigation', () => {
       button.element.parentElement?.dispatchEvent(new PointerEvent('pointerenter'))
       vi.advanceTimersByTime(300)
       await nextTick()
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('Alt+R')
+      expect(visibleTooltip()?.textContent).toContain('Alt+R')
       registry.setShortcut('view.reset', 'Alt+T')
       await nextTick()
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('Alt+T')
+      expect(visibleTooltip()?.textContent).toContain('Alt+T')
       registry.setShortcut('view.reset', null)
       await nextTick()
       expect(document.querySelector('[role="tooltip"] .base-tooltip__shortcut')).toBeNull()

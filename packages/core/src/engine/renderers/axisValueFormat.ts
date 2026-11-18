@@ -25,8 +25,9 @@ export function formatAxisPriceValue(value: number, isPercent: boolean): string 
  * @returns 该轴应展示的标签语义
  */
 export function resolvePriceAxisDisplay(
-  context: Pick<RenderContext, 'period' | 'comparisonSymbols' | 'settings'>,
+  context: Pick<RenderContext, 'period' | 'comparisonSymbols' | 'settings' | 'hasPriceSeries'>,
 ): AxisDisplaySetting {
+  if (context.hasPriceSeries !== true) return AXIS_DISPLAY.PRICE
   return resolveEffectiveAxisDisplay('right', {
     period: context.period,
     comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
@@ -42,7 +43,7 @@ export function resolvePriceAxisDisplay(
  * @returns 是否需要把价格换算为百分比
  */
 export function usesPercentAxis(
-  context: Pick<RenderContext, 'period' | 'comparisonSymbols' | 'settings' | 'pane'>,
+  context: Pick<RenderContext, 'period' | 'comparisonSymbols' | 'settings' | 'hasPriceSeries'>,
 ): boolean {
-  return resolvePriceAxisDisplay(context) === AXIS_DISPLAY.PERCENT && context.pane.role === 'price'
+  return resolvePriceAxisDisplay(context) === AXIS_DISPLAY.PERCENT
 }

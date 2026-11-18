@@ -130,21 +130,14 @@ export interface PluginHost {
 
 // ============ 渲染器插件类型 ============
 
-/** Pane 角色 */
-export type PaneRole = 'price' | 'indicator' | 'auxiliary'
-
 /** Pane 能力开关 */
 export interface PaneCapabilities {
-  showPriceAxisTicks: boolean
-  showCrosshairPriceLabel: boolean
-  candleHitTest: boolean
   supportsPriceTranslate: boolean
 }
 
 /** Pane 信息接口 */
 export interface PaneInfo {
   id: string
-  role: PaneRole
   capabilities: PaneCapabilities
   top: number
   height: number
@@ -171,6 +164,8 @@ export interface PaneInfo {
   axes: ReadonlyArray<{ readonly axisId: string; readonly yAxis: PaneInfo['yAxis'] }>
   /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
   axis(axisId: string): PaneInfo['yAxis']
+  /** 对象绑定的轴身份；未绑定的对象返回 null。绘图等派生对象借用已有轴。 */
+  objectAxis(objectId: string): string | null
   priceRange: {
     maxPrice: number
     minPrice: number
@@ -260,11 +255,13 @@ export interface AxisLabelsFrame {
    * @param surface - 目标轴表面
    * @param paneId - Y 表面的 Pane 隔离键；X 表面忽略
    */
-  forSurface(surface: AxisLabelSurface, paneId?: string): AxisLabelCollector
+  forSurface(surface: AxisLabelSurface, axisId?: string): AxisLabelCollector
 }
 
 /** Y轴范围带（半透明填充区域） */
 export interface YAxisRange {
+  /** 范围带所属轴身份；同一 Pane 可能有多条轴列。 */
+  axisId: string
   /** 范围上界Y坐标（相对pane，canvas方向：小值=上方） */
   topY: number
   /** 范围下界Y坐标（相对pane，canvas方向：大值=下方） */
@@ -411,6 +408,8 @@ export interface DataTransform {
 
 /** 渲染几何子契约：Pane、视口、K 线位置与缩放。 */
 export interface RenderGeometryContext {
+  /** 当前对象显式绑定的 Y 轴；全局绘制阶段为空。 */
+  axisId?: string
   pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number
@@ -455,6 +454,8 @@ export interface RenderAxisContext {
   xAxisRanges: XAxisRange[]
   /** 预计算的 Y 轴刻度列表（锚定数值 → priceToY 投影），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
+  /** 本 Pane 是否承载主价格序列；价格刻度与价签按内容显示，不看 Pane 身份。 */
+  hasPriceSeries?: boolean
   /** 本 Pane 的轴列布局：轴身份 → 在右轴画布内的左偏移与列宽。 */
   axisLayout?: Readonly<Record<string, { readonly left: number; readonly width: number }>>
 }
@@ -465,8 +466,10 @@ export interface RenderOverlayContext {
   countdown?: string
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
-  /** 用户图元的当前 Pane 帧投影，绘制到独立 drawing 画布。 */
+  /** 用户图元的当前 Pane 帧投影；正式图元只剩手柄、框选与磁吸提示。 */
   drawingProjection?: DrawingFrameProjection
+  /** 用户图元按对象身份拆分的原语；每个图元一条渲染对象按 id 取用。 */
+  drawingObjectProjections?: ReadonlyMap<string, ReadonlyArray<DrawingPrimitive>>
   /** 指标输出图元的当前 Pane 帧投影，直接绘制到 main 目标。 */
   indicatorDrawingProjection?: DrawingFrameProjection
   /** 会话图元（拖拽覆盖、预览和框选）的独立投影。 */

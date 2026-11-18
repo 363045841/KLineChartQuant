@@ -290,10 +290,9 @@ export class PaneRenderer {
     const yAxisCanvas = this.dom.yAxisCanvas
     const yAxisOverlayCanvas = this.dom.yAxisOverlayCanvas
 
-    // 先读取 parentClientWidth，避免在写入样式后读取触发强制回流
+    // 右轴宽来自已提交的列几何；首帧提交前按配置下限占位，不再测量父元素。
     const fallbackYAxisWidth = this.opt.rightAxisWidth + this.opt.priceLabelWidth
-    const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
-    const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
+    const canvasYAxisWidth = this.pane.axisWidth > 0 ? this.pane.axisWidth : fallbackYAxisWidth
     // 只有专用左轴宿主的宽度代表轴宽；回退挂到绘图层时按轴宽分配，避免整幅后备存储。
     const leftParent = this.dom.leftYAxisCanvas?.parentElement
     const leftParentWidth =

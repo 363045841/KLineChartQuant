@@ -1,6 +1,6 @@
 // 根据最终标签的字符组成估算轴宽，不依赖 DOM 或 Canvas 文本测量。
 import { AXIS_LABEL_KIND, type AxisLabel } from '../../../foundation/plugin/types.js'
-import type { AxisColumnLayout, AxisWidthFrame, AxisWidths } from '../types.js'
+import type { AxisWidthFrame, AxisWidths } from '../types.js'
 
 const DEFAULT_FONT_SIZE = 12
 const AXIS_PADDING = 12
@@ -111,18 +111,5 @@ export class AxisWidthEstimator {
     // 窗格垂直排列，右侧只需要容纳最宽的一个窗格，不能跨窗格累加。
     result.right = Math.max(0, ...rightByPane.values())
     return { ...result, rightByAxis }
-  }
-
-  /** 按轴顺序生成右轴列布局；未测量过的轴宽度为 0。 */
-  getLayout(axisIds: ReadonlyArray<string>): Record<string, AxisColumnLayout> {
-    const layout: Record<string, AxisColumnLayout> = {}
-    let left = 0
-    for (const axisId of axisIds) {
-      const parts = this.widths.get(axisId)
-      const width = Math.max(parts?.static.right ?? 0, parts?.overlay.right ?? 0)
-      layout[axisId] = { left, width }
-      left += width
-    }
-    return layout
   }
 }

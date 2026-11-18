@@ -2,6 +2,13 @@
   通用锚定气泡（toggletip / 非模态面板）：Popover API + CSS anchor positioning，
   不支持时回退 floating-ui。用于替代「弹窗里再开弹窗」的说明、轻量表单等内容。
 
+  契约：非受控浮层，开关只归组件自己。
+  - 开合由 trigger 决定：click 单击切换、hover 指针或焦点进入展开；外部不传 open；
+  - 对外只有 @open / @close 通知，ref 的 show/hide/toggle 仅作程序化逃生口；
+  - role 按内容选：note 纯说明、dialog 可交互内容，与触发方式无关；
+  - 定位与其他浮层共用一套（auto|top|bottom 翻转、maxHeight 限高），note 不抢焦点。
+  需要外部状态驱动的面板请用 MenuSurface（受控 open + anchor）。
+
   用法：
   <BasePopover label="指标说明">
     <template #trigger="{ props }"><button v-bind="props">i</button></template>

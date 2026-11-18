@@ -124,10 +124,10 @@
     padding: 0 var(--klc-space-12, 12px);
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--klc-radius-sm, 6px);
-    background: var(--klc-color-ui-control-background);
+    background: var(--klc-color-ui-input-background);
   }
 
-  /* 弹窗头部内嵌：去掉独立框，铺满整行；横向内边距跟随弹窗内容左缘。 */
+  /* 弹窗头部内嵌：去掉独立框与底色，铺满整行；横向内边距跟随弹窗内容左缘。 */
   .search-field--flush {
     --search-field-height: 42px;
     padding: 0 var(--base-modal-content-inset, var(--klc-space-12, 12px));
@@ -144,19 +144,14 @@
     gap: var(--klc-space-4, 4px);
     padding: 0 calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
     border-radius: var(--klc-radius-md, 8px);
-    background: var(--klc-color-ui-input);
   }
 
   .search-field--compact .search-field__input {
     font-size: var(--klc-text-12-font-size, 12px);
   }
 
-  .search-field:focus-within {
+  .search-field:not(.search-field--flush):focus-within {
     border-color: var(--klc-color-ui-border-strong);
-  }
-
-  .search-field--flush:focus-within {
-    border-color: transparent;
   }
 
   .search-field--disabled {

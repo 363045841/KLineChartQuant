@@ -34,7 +34,6 @@
           v-model="searchQuery"
           placeholder="搜索模板名称..."
           aria-label="搜索模板"
-          :top-border="false"
         />
       </template>
 
@@ -359,9 +358,7 @@
     min-width: 30px;
     height: 30px;
     padding: 0;
-    border: 0;
     border-radius: 4px;
-    background: transparent;
     color: var(--klc-color-ui-muted);
   }
 

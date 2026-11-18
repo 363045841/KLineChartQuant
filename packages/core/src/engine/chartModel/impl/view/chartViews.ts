@@ -6,6 +6,7 @@ import {
   isTimeShareDataView,
   resolveChartWorkspaceId,
 } from '../../../../foundation/types/chartView.js'
+import { CANDLE_RENDERER_NAME } from '../../../renderers/rendererIds.js'
 
 export {
   type ChartDataView,
@@ -77,7 +78,7 @@ const SESSION_CAPABILITIES: Readonly<ViewCapabilities> = Object.freeze({
 })
 
 const KLINE_SYSTEM_LAYERS = Object.freeze([
-  'candle',
+  CANDLE_RENDERER_NAME,
   'extremaMarkers',
   'lastPriceLine',
   'lastPriceLabelRegistrar',
@@ -96,13 +97,13 @@ export const CHART_VIEW_DEFINITIONS: Readonly<Record<ChartDataView, ChartViewDef
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: FIXED_CAPABILITIES,
-      systemLayers: Object.freeze(['timeShare']),
+      systemLayers: Object.freeze([CANDLE_RENDERER_NAME]),
     }),
     [ChartDataViewId.FiveDayTimeShare]: Object.freeze({
       primaryRenderer: 'line',
       requiresMarketSession: true,
       capabilities: SESSION_CAPABILITIES,
-      systemLayers: Object.freeze(['fiveDayTimeShare']),
+      systemLayers: Object.freeze([CANDLE_RENDERER_NAME]),
     }),
   })
 

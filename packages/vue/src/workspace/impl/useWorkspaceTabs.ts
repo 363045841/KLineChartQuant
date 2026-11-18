@@ -134,6 +134,10 @@ export function useWorkspaceTabs(workspaceId: string) {
     moveTab,
     adopt,
     reload,
-    dispose: () => queue,
+    /** 等待已排队操作结束后关闭存储连接。 */
+    async dispose(): Promise<void> {
+      await queue
+      await store.dispose()
+    },
   }
 }

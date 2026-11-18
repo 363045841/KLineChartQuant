@@ -13,9 +13,9 @@ import {
   resolveCanonicalIndicatorId,
 } from '@/engine/indicators/pipeline/index.js'
 import type { InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { ChartSettings } from '@/foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
@@ -159,12 +159,6 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     chart.interaction.setTooltipSize(size)
   }
 
-  /** 开关 tooltip 锚点定位。 */
-  function setTooltipAnchorPositioning(enabled: boolean): void {
-    if (isDisposed()) return
-    chart.interaction.setTooltipAnchorPositioning(enabled)
-  }
-
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth）。 */
   function getContentWidth(): number {
     if (isDisposed()) return 0
@@ -225,6 +219,24 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.panes.removeInstance(instanceId)
   }
 
+  /** 删除当前工作区全部指标实例；副图随之回收。 */
+  function clearAllIndicators(): void {
+    if (isDisposed()) return
+    chart.panes.clearAllIndicators()
+  }
+
+  /** 锁定十字线所在 K 线；周期切换后由核心按时间重新投影。 */
+  function lockCrosshairAt(index: number): boolean {
+    if (isDisposed()) return false
+    return chart.interaction.lockCrosshairAt(index)
+  }
+
+  /** 解除垂直光标锁定。 */
+  function unlockCrosshair(): void {
+    if (isDisposed()) return
+    chart.interaction.unlockCrosshair()
+  }
+
   /** 更新实例参数、显隐、排序或定义。 */
   function updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean {
     if (isDisposed()) return false
@@ -255,14 +267,8 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     return chart.panes.movePane(paneId, targetIndex)
   }
 
-  /** 恢复主图价格轴的纵轴缩放和偏移。 */
-  function resetMainPriceAxis(): void {
-    if (isDisposed()) return
-    chart.resetPriceTransform(MAIN_PANE_ID)
-  }
-
   /** 更新设置（高层 API）。 */
-  function updateSettingsFacade(settings: Record<string, unknown>): void {
+  function updateSettingsFacade(settings: ChartSettings): void {
     if (isDisposed()) return
     chart.updateSettingsFacade(settings)
   }
@@ -274,7 +280,13 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
   }
 
   return {
-    resetMainPriceAxis,
+    /** 按定义删除所有实例，副图回收由领域命令一次提交。 */
+    removeIndicatorsByDefinition: (definitionId: string): void => {
+      if (!isDisposed()) chart.panes.removeInstancesByDefinition(definitionId)
+    },
+    /** 以完整 paneId 顺序一次提交重排。 */
+    reorderPanes: (paneIds: ReadonlyArray<string>): boolean =>
+      !isDisposed() && chart.panes.reorderPanes(paneIds),
     /** 逐 Pane 轴命令与 UI 共用核心入口。 */
     setPanePriceAxisScaleType: (
       paneId: string,
@@ -305,9 +317,11 @@ export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
     addIndicator,
     moveIndicator,
     removeIndicator,
+    clearAllIndicators,
+    lockCrosshairAt,
+    unlockCrosshair,
     updateIndicator,
     setTooltipSize,
-    setTooltipAnchorPositioning,
     getContentWidth,
     getLeftLoadBufferWidth,
     useRenderer,

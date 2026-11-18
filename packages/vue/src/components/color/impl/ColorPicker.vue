@@ -137,23 +137,30 @@
 </script>
 
 <style scoped>
+  /* 触发器只做 24px 命中区，色块本体 18px，与线宽/线型触发器等高。 */
   .color-picker__trigger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    padding: 4px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
-    background: var(--klc-color-ui-control-background);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--klc-radius-xs, 4px);
+    background: transparent;
     cursor: pointer;
+    transition: background 0.15s ease;
   }
+  .color-picker__trigger:hover {
+    background: var(--klc-color-ui-hover);
+  }
+  /* 色块用内描边代替外框，浅色图元也能看清边界。 */
   .color-picker__preview {
-    width: 100%;
-    height: 100%;
-    border-radius: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--klc-color-ui-border) 80%, transparent);
   }
   .color-picker__panel {
     box-sizing: border-box;

@@ -9,10 +9,7 @@ const adaptiveInput = {
   mouseY: 100,
   viewWidth: 600,
   viewHeight: 400,
-  plotWidth: 600,
-  plotHeight: 400,
   tooltipSize: { width: 220, height: 180 },
-  useAnchorPositioning: false,
   mode: 'adaptive' as const,
 }
 

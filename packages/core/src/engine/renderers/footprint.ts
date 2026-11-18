@@ -460,11 +460,12 @@ function paintColumnSummary(column: ColumnFrame, deltaText: string, lowestVisibl
 /** 可视区共用数值比例；Bid 从柱中心向左延伸，Ask 向右延伸，零值不绘制。 */
 export function createFootprintLayer(
   readState: () => FootprintRenderState | null,
+  paneId: string,
 ): Layer<RenderContext> {
   return {
     kind: 'draw-list',
     id: makePluginLayerId('footprint'),
-    pane: MAIN_PANE_ID,
+    pane: paneId,
     visible: true,
     // 足迹保留 overlay 层带语义；绘制目标由 Scene 选择，不从业务上下文读取画布。
     role: 'overlay',

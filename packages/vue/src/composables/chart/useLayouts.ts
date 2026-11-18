@@ -94,7 +94,8 @@ export function useLayouts(controller: Ref<ChartController | null>) {
         .map((layout) => ({
           id: layout.id,
           label: layout.name,
-          active: layout.id === activeId.value,
+          checked: layout.id === activeId.value,
+          selection: 'radio',
           deletable: layout.deletable,
           disabled: busy.value,
         })),

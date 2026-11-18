@@ -126,8 +126,6 @@
       width?: string
       /** 内容自适应宽度时的下限，仍受视口可用宽度约束。 */
       minWidth?: string
-      /** 默认平滑过渡内容或配置引起的尺寸变化，尊重减少动态效果偏好。 */
-      animateResize?: boolean
       maxWidth?: string
       maxHeight?: string
       /** 普通表单正文需要弹窗安全区时开启；列表和自管理间距的内容保持贴边。 */
@@ -146,7 +144,6 @@
       draggable: true,
       width: '',
       minWidth: '',
-      animateResize: true,
       maxWidth: '',
       maxHeight: '780px',
       bodyPadded: false,
@@ -171,7 +168,7 @@
 
   const teleportTarget = useFullscreenTeleportTarget()
   const dialog = useTemplateRef<HTMLDialogElement>('dialog')
-  const { resizing } = useModalResize(dialog, () => props.animateResize)
+  const { resizing } = useModalResize(dialog)
   const dragHeader = useTemplateRef<HTMLElement>('dragHeader')
   const { dragging, dragStyle, startDrag, drag, stopDrag } = useModalDrag(
     dialog,
@@ -508,15 +505,11 @@
   }
 
   /*
-    Footer 里的下拉触发器同样是文本动作：用 control-button 暴露的变量清掉底色、边框与聚焦阴影。
-    变量靠继承生效，不与 control-button 的状态选择器比特异性。
+    Footer 里的下拉触发器同样是文本动作：清掉悬浮态与聚焦态的底色和聚焦阴影；
+    默认无边框、无底色由 control-button 提供。
   */
   .base-footer :deep(.control-button) {
-    --control-button-border: transparent;
-    --control-button-background: transparent;
-    --control-button-active-border: transparent;
     --control-button-active-background: transparent;
-    --control-button-focus-border: transparent;
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;
   }

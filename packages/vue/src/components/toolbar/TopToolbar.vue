@@ -153,32 +153,14 @@
         :disabled="screenshotCapturing"
         command="chart.snapshot"
         class="screenshot-menu"
-        tooltip-placement="bottom"
         placement="bottom"
+        tooltip-placement="bottom"
         @select="onScreenshotSelect"
       >
         <template #trigger>
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </template>
-        <template #item-icon="{ item }">
-          <IconTablerDownload
-            v-if="item.id === chartScreenshotActions.download"
-            aria-hidden="true"
-          />
-          <IconTablerClipboard v-else-if="item.id === chartScreenshotActions.copy" aria-hidden="true" />
-        </template>
       </DropMenu>
-      <slot name="watchlist"></slot>
-      <BaseTooltip content="设置" command="settings.open" placement="bottom">
-        <button
-          type="button"
-          class="control-button history-button"
-          aria-label="设置"
-          @click="emit('settings')"
-        >
-          <IconTablerSettings class="history-button__icon" aria-hidden="true" />
-        </button>
-      </BaseTooltip>
     </div>
     </div>
     <div v-if="$slots.end" class="top-toolbar__host"><slot name="end" /></div>
@@ -235,8 +217,16 @@
       id: chartScreenshotLabels.capture,
       label: chartScreenshotLabels.capture,
       items: [
-        { id: chartScreenshotActions.download, label: chartScreenshotLabels.download },
-        { id: chartScreenshotActions.copy, label: chartScreenshotLabels.copy },
+        {
+          id: chartScreenshotActions.download,
+          label: chartScreenshotLabels.download,
+          icon: IconTablerDownload,
+        },
+        {
+          id: chartScreenshotActions.copy,
+          label: chartScreenshotLabels.copy,
+          icon: IconTablerClipboard,
+        },
       ],
     },
   ]
@@ -347,7 +337,6 @@
     (e: 'undoDrawing'): void
     (e: 'redoDrawing'): void
     (e: 'toggleFullscreen'): void
-    (e: 'settings'): void
     (e: 'footprintSettings'): void
     (e: 'toggleIndicator'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
@@ -395,11 +384,8 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    /* 底边由下方绘图区画框；保留透明占位，使内容盒与 AgentHeader 完全一致。 */
-    border-bottom: 1px solid transparent;
-    border-radius: 0;
-    background: var(--klc-color-ui-surface);
+    border: 0;
+    background: var(--klc-color-ui-surround-background);
     box-sizing: border-box;
     user-select: none;
   }
@@ -476,9 +462,7 @@
   .top-toolbar {
     --control-button-height: 30px;
     --control-button-inline-padding: 10px;
-    --control-button-border-width: 0;
     --control-button-radius: 4px;
-    --control-button-background: transparent;
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;

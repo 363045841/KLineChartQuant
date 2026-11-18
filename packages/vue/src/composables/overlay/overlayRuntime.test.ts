@@ -49,6 +49,7 @@ function floatingFixture(computePosition: () => Promise<ComputePositionReturn>) 
     reference: document.createElement('button'),
     panel: document.createElement('div'),
     placement: 'auto' as const,
+    align: 'start' as const,
     offset: 4,
     matchTriggerWidth: false,
     apply,

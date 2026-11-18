@@ -5,12 +5,21 @@ import type { UiColors } from './types.js'
 export const darkInterfaceColors: UiColors = {
   background: '#151619',
   surface: '#191A1E',
+  surroundBackground: '#191A1E', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+  tabActiveBackground: '#191A1E', // 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。
+  noticeBackground: '#27292E', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
+  inputBackground: '#27292E', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#1D1F24',
   input: '#1B1D22',
   popover: '#1E2025', // 浮层菜单与弹层表面：比 input 抬高一级，避免在深色图表背景上失去层次。
   controlBackground: '#27292E',
   hover: '#2D3036',
   selected: '#25272D',
+  brandSurface: '#35784A', // 深色主题的实心绿底：比浅色略亮，保证圆在深色栏上仍可见（约 3.2:1）。
+  brandOn: '#FFFFFF', // 深色 brandSurface 上的白色折线，对容器约 5.4:1。
+  highlight: '#FFFFFF1F', // 轻强调底：叠加在深色表面上，不随预设 accent 变化。
+  selection: '#FFFFFF2E', // 文本选区底，比 highlight 强一档。
+  focusRing: '#FFFFFF8C', // box-shadow 聚焦环：55% 白，对深色底满足非文本 3:1。
   border: '#2D3036',
   borderStrong: '#434752',
   text: '#DCE0E8',
@@ -35,22 +44,31 @@ export const darkInterfaceColors: UiColors = {
 }
 
 export const lightInterfaceColors: UiColors = {
-  background: '#F8F8F8',
-  surface: '#FCFCFC',
+  background: '#FFFFFF',
+  surface: '#F9F9F9',
+  surroundBackground: '#F7F7F7', // 图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。
+  tabActiveBackground: '#F7F7F7', // 活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。
+  noticeBackground: '#F7F7F7', // 一般提示与说明区域的背景，不表示警告、错误或交互强调。
+  inputBackground: '#F7F7F7', // 输入区域的常驻背景，包含组合式数值输入框。
   card: '#FFFFFF',
   input: '#FFFFFF',
   popover: '#FFFFFF',
-  controlBackground: '#EAEAEA',
-  hover: '#E5E5E5',
-  selected: '#EEEEEE',
-  border: '#DDDDDD',
+  controlBackground: '#F4F4F4',
+  hover: '#0000000A', // 黑色 3.9%：叠在任意表面色上都成立，不随背景换配方（参考 Vercel Light 的 interactive.hover #0000000a）。
+  selected: '#E4E4E4',
+  brandSurface: '#2E6B3A', // 品牌标记的实心绿底；不透明度 100%，配白色折线。
+  brandOn: '#FFFFFF', // 品牌标记容器上的图形色：纯白，对 #2E6B3A 约 8.4:1。
+  highlight: '#0000001A', // 轻强调底：说明框、标签胶囊、悬停强调。中性透明层，不跟随各预设的 accent。
+  selection: '#0000002E', // 文本选区底（编辑器 selection），比 highlight 强一档，仍保持中性。
+  focusRing: '#1717178C', // box-shadow 聚焦环：55% 墨黑，对白底约 4:1，满足非文本 3:1；组件不得再用 accent 百分比现算。
+  border: '#00000013', // 黑色 7.5%：中性描边，压在白底上接近 Vercel Light 的 interactive.border #00000013。
   borderStrong: '#8C8C8C',
-  text: '#262626',
-  textSoft: '#767676',
-  muted: '#606060',
-  accent: '#5A5A5A',
-  accentStrong: '#444444',
-  focus: '#5A5A5A',
+  text: '#313131',
+  textSoft: '#6C6C6C',
+  muted: '#666666',
+  accent: '#171717', // 浅色唯一的交互强调色取墨黑：交易界面里蓝色与涨跌色、状态色争夺注意力，改用灰阶深端做“墨”，白字 18.9:1。中间灰在近白底上会读作脏色，不用。
+  accentStrong: '#000000', // accent 的悬停/按下阶，压到纯黑。
+  focus: '#171717', // 焦点环与 accent 同色，靠 outline-offset 与元素分离；焦点不靠半透明自造。
   warningBackground: '#FFF8E8',
   warningBorder: '#D29A3A',
   warningText: '#AD7414',
@@ -61,7 +79,7 @@ export const lightInterfaceColors: UiColors = {
   success: '#16885A',
   warning: '#C58A1A',
   danger: '#D14B4B',
-  neutral: '#767676',
+  neutral: '#666666',
   onAccent: '#FFFFFF',
-  secondaryButtonText: '#606060',
+  secondaryButtonText: '#666666',
 }

@@ -1,7 +1,6 @@
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingChartAdapter } from '@/controllers/types.js'
 import type { Point } from '@/foundation/geometry/index.js'
-import { ChartWorkspaceId } from '@/foundation/types/chartView.js'
 import {
   anchorToScreen,
   isScreenPoint,
@@ -18,11 +17,12 @@ import type {
 import type { ActiveMagnetMode, MagnetSnapConfig } from '../../magnet/types.js'
 import { MagnetMode } from '../../magnet/types.js'
 import { isDrawingMovementLocked } from '../../model/impl/drawingAccess.js'
+import { filterDrawingsInScope } from '../../model/impl/drawingScope.js'
 import {
   clearDrawingSelection,
   toggleDrawingSelection,
 } from '../../session/impl/DrawingSelection.js'
-import { DrawingSessionOverlay, PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
+import { DrawingSessionOverlay } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject } from '../../types.js'
 import type {
   DrawingSelectionMarquee,
@@ -212,6 +212,7 @@ export class DrawingInteractionController {
         pointer.paneId,
         this.adapter.getDrawingWorkspaceId(),
         priceSpaceOf(pane.scaleType),
+        this.adapter.getDrawingSymbolKey(),
       )
       if (!preview) {
         this.sessionOverlay.removePreview()
@@ -275,6 +276,7 @@ export class DrawingInteractionController {
           pointer.paneId,
           this.adapter.getDrawingWorkspaceId(),
           priceSpaceOf(pane.scaleType),
+          this.adapter.getDrawingSymbolKey(),
         )
         if (preview) this.sessionOverlay.setPreview(preview)
       }
@@ -481,17 +483,14 @@ export class DrawingInteractionController {
     return hit ? hit.drawing : null
   }
 
-  /** 当前 Pane 与工作区内可被选中/命中的图元（可见且非预览；锁定图元也在内）。 */
+  /** 当前 Pane、标的、工作区与周期内可被选中/命中的图元（可见、非指标、非预览；锁定图元也在内）。 */
   private getSelectableDrawings(paneId: string): DrawingObject[] {
-    return this.sessionOverlay
-      .getNonPreview()
-      .filter(
-        (drawing) =>
-          drawing.visible &&
-          isDrawingInteractive(drawing) &&
-          drawing.paneId === paneId &&
-          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
-      )
+    return filterDrawingsInScope(this.sessionOverlay.getNonPreview(), {
+      paneId,
+      workspaceId: this.adapter.getDrawingWorkspaceId(),
+      symbolKey: this.adapter.getDrawingSymbolKey(),
+      period: this.adapter.getDrawingPeriod(),
+    }).filter((drawing) => drawing.visible && isDrawingInteractive(drawing))
   }
 
   /** 进入拖拽会话；锚点与中点手柄命中只拖动命中图元，主体命中拖动整个选择组；移动被锁的图元一律不参与。 */

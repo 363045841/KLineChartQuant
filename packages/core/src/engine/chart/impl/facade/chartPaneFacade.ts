@@ -7,8 +7,10 @@
 import type { ChartPaneLayout } from '../../../pane/index.js'
 import type {
   InstanceMoveTarget,
+  PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
+  PanePlacement,
   PaneSpec,
 } from '../../../pane/types.js'
 import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
@@ -18,7 +20,6 @@ import type { IndicatorInstancePatch } from '../../../state/indicatorState.js'
 export interface ChartPaneFacadeDependencies {
   kernel: ChartStateKernel
   layoutManager: ChartPaneLayout
-  ensureScaleTypes: () => void
   invalidateDrawingHistory: () => void
 }
 
@@ -35,11 +36,24 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     return this.deps.kernel.paneManager.actions.add(definitionId, params, target)
   }
 
-  /** 迁移实例归属；源副图变空时自动回收。 */
+  /** 新建空 Pane；返回身份，锚点不存在时返回 null。 */
+  addPane(anchorPaneId: string, placement: PanePlacement): string | null {
+    return this.deps.kernel.paneManager.actions.addPane(anchorPaneId, placement)
+  }
+
+  /** 迁移实例归属；源副图变空时自动回收。同 pane 时按 index 换位。 */
   moveInstance(instanceId: string, target: InstanceMoveTarget): boolean {
+    const before = this.deps.kernel.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)?.paneId
     const moved = this.deps.kernel.paneManager.actions.moveInstance(instanceId, target)
-    if (moved) this.deps.invalidateDrawingHistory()
-    return moved
+    if (!moved) return false
+    const after = this.deps.kernel.indicator.readonly.instances
+      .peek()
+      .find((instance) => instance.instanceId === instanceId)?.paneId
+    // 只有归属变化才影响图元在 Pane 上的投影，纯换位不应重置绘图历史。
+    if (before !== after) this.deps.invalidateDrawingHistory()
+    return true
   }
 
   /** 删除实例；空副图一并回收。 */
@@ -47,6 +61,18 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     const removed = this.deps.kernel.paneManager.actions.removeInstance(instanceId)
     if (removed) this.deps.invalidateDrawingHistory()
     return removed
+  }
+
+  /** 删除指定定义创建的全部实例；定义注销时与空副图回收一起提交。 */
+  removeInstancesByDefinition(definitionId: string): void {
+    this.deps.kernel.paneManager.actions.removeInstancesByDefinition(definitionId)
+    this.deps.invalidateDrawingHistory()
+  }
+
+  /** 删除当前工作区全部指标实例；副图回收后只保留主图与系统 Pane。 */
+  clearAllIndicators(): void {
+    this.deps.kernel.paneManager.actions.clearAllIndicators()
+    this.deps.invalidateDrawingHistory()
   }
 
   /** 更新实例参数、显隐、排序或定义。 */
@@ -62,6 +88,11 @@ export class ChartPaneFacade implements PaneLayoutCommands {
   /** 调整 Pane 显示顺序。 */
   movePane(paneId: string, targetIndex: number): boolean {
     return this.deps.kernel.paneManager.actions.movePane(paneId, targetIndex)
+  }
+
+  /** 一次提交完整 Pane 顺序。 */
+  reorderPanes(paneIds: ReadonlyArray<string>): boolean {
+    return this.deps.kernel.paneManager.actions.reorderPanes(paneIds)
   }
 
   /** 删除 Pane 及其用户实例。 */
@@ -81,7 +112,6 @@ export class ChartPaneFacade implements PaneLayoutCommands {
   importLayout(panes: ReadonlyArray<PaneSpec>): void {
     this.deps.kernel.paneManager.actions.importLayout(panes)
     this.deps.invalidateDrawingHistory()
-    this.deps.ensureScaleTypes()
   }
 
   /** 返回当前 Pane 布局快照。 */
@@ -92,6 +122,11 @@ export class ChartPaneFacade implements PaneLayoutCommands {
   /** 调整相邻 Pane 的边界。 */
   resizeBoundary(upperPaneId: string, deltaY: number): boolean {
     return this.deps.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
+  }
+
+  /** 指针按下时创建会话，后续移动提交相对起点的总位移。 */
+  beginBoundaryResize(upperPaneId: string): PaneBoundaryResizeSession | null {
+    return this.deps.layoutManager.beginBoundaryResize(upperPaneId)
   }
 
   /** 判断指定 Pane 是否存在。 */

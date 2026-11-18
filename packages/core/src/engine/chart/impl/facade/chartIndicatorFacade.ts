@@ -1,7 +1,7 @@
 /**
  * ChartIndicatorFacade —— 指标实例的只读查询面。
  *
- * 所有写操作统一走 Chart.panes 的四条实例命令，这里不再提供第二套写入口。
+ * 所有写操作统一走 Chart.panes 的实例命令，这里不再提供第二套写入口。
  */
 import type { Computed } from '../../../../foundation/reactivity/signal.js'
 import type { IndicatorInstance, SubPaneInfo } from '../../../chart/index.js'

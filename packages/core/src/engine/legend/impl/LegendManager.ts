@@ -7,8 +7,9 @@ import {
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
 import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
-import type { InstanceMoveOption, InstanceMoveTarget } from '@/engine/pane/types.js'
-import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { runInNewPane } from '@/engine/pane/index.js'
+import type { InstanceMoveTarget } from '@/engine/pane/types.js'
+import { INSTANCE_MOVE_KIND } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
@@ -19,6 +20,8 @@ import type {
   LegendApi,
   LegendEntry,
   LegendManagerDependencies,
+  LegendMoveOption,
+  LegendMoveTarget,
   LegendPatch,
   LegendRow,
   LegendTemplateContext,
@@ -66,7 +69,7 @@ export class LegendManager implements LegendApi {
     if (!this.deps.hasPrimarySymbol()) return false
     return this.rowsState
       .peek()
-      .some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+      .some((row) => row.paneId === this.deps.getPricePaneId() && row.indicator !== undefined)
   }
 
   /** 从当前领域状态枚举图例，不依赖是否已有行情或已绘制一帧。 */
@@ -89,7 +92,7 @@ export class LegendManager implements LegendApi {
       entries.push({
         id: `comparison:${comparison.identity}`,
         kind: 'comparison',
-        paneId: MAIN_PANE_ID,
+        paneId: this.deps.getPricePaneId(),
         identity: comparison.identity,
         spec: comparison.spec,
         hidden: this.deps.getComparisonHidden(comparison.identity),
@@ -183,7 +186,7 @@ export class LegendManager implements LegendApi {
     return this.moveCustomRow(entry, direction)
   }
 
-  /** 指标在同一 Pane 内排序，目标序号取相邻两项之间，不影响窗格位置。 */
+  /** 指标在同一 Pane 内换位；目标序号交给唯一的移动命令。 */
   private moveIndicator(
     entry: Extract<LegendEntry, { kind: 'indicator' }>,
     direction: 'up' | 'down',
@@ -193,22 +196,27 @@ export class LegendManager implements LegendApi {
     )
     const instances = catalog?.listPaneInstances(entry.paneId) ?? []
     const index = instances.findIndex((instance) => instance.instanceId === entry.id)
-    const neighbour = instances[index + (direction === 'up' ? -1 : 1)]
-    if (index < 0 || !neighbour) return false
-    const outer = instances[index + (direction === 'up' ? -2 : 2)]
-    const ordinal = outer
-      ? (outer.ordinal + neighbour.ordinal) / 2
-      : neighbour.ordinal + (direction === 'up' ? -1 : 1)
-    return this.deps.panes.updateInstance(entry.id, {
-      ordinal,
+    const targetIndex = index + (direction === 'up' ? -1 : 1)
+    // 首项上移、末项下移都是无操作，保持原按钮的可用性语义。
+    if (index < 0 || targetIndex < 0 || targetIndex >= instances.length) return false
+    return this.deps.panes.moveInstance(entry.id, {
+      kind: INSTANCE_MOVE_KIND.PANE,
+      paneId: entry.paneId,
+      index: targetIndex,
     })
   }
 
-  /** 迁移实例到菜单选择的目标；空副图由命令面回收。 */
-  moveTo(id: string, target: InstanceMoveTarget): boolean {
+  /** 迁移实例到菜单选择的目标；新建 Pane 时先建后移，空副图由命令面回收。 */
+  moveTo(id: string, target: LegendMoveTarget): boolean {
     const entry = this.get(id)
     if (entry?.kind !== 'indicator') return false
-    return this.deps.panes.moveInstance(entry.id, target)
+    if (target.kind !== 'newPane') return this.deps.panes.moveInstance(entry.id, target)
+    return runInNewPane(this.deps.panes, target.anchorPaneId, target.placement, (paneId) =>
+      this.deps.panes.moveInstance(entry.id, {
+        kind: INSTANCE_MOVE_KIND.PANE,
+        paneId,
+      }),
+    )
   }
 
   /** 自定义行在同一 Pane 内与相邻行换位。 */
@@ -259,42 +267,41 @@ export class LegendManager implements LegendApi {
         id,
         paneId: entry.paneId,
         definitionId: entry.definitionId,
-        role: entry.paneId === MAIN_PANE_ID ? 'main' : 'sub',
+        role: getIndicatorDescriptor(entry.definitionId)?.category === 'main' ? 'main' : 'sub',
       }
     return null
   }
 
   /** 菜单目标：主图、已有副图（首实例名）与锚点上下新建。 */
-  private moveOptions(entry: Extract<LegendEntry, { kind: 'indicator' }>): InstanceMoveOption[] {
+  private moveOptions(entry: Extract<LegendEntry, { kind: 'indicator' }>): LegendMoveOption[] {
     const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
       INDICATOR_INSTANCE_CATALOG_SERVICE,
     )
-    const options: InstanceMoveOption[] = [
-      {
-        target: { kind: 'main' },
-        label: '移至主图',
-        enabled: entry.paneId !== MAIN_PANE_ID,
-      },
-    ]
-    for (const pane of this.deps.panes.getLayoutSpecs()) {
-      if (pane.id === MAIN_PANE_ID || pane.id === entry.paneId) continue
-      const first = catalog?.listPaneInstances(pane.id)[0]
-      if (!first) continue
-      const name = getIndicatorDescriptor(first.definitionId)?.displayName ?? first.definitionId
+    const options: LegendMoveOption[] = []
+    for (const [index, pane] of this.deps.panes.getLayoutSpecs().entries()) {
+      if (pane.id === entry.paneId) continue
       options.push({
-        target: { kind: 'pane', paneId: pane.id },
-        label: `移至 ${name}`,
+        target: { kind: INSTANCE_MOVE_KIND.PANE, paneId: pane.id },
+        label: `移至窗口 ${index + 1}`,
         enabled: true,
       })
     }
     options.push(
       {
-        target: { kind: 'newPane', anchorPaneId: entry.paneId, placement: 'above' },
+        target: {
+          kind: 'newPane',
+          anchorPaneId: entry.paneId,
+          placement: 'above',
+        },
         label: '在上方新建副图',
         enabled: true,
       },
       {
-        target: { kind: 'newPane', anchorPaneId: entry.paneId, placement: 'below' },
+        target: {
+          kind: 'newPane',
+          anchorPaneId: entry.paneId,
+          placement: 'below',
+        },
         label: '在下方新建副图',
         enabled: true,
       },
@@ -311,7 +318,9 @@ export class LegendManager implements LegendApi {
     if (!canCollapse && this.collapsedState.peek()) this.collapsedState.set(false)
     batch(() => {
       this.contextState.set(
-        template ? { ...template, rows: rows.filter((row) => row.paneId === MAIN_PANE_ID) } : null,
+        template
+          ? { ...template, rows: rows.filter((row) => row.paneId === this.deps.getPricePaneId()) }
+          : null,
       )
       this.rowsState.set(rows)
     })
@@ -321,7 +330,7 @@ export class LegendManager implements LegendApi {
   private canCollapseRows(rows: ReadonlyArray<LegendRow>): boolean {
     return (
       this.deps.hasPrimarySymbol() &&
-      rows.some((row) => row.paneId === MAIN_PANE_ID && row.indicator !== undefined)
+      rows.some((row) => row.paneId === this.deps.getPricePaneId() && row.indicator !== undefined)
     )
   }
 
@@ -329,7 +338,7 @@ export class LegendManager implements LegendApi {
   private projectMainTemplate(
     contexts: ReadonlyArray<RenderContext>,
   ): LegendTemplateContext | null {
-    const main = contexts.find((context) => context.pane.id === MAIN_PANE_ID)
+    const main = contexts.find((context) => context.pane.id === this.deps.getPricePaneId())
     if (!main) return null
     return projectLegendContext({ context: main, host: this.deps.host })
   }
@@ -342,7 +351,7 @@ export class LegendManager implements LegendApi {
     const rows: LegendRow[] = []
     for (const context of contexts) {
       const paneId = context.pane.id
-      const mainTemplate = paneId === MAIN_PANE_ID ? template : null
+      const mainTemplate = paneId === this.deps.getPricePaneId() ? template : null
       const contents = [
         ...(mainTemplate ? projectMainLegendContents(mainTemplate) : []),
         ...this.collectInstanceContents(context),

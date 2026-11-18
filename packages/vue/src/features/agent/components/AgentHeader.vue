@@ -1,7 +1,7 @@
-<!-- Agent 面板头部：左侧开关对话列表抽屉，右侧提供新建会话、模型设置、停靠侧切换与关闭面板。 -->
+<!-- Agent 面板头部：左侧开关对话列表抽屉，右侧提供新建会话、模型设置与关闭面板。 -->
 <template>
-  <header class="agent-header">
-    <div class="agent-header__top">
+  <SidePanelHeader class="agent-header">
+    <template #default>
       <BaseTooltip :content="sessionsToggleLabel" placement="bottom">
         <BaseIconButton
           class="agent-header__sessions-toggle"
@@ -16,7 +16,8 @@
         </BaseIconButton>
       </BaseTooltip>
 
-      <div class="agent-header__actions">
+    </template>
+    <template #actions>
         <BaseTooltip :content="text.newSession" placement="bottom">
           <BaseIconButton
             :label="text.newSession"
@@ -31,16 +32,6 @@
             <IconSettings aria-hidden="true" />
           </BaseIconButton>
         </BaseTooltip>
-        <BaseTooltip :content="panelSideLabel" placement="bottom">
-          <BaseIconButton
-            data-testid="agent-panel-side-toggle"
-            :label="panelSideLabel"
-            @click="emit('toggle-panel-side')"
-          >
-            <IconLayoutSidebarLeftExpand v-if="panelSide === 'right'" aria-hidden="true" />
-            <IconLayoutSidebarRightExpand v-else aria-hidden="true" />
-          </BaseIconButton>
-        </BaseTooltip>
         <BaseTooltip :content="text.closePanel" placement="bottom">
           <BaseIconButton
             data-testid="agent-panel-close"
@@ -51,33 +42,30 @@
             <IconChevronRight v-else aria-hidden="true" />
           </BaseIconButton>
         </BaseTooltip>
-      </div>
-    </div>
-  </header>
+    </template>
+  </SidePanelHeader>
 </template>
 
 <script setup lang="ts">
   import './agent-icon-button.css'
-  import '../../../components/common/header-row.css'
 
   import { computed } from 'vue'
   import IconChevronLeft from '~icons/tabler/chevron-left'
   import IconChevronRight from '~icons/tabler/chevron-right'
-  import IconLayoutSidebarLeftExpand from '~icons/tabler/layout-sidebar-left-expand'
-  import IconLayoutSidebarRightExpand from '~icons/tabler/layout-sidebar-right-expand'
   import IconMenu2 from '~icons/tabler/menu-2'
   import IconPlus from '~icons/tabler/plus'
   import IconSettings from '~icons/tabler/settings'
   import BaseIconButton from '../../../components/common/BaseIconButton.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import SidePanelHeader from '../../side-panel/SidePanelHeader.vue'
+  import type { SidePanelSide } from '../../side-panel/types.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
-  import type { AgentPanelSide } from '../workspace/types.js'
 
   const props = withDefaults(
     defineProps<{
       locale: AgentLocale
       sessionsOpen: boolean
-      panelSide?: AgentPanelSide
+      panelSide?: SidePanelSide
       /** 运行时可用时才允许操作会话；不可用时仅保留设置与关闭入口。 */
       available?: boolean
     }>(),
@@ -88,7 +76,6 @@
     create: []
     'toggle-sessions': []
     settings: []
-    'toggle-panel-side': []
     close: []
   }>()
 
@@ -97,43 +84,11 @@
   const sessionsToggleLabel = computed(() =>
     props.sessionsOpen ? text.value.closeSessions : text.value.openSessions,
   )
-  // 切换按钮的提示文案指向面板将要移动到的位置。
-  const panelSideLabel = computed(() =>
-    props.panelSide === 'right' ? text.value.movePanelLeft : text.value.movePanelRight,
-  )
 </script>
 
 <style scoped>
-  .agent-header {
-    /* 行高与图表顶栏同源，两列 header 因此拼成一条线。 */
-    height: var(--klc-density-comfortable, 40px);
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--agent-header-inset, 8px);
-    border-top: 1px solid var(--agent-border);
-    /* 下方分隔线由紧随其后的内容区画在顶部；保留透明占位，使内容盒与图表顶栏一致。 */
-    border-bottom: 1px solid transparent;
-    background: var(--agent-surface);
-  }
-
-  .agent-header__actions {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-    gap: 2px;
-  }
-
-  .agent-header__top button:disabled {
-    opacity: 0.4;
-    cursor: default;
-    color: var(--agent-muted);
-    background: transparent;
-  }
-
   .agent-header__sessions-toggle[aria-expanded='true'] {
-    color: var(--agent-text);
-    background: var(--agent-hover);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 </style>
-

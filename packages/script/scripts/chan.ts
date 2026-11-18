@@ -355,7 +355,7 @@ defineIndicator({
     plot.Line(lastStroke === undefined ? null : lastStroke.toPrice, 'biEndPrice', {
       label: '最近笔端点',
       color: Color.Teal,
-      lineStyle: LineStyle.Dashed,
+      dash: [6, 4],
     })
 
     agg1High = -Infinity

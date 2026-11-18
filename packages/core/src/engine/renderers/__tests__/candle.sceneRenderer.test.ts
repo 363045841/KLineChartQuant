@@ -5,14 +5,16 @@ import {
   type MockPaneInfoOverrides,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { MAIN_PANE_ID } from '@/engine/pane/types'
 import type { RenderContext } from '@/foundation/plugin/index'
 import { createMockRenderer } from '@/rendering/render/__tests__/helpers/rendererTestKit'
 import type { Renderer, RendererName } from '@/rendering/render/Renderer'
-import { createCandleLayer } from '../candle'
+import { createPriceSeriesLayer as createCandleLayer } from '../priceSeries'
+import { PRICE_SERIES_AXIS_ID } from '../rendererIds.js'
 
 /** 以主图身份调用 K 线 Layer.paint；sceneRenderer 由上下文携带。 */
 function paint(context: RenderContext): void {
-  createCandleLayer().paint({ ...context, paneId: 'main', clear: false })
+  createCandleLayer(MAIN_PANE_ID).paint({ ...context, paneId: 'main', clear: false })
 }
 
 /** 构造蜡烛图 renderer 关心的 pane 差异项。 */
@@ -21,7 +23,6 @@ function makePane(): MockPaneInfoOverrides {
     id: 'main',
     top: 0,
     height: 400,
-    role: 'price',
     priceRange: { minPrice: 90, maxPrice: 110 },
     yAxis: {
       getDisplayRange: () => ({ maxPrice: 110, minPrice: 90 }),
@@ -40,7 +41,6 @@ function createCtx(
   overrides: MockRenderContextOverrides = {},
 ): RenderContext {
   return createMockRenderContext({
-    pane: makePane(),
     kWidth: 8,
     kGap: 2,
     dpr: 1,
@@ -50,6 +50,7 @@ function createCtx(
     sceneRenderer,
     zoomLevel: 1,
     ...overrides,
+    pane: { ...makePane(), ...overrides.pane, axisIds: [PRICE_SERIES_AXIS_ID] },
   })
 }
 
@@ -96,7 +97,7 @@ describe('candle sceneRenderer path', () => {
     'draws full-width high-low bodies on %s and invalidates retained OHLC geometry',
     (capsName) => {
       const renderer = makeSceneRenderer(capsName)
-      const layer = createCandleLayer()
+      const layer = createCandleLayer(MAIN_PANE_ID)
       const context = createCtx(renderer.r, {
         data: makeBars(2),
         range: { start: 0, end: 2 },
@@ -231,7 +232,7 @@ describe('candle preparation', () => {
 
   it('同一行情版本切换美国线使缓存失效，GPU 与 Canvas 使用相同矩形', () => {
     const canvas = createMockCanvasContext()
-    const layer = createCandleLayer()
+    const layer = createCandleLayer(MAIN_PANE_ID)
     const context = createCtx(undefined, {
       ctx: canvas,
       data: makeBars(1),
@@ -263,7 +264,7 @@ describe('candle preparation', () => {
     'hollow candles preserve transparent interiors and backend geometry at DPR=$dpr down=$down',
     ({ dpr, down }) => {
       const canvas = createMockCanvasContext()
-      const layer = createCandleLayer()
+      const layer = createCandleLayer(MAIN_PANE_ID)
       const bar = { ...makeBars(1)[0]!, open: down ? 102 : 100, close: down ? 100 : 102 }
       const context = createCtx(undefined, {
         ctx: canvas,
@@ -328,7 +329,7 @@ describe('candle preparation', () => {
     'both wick tiers stay centered across backends at DPR=$dpr and body width=$bodyPx',
     ({ dpr, bodyPx }) => {
       const canvas = createMockCanvasContext()
-      const layer = createCandleLayer()
+      const layer = createCandleLayer(MAIN_PANE_ID)
       const { r, submit, rectangles: submittedRectangles } = makeSceneRenderer()
       const context = createCtx(undefined, {
         ctx: canvas,
@@ -398,7 +399,7 @@ describe('candle preparation', () => {
       range: { start: 0, end: 1 },
       kLineCenters: [10],
     })
-    const layer = createCandleLayer()
+    const layer = createCandleLayer(MAIN_PANE_ID)
     layer.paint(context)
     const firstRects = [...vi.mocked(canvas.fillRect).mock.calls]
     const reads = closeRead.mock.calls.length
@@ -437,7 +438,7 @@ describe('candle preparation', () => {
       range: { start: 0, end: 1 },
       kLineCenters: [10],
     })
-    const retainedLayer = createCandleLayer()
+    const retainedLayer = createCandleLayer(MAIN_PANE_ID)
     retainedLayer.paint(context)
     const changed = createCtx(undefined, {
       dataRevision: 1,

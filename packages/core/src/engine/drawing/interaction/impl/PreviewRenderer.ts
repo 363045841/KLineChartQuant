@@ -2,19 +2,14 @@
 import type { DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
 import type { InteractionDrawingAnchor, PriceSpace } from '../../geometry/types.js'
+import { CHANNEL_KINDS } from '../../model/impl/drawingKindSpecs.js'
 import { materializeDrawingAnchors } from '../../model/impl/materializeAnchors.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingObject, DrawingWorkspaceId } from '../../types.js'
 import type { DrawingToolId } from '../types.js'
 import { DrawingTool } from '../types.js'
 import { drawingToolStyle } from './drawingToolStyle.js'
-import {
-  CHANNEL_KINDS,
-  DOUBLE_ANCHOR_TOOLS,
-  getDrawingKind,
-  SINGLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig.js'
+import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 
 /** 预览沿用工具自身的线型；通道类额外给出填充透明度，不改变描边样式。 */
 function previewStyle(withFill: boolean): DrawingStyle {
@@ -39,18 +34,21 @@ export class PreviewRenderer {
     paneId: string,
     workspaceId: DrawingWorkspaceId,
     space: PriceSpace,
+    symbolKey?: string,
   ): DrawingObject | null {
-    const isSingle = SINGLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
-    const isDouble = DOUBLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
-    const isTriple = TRIPLE_ANCHOR_TOOLS.some((tool) => tool === activeTool)
+    const anchorCount = getAnchorCountForTool(activeTool)
+    if (anchorCount === null) return null
+    const identity = symbolKey === undefined ? {} : { symbolKey }
 
-    if (!isSingle && !isDouble && !isTriple) return null
-
-    if (isSingle) {
-      return { ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId), workspaceId }
+    if (anchorCount === 1) {
+      return {
+        ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId),
+        workspaceId,
+        ...identity,
+      }
     }
 
-    if (isDouble) {
+    if (anchorCount === 2) {
       if (pendingAnchors.length < 1) return null
       return {
         ...this.buildDoubleAnchorPreview(
@@ -61,6 +59,7 @@ export class PreviewRenderer {
           space,
         ),
         workspaceId,
+        ...identity,
       }
     }
 
@@ -72,7 +71,7 @@ export class PreviewRenderer {
       paneId,
       space,
     )
-    return preview ? { ...preview, workspaceId } : null
+    return preview ? { ...preview, workspaceId, ...identity } : null
   }
 
   /** 单锚点工具预览：虚线样式 */

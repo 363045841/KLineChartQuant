@@ -5,6 +5,7 @@ import { ScaleType } from '@/foundation/types/scaleType.js'
 import { createDrawingDocumentFixture } from '@/engine/drawing/__tests__/helpers/drawingDocumentFixture.js'
 import {
   CONTAINER,
+  createDrawingFrame,
   createDrawingViewportPort,
   createPointerEvent,
 } from '@/engine/drawing/__tests__/helpers/drawingTestKit.js'
@@ -90,7 +91,11 @@ describe('一份绘图跨周期显示', () => {
     registerDefaultDrawingDefinitions(definitions)
     for (const minutes of [1440, 60, 5, 1440]) {
       const { coordinates, adapter, context } = frame(minutes)
-      const projection = projectDrawingsForFrame(store, definitions, context)
+      const projection = projectDrawingsForFrame(
+        store,
+        definitions,
+        createDrawingFrame(context, [drawing]),
+      )
       const line = projection.primitives.find((primitive) => primitive.kind === 'line')
       expect(line).toBeDefined()
       if (!line || line.kind !== 'line') throw new Error('趋势线投影缺失')
@@ -103,7 +108,11 @@ describe('一份绘图跨周期显示', () => {
       expect(state.readonly.drawings.peek()).toBe(original)
     }
     expect(
-      projectDrawingsForFrame(store, definitions, frame(60, 'asset-b').context).primitives,
+      projectDrawingsForFrame(
+        store,
+        definitions,
+        createDrawingFrame(frame(60, 'asset-b').context, [drawing]),
+      ).primitives,
     ).toEqual([])
   })
 
@@ -143,7 +152,11 @@ describe('一份绘图跨周期显示', () => {
       })
       const definitions = new DrawingDefinitionRegistry()
       registerDefaultDrawingDefinitions(definitions)
-      const projection = projectDrawingsForFrame(definitionStore, definitions, context)
+      const projection = projectDrawingsForFrame(
+        definitionStore,
+        definitions,
+        createDrawingFrame(context, [drawing]),
+      )
       const line = projection.primitives.find((primitive) => primitive.kind === 'line')
       if (!line || line.kind !== 'line') throw new Error('未来趋势线投影缺失')
       expect(line.a.x).toBe(coordinates.logicalToX(slot))

@@ -2,7 +2,16 @@
 import { generateUUID } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
-import { computed, onScopeDispose, type MaybeRef, type Ref, ref, shallowRef, unref, watch } from 'vue'
+import {
+  computed,
+  type MaybeRef,
+  onScopeDispose,
+  type Ref,
+  ref,
+  shallowRef,
+  unref,
+  watch,
+} from 'vue'
 import {
   createBlankSource,
   createCopySource,
@@ -84,10 +93,14 @@ export function useScriptEditor(
   controller?: Readonly<Ref<ChartController | null>>,
 ): ScriptEditorSession {
   let store = unref(sourceStore)
-  watch(() => unref(sourceStore), (value) => {
-    store = value
-    refreshDocuments()
-  }, { flush: 'sync' })
+  watch(
+    () => unref(sourceStore),
+    (value) => {
+      store = value
+      refreshDocuments()
+    },
+    { flush: 'sync' },
+  )
   /** 服务就绪是编辑器、目录与运行入口可用的前提。 */
   const ready = computed(() => unref(sourceStore) !== undefined)
   const open = ref(false)
@@ -355,7 +368,7 @@ export function useScriptEditor(
     )
   }
 
-  /** 仓库提交成功后才清理会话；文件与目录删除共用标签选择规则。 */
+  /** 清理指定草稿；文件与目录删除共用标签选择规则。 */
   function removeDrafts(matches: (draft: EditorDraft) => boolean): void {
     const activeIndex = drafts.value.findIndex((draft) => draft.id === activeTabId.value)
     drafts.value = drafts.value.filter((draft) => !matches(draft))
@@ -377,6 +390,14 @@ export function useScriptEditor(
     if (busy()) return
     if (action.type === 'create-file') {
       openBlank(action.kind, action.folder)
+      return
+    }
+    if (action.type === 'delete-draft') {
+      removeDrafts(
+        (draft) =>
+          draft.id === action.tabId && draft.definitionId === null && draft.identity === 'user',
+      )
+      treeError.value = null
       return
     }
     saving.value = true

@@ -8,7 +8,7 @@
 import { logicalIndexToScreenX } from '@/engine/viewport/logicalIndexToScreenX.js'
 import { createKLineSlotGrid, slotWorldX } from '@/engine/viewport/slotGrid.js'
 import type { FrameCoordinates } from '@/foundation/geometry/frameCoordinates.js'
-import { createSeriesTimeProjection } from '@/foundation/time/index.js'
+import { createSeriesTimeProjection, resolveSeriesInterval } from '@/foundation/time/index.js'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView.js'
 import { worldXToScreenX } from '@/foundation/utils/pixelAlign.js'
 
@@ -129,6 +129,7 @@ export function createFrameCoordinates(input: FrameCoordinateInput): FrameCoordi
   }
 
   return Object.freeze({
+    seriesInterval: resolveSeriesInterval(data),
     timeToLogical,
     timeToSlot: (timestamp: number) => nearestSlot(timeToLogical(timestamp)),
     logicalToTime,

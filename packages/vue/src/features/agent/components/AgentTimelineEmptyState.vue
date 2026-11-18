@@ -22,17 +22,17 @@
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
+  const props = defineProps<{ locale: AgentLocale }>()
+  const emit = defineEmits<{ prompt: [prompt: string] }>()
+
   /** 一个快捷提问：按钮显示短标签，发送完整指令。 */
   interface EmptyStatePrompt {
     readonly label: string
     readonly prompt: string
   }
 
-  const props = defineProps<{ locale: AgentLocale }>()
-  const emit = defineEmits<{ prompt: [prompt: string] }>()
-
   const text = computed(() => getAgentCopy(props.locale))
-  // 空态只展示固定引导；订单流那一条标签短、发送的指令带标注规则，避免用户手写口径。
+  // 空态只展示固定引导；订单流与期权两条的标签短、发送的指令带标注与口径规则，避免用户手写口径。
   const prompts = computed<readonly EmptyStatePrompt[]>(() => [
     { label: text.value.promptTrend, prompt: text.value.promptTrend },
     { label: text.value.promptRsi, prompt: text.value.promptRsi },
@@ -51,7 +51,7 @@
     justify-content: center;
     align-items: center;
     gap: 8px;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     text-align: center;
   }
 
@@ -62,7 +62,7 @@
   }
   .empty-state > p {
     margin: 0 0 8px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     line-height: 1.45;
   }
@@ -76,30 +76,27 @@
   }
   .empty-state__prompts button {
     max-width: 100%;
+    min-height: 36px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid var(--agent-border);
+    justify-content: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 999px;
-    background: transparent;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-surface);
     font: inherit;
     font-size: 12px;
+    text-align: center;
     cursor: pointer;
   }
   .empty-state__prompts button:hover {
-    border-color: var(--agent-accent);
-    color: var(--agent-accent);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
   .empty-state__prompts span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .empty-state__prompts svg {
-    width: 14px;
-    height: 14px;
-    flex: none;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 </style>

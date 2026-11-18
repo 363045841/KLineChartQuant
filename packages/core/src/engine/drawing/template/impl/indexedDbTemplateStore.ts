@@ -2,64 +2,72 @@
  * IndexedDB 模板仓库：实现 DrawingTemplateStore 契约，按图元类型分键存整份列表。
  */
 
-import { createIndexedDbPersistence } from '@/foundation/persistence/index.js'
+import { createDocumentStore, type DocumentStore } from '@/foundation/persistence/index.js'
 
 import type { DrawingKind } from '../../types.js'
 import type { DrawingTemplate, DrawingTemplateStore } from '../types.js'
-import { templateCodec } from './codec.js'
+import { templateCodec, toPlainTemplate } from './codec.js'
 
 const DATABASE_NAME = '@363045841yyt/klinechart-drawing-templates'
 const STORE_NAME = 'templates'
-/** 内部失败原因，由上层门面转换成界面文案。 */
-const PERSIST_FAILED = 'Drawing templates were not persisted'
 
-type TemplatePersistence = {
-  load(): Promise<DrawingTemplate[] | null>
-  save(templates: DrawingTemplate[]): Promise<boolean>
-}
-
-/** 取某类图元的持久化句柄。 */
-function persistence(kind: DrawingKind) {
-  return createIndexedDbPersistence({
+/** 取某类图元的持久化仓库；同类图元共享同一个连接。 */
+function persistence(kind: DrawingKind): DocumentStore<DrawingTemplate[]> {
+  return createDocumentStore<DrawingTemplate[]>({
     databaseName: DATABASE_NAME,
+    version: 1,
     storeName: STORE_NAME,
     key: kind,
     codec: templateCodec,
-    flushOnPageHide: false,
   })
 }
 
 /** 创建基于 IndexedDB 的模板仓库。 */
 export function createDrawingTemplateStore(
-  createPersistence: (kind: DrawingKind) => TemplatePersistence = persistence,
+  createPersistence: (kind: DrawingKind) => DocumentStore<DrawingTemplate[]> = persistence,
 ): DrawingTemplateStore {
-  async function list(kind: DrawingKind): Promise<DrawingTemplate[]> {
-    return (await createPersistence(kind).load()) ?? []
+  const stores = new Map<DrawingKind, DocumentStore<DrawingTemplate[]>>()
+
+  /** 每类图元只创建一个仓库，写操作因此共享同一连接和事务时序。 */
+  function store(kind: DrawingKind): DocumentStore<DrawingTemplate[]> {
+    let current = stores.get(kind)
+    if (!current) {
+      current = createPersistence(kind)
+      stores.set(kind, current)
+    }
+    return current
   }
 
-  /** 写入整份列表并返回，写失败抛错交给上层转入错误态。 */
-  async function write(
-    kind: DrawingKind,
-    templates: DrawingTemplate[],
-  ): Promise<DrawingTemplate[]> {
-    if (!(await createPersistence(kind).save(templates))) throw new Error(PERSIST_FAILED)
-    return templates
+  async function list(kind: DrawingKind): Promise<DrawingTemplate[]> {
+    return (await store(kind).read()) ?? []
   }
 
   return {
     list,
+
     async upsert(kind, template) {
-      const current = await list(kind)
-      const index = current.findIndex((item) => item.name === template.name)
-      const next = [...current]
-      if (index < 0) next.push(template)
-      else next[index] = template
-      return write(kind, next)
+      const plain = toPlainTemplate(template)
+      return await store(kind).update((current) => {
+        const templates = current ?? []
+        const index = templates.findIndex((item) => item.name === plain.name)
+        const next = [...templates]
+        if (index < 0) next.push(plain)
+        else next[index] = plain
+        return next
+      })
     },
+
     async remove(kind, name) {
-      const current = await list(kind)
-      const next = current.filter((item) => item.name !== name)
-      return next.length === current.length ? current : write(kind, next)
+      return await store(kind).update((current) => {
+        const templates = current ?? []
+        const next = templates.filter((item) => item.name !== name)
+        return next.length === templates.length ? templates : next
+      })
+    },
+
+    async dispose() {
+      await Promise.all([...stores.values()].map((current) => current.dispose()))
+      stores.clear()
     },
   }
 }

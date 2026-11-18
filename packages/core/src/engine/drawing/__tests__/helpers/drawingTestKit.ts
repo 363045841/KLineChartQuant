@@ -16,6 +16,7 @@ import type {
   PaneLayoutInfo,
 } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
+import type { RenderContext } from '@/foundation/plugin/types.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import type { KLineData } from '@/foundation/types/price'
 import { DrawingInteractionController } from '../../interaction/impl/interaction'
@@ -29,6 +30,29 @@ import type {
   SnapLine,
 } from '../../magnet/types'
 import type { DrawingObject } from '../../types'
+
+/** 绘图帧夹具的共享轴身份：图元不再独占轴，全部借用它。 */
+export const DRAWING_FRAME_AXIS_ID = 'main'
+
+/** 几何夹具显式声明对象坐标；不执行投影，也不从被测 Store 自动补齐绑定。 */
+export function createDrawingFrame(
+  context: RenderContext,
+  drawings: ReadonlyArray<Pick<DrawingObject, 'id' | 'ownerId'>>,
+): RenderContext {
+  // 夹具只有一个 Pane 轴：所有图元共享它，与"绘图借用已有轴"的投影一致。
+  const axisId = DRAWING_FRAME_AXIS_ID
+  const axes = [{ axisId, yAxis: context.pane.yAxis }]
+  const pane = {
+    ...context.pane,
+    axes,
+    axis: (requested: string) => {
+      if (requested !== axisId) throw new Error(`测试没有安装对象轴 ${requested}`)
+      return context.pane.yAxis
+    },
+    objectAxis: () => axisId,
+  }
+  return { ...context, pane }
+}
 
 /** 测试图元默认描边色。 */
 const TEST_STROKE = '#2962ff'
@@ -312,6 +336,8 @@ export function createDrawingViewportPort(
   overrides: Partial<DrawingViewportPort> = {},
 ): DrawingViewportPort {
   const port: DrawingViewportPort = {
+    // 夹具只有一个 Pane 轴，图元绑定它就是默认坐标系。
+    getObjectAxis: () => 'main',
     getCoordinates: (paneId) => {
       const pane = port.getPaneInfo(paneId)
       const viewport = port.getViewport()
@@ -353,6 +379,8 @@ export function createDrawingViewportPort(
       return index >= 0 ? index : null
     },
     getDrawingWorkspaceId: () => 'kline',
+    getDrawingSymbolKey: () => undefined,
+    getDrawingPeriod: () => 'daily',
     priceToY,
     yToPrice,
     getPaneInfo: () => ({ paneId: 'main', scaleType: ScaleType.Linear, top: 0, height: 240 }),

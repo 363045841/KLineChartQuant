@@ -12,7 +12,7 @@
       <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
 
-    <div class="settings-body" :class="{ 'settings-body--style': activeSection === 'style' }">
+    <div class="settings-body">
       <ShortcutSettings v-if="activeSection === 'shortcuts'" />
 
       <template v-else-if="activeSection === 'dataSource'">
@@ -67,12 +67,12 @@
           <SettingsItemRow
             :label="item.label"
             :type="item.type"
-            :value="settings[item.key]"
+            :value="readSetting(settings, item.key)"
              :options="optionsFor(item)"
              :min="item.min"
              :max="item.max"
              :step="item.step"
-            @update="settings[item.key] = $event"
+            @update="writeSetting(settings, item.key, $event)"
           />
           <div
             v-if="item.key === 'rendererBackend' && runtimeHint"
@@ -140,8 +140,10 @@
     DEFAULT_SETTINGS,
     isSettingVisible,
     normalizeSettings,
+    readSetting,
     resolveSettingDefault,
     type SettingItem,
+    writeSetting,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
@@ -226,7 +228,8 @@ import IconTablerTrash from '~icons/tabler/trash'
       items: [50, 100, 150, 200, 500].map((value) => ({
         id: String(value),
         label: `${value} MiB`,
-        active: settings.value.marketDataCacheMaxMiB === value,
+        selection: 'radio',
+        checked: settings.value.marketDataCacheMaxMiB === value,
       })),
     },
   ])
@@ -243,10 +246,10 @@ import IconTablerTrash from '~icons/tabler/trash'
   /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
   const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
     const tabs: { id: SettingsSectionId; label: string }[] = []
-    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '图表设置' })
+    tabs.push({ id: 'style', label: '外观' })
     tabs.push({ id: 'shortcuts', label: '快捷键' })
     tabs.push({ id: 'dataSource', label: '数据源' })
-    tabs.push({ id: 'style', label: '外观' })
     if (experimentalSettings.value.length > 0) {
       tabs.push({ id: 'experimental', label: '实验性' })
     }
@@ -335,13 +338,7 @@ import IconTablerTrash from '~icons/tabler/trash'
   }
 </script>
 
-
 <style scoped>
-  /* 区块只在边界留白，横向对齐交给弹窗内容的统一 inset。 */
-  .settings-body--style > :first-child {
-    margin-block-end: var(--klc-spacing-sm);
-  }
-
   /* 设置行仅负责布局，交互状态由具体控件提供。 */
   .settings-item.runtime-hint {
     min-block-size: auto;

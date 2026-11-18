@@ -30,11 +30,6 @@
                 aria-hidden="true"
               />
             </template>
-            <template #item-action="{ item }">
-              <span v-if="item.id === provider.modelId" class="drop-menu__status">
-                <IconCheck aria-hidden="true" />
-              </span>
-            </template>
           </DropMenu>
           <DropMenu
             v-if="provider.reasoningEfforts?.length"
@@ -102,7 +97,6 @@
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
-  import IconCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
@@ -133,7 +127,12 @@
     {
       id: 'models',
       label: props.provider.profileName ?? props.provider.providerLabel,
-      items: props.models.map((model) => ({ id: model.id, label: model.name })),
+      items: props.models.map((model) => ({
+        id: model.id,
+        label: model.name,
+        checked: model.id === props.provider.modelId,
+        selection: 'radio',
+      })),
     },
   ])
   const modelTriggerLabel = computed(() => {
@@ -148,7 +147,8 @@
       items: (props.provider.reasoningEfforts ?? []).map((effort) => ({
         id: effort,
         label: effort,
-        active: effort === props.provider.reasoningEffort,
+        selection: 'radio',
+        checked: effort === props.provider.reasoningEffort,
       })),
     },
   ])
@@ -198,14 +198,14 @@
     padding: var(--composer-inset);
     border: 0;
     border-radius: var(--agent-control-radius, 8px);
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     background: transparent;
     font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: 1.5;
   }
 
   .composer__input .composer__textarea::placeholder {
-    color: var(--agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
   }
 
   .composer__footer {
@@ -222,8 +222,8 @@
     position: relative;
     border-radius: 50%;
     background: conic-gradient(
-      var(--agent-accent) var(--usage-progress),
-      var(--agent-border-strong) 0
+      var(--klc-color-ui-accent) var(--usage-progress),
+      var(--klc-color-ui-border-strong) 0
     );
   }
 
@@ -236,7 +236,7 @@
   }
 
   .composer__usage-ring:focus-visible {
-    outline: 2px solid var(--agent-focus);
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 3px;
   }
 
@@ -251,9 +251,7 @@
   .composer__reasoning {
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
-    --control-button-border-width: 0;
     --control-button-radius: var(--klc-radius-md, 8px);
-    --control-button-background: transparent;
     --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-shadow: none;
@@ -263,22 +261,19 @@
   }
 
   .composer__reasoning {
-    --control-button-color: var(--agent-text);
-    --control-button-background: var(--klc-color-agent-composer-control-background);
+    --control-button-color: var(--klc-color-ui-text);
     --control-button-active-background: var(--klc-color-agent-composer-control-hover);
-    --control-button-focus-border: var(--agent-focus);
     --control-button-focus-background: var(--klc-color-agent-composer-control-hover);
-    --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--agent-focus) 24%, transparent);
+    --control-button-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-focus) 24%, transparent);
     --control-button-disabled-opacity: 1;
-    --control-button-disabled-background: transparent;
-    --control-button-disabled-color: var(--agent-text-soft);
+    --control-button-disabled-color: var(--klc-color-ui-text-soft);
   }
 
   .composer__model-chevron {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -289,7 +284,7 @@
   .composer__reasoning-value {
     min-width: 0;
     overflow: hidden;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     font-size: 11px;
     font-weight: 400;
     text-overflow: ellipsis;

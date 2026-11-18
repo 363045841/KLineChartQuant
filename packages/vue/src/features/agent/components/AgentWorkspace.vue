@@ -8,7 +8,6 @@
       @create="handleCreateSession"
       @toggle-sessions="sessionDrawerOpen = !sessionDrawerOpen"
       @settings="providerSettings.show(state.provider)"
-      @toggle-panel-side="handleTogglePanelSide"
       @close="handleClosePanel"
     />
 
@@ -101,10 +100,10 @@
   import './agent-quick-prompt.css'
 
   import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+  import type { SidePanelSide } from '../../side-panel/types.js'
   import type { AgentBridgeClient } from '../agent-contracts.js'
   import { getAgentCopy } from '../agent-copy.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
-  import type { AgentPanelSide } from '../workspace/types.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentHeader from './AgentHeader.vue'
@@ -116,13 +115,13 @@
   const props = withDefaults(
     defineProps<{
       bridge: AgentBridgeClient
-      panelSide?: AgentPanelSide
+      panelSide?: SidePanelSide
       /** 输入框上方的快捷提示；点击填入草稿，省略时不显示。 */
       quickPrompts?: readonly string[]
     }>(),
     { panelSide: 'right', quickPrompts: () => [] },
   )
-  const emit = defineEmits<{ close: []; 'toggle-panel-side': [] }>()
+  const emit = defineEmits<{ close: [] }>()
 
   const workspace = ref<HTMLElement | null>(null)
   const sessionDrawerOpen = ref(false)
@@ -172,11 +171,6 @@
   async function handleSelectSession(sessionId: string): Promise<void> {
     await selectSession(sessionId)
     sessionDrawerOpen.value = false
-  }
-
-  // 停靠侧切换由壳层执行，工作区只负责把头部事件上抛。
-  function handleTogglePanelSide(): void {
-    emit('toggle-panel-side')
   }
 
   // 关闭面板前先收起抽屉，避免再次打开时残留旧的抽屉状态。
@@ -245,28 +239,12 @@
 
 <style scoped>
   .agent-workspace {
-    --agent-bg: var(--klc-color-ui-background);
+    /* Agent 面板只保留自己的圆角档位；颜色一律直接消费全局 UI / Agent Token。 */
     --agent-control-radius: 8px;
-    --agent-surface: var(--klc-color-ui-surface);
-    --agent-card: var(--klc-color-ui-card);
-    --agent-control: var(--klc-color-ui-control-background);
-    --agent-input: var(--klc-color-agent-composer-input-background);
-    --agent-hover: var(--klc-color-ui-hover);
-    --agent-user-message: var(--klc-color-agent-user-message);
-    --agent-border: var(--klc-color-ui-border);
-    --agent-border-strong: var(--klc-color-ui-border-strong);
-    --agent-text: var(--klc-color-ui-text);
-    --agent-text-soft: var(--klc-color-ui-text-soft);
-    --agent-muted: var(--klc-color-ui-muted);
-    --agent-accent: var(--klc-color-ui-accent);
-    --agent-accent-strong: var(--klc-color-ui-accent-strong);
-    --agent-focus: var(--klc-color-ui-focus);
-    --toggle-switch-track-background: var(--agent-control);
+    --toggle-switch-track-background: var(--klc-color-ui-control-background);
     --toggle-switch-thumb-background: var(--klc-color-ui-on-accent);
-    --toggle-switch-active-background: var(--agent-accent);
-    --toggle-switch-focus-color: var(--agent-focus);
-    --agent-warning-bg: var(--klc-color-ui-warning-background);
-    --agent-danger-bg: var(--klc-color-ui-danger-background);
+    --toggle-switch-active-background: var(--klc-color-ui-accent);
+    --toggle-switch-focus-color: var(--klc-color-ui-focus);
 
     height: 100%;
     min-width: 0;
@@ -274,15 +252,15 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto auto;
     overflow: hidden;
-    color: var(--agent-text);
-    background: var(--agent-bg);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-surround-background);
     font-family: var(--klc-typography-font-family);
     letter-spacing: 0;
   }
 
   .agent-workspace :deep(button:focus-visible),
   .agent-workspace :deep(select:focus-visible) {
-    outline: 2px solid var(--agent-focus);
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 1px;
   }
 

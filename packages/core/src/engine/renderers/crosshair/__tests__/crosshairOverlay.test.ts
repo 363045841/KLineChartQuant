@@ -27,6 +27,7 @@ function createFixture() {
     pos: { x: 31.2, y: 250 },
     price: 4.38,
     activePane: createMockPaneInfo({ top: 200, height: 200 }),
+    lockedX: null,
     color: '',
   }
   return { ctx, host, overlay, surface, frame }
@@ -117,5 +118,47 @@ describe('CrosshairOverlay', () => {
     overlay.dispose()
     overlay.dispose()
     expect(host.childElementCount).toBe(0)
+  })
+
+  it('keeps the locked vertical after the pointer leaves', () => {
+    const { ctx, overlay, surface, frame } = createFixture()
+    frame.pos = null
+    frame.price = null
+    frame.activePane = null
+    frame.lockedX = 120
+    overlay.paint(frame)
+    expect(surface().width).toBe(800)
+    expect(ctx.dashedPaths).toEqual([
+      [
+        { x: 120.5, y: 0 },
+        { x: 120.5, y: 600 },
+      ],
+    ])
+  })
+
+  it('draws the locked vertical and only the pointer horizontal line', () => {
+    const { ctx, overlay, frame } = createFixture()
+    frame.lockedX = 120
+    overlay.paint(frame)
+    const origin = { x: 120.5, y: 243.5 }
+    const gap = 2
+    expect(ctx.dashedPaths).toEqual([
+      [
+        { x: origin.x, y: origin.y - gap },
+        { x: origin.x, y: 0 },
+      ],
+      [
+        { x: origin.x, y: origin.y + gap },
+        { x: origin.x, y: 600 },
+      ],
+      [
+        { x: origin.x - gap, y: origin.y },
+        { x: 0, y: origin.y },
+      ],
+      [
+        { x: origin.x + gap, y: origin.y },
+        { x: 800, y: origin.y },
+      ],
+    ])
   })
 })

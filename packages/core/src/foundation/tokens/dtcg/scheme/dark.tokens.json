@@ -11,6 +11,26 @@
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.098, 0.102, 0.1176], "hex": "#191A1E" }
       },
+      "surroundBackground": {
+        "$type": "color",
+        "$value": "{dark.interface.surface}",
+        "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
+      },
+      "tabActiveBackground": {
+        "$type": "color",
+        "$value": "{dark.interface.surroundBackground}",
+        "$description": "活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。"
+      },
+      "noticeBackground": {
+        "$type": "color",
+        "$value": "{dark.interface.controlBackground}",
+        "$description": "一般提示与说明区域的背景，不表示警告、错误或交互强调。"
+      },
+      "inputBackground": {
+        "$type": "color",
+        "$value": "{dark.interface.controlBackground}",
+        "$description": "输入区域的常驻背景，包含组合式数值输入框。"
+      },
       "card": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1137, 0.1216, 0.1412], "hex": "#1D1F24" }
@@ -35,6 +55,31 @@
       "selected": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1451, 0.1529, 0.1765], "hex": "#25272D" }
+      },
+      "brandSurface": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2078, 0.4706, 0.2902], "hex": "#35784A" },
+        "$description": "深色主题的实心绿底：比浅色略亮，保证圆在深色栏上仍可见（约 3.2:1）。"
+      },
+      "brandOn": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#FFFFFF" },
+        "$description": "深色 brandSurface 上的白色折线，对容器约 5.4:1。"
+      },
+      "highlight": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.12, "hex": "#FFFFFF" },
+        "$description": "轻强调底：叠加在深色表面上，不随预设 accent 变化。"
+      },
+      "selection": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.18, "hex": "#FFFFFF" },
+        "$description": "文本选区底，比 highlight 强一档。"
+      },
+      "focusRing": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.55, "hex": "#FFFFFF" },
+        "$description": "box-shadow 聚焦环：55% 白，对深色底满足非文本 3:1。"
       },
       "border": {
         "$type": "color",
@@ -126,11 +171,13 @@
       "background": { "$type": "color", "$value": "{dark.interface.background}" },
       "foreground": { "$type": "color", "$value": "{dark.interface.text}" },
       "chartBackground": { "$type": "color", "$value": "{dark.interface.background}" },
-      "floatingSurface": { "$type": "color", "$value": "{dark.interface.surface}" },
-      "chartNavigationBackground": {
+      "legendBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1333, 0.1333, 0.1333], "hex": "#222222" }
+        "$value": { "colorSpace": "srgb", "components": [0.0824, 0.0863, 0.098], "alpha": 0.8, "hex": "#151619" },
+        "$description": "= chartBackground at alpha 0xCC：图例文字背后的画布色遮罩。"
       },
+      "floatingSurface": { "$type": "color", "$value": "{dark.interface.surface}" },
+      "chartNavigationBackground": { "$type": "color", "$value": "{dark.interface.controlBackground}" },
       "candleUpBody": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }
@@ -204,6 +251,10 @@
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1137, 0.1255, 0.149], "hex": "#1D2026" }
       },
+      "tradingDaySeparator": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.2902, 0.6196, 1], "hex": "#4A9EFF" }
+      },
       "crosshairLine": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.4078, 0.4235, 0.4471], "hex": "#686C72" }
@@ -266,13 +317,13 @@
         }
       },
       "volumeProfile": {
-        "$description": "成交量分布：价值区外用中性半透明，价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。",
+        "$description": "成交量分布：价值区外用同一中灰的两档透明度区分涨/跌（深色背景下更亮的一档表示下跌），价值区内分上涨/下跌两色，POC 与 VAH/VAL 单独成色。",
         "up": {
           "$type": "color",
           "$value": {
             "colorSpace": "srgb",
             "components": [0.6196, 0.6196, 0.6196],
-            "alpha": 0.502,
+            "alpha": 0.349,
             "hex": "#9E9E9E"
           }
         },
@@ -281,7 +332,7 @@
           "$value": {
             "colorSpace": "srgb",
             "components": [0.6196, 0.6196, 0.6196],
-            "alpha": 0.502,
+            "alpha": 0.6,
             "hex": "#9E9E9E"
           }
         },
@@ -334,7 +385,7 @@
           "$value": {
             "colorSpace": "srgb",
             "components": [1, 1, 1],
-            "alpha": 0.039,
+            "alpha": 0.078,
             "hex": "#FFFFFF"
           }
         }
@@ -1211,12 +1262,29 @@
       "ui": {
         "background": { "$type": "color", "$value": "{dark.interface.background}" },
         "surface": { "$type": "color", "$value": "{dark.interface.surface}" },
+        "surroundBackground": {
+          "$type": "color",
+          "$value": "{dark.color.ui.surface}",
+          "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
+        },
+        "tabActiveBackground": {
+          "$type": "color",
+          "$value": "{dark.interface.tabActiveBackground}",
+          "$description": "活动标签的填充：与标题栏同色，边界只由栏内 SVG 轮廓负责。"
+        },
+        "noticeBackground": { "$type": "color", "$value": "{dark.interface.noticeBackground}" },
+        "inputBackground": { "$type": "color", "$value": "{dark.interface.inputBackground}" },
         "card": { "$type": "color", "$value": "{dark.interface.card}" },
         "input": { "$type": "color", "$value": "{dark.interface.input}" },
-        "popover": { "$type": "color", "$value": "{dark.interface.popover}" },
+        "popover": { "$type": "color", "$value": "{dark.interface.card}" },
         "controlBackground": { "$type": "color", "$value": "{dark.interface.controlBackground}" },
         "hover": { "$type": "color", "$value": "{dark.interface.hover}" },
         "selected": { "$type": "color", "$value": "{dark.interface.selected}" },
+        "brandSurface": { "$type": "color", "$value": "{dark.interface.brandSurface}" },
+        "brandOn": { "$type": "color", "$value": "{dark.interface.brandOn}" },
+        "highlight": { "$type": "color", "$value": "{dark.interface.highlight}" },
+        "selection": { "$type": "color", "$value": "{dark.interface.selection}" },
+        "focusRing": { "$type": "color", "$value": "{dark.interface.focusRing}" },
         "border": { "$type": "color", "$value": "{dark.interface.border}" },
         "borderStrong": { "$type": "color", "$value": "{dark.interface.borderStrong}" },
         "text": { "$type": "color", "$value": "{dark.interface.text}" },

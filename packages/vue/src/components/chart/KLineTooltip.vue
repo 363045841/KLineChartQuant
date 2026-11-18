@@ -3,8 +3,8 @@
     v-if="hoverData"
     :ref="onRef"
     class="kline-tooltip"
-    :class="[{ 'use-anchor': useAnchor, 'is-draggable': draggable }, anchorPlacementClass]"
-    :style="useAnchor ? undefined : { left: `${pos.x}px`, top: `${pos.y}px` }"
+    :class="{ 'is-draggable': draggable }"
+    :style="{ left: `${pos.x}px`, top: `${pos.y}px` }"
   >
     <div class="kline-tooltip__title">
       <span v-if="titleCode">{{ titleCode }}</span>
@@ -77,8 +77,6 @@
       index: number | null
       data: ReadonlyArray<KLineData>
       pos: { x: number; y: number }
-      useAnchor?: boolean
-      anchorPlacement?: 'right-bottom' | 'left-bottom'
       setEl?: (el: HTMLDivElement | null) => void
       /** 涨的颜色；默认跟随主题的 K 线上涨色（含红涨绿跌 / 绿涨红跌设置） */
       upColor?: string
@@ -114,11 +112,6 @@
       showTime: props.showTime,
     })
   })
-
-  const useAnchor = computed(() => props.useAnchor === true)
-  const anchorPlacementClass = computed(() =>
-    props.anchorPlacement === 'left-bottom' ? 'anchor-left-bottom' : 'anchor-right-bottom',
-  )
 
   function onRef(el: Element | ComponentPublicInstance | null) {
     props.setEl?.(el as HTMLDivElement | null)
@@ -169,22 +162,3 @@
     return pct > 0 ? props.upColor : pct < 0 ? props.downColor : NEUTRAL_COLOR
   })
 </script>
-
-<style scoped>
-  @supports (anchor-name: --kmap-anchor) and (position-anchor: --kmap-anchor) {
-    .kline-tooltip.use-anchor {
-      position: absolute;
-      position-anchor: --kline-tooltip-anchor;
-      left: anchor(left);
-      top: anchor(top);
-    }
-
-    .kline-tooltip.use-anchor.anchor-right-bottom {
-      transform: translate(14px, 14px);
-    }
-
-    .kline-tooltip.use-anchor.anchor-left-bottom {
-      transform: translate(calc(-100% - 14px), 14px);
-    }
-  }
-</style>

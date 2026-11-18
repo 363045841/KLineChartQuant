@@ -7,11 +7,7 @@ import {
 import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming'
 import { createIndicatorLayer } from '../factory'
 
-registerIndicatorLayerNaming(
-  ['customIndicator'],
-  ({ paneId }) => `customIndicator_${paneId}`,
-  () => null,
-)
+registerIndicatorLayerNaming(['customIndicator'], ({ paneId }) => `customIndicator_${paneId}`)
 
 it('透传实例身份和参数，并应用显式 role', () => {
   const rendererFactory = vi.fn(() => createTestRendererLayer('custom_renderer'))
@@ -31,9 +27,9 @@ it('透传实例身份和参数，并应用显式 role', () => {
     params: { period: 12 },
   }
 
-  const layer = createIndicatorLayer({ ...input, definition, role: 'primary' })
+  const layer = createIndicatorLayer({ ...input, definition, role: 'content' })
 
   expect(rendererFactory).toHaveBeenCalledWith(input)
-  expect(layer.role).toBe('primary')
+  expect(layer.role).toBe('content')
   expect(layer.id).toContain('instance-1')
 })

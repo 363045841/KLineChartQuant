@@ -27,6 +27,7 @@ import type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   DrawingToolId,
   PersistedDrawingAnchor,
   DrawingObject as PluginDrawingObject,
@@ -34,7 +35,8 @@ import type {
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
 import type { LayoutApi } from '../engine/layout/types.js'
-import type { InstanceMoveTarget, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import type { InstanceMoveTarget, PaneGeometry, PanePatch, PaneSpec } from '../engine/pane/types.js'
+import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
 import type { ChartAgentController } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
@@ -67,14 +69,10 @@ export interface ChartViewport {
   kGap: number
 }
 
-/** 指标角色运行时取值，供适配器判断主/副图。 */
-export const INDICATOR_ROLE = {
-  MAIN: 'main',
-  SUB: 'sub',
-} as const
-
 /** 指标实例与副图信息沿用引擎投影，避免控制器层重复定义。 */
 export type { IndicatorInstance, IndicatorRole, SubPaneInfo }
+/** 指标角色运行时取值由状态层定义；控制器层转出以保持适配器导入路径稳定。 */
+export { INDICATOR_ROLE }
 
 /** 组件受控指标实例配置。 */
 export interface ChartIndicatorConfig {
@@ -92,6 +90,7 @@ export type {
   DrawingLabelPosition,
   DrawingStyle,
   DrawingStyleKey,
+  DrawingTimeframeVisibility,
   UpdateDrawingPatch,
 }
 
@@ -134,7 +133,7 @@ export interface TimeShareData {
   amount?: number
 }
 
-export type { PaneSpec }
+export type { InstanceMoveTarget, PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
 export type DataSourceParams = Readonly<Record<string, string | number | boolean>>
@@ -296,7 +295,10 @@ export interface DrawingViewportPort {
   /** 当前 Pane 的公开双向坐标服务；帧尚未就绪时返回 null。 */
   getCoordinates(
     paneId: string,
+    axisId?: string,
   ): import('../foundation/geometry/frameCoordinates.js').FrameCoordinates | null
+  /** 图元绑定的轴身份；由 Core 的对象轴投影决定，未绑定时返回 null。 */
+  getObjectAxis(paneId: string, objectId: string): string | null
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -317,6 +319,10 @@ export interface DrawingViewportPort {
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   /** 当前绘图所属的数据工作区。 */
   getDrawingWorkspaceId(): import('../engine/drawing/index.js').DrawingWorkspaceId
+  /** 当前绘图所属的标的身份；无主品种时 undefined。 */
+  getDrawingSymbolKey(): string | undefined
+  /** 当前绘图所属的数据周期；周期可见性过滤使用。 */
+  getDrawingPeriod(): string
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
@@ -507,12 +513,14 @@ export interface ChartController
   readonly globalDrawingLock: ReadonlySignal<boolean>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  /** Core 已提交的可见 Pane 像素布局，不进入用户配置。 */
+  readonly paneGeometry: ReadonlySignal<ReadonlyArray<PaneGeometry>>
   /** 每个 Pane 的有效刻度和独立范围状态。 */
   readonly paneScaleTypes: ReadonlySignal<
     ReadonlyMap<string, import('../foundation/types/scaleType.js').ScaleType>
   >
   readonly panePriceAxisRanges: ReadonlySignal<
-    Readonly<Record<string, import('../engine/state/mainPriceAxisState.js').PanePriceAxisRange>>
+    Readonly<Record<string, import('../engine/state/axisState.js').PanePriceAxisRange>>
   >
   /** 设置目标 Pane 的轴状态；百分比仅支持主图。 */
   setPanePriceAxisScaleType(
@@ -526,6 +534,10 @@ export interface ChartController
   /** 重置目标 Pane 的范围变换，保留自动/手动模式。 */
   resetPanePriceAxis(paneId: string): void
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  /** 在当前十字线所在的 K 线上锁定垂直光标；索引无效时返回 false。 */
+  lockCrosshairAt(index: number): boolean
+  /** 解除垂直光标锁定。 */
+  unlockCrosshair(): void
   /** 区间选择工具确认的时间范围。 */
   readonly selectedRange: ReadonlySignal<{ from: number; to: number } | null>
   /** 区间选择工具的完整权威状态。 */
@@ -539,6 +551,9 @@ export interface ChartController
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
   readonly legend: import('../engine/legend/types.js').LegendApi
+  /** 对象树：按 pane 分组的渲染对象视图与按身份寻址的命令面。 */
+  readonly objects: import('../engine/objects/index.js').ObjectTree
+  readonly axes: import('../engine/pane/axisTypes.js').ObjectAxesApi
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
   /** 当前对比品种集合（唯一业务状态）。 */
@@ -635,6 +650,10 @@ export interface ChartController
   moveIndicator(instanceId: string, target: InstanceMoveTarget): boolean
   /** 删除实例；空副图一并回收。 */
   removeIndicator(instanceId: string): boolean
+  /** 一次删除指定定义的全部实例，保留同 pane 中其它指标。 */
+  removeIndicatorsByDefinition(definitionId: string): void
+  /** 删除当前工作区全部指标实例；副图一并回收。 */
+  clearAllIndicators(): void
   /** 更新实例参数、显隐、排序或定义。 */
   updateIndicator(instanceId: string, patch: IndicatorInstancePatch): boolean
 
@@ -667,11 +686,11 @@ export interface ChartController
   updatePane(paneId: string, patch: PanePatch): boolean
   removePane(paneId: string): boolean
   movePane(paneId: string, targetIndex: number): boolean
+  reorderPanes(paneIds: ReadonlyArray<string>): boolean
   clearPanes(): void
 
   // ---- Interaction sub-methods ----
   setTooltipSize(size: { width: number; height: number }): void
-  setTooltipAnchorPositioning(enabled: boolean): void
 
   // ---- Narrow queries ----
   getIndicatorTitle(instanceId: string): string | undefined
@@ -687,9 +706,8 @@ export interface ChartController
   resetChart(): void
 
   // ---- Settings ----
-  updateSettingsFacade(settings: Record<string, unknown>): void
+  updateSettingsFacade(settings: ChartSettings): void
   /** 按当前可见 range 的 Max/Min 适配主图纵轴，保留轴类型与范围模式。 */
-  resetMainPriceAxis(): void
   updateOptionsFacade(options: Record<string, unknown>): void
 
   /** tear down DOM + listeners; idempotent */

@@ -57,6 +57,34 @@ export class DrawingCommands {
     return this.history.run(() => this.dependencies.document.updateBatch(ids, patch))
   }
 
+  /**
+   * 在同一 Pane 内按目标位置移动用户图元；顺序由本命令统一决定。
+   *
+   * @param id 图元身份
+   * @param index 目标位置，自底层起；缺省放到最上层
+   * @returns 图元不存在、不是用户图元或写入失败时为 false
+   */
+  moveToIndex(id: string, index?: number): boolean {
+    return this.history.run(() => {
+      const drawing = this.dependencies.document
+        .listCurrentDrawings()
+        .find((item) => item.id === id)
+      if (!drawing || drawing.ownerId !== undefined) return false
+      const ordered = this.dependencies.document
+        .listCurrentDrawings()
+        .filter((item) => item.paneId === drawing.paneId && item.ownerId === undefined)
+        .sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0))
+        .map((item) => item.id)
+      const from = ordered.indexOf(id)
+      if (from < 0) return false
+      ordered.splice(from, 1)
+      const position =
+        index === undefined ? ordered.length : Math.max(0, Math.min(index, ordered.length))
+      ordered.splice(position, 0, id)
+      return this.dependencies.document.reorderDrawings(drawing.paneId, ordered)
+    })
+  }
+
   /** 删除存在的图元；无匹配图元时不请求重绘。 */
   remove(id: string): boolean {
     return this.history.run(() => this.dependencies.document.removeDrawing(id))

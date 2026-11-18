@@ -1,6 +1,10 @@
-import type { PaneCapabilities, PaneRole } from '../../../../foundation/plugin/index.js'
+/** 窗口几何与共享对象轴资源；容器没有主副身份，也不创建默认轴。 */
+
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
+import type { PaneCapabilities } from '../../../../foundation/plugin/index.js'
+import type { AxisColumnLayout } from '../../../axisWidth/types.js'
 import { type PriceRange, PriceScale } from '../../../scale/index.js'
-import { MAIN_PANE_ID } from '../../types.js'
+import type { PaneAxisColumn } from '../../types.js'
 
 /**
  * 更新级别枚举 - 用于双层 Canvas 架构
@@ -15,61 +19,89 @@ export enum UpdateLevel {
 }
 
 export interface PaneInitOptions {
-  role?: PaneRole
   capabilities?: Partial<PaneCapabilities>
 }
 
-function defaultCapabilitiesByRole(role: PaneRole): PaneCapabilities {
-  if (role === 'price') {
-    return {
-      showPriceAxisTicks: true,
-      showCrosshairPriceLabel: true,
-      candleHitTest: true,
-      supportsPriceTranslate: true,
-    }
-  }
-  if (role === 'indicator') {
-    return {
-      showPriceAxisTicks: false,
-      showCrosshairPriceLabel: true,
-      candleHitTest: false,
-      supportsPriceTranslate: true,
-    }
-  }
+function defaultCapabilities(): PaneCapabilities {
   return {
-    showPriceAxisTicks: false,
-    showCrosshairPriceLabel: false,
-    candleHitTest: false,
-    supportsPriceTranslate: false,
+    supportsPriceTranslate: true,
   }
 }
 
 /**
- * Pane：代表一个"窗口区域"（主图 / 副图）。
+ * Pane：代表一个窗口区域。
  *
- * 一个 Pane 可以拥有多条轴；主轴沿用 `paneId` 作为轴身份，
- * 实例独立轴由框架派生后通过 `setAxes` 投影进来。
+ * 所有轴均由对象声明，经统一轴 API 投影，不从 Pane 身份推断。
  */
 export class Pane {
   readonly id: string
-  readonly role: PaneRole
   readonly capabilities: PaneCapabilities
   top = 0
   height = 0
 
   private readonly axisScales = new Map<string, PriceScale>()
-  private primaryAxisId: string
+  /** 对象 → 轴身份；绘图等派生对象借用已有轴，不自行派生。 */
+  private readonly objectAxes = new Map<string, string>()
+  /** 绑定签名：只有对象归属或轴顺序变化时才重建轴资源。 */
+  private axisSignature = ''
+  /** 已提交的轴列布局：绘制、命中与宿主控件区共用这一份。 */
+  private committedColumns: ReadonlyArray<PaneAxisColumn> = []
+  private committedAxisLayout: Readonly<Record<string, AxisColumnLayout>> = {}
+  private committedAxisWidth = 0
   private paddingTop = 0
   private paddingBottom = 0
 
-  /** Pane 主轴；兼容只消费单轴的绘制与交互路径。 */
+  /** 单轴容器的便捷查询；多轴必须显式提供 axisId。 */
   get yAxis(): PriceScale {
-    return this.axisScales.get(this.primaryAxisId)!
+    if (this.axisScales.size !== 1)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.INVALID_STATE,
+        `Pane ${this.id} 有 ${this.axisScales.size} 条轴，必须指定 axisId`,
+      )
+    return this.axisScales.values().next().value!
+  }
+
+  /** 空容器没有隐式轴；交互只在已有坐标对象的区域解析数值。 */
+  get hasAxes(): boolean {
+    return this.axisScales.size > 0
   }
 
   /** 全部轴；顺序即右侧轴列顺序。 */
   get axes(): ReadonlyArray<{ readonly axisId: string; readonly yAxis: PriceScale }> {
     return [...this.axisScales].map(([axisId, yAxis]) => ({ axisId, yAxis }))
+  }
+
+  /** 对象绑定的轴身份；未绑定的对象返回 null，由调用方决定是否降级。 */
+  objectAxis(objectId: string): string | null {
+    return this.objectAxes.get(objectId) ?? null
+  }
+
+  /** 已提交的轴列几何；列宽之和即 `axisWidth`。 */
+  get axisColumns(): ReadonlyArray<PaneAxisColumn> {
+    return this.committedColumns
+  }
+
+  /** 已提交的轴列布局表；按 axisId 寻址。 */
+  get axisLayout(): Readonly<Record<string, AxisColumnLayout>> {
+    return this.committedAxisLayout
+  }
+
+  /** 轴区宽度：各轴列宽度之和。 */
+  get axisWidth(): number {
+    return this.committedAxisWidth
+  }
+
+  /**
+   * 应用本帧轴宽提交。
+   *
+   * @param columns 由 `layoutAxisColumns` 生成的列几何，列宽之和即轴区宽度
+   */
+  setAxisColumns(columns: ReadonlyArray<PaneAxisColumn>): void {
+    this.committedColumns = columns
+    this.committedAxisLayout = Object.fromEntries(
+      columns.map((column) => [column.axisId, { left: column.left, width: column.width }]),
+    )
+    this.committedAxisWidth = columns.reduce((total, column) => total + column.width, 0)
   }
 
   /** 当前 pane 的有效基础价格范围。 */
@@ -81,34 +113,64 @@ export class Pane {
 
   constructor(id: string, options: PaneInitOptions = {}) {
     this.id = id
-    this.role = options.role ?? (id === MAIN_PANE_ID ? 'price' : 'indicator')
     this.capabilities = {
-      ...defaultCapabilitiesByRole(this.role),
+      ...defaultCapabilities(),
       ...(options.capabilities ?? {}),
     }
-    this.primaryAxisId = id
-    this.axisScales.set(id, new PriceScale())
   }
 
-  /** 按轴身份取坐标映射；轴不存在时回落到主轴。 */
+  /** 按明确身份取轴；不存在时抛异常，不能替换为其他对象的轴。 */
   axis(axisId: string): PriceScale {
-    return this.axisScales.get(axisId) ?? this.yAxis
+    const axis = this.axisScales.get(axisId)
+    if (!axis)
+      throw new KLineChartError(
+        GENERIC_ERROR_CODES.NOT_REGISTERED,
+        `Pane ${this.id} 中不存在轴 ${axisId}`,
+      )
+    return axis
   }
 
-  /** 应用框架派生的轴列表；保留已有轴实例，避免每帧重建范围。 */
-  setAxes(axisIds: ReadonlyArray<string>): void {
-    const next = new Set(axisIds.length > 0 ? axisIds : [this.id])
+  /**
+   * 应用框架派生的对象轴绑定：同一条轴可被多个对象共享。
+   *
+   * 保留已有轴实例，避免每帧重建范围；轴列顺序取各轴首次出现的顺序。
+   *
+   * @param bindings 对象 → 轴身份，顺序即声明顺序
+   * @returns 轴列表或对象绑定是否变化
+   */
+  setAxes(
+    bindings: ReadonlyArray<{ readonly objectId: string; readonly axisId: string }>,
+  ): boolean {
+    const axisIds: string[] = []
+    const objectAxes = new Map<string, string>()
+    for (const binding of bindings) {
+      if (objectAxes.has(binding.objectId))
+        throw new KLineChartError(
+          GENERIC_ERROR_CODES.INVALID_PARAM,
+          `Pane ${this.id} 的对象 ${binding.objectId} 重复绑定轴`,
+        )
+      objectAxes.set(binding.objectId, binding.axisId)
+      if (!axisIds.includes(binding.axisId)) axisIds.push(binding.axisId)
+    }
+    const signature = bindings
+      .map((binding) => `${binding.axisId}\u0000${binding.objectId}`)
+      .join('\u0001')
+    if (signature === this.axisSignature) return false
+    this.axisSignature = signature
+    const next = new Set(axisIds)
     for (const axisId of [...this.axisScales.keys()]) {
       if (!next.has(axisId)) this.axisScales.delete(axisId)
     }
-    for (const axisId of next) {
+    for (const axisId of axisIds) {
       if (this.axisScales.has(axisId)) continue
       const scale = new PriceScale()
       scale.setHeight(this.height)
       scale.setContentInsets(this.paddingTop, this.paddingBottom)
       this.axisScales.set(axisId, scale)
     }
-    this.primaryAxisId = axisIds[0] ?? this.id
+    this.objectAxes.clear()
+    for (const [objectId, axisId] of objectAxes) this.objectAxes.set(objectId, axisId)
+    return true
   }
 
   /**
@@ -118,7 +180,7 @@ export class Pane {
    */
   setLayout(top: number, height: number) {
     this.top = top
-    this.height = Math.max(1, height)
+    this.height = Math.max(0, height)
     for (const axis of this.axisScales.values()) axis.setHeight(this.height)
   }
 

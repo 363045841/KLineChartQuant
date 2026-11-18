@@ -209,7 +209,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     font: inherit;
     font-size: 13px;
     line-height: 1.52;
@@ -232,12 +232,12 @@
     border: 0;
     border-radius: 50%;
     background: transparent;
-    color: var(--agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
     cursor: pointer;
   }
   .message__edit-cancel:hover:not(:disabled) {
-    color: var(--agent-text);
-    background: var(--agent-hover);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
   .message__edit-cancel:disabled {
     opacity: 0.5;
@@ -247,7 +247,7 @@
     width: 14px;
     height: 14px;
   }
-  .message__edit-error { margin: 0; color: var(--agent-text); font-size: 12px; }
+  .message__edit-error { margin: 0; color: var(--klc-color-ui-text); font-size: 12px; }
   .message__actions {
     display: flex;
     align-items: center;
@@ -265,18 +265,18 @@
     border: 0;
     padding: 4px;
     background: transparent;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
   }
   .message__actions button svg {
     width: 15px;
     height: 15px;
   }
-  .message__actions button:hover { color: var(--agent-text); }
+  .message__actions button:hover { color: var(--klc-color-ui-text); }
   .message__actions button:disabled { opacity: 0.5; cursor: not-allowed; }
   .message {
     min-width: 0;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
   }
 
   /* 用户消息靠右显示，气泡与操作按钮分列。 */
@@ -290,13 +290,13 @@
   .message__bubble {
     padding: 9px 12px;
     border-radius: 12px;
-    background: var(--agent-user-message);
+    background: var(--klc-color-agent-user-message);
   }
 
   /* 编辑框与面板融为一体，仅由一圈圆角边框界定输入区域。 */
   .message--editing .message__bubble {
     padding: 12px 14px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 16px;
     background: transparent;
   }
@@ -310,7 +310,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
   }
 
@@ -319,7 +319,7 @@
     align-items: center;
     gap: 5px;
     margin-bottom: 5px;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 600;
   }
@@ -329,7 +329,7 @@
   }
 
   .message__reasoning {
-    color: var(--agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
     font-size: 12px;
   }
 
@@ -338,7 +338,7 @@
     align-items: center;
     gap: 5px;
     cursor: pointer;
-    color: var(--agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 600;
   }
@@ -379,7 +379,7 @@
   .message__content--markdown :deep(h5),
   .message__content--markdown :deep(h6) {
     margin: 14px 0 7px;
-    color: var(--agent-text);
+    color: var(--klc-color-ui-text);
     line-height: 1.3;
   }
 
@@ -404,7 +404,7 @@
   }
 
   .message__content--markdown :deep(a) {
-    color: var(--agent-accent);
+    color: var(--klc-color-ui-accent);
   }
 
   .message__content--markdown :deep(.agent-citation) {
@@ -418,8 +418,8 @@
     padding: 0 4px;
     border: none;
     border-radius: 999px;
-    color: var(--agent-text);
-    background: var(--agent-control);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-control-background);
     font: inherit;
     font-size: 0.75em;
     font-variant-numeric: tabular-nums;
@@ -442,18 +442,18 @@
   }
 
   .message__content--markdown :deep(.agent-citation:hover) {
-    box-shadow: inset 0 0 0 1px var(--agent-border-strong);
+    box-shadow: inset 0 0 0 1px var(--klc-color-ui-border-strong);
   }
 
   .message__content--markdown :deep(.agent-citation:focus-visible) {
-    outline: 2px solid var(--agent-focus);
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 1px;
   }
 
   .message__content--markdown :deep(code) {
     padding: 1px 4px;
     border-radius: 3px;
-    background: var(--agent-card);
+    background: var(--klc-color-ui-card);
     font-family: var(--klc-typography-font-family-mono);
     font-size: 0.92em;
   }
@@ -462,7 +462,7 @@
     overflow-x: auto;
     padding: 9px;
     border-radius: 4px;
-    background: var(--agent-card);
+    background: var(--klc-color-ui-card);
   }
 
   .message__content--markdown :deep(pre code) {
@@ -472,8 +472,8 @@
 
   .message__content--markdown :deep(blockquote) {
     padding-left: 10px;
-    border-left: 3px solid var(--agent-border);
-    color: var(--agent-text-soft);
+    border-left: 3px solid var(--klc-color-ui-border);
+    color: var(--klc-color-ui-text-soft);
   }
 
   .message__content--markdown :deep(table) {
@@ -486,12 +486,12 @@
   .message__content--markdown :deep(th),
   .message__content--markdown :deep(td) {
     padding: 5px 7px;
-    border: 1px solid var(--agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     text-align: left;
   }
 
   .message__content--markdown :deep(th) {
-    background: var(--agent-card);
+    background: var(--klc-color-ui-card);
   }
 
   .message__spinner {

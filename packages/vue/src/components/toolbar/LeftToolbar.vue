@@ -1,5 +1,13 @@
 <template>
-  <nav class="left-toolbar" aria-label="图表工具栏">
+  <nav
+    class="left-toolbar"
+    aria-label="图表工具栏"
+    @pointerover="onPointerOver"
+    @pointerleave="hideHighlight"
+    @focusin="onFocusIn"
+    @focusout="hideHighlight"
+  >
+    <SlidingHighlight ref="highlight" class="left-toolbar__highlight" />
     <div class="left-toolbar__group">
       <BaseTooltip v-if="scriptsEnabled !== false" content="代码编辑器">
         <button
@@ -248,19 +256,14 @@
 
   </nav>
 
-  <DropMenu
-    ref="groupMenuRef"
-    context
+  <MenuSurface
+    v-bind="groupMenu.bindings.value"
     :label="openGroup?.title ?? '工具菜单'"
     :groups="openGroup ? menuGroups(openGroup) : []"
-    :focus-target="groupTrigger"
+    :restore-focus-to="groupTrigger"
     @select="onGroupMenuSelect"
     @close="openGroupId = null"
-  >
-    <template #item-icon="{ item }">
-      <component :is="toolIcons[item.id]" aria-hidden="true" />
-    </template>
-  </DropMenu>
+  />
 
   <AlertDialog
     :show="showAlerts"
@@ -279,10 +282,19 @@
     DrawingTool,
     MagnetMode,
   } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    type DrawingToolId,
+    drawingKindName,
+    getDrawingKind,
+  } from '@363045841yyt/klinechart-core/engine/drawing'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import { COMMIT_HASH, COMMIT_TIME, CORE_VERSION, VERSION } from '@vue-src/version.js'
@@ -328,6 +340,11 @@
     children?: ToolDef[]
   }
 
+  /** 绘图工具标题取种类声明，工具栏不再维护第二套名称。 */
+  function drawingToolTitle(toolId: DrawingToolId): string {
+    return drawingKindName(getDrawingKind(toolId))
+  }
+
   const primaryTools: ToolDef[] = [
     { id: CURSOR_DRAWING_TOOL_ID, title: '光标', icon: IconTablerPointer },
     { id: BOX_SELECT_DRAWING_TOOL_ID, title: '框选', icon: IconTablerMarquee2 },
@@ -336,13 +353,41 @@
       title: '线条',
       icon: IconTablerChartLine,
       children: [
-        { id: DrawingTool.TrendLine, title: '线段', icon: IconTablerChartLine },
-        { id: DrawingTool.Ray, title: '射线', icon: IconTablerArrowUpRight },
-        { id: DrawingTool.HorizontalLine, title: '水平线', icon: IconTablerMinus },
-        { id: DrawingTool.HorizontalRay, title: '水平射线', icon: IconTablerArrowRight },
-        { id: DrawingTool.VerticalLine, title: '垂直线', icon: IconTablerMinusVertical },
-        { id: DrawingTool.CrosshairLine, title: '十字线', icon: IconTablerPlus },
-        { id: DrawingTool.InfoLine, title: '信息线', icon: IconTablerInfoCircle },
+        {
+          id: DrawingTool.TrendLine,
+          title: drawingToolTitle(DrawingTool.TrendLine),
+          icon: IconTablerChartLine,
+        },
+        {
+          id: DrawingTool.Ray,
+          title: drawingToolTitle(DrawingTool.Ray),
+          icon: IconTablerArrowUpRight,
+        },
+        {
+          id: DrawingTool.HorizontalLine,
+          title: drawingToolTitle(DrawingTool.HorizontalLine),
+          icon: IconTablerMinus,
+        },
+        {
+          id: DrawingTool.HorizontalRay,
+          title: drawingToolTitle(DrawingTool.HorizontalRay),
+          icon: IconTablerArrowRight,
+        },
+        {
+          id: DrawingTool.VerticalLine,
+          title: drawingToolTitle(DrawingTool.VerticalLine),
+          icon: IconTablerMinusVertical,
+        },
+        {
+          id: DrawingTool.CrosshairLine,
+          title: drawingToolTitle(DrawingTool.CrosshairLine),
+          icon: IconTablerPlus,
+        },
+        {
+          id: DrawingTool.InfoLine,
+          title: drawingToolTitle(DrawingTool.InfoLine),
+          icon: IconTablerInfoCircle,
+        },
       ],
     },
     {
@@ -350,10 +395,26 @@
       title: '通道',
       icon: IconTablerEqual,
       children: [
-        { id: DrawingTool.ParallelChannel, title: '平行通道', icon: IconTablerEqual },
-        { id: DrawingTool.RegressionChannel, title: '回归趋势', icon: IconTablerChartDots3 },
-        { id: DrawingTool.FlatLine, title: '平滑顶底', icon: IconTablerAngle },
-        { id: DrawingTool.DisjointChannel, title: '不相交通道', icon: IconTablerX },
+        {
+          id: DrawingTool.ParallelChannel,
+          title: drawingToolTitle(DrawingTool.ParallelChannel),
+          icon: IconTablerEqual,
+        },
+        {
+          id: DrawingTool.RegressionChannel,
+          title: drawingToolTitle(DrawingTool.RegressionChannel),
+          icon: IconTablerChartDots3,
+        },
+        {
+          id: DrawingTool.FlatLine,
+          title: drawingToolTitle(DrawingTool.FlatLine),
+          icon: IconTablerAngle,
+        },
+        {
+          id: DrawingTool.DisjointChannel,
+          title: drawingToolTitle(DrawingTool.DisjointChannel),
+          icon: IconTablerX,
+        },
       ],
     },
     {
@@ -361,9 +422,21 @@
       title: '标注',
       icon: IconTablerShape,
       children: [
-        { id: DrawingTool.FibRetracement, title: '斐波那契回撤', icon: IconTablerAlignJustified },
-        { id: DrawingTool.Rectangle, title: '矩形', icon: IconTablerShape },
-        { id: DrawingTool.Arrow, title: '箭头', icon: IconTablerArrowUpRight },
+        {
+          id: DrawingTool.FibRetracement,
+          title: drawingToolTitle(DrawingTool.FibRetracement),
+          icon: IconTablerAlignJustified,
+        },
+        {
+          id: DrawingTool.Rectangle,
+          title: drawingToolTitle(DrawingTool.Rectangle),
+          icon: IconTablerShape,
+        },
+        {
+          id: DrawingTool.Arrow,
+          title: drawingToolTitle(DrawingTool.Arrow),
+          icon: IconTablerArrowUpRight,
+        },
       ],
     },
     { id: RANGE_SELECT_UI_TOOL_ID, title: '区间选择', icon: IconTablerArrowsHorizontal },
@@ -388,12 +461,6 @@
     ],
   }
 
-  /** 子项图标表：菜单插槽按 item id 取图标，菜单数据本身只携带文案与状态。 */
-  const toolIcons: Readonly<Record<string, Component>> = Object.fromEntries(
-    [...primaryTools, deleteGroup, magnetGroup].flatMap((group) =>
-      (group.children ?? []).map((child) => [child.id, child.icon] as const),
-    ),
-  )
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
     (e: 'setMagnetMode', mode: MagnetMode): void
@@ -434,6 +501,22 @@
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  // 主按钮优先；展开箭头命中时高亮其所属按钮。
+  const {
+    onPointerOver,
+    onFocusIn,
+    hide: hideHighlight,
+  } = useSlidingHighlight(
+    highlight,
+    (target) =>
+      target.closest<HTMLElement>('.left-toolbar__button') ??
+      target
+        .closest<HTMLElement>('.tool-item')
+        ?.querySelector<HTMLElement>('.left-toolbar__button') ??
+      null,
+  )
+
   const selectedToolId = ref<string>(CURSOR_DRAWING_TOOL_ID)
   const groupSelections = ref<Record<string, string>>({})
   const selectedDeleteTool = computed(
@@ -456,7 +539,7 @@
       magnetGroup.children!.find((child) => child.id === props.magnetMode) ??
       magnetGroup.children![2]!,
   )
-  const groupMenuRef = ref<InstanceType<typeof DropMenu> | null>(null)
+  const groupMenu = useMenuAnchor()
   // 当前打开菜单的折叠箭头与所属工具组；关闭事件先于 select 到达，选择动作不能依赖 openGroup。
   const groupTrigger = shallowRef<HTMLElement | null>(null)
   const groupMenuTarget = shallowRef<ToolDef | null>(null)
@@ -513,18 +596,30 @@
     { immediate: true },
   )
 
-  /** 把工具组转成 DropMenu 分组：选中态与禁用态沿用工具栏规则。 */
+  /** 把工具组转成 DropMenu 分组：单选项用勾选表示当前工具，删除组是命令。 */
   function menuGroups(group: ToolDef): ReadonlyArray<DropMenuGroup> {
+    const commandOnly = group.id === deleteGroup.id
     return [
       {
         id: group.id,
         label: group.title,
-        items: (group.children ?? []).map((child) => ({
-          id: child.id,
-          label: child.title,
-          active: isChildActive(group, child),
-          disabled: isChildDisabled(group, child),
-        })),
+        items: (group.children ?? []).map((child) =>
+          commandOnly
+            ? {
+                id: child.id,
+                label: child.title,
+                icon: child.icon,
+                disabled: isChildDisabled(group, child),
+              }
+            : {
+                id: child.id,
+                label: child.title,
+                icon: child.icon,
+                selection: 'radio' as const,
+                checked: isChildActive(group, child),
+                disabled: isChildDisabled(group, child),
+              },
+        ),
       },
     ]
   }
@@ -560,7 +655,7 @@
     groupTrigger.value = trigger
     groupMenuTarget.value = group
     openGroupId.value = group.id
-    groupMenuRef.value?.openAt(bounds.right + 4, bounds.top)
+    groupMenu.anchorAt(bounds.right + 4, bounds.top)
   }
 
   /** 菜单选择：动作归属打开菜单的工具组，避免关闭事件先清空 openGroup。 */
@@ -612,18 +707,14 @@
 <style scoped>
   .left-toolbar {
     --tool-button-size: 28px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 3px;
-    background: var(--klc-color-ui-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    /* 边框由绘图区承担，左栏只保留表面色。 */
+    background: var(--klc-color-ui-surround-background);
     box-sizing: border-box;
   }
 
   .left-toolbar {
-    border-radius: 0 0 0 var(--chart-frame-radius, 3px);
-    border-top: 1px solid var(--klc-color-ui-border);
-    border-right: 0;
     flex: 0 0 52px;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -661,26 +752,24 @@
   /* --- 工具按钮 --- */
   .left-toolbar__button {
     position: relative;
+    z-index: 1;
     width: var(--tool-button-size);
     height: var(--tool-button-size);
     padding: 0;
     border: 1px solid transparent;
-    border-radius: 3px;
+    border-radius: var(--klc-radius-xs, 4px);
     background: transparent;
     color: var(--klc-color-ui-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition:
-      border-color 0.15s ease,
-      background 0.15s ease,
-      color 0.15s ease;
+    transition: color 0.15s ease;
   }
 
-  .left-toolbar__button:hover {
-    border-color: var(--klc-color-ui-border);
-    background: var(--klc-color-ui-hover);
+  /* 悬停底色由滑动高亮块提供，按钮本身只提亮图标，避免两层底色叠加。 */
+  .left-toolbar__button:hover,
+  .left-toolbar__button:focus-visible {
     color: var(--klc-color-ui-text);
   }
 
@@ -695,12 +784,9 @@
 
   .left-toolbar__button.active {
     border-color: transparent;
-    /* 深色模式使用浅灰选中底和深色图标，跟随系统时按实际明暗模式生效。 */
-    background: light-dark(
-      color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent),
-      color-mix(in srgb, var(--klc-color-ui-text) 90%, var(--klc-color-ui-surface))
-    );
-    color: light-dark(var(--klc-color-ui-accent), var(--klc-color-ui-background));
+    /* 选中态用语义 Token：底为 selected，图标回到正文色。 */
+    background: var(--klc-color-ui-selected);
+    color: var(--klc-color-ui-text);
   }
 
   .left-toolbar__button:focus-visible {

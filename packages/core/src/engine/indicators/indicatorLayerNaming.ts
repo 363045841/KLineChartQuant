@@ -7,10 +7,7 @@
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
-import type {
-  IndicatorAuxiliaryRendererNameResolver,
-  IndicatorRendererNameResolver,
-} from './indicatorMetadata.js'
+import type { IndicatorRendererNameResolver } from './indicatorMetadata.js'
 
 /** 将名称和别名转换为统一的查询键。 */
 export function normalizeIndicatorId(id: string): string {
@@ -23,7 +20,6 @@ export function normalizeIndicatorId(id: string): string {
 /** 单个定义的 Layer 命名规则：renderer 与 scale 两个解析器。 */
 type IndicatorLayerNamingRule = {
   readonly renderer: IndicatorRendererNameResolver
-  readonly scale: IndicatorAuxiliaryRendererNameResolver
 }
 
 const namingRules = new Map<string, IndicatorLayerNamingRule>()
@@ -32,9 +28,8 @@ const namingRules = new Map<string, IndicatorLayerNamingRule>()
 export function registerIndicatorLayerNaming(
   identity: ReadonlyArray<string>,
   renderer: IndicatorRendererNameResolver,
-  scale: IndicatorAuxiliaryRendererNameResolver,
 ): void {
-  const rule: IndicatorLayerNamingRule = { renderer, scale }
+  const rule: IndicatorLayerNamingRule = { renderer }
   for (const id of identity) {
     const key = normalizeIndicatorId(id)
     if (key) namingRules.set(key, rule)
@@ -45,12 +40,12 @@ export function registerIndicatorLayerNaming(
 export function resolveIndicatorLayerId(
   definitionId: string,
   paneId: string,
-  part: 'renderer' | 'scale' = 'renderer',
+  part: 'renderer' = 'renderer',
   instanceId?: string,
 ): string {
   const rule = namingRules.get(normalizeIndicatorId(definitionId))
   const options = { paneId, indicatorId: definitionId, instanceId }
-  const name = part === 'renderer' ? rule?.renderer(options) : rule?.scale(options)
+  const name = rule?.renderer(options)
   if (!name)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,

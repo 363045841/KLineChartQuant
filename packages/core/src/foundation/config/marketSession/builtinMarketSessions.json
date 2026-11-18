@@ -439,5 +439,58 @@
       "与现货分开声明：connector按市场下发不同sessionId，指标与脚本按sessionId取时区。",
       "交易日按币安官方的 UTC 日切分，与交易所 K 线口径一致。"
     ]
+  },
+  "SHFE": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 540, "close": 615 }, { "open": 630, "close": 690 }, { "open": 810, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "tradingDayStartMinute": 1200,
+    "sources": ["https://www.shfe.com.cn/"],
+    "notes": ["上期所商品期货日盘：09:00–10:15、10:30–11:30、13:30–15:00；sessions 只声明日盘，夜盘归入下一交易日，由 tradingDayStartMinute 表达。", "夜盘收于次日01:00：铜、铝、锌、铅、镍、锡、不锈钢、氧化铝；收于次日02:30：黄金、白银；收于23:00：螺纹钢、热轧卷板、石油沥青、天然橡胶、燃料油、纸浆、线材。", "交易日起点取20:00：它位于日盘收盘之后、夜盘开盘之前，21:00夜盘第一根K线因此归入新交易日；跨零点不产生分隔。", "品种级夜盘差异只记录在此，不在 sessions 内混排，避免分时槽位把夜盘当成当日时段。"]
+  },
+  "INE": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 540, "close": 615 }, { "open": 630, "close": 690 }, { "open": 810, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "tradingDayStartMinute": 1200,
+    "sources": ["https://www.ine.cn/"],
+    "notes": ["上期能源日盘与上期所一致：09:00–10:15、10:30–11:30、13:30–15:00。", "夜盘收于次日02:30：原油；收于次日01:00：国际铜；收于23:00：低硫燃料油、20号胶、集运指数（欧线）。", "交易日起点20:00，含义与上期所一致：夜盘属于下一交易日，跨零点不切分。"]
+  },
+  "DCE": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 540, "close": 615 }, { "open": 630, "close": 690 }, { "open": 810, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "tradingDayStartMinute": 1200,
+    "sources": ["http://www.dce.com.cn/"],
+    "notes": ["大商所商品期货日盘：09:00–10:15、10:30–11:30、13:30–15:00。", "有夜盘的品种统一21:00–23:00：豆一、豆二、豆粕、豆油、棕榈油、玉米、玉米淀粉、铁矿石、焦炭、焦煤、塑料、PVC、聚丙烯、乙二醇、苯乙烯、液化石油气、粳米。", "鸡蛋、纤维板、胶合板、生猪没有夜盘；它们只受日盘换日影响，不因缺少夜盘而额外产生分隔。", "交易日起点20:00；夜盘与次日日盘同属一个交易日。"]
+  },
+  "CZCE": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 540, "close": 615 }, { "open": 630, "close": 690 }, { "open": 810, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "tradingDayStartMinute": 1200,
+    "sources": ["http://www.czce.com.cn/"],
+    "notes": ["郑商所商品期货日盘：09:00–10:15、10:30–11:30、13:30–15:00。", "有夜盘的品种统一21:00–23:00：白糖、棉花、棉纱、精对苯二甲酸、甲醇、菜籽油、菜籽粕、玻璃、动力煤、硅铁、锰硅、纯碱、短纤、尿素、花生、瓶片。", "苹果、红枣、粳稻、晚籼稻、普麦、早籼稻、强麦没有夜盘。", "交易日起点20:00；品种是否开夜盘由交易所临时公告调整时，只需改本配置，前端不推断。"]
+  },
+  "GFEX": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 540, "close": 615 }, { "open": 630, "close": 690 }, { "open": 810, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "tradingDayStartMinute": 1200,
+    "sources": ["http://www.gfex.com.cn/"],
+    "notes": ["广期所日盘与其他商品交易所一致：09:00–10:15、10:30–11:30、13:30–15:00。", "工业硅、碳酸锂、多晶硅夜盘21:00–23:00；新品种上线时按交易所公告补充。", "交易日起点20:00，含义与上期所一致。"]
+  },
+  "CFFEX": {
+    "timeZone": "Asia/Shanghai",
+    "sessions": [{ "open": 570, "close": 690 }, { "open": 780, "close": 900 }],
+    "slotMinutes": 1,
+    "tradingDays": [1, 2, 3, 4, 5],
+    "sources": ["http://www.cffex.com.cn/"],
+    "notes": ["中金所股指期货与股指期权：09:30–11:30、13:00–15:00；国债期货下午收于15:15，sessions 只给出股指时段，国债品种需按交易所规则覆盖。", "中金所没有夜盘，因此不声明 tradingDayStartMinute，交易日按自然日划分。", "夜盘规则不属于中金所；不要用本配置解释商品期货行情。"]
   }
 }

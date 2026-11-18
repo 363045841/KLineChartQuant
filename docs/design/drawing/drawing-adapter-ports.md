@@ -11,7 +11,7 @@
 | Port | 方法数 | 职责 |
 | --- | --- | --- |
 | `DrawingDocumentPort` | 15 | 图元增删改查、批量操作、选择集合、工具状态 |
-| `DrawingViewportPort` | 14 | 视口与数据读取、逻辑索引/时间戳/像素/价格换算 |
+| `DrawingViewportPort` | 16 | 视口与数据读取、逻辑索引/时间戳/像素/价格换算、当前标的与周期身份 |
 | `DrawingSessionPort` | 1 | `requestDraw()`：会话态变更后请求重绘，不写 kernel |
 
 `DrawingChartAdapter = DrawingDocumentPort & DrawingViewportPort & DrawingSessionPort`，仅由 `ChartController extends` 与 `DrawingInteractionController` 使用。

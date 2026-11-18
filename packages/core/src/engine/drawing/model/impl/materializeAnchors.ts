@@ -3,36 +3,17 @@
 import { offsetPriceInSpace, toPriceSpace } from '../../geometry/impl/priceSpace.js'
 import type { PriceSpace } from '../../geometry/types.js'
 import type { DrawingKind, PersistedDrawingAnchor } from '../../types.js'
+import { drawingKindSpec } from './drawingKindSpecs.js'
 
-/** 图元创建时用户输入的锚点数。 */
+/** 图元创建时用户输入的锚点数；来自种类声明。 */
 export function getDrawingInputAnchorCount(kind: DrawingKind): 1 | 2 | 3 {
-  switch (kind) {
-    case 'label':
-    case 'horizontal-line':
-    case 'horizontal-ray':
-    case 'vertical-line':
-    case 'cross-line':
-      return 1
-    case 'parallel-channel':
-    case 'flat-line':
-    case 'disjoint-channel':
-      return 3
-    default:
-      return 2
-  }
+  return drawingKindSpec(kind).inputAnchors
 }
 
-/** 图元持久化后的完整锚点数。 */
+/** 图元持久化后的完整锚点数；未声明补齐时等于输入锚点数。 */
 export function getDrawingAnchorCount(kind: DrawingKind): 1 | 2 | 3 | 4 {
-  switch (kind) {
-    case 'parallel-channel':
-    case 'flat-line':
-    case 'disjoint-channel':
-    case 'rectangle':
-      return 4
-    default:
-      return getDrawingInputAnchorCount(kind)
-  }
+  const spec = drawingKindSpec(kind)
+  return spec.persistedAnchors ?? spec.inputAnchors
 }
 
 /**

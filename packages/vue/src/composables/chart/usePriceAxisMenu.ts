@@ -1,24 +1,27 @@
-// 价格轴菜单的分组与命令入口，设置写入复用 controller，重置保留模式偏好。
+/** 轴菜单绑定一条已提交的轴：目标由宿主控件所在的轴列决定，菜单不提供轴选择。 */
+import { PRICE_SERIES_AXIS_ID } from '@363045841yyt/klinechart-core'
 import {
   type ChartSettings,
   normalizeSettings,
   PRICE_AXIS_RANGE_MODE,
   ScaleType,
 } from '@363045841yyt/klinechart-core/config'
-import { type ChartController, MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-import type { Ref } from 'vue'
+import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { DropMenuGroup, DropMenuItem } from '@vue-src/components/common/DropMenu.vue'
+import { computed, type Ref } from 'vue'
 import { useControllerSignal } from './useControllerSignal.js'
 
 const GROUP = {
-  TYPE: 'mainRightAxisTypeSetting',
-  RANGE: 'mainPriceAxisRangeMode',
+  TYPE: 'scaleType',
+  RANGE: 'rangeMode',
   RESET: 'reset',
   POSITION: 'priceAxisPosition',
 } as const
 const RESET_AXIS = 'reset-price-axis'
+/** 仅缩放价格图表：整图一个设置，只对主价格轴生效。 */
+const PRICE_ONLY = 'mainPriceAxisPriceOnly'
 
-/** 快捷按钮：绑定所属菜单分组与开/关值，按下态与切换命令都按该分组解析。 */
+/** 轴菜单的快捷按钮；勾选态与命令都由绑定轴决定。 */
 export interface PriceAxisShortcut {
   group: string
   on: string
@@ -27,24 +30,30 @@ export interface PriceAxisShortcut {
   text: string
 }
 
-/** 提供菜单与价格轴快捷入口，参数为 controller 与已有设置更新入口。 */
+/**
+ * 生成单条轴的类型、范围、重置与位置命令。
+ *
+ * @param controller 图表控制器
+ * @param applySettings 写回图表级设置（位置与仅缩放价格图表）
+ * @param axisId 读取宿主当前目标；不保存初始化时的轴身份
+ */
 export function usePriceAxisMenu(
   controller: Ref<ChartController | null>,
   applySettings: (settings: ChartSettings) => void,
-  paneId: string = MAIN_PANE_ID,
+  axisId: () => string | undefined,
 ) {
   const settings = useControllerSignal(controller, (chart) => chart.settings, normalizeSettings)
-  const scaleTypes = useControllerSignal<ReadonlyMap<string, ScaleType>>(
+  const panes = useControllerSignal(
     controller,
-    (chart) => chart.paneScaleTypes,
-    () => new Map(),
+    (chart) => chart.paneGeometry,
+    () => [],
   )
-  const ranges = useControllerSignal<ReturnType<ChartController['panePriceAxisRanges']['peek']>>(
-    controller,
-    (chart) => chart.panePriceAxisRanges,
-    () => ({}),
+  // 身份、配置和失效均来自同一次提交；旧控件尚未卸载时也不会反查已注销轴。
+  const axis = computed(() =>
+    panes.value.flatMap((pane) => pane.axisColumns).find((column) => column.axisId === axisId()),
   )
-  // 自动写纵轴模式，对数是轴类型，两者分属不同设置，互不排斥；再次点击切回非激活值。
+  /** 仅主价格轴承载行情价格，指标轴没有可拟合的 K 线。 */
+  const isPriceAxis = computed(() => axis.value?.axisId === PRICE_SERIES_AXIS_ID)
   const shortcuts: ReadonlyArray<PriceAxisShortcut> = [
     {
       group: GROUP.RANGE,
@@ -56,77 +65,132 @@ export function usePriceAxisMenu(
     { group: GROUP.TYPE, on: ScaleType.Log, off: ScaleType.Linear, label: '对数', text: 'L' },
   ]
 
-  /** 快捷按钮复用菜单命令：未激活则写入开值，已激活则切回关值。 */
+  const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
+    const config = axis.value?.configuration
+    const blocked = config === undefined
+    const base = config?.baseValue ?? null
+    const percentReady = base !== null && base !== 0
+    const rangeItems: DropMenuItem[] = [
+      {
+        id: PRICE_AXIS_RANGE_MODE.AUTO,
+        label: '自动',
+        disabled: blocked,
+        checked: config?.rangeMode === PRICE_AXIS_RANGE_MODE.AUTO,
+        selection: 'checkbox',
+      },
+    ]
+    if (isPriceAxis.value) {
+      // 自动范围下的口径：锁定范围时不影响，但随时可改。
+      rangeItems.push({
+        id: PRICE_ONLY,
+        label: '仅缩放价格图表',
+        checked: settings.value.mainPriceAxisPriceOnly === true,
+        selection: 'checkbox',
+        disabled: blocked,
+      })
+    }
+    const positionGroup: DropMenuGroup[] = isPriceAxis.value
+      ? [
+          {
+            id: GROUP.POSITION,
+            label: '位置',
+            items: [
+              {
+                id: 'left',
+                label: '左侧',
+                checked: settings.value.priceAxisPosition === 'left',
+                selection: 'radio',
+              },
+              {
+                id: 'right',
+                label: '右侧',
+                checked: settings.value.priceAxisPosition === 'right',
+                selection: 'radio',
+              },
+            ],
+          },
+        ]
+      : []
+    return [
+      {
+        id: GROUP.TYPE,
+        label: '轴类型',
+        items: [
+          {
+            id: ScaleType.Log,
+            label: '对数',
+            disabled: blocked,
+            checked: config?.scaleType === ScaleType.Log,
+            selection: 'radio',
+          },
+          {
+            id: ScaleType.Linear,
+            label: '数值',
+            disabled: blocked,
+            checked: config?.scaleType === ScaleType.Linear,
+            selection: 'radio',
+          },
+          {
+            id: ScaleType.Percent,
+            label: percentReady ? '百分比' : '百分比（需要基准值）',
+            disabled: blocked || !percentReady,
+            checked: config?.scaleType === ScaleType.Percent,
+            selection: 'radio',
+          },
+        ],
+      },
+      { id: GROUP.RANGE, label: '纵轴模式', items: rangeItems },
+      {
+        id: GROUP.RESET,
+        label: '重置',
+        items: [{ id: RESET_AXIS, label: '重置坐标轴', disabled: blocked }],
+      },
+      ...positionGroup,
+    ]
+  })
+
+  /** 轴命令只作用于绑定轴；位置与仅缩放价格图表是整图设置。 */
+  function select(groupId: string, itemId: string): void {
+    const chart = controller.value
+    const target = axis.value
+    if (!chart || !target) return
+    const { axisId, configuration: config } = target
+    if (groupId === GROUP.POSITION && (itemId === 'left' || itemId === 'right')) {
+      applySettings({ ...settings.value, priceAxisPosition: itemId })
+      return
+    }
+    if (groupId === GROUP.RANGE && itemId === PRICE_ONLY) {
+      applySettings({
+        ...settings.value,
+        mainPriceAxisPriceOnly: !settings.value.mainPriceAxisPriceOnly,
+      })
+      return
+    }
+    if (
+      groupId === GROUP.TYPE &&
+      (itemId === ScaleType.Log || itemId === ScaleType.Linear || itemId === ScaleType.Percent)
+    )
+      chart.axes.setScaleType(axisId, itemId)
+    else if (groupId === GROUP.RANGE && itemId === PRICE_AXIS_RANGE_MODE.AUTO) {
+      // 自动本身是开关：勾选即每帧拟合，取消即冻结当前范围交给手动拖拽。
+      chart.axes.setRangeMode(
+        axisId,
+        config.rangeMode === PRICE_AXIS_RANGE_MODE.AUTO
+          ? PRICE_AXIS_RANGE_MODE.HAND
+          : PRICE_AXIS_RANGE_MODE.AUTO,
+      )
+    } else if (groupId === GROUP.RANGE && itemId === PRICE_AXIS_RANGE_MODE.HAND)
+      chart.axes.setRangeMode(axisId, PRICE_AXIS_RANGE_MODE.HAND)
+    else if (groupId === GROUP.RESET && itemId === RESET_AXIS) chart.axes.resetRange(axisId)
+  }
+
+  /** 快捷按钮的按下态与菜单同源：读菜单数据里的 checked，不另起一条状态读取路径。 */
+  function isShortcutSelected(shortcut: PriceAxisShortcut): boolean {
+    const group = groups.value.find((candidate) => candidate.id === shortcut.group)
+    return group?.items.some((item) => item.id === shortcut.on && item.checked === true) === true
+  }
   function selectShortcut(shortcut: PriceAxisShortcut): void {
     select(shortcut.group, isShortcutSelected(shortcut) ? shortcut.off : shortcut.on)
   }
-
-  /** 快捷按钮按下态来自其所属分组的开值。 */
-  function isShortcutSelected(shortcut: PriceAxisShortcut): boolean {
-    return isSelected(shortcut.group, shortcut.on)
-  }
-
-  const groups: ReadonlyArray<DropMenuGroup> = [
-    {
-      id: GROUP.TYPE,
-      label: '轴类型',
-      items: [
-        { id: ScaleType.Log, label: '对数' },
-        { id: ScaleType.Linear, label: '价格' },
-        ...(paneId === MAIN_PANE_ID ? [{ id: ScaleType.Percent, label: '百分比' }] : []),
-      ],
-    },
-    {
-      id: GROUP.RANGE,
-      label: '纵轴模式',
-      items: [
-        { id: PRICE_AXIS_RANGE_MODE.AUTO, label: '常规' },
-        { id: PRICE_AXIS_RANGE_MODE.HAND, label: '锁定价格对 K 线比例' },
-      ],
-    },
-    { id: GROUP.RESET, label: '重置', items: [{ id: RESET_AXIS, label: '重置价格轴' }] },
-    {
-      id: GROUP.POSITION,
-      label: '位置',
-      items: [
-        { id: 'left', label: '左侧' },
-        { id: 'right', label: '右侧' },
-      ],
-    },
-  ]
-
-  /** 从 controller 当前设置判断勾选项，重置组不属于模式选项。 */
-  function isSelected(groupId: string, itemId: string): boolean {
-    if (groupId === GROUP.TYPE) return (scaleTypes.value.get(paneId) ?? ScaleType.Linear) === itemId
-    if (groupId === GROUP.RANGE)
-      return (ranges.value[paneId]?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO) === itemId
-    if (groupId === GROUP.POSITION) return settings.value.priceAxisPosition === itemId
-    return false
-  }
-
-  /** 按菜单分组执行设置或重置；合并 kernel 当前设置，避免覆盖其他偏好。 */
-  function select(groupId: string, itemId: string): void {
-    const chart = controller.value
-    if (!chart) return
-    if (groupId === GROUP.RESET && itemId === RESET_AXIS) {
-      chart.resetPanePriceAxis(paneId)
-    } else if (
-      groupId === GROUP.TYPE &&
-      (itemId === ScaleType.Log || itemId === ScaleType.Linear || itemId === ScaleType.Percent)
-    ) {
-      chart.setPanePriceAxisScaleType(paneId, itemId)
-      // 主图偏好通知宿主保存，目标轴已经由统一命令更新。
-      if (paneId === MAIN_PANE_ID) applySettings({ ...chart.settings.peek() })
-    } else if (
-      groupId === GROUP.RANGE &&
-      (itemId === PRICE_AXIS_RANGE_MODE.AUTO || itemId === PRICE_AXIS_RANGE_MODE.HAND)
-    ) {
-      chart.setPanePriceAxisRangeMode(paneId, itemId)
-      if (paneId === MAIN_PANE_ID) applySettings({ ...chart.settings.peek() })
-    } else if (groupId === GROUP.POSITION && (itemId === 'left' || itemId === 'right')) {
-      applySettings({ ...chart.settings.peek(), priceAxisPosition: itemId })
-    }
-  }
-
-  return { groups, select, isSelected, shortcuts, selectShortcut, isShortcutSelected }
+  return { groups, select, shortcuts, selectShortcut, isShortcutSelected }
 }

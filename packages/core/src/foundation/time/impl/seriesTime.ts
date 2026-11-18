@@ -46,6 +46,15 @@ function typicalInterval(data: ReadonlyArray<{ timestamp: number }>): number {
   return interval
 }
 
+/**
+ * 读取序列的常规槽距（毫秒）；0 表示无法统计。
+ *
+ * 时间投影与锁定十字线的周期方向判断共用这一份规则，避免两处各算一次。
+ */
+export function resolveSeriesInterval(data: ReadonlyArray<{ timestamp: number }>): number {
+  return resolveCadence(data)
+}
+
 /** 读取序列的常规槽距；同一数据修订的多帧查询共享结果。 */
 function resolveCadence(data: ReadonlyArray<{ timestamp: number }>): number {
   const first = data[0]?.timestamp
