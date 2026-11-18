@@ -8,6 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+# pnpm 本地缓存仓与安装过程中临时改名的依赖目录（同盘 hardlink 时会在仓库根生成）
+.pnpm-store/
+node_modules.*/
 .DS_Store
 dist
 dist-ssr
