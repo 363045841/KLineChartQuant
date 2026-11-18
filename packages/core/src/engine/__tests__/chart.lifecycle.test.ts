@@ -686,6 +686,28 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('adds a main-chart indicator to MAIN_PANE_ID after the main pane is moved', async () => {
+    const chart = mountChart()
+    try {
+      importPaneFixture(chart)
+      chart.panes.reorderPanes(['layout-b', MAIN_PANE_ID, 'layout-a'])
+      const id = 'main-overlay-after-reorder'
+      registerPlotDefinition({
+        id,
+        name: id,
+        source: 'native',
+        position: 'main',
+        inputs: {},
+        compute: () => ({ plots: [], fills: [] }),
+      })
+      const instanceId = chart.indicators.add(id, undefined, 'main')!
+      const instance = chart.indicators.instances.peek().find((item) => item.id === instanceId)!
+      expect(instance.paneId).toBe(MAIN_PANE_ID)
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('removes only matching definition instances from a merged pane in one publication', async () => {
     const chart = mountChart()
     try {

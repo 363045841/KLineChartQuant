@@ -12,6 +12,7 @@ import { generateUUID } from '../../../foundation/utils/uuid.js'
 import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.js'
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
 import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
+import { MAIN_PANE_ID } from '../types.js'
 import type {
   IndicatorInstanceCommands,
   IndicatorPlacement,
@@ -76,7 +77,8 @@ export class PaneManager {
     let insertedPaneId: string | undefined
     let nextSpecs = specs
     if (!wantsOwnPane) {
-      paneId = specs[0]!.id
+      // 主图身份由 MAIN_PANE_ID 决定，不能被移动后的显示顺序影响。
+      paneId = MAIN_PANE_ID
     } else {
       // 副图落点：先建 Pane，再把实例放进去。
       paneId = generateUUID()
@@ -449,12 +451,4 @@ export class PaneManager {
   ): PaneSpec[] {
     return specs.map((item) => ({ ...item, ratio: ratios[item.id]! }))
   }
-}
-
-/** 供测试与调试读取实例所在 Pane 的轻量查询。 */
-export function findInstance(
-  instances: ReadonlyArray<IndicatorInstanceSpec>,
-  instanceId: string,
-): IndicatorInstanceSpec | undefined {
-  return instances.find((instance) => instance.instanceId === instanceId)
 }

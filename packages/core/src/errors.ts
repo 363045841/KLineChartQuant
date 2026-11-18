@@ -44,6 +44,8 @@ export type KLineChartErrorCode =
   | 'OUT_OF_RANGE'
   | 'NO_DATA'
   | 'INDICATOR_NOT_FOUND'
+  | 'INDICATOR_INSTANCE_NOT_FOUND'
+  | 'TARGET_ROW_OUT_OF_RANGE'
   | 'DATA_REVISION_CHANGED'
   // comparison commands (UI 与 Agent 共用的对比写原语)
   | 'COMPARISON_DUPLICATE'
@@ -200,14 +202,7 @@ export const COMPARISON_ERROR_CODES = Object.freeze({
   INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
-// 副图/渲染器投影错误码具名常量，供引擎层引用，避免散落字符串字面量。
-export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineChartErrorCode>> = {
-  UNKNOWN_INDICATOR: GENERIC_ERROR_CODES.NOT_REGISTERED,
-  MISSING_RENDERER_METADATA: GENERIC_ERROR_CODES.INVALID_PARAM,
-}
 
-// SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
-type SubPaneErrorCodeName = 'UNKNOWN_INDICATOR' | 'MISSING_RENDERER_METADATA'
 
 /** Agent facade errors. Values are append-only public protocol identifiers. */
 export const CHART_AGENT_ERROR_CODES = Object.freeze({
@@ -215,6 +210,8 @@ export const CHART_AGENT_ERROR_CODES = Object.freeze({
   OUT_OF_RANGE: 'OUT_OF_RANGE',
   NO_DATA: 'NO_DATA',
   INDICATOR_NOT_FOUND: 'INDICATOR_NOT_FOUND',
+  INSTANCE_NOT_FOUND: 'INDICATOR_INSTANCE_NOT_FOUND',
+  TARGET_ROW_OUT_OF_RANGE: 'TARGET_ROW_OUT_OF_RANGE',
   DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 

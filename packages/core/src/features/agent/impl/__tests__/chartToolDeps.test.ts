@@ -4,6 +4,7 @@
  * 依赖全部是窄接口替身，因此用例直接断言"调用了哪个领域命令"，不需要图表实例。
  */
 import { describe, expect, it, vi } from 'vitest'
+import type { IndicatorParamDef } from '@/controllers/types'
 import type { IndicatorInstance } from '@/engine/chart/types'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types'
@@ -16,15 +17,21 @@ import {
 } from '../chartToolDeps'
 
 /** 构造一个最小指标实例。 */
-function instance(id: string, paneId: string, definitionId = 'MACD'): IndicatorInstance {
+function instance(
+  id: string,
+  paneId: string,
+  definitionId = 'MACD',
+  params: Record<string, unknown> = {},
+  ordinal = 0,
+): IndicatorInstance {
   return {
     id,
     definitionId,
     label: definitionId,
     name: definitionId,
     paneId,
-    ordinal: 0,
-    params: {},
+    ordinal,
+    params,
   }
 }
 
@@ -42,175 +49,270 @@ function drawing(id: string, paneId: string): DrawingObject {
 }
 
 describe('indicator commands', () => {
-  /** 组装指标命令面替身；记录 add / move / update 的实参。 */
-  function fixture(instances: IndicatorInstance[] = []) {
+  /** 测试用参数声明：两个数值键，用于验证 resolveDefinition 带回声明。 */
+  const MA_PARAMS: ReadonlyArray<IndicatorParamDef> = [
+    { key: 'period1', label: '周期 1', type: 'number', default: 5, min: 1 },
+    { key: 'period2', label: '周期 2', type: 'number', default: 10, min: 1 },
+  ]
+
+  /** 组装指标命令面替身；写操作同步更新实例信号，便于断言返回的最新位置。 */
+  function fixture(
+    instances: IndicatorInstance[] = [],
+    paneIds: ReadonlyArray<string> = [MAIN_PANE_ID, 'pane-a', 'pane-b'],
+  ) {
+    const state = createSignal<ReadonlyArray<IndicatorInstance>>(instances)
     const added: Array<[string, unknown, string | undefined]> = []
     const moved: Array<[string, unknown]> = []
+    const updated: Array<[string, unknown]> = []
+    const removed: string[] = []
     const panes = {
-      getLayoutSpecs: () => [{ id: MAIN_PANE_ID }, { id: 'pane-a' }],
-      movePane: vi.fn(() => true),
-      addPane: vi.fn(() => 'pane-new'),
-      removePane: vi.fn(() => true),
+      getLayoutSpecs: () => paneIds.map((id) => ({ id })),
     }
     const commands = createChartAgentIndicatorCommands({
       facade: {
         add: (definitionId, params, placement) => {
           if (definitionId === 'missing') return null
           added.push([definitionId, params, placement])
+          const paneId = placement === 'sub' ? 'pane-a' : MAIN_PANE_ID
+          state.set([
+            ...state.peek(),
+            {
+              ...instance('instance-new', paneId, definitionId),
+              params: { ...(params ?? {}) },
+            },
+          ])
           return 'instance-new'
         },
-        update: vi.fn(() => true),
-        move: (instanceId, target) => {
-          moved.push([instanceId, target])
+        update: (instanceId, patch) => {
+          updated.push([instanceId, patch])
+          state.set(
+            state
+              .peek()
+              .map((item) =>
+                item.id === instanceId ? { ...item, params: patch.params ?? item.params } : item,
+              ),
+          )
           return true
         },
-        remove: vi.fn(() => true),
-        clear: vi.fn(),
-        instances: createSignal<ReadonlyArray<IndicatorInstance>>(instances),
+        move: (instanceId, target) => {
+          moved.push([instanceId, target])
+          state.set(
+            state
+              .peek()
+              .map((item) => (item.id === instanceId ? { ...item, paneId: target.paneId } : item)),
+          )
+          return true
+        },
+        remove: (instanceId) => {
+          removed.push(instanceId)
+          state.set(state.peek().filter((item) => item.id !== instanceId))
+          return true
+        },
+        instances: state,
       },
       panes,
       loadIndicators: vi.fn(async () => undefined),
-      resolveCanonicalId: (indicatorId) => (indicatorId === 'missing' ? null : indicatorId),
-      isRendererAvailable: (indicatorId) => indicatorId !== 'no-renderer',
+      resolveCanonicalId: (indicator) =>
+        indicator === 'missing' ? null : indicator === 'ma-alias' ? 'MA' : indicator,
+      isRendererAvailable: (indicator) => indicator !== 'no-renderer',
+      readParamDefs: (indicator) =>
+        indicator === 'MA' ? MA_PARAMS : indicator === 'empty' ? [] : undefined,
     })
-    return { commands, added, moved, panes }
+    return { commands, added, moved, updated, removed }
   }
 
-  it('列出现有指标并按栏顺序投影落点与行号', () => {
+  it('按行与行内顺序列出指标，不暴露实例 ID', () => {
     const { commands } = fixture([
       instance('main-1', MAIN_PANE_ID, 'MA'),
-      instance('sub-1', 'pane-a'),
+      instance('sub-b', 'pane-b', 'MACD'),
+      instance('sub-a2', 'pane-a', 'RSI', {}, 1),
+      instance('sub-a1', 'pane-a', 'RSI', {}, 0),
     ])
     expect(commands.list()).toEqual([
-      {
-        instanceId: 'main-1',
-        definitionId: 'MA',
-        params: {},
-        placement: 'main',
-        row: null,
-      },
-      {
-        instanceId: 'sub-1',
-        definitionId: 'MACD',
-        params: {},
-        placement: 'sub',
-        row: 1,
-      },
+      { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
+      { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 1 },
+      { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 2 },
+      { indicator: 'MACD', params: {}, placement: 'sub', row: 2, order: 1 },
     ])
   })
 
-  it('未注册的指标定义拒绝创建并提示先查看目录', () => {
+  it('新增返回指标位置而不是实例 ID', () => {
+    const { commands, added } = fixture()
+    expect(commands.add('MA')).toEqual({
+      indicator: 'MA',
+      params: {},
+      placement: 'main',
+      row: 0,
+      order: 1,
+    })
+    expect(added).toEqual([['MA', undefined, undefined]])
+  })
+
+  it('主图不在第 0 行时仍按 pane 身份标记 placement', () => {
+    const { commands } = fixture(
+      [
+        instance('sub-1', 'pane-a', 'MACD'),
+        instance('main-1', MAIN_PANE_ID, 'MA'),
+        instance('sub-2', 'pane-b', 'RSI'),
+      ],
+      ['pane-a', MAIN_PANE_ID, 'pane-b'],
+    )
+    expect(commands.list()).toEqual([
+      { indicator: 'MACD', params: {}, placement: 'sub', row: 0, order: 1 },
+      { indicator: 'MA', params: {}, placement: 'main', row: 1, order: 1 },
+      { indicator: 'RSI', params: {}, placement: 'sub', row: 2, order: 1 },
+    ])
+  })
+
+  it('未注册的指标名称拒绝创建', () => {
     const { commands, added } = fixture()
     expect(() => commands.add('missing')).toThrow(KLineChartError)
     expect(added).toEqual([])
   })
 
-  it('落点 main 把副图指标搬回主图', () => {
-    const { commands, moved } = fixture([instance('sub-1', 'pane-a')])
-    expect(commands.update('sub-1', { placement: 'main' })).toBe(true)
+  it('更新按名称定位并返回最新视图', () => {
+    const { commands, updated } = fixture([
+      instance('main-1', MAIN_PANE_ID, 'MA', { period1: 5, period2: 10 }),
+    ])
+    expect(commands.update({ indicator: 'MA' }, { period1: 8, period2: 20 })).toEqual({
+      indicator: 'MA',
+      params: { period1: 8, period2: 20 },
+      placement: 'main',
+      row: 0,
+      order: 1,
+    })
+    expect(updated).toEqual([['main-1', { params: { period1: 8, period2: 20 } }]])
+  })
+
+  it.each([
+    {
+      name: '名称唯一',
+      instances: [instance('main-1', MAIN_PANE_ID, 'MA'), instance('sub-1', 'pane-a')],
+      target: { indicator: 'MACD' },
+      expected: { indicator: 'MACD', params: {}, placement: 'sub', row: 1, order: 1 },
+    },
+    {
+      name: '同名跨行按 row',
+      instances: [instance('a', 'pane-a'), instance('b', 'pane-b')],
+      target: { indicator: 'MACD', row: 2 },
+      expected: { indicator: 'MACD', params: {}, placement: 'sub', row: 2, order: 1 },
+    },
+    {
+      name: '同名同行按 order',
+      instances: [instance('a', 'pane-a', 'RSI', {}, 0), instance('b', 'pane-a', 'RSI', {}, 1)],
+      target: { indicator: 'RSI', row: 1, order: 2 },
+      expected: { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 2 },
+    },
+  ])('定位：$name', ({ instances, target, expected }) => {
+    const { commands } = fixture(instances)
+    expect(commands.read(target)).toEqual(expected)
+  })
+
+  it.each([
+    {
+      name: '找不到时列出当前指标',
+      instances: [instance('main-1', MAIN_PANE_ID, 'MA')],
+      target: { indicator: 'RSI' },
+      code: CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
+      pattern: /Current indicators: MA at row 0 order 1/,
+    },
+    {
+      name: '跨行歧义提示补 row',
+      instances: [instance('a', 'pane-a'), instance('b', 'pane-b')],
+      target: { indicator: 'MACD' },
+      code: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+      pattern: /Add row/,
+    },
+    {
+      name: '同行歧义提示补 order',
+      instances: [instance('a', 'pane-a', 'RSI', {}, 0), instance('b', 'pane-a', 'RSI', {}, 1)],
+      target: { indicator: 'RSI' },
+      code: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+      pattern: /Add order/,
+    },
+  ])('定位拒绝：$name', ({ instances, target, code, pattern }) => {
+    const { commands } = fixture(instances)
+    expect(() => commands.read(target)).toThrow(expect.objectContaining({ code }))
+    expect(() => commands.read(target)).toThrow(pattern)
+  })
+
+  it('移动按 target 定位并返回新位置', () => {
+    const { commands, moved } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
+    expect(commands.move({ indicator: 'MA' }, 1)).toEqual({
+      indicator: 'MA',
+      params: {},
+      placement: 'sub',
+      row: 1,
+      order: 1,
+    })
+    expect(moved).toEqual([['main-1', { kind: INSTANCE_MOVE_KIND.PANE, paneId: 'pane-a' }]])
+  })
+
+  it('移动到主图所在行时落回主图 pane', () => {
+    const { commands, moved } = fixture(
+      [instance('sub-1', 'pane-a', 'MACD'), instance('main-1', MAIN_PANE_ID, 'MA')],
+      ['pane-a', MAIN_PANE_ID],
+    )
+    expect(commands.move({ indicator: 'MACD' }, 1)).toEqual({
+      indicator: 'MACD',
+      params: {},
+      placement: 'main',
+      row: 1,
+      order: 1,
+    })
     expect(moved).toEqual([['sub-1', { kind: INSTANCE_MOVE_KIND.PANE, paneId: MAIN_PANE_ID }]])
   })
 
-  it('落点 sub 从主图切走时先建容器再迁移', () => {
-    const { commands, moved, panes } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
-    expect(commands.update('main-1', { placement: 'sub' })).toBe(true)
-    expect(panes.addPane).toHaveBeenCalledOnce()
-    expect(moved).toEqual([['main-1', { kind: INSTANCE_MOVE_KIND.PANE, paneId: 'pane-new' }]])
-    expect(panes.removePane).not.toHaveBeenCalled()
-  })
-
-  it('迁移失败时回收刚建的空容器', () => {
-    const { commands, panes, moved } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
-    // 让第一次迁移失败，验证容器被回收。
-    moved.length = 0
-    const facadeMove = vi.fn(() => false)
-    const failing = createChartAgentIndicatorCommands({
-      facade: {
-        add: () => 'x',
-        update: () => true,
-        move: facadeMove,
-        remove: () => true,
-        clear: () => undefined,
-        instances: createSignal<ReadonlyArray<IndicatorInstance>>([
-          instance('main-1', MAIN_PANE_ID, 'MA'),
-        ]),
-      },
-      panes,
-      loadIndicators: async () => undefined,
-      resolveCanonicalId: () => 'MA',
-      isRendererAvailable: () => true,
+  it('同一行不调用移动，避免实例被重排到 pane 末尾', () => {
+    const { commands, moved } = fixture([instance('sub-1', 'pane-a')])
+    expect(commands.move({ indicator: 'MACD' }, 1)).toEqual({
+      indicator: 'MACD',
+      params: {},
+      placement: 'sub',
+      row: 1,
+      order: 1,
     })
-    expect(failing.update('main-1', { placement: 'sub' })).toBe(false)
-    expect(panes.removePane).toHaveBeenCalledWith('pane-new')
-    expect(commands).toBeDefined()
+    expect(moved).toEqual([])
   })
 
-  it('重排只对副图生效，主图叠加的指标不可重排', () => {
-    const { commands, panes } = fixture([
-      instance('main-1', MAIN_PANE_ID, 'MA'),
-      instance('sub-1', 'pane-a'),
-    ])
-    expect(commands.move('main-1', 1)).toBe(false)
-    expect(commands.move('sub-1', 0)).toBe(true)
-    expect(panes.movePane).toHaveBeenCalledWith('pane-a', 0)
+  it('移动越界返回可纠正错误', () => {
+    const { commands } = fixture([instance('sub-1', 'pane-a')])
+    expect(() => commands.move({ indicator: 'MACD' }, 9)).toThrow(
+      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.TARGET_ROW_OUT_OF_RANGE }),
+    )
   })
 
-  it('清空只删除独占副图的指标，主图叠加保留', () => {
-    const removed: string[] = []
-    const commands = createChartAgentIndicatorCommands({
-      facade: {
-        add: () => null,
-        update: () => false,
-        move: () => false,
-        remove: (instanceId) => {
-          removed.push(instanceId)
-          return true
-        },
-        clear: () => undefined,
-        instances: createSignal<ReadonlyArray<IndicatorInstance>>([
-          instance('main-1', MAIN_PANE_ID, 'MA'),
-          instance('sub-1', 'pane-a'),
-          instance('sub-2', 'pane-b'),
-        ]),
-      },
-      panes: {
-        getLayoutSpecs: () => [{ id: MAIN_PANE_ID }, { id: 'pane-a' }, { id: 'pane-b' }],
-        movePane: () => true,
-        addPane: () => null,
-        removePane: () => true,
-      },
-      loadIndicators: async () => undefined,
-      resolveCanonicalId: () => 'MA',
-      isRendererAvailable: () => true,
+  it('删除返回被删位置', () => {
+    const { commands, removed } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
+    expect(commands.remove({ indicator: 'MA' })).toEqual({
+      indicator: 'MA',
+      params: {},
+      placement: 'main',
+      row: 0,
+      order: 1,
     })
-    expect(commands.clear()).toBe(2)
-    expect(removed).toEqual(['sub-1', 'sub-2'])
+    expect(removed).toEqual(['main-1'])
   })
 
-  it('解析定义会先加载实现，没有渲染器时返回 null', async () => {
-    const loadIndicators = vi.fn(async () => undefined)
-    const commands = createChartAgentIndicatorCommands({
-      facade: {
-        add: () => null,
-        update: () => false,
-        move: () => false,
-        remove: () => false,
-        clear: () => undefined,
-        instances: createSignal<ReadonlyArray<IndicatorInstance>>([]),
-      },
-      panes: {
-        getLayoutSpecs: () => [{ id: MAIN_PANE_ID }],
-        movePane: () => true,
-        addPane: () => null,
-        removePane: () => true,
-      },
-      loadIndicators,
-      resolveCanonicalId: (indicatorId) => indicatorId,
-      isRendererAvailable: (indicatorId) => indicatorId !== 'no-renderer',
+  it('解析定义会先加载实现，并带回规范名称与参数声明', async () => {
+    const { commands } = fixture()
+    await expect(commands.resolveDefinition('ma-alias')).resolves.toEqual({
+      indicator: 'MA',
+      params: MA_PARAMS,
     })
-    await expect(commands.resolveDefinition('MACD')).resolves.toBe('MACD')
-    await expect(commands.resolveDefinition('no-renderer')).resolves.toBeNull()
-    expect(loadIndicators).toHaveBeenCalledTimes(2)
+    await expect(commands.resolveDefinition('empty')).resolves.toEqual({
+      indicator: 'empty',
+      params: [],
+    })
+  })
+
+  it.each([
+    { name: '未注册', indicator: 'missing' },
+    { name: '没有渲染器', indicator: 'no-renderer' },
+    { name: '目录没有参数声明', indicator: 'not-described' },
+  ])('无法描述的定义返回 null：$name', async ({ indicator }) => {
+    const { commands } = fixture()
+    await expect(commands.resolveDefinition(indicator)).resolves.toBeNull()
   })
 })
 

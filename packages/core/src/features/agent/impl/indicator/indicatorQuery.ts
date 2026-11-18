@@ -112,11 +112,17 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
     async queryIndicator(input: IndicatorCalculationQueryInput): Promise<string> {
       const query = normalizeInput(input)
       const definition = resolveDefinition(query.definitionId)
-      const runtime = definition?.runtime
-      if (!definition || !runtime) {
+      if (!definition) {
         throw new KLineChartError(
           INDICATOR_QUERY_ERROR_CODES.INDICATOR_NOT_REGISTERED,
-          `Indicator '${query.definitionId}' is not registered for calculation`,
+          `Unknown indicator '${query.definitionId}'. Use an exact registered indicator name.`,
+        )
+      }
+      const runtime = definition.runtime
+      if (!runtime) {
+        throw new KLineChartError(
+          INDICATOR_QUERY_ERROR_CODES.INDICATOR_NOT_REGISTERED,
+          `Indicator '${query.definitionId}' exists but has no calculator runtime.`,
         )
       }
 

@@ -49,10 +49,10 @@ export function createTestToolDeps(
     indicators: {
       list: () => [],
       add: () => unused('indicators.add'),
+      read: () => unused('indicators.read'),
       update: () => unused('indicators.update'),
       move: () => unused('indicators.move'),
       remove: () => unused('indicators.remove'),
-      clear: () => unused('indicators.clear'),
       resolveDefinition: async () => unused('indicators.resolveDefinition'),
     },
     drawings: {

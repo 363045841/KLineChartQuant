@@ -31,16 +31,17 @@ function createBars(): KLineData[] {
 
 /** 空工具依赖；上下文投影不触碰工具。 */
 function stubTools(): ChartAgentToolDeps {
+  const unused = (): never => {
+    throw new Error('not used')
+  }
   return {
     indicators: {
       list: () => [],
-      add: () => {
-        throw new Error('not used')
-      },
-      update: () => false,
-      move: () => false,
-      remove: () => false,
-      clear: () => 0,
+      add: unused,
+      read: unused,
+      update: unused,
+      move: unused,
+      remove: unused,
       resolveDefinition: async () => null,
     },
     drawings: {

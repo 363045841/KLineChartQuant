@@ -21,6 +21,8 @@ export type {
   ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentIndicatorCommands,
+  ChartAgentIndicatorDefinition,
+  ChartAgentIndicatorTarget,
   ChartAgentIndicatorView,
   ChartAgentMarketQueries,
   ChartAgentTimeRange,

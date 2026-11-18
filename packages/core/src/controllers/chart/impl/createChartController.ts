@@ -235,6 +235,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       },
       isRendererAvailable: (indicatorId) =>
         getRegisteredIndicatorDefinition(indicatorId) !== undefined,
+      readParamDefs: (indicatorId) =>
+        indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.params,
     }),
     drawings: createChartAgentDrawingCommands({
       drawingDocument: chart.drawingDocument,

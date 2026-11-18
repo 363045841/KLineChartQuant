@@ -56,7 +56,11 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'The requested time range does not overlap the active chart data. Read the current Agent context and choose a range inside dataRange.',
   NO_DATA: 'Load an active K-line series before reading Agent context or querying an indicator.',
   INDICATOR_NOT_FOUND:
-    'Use a registered indicator definition that exposes a calculator runtime before retrying the query.',
+    'Use an exact registered indicator name; if the name exists, make sure it exposes a calculator runtime.',
+  INDICATOR_INSTANCE_NOT_FOUND:
+    'The instanceId does not exist on this chart. Call indicators_list and use one of the returned instanceId values; never invent ids.',
+  TARGET_ROW_OUT_OF_RANGE:
+    'targetRow must be an existing chart row: 0 is the main chart, 1..n are the sub-pane rows returned by indicators_list.',
   DATA_REVISION_CHANGED:
     'Market data changed throughout the bounded query attempts. Retry from a fresh context snapshot when the active series stabilizes.',
 

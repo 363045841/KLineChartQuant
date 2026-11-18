@@ -1,5 +1,5 @@
 /** Agent 功能模块的对外契约：查询输入输出、facade 接口与依赖接口；实现位于 impl/。 */
-import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
+import type { IndicatorInstance, IndicatorParamDef, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
 import type {
@@ -107,21 +107,29 @@ export interface ChartAgentDrawingSelection {
   readonly drawings: ReadonlyArray<ChartAgentDrawingSnapshot>
 }
 
-/** Agent 看到的单个指标实例；身份、落点与参数都在这里。 */
+/** Agent 看到的单个指标实例；身份由位置表达，不暴露内部实例 ID。 */
 export interface ChartAgentIndicatorView {
-  readonly instanceId: string
-  readonly definitionId: string
+  readonly indicator: string
   readonly params: Readonly<Record<string, unknown>>
+  /** 主图叠加或副图指标；由 pane 身份决定，不由行号推导。 */
   readonly placement: IndicatorPlacement
-  /** 所在栏的 0 起顺序；主图叠加的指标为 null。 */
-  readonly row: number | null
+  /** 图表显示行：0 是最上面一行；主图可能在任何行。 */
+  readonly row: number
+  /** 同一行内的第几个指标，从 1 开始。 */
+  readonly order: number
 }
 
-/** 指标实例的可写补丁；换指标时 params 会按新定义补齐默认值。 */
-export interface ChartAgentIndicatorPatch {
-  readonly definitionId?: string
-  readonly params?: Readonly<Record<string, unknown>>
-  readonly placement?: IndicatorPlacement
+/** 指标定位：按名称定位，同名多实例时用 row / order 收敛。 */
+export interface ChartAgentIndicatorTarget {
+  readonly indicator: string
+  readonly row?: number
+  readonly order?: number
+}
+
+/** 可解析的指标定义：规范名称与参数声明一起返回，调用方不自行推断参数键。 */
+export interface ChartAgentIndicatorDefinition {
+  readonly indicator: string
+  readonly params: ReadonlyArray<IndicatorParamDef>
 }
 
 /** Bounded parameters accepted by the compact indicator query. */
@@ -129,14 +137,6 @@ export interface IndicatorQueryInput {
   readonly definitionId: string
   readonly params?: Readonly<Record<string, number>>
   readonly limit?: number
-}
-
-/** Agent 查询标准品种目录的输入。 */
-export interface InstrumentSearchInput {
-  readonly keyword: string
-  readonly limit: number
-  readonly sourceIds?: ReadonlyArray<string>
-  readonly signal?: AbortSignal
 }
 
 /** Agent 按标准代码精确查询品种目录的输入。 */
@@ -167,16 +167,6 @@ export interface TimeShareQueryInput {
   readonly instrumentType?: InstrumentType
 }
 
-/** 多日分时查询输入；截止交易日与天数必须由调用方显式给出。 */
-export interface TimeShareRangeQueryInput {
-  readonly symbol: string
-  readonly endTradingDate: string
-  readonly days: number
-  readonly sourceId?: string
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
-}
-
 /** 行情查询的可序列化来源信息。 */
 export interface MarketDataQueryMeta {
   readonly sourceId: string
@@ -199,23 +189,27 @@ export interface TimeShareRangeQueryResult extends MarketDataQueryMeta {
   readonly range: TimeShareRange
 }
 
-/** 指标实例命令面：身份由状态分配，落点用语义表达。 */
+/** 指标实例命令面：按名称定位，身份由状态分配并在内部解析。 */
 export interface ChartAgentIndicatorCommands {
   list(): ReadonlyArray<ChartAgentIndicatorView>
   add(
-    definitionId: string,
+    indicator: string,
     params?: Readonly<Record<string, unknown>>,
     placement?: IndicatorPlacement,
-  ): string
-  update(instanceId: string, patch: ChartAgentIndicatorPatch): boolean
-  move(instanceId: string, row: number): boolean
-  remove(instanceId: string): boolean
-  clear(): number
+  ): ChartAgentIndicatorView
+  /** 按名称与位置读取单个指标；零个或多个命中时报可纠正错误。 */
+  read(target: ChartAgentIndicatorTarget): ChartAgentIndicatorView
+  update(
+    target: ChartAgentIndicatorTarget,
+    params: Readonly<Record<string, unknown>>,
+  ): ChartAgentIndicatorView
+  move(target: ChartAgentIndicatorTarget, row: number): ChartAgentIndicatorView
+  remove(target: ChartAgentIndicatorTarget): ChartAgentIndicatorView
   /**
    * 加载并解析可在图表中渲染的指标定义。
-   * @returns 规范定义 ID；未注册或没有渲染器时为 null。
+   * @returns 规范名称与参数声明；未注册或没有渲染器时为 null。
    */
-  resolveDefinition(definitionId: string): Promise<string | null>
+  resolveDefinition(indicator: string): Promise<ChartAgentIndicatorDefinition | null>
 }
 
 /** 图元写入输入：落点用 Agent 词汇表，锚点用交易日或价格。 */
@@ -334,18 +328,16 @@ export interface ChartAgentIndicatorCommandsDependencies {
       },
     ): boolean
     remove(instanceId: string): boolean
-    clear(): void
     instances: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   }
   readonly panes: {
     getLayoutSpecs(): ReadonlyArray<{ readonly id: string }>
-    movePane(paneId: string, targetIndex: number): boolean
-    addPane(anchorPaneId: string, placement: 'above' | 'below'): string | null
-    removePane(paneId: string): boolean
   }
   readonly loadIndicators: (indicatorIds: ReadonlyArray<string>) => Promise<void>
   readonly resolveCanonicalId: (indicatorId: string) => string | null
   readonly isRendererAvailable: (indicatorId: string) => boolean
+  /** 读取规范 ID 对应的参数声明；目录项缺失时返回 undefined。 */
+  readonly readParamDefs: (indicatorId: string) => ReadonlyArray<IndicatorParamDef> | undefined
 }
 
 /** 行情查询面的装配依赖。 */

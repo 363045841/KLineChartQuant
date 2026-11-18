@@ -6,7 +6,7 @@
  */
 import type { TradingDate } from '../../../data/provider/types.js'
 import type { DrawingAnchorCommandInput, DrawingObject } from '../../../engine/drawing/index.js'
-import { INSTANCE_MOVE_KIND } from '../../../engine/pane/types.js'
+import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../../../engine/pane/types.js'
 import { CHART_AGENT_ERROR_CODES, DRAWING_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type {
   ChartAgentDrawingCommands,
@@ -16,6 +16,7 @@ import type {
   ChartAgentDrawingSnapshot,
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorCommandsDependencies,
+  ChartAgentIndicatorTarget,
   ChartAgentIndicatorView,
   ChartAgentMarketQueries,
   ChartAgentMarketQueriesDependencies,
@@ -66,102 +67,161 @@ export function createChartAgentIndicatorCommands(
   deps: ChartAgentIndicatorCommandsDependencies,
 ): ChartAgentIndicatorCommands {
   const layout = () => deps.panes.getLayoutSpecs()
-  const mainPaneId = () => layout()[0]?.id
-  const paneIdOf = (instanceId: string): string | undefined =>
-    deps.facade.instances.peek().find((instance) => instance.id === instanceId)?.paneId
+
+  /**
+   * 把当前实例投影成按行、行内顺序排列的视图。
+   *
+   * 内部实例 ID 只作为 Map 键，不进入视图；不在布局内的实例不会暴露给 Agent。
+   */
+  function project(): Map<string, { readonly view: ChartAgentIndicatorView; readonly paneId: string }> {
+    const rows = layout()
+    const rowOf = new Map(rows.map((pane, index) => [pane.id, index]))
+    const ordered = deps.facade.instances
+      .peek()
+      .filter((instance) => rowOf.has(instance.paneId))
+      .slice()
+      .sort(
+        (left, right) =>
+          rowOf.get(left.paneId)! - rowOf.get(right.paneId)! || left.ordinal - right.ordinal,
+      )
+    const counters = new Map<string, number>()
+    const projected = new Map<string, { view: ChartAgentIndicatorView; paneId: string }>()
+    for (const instance of ordered) {
+      const row = rowOf.get(instance.paneId)!
+      const order = (counters.get(instance.paneId) ?? 0) + 1
+      counters.set(instance.paneId, order)
+      projected.set(instance.id, {
+        paneId: instance.paneId,
+        view: {
+          indicator: instance.definitionId,
+          params: Object.freeze({ ...instance.params }),
+          placement: instance.paneId === MAIN_PANE_ID ? 'main' : 'sub',
+          row,
+          order,
+        },
+      })
+    }
+    return projected
+  }
+
+  /** 读取单个实例的视图；写操作后立刻读取，投影缺失视为状态不一致。 */
+  function viewOf(instanceId: string): ChartAgentIndicatorView {
+    const view = project().get(instanceId)?.view
+    if (view === undefined) {
+      throw new KLineChartError(
+        CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
+        'The indicator changed before its new position could be read. Call indicators_list and retry.',
+      )
+    }
+    return view
+  }
+
+  /** 按名称与位置定位实例；零个或多于一个都返回可纠正错误。 */
+  function resolveTarget(target: ChartAgentIndicatorTarget): {
+    readonly instanceId: string
+    readonly paneId: string
+    readonly view: ChartAgentIndicatorView
+  } {
+    const projected = project()
+    const matches = [...projected.entries()].filter(([, entry]) => {
+      if (entry.view.indicator !== target.indicator) return false
+      if (target.row !== undefined && entry.view.row !== target.row) return false
+      if (target.order !== undefined && entry.view.order !== target.order) return false
+      return true
+    })
+    if (matches.length === 1) {
+      const [instanceId, entry] = matches[0]!
+      return { instanceId, paneId: entry.paneId, view: entry.view }
+    }
+    if (matches.length === 0) {
+      throw new KLineChartError(
+        CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
+        `No indicator matches ${describeTarget(target)}. Current indicators: ${describeProjection(projected)}.`,
+      )
+    }
+    const candidates = matches.map(([, entry]) => describeView(entry.view)).join('; ')
+    const rows = new Set(matches.map(([, entry]) => entry.view.row))
+    const hint =
+      target.row === undefined && rows.size > 1
+        ? 'Add row; if several candidates share that row, add order too.'
+        : 'Add order.'
+    throw new KLineChartError(
+      CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+      `Indicator '${target.indicator}' matches ${matches.length} instances. ${hint} Candidates: ${candidates}.`,
+    )
+  }
 
   return {
     list(): ReadonlyArray<ChartAgentIndicatorView> {
-      const rows = layout()
-      const rowOf = new Map(rows.map((pane, index) => [pane.id, index]))
-      const main = rows[0]?.id
-      return deps.facade.instances
-        .peek()
-        .slice()
-        .sort((left, right) => (rowOf.get(left.paneId) ?? 0) - (rowOf.get(right.paneId) ?? 0))
-        .map((instance) => {
-          const row = rowOf.get(instance.paneId) ?? null
-          return {
-            instanceId: instance.id,
-            definitionId: instance.definitionId,
-            params: Object.freeze({ ...instance.params }),
-            placement: instance.paneId === main ? 'main' : 'sub',
-            row: instance.paneId === main ? null : row,
-          }
-        })
+      return [...project().values()].map((entry) => entry.view)
     },
 
-    add(definitionId, params, placement) {
-      const instanceId = deps.facade.add(definitionId, params, placement)
+    add(indicator, params, placement) {
+      const instanceId = deps.facade.add(indicator, params, placement)
       if (instanceId === null) {
         throw new KLineChartError(
           CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
-          `Indicator '${definitionId}' is not registered. Use indicators_list to inspect the chart, or load the definition first.`,
+          `Indicator '${indicator}' is not registered. Use indicators_list to read the indicator names already on the chart.`,
         )
       }
-      return instanceId
+      return viewOf(instanceId)
     },
 
-    update(instanceId, patch) {
-      const { definitionId, params, placement } = patch
-      if (definitionId !== undefined || params !== undefined) {
-        const updated = deps.facade.update(instanceId, {
-          ...(definitionId === undefined ? {} : { indicatorId: definitionId }),
-          ...(params === undefined ? {} : { params }),
-        })
-        if (!updated) return false
+    read(target) {
+      return resolveTarget(target).view
+    },
+
+    update(target, params) {
+      const { instanceId } = resolveTarget(target)
+      if (!deps.facade.update(instanceId, { params })) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
+          `Indicator ${describeTarget(target)} disappeared before it could be updated. Call indicators_list and retry.`,
+        )
       }
-      if (placement !== undefined) return relocate(instanceId, placement)
-      return definitionId !== undefined || params !== undefined
+      return viewOf(instanceId)
     },
 
-    move(instanceId, row) {
-      const paneId = paneIdOf(instanceId)
-      if (paneId === undefined || paneId === mainPaneId()) return false
-      return deps.panes.movePane(paneId, row)
+    /** 把实例移动到指定显示行；主图可能不在 0，行号以当前 layout 为准。 */
+    move(target, row) {
+      const { instanceId, paneId } = resolveTarget(target)
+      const rows = layout()
+      const destination = rows[row]
+      if (destination === undefined) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.TARGET_ROW_OUT_OF_RANGE,
+          `targetRow ${row} is outside the chart layout. Valid rows: 0 through ${rows.length - 1}.`,
+        )
+      }
+      // 已在目标行时不调用移动，避免把实例重排到 pane 末尾。
+      if (destination.id === paneId) return viewOf(instanceId)
+      if (!deps.facade.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: destination.id })) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+          `Indicator ${describeTarget(target)} could not be moved to row ${row}. Call indicators_list and retry.`,
+        )
+      }
+      return viewOf(instanceId)
     },
 
-    remove(instanceId) {
-      return deps.facade.remove(instanceId)
+    remove(target) {
+      const { instanceId, view } = resolveTarget(target)
+      if (!deps.facade.remove(instanceId)) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
+          `Indicator ${describeTarget(target)} disappeared before it could be removed. Call indicators_list and retry.`,
+        )
+      }
+      return view
     },
 
-    clear() {
-      const main = mainPaneId()
-      const owned = deps.facade.instances.peek().filter((instance) => instance.paneId !== main)
-      for (const instance of owned) deps.facade.remove(instance.id)
-      return owned.length
-    },
-
-    async resolveDefinition(definitionId) {
-      await deps.loadIndicators([definitionId])
-      const resolved = deps.resolveCanonicalId(definitionId)
+    async resolveDefinition(indicator) {
+      await deps.loadIndicators([indicator])
+      const resolved = deps.resolveCanonicalId(indicator)
       if (!resolved || !deps.isRendererAvailable(resolved)) return null
-      return resolved
+      const params = deps.readParamDefs(resolved)
+      return params === undefined ? null : { indicator: resolved, params }
     },
-  }
-
-  /**
-   * 把实例搬到指定落点。
-   *
-   * main 表示主图叠加，sub 表示独占副图；已经在目标落点时是无操作。
-   */
-  function relocate(instanceId: string, placement: 'main' | 'sub'): boolean {
-    const rows = layout()
-    const main = rows[0]?.id
-    const current = paneIdOf(instanceId)
-    if (main === undefined || current === undefined) return false
-    const onMain = current === main
-    if (placement === 'main') {
-      if (onMain) return true
-      return deps.facade.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: main })
-    }
-    if (!onMain) return true
-    const anchor = rows[rows.length - 1]!.id
-    const paneId = deps.panes.addPane(anchor, 'below')
-    if (paneId === null) return false
-    if (deps.facade.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId })) return true
-    deps.panes.removePane(paneId)
-    return false
   }
 }
 
@@ -338,4 +398,27 @@ function unknownPlacement(placement: string): KLineChartError {
     DRAWING_ERROR_CODES.UNKNOWN_PANE,
     `Unknown placement '${placement}'. Use "main" for the price chart, or an indicator instanceId from indicators_list for its pane.`,
   )
+}
+
+/** 指标定位的可读描述，用于“找不到”提示。 */
+function describeTarget(target: ChartAgentIndicatorTarget): string {
+  const parts = [`'${target.indicator}'`]
+  if (target.row !== undefined) parts.push(`row ${target.row}`)
+  if (target.order !== undefined) parts.push(`order ${target.order}`)
+  return parts.join(' ')
+}
+
+/** 单个候选的位置与参数，用于歧义提示。 */
+function describeView(view: ChartAgentIndicatorView): string {
+  return `row ${view.row} order ${view.order} (${JSON.stringify(view.params)})`
+}
+
+/** 当前全部指标的紧凑列表，用于“找不到”提示。 */
+function describeProjection(
+  projected: ReadonlyMap<string, { readonly view: ChartAgentIndicatorView }>,
+): string {
+  const items = [...projected.values()]
+  return items.length === 0
+    ? 'none'
+    : items.map((entry) => `${entry.view.indicator} at ${describeView(entry.view)}`).join('; ')
 }

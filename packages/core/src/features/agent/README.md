@@ -56,6 +56,7 @@ agent/
 │   ├── marketDataTextFormatter.ts         # 行情查询结果的紧凑文本转义
 │   ├── markdownTable.ts                   # 共用 Markdown 表格渲染
 │   └── indicator/
+│       ├── parseIndicatorParams.ts        # 按定义声明校验 Agent 参数
 │       ├── indicatorQuery.ts              # 保留既有入参的查询编排与纯计算调用
 │       ├── indicatorTextFormatter.ts      # 专用转义器注册与 Markdown 降级选择
 │       └── indicatorMarkdownFormatter.ts  # 未注册结果的通用 Markdown 表格
@@ -69,8 +70,8 @@ agent/
 按资源读写拆分（`indicators_list` / `indicators_write` 等），因为安全等级是工具的属性；运行模式在宿主
 一侧只过滤一次：`build` 全量，`plan` 只保留 `effect === 'read'`。
 
-三条硬约束：身份只出不进（`add` 返回实例身份，入参不含 `instanceId`/`paneId`）；落点是语义
-（图元用 `placement: "main" | <instanceId>`）；`executionMode` 由 `effect` 推导。完整决策见
+三条硬约束：身份只出不进（指标按 `indicator / row / order` 寻址，入参不含实例 ID；`add` 返回名称与位置）；
+落点是语义（指标用 `placement: "main" | "sub"`，图元用 `"main" | <instanceId>`）；`executionMode` 由 `effect` 推导。完整决策见
 [`docs/design/agent/agent-tool-catalog.md`](../../../../../docs/design/agent/agent-tool-catalog.md)。
 
 ## 查询规则
