@@ -22,134 +22,66 @@
           <aside class="provider__rail" :aria-label="text.providerProfile">
             <header class="rail__title">{{ text.providerProfile }}</header>
 
-            <ul class="rail__list">
-              <li
+            <AgentRowList class="rail__list">
+              <AgentListRow
                 v-for="profile in profileOptions"
                 :key="profile.value"
-                class="rail__item"
-                :class="{
-                  'is-active': profile.value === providerSettings.profileName,
-                  'is-editing':
-                    renamingProfile === profile.value || deletingProfile === profile.value,
-                }"
+                v-model:draft="profileNameDraft"
+                :mode="profileRowMode(profile.value)"
+                :active="profile.value === providerSettings.profileName"
+                :locale="locale"
+                :rename-label="text.providerProfileName"
+                :invalid="Boolean(profileNameDialogError)"
+                :confirm-label="text.deleteProviderProfile"
+                @select="selectProfile(profile.value)"
+                @submit="submitProfileName"
+                @delete="confirmRemoveProfile(profile.value)"
+                @cancel="closeProfileEditor()"
               >
-                <!-- 行内重命名 -->
-                <form
-                  v-if="profileNameMode === 'rename' && renamingProfile === profile.value"
-                  class="rail__inline"
-                  @submit.prevent="submitProfileName()"
-                >
-                  <BaseInput
-                    ref="profileNameInput"
-                    v-model="profileNameDraft"
-                    variant="inline"
-                    autocomplete="off"
-                    :aria-label="text.providerProfileName"
-                    :aria-invalid="profileNameDialogError ? 'true' : undefined"
-                    @keydown.escape.stop.prevent="closeProfileNameDialog()"
-                  />
-                  <BaseTooltip :content="text.save" placement="top">
-                    <button
-                      type="submit"
-                      class="rail__inline-save"
-                      :aria-label="text.save"
-                      :disabled="!profileNameDraft.trim()"
+                {{ profile.label }}
+                <template v-if="persistedProfileNames.has(profile.value)" #actions>
+                  <BaseTooltip :content="text.renameProviderProfile" placement="top">
+                    <BaseIconButton
+                      :label="`${text.renameProviderProfile}: ${profile.label}`"
+                      @click="openRenameProfile(profile.value)"
                     >
-                      <IconCheck aria-hidden="true" />
-                    </button>
+                      <IconPencil aria-hidden="true" />
+                    </BaseIconButton>
                   </BaseTooltip>
-                </form>
-
-                <!-- 删除确认：会移除凭据与模型池，不可恢复 -->
-                <div
-                  v-else-if="deletingProfile === profile.value"
-                  class="rail__confirm"
-                  role="group"
-                  :aria-label="text.deleteProviderProfile"
-                  @keydown.escape.stop.prevent="cancelRemoveProfile()"
-                >
-                  <p>{{ text.deleteProviderProfileConfirm }}</p>
-                  <div class="rail__confirm-actions">
-                    <button
-                      ref="deleteCancelButton"
-                      type="button"
-                      class="text-button"
-                      @click="cancelRemoveProfile()"
+                  <BaseTooltip :content="text.deleteProviderProfile" placement="top">
+                    <BaseIconButton
+                      tone="danger"
+                      :label="`${text.deleteProviderProfile}: ${profile.label}`"
+                      @click="openDeleteProfile(profile.value)"
                     >
-                      {{ text.cancel }}
-                    </button>
-                    <button
-                      type="button"
-                      class="text-button text-button--danger"
-                      @click="confirmRemoveProfile(profile.value)"
-                    >
-                      {{ text.deleteProviderProfile }}
-                    </button>
-                  </div>
-                </div>
-
-                <template v-else>
-                  <button
-                    type="button"
-                    class="rail__select"
-                    :aria-current="profile.value === providerSettings.profileName ? 'true' : undefined"
-                    @click="selectProfile(profile.value)"
-                  >
-                    <span class="rail__name">{{ profile.label }}</span>
-                  </button>
-                  <span v-if="persistedProfileNames.has(profile.value)" class="rail__actions">
-                    <BaseTooltip :content="text.renameProviderProfile" placement="top">
-                      <button
-                        type="button"
-                        class="icon-button"
-                        :aria-label="`${text.renameProviderProfile}: ${profile.label}`"
-                        @click.stop="openRenameProfileDialog(profile.value)"
-                      >
-                        <IconPencil aria-hidden="true" />
-                      </button>
-                    </BaseTooltip>
-                    <BaseTooltip :content="text.deleteProviderProfile" placement="top">
-                      <button
-                        type="button"
-                        class="icon-button icon-button--danger"
-                        :aria-label="`${text.deleteProviderProfile}: ${profile.label}`"
-                        @click.stop="removeProfile(profile.value)"
-                      >
-                        <IconTrash aria-hidden="true" />
-                      </button>
-                    </BaseTooltip>
-                  </span>
+                      <IconTrash aria-hidden="true" />
+                    </BaseIconButton>
+                  </BaseTooltip>
                 </template>
-              </li>
-            </ul>
+              </AgentListRow>
 
-            <form
-              v-if="profileNameMode === 'create'"
-              class="rail__inline rail__inline--create"
-              @submit.prevent="submitProfileName()"
-            >
-              <BaseInput
-                ref="profileNameInput"
-                v-model="profileNameDraft"
-                variant="inline"
-                autocomplete="off"
-                :placeholder="`${text.providerProfileName}…`"
-                :aria-label="text.providerProfileName"
-                :aria-invalid="profileNameDialogError ? 'true' : undefined"
-                @keydown.escape.stop.prevent="closeProfileNameDialog()"
+              <!-- 新建配置与其它行共用同一个编辑器，贴在列表末尾，位置不跳动 -->
+              <AgentListRow
+                v-if="isCreatingProfile"
+                v-model:draft="profileNameDraft"
+                class="rail__create"
+                mode="rename"
+                :locale="locale"
+                :rename-label="text.providerProfileName"
+                :rename-placeholder="`${text.providerProfileName}…`"
+                :invalid="Boolean(profileNameDialogError)"
+                :confirm-label="text.deleteProviderProfile"
+                @submit="submitProfileName"
+                @cancel="closeProfileEditor()"
               />
-              <BaseTooltip :content="text.save" placement="top">
-                <button
-                  type="submit"
-                  class="rail__inline-save"
-                  :aria-label="text.save"
-                  :disabled="!profileNameDraft.trim()"
-                >
-                  <IconCheck aria-hidden="true" />
-                </button>
-              </BaseTooltip>
-            </form>
-            <button v-else type="button" class="rail__new" @click="openCreateProfileDialog()">
+            </AgentRowList>
+
+            <button
+              v-if="!isCreatingProfile"
+              type="button"
+              class="rail__new"
+              @click="openCreateProfileDialog()"
+            >
               <IconPlus aria-hidden="true" />
               <span>{{ text.newProviderProfile }}</span>
             </button>
@@ -220,9 +152,14 @@
             <!-- 模型 -->
             <section class="card models">
               <header class="models__header">
-                <span class="models__title">
-                  {{ text.modelList }}
-                  <em class="badge" :title="text.modelPool">{{ modelPoolIds.size }}</em>
+                <span
+                  class="models__count"
+                  role="img"
+                  :title="text.modelPool"
+                  :aria-label="`${text.modelPool}: ${modelPoolIds.size}`"
+                >
+                  <IconStack aria-hidden="true" />
+                  {{ modelPoolIds.size }}
                 </span>
                 <SearchField
                   v-model="modelSearch"
@@ -396,18 +333,19 @@
 
   import BaseButton from '@vue-src/components/common/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
   import BaseInput from '@vue-src/components/common/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/BaseModal.vue'
   import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
   import SearchField from '@vue-src/components/common/SearchField.vue'
-  import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
-  import IconCheck from '~icons/tabler/check'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
+  import IconStack from '~icons/tabler/stack-2'
   import IconTrash from '~icons/tabler/trash'
   import BaseTextarea from '../../../components/common/BaseTextarea.vue'
   import BaseTooltip from '../../../components/common/BaseTooltip.vue'
@@ -419,6 +357,9 @@
   } from '../agent-contracts.js'
   import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import type { AgentProviderSettingsStore } from '../browser-agent/provider-settings/types.js'
+  import AgentListRow from './AgentListRow.vue'
+  import AgentRowList from './AgentRowList.vue'
+  import type { AgentListRowMode } from './agent-row/types.js'
 
   type SettingsTab = 'provider' | 'tools' | 'interface'
 
@@ -437,13 +378,11 @@
   /** 密码型凭据已保存时的掩码占位符；只提示已保存，不承载真实 Key。 */
   const MASKED_SECRET_PLACEHOLDER = '••••••••'
 
-  /** 行内命名输入；v-for 中的 ref 收集为数组，同一时间只渲染一个。 */
-  const profileNameInput = useTemplateRef<InstanceType<typeof BaseInput>>('profileNameInput')
-  const deleteCancelButton = useTemplateRef<HTMLButtonElement[]>('deleteCancelButton')
-  const profileNameMode = ref<'create' | 'rename' | null>(null)
+  /** 侧栏唯一编辑目标：新建没有目标行，重命名与删除锁定一个已保存的配置名。 */
+  type ProfileEditor = { mode: 'create' } | { mode: 'rename' | 'delete'; name: string } | null
+
+  const profileEditor = ref<ProfileEditor>(null)
   const profileNameDraft = ref('')
-  const renamingProfile = ref('')
-  const deletingProfile = ref('')
   const activeTab = ref<SettingsTab>('provider')
   const modelSearch = ref('')
 
@@ -512,6 +451,8 @@
   const hasProviderConnection = computed(() =>
     Boolean(props.providerSettings.profileName && props.providerSettings.baseUrl.trim()),
   )
+  /** 新建配置是否正在行内编辑。 */
+  const isCreatingProfile = computed(() => profileEditor.value?.mode === 'create')
 
   /** 返回协议选择器的本地化名称。 */
   function protocolLabel(protocol: ProviderApiProtocol): string {
@@ -577,82 +518,64 @@
     if (id) void props.providerSettings.selectProfile(id)
   }
 
-  /** 聚焦行内命名输入；重命名时全选原名称。 */
-  function focusProfileNameInput(select: boolean): void {
-    void nextTick(() => {
-      const input = profileNameInput.value
-      input?.focus()
-      if (select) input?.select()
-    })
+  /** 行的展示模式：只有被编辑目标锁定的行才离开空闲态。 */
+  function profileRowMode(name: string): AgentListRowMode {
+    const editor = profileEditor.value
+    return editor && editor.mode !== 'create' && editor.name === name ? editor.mode : 'idle'
   }
 
-  /** 在列表底部展开行内「新建配置」输入。 */
+  /** 在列表末尾展开行内「新建配置」输入。 */
   function openCreateProfileDialog(): void {
-    deletingProfile.value = ''
     profileNameDraft.value = ''
-    renamingProfile.value = ''
     props.providerSettings.clearProfileNameError()
-    profileNameMode.value = 'create'
-    focusProfileNameInput(false)
+    profileEditor.value = { mode: 'create' }
   }
 
   /** 把目标配置行切换为行内重命名输入并预填当前名称。 */
-  function openRenameProfileDialog(name: string): void {
-    deletingProfile.value = ''
+  function openRenameProfile(name: string): void {
     profileNameDraft.value = name
-    renamingProfile.value = name
     props.providerSettings.clearProfileNameError()
-    profileNameMode.value = 'rename'
-    focusProfileNameInput(true)
+    profileEditor.value = { mode: 'rename', name }
   }
 
-  /** 退出行内命名并清空临时名称。 */
-  function closeProfileNameDialog(): void {
-    profileNameMode.value = null
+  /** 展开删除确认；行内焦点由共享行落在「取消」上。 */
+  function openDeleteProfile(name: string): void {
+    profileEditor.value = { mode: 'delete', name }
+  }
+
+  /** 退出行内编辑并清空临时名称与校验错误。 */
+  function closeProfileEditor(): void {
+    profileEditor.value = null
     profileNameDraft.value = ''
-    renamingProfile.value = ''
     props.providerSettings.clearProfileNameError()
   }
 
-  /** Enter 提交：创建新配置或重命名现有配置；失败时保留输入并显示错误。 */
-  function submitProfileName(): void {
-    const draft = profileNameDraft.value.trim()
-    if (!draft || profileNameMode.value === null) return
-    if (profileNameMode.value === 'rename' && draft === renamingProfile.value) {
-      closeProfileNameDialog()
+  /** 提交行内名称：创建新配置或重命名现有配置；失败时保留输入并显示错误。 */
+  function submitProfileName(title: string): void {
+    const editor = profileEditor.value
+    if (!editor) return
+    if (editor.mode === 'rename' && title === editor.name) {
+      closeProfileEditor()
       return
     }
     const operation =
-      profileNameMode.value === 'rename'
-        ? props.providerSettings.renameProfile(renamingProfile.value, draft)
-        : props.providerSettings.createProfile(draft)
+      editor.mode === 'rename'
+        ? props.providerSettings.renameProfile(editor.name, title)
+        : props.providerSettings.createProfile(title)
     void operation.then((succeeded) => {
-      if (succeeded) closeProfileNameDialog()
+      if (succeeded) closeProfileEditor()
     })
   }
 
-  /** 删除配置会移除凭据，不可恢复：在该行内展开确认，默认聚焦「取消」。 */
-  function removeProfile(name: string): void {
-    closeProfileNameDialog()
-    deletingProfile.value = name
-    void nextTick(() => deleteCancelButton.value?.[0]?.focus())
-  }
-
-  /** 取消行内删除确认。 */
-  function cancelRemoveProfile(): void {
-    deletingProfile.value = ''
-  }
-
-  /** 确认删除指定配置。 */
+  /** 确认删除指定配置；删除会移除凭据，不可恢复。 */
   function confirmRemoveProfile(name: string): void {
-    deletingProfile.value = ''
+    closeProfileEditor()
     void props.providerSettings.deleteProfile(name)
   }
 
   /** 关闭主设置时一并退出行内编辑。 */
   function closeProviderSettings(): void {
-    closeProfileNameDialog()
-    cancelRemoveProfile()
+    closeProfileEditor()
     props.providerSettings.close()
   }
 
@@ -723,21 +646,6 @@
     text-align: center;
   }
 
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    height: 18px;
-    padding: 0 7px;
-    border-radius: 999px;
-    color: var(--klc-color-ui-muted);
-    background: var(--klc-color-ui-hover);
-    font-size: 11px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
   /* ───────── 表单字段 ───────── */
   .field {
     display: grid;
@@ -790,270 +698,56 @@
     gap: var(--_gap);
   }
 
-  /* 左侧配置列表：行高亮贴到列表左右边缘，只留垂直内边距。 */
+  /* 左侧配置列表：行与行内编辑器由 AgentListRow 提供，这里只负责容器与列表编排。 */
   .provider__rail {
-    /* 配置行与行内命名输入共用同一行高算料，切换编辑态时列表不跳动。 */
-    --rail-row-padding-block: 8px;
-    --rail-row-line-height: var(--klc-text-12-line-height, 16px);
-    --rail-row-height: calc(2 * var(--rail-row-padding-block) + var(--rail-row-line-height));
-
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--klc-space-4, 4px);
     min-width: 0;
-    padding: 10px 0;
+    padding: var(--klc-space-8, 8px) 0;
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--_radius);
   }
 
   .rail__title {
-    padding: 2px 10px 6px;
+    padding: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
   }
 
+  /* 列表撑满侧栏，行高亮由 AgentRowList 的滑动块提供。 */
   .rail__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
   }
 
-  .rail__item {
-    position: relative;
-    min-width: 0;
-    /* 编辑态只剩行内输入，用行高兜底，避免行高塌缩导致列表跳动。 */
-    min-height: var(--rail-row-height);
-    display: flex;
-    align-items: center;
-    color: var(--klc-color-ui-muted);
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .rail__item:hover,
-  .rail__item:focus-within,
-  .rail__item.is-editing {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .rail__item.is-active {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-    font-weight: 600;
-  }
-
-  .rail__select {
-    min-width: 0;
-    flex: 1 1 auto;
-    padding: var(--rail-row-padding-block) 10px;
-    border: 0;
-    border-radius: 0;
-    color: inherit;
-    background: transparent;
-    font: inherit;
-    font-size: 12px;
-    line-height: var(--rail-row-line-height);
-    text-align: left;
-    cursor: pointer;
-    transition: padding-right var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .rail__select:focus-visible {
-    outline: 0;
-    box-shadow: 0 0 0 2px var(--klc-color-ui-focus-ring);
-  }
-
-  .rail__name {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* 键盘聚焦才让位给行内操作；鼠标点击产生的焦点不常驻。 */
-  .rail__item:has(.rail__actions):hover .rail__select,
-  .rail__item:has(.rail__actions):has(:focus-visible) .rail__select {
-    padding-right: 54px;
-  }
-
-  .rail__actions {
-    position: absolute;
-    top: 50%;
-    right: 4px;
-    display: flex;
-    gap: 2px;
-    transform: translateY(-50%);
-    visibility: hidden;
-  }
-
-  .rail__item:hover .rail__actions,
-  .rail__item:has(:focus-visible) .rail__actions {
-    visibility: visible;
-  }
-
-  .icon-button {
-    width: 22px;
-    height: 22px;
-    display: inline-grid;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    border-radius: 5px;
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    cursor: pointer;
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-  }
-
-  .icon-button svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .icon-button:hover,
-  .icon-button:focus-visible {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-border);
-    outline: 0;
-  }
-
-  .icon-button--danger:hover,
-  .icon-button--danger:focus-visible {
-    color: var(--klc-color-ui-danger-text);
-  }
-
-  .rail__inline {
-    display: flex;
-    align-items: center;
-    gap: var(--klc-space-4, 4px);
-    min-width: 0;
-    flex: 1 1 auto;
-    padding-inline: 10px;
-  }
-
-  /* 行内命名输入取紧凑档高度，落在行高内而不是撑满整行；左右内边距沿用共享控件的 8px。 */
-  .rail__inline input {
-    min-width: 0;
-    flex: 1 1 0;
-    height: var(--klc-density-compact, 24px);
-  }
-
-  /* 行内保存按钮：显式确认入口，回车只是额外快捷键。 */
-  .rail__inline-save {
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    width: var(--klc-density-compact, 24px);
-    height: var(--klc-density-compact, 24px);
-    padding: 0;
-    border: 0;
-    border-radius: var(--klc-radius-xs, 4px);
-    color: var(--klc-color-ui-muted);
-    background: transparent;
-    cursor: pointer;
-    transition:
-      color 0.15s ease,
-      background-color 0.15s ease;
-  }
-
-  .rail__inline-save svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .rail__inline-save:hover:not(:disabled),
-  .rail__inline-save:focus-visible:not(:disabled) {
-    color: var(--klc-color-ui-success);
-    background: var(--klc-color-ui-hover);
-    outline: 0;
-  }
-
-  .rail__inline-save:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .rail__inline input[aria-invalid='true'] {
-    border-color: var(--klc-color-ui-danger-text);
-  }
-
-  .rail__inline--create {
-    margin-top: 4px;
-  }
-
-  .rail__confirm {
-    width: 100%;
-    display: grid;
-    gap: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .rail__confirm p {
-    margin: 0;
-  }
-
-  .rail__confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 4px;
-  }
-
-  .text-button {
-    height: 24px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 5px;
-    color: var(--klc-color-ui-text);
-    background: transparent;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .text-button:hover,
-  .text-button:focus-visible {
-    background: var(--klc-color-ui-border);
-    outline: 0;
-  }
-
-  .text-button--danger {
-    color: var(--klc-color-ui-danger-text);
-    font-weight: 600;
+  /* 新建配置贴着列表末尾展开，替换掉原先独占底部的按钮位置。 */
+  .rail__create {
+    margin-top: auto;
   }
 
   .rail__new {
-    margin: auto 10px 0;
-    align-self: stretch;
-    height: 30px;
+    margin: 0 var(--klc-space-8, 8px);
+    height: var(--klc-density-default, 32px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 0 8px;
-    border: 1px dashed var(--klc-color-ui-border-strong, var(--klc-color-ui-border));
-    border-radius: 7px;
+    gap: var(--klc-space-4, 4px);
+    padding: 0 var(--klc-space-8, 8px);
+    border: 1px dashed var(--klc-color-ui-border-strong);
+    border-radius: var(--klc-radius-sm, 6px);
     color: var(--klc-color-ui-muted);
     background: transparent;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     cursor: pointer;
     transition:
-      color 0.15s ease,
-      background-color 0.15s ease,
-      border-color 0.15s ease;
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
+      border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .rail__new svg {
@@ -1070,7 +764,7 @@
   }
 
   .rail__error {
-    margin: 2px 10px 0;
+    margin: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-danger-text);
     font-size: 11px;
     line-height: 1.45;
@@ -1091,7 +785,6 @@
     padding: var(--_pad);
   }
 
-  /* 协议选择：触发器与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
   /* 协议选择：与连接表单同宽，视觉复用工具栏单选下拉的变量与箭头。 */
   .protocol-control {
     --control-button-color: var(--klc-color-ui-text);
@@ -1124,13 +817,15 @@
     border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
-  .models__title {
+  /* 模型池计数：图标 + 数字，不再用胶囊承载。 */
+  .models__count {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: var(--klc-color-ui-text);
-    font-size: 12px;
-    font-weight: 600;
+    gap: var(--klc-space-4, 4px);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
+    font-variant-numeric: var(--klc-text-numeric);
     white-space: nowrap;
   }
 
@@ -1342,11 +1037,6 @@
   @media (max-width: 640px) {
     .provider {
       grid-template-columns: 1fr;
-    }
-
-    .rail__list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .models__header {

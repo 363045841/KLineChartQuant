@@ -1,6 +1,7 @@
 <!-- 共享按钮：Modal footer 与通用操作按钮，统一消费 ui tokens，避免各 dialog 复制按钮样式。 -->
 <template>
   <button
+    ref="button"
     class="base-button"
     :class="[`base-button--${size}`, `base-button--${variant}`]"
     :type="type"
@@ -11,6 +12,8 @@
 </template>
 
 <script setup lang="ts">
+  import { useTemplateRef } from 'vue'
+
   withDefaults(
     defineProps<{
       /** 原生 button type。 */
@@ -29,6 +32,13 @@
       disabled: false,
     },
   )
+
+  const button = useTemplateRef<HTMLButtonElement>('button')
+
+  defineExpose({
+    /** 聚焦原生按钮，供行内确认等需要受控焦点的调用方使用。 */
+    focus: () => button.value?.focus(),
+  })
 </script>
 
 <style scoped>

@@ -96,7 +96,6 @@ const copy = {
     newProviderProfile: 'New configuration',
     renameProviderProfile: 'Rename configuration',
     deleteProviderProfile: 'Delete configuration',
-    deleteProviderProfileConfirm: 'Delete this configuration? Its model pool is removed too.',
     apiProtocol: 'API protocol',
     openAiCompletions: 'Open AI Completions',
     openAiResponses: 'Open AI Response',
@@ -109,7 +108,6 @@ const copy = {
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "My app"\n}',
     model: 'Select a model',
-    modelList: 'Available models',
     modelPool: 'Model pool',
     contextWindow: 'Context',
     noModelsInPool: 'Add at least one model to the model pool.',
@@ -119,7 +117,6 @@ const copy = {
     apiKeyPlaceholder: 'Leave blank to use the saved credential',
     modelPlaceholder: 'Select a model',
     sessionNamePrompt: 'Session name',
-    deleteSessionConfirm: 'Delete this session?',
     workspaceUnavailableTitle: 'Agent is unavailable',
     workspaceLockedBody: 'Agent sessions are open in another tab. Close the other tab, then retry.',
     workspaceUnavailableBody:
@@ -219,7 +216,6 @@ const copy = {
     newProviderProfile: '新建配置',
     renameProviderProfile: '重命名配置',
     deleteProviderProfile: '删除配置',
-    deleteProviderProfileConfirm: '删除这个配置？其模型池也会一并移除。',
     apiProtocol: 'API 协议',
     openAiCompletions: 'Open AI Completions',
     openAiResponses: 'Open AI Response',
@@ -232,7 +228,6 @@ const copy = {
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "我的应用"\n}',
     model: '选择模型',
-    modelList: '可用模型',
     modelPool: '模型池',
     contextWindow: '上下文',
     noModelsInPool: '请至少向模型池添加一个模型。',
@@ -242,7 +237,6 @@ const copy = {
     apiKeyPlaceholder: '留空则使用已保存的凭据',
     modelPlaceholder: '选择模型',
     sessionNamePrompt: '会话名称',
-    deleteSessionConfirm: '删除这个会话？',
     workspaceUnavailableTitle: '智能体不可用',
     workspaceLockedBody: 'Agent 会话已在另一个标签页打开。请关闭该标签页后重试。',
     workspaceUnavailableBody: 'Agent 工作区无法启动。请重试，或查看控制台了解详情。',
