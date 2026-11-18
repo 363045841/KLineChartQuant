@@ -1,6 +1,7 @@
 /** 会话契约：区间执行、有状态重置与绘图增量。 */
 
-import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
+import { readFileSync } from 'node:fs'
+import { type Bar, resolveComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 import { BACKENDS } from '../../__tests__/backends.js'
 
@@ -17,7 +18,41 @@ const plotSource = `defineIndicator({ name:'SessionPlot', position:Position.Main
   plot.Line(close[0], 'close')
 }})`
 
+const volumeSource = readFileSync(new URL('../../../scripts/vol.ts', import.meta.url), 'utf8')
+
 describe.each(BACKENDS)('$name session', ({ prepare }) => {
+  it('rebuilds VOL after history changes and resumes tail updates on the rebuilt timeline', () => {
+    const script = prepare(volumeSource)
+    const fresh = prepare(volumeSource)
+    const bars = [10, 20, 30, 40, 50].map((volume, index) => ({
+      ...bar((index + 2) * 60_000, volume),
+      volume,
+    }))
+    const paged = [{ ...bar(0, 1) }, { ...bar(60_000, 2), volume: 2 }, ...bars]
+    const corrected = paged.map((item, index) => (index === 2 ? { ...item, volume: 99 } : item))
+    const lastIndex = corrected.length - 1
+    const updated = [...corrected.slice(0, lastIndex), { ...corrected[lastIndex]!, volume: 123 }]
+    const appended = [...updated, { ...bar(7 * 60_000, 60), volume: 60 }]
+
+    expect(script.definition.dependency).toEqual({ kind: 'stateless', lookback: 1 })
+    for (const { data, change, reset } of [
+      { data: bars, change: { start: 0, end: 1 }, reset: true },
+      { data: paged, change: { start: 0, end: 2 }, reset: true },
+      { data: corrected, change: { start: 2, end: 3 }, reset: true },
+      { data: updated, change: { start: lastIndex, end: updated.length }, reset: false },
+      { data: appended, change: { start: updated.length, end: appended.length }, reset: false },
+      { data: appended, change: { start: 0, end: appended.length, reset: true }, reset: true },
+    ]) {
+      const range = resolveComputeRange(change, script.definition.dependency, data.length)
+      const result = script.runDetailed(data, {}, undefined, range)
+      const replay = fresh.run(data, {}, undefined, { start: 0, end: data.length, reset: true })
+      expect(result.collection).toEqual(replay)
+      expect(result.drawingDelta.reset).toBe(reset)
+    }
+    script.dispose()
+    fresh.dispose()
+  })
+
   it('replays unmanaged top-level state instead of carrying the previous live bar forward', () => {
     const source = `let total=0; defineIndicator({name:'UnmanagedState',position:Position.Main,onBar(){total+=close[0];plot.Line(total,'total')}})`
     const script = prepare(source)

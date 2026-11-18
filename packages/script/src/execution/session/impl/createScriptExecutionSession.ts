@@ -1,10 +1,10 @@
 /** 脚本执行会话：常驻运行时、区间执行、依赖驱动的重置与 Request 增量对齐。 */
-import type {
-  Bar,
-  ComputeDependency,
-  ComputeRange,
-  DrawingObject,
-  PlotCollection,
+import {
+  type Bar,
+  type ComputeDependency,
+  type DrawingObject,
+  type PlotCollection,
+  resolveComputeRange,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../../contracts/output.js'
 import type { ScriptParamValue } from '../../../quickjs/types.js'
@@ -295,45 +295,62 @@ export function createScriptExecutionSession<Checkpoint>(
             drawingDelta: { reset: true, upsert: [], remove: [] },
           }
         }
-        let range: ComputeRange = input.range ?? { start: 0, end: bars.length }
-        const stateful = options.dependency.kind === 'stateful'
-        const previousLength = previousBars.length
-        // 宿主给有状态指标的计算范围覆盖全历史；会话按实际输入差异证明尾部可复用。
-        // 首次运行、前插、截断到历史或历史修正仍重建，不把扩大后的范围当作变更事实。
-        if (stateful) range = { start: firstChangedBar(previousBars, bars), end: bars.length }
-        let tailOnly =
+        const dependency = options.dependency
+        const lastIndex = previousBars.length - 1
+        // 会话可能跳过中间行情版本，按上次实际执行的快照验证下标是否还能复用。
+        const firstChange = firstChangedBar(previousBars, bars)
+        const reuseTail =
+          !input.range?.reset &&
           !options.replayOnUpdate &&
-          previousLength > 0 &&
-          bars.length >= previousLength &&
-          range.start >= previousLength - 1
-        if (stateful && !tailOnly) resetMain(params, symbol)
+          lastIndex >= 0 &&
+          bars.length > lastIndex &&
+          firstChange >= lastIndex &&
+          previousBars[lastIndex]?.time === bars[lastIndex]?.time &&
+          (dependency.kind !== 'stateful' || checkpoint !== undefined)
+        if (!reuseTail && !runtimeFresh) resetMain(params, symbol)
 
-        const requestResult = resolveRequestExecution({
+        let startIndex = 0
+        if (reuseTail) {
+          if (dependency.kind === 'stateful') {
+            startIndex = lastIndex
+          } else {
+            const change = { start: Math.min(firstChange, bars.length - 1), end: bars.length }
+            const tail = resolveComputeRange(change, dependency, bars.length)
+            startIndex = Math.min(tail.start, input.range?.start ?? tail.start)
+          }
+        }
+
+        let requestResult = resolveRequestExecution({
           bars,
           params,
           context: input.context,
-          startIndex: range.start,
+          startIndex,
           symbol,
         })
         if (requestResult.historyChanged) {
           resetMain(params, symbol)
-          range = { start: 0, end: bars.length }
-          tailOnly = false
+          startIndex = 0
+          requestResult = resolveRequestExecution({
+            bars,
+            params,
+            context: input.context,
+            startIndex,
+            symbol,
+          })
         }
         const execution = requestResult.execution
 
-        if (stateful) {
-          if (tailOnly && checkpoint !== undefined) main.rollback(checkpoint)
-          const from = tailOnly ? Math.min(range.start, previousLength - 1, bars.length - 1) : 0
-          return runStateful(from, bars, params, execution)
+        if (dependency.kind === 'stateful') {
+          if (checkpoint !== undefined) main.rollback(checkpoint)
+          return runStateful(startIndex, bars, params, execution)
         }
 
-        // 无状态：只重算区间，区间外的派生缓存与结果保持不变。
-        main.invalidate(range.start)
+        // 无状态尾部重算保留起点之前的结果。
+        main.invalidate(startIndex)
         const result = main.execute({
           bars,
-          startIndex: range.start,
-          endIndex: range.end,
+          startIndex,
+          endIndex: bars.length,
           params,
           execution,
           emit: options.onLog,
