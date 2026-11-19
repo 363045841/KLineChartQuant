@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/symbol-list.css'
+  import './symbol-list.css'
 
   withDefaults(
     defineProps<{

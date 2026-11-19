@@ -31,8 +31,7 @@
  */
 
 import { KLineChartError, SCALE_ERROR_CODES } from '../../errors.js'
-import type { Signal } from '../../foundation/reactivity/signal.js'
-import { createSignal } from '../../foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '../../foundation/reactivity/signal.js'
 import { ScaleType } from '../../foundation/types/scaleType.js'
 
 import type { OriginShiftPolicy, PriceScale, PriceScaleConfig, ScaleMode } from '../types.js'
@@ -137,11 +136,11 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
   }
 
   const scale: PriceScale = {
-    mode,
-    visibleMin,
-    visibleMax,
-    height,
-    originShiftRef: originShiftRef as Signal<number>,
+    mode: asReadonlySignal(mode),
+    visibleMin: asReadonlySignal(visibleMin),
+    visibleMax: asReadonlySignal(visibleMax),
+    height: asReadonlySignal(height),
+    originShiftRef: asReadonlySignal(originShiftRef),
 
     priceToY(p: number): number {
       return mode.peek() === ScaleType.Log ? priceToYLog(p) : priceToYLinear(p)

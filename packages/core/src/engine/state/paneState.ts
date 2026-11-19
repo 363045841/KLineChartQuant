@@ -6,7 +6,7 @@ import type { LayoutWorkspaces } from '../layout/index.js'
 import { paneSpecsEqual } from '../pane/impl/paneConfiguration.js'
 import type { PaneGeometry, PaneSpec } from '../pane/types.js'
 import { MAIN_PANE_ID } from '../pane/types.js'
-import { immutableMap } from './immutable.js'
+import { immutableMap } from '@/foundation/utils/immutableMap.js'
 
 type PaneWorkspace = Readonly<{
   paneSpecs: ReadonlyArray<PaneSpec>
@@ -27,7 +27,7 @@ function snapshotWorkspace(
         }),
       ),
     ),
-    paneScaleTypes: immutableMap(new Map(scaleTypes)),
+    paneScaleTypes: immutableMap(scaleTypes),
   })
 }
 

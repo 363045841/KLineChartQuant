@@ -5,7 +5,7 @@ import type {
   DrawingObject,
   DrawingTimeframeVisibility,
 } from '@363045841yyt/klinechart-core/controllers'
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
 import type { Component } from 'vue'
 import { computed, type Ref, shallowRef } from 'vue'
 import IconTablerClock from '~icons/tabler/clock'

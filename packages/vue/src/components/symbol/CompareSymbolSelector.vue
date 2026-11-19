@@ -17,10 +17,9 @@
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
     </BaseTooltip>
-    <SymbolPopover
+    <SymbolSearchDialog
       v-model:search="picker.searchQuery"
       :show="picker.showPopup"
-      :anchor="rootRef"
       dialog-label="比较商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索比较商品"
@@ -119,21 +118,21 @@
           </button>
         </div>
       </template>
-    </SymbolPopover>
+    </SymbolSearchDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
-  import '../common/modal-list.css'
-  import '../common/symbol-list.css'
-  import '../common/list-text.css'
-  import '../common/control-cluster.css'
+  import '@vue-src/components/common/menu/control-button.css'
+  import '@vue-src/components/common/dialog/modal-list.css'
+  import './symbol-list.css'
+  import '@vue-src/components/common/list-text.css'
+  import '@vue-src/components/common/control-cluster.css'
 
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
-  import SymbolMetaBadge from '@vue-src/components/common/SymbolMetaBadge.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
+  import SymbolMetaBadge from './SymbolMetaBadge.vue'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SymbolSearchFn,
@@ -143,7 +142,7 @@
   import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
   import { computed, ref } from 'vue'
   import IconTablerPlus from '~icons/tabler/plus'
-  import SymbolPopover from './SymbolPopover.vue'
+  import SymbolSearchDialog from './SymbolSearchDialog.vue'
   import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
@@ -235,7 +234,6 @@
     background: var(--klc-color-ui-accent);
     color: var(--klc-color-ui-on-accent);
     font-size: 10px;
-    font-weight: 600;
     line-height: 1;
   }
 
@@ -264,7 +262,6 @@
 
   .compare-selected__title {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-ui-muted);
   }
 
@@ -295,7 +292,6 @@
   }
 
   .compare-selected__code {
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 

@@ -4,15 +4,14 @@
     :open="show"
     title="保存图元模板"
     size="xs"
-    body-padded
-    :close-on-overlay="!busy"
-    :show-close="!busy"
+    body="form"
+    :dismiss="busy ? 'locked' : 'auto'"
     @update:open="!$event && emit('close')"
   >
     <form :id="formId" @submit.prevent="submit">
-      <BaseField label="模板名称" :for-id="nameId" :error="error">
+      <BaseField v-slot="{ controlAttrs }" label="模板名称" :error="error">
         <BaseInput
-          :id="nameId"
+          v-bind="controlAttrs"
           v-model="name"
           maxlength="40"
           autocomplete="off"
@@ -29,16 +28,15 @@
 </template>
 
 <script setup lang="ts">
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseField from '@vue-src/components/common/BaseField.vue'
-  import BaseInput from '@vue-src/components/common/BaseInput.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseField from '@vue-src/components/common/form/BaseField.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import { ref, useId, watch } from 'vue'
 
   const props = defineProps<{ show: boolean; busy: boolean; error: string }>()
   const emit = defineEmits<{ close: []; save: [name: string] }>()
   const formId = useId()
-  const nameId = `${formId}-name`
   const name = ref('')
   watch(
     () => props.show,

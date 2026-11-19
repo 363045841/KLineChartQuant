@@ -1,18 +1,16 @@
 <!-- 指标模板名称弹窗：保存与重命名共用，名称校验与预填逻辑只实现一次。 -->
 <template>
-  <BaseModal
+  <BaseModal body="form"
     :open="show"
     :title="title"
     size="xs"
-    body-padded
-    :close-on-overlay="!busy"
-    :show-close="!busy"
+    :dismiss="busy ? 'locked' : 'auto'"
     @update:open="!$event && emit('close')"
   >
     <form :id="formId" class="template-name" @submit.prevent="submit">
-      <BaseField label="名称" :for-id="nameId" :error="error">
+      <BaseField v-slot="{ controlAttrs }" label="名称" :error="error">
         <BaseInput
-          :id="nameId"
+          v-bind="controlAttrs"
           v-model="name"
           variant="underline"
           maxlength="40"
@@ -27,7 +25,7 @@
         <p v-if="indicators.length === 0" class="template-name__empty">当前图表没有指标</p>
         <p v-else-if="visibleIndicators.length === 0" class="template-name__empty">未选择指标</p>
         <div v-else class="template-name__chips">
-          <BaseChip
+          <BaseChip size="md"
             v-for="entry in visibleIndicators"
             :key="entry.id"
             removable
@@ -48,11 +46,11 @@
 
 <script setup lang="ts">
   import type { IndicatorTemplateIndicator } from '@363045841yyt/klinechart-core/controllers'
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseField from '@vue-src/components/common/BaseField.vue'
-  import BaseInput from '@vue-src/components/common/BaseInput.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseField from '@vue-src/components/common/form/BaseField.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import { computed, ref, useId, watch } from 'vue'
 
   const props = defineProps<{
@@ -72,7 +70,6 @@
   }>()
 
   const formId = useId()
-  const nameId = `${formId}-name`
   const name = ref('')
   // 只在弹窗打开时选中预填文本，之后用户点入输入框可正常定位光标。
   let selectPending = false

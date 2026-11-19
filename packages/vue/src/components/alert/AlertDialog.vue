@@ -6,7 +6,7 @@
     @update:open="!$event && handleClose()"
   >
     <template #tabs>
-      <BaseTabs v-model="activeTab" :tabs="tabs" aria-label="预警视图">
+      <BaseTabs v-model="activeTab" :tabs="tabs" :panel-id="panelId" aria-label="预警视图">
         <template #tab="{ tab }">
           {{ tab.label }}
           <span v-if="tab.id === 'history' && unreadCount > 0" class="alert-tab-badge">
@@ -16,9 +16,8 @@
       </BaseTabs>
     </template>
 
-    <!-- Rules Tab -->
-    <template v-if="activeTab === 'rules'">
-      <div class="alert-section">
+    <div v-bind="panelAttrs" class="alert-section">
+      <template v-if="activeTab === 'rules'">
         <button v-if="!editingRule" type="button" class="alert-add-btn" @click="startAddRule">
           <svg
             viewBox="0 0 24 24"
@@ -65,7 +64,7 @@
                 <BaseTooltip :content="rule.enabled ? '禁用' : '启用'" placement="top">
                   <ToggleSwitch
                     :model-value="rule.enabled"
-                    :aria-label="`${rule.name}启用状态`"
+                    :label="`${rule.name}启用状态`"
                     @update:model-value="toggleRule(rule.id, $event)"
                   />
                 </BaseTooltip>
@@ -120,12 +119,8 @@
             </div>
           </div>
         </div>
-      </div>
-    </template>
-
-    <!-- History Tab -->
-    <template v-if="activeTab === 'history'">
-      <div class="alert-section">
+      </template>
+      <template v-else>
         <div class="alert-section-toolbar">
           <span v-if="events.length > 0" class="alert-section-count">
             共 <strong>{{ events.length }}</strong> 条记录
@@ -189,13 +184,14 @@
             </div>
           </div>
         </div>
-      </div>
-    </template>
+      </template>
+    </div>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
-  import '../common/list-text.css'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
+  import '@vue-src/components/common/list-text.css'
 
   import type {
     AlertEvent,
@@ -204,12 +200,12 @@
     ChartController,
   } from '@363045841yyt/klinechart-core'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useToast } from '@vue-src/composables/toast/useToast.js'
   import { ref, watch } from 'vue'
@@ -230,6 +226,7 @@
     { id: 'history' as const, label: '历史' },
   ]
   const activeTab = ref<'rules' | 'history'>('rules')
+  const { panelId, panelAttrs } = useTabPanel(() => activeTab.value)
 
   const {
     rules,
@@ -381,7 +378,6 @@
     background: var(--klc-color-ui-danger);
     color: var(--klc-color-ui-on-accent);
     font-size: 9px;
-    font-weight: 700;
     line-height: 15px;
     text-align: center;
     border-radius: 999px;
@@ -411,7 +407,6 @@
   }
 
   .alert-section-count strong {
-    font-weight: 600;
     color: var(--klc-color-foreground);
   }
 
@@ -430,7 +425,6 @@
     background: transparent;
     color: var(--klc-color-ui-muted);
     font-size: 13px;
-    font-weight: 500;
     cursor: pointer;
     transition:
       border-color 0.15s,
@@ -525,7 +519,6 @@
 
   .rule-item-name {
     font-size: 13px;
-    font-weight: 600;
     color: var(--klc-color-foreground);
     white-space: nowrap;
     overflow: hidden;
@@ -564,7 +557,6 @@
     border: 1px solid transparent;
     border-radius: 4px;
     font-size: 10px;
-    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
@@ -627,7 +619,6 @@
 
   .event-item-name {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-foreground);
     white-space: nowrap;
     overflow: hidden;
@@ -663,11 +654,9 @@
   }
 
   .event-bar-label {
-    font-weight: 600;
     font-size: 10px;
     color: var(--klc-color-axis-text);
     opacity: 0.7;
     letter-spacing: 0.02em;
   }
 </style>
-

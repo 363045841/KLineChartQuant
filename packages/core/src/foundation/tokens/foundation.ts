@@ -38,31 +38,31 @@ const shared = {
       fontSize: '20px',
       lineHeight: '24px',
       letterSpacing: '-0.017em',
-      fontWeight: 600,
+      fontWeight: 500,
     },
     24: {
       fontSize: '24px',
       lineHeight: '28px',
       letterSpacing: '-0.02em',
-      fontWeight: 600,
+      fontWeight: 500,
     },
     32: {
       fontSize: '32px',
       lineHeight: '36px',
       letterSpacing: '-0.022em',
-      fontWeight: 600,
+      fontWeight: 500,
     },
     48: {
       fontSize: '48px',
       lineHeight: '48px',
       letterSpacing: '-0.04em',
-      fontWeight: 600,
+      fontWeight: 500,
     },
     72: {
       fontSize: '72px',
       lineHeight: 0.9,
       letterSpacing: '-0.04em',
-      fontWeight: 600,
+      fontWeight: 500,
     },
     '11Mono': {
       fontSize: '11px',
@@ -190,8 +190,16 @@ const shared = {
     xl: '1280px',
   },
   fontFamily: {
+    ui: "'HarmonyOS Sans', system-ui, sans-serif",
+    mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
     brand: 'Outfit, sans-serif',
     brandCjk: "'HarmonyOS Sans', sans-serif",
+  },
+  fontWeight: {
+    ui: 500,
+    mono: 400,
+    brand: 600,
+    brandCjk: 500,
   },
 } satisfies Omit<FoundationTokens, 'elevation' | 'brand'>
 

@@ -9,8 +9,9 @@
 export interface DisposeGuard {
   /** 标记控制器已销毁；重复调用无副作用。 */
   dispose(): void
-  /** 包裹变更方法；销毁后调用返回 undefined，不再写状态。 */
-  guard<T extends (...args: never[]) => unknown>(fn: T): T
+  /** 包裹变更方法；销毁后返回显式指定的结果。 */
+  guard<Args extends unknown[], Result>(fn: (...args: Args) => Result, fallback: Result): (...args: Args) => Result
+  guard<Args extends unknown[]>(fn: (...args: Args) => void): (...args: Args) => void
 }
 
 /**
@@ -24,11 +25,8 @@ export function createDisposeGuard(): DisposeGuard {
     dispose() {
       disposed = true
     },
-    guard<T extends (...args: never[]) => unknown>(fn: T): T {
-      const guarded = (...args: Parameters<T>): ReturnType<T> | undefined =>
-        disposed ? undefined : (fn(...args) as ReturnType<T>)
-      // 包装后的返回值在销毁后缺省，对外仍暴露原始签名（销毁后调用方不应使用返回值）。
-      return guarded as T
+    guard<Args extends unknown[], Result>(fn: (...args: Args) => Result, fallback?: Result) {
+      return (...args: Args) => (disposed ? fallback : fn(...args))
     },
   }
 }

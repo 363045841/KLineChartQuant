@@ -144,14 +144,36 @@ describe('createMtfController — config + lifecycle', () => {
     expect(ctl.series()[0]!.alignedValues).toEqual([1, 2])
   })
 
-  it('setBaseBars throws if an existing series target no longer cleanly divides', () => {
+  it('rejects an incompatible base interval before publishing', () => {
     const ctl = createMtfController({
       initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: HOUR, compute: lastClose })
-    // Changing base to 7-minute bars makes 1h (3_600_000) no longer divisible by 7m (420_000)
-    expect(() => ctl.setBaseBars([createBaseBar(0, 1)], 7 * MIN)).toThrow(/cleanly divide/)
+    const before = ctl.series()
+    expect(() => ctl.setData([createBaseBar(0, 1)], 7 * MIN)).toThrow(/multiple of baseIntervalMs/)
+    expect(ctl.series()).toBe(before)
+    ctl.append(createBaseBar(FIVE_MIN, 101))
+    expect(ctl.series()[0]?.alignedValues).toEqual([101, 101])
+  })
+
+  it('leaves the previous snapshot and ID availability intact after compute fails', () => {
+    const ctl = createMtfController({ initialBars: [createBaseBar(0, 3)], baseIntervalMs: FIVE_MIN })
+    const listener = vi.fn()
+    ctl.series.subscribe(listener)
+    const error = new Error('calculation failed')
+    const definition = { id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose }
+    const fail = () => { throw error }
+    expect(() => ctl.addSeries({ ...definition, compute: fail })).toThrow(error)
+    expect(ctl.series()).toEqual([])
+    expect(listener).not.toHaveBeenCalled()
+    ctl.addSeries(definition)
+    const snapshot = ctl.series()
+    expect(() => ctl.updateSeries('a', { compute: fail })).toThrow(error)
+    expect(ctl.series()).toBe(snapshot)
+    expect('set' in ctl.series).toBe(false)
+    ctl.append(createBaseBar(FIVE_MIN, 4))
+    expect(ctl.series()[0]?.alignedValues).toEqual([3, 4])
   })
 
   it('dispose silences subsequent mutators', () => {

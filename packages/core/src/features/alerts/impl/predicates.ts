@@ -207,11 +207,7 @@ export function evaluatePredicate(
       // The controller also wraps this call in try/catch; the inner
       // guard here protects callers that invoke predicates directly
       // (e.g. tests or third-party tooling).
-      try {
-        return predicate.evaluate(curr) === true
-      } catch {
-        return false
-      }
+      return predicate.evaluate(curr) === true
     }
 
     default: {

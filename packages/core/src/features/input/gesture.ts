@@ -32,7 +32,7 @@
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal, type ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Event surface
@@ -104,8 +104,8 @@ export interface GestureRecognizerOptions {
 }
 
 export interface GestureRecognizer {
-  readonly state: Signal<GestureState>
-  readonly events: Signal<GestureEvent | null>
+  readonly state: ReadonlySignal<GestureState>
+  readonly events: ReadonlySignal<GestureEvent | null>
   onPointerDown(e: PointerEventLike): void
   onPointerMove(e: PointerEventLike): void
   onPointerUp(e: PointerEventLike): void
@@ -161,7 +161,7 @@ export function createGestureRecognizer(opts: GestureRecognizerOptions = {}): Ge
 
   function emit(event: GestureEvent): void {
     if (disposed) return
-    events.set(event)
+    events.set(Object.freeze(event))
   }
 
   function dist(a: ActivePointer, b: ActivePointer): number {
@@ -347,5 +347,13 @@ export function createGestureRecognizer(opts: GestureRecognizerOptions = {}): Ge
     active.clear()
   }
 
-  return { state, events, onPointerDown, onPointerMove, onPointerUp, cancel, dispose }
+  return {
+    state: asReadonlySignal(state),
+    events: asReadonlySignal(events),
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    cancel,
+    dispose,
+  }
 }

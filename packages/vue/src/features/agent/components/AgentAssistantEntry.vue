@@ -43,7 +43,7 @@
   import IconCheck from '~icons/tabler/check'
   import IconCopy from '~icons/tabler/copy'
   import IconRefresh from '~icons/tabler/refresh'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type {
     EntryId,
     EntryRecord,

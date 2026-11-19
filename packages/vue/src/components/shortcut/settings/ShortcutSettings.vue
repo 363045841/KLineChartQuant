@@ -35,7 +35,7 @@
   import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
   import { computed, nextTick, reactive, ref, watch } from 'vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import ShortcutSettingsRow from './ShortcutSettingsRow.vue'
 
   const props = defineProps<{ registry?: CommandRegistry | null }>()

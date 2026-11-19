@@ -46,7 +46,6 @@
     background: var(--klc-color-ui-input);
     color: var(--klc-color-ui-muted);
     font-size: 11px;
-    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
     transition:

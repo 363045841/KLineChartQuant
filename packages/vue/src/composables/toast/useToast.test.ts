@@ -1,7 +1,7 @@
 /** Toast + Undo：计时、暂停、撤销、延迟提交、视口优先级与 live region。 */
 
 import { mount } from '@vue/test-utils'
-import ToastViewport from '@vue-src/components/common/ToastViewport.vue'
+import ToastViewport from '@vue-src/components/common/feedback/ToastViewport.vue'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { createToastStore, provideToast, type ToastStore, useToast } from './useToast.js'

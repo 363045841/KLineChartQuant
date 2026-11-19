@@ -5,7 +5,7 @@ import { createPrimitivePreparer, type GeometryPrimitive } from '../preparation/
 import type { PrimitiveBackend, PrimitiveClip, PrimitiveSurface, UploadRange } from '../types.js'
 import { resolveUploadRange } from './buffers.js'
 import { createColorResolver } from './colors.js'
-import { createGpuPrimitiveBackend, type PrimitiveDevice } from './gpu.js'
+import { createGpuPrimitiveBackend, disposeFailedDevice, type PrimitiveDevice } from './gpu.js'
 import { rebaseDataTransform } from './projection.js'
 import {
   INSTANCE_FLOATS,
@@ -341,12 +341,12 @@ function createSurface(canvas: HTMLCanvasElement): PrimitiveSurface | null {
         device ??= createDevice(canvas, true, true)
         device.render(batch, width, height, dpr, clear, transform, clip)
         return true
-      } catch {
-        device?.dispose()
+      } catch (error) {
+        const failed = device
         device = null
         // 新设备没有上一批 GPU 内容，必须让准备器重新写入而不是复用。
         preparer = null
-        return false
+        disposeFailedDevice(failed, error)
       }
     },
     dispose() {

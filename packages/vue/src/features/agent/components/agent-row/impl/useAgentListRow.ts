@@ -1,7 +1,7 @@
 /** 可编辑列表行的焦点管理与提交校验；展示模式由调用方统一维护。 */
 
-import BaseButton from '@vue-src/components/common/BaseButton.vue'
-import BaseInput from '@vue-src/components/common/BaseInput.vue'
+import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
 import { computed, nextTick, type Ref, useTemplateRef, watch } from 'vue'
 import { type AgentLocale, getAgentCopy } from '../../../agent-copy.js'
 import type { AgentListRowMode } from '../types.js'

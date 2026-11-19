@@ -17,13 +17,17 @@ describe('createTimeScale', () => {
     }
   })
 
-  it('setBarWidth re-derives the X mapping correctly', () => {
+  it('changes width only through the validated coordinate command', () => {
     const s = createTimeScale({
       initialFirstVisibleIndex: 0,
       initialBarWidth: 10,
       initialLeftPadding: 0,
     })
     expect(s.barIndexToX(5)).toBe(50)
+    expect('set' in s.barWidth).toBe(false)
+    expect(() => s.setBarWidth(0)).toThrow()
+    expect(() => s.setBarWidth(Infinity)).toThrow()
+    expect(s.barWidth()).toBe(10)
     s.setBarWidth(20)
     expect(s.barIndexToX(5)).toBe(100)
   })

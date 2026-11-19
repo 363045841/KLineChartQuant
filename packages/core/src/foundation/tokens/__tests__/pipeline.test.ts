@@ -37,6 +37,19 @@ function readThemeCss(preset: ThemePresetId, mode: 'light' | 'dark'): string {
 }
 
 describe('design tokens pipeline', () => {
+  it('shares the font roles between first-paint CSS and runtime themes', () => {
+    const css = fs.readFileSync(path.join(cssDir, 'font-roles.css'), 'utf8')
+    const runtime = themeToCssVars(resolveTheme('light'))
+    const fontRoles = Object.fromEntries(
+      Object.entries(runtime).filter(([name]) => /^--klc-font-(family|weight)-/.test(name)),
+    )
+    expect(css.slice(css.indexOf('\n') + 1)).toBe(`${toCssDeclarationBlock(fontRoles)}\n`)
+    expect(runtime['--klc-font-weight-ui']).toBe('500')
+    expect(runtime['--klc-font-weight-mono']).toBe('400')
+    expect(runtime['--klc-font-weight-brand']).toBe('600')
+    expect(runtime['--klc-font-weight-brand-cjk']).toBe(runtime['--klc-font-weight-ui'])
+    expect(runtime['--klc-text-20-font-weight']).toBe(runtime['--klc-font-weight-ui'])
+  })
   // 真实生成器会启动构建工具，包测试并行时不应受单元测试默认的 5 秒限制。
   it('generated files are in sync with the DTCG source (tokens:check)', { timeout: 30000 }, () => {
     expect(() =>

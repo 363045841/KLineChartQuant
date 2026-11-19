@@ -121,7 +121,7 @@ export function usePopoverLifecycle(
       restoreFocus ?? panel?.contains(panel.ownerDocument.activeElement) ?? false
     driver.hide()
     if (!shouldRestore || disposed) return
-    const target = options.trigger.value ?? options.restoreFocusTo?.() ?? null
+    const target = options.restoreFocusTo?.() ?? options.trigger.value
     target?.focus()
   }
 

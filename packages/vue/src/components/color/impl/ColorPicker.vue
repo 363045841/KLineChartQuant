@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { ColorPickerProps } from '../types.js'
   import { useColorPicker } from './useColorPicker.js'
 

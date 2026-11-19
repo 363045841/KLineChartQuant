@@ -17,7 +17,7 @@
 
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { useTemplateRef } from 'vue'
-  import SlidingHighlight from '../../../components/common/SlidingHighlight.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
 
   const highlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('highlight')
   const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>

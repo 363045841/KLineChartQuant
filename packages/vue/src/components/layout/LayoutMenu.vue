@@ -53,12 +53,12 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
+  import '@vue-src/components/common/menu/control-button.css'
 
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import { LAYOUT_MENU, useLayouts } from '@vue-src/composables/chart/useLayouts.js'
   import { toRef } from 'vue'
   import IconCheck from '~icons/tabler/check'

@@ -8,7 +8,7 @@ import type {
   LegendMoveRequest,
 } from '@363045841yyt/klinechart-core/controllers'
 import { INSTANCE_MOVE_KIND } from '@363045841yyt/klinechart-core/controllers'
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
 import { type Component, computed, type Ref, shallowRef } from 'vue'
 import IconTablerArrowBarDown from '~icons/tabler/arrow-bar-down'
 import IconTablerArrowBarUp from '~icons/tabler/arrow-bar-up'

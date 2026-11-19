@@ -1,9 +1,9 @@
-/* 随包自托管的字体：@fontsource 由构建把它们引用的 woff2 打进产物，不使用 CDN。
-   等宽字体对应 --klc-typography-font-family-mono；品牌字体对应 --klc-font-family-brand。 */
+/* 字体文件按实际字面注册，产品通过生成的字体角色消费。 */
+@import "../../../core/design-tokens/css/font-roles.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/outfit/latin-600.css";
 
-/* 中文界面字体：单一字重 Medium，由 --klc-typography-font-family 的第二种字体命中。
+/* 界面字体的唯一字面为 Medium，覆盖常用中英文字符。
    子集由 scripts/build-font-subset.mjs 生成（GBK 一级汉字 + 界面用字），生僻字回退系统字体。
    协议要求随包保留授权文件，见 assets/fonts/HarmonyOS-Sans-LICENSE.txt。 */
 @font-face {

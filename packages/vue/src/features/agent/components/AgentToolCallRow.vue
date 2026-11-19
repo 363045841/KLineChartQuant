@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-  import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
+  import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCheck from '~icons/tabler/check'

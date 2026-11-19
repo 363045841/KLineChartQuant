@@ -59,7 +59,7 @@ describe('Chart market validation boundaries', () => {
     },
   ])('configures HK session through $name', ({ run, view }) => {
     run(chart)
-    expect(chart['_timeShareMode'].marketSession).toBe(HK_MARKET_SESSION)
+    expect(chart['_timeShareMode'].marketSession).toEqual(HK_MARKET_SESSION)
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
   })
 
@@ -83,4 +83,38 @@ describe('Chart market validation boundaries', () => {
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(ChartDataViewId.KLine)
   })
 
+  it.each([
+    (target: Chart) => target.setCurrentPeriod('not-a-period'),
+    (target: Chart) => target.switchToTimeShareForDate(20260231),
+    (target: Chart) => target.setSymbols([{ ...target.symbols.peek()[0]!, adjust: 'unknown' }]),
+  ])('preserves the market, data, view and range selection on invalid input', (select) => {
+    chart.setRangeSelection(10, 20)
+    const signals = [
+      chart.symbols,
+      chart.kernel.dataManager.readonly.currentSpec,
+      chart.kernel.data.readonly.activeBuffer,
+      chart.kernel.mode.readonly.dataView,
+      chart.kernel.interaction.readonly.rangeSelection,
+    ]
+    const before = signals.map((signal) => signal.peek())
+    const changed = vi.fn()
+    signals.forEach((signal) => signal.subscribe(changed))
+    expect(() => select(chart)).toThrow()
+    signals.forEach((signal, index) => expect(signal.peek()).toBe(before[index]))
+    expect(changed).not.toHaveBeenCalled()
+  })
+
+  it('switches the symbol, active buffer and public selection together', () => {
+    const oldBuffer = chart.kernel.data.readonly.activeSelection.peek()
+    const snapshots: unknown[] = []
+    chart.symbols.subscribe(() => snapshots.push([
+      chart.symbols.peek()[0]?.symbol,
+      chart.kernel.dataManager.readonly.currentSpec.peek()?.symbol,
+      chart.kernel.data.readonly.activeSelection.peek(),
+    ]))
+    chart.setCurrentSymbol('00700')
+    const nextBuffer = chart.kernel.data.readonly.activeSelection.peek()
+    expect(nextBuffer).not.toEqual(oldBuffer)
+    expect(snapshots).toEqual([['00700', '00700', nextBuffer]])
+  })
 })

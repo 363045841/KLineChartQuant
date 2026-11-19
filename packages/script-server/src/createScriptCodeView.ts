@@ -15,11 +15,13 @@ const codeViewTheme = EditorView.theme({
   '&.cm-script-code .cm-content': { padding: '0', caretColor: 'transparent' },
   '&.cm-script-code .cm-line': { padding: '0' },
   '&.cm-script-code .cm-scroller': {
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: 'var(--klc-font-family-mono, monospace)',
+    fontWeight: 'var(--klc-font-weight-mono, normal)',
+    fontSynthesisWeight: 'none',
     overflow: 'visible',
     lineHeight: 'inherit',
   },
-  '.cm-script-code-emphasis': { fontWeight: '700' },
+  '.cm-script-code-emphasis': { textDecoration: 'underline' },
 })
 
 /** 将代码挂入指定节点，返回稳定的更新与销毁接口。 */

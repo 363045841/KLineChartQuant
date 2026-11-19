@@ -1,6 +1,6 @@
 <!-- 选中图元动作组：复制、克隆、隐藏、锁定与删除；由父级决定是否展示。 -->
 <template>
-  <BaseTooltip content="复制" command="drawing.copy" placement="top" trigger-display="contents">
+  <CommandTooltip content="复制" command="drawing.copy" placement="top" trigger-display="contents">
     <button
       type="button"
       class="toolbar-btn toolbar-btn--copy"
@@ -9,7 +9,7 @@
     >
       <IconTablerCopy class="lock-icon" aria-hidden="true" />
     </button>
-  </BaseTooltip>
+  </CommandTooltip>
 
   <BaseTooltip content="克隆" placement="top" trigger-display="contents">
     <button
@@ -62,8 +62,9 @@
 
 <script setup lang="ts">
   import type { DrawingObject } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DeleteIcon from '@vue-src/components/common/DeleteIcon.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
+  import DeleteIcon from '@vue-src/components/chart/DeleteIcon.vue'
   import { computed } from 'vue'
   import IconTablerCopy from '~icons/tabler/copy'
   import IconTablerCopyPlus from '~icons/tabler/copy-plus'

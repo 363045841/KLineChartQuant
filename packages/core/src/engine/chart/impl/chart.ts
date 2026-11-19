@@ -36,7 +36,6 @@ import {
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import {
-  isTimeSharePeriod,
   type SymbolInfo,
   type SymbolSpec,
   TIME_SHARE_PERIOD,
@@ -893,22 +892,13 @@ export class Chart {
     this.legend.clearFrame()
     this.legendDom.clear()
 
-    this.applyDataViewScaleTypes(nextDataView)
+    for (const renderer of this.paneRenderers)
+      for (const axis of renderer.getPane().axes) axis.yAxis.setBasePrice(null)
+    this.runtimeProjection.synchronize()
 
     mode.onActivate(
       { ...this.createModeChartContext(), currentPeriod: this.dataManager.currentPeriod },
       prev,
-    )
-  }
-
-  /** 切换数据视图时同步主图价格轴类型：分时用百分比，K 线恢复设置类型。 */
-  private applyDataViewScaleTypes(dataView: ChartDataView): void {
-    for (const renderer of this.paneRenderers)
-      for (const axis of renderer.getPane().axes) axis.yAxis.setBasePrice(null)
-    this.applyPriceScaleSettingToKernel(
-      resolvePriceScaleTypeSetting(
-        this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-      ),
     )
   }
 
@@ -1161,20 +1151,12 @@ export class Chart {
     }
   }
 
-  /** 按用户坐标偏好生成各 pane 的刻度 Map；保留尚未创建 Pane 的已有偏好。 */
-  private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
-    const next = new Map(this.kernel.pane.getScalePreferences())
-    if (!next.has(PRICE_SERIES_AXIS_ID))
-      next.set(PRICE_SERIES_AXIS_ID, resolvePriceScaleTypeSetting(setting))
-    return next
-  }
-
   /**
    * 将用户坐标偏好写入 paneScaleTypes。
    * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
-    const next = this.buildScaleTypesFromSetting(setting)
+    const next = new Map(this.kernel.pane.getScalePreferences())
     next.set(PRICE_SERIES_AXIS_ID, setting)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.runtimeProjection.synchronize()
@@ -1204,7 +1186,7 @@ export class Chart {
   /** 将内核设置变更应用到交互、缓存和渲染后端，不回写业务设置。 */
   private projectSettings(prev: Readonly<ChartSettings>, next: Readonly<ChartSettings>): void {
     this.unlockAxisWidth()
-    this.interaction.onSettingsChanged(prev, next)
+    if (prev.tooltipPosition !== next.tooltipPosition) this.interaction.resetTooltipPlacement()
     if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
       this.dataManager.marketDataCache.setMaxBytes(
         resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
@@ -1863,25 +1845,40 @@ export class Chart {
    * 只接受一个主品种；对比品种必须通过独立入口设置。
    */
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    const primary = specs[0]
     if (specs.length > 1)
       throw new RangeError(
         'setSymbols accepts one primary symbol; use setComparisonSpecs for comparisons',
       )
-    this.cancelDrawingSession()
-    const nextDrawingSymbol = primary === undefined ? undefined : symbolSpecIdentityKey(primary)
+    this.selectPrimaryMarket(specs[0] ?? null)
+  }
+
+  /** 目标验证完成后，把视图、绘图范围和活动行情作为一次通知提交。 */
+  private selectPrimaryMarket(primary: SymbolSpec | null, date?: number): void {
+    const commitData = this.dataManager.preparePrimarySelection(primary, date)
+    const dataView = resolveChartDataView(primary?.period)
+    const timeShare = isTimeShareDataView(dataView)
+    const session = timeShare && primary ? resolveSymbolMarketSession(primary, this.marketSessions) : null
+    const nextDrawingSymbol = primary ? symbolSpecIdentityKey(primary) : undefined
     const previousPeriod = this.dataManager.symbols.peek()[0]?.period
-    if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
-      this.kernel.drawing.actions.setSelectedDrawingIds([])
-    }
-    // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
-    this._lastAlertTimestamp = null
-    // 激活 buffer 前完成视图转移，让滚动恢复读取目标视图几何。
-    const transition = this.transitionView(primary ?? null)
-    this.dataManager.setSymbols(primary ? [primary] : [])
-    if (primary && !transition.timeShare) {
-      this.dataManager.tryRestoreScrollFromSnapshot()
-    }
+    batch(() => {
+      if (timeShare) this.dataManager.saveActiveKLineViewportSnapshot()
+      this.cancelDrawingSession()
+      this.clearRangeSelection()
+      if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
+        this.kernel.drawing.actions.setSelectedDrawingIds([])
+      }
+      this._lastAlertTimestamp = null
+      this.interaction.stopInertia()
+      this.zoomController.stopAnimation()
+      this.unlockAxisWidth()
+      if (session) this._timeShareMode.setMarketSession(session)
+      this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
+      commitData()
+      if (primary && !timeShare) {
+        this.dataManager.tryRestoreScrollFromSnapshot()
+        if (primary.period !== undefined) this.kernel.mode.actions.setLastBarPeriod(primary.period)
+      }
+    })
   }
 
   /** 原子设置 K 线比较折线及生效刻度，不切换视图、工作区或主品种渲染器。 */
@@ -1895,30 +1892,6 @@ export class Chart {
       )
     })
     this.scheduleDraw()
-  }
-
-  /** 仅按主品种周期切换 K 线或分时，比较集合不参与视图决策。 */
-  private transitionView(
-    spec: SymbolSpec | null = this.dataManager.symbols.peek()[0] ?? null,
-    period: string | undefined = spec?.period,
-  ): { dataView: ChartDataView; timeShare: boolean } {
-    this.interaction.stopInertia()
-    this.zoomController.stopAnimation()
-    this.unlockAxisWidth()
-    const dataView = resolveChartDataView(period)
-    const timeShare = isTimeShareDataView(dataView)
-    if (timeShare && spec) {
-      this._timeShareMode.setMarketSession(resolveSymbolMarketSession(spec, this.marketSessions))
-    }
-    batch(() => {
-      this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
-      this.applyPriceScaleSettingToKernel(
-        resolvePriceScaleTypeSetting(
-          this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
-        ),
-      )
-    })
-    return { dataView, timeShare }
   }
 
   /**
@@ -1941,25 +1914,22 @@ export class Chart {
   }
 
   setCurrentSymbol(symbol: string): void {
-    this.dataManager.setCurrentSymbol(symbol)
+    const current = this.dataManager.symbols.peek()[0]
+    if (!current || current.symbol === symbol) return
+    const { id: _id, instrument: _instrument, ...selection } = current
+    this.selectPrimaryMarket({ ...selection, symbol })
   }
 
   /** 设置目标周期，在数据切换之前完成视图转移。 */
   setCurrentPeriod(period: string): void {
-    const previousPeriod = this.dataManager.symbols.peek()[0]?.period
-    if (previousPeriod !== undefined && previousPeriod !== period) {
-      this.kernel.drawing.actions.setSelectedDrawingIds([])
-    }
-    const transition = this.transitionView(this.dataManager.symbols.peek()[0] ?? null, period)
-    this.dataManager.setCurrentPeriod(period)
-    if (!transition.timeShare) this.dataManager.tryRestoreScrollFromSnapshot()
-    this.kernel.mode.actions.setLastBarPeriod(period)
+    const current = this.dataManager.symbols.peek()[0]
+    if (current) this.selectPrimaryMarket({ ...current, period })
   }
 
   /** 设置历史查询日期，并通过周期入口进入单日分时。 */
   switchToTimeShareForDate(dateYYYYMMDD: number): void {
-    this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
-    this.setCurrentPeriod(TIME_SHARE_PERIOD)
+    const current = this.dataManager.symbols.peek()[0]
+    if (current) this.selectPrimaryMarket({ ...current, period: TIME_SHARE_PERIOD }, dateYYYYMMDD)
   }
 
   // ---------- Interaction (Zero-config unified entry) ----------

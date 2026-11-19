@@ -4,7 +4,7 @@
  * Web 与 Desktop 共用同一份存储 key、校验规则与旧版迁移逻辑：这里的任何改动都等于
  * 改变已发布宿主的持久化契约，会让用户已保存的数据源配置读不出来。
  */
-import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import { createLocalStoragePersistence, isKLineChartError, type PersistenceCodec } from '@363045841yyt/klinechart-core'
 import type {
   MarketDataConfiguration,
   MarketDataContext,
@@ -114,21 +114,33 @@ function migrateLegacyConnections(context: MarketDataContext): void {
 /** 创建带持久化的行情宿主；配置变更立即写回，旧版地址只在首次启动时迁移。 */
 export function createPersistedMarketDataHost(): PersistedMarketDataHost {
   const storage = createLocalStoragePersistence({ key: CONFIGURATION_KEY, codec })
-  const saved = storage.load()
+  let saved: ReturnType<typeof storage.load> | undefined
+  try {
+    saved = storage.load()
+  } catch (error) {
+    console.error('[Market data preferences] Restore failed', error instanceof Error ? error.message : error)
+    if (isKLineChartError(error, 'PERSISTENCE_CORRUPT')) saved = null
+  }
   const context = createBuiltinMarketDataContext(saved ?? undefined)
   // 没有可恢复的配置时才迁移旧版地址，并把默认配置落盘，避免下次启动重复迁移。
-  if (!saved) {
+  if (saved === null) {
     migrateLegacyConnections(context)
-    storage.save(context.configuration.peek())
+    save()
   }
-  const unsubscribe = context.configuration.subscribe(() =>
-    storage.save(context.configuration.peek()),
-  )
+  function save(): void {
+    try {
+      storage.save(context.configuration.peek())
+    } catch (error) {
+      console.error('[Market data preferences] Save failed', error instanceof Error ? error.message : error)
+    }
+  }
+  const unsubscribe = context.configuration.subscribe(save)
   return {
     context,
     dispose() {
       unsubscribe()
       context.dispose()
+      storage.dispose()
     },
   }
 }

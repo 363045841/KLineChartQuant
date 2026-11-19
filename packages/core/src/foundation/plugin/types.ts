@@ -61,7 +61,7 @@ export interface HookDescriptor<T = unknown, R = unknown> {
 }
 
 /** 事件处理器 */
-export type EventHandler<T = unknown> = (data: T) => void
+export type EventHandler<T = unknown> = (data: T) => void | Promise<void>
 
 /** 插件日志器 */
 export interface PluginLogger {

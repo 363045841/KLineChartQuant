@@ -1,0 +1,104 @@
+<template>
+  <label
+    class="toggle-switch"
+    :class="{ 'is-compact': size === 'compact', 'is-disabled': disabled }"
+  >
+    <input
+      type="checkbox"
+      v-model="model"
+      :disabled="disabled"
+      :aria-label="label"
+    />
+    <span class="toggle-switch__track" aria-hidden="true">
+      <span class="toggle-switch__thumb" />
+    </span>
+  </label>
+</template>
+
+<script setup lang="ts">
+  defineProps<{
+    disabled?: boolean
+    label: string
+    size?: 'default' | 'compact'
+  }>()
+
+  const model = defineModel<boolean>({ required: true })
+</script>
+
+<style scoped>
+  .toggle-switch {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .toggle-switch.is-disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .toggle-switch.is-compact {
+    width: 28px;
+    height: 16px;
+  }
+
+  .toggle-switch input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+
+  .toggle-switch__track {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+      background: var(--toggle-switch-track-background, var(--klc-color-border-button));
+    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  }
+
+  .toggle-switch__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+      background: var(--toggle-switch-thumb-background, var(--klc-color-background));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+  }
+
+  .toggle-switch.is-compact .toggle-switch__thumb {
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .toggle-switch input:checked + .toggle-switch__track {
+      background: var(--toggle-switch-active-background, var(--klc-color-ui-accent));
+  }
+
+  .toggle-switch input:checked + .toggle-switch__track .toggle-switch__thumb {
+    transform: translateX(14px);
+  }
+
+  .toggle-switch.is-compact input:checked + .toggle-switch__track .toggle-switch__thumb {
+    transform: translateX(12px);
+  }
+
+  .toggle-switch input:focus-visible + .toggle-switch__track {
+      outline: 2px solid var(--toggle-switch-focus-color, var(--klc-color-ui-focus));
+    outline-offset: 2px;
+  }
+
+</style>

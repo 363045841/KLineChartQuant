@@ -19,7 +19,7 @@
  * to MTF by writing such a compute fn.
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 /**
  * One bar of the BASE timeframe (the chart's primary candle stream).
@@ -77,13 +77,13 @@ export interface MtfSeriesDefinition {
  * first higher-tf bucket opens.
  */
 export interface ActiveMtfSeries {
-  definition: MtfSeriesDefinition
+  readonly definition: Readonly<MtfSeriesDefinition>
   /**
    * Forward-filled values aligned to the base bar index. Same length as the
    * controller's base-bar buffer. `null` only where no higher-tf bar covers
    * the base bar's timestamp (i.e. before the first bucket opens).
    */
-  alignedValues: ReadonlyArray<number | null>
+  readonly alignedValues: ReadonlyArray<number | null>
 }
 
 /**
@@ -94,7 +94,7 @@ export interface ActiveMtfSeries {
  */
 export interface MtfController {
   /** Current snapshot of every series with aligned values. */
-  readonly series: Signal<ReadonlyArray<ActiveMtfSeries>>
+  readonly series: ReadonlySignal<ReadonlyArray<ActiveMtfSeries>>
 
   /**
    * Replace the base bar buffer in one shot and recompute every series —
@@ -129,8 +129,7 @@ export interface MtfController {
   /**
    * Append one base bar at the tail — canonical method, aligned with the
    * cross-controller `append()` convention (AnchoredVwapController).
-   * Triggers a single per-series compute over the updated resampled
-   * bars — NOT a from-scratch recompute over the whole base buffer.
+   * Recomputes each series over the updated base buffer.
    */
   append(bar: BaseBar): void
 

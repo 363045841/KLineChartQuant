@@ -4,7 +4,8 @@
  * 本模块刻意独立于旧调度器、renderer stateKey 和按类型索引的结果包。
  * 唯一可持久化的计算事实是实例结果；pane 仅拥有渲染投影，绝不拥有计算结果。
  */
-import { deepFreezeSnapshot, immutableMap } from '@/engine/state/immutable.js'
+import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
+import { immutableMap } from '@/foundation/utils/immutableMap.js'
 
 export type IndicatorInstanceId = string
 export type IndicatorPaneId = string

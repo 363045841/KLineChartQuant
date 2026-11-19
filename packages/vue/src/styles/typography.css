@@ -1,27 +1,21 @@
-/*
-  排版角色的唯一定义点：
-  - 字体族只在三个排版根声明一次：产品根 `.kline-workbench`、legacy 图根 `.chart-wrapper`、
-    teleport 到 body 的浮层根 `.klc-overlay`（弹窗、菜单、气泡、取色器都带这个类）；
-  - 表单控件按 MDN 的约定跟随根排版，组件只再覆盖字号/字重，不再复写 font-family；
-  - 占位符只改颜色，族/字号/字重一律继承控件，空输入框不会暴露继承链的裂缝；
-  - 字重只用真实打包的字面：UI 为 HarmonyOS Medium(500)，等宽为 JetBrains Mono 400。
-*/
-:root {
-  --klc-font-weight-ui: 500;
-  --klc-font-weight-mono: 400;
+/* Shared by the Vue product, detached editor, and the custom element shadow root. */
+:where(.kline-workbench, .chart-wrapper, .tab-bar, .script-editor-window, .klc-overlay) {
+  font-family: var(--klc-font-family-ui);
+  font-weight: var(--klc-font-weight-ui);
+  font-synthesis-weight: none;
 }
 
-:where(.kline-workbench, .chart-wrapper, .klc-overlay) {
-  font-family: var(--klc-typography-font-family);
-}
-
-/* 表单控件默认不继承字体（UA 行为），在这里统一接管；:where 不参与优先级。 */
-:where(.kline-workbench, .chart-wrapper, .klc-overlay)
+:where(.kline-workbench, .chart-wrapper, .tab-bar, .script-editor-window, .klc-overlay)
   :where(input, textarea, select, button) {
   font: inherit;
 }
 
-:where(.kline-workbench, .chart-wrapper, .klc-overlay) ::placeholder {
+:where(.kline-workbench, .chart-wrapper, .tab-bar, .script-editor-window, .klc-overlay)
+  :where(b, strong, h1, h2, h3, h4, h5, h6, th, optgroup) {
+  font-weight: inherit;
+}
+
+:where(.kline-workbench, .chart-wrapper, .tab-bar, .script-editor-window, .klc-overlay) ::placeholder {
   color: var(--klc-color-ui-muted);
   font: inherit;
   opacity: 1;

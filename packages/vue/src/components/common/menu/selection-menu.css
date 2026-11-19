@@ -1,0 +1,34 @@
+/* 工具条单选下拉的触发器内容：当前值与展开箭头，供周期、复权等入口复用。 */
+.selection-menu__value {
+  min-width: 0;
+  overflow: hidden;
+  /* 覆盖 control-button 的 line-height:1，避免 overflow:hidden 裁掉 "y" 等字符下沿。 */
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-menu__chevron {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: var(--klc-color-ui-muted);
+  transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+}
+
+.drop-menu__trigger[aria-expanded="true"] .selection-menu__chevron {
+  transform: rotate(180deg);
+}
+
+/* 设置行里的紧凑单选下拉：24px、两端对齐；变量向下传给触发按钮。 */
+.selection-menu {
+  --control-button-min-width: 100px;
+  --control-button-height: var(--klc-space-24, 24px);
+  --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
+  --control-button-radius: var(--klc-radius-xs, 4px);
+  --control-button-font-size: var(--klc-typography-font-size-md);
+  --control-button-justify: space-between;
+  --control-button-active-background: var(--klc-color-ui-hover);
+  --control-button-focus-shadow: none;
+  --control-button-focus-background: var(--klc-color-ui-hover);
+}

@@ -1,5 +1,6 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
-import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime/contracts'
+// 只取凭据契约这一个文件：contracts 汇总入口会带出 Agent 会话类型，进而把 pi / 供应商 SDK 拖进图表公开类型。
+import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime/contracts/credentials'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'

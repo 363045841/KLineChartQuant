@@ -1,181 +1,113 @@
+/** Owns base data and publishes complete, aligned multi-timeframe series. */
 import { KLineChartError, MTF_ERROR_CODES } from '@/errors.js'
-
-/**
- * Multi-Timeframe overlay controller.
- *
- * Composes `resampleBars` + `alignToBaseIndex` + a user-supplied `compute`
- * function per series. Holds the base bar buffer + base interval + a Map of
- * active series, exposes a single reactive `series` signal.
- *
- * v1 implementation: full re-resample + full compute on every mutation. The
- * incremental "only re-do the last bucket on `appendBaseBar`" optimization
- * is documented as a follow-up — landing it does not change observable
- * behavior, only frame-time cost. Tests pin the observable shape.
- */
-
-import type { Signal } from '@/foundation/reactivity/index.js'
-import { createSignal } from '@/foundation/reactivity/index.js'
-import type {
-  ActiveMtfSeries,
-  BaseBar,
-  CreateMtfControllerInit,
-  MtfController,
-  MtfSeriesDefinition,
-  ResampledBar,
-} from '../types.js'
+import { asReadonlySignal, createSignal } from '@/foundation/reactivity/index.js'
+import type { ActiveMtfSeries, BaseBar, CreateMtfControllerInit, MtfController, MtfSeriesDefinition } from '../types.js'
 import { alignToBaseIndex } from './alignToBaseIndex.js'
 import { resampleBars } from './resampleBars.js'
 
+function invalid(message: string): KLineChartError {
+  return new KLineChartError(MTF_ERROR_CODES.CONFIG_INVALID, message)
+}
+
+function validateInterval(interval: number, label: string): void {
+  if (!Number.isFinite(interval) || interval <= 0) throw invalid(`${label} must be > 0`)
+}
+
+function project(definition: MtfSeriesDefinition, bars: readonly BaseBar[], interval: number | null): ActiveMtfSeries {
+  validateInterval(definition.targetIntervalMs, 'targetIntervalMs')
+  if (interval !== null && definition.targetIntervalMs % interval !== 0) {
+    throw invalid(`Series "${definition.id}" targetIntervalMs must be a multiple of baseIntervalMs`)
+  }
+  if (interval === null || bars.length === 0) {
+    return Object.freeze({ definition, alignedValues: Object.freeze([]) })
+  }
+  const resampled = resampleBars(bars, interval, definition.targetIntervalMs)
+  const values = definition.compute(resampled)
+  if (values.length !== resampled.length) {
+    throw invalid(`Series "${definition.id}" returned ${values.length} values for ${resampled.length} bars`)
+  }
+  const alignedValues = Object.freeze(alignToBaseIndex(bars, resampled, values, definition.targetIntervalMs))
+  return Object.freeze({ definition, alignedValues })
+}
+
 export function createMtfController(init: CreateMtfControllerInit = {}): MtfController {
+  let bars = (init.initialBars ?? []).map((bar) => ({ ...bar }))
+  let interval = init.baseIntervalMs ?? null
+  if (interval !== null) validateInterval(interval, 'baseIntervalMs')
+  const series = createSignal<readonly ActiveMtfSeries[]>(Object.freeze([]))
   let disposed = false
-  let baseBars: ReadonlyArray<BaseBar> = init.initialBars ?? []
-  let baseIntervalMs: number | null = init.baseIntervalMs ?? null
+  let computing = false
 
-  const definitions = new Map<string, MtfSeriesDefinition>()
-  const seriesSignal = createSignal<ReadonlyArray<ActiveMtfSeries>>([])
-
-  const computeOne = (def: MtfSeriesDefinition): ActiveMtfSeries => {
-    // No bars or no base interval set → empty aligned values (length 0,
-    // matching the empty base buffer).
-    if (baseBars.length === 0 || baseIntervalMs === null) {
-      return { definition: def, alignedValues: [] }
-    }
-    const resampled: ReadonlyArray<ResampledBar> = resampleBars(
-      baseBars,
-      baseIntervalMs,
-      def.targetIntervalMs,
-    )
-    const values = def.compute(resampled)
-    if (values.length !== resampled.length) {
-      throw new KLineChartError(
-        MTF_ERROR_CODES.CONFIG_INVALID,
-        `MtfController: compute fn for series "${def.id}" returned ` +
-          `${values.length} values for ${resampled.length} resampled bars; ` +
-          `length must match`,
-      )
-    }
-    const aligned = alignToBaseIndex(baseBars, resampled, values, def.targetIntervalMs)
-    return { definition: def, alignedValues: aligned }
+  function assertIdle(): void {
+    if (computing) throw invalid('MTF series computation cannot mutate its controller')
   }
 
-  const recomputeAll = (): void => {
-    const all: ActiveMtfSeries[] = []
-    for (const def of definitions.values()) {
-      all.push(computeOne(def))
-    }
-    seriesSignal.set(all)
-  }
-
-  const guard = (): boolean => !disposed
-
-  const validateInterval = (targetMs: number): void => {
-    if (!Number.isFinite(targetMs) || targetMs <= 0) {
-      throw new KLineChartError(
-        MTF_ERROR_CODES.CONFIG_INVALID,
-        'MtfController: targetIntervalMs must be > 0',
-      )
-    }
-    if (baseIntervalMs !== null && targetMs % baseIntervalMs !== 0) {
-      throw new KLineChartError(
-        MTF_ERROR_CODES.CONFIG_INVALID,
-        `MtfController: targetIntervalMs (${targetMs}) must be an ` +
-          `integer multiple of baseIntervalMs (${baseIntervalMs})`,
-      )
+  function prepare(definitions: readonly MtfSeriesDefinition[], nextBars: readonly BaseBar[], nextInterval: number | null) {
+    assertIdle()
+    computing = true
+    try {
+      return Object.freeze(definitions.map((definition) => project(definition, nextBars, nextInterval)))
+    } finally {
+      computing = false
     }
   }
 
-  const inner: {
-    series: Signal<ReadonlyArray<ActiveMtfSeries>>
-    setBaseBars(bars: ReadonlyArray<BaseBar>, intervalMs: number): void
-    addSeries(def: MtfSeriesDefinition): string
-    removeSeries(id: string): boolean
-    updateSeries(id: string, patch: Partial<Omit<MtfSeriesDefinition, 'id'>>): boolean
-    appendBaseBar(bar: BaseBar): void
-    dispose(): void
-  } = {
-    series: seriesSignal,
+  function commitData(nextBars: BaseBar[], nextInterval: number | null): void {
+    const nextSeries = prepare(series.peek().map(({ definition }) => definition), nextBars, nextInterval)
+    bars = nextBars
+    interval = nextInterval
+    series.set(nextSeries)
+  }
 
-    setBaseBars(bars: ReadonlyArray<BaseBar>, intervalMs: number): void {
-      if (!guard()) return
-      if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-        throw new KLineChartError(
-          MTF_ERROR_CODES.CONFIG_INVALID,
-          'MtfController.setBaseBars: baseIntervalMs must be > 0',
-        )
+  function setData(nextBars: readonly BaseBar[], nextInterval: number): void {
+    if (disposed) return
+    validateInterval(nextInterval, 'baseIntervalMs')
+    commitData(nextBars.map((bar) => ({ ...bar })), nextInterval)
+  }
+
+  function append(bar: BaseBar): void {
+    if (!disposed) commitData([...bars, { ...bar }], interval)
+  }
+
+  return {
+    series: asReadonlySignal(series),
+    setData,
+    setBaseBars: setData,
+    append,
+    appendBaseBar: append,
+    addSeries(definition) {
+      if (disposed) return definition.id
+      const current = series.peek()
+      if (current.some((entry) => entry.definition.id === definition.id)) {
+        throw invalid(`Series id "${definition.id}" already in use`)
       }
-      // If any series has a target that no longer cleanly divides, throw
-      // up front rather than letting resampleBars throw later.
-      for (const def of definitions.values()) {
-        if (def.targetIntervalMs % intervalMs !== 0) {
-          throw new KLineChartError(
-            MTF_ERROR_CODES.CONFIG_INVALID,
-            `MtfController.setBaseBars: existing series "${def.id}" ` +
-              `targetIntervalMs (${def.targetIntervalMs}) does not cleanly ` +
-              `divide new baseIntervalMs (${intervalMs})`,
-          )
-        }
-      }
-      baseBars = bars
-      baseIntervalMs = intervalMs
-      recomputeAll()
+      const next = prepare([Object.freeze({ ...definition })], bars, interval)
+      series.set(Object.freeze([...current, ...next]))
+      return definition.id
     },
-
-    addSeries(def): string {
-      if (!guard()) return def.id
-      if (definitions.has(def.id)) {
-        throw new KLineChartError(
-          MTF_ERROR_CODES.CONFIG_INVALID,
-          `MtfController.addSeries: id "${def.id}" already in use`,
-        )
-      }
-      validateInterval(def.targetIntervalMs)
-      definitions.set(def.id, def)
-      recomputeAll()
-      return def.id
-    },
-
-    removeSeries(id): boolean {
-      if (!guard()) return false
-      const had = definitions.delete(id)
-      if (had) recomputeAll()
-      return had
-    },
-
-    updateSeries(id, patch): boolean {
-      if (!guard()) return false
-      const existing = definitions.get(id)
-      if (existing === undefined) return false
-      const next: MtfSeriesDefinition = {
-        ...existing,
-        ...patch,
-        id: existing.id, // protect against accidental id mutation
-      }
-      if (patch.targetIntervalMs !== undefined) {
-        validateInterval(patch.targetIntervalMs)
-      }
-      definitions.set(id, next)
-      recomputeAll()
+    updateSeries(id, patch) {
+      if (disposed) return false
+      const current = series.peek()
+      const index = current.findIndex(({ definition }) => definition.id === id)
+      if (index === -1) return false
+      const definition = Object.freeze({ ...current[index].definition, ...patch, id })
+      const [next] = prepare([definition], bars, interval)
+      series.set(Object.freeze(current.map((entry, i) => (i === index ? next : entry))))
       return true
     },
-
-    appendBaseBar(bar): void {
-      if (!guard()) return
-      baseBars = [...baseBars, bar]
-      recomputeAll()
+    removeSeries(id) {
+      if (disposed) return false
+      assertIdle()
+      const current = series.peek()
+      const next = current.filter(({ definition }) => definition.id !== id)
+      if (current.length === next.length) return false
+      series.set(Object.freeze(next))
+      return true
     },
-
-    dispose(): void {
+    dispose() {
+      assertIdle()
       disposed = true
-      definitions.clear()
+      bars = []
     },
-  }
-
-  // Canonical verbs (API audit BLOCKER-001): `setData` for full
-  // replacement, `append` for single-item extension. Old names
-  // preserved as aliases on the inner object for the deprecation window.
-  return {
-    ...inner,
-    setData: inner.setBaseBars,
-    append: inner.appendBaseBar,
   }
 }

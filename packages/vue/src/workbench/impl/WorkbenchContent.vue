@@ -54,7 +54,7 @@
   import IconSparkles from '~icons/tabler/sparkles'
   import IconStack2 from '~icons/tabler/stack-2'
   import KlineChart from '../../components/chart/KLineChart.vue'
-  import BaseButton from '../../components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
   import { provideChartCommands } from '../../composables/commands/useCommands.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'

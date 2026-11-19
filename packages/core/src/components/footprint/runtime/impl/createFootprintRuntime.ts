@@ -15,6 +15,7 @@ export function createFootprintRuntime(options: {
   readonly input$: ReadonlySignal<FootprintInput | null>
   readonly commit: (result: FootprintResult | null) => void
   readonly createWorker?: () => Worker | null
+  readonly onWorkerError?: (error: unknown) => void
 }) {
   let worker: Worker | null = null
   let inline: ReturnType<typeof createFootprintExecution> | null = null
@@ -24,6 +25,7 @@ export function createFootprintRuntime(options: {
   let pending: FootprintInput | null = null
   let nextRequestId = 0
   let disposed = false
+  const reportWorkerError = options.onWorkerError ?? ((error) => console.error('[Footprint worker]', error))
 
   /** 停止后不接受旧 Worker 的回调，所有私有聚合缓存一并释放。 */
   function release(): void {
@@ -34,6 +36,15 @@ export function createFootprintRuntime(options: {
     previousMarket = null
     inFlight = null
     pending = null
+  }
+
+  function recoverWorker(error: unknown): void {
+    const latest = options.input$.peek()
+    release()
+    inline = createFootprintExecution()
+    pending = latest
+    dispatch()
+    reportWorkerError(error)
   }
 
   /** 完成一个任务后只提交当前输入，随后执行等待中的最新快照。 */
@@ -56,18 +67,18 @@ export function createFootprintRuntime(options: {
     const input = pending
     pending = null
     if (!worker && !inline) {
-      try { worker = (options.createWorker ?? createWorker)() } catch { worker = null }
+      try {
+        worker = (options.createWorker ?? createWorker)()
+      } catch (error) {
+        recoverWorker(error)
+        return
+      }
       if (worker) {
         const activeWorker = worker
         worker.onmessage = (event: MessageEvent<FootprintWorkerResponse>) => receive(event.data)
-        worker.onerror = () => {
+        worker.onerror = (event) => {
           if (worker !== activeWorker || disposed) return
-          // Worker 不可用时释放其增量身份，用完整输入重新执行当前任务。
-          const latest = options.input$.peek()
-          release()
-          inline = createFootprintExecution()
-          pending = latest
-          dispatch()
+          recoverWorker(event.error ?? new Error(event.message || 'Footprint worker failed'))
         }
       } else inline = createFootprintExecution()
     }
@@ -78,7 +89,13 @@ export function createFootprintRuntime(options: {
     previousMarket = input.marketKey
     previousTrades = input.trades
     inFlight = { requestId: request.requestId, input }
-    if (worker) worker.postMessage(request)
+    if (worker) {
+      try {
+        worker.postMessage(request)
+      } catch (error) {
+        recoverWorker(error)
+      }
+    }
     else if (inline) {
       const execute = inline
       // 合并同一批同步状态更新，避免在 signal 通知栈内提交计算结果。

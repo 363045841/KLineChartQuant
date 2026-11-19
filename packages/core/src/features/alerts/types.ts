@@ -21,7 +21,7 @@
  * is intentionally NOT serialisable — see `impl/ruleSchema.ts` for the reasoning.
  */
 
-import type { Signal } from '../../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 
 // ---------------------------------------------------------------------------
 // MarketSnapshot — the read-only input fed into every predicate.
@@ -141,15 +141,23 @@ export interface AlertEvent {
   metadata?: Readonly<Record<string, unknown>>
 }
 
+export interface AlertFailure {
+  readonly ruleId: string
+  readonly stage: 'predicate' | 'listener'
+  readonly error: unknown
+}
+
 // ---------------------------------------------------------------------------
 // AlertController — the public, framework-agnostic facade.
 // ---------------------------------------------------------------------------
 
 export interface AlertController {
   /** Current rules, in insertion order. Reactive. */
-  readonly rules: Signal<ReadonlyArray<AlertRule>>
+  readonly rules: ReadonlySignal<ReadonlyArray<AlertRule>>
   /** Bounded ring of recent events, newest last. Reactive. */
-  readonly events: Signal<ReadonlyArray<AlertEvent>>
+  readonly events: ReadonlySignal<ReadonlyArray<AlertEvent>>
+  /** Failures isolated during the latest evaluation pass. */
+  readonly failures: ReadonlySignal<readonly AlertFailure[]>
 
   /** Add a rule; returns false if a rule with the same id already exists. */
   addRule(rule: AlertRule): boolean

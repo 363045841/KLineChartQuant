@@ -14,7 +14,6 @@
         v-model="searchQuery"
         placeholder="搜索数据源..."
         aria-label="搜索数据源"
-        autofocus
       >
         <BaseTooltip content="重新检测" placement="bottom" trigger-display="contents">
           <BaseIconButton
@@ -43,7 +42,7 @@
           >
             <header class="source-group__header">
               <span class="source-group__title">{{ group.title }}</span>
-              <BaseChip v-if="group.shared" variant="outline" size="sm">共用连接</BaseChip>
+              <BaseChip v-if="group.shared" variant="outline">共用连接</BaseChip>
             </header>
 
             <!-- 地址是连接级配置：一个连接只出现一个编辑入口 -->
@@ -76,7 +75,7 @@
               <code class="source-endpoint__value">
                 {{ group.connection.baseUrl ?? group.connection.defaultBaseUrl }}
               </code>
-              <BaseChip variant="outline" size="sm">宿主托管</BaseChip>
+              <BaseChip variant="outline">宿主托管</BaseChip>
             </div>
             <p v-if="errors[group.connection.id]" class="source-endpoint__error" role="alert">
               {{ errors[group.connection.id] }}
@@ -105,7 +104,7 @@
                   <ToggleSwitch
                     size="compact"
                     :model-value="provider.enabled"
-                    :aria-label="`${provider.name} 启用`"
+                    :label="`${provider.name} 启用`"
                     @update:model-value="setEnabled(provider.id, $event)"
                   />
                 </div>
@@ -122,16 +121,16 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/control-cluster.css'
+  import '@vue-src/components/common/control-cluster.css'
 
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
-  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { useMarketDataManagement } from '@vue-src/composables/market/useMarketDataManagement.js'
   import { ref, watch } from 'vue'
   import IconTablerLink from '~icons/tabler/link'
@@ -219,7 +218,6 @@
     white-space: nowrap;
     color: var(--klc-color-ui-text);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 600;
     letter-spacing: 0.01em;
   }
 
@@ -264,7 +262,7 @@
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 12px;
     font-weight: var(--klc-font-weight-mono);
     outline: none;
@@ -277,7 +275,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 12px;
     font-weight: var(--klc-font-weight-mono);
   }
@@ -329,7 +327,6 @@
     white-space: nowrap;
     color: var(--klc-color-foreground);
     font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 600;
   }
 
   .provider-row__meta {
@@ -345,7 +342,6 @@
     background: var(--klc-color-ui-control-background);
     color: var(--klc-color-ui-muted);
     font-size: 10px;
-    font-weight: 500;
     line-height: 1.7;
     white-space: nowrap;
   }
@@ -360,7 +356,6 @@
     background: color-mix(in srgb, currentColor 13%, transparent);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-label-12-font-size, 12px);
-    font-weight: 500;
     line-height: 1.7;
     white-space: nowrap;
   }
@@ -408,4 +403,3 @@
     }
   }
 </style>
-

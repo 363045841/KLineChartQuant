@@ -9,7 +9,8 @@ import {
   type DetachedEditorSnapshot,
   SCRIPT_EDITOR_WINDOW_CHANNEL,
 } from '../windowTypes.js'
-import '@fontsource/jetbrains-mono/400.css'
+import '@vue-src/styles/fonts.css'
+import '@vue-src/styles/typography.css'
 import '../../../../styles/scrollbar.css'
 import { createApp, defineComponent, h } from 'vue'
 

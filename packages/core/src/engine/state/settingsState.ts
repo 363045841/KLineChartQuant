@@ -2,7 +2,7 @@
 
 import { type ChartSettings, normalizeSettings, readSetting } from '../../foundation/config/chartSettings.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
-import { deepFreezeSnapshot } from './immutable.js'
+import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 
 function snapshotSettings(partial?: Partial<ChartSettings>): Readonly<ChartSettings> {
   return deepFreezeSnapshot(normalizeSettings(partial)) as Readonly<ChartSettings>

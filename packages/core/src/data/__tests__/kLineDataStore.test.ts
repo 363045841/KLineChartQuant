@@ -80,9 +80,11 @@ describe('KLineDataStore', () => {
 
     store.mergePage([bar(10), bar(40)])
 
-    expect(kinds).toEqual([DATA_CHANGE_KINDS.prepend, DATA_CHANGE_KINDS.append])
+    expect(kinds).toEqual([DATA_CHANGE_KINDS.extend])
     expect(store.getRawData().map((item) => item.timestamp)).toEqual([10, 20, 30, 40])
-    expect(store.data().origin).toBe(-1)
+    expect(store.data()).toMatchObject({ origin: -1, prependedCount: 1, start: 0, end: 4 })
+    expect(store.getOrdinalAtTimestamp(20)).toBe(0)
+    expect(store.getOrdinalAtTimestamp(30)).toBe(1)
     unsubscribe()
   })
 

@@ -619,7 +619,6 @@
     box-sizing: border-box;
     color: var(--klc-color-text-tertiary);
     font-size: 12px;
-    font-weight: 500;
     cursor: pointer;
     -webkit-app-region: no-drag;
     app-region: no-drag;
@@ -754,7 +753,6 @@
     top: 50%;
     color: var(--klc-color-text-tertiary);
     font-size: 12px;
-    font-weight: 600;
     letter-spacing: 0.02em;
     white-space: nowrap;
     transform: translate(-50%, -50%);

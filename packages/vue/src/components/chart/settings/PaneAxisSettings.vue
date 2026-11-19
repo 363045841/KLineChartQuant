@@ -24,13 +24,13 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/control-button.css'
+  import '@vue-src/components/common/menu/control-button.css'
 
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import { usePriceAxisMenu } from '@vue-src/composables/chart/usePriceAxisMenu.js'
   import { toRef } from 'vue'
   import IconTablerSettings from '~icons/tabler/settings'

@@ -26,10 +26,9 @@
       </span>
     </button>
     </BaseTooltip>
-    <SymbolPopover
+    <SymbolSearchDialog
       v-model:search="picker.searchQuery"
       :show="picker.showPopup"
-      :anchor="chipWrapRef"
       dialog-label="选择商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索商品"
@@ -85,21 +84,21 @@
           </div>
         </div>
       </template>
-    </SymbolPopover>
+    </SymbolSearchDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
-  import '../common/modal-list.css'
-  import '../common/symbol-list.css'
-  import '../common/list-text.css'
+  import '@vue-src/components/common/menu/control-button.css'
+  import '@vue-src/components/common/dialog/modal-list.css'
+  import './symbol-list.css'
+  import '@vue-src/components/common/list-text.css'
 
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
-  import SymbolMetaBadge from '@vue-src/components/common/SymbolMetaBadge.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
+  import SymbolMetaBadge from './SymbolMetaBadge.vue'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SearchableSymbol,
@@ -110,7 +109,7 @@
   import { computed, ref, watch } from 'vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
-  import SymbolPopover from './SymbolPopover.vue'
+  import SymbolSearchDialog from './SymbolSearchDialog.vue'
   import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
 
   export type SymbolItem = SearchableSymbol
@@ -281,7 +280,6 @@
     white-space: nowrap;
     min-width: 0;
     font-size: 11px;
-    font-weight: 500;
     line-height: 14px;
     color: inherit;
   }

@@ -42,7 +42,7 @@ describe('createLocalStoragePersistence', () => {
     expect(persistence.load()).toEqual({ value: 7 })
   })
 
-  it('returns null for missing, corrupt or codec-rejected values', () => {
+  it('returns null only for missing values and throws for corrupt values', () => {
     const storage = createMemoryKeyValueStorage()
     const persistence = createLocalStoragePersistence({
       key: 'test.key',
@@ -53,10 +53,10 @@ describe('createLocalStoragePersistence', () => {
     expect(persistence.load()).toBeNull()
 
     storage.getItem.mockReturnValueOnce('{')
-    expect(persistence.load()).toBeNull()
+    expect(() => persistence.load()).toThrow(/Invalid LocalStorage value/)
 
     storage.getItem.mockReturnValueOnce(JSON.stringify({ value: 'nope' }))
-    expect(persistence.load()).toBeNull()
+    expect(() => persistence.load()).toThrow(/Invalid LocalStorage value/)
   })
 
   it('saves immediately with the encoded representation', () => {

@@ -1,6 +1,8 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
 import type { KLineData, SymbolSpec } from '@/controllers/types.js'
 import {
+  asReadonlySignal,
+  batch,
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
@@ -26,14 +28,10 @@ export class DataBuffer implements KLineBuffer {
   }
 
   /** 返回缓存查询加载状态。 */
-  get loading(): ReadonlySignal<boolean> {
-    return this.loadingSignal
-  }
+  readonly loading = asReadonlySignal(this.loadingSignal)
 
   /** 返回最近一次缓存查询错误。 */
-  get lastError(): ReadonlySignal<string | null> {
-    return this.errorSignal
-  }
+  readonly lastError = asReadonlySignal(this.errorSignal)
 
   /** 返回当前图表选择的品种描述。 */
   get currentSpec(): SymbolSpec | null {
@@ -88,11 +86,13 @@ export class DataBuffer implements KLineBuffer {
   /** 合并缓存层返回的一页历史或增量；既有时间戳不被分页改写。 */
   mergePage(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void {
     if (this.disposed) return
-    this.olderDataStatus = olderData
-    this.currentTimezone = timezone
-    this.store.mergePage(data)
-    this.errorSignal.set(null)
-    this.loadingSignal.set(false)
+    batch(() => {
+      this.store.mergePage(data)
+      this.olderDataStatus = olderData
+      this.currentTimezone = timezone
+      this.errorSignal.set(null)
+      this.loadingSignal.set(false)
+    })
   }
 
   /**

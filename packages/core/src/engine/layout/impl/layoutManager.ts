@@ -1,6 +1,6 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
 import { createDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
-import { createSignal } from '../../../foundation/reactivity/signal.js'
+import { asReadonlySignal, batch, createSignal } from '../../../foundation/reactivity/signal.js'
 import {
   LAYOUT_DOCUMENT_VERSION,
   type LayoutApi,
@@ -77,11 +77,11 @@ export class LayoutManager implements LayoutApi {
   private lastConfiguration = ''
   private loaded = false
   private queue: Promise<unknown> = Promise.resolve()
-  readonly layouts = this.layoutSignal
-  readonly activeLayoutId = this.activeSignal
-  readonly layoutAutoSave = this.autoSaveSignal
-  readonly layoutDirty = this.dirtySignal
-  readonly layoutSaveError = this.errorSignal
+  readonly layouts = asReadonlySignal(this.layoutSignal)
+  readonly activeLayoutId = asReadonlySignal(this.activeSignal)
+  readonly layoutAutoSave = asReadonlySignal(this.autoSaveSignal)
+  readonly layoutDirty = asReadonlySignal(this.dirtySignal)
+  readonly layoutSaveError = asReadonlySignal(this.errorSignal)
 
   /** 注入快照与原子恢复能力，管理器不持有另一份运行时状态。 */
   constructor(
@@ -154,17 +154,15 @@ export class LayoutManager implements LayoutApi {
 
   /** 只派生归档摘要，按文档创建顺序稳定输出；切换活动文档不改变列表位置。 */
   private publish(): void {
-    this.layoutSignal.set(
-      Object.entries(this.archive.documents).map(([id, document]) =>
-        Object.freeze({
-          id,
-          name: document.name,
-          deletable: id !== DEFAULT_LAYOUT_ID && id !== this.archive.activeId,
-        }),
-      ),
-    )
-    this.activeSignal.set(this.archive.activeId)
-    this.autoSaveSignal.set(this.archive.autoSave)
+    const { documents, activeId, autoSave } = this.archive
+    const layouts = Object.freeze(Object.entries(documents).map(([id, document]) =>
+      Object.freeze({ id, name: document.name, deletable: id !== DEFAULT_LAYOUT_ID && id !== activeId }),
+    ))
+    batch(() => {
+      this.layoutSignal.set(layouts)
+      this.activeSignal.set(activeId)
+      this.autoSaveSignal.set(autoSave)
+    })
   }
 
   /** 找不到身份时明确失败，避免误操作默认文档。 */

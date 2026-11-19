@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/list-text.css'
+  import '@vue-src/components/common/list-text.css'
 
   import type { CommandTitle } from '@363045841yyt/klinechart-core'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
@@ -112,7 +112,6 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     font-size: 13px;
-    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -181,4 +180,3 @@
     height: 14px;
   }
 </style>
-

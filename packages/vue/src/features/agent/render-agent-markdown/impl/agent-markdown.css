@@ -23,7 +23,6 @@
 .agent-markdown h5,
 .agent-markdown h6 {
   margin-block: 12px;
-  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -79,7 +78,7 @@
   padding: 1px 4px;
   border-radius: 4px;
   background: var(--klc-color-ui-hover);
-  font-family: var(--klc-typography-font-family-mono);
+  font-family: var(--klc-font-family-mono);
   font-size: 12px;
   font-weight: var(--klc-font-weight-mono);
 }
@@ -124,7 +123,7 @@
 
 .agent-markdown th {
   background: var(--klc-color-ui-hover);
-  font-weight: 600;
+  color: var(--klc-color-ui-text);
 }
 
 .agent-markdown button[data-agent-citation-id] {

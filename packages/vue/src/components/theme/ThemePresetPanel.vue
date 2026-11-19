@@ -57,7 +57,6 @@
     align-items: center;
     min-block-size: 32px;
     font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-text);
   }
 
@@ -100,7 +99,6 @@
     gap: var(--klc-spacing-sm);
     block-size: var(--klc-spacing-xl);
     font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-bold);
   }
 
   .theme-preset__accent {

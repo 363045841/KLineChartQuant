@@ -32,7 +32,7 @@
       /** 外观：soft 填充，outline 描边。 */
       variant?: 'soft' | 'outline'
     }>(),
-    { removable: false, removeLabel: '移除', size: 'md', variant: 'soft' },
+    { removable: false, removeLabel: '移除', size: 'sm', variant: 'soft' },
   )
 
   const emit = defineEmits<{ remove: [] }>()

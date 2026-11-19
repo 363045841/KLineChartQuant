@@ -1,6 +1,5 @@
 // 交互控制中心
 
-import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../foundation/config/priceAxisRangeMode.js'
 import { pointInRect, rectFromPoints } from '../../foundation/geometry/index.js'
 import { batch } from '../../foundation/reactivity/signal.js'
@@ -88,12 +87,13 @@ export class InteractionController {
    */
   private frameView: ScaleXSnapshot | null = null
   private lastHoverRenderKey = ''
-  private tooltipPositionMode: TooltipPositionMode = 'crosshair'
   private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
   tooltipSize: { width: number; height: number } = { width: 220, height: 180 }
 
-  private get settings(): ChartSettings {
-    return this.chart.kernel.settings.readonly.settings.peek()
+  private get tooltipPositionMode(): TooltipPositionMode {
+    return this.chart.kernel.settings.readonly.settings.peek().tooltipPosition === 'adaptive'
+      ? 'adaptive'
+      : 'crosshair'
   }
 
   /** 触屏长按判定时间 (ms) */
@@ -138,21 +138,9 @@ export class InteractionController {
     })
   }
 
-  /**
-   * 同步 tooltip 展示偏好，不在设置恢复期间派发价格轴命令。
-   * 业务 settings 本体在 kernel.settings；此处不再持有 plain 副本。
-   */
-  onSettingsChanged(prev: ChartSettings, next: ChartSettings): void {
-    // 'none'（不显示）不需要定位模式；显隐由宿主按设置控制，定位沿用 crosshair。
-    const nextMode: TooltipPositionMode =
-      next.tooltipPosition === 'adaptive' ? 'adaptive' : 'crosshair'
-    if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
-    this.tooltipPositionMode = nextMode
-  }
-
-  /** @deprecated Use kernel's interactionSnapshot computed directly. */
-  getInteractionSnapshot(): InteractionSnapshot {
-    return this._state.readonly.interactionSnapshot.peek()
+  /** Clear the pointer session's pinned corner when the positioning preference changes. */
+  resetTooltipPlacement(): void {
+    this.tooltipAdaptiveLock = null
   }
 
   isPointerDown(): boolean {
@@ -237,14 +225,6 @@ export class InteractionController {
     this.clearHover(true)
     this.inertiaFrame = requestAnimationFrame(advance)
     return true
-  }
-
-  /**
-   * @deprecated Interaction state is now auto-derived from the kernel module.
-   *             External consumers should subscribe to the interactionSnapshot signal.
-   */
-  setOnInteractionChange(_callback: (snapshot: InteractionSnapshot) => void): void {
-    // no-op
   }
 
   private getHoverRenderKey(): string {

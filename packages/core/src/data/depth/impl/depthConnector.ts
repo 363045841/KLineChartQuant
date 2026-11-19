@@ -28,10 +28,7 @@ import type { DepthDelta, DepthSnapshot, DepthSource } from '../types.js'
  */
 export class DepthConnector {
   private controllers = new Set<HeatmapController>()
-  private unsubDelta: (() => void) | null = null
-  private unsubSnapshot: (() => void) | null = null
-  private unsubError: (() => void) | null = null
-  private started = false
+  private subscriptions: Array<() => void> | undefined
 
   constructor(private readonly source: DepthSource) {}
 
@@ -53,48 +50,64 @@ export class DepthConnector {
   }
 
   start(): void {
-    if (this.started) return
-    this.started = true
-
-    this.unsubDelta = this.source.onDelta((deltas: ReadonlyArray<DepthDelta>) => {
-      for (const delta of deltas) {
-        for (const ctrl of this.controllers) {
-          ctrl.ingest(delta)
-        }
+    if (this.subscriptions) return
+    const subscriptions: Array<() => void> = []
+    this.subscriptions = subscriptions
+    try {
+      subscriptions.push(this.source.onDelta((deltas: readonly DepthDelta[]) => {
+        for (const delta of deltas) this.deliver((controller) => controller.ingest(delta))
+      }))
+      subscriptions.push(this.source.onSnapshot((snapshot: DepthSnapshot) => {
+        this.deliver((controller) => controller.resetBook(snapshot))
+      }))
+      subscriptions.push(this.source.onError((error) => this.reportError(error)))
+      this.source.connect()
+    } catch (error) {
+      try {
+        this.stop()
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], 'Depth connection setup and cleanup failed')
       }
-    })
+      throw error
+    }
+  }
 
-    this.unsubSnapshot = this.source.onSnapshot((snapshot: DepthSnapshot) => {
-      for (const ctrl of this.controllers) {
-        ctrl.resetBook(snapshot)
+  private reportError(error: unknown): void {
+    console.error(`[DepthConnector] ${this.source.exchange} ${this.source.symbol}:`, error)
+  }
+
+  private deliver(run: (controller: HeatmapController) => void): void {
+    for (const controller of this.controllers) {
+      try {
+        run(controller)
+      } catch (error) {
+        this.reportError(error)
       }
-    })
-
-    this.unsubError = this.source.onError((err: Error) => {
-      console.error(`[DepthConnector] ${this.source.exchange} ${this.source.symbol}:`, err.message)
-    })
-
-    this.source.connect()
+    }
   }
 
   stop(): void {
-    if (!this.started) return
-    this.started = false
-    this.source.disconnect()
-    this.unsubDelta?.()
-    this.unsubDelta = null
-    this.unsubSnapshot?.()
-    this.unsubSnapshot = null
-    this.unsubError?.()
-    this.unsubError = null
+    const subscriptions = this.subscriptions
+    if (!subscriptions) return
+    this.subscriptions = undefined
+    this.release([...subscriptions, () => this.source.disconnect()])
   }
 
   destroy(): void {
-    this.stop()
-    for (const ctrl of this.controllers) {
-      ctrl.dispose()
-    }
+    const controllers = [...this.controllers]
     this.controllers.clear()
-    this.source.destroy()
+    this.release([() => this.stop(), ...controllers.map((controller) => () => controller.dispose()), () => this.source.destroy()])
+  }
+
+  private release(cleanups: readonly (() => void)[]): void {
+    const failures: unknown[] = []
+    for (const cleanup of cleanups) {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length) throw new AggregateError(failures, 'Depth connector cleanup failed')
   }
 }

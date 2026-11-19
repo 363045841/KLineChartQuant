@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
   import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import type {
     ScriptEditorDocument,
     ScriptEditorFolder,
@@ -141,15 +141,17 @@
   const shell = computed(() => (props.mode === 'dialog' ? BaseModal : 'div'))
   const shellProps = computed(() =>
     props.mode === 'dialog'
-      ? {
+      ? ({
           open: props.open,
           title: props.title,
           width: 'min(94vw, 1040px)',
-          maxHeight: 'calc(100dvh - 48px)',
-          bodyScrollable: false,
-          surface: 'surround',
+          body: 'list',
+          style: {
+            '--base-modal-max-height': '100dvh',
+            '--base-modal-background': 'var(--klc-color-ui-surround-background)',
+          },
           'onUpdate:open': (value: boolean) => emit('update:open', value),
-        }
+        } satisfies InstanceType<typeof BaseModal>['$props'])
       : { class: 'script-editor-window' },
   )
 </script>

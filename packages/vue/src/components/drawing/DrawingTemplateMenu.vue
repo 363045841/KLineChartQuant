@@ -46,12 +46,12 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
+  import '@vue-src/components/common/menu/control-button.css'
 
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import { computed } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'

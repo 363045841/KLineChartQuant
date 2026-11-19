@@ -15,7 +15,7 @@
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import type { Signal } from '../../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { PanePlacement } from '../../foundation/types/pane.js'
 import type { Renderer } from '../render/Renderer.js'
 
@@ -324,7 +324,7 @@ export type RenderObject<TFrame = unknown> = Layer<TFrame> & {
  * 都是静默 no-op。
  */
 export interface Scene<TFrame = unknown> {
-  readonly layers: Signal<ReadonlyArray<Layer<TFrame>>>
+  readonly layers: ReadonlySignal<ReadonlyArray<Layer<TFrame>>>
 
   addLayer(layer: Layer<TFrame>): void
   /** 移除并释放指定 Layer；不存在或已销毁时返回 false。 */

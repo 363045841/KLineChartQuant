@@ -10,7 +10,6 @@
         v-if="param.type === 'select'"
         :label="param.label"
         :groups="optionGroups"
-        density="compact"
         @select="onSelect"
       >
         <template #trigger>
@@ -67,10 +66,10 @@
 </template>
 
 <script setup lang="ts">
-  import '../../../common/selection-menu.css'
-  import '../../../common/stepper-button.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
+  import '@vue-src/components/common/form/stepper-button.css'
 
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'
@@ -172,7 +171,6 @@
 
   .param-label-text {
     font-size: 14px;
-    font-weight: 600;
     line-height: 1.2;
     color: var(--klc-color-ui-text);
   }
@@ -210,7 +208,6 @@
     padding: 0 6px;
     border: 0;
     font-size: 14px;
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: center;
     color: var(--klc-color-ui-text);
@@ -237,7 +234,6 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--param-control-radius);
     text-align: left;
-    font-weight: 500;
     background: var(--klc-color-ui-control-background);
     /* 聚焦不画边框或焦点环，光标即提示。 */
     outline: none;

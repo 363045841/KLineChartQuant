@@ -1,149 +1,118 @@
-/** BaseTooltip：首个提示延迟显示，相邻提示即时显示；Esc 关闭；键盘聚焦可触发。 */
-
-import { mount } from '@vue/test-utils'
+/** Tooltip delay, description ownership, and the command tooltip adapter. */
+import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createMockChartController } from '@vue-src/__tests__/_mockController.js'
-import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
+import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
 import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
-import {
-  bindChartCommandScope,
-  provideChartCommands,
-} from '@vue-src/composables/commands/useCommands.js'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { bindChartCommandScope, provideChartCommands } from '@vue-src/composables/commands/useCommands.js'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { resetTooltipGroup } from '../useTooltip.js'
 
-const Pair = defineComponent({
-  setup() {
-    return () =>
-      h('div', [
-        h(BaseTooltip, { content: '复制' }, () => h('button', { id: 'a', 'aria-label': '复制' })),
-        h(BaseTooltip, { content: '删除' }, () => h('button', { id: 'b', 'aria-label': '删除' })),
-      ])
-  },
+enableAutoUnmount(afterEach)
+
+beforeEach(() => {
+  resetTooltipGroup()
+  vi.useFakeTimers()
 })
 
-function trigger(id: string): HTMLElement {
-  return document.getElementById(id)?.parentElement as HTMLElement
+afterEach(() => vi.useRealTimers())
+
+function pointer(target: Element, event: 'pointerenter' | 'pointerleave'): void {
+  target.dispatchEvent(new PointerEvent(event))
 }
 
-/** 只收集有内容的提示；未展开的提示节点存在但不渲染内容。 */
-function tooltipTexts(): string[] {
-  return [...document.querySelectorAll('[role="tooltip"]')]
-    .map((el) => el.textContent ?? '')
-    .filter((text) => text.length > 0)
+function visibleTips(): string[] {
+  return Array.from(document.querySelectorAll('[role="tooltip"].is-open'), (element) => element.textContent?.trim() ?? '')
 }
 
-describe('BaseTooltip 分组延迟', () => {
-  beforeEach(() => {
-    resetTooltipGroup()
-    vi.useFakeTimers()
+async function advance(ms: number): Promise<void> {
+  vi.advanceTimersByTime(ms)
+  await nextTick()
+}
+
+it('delays the first tooltip and immediately opens a nearby one', async () => {
+  const wrapper = mount(defineComponent(() => () => h('div', ['Copy', 'Delete'].map((content) =>
+    h(BaseTooltip, { content }, () => h('button', content)),
+  ))), { attachTo: document.body })
+  const [first, second] = wrapper.findAll('.base-tooltip__trigger')
+  if (!first || !second) throw new Error('Missing tooltip triggers')
+  pointer(first.element, 'pointerenter')
+  await advance(299)
+  expect(visibleTips()).toEqual([])
+  await advance(1)
+  expect(visibleTips()).toEqual(['Copy'])
+  pointer(first.element, 'pointerleave')
+  pointer(second.element, 'pointerenter')
+  await nextTick()
+  expect(visibleTips()).toContain('Delete')
+  await advance(120)
+  expect(visibleTips()).toEqual(['Delete'])
+})
+
+it('stays open as the pointer crosses into the tip and closes on Escape', async () => {
+  const wrapper = mount(BaseTooltip, {
+    attachTo: document.body,
+    props: { content: 'Copy changes' },
+    slots: { default: () => h('button', 'Copy') },
   })
+  const trigger = wrapper.get('.base-tooltip__trigger').element
+  pointer(trigger, 'pointerenter')
+  await advance(300)
+  const panel = document.querySelector('[role="tooltip"]')
+  if (!panel) throw new Error('Missing tooltip panel')
+  pointer(trigger, 'pointerleave')
+  pointer(panel, 'pointerenter')
+  await advance(150)
+  expect(visibleTips()).toEqual(['Copy changes'])
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+  await nextTick()
+  expect(visibleTips()).toEqual([])
+})
 
-  it('首个提示等待 showDelay，移到相邻触发器时立即显示', async () => {
-    const wrapper = mount(Pair, { attachTo: document.body })
-    trigger('a').dispatchEvent(new PointerEvent('pointerenter'))
-    await nextTick()
-    expect(tooltipTexts()).toEqual([])
-    vi.advanceTimersByTime(300)
-    await nextTick()
-    expect(tooltipTexts()).toEqual(['复制'])
-
-    trigger('a').dispatchEvent(new PointerEvent('pointerleave'))
-    trigger('b').dispatchEvent(new PointerEvent('pointerenter'))
-    await nextTick()
-    vi.advanceTimersByTime(0)
-    await nextTick()
-    expect(tooltipTexts()).toContain('删除')
-    wrapper.unmount()
+it('tracks disabled triggers and preserves caller-owned descriptions', async () => {
+  const wrapper = mount(BaseTooltip, {
+    attachTo: document.body,
+    props: { content: 'Help' },
+    slots: { default: () => h('button', { disabled: true, 'aria-describedby': 'other' }) },
   })
+  const button = wrapper.get('button').element
+  const trigger = wrapper.get('.base-tooltip__trigger').element
+  await nextTick()
+  const tooltipId = document.querySelector('[role="tooltip"]')?.id
+  expect(button.getAttribute('aria-describedby')).toBe(`other ${tooltipId}`)
+  pointer(trigger, 'pointerenter')
+  await advance(300)
+  expect(visibleTips()).toEqual([])
+  button.disabled = false
+  button.setAttribute('aria-describedby', 'changed')
+  pointer(trigger, 'pointerenter')
+  await advance(300)
+  expect(visibleTips()).toEqual(['Help'])
+  expect(button.getAttribute('aria-describedby')).toBe(`changed ${tooltipId}`)
+  await wrapper.setProps({ content: '' })
+  expect(visibleTips()).toEqual([])
+  expect(button.getAttribute('aria-describedby')).toBe('changed')
+})
 
-  it('Esc 关闭当前提示', async () => {
-    const wrapper = mount(Pair, { attachTo: document.body })
-    trigger('a').dispatchEvent(new PointerEvent('pointerenter'))
-    vi.advanceTimersByTime(300)
-    await nextTick()
-    expect(tooltipTexts()).toEqual(['复制'])
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    await nextTick()
-    vi.advanceTimersByTime(200)
-    await nextTick()
-    expect(tooltipTexts()).toEqual([])
-    wrapper.unmount()
-  })
-
-  it('控件禁用时不提示，重新启用后恢复', async () => {
-    const wrapper = mount(BaseTooltip, {
-      attachTo: document.body,
-      props: { content: '删除' },
-      slots: { default: () => h('button', { id: 'd', disabled: true }) },
-    })
-    await nextTick()
-    const trigger = wrapper.get('.base-tooltip__trigger').element
-    trigger.dispatchEvent(new PointerEvent('pointerenter'))
-    vi.advanceTimersByTime(400)
-    await nextTick()
-    // 禁用控件点不动，说明它做什么只是噪音。
-    expect(tooltipTexts()).toEqual([])
-
-    const button = document.getElementById('d') as HTMLButtonElement
-    button.disabled = false
-    await nextTick()
-    trigger.dispatchEvent(new PointerEvent('pointerenter'))
-    vi.advanceTimersByTime(400)
-    await nextTick()
-    expect(tooltipTexts()).toEqual(['删除'])
-    wrapper.unmount()
-  })
-
-  it('提示通过 aria-describedby 关联到可聚焦控件，空内容不渲染', async () => {
-    const wrapper = mount(Pair, { attachTo: document.body })
-    await nextTick()
-    const button = document.getElementById('a') as HTMLElement
-    const describedBy = button.getAttribute('aria-describedby')
-    expect(describedBy).toBeTruthy()
-    // 描述目标就是提示面板本身，读屏在聚焦控件时能读到提示内容。
-    expect(document.getElementById(describedBy!)?.getAttribute('role')).toBe('tooltip')
-    wrapper.unmount()
-
-    const empty = mount(BaseTooltip, {
-      attachTo: document.body,
-      slots: { default: () => h('button', { id: 'c' }) },
-    })
-    await nextTick()
-    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(0)
-    expect(document.getElementById('c')?.hasAttribute('aria-describedby')).toBe(false)
-    empty.unmount()
-  })
-
-  it('关联命令时在提示里展示该命令的平台化快捷键', async () => {
-    const controller = createMockChartController()
-    const Host = defineComponent({
-      setup() {
-        const root = ref<HTMLElement | null>(null)
-        const registry = provideChartCommands()
-        bindChartCommandScope(registry, root)
-        registry.register(
-          createChartCommands({
-            controller: () => controller,
-            openPalette: vi.fn(),
-            toggleFullscreen: vi.fn(),
-            openSettings: vi.fn(),
-            screenshot: vi.fn(),
-          }),
-        )
-        return () =>
-          h('div', { ref: root }, [
-            h(BaseTooltip, { content: '放大', command: 'view.zoomIn' }, () =>
-              h('button', { id: 'z', 'aria-label': '放大' }),
-            ),
-          ])
-      },
-    })
-    const wrapper = mount(Host, { attachTo: document.body })
-    trigger('z').dispatchEvent(new PointerEvent('pointerenter'))
-    vi.advanceTimersByTime(300)
-    await nextTick()
-    expect(tooltipTexts()).toEqual(['放大Ctrl+↑'])
-    wrapper.unmount()
-  })
+it('appends the registered platform shortcut through CommandTooltip', async () => {
+  const controller = createMockChartController()
+  const wrapper = mount(defineComponent(() => {
+    const root = ref<HTMLElement | null>(null)
+    const registry = provideChartCommands()
+    bindChartCommandScope(registry, root)
+    registry.register(createChartCommands({
+      controller: () => controller,
+      openPalette: vi.fn(),
+      toggleFullscreen: vi.fn(),
+      openSettings: vi.fn(),
+      screenshot: vi.fn(),
+    }))
+    return () => h('div', { ref: root }, [
+      h(CommandTooltip, { content: '放大', command: 'view.zoomIn' }, () => h('button', '放大')),
+    ])
+  }), { attachTo: document.body })
+  pointer(wrapper.get('.base-tooltip__trigger').element, 'pointerenter')
+  await advance(300)
+  expect(visibleTips()).toEqual(['放大Ctrl+↑'])
 })

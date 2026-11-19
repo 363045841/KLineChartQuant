@@ -59,10 +59,10 @@
 <script setup lang="ts">
   import './agent-icon-button.css'
 
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SidePanelHeader from '../../side-panel/SidePanelHeader.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import type { AgentLocale } from '../agent-copy.js'

@@ -1,23 +1,20 @@
 <template>
-  <BaseModal
+  <BaseModal body="fixed-form"
     :open="providerSettings.open"
     :title="text.settings"
     size="xl"
-    body-padded
-    :body-scrollable="false"
     @update:open="!$event && closeProviderSettings()"
   >
     <template #tabs>
-      <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.settings" />
+      <BaseTabs v-model="activeTab" :tabs="agentTabs" :panel-id="panelId" :aria-label="text.settings" />
     </template>
 
     <div class="settings agent-settings-selects">
-      <div class="settings__body">
+      <div v-bind="panelAttrs" class="settings__body">
         <!-- ───────────── Provider ───────────── -->
         <section
           v-if="activeTab === 'provider'"
           class="provider"
-          role="tabpanel"
         >
           <aside class="provider__rail" :aria-label="text.providerProfile">
             <header class="rail__title">{{ text.providerProfile }}</header>
@@ -101,7 +98,6 @@
                   :groups="protocolGroups"
                   class="protocol-control"
                   fill
-                  density="compact"
                   @select="selectProtocol"
                 >
                   <template #trigger>
@@ -140,8 +136,6 @@
                   class="field__mono"
                   variant="underline"
                   size="sm"
-                  :min-rows="3"
-                  :max-rows="8"
                   spellcheck="false"
                   :placeholder="text.additionalHeadersPlaceholder"
                   @blur="providerSettings.persistConnection()"
@@ -190,12 +184,12 @@
                 <li v-for="model in filteredModels" :key="model.id" class="model">
                   <span class="model__name" :title="model.name">{{ model.name }}</span>
                   <span class="model__meta">
-                    <BaseChip v-if="model.contextWindow" size="sm">
+                    <BaseChip v-if="model.contextWindow">
                       {{ formatContextWindow(model.contextWindow) }}
                     </BaseChip>
                     <ToggleSwitch
                       :model-value="modelPoolIds.has(model.id)"
-                      :aria-label="`${text.modelPool}: ${model.name}`"
+                      :label="`${text.modelPool}: ${model.name}`"
                       size="compact"
                       @update:model-value="setModelPoolMembership(model.id, $event)"
                     />
@@ -208,7 +202,7 @@
         </section>
 
         <!-- ───────────── Tools ───────────── -->
-        <section v-else-if="activeTab === 'tools'" class="tools" role="tabpanel">
+        <section v-else-if="activeTab === 'tools'" class="tools">
           <template v-if="providerSettings.tools.length">
             <article v-for="tool in providerSettings.tools" :key="tool.name" class="card tool">
               <header class="tool__head">
@@ -218,7 +212,7 @@
                 </span>
                 <ToggleSwitch
                   :model-value="tool.enabled"
-                  :aria-label="tool.label"
+                  :label="tool.label"
                   @update:model-value="setToolEnabled(tool.name, $event)"
                 />
               </header>
@@ -252,7 +246,6 @@
                   :model-value="providerSettings.toolInputs[tool.name] ?? '{}'"
                   class="field__mono"
                   size="sm"
-                  :min-rows="3"
                   :max-rows="12"
                   spellcheck="false"
                   :aria-label="`${tool.label} ${text.toolParameters}`"
@@ -284,7 +277,7 @@
         </section>
 
         <!-- ───────────── Interface ───────────── -->
-        <section v-else class="interface" role="tabpanel">
+        <section v-else class="interface">
           <div class="card interface__list">
             <div class="row">
               <span class="row__label">{{ text.language }}</span>
@@ -292,7 +285,6 @@
                 class="language-control"
                 :label="text.language"
                 :groups="languageGroups"
-                density="compact"
                 @select="(_groupId, value) => setLocale(value)"
               >
                 <template #trigger>
@@ -305,7 +297,7 @@
               <span class="row__label">{{ text.collapseReasoning }}</span>
               <ToggleSwitch
                 :model-value="collapseReasoning"
-                :aria-label="text.collapseReasoning"
+                :label="text.collapseReasoning"
                 @update:model-value="emit('update:collapseReasoning', $event)"
               />
             </div>
@@ -329,16 +321,17 @@
 </template>
 
 <script setup lang="ts">
-  import '../../../components/common/selection-menu.css'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseInput from '@vue-src/components/common/BaseInput.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import SearchField from '@vue-src/components/common/form/SearchField.vue'
   import { computed, ref, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconChevronDown from '~icons/tabler/chevron-down'
@@ -347,9 +340,9 @@
   import IconRefresh from '~icons/tabler/refresh'
   import IconStack from '~icons/tabler/stack-2'
   import IconTrash from '~icons/tabler/trash'
-  import BaseTextarea from '../../../components/common/BaseTextarea.vue'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
-  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
+  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
@@ -384,6 +377,7 @@
   const profileEditor = ref<ProfileEditor>(null)
   const profileNameDraft = ref('')
   const activeTab = ref<SettingsTab>('provider')
+  const { panelId, panelAttrs } = useTabPanel(() => activeTab.value)
   const modelSearch = ref('')
 
   const text = computed(() => getAgentCopy(props.locale))
@@ -656,7 +650,6 @@
   .field__label {
     color: var(--klc-color-ui-muted);
     font-size: 11px;
-    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
@@ -682,7 +675,7 @@
   }
 
   .field__mono {
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
   }
 
@@ -713,7 +706,6 @@
     padding: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
     font-size: 11px;
-    font-weight: 600;
     letter-spacing: 0.04em;
   }
 
@@ -796,7 +788,6 @@
   .protocol-control .selection-menu__value {
     flex: 1 1 auto;
     font-size: 11px;
-    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-align: left;
   }
 
@@ -915,7 +906,6 @@
 
   .tool__text strong {
     font-size: 13px;
-    font-weight: 600;
   }
 
   .tool__text small {
@@ -970,7 +960,10 @@
     border-radius: 8px;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
-    font: var(--klc-font-weight-mono) 11px/1.5 var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
+    font-size: var(--klc-text-11-mono-font-size, 11px);
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -994,9 +987,6 @@
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
-  .row__label {
-    font-weight: 500;
-  }
 
   /* ───────── 错误提示 ───────── */
   .alert {
@@ -1029,9 +1019,6 @@
     font: inherit;
   }
 
-  .alert strong {
-    font-weight: 600;
-  }
 
 /* ───────── 窄屏 ───────── */
   @media (max-width: 640px) {

@@ -16,6 +16,7 @@ const buildCommit = resolveBuildCommit()
 
 export default defineConfig({
   define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
     'import.meta.env.VITE_KLINE_COMMIT_HASH': JSON.stringify(buildCommit.hash),
     'import.meta.env.VITE_KLINE_COMMIT_TIME': JSON.stringify(buildCommit.time),
   },

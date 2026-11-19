@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/settings-item.css'
+  import '@vue-src/components/common/settings-item.css'
 
   const emit = defineEmits<{ select: [] }>()
 </script>

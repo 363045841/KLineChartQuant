@@ -492,12 +492,13 @@ export interface SpacingTokens {
  * Typography stack. Renderers compose a font shorthand from these.
  */
 export interface TypographyTokens {
-  readonly fontFamily: string // 界面字体栈；拉丁字走系统字体，中文回退到随包的 HarmonyOS Sans
+  readonly fontFamily: string // 界面字体栈，优先使用随包的 HarmonyOS Sans
   readonly fontFamilyMono: string // JetBrains Mono first, for code / numeric content
   readonly fontSizeSm: CssLength // '10px' (axis ticks)
   readonly fontSizeMd: CssLength // '12px' (default body)
   readonly fontSizeLg: CssLength // '14px' (legends)
-  readonly fontWeightBold: number // 700
+  /** @deprecated Use foundation.fontWeight.ui for UI text. */
+  readonly fontWeightBold: number
   readonly lineHeightTight: number // 1.2
   readonly lineHeightStandard: number // 1.4
 }
@@ -527,7 +528,7 @@ export interface TextStyleTokens {
   /** px for UI sizes; a unitless ratio for display sizes (72 → 0.9). */
   readonly lineHeight: CssLength | number
   readonly letterSpacing: CssLength
-  /** 只在角色层声明（label 固定 500）；纯尺寸档不再携带字重。 */
+  /** Existing weight keys resolve to the shared font role. */
   readonly fontWeight?: number
 }
 
@@ -628,6 +629,8 @@ export interface BrandTokens {
  * 值是完整 CSS 字体栈，可直接交给 `font-family` 或 Canvas `ctx.font`。
  */
 export interface FontFamilyTokens {
+  readonly ui: string
+  readonly mono: string
   /** 品牌字体（Outfit），用于截图水印品牌字与图表角标。 */
   readonly brand: string
   /** 品牌字的中文回退（HarmonyOS Sans），用于截图水印里的中文品种名。 */
@@ -645,6 +648,7 @@ export interface FoundationTokens {
   readonly breakpoint: BreakpointTokens
   readonly brand: BrandTokens
   readonly fontFamily: FontFamilyTokens
+  readonly fontWeight: Readonly<Record<keyof FontFamilyTokens, number>>
 }
 
 /**

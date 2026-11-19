@@ -16,7 +16,7 @@
  */
 
 import { KLineChartError, SCALE_ERROR_CODES } from '../../errors.js'
-import { createSignal } from '../../foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '../../foundation/reactivity/signal.js'
 
 import type { TimeScale, TimeScaleConfig } from '../types.js'
 
@@ -25,7 +25,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
   const initialBarWidth = config.initialBarWidth ?? 8
   const initialLeftPadding = config.initialLeftPadding ?? 0
 
-  if (!(initialBarWidth > 0)) {
+  if (!Number.isFinite(initialBarWidth) || initialBarWidth <= 0) {
     throw new KLineChartError(
       SCALE_ERROR_CODES.BAR_WIDTH_INVALID,
       `createTimeScale: initialBarWidth must be > 0, got ${initialBarWidth}`,
@@ -54,9 +54,9 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
   const guard = (): boolean => !disposed
 
   const scale: TimeScale = {
-    firstVisibleIndex,
-    barWidth,
-    leftPadding,
+    firstVisibleIndex: asReadonlySignal(firstVisibleIndex),
+    barWidth: asReadonlySignal(barWidth),
+    leftPadding: asReadonlySignal(leftPadding),
 
     xToBarIndex(x: number): number {
       // We deliberately read with `.peek()` here — these methods are pure
@@ -81,7 +81,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
 
     setBarWidth(w: number): void {
       if (!guard()) return
-      if (!(w > 0)) {
+      if (!Number.isFinite(w) || w <= 0) {
         throw new KLineChartError(
           SCALE_ERROR_CODES.BAR_WIDTH_INVALID,
           `TimeScale.setBarWidth: barWidth must be > 0, got ${w}`,

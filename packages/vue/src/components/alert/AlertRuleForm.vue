@@ -271,7 +271,7 @@
           <span class="rule-form-advanced-label">单次触发</span>
           <span class="rule-form-advanced-hint">触发后自动禁用本规则</span>
         </div>
-        <ToggleSwitch v-model="draftOneShot" aria-label="单次触发" />
+        <ToggleSwitch v-model="draftOneShot" label="单次触发" />
       </div>
 
       <div class="rule-form-advanced-divider"></div>
@@ -334,7 +334,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/stepper-button.css'
+  import '@vue-src/components/common/form/stepper-button.css'
 
   import type {
     AlertPredicate,
@@ -342,7 +342,7 @@
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
-  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { computed, reactive, ref } from 'vue'
   import IconTablerArrowDown from '~icons/tabler/arrow-down'
   import IconTablerArrowUp from '~icons/tabler/arrow-up'
@@ -569,7 +569,6 @@
 
   .rule-form-label {
     font-size: 10px;
-    font-weight: 700;
     color: var(--klc-color-ui-muted);
     letter-spacing: 0.06em;
   }
@@ -645,7 +644,6 @@
     top: 50%;
     transform: translateY(-50%);
     font-size: 11px;
-    font-weight: 600;
     color: var(--klc-color-ui-muted);
     pointer-events: none;
     user-select: none;
@@ -675,7 +673,6 @@
     background: var(--klc-color-ui-background);
     color: var(--klc-color-ui-muted);
     font-size: 12px;
-    font-weight: 500;
     cursor: pointer;
     transition:
       background 0.15s,
@@ -773,7 +770,6 @@
 
   .rule-form-advanced-label {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 
@@ -799,7 +795,6 @@
     padding: 7px 16px;
     border-radius: 7px;
     font-size: 12px;
-    font-weight: 600;
     cursor: pointer;
     transition:
       background 0.15s,
@@ -842,4 +837,3 @@
     cursor: not-allowed;
   }
 </style>
-

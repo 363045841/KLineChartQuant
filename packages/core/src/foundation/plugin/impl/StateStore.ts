@@ -3,10 +3,18 @@
  * 用于渲染器间的状态共享
  */
 import type { BaseIndicatorState } from '../types.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 
 export class StateStore {
-  private states: Map<string, BaseIndicatorState> = new Map()
-  private ownerNamespaces: Map<string, Set<string>> = new Map()
+  private readonly states = new Map<string, BaseIndicatorState>()
+  private readonly owners = new Map<string, string>()
+
+  private requireOwnership(namespace: string, ownerId?: string): void {
+    const owner = this.owners.get(namespace)
+    if (owner !== undefined && owner !== ownerId) {
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `State namespace "${namespace}" is owned by "${owner}"`)
+    }
+  }
 
   /**
    * 设置状态
@@ -15,6 +23,8 @@ export class StateStore {
    * @param ownerId 可选的拥有者 ID（用于冲突检测）
    */
   setState<T extends BaseIndicatorState>(namespace: string, state: T, ownerId?: string): void {
+    this.requireOwnership(namespace, ownerId)
+    if (ownerId !== undefined) this.owners.set(namespace, ownerId)
     this.states.set(namespace, state)
   }
 
@@ -41,7 +51,8 @@ export class StateStore {
    * @param namespaces 声明的命名空间列表
    */
   registerStateOwner(ownerId: string, namespaces: string[]): void {
-    this.ownerNamespaces.set(ownerId, new Set(namespaces))
+    for (const namespace of namespaces) this.requireOwnership(namespace, ownerId)
+    for (const namespace of namespaces) this.owners.set(namespace, ownerId)
   }
 
   /**
@@ -49,17 +60,10 @@ export class StateStore {
    * @param ownerId 拥有者 ID
    */
   clearByOwner(ownerId: string): void {
-    const namespaces = this.ownerNamespaces.get(ownerId)
-    if (namespaces) {
-      namespaces.forEach((ns) => {
-        this.states.delete(ns)
-        if (import.meta.env?.DEV) {
-          console.debug(`[StateStore] Cleared state: ${ns} (owner: ${ownerId})`)
-        }
-      })
-      this.ownerNamespaces.delete(ownerId)
-    } else if (import.meta.env?.DEV) {
-      console.warn(`[StateStore] Attempted to clear state for unknown owner: ${ownerId}`)
+    for (const [namespace, owner] of this.owners) {
+      if (owner !== ownerId) continue
+      this.states.delete(namespace)
+      this.owners.delete(namespace)
     }
   }
 
@@ -68,6 +72,6 @@ export class StateStore {
    */
   clear(): void {
     this.states.clear()
-    this.ownerNamespaces.clear()
+    this.owners.clear()
   }
 }

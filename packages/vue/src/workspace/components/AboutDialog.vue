@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import IconBrandGithub from '~icons/tabler/brand-github'
   import { APP_GITHUB_URL, APP_NAME, APP_VERSION } from '../impl/appMetadata.js'
   import KcqLogo from './KcqLogo.vue'
@@ -67,7 +67,6 @@
     margin: 0;
     font-size: 1rem;
     line-height: 1.4;
-    font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-text);
   }
   .about-dialog__version {

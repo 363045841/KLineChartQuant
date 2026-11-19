@@ -40,7 +40,8 @@
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Public shape
@@ -101,7 +102,7 @@ export interface ShortcutDef<TArgs = unknown> {
 
 export interface ShortcutRegistry {
   /** Read-only signal of all currently-registered shortcuts. */
-  readonly shortcuts: Signal<ReadonlyArray<ShortcutDef>>
+  readonly shortcuts: ReadonlySignal<ReadonlyArray<ShortcutDef>>
   register<TArgs = unknown>(def: ShortcutDef<TArgs>): void
   unregister(id: string): void
   /** Lookup by raw combo string (normalised). */
@@ -325,11 +326,11 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
 
   const byCanonical = new Map<string, ShortcutDef>()
   const byId = new Map<string, string>() // id → canonical
-  const shortcuts = createSignal<ReadonlyArray<ShortcutDef>>([])
+  const shortcuts = createSignal<ReadonlyArray<ShortcutDef>>(Object.freeze([]))
   let disposed = false
 
   function publish(): void {
-    shortcuts.set([...byCanonical.values()])
+    shortcuts.set(Object.freeze([...byCanonical.values()]))
   }
 
   function register<TArgs>(def: ShortcutDef<TArgs>): void {
@@ -353,7 +354,7 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
     if (prevCanonical !== undefined && prevCanonical !== canonical) {
       byCanonical.delete(prevCanonical)
     }
-    byCanonical.set(canonical, def as ShortcutDef)
+    byCanonical.set(canonical, Object.freeze({ ...def }))
     byId.set(def.id, canonical)
     publish()
   }
@@ -396,7 +397,7 @@ export function createShortcutRegistry(opts?: ShortcutRegistryOptions): Shortcut
   }
 
   return {
-    shortcuts,
+    shortcuts: asReadonlySignal(shortcuts),
     register,
     unregister,
     findByCombo,

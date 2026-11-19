@@ -19,7 +19,7 @@
 
 import type { DrawingToolId } from '@/engine/drawing/index.js'
 import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
-import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type { DrawingController, DrawingInit, DrawingState } from '../types.js'
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ export function createDrawingController(init?: DrawingInit): DrawingController {
   const { dispose, guard } = createDisposeGuard()
 
   return {
-    state,
+    state: asReadonlySignal(state),
     setActiveTool: guard(setActiveTool),
     clearAll: guard(clearAll),
     deleteLast: guard(deleteLast),

@@ -1,11 +1,12 @@
 /** 将 chart-main 与底部水印统一导出为 PNG，供下载和剪贴板共用。 */
+import { lightFoundation } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref } from 'vue'
 import {
   BRAND_MARK_PATH,
   BRAND_MARK_STROKE_WIDTH,
   BRAND_MARK_VIEWBOX,
-} from '../../brandMark.js'
+} from '@vue-src/brandMark.js'
 import { captureChartImage } from './captureChartImage.js'
 
 export const chartScreenshotLabels = {
@@ -44,22 +45,6 @@ const WATERMARK_SEPARATOR = ' · '
 const WATERMARK_HORIZONTAL_PADDING = 16
 const WATERMARK_LINE_GAP = 12
 const WATERMARK_FONT_SIZE = 20
-const WATERMARK_FONT_WEIGHT = 600
-const WATERMARK_NAME_FONT_WEIGHT = 500
-/** 品牌与水印字体族来自 Theme Token，随包自托管，不依赖宿主系统。 */
-const WATERMARK_BRAND_FONT_TOKEN = '--klc-font-family-brand'
-const WATERMARK_NAME_FONT_TOKEN = '--klc-font-family-brand-cjk'
-/** FontFace 注册名，必须与 --klc-font-family-brand-cjk 的首选族一致。 */
-const WATERMARK_CJK_FONT_FAMILY = 'HarmonyOS Sans'
-let harmonyFontPromise: Promise<readonly FontFace[]> | undefined
-
-/** 首次截图时等待随包字体就绪；字体由 fonts.css 的 @font-face 注册，这里不重复嵌入字形。 */
-function loadHarmonyFont(): Promise<readonly FontFace[]> {
-  harmonyFontPromise ??= document.fonts.load(
-    `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px "${WATERMARK_CJK_FONT_FAMILY}"`,
-  )
-  return harmonyFontPromise
-}
 
 /** 将 Canvas 编码为 PNG Blob，编码失败时拒绝 Promise。 */
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -208,13 +193,14 @@ async function createScreenshot(
 ): Promise<HTMLCanvasElement> {
   const instrumentText = [name.trim(), symbol.trim()].filter(Boolean).join(WATERMARK_SEPARATOR)
   const styles = getComputedStyle(element)
-  const brandFamily = styles.getPropertyValue(WATERMARK_BRAND_FONT_TOKEN).trim()
-  const instrumentFamily = styles.getPropertyValue(WATERMARK_NAME_FONT_TOKEN).trim()
-  const brandFont = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${brandFamily}`
-  const instrumentFont = `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${instrumentFamily}`
+  const { fontFamily, fontWeight } = lightFoundation
+  const brandFont = `${fontWeight.brand} ${WATERMARK_FONT_SIZE}px ${fontFamily.brand}`
+  const instrumentFont = `${fontWeight.brandCjk} ${WATERMARK_FONT_SIZE}px ${fontFamily.brandCjk}`
   // 品种信息与品牌分行呈现，字体准备完成后再绘制，避免中文使用系统替代字形。
-  await Promise.all([document.fonts.load(brandFont, WATERMARK_TEXT), loadHarmonyFont()])
-  await document.fonts.load(instrumentFont, instrumentText)
+  await Promise.all([
+    document.fonts.load(brandFont, WATERMARK_TEXT),
+    document.fonts.load(instrumentFont, instrumentText),
+  ])
   const backgroundColor = styles.getPropertyValue(CHART_BACKGROUND_TOKEN).trim()
   const { image, scale } = await captureFrame(async (frame) => ({
     image: await captureChartImage(element, frame, backgroundColor),
@@ -232,8 +218,8 @@ async function createScreenshot(
     scale,
     WATERMARK_TEXT,
     styles.getPropertyValue(WATERMARK_BRAND_TEXT_TOKEN).trim(),
-    brandFamily,
-    WATERMARK_FONT_WEIGHT,
+    fontFamily.brand,
+    fontWeight.brand,
   )
   const watermarkTextToken =
     styles.colorScheme === 'dark' ? WATERMARK_DARK_TEXT_TOKEN : WATERMARK_LIGHT_TEXT_TOKEN
@@ -242,8 +228,8 @@ async function createScreenshot(
     scale,
     instrumentText,
     styles.getPropertyValue(watermarkTextToken).trim(),
-    instrumentFamily,
-    WATERMARK_NAME_FONT_WEIGHT,
+    fontFamily.brandCjk,
+    fontWeight.brandCjk,
   )
   const instrumentTop = footerTop + padding
   const brandTop = instrumentTop + instrument.height + Math.round(WATERMARK_LINE_GAP * scale)

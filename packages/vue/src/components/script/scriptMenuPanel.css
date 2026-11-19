@@ -94,7 +94,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--klc-color-ui-muted);
-  font-family: var(--klc-typography-font-family-mono);
+  font-family: var(--klc-font-family-mono);
   font-size: var(--klc-text-12-font-size, 12px);
   font-weight: var(--klc-font-weight-mono);
 }

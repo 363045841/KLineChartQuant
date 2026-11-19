@@ -1,11 +1,10 @@
 <!-- 指标选择弹窗：贴边搜索与 Compact 条目列表，类型通过胶囊标注。 -->
 <template>
   <div class="indicator-selector">
-    <BaseModal
+    <BaseModal body="list"
       :open="menuOpen"
       :title="modalTitle"
       size="lg"
-      :body-scrollable="false"
       @update:open="!$event && closeMenu()"
     >
       <template #tabs>
@@ -13,7 +12,6 @@
           :model-value="searchQuery"
           placeholder="搜索指标名称..."
           aria-label="搜索指标"
-          autofocus
           @update:model-value="controller.setSearchQuery"
         >
           <BaseButton v-if="scriptsEnabled !== false && section === INDICATOR_SELECTOR_SECTIONS.scripts" @click="createScript">
@@ -99,7 +97,7 @@
                     </BasePopover>
                   </span>
                   <span class="item-tags">
-                    <BaseChip size="sm">{{ indicator.role === INDICATOR_ROLE.MAIN ? '主图' : '副图' }}</BaseChip>
+                    <BaseChip>{{ indicator.role === INDICATOR_ROLE.MAIN ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
@@ -175,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/modal-list.css'
+  import '@vue-src/components/common/dialog/modal-list.css'
 
   import {
     type ChartController,
@@ -185,15 +183,15 @@
     type IndicatorRole,
     indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BasePopover from '@vue-src/components/common/BasePopover.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
-  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
+  import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {
@@ -502,7 +500,6 @@
     gap: var(--klc-space-4, 4px);
     min-width: 0;
     font-size: 12px;
-    font-weight: 500;
     color: var(--klc-color-foreground);
   }
 
@@ -523,7 +520,6 @@
   .item-name {
     margin-left: var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
-    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 
   /* 类型列：胶囊在自己的列内水平居中。 */
@@ -569,7 +565,6 @@
   .indicator-description__title {
     margin: 0 0 var(--klc-space-4, 4px);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 
@@ -581,4 +576,3 @@
   }
 
 </style>
-

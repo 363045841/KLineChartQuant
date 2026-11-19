@@ -31,12 +31,12 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/settings-item.css'
+  import '@vue-src/components/common/settings-item.css'
 
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { readSetting, writeSetting } from '@363045841yyt/klinechart-core/config'
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import { useFootprintSettings } from '@vue-src/composables/chart/useFootprintSettings.js'
   import SettingsItemRow from './SettingsItemRow.vue'
 
@@ -50,4 +50,3 @@
     () => props.initialSettings,
   )
 </script>
-

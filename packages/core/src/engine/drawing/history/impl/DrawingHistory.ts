@@ -1,4 +1,4 @@
-import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import type { DrawingObject } from '../../types.js'
 import type {
   DrawingDocumentSnapshot,
@@ -64,8 +64,8 @@ export class DrawingHistory implements DrawingHistoryPort {
   private readonly redoStack: DrawingChange[] = []
   private readonly canUndoSignal = createSignal(false)
   private readonly canRedoSignal = createSignal(false)
-  readonly canUndo: ReadonlySignal<boolean> = this.canUndoSignal
-  readonly canRedo: ReadonlySignal<boolean> = this.canRedoSignal
+  readonly canUndo = asReadonlySignal(this.canUndoSignal)
+  readonly canRedo = asReadonlySignal(this.canRedoSignal)
   private writing = false
   private expected: ReadonlyArray<DrawingObject>
   private readonly unsubscribe: () => void
@@ -108,9 +108,10 @@ export class DrawingHistory implements DrawingHistoryPort {
         try {
           this.document.restoreSnapshot(before.drawings, before.selectedIds)
           this.requestDraw()
-        } catch {
+        } catch (rollbackError) {
           // If rollback itself fails, never replay history against an unknown document.
           this.reset()
+          throw new AggregateError([error, rollbackError], 'Drawing mutation and rollback failed')
         }
         this.expected = this.document.snapshot().drawings
       }

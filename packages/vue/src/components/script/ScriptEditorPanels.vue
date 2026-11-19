@@ -24,6 +24,7 @@
       <BaseTabs
         :model-value="activePanel"
         :tabs="panelTabs"
+        :panel-id="panelId"
         variant="compact"
         aria-label="编辑器面板"
         @update:model-value="selectPanel"
@@ -51,7 +52,7 @@
         </BaseTooltip>
       </div>
     </div>
-    <OverlayScrollArea persistent :id="panelId" ref="scrollArea" role="tabpanel" aria-label="编辑器面板内容" tabindex="0" class="script-output__content" :class="{ 'is-collapsed': !expanded }" :inert="!expanded" :style="{ height: expanded ? `${height}px` : '0px' }" @scroll="onScroll" @transitionend="onPanelTransitionEnd">
+    <OverlayScrollArea persistent v-bind="panelAttrs" ref="scrollArea" tabindex="0" class="script-output__content" :class="{ 'is-collapsed': !expanded }" :inert="!expanded" :style="{ height: expanded ? `${height}px` : '0px' }" @scroll="onScroll" @transitionend="onPanelTransitionEnd">
       <template v-if="activePanel === 'output'">
       <BaseEmptyState v-if="!logs.length" size="compact">暂无输出</BaseEmptyState>
       <ScriptOutputEntry
@@ -74,12 +75,13 @@
 </template>
 
 <script setup lang="ts">
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import { type LogEvent, SCRIPT_OUTPUT_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import OverlayScrollArea from '@vue-src/components/common/OverlayScrollArea.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import OverlayScrollArea from '@vue-src/components/common/scroll/OverlayScrollArea.vue'
   import { useScriptEditorPanels } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorPanels.js'
   import type { ScriptEditorProblem } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { computed, useId, useTemplateRef } from 'vue'
@@ -117,7 +119,7 @@
     }),
   )
   const id = useId()
-  const panelId = `${id}-output-panel`
+  const { panelId, panelAttrs } = useTabPanel(() => activePanel.value, `${id}-output`)
   const panelHost = useTemplateRef<HTMLElement>('panelHost')
   const scrollArea = useTemplateRef<InstanceType<typeof OverlayScrollArea>>('scrollArea')
   const outputHost = computed(() => scrollArea.value?.viewport ?? null)
@@ -177,7 +179,7 @@
   .script-output__content {
     box-sizing: border-box;
     padding: var(--klc-space-8, 8px) var(--klc-space-16, 16px);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
     transition:
       height var(--klc-motion-dur-base) var(--klc-motion-ease-standard),

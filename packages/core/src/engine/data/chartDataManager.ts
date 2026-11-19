@@ -50,13 +50,15 @@ import {
   DEFAULT_KLINE_PERIOD,
   isKLineAdjustment,
   isKLinePeriod,
+  isTradingDate,
   KLinePeriod,
   OLDER_DATA_STATUS,
   ORIGINAL_BAR_AGGREGATION,
 } from '../../data/provider/types.js'
 import type { TradeSnapshot } from '../../data/trades/types.js'
 import { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 import type { ChartDom } from '../chart/index.js'
 import type { ComparisonStateModule } from '../chartModel/index.js'
@@ -154,7 +156,7 @@ export class ChartDataManager {
   private _loadingUnsub: (() => void) | null = null
   private _errorUnsub: (() => void) | null = null
   private _lastDataChange: DataChange<KLineData> | DataChange<TimeShareData> | null = null
-  private _timeShareIndicatorRequestId = 0
+  private timeShareIndicatorRequest: AbortController | undefined
 
   private _scrollCompensator: ScrollCompensator
   private _comparisonManager: ComparisonManager
@@ -501,11 +503,6 @@ export class ChartDataManager {
       : null
   }
 
-  private getPrimaryDataBuffer(spec: SymbolSpec): KLineBuffer {
-    const selection = this.barsSelectionForSpec(spec)
-    return this._repository.getOrCreateBars(selection, () => this.createKLineBuffer(selection))
-  }
-
   /** 创建仅接收缓存查询结果的 K 线图表快照。 */
   private createKLineBuffer(selection?: BarsSelection): KLineBuffer {
     void selection
@@ -645,7 +642,7 @@ export class ChartDataManager {
       selection,
       buffer,
       () => {
-        const tradingDate = this.currentTimeShareTradingDate(buffer)
+        const tradingDate = selection.tradingDate === LATEST_TRADING_DATE ? undefined : selection.tradingDate
         const base = this.timeShareQueryBase(spec)
         return this.marketDataCache.queryTimeShare(
           tradingDate
@@ -668,7 +665,7 @@ export class ChartDataManager {
       selection,
       buffer,
       () => {
-        const endTradingDate = this.currentTimeShareTradingDate(buffer)
+        const endTradingDate = selection.tradingDate === LATEST_TRADING_DATE ? undefined : selection.tradingDate
         const base = this.timeShareQueryBase(spec)
         return this.marketDataCache.queryTimeShareRange(
           endTradingDate
@@ -716,11 +713,6 @@ export class ChartDataManager {
   }
 
   /** 读取 Buffer 查询日期并转换为 Repository 交易日键。 */
-  private currentTimeShareTradingDate(buffer: TimeShareBuffer): TradingDate | undefined {
-    const queryDate = buffer.getQueryDate()
-    return queryDate ? this.tradingDateKey(queryDate) : undefined
-  }
-
   /** 分时单日与多日查询共用的来源描述字段。 */
   private timeShareQueryBase(
     spec: SymbolSpec,
@@ -805,7 +797,9 @@ export class ChartDataManager {
     prevDataLength?: number,
   ): void {
     const bufferData = buf.getRawData()
-    const prependedCount = change.kind === DATA_CHANGE_KINDS.prepend ? change.end - change.start : 0
+    const prependedCount = change.kind === DATA_CHANGE_KINDS.prepend
+      ? change.end - change.start
+      : (change.prependedCount ?? 0)
 
     if (prependedCount > 0) {
       this._scrollCompensator.compensatePrepend(prependedCount)
@@ -818,7 +812,7 @@ export class ChartDataManager {
     }
 
     // 只有整体替换或前置插入会让既有序号/下标失效；尾部写入与单根修正不打断手势。
-    if (change.kind === DATA_CHANGE_KINDS.replace || change.kind === DATA_CHANGE_KINDS.prepend) {
+    if (change.kind === DATA_CHANGE_KINDS.replace || prependedCount > 0) {
       this.deps.resetInteraction()
     }
 
@@ -901,7 +895,9 @@ export class ChartDataManager {
     const spec = this._dmState.readonly.currentSpec.peek()
     const range = this.getVisibleRangeOrNull()
     if (!spec || !range || data.length === 0) return
-    const requestId = ++this._timeShareIndicatorRequestId
+    this.timeShareIndicatorRequest?.abort()
+    const request = new AbortController()
+    this.timeShareIndicatorRequest = request
     try {
       const result = await this.marketDataCache.queryBars({
         sourceId: spec.source,
@@ -913,8 +909,9 @@ export class ChartDataManager {
         adjustment: (spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT) as KLineAdjustment,
         barAggregation: ORIGINAL_BAR_AGGREGATION,
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
+        signal: request.signal,
       })
-      if (requestId !== this._timeShareIndicatorRequestId) return
+      if (request.signal.aborted || this.timeShareIndicatorRequest !== request) return
       // 1min K 线计算，结果投影到分时展示时间戳；提交后由结果链路回调重绘。
       this.deps.updateIndicatorData(
         [...result.series.data],
@@ -923,8 +920,10 @@ export class ChartDataManager {
         this._dataState.readonly.dataRevision.peek(),
         data.map((item) => item.timestamp),
       )
-    } catch {
-      // 1min K 线不可用时保持分时主图与 VOL 正常工作。
+    } catch (error) {
+      if (!request.signal.aborted) console.error('[TimeShare indicators]', spec.symbol, error)
+    } finally {
+      if (this.timeShareIndicatorRequest === request) this.timeShareIndicatorRequest = undefined
     }
   }
 
@@ -1141,16 +1140,6 @@ export class ChartDataManager {
 
   // ── Symbol / Period ──
 
-  setCurrentSymbol(symbol: string): void {
-    const current = this._dmState.readonly.currentSpec.peek()
-    if (!current) return
-    this._dmState.actions.setCurrentSpec({ ...current, symbol })
-    const specs = this._dataState.readonly.symbols.peek()
-    if (specs.length > 0) {
-      this.deps.setSymbols([{ ...specs[0], symbol }])
-    }
-  }
-
   /** 解析当前 K 线物理几何与左侧加载缓冲宽度，供视图锚点换算。 */
   private resolveKLineScrollGeometry(): {
     unitPx: number
@@ -1191,26 +1180,6 @@ export class ChartDataManager {
     return `${symbolSpecIdentityKey(spec)}:${spec.period ?? DEFAULT_KLINE_PERIOD}:${spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT}:${ChartDataViewId.KLine}`
   }
 
-  setTimeShareQueryDate(date: number): void {
-    const spec = this._dmState.readonly.currentSpec.peek()
-    if (!spec) return
-    this.saveActiveKLineViewportSnapshot()
-    const tradingDate = this.tradingDateKey(date)
-    const selection = this.timeShareSelectionForSpec(spec, tradingDate)
-    const buffer = this._repository.getOrCreateTimeShare(selection, () =>
-      this.createTimeShareBuffer(selection),
-    )
-    buffer.setQueryDate(date)
-    this.activateBuffer(selection)
-  }
-
-  setCurrentPeriod(period: string): void {
-    const current = this._dmState.readonly.currentSpec.peek()
-    if (!current) return
-    const next = { ...current, period }
-    this.setSymbols([next])
-  }
-
   /**
    * 归一化 K 线周期别名，防止无效 period 进入引擎
    *  "day" → "daily"，其余保持原值
@@ -1225,86 +1194,76 @@ export class ChartDataManager {
   /** 将 YYYYMMDD 查询参数转换为 Repository 交易日键。 */
   private tradingDateKey(date: number): TradingDate {
     const raw = String(date)
-    if (!/^\d{8}$/.test(raw)) throw new Error(`[ChartDataManager] invalid trading date "${date}"`)
-    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` as TradingDate
-  }
-
-  /** 创建已接入统一 Provider 请求的分时 Buffer。 */
-  private createTimeShareBuffer(selection: TimeShareSelection): TimeShareBuffer {
-    void selection
-    return new TimeShareBufferImpl()
+    const key = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`
+    const value = new Date(`${key}T00:00:00Z`)
+    if (!isTradingDate(key) || !Number.isFinite(value.getTime()) || value.toISOString().slice(0, 10) !== key) {
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `Invalid trading date "${date}"`)
+    }
+    return key
   }
 
   // ── Main symbol switching ──
 
-  setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    // 快照重置会清空活动选择，先留存它，供分时模式复用用户选定的查询日期。
-    const activeSelectionBeforeReset = this._activeSelection
-    // 先撤销旧行情写入资格，避免切换期间的收线冲刷写入新 Buffer。
-    const previous = this._dmState.readonly.currentSpec.peek()
-    const next = specs[0]
-    if (
-      !previous ||
-      !next ||
-      symbolSpecIdentityKey(previous) !== symbolSpecIdentityKey(next) ||
-      previous.period !== next.period ||
-      previous.adjust !== next.adjust
-    ) {
-      const activeBuffer = this.getActiveDataBuffer()
-      if (activeBuffer) this.barLoads.get(activeBuffer)?.abort()
-      this.publishEmptySnapshot()
+  /** 校验并解析目标行情，返回与视图切换合并提交的操作。 */
+  preparePrimarySelection(primary: SymbolSpec | null, date?: number): () => void {
+    const spec = primary === null ? null : Object.freeze(structuredClone(primary))
+    const active = this._activeSelection
+    const tradingDate = date === undefined ? undefined : this.tradingDateKey(date)
+    if (spec === null) return () => this.commitPrimarySelection(null, null)
+    if (!spec.symbol.trim() || !spec.source?.trim()) {
+      throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'Symbol and source are required')
     }
-    const selection = isTimeSharePeriod(specs[0]?.period) ? specs.slice(0, 1) : specs
-    this.deps.setSymbols(selection)
-
-    if (selection.length === 0) {
-      this._dmState.actions.setCurrentSpec(null)
-      this._repository.clear()
-      this.publishEmptySnapshot()
-      this._dmState.actions.setRangeInitialized(false)
-      return
+    if (!isTimeSharePeriod(spec.period)) {
+      const selection = this.barsSelectionForSpec(spec)
+      return () => this.commitPrimarySelection(spec, selection)
     }
-
-    const primary = selection[0]!
-    this._dmState.actions.setCurrentSpec(primary)
-
-    if (isTimeSharePeriod(primary.period)) {
-      // Switch to timeshare mode
-      // 激活分时 buffer 前保存当前 K 线视图锚点。
-      this.saveActiveKLineViewportSnapshot()
-      // Keep primary KLine buffer in memory — don't dispose it,
-      // so data and scroll position are preserved when user returns
-      this._dmState.actions.setRangeInitialized(false)
-
-      const active = activeSelectionBeforeReset
-      const latestSelection = this.timeShareSelectionForSpec(primary)
-      const tsSelection =
-        active?.kind === SERIES_SELECTION_KIND.timeShare &&
-        active.instrumentKey === latestSelection.instrumentKey &&
-        active.sourceId === latestSelection.sourceId
-          ? active
-          : latestSelection
-      const tsBuf = this._repository.getOrCreateTimeShare(tsSelection, () =>
-        this.createTimeShareBuffer(tsSelection),
-      )
-      this.activateBuffer(tsSelection)
-      if (primary.period === FIVE_DAY_TIME_SHARE_PERIOD) {
-        void this.loadTimeShareRange(tsSelection, tsBuf, primary, FIVE_DAY_TIME_SHARE_DAYS)
-      } else {
-        void this.loadTimeShare(tsSelection, tsBuf, primary)
-      }
-      return
-    }
-
-    this.loadKLineSymbols(selection)
+    const latest = this.timeShareSelectionForSpec(spec, tradingDate)
+    const selection = tradingDate === undefined && active?.kind === SERIES_SELECTION_KIND.timeShare &&
+      active.instrumentKey === latest.instrumentKey && active.sourceId === latest.sourceId
+      ? active
+      : latest
+    return () => this.commitPrimarySelection(spec, selection)
   }
 
-  // ── KLine loading ──
+  private commitPrimarySelection(spec: SymbolSpec | null, selection: BarsSelection | TimeShareSelection | null): void {
+    const active = this._activeSelection
+    if (!selection || !active || seriesSelectionKey(active) !== seriesSelectionKey(selection)) {
+      this.timeShareIndicatorRequest?.abort()
+      const previous = this.getActiveDataBuffer()
+      if (previous) this.barLoads.get(previous)?.abort()
+      this._dmState.actions.setRangeInitialized(false)
+    }
+    this.deps.setSymbols(spec === null ? [] : [spec])
+    this._dmState.actions.setCurrentSpec(spec)
+    if (!spec || !selection) {
+      this.unbindActiveBuffer()
+      this._repository.clear()
+      this.publishEmptySnapshot()
+    } else if (selection.kind === SERIES_SELECTION_KIND.bars) {
+      this.loadPrimaryBars(spec, selection)
+    } else {
+      const buffer = this._repository.getOrCreateTimeShare(selection, () => new TimeShareBufferImpl())
+      this.activateBuffer(selection)
+      if (spec.period === FIVE_DAY_TIME_SHARE_PERIOD) {
+        void this.loadTimeShareRange(selection, buffer, spec, FIVE_DAY_TIME_SHARE_DAYS)
+      } else {
+        void this.loadTimeShare(selection, buffer, spec)
+      }
+    }
+  }
 
-  private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    const spec = specs[0]!
-    const buf = this.getPrimaryDataBuffer(spec)
-    this.activateBuffer(this.barsSelectionForSpec(spec))
+  setSymbols(specs: readonly SymbolSpec[], date?: number): void {
+    if (specs.length > 1) throw new RangeError('Only one primary symbol can be selected')
+    const commit = this.preparePrimarySelection(specs[0] ?? null, date)
+    batch(() => {
+      if (isTimeSharePeriod(specs[0]?.period)) this.saveActiveKLineViewportSnapshot()
+      commit()
+    })
+  }
+
+  private loadPrimaryBars(spec: SymbolSpec, selection: BarsSelection): void {
+    const buf = this._repository.getOrCreateBars(selection, () => new DataBuffer())
+    this.activateBuffer(selection)
     // 已缓存的序列可以立即投影，后续更新仍由 Provider 运行时负责。
     if (buf.getRawData().length > 0) {
       buf.setCurrentSpec(spec)
@@ -1316,15 +1275,8 @@ export class ChartDataManager {
       return
     }
 
-    if (!spec.source) {
-      throw new Error(
-        `[ChartDataManager] source is required for symbol "${spec.symbol}". ` +
-          `Provide a registered source in SymbolSpec.`,
-      )
-    }
-
     buf.setSymbol(spec)
-    void this.loadBars(this.barsSelectionForSpec(spec), buf, spec, {
+    void this.loadBars(selection, buf, spec, {
       limit: DEFAULT_BAR_PAGE_LIMIT,
     })
   }
@@ -1396,6 +1348,7 @@ export class ChartDataManager {
     this.barLoads.clear()
     this.unsubscribeProviderRegistry()
     this.disposed = true
+    this.timeShareIndicatorRequest?.abort()
     this.marketRuntime.dispose()
     this._comparisonSpecsUnsub?.()
     this._comparisonSpecsUnsub = null

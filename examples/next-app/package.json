@@ -13,8 +13,8 @@
         "@363045841yyt/klinechart-core": "link:../../packages/core",
         "@363045841yyt/klinechart-react": "link:../../packages/react",
         "next": "^15.0.0",
-        "react": "^19.3.0",
-        "react-dom": "^19.3.0"
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1"
     },
     "devDependencies": {
         "@types/node": "^26.6.6",

@@ -32,7 +32,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
   import IconEye from '~icons/tabler/eye'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { AgentContextItem } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
@@ -131,7 +131,7 @@
     border-radius: var(--agent-control-radius, 8px);
     color: var(--klc-color-ui-text-soft);
     background: var(--klc-color-agent-composer-input-background);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 10px;
     font-weight: var(--klc-font-weight-mono);
     line-height: 1.45;

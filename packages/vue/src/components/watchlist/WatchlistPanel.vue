@@ -83,8 +83,8 @@
 </template>
 
 <script setup lang="ts">
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import {
@@ -351,7 +351,6 @@
 
   .watchlist__issue-source {
     flex: 0 0 auto;
-    font-weight: 600;
   }
 
   .watchlist__issue-message {
@@ -404,7 +403,6 @@
     color: var(--klc-color-ui-muted);
     font: inherit;
     font-size: var(--klc-text-label-12-font-size);
-    font-weight: 600;
     line-height: 16px;
     text-align: left;
     cursor: pointer;
@@ -464,7 +462,6 @@
     color: var(--klc-color-ui-text);
     font: inherit;
     font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 600;
     line-height: 20px;
     text-align: left;
     cursor: pointer;
@@ -488,7 +485,7 @@
   .watchlist-row__percent {
     overflow: hidden;
     color: var(--watchlist-quote-color);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: center;

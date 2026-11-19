@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import { computed, ref, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconInfoCircle from '~icons/tabler/info-circle'
@@ -105,13 +105,12 @@
     overflow-wrap: anywhere;
     font-size: var(--klc-text-label-12-font-size);
     line-height: var(--klc-text-label-12-line-height);
-    font-weight: var(--klc-text-label-12-font-weight);
   }
   .run-failure__detail {
     margin: 0;
     overflow-wrap: anywhere;
     color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: var(--klc-text-11-mono-font-size);
     line-height: var(--klc-text-11-mono-line-height);
     font-weight: var(--klc-font-weight-mono);
