@@ -18,7 +18,7 @@
  */
 
 import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   BookSnapshot,
   DeltaArchive,
@@ -30,7 +30,7 @@ import type {
   OrderBookState,
   SnapshotRing,
 } from '../types.js'
-import { createOrderBookState } from './createOrderBookState.js'
+import { createOrderBookState, validateOrderBookDelta } from './createOrderBookState.js'
 import { createDeltaArchive } from './deltaArchive.js'
 import { createLogColorScale } from './logColorScale.js'
 import { createSnapshotRing } from './snapshotRing.js'
@@ -100,6 +100,7 @@ export function createHeatmapController(
 
   function ingestDelta(delta: OrderBookDelta): void {
     if (disposed) return
+    validateOrderBookDelta(delta)
     const interval = config.snapshotIntervalMs
 
     // 1. Anchor the snapshot clock to the first delta we ever see.
@@ -253,7 +254,7 @@ export function createHeatmapController(
   }
 
   return {
-    state,
+    state: asReadonlySignal(state),
     // Canonical verb (API audit BLOCKER-001 harmonisation). Same impl
     // as `ingestDelta` — existing consumers stay working.
     ingest: ingestDelta,

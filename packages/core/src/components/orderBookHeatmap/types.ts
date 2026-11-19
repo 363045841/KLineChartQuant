@@ -13,7 +13,7 @@
  * the additive `packages/core/` work.
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Inbound stream
@@ -137,7 +137,7 @@ export interface HeatmapState {
 }
 
 export interface HeatmapController {
-  readonly state: Signal<HeatmapState>
+  readonly state: ReadonlySignal<HeatmapState>
 
   /**
    * Ingest one L2 delta — canonical method, aligned with the cross-controller

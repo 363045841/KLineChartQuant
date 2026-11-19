@@ -22,7 +22,7 @@
  */
 
 import { KLineChartError, REPLAY_ERROR_CODES } from '@/errors.js'
-import { createSignal, type Signal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/signal.js'
 
 import type {
   ReplayController,
@@ -275,7 +275,7 @@ export function createReplayController(init?: ReplayControllerInit): ReplayContr
   }
 
   return {
-    state,
+    state: asReadonlySignal(state),
     setRange: guard(setRange),
     seekTo: guard(seekTo),
     seekBy: guard(seekBy),

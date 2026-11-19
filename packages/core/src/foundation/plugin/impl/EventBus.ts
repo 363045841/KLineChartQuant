@@ -6,7 +6,9 @@ import type { EventHandler } from '../types.js'
 type EventMap = Map<string, Set<EventHandler>>
 
 export class EventBus {
-  private listeners: EventMap = new Map()
+  private readonly listeners: EventMap = new Map()
+
+  constructor(private readonly reportError: (message: string, error: unknown) => void = console.error) {}
 
   /**
    * 订阅事件
@@ -25,6 +27,7 @@ export class EventBus {
     const handlers = this.listeners.get(event)
     if (handlers) {
       handlers.delete(handler as EventHandler)
+      if (!handlers.size) this.listeners.delete(event)
     }
   }
 
@@ -33,14 +36,15 @@ export class EventBus {
    */
   emit<T = unknown>(event: string, data: T): void {
     const handlers = this.listeners.get(event)
-    if (handlers) {
-      handlers.forEach((handler) => {
-        try {
-          handler(data)
-        } catch (error) {
-          console.error(`[EventBus] Error in handler for "${event}":`, error)
-        }
-      })
+    if (!handlers) return
+    const report = (error: unknown) => this.reportError(`[EventBus] Error in handler for "${event}":`, error)
+    for (const handler of [...handlers]) {
+      try {
+        const result = handler(data)
+        if (result !== undefined) void Promise.resolve(result).catch(report)
+      } catch (error) {
+        report(error)
+      }
     }
   }
 
@@ -56,7 +60,7 @@ export class EventBus {
   once<T = unknown>(event: string, handler: EventHandler<T>): void {
     const wrapper: EventHandler<T> = (data) => {
       this.off(event, wrapper)
-      handler(data)
+      return handler(data)
     }
     this.on(event, wrapper)
   }

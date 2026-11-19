@@ -10,8 +10,8 @@
  * 在作用域内、目标是否可编辑。
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createSignal } from '@/foundation/reactivity/index.js'
-import { createShortcutRegistry, type KeyboardEventLike, parseCombo } from '../../keyboard.js'
+import { asReadonlySignal, batch, createSignal } from '@/foundation/reactivity/index.js'
+import { createShortcutRegistry, type KeyboardEventLike, type ShortcutDef } from '../../keyboard.js'
 import type {
   CommandDef,
   CommandKeyContext,
@@ -53,26 +53,22 @@ function pickKeys(event: KeyboardEventLike): KeyboardEventLike {
  */
 export function createCommandRegistry(opts?: CommandRegistryOptions): CommandRegistry {
   const mac = opts?.platform !== undefined ? opts.platform === 'mac' : detectMac()
-  const shortcuts = createShortcutRegistry({ platform: mac ? 'mac' : 'other', ...opts })
-  const byId = new Map<string, CommandDef>()
-  const shortcutIds = new Map<string, string[]>()
-  const commands = createSignal<ReadonlyArray<CommandDef>>([])
+  const createBindings = () => createShortcutRegistry({ platform: mac ? 'mac' : 'other' })
+  let bindings = createBindings()
+  let byId = new Map<string, CommandDef>()
+  const commands = createSignal<readonly CommandDef[]>(Object.freeze([]))
+  const shortcuts = createSignal<readonly ShortcutDef[]>(Object.freeze([]))
+  const registrations = new WeakMap<CommandDef, object>()
   let disposed = false
   // 正在解析的键盘事件上下文；供快捷键的 when 门控读取。
   let activeContext: CommandKeyContext | null = null
 
-  function publish(): void {
-    commands.set([...byId.values()])
+  function reportFailure(error: unknown, commandId?: string): void {
+    if (opts?.onError) opts.onError(error, commandId)
+    else console.error('[CommandRegistry] Keyboard command failed', commandId, error)
   }
 
-  /** 命令当前是否可用；when 抛错视为不可用。 */
-  function available(def: CommandDef): boolean {
-    try {
-      return def.when === undefined || def.when()
-    } catch {
-      return false
-    }
-  }
+  const available = (def: CommandDef): boolean => def.when?.() ?? true
 
   /** 快捷键门控：结合当前事件上下文与命令可用性。 */
   function keyGate(def: CommandDef): boolean {
@@ -85,64 +81,71 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
 
   function unregister(id: string): void {
     if (disposed) return
-    if (!byId.delete(id)) return
-    for (const shortcutId of shortcutIds.get(id) ?? []) shortcuts.unregister(shortcutId)
-    shortcutIds.delete(id)
-    publish()
+    const next = new Map(byId)
+    if (next.delete(id)) commit(next)
   }
 
-  /** 登记单条命令；快捷键登记失败时回滚，避免留下半绑定。 */
-  function registerOne(def: CommandDef, preserveOrder = false): void {
+  function snapshot(def: CommandDef, registration: object): CommandDef {
     if (typeof def.id !== 'string' || def.id === '') {
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_PARAM,
         'CommandRegistry.register: def.id must be a non-empty string',
       )
     }
-    if (byId.has(def.id) && !preserveOrder) unregister(def.id)
-    const ids: string[] = []
-    try {
-      commandShortcuts(def).forEach((combo, index) => {
-        parseCombo(combo)
-        const shortcutId = index === 0 ? def.id : `${def.id}#${index}`
-        shortcuts.register({
-          id: shortcutId,
+    const value = Object.freeze({
+      ...def,
+      title: Object.freeze({ ...def.title }),
+      keywords: def.keywords && Object.freeze([...def.keywords]),
+      shortcut: typeof def.shortcut === 'string' || def.shortcut === undefined
+        ? def.shortcut
+        : Object.freeze([...def.shortcut]),
+    })
+    registrations.set(value, registration)
+    return value
+  }
+
+  /** 校验整套绑定后才发布，同一批通知可以读取命令和快捷键。 */
+  function commit(next: Map<string, CommandDef>): void {
+    const candidate = createBindings()
+    let id = 0
+    for (const def of next.values()) {
+      for (const combo of commandShortcuts(def)) {
+        candidate.register({
+          id: String(id++),
           label: def.title.en,
           combo,
           command: def.id,
           when: () => keyGate(def),
         })
-        ids.push(shortcutId)
-      })
-    } catch (error) {
-      for (const shortcutId of ids) shortcuts.unregister(shortcutId)
-      throw error
+      }
     }
-    byId.set(def.id, def)
-    shortcutIds.set(def.id, ids)
+    bindings = candidate
+    byId = next
+    batch(() => {
+      shortcuts.set(bindings.shortcuts.peek())
+      commands.set(Object.freeze([...byId.values()]))
+    })
   }
 
   function register(def: CommandDef | ReadonlyArray<CommandDef>): () => void {
     if (disposed) return () => {}
     const defs: ReadonlyArray<CommandDef> = Array.isArray(def) ? def : [def as CommandDef]
-    const done: CommandDef[] = []
-    try {
-      for (const one of defs) {
-        registerOne(one)
-        done.push(one)
-      }
-    } catch (error) {
-      // 整批注册失败时回滚已登记的命令，保证一次 register 调用是原子的。
-      for (const one of done) unregister(one.id)
-      throw error
+    const registration = {}
+    const registered = defs.map((definition) => snapshot(definition, registration))
+    const next = new Map(byId)
+    for (const one of registered) {
+      next.delete(one.id)
+      next.set(one.id, one)
     }
-    publish()
-    const ids = defs.map((one) => one.id)
+    commit(next)
     return () => {
-      for (const id of ids) {
-        // 只移除本 disposer 创建的那次注册。
-        if (defs.some((one) => byId.get(id) === one)) unregister(id)
+      if (disposed) return
+      const remaining = new Map(byId)
+      for (const one of registered) {
+        const current = remaining.get(one.id)
+        if (current && registrations.get(current) === registration) remaining.delete(one.id)
       }
+      if (remaining.size !== byId.size) commit(remaining)
     }
   }
 
@@ -153,18 +156,9 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
   function setShortcut(id: string, shortcut: string | ReadonlyArray<string> | null): void {
     const current = byId.get(id)
     if (current === undefined) return
-    const next: CommandDef = { ...current, shortcut: shortcut ?? undefined }
-    // 只移除快捷键绑定，保留 byId 的 Map 插入位置，避免编辑快捷键后命令顺序改变。
-    for (const shortcutId of shortcutIds.get(id) ?? []) shortcuts.unregister(shortcutId)
-    shortcutIds.delete(id)
-    try {
-      registerOne(next, true)
-      publish()
-    } catch (error) {
-      registerOne(current, true)
-      publish()
-      throw error
-    }
+    const next = new Map(byId)
+    next.set(id, snapshot({ ...current, shortcut: shortcut ?? undefined }, registrations.get(current)!))
+    commit(next)
   }
 
   function isAvailable(id: string): boolean {
@@ -180,7 +174,7 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
   }
 
   function lookup(event: KeyboardEventLike): CommandDef | null {
-    const hit = shortcuts.findByKeyboardEvent(event)
+    const hit = bindings.findByKeyboardEvent(event)
     return hit === null ? null : (byId.get(hit.command) ?? null)
   }
 
@@ -189,6 +183,7 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
     context: CommandKeyContext,
   ): CommandDef | null {
     if (disposed) return null
+    const previousContext = activeContext
     activeContext = context
     try {
       const direct = lookup(event)
@@ -200,7 +195,7 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
       }
       return null
     } finally {
-      activeContext = null
+      activeContext = previousContext
     }
   }
 
@@ -208,17 +203,18 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
     event: KeyboardEventLike & { preventDefault?: () => void },
     context: CommandKeyContext,
   ): boolean {
-    const def = resolveKeyboardEvent(event, context)
+    let def: CommandDef | null
+    try {
+      def = resolveKeyboardEvent(event, context)
+    } catch (error) {
+      reportFailure(error)
+      return false
+    }
     if (def === null) return false
     event.preventDefault?.()
     void Promise.resolve()
       .then(() => def.run())
-      .catch((error: unknown) => {
-        // 把失败交给宿主的全局错误处理，不打断按键路径。
-        queueMicrotask(() => {
-          throw error
-        })
-      })
+      .catch((error: unknown) => reportFailure(error, def.id))
     return true
   }
 
@@ -247,15 +243,17 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
   function dispose(): void {
     if (disposed) return
     disposed = true
-    byId.clear()
-    shortcutIds.clear()
-    shortcuts.dispose()
-    commands.set([])
+    commit(new Map())
   }
 
   return {
-    commands,
-    shortcuts,
+    commands: asReadonlySignal(commands),
+    shortcuts: {
+      shortcuts: asReadonlySignal(shortcuts),
+      canonical: (combo) => bindings.canonical(combo),
+      findByCombo: (combo) => bindings.findByCombo(combo),
+      findByKeyboardEvent: (event) => bindings.findByKeyboardEvent(event),
+    },
     register,
     unregister,
     get,

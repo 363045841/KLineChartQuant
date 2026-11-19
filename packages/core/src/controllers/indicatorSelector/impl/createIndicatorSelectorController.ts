@@ -12,7 +12,7 @@
  */
 
 import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
-import { computed, createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, computed, createSignal } from '@/foundation/reactivity/index.js'
 import type { IndicatorDefinition } from '../../types.js'
 import { INDICATOR_ROLE } from '../../types.js'
 
@@ -83,7 +83,7 @@ export function createIndicatorSelectorController(
   // -------------------------------------------------------------------
   // 目录由 Core 注册表投影直接提供，选择器不持有副本。
   const catalog = initial.catalog
-  const active: Signal<ReadonlyArray<ActiveIndicator>> = createSignal<
+  const active = createSignal<
     ReadonlyArray<ActiveIndicator>
   >(initial.active ?? [])
   const menuOpen = createSignal(false)
@@ -98,30 +98,12 @@ export function createIndicatorSelectorController(
   // overwritten on the next dependency change anyway). The read/peek/
   // subscribe semantics match a real Signal exactly.
   // -------------------------------------------------------------------
-  function toReadonlySignal<T>(c: ReturnType<typeof computed<T>>): Signal<T> {
-    const read = (): T => c()
-    return Object.assign(read, {
-      peek: c.peek,
-      subscribe: c.subscribe,
-      set: (_: T): void => {
-        // derived signal — writes are intentionally a no-op
-      },
-    }) as Signal<T>
-  }
-
-  const filteredMain: Signal<ReadonlyArray<IndicatorDefinition>> = toReadonlySignal(
-    computed<ReadonlyArray<IndicatorDefinition>>(() => {
-      const q = searchQuery()
-      return catalog().filter((d) => d.role === INDICATOR_ROLE.MAIN && matchesQuery(d, q))
-    }),
-  )
-
-  const filteredSub: Signal<ReadonlyArray<IndicatorDefinition>> = toReadonlySignal(
-    computed<ReadonlyArray<IndicatorDefinition>>(() => {
-      const q = searchQuery()
-      return catalog().filter((d) => d.role === INDICATOR_ROLE.SUB && matchesQuery(d, q))
-    }),
-  )
+  const matches = computed(() => {
+    const query = searchQuery()
+    return catalog().filter((definition) => matchesQuery(definition, query))
+  })
+  const filteredMain = computed(() => Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.MAIN)))
+  const filteredSub = computed(() => Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.SUB)))
 
   // -------------------------------------------------------------------
   // Lookup helpers (use peek — we don't want mutations to track)
@@ -251,15 +233,15 @@ export function createIndicatorSelectorController(
 
   return {
     catalog,
-    active,
-    menuOpen,
-    searchQuery,
+    active: asReadonlySignal(active),
+    menuOpen: asReadonlySignal(menuOpen),
+    searchQuery: asReadonlySignal(searchQuery),
     filteredMain,
     filteredSub,
-    add: guard(add),
-    remove: guard(remove),
-    updateParams: guard(updateParams),
-    reorder: guard(reorder),
+    add: guard(add, null),
+    remove: guard(remove, false),
+    updateParams: guard(updateParams, false),
+    reorder: guard(reorder, false),
     openMenu: guard(openMenu),
     closeMenu: guard(closeMenu),
     toggleMenu: guard(toggleMenu),

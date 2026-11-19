@@ -46,10 +46,11 @@ describe('createCommandRegistry', () => {
     const registry = createCommandRegistry({ platform: 'win' })
     const redo = command({ id: 'drawing.redo', shortcut: ['Mod+Shift+Z', 'Mod+Y'] })
     registry.register(redo)
-    expect(registry.resolveKeyboardEvent(key('y', { ctrlKey: true }), inChart)).toBe(redo)
+    const registered = registry.get(redo.id)
+    expect(registry.resolveKeyboardEvent(key('y', { ctrlKey: true }), inChart)).toBe(registered)
     expect(
       registry.resolveKeyboardEvent(key('Z', { ctrlKey: true, shiftKey: true }), inChart),
-    ).toBe(redo)
+    ).toBe(registered)
   })
 
   it('updates a command shortcut and exposes it in search', () => {
@@ -59,7 +60,7 @@ describe('createCommandRegistry', () => {
       title: { zh: '撤销', en: 'Undo' },
       shortcut: 'Mod+Z',
     })
-    registry.register([undo, command({ id: 'drawing.redo', shortcut: 'Mod+Y' })])
+    const dispose = registry.register([undo, command({ id: 'drawing.redo', shortcut: 'Mod+Y' })])
     registry.setShortcut('drawing.undo', 'Mod+U')
     expect(registry.commands.peek().map((item) => item.id)).toEqual([
       'drawing.undo',
@@ -70,6 +71,9 @@ describe('createCommandRegistry', () => {
       'drawing.undo',
     )
     expect(registry.search('Ctrl+U')[0]?.command.id).toBe('drawing.undo')
+    dispose()
+    expect(registry.get('drawing.undo')).toBeNull()
+    expect(registry.shortcuts.findByCombo('Mod+U')).toBeNull()
   })
 
   it('throws on a combo conflict and leaves no partial bindings', () => {
@@ -80,19 +84,47 @@ describe('createCommandRegistry', () => {
     expect(registry.shortcuts.findByCombo('Mod+J')).toBeNull()
   })
 
-  it('rolls back the whole batch when an array registration fails midway', () => {
+  it('preserves existing commands and bindings without publishing a failed batch', () => {
     const registry = createCommandRegistry({ platform: 'win' })
     registry.register(command({ id: 'a', shortcut: 'Mod+K' }))
+    const original = registry.get('a')
+    const published = vi.fn()
+    registry.commands.subscribe(published)
+    registry.shortcuts.shortcuts.subscribe(published)
     expect(() =>
       registry.register([
+        command({ id: 'a', shortcut: 'Mod+J' }),
         command({ id: 'b', shortcut: 'Mod+L' }),
-        command({ id: 'c', shortcut: 'Mod+K' }),
+        command({ id: 'c', shortcut: 'Mod+J' }),
       ]),
     ).toThrow()
     expect(registry.get('b')).toBeNull()
     expect(registry.get('c')).toBeNull()
     expect(registry.shortcuts.findByCombo('Mod+L')).toBeNull()
-    expect(registry.get('a')).not.toBeNull()
+    expect(registry.get('a')).toBe(original)
+    expect(registry.resolveKeyboardEvent(key('k', { ctrlKey: true }), inChart)).toBe(original)
+    expect(published).not.toHaveBeenCalled()
+    expect('register' in registry.shortcuts).toBe(false)
+  })
+
+  it('throws to direct callers and isolates errors at keyboard dispatch', async () => {
+    const onError = vi.fn()
+    const registry = createCommandRegistry({ onError, platform: 'win' })
+    const error = new Error('Command failed')
+    const fail = () => { throw error }
+    const run = vi.fn()
+    registry.register([
+      command({ id: 'gate', shortcut: 'A', when: fail }),
+      command({ id: 'run', shortcut: 'B', run: fail }),
+      command({ id: 'healthy', shortcut: 'C', run }),
+    ])
+    await expect(registry.execute('gate')).rejects.toBe(error)
+    await expect(registry.execute('run')).rejects.toBe(error)
+    expect(registry.handleKeyboardEvent(key('a'), inChart)).toBe(false)
+    expect(registry.handleKeyboardEvent(key('b'), inChart)).toBe(true)
+    expect(registry.handleKeyboardEvent(key('c'), inChart)).toBe(true)
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(2))
+    expect(run).toHaveBeenCalledOnce()
   })
 
   it('scopes chart shortcuts to the focused chart and lets global ones fire anywhere', () => {
@@ -106,8 +138,8 @@ describe('createCommandRegistry', () => {
     })
     registry.register([del, palette])
     expect(registry.resolveKeyboardEvent(key('Delete'), outside)).toBeNull()
-    expect(registry.resolveKeyboardEvent(key('Delete'), inChart)).toBe(del)
-    expect(registry.resolveKeyboardEvent(key('k', { ctrlKey: true }), outside)).toBe(palette)
+    expect(registry.resolveKeyboardEvent(key('Delete'), inChart)?.id).toBe(del.id)
+    expect(registry.resolveKeyboardEvent(key('k', { ctrlKey: true }), outside)?.id).toBe(palette.id)
   })
 
   it('ignores shortcuts while typing unless the command allows it', () => {
@@ -126,7 +158,7 @@ describe('createCommandRegistry', () => {
     const registry = createCommandRegistry({ platform: 'win' })
     const help = command({ id: 'help.shortcuts', shortcut: '?' })
     registry.register(help)
-    expect(registry.resolveKeyboardEvent(key('?', { shiftKey: true }), inChart)).toBe(help)
+    expect(registry.resolveKeyboardEvent(key('?', { shiftKey: true }), inChart)?.id).toBe(help.id)
   })
 
   it('gates shortcuts, search and execute on when()', async () => {

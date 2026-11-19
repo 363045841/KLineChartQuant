@@ -26,6 +26,10 @@
       "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.js"
     },
+    "./contracts/credentials": {
+      "types": "./dist/contracts/credentials.d.ts",
+      "import": "./dist/contracts/credentials.js"
+    },
     "./contracts/ui": {
       "types": "./dist/contracts/ui.d.ts",
       "import": "./dist/contracts/ui.js"

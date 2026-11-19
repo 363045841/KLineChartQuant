@@ -178,12 +178,12 @@ export function createGpuPrimitiveBackend(
         target.drawImage(result.canvas, 0, 0, width, height, 0, 0, width / dpr, height / dpr)
         metrics.compositions++
         return true
-      } catch {
-        device?.dispose()
+      } catch (error) {
+        const failed = device
         device = undefined
         // 复用缓存只对原设备有效；设备重建后必须重新写入全部缓冲。
         preparer = undefined
-        return false
+        disposeFailedDevice(failed, error)
       }
     },
     getMetrics() {
@@ -199,4 +199,14 @@ export function createGpuPrimitiveBackend(
       preparer = undefined
     },
   }
+}
+
+/** Release a failed GPU device while preserving the original draw exception. */
+export function disposeFailedDevice(device: { dispose(): void } | null | undefined, error: unknown): never {
+  try {
+    device?.dispose()
+  } catch (cleanupError) {
+    throw new AggregateError([error, cleanupError], 'GPU draw and device cleanup failed')
+  }
+  throw error
 }

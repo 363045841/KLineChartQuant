@@ -14,6 +14,7 @@ export type {
   WritableSignal,
 } from './signal.js'
 export {
+  asReadonlySignal,
   batch,
   computed,
   createSignal,

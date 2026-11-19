@@ -87,7 +87,13 @@ export function createTradeDataSource(
         `${baseUrl()}${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/trades/stream?${query}`,
       )
       const publish = (frame: TradeFrame) => {
-        for (const listener of listeners) listener(frame)
+        for (const listener of [...listeners]) {
+          try {
+            listener(frame)
+          } catch (error) {
+            console.error('[Trade stream] Subscriber failed', sourceId, error)
+          }
+        }
       }
       // 浏览器连接事件是订阅边界的事实来源，不依赖服务端另发 CONNECTED 消息。
       source.onopen = () => publish({ type: 'status', code: TRADE_STREAM_CODES.connected })
@@ -115,7 +121,8 @@ export function createTradeDataSource(
                   : undefined,
             })
           else throw new TypeError('Invalid trade frame')
-        } catch {
+        } catch (error) {
+          console.error('[Trade stream] Invalid frame', sourceId, error)
           publish({
             type: 'status',
             code: TRADE_STREAM_CODES.gap,

@@ -103,12 +103,14 @@ describe('createOrderBookState', () => {
     expect(() => createOrderBookState({ tickSize: Infinity })).toThrow()
   })
 
-  it('ignores NaN / Infinity deltas without corrupting state', () => {
+  it('rejects invalid prices and sizes without modifying the book', () => {
     const book = createOrderBookState({ tickSize: 0.01 })
-    book.applyDelta(createOrderBookDelta(1, { price: NaN, size: 1 }))
-    book.applyDelta(createOrderBookDelta(2, { price: 100, size: NaN }))
     book.applyDelta(createOrderBookDelta(3, { price: 100, size: 1 }))
     const snap = book.snapshot()
+    for (const patch of [{ price: NaN }, { size: NaN }, { size: -1 }]) {
+      expect(() => book.applyDelta(createOrderBookDelta(4, { price: 100, size: 1, ...patch }))).toThrow(RangeError)
+    }
+    expect(book.snapshot()).toEqual(snap)
     expect(snap.bids).toEqual([[100, 1]])
   })
 })

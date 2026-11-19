@@ -9,6 +9,8 @@
 
 import { createDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
 import {
+  asReadonlySignal,
+  batch,
   computed,
   createSignal,
   type ReadonlySignal,
@@ -86,8 +88,8 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   private readonly listSignal = createSignal<ReadonlyArray<IndicatorTemplateSummary>>([])
   private readonly recentSignal = createSignal<ReadonlyArray<string>>([])
   private loaded = false
-  readonly templates = this.listSignal
-  readonly recentTemplateIds = this.recentSignal
+  readonly templates = asReadonlySignal(this.listSignal)
+  readonly recentTemplateIds = asReadonlySignal(this.recentSignal)
   readonly currentIndicators: ReadonlySignal<ReadonlyArray<IndicatorTemplateIndicator>>
 
   /**
@@ -130,17 +132,19 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   /** 只派生摘要，按文档写入顺序稳定输出；覆盖同名模板不改变列表位置。 */
   private publish(): void {
-    this.listSignal.set(
-      Object.entries(this.archive.documents).map(([id, document]) =>
-        Object.freeze({
-          id,
-          name: document.name,
-          labels: summarizeTemplateIndicators(document.workspaces),
-          instanceCount: countWorkspaceInstances(document.workspaces),
-        }),
-      ),
-    )
-    this.recentSignal.set(this.archive.recentIds)
+    const { documents, recentIds } = this.archive
+    const templates = Object.freeze(Object.entries(documents).map(([id, document]) =>
+      Object.freeze({
+        id,
+        name: document.name,
+        labels: Object.freeze(summarizeTemplateIndicators(document.workspaces)),
+        instanceCount: countWorkspaceInstances(document.workspaces),
+      }),
+    ))
+    batch(() => {
+      this.listSignal.set(templates)
+      this.recentSignal.set(Object.freeze([...recentIds]))
+    })
   }
 
   /** 找不到身份时明确失败，避免静默操作到别的模板。 */

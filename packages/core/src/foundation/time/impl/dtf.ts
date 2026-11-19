@@ -16,26 +16,21 @@ export interface DateParts {
 }
 
 /** 时区解析器只用于把墙钟字段解析回数字，固定 en-US 避免本地化数字破坏算术。 */
-const zoneParsers = new Map<string, Intl.DateTimeFormat | null>()
+const zoneParsers = new Map<string, Intl.DateTimeFormat>()
 
-function zoneParser(timeZone: string): Intl.DateTimeFormat | null {
+function zoneParser(timeZone: string): Intl.DateTimeFormat {
   const cached = zoneParsers.get(timeZone)
   if (cached !== undefined) return cached
-  let parser: Intl.DateTimeFormat | null
-  try {
-    parser = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  } catch {
-    parser = null
-  }
+  const parser = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
   zoneParsers.set(timeZone, parser)
   return parser
 }
@@ -60,10 +55,8 @@ export function readParts(formatter: Intl.DateTimeFormat, timestamp: number): Da
  * @param timeZone IANA 时区标识
  */
 export function zoneOffsetMs(timestamp: number, timeZone: string): number {
-  if (!timeZone || timeZone === 'UTC') return 0
-  const parser = zoneParser(timeZone)
-  if (!parser) return 0
-  const parts = parser.formatToParts(timestamp)
+  if (timeZone === 'UTC') return 0
+  const parts = zoneParser(timeZone).formatToParts(timestamp)
   const field = (type: string): number => Number(parts.find((part) => part.type === type)?.value)
   const wallClock = Date.UTC(
     field('year'),

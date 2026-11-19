@@ -67,6 +67,7 @@ export function createChartStub(args: {
     candleHitTest: boolean
   }>
   dataView?: ChartDataView
+  tooltipPosition?: 'adaptive'
   /** DOM 坐标为参数的滚动 spy；无论是否提供，kit 内部逻辑滚动量都会同步更新。 */
   scrollTo?: (value: number) => boolean
   scheduleDraw?: () => void
@@ -174,7 +175,7 @@ export function createChartStub(args: {
       },
       settings: {
         readonly: {
-          settings: { peek: () => ({}) },
+          settings: { peek: () => ({ tooltipPosition: args.tooltipPosition }) },
         },
       },
       mode: {

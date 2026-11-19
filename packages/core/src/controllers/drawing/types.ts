@@ -5,7 +5,7 @@
  */
 
 import type { DrawingToolId } from '../../engine/drawing/index.js'
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 export type { DrawingToolId } from '../../engine/drawing/index.js'
 
@@ -15,7 +15,7 @@ export interface DrawingState {
 }
 
 export interface DrawingController {
-  readonly state: Signal<DrawingState>
+  readonly state: ReadonlySignal<DrawingState>
   setActiveTool(tool: DrawingToolId | null): void
   clearAll(): void
   deleteLast(): void

@@ -1,6 +1,7 @@
 /** Provider、连接和使用策略的权威运行时状态；持久化由宿主负责。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
+import { immutableMap } from '@/foundation/utils/immutableMap.js'
 import { normalizeConnectionUrl } from '../../management/impl/connection.js'
 import { participatesInSearch } from '../../management/impl/policy.js'
 import type { MarketConnection, MarketRegistryState } from '../../management/types.js'
@@ -12,6 +13,12 @@ import type {
   SourceCapabilityQuery,
 } from '../types.js'
 import { isFilterableInstrumentType } from '../types.js'
+
+const EMPTY_STATE = Object.freeze<MarketRegistryState>({
+  providers: immutableMap(),
+  policies: immutableMap(),
+  connections: immutableMap(),
+})
 
 /** 判断源级能力是否满足请求。 */
 function supportsCapability(
@@ -41,13 +48,9 @@ function supportsCapability(
 
 /** 管理实例的注册与配置入口；所有读者共享同一份不可变快照。 */
 export class MarketDataProviderRegistry {
-  private readonly stateSignal = createSignal<MarketRegistryState>({
-    providers: new Map(),
-    policies: new Map(),
-    connections: new Map(),
-  })
+  private readonly stateSignal = createSignal(EMPTY_STATE)
   /** 唯一的观察入口；注册、注销和配置更新都发布新的不可变快照。 */
-  readonly state: ReadonlySignal<MarketRegistryState> = this.stateSignal
+  readonly state = asReadonlySignal(this.stateSignal)
 
   /** 注册 Provider，并关联或创建它声明的连接。 */
   register(provider: MarketDataProvider, config: MarketDataSourceConfigPatch = {}): void {
@@ -105,7 +108,7 @@ export class MarketDataProviderRegistry {
         },
       ),
     )
-    this.stateSignal.set({ providers, policies, connections })
+    this.stateSignal.set(Object.freeze({ providers: immutableMap(providers), policies: immutableMap(policies), connections: immutableMap(connections) }))
   }
 
   /** 注销 Provider；最后一个使用者注销时移除连接。 */
@@ -125,7 +128,7 @@ export class MarketDataProviderRegistry {
       )
     )
       connections.delete(connectionId)
-    this.stateSignal.set({ providers, policies, connections })
+    this.stateSignal.set(Object.freeze({ providers: immutableMap(providers), policies: immutableMap(policies), connections: immutableMap(connections) }))
     return true
   }
 
@@ -219,7 +222,7 @@ export class MarketDataProviderRegistry {
         version: connection.version + 1,
       }),
     )
-    this.stateSignal.set({ ...current, connections })
+    this.stateSignal.set(Object.freeze({ ...current, connections: immutableMap(connections) }))
   }
 
   /** 兼容源配置入口；地址写入连接，策略只写入 Provider。 */
@@ -255,12 +258,12 @@ export class MarketDataProviderRegistry {
           version: connection.version + 1,
         }),
       )
-    this.stateSignal.set({ ...current, policies, connections })
+    this.stateSignal.set(Object.freeze({ ...current, policies: immutableMap(policies), connections: immutableMap(connections) }))
     return this.getConfig(sourceId)
   }
 
   clear(): void {
-    this.stateSignal.set({ providers: new Map(), policies: new Map(), connections: new Map() })
+    this.stateSignal.set(EMPTY_STATE)
   }
 }
 

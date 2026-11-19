@@ -22,7 +22,7 @@
  */
 
 import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
-import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, batch, createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,
@@ -60,7 +60,7 @@ export function createVolumeProfileController(
   if (initialConfig.valueAreaPercent > 1) initialConfig.valueAreaPercent = 1
   if (initialConfig.binCount < 1) initialConfig.binCount = 1
 
-  const config: Signal<VolumeProfileConfig> = createSignal(initialConfig)
+  const config: Signal<VolumeProfileConfig> = createSignal(Object.freeze(initialConfig))
   const state: Signal<VolumeProfileState | null> = createSignal<VolumeProfileState | null>(null)
 
   // -------------------------------------------------------------------
@@ -96,16 +96,7 @@ export function createVolumeProfileController(
     const binSize = range > MIN_BIN_SIZE ? range / cfg.binCount : MIN_BIN_SIZE
     const binMin = minLow
 
-    // Allocate or reuse the buckets. Reuse only if the size matches —
-    // changing `binCount` via `setConfig` requires a fresh array.
-    const prev = state.peek()
-    const buckets =
-      prev !== null && prev.buckets.length === cfg.binCount
-        ? prev.buckets
-        : new Float64Array(cfg.binCount)
-    // Zero it (whether reused or freshly allocated) — `fill(0)` is cheap
-    // on typed arrays.
-    buckets.fill(0)
+    const buckets = new Float64Array(cfg.binCount)
 
     // Second pass: drop volume into buckets.
     for (let i = 0; i < bars.length; i++) {
@@ -128,8 +119,8 @@ export function createVolumeProfileController(
     const vahPrice = binMin + (va.vahIndex + 1) * binSize
     const valPrice = binMin + va.valIndex * binSize
 
-    const next: VolumeProfileState = {
-      buckets,
+    const next: VolumeProfileState = Object.freeze({
+      get buckets() { return buckets.slice() },
       binMin,
       binSize,
       poc: pocPrice,
@@ -137,7 +128,7 @@ export function createVolumeProfileController(
       val: valPrice,
       totalVolume: va.totalVolume,
       vaVolume: va.vaVolume,
-    }
+    })
     state.set(next)
   }
 
@@ -155,10 +146,10 @@ export function createVolumeProfileController(
     // If binCount changed, the existing buckets are stale (different
     // resolution) — clear state so callers know to re-ingest. Other
     // field changes leave the data untouched until next ingest.
-    if (merged.binCount !== cur.binCount) {
-      state.set(null)
-    }
-    config.set(merged)
+    batch(() => {
+      config.set(Object.freeze(merged))
+      if (merged.binCount !== cur.binCount) state.set(null)
+    })
   }
 
   // -------------------------------------------------------------------
@@ -174,8 +165,8 @@ export function createVolumeProfileController(
   const { dispose, guard } = createDisposeGuard()
 
   return {
-    config,
-    state,
+    config: asReadonlySignal(config),
+    state: asReadonlySignal(state),
     ingest: guard(ingest),
     setConfig: guard(setConfig),
     reset: guard(reset),

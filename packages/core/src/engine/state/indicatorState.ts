@@ -6,7 +6,7 @@ import {
   resolveIndicatorDefinitionId,
 } from '../indicators/pipeline/index.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
-import { deepFreezeSnapshot } from './immutable.js'
+import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 
 /** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
 export interface IndicatorInstanceConfig {

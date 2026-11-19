@@ -4,6 +4,7 @@
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import {
   type BaseIndicatorState,
+  type EventHandler,
   type HookCallOptions,
   type Plugin,
   type PluginConfig,
@@ -32,8 +33,9 @@ export class PluginHostImpl implements PluginHost {
 
   constructor(logger?: PluginLogger) {
     this.registry = new PluginRegistry()
-    this.eventBus = new EventBus()
-    this.hookSystem = new HookSystem()
+    const report = (message: string, error: unknown) => this.log('error', message, error)
+    this.eventBus = new EventBus(report)
+    this.hookSystem = new HookSystem(report)
     this.configManager = new ConfigManager()
     this.stateStore = new StateStore()
     this.logger = logger ?? console
@@ -41,16 +43,16 @@ export class PluginHostImpl implements PluginHost {
 
   // 实现 PluginHost 接口
   readonly events = {
-    on: <T = unknown>(event: string, handler: (data: T) => void) => {
+    on: <T = unknown>(event: string, handler: EventHandler<T>) => {
       this.eventBus.on(event, handler)
     },
-    off: <T = unknown>(event: string, handler: (data: T) => void) => {
+    off: <T = unknown>(event: string, handler: EventHandler<T>) => {
       this.eventBus.off(event, handler)
     },
     emit: <T = unknown>(event: string, data: T) => {
       this.eventBus.emit(event, data)
     },
-    once: <T = unknown>(event: string, handler: (data: T) => void) => {
+    once: <T = unknown>(event: string, handler: EventHandler<T>) => {
       this.eventBus.once(event, handler)
     },
   }
@@ -150,7 +152,7 @@ export class PluginHostImpl implements PluginHost {
     return result
   }
 
-  /** 安装定义并执行安装钩子，失败状态由注册表记录。 */
+  /** 安装和钩子成功后提交 Installed；失败时释放本次注册。 */
   private async installPlugin(plugin: Plugin, config?: PluginConfig): Promise<void> {
     if (this.registry.has(plugin.name)) {
       throw new KLineChartError(
@@ -159,11 +161,9 @@ export class PluginHostImpl implements PluginHost {
       )
     }
 
+    const descriptor = this.registry.register(plugin, config)
+    let installStarted = false
     try {
-      // 注册插件
-      const descriptor = this.registry.register(plugin, config)
-
-      // 注册默认配置
       if (config) {
         this.configManager.setAll(plugin.name, config)
       }
@@ -171,25 +171,27 @@ export class PluginHostImpl implements PluginHost {
       // 触发安装前钩子
       await this.hooks.call('plugin:beforeInstall', { plugin, config }, { throwOnError: true })
 
-      // 安装插件
+      installStarted = true
       await plugin.install(this, descriptor.config)
-
-      // 更新状态
-      this.registry.updateState(plugin.name, PluginState.Installed)
-
-      // 触发安装后钩子
       await this.hooks.call('plugin:afterInstall', { plugin, config }, { throwOnError: true })
-
-      this.log('info', `Plugin "${plugin.name}" installed successfully`)
+      this.registry.updateState(plugin.name, PluginState.Installed)
     } catch (error) {
-      this.registry.updateState(
-        plugin.name,
-        PluginState.Error,
-        error instanceof Error ? error : new Error(String(error)),
-      )
-      this.log('error', `Failed to install plugin "${plugin.name}":`, error)
+      try {
+        if (installStarted) await plugin.uninstall?.()
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], `Plugin "${plugin.name}" installation and rollback failed`)
+      } finally {
+        this.clearPluginRegistration(plugin.name)
+      }
       throw error
     }
+    this.log('info', `Plugin "${plugin.name}" installed successfully`)
+  }
+
+  private clearPluginRegistration(name: string): void {
+    this.registry.unregister(name)
+    this.configManager.clear(name)
+    this.stateStore.clearByOwner(name)
   }
 
   /**
@@ -219,8 +221,7 @@ export class PluginHostImpl implements PluginHost {
       }
 
       // 清理
-      this.registry.unregister(name)
-      this.configManager.clear(name)
+      this.clearPluginRegistration(name)
 
       // 触发卸载后钩子
       await this.hooks.call('plugin:afterUninstall', { name }, { throwOnError: true })

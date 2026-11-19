@@ -37,7 +37,7 @@
  */
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal, type ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Public shape
@@ -66,12 +66,12 @@ export interface CrosshairSync {
    * `effect` tracks the subscription; reading `position.peek()` does
    * not. Manual `subscribe` returns an unsubscribe function.
    */
-  readonly position: Signal<CrosshairPosition | null>
+  readonly position: ReadonlySignal<CrosshairPosition | null>
   /**
    * Number of currently registered panes. Helpful for the
    * "single-pane no-op" branch in adapters.
    */
-  readonly paneCount: Signal<number>
+  readonly paneCount: ReadonlySignal<number>
 
   /**
    * Register a pane that participates in the sync. Idempotent —
@@ -183,5 +183,9 @@ export function createCrosshairSync(): CrosshairSync {
     // dead subscribers in some host frameworks.
   }
 
-  return { position, paneCount, register, unregister, move, clear, reset, dispose }
+  return {
+    position: asReadonlySignal(position),
+    paneCount: asReadonlySignal(paneCount),
+    register, unregister, move, clear, reset, dispose,
+  }
 }

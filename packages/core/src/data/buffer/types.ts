@@ -19,6 +19,7 @@ export const DATA_CHANGE_KINDS = Object.freeze({
   replace: 'replace',
   prepend: 'prepend',
   append: 'append',
+  extend: 'extend',
   tail: 'tail',
   correct: 'correct',
 } as const)
@@ -45,6 +46,8 @@ export interface DataChange<T> {
   /** 首元素的稳定序号；replace 重置为 0。 */
   readonly origin: number
   readonly kind: DataChangeKind
+  /** Number of bars added before the old first bar when both ends extend. */
+  readonly prependedCount?: number
   /** 受影响区间起点，相对新序列。 */
   readonly start: number
   /** 受影响区间终点（不含），相对新序列。 */
@@ -105,6 +108,4 @@ export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   setLoading(loading: boolean): void
   /** 缓存查询失败时发布错误状态。 */
   setError(error: string | null): void
-  setQueryDate(date: number): void
-  getQueryDate(): number
 }

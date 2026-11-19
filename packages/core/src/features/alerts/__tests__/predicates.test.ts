@@ -335,16 +335,14 @@ describe('predicate: custom', () => {
     expect(evaluatePredicate(falsePred, createMarketSnapshot(), null)).toBe(false)
   })
 
-  it('survives a throwing custom predicate (inner guard)', () => {
+  it('propagates the original custom predicate exception', () => {
+    const error = new Error('boom')
     const boomPred: AlertPredicate = {
       kind: 'custom',
       evaluate: () => {
-        throw new Error('boom')
+        throw error
       },
     }
-    // The inner try/catch in evaluatePredicate must convert this to false
-    // without rethrowing — this is the first half of the sandbox guarantee.
-    expect(() => evaluatePredicate(boomPred, createMarketSnapshot(), null)).not.toThrow()
-    expect(evaluatePredicate(boomPred, createMarketSnapshot(), null)).toBe(false)
+    expect(() => evaluatePredicate(boomPred, createMarketSnapshot(), null)).toThrow(error)
   })
 })

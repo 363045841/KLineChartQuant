@@ -7,7 +7,7 @@
  *
  * 本文件只放类型，不依赖同模块 impl/。
  */
-import type { Signal } from '@/foundation/reactivity/index.js'
+import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { KeyboardEventLike, ShortcutRegistry, ShortcutRegistryOptions } from '../keyboard.js'
 
 /** 命令的双语标题（界面双语）。 */
@@ -68,9 +68,9 @@ export interface CommandMatch {
 /** 命令注册表：命令定义 + 快捷键匹配 + 检索。 */
 export interface CommandRegistry {
   /** 当前已注册命令（注册顺序）的实时列表。 */
-  readonly commands: Signal<ReadonlyArray<CommandDef>>
+  readonly commands: ReadonlySignal<ReadonlyArray<CommandDef>>
   /** 底层快捷键注册表（combo 归一化、冲突检测）。 */
-  readonly shortcuts: ShortcutRegistry
+  readonly shortcuts: Pick<ShortcutRegistry, 'shortcuts' | 'canonical' | 'findByCombo' | 'findByKeyboardEvent'>
   /** 注册一条或多条命令，返回注销它们的 disposer。 */
   register(def: CommandDef | ReadonlyArray<CommandDef>): () => void
   unregister(id: string): void
@@ -95,4 +95,7 @@ export interface CommandRegistry {
 }
 
 /** 命令注册表选项，透传快捷键注册表选项。 */
-export interface CommandRegistryOptions extends ShortcutRegistryOptions {}
+export interface CommandRegistryOptions extends ShortcutRegistryOptions {
+  /** Receives keyboard dispatch failures after the affected operation stops. */
+  readonly onError?: (error: unknown, commandId?: string) => void
+}

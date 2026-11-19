@@ -18,7 +18,7 @@
  * playhead changes deterministically.
  */
 
-import type { Signal } from '../../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 
 /** A monotonically-increasing list of bar open timestamps (ms since epoch).
  *  By convention `calendar[i]` is the open time of bar `i`. */
@@ -59,7 +59,7 @@ export interface ReplayControllerInit {
 export interface ReplayController {
   /** Reactive view of the entire replay state. Subscribers fire after any
    *  mutation that changes the state object (Object.is equality). */
-  readonly state: Signal<ReplayState>
+  readonly state: ReadonlySignal<ReplayState>
 
   /** Set the inclusive `[start, end]` range. The current position is
    *  re-clamped into the new range. Throws if `end < start`. */

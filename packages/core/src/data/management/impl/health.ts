@@ -1,5 +1,5 @@
 /** 实例级 Provider 拨测：逐目标复用、超时与配置身份失效。 */
-import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
 import type { MarketHealthOptions, MarketProviderHealth } from '../types.js'
@@ -14,7 +14,7 @@ interface ProbeRequest {
 /** 健康状态只归属于管理实例，不随消费者组件卸载而取消。 */
 export class MarketDataHealth {
   private readonly signal = createSignal<Readonly<Record<string, MarketProviderHealth>>>({})
-  readonly state: ReadonlySignal<Readonly<Record<string, MarketProviderHealth>>> = this.signal
+  readonly state = asReadonlySignal(this.signal)
   private readonly requests = new Map<string, ProbeRequest>()
   private readonly unsubscribe: () => void
   private disposed = false

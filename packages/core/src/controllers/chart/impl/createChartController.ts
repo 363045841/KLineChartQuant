@@ -116,7 +116,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
-  const initialSettings = normalizeSettings(opts.settings)
+  const initialSettings = normalizeSettings({ ...opts.settings, ...(opts.theme && { theme: opts.theme }) })
   const rendererHost = await createDefaultRendererHost(
     initialSettings.rendererBackend as RendererBackend,
   )
@@ -152,19 +152,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
   const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
-
-  try {
-    chart.zoom.toLevel(initialZoomLevel)
-  } catch {
-    /* tolerate jsdom */
-  }
-  if (opts.theme) {
-    try {
-      chart.theme.set(opts.theme)
-    } catch {
-      /* tolerate first-paint racing */
-    }
-  }
 
   let disposed = false
   const isDisposed = () => disposed
@@ -208,8 +195,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
     loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
   })
-  await templateManager.initialize().catch(() => {
-    // 模板存储不可用不阻断图表；列表保持为空，写入时才向界面报错。
+  await templateManager.initialize().catch((error: unknown) => {
+    console.error('[ChartController] Indicator template initialization failed', error)
   })
   // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
   if (opts.symbols && opts.symbols.length > 0) {
@@ -314,15 +301,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposal) return disposal
     disposed = true
     for (const unsubscribe of layoutSubscriptions) unsubscribe()
-    disposal = templateManager
-      .dispose()
-      .then(() => layoutManager.dispose())
-      .finally(() => chart.destroy())
-    try {
-      mounted.cleanup()
-    } catch {
-      /* best-effort */
-    }
+    disposal = (async () => {
+      const failures: unknown[] = []
+      for (const release of [mounted.cleanup, () => templateManager.dispose(), () => layoutManager.dispose(), () => chart.destroy()]) {
+        try {
+          await release()
+        } catch (error) {
+          failures.push(error)
+        }
+      }
+      if (failures.length) throw new AggregateError(failures, 'Chart controller disposal failed')
+    })()
     return disposal
   }
 

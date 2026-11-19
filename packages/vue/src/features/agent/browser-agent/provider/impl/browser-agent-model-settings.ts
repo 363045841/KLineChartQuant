@@ -2,6 +2,7 @@
 
 import type { ProviderModelPoolEntry } from '@363045841yyt/klinechart-agent-runtime'
 import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import { loadPreference } from '@vue-src/utils/loadPreference.js'
 import type { BrowserAgentModelSettings, BrowserProviderProfile } from '../types.js'
 
 /** LocalStorage 中 Agent 模型设置的键名；测试据此断言持久化文档。 */
@@ -34,7 +35,7 @@ const browserAgentModelSettingsPersistence = createLocalStoragePersistence({
 
 /** 管理 Agent 模型设置文档，领域集合共享一次持久化写入。 */
 export class BrowserAgentModelSettingsStore {
-  private cache = browserAgentModelSettingsPersistence.load() ?? {
+  private cache = loadPreference(browserAgentModelSettingsPersistence.load) ?? {
     profiles: [],
     modelPool: [],
     enabledTools: [],

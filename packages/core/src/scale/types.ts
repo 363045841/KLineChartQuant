@@ -17,7 +17,7 @@
  * anchored-zoom / origin-shift math live in `impl/`.
  */
 
-import type { Signal } from '../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '../foundation/reactivity/signal.js'
 import { ScaleType } from '../foundation/types/scaleType.js'
 
 /** Headless PriceScale 支持的 Y 映射模式；percent 不属于该契约。 */
@@ -44,11 +44,11 @@ export interface TimeScale {
   barIndexToX(i: number): number
 
   /** Fractional, may be negative or > N. */
-  readonly firstVisibleIndex: Signal<number>
+  readonly firstVisibleIndex: ReadonlySignal<number>
   /** Logical pixels per bar. Clamped by the caller (e.g. zoom) not the scale. */
-  readonly barWidth: Signal<number>
+  readonly barWidth: ReadonlySignal<number>
   /** Logical pixels added on the left edge before bar 0. */
-  readonly leftPadding: Signal<number>
+  readonly leftPadding: ReadonlySignal<number>
 
   setFirstVisibleIndex(i: number): void
   setBarWidth(w: number): void
@@ -84,10 +84,10 @@ export interface PriceScale {
   /** Inverse: screen Y → price. */
   yToPrice(y: number): number
 
-  readonly mode: Signal<ScaleMode>
-  readonly visibleMin: Signal<number>
-  readonly visibleMax: Signal<number>
-  readonly height: Signal<number>
+  readonly mode: ReadonlySignal<ScaleMode>
+  readonly visibleMin: ReadonlySignal<number>
+  readonly visibleMax: ReadonlySignal<number>
+  readonly height: ReadonlySignal<number>
 
   /** Set `'linear'` or `'log'`; throws on `'log'` if `visibleMin <= 0`. */
   setMode(mode: ScaleMode): void
@@ -96,7 +96,7 @@ export interface PriceScale {
   setHeight(h: number): void
 
   /** Origin-shift reference; managed automatically but exposed for tests. */
-  readonly originShiftRef: Signal<number>
+  readonly originShiftRef: ReadonlySignal<number>
   /** Returns `p - originShiftRef.peek()` — what to upload to the GPU as fp32. */
   toShiftedFp32(p: number): number
 

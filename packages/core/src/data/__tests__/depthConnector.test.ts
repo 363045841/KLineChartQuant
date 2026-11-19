@@ -117,15 +117,31 @@ describe('DepthConnector', () => {
   })
 
   describe('error handling', () => {
-    it('catches source errors without throwing (logs to console)', () => {
+    it('reports the original source failure at the subscription boundary', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       connector.start()
-      source.triggerError(new Error('test error'))
+      const error = new Error('test error')
+      source.triggerError(error)
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('[DepthConnector] test test-symbol:'),
-        expect.stringContaining('test error'),
+        error,
       )
       consoleSpy.mockRestore()
+      connector.destroy()
+    })
+
+    it('drops failed subscriptions and can start again after a connection failure', () => {
+      const error = new Error('Connection failed')
+      const controller = createFakeHeatmapController()
+      const delta: DepthDelta = { side: 'ask', timestamp: 1, price: 100, size: 1 }
+      connector.addController(controller)
+      vi.spyOn(source, 'connect').mockImplementationOnce(() => { throw error })
+      expect(() => connector.start()).toThrow(error)
+      source.triggerDelta([delta])
+      expect(controller.calls.ingest).toEqual([])
+      connector.start()
+      source.triggerDelta([delta])
+      expect(controller.calls.ingest).toEqual([delta])
       connector.destroy()
     })
   })

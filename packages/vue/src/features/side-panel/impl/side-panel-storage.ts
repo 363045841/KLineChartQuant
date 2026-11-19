@@ -1,6 +1,7 @@
 /** 侧边面板宽度与停靠侧的 LocalStorage 持久化适配器。 */
 
 import { createLocalStoragePersistence, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import { loadPreference } from '@vue-src/utils/loadPreference.js'
 import type { SidePanelSide, SidePanelSideStorage, SidePanelWidthStorage } from '../types.js'
 
 /** 宽度与停靠侧使用独立键，任一读取失败都不影响另一项。 */
@@ -33,7 +34,7 @@ export function createSidePanelWidthStorage(): SidePanelWidthStorage {
   })
   return {
     load(): number | undefined {
-      return persistence.load() ?? undefined
+      return loadPreference(persistence.load) ?? undefined
     },
     save(width: number): void {
       persistence.save(width)
@@ -49,7 +50,7 @@ export function createSidePanelSideStorage(): SidePanelSideStorage {
   })
   return {
     load(): SidePanelSide | undefined {
-      return persistence.load() ?? undefined
+      return loadPreference(persistence.load) ?? undefined
     },
     save(side: SidePanelSide): void {
       persistence.save(side)

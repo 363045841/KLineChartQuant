@@ -4,7 +4,9 @@
 import type { HookCallOptions, HookDescriptor, HookFn } from '../types.js'
 
 export class HookSystem {
-  private hooks: Map<string, HookDescriptor[]> = new Map()
+  private readonly hooks: Map<string, HookDescriptor[]> = new Map()
+
+  constructor(private readonly reportError: (message: string, error: unknown) => void = console.error) {}
 
   /**
    * 注册钩子
@@ -48,15 +50,13 @@ export class HookSystem {
     }
 
     const results: R[] = []
-    for (const { fn } of descriptors) {
+    for (const { fn } of [...descriptors]) {
       try {
         const result = await fn(context)
         results.push(result as R)
       } catch (error) {
-        console.error(`[HookSystem] Error in hook "${hookName}":`, error)
-        if (options?.throwOnError) {
-          throw error
-        }
+        if (options?.throwOnError) throw error
+        this.reportError(`[HookSystem] Error in hook "${hookName}":`, error)
       }
     }
     return results
@@ -72,15 +72,13 @@ export class HookSystem {
     }
 
     const results: R[] = []
-    for (const { fn } of descriptors) {
+    for (const { fn } of [...descriptors]) {
       try {
         const result = fn(context) as R
         results.push(result)
       } catch (error) {
-        console.error(`[HookSystem] Error in hook "${hookName}":`, error)
-        if (options?.throwOnError) {
-          throw error
-        }
+        if (options?.throwOnError) throw error
+        this.reportError(`[HookSystem] Error in hook "${hookName}":`, error)
       }
     }
     return results
