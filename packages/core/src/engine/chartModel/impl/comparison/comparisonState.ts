@@ -3,7 +3,7 @@
 import type { SymbolSpec } from '../../../../controllers/types.js'
 import { batch, createSubState } from '../../../../foundation/reactivity/signal.js'
 import { symbolSpecIdentityKey } from '../../../data/symbolIdentity.js'
-import { immutableMap } from '../../../state/immutable.js'
+import { immutableMap } from '@/foundation/utils/immutableMap.js'
 
 const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'

@@ -1,7 +1,7 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
 import type { KLineData } from '@/controllers/types.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import { formatDateInTimeZone } from '@/foundation/time/index.js'
 import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
@@ -287,7 +287,7 @@ export class MarketDataCache {
   private readonly pending = new Map<string, Promise<void>>()
   private readonly queries = new Map<string, QueryState>()
   private readonly queryRevisionSignal = createSignal(0)
-  readonly queryRevision: ReadonlySignal<number> = this.queryRevisionSignal
+  readonly queryRevision = asReadonlySignal(this.queryRevisionSignal)
   private readonly entries = new Map<string, CacheEntryMetadata>()
   private readonly statsSignal = createSignal<MarketDataCacheStats>({
     usedBytes: 0,
@@ -301,7 +301,7 @@ export class MarketDataCache {
   private readonly unsubscribeRegistry: () => void
 
   /** 供设置界面观察的缓存近似内存使用量。 */
-  readonly stats: ReadonlySignal<MarketDataCacheStats> = this.statsSignal
+  readonly stats = asReadonlySignal(this.statsSignal)
 
   /** 创建绑定一个 Provider Registry 的图表实例级缓存。 */
   constructor(registry: MarketDataProviderRegistry) {

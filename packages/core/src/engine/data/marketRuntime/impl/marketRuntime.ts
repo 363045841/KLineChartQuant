@@ -464,7 +464,9 @@ export class MarketRuntime implements IndicatorMarketData {
           range: { from: first, to },
           signal: trade.abort.signal,
         })
-        .catch(() => {})
+        .catch((error: unknown) => {
+          if (!trade.abort.signal.aborted) console.error('[MarketRuntime] Trade history request failed', error)
+        })
     }, 200)
   }
 

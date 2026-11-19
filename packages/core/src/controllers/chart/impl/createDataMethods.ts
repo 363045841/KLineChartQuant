@@ -19,7 +19,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
   /** 公开门面只改变品种选择，历史与增量写入归行情运行时。 */
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
     if (isDisposed()) return
-    chart.clearRangeSelection()
     chart.setSymbols(next)
   }
 
@@ -46,13 +45,11 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
 
   function setCurrentSymbol(symbol: string): void {
     if (isDisposed()) return
-    chart.clearRangeSelection()
     chart.setCurrentSymbol(symbol)
   }
 
   function setCurrentPeriod(period: string): void {
     if (isDisposed()) return
-    chart.clearRangeSelection()
     chart.setCurrentPeriod(period)
   }
 

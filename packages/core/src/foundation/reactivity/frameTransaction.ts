@@ -72,7 +72,7 @@ export interface FrameTransaction<TInput extends Record<string, unknown>, TSnaps
   /** 当前阶段，调试与不变量检查用 */
   readonly phase: FramePhase
   /**
-   * 合并高频输入。idle 写入当前 pending；非 idle 写入 nextPending。
+  * 合并高频输入，帧执行期间写入最新 pending。
    * 不触发订阅通知。
    */
   writeInput(patch: Partial<TInput>): void
@@ -112,10 +112,8 @@ export function createFrameTransaction<TInput extends Record<string, unknown>, T
       return setTimeout(run, 0)
     })
 
-  /** 当前代可写入的输入（仅 idle 时接收 writeInput） */
+  /** 最新输入，执行中的帧持有自己的引用。 */
   let pending: TInput = { ...options.initialInput }
-  /** 事务进行中产生的输入，complete 后并入下一代 */
-  let nextPending: TInput | null = null
   /** 是否存在尚未 flush 的 pending 变更 */
   let dirty = false
   let generation = 0
@@ -127,14 +125,8 @@ export function createFrameTransaction<TInput extends Record<string, unknown>, T
   const published = createSignal<TSnapshot>(initialSnapshot)
 
   function writeInput(patch: Partial<TInput>): void {
-    if (phase === 'idle') {
-      pending = mergeInput(pending, patch)
-      dirty = true
-      return
-    }
-    // capturing 之后当前输入已封存；重入写入只能进下一代
-    const base = nextPending ?? pending
-    nextPending = mergeInput(base, patch)
+    pending = mergeInput(pending, patch)
+    dirty = true
   }
 
   // 生成最终并发布的不可变快照
@@ -144,25 +136,14 @@ export function createFrameTransaction<TInput extends Record<string, unknown>, T
       return published.peek()
     }
 
-    if (!dirty && nextPending === null) {
+    if (!dirty) {
       return published.peek()
     }
 
-    // 若仅有 nextPending（例如上一帧 render 中写入），提升为当前 pending
-    if (!dirty && nextPending !== null) {
-      pending = nextPending
-      nextPending = null
-      dirty = true
-    }
-
-    let sealedInput: TInput | undefined
-    // 封存输入，后续写入只能进下一代
+    const sealedInput = pending
+    dirty = false
     phase = 'capturing'
     try {
-      sealedInput = pending
-      dirty = false
-      pending = { ...sealedInput }
-
       // 从封存输入纯推导不可变快照
       phase = 'deriving'
       const nextGeneration = generation + 1
@@ -182,37 +163,20 @@ export function createFrameTransaction<TInput extends Record<string, unknown>, T
       published.set(snapshot)
 
       return snapshot
-    } catch (err) {
-      // derive/render 失败：不推进 generation（若已推进则回滚），保留 sealed 输入供重试
-      if (sealedInput !== undefined) {
-        pending = sealedInput
-        dirty = true
-      }
-      throw err
     } finally {
       phase = 'idle'
-      // 事务中累积的 nextPending 与重试 pending 合并
-      if (nextPending !== null) {
-        pending = mergeInput(pending, nextPending)
-        nextPending = null
-        dirty = true
-      }
-      // 有残留 dirty 时挂下一代调度（含 re-entrant write / 失败重试）
-      if (dirty) {
-        scheduleFlush()
-      }
+      if (dirty) scheduleFlush()
     }
   }
 
   function scheduleFlush(): void {
     // 已有 raf 帧，
     if (scheduleQueued) return
-    if (!dirty && nextPending === null) return
+    if (!dirty) return
     scheduleQueued = true
     try {
       schedule(() => {
         scheduleQueued = false
-        // flush 的 finally 已在失败时保留 dirty 并 scheduleFlush；此处继续抛出供测试/诊断
         flush()
       })
     } catch (err) {

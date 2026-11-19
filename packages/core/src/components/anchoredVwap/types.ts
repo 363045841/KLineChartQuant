@@ -21,7 +21,7 @@
  * `createIndicatorSelectorController.ts`.
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 /**
  * Minimum bar shape consumed by `computeAnchoredVwap`. Matches the
@@ -116,7 +116,7 @@ export interface ActiveAnchor {
  */
 export interface AnchoredVwapController {
   /** All currently active anchors with their up-to-date series. */
-  readonly anchors: Signal<ReadonlyArray<ActiveAnchor>>
+  readonly anchors: ReadonlySignal<ReadonlyArray<ActiveAnchor>>
 
   /**
    * Replace the underlying bar series and recompute every active anchor

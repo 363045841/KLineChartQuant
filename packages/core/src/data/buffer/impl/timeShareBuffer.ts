@@ -1,5 +1,6 @@
 /** 分时图表快照适配器：接收缓存查询结果并发布点列、昨收与范围状态。 */
 import {
+  asReadonlySignal,
   batch,
   computed,
   createSignal,
@@ -87,7 +88,6 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   })
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
-  private queryDate = 0
   private disposed = false
   private readonly timestampIndex = new UniqueTimestampIndex()
 
@@ -102,14 +102,10 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   }
 
   /** 返回缓存查询加载状态。 */
-  get loading(): ReadonlySignal<boolean> {
-    return this.loadingSignal
-  }
+  readonly loading = asReadonlySignal(this.loadingSignal)
 
   /** 返回最近一次缓存查询错误。 */
-  get lastError(): ReadonlySignal<string | null> {
-    return this.errorSignal
-  }
+  readonly lastError = asReadonlySignal(this.errorSignal)
 
   /** 返回数据覆盖范围。 */
   get loadedTimeRange(): LoadedTimeRange | null {
@@ -157,7 +153,9 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   /** 写入缓存层返回的单日分时快照。 */
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
     if (this.disposed) return
-    if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) return
+    if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) {
+      throw new RangeError('Time-share pre-close must be positive and finite')
+    }
     const copiedData = Object.freeze(normalizePoints(data))
     batch(() => {
       this.content.set({ kind: 'inline', data: copiedData, preClose })
@@ -165,16 +163,6 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
     })
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
-  }
-
-  /** 设置图表请求的历史日期标识。 */
-  setQueryDate(date: number): void {
-    if (!this.disposed) this.queryDate = date
-  }
-
-  /** 返回图表请求的历史日期标识。 */
-  getQueryDate(): number {
-    return this.queryDate
   }
 
   /** 发布缓存查询加载状态。 */

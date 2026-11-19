@@ -1,7 +1,8 @@
 /** 图表实例级行情序列仓库：统一管理 K 线、分时和成交 Buffer 的身份、拓扑和生命周期。 */
 import type { SymbolSpec } from '@/controllers/types.js'
-import { createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
-import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../../provider/types.js'
+import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
+import { immutableMap as mapSnapshot } from '@/foundation/utils/immutableMap.js'
+import type { BarAggregation, KLineAdjustment, KLinePeriod, TradingDate } from '../../provider/types.js'
 import { AUTO_SOURCE_ID } from '../../provider/types.js'
 import type { TradeBuffer } from '../../trades/types.js'
 import type { KLineBuffer, TimeShareBuffer } from '../types.js'
@@ -9,9 +10,9 @@ import type { KLineBuffer, TimeShareBuffer } from '../types.js'
 export type InstrumentKey = string
 export type SourceId = string
 export type BarSeriesKey = string
-export type TradingDateKey = string
+export type TradingDateKey = TradingDate | typeof LATEST_TRADING_DATE
 
-export const LATEST_TRADING_DATE: TradingDateKey = 'latest'
+export const LATEST_TRADING_DATE = 'latest'
 
 /** 序列选择判别字段字面量；判别种类时引用它，不在业务代码里散落字符串。 */
 export const SERIES_SELECTION_KIND = {
@@ -132,28 +133,6 @@ export function seriesSelectionKey(selection: RepositorySelection): string {
       ])
 }
 
-/** 将 Map 复制为只读快照，后续写入只能通过新的 Map 完成。 */
-function mapSnapshot<K, V>(source?: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
-  const copy = new Map(source)
-  // 一份拓扑快照只绑定一次方法；实时绘制会按槽位反复读取 get，不能逐次分配闭包。
-  const methods = new Map<PropertyKey, unknown>()
-  return new Proxy(copy, {
-    get(target, property) {
-      if (property === 'set' || property === 'delete' || property === 'clear') {
-        return () => {
-          throw new TypeError('SeriesRepository snapshot is immutable')
-        }
-      }
-      if (methods.has(property)) return methods.get(property)
-      const value = Reflect.get(target, property, target)
-      if (typeof value !== 'function') return value
-      const method = value.bind(target)
-      methods.set(property, method)
-      return method
-    },
-  }) as ReadonlyMap<K, V>
-}
-
 /** 空来源节点；注册与迁移共用同一个不可变空值。 */
 const EMPTY_SOURCE_NODE: SourceSeriesNode = Object.freeze({
   bars: new Map<BarSeriesKey, KLineBuffer>(),
@@ -171,11 +150,11 @@ function sourceNode(
   timeShare: ReadonlyMap<TradingDateKey, TimeShareBuffer>,
   trades?: TradeBuffer,
 ): SourceSeriesNode {
-  return {
+  return Object.freeze({
     bars: mapSnapshot(bars),
     timeShare: mapSnapshot(timeShare),
     ...(trades ? { trades } : {}),
-  }
+  })
 }
 
 /** 返回写入注册叶子后的来源节点；成交是来源级单槽，直接覆盖。 */
@@ -208,7 +187,7 @@ function withoutLeaf(node: SourceSeriesNode, selection: RepositorySelection): So
     timeShare.delete(selection.tradingDate)
     return sourceNode(node.bars, timeShare, node.trades)
   }
-  return { bars: node.bars, timeShare: node.timeShare }
+  return Object.freeze({ bars: node.bars, timeShare: node.timeShare })
 }
 
 /** 按判别种类读取来源节点中的叶子；成交是来源级单槽。 */
@@ -232,9 +211,7 @@ export class SeriesRepository {
   private _disposed = false
 
   /** 返回只在拓扑变化时更新的只读快照。 */
-  get snapshot(): ReadonlySignal<SeriesRepositorySnapshot> {
-    return this._snapshot
-  }
+  readonly snapshot = asReadonlySignal(this._snapshot)
 
   /** 按完整 K 线身份查询 Buffer。 */
   getBars(selection: BarsSelection): KLineBuffer | undefined {
@@ -320,7 +297,7 @@ export class SeriesRepository {
     )
 
     const snapshot = new Map(current)
-    snapshot.set(selection.instrumentKey, { sources: mapSnapshot(sources) })
+    snapshot.set(selection.instrumentKey, Object.freeze({ sources: mapSnapshot(sources) }))
     this._snapshot.set(mapSnapshot(snapshot))
     return { selection: next, buffer, moved: true }
   }
@@ -347,7 +324,7 @@ export class SeriesRepository {
     const sources = new Map(instrument.sources)
     sources.delete(sourceId)
     const next = new Map(current)
-    if (sources.size) next.set(instrumentKey, { sources: mapSnapshot(sources) })
+    if (sources.size) next.set(instrumentKey, Object.freeze({ sources: mapSnapshot(sources) }))
     else next.delete(instrumentKey)
     this._snapshot.set(mapSnapshot(next))
     return true
@@ -407,7 +384,7 @@ export class SeriesRepository {
 
     const next = new Map(current)
     if (sources.size === 0) next.delete(selection.instrumentKey)
-    else next.set(selection.instrumentKey, { sources: mapSnapshot(sources) })
+    else next.set(selection.instrumentKey, Object.freeze({ sources: mapSnapshot(sources) }))
     this._snapshot.set(mapSnapshot(next))
   }
 

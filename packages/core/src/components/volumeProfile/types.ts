@@ -13,7 +13,7 @@
  * heavy `binBarToBuckets` work.
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 /**
  * How a bar's volume is distributed across price buckets.
@@ -95,9 +95,9 @@ export interface VolumeProfileBar {
  */
 export interface VolumeProfileController {
   /** Current config; re-emits when `setConfig` is called. */
-  readonly config: Signal<VolumeProfileConfig>
+  readonly config: ReadonlySignal<Readonly<VolumeProfileConfig>>
   /** Current state; `null` until the first ingest. */
-  readonly state: Signal<VolumeProfileState | null>
+  readonly state: ReadonlySignal<Readonly<VolumeProfileState> | null>
 
   /**
    * Recompute the profile from a fresh bar slice. Idempotent: calling this

@@ -1,125 +1,54 @@
-/**
- * ToolbarController — framework-agnostic implementation.
- *
- * Extracted from src/components/LeftToolbar.vue. This module owns the pure
- * state machine of the toolbar:
- *   - the registered tool list (catalog)
- *   - which tool is currently active (selection)
- *   - which tools are disabled (per-id mask)
- *
- * Behaviours owned here:
- *   - Group-based mutual exclusion (radio): selecting a tool deselects any
- *     other active tool in the same `group` (used in LeftToolbar.vue for the
- *     "lines" / "channels" tool groups via parent + children).
- *   - Disabled-state gating: a disabled tool cannot be selected. Disabling a
- *     currently-active tool clears the selection.
- *   - Idempotent disposal: post-dispose mutators are silent no-ops.
- *
- * Everything DOM / icons / click handlers / pointer event stoppers / Teleport
- * for the settings modal stays in the Vue adapter — the controller deals
- * only with the data layer.
- */
-
+/** Toolbar selection and availability share one published snapshot. */
 import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
-import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, batch, createSignal } from '@/foundation/reactivity/index.js'
+import type { ToolbarController, ToolbarInit, ToolId } from '../types.js'
 
-import type { ToolbarController, ToolbarInit, ToolDefinition, ToolId } from '../types.js'
-
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
+function readonlySet(values: Iterable<ToolId>): ReadonlySet<ToolId> {
+  const entries = new Set(values)
+  const view = Object.freeze({
+    size: entries.size,
+    has: (id: ToolId) => entries.has(id),
+    entries: () => entries.entries(),
+    keys: () => entries.keys(),
+    values: () => entries.values(),
+    [Symbol.iterator]: () => entries.values(),
+    forEach(callback: (value: ToolId, key: ToolId, set: ReadonlySet<ToolId>) => void, thisArg?: unknown) {
+      for (const entry of entries) callback.call(thisArg, entry, entry, view)
+    },
+  })
+  return view
+}
 
 export function createToolbarController(init: ToolbarInit): ToolbarController {
-  // -------------------------------------------------------------------
-  // Signals (state)
-  // -------------------------------------------------------------------
-  const tools: Signal<ReadonlyArray<ToolDefinition>> = createSignal<ReadonlyArray<ToolDefinition>>(
-    init.tools,
-  )
-  const activeTool: Signal<ToolId | null> = createSignal<ToolId | null>(
-    init.initialActiveTool ?? null,
-  )
-  const disabledTools: Signal<ReadonlySet<ToolId>> = createSignal<ReadonlySet<ToolId>>(
-    new Set<ToolId>(),
-  )
-
-  // -------------------------------------------------------------------
-  // Lookups (use peek — mutations must not track in `effect`)
-  // -------------------------------------------------------------------
-  function findTool(id: ToolId): ToolDefinition | null {
-    const list = tools.peek()
-    for (const t of list) {
-      if (t.id === id) return t
-    }
-    return null
-  }
-
-  function isDisabled(id: ToolId): boolean {
-    return disabledTools.peek().has(id)
-  }
-
-  // -------------------------------------------------------------------
-  // Mutations
-  // -------------------------------------------------------------------
-  function selectTool(id: ToolId): void {
-    const tool = findTool(id)
-    if (tool === null) return // unknown id — no-op
-    if (isDisabled(id)) return // disabled — no-op
-
-    // Group-based mutual exclusion: when the requested tool belongs to a
-    // `group`, deselect any currently-active tool that shares the group.
-    // (Group membership is metadata on the definition; the controller
-    // does not infer groups from parent/child relations — adapters that
-    // model nested groups should flatten them with a shared group key.)
-    const currentActive = activeTool.peek()
-    if (currentActive !== null && tool.group !== undefined) {
-      const currentTool = findTool(currentActive)
-      if (currentTool !== null && currentTool.group === tool.group && currentTool.id !== tool.id) {
-        // Replace: writing the new id covers both "deselect old" and
-        // "select new" in a single notification.
-      }
-    }
-
-    activeTool.set(id)
-  }
-
-  function clearSelection(): void {
-    activeTool.set(null)
-  }
-
-  function setDisabled(id: ToolId, disabled: boolean): void {
-    const current = disabledTools.peek()
-    const has = current.has(id)
-    if (disabled === has) return // no change
-
-    // Immutable update — never mutate the existing Set in place.
-    const next = new Set(current)
-    if (disabled) {
-      next.add(id)
-    } else {
-      next.delete(id)
-    }
-    disabledTools.set(next)
-
-    // If the disabled tool was the active one, clear the active signal
-    // so adapters re-render without an "active + disabled" state.
-    if (disabled && activeTool.peek() === id) {
-      activeTool.set(null)
-    }
-  }
-
-  // -------------------------------------------------------------------
-  // Disposal — 销毁后所有变更方法静默 no-op，订阅者不再收到通知。
-  // -------------------------------------------------------------------
+  const tools = Object.freeze(init.tools.map((tool) => Object.freeze({ ...tool })))
+  const toolIds = new Set(tools.map(({ id }) => id))
+  const catalog = createSignal(tools)
+  const activeTool = createSignal<ToolId | null>(init.initialActiveTool ?? null)
+  const disabledTools = createSignal<ReadonlySet<ToolId>>(readonlySet([]))
   const { dispose, guard } = createDisposeGuard()
 
   return {
-    tools,
-    activeTool,
-    disabledTools,
-    selectTool: guard(selectTool),
-    clearSelection: guard(clearSelection),
-    setDisabled: guard(setDisabled),
+    tools: asReadonlySignal(catalog),
+    activeTool: asReadonlySignal(activeTool),
+    disabledTools: asReadonlySignal(disabledTools),
+    selectTool: guard((id: ToolId) => {
+      if (!toolIds.has(id) || disabledTools.peek().has(id) || activeTool.peek() === id) return
+      activeTool.set(id)
+    }),
+    clearSelection: guard(() => {
+      if (activeTool.peek() !== null) activeTool.set(null)
+    }),
+    setDisabled: guard((id: ToolId, disabled: boolean) => {
+      const current = disabledTools.peek()
+      if (disabled === current.has(id)) return
+      const next = new Set(current)
+      if (disabled) next.add(id)
+      else next.delete(id)
+      batch(() => {
+        disabledTools.set(readonlySet(next))
+        if (disabled && activeTool.peek() === id) activeTool.set(null)
+      })
+    }),
     dispose,
   }
 }

@@ -26,12 +26,13 @@
  *   addition (`onError` listener on the controller).
  */
 
-import { createSignal, type Signal } from '@/foundation/reactivity/signal.js'
+import { asReadonlySignal, batch, createSignal } from '@/foundation/reactivity/signal.js'
 
 import type {
   AlertController,
   AlertControllerOptions,
   AlertEvent,
+  AlertFailure,
   AlertRule,
   MarketSnapshot,
 } from '../types.js'
@@ -57,8 +58,9 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
   // -----------------------------------------------------------------------
   // Signals — frozen arrays so React/Vue see new identity on every change.
   // -----------------------------------------------------------------------
-  const rules: Signal<ReadonlyArray<AlertRule>> = createSignal<ReadonlyArray<AlertRule>>([])
-  const events: Signal<ReadonlyArray<AlertEvent>> = createSignal<ReadonlyArray<AlertEvent>>([])
+  const rules = createSignal<readonly AlertRule[]>(Object.freeze([]))
+  const events = createSignal<readonly AlertEvent[]>(Object.freeze([]))
+  const failures = createSignal<readonly AlertFailure[]>(Object.freeze([]))
 
   // -----------------------------------------------------------------------
   // Private state
@@ -82,8 +84,8 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     next: AlertRule,
   ): ReadonlyArray<AlertRule> {
     const copy = [...arr]
-    copy[i] = next
-    return copy
+    copy[i] = Object.freeze(next)
+    return Object.freeze(copy)
   }
 
   // -----------------------------------------------------------------------
@@ -94,12 +96,13 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     if (findIndex(rule.id) >= 0) return false
     // Defensive shallow copy so external mutation of the caller's object
     // does not affect controller state.
-    const stored: AlertRule = {
+    const stored: AlertRule = Object.freeze({
       ...rule,
-      metadata: rule.metadata !== undefined ? { ...rule.metadata } : undefined,
-    }
-    rules.set([...rules.peek(), stored])
+      predicate: Object.freeze({ ...rule.predicate }),
+      metadata: rule.metadata === undefined ? undefined : Object.freeze({ ...rule.metadata }),
+    })
     runtime.set(rule.id, { prev: null, lastFiredAt: undefined })
+    rules.set(Object.freeze([...rules.peek(), stored]))
     return true
   }
 
@@ -108,8 +111,8 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     if (idx < 0) return false
     const copy = [...rules.peek()]
     copy.splice(idx, 1)
-    rules.set(copy)
     runtime.delete(id)
+    rules.set(Object.freeze(copy))
     return true
   }
 
@@ -119,12 +122,12 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     const cur = rules.peek()[idx]!
     if (cur.enabled === enabled) return true // no-op but reports success
     const next: AlertRule = { ...cur, enabled }
-    rules.set(replaceAt(rules.peek(), idx, next))
     // Re-enabling resets prev — a freshly enabled cross rule should not
     // fire on the first eval just because the level is already broken.
     if (enabled) {
       runtime.set(id, { prev: null, lastFiredAt: undefined })
     }
+    rules.set(replaceAt(rules.peek(), idx, next))
     return true
   }
 
@@ -136,15 +139,16 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
       ...cur,
       ...patch,
       id: cur.id, // id is invariant
-      metadata: patch.metadata !== undefined ? { ...patch.metadata } : cur.metadata,
+      predicate: patch.predicate === undefined ? cur.predicate : Object.freeze({ ...patch.predicate }),
+      metadata: patch.metadata === undefined ? cur.metadata : Object.freeze({ ...patch.metadata }),
     }
-    rules.set(replaceAt(rules.peek(), idx, next))
     // Changing the predicate invalidates prev — different predicates may
     // need different prev fields, and a stale prev could cause a spurious
     // fire on next eval.
     if (patch.predicate !== undefined) {
       runtime.set(id, { prev: null, lastFiredAt: undefined })
     }
+    rules.set(replaceAt(rules.peek(), idx, next))
     return true
   }
 
@@ -154,11 +158,12 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
 
   function evaluate(snapshot: MarketSnapshot, now: number): ReadonlyArray<AlertEvent> {
     const fired: AlertEvent[] = []
+    const failed: AlertFailure[] = []
     const currentRules = rules.peek()
 
     // We may need to flip oneShot rules off — collect indices and apply
     // once at the end to avoid mutating `currentRules` mid-loop.
-    const toDisable: number[] = []
+    const toDisable = new Set<AlertRule>()
 
     for (let i = 0; i < currentRules.length; i++) {
       const rule = currentRules[i]!
@@ -188,23 +193,22 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
       let hit = false
       try {
         hit = evaluatePredicate(rule.predicate, snapshot, rt.prev)
-      } catch {
-        // Swallow per crash-safety contract. Do NOT fire. Continue.
-        hit = false
+      } catch (error) {
+        failed.push(Object.freeze({ ruleId: rule.id, stage: 'predicate', error }))
       }
 
       if (hit) {
-        const event: AlertEvent = {
+        const event: AlertEvent = Object.freeze({
           ruleId: rule.id,
           ruleName: rule.name,
           triggeredAt: now,
-          snapshotBar: snapshot.bar !== null ? { ...snapshot.bar } : null,
+          snapshotBar: snapshot.bar !== null ? Object.freeze({ ...snapshot.bar }) : null,
           metadata: rule.metadata,
-        }
+        })
         fired.push(event)
         rt.lastFiredAt = now
         if (rule.oneShot) {
-          toDisable.push(i)
+          toDisable.add(rule)
         }
       }
 
@@ -212,35 +216,25 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
       runtime.set(rule.id, rt)
     }
 
-    if (fired.length > 0) {
-      // Append fired events to the ring, capped at maxEvents.
-      const prevEvents = events.peek()
-      const merged = prevEvents.concat(fired)
-      const trimmed = merged.length > maxEvents ? merged.slice(merged.length - maxEvents) : merged
-      events.set(trimmed)
-
-      // Notify per-event listeners. Copy first so a listener that
-      // unsubscribes during fire-out doesn't mutate the iteration.
+    batch(() => {
+      if (toDisable.size) {
+        rules.set(Object.freeze(rules.peek().map((rule) =>
+          toDisable.has(rule) ? Object.freeze({ ...rule, enabled: false }) : rule,
+        )))
+      }
+      if (fired.length) events.set(Object.freeze(events.peek().concat(fired).slice(-maxEvents)))
       const snapshotListeners = [...listeners]
       for (const ev of fired) {
         for (const l of snapshotListeners) {
           try {
             l(ev)
-          } catch {
-            // listener errors are isolated — never leak across.
+          } catch (error) {
+            failed.push(Object.freeze({ ruleId: ev.ruleId, stage: 'listener', error }))
           }
         }
       }
-    }
-
-    if (toDisable.length > 0) {
-      const copy = [...rules.peek()]
-      for (const i of toDisable) {
-        const r = copy[i]
-        if (r !== undefined) copy[i] = { ...r, enabled: false }
-      }
-      rules.set(copy)
-    }
+      if (failed.length || failures.peek().length) failures.set(Object.freeze(failed))
+    })
 
     return fired
   }
@@ -251,7 +245,7 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
 
   function clearEvents(): void {
     if (events.peek().length === 0) return
-    events.set([])
+    events.set(Object.freeze([]))
   }
 
   function onEvent(listener: (event: AlertEvent) => void): () => void {
@@ -280,8 +274,9 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
   }
 
   return {
-    rules,
-    events,
+    rules: asReadonlySignal(rules),
+    events: asReadonlySignal(events),
+    failures: asReadonlySignal(failures),
     addRule: guard(addRule, false as boolean) as AlertController['addRule'],
     removeRule: guard(removeRule, false as boolean) as AlertController['removeRule'],
     setRuleEnabled: guard(setRuleEnabled, false as boolean) as AlertController['setRuleEnabled'],

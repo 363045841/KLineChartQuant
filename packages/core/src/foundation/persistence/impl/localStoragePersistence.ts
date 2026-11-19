@@ -1,4 +1,5 @@
 /** LocalStorage 持久化原语，存储实例绑定创建时的工作区。 */
+import { KLineChartError, PERSISTENCE_ERROR_CODES } from '@/errors.js'
 import { scopedPersistenceName } from '../persistence-scope.js'
 import type { PersistenceCodec } from '../types.js'
 import { createPendingWriteScheduler, DEFAULT_DEBOUNCE_MS } from './pendingWriteScheduler.js'
@@ -14,7 +15,7 @@ export interface KeyValueStorage {
 
 /** 一个已绑定 storage key 的 JSON 持久化实例。 */
 export interface Persistence<T> {
-  /** 读取、解析和校验持久化值；无值、损坏或不可用时返回 null。 */
+  /** 无记录或无可用后端时返回 null；读取或解码失败时抛出。 */
   load(): T | null
   /** 立即写入 value，并取消尚未完成的延迟写入。 */
   save(value: T): boolean
@@ -40,18 +41,18 @@ export interface CreateLocalStoragePersistenceOptions<T> {
   readonly debounceMs?: number
   /** 是否在 pagehide 时补写，默认 true。 */
   readonly flushOnPageHide?: boolean
+  /** 延迟写入或 pagehide 失败时接收原始异常。 */
+  readonly onBackgroundError?: (error: unknown) => void
 }
 
 /**
- * 安全获取浏览器 localStorage。
- *
- * SSR、隐私模式和受限 iframe 中 localStorage 可能不存在或在访问时抛错。
+ * 获取浏览器 localStorage；浏览器拒绝访问时抛出。
  */
 export function getBrowserLocalStorage(): KeyValueStorage | null {
   try {
-    return globalThis.localStorage
-  } catch {
-    return null
+    return globalThis.localStorage ?? null
+  } catch (cause) {
+    throw new KLineChartError(PERSISTENCE_ERROR_CODES.UNAVAILABLE, 'Unable to access LocalStorage', { cause })
   }
 }
 
@@ -60,18 +61,19 @@ export function createLocalStoragePersistence<T>(
   options: CreateLocalStoragePersistenceOptions<T>,
 ): Persistence<T> {
   const key = scopedPersistenceName(options.key)
-  const storage = options.storage === undefined ? getBrowserLocalStorage() : options.storage
+  const getStorage = () => options.storage === undefined ? getBrowserLocalStorage() : options.storage
   const flushOnPageHide = options.flushOnPageHide ?? true
   const scheduler = createPendingWriteScheduler<T>(options.debounceMs ?? DEFAULT_DEBOUNCE_MS)
   let disposed = false
 
   function write(value: T): boolean {
+    const storage = getStorage()
     if (!storage) return false
     try {
       storage.setItem(key, JSON.stringify(options.codec.encode(value)))
       return true
-    } catch {
-      return false
+    } catch (cause) {
+      throw new KLineChartError(PERSISTENCE_ERROR_CODES.WRITE_FAILED, `Unable to write LocalStorage key "${key}"`, { cause })
     }
   }
 
@@ -80,22 +82,34 @@ export function createLocalStoragePersistence<T>(
     return next ? write(next()) : true
   }
 
-  function onPageHide(): void {
-    flush()
+  function flushInBackground(): void {
+    try {
+      flush()
+    } catch (error) {
+      if (options.onBackgroundError) options.onBackgroundError(error)
+      else console.error('[LocalStorage persistence]', error)
+    }
   }
 
-  if (flushOnPageHide) globalThis.addEventListener?.('pagehide', onPageHide)
+  if (flushOnPageHide) globalThis.addEventListener?.('pagehide', flushInBackground)
 
   return {
     load(): T | null {
+      const storage = getStorage()
       if (!storage) return null
+      let raw: string | null
       try {
-        const raw = storage.getItem(key)
-        if (!raw) return null
-        const parsed: unknown = JSON.parse(raw)
-        return options.codec.decode(parsed)
-      } catch {
-        return null
+        raw = storage.getItem(key)
+      } catch (cause) {
+        throw new KLineChartError(PERSISTENCE_ERROR_CODES.READ_FAILED, `Unable to read LocalStorage key "${key}"`, { cause })
+      }
+      if (raw === null) return null
+      try {
+        const decoded = options.codec.decode(JSON.parse(raw))
+        if (decoded === null) throw new TypeError('Stored value did not match the codec')
+        return decoded
+      } catch (cause) {
+        throw new KLineChartError(PERSISTENCE_ERROR_CODES.CORRUPT, `Invalid LocalStorage value for "${key}"`, { cause })
       }
     },
     save(value: T): boolean {
@@ -104,28 +118,30 @@ export function createLocalStoragePersistence<T>(
       return write(value)
     },
     schedule(createValue: () => T): void {
-      if (disposed || !storage) return
-      scheduler.schedule(createValue, flush)
+      if (disposed || options.storage === null) return
+      scheduler.schedule(createValue, flushInBackground)
     },
     flush(): boolean {
       if (disposed) return false
       return flush()
     },
     clear(): boolean {
-      if (disposed || !storage) return false
+      if (disposed) return false
+      const storage = getStorage()
+      if (!storage) return false
       scheduler.drop()
       try {
         storage.removeItem(key)
         return true
-      } catch {
-        return false
+      } catch (cause) {
+        throw new KLineChartError(PERSISTENCE_ERROR_CODES.WRITE_FAILED, `Unable to clear LocalStorage key "${key}"`, { cause })
       }
     },
     dispose(): void {
       if (disposed) return
-      flush()
       disposed = true
-      if (flushOnPageHide) globalThis.removeEventListener?.('pagehide', onPageHide)
+      if (flushOnPageHide) globalThis.removeEventListener?.('pagehide', flushInBackground)
+      flush()
     },
   }
 }

@@ -171,14 +171,23 @@ describe('setDisabled', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 
-  it('clears the active selection when disabling the active tool', () => {
+  it('publishes a single coherent selection and availability change', () => {
     const c = makeController('cursor')
-    const activeListener = vi.fn()
+    const activeListener = vi.fn(() => c.disabledTools.peek().has('cursor'))
+    const disabledListener = vi.fn(() => c.activeTool.peek())
     c.activeTool.subscribe(activeListener)
+    c.disabledTools.subscribe(disabledListener)
 
     c.setDisabled('cursor', true)
     expect(c.activeTool()).toBeNull()
     expect(activeListener).toHaveBeenCalledTimes(1)
+    expect(activeListener).toHaveReturnedWith(true)
+    expect(disabledListener).toHaveBeenCalledTimes(1)
+    expect(disabledListener).toHaveReturnedWith(null)
+    expect('set' in c.activeTool).toBe(false)
+    c.disabledTools.peek().forEach((_value, _key, set) => {
+      expect('delete' in set).toBe(false)
+    })
   })
 
   it('leaves the active selection alone when disabling a different tool', () => {

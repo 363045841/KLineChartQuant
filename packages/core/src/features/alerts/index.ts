@@ -6,6 +6,7 @@ export type {
   AlertController,
   AlertControllerOptions,
   AlertEvent,
+  AlertFailure,
   AlertPredicate,
   AlertPredicateKind,
   AlertRule,

@@ -4,7 +4,7 @@
  * 工具栏状态、工具定义与工厂初始化契约由此模块维护。
  */
 
-import type { Signal } from '../../foundation/reactivity/index.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
 
 export type ToolId = string
 
@@ -17,9 +17,9 @@ export interface ToolDefinition {
 }
 
 export interface ToolbarController {
-  readonly tools: Signal<ReadonlyArray<ToolDefinition>>
-  readonly activeTool: Signal<ToolId | null>
-  readonly disabledTools: Signal<ReadonlySet<ToolId>>
+  readonly tools: ReadonlySignal<ReadonlyArray<Readonly<ToolDefinition>>>
+  readonly activeTool: ReadonlySignal<ToolId | null>
+  readonly disabledTools: ReadonlySignal<ReadonlySet<ToolId>>
   selectTool(id: ToolId): void
   clearSelection(): void
   setDisabled(id: ToolId, disabled: boolean): void

@@ -6,8 +6,7 @@
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { DataTransform } from '@/foundation/plugin/types.js'
-import type { Signal } from '../../foundation/reactivity/signal.js'
-import { createSignal } from '../../foundation/reactivity/signal.js'
+import { asReadonlySignal, createSignal } from '../../foundation/reactivity/signal.js'
 import { createPrimitiveComposer } from '../primitives/impl/composer.js'
 import { primitiveSink } from '../primitives/impl/paint.js'
 import type {
@@ -50,35 +49,26 @@ function withoutContext<TFrame>(frame: TFrame): Omit<TFrame, 'ctx'> {
 
 export function createScene<TFrame = unknown>(): Scene<TFrame> {
   // ---- 内部状态 ----------------------------------------------------------
-  // 可变列表放在 signal 之外，signal.set 始终收到新快照；不直接暴露该数组。
-  let layerList: Layer<TFrame>[] = []
   let disposed = false
-  const layersSignal: Signal<ReadonlyArray<Layer<TFrame>>> = createSignal<
-    ReadonlyArray<Layer<TFrame>>
-  >([])
-
-  const publish = (): void => {
-    layersSignal.set([...layerList] as ReadonlyArray<Layer<TFrame>>)
-  }
+  const layersSignal = createSignal<readonly Layer<TFrame>[]>(Object.freeze([]))
 
   // ---- 公开 API ----------------------------------------------------------
 
   const addLayer = (layer: Layer<TFrame>): void => {
     if (disposed) return
     scenePaintTarget(layer.role)
+    const layerList = layersSignal.peek()
     if (layerList.some((existing) => existing.id === layer.id))
       throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Layer 身份重复：${layer.id}`)
-    layerList = [...layerList, layer]
-    publish()
+    layersSignal.set(Object.freeze([...layerList, layer]))
   }
 
   const removeLayer = (id: string): boolean => {
     if (disposed) return false
+    const layerList = layersSignal.peek()
     const removed = layerList.find((layer) => layer.id === id)
     if (!removed) return false
-    const next = layerList.filter((layer) => layer.id !== id)
-    layerList = next
-    publish()
+    layersSignal.set(Object.freeze(layerList.filter((layer) => layer.id !== id)))
     // 先脱离 Scene 再释放，保证重入移除不会重复 dispose。
     disposeLayer(removed)
     return true
@@ -91,13 +81,13 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
 
   const getLayer = (id: string): Layer<TFrame> | null => {
     if (disposed) return null
-    const hit = layerList.find((layer) => layer.id === id)
+    const hit = layersSignal.peek().find((layer) => layer.id === id)
     return hit ?? null
   }
 
   const setLayerVisibility = (id: string, visible: boolean): boolean => {
     if (disposed) return false
-    const layer = layerList.find((l) => l.id === id)
+    const layer = layersSignal.peek().find((l) => l.id === id)
     if (!layer) return false
     // visible 是 Layer 上的可变字段（见接口契约）；修改不影响 layers signal 的
     // 引用相等，订阅方关心的是成员而非字段状态。
@@ -108,6 +98,7 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
   /** 绘制一整帧：逐 pane 选出命中且可见的 Layer，按 z 稳定排序后隔离式分发。 */
   const paint = (frame: SceneFrame): void => {
     if (disposed) return
+    const layerList = layersSignal.peek()
     // 每个绘制目标一个合成器：同一帧内按层序累积，帧末统一落盘。
     const composers = new Map<CanvasRenderingContext2D, PrimitiveComposer>()
     // 可见 GPU 表面按 pane 累积；仅合并裁切、DPR 和数据变换相同的相邻提交。
@@ -283,7 +274,12 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
           const dpr = batch?.dpr ?? pane.dpr ?? 1
           const primitives = batch?.primitives ?? []
           if (primitives.length === 0 && !shouldClear) return
-          const painted = surface.paint(primitives, dpr, shouldClear, batch?.transform, batch?.clip)
+          let painted = false
+          try {
+            painted = surface.paint(primitives, dpr, shouldClear, batch?.transform, batch?.clip)
+          } catch (error) {
+            console.error('[Rendering] Pane surface failed; retrying this batch on Canvas', error)
+          }
           if (shouldClear && painted) cleared = true
           if (painted || primitives.length === 0) return
           // 直出失败：整批回落到 2D 合成，裁切由目标自身保证。
@@ -318,8 +314,8 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
     if (disposed) return
     disposed = true
     // 先快照，因为 layer.dispose 可能经过期引用触发进一步修改——迭代需要可预测。
-    const snapshot = layerList
-    layerList = []
+    const snapshot = layersSignal.peek()
+    layersSignal.set(Object.freeze([]))
     const errors: unknown[] = []
     for (const layer of snapshot) {
       try {
@@ -328,12 +324,11 @@ export function createScene<TFrame = unknown>(): Scene<TFrame> {
         errors.push(error)
       }
     }
-    layersSignal.set([] as ReadonlyArray<Layer<TFrame>>)
     if (errors.length > 0) throw new AggregateError(errors, 'Scene 图层资源释放失败')
   }
 
   return {
-    layers: layersSignal,
+    layers: asReadonlySignal(layersSignal),
     addLayer,
     removeLayer,
     getLayer,

@@ -3,7 +3,7 @@
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import { CURSOR_DRAWING_TOOL_ID, type DrawingObject, type DrawingToolId } from '../drawing/index.js'
-import { deepFreezeSnapshot } from './immutable.js'
+import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
   return Object.freeze(

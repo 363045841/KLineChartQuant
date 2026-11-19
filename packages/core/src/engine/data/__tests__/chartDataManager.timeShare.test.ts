@@ -96,12 +96,11 @@ describe('ChartDataManager time share', () => {
     manager.setSymbols([makeTestSymbolSpec('000001')])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    manager.setTimeShareQueryDate(20260805)
-    manager.setCurrentPeriod('timeshare')
+    const selection = { ...makeTestSymbolSpec('000001'), period: 'timeshare' }
+    manager.setSymbols([selection], 20260805)
     await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(1))
 
-    manager.setTimeShareQueryDate(20260806)
-    manager.setCurrentPeriod('timeshare')
+    manager.setSymbols([selection], 20260806)
     await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(2))
 
     expect(fetchTimeShare).toHaveBeenCalledTimes(2)

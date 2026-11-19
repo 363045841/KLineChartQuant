@@ -5,6 +5,7 @@
  * 迁移失败时必须回收刚建的空 Pane。这段生命周期只在这里写一次。
  */
 
+import { batch } from '@/foundation/reactivity/signal.js'
 import type { PanePlacement } from '../types.js'
 
 /** 组合命令所需的最小 Pane 端口；命令面与门面都满足。 */
@@ -29,14 +30,20 @@ export function runInNewPane(
   placement: PanePlacement,
   run: (paneId: string) => boolean,
 ): boolean {
-  const paneId = port.addPane(anchorPaneId, placement)
-  if (paneId === null) return false
-  try {
-    if (run(paneId)) return true
-  } catch (error) {
+  return batch(() => {
+    const paneId = port.addPane(anchorPaneId, placement)
+    if (paneId === null) return false
+    try {
+      if (run(paneId)) return true
+    } catch (error) {
+      try {
+        port.removePane(paneId)
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], 'Pane placement and rollback failed')
+      }
+      throw error
+    }
     port.removePane(paneId)
-    throw error
-  }
-  port.removePane(paneId)
-  return false
+    return false
+  })
 }

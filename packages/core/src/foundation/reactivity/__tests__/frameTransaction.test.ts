@@ -49,26 +49,20 @@ describe('createFrameTransaction', () => {
     expect(ft.generation).toBe(2)
   })
 
-  it('does not publish when derive throws; generation stays', () => {
-    let fail = false
+  it('keeps the last published frame when deriving the next frame fails', () => {
+    const error = new Error('derive-fail')
     const ft = createFrameTransaction<Input, Snapshot>({
       initialInput: { x: 0, y: 0 },
       derive: (input, generation) => {
-        if (fail) throw new Error('derive-fail')
+        if (input.x === 5) throw error
         return { generation, x: input.x, y: input.y, sum: input.x + input.y }
       },
     })
-    fail = true
+    const before = ft.published$.peek()
     ft.writeInput({ x: 5 })
-    expect(() => ft.flush()).toThrow('derive-fail')
+    expect(() => ft.flush()).toThrow(error)
     expect(ft.generation).toBe(0)
-    expect(ft.published$.peek().generation).toBe(0)
-
-    fail = false
-    // 失败帧应保留 pending，无需再次 write 也能重试
-    const snap = ft.flush()
-    expect(snap.generation).toBe(1)
-    expect(snap.x).toBe(5)
+    expect(ft.flush()).toBe(before)
   })
 
   it('routes writeInput during render into next generation only', () => {
@@ -247,17 +241,12 @@ describe('createFrameTransaction', () => {
     }).toThrow()
   })
 
-  it('reschedules after scheduled flush throws', () => {
+  it('schedules fresh input after a failed frame without retrying the same input', () => {
     const runners: Array<() => void> = []
-    let failNextRealFrame = false
     const ft = createFrameTransaction<Input, Snapshot>({
       initialInput: { x: 0, y: 0 },
       derive: (input, generation) => {
-        // generation 0 是构造占位，不可失败
-        if (generation > 0 && failNextRealFrame) {
-          failNextRealFrame = false
-          throw new Error('boom')
-        }
+        if (input.x === 3) throw new Error('boom')
         return {
           generation,
           x: input.x,
@@ -270,15 +259,16 @@ describe('createFrameTransaction', () => {
         return 1
       },
     })
-    failNextRealFrame = true
     ft.writeInput({ x: 3 })
     ft.scheduleFlush()
     expect(runners).toHaveLength(1)
-    expect(() => runners[0]!()).toThrow('boom')
-    // dirty retained → another schedule registered
-    expect(runners.length).toBeGreaterThanOrEqual(2)
-    runners[runners.length - 1]!()
-    expect(ft.published$.peek().x).toBe(3)
+    expect(() => runners.shift()?.()).toThrow('boom')
+    expect(runners).toHaveLength(0)
+    expect(ft.generation).toBe(0)
+    ft.writeInput({ x: 4 })
+    ft.scheduleFlush()
+    runners.shift()?.()
+    expect(ft.published$.peek().x).toBe(4)
     expect(ft.generation).toBe(1)
   })
 

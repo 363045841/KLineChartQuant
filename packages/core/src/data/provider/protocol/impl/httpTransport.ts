@@ -76,22 +76,31 @@ async function request<T>(
     throw toFetchError(cause, label)
   }
 
-  // 尝试解析 JSON 响应体，解析失败则返回 undefined
-  const body = (await res.json().catch(() => undefined)) as
-    | ProtocolEnvelope<T>
-    | ProtocolErrorEnvelope
-    | undefined
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch (cause) {
+    if (init.signal?.aborted || (cause instanceof Error && cause.name === 'AbortError')) {
+      throw toFetchError(init.signal?.aborted ? init.signal.reason : cause, label)
+    }
+    const message = res.ok
+      ? `[${label}] invalid V1 response envelope`
+      : `[${label}] V1 request failed: ${res.status} ${res.statusText}`
+    throw new KLineChartError(ERROR_CODES.FETCH_FAILED, message, { cause })
+  }
+  const envelope = body !== null && typeof body === 'object' ? body : undefined
 
   // 处理非 2xx 状态码：提取服务端返回的错误信息
   if (!res.ok) {
+    const responseError = (envelope as ProtocolErrorEnvelope | undefined)?.error
     // 从错误 envelope 中提取错误消息
     const message =
-      body && 'error' in body && typeof body.error?.message === 'string'
-        ? body.error.message
+      typeof responseError?.message === 'string'
+        ? responseError.message
         : `[${label}] V1 request failed: ${res.status} ${res.statusText}`
     // 从错误 envelope 中提取错误码
     const serverErrorCode =
-      body && 'error' in body && typeof body.error?.code === 'string' ? body.error.code : undefined
+      typeof responseError?.code === 'string' ? responseError.code : undefined
     // 抛出标准化错误（有服务端错误码则映射，否则使用通用 FETCH_FAILED）
     throw new KLineChartError(
       serverErrorCode ? mapServerErrorCode(serverErrorCode) : ERROR_CODES.FETCH_FAILED,
@@ -100,12 +109,12 @@ async function request<T>(
   }
 
   // 成功响应（2xx）：检查 envelope 是否包含 data 字段
-  if (!body || !('data' in body)) {
+  if (!envelope || !('data' in envelope)) {
     // 响应格式不符合协议 Envelope 契约，抛出格式错误
     throw new KLineChartError(ERROR_CODES.FETCH_FAILED, `[${label}] invalid V1 response envelope`)
   }
 
-  return body.data
+  return (envelope as ProtocolEnvelope<T>).data
 }
 
 // 把 fetch 原生异常（网络 TypeError、AbortError 等）转为协议错误

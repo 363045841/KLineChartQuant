@@ -25,6 +25,18 @@ import type {
 
 const EMPTY: ReadonlyArray<readonly [number, number]> = []
 
+/** A zero size removes a level. Other invalid changes fail before the book or archive can mutate. */
+export function validateOrderBookDelta(delta: OrderBookDelta): void {
+  if (
+    !Number.isFinite(delta.price) ||
+    !Number.isFinite(delta.timestamp) ||
+    !Number.isFinite(delta.size) || delta.size < 0 ||
+    (delta.side !== 'bid' && delta.side !== 'ask')
+  ) {
+    throw new RangeError('Invalid order book delta')
+  }
+}
+
 export function createOrderBookState(opts: OrderBookStateOptions): OrderBookState {
   if (!(opts.tickSize > 0) || !Number.isFinite(opts.tickSize)) {
     throw new KLineChartError(
@@ -60,16 +72,13 @@ export function createOrderBookState(opts: OrderBookStateOptions): OrderBookStat
   }
 
   function applyDelta(delta: OrderBookDelta): void {
-    if (!Number.isFinite(delta.price) || !Number.isFinite(delta.size)) return
+    validateOrderBookDelta(delta)
     const tick = quantize(delta.price)
     const map = delta.side === 'bid' ? bids : asks
     if (delta.size === 0) {
       map.delete(tick)
-    } else if (delta.size > 0) {
-      map.set(tick, delta.size)
     } else {
-      // negative sizes are nonsensical — treat as remove
-      map.delete(tick)
+      map.set(tick, delta.size)
     }
     if (delta.timestamp > lastTs) lastTs = delta.timestamp
   }

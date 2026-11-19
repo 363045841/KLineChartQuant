@@ -214,6 +214,7 @@ export class SourceRouter {
     query: SourceCapabilityQuery,
     preferredSourceId: string | undefined,
     signal?: AbortSignal,
+    attempts?: SourceRouteAttempt[],
   ): Promise<ReadonlyArray<MarketDataProvider>> {
     const enabled = this.registry.getEnabledByPriority()
     const explicitSource =
@@ -229,15 +230,18 @@ export class SourceRouter {
       return this.registry.getEnabledByCapability(query).includes(provider) ? [provider] : []
     }
 
-    await Promise.all(
-      enabled
-        .filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
-        .map((provider) =>
-          discoverCapabilities(this.registry, provider, signal).catch(() => undefined),
-        ),
-    )
-    const filtered = this.registry.getEnabledByCapability(query)
-    return filtered
+    const probes = enabled.filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
+    const outcomes = await Promise.allSettled(probes.map((provider) =>
+      discoverCapabilities(this.registry, provider, signal),
+    ))
+    signal?.throwIfAborted()
+    for (const [index, outcome] of outcomes.entries()) {
+      if (outcome.status === 'fulfilled') continue
+      const sourceId = probes[index].source.id
+      const error = asProviderError(outcome.reason, sourceId)
+      attempts?.push({ sourceId, code: errorCode(error), message: error.message })
+    }
+    return this.registry.getEnabledByCapability(query)
   }
 
   /** 执行通用流转循环，只对确定性拒绝尝试下一个源。 */
@@ -252,7 +256,7 @@ export class SourceRouter {
   ): Promise<RoutedMarketData<T>> {
     const attempts: SourceRouteAttempt[] = []
     signal?.throwIfAborted()
-    const candidates = await this.getCandidates(query, preferredSourceId, signal)
+    const candidates = await this.getCandidates(query, preferredSourceId, signal, attempts)
     const label = [capability, identity.symbol, query.period, query.adjustment]
       .filter((part): part is string => typeof part === 'string')
       .join(' ')

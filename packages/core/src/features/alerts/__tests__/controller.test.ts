@@ -169,15 +169,17 @@ describe('controller: maxEvents ring', () => {
 // ---------------------------------------------------------------------------
 
 describe('controller: custom predicate sandbox', () => {
-  it('does not crash the alert pass when a custom predicate throws', () => {
+  it('reports failed rules and listeners while delivering healthy events', () => {
     const c = createAlertController()
+    const predicateError = new Error('user code blew up')
+    const listenerError = new Error('listener blew up')
     c.addRule({
       id: 'boom',
       name: 'boom',
       predicate: {
         kind: 'custom',
         evaluate: () => {
-          throw new Error('user code blew up')
+          throw predicateError
         },
       },
       enabled: true,
@@ -191,15 +193,16 @@ describe('controller: custom predicate sandbox', () => {
       oneShot: false,
     })
 
-    // The throwing rule must NOT take down the OK rule. The whole call
-    // must complete without throwing, and the OK rule must still fire.
-    let fired: ReturnType<typeof c.evaluate> | undefined
-    expect(() => {
-      fired = c.evaluate(createMarketSnapshot({ close: 100 }), 1)
-    }).not.toThrow()
-    expect(fired).toBeDefined()
-    expect(fired!.length).toBe(1)
-    expect(fired![0]!.ruleId).toBe('ok')
+    c.onEvent(() => { throw listenerError })
+    const delivered: string[] = []
+    c.onEvent((event) => delivered.push(event.ruleId))
+    const fired = c.evaluate(createMarketSnapshot({ close: 100 }), 1)
+    expect(fired.map((event) => event.ruleId)).toEqual(['ok'])
+    expect(delivered).toEqual(['ok'])
+    expect(c.failures()).toEqual([
+      { ruleId: 'boom', stage: 'predicate', error: predicateError },
+      { ruleId: 'ok', stage: 'listener', error: listenerError },
+    ])
   })
 })
 

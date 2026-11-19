@@ -18,7 +18,6 @@ import {
  */
 function createFutureScene(args?: {
   dataView?: ChartDataView
-  /** 通过公开的 onSettingsChanged 入口切换 tooltip 位置模式（如 'adaptive'）。 */
   tooltipPosition?: 'adaptive'
 }) {
   const isTimeShare = args?.dataView === ChartDataViewId.TimeShare
@@ -29,11 +28,9 @@ function createFutureScene(args?: {
     plotHeight: 160,
     data,
     dataView: args?.dataView,
+    tooltipPosition: args?.tooltipPosition,
   })
   const interaction = new InteractionController(chart as never, createMockInteractionState())
-  if (args?.tooltipPosition) {
-    interaction.onSettingsChanged({}, { tooltipPosition: args.tooltipPosition })
-  }
   interaction.setViewSnapshot(chart.kernel.viewport.readonly.viewSnapshot.peek())
   return interaction
 }

@@ -1,5 +1,6 @@
 // 组装 Agent 工作区：订阅官方会话读取结果，只维护输入、偏好与宿主提问。
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { loadPreference } from '@vue-src/utils/loadPreference.js'
 import type {
   AgentBridgeClient,
   AgentContextItem,
@@ -47,7 +48,7 @@ const WORKSPACE_UNAVAILABLE_FALLBACK = {
 /** 组装 Agent 工作区的响应式状态与操作，并挂载 Bridge 事件订阅。 */
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const preferences =
-    agentWorkspacePreferencesPersistence.load() ?? defaultAgentWorkspacePreferences()
+    loadPreference(agentWorkspacePreferencesPersistence.load) ?? defaultAgentWorkspacePreferences()
   const state = shallowRef(createWorkspaceState())
   // 运行时可用性与单次运行错误分离：不可用时展示独立视图而不是时间线错误。
   const availability = ref<AgentWorkspaceAvailability>({ status: 'initializing' })

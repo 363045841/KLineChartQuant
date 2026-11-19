@@ -6,9 +6,8 @@
  */
 import type { KLineData } from '@/controllers/types.js'
 import {
+  asReadonlySignal,
   createSignal,
-  type ReadonlySignal,
-  type WritableSignal,
 } from '@/foundation/reactivity/signal.js'
 
 import {
@@ -29,6 +28,7 @@ export interface UpdateBarsResult {
 /** 一次提交的变化区间；kind 决定消费方需要失效的范围。 */
 interface CommitChange {
   readonly kind: DataChangeKind
+  readonly prependedCount?: number
   readonly start: number
   readonly end: number
 }
@@ -43,8 +43,9 @@ const REALTIME_REVISABLE_TAIL_BARS = 2
  * 按 timestamp 升序去重；同时间戳后写生效。
  * 这是所有写路径唯一的规范化入口，store 因此可以假设序列始终有序且唯一。
  */
-function normalizeBars(bars: readonly KLineData[]): KLineData[] {
-  const sorted = [...bars].sort((left, right) => left.timestamp - right.timestamp)
+function normalizeBars(bars: readonly KLineData[], copy = true): KLineData[] {
+  const sorted = (copy ? bars.map((bar) => Object.freeze({ ...bar })) : [...bars])
+    .sort((left, right) => left.timestamp - right.timestamp)
   const unique: KLineData[] = []
   for (const bar of sorted) {
     const last = unique[unique.length - 1]
@@ -56,24 +57,16 @@ function normalizeBars(bars: readonly KLineData[]): KLineData[] {
 
 /** 序列首元素为空时的初始变更描述。 */
 function emptyChange(): DataChange<KLineData> {
-  return { data: [], origin: 0, kind: DATA_CHANGE_KINDS.replace, start: 0, end: 0 }
+  return Object.freeze({ data: Object.freeze([]), origin: 0, kind: DATA_CHANGE_KINDS.replace, start: 0, end: 0 })
 }
 
 export class KLineDataStore {
-  private _data: KLineData[] = []
+  private _data: readonly KLineData[] = Object.freeze([])
   private _origin = 0
   private _loadedTimeRange: LoadedTimeRange | null = null
   private readonly timestampIndex = new UniqueTimestampIndex()
-  private readonly _dataSignal: WritableSignal<DataChange<KLineData>>
-
-  /** 创建空数据存储和初始变更信号。 */
-  constructor() {
-    this._dataSignal = createSignal<DataChange<KLineData>>(emptyChange())
-  }
-
-  get data(): ReadonlySignal<DataChange<KLineData>> {
-    return this._dataSignal
-  }
+  private readonly _dataSignal = createSignal<DataChange<KLineData>>(emptyChange())
+  readonly data = asReadonlySignal(this._dataSignal)
 
   /** 首根已加载 K 线的稳定序号；prepend 后变小。 */
   get origin(): number {
@@ -118,15 +111,15 @@ export class KLineDataStore {
   /**
    * 合并一页历史或增量。
    *
-   * 分页可以整体早于首根、整体晚于末根，或同时跨过首尾；两端同时扩展时拆成
-   * 前置与后置两次提交，前置只移动 origin。命中既有时间戳的条目丢弃；
+   * 分页可以扩展首端、尾端或两端。一次分页只发布一个快照，前置移动 origin。
+   * 命中既有时间戳的条目丢弃；
    * 中间补洞属于数据源违约，直接拒绝。
    */
   mergePage(page: readonly KLineData[]): void {
     if (page.length === 0) return
     const normalized = normalizeBars(page)
     if (this._data.length === 0) {
-      this.replace(normalized)
+      this.commit(normalized, 0, { kind: DATA_CHANGE_KINDS.replace, start: 0, end: normalized.length })
       return
     }
 
@@ -141,15 +134,22 @@ export class KLineDataStore {
         throw new RangeError('分页不能插入既有序列内部')
     }
 
-    if (older.length > 0) {
+    if (older.length && newer.length) {
+      const next = [...older, ...this._data, ...newer]
+      this.commit(next, this._origin - older.length, {
+        kind: DATA_CHANGE_KINDS.extend,
+        prependedCount: older.length,
+        start: 0,
+        end: next.length,
+      })
+    } else if (older.length > 0) {
       const next = [...older, ...this._data]
       this.commit(next, this._origin - older.length, {
         kind: DATA_CHANGE_KINDS.prepend,
         start: 0,
         end: older.length,
       })
-    }
-    if (newer.length > 0) {
+    } else if (newer.length > 0) {
       const start = this._data.length
       const next = [...this._data, ...newer]
       this.commit(next, this._origin, {
@@ -171,7 +171,7 @@ export class KLineDataStore {
 
     if (this._data.length === 0) {
       const seeded = normalizeBars(bars)
-      this.replace(seeded)
+      this.commit(seeded, 0, { kind: DATA_CHANGE_KINDS.replace, start: 0, end: seeded.length })
       return { appendedCount: seeded.length, replacedCount: 0, rejected: [] }
     }
 
@@ -194,7 +194,7 @@ export class KLineDataStore {
     }
 
     const previousTail = this._data.slice(this._data.length - tailCount)
-    const tail = normalizeBars([...previousTail, ...normalized])
+    const tail = normalizeBars([...previousTail, ...normalized], false)
     const next = this._data.slice(0, this._data.length - tailCount)
     for (const bar of tail) next.push(bar)
     this.commit(next, this._origin, {
@@ -211,7 +211,7 @@ export class KLineDataStore {
     if (ordinal === null) throw new RangeError('Historical correction must target an existing bar')
     const index = ordinal - this._origin
     const next = this._data.slice()
-    next[index] = bar
+    next[index] = Object.freeze({ ...bar })
     this.commit(next, this._origin, {
       kind: DATA_CHANGE_KINDS.correct,
       start: index,
@@ -221,11 +221,12 @@ export class KLineDataStore {
 
   /** 清空缓存、序号与已加载窗口。 */
   reset(): void {
-    this._data = []
+    const empty = emptyChange()
+    this._data = empty.data
     this._origin = 0
     this.timestampIndex.clear()
     this._loadedTimeRange = null
-    this._dataSignal.set(emptyChange())
+    this._dataSignal.set(empty)
   }
 
   /**
@@ -234,9 +235,9 @@ export class KLineDataStore {
    * 序列在进入这里之前已经有序且唯一；`change` 只描述受影响的区间。
    */
   private commit(bars: KLineData[], origin: number, change: CommitChange): void {
-    this._data = bars
+    this._data = Object.freeze(bars)
     this._origin = origin
-    if (change.kind === DATA_CHANGE_KINDS.replace) {
+    if (change.kind === DATA_CHANGE_KINDS.replace || change.kind === DATA_CHANGE_KINDS.extend) {
       this.timestampIndex.rebuild(bars, origin)
     } else if (change.kind !== DATA_CHANGE_KINDS.correct) {
       this.timestampIndex.addRange(bars, origin, change.start, change.end)
@@ -244,16 +245,14 @@ export class KLineDataStore {
     this._loadedTimeRange =
       bars.length === 0
         ? null
-        : {
+        : Object.freeze({
             earliestTs: bars[0]!.timestamp,
             latestTs: bars[bars.length - 1]!.timestamp,
-          }
-    this._dataSignal.set({
-      data: bars,
+          })
+    this._dataSignal.set(Object.freeze({
+      data: this._data,
       origin,
-      kind: change.kind,
-      start: change.start,
-      end: change.end,
-    })
+      ...change,
+    }))
   }
 }

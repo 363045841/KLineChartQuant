@@ -1,6 +1,7 @@
 /** 市场会话注册表：内置股票、MT5 与 Binance 现货时段，支持注册覆盖及交易时间查询。 */
 
 import type { MarketSessionConfig } from '../../utils/sessionTimeLabels.js'
+import { deepFreezeSnapshot } from '../../utils/deepFreezeSnapshot.js'
 import { BUILTIN_MARKET_SESSIONS } from './builtinMarketSessions.js'
 
 function isValidSession(config: MarketSessionConfig): boolean {
@@ -30,7 +31,8 @@ export class MarketSessionRegistry {
     const id = market.trim()
     if (!id) throw new Error('Market id is required')
     if (!isValidSession(config)) throw new Error(`Invalid market session: ${id}`)
-    this.sessions.set(id, config)
+    new Intl.DateTimeFormat('en-US', { timeZone: config.timeZone })
+    this.sessions.set(id, deepFreezeSnapshot(config))
   }
 
   getRequired(market: string): MarketSessionConfig {

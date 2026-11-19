@@ -456,7 +456,7 @@ export function createStateStore<T extends Record<string, unknown>>(initial: T) 
  * （即使类型系统已将其遮蔽），运行时通过 `in` 操作符或 `.set` 访问仍然可见。
  * 此函数显式构造一个不包含 .set 的新对象，保证运行时与类型签名保持一致。
  */
-function asReadonlySignal<T>(sig: WritableSignal<T>): ReadonlySignal<T> {
+export function asReadonlySignal<T>(sig: ReadonlySignal<T>): ReadonlySignal<T> {
   const read = (() => sig()) as ReadonlySignal<T>
   return Object.assign(read, {
     peek: sig.peek,

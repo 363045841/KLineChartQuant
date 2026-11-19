@@ -7,7 +7,11 @@ import { paintCanvasPrimitives } from './canvas.js'
 export function primitiveSink(backend?: PrimitiveBackend): PrimitiveSink {
   return (target, primitives, dpr, transform) => {
     if (primitives.length === 0) return
-    if (backend?.paint(target, primitives, dpr, transform)) return
+    try {
+      if (backend?.paint(target, primitives, dpr, transform)) return
+    } catch (error) {
+      console.error('[Rendering] Primitive backend failed; retrying this batch on Canvas', error)
+    }
     paintCanvasPrimitives(target, primitives, dpr, transform)
   }
 }

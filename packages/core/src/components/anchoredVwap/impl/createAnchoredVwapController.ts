@@ -21,7 +21,7 @@
  *   `appendBar incrementally matches full recompute` pins this.
  */
 
-import { createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
 import type {
   ActiveAnchor,
   AnchorDefinition,
@@ -306,7 +306,7 @@ export function createAnchoredVwapController(
   const guardedAppendBar = guard(appendBar, undefined as void)
 
   return {
-    anchors,
+    anchors: asReadonlySignal(anchors),
     // Canonical verbs (API audit BLOCKER-001 harmonisation): `setData`
     // for full replacement + `append` for single-item extension. Old
     // names preserved as aliases for the deprecation window.

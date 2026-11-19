@@ -11,7 +11,7 @@ import { runInNewPane } from '@/engine/pane/index.js'
 import type { InstanceMoveTarget } from '@/engine/pane/types.js'
 import { INSTANCE_MOVE_KIND } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
-import { batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import { asReadonlySignal, batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { isKLineDataArray } from '@/foundation/types/price.js'
 import type {
@@ -43,12 +43,12 @@ export class LegendManager implements LegendApi {
   private readonly customState = createSignal<
     ReadonlyArray<Extract<LegendEntry, { kind: 'custom' }>>
   >([])
-  readonly context: ReadonlySignal<LegendTemplateContext | null> = this.contextState
-  readonly rows: ReadonlySignal<ReadonlyArray<LegendRow>> = this.rowsState
+  readonly context = asReadonlySignal(this.contextState)
+  readonly rows = asReadonlySignal(this.rowsState)
   /** 主图图例整块收起；只影响默认 DOM，行数据仍完整发布。 */
-  readonly mainCollapsed: ReadonlySignal<boolean> = this.collapsedState
+  readonly mainCollapsed = asReadonlySignal(this.collapsedState)
   /** 帧事务直接追踪自定义配置引用，配置变化不会被缓存帧跳过。 */
-  readonly configuration: ReadonlySignal<ReadonlyArray<LegendEntry>> = this.customState
+  readonly configuration = asReadonlySignal(this.customState)
 
   /** 注入所属领域，创建实例级图例管理器。 */
   constructor(private readonly deps: LegendManagerDependencies) {}

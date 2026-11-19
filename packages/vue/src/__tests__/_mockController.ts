@@ -186,6 +186,7 @@ export function createMockChartController(
   const alertController: AlertController = {
     rules: createSignal<ReadonlyArray<AlertRule>>([]),
     events: createSignal<ReadonlyArray<AlertEvent>>([]),
+    failures: createSignal([]),
     addRule: () => false,
     removeRule: () => false,
     setRuleEnabled: () => false,
