@@ -187,6 +187,20 @@ async function waitForLayoutSettled(page) {
     return label !== null && !label.textContent?.includes('*')
   }, null, { timeout: 30_000 })
 }
+/**
+ * 指针移出工作台后等待悬停浮层收起。
+ *
+ * 侧边菜单点击会留下指针位置，tooltip 需要经过隐藏延迟才消失；截图前不等它收起，
+ * 两张截图会分别落在浮层可见与不可见两侧，产生与样式顺序无关的差异。
+ */
+async function parkPointer(page) {
+  await page.mouse.move(1439, 899)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.base-tooltip.is-open').length === 0,
+    null,
+    { timeout: 30_000 },
+  )
+}
 /** 是否走到成功收尾，决定 finally 里回收临时 fixture 还是保留现场。 */
 let passed = false
 try {
@@ -210,7 +224,7 @@ try {
     assert.ok(!requested.some((url) => /WorkbenchAgent|ScriptEditorHost|createScriptLanguageSession/.test(url)), 'Disabled features must not download their implementation chunks')
     assert.ok(await page.locator('canvas').count() > 0)
     await page.evaluate(async () => { await document.fonts.ready })
-    await page.mouse.move(1439, 899)
+    await parkPointer(page)
     await waitForLayoutSettled(page)
     const screenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     const label = target === sourceRoot ? 'source' : 'package'
@@ -248,7 +262,7 @@ try {
     // 脚本服务异步初始化：按钮在服务就绪前一直是 disabled，等可用态而不是等它出现。
     await page.locator('button[aria-label="代码编辑器"]:enabled').waitFor({ timeout: 60_000 })
     await page.evaluate(async () => { await document.fonts.ready })
-    await page.mouse.move(1439, 899)
+    await parkPointer(page)
     await waitForLayoutSettled(page)
     const fullScreenshot = await page.locator('#app').screenshot({ animations: 'disabled' })
     writeFileSync(path.join(artifacts, `${label}-full.png`), fullScreenshot)
