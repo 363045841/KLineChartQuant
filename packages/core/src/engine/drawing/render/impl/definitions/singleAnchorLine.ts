@@ -73,6 +73,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
           primitives: [
             {
               kind: 'line',
+              labelTarget: 'line',
               a: { x: 0, y },
               b: { x: right, y },
               showEndpoints: false,
@@ -90,6 +91,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
           primitives: [
             {
               kind: 'line',
+              labelTarget: 'line',
               a: point,
               b: { x: right, y: point.y },
               showEndpoints: false,
@@ -106,6 +108,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
           primitives: [
             {
               kind: 'line',
+              labelTarget: 'line',
               a: { x: point.x, y: 0 },
               b: { x: point.x, y: bottom },
               showEndpoints: false,
@@ -126,6 +129,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
         primitives: [
           {
             kind: 'line',
+            labelTarget: 'horizontal',
             a: { x: 0, y: point.y },
             b: { x: right, y: point.y },
             showEndpoints: false,
@@ -133,6 +137,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
           },
           {
             kind: 'line',
+            labelTarget: 'vertical',
             a: { x: point.x, y: 0 },
             b: { x: point.x, y: bottom },
             showEndpoints: false,

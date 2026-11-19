@@ -24,10 +24,12 @@ import type {
 import type {
   DrawingAnchorCommandInput,
   DrawingKind,
+  DrawingLabels,
   DrawingObject,
 } from '../../../engine/drawing/index.js'
 import {
   drawingAnchorAxes,
+  drawingLabelTargets,
   getDrawingInputAnchorCount,
   isDrawingVisibleInPeriod,
 } from '../../../engine/drawing/index.js'
@@ -65,9 +67,9 @@ import type {
 } from '../types.js'
 import { describeDrawingAnchorShape } from './drawingAnchorContract.js'
 import {
+  type DrawingAnchorTimeInput,
   formatDrawingAnchorTime,
   parseDrawingAnchorTime,
-  type DrawingAnchorTimeInput,
 } from './drawingAnchorTime.js'
 import { projectDrawingSnapshot, toDrawingView } from './drawingSnapshot.js'
 
@@ -82,7 +84,10 @@ export function createChartAgentIndicatorCommands(
    *
    * 内部实例 ID 只作为 Map 键，不进入视图；不在布局内的实例不会暴露给 Agent。
    */
-  function project(): Map<string, { readonly view: ChartAgentIndicatorView; readonly paneId: string }> {
+  function project(): Map<
+    string,
+    { readonly view: ChartAgentIndicatorView; readonly paneId: string }
+  > {
     const rows = layout()
     const rowOf = new Map(rows.map((pane, index) => [pane.id, index]))
     const ordered = deps.facade.instances
@@ -204,7 +209,9 @@ export function createChartAgentIndicatorCommands(
       }
       // 已在目标行时不调用移动，避免把实例重排到 pane 末尾。
       if (destination.id === paneId) return viewOf(instanceId)
-      if (!deps.facade.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: destination.id })) {
+      if (
+        !deps.facade.move(instanceId, { kind: INSTANCE_MOVE_KIND.PANE, paneId: destination.id })
+      ) {
         throw new KLineChartError(
           CHART_AGENT_ERROR_CODES.INVALID_QUERY,
           `Indicator ${describeTarget(target)} could not be moved to row ${row}. Call indicators_list and retry.`,
@@ -252,7 +259,8 @@ function toDomainAnchors(
   }
   anchors.forEach((anchor, index) => {
     if (axes.time && anchor.time === undefined) problems.push(`anchor ${index} needs time`)
-    if (!axes.time && anchor.time !== undefined) problems.push(`anchor ${index} must not include time`)
+    if (!axes.time && anchor.time !== undefined)
+      problems.push(`anchor ${index} must not include time`)
     if (axes.price && anchor.price === undefined) problems.push(`anchor ${index} needs price`)
     if (!axes.price && anchor.price !== undefined)
       problems.push(`anchor ${index} must not include price`)
@@ -277,6 +285,28 @@ function rowOutOfRange(row: number, rowCount: number): KLineChartError {
     `row ${row} is outside the chart layout. Valid rows: ${valid}.`,
     { details: { row, rowCount } },
   )
+}
+
+/** 校验整份标签变更并合成领域文档需要的完整快照。 */
+function applyAgentLabels(
+  kind: DrawingKind,
+  params: Record<string, unknown>,
+  patch: NonNullable<ChartAgentDrawingPatch['labels']>,
+  current?: DrawingLabels,
+): DrawingLabels {
+  const targets = drawingLabelTargets(kind, params)
+  const next = { ...current }
+  for (const [key, label] of Object.entries(patch)) {
+    const target = targets.find((candidate) => candidate === key)
+    if (!target) {
+      throw new ToolInputValidationError(
+        `Invalid label target '${key}' for '${kind}'. Allowed targets: ${targets.join(', ') || 'none'}.`,
+      )
+    }
+    if (label === null) delete next[target]
+    else if (label !== undefined) next[target] = label
+  }
+  return next
 }
 
 /** 图元不存在错误：候选与 list 使用同一份投影，不会列出不可见的对象。 */
@@ -329,10 +359,7 @@ export function createChartAgentDrawingCommands(
   }
 
   /** 读取当前工作区内的图元；不在作用域内与不存在按同一种错误处理。 */
-  function requireCurrent(
-    drawingId: string,
-    scope: ChartAgentDrawingScope,
-  ): DrawingObject {
+  function requireCurrent(drawingId: string, scope: ChartAgentDrawingScope): DrawingObject {
     const drawing = deps.drawingDocument.getDrawing(drawingId)
     if (drawing !== null && (drawing.workspaceId ?? 'kline') === scope.workspace) return drawing
     throw drawingNotFound(drawingId, projectVisible(scope))
@@ -361,7 +388,9 @@ export function createChartAgentDrawingCommands(
           timezone: scope.timezone,
         }),
         style: input.style as Parameters<typeof deps.drawingCommands.create>[0]['style'],
-        ...(input.labels === undefined ? {} : { labels: input.labels }),
+        ...(input.labels === undefined
+          ? {}
+          : { labels: applyAgentLabels(input.kind, {}, input.labels) }),
         ...(input.visible === undefined ? {} : { visible: input.visible }),
         ...(input.locked === undefined ? {} : { locked: input.locked }),
         ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
@@ -374,10 +403,14 @@ export function createChartAgentDrawingCommands(
 
     update(drawingId: string, patch: ChartAgentDrawingPatch) {
       const scope = deps.scope()
-      requireCurrent(drawingId, scope)
+      const current = requireCurrent(drawingId, scope)
       const drawing = deps.drawingCommands.updateFromInput(drawingId, {
         ...(patch.style === undefined ? {} : { style: patch.style }),
-        ...(patch.labels === undefined ? {} : { labels: patch.labels }),
+        ...(patch.labels === undefined
+          ? {}
+          : {
+              labels: applyAgentLabels(current.kind, current.params, patch.labels, current.labels),
+            }),
         ...(patch.visible === undefined ? {} : { visible: patch.visible }),
         ...(patch.locked === undefined ? {} : { locked: patch.locked }),
         ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
@@ -493,7 +526,9 @@ export function createChartAgentMarketQueries(
         {
           details: {
             query: input.query,
-            searchedSources: [...new Set([...exact.searchedSources, ...candidates.searchedSources])],
+            searchedSources: [
+              ...new Set([...exact.searchedSources, ...candidates.searchedSources]),
+            ],
             failedSources,
           },
         },
@@ -639,7 +674,9 @@ export function createChartAgentMarketQueries(
           `No daily bars for '${input.symbol}'; time share needs a trading day to anchor on.`,
         )
       }
-      const latestDate = toTradingDate(formatDateInTimeZone(latest.timestamp, daily.series.timezone))
+      const latestDate = toTradingDate(
+        formatDateInTimeZone(latest.timestamp, daily.series.timezone),
+      )
       const requestedDate = input.tradingDate ?? null
 
       // 缺省日期优先今天：盘中当日分时已经存在，节假日与开盘前自然回退到日线最后一根。

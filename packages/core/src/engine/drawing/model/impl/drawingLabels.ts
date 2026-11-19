@@ -1,52 +1,71 @@
-// 绘图标签契约的唯一事实来源：键为渲染输出的线段 / 区域序号，值经形状校验后归一化。
-import type { DrawingLabel, DrawingLabelIndex, DrawingLabels } from '../../types.js'
+/** 维护图元标签的命名目标和文本归一化规则。 */
+import { fibLabelTarget, resolveFibLevels } from '../../geometry/impl/fibLevels.js'
+import type { DrawingKind, DrawingLabel, DrawingLabels, DrawingLabelTarget } from '../../types.js'
 
-/** 标签键正则：规范的非负整数字符串，与渲染输出的序号一一对应（无符号、无小数、无前导零）。 */
-export const DRAWING_LABEL_INDEX_PATTERN = '^(0|[1-9]\\d*)$'
+const SINGLE_LINE = ['line'] as const
+const CHANNEL = ['base', 'opposite', 'inside'] as const
 
-const DRAWING_LABEL_INDEX_REGEXP = new RegExp(DRAWING_LABEL_INDEX_PATTERN)
+const TARGETS = {
+  'trend-line': SINGLE_LINE,
+  ray: SINGLE_LINE,
+  'extended-line': SINGLE_LINE,
+  'fib-retracement': [],
+  rectangle: ['top', 'right', 'bottom', 'left', 'inside'],
+  label: [],
+  arrow: SINGLE_LINE,
+  'horizontal-line': SINGLE_LINE,
+  'horizontal-ray': SINGLE_LINE,
+  'vertical-line': SINGLE_LINE,
+  'cross-line': ['horizontal', 'vertical'],
+  'info-line': SINGLE_LINE,
+  'parallel-channel': ['base', 'opposite', 'median', 'inside'],
+  'regression-channel': ['median', 'upper', 'lower', 'inside'],
+  'flat-line': CHANNEL,
+  'disjoint-channel': CHANNEL,
+} as const satisfies Record<DrawingKind, readonly DrawingLabelTarget[]>
 
-/** 判断键是否为合法的渲染序号。 */
-export function isDrawingLabelIndexKey(key: string): key is DrawingLabelIndex {
-  return DRAWING_LABEL_INDEX_REGEXP.test(key)
+/** 设置页和就地编辑默认选中的目标；未声明的类型取目标表第一项。 */
+const DEFAULT_TARGET: Partial<Record<DrawingKind, DrawingLabelTarget>> = {
+  rectangle: 'inside',
 }
 
-/** 由渲染序号构造合法的标签键。 */
-export function drawingLabelIndexKey(index: number): DrawingLabelIndex {
-  return `${index}`
+/** 按图元类型和已配置的回撤比例列出标签目标。 */
+export function drawingLabelTargets(
+  kind: DrawingKind,
+  params: Record<string, unknown> = {},
+): readonly DrawingLabelTarget[] {
+  return kind === 'fib-retracement'
+    ? [...new Set(resolveFibLevels(params).map(fibLabelTarget))]
+    : TARGETS[kind]
 }
 
-/** 统一换行为字面量换行控制码。 */
-function normalizeLabelText(text: string): string {
-  return text.replace(/\r\n?|\n/g, '\\n')
+/** 返回该图元默认展示的标签目标；没有可标注目标时返回 undefined。 */
+export function defaultLabelTarget(
+  kind: DrawingKind,
+  params: Record<string, unknown> = {},
+): DrawingLabelTarget | undefined {
+  return DEFAULT_TARGET[kind] ?? drawingLabelTargets(kind, params)[0]
 }
 
-/** 判断值是否为形状完整的标签对象；用于丢弃外部数据里的畸形条目。 */
-function isWellFormedLabel(value: unknown): value is DrawingLabel {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('text' in value) || typeof value.text !== 'string') return false
-  if (!('position' in value)) return false
-  return value.position === 'start' || value.position === 'center' || value.position === 'end'
+/** 验证单条标签并统一换行格式。 */
+export function readDrawingLabel(value: unknown): DrawingLabel | undefined {
+  if (typeof value !== 'object' || value === null || !('text' in value)) return undefined
+  if (typeof value.text !== 'string' || !('position' in value)) return undefined
+  const { text, position } = value
+  if (position !== 'start' && position !== 'center' && position !== 'end') return undefined
+  return { text: text.replace(/\r\n?|\n/g, '\\n'), position }
 }
 
-/**
- * 按渲染序号键归一化一组标签。
- * 序号以外的键与畸形值一律丢弃：渲染端本就按序号查找、取不到，丢弃是唯一有意义的解释。
- */
-function normalizeLabelGroup(group: unknown): DrawingLabels['line'] {
-  if (typeof group !== 'object' || group === null) return {}
-  const normalized: DrawingLabels['line'] = {}
-  for (const [key, value] of Object.entries(group)) {
-    if (!isDrawingLabelIndexKey(key) || !isWellFormedLabel(value)) continue
-    normalized[key] = { text: normalizeLabelText(value.text), position: value.position }
+/** 只保留当前图元定义的命名目标。 */
+export function normalizeDrawingLabels(
+  kind: DrawingKind,
+  labels: DrawingLabels | undefined,
+  params?: Record<string, unknown>,
+): DrawingLabels {
+  const normalized: DrawingLabels = {}
+  for (const target of drawingLabelTargets(kind, params)) {
+    const label = readDrawingLabel(labels?.[target])
+    if (label) normalized[target] = label
   }
   return normalized
-}
-
-/** 将外部标签统一为按渲染序号键、字面量换行的文档模型；非法键与畸形值被丢弃。 */
-export function normalizeDrawingLabels(labels: unknown): DrawingLabels {
-  if (typeof labels !== 'object' || labels === null) return { line: {}, area: {} }
-  const line = 'line' in labels ? labels.line : undefined
-  const area = 'area' in labels ? labels.area : undefined
-  return { line: normalizeLabelGroup(line), area: normalizeLabelGroup(area) }
 }

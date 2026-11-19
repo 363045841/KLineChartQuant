@@ -524,7 +524,7 @@ describe('projectDrawingsForFrame', () => {
   it('attaches a persisted line label to its matching line primitive', () => {
     const drawing = createTrendDrawing({
       id: 'labeled-trend',
-      labels: { line: { 0: { text: '趋势', position: 'start' } }, area: {} },
+      labels: { line: { text: '趋势', position: 'start' } },
     })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
@@ -556,7 +556,7 @@ describe('projectDrawingsForFrame', () => {
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 2_000, price: 20 },
       ],
-      labels: { line: { 0: { text: '箭头', position: 'end' } }, area: {} },
+      labels: { line: { text: '箭头', position: 'end' } },
     })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
@@ -574,6 +574,41 @@ describe('projectDrawingsForFrame', () => {
         text: expect.objectContaining({ text: '箭头', position: 'end' }),
       }),
     ])
+  })
+
+  it('keeps bottom and inside labels on their targets when a rectangle omits its right edge', () => {
+    const drawing = createDrawingObject({
+      id: 'rectangle',
+      kind: 'rectangle',
+      extend: 'right',
+      anchors: [
+        { id: 'tl', time: 1_000, price: 20 },
+        { id: 'tr', time: 2_000, price: 20 },
+        { id: 'br', time: 2_000, price: 10 },
+        { id: 'bl', time: 1_000, price: 10 },
+      ],
+      labels: {
+        right: { text: 'Right', position: 'center' },
+        bottom: { text: 'Support', position: 'center' },
+        inside: { text: 'Range', position: 'center' },
+      },
+    })
+    const { primitives } = projectSingleDrawing(drawing, false)
+    expect(primitives).not.toContainEqual(expect.objectContaining({ labelTarget: 'right' }))
+    expect(primitives).toContainEqual(
+      expect.objectContaining({
+        kind: 'line',
+        labelTarget: 'bottom',
+        text: expect.objectContaining({ text: 'Support' }),
+      }),
+    )
+    expect(primitives).toContainEqual(
+      expect.objectContaining({
+        kind: 'area',
+        labelTarget: 'inside',
+        text: expect.objectContaining({ text: 'Range' }),
+      }),
+    )
   })
 
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {

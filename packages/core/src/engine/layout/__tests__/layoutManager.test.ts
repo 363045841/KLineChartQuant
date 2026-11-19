@@ -37,6 +37,17 @@ function createManager(restore = true, storageId?: string) {
   return { kernel, manager }
 }
 
+/** 绕过当前文档编码，模拟浏览器里已有的旧记录。 */
+function createRawLayoutStorage() {
+  return createDocumentStore<unknown>({
+    databaseName: '@363045841yyt/klinechart-layouts',
+    version: LAYOUT_DOCUMENT_VERSION,
+    storeName: 'layouts',
+    key: 'documents',
+    codec: { decode: (value) => value ?? null, encode: (value) => value },
+  })
+}
+
 it('独立标签归档并发自动保存，重新挂载恢复各自指标、参数、窗格与活动布局', async () => {
   registerEmptyPlot('tab-layout-indicator')
   const first = createManager(true, 'tab-a')
@@ -107,13 +118,7 @@ it('独立标签归档并发自动保存，重新挂载恢复各自指标、参�
 
 it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未注册指标重载', async () => {
   const source = createManager()
-  const oldStorage = createDocumentStore<unknown>({
-    databaseName: '@363045841yyt/klinechart-layouts',
-    version: LAYOUT_DOCUMENT_VERSION,
-    storeName: 'layouts',
-    key: 'documents',
-    codec: { decode: (value) => value ?? null, encode: (value) => value },
-  })
+  const oldStorage = createRawLayoutStorage()
   await oldStorage.write({
     activeId: 'old-layout',
     autoSave: true,
@@ -171,6 +176,106 @@ it('Alpha 旧版布局直接丢弃，新结构只保存一份高度并支持未�
   } finally {
     await restored.manager.dispose()
     restored.kernel.dispose()
+  }
+})
+
+it('restores indexed labels and saves named targets in the same IndexedDB store', async () => {
+  const { manager, kernel } = createManager()
+  const storage = createRawLayoutStorage()
+  const support = { text: 'Support', position: 'start' }
+  const range = { text: 'Range', position: 'center' }
+  const event = { text: 'Listing', position: 'end' }
+  const common = { paneId: MAIN_PANE_ID, visible: true, style: { stroke: '#486cff' }, params: {} }
+  try {
+    await storage.write({
+      activeId: 'default',
+      autoSave: false,
+      documents: {
+        default: {
+          ...kernel.createLayout(),
+          id: 'default',
+          name: 'Saved chart',
+          drawings: [
+            {
+              ...common,
+              id: 'rectangle',
+              kind: 'rectangle',
+              extend: 'right',
+              anchors: [
+                { id: 'a', type: 'point', time: 1_000, price: 20 },
+                { id: 'b', type: 'point', time: 2_000, price: 20 },
+                { id: 'c', type: 'point', time: 2_000, price: 10 },
+                { id: 'd', type: 'point', time: 1_000, price: 10 },
+              ],
+              labels: { line: { 1: support }, area: { 0: range } },
+            },
+            {
+              ...common,
+              id: 'vertical',
+              kind: 'vertical-line',
+              anchors: [{ id: 'a', type: 'vertical', time: 1_000 }],
+              labels: { line: { 0: event, 2: { text: 'Unbound', position: 'start' } }, area: {} },
+            },
+          ],
+        },
+      },
+    })
+    await manager.initialize()
+    const labels = [{ bottom: support, inside: range }, { line: event }]
+    expect(kernel.exportLayout().drawings?.map((drawing) => drawing.labels)).toEqual(labels)
+
+    await manager.saveLayout({ id: 'default', name: 'Saved chart' })
+    expect(await storage.read()).toEqual(
+      expect.objectContaining({
+        documents: expect.objectContaining({
+          default: expect.objectContaining({
+            version: LAYOUT_DOCUMENT_VERSION,
+            drawings: labels.map((entry) => expect.objectContaining({ labels: entry })),
+          }),
+        }),
+      }),
+    )
+  } finally {
+    await manager.dispose()
+    await storage.dispose()
+    kernel.dispose()
+  }
+})
+
+it('leaves unknown drawing kinds untouched instead of failing the layout load', async () => {
+  const { manager, kernel } = createManager()
+  const storage = createRawLayoutStorage()
+  const labels = { line: { 1: { text: 'Legacy', position: 'start' } } }
+  try {
+    await storage.write({
+      activeId: 'default',
+      autoSave: false,
+      documents: {
+        default: {
+          ...kernel.createLayout(),
+          id: 'default',
+          name: 'Corrupt chart',
+          drawings: [
+            {
+              id: 'junk',
+              kind: 'not-a-drawing',
+              paneId: MAIN_PANE_ID,
+              visible: true,
+              style: { stroke: '#486cff' },
+              params: {},
+              anchors: [],
+              labels,
+            },
+          ],
+        },
+      },
+    })
+    await manager.initialize()
+    expect(kernel.exportLayout().drawings?.[0]?.labels).toEqual(labels)
+  } finally {
+    await manager.dispose()
+    await storage.dispose()
+    kernel.dispose()
   }
 })
 

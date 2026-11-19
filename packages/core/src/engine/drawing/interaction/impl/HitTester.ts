@@ -6,11 +6,8 @@ import {
   pointToSegmentDistanceSq,
 } from '@/foundation/geometry/index.js'
 import { arrowHead } from '../../geometry/impl/arrowGeometry.js'
-import {
-  anchorToScreen,
-  isScreenPoint,
-} from '../../geometry/impl/coordinateUtils.js'
-import { fibLevelLines } from '../../geometry/impl/fibLevels.js'
+import { anchorToScreen, isScreenPoint } from '../../geometry/impl/coordinateUtils.js'
+import { fibLabelTarget, fibLevelLines } from '../../geometry/impl/fibLevels.js'
 import { buildFillPolygon } from '../../geometry/impl/fillRegions.js'
 import {
   LINE_LABEL_BASELINE,
@@ -18,13 +15,14 @@ import {
   resolveLineLabelLayout,
 } from '../../geometry/impl/labelLayout.js'
 import { getLines } from '../../geometry/impl/lines.js'
+import { rectangleGeometry } from '../../geometry/impl/rectangleGeometry.js'
 import { computeRegressionChannel } from '../../geometry/impl/regressionChannel.js'
 import type { DrawingLine } from '../../geometry/types.js'
 import { resolveDrawingHandles } from '../../handles/impl/layout.js'
 import type { DrawingHandle, DrawingHandlePort } from '../../handles/types.js'
-import { CHANNEL_KINDS, drawingKindExtend } from '../../model/impl/drawingKindSpecs.js'
-import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
-import type { DrawingLabel, DrawingObject } from '../../types.js'
+import { drawingKindExtend } from '../../model/impl/drawingKindSpecs.js'
+import { drawingLabelTargets } from '../../model/impl/drawingLabels.js'
+import type { DrawingLabel, DrawingLabelTarget, DrawingObject } from '../../types.js'
 import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 
 // ---- Types ----
@@ -33,6 +31,7 @@ import type { DrawingDragTarget, HitResult, LineLabelTarget } from '../types.js'
 export interface LineSegment {
   a: Point
   b: Point
+  labelTarget?: DrawingLabelTarget
 }
 
 /**
@@ -122,24 +121,24 @@ type ScreenAnchor = ReturnType<typeof anchorToScreen>
 
 function horizontalLineSegment(screen: ScreenAnchor, right: number): LineSegment[] {
   if (!screen || screen.type !== 'horizontal') return []
-  return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
+  return [{ labelTarget: 'line', a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
 }
 
 function horizontalRaySegment(screen: ScreenAnchor, right: number): LineSegment[] {
   if (!isScreenPoint(screen)) return []
-  return [{ a: screen, b: { x: right, y: screen.y } }]
+  return [{ labelTarget: 'line', a: screen, b: { x: right, y: screen.y } }]
 }
 
 function verticalLineSegment(screen: ScreenAnchor, bottom: number): LineSegment[] {
   if (!screen || screen.type !== 'vertical') return []
-  return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
+  return [{ labelTarget: 'line', a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
 }
 
 function crossLineSegments(screen: ScreenAnchor, right: number, bottom: number): LineSegment[] {
   if (!isScreenPoint(screen)) return []
   return [
-    { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
-    { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
+    { labelTarget: 'horizontal', a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
+    { labelTarget: 'vertical', a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
   ]
 }
 
@@ -338,7 +337,7 @@ export class HitTester {
       const a = anchorToScreen(from, drawing.paneId, adapter)
       const b = anchorToScreen(to, drawing.paneId, adapter)
       if (!isScreenPoint(a) || !isScreenPoint(b)) continue
-      segments.push({ a, b })
+      segments.push({ a, b, labelTarget: line.labelTarget })
     }
     return segments
   }
@@ -358,8 +357,7 @@ export class HitTester {
    * 查找鼠标命中的文本热点，供宿主显示文本添加或编辑提示。
    *
    * 单遍遍历候选图元，每条图元的线段只投影一次，同时求两类热点：
-   * - line：线段按 labels.line 的 position 取点、沿上侧法线偏移（与绘制文字同锚点），取半径内最近者；
-   * - area：填充图元（CHANNEL_KINDS）的线段包围盒中心，取遍历首个。
+   * 线段按命名目标定位，区域文字按包围盒定位 inside。
    * line 优先级高于 area，两者都命中时返回 line。
    */
   findLabelTarget(
@@ -373,10 +371,14 @@ export class HitTester {
     let areaTarget: LineLabelTarget | null = null
 
     for (const drawing of drawings) {
-      const segments = this.getDrawingLabelSegments(drawing, adapter)
+      const targets = drawingLabelTargets(drawing.kind, drawing.params)
+      if (targets.length === 0) continue
+      const rectangle =
+        drawing.kind === 'rectangle' ? getRectangleLabelGeometry(drawing, adapter) : null
+      const segments = rectangle?.edges ?? this.getDrawingLabelSegments(drawing, adapter)
       const line = findLineLabelTarget(
         drawing,
-        segments,
+        drawing.kind === 'rectangle' && drawing.style.strokeWidth === 0 ? [] : segments,
         adapter,
         mouseX,
         mouseY,
@@ -386,7 +388,10 @@ export class HitTester {
         closestLine = line.target
         closestLineDistanceSq = line.distanceSq
       }
-      if (!areaTarget) areaTarget = findAreaLabelTarget(drawing, segments, adapter, mouseX, mouseY)
+      if (!areaTarget && targets.includes('inside')) {
+        const points = rectangle?.points ?? segments.flatMap(({ a, b }) => [a, b])
+        areaTarget = findAreaLabelTarget(drawing, points, adapter, mouseX, mouseY)
+      }
     }
 
     return closestLine ?? areaTarget
@@ -404,9 +409,20 @@ export class HitTester {
       const [first, second] = drawing.anchors
       const a = first ? anchorToScreen(first, drawing.paneId, adapter) : null
       const b = second ? anchorToScreen(second, drawing.paneId, adapter) : null
-      return isScreenPoint(a) && isScreenPoint(b) ? [{ a, b }] : []
+      return isScreenPoint(a) && isScreenPoint(b) ? [{ a, b, labelTarget: 'line' }] : []
     }
-    return this.getDrawingLineSegments(drawing, adapter)
+    const segments = this.getDrawingLineSegments(drawing, adapter)
+    if (drawing.kind === 'parallel-channel') {
+      const [base, opposite] = segments
+      if (base && opposite) {
+        segments.push({
+          labelTarget: 'median',
+          a: { x: (base.a.x + opposite.a.x) / 2, y: (base.a.y + opposite.a.y) / 2 },
+          b: { x: (base.b.x + opposite.b.x) / 2, y: (base.b.y + opposite.b.y) / 2 },
+        })
+      }
+    }
+    return segments
   }
 
   /**
@@ -453,6 +469,29 @@ export class HitTester {
   }
 }
 
+/** 使用与矩形渲染相同的视口边界计算文本热点。 */
+function getRectangleLabelGeometry(drawing: DrawingObject, adapter: DrawingViewportPort) {
+  const viewport = adapter.getViewport()
+  if (!viewport) return null
+  const [topLeft, topRight, bottomRight, bottomLeft] = drawing.anchors.map((anchor) =>
+    anchorToScreen(anchor, drawing.paneId, adapter),
+  )
+  if (
+    !isScreenPoint(topLeft) ||
+    !isScreenPoint(topRight) ||
+    !isScreenPoint(bottomRight) ||
+    !isScreenPoint(bottomLeft)
+  ) {
+    return null
+  }
+  return rectangleGeometry(
+    [topLeft, topRight, bottomRight, bottomLeft],
+    drawing.extend,
+    viewport.scrollLeft,
+    viewport.scrollLeft + viewport.plotWidth,
+  )
+}
+
 /** 手柄行 → 拖拽目标；命中与拖拽共用同一份布局结果，不各自推导。 */
 function toDragTarget(handle: DrawingHandle): DrawingDragTarget {
   return handle.kind === 'anchor'
@@ -468,13 +507,14 @@ function resolveTwoAnchorSegments(
 ): LineSegment[] | null {
   if (drawing.kind === 'fib-retracement')
     return fibLevelLines(drawing.params, a, b).map((level) => ({
+      labelTarget: fibLabelTarget(level.ratio),
       a: { x: level.left, y: level.y },
       b: { x: level.right, y: level.y },
     }))
   if (drawing.kind === 'arrow') {
     const head = arrowHead(a, b)
     return [
-      { a, b },
+      { a, b, labelTarget: 'line' },
       { a: head.left, b },
       { a: head.right, b },
     ]
@@ -498,7 +538,7 @@ function extendSegment(
     extend === 'left' || extend === 'both' ? { x: a.x - dx * maxLen, y: a.y - dy * maxLen } : a
   const end =
     extend === 'right' || extend === 'both' ? { x: b.x + dx * maxLen, y: b.y + dy * maxLen } : b
-  return { a: start, b: end }
+  return { a: start, b: end, labelTarget: 'line' }
 }
 
 /** 构造线段文本热点目标。 */
@@ -506,14 +546,13 @@ function createLineLabelTarget(
   drawing: DrawingObject,
   label: DrawingLabel | undefined,
   layout: ReturnType<typeof resolveLineLabelLayout>,
-  lineIndex: number,
+  target: DrawingLabelTarget,
   adapter: DrawingViewportPort,
   fontSize: number,
 ): LineLabelTarget {
   return {
     drawingId: drawing.id,
-    targetKind: 'line',
-    lineIndex,
+    target,
     x: layout.x,
     y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
     rotation: layout.rotation,
@@ -529,12 +568,12 @@ function createLineLabelTarget(
 function buildLineLabelCandidate(
   drawing: DrawingObject,
   segment: LineSegment,
-  lineIndex: number,
+  target: DrawingLabelTarget,
   adapter: DrawingViewportPort,
   mouseX: number,
   mouseY: number,
 ): { target: LineLabelTarget; distanceSq: number } {
-  const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex)]
+  const label = drawing.labels?.[target]
   const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
   const fontSize = drawing.style.fontSize ?? 12
   return {
@@ -549,7 +588,7 @@ function buildLineLabelCandidate(
       'bottom',
       layout.rotation,
     ),
-    target: createLineLabelTarget(drawing, label, layout, lineIndex, adapter, fontSize),
+    target: createLineLabelTarget(drawing, label, layout, target, adapter, fontSize),
   }
 }
 
@@ -563,8 +602,16 @@ function findLineLabelTarget(
   threshold: number,
 ): { target: LineLabelTarget; distanceSq: number } | null {
   let best: { target: LineLabelTarget; distanceSq: number } | null = null
-  for (const [lineIndex, segment] of segments.entries()) {
-    const candidate = buildLineLabelCandidate(drawing, segment, lineIndex, adapter, mouseX, mouseY)
+  for (const segment of segments) {
+    if (!segment.labelTarget) continue
+    const candidate = buildLineLabelCandidate(
+      drawing,
+      segment,
+      segment.labelTarget,
+      adapter,
+      mouseX,
+      mouseY,
+    )
     if (candidate.distanceSq > threshold) continue
     threshold = candidate.distanceSq
     best = candidate
@@ -575,11 +622,10 @@ function findLineLabelTarget(
 /** 通道填充文本热点的几何中心与对齐方式。 */
 function readAreaLabelGeometry(
   drawing: DrawingObject,
-  segments: readonly LineSegment[],
+  points: readonly Point[],
 ): { x: number; y: number; position: LineLabelTarget['position']; align: CanvasTextAlign } | null {
-  if (segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) return null
-  const points = segments.flatMap((segment) => [segment.a, segment.b])
-  const position = drawing.labels?.area['0']?.position ?? 'center'
+  if (points.length === 0) return null
+  const position = drawing.labels?.inside?.position ?? 'center'
   const layout = resolveAreaLabelLayout(
     Math.min(...points.map((point) => point.x)),
     Math.max(...points.map((point) => point.x)),
@@ -593,14 +639,14 @@ function readAreaLabelGeometry(
 /** 填充图元的文本热点：用线段包围盒中心，只对通道类图元生效。 */
 function findAreaLabelTarget(
   drawing: DrawingObject,
-  segments: readonly LineSegment[],
+  points: readonly Point[],
   adapter: DrawingViewportPort,
   mouseX: number,
   mouseY: number,
 ): LineLabelTarget | null {
-  const geometry = readAreaLabelGeometry(drawing, segments)
+  const geometry = readAreaLabelGeometry(drawing, points)
   if (!geometry) return null
-  const text = drawing.labels?.area['0']?.text
+  const text = drawing.labels?.inside?.text
   const fontSize = drawing.style.fontSize ?? 12
   const distanceSq = labelHitDistanceSq(
     mouseX,
@@ -615,8 +661,7 @@ function findAreaLabelTarget(
   if (distanceSq > LINE_LABEL_TARGET_RADIUS_SQ) return null
   return {
     drawingId: drawing.id,
-    targetKind: 'area',
-    lineIndex: 0,
+    target: 'inside',
     x: geometry.x,
     y: geometry.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
     rotation: 0,
@@ -682,12 +727,16 @@ function projectRegressionGeometry(
   const lowerEnd = at(secondTimestamp, secondValue - offset)
 
   const segments: LineSegment[] = []
-  const addSegment = (a: ReturnType<typeof at>, b: ReturnType<typeof at>) => {
-    if (isScreenPoint(a) && isScreenPoint(b)) segments.push({ a, b })
+  const addSegment = (
+    labelTarget: DrawingLabelTarget,
+    a: ReturnType<typeof at>,
+    b: ReturnType<typeof at>,
+  ) => {
+    if (isScreenPoint(a) && isScreenPoint(b)) segments.push({ a, b, labelTarget })
   }
-  addSegment(middleStart, middleEnd)
-  addSegment(upperStart, upperEnd)
-  addSegment(lowerStart, lowerEnd)
+  addSegment('median', middleStart, middleEnd)
+  addSegment('upper', upperStart, upperEnd)
+  addSegment('lower', lowerStart, lowerEnd)
 
   const endpoints: RegressionChannelGeometry['endpoints'] = []
   const addEndpoint = (point: ReturnType<typeof at>, anchorIndex: 0 | 1) => {

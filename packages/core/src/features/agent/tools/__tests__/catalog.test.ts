@@ -3,8 +3,9 @@
  *
  * 目录是纯数据：断言工具名、读写分组、必填字段校验与领域调用，不需要图表实例。
  */
-import { describe, expect, it, vi } from 'vitest'
+
 import { Check } from 'typebox/value'
+import { describe, expect, it, vi } from 'vitest'
 
 import type {
   BarsQueryInput,
@@ -109,7 +110,7 @@ function createDrawings(): ChartAgentDrawingCommands & {
     row: 0,
     anchors: [{ price: 10 }],
     style: { stroke: '#ef5350' },
-    labels: { line: {}, area: {} },
+    labels: {},
     visible: true,
     locked: false,
     zIndex: null,
@@ -376,8 +377,7 @@ describe('chart tool catalog', () => {
     {
       name: '拒绝当前 action 不接受的字段',
       input: { action: 'add', indicator: 'MA', targetRow: 1 },
-      pattern:
-        /action=add does not accept targetRow. Allowed fields: indicator, params, placement/,
+      pattern: /action=add does not accept targetRow. Allowed fields: indicator, params, placement/,
     },
   ])('新增拒绝：$name', async ({ input, pattern }) => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'indicators_write')
@@ -396,7 +396,10 @@ describe('chart tool catalog', () => {
       context(),
     )
     expect(deps.indicators.updates).toEqual([
-      [{ indicator: 'MA', row: 0 }, { period1: 8, period2: 20 }],
+      [
+        { indicator: 'MA', row: 0 },
+        { period1: 8, period2: 20 },
+      ],
     ])
     expect(JSON.parse(result.content)).toEqual({
       indicator: {
@@ -472,7 +475,7 @@ describe('chart tool catalog', () => {
           row: 0,
           anchors: [{ price: 10 }],
           style: { stroke: '#ef5350' },
-          labels: { line: {}, area: {} },
+          labels: {},
           visible: true,
           locked: false,
           zIndex: null,
@@ -569,9 +572,7 @@ describe('chart tool catalog', () => {
       { action: 'update', drawingId: 'd-1', visible: false },
       context(),
     )
-    expect(deps.drawings.updated).toEqual([
-      ['d-1', { visible: false }],
-    ])
+    expect(deps.drawings.updated).toEqual([['d-1', { visible: false }]])
     expect(JSON.parse(result.content)).toMatchObject({ drawing: { id: 'd-1' } })
   })
 
@@ -588,23 +589,30 @@ describe('chart tool catalog', () => {
     expect(text).toContain('vertical-line: 1 anchor with time only')
     expect(text).toContain('horizontal-line: 1 anchor with price only')
     expect(text).toContain('horizontal-ray, cross-line: 1 anchor with time and price')
-    expect(text).toContain('parallel-channel, flat-line, disjoint-channel: 3 anchors with time and price')
+    expect(text).toContain(
+      'parallel-channel, flat-line, disjoint-channel: 3 anchors with time and price',
+    )
   })
 
   it.each([
     {
-      name: '只给区域组',
-      labels: { area: { '0': { text: '箱体', position: 'center' } } },
+      name: '只给 inside 目标',
+      labels: { inside: { text: '箱体', position: 'center' } },
       valid: true,
     },
     {
-      name: '只给线段组',
-      labels: { line: { '0': { text: '边', position: 'start' } } },
+      name: '只给 top 目标',
+      labels: { top: { text: '边', position: 'start' } },
       valid: true,
     },
     { name: '不给标签', labels: undefined, valid: true },
-    { name: '未知组名', labels: { body: {} }, valid: false },
-  ])('图元标签按组可选：$name', ({ labels, valid }) => {
+    { name: '未知目标名', labels: { body: {} }, valid: false },
+    {
+      name: '旧数字键',
+      labels: { line: { '1': { text: '旧标签', position: 'start' } } },
+      valid: false,
+    },
+  ])('图元标签使用命名目标：$name', ({ labels, valid }) => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'drawings_write')
     const input = {
       action: 'create',
@@ -620,10 +628,10 @@ describe('chart tool catalog', () => {
     expect(Check(tool.parameters, input)).toBe(valid)
   })
 
-  it('只给区域组时把标签原样交给命令面', async () => {
+  it('只给 inside 目标时把标签原样交给命令面', async () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
-    const labels = { area: { '0': { text: '箱体', position: 'center' as const } } }
+    const labels = { inside: { text: '箱体', position: 'center' as const } }
     await tool.execute(
       {
         action: 'create',
@@ -776,9 +784,7 @@ describe('chart tool catalog', () => {
     const tool = toolOf(createChartToolCatalog(deps), 'market_timeshare_query')
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01' }, context())
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01', days: 5 }, context())
-    expect(deps.market.timeShareCalls.map((c) => c.days)).toEqual(
-      [1, 5],
-    )
+    expect(deps.market.timeShareCalls.map((c) => c.days)).toEqual([1, 5])
   })
 
   it('查询工具在描述中声明当前可用的数据源', () => {

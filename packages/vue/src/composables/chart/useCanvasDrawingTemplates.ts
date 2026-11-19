@@ -2,6 +2,7 @@
 
 import type {
   DrawingLabelPosition,
+  DrawingLabelTarget,
   DrawingObject,
   DrawingStyle,
 } from '@363045841yyt/klinechart-core/controllers'
@@ -31,8 +32,7 @@ export function useCanvasDrawingTemplates(
   updateStyle: (style: Partial<DrawingStyle>) => void,
   updateLabel: (
     id: string,
-    target: 'line' | 'area',
-    index: number,
+    target: DrawingLabelTarget,
     text: string,
     position: DrawingLabelPosition,
   ) => void,
@@ -69,7 +69,7 @@ export function useCanvasDrawingTemplates(
     const style = resolveTemplateStyle(template, fields.value)
     for (const drawing of selectedDrawings.value) {
       const label = resolveTemplateLabel(template, drawing)
-      if (label) updateLabel(drawing.id, label.target, 0, label.text, label.position)
+      if (label) updateLabel(drawing.id, label.target, label.text, label.position)
     }
     if (Object.keys(style).length) updateStyle(style)
   }

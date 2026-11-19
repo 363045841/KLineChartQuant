@@ -19,7 +19,11 @@ import type {
   UpdateDrawingPatch,
 } from '../types.js'
 import { areAnchorsIdentical, isDrawingLocked, isDrawingMovementLocked } from './drawingAccess.js'
-import { drawingAnchorAxes, drawingKindDefaultParams, isFilledDrawingKind } from './drawingKindSpecs.js'
+import {
+  drawingAnchorAxes,
+  drawingKindDefaultParams,
+  isFilledDrawingKind,
+} from './drawingKindSpecs.js'
 import { normalizeDrawingLabels } from './drawingLabels.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from './drawingScope.js'
 import {
@@ -42,7 +46,11 @@ const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
 /** 已确认图元的唯一 CRUD 入口。 */
 /** 水平线锚点只保存价格。 */
 function resolveHorizontalAnchor(input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-  return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: requireAnchorPrice(input.price) }
+  return {
+    id: `anchor-${generateUUID()}`,
+    type: 'horizontal',
+    price: requireAnchorPrice(input.price),
+  }
 }
 
 /** 水平线锚点只要求类型正确且价格有限。 */
@@ -183,7 +191,7 @@ export class DrawingDocument {
           : { timeframeVisibility: input.timeframeVisibility }),
         anchors,
         params: input.params ?? drawingKindDefaultParams(input.kind),
-        labels: normalizeDrawingLabels(input.labels),
+        labels: normalizeDrawingLabels(input.kind, input.labels, input.params),
         style: {
           ...(isFilledDrawingKind(input.kind) ? { fillOpacity: DEFAULT_DRAWING_FILL_OPACITY } : {}),
           ...input.style,
@@ -247,7 +255,7 @@ export class DrawingDocument {
   private writeDrawing(drawing: DrawingObject): DrawingObject | null {
     return this.objects.update({
       ...drawing,
-      labels: normalizeDrawingLabels(drawing.labels),
+      labels: normalizeDrawingLabels(drawing.kind, drawing.labels, drawing.params),
     })
   }
 
@@ -386,7 +394,7 @@ export class DrawingDocument {
           drawing.anchors,
           () => `anchor-${generateUUID()}`,
         ),
-        labels: normalizeDrawingLabels(drawing.labels),
+        labels: normalizeDrawingLabels(drawing.kind, drawing.labels, drawing.params),
       })),
     )
   }

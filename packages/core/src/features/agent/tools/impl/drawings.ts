@@ -8,15 +8,14 @@ import { Type } from 'typebox'
 
 import {
   AGENT_DRAWING_KINDS,
-  DRAWING_LABEL_INDEX_PATTERN,
-  type DrawingLabelGroups,
   type DrawingTimeframeVisibility,
+  drawingLabelTargets,
 } from '../../../../engine/drawing/index.js'
 import { ToolInputValidationError } from '../../../../foundation/agent/index.js'
 import { AGENT_DRAWING_COLOR_VALUES } from '../../../../foundation/tokens/agentDrawingColors.js'
-import type { ChartAgentDrawingCommands } from '../../types.js'
-import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
 import { describeDrawingAnchorContract } from '../../impl/drawingAnchorContract.js'
+import type { ChartAgentDrawingCommands, ChartAgentDrawingPatch } from '../../types.js'
+import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
 import { jsonResult, rejectUnusedFields, requireFields } from './helpers.js'
 
 const DrawingKind = Type.Enum([...AGENT_DRAWING_KINDS])
@@ -42,11 +41,7 @@ const DrawingAnchor = Type.Object(
 const DrawingStyleFields = Type.Object({
   stroke: DrawingColor,
   strokeWidth: Type.Number({ exclusiveMinimum: 0 }),
-  strokeStyle: Type.Union([
-    Type.Literal('solid'),
-    Type.Literal('dashed'),
-    Type.Literal('dotted'),
-  ]),
+  strokeStyle: Type.Union([Type.Literal('solid'), Type.Literal('dashed'), Type.Literal('dotted')]),
   fill: DrawingColor,
   fillOpacity: Type.Number({ minimum: 0, maximum: 1 }),
   pointRadius: Type.Number({ exclusiveMinimum: 0 }),
@@ -64,26 +59,17 @@ const DrawingLabel = Type.Object(
   { additionalProperties: false },
 )
 
-/** 标签组：键为渲染输出的线段或区域序号，从 "0" 起的字符串数字。 */
-function labelGroup(description: string) {
-  return Type.Optional(
-    Type.Record(Type.String({ pattern: DRAWING_LABEL_INDEX_PATTERN }), DrawingLabel, {
-      additionalProperties: false,
-      description,
-    }),
-  )
-}
-
-const DrawingLabels = Type.Object(
+const labelNames = [
+  ...new Set(AGENT_DRAWING_KINDS.flatMap((kind) => drawingLabelTargets(kind))),
+].filter((target) => !target.startsWith('level:'))
+const DrawingLabels = Type.Record(
+  Type.String({ pattern: `^(?:${labelNames.join('|')}|level:-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)$` }),
+  Type.Union([DrawingLabel, Type.Null()]),
   {
-    line: labelGroup(
-      'Labels on line segments (trend-line, ray, channel edges). Omit when this kind has no segment label; on update, an omitted group keeps its current labels.',
-    ),
-    area: labelGroup(
-      'Labels inside filled regions (rectangle, channel fill). Omit when this kind has no filled area; on update, an omitted group keeps its current labels.',
-    ),
+    additionalProperties: false,
+    description:
+      'Labels keyed by drawing target. Each target takes one text and position. On update, omitted targets keep their labels and null removes a label.',
   },
-  { additionalProperties: false, description: 'Optional text labels, grouped by render output.' },
 )
 
 const TimeframeVisibility = Type.Object(
@@ -106,11 +92,7 @@ const TimeframeVisibility = Type.Object(
 
 const DrawingsWriteParameters = Type.Object(
   {
-    action: Type.Union([
-      Type.Literal('create'),
-      Type.Literal('update'),
-      Type.Literal('delete'),
-    ]),
+    action: Type.Union([Type.Literal('create'), Type.Literal('update'), Type.Literal('delete')]),
     row: Type.Optional(
       Type.Integer({
         minimum: 0,
@@ -134,7 +116,10 @@ const DrawingsWriteParameters = Type.Object(
     zIndex: Type.Optional(Type.Number({ description: '同一行内的绘制层级，越大越靠上。' })),
     timeframeVisibility: Type.Optional(TimeframeVisibility),
     drawingId: Type.Optional(
-      Type.String({ minLength: 1, description: 'update and delete: id returned by drawings_list.' }),
+      Type.String({
+        minLength: 1,
+        description: 'update and delete: id returned by drawings_list.',
+      }),
     ),
   },
   { additionalProperties: false },
@@ -151,7 +136,7 @@ interface DrawingsWriteInput {
   readonly kind?: (typeof AGENT_DRAWING_KINDS)[number]
   readonly anchors?: ReadonlyArray<{ readonly time?: string; readonly price?: number }>
   readonly style?: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabelGroups>
+  readonly labels?: ChartAgentDrawingPatch['labels']
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -196,6 +181,8 @@ export const DRAWINGS_WRITE_METADATA: ChartToolMetadata = {
     'update: drawingId plus any of style, labels, visible, locked, zIndex, timeframeVisibility; geometry changes by delete then create. ' +
     'delete: drawingId. ' +
     `Anchor shapes by kind: ${describeDrawingAnchorContract()}. ` +
+    `Label targets by kind: ${AGENT_DRAWING_KINDS.map((kind) => `${kind} (${drawingLabelTargets(kind).join(', ') || 'none'})`).join('; ')}. ` +
+    'Fibonacci targets use the configured ratio, for example level:0.5 is the 50% line. ' +
     'Times are RFC 3339 with an offset in the chart timezone, exactly as drawings_list returns them.',
   effect: 'write',
 }
@@ -213,9 +200,7 @@ export function createDrawingsListTool(drawings: ChartAgentDrawingCommands): Cha
 }
 
 /** 图元写工具；每个动作只有一种合法语义，非法字段在分发前拒绝。 */
-export function createDrawingsWriteTool(
-  drawings: ChartAgentDrawingCommands,
-): ChartToolDefinition {
+export function createDrawingsWriteTool(drawings: ChartAgentDrawingCommands): ChartToolDefinition {
   return {
     ...DRAWINGS_WRITE_METADATA,
     parameters: DrawingsWriteParameters,
@@ -239,12 +224,25 @@ export function createDrawingsWriteTool(
               'action=create requires style.stroke. Supply one of the drawing color values.',
             )
           }
+          const labels =
+            args.labels === undefined
+              ? undefined
+              : Object.fromEntries(
+                  Object.entries(args.labels).flatMap(([key, label]) => {
+                    if (label === null) {
+                      throw new ToolInputValidationError(
+                        'Null labels are only supported on update.',
+                      )
+                    }
+                    return label ? [[key, label]] : []
+                  }),
+                )
           const view = drawings.create({
             row: args.row!,
             kind: args.kind!,
             anchors: args.anchors!,
             style: args.style,
-            ...(args.labels === undefined ? {} : { labels: args.labels }),
+            ...(labels === undefined ? {} : { labels }),
             ...(args.visible === undefined ? {} : { visible: args.visible }),
             ...(args.locked === undefined ? {} : { locked: args.locked }),
             ...(args.zIndex === undefined ? {} : { zIndex: args.zIndex }),

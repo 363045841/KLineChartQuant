@@ -9,10 +9,10 @@ import flatLine from './flat-line.json'
 import horizontalLine from './horizontal-line.json'
 import horizontalRay from './horizontal-ray.json'
 import infoLine from './info-line.json'
+import label from './label.json'
 import parallelChannel from './parallel-channel.json'
 import ray from './ray.json'
 import rectangle from './rectangle.json'
-import label from './label.json'
 import regressionChannel from './regression-channel.json'
 import trendLine from './trend-line.json'
 import verticalLine from './vertical-line.json'
@@ -24,11 +24,9 @@ export const drawingColorFields = {
 } as const satisfies Partial<Record<keyof DrawingStyle, { label: string }>>
 
 export type DrawingColorField = keyof typeof drawingColorFields
-export type DrawingTextTarget = 'line' | 'area'
 
 export type DrawingSettingsConfig = {
   style: ReadonlyArray<DrawingColorField>
-  text: readonly [] | readonly [DrawingTextTarget]
 }
 
 /** JSON 是运行时数据：校验字段，避免配置写错后悄悄不显示控件。 */
@@ -39,19 +37,16 @@ export function parseDrawingSettingsConfig(
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error(`Invalid drawing settings: ${kind}`)
   }
-  const { style, text } = input as Record<string, unknown>
+  const { style } = input as Record<string, unknown>
   if (
-    Object.keys(input).some((key) => key !== 'style' && key !== 'text') ||
+    Object.keys(input).some((key) => key !== 'style') ||
     !Array.isArray(style) ||
     style.some((key) => typeof key !== 'string' || !Object.hasOwn(drawingColorFields, key)) ||
-    new Set(style).size !== style.length ||
-    !Array.isArray(text) ||
-    text.length > 1 ||
-    text.some((target) => target !== 'line' && target !== 'area')
+    new Set(style).size !== style.length
   ) {
     throw new Error(`Invalid drawing settings: ${kind}`)
   }
-  return { style: style as DrawingColorField[], text: text as [] | [DrawingTextTarget] }
+  return { style: style as DrawingColorField[] }
 }
 
 export const drawingSettingsConfigs: Record<DrawingObject['kind'], DrawingSettingsConfig> = {

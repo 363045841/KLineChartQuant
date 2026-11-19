@@ -20,6 +20,14 @@
         </div>
       </template>
       <div v-else-if="textTarget" class="text-settings">
+        <label v-if="textTargets.length > 1" class="text-row">
+          <span>标注目标</span>
+          <select v-model="textTarget" class="text-row__select">
+            <option v-for="target in textTargets" :key="target" :value="target">
+              {{ labelTargetName(target) }}
+            </option>
+          </select>
+        </label>
         <label class="text-row">
           <span>文本</span>
           <BaseTextarea
@@ -85,9 +93,9 @@
 </template>
 
 <script setup lang="ts">
-  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import type {
     DrawingLabelPosition,
+    DrawingLabelTarget,
     DrawingObject,
     DrawingStyle,
   } from '@363045841yyt/klinechart-core/controllers'
@@ -100,9 +108,10 @@
   import ColorPicker from '@vue-src/components/color/impl/ColorPicker.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import {
     type DrawingColorField,
     drawingColorFields,
@@ -115,6 +124,7 @@
   import IconTablerAlignLeft from '~icons/tabler/align-left'
   import IconTablerAlignRight from '~icons/tabler/align-right'
   import DrawingTemplateMenu from './DrawingTemplateMenu.vue'
+  import { labelTargetName, useDrawingSettingsText } from './settings/useDrawingSettingsText.js'
 
   const props = defineProps<{
     show: boolean
@@ -124,7 +134,7 @@
   const emit = defineEmits<{
     close: []
     updateStyle: [style: Partial<DrawingStyle>]
-    updateText: [target: 'line' | 'area', text: string, position: DrawingLabelPosition]
+    updateText: [target: DrawingLabelTarget, text: string, position: DrawingLabelPosition]
   }>()
   const activeTab = ref<'style' | 'text'>('style')
   const { panelId, panelAttrs } = useTabPanel(() => activeTab.value)
@@ -133,7 +143,12 @@
     config.value.style.filter((field) => props.editableStyleKeys.includes(field)),
   )
   const templateFields = computed(() => templateStyleFields(props.editableStyleKeys))
-  const textTarget = computed(() => config.value.text[0] ?? null)
+  const { textTargets, textTarget, textDraft, textPosition, updateText, setTextPosition } =
+    useDrawingSettingsText(
+      () => props.drawing,
+      () => props.show,
+      (target, text, position) => emit('updateText', target, text, position),
+    )
   function drawingColorValue(field: DrawingColorField): string {
     return props.drawing.style[field] ?? props.drawing.style.stroke
   }
@@ -141,26 +156,11 @@
     { id: 'style' as const, label: '样式' },
     ...(textTarget.value ? [{ id: 'text' as const, label: '文本' }] : []),
   ])
-  const textDraft = ref('')
-  const textPosition = ref<DrawingLabelPosition>('center')
   const alignmentOptions = [
     { position: 'start', label: '靠左', icon: IconTablerAlignLeft },
     { position: 'center', label: '居中', icon: IconTablerAlignCenter },
     { position: 'end', label: '靠右', icon: IconTablerAlignRight },
   ] as const
-  function syncTextDraft() {
-    const label = textTarget.value ? props.drawing.labels?.[textTarget.value]['0'] : undefined
-    textDraft.value = label?.text ?? ''
-    textPosition.value = label?.position ?? 'center'
-  }
-  function updateText() {
-    if (textTarget.value) emit('updateText', textTarget.value, textDraft.value, textPosition.value)
-  }
-  function setTextPosition(position: DrawingLabelPosition) {
-    if (textPosition.value === position) return
-    textPosition.value = position
-    if (textDraft.value.trim()) updateText()
-  }
   const {
     templates,
     names: templateNames,
@@ -185,7 +185,6 @@
     const style = resolveTemplateStyle(template, templateFields.value)
     const label = resolveTemplateLabel(template, props.drawing)
     if (label) {
-      textPosition.value = label.position
       emit('updateText', label.target, label.text, label.position)
     }
     if (Object.keys(style).length) emit('updateStyle', style)
@@ -211,7 +210,6 @@
     (show) => {
       if (show) {
         activeTab.value = 'style'
-        syncTextDraft()
         savingTemplate.value = false
         clearError()
         void reloadTemplates()
@@ -222,18 +220,15 @@
     () => props.drawing.kind,
     () => {
       activeTab.value = 'style'
-      syncTextDraft()
       savingTemplate.value = false
       void reloadTemplates()
     },
   )
   onMounted(() => {
     if (props.show) {
-      syncTextDraft()
       void reloadTemplates()
     }
   })
-  watch(() => props.drawing.id, syncTextDraft)
 </script>
 
 <style scoped>
@@ -265,6 +260,15 @@
 
   .text-row__field {
     background: var(--klc-color-ui-control-background);
+  }
+
+  .text-row__select {
+    padding: var(--klc-space-8, 8px);
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-text);
+    font: inherit;
   }
 
   .text-settings {

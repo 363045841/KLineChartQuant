@@ -7,8 +7,8 @@
 import {
   type ChartController,
   DrawingInteractionController,
-  type DrawingLabelIndex,
   type DrawingLabelPosition,
+  type DrawingLabelTarget,
   type DrawingObject,
   type DrawingStyle,
   type DrawingToolId,
@@ -69,22 +69,15 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   /** 原子替换指定图元的完整文本模型快照。 */
   function updateDrawingLabel(
     drawingId: string,
-    targetKind: 'line' | 'area',
-    targetIndex: number,
+    target: DrawingLabelTarget,
     label: string,
     position: DrawingLabelPosition,
   ) {
     const drawing = drawings.value.find((item) => item.id === drawingId)
     if (!drawing) return
-    const labels = {
-      line: { ...(drawing.labels?.line ?? {}) },
-      area: { ...(drawing.labels?.area ?? {}) },
-    }
-    const target = targetKind === 'line' ? labels.line : labels.area
-    // 标签键是 DrawingLabelIndex 契约（`${number}`），用模板字面量构造而非 String()。
-    const key: DrawingLabelIndex = `${targetIndex}`
-    if (label.trim() === '') delete target[key]
-    else target[key] = { text: label, position }
+    const labels = { ...drawing.labels }
+    if (label.trim() === '') delete labels[target]
+    else labels[target] = { text: label, position }
     ctrl.value?.updateDrawing({ ...drawing, labels })
   }
 

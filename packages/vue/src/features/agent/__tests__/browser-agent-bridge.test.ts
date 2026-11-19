@@ -151,8 +151,8 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('searches through the free Exa channel when no key is configured', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => exaMcpResponse(),
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      exaMcpResponse(),
     )
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
@@ -406,8 +406,8 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('persists one global Exa key and sends it to the hosted MCP endpoint', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) => exaMcpResponse(),
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      exaMcpResponse(),
     )
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
@@ -616,7 +616,7 @@ describe('BrowserAgentBridge', () => {
               { time: '2026-09-02T09:30:00+08:00', price: 11 },
             ],
             style: { stroke: '#2962ff', fill: undefined },
-            labels: { line: {}, area: {} },
+            labels: {},
             timeframeVisibility: { mode: 'all' },
           },
           {
@@ -628,7 +628,7 @@ describe('BrowserAgentBridge', () => {
             zIndex: 2,
             anchors: [{ price: 11 }],
             style: { stroke: '#f00' },
-            labels: { line: {}, area: {} },
+            labels: {},
             timeframeVisibility: { mode: 'all' },
           },
         ],
@@ -661,7 +661,7 @@ describe('BrowserAgentBridge', () => {
       zIndex: null,
       anchors: [{ price: 9 }],
       style: { stroke: '#2962ff' },
-      labels: { line: {}, area: {} },
+      labels: {},
       timeframeVisibility: { mode: 'all' as const },
       visibleInCurrentPeriod: true,
     }))

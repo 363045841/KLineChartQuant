@@ -48,10 +48,10 @@ describe('templateMapping', () => {
     const areaLabeled = createDrawingObject({
       id: 'rectangle',
       kind: 'rectangle',
-      labels: { line: {}, area: { '0': { text: '区域', position: 'end' } } },
+      labels: { inside: { text: '区域', position: 'end' } },
     })
     expect(drawingTemplateLabel(areaLabeled)).toEqual({
-      target: 'area',
+      target: 'inside',
       label: { text: '区域', position: 'end' },
     })
     expect(drawingTemplateLabel(createDrawingObject({ id: 'empty' }))).toBeNull()
@@ -61,7 +61,7 @@ describe('templateMapping', () => {
     const template = { name: 't', style: { stroke: '#111111' }, labelPosition: 'end' as const }
     const withText = createDrawingObject({
       id: 'trend',
-      labels: { line: { '0': { text: '注记', position: 'start' } }, area: {} },
+      labels: { line: { text: '注记', position: 'start' } },
     })
     expect(resolveTemplateStyle(template, ['stroke'])).toEqual({ stroke: '#111111' })
     expect(resolveTemplateLabel(template, withText)).toEqual({

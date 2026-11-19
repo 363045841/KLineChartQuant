@@ -109,14 +109,23 @@ export type DrawingKind =
   | 'flat-line'
   | 'disjoint-channel'
 export type DrawingLabel = { text: string; position: DrawingLabelPosition }
-export type DrawingLabelIndex = `${number}`
-export type DrawingLabels = {
-  line: Record<DrawingLabelIndex, DrawingLabel>
-  area: Record<DrawingLabelIndex, DrawingLabel>
-}
+export type DrawingLabelTarget =
+  | 'line'
+  | 'horizontal'
+  | 'vertical'
+  | 'top'
+  | 'right'
+  | 'bottom'
+  | 'left'
+  | 'inside'
+  | 'base'
+  | 'opposite'
+  | 'median'
+  | 'upper'
+  | 'lower'
+  | `level:${number}`
+export type DrawingLabels = Partial<Record<DrawingLabelTarget, DrawingLabel>>
 export type DrawingWorkspaceId = 'kline' | 'timeshare'
-/** 标签按渲染输出分组：线段与填充区域各自独立。 */
-export type DrawingLabelGroups = Partial<DrawingLabels>
 /** 图元的周期可见性规则；参考周期在用户选择时确定。 */
 export type DrawingTimeframeVisibility =
   | { readonly mode: 'all' }
@@ -379,7 +388,7 @@ export type DrawingPatch = {
   readonly anchors?: ReadonlyArray<PersistedDrawingAnchor> | undefined
   readonly style?: Partial<DrawingStyle> | undefined
   readonly params?: Readonly<Record<string, unknown>> | undefined
-  readonly labels?: DrawingLabelGroups | undefined
+  readonly labels?: DrawingLabels | undefined
   readonly visible?: boolean | undefined
   readonly timeframeVisibility?: DrawingTimeframeVisibility | undefined
   readonly locked?: boolean | undefined

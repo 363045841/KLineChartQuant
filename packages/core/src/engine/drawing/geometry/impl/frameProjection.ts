@@ -30,11 +30,9 @@ import type { DrawingHandlePort } from '../../handles/types.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
 import type { DrawingSelectionMarquee, DrawingSnapIndicator } from '../../interaction/types.js'
 import { drawingKindAxisLabels } from '../../model/impl/drawingKindSpecs.js'
-import { drawingLabelIndexKey } from '../../model/impl/drawingLabels.js'
 import type { DrawingDefinitionRegistry } from '../../render/impl/DrawingDefinitionRegistry.js'
 import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope, DrawingSource } from '../../render/types.js'
-import { resolveDrawingRenderAxis } from './drawingAxis.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type {
   DrawingGeometry,
@@ -43,6 +41,7 @@ import type {
   ResolvedDrawingAnchor,
   ResolvedDrawingObject,
 } from '../../types.js'
+import { resolveDrawingRenderAxis } from './drawingAxis.js'
 import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
 
@@ -186,37 +185,21 @@ function projectLineMidHandlePrimitives(
 }
 
 /** 将持久化文本附加到对应线段；锚点、旋转、对齐与基线由渲染器和热点共用同一约定。 */
-function attachLineLabels(
+function attachDrawingLabels(
   drawing: ResolvedDrawingObject,
   primitives: ReadonlyArray<DrawingPrimitive>,
 ): DrawingPrimitive[] {
-  let lineIndex = 0
   return primitives.map((primitive) => {
-    if (primitive.kind !== PRIMITIVE_KIND.line && primitive.kind !== PRIMITIVE_KIND.arrow) {
-      return primitive
+    if (!('labelTarget' in primitive) || !primitive.labelTarget) return primitive
+    const label = drawing.labels?.[primitive.labelTarget]
+    if (!label) return primitive
+    return {
+      ...primitive,
+      text: {
+        ...label,
+        ...(primitive.kind === PRIMITIVE_KIND.area ? {} : { baseline: LINE_LABEL_BASELINE }),
+      },
     }
-    const label = drawing.labels?.line[drawingLabelIndexKey(lineIndex++)]
-    return label === undefined
-      ? primitive
-      : {
-          ...primitive,
-          text: { text: label.text, position: label.position, baseline: LINE_LABEL_BASELINE },
-        }
-  })
-}
-
-/** 将持久化文本附加到对应填充区域；文字在填充完成后由区域渲染器绘制。 */
-function attachAreaLabels(
-  drawing: ResolvedDrawingObject,
-  primitives: ReadonlyArray<DrawingPrimitive>,
-): DrawingPrimitive[] {
-  let areaIndex = 0
-  return primitives.map((primitive) => {
-    if (primitive.kind !== PRIMITIVE_KIND.area) return primitive
-    const label = drawing.labels?.area[drawingLabelIndexKey(areaIndex++)]
-    return label === undefined
-      ? primitive
-      : { ...primitive, text: { text: label.text, position: label.position } }
   })
 }
 
@@ -313,14 +296,14 @@ function projectAnchorAxisLabels(
   // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
   const indexVisible = isAnchorIndexVisible(anchor, context.range)
   // 垂直线没有价格轴：只按时间轴注册标签，不能因为缺价格而整条跳过。
-  const price =
-    anchor.type === 'vertical' || !Number.isFinite(anchor.price) ? null : anchor.price
+  const price = anchor.type === 'vertical' || !Number.isFinite(anchor.price) ? null : anchor.price
   const wantsPrice = !timeLabelOnly && price !== null && (priceLabelOnly || indexVisible)
   const timeText = resolveTimeLabelText(anchor, priceLabelOnly, indexVisible, context)
   if (!wantsPrice && timeText === null) return
 
   const point = toScreen(anchor)
-  if (wantsPrice && price !== null) registerPriceAxisTag(context, price, point, color, labelTextColor)
+  if (wantsPrice && price !== null)
+    registerPriceAxisTag(context, price, point, color, labelTextColor)
   if (timeText !== null) registerTimeAxisTag(context, timeText, point, color, labelTextColor)
 }
 
@@ -539,7 +522,7 @@ function projectStoredDrawing(
   if (!geometry) return
   if (scope === 'committed') collectSnapLines(state, drawing, geometry)
   const isSelected = isDrawingInteractive(drawing) && state.selectedIds.has(drawing.id)
-  const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
+  const primitives = attachDrawingLabels(drawing, geometry.primitives)
   state.output.primitives.push(...resolveStyledPrimitives(primitives, drawing, isSelected))
   if (!isSelected) return
   state.handlePrimitives.push(...projectLineMidHandlePrimitives(drawing, state.handlePort))

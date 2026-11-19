@@ -23,8 +23,9 @@ import type { ComparisonCandidate } from '../../engine/data/comparisonCommands.j
 import type {
   DrawingCommands,
   DrawingDocument,
-  DrawingLabelGroups,
+  DrawingLabel,
   DrawingLabels,
+  DrawingLabelTarget,
   DrawingObject,
 } from '../../engine/drawing/index.js'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata.js'
@@ -224,7 +225,7 @@ export interface ChartAgentDrawingCreateInput {
   readonly kind: DrawingKind
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabelGroups>
+  readonly labels?: Readonly<DrawingLabels>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -234,7 +235,7 @@ export interface ChartAgentDrawingCreateInput {
 /** 图元补丁：只改属性；几何变化由删除后重建表达。 */
 export interface ChartAgentDrawingPatch {
   readonly style?: Readonly<Record<string, string | number | undefined>>
-  readonly labels?: Readonly<DrawingLabelGroups>
+  readonly labels?: Readonly<Partial<Record<DrawingLabelTarget, DrawingLabel | null>>>
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -284,7 +285,10 @@ export type ChartAgentComparisonCandidate = ComparisonCandidate
 /** 对比创建结果：写入成功，或未写入并等待用户裁决。 */
 export type ChartAgentComparisonCreateResult =
   | { readonly status: 'added'; readonly comparison: ChartAgentComparisonView }
-  | { readonly status: 'ambiguous'; readonly candidates: ReadonlyArray<ChartAgentComparisonCandidate> }
+  | {
+      readonly status: 'ambiguous'
+      readonly candidates: ReadonlyArray<ChartAgentComparisonCandidate>
+    }
 
 /** Agent 对比命令面：只暴露列表、创建、显隐与删除。 */
 export interface ChartAgentComparisonCommands {
@@ -298,7 +302,10 @@ export interface ChartAgentComparisonCommands {
 export interface ChartAgentMarketQueries {
   /** 当前能服务该能力的源，用于工具描述与错误提示。 */
   listSources(capability: ChartAgentMarketCapability): ReadonlyArray<ChartAgentMarketSource>
-  lookup(input: InstrumentLookupInput, context?: ChartToolExecutionContext): Promise<MarketQueryText>
+  lookup(
+    input: InstrumentLookupInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<MarketQueryText>
   bars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<MarketQueryText>
   timeShare(
     input: TimeShareQueryInput,

@@ -8,6 +8,6 @@ import { defineTwoAnchorDrawing } from './twoAnchor.js'
 /** 创建箭头图形：第二个锚点是箭头尖端。 */
 export function createArrowDefinition(): DrawingDefinition {
   return defineTwoAnchorDrawing('arrow', (drawing, a, b) => ({
-    primitives: [{ kind: 'arrow', start: a, end: b, style: drawing.style }],
+    primitives: [{ kind: 'arrow', labelTarget: 'line', start: a, end: b, style: drawing.style }],
   }))
 }

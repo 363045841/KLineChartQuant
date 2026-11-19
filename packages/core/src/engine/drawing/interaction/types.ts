@@ -8,7 +8,7 @@
 import type { Point } from '@/foundation/geometry/types.js'
 import type { DrawingLabelPosition } from '@/foundation/plugin/types.js'
 import type { DrawingDragCursor } from '../handles/types.js'
-import type { DrawingObject } from '../types.js'
+import type { DrawingLabelTarget, DrawingObject } from '../types.js'
 
 /**
  * 绘图工具 ID 常量表：运行时切换工具、构建工具栏都必须引用这里，
@@ -105,8 +105,7 @@ export interface HitResult {
 /** 线段/填充标签热点，携带与绘制完全一致的锚点、旋转、对齐、基线与字号。 */
 export interface LineLabelTarget {
   readonly drawingId: string
-  readonly targetKind: 'line' | 'area'
-  readonly lineIndex: number
+  readonly target: DrawingLabelTarget
   readonly x: number
   readonly y: number
   /** 文字沿线段方向的可读旋转角（弧度）。 */

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PersistedDrawingAnchor } from '../../types.js'
 import { createDrawingCommandsFixture } from '../../__tests__/helpers/drawingDocumentFixture'
+import type { PersistedDrawingAnchor } from '../../types.js'
 
 /** 复制测试用图元时整体平移价格；垂直线没有价格轴。 */
 function shiftAnchorPrice(anchor: PersistedDrawingAnchor, delta: number): PersistedDrawingAnchor {
@@ -34,7 +34,7 @@ describe('drawing history', () => {
         { timestamp: 500, price: 20 },
         { timestamp: 0, price: 30 },
       ],
-      labels: { line: { '0': { text: 'channel', position: 'center' } }, area: {} },
+      labels: { inside: { text: 'channel', position: 'center' } },
       params: { nested: { value: 2 } },
       style: { stroke: '#f00' },
     })

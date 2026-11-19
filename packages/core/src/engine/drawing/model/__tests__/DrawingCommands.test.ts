@@ -38,7 +38,7 @@ describe('DrawingCommands', () => {
         paneId: 'main',
         visible: false,
         anchors: [],
-        labels: { line: {}, area: {} },
+        labels: {},
         params: {},
         style: { stroke: '#2962ff' },
       }),

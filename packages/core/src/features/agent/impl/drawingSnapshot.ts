@@ -57,10 +57,13 @@ export function projectDrawingSnapshot(
     zIndex: drawing.zIndex ?? null,
     anchors: projectAnchors(drawing, formatAnchorTime),
     style: Object.freeze({ ...drawing.style }),
-    labels: Object.freeze({
-      line: Object.freeze({ ...(drawing.labels?.line ?? {}) }),
-      area: Object.freeze({ ...(drawing.labels?.area ?? {}) }),
-    }),
+    labels: Object.freeze(
+      Object.fromEntries(
+        Object.entries(drawing.labels ?? {}).flatMap(([target, label]) =>
+          label ? [[target, Object.freeze({ ...label })]] : [],
+        ),
+      ),
+    ),
     timeframeVisibility: Object.freeze({ ...(drawing.timeframeVisibility ?? { mode: 'all' }) }),
   })
 }

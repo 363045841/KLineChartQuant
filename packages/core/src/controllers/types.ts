@@ -23,8 +23,8 @@ import type {
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
-  DrawingLabelIndex,
   DrawingLabelPosition,
+  DrawingLabelTarget,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,
@@ -91,8 +91,8 @@ export type DrawingObject = PluginDrawingObject
 export type {
   BatchDrawingPatch,
   CreateDrawingInput,
-  DrawingLabelIndex,
   DrawingLabelPosition,
+  DrawingLabelTarget,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,

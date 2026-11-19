@@ -7,7 +7,7 @@
 
 import type { Point } from '@/foundation/geometry/index.js'
 import type { MagnetSnapConfig, SnapCandidate } from '../magnet/types.js'
-import type { PersistedDrawingAnchor } from '../types.js'
+import type { DrawingLabelTarget, PersistedDrawingAnchor } from '../types.js'
 
 /**
  * 可投影为屏幕坐标的锚点形状。
@@ -111,6 +111,7 @@ export type LineHandleAxis = 'price' | 'time'
 
 /** 图元的一条线：由两个持久化锚点下标定义。 */
 export interface DrawingLine {
+  readonly labelTarget: DrawingLabelTarget
   /** 起点锚点下标。 */
   readonly from: number
   /** 终点锚点下标。 */

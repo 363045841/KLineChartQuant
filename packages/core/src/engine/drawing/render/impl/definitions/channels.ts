@@ -48,15 +48,17 @@ export function createParallelChannelDefinition(): DrawingDefinition {
         primitives: [
           {
             kind: 'area',
+            labelTarget: 'inside',
             points: buildFillPolygon('parallel-channel', [p1, p2, p3, p4]),
             closed: true,
             style: drawing.style,
           },
-          { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
-          { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
+          { kind: 'line', labelTarget: 'base', a: p1, b: p2, extend, style: drawing.style },
+          { kind: 'line', labelTarget: 'opposite', a: p3, b: p4, extend, style: drawing.style },
           // 中线：两条平行线的中间虚线，端点不是锚点，选中态也不画锚点圆。
           {
             kind: 'line',
+            labelTarget: 'median',
             a: midpoint(p1, p3),
             b: midpoint(p2, p4),
             extend,
@@ -87,12 +89,13 @@ export function createFlatLineDefinition(): DrawingDefinition {
         primitives: [
           {
             kind: 'area',
+            labelTarget: 'inside',
             points: buildFillPolygon('flat-line', [p1, p2, h1, h2]),
             closed: true,
             style: drawing.style,
           },
-          { kind: 'line', a: p1, b: p2, style: drawing.style },
-          { kind: 'line', a: h1, b: h2, style: drawing.style },
+          { kind: 'line', labelTarget: 'base', a: p1, b: p2, style: drawing.style },
+          { kind: 'line', labelTarget: 'opposite', a: h1, b: h2, style: drawing.style },
         ],
       }
     },
@@ -119,12 +122,13 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
           // 填充按 0 → 1 → 2 → 3 环绕，与两条线的方向一致，避免自交。
           {
             kind: 'area',
+            labelTarget: 'inside',
             points: buildFillPolygon('disjoint-channel', [a0, a1, a2, a3]),
             closed: true,
             style: drawing.style,
           },
-          { kind: 'line', a: a0, b: a1, style: drawing.style },
-          { kind: 'line', a: a2, b: a3, style: drawing.style },
+          { kind: 'line', labelTarget: 'base', a: a0, b: a1, style: drawing.style },
+          { kind: 'line', labelTarget: 'opposite', a: a2, b: a3, style: drawing.style },
         ],
       }
     },
@@ -197,6 +201,7 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
         primitives: [
           {
             kind: 'area',
+            labelTarget: 'inside',
             points: [upperA, upperB, lowerB, lowerA],
             closed: true,
             style: drawing.style,
@@ -204,12 +209,13 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
           // 中间回归线使用虚线
           {
             kind: 'line',
+            labelTarget: 'median',
             a: middleA,
             b: middleB,
             style: { ...drawing.style, strokeStyle: 'dashed' },
           },
-          { kind: 'line', a: upperA, b: upperB, style: drawing.style },
-          { kind: 'line', a: lowerA, b: lowerB, style: drawing.style },
+          { kind: 'line', labelTarget: 'upper', a: upperA, b: upperB, style: drawing.style },
+          { kind: 'line', labelTarget: 'lower', a: lowerA, b: lowerB, style: drawing.style },
         ],
         computedAnchors: [startAnchor, endAnchor],
         meta: {

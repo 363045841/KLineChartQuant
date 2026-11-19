@@ -9,6 +9,7 @@ import {
   type LayoutSummary,
   type NamedLayoutDocument,
 } from '../types.js'
+import { migrateLayoutDrawingLabels } from './migrateDrawingLabels.js'
 
 const DEFAULT_LAYOUT_ID = 'default'
 const DEFAULT_LAYOUT_NAME = '默认布局'
@@ -44,7 +45,7 @@ function decodeArchive(value: unknown): LayoutArchive | null {
     return null
   const documents: Record<string, NamedLayoutDocument> = {}
   for (const [id, document] of Object.entries(value.documents)) {
-    if (isNamedLayoutDocument(document)) documents[id] = document
+    if (isNamedLayoutDocument(document)) documents[id] = migrateLayoutDrawingLabels(document)
   }
   return { documents, activeId: value.activeId, autoSave: value.autoSave }
 }
@@ -155,9 +156,15 @@ export class LayoutManager implements LayoutApi {
   /** 只派生归档摘要，按文档创建顺序稳定输出；切换活动文档不改变列表位置。 */
   private publish(): void {
     const { documents, activeId, autoSave } = this.archive
-    const layouts = Object.freeze(Object.entries(documents).map(([id, document]) =>
-      Object.freeze({ id, name: document.name, deletable: id !== DEFAULT_LAYOUT_ID && id !== activeId }),
-    ))
+    const layouts = Object.freeze(
+      Object.entries(documents).map(([id, document]) =>
+        Object.freeze({
+          id,
+          name: document.name,
+          deletable: id !== DEFAULT_LAYOUT_ID && id !== activeId,
+        }),
+      ),
+    )
     batch(() => {
       this.layoutSignal.set(layouts)
       this.activeSignal.set(activeId)
@@ -213,7 +220,8 @@ export class LayoutManager implements LayoutApi {
   }
 
   /** 将文档交给图表领域入口恢复；文档由本管理器或调用方按契约构造。 */
-  async applyLayout(document: LayoutDocument): Promise<void> {
+  async applyLayout(input: LayoutDocument): Promise<void> {
+    const document = migrateLayoutDrawingLabels(input)
     this.applySnapshot(document)
     await this.dependencies.loadContent?.(document)
   }

@@ -2,7 +2,7 @@
  * 斐波那契回撤图形定义：两个锚点定义区间，水平线覆盖区间的时间范围。
  */
 
-import { fibLevelLines } from '@/engine/drawing/geometry/impl/fibLevels.js'
+import { fibLabelTarget, fibLevelLines } from '@/engine/drawing/geometry/impl/fibLevels.js'
 import { resolveFibLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 import { defineTwoAnchorDrawing } from './twoAnchor.js'
@@ -13,6 +13,7 @@ export function createFibRetracementDefinition(): DrawingDefinition {
     primitives: fibLevelLines(drawing.params, a, b).flatMap((level) => [
       {
         kind: 'line' as const,
+        labelTarget: fibLabelTarget(level.ratio),
         a: { x: level.left, y: level.y },
         b: { x: level.right, y: level.y },
         style: drawing.style,

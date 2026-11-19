@@ -6,7 +6,7 @@
  */
 
 import type {
-  DrawingLabelGroups,
+  DrawingLabels,
   DrawingPatch,
   DrawingTimeframeVisibility,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -46,7 +46,7 @@ export interface CreateDrawingInput {
   /** 完整样式；颜色等取值由调用方（工具或脚本 API）在上游决定。 */
   readonly style: DrawingStyle
   readonly params?: Readonly<Record<string, unknown>>
-  readonly labels?: DrawingLabelGroups
+  readonly labels?: DrawingLabels
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number

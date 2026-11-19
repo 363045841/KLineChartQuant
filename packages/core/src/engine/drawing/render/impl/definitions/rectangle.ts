@@ -2,6 +2,7 @@
 
 import { anchorExtent } from '@/engine/drawing/geometry/impl/drawingExtent.js'
 import { resolveRectLabelLayout } from '@/engine/drawing/geometry/impl/labelLayout.js'
+import { rectangleGeometry } from '@/engine/drawing/geometry/impl/rectangleGeometry.js'
 import type { DrawingDefinition } from '@/engine/drawing/types.js'
 import type { DrawingPrimitive } from '@/foundation/plugin/types.js'
 import { DEFAULT_DRAWING_FILL_OPACITY } from '@/foundation/tokens/index.js'
@@ -20,23 +21,19 @@ export function createRectangleDefinition(): DrawingDefinition {
       const topRight = context.toScreen(topRightAnchor)
       const bottomRight = context.toScreen(bottomRightAnchor)
       const bottomLeft = context.toScreen(bottomLeftAnchor)
-      const extendLeft = drawing.extend === 'left' || drawing.extend === 'both'
-      const extendRight = drawing.extend === 'right' || drawing.extend === 'both'
-      const left = extendLeft ? Math.min(topLeft.x, context.viewport.scrollLeft) : topLeft.x
-      const right = extendRight
-        ? Math.max(topRight.x, context.viewport.scrollLeft + context.viewport.plotWidth)
-        : topRight.x
+      const { points, edges } = rectangleGeometry(
+        [topLeft, topRight, bottomRight, bottomLeft],
+        drawing.extend,
+        context.viewport.scrollLeft,
+        context.viewport.scrollLeft + context.viewport.plotWidth,
+      )
 
       const primitives: DrawingPrimitive[] = [
         {
           kind: 'area',
+          labelTarget: 'inside',
           closed: true,
-          points: [
-            { x: left, y: topLeft.y },
-            { x: right, y: topRight.y },
-            { x: right, y: bottomRight.y },
-            { x: left, y: bottomLeft.y },
-          ],
+          points,
           style: {
             ...drawing.style,
             fillOpacity:
@@ -47,16 +44,8 @@ export function createRectangleDefinition(): DrawingDefinition {
         },
       ]
       if (drawing.style.strokeWidth !== 0) {
-        // 顺时针四条边：上、右、下、左；延伸侧不封口，避免与延长后的上下边重叠。
-        const edges = [
-          { a: { x: left, y: topLeft.y }, b: { x: right, y: topRight.y } },
-          { a: topRight, b: bottomRight },
-          { a: { x: right, y: bottomRight.y }, b: { x: left, y: bottomLeft.y } },
-          { a: bottomLeft, b: topLeft },
-        ]
-        for (const [index, edge] of edges.entries()) {
-          if ((index === 1 && extendRight) || (index === 3 && extendLeft)) continue
-          primitives.push({ kind: 'line', a: edge.a, b: edge.b, style: drawing.style })
+        for (const edge of edges) {
+          primitives.push({ kind: 'line', ...edge, style: drawing.style })
         }
       }
       const text = drawing.text

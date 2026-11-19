@@ -2,6 +2,7 @@
  * 绘图模板与图元之间的映射：可保存字段解析、模板抓取与应用。
  */
 
+import { drawingLabelTargets } from '../../model/impl/drawingLabels.js'
 import type { DrawingStyleKey } from '../../model/types.js'
 import type { DrawingObject } from '../../types.js'
 import type { DrawingTemplate, TemplateStyle, TemplateStyleKey } from '../types.js'
@@ -66,10 +67,10 @@ export function resolveTemplateLabel(template: DrawingTemplate, drawing: Drawing
 
 /** 读取图元序号 0 的附属文本；模板只跟随已存在的文本位置。 */
 export function drawingTemplateLabel(drawing: DrawingObject) {
-  const line = drawing.labels?.line['0']
-  if (line) return { target: 'line' as const, label: line }
-  const area = drawing.labels?.area['0']
-  if (area) return { target: 'area' as const, label: area }
+  for (const target of drawingLabelTargets(drawing.kind, drawing.params)) {
+    const label = drawing.labels?.[target]
+    if (label) return { target, label }
+  }
   return null
 }
 

@@ -3,6 +3,7 @@
  */
 
 import type { Point } from '@/foundation/geometry/index.js'
+import type { DrawingLabelTarget } from '../../types.js'
 
 /** 默认回撤档位；图元参数可通过 levels 覆盖。 */
 const DEFAULT_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
@@ -16,9 +17,14 @@ export interface FibLevelLine {
 }
 
 /** 读取图元配置的档位；空数组与未配置都按默认档位处理。 */
-function resolveLevels(params: Record<string, unknown>): readonly number[] {
+export function resolveFibLevels(params: Record<string, unknown>): readonly number[] {
   const configured = (params as { levels?: number[] }).levels
   return configured !== undefined && configured.length > 0 ? configured : DEFAULT_LEVELS
+}
+
+/** 用回撤比例标识标签，层级顺序变化时仍指向原水平线。 */
+export function fibLabelTarget(ratio: number): DrawingLabelTarget {
+  return `level:${ratio}`
 }
 
 /**
@@ -31,7 +37,7 @@ function resolveLevels(params: Record<string, unknown>): readonly number[] {
 export function fibLevelLines(params: Record<string, unknown>, a: Point, b: Point): FibLevelLine[] {
   const left = Math.min(a.x, b.x)
   const right = Math.max(a.x, b.x)
-  return resolveLevels(params).map((ratio) => ({
+  return resolveFibLevels(params).map((ratio) => ({
     ratio,
     left,
     right,

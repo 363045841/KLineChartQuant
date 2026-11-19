@@ -561,7 +561,11 @@ export type PrimitiveRenderContext = Omit<RenderContext, 'ctx'> & {
 }
 
 /** 绘图渲染 primitive 契约：样式引用公共图形模型，屏幕图元由 foundation 拥有。 */
-import type { DrawingLabelPosition, DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  DrawingLabelPosition,
+  DrawingLabelTarget,
+  DrawingStyle,
+} from '@363045841yyt/klinechart-plot-contracts'
 
 export type { DrawingLabelPosition, DrawingStyle } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -602,6 +606,7 @@ export type PointPrimitive = {
 
 export type LinePrimitive = {
   kind: 'line'
+  labelTarget?: DrawingLabelTarget
   a: Point
   b: Point
   extend?: 'none' | 'left' | 'right' | 'both'
@@ -612,6 +617,7 @@ export type LinePrimitive = {
 
 export type AreaPrimitive = {
   kind: 'area'
+  labelTarget?: DrawingLabelTarget
   points: Point[]
   closed: boolean
   text?: PrimitiveTextAttachment
@@ -630,6 +636,7 @@ export type TextPrimitive = {
 /** 箭头图元：由渲染器作为一个整体绘制轴线和实心箭头头部。 */
 export type ArrowPrimitive = {
   kind: 'arrow'
+  labelTarget?: DrawingLabelTarget
   start: Point
   end: Point
   headLength?: number

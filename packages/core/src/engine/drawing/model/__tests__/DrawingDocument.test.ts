@@ -1,9 +1,8 @@
 // 本文件验证绘图文档将声明式 CRUD 原子提交到 drawingState。
 import { describe, expect, it } from 'vitest'
-
-import type { PersistedDrawingAnchor } from '../../types.js'
 import { createDrawingDocumentFixture as createDocument } from '../../__tests__/helpers/drawingDocumentFixture'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay'
+import type { PersistedDrawingAnchor } from '../../types.js'
 
 /** 只改价格轴；垂直线没有价格，保持原样。 */
 function withPrice(anchor: PersistedDrawingAnchor, price: number): PersistedDrawingAnchor {
@@ -119,10 +118,10 @@ describe('DrawingDocument', () => {
         { timestamp: 1_000, price: 10 },
         { timestamp: 1_000, price: 12 },
       ],
-      labels: { line: { 0: { text: '支撑位\n跌破则止损', position: 'center' } }, area: {} },
+      labels: { line: { text: '支撑位\n跌破则止损', position: 'center' } },
     })
 
-    expect(drawing.labels?.line['0']?.text).toBe('支撑位\\n跌破则止损')
+    expect(drawing.labels?.line?.text).toBe('支撑位\\n跌破则止损')
   })
 
   it('normalizes label newlines when updating and importing drawings', () => {
@@ -139,20 +138,20 @@ describe('DrawingDocument', () => {
 
     const updated = document.updateDrawing({
       ...drawing,
-      labels: { line: { 0: { text: '更新\r\n标签', position: 'center' } }, area: {} },
+      labels: { line: { text: '更新\r\n标签', position: 'center' } },
     })
-    expect(updated?.labels?.line['0']?.text).toBe('更新\\n标签')
+    expect(updated?.labels?.line?.text).toBe('更新\\n标签')
 
     document.replaceDrawings([
       {
         ...updated!,
-        labels: { line: {}, area: { 0: { text: '导入\n标签', position: 'center' } } },
+        labels: { line: { text: '导入\n标签', position: 'center' } },
       },
     ])
-    expect(document.getDrawing(drawing.id)?.labels?.area['0']?.text).toBe('导入\\n标签')
+    expect(document.getDrawing(drawing.id)?.labels?.line?.text).toBe('导入\\n标签')
   })
 
-  it('标签按组写入：只给一组建图，update 保留另一组', () => {
+  it('commits a complete named label snapshot, including removals', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
       style: CREATE_DRAWING_STYLE,
@@ -162,22 +161,22 @@ describe('DrawingDocument', () => {
         { timestamp: 1_000, price: 10 },
         { timestamp: 2_000, price: 12 },
       ],
-      labels: { area: { 0: { text: '箱体', position: 'center' } } },
+      labels: { inside: { text: '箱体', position: 'center' } },
     })
 
-    expect(drawing.labels).toEqual({ line: {}, area: { 0: { text: '箱体', position: 'center' } } })
+    expect(drawing.labels).toEqual({ inside: { text: '箱体', position: 'center' } })
 
     const updated = document.updateDrawingFromInput(drawing.id, {
-      labels: { line: { 0: { text: '边', position: 'start' } } },
+      labels: { top: { text: '边', position: 'start' } },
     })
 
     expect(updated?.labels).toEqual({
-      line: { 0: { text: '边', position: 'start' } },
-      area: { 0: { text: '箱体', position: 'center' } },
+      top: { text: '边', position: 'start' },
     })
   })
 
-  it('保存任意绝对时间，文档不要求时间戳命中当前周期的 K 线', () => {    const { document } = createDocument()
+  it('保存任意绝对时间，文档不要求时间戳命中当前周期的 K 线', () => {
+    const { document } = createDocument()
 
     const drawing = document.createDrawing({
       style: CREATE_DRAWING_STYLE,
@@ -491,9 +490,7 @@ describe('DrawingDocument', () => {
     expect(document.updateDrawingFromInput(drawing.id, { anchors: [{ price: 11 }] })).toBeNull()
 
     // 拖动与删除仍然被冻结。
-    expect(
-      document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)]),
-    ).toBeNull()
+    expect(document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)])).toBeNull()
     expect(document.removeDrawing(drawing.id)).toBe(false)
 
     expect(document.updateBatch([drawing.id], { locked: false })).toHaveLength(1)
@@ -552,9 +549,7 @@ describe('DrawingDocument', () => {
         anchors: [withPrice(current.anchors[0]!, 11)],
       }),
     ).toBeNull()
-    expect(
-      document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)]),
-    ).toBeNull()
+    expect(document.commitDrawingDrag(drawing.id, [withPrice(current.anchors[0]!, 11)])).toBeNull()
 
     // 全局锁不改写图元自身 locked，也不阻止删除。
     expect(document.getDrawing(drawing.id)?.locked).toBeUndefined()

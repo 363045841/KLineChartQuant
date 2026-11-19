@@ -69,11 +69,16 @@ export { DrawingCommands } from './model/impl/DrawingCommands.js'
 export { DrawingDocument } from './model/impl/DrawingDocument.js'
 export {
   AGENT_DRAWING_KINDS,
+  DRAWING_KIND_VALUES,
   drawingAnchorAxes,
   drawingKindName,
   resolveDrawingLabel,
 } from './model/impl/drawingKindSpecs.js'
-export { DRAWING_LABEL_INDEX_PATTERN, normalizeDrawingLabels } from './model/impl/drawingLabels.js'
+export {
+  defaultLabelTarget,
+  drawingLabelTargets,
+  readDrawingLabel,
+} from './model/impl/drawingLabels.js'
 export { filterDrawingsInScope, isDrawingInScope } from './model/impl/drawingScope.js'
 export { isDrawingVisibleInPeriod } from './model/impl/drawingTimeframeVisibility.js'
 export { getDrawingInputAnchorCount } from './model/impl/materializeAnchors.js'
@@ -147,9 +152,8 @@ export type {
   DrawingKind,
   DrawingKindSpec,
   DrawingLabel,
-  DrawingLabelGroups,
-  DrawingLabelIndex,
   DrawingLabels,
+  DrawingLabelTarget,
   DrawingObject,
   DrawingTimeframeVisibility,
   DrawingWorkspaceId,

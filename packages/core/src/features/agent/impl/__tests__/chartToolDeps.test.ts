@@ -13,15 +13,10 @@ import type {
   TimeShareRangeCacheResult,
 } from '@/data/buffer/impl/marketDataCache'
 import type { InstrumentDescriptor, InstrumentRef, TradingDate } from '@/data/provider/types'
-import type { TimeShareData } from '@/foundation/types/price'
 import type { IndicatorInstance } from '@/engine/chart/types'
-import type {
-  ComparisonCommandsApi,
-  ComparisonSnapshot,
-} from '@/engine/data/comparisonCommands'
+import type { ComparisonCommandsApi, ComparisonSnapshot } from '@/engine/data/comparisonCommands'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types'
-import type { ChartAgentMarketQueriesDependencies } from '../../types'
 import {
   CHART_AGENT_ERROR_CODES,
   DRAWING_ERROR_CODES,
@@ -31,6 +26,8 @@ import {
 } from '@/errors'
 import { ToolInputValidationError } from '@/foundation/agent/index'
 import { createSignal } from '@/foundation/reactivity/signal'
+import type { TimeShareData } from '@/foundation/types/price'
+import type { ChartAgentMarketQueriesDependencies } from '../../types'
 import {
   createChartAgentComparisonCommands,
   createChartAgentDrawingCommands,
@@ -364,7 +361,7 @@ describe('drawing commands', () => {
       drawingCommands: {
         create: (input) => {
           created.push(input)
-          return drawing('d-new', input.paneId, { kind: input.kind })
+          return drawing('d-new', input.paneId, { kind: input.kind, labels: input.labels })
         },
         updateFromInput: (id, patch) => {
           updated.push([id, patch])
@@ -373,14 +370,7 @@ describe('drawing commands', () => {
           return {
             ...current,
             ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
-            ...(patch.labels === undefined
-              ? {}
-              : {
-                  labels: {
-                    line: patch.labels.line ?? current.labels?.line ?? {},
-                    area: patch.labels.area ?? current.labels?.area ?? {},
-                  },
-                }),
+            ...(patch.labels === undefined ? {} : { labels: patch.labels }),
             ...(patch.visible === undefined ? {} : { visible: patch.visible }),
             ...(patch.locked === undefined ? {} : { locked: patch.locked }),
             ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
@@ -444,6 +434,38 @@ describe('drawing commands', () => {
     })
   })
 
+  it('accepts named vertical-line labels and rejects targets on the wrong kind before writing', () => {
+    const { commands, created, updated } = fixture([
+      drawing('vertical', 'main', { kind: 'vertical-line' }),
+    ])
+    const input = {
+      row: 0,
+      kind: 'vertical-line',
+      anchors: [{ time: ANCHOR_TIME }],
+      style: { stroke: '#fff' },
+    } as const
+    const label = { text: 'Listing\nFirst trade', position: 'start' } as const
+    expect(() => commands.create({ ...input, labels: { top: label } })).toThrow(
+      /Allowed targets: line/,
+    )
+    expect(created).toEqual([])
+    expect(() => commands.update('vertical', { labels: { inside: label } })).toThrow(
+      /Allowed targets: line/,
+    )
+    expect(updated).toEqual([])
+    expect(commands.create({ ...input, labels: { line: label } }).labels).toEqual({ line: label })
+  })
+
+  it('updates and removes targets independently and returns the stored named labels', () => {
+    const inside = { text: 'Range', position: 'center' } as const
+    const top = { text: 'Breakout', position: 'start' } as const
+    const { commands } = fixture([
+      drawing('box', 'main', { kind: 'rectangle', labels: { inside } }),
+    ])
+    expect(commands.update('box', { labels: { top } }).labels).toEqual({ inside, top })
+    expect(commands.update('box', { labels: { top, inside: null } }).labels).toEqual({ top })
+  })
+
   it('未知行拒绝创建并给出行数', () => {
     const { commands, created } = fixture()
     expect(() =>
@@ -482,9 +504,7 @@ describe('drawing commands', () => {
   ] as const)('按种类把锚点转成领域输入：$kind', ({ kind, anchors, expected }) => {
     const { commands, created } = fixture()
     commands.create({ row: 0, kind, anchors: [...anchors], style: { stroke: '#fff' } })
-    expect(created).toEqual([
-      expect.objectContaining({ kind, paneId: 'main', anchors: expected }),
-    ])
+    expect(created).toEqual([expect.objectContaining({ kind, paneId: 'main', anchors: expected })])
   })
 
   it.each([
@@ -526,7 +546,8 @@ describe('drawing commands', () => {
     expect(created).toEqual([])
   })
 
-  it('创建把显示行解析为 Pane，并投影新图元', () => {    const { commands, created } = fixture()
+  it('创建把显示行解析为 Pane，并投影新图元', () => {
+    const { commands, created } = fixture()
     const view = commands.create({
       row: 1,
       kind: 'horizontal-line',
@@ -782,18 +803,14 @@ describe('market queries', () => {
         async (query: BarsWindowCacheQuery): Promise<BarsWindowCacheResult> =>
           input.window ?? dailyWindow(),
       ),
-      queryTimeShare: vi.fn(
-        async (query: TimeShareCacheQuery): Promise<TimeShareCacheResult> => {
-          const date = query.tradingDate ?? '2026-11-17'
-          const data: TimeShareData[] = availableDays.has(date)
-            ? [{ timestamp: NOW, price: 1, average: 1 }]
-            : []
-          return timeShare(query, data)
-        },
-      ),
-      queryTimeShareRange: vi.fn(
-        async (): Promise<TimeShareRangeCacheResult> => timeShareRange(),
-      ),
+      queryTimeShare: vi.fn(async (query: TimeShareCacheQuery): Promise<TimeShareCacheResult> => {
+        const date = query.tradingDate ?? '2026-11-17'
+        const data: TimeShareData[] = availableDays.has(date)
+          ? [{ timestamp: NOW, price: 1, average: 1 }]
+          : []
+        return timeShare(query, data)
+      }),
+      queryTimeShareRange: vi.fn(async (): Promise<TimeShareRangeCacheResult> => timeShareRange()),
     }
     const search = vi.fn(async () => ({
       instruments: [...(input.keyword ?? [])],
@@ -897,7 +914,13 @@ describe('market queries', () => {
     },
     {
       name: 'from 不能晚于 to',
-      input: { period: 'daily', adjustment: 'none', limit: 10, from: '2026-10-01', to: '2026-08-01' },
+      input: {
+        period: 'daily',
+        adjustment: 'none',
+        limit: 10,
+        from: '2026-10-01',
+        to: '2026-08-01',
+      },
     },
   ] as const)('$name', async ({ input }) => {
     const { queries, cache } = fixture()

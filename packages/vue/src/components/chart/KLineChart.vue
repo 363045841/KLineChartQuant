@@ -497,10 +497,9 @@
   import FootprintSettingsDialog from '@vue-src/components/chart/settings/FootprintSettingsDialog.vue'
   import PaneAxisControls from '@vue-src/components/chart/settings/PaneAxisControls.vue'
   import CommandPalette from '@vue-src/components/commands/CommandPalette.vue'
-  import CanvasToolbarStack from './CanvasToolbarStack.vue'
+  import ToastViewport from '@vue-src/components/common/feedback/ToastViewport.vue'
   import type { MenuAnchor } from '@vue-src/components/common/menu/dropMenuTypes.js'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
-  import ToastViewport from '@vue-src/components/common/feedback/ToastViewport.vue'
   import { useMenuAnchor } from '@vue-src/components/common/menu/useMenuAnchor.js'
   import DrawingSettingsDialog from '@vue-src/components/drawing/DrawingSettingsDialog.vue'
   import DrawingStyleToolbar from '@vue-src/components/drawing/DrawingStyleToolbar.vue'
@@ -508,6 +507,7 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
+  import CanvasToolbarStack from './CanvasToolbarStack.vue'
 
   const ScriptEditorHost = defineAsyncComponent(
     () => import('@vue-src/components/script/ScriptEditorHost.vue'),
@@ -1263,13 +1263,13 @@
     showDrawingSettingsDialog.value = true
   }
   function onUpdateEditingDrawingText(
-    target: 'line' | 'area',
+    target: DrawingLineLabelTarget['target'],
     text: string,
     position: 'start' | 'center' | 'end',
   ) {
     const drawing = editingDrawing.value
     if (!drawing) return
-    updateDrawingLabel(drawing.id, target, 0, text, position)
+    updateDrawingLabel(drawing.id, target, text, position)
   }
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
   const lineLabelInput = ref<HTMLInputElement | null>(null)
@@ -1321,8 +1321,7 @@
     if (!target || !isEditingLineLabel.value) return
     updateDrawingLabel(
       target.drawingId,
-      target.targetKind,
-      target.lineIndex,
+      target.target,
       lineLabelDraft.value,
       lineLabelPosition.value,
     )

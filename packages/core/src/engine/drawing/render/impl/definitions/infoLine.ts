@@ -28,6 +28,7 @@ export function createInfoLineDefinition(): DrawingDefinition {
       primitives: [
         {
           kind: 'line',
+          labelTarget: 'line',
           a,
           b,
           text: { text, baseline: LINE_LABEL_BASELINE },

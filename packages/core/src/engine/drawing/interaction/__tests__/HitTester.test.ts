@@ -166,7 +166,7 @@ describe('HitTester', () => {
         { id: 'a', type: 'point', time: 1_000, price: 40 },
         { id: 'b', type: 'point', time: 2_000, price: 140 },
       ],
-      labels: { line: { 3: { text: '50% text', position: 'center' } }, area: {} },
+      labels: { 'level:0.5': { text: '50% text', position: 'center' } },
       params: {},
       style: { stroke: '#2962ff' },
     }
@@ -174,8 +174,7 @@ describe('HitTester', () => {
     // 第 3 条线（50%）中点在 y=90，上侧法线偏移 6px 后为 y=84，再加 paneTop=30。
     expect(new HitTester().findLabelTarget(120, 84, [drawing], createLineAdapter())).toEqual({
       drawingId: 'fib',
-      targetKind: 'line',
-      lineIndex: 3,
+      target: 'level:0.5',
       x: 120,
       y: 114,
       rotation: 0,
@@ -204,7 +203,7 @@ describe('HitTester', () => {
     // 指针落在原始两锚点中点：命中锚点应仍在原线段法线外侧，而非延长线上。
     const target = new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())
     const rotation = Math.atan2(100, 200)
-    expect(target).toMatchObject({ drawingId: 'ray', targetKind: 'line', lineIndex: 0 })
+    expect(target).toMatchObject({ drawingId: 'ray', target: 'line' })
     expect(target!.x).toBeCloseTo(120 + Math.sin(rotation) * LINE_LABEL_NORMAL_OFFSET, 5)
     expect(target!.y).toBeCloseTo(90 - Math.cos(rotation) * LINE_LABEL_NORMAL_OFFSET + 30, 5)
   })
@@ -221,15 +220,14 @@ describe('HitTester', () => {
         { id: 'br', type: 'point', time: 2_000, price: 40 },
         { id: 'bl', type: 'point', time: 1_000, price: 40 },
       ],
-      labels: { line: {}, area: { 0: { text: '区域文本', position: 'center' } } },
+      labels: { inside: { text: '区域文本', position: 'center' } },
       params: {},
       style: { stroke: '#2962ff' },
     }
 
     expect(new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'rectangle',
-      targetKind: 'area',
-      lineIndex: 0,
+      target: 'inside',
       x: 120,
       y: 120,
       text: '区域文本',
@@ -249,7 +247,7 @@ describe('HitTester', () => {
         { id: 'a', type: 'point', time: 1_000, price: 100 },
         { id: 'b', type: 'point', time: 2_000, price: 100 },
       ],
-      labels: { line: { 0: { text: 'Settings dialog label', position: 'start' } }, area: {} },
+      labels: { line: { text: 'Settings dialog label', position: 'start' } },
       params: {},
       style: { stroke: '#2962ff' },
     }
@@ -274,13 +272,13 @@ describe('HitTester', () => {
         { id: 'br', type: 'point', time: 2_000, price: 40 },
         { id: 'bl', type: 'point', time: 1_000, price: 40 },
       ],
-      labels: { line: {}, area: { 0: { text: 'Long rectangle label', position: 'end' } } },
+      labels: { inside: { text: 'Long rectangle label', position: 'end' } },
       params: {},
       style: { stroke: '#2962ff' },
     }
     expect(new HitTester().findLabelTarget(60, 90, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'area-text',
-      targetKind: 'area',
+      target: 'inside',
       text: 'Long rectangle label',
     })
   })
@@ -445,7 +443,7 @@ describe('HitTester', () => {
         { id: 'br', type: 'point', time: 2_000, price: 100 },
         { id: 'bl', type: 'point', time: 1_000, price: 100 },
       ],
-      labels: { line: { 2: { text: '边文本', position: 'center' } }, area: {} },
+      labels: { bottom: { text: '边文本', position: 'center' } },
       params: {},
       style: { stroke: '#2962ff' },
     }
@@ -453,8 +451,7 @@ describe('HitTester', () => {
     // 指针落在底边文字锚点上，区域中心（距 4px）也在热点半径内：line 优先。
     expect(new HitTester().findLabelTarget(120, 94, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'flat-rectangle',
-      targetKind: 'line',
-      lineIndex: 2,
+      target: 'bottom',
       x: 120,
       y: 124,
       text: '边文本',

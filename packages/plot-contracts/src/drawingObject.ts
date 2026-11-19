@@ -26,14 +26,11 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
   const labels =
     input.labels === undefined
       ? undefined
-      : {
-          line: Object.fromEntries(
-            Object.entries(input.labels.line).map(([key, label]) => [key, { ...label }]),
+      : Object.fromEntries(
+          Object.entries(input.labels).flatMap(([key, label]) =>
+            label ? [[key, { ...label }]] : [],
           ),
-          area: Object.fromEntries(
-            Object.entries(input.labels.area).map(([key, label]) => [key, { ...label }]),
-          ),
-        }
+        )
   return {
     ...input,
     params,
@@ -47,22 +44,14 @@ function snapshotDrawingObject(input: DrawingObject): DrawingObject {
   }
 }
 
-/** 应用声明的 patch：undefined 字段保持原值，style 按字段合并，labels 按组合并。 */
+/** 应用声明的 patch：undefined 字段保持原值，style 按字段合并，labels 整体替换。 */
 export function applyDrawingPatch(drawing: DrawingObject, patch: DrawingPatch): DrawingObject {
   return {
     ...drawing,
     ...(patch.anchors === undefined ? {} : { anchors: [...patch.anchors] }),
     ...(patch.style === undefined ? {} : { style: { ...drawing.style, ...patch.style } }),
     ...(patch.params === undefined ? {} : { params: patch.params }),
-    // 两组标签互相独立：只改区域不该清掉线段，未提供的组沿用原值。
-    ...(patch.labels === undefined
-      ? {}
-      : {
-          labels: {
-            line: patch.labels.line ?? drawing.labels?.line ?? {},
-            area: patch.labels.area ?? drawing.labels?.area ?? {},
-          },
-        }),
+    ...(patch.labels === undefined ? {} : { labels: patch.labels }),
     ...(patch.visible === undefined ? {} : { visible: patch.visible }),
     ...(patch.timeframeVisibility === undefined
       ? {}

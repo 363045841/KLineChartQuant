@@ -15,22 +15,22 @@ import type { DrawingLine, LineHandle } from '../types.js'
  */
 const LINES: Partial<Record<DrawingKind, readonly DrawingLine[]>> = {
   'parallel-channel': [
-    { from: 0, to: 1, handle: 'price' },
-    { from: 2, to: 3, handle: 'price' },
+    { from: 0, to: 1, handle: 'price', labelTarget: 'base' },
+    { from: 2, to: 3, handle: 'price', labelTarget: 'opposite' },
   ],
   'flat-line': [
-    { from: 0, to: 1, handle: 'price' },
-    { from: 2, to: 3, handle: 'price' },
+    { from: 0, to: 1, handle: 'price', labelTarget: 'base' },
+    { from: 2, to: 3, handle: 'price', labelTarget: 'opposite' },
   ],
   'disjoint-channel': [
-    { from: 0, to: 1, handle: 'price' },
-    { from: 2, to: 3, handle: 'price' },
+    { from: 0, to: 1, handle: 'price', labelTarget: 'base' },
+    { from: 2, to: 3, handle: 'price', labelTarget: 'opposite' },
   ],
   rectangle: [
-    { from: 0, to: 1, handle: 'price' },
-    { from: 1, to: 2, handle: 'time' },
-    { from: 2, to: 3, handle: 'price' },
-    { from: 3, to: 0, handle: 'time' },
+    { from: 0, to: 1, handle: 'price', labelTarget: 'top' },
+    { from: 1, to: 2, handle: 'time', labelTarget: 'right' },
+    { from: 2, to: 3, handle: 'price', labelTarget: 'bottom' },
+    { from: 3, to: 0, handle: 'time', labelTarget: 'left' },
   ],
 }
 

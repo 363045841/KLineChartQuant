@@ -32,8 +32,7 @@ describe('canvas drawing templates', () => {
     try {
       fixture.editable.value = ['stroke', 'strokeWidth', 'strokeStyle']
       fixture.selection.value[0]!.labels = {
-        line: { '0': { text: 'note', position: 'start' } },
-        area: {},
+        line: { text: 'note', position: 'start' },
       }
       await fixture.actions.reload()
       expect(fixture.actions.names.value).toEqual(['saved'])
@@ -44,7 +43,7 @@ describe('canvas drawing templates', () => {
         strokeWidth: 3,
         strokeStyle: 'dashed',
       })
-      expect(fixture.updateLabel).toHaveBeenCalledWith('first', 'line', 0, 'note', 'end')
+      expect(fixture.updateLabel).toHaveBeenCalledWith('first', 'line', 'note', 'end')
     } finally {
       fixture.stop()
     }

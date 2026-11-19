@@ -19,6 +19,7 @@ export function createTwoPointLineDefinition(kind: DrawingKind): DrawingDefiniti
         primitives: [
           {
             kind: 'line',
+            labelTarget: 'line',
             a,
             b,
             extend: drawing.extend ?? extend,
