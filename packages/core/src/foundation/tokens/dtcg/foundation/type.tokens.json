@@ -49,7 +49,7 @@
         "$value": -0.017,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
       },
-      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+      "fontWeight": { "$type": "fontWeight", "$value": "{fontWeight.ui}" }
     },
     "24": {
       "$description": "Page titles. Marketing surfaces may tighten to -0.03em (Basement h3, S14). Basis: Tracking S22.",
@@ -60,7 +60,7 @@
         "$value": -0.02,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
       },
-      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+      "fontWeight": { "$type": "fontWeight", "$value": "{fontWeight.ui}" }
     },
     "32": {
       "$description": "Landing section heads. Basis: Tracking S22.",
@@ -71,7 +71,7 @@
         "$value": -0.022,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
       },
-      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+      "fontWeight": { "$type": "fontWeight", "$value": "{fontWeight.ui}" }
     },
     "48": {
       "$description": "Landing hero. Basis: Basement mobile hero 46/39 at -0.04em (S14); CP §4.2 range -0.03 to -0.04em, design §2.4 display tracking -0.03 to -0.04em.",
@@ -82,7 +82,7 @@
         "$value": -0.04,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
       },
-      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+      "fontWeight": { "$type": "fontWeight", "$value": "{fontWeight.ui}" }
     },
     "72": {
       "$description": "Hero display only (72-98px). Basis: Basement h0/h1 (S14); display line-height ≤ 1 (CP 17, 45).",
@@ -93,9 +93,9 @@
         "$value": -0.04,
         "$extensions": { "io.github.363045841.kcq": { "unit": "em" } }
       },
-      "fontWeight": { "$type": "fontWeight", "$value": 600 }
+      "fontWeight": { "$type": "fontWeight", "$value": "{fontWeight.ui}" }
     },
-    "$description": "Type scale (craft-principles §4.2; design §3.3). Tracking tightens as size grows (CP 17); label and copy are different roles (CP 18). 10px is removed; 11px is allowed only for mono/tabular contexts (axis ticks, meta). Weights: 400 at 12-16 and 600 at ≥20 per CP §4.2. Geist Sans/Mono are the target families (design §2.4); families are not tokenised here because canvas fonts (fonts.ts) are frozen (ADR 0005).",
+    "$description": "UI type scale. Size, line height and tracking set the hierarchy. Text roles inherit the UI font weight; existing weight keys alias that same role.",
     "$extensions": {
       "io.github.363045841.kcq": {
         "keywords": {
@@ -127,8 +127,7 @@
         },
         "fontWeight": {
           "$type": "fontWeight",
-          "$value": 500,
-          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+          "$value": "{fontWeight.ui}"
         }
       },
       "13": {
@@ -141,8 +140,7 @@
         },
         "fontWeight": {
           "$type": "fontWeight",
-          "$value": 500,
-          "$description": "[derived] CP §4.2 allows 400/500 at 12-16; single-line labels take 500."
+          "$value": "{fontWeight.ui}"
         }
       },
       "14": {

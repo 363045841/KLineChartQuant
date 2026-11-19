@@ -34,7 +34,6 @@
   .base-field__label {
     color: var(--klc-color-ui-text-secondary);
     font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: var(--klc-text-label-12-font-weight, 500);
     line-height: var(--klc-text-12-line-height, 16px);
   }
 

@@ -500,7 +500,6 @@
     gap: var(--klc-space-4, 4px);
     min-width: 0;
     font-size: 12px;
-    font-weight: 500;
     color: var(--klc-color-foreground);
   }
 
@@ -521,7 +520,6 @@
   .item-name {
     margin-left: var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
-    font-weight: var(--klc-text-label-12-font-weight, 500);
   }
 
   /* 类型列：胶囊在自己的列内水平居中。 */
@@ -567,7 +565,6 @@
   .indicator-description__title {
     margin: 0 0 var(--klc-space-4, 4px);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 
@@ -579,4 +576,3 @@
   }
 
 </style>
-

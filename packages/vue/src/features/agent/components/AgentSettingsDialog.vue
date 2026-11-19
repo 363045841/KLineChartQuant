@@ -650,7 +650,6 @@
   .field__label {
     color: var(--klc-color-ui-muted);
     font-size: 11px;
-    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
@@ -676,7 +675,7 @@
   }
 
   .field__mono {
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
   }
 
@@ -707,7 +706,6 @@
     padding: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
     font-size: 11px;
-    font-weight: 600;
     letter-spacing: 0.04em;
   }
 
@@ -790,7 +788,6 @@
   .protocol-control .selection-menu__value {
     flex: 1 1 auto;
     font-size: 11px;
-    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-align: left;
   }
 
@@ -909,7 +906,6 @@
 
   .tool__text strong {
     font-size: 13px;
-    font-weight: 600;
   }
 
   .tool__text small {
@@ -964,7 +960,10 @@
     border-radius: 8px;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
-    font: var(--klc-font-weight-mono) 11px/1.5 var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
+    font-weight: var(--klc-font-weight-mono);
+    font-size: var(--klc-text-11-mono-font-size, 11px);
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -988,9 +987,6 @@
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
-  .row__label {
-    font-weight: 500;
-  }
 
   /* ───────── 错误提示 ───────── */
   .alert {
@@ -1023,9 +1019,6 @@
     font: inherit;
   }
 
-  .alert strong {
-    font-weight: 600;
-  }
 
 /* ───────── 窄屏 ───────── */
   @media (max-width: 640px) {

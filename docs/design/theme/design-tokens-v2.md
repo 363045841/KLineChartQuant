@@ -57,7 +57,7 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 圆角 | `--klc-radius-{0,xs,sm,md,lg,xl,full}` | 0 / 4 / 6 / 8 / 12 / 16 / 9999px | craft-principles §4.1；xs 为同心推导 6−2 [derived] |
 | 字阶 | `--klc-text-{12,13,14,16,20,24,32,48,72}-{font-size,line-height,letter-spacing,font-weight}` | 见 §4.2 表；12–16 行高 [derived] | §4.2；10px 移除 |
 | 等宽 | `--klc-text-11-mono-*` | 11/16，仅限等宽/表格数字 | §4.2、design §3.3 |
-| 角色 | `--klc-text-label-{12,13,14,16,20}-*`、`--klc-text-copy-{13,14,16,20,24}-*` | 引用字阶；label ≤16 字重 500 [derived] | CP 18（Geist Label / Copy） |
+| 角色 | `--klc-text-label-{12,13,14,16,20}-*`、`--klc-text-copy-{13,14,16,20,24}-*` | 引用字阶；已有字重字段引用 UI 字重 | 单行标签与多行正文 |
 | 数字 | `--klc-text-numeric` | `tabular-nums` | CP 19、ADR 0004 |
 | 间距 | `--klc-space-{2…160}` | Carbon 2–160 | §4.3（S28） |
 | 密度 | `--klc-density-{compact,default,comfortable,touch,hit-target,hit-target-touch}` | 24 / 32 / 40 / 48 / 24 / 44 | §4.3、CP 27 |
@@ -67,7 +67,7 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 层级 | `--klc-z-index-{base,chart-overlay,sticky,dropdown,popover,modal,toast,tooltip}` | 0 / 10 / 100 / 1000 / 1010 / 1100 / 1150 / 1200 | 顺序来自 design §3.3；数值锚定现有用法 [derived] |
 | 断点 | `--klc-breakpoint-{sm,md,lg,xl}` | 640 / 768 / 1024 / 1280 | design §3.3（项目自定） |
 | 品牌 | `--klc-brand-accent`、`--klc-brand-accent-text` | `#4C77C6`；文字 `#537ECD`（深）/ `#456FBD`（浅） | ADR 0007 |
-| 字体族 | `--klc-font-family-{brand,brand-cjk}` | `Outfit, sans-serif` / `'HarmonyOS Sans', sans-serif` | 品牌字与截图水印中文名；随包自托管（`@fontsource/outfit`、`assets/fonts/HarmonyOS_Sans_SC_Medium.ttf`），不依赖宿主系统或 CDN |
+| 字体角色 | `--klc-font-{family,weight}-{ui,mono,brand,brand-cjk}` | HarmonyOS Sans `500`、JetBrains Mono `400`、Outfit `600`、HarmonyOS Sans `500` | UI、等宽代码与数据、品牌字、截图中文水印 |
 
 旧的 `--klc-spacing-*`、`--klc-typography-*` 保持不变。动效只有一套：`--klc-motion-dur-{0,press,fast,base,slow,sheet,toast}` 与 `--klc-motion-ease-{standard,out,in-out,drawer,expo}`，由 foundation 统一提供，`themeToCssVars` 不再输出 `--klc-motion-duration-*` / `-easing-*`；`Theme.motion` 已删除，`ThemeOverride` 也不再接受 motion 覆盖。
 
@@ -75,12 +75,11 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 
 共享样式文件从 `<script setup>` 导入（打包一份、全局生效），不再使用 `<style scoped src>`：`src` 样式块会让每个消费者各编译一份，并且在 Vitest 5 的持久化 transform 缓存下会因父 SFC 命中缓存而丢失 descriptor（vitejs/vite-plugin-vue#877）。该约束由 `scripts/check-style-src.mjs` 在 `pnpm lint` 中强制。
 
-## 字体族与占位符
+## 字体角色与继承
 
-- 字体族只在三个排版根声明一次（`packages/vue/src/styles/typography.css`）：`.kline-workbench`（产品根）、`.chart-wrapper`（legacy 图表单独挂载）、`.klc-overlay`（teleport 到 `body` 的浮层根：弹窗、菜单、气泡、取色器）。组件不再自己写 `font-family`，由 `klc/no-raw-font-family` 门禁拦住新增字面量。
-- 表单控件按 MDN 的约定回到根排版：`:where(根) :where(input, textarea, select, button) { font: inherit }`；组件只覆盖字号与字重。
-- 占位符只有一条规则：颜色 `--klc-color-ui-muted`，其余 `font: inherit`。组件不再各写 `::placeholder`，透明度差异一并取消。
-- 字号档不携带字体族：`text.11Mono` 已删除 `fontFamily`，等宽族只有 `--klc-typography-font-family-mono` 一个来源。
+- 在 `foundation/font-family.tokens.json` 定义字体角色的字体栈和原生字重。构建生成 `font-roles.css` 为首屏提供默认值，运行时主题及 Canvas 使用同一源生成的令牌。
+- `fonts.css` 注册随包字面。`typography.css` 在工作台、图表、标签栏、独立编辑器和浮层统一应用 UI 角色，并关闭合成粗体。Web Component 将同一排版规则加载到 Shadow DOM。
+- 表单控件、占位符和标题继承所在排版环境。组件用字号、行高和前景色表达层级，代码、等宽数字和品牌字使用各自的字体角色。`klc/no-raw-font-family` 与 `klc/no-raw-font-weight` 检查局部覆盖。
 
 ## 调色板生成器（仅提案）
 

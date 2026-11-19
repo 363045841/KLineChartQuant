@@ -22,23 +22,23 @@
   --klc-text-20-font-size: 20px;
   --klc-text-20-line-height: 24px;
   --klc-text-20-letter-spacing: -0.017em;
-  --klc-text-20-font-weight: 600;
+  --klc-text-20-font-weight: 500;
   --klc-text-24-font-size: 24px;
   --klc-text-24-line-height: 28px;
   --klc-text-24-letter-spacing: -0.02em;
-  --klc-text-24-font-weight: 600;
+  --klc-text-24-font-weight: 500;
   --klc-text-32-font-size: 32px;
   --klc-text-32-line-height: 36px;
   --klc-text-32-letter-spacing: -0.022em;
-  --klc-text-32-font-weight: 600;
+  --klc-text-32-font-weight: 500;
   --klc-text-48-font-size: 48px;
   --klc-text-48-line-height: 48px;
   --klc-text-48-letter-spacing: -0.04em;
-  --klc-text-48-font-weight: 600;
+  --klc-text-48-font-weight: 500;
   --klc-text-72-font-size: 72px;
   --klc-text-72-line-height: 0.9;
   --klc-text-72-letter-spacing: -0.04em;
-  --klc-text-72-font-weight: 600;
+  --klc-text-72-font-weight: 500;
   --klc-text-11-mono-font-size: 11px;
   --klc-text-11-mono-line-height: 16px;
   --klc-text-11-mono-letter-spacing: 0;
@@ -124,8 +124,14 @@
   --klc-breakpoint-lg: 1024px;
   --klc-breakpoint-xl: 1280px;
   --klc-brand-accent: #4C77C6;
+  --klc-font-family-ui: 'HarmonyOS Sans', system-ui, sans-serif;
+  --klc-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   --klc-font-family-brand: Outfit, sans-serif;
   --klc-font-family-brand-cjk: 'HarmonyOS Sans', sans-serif;
+  --klc-font-weight-ui: 500;
+  --klc-font-weight-mono: 400;
+  --klc-font-weight-brand: 600;
+  --klc-font-weight-brand-cjk: 500;
 }
 
 [data-theme='light'] {

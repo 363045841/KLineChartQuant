@@ -7,7 +7,6 @@
   /* 行内容压在高亮块之上；悬停底色由 AgentRowList 的滑动高亮提供。 */
   z-index: 1;
   /* 字重只在这里声明一次，行内文字与按钮全部继承。 */
-  font-weight: var(--klc-text-label-12-font-weight, 500);
 }
 
 .agent-list-row.is-active,

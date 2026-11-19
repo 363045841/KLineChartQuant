@@ -29,7 +29,7 @@
     border-radius: 6px;
     background: var(--klc-color-ui-control-background);
     color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 11px;
     font-weight: var(--klc-font-weight-mono);
     line-height: 1.4;

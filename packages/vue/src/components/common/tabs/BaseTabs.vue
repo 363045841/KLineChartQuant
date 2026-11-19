@@ -198,7 +198,6 @@
 
   .base-tabs__tab.is-active {
     color: var(--klc-color-ui-text);
-    font-weight: 600;
   }
 
   .base-tabs__indicator {

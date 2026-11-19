@@ -61,7 +61,6 @@
     border: 1px solid transparent;
     border-radius: var(--klc-radius-xs, 4px);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: var(--klc-text-label-13-font-weight, 500);
     line-height: 1.2;
     white-space: nowrap;
     cursor: pointer;

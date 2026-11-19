@@ -218,7 +218,6 @@
     white-space: nowrap;
     color: var(--klc-color-ui-text);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 600;
     letter-spacing: 0.01em;
   }
 
@@ -263,7 +262,7 @@
     border: 0;
     background: transparent;
     color: var(--klc-color-ui-text);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 12px;
     font-weight: var(--klc-font-weight-mono);
     outline: none;
@@ -276,7 +275,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--klc-color-ui-muted);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-size: 12px;
     font-weight: var(--klc-font-weight-mono);
   }
@@ -328,7 +327,6 @@
     white-space: nowrap;
     color: var(--klc-color-foreground);
     font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 600;
   }
 
   .provider-row__meta {
@@ -344,7 +342,6 @@
     background: var(--klc-color-ui-control-background);
     color: var(--klc-color-ui-muted);
     font-size: 10px;
-    font-weight: 500;
     line-height: 1.7;
     white-space: nowrap;
   }
@@ -359,7 +356,6 @@
     background: color-mix(in srgb, currentColor 13%, transparent);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-label-12-font-size, 12px);
-    font-weight: 500;
     line-height: 1.7;
     white-space: nowrap;
   }

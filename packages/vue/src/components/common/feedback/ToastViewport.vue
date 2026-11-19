@@ -9,7 +9,7 @@
   <section
     v-if="isActive"
     ref="region"
-    class="klc-toast-viewport"
+    class="klc-toast-viewport klc-overlay"
     :class="`klc-toast-viewport--${placement}`"
     :popover="native ? 'manual' : undefined"
     :aria-label="regionLabel"
@@ -220,7 +220,6 @@
 
   .klc-toast__message {
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: var(--klc-text-label-13-font-weight, 500);
     line-height: var(--klc-text-label-13-line-height, 18px);
   }
 
@@ -247,7 +246,6 @@
     padding: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-accent);
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 600;
   }
 
   .klc-toast__close {

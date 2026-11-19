@@ -67,7 +67,6 @@
     margin: 0;
     font-size: 1rem;
     line-height: 1.4;
-    font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-text);
   }
   .about-dialog__version {

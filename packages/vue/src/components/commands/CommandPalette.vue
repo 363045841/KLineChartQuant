@@ -248,7 +248,6 @@
 
   .command-palette__title {
     font-size: 13px;
-    font-weight: 600;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }

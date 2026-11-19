@@ -125,8 +125,10 @@ noRawColor.messages = colorMessages
 const familyRule = 'klc/no-raw-font-family'
 const familyMessages = ruleMessages(familyRule, {
   rejected: (value) =>
-    `Raw font family "${value}": use a --klc-typography-font-family[-mono] / --klc-font-family-* token (ADR 0004)`,
+    `Font family "${value}": inherit or use a shared --klc-font-family-* role`,
 })
+
+const FONT_ROLE = /^(inherit|var\(--klc-font-(?:family|weight)-(?:ui|mono|brand|brand-cjk)\))$/
 
 const noRawFontFamily = createPlugin(familyRule, (enabled) => (root, result) => {
   if (!validateOptions(result, familyRule, { actual: enabled })) return
@@ -135,8 +137,7 @@ const noRawFontFamily = createPlugin(familyRule, (enabled) => (root, result) => 
     // @font-face 是在定义字面本身，只能写真实族名。
     if (decl.parent?.type === 'atrule' && decl.parent.name.toLowerCase() === 'font-face') return
     const value = decl.value.trim()
-    if (value.startsWith('var(--klc-')) return
-    if (value === 'inherit') return
+    if (FONT_ROLE.test(value) && !value.includes('-weight-')) return
     report({
       ruleName: familyRule,
       result,
@@ -148,4 +149,21 @@ const noRawFontFamily = createPlugin(familyRule, (enabled) => (root, result) => 
 noRawFontFamily.ruleName = familyRule
 noRawFontFamily.messages = familyMessages
 
-export default [noRawLength, noRawZIndex, noRawColor, noRawFontFamily]
+const weightRule = 'klc/no-raw-font-weight'
+const weightMessages = ruleMessages(weightRule, {
+  rejected: (property, value) =>
+    `Use font inheritance or a shared --klc-font-weight-* role instead of "${property}: ${value}"`,
+})
+
+const noRawFontWeight = createPlugin(weightRule, (enabled) => (root, result) => {
+  if (!validateOptions(result, weightRule, { actual: enabled })) return
+  root.walkDecls(/^(font|font-weight)$/i, (decl) => {
+    if (decl.parent?.type === 'atrule' && decl.parent.name.toLowerCase() === 'font-face') return
+    const value = decl.value.trim()
+    if (value === 'inherit') return
+    if (decl.prop.toLowerCase() === 'font-weight' && FONT_ROLE.test(value) && !value.includes('-family-')) return
+    report({ ruleName: weightRule, result, node: decl, message: weightMessages.rejected(decl.prop, value) })
+  })
+})
+
+export default [noRawLength, noRawZIndex, noRawColor, noRawFontFamily, noRawFontWeight]

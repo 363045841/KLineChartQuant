@@ -378,7 +378,6 @@
     background: var(--klc-color-ui-danger);
     color: var(--klc-color-ui-on-accent);
     font-size: 9px;
-    font-weight: 700;
     line-height: 15px;
     text-align: center;
     border-radius: 999px;
@@ -408,7 +407,6 @@
   }
 
   .alert-section-count strong {
-    font-weight: 600;
     color: var(--klc-color-foreground);
   }
 
@@ -427,7 +425,6 @@
     background: transparent;
     color: var(--klc-color-ui-muted);
     font-size: 13px;
-    font-weight: 500;
     cursor: pointer;
     transition:
       border-color 0.15s,
@@ -522,7 +519,6 @@
 
   .rule-item-name {
     font-size: 13px;
-    font-weight: 600;
     color: var(--klc-color-foreground);
     white-space: nowrap;
     overflow: hidden;
@@ -561,7 +557,6 @@
     border: 1px solid transparent;
     border-radius: 4px;
     font-size: 10px;
-    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
@@ -624,7 +619,6 @@
 
   .event-item-name {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-foreground);
     white-space: nowrap;
     overflow: hidden;
@@ -660,7 +654,6 @@
   }
 
   .event-bar-label {
-    font-weight: 600;
     font-size: 10px;
     color: var(--klc-color-axis-text);
     opacity: 0.7;

@@ -159,10 +159,11 @@ function measureMarker(
   // Pine 的 size 控制形状，文字使用独立且固定的字阶。
   const step = tokens.text[SHAPE_TEXT_STEP]
   const lineHeight = Number.parseFloat(String(step.lineHeight))
-  const font = `${step.fontSize} ${tokens.fontFamily.brandCjk}`
+  const { fontFamily, fontWeight } = tokens
+  const font = `${fontWeight.brandCjk} ${step.fontSize} ${fontFamily.brandCjk}`
   const lines = plot.text ? plot.text.split('\n') : []
   const char = plot.kind === 'char' ? plot.char : ''
-  const charFont = `${pixels}px ${tokens.fontFamily.brandCjk}`
+  const charFont = `${fontWeight.brandCjk} ${pixels}px ${fontFamily.brandCjk}`
   const ctx = context.measureContext ?? measurementContext()
   ctx.font = font
   const width = Math.max(0, ...lines.map((line) => ctx.measureText(line).width))

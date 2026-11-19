@@ -171,7 +171,6 @@
 
   .param-label-text {
     font-size: 14px;
-    font-weight: 600;
     line-height: 1.2;
     color: var(--klc-color-ui-text);
   }
@@ -209,7 +208,6 @@
     padding: 0 6px;
     border: 0;
     font-size: 14px;
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: center;
     color: var(--klc-color-ui-text);
@@ -236,7 +234,6 @@
     border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--param-control-radius);
     text-align: left;
-    font-weight: 500;
     background: var(--klc-color-ui-control-background);
     /* 聚焦不画边框或焦点环，光标即提示。 */
     outline: none;

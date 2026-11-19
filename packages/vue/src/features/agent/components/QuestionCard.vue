@@ -163,9 +163,6 @@
     flex: 0 0 auto;
     color: var(--klc-color-ui-accent);
   }
-  .question__prompt strong {
-    font-weight: var(--klc-text-label-13-font-weight, 500);
-  }
 
   .question__options {
     display: grid;

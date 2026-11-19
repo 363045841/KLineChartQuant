@@ -569,7 +569,6 @@
 
   .rule-form-label {
     font-size: 10px;
-    font-weight: 700;
     color: var(--klc-color-ui-muted);
     letter-spacing: 0.06em;
   }
@@ -645,7 +644,6 @@
     top: 50%;
     transform: translateY(-50%);
     font-size: 11px;
-    font-weight: 600;
     color: var(--klc-color-ui-muted);
     pointer-events: none;
     user-select: none;
@@ -675,7 +673,6 @@
     background: var(--klc-color-ui-background);
     color: var(--klc-color-ui-muted);
     font-size: 12px;
-    font-weight: 500;
     cursor: pointer;
     transition:
       background 0.15s,
@@ -773,7 +770,6 @@
 
   .rule-form-advanced-label {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 
@@ -799,7 +795,6 @@
     padding: 7px 16px;
     border-radius: 7px;
     font-size: 12px;
-    font-weight: 600;
     cursor: pointer;
     transition:
       background 0.15s,

@@ -17,7 +17,7 @@ import {
   emitThemeTs,
   emitVisualPalettesTs,
 } from './lib/emit.mjs'
-import { collectFoundation, emitFoundationCss, emitFoundationTs } from './lib/emit-foundation.mjs'
+import { collectFoundation, emitFontRolesCss, emitFoundationCss, emitFoundationTs } from './lib/emit-foundation.mjs'
 import { stringifyTokens } from './lib/json.mjs'
 import {
   buildModeSelector,
@@ -119,6 +119,7 @@ export async function buildAll() {
     path.join(OUT_DIR, 'css/foundation.css'),
     emitFoundationCss(foundation.light, foundation.dark),
   )
+  outputs.set(path.join(OUT_DIR, 'css/font-roles.css'), emitFontRolesCss(foundation.light))
   ts(
     'foundation.ts',
     emitFoundationTs(

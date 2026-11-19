@@ -112,7 +112,6 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     font-size: 13px;
-    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

@@ -234,7 +234,6 @@
     background: var(--klc-color-ui-accent);
     color: var(--klc-color-ui-on-accent);
     font-size: 10px;
-    font-weight: 600;
     line-height: 1;
   }
 
@@ -263,7 +262,6 @@
 
   .compare-selected__title {
     font-size: 12px;
-    font-weight: 600;
     color: var(--klc-color-ui-muted);
   }
 
@@ -294,7 +292,6 @@
   }
 
   .compare-selected__code {
-    font-weight: 600;
     color: var(--klc-color-ui-text);
   }
 

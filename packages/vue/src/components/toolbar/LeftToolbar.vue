@@ -858,9 +858,8 @@
     padding: 0 3px;
     background: var(--klc-color-ui-danger);
     color: var(--klc-color-ui-on-accent);
-    font:
-      10px / 1 system-ui,
-      sans-serif;
+    font-size: var(--klc-text-11-mono-font-size);
+    line-height: 1;
     font-variant-numeric: tabular-nums;
     border-radius: 999px;
     pointer-events: none;
@@ -884,7 +883,7 @@
 
   .github-tooltip__value {
     color: var(--klc-color-tooltip-text);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: right;
@@ -894,7 +893,7 @@
   .github-tooltip__time {
     grid-column: 1 / -1;
     color: color-mix(in srgb, var(--klc-color-tooltip-text) 62%, transparent);
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
     font-variant-numeric: tabular-nums;
     text-align: center;

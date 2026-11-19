@@ -51,7 +51,5 @@
     height: 100%;
     min-width: 0;
     min-height: 0;
-    /* 根节点定基础字重：未显式声明字重的文本继承 UI 角色，不再落回宿主 UA 的 400。 */
-    font-weight: var(--klc-font-weight-ui, 500);
   }
 </style>

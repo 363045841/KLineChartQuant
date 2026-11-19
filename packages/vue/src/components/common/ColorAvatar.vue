@@ -33,7 +33,6 @@
     background: color-mix(in srgb, var(--avatar-color) 22%, transparent);
     color: var(--avatar-color);
     font-size: var(--klc-text-11-mono-font-size, 11px);
-    font-weight: var(--klc-typography-font-weight-bold, 700);
     line-height: 1;
   }
 

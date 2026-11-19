@@ -127,7 +127,6 @@
   .range-return {
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
     white-space: nowrap;
     user-select: none;
   }

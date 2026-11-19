@@ -130,7 +130,6 @@
     align-items: center;
     gap: var(--klc-space-4, 4px);
     color: var(--klc-color-ui-text);
-    font-weight: 500;
   }
 
   .script-tabs__confirmation-icon {
@@ -145,9 +144,6 @@
     line-height: 1.5;
   }
 
-  .script-tabs__confirmation-text strong {
-    font-weight: 500;
-  }
 
   .script-tabs__confirmation-actions {
     display: flex;

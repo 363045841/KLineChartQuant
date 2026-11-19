@@ -497,7 +497,6 @@
     padding: var(--klc-space-8, 8px) var(--klc-space-12, 12px) var(--klc-space-4, 4px);
     color: var(--klc-color-ui-muted);
     font-size: var(--klc-text-11-font-size, 11px);
-    font-weight: 500;
     line-height: 16px;
     text-align: center;
   }

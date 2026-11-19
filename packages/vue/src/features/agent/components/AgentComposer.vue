@@ -287,7 +287,6 @@
     overflow: hidden;
     color: var(--klc-color-ui-text);
     font-size: 11px;
-    font-weight: var(--klc-text-label-12-font-weight, 500);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

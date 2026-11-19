@@ -2000,7 +2000,7 @@
     opacity: 0.3;
     font-family: var(--klc-font-family-brand);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: var(--klc-font-weight-brand);
     line-height: 1;
     text-decoration: none;
     cursor: pointer;

@@ -34,7 +34,6 @@
     margin: 0;
     color: var(--klc-color-ui-text);
     font-size: var(--klc-text-14-font-size, 14px);
-    font-weight: 600;
     line-height: 20px;
   }
 

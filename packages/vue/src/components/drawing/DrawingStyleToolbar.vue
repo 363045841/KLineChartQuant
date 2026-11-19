@@ -160,7 +160,6 @@
     background: var(--klc-color-ui-highlight);
     color: var(--klc-color-ui-accent);
     font-size: var(--klc-text-12-font-size, 12px);
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     white-space: nowrap;

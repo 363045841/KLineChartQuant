@@ -32,7 +32,6 @@
     padding-block: var(--klc-spacing-sm) var(--klc-spacing-xs);
     padding-inline: var(--base-modal-content-inset);
     font-size: var(--klc-typography-font-size-md);
-    font-weight: var(--klc-typography-font-weight-bold);
     color: var(--klc-color-ui-muted);
   }
 
@@ -46,7 +45,7 @@
     cursor: pointer;
     text-decoration: none;
     /* 包名与版本号属于代码类内容，使用等宽字体。 */
-    font-family: var(--klc-typography-font-family-mono);
+    font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
   }
 

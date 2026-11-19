@@ -27,7 +27,6 @@
   color: var(--klc-color-ui-text);
   font: inherit;
   font-size: var(--klc-text-12-font-size, 12px);
-  font-weight: var(--klc-text-label-12-font-weight, 500);
   line-height: 20px;
   text-align: left;
   overflow-wrap: anywhere;

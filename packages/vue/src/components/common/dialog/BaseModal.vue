@@ -419,7 +419,6 @@
   .base-title {
     margin: 0;
     font-size: var(--klc-text-label-13-font-size, 13px);
-    font-weight: 500;
     color: var(--klc-color-ui-muted);
     line-height: var(--klc-text-label-16-line-height, 24px);
     letter-spacing: var(--klc-text-label-16-letter-spacing, normal);

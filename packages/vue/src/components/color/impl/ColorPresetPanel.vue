@@ -97,7 +97,6 @@
     margin: 18px 0 6px;
     color: var(--klc-color-axis-text);
     font-size: 12px;
-    font-weight: 500;
     letter-spacing: 0.3px;
     line-height: 1;
   }
