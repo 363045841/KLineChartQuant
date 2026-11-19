@@ -374,7 +374,7 @@ export function useRangeSelection(options: {
         exportingProgress.value = { current: 1 + i, total, label: `正在获取 ${code}...` }
         try {
           const result = await router.bars({
-            preferredSourceId: spec?.source,
+            preferredSource: spec?.source,
             instrument: spec?.instrument,
             symbol: code,
             exchange: spec?.exchange,

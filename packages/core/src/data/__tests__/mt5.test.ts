@@ -16,7 +16,7 @@ function jsonResponse(value: unknown, status = 200): Response {
 
 const instrument: InstrumentDescriptor = {
   id: 'mt5:XAUUSD',
-  sourceId: 'mt5',
+  source: 'mt5',
   symbol: 'XAUUSD',
   name: 'Gold vs US Dollar',
   instrumentType: 'forex' as const,
@@ -30,6 +30,9 @@ const instrument: InstrumentDescriptor = {
     },
   },
 }
+
+/** 后端 wire 条目字段名固定为 sourceId；领域模型统一叫 source。 */
+const wireInstrument = { ...instrument, sourceId: instrument.source }
 
 describe('mt5 V1 provider', () => {
   beforeEach(() => {
@@ -48,7 +51,7 @@ describe('mt5 V1 provider', () => {
 
   it('searches the instrument catalog on the mt5 endpoint', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ data: { items: [instrument] }, requestId: 'r1' }),
+      jsonResponse({ data: { items: [wireInstrument] }, requestId: 'r1' }),
     )
 
     const results = await mt5MarketDataProvider.catalog!.search({ keyword: 'gold', limit: 10 })
@@ -57,6 +60,7 @@ describe('mt5 V1 provider', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://127.0.0.1:8090/api/v1/market-data/instruments/search')
     expect(JSON.parse(init.body as string)).toEqual({
+      // wire 字段名由后端绑定，测试断言的是协议契约而不是领域字段。
       sourceId: 'mt5',
       keyword: 'gold',
       limit: 10,

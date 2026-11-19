@@ -4,7 +4,7 @@
 
 在数据层建立唯一的实时订阅入口 `RealtimeSubscriptionPool`：
 
-- **逻辑订阅**以 `(sourceId, channel, instrumentId)` 标识，带引用计数。
+- **逻辑订阅**以 `(source, channel, instrumentId)` 标识，带引用计数。
 - **物理连接**由池聚合：报价按来源聚合，K 线按来源 + 周期 + 聚合 + 复权聚合。
 - **连接实现只有一份** `SseConnection`；宿主数据源通过 `MarketDataProvider.realtime` 注入自己的连接工厂。
 - **连接集合变化才重建连接**，重建即重新同步快照；同一轮变化用微任务合并。
@@ -28,10 +28,10 @@ Connector          按 instruments 批量推送
 连接就是一次订阅，URL 参数即订阅集合：
 
 ```
-GET /api/v1/market-data/sources/:sourceId/stream
+GET /api/v1/market-data/sources/:source/stream
     ?instruments=<id>,<id>&period=<period>&barAggregation=<agg>&adjustment=<adjust>
 
-GET /api/v1/market-data/sources/:sourceId/quotes
+GET /api/v1/market-data/sources/:source/quotes
     ?instruments=<id>,<id>
 ```
 

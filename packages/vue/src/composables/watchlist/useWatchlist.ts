@@ -40,7 +40,7 @@ function isWatchlistItem(value: unknown): value is SearchableSymbol {
   const item = value as Record<string, unknown>
   return (
     typeof item.id === 'string' &&
-    typeof item.sourceId === 'string' &&
+    typeof item.source === 'string' &&
     typeof item.symbol === 'string' &&
     typeof item.name === 'string' &&
     typeof item.instrumentType === 'string' &&
@@ -142,7 +142,7 @@ export interface WatchlistState {
 }
 
 /** 宿主注入的自选股状态键；同一个组件树只允许存在一份。 */
-export const WATCHLIST_STATE_KEY: InjectionKey<WatchlistState> = Symbol('WatchlistState')
+const WATCHLIST_STATE_KEY: InjectionKey<WatchlistState> = Symbol('WatchlistState')
 
 /**
  * 创建一份自选股状态。

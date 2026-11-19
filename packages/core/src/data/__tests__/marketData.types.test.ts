@@ -26,7 +26,7 @@ import {
 
 const stock = {
   id: 'gotdx:stock:0:000001',
-  sourceId: 'gotdx',
+  source: 'gotdx',
   symbol: '000001',
   name: '平安银行',
   instrumentType: 'stock',
@@ -75,7 +75,7 @@ describe('MarketData 类型契约', () => {
     const fromAnotherSource = {
       ...stock,
       id: 'baostock:stock:sz:000001',
-      sourceId: 'baostock',
+      source: 'baostock',
       providerRef: { code: 'sz.000001' },
     } as const satisfies InstrumentDescriptor
 

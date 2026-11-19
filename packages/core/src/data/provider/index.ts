@@ -22,7 +22,11 @@ export type {
   MarketRegistryState,
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
-export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
+export type {
+  InstrumentLookupRequest,
+  InstrumentSearchRequest,
+  InstrumentSearchResult,
+} from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'
 export { SourceRouter, SourceRoutingError } from './impl/router.js'
@@ -85,6 +89,7 @@ export type {
   InstrumentCapabilities,
   InstrumentCatalog,
   InstrumentDescriptor,
+  InstrumentRef,
   InstrumentSearchQuery,
   MarketDataErrorCode,
   MarketDataFailure,

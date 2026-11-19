@@ -64,7 +64,7 @@ export function useObjectTreeContextMenu(
   function openRowContextMenu(event: MouseEvent, row: PaneObjectRow): boolean {
     const source = resolveContextMenuSource(null, {
       kind: 'object',
-      sourceId: row.sourceId,
+      source: row.domainId,
       objectKind: row.kind,
     })
     if (source === null) return false

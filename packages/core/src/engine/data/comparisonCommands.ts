@@ -1,109 +1,51 @@
-// 本文件实现对比品种的统一写原语：唯一入口处理选择、歧义消解、视图切换与重绘。
-import { type Static, Type } from 'typebox'
-
+// 本文件实现对比品种的统一写原语：消歧、去重、显隐与重绘只有一个入口。
 import type { SymbolSpec } from '../../controllers/types.js'
-import {
-  type InstrumentDescriptor,
-  type InstrumentType,
-  KNOWN_INSTRUMENT_TYPES,
+import type {
+  InstrumentDescriptor,
+  InstrumentRef,
+  InstrumentType,
+  KnownInstrumentType,
 } from '../../data/provider/types.js'
-import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors.js'
+import { isFilterableInstrumentType } from '../../data/provider/types.js'
+import { matchesInstrumentFilter } from '../../data/provider/impl/instrumentSearch.js'
+import { COMPARISON_ERROR_CODES, ERROR_CODES, KLineChartError } from '../../errors.js'
 
+import { DEFAULT_COMPARISON_COLOR } from '../chartModel/impl/comparison/comparisonState.js'
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
-// Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
-// unknown 只描述数据源未归一化状态，禁止作为歧义消解筛选条件。
-const InstrumentTypeToolParameter = Type.Enum(KNOWN_INSTRUMENT_TYPES)
-
-const ComparisonPrimaryToolParameters = Type.Object(
-  {
-    symbol: Type.Optional(Type.String({ minLength: 1 })),
-    market: Type.Optional(Type.String({ minLength: 1 })),
-    exchange: Type.Optional(Type.String({ minLength: 1 })),
-    source: Type.Optional(Type.String({ minLength: 1 })),
-    period: Type.Optional(Type.String({ minLength: 1 })),
-    adjust: Type.Optional(Type.String({ minLength: 1 })),
-    startDate: Type.Optional(Type.String({ minLength: 1 })),
-    endDate: Type.Optional(Type.String({ minLength: 1 })),
-  },
-  { additionalProperties: false },
-)
-
-const ComparisonCreateToolParameters = Type.Object(
-  {
-    symbol: Type.String({ minLength: 1 }),
-    market: Type.Optional(Type.String({ minLength: 1 })),
-    exchange: Type.Optional(Type.String({ minLength: 1 })),
-    source: Type.Optional(Type.String({ minLength: 1 })),
-    instrumentType: Type.Optional(InstrumentTypeToolParameter),
-    period: Type.Optional(Type.String({ minLength: 1 })),
-    adjust: Type.Optional(Type.String({ minLength: 1 })),
-    /** 图表主品种；只用于补齐缺省路由字段，缺省时不阻断写入。 */
-    primary: Type.Optional(ComparisonPrimaryToolParameters),
-  },
-  { additionalProperties: false },
-)
-
-const ComparisonRemoveToolParameters = Type.Object(
-  { identity: Type.String({ minLength: 1 }) },
-  { additionalProperties: false },
-)
-
-/** 主品种输入：显式传入的路由字段，仅用于补齐缺省值。 */
-export type ComparisonPrimaryInput = Static<typeof ComparisonPrimaryToolParameters>
-export type ComparisonCreateInput = Static<typeof ComparisonCreateToolParameters>
-export type ComparisonRemoveInput = Static<typeof ComparisonRemoveToolParameters>
-
-/**
- * 对比新增输入：Agent 只给窄字段，UI 可给完整 SymbolSpec。
- * 未提供的路由字段由调用方显式传入的主品种补齐，已提供的品种信息原样保留。
- * instrumentType 只参与歧义消解，不进入品种 spec。
- */
-export type ComparisonAddInput = Omit<ComparisonCreateInput, 'instrumentType' | 'primary'> &
-  Partial<
-    Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>
-  >
-
-/** 按代码解析品种的输入；source 省略时跨源查询。 */
-export interface ComparisonInstrumentQuery {
-  readonly symbol: string
-  readonly source?: string
-}
-
-/** 品种解析结果：汇报全部精确匹配候选，裁决策略由 ComparisonCommands 持有。 */
-export interface ComparisonInstrumentResolution {
-  /** 代码的精确匹配候选；未找到时为空数组。 */
-  readonly candidates: readonly InstrumentDescriptor[]
-  /** 本次实际查询的数据源；空数组表示未限定、跨全部已启用源。 */
-  readonly searchedSourceIds: readonly string[]
-  /** 该代码存在但未被本次查询覆盖的数据源。 */
-  readonly foundElsewhereSourceIds: readonly string[]
-}
-
-/** 歧义消解时的单个候选条目；路由字段可原样用作 comparisons_write create 的重试过滤参数。 */
-export interface ComparisonCandidateView {
-  readonly id: string
-  readonly sourceId: string
+/** 同一代码命中多个标的时的候选；路由字段可原样回传给 create。 */
+export interface ComparisonCandidate {
   readonly symbol: string
   readonly name: string
   readonly exchange: string
-  readonly instrumentType: InstrumentType
+  readonly source: string
+  /** 类别未归一化时省略，避免把 unknown 当成筛选条件。 */
+  readonly instrumentType?: KnownInstrumentType
 }
 
-/** comparisons_write create 的结果：成功添加，或命中多个标的而拒绝写入并等待用户澄清。 */
-export type ComparisonCreateResult =
-  | { readonly status: 'added'; readonly symbol: string; readonly name: string }
-  | {
-      readonly status: 'ambiguous'
-      readonly message: string
-      readonly candidates: readonly ComparisonCandidateView[]
-    }
-
-/** Agent 可读取的对比品种快照；identity 用于精确删除。 */
+/** 对比品种快照；spec 供图例展示，visible 是用户可见状态。 */
 export interface ComparisonSnapshot {
   readonly identity: string
   readonly spec: SymbolSpec
-  readonly color: string | null
+  readonly color: string
+  readonly visible: boolean
+}
+
+/** 对比创建结果：成功写入，或未写入并等待用户裁决。 */
+export type ComparisonCreateResult =
+  | { readonly status: 'added'; readonly comparison: ComparisonSnapshot }
+  | { readonly status: 'ambiguous'; readonly candidates: ReadonlyArray<ComparisonCandidate> }
+
+/** 品种解析结果：候选、实际查询的源、其他源的命中与失败。 */
+export interface ComparisonInstrumentResolution {
+  /** 本次查询范围内该代码的全部精确匹配。 */
+  readonly candidates: ReadonlyArray<InstrumentDescriptor>
+  /** 本次实际参与查询的源。 */
+  readonly searchedSources: ReadonlyArray<string>
+  /** 被 source 限定排除、但仍存在该代码的源。 */
+  readonly foundElsewhereSources: ReadonlyArray<string>
+  /** 查询失败的源；不能把失败当成“没有”。 */
+  readonly failedSources: ReadonlyArray<string>
 }
 
 /** 对比命令运行所需的领域能力，不依赖 DOM 或 renderer。 */
@@ -114,9 +56,16 @@ export interface ComparisonCommandsDependencies {
   setSpecs(next: ReadonlyArray<SymbolSpec>): void
   /** 将对比品种登记进可解析目录，供 UI picker 与后续操作复用。 */
   registerSpec(spec: SymbolSpec): void
-  /** 按代码返回全部精确匹配品种描述，供消解策略过滤与裁决；未找到时候选为空。 */
-  resolveInstrument(query: ComparisonInstrumentQuery): Promise<ComparisonInstrumentResolution>
-  /** 返回指定对比品种的展示颜色。 */
+  /** 按路由字段解析品种；限定源未命中时再跨全部源确认是否存在。 */
+  resolveInstrument(
+    query: InstrumentRef,
+    signal?: AbortSignal,
+  ): Promise<ComparisonInstrumentResolution>
+  /** 对比线是否被用户隐藏。 */
+  isHidden(identity: string): boolean
+  /** 写入显隐状态；实现负责同步 kernel 状态。 */
+  setHidden(identity: string, hidden: boolean): void
+  /** 指定对比品种的展示颜色。 */
   getColor(identity: string): string | undefined
   /** 请求重绘。 */
   scheduleDraw(): void
@@ -125,96 +74,138 @@ export interface ComparisonCommandsDependencies {
 /** 对比品种的统一写原语契约。 */
 export interface ComparisonCommandsApi {
   list(): ReadonlyArray<ComparisonSnapshot>
-  add(input: ComparisonAddInput, primary?: ComparisonPrimaryInput | null): boolean
-  create(input: ComparisonCreateInput): Promise<ComparisonCreateResult>
-  remove(input: ComparisonRemoveInput): boolean
-  clear(): number
+  /** Agent 路径：按路由字段解析后写入；歧义返回候选。 */
+  create(input: InstrumentRef, signal?: AbortSignal): Promise<ComparisonCreateResult>
+  /** 宿主/图例路径：接受已解析的完整 spec；返回是否写入。 */
+  add(input: SymbolSpec, primary?: SymbolSpec | null): boolean
+  setVisible(identity: string, visible: boolean): ComparisonSnapshot
+  remove(target: string): ComparisonSnapshot
 }
 
 /**
  * 对比品种 CRUD 的唯一写入口：UI 与 Agent 调用同一实例。
- * 对比品种写入 comparisonState.specs（唯一 SSOT），主品种由调用方显式传入，
- * 不再从 kline 状态隐式读取，因此无主品种时工具链同样可用。
+ * 对比集合写入 comparisonState.specs（唯一 SSOT）；周期与复权恒随主图，
+ * 不进入对比 spec，避免 Agent 与 UI 各自维护一套口径。
  */
 export class ComparisonCommands implements ComparisonCommandsApi {
   constructor(private readonly dependencies: ComparisonCommandsDependencies) {}
 
-  /** 返回当前全部对比品种及其颜色。 */
+  /** 返回当前全部对比品种及其颜色与可见性。 */
   list(): ReadonlyArray<ComparisonSnapshot> {
-    return this.comparisonSpecs().map((spec) => {
-      const identity = symbolSpecIdentityKey(spec)
-      return Object.freeze({
-        identity,
-        spec: Object.freeze({ ...spec }),
-        color: this.dependencies.getColor(identity) ?? null,
-      })
-    })
+    return this.comparisonSpecs().map((spec) => this.snapshot(spec))
   }
 
-  /** 新增一个对比品种；多个标的命中时不写入并返回歧义结果，其余失败抛出可纠正错误。 */
-  async create(input: ComparisonCreateInput): Promise<ComparisonCreateResult> {
-    const { instrumentType, primary, ...specInput } = input
-    const resolution = await this.dependencies.resolveInstrument({
-      symbol: input.symbol,
-      source: input.source ?? primary?.source,
-    })
+  /** 新增对比品种；零匹配抛可纠正错误，多匹配返回候选交由用户裁决。 */
+  async create(input: InstrumentRef, signal?: AbortSignal): Promise<ComparisonCreateResult> {
+    signal?.throwIfAborted()
+    const resolution = await this.dependencies.resolveInstrument(input, signal)
+    signal?.throwIfAborted()
+
     const matches = filterInstrumentCandidates(
       resolution.candidates,
-      instrumentType,
       input.exchange,
+      input.instrumentType,
     )
     if (matches.length === 0) {
-      throw instrumentNotFoundError(input.symbol, resolution, resolution.candidates.length > 0)
+      // 有源失败时不能宣称“不存在”，先让模型重试失败的源。
+      if (resolution.failedSources.length > 0)
+        throw sourceUnavailableError(input.symbol, resolution)
+      throw instrumentNotFoundError(input.symbol, resolution, resolution.candidates)
     }
     if (matches.length > 1) return ambiguousComparisonResult(input.symbol, matches)
-    const instrument = matches[0]
-    const spec = this.resolveSpec(specInput, primary ?? null, instrument)
-    if (!this.write(spec)) throw duplicateComparisonError(input.symbol)
-    return Object.freeze({ status: 'added' as const, symbol: spec.symbol, name: instrument.name })
+
+    const spec = this.specFromInstrument(matches[0]!)
+    const existing = this.write(spec)
+    if (existing !== null) throw duplicateComparisonError(spec, existing)
+    return { status: 'added', comparison: this.snapshot(spec) }
   }
 
   /**
    * 程序化新增入口：接受完整 SymbolSpec，保留 instrument/params/id 等品种信息。
-   * 缺省路由字段由调用方显式传入的主品种补齐；重复品种（identity 或 symbol 命中）返回 false。
+   * 缺省路由字段由调用方显式传入的主品种补齐；重复品种返回 false。
    */
-  add(input: ComparisonAddInput, primary?: ComparisonPrimaryInput | null): boolean {
-    return this.write(this.resolveSpec(input, primary ?? null, input.instrument ?? null))
+  add(input: SymbolSpec, primary?: SymbolSpec | null): boolean {
+    return this.write(this.resolveSpec(input, primary ?? null)) === null
   }
 
-  /** 去重、登记并原子写入比较叠加集合，增删操作不切换图表视图。 */
-  private write(spec: SymbolSpec): boolean {
+  /** 切换对比线可见性；只保留选择与数据，不改变排序。 */
+  setVisible(identity: string, visible: boolean): ComparisonSnapshot {
+    const spec = this.requireSpec(identity)
+    this.dependencies.setHidden(identity, !visible)
+    this.dependencies.scheduleDraw()
+    return this.snapshot(spec)
+  }
+
+  /**
+   * 按 identity 或品种代码删除一个对比品种。
+   *
+   * 工具层只用 identity；保留代码匹配是因为公开的 ChartController 历史上按代码删除。
+   */
+  remove(target: string): ComparisonSnapshot {
+    const specs = this.comparisonSpecs()
+    const spec =
+      specs.find((item) => symbolSpecIdentityKey(item) === target) ??
+      specs.find((item) => item.symbol === target)
+    if (!spec) throw comparisonNotFound(target)
+    const snapshot = this.snapshot(spec)
+    this.dependencies.setSpecs(specs.filter((item) => item !== spec))
+    this.dependencies.scheduleDraw()
+    return snapshot
+  }
+
+  /**
+   * 去重、登记并原子写入比较叠加集合。
+   *
+   * @returns 写入成功为 null；命中重复时返回与之冲突的既有 spec。
+   */
+  private write(spec: SymbolSpec): SymbolSpec | null {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
-    if (
-      specs.some((item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol)
-    ) {
-      return false
-    }
+    const existing = specs.find(
+      (item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol,
+    )
+    if (existing !== undefined) return existing
     this.dependencies.registerSpec(spec)
     this.dependencies.setSpecs([...specs, spec])
     this.dependencies.scheduleDraw()
-    return true
+    return null
   }
 
-  /** 按 identity（或品种代码）删除一个对比品种。 */
-  remove(input: ComparisonRemoveInput): boolean {
-    const specs = this.comparisonSpecs()
-    const matches = (spec: SymbolSpec) =>
-      symbolSpecIdentityKey(spec) === input.identity || spec.symbol === input.identity
-    if (!specs.some(matches)) return false
-    const remaining = specs.filter((spec) => !matches(spec))
-    this.dependencies.setSpecs(remaining)
-    this.dependencies.scheduleDraw()
-    return true
+  /** 用解析出的品种生成对比 spec；周期与复权由取数层按主图注入。 */
+  private specFromInstrument(instrument: InstrumentDescriptor): SymbolSpec {
+    return {
+      id: instrument.id,
+      instrument,
+      symbol: instrument.symbol,
+      market: instrument.sessionId ?? '',
+      exchange: instrument.exchange,
+      source: instrument.source,
+    }
   }
 
-  /** 删除全部比较折线，保留主品种与图表视图，返回删除数量。 */
-  clear(): number {
-    const specs = this.comparisonSpecs()
-    if (specs.length === 0) return 0
-    this.dependencies.setSpecs([])
-    this.dependencies.scheduleDraw()
-    return specs.length
+  /** 用调用方显式传入的主品种补齐缺省字段；周期与复权只在取数层按主图注入。 */
+  private resolveSpec(input: SymbolSpec, primary: SymbolSpec | null): SymbolSpec {
+    return {
+      ...(input.id === undefined ? {} : { id: input.id }),
+      ...(input.instrument === undefined ? {} : { instrument: input.instrument }),
+      symbol: input.symbol,
+      market: input.market || primary?.market || '',
+      exchange: input.exchange ?? primary?.exchange,
+      source: input.source ?? primary?.source,
+      ...(input.params === undefined ? {} : { params: input.params }),
+      startDate: input.startDate ?? primary?.startDate,
+      endDate: input.endDate ?? primary?.endDate,
+      incremental: input.incremental,
+    }
+  }
+
+  /** 按 identity 取 spec；缺失时抛可纠正错误。 */
+  private requireSpec(identity: string): SymbolSpec {
+    const spec = this.comparisonSpecs().find(
+      (item) => symbolSpecIdentityKey(item) === identity,
+    )
+    if (!spec) throw comparisonNotFound(identity)
+    return spec
   }
 
   /** 对比品种当前快照（已冻结副本）。 */
@@ -222,106 +213,126 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     return this.dependencies.getSpecs().map((spec) => ({ ...spec }))
   }
 
-  /** 用调用方显式传入的主品种补齐缺省字段；解析到完整 instrument 时以其为准。 */
-  private resolveSpec(
-    input: ComparisonAddInput,
-    primary: ComparisonPrimaryInput | null,
-    instrument: InstrumentDescriptor | null,
-  ): SymbolSpec {
-    const base: SymbolSpec = {
-      ...input,
-      market: input.market ?? primary?.market ?? '',
-      exchange: input.exchange ?? primary?.exchange,
-      source: input.source ?? primary?.source,
-      period: input.period ?? primary?.period,
-      adjust: input.adjust ?? primary?.adjust,
-      startDate: input.startDate ?? primary?.startDate,
-      endDate: input.endDate ?? primary?.endDate,
-    }
-    if (!instrument) return base
-    return {
-      ...base,
-      id: base.id ?? instrument.id,
-      instrument,
-      symbol: instrument.symbol,
-      market: instrument.sessionId ?? base.market,
-      exchange: instrument.exchange,
-      source: base.source ?? instrument.sourceId,
-    }
+  /** 投影为带颜色与可见性的快照；spec 以冻结副本返回，调用方不能反向改状态。 */
+  private snapshot(spec: SymbolSpec): ComparisonSnapshot {
+    const identity = symbolSpecIdentityKey(spec)
+    return Object.freeze({
+      identity,
+      spec: Object.freeze({ ...spec }),
+      color: this.dependencies.getColor(identity) ?? DEFAULT_COMPARISON_COLOR,
+      visible: !this.dependencies.isHidden(identity),
+    })
   }
 }
 
-/** 对比品种已在列表中时抛出。 */
-function duplicateComparisonError(symbol: string): KLineChartError {
-  return new KLineChartError(
-    COMPARISON_ERROR_CODES.DUPLICATE,
-    `Symbol "${symbol}" is already compared on this chart. Use comparisons_list to review current comparisons, or pick a different symbol.`,
-  )
+/** 按用户路由约束过滤精确匹配候选；规则由 instrumentSearch 统一持有。 */
+function filterInstrumentCandidates(
+  candidates: ReadonlyArray<InstrumentDescriptor>,
+  exchange: string | undefined,
+  instrumentType: InstrumentType | undefined,
+): ReadonlyArray<InstrumentDescriptor> {
+  return candidates.filter((item) => matchesInstrumentFilter(item, { exchange, instrumentType }))
 }
 
-/** 品种无法解析时抛出；区分「候选被用户约束过滤掉」与「彻底未找到」，都附带纠正路径。 */
+/** 品种无法解析时抛出；区分“被过滤器排除”“其他源存在”“查询失败”三种纠正路径。 */
 function instrumentNotFoundError(
   symbol: string,
   resolution: ComparisonInstrumentResolution,
-  candidatesFilteredOut: boolean,
+  actualMatches: ReadonlyArray<InstrumentDescriptor>,
 ): KLineChartError {
-  const searched = resolution.searchedSourceIds.length
-    ? resolution.searchedSourceIds.join(', ')
-    : 'all enabled sources'
-  if (candidatesFilteredOut) {
-    const options = resolution.candidates
-      .map(
-        (item) =>
-          `${item.instrumentType}@${item.exchange} "${item.name}" (source ${item.sourceId})`,
-      )
+  const searched = resolution.searchedSources.join(', ') || 'none'
+  if (actualMatches.length > 0) {
+    const options = actualMatches
+      .map((item) => `${item.instrumentType}@${item.exchange} "${item.name}" (source ${item.source})`)
       .join('; ')
     return new KLineChartError(
       COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
-      `Symbol "${symbol}" exists but no instrument matches the given exchange/instrumentType filters. Searched ${searched}. Actual matches: ${options}. Ask the user to confirm the intended instrument with the ask_user tool before retrying.`,
+      `Symbol "${symbol}" exists but no instrument matches the given exchange/instrumentType filters. Searched: ${searched}. Actual matches: ${options}.`,
+      { details: { symbol, searchedSources: [...resolution.searchedSources], candidates: options } },
     )
   }
-  const hint = resolution.foundElsewhereSourceIds.length
-    ? ` It exists in: ${resolution.foundElsewhereSourceIds.join(', ')}. Retry comparisons_write with action=create and source set to one of those.`
-    : ' Use instruments_query to find the exact symbol.'
+  if (resolution.foundElsewhereSources.length > 0) {
+    return new KLineChartError(
+      COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
+      `No instrument matched symbol "${symbol}" in source ${searched}, but it exists in: ${resolution.foundElsewhereSources.join(', ')}. Retry with source set to one of them.`,
+      {
+        details: {
+          symbol,
+          searchedSources: [...resolution.searchedSources],
+          foundElsewhereSources: [...resolution.foundElsewhereSources],
+        },
+      },
+    )
+  }
   return new KLineChartError(
     COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
-    `No instrument matched symbol "${symbol}". Searched ${searched}.${hint}`,
+    `No instrument matched symbol "${symbol}". Searched: ${searched}. Use instruments_query to find the exact symbol.`,
+    { details: { symbol, searchedSources: [...resolution.searchedSources] } },
   )
 }
 
-/** 按用户路由约束过滤精确匹配候选；exchange 大小写不敏感，未给约束时原样返回。 */
-function filterInstrumentCandidates(
-  candidates: readonly InstrumentDescriptor[],
-  instrumentType: InstrumentType | undefined,
-  exchange: string | undefined,
-): readonly InstrumentDescriptor[] {
-  const expectedExchange = exchange?.trim().toUpperCase()
-  return candidates.filter(
-    (item) =>
-      (instrumentType === undefined || item.instrumentType === instrumentType) &&
-      (expectedExchange === undefined || item.exchange.toUpperCase() === expectedExchange),
+/** 有源查询失败且没有命中时不能宣称“不存在”：明确失败源并允许重试。 */
+function sourceUnavailableError(
+  symbol: string,
+  resolution: ComparisonInstrumentResolution,
+): KLineChartError {
+  return new KLineChartError(
+    ERROR_CODES.FETCH_FAILED,
+    `Instrument lookup for "${symbol}" failed for source ${resolution.failedSources.join(', ')}; the symbol may exist there.`,
+    {
+      details: {
+        symbol,
+        searchedSources: [...resolution.searchedSources],
+        failedSources: [...resolution.failedSources],
+      },
+    },
   )
 }
 
 /** 多个标的命中时的歧义结果：不写入任何状态，强制 Agent 先向用户澄清。 */
 function ambiguousComparisonResult(
   symbol: string,
-  matches: readonly InstrumentDescriptor[],
+  matches: ReadonlyArray<InstrumentDescriptor>,
 ): ComparisonCreateResult {
   return Object.freeze({
     status: 'ambiguous' as const,
-    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparisons_write with action=create and that candidate's source and exchange (add instrumentType only when its class is not unknown).`,
-    candidates: Object.freeze(
-      matches.map((item) =>
-        Object.freeze({
-          id: item.id,
-          sourceId: item.sourceId,
-          symbol: item.symbol,
-          name: item.name,
-          exchange: item.exchange,
-          instrumentType: item.instrumentType,
-        }),
-      ),
-    ),
+    candidates: Object.freeze(matches.map(toCandidate)),
   })
+}
+
+/** 候选只暴露可回传的路由字段；类别未归一化时不出现 instrumentType。 */
+function toCandidate(instrument: InstrumentDescriptor): ComparisonCandidate {
+  return Object.freeze({
+    symbol: instrument.symbol,
+    name: instrument.name,
+    exchange: instrument.exchange,
+    source: instrument.source,
+    ...(isFilterableInstrumentType(instrument.instrumentType)
+      ? { instrumentType: instrument.instrumentType }
+      : {}),
+  })
+}
+
+/** 对比品种已在列表中时抛出；details 带上既有身份，模型可直接更新或删除。 */
+function duplicateComparisonError(spec: SymbolSpec, existing: SymbolSpec): KLineChartError {
+  return new KLineChartError(
+    COMPARISON_ERROR_CODES.DUPLICATE,
+    `Comparison "${spec.symbol}" is already on the chart.`,
+    {
+      details: {
+        symbol: spec.symbol,
+        identity: symbolSpecIdentityKey(existing),
+        ...(spec.source === undefined ? {} : { source: spec.source }),
+      },
+    },
+  )
+}
+
+/** identity 不存在时抛出；提示先读取当前列表。 */
+function comparisonNotFound(identity: string): KLineChartError {
+  return new KLineChartError(
+    COMPARISON_ERROR_CODES.NOT_FOUND,
+    `No comparison matches identity "${identity}".`,
+    { details: { identity } },
+  )
 }

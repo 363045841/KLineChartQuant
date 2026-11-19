@@ -449,7 +449,7 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
     params: { exchange: 'NASDAQ' },
     instrument: {
       id: 'NASDAQ:AAPL',
-      sourceId: 'fixture',
+      source: 'fixture',
       symbol: 'AAPL',
       name: 'Apple',
       instrumentType: 'stock',

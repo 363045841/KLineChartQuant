@@ -47,7 +47,7 @@ export function isFilterableInstrumentType(value: InstrumentType | undefined): v
 | `data/provider/protocol/impl/provider.ts` `catalog.search` | 目录结果按 `[unknown]` 过滤 | 过滤前剔除 `unknown`，集合为空即返回全部 |
 
 `instrumentType` 已由工具 schema（`KNOWN_INSTRUMENT_TYPES`）限制为已知类别的入口（如
-`comparison_create`、Agent 行情查询工具）不受影响，无需改动。
+`comparisons_write`、Agent 行情查询工具）不受影响，无需改动。
 
 ## 边界
 

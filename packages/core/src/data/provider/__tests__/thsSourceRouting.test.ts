@@ -18,7 +18,7 @@ import { createMockMarketDataProvider } from './helpers/providerTestKit'
 /** THS 侧品种：symbol 为完整 thscode，只声明 daily。 */
 const thsInstrument = {
   id: 'ths:600519.SH',
-  sourceId: 'ths',
+  source: 'ths',
   symbol: '600519.SH',
   name: '贵州茅台',
   instrumentType: 'stock' as const,
@@ -32,7 +32,7 @@ const thsInstrument = {
 const minuteInstrument = {
   ...thsInstrument,
   id: 'other:600519.SH',
-  sourceId: 'other',
+  source: 'other',
   providerRef: { code: '600519.SH' },
   capabilities: {
     bars: { periods: ['1min', 'daily'] as const, adjustments: ['none'] as const },
@@ -66,7 +66,7 @@ describe('THS capability 声明驱动的源筛选', () => {
 
     registry.register(
       createMockMarketDataProvider({
-        sourceId: 'ths',
+        source: 'ths',
         capabilities: {
           instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
@@ -77,7 +77,7 @@ describe('THS capability 声明驱动的源筛选', () => {
     )
     registry.register(
       createMockMarketDataProvider({
-        sourceId: 'other',
+        source: 'other',
         capabilities: {
           instrumentTypes: ['stock'],
           bars: { periods: ['1min', 'daily'], adjustments: ['none'] },
@@ -91,7 +91,7 @@ describe('THS capability 声明驱动的源筛选', () => {
     registry.setConfig('other', { enabled: true, priority: 1 })
 
     const result = await new SourceRouter(registry).bars({
-      preferredSourceId: 'auto',
+      preferredSource: 'auto',
       instrument: thsInstrument,
       symbol: thsInstrument.symbol,
       exchange: thsInstrument.exchange,
@@ -109,7 +109,7 @@ describe('THS capability 声明驱动的源筛选', () => {
   it('源级能力查询对 1min 不返回 THS', () => {
     registry.register(
       createMockMarketDataProvider({
-        sourceId: 'ths',
+        source: 'ths',
         capabilities: {
           instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
@@ -122,7 +122,7 @@ describe('THS capability 声明驱动的源筛选', () => {
     )
     registry.register(
       createMockMarketDataProvider({
-        sourceId: 'other',
+        source: 'other',
         capabilities: {
           instrumentTypes: ['stock'],
           bars: { periods: ['1min'], adjustments: ['none'] },
@@ -159,7 +159,7 @@ describe('THS capability 声明驱动的源筛选', () => {
 
     registry.register(
       createMockMarketDataProvider({
-        sourceId: 'ths',
+        source: 'ths',
         capabilities: {
           instrumentTypes: ['stock'],
           bars: { periods: ['daily'], adjustments: ['none'] },
@@ -171,7 +171,7 @@ describe('THS capability 声明驱动的源筛选', () => {
     registry.setConfig('ths', { enabled: true, priority: 100 })
 
     const result = await new SourceRouter(registry).bars({
-      preferredSourceId: 'auto',
+      preferredSource: 'auto',
       instrument: thsInstrument,
       symbol: thsInstrument.symbol,
       exchange: thsInstrument.exchange,

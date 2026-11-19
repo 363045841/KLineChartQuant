@@ -278,8 +278,6 @@ export interface LegendManagerDependencies {
   /** 指标实例写入口；图例的增删改排序只走这里。 */
   indicators: ChartIndicatorFacade
   comparisons: ComparisonCommandsApi
-  getComparisonHidden: (identity: string) => boolean
-  setComparisonHidden: (identity: string, hidden: boolean) => void
   getOptions: () => { legend?: LegendOptions }
   /** 主图是否已有品种；空图不展示收起入口。 */
   hasPrimarySymbol: () => boolean

@@ -6,17 +6,20 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorInstance, IndicatorParamDef, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
+import type { InstrumentSearchResult } from '../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
 import type {
   BarSeries,
   InstrumentDescriptor,
+  InstrumentRef,
+  InstrumentType,
   KLineAdjustment,
   KLinePeriod,
   OlderDataStatus,
   TimeShareDay,
   TradingDate,
 } from '../../data/provider/types.js'
-import type { ComparisonCommandsApi } from '../../engine/data/comparisonCommands.js'
+import type { ComparisonCandidate } from '../../engine/data/comparisonCommands.js'
 import type {
   DrawingCommands,
   DrawingDocument,
@@ -134,7 +137,7 @@ export interface IndicatorQueryInput {
 /** Agent 品种查询输入：代码或名称，精确命中优先，未命中再走关键字。 */
 export interface InstrumentLookupInput {
   readonly query: string
-  readonly sourceIds?: ReadonlyArray<string>
+  readonly sources?: ReadonlyArray<string>
   readonly limit: number
   readonly signal?: AbortSignal
 }
@@ -157,20 +160,18 @@ export interface InstrumentLookupResult {
  * `from` / `to` 是日期窗口：日线及以上写 `YYYY-MM-DD`，日内写 RFC 3339；
  * 覆盖窗口所需的翻页由缓存完成，`limit` 始终是"最多返回多少根"。
  */
-export interface BarsQueryInput {
-  readonly symbol: string
+export interface BarsQueryInput extends InstrumentRef {
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
   readonly limit: number
   readonly from?: string
   readonly to?: string
-  readonly sourceId?: string
   readonly signal?: AbortSignal
 }
 
 /** 无状态 K 线查询结果；truncated 表示窗口未覆盖完就被 limit 截断。 */
 export interface BarsQueryResult {
-  readonly sourceId: string
+  readonly source: string
   readonly instrument: InstrumentDescriptor
   readonly series: BarSeries
   readonly requested: number
@@ -178,17 +179,15 @@ export interface BarsQueryResult {
 }
 
 /** 分时查询输入；缺省交易日由 Core 解析成最近一个有数据的交易日。 */
-export interface TimeShareQueryInput {
-  readonly symbol: string
+export interface TimeShareQueryInput extends InstrumentRef {
   readonly tradingDate?: TradingDate
   readonly days: number
-  readonly sourceId?: string
   readonly signal?: AbortSignal
 }
 
 /** 分时查询结果：始终按日返回，单日与多日共用同一形状。 */
 export interface TimeShareDaysResult {
-  readonly sourceId: string
+  readonly source: string
   readonly instrument: InstrumentDescriptor
   readonly timezone: string
   readonly requestedDate: TradingDate | null
@@ -265,6 +264,36 @@ export interface MarketQueryText {
   readonly summary: string
 }
 
+/** Agent 可读取的对比品种视图；路由字段与 instruments_query 的输出列同构。 */
+export interface ChartAgentComparisonView {
+  /** 系统分配的稳定身份；update / remove 只用它寻址。 */
+  readonly identity: string
+  readonly symbol: string
+  /** 品种名称；宿主只写最小 spec 时可能缺失。 */
+  readonly name?: string
+  readonly exchange?: string
+  readonly source?: string
+  readonly instrumentType?: InstrumentType
+  readonly color: string
+  readonly visible: boolean
+}
+
+/** 同一代码命中多个标的时的候选；直接复用领域契约，避免字段漂移。 */
+export type ChartAgentComparisonCandidate = ComparisonCandidate
+
+/** 对比创建结果：写入成功，或未写入并等待用户裁决。 */
+export type ChartAgentComparisonCreateResult =
+  | { readonly status: 'added'; readonly comparison: ChartAgentComparisonView }
+  | { readonly status: 'ambiguous'; readonly candidates: ReadonlyArray<ChartAgentComparisonCandidate> }
+
+/** Agent 对比命令面：只暴露列表、创建、显隐与删除。 */
+export interface ChartAgentComparisonCommands {
+  list(): ReadonlyArray<ChartAgentComparisonView>
+  create(input: InstrumentRef, signal?: AbortSignal): Promise<ChartAgentComparisonCreateResult>
+  setVisible(identity: string, visible: boolean): ChartAgentComparisonView
+  remove(identity: string): ChartAgentComparisonView
+}
+
 /** 无状态行情查询面；不读取也不修改当前图表选择。 */
 export interface ChartAgentMarketQueries {
   /** 当前能服务该能力的源，用于工具描述与错误提示。 */
@@ -282,7 +311,7 @@ export interface ChartAgentMarketQueries {
 export interface ChartAgentToolDeps {
   readonly indicators: ChartAgentIndicatorCommands
   readonly drawings: ChartAgentDrawingCommands
-  readonly comparisons: ComparisonCommandsApi
+  readonly comparisons: ChartAgentComparisonCommands
   readonly market: ChartAgentMarketQueries
 }
 
@@ -375,16 +404,16 @@ export interface ChartAgentMarketQueriesDependencies {
   /** 按代码精确查询品种；由组合根绑定当前数据源注册表。 */
   readonly lookup: (input: {
     readonly query: string
-    readonly sourceIds?: ReadonlyArray<string>
+    readonly sources?: ReadonlyArray<string>
     readonly signal?: AbortSignal
-  }) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  }) => Promise<InstrumentSearchResult>
   /** 关键字搜索；只在精确查询没有命中时作为候选通道使用。 */
   readonly search: (input: {
     readonly query: string
-    readonly sourceIds?: ReadonlyArray<string>
+    readonly sources?: ReadonlyArray<string>
     readonly limit: number
     readonly signal?: AbortSignal
-  }) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  }) => Promise<InstrumentSearchResult>
   readonly cache: Pick<
     MarketDataCache,
     'queryBars' | 'queryBarsWindow' | 'queryTimeShare' | 'queryTimeShareRange'
@@ -405,7 +434,7 @@ export interface MarketDataTextFormatter {
 
 /** 当前图表 K 线投影为 Agent 文本时所需的最小行情元数据。 */
 export interface ChartBarsTextFormatInput {
-  readonly sourceId: string
+  readonly source: string
   readonly symbol: string
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
@@ -458,3 +487,6 @@ export type IndicatorResultFormatter = (context: IndicatorTextFormatContext) => 
 export interface IndicatorTextFormatter {
   format(context: IndicatorTextFormatContext): string
 }
+
+/** 工具契约复用的品种路由字段；与 instruments_query 的输出列同构。 */
+export type { InstrumentRef } from '../../data/provider/types.js'

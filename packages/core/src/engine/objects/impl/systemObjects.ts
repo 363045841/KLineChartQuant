@@ -177,7 +177,7 @@ export function createSystemObjects(deps: SystemObjectDependencies) {
   function descriptorFor(objectId: SystemObjectId): RenderObjectDescriptor {
     return {
       kind: 'system',
-      sourceId: objectId,
+      domainId: objectId,
       get label() {
         return deps.getLabel(objectId)
       },

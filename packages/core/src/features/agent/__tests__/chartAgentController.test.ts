@@ -15,7 +15,7 @@ import type { ChartAgentToolDeps } from '../types'
 const BAR_SELECTION = {
   kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: 'TEST',
-  sourceId: 'fixture',
+  source: 'fixture',
   period: 'daily' as const,
   adjustment: 'none' as const,
   barAggregation: 'original' as const,
@@ -25,7 +25,7 @@ const BAR_SELECTION = {
 function createBars(): KLineData[] {
   return ['2026-09-01', '2026-09-02', '2026-09-03'].map((date) => {
     const timestamp = Date.parse(date)
-    return { timestamp, date, open: 1, high: 2, low: 1, close: 2, volume: 100 }
+    return { timestamp, open: 1, high: 2, low: 1, close: 2, volume: 100 }
   })
 }
 
@@ -52,10 +52,9 @@ function stubTools(): ChartAgentToolDeps {
     },
     comparisons: {
       list: () => [],
-      add: () => false,
-      create: async () => ({ status: 'added', symbol: '', name: '' }),
-      remove: () => false,
-      clear: () => 0,
+      create: async () => unused(),
+      setVisible: unused,
+      remove: unused,
     },
     market: {
       listSources: () => [],

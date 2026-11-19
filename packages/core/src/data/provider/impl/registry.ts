@@ -56,19 +56,19 @@ export class MarketDataProviderRegistry {
   register(provider: MarketDataProvider, config: MarketDataSourceConfigPatch = {}): void {
     if (config.priority !== undefined && !Number.isFinite(config.priority))
       throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'priority must be finite')
-    const sourceId = provider.source.id
-    if (!sourceId || sourceId !== sourceId.trim())
+    const source = provider.source.id
+    if (!source || source !== source.trim())
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_PARAM,
         '[MarketDataProviderRegistry] source.id must be non-empty and trimmed',
       )
     const current = this.stateSignal.peek()
-    if (current.providers.has(sourceId))
+    if (current.providers.has(source))
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_STATE,
-        `[MarketDataProviderRegistry] source "${sourceId}" is already registered`,
+        `[MarketDataProviderRegistry] source "${source}" is already registered`,
       )
-    const connectionId = provider.source.connectionId ?? sourceId
+    const connectionId = provider.source.connectionId ?? source
     if (!connectionId.trim() || connectionId !== connectionId.trim())
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_PARAM,
@@ -86,9 +86,9 @@ export class MarketDataProviderRegistry {
         GENERIC_ERROR_CODES.INVALID_PARAM,
         `Conflicting connection definition: ${connectionId}`,
       )
-    const providers = new Map(current.providers).set(sourceId, provider)
+    const providers = new Map(current.providers).set(source, provider)
     const policies = new Map(current.policies).set(
-      sourceId,
+      source,
       Object.freeze({
         enabled: config.enabled ?? true,
         priority: config.priority ?? 0,
@@ -112,16 +112,16 @@ export class MarketDataProviderRegistry {
   }
 
   /** 注销 Provider；最后一个使用者注销时移除连接。 */
-  unregister(sourceId: string): boolean {
+  unregister(source: string): boolean {
     const current = this.stateSignal.peek()
-    const provider = current.providers.get(sourceId)
+    const provider = current.providers.get(source)
     if (!provider) return false
-    const connectionId = provider.source.connectionId ?? sourceId
+    const connectionId = provider.source.connectionId ?? source
     const providers = new Map(current.providers)
     const policies = new Map(current.policies)
     const connections = new Map(current.connections)
-    providers.delete(sourceId)
-    policies.delete(sourceId)
+    providers.delete(source)
+    policies.delete(source)
     if (
       ![...providers.values()].some(
         (item) => (item.source.connectionId ?? item.source.id) === connectionId,
@@ -132,17 +132,17 @@ export class MarketDataProviderRegistry {
     return true
   }
 
-  get(sourceId: string): MarketDataProvider | undefined {
-    return this.stateSignal.peek().providers.get(sourceId)
+  get(source: string): MarketDataProvider | undefined {
+    return this.stateSignal.peek().providers.get(source)
   }
 
   /** 要求 Provider 已注册。 */
-  getRequired(sourceId: string): MarketDataProvider {
-    const provider = this.get(sourceId)
+  getRequired(source: string): MarketDataProvider {
+    const provider = this.get(source)
     if (!provider)
       throw new KLineChartError(
         GENERIC_ERROR_CODES.NOT_REGISTERED,
-        `[MarketDataProviderRegistry] source "${sourceId}" is not registered`,
+        `[MarketDataProviderRegistry] source "${source}" is not registered`,
       )
     return provider
   }
@@ -181,26 +181,26 @@ export class MarketDataProviderRegistry {
     )
   }
 
-  setCapabilities(sourceId: string, capabilities: SourceCapabilities | undefined): void {
-    const provider = this.getRequired(sourceId)
+  setCapabilities(source: string, capabilities: SourceCapabilities | undefined): void {
+    const provider = this.getRequired(source)
     provider.source.capabilities = capabilities
   }
-  getCapabilities(sourceId: string): SourceCapabilities | undefined {
-    return this.getRequired(sourceId).source.capabilities
+  getCapabilities(source: string): SourceCapabilities | undefined {
+    return this.getRequired(source).source.capabilities
   }
 
   /** 从唯一连接配置派生 Provider 地址，避免共用 Connector 的源各存一份地址。 */
-  getConfig(sourceId: string): MarketDataSourceConfig {
-    const connection = this.getConnection(sourceId)
-    const policy = this.stateSignal.peek().policies.get(sourceId)!
+  getConfig(source: string): MarketDataSourceConfig {
+    const connection = this.getConnection(source)
+    const policy = this.stateSignal.peek().policies.get(source)!
     return connection.baseUrl === undefined
       ? { ...policy }
       : { ...policy, baseUrl: connection.baseUrl }
   }
 
-  getConnection(sourceId: string): MarketConnection {
-    const source = this.getRequired(sourceId).source
-    return this.stateSignal.peek().connections.get(source.connectionId ?? sourceId)!
+  getConnection(sourceKey: string): MarketConnection {
+    const descriptor = this.getRequired(sourceKey).source
+    return this.stateSignal.peek().connections.get(descriptor.connectionId ?? sourceKey)!
   }
 
   /** 一个连接改址时，所有关联 Provider 同时生效。 */
@@ -226,18 +226,18 @@ export class MarketDataProviderRegistry {
   }
 
   /** 兼容源配置入口；地址写入连接，策略只写入 Provider。 */
-  setConfig(sourceId: string, patch: MarketDataSourceConfigPatch): MarketDataSourceConfig {
+  setConfig(source: string, patch: MarketDataSourceConfigPatch): MarketDataSourceConfig {
     if (patch.priority !== undefined && !Number.isFinite(patch.priority))
       throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, 'priority must be finite')
-    const connection = this.getConnection(sourceId)
+    const connection = this.getConnection(source)
     // 先校验再写入，避免无效地址导致策略半生效。
     const baseUrl = Object.hasOwn(patch, 'baseUrl')
       ? normalizeConnectionUrl(patch.baseUrl)
       : connection.baseUrl
     const current = this.stateSignal.peek()
-    const policy = current.policies.get(sourceId)!
+    const policy = current.policies.get(source)!
     const policies = new Map(current.policies).set(
-      sourceId,
+      source,
       Object.freeze({
         enabled: patch.enabled ?? policy.enabled,
         priority: patch.priority ?? policy.priority,
@@ -259,7 +259,7 @@ export class MarketDataProviderRegistry {
         }),
       )
     this.stateSignal.set(Object.freeze({ ...current, policies: immutableMap(policies), connections: immutableMap(connections) }))
-    return this.getConfig(sourceId)
+    return this.getConfig(source)
   }
 
   clear(): void {

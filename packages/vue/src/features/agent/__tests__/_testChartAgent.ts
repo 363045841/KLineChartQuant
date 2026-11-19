@@ -54,10 +54,9 @@ export function createTestToolDeps(
     },
     comparisons: {
       list: () => [],
-      add: () => unused('comparisons.add'),
       create: async () => unused('comparisons.create'),
+      setVisible: () => unused('comparisons.setVisible'),
       remove: () => unused('comparisons.remove'),
-      clear: () => unused('comparisons.clear'),
     },
     market: {
       listSources: () => [],

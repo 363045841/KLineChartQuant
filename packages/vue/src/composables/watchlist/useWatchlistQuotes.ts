@@ -15,7 +15,7 @@ import { priceDirection } from './watchlistQuoteFormat.js'
 
 /** 订阅键：来源 + 稳定品种 ID，同一 ID 在不同来源互不冲突。 */
 function subscriptionKey(item: SearchableSymbol): string {
-  return `${item.sourceId}\u0000${item.id}`
+  return `${item.source}\u0000${item.id}`
 }
 
 /**
@@ -74,19 +74,19 @@ export function useWatchlistQuotes(
   function subscribe(item: SearchableSymbol): RealtimeSubscription {
     const key = symbolIdentityKey(item)
     const subscription = pool.subscribe({
-      sourceId: item.sourceId,
+      source: item.source,
       channel: 'quotes',
       instrumentId: item.id,
     })
     subscription.onStatus((status) => {
       // 重连成功即视为恢复，旧错误不能一直挂着。
-      if (status === 'connected' && errorDraft.delete(item.sourceId)) errorsDirty = true
-      statusDraft.set(item.sourceId, status)
+      if (status === 'connected' && errorDraft.delete(item.source)) errorsDirty = true
+      statusDraft.set(item.source, status)
       statusDirty = true
       scheduleFlush()
     })
     subscription.onError((error) => {
-      errorDraft.set(item.sourceId, error.message)
+      errorDraft.set(item.source, error.message)
       errorsDirty = true
       scheduleFlush()
     })
@@ -131,10 +131,10 @@ export function useWatchlistQuotes(
       quoteDraft.delete(key)
       quotesDirty = true
     }
-    const activeSources = new Set(current.map((item) => item.sourceId))
-    for (const sourceId of errorDraft.keys()) {
-      if (activeSources.has(sourceId)) continue
-      errorDraft.delete(sourceId)
+    const activeSources = new Set(current.map((item) => item.source))
+    for (const source of errorDraft.keys()) {
+      if (activeSources.has(source)) continue
+      errorDraft.delete(source)
       errorsDirty = true
     }
     if (quotesDirty || errorsDirty) scheduleFlush()

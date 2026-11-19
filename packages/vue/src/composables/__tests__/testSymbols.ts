@@ -9,7 +9,7 @@ export function makeSearchableSymbol(
   overrides: Partial<SearchableSymbol> & Pick<SearchableSymbol, 'id'>,
 ): SearchableSymbol {
   return {
-    sourceId: 'gotdx',
+    source: 'gotdx',
     symbol: '600519',
     name: '贵州茅台',
     instrumentType: 'stock',
@@ -26,7 +26,7 @@ export const TEST_SYMBOLS: ReadonlyArray<SearchableSymbol> = [
   makeSearchableSymbol({ id: 'gotdx:stock:1:600519' }),
   makeSearchableSymbol({
     id: 'tradingview:stock:NASDAQ:AAPL',
-    sourceId: 'tradingview',
+    source: 'tradingview',
     symbol: 'AAPL',
     name: 'Apple Inc.',
     exchange: 'NASDAQ',

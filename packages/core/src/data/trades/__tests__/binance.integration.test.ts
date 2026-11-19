@@ -39,7 +39,7 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
     expect(batch.items.length).toBeGreaterThan(0)
     const output = createFootprintExecution()({
       requestId: 1,
-      marketKey: `${instrument.sourceId}:${instrument.id}:1min`,
+      marketKey: `${instrument.source}:${instrument.id}:1min`,
       data: result.data,
       params: { ticksPerRow: 100, imbalanceRatio: 3, metric: FOOTPRINT_METRICS.Turnover },
       trades: {

@@ -68,7 +68,7 @@ class FakePool implements RealtimeSubscriptionPool {
   subscribe(request: RealtimeSubscriptionRequest): RealtimeSubscription {
     const subscription = new FakeSubscription(request)
     this.requests.push(request)
-    this.subscriptions.set(`${request.sourceId}:${request.instrumentId}`, subscription)
+    this.subscriptions.set(`${request.source}:${request.instrumentId}`, subscription)
     return subscription
   }
 

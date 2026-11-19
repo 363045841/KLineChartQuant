@@ -82,7 +82,7 @@ describe('registered data source', () => {
     try {
       const instrument = await host.resolveInstrument('test', 'A')
       const query = {
-        sourceId: 'test',
+        source: 'test',
         instrument,
         symbol: 'A',
         period: 'daily',
@@ -162,7 +162,7 @@ describe('registered data source', () => {
       expect(
         (
           await manager.marketDataCache.queryBars({
-            sourceId: 'test',
+            source: 'test',
             instrument,
             symbol: 'A',
             exchange: instrument.exchange,

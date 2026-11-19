@@ -53,14 +53,14 @@ describe('useSymbolSearch', () => {
     expect(state.loading.value).toBe(false)
   })
 
-  // 验证数据源 Tab 使用 sourceId 同时过滤本地和远程目录。
+  // 验证数据源 Tab 使用 source 同时过滤本地和远程目录。
   it('filters local catalog and remote search by the selected source tab', async () => {
     const query = ref('A')
     const sourceFilter = ref<'all' | string>('tradingview')
     const search = vi.fn<SymbolSearchFn<SearchableSymbol>>().mockResolvedValue([
       makeSearchableSymbol({
         id: 'tradingview:stock:NASDAQ:AMZN',
-        sourceId: 'tradingview',
+        source: 'tradingview',
         symbol: 'AMZN',
         name: 'Amazon',
         exchange: 'NASDAQ',
@@ -136,7 +136,7 @@ describe('useSymbolSearch', () => {
     second.resolve([
       makeSearchableSymbol({
         id: 'test:SECOND',
-        sourceId: 'test',
+        source: 'test',
         symbol: 'SECOND',
         name: 'Second',
         instrumentType: 'unknown',
@@ -147,7 +147,7 @@ describe('useSymbolSearch', () => {
     first.resolve([
       makeSearchableSymbol({
         id: 'test:FIRST',
-        sourceId: 'test',
+        source: 'test',
         symbol: 'FIRST',
         name: 'First',
         instrumentType: 'unknown',
@@ -169,8 +169,8 @@ describe('useSymbolSearch', () => {
 
   // 验证不同数据源内相同的品种 ID 不会在聚合搜索结果中相互覆盖。
   it('includes the source in a standard instrument identity', () => {
-    const first = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'first' }
-    const second = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', sourceId: 'second' }
+    const first = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'first' }
+    const second = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'second' }
 
     expect(symbolIdentityKey(first)).not.toBe(symbolIdentityKey(second))
   })

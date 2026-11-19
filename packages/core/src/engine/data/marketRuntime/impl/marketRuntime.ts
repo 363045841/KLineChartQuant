@@ -61,13 +61,13 @@ function resolveTradeTarget(
   if (!needed || !session) return null
   if (!supportsRawTradeStream(session)) return null
   const { instrument } = session
-  const provider = registry.get(instrument.sourceId)
+  const provider = registry.get(instrument.source)
   if (!provider?.trades) return null
   return {
     selection: {
       kind: SERIES_SELECTION_KIND.trades,
       instrumentKey: session.selection.instrumentKey,
-      sourceId: instrument.sourceId,
+      source: instrument.source,
     },
     instrument,
     source: provider.trades,
@@ -133,11 +133,11 @@ export class MarketRuntime implements IndicatorMarketData {
     adjustment: BarsSelection['adjustment'],
     aggregation: BarsSelection['barAggregation'],
   ): BarsSelection | undefined {
-    const source = spec.source === undefined ? spec.instrument?.sourceId : spec.source
+    const source = spec.source === undefined ? spec.instrument?.source : spec.source
     for (const demand of this.barDemands.values()) {
       const { selection, instrument } = demand.session
       if (
-        selection.sourceId !== source ||
+        selection.source !== source ||
         selection.period !== period ||
         selection.adjustment !== adjustment ||
         selection.barAggregation !== aggregation
@@ -260,7 +260,7 @@ export class MarketRuntime implements IndicatorMarketData {
       if (target.instrument.capabilities.liveBars === false) continue
       // 连接由订阅池统一建立；同一序列在图表与脚本之间共享同一条连接。
       const subscription = this.pool.subscribe({
-        sourceId: target.instrument.sourceId,
+        source: target.instrument.source,
         channel: 'bars',
         instrumentId: target.instrument.id,
         period: target.selection.period,
@@ -382,7 +382,7 @@ export class MarketRuntime implements IndicatorMarketData {
     this.subscriptions = [
       this.registry.state.subscribe(() => {
         const nextRegistry = this.registry.state.peek()
-        const id = this.session?.instrument.sourceId
+        const id = this.session?.instrument.source
         const source = id ? previousRegistry.providers.get(id)?.source : undefined
         const connectionId = source?.connectionId ?? id
         const changed =

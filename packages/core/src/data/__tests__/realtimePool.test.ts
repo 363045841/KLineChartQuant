@@ -45,7 +45,7 @@ function setup() {
   const created: FakeEventSource[] = []
   const pending: Array<() => void> = []
   const registry = new MarketDataProviderRegistry()
-  registry.register(createMockMarketDataProvider({ sourceId: 'mt5' }), {
+  registry.register(createMockMarketDataProvider({ source: 'mt5' }), {
     baseUrl: 'http://127.0.0.1:8090',
   })
   const health = createSignal<Readonly<Record<string, MarketProviderHealth>>>({})
@@ -63,7 +63,7 @@ function setup() {
     registry,
     health,
     createConnection: (request) =>
-      createSseConnection(request, registry.getConfig(request.sourceId).baseUrl!, (url) => {
+      createSseConnection(request, registry.getConfig(request.source).baseUrl!, (url) => {
         const source = new FakeEventSource(url)
         created.push(source)
         return source
@@ -79,7 +79,7 @@ function setup() {
 /** K 线订阅请求；同一序列共享一条连接。 */
 function bars(instrumentId: string): RealtimeSubscriptionRequest {
   return {
-    sourceId: 'mt5',
+    source: 'mt5',
     channel: 'bars',
     instrumentId,
     period: '1min',
@@ -90,7 +90,7 @@ function bars(instrumentId: string): RealtimeSubscriptionRequest {
 
 /** 报价订阅请求；按来源聚合。 */
 function quotes(instrumentId: string): RealtimeSubscriptionRequest {
-  return { sourceId: 'mt5', channel: 'quotes', instrumentId }
+  return { source: 'mt5', channel: 'quotes', instrumentId }
 }
 
 /** 裁剪 URL 便于断言批量品种参数。 */
@@ -158,7 +158,7 @@ describe('realtime subscription pool', () => {
     registry.unregister('mt5')
     flush()
     expect(created[2]!.closed).toBe(true)
-    registry.register(createMockMarketDataProvider({ sourceId: 'mt5' }), {
+    registry.register(createMockMarketDataProvider({ source: 'mt5' }), {
       baseUrl: 'http://localhost:9000',
     })
     setHealth('online')
@@ -281,7 +281,7 @@ describe('realtime subscription pool', () => {
   it('rejects bars subscriptions without series parameters', () => {
     const { pool } = setup()
     expect(() =>
-      pool.subscribe({ sourceId: 'mt5', channel: 'bars', instrumentId: 'mt5:A' }),
+      pool.subscribe({ source: 'mt5', channel: 'bars', instrumentId: 'mt5:A' }),
     ).toThrow('period, barAggregation and adjustment')
   })
 })

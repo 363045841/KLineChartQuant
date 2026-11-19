@@ -21,7 +21,7 @@ import {
   SERIES_SELECTION_KIND,
   type SeriesSelection,
   seriesSelectionKey,
-  sourceIdFromSpec,
+  sourceFromSpec,
   type TimeShareSelection,
   type TradingDateKey,
 } from '../../data/buffer/impl/seriesRepository.js'
@@ -45,7 +45,7 @@ import type {
   TradingDate,
 } from '../../data/provider/types.js'
 import {
-  AUTO_SOURCE_ID,
+  AUTO_SOURCE,
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
   isKLineAdjustment,
@@ -132,7 +132,7 @@ export class ChartDataManager {
   private readonly resolvedBarSources = new WeakMap<
     KLineBuffer,
     {
-      sourceId: string
+      source: string
       instrument: InstrumentDescriptor
       capabilities: SourceCapabilities | undefined
     }
@@ -199,7 +199,7 @@ export class ChartDataManager {
         const specs = [...this.symbols.peek(), ...this.deps.comparison.readonly.specs.peek()]
         const matching = specs.find(
           (spec) =>
-            sourceIdFromSpec(spec) === instrument.sourceId &&
+            sourceFromSpec(spec) === instrument.source &&
             (spec.instrument === undefined
               ? spec.symbol === instrument.symbol &&
                 (spec.exchange === undefined || spec.exchange === instrument.exchange)
@@ -211,7 +211,7 @@ export class ChartDataManager {
                 market: instrument.exchange,
                 symbol: instrument.symbol,
                 instrument,
-                source: instrument.sourceId,
+                source: instrument.source,
                 period,
                 adjust: adjustment,
               }
@@ -228,7 +228,7 @@ export class ChartDataManager {
             symbol: session.instrument.symbol,
             market: session.instrument.sessionId ?? session.instrument.exchange,
             exchange: session.instrument.exchange,
-            source: session.instrument.sourceId,
+            source: session.instrument.source,
             period: session.selection.period,
             adjust: session.selection.adjustment,
           },
@@ -300,7 +300,7 @@ export class ChartDataManager {
     return {
       kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: instrumentKeyFromSpec(spec),
-      sourceId: sourceIdFromSpec(spec),
+      source: sourceFromSpec(spec),
       period,
       adjustment,
       barAggregation: this.barAggregation(),
@@ -312,10 +312,18 @@ export class ChartDataManager {
     return ORIGINAL_BAR_AGGREGATION
   }
 
-  /** 比较品种继承主图当前 K 线周期，切到分时时保留其已选择的 K 线周期。 */
+  /** 比较品种沿用主图的周期与复权；切到分时时保留主图已选择的 K 线周期。 */
   private comparisonSpecForPrimary(spec: SymbolSpec): SymbolSpec {
-    const period = this._dataState.readonly.symbols.peek()[0]?.period
-    return period && !isTimeSharePeriod(period) ? { ...spec, period } : spec
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    if (!primary) return spec
+    const primaryPeriod = primary.period
+    const period =
+      primaryPeriod === undefined || isTimeSharePeriod(primaryPeriod) ? spec.period : primaryPeriod
+    return {
+      ...spec,
+      ...(period === undefined ? {} : { period }),
+      ...(primary.adjust === undefined ? {} : { adjust: primary.adjust }),
+    }
   }
 
   /** 将业务品种转换为 Repository 分时选择。 */
@@ -326,7 +334,7 @@ export class ChartDataManager {
     return {
       kind: SERIES_SELECTION_KIND.timeShare,
       instrumentKey: instrumentKeyFromSpec(spec),
-      sourceId: sourceIdFromSpec(spec),
+      source: sourceFromSpec(spec),
       tradingDate,
     }
   }
@@ -406,7 +414,7 @@ export class ChartDataManager {
   /** 已加载 Buffer 派生稳定就绪身份；实时更新和分页不重建连接。 */
   private readySession(selection: BarsSelection, buffer: KLineBuffer): ReadyMarketSession | null {
     const source = this.resolvedBarSources.get(buffer)
-    if (!source?.capabilities || buffer.timezone === null || selection.sourceId !== source.sourceId)
+    if (!source?.capabilities || buffer.timezone === null || selection.source !== source.source)
       return null
     const previous = this.readySessions.get(buffer)
     if (
@@ -542,7 +550,7 @@ export class ChartDataManager {
     try {
       const query = {
         signal,
-        sourceId: spec.source,
+        source: spec.source,
         instrument: spec.instrument,
         symbol: spec.symbol,
         exchange: spec.exchange,
@@ -562,7 +570,7 @@ export class ChartDataManager {
         target.refresh && spec.source && spec.instrument
           ? await this.marketDataCache.refreshBars({
               ...query,
-              sourceId: spec.source,
+              source: spec.source,
               instrument: spec.instrument,
             })
           : await this.marketDataCache.queryBars(query)
@@ -571,21 +579,21 @@ export class ChartDataManager {
         return
       // 来源必须先于任何 Kernel/Buffer 通知就绪；通知的订阅者会立即协调成交连接。
       this.resolvedBarSources.set(buffer, {
-        sourceId: result.sourceId,
+        source: result.source,
         instrument: result.instrument,
         capabilities: structuredClone(
-          this.providerRegistry.get(result.sourceId)?.source.capabilities,
+          this.providerRegistry.get(result.source)?.source.capabilities,
         ),
       })
-      if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
+      if (selection.source === AUTO_SOURCE) {
+        if (!this.handleResolvedSource(selection, result.source, result.instrument, buffer))
           return
       }
       const previousEarliest = buffer.loadedTimeRange?.earliestTs
       if (target.refresh) {
         buffer.replace(result.series.data, result.series.olderData, result.series.timezone)
       } else buffer.mergePage(result.series.data, result.series.olderData, result.series.timezone)
-      const resolvedSelection = { ...selection, sourceId: result.sourceId }
+      const resolvedSelection = { ...selection, source: result.source }
       if (
         this.deps.comparison.readonly.specs
           .peek()
@@ -690,7 +698,7 @@ export class ChartDataManager {
    * @returns 加载完成后的 Promise。
    */
   private async runTimeShareLoad<
-    TResult extends { sourceId: string; instrument: InstrumentDescriptor },
+    TResult extends { source: string; instrument: InstrumentDescriptor },
   >(
     selection: TimeShareSelection,
     buffer: TimeShareBuffer,
@@ -704,7 +712,7 @@ export class ChartDataManager {
       const result = await query()
       if (!this.isCurrentLoad(buffer, request)) return
       if (!this.isActiveSelection(selection) && this.lookupBuffer(selection) !== buffer) return
-      if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+      if (!this.handleResolvedSource(selection, result.source, result.instrument, buffer)) return
       apply(result)
     } catch (error) {
       if (this.isCurrentLoad(buffer, request))
@@ -718,10 +726,10 @@ export class ChartDataManager {
     spec: SymbolSpec,
   ): Pick<
     TimeShareCacheQuery,
-    'sourceId' | 'instrument' | 'symbol' | 'exchange' | 'instrumentType'
+    'source' | 'instrument' | 'symbol' | 'exchange' | 'instrumentType'
   > {
     return {
-      sourceId: spec.source,
+      source: spec.source,
       instrument: spec.instrument,
       symbol: spec.symbol,
       exchange: spec.exchange,
@@ -732,32 +740,32 @@ export class ChartDataManager {
   /** 将 auto Buffer 迁移到实际 Provider，并同步 Kernel 中的业务选择。 */
   private handleResolvedSource(
     selection: SeriesSelection,
-    sourceId: string,
+    source: string,
     instrument: InstrumentDescriptor,
     resolvingBuffer: KLineBuffer | TimeShareBuffer,
   ): boolean {
-    if (selection.sourceId !== AUTO_SOURCE_ID) return true
-    const resolved = this._repository.moveToSource(selection, sourceId)
+    if (selection.source !== AUTO_SOURCE) return true
+    const resolved = this._repository.moveToSource(selection, source)
     const symbols = this._dataState.readonly.symbols
       .peek()
       .map((spec) =>
-        sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
+        sourceFromSpec(spec) === AUTO_SOURCE &&
         (selection.kind === SERIES_SELECTION_KIND.bars
           ? !isTimeSharePeriod(spec.period) &&
             seriesSelectionKey(this.barsSelectionForSpec(spec)) === seriesSelectionKey(selection)
           : isTimeSharePeriod(spec.period) &&
             instrumentKeyFromSpec(spec) === selection.instrumentKey)
-          ? { ...spec, source: sourceId, instrument }
+          ? { ...spec, source: source, instrument }
           : spec,
       )
     this.deps.setSymbols(symbols)
     const comparisons = this.deps.comparison.readonly.specs.peek()
     const resolvedComparisons = comparisons.map((spec) =>
-      sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
+      sourceFromSpec(spec) === AUTO_SOURCE &&
       selection.kind === SERIES_SELECTION_KIND.bars &&
       seriesSelectionKey(this.barsSelectionForSpec(this.comparisonSpecForPrimary(spec))) ===
         seriesSelectionKey(selection)
-        ? { ...spec, source: sourceId, instrument }
+        ? { ...spec, source: source, instrument }
         : spec,
     )
     if (resolvedComparisons.some((spec, index) => spec !== comparisons[index]))
@@ -765,14 +773,14 @@ export class ChartDataManager {
     const current = this._dmState.readonly.currentSpec.peek()
     if (
       current &&
-      sourceIdFromSpec(current) === AUTO_SOURCE_ID &&
+      sourceFromSpec(current) === AUTO_SOURCE &&
       (selection.kind === SERIES_SELECTION_KIND.bars
         ? !isTimeSharePeriod(current.period) &&
           seriesSelectionKey(this.barsSelectionForSpec(current)) === seriesSelectionKey(selection)
         : isTimeSharePeriod(current.period) &&
           instrumentKeyFromSpec(current) === selection.instrumentKey)
     ) {
-      this._dmState.actions.setCurrentSpec({ ...current, source: sourceId, instrument })
+      this._dmState.actions.setCurrentSpec({ ...current, source: source, instrument })
     }
     if (this.isActiveSelection(selection)) this.bindActiveBuffer(resolved.selection)
     this.reconcileComparisonBuffers()
@@ -900,7 +908,7 @@ export class ChartDataManager {
     this.timeShareIndicatorRequest = request
     try {
       const result = await this.marketDataCache.queryBars({
-        sourceId: spec.source,
+        source: spec.source,
         instrument: spec.instrument,
         symbol: spec.symbol,
         exchange: spec.exchange,
@@ -1219,7 +1227,7 @@ export class ChartDataManager {
     }
     const latest = this.timeShareSelectionForSpec(spec, tradingDate)
     const selection = tradingDate === undefined && active?.kind === SERIES_SELECTION_KIND.timeShare &&
-      active.instrumentKey === latest.instrumentKey && active.sourceId === latest.sourceId
+      active.instrumentKey === latest.instrumentKey && active.source === latest.source
       ? active
       : latest
     return () => this.commitPrimarySelection(spec, selection)

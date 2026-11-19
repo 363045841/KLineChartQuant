@@ -98,6 +98,8 @@ export type KLineChartErrorCode =
   | 'DRAWING_INVALID_ANCHOR'
   // market data
   | 'INVALID_TRADING_DATE'
+  // comparison
+  | 'COMPARISON_NOT_FOUND'
   // persistence (IndexedDB / LocalStorage primitives)
   | 'PERSISTENCE_UNAVAILABLE'
   | 'PERSISTENCE_READ_FAILED'
@@ -220,6 +222,7 @@ type GenericErrorCodeName = 'INVALID_PARAM' | 'INVALID_STATE' | 'DISPOSED' | 'NO
 // 对比写原语错误码，供 Agent 工具层返回可据以自纠正的失败原因。
 export const COMPARISON_ERROR_CODES = Object.freeze({
   DUPLICATE: 'COMPARISON_DUPLICATE',
+  NOT_FOUND: 'COMPARISON_NOT_FOUND',
   INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
@@ -290,10 +293,10 @@ export function createMarketDataError(
 }
 
 /** 便捷构造器：品种缺失交易时段。 */
-export function createMissingSessionError(sourceId: string, instrumentId: string): KLineChartError {
+export function createMissingSessionError(source: string, instrumentId: string): KLineChartError {
   return createMarketDataError(
     ERROR_CODES.UNSUPPORTED_CAPABILITY,
-    `[${sourceId}] sessionId is required for instrument ${instrumentId}`,
+    `[${source}] sessionId is required for instrument ${instrumentId}`,
   )
 }
 

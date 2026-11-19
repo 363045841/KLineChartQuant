@@ -15,13 +15,13 @@ import {
 const COPY_COMMAND = 'drawing.copy'
 
 /** 构造对象树行；只声明判定与快照相关的字段。 */
-function row(sourceId: string, kind: PaneObjectRow['kind']): PaneObjectRow {
+function row(domainId: string, kind: PaneObjectRow['kind']): PaneObjectRow {
   return {
     // 图元行按 Scene 图层身份寻址，领域身份独立透传。
-    objectId: kind === 'drawing' ? drawingObjectLayerId(sourceId) : sourceId,
-    sourceId,
+    objectId: kind === 'drawing' ? drawingObjectLayerId(domainId) : domainId,
+    domainId,
     kind,
-    label: sourceId,
+    label: domainId,
     paneId: 'main',
     band: 'drawing',
     z: 0,

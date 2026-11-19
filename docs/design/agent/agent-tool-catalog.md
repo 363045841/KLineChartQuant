@@ -27,8 +27,8 @@
 | `indicators_write` | write | add / update / move / remove |
 | `drawings_list` | read | 列出当前标的的图元 |
 | `drawings_write` | write | create / update / delete |
-| `comparisons_list` | read | 列出对比品种 |
-| `comparisons_write` | write | create / remove / clear |
+| `comparisons_list` | read | 列出对比品种的投影字段 |
+| `comparisons_write` | write | create / update（显隐）/ remove |
 | `instruments_query` | read | 代码或名称查询品种，返回固定列 |
 | `market_bars_query` | read | K 线，`from`/`to` 日期窗口 + `limit` |
 | `market_timeshare_query` | read | 分时，`days` 表达单日与多日，缺省最近交易日 |
@@ -71,6 +71,15 @@
 - **`update` 只改属性**：style / labels / visible / locked / zIndex / timeframeVisibility；几何变化走 delete + create，避免读写两侧锚点形状不一致。
 - **失败不伪装成成功**：未知 `row`、未知 `id`、锁定图元、锚点形状错误都抛稳定错误码，并带回有效行、当前图元身份或该种类需要的锚点形状。
 - 不暴露 `clear` 与 `copy`：前者是没有范围界定的批量删除，后者能用 create 表达。
+
+### 对比品种契约
+
+- **投影而不是领域对象**：`comparisons_list` / `create` 只返回 `identity / symbol / name / exchange / source / instrumentType / color / visible`。`instrument`、`capabilities`、`params`、`startDate`、`endDate`、`incremental` 等字段模型用不到，不进入结果。
+- **路由字段与 `instruments_query` 同构**：`create` 接收 `symbol` 与可选的 `exchange` / `source` / `instrumentType`；`source` 省略时跨全部已启用源解析。歧义候选只暴露同一组字段，可原样回传；`id` 不再是候选字段。
+- **周期与复权不是对比参数**：对比线恒随主图当前周期与复权，`create` 不接受 `period` / `adjust`，Agent 与 UI 共用同一条取数规则。
+- **显隐只有一个写入口**：`update { identity, visible }` 与图例开关都走 `ComparisonCommands.setVisible`，不再各自写 kernel。
+- **删除只用 identity**：找不到时抛 `COMPARISON_NOT_FOUND`；重复品种抛 `COMPARISON_DUPLICATE` 并在 `details` 带回既有身份；不暴露 `clear`。
+- **有源失败不等于不存在**：目录查询返回 `searchedSources` 与 `failedSources`，无候选但有失败源时抛 `FETCH_FAILED`，不报 `INSTRUMENT_NOT_FOUND`。
 
 ## 后果
 

@@ -202,7 +202,7 @@ export interface SourceCapabilities {
 export interface InstrumentDescriptor {
   /** 数据源范围内稳定且唯一的标识。 */
   id: string
-  sourceId: string
+  source: string
   symbol: string
   name: string
   instrumentType: InstrumentType
@@ -252,6 +252,22 @@ export interface InstrumentSearchQuery {
   limit: number
   instrumentTypes?: ReadonlyArray<InstrumentType>
   signal?: AbortSignal
+}
+
+/**
+ * 消费端寻址一个品种的最小路由字段。
+ *
+ * 与 instruments_query 的输出列同构：搜索工具决定 resolve 到哪一个源，
+ * 行情查询与对比工具原样接受这组字段，缺省时由 Core 自行解析。
+ */
+export interface InstrumentRef {
+  readonly symbol: string
+  /** 数据源 id；省略时在全部已启用源中解析。 */
+  readonly source?: string
+  /** 交易所过滤，大小写不敏感。 */
+  readonly exchange?: string
+  /** 品种类别过滤；unknown 按“无条件”处理。 */
+  readonly instrumentType?: InstrumentType
 }
 
 /** K 线游标分页查询；beforeTimestamp 为可选的 UTC 毫秒时间戳排他上界。 */
@@ -388,7 +404,7 @@ export interface MarketDataProvider {
 }
 
 /** 宿主数据源品种，身份与能力复用聚合协议；来源由注册宿主补齐。 */
-export interface DataSourceInstrument extends Omit<InstrumentDescriptor, 'sourceId'> {
+export interface DataSourceInstrument extends Omit<InstrumentDescriptor, 'source'> {
   timezone: string
   volumeUnit?: VolumeUnit
 }
@@ -457,7 +473,7 @@ export type MarketDataErrorCode =
 export interface MarketDataFailure {
   code: MarketDataErrorCode
   message: string
-  sourceId: string
+  source: string
   retryable: boolean
   details?: Readonly<Record<string, unknown>>
 }
@@ -467,7 +483,7 @@ export interface MarketDataFailure {
 // ---------------------------------------------------------------------------
 
 /** 未指定具体数据源时的路由来源标识。 */
-export const AUTO_SOURCE_ID = 'auto'
+export const AUTO_SOURCE = 'auto'
 
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {
@@ -499,7 +515,7 @@ export interface SourceRouterInstrumentIdentity {
 
 /** K 线流转请求。 */
 export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
+  preferredSource?: string
   instrument?: InstrumentDescriptor
   period: KLinePeriod
   adjustment: KLineAdjustment
@@ -511,7 +527,7 @@ export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity 
 
 /** 分时流转请求。 */
 export interface SourceRouterTimeShareRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
+  preferredSource?: string
   instrument?: InstrumentDescriptor
   tradingDate?: TradingDate
   resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
@@ -520,7 +536,7 @@ export interface SourceRouterTimeShareRequest extends SourceRouterInstrumentIden
 
 /** 多日分时流转请求。 */
 export interface SourceRouterTimeShareRangeRequest extends SourceRouterInstrumentIdentity {
-  preferredSourceId?: string
+  preferredSource?: string
   instrument?: InstrumentDescriptor
   endTradingDate?: TradingDate
   resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
@@ -530,7 +546,7 @@ export interface SourceRouterTimeShareRangeRequest extends SourceRouterInstrumen
 
 /** 单次源尝试的结果，用于链耗尽后的诊断。 */
 export interface SourceRouteAttempt {
-  sourceId: string
+  source: string
   code: MarketDataErrorCode
   message: string
 }

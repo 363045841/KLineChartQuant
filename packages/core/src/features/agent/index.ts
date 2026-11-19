@@ -2,6 +2,7 @@
 export { CHART_AGENT_ERROR_CODES } from '../../errors.js'
 export { createChartAgentController } from './impl/chartAgentController.js'
 export {
+  createChartAgentComparisonCommands,
   createChartAgentDrawingCommands,
   createChartAgentIndicatorCommands,
   createChartAgentMarketQueries,
@@ -14,6 +15,10 @@ export type {
   BarsQueryInput,
   BarsQueryResult,
   ChartAgentContextSnapshot,
+  ChartAgentComparisonCandidate,
+  ChartAgentComparisonCommands,
+  ChartAgentComparisonCreateResult,
+  ChartAgentComparisonView,
   ChartAgentController,
   ChartAgentControllerDependencies,
   ChartAgentDrawingCommands,

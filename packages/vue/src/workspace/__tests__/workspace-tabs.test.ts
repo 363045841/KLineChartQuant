@@ -14,7 +14,7 @@ function spec(symbol: string, name: string): SymbolSpec {
     market: 'cn',
     instrument: {
       id: symbol,
-      sourceId: 'ths',
+      source: 'ths',
       symbol,
       name,
       instrumentType: 'stock',

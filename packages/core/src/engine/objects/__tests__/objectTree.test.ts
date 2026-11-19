@@ -65,7 +65,7 @@ function createFixture() {
   lastRemoved = null
   const candleObject: RenderObjectDescriptor = {
     kind: 'system',
-    sourceId: 'candle',
+    domainId: 'candle',
     label: 'K线',
     capabilities: {
       removable: false,
@@ -78,7 +78,7 @@ function createFixture() {
   }
   const maObject: RenderObjectDescriptor = {
     kind: 'indicator',
-    sourceId: 'ma',
+    domainId: 'ma',
     label: 'MA(20)',
     capabilities: {
       removable: true,
@@ -91,7 +91,7 @@ function createFixture() {
   }
   const rsiObject: RenderObjectDescriptor = {
     ...maObject,
-    sourceId: 'rsi',
+    domainId: 'rsi',
     label: 'RSI(14)',
     commands: commands('rsi'),
   }
@@ -130,7 +130,7 @@ describe('createObjectTree', () => {
 
     expect(candle).toMatchObject({
       objectId: 'candle',
-      sourceId: 'candle',
+      domainId: 'candle',
       kind: 'system',
       label: 'K线',
       band: 'main',

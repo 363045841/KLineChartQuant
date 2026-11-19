@@ -33,7 +33,7 @@ export function createFootprintHarness() {
     const selection: BarsSelection = {
       kind: SERIES_SELECTION_KIND.bars,
       instrumentKey: tradeInstrument.id,
-      sourceId: tradeInstrument.sourceId,
+      source: tradeInstrument.source,
       period,
       adjustment: 'none',
       barAggregation: 'original',

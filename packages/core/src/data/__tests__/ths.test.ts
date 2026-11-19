@@ -14,7 +14,7 @@ function jsonResponse(value: unknown, status = 200): Response {
 
 const instrument = {
   id: 'ths:600519.SH',
-  sourceId: 'ths',
+  source: 'ths',
   symbol: '600519.SH',
   name: '贵州茅台',
   instrumentType: 'stock' as const,
@@ -26,6 +26,9 @@ const instrument = {
     bars: { periods: ['daily'] as const, adjustments: ['none', 'qfq', 'hfq'] as const },
   },
 }
+
+/** 后端 wire 条目字段名固定为 sourceId；领域模型统一叫 source。 */
+const wireInstrument = { ...instrument, sourceId: instrument.source }
 
 describe('ths V1 provider', () => {
   beforeEach(() => {
@@ -58,7 +61,7 @@ describe('ths V1 provider', () => {
 
   // 验证目录搜索读取 V1 envelope 并返回标准品种模型。
   it('searches instruments through V1', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ data: { items: [instrument] }, requestId: 'r2' }))
+    fetchMock.mockResolvedValue(jsonResponse({ data: { items: [wireInstrument] }, requestId: 'r2' }))
 
     await expect(
       thsMarketDataProvider.catalog!.search({ keyword: '茅台', limit: 10 }),

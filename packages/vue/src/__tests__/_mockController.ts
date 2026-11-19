@@ -159,7 +159,7 @@ export function createMockChartController(
       rows: [
         {
           objectId: 'plugin:candle',
-          sourceId: 'candle',
+          domainId: 'candle',
           kind: 'system',
           label: '品种行情',
           paneId: MAIN_PANE_ID,

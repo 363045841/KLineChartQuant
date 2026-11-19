@@ -69,7 +69,7 @@ export interface IndicatorBarsRequest {
   /** lower_tf 保留全部日内明细；security 为每个主图bar输出一个对齐值。 */
   readonly mode?: 'security' | 'lower_tf'
   readonly ignore_invalid_timeframe?: boolean
-  /** 目标来源的 sourceId；同品种缺省继承图表来源，跨品种必须显式给出。 */
+  /** 目标来源的 source；同品种缺省继承图表来源，跨品种必须显式给出。 */
   readonly source?: string
   readonly symbol: string
   readonly timeframe: string

@@ -11,7 +11,7 @@ import type { MarketTrade, TradeDataSource } from '../../types.js'
 
 export const tradeInstrument: InstrumentDescriptor = {
   id: 'binance:spot:BTCUSDT',
-  sourceId: 'binance',
+  source: 'binance',
   symbol: 'BTCUSDT',
   name: 'BTC / USDT',
   instrumentType: 'crypto',
@@ -22,7 +22,7 @@ export const tradeInstrument: InstrumentDescriptor = {
 export const tradeSelection: TradesSelection = {
   kind: SERIES_SELECTION_KIND.trades,
   instrumentKey: tradeInstrument.id,
-  sourceId: tradeInstrument.sourceId,
+  source: tradeInstrument.source,
 }
 
 /** 构造不同身份的成交，同毫秒成交共享时间但不共享身份。 */
@@ -48,7 +48,7 @@ export function createTradeCache(
   )
   registry.register({
     source: {
-      id: tradeInstrument.sourceId,
+      id: tradeInstrument.source,
       displayName: 'Binance',
       capabilities: { instrumentTypes: ['crypto'], trades: { raw: true, live: true } },
     },

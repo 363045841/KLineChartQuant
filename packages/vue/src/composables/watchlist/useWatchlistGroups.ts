@@ -74,14 +74,14 @@ function groupBySource(
   items: ReadonlyArray<SearchableSymbol>,
   sourceLabels: ReadonlyMap<string, string>,
 ): ReadonlyArray<WatchlistGroup> {
-  const buckets = bucketBy(items, (item) => item.sourceId)
-  const ordered = [...sourceLabels.keys()].filter((sourceId) => buckets.has(sourceId))
-  for (const sourceId of buckets.keys()) if (!sourceLabels.has(sourceId)) ordered.push(sourceId)
-  return ordered.map((sourceId) => ({
-    key: sourceId,
+  const buckets = bucketBy(items, (item) => item.source)
+  const ordered = [...sourceLabels.keys()].filter((source) => buckets.has(source))
+  for (const source of buckets.keys()) if (!sourceLabels.has(source)) ordered.push(source)
+  return ordered.map((source) => ({
+    key: source,
     // 目录里已移除的数据源仍展示用户数据，用来源 ID 作标题。
-    label: sourceLabels.get(sourceId) ?? sourceId,
-    items: buckets.get(sourceId) ?? [],
+    label: sourceLabels.get(source) ?? source,
+    items: buckets.get(source) ?? [],
   }))
 }
 

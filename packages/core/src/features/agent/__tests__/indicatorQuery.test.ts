@@ -12,7 +12,7 @@ import type { IndicatorQueryInput } from '../types'
 const BAR_SELECTION = {
   kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: 'TEST',
-  sourceId: 'test',
+  source: 'test',
   period: 'daily' as const,
   adjustment: 'none' as const,
   barAggregation: 'original' as const,
@@ -276,7 +276,7 @@ describe('createIndicatorQuery', () => {
       selection: {
         kind: SERIES_SELECTION_KIND.timeShare,
         instrumentKey: 'TEST',
-        sourceId: 'test',
+        source: 'test',
         tradingDate: 'latest',
       },
       data: [{ timestamp: 1_000, price: 10, average: 10 }],

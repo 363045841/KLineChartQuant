@@ -43,7 +43,7 @@ function isMarketTrade(value: unknown): value is MarketTrade {
 
 /** 创建不含图表状态的成交能力，运行时读取地址配置。 */
 export function createTradeDataSource(
-  sourceId: string,
+  source: string,
   transport: MarketDataTransport,
   baseUrl: () => string,
 ): TradeDataSource {
@@ -51,13 +51,14 @@ export function createTradeDataSource(
     async fetch({ instrument, range, signal }) {
       if (
         !transport.fetchTradeRange ||
-        instrument.sourceId !== sourceId ||
+        instrument.source !== source ||
         !instrument.capabilities.trades?.raw
       )
         throw new KLineChartError(ERROR_CODES.UNSUPPORTED_CAPABILITY, TRADE_MESSAGES.unsupportedRaw)
       const batch = await transport.fetchTradeRange(
         {
-          sourceId,
+          // wire 字段名由后端 Go 结构体绑定，领域层统一叫 source。
+          sourceId: source,
           instrument: {
             id: instrument.id,
             symbol: instrument.symbol,
@@ -83,21 +84,21 @@ export function createTradeDataSource(
     connect(instrument) {
       const listeners = new Set<(frame: TradeFrame) => void>()
       const query = new URLSearchParams({ symbol: instrument.symbol, kind: 'aggregated' })
-      const source = new EventSource(
-        `${baseUrl()}${V1_ENDPOINTS.sources}/${encodeURIComponent(sourceId)}/trades/stream?${query}`,
+      const stream = new EventSource(
+        `${baseUrl()}${V1_ENDPOINTS.sources}/${encodeURIComponent(source)}/trades/stream?${query}`,
       )
       const publish = (frame: TradeFrame) => {
         for (const listener of [...listeners]) {
           try {
             listener(frame)
           } catch (error) {
-            console.error('[Trade stream] Subscriber failed', sourceId, error)
+            console.error('[Trade stream] Subscriber failed', source, error)
           }
         }
       }
       // 浏览器连接事件是订阅边界的事实来源，不依赖服务端另发 CONNECTED 消息。
-      source.onopen = () => publish({ type: 'status', code: TRADE_STREAM_CODES.connected })
-      source.onmessage = (event) => {
+      stream.onopen = () => publish({ type: 'status', code: TRADE_STREAM_CODES.connected })
+      stream.onmessage = (event) => {
         try {
           const value: unknown = JSON.parse(event.data)
           if (!value || typeof value !== 'object' || !('type' in value))
@@ -122,7 +123,7 @@ export function createTradeDataSource(
             })
           else throw new TypeError('Invalid trade frame')
         } catch (error) {
-          console.error('[Trade stream] Invalid frame', sourceId, error)
+          console.error('[Trade stream] Invalid frame', source, error)
           publish({
             type: 'status',
             code: TRADE_STREAM_CODES.gap,
@@ -131,7 +132,7 @@ export function createTradeDataSource(
           })
         }
       }
-      source.onerror = () =>
+      stream.onerror = () =>
         publish({
           type: 'status',
           code: TRADE_STREAM_CODES.disconnected,
@@ -144,7 +145,7 @@ export function createTradeDataSource(
           return () => listeners.delete(listener)
         },
         close() {
-          source.close()
+          stream.close()
           listeners.clear()
         },
       }

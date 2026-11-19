@@ -20,7 +20,7 @@ export interface KlineWorkbenchProps {
    */
   credentials?: ProviderCredentialStore
   /** 来源 ID 与稳定品种 ID，周期独立控制。 */
-  instrument?: { sourceId: string; id: string }
+  instrument?: { source: string; id: string }
   period?: KLinePeriod
   /**
    * 挂载时是否恢复布局归档里的活动布局，默认 `true`。

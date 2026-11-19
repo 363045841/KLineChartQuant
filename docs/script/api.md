@@ -5100,7 +5100,7 @@ LowerTimeframeOptions.ignore_invalid_timeframe?: boolean | undefined
 LowerTimeframeOptions.source?: DataSource | undefined
 ```
 
-目标来源的 sourceId；仅当请求品种与图表品种不同时必须显式指定。
+目标来源的 source；仅当请求品种与图表品种不同时必须显式指定。
 
 <a id="type-89"></a>
 
@@ -5142,7 +5142,7 @@ export interface SecurityOptions {
 SecurityOptions.source?: DataSource | undefined
 ```
 
-目标来源的 sourceId；仅当请求品种与图表品种不同时必须显式指定。
+目标来源的 source；仅当请求品种与图表品种不同时必须显式指定。
 
 <a id="type-93"></a>
 

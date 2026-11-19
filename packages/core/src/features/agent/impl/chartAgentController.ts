@@ -101,7 +101,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     )
     if (data.length === 0) return null
     return this.marketDataTextFormatter.formatChartBars({
-      sourceId: activeBuffer.selection.sourceId,
+      source: activeBuffer.selection.source,
       symbol,
       period: activeBuffer.selection.period,
       adjustment: activeBuffer.selection.adjustment,

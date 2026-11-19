@@ -17,7 +17,7 @@ import type {
 import { createMarkdownTable, escapeMarkdownCell } from './markdownTable.js'
 
 /** 品种匹配表的固定列；不再展开数据源的嵌套字段。 */
-const INSTRUMENT_COLUMNS = ['sourceId', 'symbol', 'name', 'exchange', 'instrumentType'] as const
+const INSTRUMENT_COLUMNS = ['source', 'symbol', 'name', 'exchange', 'instrumentType'] as const
 
 /** 构造只含品种、来源与时区等元数据的紧凑标题。 */
 function createTitle(
@@ -85,7 +85,7 @@ function createTimeShareTable(data: ReadonlyArray<TimeShareData>, timeZone: stri
 /** 将单个品种投影为固定列的一行，未知字段留占位符。 */
 function instrumentRow(instrument: InstrumentDescriptor): ReadonlyArray<unknown> {
   return [
-    instrument.sourceId,
+    instrument.source,
     instrument.symbol,
     instrument.name,
     instrument.exchange,
@@ -137,7 +137,7 @@ export function createMarketDataTextFormatter(): MarketDataTextFormatter {
       return formatBarsText(
         [
           ['symbol', result.instrument.symbol],
-          ['source', result.sourceId],
+          ['source', result.source],
           ['timezone', timezone],
           ['period', series.period],
           ['adjustment', series.adjustment],
@@ -158,7 +158,7 @@ export function createMarketDataTextFormatter(): MarketDataTextFormatter {
       return formatBarsText(
         [
           ['symbol', input.symbol],
-          ['source', input.sourceId],
+          ['source', input.source],
           ['timezone', timezone],
           ['period', input.period],
           ['adjustment', input.adjustment],
@@ -179,7 +179,7 @@ export function createMarketDataTextFormatter(): MarketDataTextFormatter {
           : `${result.resolvedDate} (requested ${result.requestedDate}, resolved)`
       const header = createTitle('market time share', [
         ['symbol', result.instrument.symbol],
-        ['source', result.sourceId],
+        ['source', result.source],
         ['timezone', result.timezone],
         ['tradingDate', requested],
         ['days', result.days.length],

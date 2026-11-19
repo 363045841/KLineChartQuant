@@ -23,7 +23,7 @@ describe('groupWatchlist', () => {
   })
 
   it('keeps sources missing from the catalog under their id', () => {
-    const item = makeSearchableSymbol({ id: 'ths:1', sourceId: 'ths', symbol: '600000' })
+    const item = makeSearchableSymbol({ id: 'ths:1', source: 'ths', symbol: '600000' })
 
     const groups = groupWatchlist([...TEST_SYMBOLS, item], 'source', SOURCE_LABELS)
 
@@ -33,7 +33,7 @@ describe('groupWatchlist', () => {
   it('orders instrument types by the declared order', () => {
     const crypto = makeSearchableSymbol({
       id: 'binance:spot:BTCUSDT',
-      sourceId: 'binance',
+      source: 'binance',
       symbol: 'BTCUSDT',
       instrumentType: 'crypto',
     })

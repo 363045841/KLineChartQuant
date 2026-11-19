@@ -64,7 +64,7 @@ export class IndicatorBarsRepository {
     }
     const from = bars[0]!.timestamp
     const to = bars[bars.length - 1]!.timestamp
-    const source = request.source ?? session.instrument.sourceId
+    const source = request.source ?? session.instrument.source
     const key = JSON.stringify([
       seriesSelectionKey(session.selection),
       source,

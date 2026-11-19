@@ -34,7 +34,7 @@ export interface ObjectTreeDependencies {
 function toRow(layer: Layer, descriptor: RenderObjectDescriptor, paneId: string): PaneObjectRow {
   return {
     objectId: layer.id,
-    sourceId: descriptor.sourceId,
+    domainId: descriptor.domainId,
     kind: descriptor.kind,
     label: descriptor.label,
     paneId,

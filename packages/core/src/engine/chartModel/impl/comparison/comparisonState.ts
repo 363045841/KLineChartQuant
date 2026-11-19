@@ -6,7 +6,8 @@ import { symbolSpecIdentityKey } from '../../../data/symbolIdentity.js'
 import { immutableMap } from '@/foundation/utils/immutableMap.js'
 
 const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
-const DEFAULT_COMPARISON_COLOR = '#f59e0b'
+/** 对比线的兜底颜色；颜色同步前的快照与图例共用同一个值。 */
+export const DEFAULT_COMPARISON_COLOR = '#f59e0b'
 
 /** 快照化对比品种，冻结数组与元素防止外部改动 kernel 状态。 */
 function snapshotSpecs(specs: ReadonlyArray<SymbolSpec>): ReadonlyArray<SymbolSpec> {

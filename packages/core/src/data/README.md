@@ -66,7 +66,7 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 | Transport 方法 | HTTP 端点 | 方法 | 请求 | 响应 | 作用 |
 |---|---|---|---|---|---|
-| `probe` | `/api/v1/market-data/sources/{sourceId}/probe` | GET | — | `ProtocolSourceProbe` | 探测数据源可用性（在线/离线/降级） |
+| `probe` | `/api/v1/market-data/sources/{source}/probe` | GET | — | `ProtocolSourceProbe` | 探测数据源可用性（在线/离线/降级） |
 | `searchInstruments` | `/api/v1/market-data/instruments/search` | POST | `ProtocolInstrumentSearchRequest` | `ProtocolInstrumentSearchResult` | 按关键词搜索品种目录 |
 | `fetchBars` | `/api/v1/market-data/bars` | POST | `ProtocolBarRequest` | `ProtocolBarSeries` | 游标分页拉取指定品种/周期的 K 线 |
 | `fetchTimeShare` | `/api/v1/market-data/timeshare` | POST | `ProtocolTimeShareRequest` | `ProtocolTimeShareSeries` | 拉取单个交易日内的分时序列 |

@@ -18,6 +18,7 @@ import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import {
+  createChartAgentComparisonCommands,
   createChartAgentController,
   createChartAgentDrawingCommands,
   createChartAgentIndicatorCommands,
@@ -64,7 +65,7 @@ function mapViewportState(vp: EngineViewportState): ChartViewport {
  * 行情工具的源视图。
  *
  * 品种查询与行情各有自己的源集合：查询只看参与目录搜索的源，行情按能力筛选。
- * 工具描述、sourceId 校验与路由都读这一份，避免出现三套不一致的答案。
+ * 工具描述、source 校验与路由都读这一份，避免出现三套不一致的答案。
  */
 function listAgentMarketSources(
   registry: MarketDataProviderRegistry,
@@ -260,20 +261,20 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       scope: drawingScope,
       bars: () => chart.getData(),
     }),
-    comparisons: chart.comparisonCommands,
+    comparisons: createChartAgentComparisonCommands(chart.comparisonCommands),
     market: createChartAgentMarketQueries({
       listSources: (capability) => listAgentMarketSources(marketRegistry, capability),
       lookup: (input) =>
         lookupInstrumentsBySymbol(marketRegistry, {
           symbol: input.query,
-          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.sources === undefined ? {} : { sources: input.sources }),
           ...(input.signal === undefined ? {} : { signal: input.signal }),
         }),
       search: (input) =>
         searchInstruments(marketRegistry, {
           keyword: input.query,
           limit: input.limit,
-          ...(input.sourceIds === undefined ? {} : { sourceIds: input.sourceIds }),
+          ...(input.sources === undefined ? {} : { sources: input.sources }),
           ...(input.signal === undefined ? {} : { signal: input.signal }),
         }),
       cache: chart.getMarketDataCache(),

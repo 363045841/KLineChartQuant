@@ -9,7 +9,7 @@ import type {
 import { InstrumentType, KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart'
 
 /** 生成固定 160 根日线，保证截图与断言可复现。 */
-export function createChartData(): KLineData[] {
+function createChartData(): KLineData[] {
   const start = Date.parse('2026-01-01T00:00:00Z')
   const day = 86_400_000
   const data: KLineData[] = []
@@ -97,5 +97,5 @@ export function createMockDataSource(onSubscriptionChange?: (active: number) => 
       },
     },
   }
-  return { source, instrument: { sourceId: source.id, id: instrument.id } }
+  return { source, instrument: { source: source.id, id: instrument.id } }
 }

@@ -37,12 +37,12 @@ export class MarketDataContext {
   }
 
   /** 按来源及稳定 ID 解析品种，不使用全局默认源猜测。 */
-  async resolveInstrument(sourceId: string, id: string, signal?: AbortSignal) {
-    const provider = this.registry.getRequired(sourceId)
+  async resolveInstrument(source: string, id: string, signal?: AbortSignal) {
+    const provider = this.registry.getRequired(source)
     if (!provider.catalog?.resolve)
       throw new KLineChartError(
         GENERIC_ERROR_CODES.INVALID_STATE,
-        `Source does not implement instrument resolution: ${sourceId}`,
+        `Source does not implement instrument resolution: ${source}`,
       )
     return provider.catalog.resolve(id, signal)
   }
@@ -58,9 +58,9 @@ export class MarketDataContext {
       registry,
       health: this.health.state,
       createConnection: (request) => {
-        const provider = registry.getRequired(request.sourceId)
+        const provider = registry.getRequired(request.source)
         if (provider.realtime) return provider.realtime(request)
-        const connection = registry.getConnection(request.sourceId)
+        const connection = registry.getConnection(request.source)
         const baseUrl = connection.baseUrl ?? connection.defaultBaseUrl
         if (baseUrl === undefined)
           throw new KLineChartError(

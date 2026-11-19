@@ -5,7 +5,7 @@ import { createSseConnection, type LiveEventSource } from '../impl/sseConnection
 import type { LiveFrame, RealtimeConnectionRequest } from '../types.js'
 
 const REQUEST: RealtimeConnectionRequest = {
-  sourceId: 'binance',
+  source: 'binance',
   channel: 'bars',
   instrumentIds: ['binance:perp:BTCUSDT'],
   period: '60min',

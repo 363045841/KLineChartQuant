@@ -6,7 +6,7 @@ import type {
   MarketDataSource,
 } from '@363045841yyt/klinechart-core/market-data'
 
-export function createE2eChartData(): KLineData[] {
+function createE2eChartData(): KLineData[] {
   const start = Date.parse('2026-01-01T00:00:00Z')
   const day = 86_400_000
   const data: KLineData[] = []
@@ -96,7 +96,7 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
   }
   return {
     source,
-    instrument: { sourceId: source.id, id: instrument.id },
+    instrument: { source: source.id, id: instrument.id },
     metrics,
     /** 改写权威末根并发送一根增量，既不调用图表，也不重发历史数组。 */
     updateLastBar() {

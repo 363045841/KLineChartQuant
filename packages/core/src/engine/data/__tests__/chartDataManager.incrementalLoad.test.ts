@@ -70,7 +70,9 @@ describe('ChartDataManager incremental load', () => {
             bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
           },
         }),
-        searchInstruments: async () => ({ items: [instrument] }),
+        searchInstruments: async () => ({
+          items: [{ ...instrument, sourceId: instrument.source }],
+        }),
         fetchBars,
         fetchTimeShare: async () => {
           throw new Error('time share is not declared')

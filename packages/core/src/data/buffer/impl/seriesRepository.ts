@@ -3,13 +3,13 @@ import type { SymbolSpec } from '@/controllers/types.js'
 import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import { immutableMap as mapSnapshot } from '@/foundation/utils/immutableMap.js'
 import type { BarAggregation, KLineAdjustment, KLinePeriod, TradingDate } from '../../provider/types.js'
-import { AUTO_SOURCE_ID } from '../../provider/types.js'
+import { AUTO_SOURCE } from '../../provider/types.js'
 import type { TradeBuffer } from '../../trades/types.js'
 import type { KLineBuffer, TimeShareBuffer } from '../types.js'
 
 export type InstrumentKey = string
-export type SourceId = string
-export type BarSeriesKey = string
+export type Source = string
+type BarSeriesKey = string
 export type TradingDateKey = TradingDate | typeof LATEST_TRADING_DATE
 
 export const LATEST_TRADING_DATE = 'latest'
@@ -26,7 +26,7 @@ export type SeriesSelection =
   | {
       readonly kind: typeof SERIES_SELECTION_KIND.bars
       readonly instrumentKey: InstrumentKey
-      readonly sourceId: SourceId
+      readonly source: Source
       readonly period: KLinePeriod
       readonly adjustment: KLineAdjustment
       readonly barAggregation: BarAggregation
@@ -34,7 +34,7 @@ export type SeriesSelection =
   | {
       readonly kind: typeof SERIES_SELECTION_KIND.timeShare
       readonly instrumentKey: InstrumentKey
-      readonly sourceId: SourceId
+      readonly source: Source
       readonly tradingDate: TradingDateKey
     }
 
@@ -42,7 +42,7 @@ export type SeriesSelection =
 export interface TradesSelection {
   readonly kind: typeof SERIES_SELECTION_KIND.trades
   readonly instrumentKey: InstrumentKey
-  readonly sourceId: SourceId
+  readonly source: Source
 }
 
 /** 仓库管理的输入包括图表序列及指标所需的原始成交。 */
@@ -64,19 +64,19 @@ export type TimeShareSelection = Extract<
 >
 
 /** 单个来源提供的 K 线与分时序列。 */
-export interface SourceSeriesNode {
+interface SourceSeriesNode {
   readonly bars: ReadonlyMap<BarSeriesKey, KLineBuffer>
   readonly timeShare: ReadonlyMap<TradingDateKey, TimeShareBuffer>
   readonly trades?: TradeBuffer
 }
 
 /** 同一市场品种按实际数据来源隔离的数据集合。 */
-export interface InstrumentSeriesNode {
-  readonly sources: ReadonlyMap<SourceId, SourceSeriesNode>
+interface InstrumentSeriesNode {
+  readonly sources: ReadonlyMap<Source, SourceSeriesNode>
 }
 
 /** 图表实例内全部行情序列的只读拓扑。 */
-export type SeriesRepositorySnapshot = ReadonlyMap<InstrumentKey, InstrumentSeriesNode>
+type SeriesRepositorySnapshot = ReadonlyMap<InstrumentKey, InstrumentSeriesNode>
 
 /** auto 来源解析后的叶子归属结果。 */
 export interface SourceMoveResult {
@@ -98,9 +98,9 @@ export function instrumentKeyFromSpec(spec: SymbolSpec): InstrumentKey {
 }
 
 /** 读取请求指定的来源；未指定时以 auto 表达尚未路由的来源策略。 */
-export function sourceIdFromSpec(spec: SymbolSpec): SourceId {
-  const sourceId = spec.source ?? spec.instrument?.sourceId
-  return sourceId?.trim() || AUTO_SOURCE_ID
+export function sourceFromSpec(spec: SymbolSpec): Source {
+  const source = spec.source ?? spec.instrument?.source
+  return source?.trim() || AUTO_SOURCE
 }
 
 /** 生成 K 线叶子键，周期、复权和聚合方式共同决定序列身份。 */
@@ -115,12 +115,12 @@ function barSeriesKey(
 /** 生成可用于订阅表和兼容诊断字段的稳定选择键。 */
 export function seriesSelectionKey(selection: RepositorySelection): string {
   if (selection.kind === SERIES_SELECTION_KIND.trades)
-    return JSON.stringify([selection.kind, selection.instrumentKey, selection.sourceId])
+    return JSON.stringify([selection.kind, selection.instrumentKey, selection.source])
   return selection.kind === SERIES_SELECTION_KIND.bars
     ? JSON.stringify([
         selection.kind,
         selection.instrumentKey,
-        selection.sourceId,
+        selection.source,
         selection.period,
         selection.adjustment,
         selection.barAggregation,
@@ -128,7 +128,7 @@ export function seriesSelectionKey(selection: RepositorySelection): string {
     : JSON.stringify([
         selection.kind,
         selection.instrumentKey,
-        selection.sourceId,
+        selection.source,
         selection.tradingDate,
       ])
 }
@@ -268,13 +268,13 @@ export class SeriesRepository {
   }
 
   /** 将 auto 叶子迁移到首次成功的实际来源节点，不复制或销毁 Buffer。 */
-  moveToSource(selection: SeriesSelection, sourceId: SourceId): SourceMoveResult {
+  moveToSource(selection: SeriesSelection, source: Source): SourceMoveResult {
     const buffer = this.get(selection)
     if (!buffer) throw new Error('[SeriesRepository] source selection does not exist')
-    const normalizedSourceId = sourceId.trim()
-    if (!normalizedSourceId || normalizedSourceId === selection.sourceId)
+    const normalizedSource = source.trim()
+    if (!normalizedSource || normalizedSource === selection.source)
       return { selection, buffer, moved: false }
-    const next = { ...selection, sourceId: normalizedSourceId }
+    const next = { ...selection, source: normalizedSource }
     const collision = this.get(next)
     if (collision && collision !== buffer) {
       this.delete(selection)
@@ -284,16 +284,16 @@ export class SeriesRepository {
     const current = this._snapshot.peek()
     const instrument = current.get(selection.instrumentKey)!
     const sources = new Map(instrument.sources)
-    const dropped = withoutLeaf(instrument.sources.get(selection.sourceId)!, selection)
-    if (isEmptySourceNode(dropped)) sources.delete(selection.sourceId)
-    else sources.set(selection.sourceId, dropped)
+    const dropped = withoutLeaf(instrument.sources.get(selection.source)!, selection)
+    if (isEmptySourceNode(dropped)) sources.delete(selection.source)
+    else sources.set(selection.source, dropped)
     const registration: SeriesRegistration =
       selection.kind === SERIES_SELECTION_KIND.bars
         ? { ...selection, buffer: this.getBars(selection)! }
         : { ...selection, buffer: this.getTimeShare(selection)! }
     sources.set(
-      normalizedSourceId,
-      withLeaf(sources.get(normalizedSourceId) ?? EMPTY_SOURCE_NODE, registration),
+      normalizedSource,
+      withLeaf(sources.get(normalizedSource) ?? EMPTY_SOURCE_NODE, registration),
     )
 
     const snapshot = new Map(current)
@@ -313,16 +313,16 @@ export class SeriesRepository {
   }
 
   /** 释放一个品种在旧连接上的全部快照，其他来源保持可用。 */
-  deleteSource(instrumentKey: InstrumentKey, sourceId: SourceId): boolean {
+  deleteSource(instrumentKey: InstrumentKey, sourceKey: Source): boolean {
     const current = this._snapshot.peek()
     const instrument = current.get(instrumentKey)
-    const source = instrument?.sources.get(sourceId)
-    if (!instrument || !source) return false
-    for (const buffer of source.bars.values()) this.disposeBuffer(buffer)
-    for (const buffer of source.timeShare.values()) this.disposeBuffer(buffer)
-    if (source.trades) this.disposeBuffer(source.trades)
+    const node = instrument?.sources.get(sourceKey)
+    if (!instrument || !node) return false
+    for (const buffer of node.bars.values()) this.disposeBuffer(buffer)
+    for (const buffer of node.timeShare.values()) this.disposeBuffer(buffer)
+    if (node.trades) this.disposeBuffer(node.trades)
     const sources = new Map(instrument.sources)
-    sources.delete(sourceId)
+    sources.delete(sourceKey)
     const next = new Map(current)
     if (sources.size) next.set(instrumentKey, Object.freeze({ sources: mapSnapshot(sources) }))
     else next.delete(instrumentKey)
@@ -361,7 +361,7 @@ export class SeriesRepository {
 
   /** 读取 selection 对应的来源节点。 */
   private getSource(selection: RepositorySelection): SourceSeriesNode | undefined {
-    return this._snapshot.peek().get(selection.instrumentKey)?.sources.get(selection.sourceId)
+    return this._snapshot.peek().get(selection.instrumentKey)?.sources.get(selection.source)
   }
 
   /** 注册一个尚不存在的叶子 Buffer，并发布新的不可变拓扑。 */
@@ -379,8 +379,8 @@ export class SeriesRepository {
     const current = this._snapshot.peek()
     const instrument = current.get(selection.instrumentKey)
     const sources = new Map(instrument?.sources)
-    if (isEmptySourceNode(node)) sources.delete(selection.sourceId)
-    else sources.set(selection.sourceId, node)
+    if (isEmptySourceNode(node)) sources.delete(selection.source)
+    else sources.set(selection.source, node)
 
     const next = new Map(current)
     if (sources.size === 0) next.delete(selection.instrumentKey)

@@ -28,7 +28,7 @@ function createCache(
   const registry = new MarketDataProviderRegistry()
   const instrument = {
     id: 'test:BTCUSDT',
-    sourceId: 'test',
+    source: 'test',
     symbol: 'BTCUSDT',
     name: 'Bitcoin',
     instrumentType: 'crypto' as const,
@@ -53,7 +53,7 @@ function createCache(
 
 function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
   return {
-    sourceId: 'test',
+    source: 'test',
     symbol: 'BTCUSDT',
     exchange: 'BINANCE',
     instrumentType: 'crypto' as const,

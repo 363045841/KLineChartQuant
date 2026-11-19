@@ -48,7 +48,7 @@ import {
 } from '../../../data/management/impl/context.js'
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
-import { AUTO_SOURCE_ID } from '../../../data/provider/types.js'
+import { AUTO_SOURCE } from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
@@ -510,34 +510,38 @@ export class Chart {
       getSpecs: () => this.kernel.comparison.readonly.specs.peek(),
       setSpecs: (specs) => this.setComparisonSpecs(specs),
       registerSpec: (spec) => this.dataManager.registerSymbols([symbolInfoFromSpec(spec)]),
-      resolveInstrument: async ({ symbol, source }) => {
+      resolveInstrument: async ({ symbol, source }, signal) => {
         // 具体源才限定查询范围，auto/缺省时允许跨全部已启用数据源解析。
-        const restrictedSourceIds = source && source !== AUTO_SOURCE_ID ? [source] : undefined
-        const matches = await lookupInstrumentsBySymbol(this.marketDataProviderRegistry, {
+        const restrictedSources = source && source !== AUTO_SOURCE ? [source] : undefined
+        const result = await lookupInstrumentsBySymbol(this.marketDataProviderRegistry, {
           symbol,
-          sourceIds: restrictedSourceIds,
+          ...(restrictedSources === undefined ? {} : { sources: restrictedSources }),
+          ...(signal === undefined ? {} : { signal }),
         })
-        const enabledSourceIds = this.marketDataProviderRegistry
-          .getEnabled()
-          .map((provider) => provider.source.id)
         // 候选不做挑选：歧义裁决属于 ComparisonCommands 的领域策略。
-        if (matches.length > 0 || !restrictedSourceIds) {
+        if (result.instruments.length > 0 || restrictedSources === undefined)
           return {
-            candidates: matches,
-            searchedSourceIds: restrictedSourceIds ?? enabledSourceIds,
-            foundElsewhereSourceIds: [],
+            candidates: result.instruments,
+            searchedSources: result.searchedSources,
+            foundElsewhereSources: [],
+            failedSources: result.failedSources,
           }
-        }
         // 限定源未命中：跨全部已启用源再查一次，用于提示 Agent 换源重试。
         const elsewhere = await lookupInstrumentsBySymbol(this.marketDataProviderRegistry, {
           symbol,
+          ...(signal === undefined ? {} : { signal }),
         })
         return {
           candidates: [],
-          searchedSourceIds: restrictedSourceIds,
-          foundElsewhereSourceIds: [...new Set(elsewhere.map((item) => item.sourceId))],
+          searchedSources: result.searchedSources,
+          foundElsewhereSources: [...new Set(elsewhere.instruments.map((item) => item.source))],
+          failedSources: result.failedSources,
         }
       },
+      isHidden: (identity) =>
+        this.kernel.comparison.readonly.hidden.peek().get(identity) === true,
+      setHidden: (identity, hidden) =>
+        this.kernel.comparison.actions.setHidden(identity, hidden),
       getColor: (identity) => this.kernel.comparison.readonly.colors.peek().get(identity),
       scheduleDraw: () => this.scheduleDraw(),
     })
@@ -791,9 +795,6 @@ export class Chart {
       panes: this.panes,
       indicators: this.indicators,
       comparisons: this.comparisonCommands,
-      getComparisonHidden: (identity) =>
-        this.dataManager.getComparisonHidden().get(identity) === true,
-      setComparisonHidden: (identity, hidden) => this.setComparisonHidden(identity, hidden),
       getOptions: () => this.getOption(),
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       getPricePaneId: () => this.kernel.systemObjects.readonly.pricePaneId.peek(),
@@ -1904,13 +1905,12 @@ export class Chart {
 
   /** 按 identity 或品种代码移除对比品种。 */
   removeComparisonSymbol(symbol: string): void {
-    this.comparisonCommands.remove({ identity: symbol })
+    this.comparisonCommands.remove(symbol)
   }
 
-  /** 切换比较折线可见性，保留图例名称和比较选择。 */
+  /** 切换比较折线可见性，保留图例名称和比较选择；写入口收归 comparisonCommands。 */
   setComparisonHidden(identity: string, hidden: boolean): void {
-    this.kernel.comparison.actions.setHidden(identity, hidden)
-    this.scheduleDraw()
+    this.comparisonCommands.setVisible(identity, !hidden)
   }
 
   setCurrentSymbol(symbol: string): void {

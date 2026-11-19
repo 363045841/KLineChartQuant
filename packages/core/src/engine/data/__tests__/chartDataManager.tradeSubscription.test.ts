@@ -79,7 +79,7 @@ describe('ChartDataManager trade subscription', () => {
         const page = makeBarsPage([makeKLine(100), makeKLine(200)])
         expect(finishLoad).toBeDefined()
         finishLoad?.({
-          sourceId: 'test',
+          source: 'test',
           instrument,
           series: { ...page, barAggregation: 'original' },
         })

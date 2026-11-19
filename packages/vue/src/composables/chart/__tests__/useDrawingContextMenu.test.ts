@@ -114,13 +114,13 @@ describe('绘图图元右键菜单', () => {
 
   it('对象树只有图元行命中图元来源', () => {
     expect(
-      resolveContextMenuSource(null, { kind: 'object', sourceId: 'a', objectKind: 'drawing' }),
+      resolveContextMenuSource(null, { kind: 'object', source: 'a', objectKind: 'drawing' }),
     ).toEqual({ kind: 'drawing', drawingId: 'a' })
     expect(
-      resolveContextMenuSource(null, { kind: 'object', sourceId: 'i', objectKind: 'indicator' }),
+      resolveContextMenuSource(null, { kind: 'object', source: 'i', objectKind: 'indicator' }),
     ).toBeNull()
     expect(
-      resolveContextMenuSource(null, { kind: 'object', sourceId: 's', objectKind: 'system' }),
+      resolveContextMenuSource(null, { kind: 'object', source: 's', objectKind: 'system' }),
     ).toBeNull()
   })
 

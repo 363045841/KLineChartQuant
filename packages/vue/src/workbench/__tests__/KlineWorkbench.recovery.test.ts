@@ -56,7 +56,7 @@ describe('workbench recovery', () => {
     const host = createMarketDataHost()
     host.registerDataSource(fixture.source)
     const wrapper = mount(KlineWorkbench, { props: {
-      marketDataContext: host, instrument: { sourceId: 'test', id: 'A' }, scripts: false,
+      marketDataContext: host, instrument: { source: 'test', id: 'A' }, scripts: false,
       // Agent 面板改为首次展开才挂载，这里显式展开以验证错误恢复期间实例不被重建。
       initialAgentPanelOpen: true,
     } })
@@ -69,10 +69,10 @@ describe('workbench recovery', () => {
       await flushPromises()
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
-      await wrapper.setProps({ instrument: { sourceId: 'test', id: 'missing' } })
+      await wrapper.setProps({ instrument: { source: 'test', id: 'missing' } })
       await flushPromises()
       expect(wrapper.get('[role="alert"]').text()).toContain('Unknown instrument')
-      await wrapper.setProps({ instrument: { sourceId: 'test', id: 'B' } })
+      await wrapper.setProps({ instrument: { source: 'test', id: 'B' } })
       await flushPromises()
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
       expect(lifecycle.chartMounted).toHaveBeenCalledOnce()

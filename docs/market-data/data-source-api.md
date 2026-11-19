@@ -45,7 +45,7 @@ const unregister = host.registerDataSource(source)
 ```vue
 <KlineWorkbench
   :market-data-context="host"
-  :instrument="{ sourceId: 'broker', id: 'stable-instrument-id' }"
+  :instrument="{ source: 'broker', id: 'stable-instrument-id' }"
   period="daily"
 />
 ```

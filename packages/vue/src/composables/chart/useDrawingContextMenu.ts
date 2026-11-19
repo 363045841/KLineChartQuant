@@ -58,8 +58,8 @@ export interface CanvasContextMenuTarget {
 /** 对象树右键目标：行的领域身份与对象类型。 */
 export interface ObjectContextMenuTarget {
   readonly kind: 'object'
-  /** 领域身份，由 `RenderObjectDescriptor.sourceId` 透传到对象树行。 */
-  readonly sourceId: string
+  /** 领域身份，由 `RenderObjectDescriptor.source` 透传到对象树行。 */
+  readonly source: string
   readonly objectKind: RenderObjectKind
 }
 
@@ -86,7 +86,7 @@ export function resolveContextMenuSource(
   target: CanvasContextMenuTarget | ObjectContextMenuTarget,
 ): ContextMenuSource | null {
   if (target.kind === 'object')
-    return target.objectKind === 'drawing' ? { kind: 'drawing', drawingId: target.sourceId } : null
+    return target.objectKind === 'drawing' ? { kind: 'drawing', drawingId: target.source } : null
   const hit = drawing?.hitTestAt(target.x, target.y) ?? null
   return hit ? { kind: 'drawing', drawingId: hit.id } : { kind: 'chart' }
 }

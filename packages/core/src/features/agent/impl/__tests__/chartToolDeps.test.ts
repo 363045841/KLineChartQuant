@@ -4,7 +4,7 @@
  * 依赖全部是窄接口替身，因此用例直接断言"调用了哪个领域命令"，不需要图表实例。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { IndicatorParamDef } from '@/controllers/types'
+import type { IndicatorParamDef, SymbolSpec } from '@/controllers/types'
 import type {
   BarsWindowCacheQuery,
   BarsWindowCacheResult,
@@ -12,9 +12,13 @@ import type {
   TimeShareCacheResult,
   TimeShareRangeCacheResult,
 } from '@/data/buffer/impl/marketDataCache'
-import type { InstrumentDescriptor, TradingDate } from '@/data/provider/types'
+import type { InstrumentDescriptor, InstrumentRef, TradingDate } from '@/data/provider/types'
 import type { TimeShareData } from '@/foundation/types/price'
 import type { IndicatorInstance } from '@/engine/chart/types'
+import type {
+  ComparisonCommandsApi,
+  ComparisonSnapshot,
+} from '@/engine/data/comparisonCommands'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '@/engine/pane/types'
 import type { ChartAgentMarketQueriesDependencies } from '../../types'
@@ -28,6 +32,7 @@ import {
 import { ToolInputValidationError } from '@/foundation/agent/index'
 import { createSignal } from '@/foundation/reactivity/signal'
 import {
+  createChartAgentComparisonCommands,
   createChartAgentDrawingCommands,
   createChartAgentIndicatorCommands,
   createChartAgentMarketQueries,
@@ -590,6 +595,90 @@ describe('drawing commands', () => {
   })
 })
 
+describe('comparison commands', () => {
+  /** 组装对比命令面替身；领域快照带完整 spec，工具视图只做投影。 */
+  function fixture() {
+    const spec: SymbolSpec = {
+      id: '600519',
+      instrument: {
+        id: '600519',
+        source: 'tdx',
+        symbol: '600519',
+        name: '贵州茅台',
+        instrumentType: 'stock',
+        exchange: 'SSE',
+        sessionId: 'CN',
+        capabilities: {},
+      },
+      symbol: '600519',
+      market: 'CN',
+      exchange: 'SSE',
+      source: 'tdx',
+    }
+    const snapshot: ComparisonSnapshot = {
+      identity: 'instrument:tdx:600519',
+      spec,
+      color: '#f59e0b',
+      visible: true,
+    }
+    const created: InstrumentRef[] = []
+    const visibility: Array<[string, boolean]> = []
+    const removed: string[] = []
+    const commands: ComparisonCommandsApi = {
+      list: () => [snapshot],
+      create: async (input) => {
+        created.push(input)
+        return { status: 'added', comparison: snapshot }
+      },
+      add: () => true,
+      setVisible: (identity, visible) => {
+        visibility.push([identity, visible])
+        return { ...snapshot, visible }
+      },
+      remove: (identity) => {
+        removed.push(identity)
+        return snapshot
+      },
+    }
+    return { agent: createChartAgentComparisonCommands(commands), created, visibility, removed }
+  }
+
+  it('列表投影成模型需要的字段，不展开品种描述', () => {
+    const { agent } = fixture()
+    expect(agent.list()).toEqual([
+      {
+        identity: 'instrument:tdx:600519',
+        symbol: '600519',
+        name: '贵州茅台',
+        exchange: 'SSE',
+        source: 'tdx',
+        instrumentType: 'stock',
+        color: '#f59e0b',
+        visible: true,
+      },
+    ])
+  })
+
+  it('创建透传路由字段与取消信号，并返回投影后的快照', async () => {
+    const { agent, created } = fixture()
+    const signal = new AbortController().signal
+    const result = await agent.create({ symbol: '600519', source: 'tdx' }, signal)
+    expect(created).toEqual([{ symbol: '600519', source: 'tdx' }])
+    expect(result).toEqual({
+      status: 'added',
+      comparison: expect.objectContaining({ identity: 'instrument:tdx:600519', source: 'tdx' }),
+    })
+  })
+
+  it('显隐与删除复用 identity', () => {
+    const { agent, visibility, removed } = fixture()
+    agent.setVisible('instrument:tdx:600519', false)
+    agent.remove('instrument:tdx:600519')
+    expect(visibility).toEqual([['instrument:tdx:600519', false]])
+    expect(removed).toEqual(['instrument:tdx:600519'])
+  })
+})
+
 describe('market queries', () => {
   const TIMEZONE = 'Asia/Shanghai'
   const LATEST_DAY = Date.parse('2026-11-17T00:00:00+08:00')
@@ -600,7 +689,7 @@ describe('market queries', () => {
   function instrument(): InstrumentDescriptor {
     return {
       id: 'tdx:stock:600519',
-      sourceId: 'tdx',
+      source: 'tdx',
       symbol: '600519',
       name: '贵州茅台',
       instrumentType: 'stock',
@@ -620,7 +709,7 @@ describe('market queries', () => {
       volume: 10,
     }))
     return {
-      sourceId: 'tdx',
+      source: 'tdx',
       instrument: instrument(),
       series: {
         instrumentId: 'tdx:stock:600519',
@@ -639,7 +728,7 @@ describe('market queries', () => {
   /** 构造单日分时结果；默认空数据，用于表达"该日没有分时"。 */
   function timeShare(query: TimeShareCacheQuery, data: TimeShareData[] = []): TimeShareCacheResult {
     return {
-      sourceId: 'tdx',
+      source: 'tdx',
       instrument: instrument(),
       series: {
         instrumentId: 'tdx:stock:600519',
@@ -654,7 +743,7 @@ describe('market queries', () => {
   /** 构造多日分时结果；区间终点固定为 11-18。 */
   function timeShareRange(): TimeShareRangeCacheResult {
     return {
-      sourceId: 'tdx',
+      source: 'tdx',
       instrument: instrument(),
       range: {
         instrumentId: 'tdx:stock:600519',
@@ -676,6 +765,8 @@ describe('market queries', () => {
       readonly timeShareSources?: ReadonlyArray<string>
       readonly exact?: ReadonlyArray<InstrumentDescriptor>
       readonly keyword?: ReadonlyArray<InstrumentDescriptor>
+      /** 精确查询失败的源；用于验证“没查成”不会被报成“不存在”。 */
+      readonly failedSources?: ReadonlyArray<string>
       /** K 线查询返回的窗口；缺省用两根日线。 */
       readonly window?: BarsWindowCacheResult
       /** 有分时数据的交易日；缺省只有 11-17。 */
@@ -704,7 +795,11 @@ describe('market queries', () => {
         async (): Promise<TimeShareRangeCacheResult> => timeShareRange(),
       ),
     }
-    const search = vi.fn(async () => [...(input.keyword ?? [])])
+    const search = vi.fn(async () => ({
+      instruments: [...(input.keyword ?? [])],
+      searchedSources: ['tdx'],
+      failedSources: [],
+    }))
     const queries = createChartAgentMarketQueries({
       listSources: (capability) => {
         const ids =
@@ -715,7 +810,11 @@ describe('market queries', () => {
               : (input.timeShareSources ?? ['tdx'])
         return ids.map((id) => ({ id }))
       },
-      lookup: async () => [...(input.exact ?? [])],
+      lookup: async () => ({
+        instruments: [...(input.exact ?? [])],
+        searchedSources: ['tdx'],
+        failedSources: input.failedSources ?? [],
+      }),
       search,
       cache,
       now: () => NOW,
@@ -748,7 +847,19 @@ describe('market queries', () => {
     const { queries } = fixture()
     await expect(queries.lookup({ query: 'NOPE', limit: 10 })).rejects.toMatchObject({
       code: ERROR_CODES.INSTRUMENT_NOT_FOUND,
-      details: { query: 'NOPE', sourceIds: ['tdx'] },
+      details: { query: 'NOPE', sources: ['tdx'] },
+    })
+  })
+
+  it('有源查询失败且无候选时抛取数错误，而不是“不存在”', async () => {
+    const { queries } = fixture({ failedSources: ['binance'] })
+    await expect(queries.lookup({ query: 'NOPE', limit: 10 })).rejects.toMatchObject({
+      code: ERROR_CODES.FETCH_FAILED,
+      details: {
+        query: 'NOPE',
+        searchedSources: ['tdx'],
+        failedSources: ['binance'],
+      },
     })
   })
 
@@ -796,7 +907,7 @@ describe('market queries', () => {
     expect(cache.queryBarsWindow).not.toHaveBeenCalled()
   })
 
-  it('sourceId 必须能服务当前能力，错误里给出可用值', async () => {
+  it('source 必须能服务当前能力，错误里给出可用值', async () => {
     const { queries, cache } = fixture()
     await expect(
       queries.bars({
@@ -804,9 +915,9 @@ describe('market queries', () => {
         period: 'daily',
         adjustment: 'none',
         limit: 10,
-        sourceId: 'ths',
+        source: 'ths',
       }),
-    ).rejects.toThrow(/sourceId 'ths' cannot serve bars\. Available sourceIds: tdx/)
+    ).rejects.toThrow(/source 'ths' cannot serve bars\. Available sources: tdx/)
     expect(cache.queryBarsWindow).not.toHaveBeenCalled()
   })
 

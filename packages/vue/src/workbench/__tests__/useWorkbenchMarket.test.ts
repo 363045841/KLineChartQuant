@@ -16,7 +16,7 @@ describe('workbench market selection', () => {
     resolve.mockRejectedValueOnce(new Error('Network unavailable'))
     let unregister = host.registerDataSource(fixture.source)
     const props = shallowReactive<KlineWorkbenchProps>({
-      marketDataContext: host, instrument: { sourceId: 'test', id: 'A' },
+      marketDataContext: host, instrument: { source: 'test', id: 'A' },
     })
     const market = scope.run(() => useWorkbenchMarket(props, onError))!
     try {
@@ -27,10 +27,10 @@ describe('workbench market selection', () => {
       expect(market.error.value).toBeNull()
       expect(market.symbols.value?.[0]?.symbol).toBe('A')
 
-      props.instrument = { sourceId: 'test', id: 'missing' }
+      props.instrument = { source: 'test', id: 'missing' }
       await nextTick()
       await vi.waitFor(() => expect(market.error.value).not.toBeNull())
-      props.instrument = { sourceId: 'test', id: 'B' }
+      props.instrument = { source: 'test', id: 'B' }
       await nextTick()
       await vi.waitFor(() => expect(market.symbols.value?.[0]?.symbol).toBe('B'))
       expect(market.error.value).toBeNull()
@@ -59,12 +59,12 @@ describe('workbench market selection', () => {
       return new Promise((resolve) => { finish = resolve })
     })
     host.registerDataSource(fixture.source)
-    const props = shallowReactive<KlineWorkbenchProps>({ marketDataContext: host, instrument: { sourceId: 'test', id: 'A' } })
+    const props = shallowReactive<KlineWorkbenchProps>({ marketDataContext: host, instrument: { source: 'test', id: 'A' } })
     const onError = vi.fn()
     const market = scope.run(() => useWorkbenchMarket(props, onError))!
     try {
       const first = market.initialize()
-      props.instrument = { sourceId: 'test', id: 'B' }
+      props.instrument = { source: 'test', id: 'B' }
       await nextTick()
       await vi.waitFor(() => expect(market.symbols.value?.[0]?.symbol).toBe('B'))
       expect(signal?.aborted).toBe(true)

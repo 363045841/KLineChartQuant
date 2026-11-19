@@ -13,7 +13,7 @@ import type {
 
 const instrument: InstrumentDescriptor = {
   id: 'gotdx:stock:1:600519',
-  sourceId: 'gotdx',
+  source: 'gotdx',
   symbol: '600519',
   name: '贵州茅台',
   instrumentType: 'stock',
@@ -25,6 +25,9 @@ const instrument: InstrumentDescriptor = {
     timeShare: true,
   },
 }
+
+/** 后端 wire 条目字段名固定为 sourceId；领域模型统一叫 source。 */
+const wireInstrument = { ...instrument, sourceId: instrument.source }
 
 // 构造只探针的假 Transport，其余能力由各测试按需覆盖
 function fakeTransport(overrides: Partial<MarketDataTransport> = {}): MarketDataTransport {
@@ -167,7 +170,7 @@ describe('createMarketDataProvider', () => {
     const provider = createProvider(
       fakeTransport({
         searchInstruments: async () => ({
-          items: [instrument],
+          items: [wireInstrument],
         }),
       }),
     )
@@ -352,7 +355,7 @@ describe('createMarketDataProvider', () => {
         instrument: {
           ...instrument,
           id,
-          sourceId: 'binance',
+          source: 'binance',
           sessionId,
           exchange: 'BINANCE',
           capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },

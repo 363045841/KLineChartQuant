@@ -11,19 +11,19 @@ info:
 
     V1 覆盖数据源探测、品种搜索、历史 K 线、未来交易槽位日历和单交易日分时。实时深度使用
     独立连接 Transport，不包含在本 REST 协议中。实时逐笔 tick 通过独立的
-    SSE 连接提供，见 `/sources/{sourceId}/ticks/stream`。
+    SSE 连接提供，见 `/sources/{source}/ticks/stream`。
 servers:
   - url: http://127.0.0.1:8080
     description: 本地 GOTDX 服务
 # 本地默认部署无认证；生产部署可由网关追加认证方案。
 security: []
 paths:
-  /api/v1/market-data/sources/{sourceId}/probe:
+  /api/v1/market-data/sources/{source}/probe:
     get:
       operationId: probeMarketDataSource
       summary: 探测数据源可用性
       parameters:
-        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/Source'
       responses:
         '200':
           description: 数据源探测结果
@@ -131,7 +131,7 @@ paths:
         '502':
           $ref: '#/components/responses/ErrorResponse'
 
-  /api/v1/market-data/sources/{sourceId}/ticks/stream:
+  /api/v1/market-data/sources/{source}/ticks/stream:
     get:
       operationId: streamTicks
       summary: 订阅指定品种的实时逐笔 tick（SSE）
@@ -140,7 +140,7 @@ paths:
         事件 id 为流内单调递增序号，断线重连时可经 Last-Event-ID 请求补帧；
         新订阅只推送建立之后的 tick，不回放历史。tick 与 period 无关。
       parameters:
-        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/Source'
         - name: symbol
           in: query
           required: true
@@ -162,8 +162,8 @@ paths:
 
 components:
   parameters:
-    SourceId:
-      name: sourceId
+    Source:
+      name: source
       in: path
       required: true
       schema:
@@ -218,7 +218,7 @@ components:
           type: object
           additionalProperties: true
 
-    SourceId:
+    Source:
       type: string
       minLength: 1
       example: gotdx
@@ -286,7 +286,7 @@ components:
       type: object
       required:
         - id
-        - sourceId
+        - source
         - symbol
         - name
         - instrumentType
@@ -297,8 +297,8 @@ components:
           type: string
           description: 数据源范围内稳定且唯一的品种 ID
           example: gotdx:stock:1:600519
-        sourceId:
-          $ref: '#/components/schemas/SourceId'
+        source:
+          $ref: '#/components/schemas/Source'
         symbol:
           type: string
           example: '600519'
@@ -344,10 +344,10 @@ components:
 
     InstrumentSearchRequest:
       type: object
-      required: [sourceId, keyword, limit]
+      required: [source, keyword, limit]
       properties:
-        sourceId:
-          $ref: '#/components/schemas/SourceId'
+        source:
+          $ref: '#/components/schemas/Source'
         keyword:
           type: string
           minLength: 1
@@ -378,10 +378,10 @@ components:
 
     TradingCalendarRequest:
       type: object
-      required: [sourceId, instrument, period, adjustment, barAggregation, anchorTimestamp, count]
+      required: [source, instrument, period, adjustment, barAggregation, anchorTimestamp, count]
       properties:
-        sourceId:
-          $ref: '#/components/schemas/SourceId'
+        source:
+          $ref: '#/components/schemas/Source'
         instrument:
           $ref: '#/components/schemas/InstrumentReference'
         period:
@@ -416,10 +416,10 @@ components:
 
     BarRequest:
       type: object
-      required: [sourceId, instrument, period, adjustment, from, to]
+      required: [source, instrument, period, adjustment, from, to]
       properties:
-        sourceId:
-          $ref: '#/components/schemas/SourceId'
+        source:
+          $ref: '#/components/schemas/Source'
         instrument:
           $ref: '#/components/schemas/InstrumentReference'
         period:
@@ -500,10 +500,10 @@ components:
 
     TimeShareRequest:
       type: object
-      required: [sourceId, instrument, tradingDate]
+      required: [source, instrument, tradingDate]
       properties:
-        sourceId:
-          $ref: '#/components/schemas/SourceId'
+        source:
+          $ref: '#/components/schemas/Source'
         instrument:
           $ref: '#/components/schemas/InstrumentReference'
         tradingDate:

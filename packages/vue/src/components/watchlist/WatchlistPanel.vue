@@ -18,7 +18,7 @@
       class="watchlist__quote-issues"
       role="status"
     >
-      <p v-for="issue in quoteIssues" :key="issue.sourceId" class="watchlist__quote-issue">
+      <p v-for="issue in quoteIssues" :key="issue.source" class="watchlist__quote-issue">
         <span class="watchlist__issue-source">{{ issue.label }}</span>
         <span class="watchlist__issue-message" :title="issue.message">{{ issue.message }}</span>
       </p>
@@ -130,7 +130,7 @@
 
   /** 行情提示条目：来源展示名 + 失败原因。 */
   interface QuoteIssue {
-    sourceId: string
+    source: string
     label: string
     message: string
   }
@@ -175,7 +175,7 @@
 
   /** 该行可用的报价：来源必须在线，断线时整行回到占位而不是展示旧值。 */
   function quoteOf(item: SearchableSymbol): WatchlistQuote | null {
-    if (sourceStatus.value.get(item.sourceId) !== 'connected') return null
+    if (sourceStatus.value.get(item.source) !== 'connected') return null
     return quotes.value.get(symbolIdentityKey(item)) ?? null
   }
 
@@ -206,14 +206,14 @@
     const issues: QuoteIssue[] = []
     const seen = new Set<string>()
     for (const item of watchlistItems.value) {
-      if (seen.has(item.sourceId)) continue
-      const error = sourceErrors.value.get(item.sourceId)
-      const status = sourceStatus.value.get(item.sourceId)
+      if (seen.has(item.source)) continue
+      const error = sourceErrors.value.get(item.source)
+      const status = sourceStatus.value.get(item.source)
       if (error === undefined && status !== 'disconnected') continue
-      seen.add(item.sourceId)
+      seen.add(item.source)
       issues.push({
-        sourceId: item.sourceId,
-        label: sourceLabels.value.get(item.sourceId) ?? item.sourceId,
+        source: item.source,
+        label: sourceLabels.value.get(item.source) ?? item.source,
         message: error ?? '行情连接失败',
       })
     }

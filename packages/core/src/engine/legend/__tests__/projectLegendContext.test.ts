@@ -256,7 +256,7 @@ describe('projectLegendContext comparison rows', () => {
         period: 'daily',
         instrument: {
           id: 'SH.600000',
-          sourceId: 'test',
+          source: 'test',
           symbol: '600000',
           name: '浦发银行',
           instrumentType: 'stock',

@@ -92,7 +92,7 @@ const DEFAULT_SOURCE_CAPABILITIES: SourceCapabilities = {
 
 /** MarketDataProvider 替身入参。 */
 export interface MockMarketDataProviderOptions {
-  sourceId: string
+  source: string
   displayName?: string
   /** 源级能力，默认 DEFAULT_SOURCE_CAPABILITIES。 */
   capabilities?: SourceCapabilities
@@ -106,15 +106,15 @@ export function createMockMarketDataProvider(
   options: MockMarketDataProviderOptions,
 ): MarketDataProvider {
   const {
-    sourceId,
-    displayName = sourceId,
+    source,
+    displayName = source,
     capabilities = DEFAULT_SOURCE_CAPABILITIES,
     probe,
     search,
     fetchBars,
   } = options
   return {
-    source: { id: sourceId, displayName, capabilities },
+    source: { id: source, displayName, capabilities },
     probe: probe ?? (async () => ({ status: 'online', checkedAt: 1, capabilities })),
     ...(search ? { catalog: { search } } : {}),
     ...(fetchBars ? { bars: { fetch: fetchBars } } : {}),

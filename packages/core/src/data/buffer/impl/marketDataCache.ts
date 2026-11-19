@@ -16,7 +16,7 @@ import type {
   TradingDate,
 } from '../../provider/types.js'
 import {
-  AUTO_SOURCE_ID,
+  AUTO_SOURCE,
   KLINE_ADJUSTMENTS,
   KLINE_PERIODS,
   KLineAdjustment,
@@ -65,7 +65,7 @@ export interface BarsCacheQuery {
   readonly period: KLinePeriod
   readonly adjustment: KLineAdjustment
   readonly barAggregation: BarAggregation
-  readonly sourceId?: string
+  readonly source?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
   readonly instrumentType?: InstrumentType
@@ -77,7 +77,7 @@ export interface BarsCacheQuery {
 }
 
 export interface BarsCacheResult {
-  readonly sourceId: string
+  readonly source: string
   readonly instrument: InstrumentDescriptor
   readonly series: BarSeries
 }
@@ -98,7 +98,7 @@ export interface TimeShareCacheQuery {
   readonly instrument?: InstrumentDescriptor
   readonly tradingDate?: TradingDate
   readonly resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
-  readonly sourceId?: string
+  readonly source?: string
   readonly exchange?: string
   readonly instrumentType?: InstrumentType
   readonly signal?: AbortSignal
@@ -110,26 +110,26 @@ export interface TimeShareRangeCacheQuery {
   readonly endTradingDate?: TradingDate
   readonly resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
   readonly days: number
-  readonly sourceId?: string
+  readonly source?: string
   readonly exchange?: string
   readonly instrumentType?: InstrumentType
   readonly signal?: AbortSignal
 }
 
 export interface TimeShareCacheResult {
-  readonly sourceId: string
+  readonly source: string
   readonly instrument: InstrumentDescriptor
   readonly series: TimeShareSeries
 }
 
 export interface TimeShareRangeCacheResult {
-  readonly sourceId: string
+  readonly source: string
   readonly instrument: InstrumentDescriptor
   readonly range: TimeShareRange
 }
 
 interface CacheEntry {
-  sourceId: string
+  source: string
   instrument: InstrumentDescriptor
   series: Omit<BarSeries, 'data' | 'olderData'>
   data: KLineData[]
@@ -241,13 +241,13 @@ function cacheKey(query: {
   readonly period: string
   readonly adjustment: string
   readonly barAggregation: string
-  readonly sourceId?: string
+  readonly source?: string
   readonly instrument?: InstrumentDescriptor
   readonly exchange?: string
   readonly instrumentType?: InstrumentType
 }): string {
   return [
-    query.sourceId ?? AUTO_SOURCE_ID,
+    query.source ?? AUTO_SOURCE,
     query.instrument?.id ?? '',
     query.instrument?.instrumentType ?? query.instrumentType ?? '',
     query.instrument?.exchange ?? query.exchange ?? '',
@@ -323,8 +323,8 @@ export class MarketDataCache {
       if (changedSources.length) {
         this.clear()
         for (const [instrumentKey] of this.repository.snapshot.peek()) {
-          for (const sourceId of changedSources)
-            this.repository.deleteSource(instrumentKey, sourceId)
+          for (const source of changedSources)
+            this.repository.deleteSource(instrumentKey, source)
         }
       }
     })
@@ -427,7 +427,7 @@ export class MarketDataCache {
     const key = seriesSelectionKey(query.selection)
     this.setQueryState(key, { range: query.range })
     const signal = this.requestSignal(query.signal)
-    const provider = this.registry.get(query.instrument.sourceId)
+    const provider = this.registry.get(query.instrument.source)
     if (!provider?.trades) {
       this.setQueryState(key, { loading: false, message: TRADE_MESSAGES.unsupportedRaw })
       throw new KLineChartError(ERROR_CODES.UNSUPPORTED_CAPABILITY, TRADE_MESSAGES.unsupportedRaw)
@@ -488,7 +488,7 @@ export class MarketDataCache {
         ? entry.data.slice(Math.max(0, entry.data.length - query.limit))
         : entry.data.filter((item) => item.timestamp < beforeTimestamp).slice(-query.limit)
     return {
-      sourceId: entry.sourceId,
+      source: entry.source,
       instrument: entry.instrument,
       series: { ...entry.series, data: [...data], olderData: entry.olderData },
     }
@@ -537,7 +537,7 @@ export class MarketDataCache {
     const data =
       collected.length > query.limit ? collected.slice(collected.length - query.limit) : collected
     return {
-      sourceId: page.sourceId,
+      source: page.source,
       instrument: page.instrument,
       series: { ...page.series, data, olderData },
       truncated: !covered && olderData !== OLDER_DATA_STATUS.EXHAUSTED,
@@ -553,7 +553,7 @@ export class MarketDataCache {
     this.throwIfDestroyed()
     for (const [key, entry] of this.bars) {
       if (
-        entry.sourceId !== selection.sourceId ||
+        entry.source !== selection.source ||
         entry.instrument.id !== instrument.id ||
         entry.series.period !== selection.period ||
         entry.series.adjustment !== selection.adjustment ||
@@ -569,13 +569,13 @@ export class MarketDataCache {
   /** 查询单个交易日分时，命中后直接返回缓存快照。 */
   /** 指定序列失效后重新请求，等待旧查询完成后再撤销其缓存事实。 */
   async refreshBars(
-    query: BarsCacheQuery & { sourceId: string; instrument: InstrumentDescriptor },
+    query: BarsCacheQuery & { source: string; instrument: InstrumentDescriptor },
   ): Promise<BarsCacheResult> {
     const key = cacheKey(query)
     const keys = new Set([key])
     for (const [candidate, entry] of this.bars) {
       if (
-        entry.sourceId === query.sourceId &&
+        entry.source === query.source &&
         entry.instrument.id === query.instrument?.id &&
         entry.series.period === query.period &&
         entry.series.adjustment === query.adjustment &&
@@ -599,7 +599,7 @@ export class MarketDataCache {
     this.publishStats()
     // 重查覆盖原窗口，但每页仍遵守源声明的最大根数。
     const maximum =
-      this.registry.getRequired(query.sourceId).source.capabilities?.bars?.maxBarsPerRequest ??
+      this.registry.getRequired(query.source).source.capabilities?.bars?.maxBarsPerRequest ??
       query.limit
     let result = await this.queryBars({ ...query, limit: Math.min(query.limit, maximum) })
     let data = [...result.series.data]
@@ -637,7 +637,7 @@ export class MarketDataCache {
       return cached
     }
     const result = await this.router.timeShare({
-      preferredSourceId: query.sourceId,
+      preferredSource: query.source,
       instrument: query.instrument,
       symbol: query.symbol,
       exchange: query.exchange,
@@ -648,7 +648,7 @@ export class MarketDataCache {
     })
     this.throwIfDestroyed()
     const value = {
-      sourceId: result.provider.source.id,
+      source: result.provider.source.id,
       instrument: result.instrument,
       series: result.series,
     }
@@ -679,7 +679,7 @@ export class MarketDataCache {
       instrument,
       series: range,
     } = await this.router.timeShareRange({
-      preferredSourceId: query.sourceId,
+      preferredSource: query.source,
       instrument: query.instrument,
       symbol: query.symbol,
       exchange: query.exchange,
@@ -691,7 +691,7 @@ export class MarketDataCache {
     })
     this.throwIfDestroyed()
     const value = {
-      sourceId: provider.source.id,
+      source: provider.source.id,
       instrument,
       range,
     }
@@ -827,7 +827,7 @@ export class MarketDataCache {
     }
     const progressed = merged.length > previous.length || previous.length === 0
     const value: CacheEntry = {
-      sourceId: result.sourceId,
+      source: result.source,
       instrument: result.instrument,
       series: {
         instrumentId: result.series.instrumentId,
@@ -857,7 +857,7 @@ export class MarketDataCache {
     const signal = this.requestSignal(query.signal)
     return this.requestWithRetry(signal, async () => {
       const result = await this.router.bars({
-        preferredSourceId: entry?.sourceId ?? query.sourceId,
+        preferredSource: entry?.source ?? query.source,
         instrument: entry?.instrument ?? query.instrument,
         symbol: query.symbol,
         exchange: query.exchange,
@@ -870,7 +870,7 @@ export class MarketDataCache {
         signal,
       })
       return {
-        sourceId: result.provider.source.id,
+        source: result.provider.source.id,
         instrument: result.instrument,
         series: result.series,
       }

@@ -57,7 +57,7 @@ describe('registered mock data source', () => {
       const instrument = matches[0]!
       const before = await provider.bars!.fetch(query(100))
       const connection = provider.realtime!({
-        sourceId: 'mock',
+        source: 'mock',
         channel: 'bars',
         instrumentIds: [instrument.id],
         period: 'daily',

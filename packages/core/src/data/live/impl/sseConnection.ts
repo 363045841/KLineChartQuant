@@ -15,7 +15,7 @@ import type {
 } from '../types.js'
 import { createRealtimeCallbackHub } from './callbackHub.js'
 
-/** 通道对应的端点路径段；两个通道都挂在 sources/:sourceId 下。 */
+/** 通道对应的端点路径段；两个通道都挂在 sources/:source 下。 */
 const CHANNEL_PATHS = {
   bars: 'stream',
   quotes: 'quotes',
@@ -175,7 +175,7 @@ function buildUrl(request: RealtimeConnectionRequest, baseUrl: string): string {
     params.set('adjustment', request.adjustment)
     if (request.barAggregation !== undefined) params.set('barAggregation', request.barAggregation)
   }
-  const source = encodeURIComponent(request.sourceId)
+  const source = encodeURIComponent(request.source)
   return `${baseUrl}${V1_ENDPOINTS.sources}/${source}/${CHANNEL_PATHS[request.channel]}?${params.toString()}`
 }
 

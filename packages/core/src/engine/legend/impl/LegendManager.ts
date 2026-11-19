@@ -95,7 +95,7 @@ export class LegendManager implements LegendApi {
         paneId: this.deps.getPricePaneId(),
         identity: comparison.identity,
         spec: comparison.spec,
-        hidden: this.deps.getComparisonHidden(comparison.identity),
+        hidden: !comparison.visible,
       })
     return [...entries, ...this.customState.peek()]
   }
@@ -163,7 +163,8 @@ export class LegendManager implements LegendApi {
         ...(patch.params ? { params: patch.params } : {}),
         ...(patch.hidden === undefined ? {} : { hidden: patch.hidden }),
       })
-    if (patch.hidden !== undefined) this.deps.setComparisonHidden(entry.identity, patch.hidden)
+    if (patch.hidden !== undefined)
+      this.deps.comparisons.setVisible(entry.identity, !patch.hidden)
     return true
   }
 
@@ -172,8 +173,10 @@ export class LegendManager implements LegendApi {
     const entry = this.get(id)
     if (!entry) return false
     if (entry.kind === 'indicator') return this.deps.indicators.remove(entry.id)
-    if (entry.kind === 'comparison')
-      return this.deps.comparisons.remove({ identity: entry.identity })
+    if (entry.kind === 'comparison') {
+      this.deps.comparisons.remove(entry.identity)
+      return true
+    }
     this.customState.set(this.customState.peek().filter((item) => item.id !== id))
     this.deps.requestRender()
     return true

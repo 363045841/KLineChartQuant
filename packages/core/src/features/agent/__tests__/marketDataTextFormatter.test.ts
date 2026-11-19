@@ -17,7 +17,7 @@ const MINUTE_BAR = Date.parse('2026-11-18T09:31:00+08:00')
 function instrument(overrides: Partial<InstrumentDescriptor> = {}): InstrumentDescriptor {
   return {
     id: 'tdx:stock:600519',
-    sourceId: 'tdx',
+    source: 'tdx',
     symbol: '600519',
     name: '贵州茅台',
     instrumentType: 'stock',
@@ -52,7 +52,7 @@ function timeShareResult(overrides: Partial<TimeShareDaysResult> = {}): TimeShar
     ],
   }
   return {
-    sourceId: 'tdx',
+    source: 'tdx',
     instrument: instrument(),
     timezone: TIMEZONE,
     requestedDate: null,
@@ -78,7 +78,7 @@ describe('formatInstrumentLookup', () => {
       [
         'instrument matches | query=600519 | exact=1 | fuzzy=1',
         '',
-        '| sourceId | symbol | name | exchange | instrumentType |',
+        '| source | symbol | name | exchange | instrumentType |',
         '| --- | --- | --- | --- | --- |',
         '| tdx | 600519 | 贵州茅台 | SSE | stock |',
         '| tdx | 600519 | 贵州茅台 | SSE | index |',
@@ -102,7 +102,7 @@ describe('formatBars', () => {
   /** 标题、表头与数据行三段构成一段文本；用例只断言差异部分。 */
   function render(overrides: Partial<BarsQueryResult> = {}): string {
     return formatter.formatBars({
-      sourceId: 'tdx',
+      source: 'tdx',
       instrument: instrument(),
       series: barSeries(),
       requested: 200,

@@ -58,7 +58,7 @@ export type RealtimeStatus = 'connecting' | 'connected' | 'disconnected'
  * 连接身份由池派生：报价按来源聚合，K 线按来源 + 周期 + 聚合 + 复权聚合。
  */
 export interface RealtimeSubscriptionRequest {
-  sourceId: string
+  source: string
   channel: RealtimeChannel
   /** 数据源范围内的稳定品种 ID；链路不再用 symbol 猜测身份。 */
   instrumentId: string
@@ -79,7 +79,7 @@ export interface RealtimeSubscription {
 
 /** 一次连接承载的品种集合与序列参数。 */
 export interface RealtimeConnectionRequest {
-  sourceId: string
+  source: string
   channel: RealtimeChannel
   instrumentIds: ReadonlyArray<string>
   period?: KLinePeriod

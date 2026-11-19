@@ -12,7 +12,7 @@ import { ACTIVE_BUFFER_KIND, createDataState } from '../dataState'
 const barsSelection: BarsSelection = {
   kind: SERIES_SELECTION_KIND.bars,
   instrumentKey: '["CN","SH","600000"]',
-  sourceId: 'gotdx',
+  source: 'gotdx',
   period: 'daily',
   adjustment: 'none',
   barAggregation: 'original',
@@ -128,7 +128,7 @@ describe('dataState', () => {
     const selection: TimeShareSelection = {
       kind: SERIES_SELECTION_KIND.timeShare,
       instrumentKey: '["CN","SH","600519"]',
-      sourceId: 'gotdx',
+      source: 'gotdx',
       tradingDate: '2026-08-06',
     }
 

@@ -2,7 +2,7 @@
 
 ## 决策
 
-图表上下文的唯一权威来源是 Core StateKernel。`ChartAgentController.context` 以只读 signal 形式投影当前标的、周期、时间范围和指标；没有有效行情数据时值为 `null`。
+图表上下文的唯一权威来源是 Core StateKernel。`ChartAgentController.context` 以只读 signal 形式投影当前标的、时区、可见范围、范围内的 K 线文本与选中图元；没有有效行情数据时值为 `null`。周期与复权属于主图状态，不进入上下文快照。
 
 服务端 `BarSeries` 和 `TimeShareRange` 返回的 `timezone` 随活动数据快照原子写入 StateKernel。Browser bridge 使用该时区通过 `formatTimestamp` 将选中区间转换为日期字符串后注入 Agent；不得改按浏览器本地时区或市场默认时区格式化。
 

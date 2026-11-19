@@ -13,6 +13,11 @@ import type {
 } from '../../types.js'
 import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
 import { textResult } from './helpers.js'
+import {
+  InstrumentExchangeParameter,
+  InstrumentSourceParameter,
+  InstrumentTypeParameter,
+} from './instrumentParameters.js'
 
 const INDICATOR_QUERY_MAX_LIMIT = 2000
 /** 单次返回的 K 线根数上限；区间由 from/to 表达，不再按根数翻页。 */
@@ -87,10 +92,10 @@ export function createInstrumentsQueryTool(market: ChartAgentMarketQueries): Cha
           minLength: 1,
           description: 'Exact symbol such as "600519", or a name keyword such as "茅台".',
         }),
-        sourceIds: Type.Optional(
+        sources: Type.Optional(
           Type.Array(Type.String({ minLength: 1 }), {
             description:
-              'Restrict the search to these sourceIds. Omit to search every available source.',
+              'Restrict the search to these sources. Omit to search every available source.',
           }),
         ),
         limit: Type.Optional(
@@ -107,14 +112,14 @@ export function createInstrumentsQueryTool(market: ChartAgentMarketQueries): Cha
     async execute(input, context) {
       const args = input as {
         readonly query: string
-        readonly sourceIds?: ReadonlyArray<string>
+        readonly sources?: ReadonlyArray<string>
         readonly limit?: number
       }
       const result = await market.lookup(
         {
           query: args.query,
           limit: args.limit ?? INSTRUMENTS_QUERY_DEFAULT_LIMIT,
-          ...(args.sourceIds === undefined ? {} : { sourceIds: args.sourceIds }),
+          ...(args.sources === undefined ? {} : { sources: args.sources }),
         },
         context,
       )
@@ -134,6 +139,8 @@ export function createMarketBarsQueryTool(market: ChartAgentMarketQueries): Char
           minLength: 1,
           description: 'Exact symbol as returned by instruments_query.',
         }),
+        exchange: InstrumentExchangeParameter,
+        instrumentType: InstrumentTypeParameter,
         period: Type.Optional(
           Type.Enum(KLINE_PERIODS, { description: 'Bar period. Defaults to "daily".' }),
         ),
@@ -159,13 +166,7 @@ export function createMarketBarsQueryTool(market: ChartAgentMarketQueries): Char
             description: `Maximum number of bars to return. Defaults to ${BARS_QUERY_DEFAULT_LIMIT}.`,
           }),
         ),
-        sourceId: Type.Optional(
-          Type.String({
-            minLength: 1,
-            description:
-              'Only pass this when the user named a source or a previous result returned it. Omit to let Core choose.',
-          }),
-        ),
+        source: InstrumentSourceParameter,
       },
       { additionalProperties: false },
     ),
@@ -183,7 +184,9 @@ export function createMarketBarsQueryTool(market: ChartAgentMarketQueries): Char
           limit: args.limit ?? BARS_QUERY_DEFAULT_LIMIT,
           ...(args.from === undefined ? {} : { from: args.from }),
           ...(args.to === undefined ? {} : { to: args.to }),
-          ...(args.sourceId === undefined ? {} : { sourceId: args.sourceId }),
+          ...(args.source === undefined ? {} : { source: args.source }),
+          ...(args.exchange === undefined ? {} : { exchange: args.exchange }),
+          ...(args.instrumentType === undefined ? {} : { instrumentType: args.instrumentType }),
         },
         context,
       )
@@ -205,6 +208,8 @@ export function createMarketTimeShareQueryTool(
           minLength: 1,
           description: 'Exact symbol as returned by instruments_query.',
         }),
+        exchange: InstrumentExchangeParameter,
+        instrumentType: InstrumentTypeParameter,
         tradingDate: Type.Optional(TradingDateParameter),
         days: Type.Optional(
           Type.Integer({
@@ -213,13 +218,7 @@ export function createMarketTimeShareQueryTool(
             description: `Number of trading days ending at tradingDate. Defaults to 1, at most ${TIMESHARE_MAX_DAYS}.`,
           }),
         ),
-        sourceId: Type.Optional(
-          Type.String({
-            minLength: 1,
-            description:
-              'Only pass this when the user named a source or a previous result returned it. Omit to let Core choose.',
-          }),
-        ),
+        source: InstrumentSourceParameter,
       },
       { additionalProperties: false },
     ),
@@ -235,7 +234,9 @@ export function createMarketTimeShareQueryTool(
           symbol: args.symbol,
           days: args.days ?? 1,
           ...(args.tradingDate === undefined ? {} : { tradingDate: args.tradingDate }),
-          ...(args.sourceId === undefined ? {} : { sourceId: args.sourceId }),
+          ...(args.source === undefined ? {} : { source: args.source }),
+          ...(args.exchange === undefined ? {} : { exchange: args.exchange }),
+          ...(args.instrumentType === undefined ? {} : { instrumentType: args.instrumentType }),
         },
         context,
       )

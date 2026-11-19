@@ -51,7 +51,8 @@ function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit 
 function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor {
   return {
     id: item.id,
-    sourceId: item.sourceId,
+    // wire 字段名由后端 Go 结构体绑定，领域层统一叫 source。
+    source: item.sourceId,
     symbol: item.symbol,
     name: item.name,
     instrumentType: item.instrumentType,
@@ -115,7 +116,7 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
     capability: 'bars' | 'timeShare' | 'timeShareRange',
   ): void {
     const supported =
-      instrument.sourceId === source.id &&
+      instrument.source === source.id &&
       (capability === 'bars'
         ? instrument.capabilities.bars !== undefined
         : capability === 'timeShare'

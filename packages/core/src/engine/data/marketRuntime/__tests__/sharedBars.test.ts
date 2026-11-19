@@ -40,7 +40,7 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
       symbol,
       instrument: instrumentFor(symbol),
     }),
-    sourceId: 'test',
+    source: 'test',
     period: 'daily',
     adjustment: 'none',
     barAggregation: 'original',
@@ -351,7 +351,7 @@ describe('Request 来源约定', () => {
       await runtime
         .context('script', data)
         .loadBars({ symbol: 'MAIN', timeframe: 'D', calcBarsCount: 2 })
-      expect(queries[0]?.sourceId).toBe('test')
+      expect(queries[0]?.source).toBe('test')
     } finally {
       runtime.dispose()
       cache.destroy()

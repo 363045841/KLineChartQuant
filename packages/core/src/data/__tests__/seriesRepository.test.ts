@@ -7,7 +7,7 @@ import {
   instrumentKeyFromSpec,
   SERIES_SELECTION_KIND,
   SeriesRepository,
-  sourceIdFromSpec,
+  sourceFromSpec,
   type TimeShareSelection,
 } from '../buffer/impl/seriesRepository'
 import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
@@ -18,7 +18,7 @@ function barsSelection(overrides: Partial<BarsSelection> = {}): BarsSelection {
   return {
     kind: SERIES_SELECTION_KIND.bars,
     instrumentKey: '["CN","SH","600000"]',
-    sourceId: 'gotdx',
+    source: 'gotdx',
     period: 'daily',
     adjustment: 'none',
     barAggregation: 'original',
@@ -31,7 +31,7 @@ function timeShareSelection(overrides: Partial<TimeShareSelection> = {}): TimeSh
   return {
     kind: SERIES_SELECTION_KIND.timeShare,
     instrumentKey: '["CN","SH","600000"]',
-    sourceId: 'gotdx',
+    source: 'gotdx',
     tradingDate: 'latest',
     ...overrides,
   }
@@ -58,7 +58,7 @@ describe('SeriesRepository', () => {
     expect(instrumentKeyFromSpec({ market: 'HK', exchange: 'HKEX', symbol: '600000' })).not.toBe(
       left,
     )
-    expect(sourceIdFromSpec({ market: 'CN', symbol: '600000' })).toBe('auto')
+    expect(sourceFromSpec({ market: 'CN', symbol: '600000' })).toBe('auto')
   })
 
   it('returns one Buffer for the same identity and isolates source, period and adjustment', () => {
@@ -67,7 +67,7 @@ describe('SeriesRepository', () => {
 
     expect(repository.getOrCreateBars(barsSelection(), () => new DataBuffer())).toBe(daily)
     expect(
-      repository.getOrCreateBars(barsSelection({ sourceId: 'baostock' }), () => new DataBuffer()),
+      repository.getOrCreateBars(barsSelection({ source: 'baostock' }), () => new DataBuffer()),
     ).not.toBe(daily)
     expect(
       repository.getOrCreateBars(barsSelection({ period: 'weekly' }), () => new DataBuffer()),
@@ -109,7 +109,7 @@ describe('SeriesRepository', () => {
 
   it('moves an auto leaf to its resolved source in one topology update', () => {
     const repository = new SeriesRepository()
-    const selection = barsSelection({ sourceId: 'auto' })
+    const selection = barsSelection({ source: 'auto' })
     const buffer = repository.getOrCreateBars(selection, () => new DataBuffer())
     const listener = vi.fn()
     repository.snapshot.subscribe(listener)
@@ -124,8 +124,8 @@ describe('SeriesRepository', () => {
 
   it('adopts an existing resolved-source leaf and disposes the duplicate auto Buffer', () => {
     const repository = new SeriesRepository()
-    const resolvedSelection = barsSelection({ sourceId: 'gotdx' })
-    const autoSelection = barsSelection({ sourceId: 'auto' })
+    const resolvedSelection = barsSelection({ source: 'gotdx' })
+    const autoSelection = barsSelection({ source: 'auto' })
     const existing = repository.getOrCreateBars(resolvedSelection, () => new DataBuffer())
     const duplicate = repository.getOrCreateBars(autoSelection, () => new DataBuffer())
     const dispose = vi.spyOn(duplicate, 'dispose')
@@ -139,8 +139,8 @@ describe('SeriesRepository', () => {
 
   it('resolves the same collision policy for time-share leaves', () => {
     const repository = new SeriesRepository()
-    const resolvedSelection = timeShareSelection({ sourceId: 'gotdx' })
-    const autoSelection = timeShareSelection({ sourceId: 'auto' })
+    const resolvedSelection = timeShareSelection({ source: 'gotdx' })
+    const autoSelection = timeShareSelection({ source: 'auto' })
     const existing = repository.getOrCreateTimeShare(resolvedSelection, () => new TimeShareBuffer())
     const duplicate = repository.getOrCreateTimeShare(autoSelection, () => new TimeShareBuffer())
     const dispose = vi.spyOn(duplicate, 'dispose')

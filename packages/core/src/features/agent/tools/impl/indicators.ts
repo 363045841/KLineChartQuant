@@ -13,7 +13,7 @@ import type {
   ChartAgentIndicatorTarget,
 } from '../../types.js'
 import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
-import { jsonResult, requireFields } from './helpers.js'
+import { jsonResult, rejectUnusedFields, requireFields } from './helpers.js'
 
 const IndicatorParams = Type.Record(Type.String(), Type.Unknown(), {
   description:
@@ -122,7 +122,7 @@ export function createIndicatorsListTool(
     parameters: Type.Object({}, { additionalProperties: false }),
     async execute() {
       const items = indicators.list()
-      return jsonResult(items, `Returned ${items.length} indicators.`)
+      return jsonResult({ indicators: items }, `Returned ${items.length} indicators.`)
     },
   }
 }
@@ -141,14 +141,14 @@ export function createIndicatorsWriteTool(
     },
     async execute(input) {
       const args = input as IndicatorsWriteInput
-      rejectUnusedFields(args)
+      rejectUnusedFields(args, ALLOWED_FIELDS)
       switch (args.action) {
         case 'add': {
           requireFields(args, ['indicator'])
           const definition = await requireDefinition(indicators, args.indicator!)
           const params = parseParams(definition, args.params ?? {}, false)
           const view = indicators.add(definition.indicator, params, args.placement)
-          return jsonResult({ added: view }, describeAction('Added', view))
+          return jsonResult({ indicator: view }, describeAction('Added', view))
         }
         case 'update': {
           requireFields(
@@ -160,33 +160,21 @@ export function createIndicatorsWriteTool(
           const definition = await requireDefinition(indicators, current.indicator)
           const params = parseParams(definition, args.params!, true, current.params)
           const view = indicators.update(args.target!, params)
-          return jsonResult({ updated: view }, describeAction('Updated', view))
+          return jsonResult({ indicator: view }, describeAction('Updated', view))
         }
         case 'move': {
           requireFields(args, ['target', 'targetRow'])
           const view = indicators.move(args.target!, args.targetRow!)
-          return jsonResult({ moved: view }, describeAction('Moved', view))
+          return jsonResult({ indicator: view }, describeAction('Moved', view))
         }
         case 'remove': {
           requireFields(args, ['target'])
           const view = indicators.remove(args.target!)
-          return jsonResult({ removed: view }, describeAction('Removed', view))
+          return jsonResult({ indicator: view }, describeAction('Removed', view))
         }
       }
     },
   }
-}
-
-/** 拒绝当前 action 不接受的字段，避免扁平 schema 静默忽略错放的参数。 */
-function rejectUnusedFields(args: IndicatorsWriteInput): void {
-  const allowed = ALLOWED_FIELDS[args.action]
-  if (allowed === undefined)
-    throw new ToolInputValidationError(`Unsupported action '${String(args.action)}'.`)
-  const unused = Object.keys(args).filter((key) => key !== 'action' && !allowed.includes(key))
-  if (unused.length === 0) return
-  throw new ToolInputValidationError(
-    `action=${args.action} does not accept ${unused.join(', ')}. Allowed fields: ${allowed.join(', ')}.`,
-  )
 }
 
 /** 解析定义并带回参数声明；未知名称列出当前图表上的精确名称。 */

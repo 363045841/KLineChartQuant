@@ -194,7 +194,7 @@ export function createRegisteredDataSource(source: MarketDataSource) {
         'Instrument id and timezone are required',
       )
     instruments.set(instrument.id, instrument)
-    return { ...instrument, sourceId: source.id }
+    return { ...instrument, source: source.id }
   }
 
   /** 统一按稳定 ID 解析，避免用搜索结果顺序猜测品种。 */

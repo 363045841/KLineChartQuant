@@ -823,7 +823,7 @@
       market: item.sessionId ?? '',
       exchange: item.exchange,
       period: kLineLevel.value,
-      source: item.sourceId,
+      source: item.source,
       params: item.providerRef,
       startDate: props.symbols?.[0]?.startDate ?? '',
       endDate: props.symbols?.[0]?.endDate ?? '',
@@ -837,17 +837,18 @@
     signal: AbortSignal,
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    return searchInstruments(marketDataContext.registry, {
+    const result = await searchInstruments(marketDataContext.registry, {
       keyword: query,
       limit,
       signal,
-      sourceIds: sources ?? enabledSourceNames.value,
+      sources: sources ?? enabledSourceNames.value,
     })
+    return result.instruments
   }
 
   /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
   function legacyInstrumentId(
-    sourceId: string,
+    source: string,
     symbol: string,
     exchange: string,
     providerRef?: Readonly<Record<string, string | number | boolean>>,
@@ -855,7 +856,7 @@
     const params = Object.entries(providerRef ?? {}).sort(([left], [right]) =>
       left.localeCompare(right),
     )
-    return `legacy:${sourceId}:${exchange}:${symbol}:${JSON.stringify(params)}`
+    return `legacy:${source}:${exchange}:${symbol}:${JSON.stringify(params)}`
   }
 
   /** 将旧 controller 目录条目转换为 UI 使用的统一品种模型。 */
@@ -864,7 +865,7 @@
       id:
         info.id ??
         legacyInstrumentId(info.source ?? '', info.symbol, info.exchange ?? '', info.params),
-      sourceId: info.source ?? '',
+      source: info.source ?? '',
       symbol: info.symbol,
       name: info.description ?? info.symbol,
       instrumentType: info.instrumentType ?? 'unknown',
@@ -893,7 +894,7 @@
           id:
             spec.id ??
             legacyInstrumentId(spec.source ?? '', spec.symbol, spec.exchange ?? '', spec.params),
-          sourceId: spec.source ?? '',
+          source: spec.source ?? '',
           symbol: spec.symbol,
           name: spec.symbol,
           instrumentType: 'unknown',

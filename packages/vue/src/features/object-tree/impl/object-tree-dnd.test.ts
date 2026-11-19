@@ -6,7 +6,7 @@ import { createNewPaneTarget, neighbourDropIndex, resolveDropIndex } from './obj
 function row(objectId: string, band: PaneObjectRow['band'] = 'main'): PaneObjectRow {
   return {
     objectId,
-    sourceId: objectId,
+    domainId: objectId,
     kind: 'indicator',
     label: objectId,
     paneId: 'main',

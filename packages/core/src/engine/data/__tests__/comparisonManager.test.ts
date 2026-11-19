@@ -8,7 +8,7 @@ import {
   instrumentKeyFromSpec,
   SERIES_SELECTION_KIND,
   SeriesRepository,
-  sourceIdFromSpec,
+  sourceFromSpec,
 } from '@/data/buffer/impl/seriesRepository'
 import { ComparisonManager } from '../comparisonManager'
 
@@ -17,7 +17,7 @@ function selectionForSpec(spec: SymbolSpec): BarsSelection {
   return {
     kind: SERIES_SELECTION_KIND.bars,
     instrumentKey: instrumentKeyFromSpec(spec),
-    sourceId: sourceIdFromSpec(spec),
+    source: sourceFromSpec(spec),
     period: (spec.period ?? 'daily') as BarsSelection['period'],
     adjustment: (spec.adjust ?? 'none') as BarsSelection['adjustment'],
     barAggregation: 'original',

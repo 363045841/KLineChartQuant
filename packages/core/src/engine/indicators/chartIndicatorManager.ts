@@ -117,7 +117,7 @@ function createIndicatorObjectDescriptor(
 ): RenderObjectDescriptor {
   return {
     kind: 'indicator',
-    sourceId: instanceId,
+    domainId: instanceId,
     // 对象树显示指标 Name（displayName），不使用选择器里的长标题 title。
     label: definition.displayName,
     capabilities: {

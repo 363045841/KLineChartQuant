@@ -17,7 +17,7 @@ import { AGENT_DRAWING_COLOR_VALUES } from '../../../../foundation/tokens/agentD
 import type { ChartAgentDrawingCommands } from '../../types.js'
 import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
 import { describeDrawingAnchorContract } from '../../impl/drawingAnchorContract.js'
-import { jsonResult, requireFields } from './helpers.js'
+import { jsonResult, rejectUnusedFields, requireFields } from './helpers.js'
 
 const DrawingKind = Type.Enum([...AGENT_DRAWING_KINDS])
 const DrawingColor = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
@@ -226,7 +226,7 @@ export function createDrawingsWriteTool(
     },
     async execute(input) {
       const args = input as DrawingsWriteInput
-      rejectUnusedFields(args)
+      rejectUnusedFields(args, ALLOWED_FIELDS)
       switch (args.action) {
         case 'create': {
           requireFields(
@@ -278,24 +278,11 @@ export function createDrawingsWriteTool(
         case 'delete': {
           requireFields(args, ['drawingId'])
           const view = drawings.remove(args.drawingId!)
-          return jsonResult({ deleted: view }, `Deleted ${view.kind} ${view.id}.`)
+          return jsonResult({ drawing: view }, `Deleted ${view.kind} ${view.id}.`)
         }
       }
     },
   }
-}
-
-/** 拒绝当前 action 不接受的字段，避免扁平 schema 静默忽略错放的参数。 */
-function rejectUnusedFields(args: DrawingsWriteInput): void {
-  const allowed = ALLOWED_FIELDS[args.action]
-  if (allowed === undefined) {
-    throw new ToolInputValidationError(`Unsupported action '${String(args.action)}'.`)
-  }
-  const unused = Object.keys(args).filter((key) => key !== 'action' && !allowed.includes(key))
-  if (unused.length === 0) return
-  throw new ToolInputValidationError(
-    `action=${args.action} does not accept ${unused.join(', ')}. Allowed fields: ${allowed.join(', ')}.`,
-  )
 }
 
 /** 周期可见性：非 all 必须带参考周期。 */

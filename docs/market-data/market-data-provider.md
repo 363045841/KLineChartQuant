@@ -16,7 +16,7 @@ import {
 
 const instrument = {
   id: 'gotdx:stock:0:000001',
-  sourceId: 'gotdx',
+  source: 'gotdx',
   symbol: '000001',
   name: '平安银行',
   instrumentType: InstrumentType.Stock,

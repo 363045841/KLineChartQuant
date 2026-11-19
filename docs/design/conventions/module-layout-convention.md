@@ -66,7 +66,7 @@ data/
 
 | 位置 | 原字面量 | 改为 |
 |------|----------|------|
-| `buffer/impl/marketDataCache.ts`、`provider/impl/router.ts` | `'auto'` | `AUTO_SOURCE_ID`（上提到 `provider/types.ts`，避免 provider → buffer 反向依赖） |
+| `buffer/impl/marketDataCache.ts`、`provider/impl/router.ts` | `'auto'` | `AUTO_SOURCE`（上提到 `provider/types.ts`，避免 provider → buffer 反向依赖） |
 | `buffer/impl/marketDataCache.ts` | `'latest'` | `LATEST_TRADING_DATE` |
 | `buffer/impl/marketDataCache.ts` | `'exhausted'` | `OLDER_DATA_STATUS.EXHAUSTED` |
 | `provider/protocol/impl/httpTransport.ts`、`live/impl/barsLive.ts` | `/api/v1/market-data/...` 端点路径 | `V1_ENDPOINTS.*` |

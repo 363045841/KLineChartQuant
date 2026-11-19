@@ -66,7 +66,9 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
 
   // Comparison commands
   COMPARISON_DUPLICATE:
-    'The comparison instrument is already present on the chart. List existing comparisons and skip duplicates.',
+    'Update the existing comparison by identity, or remove it first.',
+  COMPARISON_NOT_FOUND:
+    'Call comparisons_list and retry with one of its identities.',
 
   // Scale (TimeScale + PriceScale)
   SCALE_RANGE_INVALID:
@@ -116,7 +118,7 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   UNSUPPORTED_CAPABILITY:
     'The data source explicitly does not support this capability (period / adjustment / instrument type). If another enabled source declares support, the request may be routed there.',
   INSTRUMENT_NOT_FOUND:
-    'The data source explicitly has no such instrument. The instrument may be delisted or out of the source coverage; if another enabled source resolves it, the request may be routed there.',
+    'The symbol was not found in the sources that were searched. Resolve it with instruments_query, and pass source when it lives in another source.',
   FETCH_ABORTED:
     'The data request was cancelled via AbortSignal — this is not a real failure. Retry the operation if the user actually expects the data.',
   DEPTH_SOURCE_ERROR:

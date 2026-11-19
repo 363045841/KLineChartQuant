@@ -17,7 +17,7 @@ describe('原生比较入口', () => {
       symbol: 'CMP',
       name: '比较商品',
       exchange: 'SSE',
-      sourceId: 'mock',
+      source: 'mock',
       sessionId: 'CN',
       instrumentType: 'stock',
       capabilities: {},

@@ -67,16 +67,16 @@ class PooledSubscription implements RealtimeSubscription {
 
 /** 连接键：报价按来源，K 线按来源 + 序列参数；同键订阅共享一条连接。 */
 function connectionKey(request: RealtimeSubscriptionRequest): string {
-  if (request.channel === 'quotes') return `${request.sourceId}|quotes`
-  return `${request.sourceId}|bars|${request.period}|${request.barAggregation}|${request.adjustment}`
+  if (request.channel === 'quotes') return `${request.source}|quotes`
+  return `${request.source}|bars|${request.period}|${request.barAggregation}|${request.adjustment}`
 }
 
 /** 校验订阅身份：K 线必须带齐序列参数，报价忽略序列参数。 */
 function assertRequest(request: RealtimeSubscriptionRequest): void {
-  if (!request.sourceId || !request.instrumentId)
+  if (!request.source || !request.instrumentId)
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
-      'Live subscription requires sourceId and instrumentId',
+      'Live subscription requires source and instrumentId',
     )
   if (request.channel === 'quotes') return
   if (
@@ -158,24 +158,24 @@ class PooledConnection {
   /** 唯一启停入口：来源可用且存在需求才连接，失败后等待新的健康确认。 */
   private sync(): void {
     if (this.destroyed) return
-    const sourceId = this.template.sourceId
-    const provider = this.options.registry.get(sourceId)
+    const source = this.template.source
+    const provider = this.options.registry.get(source)
     if (provider === undefined) {
       this.broadcastStatus('disconnected')
       this.destroy()
       this.release()
       return
     }
-    const version = this.options.registry.getConnection(sourceId).version
+    const version = this.options.registry.getConnection(source).version
     if (provider !== this.provider || version !== this.version) {
       this.closeConnection()
       this.provider = provider
       this.version = version
       this.failedHealth = undefined
     }
-    const health = this.options.health.peek()[sourceId]
+    const health = this.options.health.peek()[source]
     if (
-      !this.options.registry.getConfig(sourceId).enabled ||
+      !this.options.registry.getConfig(source).enabled ||
       health === undefined ||
       health.connectionVersion !== version ||
       (health.status !== 'online' && health.status !== 'degraded')
@@ -207,7 +207,7 @@ class PooledConnection {
         if (this.connection !== connection) return
         if (status === 'disconnected') {
           // 失败之前的健康确认不能作为失败之后的恢复信号。
-          this.failedHealth = this.options.health.peek()[this.template.sourceId]
+          this.failedHealth = this.options.health.peek()[this.template.source]
           this.closeConnection()
         } else this.broadcastStatus(status)
       })
@@ -285,9 +285,9 @@ export function createRealtimeSubscriptionPool(
       const connection =
         connections.get(key) ??
         (() => {
-          const { sourceId, channel, period, barAggregation, adjustment } = request
+          const { source, channel, period, barAggregation, adjustment } = request
           const created = new PooledConnection(
-            { sourceId, channel, period, barAggregation, adjustment },
+            { source, channel, period, barAggregation, adjustment },
             options,
             defer,
             () => connections.delete(key),

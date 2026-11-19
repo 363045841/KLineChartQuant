@@ -13,7 +13,7 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
   const loading = shallowRef(false)
   let active: AbortController | undefined
   let previousProvider = props.instrument
-    ? context.registry.get(props.instrument.sourceId)
+    ? context.registry.get(props.instrument.source)
     : undefined
   onScopeDispose(() => active?.abort())
 
@@ -23,7 +23,7 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
     error.value = null
     loading.value = false
     const selection = props.instrument
-    previousProvider = selection ? context.registry.get(selection.sourceId) : undefined
+    previousProvider = selection ? context.registry.get(selection.source) : undefined
     if (!selection) {
       symbols.value = undefined
       return
@@ -35,7 +35,7 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
     symbols.value = []
     try {
       const instrument = await context.resolveInstrument(
-        selection.sourceId,
+        selection.source,
         selection.id,
         abort.signal,
       )
@@ -47,7 +47,7 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
           symbol: instrument.symbol,
           market: instrument.sessionId ?? instrument.exchange,
           exchange: instrument.exchange,
-          source: instrument.sourceId,
+          source: instrument.source,
           period,
           adjust: 'none',
         },
@@ -64,13 +64,13 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
   }
 
   const unsubscribe = context.registry.state.subscribe(() => {
-    const provider = props.instrument ? context.registry.get(props.instrument.sourceId) : undefined
+    const provider = props.instrument ? context.registry.get(props.instrument.source) : undefined
     if (provider === previousProvider) return
     previousProvider = provider
     void resolve()
   })
   onScopeDispose(unsubscribe)
 
-  watch(() => [props.instrument?.sourceId, props.instrument?.id, props.period], resolve)
+  watch(() => [props.instrument?.source, props.instrument?.id, props.period], resolve)
   return { context, symbols, error, loading, initialize: resolve, retry: resolve }
 }

@@ -30,7 +30,7 @@ type SeriesRepositorySnapshot = ReadonlyMap<InstrumentKey, InstrumentSeriesNode>
 /** 同一市场品种的数据集合；不包含主图或对比图等视图角色。 */
 interface InstrumentSeriesNode {
   /** 同一品种按实际数据来源隔离，禁止跨来源混合行情。 */
-  readonly sources: ReadonlyMap<SourceId, SourceSeriesNode>
+  readonly sources: ReadonlyMap<Source, SourceSeriesNode>
 }
 
 /** 单个数据来源提供的强类型序列集合。 */
@@ -46,7 +46,7 @@ interface SourceSeriesNode {
 type InstrumentKey = string
 
 /** 标识一个实际来源，例如 gotdx、baostock 或图表级 custom source。 */
-type SourceId = string
+type Source = string
 
 /** 标识 K 线周期、复权和聚合方式，例如 daily:qfq:original。 */
 type BarSeriesKey = string
@@ -90,7 +90,7 @@ type SeriesSelection =
   | {
       readonly kind: 'bars'
       readonly instrumentKey: InstrumentKey
-      readonly sourceId: SourceId
+      readonly source: Source
       readonly period: KLinePeriod
       readonly adjustment: KLineAdjustment
       readonly barAggregation: BarAggregation
@@ -98,7 +98,7 @@ type SeriesSelection =
   | {
       readonly kind: 'timeShare'
       readonly instrumentKey: InstrumentKey
-      readonly sourceId: SourceId
+      readonly source: Source
       readonly tradingDate: TradingDateKey
     }
 ```
@@ -139,7 +139,7 @@ Repository Map 必须通过 Actions 创建新的 Map 快照，禁止原地 `set/
 前端支持两种来源策略：
 
 - 显式 source：只读取用户选择的 Provider，不自动切换到其他来源。
-- `auto`：允许 `SourceRouter` 选择来源，但首次成功后记录实际 `sourceId`，同一 Buffer 的后续分页继续使用该来源，禁止跨 Provider 混页。`SeriesRepository.moveToSource` 负责把 `auto` 叶子迁移到首次成功的实际来源节点，不复制或销毁 Buffer。
+- `auto`：允许 `SourceRouter` 选择来源，但首次成功后记录实际 `source`，同一 Buffer 的后续分页继续使用该来源，禁止跨 Provider 混页。`SeriesRepository.moveToSource` 负责把 `auto` 叶子迁移到首次成功的实际来源节点，不复制或销毁 Buffer。
 
 Provider 选择仍由 `SourceRouter` 负责。Repository 只按最终 source 身份保存 Buffer，不实现能力探测、优先级或网络回退。
 
@@ -169,7 +169,7 @@ custom source 绑定 Chart 实例，不注册到全局 `marketDataProviderRegist
 
 ## 当前实现
 
-- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceIdFromSpec` / `seriesSelectionKey` 同文件导出，K 线叶子键 `barSeriesKey` 只在文件内部使用。
+- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceFromSpec` / `seriesSelectionKey` 同文件导出，K 线叶子键 `barSeriesKey` 只在文件内部使用。
 - 图表实例级 `MarketDataCache` 拥有唯一的 `SeriesRepository`（`packages/core/src/data/buffer/impl/marketDataCache.ts` 中 `readonly repository = new SeriesRepository()`）；`ChartDataManager` 通过 `this.marketDataCache.repository` 引用同一实例，不再自建仓库，并对外暴露 `symbolCatalog` 等只读投影。
 - `ComparisonManager` 引用同一 Repository 的叶子 Buffer，不再自建 Map-shaped Buffer 管理。
 - 旧 `_klineBuffers` / `_tsBuffers` Map、`preCustomSpec` 和 custom mode 恢复分支已删除，实现中只剩一套 Buffer 所有权。

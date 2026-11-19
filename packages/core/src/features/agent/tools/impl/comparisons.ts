@@ -1,45 +1,66 @@
-/** 对比品种工具：唯一写原语在 ComparisonCommands，工具只声明读写契约。 */
+/**
+ * 对比品种工具：列表返回模型可消费的投影字段，写工具按动作校验字段。
+ *
+ * 身份由系统分配并从 list / create 返回，update 与 remove 只用 identity 寻址；
+ * 品种寻址字段与 instruments_query 的输出列同构，source 省略时由 Core 自行解析。
+ */
 import { Type } from 'typebox'
 
-import { KNOWN_INSTRUMENT_TYPES } from '../../../../data/provider/types.js'
-import type { ComparisonCommandsApi } from '../../../../engine/data/comparisonCommands.js'
+import type { KnownInstrumentType } from '../../../../data/provider/types.js'
+import type { ChartAgentComparisonCommands } from '../../types.js'
 import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
-import { jsonResult, requireFields } from './helpers.js'
-
-const InstrumentTypeParameter = Type.Enum(KNOWN_INSTRUMENT_TYPES)
+import { jsonResult, rejectUnusedFields, requireFields } from './helpers.js'
+import {
+  InstrumentExchangeParameter,
+  InstrumentSourceParameter,
+  InstrumentTypeParameter,
+} from './instrumentParameters.js'
 
 const ComparisonsWriteParameters = Type.Object(
   {
-    action: Type.Union([Type.Literal('create'), Type.Literal('remove'), Type.Literal('clear')]),
-    symbol: Type.Optional(Type.String({ minLength: 1 })),
-    market: Type.Optional(Type.String({ minLength: 1 })),
-    exchange: Type.Optional(Type.String({ minLength: 1 })),
-    source: Type.Optional(Type.String({ minLength: 1 })),
-    instrumentType: Type.Optional(InstrumentTypeParameter),
-    period: Type.Optional(Type.String({ minLength: 1 })),
-    adjust: Type.Optional(Type.String({ minLength: 1 })),
-    identity: Type.Optional(Type.String({ minLength: 1 })),
+    action: Type.Union(
+      [Type.Literal('create'), Type.Literal('update'), Type.Literal('remove')],
+      { description: 'create adds a comparison; update changes its visibility; remove deletes it.' },
+    ),
+    symbol: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description: 'create only: exact symbol from instruments_query, for example "600519".',
+      }),
+    ),
+    exchange: InstrumentExchangeParameter,
+    source: InstrumentSourceParameter,
+    instrumentType: InstrumentTypeParameter,
+    identity: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description: 'update/remove only: identity from comparisons_list or a previous create.',
+      }),
+    ),
+    visible: Type.Optional(
+      Type.Boolean({
+        description: 'update only: true shows the line, false hides it without removing it.',
+      }),
+    ),
   },
   { additionalProperties: false },
 )
 
 interface ComparisonsWriteInput {
-  readonly action: 'create' | 'remove' | 'clear'
+  readonly action: 'create' | 'update' | 'remove'
   readonly symbol?: string
-  readonly market?: string
   readonly exchange?: string
   readonly source?: string
-  readonly instrumentType?: (typeof KNOWN_INSTRUMENT_TYPES)[number]
-  readonly period?: string
-  readonly adjust?: string
+  readonly instrumentType?: KnownInstrumentType
   readonly identity?: string
+  readonly visible?: boolean
 }
 
 export const COMPARISONS_LIST_METADATA: ChartToolMetadata = {
   name: 'comparisons_list',
   label: 'List comparison symbols',
   description:
-    'List every comparison symbol currently overlaid on the price chart. Each item exposes the stable identity, the complete symbol spec, and the assigned line color. Use identity with comparisons_write.',
+    'List every comparison line on the price chart. Each item has identity, symbol, name, exchange, source, instrumentType, color and visible. Comparison lines always use the main chart period and adjustment. Use identity with comparisons_write; never invent identities.',
   effect: 'read',
 }
 
@@ -47,70 +68,84 @@ export const COMPARISONS_WRITE_METADATA: ChartToolMetadata = {
   name: 'comparisons_write',
   label: 'Edit comparison symbols',
   description:
-    'Add, remove or clear comparison symbols on the price chart. ' +
-    'create: symbol, optionally narrowed by source, exchange and instrumentType. ' +
-    'When a symbol matches several instruments nothing is added and the result is { status: "ambiguous", candidates } — ask the user with ask_user, then retry with the chosen candidate\'s source and exchange. Never pick a candidate yourself. ' +
-    'remove: identity from comparisons_list. clear: nothing.',
+    'Add, show/hide or remove comparison lines on the price chart. ' +
+    'create: symbol plus the optional routing fields returned by instruments_query (exchange, source, instrumentType). ' +
+    'If a symbol matches several instruments, nothing is added and { status: "ambiguous", candidates } is returned: ask the user with ask_user, then retry create with the chosen candidate\'s symbol, exchange, source and instrumentType; never pick one yourself. ' +
+    'update: identity plus visible. remove: identity. ' +
+    'Comparison lines always use the main chart period and adjustment.',
   effect: 'write',
 }
 
-/** 列出当前对比品种。 */
-export function createComparisonsListTool(comparisons: ComparisonCommandsApi): ChartToolDefinition {
+/** 列出当前对比品种；只返回投影字段，不展开领域对象。 */
+export function createComparisonsListTool(
+  comparisons: ChartAgentComparisonCommands,
+): ChartToolDefinition {
   return {
     ...COMPARISONS_LIST_METADATA,
     parameters: Type.Object({}, { additionalProperties: false }),
     async execute() {
       const items = comparisons.list()
-      return jsonResult(items, `Returned ${items.length} comparisons.`)
+      return jsonResult({ comparisons: items }, `Returned ${items.length} comparisons.`)
     },
   }
 }
 
 /** 对比品种写工具；歧义结果原样返回给模型，不在这里替用户裁决。 */
 export function createComparisonsWriteTool(
-  comparisons: ComparisonCommandsApi,
+  comparisons: ChartAgentComparisonCommands,
 ): ChartToolDefinition {
   return {
     ...COMPARISONS_WRITE_METADATA,
     parameters: ComparisonsWriteParameters,
     summarizeInput: (input) => {
       const args = input as ComparisonsWriteInput
-      return args.symbol ?? args.identity ?? args.action
+      return args.action === 'create' ? (args.symbol ?? '') : (args.identity ?? args.action)
     },
-    async execute(input) {
+    async execute(input, context) {
       const args = input as ComparisonsWriteInput
+      rejectUnusedFields(args, ALLOWED_FIELDS)
       switch (args.action) {
         case 'create': {
-          requireFields(
-            args,
-            ['symbol'],
-            'Use instruments_query to resolve an exact symbol before adding a comparison.',
+          requireFields(args, ['symbol'])
+          const result = await comparisons.create(
+            {
+              symbol: args.symbol!,
+              ...(args.exchange === undefined ? {} : { exchange: args.exchange }),
+              ...(args.source === undefined ? {} : { source: args.source }),
+              ...(args.instrumentType === undefined
+                ? {}
+                : { instrumentType: args.instrumentType }),
+            },
+            context.signal,
           )
-          const result = await comparisons.create({
-            symbol: args.symbol!,
-            ...(args.market === undefined ? {} : { market: args.market }),
-            ...(args.exchange === undefined ? {} : { exchange: args.exchange }),
-            ...(args.source === undefined ? {} : { source: args.source }),
-            ...(args.instrumentType === undefined ? {} : { instrumentType: args.instrumentType }),
-            ...(args.period === undefined ? {} : { period: args.period }),
-            ...(args.adjust === undefined ? {} : { adjust: args.adjust }),
-          })
           return jsonResult(
             result,
             result.status === 'added'
-              ? `Added comparison ${result.symbol}.`
+              ? `Added comparison ${result.comparison.symbol} on ${result.comparison.source}.`
               : `Symbol ${args.symbol} is ambiguous; ask the user to choose.`,
           )
         }
-        case 'remove':
-          requireFields(args, ['identity'])
+        case 'update': {
+          requireFields(args, ['identity', 'visible'])
+          const comparison = comparisons.setVisible(args.identity!, args.visible!)
           return jsonResult(
-            { removed: comparisons.remove({ identity: args.identity! }) },
-            `Removed comparison ${args.identity}.`,
+            { comparison },
+            `${comparison.visible ? 'Showed' : 'Hid'} comparison ${comparison.symbol}.`,
           )
-        case 'clear':
-          return jsonResult({ removed: comparisons.clear() }, 'Cleared every comparison.')
+        }
+        case 'remove': {
+          requireFields(args, ['identity'])
+          const comparison = comparisons.remove(args.identity!)
+          return jsonResult({ comparison }, `Removed comparison ${comparison.symbol}.`)
+        }
       }
     },
   }
+}
+
+/** 各 action 接受的字段；扁平 schema 无法表达，因此分发前显式拒绝多余字段。 */
+const ALLOWED_FIELDS: Readonly<Record<ComparisonsWriteInput['action'], ReadonlyArray<string>>> = {
+  create: ['symbol', 'exchange', 'source', 'instrumentType'],
+  update: ['identity', 'visible'],
+  remove: ['identity'],
 }

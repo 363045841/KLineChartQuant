@@ -97,8 +97,8 @@ function mergePages(
   buffer.mergePage(pages.flat(), result.series.olderData, result.series.timezone)
   if (concurrent.length)
     buffer.mergePage(concurrent, result.series.olderData, result.series.timezone)
-  const capabilities = deps.registry.get(result.sourceId)?.source.capabilities
-  if (!capabilities) throw new Error(`Request 数据源没有能力声明：${result.sourceId}`)
+  const capabilities = deps.registry.get(result.source)?.source.capabilities
+  if (!capabilities) throw new Error(`Request 数据源没有能力声明：${result.source}`)
   demand.target = { selection, instrument: result.instrument, capabilities }
   demand.buffer = buffer
   deps.bind(demand.owners, demand.target, buffer)
@@ -116,9 +116,9 @@ export async function loadIndicatorBars(
   const sameSymbol = request.symbol === session.instrument.symbol
   if (!sameSymbol && request.source === undefined)
     throw new Error('跨品种 Request 必须显式指定 source')
-  const sourceId = request.source ?? session.instrument.sourceId
+  const source = request.source ?? session.instrument.source
   const instrument =
-    sameSymbol && sourceId === session.instrument.sourceId ? session.instrument : undefined
+    sameSymbol && source === session.instrument.source ? session.instrument : undefined
   let baseline: Map<number, KLineData> | undefined
   if (instrument) {
     const selection = deps.resolveSelection(
@@ -136,7 +136,7 @@ export async function loadIndicatorBars(
   const query = {
     symbol: request.symbol,
     period,
-    sourceId,
+    source,
     instrument,
     adjustment: session.selection.adjustment,
     barAggregation: session.selection.barAggregation,

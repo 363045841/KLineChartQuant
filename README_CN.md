@@ -425,7 +425,7 @@ const unregister = host.registerDataSource(source)
 <script setup lang="ts">
 import { KlineWorkbench } from '@363045841yyt/klinechart'
 
-const instrument = { sourceId: 'binance', id: 'BTCUSDT' }
+const instrument = { source: 'binance', id: 'BTCUSDT' }
 </script>
 
 <template>

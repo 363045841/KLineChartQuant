@@ -25,7 +25,7 @@ export interface ChartSymbolSelection {
 }
 
 /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
-export function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
+function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
   return {
     id: item.id,
     instrumentType: item.instrumentType,
@@ -38,7 +38,7 @@ export function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
     market: item.sessionId ?? '',
     description: item.name,
     exchange: item.exchange,
-    source: item.sourceId,
+    source: item.source,
     params: item.providerRef,
   }
 }
@@ -48,7 +48,7 @@ export function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
  * @param controller 图表控制器
  * @returns 周期、复权与日期边界
  */
-export function readChartSymbolSelection(controller: ChartController): ChartSymbolSelection {
+function readChartSymbolSelection(controller: ChartController): ChartSymbolSelection {
   const active = controller.symbols.peek()[0]
   return {
     period: isTimeShareDataView(controller.chartMode.peek())
@@ -94,7 +94,7 @@ function buildSymbolSpec(item: InstrumentDescriptor, selection: ChartSymbolSelec
     market: item.sessionId ?? '',
     exchange: item.exchange,
     period: selection.period,
-    source: item.sourceId,
+    source: item.source,
     params: item.providerRef,
     startDate: selection.bounds?.startDate ?? '',
     endDate: selection.bounds?.endDate ?? '',

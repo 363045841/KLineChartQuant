@@ -660,9 +660,9 @@ describe('BrowserAgentBridge', () => {
     {
       name: '取数失败可重试，并带出结构化细节',
       error: new KLineChartError(ERROR_CODES.FETCH_FAILED, 'Upstream is down.', {
-        details: { sourceId: 'tdx' },
+        details: { source: 'tdx' },
       }),
-      expected: { retryable: true, details: { sourceId: 'tdx' } },
+      expected: { retryable: true, details: { source: 'tdx' } },
     },
     {
       name: '非交易日不可重试，错误里带出最近的交易日',

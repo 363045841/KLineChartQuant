@@ -282,7 +282,7 @@ export function makeKLine(timestamp: number): KLineData {
 export function instrumentFor(symbol: string) {
   return {
     id: `test:${symbol}`,
-    sourceId: 'test',
+    source: 'test',
     symbol,
     name: symbol,
     instrumentType: 'stock' as const,

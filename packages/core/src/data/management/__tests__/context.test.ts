@@ -40,7 +40,7 @@ describe('MarketDataContext', () => {
       const instrument = await context.resolveInstrument('test', 'A')
       await context.health.refresh()
       const handle = context.realtime.subscribe({
-        sourceId: 'test',
+        source: 'test',
         instrumentId: instrument.id,
         channel: 'bars',
         period: 'daily',
@@ -62,7 +62,7 @@ describe('MarketDataContext', () => {
     const instrument = await context.resolveInstrument('test', 'A')
     await context.health.refresh()
     const handle = context.realtime.subscribe({
-      sourceId: 'test',
+      source: 'test',
       instrumentId: instrument.id,
       channel: 'bars',
       period: 'daily',
@@ -84,7 +84,7 @@ describe('MarketDataContext', () => {
     observer.invalidate()
     expect(frames).not.toHaveBeenCalled()
     expect(() =>
-      context.realtime.subscribe({ sourceId: 'test', instrumentId: 'A', channel: 'quotes' }),
+      context.realtime.subscribe({ source: 'test', instrumentId: 'A', channel: 'quotes' }),
     ).toThrow('disposed')
   })
 
@@ -97,12 +97,12 @@ describe('MarketDataContext', () => {
     const selection: BarsSelection = {
       kind: 'bars',
       instrumentKey: 'stock',
-      sourceId: 'one',
+      source: 'one',
       period: 'daily',
       adjustment: 'none',
       barAggregation: 'original',
     }
-    const unrelated = { ...selection, sourceId: 'other' }
+    const unrelated = { ...selection, source: 'other' }
     cache.repository.getOrCreateBars(selection, () => new DataBuffer())
     const retained = cache.repository.getOrCreateBars(unrelated, () => new DataBuffer())
     context.applyConnection('shared', 'http://localhost:9000')

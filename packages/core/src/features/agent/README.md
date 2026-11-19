@@ -1,13 +1,14 @@
 # Agent 查询模块
 
-`packages/core/src/features/agent/` 为 Agent 提供图表、指标与行情信息访问边界。它保留现有的
-`definitionId + params + from/to/limit` 查询入参，复用既有计算 Runtime；计算完成后直接转义为紧凑
-文本而非 JSON，以减少 Agent 的 token 输入。它不读取或写入图表的渲染结果池。
+`packages/core/src/features/agent/` 为 Agent 提供图表、指标、图元、对比与行情的访问边界。工具是纯数据，
+统一由 `createChartToolCatalog` 组装；行情与指标结果转成紧凑文本，图元与对比返回投影字段，不把领域对象
+原样交给模型。它不读取或写入图表的渲染结果池，也不绕过领域命令面。
 
-指标计算和结果池的完整模型见
+指标计算与结果池的完整模型见
 [`docs/design/indicator/indicator-instance-render-binding.md`](../../../../../docs/design/indicator/indicator-instance-render-binding.md)，
 计算参数与展示配置的分层见
-[`docs/design/indicator/indicator-parameter-layers.md`](../../../../../docs/design/indicator/indicator-parameter-layers.md)。
+[`docs/design/indicator/indicator-parameter-layers.md`](../../../../../docs/design/indicator/indicator-parameter-layers.md)，
+工具契约见 [`docs/design/agent/agent-tool-catalog.md`](../../../../../docs/design/agent/agent-tool-catalog.md)。
 
 ## 模块边界
 
@@ -52,7 +53,7 @@ agent/
 │       └── helpers.ts                     # 必填字段校验与结果收敛
 ├── impl/
 │   ├── chartAgentController.ts            # 图表上下文投影
-│   ├── chartToolDeps.ts                   # 指标 / 图元 / 行情命令面装配
+│   ├── chartToolDeps.ts                   # 指标 / 图元 / 对比 / 行情命令面装配
 │   ├── marketDataTextFormatter.ts         # 行情查询结果的紧凑文本转义
 │   ├── markdownTable.ts                   # 共用 Markdown 表格渲染
 │   └── indicator/

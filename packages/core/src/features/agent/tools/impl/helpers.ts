@@ -1,4 +1,4 @@
-/** 工具实现的共用辅助：按 action 校验必填字段，并把领域结果收敛成文本。 */
+/** 工具实现的共用辅助：动作级字段校验与结果收敛。 */
 import { ToolInputValidationError } from '../../../../foundation/agent/index.js'
 import type { ChartToolResult } from '../types.js'
 
@@ -15,6 +15,26 @@ export function requireFields(input: object, fields: ReadonlyArray<string>, hint
   const action = typeof record.action === 'string' ? record.action : 'this call'
   throw new ToolInputValidationError(
     `action=${action} requires ${missing.join(', ')}.${hint ? ` ${hint}` : ''}`,
+  )
+}
+
+/**
+ * 拒绝当前 action 不接受的字段。
+ *
+ * 扁平 schema 对全部 action 开放全部字段；没有这道检查，错放的参数会被静默忽略，
+ * 模型会误以为已经生效。规则只有这一处，三只写工具共用。
+ */
+export function rejectUnusedFields<TAction extends string>(
+  input: { readonly action: TAction },
+  allowed: Readonly<Record<TAction, ReadonlyArray<string>>>,
+): void {
+  const fields = allowed[input.action]
+  if (fields === undefined)
+    throw new ToolInputValidationError(`Unsupported action '${String(input.action)}'.`)
+  const unused = Object.keys(input).filter((key) => key !== 'action' && !fields.includes(key))
+  if (unused.length === 0) return
+  throw new ToolInputValidationError(
+    `action=${input.action} does not accept ${unused.join(', ')}. Allowed fields: ${fields.join(', ')}.`,
   )
 }
 

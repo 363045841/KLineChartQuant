@@ -24,7 +24,8 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../types.js'
-import { AUTO_SOURCE_ID, isFilterableInstrumentType } from '../types.js'
+import { AUTO_SOURCE, isFilterableInstrumentType } from '../types.js'
+import { INSTRUMENT_LOOKUP_CANDIDATE_LIMIT, pickExactInstrument } from './instrumentSearch.js'
 import type { MarketDataProviderRegistry } from './registry.js'
 
 /** 所有候选源都明确拒绝请求时抛出的错误。 */
@@ -44,7 +45,7 @@ export class SourceRoutingError extends KLineChartError {
       attempts.length === 0
         ? `No enabled source can serve ${label}.`
         : `${label} was rejected by every candidate source: ${attempts
-            .map((attempt) => `${attempt.sourceId}:${attempt.code}`)
+            .map((attempt) => `${attempt.source}:${attempt.code}`)
             .join(' -> ')}`,
       { details: { ...details, attempts: serializeAttempts(attempts) } },
     )
@@ -55,9 +56,9 @@ export class SourceRoutingError extends KLineChartError {
 /** 流转链转为可序列化的错误细节。 */
 function serializeAttempts(
   attempts: ReadonlyArray<SourceRouteAttempt>,
-): Array<{ sourceId: string; code: string; message: string }> {
+): Array<{ source: string; code: string; message: string }> {
   return attempts.map((attempt) => ({
-    sourceId: attempt.sourceId,
+    source: attempt.source,
     code: attempt.code,
     message: attempt.message,
   }))
@@ -76,9 +77,9 @@ function routeErrorCode(attempts: ReadonlyArray<SourceRouteAttempt>): KLineChart
 }
 
 /** 将未知异常转换为 Router 可分类的错误。 */
-function asProviderError(error: unknown, sourceId: string): KLineChartError {
+function asProviderError(error: unknown, source: string): KLineChartError {
   if (isKLineChartError(error)) return error
-  return new KLineChartError(ERROR_CODES.FETCH_FAILED, `[${sourceId}] ${String(error)}`, {
+  return new KLineChartError(ERROR_CODES.FETCH_FAILED, `[${source}] ${String(error)}`, {
     cause: error,
   })
 }
@@ -139,7 +140,7 @@ async function resolveInstrument(
   signal?: AbortSignal,
 ): Promise<InstrumentDescriptor> {
   if (
-    attached?.sourceId === provider.source.id &&
+    attached?.source === provider.source.id &&
     attached.symbol === identity.symbol &&
     (identity.exchange === undefined || attached.exchange === identity.exchange) &&
     (identity.instrumentType === undefined || attached.instrumentType === identity.instrumentType)
@@ -163,19 +164,15 @@ async function resolveInstrument(
 
   const candidates = await provider.catalog.search({
     keyword: identity.symbol,
-    limit: 20,
+    limit: INSTRUMENT_LOOKUP_CANDIDATE_LIMIT,
     // unknown 不参与筛选：传 unknown 会误杀已归一化到已知类别的同代码品种。
     instrumentTypes: isFilterableInstrumentType(identity.instrumentType)
       ? [identity.instrumentType]
       : undefined,
     signal,
   })
-  const instrument = candidates.find(
-    (candidate) =>
-      candidate.sourceId === provider.source.id &&
-      candidate.symbol === identity.symbol &&
-      (identity.exchange === undefined || candidate.exchange === identity.exchange),
-  )
+  // 精确匹配规则只由 instrumentSearch 定义，路由层不维护第二套代码比较。
+  const instrument = pickExactInstrument(candidates, identity, provider.source.id)
   if (!instrument) {
     throw new KLineChartError(
       ERROR_CODES.INSTRUMENT_NOT_FOUND,
@@ -212,14 +209,14 @@ export class SourceRouter {
   /** 获取请求候选源；显式来源只返回自身，auto 才允许按优先级流转。 */
   private async getCandidates(
     query: SourceCapabilityQuery,
-    preferredSourceId: string | undefined,
+    preferredSource: string | undefined,
     signal?: AbortSignal,
     attempts?: SourceRouteAttempt[],
   ): Promise<ReadonlyArray<MarketDataProvider>> {
     const enabled = this.registry.getEnabledByPriority()
     const explicitSource =
-      preferredSourceId !== undefined && preferredSourceId !== AUTO_SOURCE_ID
-        ? preferredSourceId
+      preferredSource !== undefined && preferredSource !== AUTO_SOURCE
+        ? preferredSource
         : undefined
     if (explicitSource) {
       const provider = enabled.find((candidate) => candidate.source.id === explicitSource)
@@ -237,9 +234,9 @@ export class SourceRouter {
     signal?.throwIfAborted()
     for (const [index, outcome] of outcomes.entries()) {
       if (outcome.status === 'fulfilled') continue
-      const sourceId = probes[index].source.id
-      const error = asProviderError(outcome.reason, sourceId)
-      attempts?.push({ sourceId, code: errorCode(error), message: error.message })
+      const source = probes[index].source.id
+      const error = asProviderError(outcome.reason, source)
+      attempts?.push({ source, code: errorCode(error), message: error.message })
     }
     return this.registry.getEnabledByCapability(query)
   }
@@ -248,7 +245,7 @@ export class SourceRouter {
   private async route<T>(
     query: SourceCapabilityQuery,
     identity: SourceRouterInstrumentIdentity,
-    preferredSourceId: string | undefined,
+    preferredSource: string | undefined,
     attached: InstrumentDescriptor | undefined,
     capability: RoutableCapability,
     signal: AbortSignal | undefined,
@@ -256,7 +253,7 @@ export class SourceRouter {
   ): Promise<RoutedMarketData<T>> {
     const attempts: SourceRouteAttempt[] = []
     signal?.throwIfAborted()
-    const candidates = await this.getCandidates(query, preferredSourceId, signal, attempts)
+    const candidates = await this.getCandidates(query, preferredSource, signal, attempts)
     const label = [capability, identity.symbol, query.period, query.adjustment]
       .filter((part): part is string => typeof part === 'string')
       .join(' ')
@@ -269,7 +266,7 @@ export class SourceRouter {
       } catch (error) {
         const normalized = asProviderError(error, provider.source.id)
         const code = errorCode(normalized)
-        attempts.push({ sourceId: provider.source.id, code, message: normalized.message })
+        attempts.push({ source: provider.source.id, code, message: normalized.message })
         if (!isRoutableRejection(code)) throw normalized
       }
     }
@@ -291,7 +288,7 @@ export class SourceRouter {
         adjustment: request.adjustment,
       },
       request,
-      request.preferredSourceId,
+      request.preferredSource,
       request.instrument,
       'bars',
       request.signal,
@@ -332,7 +329,7 @@ export class SourceRouter {
     return this.route(
       { capability: 'timeShare', instrumentType: request.instrumentType },
       request,
-      request.preferredSourceId,
+      request.preferredSource,
       request.instrument,
       'timeShare',
       request.signal,
@@ -362,7 +359,7 @@ export class SourceRouter {
     return this.route(
       { capability: 'timeShareRange', instrumentType: request.instrumentType, days: request.days },
       request,
-      request.preferredSourceId,
+      request.preferredSource,
       request.instrument,
       'timeShareRange',
       request.signal,

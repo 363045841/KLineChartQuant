@@ -10,4 +10,4 @@
 
 - 极值循环只在 `[first, last]` 上运行，标记点屏幕 x 由同一次投影得到；线段长度固定，不再因贴近 pane 边缘而翻倍。
 - `first` 在无 bar 可见时回退到 `max(0, range.start)`，保证比较视图的百分比基准索引始终可用；该回退不参与极值标记（渲染器先判 `last < first`）。
-- 比较视图的基准 bar（`comparisonLine`、`getComparisonViewLineRange`、`renderPanes` 的 base price）复用同一函数，保证折线与极值标记对「首根可见 bar」的定义一致。
+- 比较折线的基准 bar（`comparisonProjection.projectComparison`）与极值标记（`visiblePriceExtrema`）复用同一函数 `findVisibleBarRange`，保证两者对「首根可见 bar」的定义一致。

@@ -8,6 +8,8 @@ import { Check } from 'typebox/value'
 
 import type {
   BarsQueryInput,
+  ChartAgentComparisonCommands,
+  ChartAgentComparisonView,
   ChartAgentDrawingCommands,
   ChartAgentDrawingCreateInput,
   ChartAgentDrawingPatch,
@@ -15,8 +17,8 @@ import type {
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentMarketQueries,
-  ChartAgentToolDeps,
   InstrumentLookupInput,
+  InstrumentRef,
   TimeShareQueryInput,
 } from '../../types.js'
 import { CHART_TOOL_METADATA, createChartToolCatalog } from '../impl/catalog.js'
@@ -166,18 +168,83 @@ function createMarket(): ChartAgentMarketQueries & {
   }
 }
 
-/** 组装一份可注入的完整依赖。 */
-function createDeps(): ChartAgentToolDeps {
+/** 记录调用的对比命令面替身；视图与候选形状和真实命令面一致。 */
+function createComparisons(): ChartAgentComparisonCommands & {
+  readonly created: InstrumentRef[]
+  readonly visibility: Array<[string, boolean]>
+  readonly removed: string[]
+  readonly controls: { ambiguous: boolean }
+} {
+  const created: InstrumentRef[] = []
+  const visibility: Array<[string, boolean]> = []
+  const removed: string[] = []
+  const controls = { ambiguous: false }
+  /** 构造与投影一致的工具视图。 */
+  const view = (identity: string, visible = true): ChartAgentComparisonView => ({
+    identity,
+    symbol: '600519',
+    name: '贵州茅台',
+    exchange: 'SSE',
+    source: 'tdx',
+    instrumentType: 'stock',
+    color: '#f59e0b',
+    visible,
+  })
+  return {
+    created,
+    visibility,
+    removed,
+    controls,
+    list: () => [view('instrument:tdx:600519')],
+    create: async (input) => {
+      created.push(input)
+      return controls.ambiguous
+        ? {
+            status: 'ambiguous',
+            candidates: [
+              {
+                symbol: input.symbol,
+                name: '南玻A',
+                exchange: 'SZSE',
+                source: 'tdx',
+                instrumentType: 'stock',
+              },
+              {
+                symbol: input.symbol,
+                name: '国债指数',
+                exchange: 'CFFEX',
+                source: 'tdx',
+                instrumentType: 'index',
+              },
+            ],
+          }
+        : {
+            status: 'added',
+            comparison: view(`instrument:${input.source ?? 'auto'}:${input.symbol}`),
+          }
+    },
+    setVisible: (identity, visible) => {
+      visibility.push([identity, visible])
+      return view(identity, visible)
+    },
+    remove: (identity) => {
+      removed.push(identity)
+      return view(identity)
+    },
+  }
+}
+
+/** 组装测试依赖；返回具体替身类型，断言不靠类型断言。 */
+function createDeps(): {
+  indicators: ReturnType<typeof createIndicators>
+  drawings: ReturnType<typeof createDrawings>
+  comparisons: ReturnType<typeof createComparisons>
+  market: ReturnType<typeof createMarket>
+} {
   return {
     indicators: createIndicators(),
     drawings: createDrawings(),
-    comparisons: {
-      list: () => [],
-      add: () => true,
-      create: async (input) => ({ status: 'added', symbol: input.symbol, name: input.symbol }),
-      remove: () => true,
-      clear: () => 0,
-    },
+    comparisons: createComparisons(),
     market: createMarket(),
   }
 }
@@ -187,6 +254,22 @@ function toolOf(catalog: readonly ChartToolDefinition[], name: string): ChartToo
   const tool = catalog.find((item) => item.name === name)
   if (!tool) throw new Error(`missing tool ${name}`)
   return tool
+}
+
+/** 判断任意值是否为普通对象。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 从工具 JSON 结果里取出歧义候选；形状不符直接失败，不做类型断言。 */
+function readCandidates(content: string): ReadonlyArray<Record<string, unknown>> {
+  const body: unknown = JSON.parse(content)
+  if (!isRecord(body) || !Array.isArray(body.candidates))
+    throw new Error('tool result has no candidates')
+  return body.candidates.map((candidate) => {
+    if (!isRecord(candidate)) throw new Error('candidate is not an object')
+    return candidate
+  })
 }
 
 describe('chart tool catalog', () => {
@@ -222,16 +305,18 @@ describe('chart tool catalog', () => {
   it('指标列表返回名称、位置与当前参数', async () => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'indicators_list')
     const result = await tool.execute({}, context())
-    expect(JSON.parse(result.content)).toEqual([
-      {
-        indicator: 'MA',
-        params: { period1: 5, period2: 10 },
-        placement: 'main',
-        row: 0,
-        order: 1,
-      },
-      { indicator: 'RSI', params: { period: 14 }, placement: 'sub', row: 1, order: 1 },
-    ])
+    expect(JSON.parse(result.content)).toEqual({
+      indicators: [
+        {
+          indicator: 'MA',
+          params: { period1: 5, period2: 10 },
+          placement: 'main',
+          row: 0,
+          order: 1,
+        },
+        { indicator: 'RSI', params: { period: 14 }, placement: 'sub', row: 1, order: 1 },
+      ],
+    })
   })
 
   it.each([
@@ -257,8 +342,8 @@ describe('chart tool catalog', () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'indicators_write')
     const result = await tool.execute(input, context())
-    expect((deps.indicators as ReturnType<typeof createIndicators>).added).toEqual([expectedCall])
-    expect(JSON.parse(result.content)).toEqual({ added: expectedView })
+    expect(deps.indicators.added).toEqual([expectedCall])
+    expect(JSON.parse(result.content)).toEqual({ indicator: expectedView })
   })
 
   it.each([
@@ -310,11 +395,11 @@ describe('chart tool catalog', () => {
       },
       context(),
     )
-    expect((deps.indicators as ReturnType<typeof createIndicators>).updates).toEqual([
+    expect(deps.indicators.updates).toEqual([
       [{ indicator: 'MA', row: 0 }, { period1: 8, period2: 20 }],
     ])
     expect(JSON.parse(result.content)).toEqual({
-      updated: {
+      indicator: {
         indicator: 'MA',
         params: { period1: 8, period2: 20 },
         placement: 'main',
@@ -352,7 +437,7 @@ describe('chart tool catalog', () => {
       context(),
     )
     expect(JSON.parse(result.content)).toEqual({
-      moved: { indicator: 'RSI', params: {}, placement: 'main', row: 0, order: 1 },
+      indicator: { indicator: 'RSI', params: {}, placement: 'main', row: 0, order: 1 },
     })
   })
 
@@ -363,7 +448,7 @@ describe('chart tool catalog', () => {
       context(),
     )
     expect(JSON.parse(result.content)).toEqual({
-      removed: { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
+      indicator: { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
     })
   })
 
@@ -443,7 +528,7 @@ describe('chart tool catalog', () => {
       { action: 'create', row: 1, kind: 'trend-line', anchors, style: { stroke: '#ef5350' } },
       context(),
     )
-    expect((deps.drawings as ReturnType<typeof createDrawings>).created).toEqual([
+    expect(deps.drawings.created).toEqual([
       { row: 1, kind: 'trend-line', anchors, style: { stroke: '#ef5350' } },
     ])
     expect(JSON.parse(result.content)).toMatchObject({
@@ -484,7 +569,7 @@ describe('chart tool catalog', () => {
       { action: 'update', drawingId: 'd-1', visible: false },
       context(),
     )
-    expect((deps.drawings as ReturnType<typeof createDrawings>).updated).toEqual([
+    expect(deps.drawings.updated).toEqual([
       ['d-1', { visible: false }],
     ])
     expect(JSON.parse(result.content)).toMatchObject({ drawing: { id: 'd-1' } })
@@ -494,8 +579,8 @@ describe('chart tool catalog', () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'drawings_write')
     const result = await tool.execute({ action: 'delete', drawingId: 'd-1' }, context())
-    expect((deps.drawings as ReturnType<typeof createDrawings>).removed).toEqual(['d-1'])
-    expect(JSON.parse(result.content)).toMatchObject({ deleted: { id: 'd-1' } })
+    expect(deps.drawings.removed).toEqual(['d-1'])
+    expect(JSON.parse(result.content)).toMatchObject({ drawing: { id: 'd-1' } })
   })
 
   it('锚点契约在描述里由种类声明生成', () => {
@@ -554,17 +639,135 @@ describe('chart tool catalog', () => {
       context(),
     )
 
-    expect((deps.drawings as ReturnType<typeof createDrawings>).created[0]?.labels).toEqual(labels)
+    expect(deps.drawings.created[0]?.labels).toEqual(labels)
   })
 
-  it('对比品种歧义结果原样返回，交由模型向用户澄清', async () => {
+  it('对比列表只返回投影字段，并带上可见性', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'comparisons_list')
+    const result = await tool.execute({}, context())
+    expect(JSON.parse(result.content)).toEqual({
+      comparisons: [
+        {
+          identity: 'instrument:tdx:600519',
+          symbol: '600519',
+          name: '贵州茅台',
+          exchange: 'SSE',
+          source: 'tdx',
+          instrumentType: 'stock',
+          color: '#f59e0b',
+          visible: true,
+        },
+      ],
+    })
+  })
+
+  it('对比创建只传路由字段，并返回新快照', async () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'comparisons_write')
-    const result = await tool.execute({ action: 'create', symbol: '600000' }, context())
-    expect(JSON.parse(result.content)).toEqual({
+    const result = await tool.execute(
+      {
+        action: 'create',
+        symbol: '600519',
+        exchange: 'SSE',
+        source: 'tdx',
+        instrumentType: 'stock',
+      },
+      context(),
+    )
+    expect(deps.comparisons.created).toEqual([
+      { symbol: '600519', exchange: 'SSE', source: 'tdx', instrumentType: 'stock' },
+    ])
+    expect(JSON.parse(result.content)).toMatchObject({
       status: 'added',
-      symbol: '600000',
-      name: '600000',
+      comparison: { identity: 'instrument:tdx:600519', source: 'tdx' },
+    })
+  })
+
+  it('歧义候选的每个字段都能原样回传给 create', async () => {
+    const deps = createDeps()
+    deps.comparisons.controls.ambiguous = true
+    const tool = toolOf(createChartToolCatalog(deps), 'comparisons_write')
+    const result = await tool.execute({ action: 'create', symbol: '000012' }, context())
+    expect(JSON.parse(result.content)).toMatchObject({ status: 'ambiguous' })
+    const candidates = readCandidates(result.content)
+    expect(candidates).toHaveLength(2)
+    for (const candidate of candidates) {
+      expect(candidate).not.toHaveProperty('id')
+      const { name: _name, ...routing } = candidate
+      expect(Check(tool.parameters, { action: 'create', ...routing })).toBe(true)
+    }
+  })
+
+  it('对比显隐与删除都只用 identity', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'comparisons_write')
+    const hidden = await tool.execute(
+      { action: 'update', identity: 'comparison-1', visible: false },
+      context(),
+    )
+    const removed = await tool.execute({ action: 'remove', identity: 'comparison-1' }, context())
+    expect(deps.comparisons.visibility).toEqual([['comparison-1', false]])
+    expect(deps.comparisons.removed).toEqual(['comparison-1'])
+    expect(JSON.parse(hidden.content)).toMatchObject({ comparison: { visible: false } })
+    expect(JSON.parse(removed.content)).toMatchObject({ comparison: { identity: 'comparison-1' } })
+  })
+
+  it.each([
+    {
+      name: 'create 拒绝 identity',
+      input: { action: 'create', symbol: '600519', identity: 'comparison-1' },
+      pattern: /does not accept identity/,
+    },
+    {
+      name: 'update 拒绝 symbol',
+      input: { action: 'update', identity: 'comparison-1', visible: true, symbol: '600519' },
+      pattern: /does not accept symbol/,
+    },
+    {
+      name: 'remove 拒绝 visible',
+      input: { action: 'remove', identity: 'comparison-1', visible: true },
+      pattern: /does not accept visible/,
+    },
+    {
+      name: 'update 缺 visible',
+      input: { action: 'update', identity: 'comparison-1' },
+      pattern: /requires visible/,
+    },
+    {
+      name: 'remove 缺 identity',
+      input: { action: 'remove' },
+      pattern: /requires identity/,
+    },
+    {
+      name: 'create 不再接受周期与复权',
+      input: { action: 'create', symbol: '600519', period: 'daily', adjust: 'qfq' },
+      pattern: /does not accept period, adjust/,
+    },
+  ])('对比写入拒绝：$name', async ({ input, pattern }) => {
+    const tool = toolOf(createChartToolCatalog(createDeps()), 'comparisons_write')
+    await expect(tool.execute(input, context())).rejects.toThrow(pattern)
+  })
+
+  it('行情查询接受与 instruments_query 同构的路由字段', async () => {
+    const deps = createDeps()
+    const catalog = createChartToolCatalog(deps)
+    await toolOf(catalog, 'market_bars_query').execute(
+      { symbol: '600519', exchange: 'SSE', source: 'tdx', instrumentType: 'stock' },
+      context(),
+    )
+    await toolOf(catalog, 'market_timeshare_query').execute(
+      { symbol: '600519', exchange: 'SSE', instrumentType: 'stock' },
+      context(),
+    )
+    expect(deps.market.barCalls[0]).toMatchObject({
+      exchange: 'SSE',
+      source: 'tdx',
+      instrumentType: 'stock',
+    })
+    expect(deps.market.timeShareCalls[0]).toMatchObject({
+      exchange: 'SSE',
+      instrumentType: 'stock',
     })
   })
 
@@ -573,7 +776,7 @@ describe('chart tool catalog', () => {
     const tool = toolOf(createChartToolCatalog(deps), 'market_timeshare_query')
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01' }, context())
     await tool.execute({ symbol: 'BTCUSDT', tradingDate: '2026-09-01', days: 5 }, context())
-    expect((deps.market as ReturnType<typeof createMarket>).timeShareCalls.map((c) => c.days)).toEqual(
+    expect(deps.market.timeShareCalls.map((c) => c.days)).toEqual(
       [1, 5],
     )
   })
@@ -607,7 +810,7 @@ describe('chart tool catalog', () => {
   ])('$name', async ({ tool: name, input, expected }) => {
     const deps = createDeps()
     await toolOf(createChartToolCatalog(deps), name).execute(input, context())
-    const market = deps.market as ReturnType<typeof createMarket>
+    const { market } = deps
     const calls = name === 'market_bars_query' ? market.barCalls : market.timeShareCalls
     expect(calls.at(-1)).toMatchObject(expected)
   })

@@ -139,7 +139,7 @@ export interface RenderObjectDescriptor {
    * 对象树行按 Layer.id 寻址 Scene，领域操作（如图元菜单）只依赖本字段，
    * 不从图层命名反解身份。
    */
-  readonly sourceId: string
+  readonly domainId: string
   /** 对象树显示名；由创建者按当前状态生成，不做二次拼接。 */
   readonly label: string
   readonly capabilities: RenderObjectCapabilities

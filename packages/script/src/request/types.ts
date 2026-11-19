@@ -12,7 +12,7 @@ export type RequestResult<T> = T extends Series
     : T
 
 export interface SecurityOptions {
-  /** 目标来源的 sourceId；仅当请求品种与图表品种不同时必须显式指定。 */
+  /** 目标来源的 source；仅当请求品种与图表品种不同时必须显式指定。 */
   readonly source?: DataSource
   /** 图表历史起点之前额外加载的目标周期预热根数，缺省 300。 */
   readonly calcBarsCount?: number
