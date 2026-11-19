@@ -108,7 +108,7 @@
     "slotMinutes": 1,
     "tradingDays": [0, 1, 2, 3, 4, 5, 6],
     "sources": ["https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data"],
-    "notes": ["USDT-M永续每周七天连续交易，默认UTC划分K线；资金费率结算不中断交易。", "与现货分开声明：connector按市场下发不同sessionId，指标与脚本按sessionId取时区。"]
+    "notes": ["USDT-M永续每周七天连续交易，默认UTC划分K线；资金费率结算不中断交易。", "同一会话同时承载加密永续与 TradFi 永续（股票、商品、外汇、Pre-IPO）：后者实测同样 24×7 连续成交且无时段缺口，因此不另立会话。", "与现货分开声明：connector按市场下发不同sessionId，指标与脚本按sessionId取时区。"]
   },
   "SHFE": {
     "timeZone": "Asia/Shanghai",

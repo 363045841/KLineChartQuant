@@ -332,6 +332,7 @@ describe('createMarketDataProvider', () => {
   })
 
   // 内置 Binance 注册必须覆盖 connector 下发的两个市场会话，否则永续取时区时直接抛错。
+  // TradFi 永续（如 Pre-IPO 的 ANTUSDT）复用 BINANCE_PERP：connector 不为它另立会话。
   it('resolves the session timezone of every binance market', async () => {
     const provider = createMarketDataProvider({
       source: { ...dataSourceRegistry.binance },
@@ -350,6 +351,7 @@ describe('createMarketDataProvider', () => {
     for (const [id, sessionId] of [
       ['binance:spot:BTCUSDT', 'BINANCE_SPOT'],
       ['binance:perp:BTCUSDT', 'BINANCE_PERP'],
+      ['binance:perp:ANTUSDT', 'BINANCE_PERP'],
     ] as const) {
       const series = await provider.bars!.fetch({
         instrument: {
