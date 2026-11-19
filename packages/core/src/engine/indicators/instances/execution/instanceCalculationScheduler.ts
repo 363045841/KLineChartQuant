@@ -18,6 +18,8 @@ interface Lane {
   running?: Work
   next?: Work
   completed?: Work
+  /** 本计算身份是否已落过结果（成功或失败）；落地后增量重算不再进入加载态。 */
+  settled?: boolean
 }
 
 /** 计算版本只用于去重，生命周期取消只用于删除、定义/参数替换、会话切换与销毁。 */
@@ -55,7 +57,8 @@ export function createInstanceCalculationScheduler(
   /** 完成后直接领取最新输入，不积累中间tick，也不让其它指标等待。 */
   function start(key: string, lane: Lane, work: Work): void {
     lane.running = work
-    pending(lane, true)
+    // 加载态表达「还没有结果」；已有结果的重算不该让图例加载圈亮起。
+    if (lane.settled !== true) pending(lane, true)
     void Promise.resolve()
       .then(() => {
         lane.abort.signal.throwIfAborted()
@@ -80,7 +83,10 @@ export function createInstanceCalculationScheduler(
         const next = lane.next
         lane.next = undefined
         if (next) start(key, lane, next)
-        else pending(lane, false)
+        else {
+          lane.settled = true
+          pending(lane, false)
+        }
         work.settle(false)
       })
   }
@@ -135,7 +141,6 @@ export function createInstanceCalculationScheduler(
           current.marketRevision === marketRevision
         ) {
           waits.push(current.done)
-          pending(lane, !!(lane.running || lane.next))
           continue
         }
         let settle!: (published: boolean) => void
@@ -147,7 +152,6 @@ export function createInstanceCalculationScheduler(
         if (lane.running) {
           lane.next?.settle(false)
           lane.next = work
-          pending(lane, true)
         } else start(key, lane, work)
       }
       // 只有实例关系变化才重投影已有结果；普通tick等待真正的计算完成再发布。
