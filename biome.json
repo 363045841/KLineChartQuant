@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -17,7 +17,10 @@
       "!public/mock-stock-data.json",
       "!packages/desktop-electron/out",
       "!packages/core/src/engine/indicators/generated",
-      "!packages/core/design-tokens"
+      "!packages/core/design-tokens",
+      "!**/*.md",
+      "!**/*.yml",
+      "!**/*.yaml"
     ]
   },
   "formatter": {
