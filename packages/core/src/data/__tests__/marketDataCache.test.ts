@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createIndexedDbBarStore, type BarPageStore } from '../buffer/impl/indexedDbBarStore'
+import { type BarPageStore, createIndexedDbBarStore } from '../buffer/impl/indexedDbBarStore'
 import { MarketDataCache } from '../buffer/impl/marketDataCache'
 import { MarketDataProviderRegistry } from '../provider/impl/registry'
 
@@ -61,6 +61,78 @@ function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
     exchange: 'BINANCE',
     instrumentType: 'crypto' as const,
     period: 'daily' as const,
+    adjustment: 'none' as const,
+    barAggregation: 'original' as const,
+    limit: overrides.limit ?? 100,
+    ...(overrides.beforeTimestamp === undefined
+      ? {}
+      : { beforeTimestamp: overrides.beforeTimestamp }),
+  }
+}
+
+/** 60min 周期的夹具；与日线夹具分开，避免改动既有用例的周期语义。 */
+const HOURLY_MS = 3600000
+
+/** 构造一根小时线。 */
+function hourlyBar(timestamp: number) {
+  return { timestamp, open: 1, high: 2, low: 0, close: 1, volume: 1 }
+}
+
+/** 构造 60min 一页数据。 */
+function hourlyPage(
+  data: Array<ReturnType<typeof hourlyBar>>,
+  olderData: 'available' | 'exhausted' = 'exhausted',
+) {
+  return {
+    instrumentId: 'test:BTCUSDT',
+    period: '60min' as const,
+    adjustment: 'none' as const,
+    barAggregation: 'original' as const,
+    timezone: 'UTC',
+    data,
+    olderData,
+  }
+}
+
+/** 装配一条只支持 60min 的缓存。 */
+function createHourlyCache(
+  fetch: (beforeTimestamp?: number, signal?: AbortSignal) => Promise<ReturnType<typeof hourlyPage>>,
+  store?: BarPageStore,
+) {
+  const registry = new MarketDataProviderRegistry()
+  const instrument = {
+    id: 'test:BTCUSDT',
+    sourceId: 'test',
+    symbol: 'BTCUSDT',
+    name: 'Bitcoin',
+    instrumentType: 'crypto' as const,
+    exchange: 'BINANCE',
+    capabilities: { bars: { periods: ['60min' as const], adjustments: ['none' as const] } },
+  }
+  registry.register({
+    source: {
+      id: 'test',
+      displayName: 'Test',
+      capabilities: {
+        instrumentTypes: ['crypto'],
+        bars: { periods: ['60min' as const], adjustments: ['none'] },
+      },
+    },
+    probe: async () => ({ status: 'online', checkedAt: 1 }),
+    catalog: { search: async () => [instrument] },
+    bars: { fetch: ({ beforeTimestamp, signal }) => fetch(beforeTimestamp, signal) },
+  })
+  return { cache: new MarketDataCache(registry, store), instrument }
+}
+
+/** 构造 60min 的查询参数。 */
+function hourlyQuery(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
+  return {
+    sourceId: 'test',
+    symbol: 'BTCUSDT',
+    exchange: 'BINANCE',
+    instrumentType: 'crypto' as const,
+    period: '60min' as const,
     adjustment: 'none' as const,
     barAggregation: 'original' as const,
     limit: overrides.limit ?? 100,
@@ -321,6 +393,64 @@ describe('MarketDataCache', () => {
       ]),
     )
     const reopened = createCache(corrected, store)
+    const result = await reopened.cache.verifyPersistent()
+
+    expect(result.corrected).toBe(true)
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(0))
+  })
+
+  it('60min 周期下连续分页照常合并', async () => {
+    const fetch = vi.fn(async (beforeTimestamp?: number) =>
+      beforeTimestamp === undefined
+        ? hourlyPage([hourlyBar(0), hourlyBar(HOURLY_MS)], 'available')
+        : hourlyPage([hourlyBar(-2 * HOURLY_MS), hourlyBar(-1 * HOURLY_MS)]),
+    )
+    const { cache } = createHourlyCache(fetch)
+
+    await cache.queryBars(hourlyQuery({ limit: 2 }))
+    const older = await cache.queryBars(hourlyQuery({ limit: 2, beforeTimestamp: 0 }))
+
+    expect(older.series.data.map((item) => item.timestamp)).toEqual([
+      -2 * HOURLY_MS,
+      -1 * HOURLY_MS,
+    ])
+    const all = await cache.queryBars(hourlyQuery({ limit: 4 }))
+    expect(all.series.data.map((item) => item.timestamp)).toEqual([
+      -2 * HOURLY_MS,
+      -1 * HOURLY_MS,
+      0,
+      HOURLY_MS,
+    ])
+  })
+
+  it('60min 周期下页间缺口不拼成一条序列', async () => {
+    const fetch = vi.fn(async (beforeTimestamp?: number) =>
+      beforeTimestamp === undefined
+        ? hourlyPage([hourlyBar(0), hourlyBar(HOURLY_MS)], 'available')
+        : hourlyPage([hourlyBar(-14 * HOURLY_MS), hourlyBar(-13 * HOURLY_MS)]),
+    )
+    const { cache } = createHourlyCache(fetch)
+
+    await cache.queryBars(hourlyQuery({ limit: 2 }))
+    const older = await cache.queryBars(hourlyQuery({ limit: 2, beforeTimestamp: 0 }))
+
+    // 早期页与已有段相隔 13 小时，缺口不会被拼接：带游标的查询宁可返回空，
+    // 也不交出跨过缺口的序列。
+    expect(older.series.data).toEqual([])
+    const latest = await cache.queryBars(hourlyQuery({ limit: 2 }))
+    expect(latest.series.data.map((item) => item.timestamp)).toEqual([0, HOURLY_MS])
+  })
+
+  it('校验历史缓存时回源缺少时间戳也算修正', async () => {
+    const store = createIndexedDbBarStore()
+    const fetch = vi.fn(async () => hourlyPage([hourlyBar(0), hourlyBar(HOURLY_MS)]))
+    const first = createHourlyCache(fetch, store)
+    await first.cache.queryBars(hourlyQuery({ limit: 2, beforeTimestamp: 2 * HOURLY_MS }))
+    await vi.waitFor(async () => expect((await store.stats()).pages).toBe(1))
+
+    // 回源只剩一根：另一根在上游消失了，落盘页已不可信。
+    const shrunk = vi.fn(async () => hourlyPage([hourlyBar(HOURLY_MS)]))
+    const reopened = createHourlyCache(shrunk, store)
     const result = await reopened.cache.verifyPersistent()
 
     expect(result.corrected).toBe(true)

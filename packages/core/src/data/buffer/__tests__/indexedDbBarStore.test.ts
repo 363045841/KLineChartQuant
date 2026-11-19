@@ -116,6 +116,23 @@ describe('行情落盘缓存', () => {
     expect(await store.read(SELECTION, { limit: 2 })).toBeNull()
   })
 
+  it('给出步长时只返回末尾连续段，缺口凑不满一页按未命中处理', async () => {
+    await store.write({
+      selectionKey: SELECTION,
+      bars: [bar(0), bar(3600000), bar(14400000), bar(18000000)],
+      olderData: 'available',
+      meta: META,
+    })
+
+    const tail = await store.read(SELECTION, { limit: 2, stepMs: 3600000 })
+    expect(tail?.bars.map((item) => item.timestamp)).toEqual([14400000, 18000000])
+
+    // 末尾连续段只有 2 根；要 3 根就按未命中处理，交给回源重取。
+    expect(await store.read(SELECTION, { limit: 3, stepMs: 3600000 })).toBeNull()
+    // 不给步长的旧调用不受影响。
+    expect((await store.read(SELECTION, { limit: 4 }))?.bars).toHaveLength(4)
+  })
+
   it('清空后读不到任何页', async () => {
     await store.write({
       selectionKey: SELECTION,

@@ -8,6 +8,7 @@
 
 import type { BarSeries, InstrumentDescriptor, OlderDataStatus } from '@/data/provider/types.js'
 import type { KLineData } from '@/foundation/types/price.js'
+import { continuousTail } from './barContinuity.js'
 
 /** 落盘时一并保存的序列身份，读取时用它重建缓存条目。 */
 export interface BarCachePageMeta {
@@ -36,6 +37,8 @@ export type BarCachePageInput = Omit<BarCachePage, 'savedAt' | 'firstTimestamp' 
 export interface BarCacheReadOptions {
   readonly beforeTimestamp?: number
   readonly limit: number
+  /** 期望的 K 线步长（毫秒）；给出时只返回末尾连续段，缺口一律按未命中处理。 */
+  readonly stepMs?: number
 }
 
 /** 写入结果：corrected 表示检测到上游修正并已整体作废该选择。 */
@@ -193,7 +196,10 @@ export function createIndexedDbBarStore(): BarPageStore {
       .filter((bar) => bar.timestamp < cutoff)
       .sort((left, right) => left.timestamp - right.timestamp)
     if (bars.length < options.limit) return null
-    const slice = bars.slice(-options.limit)
+    // 页间缺口不能拼成一条序列：裁到末尾连续段，凑不满就按未命中回源。
+    const continuous = continuousTail(bars, options.stepMs ?? null)
+    if (continuous.length < options.limit) return null
+    const slice = continuous.slice(-options.limit)
     const last = candidates[candidates.length - 1]
     return {
       selectionKey,
@@ -228,7 +234,11 @@ export function createIndexedDbBarStore(): BarPageStore {
       }
       if (corrected) break
     }
-    if (corrected) await deleteRecords(database, records.map((record) => record.id))
+    if (corrected)
+      await deleteRecords(
+        database,
+        records.map((record) => record.id),
+      )
 
     const record: StoredRecord = {
       id: `${page.selectionKey}|${bars[0]?.timestamp ?? 0}`,
@@ -248,7 +258,10 @@ export function createIndexedDbBarStore(): BarPageStore {
     // 先按选择身份淘汰超出页数上限的旧页，再按全局上限淘汰最久未写的页。
     const kept = corrected ? [record] : [...records, record]
     const overflow = kept.slice(0, Math.max(0, kept.length - MAX_PAGES_PER_SELECTION))
-    await deleteRecords(database, overflow.map((item) => item.id))
+    await deleteRecords(
+      database,
+      overflow.map((item) => item.id),
+    )
     const all = await requestResult<StoredRecord[]>(
       database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll(),
     )
@@ -256,7 +269,10 @@ export function createIndexedDbBarStore(): BarPageStore {
       const oldest = all
         .sort((left, right) => left.savedAt - right.savedAt)
         .slice(0, all.length - MAX_PAGES_TOTAL)
-      await deleteRecords(database, oldest.map((item) => item.id))
+      await deleteRecords(
+        database,
+        oldest.map((item) => item.id),
+      )
     }
     return { corrected }
   }
@@ -268,7 +284,10 @@ export function createIndexedDbBarStore(): BarPageStore {
       if (typeof indexedDB === 'undefined') return
       const database = await openDatabase()
       const records = await readSelection(database, selectionKey)
-      await deleteRecords(database, records.map((record) => record.id))
+      await deleteRecords(
+        database,
+        records.map((record) => record.id),
+      )
     },
     async clearAll() {
       if (typeof indexedDB === 'undefined') return

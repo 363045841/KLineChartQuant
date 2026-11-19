@@ -26,11 +26,6 @@ import {
 import { createTradeBuffer } from '../../trades/impl/tradeBuffer.js'
 import { missingTradeRanges, TRADE_HISTORY_PAGE_MS } from '../../trades/impl/tradeRanges.js'
 import {
-  type BarPageStore,
-  createIndexedDbBarStore,
-  sameBarValues,
-} from './indexedDbBarStore.js'
-import {
   TRADE_MESSAGES,
   TRADE_STATUS,
   TRADE_STREAM_CODES,
@@ -42,6 +37,13 @@ import {
   type TradeStatus,
   type TradeUpdate,
 } from '../../trades/types.js'
+import { continuousTail, periodStepMs } from './barContinuity.js'
+import {
+  type BarCachePage,
+  type BarPageStore,
+  createIndexedDbBarStore,
+  sameBarValues,
+} from './indexedDbBarStore.js'
 import {
   DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
   FETCH_TOTAL_ATTEMPTS,
@@ -768,11 +770,14 @@ export class MarketDataCache {
    * 读失败或数据不足都按未命中处理，绝不阻断网络取数：落盘只是加速层。
    */
   private async hydratePage(key: string, query: BarsCacheQuery): Promise<void> {
+    const stepMs = periodStepMs(query.period)
     let page: Awaited<ReturnType<BarPageStore['read']>> = null
     try {
       page = await this.barStore.read(key, {
         ...(query.beforeTimestamp === undefined ? {} : { beforeTimestamp: query.beforeTimestamp }),
         limit: query.limit,
+        // 落盘读取按周期步长裁掉缺口；缺口凑不满一页时 read 返回 null，转去回源。
+        ...(stepMs === null ? {} : { stepMs }),
       })
     } catch {
       return
@@ -780,7 +785,8 @@ export class MarketDataCache {
     if (page === null || page.bars.length === 0) return
     const current = this.bars.get(key)
     if (this.coversPage(current, query)) return
-    const data = mergeBars(current?.data ?? [], [...page.bars])
+    // 内存侧同样不能拼接缺口：只保留末尾连续段，断开的前段交给下次回源重取。
+    const data = [...continuousTail(mergeBars(current?.data ?? [], [...page.bars]), stepMs)]
     this.bars.set(key, {
       ...page.meta,
       data,
@@ -801,7 +807,27 @@ export class MarketDataCache {
   private async probeStaleHistory(key: string, savedAt: number): Promise<void> {
     if (Date.now() - savedAt <= PERSIST_STALE_PROBE_MS || this.staleProbed.has(key)) return
     this.staleProbed.add(key)
-    await this.verifyPersistent(key, 1)
+    let pages: readonly BarCachePage[]
+    try {
+      pages = await this.barStore.listSelection(key)
+    } catch {
+      return
+    }
+    if (pages.length === 0) return
+    // 最旧页覆盖深历史，中间页覆盖「最新页」与「最旧页」之间的盲区。
+    // 取样位置取中点而不是随机数：同一份缓存每次探测的范围可复现。
+    const middle = pages[Math.floor((pages.length - 1) / 2)]
+    const targets = middle === pages[0] ? [pages[0]] : [pages[0], middle]
+    let corrected = false
+    for (const page of targets) {
+      if (this.destroyed) break
+      if (await this.verifyStoredPage(key, pages, page)) {
+        corrected = true
+        break
+      }
+    }
+    if (corrected) this.queryRevisionSignal.set(this.queryRevisionSignal.peek() + 1)
+    await this.refreshDiskStats()
   }
 
   /**
@@ -828,7 +854,11 @@ export class MarketDataCache {
           selectionKey: key,
           bars: fresh,
           olderData: result.series.olderData,
-          meta: { sourceId: result.sourceId, instrument: result.instrument, series: current.series },
+          meta: {
+            sourceId: result.sourceId,
+            instrument: result.instrument,
+            series: current.series,
+          },
         })
       ).corrected
     } catch {
@@ -907,13 +937,65 @@ export class MarketDataCache {
    * @param maxPages 每个选择最多校验的页数（从最旧的页开始），省略表示全部
    * @returns corrected 至少有一个选择被判定为已修正并作废
    */
+  /**
+   * 回源核对一页落盘数据；命中修正时作废整个选择。
+   *
+   * 回源缺了某个已落盘的时间戳同样算修正：落盘里有、上游没有，
+   * 说明这一页已不可信，继续用就是给图表和 Agent 喂假数据。
+   *
+   * @param key 选择身份
+   * @param pages 该选择的全部页，用于判断是否最新页
+   * @param page 本次要核对的页
+   * @returns 是否判定为已修正并已作废
+   */
+  private async verifyStoredPage(
+    key: string,
+    pages: readonly BarCachePage[],
+    page: BarCachePage,
+  ): Promise<boolean> {
+    const query: BarsCacheQuery = {
+      sourceId: page.meta.sourceId,
+      instrument: page.meta.instrument,
+      symbol: page.meta.instrument.symbol,
+      exchange: page.meta.instrument.exchange,
+      instrumentType: page.meta.instrument.instrumentType,
+      period: page.meta.series.period,
+      adjustment: page.meta.series.adjustment,
+      barAggregation: page.meta.series.barAggregation,
+      limit: page.bars.length,
+      beforeTimestamp: page.lastTimestamp + 1,
+    }
+    let fresh: readonly KLineData[]
+    try {
+      fresh = (await this.requestPage(query, undefined)).series.data
+    } catch {
+      return false
+    }
+    const freshByTimestamp = new Map(fresh.map((bar) => [bar.timestamp, bar]))
+    // 最新一页的最后一根还可能在形成中，取值变化不算历史修正。
+    const isNewestPage = page.lastTimestamp === pages[pages.length - 1]?.lastTimestamp
+    const comparable = isNewestPage ? page.bars.slice(0, -1) : page.bars
+    const changed = comparable.some((bar) => {
+      const candidate = freshByTimestamp.get(bar.timestamp)
+      return candidate === undefined || !sameBarValues(bar, candidate)
+    })
+    if (!changed) return false
+    try {
+      await this.barStore.clearSelection(key)
+    } catch {
+      return false
+    }
+    return true
+  }
+
   async verifyPersistent(
     selectionKey?: string,
     maxPages?: number,
   ): Promise<{ corrected: boolean }> {
     let selections: readonly string[]
     try {
-      selections = selectionKey === undefined ? await this.barStore.listSelections() : [selectionKey]
+      selections =
+        selectionKey === undefined ? await this.barStore.listSelections() : [selectionKey]
     } catch {
       return { corrected: false }
     }
@@ -928,38 +1010,7 @@ export class MarketDataCache {
       const targets = maxPages === undefined ? pages : pages.slice(0, maxPages)
       for (const page of targets) {
         if (this.destroyed) break
-        const query: BarsCacheQuery = {
-          sourceId: page.meta.sourceId,
-          instrument: page.meta.instrument,
-          symbol: page.meta.instrument.symbol,
-          exchange: page.meta.instrument.exchange,
-          instrumentType: page.meta.instrument.instrumentType,
-          period: page.meta.series.period,
-          adjustment: page.meta.series.adjustment,
-          barAggregation: page.meta.series.barAggregation,
-          limit: page.bars.length,
-          beforeTimestamp: page.lastTimestamp + 1,
-        }
-        let fresh: readonly KLineData[]
-        try {
-          fresh = (await this.requestPage(query, undefined)).series.data
-        } catch {
-          continue
-        }
-        const freshByTimestamp = new Map(fresh.map((bar) => [bar.timestamp, bar]))
-        // 最新一页的最后一根还可能在形成中，取值变化不算历史修正。
-        const isNewestPage = page.lastTimestamp === pages[pages.length - 1]?.lastTimestamp
-        const comparable = isNewestPage ? page.bars.slice(0, -1) : page.bars
-        const changed = comparable.some((bar) => {
-          const candidate = freshByTimestamp.get(bar.timestamp)
-          return candidate !== undefined && !sameBarValues(bar, candidate)
-        })
-        if (!changed) continue
-        try {
-          await this.barStore.clearSelection(key)
-        } catch {
-          continue
-        }
+        if (!(await this.verifyStoredPage(key, pages, page))) continue
         corrected = true
         break
       }
@@ -1043,6 +1094,8 @@ export class MarketDataCache {
       )
     }
     const progressed = merged.length > previous.length || previous.length === 0
+    // 分页页与已有段之间可能有缺口：裁到末尾连续段，缺口不会被拼成一条序列。
+    merged = [...continuousTail(merged, periodStepMs(query.period))]
     const value: CacheEntry = {
       sourceId: result.sourceId,
       instrument: result.instrument,

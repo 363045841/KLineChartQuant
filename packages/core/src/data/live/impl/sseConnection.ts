@@ -105,14 +105,19 @@ function readSnapshotFrame(instrumentId: string, payload: Record<string, unknown
   return { channel: 'bars', type: 'snapshot', instrumentId, bars }
 }
 
-/** 解析 K 线状态帧；detail 仅在服务端给出字符串时透传。 */
+/**
+ * 解析 K 线状态帧；detail 仅在服务端给出字符串时透传。
+ *
+ * 部分数据源把状态帧当纯通知用，只带 detail 不带 status（币安连接器即如此）。
+ * 缺 status 时按 unknown 透传，而不是把整帧判成协议错误：否则页面会不断刷出
+ * 无意义的解析失败，真正的连接异常反而被淹没。
+ */
 function readStatusFrame(instrumentId: string, payload: Record<string, unknown>): LiveFrame {
-  if (typeof payload.status !== 'string') throw new TypeError('Status frame requires status')
   return {
     channel: 'bars',
     type: 'status',
     instrumentId,
-    status: payload.status,
+    status: typeof payload.status === 'string' ? payload.status : STATUS_UNKNOWN,
     ...(typeof payload.detail === 'string' ? { detail: payload.detail } : {}),
   }
 }
@@ -123,6 +128,9 @@ function isBarUpdateType(value: unknown): value is 'update' | 'historical' | 'cl
 }
 
 /** 解析 K 线更新帧；bar 缺失直接判为无效帧。 */
+/** 服务端没有给出状态名时的占位值；消费方按「状态未知」处理。 */
+const STATUS_UNKNOWN = 'unknown'
+
 function readBarUpdateFrame(
   type: 'update' | 'historical' | 'closed' | 'forming',
   instrumentId: string,
