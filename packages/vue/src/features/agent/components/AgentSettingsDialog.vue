@@ -231,13 +231,13 @@
                   <BaseButton
                     size="sm"
                     class="field__save"
-                    :disabled="!providerSettings.exaApiKey.trim()"
+                    :disabled="!providerSettings.exaApiKey.trim() && !status.exaConfigured"
                     @click="providerSettings.persistWebSearchApiKey()"
                   >
                     {{ text.save }}
                   </BaseButton>
                 </div>
-                <small class="field__help">{{ text.exaApiKeyPlaceholder }}</small>
+                <small class="field__help">{{ text.exaApiKeyHelp }}</small>
               </div>
 
               <details class="tool__params">

@@ -1,7 +1,10 @@
 // 本文件将网络搜索供应商适配为 Pi Agent 可调用的只读工具。
 import { type Static, Type } from 'typebox'
 
+import { AgentRuntimeError } from '../../contracts/errors.js'
 import type { RuntimeToolDefinition } from '../../pi/types.js'
+import { toolFailureResult } from '../../tools/failure.js'
+import { DEFAULT_WEB_SEARCH_LIMIT } from '../types.js'
 import type { WebSearchProvider } from '../types.js'
 import { formatWebSearchResult } from './web-search-formatter.js'
 
@@ -13,7 +16,6 @@ export const WEB_SEARCH_TOOL_METADATA = {
     'Search the public web for current information. Results include titles, URLs, and snippets; cite the returned URLs when using them.',
 } as const
 
-const WEB_SEARCH_DEFAULT_LIMIT = 5
 const WEB_SEARCH_MAX_LIMIT = 10
 
 const WebSearchParameters = Type.Object({
@@ -23,13 +25,18 @@ const WebSearchParameters = Type.Object({
 
 type WebSearchInput = Static<typeof WebSearchParameters>
 
-/** 创建标准只读网络搜索工具；未配置供应商时在调用结果中返回配置引导。 */
-export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDefinition {
+/**
+ * 创建标准只读网络搜索工具。
+ *
+ * 供应商必填：免费额度与自有 Key 都由供应商内部决定，工具本身不处理配置状态。
+ * 已知错误按 `AgentErrorView` 返回给模型；未知异常直接上抛，不伪装成搜索结果。
+ *
+ * @param provider 已由宿主选好通道的网络搜索供应商。
+ * @returns 只读、可并行的运行时工具定义。
+ */
+export function createWebSearchTool(provider: WebSearchProvider): RuntimeToolDefinition {
   return {
     ...WEB_SEARCH_TOOL_METADATA,
-    description:
-      `${WEB_SEARCH_TOOL_METADATA.description} If Web search is not configured, ` +
-      'tell the user to add an Exa API key in Agent settings and do not invent search results.',
     parameters: WebSearchParameters,
     effect: 'read',
     executionMode: 'parallel',
@@ -37,17 +44,10 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
     async execute(input, context) {
       const request = input as WebSearchInput
       context.signal.throwIfAborted()
-      if (!provider) {
-        return {
-          content:
-            'Web search is available but not configured. Tell the user to open Agent settings and enter an Exa API key, then retry this search. Do not provide or infer web search results.',
-          summary: 'Web search requires an Exa API key.',
-        }
-      }
       context.progress({ label: 'Searching the web' })
       try {
         const sources = await provider.search(
-          { query: request.query, limit: request.limit ?? WEB_SEARCH_DEFAULT_LIMIT },
+          { query: request.query, limit: request.limit ?? DEFAULT_WEB_SEARCH_LIMIT },
           { signal: context.signal },
         )
         context.signal.throwIfAborted()
@@ -59,18 +59,10 @@ export function createWebSearchTool(provider?: WebSearchProvider): RuntimeToolDe
             ? `Found ${sources.length} web results.`
             : 'No web results found.',
         }
-      } catch {
+      } catch (error) {
         context.signal.throwIfAborted()
-        return {
-          content: 'Web search could not complete. Retry with a more specific query.',
-          summary: 'Web search failed.',
-          failure: {
-            code: 'TOOL_ERROR',
-            message: 'Web search could not complete.',
-            retryable: true,
-            recommendedAction: 'Retry with a more specific query.',
-          },
-        }
+        if (!(error instanceof AgentRuntimeError)) throw error
+        return toolFailureResult(error.toView())
       }
     },
   }

@@ -30,6 +30,33 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Exa 托管 MCP 的成功响应；free 与 key 两种调用共用同一份结果格式。 */
+function exaMcpResponse(): Response {
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    result: {
+      content: [
+        {
+          type: 'text',
+          text: [
+            'Title: Search result',
+            'URL: https://example.com',
+            'Published: N/A',
+            'Author: N/A',
+            'Highlights:',
+            'Result snippet',
+          ].join('\n'),
+        },
+      ],
+    },
+  }
+  return new Response(`event: message\ndata: ${JSON.stringify(payload)}\n\n`, {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
+
 /** 装配仅含测试依赖的 Agent 工具注册表。 */
 function createTestToolRegistry(): BrowserToolRegistry {
   return new BrowserToolRegistry({
@@ -123,7 +150,11 @@ describe('BrowserAgentBridge', () => {
     )
   })
 
-  it('keeps web search enabled before an Exa key is configured and returns setup guidance', async () => {
+  it('searches through the free Exa channel when no key is configured', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => exaMcpResponse(),
+    )
+    vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
 
     await expect(bridge.listTools()).resolves.toContainEqual(
@@ -133,9 +164,9 @@ describe('BrowserAgentBridge', () => {
       }),
     )
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
-      summary: 'Web search requires an Exa API key.',
-      content: expect.stringContaining('open Agent settings and enter an Exa API key'),
+      summary: 'Found 1 web results.',
     })
+    expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).get('x-api-key')).toBe(null)
   })
 
   it('requests the Provider model catalog with the supplied credential', async () => {
@@ -374,17 +405,9 @@ describe('BrowserAgentBridge', () => {
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({ state: 'not-configured' })
   })
 
-  it('persists one global Exa key and exposes the web search tool without a Provider Profile', async () => {
+  it('persists one global Exa key and sends it to the hosted MCP endpoint', async () => {
     const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            results: [
-              { title: 'Search result', url: 'https://example.com', text: 'Result snippet' },
-            ],
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
+      async (_input: RequestInfo | URL, _init?: RequestInit) => exaMcpResponse(),
     )
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
@@ -401,8 +424,22 @@ describe('BrowserAgentBridge', () => {
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
       summary: 'Found 1 web results.',
     })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://mcp.exa.ai/mcp',
+      expect.objectContaining({ method: 'POST' }),
+    )
     expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).get('x-api-key')).toBe('exa-key')
     expect(JSON.stringify(await bridge.listProviderProfiles())).not.toContain('exa-key')
+  })
+
+  it('clears the global Exa key so web search falls back to the free quota', async () => {
+    const bridge = new BrowserAgentBridge()
+
+    await bridge.saveWebSearchApiKey('exa-key')
+    await bridge.saveWebSearchApiKey('')
+
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({ exaConfigured: false })
+    expect(readStoredAgentModelSettings()).not.toHaveProperty('exaApiKey')
   })
 
   it('migrates a legacy Profile Exa key into the global Agent settings', async () => {

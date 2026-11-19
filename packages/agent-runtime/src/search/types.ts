@@ -1,5 +1,8 @@
 // 本文件定义网络搜索供应商与运行时工具共享的最小数据契约。
 
+/** 单次搜索的默认结果数；工具与供应商共用同一个来源，避免两处各写一个 5。 */
+export const DEFAULT_WEB_SEARCH_LIMIT = 5
+
 /** 单次网络搜索请求。 */
 export interface WebSearchRequest {
   readonly query: string

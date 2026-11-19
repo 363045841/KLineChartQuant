@@ -101,8 +101,10 @@ const copy = {
     openAiResponses: 'Open AI Response',
     baseUrl: 'Base URL',
     apiKey: 'API key',
-    exaApiKey: 'Exa API key',
-    exaApiKeyPlaceholder: 'Leave blank to keep the saved key',
+    exaApiKey: 'Exa API key (optional)',
+    exaApiKeyPlaceholder: 'Optional',
+    exaApiKeyHelp:
+      "Without a key, Web search uses Exa's free shared quota and may be rate limited. Save an empty field to remove a saved key.",
     save: 'Save',
     additionalHeaders: 'Additional headers (JSON)',
     additionalHeadersPlaceholder:
@@ -221,8 +223,9 @@ const copy = {
     openAiResponses: 'Open AI Response',
     baseUrl: 'Base URL',
     apiKey: 'API key',
-    exaApiKey: 'Exa API key',
-    exaApiKeyPlaceholder: '留空则保留已保存的 Key',
+    exaApiKey: 'Exa API key（可选）',
+    exaApiKeyPlaceholder: '可选',
+    exaApiKeyHelp: '未配置时使用 Exa 共享免费额度，可能被限流。留空保存可移除已保存的 Key。',
     save: '保存',
     additionalHeaders: '附加请求头（JSON）',
     additionalHeadersPlaceholder:

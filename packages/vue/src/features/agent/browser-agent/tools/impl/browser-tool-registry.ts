@@ -1,12 +1,13 @@
 // 浏览器端工具解析：图表工具来自 Core 的纯数据目录，运行时工具在此补上宿主能力。
 
 import {
-  type AgentErrorView,
   ASK_USER_TOOL_METADATA,
   createAskUserTool,
   createExaWebSearchProvider,
   createWebSearchTool,
   type RuntimeToolDefinition,
+  type RuntimeToolResult,
+  toolFailureResult,
   WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
 import { ERROR_CODES, getRecoveryHint, isKLineChartError } from '@363045841yyt/klinechart-core'
@@ -81,11 +82,17 @@ export class BrowserToolRegistry {
     }
   }
 
-  /** 网络搜索：未配置 Key 时仍暴露，由工具结果引导用户配置。 */
+  /**
+   * 网络搜索：Key 只决定额度归属，两条通道都是同一个 MCP 端点。
+   *
+   * 免费通道与自有 Key 不由工具区分，工具只消费已选好的供应商。
+   */
   private createWebSearchTool(): RuntimeToolDefinition {
-    const apiKey = this.dependencies.getWebSearchApiKey()
     return createWebSearchTool(
-      apiKey ? createExaWebSearchProvider({ apiKey, fetch: this.dependencies.fetch }) : undefined,
+      createExaWebSearchProvider({
+        apiKey: this.dependencies.getWebSearchApiKey(),
+        fetch: this.dependencies.fetch,
+      }),
     )
   }
 
@@ -96,35 +103,23 @@ export class BrowserToolRegistry {
 }
 
 /** 领域错误转成模型可修正的失败结果；无法归类时向上抛。 */
-function toolFailure(
-  error: unknown,
-): { content: string; summary: string; failure: AgentErrorView } | null {
+function toolFailure(error: unknown): RuntimeToolResult | null {
   if (error instanceof ToolInputValidationError) {
-    const failure = {
+    return toolFailureResult({
       code: error.code,
       message: error.message,
       retryable: true,
       recommendedAction: 'Correct the invalid field and retry the request.',
-    }
-    return {
-      content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
-      summary: failure.message,
-      failure,
-    }
+    })
   }
   if (!isKLineChartError(error)) return null
-  const failure = {
+  return toolFailureResult({
     code: error.code,
     message: error.message,
     retryable: RETRYABLE_CODES.has(error.code),
     recommendedAction: getRecoveryHint(error.code),
     ...(error.details === undefined ? {} : { details: error.details }),
-  }
-  return {
-    content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
-    summary: failure.message,
-    failure,
-  }
+  })
 }
 
 /** 只有真实取数故障值得原样重试；输入、品种与能力错误重试同一个调用只会再失败一次。 */

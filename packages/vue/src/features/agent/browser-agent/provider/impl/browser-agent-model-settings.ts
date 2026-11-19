@@ -85,13 +85,11 @@ export class BrowserAgentModelSettingsStore {
     this.persist()
   }
 
-  /** 保存全局 Exa Key，并在写入时清理旧 Profile 内的重复凭据。 */
+  /** 保存或清除全局 Exa Key；空值表示回到 Exa 免费额度。 */
   setWebSearchApiKey(apiKey: string): void {
-    const normalized = apiKey.trim()
-    if (!normalized) return
     this.cache = {
       ...this.cache,
-      exaApiKey: normalized,
+      exaApiKey: apiKey.trim() || undefined,
       profiles: this.removeLegacyWebSearchKeys(this.cache.profiles),
     }
     this.persist()

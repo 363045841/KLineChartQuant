@@ -329,18 +329,15 @@ function setupAgentProviderSettingsStore() {
     }
   }
 
-  /** 保存全局 Web Search Key，不要求 Provider Profile 或 Base URL 已配置。 */
-  async function persistWebSearchApiKey(): Promise<boolean> {
-    const apiKey = exaApiKey.value.trim()
-    if (!bridge || !apiKey) return false
+  /** 保存全局 Web Search Key；空值表示清除，回到 Exa 免费额度。 */
+  async function persistWebSearchApiKey(): Promise<void> {
+    if (!bridge) return
     operationError.value = null
     try {
-      await bridge.saveWebSearchApiKey(apiKey)
+      await bridge.saveWebSearchApiKey(exaApiKey.value.trim())
       exaApiKey.value = ''
-      return true
     } catch (error) {
       operationError.value = toOperationError(error)
-      return false
     }
   }
 
