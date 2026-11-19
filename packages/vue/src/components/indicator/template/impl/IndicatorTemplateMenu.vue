@@ -20,24 +20,24 @@
       </button>
     </BaseTooltip>
 
-    <BaseModal
+    <BaseModal body="list"
       :open="open"
       title="指标模板"
       size="lg"
-      :body-scrollable="false"
       @update:open="!$event && close()"
     >
       <template #tabs>
-        <BaseTabs v-model="tab" :tabs="TEMPLATE_TABS" aria-label="指标模板页签" />
+        <BaseTabs v-model="tab" :tabs="TEMPLATE_TABS" :panel-id="panelId" aria-label="指标模板页签" />
         <ModalSearchBar
           v-if="tab === INDICATOR_TEMPLATE_TABS.templates"
           v-model="searchQuery"
+          :autofocus="false"
           placeholder="搜索模板名称..."
           aria-label="搜索模板"
         />
       </template>
 
-      <div class="indicator-template__content">
+      <div v-bind="panelAttrs" class="indicator-template__content">
         <div v-if="error" class="indicator-template__error modal-list-item" role="alert">{{ error }}</div>
         <div v-if="message" class="indicator-template__message modal-list-item" role="status">{{ message }}</div>
 
@@ -87,7 +87,6 @@
                     <BaseChip
                       v-for="(label, index) in template.labels"
                       :key="`${template.id}-${index}`"
-                      size="sm"
                     >
                       {{ label }}
                     </BaseChip>
@@ -136,7 +135,6 @@
                   <BaseChip
                     v-for="(label, index) in template.labels"
                     :key="`${template.id}-${index}`"
-                    size="sm"
                   >
                     {{ label }}
                   </BaseChip>
@@ -198,22 +196,23 @@
 </template>
 
 <script setup lang="ts">
-  import '../../../common/control-button.css'
-  import '../../../common/modal-list.css'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
+  import '@vue-src/components/common/menu/control-button.css'
+  import '@vue-src/components/common/dialog/modal-list.css'
 
   import type {
     ChartController,
     IndicatorTemplateSummary,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ControlTrigger from '@vue-src/components/common/ControlTrigger.vue'
-  import ModalScrollArea from '@vue-src/components/common/ModalScrollArea.vue'
-  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ControlTrigger from '@vue-src/components/common/menu/ControlTrigger.vue'
+  import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
+  import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
   import {
     INDICATOR_TEMPLATE_TABS,
     type IndicatorTemplateTab,
@@ -261,6 +260,7 @@
     closeSave,
     setTab,
   } = useIndicatorTemplates(controller)
+  const { panelId, panelAttrs } = useTabPanel(() => tab.value)
 
   const open = ref(false)
   const trigger = ref<HTMLButtonElement | null>(null)

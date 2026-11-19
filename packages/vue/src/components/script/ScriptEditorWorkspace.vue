@@ -101,8 +101,8 @@
 
 <script setup lang="ts">
   import type { LogEvent } from '@363045841yyt/klinechart-plot-contracts'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import LoadingSpinner from '@vue-src/components/common/LoadingSpinner.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
   import type {
     ScriptEditorDocument,
     ScriptEditorFolder,

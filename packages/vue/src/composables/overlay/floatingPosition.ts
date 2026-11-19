@@ -18,6 +18,7 @@ interface FloatingPositionOptions {
   align: 'start' | 'center'
   offset: number
   matchTriggerWidth: boolean
+  flip?: boolean
   maxHeight?: string
   apply(style: CSSProperties): void
   onError(error: unknown): void
@@ -70,7 +71,9 @@ export async function startFloatingPosition(
           placement: FLOATING_PLACEMENT[options.align][options.placement],
           middleware: [
             backend.offset(options.offset),
-            options.placement === 'auto' ? backend.flip({ padding: VIEWPORT_PADDING }) : undefined,
+            options.placement === 'auto' || options.flip
+              ? backend.flip({ padding: VIEWPORT_PADDING })
+              : undefined,
             backend.shift({ padding: VIEWPORT_PADDING }),
             backend.size({
               padding: VIEWPORT_PADDING,

@@ -239,7 +239,7 @@
           <IconTablerBrandGithub class="tool-icon" aria-hidden="true" />
         </a>
       </BaseTooltip>
-      <BaseTooltip content="命令面板" command="palette.open">
+      <CommandTooltip content="命令面板" command="palette.open">
         <button
           type="button"
           class="left-toolbar__button"
@@ -251,7 +251,7 @@
         >
           <IconTablerCommand class="tool-icon" aria-hidden="true" />
         </button>
-      </BaseTooltip>
+      </CommandTooltip>
     </div>
 
   </nav>
@@ -288,10 +288,11 @@
     getDrawingKind,
   } from '@363045841yyt/klinechart-core/engine/drawing'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuAnchor } from '@vue-src/components/common/useMenuAnchor.js'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuAnchor } from '@vue-src/components/common/menu/useMenuAnchor.js'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'

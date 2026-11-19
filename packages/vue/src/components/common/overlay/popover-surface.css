@@ -1,0 +1,14 @@
+/* 浮层菜单表面：圆角、浮层底色、阴影与 1px hairline 描边。层次由阴影与底色承担；border:0 显式取消 UA 的 [popover] 默认边框。 */
+.popover-surface {
+  border: 0;
+  border-radius: var(--popover-surface-radius, var(--klc-radius-md, 8px));
+  background: var(--popover-surface-background, var(--klc-color-ui-popover));
+  color: var(--klc-color-ui-text);
+  /* 与 BasePopover、ToastViewport 一致：柔和投影加一圈极细描边，边缘不靠阴影单撑。 */
+  box-shadow: var(--klc-elevation-2), var(--klc-elevation-hairline);
+}
+
+/* 长选项列表在面板内部滚动，不撑破浮层高度。 */
+.popover-surface--scroll {
+  overflow-y: auto;
+}

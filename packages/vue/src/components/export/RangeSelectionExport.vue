@@ -41,9 +41,9 @@
 </template>
 
 <script setup lang="ts">
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import CanvasToolbar from '@vue-src/components/common/CanvasToolbar.vue'
-  import DeleteIcon from '@vue-src/components/common/DeleteIcon.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import CanvasToolbar from '@vue-src/components/chart/CanvasToolbar.vue'
+  import DeleteIcon from '@vue-src/components/chart/DeleteIcon.vue'
   import { computed } from 'vue'
 
   const props = defineProps<{

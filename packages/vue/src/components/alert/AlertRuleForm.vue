@@ -271,7 +271,7 @@
           <span class="rule-form-advanced-label">单次触发</span>
           <span class="rule-form-advanced-hint">触发后自动禁用本规则</span>
         </div>
-        <ToggleSwitch v-model="draftOneShot" aria-label="单次触发" />
+        <ToggleSwitch v-model="draftOneShot" label="单次触发" />
       </div>
 
       <div class="rule-form-advanced-divider"></div>
@@ -334,7 +334,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/stepper-button.css'
+  import '@vue-src/components/common/form/stepper-button.css'
 
   import type {
     AlertPredicate,
@@ -342,7 +342,7 @@
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
-  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { computed, reactive, ref } from 'vue'
   import IconTablerArrowDown from '~icons/tabler/arrow-down'
   import IconTablerArrowUp from '~icons/tabler/arrow-up'
@@ -842,4 +842,3 @@
     cursor: not-allowed;
   }
 </style>
-

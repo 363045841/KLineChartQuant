@@ -3,7 +3,6 @@
       <BaseTextarea
         class="composer__textarea"
         :model-value="draft"
-        :min-rows="3"
         :max-rows="6"
         :placeholder="text.composerPlaceholder"
         :aria-label="text.composerPlaceholder"
@@ -35,7 +34,6 @@
           <DropMenu
             v-if="provider.reasoningEfforts?.length"
             class="composer__reasoning"
-            density="compact"
             placement="top"
             :groups="reasoningGroups"
             :label="text.reasoningEffort"
@@ -55,7 +53,6 @@
         </div>
         <DropMenu
           class="composer__mode"
-          density="compact"
           :label="modeMenuLabel"
           :groups="modeGroups"
           :tooltip="false"
@@ -98,17 +95,17 @@
 
 <script setup lang="ts">
   import './agent-primary-button.css'
-  import '../../../components/common/truncate-text.css'
+  import '@vue-src/components/common/truncate-text.css'
 
   import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
-  import BaseTextarea from '../../../components/common/BaseTextarea.vue'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 

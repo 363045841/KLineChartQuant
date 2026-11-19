@@ -35,14 +35,14 @@
 </template>
 
 <script setup lang="ts">
-  import '../../components/common/control-button.css'
+  import '@vue-src/components/common/menu/control-button.css'
 
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
-  import ThemeModeControl from '@vue-src/components/common/ThemeModeControl.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
+  import ThemeModeControl from './ThemeModeControl.vue'
   import { useWorkspaceMenu } from '../impl/useWorkspaceMenu.js'
   import AboutDialog from './AboutDialog.vue'
   import KcqLogo from './KcqLogo.vue'

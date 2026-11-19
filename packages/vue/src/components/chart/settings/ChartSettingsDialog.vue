@@ -9,10 +9,10 @@
     @update:open="emit('update:open', $event)"
   >
     <template #tabs>
-      <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
+      <BaseTabs v-model="activeSection" :tabs="settingsTabs" :panel-id="panelId" aria-label="图表设置" />
     </template>
 
-    <div class="settings-body">
+    <div v-bind="panelAttrs" class="settings-body">
       <ShortcutSettings v-if="activeSection === 'shortcuts'" />
 
       <template v-else-if="activeSection === 'dataSource'">
@@ -22,7 +22,6 @@
             class="selection-menu"
             label="缓存上限"
             :groups="cacheLimitGroups"
-            density="compact"
             @select="(_groupId, value) => settings.marketDataCacheMaxMiB = Number(value)"
           >
             <template #trigger>
@@ -123,8 +122,9 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/settings-item.css'
-  import '../../common/selection-menu.css'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
+  import '@vue-src/components/common/settings-item.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
@@ -139,11 +139,11 @@
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import ColorPresetPanel from '@vue-src/components/color/impl/ColorPresetPanel.vue'
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
@@ -247,6 +247,7 @@
   })
 
   const activeSection = ref<SettingsSectionId>('main')
+  const { panelId, panelAttrs } = useTabPanel(() => activeSection.value)
   const showAggregationSourceModal = ref(false)
   const showColorPresetModal = ref(false)
   const colorPresetTheme = ref<ColorPresetThemeName>('light')

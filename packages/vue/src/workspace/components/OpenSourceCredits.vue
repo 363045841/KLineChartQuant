@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-  import '../../components/common/settings-item.css'
+  import '@vue-src/components/common/settings-item.css'
 
   import { getOpenSourceCredits } from '@vue-src/credits/openSourceCredits.js'
 

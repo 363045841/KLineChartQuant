@@ -21,10 +21,10 @@
 </template>
 
 <script setup lang="ts">
-  import '../../../components/common/truncate-text.css'
+  import '@vue-src/components/common/truncate-text.css'
 
   import { computed } from 'vue'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
@@ -105,4 +105,3 @@
   }
 
 </style>
-

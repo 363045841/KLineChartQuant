@@ -38,8 +38,8 @@
 </template>
 
 <script setup lang="ts">
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import SearchField from '@vue-src/components/common/SearchField.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import SearchField from '@vue-src/components/common/form/SearchField.vue'
   import { useScriptTree } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTree.js'
   import { useScriptTreeMenu } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTreeMenu.js'
   import type {

@@ -34,7 +34,7 @@ export interface UseAnchoredPopoverOptions {
    */
   positioning?: 'auto' | 'floating'
   /** Distance between the trigger and panel, in pixels. */
-  offset?: number
+  offset?: MaybeRefOrGetter<number>
   /** Use the trigger width as the panel's minimum width. */
   matchTriggerWidth?: MaybeRefOrGetter<boolean>
   /** CSS height limit, additionally constrained by available space. */

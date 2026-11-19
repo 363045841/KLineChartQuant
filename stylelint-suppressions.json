@@ -17,7 +17,7 @@
       "count": 36
     }
   },
-  "packages/vue/src/components/common/CanvasToolbar.vue": {
+  "packages/vue/src/components/chart/CanvasToolbar.vue": {
     "klc/no-raw-color": {
       "count": 1
     },
@@ -25,7 +25,7 @@
       "count": 3
     }
   },
-  "packages/vue/src/components/common/CanvasToolbarStack.vue": {
+  "packages/vue/src/components/chart/CanvasToolbarStack.vue": {
     "klc/no-raw-length": {
       "count": 1
     },
@@ -33,17 +33,17 @@
       "count": 1
     }
   },
-  "packages/vue/src/components/common/SearchField.vue": {
+  "packages/vue/src/components/common/form/SearchField.vue": {
     "klc/no-raw-length": {
       "count": 3
     }
   },
-  "packages/vue/src/components/common/SymbolMetaBadge.vue": {
+  "packages/vue/src/components/symbol/SymbolMetaBadge.vue": {
     "klc/no-raw-length": {
       "count": 3
     }
   },
-  "packages/vue/src/components/common/ToggleSwitch.vue": {
+  "packages/vue/src/components/common/form/ToggleSwitch.vue": {
     "klc/no-raw-color": {
       "count": 1
     },
@@ -84,12 +84,12 @@
       "count": 3
     }
   },
-  "packages/vue/src/components/common/form-control.css": {
+  "packages/vue/src/components/common/form/form-control.css": {
     "klc/no-raw-length": {
       "count": 1
     }
   },
-  "packages/vue/src/components/common/symbol-list.css": {
+  "packages/vue/src/components/symbol/symbol-list.css": {
     "klc/no-raw-length": {
       "count": 7
     }
@@ -109,7 +109,7 @@
       "count": 4
     }
   },
-  "packages/vue/src/components/common/BaseTooltip.vue": {
+  "packages/vue/src/components/common/overlay/BaseTooltip.vue": {
     "klc/no-raw-length": {
       "count": 1
     }
@@ -177,12 +177,12 @@
       "count": 3
     }
   },
-  "packages/vue/src/components/common/BaseTabs.vue": {
+  "packages/vue/src/components/common/tabs/BaseTabs.vue": {
     "klc/no-raw-length": {
       "count": 2
     }
   },
-  "packages/vue/src/components/common/toolbar-button.css": {
+  "packages/vue/src/components/chart/toolbar-button.css": {
     "klc/no-raw-length": {
       "count": 5
     }

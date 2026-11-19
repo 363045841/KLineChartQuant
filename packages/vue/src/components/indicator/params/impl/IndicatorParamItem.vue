@@ -10,7 +10,6 @@
         v-if="param.type === 'select'"
         :label="param.label"
         :groups="optionGroups"
-        density="compact"
         @select="onSelect"
       >
         <template #trigger>
@@ -67,10 +66,10 @@
 </template>
 
 <script setup lang="ts">
-  import '../../../common/selection-menu.css'
-  import '../../../common/stepper-button.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
+  import '@vue-src/components/common/form/stepper-button.css'
 
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'

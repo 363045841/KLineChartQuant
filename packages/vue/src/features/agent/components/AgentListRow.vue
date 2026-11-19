@@ -61,12 +61,12 @@
 <script setup lang="ts">
   import './agent-row/impl/agent-list-row.css'
 
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseInput from '@vue-src/components/common/BaseInput.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
   import IconCheck from '~icons/tabler/check'
   import IconX from '~icons/tabler/x'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { AgentLocale } from '../agent-copy.js'
   import { useAgentListRow } from './agent-row/impl/useAgentListRow.js'
   import type { AgentListRowMode } from './agent-row/types.js'

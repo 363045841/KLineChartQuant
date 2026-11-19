@@ -1,9 +1,8 @@
 <template>
-  <BaseModal
+  <BaseModal body="form"
     title="导出数据"
     :open="!!progress"
-    body-padded
-    :close-on-overlay="false"
+    dismiss="explicit"
     footer-align="center"
     @update:open="!$event && emit('close')"
   >
@@ -23,8 +22,8 @@
 </template>
 
 <script setup lang="ts">
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import { computed } from 'vue'
 
   const props = defineProps<{

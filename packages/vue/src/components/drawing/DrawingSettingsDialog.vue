@@ -6,9 +6,9 @@
     @update:open="!$event && emit('close')"
   >
     <template #tabs>
-      <BaseTabs v-model="activeTab" :tabs="tabs" aria-label="图元设置" />
+      <BaseTabs v-model="activeTab" :tabs="tabs" :panel-id="panelId" aria-label="图元设置" />
     </template>
-    <div class="drawing-settings-body" role="tabpanel" :aria-label="activeTab === 'style' ? '样式' : '文本'">
+    <div v-bind="panelAttrs" class="drawing-settings-body">
       <template v-if="activeTab === 'style'">
         <div v-for="field in visibleStyleFields" :key="field" class="color-row">
           <span>{{ drawingColorFields[field].label }}</span>
@@ -25,8 +25,6 @@
           <BaseTextarea
             v-model="textDraft"
             class="text-row__field"
-            :min-rows="3"
-            :max-rows="8"
             maxlength="200"
             aria-label="图元文本"
             @change="updateText"
@@ -87,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import type {
     DrawingLabelPosition,
     DrawingObject,
@@ -99,11 +98,11 @@
     templateStyleFields,
   } from '@363045841yyt/klinechart-core/engine/drawing'
   import ColorPicker from '@vue-src/components/color/impl/ColorPicker.vue'
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
-  import BaseTextarea from '@vue-src/components/common/BaseTextarea.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import {
     type DrawingColorField,
     drawingColorFields,
@@ -128,6 +127,7 @@
     updateText: [target: 'line' | 'area', text: string, position: DrawingLabelPosition]
   }>()
   const activeTab = ref<'style' | 'text'>('style')
+  const { panelId, panelAttrs } = useTabPanel(() => activeTab.value)
   const config = computed(() => drawingSettingsConfigs[props.drawing.kind])
   const visibleStyleFields = computed(() =>
     config.value.style.filter((field) => props.editableStyleKeys.includes(field)),

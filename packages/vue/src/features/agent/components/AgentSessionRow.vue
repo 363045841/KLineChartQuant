@@ -36,10 +36,10 @@
 </template>
 
 <script setup lang="ts">
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import IconPencil from '~icons/tabler/pencil'
   import IconTrash from '~icons/tabler/trash'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { AgentSessionView } from '../agent-contracts.js'
   import type { AgentLocale } from '../agent-copy.js'
   import AgentListRow from './AgentListRow.vue'

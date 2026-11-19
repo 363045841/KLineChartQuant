@@ -2,8 +2,8 @@
  * 脚本右键菜单的视图逻辑：把 ScriptMenuModel 映射成受控菜单面板。
  * 打开状态与坐标直接来自模型，面板只按 open 与 anchor 渲染。
  */
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-import type { MenuAnchor } from '@vue-src/components/common/dropMenuTypes.js'
+import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+import type { MenuAnchor } from '@vue-src/components/common/menu/dropMenuTypes.js'
 import { computed, useTemplateRef } from 'vue'
 import type { ScriptMenuModel, ScriptMenuState } from './scriptMenuModel.js'
 

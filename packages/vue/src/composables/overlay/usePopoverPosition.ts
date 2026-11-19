@@ -23,7 +23,7 @@ function useAnchorPosition(options: UseAnchoredPopoverOptions, anchorName: strin
         placement === 'top' ? 'block-start span-inline-end' : 'block-end span-inline-end',
       positionTryFallbacks:
         placement === 'auto' ? 'flip-block, flip-inline, flip-block flip-inline' : 'flip-inline',
-      marginBlock: `${options.offset ?? 4}px`,
+      marginBlock: `${toValue(options.offset) ?? 4}px`,
       maxHeight:
         placement === 'auto'
           ? (maxHeight ?? 'calc(100vh - 16px)')
@@ -59,6 +59,7 @@ function useFloatingPosition(
       origin: toValue(options.origin) ?? null,
       placement: toValue(options.placement) ?? 'auto',
       align: options.align ?? 'start',
+      offset: toValue(options.offset) ?? 4,
       matchTriggerWidth: toValue(options.matchTriggerWidth) ?? false,
       maxHeight: toValue(options.maxHeight),
     }),
@@ -77,7 +78,7 @@ function useFloatingPosition(
           panel: state.panel,
           placement: state.placement,
           align: state.align,
-          offset: options.offset ?? 4,
+          offset: state.offset,
           matchTriggerWidth: state.matchTriggerWidth,
           maxHeight: state.maxHeight,
           apply: (style) => {
@@ -94,7 +95,7 @@ function useFloatingPosition(
     triggerStyle: computed(() => undefined),
     panelStyle: computed<CSSProperties>(() => {
       const origin = toValue(options.origin)
-      const offset = options.offset ?? 4
+      const offset = toValue(options.offset) ?? 4
       // 首次测量完成前不显示：兜底位置不一定等于翻转后的最终位置，
       // 先画再纠正会让面板从下方瞬移到上方。
       const positioned = Object.keys(measured.value).length > 0

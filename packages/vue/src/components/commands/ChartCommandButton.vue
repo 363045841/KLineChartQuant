@@ -1,6 +1,6 @@
 <!-- 图表命令按钮：名称、可用性和动作来自注册表，Tooltip 读取同一命令的当前快捷键。 -->
 <template>
-  <BaseTooltip v-if="definition" :content="definition.title.zh" :command="command" placement="top">
+  <CommandTooltip v-if="definition" :content="definition.title.zh" :command="command" placement="top">
     <button
       type="button"
       class="chart-command-button"
@@ -13,13 +13,13 @@
     >
       <component :is="CHART_COMMAND_ICONS[command]" aria-hidden="true" />
     </button>
-  </BaseTooltip>
+  </CommandTooltip>
 </template>
 
 <script setup lang="ts">
   import { CHART_COMMAND_ICONS } from '../../composables/commands/chartCommands.js'
   import { useChartCommand } from '../../composables/commands/useChartCommand.js'
-  import BaseTooltip from '../common/BaseTooltip.vue'
+  import CommandTooltip from './CommandTooltip.vue'
 
   const props = defineProps<{ command: string }>()
   const emit = defineEmits<{ (e: 'execute', command: string): void }>()

@@ -107,7 +107,7 @@
           <IconTablerArrowLeft class="history-button__icon" aria-hidden="true" />
         </button>
       </BaseTooltip>
-      <BaseTooltip content="撤回" command="drawing.undo" placement="bottom">
+      <CommandTooltip content="撤回" command="drawing.undo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -117,8 +117,8 @@
         >
           <IconTablerArrowBackUp class="history-button__icon" aria-hidden="true" />
         </button>
-      </BaseTooltip>
-      <BaseTooltip content="重做" command="drawing.redo" placement="bottom">
+      </CommandTooltip>
+      <CommandTooltip content="重做" command="drawing.redo" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -128,8 +128,8 @@
         >
           <IconTablerArrowForwardUp class="history-button__icon" aria-hidden="true" />
         </button>
-      </BaseTooltip>
-      <BaseTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'" command="view.fullscreen" placement="bottom">
+      </CommandTooltip>
+      <CommandTooltip :content="isFullscreen ? '退出全屏' : '全屏显示'" command="view.fullscreen" placement="bottom">
         <button
           type="button"
           class="control-button history-button"
@@ -140,11 +140,11 @@
           <IconTablerMinimize v-if="isFullscreen" class="history-button__icon" aria-hidden="true" />
           <IconTablerMaximize v-else class="history-button__icon" aria-hidden="true" />
         </button>
-      </BaseTooltip>
+      </CommandTooltip>
       <span v-if="screenshotMessage" class="screenshot-message" role="status">
         {{ screenshotMessage }}
       </span>
-      <BaseTooltip :content="screenshotLabel" placement="bottom" command="chart.snapshot">
+      <CommandTooltip :content="screenshotLabel" placement="bottom" command="chart.snapshot">
         <button
           v-bind="screenshotMenu.buttonProps.value"
           type="button"
@@ -154,7 +154,7 @@
         >
           <IconTablerCamera class="screenshot-button__icon" aria-hidden="true" />
         </button>
-      </BaseTooltip>
+      </CommandTooltip>
       <MenuSurface
         v-bind="screenshotMenu.menuProps.value"
         :label="screenshotLabel"
@@ -169,17 +169,18 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/control-button.css'
+  import '@vue-src/components/common/menu/control-button.css'
 
   import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
   import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
-  import { useMenuButton } from '@vue-src/components/common/useMenuButton.js'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
+  import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import IndicatorTemplateMenu from '@vue-src/components/indicator/template/impl/IndicatorTemplateMenu.vue'
   import LayoutMenu from '@vue-src/components/layout/LayoutMenu.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'

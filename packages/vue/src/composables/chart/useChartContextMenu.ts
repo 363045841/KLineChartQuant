@@ -6,7 +6,7 @@ import {
   drawingToolStyle,
   getDrawingKind,
 } from '@363045841yyt/klinechart-core/engine/drawing'
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
 import { useToast } from '@vue-src/composables/toast/useToast.js'
 import type { Component } from 'vue'
 import { computed, type Ref, ref } from 'vue'

@@ -32,7 +32,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
   import IconEye from '~icons/tabler/eye'
-  import BaseTooltip from '../../../components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { AgentContextItem } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 

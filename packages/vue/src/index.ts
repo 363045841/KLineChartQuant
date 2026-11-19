@@ -120,11 +120,11 @@ export {
 // Interaction primitives (overlay, toast + undo, textarea)
 // ---------------------------------------------------------------------------
 
-export { default as BaseModal } from '@vue-src/components/common/BaseModal.vue'
-export { default as BasePopover } from '@vue-src/components/common/BasePopover.vue'
-export { default as BaseTextarea } from '@vue-src/components/common/BaseTextarea.vue'
-export { default as BaseTooltip } from '@vue-src/components/common/BaseTooltip.vue'
-export { default as ToastViewport } from '@vue-src/components/common/ToastViewport.vue'
+export { default as BaseModal } from '@vue-src/components/common/dialog/BaseModal.vue'
+export { default as BasePopover } from '@vue-src/components/common/overlay/BasePopover.vue'
+export { default as BaseTextarea } from '@vue-src/components/common/form/BaseTextarea.vue'
+export { default as BaseTooltip } from '@vue-src/components/common/overlay/BaseTooltip.vue'
+export { default as ToastViewport } from '@vue-src/components/common/feedback/ToastViewport.vue'
 export {
   type AnchoredPlacement,
   type UseAnchoredPopoverOptions,

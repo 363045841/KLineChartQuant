@@ -39,7 +39,7 @@
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type { ChartController, PaneGeometry } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { usePriceAxisMenu } from '@vue-src/composables/chart/usePriceAxisMenu.js'
   import { computed, toRef } from 'vue'
   import PaneAxisSettings from './PaneAxisSettings.vue'

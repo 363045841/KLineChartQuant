@@ -1,10 +1,10 @@
-<!-- 脚本右键菜单：分组列表、命名输入、二次确认与声明预览统一走菜单面板。 -->
+<!-- 脚本右键入口按内容使用菜单或锚定对话框。 -->
 <template>
   <MenuSurface
+    v-if="!bodyMode"
     ref="menu"
     :open="open"
     :anchor="anchor"
-    :body-mode="bodyMode"
     keep-open-on-select
     focus-on-open
     :label="label"
@@ -13,8 +13,17 @@
     @open="onOpen"
     @update:open="onUpdateOpen"
     @select="onSelect"
+  />
+  <AnchoredDialog
+    v-else
+    ref="menu"
+    :open="open"
+    :anchor="anchor"
+    :label="label"
+    :restore-focus-to="focusTarget"
+    @open="onOpen"
+    @update:open="onUpdateOpen"
   >
-    <template #body>
       <div v-if="content?.kind === 'message'" class="klc-script-menu-status" role="status">
         {{ content.text }}
       </div>
@@ -74,12 +83,12 @@
         </div>
         <ScriptDefinitionPreview :preview="content.preview" :theme="theme" />
       </div>
-    </template>
-  </MenuSurface>
+  </AnchoredDialog>
 </template>
 
 <script setup lang="ts">
-  import MenuSurface from '@vue-src/components/common/MenuSurface.vue'
+  import AnchoredDialog from '@vue-src/components/common/overlay/AnchoredDialog.vue'
+  import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
   import type { ScriptMenuModel } from '@vue-src/composables/chart/scriptEditor/impl/scriptMenuModel.js'
   import { useScriptMenuPanel } from '@vue-src/composables/chart/scriptEditor/impl/useScriptMenuPanel.js'
   import { vAutoFocus } from '@vue-src/utils/autoFocus.js'

@@ -8,7 +8,7 @@
     <ToggleSwitch
       v-if="type === 'boolean'"
       :model-value="Boolean(value)"
-      :aria-label="label"
+      :label="label"
       @update:model-value="emit('update', $event)"
     />
     <DropMenu
@@ -16,7 +16,6 @@
       class="selection-menu"
       :label="label"
       :groups="groups"
-      density="compact"
       @select="(_groupId, value) => emit('update', value)"
     >
       <template #trigger>
@@ -39,13 +38,13 @@
 </template>
 
 <script setup lang="ts">
-  import '../../common/form-control.css'
-  import '../../common/settings-item.css'
-  import '../../common/selection-menu.css'
+  import '@vue-src/components/common/form/form-control.css'
+  import '@vue-src/components/common/settings-item.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import type { SettingItem } from '@363045841yyt/klinechart-core/config'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
-  import ToggleSwitch from '@vue-src/components/common/ToggleSwitch.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
 

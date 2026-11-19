@@ -1,5 +1,5 @@
 /** 应用菜单的操作与弹窗状态；外观交互复用 ThemeModeControl。 */
-import type { DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
 import { ref } from 'vue'
 
 const APPLICATION_GROUP = 'application'

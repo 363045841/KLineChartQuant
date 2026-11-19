@@ -115,8 +115,8 @@
   import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
   import IconLayoutSidebarLeftExpand from '~icons/tabler/layout-sidebar-left-expand'
   import IconLayoutSidebarRightExpand from '~icons/tabler/layout-sidebar-right-expand'
-  import BaseTooltip from '../../components/common/BaseTooltip.vue'
-  import SlidingHighlight from '../../components/common/SlidingHighlight.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '../../composables/ui/useSlidingHighlight.js'
   import type {
     SidePanelDefinition,

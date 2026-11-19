@@ -8,8 +8,7 @@
     v-if="canEdit('strokeWidth')"
     label="线宽"
     :groups="widthGroups"
-    density="compact"
-    trigger-class="control-button--sm"
+    trigger-size="sm"
     @select="(_groupId, value) => onWidthChange(Number(value))"
   >
     <template #trigger>
@@ -22,8 +21,7 @@
     v-if="canEdit('strokeStyle')"
     label="线型"
     :groups="styleGroups"
-    density="compact"
-    trigger-class="control-button--sm"
+    trigger-size="sm"
     @select="selectLineStyle"
   >
     <template #trigger>
@@ -34,12 +32,12 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/selection-menu.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/controllers'
   import ColorPicker from '@vue-src/components/color/impl/ColorPicker.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
 

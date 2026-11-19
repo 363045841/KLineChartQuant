@@ -1,6 +1,6 @@
 <!-- K 线形态选择：选项复用 Core 设置定义，状态由图表设置提供；不支持的形态由能力置灰。 -->
 <template>
-  <DropMenu :label="settingLabel" :groups="groups" density="compact" tooltip-placement="bottom" @select="select">
+  <DropMenu :label="settingLabel" :groups="groups" tooltip-placement="bottom" @select="select">
     <template #trigger>
       <span class="selection-menu__value">{{ selectedLabel }}</span>
       <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
@@ -9,10 +9,10 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/selection-menu.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import { type ChartSettings, DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/DropMenu.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
 

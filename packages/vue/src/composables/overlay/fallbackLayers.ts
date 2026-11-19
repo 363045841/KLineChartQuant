@@ -44,7 +44,7 @@ function createStack(document: Document): LayerStack {
 
   function onKeydown(event: KeyboardEvent): void {
     const top = layers.at(-1)
-    if (event.key !== 'Escape' || !top) return
+    if (event.key !== 'Escape' || event.defaultPrevented || !top) return
     event.preventDefault()
     event.stopPropagation()
     top.close(true)
@@ -52,12 +52,12 @@ function createStack(document: Document): LayerStack {
 
   function attach(): void {
     document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('keydown', onKeydown, true)
+    document.addEventListener('keydown', onKeydown)
   }
 
   function detach(): void {
     document.removeEventListener('pointerdown', onPointerDown, true)
-    document.removeEventListener('keydown', onKeydown, true)
+    document.removeEventListener('keydown', onKeydown)
     stacks.delete(document)
   }
 

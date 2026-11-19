@@ -83,8 +83,8 @@
 </template>
 
 <script setup lang="ts">
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseTabs from '@vue-src/components/common/BaseTabs.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import {

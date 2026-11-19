@@ -7,7 +7,7 @@ import {
   ScaleType,
 } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-import type { DropMenuGroup, DropMenuItem } from '@vue-src/components/common/DropMenu.vue'
+import type { DropMenuGroup, DropMenuItem } from '@vue-src/components/common/menu/DropMenu.vue'
 import { computed, type Ref } from 'vue'
 import { useControllerSignal } from './useControllerSignal.js'
 

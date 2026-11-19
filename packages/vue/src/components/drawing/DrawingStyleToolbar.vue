@@ -85,8 +85,8 @@
     DrawingObject,
     DrawingStyle,
   } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import CanvasToolbar from '@vue-src/components/common/CanvasToolbar.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import CanvasToolbar from '@vue-src/components/chart/CanvasToolbar.vue'
   import { onMounted, onUnmounted } from 'vue'
   import IconTablerAlignCenter from '~icons/tabler/align-center'
   import IconTablerAlignLeft from '~icons/tabler/align-left'

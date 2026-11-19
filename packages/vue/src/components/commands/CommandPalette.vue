@@ -8,7 +8,7 @@
     @update:open="emit('update:open', $event)"
     title="命令面板"
     size="md"
-    :body-scrollable="false"
+    body="list"
   >
     <div class="command-palette" @keydown="onKeydown">
       <ModalSearchBar
@@ -16,7 +16,6 @@
         v-model="query"
         placeholder="搜索命令…"
         aria-label="搜索命令"
-        autofocus
       >
         <slot name="search-actions">
           <BaseTooltip content="快捷键设置" placement="bottom">
@@ -56,7 +55,6 @@
           </span>
           <ShortcutKeys
             :shortcut="shortcutOf(row.command)"
-            :tone="row.available ? 'default' : 'muted'"
             aria-label="快捷键"
           />
         </button>
@@ -66,8 +64,8 @@
 </template>
 
 <script setup lang="ts">
-  import '../common/list-text.css'
-  import '../common/modal-list.css'
+  import '@vue-src/components/common/list-text.css'
+  import '@vue-src/components/common/dialog/modal-list.css'
 
   import {
     type CommandDef,
@@ -75,11 +73,11 @@
     type CommandRegistry,
     primaryShortcut,
   } from '@363045841yyt/klinechart-core'
-  import BaseEmptyState from '@vue-src/components/common/BaseEmptyState.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
-  import ModalSearchBar from '@vue-src/components/common/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
   import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'

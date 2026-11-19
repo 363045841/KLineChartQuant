@@ -48,10 +48,10 @@
 </template>
 
 <script setup lang="ts">
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseIconButton from '@vue-src/components/common/BaseIconButton.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
-  import BaseTooltip from '@vue-src/components/common/BaseTooltip.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'
   import IconTablerHelpCircle from '~icons/tabler/help-circle'
   import type { IndicatorParamsDialogProps, IndicatorParamValues } from '../types.js'

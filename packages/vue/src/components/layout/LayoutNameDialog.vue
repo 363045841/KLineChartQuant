@@ -1,18 +1,16 @@
 <!-- 布局命名弹窗：创建、重命名与复制共用，输入名称后提交。 -->
 <template>
-  <BaseModal
+  <BaseModal body="form"
     :open="show"
     :title="title"
     size="xs"
-    body-padded
-    :close-on-overlay="!busy"
-    :show-close="!busy"
+    :dismiss="busy ? 'locked' : 'auto'"
     @update:open="!$event && emit('close')"
   >
     <form :id="formId" @submit.prevent="submit">
-      <BaseField label="布局名称" :for-id="nameId" :error="error">
+      <BaseField v-slot="{ controlAttrs }" label="布局名称" :error="error">
         <BaseInput
-          :id="nameId"
+          v-bind="controlAttrs"
           v-model="name"
           maxlength="40"
           autocomplete="off"
@@ -32,10 +30,10 @@
 </template>
 
 <script setup lang="ts">
-  import BaseButton from '@vue-src/components/common/BaseButton.vue'
-  import BaseField from '@vue-src/components/common/BaseField.vue'
-  import BaseInput from '@vue-src/components/common/BaseInput.vue'
-  import BaseModal from '@vue-src/components/common/BaseModal.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseField from '@vue-src/components/common/form/BaseField.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import { ref, useId, watch } from 'vue'
 
   const props = defineProps<{
@@ -49,7 +47,6 @@
   const emit = defineEmits<{ close: []; submit: [name: string] }>()
 
   const formId = useId()
-  const nameId = `${formId}-name`
   const name = ref('')
   // 只在弹窗打开时选中预填文本，之后用户点入输入框可正常定位光标。
   let selectPending = false

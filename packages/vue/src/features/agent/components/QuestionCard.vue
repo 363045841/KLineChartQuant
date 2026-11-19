@@ -77,8 +77,8 @@
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
   import IconHelp from '~icons/tabler/help'
-  import BaseButton from '../../../components/common/BaseButton.vue'
-  import BaseInput from '../../../components/common/BaseInput.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
   import type { QuestionAnswerView, QuestionView } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
