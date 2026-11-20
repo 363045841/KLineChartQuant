@@ -5,8 +5,8 @@
  */
 import type {
   IndicatorCandidate,
-  IndicatorCompiler,
   IndicatorCollector,
+  IndicatorCompiler,
   IndicatorFailure,
   IndicatorStage,
   RegistrableIndicator,
@@ -14,10 +14,11 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { inspectScript } from '@363045841yyt/klinechart-script'
 import type { SavedScript } from '../types.js'
-import type { CompiledScriptIdentity, ScriptExecutor } from './scriptExecutor.js'
+import { candidateIdentity, savedIdentity } from './scriptCommit.js'
+import type { ScriptExecutor } from './scriptExecutor.js'
 
 /** 创建脚本阶段所需的源码快照与执行器。 */
-export interface ScriptIndicatorStageRequest {
+interface ScriptIndicatorStageRequest {
   /** 构建期打包的内置脚本源码。 */
   readonly builtinSources: readonly string[]
   /** 已恢复的用户脚本；只读取编译所需字段。 */
@@ -45,9 +46,7 @@ function builtinKey(index: number): string {
  * @param request 内置源码、用户文档与执行器
  * @returns 形状统一的两段式指标阶段
  */
-export function createScriptIndicatorStage(
-  request: ScriptIndicatorStageRequest,
-): IndicatorStage {
+export function createScriptIndicatorStage(request: ScriptIndicatorStageRequest): IndicatorStage {
   const { builtinSources, documents, executor } = request
   const byId = new Map(documents.map((item) => [item.id, item]))
 
@@ -86,25 +85,15 @@ export function createScriptIndicatorStage(
       try {
         const compiled = await executor.compile(source, item.trusted === true)
         handle = compiled.handle
-        const identity: CompiledScriptIdentity = document
-          ? {
-              id: document.id,
-              source: document.source,
-              revision: document.revision,
-              identity: 'user',
-              trusted: document.trusted,
-              folder: document.folder,
-            }
-          : {
-              id: compiled.definition.name,
-              source,
-              revision: 1,
-              identity: item.identity === 'builtin' ? 'builtin' : 'user',
-              trusted: item.trusted === true,
-              folder: '',
-            }
+        const identity = document
+          ? savedIdentity(document)
+          : candidateIdentity(compiled, item, source)
         const definition = await executor.createDefinition(compiled, identity)
-        const registrable: RegistrableIndicator = { kind: 'definition', candidate: item, definition }
+        const registrable: RegistrableIndicator = {
+          kind: 'definition',
+          candidate: item,
+          definition,
+        }
         return { ok: true, items: [registrable] }
       } catch (error) {
         // 编译失败释放独立句柄；注册失败由注册阶段返回，不在这里吞掉。

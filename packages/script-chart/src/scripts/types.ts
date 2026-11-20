@@ -2,6 +2,7 @@
 import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-core'
 import type {
   IndicatorSourceDefinition,
+  IndicatorSourceDocument,
   ScriptOutputSource,
   ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -62,14 +63,11 @@ export interface ScriptService {
   dispose(): void
 }
 
-/** 保存框架分配的稳定身份、用户源码和版本，编译产物启动时重新生成。 */
-export interface SavedScript {
-  readonly trusted: boolean
-  readonly id: string
-  readonly source: string
-  readonly revision: number
-  readonly folder: string
-}
+/** 持久化只保存可序列化的身份、用户源码和版本，编译产物启动时重新生成。 */
+export type SavedScript = Pick<
+  Required<IndicatorSourceDocument>,
+  'trusted' | 'source' | 'revision' | 'folder'
+> & { readonly id: string }
 
 /** 一次持久化的完整用户工作区：脚本文档与空文件夹都参与恢复。 */
 export interface ScriptWorkspace {

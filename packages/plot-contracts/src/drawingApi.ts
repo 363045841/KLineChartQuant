@@ -11,8 +11,8 @@ import { xloc } from './drawing.js'
 import { createDrawingObjectApi } from './drawingObject.js'
 
 export const DRAWING_FUTURE_BARS = 500
-export const DEFAULT_DRAWING_COUNT = 50
-export const MAX_DRAWING_COUNT = 2000
+const DEFAULT_DRAWING_COUNT = 50
+const MAX_DRAWING_COUNT = 2000
 
 /** 在声明边界一次性补齐并校验对象限额。 */
 export function drawingCount(value: number = DEFAULT_DRAWING_COUNT): number {

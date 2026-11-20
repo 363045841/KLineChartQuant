@@ -28,7 +28,7 @@ import { firstChangedBar } from './changeRange.js'
 import { applyDrawingDelta } from './drawingDelta.js'
 
 /** 会话装配选项；dependency 来自编译期推断，会话不再自行判断状态性。 */
-export interface ScriptSessionOptions<Checkpoint> {
+interface ScriptSessionOptions<Checkpoint> {
   readonly createRuntime: ScriptRuntimeFactory<Checkpoint>
   readonly dependency: ComputeDependency
   readonly replayOnUpdate: boolean

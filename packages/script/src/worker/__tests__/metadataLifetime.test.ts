@@ -36,4 +36,4 @@ it('keeps metadata-only scripts executable without retaining their temporary ses
   } finally {
     worker.dispose()
   }
-}, 15000)
+})

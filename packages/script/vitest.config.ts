@@ -8,6 +8,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     setupFiles: ['src/__tests__/setup.ts'],
+    // QuickJS/WASM 与真实 Worker 的集成用例耗时随脚本规模增长；超时只做卡死保护，
+    // 不在单条用例里写死紧预算，避免换机器或换运行器版本就假失败。
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],

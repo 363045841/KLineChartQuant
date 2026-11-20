@@ -12,11 +12,11 @@ import { runQuickJSScript } from '../impl/runQuickJSScript.js'
 
 describe('均线与通道脚本', () => {
   it.each([
-    { name: 'dema', warmup: 4, expected: 7 },
-    { name: 'tema', warmup: 6, expected: 9 },
-    { name: 't3', warmup: 12, expected: 14.1 },
-    { name: 'trima', warmup: 2, expected: 14 },
-  ])('$name 的组合预热和线性价格参考值正确', async ({ name, warmup, expected }) => {
+    { name: 'dema', warmup: 4, index: 6, expected: 7 },
+    { name: 'tema', warmup: 6, index: 8, expected: 9 },
+    { name: 't3', warmup: 12, index: 14, expected: 14.1 },
+    { name: 'trima', warmup: 2, index: 14, expected: 14 },
+  ])('$name 的组合预热和线性价格参考值正确', async ({ name, warmup, index, expected }) => {
     const values = plotValues(
       await runShipped(
         name,
@@ -26,9 +26,7 @@ describe('均线与通道脚本', () => {
     )[name]!
     expect(values.slice(0, warmup)).toEqual(Array(warmup).fill(undefined))
     expect(values[warmup]).toBeTypeOf('number')
-    if (name === 'dema') expect(values[6]).toBeCloseTo(expected, 10)
-    else if (name === 'tema') expect(values[8]).toBeCloseTo(expected, 10)
-    else expect(values[14]).toBeCloseTo(expected, 10)
+    expect(values[index]).toBeCloseTo(expected, 10)
   })
 
   it.each(['dema', 'tema', 't3', 'trima'])('%s 周期 1 等于输入', async (name) => {

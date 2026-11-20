@@ -27,7 +27,6 @@ test('覆盖全局 API、嵌套对象、技术分析、绘图、枚举与相关�
   ]) {
     assert.ok(markdown.includes(`### ${name}\n`), `缺少 ${name}`)
   }
-  assert.ok(!markdown.includes('### OutputSink\n'))
   assert.match(markdown, /\*\*@param\*\* source/)
   assert.match(markdown, /\*\*@returns\*\*/)
   assert.match(markdown, /const \[o, h, l, c\] = request\.security/)

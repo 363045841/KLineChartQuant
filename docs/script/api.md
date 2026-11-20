@@ -4935,8 +4935,7 @@ CandlePlotOptions.format?: Format | undefined
 ### BarPlotOptions
 
 ```ts
-export interface BarPlotOptions extends OhlcPlotOptions {
-}
+export type BarPlotOptions = OhlcPlotOptions;
 ```
 
 美国线的竖线和左右短横线共用颜色。
