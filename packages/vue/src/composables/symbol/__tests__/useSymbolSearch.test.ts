@@ -159,28 +159,28 @@ describe('useSymbolSearch', () => {
     expect(state.results.value.map((item) => item.symbol)).toEqual(['SECOND'])
   })
 
-  // 验证相同代码的不同市场品种由不同稳定 ID 区分。
-  it('builds distinct identities for the same code in different markets', () => {
-    const main = { ...TEST_SYMBOLS[0]!, id: 'gotdx:stock:1:600519' }
-    const extended = { ...TEST_SYMBOLS[0]!, id: 'gotdx:ex:31:600519' }
-
-    expect(symbolIdentityKey(main)).not.toBe(symbolIdentityKey(extended))
-  })
-
-  // 验证不同数据源内相同的品种 ID 不会在聚合搜索结果中相互覆盖。
-  it('includes the source in a standard instrument identity', () => {
-    const first = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'first' }
-    const second = { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'second' }
-
-    expect(symbolIdentityKey(first)).not.toBe(symbolIdentityKey(second))
-  })
-
-  // 验证 providerRef 的变化不影响稳定 ID 身份。
-  it('uses the stable instrument id as the only identity key', () => {
-    const first = { ...TEST_SYMBOLS[0]!, providerRef: { market: 1 } }
-    const second = { ...TEST_SYMBOLS[0]!, providerRef: { category: 31 } }
-
-    expect(symbolIdentityKey(first)).toBe(symbolIdentityKey(second))
+  // 验证身份键只由稳定 ID 与 source 决定，与代码、市场、providerRef 无关。
+  it.each([
+    {
+      name: '同一代码在不同市场生成不同身份',
+      a: { ...TEST_SYMBOLS[0]!, id: 'gotdx:stock:1:600519' },
+      b: { ...TEST_SYMBOLS[0]!, id: 'gotdx:ex:31:600519' },
+      equal: false,
+    },
+    {
+      name: '同一 ID 在不同 source 下不同身份',
+      a: { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'first' },
+      b: { ...TEST_SYMBOLS[0]!, id: 'stock:600519', source: 'second' },
+      equal: false,
+    },
+    {
+      name: 'providerRef 变化不影响身份',
+      a: { ...TEST_SYMBOLS[0]!, providerRef: { market: 1 } },
+      b: { ...TEST_SYMBOLS[0]!, providerRef: { category: 31 } },
+      equal: true,
+    },
+  ])('$name', ({ a, b, equal }) => {
+    expect(symbolIdentityKey(a) === symbolIdentityKey(b)).toBe(equal)
   })
 
   // 验证比较候选保留相同代码但不同稳定 ID 的品种。

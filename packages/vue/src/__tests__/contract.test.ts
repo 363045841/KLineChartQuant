@@ -12,9 +12,9 @@ import type { KlineTooltipSlotProps } from '@vue-src/index'
 import * as VueAdapter from '@vue-src/index'
 import { coreSignalToVueRef } from '@vue-src/index'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
+import { createApp, defineComponent, h, nextTick, ref, shallowRef } from 'vue'
 
-import { createMockApp, createMockChartController, createTestSignal } from './_mockController'
+import { createMockChartController, createTestSignal } from './_mockController'
 
 /** 将颜色归一化为当前测试环境 DOM 的序列化形式，避免断言耦合具体环境的色彩格式。 */
 function normalizeColor(color: string): string {
@@ -31,10 +31,10 @@ describe('@363045841yyt/klinechart —public API surface', () => {
     expect(typeof VueAdapter.KMapPlugin.install).toBe('function')
   })
 
-  it('KMapPlugin.install is callable with a mock app and registers KLineChart', () => {
-    const registered: Record<string, unknown> = {}
-    VueAdapter.KMapPlugin.install(createMockApp(registered))
-    expect(registered.KLineChart).toBe(VueAdapter.KlineChart)
+  it('KMapPlugin.install registers KLineChart on a Vue app', () => {
+    const app = createApp({ render: () => null })
+    VueAdapter.KMapPlugin.install(app)
+    expect(app.component('KLineChart')).toBe(VueAdapter.KlineChart)
   })
 })
 
