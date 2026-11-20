@@ -19,18 +19,12 @@ import type {
   CommandRegistry,
   CommandRegistryOptions,
 } from '../types.js'
-import { formatCombo, scoreFields } from './matching.js'
+import { detectMac, formatCombo, scoreFields } from './matching.js'
 
 /** 取命令声明的全部快捷键 combo。 */
 function commandShortcuts(def: CommandDef): ReadonlyArray<string> {
   if (def.shortcut === undefined) return []
   return typeof def.shortcut === 'string' ? [def.shortcut] : def.shortcut
-}
-
-/** 从 navigator 嗅探是否 macOS。 */
-function detectMac(): boolean {
-  const nav = (globalThis as { navigator?: { platform?: string; userAgent?: string } }).navigator
-  return /mac|iphone|ipad/i.test(nav?.platform ?? nav?.userAgent ?? '')
 }
 
 /** 提取 KeyboardEventLike 的按键字段，用于构造变体事件。 */
@@ -96,9 +90,10 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
       ...def,
       title: Object.freeze({ ...def.title }),
       keywords: def.keywords && Object.freeze([...def.keywords]),
-      shortcut: typeof def.shortcut === 'string' || def.shortcut === undefined
-        ? def.shortcut
-        : Object.freeze([...def.shortcut]),
+      shortcut:
+        typeof def.shortcut === 'string' || def.shortcut === undefined
+          ? def.shortcut
+          : Object.freeze([...def.shortcut]),
     })
     registrations.set(value, registration)
     return value
@@ -157,7 +152,10 @@ export function createCommandRegistry(opts?: CommandRegistryOptions): CommandReg
     const current = byId.get(id)
     if (current === undefined) return
     const next = new Map(byId)
-    next.set(id, snapshot({ ...current, shortcut: shortcut ?? undefined }, registrations.get(current)!))
+    next.set(
+      id,
+      snapshot({ ...current, shortcut: shortcut ?? undefined }, registrations.get(current)!),
+    )
     commit(next)
   }
 

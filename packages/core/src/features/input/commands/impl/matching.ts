@@ -8,6 +8,16 @@ import { canonicalCombo } from '../../keyboard.js'
 import type { CommandDef } from '../types.js'
 
 /**
+ * 从 navigator 探测是否 macOS/iOS。
+ *
+ * 命令注册表、快捷键展示与宿主适配共用同一判断，避免各端各写一份平台正则。
+ */
+export function detectMac(): boolean {
+  const nav = (globalThis as { navigator?: { platform?: string; userAgent?: string } }).navigator
+  return /mac|iphone|ipad/i.test(nav?.platform ?? nav?.userAgent ?? '')
+}
+
+/**
  * 计算 query 与 text 的匹配得分（大小写不敏感），0 表示不匹配。
  * 顺序：完全相等 > 前缀 > 词首 > 子串 > 顺序子序列。
  *
