@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** 验证 UA-CH formFactors 的异步结算、优先级与失败回退。 */
+/** 验证 UA-CH formFactors 的异步折算、优先级与失败回退。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let pointerMatches = false
@@ -37,13 +37,13 @@ afterEach(() => {
 
 const DESKTOP_UA = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/126 Safari/537.36'
 
-/** 设置浏览器提供的设备信息，不通过待测实现构造预期结果。 */
+/** 覆盖 UA 与触点数量，构造可预期的同步探测结果。 */
 function setDevice(userAgent = DESKTOP_UA, touches = 5): void {
   vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(userAgent)
   Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: touches })
 }
 
-/** 设置 Client Hints；查询结果由用例决定。 */
+/** 注入 Client Hints 查询函数，模拟提示接口可用。 */
 function setClientHints(
   getHighEntropyValues: () => Promise<{ formFactors?: string[] }>,
 ): void {
@@ -53,8 +53,8 @@ function setClientHints(
   })
 }
 
-describe('设备环境的 Client Hints 结算', () => {
-  it('结算前发布同步估计，结算后用 formFactors 覆盖', async () => {
+describe('设备类型 · Client Hints 折算', () => {
+  it('异步提示返回前先给出同步结果，返回后覆盖 formFactors 结果', async () => {
     let resolveHints: (value: { formFactors?: string[] }) => void = () => {}
     setClientHints(
       () =>
@@ -80,63 +80,46 @@ describe('设备环境的 Client Hints 结算', () => {
     )
   })
 
-  it('Desktop 表单因子保持桌面类型', async () => {
-    setClientHints(() => Promise.resolve({ formFactors: ['Desktop'] }))
+  it.each([
+    {
+      name: 'Desktop',
+      hints: () => Promise.resolve({ formFactors: ['Desktop'] }),
+      deviceType: 'desktop',
+    },
+    {
+      name: 'Mobile',
+      hints: () => Promise.resolve({ formFactors: ['Mobile'] }),
+      deviceType: 'mobile',
+    },
+    {
+      name: 'Desktop 优先于 Tablet',
+      hints: () => Promise.resolve({ formFactors: ['Desktop', 'Tablet'] }),
+      deviceType: 'desktop',
+    },
+    {
+      name: '查询被拒绝时回退同步探测',
+      hints: () => Promise.reject(new Error('denied')),
+      deviceType: 'desktop',
+    },
+    {
+      name: '缺少 formFactors 时回退同步探测',
+      hints: () => Promise.resolve({}),
+      deviceType: 'desktop',
+    },
+  ])('$name → $deviceType', async ({ hints, deviceType }) => {
+    setClientHints(hints)
     setDevice()
     const environment = getDeviceEnvironment()
-    expect(environment.peek().resolved).toBe(false)
     await vi.waitFor(() =>
       expect(environment.peek()).toEqual({
-        deviceType: 'desktop',
+        deviceType,
         isCoarsePointer: false,
         resolved: true,
       }),
     )
   })
 
-  it('Mobile 表单因子覆盖桌面 UA', async () => {
-    setClientHints(() => Promise.resolve({ formFactors: ['Mobile'] }))
-    setDevice()
-    const environment = getDeviceEnvironment()
-    await vi.waitFor(() =>
-      expect(environment.peek()).toEqual({
-        deviceType: 'mobile',
-        isCoarsePointer: false,
-        resolved: true,
-      }),
-    )
-  })
-
-  it('可拆卸设备同时报告 Desktop 与 Tablet 时保持桌面策略', async () => {
-    setClientHints(() => Promise.resolve({ formFactors: ['Desktop', 'Tablet'] }))
-    setDevice()
-    const environment = getDeviceEnvironment()
-    await vi.waitFor(() =>
-      expect(environment.peek()).toEqual({
-        deviceType: 'desktop',
-        isCoarsePointer: false,
-        resolved: true,
-      }),
-    )
-  })
-
-  it('查询被拒绝时保留同步估计并结算', async () => {
-    setClientHints(() => Promise.reject(new Error('denied')))
-    setDevice()
-    const environment = getDeviceEnvironment()
-    await vi.waitFor(() => expect(environment.peek().resolved).toBe(true))
-    expect(environment.peek().deviceType).toBe('desktop')
-  })
-
-  it('结果没有 formFactors 时保留同步估计并结算', async () => {
-    setClientHints(() => Promise.resolve({}))
-    setDevice()
-    const environment = getDeviceEnvironment()
-    await vi.waitFor(() => expect(environment.peek().resolved).toBe(true))
-    expect(environment.peek().deviceType).toBe('desktop')
-  })
-
-  it('没有异步表单因子能力时立即结算', () => {
+  it('没有异步提示接口时同步完成', () => {
     Object.defineProperty(window.navigator, 'userAgentData', {
       configurable: true,
       value: { mobile: false },
@@ -149,7 +132,7 @@ describe('设备环境的 Client Hints 结算', () => {
     })
   })
 
-  it('重复读取不会重复查询', async () => {
+  it('重复读取不重复发起查询', async () => {
     const getHighEntropyValues = vi.fn(() => Promise.resolve({ formFactors: ['Tablet'] }))
     setClientHints(getHighEntropyValues)
     setDevice()
@@ -160,7 +143,7 @@ describe('设备环境的 Client Hints 结算', () => {
     expect(getHighEntropyValues).toHaveBeenCalledOnce()
   })
 
-  it('结算前仍用粗指针兜底识别桌面 UA 平板', () => {
+  it('异步返回前就按粗指针识别为平板并保留 UA 兜底', () => {
     pointerMatches = true
     setClientHints(() => new Promise(() => {}))
     setDevice()

@@ -12,62 +12,23 @@ const baseRule = (predicateOverride: AlertRule['predicate']): AlertRule => ({
 })
 
 describe('serialize / deserialize roundtrip', () => {
-  it('round-trips a price-cross rule', () => {
-    const r = baseRule({ kind: 'price-cross', price: 100, direction: 'up' })
-    const back = deserializeRule(serializeRule(r))
-    expect(back).toEqual(r)
-  })
-
-  it('round-trips price-in-range and price-out-of-range rules', () => {
-    const a = baseRule({ kind: 'price-in-range', min: 90, max: 110 })
-    const b = baseRule({ kind: 'price-out-of-range', min: 90, max: 110 })
-    expect(deserializeRule(serializeRule(a))).toEqual(a)
-    expect(deserializeRule(serializeRule(b))).toEqual(b)
-  })
-
-  it('round-trips both indicator predicates', () => {
-    const single = baseRule({
-      kind: 'indicator-cross',
-      indicatorId: 'rsi',
-      threshold: 70,
-      direction: 'down',
-    })
-    const pair = baseRule({
-      kind: 'indicator-cross-indicator',
-      aId: 'ema12',
-      bId: 'ema26',
-      direction: 'a-above-b',
-    })
-    expect(deserializeRule(serializeRule(single))).toEqual(single)
-    expect(deserializeRule(serializeRule(pair))).toEqual(pair)
-  })
-
-  it('round-trips advanced component predicates', () => {
-    const a = baseRule({
-      kind: 'volume-spike',
-      multipleOfAvg: 4,
-      lookbackBars: 30,
-    })
-    const b = baseRule({
-      kind: 'volume-profile-poc-touch',
-      bandPercent: 0.005,
-    })
-    const c = baseRule({
-      kind: 'order-book-wall',
-      sizeMultipleOfMedian: 8,
-    })
-    const d = baseRule({
-      kind: 'footprint-imbalance',
-      minImbalanceRatio: 3,
-      consecutivePriceLevels: 3,
-    })
-    for (const rule of [a, b, c, d]) {
-      expect(deserializeRule(serializeRule(rule))).toEqual(rule)
-    }
+  it.each([
+    { kind: 'price-cross', price: 100, direction: 'up' },
+    { kind: 'price-in-range', min: 90, max: 110 },
+    { kind: 'price-out-of-range', min: 90, max: 110 },
+    { kind: 'indicator-cross', indicatorId: 'rsi', threshold: 70, direction: 'down' },
+    { kind: 'indicator-cross-indicator', aId: 'ema12', bId: 'ema26', direction: 'a-above-b' },
+    { kind: 'volume-spike', multipleOfAvg: 4, lookbackBars: 30 },
+    { kind: 'volume-profile-poc-touch', bandPercent: 0.005 },
+    { kind: 'order-book-wall', sizeMultipleOfMedian: 8 },
+    { kind: 'footprint-imbalance', minImbalanceRatio: 3, consecutivePriceLevels: 3 },
+  ] satisfies Array<AlertRule['predicate']>)('round-trips $kind', (predicate) => {
+    const rule = baseRule(predicate)
+    expect(deserializeRule(serializeRule(rule))).toEqual(rule)
   })
 
   it('round-trips optional fields (cooldownMs, metadata)', () => {
-    const r: AlertRule = {
+    const rule: AlertRule = {
       id: 'r-meta',
       name: 'with extras',
       predicate: { kind: 'price-cross', price: 100, direction: 'any' },
@@ -76,33 +37,27 @@ describe('serialize / deserialize roundtrip', () => {
       cooldownMs: 60_000,
       metadata: { author: 'alice', tag: 'breakout' },
     }
-    const back = deserializeRule(serializeRule(r))
-    expect(back).toEqual(r)
+    expect(deserializeRule(serializeRule(rule))).toEqual(rule)
   })
 })
 
 describe('custom predicate is never serialised (security)', () => {
   it('throws with a clear security-related message when serialising custom', () => {
-    const r: AlertRule = baseRule({
-      kind: 'custom',
-      evaluate: () => true,
-    })
-    let err: unknown
+    const rule = baseRule({ kind: 'custom', evaluate: () => true })
+    let error: unknown
     try {
-      serializeRule(r)
-    } catch (e) {
-      err = e
+      serializeRule(rule)
+    } catch (thrown) {
+      error = thrown
     }
-    expect(err).toBeInstanceOf(AlertRuleSchemaError)
-    // The message must mention the security reason. We assert on the
-    // key phrase so renaming for cosmetics still keeps the contract.
-    expect((err as Error).message).toMatch(/custom/i)
-    expect((err as Error).message).toMatch(/serialis|code|RCE/i)
+    expect(error).toBeInstanceOf(AlertRuleSchemaError)
+    // 只断言关键短语，文案调整不影响契约。
+    expect((error as Error).message).toMatch(/custom/i)
+    expect((error as Error).message).toMatch(/serialis|code|RCE/i)
   })
 
   it("refuses to deserialise a payload claiming kind: 'custom'", () => {
-    // Even a perfectly-shaped JSON impersonating a custom predicate must
-    // be rejected — the absence of `evaluate` cannot be re-created safely.
+    // 即使 JSON 形状完美，缺少 evaluate 也无法安全重建，必须拒绝。
     const malicious = JSON.stringify({
       id: 'evil',
       name: 'Evil',
@@ -114,39 +69,47 @@ describe('custom predicate is never serialised (security)', () => {
   })
 })
 
-describe('deserialize: error paths', () => {
-  it('rejects malformed JSON', () => {
-    expect(() => deserializeRule('not-json')).toThrow(AlertRuleSchemaError)
-    expect(() => deserializeRule('{')).toThrow(AlertRuleSchemaError)
-  })
-
-  it('rejects an unknown predicate kind', () => {
-    const payload = JSON.stringify({
-      id: 'r',
-      name: 'r',
-      predicate: { kind: 'made-up-thing', x: 1 },
-      enabled: true,
-      oneShot: false,
-    })
-    expect(() => deserializeRule(payload)).toThrow(AlertRuleSchemaError)
-  })
-
-  it('rejects missing required scalar fields', () => {
-    const payload = JSON.stringify({
-      id: 'r',
-      // name missing
-      predicate: { kind: 'price-cross', price: 100, direction: 'up' },
-      enabled: true,
-      oneShot: false,
-    })
-    expect(() => deserializeRule(payload)).toThrow(AlertRuleSchemaError)
-  })
-
-  it('rejects non-finite numbers (NaN, Infinity)', () => {
-    // JSON.stringify drops NaN/Infinity as null, so build the payload
-    // by hand to actually transport the bad number.
-    const payload =
-      '{"id":"r","name":"r","predicate":{"kind":"price-cross","price":null,"direction":"up"},"enabled":true,"oneShot":false}'
+describe('deserialize 错误路径', () => {
+  it.each([
+    { name: 'malformed JSON', payload: 'not-json' },
+    { name: 'truncated JSON', payload: '{' },
+    {
+      name: 'unknown predicate kind',
+      payload: JSON.stringify({
+        id: 'r',
+        name: 'r',
+        predicate: { kind: 'made-up-thing', x: 1 },
+        enabled: true,
+        oneShot: false,
+      }),
+    },
+    {
+      name: 'missing required name',
+      payload: JSON.stringify({
+        id: 'r',
+        predicate: { kind: 'price-cross', price: 100, direction: 'up' },
+        enabled: true,
+        oneShot: false,
+      }),
+    },
+    {
+      // JSON.stringify 会把 NaN/Infinity 变成 null，这里手工构造真实坏值。
+      name: 'non-finite number',
+      payload:
+        '{"id":"r","name":"r","predicate":{"kind":"price-cross","price":null,"direction":"up"},"enabled":true,"oneShot":false}',
+    },
+    {
+      name: 'non-object metadata',
+      payload: JSON.stringify({
+        id: 'r',
+        name: 'r',
+        predicate: { kind: 'price-in-range', min: 1, max: 2 },
+        enabled: true,
+        oneShot: false,
+        metadata: 'not-an-object',
+      }),
+    },
+  ])('rejects $name', ({ payload }) => {
     expect(() => deserializeRule(payload)).toThrow(AlertRuleSchemaError)
   })
 
@@ -157,22 +120,9 @@ describe('deserialize: error paths', () => {
       predicate: { kind: 'price-in-range', min: 1, max: 2 },
       enabled: false,
       oneShot: true,
-      // cooldownMs + metadata omitted
     })
     const rule = deserializeRule(payload)
     expect(rule.cooldownMs).toBeUndefined()
     expect(rule.metadata).toBeUndefined()
-  })
-
-  it('rejects metadata that is not an object', () => {
-    const payload = JSON.stringify({
-      id: 'r',
-      name: 'r',
-      predicate: { kind: 'price-in-range', min: 1, max: 2 },
-      enabled: true,
-      oneShot: false,
-      metadata: 'not-an-object',
-    })
-    expect(() => deserializeRule(payload)).toThrow(AlertRuleSchemaError)
   })
 })

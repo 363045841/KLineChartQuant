@@ -7,7 +7,7 @@ import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-run
 import { CREDENTIAL_BRIDGE_KEY, type CredentialBridge } from '../../../electron/credential-bridge'
 
 /** 读取 preload 注入的桥接对象；非 Electron 宿主下返回 undefined。 */
-export function readCredentialBridge(scope: unknown = globalThis): CredentialBridge | undefined {
+function readCredentialBridge(scope: unknown = globalThis): CredentialBridge | undefined {
   const bridge = (scope as Record<string, unknown> | undefined)?.[CREDENTIAL_BRIDGE_KEY]
   if (!bridge || typeof bridge !== 'object') return undefined
   const candidate = bridge as Partial<CredentialBridge>

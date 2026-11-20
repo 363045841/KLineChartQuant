@@ -88,21 +88,15 @@ describe.each(backends)('line API ($name)', ({ run }) => {
     ).rejects.toThrow('get_price')
   })
 
-  it('rejects bar_index coordinates outside the loaded window', async () => {
-    await expect(
-      run(`defineIndicator({ name: 'past', position: Position.Main, onBar() {
-      line.new(-1, 10, 1, 20);
-    }});`),
-    ).rejects.toThrow('bar_index')
+  it.each([
+    { name: 'past', body: `line.new(-1, 10, 1, 20);` },
     // 时间戳误用默认 xloc：万亿级数值远超未来槽位上限。
+    { name: 'time', body: `line.new(time[0], 10, time[0] + 1000, 20);` },
+    { name: 'future', body: `line.new(bar_index, 10, bar_index + 501, 20);` },
+  ])('rejects bar_index coordinates outside the loaded window: $name', async ({ name, body }) => {
     await expect(
-      run(`defineIndicator({ name: 'time', position: Position.Main, onBar() {
-      line.new(time[0], 10, time[0] + 1000, 20);
-    }});`),
-    ).rejects.toThrow('bar_index')
-    await expect(
-      run(`defineIndicator({ name: 'future', position: Position.Main, onBar() {
-      line.new(bar_index, 10, bar_index + 501, 20);
+      run(`defineIndicator({ name: '${name}', position: Position.Main, onBar() {
+      ${body}
     }});`),
     ).rejects.toThrow('bar_index')
   })

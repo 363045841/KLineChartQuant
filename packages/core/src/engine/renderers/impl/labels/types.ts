@@ -23,14 +23,7 @@ export interface AxisLabelRegistrar {
   ): void
 }
 
-export type {
-  AxisLabel,
-  AxisLabelCollector,
-  AxisLabelSurface,
-  AxisLabelsFrame,
-  AxisTagLabel,
-  AxisTickLabel,
-} from '../../../../foundation/plugin/types.js'
+export type { AxisLabel, AxisLabelSurface } from '../../../../foundation/plugin/types.js'
 
 /** 绘制单个表面轴标签所需的画布度量。 */
 export interface AxisLabelMetrics {

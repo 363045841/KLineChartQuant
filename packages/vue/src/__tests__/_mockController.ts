@@ -33,7 +33,6 @@ import {
 import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
 import { MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
-import type { App } from 'vue'
 
 // ---------------------------------------------------------------------------
 // 内联 mini-signal：Object.is 相等性短路、同步通知，仅用于测试替身。
@@ -493,13 +492,4 @@ export function createMockChartController(
 /** Signal helper used by reactivity bridge tests. */
 export function createTestSignal<T>(initial: T): Signal<T> {
   return createSignal(initial)
-}
-
-/** Vue App 最小替身：只记录 component 注册；App 成员众多，强转集中在此。 */
-export function createMockApp(registered: Record<string, unknown> = {}): App {
-  return {
-    component(name: string, comp: unknown) {
-      registered[name] = comp
-    },
-  } as unknown as App
 }

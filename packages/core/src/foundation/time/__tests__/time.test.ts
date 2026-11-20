@@ -121,17 +121,21 @@ describe('time formatter', () => {
 })
 
 describe('time axis ticks', () => {
-  it('maps periods to label units', () => {
-    expect(resolveTimeTickUnit('5min')).toBe('day')
-    expect(resolveTimeTickUnit('4h')).toBe('day')
-    expect(resolveTimeTickUnit('daily')).toBe('month')
-    expect(resolveTimeTickUnit('weekly')).toBe('year')
+  it.each([
+    ['5min', 'day'],
+    ['4h', 'day'],
+    ['daily', 'month'],
+    ['weekly', 'year'],
+  ] as const)('%s 使用 %s 刻度', (period, unit) => {
+    expect(resolveTimeTickUnit(period)).toBe(unit)
   })
 
-  it('derives label density from width only', () => {
-    expect(resolveTimeTickTarget(80)).toBe(3)
-    expect(resolveTimeTickTarget(800)).toBe(8)
-    expect(resolveTimeTickTarget(4000)).toBe(8)
+  it.each([
+    [80, 3],
+    [800, 8],
+    [4000, 8],
+  ] as const)('宽度 %ipx 目标刻度为 %i', (width, target) => {
+    expect(resolveTimeTickTarget(width)).toBe(target)
   })
 
   it('labels month boundaries, including future padding', () => {

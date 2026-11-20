@@ -62,13 +62,6 @@ export class PluginRegistry {
   }
 
   /**
-   * 获取所有已启用的插件
-   */
-  getEnabled(): PluginDescriptor[] {
-    return this.getAll().filter((d) => d.config?.enabled !== false)
-  }
-
-  /**
    * 更新插件状态
    */
   updateState(name: string, state: PluginState, error?: Error): void {

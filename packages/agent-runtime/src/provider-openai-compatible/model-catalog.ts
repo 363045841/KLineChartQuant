@@ -4,18 +4,14 @@ import {
   type ProviderModelView,
   type ProviderReasoningEffort,
 } from '../contracts/ui.js'
+import type { ProviderCatalogModel as ProtocolCatalogModel } from './protocol.js'
 
 const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
 
 /** 已校验的 Provider 模型能力，供连接测试和运行计划共享。 */
-export interface ProviderCatalogModel {
-  id: string
-  name: string
-  contextWindow?: number
-  maxOutputTokens?: number
+export interface ProviderCatalogModel extends ProtocolCatalogModel {
   reasoningEfforts: readonly ProviderReasoningEffort[]
-  defaultReasoningEffort?: ProviderReasoningEffort
 }
 
 /** 判断未知值是否为普通对象。 */

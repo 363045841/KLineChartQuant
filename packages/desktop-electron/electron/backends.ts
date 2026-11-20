@@ -34,7 +34,7 @@ interface ManagedBackendSpec {
 }
 
 /** 托管清单；顺序即启动顺序。 */
-export const MANAGED_BACKENDS: readonly ManagedBackendSpec[] = [
+const MANAGED_BACKENDS: readonly ManagedBackendSpec[] = [
   {
     id: 'gotdx',
     binaryName: 'gotdx',

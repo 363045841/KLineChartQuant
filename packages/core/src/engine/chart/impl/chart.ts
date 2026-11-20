@@ -138,7 +138,6 @@ import {
 } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { CANDLE_RENDERER_NAME } from '../../renderers/rendererIds.js'
-import type { PriceRange } from '../../scale/index.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
@@ -1274,36 +1273,6 @@ export class Chart {
     return pane.axes[0]!.axisId
   }
 
-  /**
-   * 校验交互资格，以 HAND 保存范围为基准做纯计算，只写内核价格轴范围。
-   * 品种切换后的首屏范围由新行情初始化，尚未保存时拒绝交互。
-   */
-  private transformPrice(
-    paneId: string,
-    computeNext: (
-      yAxis: ReturnType<PaneRenderer['getPane']>['yAxis'],
-      base: PriceRange,
-    ) => PriceRange,
-  ): void {
-    const pane = this.paneRenderer(paneId)?.getPane()
-    if (!pane?.capabilities.supportsPriceTranslate) return
-    const axisId = this.requirePaneAxisId(paneId)
-    const state = this.kernel.axesState.readonly.paneRanges.peek()[axisId]
-    if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange === null) return
-    const next = computeNext(pane.yAxis, state.handRange)
-    this.kernel.axesState.actions.setHandRange(next, axisId)
-    this.scheduleDraw()
-  }
-
-  /**
-   * 平移价格轴（用于主图区域上下拖动）
-   * @param paneId 目标 pane ID
-   * @param deltaY Y轴像素偏移（正数向下拖动）
-   */
-  translatePrice(paneId: string, deltaY: number): void {
-    this.transformPrice(paneId, (yAxis, base) => yAxis.translateRange(base, deltaY))
-  }
-
   /** 清除纵轴变换，主图下一帧按当前可见 range 的 Max/Min 重新适配。 */
   resetPriceTransform(paneId: string): void {
     this.axes.resetRange(this.requirePaneAxisId(paneId))
@@ -1326,15 +1295,6 @@ export class Chart {
     this.axes.setScaleType(this.requirePaneAxisId(paneId), type)
   }
 
-  /**
-   * 缩放价格轴（用于右侧刻度栏上下拖动）
-   * @param paneId 目标 pane ID
-   * @param deltaY Y轴像素偏移（向上拖动放大，向下拖动缩小）
-   * @param anchorY 可选的 pane 内 Y 坐标，缩放时保持该位置的价格不变
-   */
-  scalePrice(paneId: string, deltaY: number, anchorY?: number): void {
-    this.transformPrice(paneId, (yAxis, base) => yAxis.scaleRange(base, deltaY, anchorY))
-  }
   /** 获取当前数据源（供 renderers 和 interaction 使用） */
   getData(): readonly KLineData[] {
     return this.dataManager.getData()
@@ -1436,16 +1396,6 @@ export class Chart {
     if (!this._volumeLookbacks) return rollingVolume
     for (const [size, calc] of this._volumeLookbacks) rollingVolume[size] = calc.mean
     return rollingVolume
-  }
-
-  /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
-  getLogicalIndexAtX(mouseX: number): number | null {
-    return this.interaction.getLogicalIndexAtScreenX(mouseX)
-  }
-
-  /** 根据本帧已封存的中心点读取逻辑索引对应的视口内 X 坐标。 */
-  getXAtLogicalIndex(index: number): number | null {
-    return this.interaction.getXAtLogicalIndex(index)
   }
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */

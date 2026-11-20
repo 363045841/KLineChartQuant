@@ -2,8 +2,8 @@
  * Pure math: anchored VWAP + volume-weighted standard-deviation bands.
  *
  * Used by `createAnchoredVwapController` for the from-scratch path
- * (`setBars`, `addAnchor`, `updateAnchor` when `barIndex` changes). The
- * controller's incremental `appendBar` reuses the same formulas via
+ * (`setData`, `addAnchor`, `updateAnchor` when `barIndex` changes). The
+ * controller's incremental `append` reuses the same formulas via
  * running sums; the controller's tests pin equivalence between the two
  * paths.
  *

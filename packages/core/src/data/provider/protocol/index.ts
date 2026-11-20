@@ -6,7 +6,6 @@ export type { MarketDataProviderOptions } from './impl/provider.js'
 export { createMarketDataProvider } from './impl/provider.js'
 export type {
   MarketDataTransport,
-  MarketTickTransport,
   ProtocolBarCapability,
   ProtocolBarRequest,
   ProtocolBarSeries,
@@ -20,10 +19,6 @@ export type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolKLineItem,
-  ProtocolMarketTickItem,
-  ProtocolMarketTickStreamHandlers,
-  ProtocolMarketTickStreamRequest,
-  ProtocolMarketTicksEvent,
   ProtocolSourceCapabilities,
   ProtocolSourceProbe,
   ProtocolSourceRejectionCode,

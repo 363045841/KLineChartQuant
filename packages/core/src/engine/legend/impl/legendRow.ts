@@ -19,7 +19,7 @@ export interface LegendRowLayout {
 }
 
 /** 主图以外的行以及未显式传布局的行使用的默认几何。 */
-export const DEFAULT_LEGEND_ROW_LAYOUT: LegendRowLayout = {
+const DEFAULT_LEGEND_ROW_LAYOUT: LegendRowLayout = {
   inset: PANE_HEADER_INSET_PX,
   height: LEGEND_ROW_HEIGHT_PX,
   gap: LEGEND_GAP_PX,

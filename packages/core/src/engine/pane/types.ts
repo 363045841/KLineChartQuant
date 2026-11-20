@@ -121,8 +121,6 @@ export const INSTANCE_MOVE_KIND = {
   PANE: 'pane',
 } as const
 
-/** 实例移动目标种类；由 {@link INSTANCE_MOVE_KIND} 派生。 */
-export type InstanceMoveKind = (typeof INSTANCE_MOVE_KIND)[keyof typeof INSTANCE_MOVE_KIND]
 
 /**
  * 实例移动目标。菜单项、公开命令与 Agent 工具共用同一形状。

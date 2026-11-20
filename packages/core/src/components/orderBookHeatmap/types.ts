@@ -146,11 +146,6 @@ export interface HeatmapController {
    */
   ingest(delta: OrderBookDelta): void
 
-  /**
-   * @deprecated since 0.1.0-alpha.1 — use {@link HeatmapController.ingest}.
-   * Kept as a non-removing alias for at least 6 months for migration.
-   */
-  ingestDelta(delta: OrderBookDelta): void
   /** Force a snapshot now using the controller's current state. */
   forceSnapshot(): void
   /**

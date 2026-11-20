@@ -13,7 +13,7 @@ export type LegacySessionIdentity = {
 export const LEGACY_MAIN_LANE = 'main'
 
 /** 旧版最近活动时间记录，由旧实现每次重命名与运行结束时追加。 */
-export const LEGACY_SESSION_METADATA_KIND = 'kq.session.metadata'
+const LEGACY_SESSION_METADATA_KIND = 'kq.session.metadata'
 
 export const LegacySessionIdentityDoc = defineDoc<LegacySessionIdentity>({
   kind: 'kq.session.identity',

@@ -4,7 +4,7 @@
  *
  * Timing (this is load-bearing): we do **not** schedule snapshots via
  * `setInterval`. The controller treats incoming delta timestamps as the
- * wall clock. When `ingestDelta` sees a delta whose timestamp is more than
+ * wall clock. When `ingest` sees a delta whose timestamp is more than
  * `snapshotIntervalMs` after the previous snapshot, it pushes a snapshot
  * before applying the new delta. Two upsides:
  *
@@ -98,7 +98,7 @@ export function createHeatmapController(
     })
   }
 
-  function ingestDelta(delta: OrderBookDelta): void {
+  function ingest(delta: OrderBookDelta): void {
     if (disposed) return
     validateOrderBookDelta(delta)
     const interval = config.snapshotIntervalMs
@@ -255,10 +255,7 @@ export function createHeatmapController(
 
   return {
     state: asReadonlySignal(state),
-    // Canonical verb (API audit BLOCKER-001 harmonisation). Same impl
-    // as `ingestDelta` — existing consumers stay working.
-    ingest: ingestDelta,
-    ingestDelta,
+    ingest,
     forceSnapshot,
     resetBook,
     replay,

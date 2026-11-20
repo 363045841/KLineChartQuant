@@ -135,17 +135,19 @@ function colorEntries(c: object, prefix = ''): Array<[string, string]> {
 }
 
 describe('color value validity', () => {
-  for (const theme of [lightTheme, darkTheme]) {
-    for (const [key, value] of colorEntries(theme.colors)) {
-      it(`${theme.name}: ${key} is a valid CSS color string`, () => {
-        // Top-level tokens are hex; legacy compatibility groups
-        // may use rgba/hsl/transparent.
-        const valid =
-          HEX.test(value) || RGBA.test(value) || HSLA.test(value) || value === 'transparent'
-        expect(valid).toBe(true)
-      })
-    }
-  }
+  it('every color token in both themes is a valid CSS color string', () => {
+    // 顶层 token 为 hex；兼容分组允许 rgba/hsl/transparent。
+    const isValid = (value: string): boolean =>
+      HEX.test(value) || RGBA.test(value) || HSLA.test(value) || value === 'transparent'
+
+    const invalid = [lightTheme, darkTheme]
+      .flatMap((theme) =>
+        colorEntries(theme.colors).map(([key, value]) => `${theme.name}.${key}=${value}`),
+      )
+      .filter((entry) => !isValid(entry.slice(entry.indexOf('=') + 1)))
+
+    expect(invalid).toEqual([])
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -158,23 +160,19 @@ function hexBase(c: string): string {
 }
 
 describe('WCAG AA contrast — candle bull/bear vs background (≥ 3:1)', () => {
-  for (const theme of [lightTheme, darkTheme]) {
+  it.each([lightTheme, darkTheme])('$name: 涨跌实体都达到 3:1', (theme) => {
     for (const role of ['candleUpBody', 'candleDownBody'] as const) {
-      it(`${theme.name}: ${role}`, () => {
-        const ratio = contrast(hexBase(theme.colors[role]), hexBase(theme.colors.background))
-        expect(ratio).toBeGreaterThanOrEqual(3)
-      })
+      const ratio = contrast(hexBase(theme.colors[role]), hexBase(theme.colors.background))
+      expect(ratio, `${theme.name}.${role}`).toBeGreaterThanOrEqual(3)
     }
-  }
+  })
 })
 
 describe('WCAG AA contrast — foreground text vs background (≥ 4.5:1)', () => {
-  for (const theme of [lightTheme, darkTheme]) {
-    it(`${theme.name}`, () => {
-      const ratio = contrast(hexBase(theme.colors.foreground), hexBase(theme.colors.background))
-      expect(ratio).toBeGreaterThanOrEqual(4.5)
-    })
-  }
+  it.each([lightTheme, darkTheme])('$name: 前景文字达到 4.5:1', (theme) => {
+    const ratio = contrast(hexBase(theme.colors.foreground), hexBase(theme.colors.background))
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
 })
 
 describe('dark theme grid colors', () => {

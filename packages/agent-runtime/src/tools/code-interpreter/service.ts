@@ -83,10 +83,6 @@ export class CodeInterpreterService implements CodeInterpreter {
     this.#newTaskId = options.newTaskId ?? (() => crypto.randomUUID())
   }
 
-  get provider(): RuntimeProvider {
-    return this.#provider
-  }
-
   async submit(request: ExecutionRequest): Promise<ExecutionTask> {
     const base = normalize(request)
     const channel = selectChannel(base.files, this.#provider.capabilities)

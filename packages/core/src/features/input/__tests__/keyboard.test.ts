@@ -63,27 +63,9 @@ describe('parseCombo', () => {
     expect(parseCombo('F5').key).toBe('F5')
   })
 
-  it('throws on empty input', () => {
+  it.each(['', 'Shift+Mod', 'K+J'])('rejects malformed combo %j', (src) => {
     try {
-      parseCombo('')
-      expect.fail('expected throw')
-    } catch (e) {
-      expect(isKLineChartError(e, 'INVALID_PARAM')).toBe(true)
-    }
-  })
-
-  it('throws on only modifiers, no key', () => {
-    try {
-      parseCombo('Shift+Mod')
-      expect.fail('expected throw')
-    } catch (e) {
-      expect(isKLineChartError(e, 'INVALID_PARAM')).toBe(true)
-    }
-  })
-
-  it('throws on multiple non-modifier keys', () => {
-    try {
-      parseCombo('K+J')
+      parseCombo(src)
       expect.fail('expected throw')
     } catch (e) {
       expect(isKLineChartError(e, 'INVALID_PARAM')).toBe(true)

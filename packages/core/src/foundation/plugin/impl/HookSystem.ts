@@ -90,11 +90,4 @@ export class HookSystem {
   clear(): void {
     this.hooks.clear()
   }
-
-  /**
-   * 获取钩子数量
-   */
-  hookCount(hookName: string): number {
-    return this.hooks.get(hookName)?.length ?? 0
-  }
 }

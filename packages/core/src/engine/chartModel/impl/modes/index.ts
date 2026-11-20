@@ -2,6 +2,6 @@
 
 export { KLineMode } from './kLineMode.js'
 export { computeTimeShareGeometry } from './timeShareGeometry.js'
-export { computeTimeShareXLayout, resolveTimeShareBaseline } from './timeShareMath.js'
+export { resolveTimeShareBaseline } from './timeShareMath.js'
 export { TimeShareMode } from './timeShareMode.js'
 export * from './types.js'

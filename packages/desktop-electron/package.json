@@ -19,19 +19,19 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@363045841yyt/klinechart-script-chart": "workspace:*",
-    "@363045841yyt/klinechart-script-server": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
-    "@363045841yyt/klinechart-core": "workspace:*"
+    "@363045841yyt/klinechart-core": "workspace:*",
+    "@363045841yyt/klinechart-script-chart": "workspace:*",
+    "@363045841yyt/klinechart-script-server": "workspace:*"
   },
   "devDependencies": {
-    "fake-indexeddb": "^6.2.8",
     "@vitejs/plugin-vue": "^6.0.11",
     "@vue/test-utils": "^2.6.0",
-    "electron": "^45.3.4",
+    "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
+    "fake-indexeddb": "^6.2.8",
     "jsdom": "^31.0.1",
     "typescript": "~6.0.3",
     "vite": "^8.3.8",

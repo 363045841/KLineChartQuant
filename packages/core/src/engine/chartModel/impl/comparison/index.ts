@@ -2,8 +2,4 @@
 
 export { projectComparison } from './comparisonProjection.js'
 export { type ComparisonStateModule, createComparisonState } from './comparisonState.js'
-export type {
-  ComparisonData,
-  ComparisonProjection,
-  ComparisonSeriesProjection,
-} from './types.js'
+export type { ComparisonProjection } from './types.js'

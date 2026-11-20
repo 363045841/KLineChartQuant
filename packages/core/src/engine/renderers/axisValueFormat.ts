@@ -24,7 +24,7 @@ export function formatAxisPriceValue(value: number, isPercent: boolean): string 
  * @param context - 当前渲染上下文
  * @returns 该轴应展示的标签语义
  */
-export function resolvePriceAxisDisplay(
+function resolvePriceAxisDisplay(
   context: Pick<RenderContext, 'period' | 'comparisonSymbols' | 'settings' | 'hasPriceSeries'>,
 ): AxisDisplaySetting {
   if (context.hasPriceSeries !== true) return AXIS_DISPLAY.PRICE

@@ -100,7 +100,7 @@ describe('createMtfController — alignment correctness', () => {
     expect(aligned).toEqual(new Array(12).fill(111))
   })
 
-  it('appendBaseBar extends aligned series by exactly one entry', () => {
+  it('append extends aligned series by exactly one entry', () => {
     const base: BaseBar[] = [createBaseBar(0, 100)]
     const ctl = createMtfController({ initialBars: base, baseIntervalMs: FIVE_MIN })
     ctl.addSeries({
@@ -110,7 +110,7 @@ describe('createMtfController — alignment correctness', () => {
       compute: lastClose,
     })
     expect(ctl.series()[0]!.alignedValues).toEqual([100])
-    ctl.appendBaseBar(createBaseBar(FIVE_MIN, 200))
+    ctl.append(createBaseBar(FIVE_MIN, 200))
     expect(ctl.series()[0]!.alignedValues).toEqual([100, 200])
   })
 
@@ -133,14 +133,14 @@ describe('createMtfController — alignment correctness', () => {
 })
 
 describe('createMtfController — config + lifecycle', () => {
-  it('setBaseBars rebuilds all series', () => {
+  it('setData rebuilds all series', () => {
     const ctl = createMtfController({
       initialBars: [createBaseBar(0, 100)],
       baseIntervalMs: FIVE_MIN,
     })
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose })
     expect(ctl.series()[0]!.alignedValues).toEqual([100])
-    ctl.setBaseBars([createBaseBar(0, 1), createBaseBar(FIVE_MIN, 2)], FIVE_MIN)
+    ctl.setData([createBaseBar(0, 1), createBaseBar(FIVE_MIN, 2)], FIVE_MIN)
     expect(ctl.series()[0]!.alignedValues).toEqual([1, 2])
   })
 
@@ -186,7 +186,7 @@ describe('createMtfController — config + lifecycle', () => {
     ctl.dispose()
     const beforeCalls = listener.mock.calls.length
     ctl.addSeries({ id: 'a', label: 'a', targetIntervalMs: FIVE_MIN, compute: lastClose })
-    ctl.appendBaseBar(createBaseBar(FIVE_MIN, 200))
+    ctl.append(createBaseBar(FIVE_MIN, 200))
     expect(listener.mock.calls.length).toBe(beforeCalls)
   })
 })

@@ -1,12 +1,11 @@
-/** 可见槽位范围与分时网格回归。 */
+/** 可见槽位范围与 raw 窗口的边界回归。 */
 import { describe, expect, it } from 'vitest'
-import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
-import { createViewportState } from '../../state/viewportState'
+
+import { createViewportFixture } from './helpers/viewportFixture'
 
 describe('viewportState visibleRange SSOT', () => {
-  it('保留加载用 raw 扩窗，对外提供非负数据索引', () => {
-    const module = createViewportState(createViewportStateDeps({ dataLength: 20 }))
-    module.actions.resize(800, 400, 1)
+  it('左加载缓冲只影响 raw 窗口，可见范围从 0 开始', () => {
+    const module = createViewportFixture({ dataLength: 20 })
     module.actions.scrollTo(module.readonly.leftLoadBufferWidth())
     const raw = module.readonly.rawVisibleRange()
     expect(raw.start).toBeLessThan(0)
@@ -14,9 +13,8 @@ describe('viewportState visibleRange SSOT', () => {
     expect(module.readonly.viewportState().visibleFrom).toBe(0)
   })
 
-  it('未来槽位仍进入可见范围，同时保留末两根 K 线', () => {
-    const module = createViewportState(createViewportStateDeps({ dataLength: 10 }))
-    module.actions.resize(400, 400, 1)
+  it('右侧越界被夹到末尾，同时保留末尾缓存 K 线', () => {
+    const module = createViewportFixture({ dataLength: 10, width: 400 })
     module.actions.scrollToLogical(1000)
     const range = module.readonly.rawVisibleRange()
     expect(range.start).toBeLessThanOrEqual(8)
@@ -26,11 +24,8 @@ describe('viewportState visibleRange SSOT', () => {
     )
   })
 
-  it('分时沿交易槽位计算完整数据范围', () => {
-    const module = createViewportState(
-      createViewportStateDeps({ dataLength: 240, period: 'timeshare' }),
-    )
-    module.actions.resize(900, 400, 1)
+  it('分时视图不横向平移，窗口覆盖全部数据', () => {
+    const module = createViewportFixture({ dataLength: 240, period: 'timeshare', width: 900 })
     module.actions.scrollToLogical(0)
     expect(module.readonly.rawVisibleRange()).toEqual({ start: -1, end: 240 })
     expect(module.readonly.visibleRange()).toEqual({ start: 0, end: 240 })

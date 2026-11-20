@@ -705,6 +705,3 @@ export type ChartControllerFactory = (
 // ---------------------------------------------------------------------------
 // 旧类型入口：小型控制器的契约现由各自的语义模块维护。
 // ---------------------------------------------------------------------------
-
-export type { DrawingController, DrawingState } from './drawing/types.js'
-export type { ToolbarController, ToolDefinition, ToolId } from './toolbar/types.js'

@@ -27,7 +27,7 @@ export interface CreditSection {
 }
 
 /** 展示白名单：只维护包名与分区，版本/许可证/仓库从 package.json 读取 */
-export const OPEN_SOURCE_WHITELIST = [
+const OPEN_SOURCE_WHITELIST = [
   { name: '@363045841yyt/klinechart', section: 'workspace' },
   { name: '@363045841yyt/klinechart-core', section: 'workspace' },
   { name: '@363045841yyt/klinechart-agent-runtime', section: 'workspace' },
@@ -81,7 +81,7 @@ function readLicense(meta: PackageMeta): string {
  * 将 package.json 的 repository / homepage 规范为 https GitHub 仓库页。
  * 支持：完整 git URL、git+https、owner/repo 短写、ssh。
  */
-export function resolveGithubUrl(meta: PackageMeta, fallback = PROJECT_REPOSITORY_URL): string {
+function resolveGithubUrl(meta: PackageMeta, fallback = PROJECT_REPOSITORY_URL): string {
   const raw =
     typeof meta.repository === 'string'
       ? meta.repository

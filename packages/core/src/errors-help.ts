@@ -49,7 +49,7 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   DISPOSED:
     'This controller was disposed and silently no-ops on further mutations. Create a new instance — disposal is one-way.',
   NOT_REGISTERED:
-    'The id was not registered with this controller. Call register() / setBaseBars() / equivalent before the operation that needs it.',
+    'The id was not registered with this controller. Call register() / setData() / equivalent before the operation that needs it.',
   INVALID_ARGUMENTS:
     'Validate the Agent request against the published input contract and retry with finite numeric parameters and valid bounds.',
   OUT_OF_RANGE:

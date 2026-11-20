@@ -3,8 +3,8 @@
  *
  * The controller is held to three behavioural contracts:
  *   1. Signals fire on every structural change (add, remove, update,
- *      setBars, appendBar).
- *   2. The incremental `appendBar` is bit-for-bit equivalent (to
+ *      setData, append).
+ *   2. The incremental `append` is bit-for-bit equivalent (to
  *      floating-point precision) to a fresh `computeAnchoredVwap` over
  *      the same bars. The MAX_INCREMENTAL_DELTA assertion below is the
  *      reported delta in the summary.
@@ -197,18 +197,18 @@ describe('createAnchoredVwapController — updateAnchor', () => {
 })
 
 // ---------------------------------------------------------------------------
-// setBars
+// setData
 // ---------------------------------------------------------------------------
 
-describe('createAnchoredVwapController — setBars', () => {
-  it('setBars rebuilds every anchor series', () => {
+describe('createAnchoredVwapController — setData', () => {
+  it('setData rebuilds every anchor series', () => {
     const c = createAnchoredVwapController({ initialBars: makeSeries(10) })
     c.addAnchor(defaultAnchor('a1', 2))
     c.addAnchor(defaultAnchor('a2', 5))
     const before = c.anchors.peek().map((a) => a.series.length)
 
     // Larger bar set → both series should grow.
-    c.setBars(makeSeries(30, 99))
+    c.setData(makeSeries(30, 99))
     const after = c.anchors.peek().map((a) => a.series.length)
     // a1 was anchored at 2 → previously 8 points, now 28.
     expect(after[0]).toBe(28)
@@ -222,17 +222,17 @@ describe('createAnchoredVwapController — setBars', () => {
 })
 
 // ---------------------------------------------------------------------------
-// appendBar — the perf optimisation
+// append — the perf optimisation
 // ---------------------------------------------------------------------------
 
-describe('createAnchoredVwapController — appendBar', () => {
+describe('createAnchoredVwapController — append', () => {
   it('extends every active anchor series by exactly one point', () => {
     const c = createAnchoredVwapController({ initialBars: makeSeries(5) })
     c.addAnchor(defaultAnchor('a1', 1))
     c.addAnchor(defaultAnchor('a2', 3))
     const before = c.anchors.peek().map((a) => a.series.length)
 
-    c.appendBar(createAvwapBar(110, 108, 109, 500))
+    c.append(createAvwapBar(110, 108, 109, 500))
 
     const after = c.anchors.peek()
     for (let i = 0; i < after.length; i++) {
@@ -244,8 +244,8 @@ describe('createAnchoredVwapController — appendBar', () => {
     c.dispose()
   })
 
-  it('appendBar incrementally matches a full computeAnchoredVwap recompute', () => {
-    // The headline performance contract: walking via N appendBar
+  it('append incrementally matches a full computeAnchoredVwap recompute', () => {
+    // The headline performance contract: walking via N append
     // calls must produce the same series as a single
     // computeAnchoredVwap over the final bars. We pin the max delta
     // here at 1e-9 (we measure 0 in practice — the operands are
@@ -259,7 +259,7 @@ describe('createAnchoredVwapController — appendBar', () => {
     c.addAnchor(defaultAnchor('a-bands', 5, true))
     c.addAnchor(defaultAnchor('a-no-bands', 12, false))
 
-    for (const b of tail) c.appendBar(b)
+    for (const b of tail) c.append(b)
 
     const incrementalAnchors = c.anchors.peek()
     const referenceBands = computeAnchoredVwap(all, 5, true)
@@ -330,16 +330,16 @@ describe('createAnchoredVwapController — appendBar', () => {
     c.dispose()
   })
 
-  it('appendBar emits a notification per call', () => {
+  it('append emits a notification per call', () => {
     const c = createAnchoredVwapController({ initialBars: makeSeries(5) })
     c.addAnchor(defaultAnchor('a1', 0))
     let notifications = 0
     const unsub = c.anchors.subscribe(() => {
       notifications += 1
     })
-    c.appendBar(createAvwapBar(110, 108, 109, 500))
-    c.appendBar(createAvwapBar(111, 109, 110, 500))
-    c.appendBar(createAvwapBar(112, 110, 111, 500))
+    c.append(createAvwapBar(110, 108, 109, 500))
+    c.append(createAvwapBar(111, 109, 110, 500))
+    c.append(createAvwapBar(112, 110, 111, 500))
     expect(notifications).toBe(3)
     unsub()
     c.dispose()
@@ -395,8 +395,8 @@ describe('createAnchoredVwapController — dispose', () => {
     expect(c.addAnchor(defaultAnchor('a2', 1))).toBeNull()
     expect(c.removeAnchor('a1')).toBe(false)
     expect(c.updateAnchor('a1', { label: 'no' })).toBe(false)
-    c.appendBar(createAvwapBar(110, 108, 109, 500))
-    c.setBars(makeSeries(8))
+    c.append(createAvwapBar(110, 108, 109, 500))
+    c.setData(makeSeries(8))
 
     expect(notifications).toBe(0)
     // Underlying state was not modified by any of those calls.
