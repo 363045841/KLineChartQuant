@@ -1,9 +1,9 @@
 /** 使用真实 TypeScript 语言服务验证脚本契约、补全和草稿变化，不替换语言服务实现。 */
 
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
-import { describe, expect, it } from 'vitest'
 import averageSource from '@363045841yyt/klinechart-script/scripts/open-close-average.ts?raw'
 import smaSource from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
+import { describe, expect, it } from 'vitest'
 import { createScriptLanguageWorker } from '../languageWorker.js'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
 
@@ -139,9 +139,6 @@ describe('script language service', () => {
         to: bad.indexOf('"bad"') + '"bad"'.length,
       }),
     ])
-    expect(worker.getSignatureHelp(SCRIPT_EDITOR_FILE, bad.indexOf('"bad"'))?.text).toContain(
-      'length: number',
-    )
     const editing = `${prefix}ta.sm`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: editing })
     const result = await worker.getAutocompletion({

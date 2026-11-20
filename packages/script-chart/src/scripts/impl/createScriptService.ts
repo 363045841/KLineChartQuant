@@ -8,12 +8,9 @@ import {
   generateUUID,
   indicatorFailures,
   logIndicatorFailure,
-  registerIndicators,
   runIndicatorPipeline,
   setIndicatorFailures,
   unregisterIndicator,
-  type IndicatorCandidate,
-  type RegistrableIndicator,
 } from '@363045841yyt/klinechart-core'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
@@ -31,9 +28,14 @@ import type {
 import { createScriptOutput } from './createScriptOutput.js'
 import { restoreScriptWorkspace } from './restoreScriptWorkspace.js'
 import { saveScriptLibrary } from './saveScriptLibrary.js'
+import {
+  commitIndicators,
+  documentIdentity,
+  scriptCandidate,
+  toSavedScript,
+} from './scriptCommit.js'
 import { createScriptDocumentStore } from './scriptDocumentStore.js'
-import { createScriptExecutor, type CompiledScript } from './scriptExecutor.js'
-import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
+import { type CompiledScript, createScriptExecutor } from './scriptExecutor.js'
 import {
   folderKey,
   foldersWithin,
@@ -41,12 +43,8 @@ import {
   removableFolder,
   requireFolder,
 } from './scriptFolderStore.js'
+import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
 import { createScriptPersistence } from './scriptPersistence.js'
-
-/** 脚本指标在注册失败清单里的稳定描述。 */
-function scriptCandidate(key: string): IndicatorCandidate {
-  return { key, origin: 'user-script', identity: 'user' }
-}
 
 /**
  * 创建脚本服务。
@@ -91,15 +89,7 @@ export async function createScriptService(
     nextFolders: readonly ScriptFolder[] = [...folders.values()],
   ): Promise<void> {
     const workspace: ScriptWorkspace = {
-      scripts: documents
-        .filter((item) => item.identity === 'user')
-        .map(({ id, source, revision, trusted, folder }) => ({
-          id,
-          source,
-          revision,
-          trusted,
-          folder,
-        })),
+      scripts: documents.filter((item) => item.identity === 'user').map(toSavedScript),
       folders: nextFolders,
     }
     if (!(await persistence.save(workspace))) throw new Error('用户脚本保存失败')
@@ -120,29 +110,41 @@ export async function createScriptService(
    * 调用前目录已持久化，且 `assertAvailable` 已排除全部可预期冲突；
    * 因此注册失败只可能是契约被绕过，必须抛出而不是静默保留半成品。
    */
-  function commitIndicator(
+  async function commitIndicator(
     document: ScriptDocument & { kind: 'indicator' },
     compiled: CompiledScript,
   ): Promise<ScriptDocument> {
-    return (async () => {
-      const definition = await executor.createDefinition(compiled, {
-        id: document.id,
-        source: document.source,
-        revision: document.revision,
-        identity: 'user',
-        trusted: document.trusted,
-        folder: document.folder,
-      })
-      const item: RegistrableIndicator = {
-        kind: 'definition',
-        candidate: scriptCandidate(document.id),
-        definition,
-      }
-      const result = registerIndicators([item])
-      const [failure] = result.failures
-      if (failure) throw failure.error
-      return document
-    })()
+    const definition = await executor.createDefinition(compiled, documentIdentity(document))
+    commitIndicators([{ kind: 'definition', candidate: scriptCandidate(document.id), definition }])
+    return document
+  }
+
+  /**
+   * 指标文档的写入流程：检查身份、持久化、注册；任何一步失败都归还编译句柄。
+   *
+   * 新建与更新只在“目标文档从哪里来”上不同，事务顺序完全一致。
+   */
+  async function writeIndicator(
+    document: ScriptDocument & { kind: 'indicator' },
+    compiled: CompiledScript,
+    documents: readonly ScriptDocument[],
+  ): Promise<ScriptDocument> {
+    try {
+      store.assertAvailable(compiled.definition, document.id)
+      await persist(documents)
+      return await commitIndicator(document, compiled)
+    } catch (error) {
+      await executor.abandon(document.id, compiled.handle)
+      throw error
+    }
+  }
+
+  /** 文档被撤销后的运行时清理：注销定义、清空输出、释放执行句柄。 */
+  async function dropDocument(document: ScriptDocument): Promise<void> {
+    if (document.kind === 'library') store.deleteLibrary(document.id)
+    else unregisterIndicator(document.id)
+    output.remove(document.id)
+    await executor.releaseDefinition(document.id)
   }
 
   return Object.freeze({
@@ -174,24 +176,17 @@ export async function createScriptService(
           })
         }
         const compiled = await executor.compile(source, trusted)
-        try {
-          store.assertAvailable(compiled.definition)
-          const document: ScriptDocument & { kind: 'indicator' } = {
-            kind: 'indicator',
-            id,
-            identity: 'user',
-            source,
-            revision: 1,
-            definition: compiled.definition,
-            trusted,
-            folder: target,
-          }
-          await persist([...store.list(), document])
-          return await commitIndicator(document, compiled)
-        } catch (error) {
-          await executor.abandon(id, compiled.handle)
-          throw error
+        const document: ScriptDocument & { kind: 'indicator' } = {
+          kind: 'indicator',
+          id,
+          identity: 'user',
+          source,
+          revision: 1,
+          definition: compiled.definition,
+          trusted,
+          folder: target,
         }
+        return writeIndicator(document, compiled, [...store.list(), document])
       })
     },
     listFolders,
@@ -235,12 +230,7 @@ export async function createScriptService(
           ),
         )
         for (const key of removedKeys) folders.delete(key)
-        for (const item of removed) {
-          if (item.kind === 'library') store.deleteLibrary(item.id)
-          else unregisterIndicator(item.id)
-          output.remove(item.id)
-          await executor.releaseDefinition(item.id)
-        }
+        for (const item of removed) await dropDocument(item)
         return { documentIds: [...removedIds], folders: removedFolders }
       })
     },
@@ -258,12 +248,11 @@ export async function createScriptService(
       return enqueue(async () => {
         const current = store.requireRevision(id, expectedRevision)
         const declaration = inspectScript(source)
-        if (declaration.kind !== current.kind) throw new Error('不能更改脚本文档类型')
-        if (declaration.kind === 'library') {
+        if (current.kind === 'library') {
+          if (declaration.kind !== 'library') throw new Error('不能更改脚本文档类型')
           return saveScriptLibrary({
             document: {
               ...current,
-              kind: 'library',
               source,
               trusted,
               revision: current.revision + 1,
@@ -275,26 +264,20 @@ export async function createScriptService(
             persist,
           })
         }
+        if (declaration.kind !== 'indicator') throw new Error('不能更改脚本文档类型')
         const compiled = await executor.compile(source, trusted)
-        try {
-          store.assertAvailable(compiled.definition, current.id)
-          if (current.kind !== 'indicator') throw new Error('不能更改脚本文档类型')
-          const revision = current.revision + 1
-          const document: ScriptDocument & { kind: 'indicator' } = {
-            ...current,
-            source,
-            revision,
-            definition: compiled.definition,
-            trusted,
-          }
-          await persist(
-            store.list().map((item) => (item.id === current.id ? document : item)),
-          )
-          return await commitIndicator(document, compiled)
-        } catch (error) {
-          await executor.abandon(current.id, compiled.handle)
-          throw error
+        const document: ScriptDocument & { kind: 'indicator' } = {
+          ...current,
+          source,
+          trusted,
+          revision: current.revision + 1,
+          definition: compiled.definition,
         }
+        return writeIndicator(
+          document,
+          compiled,
+          store.list().map((item) => (item.id === current.id ? document : item)),
+        )
       })
     },
     remove(id: string, expectedRevision: number) {
@@ -316,13 +299,11 @@ export async function createScriptService(
               `库仍被引用：${references.map((item) => item.definition.name).join('、')}`,
             )
           await persist(store.list().filter((item) => item.id !== id))
-          store.deleteLibrary(id)
+          await dropDocument(current)
           return
         }
         await persist(store.list().filter((item) => item.id !== current.id))
-        unregisterIndicator(current.id)
-        output.remove(current.id)
-        await executor.releaseDefinition(current.id)
+        await dropDocument(current)
       })
     },
     dispose() {

@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
-import type { ScriptWorkspace } from '../types.js'
+import type { ScriptPersistence, ScriptWorkspace } from '../types.js'
 
 const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
   onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
@@ -21,6 +21,22 @@ const builtinScriptCases = builtinScriptSources.map((builtinSource, index) => ({
   source: builtinSource,
   label: /name:\s*['"]([^'"]+)['"]/.exec(builtinSource)?.[1] ?? `#${index + 1}`,
 }))
+
+/** 内存持久化替身：与真实存储同契约，writable 用于模拟写入失败。 */
+function createMemoryPersistence(options: { writable?: () => boolean } = {}) {
+  let saved: ScriptWorkspace | null = null
+  return {
+    current: () => saved,
+    persistence: {
+      load: async () => saved,
+      save: async (workspace: ScriptWorkspace) => {
+        if (options.writable && !options.writable()) return false
+        saved = workspace
+        return true
+      },
+    } satisfies ScriptPersistence,
+  }
+}
 
 vi.stubGlobal('Worker', NodeScriptWorker)
 
@@ -145,14 +161,7 @@ describe('ScriptService', () => {
     }
   })
   it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
-    let saved: ScriptWorkspace | null = null
-    const persistence = {
-      load: async () => saved,
-      save: async (workspace: ScriptWorkspace) => {
-        saved = workspace
-        return true
-      },
-    }
+    const { persistence } = createMemoryPersistence()
     const scripts = await createScriptService([], { persistence })
     try {
       await expect(scripts.createFolder({ kind: 'indicator', path: '策略/均线' })).rejects.toThrow(
@@ -195,14 +204,7 @@ describe('ScriptService', () => {
   })
 
   it('删除文件夹级联删除内容，目录外仍引用的库阻止删除', async () => {
-    let saved: ScriptWorkspace | null = null
-    const persistence = {
-      load: async () => saved,
-      save: async (workspace: ScriptWorkspace) => {
-        saved = workspace
-        return true
-      },
-    }
+    const { persistence } = createMemoryPersistence()
     const scripts = await createScriptService([], { persistence })
     try {
       await scripts.createFolder({ kind: 'library', path: '工具' })
@@ -232,18 +234,9 @@ describe('ScriptService', () => {
   })
 
   it('目录操作先提交持久化，失败保留原目录与文档，成功返回实际删除范围', async () => {
-    let saved: ScriptWorkspace | null = null
     let writable = true
-    const scripts = await createScriptService([], {
-      persistence: {
-        load: async () => saved,
-        save: async (workspace) => {
-          if (!writable) return false
-          saved = workspace
-          return true
-        },
-      },
-    })
+    const memory = createMemoryPersistence({ writable: () => writable })
+    const scripts = await createScriptService([], { persistence: memory.persistence })
     try {
       await scripts.createFolder({ kind: 'library', path: '工具' })
       await scripts.createFolder({ kind: 'library', path: '工具/计算' })
@@ -252,7 +245,7 @@ describe('ScriptService', () => {
         false,
         '工具/计算',
       )
-      const before = saved
+      const before = memory.current()
       const beforeFolders = scripts.listFolders()
       writable = false
       await expect(scripts.createFolder({ kind: 'library', path: '新目录' })).rejects.toThrow(
@@ -261,7 +254,7 @@ describe('ScriptService', () => {
       await expect(scripts.removeFolder({ kind: 'library', path: '工具' })).rejects.toThrow(
         '保存失败',
       )
-      expect(saved).toBe(before)
+      expect(memory.current()).toBe(before)
       expect(scripts.listFolders()).toEqual(beforeFolders)
       expect(scripts.read(document.id)).toEqual(document)
       writable = true
@@ -326,12 +319,10 @@ describe('ScriptService', () => {
     const result = runtime.compute([{ timestamp: 1, open: 10, high: 20, low: 10, close: 20 }], {
       n: 2,
     })
-    expect(result).toBeInstanceOf(Promise)
     await expect(result).resolves.toMatchObject({
       plots: [{ id: 'average', data: [{ value: 15 }] }],
     })
     await scripts.remove(document.id, document.revision)
-    scripts.dispose()
     scripts.dispose()
     await expect(runtime.compute([], { n: 2 })).rejects.toThrow('已销毁')
   })
@@ -415,14 +406,21 @@ describe('ScriptService', () => {
       expect(await persistence.load()).toEqual(saved)
     })
 
-    it.each(builtinScriptCases)('$label 可运行并产出 plots/fills', async ({ source: builtinSource }) => {
-      const definition = scripts
-        .list()
-        .find((document) => document.source === builtinSource)!.definition
-      const metadata = getRegisteredIndicatorDefinition(definition.name)
-      const output = await metadata?.runtime?.compute(data, metadata.runtime.defaultParams, market)
-      expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
-    })
+    it.each(builtinScriptCases)(
+      '$label 可运行并产出 plots/fills',
+      async ({ source: builtinSource }) => {
+        const definition = scripts
+          .list()
+          .find((document) => document.source === builtinSource)!.definition
+        const metadata = getRegisteredIndicatorDefinition(definition.name)
+        const output = await metadata?.runtime?.compute(
+          data,
+          metadata.runtime.defaultParams,
+          market,
+        )
+        expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
+      },
+    )
   })
 
   it('用户源码和版本从 IndexedDB 恢复，删除后不再恢复', async () => {

@@ -123,5 +123,5 @@ describe('realtime script lifecycle', () => {
       service.dispose()
       vi.unstubAllGlobals()
     }
-  }, 15_000)
+  })
 })

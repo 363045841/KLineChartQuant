@@ -42,6 +42,14 @@ export interface CompiledScriptIdentity {
 /** 执行器实例：编译、绑定计算入口、运行与句柄回收的唯一入口。 */
 export type ScriptExecutor = ReturnType<typeof createScriptExecutor>
 
+/** 单个编译句柄的源码与日志频道；提交后频道改为定义 id。 */
+interface CompiledEntry {
+  readonly source: string
+  readonly libraries: readonly QuickJSLibrary[]
+  readonly trusted: boolean
+  outputId?: string
+}
+
 /**
  * 创建执行器。
  *
@@ -52,22 +60,19 @@ export function createScriptExecutor(
   documents: ScriptDocumentStore,
   output: ReturnType<typeof createScriptOutput>,
 ) {
-  const handles = new Map<string, string>()
-  const debugOutputs = new Map<string, string>()
-  const executionOutputs = new Map<string, string>()
-  const compiledSources = new Map<
-    string,
-    { source: string; libraries: readonly QuickJSLibrary[]; trusted: boolean }
-  >()
+  /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
+  const compiled = new Map<string, CompiledEntry>()
+  /** 定义 id → 当前编译句柄；替换定义时据此释放旧句柄。 */
+  const definitions = new Map<string, string>()
+  /** 计算句柄 → 日志频道；每次运行只登记一次。 */
+  const executionOwners = new Map<string, string>()
   const executions = new Set<() => void>()
   let disposed = false
   const worker = createScriptWorkerPool({
     onOutput: (handle, events) => {
-      const outputId = debugOutputs.get(handle) ?? executionOutputs.get(handle)
-      if (outputId !== undefined) output.append(outputId, events)
-      for (const [id, active] of handles) {
-        if (active === handle) output.append(id, events)
-      }
+      // 计算会话与编译句柄共用一条路由，未登记频道的句柄不产生输出。
+      const channel = executionOwners.get(handle) ?? compiled.get(handle)?.outputId
+      if (channel !== undefined) output.append(channel, events)
     },
   })
 
@@ -111,7 +116,7 @@ export function createScriptExecutor(
         return document === undefined || document.trusted
       })
     const definition = await worker.prepare(handle, source, selected, effectiveTrust)
-    compiledSources.set(handle, { source, libraries: selected, trusted: effectiveTrust })
+    compiled.set(handle, { source, libraries: selected, trusted: effectiveTrust })
     return { handle, definition }
   }
 
@@ -122,11 +127,11 @@ export function createScriptExecutor(
    * 同一身份的新定义会替换旧句柄，旧句柄立即释放。
    */
   async function createDefinition(
-    compiled: CompiledScript,
+    script: CompiledScript,
     identity: CompiledScriptIdentity,
   ): Promise<ReturnType<typeof createPlotIndicatorDefinition>> {
-    const sources = compiledSources.get(compiled.handle)
-    if (!sources) throw new Error('脚本编译句柄已释放')
+    const entry = compiled.get(script.handle)
+    if (!entry) throw new Error('脚本编译句柄已释放')
     const createCompute = (): IndicatorDefinition<
       Readonly<Record<string, number | string | boolean>>
     >['compute'] & { dispose(): void } => {
@@ -137,7 +142,7 @@ export function createScriptExecutor(
         if (released) return
         released = true
         executions.delete(release)
-        executionOutputs.delete(handle)
+        executionOwners.delete(handle)
         if (preparation && !disposed) void worker.release(handle)
       }
       executions.add(release)
@@ -146,12 +151,12 @@ export function createScriptExecutor(
       >['compute'] = async (bars, params, market, range) => {
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
-        executionOutputs.set(handle, identity.id)
+        executionOwners.set(handle, identity.id)
         preparation ??= worker.prepare(
           handle,
-          sources.source,
-          sources.libraries,
-          sources.trusted,
+          entry.source,
+          entry.libraries,
+          entry.trusted,
           'execution',
         )
         await preparation
@@ -164,13 +169,13 @@ export function createScriptExecutor(
     const document = Object.freeze({
       revision: identity.revision,
       source: identity.source,
-      definition: compiled.definition,
+      definition: script.definition,
       identity: identity.identity,
       trusted: identity.trusted,
       folder: identity.folder,
     })
     const definition = createPlotIndicatorDefinition({
-      ...compiled.definition,
+      ...script.definition,
       id: identity.id,
       source: 'script',
       document,
@@ -184,8 +189,9 @@ export function createScriptExecutor(
         }
       },
     })
-    const previous = handles.get(identity.id)
-    handles.set(identity.id, compiled.handle)
+    const previous = definitions.get(identity.id)
+    definitions.set(identity.id, script.handle)
+    entry.outputId = identity.id
     if (previous) await releaseHandle(previous)
     return definition
   }
@@ -193,33 +199,34 @@ export function createScriptExecutor(
   /** 直接执行一份草稿，不注册也不持久化定义。 */
   async function run(options: ScriptRunOptions): Promise<void> {
     output.source.clear(options.outputId)
-    const compiled = await compile(options.source, options.trusted)
-    debugOutputs.set(compiled.handle, options.outputId)
+    const script = await compile(options.source, options.trusted)
+    const entry = compiled.get(script.handle)
+    if (!entry) throw new Error('脚本编译句柄已释放')
+    entry.outputId = options.outputId
     try {
-      await compute(compiled.handle, options.bars, {}, options.market)
+      await compute(script.handle, options.bars, {}, options.market)
     } finally {
-      debugOutputs.delete(compiled.handle)
-      await releaseHandle(compiled.handle)
+      await releaseHandle(script.handle)
     }
   }
 
   /** 释放一个尚未成为当前定义的编译句柄。 */
   async function releaseHandle(handle: string): Promise<void> {
-    compiledSources.delete(handle)
+    compiled.delete(handle)
     await worker.release(handle)
   }
 
   /** 注册失败时丢弃编译结果；已成为当前定义则保留。 */
   async function abandon(id: string, handle: string): Promise<void> {
-    if (handles.get(id) === handle) return
+    if (definitions.get(id) === handle) return
     await releaseHandle(handle)
   }
 
   /** 释放已提交定义的执行句柄。 */
   async function releaseDefinition(id: string): Promise<void> {
-    const handle = handles.get(id)
+    const handle = definitions.get(id)
     if (handle === undefined) return
-    handles.delete(id)
+    definitions.delete(id)
     await releaseHandle(handle)
   }
 
@@ -228,10 +235,9 @@ export function createScriptExecutor(
     disposed = true
     for (const release of [...executions]) release()
     worker.dispose()
-    handles.clear()
-    debugOutputs.clear()
-    executionOutputs.clear()
-    compiledSources.clear()
+    definitions.clear()
+    compiled.clear()
+    executionOwners.clear()
   }
 
   return {

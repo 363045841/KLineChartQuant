@@ -18,7 +18,7 @@ import type { ScriptExecutor } from './scriptExecutor.js'
 import { restoreFolders, type ScriptFolderMap } from './scriptFolderStore.js'
 
 /** 恢复所需的持久化、读模型、执行器与启动选项。 */
-export interface RestoreScriptWorkspaceRequest {
+interface RestoreScriptWorkspaceRequest {
   readonly persistence: ScriptPersistence
   readonly store: ScriptDocumentStore
   readonly executor: ScriptExecutor
@@ -26,7 +26,7 @@ export interface RestoreScriptWorkspaceRequest {
 }
 
 /** 恢复结果：目录、全部持久化脚本与逐条库失败。 */
-export interface RestoredScriptWorkspace {
+interface RestoredScriptWorkspace {
   readonly folders: ScriptFolderMap
   readonly scripts: readonly SavedScript[]
   readonly failures: readonly IndicatorFailure[]

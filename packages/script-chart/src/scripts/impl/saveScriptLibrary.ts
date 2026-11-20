@@ -3,16 +3,16 @@
  *
  * 任何一步失败都不会替换已提交版本，也不会改变内存中的库快照。
  */
-import type { IndicatorCandidate, RegistrableIndicator } from '@363045841yyt/klinechart-core'
-import { registerIndicators } from '@363045841yyt/klinechart-core'
+import type { RegistrableIndicator } from '@363045841yyt/klinechart-core'
 import { resolveScriptLibraries } from '@363045841yyt/klinechart-script'
 import type { ScriptDocument } from '../types.js'
 import { validateLibrary } from './libraryValidation.js'
+import { commitIndicators, documentIdentity, scriptCandidate } from './scriptCommit.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 import type { CompiledScript, ScriptExecutor } from './scriptExecutor.js'
 
 /** 保存库所需的协作者：文档快照、执行器与持久化入口。 */
-export interface SaveScriptLibraryRequest {
+interface SaveScriptLibraryRequest {
   readonly document: ScriptDocument
   /** 更新前的同名库；用于识别重命名后的悬空引用。 */
   readonly previous?: ScriptDocument
@@ -76,25 +76,17 @@ export async function saveScriptLibrary(
     store.setLibrary(document)
     const registrable: RegistrableIndicator[] = []
     for (const entry of affected) {
-      const definition = await executor.createDefinition(entry.compiled, {
-          id: entry.document.id,
-          source: entry.document.source,
-          revision: entry.document.revision,
-          identity: 'user',
-          trusted: entry.document.trusted,
-          folder: entry.document.folder,
-        },
+      const definition = await executor.createDefinition(
+        entry.compiled,
+        documentIdentity(entry.document),
       )
-      const candidate: IndicatorCandidate = {
-        key: entry.document.id,
-        origin: 'user-script',
-        identity: 'user',
-      }
-      registrable.push({ kind: 'definition', candidate, definition })
+      registrable.push({
+        kind: 'definition',
+        candidate: scriptCandidate(entry.document.id),
+        definition,
+      })
     }
-    const report = registerIndicators(registrable)
-    const [failure] = report.failures
-    if (failure) throw failure.error
+    commitIndicators(registrable)
     return document
   } finally {
     // 已提交的句柄由执行器持有；只有编译后未注册的句柄需要归还。

@@ -79,21 +79,14 @@ export class PlotCollector {
    */
   prepare(barCount: number, startIndex: number, endIndex: number = barCount): void {
     if (barCount !== this.barCount) {
-      for (const entry of this.entries.values()) {
-        // 分支只用于把判别联合收窄到具体列类型；两种列共用同一套扩展规则。
-        if (entry.source === 'ohlc') resizeColumn(entry.data, barCount, undefined)
-        else resizeColumn(entry.data, barCount, undefined)
-      }
+      for (const entry of this.entries.values())
+        resizeColumn<PlotPoint | OhlcPlotPoint>(entry.data, barCount, undefined)
       for (const fill of this.fills.values()) resizeColumn(fill.colors, barCount, null)
       this.barCount = barCount
     }
-    for (const entry of this.entries.values()) {
-      if (entry.source === 'ohlc')
-        clearColumnFrom(entry.data, startIndex, endIndex, undefined)
-      else clearColumnFrom(entry.data, startIndex, endIndex, undefined)
-    }
-    for (const fill of this.fills.values())
-      clearColumnFrom(fill.colors, startIndex, endIndex, null)
+    for (const entry of this.entries.values())
+      clearColumnFrom<PlotPoint | OhlcPlotPoint>(entry.data, startIndex, endIndex, undefined)
+    for (const fill of this.fills.values()) clearColumnFrom(fill.colors, startIndex, endIndex, null)
   }
 
   /** 按名称采集当前 bar 的填充颜色；边界和整列显隐在一次运行内固定。 */
@@ -251,14 +244,19 @@ export class PlotCollector {
 }
 
 /** 按目标长度调整列；新增槽位写空值，已有槽位保持引用。 */
-function resizeColumn<T>(values: T[], length: number, empty: T): void {
+function resizeColumn<T>(values: (T | undefined)[], length: number, empty: T | undefined): void {
   const previous = values.length
   values.length = length
   for (let index = previous; index < length; index++) values[index] = empty
 }
 
 /** 清空 [startIndex, endIndex) 的列；增量重算只覆盖受影响区间。 */
-function clearColumnFrom<T>(values: T[], startIndex: number, endIndex: number, empty: T): void {
+function clearColumnFrom<T>(
+  values: (T | undefined)[],
+  startIndex: number,
+  endIndex: number,
+  empty: T | undefined,
+): void {
   const start = Math.max(0, startIndex)
   const end = Math.min(values.length, endIndex)
   for (let index = start; index < end; index++) values[index] = empty

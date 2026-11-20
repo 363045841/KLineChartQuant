@@ -1,5 +1,5 @@
 /** 两种执行后端共用时间语义；Intl只在宿主执行，VM不自行猜测时区或交易日。 */
-import type { ScriptMarketSession, ScriptTimeContext, ScriptSessionRange } from './time.js'
+import type { ScriptMarketSession, ScriptSessionRange, ScriptTimeContext } from './time.js'
 
 const DAY = 86_400_000
 const ALIASES: Readonly<Record<string, string>> = {
@@ -20,7 +20,7 @@ const ALIASES: Readonly<Record<string, string>> = {
 }
 
 /** 将宿主周期名转换为Pine周期字符串。 */
-export function pinePeriod(value: string): string {
+function pinePeriod(value: string): string {
   return ALIASES[value] ?? value
 }
 

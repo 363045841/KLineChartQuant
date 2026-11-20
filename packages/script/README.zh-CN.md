@@ -80,10 +80,10 @@ const scripts = await createScriptService([
 
 | 分组 | 类型 |
 | --- | --- |
-| 输入 | `Bar`、`DataFeed`、`DataFeedRange` |
-| 输出 | `PlotPoint`、`AlertEvent`、`LogEvent`、`OutputSink` |
+| 输入 | `Bar` |
+| 输出 | `PlotPoint`、`LogEvent` |
 | QuickJS | `QuickJSRunOptions`、`QuickJSScriptDefinition`、`QuickJSLibrary` |
-| 库 | `LibraryModules`、`LibraryExports`、`TechnicalAnalysisLibrary` |
+| 库 | `LibraryModules`、`TechnicalAnalysisLibrary` |
 | Plot | `Plot`、`PlotFill`、`PlotCollection` |
 
 Plot 数据模型由 `@363045841yyt/klinechart-plot-contracts` 提供，与图表引擎共用，此处重新导出。

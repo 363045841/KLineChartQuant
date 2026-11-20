@@ -134,7 +134,7 @@ export interface CandlePlotOptions extends OhlcPlotOptions {
 }
 
 /** 美国线的竖线和左右短横线共用颜色。 */
-export interface BarPlotOptions extends OhlcPlotOptions {}
+export type BarPlotOptions = OhlcPlotOptions
 
 export interface CandlePlotDeclaration extends CandlePlotOptions {
   readonly name: string
