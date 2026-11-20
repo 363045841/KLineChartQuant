@@ -72,9 +72,7 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
   return {
     series: asReadonlySignal(series),
     setData,
-    setBaseBars: setData,
     append,
-    appendBaseBar: append,
     addSeries(definition) {
       if (disposed) return definition.id
       const current = series.peek()

@@ -1,14 +1,3 @@
-/** indicatorTemplate 模块公开出口：只做重导出。 */
+/** indicatorTemplate 模块公共入口，只重导出类型。 */
 
-export {
-  INDICATOR_TEMPLATE_VERSION,
-  type IndicatorTemplateApi,
-  type IndicatorTemplateApplyResult,
-  type IndicatorTemplateArchive,
-  type IndicatorTemplateDocument,
-  type IndicatorTemplateIndicator,
-  type IndicatorTemplateSummary,
-  type NamedIndicatorTemplate,
-  type TemplateWorkspace,
-  type TemplateWorkspaces,
-} from './types.js'
+export type { TemplateWorkspace, TemplateWorkspaces } from './types.js'

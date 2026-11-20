@@ -241,13 +241,6 @@ export class PluginHostImpl implements PluginHost {
   }
 
   /**
-   * 获取插件状态
-   */
-  getState(name: string): PluginState | undefined {
-    return this.registry.get(name)?.state
-  }
-
-  /**
    * 销毁宿主
    */
   destroy(): Promise<void> {

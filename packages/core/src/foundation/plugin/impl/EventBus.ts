@@ -71,11 +71,4 @@ export class EventBus {
   clear(): void {
     this.listeners.clear()
   }
-
-  /**
-   * 获取事件的监听器数量
-   */
-  listenerCount(event: string): number {
-    return this.listeners.get(event)?.size ?? 0
-  }
 }

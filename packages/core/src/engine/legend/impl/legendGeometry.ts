@@ -24,7 +24,7 @@ export const LEGEND_COLLAPSE_HEIGHT_PX = 16
  * 文本行高小于行盒时的半行距。
  * 文本在行盒内垂直居中，行盒顶部必须上移同样的距离，文本的上、左内边距才一致。
  */
-export const LEGEND_ROW_TEXT_OFFSET_PX = (LEGEND_ROW_HEIGHT_PX - LEGEND_TEXT_LINE_HEIGHT) / 2
+const LEGEND_ROW_TEXT_OFFSET_PX = (LEGEND_ROW_HEIGHT_PX - LEGEND_TEXT_LINE_HEIGHT) / 2
 
 /**
  * 为一段行文本解析最终间距：首段为 0，其余用显式 gapBefore 或行默认间距。

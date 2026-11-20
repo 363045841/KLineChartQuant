@@ -8,7 +8,7 @@ import type { LineExtend } from '@363045841yyt/klinechart-plot-contracts'
 import type { DrawingHorizontalExtent, ResolvedDrawingAnchor } from '../../types.js'
 
 /** 视口两侧各多留一根 K 线：锚点外侧的文字与线帽仍可能溢入视口。 */
-export const DRAWING_RANGE_MARGIN = 1
+const DRAWING_RANGE_MARGIN = 1
 
 /** 整条索引轴可见；水平线、十字线以及无法定位锚点的图元使用该范围。 */
 export const UNBOUNDED_DRAWING_EXTENT: DrawingHorizontalExtent = Object.freeze({

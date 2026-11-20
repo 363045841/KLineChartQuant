@@ -234,10 +234,6 @@ export class ChartZoomController {
     return this.deps.viewport.readonly.viewSnapshot.peek().kWidth
   }
 
-  /** 当前绘制间隙。 */
-  get currentKGap(): number {
-    return this.deps.viewport.readonly.viewSnapshot.peek().kGap
-  }
 
   /** 配置中的缩放级别数量。 */
   get zoomLevelCount(): number {

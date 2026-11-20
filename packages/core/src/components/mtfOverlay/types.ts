@@ -63,8 +63,8 @@ export interface MtfSeriesDefinition {
   targetIntervalMs: number
   /**
    * Pure function: resampled bars → per-bar value array of the same length.
-   * Called once per `setBaseBars`, `addSeries`, `updateSeries`, and once per
-   * `appendBaseBar`. MUST NOT mutate the input.
+   * Called once per `setData`, `addSeries`, `updateSeries`, and once per
+   * `append`. MUST NOT mutate the input.
    */
   compute: (resampledBars: ReadonlyArray<ResampledBar>) => ReadonlyArray<number>
 }
@@ -88,8 +88,8 @@ export interface ActiveMtfSeries {
 
 /**
  * Reactive MTF controller. The `series` signal updates synchronously on every
- * state-mutating call (`setBaseBars`, `addSeries`, `removeSeries`,
- * `updateSeries`, `appendBaseBar`). After `dispose()`, mutation calls become
+ * state-mutating call (`setData`, `addSeries`, `removeSeries`,
+ * `updateSeries`, `append`). After `dispose()`, mutation calls become
  * no-ops and the signal stops firing.
  */
 export interface MtfController {
@@ -103,12 +103,6 @@ export interface MtfController {
    * `baseIntervalMs` must evenly divide every series' `targetIntervalMs`.
    */
   setData(bars: ReadonlyArray<BaseBar>, baseIntervalMs: number): void
-
-  /**
-   * @deprecated since 0.1.0-alpha.1 — use {@link MtfController.setData}.
-   * Preserved as a non-removing alias for at least 6 months.
-   */
-  setBaseBars(bars: ReadonlyArray<BaseBar>, baseIntervalMs: number): void
 
   /**
    * Register a new series. Returns the series id.
@@ -132,12 +126,6 @@ export interface MtfController {
    * Recomputes each series over the updated base buffer.
    */
   append(bar: BaseBar): void
-
-  /**
-   * @deprecated since 0.1.0-alpha.1 — use {@link MtfController.append}.
-   * Preserved as a non-removing alias for at least 6 months.
-   */
-  appendBaseBar(bar: BaseBar): void
 
   /** Tear down. After this, all mutators are no-ops; the signal stops. */
   dispose(): void

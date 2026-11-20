@@ -5,8 +5,3 @@ import { generateUUID } from '../../../../foundation/utils/uuid.js'
 export function createIndicatorInstanceId(): string {
   return generateUUID()
 }
-
-/** 为新建的单例主图指标分配身份，已有实例必须保留原 ID。 */
-export function createMainIndicatorInstanceId(definitionId: string): string {
-  return `main:${definitionId}`
-}

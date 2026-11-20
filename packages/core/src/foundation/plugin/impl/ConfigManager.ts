@@ -1,53 +1,22 @@
 /**
- * 配置管理器
+ * 配置管理器：按插件隔离的键值配置，只保留读写与清理。
  */
 
 type ConfigStore = Map<string, Map<string, unknown>>
 
 export class ConfigManager {
   private configs: ConfigStore = new Map()
-  private defaults: Map<string, Record<string, unknown>> = new Map()
 
   /**
-   * 注册插件的默认配置
-   */
-  registerDefaults(pluginName: string, defaults: Record<string, unknown>): void {
-    this.defaults.set(pluginName, { ...defaults })
-
-    // 初始化配置
-    if (!this.configs.has(pluginName)) {
-      this.configs.set(pluginName, new Map())
-    }
-
-    // 应用默认值
-    const config = this.configs.get(pluginName)!
-    for (const [key, value] of Object.entries(defaults)) {
-      if (!config.has(key)) {
-        config.set(key, value)
-      }
-    }
-  }
-
-  /**
-   * 获取配置
+   * 获取配置；未设置时返回调用方给出的默认值。
    */
   get<K = unknown>(pluginName: string, key: string, defaultValue?: K): K {
     const pluginConfig = this.configs.get(pluginName)
-    if (pluginConfig?.has(key)) {
-      return pluginConfig.get(key) as K
-    }
-
-    // 尝试默认值
-    const defaults = this.defaults.get(pluginName)
-    if (defaults && key in defaults) {
-      return defaults[key] as K
-    }
-
-    return defaultValue as K
+    return pluginConfig?.has(key) ? (pluginConfig.get(key) as K) : (defaultValue as K)
   }
 
   /**
-   * 设置配置
+   * 设置单个配置项。
    */
   set(pluginName: string, key: string, value: unknown): void {
     if (!this.configs.has(pluginName)) {
@@ -57,7 +26,7 @@ export class ConfigManager {
   }
 
   /**
-   * 批量设置配置
+   * 批量设置配置项。
    */
   setAll(pluginName: string, config: Record<string, unknown>): void {
     for (const [key, value] of Object.entries(config)) {
@@ -66,28 +35,13 @@ export class ConfigManager {
   }
 
   /**
-   * 获取插件所有配置
-   */
-  getAll(pluginName: string): Record<string, unknown> {
-    const config = this.configs.get(pluginName)
-    const defaults = this.defaults.get(pluginName) || {}
-
-    return {
-      ...defaults,
-      ...(config ? Object.fromEntries(config) : {}),
-    }
-  }
-
-  /**
-   * 清除插件配置
+   * 清除指定插件或全部插件配置。
    */
   clear(pluginName?: string): void {
     if (pluginName) {
       this.configs.delete(pluginName)
-      this.defaults.delete(pluginName)
     } else {
       this.configs.clear()
-      this.defaults.clear()
     }
   }
 }

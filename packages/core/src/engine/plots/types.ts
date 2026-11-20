@@ -11,8 +11,6 @@ import type { ColorTokens } from '@/foundation/tokens/index.js'
 
 export type {
   ArrowPlot,
-  BarPlot,
-  CandlePlot,
   CharPlot,
   OhlcPlot,
   OhlcPlotPoint,

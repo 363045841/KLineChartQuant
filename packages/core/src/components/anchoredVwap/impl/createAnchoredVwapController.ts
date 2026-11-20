@@ -10,15 +10,15 @@
  *   TradingView's lower tiers cap the number of simultaneous anchors at
  *   3 because each AVWAP is recomputed from scratch on every new bar. By
  *   keeping per-anchor `sumVwp` / `sumVol` / `sumSqDev` totals we drop
- *   `appendBar` from O(bars-since-anchor) to O(1) per anchor — anchors
+ *   `append` from O(bars-since-anchor) to O(1) per anchor — anchors
  *   become cheap enough to keep many open at once.
  *
  * Equivalence guarantee:
- *   The point produced by `appendBar` is bit-for-bit identical (to
+ *   The point produced by `append` is bit-for-bit identical (to
  *   floating-point precision) to the point that `computeAnchoredVwap`
  *   would produce on the same bar at the same anchor — same operands
  *   added in the same order. The controller test
- *   `appendBar incrementally matches full recompute` pins this.
+ *   `append incrementally matches full recompute` pins this.
  */
 
 import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
@@ -44,11 +44,11 @@ import { computeAnchoredVwap } from './computeAnchoredVwap.js'
 interface AnchorState {
   definition: AnchorDefinition
   // Running cumulative sums from the anchor up to and including the last
-  // bar processed. These are what make `appendBar` O(1).
+  // bar processed. These are what make `append` O(1).
   sumVwp: number
   sumVol: number
   sumSqDev: number
-  // The series produced so far. Each `appendBar` pushes one new point.
+  // The series produced so far. Each `append` pushes one new point.
   // Held mutable internally; surfaced as ReadonlyArray.
   series: AVWAPPoint[]
 }
@@ -60,7 +60,7 @@ export function createAnchoredVwapController(
   // Internal mutable state — never exposed directly.
   // -------------------------------------------------------------------
   // Defensive copy: the caller may reuse the array they pass us. We
-  // capture a snapshot so `appendBar` can extend it without surprising
+  // capture a snapshot so `append` can extend it without surprising
   // the caller.
   let bars: AVWAPBar[] = opts?.initialBars ? [...opts.initialBars] : []
   const anchorStates = new Map<string, AnchorState>()
@@ -81,7 +81,7 @@ export function createAnchoredVwapController(
       next.push({
         definition: a.definition,
         // Snapshot the series so consumers see an immutable
-        // view; future `appendBar` mutations on `a.series` will
+        // view; future `append` mutations on `a.series` will
         // only be observed by the next `publish`.
         series: [...a.series],
       })
@@ -91,13 +91,13 @@ export function createAnchoredVwapController(
 
   // -------------------------------------------------------------------
   // Math helpers — share one definition of the per-bar arithmetic so
-  // `appendBar` and `recomputeAnchor` cannot drift.
+  // `append` and `recomputeAnchor` cannot drift.
   // -------------------------------------------------------------------
 
   /**
    * Recompute an anchor's series from scratch by walking the bars from
    * `definition.barIndex`. Also resets the running sums so subsequent
-   * `appendBar` calls extend the same totals.
+   * `append` calls extend the same totals.
    *
    * `null` is a sentinel meaning "anchor is out of range for the
    * current bars" — the caller drops a point-free entry.
@@ -119,7 +119,7 @@ export function createAnchoredVwapController(
     // Use the shared pure function so behaviour stays identical.
     const series = computeAnchoredVwap(bars, def.barIndex, def.includeBands)
     // Reconstruct the running sums by replaying the same arithmetic
-    // — we need them for the next `appendBar`. This is the only
+    // — we need them for the next `append`. This is the only
     // place where the controller duplicates the math; the cost is
     // unavoidable because `computeAnchoredVwap` does not expose its
     // internal sums.
@@ -153,7 +153,7 @@ export function createAnchoredVwapController(
    * Extend an anchor's series by one bar incrementally — O(1) per call.
    * The new bar's absolute index in `bars` is the caller's
    * responsibility to compute; we take it as a parameter so
-   * `appendBar` can be straight-line.
+   * `append` can be straight-line.
    */
   function extendAnchorByOne(state: AnchorState, bar: AVWAPBar, absIndex: number): void {
     const def = state.definition
@@ -220,7 +220,7 @@ export function createAnchoredVwapController(
   // Public mutators
   // -------------------------------------------------------------------
 
-  function setBars(nextBars: ReadonlyArray<AVWAPBar>): void {
+  function setData(nextBars: ReadonlyArray<AVWAPBar>): void {
     bars = [...nextBars]
     for (const state of anchorStates.values()) {
       recomputeAnchor(state)
@@ -277,7 +277,7 @@ export function createAnchoredVwapController(
     return true
   }
 
-  function appendBar(bar: AVWAPBar): void {
+  function append(bar: AVWAPBar): void {
     const absIndex = bars.length
     bars.push(bar)
     for (const state of anchorStates.values()) {
@@ -302,21 +302,16 @@ export function createAnchoredVwapController(
     }) as T
   }
 
-  const guardedSetBars = guard(setBars, undefined as void)
-  const guardedAppendBar = guard(appendBar, undefined as void)
+  const guardedSetData = guard(setData, undefined as void)
+  const guardedAppend = guard(append, undefined as void)
 
   return {
     anchors: asReadonlySignal(anchors),
-    // Canonical verbs (API audit BLOCKER-001 harmonisation): `setData`
-    // for full replacement + `append` for single-item extension. Old
-    // names preserved as aliases for the deprecation window.
-    setData: guardedSetBars,
-    append: guardedAppendBar,
-    setBars: guardedSetBars,
+    setData: guardedSetData,
+    append: guardedAppend,
     addAnchor: guard(addAnchor, null),
     removeAnchor: guard(removeAnchor, false),
     updateAnchor: guard(updateAnchor, false),
-    appendBar: guardedAppendBar,
     dispose,
   }
 }

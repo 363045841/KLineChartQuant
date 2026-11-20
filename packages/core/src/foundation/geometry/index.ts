@@ -13,4 +13,4 @@ export {
   rectFromPoints,
   segmentIntersectsRect,
 } from './impl/geometryUtils.js'
-export type { Point, Rect } from './types.js'
+export type { Point } from './types.js'

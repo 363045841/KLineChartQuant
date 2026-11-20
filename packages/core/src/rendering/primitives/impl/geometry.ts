@@ -11,7 +11,7 @@ const COLLINEAR_JOIN_EPSILON = 0.02
 const unitCircles = new Map<number, Float64Array>()
 
 /** 按物理像素误差细分圆，避免放大与高 DPR 下出现明显棱角。 */
-export function circlePath(x: number, y: number, radius: number, dpr = 1): PrimitivePath {
+function circlePath(x: number, y: number, radius: number, dpr = 1): PrimitivePath {
   const count = Math.max(
     12,
     Math.ceil(Math.PI / Math.acos(Math.max(-1, 1 - 0.15 / Math.max(radius * dpr, 0.15)))),

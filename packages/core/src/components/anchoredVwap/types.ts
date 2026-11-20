@@ -11,7 +11,7 @@
  *
  * TradingView restricts the **number** of simultaneous AVWAP anchors on
  * lower tiers; this controller is multi-anchor by design — every anchor
- * tracks its own cumulative sums so incremental `appendBar` is O(1) per
+ * tracks its own cumulative sums so incremental `append` is O(1) per
  * anchor per bar.
  *
  * This module owns the **data model + math only**. Rendering belongs to the
@@ -92,7 +92,7 @@ export interface AnchorDefinition {
 
 /**
  * An anchor together with its computed AVWAP series. The series is a
- * snapshot — calling `setBars`, `appendBar`, or `updateAnchor` produces a
+ * snapshot — calling `setData`, `append`, or `updateAnchor` produces a
  * fresh array (immutability convention).
  */
 export interface ActiveAnchor {
@@ -107,7 +107,7 @@ export interface ActiveAnchor {
  *
  * Why this design:
  *  - Multi-anchor: every anchor tracks its own running sums so
- *    `appendBar` is O(anchors) per tick, not O(anchors × bars).
+ *    `append` is O(anchors) per tick, not O(anchors × bars).
  *  - Signal-based: any adapter (React `useSyncExternalStore`, Vue effect,
  *    Angular `toSignal`) can bridge without coupling to a framework.
  *  - Dispose-guard: mutators become silent no-ops after `dispose`, so a
@@ -125,12 +125,6 @@ export interface AnchoredVwapController {
    * (5-verb intake proliferation).
    */
   setData(bars: ReadonlyArray<AVWAPBar>): void
-
-  /**
-   * @deprecated since 0.1.0-alpha.1 — use {@link AnchoredVwapController.setData}.
-   * Preserved as a non-removing alias for at least 6 months.
-   */
-  setBars(bars: ReadonlyArray<AVWAPBar>): void
 
   /**
    * Add an anchor and compute its series immediately. Returns the
@@ -168,12 +162,6 @@ export interface AnchoredVwapController {
    * the controller test that pins this equivalence.
    */
   append(bar: AVWAPBar): void
-
-  /**
-   * @deprecated since 0.1.0-alpha.1 — use {@link AnchoredVwapController.append}.
-   * Preserved as a non-removing alias for at least 6 months.
-   */
-  appendBar(bar: AVWAPBar): void
 
   /**
    * Stop emitting. Subsequent mutator calls are silent no-ops; previously

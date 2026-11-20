@@ -13,12 +13,3 @@ export {
 export { paintAxisLabels } from './impl/paintAxisLabels.js'
 export { paintAxisRanges } from './impl/paintAxisRanges.js'
 export { registerAxisLabel } from './impl/registerAxisLabel.js'
-export type {
-  AxisLabel,
-  AxisLabelCollector,
-  AxisLabelMetrics,
-  AxisLabelSurface,
-  AxisLabelsFrame,
-  AxisTagLabel,
-  AxisTickLabel,
-} from './types.js'

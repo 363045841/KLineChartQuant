@@ -1,6 +1,6 @@
 // 本文件提供 Agent 文本输出共用的紧凑 Markdown 表格渲染能力。
 /** 表格无数据时的统一占位文本，避免向 Agent 输出空表格。 */
-export const MARKDOWN_EMPTY_TEXT = '无可用数据'
+const MARKDOWN_EMPTY_TEXT = '无可用数据'
 // Markdown 表格的表头分隔符。
 const TABLE_SEPARATOR = '---'
 

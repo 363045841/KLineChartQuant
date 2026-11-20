@@ -158,7 +158,7 @@ function getSessionSlotFormatter(timeZone: string): Intl.DateTimeFormat {
 }
 
 /** 读取交易所墙钟的当日分钟数；时间戳无效或超出可表示范围时返回 null。 */
-export function getMinuteOfDayInTimeZone(timestamp: number, timeZone: string): number | null {
+function getMinuteOfDayInTimeZone(timestamp: number, timeZone: string): number | null {
   if (!Number.isFinite(timestamp) || Math.abs(timestamp) > MAX_DATE_TIMESTAMP_MS) return null
   const parts = getSessionSlotFormatter(timeZone).formatToParts(timestamp)
   let hour = 0

@@ -11,7 +11,6 @@ import type { ScaleType } from '../types/scaleType.js'
 export enum PluginState {
   Registered = 'registered',
   Installed = 'installed',
-  Error = 'error',
 }
 
 /** 插件配置 */

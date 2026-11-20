@@ -39,7 +39,7 @@ export function summarizeIndicators(
  * @param instances 按界面顺序排列的指标实例。
  * @returns 按首次出现顺序排列的 name 元数据；同一定义出现多次时为「名称 x N」。
  */
-export function summarizeIndicatorLabels(
+function summarizeIndicatorLabels(
   instances: ReadonlyArray<IndicatorInstanceConfig>,
 ): ReadonlyArray<string> {
   return Object.freeze(

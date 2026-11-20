@@ -9,20 +9,9 @@ import { getAnchorCountForTool } from './toolConfig.js'
 export class AnchorCollector {
   pendingAnchors: ResolvedInteractionAnchor[] = []
 
-  /** Returns true when the tool uses multiple anchors (2 or 3). */
-  isMultiAnchorTool(toolId: DrawingToolId): boolean {
-    const count = getAnchorCountForTool(toolId)
-    return count === 2 || count === 3
-  }
-
   /** Returns the required anchor count for the given tool, or null for single-anchor / cursor. */
   getRequiredCount(toolId: DrawingToolId): number | null {
     return getAnchorCountForTool(toolId)
-  }
-
-  /** 当前已累积的锚点数量 */
-  getPendingCount(): number {
-    return this.pendingAnchors.length
   }
 
   /** 最近落下的锚点：后续锚点的锁角参考点。 */

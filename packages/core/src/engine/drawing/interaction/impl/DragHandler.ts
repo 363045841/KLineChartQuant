@@ -80,10 +80,6 @@ export class DragHandler {
     return this.snapIndicator
   }
 
-  /** 拖拽中的主图元 ID。 */
-  getDraggingDrawingId(): string | null {
-    return this.dragState?.drawings[0]?.id ?? null
-  }
 
   /** 拖拽中的全部图元 ID。 */
   getDraggingDrawingIds(): ReadonlyArray<string> {

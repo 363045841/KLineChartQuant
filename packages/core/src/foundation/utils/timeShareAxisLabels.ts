@@ -71,11 +71,7 @@ export function resolveTimeShareSlotTimestamp(
   return baseTimestamp
 }
 
-export type {
-  MarketSessionConfig,
-  OpenTimeRange,
-  SessionTimeLabel,
-} from './sessionTimeLabels.js'
+export type { MarketSessionConfig, SessionTimeLabel } from './sessionTimeLabels.js'
 export {
   ASHARE_MARKET_SESSION,
   minuteOfDayToTimestamp,

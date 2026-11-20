@@ -68,7 +68,6 @@ export function createFakeHeatmapController(): FakeHeatmapController {
     ingest: (delta) => {
       calls.ingest.push(delta)
     },
-    ingestDelta: () => {},
     forceSnapshot: () => {},
     replay: () => [],
     resetBook: (snapshot) => {
