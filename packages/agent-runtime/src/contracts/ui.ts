@@ -352,11 +352,21 @@ export type AgentWorkspaceEventInput = AgentWorkspaceEvent extends infer Event
     : never
   : never
 
+/** 一次会话观察租约：谁打开谁持有，释放后宿主不再推送该会话的更新。 */
+export interface AgentSessionLease {
+  readonly sessionId: string
+  /** 打开时读取到的完整结果。 */
+  readonly transcript: AgentTranscriptView
+  /** 释放观察权；同一会话的最后一个租约释放后宿主关闭订阅。 */
+  release(): Promise<void>
+}
+
 export interface AgentBridgeClient {
   getContextItems(): ReadonlyArray<AgentContextItem>
   subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void
   listSessions(): Promise<AgentSessionView[]>
-  openSession(sessionId: string): Promise<AgentTranscriptView>
+  /** 打开会话并取得观察租约；多人打开同一会话时共享同一份订阅。 */
+  openSession(sessionId: string): Promise<AgentSessionLease>
   /** 加载更早的一页条目。 */
   loadEarlier(sessionId: string): Promise<AgentTranscriptView>
   /** 补齐条目流中的缺失区间。 */
@@ -394,4 +404,17 @@ export interface AgentBridgeClient {
   setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
+}
+
+/**
+ * 页面客户端承担的部分：除图表上下文外全部经宿主协议完成。
+ *
+ * 图表上下文依赖 Core 的 controller，只能留在页面，因此不在此契约内。
+ */
+export type AgentHostClientApi = Omit<
+  AgentBridgeClient,
+  'getContextItems' | 'subscribeContextItems'
+> & {
+  /** 把旧版 LocalStorage 设置一次性导入宿主存储。 */
+  importLegacy(document: unknown): Promise<void>
 }

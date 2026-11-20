@@ -4,6 +4,7 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentRunStartedView,
+  AgentSessionLease,
   AgentSessionView,
   AgentTranscriptView,
   AgentWorkspaceEvent,
@@ -97,8 +98,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return this.sessions.map((session) => ({ ...session }))
   }
 
-  async openSession(sessionId: string): Promise<AgentTranscriptView> {
-    return this.view(sessionId)
+  async openSession(sessionId: string): Promise<AgentSessionLease> {
+    return { sessionId, transcript: this.view(sessionId), release: async () => undefined }
   }
 
   async loadEarlier(sessionId: string): Promise<AgentTranscriptView> {

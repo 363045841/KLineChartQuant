@@ -1,22 +1,23 @@
-// 验证运行时不可用视图按错误码展示文案并提供可重试入口。
+// 验证运行时不可用时的占位视图：展示通用说明、错误详情并提供重试入口。
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import AgentUnavailableNotice from '../AgentUnavailableNotice.vue'
 
 describe('AgentUnavailableNotice', () => {
-  it('shows locked guidance and emits retry', async () => {
+  it('shows the failure detail and emits retry', async () => {
     const wrapper = mount(AgentUnavailableNotice, {
       props: {
         locale: 'zh-CN',
         error: {
-          code: 'SESSION_LOCKED',
-          message: 'Agent sessions are open in another page.',
+          code: 'INVALID_PROTOCOL',
+          message: 'The Agent host sent an unsupported message.',
           retryable: true,
         },
       },
     })
 
-    expect(wrapper.text()).toContain('另一个标签页')
+    expect(wrapper.text()).toContain('Agent 工作区无法启动')
+    expect(wrapper.text()).toContain('The Agent host sent an unsupported message.')
     await wrapper.get('button').trigger('click')
     expect(wrapper.emitted('retry')).toHaveLength(1)
   })

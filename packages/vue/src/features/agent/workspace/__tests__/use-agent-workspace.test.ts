@@ -26,10 +26,10 @@ describe('useAgentWorkspace availability', () => {
     vi.restoreAllMocks()
   })
 
-  it('enters the unavailable state on a locked runtime and recovers on retry', async () => {
+  it('enters the unavailable state on a runtime failure and recovers on retry', async () => {
     const bridge = new FakeAgentBridge()
     vi.spyOn(bridge, 'listSessions').mockRejectedValueOnce(
-      new AgentRuntimeError('SESSION_LOCKED', 'Agent sessions are open in another page.', {
+      new AgentRuntimeError('TARGET_LOST', 'The Agent client is not attached to the host.', {
         retryable: true,
       }),
     )
@@ -38,7 +38,7 @@ describe('useAgentWorkspace availability', () => {
     await flushPromises()
     expect(workspace.availability.value).toEqual({
       status: 'unavailable',
-      error: expect.objectContaining({ code: 'SESSION_LOCKED', retryable: true }),
+      error: expect.objectContaining({ code: 'TARGET_LOST', retryable: true }),
     })
 
     await workspace.retryInitialize()

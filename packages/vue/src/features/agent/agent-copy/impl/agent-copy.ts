@@ -120,9 +120,9 @@ const copy = {
     modelPlaceholder: 'Select a model',
     sessionNamePrompt: 'Session name',
     workspaceUnavailableTitle: 'Agent is unavailable',
-    workspaceLockedBody: 'Agent sessions are open in another tab. Close the other tab, then retry.',
     workspaceUnavailableBody:
       'The Agent workspace could not start. Retry, or check the console for details.',
+    workspaceInitializing: 'Connecting to the Agent service…',
     status: {
       running: 'Running',
       failed: 'Failed',
@@ -241,8 +241,8 @@ const copy = {
     modelPlaceholder: '选择模型',
     sessionNamePrompt: '会话名称',
     workspaceUnavailableTitle: '智能体不可用',
-    workspaceLockedBody: 'Agent 会话已在另一个标签页打开。请关闭该标签页后重试。',
     workspaceUnavailableBody: 'Agent 工作区无法启动。请重试，或查看控制台了解详情。',
+    workspaceInitializing: '正在连接 Agent 服务…',
     status: {
       running: '运行中',
       failed: '失败',

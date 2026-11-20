@@ -6,6 +6,7 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentRunMode,
+  AgentSessionLease,
   AgentTranscriptView,
   AgentWorkspaceEvent,
   EntryId,
@@ -29,7 +30,6 @@ import {
   activateSession,
   addQuestion,
   applyTranscript,
-  clearTranscript,
   createWorkspaceState,
   settleQuestion,
 } from './workspace-state.js'
@@ -61,6 +61,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const locale = ref<'en' | 'zh-CN'>(preferences.locale)
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
+  /** 当前会话的观察租约；切换或卸载时释放，宿主据此回收订阅。 */
+  let lease: AgentSessionLease | undefined
   let selectionGeneration = 0
   let modelLoadGeneration = 0
 
@@ -81,12 +83,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       }
       return
     }
-    if (event.type === 'session.closed') {
-      if (event.sessionId === state.value.activeSessionId) {
-        state.value = clearTranscript(state.value)
-      }
-      return
-    }
+    // 关闭订阅只意味着不再跟随更新，对话内容仍然在读取结果里，不因此离开当前会话。
+    if (event.type === 'session.closed') return
     if (event.type === 'sessions.changed') {
       state.value = { ...state.value, sessions: event.sessions }
       return
@@ -107,10 +105,15 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function openSession(sessionId: string): Promise<void> {
     const selection = ++selectionGeneration
     state.value = activateSession(state.value, sessionId)
-    const transcript = await bridge.openSession(sessionId)
-    if (selection === selectionGeneration) {
-      state.value = applyTranscript(state.value, transcript)
+    const next = await bridge.openSession(sessionId)
+    if (selection !== selectionGeneration) {
+      void next.release()
+      return
     }
+    const previous = lease
+    lease = next
+    state.value = applyTranscript(state.value, next.transcript)
+    if (previous) void previous.release()
   }
 
   async function initialize(): Promise<void> {
@@ -179,6 +182,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   /** 删除指定会话；活动会话被删除时切换或重置工作区。 */
   async function deleteSession(sessionId: string): Promise<void> {
     await bridge.deleteSession(sessionId)
+    // 宿主随删除一并丢弃该会话的租约，本地不再持有它。
+    if (lease?.sessionId === sessionId) lease = undefined
     const sessions = state.value.sessions.filter((session) => session.id !== sessionId)
     if (state.value.activeSessionId !== sessionId) {
       state.value = { ...state.value, sessions }
@@ -323,6 +328,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   })
   onUnmounted(() => {
     selectionGeneration++
+    void lease?.release()
+    lease = undefined
     unsubscribe?.()
     unsubscribeContextItems?.()
   })

@@ -16,17 +16,19 @@ import {
 import { createNodeRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/node'
 ```
 
-Use the root or `./contracts/ui` entry from browser code. Import `./node` only
-from a Node or Electron Main process because it loads `node:sqlite`. The
-`./testing` entry supplies the official Pi faux-provider composition and never
-contacts a network service.
+Use `./browser` from page code: it exports the host client, transport contract and
+wire protocol, and never loads host or storage code. Use `./browser-host` only
+inside the SharedWorker that runs the host. Import `./node` only from a Node or
+Electron Main process because it loads `node:sqlite`. The `./testing` entry
+supplies the official Pi faux-provider composition and never contacts a network
+service.
 
 Renderer code consumes `AgentBridgeClient` and `AgentWorkspaceEvent`. Session
 content is the official Pi record stream: `AgentTranscriptView` carries the
 `ConversationRecord`, the client `items` from `ConversationTranscript`, and the
-built-in documents (`pi.live`, `pi.usage`, …). Pi events, Provider payloads,
-credentials, Electron objects, and raw tool results stay behind the runtime and
-host adapters.
+built-in documents (`pi.live`, `pi.usage`, …). Pi events, Provider payloads and
+raw tool results stay behind the runtime. Provider configuration and credentials
+live only in the host's IndexedDB; no page holds them.
 
 ## OpenAI-compatible protocols
 

@@ -58,6 +58,10 @@
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
     },
+    "./browser-host": {
+      "types": "./dist/browser-host.d.ts",
+      "import": "./dist/browser-host.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"

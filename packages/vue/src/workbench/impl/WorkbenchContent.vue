@@ -30,7 +30,7 @@
     <template v-if="agent" #panel-agent="{ side, close }">
       <WorkbenchAgent
         :controller="controller"
-        :credentials="credentials"
+        :active="agentContextActive"
         :panel-side="side"
         @close="close"
       />
@@ -48,13 +48,13 @@
 
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import { computed, defineAsyncComponent, shallowRef, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconSettings from '~icons/tabler/settings'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconStack2 from '~icons/tabler/stack-2'
   import KlineChart from '../../components/chart/KLineChart.vue'
-  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
   import { provideChartCommands } from '../../composables/commands/useCommands.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'
@@ -78,6 +78,7 @@
     scripts: true,
     initialAgentPanelOpen: false,
     restoreLayout: true,
+    agentContextActive: true,
   })
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]

@@ -30,18 +30,15 @@ flowchart LR
 
 1.0.x 曾用 `JsonlStorage + IndexedDbFileSystem` 把 JSONL 文件写进 IndexedDB，该库（`kq-agent-durable-v1`）的 schema 与官方 Storage 不兼容；升级到 1.5.2 时浏览器库名切到 `kq-agent-durable-v2`，旧库原样保留但不再读取，浏览器端历史会话不做自动迁移。
 
-浏览器 Bridge 与 Node 使用同一个 AgentApplicationService 和 RuntimeSessionService。实时显示与刷新恢复都从官方状态投影同一种完整快照，不再另存或回放 UI 消息事件。
+浏览器宿主运行在 SharedWorker 里，一个 origin 只有一份：会话、Provider 配置与凭据都留在宿主，页面只经协议与宿主交互。单写者由这个结构保证，不使用 Web Locks，也不存在「第二个页面冲突」。
 
 ```ts
-import { createBrowserRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/browser'
+import { startBrowserAgentHost } from '@363045841yyt/klinechart-agent-runtime/browser-host'
 
-const runtime = await createBrowserRuntimeSessions()
-const session = await runtime.sessions.create('Market analysis')
-// 宿主卸载时释放存储连接与写锁。
-await runtime.close()
+startBrowserAgentHost()
 ```
 
-需要 IndexedDB、Web Locks 与安全上下文（HTTPS 或 localhost）。官方 Storage 要求同一数据库只有一个所有者，因此同一 origin 的同一数据库只允许一个宿主持有写锁；第二个页面会明确报告冲突。关闭宿主会关闭官方 Storage 并等待写锁实际释放；页面退出时浏览器也会释放锁。浏览器存储遵循 origin 隔离与配额规则，清除站点数据会删除历史。
+打开会话会向宿主取得一份观察租约；同一会话的最后一个租约释放后，宿主才关闭订阅。页面关闭时宿主释放它名下全部租约。浏览器存储遵循 origin 隔离与配额规则，清除站点数据会删除历史。
 
 ## Node
 
@@ -54,7 +51,7 @@ const runtime = await createNodeRuntimeSessions({ databasePath: './agent-durable
 await runtime.close()
 ```
 
-底层 Session 由宿主创建并关闭；RuntimeSessionService 不拥有该资源。测试通过官方 MemoryStorage 注入独立会话，浏览器存储测试通过 IndexedDB 标准实现与真实 Web Locks 验证重开及独占写入。
+底层 Session 由宿主创建并关闭；RuntimeSessionService 不拥有该资源。测试通过官方 MemoryStorage 注入独立会话，Node 侧用临时 SQLite 文件验证关闭后重开仍能恢复目录与标题。
 ## 数据边界
 
 仅接受当前会话 schema；旧版和未来版本均明确报错，不提供读取时迁移或旧格式导入。`pi.live` 升到官方版本 3、SQLite 升到官方 schema v2，一旦被 1.5.2 写过就不允许回退到 1.0.x。旧浏览器 JSONL 库（`kq-agent-durable-v1`）与新库（`kq-agent-durable-v2`）并存但不互通，浏览器历史会话不做自动迁移。旧 SessionRepo SQLite 格式与官方 durable 格式不同，Node 宿主需要使用新的数据库文件。会话删除采用持久化删除标记，历史不再显示或参与运行；不会物理清除底层不可变历史。

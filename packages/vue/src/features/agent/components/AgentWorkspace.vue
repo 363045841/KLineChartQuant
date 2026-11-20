@@ -62,6 +62,10 @@
       />
     </template>
 
+    <p v-if="availability.status === 'initializing'" class="agent-workspace__initializing">
+      {{ text.workspaceInitializing }}
+    </p>
+
     <AgentUnavailableNotice
       v-else-if="availability.status === 'unavailable'"
       :error="availability.error"
@@ -224,6 +228,14 @@
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
     letter-spacing: 0;
+  }
+
+  .agent-workspace__initializing {
+    place-self: center;
+    margin: 0;
+    padding: 24px;
+    color: var(--klc-color-ui-muted);
+    font-size: 12px;
   }
 
   .sr-only {

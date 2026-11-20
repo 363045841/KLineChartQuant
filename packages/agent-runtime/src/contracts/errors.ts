@@ -83,3 +83,19 @@ export function toAgentRuntimeError(error: unknown): AgentRuntimeError {
     },
   )
 }
+
+/**
+ * 从错误视图恢复可抛出的运行时错误，保留错误码与可重试语义。
+ *
+ * 跨线程应答里的错误是视图结构，页面据此重建同类的错误实例。
+ * @param view 序列化后的错误视图。
+ * @returns 保留 code / retryable / recommendedAction 的错误实例。
+ */
+export function agentRuntimeErrorFromView(view: AgentErrorView): AgentRuntimeError {
+  return new AgentRuntimeError(view.code as AgentRuntimeErrorCode, view.message, {
+    retryable: view.retryable,
+    ...(view.providerCode === undefined ? {} : { providerCode: view.providerCode }),
+    ...(view.raw === undefined ? {} : { raw: view.raw }),
+    ...(view.recommendedAction === undefined ? {} : { recommendedAction: view.recommendedAction }),
+  })
+}

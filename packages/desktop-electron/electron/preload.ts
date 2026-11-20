@@ -9,11 +9,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // 只从共享契约导入：这些文件不含 node 内置模块，sandbox preload 才不会引入无法加载的 require。
 import {
-  CREDENTIAL_BRIDGE_KEY,
-  CREDENTIAL_CHANNELS,
-  type CredentialBridge,
-} from './credential-bridge'
-import {
   TITLEBAR_HEIGHT,
   WINDOW_BRIDGE_KEY,
   WINDOW_CHANNELS,
@@ -21,16 +16,6 @@ import {
   type WindowState,
   type WorkspaceTab,
 } from './window-bridge'
-
-const credentialBridge: CredentialBridge = {
-  read: () => ipcRenderer.invoke(CREDENTIAL_CHANNELS.read) as Promise<string | null>,
-  write: async (apiKey: string) => {
-    await ipcRenderer.invoke(CREDENTIAL_CHANNELS.write, apiKey)
-  },
-  delete: async () => {
-    await ipcRenderer.invoke(CREDENTIAL_CHANNELS.delete)
-  },
-}
 
 const windowBridge: WindowBridge = {
   platform: process.platform,
@@ -44,8 +29,7 @@ const windowBridge: WindowBridge = {
   close: async () => {
     await ipcRenderer.invoke(WINDOW_CHANNELS.closeWindow)
   },
-  getWindowState: () =>
-    ipcRenderer.invoke(WINDOW_CHANNELS.getWindowState) as Promise<WindowState>,
+  getWindowState: () => ipcRenderer.invoke(WINDOW_CHANNELS.getWindowState) as Promise<WindowState>,
   onMaximizedChanged: (listener: (maximized: boolean) => void) => {
     // 只订阅专用通道；事件对象不透传给渲染层。
     const handler = (_event: unknown, maximized: boolean): void => listener(maximized)
@@ -61,9 +45,9 @@ const windowBridge: WindowBridge = {
     await ipcRenderer.invoke(WINDOW_CHANNELS.closeWorkspace, workspaceId)
   },
   consumeInitialTabs: () =>
-    ipcRenderer.invoke(WINDOW_CHANNELS.consumeInitialTabs) as Promise<
-      ReadonlyArray<WorkspaceTab> | null
-    >,
+    ipcRenderer.invoke(
+      WINDOW_CHANNELS.consumeInitialTabs,
+    ) as Promise<ReadonlyArray<WorkspaceTab> | null>,
   adoptTab: async (request) => {
     await ipcRenderer.invoke(WINDOW_CHANNELS.adoptTab, request)
   },
@@ -77,5 +61,4 @@ const windowBridge: WindowBridge = {
   },
 }
 
-contextBridge.exposeInMainWorld(CREDENTIAL_BRIDGE_KEY, credentialBridge)
 contextBridge.exposeInMainWorld(WINDOW_BRIDGE_KEY, windowBridge)

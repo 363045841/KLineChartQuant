@@ -1,6 +1,4 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
-// 只取凭据契约这一个文件：contracts 汇总入口会带出 Agent 会话类型，进而把 pi / 供应商 SDK 拖进图表公开类型。
-import type { ProviderCredentialStore } from '@363045841yyt/klinechart-agent-runtime/contracts/credentials'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'
@@ -15,10 +13,12 @@ export interface KlineWorkbenchProps {
   /** 行情实例归调用方所有，工作台卸载时不会销毁它。 */
   marketDataContext?: MarketDataContext
   /**
-   * 宿主注入的 Agent 凭据存储；桌面端用它换成 OS 安全存储，
-   * 省略时保持 Web 端默认实现，工作台本身不选择存储介质。
+   * 当前工作台是否为活动图表标签。
+   *
+   * 同一文档只存在一个 Agent 客户端，只有活动标签写入图表上下文；
+   * 单工作台场景保持默认 `true`。
    */
-  credentials?: ProviderCredentialStore
+  agentContextActive?: boolean
   /** 来源 ID 与稳定品种 ID，周期独立控制。 */
   instrument?: { source: string; id: string }
   period?: KLinePeriod
