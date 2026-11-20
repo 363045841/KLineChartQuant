@@ -335,12 +335,12 @@ export const MTF_ERROR_CODES = {
   CONFIG_INVALID: 'MTF_CONFIG_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
 
-// alternative chart types（renko / rangeBars / pointAndFigure）；供 features/chartTypes 引用。
+// alternative chart types（renko / rangeBars / pointAndFigure）；保留给宿主扩展柱型。
 export const CHART_TYPE_ERROR_CODES = {
   CONFIG_INVALID: 'CHART_TYPE_CONFIG_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>
 
-// replay controller（回放）；供 features/replay 引用。
+// replay controller（回放）；保留给宿主实现回放。
 export const REPLAY_ERROR_CODES = {
   CONFIG_INVALID: 'REPLAY_CONFIG_INVALID',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>

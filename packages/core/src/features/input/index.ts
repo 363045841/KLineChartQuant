@@ -30,14 +30,6 @@ export {
   scoreTextMatch,
 } from './commands/index.js'
 export {
-  createGestureRecognizer,
-  type GestureEvent,
-  type GestureRecognizer,
-  type GestureRecognizerOptions,
-  type GestureState,
-  type PointerEventLike,
-} from './gesture.js'
-export {
   canonicalCombo,
   createShortcutRegistry,
   type KeyboardEventLike,
