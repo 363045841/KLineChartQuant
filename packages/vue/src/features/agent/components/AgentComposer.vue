@@ -99,15 +99,15 @@
 
   import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
-  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{
     draft: string

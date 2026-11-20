@@ -4,7 +4,6 @@ import {
   type ChartController,
   isTimeShareDataView,
   type SymbolInfo,
-  type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '@363045841yyt/klinechart-core/controllers'
 import {
@@ -14,15 +13,10 @@ import {
   KLineAdjustment,
   KLinePeriod,
 } from '@363045841yyt/klinechart-core/market-data'
+import { type SymbolSpecSelection, toSymbolSpec } from './symbolSpec.js'
 
 /** 切换前图表所处的周期、复权与日期边界；调用方缺省时从控制器读取。 */
-export interface ChartSymbolSelection {
-  /** 当前周期；分时模式使用 `timeshare`。 */
-  period: string
-  adjust: KLineAdjustment
-  /** 沿用当前主品种的日期边界，切换品种不重置时间范围。 */
-  bounds?: Pick<SymbolSpec, 'startDate' | 'endDate'>
-}
+export type ChartSymbolSelection = SymbolSpecSelection
 
 /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
 function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
@@ -85,23 +79,6 @@ function resolveSelection(
   return { period, adjust }
 }
 
-/** 按收敛后的选择构造主品种描述，日期边界沿用切换前的图表。 */
-function buildSymbolSpec(item: InstrumentDescriptor, selection: ChartSymbolSelection): SymbolSpec {
-  return {
-    id: item.id,
-    instrument: item,
-    symbol: item.symbol,
-    market: item.sessionId ?? '',
-    exchange: item.exchange,
-    period: selection.period,
-    source: item.source,
-    params: item.providerRef,
-    startDate: selection.bounds?.startDate ?? '',
-    endDate: selection.bounds?.endDate ?? '',
-    adjust: selection.adjust,
-  }
-}
-
 /**
  * 把品种切换为图表主品种。
  * @param controller 图表控制器
@@ -117,5 +94,5 @@ export function switchChartSymbol(
   // 先对齐周期，再写入主序列，保证缓冲区按新周期建立。
   if (selection.period !== current.period) controller.setCurrentPeriod(selection.period)
   controller.registerSymbols([toLegacySymbolInfo(item)])
-  controller.setSymbols([buildSymbolSpec(item, selection)])
+  controller.setSymbols([toSymbolSpec(item, selection)])
 }

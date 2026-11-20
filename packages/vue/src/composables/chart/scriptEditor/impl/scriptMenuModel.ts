@@ -2,6 +2,7 @@
  * 脚本右键菜单的状态机：动作、表单、预览与异步失效收在这里，渲染交给
  * ScriptContextMenu（DropMenu 坐标模式）。不创建 DOM，也不排渲染时序。
  */
+import { detectMac, formatCombo } from '@363045841yyt/klinechart-core/input'
 import { type ShallowRef, shallowRef } from 'vue'
 import { errorText } from './errorText.js'
 
@@ -102,16 +103,6 @@ export interface ScriptMenuModel {
   destroy(): void
 }
 
-/** 判断快捷键展示与 Mod 含义是否使用 Mac 平台。 */
-export function isMacPlatform(ownerDocument: Document): boolean {
-  return /Mac|iPhone|iPad/.test(ownerDocument.defaultView?.navigator.platform ?? '')
-}
-
-/** 把 `Mod` 换成当前平台的修饰键文本，避免 Windows 上直接显示 Mod。 */
-function formatShortcut(shortcut: string): string {
-  return shortcut.replace('Mod', isMacPlatform(document) ? '⌘' : 'Ctrl')
-}
-
 export function createScriptMenuModel(): ScriptMenuModel {
   const state = shallowRef<ScriptMenuState | null>(null)
   const panelElement = shallowRef<HTMLElement | null>(null)
@@ -181,7 +172,7 @@ export function createScriptMenuModel(): ScriptMenuModel {
     items.push({
       id,
       label,
-      shortcut: item.shortcut ? formatShortcut(item.shortcut) : undefined,
+      shortcut: item.shortcut ? formatCombo(item.shortcut, detectMac()) : undefined,
       disabled: item.disabled === true,
       reason: item.reason,
       separatorBefore: pendingSeparator,

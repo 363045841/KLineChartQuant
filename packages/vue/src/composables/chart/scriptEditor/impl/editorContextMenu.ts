@@ -1,9 +1,11 @@
 /** 编辑器右键菜单：语义跳转、原子重命名和剪贴板操作，与语言 Worker 按需接通。 */
+
+import { detectMac } from '@363045841yyt/klinechart-core/input'
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView, ViewPlugin } from '@codemirror/view'
 import { errorText } from './errorText.js'
-import { isMacPlatform, type ScriptMenuModel } from './scriptMenuModel.js'
+import type { ScriptMenuModel } from './scriptMenuModel.js'
 
 type LanguageSupport = ReturnType<
   typeof import('@363045841yyt/klinechart-script-server').createScriptLanguageSupport
@@ -307,7 +309,7 @@ export function scriptEditorContextMenu(
 
       /** 菜单自己的键盘导航由菜单处理，这里只接住菜单外的快捷键。 */
       function keydown(event: KeyboardEvent): void {
-        const mac = isMacPlatform(document)
+        const mac = detectMac()
         const mod = mac ? event.metaKey : event.ctrlKey
         const otherMod = mac ? event.ctrlKey : event.metaKey
         if (handleClipboardShortcut(event, mod, otherMod)) return

@@ -24,11 +24,13 @@ function normalizeColor(color: string): string {
 }
 
 describe('@363045841yyt/klinechart —public API surface', () => {
-  it('exports createChart, useChart, useIndicatorSelector, KMapPlugin', () => {
-    expect(typeof VueAdapter.createChart).toBe('function')
-    expect(typeof VueAdapter.useChart).toBe('function')
-    expect(typeof VueAdapter.useIndicatorSelector).toBe('function')
-    expect(typeof VueAdapter.KMapPlugin.install).toBe('function')
+  it.each([
+    ['createChart', VueAdapter.createChart],
+    ['useChart', VueAdapter.useChart],
+    ['useIndicatorSelector', VueAdapter.useIndicatorSelector],
+    ['KMapPlugin.install', VueAdapter.KMapPlugin.install],
+  ])('exports %s', (_name, value) => {
+    expect(typeof value).toBe('function')
   })
 
   it('KMapPlugin.install registers KLineChart on a Vue app', () => {

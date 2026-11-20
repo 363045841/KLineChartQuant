@@ -142,8 +142,8 @@
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import MarketDataManagementDialog from '@vue-src/components/market/MarketDataManagementDialog.vue'
   import ShortcutSettings from '@vue-src/components/shortcut/settings/ShortcutSettings.vue'
   import ThemePresetPanel from '@vue-src/components/theme/ThemePresetPanel.vue'
@@ -177,16 +177,15 @@
     ): void
   }>()
 
-  const mainSettings = computed(
-    () =>
-      DEFAULT_SETTINGS.filter(
-        (s) => s.key !== 'theme' && s.group === 'main',
-      ) as unknown as SettingItem[],
+  const mainSettings = computed<ReadonlyArray<SettingItem>>(() =>
+    DEFAULT_SETTINGS.filter((s) => s.key !== 'theme' && s.group === 'main'),
   )
 
   const localTimeZone = resolveLocalTimeZone()
 
-  function optionsFor(item: SettingItem): { value: string; label: string }[] {
+  function optionsFor(
+    item: SettingItem,
+  ): ReadonlyArray<{ readonly value: string; readonly label: string }> {
     if (item.key !== 'displayTimeZone') return item.options ?? []
     return (item.options ?? []).map((option) =>
       option.value === 'local'
@@ -202,14 +201,11 @@
       return 'UTC'
     }
   }
-  const experimentalSettings = computed(
-    () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
+  const experimentalSettings = computed<ReadonlyArray<SettingItem>>(() =>
+    DEFAULT_SETTINGS.filter((s) => s.group === 'experimental'),
   )
-  const styleSettings = computed(
-    () =>
-      DEFAULT_SETTINGS.filter(
-        (s) => s.key !== 'theme' && s.group === 'style',
-      ) as unknown as SettingItem[],
+  const styleSettings = computed<ReadonlyArray<SettingItem>>(() =>
+    DEFAULT_SETTINGS.filter((s) => s.key !== 'theme' && s.group === 'style'),
   )
   const cacheLimitGroups = computed<ReadonlyArray<DropMenuGroup>>(() => [
     {

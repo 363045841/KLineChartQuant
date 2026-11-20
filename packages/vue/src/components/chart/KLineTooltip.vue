@@ -52,7 +52,11 @@
 
 <script setup lang="ts">
   import './tooltip.css'
-  import { formatTimeInTimeZone } from '@363045841yyt/klinechart-core'
+  import {
+    formatLegendQuantity,
+    formatLegendSigned,
+    formatTimeInTimeZone,
+  } from '@363045841yyt/klinechart-core'
   import type { ComponentPublicInstance } from 'vue'
   import { computed } from 'vue'
 
@@ -109,15 +113,12 @@
     props.setEl?.(el as HTMLDivElement | null)
   }
 
-  function formatVolume(v: number): string {
-    if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
-    if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
-    return v.toFixed(2)
-  }
+  /** 成交量复用图表读数的统一格式化：万亿缩写、两位小数。 */
+  const formatVolume = formatLegendQuantity
 
-  function formatSigned(val: number, unit: string): string {
-    const sign = val >= 0 ? '+' : ''
-    return `${sign}${val.toFixed(2)}${unit}`
+  /** 涨跌额统一由核心格式化，再补业务单位；零值不再显示正号。 */
+  function formatSigned(value: number, unit: string): string {
+    return `${formatLegendSigned(value)}${unit}`
   }
 
   const NEUTRAL_COLOR = 'var(--klc-color-ui-muted)'

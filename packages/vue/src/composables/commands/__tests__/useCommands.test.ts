@@ -5,12 +5,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import {
-  __resetCommandScopesForTest,
-  bindChartCommandScope,
-  provideChartCommands,
-  useRegisterCommands,
-} from '../useCommands.js'
+import { bindChartCommandScope, provideChartCommands, useRegisterCommands } from '../useCommands.js'
 
 /** 构造一张图表宿主：根元素为快捷键作用域，内含一个可聚焦按钮与一个输入框。 */
 function chartHost(name: string, onDelete: () => void, onPalette: () => void) {
@@ -56,7 +51,6 @@ describe('chart command scope', () => {
   const wrappers: Array<{ unmount(): void }> = []
   afterEach(() => {
     for (const wrapper of wrappers.splice(0)) wrapper.unmount()
-    __resetCommandScopesForTest()
   })
 
   it('fires Delete only for the chart that owns focus (no document-wide Delete)', async () => {

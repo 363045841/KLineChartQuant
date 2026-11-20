@@ -1,5 +1,5 @@
 /** 图表右键菜单：按 group 键聚合菜单项、快照十字线位置并分发动作。 */
-import type { CommandRegistry } from '@363045841yyt/klinechart-core'
+import { type CommandRegistry, formatLegendPrice } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import {
   DrawingTool,
@@ -7,6 +7,11 @@ import {
   getDrawingKind,
 } from '@363045841yyt/klinechart-core/engine/drawing'
 import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+import {
+  buildMenuGroups,
+  type MenuItemDeclaration,
+  menuShortcut,
+} from '@vue-src/components/common/menu/menuItems.js'
 import { useToast } from '@vue-src/composables/toast/useToast.js'
 import type { Component } from 'vue'
 import { computed, type Ref, ref } from 'vue'
@@ -37,18 +42,6 @@ const ICONS: Readonly<Record<string, Component>> = {
   [CHART_CONTEXT_MENU_ITEM.SETTINGS]: IconTablerSettings,
 }
 
-/**
- * 菜单项声明：`group` 是分组键，相同键的连续项合成一段，组与组之间由 DropMenu
- * 画分隔线。新增菜单项只在这里补一行，不需要手写 groups 数组。
- */
-interface MenuItemDeclaration {
-  readonly id: string
-  readonly group: string
-  readonly label: string
-  /** 命令 id；存在时可用性、快捷键与执行都复用命令注册表。 */
-  readonly command?: string
-}
-
 const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   { id: CHART_CONTEXT_MENU_ITEM.RESET, group: 'view', label: '重置图表', command: 'view.reset' },
   { id: CHART_CONTEXT_MENU_ITEM.COPY_PRICE, group: 'price', label: '复制价格' },
@@ -71,9 +64,9 @@ const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   },
 ]
 
-/** 十字线价格文本：与价格轴价签一样保留两位小数。 */
+/** 十字线价格文本复用图表读数的统一格式化，保持两位小数。 */
 function formatPrice(price: number | null): string | null {
-  return price === null ? null : price.toFixed(2)
+  return price === null ? null : formatLegendPrice(price)
 }
 
 export interface ChartContextMenuOptions {
@@ -117,14 +110,6 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return item.label
   }
 
-  /** 从命令注册表取当前平台快捷键文本；命令未绑定快捷键时返回 undefined。 */
-  function shortcutOf(item: MenuItemDeclaration): string | undefined {
-    if (!item.command || !options.commands) return undefined
-    const shortcut = options.commands.get(item.command)?.shortcut
-    const combo = Array.isArray(shortcut) ? shortcut[0] : shortcut
-    return combo ? options.commands.formatShortcut(combo) : undefined
-  }
-
   /** 图标随状态变化：锁定时才显示对勾，其余项使用固定图标。 */
   function iconOf(item: MenuItemDeclaration): Component | undefined {
     if (item.id === CHART_CONTEXT_MENU_ITEM.LOCK_CROSSHAIR) {
@@ -147,29 +132,15 @@ export function useChartContextMenu(options: ChartContextMenuOptions) {
     return options.commands === null
   }
 
-  const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
-    // 构建期使用可变数组，返回契约仍是只读分组。
-    const result: Array<{
-      id: string
-      label: string
-      items: Array<DropMenuGroup['items'][number]>
-    }> = []
-    for (const item of MENU_ITEMS) {
-      let group = result.at(-1)
-      if (group?.id !== item.group) {
-        group = { id: item.group, label: '', items: [] }
-        result.push(group)
-      }
-      group.items.push({
-        id: item.id,
-        label: labelOf(item),
-        icon: iconOf(item),
-        shortcut: shortcutOf(item),
-        disabled: disabledOf(item),
-      })
-    }
-    return result
-  })
+  const groups = computed<ReadonlyArray<DropMenuGroup>>(() =>
+    buildMenuGroups(MENU_ITEMS, (item) => ({
+      id: item.id,
+      label: labelOf(item),
+      icon: iconOf(item),
+      shortcut: menuShortcut(options.commands, item.command),
+      disabled: disabledOf(item),
+    })),
+  )
 
   /** 每次打开前刷新十字线快照；没有有效指针位置时复制与锁定保持禁用。 */
   function captureCrosshair(): void {

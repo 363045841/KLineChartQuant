@@ -193,7 +193,3 @@ export function useCommandList(
 }
 
 /** 测试辅助：重置页面级作用域状态。 */
-export function __resetCommandScopesForTest(): void {
-  scopes.clear()
-  lastActive = null
-}

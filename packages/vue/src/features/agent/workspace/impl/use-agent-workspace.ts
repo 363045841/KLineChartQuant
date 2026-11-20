@@ -1,6 +1,7 @@
 // 组装 Agent 工作区：订阅官方会话读取结果，只维护输入、偏好与宿主提问。
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+
 import { loadPreference } from '@vue-src/utils/loadPreference.js'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
   AgentBridgeClient,
   AgentContextItem,
@@ -12,19 +13,14 @@ import type {
   ProviderReasoningEffort,
   QuestionAnswerView,
 } from '../../agent-contracts.js'
-import { getAgentCopy } from '../../agent-copy.js'
+import { getAgentCopy } from '../../agent-copy/index.js'
 import { toAgentErrorView } from '../../agent-error-view.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
 } from '../../browser-agent/provider-settings/impl/agent-provider-settings-store.js'
 import type { AgentWorkspaceAvailability } from '../types.js'
-import {
-  isRunActive,
-  readLiveAnswer,
-  readLiveTools,
-  readRunFailure,
-} from './agent-live.js'
+import { isRunActive, readLiveAnswer, readLiveTools, readRunFailure } from './agent-live.js'
 import {
   agentWorkspacePreferencesPersistence,
   defaultAgentWorkspacePreferences,

@@ -445,12 +445,10 @@
     type LegendOptions,
     type LegendTemplateContext,
     type RendererBackendRuntime,
-    type SymbolInfo,
     type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
-    type InstrumentDescriptor,
     isKLineAdjustment,
     KLineAdjustment,
     KLinePeriod,
@@ -551,6 +549,12 @@
     useRegisterCommands,
   } from '@vue-src/composables/commands/useCommands.js'
   import { switchChartSymbol } from '@vue-src/composables/symbol/chartSymbolSwitch.js'
+  import {
+    fromSymbolInfo,
+    type SymbolSpecSelection,
+    symbolItemForSpec,
+    toSymbolSpec,
+  } from '@vue-src/composables/symbol/symbolSpec.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
@@ -712,7 +716,7 @@
   const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
   const currentSymbolItem = computed(() => {
     const primary = controllerSymbols.value[0]
-    return primary ? symbolItemForSpec(primary) : null
+    return primary ? symbolItemForSpec(primary, symbolCatalog.value) : null
   })
   // Local feedback describes rejected/pending UI commands, not a copy of Core loading state.
   const localSymbolStatus = ref<'loading' | 'error' | null>(null)
@@ -741,7 +745,9 @@
     () => symbolStatus.value === 'loading' && Boolean(symbolErrorMessage.value),
   )
   const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
-  const overlaySymbolItems = computed(() => comparisonSpecs.value.map(symbolItemForSpec))
+  const overlaySymbolItems = computed(() =>
+    comparisonSpecs.value.map((spec) => symbolItemForSpec(spec, symbolCatalog.value)),
+  )
   const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
   const { watchlistKeys, restoreWatchlist, addWatchlistItem } = useWatchlist()
 
@@ -815,22 +821,6 @@
     }
   }
 
-  function toSymbolSpec(item: SymbolItem, adjust = kLineAdjust.value): SymbolSpec {
-    return {
-      id: item.id,
-      instrument: item,
-      symbol: item.symbol,
-      market: item.sessionId ?? '',
-      exchange: item.exchange,
-      period: kLineLevel.value,
-      source: item.source,
-      params: item.providerRef,
-      startDate: props.symbols?.[0]?.startDate ?? '',
-      endDate: props.symbols?.[0]?.endDate ?? '',
-      adjust,
-    }
-  }
-
   async function searchSymbols(
     query: string,
     limit: number,
@@ -846,63 +836,9 @@
     return result.instruments
   }
 
-  /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
-  function legacyInstrumentId(
-    source: string,
-    symbol: string,
-    exchange: string,
-    providerRef?: Readonly<Record<string, string | number | boolean>>,
-  ): string {
-    const params = Object.entries(providerRef ?? {}).sort(([left], [right]) =>
-      left.localeCompare(right),
-    )
-    return `legacy:${source}:${exchange}:${symbol}:${JSON.stringify(params)}`
-  }
-
-  /** 将旧 controller 目录条目转换为 UI 使用的统一品种模型。 */
-  function fromSymbolInfo(info: SymbolInfo): InstrumentDescriptor {
-    return {
-      id:
-        info.id ??
-        legacyInstrumentId(info.source ?? '', info.symbol, info.exchange ?? '', info.params),
-      source: info.source ?? '',
-      symbol: info.symbol,
-      name: info.description ?? info.symbol,
-      instrumentType: info.instrumentType ?? 'unknown',
-      exchange: info.exchange ?? '',
-      sessionId: info.sessionId ?? (info.market || undefined),
-      providerRef: info.params,
-      tickSize: info.tickSize,
-      lotSize: info.lotSize,
-      currency: info.currency,
-      capabilities: info.capabilities ?? {},
-    }
-  }
-
-  function symbolItemForSpec(spec: SymbolSpec): SymbolItem {
-    if (spec.instrument) return spec.instrument
-    const info = symbolCatalog.value.find((item) =>
-      spec.id && item.id
-        ? spec.id === item.id
-        : item.symbol === spec.symbol &&
-          item.source === spec.source &&
-          item.exchange === spec.exchange,
-    )
-    return info
-      ? fromSymbolInfo(info)
-      : {
-          id:
-            spec.id ??
-            legacyInstrumentId(spec.source ?? '', spec.symbol, spec.exchange ?? '', spec.params),
-          source: spec.source ?? '',
-          symbol: spec.symbol,
-          name: spec.symbol,
-          instrumentType: 'unknown',
-          exchange: spec.exchange ?? '',
-          sessionId: spec.market || undefined,
-          providerRef: spec.params,
-          capabilities: {},
-        }
+  /** 当前图表上下文：周期、复权与主品种日期边界。 */
+  function currentSelection(adjust = kLineAdjust.value): SymbolSpecSelection {
+    return { period: kLineLevel.value, adjust, bounds: props.symbols?.[0] }
   }
 
   function syncSymbolsToController(adjust = kLineAdjust.value) {
@@ -910,8 +846,9 @@
     const ctrl = controller.value
     if (!ctrl) return
     // 主品种与对比集合解耦：分别写入，周期/复权变化时对比集合用最新周期重建。
-    const comparisons = overlaySymbolItems.value.map((item) => toSymbolSpec(item, adjust))
-    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, adjust)])
+    const selection = currentSelection(adjust)
+    const comparisons = overlaySymbolItems.value.map((item) => toSymbolSpec(item, selection))
+    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, selection)])
     ctrl.setComparisonSpecs(comparisons)
   }
 
@@ -979,8 +916,9 @@
   // ── Controller & Composable Wiring ──
   const { add: onAddOverlaySymbol, remove: onRemoveOverlaySymbol } = useComparisonSymbols({
     getController: () => controller.value,
-    getPrimary: () => (currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null),
-    toSpec: toSymbolSpec,
+    getPrimary: () =>
+      currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value, currentSelection()) : null,
+    toSpec: (item) => toSymbolSpec(item, currentSelection()),
     onError: (item, error) => {
       localSymbolStatus.value = 'error'
       localSymbolError.value = formatUnsupportedSymbolMessage(item, error)

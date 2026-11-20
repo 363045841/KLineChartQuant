@@ -22,7 +22,7 @@
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconRefresh from '~icons/tabler/refresh'
   import type { AgentErrorView } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{ error: AgentErrorView; locale: AgentLocale }>()
   const emit = defineEmits<{ retry: [] }>()

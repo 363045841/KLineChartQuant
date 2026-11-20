@@ -57,8 +57,8 @@
     ToolCall,
     ToolResultMessage,
   } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
-  import { renderAgentMarkdown } from '../render-agent-markdown.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
+  import { renderAgentMarkdown } from '../render-agent-markdown/index.js'
   import type { LiveToolView } from '../workspace/impl/agent-live.js'
   import AgentToolCallRow from './AgentToolCallRow.vue'
   import { readAskUserQuestion } from './impl/ask-user-view.js'

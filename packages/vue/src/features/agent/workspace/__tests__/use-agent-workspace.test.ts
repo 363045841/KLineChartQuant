@@ -3,7 +3,7 @@ import { AgentRuntimeError } from '@363045841yyt/klinechart-agent-runtime'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
-import { FakeAgentBridge } from '../../testing/fake-agent-bridge'
+import { FakeAgentBridge } from '../../__tests__/fake-agent-bridge'
 import { useAgentWorkspace } from '../impl/use-agent-workspace'
 
 type Workspace = ReturnType<typeof useAgentWorkspace>

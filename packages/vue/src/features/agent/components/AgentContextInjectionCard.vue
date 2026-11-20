@@ -30,11 +30,11 @@
 </template>
 
 <script setup lang="ts">
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed, ref } from 'vue'
   import IconEye from '~icons/tabler/eye'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type { AgentContextItem } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>

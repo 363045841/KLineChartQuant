@@ -6,17 +6,17 @@
     class="color-picker__trigger"
     :aria-label="label"
     aria-haspopup="dialog"
-    :aria-expanded="isOpen"
     :disabled="disabled"
-    @click="toggle"
+    v-bind="triggerBindings"
+    @click="onTriggerClick"
     @keydown.escape.stop="close(true)"
   >
     <span class="color-picker__preview" :style="{ backgroundColor: modelValue }"></span>
   </button>
   <Teleport :to="teleportTarget">
     <section
-      v-if="isOpen"
       ref="panelRef"
+      v-bind="panelAttributes"
       class="color-picker__panel klc-overlay"
       :style="panelStyle"
       role="dialog"
@@ -24,76 +24,78 @@
       @keydown.escape.stop.prevent="close(true)"
       @keydown.delete.stop
     >
-      <div class="color-picker__heading">常用颜色</div>
-      <div class="color-picker__grid" role="group" aria-label="常用颜色">
-        <BaseTooltip
-          v-for="color in commonColors"
-          :key="color.token"
-          :content="color.label"
-          placement="top"
-          trigger-display="contents"
-        >
-          <button
-            type="button"
-            class="color-picker__swatch"
-            :style="{ backgroundColor: `var(--klc-color-${color.token})` }"
-            :aria-label="color.label"
-            @click="selectCommon"
-          ></button>
-        </BaseTooltip>
-      </div>
-      <template v-if="customColors.length">
-        <div class="color-picker__heading">自定义颜色</div>
-        <div class="color-picker__grid" role="group" aria-label="自定义颜色">
+      <template v-if="isOpen">
+        <div class="color-picker__heading">常用颜色</div>
+        <div class="color-picker__grid" role="group" aria-label="常用颜色">
           <BaseTooltip
-            v-for="color in customColors"
-            :key="color"
-            :content="color"
+            v-for="color in commonColors"
+            :key="color.token"
+            :content="color.label"
             placement="top"
             trigger-display="contents"
           >
             <button
               type="button"
               class="color-picker__swatch"
-              :style="{ backgroundColor: color }"
-              :aria-label="color"
-              :aria-pressed="modelValue === color"
-              @click="select(color)"
+              :style="{ backgroundColor: `var(--klc-color-${color.token})` }"
+              :aria-label="color.label"
+              @click="selectCommon"
             ></button>
           </BaseTooltip>
         </div>
+        <template v-if="customColors.length">
+          <div class="color-picker__heading">自定义颜色</div>
+          <div class="color-picker__grid" role="group" aria-label="自定义颜色">
+            <BaseTooltip
+              v-for="color in customColors"
+              :key="color"
+              :content="color"
+              placement="top"
+              trigger-display="contents"
+            >
+              <button
+                type="button"
+                class="color-picker__swatch"
+                :style="{ backgroundColor: color }"
+                :aria-label="color"
+                :aria-pressed="modelValue === color"
+                @click="select(color)"
+              ></button>
+            </BaseTooltip>
+          </div>
+        </template>
+        <div
+          class="color-picker__plane"
+          :style="{ backgroundColor: hueColor }"
+          tabindex="0"
+          role="group"
+          :aria-label="`饱和度 ${Math.round(color.saturation * 100)}%，明度 ${Math.round(color.brightness * 100)}%，使用方向键调整`"
+          @pointerdown="moveOnPlane"
+          @pointermove="moveOnPlane"
+          @pointerup="endPlaneDrag"
+          @pointercancel="endPlaneDrag"
+          @keydown="onPlaneKey"
+        >
+          <span class="color-picker__cursor" :style="cursorStyle" aria-hidden="true"></span>
+        </div>
+        <label class="color-picker__slider-row">
+          <span>色相</span>
+          <input class="color-picker__hue" type="range" min="0" max="360" step="1" :value="color.hue" aria-label="色相" @input="onSliderInput($event, 'hue')" />
+        </label>
+        <label class="color-picker__slider-row">
+          <span>透明度</span>
+          <input class="color-picker__alpha" type="range" min="0" max="1" step="0.01" :value="color.alpha" :style="{ '--picker-opaque': opaqueColor }" aria-label="透明度" @input="onSliderInput($event, 'alpha')" />
+        </label>
+        <form class="color-picker__entry" @submit.prevent="addColor(draft)">
+          <input v-model="draft" type="text" aria-label="颜色值" :aria-invalid="invalid" spellcheck="false" @input="invalid = false" @change="onDraftChange" />
+          <button type="submit" class="color-picker__action">确认</button>
+        </form>
+        <p v-if="invalid" class="color-picker__message" role="alert">请输入有效的颜色值</p>
+        <div class="color-picker__actions">
+          <button v-if="eyeDropper" type="button" class="color-picker__action" :disabled="picking" @click="pickScreen">屏幕取色</button>
+        </div>
+        <p v-if="screenError" class="color-picker__message" role="status">{{ screenError }}</p>
       </template>
-      <div
-        class="color-picker__plane"
-        :style="{ backgroundColor: hueColor }"
-        tabindex="0"
-        role="group"
-        :aria-label="`饱和度 ${Math.round(color.saturation * 100)}%，明度 ${Math.round(color.brightness * 100)}%，使用方向键调整`"
-        @pointerdown="moveOnPlane"
-        @pointermove="moveOnPlane"
-        @pointerup="endPlaneDrag"
-        @pointercancel="endPlaneDrag"
-        @keydown="onPlaneKey"
-      >
-        <span class="color-picker__cursor" :style="cursorStyle" aria-hidden="true"></span>
-      </div>
-      <label class="color-picker__slider-row">
-        <span>色相</span>
-        <input class="color-picker__hue" type="range" min="0" max="360" step="1" :value="color.hue" aria-label="色相" @input="onSliderInput($event, 'hue')" />
-      </label>
-      <label class="color-picker__slider-row">
-        <span>透明度</span>
-        <input class="color-picker__alpha" type="range" min="0" max="1" step="0.01" :value="color.alpha" :style="{ '--picker-opaque': opaqueColor }" aria-label="透明度" @input="onSliderInput($event, 'alpha')" />
-      </label>
-      <form class="color-picker__entry" @submit.prevent="addColor(draft)">
-        <input v-model="draft" type="text" aria-label="颜色值" :aria-invalid="invalid" spellcheck="false" @input="invalid = false" @change="onDraftChange" />
-        <button type="submit" class="color-picker__action">确认</button>
-      </form>
-      <p v-if="invalid" class="color-picker__message" role="alert">请输入有效的颜色值</p>
-      <div class="color-picker__actions">
-        <button v-if="eyeDropper" type="button" class="color-picker__action" :disabled="picking" @click="pickScreen">屏幕取色</button>
-      </div>
-      <p v-if="screenError" class="color-picker__message" role="status">{{ screenError }}</p>
     </section>
   </Teleport>
 </template>
@@ -118,11 +120,13 @@
     cursorStyle,
     teleportTarget,
     panelStyle,
+    panelAttributes,
+    triggerBindings,
+    onTriggerClick,
     commonColors,
     customColors,
     eyeDropper,
     screenError,
-    toggle,
     close,
     select,
     selectCommon,

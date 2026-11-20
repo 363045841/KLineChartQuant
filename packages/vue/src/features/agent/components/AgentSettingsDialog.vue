@@ -324,14 +324,17 @@
   import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import '@vue-src/components/common/menu/selection-menu.css'
 
-  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
-  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
   import SearchField from '@vue-src/components/common/form/SearchField.vue'
+  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
+  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import { computed, ref, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconChevronDown from '~icons/tabler/chevron-down'
@@ -340,15 +343,12 @@
   import IconRefresh from '~icons/tabler/refresh'
   import IconStack from '~icons/tabler/stack-2'
   import IconTrash from '~icons/tabler/trash'
-  import BaseTextarea from '@vue-src/components/common/form/BaseTextarea.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
-  import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
     type ProviderStatusView,
   } from '../agent-contracts.js'
-  import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { AgentProviderSettingsStore } from '../browser-agent/provider-settings/types.js'
   import AgentListRow from './AgentListRow.vue'
   import AgentRowList from './AgentRowList.vue'

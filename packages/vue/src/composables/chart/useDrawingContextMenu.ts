@@ -6,6 +6,11 @@ import type {
   DrawingTimeframeVisibility,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
+import {
+  buildMenuGroups,
+  type MenuItemDeclaration,
+  menuShortcut,
+} from '@vue-src/components/common/menu/menuItems.js'
 import type { Component } from 'vue'
 import { computed, type Ref, shallowRef } from 'vue'
 import IconTablerClock from '~icons/tabler/clock'
@@ -89,17 +94,6 @@ export function resolveContextMenuSource(
     return target.objectKind === 'drawing' ? { kind: 'drawing', drawingId: target.source } : null
   const hit = drawing?.hitTestAt(target.x, target.y) ?? null
   return hit ? { kind: 'drawing', drawingId: hit.id } : { kind: 'chart' }
-}
-
-/**
- * 菜单项声明：group 相同的连续项合成一段；命令 id 只用于复用快捷键文案，
- * 执行始终按打开瞬间的 ids 走 Controller API，不重新读取实时选中集合。
- */
-interface MenuItemDeclaration {
-  readonly id: string
-  readonly group: string
-  readonly label: string
-  readonly command?: string
 }
 
 const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
@@ -192,14 +186,6 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     return targetIds.value.length === 0
   }
 
-  /** 只读取快捷键文案；执行不交给命令层，避免命令重新读取实时选中集合。 */
-  function shortcutOf(item: MenuItemDeclaration): string | undefined {
-    if (!item.command || !options.commands) return undefined
-    const shortcut = options.commands.get(item.command)?.shortcut
-    const combo = Array.isArray(shortcut) ? shortcut[0] : shortcut
-    return combo ? options.commands.formatShortcut(combo) : undefined
-  }
-
   /** 锁定项按快照切换图标；其余项使用固定图标。 */
   function iconOf(item: MenuItemDeclaration): Component | undefined {
     if (item.id === DRAWING_CONTEXT_MENU_ITEM.LOCK) {
@@ -209,23 +195,12 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
   }
 
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
-    // 构建期使用可变数组，返回契约仍是只读分组。
-    const result: Array<{
-      id: string
-      label: string
-      items: Array<DropMenuGroup['items'][number]>
-    }> = []
     const period = options.currentPeriod?.value ?? null
-    for (const item of MENU_ITEMS) {
-      let group = result.at(-1)
-      if (group?.id !== item.group) {
-        group = { id: item.group, label: '', items: [] }
-        result.push(group)
-      }
+    return buildMenuGroups(MENU_ITEMS, (item) => {
       if (item.id === DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY) {
         // 分时等没有 K 线周期的视图不展示规则菜单。
-        if (period === null) continue
-        group.items.push({
+        if (period === null) return null
+        return {
           id: item.id,
           label: item.label,
           icon: ICONS[item.id],
@@ -240,18 +215,16 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
               ),
             selection: 'checkbox',
           })),
-        })
-        continue
+        }
       }
-      group.items.push({
+      return {
         id: item.id,
         label: labelOf(item),
         icon: iconOf(item),
-        shortcut: shortcutOf(item),
+        shortcut: menuShortcut(options.commands, item.command),
         disabled: disabledOf(item),
-      })
-    }
-    return result
+      }
+    })
   })
 
   /** 所有动作都按打开瞬间的 ids 提交；单图元同样走批量入口。 */

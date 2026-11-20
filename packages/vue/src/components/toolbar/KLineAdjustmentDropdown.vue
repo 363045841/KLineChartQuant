@@ -11,7 +11,7 @@
 <script setup lang="ts">
   import '@vue-src/components/common/menu/selection-menu.css'
 
-  import { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
+  import { isKLineAdjustment, KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
   import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import { computed } from 'vue'
   import IconChevronDown from '~icons/tabler/chevron-down'
@@ -67,7 +67,8 @@
 
   /** 菜单选中后上报复权方式，值域由 visibleOptions 保证。 */
   function select(_groupId: string, itemId: string): void {
-    emit('update:modelValue', itemId as KLineAdjustment)
+    if (!isKLineAdjustment(itemId)) return
+    emit('update:modelValue', itemId)
   }
 </script>
 

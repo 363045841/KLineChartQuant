@@ -41,7 +41,7 @@
   import { computed, ref, watch } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconInfoCircle from '~icons/tabler/info-circle'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { RunFailureView } from '../workspace/impl/agent-live.js'
   import { toRunFailureNotice } from './impl/run-failure-view.js'
 
@@ -59,10 +59,14 @@
   })
 
   // 提示出现（含原因变化）时接管焦点，屏幕阅读器立刻读出失败原因。
-  watch(() => props.runFailure?.reason, () => root.value?.focus(), {
-    immediate: true,
-    flush: 'post',
-  })
+  watch(
+    () => props.runFailure?.reason,
+    () => root.value?.focus(),
+    {
+      immediate: true,
+      flush: 'post',
+    },
+  )
 </script>
 
 <style scoped>

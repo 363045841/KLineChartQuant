@@ -73,14 +73,14 @@
 </template>
 
 <script setup lang="ts">
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
+  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
   import { computed, ref } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
   import IconHelp from '~icons/tabler/help'
-  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
-  import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
   import type { QuestionAnswerView, QuestionView } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{ question: QuestionView; locale: AgentLocale }>()
   const emit = defineEmits<{ answer: [answer: QuestionAnswerView]; cancel: [] }>()
