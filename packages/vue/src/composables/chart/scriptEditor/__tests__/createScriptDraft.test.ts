@@ -35,7 +35,7 @@ describe('createScriptDraft', () => {
 
   it('新建草稿是可保存的完整声明，库模板不生成指标入口', () => {
     expect(createBlankSource('新脚本')).toContain('name: "新脚本"')
-    expect(createBlankSource('新脚本')).toContain('defineIndicator({')
+    expect(createBlankSource('新脚本')).toContain('defineIndicator({ scriptVersion: 2,')
     expect(createLibrarySource('新库')).toContain('defineLibrary("新库"')
     expect(createLibrarySource('新库')).not.toContain('defineIndicator')
   })

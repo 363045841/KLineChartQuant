@@ -21,8 +21,9 @@ parameters and calculation live in the same document:
 
 ```js
 defineIndicator({
+  scriptVersion: 2,
   name: 'OC Average',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const n = input.float(2, { title: '除数' })
     plot.Line((open + close) / n, 'oc-average')
@@ -38,7 +39,7 @@ The VM prelude injects these globals before the script runs:
 | `input.int` `input.float` `input.bool` `input.string` | declare a parameter at the top level of `onBar`; the variable reads back the user's value |
 | `plot.Line(value, name, options?)` | emit a plot point; methods: `Line`, `Columns`, `Histogram`, `Point`, `Shape`, `Char`, `Arrow` |
 | `fill(from, to, color, title, options?)` | fill the area between two plots; `from` / `to` are the handles returned by `plot.*` |
-| `Position` | indicator registration location; `Position.Main` or `Position.Sub` |
+| `Position` | indicator registration location; `Position.main` or `Position.sub` |
 | `Color` | common Material 400 colors, or pass any CSS color string |
 | `defineIndicator(definition)` | declare the single indicator of the file |
 | `defineLibrary(name, members)` / `importLibrary(name)` | declare and use a library |

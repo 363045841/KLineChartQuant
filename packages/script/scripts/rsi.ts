@@ -1,13 +1,13 @@
 // Wilder RSI 三线；6/12/24 是周期族平行多线，可逐条隐藏，计算全部走 ta.rsi。
 // 超买/超卖参考线是图表级声明，不参与数据列与数值范围。
-for (const level of [80, 50, 20])
-  hline(level, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+for (const level of [80, 50, 20]) hline(level, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 defineIndicator({
+  scriptVersion: 2,
   name: 'RSI',
   title: '相对强弱指标',
   info: 'RSI 衡量价格变动的速度和幅度，判断超买超卖状态。RSI > 70 超买，RSI < 30 超卖。',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const period1 = input.int(6, { title: '周期 1', min: 1 })
     const period2 = input.int(12, { title: '周期 2', min: 1 })
@@ -17,7 +17,7 @@ defineIndicator({
     const showRSI3 = input.bool(true, { title: '显示 RSI 3' })
     const periods = [period1, period2, period3]
     const shown = [showRSI1, showRSI2, showRSI3]
-    const colors = [Color.Orange, Color.Blue, Color.Purple]
+    const colors = [Color.orange, Color.blue, Color.purple]
     for (let index = 0; index < periods.length; index++) {
       const period = periods[index]!
       if (!Number.isInteger(period) || period < 1) throw new RangeError('RSI 周期必须为正整数')

@@ -1,15 +1,16 @@
 // 均线按百分比上下偏移形成 ENE 价格轨道。
 defineIndicator({
+  scriptVersion: 2,
   name: 'ENE',
   title: '包络线',
   info: 'ENE 以均线为中枢，按百分比上下偏移形成包络通道，用于观察价格相对波动区间。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const period = input.int(10, { title: '周期', min: 1 })
     const deviation = input.float(11, { title: '偏离率（%）', min: 0, step: 0.5 })
     const middle = ta.sma(close, period)[0]
-    plot.Line(middle * (1 + deviation / 100), 'upper', { label: 'UP', color: Color.Red })
-    plot.Line(middle, 'middle', { label: 'MID', color: Color.Orange })
-    plot.Line(middle * (1 - deviation / 100), 'lower', { label: 'DN', color: Color.Blue })
+    plot.Line(middle * (1 + deviation / 100), 'upper', { label: 'UP', color: Color.red })
+    plot.Line(middle, 'middle', { label: 'MID', color: Color.orange })
+    plot.Line(middle * (1 - deviation / 100), 'lower', { label: 'DN', color: Color.blue })
   },
 })

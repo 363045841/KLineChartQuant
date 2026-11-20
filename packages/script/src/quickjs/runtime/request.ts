@@ -2,9 +2,13 @@
 const __requestExpressions = new Map<string, () => unknown>()
 const __requests: import('../../request/types.js').SecurityRequest[] = []
 const syminfo = Object.freeze({
-  tickerid: __requestContext.symbol,
-  get timezone() { return __requestContext.time?.session.timeZone ?? '' },
-  get session() { return 'regular' },
+  tickerId: __requestContext.symbol,
+  get timezone() {
+    return __requestContext.time?.session.timeZone ?? ''
+  },
+  get session() {
+    return 'regular'
+  },
 })
 
 /** 判断非空字符串；品种与周期都不允许空白。 */
@@ -52,8 +56,18 @@ function __declareRequest(
     const value = options[rule.key]
     if (value !== undefined && !rule.isValid(value)) throw new TypeError(rule.message)
   }
-  if ('ignore_invalid_timeframe' in options && typeof options.ignore_invalid_timeframe !== 'boolean') throw new TypeError('ignore_invalid_timeframe必须为布尔值')
-  __requests.push(Object.freeze({ id, symbol, timeframe, ...options, mode, ...(tupleSize === undefined ? {} : { tupleSize }) }))
+  if ('ignoreInvalidTimeframe' in options && typeof options.ignoreInvalidTimeframe !== 'boolean')
+    throw new TypeError('ignoreInvalidTimeframe必须为布尔值')
+  __requests.push(
+    Object.freeze({
+      id,
+      symbol,
+      timeframe,
+      ...options,
+      mode,
+      ...(tupleSize === undefined ? {} : { tupleSize }),
+    }),
+  )
 }
 
 /** 从宿主提供的已对齐结果取值，返回数组副本，脚本不持有缓存引用。 */

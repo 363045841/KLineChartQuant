@@ -49,7 +49,7 @@ function linePlot(id: string, color: string, data: readonly (PlotPoint | undefin
     data,
     visible: true,
     offset: 0,
-    size: ShapeSize.Auto,
+    size: ShapeSize.auto,
     dash: [],
   }
 }
@@ -85,7 +85,7 @@ describe('projectPlots — script colors', () => {
           data: [{ value: 1 }],
           visible: true,
           offset: 0,
-          size: ShapeSize.Auto,
+          size: ShapeSize.auto,
         },
       ],
       fills: [{ id: 'cloud', from: 'fast', to: 'slow', visible: true, colors: ['@amber', null] }],

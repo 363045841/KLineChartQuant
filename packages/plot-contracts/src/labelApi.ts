@@ -12,10 +12,10 @@ import type {
 } from './drawing.js'
 import { xloc } from './drawing.js'
 import {
-  drawingAnchorPrice,
   checkedDrawingMember,
   createOwnedDrawingApi,
   drawingAnchor,
+  drawingAnchorPrice,
   drawingAnchorX,
   drawingWidth,
 } from './drawingApi.js'
@@ -126,8 +126,8 @@ export function createDrawingLabelApi(
         x,
         y,
         text = '',
-        xloc: mode = xloc.bar_index,
-        color = Color.Blue,
+        xloc: mode = xloc.barIndex,
+        color = Color.blue,
         textColor,
         size = 12,
         align = 'center',
@@ -139,9 +139,9 @@ export function createDrawingLabelApi(
       x,
       y,
       content = '',
-      mode = xloc.bar_index,
+      mode = xloc.barIndex,
       location = 'price',
-      color = Color.Blue,
+      color = Color.blue,
       style = 'none',
       textcolor,
       size = 12,
@@ -153,18 +153,18 @@ export function createDrawingLabelApi(
     return createLabel(x, y, content, mode, color, textcolor, size, align, offsetY)
   }
   return Object.freeze({
-    style_none: 'none',
+    styleNone: 'none',
     new: create,
     get all() {
       return api.all()
     },
-    set_x: (id: LabelRef, x: number) => coordinate(id, x),
-    set_y: (id: LabelRef, y: number) => coordinate(id, undefined, y),
-    set_xy: coordinate,
-    set_text: (id: LabelRef, value: string) => text(id, { value }),
-    set_textcolor: (id: LabelRef, color: Color | (string & {})) => styleOf(id, { textColor: color }),
-    set_size: (id: LabelRef, size: number) => styleOf(id, { fontSize: drawingWidth(size) }),
-    set_textalign: (id: LabelRef, align: DrawingText['align']) =>
+    setX: (id: LabelRef, x: number) => coordinate(id, x),
+    setY: (id: LabelRef, y: number) => coordinate(id, undefined, y),
+    setXY: coordinate,
+    setText: (id: LabelRef, value: string) => text(id, { value }),
+    setTextColor: (id: LabelRef, color: Color | (string & {})) => styleOf(id, { textColor: color }),
+    setSize: (id: LabelRef, size: number) => styleOf(id, { fontSize: drawingWidth(size) }),
+    setTextAlign: (id: LabelRef, align: DrawingText['align']) =>
       text(id, {
         align: checkedDrawingMember<DrawingText['align']>(
           align,
@@ -172,14 +172,14 @@ export function createDrawingLabelApi(
           'textalign',
         ),
       }),
-    set_yoffset: (id: LabelRef, offsetY: number) => text(id, { offsetY: checkedOffsetY(offsetY) }),
-    get_x: (id: LabelRef) => {
+    setYOffset: (id: LabelRef, offsetY: number) => text(id, { offsetY: checkedOffsetY(offsetY) }),
+    getX: (id: LabelRef) => {
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN
     },
-    get_y: (id: LabelRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
-    get_text: (id: LabelRef) => api.get(id)?.text?.value ?? null,
-    get_yoffset: (id: LabelRef) => api.get(id)?.text?.offsetY ?? 0,
+    getY: (id: LabelRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
+    getText: (id: LabelRef) => api.get(id)?.text?.value ?? null,
+    getYOffset: (id: LabelRef) => api.get(id)?.text?.offsetY ?? 0,
     copy: api.copy,
     delete: api.delete,
   })

@@ -46,7 +46,7 @@ export function shippedSource(name: string): string {
 
 /** 用完整文件声明包装计算片段，所有用例走相同初始化入口。 */
 export function scriptSource(body: string, name = 'TestScript'): string {
-  return `defineIndicator({ name: '${name}', position: 'main', onBar() { ${body} } })`
+  return `defineIndicator({ scriptVersion: 2, name: '${name}', position: 'main', onBar() { ${body} } })`
 }
 
 /** 生成 close 驱动的完整 K 线；open 与 close 相同，high/low 由 spread 或逐根数组给出。 */

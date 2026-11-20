@@ -46,7 +46,7 @@ import {
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
 /** Plot 默认颜色：跟随主题的蓝，脚本不写颜色时由宿主解析成当前主题色值。 */
-export const DEFAULT_PLOT_COLOR: Color = Color.Blue
+export const DEFAULT_PLOT_COLOR: Color = Color.blue
 /** 折线默认虚线样式（实线）。 */
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
@@ -88,12 +88,10 @@ export class PlotCollector {
       this.barCount = barCount
     }
     for (const entry of this.entries.values()) {
-      if (entry.source === 'ohlc')
-        clearColumnFrom(entry.data, startIndex, endIndex, undefined)
+      if (entry.source === 'ohlc') clearColumnFrom(entry.data, startIndex, endIndex, undefined)
       else clearColumnFrom(entry.data, startIndex, endIndex, undefined)
     }
-    for (const fill of this.fills.values())
-      clearColumnFrom(fill.colors, startIndex, endIndex, null)
+    for (const fill of this.fills.values()) clearColumnFrom(fill.colors, startIndex, endIndex, null)
   }
 
   /** 按名称采集当前 bar 的填充颜色；边界和整列显隐在一次运行内固定。 */
@@ -403,7 +401,7 @@ function plotBase(
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
     size:
-      typeof declaration.size === 'number' ? ShapeSize.Auto : (declaration.size ?? ShapeSize.Auto),
+      typeof declaration.size === 'number' ? ShapeSize.auto : (declaration.size ?? ShapeSize.auto),
   }
 }
 
@@ -431,7 +429,7 @@ function createHistogramPlot(
   return {
     ...base,
     kind: 'histogram',
-    size: declaration.size ?? ShapeSize.Auto,
+    size: declaration.size ?? ShapeSize.auto,
     baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
   }
 }
@@ -441,7 +439,7 @@ function createColumnsPlot(declaration: ColumnsPlotDeclaration, base: PlotBaseFi
   return {
     ...base,
     kind: 'columns',
-    size: ShapeSize.Auto,
+    size: ShapeSize.auto,
     baseline: declaration.baseline ?? DEFAULT_HISTOGRAM_BASELINE,
   }
 }
@@ -458,7 +456,7 @@ function markerBase(
 ): Omit<ShapePlot, 'kind' | 'style'> {
   return {
     ...base,
-    location: declaration.location ?? ShapeLocation.AboveBar,
+    location: declaration.location ?? ShapeLocation.aboveBar,
     text: declaration.text ?? '',
     textColor: declaration.textColor ?? base.color,
   }
@@ -469,7 +467,7 @@ function createShapePlot(declaration: ShapePlotDeclaration, base: PlotBaseFields
   return {
     ...markerBase(declaration, base),
     kind: 'shape',
-    style: declaration.style ?? ShapeStyle.XCross,
+    style: declaration.style ?? ShapeStyle.xCross,
   }
 }
 

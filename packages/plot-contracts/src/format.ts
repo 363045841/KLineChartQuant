@@ -9,24 +9,24 @@
 /**
  * @summary 数值格式
  *
- * 数值格式化档位；脚本里用 `Format.Volume` 即可，不填时按 `Format.Price` 处理。
+ * 数值格式化档位；脚本里用 `Format.volume` 即可，不填时按 `Format.price` 处理。
  *
  * | 成员 | 示例 |
  * | --- | --- |
- * | `Format.Price` | `1234.567` |
- * | `Format.Volume` | `1.25K`、`12.30M`、`3.40B` |
- * | `Format.Percent` | `3.45%`、`-12.30%` |
- * | `Format.Mintick` | `1234.5678901` |
+ * | `Format.price` | `1234.567` |
+ * | `Format.volume` | `1.25K`、`12.30M`、`3.40B` |
+ * | `Format.percent` | `3.45%`、`-12.30%` |
+ * | `Format.mintick` | `1234.5678901` |
  */
 export const Format = {
   /** @summary 价格 */
-  Price: 'price',
+  price: 'price',
   /** @summary 成交量 */
-  Volume: 'volume',
+  volume: 'volume',
   /** @summary 百分比 */
-  Percent: 'percent',
+  percent: 'percent',
   /** @summary 最小变动单位 */
-  Mintick: 'mintick',
+  mintick: 'mintick',
 } as const satisfies Record<string, string>
 
 export type Format = (typeof Format)[keyof typeof Format]

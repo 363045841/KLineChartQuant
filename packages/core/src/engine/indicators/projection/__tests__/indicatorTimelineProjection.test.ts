@@ -67,7 +67,7 @@ describe('indicator timeline projection', () => {
           label: 'A',
           color: DEFAULT_DRAWING_STROKE,
           visible: true,
-          size: ShapeSize.Auto,
+          size: ShapeSize.auto,
           offset: 1,
           dash: [4, 2],
           data: [{ value: 2 }, { value: 3 }],

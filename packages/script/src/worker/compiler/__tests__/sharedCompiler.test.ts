@@ -4,7 +4,8 @@ import { compileSources } from '../../../execution/impl/compileSources.js'
 import { acquireCompilation } from '../impl/sharedCompiler.js'
 import type { CompilationLease, CompilerRequest, CompilerResponse } from '../types.js'
 
-const SOURCE = 'defineIndicator({ name:"CompilerLifecycle", position:Position.Main, onBar(){} })'
+const SOURCE =
+  'defineIndicator({ scriptVersion: 2, name:"CompilerLifecycle", position:Position.main, onBar(){} })'
 const NEXT_SOURCE = `${SOURCE}\n// next revision`
 const workers: CompilerWorker[] = []
 const leases: CompilationLease[] = []

@@ -3,11 +3,11 @@ import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { isPlotRenderState } from '@/engine/plots/impl/readPlotState.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import { getRegisteredIndicatorDefinition } from '../pipeline/index.js'
 import type {
   IndicatorParameters,
   IndicatorSeriesResult,
 } from '../instances/domain/instanceModel.js'
+import { getRegisteredIndicatorDefinition } from '../pipeline/index.js'
 import { composeInstanceRenderState } from '../stateComposer.js'
 import { createTestData } from './helpers/instanceTestKit.js'
 import { registerPlotIndicatorFixture } from './helpers/plotIndicatorTestKit.js'
@@ -32,7 +32,7 @@ beforeAll(() => {
             color: 'red',
             visible: true,
             offset: 0,
-            size: ShapeSize.Auto,
+            size: ShapeSize.auto,
             dash: [],
           },
         ],

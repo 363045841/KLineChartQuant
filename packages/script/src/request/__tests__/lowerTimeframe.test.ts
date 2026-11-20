@@ -24,8 +24,9 @@ beforeAll(preloadQuickJS)
 
 describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
   it('preserves every intrabar, tuple columns and empty chart slots', () => {
-    const script = prepare(`defineIndicator({ name:'LTF', position:Position.Main, onBar(){
-      const [t,v] = request.security_lower_tf(syminfo.tickerid,Timeframe.Minute1,()=>[time,volume] as const);
+    const script =
+      prepare(`defineIndicator({ scriptVersion: 2, name:'LTF', position:Position.main, onBar(){
+      const [t,v] = request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>[time,volume] as const);
       plot.Line(v.reduce((sum,value)=>sum+value,0),'volume');
       plot.Line(t.length,'count');
     }});`)
@@ -178,8 +179,8 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
   it('rejects higher periods and keeps empty tuple columns when explicitly ignored', () => {
     const source = (
       ignore: boolean,
-    ) => `defineIndicator({name:'InvalidLTF',position:Position.Main,onBar(){
-      const [t,v]=request.security_lower_tf(syminfo.tickerid,Timeframe.Week,()=>[time,volume] as const,{ignore_invalid_timeframe:${ignore}});
+    ) => `defineIndicator({ scriptVersion: 2,name:'InvalidLTF',position:Position.main,onBar(){
+      const [t,v]=request.securityLowerTf(syminfo.tickerId,Timeframe.week,()=>[time,volume] as const,{ignoreInvalidTimeframe:${ignore}});
       plot.Line(t.length+v.length,'count');
     }})`
     const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: [bar(day, 1)] }] }

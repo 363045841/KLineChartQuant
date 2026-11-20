@@ -2,15 +2,16 @@
 let frama = Number.NaN
 
 defineIndicator({
+  scriptVersion: 2,
   name: 'FRAMA',
   title: '分形自适应移动平均',
   info: 'FRAMA 用分形维度自适应调整平滑系数，趋势强时快，震荡时慢。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const period = input.int(16, { title: '周期', min: 4, max: 200, step: 2 })
     const half = period / 2
     if (period < 4 || period % 2 !== 0) {
-      plot.Line(null, 'frama', { label: 'FRAMA', color: Color.Blue })
+      plot.Line(null, 'frama', { label: 'FRAMA', color: Color.blue })
       return
     }
     const fullHigh = ta.highest(close, period)[0]
@@ -27,7 +28,7 @@ defineIndicator({
       Number.isNaN(secondHigh) ||
       Number.isNaN(secondLow)
     ) {
-      plot.Line(null, 'frama', { label: 'FRAMA', color: Color.Blue })
+      plot.Line(null, 'frama', { label: 'FRAMA', color: Color.blue })
       return
     }
     const n1 = (firstHigh - firstLow) / half
@@ -45,6 +46,6 @@ defineIndicator({
     }
     const current = close[0]
     frama = Number.isNaN(frama) ? current : alpha * current + (1 - alpha) * frama
-    plot.Line(frama, 'frama', { label: 'FRAMA', color: Color.Blue })
+    plot.Line(frama, 'frama', { label: 'FRAMA', color: Color.blue })
   },
 })

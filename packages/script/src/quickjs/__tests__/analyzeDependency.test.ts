@@ -4,7 +4,7 @@ import { analyzeScriptDependency } from '../impl/analyzeDependency.js'
 
 /** 生成一个最小指标脚本，只包含 onBar 内的计算。 */
 function script(onBar: string, topLevel = ''): string {
-  return `${topLevel}\ndefineIndicator({ name:'T', position:Position.Main, onBar(){${onBar}}})`
+  return `${topLevel}\ndefineIndicator({ scriptVersion: 2, name:'T', position:Position.main, onBar(){${onBar}}})`
 }
 
 describe('analyzeScriptDependency', () => {
@@ -26,9 +26,7 @@ describe('analyzeScriptDependency', () => {
     },
     {
       name: '绘图 API 按有状态处理',
-      source: script(
-        `line.new({ x1: bar_index, y1: close[0], x2: bar_index + 1, y2: close[0] })`,
-      ),
+      source: script(`line.new({ x1: barIndex, y1: close[0], x2: barIndex + 1, y2: close[0] })`),
       expected: { kind: 'stateful' },
     },
     {
@@ -37,14 +35,14 @@ describe('analyzeScriptDependency', () => {
       expected: { kind: 'stateless', lookback: 'unbounded' },
     },
     {
-      name: 'bar_index 属无界回看',
-      source: script(`plot.Line(bar_index, 'index')`),
+      name: 'barIndex 属无界回看',
+      source: script(`plot.Line(barIndex, 'index')`),
       expected: { kind: 'stateless', lookback: 'unbounded' },
     },
     {
       name: '计算辅助函数内部的递归同样有状态',
       source: `function average(source, length) { return ta.ema(source, length) }
-defineIndicator({ name:'T', position:Position.Main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`,
+defineIndicator({ scriptVersion: 2, name:'T', position:Position.main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`,
       expected: { kind: 'stateful' },
     },
     {

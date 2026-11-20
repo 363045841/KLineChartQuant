@@ -10,11 +10,11 @@ function bar(time: number, close: number): Bar {
   return { time, open: close, high: close + 1, low: close - 1, close, volume: 1 }
 }
 
-const boxSource = `defineIndicator({ name:'SessionBox', position:Position.Main, max_boxes_count:100, onBar(){
-  box.new({ left: time[0], right: time[0] + 60000, top: high[0], bottom: low[0], xloc: xloc.bar_time, borderWidth: 0, backgroundColor: Color.Blue })
+const boxSource = `defineIndicator({ scriptVersion: 2, name:'SessionBox', position:Position.main, maxBoxesCount:100, onBar(){
+  box.new({ left: time[0], right: time[0] + 60000, top: high[0], bottom: low[0], xloc: xloc.barTime, borderWidth: 0, backgroundColor: Color.blue })
 }})`
 
-const plotSource = `defineIndicator({ name:'SessionPlot', position:Position.Main, onBar(){
+const plotSource = `defineIndicator({ scriptVersion: 2, name:'SessionPlot', position:Position.main, onBar(){
   plot.Line(close[0], 'close')
 }})`
 
@@ -54,7 +54,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
   })
 
   it('replays unmanaged top-level state instead of carrying the previous live bar forward', () => {
-    const source = `let total=0; defineIndicator({name:'UnmanagedState',position:Position.Main,onBar(){total+=close[0];plot.Line(total,'total')}})`
+    const source = `let total=0; defineIndicator({ scriptVersion: 2,name:'UnmanagedState',position:Position.main,onBar(){total+=close[0];plot.Line(total,'total')}})`
     const script = prepare(source)
     const fresh = prepare(source)
     const bars = [bar(0, 10), bar(60_000, 20)]
@@ -67,7 +67,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
 
   it('reuses stateful checkpoints when the host supplies a conservative full range', () => {
     const events: string[] = []
-    const source = `console.log('init'); defineIndicator({name:'StatefulRange',position:Position.Main,onBar(){ plot.Line(ta.ema(close,2)[0],'ema') }})`
+    const source = `console.log('init'); defineIndicator({ scriptVersion: 2,name:'StatefulRange',position:Position.main,onBar(){ plot.Line(ta.ema(close,2)[0],'ema') }})`
     const script = prepare(source, [], (event) => events.push(event.message))
     const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
     script.run(bars, {}, undefined, { start: 0, end: 3 })
@@ -122,7 +122,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
   it('runs top-level initialization once across ticks', () => {
     const events: string[] = []
     const script = prepare(
-      `defineIndicator({ name:'SessionLog', position:Position.Main, onBar(){} }); console.log('init')`,
+      `defineIndicator({ scriptVersion: 2, name:'SessionLog', position:Position.main, onBar(){} }); console.log('init')`,
       [],
       (event) => events.push(event.message),
     )

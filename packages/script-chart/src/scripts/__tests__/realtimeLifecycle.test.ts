@@ -34,11 +34,11 @@ describe('realtime script lifecycle', () => {
     const service = await createScriptService([], {
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [
-        `defineIndicator({name:'LifetimeSlow',position:Position.Main,onBar(){
-        const values=request.security_lower_tf(syminfo.tickerid,Timeframe.Minute1,()=>volume);
+        `defineIndicator({ scriptVersion: 2,name:'LifetimeSlow',position:Position.main,onBar(){
+        const values=request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>volume);
         plot.Line(values.reduce((sum,value)=>sum+value,0),'volume');
       }})`,
-        `defineIndicator({name:'LifetimeFast',position:Position.Sub,onBar(){plot.Line(close,'close')}})`,
+        `defineIndicator({ scriptVersion: 2,name:'LifetimeFast',position:Position.sub,onBar(){plot.Line(close,'close')}})`,
       ],
     })
     const slow = getRegisteredIndicatorDefinition('LifetimeSlow')?.runtime

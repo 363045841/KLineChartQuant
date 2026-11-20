@@ -14,16 +14,16 @@ installBuiltinProviders(marketDataProviderRegistry)
 defaultMarketDataContext.registerDataSource(createMockDataSource())
 
 /** 默认宿主中的内置源实例；类型统一为 Provider 契约。 */
-export const gotdxMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.Gotdx)
+export const gotdxMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.gotdx)
 export const baostockMarketDataProvider = marketDataProviderRegistry.getRequired(
-  DataSource.BaoStock,
+  DataSource.baoStock,
 )
 export const tradingviewMarketDataProvider = marketDataProviderRegistry.getRequired(
-  DataSource.TradingView,
+  DataSource.tradingView,
 )
-export const mt5MarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.MT5)
-export const thsMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.THS)
-export const binanceMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.Binance)
+export const mt5MarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.mt5)
+export const thsMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.ths)
+export const binanceMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.binance)
 
 export { createBuiltinMarketDataContext } from './createBuiltinContext.js'
 export { createMockDataSource } from './mock.js'

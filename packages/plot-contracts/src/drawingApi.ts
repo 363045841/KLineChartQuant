@@ -35,17 +35,15 @@ export function drawingAnchor(
   if (Number.isFinite(x) && !Number.isSafeInteger(x))
     throw new TypeError('drawing X 坐标必须是整数')
   if (
-    mode === xloc.bar_index &&
+    mode === xloc.barIndex &&
     Number.isFinite(x) &&
     (x < 0 || x > barCount - 1 + DRAWING_FUTURE_BARS)
   )
-    throw new RangeError(
-      'drawing 的 bar_index 超出当前已执行的 K 线范围；时间坐标请用 xloc.bar_time',
-    )
+    throw new RangeError('drawing 的 barIndex 超出当前已执行的 K 线范围；时间坐标请用 xloc.barTime')
   return {
     id,
     type: 'point',
-    ...(mode === xloc.bar_index ? { logicalIndex: x } : { time: x }),
+    ...(mode === xloc.barIndex ? { logicalIndex: x } : { time: x }),
     price,
   }
 }

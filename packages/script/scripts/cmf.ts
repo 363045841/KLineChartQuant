@@ -1,9 +1,10 @@
 // CMF：窗口内资金流量与成交量的比值。
 defineIndicator({
+  scriptVersion: 2,
   name: 'CMF',
   title: '蔡金资金流',
   info: 'CMF（Chaikin Money Flow）衡量资金流入流出强度，正值看涨，负值看跌。',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const period = input.int(20, { title: '周期', min: 1 })
     const moneyFlowVolume = derive('cmf-flow', (_self, offset) => {
@@ -14,7 +15,7 @@ defineIndicator({
     })
     const flowSum = ta.sum(moneyFlowVolume, period)[0]
     const volumeSum = ta.sum(volume, period)[0]
-    plot.Line(volumeSum > 0 ? flowSum / volumeSum : 0, 'cmf', { label: 'CMF', color: Color.Teal })
-    plot.Line(0, 'guide', { label: '0', color: Color.Gray, dash: [4, 4] })
+    plot.Line(volumeSum > 0 ? flowSum / volumeSum : 0, 'cmf', { label: 'CMF', color: Color.teal })
+    plot.Line(0, 'guide', { label: '0', color: Color.gray, dash: [4, 4] })
   },
 })

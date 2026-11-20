@@ -3,14 +3,21 @@
 指标脚本是一份完整的 JavaScript 文件，通过 `defineIndicator` 声明。
 注册到图表后即可在“添加指标 - 用户自定义脚本”中找到并启用。
 
+## 写法版本
+
+`scriptVersion` 是必填字段，当前版本为 `2`。
+没有声明该字段的旧脚本按 v1 处理，注册时直接报错 `脚本版本 v1 已不再支持`，不做兼容转换；
+按本文写法补上 `scriptVersion: 2` 并改成当前命名即可。
+
 ## 示例脚本
 
 以下脚本计算 (开盘价 + 收盘价) / n，并画成一条折线：
 
 ```js
 defineIndicator({
+  scriptVersion: 2,
   name: 'OC Average',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const n = input.float(2, { title: '除数' })
     const a = input.float(0, { title: '偏移量' })
@@ -43,8 +50,9 @@ await scripts.create(source)
 
 | 字段 | 作用 |
 | --- | --- |
+| `scriptVersion` | 写法版本，必填，当前为 `2`；缺省按 v1 处理并在注册时报错 |
 | `name` | 指标显示名称；用户脚本可通过修改名称并保存来重命名，同名脚本拒绝重复创建。稳定 ID 由框架自动分配并持久化，重命名保留实例和配置 |
-| `position` | 指标渲染位置，必填：`Position.Main` 主图 / `Position.Sub` 副图 |
+| `position` | 指标渲染位置，必填：`Position.main` 主图 / `Position.sub` 副图 |
 | `onBar` | 每根 K 线执行一次的计算函数，读取全局序列与参数，输出 Plot |
 
 `onBar` 不需要参数：行情序列和库由宿主注入，输入参数通过局部变量读取。
@@ -79,8 +87,9 @@ await scripts.create(source)
 let obv = 0 // 顶层：整轮运行只初始化一次，逐 bar 累加
 
 defineIndicator({
+  scriptVersion: 2,
   name: 'OBV',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const previous = close[1]
     if (!Number.isNaN(previous)) {
@@ -129,7 +138,7 @@ Plot 是脚本与图表之间的绘图数据通道。`onBar` 通过 `plot.Line(v
 ```ts
 plot.Columns(volume, 'volume') // 柱宽随缩放变化
 plot.Histogram(close - open, 'body', { size: 3 }) // 固定 3px
-plot.Histogram(close - open, 'body-size', { size: ShapeSize.Large }) // 固定 3px
+plot.Histogram(close - open, 'body-size', { size: ShapeSize.large }) // 固定 3px
 ```
 
 Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Huge 为 4px。
@@ -141,10 +150,10 @@ Histogram 的 Auto、Tiny、Small 为 1px，Normal 为 2px，Large 为 3px，Hug
 
 ```ts
 onBar() {
-  const color = close >= open ? Color.Green : Color.Red
+  const color = close >= open ? Color.green : Color.red
   plot.Candle(open, high, low, close, 'candles', {
     color,
-    wickColor: Color.Gray,
+    wickColor: Color.gray,
     borderColor: color,
   })
   plot.Bar(open, high, low, close, 'bars', { color, showLast: 100 })
@@ -180,15 +189,15 @@ onBar() {
 `color`、`textColor`、`colorUp` / `colorDown`、填充色都接受 CSS 颜色字符串。
 需要常用色时用全局 `Color` 枚举，省去记十六进制：
 
-色相取自 Material 400 色阶：`Color.Red`、`Color.DeepOrange`、`Color.Orange`、`Color.Amber`、
-`Color.Yellow`、`Color.Lime`、`Color.LightGreen`、`Color.Green`、`Color.Teal`、`Color.Cyan`、
-`Color.LightBlue`、`Color.Blue`、`Color.Indigo`、`Color.Purple`、`Color.Pink`、`Color.Brown`、
-`Color.BlueGray`；中性色为 `Color.Gray`、`Color.White`、`Color.Black`。
+色相取自 Material 400 色阶：`Color.red`、`Color.deepOrange`、`Color.orange`、`Color.amber`、
+`Color.yellow`、`Color.lime`、`Color.lightGreen`、`Color.green`、`Color.teal`、`Color.cyan`、
+`Color.lightBlue`、`Color.blue`、`Color.indigo`、`Color.purple`、`Color.pink`、`Color.brown`、
+`Color.blueGray`；中性色为 `Color.gray`、`Color.white`、`Color.black`。
 
 前 18 个是主题色别名：脚本只声明要哪个色相，具体色值由图表按当前 light / dark 主题取，
 画布换主题后同一份输出自动换成对应的可读色值，不需要改脚本。
-`Color.White` / `Color.Black` 是绝对色，用于文字和彩色底块上的叠加，不随主题变化。
-需要透明度时在别名后拼两位十六进制 alpha，例如 `Color.Teal + '80'`；
+`Color.white` / `Color.black` 是绝对色，用于文字和彩色底块上的叠加，不随主题变化。
+需要透明度时在别名后拼两位十六进制 alpha，例如 `Color.teal + '80'`；
 其他颜色直接写字符串，例如 `color: '#808080'`。
 
 ### 填充
@@ -204,7 +213,7 @@ onBar() {
   const slowValue = ta.sma(close, 20)
   const fast = plot.Line(fastValue, 'fast')
   const slow = plot.Line(slowValue, 'slow')
-  fill(fast, slow, fastValue > slowValue ? Color.Teal : Color.Red, '快慢云')
+  fill(fast, slow, fastValue > slowValue ? Color.teal : Color.red, '快慢云')
 }
 ```
 
@@ -225,7 +234,7 @@ onBar() {
 ```js
 onBar() {
   plot.Histogram(close - open, 'change', {
-    color: close >= open ? Color.Teal : Color.Red,
+    color: close >= open ? Color.teal : Color.red,
   })
 }
 ```
@@ -236,34 +245,35 @@ onBar() {
 
 ```ts
 defineIndicator({
+  scriptVersion: 2,
   name: '高周期蜡烛',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
-    const timeframe = input.timeframe(Timeframe.Day, {
+    const timeframe = input.timeframe(Timeframe.day, {
       title: '目标周期',
-      options: [Timeframe.Hour1, Timeframe.Hour4, Timeframe.Day, Timeframe.Week],
+      options: [Timeframe.hour1, Timeframe.hour4, Timeframe.day, Timeframe.week],
     })
     const [o, h, l, c] = request.security(
-      syminfo.tickerid,
+      syminfo.tickerId,
       timeframe,
       () => [open, high, low, close] as const,
     )
-    const color = c >= o ? Color.Green : Color.Red
+    const color = c >= o ? Color.green : Color.red
     plot.Candle(o, h, l, c, 'higher-timeframe', { color, wickColor: color, borderColor: color })
   },
 })
 ```
 
-目标周期取 `Timeframe` 枚举，必须大于或等于主图周期。枚举取值是周期短写法，从 `Timeframe.Minute1`
-到 `Timeframe.Month12`，只登记图表已支持的周期。`input.timeframe` 是周期专用的输入，不填 options 时列出全部受支持周期。
+目标周期取 `Timeframe` 枚举，必须大于或等于主图周期。枚举取值是周期短写法，从 `Timeframe.minute1`
+到 `Timeframe.month12`，只登记图表已支持的周期。`input.timeframe` 是周期专用的输入，不填 options 时列出全部受支持周期。
 宿主侧仍按统一解析表处理，Provider 周期名（如 `'60min'`、`'daily'`）在运行时继续可用，未登记的写法直接报错。
 蜡烛宽度跟随主图 K 线间距。
 
 指定来源使用 options.source，例如在分钟图上：
 
 ```ts
-const hourlyMA = request.security('BTCUSDT', Timeframe.Hour1, () => ta.sma(close, 20), {
-  source: DataSource.Binance,
+const hourlyMA = request.security('BTCUSDT', Timeframe.hour1, () => ta.sma(close, 20), {
+  source: DataSource.binance,
   calcBarsCount: 300,
   gaps: 'off',
 })

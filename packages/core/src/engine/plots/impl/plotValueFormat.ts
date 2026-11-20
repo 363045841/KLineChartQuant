@@ -24,13 +24,13 @@ function formatVolumeValue(value: number): string {
  */
 export function formatPlotValue(format: FormatValue, value: number): string {
   switch (format) {
-    case Format.Volume:
+    case Format.volume:
       return formatVolumeValue(value)
-    case Format.Percent:
+    case Format.percent:
       return `${value.toFixed(2)}%`
-    case Format.Mintick:
+    case Format.mintick:
       return String(value)
-    case Format.Price:
+    case Format.price:
       return formatScaleValue(value, 3)
   }
 }

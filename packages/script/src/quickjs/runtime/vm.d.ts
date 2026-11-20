@@ -33,7 +33,13 @@ type QuickJSScriptDefinition = import('../../quickjs/types.js').QuickJSScriptDef
 
 /** 宿主注入：按字段与偏移读取行情，历史不足返回 NaN。 */
 declare function __read(field: string, offset: number): number
-declare function __timeValue(mode: string, period: string, timestamp: number, session?: string, timezone?: string): number
+declare function __timeValue(
+  mode: string,
+  period: string,
+  timestamp: number,
+  session?: string,
+  timezone?: string,
+): number
 declare function __timeframeSeconds(period: string): number
 
 // __count 由 runtime-internals.d.ts 声明，运行时与内置库展示共用同一签名。
@@ -52,7 +58,7 @@ declare const createDrawingLineApi: typeof import('@363045841yyt/klinechart-plot
 
 /** 宿主注入：上报当前 K 线的绘图点。 */
 declare function __plot(
-  kind: PlotKind,
+  kind: PlotKindName,
   value:
     | number
     | null

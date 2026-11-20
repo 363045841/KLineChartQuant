@@ -3,22 +3,23 @@ let kama = Number.NaN
 let barCount = 0
 
 defineIndicator({
+  scriptVersion: 2,
   name: 'KAMA',
   title: '考夫曼自适应移动平均',
   info: 'KAMA 根据市场噪音自适应调整平滑度，趋势强时快速跟随，震荡时平滑过滤。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const period = input.int(10, { title: '效率周期', min: 1 })
     const fastPeriod = input.int(2, { title: '快周期', min: 1 })
     const slowPeriod = input.int(30, { title: '慢周期', min: 1 })
     barCount++
     if (barCount < period) {
-      plot.Line(null, 'kama', { label: 'KAMA', color: Color.Orange })
+      plot.Line(null, 'kama', { label: 'KAMA', color: Color.orange })
       return
     }
     if (barCount === period) {
       kama = close[0]
-      plot.Line(kama, 'kama', { label: 'KAMA', color: Color.Orange })
+      plot.Line(kama, 'kama', { label: 'KAMA', color: Color.orange })
       return
     }
     const absChange = derive('kama:abs-change', (_self, offset) =>
@@ -31,6 +32,6 @@ defineIndicator({
     const slow = 2 / (slowPeriod + 1)
     const smoothing = (efficiency * (fast - slow) + slow) ** 2
     kama = kama + smoothing * (close[0] - kama)
-    plot.Line(kama, 'kama', { label: 'KAMA', color: Color.Orange })
+    plot.Line(kama, 'kama', { label: 'KAMA', color: Color.orange })
   },
 })

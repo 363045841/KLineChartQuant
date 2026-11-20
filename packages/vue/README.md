@@ -77,8 +77,9 @@ Indicators can be written as plain TypeScript instead of being compiled ahead of
 
 ```js
 defineIndicator({
+  scriptVersion: 2,
   name: 'Volume Tide',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const RED = '#F08080'
     const RED_LIGHT = 'rgba(240, 128, 128, 0.5)'
@@ -104,7 +105,7 @@ defineIndicator({
       ? (volumeChange > 0 ? RED : RED_LIGHT)
       : barDn
         ? (volumeChange > 0 ? GREEN : GREEN_LIGHT)
-        : Color.Gray
+        : Color.gray
 
     plot.Histogram(volumeChange, 'Volume change columns', {
       color: volumeChangeColor,
@@ -112,7 +113,7 @@ defineIndicator({
     })
 
     plot.Line(0, 'Zero line', {
-      color: Color.Gray,
+      color: Color.gray,
     })
   },
 })
@@ -128,7 +129,7 @@ Everything a script needs is injected as a global before it runs:
 | `plot.Candle` `plot.Bar` | emit candles or OHLC bars from four prices; candles support separate body, wick, and border colors; return `void` |
 | `fill(from, to, color, title, options?)` | fill the area between two plots; `from` / `to` are handles returned by `plot.*` |
 | `ta` | built-in technical analysis library |
-| `Position` | `Position.Main` or `Position.Sub` |
+| `Position` | `Position.main` or `Position.sub` |
 | `Color` | common Material 400 colors, or pass any CSS color string |
 | `defineIndicator` / `defineLibrary` / `importLibrary` | declare the indicator, declare a library, use a library |
 
@@ -152,7 +153,7 @@ onBar() {
 }
 ```
 
-The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `highestbars`, `lowestbars`, `stoch`, `cmo`, `linreg`, `crossover`, `crossunder`, `rising`, `falling` and `change`. `highestbars` / `lowestbars` return negative bar offsets (0 is the current bar) and resolve ties to the earliest bar, matching Pine. User libraries use the same `defineLibrary` call and join the same global namespace.
+The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vwma`, `rsi`, `highest`, `lowest`, `highestBars`, `lowestBars`, `stoch`, `cmo`, `linreg`, `crossover`, `crossunder`, `rising`, `falling` and `change`. `highestBars` / `lowestBars` return negative bar offsets (0 is the current bar) and resolve ties to the earliest bar, matching Pine. User libraries use the same `defineLibrary` call and join the same global namespace.
 
 - **Sandboxed execution** - Scripts run in an embedded QuickJS runtime with per-run time and memory budgets, so a runaway script fails instead of hanging the host
 - **No future data** - History that is not yet available reads as `NaN`; a script can never look ahead

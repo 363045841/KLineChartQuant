@@ -10,13 +10,14 @@ import { prepareNativeScript } from '../impl/prepareNativeScript.js'
 
 describe('原生脚本后端', () => {
   it.each(BACKENDS)('执行器 $name 输出两种阶梯线并保留样式与 fill 句柄', ({ prepare }) => {
-    const prepared = prepare(`defineIndicator({ name: 'Steps', position: 'main', onBar() {
+    const prepared =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'Steps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0] === 3 ? NaN : close[0]
       const joined = plot.StepLine(value, 'joined')
       const broken = plot.StepLineBR(value, 'broken', {
-        color: Color.Red, dash: [4, 2], offset: 1, size: ShapeSize.Large, visible: false
+        color: Color.red, dash: [4, 2], offset: 1, size: ShapeSize.large, visible: false
       })
-      fill(joined, broken, Color.Blue)
+      fill(joined, broken, Color.blue)
     } })`)
     const result = prepared.run(barsFromCloses([1, 2, 3, 4]))
     expect(result.plots).toEqual([
@@ -41,22 +42,25 @@ describe('原生脚本后端', () => {
       expect(plot.data.map((point) => point?.value)).toEqual([1, undefined, undefined, 4])
     }
     expect(result.fills[0]).toMatchObject({ from: 'joined', to: 'broken' })
-    const invalid = prepare(`defineIndicator({ name: 'InvalidStep', position: 'main', onBar() {
+    const invalid =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'InvalidStep', position: 'main', onBar() {
       plot.StepLineBR(close, 'step', { dash: 'invalid' })
     } })`)
     expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
-    const changing = prepare(`defineIndicator({ name: 'ChangingStep', position: 'main', onBar() {
+    const changing =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'ChangingStep', position: 'main', onBar() {
       (close[0] > 1 ? plot.StepLineBR : plot.StepLine)(close[0], 'step')
     } })`)
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
   })
 
   it.each(BACKENDS)('执行器 $name 保留折线空值与连接策略', ({ prepare }) => {
-    const prepared = prepare(`defineIndicator({ name: 'Gaps', position: 'main', onBar() {
+    const prepared =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'Gaps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0]
       const joined = plot.Line(value, 'joined')
       const broken = plot.LineBR(value, 'broken', { dash: [4, 4], offset: 1 })
-      fill(joined, broken, Color.Blue)
+      fill(joined, broken, Color.blue)
     } })`)
     const result = prepared.run(barsFromCloses([1, 2, 3]))
     expect(result.plots.map((plot) => ({ ...plot, data: [] }))).toEqual([
@@ -71,61 +75,63 @@ describe('原生脚本后端', () => {
   })
 
   it.each(BACKENDS)('执行器 $name 校验 LineBR 样式及整列类型一致性', ({ prepare }) => {
-    const invalid = prepare(`defineIndicator({ name: 'InvalidGaps', position: 'main', onBar() {
+    const invalid =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'InvalidGaps', position: 'main', onBar() {
       plot.LineBR(close[0], 'line', { dash: 'invalid' })
     } })`)
     expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
-    const changing = prepare(`defineIndicator({ name: 'ChangingGaps', position: 'main', onBar() {
+    const changing =
+      prepare(`defineIndicator({ scriptVersion: 2, name: 'ChangingGaps', position: 'main', onBar() {
       (close[0] > 1 ? plot.LineBR : plot.Line)(close[0], 'line')
     } })`)
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
   })
 
-  it.each(builtinScriptSources.filter((source) => !source.includes('request.')).map((source, index) => ({ source, index })))(
-    '内置脚本 $index 的声明、数值、样式和填充与 QuickJS 一致',
-    ({ source }) => {
-      const native = prepareNativeScript(source)
-      const sandbox = prepareQuickJSScript(source)
-      expect(native.definition).toEqual(sandbox.definition)
-      const bars = barsFromCloses(wavyCloses(60))
-      const expected = sandbox.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
-      const actual = native.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
-      expect(actual.fills).toEqual(expected.fills)
-      expect(actual.hlines).toEqual(expected.hlines)
-      expect(actual.hlineFills).toEqual(expected.hlineFills)
-      expect(actual.plots).toHaveLength(expected.plots.length)
-      actual.plots.forEach((plot, index) => {
-        const reference = expected.plots[index]!
-        if (isOhlcPlot(plot) || isOhlcPlot(reference))
-          throw new Error('Expected scalar builtin Plot')
-        expect({ ...plot, data: [] }).toEqual({ ...reference, data: [] })
-        expect(plot.data).toHaveLength(reference.data.length)
-        plot.data.forEach((point, barIndex) => {
-          const expectedPoint = reference.data[barIndex]
-          if (!point || !expectedPoint) expect(point).toEqual(expectedPoint)
-          else {
-            expect({ ...point, value: 0 }).toEqual({ ...expectedPoint, value: 0 })
-            expect(point.value).toBeCloseTo(expectedPoint.value, 9)
-          }
-        })
+  it.each(
+    builtinScriptSources
+      .filter((source) => !source.includes('request.'))
+      .map((source, index) => ({ source, index })),
+  )('内置脚本 $index 的声明、数值、样式和填充与 QuickJS 一致', ({ source }) => {
+    const native = prepareNativeScript(source)
+    const sandbox = prepareQuickJSScript(source)
+    expect(native.definition).toEqual(sandbox.definition)
+    const bars = barsFromCloses(wavyCloses(60))
+    const expected = sandbox.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
+    const actual = native.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
+    expect(actual.fills).toEqual(expected.fills)
+    expect(actual.hlines).toEqual(expected.hlines)
+    expect(actual.hlineFills).toEqual(expected.hlineFills)
+    expect(actual.plots).toHaveLength(expected.plots.length)
+    actual.plots.forEach((plot, index) => {
+      const reference = expected.plots[index]!
+      if (isOhlcPlot(plot) || isOhlcPlot(reference)) throw new Error('Expected scalar builtin Plot')
+      expect({ ...plot, data: [] }).toEqual({ ...reference, data: [] })
+      expect(plot.data).toHaveLength(reference.data.length)
+      plot.data.forEach((point, barIndex) => {
+        const expectedPoint = reference.data[barIndex]
+        if (!point || !expectedPoint) expect(point).toEqual(expectedPoint)
+        else {
+          expect({ ...point, value: 0 }).toEqual({ ...expectedPoint, value: 0 })
+          expect(point.value).toBeCloseTo(expectedPoint.value, 9)
+        }
       })
-      expect(native.run([])).toEqual(sandbox.run([]))
-      expect(native.run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT)).toEqual(
-        prepareNativeScript(source).run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT),
-      )
-    },
-  )
+    })
+    expect(native.run([])).toEqual(sandbox.run([]))
+    expect(native.run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT)).toEqual(
+      prepareNativeScript(source).run(bars.slice(0, 10), {}, BUILTIN_REQUEST_CONTEXT),
+    )
+  })
 
   it.each(BACKENDS)('执行器 $name 只接受顶层 hline 声明', ({ prepare }) => {
-    const script = prepare(`hline(70, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
-defineIndicator({ name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 'close') } })`)
+    const script = prepare(`hline(70, { color: Color.gray, linestyle: HLineStyle.dashed })
+defineIndicator({ scriptVersion: 2, name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 'close') } })`)
     expect(script.run(barsFromCloses([1])).hlines).toEqual([
-      { id: '0', price: 70, color: Color.Gray, dash: [4, 4], width: 1 },
+      { id: '0', price: 70, color: Color.gray, dash: [4, 4], width: 1 },
     ])
     expect(() =>
-      prepare(`defineIndicator({ name: 'Bad', position: 'sub', onBar() { hline(70) } })`).run(
-        barsFromCloses([1]),
-      ),
+      prepare(
+        `defineIndicator({ scriptVersion: 2, name: 'Bad', position: 'sub', onBar() { hline(70) } })`,
+      ).run(barsFromCloses([1])),
     ).toThrow('文件顶层')
   })
 
@@ -133,7 +139,7 @@ defineIndicator({ name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 
     const source = `
       globalThis.nativeTestMarker = true
       let total = 0
-      defineIndicator({ name: 'NativeState', position: 'main', onBar() {
+      defineIndicator({ scriptVersion: 2, name: 'NativeState', position: 'main', onBar() {
         const divisor = input.int(2)
         total += custom.value(close[0]) / divisor
         plot.Line(total, 'total')
@@ -154,7 +160,7 @@ defineIndicator({ name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 
     expect(() => prepareNativeScript('export const n = 1')).toThrow()
     expect(() => prepareNativeScript(`plot.Line(1, 'bad')`)).toThrow('plot 只能在 onBar 中调用')
     const prepared = prepareNativeScript(
-      `defineIndicator({ name: 'BadNative', position: 'main', onBar() { plot.Line(1 / 0, 'infinite') } })`,
+      `defineIndicator({ scriptVersion: 2, name: 'BadNative', position: 'main', onBar() { plot.Line(1 / 0, 'infinite') } })`,
     )
     expect(() => prepared.run(barsFromCloses([1]))).toThrow(
       expect.objectContaining({
@@ -164,7 +170,7 @@ defineIndicator({ name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 
       }),
     )
     const runtimeError = prepareNativeScript(
-      `defineIndicator({ name: 'BadNative', position: 'main', onBar() { throw new Error('native failed') } })`,
+      `defineIndicator({ scriptVersion: 2, name: 'BadNative', position: 'main', onBar() { throw new Error('native failed') } })`,
     )
     expect(() => runtimeError.run(barsFromCloses([1]))).toThrow(
       expect.objectContaining({ code: 'SCRIPT_RUN_FAILED' }),

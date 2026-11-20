@@ -47,15 +47,17 @@ it('Request 编译只使用 VFS，不读取宿主 ts.sys', () => {
       },
     },
   )
-  expect(compile(`defineIndicator({onBar(){plot.Line(close,'close')}})`)).toContain('plot.Line')
+  expect(
+    compile(`defineIndicator({ scriptVersion: 2,onBar(){plot.Line(close,'close')}})`),
+  ).toContain('plot.Line')
   expect(
     compile(
-      `defineIndicator({onBar(){const value=request.security('BTCUSDT','60',()=>close);plot.Line(value,'hour')}})`,
+      `defineIndicator({ scriptVersion: 2,onBar(){const value=request.security('BTCUSDT','60',()=>close);plot.Line(value,'hour')}})`,
     ),
   ).toContain(`__declareRequest("0", 'BTCUSDT', '60', {}, "security")`)
   expect(() =>
     compile(
-      `defineIndicator({onBar(){const price=close+1;request.security('BTCUSDT','60',()=>price)}})`,
+      `defineIndicator({ scriptVersion: 2,onBar(){const price=close+1;request.security('BTCUSDT','60',()=>price)}})`,
     ),
   ).toThrow('不能捕获')
 })

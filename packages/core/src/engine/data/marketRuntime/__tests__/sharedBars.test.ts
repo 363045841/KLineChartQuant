@@ -335,7 +335,7 @@ describe('Request 来源约定', () => {
           timeframe: 'W',
           mode: 'lower_tf',
           calcBarsCount: 2,
-          ignore_invalid_timeframe: true,
+          ignoreInvalidTimeframe: true,
         }),
       ).resolves.toEqual([])
       expect(queries).toHaveLength(fetched)

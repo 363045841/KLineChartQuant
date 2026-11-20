@@ -17,8 +17,9 @@
 
 ```js
 defineIndicator({
+  scriptVersion: 2,
   name: 'OC Average',
-  position: Position.Sub,
+  position: Position.sub,
   inputs: {
     n: input(2, { title: '除数' }),
   },
@@ -36,7 +37,7 @@ VM prelude 在脚本运行前注入以下全局：
 | `params` | 解析后的输入参数 |
 | `plot.Line(value, name, options?)` | 为当前 K 线输出绘图点；提供 `Line`、`Histogram`、`Point`、`Shape`、`Char`、`Arrow` 方法 |
 | `fill(from, to, color, title, options?)` | 填充两个 Plot 之间的区域；`from` / `to` 是 `plot.*` 返回的句柄 |
-| `Position` | 指标注册位置；`Position.Main` 主图或 `Position.Sub` 副图 |
+| `Position` | 指标注册位置；`Position.main` 主图或 `Position.sub` 副图 |
 | `input(default, options?)` | 声明一个参数；字符串参数带 `options` 时渲染为下拉 |
 | `defineIndicator(definition)` | 声明文件里唯一的指标 |
 | `defineLibrary(name, members)` / `importLibrary(name)` | 声明并使用库 |

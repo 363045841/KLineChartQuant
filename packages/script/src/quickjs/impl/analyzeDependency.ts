@@ -33,8 +33,8 @@ const WINDOW_TA: Readonly<Record<string, number>> = {
   sum: 1,
   highest: 1,
   lowest: 1,
-  highestbars: 1,
-  lowestbars: 1,
+  highestBars: 1,
+  lowestBars: 1,
   stddev: 1,
   wma: 1,
   linreg: 1,
@@ -198,8 +198,8 @@ function scanBody(body: ts.Node): { stateful: boolean; lookback: number | 'unbou
       extend(offset === undefined ? 'unbounded' : offset)
     }
 
-    // bar_index 是位置坐标；前置插入会改变它，无法只重算区间。
-    if (ts.isIdentifier(node) && node.text === 'bar_index') extend('unbounded')
+    // barIndex 是位置坐标；前置插入会改变它，无法只重算区间。
+    if (ts.isIdentifier(node) && node.text === 'barIndex') extend('unbounded')
 
     ts.forEachChild(node, visit)
   }

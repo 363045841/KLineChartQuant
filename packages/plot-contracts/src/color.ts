@@ -7,7 +7,7 @@
  * - 其余值是绝对颜色（白、黑），用于文字和彩色底块上的叠加，不随主题变化。
  *
  * 需要别的颜色时照旧直接写 CSS 颜色字符串：颜色参数类型是 `Color | (string & {})`。
- * 需要透明度时在别名后直接拼两位十六进制 alpha，如 `Color.Teal + '80'`。
+ * 需要透明度时在别名后直接拼两位十六进制 alpha，如 `Color.teal + '80'`。
  */
 
 /** 主题色别名的前缀；只有带它开头的值走主题解析，其余按 CSS 颜色直传。 */
@@ -18,58 +18,58 @@ export const SCRIPT_COLOR_PREFIX = '@'
  *
  * 常用色：主题色别名 + 白 / 黑两个绝对色。
  *
- * 脚本里用 `Color.Red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
+ * 脚本里用 `Color.red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
  */
 export const Color = {
   /** @summary 红 */
-  Red: '@red',
+  red: '@red',
   /** @summary 深橙 */
-  DeepOrange: '@deepOrange',
+  deepOrange: '@deepOrange',
   /** @summary 橙 */
-  Orange: '@orange',
+  orange: '@orange',
   /** @summary 琥珀 */
-  Amber: '@amber',
+  amber: '@amber',
   /** @summary 黄 */
-  Yellow: '@yellow',
+  yellow: '@yellow',
   /** @summary 青柠 */
-  Lime: '@lime',
+  lime: '@lime',
   /** @summary 浅绿 */
-  LightGreen: '@lightGreen',
+  lightGreen: '@lightGreen',
   /** @summary 绿 */
-  Green: '@green',
+  green: '@green',
   /** @summary 蓝绿 */
-  Teal: '@teal',
+  teal: '@teal',
   /** @summary 青 */
-  Cyan: '@cyan',
+  cyan: '@cyan',
   /** @summary 浅蓝 */
-  LightBlue: '@lightBlue',
+  lightBlue: '@lightBlue',
   /** @summary 蓝 */
-  Blue: '@blue',
+  blue: '@blue',
   /** @summary 靛蓝 */
-  Indigo: '@indigo',
+  indigo: '@indigo',
   /** @summary 紫 */
-  Purple: '@purple',
+  purple: '@purple',
   /** @summary 粉 */
-  Pink: '@pink',
+  pink: '@pink',
   /** @summary 棕 */
-  Brown: '@brown',
+  brown: '@brown',
   /** @summary 蓝灰 */
-  BlueGray: '@blueGray',
+  blueGray: '@blueGray',
   /** @summary 灰 */
-  Gray: '@gray',
+  gray: '@gray',
   /** @summary 前景 */
-  Foreground: '@foreground',
+  foreground: '@foreground',
   /** @summary 白 */
-  White: '#ffffff',
+  white: '#ffffff',
   /** @summary 黑 */
-  Black: '#000000',
+  black: '#000000',
 } as const satisfies Record<string, string>
 
 /**
  * 常用色的字面量联合。
  *
  * 颜色参数的类型为 `Color | (string & {})`：既接受常用色，也接受任意 CSS 颜色值
- * （包括 `Color.Teal + '80'` 这类带 alpha 的拼接结果）。
+ * （包括 `Color.teal + '80'` 这类带 alpha 的拼接结果）。
  */
 export type Color = (typeof Color)[keyof typeof Color]
 

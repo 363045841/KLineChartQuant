@@ -62,7 +62,7 @@ export function createPlotIndicatorDefinition<P>(
       label: definition.name,
       decimals: 2,
       format:
-        format && format !== Format.Price ? (value) => formatPlotValue(format, value) : undefined,
+        format && format !== Format.price ? (value) => formatPlotValue(format, value) : undefined,
     },
     plots: { source: 'collection', series: [] },
     getTitleInfo: createPlotTitleInfo(definition.name, format),

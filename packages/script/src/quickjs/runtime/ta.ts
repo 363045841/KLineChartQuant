@@ -9,13 +9,13 @@
  */
 
 /** 窗口类算法：完整窗口前为 NaN，之后增量维护聚合状态。 */
-type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest' | 'highestbars' | 'lowestbars'
+type WindowKind = 'sma' | 'sum' | 'highest' | 'lowest' | 'highestBars' | 'lowestBars'
 
 /** 窗口类算法的缓存包装，key 区分算法与输入序列。 */
 function __windowSeries(source: Series, length: number, kind: WindowKind): Series {
   return __rollingSeries(`window:${kind}:${__seriesId(source)}:${length}`, source, length, () => {
-    if (kind === 'highestbars' || kind === 'lowestbars')
-      return __extremeWindow(length, kind === 'highestbars', true)
+    if (kind === 'highestBars' || kind === 'lowestBars')
+      return __extremeWindow(length, kind === 'highestBars', true)
     if (kind === 'highest' || kind === 'lowest') return __extremeWindow(length, kind === 'highest')
     return __sumWindow(kind === 'sma' ? length : 1)
   })
@@ -61,8 +61,9 @@ function __maxsumAt(
 
 /** 最大子段和的单个输出分量；三个分量各自缓存，共享同一份扫描实现。 */
 function __maxsumSeries(source: Series, length: number, part: 0 | 1 | 2): Series {
-  return __deriveOnce(`maxsum:${part}:${__seriesId(source)}:${length}`, (_self, offset) =>
-    __maxsumAt(source, length, offset)[part],
+  return __deriveOnce(
+    `maxsum:${part}:${__seriesId(source)}:${length}`,
+    (_self, offset) => __maxsumAt(source, length, offset)[part],
   )
 }
 
@@ -198,12 +199,12 @@ function __wilderSmoothing(key: string, source: Series, length: number, directio
 
 defineLibrary('ta', {
   /** 右侧窗口完成后才确认高点，不读取未来数据。 */
-  pivothigh(source: Series, leftbars: number, rightbars: number): Series {
-    return __pivotSeries(source, leftbars, rightbars, true)
+  pivothigh(source: Series, leftBars: number, rightBars: number): Series {
+    return __pivotSeries(source, leftBars, rightBars, true)
   },
   /** 与高点共用极值和并列处理规则。 */
-  pivotlow(source: Series, leftbars: number, rightbars: number): Series {
-    return __pivotSeries(source, leftbars, rightbars, false)
+  pivotlow(source: Series, leftBars: number, rightBars: number): Series {
+    return __pivotSeries(source, leftBars, rightBars, false)
   },
   /** MACD 按输入与周期组合缓存，柱体返回未翻倍的 DIF-DEA，绘图倍率由脚本决定。 */
   macd(
@@ -327,15 +328,15 @@ defineLibrary('ta', {
   },
 
   /** 最高值相对当前 K 线的负偏移；并列最高取更早一根，完整窗口之前为 NaN。 */
-  highestbars(source: Series, length: number): Series {
+  highestBars(source: Series, length: number): Series {
     __checkLength(length)
-    return __windowSeries(source, length, 'highestbars')
+    return __windowSeries(source, length, 'highestBars')
   },
 
   /** 最低值相对当前 K 线的负偏移；并列最低取更早一根，完整窗口之前为 NaN。 */
-  lowestbars(source: Series, length: number): Series {
+  lowestBars(source: Series, length: number): Series {
     __checkLength(length)
-    return __windowSeries(source, length, 'lowestbars')
+    return __windowSeries(source, length, 'lowestBars')
   },
 
   /** Wilder 平滑均线序列，以首个完整窗口 SMA 初始化。 */

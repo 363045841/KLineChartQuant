@@ -1,9 +1,10 @@
 // 开收盘均价及高低价：均价到高低线的距离均小于阈值时，在均价处绘制 Shape。
 defineIndicator({
+  scriptVersion: 2,
   name: 'OC Average',
   title: '开收盘均价',
   info: 'OC Average 用开盘价与收盘价的均价构造价格序列，用于观察日内实体重心的变化。',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const n = input.float(2, { title: '除数' })
     const a = input.float(0, { title: '偏移量' })
@@ -12,13 +13,12 @@ defineIndicator({
     plot.Line(average, 'oc-average')
     plot.Line(high, 'oc-high')
     plot.Line(low, 'oc-low')
-    const near =
-      Math.abs(high - average) < distance && Math.abs(average - low) < distance
+    const near = Math.abs(high - average) < distance && Math.abs(average - low) < distance
     if (near) {
       plot.Shape(average, 'oc-near', {
-        style: ShapeStyle.TriangleUp,
-        location: ShapeLocation.Absolute,
-        size: ShapeSize.Small,
+        style: ShapeStyle.triangleUp,
+        location: ShapeLocation.absolute,
+        size: ShapeSize.small,
       })
     }
   },

@@ -71,7 +71,7 @@ export function createDrawingBoxApi(
   function point(ref: BoxRef, index: number, value: ChartPoint): void {
     const box = api.get(ref)
     if (!box) return
-    const x = (box.xloc === xloc.bar_index ? value.index : value.time) ?? Number.NaN
+    const x = (box.xloc === xloc.barIndex ? value.index : value.time) ?? Number.NaN
     // Pine 的点设置是边界设置：左右上下同步落到相邻角，矩形始终轴对齐。
     setCorners(
       ref,
@@ -112,12 +112,12 @@ export function createDrawingBoxApi(
   function createPoints(
     first: ChartPoint,
     second: ChartPoint,
-    border: Color | (string & {}) = Color.Blue,
+    border: Color | (string & {}) = Color.blue,
     width = 1,
     stroke: BoxBorderStyle = 'solid',
     extension: LineExtend = extend.none,
-    mode: LineXLoc = xloc.bar_index,
-    background: Color | (string & {}) = Color.Blue,
+    mode: LineXLoc = xloc.barIndex,
+    background: Color | (string & {}) = Color.blue,
     content = '',
     size = 12,
     textColor?: Color | (string & {}),
@@ -125,8 +125,8 @@ export function createDrawingBoxApi(
     checkedDrawingMember(stroke, ['solid', 'dashed', 'dotted'], 'border_style')
     checkedDrawingMember(extension, Object.values(extend), 'extend')
     const id = store.nextId()
-    const firstX = (mode === xloc.bar_index ? first.index : first.time) ?? Number.NaN
-    const secondX = (mode === xloc.bar_index ? second.index : second.time) ?? Number.NaN
+    const firstX = (mode === xloc.barIndex ? first.index : first.time) ?? Number.NaN
+    const secondX = (mode === xloc.barIndex ? second.index : second.time) ?? Number.NaN
     return api.insert({
       id,
       kind: 'rectangle',
@@ -217,11 +217,11 @@ export function createDrawingBoxApi(
     get all() {
       return api.all()
     },
-    set_left: (id: BoxRef, x: number) => setCorners(id, sides([[LEFT_CORNERS, { x }]])),
-    set_top: (id: BoxRef, y: number) => setCorners(id, sides([[TOP_CORNERS, { y }]])),
-    set_right: (id: BoxRef, x: number) => setCorners(id, sides([[RIGHT_CORNERS, { x }]])),
-    set_bottom: (id: BoxRef, y: number) => setCorners(id, sides([[BOTTOM_CORNERS, { y }]])),
-    set_lefttop: (id: BoxRef, x: number, y: number) =>
+    setLeft: (id: BoxRef, x: number) => setCorners(id, sides([[LEFT_CORNERS, { x }]])),
+    setTop: (id: BoxRef, y: number) => setCorners(id, sides([[TOP_CORNERS, { y }]])),
+    setRight: (id: BoxRef, x: number) => setCorners(id, sides([[RIGHT_CORNERS, { x }]])),
+    setBottom: (id: BoxRef, y: number) => setCorners(id, sides([[BOTTOM_CORNERS, { y }]])),
+    setLeftTop: (id: BoxRef, x: number, y: number) =>
       setCorners(
         id,
         sides([
@@ -229,7 +229,7 @@ export function createDrawingBoxApi(
           [TOP_CORNERS, { y }],
         ]),
       ),
-    set_rightbottom: (id: BoxRef, x: number, y: number) =>
+    setRightBottom: (id: BoxRef, x: number, y: number) =>
       setCorners(
         id,
         sides([
@@ -237,10 +237,10 @@ export function createDrawingBoxApi(
           [BOTTOM_CORNERS, { y }],
         ]),
       ),
-    set_top_left_point: (id: BoxRef, p: ChartPoint) => point(id, 0, p),
-    set_bottom_right_point: (id: BoxRef, p: ChartPoint) => point(id, 2, p),
+    setTopLeftPoint: (id: BoxRef, p: ChartPoint) => point(id, 0, p),
+    setBottomRightPoint: (id: BoxRef, p: ChartPoint) => point(id, 2, p),
     /** 切换坐标单位时同时替换两个 X，禁止隐式解释旧坐标。 */
-    set_xloc(id: BoxRef, left: number, right: number, mode: LineXLoc): void {
+    setXLoc(id: BoxRef, left: number, right: number, mode: LineXLoc): void {
       const value = api.get(id)
       if (value)
         api.update(id, {
@@ -256,13 +256,13 @@ export function createDrawingBoxApi(
           ),
         })
     },
-    set_extend: (id: BoxRef, value: LineExtend) =>
+    setExtend: (id: BoxRef, value: LineExtend) =>
       api.update(id, { extend: checkedDrawingMember(value, Object.values(extend), 'extend') }),
-    set_bgcolor: (id: BoxRef, fill: Color | (string & {})) => api.style(id, { fill }),
-    set_border_color: (id: BoxRef, stroke: Color | (string & {})) => api.style(id, { stroke }),
-    set_border_width: (id: BoxRef, width: number) =>
+    setBgColor: (id: BoxRef, fill: Color | (string & {})) => api.style(id, { fill }),
+    setBorderColor: (id: BoxRef, stroke: Color | (string & {})) => api.style(id, { stroke }),
+    setBorderWidth: (id: BoxRef, width: number) =>
       api.style(id, { strokeWidth: drawingWidth(width, 0) }),
-    set_border_style: (id: BoxRef, stroke: BoxBorderStyle) =>
+    setBorderStyle: (id: BoxRef, stroke: BoxBorderStyle) =>
       api.style(id, {
         strokeStyle: checkedDrawingMember<BoxBorderStyle>(
           stroke,
@@ -270,11 +270,10 @@ export function createDrawingBoxApi(
           'border_style',
         ),
       }),
-    set_text: (id: BoxRef, value: string) => text(id, { value }),
-    set_text_color: (id: BoxRef, color: Color | (string & {})) =>
-      api.style(id, { textColor: color }),
-    set_text_size: (id: BoxRef, size: number) => api.style(id, { fontSize: drawingWidth(size) }),
-    set_text_halign: (id: BoxRef, align: DrawingText['align']) =>
+    setText: (id: BoxRef, value: string) => text(id, { value }),
+    setTextColor: (id: BoxRef, color: Color | (string & {})) => api.style(id, { textColor: color }),
+    setTextSize: (id: BoxRef, size: number) => api.style(id, { fontSize: drawingWidth(size) }),
+    setTextHAlign: (id: BoxRef, align: DrawingText['align']) =>
       text(id, {
         align: checkedDrawingMember<DrawingText['align']>(
           align,
@@ -282,7 +281,7 @@ export function createDrawingBoxApi(
           'text_halign',
         ),
       }),
-    set_text_valign: (id: BoxRef, verticalAlign: DrawingText['verticalAlign']) =>
+    setTextVAlign: (id: BoxRef, verticalAlign: DrawingText['verticalAlign']) =>
       text(id, {
         verticalAlign: checkedDrawingMember<DrawingText['verticalAlign']>(
           verticalAlign,
@@ -290,16 +289,16 @@ export function createDrawingBoxApi(
           'text_valign',
         ),
       }),
-    get_left: (id: BoxRef) => {
+    getLeft: (id: BoxRef) => {
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[0]!) : Number.NaN
     },
-    get_top: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
-    get_right: (id: BoxRef) => {
+    getTop: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[0]),
+    getRight: (id: BoxRef) => {
       const value = api.get(id)
       return value ? drawingAnchorX(value.anchors[1]!) : Number.NaN
     },
-    get_bottom: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[2]),
+    getBottom: (id: BoxRef) => drawingAnchorPrice(api.get(id)?.anchors[2]),
     copy: api.copy,
     delete: api.delete,
   })

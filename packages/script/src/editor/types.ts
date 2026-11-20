@@ -12,7 +12,7 @@ import type {
   Timeframe,
   TimeframeInputOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { QuickJSScriptDefinition } from '../quickjs/types.js'
+import { type QuickJSScriptDefinition, SCRIPT_VERSION } from '../quickjs/types.js'
 
 /** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
 export interface ScriptInput {
@@ -147,6 +147,8 @@ export interface ScriptPlot {
 
 /** 完整脚本的声明与逐 bar 执行回调。 */
 export interface ScriptIndicatorDeclaration extends Omit<QuickJSScriptDefinition, 'inputs'> {
+  /** 必须写当前写法版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
+  readonly scriptVersion: typeof SCRIPT_VERSION
   /** 逐根 K 线调用一次 */
   onBar(): void
 }

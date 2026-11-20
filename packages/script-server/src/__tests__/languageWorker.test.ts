@@ -1,9 +1,9 @@
 /** 使用真实 TypeScript 语言服务验证脚本契约、补全和草稿变化，不替换语言服务实现。 */
 
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
-import { describe, expect, it } from 'vitest'
 import averageSource from '@363045841yyt/klinechart-script/scripts/open-close-average.ts?raw'
 import smaSource from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
+import { describe, expect, it } from 'vitest'
 import { createScriptLanguageWorker } from '../languageWorker.js'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from '../types.js'
 
@@ -51,7 +51,7 @@ async function completions(source: string) {
 
 describe('script language service', () => {
   it('格式化原文且保留序列语义，格式化结果再次执行不变', async () => {
-    const source = `defineIndicator({name:'Format',inputs:{},onBar(){plot.Line(close,'value');}})`
+    const source = `defineIndicator({ scriptVersion: 2,name:'Format',inputs:{},onBar(){plot.Line(close,'value');}})`
     const worker = await createSession(source)
     const originalType = hoveredType(worker, source, 'close')
     const edits = worker.formatDocument(SCRIPT_EDITOR_FILE, source)
@@ -71,7 +71,8 @@ describe('script language service', () => {
 
   it('按 inputs 推导的参数类型参与数值上下文判定', async () => {
     const source = `defineIndicator({
-      name: 'ParameterContext', position: Position.Sub,
+      scriptVersion: 2,
+      name: 'ParameterContext', position: Position.sub,
       onBar() {
         const level = input.int(2)
         function double(value: typeof level): number { return value * 2 }
@@ -84,7 +85,7 @@ describe('script language service', () => {
   })
 
   it.each([
-    ["plot.Line(close, 'close', { color: Color.Purple })", 'close', 0, 'close: number'],
+    ["plot.Line(close, 'close', { color: Color.purple })", 'close', 0, 'close: number'],
     ['ta.sma(close, 20)', 'close', 0, 'close: Series'],
     ['const src = close; plot.Line(src, "c")', 'src', 1, 'src: number'],
     ['const average = ta.sma(close, 20); plot.Line(average, "a")', 'average', 1, 'number'],
@@ -162,7 +163,7 @@ describe('script language service', () => {
   })
 
   it('在 plot 对象字面量的样式属性上显示契约注释', async () => {
-    const source = `plot.Point(1, 'overbought', { label: 'OB', color: '#ff0000', size: ShapeSize.Tiny })`
+    const source = `plot.Point(1, 'overbought', { label: 'OB', color: '#ff0000', size: ShapeSize.tiny })`
     const worker = await createSession(source)
     for (const [property, expected] of [
       ['label', '图例名称'],
@@ -180,8 +181,8 @@ describe('script language service', () => {
   it.each([
     ['Line', 'dash: [4, 2]', 'dash', '虚线'],
     ['Histogram', 'baseline: 0', 'baseline', '基线'],
-    ['Shape', 'location: ShapeLocation.AboveBar', 'location', '标记位置'],
-    ['Shape', 'style: ShapeStyle.Circle', 'style', '标记形状'],
+    ['Shape', 'location: ShapeLocation.aboveBar', 'location', '标记位置'],
+    ['Shape', 'style: ShapeStyle.circle', 'style', '标记形状'],
     ['Shape', "text: 'signal'", 'text', '附加文字'],
     ['Shape', "textColor: 'red'", 'textColor', 'CSS'],
     ['Char', "char: '★'", 'char', 'Unicode'],
@@ -264,14 +265,14 @@ describe('script language service', () => {
   })
 
   it('补全全局 Position 枚举，并检查 position 的枚举类型', async () => {
-    expect(await completions('Position.')).toEqual(expect.arrayContaining(['Main', 'Sub']))
+    expect(await completions('Position.')).toEqual(expect.arrayContaining(['main', 'sub']))
     const worker = await createSession(
-      `defineIndicator({ name: 'Position', position: Position.Sub, onBar() {} })`,
+      `defineIndicator({ scriptVersion: 2, name: 'Position', position: Position.sub, onBar() {} })`,
     )
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: `defineIndicator({ name: 'Position', position: 'sub', onBar() {} })`,
+      code: `defineIndicator({ scriptVersion: 2, name: 'Position', position: 'sub', onBar() {} })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
@@ -282,7 +283,7 @@ describe('script language service', () => {
     `plot.Point(true, 'signal')`,
     `plot.Arrow(false, 'signal')`,
     `plot.Line(1, 'signal', { baseline: 0 })`,
-    `plot.Point(1, 'signal', { style: ShapeStyle.Circle })`,
+    `plot.Point(1, 'signal', { style: ShapeStyle.circle })`,
     `plot.Shape(true, 'signal', { char: 'A' })`,
   ])('按绘图方法检查值和专属样式：%s', async (source) => {
     const worker = await createSession(source)
@@ -293,7 +294,7 @@ describe('script language service', () => {
 
   it('形状和字符方法接受布尔条件', async () => {
     const worker = await createSession(`
-      plot.Shape(true, 'shape', { style: ShapeStyle.Circle })
+      plot.Shape(true, 'shape', { style: ShapeStyle.circle })
       plot.Char(false, 'char', { char: 'A' })
     `)
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
@@ -336,7 +337,8 @@ describe('script language service', () => {
       expect.arrayContaining(['int', 'float', 'bool', 'string']),
     )
     const updated = `defineIndicator({
-      name: 'Changed', position: Position.Sub,
+      scriptVersion: 2,
+      name: 'Changed', position: Position.sub,
       onBar() { const enabled = input.bool(true); plot.Line(enabled ? close[0] : NaN, 'value') }
     });\ninput.`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: updated })
@@ -348,7 +350,7 @@ describe('script language service', () => {
     expect(next?.options.map((option) => option.label)).not.toContain('period')
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: `defineIndicator({ name: 'Changed', position: Position.Sub, onBar() { const enabled = input.bool(true); ta.sma(close, enabled) } })`,
+      code: `defineIndicator({ scriptVersion: 2, name: 'Changed', position: Position.sub, onBar() { const enabled = input.bool(true); ta.sma(close, enabled) } })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
       expect.objectContaining({ message: expect.stringContaining('boolean') }),
@@ -369,10 +371,10 @@ describe('script language service', () => {
 
   it('识别声明函数别名和 globalThis 调用，不将局部同名函数当成指标声明', async () => {
     const source = `const declare = defineIndicator;
-      declare({ name: 'Alias', position: Position.Sub, onBar() { const length = input.int(10); plot.Line(length, 'length') } });
+      declare({ scriptVersion: 2, name: 'Alias', position: Position.sub, onBar() { const length = input.int(10); plot.Line(length, 'length') } });
       function scope() {
         function defineIndicator(value: unknown) {}
-        defineIndicator({ fake: true });
+        defineIndicator({ scriptVersion: 2, fake: true });
       }
       `
     const worker = await createSession(source)

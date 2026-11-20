@@ -11,12 +11,12 @@ const HANDLE_FILL = '#101010'
 
 describe('shared line styles', () => {
   it.each([
-    { style: LineStyle.style_solid, strokes: 1 },
-    { style: LineStyle.style_dashed, strokes: 1 },
-    { style: LineStyle.style_dotted, strokes: 1 },
-    { style: LineStyle.style_arrow_left, strokes: 2 },
-    { style: LineStyle.style_arrow_right, strokes: 2 },
-    { style: LineStyle.style_arrow_both, strokes: 3 },
+    { style: LineStyle.solid, strokes: 1 },
+    { style: LineStyle.dashed, strokes: 1 },
+    { style: LineStyle.dotted, strokes: 1 },
+    { style: LineStyle.arrowLeft, strokes: 2 },
+    { style: LineStyle.arrowRight, strokes: 2 },
+    { style: LineStyle.arrowBoth, strokes: 3 },
   ])('renders $style through the same line primitive', ({ style, strokes }) => {
     const ctx = createMockCanvasContext()
     createDefaultPrimitiveRendererSet({ handleFill: HANDLE_FILL }).line(
@@ -33,7 +33,7 @@ describe('shared line styles', () => {
     )
     expect(ctx.strokedPaths).toHaveLength(strokes)
     expect(ctx.dashedPaths.length > 0).toBe(
-      style === LineStyle.style_dashed || style === LineStyle.style_dotted,
+      style === LineStyle.dashed || style === LineStyle.dotted,
     )
   })
 
@@ -47,7 +47,7 @@ describe('shared line styles', () => {
         b: { x: 80, y: 80 },
         extend: 'both',
         showEndpoints: false,
-        style: { stroke: DEFAULT_DRAWING_STROKE, strokeStyle: LineStyle.style_arrow_both },
+        style: { stroke: DEFAULT_DRAWING_STROKE, strokeStyle: LineStyle.arrowBoth },
       },
       { left: 0, top: 0, right: 100, bottom: 100 },
       1,

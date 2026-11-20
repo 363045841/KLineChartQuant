@@ -1,9 +1,10 @@
 // 快慢两条收盘价指数移动平均。
 defineIndicator({
+  scriptVersion: 2,
   name: 'EMA',
   title: '指数移动平均',
   info: 'EMA 是指数移动平均，给近期价格更高权重，响应速度快于 SMA。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const fastPeriod = input.int(12, { title: '快周期', min: 1 })
     const slowPeriod = input.int(50, { title: '慢周期', min: 1 })
@@ -11,12 +12,12 @@ defineIndicator({
     const showSlow = input.bool(true, { title: '显示慢线' })
     plot.Line(ta.ema(close, fastPeriod), 'fast', {
       label: `EMA${fastPeriod}`,
-      color: Color.Orange,
+      color: Color.orange,
       visible: showFast,
     })
     plot.Line(ta.ema(close, slowPeriod), 'slow', {
       label: `EMA${slowPeriod}`,
-      color: Color.Blue,
+      color: Color.blue,
       visible: showSlow,
     })
   },
