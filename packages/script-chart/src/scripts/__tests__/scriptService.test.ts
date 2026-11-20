@@ -7,7 +7,7 @@ import {
 } from '@363045841yyt/klinechart-core'
 import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
@@ -15,6 +15,12 @@ import type { ScriptWorkspace } from '../types.js'
 
 const source = `defineIndicator({ name: 'ServiceAverage', position: 'sub',
   onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
+
+/** 内置脚本逐条运行用例；label 只用于失败定位，缺少 name 时退回序号。 */
+const builtinScriptCases = builtinScriptSources.map((builtinSource, index) => ({
+  source: builtinSource,
+  label: /name:\s*['"]([^'"]+)['"]/.exec(builtinSource)?.[1] ?? `#${index + 1}`,
+}))
 
 vi.stubGlobal('Worker', NodeScriptWorker)
 
@@ -137,7 +143,7 @@ describe('ScriptService', () => {
     } finally {
       restored.dispose()
     }
-  }, 15_000)
+  })
   it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
     let saved: ScriptWorkspace | null = null
     const persistence = {
@@ -361,13 +367,11 @@ describe('ScriptService', () => {
     await restored.remove(initial.id, 2)
   })
 
-  it('自动发现的完整内置目录通过同一服务注册到指标仓库', async () => {
-    const persistence = createScriptPersistence()
-    const saved = await persistence.load()
-    const scripts = await createScriptService([], {
-      builtinSources: builtinScriptSources,
-      persistence,
-    })
+  describe('内置脚本自动发现', () => {
+    let persistence: ReturnType<typeof createScriptPersistence>
+    let scripts: Awaited<ReturnType<typeof createScriptService>>
+    let saved: unknown
+
     const data = Array.from({ length: 50 }, (_, index) => ({
       timestamp: Date.UTC(2026, 0, 5) + index * 60_000,
       open: 100 + index,
@@ -381,21 +385,44 @@ describe('ScriptService', () => {
       time: { period: '1', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
       loadBars: async () => data.map(({ timestamp, ...bar }) => ({ time: timestamp, ...bar })),
     }
-    for (const source of builtinScriptSources) {
-      const definition = scripts.list().find((document) => document.source === source)!.definition
-      expect(getRegisteredIndicatorDefinition(definition.name)?.document).toMatchObject({
-        identity: 'builtin',
-        source,
+
+    beforeAll(async () => {
+      persistence = createScriptPersistence()
+      saved = await persistence.load()
+      scripts = await createScriptService([], {
+        builtinSources: builtinScriptSources,
+        persistence,
       })
-      expect(scripts.read(definition.name)?.identity).toBe('builtin')
-      // 内置脚本随包发布，默认受信任。
-      expect(scripts.read(definition.name)?.trusted).toBe(true)
+    })
+
+    afterAll(() => {
+      scripts.dispose()
+    })
+
+    it('全部内置脚本注册为 builtin、默认受信任，且不写入持久化', async () => {
+      for (const builtinSource of builtinScriptSources) {
+        const definition = scripts
+          .list()
+          .find((document) => document.source === builtinSource)!.definition
+        expect(getRegisteredIndicatorDefinition(definition.name)?.document).toMatchObject({
+          identity: 'builtin',
+          source: builtinSource,
+        })
+        expect(scripts.read(definition.name)?.identity).toBe('builtin')
+        // 内置脚本随包发布，默认受信任。
+        expect(scripts.read(definition.name)?.trusted).toBe(true)
+      }
+      expect(await persistence.load()).toEqual(saved)
+    })
+
+    it.each(builtinScriptCases)('$label 可运行并产出 plots/fills', async ({ source: builtinSource }) => {
+      const definition = scripts
+        .list()
+        .find((document) => document.source === builtinSource)!.definition
       const metadata = getRegisteredIndicatorDefinition(definition.name)
       const output = await metadata?.runtime?.compute(data, metadata.runtime.defaultParams, market)
       expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
-    }
-    expect(await persistence.load()).toEqual(saved)
-    scripts.dispose()
+    })
   })
 
   it('用户源码和版本从 IndexedDB 恢复，删除后不再恢复', async () => {

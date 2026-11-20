@@ -8,5 +8,9 @@ export default defineConfig({
     fsModuleCache: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // 这些用例会编译并运行全部内置脚本，属于重 CPU 集成测试；统一给宽松的卡死保护，
+    // 不在单条用例里写死紧预算，避免换机器/换运行器版本就假失败。
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
   },
 })
