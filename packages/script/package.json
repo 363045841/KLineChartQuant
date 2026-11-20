@@ -58,13 +58,13 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^26.6.6",
     "publint": "^0.3.21",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "dependencies": {
-    "@typescript/vfs": "^1.6.6",
-    "typescript": "~6.0.3",
     "@363045841yyt/klinechart-plot-contracts": "workspace:*",
-    "quickjs-emscripten": "^0.32.0"
+    "@typescript/vfs": "^1.6.6",
+    "quickjs-emscripten": "^0.32.0",
+    "typescript": "~6.0.3"
   },
   "engines": {
     "node": ">=26.0.0"

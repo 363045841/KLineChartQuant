@@ -97,17 +97,17 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.1",
     "@babel/core": "^8.1.2",
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@babel/plugin-transform-typescript": "^8.0.6",
     "@biomejs/biome": "^2.6.8",
     "@iconify-json/tabler": "^1.2.46",
+    "@playwright/test": "^1.65.1",
     "@tsconfig/node26": "^26.0.2",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
     "@vitejs/plugin-vue": "^6.0.11",
-    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "@vue/test-utils": "^2.6.0",
     "@vue/tsconfig": "^0.9.1",
     "jsdom": "^31.0.1",
@@ -125,7 +125,7 @@
     "vite-plugin-babel": "^1.7.3",
     "vite-plugin-dts": "^5.0.3",
     "vite-plugin-vue-devtools": "^8.2.1",
-    "vitest": "^5.1.0",
+    "vitest": "^5.1.1",
     "vue-tsc": "^3.3.14"
   }
 }

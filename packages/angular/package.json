@@ -46,9 +46,9 @@
     }
   ],
   "peerDependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*",
     "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0",
     "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "@363045841yyt/klinechart-core": "workspace:*",
     "rxjs": "^7.0.0"
   },
   "devDependencies": {
@@ -61,7 +61,7 @@
     "rxjs": "^7.8.0",
     "size-limit": "^12.1.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.1.0",
+    "vitest": "^5.1.1",
     "zone.js": "^0.15.0"
   }
 }
