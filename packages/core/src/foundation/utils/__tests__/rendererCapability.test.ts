@@ -1,105 +1,98 @@
 /**
- * Tests for `detectRendererTier`.
+ * `detectRendererTier` 的契约测试。
  *
- * Coverage:
- *   1. Probe selection cascade — WebGPU wins, WebGL2 wins when no GPU,
- *      Canvas2D wins when no WebGL, `'none'` when nothing.
- *   2. `reason` string carries the failure narrative.
- *   3. Probes throwing are treated as "not available", error message
- *      folded into reason.
- *   4. `tried` enumerates the probed order.
- *   5. Production probes (no override) run without crashing — in Node
- *      they should pick `'none'` since there's no document/navigator
- *      with these capabilities.
+ * 覆盖：探测级联（webgpu > webgl2 > canvas2d > none）、reason 叙述、
+ * probe 异常降级、生产 probe 在无 DOM 环境下不崩溃。
  */
 
 import { describe, expect, it } from 'vitest'
 
-import { detectRendererTier } from '../rendererCapability'
+import { type RendererTierProbes, detectRendererTier } from '../rendererCapability'
 
-// Helpers — return preset probe maps for each scenario.
 const TRUE = (): boolean => true
 const FALSE = (): boolean => false
 const THROW = (msg: string) => (): boolean => {
   throw new Error(msg)
 }
 
-describe('detectRendererTier — cascade', () => {
-  it('selects webgpu when available', () => {
-    const r = detectRendererTier({
+describe('detectRendererTier 级联', () => {
+  it.each([
+    {
+      name: '全部可用时选 webgpu',
       probes: { webgpu: TRUE, webgl2: TRUE, canvas2d: TRUE },
-    })
-    expect(r.tier).toBe('webgpu')
-    expect(r.tried).toEqual(['webgpu'])
-  })
-
-  it('falls through to webgl2 when WebGPU unavailable', () => {
-    const r = detectRendererTier({
+      tier: 'webgpu',
+      tried: ['webgpu'],
+    },
+    {
+      name: '无 WebGPU 时降到 webgl2',
       probes: { webgpu: FALSE, webgl2: TRUE, canvas2d: TRUE },
-    })
-    expect(r.tier).toBe('webgl2')
-    expect(r.tried).toEqual(['webgpu', 'webgl2'])
-  })
-
-  it('falls through to canvas2d when neither WebGPU nor WebGL2 available', () => {
-    const r = detectRendererTier({
+      tier: 'webgl2',
+      tried: ['webgpu', 'webgl2'],
+    },
+    {
+      name: '无 GPU 时降到 canvas2d',
       probes: { webgpu: FALSE, webgl2: FALSE, canvas2d: TRUE },
-    })
-    expect(r.tier).toBe('canvas2d')
-    expect(r.tried).toEqual(['webgpu', 'webgl2', 'canvas2d'])
-  })
-
-  it('returns none when nothing works', () => {
-    const r = detectRendererTier({
+      tier: 'canvas2d',
+      tried: ['webgpu', 'webgl2', 'canvas2d'],
+    },
+    {
+      name: '全不可用时返回 none',
       probes: { webgpu: FALSE, webgl2: FALSE, canvas2d: FALSE },
-    })
-    expect(r.tier).toBe('none')
-    expect(r.tried).toEqual(['webgpu', 'webgl2', 'canvas2d'])
+      tier: 'none',
+      tried: ['webgpu', 'webgl2', 'canvas2d'],
+    },
+  ] satisfies Array<{
+    name: string
+    probes: RendererTierProbes
+    tier: string
+    tried: string[]
+  }>)('$name', ({ probes, tier, tried }) => {
+    const result = detectRendererTier({ probes })
+    expect(result.tier).toBe(tier)
+    expect(result.tried).toEqual(tried)
   })
 })
 
-describe('detectRendererTier — reason narrative', () => {
-  it('selected tier reason mentions the tier', () => {
-    const r = detectRendererTier({ probes: { webgpu: TRUE } })
-    expect(r.reason).toContain('selected webgpu')
+describe('detectRendererTier reason 叙述', () => {
+  it.each(['webgpu', 'webgl2', 'canvas2d'] as const)('选中 %s 时 reason 点明该层级', (tier) => {
+    const probes: RendererTierProbes = { webgpu: FALSE, webgl2: FALSE, canvas2d: FALSE, [tier]: TRUE }
+    expect(detectRendererTier({ probes }).reason).toContain(`selected ${tier}`)
   })
 
-  it('none reason enumerates all tried tiers', () => {
-    const r = detectRendererTier({
+  it('none 时 reason 枚举全部尝试层级', () => {
+    const result = detectRendererTier({
       probes: { webgpu: FALSE, webgl2: FALSE, canvas2d: FALSE },
     })
-    expect(r.reason).toContain('webgpu')
-    expect(r.reason).toContain('webgl2')
-    expect(r.reason).toContain('canvas2d')
+    expect(result.reason).toContain('webgpu')
+    expect(result.reason).toContain('webgl2')
+    expect(result.reason).toContain('canvas2d')
   })
 
-  it('probe throws are folded into the reason as "threw \\"...\\""', () => {
-    const r = detectRendererTier({
+  it('probe 抛异常折算为不可用并写入 reason', () => {
+    const result = detectRendererTier({
       probes: {
         webgpu: THROW('adapter init crashed'),
         webgl2: FALSE,
         canvas2d: FALSE,
       },
     })
-    expect(r.tier).toBe('none')
-    expect(r.reason).toContain('threw "adapter init crashed"')
+    expect(result.tier).toBe('none')
+    expect(result.reason).toContain('threw "adapter init crashed"')
   })
 
-  it('probe throws cascade gracefully to the next tier', () => {
-    const r = detectRendererTier({
+  it('probe 抛异常时继续尝试下一层级', () => {
+    const result = detectRendererTier({
       probes: { webgpu: THROW('gpu denied'), webgl2: TRUE, canvas2d: TRUE },
     })
-    expect(r.tier).toBe('webgl2')
+    expect(result.tier).toBe('webgl2')
   })
 })
 
-describe('detectRendererTier — production probes (no override)', () => {
-  it('runs without crashing in a Node environment', () => {
-    // In jsdom / Node, navigator may or may not exist; the contract is
-    // simply that the call returns a well-formed result and does not throw.
-    const r = detectRendererTier()
-    expect(typeof r.tier).toBe('string')
-    expect(typeof r.reason).toBe('string')
-    expect(Array.isArray(r.tried)).toBe(true)
+describe('detectRendererTier 生产 probe（无 override）', () => {
+  it('在 Node 环境返回结构完整的结果而不抛错', () => {
+    const result = detectRendererTier()
+    expect(typeof result.tier).toBe('string')
+    expect(typeof result.reason).toBe('string')
+    expect(Array.isArray(result.tried)).toBe(true)
   })
 })

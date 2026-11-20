@@ -1,12 +1,11 @@
-/** 槽位导航边界：两侧空白最多一屏，并保留两根完整 K 线。 */
+/** 槽位边界：空窗、越界滚动与分时固定窗口。 */
 import { describe, expect, it } from 'vitest'
-import { createViewportStateDeps } from '../../state/__tests__/helpers/createViewportStateDeps'
-import { createViewportState } from '../../state/viewportState'
+
+import { createViewportFixture } from './helpers/viewportFixture'
 
 describe('K 线槽位边界', () => {
-  it.each([1, 1.25, 1.5, 2])('DPR=%s：极端导航仍保留两根完整 K 线', (dpr) => {
-    const module = createViewportState(createViewportStateDeps({ dataLength: 10 }))
-    module.actions.resize(613, 400, dpr)
+  it.each([1, 1.25, 1.5, 2])('DPR=%s 下极端滚动只夹到边界且至少露出两根 K 线', (dpr) => {
+    const module = createViewportFixture({ dataLength: 10, width: 613, height: 400, dpr })
     for (const target of [-10000, 10000, -20000, 20000, 0]) {
       module.actions.scrollToLogical(target)
       const view = module.readonly.viewSnapshot()
@@ -31,11 +30,8 @@ describe('K 线槽位边界', () => {
     }
   })
 
-  it('普通分时固定零滚动，不接受任何横向导航', () => {
-    const module = createViewportState(
-      createViewportStateDeps({ dataLength: 240, period: 'timeshare' }),
-    )
-    module.actions.resize(900, 400, 1)
+  it('分时视图固定窗口，任何横向操作都不产生滚动', () => {
+    const module = createViewportFixture({ dataLength: 240, period: 'timeshare', width: 900 })
     module.actions.scrollToLogical(500)
     module.actions.scrollTo(500)
     expect(module.readonly.scrollLeftLogical()).toBe(0)

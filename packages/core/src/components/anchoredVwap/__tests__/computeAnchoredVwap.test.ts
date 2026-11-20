@@ -28,10 +28,7 @@ import { createAvwapBar } from './helpers/createAvwapBar'
 // Fixture helpers
 // ---------------------------------------------------------------------------
 
-/** typical price = (H + L + C) / 3 — used by the manual-formula tests. */
-function tp(b: AVWAPBar): number {
-  return (b.high + b.low + b.close) / 3
-}
+// 手动公式测试直接写典型价，避免再引入与实现同构的 helper。
 
 // ---------------------------------------------------------------------------
 // Edge cases
@@ -313,8 +310,5 @@ describe('computeAnchoredVwap — bands', () => {
     const stdDev = Math.sqrt(75_000 / 4000)
     expect(series[1]!.upper1).toBeCloseTo(115 + stdDev, 9)
     expect(series[1]!.lower1).toBeCloseTo(115 - stdDev, 9)
-    // Use the locally-derived tp helper to avoid bit-rot: we want
-    // the test to use the same tp formula the implementation does.
-    expect(tp(b1)).toBe(120)
   })
 })

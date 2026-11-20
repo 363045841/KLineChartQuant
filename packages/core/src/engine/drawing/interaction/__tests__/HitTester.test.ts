@@ -294,52 +294,25 @@ describe('HitTester', () => {
     }
   })
 
-  it('hits the body of a parallel channel when the pointer lands on one of its lines', () => {
-    const { drawing, adapter } = createChannelFixture()
+  it.each([
+    { name: 'parallel channel', fixture: createChannelFixture, points: [[45, 185], [145, 165]] },
+    { name: 'flat line', fixture: createFlatLineFixture, points: [[45, 80], [45, 140]] },
+    {
+      name: 'disjoint channel',
+      fixture: createDisjointChannelFixture,
+      points: [[45, 90], [45, 150]],
+    },
+  ])('$name：指针落在线上时命中图元本体', ({ fixture, points }) => {
+    const { drawing, adapter } = fixture()
+    const tester = new HitTester()
 
-    // 两条线的中点均远离四个锚点，命中只报告图元主体。
-    expect(new HitTester().hitTest(45, 185, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
-    expect(new HitTester().hitTest(145, 165, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
-  })
-
-  it('hits the body of a flat line when the pointer lands on one of its lines', () => {
-    const { drawing, adapter } = createFlatLineFixture()
-
-    // 斜线中点为 (45, 80)，水平线中点为 (45, 140)。
-    expect(new HitTester().hitTest(45, 80, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
-    expect(new HitTester().hitTest(45, 140, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
-  })
-
-  it('hits the body of a disjoint channel when the pointer lands on one of its lines', () => {
-    const { drawing, adapter } = createDisjointChannelFixture()
-
-    // 两条线的中点为 (45, 90) 与 (45, 150)，距离四个锚点均超过命中半径。
-    expect(new HitTester().hitTest(45, 90, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
-    expect(new HitTester().hitTest(45, 150, [drawing], adapter)).toEqual({
-      drawing,
-      target: { type: 'all' },
-      cursor: 'move',
-    })
+    for (const [x, y] of points) {
+      expect(tester.hitTest(x, y, [drawing], adapter)).toEqual({
+        drawing,
+        target: { type: 'all' },
+        cursor: 'move',
+      })
+    }
   })
 
   /**

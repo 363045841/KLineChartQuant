@@ -23,21 +23,14 @@ describe('findVisibleBarRange', () => {
     expect(range).toEqual({ first: 4, last: 4 })
   })
 
-  it('returns an empty range when all centers are scrolled past the left edge', () => {
-    const range = findVisibleBarRange({ start: 0, end: 3 }, [-30, -20, -10], 0, 100)
-
-    expect(range).toEqual({ first: 0, last: -1 })
-  })
-
-  it('returns an empty range when all centers are beyond the right edge', () => {
-    const range = findVisibleBarRange({ start: 0, end: 3 }, [100, 110, 120], 0, 50)
-
-    expect(range).toEqual({ first: 0, last: -1 })
-  })
-
-  it('returns an empty range when no centers are provided', () => {
-    const range = findVisibleBarRange({ start: 0, end: 3 }, [], 0, 100)
-
-    expect(range).toEqual({ first: 0, last: -1 })
+  it.each([
+    { name: '全部滚出左边界', centers: [-30, -20, -10], scrollLeft: 0, width: 100 },
+    { name: '全部越过右边界', centers: [100, 110, 120], scrollLeft: 0, width: 50 },
+    { name: '没有中心点', centers: [], scrollLeft: 0, width: 100 },
+  ])('$name 时返回空范围', ({ centers, scrollLeft, width }) => {
+    expect(findVisibleBarRange({ start: 0, end: 3 }, centers, scrollLeft, width)).toEqual({
+      first: 0,
+      last: -1,
+    })
   })
 })

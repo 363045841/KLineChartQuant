@@ -2,97 +2,113 @@ import { describe, expect, it } from 'vitest'
 
 import { createOriginShiftPolicy } from '../impl/originShift'
 
+type ThresholdCase = {
+  name: string
+  initialRef: number
+  threshold?: number
+  calls: ReadonlyArray<readonly [mid: number, range: number]>
+  changed: boolean[]
+  finalRef: number
+}
+
 describe('createOriginShiftPolicy', () => {
-  it('starts with ref equal to initialRef', () => {
+  it('以 initialRef 为起点，shift 返回相对 ref 的差值', () => {
     const p = createOriginShiftPolicy(67000)
     expect(p.ref).toBe(67000)
-  })
-
-  it('shift(value) returns value - ref', () => {
-    const p = createOriginShiftPolicy(67000)
     expect(p.shift(67000.5)).toBeCloseTo(0.5, 10)
     expect(p.shift(66999.25)).toBeCloseTo(-0.75, 10)
   })
 
-  it('below threshold → no rebase (uses required 0.005 normalized drift, threshold default 0.01)', () => {
-    // Visible range 100, mid drifts to 100.5 → drift = 0.5, normalized 0.005 (= 0.5 / 100).
-    // Default threshold 0.01 → 0.005 is BELOW → no rebase.
-    const p = createOriginShiftPolicy(100)
-    const changed = p.maybeRebaseline(100.5, 100)
-    expect(changed).toBe(false)
-    expect(p.ref).toBe(100)
+  it.each([
+    {
+      name: '低于阈值（0.005 < 0.01）不重建',
+      initialRef: 100,
+      calls: [[100.5, 100]],
+      changed: [false],
+      finalRef: 100,
+    },
+    {
+      name: '高于阈值（0.02 > 0.01）重建到新中点',
+      initialRef: 100,
+      calls: [[102, 100]],
+      changed: [true],
+      finalRef: 102,
+    },
+    {
+      name: '正好等于阈值不重建（严格 >）',
+      initialRef: 100,
+      threshold: 0.01,
+      calls: [[101, 100]],
+      changed: [false],
+      finalRef: 100,
+    },
+    {
+      name: 'threshold=0 时任意漂移都重建，零漂移不重建',
+      initialRef: 50,
+      threshold: 0,
+      calls: [
+        [50.0001, 100],
+        [50.0001, 100],
+      ],
+      changed: [true, false],
+      finalRef: 50.0001,
+    },
+    {
+      name: 'threshold=1 时不重建任何区间内漂移',
+      initialRef: 50,
+      threshold: 1,
+      calls: [[149, 100]],
+      changed: [false],
+      finalRef: 50,
+    },
+  ] satisfies ThresholdCase[])('$name', ({ initialRef, threshold, calls, changed, finalRef }) => {
+    const p =
+      threshold === undefined
+        ? createOriginShiftPolicy(initialRef)
+        : createOriginShiftPolicy(initialRef, threshold)
+    expect(calls.map(([mid, range]) => p.maybeRebaseline(mid, range))).toEqual(changed)
+    expect(p.ref).toBe(finalRef)
   })
 
-  it('above threshold → rebase to new mid (uses required 0.02 normalized drift)', () => {
-    // Visible range 100, mid drifts to 102 → drift 2, normalized 0.02 (= 2 / 100).
-    // 0.02 > 0.01 → REBASE.
-    const p = createOriginShiftPolicy(100)
-    const changed = p.maybeRebaseline(102, 100)
-    expect(changed).toBe(true)
-    expect(p.ref).toBe(102)
-  })
-
-  it('threshold === 0 → always rebases when there is any drift', () => {
-    const p = createOriginShiftPolicy(50, 0)
-    // Any drift at all triggers the rebase.
-    expect(p.maybeRebaseline(50.0001, 100)).toBe(true)
-    expect(p.ref).toBe(50.0001)
-    // ...but a zero-drift call still doesn't rebase (division yields 0, which
-    // is not > 0).
-    expect(p.maybeRebaseline(50.0001, 100)).toBe(false)
-  })
-
-  it('threshold === 1 → never rebases for any in-range drift', () => {
-    const p = createOriginShiftPolicy(50, 1)
-    // Even a near-full-range drift can't exceed 1.
-    expect(p.maybeRebaseline(149, 100)).toBe(false)
-    expect(p.ref).toBe(50)
-  })
-
-  it('multiple maybeRebaseline calls produce monotonic ref tracking the drift', () => {
+  it('连续重建时 ref 单调跟随漂移', () => {
     const p = createOriginShiftPolicy(0, 0.01)
     const history: number[] = []
-
-    // Walk the mid forward in 0.02 * range steps; each step crosses the threshold.
     let mid = 0
     const range = 100
     for (let i = 0; i < 10; i++) {
-      mid += 0.02 * range // +2 per step → 0.02 normalized → above threshold
+      mid += 0.02 * range
       if (p.maybeRebaseline(mid, range)) history.push(p.ref)
     }
 
-    expect(history.length).toBe(10)
-    // All recorded refs must be strictly increasing.
+    expect(history).toHaveLength(10)
     for (let i = 1; i < history.length; i++) {
-      expect(history[i]).toBeGreaterThan(history[i - 1])
+      expect(history[i]).toBeGreaterThan(history[i - 1]!)
     }
   })
 
-  it('degenerate range (currentRange <= 0) refuses to rebase', () => {
+  it('退化区间（currentRange <= 0）拒绝重建', () => {
     const p = createOriginShiftPolicy(50)
     expect(p.maybeRebaseline(60, 0)).toBe(false)
     expect(p.maybeRebaseline(60, -10)).toBe(false)
     expect(p.ref).toBe(50)
   })
 
-  it('non-finite inputs do not corrupt ref', () => {
+  it('非有限输入不污染 ref', () => {
     const p = createOriginShiftPolicy(50)
     expect(p.maybeRebaseline(Number.NaN, 100)).toBe(false)
     expect(p.maybeRebaseline(60, Number.POSITIVE_INFINITY)).toBe(false)
     expect(p.ref).toBe(50)
   })
 
-  it('rejects non-finite initialRef and negative threshold', () => {
-    expect(() => createOriginShiftPolicy(Number.NaN)).toThrow(/finite/)
-    expect(() => createOriginShiftPolicy(0, -0.1)).toThrow(/threshold/)
-  })
-
-  it('exactly at threshold → does NOT rebase (strict `>`)', () => {
-    // Important contract: the comparison is `>`, not `>=`. A drift of
-    // exactly 1% of range should sit on the fence and not trigger.
-    const p = createOriginShiftPolicy(100, 0.01)
-    const changed = p.maybeRebaseline(101, 100) // normalized 0.01 === threshold
-    expect(changed).toBe(false)
-    expect(p.ref).toBe(100)
+  it.each([
+    { name: 'initialRef 非有限', run: () => createOriginShiftPolicy(Number.NaN), pattern: /finite/ },
+    { name: 'threshold 为负', run: () => createOriginShiftPolicy(0, -0.1), pattern: /threshold/ },
+    {
+      name: 'threshold 非有限',
+      run: () => createOriginShiftPolicy(0, Number.POSITIVE_INFINITY),
+      pattern: /threshold/,
+    },
+  ])('拒绝非法构造：$name', ({ run, pattern }) => {
+    expect(run).toThrow(pattern)
   })
 })

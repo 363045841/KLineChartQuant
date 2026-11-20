@@ -1,6 +1,5 @@
 /** 验证足迹统计的十进制精度、时间对齐、增量及缺口语义。 */
 import { describe, expect, it } from 'vitest'
-import { TRADE_STATUS } from '../../../data/trades/types.js'
 import { createFootprintCalculator } from '../impl/calculateFootprint.js'
 import { FOOTPRINT_DEFAULT_PARAMS, FOOTPRINT_METRICS, FOOTPRINT_ROW_MODES } from '../types.js'
 import { batch, data, input, params, trade } from './helpers/footprintTestKit.js'

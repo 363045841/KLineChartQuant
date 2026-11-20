@@ -1,3 +1,9 @@
+/**
+ * 交易时段几何：槽位数量、时段边界标签、物理网格、时区换算与时间戳落槽。
+ *
+ * 多市场行为用参数表表达，差异只在配置与期望值。
+ */
+
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -20,72 +26,74 @@ function hm(h: number, m: number): number {
   return h * 60 + m
 }
 
-describe('countSessionSlots / resolveMarketSessionSlots', () => {
-  it('A-share is 240 one-minute slots', () => {
-    expect(countSessionSlots(ASHARE_MARKET_SESSION.sessions)).toBe(240)
-    expect(resolveMarketSessionSlots(ASHARE_MARKET_SESSION)).toBe(240)
+describe('会话槽位数量', () => {
+  it.each([
+    { name: 'A 股', config: ASHARE_MARKET_SESSION, slots: 240 },
+    { name: '港股', config: HK_MARKET_SESSION, slots: 330 },
+    { name: '韩股', config: KR_MARKET_SESSION, slots: 390 },
+    { name: '美股', config: US_MARKET_SESSION, slots: 390 },
+  ])('$name 为 $slots 个一分钟槽位，且 countSessionSlots 与之一致', ({ config, slots }) => {
+    expect(resolveMarketSessionSlots(config)).toBe(slots)
+    expect(countSessionSlots(config.sessions)).toBe(slots)
   })
 
-  it('HK is 330, KR and US are 390 (not maxed to 240)', () => {
-    expect(resolveMarketSessionSlots(HK_MARKET_SESSION)).toBe(330)
-    expect(resolveMarketSessionSlots(KR_MARKET_SESSION)).toBe(390)
-    expect(resolveMarketSessionSlots(US_MARKET_SESSION)).toBe(390)
-  })
-
-  it('respects slotMinutes (e.g. 5-min bars)', () => {
-    const cfg: MarketSessionConfig = {
-      ...ASHARE_MARKET_SESSION,
-      slotMinutes: 5,
-    }
-    // 240 分钟 / 5 = 48
+  it('按 slotMinutes 折算（5 分钟线）', () => {
+    const cfg: MarketSessionConfig = { ...ASHARE_MARKET_SESSION, slotMinutes: 5 }
     expect(resolveMarketSessionSlots(cfg)).toBe(48)
   })
 
-  it('does not expand slots by arrived data length (sessions are SSOT)', () => {
+  it('不按已到达数据长度扩张槽位（时段是 SSOT）', () => {
     expect(resolveMarketSessionSlots(ASHARE_MARKET_SESSION, 300)).toBe(240)
     expect(resolveMarketSessionSlots(HK_MARKET_SESSION, 100)).toBe(330)
   })
 })
 
-describe('computeSessionTimeLabels multi-market', () => {
-  it('A-share closed-side endpoints only', () => {
-    const labels = computeSessionTimeLabels(ASHARE_MARKET_SESSION.sessions, { axisWidth: 800 })
-    expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(9, 30), hm(13, 0), hm(15, 0)])
+describe('computeSessionTimeLabels 多市场边界', () => {
+  it.each([
+    {
+      name: 'A 股',
+      config: ASHARE_MARKET_SESSION,
+      minutes: [hm(9, 30), hm(13, 0), hm(15, 0)],
+      slots: [0, 120, 239],
+    },
+    {
+      name: '港股',
+      config: HK_MARKET_SESSION,
+      minutes: [hm(9, 30), hm(13, 0), hm(16, 0)],
+      slots: [0, 150, 329],
+    },
+    {
+      name: '美股',
+      config: US_MARKET_SESSION,
+      minutes: [hm(9, 30), hm(16, 0)],
+      slots: [0, 389],
+    },
+    {
+      name: '韩股',
+      config: KR_MARKET_SESSION,
+      minutes: [hm(9, 0), hm(15, 30)],
+      slots: [0, 389],
+    },
+  ])('$name 只在时段端点出标签', ({ config, minutes, slots }) => {
+    const labels = computeSessionTimeLabels(config.sessions, { axisWidth: 800 })
+    expect(labels.map((label) => label.minuteOfDay)).toEqual(minutes)
+    expect(labels.map((label) => label.slotIndex)).toEqual(slots)
   })
 
-  it('HK endpoints: 09:30 / 13:00 / 16:00', () => {
-    const labels = computeSessionTimeLabels(HK_MARKET_SESSION.sessions, { axisWidth: 800 })
-    expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(9, 30), hm(13, 0), hm(16, 0)])
-    expect(labels.map((l) => l.slotIndex)).toEqual([0, 150, 329])
-  })
-
-  it('US single continuous session endpoints: 09:30 / 16:00', () => {
-    const labels = computeSessionTimeLabels(US_MARKET_SESSION.sessions, { axisWidth: 800 })
-    expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(9, 30), hm(16, 0)])
-    expect(labels.map((l) => l.slotIndex)).toEqual([0, 389])
-  })
-
-  it('KR single continuous session endpoints: 09:00 / 15:30', () => {
-    const labels = computeSessionTimeLabels(KR_MARKET_SESSION.sessions, { axisWidth: 800 })
-    expect(labels.map((label) => label.minuteOfDay)).toEqual([hm(9, 0), hm(15, 30)])
-    expect(labels.map((label) => label.slotIndex)).toEqual([0, 389])
-  })
-
-  it('accepts arbitrary sessions via config.sessions', () => {
+  it('接受任意自定义时段', () => {
     const night: OpenTimeRange[] = [
       { open: hm(21, 0), close: hm(23, 0) },
       { open: hm(0, 0), close: hm(2, 30) },
     ]
-    // 两段同日分钟：21:00-23:00 (120) + 0:00-2:30 (150) = 270
-    // 闭侧端点：21:00, 0:00, 2:30
     const labels = computeSessionTimeLabels(night, { axisWidth: 800 })
-    expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(21, 0), hm(0, 0), hm(2, 30)])
+
+    expect(labels.map((label) => label.minuteOfDay)).toEqual([hm(21, 0), hm(0, 0), hm(2, 30)])
     expect(countSessionSlots(night)).toBe(270)
   })
 })
 
-describe('session slot physical grid', () => {
-  it('uses a fixed integer pitch and symmetric margins', () => {
+describe('会话槽位物理网格', () => {
+  it('使用固定整数 pitch 与对称留白', () => {
     const grid = resolveSessionSlotPhysicalGrid(600, 240, 1)
 
     expect(grid).toEqual({
@@ -98,42 +106,44 @@ describe('session slot physical grid', () => {
     expect(sessionSlotCenterX(1, 600, 240, 1)).toBe(63)
   })
 
-  it('falls back when the physical axis cannot fit one pixel per slot', () => {
+  it('物理轴放不下每槽一像素时回退', () => {
     expect(resolveSessionSlotPhysicalGrid(200, 240, 1)).toBeNull()
     expect(sessionSlotCenterX(239, 200, 240, 1)).toBeLessThanOrEqual(200)
   })
 })
 
-describe('minuteOfDayToTimestamp timeZone', () => {
-  it('maps wall clock in Asia/Shanghai independently of host local TZ', () => {
-    // 任意 UTC 锚点落在 2026-07-21 上海日历日
-    const base = Date.UTC(2026, 6, 21, 4, 0, 0) // 12:00 CST
-    const ts = minuteOfDayToTimestamp(base, hm(9, 30), 'Asia/Shanghai')
-    // 2026-07-21 09:30 Asia/Shanghai = 01:30 UTC
-    expect(ts).toBe(Date.UTC(2026, 6, 21, 1, 30, 0))
-  })
-
-  it('maps wall clock in America/New_York for US session open', () => {
-    // 2026-07-21 是美东夏令时 EDT (UTC-4)
-    const base = Date.UTC(2026, 6, 21, 16, 0, 0) // 12:00 EDT
-    const ts = minuteOfDayToTimestamp(base, hm(9, 30), 'America/New_York')
-    expect(ts).toBe(Date.UTC(2026, 6, 21, 13, 30, 0)) // 09:30 EDT
+describe('minuteOfDayToTimestamp 时区换算', () => {
+  it.each([
+    {
+      name: 'Asia/Shanghai 09:30',
+      base: Date.UTC(2026, 6, 21, 4, 0, 0),
+      minuteOfDay: hm(9, 30),
+      timeZone: 'Asia/Shanghai',
+      expected: Date.UTC(2026, 6, 21, 1, 30, 0),
+    },
+    {
+      name: 'America/New_York 09:30 (EDT)',
+      base: Date.UTC(2026, 6, 21, 16, 0, 0),
+      minuteOfDay: hm(9, 30),
+      timeZone: 'America/New_York',
+      expected: Date.UTC(2026, 6, 21, 13, 30, 0),
+    },
+  ])('$name 不依赖宿主本地时区', ({ base, minuteOfDay, timeZone, expected }) => {
+    expect(minuteOfDayToTimestamp(base, minuteOfDay, timeZone)).toBe(expected)
   })
 })
 
 describe('resolveTimestampSessionSlot', () => {
-  it('maps timestamps with the market time zone and session boundaries', () => {
-    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 1, 30), ASHARE_MARKET_SESSION)).toBe(0)
-    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 3, 30), ASHARE_MARKET_SESSION)).toBe(
-      120,
-    )
-    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 7, 0), ASHARE_MARKET_SESSION)).toBe(
-      239,
-    )
-    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 13, 30), US_MARKET_SESSION)).toBe(0)
+  it.each([
+    { name: 'A 股开盘', ts: Date.UTC(2026, 6, 21, 1, 30), session: ASHARE_MARKET_SESSION, slot: 0 },
+    { name: 'A 股午盘', ts: Date.UTC(2026, 6, 21, 3, 30), session: ASHARE_MARKET_SESSION, slot: 120 },
+    { name: 'A 股收盘', ts: Date.UTC(2026, 6, 21, 7, 0), session: ASHARE_MARKET_SESSION, slot: 239 },
+    { name: '美股开盘', ts: Date.UTC(2026, 6, 21, 13, 30), session: US_MARKET_SESSION, slot: 0 },
+  ])('$name 按市场时区与时段边界落槽', ({ ts, session, slot }) => {
+    expect(resolveTimestampSessionSlot(ts, session)).toBe(slot)
   })
 
-  it('reuses the Intl formatter for repeated timestamps in one market', () => {
+  it('同一市场的重复时间戳复用 Intl formatter', () => {
     const timeZone = 'Pacific/Honolulu'
     const NativeDateTimeFormat = Intl.DateTimeFormat
     const formatterSpy = vi

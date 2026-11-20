@@ -123,15 +123,17 @@ describe('computeAnchoredZoom', () => {
     expect(maxErr).toBeLessThan(0.5)
   })
 
-  it('does not perturb state when barWidth is non-finite (defensive)', () => {
-    const out = computeAnchoredZoom({
-      mouseX: 100,
-      leftPadding: 0,
-      firstVisibleIndex: 0,
-      barWidth: 0, // pathological
-      zoomFactor: 2,
-    })
-    expect(out.barWidth).toBe(0)
-    expect(out.firstVisibleIndex).toBe(0)
-  })
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0])(
+    'does not perturb state when barWidth is non-finite or non-positive (defensive)',
+    (barWidth) => {
+      const out = computeAnchoredZoom({
+        mouseX: 100,
+        leftPadding: 0,
+        firstVisibleIndex: 0,
+        barWidth,
+        zoomFactor: 2,
+      })
+      expect(out).toEqual({ barWidth, firstVisibleIndex: 0 })
+    },
+  )
 })

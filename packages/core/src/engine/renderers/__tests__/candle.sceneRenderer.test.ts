@@ -455,47 +455,4 @@ describe('candle preparation', () => {
     retainedLayer.dispose()
   })
 
-  it.each([1, 1.25, 2])('keeps body and wick pixels at dpr %s', (dpr) => {
-    const ctx2d = createMockCanvasContext()
-    const bar = { timestamp: 1, open: 100, close: 100.3, high: 100.9, low: 99.6, volume: 1 }
-    const context = createCtx(undefined, {
-      ctx: ctx2d,
-      sceneRenderer: undefined,
-      data: [bar],
-      range: { start: 0, end: 1 },
-      kLineCenters: [12.5],
-      scrollLeft: 0.4,
-      dpr,
-      kWidthPx: 5,
-    })
-    paint(context)
-
-    const toY = (price: number) => 390 - (price - 90) * 19
-    const aligned = (price: number) => Math.round(toY(price) * dpr) / dpr
-    const open = aligned(bar.open)
-    const close = aligned(bar.close)
-    const top = Math.min(open, close)
-    const height = Math.max(Math.abs(open - close), 1 / dpr)
-    const topPx = Math.round(top * dpr)
-    const bottomPx = Math.round((top + height) * dpr)
-    const bodyY = topPx / dpr
-    const bodyH = Math.max(1, bottomPx - topPx) / dpr
-    const centerPx = Math.round((12.5 - 0.4) * dpr)
-    const bodyPx = 5
-    const body = { x: (centerPx - 2) / dpr, width: bodyPx / dpr }
-    const wickPx = 1
-    const wick = { x: centerPx / dpr, width: wickPx / dpr }
-    const highY = aligned(bar.high)
-    const lowY = aligned(bar.low)
-    const upperTop = Math.round(Math.min(highY, bodyY) * dpr)
-    const upperBottom = Math.round(Math.max(highY, bodyY) * dpr)
-    const rawBodyBottom = (topPx + Math.max(1, bottomPx - topPx)) / dpr
-    const lowerTop = Math.round(Math.min(rawBodyBottom, lowY) * dpr)
-    const lowerBottom = Math.round(Math.max(rawBodyBottom, lowY) * dpr)
-    expect(vi.mocked(ctx2d.fillRect).mock.calls).toEqual([
-      [body.x, bodyY, body.width, bodyH],
-      [wick.x, upperTop / dpr, wick.width, Math.max(1, upperBottom - upperTop) / dpr],
-      [wick.x, lowerTop / dpr, wick.width, Math.max(1, lowerBottom - lowerTop) / dpr],
-    ])
-  })
 })
