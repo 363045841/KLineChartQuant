@@ -1,6 +1,6 @@
 // 运行失败的展示投影：官方失败原因决定提示级别与恢复动作，不引入自定义错误码。
 import type { RunFailureReason } from '../../agent-contracts.js'
-import type { VisibleRunFailureReason } from '../../agent-copy/types.js'
+import type { VisibleRunFailureReason } from '../../agent-copy/index.js'
 import type { RunFailureView } from '../../workspace/impl/agent-live.js'
 
 /** 用户能从失败提示里直接执行的动作。 */

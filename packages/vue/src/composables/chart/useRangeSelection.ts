@@ -1,12 +1,11 @@
 /** 区间选择状态、统计指标与 CSV 导出逻辑。 */
-import {
-  formatDateInTimeZone,
-  formatDateTimeInTimeZone,
-} from '@363045841yyt/klinechart-core'
+import { formatDateInTimeZone, formatDateTimeInTimeZone } from '@363045841yyt/klinechart-core'
 import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
-import type { KLineAdjustment, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
+import type { MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import {
+  isKLineAdjustment,
   isKLinePeriod,
+  KLineAdjustment,
   KLinePeriod,
   ORIGINAL_BAR_AGGREGATION,
   SourceRouter,
@@ -367,7 +366,10 @@ export function useRangeSelection(options: {
       const spec = controller.value?.symbols.peek()?.[0]
       const period =
         spec?.period !== undefined && isKLinePeriod(spec.period) ? spec.period : KLinePeriod.Daily
-      const adjustment = (spec?.adjust ?? 'none') as KLineAdjustment
+      const adjustment =
+        spec?.adjust !== undefined && isKLineAdjustment(spec.adjust)
+          ? spec.adjust
+          : KLineAdjustment.None
 
       for (let i = 0; i < batchCodes.length; i++) {
         const code = batchCodes[i]!

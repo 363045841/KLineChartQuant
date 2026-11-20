@@ -49,17 +49,17 @@
 <script setup lang="ts">
   import './agent-icon-button.css'
 
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'
   import IconChevronLeft from '~icons/tabler/chevron-left'
   import IconChevronRight from '~icons/tabler/chevron-right'
   import IconMenu2 from '~icons/tabler/menu-2'
   import IconPlus from '~icons/tabler/plus'
   import IconSettings from '~icons/tabler/settings'
-  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SidePanelHeader from '../../side-panel/SidePanelHeader.vue'
   import type { SidePanelSide } from '../../side-panel/types.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = withDefaults(
     defineProps<{

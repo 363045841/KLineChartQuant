@@ -3,7 +3,7 @@
 import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
 import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
 import { computed, nextTick, type Ref, useTemplateRef, watch } from 'vue'
-import { type AgentLocale, getAgentCopy } from '../../../agent-copy.js'
+import { type AgentLocale, getAgentCopy } from '../../../agent-copy/index.js'
 import type { AgentListRowMode } from '../types.js'
 
 /**

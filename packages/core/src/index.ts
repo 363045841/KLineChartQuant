@@ -47,10 +47,10 @@ export {
   setIndicatorFailures,
   unregisterIndicator,
 } from './engine/indicators/pipeline/index.js'
+// ── Batch 2: Framework-agnostic foundation ────────────────────────────────
+export * from './engine/legend/index.js'
 export type * from './engine/objects/index.js'
 export type { ObjectAxesApi } from './engine/pane/axisTypes.js'
-// 主价格轴身份是 UI 与引擎共用的 SSOT：宿主据此区分价格轴与指标轴。
-export { PRICE_SERIES_AXIS_ID } from './engine/renderers/rendererIds.js'
 // 外部来源注册"产出 Plot 的指标"时，用该工厂绑定通用 Plot Layer。
 export { plotRenderer as createPlotIndicatorRenderer } from './engine/plots/impl/plotDefinition.js'
 export type {
@@ -67,6 +67,8 @@ export type {
 export { PlotKind, ShapeLocation, ShapeSize, ShapeStyle } from './engine/plots/types.js'
 export { registerAxisLabel } from './engine/renderers/impl/labels/impl/registerAxisLabel.js'
 export type { AxisLabelRegistrar } from './engine/renderers/impl/labels/types.js'
+// 主价格轴身份是 UI 与引擎共用的 SSOT：宿主据此区分价格轴与指标轴。
+export { PRICE_SERIES_AXIS_ID } from './engine/renderers/rendererIds.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
   createMarketDataError,
@@ -74,15 +76,14 @@ export {
   ERROR_CODES,
   isKLineChartError,
   KLineChartError,
-  MARKET_QUERY_ERROR_CODES,
   type KLineChartErrorCode,
   type KLineChartErrorOptions,
+  MARKET_QUERY_ERROR_CODES,
 } from './errors.js'
 export { type FormatErrorOptions, formatKLineChartError, getRecoveryHint } from './errors-help.js'
 export * from './features/agent/index.js'
 // ── Batch 4: Independent business features ────────────────────────────────
 export * from './features/alerts/index.js'
-// ── Batch 2: Framework-agnostic foundation ────────────────────────────────
 export * from './features/input/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'

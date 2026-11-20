@@ -23,14 +23,14 @@
 <script setup lang="ts">
   import '@vue-src/components/common/truncate-text.css'
 
-  import { computed } from 'vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import { computed } from 'vue'
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
     AgentSelectedTimeRangeContextItem,
   } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
 
   const props = defineProps<{

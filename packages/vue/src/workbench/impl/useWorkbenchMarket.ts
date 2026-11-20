@@ -1,8 +1,9 @@
 /** 工作台只解析用户选择，不取历史、不写 Buffer；查询和订阅仍由 Core 运行时负责。 */
 import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
-import { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
+import { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import { onScopeDispose, shallowRef, watch } from 'vue'
 import { useMarketDataContext } from '../../composables/market/useMarketDataContext.js'
+import { toSymbolSpec } from '../../composables/symbol/symbolSpec.js'
 import type { KlineWorkbenchProps } from '../types.js'
 
 /** 初次挂载与受控品种切换共用同一解析操作，并取消过期解析。 */
@@ -41,16 +42,11 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
       )
       if (abort.signal.aborted) return
       symbols.value = [
-        {
-          id: instrument.id,
-          instrument,
-          symbol: instrument.symbol,
-          market: instrument.sessionId ?? instrument.exchange,
-          exchange: instrument.exchange,
-          source: instrument.source,
+        toSymbolSpec(instrument, {
           period,
-          adjust: 'none',
-        },
+          adjust: KLineAdjustment.None,
+          market: instrument.sessionId ?? instrument.exchange,
+        }),
       ]
     } catch (cause) {
       if (!abort.signal.aborted) {

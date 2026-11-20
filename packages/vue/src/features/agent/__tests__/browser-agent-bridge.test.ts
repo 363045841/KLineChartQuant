@@ -89,25 +89,26 @@ async function waitForAnswer(
   sessionId: string,
   prompt: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const entries = entriesOf(await bridge.openSession(sessionId))
-    const userIndex = entries.findIndex(
-      (entry) => entry.kind === 'pi.user' && userText(entry) === prompt,
-    )
-    const answered =
-      userIndex >= 0 &&
-      entries.slice(userIndex + 1).some((entry) => {
-        const message = entry.model?.[0]
-        return (
-          entry.kind === 'pi.assistant' &&
-          message?.role === 'assistant' &&
-          message.content.some((block) => block.type === 'text' && block.text.length > 0)
-        )
-      })
-    if (answered) return
-    await new Promise((resolve) => setTimeout(resolve, 10))
-  }
-  throw new Error(`The Agent did not answer '${prompt}' in time.`)
+  await vi.waitFor(
+    async () => {
+      const entries = entriesOf(await bridge.openSession(sessionId))
+      const userIndex = entries.findIndex(
+        (entry) => entry.kind === 'pi.user' && userText(entry) === prompt,
+      )
+      const answered =
+        userIndex >= 0 &&
+        entries.slice(userIndex + 1).some((entry) => {
+          const message = entry.model?.[0]
+          return (
+            entry.kind === 'pi.assistant' &&
+            message?.role === 'assistant' &&
+            message.content.some((block) => block.type === 'text' && block.text.length > 0)
+          )
+        })
+      expect(answered).toBe(true)
+    },
+    { timeout: 2000, interval: 10 },
+  )
 }
 
 /** 保存一个 Provider 连接，把默认 chart-model 加入模型池并选中。 */

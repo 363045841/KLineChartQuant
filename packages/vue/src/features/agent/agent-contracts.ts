@@ -3,7 +3,6 @@ export * from '@363045841yyt/klinechart-agent-runtime/contracts/ui'
 export type {
   AssistantMessage,
   JsonValue,
-  Message,
   TextContent,
   ThinkingContent,
   ToolCall,

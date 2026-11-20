@@ -1,8 +1,7 @@
 // 管理取色浮层、Token 色块和会话内共享的自定义颜色。
 import { COLOR_PICKER_CSS_VARS } from '@363045841yyt/klinechart-core'
-import { useClickOutside } from '@vue-src/composables/ui/useClickOutside.js'
+import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
 import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-import { useTeleportedPopup } from '@vue-src/composables/ui/useTeleportedPopup.js'
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import type { ColorPickerProps, PickerColor, ScreenEyeDropper } from '../types.js'
 import { parsePickerColor, pickerColorToHex } from './colorSpace.js'
@@ -25,7 +24,6 @@ const commonColors = [
 export function useColorPicker(props: ColorPickerProps, emitColor: (color: string) => void) {
   const triggerRef = ref<HTMLElement | null>(null)
   const panelRef = ref<HTMLElement | null>(null)
-  const isOpen = ref(false)
   const draft = ref('')
   const invalid = ref(false)
   const picking = ref(false)
@@ -37,52 +35,46 @@ export function useColorPicker(props: ColorPickerProps, emitColor: (color: strin
     top: `${(1 - color.value.brightness) * 100}%`,
   }))
   const teleportTarget = useFullscreenTeleportTarget()
-  const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
-    triggerRef,
-    panelRef,
-  )
   let abortController: AbortController | undefined
   const eyeDropper = ref<ScreenEyeDropper | null>(null)
   const screenError = ref('')
+  /** 开关、点外关闭、Esc、焦点归还与定位统一走共享 overlay 栈。 */
+  const popover = useAnchoredPopover({
+    trigger: triggerRef,
+    panel: panelRef,
+    placement: () => 'bottom',
+    align: 'start',
+    offset: () => 4,
+    disabled: () => props.disabled === true,
+    maxHeight: () => 'min(420px, calc(100vh - 24px))',
+    onOpen: () => {
+      draft.value = props.modelValue
+      invalid.value = false
+      screenError.value = ''
+      const preview = triggerRef.value?.querySelector<HTMLElement>('.color-picker__preview')
+      if (preview) syncColor(getComputedStyle(preview).backgroundColor)
+      // 浏览器支持时才展示额外的屏幕取色入口。
+      if (window.EyeDropper) eyeDropper.value = new window.EyeDropper()
+      void nextTick(() => {
+        panelRef.value?.querySelector<HTMLElement>('.color-picker__plane')?.focus()
+      })
+    },
+    onClose: () => abortController?.abort(),
+  })
+  const isOpen = popover.open
   const panelStyle = computed(() => ({
     ...COLOR_PICKER_CSS_VARS,
-    ...popupStyle.value,
-    zIndex: 1010,
+    ...popover.panelBindings.value.style,
   }))
+  /** 浮层属性已含 style；面板样式统一由 panelStyle 合并主题变量。 */
+  const panelAttributes = computed(() => {
+    const { style: _style, ...attributes } = popover.panelBindings.value
+    return attributes
+  })
 
-  /** 关闭面板并取消尚未完成的屏幕取色。 */
+  /** 关闭面板；onClose 会取消尚未完成的屏幕取色。 */
   function close(restoreFocus = false) {
-    isOpen.value = false
-    abortController?.abort()
-    stopPositionSync()
-    if (restoreFocus) triggerRef.value?.focus()
-  }
-
-  useClickOutside(
-    () => [triggerRef.value, panelRef.value],
-    () => close(),
-    {
-      enabled: () => isOpen.value && !picking.value,
-    },
-  )
-
-  /** 打开面板，将当前预览色映射到色板坐标。 */
-  async function toggle() {
-    if (isOpen.value) return close(true)
-    if (props.disabled) return
-    draft.value = props.modelValue
-    invalid.value = false
-    screenError.value = ''
-    const preview = triggerRef.value?.querySelector<HTMLElement>('.color-picker__preview')
-    if (preview) syncColor(getComputedStyle(preview).backgroundColor)
-    // 浏览器支持时才展示额外的屏幕取色入口。
-    if (window.EyeDropper) {
-      eyeDropper.value = new window.EyeDropper()
-    }
-    isOpen.value = true
-    startPositionSync()
-    await nextTick()
-    panelRef.value?.querySelector<HTMLElement>('.color-picker__plane')?.focus()
+    popover.hide({ restoreFocus })
   }
 
   /** 选中颜色并关闭面板。 */
@@ -209,7 +201,10 @@ export function useColorPicker(props: ColorPickerProps, emitColor: (color: strin
     }
   }
 
-  onBeforeUnmount(() => close())
+  onBeforeUnmount(() => {
+    abortController?.abort()
+    close()
+  })
   return {
     triggerRef,
     panelRef,
@@ -223,11 +218,13 @@ export function useColorPicker(props: ColorPickerProps, emitColor: (color: strin
     cursorStyle,
     teleportTarget,
     panelStyle,
+    panelAttributes,
+    triggerBindings: popover.triggerBindings,
+    onTriggerClick: popover.onTriggerClick,
     commonColors,
     customColors,
     eyeDropper,
     screenError,
-    toggle,
     close,
     select,
     selectCommon,

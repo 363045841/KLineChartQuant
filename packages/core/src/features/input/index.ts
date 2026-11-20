@@ -24,6 +24,7 @@ export {
   type CommandScope,
   type CommandTitle,
   createCommandRegistry,
+  detectMac,
   formatCombo,
   primaryShortcut,
   scoreFields,

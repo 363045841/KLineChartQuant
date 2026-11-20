@@ -84,7 +84,7 @@
   import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
   import type { SidePanelSide } from '../../side-panel/types.js'
   import type { AgentBridgeClient } from '../agent-contracts.js'
-  import { getAgentCopy } from '../agent-copy.js'
+  import { getAgentCopy } from '../agent-copy/index.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'

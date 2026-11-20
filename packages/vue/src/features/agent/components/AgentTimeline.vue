@@ -90,9 +90,13 @@
     QuestionAnswerView,
     QuestionView,
   } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { EditMessageAction } from '../message-edit/types.js'
-  import type { LiveAnswerView, LiveToolView, RunFailureView } from '../workspace/impl/agent-live.js'
+  import type {
+    LiveAnswerView,
+    LiveToolView,
+    RunFailureView,
+  } from '../workspace/impl/agent-live.js'
   import AgentAnswerBlocks from './AgentAnswerBlocks.vue'
   import AgentAssistantEntry from './AgentAssistantEntry.vue'
   import AgentRunFailureNotice from './AgentRunFailureNotice.vue'
@@ -199,7 +203,12 @@
 
   // 条目数量、流式正文长度、待答提问与运行失败变化时按需推进到底部。
   watch(
-    () => [rows.value.length, props.liveAnswer?.blocks.length, props.questions.length, props.runFailure],
+    () => [
+      rows.value.length,
+      props.liveAnswer?.blocks.length,
+      props.questions.length,
+      props.runFailure,
+    ],
     async () => {
       await nextTick()
       if (!shouldAutoScroll) return

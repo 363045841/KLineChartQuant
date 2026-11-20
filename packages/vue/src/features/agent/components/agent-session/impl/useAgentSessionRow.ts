@@ -1,6 +1,6 @@
 /** 会话行事件适配：把共享可编辑行的提交与确认转成会话域事件，并在动作后退出编辑。 */
 import { computed } from 'vue'
-import { type AgentLocale, getAgentCopy } from '../../../agent-copy.js'
+import { type AgentLocale, getAgentCopy } from '../../../agent-copy/index.js'
 
 /**
  * 会话行的文案与会话域事件转发。

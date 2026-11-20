@@ -64,10 +64,10 @@
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import IconCheck from '~icons/tabler/check'
   import IconX from '~icons/tabler/x'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
-  import type { AgentLocale } from '../agent-copy.js'
+  import type { AgentLocale } from '../agent-copy/index.js'
   import { useAgentListRow } from './agent-row/impl/useAgentListRow.js'
   import type { AgentListRowMode } from './agent-row/types.js'
 

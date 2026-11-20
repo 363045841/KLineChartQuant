@@ -20,7 +20,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{ locale: AgentLocale }>()
   const emit = defineEmits<{ prompt: [prompt: string] }>()

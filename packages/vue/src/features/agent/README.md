@@ -51,12 +51,9 @@ core controllers + agent-runtime
 
 `browser-agent/bridge/impl/browser-agent-bridge.ts` 只做浏览器依赖装配、跨模块协调和 `AgentBridgeClient` 委托，其宿主依赖契约定义在 `browser-agent/bridge/types.ts`。Provider、会话、图表上下文或工具适配的新逻辑应进入对应的 `browser-agent/<module>/impl/`，不要继续扩充 bridge。
 
-## Compatibility facades
+## Module entrypoints
 
-以下根文件是过渡/兼容入口，内部实现已经迁入语义模块。新的代码应从目标模块导入；只有需要保持既有公共路径时才保留或新增 facade。
-
-- `agent-copy.ts` → `agent-copy/`
-- `render-agent-markdown.ts` → `render-agent-markdown/`
+`agent-copy/` 与 `render-agent-markdown/` 各自只有一个 `index.ts` 出口；调用方从模块入口导入，不再保留与目录同名的根 facade。
 
 ## Placement guide
 

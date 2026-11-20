@@ -49,7 +49,7 @@
   import IconChevronRight from '~icons/tabler/chevron-right'
   import IconClock from '~icons/tabler/clock'
   import type { ToolCall, ToolResultMessage } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { LiveToolView } from '../workspace/impl/agent-live.js'
   import { readResultText, readToolPresentation } from './impl/tool-view.js'
 

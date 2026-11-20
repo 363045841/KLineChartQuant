@@ -2,7 +2,7 @@
 
 import { setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { FakeAgentBridge } from '../../../testing/fake-agent-bridge'
+import { FakeAgentBridge } from '../../../__tests__/fake-agent-bridge'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
@@ -40,9 +40,7 @@ describe('AgentProviderSettingsStore', () => {
     const store = useAgentProviderSettingsStore()
     store.bindBridge(bridge)
     await store.show(await bridge.getProviderStatus())
-    store.modelCatalog = [
-      { id: 'provider-model-a', name: 'Provider Model A' },
-    ]
+    store.modelCatalog = [{ id: 'provider-model-a', name: 'Provider Model A' }]
 
     await store.setModelPoolMembership('provider-model-a', true)
     expect(store.modelPool.map((model) => model.id)).toEqual(['provider-model-a'])

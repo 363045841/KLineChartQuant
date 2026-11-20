@@ -4,9 +4,13 @@
  * 契约本身也在这里守住：组件不声明 open，开合由触发器决定。
  */
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { h, nextTick } from 'vue'
 import BasePopover from './BasePopover.vue'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 async function flush(): Promise<void> {
   await nextTick()
@@ -72,6 +76,7 @@ describe('BasePopover 非受控契约', () => {
   })
 
   it('hover 触发：指针进入展开，移出延迟收起', async () => {
+    vi.useFakeTimers()
     const wrapper = mountPopover({ trigger: 'hover' })
     const trigger = wrapper.get('[data-trigger]').element as HTMLButtonElement
 
@@ -80,7 +85,7 @@ describe('BasePopover 非受控契约', () => {
     expect(bodyText()).toBe('内容')
 
     trigger.dispatchEvent(new Event('mouseleave'))
-    await new Promise((resolve) => setTimeout(resolve, 160))
+    vi.advanceTimersByTime(120)
     await flush()
     expect(bodyText()).toBeNull()
     wrapper.unmount()

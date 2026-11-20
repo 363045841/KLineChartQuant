@@ -38,12 +38,12 @@
 <script setup lang="ts">
   import './agent-entry.css'
 
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCheck from '~icons/tabler/check'
   import IconCopy from '~icons/tabler/copy'
   import IconRefresh from '~icons/tabler/refresh'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import type {
     EntryId,
     EntryRecord,
@@ -52,7 +52,7 @@
     SourceCitation,
     ToolResultMessage,
   } from '../agent-contracts.js'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { LiveToolView } from '../workspace/impl/agent-live.js'
   import AgentAnswerBlocks from './AgentAnswerBlocks.vue'
   import { answerText } from './impl/use-agent-transcript.js'

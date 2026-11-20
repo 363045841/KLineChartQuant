@@ -25,7 +25,7 @@ export interface SettingItem {
   /** 默认值；可为函数以惰性求值（如 rendererBackend 由能力探测提供）。 */
   default: boolean | string | number | (() => boolean | string | number)
   group?: string
-  options?: { value: string; label: string }[]
+  options?: readonly { readonly value: string; readonly label: string }[]
   min?: number
   max?: number
   step?: number
@@ -415,11 +415,7 @@ export function readSetting(settings: Partial<ChartSettings>, key: string): unkn
  * @param key DEFAULT_SETTINGS 里声明的键
  * @param value 新值
  */
-export function writeSetting(
-  settings: Partial<ChartSettings>,
-  key: string,
-  value: unknown,
-): void {
+export function writeSetting(settings: Partial<ChartSettings>, key: string, value: unknown): void {
   ;(settings as Record<string, unknown>)[key] = value
 }
 
