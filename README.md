@@ -232,7 +232,7 @@ The built-in `ta` library covers `sma`, `ema`, `rma`, `swma`, `alma`, `wma`, `vw
 
 In `KlineWorkbench`, open the code editor to create, run and add scripts to the chart. The product owns the script service and registers built-in scripts automatically; no separate script package installation is needed. Set `scripts` to `false` before mounting to disable scripting and hide its editor entry.
 
-See the [script docs](packages/script/docs/indicator.md) for the full declaration reference, [libraries](packages/script/docs/library.md), and [Plot API](packages/script/docs/indicator.md#plot).
+See the [script docs](packages/script/docs/indicator.md) for the full declaration reference, [libraries](packages/script/docs/library.md), and the [generated API reference](docs/script/api/index.md).
 
 
 ## 📡 Data Sources

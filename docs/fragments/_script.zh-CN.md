@@ -89,4 +89,4 @@ onBar() {
 
 在 `KlineWorkbench` 中打开代码编辑器，即可创建、运行脚本并添加到图表。产品统一管理脚本服务并自动注册内置脚本，无需安装其他脚本包。挂载前设置 `scripts=false` 可禁用脚本并隐藏编辑入口。
 
-完整声明参考见[脚本文档]({{root}}packages/script/docs/indicator.md)，另有[函数库]({{root}}packages/script/docs/library.md)与 [Plot API]({{root}}packages/script/docs/indicator.md#plot)。
+完整声明参考见[脚本文档]({{root}}packages/script/docs/indicator.md)，另有[函数库]({{root}}packages/script/docs/library.md)与[自动生成的 API 参考]({{root}}docs/script/api/index.md)。
