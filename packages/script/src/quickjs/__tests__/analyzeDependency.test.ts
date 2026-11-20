@@ -1,74 +1,64 @@
-/** 依赖推断：能证明无状态才算无状态，证明不了默认有状态。 */
+/** 依赖推断：验证无状态、有状态、验证依赖与默认有状态。 */
 import { describe, expect, it } from 'vitest'
 import { analyzeScriptDependency } from '../impl/analyzeDependency.js'
 
-/** 包一层最小指标声明，只关心 onBar 内的计算。 */
+/** 生成一个最小指标脚本，只包含 onBar 内的计算。 */
 function script(onBar: string, topLevel = ''): string {
   return `${topLevel}\ndefineIndicator({ name:'T', position:Position.Main, onBar(){${onBar}}})`
 }
 
 describe('analyzeScriptDependency', () => {
-  it('窗口指标按字面量长度折算回看深度', () => {
-    expect(analyzeScriptDependency(script(`plot.Line(ta.sma(close, 20)[0], 'sma')`))).toEqual({
-      kind: 'stateless',
-      lookback: 19,
-    })
-  })
-
-  it('递归指标按有状态处理', () => {
-    expect(analyzeScriptDependency(script(`plot.Line(ta.ema(close, 20)[0], 'ema')`))).toEqual({
-      kind: 'stateful',
-    })
-  })
-
-  it('顶层可变绑定按有状态处理', () => {
-    expect(analyzeScriptDependency(script(`sum += close[0]`, `let sum = 0`))).toEqual({
-      kind: 'stateful',
-    })
-  })
-
-  it('绘图 API 按有状态处理', () => {
-    expect(
-      analyzeScriptDependency(
-        script(`line.new({ x1: bar_index, y1: close[0], x2: bar_index + 1, y2: close[0] })`),
+  it.each([
+    {
+      name: '简单指标按已知回看窗口收敛',
+      source: script(`plot.Line(ta.sma(close, 20)[0], 'sma')`),
+      expected: { kind: 'stateless', lookback: 19 },
+    },
+    {
+      name: '递归指标按有状态处理',
+      source: script(`plot.Line(ta.ema(close, 20)[0], 'ema')`),
+      expected: { kind: 'stateful' },
+    },
+    {
+      name: '顶层可变绑定按有状态处理',
+      source: script(`sum += close[0]`, `let sum = 0`),
+      expected: { kind: 'stateful' },
+    },
+    {
+      name: '绘图 API 按有状态处理',
+      source: script(
+        `line.new({ x1: bar_index, y1: close[0], x2: bar_index + 1, y2: close[0] })`,
       ),
-    ).toEqual({ kind: 'stateful' })
-  })
-
-  it('非常量历史偏移按无界回看处理', () => {
-    expect(analyzeScriptDependency(script(`plot.Line(close[i], 'close')`))).toEqual({
-      kind: 'stateless',
-      lookback: 'unbounded',
-    })
-  })
-
-  it('bar_index 是位置坐标，按无界回看处理', () => {
-    expect(analyzeScriptDependency(script(`plot.Line(bar_index, 'index')`))).toEqual({
-      kind: 'stateless',
-      lookback: 'unbounded',
-    })
-  })
-
-  it('顶层辅助函数里的递归调用也按有状态处理', () => {
-    const source = `function average(source, length) { return ta.ema(source, length) }
-defineIndicator({ name:'T', position:Position.Main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`
-    expect(analyzeScriptDependency(source)).toEqual({ kind: 'stateful' })
-  })
-
-  it('pivot 的左右窗口都计入回看', () => {
-    expect(analyzeScriptDependency(script(`plot.Line(ta.pivothigh(high, 2, 3)[0], 'p')`))).toEqual({
-      kind: 'stateless',
-      lookback: 5,
-    })
-  })
-
-  it('导入有状态库按有状态处理', () => {
-    const library = { name: 'statefulLib', source: 'let profileBars = []' }
-    expect(
-      analyzeScriptDependency(
-        script(`importLibrary('statefulLib').render()`),
-        [library],
-      ),
-    ).toEqual({ kind: 'stateful' })
+      expected: { kind: 'stateful' },
+    },
+    {
+      name: '非常量历史偏移按无界回看',
+      source: script(`plot.Line(close[i], 'close')`),
+      expected: { kind: 'stateless', lookback: 'unbounded' },
+    },
+    {
+      name: 'bar_index 属无界回看',
+      source: script(`plot.Line(bar_index, 'index')`),
+      expected: { kind: 'stateless', lookback: 'unbounded' },
+    },
+    {
+      name: '计算辅助函数内部的递归同样有状态',
+      source: `function average(source, length) { return ta.ema(source, length) }
+defineIndicator({ name:'T', position:Position.Main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`,
+      expected: { kind: 'stateful' },
+    },
+    {
+      name: 'pivot 左右窗口合并回看',
+      source: script(`plot.Line(ta.pivothigh(high, 2, 3)[0], 'p')`),
+      expected: { kind: 'stateless', lookback: 5 },
+    },
+    {
+      name: '依赖库有状态时按有状态处理',
+      source: script(`importLibrary('statefulLib').render()`),
+      libraries: [{ name: 'statefulLib', source: 'let profileBars = []' }],
+      expected: { kind: 'stateful' },
+    },
+  ])('$name', ({ source, libraries, expected }) => {
+    expect(analyzeScriptDependency(source, libraries)).toEqual(expected)
   })
 })

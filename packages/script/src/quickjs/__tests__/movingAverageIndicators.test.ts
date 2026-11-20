@@ -37,23 +37,25 @@ describe('均线与通道脚本', () => {
     values.forEach((value, index) => expect(value).toBeCloseTo(prices[index]!, 10))
   })
 
-  it('T3 因子为零退化为第三层 EMA，因子越界与非法窗口拒绝执行', async () => {
+  it('T3 因子为零退化为第三层 EMA', async () => {
     const bars = barsFromCloses([1, 4, 2, 8, 3, 7, 6, 10])
     const source = scriptSource(
       `plot.Line(ta.t3(close, 2, 0), 't3'); plot.Line(ta.ema(ta.ema(ta.ema(close, 2), 2), 2), 'third');`,
     )
     const values = plotValues(await runQuickJSScript({ source, bars }))
     expect(values.t3?.slice(6)).toEqual(values.third?.slice(6))
-    for (const expression of [
-      'ta.t3(close, 2, 1.1)',
-      'ta.dema(close, 0)',
-      'ta.tema(close, -1)',
-      'ta.trima(close, 1.5)',
-    ]) {
-      await expect(
-        runQuickJSScript({ source: scriptSource(`plot.Line(${expression}, 'value');`), bars }),
-      ).rejects.toThrow()
-    }
+  })
+
+  it.each([
+    'ta.t3(close, 2, 1.1)',
+    'ta.dema(close, 0)',
+    'ta.tema(close, -1)',
+    'ta.trima(close, 1.5)',
+  ])('因子或窗口非法时拒绝执行：%s', async (expression) => {
+    const bars = barsFromCloses([1, 4, 2, 8, 3, 7, 6, 10])
+    await expect(
+      runQuickJSScript({ source: scriptSource(`plot.Line(${expression}, 'value');`), bars }),
+    ).rejects.toThrow()
   })
 
   it('TRIMA 偶数窗口具有对称三角权重', async () => {

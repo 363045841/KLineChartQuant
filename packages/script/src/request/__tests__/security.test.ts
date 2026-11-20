@@ -50,24 +50,34 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
     expect(result.plots[0]?.data[0]).toMatchObject({ open: 5, close: 5 })
   })
 
-  it('拒绝捕获局部行情、嵌套请求和动态品种', () => {
-    for (const body of [
-      `const price = close + 1; request.security('BTCUSDT','60',()=>price)`,
-      `request.security('BTCUSDT','60',()=>request.security('BTCUSDT','D',()=>close))`,
-      `const symbol = close > 1 ? 'A':'B'; request.security(symbol,'60',()=>close)`,
-    ])
-      expect(() =>
-        prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
-      ).toThrow()
+  it.each([
+    {
+      name: '捕获局部行情',
+      body: `const price = close + 1; request.security('BTCUSDT','60',()=>price)`,
+    },
+    {
+      name: '嵌套请求',
+      body: `request.security('BTCUSDT','60',()=>request.security('BTCUSDT','D',()=>close))`,
+    },
+    {
+      name: '动态品种',
+      body: `const symbol = close > 1 ? 'A':'B'; request.security(symbol,'60',()=>close)`,
+    },
+  ])('拒绝$name', ({ body }) => {
+    expect(() =>
+      prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
+    ).toThrow()
   })
 
-  it('拒绝参数个数不足或过多的请求', () => {
-    for (const body of [
-      `request.security('BTCUSDT','60')`,
-      `request.security('BTCUSDT','60',()=>close,{},'extra')`,
-    ])
-      expect(() =>
-        prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
-      ).toThrow('request.security 需要品种、周期、回调和可选选项')
+  it.each([
+    { name: '参数个数不足', body: `request.security('BTCUSDT','60')` },
+    {
+      name: '参数过多',
+      body: `request.security('BTCUSDT','60',()=>close,{},'extra')`,
+    },
+  ])('拒绝$name的请求', ({ body }) => {
+    expect(() =>
+      prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
+    ).toThrow('request.security 需要品种、周期、回调和可选选项')
   })
 })
