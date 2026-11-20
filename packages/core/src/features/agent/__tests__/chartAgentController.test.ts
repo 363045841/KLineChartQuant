@@ -63,6 +63,10 @@ function stubTools(): ChartAgentToolDeps {
       timeShare: async () => ({ content: '', summary: '' }),
       indicatorValues: async () => '',
     },
+    scripts: {
+      list: () => [],
+      read: unused,
+    },
   }
 }
 

@@ -468,6 +468,7 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
+  import { createScriptReference } from '@vue-src/features/agent/browser-agent/host/impl/script-reference.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -1686,6 +1687,7 @@
       settings: props.settings,
       layoutRestore: props.restoreLayout,
       layoutStorageId: props.layoutStorageId,
+      scriptReference: createScriptReference(),
     })
     return ctrl
   }

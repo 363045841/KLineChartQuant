@@ -11,9 +11,12 @@ export { INSTANCE_MOVE_KIND, MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engin
 export type {
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentScriptReference,
   ChartAgentTimeRange,
   IndicatorQueryInput,
   InstrumentLookupInput,
+  ScriptReferenceEntry,
+  ScriptReferenceTopic,
 } from '../features/agent/index.js'
 export {
   CHART_TOOL_METADATA,
@@ -21,6 +24,7 @@ export {
   type ChartToolMetadata,
   type ChartToolResult,
   createChartToolCatalog,
+  SCRIPT_REFERENCE_TOPICS,
 } from '../features/agent/index.js'
 export {
   FIVE_DAY_TIME_SHARE_PERIOD,

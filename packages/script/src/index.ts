@@ -62,6 +62,7 @@ export {
 export * from './contracts/input.js'
 export * from './contracts/library.js'
 export * from './contracts/output.js'
+export { SCRIPT_API_REFERENCE, type ScriptReferenceEntry } from './editor/apiReference.js'
 export { ScriptExecutionError } from './errors.js'
 export type {
   DrawingDelta,

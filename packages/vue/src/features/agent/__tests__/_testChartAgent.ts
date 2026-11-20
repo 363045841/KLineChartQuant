@@ -65,6 +65,10 @@ export function createTestToolDeps(
       timeShare: async () => unused('market.timeShare'),
       indicatorValues: async () => unused('market.indicatorValues'),
     },
+    scripts: {
+      list: () => [],
+      read: () => unused('scripts.read'),
+    },
     ...overrides,
   }
 }

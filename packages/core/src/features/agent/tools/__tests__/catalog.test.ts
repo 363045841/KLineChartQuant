@@ -18,6 +18,7 @@ import type {
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentMarketQueries,
+  ChartAgentToolDeps,
   InstrumentLookupInput,
   InstrumentRef,
   TimeShareQueryInput,
@@ -241,12 +242,17 @@ function createDeps(): {
   drawings: ReturnType<typeof createDrawings>
   comparisons: ReturnType<typeof createComparisons>
   market: ReturnType<typeof createMarket>
+  scripts: ChartAgentToolDeps['scripts']
 } {
   return {
     indicators: createIndicators(),
     drawings: createDrawings(),
     comparisons: createComparisons(),
     market: createMarket(),
+    scripts: {
+      list: () => [{ id: 'guide', title: '写法指南', summary: '骨架与规则' }],
+      read: (topic: string) => `# reference:${topic}`,
+    },
   }
 }
 
@@ -287,6 +293,7 @@ describe('chart tool catalog', () => {
       'market_bars_query',
       'market_timeshare_query',
       'indicator_values_query',
+      'script_reference_query',
     ])
     expect(CHART_TOOL_METADATA.map((tool) => tool.name)).toEqual(catalog.map((tool) => tool.name))
     expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.effect]))).toEqual({
@@ -300,6 +307,7 @@ describe('chart tool catalog', () => {
       market_bars_query: 'read',
       market_timeshare_query: 'read',
       indicator_values_query: 'read',
+      script_reference_query: 'read',
     })
   })
 

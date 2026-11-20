@@ -4,7 +4,7 @@
  * 与 hover 共用同一份 JSDoc：文档不维护第二份 API 清单，注释改了重新生成即可。
  * 输出按「作者写脚本时查什么」分章：运行环境、绘图、绘图对象、技术分析、枚举。
  */
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createSystem, createVirtualTypeScriptEnvironment } from '@typescript/vfs'
@@ -15,9 +15,50 @@ import { writeGeneratedFile } from './lib/generated-file.mjs'
 
 const outputDirectory = fileURLToPath(new URL('../../../docs/script/api/', import.meta.url))
 const legacyOutputFile = fileURLToPath(new URL('../../../docs/script/api.md', import.meta.url))
+const referenceOutputFile = fileURLToPath(new URL('../src/editor/apiReference.ts', import.meta.url))
+const guideFile = fileURLToPath(new URL('../docs/indicator.md', import.meta.url))
 
 /** 写法指南的相对路径；分片只负责查签名，规则与示例都在指南里。 */
 const GUIDE_LINK = '../../../packages/script/docs/indicator.md'
+
+/**
+ * 产品内 Agent 可读取的参考条目。
+ *
+ * `guide` 是手写指南，其余与分片文件一一对应；两份输出由同一次生成保证同源。
+ */
+const REFERENCE_TOPICS = [
+  {
+    id: 'guide',
+    title: '写法指南',
+    summary: '脚本骨架、序列语义、参数、跨 bar 状态与常见错误',
+    source: 'guide',
+  },
+  {
+    id: 'runtime',
+    title: '运行环境',
+    summary: '行情序列、时间与时段、输入参数、跨周期取数与声明入口',
+    source: 'runtime.md',
+  },
+  {
+    id: 'plot',
+    title: '绘图',
+    summary: '把逐 bar 数值输出成折线、柱形或标记，含每个方法的选项表',
+    source: 'plot.md',
+  },
+  {
+    id: 'drawing',
+    title: '绘图对象',
+    summary: '跨 bar 保留的线段、矩形、标签与坐标',
+    source: 'drawing.md',
+  },
+  { id: 'ta', title: '技术分析', summary: '内置 ta 库的计算原语', source: 'ta.md' },
+  {
+    id: 'enums',
+    title: '枚举',
+    summary: '颜色、线型、尺寸、周期与数据源的取值表',
+    source: 'enums.md',
+  },
+]
 
 /** 章节清单：文件、标题与一句话用途，索引页按同一顺序链接。 */
 const CHAPTERS = [
@@ -595,13 +636,42 @@ export function renderScriptApi({ files, libraries, entry }) {
   return output
 }
 
+/** 生成产品内可读取的参考模块；内容与分片同源，只换承载形式。 */
+function renderReferenceModule(pages) {
+  const entries = REFERENCE_TOPICS.map((topic) => ({
+    id: topic.id,
+    title: topic.title,
+    summary: topic.summary,
+    content: pages.get(topic.source),
+  }))
+  return [
+    '/** 自动生成的脚本参考内容；与 docs/script/api 同源，禁止手工编辑。 */',
+    '// biome-ignore-all format: 文档内容由生成器统一序列化',
+    '/** 可供 Agent 读取的参考条目。 */',
+    'export interface ScriptReferenceEntry {',
+    "  readonly id: 'guide' | 'runtime' | 'plot' | 'drawing' | 'ta' | 'enums'",
+    '  readonly title: string',
+    '  readonly summary: string',
+    '  readonly content: string',
+    '}',
+    '',
+    '/** 参考条目清单；顺序即推荐阅读顺序。 */',
+    `export const SCRIPT_API_REFERENCE: readonly ScriptReferenceEntry[] = ${JSON.stringify(entries, null, 2)}`,
+    '',
+  ].join('\n')
+}
+
 /** 生成全部分片并删除旧单文件；check 模式只校验。 */
 export async function generateScriptApiDocs({ check = false } = {}) {
   await generateScriptEnums({ check })
   const resources = await collectEditorResources()
-  const files = renderScriptApi(resources)
+  const pages = renderScriptApi(resources)
+  const reference = renderReferenceModule(
+    new Map([...pages, ['guide', readFileSync(guideFile, 'utf8')]]),
+  )
   let changed = false
-  for (const [file, content] of files) {
+  if (writeGeneratedFile(referenceOutputFile, reference, { check })) changed = true
+  for (const [file, content] of pages) {
     if (writeGeneratedFile(path.join(outputDirectory, file), content, { check })) changed = true
   }
   // 旧的单文件参考已拆分，残留会让读者拿到过期内容。

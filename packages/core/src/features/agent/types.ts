@@ -320,6 +320,37 @@ export interface ChartAgentToolDeps {
   readonly drawings: ChartAgentDrawingCommands
   readonly comparisons: ChartAgentComparisonCommands
   readonly market: ChartAgentMarketQueries
+  readonly scripts: ChartAgentScriptReference
+}
+
+/** 脚本参考主题：与生成的参考条目一一对应，工具参数与列表都读这一份。 */
+export const SCRIPT_REFERENCE_TOPICS = [
+  'guide',
+  'runtime',
+  'plot',
+  'drawing',
+  'ta',
+  'enums',
+] as const
+
+/** 脚本参考主题取值。 */
+export type ScriptReferenceTopic = (typeof SCRIPT_REFERENCE_TOPICS)[number]
+
+/** 参考条目的展示元数据；正文按主题读取，避免把整份文档塞进工具描述。 */
+export interface ScriptReferenceEntry {
+  readonly id: ScriptReferenceTopic
+  readonly title: string
+  readonly summary: string
+}
+
+/**
+ * 脚本参考查询面：只读静态文档，不依赖图表状态。
+ *
+ * 正文由宿主持有（随脚本包发布），Core 只声明契约与工具。
+ */
+export interface ChartAgentScriptReference {
+  list(): ReadonlyArray<ScriptReferenceEntry>
+  read(topic: ScriptReferenceTopic): string
 }
 
 /** Stable Agent-facing facade attached to every ChartController. */
