@@ -42,8 +42,6 @@ interface CredentialRecord {
  * 那条路径的明文属性是他已知的。
  */
 export class CredentialEncryptionUnavailableError extends Error {
-  readonly code = 'CREDENTIAL_ENCRYPTION_UNAVAILABLE'
-
   constructor() {
     super(
       'OS-level encryption is unavailable, so the API key cannot be stored securely. ' +
