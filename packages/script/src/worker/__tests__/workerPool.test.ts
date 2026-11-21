@@ -2,13 +2,13 @@
 
 import type { PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
+import { prepareNative } from '../../__tests__/backends.js'
 import { createScriptWorkerPool } from '../impl/createScriptWorkerPool.js'
 import type { ScriptWorker } from '../types.js'
 
 /** 只控制计算完成时刻，保留ScriptWorker的实际端口契约。 */
 function setup(size: number) {
-  const definition = prepareNativeScript(
+  const definition = prepareNative(
     'defineIndicator({ version: 2, name:"PoolTest", position:Position.main, onBar(){} })',
   ).definition
   const calls: { id: string; finish(value: PlotCollection): void; fail(error: Error): void }[] = []

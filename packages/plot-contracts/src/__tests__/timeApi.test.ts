@@ -1,7 +1,7 @@
 /** 时间换算必须保留交易边界语义，并复用重复历史查询。 */
 import { describe, expect, it, vi } from 'vitest'
-import type { ScriptTimeContext } from '@363045841yyt/klinechart-plot-contracts'
-import { timeValue } from '../../../../plot-contracts/src/timeApi.js'
+import type { ScriptTimeContext } from '../time.js'
+import { timeValue } from '../timeApi.js'
 
 /** 同一市场配置在多种图表周期中共享，缓存不能依赖 context 或 period 的身份。 */
 function clock(timeZone: string, period = '5'): ScriptTimeContext {

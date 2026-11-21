@@ -1,7 +1,7 @@
 /** 通信契约验收：真实转移、原地 tick、历史重排、跨周期释放和真实脚本绘图往返。 */
 import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { prepareNativeScript } from '../../execution/impl/prepareNativeScript.js'
+import { prepareNative } from '../../__tests__/backends.js'
 import { createScriptWorker } from '../impl/createScriptWorker.js'
 import {
   inputTransferList,
@@ -77,7 +77,7 @@ describe('Worker input synchronization', () => {
 describe('Worker drawing transport', () => {
   it('roundtrips real script scalar, OHLC, fills, boxes, labels and lines', () => {
     const script =
-      prepareNativeScript(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
+      prepareNative(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
       const a=plot.Line(close,'a');const b=plot.Line(close[0]+1,'b');
       fill(a,b,Color.red);plot.Candle(open,high,low,close,'ohlc');
       box.new({left:barIndex,right:barIndex+1,top:high[0],bottom:low[0]});
@@ -188,4 +188,4 @@ it('keeps port-owned baselines correct across real thread calculations and failu
     worker.dispose()
     vi.unstubAllGlobals()
   }
-}, 15_000)
+})

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   barsFromCloses,
+  builtinScriptNames,
   runShippedBars,
   wavyCloses,
 } from '../../__tests__/marketData.js'
@@ -75,43 +76,36 @@ describe('迁移的内置指标', () => {
     expect(result.j).toEqual([undefined, undefined, 50, 150, -100])
   })
 
-  it.each([
-    'rsi',
-    'mom',
-    'roc',
-    'wma',
-    'boll',
-    'donchian',
-    'fastk',
-    'wmsr',
-    'stoch',
-    'supertrend',
-    'ao',
-    'cci',
-    'hma',
-    'kst',
-    'dma',
-    'fib',
-    'frama',
-    'alma',
-    'smma',
-    'zlema',
-    'kama',
-    'vidya',
-    'lsma',
-    'fisher',
-    'stoch-rsi',
-    'stc',
-  ])('%s 在完整窗口前不输出指标值', async (name) => {
-    const result = await runShippedBars(name, barsFromCloses([10, 11]))
-    for (const [id, series] of Object.entries(result)) {
-      if (id.startsWith('guide') || id === 'zero') continue
-      expect(
-        series.every((value) => value === undefined),
-        `${name}.${id}`,
-      ).toBe(true)
-    }
-  })
+  // 首根即可输出，或依赖 Request/时间上下文的脚本不适用预热断言；
+  // 其余脚本统一由目录派生，新增脚本默认纳入，新增例外必须在名单里显式声明。
+  const withoutWarmup = new Set([
+    'cmf',
+    'ichimoku',
+    'macd',
+    'mfi',
+    'obv',
+    'open-close-average',
+    'pivot',
+    'pvp',
+    'pvt',
+    'sar',
+    'svp',
+    'vol',
+    'vwap',
+  ])
+  it.each(builtinScriptNames().filter((name) => !withoutWarmup.has(name)))(
+    '%s 在完整窗口前不输出指标值',
+    async (name) => {
+      const result = await runShippedBars(name, barsFromCloses([10, 11]))
+      for (const [id, series] of Object.entries(result)) {
+        if (id.startsWith('guide') || id === 'zero') continue
+        expect(
+          series.every((value) => value === undefined),
+          `${name}.${id}`,
+        ).toBe(true)
+      }
+    },
+  )
 
   it('RSI 的逐线开关只隐藏对应那条线', async () => {
     const data = barsFromCloses(wavyCloses(40))

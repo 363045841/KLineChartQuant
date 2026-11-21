@@ -89,7 +89,7 @@ interface NativeState {
 }
 
 /** 原生运行时选项；参数与品种在创建时进入顶层声明，之后只按 bar 增量执行。 */
-export interface NativeRuntimeOptions {
+interface NativeRuntimeOptions {
   readonly expressionId?: string
   readonly onLog?: (event: LogEvent) => void
   readonly params?: Readonly<Record<string, ScriptParamValue>>

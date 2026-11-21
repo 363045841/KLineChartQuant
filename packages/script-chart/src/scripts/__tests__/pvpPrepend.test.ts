@@ -100,5 +100,5 @@ describe('PVP service prepend', () => {
       service.dispose()
       vi.unstubAllGlobals()
     }
-  }, 15_000)
+  })
 })

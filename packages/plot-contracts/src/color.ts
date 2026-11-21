@@ -11,7 +11,7 @@
  */
 
 /** 主题色别名的前缀；只有带它开头的值走主题解析，其余按 CSS 颜色直传。 */
-export const SCRIPT_COLOR_PREFIX = '@'
+const SCRIPT_COLOR_PREFIX = '@'
 
 /**
  * @summary 常用色

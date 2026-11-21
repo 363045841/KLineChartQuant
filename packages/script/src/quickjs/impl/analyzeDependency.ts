@@ -12,7 +12,6 @@ import ts from 'typescript'
 import { SCRIPT_TARGET } from '../../language/impl/scriptCompilerOptions.js'
 import { SCRIPT_SOURCE_FILE } from '../../language/impl/scriptFiles.js'
 import type { QuickJSLibrary } from '../types.js'
-import { onBarDeclarationOf } from './scriptCompileAst.js'
 
 /** 递归 TA：状态跨 bar 推进，无法只靠区间重算。 */
 const STATEFUL_TA = new Set([
@@ -88,24 +87,6 @@ function hasTopLevelMutableState(file: ts.SourceFile): boolean {
     }
   }
   return false
-}
-
-/** 找到 onBar 的函数体；找不到时按无状态空脚本处理。 */
-function _findOnBarBody(file: ts.SourceFile): ts.Node | undefined {
-  let body: ts.Node | undefined
-  const visit = (node: ts.Node): void => {
-    if (body) return
-    if (
-      (ts.isMethodDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) &&
-      onBarDeclarationOf(file, node)
-    ) {
-      body = node.body
-      return
-    }
-    ts.forEachChild(node, visit)
-  }
-  visit(file)
-  return body
 }
 
 /** 读取调用名：`ta.ema(...)` 与 `ema(...)` 都返回 `ema`。 */

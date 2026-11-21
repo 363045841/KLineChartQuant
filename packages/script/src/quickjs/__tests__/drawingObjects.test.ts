@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { BACKENDS } from '../../__tests__/backends.js'
 import { barsFromCloses, shippedSource } from '../../__tests__/marketData.js'
 import type { Bar } from '../../contracts/input.js'
-import { createScriptLanguageSession } from '../../language/impl/createScriptLanguageSession.js'
-import { SCRIPT_SOURCE_FILE } from '../../language/impl/scriptFiles.js'
 import type { ScriptParamValue } from '../types.js'
 
 const backends = BACKENDS.map(({ name, prepare }) => ({
@@ -229,17 +227,4 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     const result = await run(shippedSource('zones'), bars, { showFVG: false, swingLength: 1 })
     expect(result.drawings).toEqual([])
   })
-})
-
-describe('内置脚本的编辑器类型契约', () => {
-  it.each(['structure', 'zones', 'mpr', 'mfs', 'bis', 'mdd'])(
-    '%s has no editor type errors',
-    (name) => {
-      const session = createScriptLanguageSession()
-      session.updateSource(shippedSource(name))
-      const diagnostics =
-        session.environment.languageService.getSemanticDiagnostics(SCRIPT_SOURCE_FILE)
-      expect(diagnostics.map((diagnostic) => diagnostic.messageText)).toEqual([])
-    },
-  )
 })

@@ -87,10 +87,10 @@ The built-in `ta` library (`sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowes
 
 | Group | Types |
 | --- | --- |
-| Input | `Bar`, `DataFeed`, `DataFeedRange` |
-| Output | `PlotPoint`, `AlertEvent`, `LogEvent`, `OutputSink` |
+| Input | `Bar` |
+| Output | `PlotPoint`, `LogEvent` |
 | QuickJS | `QuickJSRunOptions`, `QuickJSScriptDefinition`, `QuickJSLibrary` |
-| Library | `LibraryModules`, `LibraryExports`, `TechnicalAnalysisLibrary` |
+| Library | `LibraryModules`, `TechnicalAnalysisLibrary` |
 | Plot | `Plot`, `PlotFill`, `PlotCollection` |
 | Input schema | `InputSchema`, `ScriptParamValue` |
 

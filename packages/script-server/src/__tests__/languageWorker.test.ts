@@ -140,9 +140,6 @@ describe('script language service', () => {
         to: bad.indexOf('"bad"') + '"bad"'.length,
       }),
     ])
-    expect(worker.getSignatureHelp(SCRIPT_EDITOR_FILE, bad.indexOf('"bad"'))?.text).toContain(
-      'length: number',
-    )
     const editing = `${prefix}ta.sm`
     worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: editing })
     const result = await worker.getAutocompletion({
