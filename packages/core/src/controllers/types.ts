@@ -419,7 +419,7 @@ export interface ChartMountOptions {
    * Agent 可读写的指标脚本能力。
    *
    * 参考正文与用户脚本文档都由宿主注入；省略时脚本工具仍出现在清单里，
-   * 调用会明确失败。读取与写入分成两只工具，plan 模式只暴露读取面。
+   * 调用会明确失败。读取与写入分成两只工具；plan 模式在执行期拒绝写工具。
    */
   scripts?: ChartAgentScripts
 }

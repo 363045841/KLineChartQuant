@@ -369,7 +369,7 @@ export interface ChartAgentScriptCreateInput {
  * 脚本能力面：静态参考文档 + 用户指标脚本文档。
  *
  * 只暴露用户指标脚本，内置脚本与库脚本都不在 Agent 的读写范围内。
- * 读取与写入分属不同工具，宿主按 effect 过滤，plan 模式仍能读取参考与源码。
+ * 读取与写入分属不同工具；工具表在会话内固定，plan 模式在执行期拒绝写工具。
  */
 export interface ChartAgentScripts {
   /** 参考主题元数据；未接入正文时返回空表，工具描述不列出主题。 */

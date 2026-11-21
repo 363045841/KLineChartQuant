@@ -45,7 +45,7 @@ pointer 交互 / Controller API / Agent Tool
   - `update`：按 `id` 修改属性（style / labels / visible / locked / zIndex / timeframeVisibility）。
   - `delete`：按 `id` 删除，返回被删快照。
 
-锚点时间用图表时区的 RFC 3339，日线及以上允许日期简写；写入不做槽位吸附。行号由 Core 解析成 Pane，调用方不接触 `paneId`。浏览器 Agent 的 plan 模式按工具的 `effect` 过滤，写工具整只不暴露。
+锚点时间用图表时区的 RFC 3339，日线及以上允许日期简写；写入不做槽位吸附。行号由 Core 解析成 Pane，调用方不接触 `paneId`。浏览器 Agent 的工具表在会话内固定；plan 模式在执行期按 `effect` 拒绝写工具，页面执行器不会收到调用。
 
 ## 后果
 

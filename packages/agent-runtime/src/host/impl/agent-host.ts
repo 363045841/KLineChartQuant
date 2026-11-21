@@ -70,6 +70,7 @@ import {
   AgentSettingsProviderStore,
   AgentSettingsStore,
 } from './agent-settings.js'
+import { withModeGate } from './mode-gate.js'
 
 /** 某次运行所用的页面能力来源：发起页与它声明的图表工具。 */
 interface RunToolSource {
@@ -872,7 +873,7 @@ export class AgentHost {
     this.webSearchApiKey = document.exaApiKey?.trim() || undefined
   }
 
-  /** 组装一次运行的完整工具表：图表工具按发起页登记，宿主工具常驻。 */
+  /** 组装一次运行的完整工具表：模式只包执行期 gate，不裁剪工具。 */
   private resolveTools(input: RunPlanInput): readonly RuntimeToolDefinition[] {
     const source = this.runSources.get(input.sessionId)
     if (!source)
@@ -895,7 +896,7 @@ export class AgentHost {
     for (const tool of this.hostToolDefinitions(source.clientId)) {
       if (isEnabled(tool.name)) tools.push(tool)
     }
-    return tools.filter((tool) => input.mode === 'build' || tool.effect === 'read')
+    return tools.map((tool) => withModeGate(tool, input.mode))
   }
 
   /** 把页面声明的图表工具包装成宿主可执行的定义；执行经协议回路由。 */

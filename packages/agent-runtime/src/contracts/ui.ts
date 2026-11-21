@@ -254,9 +254,13 @@ export interface AgentTranscriptView {
 /**
  * 一次运行的权限模式。
  *
- * plan 只暴露只读工具，用于分析并给出方案；build 暴露全部工具，允许改动图表。
+ * 两种模式使用同一份工具表与系统提示词；plan 在执行期拒绝 write 工具，
+ * build 允许执行。模式不改变请求前缀，只决定 gate 的结果。
  */
 export type AgentRunMode = 'plan' | 'build'
+
+/** 应用侧用户条目：模型消息仍是完整输入，`data.prompt` 只用于界面展示与编辑。 */
+export const KQ_USER_ENTRY_KIND = 'kq.user'
 
 export interface StartRunInput {
   sessionId: string

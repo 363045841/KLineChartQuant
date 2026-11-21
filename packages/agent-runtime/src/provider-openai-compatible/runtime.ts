@@ -29,10 +29,7 @@ import type {
   OpenAiCompatibleRuntimeOptions,
   ProviderDiagnostic,
 } from './types.js'
-import {
-  OPENAI_COMPATIBLE_PROVIDER_ID,
-  OPENAI_COMPATIBLE_PROVIDER_LABEL,
-} from './types.js'
+import { OPENAI_COMPATIBLE_PROVIDER_ID, OPENAI_COMPATIBLE_PROVIDER_LABEL } from './types.js'
 
 /** 合并 Provider 附加请求头，保留运行时生成的鉴权和协议头优先级。 */
 function createProviderFetch(
@@ -84,35 +81,29 @@ function formatReferenceTime(timestamp: number): string {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`
 }
 
-/** 构造系统提示词；能力说明由本轮工具清单推导，不再读运行模式。 */
-function createSystemPrompt(
-  hasTools: boolean,
-  hasWebSearch: boolean,
-  referenceTime: string,
-  writesAllowed: boolean,
-  context?: AgentRunContext,
-): string {
-  const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
-  const hasSelectedKLineBars = context?.items.some((item) => item.kind === 'selected-kline-bars')
-  const chartContext = context?.items.length
-    ? ` Current chart context: ${JSON.stringify(context.items)}. This is authoritative UI context. Do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence not included here.`
-    : ''
-  const selectedKLineBarsInstruction = hasSelectedKLineBars
-    ? ' The selected-kline-bars context contains the complete OHLCV data for the selected time range, formatted exactly as Query market bars. Analyze it directly and do not call market_bars_query for that range.'
-    : ''
-  const citationInstruction = hasWebSearch
-    ? ' When using web_search evidence, cite each supporting claim immediately after the claim. Copy a citation marker exactly from the citationExamples returned by web_search. For example, if web_search returns [[cite:web:run-1:call-1:1]], write: The company reported rising costs. [[cite:web:run-1:call-1:1]]'
-    : ''
-  const ambiguityInstruction = hasTools
-    ? ' When a tool result reports { "status": "ambiguous" }, never guess: call ask_user with one option per returned candidate, wait for the user to choose, then retry the original tool with the chosen candidate\'s routing fields.'
-    : ''
+/**
+ * 构造会话内稳定的系统提示词。
+ *
+ * 时间、图表选择等每轮变化的内容一律不进入这里；它们由 {@link createTurnContext}
+ * 拼进本轮用户消息，保证 tools + system 前缀跨 run 逐字节一致。
+ */
+function createSystemPrompt(hasTools: boolean, hasWebSearch: boolean): string {
+  const base = 'You are the KLineChartQuant financial analysis Agent.'
   if (!hasTools) {
-    return `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+    return `${base} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from the user-provided text and state limitations clearly.`
   }
-  const capabilityInstruction = writesAllowed
-    ? ' Use the supplied chart tools when chart evidence is needed. You may change the chart through the write tools; make each change deliberately and never claim a change you did not make.'
-    : ' Only read-only tools are available in this run, so you cannot change the chart. Investigate, then propose the exact change you would make and let the user enable the write tools to apply it. Never claim you changed the chart.'
-  return `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction}${capabilityInstruction}${ambiguityInstruction}`
+  const citationInstruction = hasWebSearch
+    ? ' When using web_search evidence, cite each supporting claim immediately after the claim. Copy a citation marker exactly from the citationExamples returned by web_search.'
+    : ''
+  return `${base} When the user message includes chart context, it is authoritative UI context: do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence that is not in the user message. When it includes selected-kline-bars, that is the complete OHLCV data for the selected range; analyze it directly and do not call market_bars_query for that range.${citationInstruction} Plan and Build modes exist. In Plan mode state-changing tools are rejected; investigate, then propose the exact change and let the user switch to Build mode. In Build mode apply changes deliberately, and never claim a change you did not make. When a tool result reports { "status": "ambiguous" }, never guess: call ask_user with one option per returned candidate, wait for the user to choose, then retry the original tool with the chosen candidate's routing fields.`
+}
+
+/** 渲染本轮用户消息前的易变上下文；只追加在历史之后，不改系统提示词。 */
+function createTurnContext(context: AgentRunContext | undefined, referenceTime: string): string {
+  const lines = [`Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`]
+  if (context?.items.length)
+    lines.push(`Chart context: ${JSON.stringify(context.items)}. This is authoritative UI context.`)
+  return lines.join('\n')
 }
 
 /** 创建 OpenAI-compatible Provider 的运行时支持对象。 */
@@ -337,9 +328,8 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
-    // 工具由宿主按运行上下文提供；运行模式决定本轮暴露哪些工具。
-    const availableTools = options.tools?.(run) ?? []
-    const tools = availableTools
+    // 工具表由会话配置决定，与运行模式无关；模式只在执行期 gate 写工具。
+    const tools = options.tools?.(run) ?? []
     return {
       models,
       model,
@@ -354,10 +344,8 @@ export function createOpenAiCompatibleRuntimeSupport(
       systemPrompt: createSystemPrompt(
         tools.length > 0,
         tools.some((tool) => tool.name === 'web_search'),
-        formatReferenceTime(now()),
-        tools.some((tool) => tool.effect === 'write'),
-        run.context,
       ),
+      turnContext: createTurnContext(run.context, formatReferenceTime(now())),
     }
   }
 

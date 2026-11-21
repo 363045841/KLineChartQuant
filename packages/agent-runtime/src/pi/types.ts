@@ -19,8 +19,8 @@ import type {
 /**
  * 工具是否会改变宿主状态。
  *
- * read 表示只读取；write 表示产生副作用（改图表、写文件、执行代码）。
- * 运行模式据此决定本轮暴露哪些工具，工具本身不再携带安全等级。
+ * read 表示不改宿主状态；write 表示产生副作用（改图表、写文件、执行代码）。
+ * 工具表在会话内固定，plan 模式在执行期拒绝 write；effect 只驱动 gate 与并发策略。
  */
 export type ToolEffect = 'read' | 'write'
 
@@ -55,7 +55,7 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   effect: ToolEffect
   /** 调用在界面上的呈现方式；只有需要非默认视图的工具声明，缺省即普通折叠行。 */
   presentation?: 'question'
-  /** 同一轮中工具调用的执行策略；只读工具并行，写工具串行。 */
+  /** 同一轮中工具调用的执行策略；read 工具并行，write 工具串行。 */
   executionMode?: 'parallel' | 'sequential'
   /** 将已验证输入压缩为可展示摘要的函数。 */
   summarizeInput?: (input: unknown) => string
@@ -83,10 +83,12 @@ export interface AgentRunPlan {
   readonly models: Models
   /** 本次请求使用的模型。 */
   readonly model: Model<Api>
-  /** 本次运行允许调用的工具列表。 */
+  /** 本次运行允许调用的工具列表；会话内稳定，不随 plan/build 切换。 */
   readonly tools: readonly RuntimeToolDefinition[]
-  /** 覆盖默认行为的系统提示词。 */
+  /** 会话内稳定的系统提示词；不得包含时间、图表选择等每轮变化的内容。 */
   readonly systemPrompt?: string
+  /** 本轮注入到用户消息前的易变上下文；不进入系统提示词，避免破坏前缀缓存。 */
+  readonly turnContext?: string
   /** 当前请求使用的模型思考强度。 */
   readonly reasoningEffort?: ProviderReasoningEffort
   /** 覆盖 Provider 流式调用参数。 */

@@ -58,8 +58,8 @@ export const CHART_TOOL_METADATA: readonly ChartToolMetadata[] = Object.freeze([
 /**
  * 组装当前图表的工具定义。
  *
- * 读写按资源分开：读工具只依赖查询面，写工具只依赖命令面，因此运行模式
- * 可以直接按 effect 过滤，不需要在工具内部再判断权限。
+ * 读写按资源分开：读工具只依赖查询面，写工具只依赖命令面。工具表在会话内固定，
+ * plan 模式的权限判断由宿主在执行期按 effect 完成，不在工具内部重复判断。
  */
 export function createChartToolCatalog(deps: ChartAgentToolDeps): readonly ChartToolDefinition[] {
   return Object.freeze([

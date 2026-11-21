@@ -2,7 +2,7 @@
 
 ## 背景
 
-工具此前以 `@Tool` 装饰器逐方法注册到模块级全局表：导入模块即注册，工具与领域方法一一对应，安全等级是工具上的一个静态字段。结果是工具面等于领域 API 面（23 个图表工具里 8 个是 pane 操作），运行模式靠整只过滤工具，同一套过滤在宿主与 Provider 各写一遍。
+工具此前以 `@Tool` 装饰器逐方法注册到模块级全局表：导入模块即注册，工具与领域方法一一对应，安全等级是工具上的一个静态字段。结果是工具面等于领域 API 面（23 个图表工具里 8 个是 pane 操作）。运行模式一度靠整只过滤工具，工具表随 plan/build 变化，既让模型看不到写能力，也把每轮请求的前缀缓存打穿。
 
 ## 决策
 
@@ -15,7 +15,7 @@
 | `features/agent/tools` | 声明 `name / label / description / parameters / effect` 与 `execute` |
 | `features/agent/impl/chartToolDeps` | 把指标、图元、对比与行情能力适配成工具依赖 |
 | `features/agent/impl/chartAgentController` | 只投影图表上下文，持有工具依赖 |
-| 宿主（vue） | 按 `mode` 与用户勾选解析本轮工具，作为唯一裁剪点 |
+| 宿主（vue） | 按用户勾选解析工具；模式不参与裁剪，只决定执行期 gate |
 
 ### 工具面
 
@@ -33,16 +33,20 @@
 | `market_bars_query` | read | K 线，`from`/`to` 日期窗口 + `limit` |
 | `market_timeshare_query` | read | 分时，`days` 表达单日与多日，缺省最近交易日 |
 | `indicator_values_query` | read | 指标数值序列 |
+| `script_reference_query` | read | 按主题读取指标脚本参考 |
+| `scripts_read` | read | 列出用户指标脚本或按 id 读取源码 |
+| `scripts_write` | write | create / update / delete 用户指标脚本 |
 
-共 10 只图表工具；浏览器宿主再加 `web_search` 与 `ask_user`，模型可见 12 只。`code_interpreter` 已在 agent-runtime 实现，由宿主按需装配。
+共 13 只图表工具；浏览器宿主再加 `web_search` 与 `ask_user`，模型可见 15 只。`code_interpreter` 已在 agent-runtime 实现，由宿主按需装配。
 
 ### 硬约束
 
 1. **身份只出不进**：`add` 只接收指标名称、参数与落点，实例与容器身份由状态分配；内部实例 ID 与 `paneId` 都不出现在工具入参里。
 2. **落点是语义不是容器**：窗格身份就是显示行 `row`，`paneId` 与指标实例 ID 都不出现在任何工具契约里。
-3. **模式只过滤一次**：`resolveTools({ mode, enabled })` 是唯一裁剪点；`plan` 只保留 `effect === 'read'`，`build` 全量。Provider 与注册表只消费解析结果。
-4. **提示词从清单推导**：能力说明看本轮是否提供了 `effect === 'write'` 的工具，而不是再看一次 `mode`。模式只剩“挑工具”一个消费点，提示词不会和清单漂移。
-5. **呈现方式由工具声明**：需要非默认视图的工具写 `presentation: 'question'`，宿主按这个字段渲染提问卡片；缺省是普通折叠行。视图不认识任何工具名，新增同类工具不需要改渲染层。声明随 `details` 落到运行中槽位与最终结果，刷新后仍能还原。
+3. **工具表不随模式变化**：`resolveTools` 只应用用户启用的工具；plan/build 共用同一份清单。同一会话内工具名与顺序固定，避免切模式改变请求前缀。
+4. **模式只 gate 执行**：plan 模式下写工具仍在清单里，宿主在 `withModeGate` 中返回 `PLAN_MODE_READ_ONLY`，页面执行器收不到这次调用。模型看得到工具，也知道调用会被拒。
+5. **系统提示词会话内稳定**：时间、图表选择等易变内容不进入 system prompt，而是作为本轮用户消息前的 `turnContext` 注入；tools + system 前缀跨 run 保持一致。
+6. **呈现方式由工具声明**：需要非默认视图的工具写 `presentation: 'question'`，宿主按这个字段渲染提问卡片；缺省是普通折叠行。视图不认识任何工具名，新增同类工具不需要改渲染层。声明随 `details` 落到运行中槽位与最终结果，刷新后仍能还原。
 
 ### 执行策略
 
