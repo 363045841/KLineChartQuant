@@ -34,11 +34,11 @@ export interface AgentProviderProfile {
 
 /** 宿主设置文档；字段变化必须递增版本并给出迁移。 */
 export interface AgentSettingsDocument {
-  version: 1
+  version: 2
   profiles: AgentProviderProfile[]
   modelPool: ProviderModelPoolEntry[]
-  /** `null` 表示用户从未配置过；空数组表示用户关闭了全部工具。 */
-  enabledTools: string[] | null
+  /** 被用户关闭的工具；空数组表示全部开启。 */
+  disabledTools: string[]
   /** 全局 Web Search 凭据。 */
   exaApiKey?: string
 }
@@ -51,7 +51,7 @@ export interface AgentSettingsStorage {
 
 /** 创建空设置文档；新装用户从全默认状态开始。 */
 export function createEmptyAgentSettingsDocument(): AgentSettingsDocument {
-  return { version: 1, profiles: [], modelPool: [], enabledTools: null }
+  return { version: 2, profiles: [], modelPool: [], disabledTools: [] }
 }
 
 /** 判定值是否为普通对象，供文档解析使用。 */
@@ -210,23 +210,28 @@ function parseModelPoolEntry(value: unknown, index: number): ProviderModelPoolEn
   }
 }
 
-/** 解析启用集合；`null` 表示从未配置。 */
-function parseEnabledTools(value: unknown): string[] | null {
-  if (value === null || value === undefined) return null
-  return requireArray(value, 'enabledTools').map((entry, index) =>
-    requireString(entry, `enabledTools[${index}]`),
+/** 解析禁用集合；缺省表示没有禁用任何工具。 */
+function parseDisabledTools(value: unknown): string[] {
+  if (value === undefined) return []
+  return requireArray(value, 'disabledTools').map((entry, index) =>
+    requireString(entry, `disabledTools[${index}]`),
   )
 }
 
-/** 解析一份设置文档；形状不合法时明确报错，不尝试修复。 */
+/**
+ * 解析一份设置文档；形状不合法时明确报错，不尝试修复。
+ *
+ * v1 的 `enabledTools` 是白名单，缺少工具全集时无法反推出禁用集合；
+ * v2 直接以「全部启用」重建，避免把未知工具误判为禁用。
+ */
 export function parseAgentSettingsDocument(value: unknown): AgentSettingsDocument {
-  if (!isRecord(value) || value.version !== 1)
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2))
     throw invalid('Agent settings document has an unsupported version.')
   return {
-    version: 1,
+    version: 2,
     profiles: requireArray(value.profiles, 'profiles').map(parseProfile),
     modelPool: requireArray(value.modelPool, 'modelPool').map(parseModelPoolEntry),
-    enabledTools: parseEnabledTools(value.enabledTools),
+    disabledTools: value.version === 2 ? parseDisabledTools(value.disabledTools) : [],
     ...(value.exaApiKey === undefined
       ? {}
       : { exaApiKey: requireString(value.exaApiKey, 'exaApiKey') }),
@@ -242,10 +247,10 @@ export function parseAgentSettingsDocument(value: unknown): AgentSettingsDocumen
 export function parseLegacySettingsDocument(value: unknown): AgentSettingsDocument {
   if (!isRecord(value)) throw invalid('Legacy Agent settings must be an object.')
   return {
-    version: 1,
+    version: 2,
     profiles: requireArray(value.profiles, 'profiles').map(parseProfile),
     modelPool: requireArray(value.modelPool, 'modelPool').map(parseModelPoolEntry),
-    enabledTools: parseEnabledTools(value.enabledTools ?? null),
+    disabledTools: [],
     ...(value.exaApiKey === undefined
       ? {}
       : { exaApiKey: requireString(value.exaApiKey, 'exaApiKey') }),

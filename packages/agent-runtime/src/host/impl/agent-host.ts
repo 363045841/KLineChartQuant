@@ -111,7 +111,7 @@ export class AgentHost {
   private runtimePromise: Promise<AgentApplicationService> | undefined
   private durable: AgentRuntimeSessions | undefined
   /** 设置文档里的启用集合；`null` 表示全开。 */
-  private enabledTools: readonly string[] | null | undefined
+  private disabledTools: readonly string[] | undefined
   /** 全局 Web Search 凭据；随设置文档一起载入。 */
   private webSearchApiKey: string | undefined
 
@@ -323,7 +323,7 @@ export class AgentHost {
 
       'tools.list': async () => this.listHostTools(),
       'tools.setEnabled': async (_clientId, params) => {
-        await this.setToolEnabled(params.name, params.enabled, params.knownNames)
+        await this.setToolEnabled(params.name, params.enabled)
         return undefined
       },
       'tools.debug': async (clientId, params) =>
@@ -807,9 +807,9 @@ export class AgentHost {
   /** 宿主侧工具状态；页面再与本地图表工具合并。 */
   private async listHostTools(): Promise<AgentHostToolState> {
     const document = await this.settings.read()
-    const enabled = document.enabledTools
-    this.enabledTools = enabled
-    const isEnabled = (name: string): boolean => enabled === null || enabled.includes(name)
+    const disabled = document.disabledTools
+    this.disabledTools = disabled
+    const isEnabled = (name: string): boolean => !disabled.includes(name)
     const hostTools: AgentToolView[] = [
       {
         name: WEB_SEARCH_TOOL_METADATA.name,
@@ -824,20 +824,16 @@ export class AgentHost {
         enabled: isEnabled(ASK_USER_TOOL_METADATA.name),
       },
     ]
-    return { hostTools, enabledTools: enabled }
+    return { hostTools, disabledTools: disabled }
   }
 
-  /** 持久化工具启用状态；首次写入以页面提供的完整清单为基准。 */
-  private async setToolEnabled(
-    name: string,
-    enabled: boolean,
-    knownNames: readonly string[],
-  ): Promise<void> {
+  /** 持久化工具禁用状态；启用即从禁用集合移除，禁用即加入。 */
+  private async setToolEnabled(name: string, enabled: boolean): Promise<void> {
     const document = await this.settings.read()
-    const current = new Set(document.enabledTools ?? knownNames)
-    if (enabled) current.add(name)
-    else current.delete(name)
-    await this.commitSettings({ ...document, enabledTools: [...current] })
+    const current = new Set(document.disabledTools)
+    if (enabled) current.delete(name)
+    else current.add(name)
+    await this.commitSettings({ ...document, disabledTools: [...current] })
   }
 
   /** 手动执行宿主侧工具；图表工具由页面自己执行。 */
@@ -862,14 +858,14 @@ export class AgentHost {
   /** 写入设置文档并同步缓存。 */
   private async commitSettings(document: AgentSettingsDocument): Promise<void> {
     await this.settings.replace(document)
-    this.enabledTools = document.enabledTools
+    this.disabledTools = document.disabledTools
     this.webSearchApiKey = document.exaApiKey?.trim() || undefined
   }
 
   /** 载入设置文档并刷新宿主缓存。 */
   private async refreshSettingsCache(): Promise<void> {
     const document = await this.settings.read()
-    this.enabledTools = document.enabledTools
+    this.disabledTools = document.disabledTools
     this.webSearchApiKey = document.exaApiKey?.trim() || undefined
   }
 
@@ -881,13 +877,13 @@ export class AgentHost {
         'TARGET_LOST',
         `No Agent client declared tools for session ${input.sessionId}.`,
       )
-    if (this.enabledTools === undefined)
+    if (this.disabledTools === undefined)
       throw new AgentRuntimeError(
         'INTERNAL_ERROR',
         'Agent settings were not loaded before planning.',
       )
-    const enabled = this.enabledTools
-    const isEnabled = (name: string): boolean => enabled === null || enabled.includes(name)
+    const disabled = this.disabledTools
+    const isEnabled = (name: string): boolean => !disabled.includes(name)
     const tools: RuntimeToolDefinition[] = []
     for (const descriptor of source.tools) {
       if (!isEnabled(descriptor.name)) continue

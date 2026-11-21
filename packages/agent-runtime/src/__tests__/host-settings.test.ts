@@ -1,4 +1,4 @@
-// 宿主设置文档：解析、单次迁移与工具启用集合的语义。
+// 宿主设置文档：v2 禁用集合、v1 迁移与旧版导入。
 import { describe, expect, it } from 'vitest'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import {
@@ -22,22 +22,47 @@ function createMemoryStorage(initial: unknown = null): AgentSettingsStorage {
 }
 
 describe('parseAgentSettingsDocument', () => {
-  it('accepts the current version and preserves null enabledTools', () => {
-    const parsed = parseAgentSettingsDocument(createEmptyAgentSettingsDocument())
-    expect(parsed).toEqual({ version: 1, profiles: [], modelPool: [], enabledTools: null })
+  it('starts from version 2 with an empty disabled list', () => {
+    expect(parseAgentSettingsDocument(createEmptyAgentSettingsDocument())).toEqual({
+      version: 2,
+      profiles: [],
+      modelPool: [],
+      disabledTools: [],
+    })
+  })
+
+  it('preserves the disabled list exactly', () => {
+    const parsed = parseAgentSettingsDocument({
+      version: 2,
+      profiles: [],
+      modelPool: [],
+      disabledTools: ['code_interpreter', 'web_search'],
+    })
+    expect(parsed.disabledTools).toEqual(['code_interpreter', 'web_search'])
+  })
+
+  it('migrates version 1 to all enabled', () => {
+    const parsed = parseAgentSettingsDocument({
+      version: 1,
+      profiles: [],
+      modelPool: [],
+      enabledTools: ['web_search'],
+    })
+    expect(parsed.version).toBe(2)
+    expect(parsed.disabledTools).toEqual([])
   })
 
   it('rejects unsupported versions instead of guessing', () => {
-    expect(() => parseAgentSettingsDocument({ version: 2 })).toThrow(AgentRuntimeError)
+    expect(() => parseAgentSettingsDocument({ version: 3 })).toThrow(AgentRuntimeError)
   })
 
   it('rejects malformed profile entries', () => {
     expect(() =>
       parseAgentSettingsDocument({
-        version: 1,
+        version: 2,
         profiles: [{ name: 'main', apiKey: 'k', active: 'yes' }],
         modelPool: [],
-        enabledTools: null,
+        disabledTools: [],
       }),
     ).toThrow(AgentRuntimeError)
   })
@@ -49,7 +74,7 @@ describe('AgentSettingsStore', () => {
     await expect(store.read()).resolves.toEqual(createEmptyAgentSettingsDocument())
   })
 
-  it('imports the legacy document exactly once', async () => {
+  it('imports the legacy document exactly once and starts all tools enabled', async () => {
     const storage = createMemoryStorage()
     const store = new AgentSettingsStore(storage)
     const legacy = {
@@ -60,16 +85,21 @@ describe('AgentSettingsStore', () => {
 
     await store.importLegacy(legacy)
     await expect(store.read()).resolves.toMatchObject({
+      version: 2,
       profiles: [{ name: 'main', apiKey: 'sk-1', active: true }],
-      enabledTools: ['web_search'],
+      disabledTools: [],
     })
     await expect(store.importLegacy(legacy)).rejects.toMatchObject({ code: 'DUPLICATE_REQUEST' })
   })
 
-  it('keeps an empty enabled list distinct from the never-configured state', async () => {
-    const storage = createMemoryStorage()
-    const store = new AgentSettingsStore(storage)
-    await store.replace({ ...createEmptyAgentSettingsDocument(), enabledTools: [] })
-    await expect(store.read()).resolves.toMatchObject({ enabledTools: [] })
+  it('persists a disabled list and keeps it distinct from the empty default', async () => {
+    const store = new AgentSettingsStore(createMemoryStorage())
+    await store.replace({
+      ...createEmptyAgentSettingsDocument(),
+      disabledTools: ['code_interpreter'],
+    })
+    await expect(store.read()).resolves.toMatchObject({
+      disabledTools: ['code_interpreter'],
+    })
   })
 })

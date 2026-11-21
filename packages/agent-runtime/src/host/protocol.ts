@@ -117,7 +117,7 @@ export interface AgentHostMethods {
   /** 宿主侧工具（Web 搜索、提问）的状态；页面再与本地图表工具合并成完整列表。 */
   'tools.list': { params: undefined; result: AgentHostToolState }
   'tools.setEnabled': {
-    params: { name: string; enabled: boolean; knownNames: readonly string[] }
+    params: { name: string; enabled: boolean }
     result: undefined
   }
   'tools.debug': { params: { name: string; input: unknown }; result: AgentToolDebugResult }
@@ -126,10 +126,10 @@ export interface AgentHostMethods {
   'settings.importLegacy': { params: { document: unknown }; result: undefined }
 }
 
-/** 宿主侧工具状态：工具条目与用户启用集合（`null` 表示从未配置）。 */
+/** 宿主侧工具状态：工具条目与被用户关闭的工具集合。 */
 export interface AgentHostToolState {
   readonly hostTools: readonly AgentToolView[]
-  readonly enabledTools: readonly string[] | null
+  readonly disabledTools: readonly string[]
 }
 
 export type AgentHostMethodName = keyof AgentHostMethods

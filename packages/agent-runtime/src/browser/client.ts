@@ -68,11 +68,6 @@ export interface AgentHostClientOptions {
   readonly createId?: () => string
 }
 
-/** 工具启用集合判定：`null` 表示全部启用。 */
-function isToolEnabled(enabled: readonly string[] | null, name: string): boolean {
-  return enabled === null || enabled.includes(name)
-}
-
 /**
  * 创建页面侧 Agent 客户端。
  * @param options 传输端口、页面能力端口与标识生成器。
@@ -315,19 +310,14 @@ export function createAgentHostClient(options: AgentHostClientOptions): AgentHos
         name: tool.name,
         label: tool.label,
         description: tool.description,
-        enabled: isToolEnabled(state.enabledTools, tool.name),
+        enabled: !state.disabledTools.includes(tool.name),
       }))
       return [...chartTools, ...state.hostTools]
     },
 
-    /** 工具启用状态由宿主持久化；首次写入带上页面已知的完整名称清单。 */
+    /** 工具启用状态由宿主持久化为禁用集合。 */
     async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-      const state = await call('tools.list', undefined)
-      const knownNames = [
-        ...options.toolHost.metadata().map((tool) => tool.name),
-        ...state.hostTools.map((tool) => tool.name),
-      ]
-      await call('tools.setEnabled', { name, enabled, knownNames })
+      await call('tools.setEnabled', { name, enabled })
     },
 
     /** 图表工具在页面执行，宿主工具回宿主执行。 */
