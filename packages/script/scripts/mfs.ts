@@ -51,7 +51,7 @@ function markInflow(
 }
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'MFS',
   title: '最大净流入段',
   info: '回看窗口内累计净流入最大的连续区间；上涨根计正成交量，下跌根计负成交量。',

@@ -13,7 +13,7 @@ import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
 import type { ScriptWorkspace } from '../types.js'
 
-const source = `defineIndicator({ scriptVersion: 2, name: 'ServiceAverage', position: 'sub',
+const source = `defineIndicator({ version: 2, name: 'ServiceAverage', position: 'sub',
   onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
 
 /** 内置脚本逐条运行用例；label 只用于失败定位，缺少 name 时退回序号。 */
@@ -40,7 +40,7 @@ describe('ScriptService', () => {
       )
       const bars = [{ time: 1, open: 10, high: 10, low: 10, close: 10, volume: 1 }]
       const market = { symbol: 'TEST', loadBars: vi.fn(async () => bars) }
-      const debugSource = `const lib = importLibrary('debugLibrary'); defineIndicator({ scriptVersion: 2, name: 'DebugOnly', position: Position.sub, onBar() { const other = request.security(syminfo.tickerId, Timeframe.day, () => close); console.log(lib.value(other)); plot.Line(other, 'other') } })`
+      const debugSource = `const lib = importLibrary('debugLibrary'); defineIndicator({ version: 2, name: 'DebugOnly', position: Position.sub, onBar() { const other = request.security(syminfo.tickerId, Timeframe.day, () => close); console.log(lib.value(other)); plot.Line(other, 'other') } })`
       let events: readonly LogEvent[] = []
       const unsubscribe = scripts.output.subscribe('debug-tab', (next) => {
         events = next
@@ -86,7 +86,7 @@ describe('ScriptService', () => {
       `const helper = importLibrary('serviceBase'); defineLibrary('serviceStats', { smooth(source: Series): Series { return helper.scale(source) } })`,
     )
     const indicator = await scripts.create(
-      `const stats = importLibrary('serviceStats'); defineIndicator({ scriptVersion: 2, name: 'LibraryConsumer', position: Position.sub, onBar() { plot.Line(stats.smooth(close) + 1, 'smooth') } })`,
+      `const stats = importLibrary('serviceStats'); defineIndicator({ version: 2, name: 'LibraryConsumer', position: Position.sub, onBar() { plot.Line(stats.smooth(close) + 1, 'smooth') } })`,
       true,
     )
     const bars = [2, 4, 8].map((close, timestamp) => ({
@@ -212,7 +212,7 @@ describe('ScriptService', () => {
         '工具',
       )
       const consumer = await scripts.create(
-        `const tools = importLibrary('folderLibrary'); defineIndicator({ scriptVersion: 2, name: 'FolderConsumer', position: Position.sub, onBar() { plot.Line(tools.value(), 'v') } })`,
+        `const tools = importLibrary('folderLibrary'); defineIndicator({ version: 2, name: 'FolderConsumer', position: Position.sub, onBar() { plot.Line(tools.value(), 'v') } })`,
         true,
       )
       await expect(scripts.removeFolder({ kind: 'library', path: '工具' })).rejects.toThrow(
@@ -275,7 +275,7 @@ describe('ScriptService', () => {
   })
 
   it('内置脚本使用原生引擎，用户保存信任选择后切换实际执行后端', async () => {
-    const engineSource = `defineIndicator({ scriptVersion: 2, name: 'ServiceEngine', position: 'main', onBar() { plot.Line(typeof WebAssembly === 'object' ? 1 : 0, 'native') } })`
+    const engineSource = `defineIndicator({ version: 2, name: 'ServiceEngine', position: 'main', onBar() { plot.Line(typeof WebAssembly === 'object' ? 1 : 0, 'native') } })`
     const scripts = await createScriptService([], { builtinSources: [engineSource] })
     const bars = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
     /** 从正式注册入口计算，验证注册属性传到了 Worker。 */
@@ -295,7 +295,7 @@ describe('ScriptService', () => {
         `defineLibrary('engineLibrary', { value(): number { return 1 } })`,
       )
       const consumer = await scripts.create(
-        `const library = importLibrary('engineLibrary'); defineIndicator({ scriptVersion: 2, name: 'LibraryEngine', position: Position.main, onBar() { plot.Line(typeof globalThis === 'object' && 'WebAssembly' in globalThis ? library.value() : 0, 'native') } })`,
+        `const library = importLibrary('engineLibrary'); defineIndicator({ version: 2, name: 'LibraryEngine', position: Position.main, onBar() { plot.Line(typeof globalThis === 'object' && 'WebAssembly' in globalThis ? library.value() : 0, 'native') } })`,
         true,
       )
       expect(await compute(consumer.id)).toMatchObject({ plots: [{ data: [{ value: 0 }] }] })

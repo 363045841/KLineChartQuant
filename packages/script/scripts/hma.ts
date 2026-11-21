@@ -1,6 +1,6 @@
 // Hull 移动平均主图指标。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'HMA',
   title: '赫尔移动平均',
   info: 'HMA 组合多层 WMA 降低滞后，兼顾平滑与响应速度。',

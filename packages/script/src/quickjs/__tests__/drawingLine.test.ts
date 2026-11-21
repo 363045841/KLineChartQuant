@@ -16,7 +16,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
   it('shares one mutable line across bars and copies independently', async () => {
     const result = await run(`
       let ref;
-      defineIndicator({ scriptVersion: 2, name: 'lines', position: Position.main, onBar() {
+      defineIndicator({ version: 2, name: 'lines', position: Position.main, onBar() {
         if (barIndex === 0) ref = line.new(0, 10, 1, 20);
         line.setXY2(ref, barIndex + 1, close[0] + 10);
         if (barIndex === 2) {
@@ -56,7 +56,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
 
   it('supports chart.point overloads, timestamp coordinates and all six styles', async () => {
     const result = await run(`
-      defineIndicator({ scriptVersion: 2, name: 'points', position: Position.main, onBar() {
+      defineIndicator({ version: 2, name: 'points', position: Position.main, onBar() {
         if (barIndex !== 2) return;
         for (const style of [LineStyle.solid, LineStyle.dashed, LineStyle.dotted, LineStyle.arrowLeft, LineStyle.arrowRight, LineStyle.arrowBoth]) {
           line.new(chart.point.fromTime(time[2], 10), chart.point.now(30), xloc.barTime, extend.left, Color.blue, style, 2);
@@ -70,7 +70,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
   })
 
   it('collects oldest objects and isolates repeated executions', async () => {
-    const source = `defineIndicator({ scriptVersion: 2, name: 'gc', position: Position.main, maxLinesCount: 2, onBar() {
+    const source = `defineIndicator({ version: 2, name: 'gc', position: Position.main, maxLinesCount: 2, onBar() {
       line.new(barIndex, close[0], barIndex + 1, close[0]);
     }});`
     const first = await run(source)
@@ -81,7 +81,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
 
   it('rejects getPrice for timestamp lines', async () => {
     await expect(
-      run(`defineIndicator({ scriptVersion: 2, name: 'time', position: Position.main, onBar() {
+      run(`defineIndicator({ version: 2, name: 'time', position: Position.main, onBar() {
       const id = line.new(time[0], 10, time[0] + 1000, 20, xloc.barTime);
       line.getPrice(id, 1);
     }});`),
@@ -95,7 +95,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
     { name: 'future', body: `line.new(barIndex, 10, barIndex + 501, 20);` },
   ])('rejects barIndex coordinates outside the loaded window: $name', async ({ name, body }) => {
     await expect(
-      run(`defineIndicator({ scriptVersion: 2, name: '${name}', position: Position.main, onBar() {
+      run(`defineIndicator({ version: 2, name: '${name}', position: Position.main, onBar() {
       ${body}
     }});`),
     ).rejects.toThrow('barIndex')
@@ -103,7 +103,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
 
   it('accepts future barIndex coordinates within the slot limit', async () => {
     const result =
-      await run(`defineIndicator({ scriptVersion: 2, name: 'future', position: Position.main, onBar() {
+      await run(`defineIndicator({ version: 2, name: 'future', position: Position.main, onBar() {
       if (barIndex !== 0) return;
       line.new(0, 10, barIndex + 500, 20);
     }});`)
@@ -112,7 +112,7 @@ describe.each(backends)('line API ($name)', ({ run }) => {
 
   it('preserves na coordinates and vertical line price semantics', async () => {
     const result =
-      await run(`defineIndicator({ scriptVersion: 2, name: 'na', position: Position.main, onBar() {
+      await run(`defineIndicator({ version: 2, name: 'na', position: Position.main, onBar() {
       if (barIndex !== 0) return;
       const vertical = line.new(0, 10, 0, 20);
       if (!Number.isNaN(line.getPrice(vertical, 1))) throw new Error('vertical');

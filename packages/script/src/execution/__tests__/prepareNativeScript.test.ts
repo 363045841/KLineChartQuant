@@ -11,7 +11,7 @@ import { prepareNativeScript } from '../impl/prepareNativeScript.js'
 describe('原生脚本后端', () => {
   it.each(BACKENDS)('执行器 $name 输出两种阶梯线并保留样式与 fill 句柄', ({ prepare }) => {
     const prepared =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'Steps', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'Steps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0] === 3 ? NaN : close[0]
       const joined = plot.StepLine(value, 'joined')
       const broken = plot.StepLineBR(value, 'broken', {
@@ -43,12 +43,12 @@ describe('原生脚本后端', () => {
     }
     expect(result.fills[0]).toMatchObject({ from: 'joined', to: 'broken' })
     const invalid =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'InvalidStep', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'InvalidStep', position: 'main', onBar() {
       plot.StepLineBR(close, 'step', { dash: 'invalid' })
     } })`)
     expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
     const changing =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'ChangingStep', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'ChangingStep', position: 'main', onBar() {
       (close[0] > 1 ? plot.StepLineBR : plot.StepLine)(close[0], 'step')
     } })`)
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
@@ -56,7 +56,7 @@ describe('原生脚本后端', () => {
 
   it.each(BACKENDS)('执行器 $name 保留折线空值与连接策略', ({ prepare }) => {
     const prepared =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'Gaps', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'Gaps', position: 'main', onBar() {
       const value = close[0] === 2 ? null : close[0]
       const joined = plot.Line(value, 'joined')
       const broken = plot.LineBR(value, 'broken', { dash: [4, 4], offset: 1 })
@@ -76,12 +76,12 @@ describe('原生脚本后端', () => {
 
   it.each(BACKENDS)('执行器 $name 校验 LineBR 样式及整列类型一致性', ({ prepare }) => {
     const invalid =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'InvalidGaps', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'InvalidGaps', position: 'main', onBar() {
       plot.LineBR(close[0], 'line', { dash: 'invalid' })
     } })`)
     expect(() => invalid.run(barsFromCloses([1]))).toThrow('无效 plot 调用参数')
     const changing =
-      prepare(`defineIndicator({ scriptVersion: 2, name: 'ChangingGaps', position: 'main', onBar() {
+      prepare(`defineIndicator({ version: 2, name: 'ChangingGaps', position: 'main', onBar() {
       (close[0] > 1 ? plot.LineBR : plot.Line)(close[0], 'line')
     } })`)
     expect(() => changing.run(barsFromCloses([1, 2]))).toThrow('cannot change kind')
@@ -124,13 +124,13 @@ describe('原生脚本后端', () => {
 
   it.each(BACKENDS)('执行器 $name 只接受顶层 hline 声明', ({ prepare }) => {
     const script = prepare(`hline(70, { color: Color.gray, linestyle: HLineStyle.dashed })
-defineIndicator({ scriptVersion: 2, name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 'close') } })`)
+defineIndicator({ version: 2, name: 'HLine', position: 'sub', onBar() { plot.Line(close[0], 'close') } })`)
     expect(script.run(barsFromCloses([1])).hlines).toEqual([
       { id: '0', price: 70, color: Color.gray, dash: [4, 4], width: 1 },
     ])
     expect(() =>
       prepare(
-        `defineIndicator({ scriptVersion: 2, name: 'Bad', position: 'sub', onBar() { hline(70) } })`,
+        `defineIndicator({ version: 2, name: 'Bad', position: 'sub', onBar() { hline(70) } })`,
       ).run(barsFromCloses([1])),
     ).toThrow('文件顶层')
   })
@@ -139,7 +139,7 @@ defineIndicator({ scriptVersion: 2, name: 'HLine', position: 'sub', onBar() { pl
     const source = `
       globalThis.nativeTestMarker = true
       let total = 0
-      defineIndicator({ scriptVersion: 2, name: 'NativeState', position: 'main', onBar() {
+      defineIndicator({ version: 2, name: 'NativeState', position: 'main', onBar() {
         const divisor = input.int(2)
         total += custom.value(close[0]) / divisor
         plot.Line(total, 'total')
@@ -160,7 +160,7 @@ defineIndicator({ scriptVersion: 2, name: 'HLine', position: 'sub', onBar() { pl
     expect(() => prepareNativeScript('export const n = 1')).toThrow()
     expect(() => prepareNativeScript(`plot.Line(1, 'bad')`)).toThrow('plot 只能在 onBar 中调用')
     const prepared = prepareNativeScript(
-      `defineIndicator({ scriptVersion: 2, name: 'BadNative', position: 'main', onBar() { plot.Line(1 / 0, 'infinite') } })`,
+      `defineIndicator({ version: 2, name: 'BadNative', position: 'main', onBar() { plot.Line(1 / 0, 'infinite') } })`,
     )
     expect(() => prepared.run(barsFromCloses([1]))).toThrow(
       expect.objectContaining({
@@ -170,7 +170,7 @@ defineIndicator({ scriptVersion: 2, name: 'HLine', position: 'sub', onBar() { pl
       }),
     )
     const runtimeError = prepareNativeScript(
-      `defineIndicator({ scriptVersion: 2, name: 'BadNative', position: 'main', onBar() { throw new Error('native failed') } })`,
+      `defineIndicator({ version: 2, name: 'BadNative', position: 'main', onBar() { throw new Error('native failed') } })`,
     )
     expect(() => runtimeError.run(barsFromCloses([1]))).toThrow(
       expect.objectContaining({ code: 'SCRIPT_RUN_FAILED' }),

@@ -1,6 +1,6 @@
 // CMF：窗口内资金流量与成交量的比值。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'CMF',
   title: '蔡金资金流',
   info: 'CMF（Chaikin Money Flow）衡量资金流入流出强度，正值看涨，负值看跌。',

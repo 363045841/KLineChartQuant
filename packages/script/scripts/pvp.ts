@@ -1,7 +1,7 @@
 /** 周期成交量分布：统计周期独立于图表周期，算法只在共享脚本库维护。 */
 const vp = importLibrary('volumeProfile')
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'PVP',
   title: '周期成交量分布',
   position: Position.main,

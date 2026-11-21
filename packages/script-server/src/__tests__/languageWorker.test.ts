@@ -51,7 +51,7 @@ async function completions(source: string) {
 
 describe('script language service', () => {
   it('格式化原文且保留序列语义，格式化结果再次执行不变', async () => {
-    const source = `defineIndicator({ scriptVersion: 2,name:'Format',inputs:{},onBar(){plot.Line(close,'value');}})`
+    const source = `defineIndicator({ version: 2,name:'Format',inputs:{},onBar(){plot.Line(close,'value');}})`
     const worker = await createSession(source)
     const originalType = hoveredType(worker, source, 'close')
     const edits = worker.formatDocument(SCRIPT_EDITOR_FILE, source)
@@ -71,7 +71,7 @@ describe('script language service', () => {
 
   it('按 inputs 推导的参数类型参与数值上下文判定', async () => {
     const source = `defineIndicator({
-      scriptVersion: 2,
+      version: 2,
       name: 'ParameterContext', position: Position.sub,
       onBar() {
         const level = input.int(2)
@@ -267,12 +267,12 @@ describe('script language service', () => {
   it('补全全局 Position 枚举，并检查 position 的枚举类型', async () => {
     expect(await completions('Position.')).toEqual(expect.arrayContaining(['main', 'sub']))
     const worker = await createSession(
-      `defineIndicator({ scriptVersion: 2, name: 'Position', position: Position.sub, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'Position', position: Position.sub, onBar() {} })`,
     )
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([])
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: `defineIndicator({ scriptVersion: 2, name: 'Position', position: 'sub', onBar() {} })`,
+      code: `defineIndicator({ version: 2, name: 'Position', position: 'sub', onBar() {} })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toHaveLength(
       1,
@@ -337,7 +337,7 @@ describe('script language service', () => {
       expect.arrayContaining(['int', 'float', 'bool', 'string']),
     )
     const updated = `defineIndicator({
-      scriptVersion: 2,
+      version: 2,
       name: 'Changed', position: Position.sub,
       onBar() { const enabled = input.bool(true); plot.Line(enabled ? close[0] : NaN, 'value') }
     });\ninput.`
@@ -350,7 +350,7 @@ describe('script language service', () => {
     expect(next?.options.map((option) => option.label)).not.toContain('period')
     worker.updateFile({
       path: SCRIPT_EDITOR_FILE,
-      code: `defineIndicator({ scriptVersion: 2, name: 'Changed', position: Position.sub, onBar() { const enabled = input.bool(true); ta.sma(close, enabled) } })`,
+      code: `defineIndicator({ version: 2, name: 'Changed', position: Position.sub, onBar() { const enabled = input.bool(true); ta.sma(close, enabled) } })`,
     })
     expect(worker.getLints({ path: SCRIPT_EDITOR_FILE, diagnosticCodesToIgnore: [] })).toEqual([
       expect.objectContaining({ message: expect.stringContaining('boolean') }),
@@ -371,10 +371,10 @@ describe('script language service', () => {
 
   it('识别声明函数别名和 globalThis 调用，不将局部同名函数当成指标声明', async () => {
     const source = `const declare = defineIndicator;
-      declare({ scriptVersion: 2, name: 'Alias', position: Position.sub, onBar() { const length = input.int(10); plot.Line(length, 'length') } });
+      declare({ version: 2, name: 'Alias', position: Position.sub, onBar() { const length = input.int(10); plot.Line(length, 'length') } });
       function scope() {
         function defineIndicator(value: unknown) {}
-        defineIndicator({ scriptVersion: 2, fake: true });
+        defineIndicator({ version: 2, fake: true });
       }
       `
     const worker = await createSession(source)

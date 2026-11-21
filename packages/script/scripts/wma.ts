@@ -1,6 +1,6 @@
 // 线性加权移动平均，越新的价格权重越大。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'WMA',
   title: '加权移动平均',
   info: 'WMA 对近期价格赋予更高权重，比普通 MA 反应更快，适用于短期趋势跟踪。',

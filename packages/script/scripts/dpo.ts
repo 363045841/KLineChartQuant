@@ -1,6 +1,6 @@
 // 去趋势价格振荡器，以历史收盘价减去当前窗口均值观察价格周期。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'DPO',
   title: '区间震荡线',
   info: 'DPO 将价格与向前偏移的均线比较，用于剥离趋势、观察短周期摆动。',

@@ -11,7 +11,7 @@
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OC Average',
   position: Position.sub,
   onBar() {
@@ -20,19 +20,19 @@ defineIndicator({
 })
 ```
 
-三个必填项：`scriptVersion`、`name`、`position`（`Position.main` 主图 / `Position.sub` 副图）。
+三个必填项：`version`、`name`、`position`（`Position.main` 主图 / `Position.sub` 副图）。
 `onBar` 每根 K 线调用一次，序列与库由宿主注入，不需要参数。
 
 ## 写法版本
 
-`scriptVersion` 当前为 `2`。没有声明该字段的旧脚本按 v1 处理，注册时直接报错
+`version` 当前为 `2`。没有声明该字段的旧脚本按 v1 处理，注册时直接报错
 `脚本版本 v1 已不再支持`，不做兼容转换；补上字段并按当前命名改写即可。
 
 ## 声明字段
 
 | 字段 | 作用 |
 | --- | --- |
-| `scriptVersion` | 写法版本，必填，当前为 `2` |
+| `version` | 写法版本，必填，当前为 `2` |
 | `name` | 短名；同名脚本拒绝重复创建，稳定 ID 由框架分配并持久化 |
 | `title` | 选择器里显示的长名称，缺省用 `name` |
 | `info` | 选择器里的说明文本，缺省不展示 |
@@ -81,7 +81,7 @@ defineIndicator({
 let obv = 0 // 顶层：整轮运行只初始化一次
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OBV',
   position: Position.sub,
   onBar() {
@@ -133,7 +133,7 @@ defineIndicator({
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Cloud',
   position: Position.main,
   onBar() {
@@ -157,7 +157,7 @@ defineIndicator({
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Body Change',
   position: Position.sub,
   onBar() {
@@ -174,7 +174,7 @@ defineIndicator({
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Swing Mark',
   position: Position.main,
   onBar() {
@@ -197,7 +197,7 @@ defineIndicator({
 
 ```ts
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: '高周期蜡烛',
   position: Position.main,
   onBar() {
@@ -235,7 +235,7 @@ const stats = defineLibrary('stats', {
 })
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Derived',
   position: Position.sub,
   onBar() {
@@ -254,7 +254,7 @@ defineIndicator({
 
 | 写法 | 结果 |
 | --- | --- |
-| 缺少 `scriptVersion` 或写成 `1` | 注册期报错：脚本版本 v1 已不再支持 |
+| 缺少 `version` 或写成 `1` | 注册期报错：脚本版本 v1 已不再支持 |
 | `input.*` 写在分支、循环或辅助函数里 | 编译期报错：必须直接初始化 onBar 顶层的 const |
 | `plot(Position.main, ...)` 这类旧式调用 | 运行期报错：不是函数 |
 | 在文件顶层调用 `plot.*` | 报错：只能在 onBar 中调用 |

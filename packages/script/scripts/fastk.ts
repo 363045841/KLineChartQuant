@@ -3,7 +3,7 @@
 for (const level of [80, 50, 20]) hline(level, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'FASTK',
   title: '快速随机指标',
   info: 'FASTK 是未经过平滑处理的随机指标，比普通 KDJ 更敏感，能更快捕捉价格转折点，但假信号也更多。',

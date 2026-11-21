@@ -20,7 +20,7 @@ describe('脚本声明契约', () => {
     ['main', 'main'],
     ['sub', 'sub'],
   ])('从 QuickJS Global 读取 Position.%s 作为指标注册位置', (member, expected) => {
-    const source = `defineIndicator({ scriptVersion: 2, name: 'PositionEnum', position: globalThis.Position.${member}, inputs: {}, onBar() {
+    const source = `defineIndicator({ version: 2, name: 'PositionEnum', position: globalThis.Position.${member}, inputs: {}, onBar() {
       if (Position !== globalThis.Position) throw new Error('枚举全局不一致')
     } })`
     expect(readQuickJSScriptDefinitionSync(source)).toMatchObject({ position: expected })
@@ -28,12 +28,12 @@ describe('脚本声明契约', () => {
 
   it('读取可选 title/info 作为选择器展示名与说明，缺省不写入，空值拒绝', () => {
     const titled = readQuickJSScriptDefinitionSync(
-      `defineIndicator({ scriptVersion: 2, name: 'Titled', title: '展示名', info: '说明文本', position: Position.sub, inputs: {}, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'Titled', title: '展示名', info: '说明文本', position: Position.sub, inputs: {}, onBar() {} })`,
     )
     expect(titled).toMatchObject({ name: 'Titled', title: '展示名', info: '说明文本' })
 
     const plain = readQuickJSScriptDefinitionSync(
-      `defineIndicator({ scriptVersion: 2, name: 'Plain', position: Position.sub, inputs: {}, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'Plain', position: Position.sub, inputs: {}, onBar() {} })`,
     )
     expect(plain).not.toHaveProperty('title')
     expect(plain).not.toHaveProperty('info')
@@ -41,7 +41,7 @@ describe('脚本声明契约', () => {
     for (const field of [`title: ' '`, `info: ' '`]) {
       expect(() =>
         readQuickJSScriptDefinitionSync(
-          `defineIndicator({ scriptVersion: 2, name: 'Empty', ${field}, position: Position.sub, inputs: {}, onBar() {} })`,
+          `defineIndicator({ version: 2, name: 'Empty', ${field}, position: Position.sub, inputs: {}, onBar() {} })`,
         ),
       ).toThrow()
     }
@@ -56,7 +56,7 @@ describe('脚本声明契约', () => {
       )
       .join('\n')
     const result = await runQuickJSScript({
-      source: `defineIndicator({ scriptVersion: 2, name: 'ColorEnum', position: Position.sub, inputs: {}, onBar() {
+      source: `defineIndicator({ version: 2, name: 'ColorEnum', position: Position.sub, inputs: {}, onBar() {
         ${checks}
         plot.Line(close[0], 'line', { color: Color.teal })
       } })`,
@@ -68,7 +68,7 @@ describe('脚本声明契约', () => {
 
   it('字符串输入的 options 随声明保存，供参数面板渲染下拉', () => {
     const definition = readQuickJSScriptDefinitionSync(
-      `defineIndicator({ scriptVersion: 2, name: 'OptionScript', position: Position.sub, onBar() {
+      `defineIndicator({ version: 2, name: 'OptionScript', position: Position.sub, onBar() {
         const type = input.string('SMA', { title: '算法', options: ['SMA', 'EMA'] })
       } })`,
     )
@@ -79,7 +79,7 @@ describe('脚本声明契约', () => {
 
   it('周期输入接受 Timeframe 成员并保存声明', () => {
     const definition = readQuickJSScriptDefinitionSync(
-      `defineIndicator({ scriptVersion: 2, name: 'TimeframeScript', position: Position.sub, onBar() {
+      `defineIndicator({ version: 2, name: 'TimeframeScript', position: Position.sub, onBar() {
         const timeframe = input.timeframe(Timeframe.day, {
           title: '目标周期',
           options: [Timeframe.hour1, Timeframe.day],
@@ -94,15 +94,15 @@ describe('脚本声明契约', () => {
 
   it.each([
     `plot.Line(1, 'x')`,
-    `defineIndicator({ scriptVersion: 2, name: 'MissingPosition', inputs: {}, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', position: 'side', inputs: {}, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { period: input.float(Infinity) }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { period: input.int(2.5) }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { period: input.string('a', { options: [] }) }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { period: input.string('a', { options: [1] }) }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { timeframe: input.timeframe('2h') }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: { timeframe: input.timeframe('D', { options: ['60'] }) }, onBar() {} })`,
-    `defineIndicator({ scriptVersion: 2, name: 'Bad', inputs: {}, onBar() {} }); defineIndicator({ scriptVersion: 2,})`,
+    `defineIndicator({ version: 2, name: 'MissingPosition', inputs: {}, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', position: 'side', inputs: {}, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { period: input.float(Infinity) }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { period: input.int(2.5) }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { period: input.string('a', { options: [] }) }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { period: input.string('a', { options: [1] }) }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { timeframe: input.timeframe('2h') }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: { timeframe: input.timeframe('D', { options: ['60'] }) }, onBar() {} })`,
+    `defineIndicator({ version: 2, name: 'Bad', inputs: {}, onBar() {} }); defineIndicator({ version: 2,})`,
   ])('拒绝不完整或错误声明：%s', async (source) => {
     await expect(runQuickJSScript({ source, bars: [] })).rejects.toBeInstanceOf(
       ScriptExecutionError,
@@ -114,14 +114,14 @@ describe('input 编译规则', () => {
   it.each([
     {
       name: '调用不在 const 初始化里',
-      source: `defineIndicator({ scriptVersion: 2, name: 'Bad', position: Position.main, onBar() {
+      source: `defineIndicator({ version: 2, name: 'Bad', position: Position.main, onBar() {
         plot.Line(input.int(2), 'level')
       } })`,
       message: '必须直接初始化 onBar 顶层的 const 变量',
     },
     {
       name: '嵌套函数内的声明',
-      source: `defineIndicator({ scriptVersion: 2, name: 'Bad', position: Position.main, onBar() {
+      source: `defineIndicator({ version: 2, name: 'Bad', position: Position.main, onBar() {
         const helper = () => { const level = input.int(2) }
         plot.Line(close[0], 'close')
       } })`,
@@ -129,14 +129,14 @@ describe('input 编译规则', () => {
     },
     {
       name: '未知输入类型',
-      source: `defineIndicator({ scriptVersion: 2, name: 'Bad', position: Position.main, onBar() {
+      source: `defineIndicator({ version: 2, name: 'Bad', position: Position.main, onBar() {
         const level = input.gigantic(2)
       } })`,
       message: '未知的输入类型',
     },
     {
       name: '重复的参数名',
-      source: `defineIndicator({ scriptVersion: 2, name: 'Bad', position: Position.main, onBar() {
+      source: `defineIndicator({ version: 2, name: 'Bad', position: Position.main, onBar() {
         const level = input.int(2)
         const level = input.int(3)
       } })`,

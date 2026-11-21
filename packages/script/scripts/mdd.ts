@@ -1,6 +1,6 @@
 /** MDD：回看窗口内的最大回撤；负对数收益的最大子段和定位峰谷，再按价格算算术回撤。 */
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'MDD',
   title: '最大回撤',
   info: '回看窗口内从峰值到谷底的最大回撤幅度，按区间两端的收盘价计算。',

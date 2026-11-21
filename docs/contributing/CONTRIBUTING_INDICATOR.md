@@ -7,7 +7,7 @@
 ```ts
 /** 示例均线，参数默认值与范围只在输入声明中维护。 */
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Example',
   title: '示例均线',
   position: Position.main,

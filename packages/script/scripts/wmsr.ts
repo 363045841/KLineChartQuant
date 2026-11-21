@@ -5,7 +5,7 @@ hline(-50, { color: Color.gray, linestyle: HLineStyle.dashed })
 hline(-80, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'WMSR',
   title: '威廉指标',
   info: '威廉指标衡量超买超卖程度，范围为 -100 到 0。WMSR > -20 超买，WMSR < -80 超卖。',

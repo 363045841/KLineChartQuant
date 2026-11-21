@@ -1,6 +1,6 @@
 // 快慢两条收盘价指数移动平均。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'EMA',
   title: '指数移动平均',
   info: 'EMA 是指数移动平均，给近期价格更高权重，响应速度快于 SMA。',

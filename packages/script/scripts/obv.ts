@@ -2,7 +2,7 @@
 let obv = 0
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OBV',
   title: '能量潮',
   info: 'OBV 累积量能，价格上涨时加量，下跌时减量。OBV 趋势与价格背离常预示反转。',

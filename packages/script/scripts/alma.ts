@@ -1,6 +1,6 @@
 // ALMA：高斯权重均线，中心由 offset 控制，使用 Pine 默认的 floor=false。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'ALMA',
   title: 'Arnaud Legoux 移动平均',
   info: 'ALMA 用高斯权重加权，offset 控制响应位置，sigma 控制平滑度，噪声与滞后间可调。',

@@ -60,13 +60,13 @@ describe('共享脚本语义会话', () => {
 
   it('OHLC 接口支持派生序列，编辑器拒绝美国线影线参数和 fill 句柄误用', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ scriptVersion: 2, name: 'OHLC', position: Position.main, onBar() {
+    session.updateSource(`defineIndicator({ version: 2, name: 'OHLC', position: Position.main, onBar() {
       const average = ta.sma(close, 2)
       plot.Candle(open, high, low, average, 'candles', { color: null, wickColor: Color.gray, borderColor: Color.blue })
       plot.Bar(open, high, low, close, 'bars', { showLast: 10, offset: 1 })
     } })`)
     expect(diagnosticCodes(session)).toEqual([])
-    session.updateSource(`defineIndicator({ scriptVersion: 2, name: 'InvalidOHLC', position: Position.main, onBar() {
+    session.updateSource(`defineIndicator({ version: 2, name: 'InvalidOHLC', position: Position.main, onBar() {
       plot.Bar(open, high, low, close, 'bars', { wickColor: Color.red })
       const candle = plot.Candle(open, high, low, close, 'candles')
       fill(candle, plot.Line(close, 'line'), Color.blue)
@@ -77,7 +77,7 @@ describe('共享脚本语义会话', () => {
 
   it('颜色参数在类型上接受 Color 枚举，同时保留任意 CSS 颜色', () => {
     const session = createScriptLanguageSession()
-    const source = `defineIndicator({ scriptVersion: 2, name: 'ColorApi', position: Position.main, onBar() {
+    const source = `defineIndicator({ version: 2, name: 'ColorApi', position: Position.main, onBar() {
       const id = line.new(barIndex, close[0], barIndex + 1, high[0], xloc.barIndex, extend.none, Color.red)
       line.setColor(id, Color.green)
       const lineRef = plot.Line(close[0], 'line', { color: Color.teal + '80', textColor: Color.gray })
@@ -99,7 +99,7 @@ describe('共享脚本语义会话', () => {
 
   it('带 title 的指标接受 Request 的 Timeframe 参数，并拒绝 Provider 周期名', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ scriptVersion: 2, name: 'Request', title: '展示名', position: Position.main, onBar() {
+    session.updateSource(`defineIndicator({ version: 2, name: 'Request', title: '展示名', position: Position.main, onBar() {
       const timeframe = input.timeframe(Timeframe.hour1, { options: [Timeframe.hour1, Timeframe.day] })
       const [o, h, l, c] = request.security(syminfo.tickerId, timeframe, () => [open, high, low, close] as const)
       const ma: number = request.security('BTCUSDT', Timeframe.hour1, () => ta.sma(close, 20), { source: DataSource.binance, calcBarsCount: 300, gaps: 'off' })
@@ -107,7 +107,7 @@ describe('共享脚本语义会话', () => {
       plot.Line(ma, 'ma')
     } })`)
     expect(diagnosticCodes(session)).toEqual([])
-    session.updateSource(`defineIndicator({ scriptVersion: 2, name: 'RawPeriod', position: Position.main, onBar() {
+    session.updateSource(`defineIndicator({ version: 2, name: 'RawPeriod', position: Position.main, onBar() {
       const ma: number = request.security(syminfo.tickerId, 'daily', () => ta.sma(close, 20))
       plot.Line(ma, 'ma')
     } })`)
@@ -118,7 +118,7 @@ describe('共享脚本语义会话', () => {
   it('同版本复用转换结果，修改 inputs 后清除旧参数并采用新类型', () => {
     const session = createScriptLanguageSession()
     const source = `defineIndicator({
-      scriptVersion: 2,
+      version: 2,
       name: 'ParameterContext', position: Position.sub,
       onBar() { const level = input.int(2); plot.Line(close * level, 'value') }
     })`
@@ -127,7 +127,7 @@ describe('共享脚本语义会话', () => {
     expect(diagnosticCodes(session)).toEqual([])
 
     session.updateSource(`defineIndicator({
-      scriptVersion: 2,
+      version: 2,
       name: 'Changed', position: Position.sub,
       onBar() { const enabled = input.bool(true); const removed = level; const active: number = enabled }
     })`)

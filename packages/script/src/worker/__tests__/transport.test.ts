@@ -77,7 +77,7 @@ describe('Worker input synchronization', () => {
 describe('Worker drawing transport', () => {
   it('roundtrips real script scalar, OHLC, fills, boxes, labels and lines', () => {
     const script =
-      prepareNativeScript(`defineIndicator({ scriptVersion: 2,name:'Wire',position:Position.main,onBar(){
+      prepareNativeScript(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
       const a=plot.Line(close,'a');const b=plot.Line(close[0]+1,'b');
       fill(a,b,Color.red);plot.Candle(open,high,low,close,'ohlc');
       box.new({left:barIndex,right:barIndex+1,top:high[0],bottom:low[0]});
@@ -157,7 +157,7 @@ it('keeps port-owned baselines correct across real thread calculations and failu
     volume: 1,
     closed: true,
   }))
-  const source = `defineIndicator({ scriptVersion: 2,name:'WireLifecycle',position:Position.main,onBar(){
+  const source = `defineIndicator({ version: 2,name:'WireLifecycle',position:Position.main,onBar(){
     if(close[0]<0) throw new Error('invalid-price');plot.Line(close,'close');
   }})`
   try {

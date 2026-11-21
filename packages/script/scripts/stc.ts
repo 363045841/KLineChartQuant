@@ -14,7 +14,7 @@ function smooth(key: string, raw: Series, factor: number): Series {
 }
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'STC',
   title: '夏夫趋势周期',
   info: 'STC 结合 MACD 与随机指标，在 0-100 区间判断趋势方向与周期相位。',

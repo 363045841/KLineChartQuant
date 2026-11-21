@@ -1,6 +1,6 @@
 // Keltner 通道以 EMA 为中轨，Wilder ATR 的倍数为半宽。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Keltner',
   title: '肯特纳通道',
   info: 'Keltner 通道以 EMA 为中枢，用 ATR 倍数确定上下轨，价格突破通道常视为趋势信号。',

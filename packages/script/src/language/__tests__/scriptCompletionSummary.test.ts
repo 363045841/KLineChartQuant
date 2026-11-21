@@ -35,7 +35,7 @@ function completionSummary(source: string, owner: string, member: string): strin
 }
 
 /** 脚本做完补全后仍可运行的最小源码，逐项包含待验证的枚举成员。 */
-const SOURCE = `defineIndicator({ scriptVersion: 2, name: 'Hints', position: Position.main, onBar() {
+const SOURCE = `defineIndicator({ version: 2, name: 'Hints', position: Position.main, onBar() {
   const timeframe = input.timeframe(Timeframe.day, { options: [Timeframe.hour1] })
   const color = Color.teal
   const source = DataSource.mt5

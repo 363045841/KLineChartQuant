@@ -516,7 +516,7 @@ function renderIndex() {
     '- 标注 `Series` 的位置既接受序列（`close`、`ta.sma(...)`），也接受数值；数值运算会自动取当前值。',
     '- 返回 `Series` 的结果可继续索引：`[0]` 当前值、`[1]` 上一根；历史不足为 `NaN`。',
     '- 句柄（`PlotRef`、`LineRef` 等）只在一次运行内有效，不能跨运行保存。',
-    '- 所有脚本必须在 `defineIndicator` 中声明 `scriptVersion: 2`，旧写法注册时直接拒绝。',
+    '- 所有脚本必须在 `defineIndicator` 中声明 `version: 2`，旧写法注册时直接拒绝。',
   ].join('\n\n')
 }
 

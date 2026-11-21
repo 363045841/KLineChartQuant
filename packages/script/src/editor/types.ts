@@ -148,7 +148,7 @@ export interface ScriptPlot {
 /** 完整脚本的声明与逐 bar 执行回调。 */
 export interface ScriptIndicatorDeclaration extends Omit<QuickJSScriptDefinition, 'inputs'> {
   /** 必须写当前写法版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
-  readonly scriptVersion: typeof SCRIPT_VERSION
+  readonly version: typeof SCRIPT_VERSION
   /** 逐根 K 线调用一次 */
   onBar(): void
 }

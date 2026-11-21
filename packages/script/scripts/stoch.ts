@@ -3,7 +3,7 @@
 for (const level of [80, 50, 20]) hline(level, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'KDJ',
   title: 'KDJ',
   info: 'KDJ 通过比较收盘价与近期价格区间判断超买超卖。K、D、J 三线可用于观察动量与交叉信号。',

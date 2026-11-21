@@ -9,7 +9,7 @@ describe('Series 当前值语法糖', () => {
       source: `
         const declare = defineIndicator
         declare({
-          scriptVersion: 2,
+          version: 2,
           name: 'ParameterContext',
           position: Position.sub,
           onBar() {

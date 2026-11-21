@@ -357,7 +357,7 @@ type DefinitionBase = Record<string, unknown> & {
 }
 
 /** 脚本写法版本；缺失按 1 处理，只接受当前版本。 */
-function readScriptVersion(value: unknown): number {
+function readVersion(value: unknown): number {
   return typeof value === 'number' ? value : 1
 }
 
@@ -440,14 +440,14 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
       `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.main} 或 ${Position.sub}`,
     )
   }
-  const scriptVersion = readScriptVersion(value.scriptVersion)
-  if (scriptVersion !== SCRIPT_VERSION)
+  const version = readVersion(value.version)
+  if (version !== SCRIPT_VERSION)
     throw new ScriptExecutionError(
       'compile',
-      `脚本版本 v${scriptVersion} 已不再支持，请在 defineIndicator 中声明 scriptVersion: ${SCRIPT_VERSION}`,
+      `脚本版本 v${version} 已不再支持，请在 defineIndicator 中声明 version: ${SCRIPT_VERSION}`,
     )
   return {
-    scriptVersion,
+    version,
     name: value.name,
     ...(typeof value.maxLinesCount === 'number' ? { maxLinesCount: value.maxLinesCount } : {}),
     ...(typeof value.maxBoxesCount === 'number' ? { maxBoxesCount: value.maxBoxesCount } : {}),

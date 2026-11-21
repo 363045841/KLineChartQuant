@@ -43,7 +43,7 @@ export interface QuickJSLibrary {
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
   /** 脚本写法版本；宿主按 SCRIPT_VERSION 校验，缺失按 1 处理。 */
-  readonly scriptVersion: number
+  readonly version: number
   /** 稳定身份与选择器短名；注册身份由宿主维护。 */
   readonly name: string
   /** 指标选择器/图例显示的长名称；缺省用 name。 */

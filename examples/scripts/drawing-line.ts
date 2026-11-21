@@ -2,7 +2,7 @@
 let activeLine: ReturnType<typeof line.new> | null = null
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Drawing Line',
   position: Position.main,
   maxLinesCount: 50,

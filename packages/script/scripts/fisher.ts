@@ -3,7 +3,7 @@ let value = 0
 let fisher = 0
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Fisher',
   title: '费雪变换',
   info: 'Fisher Transform 将价格分布高斯化，凸显拐点，transform 与 signal 双线交叉给出信号。',

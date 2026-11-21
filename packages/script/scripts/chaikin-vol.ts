@@ -1,6 +1,6 @@
 // ChaikinVol：高低价差的 EMA 变化率，衡量波幅的相对扩张与收缩。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'ChaikinVol',
   title: '蔡金波动率',
   info: 'Chaikin Volatility 衡量价格区间的宽度变化，波动率扩张预示突破，收缩预示盘整。',

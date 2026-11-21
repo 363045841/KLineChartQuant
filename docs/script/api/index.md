@@ -28,4 +28,4 @@
 
 - 句柄（`PlotRef`、`LineRef` 等）只在一次运行内有效，不能跨运行保存。
 
-- 所有脚本必须在 `defineIndicator` 中声明 `scriptVersion: 2`，旧写法注册时直接拒绝。
+- 所有脚本必须在 `defineIndicator` 中声明 `version: 2`，旧写法注册时直接拒绝。

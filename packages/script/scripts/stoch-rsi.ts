@@ -1,6 +1,6 @@
 // StochRSI：RSI 再做随机指标，K/D 各做一次 SMA 平滑。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'StochRSI',
   title: '随机相对强弱指标',
   info: 'StochRSI 对 RSI 再做随机指标计算，比普通 RSI 更敏感，K/D 双线观察超买超卖。',

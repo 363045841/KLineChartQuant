@@ -4,7 +4,7 @@
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: '成交量潮汐',
   position: Position.sub,
   onBar() {

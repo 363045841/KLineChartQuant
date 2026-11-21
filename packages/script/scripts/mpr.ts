@@ -42,7 +42,7 @@ function markTrade(
 }
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'MPR',
   title: '最优单次交易',
   info: '回看窗口内一次买入卖出的最大收益率；最大子段和定位买卖两根。',

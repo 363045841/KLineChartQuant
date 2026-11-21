@@ -2,7 +2,7 @@
 let vidya = Number.NaN
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'VIDYA',
   title: '可变指数移动平均',
   info: 'VIDYA 用 CMO 自适应调整平滑系数，趋势强时快速跟随，震荡时平滑过滤。',

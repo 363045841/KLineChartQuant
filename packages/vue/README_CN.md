@@ -77,7 +77,7 @@ KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: '成交量潮汐',
   position: Position.sub,
   onBar() {

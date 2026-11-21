@@ -1,6 +1,6 @@
 /** MACD：TA 库计算 DIF/DEA，脚本保留翻倍柱体与正负、增减四色。 */
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'MACD',
   title: '指数平滑异同移动平均线',
   info: 'MACD 通过快慢均线的交叉判断趋势方向和动量。DIF 上穿 DEA 为金叉看涨，下穿为死叉看跌。',

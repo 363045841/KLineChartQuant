@@ -1,6 +1,6 @@
 // Parkinson：高低价对数平方窗口均值的波动率估计，按年化周期折算为百分比。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Parkinson',
   title: '帕金森波动率',
   info: 'Parkinson 利用最高最低价估算波动率，比 HV 更高效，捕捉日内波动范围。',

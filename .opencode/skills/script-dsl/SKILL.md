@@ -19,7 +19,7 @@ metadata:
 
 ## 硬规则
 
-1. `defineIndicator` 必须声明 `scriptVersion: 2`；旧写法注册期直接报错，不保留兼容层。
+1. `defineIndicator` 必须声明 `version: 2`；旧写法注册期直接报错，不保留兼容层。
 2. 改完契约或文档后跑 `pnpm docs:script:generate`，`pnpm docs:script:check` 校验；不要手改 `docs/script/api/*` 与 `packages/script/src/editor/apiReference.ts`，它们由生成器产出。
 3. `packages/script/docs/indicator.md` 里标记为 ` ```js ` 的代码块会被 `docsExamples.test.ts` 真实执行，必须是完整可运行脚本；片段一律用 ` ```ts `。
 

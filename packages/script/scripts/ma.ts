@@ -1,6 +1,6 @@
 // 五组独立周期的收盘价简单移动平均。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'MA',
   title: '移动平均',
   info: 'MA 是简单移动平均，平滑价格并展示趋势方向；多条不同周期均线可观察排列与交叉。',

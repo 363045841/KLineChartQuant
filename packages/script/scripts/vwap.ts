@@ -3,7 +3,7 @@ let sumPriceVolume = 0
 let sumVolume = 0
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'VWAP',
   title: '成交量加权均价',
   info: 'VWAP（Volume-Weighted Average Price）以成交量加权的均价线，机构常用作日内交易基准；每个交易日开盘重新累计。',

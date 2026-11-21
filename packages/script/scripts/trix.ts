@@ -1,6 +1,6 @@
 // TRIX：收盘价三重指数均线的百分比变化，并附信号均线。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'TRIX',
   title: '三重指数平滑平均',
   info: 'TRIX 三平滑后取 ROC，过滤短期波动，上穿信号线为买入信号，下穿为卖出信号。',

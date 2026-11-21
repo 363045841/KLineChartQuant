@@ -21,7 +21,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     const result = await run(
       `
       let original: BoxRef | null = null
-      defineIndicator({ scriptVersion: 2, name: 'Boxes', position: Position.main, onBar() {
+      defineIndicator({ version: 2, name: 'Boxes', position: Position.main, onBar() {
         if (barIndex === 0) {
           original = box.new(chart.point.fromIndex(0, 20), chart.point.fromIndex(1, 10), Color.red, 0, LineStyle.dashed, extend.right, xloc.barIndex, '#ff000040', 'FVG')
           if (box.all[0] !== original) throw new Error('reference mismatch')
@@ -66,7 +66,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('creates the same object from positional and options forms', async () => {
     const result = await run(
       `
-      defineIndicator({ scriptVersion: 2, name: 'Options', position: Position.main, onBar() {
+      defineIndicator({ version: 2, name: 'Options', position: Position.main, onBar() {
         if (barIndex !== 0) return
         label.new(1, 20, 'A', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11, 'center', 8)
         label.new({ x: 1, y: 20, text: 'A', color: Color.red, textColor: Color.red, size: 11, offsetY: 8 })
@@ -94,7 +94,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('stores a label vertical offset and updates it in place', async () => {
     const result = await run(
       `
-      defineIndicator({ scriptVersion: 2, name: 'Offsets', position: Position.main, onBar() {
+      defineIndicator({ version: 2, name: 'Offsets', position: Position.main, onBar() {
         const shifted = label.new(0, 20, 'CHoCH', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11, 'center', 8)
         if (label.getYOffset(shifted) !== 8) throw new Error('offset mismatch')
         label.setYOffset(shifted, -3)
@@ -113,7 +113,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('counts and evicts each object kind separately; deleted references stay deleted', async () => {
     const result = await run(
       `
-      defineIndicator({ scriptVersion: 2, name: 'Limits', position: Position.main, maxBoxesCount: 1, maxLabelsCount: 1, maxLinesCount: 1, onBar() {
+      defineIndicator({ version: 2, name: 'Limits', position: Position.main, maxBoxesCount: 1, maxLabelsCount: 1, maxLinesCount: 1, onBar() {
         const old = box.new(0, 20, 1, 10)
         box.new(0, 30, 1, 15)
         box.setTop(old, 999)
@@ -135,7 +135,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
 
   it('supports time coordinates, changing xloc, and hidden NaN geometry', async () => {
     const result = await run(
-      `defineIndicator({ scriptVersion: 2, name: 'Coordinates', position: Position.main, onBar() {
+      `defineIndicator({ version: 2, name: 'Coordinates', position: Position.main, onBar() {
       const b = box.new(chart.point.fromTime(1000, 20), chart.point.fromTime(2000, 10), Color.blue, 1, LineStyle.solid, extend.none, xloc.barTime)
       if (box.getLeft(b) !== 1000) throw new Error('time mismatch')
       box.setXLoc(b, 0, 2, xloc.barIndex)
@@ -158,7 +158,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
 
   it('confirms pivots after the right window and resolves equal highs to the right', async () => {
     const result = await run(
-      `defineIndicator({ scriptVersion: 2, name: 'Pivots', position: Position.main, onBar() {
+      `defineIndicator({ version: 2, name: 'Pivots', position: Position.main, onBar() {
       plot.Line(ta.pivothigh(high, 1, 1)[0], 'high')
     } })`,
       barsFromCloses([1, 3, 3, 1, 2]),

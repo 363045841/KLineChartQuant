@@ -2,7 +2,7 @@
 let frama = Number.NaN
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'FRAMA',
   title: '分形自适应移动平均',
   info: 'FRAMA 用分形维度自适应调整平滑系数，趋势强时快，震荡时慢。',

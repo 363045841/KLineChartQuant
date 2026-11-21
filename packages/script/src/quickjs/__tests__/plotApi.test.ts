@@ -38,7 +38,7 @@ describe('plot 调用契约', () => {
   it('Char 和 Arrow 使用共享默认值，调用只需提供 name', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
-        scriptVersion: 2,
+        version: 2,
         name: 'Marker defaults', position: Position.sub, inputs: {},
         onBar() {
           plot.Char(true, 'char')
@@ -205,7 +205,7 @@ describe('plot 调用契约', () => {
 
   it('fill 用句柄引用边界，每根 bar 保存颜色或 null', async () => {
     const result = await runQuickJSScript({
-      source: `defineIndicator({ scriptVersion: 2, name: 'Cloud', position: Position.sub, inputs: {},
+      source: `defineIndicator({ version: 2, name: 'Cloud', position: Position.sub, inputs: {},
         onBar() {
           const fast = plot.Line(close[0], 'fast')
           const slow = plot.Line(close[0] + 1, 'slow')
@@ -389,7 +389,7 @@ ${scriptSource('')}`,
       runQuickJSScript({
         source: `const over = hline(80)
 const under = hline(20)
-defineIndicator({ scriptVersion: 2, name: 'Bad', position: 'sub', onBar() { fill(over, under, '#fff') } })`,
+defineIndicator({ version: 2, name: 'Bad', position: 'sub', onBar() { fill(over, under, '#fff') } })`,
         bars: barsFromCloses([1]),
       }),
     ).rejects.toThrow('文件顶层')

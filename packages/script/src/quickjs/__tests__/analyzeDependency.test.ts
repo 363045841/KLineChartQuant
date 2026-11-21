@@ -4,7 +4,7 @@ import { analyzeScriptDependency } from '../impl/analyzeDependency.js'
 
 /** 生成一个最小指标脚本，只包含 onBar 内的计算。 */
 function script(onBar: string, topLevel = ''): string {
-  return `${topLevel}\ndefineIndicator({ scriptVersion: 2, name:'T', position:Position.main, onBar(){${onBar}}})`
+  return `${topLevel}\ndefineIndicator({ version: 2, name:'T', position:Position.main, onBar(){${onBar}}})`
 }
 
 describe('analyzeScriptDependency', () => {
@@ -42,7 +42,7 @@ describe('analyzeScriptDependency', () => {
     {
       name: '计算辅助函数内部的递归同样有状态',
       source: `function average(source, length) { return ta.ema(source, length) }
-defineIndicator({ scriptVersion: 2, name:'T', position:Position.main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`,
+defineIndicator({ version: 2, name:'T', position:Position.main, onBar(){ plot.Line(average(close, 20)[0], 'ema') } })`,
       expected: { kind: 'stateful' },
     },
     {

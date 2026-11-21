@@ -1,6 +1,6 @@
 // 收盘价移动平均，算法可选 SMA / EMA / WMA / VWMA；声明与计算都是编辑器中的完整源码。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'SMA',
   title: '简单移动平均',
   info: 'SMA 是简单移动平均，对窗口内价格等权平均，用于平滑趋势。',

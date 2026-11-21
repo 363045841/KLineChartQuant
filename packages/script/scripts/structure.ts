@@ -99,7 +99,7 @@ function drawBreak(
 }
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Structure',
   title: '市场结构',
   position: Position.main,

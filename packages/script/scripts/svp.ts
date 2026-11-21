@@ -1,7 +1,7 @@
 /** 交易时段成交量分布：低周期明细在自身市场时区分组，通过公共box/line输出。 */
 const vp = importLibrary('volumeProfile')
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'SVP',
   title: '交易时段成交量分布',
   position: Position.main,

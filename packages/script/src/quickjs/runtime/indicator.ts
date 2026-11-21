@@ -251,7 +251,7 @@ function defineIndicator(definition: ScriptIndicatorDeclaration): void {
 function __metadata(): QuickJSScriptDefinition {
   if (!__definition) throw new TypeError('脚本需要调用 defineIndicator')
   return {
-    scriptVersion: __definition.scriptVersion,
+    version: __definition.version,
     name: __definition.name,
     title: __definition.title,
     info: __definition.info,

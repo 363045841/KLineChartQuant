@@ -17,7 +17,7 @@
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OC Average',
   position: Position.sub,
   inputs: {

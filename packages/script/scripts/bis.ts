@@ -1,6 +1,6 @@
 /** BIS：回看窗口内最强的一段连续上涨；对数收益的最大子段和换算成累计涨幅。 */
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'BIS',
   title: '最强连续区间',
   info: '回看窗口内累计涨幅最大的连续区间，衡量趋势的含金量。',

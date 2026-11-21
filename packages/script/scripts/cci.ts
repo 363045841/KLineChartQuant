@@ -1,6 +1,6 @@
 // 典型价格的顺势指标，参考线 ±100 与 0。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'CCI',
   title: '顺势指标',
   info: 'CCI 衡量价格相对统计平均的偏离程度，+100 以上常视为强势，-100 以下常视为弱势。',

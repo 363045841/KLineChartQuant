@@ -21,7 +21,7 @@ parameters and calculation live in the same document:
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OC Average',
   position: Position.sub,
   onBar() {

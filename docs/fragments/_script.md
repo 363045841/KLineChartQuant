@@ -4,7 +4,7 @@ Indicators can be written as plain TypeScript instead of being compiled ahead of
 
 ```js
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Volume Tide',
   position: Position.sub,
   onBar() {

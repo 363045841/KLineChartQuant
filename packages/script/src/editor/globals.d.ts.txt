@@ -102,11 +102,11 @@ declare global {
   /**
    * 定义一个指标。
    * 顶层代码只执行一次，顶层变量跨 bar 保留；逐根计算写在 onBar 内。
-   * scriptVersion 必须写当前版本 2，旧写法在注册期直接拒绝。
+   * version 必须写当前版本 2，旧写法在注册期直接拒绝。
    *
    * ```ts
    * defineIndicator({
-   *   scriptVersion: 2,
+   *   version: 2,
    *   name: 'OC Average',
    *   position: Position.sub,
    *   onBar() {

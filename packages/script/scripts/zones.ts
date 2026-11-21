@@ -94,7 +94,7 @@ function detectOrderBlock(config: ZonesConfig, bull: boolean): void {
 }
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Zones',
   title: 'FVG 与订单块',
   position: Position.main,

@@ -1,6 +1,6 @@
 // UO：按三个周期加权的买压与真实波幅比值。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'UO',
   title: '终极振荡器',
   info: 'UO 综合多个周期买卖压力加权，值域 0-100，避免单一周期的噪声信号。',

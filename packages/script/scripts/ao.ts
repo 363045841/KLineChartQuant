@@ -1,6 +1,6 @@
 // 动量震荡指标：中位价的快慢 SMA 之差，按正负与增减着色。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'AO',
   title: '动量震荡指标',
   info: 'AO 用中位价的快慢 SMA 之差衡量动量，柱体由负转正或上穿零轴常视为动能转强。',

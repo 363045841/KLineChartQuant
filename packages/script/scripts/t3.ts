@@ -1,6 +1,6 @@
 // Tillson T3 通过六层指数平滑及可调因子过滤价格噪声。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'T3',
   title: 'Tillson T3',
   info: 'T3 用多层 EMA 与体积因子组合平滑价格，在平滑度和滞后之间提供可调折中。',

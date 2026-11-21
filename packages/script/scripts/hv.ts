@@ -1,6 +1,6 @@
 // HV：对数收益率窗口的总体标准差，按年化周期折算为百分比。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'HV',
   title: '历史波动率',
   info: 'HV 衡量过去 N 日对数收益率的年化标准差，值越高表示市场波动越大。',

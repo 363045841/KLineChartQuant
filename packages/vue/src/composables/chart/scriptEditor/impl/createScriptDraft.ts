@@ -30,7 +30,7 @@ export async function createCopySource(source: string, name: string): Promise<st
 
 /** 新建脚本提供可直接保存的独立声明。 */
 export function createBlankSource(name: string): string {
-  return `// 用户自定义指标\ndefineIndicator({ scriptVersion: 2,\n  name: ${JSON.stringify(name)},\n  position: Position.sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
+  return `// 用户自定义指标\ndefineIndicator({ version: 2,\n  name: ${JSON.stringify(name)},\n  position: Position.sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
 }
 
 /** 库模板仅公开可复用函数，不生成指标或绘图入口。 */

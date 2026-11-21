@@ -3,7 +3,7 @@
 for (const level of [80, 50, 20]) hline(level, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'RSI',
   title: '相对强弱指标',
   info: 'RSI 衡量价格变动的速度和幅度，判断超买超卖状态。RSI > 70 超买，RSI < 30 超卖。',

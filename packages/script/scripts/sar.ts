@@ -6,7 +6,7 @@ let extreme = Number.NaN
 let acceleration = 0
 
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'SAR',
   title: '抛物线转向',
   info: 'SAR（Parabolic Stop and Reverse）通过抛物线轨迹跟踪趋势，提供动态止损和反转信号。',

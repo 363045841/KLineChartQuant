@@ -1,6 +1,6 @@
 // 开收盘均价及高低价：均价到高低线的距离均小于阈值时，在均价处绘制 Shape。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'OC Average',
   title: '开收盘均价',
   info: 'OC Average 用开盘价与收盘价的均价构造价格序列，用于观察日内实体重心的变化。',

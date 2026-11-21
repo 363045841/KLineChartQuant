@@ -1,6 +1,6 @@
 // 成交量的简单移动平均，观察量能趋势。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'VMA',
   title: '成交量移动平均',
   info: 'VMA 是成交量的移动平均，用于观察量能趋势与放量/缩量。',

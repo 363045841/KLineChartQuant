@@ -1,6 +1,6 @@
 // 双均线差 DIF 及其简单移动平均 AMA。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'DMA',
   title: '平行线差指标',
   info: 'DMA 用快慢均线差与信号线判断趋势，DIF 上穿 AMA 视为多头信号。',

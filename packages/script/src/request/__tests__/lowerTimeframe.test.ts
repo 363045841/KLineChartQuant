@@ -25,7 +25,7 @@ beforeAll(preloadQuickJS)
 describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
   it('preserves every intrabar, tuple columns and empty chart slots', () => {
     const script =
-      prepare(`defineIndicator({ scriptVersion: 2, name:'LTF', position:Position.main, onBar(){
+      prepare(`defineIndicator({ version: 2, name:'LTF', position:Position.main, onBar(){
       const [t,v] = request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>[time,volume] as const);
       plot.Line(v.reduce((sum,value)=>sum+value,0),'volume');
       plot.Line(t.length,'count');
@@ -179,7 +179,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
   it('rejects higher periods and keeps empty tuple columns when explicitly ignored', () => {
     const source = (
       ignore: boolean,
-    ) => `defineIndicator({ scriptVersion: 2,name:'InvalidLTF',position:Position.main,onBar(){
+    ) => `defineIndicator({ version: 2,name:'InvalidLTF',position:Position.main,onBar(){
       const [t,v]=request.securityLowerTf(syminfo.tickerId,Timeframe.week,()=>[time,volume] as const,{ignoreInvalidTimeframe:${ignore}});
       plot.Line(t.length+v.length,'count');
     }})`

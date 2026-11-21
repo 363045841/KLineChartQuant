@@ -15,7 +15,7 @@ defineLibrary('stats', {
 // 在指标脚本里使用
 const stats = importLibrary('stats')
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'Mean',
   position: Position.sub,
   onBar() {

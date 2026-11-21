@@ -1,6 +1,6 @@
 // 四组变化率的加权和及其信号均线。
 defineIndicator({
-  scriptVersion: 2,
+  version: 2,
   name: 'KST',
   title: '确然指标',
   info: 'KST 用多组 ROC 的加权平滑判断中长期动量，信号线交叉用于确认趋势。',
