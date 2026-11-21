@@ -1,4 +1,4 @@
-<!-- 共享按钮：Modal footer 与通用操作按钮，统一消费 ui tokens，避免各 dialog 复制按钮样式。 -->
+<!-- 共享按钮：默认是文字动作（悬停出下划线），variant 只切换颜色；统一消费 ui tokens，避免各 dialog 复制按钮样式。 -->
 <template>
   <button
     ref="button"
@@ -18,9 +18,9 @@
     defineProps<{
       /** 原生 button type。 */
       type?: 'button' | 'submit' | 'reset'
-      /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景。 */
-      size?: 'md' | 'sm'
-      /** 操作层级：default / primary / link。 */
+      /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景，inline 用于句子内的文字动作。 */
+      size?: 'md' | 'sm' | 'inline'
+      /** 操作层级：default 弱化文字、primary 始终正文色、link 链接蓝。形状统一是文字动作。 */
       variant?: 'default' | 'primary' | 'link'
       /** 禁用态。 */
       disabled?: boolean
@@ -48,6 +48,9 @@
     --base-button-inline-padding: var(--klc-space-8, 8px);
     /* 下划线与按钮下缘的距离；小尺寸按钮单独收窄，避免线贴到文字底边。 */
     --base-button-underline-offset: 5px;
+    /* 默认外观就是文字动作：悬停/聚焦时下划线由中间展开，不出底色。 */
+    --base-button-underline: '';
+    --base-button-hover-background: transparent;
     position: relative;
     box-sizing: border-box;
     display: inline-flex;
@@ -68,8 +71,7 @@
     background: transparent;
     transition:
       background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
-      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard),
-      border-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
+      color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .base-button--sm {
@@ -79,29 +81,40 @@
     font-size: var(--klc-text-12-font-size, 12px);
   }
 
+  /* 句子内的文字动作：不吃固定高度，字号、字重、行高全部继承所在文字。 */
+  .base-button--inline {
+    --base-button-inline-padding: 0px;
+    --base-button-underline-offset: 0px;
+
+    height: auto;
+    /* 去掉透明边框，行内元素才不会把所在行撑高。 */
+    border: 0;
+    font: inherit;
+  }
+
   .base-button--primary {
     color: var(--klc-color-ui-text);
   }
 
   /*
-    链接档：句子内的动作。蓝色文字、无内边距，下划线复用与 footer 相同的展开动画，
+    链接档：句子内的动作。蓝色文字、无内边距，下划线复用与默认档相同的展开动画，
     hover 不变色也不加底色；只在真正像链接的位置使用（例如失败提示、表单内联操作）。
   */
   .base-button--link {
     /* 0px 而不是 0：无单位零会让 calc(100% - 2 * 0) 在计算值阶段非法。 */
     --base-button-inline-padding: 0px;
-    --base-button-underline: '';
     --base-button-color: var(--klc-brand-accent-text);
     --base-button-hover-color: var(--klc-brand-accent-text);
-    --base-button-hover-background: transparent;
 
     gap: 0;
   }
 
   /*
-    文字动作下划线：默认不生成伪元素，Footer 这类容器用 --base-button-underline 打开。
+    文字动作下划线：默认生成；需要色块按钮（hover 出底色）的站点用
+    --base-button-underline: none 配合 --base-button-hover-background 改回。
     宽度用 width 展开而不是 scaleX：合成层回收时缩放会突然变细；
     宽度由控件自己的行内留白变量推导，换尺寸或响应式留白都不会和文字错位。
+    与 control-button.css 的同名动画互为镜像，改一处必须同步另一处。
   */
   .base-button::after {
     content: var(--base-button-underline, none);

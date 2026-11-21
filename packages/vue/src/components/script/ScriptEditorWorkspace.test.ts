@@ -476,7 +476,7 @@ describe('ScriptEditorWorkspace', () => {
       await nextTick()
       // 删除先进入菜单内确认，不给误点直接删除的机会。
       const confirmActions = () =>
-        Array.from(document.querySelectorAll<HTMLButtonElement>('.script-menu__action'))
+        Array.from(document.querySelectorAll<HTMLButtonElement>('.script-menu__actions button'))
       expect(confirmActions().map((button) => button.textContent)).toEqual(['取消', '删除文件夹'])
       confirmActions()[1]!.click()
       await flush()

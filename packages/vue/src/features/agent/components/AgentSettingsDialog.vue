@@ -164,11 +164,9 @@
                   :disabled="providerSettings.modelsLoading"
                 />
                 <BaseTooltip :content="text.refreshModels" placement="top">
-                  <BaseButton
-                    size="sm"
-                    class="models__refresh"
-                    :class="{ 'is-loading': providerSettings.modelsLoading }"
-                    :aria-label="text.refreshModels"
+                  <BaseIconButton
+                    size="lg"
+                    :label="text.refreshModels"
                     :disabled="providerSettings.modelsLoading || !hasProviderConnection"
                     @click="providerSettings.refreshModelCatalog()"
                   >
@@ -176,7 +174,7 @@
                       :class="{ 'klc-spin': providerSettings.modelsLoading }"
                       aria-hidden="true"
                     />
-                  </BaseButton>
+                  </BaseIconButton>
                 </BaseTooltip>
               </header>
 
@@ -230,7 +228,6 @@
                   />
                   <BaseButton
                     size="sm"
-                    class="field__save"
                     :disabled="!providerSettings.exaApiKey.trim() && !status.exaConfigured"
                     @click="providerSettings.persistWebSearchApiKey()"
                   >
@@ -669,11 +666,6 @@
     flex: 1 1 auto;
   }
 
-  .field__save {
-    flex: 0 0 auto;
-    font-size: 12px;
-  }
-
   .field__mono {
     font-family: var(--klc-font-family-mono);
     font-weight: var(--klc-font-weight-mono);
@@ -823,17 +815,6 @@
   .models__search {
     min-width: 0;
     flex: 1 1 auto;
-  }
-
-  .models__refresh {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-  }
-
-  .models__refresh svg {
-    width: 16px;
-    height: 16px;
   }
 
   .models__list {

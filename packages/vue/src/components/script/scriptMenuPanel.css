@@ -51,29 +51,10 @@
   padding-top: 4px;
 }
 
-.script-menu__action {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--klc-color-ui-border);
-  border-radius: var(--klc-radius-xs, 4px);
-  background: transparent;
-  color: var(--klc-color-ui-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.script-menu__action:hover:not(:disabled) {
-  background: var(--klc-color-ui-hover);
-}
-
-.script-menu__action.is-danger {
-  border-color: var(--klc-color-ui-danger-border);
-  color: var(--klc-color-ui-danger-text);
-}
-
-.script-menu__action:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* 危险动作只换文字色；形状由 BaseButton 的默认文字动作提供。 */
+.script-menu__danger {
+  --base-button-color: var(--klc-color-ui-danger-text);
+  --base-button-hover-color: var(--klc-color-ui-danger-text);
 }
 
 .klc-script-preview-header {

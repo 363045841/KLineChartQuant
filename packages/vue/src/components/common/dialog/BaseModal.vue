@@ -94,6 +94,8 @@
 </template>
 
 <script setup lang="ts">
+  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
+  import ToastViewport from '@vue-src/components/common/feedback/ToastViewport.vue'
   import { getTabbables } from '@vue-src/composables/overlay/platform.js'
   import {
     provideFullscreenTeleportTarget,
@@ -112,8 +114,6 @@
     useTemplateRef,
     watch,
   } from 'vue'
-  import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
-  import ToastViewport from '@vue-src/components/common/feedback/ToastViewport.vue'
 
   defineOptions({ inheritAttrs: false })
 
@@ -485,12 +485,10 @@
 
   .base-footer {
     /*
-      Footer 动作只保留文字：悬停不出底色，下划线从文字下方由中间向两侧展开。
-      按钮外观由 BaseButton / ControlTrigger 自己实现，这里只提供继承变量。
+      Footer 动作只保留文字：BaseButton 默认就是文字动作，这里只接管高度；
+      下拉触发器仍是色块反馈，所以单独把它那组变量清零。
     */
     --base-button-height: calc(var(--klc-density-default, 32px) - var(--klc-space-4, 4px));
-    --base-button-hover-background: transparent;
-    --base-button-underline: '';
     --control-button-active-background: transparent;
     --control-button-focus-background: transparent;
     --control-button-focus-shadow: none;

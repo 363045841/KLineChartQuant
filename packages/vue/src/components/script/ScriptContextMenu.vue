@@ -43,16 +43,16 @@
           {{ content.error }}
         </div>
         <div class="script-menu__actions">
-          <button type="button" class="script-menu__action" @click="model.close()">取消</button>
-          <button
+          <BaseButton size="sm" @click="model.close()">取消</BaseButton>
+          <BaseButton
             v-auto-focus
-            type="button"
-            class="script-menu__action is-danger"
+            size="sm"
+            class="script-menu__danger"
             :disabled="content.running"
             @click="model.confirmAction()"
           >
             {{ content.confirmLabel }}
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -87,8 +87,9 @@
 </template>
 
 <script setup lang="ts">
-  import AnchoredDialog from '@vue-src/components/common/overlay/AnchoredDialog.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
+  import AnchoredDialog from '@vue-src/components/common/overlay/AnchoredDialog.vue'
   import type { ScriptMenuModel } from '@vue-src/composables/chart/scriptEditor/impl/scriptMenuModel.js'
   import { useScriptMenuPanel } from '@vue-src/composables/chart/scriptEditor/impl/useScriptMenuPanel.js'
   import { vAutoFocus } from '@vue-src/utils/autoFocus.js'
