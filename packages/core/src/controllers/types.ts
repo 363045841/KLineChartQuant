@@ -44,7 +44,7 @@ import type {
 } from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
-import type { ChartAgentController, ChartAgentScriptReference } from '../features/agent/types.js'
+import type { ChartAgentController, ChartAgentScripts } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
@@ -416,12 +416,12 @@ export interface ChartMountOptions {
   indicatorLoading?: IndicatorLoadingMode
 
   /**
-   * Agent 可读取的指标脚本参考。
+   * Agent 可读写的指标脚本能力。
    *
-   * 正文随脚本包发布（`SCRIPT_API_REFERENCE`），由宿主注入；省略时
-   * `script_reference_query` 仍出现在工具清单里，调用会明确失败。
+   * 参考正文与用户脚本文档都由宿主注入；省略时脚本工具仍出现在清单里，
+   * 调用会明确失败。读取与写入分成两只工具，plan 模式只暴露读取面。
    */
-  scriptReference?: ChartAgentScriptReference
+  scripts?: ChartAgentScripts
 }
 
 /** 指标实现的加载策略，见 {@link ChartMountOptions.indicatorLoading}。 */

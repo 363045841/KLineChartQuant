@@ -6,14 +6,14 @@
  */
 import {
   generateUUID,
+  type IndicatorCandidate,
   indicatorFailures,
   logIndicatorFailure,
+  type RegistrableIndicator,
   registerIndicators,
   runIndicatorPipeline,
   setIndicatorFailures,
   unregisterIndicator,
-  type IndicatorCandidate,
-  type RegistrableIndicator,
 } from '@363045841yyt/klinechart-core'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
@@ -32,8 +32,7 @@ import { createScriptOutput } from './createScriptOutput.js'
 import { restoreScriptWorkspace } from './restoreScriptWorkspace.js'
 import { saveScriptLibrary } from './saveScriptLibrary.js'
 import { createScriptDocumentStore } from './scriptDocumentStore.js'
-import { createScriptExecutor, type CompiledScript } from './scriptExecutor.js'
-import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
+import { type CompiledScript, createScriptExecutor } from './scriptExecutor.js'
 import {
   folderKey,
   foldersWithin,
@@ -41,6 +40,7 @@ import {
   removableFolder,
   requireFolder,
 } from './scriptFolderStore.js'
+import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
 import { createScriptPersistence } from './scriptPersistence.js'
 
 /** 脚本指标在注册失败清单里的稳定描述。 */
@@ -145,6 +145,63 @@ export async function createScriptService(
     })()
   }
 
+  /**
+   * 创建一份用户脚本文档。
+   *
+   * kind 由源码声明决定；requiredKind 在写入任何状态前限制入口，
+   * 让 Agent 只能创建指标脚本，不能顺带写入库脚本。
+   */
+  function createDocument(
+    source: string,
+    trusted: boolean,
+    folder: string,
+    requiredKind?: ScriptDocument['kind'],
+  ): Promise<ScriptDocument> {
+    return enqueue(async () => {
+      const id = `script_${generateUUID()}`
+      const declaration = inspectScript(source)
+      if (requiredKind !== undefined && declaration.kind !== requiredKind)
+        throw new Error('该入口只接受指标脚本，defineLibrary 不能在 Agent 中创建')
+      const target = requireFolder(folders, declaration.kind, folder)
+      if (declaration.kind === 'library') {
+        return saveScriptLibrary({
+          document: {
+            id,
+            source,
+            trusted,
+            revision: 1,
+            identity: 'user',
+            kind: 'library',
+            folder: target,
+            definition: { name: declaration.name },
+          },
+          store,
+          executor,
+          persist,
+        })
+      }
+      const compiled = await executor.compile(source, trusted)
+      try {
+        store.assertAvailable(compiled.definition)
+        const document: ScriptDocument & { kind: 'indicator' } = {
+          kind: 'indicator',
+          id,
+          identity: 'user',
+          source,
+          revision: 1,
+          definition: compiled.definition,
+          trusted,
+          folder: target,
+        }
+        await persist([...store.list(), document])
+        return await commitIndicator(document, compiled)
+      } catch (error) {
+        await executor.abandon(id, compiled.handle)
+        throw error
+      }
+    })
+  }
+
   return Object.freeze({
     output: output.source,
     failures: indicatorFailures,
@@ -152,47 +209,10 @@ export async function createScriptService(
       return executor.run(options)
     },
     create(source: string, trusted = false, folder = '') {
-      return enqueue(async () => {
-        const id = `script_${generateUUID()}`
-        const declaration = inspectScript(source)
-        const target = requireFolder(folders, declaration.kind, folder)
-        if (declaration.kind === 'library') {
-          return saveScriptLibrary({
-            document: {
-              id,
-              source,
-              trusted,
-              revision: 1,
-              identity: 'user',
-              kind: 'library',
-              folder: target,
-              definition: { name: declaration.name },
-            },
-            store,
-            executor,
-            persist,
-          })
-        }
-        const compiled = await executor.compile(source, trusted)
-        try {
-          store.assertAvailable(compiled.definition)
-          const document: ScriptDocument & { kind: 'indicator' } = {
-            kind: 'indicator',
-            id,
-            identity: 'user',
-            source,
-            revision: 1,
-            definition: compiled.definition,
-            trusted,
-            folder: target,
-          }
-          await persist([...store.list(), document])
-          return await commitIndicator(document, compiled)
-        } catch (error) {
-          await executor.abandon(id, compiled.handle)
-          throw error
-        }
-      })
+      return createDocument(source, trusted, folder)
+    },
+    createIndicator(source: string, folder = '') {
+      return createDocument(source, false, folder, 'indicator')
     },
     listFolders,
     /** 删除目录子树及其文档；引用检查在写入前完成，避免部分删除。 */
@@ -287,9 +307,7 @@ export async function createScriptService(
             definition: compiled.definition,
             trusted,
           }
-          await persist(
-            store.list().map((item) => (item.id === current.id ? document : item)),
-          )
+          await persist(store.list().map((item) => (item.id === current.id ? document : item)))
           return await commitIndicator(document, compiled)
         } catch (error) {
           await executor.abandon(current.id, compiled.handle)

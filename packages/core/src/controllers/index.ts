@@ -11,7 +11,11 @@ export { INSTANCE_MOVE_KIND, MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engin
 export type {
   ChartAgentContextSnapshot,
   ChartAgentController,
-  ChartAgentScriptReference,
+  ChartAgentScriptCreateInput,
+  ChartAgentScriptDocument,
+  ChartAgentScriptFolder,
+  ChartAgentScriptRef,
+  ChartAgentScripts,
   ChartAgentTimeRange,
   IndicatorQueryInput,
   InstrumentLookupInput,

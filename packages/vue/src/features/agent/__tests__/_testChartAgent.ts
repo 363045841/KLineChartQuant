@@ -66,8 +66,14 @@ export function createTestToolDeps(
       indicatorValues: async () => unused('market.indicatorValues'),
     },
     scripts: {
-      list: () => [],
-      read: () => unused('scripts.read'),
+      listReferenceTopics: () => [],
+      readReference: () => unused('scripts.readReference'),
+      list: async () => [],
+      listFolders: async () => [],
+      read: async () => unused('scripts.read'),
+      create: async () => unused('scripts.create'),
+      update: async () => unused('scripts.update'),
+      remove: async () => unused('scripts.remove'),
     },
     ...overrides,
   }

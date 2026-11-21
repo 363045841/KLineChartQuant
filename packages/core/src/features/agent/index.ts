@@ -13,7 +13,7 @@ export type { ChartToolDefinition, ChartToolMetadata, ChartToolResult } from './
 export {
   CHART_TOOL_METADATA,
   createChartToolCatalog,
-  createUnwiredScriptReference,
+  createUnwiredScripts,
 } from './tools/index.js'
 export type {
   BarsQueryInput,
@@ -37,7 +37,11 @@ export type {
   ChartAgentMarketCapability,
   ChartAgentMarketQueries,
   ChartAgentMarketSource,
-  ChartAgentScriptReference,
+  ChartAgentScriptCreateInput,
+  ChartAgentScriptDocument,
+  ChartAgentScriptFolder,
+  ChartAgentScriptRef,
+  ChartAgentScripts,
   ChartAgentTimeRange,
   ChartAgentToolDeps,
   IndicatorQueryInput,

@@ -64,8 +64,14 @@ function stubTools(): ChartAgentToolDeps {
       indicatorValues: async () => '',
     },
     scripts: {
-      list: () => [],
-      read: unused,
+      listReferenceTopics: () => [],
+      readReference: unused,
+      list: async () => [],
+      listFolders: async () => [],
+      read: async () => unused(),
+      create: async () => unused(),
+      update: async () => unused(),
+      remove: async () => unused(),
     },
   }
 }

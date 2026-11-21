@@ -31,7 +31,7 @@ import {
   createChartAgentMarketQueries,
   createChartAgentToolDeps,
   createMarketDataTextFormatter,
-  createUnwiredScriptReference,
+  createUnwiredScripts,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
@@ -289,7 +289,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     }),
     // 参考正文随脚本包发布，由宿主注入；未注入时工具仍在清单里，调用会明确失败。
-    scripts: opts.scriptReference ?? createUnwiredScriptReference(),
+    scripts: opts.scripts ?? createUnwiredScripts(),
   })
 
   const agent = createChartAgentController({

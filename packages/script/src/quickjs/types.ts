@@ -13,8 +13,8 @@ import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '..
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
 
-/** 当前脚本写法版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
-export const SCRIPT_VERSION = 2
+/** 当前指标 API 版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
+export const INDICATOR_API_VERSION = 2
 
 /**
  * @summary 渲染位置
@@ -42,7 +42,7 @@ export interface QuickJSLibrary {
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
-  /** 脚本写法版本；宿主按 SCRIPT_VERSION 校验，缺失按 1 处理。 */
+  /** 指标 API 版本；宿主按 INDICATOR_API_VERSION 校验，缺失按 1 处理。 */
   readonly version: number
   /** 稳定身份与选择器短名；注册身份由宿主维护。 */
   readonly name: string

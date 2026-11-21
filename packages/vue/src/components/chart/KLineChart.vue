@@ -468,7 +468,7 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
-  import { createScriptReference } from '@vue-src/features/agent/browser-agent/host/impl/script-reference.js'
+  import { createScriptsPort } from '@vue-src/features/agent/browser-agent/host/impl/script-port.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -516,6 +516,7 @@
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
+  import { sharedScriptService } from '@vue-src/composables/chart/scriptEditor/impl/sharedScriptService.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
   import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
@@ -1687,7 +1688,7 @@
       settings: props.settings,
       layoutRestore: props.restoreLayout,
       layoutStorageId: props.layoutStorageId,
-      scriptReference: createScriptReference(),
+      scripts: createScriptsPort(sharedScriptService),
     })
     return ctrl
   }

@@ -194,6 +194,27 @@ describe('ScriptService', () => {
     }
   })
 
+  it('createIndicator 只接受指标脚本，库脚本在写入前失败', async () => {
+    const persistence = { load: async () => null, save: async () => true }
+    const scripts = await createScriptService([], { persistence })
+    try {
+      await expect(
+        scripts.createIndicator(
+          `defineLibrary('agentLibrary', { value(n: number): number { return n } })`,
+        ),
+      ).rejects.toThrow('defineLibrary')
+      expect(scripts.list().filter((document) => document.identity === 'user')).toEqual([])
+      const document = await scripts.createIndicator(
+        source.replace('ServiceAverage', 'AgentAverage'),
+      )
+      expect(document.kind).toBe('indicator')
+      expect(document.definition.name).toBe('AgentAverage')
+    } finally {
+      scripts.dispose()
+    }
+    unregisterIndicator('AgentAverage')
+  })
+
   it('删除文件夹级联删除内容，目录外仍引用的库阻止删除', async () => {
     let saved: ScriptWorkspace | null = null
     const persistence = {

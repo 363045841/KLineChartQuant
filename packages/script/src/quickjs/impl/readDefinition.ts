@@ -15,9 +15,9 @@ import {
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
 import {
+  INDICATOR_API_VERSION,
   Position,
   type QuickJSScriptDefinition,
-  SCRIPT_VERSION,
   type ScriptParamValue,
 } from '../types.js'
 
@@ -356,7 +356,7 @@ type DefinitionBase = Record<string, unknown> & {
   readonly inputs: Record<string, unknown>
 }
 
-/** 脚本写法版本；缺失按 1 处理，只接受当前版本。 */
+/** 指标 API 版本；缺失按 1 处理，只接受当前版本。 */
 function readVersion(value: unknown): number {
   return typeof value === 'number' ? value : 1
 }
@@ -441,10 +441,10 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
     )
   }
   const version = readVersion(value.version)
-  if (version !== SCRIPT_VERSION)
+  if (version !== INDICATOR_API_VERSION)
     throw new ScriptExecutionError(
       'compile',
-      `脚本版本 v${version} 已不再支持，请在 defineIndicator 中声明 version: ${SCRIPT_VERSION}`,
+      `指标 API 版本 v${version} 已不再支持，请在 defineIndicator 中声明 version: ${INDICATOR_API_VERSION}`,
     )
   return {
     version,

@@ -29,7 +29,14 @@ import {
   MARKET_BARS_QUERY_METADATA,
   MARKET_TIMESHARE_QUERY_METADATA,
 } from './market.js'
-import { createScriptReferenceQueryTool, SCRIPT_REFERENCE_QUERY_METADATA } from './scripts.js'
+import {
+  createScriptReferenceQueryTool,
+  createScriptsReadTool,
+  createScriptsWriteTool,
+  SCRIPT_REFERENCE_QUERY_METADATA,
+  SCRIPTS_READ_METADATA,
+  SCRIPTS_WRITE_METADATA,
+} from './scripts.js'
 
 /** 图表工具的静态契约清单，供设置界面在不绑定图表时也能列出。 */
 export const CHART_TOOL_METADATA: readonly ChartToolMetadata[] = Object.freeze([
@@ -44,6 +51,8 @@ export const CHART_TOOL_METADATA: readonly ChartToolMetadata[] = Object.freeze([
   MARKET_TIMESHARE_QUERY_METADATA,
   INDICATOR_VALUES_QUERY_METADATA,
   SCRIPT_REFERENCE_QUERY_METADATA,
+  SCRIPTS_READ_METADATA,
+  SCRIPTS_WRITE_METADATA,
 ])
 
 /**
@@ -65,5 +74,7 @@ export function createChartToolCatalog(deps: ChartAgentToolDeps): readonly Chart
     createMarketTimeShareQueryTool(deps.market),
     createIndicatorValuesQueryTool(deps.market),
     createScriptReferenceQueryTool(deps.scripts),
+    createScriptsReadTool(deps.scripts),
+    createScriptsWriteTool(deps.scripts),
   ])
 }
