@@ -47,8 +47,7 @@ export function createRequestAligner(request: SecurityRequest): RequestAligner {
       context.time &&
       timeframeSeconds(request.timeframe) > timeframeSeconds(context.time.period)
     ) {
-      if (!request.ignore_invalid_timeframe)
-        throw new TypeError('security_lower_tf的周期不能高于主图')
+      if (!request.ignoreInvalidTimeframe) throw new TypeError('securityLowerTf的周期不能高于主图')
       for (let index = Math.max(0, startIndex); index < bars.length; index++)
         result[index] = empty()
       return result

@@ -10,15 +10,19 @@ export {
 } from './impl/chartToolDeps.js'
 export { createMarketDataTextFormatter } from './impl/marketDataTextFormatter.js'
 export type { ChartToolDefinition, ChartToolMetadata, ChartToolResult } from './tools/index.js'
-export { CHART_TOOL_METADATA, createChartToolCatalog } from './tools/index.js'
+export {
+  CHART_TOOL_METADATA,
+  createChartToolCatalog,
+  createUnwiredScripts,
+} from './tools/index.js'
 export type {
   BarsQueryInput,
   BarsQueryResult,
-  ChartAgentContextSnapshot,
   ChartAgentComparisonCandidate,
   ChartAgentComparisonCommands,
   ChartAgentComparisonCreateResult,
   ChartAgentComparisonView,
+  ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentControllerDependencies,
   ChartAgentDrawingCommands,
@@ -33,6 +37,11 @@ export type {
   ChartAgentMarketCapability,
   ChartAgentMarketQueries,
   ChartAgentMarketSource,
+  ChartAgentScriptCreateInput,
+  ChartAgentScriptDocument,
+  ChartAgentScriptFolder,
+  ChartAgentScriptRef,
+  ChartAgentScripts,
   ChartAgentTimeRange,
   ChartAgentToolDeps,
   IndicatorQueryInput,
@@ -40,6 +49,9 @@ export type {
   InstrumentLookupResult,
   InstrumentMatch,
   MarketQueryText,
+  ScriptReferenceEntry,
+  ScriptReferenceTopic,
   TimeShareDaysResult,
   TimeShareQueryInput,
 } from './types.js'
+export { SCRIPT_REFERENCE_TOPICS } from './types.js'

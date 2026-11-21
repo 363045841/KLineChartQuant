@@ -89,6 +89,7 @@
   import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import { useMessageEdit } from '../message-edit/impl/use-message-edit.js'
   import type { EditMessageAction } from '../message-edit/types.js'
+  import { userEntryText } from './impl/use-agent-transcript.js'
   import { useMessageCopy } from './use-message-copy.js'
 
   const props = defineProps<{
@@ -99,13 +100,7 @@
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  const userText = computed(() => {
-    const message = props.entry.model?.[0]
-    if (props.entry.kind !== 'pi.user' || message?.role !== 'user') return ''
-    return typeof message.content === 'string'
-      ? message.content
-      : message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
-  })
+  const userText = computed(() => userEntryText(props.entry))
   const { status: copyStatus, copy } = useMessageCopy(() => userText.value)
   const {
     editing,

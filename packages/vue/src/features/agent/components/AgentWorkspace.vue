@@ -7,7 +7,7 @@
       :panel-side="panelSide"
       @create="handleCreateSession"
       @toggle-sessions="sessionDrawerOpen = !sessionDrawerOpen"
-      @settings="providerSettings.show(state.provider)"
+      @settings="providerSettings.show()"
       @close="handleClosePanel"
     />
 
@@ -49,18 +49,21 @@
         v-model:draft="draft"
         :running="isRunning"
         :mode="mode"
-        :provider="state.provider"
-        :models="models"
-        :models-loading="modelsLoading"
+        :snapshot="providerSettings.snapshot"
+        :models="providerSettings.models"
+        :models-loading="providerSettings.snapshot === null"
         :locale="locale"
         @send="send"
         @stop="stop"
         @mode-change="setMode"
         @model="setModel"
-        @models-open="loadModels"
         @reasoning-effort="setReasoningEffort"
       />
     </template>
+
+    <p v-if="availability.status === 'initializing'" class="agent-workspace__initializing">
+      {{ text.workspaceInitializing }}
+    </p>
 
     <AgentUnavailableNotice
       v-else-if="availability.status === 'unavailable'"
@@ -75,7 +78,6 @@
       v-model:locale="locale"
       v-model:collapse-reasoning="collapseReasoning"
       :provider-settings="providerSettings"
-      :status="state.provider"
     />
   </section>
 </template>
@@ -83,7 +85,7 @@
 <script setup lang="ts">
   import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
   import type { SidePanelSide } from '../../side-panel/types.js'
-  import type { AgentBridgeClient } from '../agent-contracts.js'
+  import type { AgentClient } from '../agent-contracts.js'
   import { getAgentCopy } from '../agent-copy/index.js'
   import { useAgentWorkspace } from '../workspace/impl/use-agent-workspace.js'
   import AgentComposer from './AgentComposer.vue'
@@ -94,10 +96,9 @@
   import AgentTimeline from './AgentTimeline.vue'
   import AgentUnavailableNotice from './AgentUnavailableNotice.vue'
 
-  const props = withDefaults(
-    defineProps<{ bridge: AgentBridgeClient; panelSide?: SidePanelSide }>(),
-    { panelSide: 'right' },
-  )
+  const props = withDefaults(defineProps<{ client: AgentClient; panelSide?: SidePanelSide }>(), {
+    panelSide: 'right',
+  })
   const emit = defineEmits<{ close: [] }>()
 
   const workspace = ref<HTMLElement | null>(null)
@@ -113,8 +114,6 @@
     providerSettings,
     locale,
     collapseReasoning,
-    models,
-    modelsLoading,
     isRunning,
     liveAnswer,
     liveTools,
@@ -136,9 +135,8 @@
     mode,
     setMode,
     setModel,
-    loadModels,
     setReasoningEffort,
-  } = useAgentWorkspace(props.bridge)
+  } = useAgentWorkspace(props.client)
 
   const text = computed(() => getAgentCopy(locale.value))
   const available = computed(() => availability.value.status === 'ready')
@@ -176,7 +174,7 @@
 
   /** 失败提示里的「打开模型设置」直接复用同一份 Provider 设置面板。 */
   function openProviderSettings(): void {
-    providerSettings.show(state.value.provider)
+    void providerSettings.show()
   }
 
   // 提问卡片内联在回答里，焦点与播报按同一条待答提问推进；
@@ -224,6 +222,14 @@
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
     letter-spacing: 0;
+  }
+
+  .agent-workspace__initializing {
+    place-self: center;
+    margin: 0;
+    padding: 24px;
+    color: var(--klc-color-ui-muted);
+    font-size: 12px;
   }
 
   .sr-only {

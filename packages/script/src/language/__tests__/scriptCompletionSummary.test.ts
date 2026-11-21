@@ -35,18 +35,17 @@ function completionSummary(source: string, owner: string, member: string): strin
 }
 
 /** 脚本做完补全后仍可运行的最小源码，逐项包含待验证的枚举成员。 */
-const SOURCE = `defineIndicator({ name: 'Hints', position: Position.Main, onBar() {
-  const timeframe = input.timeframe(Timeframe.Day, { options: [Timeframe.Hour1] })
-  const color = Color.Teal
-  const source = DataSource.MT5
-  const style = ShapeStyle.Diamond
-  const location = ShapeLocation.Absolute
-  const size = ShapeSize.Huge
-  const kind = PlotKind.Histogram
+const SOURCE = `defineIndicator({ version: 2, name: 'Hints', position: Position.main, onBar() {
+  const timeframe = input.timeframe(Timeframe.day, { options: [Timeframe.hour1] })
+  const color = Color.teal
+  const source = DataSource.mt5
+  const style = ShapeStyle.diamond
+  const location = ShapeLocation.absolute
+  const size = ShapeSize.huge
   const lineRef = line.all
-  const dashed = LineStyle.style_dashed
+  const dashed = LineStyle.dashed
   const extended = extend.right
-  const timestamp = xloc.bar_time
+  const timestamp = xloc.barTime
   plot.Candle(open, high, low, close, 'candle')
   const [trend, direction] = ta.supertrend(3, 10)
   const atr = ta.atr(10)
@@ -55,15 +54,14 @@ const SOURCE = `defineIndicator({ name: 'Hints', position: Position.Main, onBar(
 
 describe('脚本补全中文名', () => {
   it.each([
-    ['Timeframe', 'Hour1', '1 小时'],
-    ['Timeframe', 'Month12', '年线'],
-    ['Color', 'Teal', '蓝绿'],
-    ['DataSource', 'MT5', 'MetaTrader 5'],
-    ['PlotKind', 'Histogram', '柱状图'],
-    ['ShapeStyle', 'Diamond', '菱形'],
-    ['ShapeLocation', 'Absolute', '按价格定位'],
-    ['ShapeSize', 'Huge', '特大'],
-    ['Position', 'Sub', '副图'],
+    ['Timeframe', 'hour1', '1 小时'],
+    ['Timeframe', 'month12', '年线'],
+    ['Color', 'teal', '蓝绿'],
+    ['DataSource', 'mt5', 'MetaTrader 5'],
+    ['ShapeStyle', 'diamond', '菱形'],
+    ['ShapeLocation', 'absolute', '按价格定位'],
+    ['ShapeSize', 'huge', '特大'],
+    ['Position', 'sub', '副图'],
     ['input', 'timeframe', '目标周期'],
     ['plot', 'Candle', '蜡烛图'],
     ['plot', 'LineBR', '断线折线'],
@@ -72,14 +70,12 @@ describe('脚本补全中文名', () => {
     ['ta', 'atr', '平均真实波幅'],
     ['ta', 'supertrend', '超级趋势'],
     ['ta', 'macd', '指数平滑异同平均线'],
-    ['PlotKind', 'StepLine', '阶梯线'],
-    ['PlotKind', 'StepLineBR', '断线阶梯线'],
     ['line', 'new', '绘制线段'],
-    ['line', 'set_xy2', '设置终点'],
-    ['line', 'get_price', '求价格'],
-    ['LineStyle', 'style_dashed', '虚线'],
+    ['line', 'setXY2', '设置终点'],
+    ['line', 'getPrice', '求价格'],
+    ['LineStyle', 'dashed', '虚线'],
     ['extend', 'right', '延伸至终点之外'],
-    ['xloc', 'bar_time', '毫秒时间戳'],
+    ['xloc', 'barTime', '毫秒时间戳'],
   ])('%s.%s 的补全中文名是「%s」', (owner, member, summary) => {
     expect(completionSummary(SOURCE, owner, member)).toBe(summary)
   })

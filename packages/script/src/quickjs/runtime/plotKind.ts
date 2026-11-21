@@ -5,67 +5,67 @@
  *
  * 常用色：主题色别名 + 白 / 黑两个绝对色。
  *
- * 脚本里用 `Color.Red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
+ * 脚本里用 `Color.red` 即可；别名与 Theme.colors.scriptPalette 的键一一对应。
  */
 declare enum Color {
   /** @summary 红 */
-  Red = "@red",
+  red = "@red",
   /** @summary 深橙 */
-  DeepOrange = "@deepOrange",
+  deepOrange = "@deepOrange",
   /** @summary 橙 */
-  Orange = "@orange",
+  orange = "@orange",
   /** @summary 琥珀 */
-  Amber = "@amber",
+  amber = "@amber",
   /** @summary 黄 */
-  Yellow = "@yellow",
+  yellow = "@yellow",
   /** @summary 青柠 */
-  Lime = "@lime",
+  lime = "@lime",
   /** @summary 浅绿 */
-  LightGreen = "@lightGreen",
+  lightGreen = "@lightGreen",
   /** @summary 绿 */
-  Green = "@green",
+  green = "@green",
   /** @summary 蓝绿 */
-  Teal = "@teal",
+  teal = "@teal",
   /** @summary 青 */
-  Cyan = "@cyan",
+  cyan = "@cyan",
   /** @summary 浅蓝 */
-  LightBlue = "@lightBlue",
+  lightBlue = "@lightBlue",
   /** @summary 蓝 */
-  Blue = "@blue",
+  blue = "@blue",
   /** @summary 靛蓝 */
-  Indigo = "@indigo",
+  indigo = "@indigo",
   /** @summary 紫 */
-  Purple = "@purple",
+  purple = "@purple",
   /** @summary 粉 */
-  Pink = "@pink",
+  pink = "@pink",
   /** @summary 棕 */
-  Brown = "@brown",
+  brown = "@brown",
   /** @summary 蓝灰 */
-  BlueGray = "@blueGray",
+  blueGray = "@blueGray",
   /** @summary 灰 */
-  Gray = "@gray",
+  gray = "@gray",
   /** @summary 前景 */
-  Foreground = "@foreground",
+  foreground = "@foreground",
   /** @summary 白 */
-  White = "#ffffff",
+  white = "#ffffff",
   /** @summary 黑 */
-  Black = "#000000",
+  black = "#000000",
 }
 
 /** 线型：实线、虚线与箭头；手绘和 line API 共用。 */
 declare enum LineStyle {
   /** @summary 实线 */
-  style_solid = "solid",
+  solid = "solid",
   /** @summary 虚线 */
-  style_dashed = "dashed",
+  dashed = "dashed",
   /** @summary 点线 */
-  style_dotted = "dotted",
+  dotted = "dotted",
   /** @summary 左箭头 */
-  style_arrow_left = "arrow_left",
+  arrowLeft = "arrow_left",
   /** @summary 右箭头 */
-  style_arrow_right = "arrow_right",
+  arrowRight = "arrow_right",
   /** @summary 双箭头 */
-  style_arrow_both = "arrow_both",
+  arrowBoth = "arrow_both",
 }
 
 /** 延伸沿两锚点的参数方向，与屏幕左右方向无关。 */
@@ -83,20 +83,15 @@ declare enum extend {
 /**
  * 决定 X 是第几根 K 线还是毫秒时间戳。
  *
- * bar_index 从当前已加载数据的第一根算起；左侧加载更多历史后，同一根 K 线的序号会变大。
- * 允许范围是 0 到当前 bar_index，再向右最多 500 根；越界直接报错。
+ * barIndex 从当前已加载数据的第一根算起；左侧加载更多历史后，同一根 K 线的序号会变大。
+ * 允许范围是 0 到当前 barIndex，再向右最多 500 根；越界直接报错。
  * 要让线段跨历史保持在固定的 K 线上，用 bar_time 传 time[offset]。
  */
 declare enum xloc {
   /** @summary 第几根 K 线 */
-  bar_index = "bar_index",
+  barIndex = "bar_index",
   /** @summary 毫秒时间戳 */
-  bar_time = "bar_time",
-}
-
-/** 价格文字锚点；其他定位方式待公共绘图模型支持后再开放。 */
-declare enum yloc {
-  price = "price",
+  barTime = "bar_time",
 }
 
 /**
@@ -106,19 +101,19 @@ declare enum yloc {
  */
 declare enum DataSource {
   /** @summary 币安 */
-  Binance = "binance",
+  binance = "binance",
   /** @summary 通达信 */
-  Gotdx = "gotdx",
+  gotdx = "gotdx",
   /** @summary 证券宝 */
-  BaoStock = "baostock",
+  baoStock = "baostock",
   /** @summary TradingView */
-  TradingView = "tradingview",
+  tradingView = "tradingview",
   /** @summary MetaTrader 5 */
-  MT5 = "mt5",
+  mt5 = "mt5",
   /** @summary 同花顺 */
-  THS = "ths",
+  ths = "ths",
   /** @summary 模拟数据 */
-  Mock = "mock",
+  mock = "mock",
 }
 
 /**
@@ -131,96 +126,64 @@ declare enum DataSource {
  */
 declare enum Timeframe {
   /** @summary 1 分钟 */
-  Minute1 = "1",
+  minute1 = "1",
   /** @summary 5 分钟 */
-  Minute5 = "5",
+  minute5 = "5",
   /** @summary 15 分钟 */
-  Minute15 = "15",
+  minute15 = "15",
   /** @summary 30 分钟 */
-  Minute30 = "30",
+  minute30 = "30",
   /** @summary 1 小时 */
-  Hour1 = "60",
+  hour1 = "60",
   /** @summary 4 小时 */
-  Hour4 = "240",
+  hour4 = "240",
   /** @summary 日线 */
-  Day = "D",
+  day = "D",
   /** @summary 周线 */
-  Week = "W",
+  week = "W",
   /** @summary 月线 */
-  Month1 = "M",
+  month1 = "M",
   /** @summary 季线 */
-  Month3 = "3M",
+  month3 = "3M",
   /** @summary 年线 */
-  Month12 = "12M",
-}
-
-/**
- * @summary 绘图类型
- *
- * 脚本 `plot.*` 的图形种类；取值与 Plot 声明的 `kind` 完全一致。
- */
-declare enum PlotKind {
-  /** @summary 折线 */
-  Line = "line",
-  /** @summary 断线折线 */
-  LineBR = "linebr",
-  /** @summary 阶梯线 */
-  StepLine = "stepline",
-  /** @summary 断线阶梯线 */
-  StepLineBR = "steplinebr",
-  /** @summary 柱状图 */
-  Histogram = "histogram",
-  /** @summary 柱形图 */
-  Columns = "columns",
-  /** @summary 散点 */
-  Points = "points",
-  /** @summary 形状标记 */
-  Shape = "shape",
-  /** @summary 字符标记 */
-  Char = "char",
-  /** @summary 箭头 */
-  Arrow = "arrow",
-  /** @summary 蜡烛图 */
-  Candle = "candle",
-  /** @summary 美国线 */
-  Bar = "bar",
+  month12 = "12M",
 }
 
 /**
  * @summary 数值格式
  *
- * 数值格式化档位；脚本里用 `Format.Volume` 即可，不填时按 `Format.Price` 处理。
+ * 数值格式化档位；脚本里用 `Format.volume` 即可，不填时按 `Format.price` 处理。
  *
  * | 成员 | 示例 |
  * | --- | --- |
- * | `Format.Price` | `1234.567` |
- * | `Format.Volume` | `1.25K`、`12.30M`、`3.40B` |
- * | `Format.Percent` | `3.45%`、`-12.30%` |
- * | `Format.Mintick` | `1234.5678901` |
+ * | `Format.price` | `1234.567` |
+ * | `Format.volume` | `1.25K`、`12.30M`、`3.40B` |
+ * | `Format.percent` | `3.45%`、`-12.30%` |
+ * | `Format.mintick` | `1234.5678901` |
  */
 declare enum Format {
   /** @summary 价格 */
-  Price = "price",
+  price = "price",
   /** @summary 成交量 */
-  Volume = "volume",
+  volume = "volume",
   /** @summary 百分比 */
-  Percent = "percent",
+  percent = "percent",
   /** @summary 最小变动单位 */
-  Mintick = "mintick",
+  mintick = "mintick",
 }
 
 /**
  * @summary 水平线线型
  *
- * `hline` 的线型档位；与 Pine 的 `hline.style_*` 对应。
+ * `hline` 的线型档位；与手绘 line 的 `LineStyle` 同义，只保留线型子集。
  */
 declare enum HLineStyle {
   /** @summary 实线 */
-  style_solid = "solid",
+  solid = "solid",
   /** @summary 虚线 */
-  style_dashed = "dashed",
+  dashed = "dashed",
   /** @summary 点线 */
-  style_dotted = "dotted",
+  dotted = "dotted",
 }
 
 /**
@@ -230,29 +193,29 @@ declare enum HLineStyle {
  */
 declare enum ShapeStyle {
   /** @summary X 叉 */
-  XCross = "xcross",
+  xCross = "xcross",
   /** @summary 十字 */
-  Cross = "cross",
+  cross = "cross",
   /** @summary 圆 */
-  Circle = "circle",
+  circle = "circle",
   /** @summary 方形 */
-  Square = "square",
+  square = "square",
   /** @summary 菱形 */
-  Diamond = "diamond",
+  diamond = "diamond",
   /** @summary 上三角 */
-  TriangleUp = "triangleup",
+  triangleUp = "triangleup",
   /** @summary 下三角 */
-  TriangleDown = "triangledown",
+  triangleDown = "triangledown",
   /** @summary 上箭头 */
-  ArrowUp = "arrowup",
+  arrowUp = "arrowup",
   /** @summary 下箭头 */
-  ArrowDown = "arrowdown",
+  arrowDown = "arrowdown",
   /** @summary 上标签 */
-  LabelUp = "labelup",
+  labelUp = "labelup",
   /** @summary 下标签 */
-  LabelDown = "labeldown",
+  labelDown = "labeldown",
   /** @summary 旗形 */
-  Flag = "flag",
+  flag = "flag",
 }
 
 /**
@@ -262,15 +225,15 @@ declare enum ShapeStyle {
  */
 declare enum ShapeLocation {
   /** @summary 上方 */
-  AboveBar = "abovebar",
+  aboveBar = "abovebar",
   /** @summary 下方 */
-  BelowBar = "belowbar",
+  belowBar = "belowbar",
   /** @summary 顶部 */
-  Top = "top",
+  top = "top",
   /** @summary 底部 */
-  Bottom = "bottom",
+  bottom = "bottom",
   /** @summary 按价格定位 */
-  Absolute = "absolute",
+  absolute = "absolute",
 }
 
 /**
@@ -280,27 +243,27 @@ declare enum ShapeLocation {
  *
  * | 档位 | 折线宽度（px） | 散点直径（px） | 形状 / 字符外框边长（px） | 箭头最大高度（px） | Histogram 柱宽（px） |
  * | --- | --- | --- | --- | --- | --- |
- * | ShapeSize.Auto | 1 | 3 | 12 | 50 | 1 |
- * | ShapeSize.Tiny | 1 | 6 | 6 | 20 | 1 |
- * | ShapeSize.Small | 1 | 10 | 10 | 30 | 1 |
- * | ShapeSize.Normal | 2 | 14 | 14 | 40 | 2 |
- * | ShapeSize.Large | 3 | 20 | 20 | 60 | 3 |
- * | ShapeSize.Huge | 4 | 28 | 28 | 90 | 4 |
+ * | ShapeSize.auto | 1 | 3 | 12 | 50 | 1 |
+ * | ShapeSize.tiny | 1 | 6 | 6 | 20 | 1 |
+ * | ShapeSize.small | 1 | 10 | 10 | 30 | 1 |
+ * | ShapeSize.normal | 2 | 14 | 14 | 40 | 2 |
+ * | ShapeSize.large | 3 | 20 | 20 | 60 | 3 |
+ * | ShapeSize.huge | 4 | 28 | 28 | 90 | 4 |
  *
  * px 为逻辑像素；箭头实际高度随数值幅度变化，最短为最大高度的 10%。
  * Columns 不接受 size，柱宽随 K 线间距自动调整。
  */
 declare enum ShapeSize {
   /** @summary 自动 */
-  Auto = "auto",
+  auto = "auto",
   /** @summary 极小 */
-  Tiny = "tiny",
+  tiny = "tiny",
   /** @summary 小 */
-  Small = "small",
+  small = "small",
   /** @summary 常规 */
-  Normal = "normal",
+  normal = "normal",
   /** @summary 大 */
-  Large = "large",
+  large = "large",
   /** @summary 特大 */
-  Huge = "huge",
+  huge = "huge",
 }

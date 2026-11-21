@@ -168,7 +168,7 @@ function profileBox(
     right: Math.round(right),
     top,
     bottom,
-    xloc: xloc.bar_time,
+    xloc: xloc.barTime,
     borderWidth: 0,
     borderColor: color,
     backgroundColor: color,
@@ -223,7 +223,7 @@ function profileLine(
       x2: end,
       y1: price,
       y2: price,
-      xloc: xloc.bar_time,
+      xloc: xloc.barTime,
       color,
       extend: extending ? extend.right : extend.none,
     }),
@@ -239,8 +239,8 @@ function updateStageLine(stage: StageLine): void {
     if (!bar || bar.time < stage.end || stage.price < bar.low || stage.price > bar.high) continue
     stage.end = bar.end
     stage.extending = false
-    line.set_x2(stage.ref, bar.end)
-    line.set_extend(stage.ref, extend.none)
+    line.setX2(stage.ref, bar.end)
+    line.setExtend(stage.ref, extend.none)
     return
   }
 }

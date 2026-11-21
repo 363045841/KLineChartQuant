@@ -8,6 +8,7 @@
       v-bind="workbenchWithTheme"
       :restore-layout="true"
       :layout-storage-id="tab.id"
+      :agent-context-active="tab.id === activeTabId"
       @controller-ready="charts.onControllerReady(tab.id, $event)"
     />
   </div>

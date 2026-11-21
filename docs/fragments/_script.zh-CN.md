@@ -4,8 +4,9 @@
 
 ```js
 defineIndicator({
+  version: 2,
   name: '成交量潮汐',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const RED = '#F08080'
     const RED_LIGHT = 'rgba(240, 128, 128, 0.5)'
@@ -31,7 +32,7 @@ defineIndicator({
       ? (volumeChange > 0 ? RED : RED_LIGHT)
       : barDn
         ? (volumeChange > 0 ? GREEN : GREEN_LIGHT)
-        : Color.Gray
+        : Color.gray
 
     plot.Histogram(volumeChange, 'Volume change columns', {
       color: volumeChangeColor,
@@ -39,7 +40,7 @@ defineIndicator({
     })
 
     plot.Line(0, 'Zero line', {
-      color: Color.Gray,
+      color: Color.gray,
     })
   },
 })
@@ -55,7 +56,7 @@ defineIndicator({
 | `plot.Candle` `plot.Bar` | 接收 OHLC 四个价格，输出蜡烛或美国线；蜡烛支持独立实体、影线、边框色，返回 `void` |
 | `fill(from, to, color, title, options?)` | 填充两个 Plot 之间的区域；`from` / `to` 是 `plot.*` 返回的句柄 |
 | `ta` | 内置技术分析函数库 |
-| `Position` | `Position.Main` 主图或 `Position.Sub` 副图 |
+| `Position` | `Position.main` 主图或 `Position.sub` 副图 |
 | `Color` | Material 400 常用色，也可直接写任意 CSS 颜色字符串 |
 | `defineIndicator` / `defineLibrary` / `importLibrary` | 声明指标、声明库、使用库 |
 
@@ -79,7 +80,7 @@ onBar() {
 }
 ```
 
-内置 `ta` 库提供 `sma`、`ema`、`rma`、`swma`、`alma`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`highestbars`、`lowestbars`、`stoch`、`cmo`、`linreg`、`crossover`、`crossunder`、`rising`、`falling` 与 `change`。`highestbars` / `lowestbars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。用户库使用同一套 `defineLibrary` 调用，进入同一个全局命名空间。
+内置 `ta` 库提供 `sma`、`ema`、`rma`、`swma`、`alma`、`wma`、`vwma`、`rsi`、`highest`、`lowest`、`highestBars`、`lowestBars`、`stoch`、`cmo`、`linreg`、`crossover`、`crossunder`、`rising`、`falling` 与 `change`。`highestBars` / `lowestBars` 返回负偏移（0 为当前根），并列极值取更早一根，与 Pine 一致。用户库使用同一套 `defineLibrary` 调用，进入同一个全局命名空间。
 
 - **沙箱执行** — 脚本在内嵌 QuickJS 运行时中执行，每次运行都有时间和内存预算，跑飞的脚本会失败退出而不是拖垮宿主
 - **不接触未来数据** — 历史不足时序列返回 `NaN`，脚本永远无法读取未来
@@ -88,4 +89,4 @@ onBar() {
 
 在 `KlineWorkbench` 中打开代码编辑器，即可创建、运行脚本并添加到图表。产品统一管理脚本服务并自动注册内置脚本，无需安装其他脚本包。挂载前设置 `scripts=false` 可禁用脚本并隐藏编辑入口。
 
-完整声明参考见[脚本文档]({{root}}packages/script/docs/indicator.md)，另有[函数库]({{root}}packages/script/docs/library.md)与 [Plot API]({{root}}packages/script/docs/indicator.md#plot)。
+完整声明参考见[脚本文档]({{root}}packages/script/docs/indicator.md)，另有[函数库]({{root}}packages/script/docs/library.md)与[自动生成的 API 参考]({{root}}docs/script/api/index.md)。

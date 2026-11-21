@@ -18,6 +18,7 @@ import type {
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentMarketQueries,
+  ChartAgentToolDeps,
   InstrumentLookupInput,
   InstrumentRef,
   TimeShareQueryInput,
@@ -241,12 +242,23 @@ function createDeps(): {
   drawings: ReturnType<typeof createDrawings>
   comparisons: ReturnType<typeof createComparisons>
   market: ReturnType<typeof createMarket>
+  scripts: ChartAgentToolDeps['scripts']
 } {
   return {
     indicators: createIndicators(),
     drawings: createDrawings(),
     comparisons: createComparisons(),
     market: createMarket(),
+    scripts: {
+      listReferenceTopics: () => [{ id: 'guide', title: '指标 API 指南', summary: '骨架与规则' }],
+      readReference: (topic: string) => `# reference:${topic}`,
+      list: async () => [{ id: 'script_1', name: 'OC Average' }],
+      listFolders: async () => [{ path: '策略' }],
+      read: async (scriptId: string) => ({ id: scriptId, name: 'OC Average', source: '' }),
+      create: async () => ({ id: 'script_2', name: 'New Script' }),
+      update: async (scriptId: string) => ({ id: scriptId, name: 'OC Average' }),
+      remove: async (scriptId: string) => ({ id: scriptId, name: 'OC Average' }),
+    },
   }
 }
 
@@ -287,6 +299,9 @@ describe('chart tool catalog', () => {
       'market_bars_query',
       'market_timeshare_query',
       'indicator_values_query',
+      'script_reference_query',
+      'scripts_read',
+      'scripts_write',
     ])
     expect(CHART_TOOL_METADATA.map((tool) => tool.name)).toEqual(catalog.map((tool) => tool.name))
     expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.effect]))).toEqual({
@@ -300,6 +315,9 @@ describe('chart tool catalog', () => {
       market_bars_query: 'read',
       market_timeshare_query: 'read',
       indicator_values_query: 'read',
+      script_reference_query: 'read',
+      scripts_read: 'read',
+      scripts_write: 'write',
     })
   })
 

@@ -316,19 +316,20 @@
 
     <!-- 操作按钮 -->
     <div class="rule-form-actions">
-      <button type="button" class="rule-form-btn rule-form-btn--cancel" @click="emit('cancel')">取消</button>
-      <button type="button" class="rule-form-btn rule-form-btn--save" :disabled="!isValid" @click="handleSave">
+      <BaseButton @click="emit('cancel')">取消</BaseButton>
+      <BaseButton :disabled="!isValid" @click="handleSave">
         <svg
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           stroke-width="2.5"
           class="rule-form-btn-icon"
+          aria-hidden="true"
         >
           <path d="M20 6L9 17l-5-5" />
         </svg>
         保存规则
-      </button>
+      </BaseButton>
     </div>
   </div>
 </template>
@@ -342,6 +343,7 @@
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
   import { computed, reactive, ref } from 'vue'
   import IconTablerArrowDown from '~icons/tabler/arrow-down'
@@ -788,52 +790,9 @@
     padding-top: 2px;
   }
 
-  .rule-form-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 7px 16px;
-    border-radius: 7px;
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s,
-      opacity 0.15s;
-  }
-
   .rule-form-btn-icon {
     width: 12px;
     height: 12px;
     flex-shrink: 0;
-  }
-
-  .rule-form-btn--cancel {
-    border: 1px solid var(--klc-color-ui-border);
-    background: var(--klc-color-ui-input);
-    color: var(--klc-color-ui-secondary-button-text);
-  }
-
-  .rule-form-btn--cancel:hover {
-    border-color: var(--klc-color-ui-border-strong);
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .rule-form-btn--save {
-    border: 1px solid var(--klc-color-ui-accent);
-    background: var(--klc-color-ui-accent);
-    color: var(--klc-color-ui-on-accent);
-  }
-
-  .rule-form-btn--save:hover:not(:disabled) {
-    border-color: var(--klc-color-ui-accent-strong);
-    background: var(--klc-color-ui-accent-strong);
-  }
-
-  .rule-form-btn--save:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 </style>

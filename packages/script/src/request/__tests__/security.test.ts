@@ -5,9 +5,10 @@ import { barsFromCloses, plotById } from '../../__tests__/marketData.js'
 
 describe.each(BACKENDS)('$name Request', ({ prepare }) => {
   it('目标周期独立计算均线，并按实际时间戳对齐', () => {
-    const script = prepare(`defineIndicator({name:'Request',position:Position.Main,onBar(){
+    const script =
+      prepare(`defineIndicator({ version: 2,name:'Request',position:Position.main,onBar(){
       const length = input.int(2)
-      const value = request.security(syminfo.tickerid, '60', () => ta.sma(close, length), { source: DataSource.Binance })
+      const value = request.security(syminfo.tickerId, '60', () => ta.sma(close, length), { source: DataSource.binance })
       plot.Line(value, 'ma')
     }})`)
     const target = barsFromCloses([10, 20, 30]).map((bar, i) => ({ ...bar, time: i * 3600000 }))
@@ -32,15 +33,19 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
   })
 
   it('目标周期可以直接写 Timeframe 枚举', () => {
-    const script = prepare(`defineIndicator({name:'EnumRequest',position:Position.Main,onBar(){
-      const value = request.security(syminfo.tickerid, Timeframe.Day, () => close)
+    const script =
+      prepare(`defineIndicator({ version: 2,name:'EnumRequest',position:Position.main,onBar(){
+      const value = request.security(syminfo.tickerId, Timeframe.day, () => close)
       plot.Line(value, 'daily')
     }})`)
-    expect(script.requests({}, 'BTCUSDT')).toEqual([{ id: '0', symbol: 'BTCUSDT', timeframe: 'D', mode: 'security' }])
+    expect(script.requests({}, 'BTCUSDT')).toEqual([
+      { id: '0', symbol: 'BTCUSDT', timeframe: 'D', mode: 'security' },
+    ])
   })
 
   it('元组可以直接作为蜡烛输入，脚本不能写入共享结果', () => {
-    const script = prepare(`defineIndicator({name:'Candles',position:Position.Main,onBar(){
+    const script =
+      prepare(`defineIndicator({ version: 2,name:'Candles',position:Position.main,onBar(){
       const [o,h,l,c] = request.security('BTCUSDT','60',()=>[open,high,low,close] as const)
       plot.Candle(o,h,l,c,'candles')
     }})`)
@@ -65,7 +70,9 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
     },
   ])('拒绝$name', ({ body }) => {
     expect(() =>
-      prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
+      prepare(
+        `defineIndicator({ version: 2,name:'Invalid',position:Position.main,onBar(){${body}}})`,
+      ),
     ).toThrow()
   })
 
@@ -77,7 +84,9 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
     },
   ])('拒绝$name的请求', ({ body }) => {
     expect(() =>
-      prepare(`defineIndicator({name:'Invalid',position:Position.Main,onBar(){${body}}})`),
+      prepare(
+        `defineIndicator({ version: 2,name:'Invalid',position:Position.main,onBar(){${body}}})`,
+      ),
     ).toThrow('request.security 需要品种、周期、回调和可选选项')
   })
 })

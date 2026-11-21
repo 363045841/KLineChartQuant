@@ -24,7 +24,7 @@ it('keeps metadata-only scripts executable without retaining their temporary ses
   const worker = createScriptWorker()
   try {
     const source =
-      'defineIndicator({name:"MetadataOnly",position:Position.Main,onBar(){plot.Line(close,"close")}})'
+      'defineIndicator({ version: 2,name:"MetadataOnly",position:Position.main,onBar(){plot.Line(close,"close")}})'
     expect((await worker.prepare('meta', source, [], true, 'metadata')).name).toBe('MetadataOnly')
     expect(modes).toEqual([true])
     const bars = [{ time: 1, open: 10, high: 12, low: 9, close: 11, volume: 2 }]

@@ -1,7 +1,7 @@
 // STC：MACD 差值经两次随机化与 factor 平滑。
 // 超买/超卖参考线是图表级声明，不参与数据列与数值范围。
-hline(75, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
-hline(25, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+hline(75, { color: Color.gray, linestyle: HLineStyle.dashed })
+hline(25, { color: Color.gray, linestyle: HLineStyle.dashed })
 
 /** 固定 factor 的一阶指数平滑；首个有效值作为起点，空值留空。 */
 function smooth(key: string, raw: Series, factor: number): Series {
@@ -14,10 +14,11 @@ function smooth(key: string, raw: Series, factor: number): Series {
 }
 
 defineIndicator({
+  version: 2,
   name: 'STC',
   title: '夏夫趋势周期',
   info: 'STC 结合 MACD 与随机指标，在 0-100 区间判断趋势方向与周期相位。',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const fast = input.int(23, { title: '快线', min: 2 })
     const slow = input.int(50, { title: '慢线', min: 3 })
@@ -28,6 +29,6 @@ defineIndicator({
     const first = smooth('stc:first', ta.stoch(dif, dif, dif, cycle), factor)
     const stc = smooth('stc:second', ta.stoch(first, first, first, cycle), factor)
 
-    plot.Line(stc, 'stc', { label: 'STC', color: Color.Orange })
+    plot.Line(stc, 'stc', { label: 'STC', color: Color.orange })
   },
 })

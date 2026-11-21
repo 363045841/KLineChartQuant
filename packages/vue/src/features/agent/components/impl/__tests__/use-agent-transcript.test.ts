@@ -1,13 +1,14 @@
 // 时间线索引测试：只有以回答结束的助手条目才是最终答案，工具轮只登记重试目标。
 import { describe, expect, it } from 'vitest'
-import type {
-  AssistantMessage,
-  ConversationId,
-  EntryId,
-  EntryRecord,
-  TranscriptItem,
+import {
+  type AssistantMessage,
+  type ConversationId,
+  type EntryId,
+  type EntryRecord,
+  KQ_USER_ENTRY_KIND,
+  type TranscriptItem,
 } from '../../../agent-contracts.js'
-import { indexTranscript } from '../use-agent-transcript.js'
+import { indexTranscript, isUserEntry, userEntryText } from '../use-agent-transcript.js'
 
 /** 官方助手消息共用的用量字段。 */
 const USAGE: AssistantMessage['usage'] = {
@@ -32,6 +33,17 @@ function user(id: number): EntryRecord {
     conversationId: 1 as ConversationId,
     kind: 'pi.user',
     model: [{ role: 'user', content: 'prompt', timestamp: id }],
+  }
+}
+
+/** 构造一条应用侧用户条目：模型消息带易变上下文，data 保存原文。 */
+function kqUser(id: number, prompt: string): EntryRecord {
+  return {
+    id: id as EntryId,
+    conversationId: 1 as ConversationId,
+    kind: KQ_USER_ENTRY_KIND,
+    data: { prompt },
+    model: [{ role: 'user', content: `Current date...\n\n${prompt}`, timestamp: id }],
   }
 }
 
@@ -64,9 +76,7 @@ function assistant(
 const item = (entry: EntryRecord): TranscriptItem => ({ kind: 'entry', entry })
 
 describe('indexTranscript', () => {
-  it.each<
-    [string, AssistantMessage['stopReason'], AssistantMessage['content'], boolean]
-  >([
+  it.each<[string, AssistantMessage['stopReason'], AssistantMessage['content'], boolean]>([
     ['stop 且有正文', 'stop', TEXT, true],
     ['length 且有正文', 'length', TEXT, true],
     ['aborted 且有正文', 'aborted', TEXT, true],
@@ -85,5 +95,15 @@ describe('indexTranscript', () => {
 
     expect(index.retryTargets.get(2 as EntryId)).toBe(1 as EntryId)
     expect(index.finalAssistantId).toBeUndefined()
+  })
+
+  it('renders kq.user from data.prompt and still resolves retry targets', () => {
+    const entry = kqUser(1, '写一个均线指标')
+    expect(isUserEntry(entry)).toBe(true)
+    expect(userEntryText(entry)).toBe('写一个均线指标')
+
+    const index = indexTranscript([item(entry), item(assistant(2, 'stop', TEXT))])
+    expect(index.retryTargets.get(2 as EntryId)).toBe(1 as EntryId)
+    expect(index.finalAssistantId).toBe(2 as EntryId)
   })
 })

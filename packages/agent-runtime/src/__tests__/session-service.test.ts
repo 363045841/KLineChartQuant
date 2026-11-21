@@ -2,7 +2,8 @@
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import { LiveDoc } from '@earendil-works/pi-durable'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { AgentTranscriptView } from '../contracts/ui.js'
+import { type AgentTranscriptView, KQ_USER_ENTRY_KIND } from '../contracts/ui.js'
+import { PLAN_MODE_READ_ONLY } from '../host/impl/mode-gate.js'
 import { AgentRuntimeError } from '../index.js'
 import {
   createTestRuntime,
@@ -63,10 +64,10 @@ describe('AgentSessionService', () => {
     const entries = entryItems(view)
     const kinds = entries.map((entry) => entry.kind)
 
-    expect(kinds[0]).toBe('pi.user')
+    expect(kinds[0]).toBe(KQ_USER_ENTRY_KIND)
     expect(kinds).toContain('pi.tool-result')
     expect(kinds.slice(-1)).toEqual(['pi.assistant'])
-    expect(entries[0] && entryText(entries[0])).toBe('summarize the current trend')
+    expect(entries[0] && entryText(entries[0])).toContain('summarize the current trend')
 
     const callIndex = kinds.indexOf('pi.assistant')
     const callMessage = entries[callIndex]?.model?.[0]
@@ -80,6 +81,29 @@ describe('AgentSessionService', () => {
     expect(entries[resultIndex]?.model?.[0]?.role).toBe('toolResult')
     const finalEntry = entries.at(-1)
     expect(finalEntry ? entryText(finalEntry).length : 0).toBeGreaterThan(0)
+  })
+
+  it('rejects write tool calls in plan mode without hiding the tool', async () => {
+    const session = await runtime.app.createSession()
+    await runtime.app.startRun({
+      sessionId: session.id,
+      prompt: 'delete the selected drawing',
+      mode: 'plan',
+    })
+    const view = await waitForSession(runtime.app, session.id, (candidate) =>
+      entryItems(candidate).some((entry) => entry.kind === 'pi.tool-result'),
+    )
+    const result = entryItems(view).find((entry) => entry.kind === 'pi.tool-result')
+    expect(result ? JSON.stringify(result.model) : '').toContain(PLAN_MODE_READ_ONLY)
+  })
+
+  it('reads the visible prompt instead of the injected context', async () => {
+    const { view } = await runOnce('keep the raw prompt')
+    const userEntry = entryItems(view)[0]
+    expect(userEntry).toBeDefined()
+    await expect(runtime.sessions.readUserPrompt(userEntry!.id)).resolves.toBe(
+      'keep the raw prompt',
+    )
   })
 
   it('forks before the edited input and retires the source session', async () => {
@@ -120,11 +144,11 @@ describe('AgentSessionService', () => {
     })
     const edited = await waitForSession(runtime.app, started.sessionId, (candidate) =>
       entryItems(candidate).some(
-        (entry) => entry.kind === 'pi.user' && entryText(entry) === 'edited request',
+        (entry) => entry.kind === KQ_USER_ENTRY_KIND && entryText(entry).includes('edited request'),
       ),
     )
     const firstEntry = entryItems(edited)[0]
-    expect(firstEntry ? entryText(firstEntry) : '').toBe('edited request')
+    expect(firstEntry ? entryText(firstEntry) : '').toContain('edited request')
   })
 
   it('continues a context that still owes an answer without adding a user entry', async () => {
@@ -164,7 +188,8 @@ describe('AgentSessionService', () => {
     expect(runFailureReason(view)).toBe('nothing_to_answer')
   })
 
-  it('pages the official entry history newest first', async () => {    const { session } = await runOnce('page this session')
+  it('pages the official entry history newest first', async () => {
+    const { session } = await runOnce('page this session')
     const page = await runtime.sessions.entries(session.id, { order: 'descending' }, 2)
     expect(page.items).toHaveLength(2)
     expect(page.items[0]!.id).toBeGreaterThan(page.items[1]!.id)

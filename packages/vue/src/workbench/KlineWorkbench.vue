@@ -23,6 +23,7 @@
     scripts: true,
     initialAgentPanelOpen: false,
     restoreLayout: true,
+    agentContextActive: true,
   })
   const emit = defineEmits<{
     'controller-ready': [controller: ChartController]

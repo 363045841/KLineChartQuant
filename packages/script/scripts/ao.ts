@@ -1,9 +1,10 @@
 // 动量震荡指标：中位价的快慢 SMA 之差，按正负与增减着色。
 defineIndicator({
+  version: 2,
   name: 'AO',
   title: '动量震荡指标',
   info: 'AO 用中位价的快慢 SMA 之差衡量动量，柱体由负转正或上穿零轴常视为动能转强。',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     const fast = input.int(5, { title: '快周期', min: 1 })
     const slow = input.int(34, { title: '慢周期', min: 1 })
@@ -15,12 +16,12 @@ defineIndicator({
     const color =
       value[0] >= 0
         ? rising
-          ? Color.Teal
-          : Color.Teal + '80'
+          ? Color.teal
+          : Color.teal + '80'
         : rising
-          ? Color.Red + '80'
-          : Color.Red
+          ? Color.red + '80'
+          : Color.red
     plot.Columns(value[0], 'ao', { label: 'AO', color })
-    plot.Line(0, 'zero', { label: '0', color: Color.Gray, dash: [4, 4] })
+    plot.Line(0, 'zero', { label: '0', color: Color.gray, dash: [4, 4] })
   },
 })

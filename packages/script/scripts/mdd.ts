@@ -1,10 +1,11 @@
 /** MDD：回看窗口内的最大回撤；负对数收益的最大子段和定位峰谷，再按价格算算术回撤。 */
 defineIndicator({
+  version: 2,
   name: 'MDD',
   title: '最大回撤',
   info: '回看窗口内从峰值到谷底的最大回撤幅度，按区间两端的收盘价计算。',
-  position: Position.Sub,
-  format: Format.Percent,
+  position: Position.sub,
+  format: Format.percent,
   onBar() {
     const lookback = input.int(120, { title: '回看根数', min: 2, max: 2000 })
     // 负对数收益可加，最大子段和的端点即峰值与谷底。
@@ -21,6 +22,6 @@ defineIndicator({
       const trough = close[-runs[2][0]]
       depth = (1 - trough / peak) * 100
     }
-    plot.Line(depth, 'mdd', { label: 'MDD', color: Color.Red })
+    plot.Line(depth, 'mdd', { label: 'MDD', color: Color.red })
   },
 })

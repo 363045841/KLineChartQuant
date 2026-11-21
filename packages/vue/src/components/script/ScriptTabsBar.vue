@@ -16,18 +16,19 @@
       </div>
       <p class="script-tabs__confirmation-text"><strong>{{ closingTab.title }}.ts</strong> 尚未保存，关闭将丢失更改。</p>
       <div class="script-tabs__confirmation-actions">
-        <button type="button" class="script-tabs__confirmation-action script-underline-action" @click="pendingClose = null">取消</button>
-        <button type="button" class="script-tabs__confirmation-action script-tabs__discard script-underline-action" :disabled="saving" @click="discard">放弃更改</button>
+        <BaseButton size="inline" @click="pendingClose = null">取消</BaseButton>
+        <BaseButton size="inline" class="script-tabs__discard" :disabled="saving" @click="discard">放弃更改</BaseButton>
       </div>
     </div>
     <slot />
   </div>
   <div v-if="activeTabId && identity === 'builtin'" class="script-workspace__readonly">
-    内置{{ kind === 'library' ? '库' : '脚本' }}只读<template v-if="kind !== 'library'">，请<button type="button" class="script-workspace__readonly-link script-underline-action" @click="emit('create-copy')">创建副本</button>后编辑</template>
+    内置{{ kind === 'library' ? '库' : '脚本' }}只读<template v-if="kind !== 'library'">，请<BaseButton size="inline" variant="link" class="script-workspace__readonly-link" @click="emit('create-copy')">创建副本</BaseButton>后编辑</template>
   </div>
 </template>
 
 <script setup lang="ts">
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import { useScriptTabs } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTabs.js'
   import type {
     ScriptEditorTab,
@@ -152,51 +153,22 @@
     gap: var(--klc-space-16, 16px);
   }
 
-  .script-tabs__confirmation-action {
-    color: var(--klc-color-ui-muted);
-  }
-
-  .script-tabs__confirmation-action:focus-visible {
+  /* 确认动作是弹层里的文字动作：尺寸继承所在文字，下划线由 BaseButton 统一提供。 */
+  .script-tabs__confirmation .script-tabs__confirmation-actions button:focus-visible {
+    /* 焦点指示就是展开的下划线，不再叠加按钮外框。 */
     outline: 0;
-    color: var(--klc-color-ui-text);
-  }
-
-  .script-tabs__confirmation-action:disabled {
-    opacity: 0.45;
-    cursor: default;
   }
 
   .script-tabs__discard {
-    color: var(--klc-color-ui-danger-text);
+    --base-button-color: var(--klc-color-ui-danger-text);
+    --base-button-hover-color: var(--klc-color-ui-danger-text);
   }
 
-  /* 文字操作共用下划线动画：下划线从中间展开，不做按钮容器式 hover/focus。 */
-  .script-underline-action {
-    position: relative;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
+  /* 标签页自身的按钮沿用内缩焦点框。 */
+  .script-tabs button:focus-visible {
+    outline: 2px solid var(--klc-color-ui-focus);
+    outline-offset: -2px;
   }
-
-  .script-underline-action::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0;
-    height: 1px;
-    background: currentColor;
-    transform: scaleX(0);
-    transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
-  }
-
-  .script-underline-action:hover::after,
-  .script-underline-action:focus-visible::after {
-    transform: scaleX(1);
-  }
-
-  .script-tabs button:focus-visible,
-  .script-tabs__confirmation button:not(.script-underline-action):focus-visible { outline: 2px solid var(--klc-color-ui-focus); outline-offset: -2px; }
 
   /* 内置文件提示归当前标签编辑区，操作栏只放控件。 */
   .script-workspace__readonly {
@@ -207,16 +179,9 @@
     font-size: var(--klc-text-label-12-font-size, 12px);
   }
 
-  /* 创建副本是行内链接：字号、字重、行高全部继承提示文字，只换成链接蓝且默认不加下划线。 */
+  /* 创建副本是行内链接：字号、字重、行高由 BaseButton 的 inline 档继承提示文字，这里只留间距。 */
   .script-workspace__readonly-link {
     /* 与「请」「后编辑」之间留出间距，避免文字粘连。 */
     margin: 0 var(--klc-spacing-xs, 4px);
-    color: var(--klc-brand-accent-text);
-    text-decoration: none;
-  }
-
-  .script-workspace__readonly-link:focus-visible {
-    outline: 2px solid var(--klc-color-ui-focus);
-    outline-offset: 1px;
   }
 </style>

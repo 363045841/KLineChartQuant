@@ -39,7 +39,7 @@ function swingLabel(value: number, previous: number, highPoint: boolean): string
 function trackSwings(config: StructureConfig): void {
   const pivotHigh = ta.pivothigh(high, config.leftBars, config.rightBars)[0]
   const pivotLow = ta.pivotlow(low, config.leftBars, config.rightBars)[0]
-  const index = bar_index - config.rightBars
+  const index = barIndex - config.rightBars
   if (Number.isFinite(pivotHigh)) {
     swingHigh = { index, price: pivotHigh }
     if (config.showSwings)
@@ -84,13 +84,13 @@ function drawBreak(
   line.new({
     x1: point.index,
     y1: point.price,
-    x2: bar_index,
+    x2: barIndex,
     y2: point.price,
     color,
-    style: line.style_dashed,
+    style: LineStyle.dashed,
   })
   mark(
-    Math.floor((point.index + bar_index) / 2),
+    Math.floor((point.index + barIndex) / 2),
     point.price,
     reversal ? 'CHoCH' : 'BOS',
     color,
@@ -99,20 +99,21 @@ function drawBreak(
 }
 
 defineIndicator({
+  version: 2,
   name: 'Structure',
   title: '市场结构',
-  position: Position.Main,
+  position: Position.main,
   info: '确认摆动点的 HH/HL/LH/LL，以及收盘首次突破的 BOS 和反向 CHoCH。',
-  max_lines_count: 2000,
-  max_labels_count: 2000,
+  maxLinesCount: 2000,
+  maxLabelsCount: 2000,
   onBar() {
     const leftBars = input.int(5, { title: '左窗口', min: 1, max: 50 })
     const rightBars = input.int(2, { title: '确认窗口', min: 1, max: 50 })
     const showSwings = input.bool(true, { title: '显示摆动标签' })
     const showBOS = input.bool(true, { title: '显示 BOS' })
     const showCHoCH = input.bool(true, { title: '显示 CHoCH' })
-    const bullColor = input.string(Color.Teal, { title: '多头颜色' })
-    const bearColor = input.string(Color.Red, { title: '空头颜色' })
+    const bullColor = input.string(Color.teal, { title: '多头颜色' })
+    const bearColor = input.string(Color.red, { title: '空头颜色' })
     const config: StructureConfig = {
       leftBars,
       rightBars,

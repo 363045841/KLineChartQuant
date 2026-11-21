@@ -23,7 +23,7 @@ export interface PlotStyleBase {
   /** 是否显示图形；不填则显示。 */
   readonly visible?: boolean
   /**
-   * 图形尺寸档位；不填则使用 ShapeSize.Auto。
+   * 图形尺寸档位；不填则使用 ShapeSize.auto。
    * 折线控制线宽，散点控制直径，形状和字符控制外框，箭头控制最大高度。
    * 具体尺寸见 ShapeSize 的档位对照表。
    */

@@ -28,7 +28,7 @@ interface InputDeclaration {
   readonly callback: ts.Node
 }
 
-/** 注入的常数枚举成员（如 Timeframe.Day）在注册期求值，不依赖行情与局部作用域。 */
+/** 注入的常数枚举成员（如 Timeframe.day）在注册期求值，不依赖行情与局部作用域。 */
 function enumConstant(node: ts.Node): boolean {
   return (
     ts.isPropertyAccessExpression(node) &&

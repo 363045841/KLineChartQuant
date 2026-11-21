@@ -1,10 +1,11 @@
 // 四组变化率的加权和及其信号均线。
 defineIndicator({
+  version: 2,
   name: 'KST',
   title: '确然指标',
   info: 'KST 用多组 ROC 的加权平滑判断中长期动量，信号线交叉用于确认趋势。',
-  position: Position.Sub,
-  format: Format.Percent,
+  position: Position.sub,
+  format: Format.percent,
   onBar() {
     const roc1 = input.int(10, { title: 'ROC 周期 1', min: 1 })
     const roc2 = input.int(15, { title: 'ROC 周期 2', min: 1 })
@@ -20,8 +21,8 @@ defineIndicator({
       (_self, offset) =>
         first[offset] + 2 * second[offset] + 3 * third[offset] + 4 * fourth[offset],
     )
-    plot.Line(value, 'kst', { label: 'KST', color: Color.Purple })
-    plot.Line(ta.sma(value, signalPeriod), 'signal', { label: 'Signal', color: Color.Blue })
-    plot.Line(0, 'zero', { label: '0', color: Color.Gray, dash: [4, 4] })
+    plot.Line(value, 'kst', { label: 'KST', color: Color.purple })
+    plot.Line(ta.sma(value, signalPeriod), 'signal', { label: 'Signal', color: Color.blue })
+    plot.Line(0, 'zero', { label: '0', color: Color.gray, dash: [4, 4] })
   },
 })

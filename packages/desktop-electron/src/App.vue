@@ -37,7 +37,7 @@
           :tabs="tabs.tabs.value"
           :active-tab-id="tabs.activeTabId.value"
           :theme-mode="appearance.mode.value"
-          :workbench="{ marketDataContext: market.context, instrument: market.instrument, period, credentials, chart: { leftAxisWidth: 60 } }"
+          :workbench="{ marketDataContext: market.context, instrument: market.instrument, period, chart: { leftAxisWidth: 60 } }"
           @spec-change="tabs.setSpec"
         />
       </div>
@@ -61,7 +61,6 @@
   } from '@363045841yyt/klinechart'
   import { onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
   import { createE2eDataSource } from './features/agent/chart-e2e-fixture'
-  import { createElectronCredentialStore } from './features/agent/electron-credential-store'
   import { readWindowShell, readWorkspaceAccent, readWorkspaceId } from './shell/window-shell'
   import { workspaceAccent } from './shell/workspace-accent'
 
@@ -85,7 +84,7 @@
   if (!shell) throw new Error('The desktop shell must run inside Electron.')
   const windowShell = shell
   const workspaceId = readWorkspaceId()
-  const credentials = createElectronCredentialStore()
+  // 桌面端与网页端共用同一套宿主存储：Agent 凭据只存在于宿主 IndexedDB。
   // 标题栏高度由主进程下发，避免窗口布局各写一份。
   const shellStyle = { '--desktop-titlebar-height': `${windowShell.titleBarHeight}px` }
   const market = createMarket()

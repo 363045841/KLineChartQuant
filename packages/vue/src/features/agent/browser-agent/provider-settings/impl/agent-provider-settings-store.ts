@@ -1,353 +1,206 @@
-/** 管理 Agent Provider 设置弹窗的临时表单状态与异步操作。 */
+/**
+ * Agent Provider 设置弹窗的状态：宿主快照是唯一事实，页面只持有未提交的连接草稿。
+ *
+ * 所有读写都经 `ProviderAdmin` 命令完成；这里不做状态拼装、不做失效推断，
+ * 快照落后于当前版本时直接丢弃。
+ */
+
 import { createPinia, defineStore, type Pinia } from 'pinia'
-import { ref } from 'vue'
+import { computed, reactive, ref, shallowRef } from 'vue'
 import type {
-  AgentBridgeClient,
   AgentErrorView,
   AgentToolDebugResult,
   AgentToolView,
-  ProviderApiProtocol,
+  ProviderAdmin,
+  ProviderCatalogView,
   ProviderModelView,
-  ProviderProfileView,
-  ProviderStatusView,
+  ProviderReasoningEffort,
+  ProviderSnapshot,
 } from '../../../agent-contracts.js'
-import { PROVIDER_API_PROTOCOLS } from '../../../agent-contracts.js'
+import { PROVIDER_API_PROTOCOLS, PROVIDER_REASONING_EFFORTS } from '../../../agent-contracts.js'
 import { toAgentErrorView } from '../../../agent-error-view.js'
-import type { AgentProviderSettingsStore } from '../types.js'
+import type { AgentProviderSettingsStore, AgentToolAdmin, ProviderDraft } from '../types.js'
 
-/** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
-function toOperationError(error: unknown): AgentErrorView {
-  return toAgentErrorView(error, {
-    code: 'PROVIDER_ERROR',
-    message: 'The Provider operation failed.',
-    retryable: true,
-  })
-}
+/** 连接保存时禁止覆盖的协议头；由运行时统一生成。 */
+const MANAGED_HEADERS = ['accept', 'authorization', 'content-type']
 
-/** 创建独立 Pinia 容器，防止多个图表实例共享 Provider 弹窗草稿。 */
+/** 创建独立 Pinia 容器，避免多个图表实例共享 Provider 弹窗草稿。 */
 export function createAgentProviderSettingsPinia(): Pinia {
   return createPinia()
 }
 
-/** 管理单个 Agent Workspace 的 Provider 设置草稿与请求状态。 */
+/** 管理单个 Agent Workspace 的 Provider 设置快照与草稿。 */
 function setupAgentProviderSettingsStore() {
   const open = ref(false)
-  const baseUrl = ref('')
-  const apiKey = ref('')
-  const exaApiKey = ref('')
-  const headers = ref('{}')
-  const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
-  const profileName = ref('')
-  const profiles = ref<ProviderProfileView[]>([])
-  const operationError = ref<AgentErrorView | null>(null)
+  const snapshot = shallowRef<ProviderSnapshot | null>(null)
+  const catalog = shallowRef<ProviderCatalogView | null>(null)
+  const catalogLoading = ref(false)
+  const error = ref<AgentErrorView | null>(null)
   const profileNameError = ref<AgentErrorView | null>(null)
-  const tools = ref<AgentToolView[]>([])
+  const exaApiKey = ref('')
+  const draft = reactive<ProviderDraft>({
+    profileId: '',
+    name: '',
+    baseUrl: '',
+    apiKey: '',
+    headers: '{}',
+    protocol: PROVIDER_API_PROTOCOLS[0],
+  })
+  const tools = shallowRef<AgentToolView[]>([])
   const toolInputs = ref<Record<string, string>>({})
   const toolResults = ref<Record<string, AgentToolDebugResult>>({})
   const toolErrors = ref<Record<string, string>>({})
   const runningToolName = ref<string | null>(null)
-  const modelCatalog = ref<ProviderModelView[]>([])
-  const modelPool = ref<ProviderModelView[]>([])
-  const modelsLoading = ref(false)
-  let bridge: AgentBridgeClient | undefined
-  let modelCatalogRequestGeneration = 0
-  let savedConnectionIdentity = ''
+  let admin: ProviderAdmin | undefined
+  let toolAdmin: AgentToolAdmin | undefined
 
-  /** 使当前模型目录请求失效，避免旧 Profile 的结果覆盖新配置。 */
-  function invalidateModelCatalogRequest(): void {
-    modelCatalogRequestGeneration += 1
-    modelsLoading.value = false
+  /** 派生：已保存配置。 */
+  const profiles = computed(() => snapshot.value?.profiles ?? [])
+  /** 派生：模型池。 */
+  const models = computed(() => snapshot.value?.models ?? [])
+  /** 派生：模型池成员 id。 */
+  const poolIds = computed(() => new Set(models.value.map((model) => model.id)))
+  /** 派生：连接、凭据与模型都已就绪。 */
+  const ready = computed(() => {
+    const current = snapshot.value
+    return Boolean(current?.connection && current.selectedModelId && current.credentialPresent)
+  })
+
+  /** 绑定当前 Workspace 的 Provider 与工具 API。 */
+  function bindAdmin(provider: ProviderAdmin, toolsApi: AgentToolAdmin): void {
+    admin = provider
+    toolAdmin = toolsApi
   }
 
-  /** 绑定当前 Workspace 的 bridge，供 store 操作调用。 */
-  function bindBridge(value: AgentBridgeClient): void {
-    bridge = value
-  }
-
-  /** 更新协议草稿并使旧测试结果失效。 */
-  function setProtocol(value: string): void {
-    if (!PROVIDER_API_PROTOCOLS.includes(value as ProviderApiProtocol)) return
-    protocol.value = value as ProviderApiProtocol
-  }
-
-  /** 返回会影响远端模型目录有效性的连接标识。 */
-  function connectionIdentity(): string {
-    return `${protocol.value}\n${baseUrl.value.trim()}`
-  }
-
-  /** 将当前状态投影为设置表单草稿。 */
-  function applyProfileStatus(status: ProviderStatusView): void {
-    profileName.value = status.profileName ?? ''
-    baseUrl.value = status.baseUrl ?? ''
-    apiKey.value = ''
-    exaApiKey.value = ''
-    headers.value = JSON.stringify(status.headers ?? {}, null, 2)
-    protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
-    savedConnectionIdentity = connectionIdentity()
-  }
-
-  /** 切换到指定名称的已保存配置，并用其内容重建表单草稿。 */
-  async function selectProfile(name: string): Promise<void> {
-    if (!bridge || name === profileName.value) return
-    invalidateModelCatalogRequest()
-    operationError.value = null
-    try {
-      await bridge.selectProviderProfile(name)
-      const [status, nextProfiles] = await Promise.all([
-        bridge.getProviderStatus(),
-        bridge.listProviderProfiles(),
-      ])
-      profiles.value = nextProfiles
-      applyProfileStatus(status)
-      modelCatalog.value = []
-      await loadModelPool()
-    } catch (error) {
-      operationError.value = toOperationError(error)
+  /** 替换快照；版本落后的应答直接丢弃，连接或配置变化后丢弃目录。 */
+  function applySnapshot(next: ProviderSnapshot): void {
+    const current = snapshot.value
+    if (current !== null && next.revision < current.revision) return
+    snapshot.value = next
+    const fetched = catalog.value
+    if (
+      fetched !== null &&
+      (fetched.profileId !== next.activeProfileId ||
+        fetched.connectionRevision !== next.connectionRevision)
+    ) {
+      catalog.value = null
     }
   }
 
-  /** 创建并激活一个空配置，再重置其编辑表单。 */
-  async function createProfile(name: string): Promise<boolean> {
-    const normalizedName = name.trim()
-    if (!bridge || !normalizedName) return false
-    invalidateModelCatalogRequest()
-    profileNameError.value = null
+  /** 执行一次读写命令；错误统一落到可见错误，不让界面崩溃。 */
+  async function run<T>(operation: (api: ProviderAdmin) => Promise<T>): Promise<T | undefined> {
+    if (!admin) return undefined
+    const api = admin
+    error.value = null
     try {
-      await bridge.createProviderProfile(normalizedName)
-      profiles.value = await bridge.listProviderProfiles()
-      profileName.value = normalizedName
-      baseUrl.value = ''
-      apiKey.value = ''
-      exaApiKey.value = ''
-      headers.value = '{}'
-      protocol.value = PROVIDER_API_PROTOCOLS[0]
-      savedConnectionIdentity = ''
-      modelCatalog.value = []
-      modelPool.value = []
-      return true
-    } catch (error) {
-      profileNameError.value = toOperationError(error)
-      return false
+      return await operation(api)
+    } catch (caught) {
+      error.value = toAgentErrorView(caught)
+      return undefined
     }
   }
 
-  /** 重命名已保存配置，并保持激活配置的表单与模型池一致。 */
-  async function renameProfile(name: string, nextProfileName: string): Promise<boolean> {
-    const nextName = nextProfileName.trim()
-    if (!bridge || !name || !nextName || name === nextName) return false
-    profileNameError.value = null
-    try {
-      await bridge.renameProviderProfile(name, nextName)
-      profiles.value = await bridge.listProviderProfiles()
-      if (profileName.value === name) {
-        profileName.value = nextName
-        await loadModelPool()
-      }
-      return true
-    } catch (error) {
-      profileNameError.value = toOperationError(error)
-      return false
-    }
+  /** 执行一次写命令并应用返回的快照。 */
+  async function write(
+    operation: (api: ProviderAdmin) => Promise<ProviderSnapshot>,
+  ): Promise<ProviderSnapshot | undefined> {
+    const next = await run(operation)
+    if (next) applySnapshot(next)
+    return next
   }
 
-  /** 删除已保存配置，并在删除激活配置后重建表单与模型池。 */
-  async function deleteProfile(name: string): Promise<boolean> {
-    if (!bridge || !name) return false
-    const deletingActive = profileName.value === name
-    operationError.value = null
-    try {
-      await bridge.deleteProviderProfile(name)
-      profiles.value = await bridge.listProviderProfiles()
-      if (deletingActive) {
-        applyProfileStatus(await bridge.getProviderStatus())
-        modelCatalog.value = []
-      }
-      await loadModelPool()
-      return true
-    } catch (error) {
-      operationError.value = toOperationError(error)
-      return false
-    }
+  /** 读取宿主快照。 */
+  async function loadSnapshot(): Promise<void> {
+    const next = await run((api) => api.snapshot())
+    if (next) applySnapshot(next)
   }
 
-  /** 清除配置命名弹窗内的校验错误。 */
-  function clearProfileNameError(): void {
-    profileNameError.value = null
+  /** 用最近一次快照重建连接草稿。 */
+  function resetDraft(): void {
+    const current = snapshot.value
+    const profile = current?.profiles.find((item) => item.id === current.activeProfileId)
+    draft.profileId = profile?.id ?? ''
+    draft.name = profile?.name ?? ''
+    draft.baseUrl = current?.connection?.baseUrl ?? ''
+    draft.headers = JSON.stringify(current?.connection?.headers ?? {}, null, 2)
+    draft.protocol = current?.connection?.protocol ?? PROVIDER_API_PROTOCOLS[0]
+    draft.apiKey = ''
   }
 
-  /** 打开 Agent 设置并读取当前 Profile、模型池和工具状态。 */
-  async function show(status: ProviderStatusView): Promise<void> {
-    open.value = true
-    operationError.value = null
-    applyProfileStatus(status)
-    modelCatalog.value = []
-    try {
-      const [nextProfiles, nextTools] = await Promise.all([
-        bridge ? bridge.listProviderProfiles() : [],
-        bridge ? bridge.listTools() : [],
-      ])
-      profiles.value = nextProfiles
-      setTools(nextTools)
-      await loadModelPool()
-    } catch (error) {
-      profiles.value = []
-      tools.value = []
-      operationError.value = toOperationError(error)
-    }
-  }
-
-  /** 加载当前 Provider 已保存的模型池。 */
-  async function loadModelPool(): Promise<void> {
-    if (!bridge) return
-    modelPool.value = await bridge.listProviderModelPool()
-  }
-
-  /** 显式刷新当前已保存 Provider 的远端模型目录。 */
-  async function refreshModelCatalog(): Promise<void> {
-    if (!bridge || modelsLoading.value) return
-    const requestGeneration = ++modelCatalogRequestGeneration
-    modelsLoading.value = true
-    operationError.value = null
-    try {
-      const catalog = await bridge.listProviderModelCatalog()
-      if (requestGeneration !== modelCatalogRequestGeneration) return
-      modelCatalog.value = catalog.models
-    } catch (error) {
-      if (requestGeneration === modelCatalogRequestGeneration)
-        operationError.value = toOperationError(error)
-    } finally {
-      if (requestGeneration === modelCatalogRequestGeneration) modelsLoading.value = false
-    }
-  }
-
-  /** 更新目录模型在当前 Provider 模型池中的成员状态。 */
-  async function setModelPoolMembership(modelId: string, enabled: boolean): Promise<void> {
-    if (!bridge) return
-    const model = modelCatalog.value.find((item) => item.id === modelId)
-    const included = modelPool.value.some((item) => item.id === modelId)
-    if (!model || included === enabled) return
-    operationError.value = null
-    try {
-      modelPool.value = enabled
-        ? await bridge.addProviderModelPoolModel(model)
-        : await bridge.removeProviderModelPoolModel(modelId)
-    } catch (error) {
-      operationError.value = toOperationError(error)
-    }
-  }
-
-  /** 用当前注册工具刷新面板状态并初始化调试参数。 */
-  function setTools(nextTools: AgentToolView[]): void {
-    tools.value = nextTools
-    for (const tool of nextTools) {
-      toolInputs.value[tool.name] ??= '{\n  \n}'
-    }
-  }
-
-  /** 保存工具开关后更新弹窗中的当前状态。 */
-  async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    if (!bridge) return
-    operationError.value = null
-    try {
-      await bridge.setToolEnabled(name, enabled)
-      setTools(await bridge.listTools())
-    } catch (error) {
-      operationError.value = toOperationError(error)
-    }
-  }
-
-  /** 更新工具调试 JSON 草稿。 */
-  function setToolInput(name: string, input: string): void {
-    toolInputs.value = { ...toolInputs.value, [name]: input }
-  }
-
-  /** 执行手动工具调试，并保留该工具最近一次结果或错误。 */
-  async function debugTool(name: string): Promise<void> {
-    if (!bridge || runningToolName.value) return
-    let input: unknown
-    try {
-      input = JSON.parse(toolInputs.value[name] ?? '{}')
-    } catch {
-      toolErrors.value = { ...toolErrors.value, [name]: 'Parameters must be valid JSON.' }
+  /**
+   * 现拉远端模型目录。
+   *
+   * 没有连接或凭据时不发请求，直接清空目录——没有可读的远端数据。
+   */
+  async function refreshCatalog(): Promise<void> {
+    const current = snapshot.value
+    const profileId = current?.activeProfileId
+    if (!admin || !profileId || !current?.credentialPresent) {
+      catalog.value = null
       return
     }
-
-    runningToolName.value = name
-    toolErrors.value = { ...toolErrors.value, [name]: '' }
+    catalogLoading.value = true
+    error.value = null
     try {
-      const result = await bridge.debugTool(name, input)
-      toolResults.value = { ...toolResults.value, [name]: result }
-    } catch (error) {
-      toolErrors.value = { ...toolErrors.value, [name]: toOperationError(error).message }
+      catalog.value = await admin.refreshCatalog(profileId)
+    } catch (caught) {
+      error.value = toAgentErrorView(caught)
+      catalog.value = null
     } finally {
-      runningToolName.value = null
+      catalogLoading.value = false
     }
   }
 
-  /** 关闭弹窗并立即清除仅应存在于内存中的 API Key 草稿。 */
+  /** 读取宿主工具状态并初始化调试参数草稿。 */
+  async function loadTools(): Promise<void> {
+    if (!toolAdmin) return
+    try {
+      const next = await toolAdmin.listTools()
+      tools.value = next
+      for (const tool of next) toolInputs.value[tool.name] ??= '{\n  \n}'
+    } catch (caught) {
+      error.value = toAgentErrorView(caught)
+    }
+  }
+
+  /** 读取一次宿主快照；不打开弹窗、不访问远端。 */
+  async function load(): Promise<void> {
+    await loadSnapshot()
+  }
+
+  /** 打开设置：读取快照、现拉目录并载入工具。 */
+  async function show(): Promise<void> {
+    open.value = true
+    error.value = null
+    profileNameError.value = null
+    await loadSnapshot()
+    resetDraft()
+    await loadTools()
+    await refreshCatalog()
+  }
+
+  /** 关闭弹窗并清除只应存在于内存中的凭据草稿。 */
   function close(): void {
-    invalidateModelCatalogRequest()
     open.value = false
-    apiKey.value = ''
+    draft.apiKey = ''
     exaApiKey.value = ''
-    operationError.value = null
+    error.value = null
+    profileNameError.value = null
   }
 
-  /** 保存当前 Provider 连接后关闭设置弹窗。 */
-  async function saveProvider(): Promise<void> {
-    if (await persistConnection()) close()
+  /** 更新协议草稿；非法值忽略。 */
+  function setProtocol(value: string): void {
+    const protocol = PROVIDER_API_PROTOCOLS.find((candidate) => candidate === value)
+    if (protocol) draft.protocol = protocol
   }
 
-  /** 持久化当前 Profile 连接；不触发模型目录或模型池读取。 */
-  async function persistConnection(): Promise<boolean> {
-    if (!bridge) return false
-    if (!profileName.value.trim() || !baseUrl.value.trim()) return false
-    operationError.value = null
-    try {
-      const customHeaders = parseHeaders()
-      if (!customHeaders) return false
-      await bridge.saveProvider({
-        baseUrl: baseUrl.value,
-        apiKey: apiKey.value || undefined,
-        headers: customHeaders,
-        protocol: protocol.value,
-        profileName: profileName.value,
-      })
-      profiles.value = await bridge.listProviderProfiles()
-      profileName.value = profileName.value.trim()
-      const nextIdentity = connectionIdentity()
-      if (savedConnectionIdentity && savedConnectionIdentity !== nextIdentity) {
-        invalidateModelCatalogRequest()
-        modelCatalog.value = []
-        modelPool.value = []
-      }
-      savedConnectionIdentity = nextIdentity
-      return true
-    } catch (error) {
-      operationError.value = toOperationError(error)
-      return false
-    }
-  }
-
-  /** 保存全局 Web Search Key；空值表示清除，回到 Exa 免费额度。 */
-  async function persistWebSearchApiKey(): Promise<void> {
-    if (!bridge) return
-    operationError.value = null
-    try {
-      await bridge.saveWebSearchApiKey(exaApiKey.value.trim())
-      exaApiKey.value = ''
-    } catch (error) {
-      operationError.value = toOperationError(error)
-    }
-  }
-
-  /** 解析附加请求头 JSON，并阻止覆盖运行时管理的协议头。 */
+  /** 解析附加请求头草稿；非法输入直接落到可见错误。 */
   function parseHeaders(): Record<string, string> | undefined {
     let value: unknown
     try {
-      value = JSON.parse(headers.value)
+      value = JSON.parse(draft.headers)
     } catch {
-      operationError.value = {
+      error.value = {
         code: 'INVALID_PAYLOAD',
         message: 'Additional headers must be a JSON object with string values.',
         retryable: false,
@@ -362,10 +215,10 @@ function setupAgentProviderSettingsStore() {
         ([name, header]) =>
           !name.trim() ||
           typeof header !== 'string' ||
-          ['accept', 'authorization', 'content-type'].includes(name.toLowerCase()),
+          MANAGED_HEADERS.includes(name.toLowerCase()),
       )
     ) {
-      operationError.value = {
+      error.value = {
         code: 'INVALID_PAYLOAD',
         message:
           'Additional headers must have string values and cannot override authentication or protocol headers.',
@@ -376,45 +229,198 @@ function setupAgentProviderSettingsStore() {
     return value as Record<string, string>
   }
 
+  /** 保存连接；成功后重建草稿并现拉目录。 */
+  async function saveConnection(): Promise<boolean> {
+    if (!draft.profileId) return false
+    const headers = parseHeaders()
+    if (!headers) return false
+    const apiKey = draft.apiKey.trim()
+    const saved = await write((api) =>
+      api.saveConnection({
+        profileId: draft.profileId,
+        baseUrl: draft.baseUrl,
+        headers,
+        protocol: draft.protocol,
+        ...(apiKey ? { apiKey } : {}),
+      }),
+    )
+    if (!saved) return false
+    resetDraft()
+    await refreshCatalog()
+    return true
+  }
+
+  /** 切换激活配置并现拉它的目录。 */
+  async function selectProfile(profileId: string): Promise<void> {
+    if (profileId === snapshot.value?.activeProfileId) return
+    const next = await write((api) => api.selectProfile(profileId))
+    if (!next) return
+    resetDraft()
+    await refreshCatalog()
+  }
+
+  /** 新建并激活配置。 */
+  async function createProfile(name: string): Promise<boolean> {
+    profileNameError.value = null
+    const next = await write((api) => api.createProfile(name))
+    if (!next) {
+      profileNameError.value = error.value
+      error.value = null
+      return false
+    }
+    resetDraft()
+    await refreshCatalog()
+    return true
+  }
+
+  /** 重命名配置。 */
+  async function renameProfile(profileId: string, name: string): Promise<boolean> {
+    profileNameError.value = null
+    const next = await write((api) => api.renameProfile(profileId, name))
+    if (!next) {
+      profileNameError.value = error.value
+      error.value = null
+      return false
+    }
+    resetDraft()
+    return true
+  }
+
+  /** 删除配置及其凭据与模型池。 */
+  async function deleteProfile(profileId: string): Promise<boolean> {
+    const next = await write((api) => api.deleteProfile(profileId))
+    if (!next) return false
+    resetDraft()
+    await refreshCatalog()
+    return true
+  }
+
+  /** 清除配置命名的校验错误。 */
+  function clearProfileNameError(): void {
+    profileNameError.value = null
+  }
+
+  /** 把模型加入模型池。 */
+  async function addModel(model: ProviderModelView): Promise<void> {
+    const profileId = snapshot.value?.activeProfileId
+    if (!profileId) return
+    await write((api) => api.addModel(profileId, model))
+  }
+
+  /** 从模型池移除模型。 */
+  async function removeModel(modelId: string): Promise<void> {
+    const profileId = snapshot.value?.activeProfileId
+    if (!profileId) return
+    await write((api) => api.removeModel(profileId, modelId))
+  }
+
+  /** 选择运行使用的模型。 */
+  async function selectModel(modelId: string): Promise<void> {
+    const profileId = snapshot.value?.activeProfileId
+    if (!profileId) return
+    await write((api) => api.selectModel(profileId, modelId))
+  }
+
+  /** 设置思考强度；超出模型声明范围的取值忽略。 */
+  async function setReasoningEffort(effort: string | undefined): Promise<void> {
+    const profileId = snapshot.value?.activeProfileId
+    if (!profileId) return
+    const value: ProviderReasoningEffort | undefined =
+      effort === undefined
+        ? undefined
+        : PROVIDER_REASONING_EFFORTS.find((candidate) => candidate === effort)
+    if (effort !== undefined && value === undefined) return
+    await write((api) => api.setReasoningEffort(profileId, value))
+  }
+
+  /** 保存全局 Web Search 凭据；空值表示清除。 */
+  async function saveExaKey(): Promise<void> {
+    const apiKey = exaApiKey.value.trim()
+    const next = await write((api) => api.saveExaKey(apiKey))
+    if (next) exaApiKey.value = ''
+  }
+
+  /** 更新工具启用状态并刷新工具表。 */
+  async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
+    if (!toolAdmin) return
+    error.value = null
+    try {
+      await toolAdmin.setToolEnabled(name, enabled)
+      await loadTools()
+    } catch (caught) {
+      error.value = toAgentErrorView(caught)
+    }
+  }
+
+  /** 保存工具调试参数草稿。 */
+  function setToolInput(name: string, input: string): void {
+    toolInputs.value = { ...toolInputs.value, [name]: input }
+  }
+
+  /** 执行一次工具调试，并保留最近一次结果或错误。 */
+  async function debugTool(name: string): Promise<void> {
+    if (!toolAdmin || runningToolName.value) return
+    let input: unknown
+    try {
+      input = JSON.parse(toolInputs.value[name] ?? '{}')
+    } catch {
+      toolErrors.value = { ...toolErrors.value, [name]: 'Parameters must be valid JSON.' }
+      return
+    }
+
+    runningToolName.value = name
+    toolErrors.value = { ...toolErrors.value, [name]: '' }
+    try {
+      const result = await toolAdmin.debugTool(name, input)
+      toolResults.value = { ...toolResults.value, [name]: result }
+    } catch (caught) {
+      toolErrors.value = { ...toolErrors.value, [name]: toAgentErrorView(caught).message }
+    } finally {
+      runningToolName.value = null
+    }
+  }
+
   return {
     open,
-    baseUrl,
-    apiKey,
-    exaApiKey,
-    headers,
-    protocol,
-    profileName,
-    profiles,
-    operationError,
+    snapshot,
+    catalog,
+    catalogLoading,
+    error,
     profileNameError,
+    draft,
+    profiles,
+    models,
+    poolIds,
+    ready,
     tools,
     toolInputs,
     toolResults,
     toolErrors,
     runningToolName,
-    modelCatalog,
-    modelPool,
-    modelsLoading,
-    bindBridge,
+    exaApiKey,
+    bindAdmin,
+    load,
+    show,
+    close,
     setProtocol,
+    saveConnection,
+    refreshCatalog,
     selectProfile,
     createProfile,
     renameProfile,
     deleteProfile,
     clearProfileNameError,
-    show,
-    refreshModelCatalog,
-    persistConnection,
-    persistWebSearchApiKey,
-    setModelPoolMembership,
+    addModel,
+    removeModel,
+    selectModel,
+    setReasoningEffort,
+    saveExaKey,
     setToolEnabled,
     setToolInput,
     debugTool,
-    close,
-    saveProvider,
   }
 }
 
-/** 管理单个 Agent Workspace 的 Provider 设置草稿与请求状态；返回类型受公共契约约束。 */
+/** 管理单个 Agent Workspace 的 Provider 设置；返回类型受公共契约约束。 */
 export const useAgentProviderSettingsStore: (pinia?: Pinia) => AgentProviderSettingsStore =
   defineStore('agent-provider-settings', setupAgentProviderSettingsStore)

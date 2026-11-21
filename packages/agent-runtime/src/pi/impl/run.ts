@@ -11,6 +11,7 @@ import {
   type SubmissionDraft,
 } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../../contracts/errors.js'
+import { KQ_USER_ENTRY_KIND } from '../../contracts/ui.js'
 import type { AgentRunPlan, RuntimeToolDefinition } from '../types.js'
 
 /** 官方运行时句柄：Harness、模型集合与工具 Registry 由宿主打开一次。 */
@@ -72,7 +73,9 @@ async function configureConversation(
       execute: async (args, api, context) => {
         const presentation = {
           label: definition.label,
-          ...(definition.presentation === undefined ? {} : { presentation: definition.presentation }),
+          ...(definition.presentation === undefined
+            ? {}
+            : { presentation: definition.presentation }),
           inputSummary: definition.summarizeInput?.(args) ?? '',
         }
         await api.details(presentation, context)
@@ -152,9 +155,13 @@ export async function submitAgentRun(
   await configureConversation(execution, conversation, plan, input)
   return submitOrReportBusy(conversation, {
     type: 'input',
-    content: input.prompt,
+    // 易变上下文只追加在本轮用户消息里，系统提示词保持会话内稳定。
+    content:
+      plan.turnContext === undefined ? input.prompt : `${plan.turnContext}\n\n${input.prompt}`,
     requestId: input.runId,
     whenBusy: 'reject',
+    // 模型看到完整输入，界面与重试只使用 data.prompt 里的原文。
+    entry: { kind: KQ_USER_ENTRY_KIND, data: { prompt: input.prompt } },
   })
 }
 

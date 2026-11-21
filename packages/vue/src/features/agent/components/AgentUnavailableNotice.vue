@@ -8,8 +8,8 @@
   >
     <IconAlertTriangle aria-hidden="true" />
     <strong>{{ text.workspaceUnavailableTitle }}</strong>
-    <p>{{ body }}</p>
-    <p v-if="!locked" class="agent-unavailable__detail">{{ error.message }}</p>
+    <p>{{ text.workspaceUnavailableBody }}</p>
+    <p class="agent-unavailable__detail">{{ error.message }}</p>
     <button v-if="error.retryable" type="button" @click="emit('retry')">
       <IconRefresh aria-hidden="true" />
       {{ text.retry }}
@@ -28,11 +28,6 @@
   const emit = defineEmits<{ retry: [] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  // 独占写锁冲突有专门文案；其他启动失败回退到通用说明。
-  const locked = computed(() => props.error.code === 'SESSION_LOCKED')
-  const body = computed(() =>
-    locked.value ? text.value.workspaceLockedBody : text.value.workspaceUnavailableBody,
-  )
 </script>
 
 <style scoped>

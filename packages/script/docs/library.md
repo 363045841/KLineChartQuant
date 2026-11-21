@@ -15,8 +15,9 @@ defineLibrary('stats', {
 // 在指标脚本里使用
 const stats = importLibrary('stats')
 defineIndicator({
+  version: 2,
   name: 'Mean',
-  position: Position.Sub,
+  position: Position.sub,
   onBar() {
     plot.Line(stats.mean([open[0], close[0]]), 'mean')
   },

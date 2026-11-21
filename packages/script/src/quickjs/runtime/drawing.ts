@@ -48,9 +48,9 @@ const __drawingStore = {
 const line: DrawingLineApi = createDrawingLineApi(__drawingStore, {
   paneId: '',
   ownerId: 'script',
-  defaultColor: Color.Blue,
+  defaultColor: Color.blue,
   get maxLines() {
-    return __definition!.max_lines_count
+    return __definition!.maxLinesCount
   },
   get barCount() {
     return __count()
@@ -60,7 +60,7 @@ const box: DrawingBoxApi = createDrawingBoxApi(__drawingStore, {
   paneId: '',
   ownerId: 'script',
   get maxObjects() {
-    return __definition!.max_boxes_count
+    return __definition!.maxBoxesCount
   },
   get barCount() {
     return __count()
@@ -70,7 +70,7 @@ const label: DrawingLabelApi = createDrawingLabelApi(__drawingStore, {
   paneId: '',
   ownerId: 'script',
   get maxObjects() {
-    return __definition!.max_labels_count
+    return __definition!.maxLabelsCount
   },
   get barCount() {
     return __count()
@@ -78,19 +78,19 @@ const label: DrawingLabelApi = createDrawingLabelApi(__drawingStore, {
 })
 /** Pine 的末根判断，历史计算只在最后一根构建固定回看分布。 */
 const barstate = Object.freeze({
-  get islast() {
+  get isLast() {
     return __count() > 0 && __count() === __barCount()
   },
 })
 /** 当前 bar 的标量索引。 */
-Object.defineProperty(globalThis, 'bar_index', { get: () => __count() - 1 })
+Object.defineProperty(globalThis, 'barIndex', { get: () => __count() - 1 })
 /** chart.point 工厂返回值对象，创建线时复制。 */
 const chart = Object.freeze({
   point: Object.freeze({
     new: (time: number, index: number, price: number): ChartPoint => ({ time, index, price }),
     now: (price: number): ChartPoint => ({ time: time[0], index: __count() - 1, price }),
-    from_index: (index: number, price: number): ChartPoint => ({ index, price }),
-    from_time: (time: number, price: number): ChartPoint => ({ time, price }),
+    fromIndex: (index: number, price: number): ChartPoint => ({ index, price }),
+    fromTime: (time: number, price: number): ChartPoint => ({ time, price }),
     copy: (point: ChartPoint): ChartPoint => ({ ...point }),
   }),
 })

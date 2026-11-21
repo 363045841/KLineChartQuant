@@ -75,8 +75,12 @@
           :aria-label="openSubmenuItem.label"
           @keydown="onSubmenuKeydown"
           @pointerenter="cancelSubmenuClose"
-          @pointerleave="scheduleSubmenuClose"
+          @pointerleave="onSubmenuPointerLeave"
+          @pointerover="onSubmenuPointerOver"
+          @focusin="onSubmenuFocusIn"
+          @focusout="hideSubmenuHighlight"
         >
+          <SlidingHighlight ref="submenuHighlight" class="drop-menu__submenu-highlight" />
           <div
             v-for="child in openSubmenuItem.children"
             :key="child.id"
@@ -97,8 +101,9 @@
 <script setup lang="ts">
   import '@vue-src/components/common/overlay/popover-surface.css'
 
-  import { useAnchoredSurface } from '@vue-src/composables/overlay/useAnchoredSurface.js'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { startFloatingPosition } from '@vue-src/composables/overlay/floatingPosition.js'
+  import { useAnchoredSurface } from '@vue-src/composables/overlay/useAnchoredSurface.js'
   import { useRovingFocus } from '@vue-src/composables/overlay/useRovingFocus.js'
   import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
@@ -111,9 +116,8 @@
     useTemplateRef,
     watch,
   } from 'vue'
-  import type { DropMenuGroup, DropMenuItem, MenuAnchor } from './dropMenuTypes.js'
   import DropMenuItemButton from './DropMenuItemButton.vue'
-  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import type { DropMenuGroup, DropMenuItem, MenuAnchor } from './dropMenuTypes.js'
 
   const props = defineProps<{
     /** 是否展开；面板不持有开关状态。 */
@@ -290,17 +294,22 @@
     await nextTick()
     const panel = submenuRef.value
     if (position.signal.aborted || !panel) return
-    void startFloatingPosition({
-      reference: anchor,
-      panel,
-      placement: 'right',
-      align: 'start',
-      offset: 2,
-      flip: true,
-      matchTriggerWidth: false,
-      apply: (style) => { submenuStyle.value = { ...submenuStyle.value, ...style } },
-      onError: closeSubmenu,
-    }, position.signal)
+    void startFloatingPosition(
+      {
+        reference: anchor,
+        panel,
+        placement: 'right',
+        align: 'start',
+        offset: 2,
+        flip: true,
+        matchTriggerWidth: false,
+        apply: (style) => {
+          submenuStyle.value = { ...submenuStyle.value, ...style }
+        },
+        onError: closeSubmenu,
+      },
+      position.signal,
+    )
     if (focusFirst) submenuRoving.focusFirst()
   }
 
@@ -362,6 +371,22 @@
   } = useSlidingHighlight(highlight, (target) =>
     submenuRef.value?.contains(target) ? null : target.closest<HTMLElement>('.drop-menu__item'),
   )
+
+  // 二级菜单是独立的 fixed 面板，与主面板不在同一坐标空间，用自己的一块高亮。
+  const submenuHighlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('submenuHighlight')
+  const {
+    onPointerOver: onSubmenuPointerOver,
+    onFocusIn: onSubmenuFocusIn,
+    hide: hideSubmenuHighlight,
+  } = useSlidingHighlight(submenuHighlight, (target) =>
+    target.closest<HTMLElement>('.drop-menu__item'),
+  )
+
+  /** 指针离开二级菜单：收起自己的高亮，并沿用既有的容错时间安排关闭。 */
+  function onSubmenuPointerLeave(): void {
+    hideSubmenuHighlight()
+    scheduleSubmenuClose()
+  }
 
   // 关闭后清空高亮与子菜单，重新打开不会残留上一项的位置。
   watch(
@@ -529,7 +554,8 @@
   }
 
   /* 悬停高亮块的位置、尺寸与过渡由 SlidingHighlight 统一提供。 */
-  .drop-menu__highlight {
+  .drop-menu__highlight,
+  .drop-menu__submenu-highlight {
     /* 菜单项铺满整宽、上下紧邻，沿用直角高亮避免边缘露出面板圆角。 */
     --sliding-highlight-radius: 0;
   }
@@ -560,10 +586,5 @@
     .drop-menu__submenu {
       opacity: 0;
     }
-  }
-
-  .drop-menu__submenu .drop-menu__item:hover,
-  .drop-menu__submenu .drop-menu__item:focus-within {
-    background: var(--klc-color-ui-hover);
   }
 </style>

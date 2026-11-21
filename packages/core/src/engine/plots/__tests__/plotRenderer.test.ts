@@ -360,7 +360,7 @@ describe('Plot renderer', () => {
               pointColor: (value) => (value === 3 ? 'red' : 'blue'),
               offset: () => 1,
               dash: [4, 2],
-              size: ShapeSize.Large,
+              size: ShapeSize.large,
             },
           ],
         },
@@ -570,7 +570,7 @@ describe('Plot renderer', () => {
 
   it('Char size 控制字符字号，空字符可以只显示附加文字', () => {
     const fonts: string[] = []
-    for (const size of [ShapeSize.Small, ShapeSize.Large]) {
+    for (const size of [ShapeSize.small, ShapeSize.large]) {
       const { ctx } = paint(
         {
           series: [
@@ -917,7 +917,7 @@ describe('Plot renderer', () => {
   })
 
   it('Shape size 只改变形状尺寸，DPR 不重复缩放 CSS 坐标和文字', () => {
-    const sizes = Object.values(ShapeSize).filter((size) => size !== ShapeSize.Auto)
+    const sizes = Object.values(ShapeSize).filter((size) => size !== ShapeSize.auto)
     const radii: number[] = []
     const fonts: string[] = []
     for (const size of sizes) {
@@ -964,7 +964,7 @@ describe('Plot renderer', () => {
     }
   })
 
-  it.each([ShapeLocation.AboveBar, ShapeLocation.BelowBar])(
+  it.each([ShapeLocation.aboveBar, ShapeLocation.belowBar])(
     'Shape %s 使用偏移后的 K 线而不是条件值定位',
     (location) => {
       const { ctx, context } = paint(
@@ -994,7 +994,7 @@ describe('Plot renderer', () => {
     },
   )
 
-  it.each([ShapeLocation.Top, ShapeLocation.Bottom])(
+  it.each([ShapeLocation.top, ShapeLocation.bottom])(
     'Shape %s 不依赖价格轴且文字保持在 pane 内',
     (location) => {
       const { ctx, context } = paint(
@@ -1087,7 +1087,7 @@ describe('Plot renderer', () => {
     'Columns 槽位左右各留 1 个物理像素，滚动和蜡烛尺寸不改变间隙，DPR=%s',
     (dpr) => {
       const { ctx, context } = paint(
-        { series: [{ id: 'bar', kind: 'columns', size: ShapeSize.Huge, color: () => 'red' }] },
+        { series: [{ id: 'bar', kind: 'columns', size: ShapeSize.huge, color: () => 'red' }] },
         [1, 1, 1, 1, 1],
         {},
         {
@@ -1163,13 +1163,13 @@ describe('Plot renderer', () => {
       )
       return vi.mocked(ctx.fillRect).mock.calls[0]?.[2]
     }
-    expect([ShapeSize.Auto, ShapeSize.Tiny, ShapeSize.Small].map(widthOf)).toEqual([1, 1, 1])
-    expect([ShapeSize.Normal, ShapeSize.Large, ShapeSize.Huge].map(widthOf)).toEqual([2, 3, 4])
+    expect([ShapeSize.auto, ShapeSize.tiny, ShapeSize.small].map(widthOf)).toEqual([1, 1, 1])
+    expect([ShapeSize.normal, ShapeSize.large, ShapeSize.huge].map(widthOf)).toEqual([2, 3, 4])
   })
 
   it('散点只画圆，不连接数据，直径由 size 档位决定', () => {
     const { ctx } = paint(
-      { series: [{ id: 'sar', kind: 'points', size: ShapeSize.Large, color: () => 'red' }] },
+      { series: [{ id: 'sar', kind: 'points', size: ShapeSize.large, color: () => 'red' }] },
       [1, undefined, 3],
     )
     expect(ctx.arc).toHaveBeenCalledTimes(2)
@@ -1211,7 +1211,7 @@ describe('Plot renderer', () => {
             data: [{ value: 10 }, { value: 20 }],
             visible: true,
             offset: 0,
-            size: ShapeSize.Auto,
+            size: ShapeSize.auto,
             dash: [],
           },
         ],

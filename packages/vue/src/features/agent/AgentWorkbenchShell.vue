@@ -9,7 +9,7 @@
     <template #chart><slot name="chart"></slot></template>
     <template #panel-agent="{ side, close }">
       <AgentWorkspace
-        :bridge="bridge"
+        :client="client"
         :panel-side="side"
         @close="close"
       />
@@ -25,7 +25,7 @@
     SidePanelSideStorage,
     SidePanelWidthStorage,
   } from '../side-panel/types.js'
-  import type { AgentBridgeClient } from './agent-contracts.js'
+  import type { AgentClient } from './agent-contracts.js'
   import AgentWorkspace from './components/AgentWorkspace.vue'
 
   /** 预设只包含 Agent 面板；工作台产品另行注册自选股等面板。 */
@@ -36,7 +36,7 @@
 
   withDefaults(
     defineProps<{
-      bridge: AgentBridgeClient
+      client: AgentClient
       /** 面板宽度持久化端口；由宿主决定存储介质。 */
       panelWidthStorage?: SidePanelWidthStorage
       /** 面板停靠侧持久化端口。 */

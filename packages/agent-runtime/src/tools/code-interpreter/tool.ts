@@ -93,7 +93,7 @@ export class CodeInterpreterTool {
   }
 }
 
-/** 把执行逻辑包装成 Pi 可调用的工具；执行代码有副作用，plan 模式不暴露。 */
+/** 把执行逻辑包装成 Pi 可调用的工具；执行代码有副作用，plan 模式执行期拒绝。 */
 export function createCodeInterpreterTool(interpreter: CodeInterpreter): RuntimeToolDefinition {
   const tool = new CodeInterpreterTool(interpreter)
   return {

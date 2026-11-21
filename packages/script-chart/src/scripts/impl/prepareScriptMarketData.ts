@@ -22,7 +22,7 @@ export async function prepareScriptMarketData(
         {
           symbol: request.symbol,
           mode: request.mode,
-          ignore_invalid_timeframe: request.ignore_invalid_timeframe,
+          ignoreInvalidTimeframe: request.ignoreInvalidTimeframe,
           timeframe: request.timeframe,
           source: request.source,
           calcBarsCount:

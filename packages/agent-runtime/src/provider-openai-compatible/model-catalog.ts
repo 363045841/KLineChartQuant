@@ -3,7 +3,7 @@ import {
   PROVIDER_REASONING_EFFORTS,
   type ProviderModelView,
   type ProviderReasoningEffort,
-} from '../contracts/ui.js'
+} from '../contracts/provider.js'
 import type { ProviderCatalogModel as ProtocolCatalogModel } from './protocol.js'
 
 const MAX_CATALOG_MODELS = 2_000

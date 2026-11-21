@@ -13,13 +13,11 @@ import {
   Format,
   HLineStyle,
   LineStyle,
-  PlotKind,
   ShapeLocation,
   ShapeSize,
   ShapeStyle,
   Timeframe,
   xloc,
-  yloc,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { Position } from '../types.js'
 
@@ -31,10 +29,8 @@ export const SCRIPT_ENUM_GLOBALS = {
   HLineStyle,
   extend,
   xloc,
-  yloc,
   Format,
   Position,
-  PlotKind,
   ShapeStyle,
   ShapeLocation,
   ShapeSize,

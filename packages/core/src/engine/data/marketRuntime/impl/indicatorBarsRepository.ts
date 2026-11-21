@@ -59,8 +59,8 @@ export class IndicatorBarsRepository {
       request.mode === 'lower_tf' &&
       KLINE_PERIODS.indexOf(period) > KLINE_PERIODS.indexOf(session.selection.period)
     ) {
-      if (request.ignore_invalid_timeframe) return []
-      throw new TypeError('security_lower_tf的周期不能高于主图')
+      if (request.ignoreInvalidTimeframe) return []
+      throw new TypeError('securityLowerTf的周期不能高于主图')
     }
     const from = bars[0]!.timestamp
     const to = bars[bars.length - 1]!.timestamp

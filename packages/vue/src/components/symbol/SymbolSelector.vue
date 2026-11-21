@@ -43,7 +43,16 @@
         />
       </template>
       <template #body>
-        <div class="symbol-list" role="listbox" aria-label="商品列表">
+        <div
+          class="symbol-list"
+          role="listbox"
+          aria-label="商品列表"
+          @pointerover="onPointerOver"
+          @pointerleave="hide"
+          @focusin="onFocusIn"
+          @focusout="hide"
+        >
+          <SlidingHighlight ref="highlight" class="symbol-list__highlight" />
           <div v-if="picker.loading" class="symbol-list__empty">
             <LoadingSpinner :size="32" class="symbol-list__spinner" />
             <span>正在搜索</span>
@@ -95,10 +104,10 @@
   import '@vue-src/components/common/list-text.css'
 
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
-  import SymbolMetaBadge from './SymbolMetaBadge.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SearchableSymbol,
@@ -106,9 +115,11 @@
     symbolIdentityKey,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { computed, ref, watch } from 'vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
+  import SymbolMetaBadge from './SymbolMetaBadge.vue'
   import SymbolSearchDialog from './SymbolSearchDialog.vue'
   import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
 
@@ -148,6 +159,11 @@
 
   const chipWrapRef = ref<HTMLElement | null>(null)
   const picker = useSymbolSourcePickerFromProps<SymbolItem>(props)
+
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>
+    target.closest<HTMLElement>('.symbol-list__item'),
+  )
 
   const selectedKey = computed(() =>
     props.selectedItem ? symbolIdentityKey(props.selectedItem) : undefined,
@@ -205,21 +221,25 @@
   }
 
   .symbol-list__item {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 8px;
     margin: 0;
     border-bottom: 1px solid var(--klc-color-ui-border);
-    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
-  .symbol-list__item:hover {
-    background: var(--klc-color-ui-hover);
+  /* 通栏行上下紧邻，高亮块保持直角贴边。 */
+  .symbol-list__highlight {
+    --sliding-highlight-radius: 0;
   }
 
+  /* 当前品种是常驻选中态，与瞬时悬停分开取色。 */
   .symbol-list__item.is-active {
-    background: var(--klc-color-ui-hover);
+    background: var(--klc-color-ui-selected);
   }
 
   .symbol-list__select {

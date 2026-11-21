@@ -4,17 +4,17 @@ import type { Color } from './color.js'
 /** 线型：实线、虚线与箭头；手绘和 line API 共用。 */
 export const LineStyle = {
   /** @summary 实线 */
-  style_solid: 'solid',
+  solid: 'solid',
   /** @summary 虚线 */
-  style_dashed: 'dashed',
+  dashed: 'dashed',
   /** @summary 点线 */
-  style_dotted: 'dotted',
+  dotted: 'dotted',
   /** @summary 左箭头 */
-  style_arrow_left: 'arrow_left',
+  arrowLeft: 'arrow_left',
   /** @summary 右箭头 */
-  style_arrow_right: 'arrow_right',
+  arrowRight: 'arrow_right',
   /** @summary 双箭头 */
-  style_arrow_both: 'arrow_both',
+  arrowBoth: 'arrow_both',
 } as const
 export type LineStyle = (typeof LineStyle)[keyof typeof LineStyle]
 /** 延伸沿两锚点的参数方向，与屏幕左右方向无关。 */
@@ -32,15 +32,15 @@ export type LineExtend = (typeof extend)[keyof typeof extend]
 /**
  * 决定 X 是第几根 K 线还是毫秒时间戳。
  *
- * bar_index 从当前已加载数据的第一根算起；左侧加载更多历史后，同一根 K 线的序号会变大。
- * 允许范围是 0 到当前 bar_index，再向右最多 500 根；越界直接报错。
+ * barIndex 从当前已加载数据的第一根算起；左侧加载更多历史后，同一根 K 线的序号会变大。
+ * 允许范围是 0 到当前 barIndex，再向右最多 500 根；越界直接报错。
  * 要让线段跨历史保持在固定的 K 线上，用 bar_time 传 time[offset]。
  */
 export const xloc = {
   /** @summary 第几根 K 线 */
-  bar_index: 'bar_index',
+  barIndex: 'bar_index',
   /** @summary 毫秒时间戳 */
-  bar_time: 'bar_time',
+  barTime: 'bar_time',
 } as const
 export type LineXLoc = (typeof xloc)[keyof typeof xloc]
 export type DrawingStyle = {
@@ -193,7 +193,7 @@ export interface BoxOptions {
   readonly right: number
   /** 下边界价格。 */
   readonly bottom: number
-  /** 边框颜色，缺省 Color.Blue。 */
+  /** 边框颜色，缺省 Color.blue。 */
   readonly borderColor?: Color | (string & {})
   /** 边框宽度，逻辑像素；0 表示不画边框。 */
   readonly borderWidth?: number
@@ -201,7 +201,7 @@ export interface BoxOptions {
   readonly borderStyle?: BoxBorderStyle
   /** 延伸方向，缺省不延伸。 */
   readonly extend?: LineExtend
-  /** X 坐标单位，缺省 bar_index。 */
+  /** X 坐标单位，缺省 barIndex。 */
   readonly xloc?: LineXLoc
   /** 填充颜色；缺省与边框同色。 */
   readonly backgroundColor?: Color | (string & {})
@@ -252,33 +252,33 @@ export interface BoxFactory {
 export interface DrawingBoxApi {
   readonly new: BoxFactory
   readonly all: readonly BoxRef[]
-  set_left(id: BoxRef, left: number): void
-  set_top(id: BoxRef, top: number): void
-  set_right(id: BoxRef, right: number): void
-  set_bottom(id: BoxRef, bottom: number): void
-  set_lefttop(id: BoxRef, left: number, top: number): void
-  set_rightbottom(id: BoxRef, right: number, bottom: number): void
-  set_top_left_point(id: BoxRef, point: ChartPoint): void
-  set_bottom_right_point(id: BoxRef, point: ChartPoint): void
-  set_xloc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void
-  set_extend(id: BoxRef, extend: LineExtend): void
-  set_bgcolor(id: BoxRef, color: Color | (string & {})): void
-  set_border_color(id: BoxRef, color: Color | (string & {})): void
-  set_border_width(id: BoxRef, width: number): void
-  set_border_style(id: BoxRef, style: BoxBorderStyle): void
-  set_text(id: BoxRef, text: string): void
-  set_text_color(id: BoxRef, color: Color | (string & {})): void
-  set_text_size(id: BoxRef, size: number): void
-  set_text_halign(id: BoxRef, align: DrawingText['align']): void
-  set_text_valign(id: BoxRef, align: DrawingText['verticalAlign']): void
-  get_left(id: BoxRef): number
-  get_top(id: BoxRef): number
-  get_right(id: BoxRef): number
-  get_bottom(id: BoxRef): number
+  setLeft(id: BoxRef, left: number): void
+  setTop(id: BoxRef, top: number): void
+  setRight(id: BoxRef, right: number): void
+  setBottom(id: BoxRef, bottom: number): void
+  setLeftTop(id: BoxRef, left: number, top: number): void
+  setRightBottom(id: BoxRef, right: number, bottom: number): void
+  setTopLeftPoint(id: BoxRef, point: ChartPoint): void
+  setBottomRightPoint(id: BoxRef, point: ChartPoint): void
+  setXLoc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void
+  setExtend(id: BoxRef, extend: LineExtend): void
+  setBgColor(id: BoxRef, color: Color | (string & {})): void
+  setBorderColor(id: BoxRef, color: Color | (string & {})): void
+  setBorderWidth(id: BoxRef, width: number): void
+  setBorderStyle(id: BoxRef, style: BoxBorderStyle): void
+  setText(id: BoxRef, text: string): void
+  setTextColor(id: BoxRef, color: Color | (string & {})): void
+  setTextSize(id: BoxRef, size: number): void
+  setTextHAlign(id: BoxRef, align: DrawingText['align']): void
+  setTextVAlign(id: BoxRef, align: DrawingText['verticalAlign']): void
+  getLeft(id: BoxRef): number
+  getTop(id: BoxRef): number
+  getRight(id: BoxRef): number
+  getBottom(id: BoxRef): number
   copy(id: BoxRef): BoxRef | null
   delete(id: BoxRef | null): void
 }
-/** Label 的选项对象形态；只写需要的字段，省略 yloc/style 这类只有一个取值的参数。 */
+/** Label 的选项对象形态；只写需要的字段，省略 location/style 这类只有一个取值的参数。 */
 export interface LabelOptions {
   /** 锚点 X；按 xloc 读取索引或时间戳。 */
   readonly x: number
@@ -286,7 +286,7 @@ export interface LabelOptions {
   readonly y: number
   /** 文字，缺省为空字符串。 */
   readonly text?: string
-  /** X 坐标单位，缺省 bar_index。 */
+  /** X 坐标单位，缺省 barIndex。 */
   readonly xloc?: LineXLoc
   /** 文字颜色；同时作为标签颜色。 */
   readonly color?: Color | (string & {})
@@ -310,9 +310,9 @@ export interface LabelFactory {
    * | `x` / `y` | 锚点；x 按 xloc 读取，y 为价格 |
    * | `text` | 文本，默认空字符串 |
    * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根 |
-   * | `yloc` | 目前只支持价格锚点（yloc.price） |
-   * | `color` | 标签颜色，默认 Color.Blue |
-   * | `style` | 只支持无背景样式（label.style_none） |
+   * | `location` | 目前只支持价格锚点（`"price"`） |
+   * | `color` | 标签颜色，默认 Color.blue |
+   * | `style` | 只支持无背景样式（label.styleNone） |
    * | `textcolor` | 文字颜色，缺省跟随 `color` |
    * | `size` | 字号，正整数逻辑像素，默认 12 |
    * | `textalign` | 水平对齐，默认 center |
@@ -323,7 +323,7 @@ export interface LabelFactory {
     y: number,
     text?: string,
     xloc?: LineXLoc,
-    yloc?: 'price',
+    location?: 'price',
     color?: Color | (string & {}),
     style?: 'none',
     textcolor?: Color | (string & {}),
@@ -337,42 +337,40 @@ export interface LabelFactory {
    */
   (options: LabelOptions): LabelRef
 }
-/** 第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。 */
+/** 第一版 Label 使用价格锚点和纯文字样式，与 Pine styleNone 对应。 */
 export interface DrawingLabelApi {
-  readonly style_none: 'none'
+  readonly styleNone: 'none'
   /**
    * 绘制价格锚点标签，位置参数或选项对象二选一。
    * @summary 绘制标签
    *
-   * 返回标签引用；超过 max_labels_count 时最旧的标签被回收。
+   * 返回标签引用；超过 maxLabelsCount 时最旧的标签被回收。
    */
   readonly new: LabelFactory
   readonly all: readonly LabelRef[]
-  set_x(id: LabelRef, x: number): void
-  set_y(id: LabelRef, y: number): void
-  set_xy(id: LabelRef, x: number, y: number): void
-  set_text(id: LabelRef, text: string): void
-  set_textcolor(id: LabelRef, color: Color | (string & {})): void
-  set_size(id: LabelRef, size: number): void
-  set_textalign(id: LabelRef, align: DrawingText['align']): void
+  setX(id: LabelRef, x: number): void
+  setY(id: LabelRef, y: number): void
+  setXY(id: LabelRef, x: number, y: number): void
+  setText(id: LabelRef, text: string): void
+  setTextColor(id: LabelRef, color: Color | (string & {})): void
+  setSize(id: LabelRef, size: number): void
+  setTextAlign(id: LabelRef, align: DrawingText['align']): void
   /**
    * 设置垂直偏移；逻辑像素，正数向上。
    * @summary 设置垂直偏移
    */
-  set_yoffset(id: LabelRef, offsetY: number): void
-  get_x(id: LabelRef): number
-  get_y(id: LabelRef): number
-  get_text(id: LabelRef): string | null
+  setYOffset(id: LabelRef, offsetY: number): void
+  getX(id: LabelRef): number
+  getY(id: LabelRef): number
+  getText(id: LabelRef): string | null
   /**
    * 读取垂直偏移；标签已删除返回 0。
    * @summary 垂直偏移
    */
-  get_yoffset(id: LabelRef): number
+  getYOffset(id: LabelRef): number
   copy(id: LabelRef): LabelRef | null
   delete(id: LabelRef | null): void
 }
-/** 价格文字锚点；其他定位方式待公共绘图模型支持后再开放。 */
-export const yloc = { price: 'price' } as const
 /** Box 和 Label 的运行上下文，限额在声明时归一化。 */
 export interface DrawingObjectContext {
   readonly paneId: string
@@ -400,9 +398,9 @@ export function isDrawingInteractive(drawing: DrawingObject): boolean {
 }
 /** chart.point 值对象；绘制线段时复制坐标。 */
 export interface ChartPoint {
-  /** bar 索引；xloc.bar_index 时 line 读取该字段。 */
+  /** bar 索引；xloc.barIndex 时 line 读取该字段。 */
   readonly index?: number
-  /** K 线时间戳（毫秒）；xloc.bar_time 时 line 读取该字段。 */
+  /** K 线时间戳（毫秒）；xloc.barTime 时 line 读取该字段。 */
   readonly time?: number
   /** 价格。 */
   readonly price: number
@@ -422,11 +420,11 @@ export interface LineOptions {
   readonly x2: number
   /** 终点价格。 */
   readonly y2: number
-  /** X 坐标单位，缺省 bar_index。 */
+  /** X 坐标单位，缺省 barIndex。 */
   readonly xloc?: LineXLoc
   /** 延伸方向，缺省不延伸。 */
   readonly extend?: LineExtend
-  /** 颜色，缺省 Color.Blue。 */
+  /** 颜色，缺省 Color.blue。 */
   readonly color?: Color | (string & {})
   /** 线型或箭头，缺省实线。 */
   readonly style?: LineStyle
@@ -443,15 +441,15 @@ export interface LineFactory {
    * | --- | --- |
    * | `first_point` | 起点；按 xloc 读取 index 或 time |
    * | `second_point` | 终点；规则同起点 |
-   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
+   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.barIndex） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
-   * | `style` | 线型或箭头，默认 line.style_solid |
+   * | `color` | 颜色，默认 Color.blue；可用 Color 枚举或任意 CSS 颜色值 |
+   * | `style` | 线型或箭头，默认 LineStyle.solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
-   * bar_index 从当前已加载数据的第一根算起，左侧加载更多历史后序号会变大；不在 0 到当前 bar_index + 500 之内会直接报错。要跨历史固定在某根 K 线上，用 xloc.bar_time 传 time[offset]。
+   * barIndex 从当前已加载数据的第一根算起，左侧加载更多历史后序号会变大；不在 0 到当前 barIndex + 500 之内会直接报错。要跨历史固定在某根 K 线上，用 xloc.barTime 传 time[offset]。
    *
-   * 返回线段引用；超过 max_lines_count 时最旧的线段被回收。
+   * 返回线段引用；超过 maxLinesCount 时最旧的线段被回收。
    */
   (
     first_point: ChartPoint,
@@ -468,17 +466,17 @@ export interface LineFactory {
    *
    * | 参数 | 含义 |
    * | --- | --- |
-   * | `x1` | 起点 X；bar_index 时为索引，bar_time 时为毫秒时间戳 |
+   * | `x1` | 起点 X；barIndex 时为索引，bar_time 时为毫秒时间戳 |
    * | `y1` | 起点价格 |
    * | `x2` | 终点 X；规则同 x1 |
    * | `y2` | 终点价格 |
-   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
+   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.barIndex） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
-   * | `style` | 线型或箭头，默认 line.style_solid |
+   * | `color` | 颜色，默认 Color.blue；可用 Color 枚举或任意 CSS 颜色值 |
+   * | `style` | 线型或箭头，默认 LineStyle.solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
-   * bar_index 从当前已加载数据的第一根算起，左侧加载更多历史后序号会变大；不在 0 到当前 bar_index + 500 之内会直接报错。要跨历史固定在某根 K 线上，用 xloc.bar_time 传 time[offset]。
+   * barIndex 从当前已加载数据的第一根算起，左侧加载更多历史后序号会变大；不在 0 到当前 barIndex + 500 之内会直接报错。要跨历史固定在某根 K 线上，用 xloc.barTime 传 time[offset]。
    *
    * 返回线段引用。
    */
@@ -508,25 +506,13 @@ export interface LineFactory {
  *
  * | 用法 | 含义 |
  * | --- | --- |
- * | `line.new(...)` | 绘制线段，超出 max_lines_count 时回收最旧 |
+ * | `line.new(...)` | 绘制线段，超出 maxLinesCount 时回收最旧 |
  * | `line.set_*` | 修改端点、颜色、线型、线宽或延伸 |
  * | `line.get_*` | 读取对应属性；已删除返回 NaN 或 null |
- * | `line.get_price(id, x)` | 按线段所在直线求价格，只支持 bar_index |
+ * | `line.getPrice(id, x)` | 按线段所在直线求价格，只支持 barIndex |
  * | `line.copy` / `line.delete` | 复制为新线段 / 删除线段 |
  */
 export interface DrawingLineApi {
-  /** @summary 实线 */
-  readonly style_solid: typeof LineStyle.style_solid
-  /** @summary 虚线 */
-  readonly style_dashed: typeof LineStyle.style_dashed
-  /** @summary 点线 */
-  readonly style_dotted: typeof LineStyle.style_dotted
-  /** @summary 左箭头 */
-  readonly style_arrow_left: typeof LineStyle.style_arrow_left
-  /** @summary 右箭头 */
-  readonly style_arrow_right: typeof LineStyle.style_arrow_right
-  /** @summary 双箭头 */
-  readonly style_arrow_both: typeof LineStyle.style_arrow_both
   /**
    * 绘制线段；两个重载分别接受 chart.point 端点与起止点的 X / Y。
    * @summary 绘制线段
@@ -541,97 +527,97 @@ export interface DrawingLineApi {
    * 同时设置起点 X 和 Y；X 的取值方式沿用创建时的 xloc。
    * @summary 设置起点
    */
-  set_xy1(id: LineRef, x: number, y: number): void
+  setXY1(id: LineRef, x: number, y: number): void
   /**
    * 同时设置终点 X 和 Y；X 的取值方式沿用创建时的 xloc。
    * @summary 设置终点
    */
-  set_xy2(id: LineRef, x: number, y: number): void
+  setXY2(id: LineRef, x: number, y: number): void
   /**
    * 设置起点 X；取值方式沿用创建时的 xloc。
    * @summary 设置起点 X
    */
-  set_x1(id: LineRef, x: number): void
+  setX1(id: LineRef, x: number): void
   /**
    * 设置起点价格。
    * @summary 设置起点价格
    */
-  set_y1(id: LineRef, y: number): void
+  setY1(id: LineRef, y: number): void
   /**
    * 设置终点 X；取值方式沿用创建时的 xloc。
    * @summary 设置终点 X
    */
-  set_x2(id: LineRef, x: number): void
+  setX2(id: LineRef, x: number): void
   /**
    * 设置终点价格。
    * @summary 设置终点价格
    */
-  set_y2(id: LineRef, y: number): void
+  setY2(id: LineRef, y: number): void
   /**
    * 设置线段颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。
    * @summary 设置颜色
    */
-  set_color(id: LineRef, color: Color | (string & {})): void
+  setColor(id: LineRef, color: Color | (string & {})): void
   /**
    * 设置线型，包括实线、虚线和箭头。
    * @summary 设置线型
    */
-  set_style(id: LineRef, style: LineStyle): void
+  setStyle(id: LineRef, style: LineStyle): void
   /**
    * 设置线宽，正整数逻辑像素。
    * @summary 设置线宽
    */
-  set_width(id: LineRef, width: number): void
+  setWidth(id: LineRef, width: number): void
   /**
    * 设置延伸方向；left 延伸至起点之外，right 延伸至终点之外。
    * @summary 设置延伸
    */
-  set_extend(id: LineRef, extend: LineExtend): void
+  setExtend(id: LineRef, extend: LineExtend): void
   /**
    * 读取起点 X；线段已删除返回 NaN。
    * @summary 起点 X
    */
-  get_x1(id: LineRef): number
+  getX1(id: LineRef): number
   /**
    * 读取起点价格；线段已删除返回 NaN。
    * @summary 起点价格
    */
-  get_y1(id: LineRef): number
+  getY1(id: LineRef): number
   /**
    * 读取终点 X；线段已删除返回 NaN。
    * @summary 终点 X
    */
-  get_x2(id: LineRef): number
+  getX2(id: LineRef): number
   /**
    * 读取终点价格；线段已删除返回 NaN。
    * @summary 终点价格
    */
-  get_y2(id: LineRef): number
+  getY2(id: LineRef): number
   /**
    * 读取颜色；线段已删除返回 null。
    * @summary 颜色
    */
-  get_color(id: LineRef): string | null
+  getColor(id: LineRef): string | null
   /**
    * 读取线型；线段已删除返回 null。
    * @summary 线型
    */
-  get_style(id: LineRef): LineStyle | null
+  getStyle(id: LineRef): LineStyle | null
   /**
    * 读取线宽；线段已删除返回 NaN。
    * @summary 线宽
    */
-  get_width(id: LineRef): number
+  getWidth(id: LineRef): number
   /**
    * 读取延伸方向；线段已删除返回 null。
    * @summary 延伸方向
    */
-  get_extend(id: LineRef): LineExtend | null
+  getExtend(id: LineRef): LineExtend | null
   /**
-   * 按线段所在直线求 x 处的价格，与 extend 无关；只支持 xloc.bar_index，垂直线或已删除返回 NaN。
+   * 按线段所在直线求 x 处的价格，与 extend 无关；只支持 xloc.barIndex，垂直线或已删除返回 NaN。
    * @summary 求价格
    */
-  get_price(id: LineRef, x: number): number
+  getPrice(id: LineRef, x: number): number
   /**
    * 复制为新线段并返回其引用，副本独立于原线段。
    * @summary 复制线段
@@ -659,6 +645,6 @@ export interface DrawingLineContext {
   readonly ownerId?: string
   readonly defaultColor: Color | (string & {})
   readonly maxLines: number
-  /** 当前已执行的 K 线根数（bar_index + 1）；用于校验 bar_index 坐标的范围。 */
+  /** 当前已执行的 K 线根数（barIndex + 1）；用于校验 barIndex 坐标的范围。 */
   readonly barCount: number
 }

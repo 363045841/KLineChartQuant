@@ -81,7 +81,17 @@
               {{ errors[group.connection.id] }}
             </p>
 
-            <ul class="source-providers">
+            <ul
+              class="source-providers"
+              @pointerover="onProviderPointerOver($event, group.connection.id)"
+              @pointerleave="hideProviderHighlight(group.connection.id)"
+              @focusin="onProviderPointerOver($event, group.connection.id)"
+              @focusout="hideProviderHighlight(group.connection.id)"
+            >
+              <SlidingHighlight
+                :ref="providerHighlightRef(group.connection.id)"
+                class="source-providers__highlight"
+              />
               <li
                 v-for="provider in group.providers"
                 :key="provider.id"
@@ -123,15 +133,17 @@
 <script setup lang="ts">
   import '@vue-src/components/common/control-cluster.css'
 
-  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import ToggleSwitch from '@vue-src/components/common/form/ToggleSwitch.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useMarketDataManagement } from '@vue-src/composables/market/useMarketDataManagement.js'
+  import type { SlidingHighlightHandle } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { ref, watch } from 'vue'
   import IconTablerLink from '~icons/tabler/link'
   import IconTablerRefresh from '~icons/tabler/refresh'
@@ -155,6 +167,57 @@
   } = useMarketDataManagement()
 
   const refreshing = ref(false)
+
+  /*
+   * 每个连接一张卡片，卡片自带圆角与 overflow 裁剪，单块高亮跨卡片会盖住圆角；
+   * 因此按卡片各持一块高亮，指针落在哪组就移动哪一块。
+   */
+  const providerHighlights = new Map<string, SlidingHighlightHandle>()
+  /** 每个分组一条稳定的 ref 回调：内联箭头每次渲染都会换身份，会让 Vue 反复清空再登记。 */
+  const providerHighlightSetters = new Map<string, (instance: unknown) => void>()
+
+  /** 取分组对应的稳定 ref 回调。 */
+  function providerHighlightRef(id: string): (instance: unknown) => void {
+    let setter = providerHighlightSetters.get(id)
+    if (!setter) {
+      setter = (instance) => setProviderHighlight(id, instance)
+      providerHighlightSetters.set(id, setter)
+    }
+    return setter
+  }
+
+  /** 类型守卫：模板的 ref 回调只会给出组件实例，这里按结构确认它确实是高亮块句柄。 */
+  function isHighlightHandle(value: unknown): value is SlidingHighlightHandle {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'moveTo' in value &&
+      typeof value.moveTo === 'function' &&
+      'hide' in value &&
+      typeof value.hide === 'function'
+    )
+  }
+
+  /** 组件挂载时登记、卸载时移除对应卡片的高亮块。 */
+  function setProviderHighlight(id: string, instance: unknown): void {
+    if (isHighlightHandle(instance)) providerHighlights.set(id, instance)
+    else providerHighlights.delete(id)
+  }
+
+  /** 指针/焦点进入某组 provider 行：收起其余组的块，再移动本组的块。 */
+  function onProviderPointerOver(event: Event, id: string): void {
+    const target = event.target instanceof Element ? event.target : null
+    const row = target?.closest<HTMLElement>('.provider-row') ?? null
+    if (!row) return
+    for (const [key, highlight] of providerHighlights) {
+      if (key !== id) highlight.hide()
+    }
+    providerHighlights.get(id)?.moveTo(row)
+  }
+
+  function hideProviderHighlight(id: string): void {
+    providerHighlights.get(id)?.hide()
+  }
 
   /** 每次打开重建草稿，并强制刷新全部状态。 */
   async function refreshAll(): Promise<void> {
@@ -289,6 +352,8 @@
 
   /* ── Provider 条目 ── */
   .source-providers {
+    /* 滑动高亮的定位上下文；块随卡片一起被 overflow 裁剪。 */
+    position: relative;
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -297,21 +362,24 @@
     border-top: 1px solid var(--klc-color-ui-border);
   }
 
+  /* 行铺满卡片整宽，高亮块保持直角贴边。 */
+  .source-providers__highlight {
+    --sliding-highlight-radius: 0;
+  }
+
   .provider-row {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--klc-space-12, 12px);
     padding: 10px 14px;
-    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
   .provider-row + .provider-row {
     border-top: 1px solid color-mix(in srgb, var(--klc-color-ui-border) 60%, transparent);
-  }
-
-  .provider-row:hover {
-    background: var(--klc-color-ui-hover);
   }
 
   .provider-row__identity {

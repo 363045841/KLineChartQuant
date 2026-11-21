@@ -74,7 +74,11 @@
     padding-left: calc(var(--klc-space-8, 8px) + var(--script-tree-depth, 0) * var(--klc-space-16, 16px));
   }
   .script-files__dir { flex: 1; min-width: 0; }
-  .script-files__folder-button:hover, .script-files__dir:hover, .script-files__file:hover, .script-files__file.is-active { background: var(--klc-color-ui-hover); }
+  /* 行内容压在滑动高亮块之上；悬停底色由块统一提供。 */
+  .script-files__folder-button,
+  .script-files__file { position: relative; z-index: 1; }
+  /* 当前文件是常驻选中态，与瞬时悬停分开取色。 */
+  .script-files__file.is-active { background: var(--klc-color-ui-selected); }
   .script-files__filename { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* 每类目录右侧直接新建，替代数量展示；入口常驻，不依赖悬浮。 */
   .script-files__folder-add { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--klc-radius-sm, 4px); background: transparent; color: var(--klc-color-ui-muted); cursor: pointer; }

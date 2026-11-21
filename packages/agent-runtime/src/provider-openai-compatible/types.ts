@@ -1,12 +1,11 @@
 // OpenAI-compatible Provider 的运行时配置、存储边界与诊断数据契约。
 
-/** OpenAI-compatible Provider 的稳定标识。 */
 import type { ProviderCredentialStore } from '../contracts/credentials.js'
 import type {
-  AgentRunContext,
   ProviderApiProtocol,
+  ProviderModelView,
   ProviderReasoningEffort,
-} from '../contracts/ui.js'
+} from '../contracts/provider.js'
 
 // 凭据边界属于宿主契约，定义在 contracts；这里转出以保持现有导入路径可用。
 export type { ProviderCredentialStore } from '../contracts/credentials.js'
@@ -19,7 +18,7 @@ export const PROVIDER_SETTINGS_VERSION = 4 as const
 /** Provider 未声明模型容量时使用的上下文窗口回退值。 */
 export const DEFAULT_PROVIDER_CONTEXT_WINDOW = 1_000_000
 
-/** OpenAI-compatible Provider 的已验证连接设置。 */
+/** OpenAI-compatible Provider 的已选模型设置；由宿主文档投影得到。 */
 export interface OpenAiCompatibleProviderSettings {
   /** 用于兼容后续迁移的持久化数据版本。 */
   version: typeof PROVIDER_SETTINGS_VERSION
@@ -42,12 +41,23 @@ export interface OpenAiCompatibleProviderSettings {
   protocol: ProviderApiProtocol
 }
 
-/** 定义 Provider 非敏感设置的持久化边界。 */
+/** 定义 Provider 非敏感设置的读取边界。 */
 export interface ProviderSettingsStore {
   /** 读取设置；尚未配置时返回 undefined。 */
   read(signal?: AbortSignal): Promise<OpenAiCompatibleProviderSettings | undefined>
-  /** 原子写入已验证的 Provider 设置。 */
-  write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void>
+}
+
+/** 一次模型目录请求的输入。 */
+export interface ProviderModelsInput {
+  baseUrl: string
+  apiKey?: string
+  headers?: Record<string, string>
+}
+
+/** 一次模型目录请求的结果。 */
+export interface ProviderModelsResult {
+  models: ProviderModelView[]
+  refreshedAt: number
 }
 
 /** 单个 Provider HTTP 或流式请求阶段的脱敏诊断记录。 */
@@ -99,5 +109,7 @@ export interface OpenAiCompatibleRuntimeOptions {
   /** 根据当前运行上下文提供可用工具；模式过滤由宿主完成。 */
   tools?: (
     input: import('../application/types.js').RunPlanInput,
-  ) => readonly import('../pi/types.js').RuntimeToolDefinition[]
+  ) =>
+    | readonly import('../pi/types.js').RuntimeToolDefinition[]
+    | Promise<readonly import('../pi/types.js').RuntimeToolDefinition[]>
 }

@@ -9,8 +9,9 @@ describe('Series 当前值语法糖', () => {
       source: `
         const declare = defineIndicator
         declare({
+          version: 2,
           name: 'ParameterContext',
-          position: Position.Sub,
+          position: Position.sub,
           onBar() {
             const level = input.int(2)
             function double(value: typeof level): number { return value * 2 }

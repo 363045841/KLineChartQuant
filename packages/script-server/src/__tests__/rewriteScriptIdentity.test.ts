@@ -4,6 +4,7 @@ import { rewriteScriptIdentity } from '../rewriteScriptIdentity.js'
 
 const source = `// 顶部注释
 defineIndicator({
+  version: 2,
   name: 'Average',
   inputs: { period: input.int(20) },
   onBar() {

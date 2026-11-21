@@ -5,22 +5,22 @@ type ScalarPlotMethod = Exclude<keyof ScriptPlot, 'Candle' | 'Bar'>
 
 /** 绘图方法的种类与值语义；booleanValue 表示该方法接受布尔条件。 */
 interface PlotMethodSpec {
-  readonly kind: PlotKind
+  readonly kind: PlotKindName
   readonly booleanValue?: boolean
 }
 
 /** 方法表是绘图门面与值校验的唯一来源：新增图形只需在这里登记一次。 */
 const PLOT_METHOD_SPECS = {
-  Line: { kind: PlotKind.Line },
-  LineBR: { kind: PlotKind.LineBR },
-  StepLine: { kind: PlotKind.StepLine },
-  StepLineBR: { kind: PlotKind.StepLineBR },
-  Histogram: { kind: PlotKind.Histogram },
-  Columns: { kind: PlotKind.Columns },
-  Point: { kind: PlotKind.Points },
-  Shape: { kind: PlotKind.Shape, booleanValue: true },
-  Char: { kind: PlotKind.Char, booleanValue: true },
-  Arrow: { kind: PlotKind.Arrow },
+  Line: { kind: 'line' },
+  LineBR: { kind: 'linebr' },
+  StepLine: { kind: 'stepline' },
+  StepLineBR: { kind: 'steplinebr' },
+  Histogram: { kind: 'histogram' },
+  Columns: { kind: 'columns' },
+  Point: { kind: 'points' },
+  Shape: { kind: 'shape', booleanValue: true },
+  Char: { kind: 'char', booleanValue: true },
+  Arrow: { kind: 'arrow' },
 } satisfies Record<ScalarPlotMethod, PlotMethodSpec>
 
 /** 单值绘图方法共用同一实现，只绑定自己的种类与值语义。 */
@@ -43,11 +43,11 @@ const plot: ScriptPlot = {
   Arrow: scalarPlotMethod(PLOT_METHOD_SPECS.Arrow),
   /** 输出完整蜡烛 OHLC，统一交给宿主校验、归一化和采集。 */
   Candle(open, high, low, close, name, options) {
-    emitOhlcPlot(PlotKind.Candle, open, high, low, close, name, options)
+    emitOhlcPlot('candle', open, high, low, close, name, options)
   },
   /** 输出完整美国线 OHLC，与蜡烛共用数据语义。 */
   Bar(open, high, low, close, name, options) {
-    emitOhlcPlot(PlotKind.Bar, open, high, low, close, name, options)
+    emitOhlcPlot('bar', open, high, low, close, name, options)
   },
 }
 
@@ -72,7 +72,7 @@ function emitPlot(
 
 /** OHLC 方法共用入口：四价格整体交给宿主校验与采集。 */
 function emitOhlcPlot(
-  kind: PlotKind,
+  kind: PlotKindName,
   open: number | null,
   high: number | null,
   low: number | null,
@@ -142,7 +142,14 @@ const inputFactories = {
     if (typeof value !== 'string') throw new TypeError('input.string 需要字符串默认值')
     requireOptionList(
       options?.options,
-      (item) => typeof item === 'string' || (typeof item === 'object' && item !== null && 'value' in item && typeof item.value === 'string' && 'label' in item && typeof item.label === 'string'),
+      (item) =>
+        typeof item === 'string' ||
+        (typeof item === 'object' &&
+          item !== null &&
+          'value' in item &&
+          typeof item.value === 'string' &&
+          'label' in item &&
+          typeof item.label === 'string'),
       value,
       'input.string 的 options 必须是包含默认值的非空字符串列表',
     )
@@ -170,7 +177,15 @@ function requireOptionList(
   message: string,
 ): void {
   if (options === undefined) return
-  if (!options.length || !options.every(isValid) || !options.some((item) => (typeof item === 'object' && item !== null && 'value' in item ? item.value : item) === value))
+  if (
+    !options.length ||
+    !options.every(isValid) ||
+    !options.some(
+      (item) =>
+        (typeof item === 'object' && item !== null && 'value' in item ? item.value : item) ===
+        value,
+    )
+  )
     throw new TypeError(message)
 }
 
@@ -198,9 +213,7 @@ function numberInput(value: number, options?: NumberInputOptions): InputDef<numb
 
 /** 创建限额在声明边界完成归一化，后续消费不重复补默认值。 */
 type NormalizedIndicatorDeclaration = ScriptIndicatorDeclaration &
-  Required<
-    Pick<ScriptIndicatorDeclaration, 'max_lines_count' | 'max_boxes_count' | 'max_labels_count'>
-  >
+  Required<Pick<ScriptIndicatorDeclaration, 'maxLinesCount' | 'maxBoxesCount' | 'maxLabelsCount'>>
 let __definition: NormalizedIndicatorDeclaration | undefined
 const __inputs: QuickJSScriptDefinition['inputs'] = {}
 
@@ -228,9 +241,9 @@ function defineIndicator(definition: ScriptIndicatorDeclaration): void {
     throw new TypeError('指标需要 onBar 函数')
   __definition = {
     ...definition,
-    max_lines_count: drawingCount(definition.max_lines_count),
-    max_boxes_count: drawingCount(definition.max_boxes_count),
-    max_labels_count: drawingCount(definition.max_labels_count),
+    maxLinesCount: drawingCount(definition.maxLinesCount),
+    maxBoxesCount: drawingCount(definition.maxBoxesCount),
+    maxLabelsCount: drawingCount(definition.maxLabelsCount),
   }
 }
 
@@ -238,14 +251,15 @@ function defineIndicator(definition: ScriptIndicatorDeclaration): void {
 function __metadata(): QuickJSScriptDefinition {
   if (!__definition) throw new TypeError('脚本需要调用 defineIndicator')
   return {
+    version: __definition.version,
     name: __definition.name,
     title: __definition.title,
     info: __definition.info,
     position: __definition.position,
     format: __definition.format,
-    max_lines_count: __definition.max_lines_count,
-    max_boxes_count: __definition.max_boxes_count,
-    max_labels_count: __definition.max_labels_count,
+    maxLinesCount: __definition.maxLinesCount,
+    maxBoxesCount: __definition.maxBoxesCount,
+    maxLabelsCount: __definition.maxLabelsCount,
     inputs: __inputs,
   }
 }

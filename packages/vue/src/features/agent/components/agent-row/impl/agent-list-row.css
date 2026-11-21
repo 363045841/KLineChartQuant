@@ -9,9 +9,10 @@
   /* 字重只在这里声明一次，行内文字与按钮全部继承。 */
 }
 
+/* 选中与编辑中的行是常驻底色，用 selected；瞬时悬停由滑动高亮块提供。 */
 .agent-list-row.is-active,
 .agent-list-row.is-editing {
-  background: var(--klc-color-ui-hover);
+  background: var(--klc-color-ui-selected);
 }
 
 .agent-list-row__select {
@@ -70,6 +71,11 @@
   align-items: center;
   gap: var(--klc-space-4, 4px);
   padding: var(--klc-space-4, 4px);
+}
+
+/* 删除确认与空闲态的行尾操作图标对齐：按钮组贴右，不再落在行首。 */
+.agent-list-row__confirm {
+  justify-content: flex-end;
 }
 
 /* 行内输入取紧凑档高度，与空闲态行高对齐，进入编辑时列表不跳动。 */

@@ -38,7 +38,8 @@ describe('plot 调用契约', () => {
   it('Char 和 Arrow 使用共享默认值，调用只需提供 name', async () => {
     const result = await runQuickJSScript({
       source: `defineIndicator({
-        name: 'Marker defaults', position: Position.Sub, inputs: {},
+        version: 2,
+        name: 'Marker defaults', position: Position.sub, inputs: {},
         onBar() {
           plot.Char(true, 'char')
           plot.Arrow(close[0], 'arrow', { colorUp: 'green', colorDown: 'red' })
@@ -65,7 +66,7 @@ describe('plot 调用契约', () => {
     {
       name: 'Char 支持布尔条件、Unicode 字符和逐 bar 颜色',
       body: `plot.Char(close[0] > 1, 'signal', {
-        char: '🠅', location: ShapeLocation.BelowBar,
+        char: '🠅', location: ShapeLocation.belowBar,
         color: close[0] > 2 ? 'red' : 'blue', text: '买入'
       })`,
       bars: [1, 2, 3],
@@ -76,7 +77,7 @@ describe('plot 调用契约', () => {
       name: 'Arrow 保留有符号数值并采集逐 bar 方向颜色',
       body: `plot.Arrow(close[0], 'signal', {
         colorUp: close[0] > 1 ? 'green' : 'blue', colorDown: 'red',
-        size: ShapeSize.Large
+        size: ShapeSize.large
       })`,
       bars: [1, -2, 0, 10],
       shape: { kind: 'arrow', size: 'large' },
@@ -90,8 +91,8 @@ describe('plot 调用契约', () => {
     {
       name: 'Shape 数值输出直接配置样式，形状和文字颜色可逐 bar 改变',
       body: `plot.Shape(close[0], 'signal', {
-        style: ShapeStyle.LabelUp, location: ShapeLocation.Absolute,
-        size: ShapeSize.Small, text: '信号', offset: 1,
+        style: ShapeStyle.labelUp, location: ShapeLocation.absolute,
+        size: ShapeSize.small, text: '信号', offset: 1,
         color: close[0] === 2 ? 'red' : 'green', textColor: close[0] === 2 ? 'blue' : 'red',
       })`,
       bars: [2, 4],
@@ -111,8 +112,8 @@ describe('plot 调用契约', () => {
     {
       name: 'Shape 布尔条件贯通同一个 PlotCollector',
       body: `plot.Shape(close[0] > 2, 'signal', {
-        style: ShapeStyle.LabelUp, location: ShapeLocation.BelowBar,
-        size: ShapeSize.Small, text: '买入', offset: 1,
+        style: ShapeStyle.labelUp, location: ShapeLocation.belowBar,
+        size: ShapeSize.small, text: '买入', offset: 1,
         color: 'red', textColor: 'blue',
       })`,
       bars: [2, 4],
@@ -150,7 +151,7 @@ describe('plot 调用契约', () => {
     await expect(
       runQuickJSScript({
         source: scriptSource(
-          `plot.Shape(true, 'signal', { style: close[0] === 2 ? ShapeStyle.Circle : ShapeStyle.Square })`,
+          `plot.Shape(true, 'signal', { style: close[0] === 2 ? ShapeStyle.circle : ShapeStyle.square })`,
         ),
         bars: barsFromCloses([2, 4]),
       }),
@@ -159,7 +160,7 @@ describe('plot 调用契约', () => {
 
   it('Shape 的数值 0 保留在数据列中', async () => {
     const result = await runQuickJSScript({
-      source: scriptSource(`plot.Shape(close[0] - 2, 'signal', { location: ShapeLocation.Top })`),
+      source: scriptSource(`plot.Shape(close[0] - 2, 'signal', { location: ShapeLocation.top })`),
       bars: barsFromCloses([2, 4]),
     })
     expect(requireValues(result, 'signal')).toEqual([0, 2])
@@ -195,7 +196,7 @@ describe('plot 调用契约', () => {
     await expect(
       runQuickJSScript({
         source: scriptSource(
-          `const signal = plot.Shape(true, 'signal'); const price = plot.Line(close[0], 'price'); fill(signal, price, Color.Teal)`,
+          `const signal = plot.Shape(true, 'signal'); const price = plot.Line(close[0], 'price'); fill(signal, price, Color.teal)`,
         ),
         bars: barsFromCloses([2]),
       }),
@@ -204,11 +205,11 @@ describe('plot 调用契约', () => {
 
   it('fill 用句柄引用边界，每根 bar 保存颜色或 null', async () => {
     const result = await runQuickJSScript({
-      source: `defineIndicator({ name: 'Cloud', position: Position.Sub, inputs: {},
+      source: `defineIndicator({ version: 2, name: 'Cloud', position: Position.sub, inputs: {},
         onBar() {
           const fast = plot.Line(close[0], 'fast')
           const slow = plot.Line(close[0] + 1, 'slow')
-          fill(fast, slow, close[0] === 2 ? Color.Teal : close[0] === 4 ? null : Color.Red, '快慢云')
+          fill(fast, slow, close[0] === 2 ? Color.teal : close[0] === 4 ? null : Color.red, '快慢云')
         } })`,
       bars: barsFromCloses([2, 4, 6]),
     })
@@ -218,7 +219,7 @@ describe('plot 调用契约', () => {
         from: 'fast',
         to: 'slow',
         visible: true,
-        colors: [Color.Teal, null, Color.Red],
+        colors: [Color.teal, null, Color.red],
       },
     ])
   })
@@ -229,7 +230,7 @@ describe('plot 调用契约', () => {
         const a = plot.Line(close[0], 'a')
         const b = plot.Line(close[0] + 1, 'b')
         if (close[0] !== 4) fill(a, b, '#00897b26', 'cloud')
-        fill(a, b, Color.Red, 'second', { visible: false })
+        fill(a, b, Color.red, 'second', { visible: false })
       `),
       bars: barsFromCloses([2, 4, 6]),
     })
@@ -240,7 +241,7 @@ describe('plot 调用契约', () => {
         from: 'a',
         to: 'b',
         visible: false,
-        colors: [Color.Red, Color.Red, Color.Red],
+        colors: [Color.red, Color.red, Color.red],
       },
     ])
   })
@@ -248,7 +249,7 @@ describe('plot 调用契约', () => {
   it('fill 缺省标识按 from/to 生成', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(
-        `const a = plot.Line(close[0], 'a'); const b = plot.Point(close[0], 'b'); fill(a, b, Color.Teal)`,
+        `const a = plot.Line(close[0], 'a'); const b = plot.Point(close[0], 'b'); fill(a, b, Color.teal)`,
       ),
       bars: barsFromCloses([2]),
     })
@@ -257,7 +258,7 @@ describe('plot 调用契约', () => {
 
   it.each([
     [
-      `const a = plot.Line(close[0], 'a'); fill(a, { name: 'ghost' }, Color.Teal)`,
+      `const a = plot.Line(close[0], 'a'); fill(a, { name: 'ghost' }, Color.teal)`,
       'Unknown fill source',
     ],
     [
@@ -303,24 +304,32 @@ describe('plot 调用契约', () => {
     ).rejects.toThrow('cannot change kind')
   })
 
-  it.each([`plot.Unknown(close[0], 'shape')`, `plot(PlotKind.Line, close[0], 'shape')`])(
-    '拒绝未知方法和已移除的函数调用：%s',
-    async (call) => {
-      await expect(
-        runQuickJSScript({
-          source: scriptSource(call),
-          bars: barsFromCloses([2]),
-        }),
-      ).rejects.toThrow('not a function')
-    },
-  )
+  it('拒绝未定义的绘图方法', async () => {
+    await expect(
+      runQuickJSScript({
+        source: scriptSource(`plot.Unknown(close[0], 'shape')`),
+        bars: barsFromCloses([2]),
+      }),
+    ).rejects.toThrow('not a function')
+  })
+
+  it('PlotKind 不再作为脚本全局暴露', async () => {
+    const result = await runQuickJSScript({
+      source: scriptSource(`
+        if (globalThis.PlotKind !== undefined) throw new Error('PlotKind 仍然可见')
+        plot.Line(close[0], 'line')
+      `),
+      bars: barsFromCloses([2]),
+    })
+    expect(requireValues(result, 'line')).toEqual([2])
+  })
 
   it('Columns 和 Histogram 保留不同柱宽契约', async () => {
     const result = await runQuickJSScript({
       source: scriptSource(`
         plot.Columns(close, 'columns', { baseline: -1 })
         plot.Histogram(close, 'pixels', { size: 5, baseline: 2 })
-        plot.Histogram(close, 'enum', { size: ShapeSize.Large })
+        plot.Histogram(close, 'enum', { size: ShapeSize.large })
         plot.Histogram(close, 'default')`),
       bars: barsFromCloses([1, 3]),
     })
@@ -335,7 +344,7 @@ describe('plot 调用契约', () => {
   })
 
   it.each([
-    'plot.Columns(close, "x", { size: ShapeSize.Normal })',
+    'plot.Columns(close, "x", { size: ShapeSize.normal })',
     ...['0', '-1', 'NaN', 'Infinity', '"invalid"'].map(
       (size) => `plot.Histogram(close, 'x', { size: ${size} })`,
     ),
@@ -350,22 +359,22 @@ describe('plot 调用契约', () => {
 
   it('hline 在文件顶层声明，输出不占数据列的图表级水平线', async () => {
     const result = await runQuickJSScript({
-      source: `hline(80, { color: Color.Gray, linestyle: HLineStyle.style_dashed, linewidth: 2 })
+      source: `hline(80, { color: Color.gray, linestyle: HLineStyle.dashed, linewidth: 2 })
 hline(20)
 ${scriptSource('')}`,
       bars: barsFromCloses([2, 4]),
     })
     expect(result.hlines).toEqual([
-      { id: '0', price: 80, color: Color.Gray, dash: [4, 4], width: 2 },
-      { id: '1', price: 20, color: Color.Blue, dash: [], width: 1 },
+      { id: '0', price: 80, color: Color.gray, dash: [4, 4], width: 2 },
+      { id: '1', price: 20, color: Color.blue, dash: [], width: 1 },
     ])
     expect(result.plots).toEqual([])
   })
 
   it('两条 hline 之间可以声明整幅带状填充', async () => {
     const result = await runQuickJSScript({
-      source: `const over = hline(80, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
-const under = hline(20, { color: Color.Gray, linestyle: HLineStyle.style_dashed })
+      source: `const over = hline(80, { color: Color.gray, linestyle: HLineStyle.dashed })
+const under = hline(20, { color: Color.gray, linestyle: HLineStyle.dashed })
 fill(over, under, '#26a69a26', 'zone')
 ${scriptSource('')}`,
       bars: barsFromCloses([2, 4]),
@@ -380,7 +389,7 @@ ${scriptSource('')}`,
       runQuickJSScript({
         source: `const over = hline(80)
 const under = hline(20)
-defineIndicator({ name: 'Bad', position: 'sub', onBar() { fill(over, under, '#fff') } })`,
+defineIndicator({ version: 2, name: 'Bad', position: 'sub', onBar() { fill(over, under, '#fff') } })`,
         bars: barsFromCloses([1]),
       }),
     ).rejects.toThrow('文件顶层')

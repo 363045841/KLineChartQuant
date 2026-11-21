@@ -116,11 +116,11 @@ describe.each(BACKENDS)('MACD TA $name', ({ prepare }) => {
     }
     const colors = result.plots[0]!.data.map((point) => point?.color)
     expect(new Set(colors)).toEqual(
-      new Set([Color.Teal, Color.Teal + '80', Color.Red, Color.Red + '80']),
+      new Set([Color.teal, Color.teal + '80', Color.red, Color.red + '80']),
     )
-    expect(colors[1]).toBe(Color.Teal)
-    expect(colors[25]).toBe(Color.Red)
-    expect(colors[33]).toBe(Color.Red + '80')
-    expect(colors[59]).toBe(Color.Teal + '80')
+    expect(colors[1]).toBe(Color.teal)
+    expect(colors[25]).toBe(Color.red)
+    expect(colors[33]).toBe(Color.red + '80')
+    expect(colors[59]).toBe(Color.teal + '80')
   })
 })

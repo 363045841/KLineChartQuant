@@ -14,7 +14,7 @@ import type {
 } from '@earendil-works/pi-durable'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type { AgentSessionView } from '../contracts/ui.js'
-import { type DurableExecution, continueAgentRun, submitAgentRun } from '../pi/impl/run.js'
+import { continueAgentRun, type DurableExecution, submitAgentRun } from '../pi/impl/run.js'
 import type { AgentRunPlan } from '../pi/types.js'
 import {
   LEGACY_MAIN_LANE,
@@ -68,6 +68,22 @@ function userText(message: UserMessage): string {
   return typeof message.content === 'string'
     ? message.content
     : message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+}
+
+/** 判断未知值是否为普通对象。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * 读取用户条目的展示原文。
+ *
+ * 应用侧 `kq.user` 把易变上下文留在模型消息里，`data.prompt` 保存用户原文；
+ * 旧会话的 `pi.user` 没有 data，直接使用模型消息正文。
+ */
+function entryPrompt(entry: EntryRecord, message: UserMessage): string {
+  if (isRecord(entry.data) && typeof entry.data.prompt === 'string') return entry.data.prompt
+  return userText(message)
 }
 
 export class AgentSessionService {
@@ -230,7 +246,7 @@ export class AgentSessionService {
     if (!message || message.role !== 'user') {
       throw new AgentRuntimeError('INVALID_PAYLOAD', 'The edited message is not a user message.')
     }
-    return userText(message)
+    return entryPrompt(entry, message)
   }
 
   /**

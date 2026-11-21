@@ -1,5 +1,8 @@
 import { defaultMarketDataContext } from '@/data/management/impl/context.js'
-import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/impl/instrumentSearch.js'
+import {
+  lookupInstrumentsBySymbol,
+  searchInstruments,
+} from '@/data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
@@ -18,6 +21,9 @@ import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import {
+  type ChartAgentDrawingScope,
+  type ChartAgentMarketCapability,
+  type ChartAgentMarketSource,
   createChartAgentComparisonCommands,
   createChartAgentController,
   createChartAgentDrawingCommands,
@@ -25,9 +31,7 @@ import {
   createChartAgentMarketQueries,
   createChartAgentToolDeps,
   createMarketDataTextFormatter,
-  type ChartAgentDrawingScope,
-  type ChartAgentMarketCapability,
-  type ChartAgentMarketSource,
+  createUnwiredScripts,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
@@ -117,7 +121,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
-  const initialSettings = normalizeSettings({ ...opts.settings, ...(opts.theme && { theme: opts.theme }) })
+  const initialSettings = normalizeSettings({
+    ...opts.settings,
+    ...(opts.theme && { theme: opts.theme }),
+  })
   const rendererHost = await createDefaultRendererHost(
     initialSettings.rendererBackend as RendererBackend,
   )
@@ -231,8 +238,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return index < 0 ? null : index
   }
   /** 图表时区：图元时间读写都用它，不跟随宿主本地时区。 */
-  const chartTimezone = (): string =>
-    chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
+  const chartTimezone = (): string => chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
   const drawingScope = (): ChartAgentDrawingScope => ({
     rows: layoutPanes().map((pane) => pane.id),
     period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
@@ -282,6 +288,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       formatter: marketFormatter,
       indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     }),
+    // 参考正文随脚本包发布，由宿主注入；未注入时工具仍在清单里，调用会明确失败。
+    scripts: opts.scripts ?? createUnwiredScripts(),
   })
 
   const agent = createChartAgentController({
@@ -304,7 +312,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     for (const unsubscribe of layoutSubscriptions) unsubscribe()
     disposal = (async () => {
       const failures: unknown[] = []
-      for (const release of [mounted.cleanup, () => templateManager.dispose(), () => layoutManager.dispose(), () => chart.destroy()]) {
+      for (const release of [
+        mounted.cleanup,
+        () => templateManager.dispose(),
+        () => layoutManager.dispose(),
+        () => chart.destroy(),
+      ]) {
         try {
           await release()
         } catch (error) {

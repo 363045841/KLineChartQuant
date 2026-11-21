@@ -32,7 +32,7 @@ describe('Script selector catalog', () => {
 
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
     const created = await scripts.create(
-      `defineIndicator({ name: 'OC Average', position: 'main', inputs: {}, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'OC Average', position: 'main', inputs: {}, onBar() {} })`,
     )
     expect(findIndicatorDefinition('OC Average')).toMatchObject({
       id: created.id,
@@ -45,7 +45,7 @@ describe('Script selector catalog', () => {
 
   it('脚本 title/info 控制选择器 item-name 与说明，name 仍是身份', async () => {
     const created = await scripts.create(
-      `defineIndicator({ name: 'OC Display', title: 'OC 展示名', info: 'OC 说明', position: Position.Sub, inputs: {}, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'OC Display', title: 'OC 展示名', info: 'OC 说明', position: Position.sub, inputs: {}, onBar() {} })`,
     )
     expect(findIndicatorDefinition('OC Display')).toMatchObject({
       id: created.id,
@@ -58,8 +58,8 @@ describe('Script selector catalog', () => {
   it('注册后的脚本进入专用分组，保留输入类型和默认值', async () => {
     const scope = effectScope()
     const controller = createSelector()
-    const created = await scripts.create(`defineIndicator({ name: 'SelectorScript',
-      position: Position.Sub,
+    const created = await scripts.create(`defineIndicator({ version: 2, name: 'SelectorScript',
+      position: Position.sub,
       onBar() { const period = input.float(5); const text = input.string('close'); const enabled = input.bool(false); plot.Line(close, 'close') } })`)
     const definition = controller.catalog.peek().find((item) => item.id === created.id)!
     expect(definition.source).toBe('script')
@@ -96,13 +96,13 @@ describe('Script selector catalog', () => {
   it.each([
     {
       label: 'input() 的 title 作为参数显示名',
-      source: `defineIndicator({ name: 'TitledInputScript', position: Position.Sub,
+      source: `defineIndicator({ version: 2, name: 'TitledInputScript', position: Position.sub,
         onBar() { const n = input.float(2, { title: '除数' }); plot.Line(close, 'close') } })`,
       params: [{ key: 'n', label: '除数', type: 'number', default: 2 }],
     },
     {
       label: 'input() 的 options 成为下拉参数',
-      source: `defineIndicator({ name: 'OptionScript', position: Position.Sub, onBar() {
+      source: `defineIndicator({ version: 2, name: 'OptionScript', position: Position.sub, onBar() {
         const type = input.string('SMA', { title: '算法', options: ['SMA', 'EMA'] })
       } })`,
       params: [
@@ -125,7 +125,7 @@ describe('Script selector catalog', () => {
 
   it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', async () => {
     const created = await scripts.create(
-      `defineIndicator({ name: 'UpdatableScript', position: Position.Sub, onBar() { const period = input.float(3) } })`,
+      `defineIndicator({ version: 2, name: 'UpdatableScript', position: Position.sub, onBar() { const period = input.float(3) } })`,
     )
     expect(findIndicatorDefinition('UpdatableScript')!.params).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 3 },
@@ -133,7 +133,7 @@ describe('Script selector catalog', () => {
 
     await scripts.update(
       created.id,
-      `defineIndicator({ name: 'RenamedUpdatableScript', position: Position.Sub,
+      `defineIndicator({ version: 2, name: 'RenamedUpdatableScript', position: Position.sub,
         onBar() { const period = input.float(7); const label = input.string('ma', { title: '名称' }) } })`,
       created.revision,
     )
@@ -151,7 +151,7 @@ describe('Script selector catalog', () => {
   it('从选择器删除用户脚本后目录同步移除，非用户脚本不提供删除入口', async () => {
     const controller = createSelector()
     const document = await scripts.create(
-      `defineIndicator({ name: 'RemovableSelectorScript', position: Position.Sub, onBar() {} })`,
+      `defineIndicator({ version: 2, name: 'RemovableSelectorScript', position: Position.sub, onBar() {} })`,
     )
     const removal = useScriptRemoval(scripts)
     expect(removal.canRemove(document.id)).toBe(true)

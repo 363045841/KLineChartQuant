@@ -46,6 +46,8 @@ export interface ScriptService {
   /** 用当前图表行情直接执行草稿，不注册或保存定义。 */
   run(options: ScriptRunOptions): Promise<void>
   create(source: string, trusted?: boolean, folder?: string): Promise<ScriptDocument>
+  /** 只创建指标脚本；源码声明库时在任何写入前失败。 */
+  createIndicator(source: string, folder?: string): Promise<ScriptDocument>
   createFolder(folder: ScriptFolder): Promise<void>
   /** 删除文件夹及其内部文档；仍被目录外脚本引用的库会阻止删除。 */
   removeFolder(folder: ScriptFolder): Promise<ScriptFolderRemoval>

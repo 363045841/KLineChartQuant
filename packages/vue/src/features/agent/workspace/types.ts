@@ -5,7 +5,6 @@ import type {
   AgentRunMode,
   AgentSessionView,
   AgentTranscriptView,
-  ProviderStatusView,
   QuestionView,
 } from '../agent-contracts.js'
 
@@ -15,7 +14,6 @@ export interface AgentWorkspaceState {
   activeSessionId: string | null
   transcript: AgentTranscriptView | null
   questions: QuestionView[]
-  provider: ProviderStatusView
 }
 
 /** Agent 工作区的运行时可用性，与单次运行错误相互独立。 */

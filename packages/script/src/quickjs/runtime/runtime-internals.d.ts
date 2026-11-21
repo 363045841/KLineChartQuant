@@ -17,6 +17,21 @@ interface RollingWindow {
 /** 宿主注入：已推进的 K 线条数。 */
 declare function __count(): number
 
+/** 绘图种类字面量；与 plot-contracts 的 PlotKind 取值一致，不对脚本公开该枚举。 */
+type PlotKindName =
+  | 'line'
+  | 'linebr'
+  | 'stepline'
+  | 'steplinebr'
+  | 'histogram'
+  | 'columns'
+  | 'points'
+  | 'shape'
+  | 'char'
+  | 'arrow'
+  | 'candle'
+  | 'bar'
+
 /** 绘图增量：reset 表示整体替换，否则按 id 合并 upsert 并删除 remove。 */
 interface DrawingDelta {
   readonly reset: boolean

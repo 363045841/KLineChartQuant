@@ -11,19 +11,19 @@ export type { ScriptMarketSession, ScriptSessionRange, ScriptTimeContext } from 
  */
 export const DataSource = {
   /** @summary 币安 */
-  Binance: 'binance',
+  binance: 'binance',
   /** @summary 通达信 */
-  Gotdx: 'gotdx',
+  gotdx: 'gotdx',
   /** @summary 证券宝 */
-  BaoStock: 'baostock',
+  baoStock: 'baostock',
   /** @summary TradingView */
-  TradingView: 'tradingview',
+  tradingView: 'tradingview',
   /** @summary MetaTrader 5 */
-  MT5: 'mt5',
+  mt5: 'mt5',
   /** @summary 同花顺 */
-  THS: 'ths',
+  ths: 'ths',
   /** @summary 模拟数据 */
-  Mock: 'mock',
+  mock: 'mock',
 } as const satisfies Record<string, string>
 export type DataSource = (typeof DataSource)[keyof typeof DataSource]
 
@@ -37,27 +37,27 @@ export type DataSource = (typeof DataSource)[keyof typeof DataSource]
  */
 export const Timeframe = {
   /** @summary 1 分钟 */
-  Minute1: '1',
+  minute1: '1',
   /** @summary 5 分钟 */
-  Minute5: '5',
+  minute5: '5',
   /** @summary 15 分钟 */
-  Minute15: '15',
+  minute15: '15',
   /** @summary 30 分钟 */
-  Minute30: '30',
+  minute30: '30',
   /** @summary 1 小时 */
-  Hour1: '60',
+  hour1: '60',
   /** @summary 4 小时 */
-  Hour4: '240',
+  hour4: '240',
   /** @summary 日线 */
-  Day: 'D',
+  day: 'D',
   /** @summary 周线 */
-  Week: 'W',
+  week: 'W',
   /** @summary 月线 */
-  Month1: 'M',
+  month1: 'M',
   /** @summary 季线 */
-  Month3: '3M',
+  month3: '3M',
   /** @summary 年线 */
-  Month12: '12M',
+  month12: '12M',
 } as const satisfies Record<string, string>
 export type Timeframe = (typeof Timeframe)[keyof typeof Timeframe]
 
@@ -68,7 +68,7 @@ export const DEFAULT_INTRABAR_LIMIT = 100_000
 export interface IndicatorBarsRequest {
   /** lower_tf 保留全部日内明细；security 为每个主图bar输出一个对齐值。 */
   readonly mode?: 'security' | 'lower_tf'
-  readonly ignore_invalid_timeframe?: boolean
+  readonly ignoreInvalidTimeframe?: boolean
   /** 目标来源的 source；同品种缺省继承图表来源，跨品种必须显式给出。 */
   readonly source?: string
   readonly symbol: string

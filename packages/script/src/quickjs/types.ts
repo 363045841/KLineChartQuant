@@ -1,6 +1,10 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
-import type { ComputeDependency, Format, InputSchema } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  ComputeDependency,
+  Format,
+  InputSchema,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { LogEvent } from '../contracts/output.js'
 import type { ScriptSessionOutput } from '../execution/session/types.js'
@@ -8,6 +12,9 @@ import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '..
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
+
+/** 当前指标 API 版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
+export const INDICATOR_API_VERSION = 2
 
 /**
  * @summary 渲染位置
@@ -19,12 +26,12 @@ export enum Position {
    * 叠加到主图。
    * @summary 主图
    */
-  Main = 'main',
+  main = 'main',
   /**
    * 独立副图。
    * @summary 副图
    */
-  Sub = 'sub',
+  sub = 'sub',
 }
 
 /** VM 库文件；源码通过 defineLibrary(name, exports) 声明公开成员。 */
@@ -35,6 +42,8 @@ export interface QuickJSLibrary {
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
 export interface QuickJSScriptDefinition {
+  /** 指标 API 版本；宿主按 INDICATOR_API_VERSION 校验，缺失按 1 处理。 */
+  readonly version: number
   /** 稳定身份与选择器短名；注册身份由宿主维护。 */
   readonly name: string
   /** 指标选择器/图例显示的长名称；缺省用 name。 */
@@ -46,18 +55,18 @@ export interface QuickJSScriptDefinition {
    *
    * | 取值 | 含义 |
    * | --- | --- |
-   * | `Position.Main` | 叠加到主图，与 K 线共用主图价格轴 |
-   * | `Position.Sub` | 独立副图 |
+   * | `Position.main` | 叠加到主图，与 K 线共用主图价格轴 |
+   * | `Position.sub` | 独立副图 |
    */
   readonly position: Position
   /** 指标级数值格式；驱动副图轴与图例显示，缺省按价格。 */
   readonly format?: Format
   /** 可保留的 line 对象数；默认 50，范围 1..2000。 */
-  readonly max_lines_count?: number
+  readonly maxLinesCount?: number
   /** 可保留的 Box 数量；默认值与范围由公共 drawing 契约管理。 */
-  readonly max_boxes_count?: number
+  readonly maxBoxesCount?: number
   /** 可保留的 Label 数量。 */
-  readonly max_labels_count?: number
+  readonly maxLabelsCount?: number
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 

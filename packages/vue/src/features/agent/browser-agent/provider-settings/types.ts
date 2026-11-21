@@ -1,87 +1,105 @@
-// Provider 设置模块的契约层：定义设置弹窗 store 的公共类型；实现位于 impl/。
+// Provider 设置模块的契约层：页面消费的唯一快照、命令集合与工具调试状态。
 
 import type {
-  AgentBridgeClient,
   AgentErrorView,
   AgentToolDebugResult,
   AgentToolView,
+  ProviderAdmin,
   ProviderApiProtocol,
+  ProviderCatalogView,
   ProviderModelView,
   ProviderProfileView,
-  ProviderStatusView,
+  ProviderSnapshot,
 } from '../../agent-contracts.js'
 
-/** Provider 设置 store 的公共契约：连接草稿、Profile/模型池/工具状态与异步操作。 */
+/** 尚未提交的连接输入；页面唯一的本地可写状态。 */
+export interface ProviderDraft {
+  profileId: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  headers: string
+  protocol: ProviderApiProtocol
+}
+
+/** 设置弹窗需要的工具能力；与图表/宿主工具同源。 */
+export interface AgentToolAdmin {
+  listTools(): Promise<AgentToolView[]>
+  setToolEnabled(name: string, enabled: boolean): Promise<void>
+  debugTool(name: string, input: unknown): Promise<AgentToolDebugResult>
+}
+
+/** Provider 设置弹窗的公共契约：快照、草稿、命令与工具调试。 */
 export interface AgentProviderSettingsStore {
   /** 设置弹窗是否可见。 */
   open: boolean
-  /** Provider 基础地址草稿。 */
-  baseUrl: string
-  /** API Key 草稿；关闭弹窗时立即清除，不进入持久化状态。 */
-  apiKey: string
-  /** Exa 搜索 API Key 草稿；关闭弹窗时立即清除。 */
-  exaApiKey: string
-  /** 附加请求头 JSON 草稿。 */
-  headers: string
-  /** 当前 Provider 协议草稿。 */
-  protocol: ProviderApiProtocol
-  /** 当前激活的 Profile 名称。 */
-  profileName: string
-  /** 已保存的 Profile 列表。 */
-  profiles: ProviderProfileView[]
-  /** 连接与 Profile 操作的错误视图。 */
-  operationError: AgentErrorView | null
-  /** Profile 命名弹窗的校验错误视图。 */
+  /** 宿主文档的最近一次完整快照；页面渲染 Provider 的唯一事实。 */
+  snapshot: ProviderSnapshot | null
+  /** 最近一次远端目录读取结果；连接或配置变化后自动丢弃。 */
+  catalog: ProviderCatalogView | null
+  /** 目录是否正在读取。 */
+  catalogLoading: boolean
+  /** 最近一次操作错误。 */
+  error: AgentErrorView | null
+  /** 配置命名弹窗的校验错误。 */
   profileNameError: AgentErrorView | null
-  /** 当前注册的工具列表。 */
+  /** 连接表单草稿。 */
+  draft: ProviderDraft
+  /** 派生：已保存配置。 */
+  profiles: readonly ProviderProfileView[]
+  /** 派生：模型池。 */
+  models: readonly ProviderModelView[]
+  /** 派生：模型池成员 id。 */
+  poolIds: ReadonlySet<string>
+  /** 派生：连接、凭据与模型都已就绪，可以发起运行。 */
+  ready: boolean
+  /** 工具域：可配置的宿主与图表工具。 */
   tools: AgentToolView[]
-  /** 各工具调试参数的 JSON 草稿。 */
   toolInputs: Record<string, string>
-  /** 各工具最近一次调试成功的返回值。 */
   toolResults: Record<string, AgentToolDebugResult>
-  /** 各工具最近一次调试失败的错误信息。 */
   toolErrors: Record<string, string>
-  /** 正在调试的工具名；无进行中调试时为 null。 */
   runningToolName: string | null
-  /** 当前 Provider 的远端模型目录。 */
-  modelCatalog: ProviderModelView[]
-  /** 当前 Provider 已加入模型池的模型。 */
-  modelPool: ProviderModelView[]
-  /** 模型目录是否正在刷新。 */
-  modelsLoading: boolean
+  /** Web Search 凭据草稿。 */
+  exaApiKey: string
 
-  /** 绑定当前 Workspace 的 bridge，供后续操作调用。 */
-  bindBridge(value: AgentBridgeClient): void
-  /** 更新协议草稿。 */
+  /** 绑定当前 Workspace 的 Provider 与工具 API。 */
+  bindAdmin(admin: ProviderAdmin, tools: AgentToolAdmin): void
+  /** 读取一次宿主快照；不打开弹窗、不访问远端。 */
+  load(): Promise<void>
+  /** 打开弹窗：读取快照、现拉目录并载入工具。 */
+  show(): Promise<void>
+  /** 关闭弹窗并清除内存中的凭据草稿。 */
+  close(): void
+  /** 更新协议草稿；非法值忽略。 */
   setProtocol(value: string): void
-  /** 切换到指定名称的已保存 Profile。 */
-  selectProfile(name: string): Promise<void>
-  /** 创建并激活新的空 Profile；成功返回 true。 */
+  /** 保存连接；成功后刷新目录。 */
+  saveConnection(): Promise<boolean>
+  /** 现拉远端模型目录。 */
+  refreshCatalog(): Promise<void>
+  /** 切换激活配置。 */
+  selectProfile(profileId: string): Promise<void>
+  /** 新建并激活配置；名称非法或重复时返回 false。 */
   createProfile(name: string): Promise<boolean>
-  /** 重命名已保存 Profile；成功返回 true。 */
-  renameProfile(name: string, nextProfileName: string): Promise<boolean>
-  /** 删除已保存 Profile；成功返回 true。 */
-  deleteProfile(name: string): Promise<boolean>
-  /** 清除 Profile 命名弹窗的校验错误。 */
+  /** 重命名配置；失败返回 false。 */
+  renameProfile(profileId: string, name: string): Promise<boolean>
+  /** 删除配置及其凭据与模型池。 */
+  deleteProfile(profileId: string): Promise<boolean>
+  /** 清除配置命名的校验错误。 */
   clearProfileNameError(): void
-  /** 打开设置弹窗并加载 Profile、模型池与工具状态。 */
-  show(status: ProviderStatusView): Promise<void>
-  /** 刷新当前 Provider 的远端模型目录。 */
-  refreshModelCatalog(): Promise<void>
-  /** 持久化当前 Profile 连接；成功返回 true。 */
-  persistConnection(): Promise<boolean>
-  /** 持久化全局 Web Search Key；不依赖当前 Provider Profile。 */
-  persistWebSearchApiKey(): Promise<void>
-  /** 更新指定目录模型的模型池成员状态。 */
-  setModelPoolMembership(modelId: string, enabled: boolean): Promise<void>
+  /** 把模型加入模型池。 */
+  addModel(model: ProviderModelView): Promise<void>
+  /** 从模型池移除模型。 */
+  removeModel(modelId: string): Promise<void>
+  /** 选择运行使用的模型。 */
+  selectModel(modelId: string): Promise<void>
+  /** 设置思考强度。 */
+  setReasoningEffort(effort: string | undefined): Promise<void>
+  /** 保存全局 Web Search 凭据；空值表示清除。 */
+  saveExaKey(): Promise<void>
   /** 更新工具启用状态。 */
   setToolEnabled(name: string, enabled: boolean): Promise<void>
   /** 保存工具调试参数草稿。 */
   setToolInput(name: string, input: string): void
-  /** 执行工具调试。 */
+  /** 执行一次工具调试。 */
   debugTool(name: string): Promise<void>
-  /** 关闭弹窗并清除内存中的 API Key 草稿。 */
-  close(): void
-  /** 保存连接并关闭弹窗。 */
-  saveProvider(): Promise<void>
 }

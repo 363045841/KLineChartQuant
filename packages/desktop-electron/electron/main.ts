@@ -7,11 +7,10 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { APPLICATION_ICON } from './app-icon'
 import { installApplicationMenu } from './app-menu'
 import { type ManagedBackendHost, startManagedBackends } from './backends'
-import { EncryptedCredentialStore, registerCredentialIpc } from './credential-ipc'
 import { createMainWindow } from './main-window'
 import { WINDOW_CHANNELS } from './window-bridge'
 import { registerWindowIpc } from './window-ipc'
@@ -47,11 +46,6 @@ async function startApplication(
   })
   await backends.ready
 
-  registerCredentialIpc({
-    ipcMain,
-    store: new EncryptedCredentialStore({ safeStorage, userDataPath }),
-    isTrustedSender: (event) => activeWindows.isTrustedSender(event.sender),
-  })
   registerWindowIpc({
     ipcMain,
     getWindow: (event) => activeWindows.windowOf(event.sender),

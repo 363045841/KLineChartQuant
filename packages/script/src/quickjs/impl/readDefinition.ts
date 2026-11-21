@@ -14,7 +14,12 @@ import {
   PlotKind,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError } from '../../errors.js'
-import { Position, type QuickJSScriptDefinition, type ScriptParamValue } from '../types.js'
+import {
+  INDICATOR_API_VERSION,
+  Position,
+  type QuickJSScriptDefinition,
+  type ScriptParamValue,
+} from '../types.js'
 
 /** 判断普通对象，便于逐字段收窄脚本返回值。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -32,7 +37,7 @@ function isParam(value: unknown): value is ScriptParamValue {
 
 /** position 从 VM 跨边界读到的仍是字符串，只有 Position 的两个取值有效。 */
 function isPosition(value: unknown): value is Position {
-  return value === Position.Main || value === Position.Sub
+  return value === Position.main || value === Position.sub
 }
 
 /** 可选字段校验，缺省值由 Plot 采集器补齐。 */
@@ -43,11 +48,17 @@ function optional(value: unknown, kind: 'string' | 'number' | 'boolean'): boolea
 }
 
 /** 字符串选项数组：非空且每一项都是字符串。 */
-function isOptionsList(value: unknown): value is readonly (string | import('@363045841yyt/klinechart-plot-contracts').InputOption)[] {
+function isOptionsList(
+  value: unknown,
+): value is readonly (string | import('@363045841yyt/klinechart-plot-contracts').InputOption)[] {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
-    value.every((item: unknown) => typeof item === 'string' || (isRecord(item) && typeof item.value === 'string' && typeof item.label === 'string'))
+    value.every(
+      (item: unknown) =>
+        typeof item === 'string' ||
+        (isRecord(item) && typeof item.value === 'string' && typeof item.label === 'string'),
+    )
   )
 }
 
@@ -329,10 +340,10 @@ export function readHLineCall(price: unknown, options: unknown): Omit<HLine, 'id
       declaration.linewidth <= 0)
   )
     invalidHLine()
-  const style = isHLineStyle(declaration.linestyle) ? declaration.linestyle : HLineStyle.style_solid
+  const style = isHLineStyle(declaration.linestyle) ? declaration.linestyle : HLineStyle.solid
   return {
     price,
-    color: typeof declaration.color === 'string' ? declaration.color : Color.Blue,
+    color: typeof declaration.color === 'string' ? declaration.color : Color.blue,
     dash: hLineDash(style),
     width: typeof declaration.linewidth === 'number' ? declaration.linewidth : 1,
   }
@@ -343,6 +354,11 @@ type DefinitionBase = Record<string, unknown> & {
   readonly name: string
   readonly position: Position
   readonly inputs: Record<string, unknown>
+}
+
+/** 指标 API 版本；缺失按 1 处理，只接受当前版本。 */
+function readVersion(value: unknown): number {
+  return typeof value === 'number' ? value : 1
 }
 
 /** 单个输入声明。 */
@@ -421,20 +437,21 @@ export function readDefinition(value: unknown): QuickJSScriptDefinition {
   if (!isDefinitionBase(value)) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.Main} 或 ${Position.Sub}`,
+      `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.main} 或 ${Position.sub}`,
     )
   }
+  const version = readVersion(value.version)
+  if (version !== INDICATOR_API_VERSION)
+    throw new ScriptExecutionError(
+      'compile',
+      `指标 API 版本 v${version} 已不再支持，请在 defineIndicator 中声明 version: ${INDICATOR_API_VERSION}`,
+    )
   return {
+    version,
     name: value.name,
-    ...(typeof value.max_lines_count === 'number'
-      ? { max_lines_count: value.max_lines_count }
-      : {}),
-    ...(typeof value.max_boxes_count === 'number'
-      ? { max_boxes_count: value.max_boxes_count }
-      : {}),
-    ...(typeof value.max_labels_count === 'number'
-      ? { max_labels_count: value.max_labels_count }
-      : {}),
+    ...(typeof value.maxLinesCount === 'number' ? { maxLinesCount: value.maxLinesCount } : {}),
+    ...(typeof value.maxBoxesCount === 'number' ? { maxBoxesCount: value.maxBoxesCount } : {}),
+    ...(typeof value.maxLabelsCount === 'number' ? { maxLabelsCount: value.maxLabelsCount } : {}),
     ...(typeof value.title === 'string' ? { title: value.title } : {}),
     ...(typeof value.info === 'string' ? { info: value.info } : {}),
     position: value.position,

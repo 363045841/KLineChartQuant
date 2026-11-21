@@ -1,12 +1,14 @@
 /* 行列表容器：列表排版与滑动高亮的定位上下文，行本身不承担悬停底色。 */
 .agent-row-list {
-  /* 行铺满整宽、上下紧邻，高亮块保持直角贴边。 */
-  --sliding-highlight-radius: 0;
-
   position: relative;
   display: flex;
   flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* 行铺满整宽、上下紧邻，高亮块保持直角贴边；变量挂在块自身，避免向嵌套列表继承。 */
+.agent-row-list__highlight {
+  --sliding-highlight-radius: 0;
 }

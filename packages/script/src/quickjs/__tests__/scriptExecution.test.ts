@@ -47,7 +47,7 @@ describe('脚本执行器', () => {
     const source = `
       const average = ta.sma(close, 2)
       let calls = 0
-      defineIndicator({ name: 'PersistentSeries', position: 'sub', inputs: {}, onBar() {
+      defineIndicator({ version: 2, name: 'PersistentSeries', position: 'sub', inputs: {}, onBar() {
         if (globalThis.close !== close || globalThis.ta !== ta) throw new Error('全局对象不一致')
         plot.Line(average[0], 'ma')
         plot.Line(++calls, 'calls')

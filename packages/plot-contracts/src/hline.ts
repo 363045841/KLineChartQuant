@@ -4,15 +4,15 @@ import type { Color } from './color.js'
 /**
  * @summary 水平线线型
  *
- * `hline` 的线型档位；与 Pine 的 `hline.style_*` 对应。
+ * `hline` 的线型档位；与手绘 line 的 `LineStyle` 同义，只保留线型子集。
  */
 export const HLineStyle = {
   /** @summary 实线 */
-  style_solid: 'solid',
+  solid: 'solid',
   /** @summary 虚线 */
-  style_dashed: 'dashed',
+  dashed: 'dashed',
   /** @summary 点线 */
-  style_dotted: 'dotted',
+  dotted: 'dotted',
 } as const
 
 /** 水平线线型取值。 */
@@ -56,13 +56,13 @@ export interface HLineFill {
 }
 
 /** 线型到虚线段长的映射；渲染层只认 dash。 */
-export function hLineDash(style: HLineStyle = HLineStyle.style_solid): readonly number[] {
+export function hLineDash(style: HLineStyle = HLineStyle.solid): readonly number[] {
   switch (style) {
-    case HLineStyle.style_solid:
+    case HLineStyle.solid:
       return []
-    case HLineStyle.style_dashed:
+    case HLineStyle.dashed:
       return [4, 4]
-    case HLineStyle.style_dotted:
+    case HLineStyle.dotted:
       return [2, 2]
   }
 }

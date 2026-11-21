@@ -10,8 +10,8 @@ describe('脚本 console', () => {
     const script = prepare(
       `
       console.log('top')
-      defineIndicator({ name: 'Console', position: 'main', onBar() {
-        console.log('price', close[0], { index: bar_index })
+      defineIndicator({ version: 2, name: 'Console', position: 'main', onBar() {
+        console.log('price', close[0], { index: barIndex })
         console.info(null, undefined, true)
         console.warn('warning')
         console.error('error')
@@ -37,7 +37,7 @@ describe('脚本 console', () => {
   it.each(BACKENDS)('$name 抛错前的日志仍然可读', ({ prepare }) => {
     const events: LogEvent[] = []
     const script = prepare(
-      `defineIndicator({ name: 'Failure', position: 'main', onBar() {
+      `defineIndicator({ version: 2, name: 'Failure', position: 'main', onBar() {
       console.log('before failure'); throw new Error('failed')
     } })`,
       [],

@@ -240,7 +240,7 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
 })
 
 describe('OpenAI-compatible runtime support', () => {
-  it('builds a run plan from verified settings and injects the frozen context', async () => {
+  it('keeps volatile context out of the system prompt', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const support = createOpenAiCompatibleRuntimeSupport({
@@ -261,9 +261,11 @@ describe('OpenAI-compatible runtime support', () => {
 
     expect(plan.model.id).toBe('frontier-fast')
     expect(plan.streamOptions).toBeDefined()
-    expect(plan.systemPrompt).toContain('2026-11-17')
-    expect(plan.systemPrompt).toContain('BTCUSDT')
-    expect(plan.systemPrompt).toContain('ask_user')
+    expect(plan.systemPrompt).not.toContain('2026-11-17')
+    expect(plan.systemPrompt).not.toContain('BTCUSDT')
+    expect(plan.systemPrompt).toContain('Plan and Build modes exist')
+    expect(plan.turnContext).toContain('2026-11-17')
+    expect(plan.turnContext).toContain('BTCUSDT')
   })
 
   it('rejects runs before network access when settings are not verified', async () => {
@@ -279,26 +281,23 @@ describe('OpenAI-compatible runtime support', () => {
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
   })
 
-  it('derives the capability sentence from the offered tools, not from the mode', async () => {
+  it('keeps tools and the system prompt identical across plan and build', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
       fetch: providerFetch(),
-      tools: (input) =>
-        input.mode === 'plan'
-          ? [tool('chart.read', 'read')]
-          : [tool('chart.read', 'read'), tool('chart.write', 'write')],
+      tools: () => [tool('chart.read', 'read'), tool('chart.write', 'write')],
     })
 
     const planMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' })
-    expect(planMode.tools.map((item) => item.name)).toEqual(['chart.read'])
-    expect(planMode.systemPrompt).toContain('Only read-only tools are available')
-
     const buildMode = await support.createPlan({ sessionId: '1', prompt: 'x', mode: 'build' })
+
+    expect(planMode.tools.map((item) => item.name)).toEqual(['chart.read', 'chart.write'])
     expect(buildMode.tools.map((item) => item.name)).toEqual(['chart.read', 'chart.write'])
-    expect(buildMode.systemPrompt).toContain('You may change the chart through the write tools')
+    expect(planMode.systemPrompt).toBe(buildMode.systemPrompt)
+    expect(planMode.systemPrompt).toContain('In Plan mode state-changing tools are rejected')
   })
 
   it('discovers models from the Provider catalog', async () => {
@@ -310,10 +309,9 @@ describe('OpenAI-compatible runtime support', () => {
     })
     await credentials.write(secret)
 
-    const catalog = await support.provider.listModels({
+    const catalog = await support.catalog.listModels({
       baseUrl,
       apiKey: secret,
-      protocol: 'openai-completions',
     })
     expect(catalog.models.map((model) => model.id)).toEqual(['frontier-fast'])
   })
@@ -326,7 +324,7 @@ describe('OpenAI-compatible runtime support', () => {
       settings,
       fetch: providerFetch(),
     })
-    await support.provider.deleteCredential()
+    await credentials.delete()
     await expect(
       support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })

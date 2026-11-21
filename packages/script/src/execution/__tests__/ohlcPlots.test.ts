@@ -10,10 +10,10 @@ describe.each(BACKENDS)('$name OHLC plots', ({ prepare }) => {
       scriptSource(`
       plot.Line(close, 'line')
       plot.Candle(open, low, high, close, 'candles', {
-        color: close >= open ? Color.Green : Color.Red,
-        wickColor: Color.Gray, borderColor: null,
+        color: close >= open ? Color.green : Color.red,
+        wickColor: Color.gray, borderColor: null,
       })
-      plot.Bar(open, high, low, close, 'bars', { color: Color.Blue, showLast: 1, offset: 2 })
+      plot.Bar(open, high, low, close, 'bars', { color: Color.blue, showLast: 1, offset: 2 })
     `),
     )
     const bars = barsFromCloses([10, 20, 5], { spread: 2 }).map((bar, index) => ({
@@ -30,8 +30,8 @@ describe.each(BACKENDS)('$name OHLC plots', ({ prepare }) => {
         high: bar.high,
         low: bar.low,
         close: bar.close,
-        color: bar.close >= bar.open ? Color.Green : Color.Red,
-        wickColor: Color.Gray,
+        color: bar.close >= bar.open ? Color.green : Color.red,
+        wickColor: Color.gray,
         borderColor: null,
       })),
     )
@@ -64,25 +64,25 @@ describe.each(BACKENDS)('$name OHLC plots', ({ prepare }) => {
   it('null 隐藏实体且不影响单独传入的影线和边框颜色', () => {
     const result = prepare(
       scriptSource(`plot.Candle(open, high, low, close, 'hollow', {
-      color: null, wickColor: Color.Gray, borderColor: Color.Blue,
+      color: null, wickColor: Color.gray, borderColor: Color.blue,
     })`),
     ).run(barsFromCloses([10]))
     expect(result.plots[0]?.data[0]).toMatchObject({
       color: null,
-      wickColor: Color.Gray,
-      borderColor: Color.Blue,
+      wickColor: Color.gray,
+      borderColor: Color.blue,
     })
   })
 
   it.each([
     `plot.Candle('bad', 2, 1, 2, 'bad')`,
     `plot.Bar(1, 2, 0, 2, 'bad', { showLast: 0 })`,
-    `plot.Bar(1, 2, 0, 2, 'bad', { wickColor: Color.Red })`,
+    `plot.Bar(1, 2, 0, 2, 'bad', { wickColor: Color.red })`,
     `plot.Candle(1, 2, 0, 2, '', {})`,
     `plot.Candle(1, 2, 0, 2, 'same'); plot.Line(1, 'same')`,
     `plot.Line(1, 'same'); plot.Candle(1, 2, 0, 2, 'same')`,
     `plot.Candle(1, 2, 0, 2, 'same'); plot.Bar(1, 2, 0, 2, 'same')`,
-    `plot.Candle(1, 2, 0, 2, 'candles'); const line = plot.Line(1, 'line'); fill({name:'candles'}, line, Color.Blue)`,
+    `plot.Candle(1, 2, 0, 2, 'candles'); const line = plot.Line(1, 'line'); fill({name:'candles'}, line, Color.blue)`,
   ])('拒绝非法调用：%s', (body) => {
     expect(() => prepare(scriptSource(body)).run(barsFromCloses([10]))).toThrow()
   })

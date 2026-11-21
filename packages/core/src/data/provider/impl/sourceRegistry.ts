@@ -23,24 +23,24 @@ export interface DataSourceRegistration {
 /** 内置数据源注册表 */
 export const dataSourceRegistry = {
   binance: {
-    id: DataSource.Binance,
+    id: DataSource.binance,
     displayName: 'Binance Spot / Perp',
     description: 'Binance 现货与 USDT-M 永续 K 线、真实逐笔成交',
     defaultBaseUrl: 'http://127.0.0.1:8091',
   },
   gotdx: {
-    id: DataSource.Gotdx,
+    id: DataSource.gotdx,
     displayName: 'GOTDX',
     description: 'TDX data connector, source: https://github.com/363045841/GoTDX-Connector',
     defaultBaseUrl: DEFAULT_V1_BASE_URL,
   },
   mock: {
-    id: DataSource.Mock,
+    id: DataSource.mock,
     displayName: 'Mock',
     description: 'Provides one on-demand infinite daily series (MOCK) for local rendering',
   },
   baostock: {
-    id: DataSource.BaoStock,
+    id: DataSource.baoStock,
     connectionId: 'baostock-tradingview',
     displayName: 'BaoStock',
     description:
@@ -48,7 +48,7 @@ export const dataSourceRegistry = {
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   tradingview: {
-    id: DataSource.TradingView,
+    id: DataSource.tradingView,
     connectionId: 'baostock-tradingview',
     displayName: 'TradingView',
     description:
@@ -56,7 +56,7 @@ export const dataSourceRegistry = {
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   mt5: {
-    id: DataSource.MT5,
+    id: DataSource.mt5,
     displayName: 'MT5 (Exness)',
     description:
       'MT5 local terminal connector (Exness), source: https://github.com/EliteOtaku/KCQ-MT5-connector',
@@ -64,7 +64,7 @@ export const dataSourceRegistry = {
     // MT5 品种（外汇/加密/金属 CFD）近似 7x24，会话定义见内置表 MT5（UTC）
   },
   ths: {
-    id: DataSource.THS,
+    id: DataSource.ths,
     displayName: '同花顺 THS',
     description:
       '同花顺(fuyao) A股/指数/ETF/期货/期权日线连接器, source: https://github.com/EliteOtaku/KCQ-THS-connector',

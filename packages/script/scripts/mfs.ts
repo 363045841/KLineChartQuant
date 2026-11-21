@@ -33,37 +33,38 @@ function markInflow(
     bottom = Math.min(bottom, low[-offset])
   }
   box.new({
-    left: bar_index + oldest,
+    left: barIndex + oldest,
     top,
-    right: bar_index + newest,
+    right: barIndex + newest,
     bottom,
     borderColor: color,
     borderWidth: 0,
     backgroundColor: fill,
   })
   label.new({
-    x: bar_index + Math.round((oldest + newest) / 2),
+    x: barIndex + Math.round((oldest + newest) / 2),
     y: bottom,
     text: compactVolume(net),
-    color: Color.Foreground,
+    color: Color.foreground,
     offsetY: INFLOW_LABEL_OFFSET,
   })
 }
 
 defineIndicator({
+  version: 2,
   name: 'MFS',
   title: '最大净流入段',
   info: '回看窗口内累计净流入最大的连续区间；上涨根计正成交量，下跌根计负成交量。',
-  position: Position.Main,
-  max_boxes_count: 1,
-  max_labels_count: 1,
+  position: Position.main,
+  maxBoxesCount: 1,
+  maxLabelsCount: 1,
   onBar() {
     const lookback = input.int(120, { title: '回看根数', min: 2, max: 2000 })
     const drawBox = input.bool(true, { title: '标记区间' })
-    const color = input.string(Color.Blue, { title: '区间颜色' })
+    const color = input.string(Color.blue, { title: '区间颜色' })
     // 主题色别名后拼两位十六进制 alpha，填充与文字共用同一主题色。
     const fill = color + '26'
-    if (!drawBox || !barstate.islast) return
+    if (!drawBox || !barstate.isLast) return
     // 带符号成交量是逐根量值而非差分，子段下标直接对应 K 线下标。
     const flow = derive('mfs-flow', (_self, offset) => {
       const amount = volume[offset]

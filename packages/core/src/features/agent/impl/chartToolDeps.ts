@@ -752,18 +752,20 @@ function toTradingDate(value: string): TradingDate {
   return value
 }
 
-/** 组合三块能力，得到工具层唯一依赖。 */
+/** 组合工具层全部能力；每块能力只依赖自己的查询或命令面。 */
 export function createChartAgentToolDeps(input: {
   readonly indicators: ChartAgentIndicatorCommands
   readonly drawings: ChartAgentDrawingCommands
   readonly comparisons: ChartAgentToolDeps['comparisons']
   readonly market: ChartAgentMarketQueries
+  readonly scripts: ChartAgentToolDeps['scripts']
 }): ChartAgentToolDeps {
   return Object.freeze({
     indicators: input.indicators,
     drawings: input.drawings,
     comparisons: input.comparisons,
     market: input.market,
+    scripts: input.scripts,
   })
 }
 

@@ -6,10 +6,11 @@ let extreme = Number.NaN
 let acceleration = 0
 
 defineIndicator({
+  version: 2,
   name: 'SAR',
   title: '抛物线转向',
   info: 'SAR（Parabolic Stop and Reverse）通过抛物线轨迹跟踪趋势，提供动态止损和反转信号。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const step = input.float(0.02, { title: '加速步长', min: 0.0001 })
     const maxStep = input.float(0.2, { title: '最大加速', min: 0.0001 })
@@ -51,8 +52,8 @@ defineIndicator({
     }
     plot.Point(sar, 'sar', {
       label: 'SAR',
-      color: rising ? Color.Teal : Color.Red,
-      size: ShapeSize.Tiny,
+      color: rising ? Color.teal : Color.red,
+      size: ShapeSize.tiny,
     })
   },
 })

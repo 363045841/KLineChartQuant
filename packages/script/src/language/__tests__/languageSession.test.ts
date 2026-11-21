@@ -60,16 +60,16 @@ describe('共享脚本语义会话', () => {
 
   it('OHLC 接口支持派生序列，编辑器拒绝美国线影线参数和 fill 句柄误用', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ name: 'OHLC', position: Position.Main, onBar() {
+    session.updateSource(`defineIndicator({ version: 2, name: 'OHLC', position: Position.main, onBar() {
       const average = ta.sma(close, 2)
-      plot.Candle(open, high, low, average, 'candles', { color: null, wickColor: Color.Gray, borderColor: Color.Blue })
+      plot.Candle(open, high, low, average, 'candles', { color: null, wickColor: Color.gray, borderColor: Color.blue })
       plot.Bar(open, high, low, close, 'bars', { showLast: 10, offset: 1 })
     } })`)
     expect(diagnosticCodes(session)).toEqual([])
-    session.updateSource(`defineIndicator({ name: 'InvalidOHLC', position: Position.Main, onBar() {
-      plot.Bar(open, high, low, close, 'bars', { wickColor: Color.Red })
+    session.updateSource(`defineIndicator({ version: 2, name: 'InvalidOHLC', position: Position.main, onBar() {
+      plot.Bar(open, high, low, close, 'bars', { wickColor: Color.red })
       const candle = plot.Candle(open, high, low, close, 'candles')
-      fill(candle, plot.Line(close, 'line'), Color.Blue)
+      fill(candle, plot.Line(close, 'line'), Color.blue)
     } })`)
     // 2353 = Bar 不接受 wickColor；2769 = fill 的重载都不接受 void 句柄。
     expect(diagnosticCodes(session)).toEqual(expect.arrayContaining([2353, 2769]))
@@ -77,13 +77,13 @@ describe('共享脚本语义会话', () => {
 
   it('颜色参数在类型上接受 Color 枚举，同时保留任意 CSS 颜色', () => {
     const session = createScriptLanguageSession()
-    const source = `defineIndicator({ name: 'ColorApi', position: Position.Main, onBar() {
-      const id = line.new(bar_index, close[0], bar_index + 1, high[0], xloc.bar_index, extend.none, Color.Red)
-      line.set_color(id, Color.Green)
-      const lineRef = plot.Line(close[0], 'line', { color: Color.Teal + '80', textColor: Color.Gray })
-      plot.Candle(open, high, low, close, 'candles', { color: null, wickColor: Color.Gray, borderColor: '#123456' })
-      plot.Arrow(close[1] - close[0], 'arrow', { colorUp: Color.Green, colorDown: Color.Red })
-      fill(lineRef, plot.Line(close[0], 'other'), Color.Blue)
+    const source = `defineIndicator({ version: 2, name: 'ColorApi', position: Position.main, onBar() {
+      const id = line.new(barIndex, close[0], barIndex + 1, high[0], xloc.barIndex, extend.none, Color.red)
+      line.setColor(id, Color.green)
+      const lineRef = plot.Line(close[0], 'line', { color: Color.teal + '80', textColor: Color.gray })
+      plot.Candle(open, high, low, close, 'candles', { color: null, wickColor: Color.gray, borderColor: '#123456' })
+      plot.Arrow(close[1] - close[0], 'arrow', { colorUp: Color.green, colorDown: Color.red })
+      fill(lineRef, plot.Line(close[0], 'other'), Color.blue)
     } })`
     const conversion = session.updateSource(source)
     expect(diagnosticCodes(session)).toEqual([])
@@ -91,7 +91,7 @@ describe('共享脚本语义会话', () => {
     // 类型提示必须点出 Color 枚举，而不是退化成 string。
     const quickInfo = session.environment.languageService.getQuickInfoAtPosition(
       SCRIPT_SOURCE_FILE,
-      conversion.toGenerated(source.indexOf('color: Color.Teal')),
+      conversion.toGenerated(source.indexOf('color: Color.teal')),
     )
     const display = (quickInfo?.displayParts ?? []).map((part) => part.text).join('')
     expect(display).toContain('Color | (string & {})')
@@ -99,16 +99,16 @@ describe('共享脚本语义会话', () => {
 
   it('带 title 的指标接受 Request 的 Timeframe 参数，并拒绝 Provider 周期名', () => {
     const session = createScriptLanguageSession()
-    session.updateSource(`defineIndicator({ name: 'Request', title: '展示名', position: Position.Main, onBar() {
-      const timeframe = input.timeframe(Timeframe.Hour1, { options: [Timeframe.Hour1, Timeframe.Day] })
-      const [o, h, l, c] = request.security(syminfo.tickerid, timeframe, () => [open, high, low, close] as const)
-      const ma: number = request.security('BTCUSDT', Timeframe.Hour1, () => ta.sma(close, 20), { source: DataSource.Binance, calcBarsCount: 300, gaps: 'off' })
+    session.updateSource(`defineIndicator({ version: 2, name: 'Request', title: '展示名', position: Position.main, onBar() {
+      const timeframe = input.timeframe(Timeframe.hour1, { options: [Timeframe.hour1, Timeframe.day] })
+      const [o, h, l, c] = request.security(syminfo.tickerId, timeframe, () => [open, high, low, close] as const)
+      const ma: number = request.security('BTCUSDT', Timeframe.hour1, () => ta.sma(close, 20), { source: DataSource.binance, calcBarsCount: 300, gaps: 'off' })
       plot.Candle(o, h, l, c, 'htf')
       plot.Line(ma, 'ma')
     } })`)
     expect(diagnosticCodes(session)).toEqual([])
-    session.updateSource(`defineIndicator({ name: 'RawPeriod', position: Position.Main, onBar() {
-      const ma: number = request.security(syminfo.tickerid, 'daily', () => ta.sma(close, 20))
+    session.updateSource(`defineIndicator({ version: 2, name: 'RawPeriod', position: Position.main, onBar() {
+      const ma: number = request.security(syminfo.tickerId, 'daily', () => ta.sma(close, 20))
       plot.Line(ma, 'ma')
     } })`)
     // 2345 = 实参类型不属于 Timeframe。
@@ -118,7 +118,8 @@ describe('共享脚本语义会话', () => {
   it('同版本复用转换结果，修改 inputs 后清除旧参数并采用新类型', () => {
     const session = createScriptLanguageSession()
     const source = `defineIndicator({
-      name: 'ParameterContext', position: Position.Sub,
+      version: 2,
+      name: 'ParameterContext', position: Position.sub,
       onBar() { const level = input.int(2); plot.Line(close * level, 'value') }
     })`
     const conversion = session.updateSource(source)
@@ -126,7 +127,8 @@ describe('共享脚本语义会话', () => {
     expect(diagnosticCodes(session)).toEqual([])
 
     session.updateSource(`defineIndicator({
-      name: 'Changed', position: Position.Sub,
+      version: 2,
+      name: 'Changed', position: Position.sub,
       onBar() { const enabled = input.bool(true); const removed = level; const active: number = enabled }
     })`)
     // 2339 = 不存在旧参数，2322 = 新参数类型为 boolean 不能赋给 number。

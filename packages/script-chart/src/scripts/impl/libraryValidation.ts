@@ -15,7 +15,7 @@ export async function validateLibrary(
   documents?: readonly ScriptDocument[],
 ): Promise<void> {
   const compiled = await executor.compile(
-    `importLibrary(${JSON.stringify(name)});\ndefineIndicator({ name: '__library_validation', position: Position.Sub, onBar() {} })`,
+    `importLibrary(${JSON.stringify(name)});\ndefineIndicator({ version: 2, name: '__library_validation', position: Position.sub, onBar() {} })`,
     false,
     documents,
   )

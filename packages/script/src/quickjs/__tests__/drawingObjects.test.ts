@@ -19,16 +19,16 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
     const result = await run(
       `
       let original: BoxRef | null = null
-      defineIndicator({ name: 'Boxes', position: Position.Main, onBar() {
-        if (bar_index === 0) {
-          original = box.new(chart.point.from_index(0, 20), chart.point.from_index(1, 10), Color.Red, 0, line.style_dashed, extend.right, xloc.bar_index, '#ff000040', 'FVG')
+      defineIndicator({ version: 2, name: 'Boxes', position: Position.main, onBar() {
+        if (barIndex === 0) {
+          original = box.new(chart.point.fromIndex(0, 20), chart.point.fromIndex(1, 10), Color.red, 0, LineStyle.dashed, extend.right, xloc.barIndex, '#ff000040', 'FVG')
           if (box.all[0] !== original) throw new Error('reference mismatch')
           const copied = box.copy(original)!
-          box.set_text(copied, 'copy')
-          box.set_top(copied, 25)
-          label.new(0, 20, 'HH', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11)
+          box.setText(copied, 'copy')
+          box.setTop(copied, 25)
+          label.new(0, 20, 'HH', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11)
         }
-        if (original) box.set_right(original, bar_index)
+        if (original) box.setRight(original, barIndex)
       } })`,
       barsFromCloses([10, 11, 12]),
     )
@@ -64,14 +64,14 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('creates the same object from positional and options forms', async () => {
     const result = await run(
       `
-      defineIndicator({ name: 'Options', position: Position.Main, onBar() {
-        if (bar_index !== 0) return
-        label.new(1, 20, 'A', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11, 'center', 8)
-        label.new({ x: 1, y: 20, text: 'A', color: Color.Red, textColor: Color.Red, size: 11, offsetY: 8 })
-        box.new(0, 20, 1, 10, Color.Red, 0, line.style_solid, extend.none, xloc.bar_index, '#ff000040', 'FVG', 11, Color.Blue)
-        box.new({ left: 0, top: 20, right: 1, bottom: 10, borderColor: Color.Red, borderWidth: 0, backgroundColor: '#ff000040', text: 'FVG', textSize: 11, textColor: Color.Blue })
-        line.new(0, 10, 1, 20, xloc.bar_index, extend.none, Color.Blue, line.style_dashed, 2)
-        line.new({ x1: 0, y1: 10, x2: 1, y2: 20, color: Color.Blue, style: line.style_dashed, width: 2 })
+      defineIndicator({ version: 2, name: 'Options', position: Position.main, onBar() {
+        if (barIndex !== 0) return
+        label.new(1, 20, 'A', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11, 'center', 8)
+        label.new({ x: 1, y: 20, text: 'A', color: Color.red, textColor: Color.red, size: 11, offsetY: 8 })
+        box.new(0, 20, 1, 10, Color.red, 0, LineStyle.solid, extend.none, xloc.barIndex, '#ff000040', 'FVG', 11, Color.blue)
+        box.new({ left: 0, top: 20, right: 1, bottom: 10, borderColor: Color.red, borderWidth: 0, backgroundColor: '#ff000040', text: 'FVG', textSize: 11, textColor: Color.blue })
+        line.new(0, 10, 1, 20, xloc.barIndex, extend.none, Color.blue, LineStyle.dashed, 2)
+        line.new({ x1: 0, y1: 10, x2: 1, y2: 20, color: Color.blue, style: LineStyle.dashed, width: 2 })
       } })`,
       barsFromCloses([10, 11, 12]),
     )
@@ -92,13 +92,13 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('stores a label vertical offset and updates it in place', async () => {
     const result = await run(
       `
-      defineIndicator({ name: 'Offsets', position: Position.Main, onBar() {
-        const shifted = label.new(0, 20, 'CHoCH', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11, 'center', 8)
-        if (label.get_yoffset(shifted) !== 8) throw new Error('offset mismatch')
-        label.set_yoffset(shifted, -3)
-        if (label.get_yoffset(shifted) !== -3) throw new Error('offset update mismatch')
-        const plain = label.new(0, 30, 'HH', xloc.bar_index, yloc.price, Color.Red, label.style_none, Color.Red, 11)
-        if (label.get_yoffset(plain) !== 0) throw new Error('default offset mismatch')
+      defineIndicator({ version: 2, name: 'Offsets', position: Position.main, onBar() {
+        const shifted = label.new(0, 20, 'CHoCH', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11, 'center', 8)
+        if (label.getYOffset(shifted) !== 8) throw new Error('offset mismatch')
+        label.setYOffset(shifted, -3)
+        if (label.getYOffset(shifted) !== -3) throw new Error('offset update mismatch')
+        const plain = label.new(0, 30, 'HH', xloc.barIndex, 'price', Color.red, label.styleNone, Color.red, 11)
+        if (label.getYOffset(plain) !== 0) throw new Error('default offset mismatch')
       } })`,
       barsFromCloses([10]),
     )
@@ -111,11 +111,11 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
   it('counts and evicts each object kind separately; deleted references stay deleted', async () => {
     const result = await run(
       `
-      defineIndicator({ name: 'Limits', position: Position.Main, max_boxes_count: 1, max_labels_count: 1, max_lines_count: 1, onBar() {
+      defineIndicator({ version: 2, name: 'Limits', position: Position.main, maxBoxesCount: 1, maxLabelsCount: 1, maxLinesCount: 1, onBar() {
         const old = box.new(0, 20, 1, 10)
         box.new(0, 30, 1, 15)
-        box.set_top(old, 999)
-        if (!Number.isNaN(box.get_top(old)) || box.copy(old) !== null) throw new Error('eviction failed')
+        box.setTop(old, 999)
+        if (!Number.isNaN(box.getTop(old)) || box.copy(old) !== null) throw new Error('eviction failed')
         label.new(0, 10, 'old')
         label.new(0, 20, 'new')
         line.new(0, 10, 1, 20)
@@ -133,11 +133,11 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
 
   it('supports time coordinates, changing xloc, and hidden NaN geometry', async () => {
     const result = await run(
-      `defineIndicator({ name: 'Coordinates', position: Position.Main, onBar() {
-      const b = box.new(chart.point.from_time(1000, 20), chart.point.from_time(2000, 10), Color.Blue, 1, line.style_solid, extend.none, xloc.bar_time)
-      if (box.get_left(b) !== 1000) throw new Error('time mismatch')
-      box.set_xloc(b, 0, 2, xloc.bar_index)
-      box.set_bottom_right_point(b, chart.point.from_index(3, 5))
+      `defineIndicator({ version: 2, name: 'Coordinates', position: Position.main, onBar() {
+      const b = box.new(chart.point.fromTime(1000, 20), chart.point.fromTime(2000, 10), Color.blue, 1, LineStyle.solid, extend.none, xloc.barTime)
+      if (box.getLeft(b) !== 1000) throw new Error('time mismatch')
+      box.setXLoc(b, 0, 2, xloc.barIndex)
+      box.setBottomRightPoint(b, chart.point.fromIndex(3, 5))
       box.new(0, Number.NaN, 1, 0)
     } })`,
       barsFromCloses([10]),
@@ -156,7 +156,7 @@ describe.each(backends)('drawing objects ($name)', ({ run }) => {
 
   it('confirms pivots after the right window and resolves equal highs to the right', async () => {
     const result = await run(
-      `defineIndicator({ name: 'Pivots', position: Position.Main, onBar() {
+      `defineIndicator({ version: 2, name: 'Pivots', position: Position.main, onBar() {
       plot.Line(ta.pivothigh(high, 1, 1)[0], 'high')
     } })`,
       barsFromCloses([1, 3, 3, 1, 2]),

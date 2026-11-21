@@ -76,12 +76,13 @@ describe('Worker input synchronization', () => {
 
 describe('Worker drawing transport', () => {
   it('roundtrips real script scalar, OHLC, fills, boxes, labels and lines', () => {
-    const script = prepareNative(`defineIndicator({name:'Wire',position:Position.Main,onBar(){
+    const script =
+      prepareNative(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
       const a=plot.Line(close,'a');const b=plot.Line(close[0]+1,'b');
-      fill(a,b,Color.Red);plot.Candle(open,high,low,close,'ohlc');
-      box.new({left:bar_index,right:bar_index+1,top:high[0],bottom:low[0]});
-      label.new({x:bar_index,y:close[0],text:'价格'});
-      line.new(bar_index,low[0],bar_index+1,high[0]);
+      fill(a,b,Color.red);plot.Candle(open,high,low,close,'ohlc');
+      box.new({left:barIndex,right:barIndex+1,top:high[0],bottom:low[0]});
+      label.new({x:barIndex,y:close[0],text:'价格'});
+      line.new(barIndex,low[0],barIndex+1,high[0]);
     }})`)
     const original = script.run([bar(1), bar(2, 12)])
     const snapshot = structuredClone(original)
@@ -156,7 +157,7 @@ it('keeps port-owned baselines correct across real thread calculations and failu
     volume: 1,
     closed: true,
   }))
-  const source = `defineIndicator({name:'WireLifecycle',position:Position.Main,onBar(){
+  const source = `defineIndicator({ version: 2,name:'WireLifecycle',position:Position.main,onBar(){
     if(close[0]<0) throw new Error('invalid-price');plot.Line(close,'close');
   }})`
   try {

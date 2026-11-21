@@ -7,21 +7,22 @@
 ```ts
 /** 示例均线，参数默认值与范围只在输入声明中维护。 */
 defineIndicator({
+  version: 2,
   name: 'Example',
   title: '示例均线',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const period = input.int(20, { title: '周期', min: 1, max: 500 })
-    plot.Line(ta.sma(close, period)[0], 'average', { color: Color.Blue })
+    plot.Line(ta.sma(close, period)[0], 'average', { color: Color.blue })
   },
 })
 ```
 
 输入必须直接声明在 `onBar` 顶层的 `const` 中。编译器提取默认值、范围和名称以建立参数面板；不要另写 UI 默认参数或目录配置。
 
-序列绘图使用 `plot.*`，两条序列间填充使用 `fill`。跨 bar 管理的对象使用 `line`、`box`、`label` 的 `new / set_* / copy / delete / all` API。Box 使用公共矩形模型，Label 使用公共文字图元。对象使用 bar 索引或时间坐标，不读取视口像素位置。
+序列绘图使用 `plot.*`，两条序列间填充使用 `fill`。跨 bar 管理的对象使用 `line`、`box`、`label` 的 `new / setXxx / copy / delete / all` API。Box 使用公共矩形模型，Label 使用公共文字图元。对象使用 bar 索引或时间坐标，不读取视口像素位置。
 
-顶层变量跨 bar 保留，每次重算重新创建。`barstate.islast` 可用于只在末根构建固定回看区间分布。声明中的 `max_lines_count`、`max_boxes_count`、`max_labels_count` 控制各类对象数量，默认与边界由公共 drawing 契约统一管理。
+顶层变量跨 bar 保留，每次重算重新创建。`barstate.isLast` 可用于只在末根构建固定回看区间分布。声明中的 `maxLinesCount`、`maxBoxesCount`、`maxLabelsCount` 控制各类对象数量，默认与边界由公共 drawing 契约统一管理。
 
 ## 分发和测试
 

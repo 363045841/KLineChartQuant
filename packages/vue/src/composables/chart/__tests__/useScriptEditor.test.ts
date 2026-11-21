@@ -89,7 +89,7 @@ describe('useScriptEditor', () => {
     const editor = scope.run(() => useScriptEditor(scripts, shallowRef(chart)))!
     try {
       editor.openBlank()
-      editor.source.value = `defineIndicator({ name: 'EditorDebug', position: Position.Sub, onBar() { console.log(close[0]) } })`
+      editor.source.value = `defineIndicator({ version: 2, name: 'EditorDebug', position: Position.sub, onBar() { console.log(close[0]) } })`
       await editor.run()
       expect(editor.error.value).toBeNull()
       expect(editor.executionError.value).toBeNull()
@@ -184,7 +184,7 @@ describe('useScriptEditor', () => {
       await editor.applyTreeAction({ type: 'create-folder', kind: 'indicator', path: '策略' })
       expect(editor.folders.value).toEqual([{ kind: 'indicator', path: '策略' }])
       editor.openBlank('indicator', '策略')
-      editor.source.value = `defineIndicator({ name: 'FolderScript', position: Position.Sub, onBar() {} })`
+      editor.source.value = `defineIndicator({ version: 2, name: 'FolderScript', position: Position.sub, onBar() {} })`
       await editor.save()
       expect(scripts.read('FolderScript')?.folder).toBe('策略')
       await editor.applyTreeAction({ type: 'copy-file', id: 'FolderScript' })

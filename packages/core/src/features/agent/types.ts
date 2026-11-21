@@ -320,6 +320,74 @@ export interface ChartAgentToolDeps {
   readonly drawings: ChartAgentDrawingCommands
   readonly comparisons: ChartAgentComparisonCommands
   readonly market: ChartAgentMarketQueries
+  readonly scripts: ChartAgentScripts
+}
+
+/** 脚本参考主题：与生成的参考条目一一对应，工具参数与列表都读这一份。 */
+export const SCRIPT_REFERENCE_TOPICS = [
+  'guide',
+  'runtime',
+  'plot',
+  'drawing',
+  'ta',
+  'enums',
+] as const
+
+/** 脚本参考主题取值。 */
+export type ScriptReferenceTopic = (typeof SCRIPT_REFERENCE_TOPICS)[number]
+
+/** 参考条目的展示元数据；正文按主题读取，避免把整份文档塞进工具描述。 */
+export interface ScriptReferenceEntry {
+  readonly id: ScriptReferenceTopic
+  readonly title: string
+  readonly summary: string
+}
+
+/** Agent 可寻址的用户指标脚本；列表与写操作只返回身份与名称。 */
+export interface ChartAgentScriptRef {
+  readonly id: string
+  readonly name: string
+}
+
+/** 单个脚本的源码快照；只由按 id 读取返回，列表不携带正文。 */
+export interface ChartAgentScriptDocument extends ChartAgentScriptRef {
+  readonly source: string
+}
+
+/** 可写入的脚本目录；create 只能落进已存在的目录。 */
+export interface ChartAgentScriptFolder {
+  readonly path: string
+}
+
+/** 创建脚本输入；trusted 由宿主固定为 false，不进入工具契约。 */
+export interface ChartAgentScriptCreateInput {
+  readonly source: string
+  readonly folder?: string
+}
+
+/**
+ * 脚本能力面：静态参考文档 + 用户指标脚本文档。
+ *
+ * 只暴露用户指标脚本，内置脚本与库脚本都不在 Agent 的读写范围内。
+ * 读取与写入分属不同工具；工具表在会话内固定，plan 模式在执行期拒绝写工具。
+ */
+export interface ChartAgentScripts {
+  /** 参考主题元数据；未接入正文时返回空表，工具描述不列出主题。 */
+  listReferenceTopics(): ReadonlyArray<ScriptReferenceEntry>
+  /** 读取一个参考主题正文；主题缺失说明生成物与契约不一致。 */
+  readReference(topic: ScriptReferenceTopic): string
+  /** 列出用户指标脚本，按登记顺序返回。 */
+  list(): Promise<ReadonlyArray<ChartAgentScriptRef>>
+  /** 列出指标脚本可落盘的目录。 */
+  listFolders(): Promise<ReadonlyArray<ChartAgentScriptFolder>>
+  /** 读取一份用户指标脚本的完整源码。 */
+  read(scriptId: string): Promise<ChartAgentScriptDocument>
+  /** 创建指标脚本；源码声明库时明确失败。 */
+  create(input: ChartAgentScriptCreateInput): Promise<ChartAgentScriptRef>
+  /** 用完整源码覆盖已有指标脚本。 */
+  update(scriptId: string, source: string): Promise<ChartAgentScriptRef>
+  /** 删除指标脚本及其图表实例。 */
+  remove(scriptId: string): Promise<ChartAgentScriptRef>
 }
 
 /** Stable Agent-facing facade attached to every ChartController. */

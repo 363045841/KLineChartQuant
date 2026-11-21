@@ -48,7 +48,7 @@ export type TechnicalAnalysisLibrary = {
    * @summary 最大子段和
    * @param source 有符号数据序列，如对数收益、价格差分或带符号成交量。
    * @param length 窗口长度，正整数，包含当前根。
-   * @returns [子段和, 起点偏移, 终点偏移]；偏移为相对当前根的负值（与 highestbars 一致），
+   * @returns [子段和, 起点偏移, 终点偏移]；偏移为相对当前根的负值（与 highestBars 一致），
    *          完整窗口之前或窗口内含 NaN 时三者均为 NaN。
    */
   maxsum(source: Series, length: number): readonly [Series, Series, Series]
@@ -69,9 +69,9 @@ export type TechnicalAnalysisLibrary = {
    */
   lowest(source: Series, length: number): Series
   /** 确认后的摆动高点；结果出现在右侧窗口完成的 bar，无摆点为 NaN。 */
-  pivothigh(source: Series, leftbars: number, rightbars: number): Series
+  pivothigh(source: Series, leftBars: number, rightBars: number): Series
   /** 确认后的摆动低点；并列极值取更靠右的 bar。 */
-  pivotlow(source: Series, leftbars: number, rightbars: number): Series
+  pivotlow(source: Series, leftBars: number, rightBars: number): Series
   /**
    * 最近 length 根 K 线最高值相对当前 K 线的偏移，负值或 0。
    * @summary 最高值偏移
@@ -79,7 +79,7 @@ export type TechnicalAnalysisLibrary = {
    * @param length 窗口长度，正整数。
    * @returns 偏移序列；并列最高取更早一根，完整窗口之前为 NaN。
    */
-  highestbars(source: Series, length: number): Series
+  highestBars(source: Series, length: number): Series
   /**
    * 最近 length 根 K 线最低值相对当前 K 线的偏移，负值或 0。
    * @summary 最低值偏移
@@ -87,7 +87,7 @@ export type TechnicalAnalysisLibrary = {
    * @param length 窗口长度，正整数。
    * @returns 偏移序列；并列最低取更早一根，完整窗口之前为 NaN。
    */
-  lowestbars(source: Series, length: number): Series
+  lowestBars(source: Series, length: number): Series
   /**
    * Wilder 平滑均线（RMA），alpha = 1 / length，以首个完整窗口 SMA 初始化。
    * @summary Wilder 平滑均线

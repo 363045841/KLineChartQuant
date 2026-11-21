@@ -1,27 +1,24 @@
 # OpenAI-compatible Provider
 
-此模块把支持 OpenAI Completions API 的第三方模型服务接入 Agent Runtime。它负责模型目录读取、连接验证、凭据与设置存储边界、HTTP 容错，以及将已验证配置转换为 Pi 的流式运行计划。
+此模块把支持 OpenAI Completions API 的第三方模型服务接入 Agent Runtime。它负责模型目录读取、HTTP 容错，以及把宿主投影出的已选模型设置转换为 Pi 的流式运行计划。
 
 ## 入口
 
-`createOpenAiCompatibleRuntimeSupport(options)` 返回 `RuntimeSupport`：
+`createOpenAiCompatibleRuntimeSupport(options)` 返回：
 
-- `provider.listModels` 请求 `${baseUrl}/models` 并返回可供 UI 展示的模型。
-- `provider.test` 验证目标模型存在后，保存 API Key 和已验证设置。
-- `provider.getStatus` 返回配置、兼容性、短凭据指纹与最近错误。
-- `provider.deleteCredential` 仅删除 API Key。
-- `createPlan` 使用已验证设置创建 Pi OpenAI Completions 流式运行计划。
+- `catalog.listModels` 请求 `${baseUrl}/models` 并返回可供 UI 展示的模型；目录不缓存，每次调用都现取。
+- `createPlan` 使用宿主投影出的 `OpenAiCompatibleProviderSettings` 创建 Pi 流式运行计划。
 
-浏览器宿主若只需模型目录，可以使用 `fetchOpenAiCompatibleModels`。该函数不依赖运行时存储，也不会经由宿主进程转发请求。
+连接、凭据与模型池都由宿主设置文档负责；这里只读取 `credentials.read` 与 `settings.read`，不写任何配置。
 
 ## 宿主职责
 
-创建运行时时必须注入以下存储实现：
+创建运行时时必须注入以下只读实现：
 
-- `ProviderCredentialStore`：保存 API Key；生产实现应使用宿主提供的安全存储。
-- `ProviderSettingsStore`：保存不含密钥的 `OpenAiCompatibleProviderSettings`。
+- `ProviderCredentialStore`：读取当前 API Key；写入与清除由连接命令落在设置文档上。
+- `ProviderSettingsStore`：读取宿主投影出的 `OpenAiCompatibleProviderSettings`。
 
-模块提供的 `InMemoryProviderCredentialStore` 与 `InMemoryProviderSettingsStore` 仅适用于测试或不需要持久化的场景。读取和写入均接收可选 `AbortSignal`，实现必须在 I/O 前检查取消状态。
+模块提供的 `InMemoryProviderCredentialStore` 与 `InMemoryProviderSettingsStore` 仅适用于测试或不需要持久化的场景。读取接收可选 `AbortSignal`，实现必须在 I/O 前检查取消状态。
 
 ## HTTP 行为
 
@@ -37,6 +34,6 @@
 
 ## 配置约束
 
-`baseUrl` 必须是 HTTP 或 HTTPS 地址，不能包含用户名、密码、查询参数或片段。运行计划只会使用已经通过 `test` 保存且 `compatibility` 为 `compatible` 的设置。
+`baseUrl` 必须是 HTTP 或 HTTPS 地址，不能包含用户名、密码、查询参数或片段。运行计划只使用宿主文档投影出的已选模型设置；选中模型不在模型池中时投影为空，运行会以 `PROVIDER_NOT_CONFIGURED` 拒绝。
 
 不要将 API Key、未经脱敏的请求 URL、Authorization 头或原始 Provider 响应写入日志、诊断回调或持久化设置。

@@ -9,7 +9,7 @@ import type { ScriptWorker } from '../types.js'
 /** 只控制计算完成时刻，保留ScriptWorker的实际端口契约。 */
 function setup(size: number) {
   const definition = prepareNative(
-    'defineIndicator({ name:"PoolTest", position:Position.Main, onBar(){} })',
+    'defineIndicator({ version: 2, name:"PoolTest", position:Position.main, onBar(){} })',
   ).definition
   const calls: { id: string; finish(value: PlotCollection): void; fail(error: Error): void }[] = []
   const workers: ScriptWorker[] = []

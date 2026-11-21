@@ -1,9 +1,10 @@
 // 一目均衡表以区间中点、先行云带和迟行收盘价呈现趋势。
 defineIndicator({
+  version: 2,
   name: 'Ichimoku',
   title: '一目均衡表',
   info: '一目均衡表用转换线、基准线、先行 span 与迟行线描述趋势、支撑阻力与未来均衡区。',
-  position: Position.Main,
+  position: Position.main,
   onBar() {
     const tenkanPeriod = input.int(9, { title: '转换线周期', min: 1 })
     const kijunPeriod = input.int(26, { title: '基准线周期', min: 1 })
@@ -13,19 +14,19 @@ defineIndicator({
     const kijun = (ta.highest(high, kijunPeriod)[0] + ta.lowest(low, kijunPeriod)[0]) / 2
     const spanA = (tenkan + kijun) / 2
     const spanB = (ta.highest(high, spanBPeriod)[0] + ta.lowest(low, spanBPeriod)[0]) / 2
-    plot.Line(tenkan, 'tenkan', { label: 'Tenkan', color: Color.Blue })
-    plot.Line(kijun, 'kijun', { label: 'Kijun', color: Color.Red })
+    plot.Line(tenkan, 'tenkan', { label: 'Tenkan', color: Color.blue })
+    plot.Line(kijun, 'kijun', { label: 'Kijun', color: Color.red })
     const leadingA = plot.Line(spanA, 'spanA', {
       label: 'Span A',
-      color: Color.Teal,
+      color: Color.teal,
       offset: displacement,
     })
     const leadingB = plot.Line(spanB, 'spanB', {
       label: 'Span B',
-      color: Color.Red,
+      color: Color.red,
       offset: displacement,
     })
-    plot.Line(close[0], 'chikou', { label: 'Chikou', color: Color.Purple, offset: -displacement })
-    fill(leadingA, leadingB, spanA >= spanB ? Color.Teal + '30' : Color.Red + '30', 'cloud')
+    plot.Line(close[0], 'chikou', { label: 'Chikou', color: Color.purple, offset: -displacement })
+    fill(leadingA, leadingB, spanA >= spanB ? Color.teal + '30' : Color.red + '30', 'cloud')
   },
 })

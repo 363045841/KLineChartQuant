@@ -106,7 +106,7 @@ describe('TA 窗口算法', () => {
         }
         const prices = counted(close)
         const volumes = counted(volume)
-        defineIndicator({ name: 'WindowReads', position: Position.Sub, inputs: {}, onBar() {
+        defineIndicator({ version: 2, name: 'WindowReads', position: Position.sub, inputs: {}, onBar() {
           plot.Line(ta.${algorithm}(prices, ${algorithm === 'vwma' ? 'volumes, ' : ''}${length})[0], 'value')
           plot.Line(reads, 'reads')
         } })

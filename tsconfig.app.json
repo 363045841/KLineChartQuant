@@ -30,11 +30,17 @@
       "@vue-src/*": ["./packages/vue/src/*"],
       "@363045841yyt/klinechart-agent-runtime": ["./packages/agent-runtime/src/index.ts"],
       "@363045841yyt/klinechart-agent-runtime/browser": ["./packages/agent-runtime/src/browser.ts"],
+      "@363045841yyt/klinechart-agent-runtime/browser-host": [
+        "./packages/agent-runtime/src/browser-host.ts"
+      ],
       "@363045841yyt/klinechart-agent-runtime/testing": [
         "./packages/agent-runtime/src/testing/index.ts"
       ],
       "@363045841yyt/klinechart-agent-runtime/contracts/ui": [
         "./packages/agent-runtime/src/contracts/ui.ts"
+      ],
+      "@363045841yyt/klinechart-agent-runtime/contracts/provider": [
+        "./packages/agent-runtime/src/contracts/provider.ts"
       ],
       "@363045841yyt/klinechart-script-server": ["./packages/script-server/src/index.ts"]
     },

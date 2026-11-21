@@ -23,29 +23,29 @@ export type ShapeStyle =
  */
 export const ShapeStyle = {
   /** @summary X 叉 */
-  XCross: 'xcross',
+  xCross: 'xcross',
   /** @summary 十字 */
-  Cross: 'cross',
+  cross: 'cross',
   /** @summary 圆 */
-  Circle: 'circle',
+  circle: 'circle',
   /** @summary 方形 */
-  Square: 'square',
+  square: 'square',
   /** @summary 菱形 */
-  Diamond: 'diamond',
+  diamond: 'diamond',
   /** @summary 上三角 */
-  TriangleUp: 'triangleup',
+  triangleUp: 'triangleup',
   /** @summary 下三角 */
-  TriangleDown: 'triangledown',
+  triangleDown: 'triangledown',
   /** @summary 上箭头 */
-  ArrowUp: 'arrowup',
+  arrowUp: 'arrowup',
   /** @summary 下箭头 */
-  ArrowDown: 'arrowdown',
+  arrowDown: 'arrowdown',
   /** @summary 上标签 */
-  LabelUp: 'labelup',
+  labelUp: 'labelup',
   /** @summary 下标签 */
-  LabelDown: 'labeldown',
+  labelDown: 'labeldown',
   /** @summary 旗形 */
-  Flag: 'flag',
+  flag: 'flag',
 } satisfies Record<string, ShapeStyle>
 
 export type ShapeLocation = 'abovebar' | 'belowbar' | 'top' | 'bottom' | 'absolute'
@@ -57,15 +57,15 @@ export type ShapeLocation = 'abovebar' | 'belowbar' | 'top' | 'bottom' | 'absolu
  */
 export const ShapeLocation = {
   /** @summary 上方 */
-  AboveBar: 'abovebar',
+  aboveBar: 'abovebar',
   /** @summary 下方 */
-  BelowBar: 'belowbar',
+  belowBar: 'belowbar',
   /** @summary 顶部 */
-  Top: 'top',
+  top: 'top',
   /** @summary 底部 */
-  Bottom: 'bottom',
+  bottom: 'bottom',
   /** @summary 按价格定位 */
-  Absolute: 'absolute',
+  absolute: 'absolute',
 } satisfies Record<string, ShapeLocation>
 
 export type ShapeSize = 'auto' | 'tiny' | 'small' | 'normal' | 'large' | 'huge'
@@ -77,34 +77,34 @@ export type ShapeSize = 'auto' | 'tiny' | 'small' | 'normal' | 'large' | 'huge'
  *
  * | 档位 | 折线宽度（px） | 散点直径（px） | 形状 / 字符外框边长（px） | 箭头最大高度（px） | Histogram 柱宽（px） |
  * | --- | --- | --- | --- | --- | --- |
- * | ShapeSize.Auto | 1 | 3 | 12 | 50 | 1 |
- * | ShapeSize.Tiny | 1 | 6 | 6 | 20 | 1 |
- * | ShapeSize.Small | 1 | 10 | 10 | 30 | 1 |
- * | ShapeSize.Normal | 2 | 14 | 14 | 40 | 2 |
- * | ShapeSize.Large | 3 | 20 | 20 | 60 | 3 |
- * | ShapeSize.Huge | 4 | 28 | 28 | 90 | 4 |
+ * | ShapeSize.auto | 1 | 3 | 12 | 50 | 1 |
+ * | ShapeSize.tiny | 1 | 6 | 6 | 20 | 1 |
+ * | ShapeSize.small | 1 | 10 | 10 | 30 | 1 |
+ * | ShapeSize.normal | 2 | 14 | 14 | 40 | 2 |
+ * | ShapeSize.large | 3 | 20 | 20 | 60 | 3 |
+ * | ShapeSize.huge | 4 | 28 | 28 | 90 | 4 |
  *
  * px 为逻辑像素；箭头实际高度随数值幅度变化，最短为最大高度的 10%。
  * Columns 不接受 size，柱宽随 K 线间距自动调整。
  */
 export const ShapeSize = {
   /** @summary 自动 */
-  Auto: 'auto',
+  auto: 'auto',
   /** @summary 极小 */
-  Tiny: 'tiny',
+  tiny: 'tiny',
   /** @summary 小 */
-  Small: 'small',
+  small: 'small',
   /** @summary 常规 */
-  Normal: 'normal',
+  normal: 'normal',
   /** @summary 大 */
-  Large: 'large',
+  large: 'large',
   /** @summary 特大 */
-  Huge: 'huge',
+  huge: 'huge',
 } satisfies Record<string, ShapeSize>
 
 /** Shape 与 Char 的共享样式；相对位置过滤零值，absolute 把 value 当价格。 */
 export interface MarkerOptions {
-  /** 标记位置；默认在 K 线上方，ShapeLocation.Absolute 表示绘制在 value 指定的价格处。 */
+  /** 标记位置；默认在 K 线上方，ShapeLocation.absolute 表示绘制在 value 指定的价格处。 */
   readonly location?: ShapeLocation
   /** 标记旁的附加文字；不填则不显示附加文字。 */
   readonly text?: string
@@ -114,7 +114,7 @@ export interface MarkerOptions {
 
 /** 固定形状标记的专属样式。 */
 export interface ShapeOptions extends MarkerOptions {
-  /** 标记形状；不填则使用 ShapeStyle.XCross。 */
+  /** 标记形状；不填则使用 ShapeStyle.xCross。 */
   readonly style?: ShapeStyle
 }
 

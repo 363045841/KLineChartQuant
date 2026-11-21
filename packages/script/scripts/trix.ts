@@ -1,10 +1,11 @@
 // TRIX：收盘价三重指数均线的百分比变化，并附信号均线。
 defineIndicator({
+  version: 2,
   name: 'TRIX',
   title: '三重指数平滑平均',
   info: 'TRIX 三平滑后取 ROC，过滤短期波动，上穿信号线为买入信号，下穿为卖出信号。',
-  position: Position.Sub,
-  format: Format.Percent,
+  position: Position.sub,
+  format: Format.percent,
   onBar() {
     const period = input.int(15, { title: '周期', min: 1 })
     const signalPeriod = input.int(9, { title: '信号周期', min: 1 })
@@ -16,8 +17,8 @@ defineIndicator({
       return ((current - previous) / previous) * 100
     })
     const signal = ta.ema(trix, signalPeriod)
-    plot.LineBR(trix[0], 'trix', { label: 'TRIX', color: Color.Orange })
-    plot.LineBR(signal[0], 'signal', { label: 'SIGNAL', color: Color.Blue })
-    plot.Line(0, 'guide', { label: '0', color: Color.Gray, dash: [4, 4] })
+    plot.LineBR(trix[0], 'trix', { label: 'TRIX', color: Color.orange })
+    plot.LineBR(signal[0], 'signal', { label: 'SIGNAL', color: Color.blue })
+    plot.Line(0, 'guide', { label: '0', color: Color.gray, dash: [4, 4] })
   },
 })

@@ -10,11 +10,11 @@
    - 不抛错的原因：歧义需要用户操作，不是一次可重试的失败；放在成功结果里，模型只需看 `status`。
 2. **候选只包含可回传的路由字段**：`symbol / exchange / source / instrumentType`，外加展示用 `name`；不再返回 `id`。`instrumentType` 未归一化时字段直接省略。
 3. **裁决策略收归 `ComparisonCommands`**（唯一写原语）。`resolveInstrument` 只汇报候选，不再挑首项。
-4. **`ask_user` 是阻塞式运行时工具**（`packages/agent-runtime/src/tools/ask-user-tool.ts`）：runtime 定义 schema 与结果协议，宿主（`BrowserAgentBridge`）负责渲染与挂起/应答生命周期（协议事件 `tool.question.required` / `tool.question.resolved`）。
+4. **`ask_user` 是阻塞式运行时工具**（`packages/agent-runtime/src/tools/ask-user-tool.ts`）：runtime 定义 schema 与结果协议，宿主（`AgentHost`）负责经协议回路由到发起页渲染，并挂起/应答生命周期（协议事件 `tool.question.required` / `tool.question.resolved`）。
    - 工具声明 `presentation: 'question'`，宿主在调用所在位置渲染卡片，同一调用不再出现折叠工具行；答完折叠成一行「已选择：…」。
    - option 的 `value` 是候选的路由键（例如 `tdx|SZSE|stock`），模型据此回填 create。
    - 取消是正常结果：用户点「跳过」时工具返回 `{status:'cancelled'}`，不是失败。
-5. **一次提问只结算一次**。挂起表 `BrowserPendingQuestions` 独占答复、取消与运行中止三条路径，都收敛到同一个 `settle`。
+5. **一次提问只结算一次**。宿主回答请求时就地占据待答表；页面应答、用户取消与运行中止都收敛到同一次请求应答。
 6. **系统提示词硬约束**：工具结果报 `status:"ambiguous"` 时必须调用 `ask_user`，每个候选一个选项，禁止猜测或重试。
 
 ## 备选与否决

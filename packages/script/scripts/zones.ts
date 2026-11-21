@@ -31,13 +31,13 @@ function addZone(
   const id = box.new({
     left,
     top,
-    right: bar_index,
+    right: barIndex,
     bottom,
     borderColor: fill,
     borderWidth: 0,
     backgroundColor: fill,
     text: title,
-    textColor: Color.Foreground,
+    textColor: Color.foreground,
   })
   zones.push({ id, bull, high: top, low: bottom, active: true })
 }
@@ -47,7 +47,7 @@ function advanceZones(config: ZonesConfig): void {
   for (let index = zones.length - 1; index >= 0; index--) {
     const zone = zones[index]!
     if (!zone.active) continue
-    box.set_right(zone.id, bar_index)
+    box.setRight(zone.id, barIndex)
     if (zone.bull ? low[0] <= zone.low : high[0] >= zone.high) {
       zone.active = false
       if (config.keepMitigated) continue
@@ -59,9 +59,9 @@ function advanceZones(config: ZonesConfig): void {
 
 /** 三根 K 线的重叠缺口：当前低点高于两根前的高点为多头缺口，反向为空头缺口。 */
 function detectFvg(config: ZonesConfig): void {
-  if (bar_index < 2) return
-  if (low[0] > high[2]) addZone(config, bar_index - 2, low[0], high[2], true, 'FVG')
-  if (high[0] < low[2]) addZone(config, bar_index - 2, low[2], high[0], false, 'FVG')
+  if (barIndex < 2) return
+  if (low[0] > high[2]) addZone(config, barIndex - 2, low[0], high[2], true, 'FVG')
+  if (high[0] < low[2]) addZone(config, barIndex - 2, low[2], high[0], false, 'FVG')
 }
 
 /** 更新最近确认的摆动点；NaN 表示尚未确认。 */
@@ -79,7 +79,7 @@ function updateSwings(swingLength: number): void {
  * @param bull true 表示向上突破，寻找阴线订单块
  */
 function detectOrderBlock(config: ZonesConfig, bull: boolean): void {
-  const limit = Math.min(config.obLookback, bar_index)
+  const limit = Math.min(config.obLookback, barIndex)
   for (let offset = 1; offset <= limit; offset++) {
     const opposite = bull ? close[offset] < open[offset] : close[offset] > open[offset]
     if (!opposite) continue
@@ -88,17 +88,18 @@ function detectOrderBlock(config: ZonesConfig, bull: boolean): void {
     for (let recent = 0; recent < offset; recent++) {
       if (bull ? low[recent] <= bottom : high[recent] >= top) return
     }
-    addZone(config, bar_index - offset, top, bottom, bull, 'OB')
+    addZone(config, barIndex - offset, top, bottom, bull, 'OB')
     return
   }
 }
 
 defineIndicator({
+  version: 2,
   name: 'Zones',
   title: 'FVG 与订单块',
-  position: Position.Main,
+  position: Position.main,
   info: '三根 K 线公允价值缺口与确认结构突破前的最近反向蜡烛订单块。',
-  max_boxes_count: 200,
+  maxBoxesCount: 200,
   onBar() {
     const showFvg = input.bool(true, { title: '显示 FVG' })
     const showOb = input.bool(true, { title: '显示 Order Block' })

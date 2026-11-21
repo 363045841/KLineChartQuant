@@ -20,41 +20,42 @@ function markTrade(
   color: string,
 ): void {
   box.new(
-    bar_index + buyOffset,
+    barIndex + buyOffset,
     sell,
-    bar_index + sellOffset,
+    barIndex + sellOffset,
     buy,
     color,
     0,
-    line.style_solid,
+    LineStyle.solid,
     extend.none,
-    xloc.bar_index,
+    xloc.barIndex,
     fill,
   )
   // 上升区间的上方是价格本身，文字压到框下沿之外，避免遮挡 K 线。
   label.new({
-    x: bar_index + Math.round((buyOffset + sellOffset) / 2),
+    x: barIndex + Math.round((buyOffset + sellOffset) / 2),
     y: buy,
     text: '+' + ((sell / buy - 1) * 100).toFixed(1) + '%',
-    color: Color.Foreground,
+    color: Color.foreground,
     offsetY: TRADE_LABEL_OFFSET,
   })
 }
 
 defineIndicator({
+  version: 2,
   name: 'MPR',
   title: '最优单次交易',
   info: '回看窗口内一次买入卖出的最大收益率；最大子段和定位买卖两根。',
-  position: Position.Main,
-  max_boxes_count: 1,
-  max_labels_count: 1,
+  position: Position.main,
+  maxBoxesCount: 1,
+  maxLabelsCount: 1,
   onBar() {
     const lookback = input.int(120, { title: '回看根数', min: 2, max: 2000 })
     const drawBox = input.bool(true, { title: '标记买卖区间' })
-    const color = input.string(Color.Teal, { title: '区间颜色' })
+    const color = input.string(Color.teal, { title: '区间颜色' })
     // 主题色别名后拼两位十六进制 alpha，填充与文字共用同一主题色。
     const fill = color + '26'
-    if (!drawBox || !barstate.islast) return
+    if (!drawBox || !barstate.isLast) return
     // 价差序列逐根差分：子段 [start..end] 对应从 start−1 根买入、end 根卖出。
     const runs = ta.maxsum(ta.change(close), lookback)
     const buyOffset = runs[1][0] - 1

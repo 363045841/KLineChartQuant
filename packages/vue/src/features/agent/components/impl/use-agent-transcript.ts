@@ -1,10 +1,11 @@
 // 时间线索引：把官方条目流中散落的工具结果、引用与前一条用户输入整理成只读映射。
-import type {
-  EntryId,
-  EntryRecord,
-  SourceCitation,
-  ToolResultMessage,
-  TranscriptItem,
+import {
+  type EntryId,
+  type EntryRecord,
+  KQ_USER_ENTRY_KIND,
+  type SourceCitation,
+  type ToolResultMessage,
+  type TranscriptItem,
 } from '../../agent-contracts.js'
 import { readCitations } from './tool-view.js'
 
@@ -42,7 +43,7 @@ export function indexTranscript(items: readonly TranscriptItem[]): TranscriptInd
   for (const item of items) {
     if (item.kind !== 'entry') continue
     const entry = item.entry
-    if (entry.kind === 'pi.user' && entry.model?.[0]?.role === 'user') {
+    if (isUserEntry(entry)) {
       lastUserEntryId = entry.id
       continue
     }
@@ -65,9 +66,28 @@ export function indexTranscript(items: readonly TranscriptItem[]): TranscriptInd
   }
 }
 
-/** 判断条目是否为可渲染的用户消息。 */
+/** 判断条目是否为可渲染的用户消息；兼容旧会话的 `pi.user`。 */
 export function isUserEntry(entry: EntryRecord): boolean {
-  return entry.kind === 'pi.user' && entry.model?.[0]?.role === 'user'
+  return (
+    (entry.kind === 'pi.user' || entry.kind === KQ_USER_ENTRY_KIND) &&
+    entry.model?.[0]?.role === 'user'
+  )
+}
+
+/** 判断未知值是否为普通对象。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 读取用户条目原文；`kq.user` 的模型消息含上下文，展示只取 data.prompt。 */
+export function userEntryText(entry: EntryRecord): string {
+  const data = entry.data
+  if (isRecord(data) && typeof data.prompt === 'string') return data.prompt
+  const message = entry.model?.[0]
+  if (message?.role !== 'user') return ''
+  return typeof message.content === 'string'
+    ? message.content
+    : message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
 }
 
 /** 判断条目是否为可渲染的助手回答。 */

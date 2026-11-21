@@ -4,11 +4,11 @@ import { BACKENDS } from '../../__tests__/backends.js'
 import { barsFromCloses, plotValues, scriptSource } from '../../__tests__/marketData.js'
 
 describe.each(BACKENDS)('TA 新增原语 $name', ({ prepare }) => {
-  it('highestbars/lowestbars 返回负偏移，并列极值与 Pine 一致取更早一根', () => {
+  it('highestBars/lowestBars 返回负偏移，并列极值与 Pine 一致取更早一根', () => {
     const prepared = prepare(
       scriptSource(`
-        plot.Line(ta.highestbars(close, 3)[0], 'highbars')
-        plot.Line(ta.lowestbars(close, 3)[0], 'lowbars')
+        plot.Line(ta.highestBars(close, 3)[0], 'highbars')
+        plot.Line(ta.lowestBars(close, 3)[0], 'lowbars')
       `),
     )
     const result = plotValues(prepared.run(barsFromCloses([5, 1, 5, 3, 5])))
@@ -85,8 +85,8 @@ describe.each(BACKENDS)('TA 新增原语 $name', ({ prepare }) => {
     'ta.cmo(close, 0)',
     'ta.linreg(close, 0)',
     'ta.linreg(close, 3, 0.5)',
-    'ta.highestbars(close, 0)',
-    'ta.lowestbars(close, 1.5)',
+    'ta.highestBars(close, 0)',
+    'ta.lowestBars(close, 1.5)',
     'ta.alma(close, 0)',
     'ta.alma(close, 3, -0.1)',
     'ta.alma(close, 3, 0.5, 0)',
