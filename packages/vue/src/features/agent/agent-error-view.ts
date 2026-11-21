@@ -1,14 +1,17 @@
-// 将桥接层抛出的 unknown 错误统一投影为界面可直接展示的 AgentErrorView。
+// 将桥接层抛出的 unknown 错误投影为界面可直接展示的 AgentErrorView。
+
 import type { AgentErrorView } from './agent-contracts.js'
 
 /**
- * 把 bridge 或运行时抛出的 unknown 错误收敛为错误视图。
+ * 把运行时或传输层抛出的 unknown 错误收敛为错误视图。
  *
- * @param error 捕获到的错误；命中运行时错误形状时原样投影字段。
- * @param fallback 无法识别错误形状时使用的兜底视图。
+ * 命中错误视图形状时原样投影字段；普通 Error 保留真实 message 并归为内部错误——
+ * 不做领域归因，也不谎报成 Provider 失败，避免掩盖传输或序列化问题。
+ *
+ * @param error 捕获到的错误。
  * @returns 带 code、message、retryable 等字段的展示契约。
  */
-export function toAgentErrorView(error: unknown, fallback: AgentErrorView): AgentErrorView {
+export function toAgentErrorView(error: unknown): AgentErrorView {
   if (typeof error === 'object' && error !== null) {
     const value = error as Record<string, unknown>
     if (typeof value.code === 'string' && typeof value.message === 'string') {
@@ -22,6 +25,8 @@ export function toAgentErrorView(error: unknown, fallback: AgentErrorView): Agen
           typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
       }
     }
+    if (error instanceof Error)
+      return { code: 'INTERNAL_ERROR', message: error.message, retryable: false }
   }
-  return fallback
+  return { code: 'INTERNAL_ERROR', message: 'The operation failed.', retryable: false }
 }

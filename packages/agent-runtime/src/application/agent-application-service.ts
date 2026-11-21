@@ -1,4 +1,4 @@
-// 应用服务：把官方会话视图转成 UI 读取结果，并转发运行、目录与 Provider 命令。
+// 应用服务：把官方会话视图转成 UI 读取结果，并转发运行与目录命令。
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 import {
   type Conversation,
@@ -16,9 +16,6 @@ import {
   type AgentWorkspaceEvent,
   type ContinueRunInput,
   type EditMessageInput,
-  type ProviderModelsInput,
-  type ProviderModelsResult,
-  type ProviderStatusView,
   type StartRunInput,
 } from '../contracts/ui.js'
 import type { AgentApplicationApi, AgentApplicationServiceOptions, RunPlanInput } from './types.js'
@@ -30,12 +27,6 @@ interface OpenSession {
   view: TranscriptView
   title: string
   stop: () => Promise<void>
-}
-
-const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
-  state: 'not-configured',
-  providerLabel: 'OpenAI-compatible',
-  configured: false,
 }
 
 /**
@@ -205,23 +196,6 @@ export class AgentApplicationService implements AgentApplicationApi {
     return started
   }
 
-  async getProviderStatus(): Promise<ProviderStatusView> {
-    if (!this.options.provider) return DEFAULT_PROVIDER_STATUS
-    try {
-      return await this.options.provider.getStatus()
-    } catch (error) {
-      return { ...DEFAULT_PROVIDER_STATUS, error: toAgentRuntimeError(error).toView() }
-    }
-  }
-
-  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    return this.requireProvider().listModels(input)
-  }
-
-  deleteProviderCredential(): Promise<void> {
-    return this.requireProvider().deleteCredential()
-  }
-
   /** 订阅工作区事件。 */
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void {
     this.listeners.add(listener)
@@ -296,18 +270,6 @@ export class AgentApplicationService implements AgentApplicationApi {
   /** 生成运行计划。 */
   private createPlan(input: RunPlanInput) {
     return this.options.createPlan(input)
-  }
-
-  /** 读取 Provider 能力，未配置时抛出统一错误。 */
-  private requireProvider(): NonNullable<AgentApplicationServiceOptions['provider']> {
-    const provider = this.options.provider
-    if (!provider) {
-      throw new AgentRuntimeError(
-        'PROVIDER_NOT_CONFIGURED',
-        'The production Provider adapter is not installed yet.',
-      )
-    }
-    return provider
   }
 
   /** 广播最新会话目录，刷新标题与排序。 */

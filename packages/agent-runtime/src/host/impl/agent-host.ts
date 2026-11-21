@@ -16,6 +16,13 @@ import {
   toAgentRuntimeError,
 } from '../../contracts/errors.js'
 import type {
+  ProviderCatalogView,
+  ProviderConnectionInput,
+  ProviderModelView,
+  ProviderReasoningEffort,
+  ProviderSnapshot,
+} from '../../contracts/provider.js'
+import type {
   AgentSessionView,
   AgentToolDebugResult,
   AgentToolView,
@@ -24,21 +31,13 @@ import type {
   BranchMessageInput,
   ContinueRunInput,
   EditMessageInput,
-  ProviderModelPoolEntry,
-  ProviderModelsResult,
-  ProviderModelView,
-  ProviderProfileView,
-  ProviderReasoningEffort,
-  ProviderSaveInput,
-  ProviderStatusView,
   StartRunInput,
 } from '../../contracts/ui.js'
 import { AGENT_UI_PROTOCOL_VERSION } from '../../contracts/ui.js'
 import type { AgentRunPlan, RuntimeToolDefinition, RuntimeToolResult } from '../../pi/types.js'
-import { fetchOpenAiCompatibleModels } from '../../provider-openai-compatible/browser.js'
 import { normalizeProviderBaseUrl } from '../../provider-openai-compatible/http.js'
+import type { OpenAiCompatibleRuntimeSupport } from '../../provider-openai-compatible/runtime.js'
 import { createOpenAiCompatibleRuntimeSupport } from '../../provider-openai-compatible/runtime.js'
-import { PROVIDER_SETTINGS_VERSION } from '../../provider-openai-compatible/types.js'
 import { createExaWebSearchProvider } from '../../search/impl/exa-web-search-provider.js'
 import { createWebSearchTool, WEB_SEARCH_TOOL_METADATA } from '../../search/impl/web-search-tool.js'
 import {
@@ -64,11 +63,16 @@ import {
 } from '../protocol.js'
 import type { AgentClientSender, AgentHostOptions, AgentRuntimeSessions } from '../types.js'
 import {
-  type AgentProviderProfile,
-  AgentSettingsCredentialStore,
   type AgentSettingsDocument,
-  AgentSettingsProviderStore,
   AgentSettingsStore,
+  activeProfile,
+  normalizeProfileName,
+  normalizeProviderHeaders,
+  normalizeProviderModel,
+  normalizeProviderProtocol,
+  projectProviderSettings,
+  projectProviderSnapshot,
+  requireProfile,
 } from './agent-settings.js'
 import { withModeGate } from './mode-gate.js'
 
@@ -99,9 +103,10 @@ export class AgentHost {
   private readonly leaseSessions = new Map<string, string>()
   private readonly leaseClients = new Map<string, string>()
   private readonly sessionLeases = new Map<string, Set<string>>()
-  private readonly credentials: AgentSettingsCredentialStore
-  private readonly providerSettings: AgentSettingsProviderStore
-  private readonly support
+  private readonly credentials: {
+    read(signal?: AbortSignal): Promise<string | undefined>
+  }
+  private readonly support: OpenAiCompatibleRuntimeSupport
   private readonly handlers: {
     [K in AgentHostMethodName]: (
       clientId: string,
@@ -110,21 +115,19 @@ export class AgentHost {
   }
   private runtimePromise: Promise<AgentApplicationService> | undefined
   private durable: AgentRuntimeSessions | undefined
-  /** 设置文档里的启用集合；`null` 表示全开。 */
-  private disabledTools: readonly string[] | undefined
-  /** 全局 Web Search 凭据；随设置文档一起载入。 */
-  private webSearchApiKey: string | undefined
 
   constructor(options: AgentHostOptions) {
     this.settings = options.settings
     this.createSessions = options.createSessions
     this.fetchImplementation = options.fetch ?? globalThis.fetch.bind(globalThis)
     this.createId = options.createId ?? (() => crypto.randomUUID())
-    this.credentials = new AgentSettingsCredentialStore(this.settings)
-    this.providerSettings = new AgentSettingsProviderStore(this.settings)
+    // 凭据只读；写入与清除都经连接命令落在同一份设置文档上。
+    this.credentials = {
+      read: async () => activeProfile(await this.settings.read())?.apiKey || undefined,
+    }
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
-      settings: this.providerSettings,
+      settings: { read: async () => projectProviderSettings(await this.settings.read()) },
       fetch: this.fetchImplementation,
       tools: (input) => this.resolveTools(input),
     })
@@ -276,50 +279,26 @@ export class AgentHost {
       'runs.edit': async (clientId, params) =>
         this.editMessage(clientId, params.input, params.tools),
 
-      'provider.status': async () => this.getProviderStatus(),
-      'provider.profiles': async () => this.listProviderProfiles(),
-      'provider.profile.create': async (_clientId, params) => {
-        await this.createProviderProfile(params.profileName)
-        return undefined
-      },
-      'provider.profile.rename': async (_clientId, params) => {
-        await this.renameProviderProfile(params.profileName, params.nextProfileName)
-        return undefined
-      },
-      'provider.profile.delete': async (_clientId, params) => {
-        await this.deleteProviderProfile(params.profileName)
-        return undefined
-      },
-      'provider.profile.select': async (_clientId, params) => {
-        await this.selectProviderProfile(params.profileName)
-        return undefined
-      },
-      'provider.profile.save': async (_clientId, params) => {
-        await this.saveProvider(params)
-        return undefined
-      },
-      'provider.reasoningEffort': async (_clientId, params) => {
-        await this.setProviderReasoningEffort(params.effort)
-        return undefined
-      },
-      'provider.credential.delete': async () => {
-        await this.deleteProviderCredential()
-        return undefined
-      },
-      'provider.webSearchKey': async (_clientId, params) => {
-        await this.saveWebSearchApiKey(params.apiKey)
-        return undefined
-      },
-      'provider.modelCatalog': async () => this.listProviderModelCatalog(),
-      'provider.modelPool': async () => this.listProviderModelPool(),
-      'provider.modelPool.add': async (_clientId, params) =>
-        this.addProviderModelPoolModel(params.model),
-      'provider.modelPool.remove': async (_clientId, params) =>
-        this.removeProviderModelPoolModel(params.modelId),
-      'provider.model.select': async (_clientId, params) => {
-        await this.setProviderModel(params.modelId)
-        return undefined
-      },
+      'provider.snapshot': async () => this.providerSnapshot(),
+      'provider.profile.create': async (_clientId, params) =>
+        this.createProviderProfile(params.name),
+      'provider.profile.rename': async (_clientId, params) =>
+        this.renameProviderProfile(params.profileId, params.name),
+      'provider.profile.delete': async (_clientId, params) =>
+        this.deleteProviderProfile(params.profileId),
+      'provider.profile.select': async (_clientId, params) =>
+        this.selectProviderProfile(params.profileId),
+      'provider.connection.save': async (_clientId, params) => this.saveProvider(params),
+      'provider.catalog': async (_clientId, params) => this.readProviderCatalog(params.profileId),
+      'provider.model.add': async (_clientId, params) =>
+        this.addProviderModel(params.profileId, params.model),
+      'provider.model.remove': async (_clientId, params) =>
+        this.removeProviderModel(params.profileId, params.modelId),
+      'provider.model.select': async (_clientId, params) =>
+        this.selectProviderModel(params.profileId, params.modelId),
+      'provider.reasoningEffort': async (_clientId, params) =>
+        this.setProviderReasoningEffort(params.profileId, params.effort),
+      'provider.exaKey': async (_clientId, params) => this.saveExaApiKey(params.apiKey),
 
       'tools.list': async () => this.listHostTools(),
       'tools.setEnabled': async (_clientId, params) => {
@@ -331,7 +310,6 @@ export class AgentHost {
 
       'settings.importLegacy': async (_clientId, params) => {
         await this.settings.importLegacy(params.document)
-        await this.refreshSettingsCache()
         return undefined
       },
     }
@@ -476,339 +454,190 @@ export class AgentHost {
     this.runSources.set(sessionId, { clientId, tools })
   }
 
-  /** Provider 状态；补充 profile 名称与外部搜索凭据状态。 */
-  private async getProviderStatus(): Promise<ProviderStatusView> {
-    const status = await this.support.provider.getStatus()
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    const exaConfigured = Boolean(document.exaApiKey?.trim())
-    if (!profile) return { ...status, exaConfigured }
-    if (!profile.connection) return { ...status, profileName: profile.name, exaConfigured }
-    if (profile.settings) return { ...status, profileName: profile.name, exaConfigured }
-    return {
-      state: 'not-configured',
-      providerLabel: 'OpenAI-compatible',
-      configured: true,
-      baseUrl: profile.connection.baseUrl,
-      headers: profile.connection.headers,
-      protocol: profile.connection.protocol,
-      profileName: profile.name,
-      exaConfigured,
-    }
+  /** 当前 Provider 快照；页面渲染的唯一读入口。 */
+  private async providerSnapshot(): Promise<ProviderSnapshot> {
+    return projectProviderSnapshot(await this.settings.read())
   }
 
-  /** 广播最新 Provider 状态，供设置面板与状态栏同步。 */
-  private async emitProviderStatus(): Promise<void> {
-    this.broadcast({
-      type: 'provider.status.changed',
-      protocolVersion: AGENT_UI_PROTOCOL_VERSION,
-      status: await this.getProviderStatus(),
-    })
+  /** 提交一次 Provider 文档变更并返回新快照。 */
+  private async updateProvider(
+    change: (document: AgentSettingsDocument) => void,
+  ): Promise<ProviderSnapshot> {
+    return projectProviderSnapshot(await this.settings.update(change))
   }
 
-  /** 已保存配置的视图；API Key 不出宿主。 */
-  private async listProviderProfiles(): Promise<ProviderProfileView[]> {
-    const document = await this.settings.read()
-    return document.profiles.map((profile) => ({
-      name: profile.name,
-      baseUrl: profile.connection?.baseUrl ?? '',
-      modelId: profile.settings?.modelId ?? '',
-      modelName: profile.settings?.modelName ?? '',
-      protocol: profile.connection?.protocol ?? 'openai-responses',
-      ...(profile.settings?.contextWindow === undefined
-        ? {}
-        : { contextWindow: profile.settings.contextWindow }),
-      ...(profile.settings?.maxOutputTokens === undefined
-        ? {}
-        : { maxOutputTokens: profile.settings.maxOutputTokens }),
-      ...(profile.settings?.reasoningEfforts === undefined
-        ? {}
-        : { reasoningEfforts: profile.settings.reasoningEfforts }),
-      ...(profile.settings?.reasoningEffort === undefined
-        ? {}
-        : { reasoningEffort: profile.settings.reasoningEffort }),
-    }))
-  }
-
-  /** 新配置成为唯一激活项。 */
-  private async createProviderProfile(profileName: string): Promise<void> {
-    const document = await this.settings.read()
-    if (document.profiles.some((profile) => profile.name === profileName))
-      throw new AgentRuntimeError(
-        'PROVIDER_ERROR',
-        'The Provider configuration name is already in use.',
-      )
-    await this.commitSettings({
-      ...document,
-      profiles: [
+  /** 新建配置并设为激活项。 */
+  private async createProviderProfile(name: string): Promise<ProviderSnapshot> {
+    const profileName = normalizeProfileName(name)
+    return this.updateProvider((document) => {
+      requireUniqueProfileName(document, profileName)
+      document.profiles = [
         ...document.profiles.map((profile) => ({ ...profile, active: false })),
-        { name: profileName, apiKey: '', active: true },
-      ],
+        {
+          id: `pf_${this.createId()}`,
+          name: profileName,
+          apiKey: '',
+          active: true,
+          connectionRevision: 0,
+          models: [],
+        },
+      ]
     })
-    await this.emitProviderStatus()
   }
 
-  /** 重命名配置并同步模型池分组。 */
-  private async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
-    const nextName = nextProfileName.trim()
-    if (!profileName || !nextName)
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration name is required.')
-    const document = await this.settings.read()
-    if (!document.profiles.some((profile) => profile.name === profileName))
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
-    if (nextName === profileName) return
-    if (document.profiles.some((profile) => profile.name === nextName))
-      throw new AgentRuntimeError(
-        'PROVIDER_ERROR',
-        'The Provider configuration name is already in use.',
-      )
-    await this.commitSettings({
-      ...document,
-      profiles: document.profiles.map((profile) =>
-        profile.name === profileName ? { ...profile, name: nextName } : profile,
-      ),
-      modelPool: document.modelPool.map((model) =>
-        model.provider === profileName ? { ...model, provider: nextName } : model,
-      ),
+  /** 重命名配置；模型池随配置存储，不需要级联改写。 */
+  private async renameProviderProfile(profileId: string, name: string): Promise<ProviderSnapshot> {
+    const nextName = normalizeProfileName(name)
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, profileId)
+      if (nextName !== profile.name) requireUniqueProfileName(document, nextName, profile.id)
+      profile.name = nextName
     })
-    await this.emitProviderStatus()
   }
 
-  /** 删除配置及其模型池。 */
-  private async deleteProviderProfile(profileName: string): Promise<void> {
-    const document = await this.settings.read()
-    if (!document.profiles.some((profile) => profile.name === profileName))
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
-    await this.commitSettings({
-      ...document,
-      profiles: document.profiles.filter((profile) => profile.name !== profileName),
-      modelPool: document.modelPool.filter((model) => model.provider !== profileName),
+  /** 删除配置及其凭据与模型池。 */
+  private async deleteProviderProfile(profileId: string): Promise<ProviderSnapshot> {
+    return this.updateProvider((document) => {
+      requireProfile(document, profileId)
+      document.profiles = document.profiles.filter((profile) => profile.id !== profileId)
+      // 删掉的是激活项时，第一个剩余配置接任；没有剩余配置就保持未激活。
+      if (!document.profiles.some((profile) => profile.active))
+        document.profiles = document.profiles.map((profile, index) => ({
+          ...profile,
+          active: index === 0,
+        }))
     })
-    await this.emitProviderStatus()
   }
 
   /** 切换激活配置。 */
-  private async selectProviderProfile(profileName: string): Promise<void> {
-    const document = await this.settings.read()
-    if (!document.profiles.some((profile) => profile.name === profileName))
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
-    await this.commitSettings({
-      ...document,
-      profiles: document.profiles.map((profile) => ({
+  private async selectProviderProfile(profileId: string): Promise<ProviderSnapshot> {
+    return this.updateProvider((document) => {
+      requireProfile(document, profileId)
+      document.profiles = document.profiles.map((profile) => ({
         ...profile,
-        active: profile.name === profileName,
-      })),
+        active: profile.id === profileId,
+      }))
     })
-    await this.emitProviderStatus()
   }
 
-  /** 保存连接与凭据；连接变化时废弃模型选择与模型池。 */
-  private async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const profileName = input.profileName.trim()
-    if (!profileName)
+  /** 保存连接；连接变化时递增连接版本，模型池保持不动。 */
+  private async saveProvider(input: ProviderConnectionInput): Promise<ProviderSnapshot> {
+    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
+    const headers = normalizeProviderHeaders(input.headers)
+    const protocol = normalizeProviderProtocol(input.protocol)
+    const apiKey = input.apiKey?.trim()
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, input.profileId)
+      const changed =
+        profile.connection === undefined ||
+        profile.connection.baseUrl !== baseUrl ||
+        profile.connection.protocol !== protocol ||
+        !sameProviderHeaders(profile.connection.headers, headers)
+      profile.connection = { baseUrl, headers, protocol }
+      if (changed) profile.connectionRevision += 1
+      if (apiKey) profile.apiKey = apiKey
+    })
+  }
+
+  /** 读取远端模型目录；不落盘、不缓存，每次调用都现取。 */
+  private async readProviderCatalog(profileId: string): Promise<ProviderCatalogView> {
+    const document = await this.settings.read()
+    const profile = requireProfile(document, profileId)
+    if (!profile.connection)
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Enter a configuration name before saving.',
+        'Save the Provider connection before reading the model catalog.',
       )
-    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
-    const document = await this.settings.read()
-    const existing = document.profiles.find((profile) => profile.name === profileName)
-    const connection = {
-      baseUrl,
-      headers: input.headers ?? {},
-      protocol: input.protocol,
-    }
-    const previousConnection = existing?.connection
-    const connectionChanged =
-      previousConnection !== undefined &&
-      (previousConnection.baseUrl !== connection.baseUrl ||
-        previousConnection.protocol !== connection.protocol)
-    const pool = document.modelPool.filter((model) => model.provider === profileName)
-    const keepsSettings =
-      !connectionChanged &&
-      existing?.settings !== undefined &&
-      pool.some((model) => model.id === existing.settings?.modelId)
-    const apiKey = input.apiKey?.trim() || existing?.apiKey || ''
-    const profile: AgentProviderProfile = {
-      name: profileName,
-      apiKey,
-      connection,
-      active: true,
-      ...(keepsSettings && existing?.settings ? { settings: existing.settings } : {}),
-    }
-    await this.commitSettings({
-      ...document,
-      profiles: (existing
-        ? document.profiles.map((item) => (item.name === profileName ? profile : item))
-        : [...document.profiles, profile]
-      ).map((item) => ({ ...item, active: item.name === profileName })),
-      modelPool: connectionChanged
-        ? document.modelPool.filter((model) => model.provider !== profileName)
-        : document.modelPool,
+    const result = await this.support.catalog.listModels({
+      baseUrl: profile.connection.baseUrl,
+      headers: profile.connection.headers,
+      ...(profile.apiKey ? { apiKey: profile.apiKey } : {}),
     })
-    await this.emitProviderStatus()
+    return {
+      profileId: profile.id,
+      connectionRevision: profile.connectionRevision,
+      models: result.models,
+    }
   }
 
-  /** 选择模型并把模型能力写回配置。 */
-  private async setProviderModel(modelId: string): Promise<void> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile?.connection)
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'The Provider connection is missing.')
-    const model = document.modelPool.find(
-      (item) => item.provider === profile.name && item.id === modelId,
-    )
-    if (!model)
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The model is not in this Provider model pool.')
-    const settings = {
-      version: PROVIDER_SETTINGS_VERSION,
-      ...profile.connection,
-      modelId: model.id,
-      modelName: model.name,
-      maxOutputTokens: model.maxOutputTokens ?? 16_384,
-      reasoningEfforts: model.reasoningEfforts ?? [],
-      ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
-      ...(model.defaultReasoningEffort === undefined
-        ? {}
-        : { reasoningEffort: model.defaultReasoningEffort }),
-    }
-    await this.commitSettings({
-      ...document,
-      profiles: document.profiles.map((item) =>
-        item.name === profile.name ? { ...item, settings } : item,
-      ),
+  /** 把一个模型加入模型池；元数据由宿主校验后固化。 */
+  private async addProviderModel(
+    profileId: string,
+    model: ProviderModelView,
+  ): Promise<ProviderSnapshot> {
+    const entry = normalizeProviderModel(model)
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, profileId)
+      const existing = profile.models.findIndex((item) => item.id === entry.id)
+      if (existing >= 0) profile.models[existing] = entry
+      else profile.models.push(entry)
     })
-    await this.emitProviderStatus()
+  }
+
+  /** 从模型池移除；若是当前选中项则一并清空选择。 */
+  private async removeProviderModel(profileId: string, modelId: string): Promise<ProviderSnapshot> {
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, profileId)
+      profile.models = profile.models.filter((item) => item.id !== modelId)
+      if (profile.selectedModelId === modelId) {
+        delete profile.selectedModelId
+        delete profile.reasoningEffort
+      }
+    })
+  }
+
+  /** 选择模型；思考强度回到该模型声明的默认档位。 */
+  private async selectProviderModel(profileId: string, modelId: string): Promise<ProviderSnapshot> {
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, profileId)
+      const model = profile.models.find((item) => item.id === modelId)
+      if (!model)
+        throw new AgentRuntimeError(
+          'PROVIDER_MODEL_NOT_FOUND',
+          'The model is not in this Provider model pool.',
+        )
+      profile.selectedModelId = model.id
+      if (model.defaultReasoningEffort === undefined) delete profile.reasoningEffort
+      else profile.reasoningEffort = model.defaultReasoningEffort
+    })
   }
 
   /** 更新思考强度；模型未声明该档位时明确报错。 */
   private async setProviderReasoningEffort(
+    profileId: string,
     effort: ProviderReasoningEffort | undefined,
-  ): Promise<void> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile?.settings)
-      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider model is not configured.')
-    if (effort !== undefined && !profile.settings.reasoningEfforts.includes(effort))
-      throw new AgentRuntimeError(
-        'PROVIDER_ERROR',
-        'The selected model does not support this reasoning effort.',
-      )
-    const settings = profile.settings
-    await this.commitSettings({
-      ...document,
-      profiles: document.profiles.map((item) =>
-        item.name === profile.name
-          ? { ...item, settings: { ...settings, reasoningEffort: effort } }
-          : item,
-      ),
-    })
-    await this.emitProviderStatus()
-  }
-
-  /** 删除当前激活配置的凭据。 */
-  private async deleteProviderCredential(): Promise<void> {
-    await this.support.provider.deleteCredential()
-    await this.emitProviderStatus()
-  }
-
-  /** 保存全局 Web Search 凭据。 */
-  private async saveWebSearchApiKey(apiKey: string): Promise<void> {
-    const document = await this.settings.read()
-    const trimmed = apiKey.trim()
-    const next: AgentSettingsDocument = {
-      ...document,
-      ...(trimmed ? { exaApiKey: trimmed } : { exaApiKey: undefined }),
-    }
-    await this.commitSettings(next)
-    this.webSearchApiKey = trimmed || undefined
-    await this.emitProviderStatus()
-  }
-
-  /** 拉取远端模型目录。 */
-  private async listProviderModelCatalog(): Promise<ProviderModelsResult> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile?.connection)
-      throw new AgentRuntimeError(
-        'PROVIDER_NOT_CONFIGURED',
-        'The active Provider has no saved connection.',
-      )
-    return fetchOpenAiCompatibleModels({
-      ...profile.connection,
-      apiKey: await this.credentials.read(),
-    })
-  }
-
-  /** 当前配置的模型池。 */
-  private async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile) return []
-    return document.modelPool.filter((model) => model.provider === profile.name)
-  }
-
-  /** 加入一个模型并返回新的模型池。 */
-  private async addProviderModelPoolModel(
-    model: ProviderModelView,
-  ): Promise<ProviderModelPoolEntry[]> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile)
-      throw new AgentRuntimeError(
-        'PROVIDER_NOT_CONFIGURED',
-        'Select a Provider configuration before adding a model.',
-      )
-    const entry: ProviderModelPoolEntry = { ...model, provider: profile.name }
-    const next = document.modelPool.some(
-      (item) => item.provider === profile.name && item.id === model.id,
-    )
-      ? document.modelPool.map((item) =>
-          item.provider === profile.name && item.id === model.id ? entry : item,
+  ): Promise<ProviderSnapshot> {
+    return this.updateProvider((document) => {
+      const profile = requireProfile(document, profileId)
+      const model = profile.models.find((item) => item.id === profile.selectedModelId)
+      if (!model)
+        throw new AgentRuntimeError(
+          'PROVIDER_MODEL_NOT_FOUND',
+          'Select a model before choosing a reasoning effort.',
         )
-      : [...document.modelPool, entry]
-    await this.commitSettings({ ...document, modelPool: next })
-    return next.filter((item) => item.provider === profile.name)
+      if (effort !== undefined && !model.reasoningEfforts.includes(effort))
+        throw new AgentRuntimeError(
+          'INVALID_PAYLOAD',
+          'The selected model does not support this reasoning effort.',
+        )
+      if (effort === undefined) delete profile.reasoningEffort
+      else profile.reasoningEffort = effort
+    })
   }
 
-  /** 移除一个模型；若正是当前选择则清空模型设置。 */
-  private async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
-    const document = await this.settings.read()
-    const profile = document.profiles.find((item) => item.active)
-    if (!profile)
-      throw new AgentRuntimeError(
-        'PROVIDER_NOT_CONFIGURED',
-        'Select a Provider configuration before removing a model.',
-      )
-    const dropsSelection = profile.settings?.modelId === modelId
-    const nextPool = document.modelPool.filter(
-      (item) => !(item.provider === profile.name && item.id === modelId),
-    )
-    await this.commitSettings({
-      ...document,
-      modelPool: nextPool,
-      profiles: dropsSelection
-        ? document.profiles.map((item) =>
-            item.name === profile.name
-              ? {
-                  name: item.name,
-                  apiKey: item.apiKey,
-                  active: item.active,
-                  ...(item.connection === undefined ? {} : { connection: item.connection }),
-                }
-              : item,
-          )
-        : document.profiles,
+  /** 保存全局 Web Search 凭据；空值表示清除。 */
+  private async saveExaApiKey(apiKey: string): Promise<ProviderSnapshot> {
+    const trimmed = apiKey.trim()
+    return this.updateProvider((document) => {
+      if (trimmed) document.exaApiKey = trimmed
+      else delete document.exaApiKey
     })
-    await this.emitProviderStatus()
-    return nextPool.filter((item) => item.provider === profile.name)
   }
 
   /** 宿主侧工具状态；页面再与本地图表工具合并。 */
   private async listHostTools(): Promise<AgentHostToolState> {
     const document = await this.settings.read()
     const disabled = document.disabledTools
-    this.disabledTools = disabled
     const isEnabled = (name: string): boolean => !disabled.includes(name)
     const hostTools: AgentToolView[] = [
       {
@@ -829,11 +658,12 @@ export class AgentHost {
 
   /** 持久化工具禁用状态；启用即从禁用集合移除，禁用即加入。 */
   private async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    const document = await this.settings.read()
-    const current = new Set(document.disabledTools)
-    if (enabled) current.delete(name)
-    else current.add(name)
-    await this.commitSettings({ ...document, disabledTools: [...current] })
+    await this.settings.update((document) => {
+      const disabled = new Set(document.disabledTools)
+      if (enabled) disabled.delete(name)
+      else disabled.add(name)
+      document.disabledTools = [...disabled]
+    })
   }
 
   /** 手动执行宿主侧工具；图表工具由页面自己执行。 */
@@ -842,7 +672,10 @@ export class AgentHost {
     name: string,
     input: unknown,
   ): Promise<AgentToolDebugResult> {
-    const tool = this.hostToolDefinitions(clientId).find((item) => item.name === name)
+    const document = await this.settings.read()
+    const tool = this.hostToolDefinitions(clientId, document.exaApiKey?.trim()).find(
+      (item) => item.name === name,
+    )
     if (!tool)
       throw new AgentRuntimeError('TOOL_NOT_ALLOWED', `Agent tool '${name}' is not a host tool.`)
     const result = await tool.execute(input, {
@@ -855,41 +688,23 @@ export class AgentHost {
     return { content: result.content, summary: result.summary }
   }
 
-  /** 写入设置文档并同步缓存。 */
-  private async commitSettings(document: AgentSettingsDocument): Promise<void> {
-    await this.settings.replace(document)
-    this.disabledTools = document.disabledTools
-    this.webSearchApiKey = document.exaApiKey?.trim() || undefined
-  }
-
-  /** 载入设置文档并刷新宿主缓存。 */
-  private async refreshSettingsCache(): Promise<void> {
-    const document = await this.settings.read()
-    this.disabledTools = document.disabledTools
-    this.webSearchApiKey = document.exaApiKey?.trim() || undefined
-  }
-
   /** 组装一次运行的完整工具表：模式只包执行期 gate，不裁剪工具。 */
-  private resolveTools(input: RunPlanInput): readonly RuntimeToolDefinition[] {
+  private async resolveTools(input: RunPlanInput): Promise<readonly RuntimeToolDefinition[]> {
     const source = this.runSources.get(input.sessionId)
     if (!source)
       throw new AgentRuntimeError(
         'TARGET_LOST',
         `No Agent client declared tools for session ${input.sessionId}.`,
       )
-    if (this.disabledTools === undefined)
-      throw new AgentRuntimeError(
-        'INTERNAL_ERROR',
-        'Agent settings were not loaded before planning.',
-      )
-    const disabled = this.disabledTools
+    const document = await this.settings.read()
+    const disabled = document.disabledTools
     const isEnabled = (name: string): boolean => !disabled.includes(name)
     const tools: RuntimeToolDefinition[] = []
     for (const descriptor of source.tools) {
       if (!isEnabled(descriptor.name)) continue
       tools.push(this.chartToolDefinition(source.clientId, descriptor))
     }
-    for (const tool of this.hostToolDefinitions(source.clientId)) {
+    for (const tool of this.hostToolDefinitions(source.clientId, document.exaApiKey?.trim())) {
       if (isEnabled(tool.name)) tools.push(tool)
     }
     return tools.map((tool) => withModeGate(tool, input.mode))
@@ -926,11 +741,14 @@ export class AgentHost {
   }
 
   /** 宿主原生工具：Web 搜索与提问。 */
-  private hostToolDefinitions(clientId: string): readonly RuntimeToolDefinition[] {
+  private hostToolDefinitions(
+    clientId: string,
+    exaApiKey: string | undefined,
+  ): readonly RuntimeToolDefinition[] {
     return [
       createWebSearchTool(
         createExaWebSearchProvider({
-          ...(this.webSearchApiKey === undefined ? {} : { apiKey: this.webSearchApiKey }),
+          ...(exaApiKey ? { apiKey: exaApiKey } : {}),
           fetch: this.fetchImplementation,
         }),
       ),
@@ -1028,15 +846,13 @@ export class AgentHost {
     return this.runtimePromise
   }
 
-  /** 打开存储、载入设置并装配应用服务。 */
+  /** 打开存储并装配应用服务。 */
   private async initializeRuntime(): Promise<AgentApplicationService> {
     const durable = await this.createSessions()
     try {
-      await this.refreshSettingsCache()
       const runtime = new AgentApplicationService({
         sessions: durable.sessions,
         createPlan: (input) => this.createPlan(input),
-        provider: this.support.provider,
       })
       runtime.subscribe((event) => this.broadcast(event))
       if (!(await runtime.listSessions()).length) await runtime.createSession()
@@ -1062,4 +878,24 @@ export class AgentHost {
     }
     this.clients.forEach((send) => send(notification))
   }
+}
+
+/** 校验配置名称在文档内唯一。 */
+function requireUniqueProfileName(
+  document: AgentSettingsDocument,
+  name: string,
+  exceptProfileId?: string,
+): void {
+  if (document.profiles.some((profile) => profile.name === name && profile.id !== exceptProfileId))
+    throw new AgentRuntimeError(
+      'INVALID_PAYLOAD',
+      'The Provider configuration name is already in use.',
+    )
+}
+
+/** 比较两份附加请求头是否等价。 */
+function sameProviderHeaders(left: Record<string, string>, right: Record<string, string>): boolean {
+  const keys = Object.keys(left)
+  if (keys.length !== Object.keys(right).length) return false
+  return keys.every((key) => left[key] === right[key])
 }

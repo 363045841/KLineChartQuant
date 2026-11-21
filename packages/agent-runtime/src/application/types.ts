@@ -6,9 +6,6 @@ import type {
   AgentTranscriptView,
   AgentWorkspaceEvent,
   ContinueRunInput,
-  ProviderModelsInput,
-  ProviderModelsResult,
-  ProviderStatusView,
   StartRunInput,
 } from '../contracts/ui.js'
 import type { AgentRunPlan } from '../pi/types.js'
@@ -35,17 +32,14 @@ export interface RunPlanInput {
   context?: AgentRunContext
 }
 
-/** Provider 相关的附加能力，由宿主注入。 */
-export interface ProviderApi {
-  getStatus(): Promise<ProviderStatusView> | ProviderStatusView
-  listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
-  deleteCredential(): Promise<void>
+/** 运行支持：只负责把一次输入构造成模型计划。 */
+export interface RuntimeSupport {
+  createPlan(input: RunPlanInput): Promise<AgentRunPlan> | AgentRunPlan
 }
 
 export interface AgentApplicationServiceOptions {
   sessions: AgentSessionService
   createPlan(input: RunPlanInput): Promise<AgentRunPlan> | AgentRunPlan
-  provider?: ProviderApi
   now?: () => number
   logger?: RuntimeLogSink
 }
@@ -73,8 +67,5 @@ export interface AgentApplicationApi {
     mode: AgentRunMode
     context?: AgentRunContext
   }): Promise<{ runId: string; sessionId: string }>
-  getProviderStatus(): Promise<ProviderStatusView>
-  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
-  deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }

@@ -3,15 +3,13 @@
 import { loadPreference } from '@vue-src/utils/loadPreference.js'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type {
-  AgentBridgeClient,
+  AgentClient,
   AgentContextItem,
   AgentRunMode,
   AgentSessionLease,
   AgentTranscriptView,
   AgentWorkspaceEvent,
   EntryId,
-  ProviderModelView,
-  ProviderReasoningEffort,
   QuestionAnswerView,
 } from '../../agent-contracts.js'
 import { getAgentCopy } from '../../agent-copy/index.js'
@@ -34,46 +32,34 @@ import {
   settleQuestion,
 } from './workspace-state.js'
 
-/** 工作区无法启动且错误形状不可识别时的兜底视图。 */
-const WORKSPACE_UNAVAILABLE_FALLBACK = {
-  code: 'INTERNAL_ERROR',
-  message: 'The Agent workspace could not start.',
-  retryable: true,
-} as const
-
 /** 组装 Agent 工作区的响应式状态与操作，并挂载 Bridge 事件订阅。 */
-export function useAgentWorkspace(bridge: AgentBridgeClient) {
+export function useAgentWorkspace(client: AgentClient) {
   const preferences =
     loadPreference(agentWorkspacePreferencesPersistence.load) ?? defaultAgentWorkspacePreferences()
   const state = shallowRef(createWorkspaceState())
   // 运行时可用性与单次运行错误分离：不可用时展示独立视图而不是时间线错误。
   const availability = ref<AgentWorkspaceAvailability>({ status: 'initializing' })
   // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
-  const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
+  const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(client.getContextItems())
   const draft = ref('')
   const submitting = ref(false)
   const mode = ref<AgentRunMode>(preferences.mode)
   const collapseReasoning = ref(preferences.collapseReasoning)
-  const models = shallowRef<readonly ProviderModelView[]>([])
-  const modelsLoading = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
-  providerSettings.bindBridge(bridge)
+  providerSettings.bindAdmin(client, client)
   const locale = ref<'en' | 'zh-CN'>(preferences.locale)
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
   /** 当前会话的观察租约；切换或卸载时释放，宿主据此回收订阅。 */
   let lease: AgentSessionLease | undefined
   let selectionGeneration = 0
-  let modelLoadGeneration = 0
 
   const docs = computed(() => state.value.transcript?.docs ?? {})
   const isRunning = computed(() => submitting.value || isRunActive(docs.value))
   const liveAnswer = computed(() => readLiveAnswer(docs.value))
   const liveTools = computed(() => readLiveTools(docs.value))
   const runFailure = computed(() => readRunFailure(docs.value))
-  const providerReady = computed(
-    () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
-  )
+  const providerReady = computed(() => providerSettings.ready)
 
   /** 处理 Bridge 事件：只接收会话读取结果与宿主交互。 */
   function project(event: AgentWorkspaceEvent): void {
@@ -89,10 +75,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       state.value = { ...state.value, sessions: event.sessions }
       return
     }
-    if (event.type === 'provider.status.changed') {
-      state.value = { ...state.value, provider: event.status }
-      return
-    }
     if (event.sessionId !== state.value.activeSessionId) return
     if (event.type === 'tool.question.required') {
       state.value = addQuestion(state.value, event.request)
@@ -105,7 +87,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function openSession(sessionId: string): Promise<void> {
     const selection = ++selectionGeneration
     state.value = activateSession(state.value, sessionId)
-    const next = await bridge.openSession(sessionId)
+    const next = await client.openSession(sessionId)
     if (selection !== selectionGeneration) {
       void next.release()
       return
@@ -120,15 +102,11 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     subscribeBridge()
     availability.value = { status: 'initializing' }
     try {
-      const [sessions, provider] = await Promise.all([
-        bridge.listSessions(),
-        bridge.getProviderStatus(),
-      ])
+      const [sessions] = await Promise.all([client.listSessions(), providerSettings.load()])
       state.value = {
         ...state.value,
         sessions,
         activeSessionId: state.value.activeSessionId ?? sessions[0]?.id ?? null,
-        provider,
       }
       const sessionId = state.value.activeSessionId
       if (sessionId) await openSession(sessionId)
@@ -136,15 +114,15 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     } catch (error) {
       availability.value = {
         status: 'unavailable',
-        error: toAgentErrorView(error, WORKSPACE_UNAVAILABLE_FALLBACK),
+        error: toAgentErrorView(error),
       }
     }
   }
 
   /** 仅首次初始化时订阅桥接事件，重试不会叠加订阅。 */
   function subscribeBridge(): void {
-    unsubscribe ??= bridge.subscribe(project)
-    unsubscribeContextItems ??= bridge.subscribeContextItems((items) => {
+    unsubscribe ??= client.subscribe(project)
+    unsubscribeContextItems ??= client.subscribeContextItems((items) => {
       contextItems.value = items
     })
   }
@@ -156,7 +134,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function createSession(): Promise<void> {
-    const session = await bridge.createSession()
+    const session = await client.createSession()
     await openSession(session.id)
   }
 
@@ -167,7 +145,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     } catch (error) {
       availability.value = {
         status: 'unavailable',
-        error: toAgentErrorView(error, WORKSPACE_UNAVAILABLE_FALLBACK),
+        error: toAgentErrorView(error),
       }
     }
   }
@@ -176,12 +154,12 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function renameSession(sessionId: string, title: string): Promise<void> {
     const nextTitle = title.trim()
     if (!nextTitle) return
-    await bridge.renameSession(sessionId, nextTitle)
+    await client.renameSession(sessionId, nextTitle)
   }
 
   /** 删除指定会话；活动会话被删除时切换或重置工作区。 */
   async function deleteSession(sessionId: string): Promise<void> {
-    await bridge.deleteSession(sessionId)
+    await client.deleteSession(sessionId)
     // 宿主随删除一并丢弃该会话的租约，本地不再持有它。
     if (lease?.sessionId === sessionId) lease = undefined
     const sessions = state.value.sessions.filter((session) => session.id !== sessionId)
@@ -195,36 +173,36 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
       await openSession(nextSessionId)
       return
     }
-    state.value = { ...createWorkspaceState(), sessions, provider: state.value.provider }
+    state.value = { ...createWorkspaceState(), sessions }
   }
 
   async function send(): Promise<void> {
     const prompt = draft.value.trim()
     if (!prompt || isRunning.value) return
     if (!providerReady.value) {
-      void providerSettings.show(state.value.provider)
+      void providerSettings.show()
       return
     }
     let sessionId = state.value.activeSessionId
     if (!sessionId) {
-      const session = await bridge.createSession()
+      const session = await client.createSession()
       sessionId = session.id
       await openSession(sessionId)
     }
     draft.value = ''
-    await submitRun(() => bridge.startRun({ sessionId, prompt, mode: mode.value }))
+    await submitRun(() => client.startRun({ sessionId, prompt, mode: mode.value }))
   }
 
   async function stop(): Promise<void> {
     const sessionId = state.value.activeSessionId
-    if (sessionId) await bridge.cancelRun(sessionId)
+    if (sessionId) await client.cancelRun(sessionId)
   }
 
   /** 重新生成：Bridge 会在该输入之前创建分支并返回新的会话标识。 */
   async function retry(entryId: EntryId): Promise<void> {
     const sessionId = state.value.activeSessionId
     if (!sessionId || isRunning.value) return
-    const started = await submitRun(() => bridge.retryRun({ sessionId, entryId, mode: mode.value }))
+    const started = await submitRun(() => client.retryRun({ sessionId, entryId, mode: mode.value }))
     await openSession(started.sessionId)
   }
 
@@ -232,7 +210,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function resume(): Promise<void> {
     const sessionId = state.value.activeSessionId
     if (!sessionId || isRunning.value) return
-    await submitRun(() => bridge.continueRun({ sessionId, mode: mode.value }))
+    await submitRun(() => client.continueRun({ sessionId, mode: mode.value }))
   }
 
   /** 编辑重发：只接受当前读取结果中的用户条目。 */
@@ -241,7 +219,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (!sessionId) throw new Error(getAgentCopy(locale.value).editUnavailable)
     if (isRunning.value) throw new Error(getAgentCopy(locale.value).editBusy)
     const started = await submitRun(() =>
-      bridge.editMessage({ sessionId, entryId, prompt, mode: mode.value }),
+      client.editMessage({ sessionId, entryId, prompt, mode: mode.value }),
     )
     await openSession(started.sessionId)
   }
@@ -250,14 +228,14 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   async function loadEarlier(): Promise<void> {
     const sessionId = state.value.activeSessionId
     if (!sessionId) return
-    state.value = applyTranscript(state.value, await bridge.loadEarlier(sessionId))
+    state.value = applyTranscript(state.value, await client.loadEarlier(sessionId))
   }
 
   /** 补齐条目流中的缺失区间。 */
   async function fillGap(after: EntryId, upTo: EntryId): Promise<void> {
     const sessionId = state.value.activeSessionId
     if (!sessionId) return
-    state.value = applyTranscript(state.value, await bridge.fillGap(sessionId, after, upTo))
+    state.value = applyTranscript(state.value, await client.fillGap(sessionId, after, upTo))
   }
 
   /** 在官方读取结果到达前锁住提交入口，消除准备阶段的重复点击窗口。 */
@@ -271,54 +249,30 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
-    await bridge.answerQuestion(questionId, answer)
+    await client.answerQuestion(questionId, answer)
   }
 
   /** 用户放弃这次提问；模型收到「用户未作答」。 */
   async function cancelQuestion(questionId: string): Promise<void> {
-    await bridge.cancelQuestion(questionId)
+    await client.cancelQuestion(questionId)
   }
 
   function setMode(value: AgentRunMode): void {
     mode.value = value
   }
 
-  /** 加载当前 Provider 在统一模型池中已加入的模型。 */
-  async function loadModels(): Promise<void> {
-    if (!state.value.provider.configured) return
-    const generation = ++modelLoadGeneration
-    modelsLoading.value = true
-    try {
-      const nextModels = await bridge.listProviderModelPool()
-      if (generation === modelLoadGeneration) models.value = nextModels
-    } catch {
-      if (generation === modelLoadGeneration) models.value = []
-    } finally {
-      if (generation === modelLoadGeneration) modelsLoading.value = false
-    }
-  }
-
   /** 保存 Composer 中选择的模型，使后续运行使用其能力配置。 */
   async function setModel(id: string): Promise<void> {
     if (isRunning.value) return
-    if (models.value.some((item) => item.id === id)) await bridge.setProviderModel(id)
+    await providerSettings.selectModel(id)
   }
 
-  /** 保存当前 Profile 的思考强度。 */
+  /** 保存当前配置的思考强度。 */
   async function setReasoningEffort(value: string): Promise<void> {
-    const efforts = state.value.provider.reasoningEfforts ?? []
-    const effort = efforts.includes(value as ProviderReasoningEffort)
-      ? (value as ProviderReasoningEffort)
-      : undefined
-    await bridge.setProviderReasoningEffort(effort)
+    await providerSettings.setReasoningEffort(value)
   }
 
   onMounted(initialize)
-  watch(
-    () => state.value.provider,
-    () => void loadModels(),
-    { immediate: true },
-  )
   watch([locale, mode, collapseReasoning], () => {
     agentWorkspacePreferencesPersistence.schedule(() => ({
       locale: locale.value,
@@ -340,12 +294,9 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     contextItems,
     draft,
     mode,
-    models,
-    modelsLoading,
     providerSettings,
     locale,
     isRunning,
-    providerReady,
     collapseReasoning,
     liveAnswer,
     liveTools,
@@ -365,7 +316,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     answerQuestion,
     cancelQuestion,
     setMode,
-    loadModels,
     setModel,
     setReasoningEffort,
   }

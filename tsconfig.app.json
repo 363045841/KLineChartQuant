@@ -39,6 +39,9 @@
       "@363045841yyt/klinechart-agent-runtime/contracts/ui": [
         "./packages/agent-runtime/src/contracts/ui.ts"
       ],
+      "@363045841yyt/klinechart-agent-runtime/contracts/provider": [
+        "./packages/agent-runtime/src/contracts/provider.ts"
+      ],
       "@363045841yyt/klinechart-script-server": ["./packages/script-server/src/index.ts"]
     },
     "plugins": [{ "name": "@effect/language-service/tsconfig-plugin" }],

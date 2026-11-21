@@ -309,10 +309,9 @@ describe('OpenAI-compatible runtime support', () => {
     })
     await credentials.write(secret)
 
-    const catalog = await support.provider.listModels({
+    const catalog = await support.catalog.listModels({
       baseUrl,
       apiKey: secret,
-      protocol: 'openai-completions',
     })
     expect(catalog.models.map((model) => model.id)).toEqual(['frontier-fast'])
   })
@@ -325,7 +324,7 @@ describe('OpenAI-compatible runtime support', () => {
       settings,
       fetch: providerFetch(),
     })
-    await support.provider.deleteCredential()
+    await credentials.delete()
     await expect(
       support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })

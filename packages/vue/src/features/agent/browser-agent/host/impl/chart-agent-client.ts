@@ -1,14 +1,14 @@
 /**
  * 图表 Agent 客户端：把运行时的宿主客户端与页面侧图表上下文合成为 UI 使用的桥。
  *
- * UI 只看到 `AgentBridgeClient`；运行时的会话、模型与 Provider 全部在宿主侧，
- * 这里只补充图表上下文并在发起运行前冻结快照。
+ * UI 看到的是两份互不耦合的能力：会话/运行桥 `AgentBridgeClient` 与 Provider 管理
+ * `ProviderAdmin`。这里只补充图表上下文并在发起运行前冻结快照。
  */
 
 import type { AgentHostClient } from '@363045841yyt/klinechart-agent-runtime/browser'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
-  AgentBridgeClient,
+  AgentClient,
   AgentContextItem,
   AgentRunContext,
   BranchMessageInput,
@@ -19,8 +19,8 @@ import type {
 import { BrowserChartContextSource } from '../../chart-context/impl/browser-chart-context-source.js'
 import { ChartToolHost } from './chart-tool-host.js'
 
-/** UI 使用的完整桥：宿主客户端 + 图表上下文 + 图表工具绑定。 */
-export interface ChartAgentClient extends AgentBridgeClient {
+/** UI 使用的完整客户端：运行桥 + Provider 管理 + 图表上下文绑定。 */
+export interface ChartAgentClient extends AgentClient {
   /** 绑定当前图表的 Agent controller；未绑定图表时上下文为空。 */
   bindChartAgent(agent: ChartAgentController | null | undefined): void
   /** 把旧版 LocalStorage 设置一次性导入宿主存储。 */
@@ -33,10 +33,10 @@ function freezeContext(items: ReadonlyArray<AgentContextItem>): AgentRunContext 
 }
 
 /**
- * 合成 UI 桥。
+ * 合成 UI 客户端。
  * @param host 运行时提供的宿主客户端。
  * @param tools 图表工具端口。
- * @returns 供工作区直接消费的桥。
+ * @returns 供工作区直接消费的客户端。
  */
 export function createChartAgentClient(
   host: AgentHostClient,

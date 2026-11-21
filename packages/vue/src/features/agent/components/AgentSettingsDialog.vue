@@ -25,7 +25,7 @@
                 :key="profile.value"
                 v-model:draft="profileNameDraft"
                 :mode="profileRowMode(profile.value)"
-                :active="profile.value === providerSettings.profileName"
+                :active="profile.value === providerSettings.snapshot?.activeProfileId"
                 :locale="locale"
                 :rename-label="text.providerProfileName"
                 :invalid="Boolean(profileNameDialogError)"
@@ -36,11 +36,11 @@
                 @cancel="closeProfileEditor()"
               >
                 {{ profile.label }}
-                <template v-if="persistedProfileNames.has(profile.value)" #actions>
+                <template v-if="persistedProfileIds.has(profile.value)" #actions>
                   <BaseTooltip :content="text.renameProviderProfile" placement="top">
                     <BaseIconButton
                       :label="`${text.renameProviderProfile}: ${profile.label}`"
-                      @click="openRenameProfile(profile.value)"
+                      @click="openRenameProfile(profile.value, profile.label)"
                     >
                       <IconPencil aria-hidden="true" />
                     </BaseIconButton>
@@ -109,36 +109,38 @@
               <label class="field">
                 <span class="field__label">{{ text.baseUrl }}</span>
                 <BaseInput
-                  v-model="providerSettings.baseUrl"
+                  v-model="providerSettings.draft.baseUrl"
                   variant="underline"
                   autocomplete="off"
                   spellcheck="false"
-                  @blur="providerSettings.persistConnection()"
+                  @blur="providerSettings.saveConnection()"
                 />
               </label>
               <label class="field">
                 <span class="field__label">{{ text.apiKey }}</span>
                 <BaseInput
-                  v-model="providerSettings.apiKey"
+                  v-model="providerSettings.draft.apiKey"
                   type="password"
                   variant="underline"
                   autocomplete="new-password"
                   :placeholder="
-                    status.configured ? MASKED_SECRET_PLACEHOLDER : text.apiKeyPlaceholder
+                    providerSettings.snapshot?.credentialPresent
+                      ? MASKED_SECRET_PLACEHOLDER
+                      : text.apiKeyPlaceholder
                   "
-                  @blur="providerSettings.persistConnection()"
+                  @blur="providerSettings.saveConnection()"
                 />
               </label>
               <label class="field">
                 <span class="field__label">{{ text.additionalHeaders }}</span>
                 <BaseTextarea
-                  v-model="providerSettings.headers"
+                  v-model="providerSettings.draft.headers"
                   class="field__mono"
                   variant="underline"
                   size="sm"
                   spellcheck="false"
                   :placeholder="text.additionalHeadersPlaceholder"
-                  @blur="providerSettings.persistConnection()"
+                  @blur="providerSettings.saveConnection()"
                 />
               </label>
             </section>
@@ -150,10 +152,10 @@
                   class="models__count"
                   role="img"
                   :title="text.modelPool"
-                  :aria-label="`${text.modelPool}: ${modelPoolIds.size}`"
+                  :aria-label="`${text.modelPool}: ${providerSettings.poolIds.size}`"
                 >
                   <IconStack aria-hidden="true" />
-                  {{ modelPoolIds.size }}
+                  {{ providerSettings.poolIds.size }}
                 </span>
                 <SearchField
                   v-model="modelSearch"
@@ -161,35 +163,43 @@
                   class="models__search"
                   :placeholder="text.modelSearchPlaceholder"
                   :aria-label="text.modelSearchPlaceholder"
-                  :disabled="providerSettings.modelsLoading"
+                  :disabled="providerSettings.catalogLoading"
                 />
                 <BaseTooltip :content="text.refreshModels" placement="top">
                   <BaseIconButton
                     size="lg"
                     :label="text.refreshModels"
-                    :disabled="providerSettings.modelsLoading || !hasProviderConnection"
-                    @click="providerSettings.refreshModelCatalog()"
+                    :disabled="providerSettings.catalogLoading || !hasProviderConnection"
+                    @click="providerSettings.refreshCatalog()"
                   >
                     <IconRefresh
-                      :class="{ 'klc-spin': providerSettings.modelsLoading }"
+                      :class="{ 'klc-spin': providerSettings.catalogLoading }"
                       aria-hidden="true"
                     />
                   </BaseIconButton>
                 </BaseTooltip>
               </header>
 
-              <ul v-if="providerSettings.modelCatalog.length" class="models__list">
-                <li v-for="model in filteredModels" :key="model.id" class="model">
+              <ul v-if="filteredModels.length" class="models__list">
+                <li
+                  v-for="model in filteredModels"
+                  :key="model.id"
+                  class="model"
+                  :class="{ 'model--offline': model.offline }"
+                >
                   <span class="model__name" :title="model.name">{{ model.name }}</span>
                   <span class="model__meta">
                     <BaseChip v-if="model.contextWindow">
                       {{ formatContextWindow(model.contextWindow) }}
                     </BaseChip>
+                    <small v-if="model.offline" class="model__offline">
+                      {{ text.modelOffline }}
+                    </small>
                     <ToggleSwitch
-                      :model-value="modelPoolIds.has(model.id)"
+                      :model-value="providerSettings.poolIds.has(model.id)"
                       :label="`${text.modelPool}: ${model.name}`"
                       size="compact"
-                      @update:model-value="setModelPoolMembership(model.id, $event)"
+                      @update:model-value="toggleModel(model.id, $event)"
                     />
                   </span>
                 </li>
@@ -223,13 +233,18 @@
                     type="password"
                     autocomplete="new-password"
                     :placeholder="
-                      status.exaConfigured ? MASKED_SECRET_PLACEHOLDER : text.exaApiKeyPlaceholder
+                      providerSettings.snapshot?.exaConfigured
+                        ? MASKED_SECRET_PLACEHOLDER
+                        : text.exaApiKeyPlaceholder
                     "
                   />
                   <BaseButton
                     size="sm"
-                    :disabled="!providerSettings.exaApiKey.trim() && !status.exaConfigured"
-                    @click="providerSettings.persistWebSearchApiKey()"
+                    :disabled="
+                      !providerSettings.exaApiKey.trim() &&
+                      !providerSettings.snapshot?.exaConfigured
+                    "
+                    @click="providerSettings.saveExaKey()"
                   >
                     {{ text.save }}
                   </BaseButton>
@@ -340,11 +355,7 @@
   import IconRefresh from '~icons/tabler/refresh'
   import IconStack from '~icons/tabler/stack-2'
   import IconTrash from '~icons/tabler/trash'
-  import {
-    PROVIDER_API_PROTOCOLS,
-    type ProviderApiProtocol,
-    type ProviderStatusView,
-  } from '../agent-contracts.js'
+  import { PROVIDER_API_PROTOCOLS, type ProviderApiProtocol } from '../agent-contracts.js'
   import { AGENT_LOCALE_OPTIONS, type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
   import type { AgentProviderSettingsStore } from '../browser-agent/provider-settings/types.js'
   import AgentListRow from './AgentListRow.vue'
@@ -353,9 +364,16 @@
 
   type SettingsTab = 'provider' | 'tools' | 'interface'
 
+  /** 模型行：目录项与已下线（池中但目录已不再提供）的模型共用一套渲染。 */
+  interface ModelRow {
+    id: string
+    name: string
+    contextWindow?: number
+    offline: boolean
+  }
+
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
-    status: ProviderStatusView
     locale: AgentLocale
     collapseReasoning: boolean
   }>()
@@ -368,8 +386,11 @@
   /** 密码型凭据已保存时的掩码占位符；只提示已保存，不承载真实 Key。 */
   const MASKED_SECRET_PLACEHOLDER = '••••••••'
 
-  /** 侧栏唯一编辑目标：新建没有目标行，重命名与删除锁定一个已保存的配置名。 */
-  type ProfileEditor = { mode: 'create' } | { mode: 'rename' | 'delete'; name: string } | null
+  /** 侧栏唯一编辑目标：新建没有目标行，重命名与删除锁定一个已保存的配置。 */
+  type ProfileEditor =
+    | { mode: 'create' }
+    | { mode: 'rename' | 'delete'; profileId: string; name: string }
+    | null
 
   const profileEditor = ref<ProfileEditor>(null)
   const profileNameDraft = ref('')
@@ -398,12 +419,12 @@
     { id: 'tools', label: text.value.tools },
     { id: 'interface', label: text.value.interface },
   ])
-  const persistedProfileNames = computed(
-    () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
+  const persistedProfileIds = computed(
+    () => new Set(props.providerSettings.profiles.map((profile) => profile.id)),
   )
-  const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
-  const profileNameDialogError = computed(() =>
-    props.providerSettings.profileNameError ? text.value.providerProfileNameDuplicated : '',
+  const visibleError = computed(() => props.providerSettings.error)
+  const profileNameDialogError = computed(
+    () => props.providerSettings.profileNameError?.message ?? '',
   )
   /** 协议选项不需要分组标题，空 label 让 DropMenu 省略分组行。 */
   const protocolGroups = computed<DropMenuGroup[]>(() => [
@@ -413,34 +434,49 @@
       items: PROVIDER_API_PROTOCOLS.map((protocol) => ({
         id: protocol,
         label: protocolLabel(protocol),
-        checked: protocol === props.providerSettings.protocol,
+        checked: protocol === props.providerSettings.draft.protocol,
         selection: 'radio',
       })),
     },
   ])
-  const selectedProtocolLabel = computed(() => protocolLabel(props.providerSettings.protocol))
-  const profileOptions = computed(() => {
-    const profiles = props.providerSettings.profiles.map((profile) => ({
-      value: profile.name,
+  const selectedProtocolLabel = computed(() => protocolLabel(props.providerSettings.draft.protocol))
+  const profileOptions = computed(() =>
+    props.providerSettings.profiles.map((profile) => ({
+      value: profile.id,
       label: profile.name,
-    }))
-    const draftName = props.providerSettings.profileName
-    const isNewProfile = draftName && !profiles.some((profile) => profile.value === draftName)
-    return isNewProfile ? [{ value: draftName, label: draftName }, ...profiles] : profiles
-  })
-  const modelPoolIds = computed(
-    () => new Set(props.providerSettings.modelPool.map((model) => model.id)),
+    })),
   )
+  const catalogModels = computed(() => props.providerSettings.catalog?.models ?? [])
+  /** 池中已下线模型：目录存在但不再提供该 id。 */
+  const offlineModels = computed<ModelRow[]>(() => {
+    if (!props.providerSettings.catalog) return []
+    const online = new Set(catalogModels.value.map((model) => model.id))
+    return props.providerSettings.models
+      .filter((model) => !online.has(model.id))
+      .map((model) => ({
+        id: model.id,
+        name: model.name,
+        ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
+        offline: true,
+      }))
+  })
+  const modelRows = computed<ModelRow[]>(() => [
+    ...catalogModels.value.map((model) => ({
+      id: model.id,
+      name: model.name,
+      ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
+      offline: false,
+    })),
+    ...offlineModels.value,
+  ])
   const filteredModels = computed(() => {
     const query = modelSearch.value.trim().toLowerCase()
-    if (!query) return props.providerSettings.modelCatalog
-    return props.providerSettings.modelCatalog.filter((model) =>
-      model.name.toLowerCase().includes(query),
-    )
+    if (!query) return modelRows.value
+    return modelRows.value.filter((model) => model.name.toLowerCase().includes(query))
   })
   /** 当前是否具备可写入/可刷新的 Provider 连接（配置名与 Base URL 均存在）。 */
   const hasProviderConnection = computed(() =>
-    Boolean(props.providerSettings.profileName && props.providerSettings.baseUrl.trim()),
+    Boolean(props.providerSettings.draft.name && props.providerSettings.draft.baseUrl.trim()),
   )
   /** 新建配置是否正在行内编辑。 */
   const isCreatingProfile = computed(() => profileEditor.value?.mode === 'create')
@@ -456,7 +492,7 @@
   /** 更新协议并立即保存连接，避免协议草稿与已保存连接不一致。 */
   function updateProtocol(value: string): void {
     props.providerSettings.setProtocol(value)
-    void props.providerSettings.persistConnection()
+    void props.providerSettings.saveConnection()
   }
 
   /** 菜单选中协议；值域由 PROVIDER_API_PROTOCOLS 保证，草稿校验仍在 store 内完成。 */
@@ -489,9 +525,14 @@
     return `${text.value.contextWindow} ${window}`
   }
 
-  /** 更新模型是否属于当前 Provider 的模型池。 */
-  function setModelPoolMembership(modelId: string, enabled: boolean): void {
-    void props.providerSettings.setModelPoolMembership(modelId, enabled)
+  /** 启用即把目录项交给宿主持久化，禁用只需要池中的 id。 */
+  function toggleModel(modelId: string, enabled: boolean): void {
+    if (!enabled) {
+      void props.providerSettings.removeModel(modelId)
+      return
+    }
+    const model = catalogModels.value.find((item) => item.id === modelId)
+    if (model) void props.providerSettings.addModel(model)
   }
 
   /** 更新工具启用状态。 */
@@ -505,14 +546,16 @@
   }
 
   /** 切换到选择的已保存配置。 */
-  function selectProfile(id: string): void {
-    if (id) void props.providerSettings.selectProfile(id)
+  function selectProfile(profileId: string): void {
+    if (profileId) void props.providerSettings.selectProfile(profileId)
   }
 
   /** 行的展示模式：只有被编辑目标锁定的行才离开空闲态。 */
-  function profileRowMode(name: string): AgentListRowMode {
+  function profileRowMode(profileId: string): AgentListRowMode {
     const editor = profileEditor.value
-    return editor && editor.mode !== 'create' && editor.name === name ? editor.mode : 'idle'
+    return editor && editor.mode !== 'create' && editor.profileId === profileId
+      ? editor.mode
+      : 'idle'
   }
 
   /** 在列表末尾展开行内「新建配置」输入。 */
@@ -523,15 +566,16 @@
   }
 
   /** 把目标配置行切换为行内重命名输入并预填当前名称。 */
-  function openRenameProfile(name: string): void {
+  function openRenameProfile(profileId: string, name: string): void {
     profileNameDraft.value = name
     props.providerSettings.clearProfileNameError()
-    profileEditor.value = { mode: 'rename', name }
+    profileEditor.value = { mode: 'rename', profileId, name }
   }
 
   /** 展开删除确认；行内焦点由共享行落在「取消」上。 */
-  function openDeleteProfile(name: string): void {
-    profileEditor.value = { mode: 'delete', name }
+  function openDeleteProfile(profileId: string): void {
+    const name = props.providerSettings.profiles.find((item) => item.id === profileId)?.name ?? ''
+    profileEditor.value = { mode: 'delete', profileId, name }
   }
 
   /** 退出行内编辑并清空临时名称与校验错误。 */
@@ -545,23 +589,25 @@
   function submitProfileName(title: string): void {
     const editor = profileEditor.value
     if (!editor) return
-    if (editor.mode === 'rename' && title === editor.name) {
-      closeProfileEditor()
+    if (editor.mode === 'rename') {
+      if (title === editor.name) {
+        closeProfileEditor()
+        return
+      }
+      void props.providerSettings.renameProfile(editor.profileId, title).then((succeeded) => {
+        if (succeeded) closeProfileEditor()
+      })
       return
     }
-    const operation =
-      editor.mode === 'rename'
-        ? props.providerSettings.renameProfile(editor.name, title)
-        : props.providerSettings.createProfile(title)
-    void operation.then((succeeded) => {
+    void props.providerSettings.createProfile(title).then((succeeded) => {
       if (succeeded) closeProfileEditor()
     })
   }
 
-  /** 确认删除指定配置；删除会移除凭据，不可恢复。 */
-  function confirmRemoveProfile(name: string): void {
+  /** 确认删除指定配置；删除会移除凭据与模型池，不可恢复。 */
+  function confirmRemoveProfile(profileId: string): void {
     closeProfileEditor()
-    void props.providerSettings.deleteProfile(name)
+    void props.providerSettings.deleteProfile(profileId)
   }
 
   /** 关闭主设置时一并退出行内编辑。 */
@@ -857,6 +903,17 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
+  }
+
+  /* 目录不再提供的模型仍保留在池里：置灰并标注已下线，不删除用户的选择。 */
+  .model--offline .model__name {
+    color: var(--klc-color-ui-muted);
+    text-decoration: line-through;
+  }
+
+  .model__offline {
+    color: var(--klc-color-ui-muted);
+    font-size: 11px;
   }
 
   /* ───────── Tools ───────── */

@@ -6,12 +6,8 @@
  * 运行时类型（及第三方可选 peer）拖进消费端的类型图。
  */
 
-/** 定义 Provider API Key 的持久化边界。 */
+/** 定义 Provider API Key 的读取边界；写入与清除由连接命令负责。 */
 export interface ProviderCredentialStore {
   /** 读取当前 API Key；未配置时返回 undefined。 */
   read(signal?: AbortSignal): Promise<string | undefined>
-  /** 写入 API Key。 */
-  write(apiKey: string, signal?: AbortSignal): Promise<void>
-  /** 删除已保存的 API Key。 */
-  delete(signal?: AbortSignal): Promise<void>
 }

@@ -8,10 +8,10 @@ import type {
 } from '@earendil-works/pi-ai'
 import type { TSchema } from 'typebox'
 import type { AgentRuntimeError } from '../contracts/errors.js'
+import type { ProviderReasoningEffort } from '../contracts/provider.js'
 import type {
   AgentErrorView,
   EvidenceView,
-  ProviderReasoningEffort,
   SourceCitation,
   ToolProgressView,
 } from '../contracts/ui.js'

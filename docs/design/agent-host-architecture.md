@@ -43,6 +43,15 @@ SharedWorker（每个 origin 一个）
 
 运行请求携带发起页的 `clientId` 与图表工具描述（名称、说明、参数 Schema、副作用）。宿主组装计划时只使用这份描述；模型调用图表工具时经 `tools.execute` 回到发起页执行，参数与结果原样过线。
 
+## Provider 设置：文档是唯一事实
+
+- **一个写者。** 设置文档只通过 `AgentSettingsStore.update(draft => …)` 提交一次完整变更；调用方拿到的是隔离副本，读到的永远是投影（快照或运行时设置），拿不到可变文档。
+- **一个读口径。** 页面只消费 `ProviderSnapshot`（配置、连接、模型池、选中模型、凭据存在性、思考强度），不再分别拉 status / profiles / modelPool / catalog。
+- **命令只传标识。** 写命令接收 `profileId` 与 `modelId`；模型元数据由宿主用自己校验过的记录固化，页面不传视图对象。
+- **目录不落盘、不缓存。** 打开设置、切换配置与显式刷新都会重新读取 `/models`；它是唯一触网的 Provider 命令，保存连接与启停模型都是纯本地写。
+- **模型池不因连接变化清空。** 换地址只递增 `connectionRevision`；目录里不再提供的模型保留在原位并标注已下线。
+- **运行时设置是投影。** `OpenAiCompatibleProviderSettings` 由「连接 + 选中模型 + 思考强度」现算；选中模型不在池中即视为未配置，不需要散落的清理逻辑。
+
 ## 关键行为
 
 - **上下文随运行冻结。** 页面在 `startRun` 等调用前快照当前图表上下文；运行期间图表变化不影响已提交的计划。
@@ -65,5 +74,6 @@ SharedWorker（每个 origin 一个）
 
 - 传输层不可恢复 → 客户端让所有待办以 `ABORTED` 失败，工作区进入不可用态并可重试。
 - 协议版本不匹配 → 请求以 `INVALID_PROTOCOL` 拒绝，不猜测兼容。
+- 跨线程载荷不可克隆 → 客户端在发出前以 `INVALID_PAYLOAD` 失败，不把传输错误归因给 Provider。
 - 页面声明的工具在执行时已不可用（图表解绑）→ `TARGET_LOST` / `TOOL_NOT_ALLOWED`。
 - 设置文档形状非法 → `INVALID_PAYLOAD`，不尝试修复或重置。

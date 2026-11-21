@@ -25,7 +25,6 @@ export async function createTestRuntime(
   const app = new AgentApplicationService({
     sessions,
     createPlan: support.createPlan,
-    provider: support.provider,
   })
   return {
     app,

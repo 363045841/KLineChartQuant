@@ -12,6 +12,12 @@ import {
   toAgentRuntimeError,
 } from '../contracts/errors.js'
 import type {
+  ProviderAdmin,
+  ProviderConnectionInput,
+  ProviderModelView,
+  ProviderReasoningEffort,
+} from '../contracts/provider.js'
+import type {
   AgentHostClientApi,
   AgentToolDebugResult,
   AgentToolView,
@@ -19,13 +25,6 @@ import type {
   BranchMessageInput,
   ContinueRunInput,
   EditMessageInput,
-  ProviderModelPoolEntry,
-  ProviderModelsResult,
-  ProviderModelView,
-  ProviderProfileView,
-  ProviderReasoningEffort,
-  ProviderSaveInput,
-  ProviderStatusView,
   QuestionAnswerView,
   QuestionView,
   StartRunInput,
@@ -56,7 +55,7 @@ interface PendingQuestion {
 }
 
 /** 宿主客户端：实现 UI 需要的桥接口，同时处理宿主回路由的页面能力请求。 */
-export type AgentHostClient = AgentHostClientApi
+export type AgentHostClient = AgentHostClientApi & ProviderAdmin
 
 /** 创建客户端所需的依赖。 */
 export interface AgentHostClientOptions {
@@ -97,9 +96,33 @@ export function createAgentHostClient(options: AgentHostClientOptions): AgentHos
         method,
         params,
       } as AgentHostRequest
+      // 页面侧先做一次结构化克隆：不可克隆的载荷在发出前就以真实原因失败，
+      // 而不是让 postMessage 抛出的异常被界面当成领域错误。
+      let payload: AgentHostRequest
+      try {
+        payload = structuredClone(request)
+      } catch (error) {
+        reject(
+          new AgentRuntimeError(
+            'INVALID_PAYLOAD',
+            'The request could not be serialized for the Agent host.',
+            { raw: error instanceof Error ? error.message : String(error) },
+          ),
+        )
+        return
+      }
       // 序列化边界：应答体由同一份代码在另一端构造，按声明的结果类型消费。
       pendingCalls.set(id, { resolve: (value) => resolve(value as AgentHostResult<K>), reject })
-      transport.post(request)
+      try {
+        transport.post(payload)
+      } catch (error) {
+        pendingCalls.delete(id)
+        reject(
+          new AgentRuntimeError('ABORTED', 'The Agent transport is not available.', {
+            raw: error instanceof Error ? error.message : String(error),
+          }),
+        )
+      }
     })
   }
 
@@ -202,8 +225,19 @@ export function createAgentHostClient(options: AgentHostClientOptions): AgentHos
       const pending = pendingCalls.get(message.id)
       if (!pending) return
       pendingCalls.delete(message.id)
-      if (message.ok) pending.resolve(message.result)
-      else pending.reject(agentRuntimeErrorFromView(message.error))
+      if (message.ok) {
+        pending.resolve(message.result)
+        return
+      }
+      // 错误信封来自共享协议；形状不合法时明确报协议错误，不让 Promise 永久挂起。
+      const view = message.error
+      if (typeof view?.code !== 'string' || typeof view.message !== 'string') {
+        pending.reject(
+          new AgentRuntimeError('INVALID_PROTOCOL', 'The Agent host sent a malformed error.'),
+        )
+        return
+      }
+      pending.reject(agentRuntimeErrorFromView(view))
       return
     }
     if (message.kind === 'event') {
@@ -280,28 +314,23 @@ export function createAgentHostClient(options: AgentHostClientOptions): AgentHos
       call('runs.continue', { input, tools: options.toolHost.catalog() }),
     editMessage: (input: EditMessageInput) =>
       call('runs.edit', { input, tools: options.toolHost.catalog() }),
-    getProviderStatus: () => call('provider.status', undefined),
-    listProviderProfiles: () => call('provider.profiles', undefined),
-    createProviderProfile: (profileName: string) =>
-      call('provider.profile.create', { profileName }),
-    renameProviderProfile: (profileName: string, nextProfileName: string) =>
-      call('provider.profile.rename', { profileName, nextProfileName }),
-    deleteProviderProfile: (profileName: string) =>
-      call('provider.profile.delete', { profileName }),
-    selectProviderProfile: (profileName: string) =>
-      call('provider.profile.select', { profileName }),
-    saveProvider: (input: ProviderSaveInput) => call('provider.profile.save', input),
-    setProviderReasoningEffort: (effort: ProviderReasoningEffort | undefined) =>
-      call('provider.reasoningEffort', { effort }),
-    deleteProviderCredential: () => call('provider.credential.delete', undefined),
-    saveWebSearchApiKey: (apiKey: string) => call('provider.webSearchKey', { apiKey }),
-    listProviderModelCatalog: () => call('provider.modelCatalog', undefined),
-    listProviderModelPool: () => call('provider.modelPool', undefined),
-    addProviderModelPoolModel: (model: ProviderModelView) =>
-      call('provider.modelPool.add', { model }),
-    removeProviderModelPoolModel: (modelId: string) =>
-      call('provider.modelPool.remove', { modelId }),
-    setProviderModel: (modelId: string) => call('provider.model.select', { modelId }),
+    snapshot: () => call('provider.snapshot', undefined),
+    createProfile: (name: string) => call('provider.profile.create', { name }),
+    renameProfile: (profileId: string, name: string) =>
+      call('provider.profile.rename', { profileId, name }),
+    deleteProfile: (profileId: string) => call('provider.profile.delete', { profileId }),
+    selectProfile: (profileId: string) => call('provider.profile.select', { profileId }),
+    saveConnection: (input: ProviderConnectionInput) => call('provider.connection.save', input),
+    refreshCatalog: (profileId: string) => call('provider.catalog', { profileId }),
+    addModel: (profileId: string, model: ProviderModelView) =>
+      call('provider.model.add', { profileId, model }),
+    removeModel: (profileId: string, modelId: string) =>
+      call('provider.model.remove', { profileId, modelId }),
+    selectModel: (profileId: string, modelId: string) =>
+      call('provider.model.select', { profileId, modelId }),
+    setReasoningEffort: (profileId: string, effort: ProviderReasoningEffort | undefined) =>
+      call('provider.reasoningEffort', { profileId, effort }),
+    saveExaKey: (apiKey: string) => call('provider.exaKey', { apiKey }),
 
     /** 图表工具与宿主工具合并成一份可配置清单。 */
     async listTools(): Promise<AgentToolView[]> {

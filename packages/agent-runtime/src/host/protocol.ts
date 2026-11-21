@@ -8,6 +8,13 @@
 import type { EntryId } from '@earendil-works/pi-durable'
 import type { TSchema } from 'typebox'
 import type {
+  ProviderCatalogView,
+  ProviderConnectionInput,
+  ProviderModelView,
+  ProviderReasoningEffort,
+  ProviderSnapshot,
+} from '../contracts/provider.js'
+import type {
   AgentErrorView,
   AgentSessionView,
   AgentToolDebugResult,
@@ -17,13 +24,6 @@ import type {
   BranchMessageInput,
   ContinueRunInput,
   EditMessageInput,
-  ProviderModelPoolEntry,
-  ProviderModelsResult,
-  ProviderModelView,
-  ProviderProfileView,
-  ProviderReasoningEffort,
-  ProviderSaveInput,
-  ProviderStatusView,
   QuestionAnswerView,
   QuestionOptionView,
   StartRunInput,
@@ -53,7 +53,7 @@ export interface AgentRunWireInput<TInput> {
   readonly tools: readonly ChartToolDescriptor[]
 }
 
-/** 页面可向宿主发起的调用；参数与结果与 `AgentBridgeClient` 一一对应。 */
+/** 页面可向宿主发起的调用；参数与结果与 `AgentBridgeClient`、`ProviderAdmin` 一一对应。 */
 export interface AgentHostMethods {
   'sessions.list': { params: undefined; result: AgentSessionView[] }
   'sessions.open': {
@@ -89,30 +89,33 @@ export interface AgentHostMethods {
     result: { runId: string; sessionId: string }
   }
 
-  'provider.status': { params: undefined; result: ProviderStatusView }
-  'provider.profiles': { params: undefined; result: ProviderProfileView[] }
-  'provider.profile.create': { params: { profileName: string }; result: undefined }
+  'provider.snapshot': { params: undefined; result: ProviderSnapshot }
+  'provider.profile.create': { params: { name: string }; result: ProviderSnapshot }
   'provider.profile.rename': {
-    params: { profileName: string; nextProfileName: string }
-    result: undefined
+    params: { profileId: string; name: string }
+    result: ProviderSnapshot
   }
-  'provider.profile.delete': { params: { profileName: string }; result: undefined }
-  'provider.profile.select': { params: { profileName: string }; result: undefined }
-  'provider.profile.save': { params: ProviderSaveInput; result: undefined }
+  'provider.profile.delete': { params: { profileId: string }; result: ProviderSnapshot }
+  'provider.profile.select': { params: { profileId: string }; result: ProviderSnapshot }
+  'provider.connection.save': { params: ProviderConnectionInput; result: ProviderSnapshot }
+  'provider.catalog': { params: { profileId: string }; result: ProviderCatalogView }
+  'provider.model.add': {
+    params: { profileId: string; model: ProviderModelView }
+    result: ProviderSnapshot
+  }
+  'provider.model.remove': {
+    params: { profileId: string; modelId: string }
+    result: ProviderSnapshot
+  }
+  'provider.model.select': {
+    params: { profileId: string; modelId: string }
+    result: ProviderSnapshot
+  }
   'provider.reasoningEffort': {
-    params: { effort: ProviderReasoningEffort | undefined }
-    result: undefined
+    params: { profileId: string; effort: ProviderReasoningEffort | undefined }
+    result: ProviderSnapshot
   }
-  'provider.credential.delete': { params: undefined; result: undefined }
-  'provider.webSearchKey': { params: { apiKey: string }; result: undefined }
-  'provider.modelCatalog': { params: undefined; result: ProviderModelsResult }
-  'provider.modelPool': { params: undefined; result: ProviderModelPoolEntry[] }
-  'provider.modelPool.add': {
-    params: { model: ProviderModelView }
-    result: ProviderModelPoolEntry[]
-  }
-  'provider.modelPool.remove': { params: { modelId: string }; result: ProviderModelPoolEntry[] }
-  'provider.model.select': { params: { modelId: string }; result: undefined }
+  'provider.exaKey': { params: { apiKey: string }; result: ProviderSnapshot }
 
   /** 宿主侧工具（Web 搜索、提问）的状态；页面再与本地图表工具合并成完整列表。 */
   'tools.list': { params: undefined; result: AgentHostToolState }

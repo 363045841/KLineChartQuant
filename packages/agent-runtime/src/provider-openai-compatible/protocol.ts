@@ -10,13 +10,10 @@ import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy'
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
-import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/ui.js'
+import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/provider.js'
 import type { ProviderErrorDetails } from './http.js'
 import { providerHttpError } from './http.js'
-import {
-  DEFAULT_PROVIDER_CONTEXT_WINDOW,
-  OPENAI_COMPATIBLE_PROVIDER_ID,
-} from './types.js'
+import { DEFAULT_PROVIDER_CONTEXT_WINDOW, OPENAI_COMPATIBLE_PROVIDER_ID } from './types.js'
 
 // 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
 // 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。

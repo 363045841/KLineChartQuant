@@ -13,11 +13,6 @@ export function createWorkspaceState(): AgentWorkspaceState {
     activeSessionId: null,
     transcript: null,
     questions: [],
-    provider: {
-      state: 'not-configured',
-      providerLabel: 'OpenAI-compatible',
-      configured: false,
-    },
   }
 }
 

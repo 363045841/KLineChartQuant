@@ -1,9 +1,9 @@
-// 宿主与页面客户端：会话、工具状态、提问路由与传输失败的行为。
+// 宿主与页面客户端：会话、工具状态、提问路由、传输失败与序列化边界。
 import { describe, expect, it } from 'vitest'
 import { AGENT_HOST_PROTOCOL_VERSION, createAgentHostClient } from '../browser.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
 import type { AgentClientMessage, AgentHostMessage } from '../host/protocol.js'
-import { buildHostPair, hostRequest } from './_host-fixture.js'
+import { createHostClient } from '../testing/host-client.js'
 
 /** 不含图表能力的工具端口，供不需要图表的用例使用。 */
 const noTools = {
@@ -14,16 +14,37 @@ const noTools = {
   },
 }
 
+/** 构造一条宿主发起的提问请求。 */
+function hostRequest(
+  id: string,
+  params: {
+    questionId: string
+    sessionId: string
+    toolCallId: string
+    prompt: string
+    options: { value: string; label: string }[]
+    multiSelect: boolean
+  },
+): AgentHostMessage {
+  return {
+    kind: 'request',
+    protocolVersion: AGENT_HOST_PROTOCOL_VERSION,
+    id,
+    method: 'questions.ask',
+    params,
+  }
+}
+
 describe('AgentHost session protocol', () => {
   it('lists the session created on first access', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const sessions = await pair.client.listSessions()
     expect(sessions).toHaveLength(1)
     await pair.dispose()
   })
 
   it('creates and opens a session', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const created = await pair.client.createSession()
     const lease = await pair.client.openSession(created.id)
     expect(lease.transcript.conversation).toBeDefined()
@@ -32,7 +53,7 @@ describe('AgentHost session protocol', () => {
   })
 
   it('keeps a session open until its last lease is released', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const events: string[] = []
     pair.client.subscribe((event) => events.push(event.type))
     const session = await pair.client.createSession()
@@ -95,11 +116,21 @@ describe('transport wiring', () => {
     fail?.(new AgentRuntimeError('ABORTED', 'The Agent transport is gone.'))
     await expect(pending).rejects.toMatchObject({ code: 'ABORTED' })
   })
+
+  it('rejects a payload that cannot cross the thread boundary', async () => {
+    const pair = await createHostClient()
+    const proxyInput = new Proxy({}, {})
+    await expect(pair.client.debugTool('web_search', proxyInput)).rejects.toMatchObject({
+      code: 'INVALID_PAYLOAD',
+      message: 'The request could not be serialized for the Agent host.',
+    })
+    await pair.dispose()
+  })
 })
 
 describe('AgentHost tool state', () => {
   it('starts with every tool enabled and persists an explicit selection', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const initial = await pair.client.listTools()
     expect(initial.map((tool) => tool.name).sort()).toEqual(['ask_user', 'web_search'])
     expect(initial.every((tool) => tool.enabled)).toBe(true)
@@ -118,12 +149,12 @@ describe('AgentHost tool state', () => {
 
 describe('page-side question routing', () => {
   it('renders the host question and answers it over the same request', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const events: string[] = []
     pair.client.subscribe((event) => events.push(event.type))
 
     pair.deliver(
-      hostRequest('r-1', 'questions.ask', {
+      hostRequest('r-1', {
         questionId: 'q-1',
         sessionId: 's-1',
         toolCallId: 'call-1',
@@ -140,13 +171,13 @@ describe('page-side question routing', () => {
   })
 
   it('settles a dismissed question as cancelled', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const statuses: string[] = []
     pair.client.subscribe((event) => {
       if (event.type === 'tool.question.resolved') statuses.push(event.status)
     })
     pair.deliver(
-      hostRequest('r-2', 'questions.ask', {
+      hostRequest('r-2', {
         questionId: 'q-2',
         sessionId: 's-1',
         toolCallId: 'call-2',
@@ -167,7 +198,7 @@ describe('page-side question routing', () => {
 
 describe('transport failure', () => {
   it('fails every pending call when the transport breaks', async () => {
-    const pair = await buildHostPair()
+    const pair = await createHostClient()
     const pending = pair.client.createSession()
     pair.breakTransport()
     await expect(pending).rejects.toMatchObject({ code: 'ABORTED' })

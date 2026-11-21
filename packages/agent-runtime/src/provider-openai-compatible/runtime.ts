@@ -1,16 +1,10 @@
-// OpenAI-compatible Provider 的模型发现、连接验证与 Pi 流式运行计划适配。
+// OpenAI-compatible Provider 的模型发现与 Pi 流式运行计划适配。
 
 import type { FetchFunction } from '@earendil-works/pi-ai'
 import { createModels, createProvider } from '@earendil-works/pi-ai'
-import type { RuntimeSupport } from '../application/unavailable-runtime.js'
+import type { RuntimeSupport } from '../application/types.js'
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
-import type {
-  AgentRunContext,
-  ProviderModelsInput,
-  ProviderModelsResult,
-  ProviderModelView,
-  ProviderStatusView,
-} from '../contracts/ui.js'
+import type { AgentRunContext } from '../contracts/ui.js'
 import type { AgentRunPlan } from '../pi/types.js'
 import {
   normalizeProviderBaseUrl,
@@ -28,6 +22,8 @@ import type {
   OpenAiCompatibleProviderSettings,
   OpenAiCompatibleRuntimeOptions,
   ProviderDiagnostic,
+  ProviderModelsInput,
+  ProviderModelsResult,
 } from './types.js'
 import { OPENAI_COMPATIBLE_PROVIDER_ID, OPENAI_COMPATIBLE_PROVIDER_LABEL } from './types.js'
 
@@ -51,16 +47,6 @@ function malformed(message = 'The Provider returned a malformed response.'): Age
   return new AgentRuntimeError('PROVIDER_MALFORMED_RESPONSE', message, {
     retryable: true,
     recommendedAction: 'Retry the request or select another model.',
-  })
-}
-
-/** 将未知异常转换为不会暴露底层实现细节的 Provider 错误。 */
-function safeProviderError(error: unknown): AgentRuntimeError {
-  if (error instanceof AgentRuntimeError) return error
-  return new AgentRuntimeError('PROVIDER_ERROR', 'The Provider operation failed.', {
-    retryable: true,
-    recommendedAction: 'Retry the operation or test the Provider connection.',
-    cause: error,
   })
 }
 
@@ -106,18 +92,24 @@ function createTurnContext(context: AgentRunContext | undefined, referenceTime: 
   return lines.join('\n')
 }
 
+/** OpenAI-compatible 运行时支持：运行计划与远端模型目录。 */
+export interface OpenAiCompatibleRuntimeSupport extends RuntimeSupport {
+  /** 读取远端模型目录；不缓存，每次调用都现取。 */
+  catalog: {
+    listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
+  }
+}
+
 /** 创建 OpenAI-compatible Provider 的运行时支持对象。 */
 export function createOpenAiCompatibleRuntimeSupport(
   options: OpenAiCompatibleRuntimeOptions,
-): RuntimeSupport {
+): OpenAiCompatibleRuntimeSupport {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? sleepWithSignal
   const timeoutMs = options.requestTimeoutMs ?? 30_000
   const maxRetries = options.maxRetries ?? 2
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
-  let catalog: ProviderCatalogModel[] = []
-  let lastError: AgentRuntimeError | undefined
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
   const httpOptions = (
@@ -148,34 +140,26 @@ export function createOpenAiCompatibleRuntimeSupport(
     if (!value) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Configure a Provider API credential before using the Agent.',
-        { recommendedAction: 'Open Provider settings and enter an API key.' },
+        'Configure a Provider API credential before reading the model catalog.',
+        { recommendedAction: 'Open Provider settings and save an API key.' },
       )
     }
     return value
   }
 
   /**
-   * 拉取并缓存 Provider 模型目录。
+   * 拉取远端模型目录。
    * @param input 模型目录请求参数。
-   * @param signal 请求和凭据读取的取消信号。
-   * @returns 已标准化地址、凭据、目录及刷新时间。
+   * @returns 已通过校验的模型列表及刷新时间。
+   * @throws {AgentRuntimeError} HTTP 失败、凭据缺失或目录结构非法时抛出。
    */
-  async function fetchCatalog(
-    input: ProviderModelsInput,
-    signal?: AbortSignal,
-  ): Promise<{
-    baseUrl: string
-    apiKey: string
-    models: ProviderCatalogModel[]
-    refreshedAt: number
-  }> {
+  async function listModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
-    const apiKey = await resolveCredential(input.apiKey, signal)
+    const apiKey = await resolveCredential(input.apiKey)
     const result = await requestProviderJson(
       `${baseUrl}/models`,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      httpOptions(input.headers, signal, 'catalog'),
+      httpOptions(input.headers, undefined, 'catalog'),
     )
     let models: ProviderCatalogModel[]
     try {
@@ -183,71 +167,15 @@ export function createOpenAiCompatibleRuntimeSupport(
     } catch {
       throw malformed('The Provider returned an invalid model catalog.')
     }
-    const refreshedAt = now()
-    // 仅在完整目录通过校验后替换缓存，避免部分响应污染后续运行。
-    catalog = models
-    return { baseUrl, apiKey, models, refreshedAt }
-  }
-
-  /**
-   * 返回适配 UI 的模型列表，并记录最近一次查询错误。
-   * @param input 模型目录请求参数。
-   * @returns UI 模型列表及刷新时间。
-   */
-  async function listModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    try {
-      const refreshed = await fetchCatalog(input)
-      lastError = undefined
-      return {
-        models: refreshed.models.map((model) => providerModelView(model)),
-        refreshedAt: refreshed.refreshedAt,
-      }
-    } catch (error) {
-      lastError = safeProviderError(error)
-      throw lastError
-    }
-  }
-
-  /**
-   * 读取 Provider 当前配置与最近错误。
-   * @returns 可直接渲染的 Provider 状态视图。
-   */
-  async function getStatus(): Promise<ProviderStatusView> {
-    let apiKey: string | undefined
-    let settings: OpenAiCompatibleProviderSettings | undefined
-    try {
-      apiKey = await options.credentials.read()
-      settings = await options.settings.read()
-    } catch (error) {
-      lastError = safeProviderError(error)
-    }
-    const configured = Boolean(apiKey)
     return {
-      state: lastError ? 'error' : configured && settings ? 'connected' : 'not-configured',
-      providerLabel: OPENAI_COMPATIBLE_PROVIDER_LABEL,
-      configured,
-      baseUrl: settings?.baseUrl,
-      modelId: settings?.modelId,
-      modelLabel: settings?.modelName,
-      protocol: settings?.protocol,
-      headers: settings?.headers,
-      contextWindow: settings?.contextWindow,
-      maxOutputTokens: settings?.maxOutputTokens,
-      reasoningEfforts: settings?.reasoningEfforts,
-      reasoningEffort: settings?.reasoningEffort,
-      error: lastError?.toView(),
+      models: models.map((model) => providerModelView(model)),
+      refreshedAt: now(),
     }
   }
 
-  /** 删除 API Key 并清除内存中的最近错误。 */
-  async function deleteCredential(): Promise<void> {
-    await options.credentials.delete()
-    lastError = undefined
-  }
-
   /**
-   * 基于已验证设置构造 Pi 的单次流式运行计划。
-   * @param input 本次运行的会话、提示词、权限与界面上下文。
+   * 基于已选模型设置构造 Pi 的单次流式运行计划。
+   * @param run 本次运行的会话、提示词、权限与界面上下文。
    * @returns 含模型、工具、流参数与系统提示词的运行计划。
    */
   async function createPlan(
@@ -264,17 +192,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         { recommendedAction: 'Open Provider settings and choose a model.' },
       )
     }
-    // 目录缓存可为空，使用已验证设置作为离线运行的回退模型描述。
-    const selected =
-      catalog.find((model) => model.id === settings.modelId) ??
-      ({
-        id: settings.modelId,
-        name: settings.modelName,
-        contextWindow: settings.contextWindow,
-        maxOutputTokens: settings.maxOutputTokens,
-        reasoningEfforts: settings.reasoningEfforts,
-        defaultReasoningEffort: settings.reasoningEffort,
-      } satisfies ProviderCatalogModel)
+    const selected = toCatalogModel(settings)
     const adapter = getProviderApiProtocolAdapter(settings.protocol)
     const model = adapter.createModel(settings.baseUrl, selected)
     const provider = createProvider({
@@ -328,8 +246,8 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
-    // 工具表由会话配置决定，与运行模式无关；模式只在执行期 gate 写工具。
-    const tools = options.tools?.(run) ?? []
+    // 工具表由会话配置与设置文档决定，与运行模式无关；模式只在执行期 gate 写工具。
+    const tools = (await options.tools?.(run)) ?? []
     return {
       models,
       model,
@@ -350,7 +268,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   }
 
   return {
-    provider: { getStatus, listModels, deleteCredential },
+    catalog: { listModels },
     createPlan: async (context) => {
       try {
         return await createPlan(context)
@@ -358,5 +276,16 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error instanceof AgentRuntimeError ? error : toAgentRuntimeError(error)
       }
     },
+  }
+}
+
+/** 把已选模型设置投影成 Pi 适配器需要的模型描述。 */
+function toCatalogModel(settings: OpenAiCompatibleProviderSettings): ProviderCatalogModel {
+  return {
+    id: settings.modelId,
+    name: settings.modelName,
+    maxOutputTokens: settings.maxOutputTokens,
+    reasoningEfforts: [...settings.reasoningEfforts],
+    ...(settings.contextWindow === undefined ? {} : { contextWindow: settings.contextWindow }),
   }
 }

@@ -16,10 +16,9 @@
             :label="text.model"
             :groups="modelGroups"
             :empty-text="text.noModelsInPool"
-            :disabled="running || !provider.configured"
+            :disabled="running || !snapshot?.credentialPresent"
             :tooltip="false"
             placement="top"
-            @open="emit('models-open')"
             @select="selectModel"
           >
             <template #trigger="{ open }">
@@ -32,7 +31,7 @@
             </template>
           </DropMenu>
           <DropMenu
-            v-if="provider.reasoningEfforts?.length"
+            v-if="selectedModel?.reasoningEfforts?.length"
             class="composer__reasoning"
             placement="top"
             :groups="reasoningGroups"
@@ -42,7 +41,7 @@
             @select="(_groupId, value) => emit('reasoning-effort', value)"
           >
             <template #trigger="{ open }">
-              <span class="composer__reasoning-value">{{ provider.reasoningEffort || text.reasoning }}</span>
+              <span class="composer__reasoning-value">{{ snapshot?.reasoningEffort || text.reasoning }}</span>
               <IconChevronDown
                 class="composer__trigger-chevron"
                 :class="{ 'is-open': open }"
@@ -106,7 +105,7 @@
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
-  import type { ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
+  import type { ProviderModelView, ProviderSnapshot } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
 
   const props = defineProps<{
@@ -114,7 +113,7 @@
     running: boolean
     mode: AgentRunMode
     locale: AgentLocale
-    provider: ProviderStatusView
+    snapshot: ProviderSnapshot | null
     models: readonly ProviderModelView[]
     modelsLoading: boolean
   }>()
@@ -123,38 +122,43 @@
     send: []
     stop: []
     model: [value: string]
-    'models-open': []
     'reasoning-effort': [value: string]
     'mode-change': [value: AgentRunMode]
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  /** 当前激活的配置名；没有配置时退回 Provider 名称。 */
+  const providerLabel = computed(
+    () => props.snapshot?.profiles.find((profile) => profile.active)?.name ?? 'OpenAI-compatible',
+  )
+  const selectedModel = computed(() =>
+    props.models.find((model) => model.id === props.snapshot?.selectedModelId),
+  )
   const modelGroups = computed<DropMenuGroup[]>(() => [
     {
       id: 'models',
-      label: props.provider.profileName ?? props.provider.providerLabel,
+      label: providerLabel.value,
       items: props.models.map((model) => ({
         id: model.id,
         label: model.name,
-        checked: model.id === props.provider.modelId,
+        checked: model.id === props.snapshot?.selectedModelId,
         selection: 'radio',
       })),
     },
   ])
   const modelTriggerLabel = computed(() => {
-    const selected = props.models.find((model) => model.id === props.provider.modelId)
-    if (selected) return selected.name
+    if (selectedModel.value) return selectedModel.value.name
     return props.modelsLoading ? text.value.loadingModels : text.value.modelPlaceholder
   })
   const reasoningGroups = computed<DropMenuGroup[]>(() => [
     {
       id: 'reasoning',
       label: '',
-      items: (props.provider.reasoningEfforts ?? []).map((effort) => ({
+      items: (selectedModel.value?.reasoningEfforts ?? []).map((effort) => ({
         id: effort,
         label: effort,
         selection: 'radio',
-        checked: effort === props.provider.reasoningEffort,
+        checked: effort === props.snapshot?.reasoningEffort,
       })),
     },
   ])

@@ -5,6 +5,7 @@ import type {
   JsonObject,
   TranscriptItem,
 } from '@earendil-works/pi-durable'
+import type { ProviderAdmin } from './provider.js'
 
 export const AGENT_UI_PROTOCOL_VERSION = 7 as const
 
@@ -41,15 +42,6 @@ export type ToolProgressView = {
   label: string
 }
 
-/** 可序列化的错误细节值。 */
-export type AgentErrorDetail =
-  | string
-  | number
-  | boolean
-  | null
-  | AgentErrorDetail[]
-  | { [key: string]: AgentErrorDetail }
-
 /** 可展示的运行时错误。 */
 export type AgentErrorView = {
   code: string
@@ -58,8 +50,6 @@ export type AgentErrorView = {
   raw?: string
   retryable: boolean
   recommendedAction?: string
-  /** 领域错误带回的结构化修正线索，例如可用值、候选或最近交易日。 */
-  details?: { [key: string]: AgentErrorDetail }
 }
 
 /** 用户可管理的 Agent 工具设置项。 */
@@ -198,44 +188,6 @@ export interface AgentRunContext {
   readonly items: ReadonlyArray<AgentContextItem>
 }
 
-export type ProviderConnectionState = 'not-configured' | 'connected' | 'error'
-export const PROVIDER_API_PROTOCOLS = ['openai-responses', 'openai-completions'] as const
-export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
-export const PROVIDER_REASONING_EFFORTS = ['high', 'medium', 'low', 'none'] as const
-export type ProviderReasoningEffort = (typeof PROVIDER_REASONING_EFFORTS)[number]
-export interface ProviderStatusView {
-  state: ProviderConnectionState
-  providerLabel: string
-  configured?: boolean
-  /** Whether a global external-service (Exa) key is saved; never carries the key itself. */
-  exaConfigured?: boolean
-  baseUrl?: string
-  modelId?: string
-  modelLabel?: string
-  profileName?: string
-  protocol?: ProviderApiProtocol
-  headers?: Record<string, string>
-  contextWindow?: number
-  maxOutputTokens?: number
-  reasoningEfforts?: readonly ProviderReasoningEffort[]
-  reasoningEffort?: ProviderReasoningEffort
-  error?: AgentErrorView
-}
-
-export interface ProviderModelView {
-  id: string
-  name: string
-  contextWindow?: number
-  maxOutputTokens?: number
-  reasoningEfforts?: readonly ProviderReasoningEffort[]
-  defaultReasoningEffort?: ProviderReasoningEffort
-}
-
-/** 用户加入模型池的模型记录；provider 对应 Provider Profile 名称。 */
-export interface ProviderModelPoolEntry extends ProviderModelView {
-  provider: string
-}
-
 /** 会话目录项；标题与最近活动时间由 KQ 会话文档提供。 */
 export interface AgentSessionView {
   id: string
@@ -294,35 +246,6 @@ export interface AgentRunStartedView {
   sessionId: string
 }
 
-export interface ProviderSaveInput {
-  baseUrl: string
-  apiKey?: string
-  headers?: Record<string, string>
-  protocol: ProviderApiProtocol
-  profileName: string
-}
-export interface ProviderProfileView {
-  name: string
-  baseUrl: string
-  modelId: string
-  modelName: string
-  protocol: ProviderApiProtocol
-  contextWindow?: number
-  maxOutputTokens?: number
-  reasoningEfforts?: readonly ProviderReasoningEffort[]
-  reasoningEffort?: ProviderReasoningEffort
-}
-export interface ProviderModelsInput {
-  baseUrl: string
-  apiKey?: string
-  headers?: Record<string, string>
-  protocol: ProviderApiProtocol
-}
-export interface ProviderModelsResult {
-  models: ProviderModelView[]
-  refreshedAt: number
-}
-
 interface EventEnvelope {
   protocolVersion: typeof AGENT_UI_PROTOCOL_VERSION
 }
@@ -336,7 +259,6 @@ export type AgentWorkspaceEvent =
     })
   | (EventEnvelope & { type: 'session.closed'; sessionId: string })
   | (EventEnvelope & { type: 'sessions.changed'; sessions: AgentSessionView[] })
-  | (EventEnvelope & { type: 'provider.status.changed'; status: ProviderStatusView })
   | (EventEnvelope & {
       type: 'tool.question.required'
       sessionId: string
@@ -375,7 +297,6 @@ export interface AgentBridgeClient {
   loadEarlier(sessionId: string): Promise<AgentTranscriptView>
   /** 补齐条目流中的缺失区间。 */
   fillGap(sessionId: string, after: EntryId, upTo: EntryId): Promise<AgentTranscriptView>
-  getProviderStatus(): Promise<ProviderStatusView>
   listTools(): Promise<AgentToolView[]>
   setToolEnabled(name: string, enabled: boolean): Promise<void>
   debugTool(name: string, input: unknown): Promise<AgentToolDebugResult>
@@ -393,20 +314,6 @@ export interface AgentBridgeClient {
   answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void>
   /** 用户主动放弃这次提问；未知或已结算的提问忽略。 */
   cancelQuestion(questionId: string): Promise<void>
-  listProviderModelCatalog(): Promise<ProviderModelsResult>
-  listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
-  addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]>
-  removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]>
-  setProviderModel(modelId: string): Promise<void>
-  listProviderProfiles(): Promise<ProviderProfileView[]>
-  createProviderProfile(profileName: string): Promise<void>
-  renameProviderProfile(profileName: string, nextProfileName: string): Promise<void>
-  deleteProviderProfile(profileName: string): Promise<void>
-  selectProviderProfile(profileName: string): Promise<void>
-  saveProvider(input: ProviderSaveInput): Promise<void>
-  saveWebSearchApiKey(apiKey: string): Promise<void>
-  setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>
-  deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentWorkspaceEvent) => void): () => void
 }
 
@@ -422,3 +329,6 @@ export type AgentHostClientApi = Omit<
   /** 把旧版 LocalStorage 设置一次性导入宿主存储。 */
   importLegacy(document: unknown): Promise<void>
 }
+
+/** 页面消费的完整 Agent 客户端：会话/运行桥 + Provider 管理。 */
+export interface AgentClient extends AgentBridgeClient, ProviderAdmin {}

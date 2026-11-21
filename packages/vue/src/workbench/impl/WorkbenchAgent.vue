@@ -4,7 +4,7 @@
 -->
 <template>
   <AgentWorkspace
-    :bridge="client"
+    :client="client"
     :panel-side="panelSide"
     @close="emit('close')"
   />

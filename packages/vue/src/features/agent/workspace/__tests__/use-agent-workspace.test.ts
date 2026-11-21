@@ -51,7 +51,7 @@ describe('useAgentWorkspace availability', () => {
 
 describe('useAgentWorkspace run failure', () => {
   it('projects the official failure and resumes with the native continue', async () => {
-    const bridge = new FakeAgentBridge({ providerConfigured: true })
+    const bridge = new FakeAgentBridge()
     const { wrapper, workspace } = mountWorkspace(bridge)
     await flushPromises()
 

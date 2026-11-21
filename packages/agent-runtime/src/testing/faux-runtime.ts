@@ -6,14 +6,8 @@ import {
   fauxToolCall,
 } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
-import type { RunPlanInput } from '../application/types.js'
-import type { RuntimeSupport } from '../application/unavailable-runtime.js'
+import type { RunPlanInput, RuntimeSupport } from '../application/types.js'
 import { AgentRuntimeError } from '../contracts/errors.js'
-import type {
-  ProviderModelsInput,
-  ProviderModelsResult,
-  ProviderStatusView,
-} from '../contracts/ui.js'
 import { withModeGate } from '../host/impl/mode-gate.js'
 import type { AgentRunPlan, RuntimeToolDefinition } from '../pi/types.js'
 
@@ -24,37 +18,8 @@ export interface FauxRuntimeSupportOptions {
 }
 
 export function createFauxRuntimeSupport(options: FauxRuntimeSupportOptions = {}): RuntimeSupport {
-  let configured = options.configured ?? false
+  const configured = options.configured ?? false
   const modelLabel = 'KQ Faux Fast'
-
-  const provider = {
-    getStatus(): ProviderStatusView {
-      return configured
-        ? {
-            state: 'connected',
-            providerLabel: 'OpenAI-compatible',
-            configured: true,
-            baseUrl: 'https://api.example.com/v1',
-            modelId: modelLabel,
-            modelLabel,
-          }
-        : {
-            state: 'not-configured',
-            providerLabel: 'OpenAI-compatible',
-            configured: false,
-            baseUrl: 'https://api.example.com/v1',
-          }
-    },
-    async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
-      return {
-        models: [{ id: modelLabel, name: modelLabel }],
-        refreshedAt: Date.now(),
-      }
-    },
-    async deleteCredential(): Promise<void> {
-      configured = false
-    },
-  }
 
   const createPlan = (input: RunPlanInput): AgentRunPlan => {
     if (!configured) {
@@ -144,5 +109,5 @@ export function createFauxRuntimeSupport(options: FauxRuntimeSupportOptions = {}
     }
   }
 
-  return { provider, createPlan }
+  return { createPlan }
 }
