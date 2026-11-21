@@ -4,10 +4,11 @@
     class="agent-row-list"
     @pointerover="onPointerOver"
     @focusin="onFocusIn"
+    @focusout="hide"
     @pointerleave="hide"
     @scroll.passive="hide"
   >
-    <SlidingHighlight ref="highlight" />
+    <SlidingHighlight ref="highlight" class="agent-row-list__highlight" />
     <slot />
   </ul>
 </template>
@@ -15,9 +16,9 @@
 <script setup lang="ts">
   import './agent-row/impl/agent-row-list.css'
 
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { useTemplateRef } from 'vue'
-  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
 
   const highlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('highlight')
   const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>

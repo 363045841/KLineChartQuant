@@ -34,7 +34,15 @@
 
     <BaseEmptyState v-if="groups.length === 0" size="compact">暂无自选股</BaseEmptyState>
 
-    <div v-else class="watchlist__groups">
+    <div
+      v-else
+      class="watchlist__groups"
+      @pointerover="onPointerOver"
+      @pointerleave="hide"
+      @focusin="onFocusIn"
+      @focusout="hide"
+    >
+      <SlidingHighlight ref="highlight" class="watchlist__highlight" />
       <div class="watchlist__columns" aria-hidden="true">
         <span class="watchlist__columns-spacer" />
         <span>最新价</span>
@@ -83,14 +91,16 @@
 </template>
 
 <script setup lang="ts">
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import ColorAvatar from '@vue-src/components/common/ColorAvatar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import {
     type SearchableSymbol,
     symbolIdentityKey,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import {
     useWatchlist,
     type WatchlistGrouping,
@@ -158,6 +168,14 @@
     removeWatchlistItem,
     setWatchlistGrouping,
   } = useWatchlist()
+
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>
+    target.closest<HTMLElement>('.watchlist-row'),
+  )
+
+  // 行被移除后指针不会移动，高亮块会停在旧位置，这里随自选列表变化主动收起。
+  watch(watchlistItems, () => hide())
 
   /** 数据源显示名；键顺序即数据源分组顺序。 */
   const catalog = useMarketDataSourceCatalog()
@@ -292,7 +310,8 @@
     /* 表头与数据行共用滚动容器，滚动条出现时列宽仍然一致。 */
     position: sticky;
     top: 0;
-    z-index: 1;
+    /* 高于行（z-index: 1）与滑动高亮块，滚动时表头始终压在内容之上。 */
+    z-index: 2;
     display: grid;
     grid-template-columns: var(--watchlist-grid);
     gap: 0 var(--klc-space-8, 8px);
@@ -312,12 +331,19 @@
   }
 
   .watchlist__groups {
+    /* 滑动高亮的定位上下文；表头与数据行共用同一个滚动容器。 */
+    position: relative;
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     padding: var(--klc-space-4, 4px) 0 var(--klc-space-8, 8px);
     overscroll-behavior-y: contain;
+  }
+
+  /* 行铺满整宽、上下紧邻，高亮块保持直角贴边。 */
+  .watchlist__highlight {
+    --sliding-highlight-radius: 0;
   }
 
   /* 报价失败必须可见：与“暂无报价”的占位灰区分开。 */
@@ -445,7 +471,9 @@
   }
 
   .watchlist-row {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
     position: relative;
+    z-index: 1;
   }
 
   /* 右侧留出移除按钮的空间，数字列不因悬停出现操作区而位移。 */
@@ -467,9 +495,8 @@
     cursor: pointer;
   }
 
-  .watchlist-row__select:hover,
+  /* 悬停底色由滑动高亮块统一提供，按钮只保留可点击区域。 */
   .watchlist-row__select:focus-visible {
-    background: var(--klc-color-ui-hover);
     outline: 0;
   }
 

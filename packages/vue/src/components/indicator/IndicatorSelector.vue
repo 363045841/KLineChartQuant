@@ -21,7 +21,15 @@
       </template>
 
       <div class="selector-content">
-        <nav class="selector-nav" aria-label="指标分类">
+        <nav
+          class="selector-nav"
+          aria-label="指标分类"
+          @pointerover="onNavPointerOver"
+          @pointerleave="hideNavHighlight"
+          @focusin="onNavFocusIn"
+          @focusout="hideNavHighlight"
+        >
+          <SlidingHighlight ref="navHighlight" class="selector-nav__highlight" />
           <button
             type="button"
             class="selector-nav-item"
@@ -53,7 +61,16 @@
         </nav>
         <p v-if="removalError" class="selector-error modal-list-item" role="alert">{{ removalError }}</p>
         <ModalScrollArea>
-          <div class="indicator-list" role="list" aria-label="指标列表">
+          <div
+            class="indicator-list"
+            role="list"
+            aria-label="指标列表"
+            @pointerover="onListPointerOver"
+            @pointerleave="hideListHighlight"
+            @focusin="onListFocusIn"
+            @focusout="hideListHighlight"
+          >
+            <SlidingHighlight ref="listHighlight" class="indicator-list__highlight" />
             <div
               v-for="indicator in filteredIndicators"
               :key="indicator.id"
@@ -183,15 +200,16 @@
     type IndicatorRole,
     indicatorCatalog,
   } from '@363045841yyt/klinechart-core/controllers'
-  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {
@@ -199,8 +217,9 @@
     useIndicatorFavorites,
   } from '@vue-src/composables/indicator/useIndicatorFavorites.js'
   import { useScriptRemoval } from '@vue-src/composables/indicator/useScriptRemoval.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
-  import { computed, inject, ref } from 'vue'
+  import { computed, inject, ref, watch } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
@@ -265,6 +284,25 @@
     computed(() => props.chartController ?? null),
     availableIndicators,
   )
+
+  // 侧栏与列表各自一块高亮：两者是并列的两个容器，坐标空间互不相干。
+  const navHighlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const listHighlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const {
+    onPointerOver: onNavPointerOver,
+    onFocusIn: onNavFocusIn,
+    hide: hideNavHighlight,
+  } = useSlidingHighlight(navHighlight, (target) =>
+    target.closest<HTMLElement>('.selector-nav-item'),
+  )
+  const {
+    onPointerOver: onListPointerOver,
+    onFocusIn: onListFocusIn,
+    hide: hideListHighlight,
+  } = useSlidingHighlight(listHighlight, (target) => target.closest<HTMLElement>('.indicator-item'))
+
+  // 收藏、分区或搜索让当前行消失时指针不会移动，高亮块会停在旧位置，这里主动收起。
+  watch(filteredIndicators, () => hideListHighlight())
 
   /** 空态文案：收藏/脚本分区在无搜索词时各有专用文案。 */
   const emptyTitle = computed(() => {
@@ -399,13 +437,24 @@
   }
 
   .selector-nav {
+    /* 滑动高亮的定位上下文；块与导航项处在同一容器内。 */
+    position: relative;
     display: flex;
     flex: 0 0 140px;
     flex-direction: column;
     border-right: 1px solid var(--klc-color-ui-border);
   }
 
+  /* 导航项通栏紧邻，高亮块保持直角贴边。 */
+  .selector-nav__highlight,
+  .indicator-list__highlight {
+    --sliding-highlight-radius: 0;
+  }
+
   .selector-nav-item {
+    /* 文字压在滑动高亮块之上。 */
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: var(--klc-space-8, 8px);
@@ -422,9 +471,15 @@
     cursor: pointer;
   }
 
+  /* 悬停只提亮文字，底色交给滑动高亮块，避免两层底色叠加。 */
   .selector-nav-item:hover,
+  .selector-nav-item:focus-visible {
+    color: var(--klc-color-ui-text);
+  }
+
+  /* 选中态是常驻底色，与瞬时悬停分开取色。 */
   .selector-nav-item.selected {
-    background: var(--klc-color-ui-hover);
+    background: var(--klc-color-ui-selected);
     color: var(--klc-color-ui-text);
   }
 
@@ -443,16 +498,18 @@
 
   /* 紧凑条目铺满内容区，类型标注与操作按钮共用一行。 */
   .indicator-list {
+    /* 滑动高亮的定位上下文；列表在滚动内容内，块随行一起滚动。 */
+    position: relative;
     display: flex;
     flex-direction: column;
   }
 
   /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
   .indicator-item {
+    position: relative;
+    z-index: 1;
     gap: var(--klc-space-4, 4px);
     min-height: 36px;
-    background: transparent;
-    transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     text-align: left;
   }
 
@@ -486,10 +543,6 @@
   .selector-nav-item:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
-  }
-
-  .indicator-item:hover {
-    background: var(--klc-color-ui-hover);
   }
 
   /* 名称列：内容靠左对齐；类型列仍按内容宽在自己的列内居中。 */

@@ -30,7 +30,12 @@
         role="listbox"
         aria-label="命令列表"
         @pointermove="keyboardNavigation = false"
+        @pointerover="onPointerOver"
+        @pointerleave="hide"
+        @focusin="onFocusIn"
+        @focusout="hide"
       >
+        <SlidingHighlight ref="highlight" class="command-palette__highlight" />
         <BaseEmptyState v-if="results.length === 0" size="compact" class="modal-list-item">
           没有匹配的命令
         </BaseEmptyState>
@@ -73,14 +78,16 @@
     type CommandRegistry,
     primaryShortcut,
   } from '@363045841yyt/klinechart-core'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ShortcutKeys from '@vue-src/components/common/ShortcutKeys.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { comboFromEvent } from '@vue-src/composables/commands/keyCombo.js'
   import { injectCommands, useCommandList } from '@vue-src/composables/commands/useCommands.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
   import IconTablerKeyboard from '~icons/tabler/keyboard'
 
@@ -102,6 +109,11 @@
   const activeIndex = ref(-1)
   const keyboardNavigation = ref(false)
   const searchBar = useTemplateRef<InstanceType<typeof ModalSearchBar>>('searchBar')
+
+  const highlight = useTemplateRef<InstanceType<typeof SlidingHighlight>>('highlight')
+  const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>
+    target.closest<HTMLElement>('.command-palette__item'),
+  )
 
   /** 当前查询下的命令结果（已按得分排序）。 */
   const results = computed<ReadonlyArray<CommandMatch>>(() => {
@@ -200,6 +212,8 @@
   }
 
   .command-palette__list {
+    /* 滑动高亮的定位上下文；列表本身就是滚动容器，块随内容一起滚动。 */
+    position: relative;
     display: flex;
     flex-direction: column;
     max-height: 480px;
@@ -207,7 +221,15 @@
     overflow-x: hidden;
   }
 
+  /* 通栏行上下紧邻，高亮块保持直角贴边。 */
+  .command-palette__highlight {
+    --sliding-highlight-radius: 0;
+  }
+
   .command-palette__item {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -221,16 +243,12 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
+  /* 键盘高亮是常驻选中态，与指针悬停的滑动块分开取色。 */
   .command-palette__item.is-active {
-    background: var(--klc-color-ui-selected, var(--klc-color-ui-hover));
-  }
-
-  .command-palette__item:hover:not(:disabled) {
-    background: var(--klc-color-ui-hover);
+    background: var(--klc-color-ui-selected);
   }
 
   .command-palette__item:disabled {

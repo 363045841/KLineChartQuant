@@ -74,7 +74,16 @@
           </div>
         </div>
 
-        <div class="compare-list" role="listbox" aria-label="商品列表">
+        <div
+          class="compare-list"
+          role="listbox"
+          aria-label="商品列表"
+          @pointerover="onPointerOver"
+          @pointerleave="hide"
+          @focusin="onFocusIn"
+          @focusout="hide"
+        >
+          <SlidingHighlight ref="highlight" class="compare-list__highlight" />
           <div v-if="picker.loading" class="compare-list__empty">
             <LoadingSpinner :size="32" class="compare-list__spinner" />
             <span>正在搜索</span>
@@ -89,7 +98,6 @@
             :key="symbolIdentityKey(item)"
             type="button"
             class="compare-list__item modal-list-row"
-            :class="{ 'is-selected': isSelected(item) }"
             role="option"
             :aria-selected="isSelected(item)"
             @click="toggleSymbol(item)"
@@ -129,10 +137,10 @@
   import '@vue-src/components/common/list-text.css'
   import '@vue-src/components/common/control-cluster.css'
 
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
-  import SymbolMetaBadge from './SymbolMetaBadge.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     type SymbolSearchFn,
@@ -140,8 +148,10 @@
     uniqueSymbolsByIdentity,
   } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useSymbolSourcePickerFromProps } from '@vue-src/composables/symbol/useSymbolSourcePicker.js'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { computed, ref } from 'vue'
   import IconTablerPlus from '~icons/tabler/plus'
+  import SymbolMetaBadge from './SymbolMetaBadge.vue'
   import SymbolSearchDialog from './SymbolSearchDialog.vue'
   import SymbolSearchEmpty from './SymbolSearchEmpty.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
@@ -173,6 +183,11 @@
 
   const rootRef = ref<HTMLElement | null>(null)
   const picker = useSymbolSourcePickerFromProps<SymbolItem>(props)
+
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>
+    target.closest<HTMLElement>('.compare-list__item'),
+  )
 
   const selectedSet = computed(() => new Set(props.selected ?? []))
 
@@ -328,6 +343,9 @@
   }
 
   .compare-list__item {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -342,12 +360,12 @@
     font: inherit;
     cursor: pointer;
     text-align: left;
-    transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
     flex-shrink: 0;
   }
 
-  .compare-list__item:hover {
-    background: var(--klc-color-ui-hover);
+  /* 通栏行上下紧邻，高亮块保持直角贴边。 */
+  .compare-list__highlight {
+    --sliding-highlight-radius: 0;
   }
 
   .compare-list__check {

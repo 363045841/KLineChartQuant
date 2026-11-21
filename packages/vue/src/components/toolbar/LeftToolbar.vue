@@ -7,7 +7,7 @@
     @focusin="onFocusIn"
     @focusout="hideHighlight"
   >
-    <SlidingHighlight ref="highlight" class="left-toolbar__highlight" />
+    <SlidingHighlight ref="highlight" />
     <div class="left-toolbar__group">
       <BaseTooltip v-if="scriptsEnabled !== false" content="代码编辑器">
         <button
@@ -288,11 +288,11 @@
     getDrawingKind,
   } from '@363045841yyt/klinechart-core/engine/drawing'
   import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
   import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
   import { useMenuAnchor } from '@vue-src/components/common/menu/useMenuAnchor.js'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'

@@ -44,35 +44,100 @@
         <!-- 页签一：保存与打开入口、最近使用的模板。 -->
         <template v-if="tab === INDICATOR_TEMPLATE_TABS.indicators">
           <ModalScrollArea>
-            <button
-              type="button"
-              class="indicator-template__row modal-list-row"
-              @click="openSaveDialog"
+            <div
+              class="indicator-template__list"
+              @pointerover="onIndicatorPointerOver"
+              @pointerleave="hideIndicatorHighlight"
+              @focusin="onIndicatorFocusIn"
+              @focusout="hideIndicatorHighlight"
             >
-              <IconTablerDeviceFloppy aria-hidden="true" />
-              <span>保存指标模板</span>
-              <span
-                v-if="saved"
-                class="indicator-template__saved"
-                role="status"
-                aria-label="模板已保存"
+              <SlidingHighlight ref="indicatorHighlight" class="indicator-template__highlight" />
+              <button
+                type="button"
+                class="indicator-template__row modal-list-row"
+                @click="openSaveDialog"
               >
-                <IconTablerCheck aria-hidden="true" />
-              </span>
-            </button>
-            <button
-              type="button"
-              class="indicator-template__row modal-list-row"
-              @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
-            >
-              <IconTablerFolderOpen aria-hidden="true" />
-              <span>打开模板</span>
-            </button>
+                <IconTablerDeviceFloppy aria-hidden="true" />
+                <span>保存指标模板</span>
+                <span
+                  v-if="saved"
+                  class="indicator-template__saved"
+                  role="status"
+                  aria-label="模板已保存"
+                >
+                  <IconTablerCheck aria-hidden="true" />
+                </span>
+              </button>
+              <button
+                type="button"
+                class="indicator-template__row modal-list-row"
+                @click="setTab(INDICATOR_TEMPLATE_TABS.templates)"
+              >
+                <IconTablerFolderOpen aria-hidden="true" />
+                <span>打开模板</span>
+              </button>
 
-            <div class="indicator-template__group-title modal-list-item">最近</div>
-            <template v-if="recentTemplates.length > 0">
+              <div class="indicator-template__group-title modal-list-item">最近</div>
+              <template v-if="recentTemplates.length > 0">
+                <div
+                  v-for="template in recentTemplates"
+                  :key="template.id"
+                  class="indicator-template__item modal-list-row"
+                >
+                  <button
+                    type="button"
+                    class="indicator-template__item-main"
+                    :disabled="busy"
+                    @click="applyTemplate(template.id)"
+                  >
+                    <span class="indicator-template__item-name">{{ template.name }}</span>
+                    <span class="indicator-template__item-chips">
+                      <BaseChip
+                        v-for="(label, index) in template.labels"
+                        :key="`${template.id}-${index}`"
+                      >
+                        {{ label }}
+                      </BaseChip>
+                      <span
+                        v-if="template.labels.length === 0"
+                        class="indicator-template__item-empty"
+                      >
+                        无指标
+                      </span>
+                    </span>
+                  </button>
+                  <BaseTooltip content="删除" placement="bottom">
+                    <BaseIconButton
+                      class="indicator-template__item-action"
+                      :label="`删除 ${template.name}`"
+                      :disabled="busy"
+                      @click="removeTemplate(template.id)"
+                    >
+                      <IconTablerTrash aria-hidden="true" />
+                    </BaseIconButton>
+                  </BaseTooltip>
+                </div>
+              </template>
+              <BaseEmptyState v-else size="compact" class="modal-list-item">
+                暂无最近使用的模板
+              </BaseEmptyState>
+            </div>
+          </ModalScrollArea>
+        </template>
+
+        <!-- 页签二：搜索与完整模板列表。 -->
+        <template v-else>
+          <ModalScrollArea>
+            <div
+              class="indicator-template__list"
+              @pointerover="onTemplatePointerOver"
+              @pointerleave="hideTemplateHighlight"
+              @focusin="onTemplateFocusIn"
+              @focusout="hideTemplateHighlight"
+            >
+              <SlidingHighlight ref="templateHighlight" class="indicator-template__highlight" />
               <div
-                v-for="template in recentTemplates"
+                v-for="template in visibleTemplates"
                 :key="template.id"
                 class="indicator-template__item modal-list-row"
               >
@@ -90,14 +155,21 @@
                     >
                       {{ label }}
                     </BaseChip>
-                    <span
-                      v-if="template.labels.length === 0"
-                      class="indicator-template__item-empty"
-                    >
+                    <span v-if="template.labels.length === 0" class="indicator-template__item-empty">
                       无指标
                     </span>
                   </span>
                 </button>
+                <BaseTooltip content="重命名" placement="bottom">
+                  <BaseIconButton
+                    class="indicator-template__item-action"
+                    :label="`重命名 ${template.name}`"
+                    :disabled="busy"
+                    @click="startRename(template)"
+                  >
+                    <IconTablerPencil aria-hidden="true" />
+                  </BaseIconButton>
+                </BaseTooltip>
                 <BaseTooltip content="删除" placement="bottom">
                   <BaseIconButton
                     class="indicator-template__item-action"
@@ -109,64 +181,10 @@
                   </BaseIconButton>
                 </BaseTooltip>
               </div>
-            </template>
-            <BaseEmptyState v-else size="compact" class="modal-list-item">
-              暂无最近使用的模板
-            </BaseEmptyState>
-          </ModalScrollArea>
-        </template>
-
-        <!-- 页签二：搜索与完整模板列表。 -->
-        <template v-else>
-          <ModalScrollArea>
-            <div
-              v-for="template in visibleTemplates"
-              :key="template.id"
-              class="indicator-template__item modal-list-row"
-            >
-              <button
-                type="button"
-                class="indicator-template__item-main"
-                :disabled="busy"
-                @click="applyTemplate(template.id)"
-              >
-                <span class="indicator-template__item-name">{{ template.name }}</span>
-                <span class="indicator-template__item-chips">
-                  <BaseChip
-                    v-for="(label, index) in template.labels"
-                    :key="`${template.id}-${index}`"
-                  >
-                    {{ label }}
-                  </BaseChip>
-                  <span v-if="template.labels.length === 0" class="indicator-template__item-empty">
-                    无指标
-                  </span>
-                </span>
-              </button>
-              <BaseTooltip content="重命名" placement="bottom">
-                <BaseIconButton
-                  class="indicator-template__item-action"
-                  :label="`重命名 ${template.name}`"
-                  :disabled="busy"
-                  @click="startRename(template)"
-                >
-                  <IconTablerPencil aria-hidden="true" />
-                </BaseIconButton>
-              </BaseTooltip>
-              <BaseTooltip content="删除" placement="bottom">
-                <BaseIconButton
-                  class="indicator-template__item-action"
-                  :label="`删除 ${template.name}`"
-                  :disabled="busy"
-                  @click="removeTemplate(template.id)"
-                >
-                  <IconTablerTrash aria-hidden="true" />
-                </BaseIconButton>
-              </BaseTooltip>
+              <BaseEmptyState v-if="visibleTemplates.length === 0" size="compact" class="modal-list-item">
+                {{ searchQuery.trim() ? '未找到匹配的模板' : '暂无模板' }}
+              </BaseEmptyState>
             </div>
-            <BaseEmptyState v-if="visibleTemplates.length === 0" size="compact" class="modal-list-item">
-              {{ searchQuery.trim() ? '未找到匹配的模板' : '暂无模板' }}
-            </BaseEmptyState>
           </ModalScrollArea>
         </template>
       </div>
@@ -205,20 +223,22 @@
     IndicatorTemplateSummary,
   } from '@363045841yyt/klinechart-core/controllers'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
-  import ControlTrigger from '@vue-src/components/common/menu/ControlTrigger.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import ControlTrigger from '@vue-src/components/common/menu/ControlTrigger.vue'
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
   import {
     INDICATOR_TEMPLATE_TABS,
     type IndicatorTemplateTab,
     useIndicatorTemplates,
   } from '@vue-src/composables/indicator/useIndicatorTemplates.js'
-  import { computed, onBeforeUnmount, ref } from 'vue'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
+  import { computed, onBeforeUnmount, ref, watch } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerDeviceFloppy from '~icons/tabler/device-floppy'
@@ -266,6 +286,28 @@
   const trigger = ref<HTMLButtonElement | null>(null)
   /** 重命名目标；null 表示对话框关闭。 */
   const renaming = ref<IndicatorTemplateSummary | null>(null)
+
+  // 两个页签各自一块高亮；页签互斥挂载，互不影响。
+  const indicatorHighlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const templateHighlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  const {
+    onPointerOver: onIndicatorPointerOver,
+    onFocusIn: onIndicatorFocusIn,
+    hide: hideIndicatorHighlight,
+  } = useSlidingHighlight(indicatorHighlight, (target) =>
+    target.closest<HTMLElement>('.indicator-template__row, .indicator-template__item'),
+  )
+  const {
+    onPointerOver: onTemplatePointerOver,
+    onFocusIn: onTemplateFocusIn,
+    hide: hideTemplateHighlight,
+  } = useSlidingHighlight(templateHighlight, (target) =>
+    target.closest<HTMLElement>('.indicator-template__item'),
+  )
+
+  // 删除或另存会让当前行消失，指针没移动时高亮块会停在旧位置，这里主动收起。
+  watch(recentTemplates, () => hideIndicatorHighlight())
+  watch(visibleTemplates, () => hideTemplateHighlight())
 
   /** 打开或关闭弹层；打开时读取真实归档。 */
   function toggle(): void {
@@ -397,7 +439,20 @@
   }
 
   /* 横向留白由 .modal-list-row 统一提供，行只负责纵向节奏与自身排版。 */
+  .indicator-template__list {
+    /* 滑动高亮的定位上下文；列表在滚动内容内，块随行一起滚动。 */
+    position: relative;
+  }
+
+  /* 通栏行上下紧邻，高亮块保持直角贴边。 */
+  .indicator-template__highlight {
+    --sliding-highlight-radius: 0;
+  }
+
   .indicator-template__row {
+    /* 文字压在滑动高亮块之上；悬停底色由块统一提供。 */
+    position: relative;
+    z-index: 1;
     gap: var(--klc-space-8, 8px);
     width: 100%;
     padding-block: var(--klc-space-8, 8px);
@@ -407,10 +462,6 @@
     font-size: var(--klc-text-12-font-size, 12px);
     text-align: left;
     cursor: pointer;
-  }
-
-  .indicator-template__row:hover {
-    background: var(--klc-color-ui-hover);
   }
 
   .indicator-template__row svg {
@@ -430,12 +481,9 @@
   }
 
   .indicator-template__item {
+    position: relative;
+    z-index: 1;
     gap: var(--klc-space-4, 4px);
-  }
-
-  /* 行 hover 用比胶囊更深的选中色，避免胶囊和行背景融在一起。 */
-  .indicator-template__item:hover {
-    background: var(--klc-color-ui-selected);
   }
 
   .indicator-template__item-main {

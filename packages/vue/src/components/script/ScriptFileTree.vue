@@ -17,7 +17,14 @@
     />
     <p v-if="treeError" class="script-files__error" role="alert">{{ treeError }}</p>
     <div ref="treeHost" class="script-files__tree">
-      <ul class="script-files__list">
+      <ul
+        class="script-files__list"
+        @pointerover="onPointerOver"
+        @pointerleave="hide"
+        @focusin="onFocusIn"
+        @focusout="hide"
+      >
+        <SlidingHighlight ref="highlight" class="script-files__highlight" />
         <li v-for="row in rows" :key="row.key">
           <ScriptFileTreeRow
             :row="row"
@@ -40,6 +47,7 @@
 <script setup lang="ts">
   import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import SearchField from '@vue-src/components/common/form/SearchField.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useScriptTree } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTree.js'
   import { useScriptTreeMenu } from '@vue-src/composables/chart/scriptEditor/impl/useScriptTreeMenu.js'
   import type {
@@ -49,7 +57,8 @@
     ScriptTreeAction,
     ScriptTreeRow,
   } from '@vue-src/composables/chart/scriptEditor/types.js'
-  import { useTemplateRef } from 'vue'
+  import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
+  import { ref, useTemplateRef } from 'vue'
   import ScriptContextMenu from './ScriptContextMenu.vue'
   import ScriptFileTreeRow from './ScriptFileTreeRow.vue'
 
@@ -88,6 +97,11 @@
   }
 
   const treeHost = useTemplateRef<HTMLElement>('treeHost')
+  const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
+  // 目录行与文件行是两种标签，解析器同时命中；行内“新建”按钮归到其所在行。
+  const { onPointerOver, onFocusIn, hide } = useSlidingHighlight(highlight, (target) =>
+    target.closest<HTMLElement>('.script-files__folder-button, .script-files__file'),
+  )
   const { query, rows, activate } = useScriptTree({
     documents: () => props.documents,
     folders: () => props.folders,
@@ -126,7 +140,15 @@
   /* 高度与外观由 SearchField 的 compact 变体自有；此处只负责外边距与纵向不伸缩。 */
   .script-files__search { flex: 0 0 auto; margin: 0 var(--klc-space-8, 8px) var(--klc-space-8, 8px); }
   .script-files__tree { flex: 1; overflow: auto; }
-  .script-files__list { margin: 0; padding: 0; list-style: none; }
+  .script-files__list {
+    /* 滑动高亮的定位上下文；列表在滚动内容内，块随行一起滚动。 */
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* 行铺满整宽，高亮块保持直角贴边。 */
+  .script-files__highlight { --sliding-highlight-radius: 0; }
   /* 目录操作失败留在目录区域，不混入代码问题列表。 */
   .script-files__error {
     margin: 0;

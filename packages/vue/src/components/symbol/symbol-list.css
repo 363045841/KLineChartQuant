@@ -1,6 +1,8 @@
 /* 品种列表的共享外观：滚动容器、空状态与条目文本，供品种选择与对比选择复用。 */
 .compare-list,
 .symbol-list {
+  /* 滑动高亮的定位上下文；列表本身就是滚动容器，块随内容一起滚动。 */
+  position: relative;
   max-height: 480px;
   overflow-y: auto;
   overflow-x: hidden;

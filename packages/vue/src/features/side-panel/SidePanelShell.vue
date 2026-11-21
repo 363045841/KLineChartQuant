@@ -55,7 +55,7 @@
       @focusin="onRailFocusIn"
       @focusout="hideRailHighlight"
     >
-      <SlidingHighlight ref="railHighlight" class="side-panel-shell__rail-highlight" />
+      <SlidingHighlight ref="railHighlight" />
       <BaseTooltip
         v-for="item in panels"
         :key="item.id"
@@ -111,12 +111,12 @@
 </template>
 
 <script setup lang="ts">
+  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
+  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import type { Component } from 'vue'
   import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
   import IconLayoutSidebarLeftExpand from '~icons/tabler/layout-sidebar-left-expand'
   import IconLayoutSidebarRightExpand from '~icons/tabler/layout-sidebar-right-expand'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
-  import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import { useSlidingHighlight } from '../../composables/ui/useSlidingHighlight.js'
   import type {
     SidePanelDefinition,
