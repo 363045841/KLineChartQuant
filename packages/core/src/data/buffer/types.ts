@@ -12,6 +12,9 @@ export interface LoadedTimeRange {
   latestTs: number
 }
 
+/** 数据池对某个左边界请求的最终交代。 */
+export type CoverageResult = 'covered' | 'exhausted' | 'superseded'
+
 /**
  * 数据变更种类的取名字面量；类型与取值同源，业务代码只引用常量，禁止散落字符串。
  */

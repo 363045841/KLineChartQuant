@@ -5,7 +5,6 @@ import { SCALE_X_STRATEGIES, type ScaleXSnapshot } from '../scale/index.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
 import type { ZoomStateModule } from '../state/zoomState.js'
-import { zoomSlotGrid } from './slotGrid.js'
 import { clampZoomLevel, zoomLevelToKWidth } from './zoom.js'
 
 /** 临界阻尼响应速度（每毫秒）及连续轨迹到达精确终点的时间。 */
@@ -234,7 +233,6 @@ export class ChartZoomController {
     return this.deps.viewport.readonly.viewSnapshot.peek().kWidth
   }
 
-
   /** 配置中的缩放级别数量。 */
   get zoomLevelCount(): number {
     return this.deps.options.readonly.options.peek().zoomLevelCount
@@ -329,15 +327,40 @@ export class ChartZoomController {
   }
 
   /** 优先用动画锚定的槽位求滚动；否则复用统一槽位变换。 */
-  private resolveNextScroll(
-    before: ScaleXSnapshot,
-    after: ScaleXSnapshot,
-    anchor: number,
-    anchoredSlot: number | undefined,
-  ): number {
-    if (anchoredSlot === undefined)
-      return zoomSlotGrid(before.grid, after.grid, before.scroll, anchor)
-    return after.grid.origin + anchoredSlot * after.grid.step - anchor
+  /**
+   * 唯一提交点：把目标档位与目标槽位一次性写成视口快照。
+   *
+   * 档位允许小数（预置拟合需要精确跨度），滚动由目标网格的槽位坐标反解，档位与滚动
+   * 在同一次 batch 内提交，渲染只会看到最终几何。
+   *
+   * @param level 目标档位（会被钳制到可用范围）
+   * @param anchorX 槽位锚点所在的视口 X（逻辑像素）
+   * @param anchorSlot 锚点槽位（可为小数，表示槽位间的位置）
+   */
+  private commitView(level: number, anchorX: number, anchorSlot: number): void {
+    const viewport = this.deps.viewport
+    const input = viewport.readonly.viewInput.peek()
+    const strategy = SCALE_X_STRATEGIES[input.view]
+    if (!strategy.capabilities.allowZoom) return
+    const before = viewport.readonly.viewSnapshot.peek()
+    if (!(before.grid.step > 0)) return
+    const target = Math.max(1, Math.min(this.zoomLevelCount, level))
+    const kWidth = zoomLevelToKWidth(target, this.deps.options.readonly.options.peek())
+    const nextInput = strategy.zoomInput(input, target - this.currentZoomLevel, kWidth)
+    const after = strategy.project(nextInput)
+    const nextScroll = after.grid.origin + anchorSlot * after.grid.step - anchorX
+    batch(() => {
+      this.zoomState.actions.setSessionSlotWidth(nextInput.sessionSlotWidth)
+      this.zoomState.actions.setZoomProgress(target)
+      // 导航保留连续锚点变换；显示中心只在共享快照中量化一次。
+      this.deps.viewport.actions.setNavigation(strategy.navigate(after, nextScroll))
+    })
+    this.deps.onChange?.()
+  }
+
+  /** 指针锚定的当前槽位；指针缩放与帧提交共用同一坐标语义。 */
+  private slotAt(before: ScaleXSnapshot, anchorX: number): number {
+    return (before.scroll + anchorX - before.grid.origin) / before.grid.step
   }
 
   /** 先保持指针槽位坐标，再由策略在可见数据边界处修正视口。 */
@@ -349,20 +372,23 @@ export class ChartZoomController {
   ): void {
     const step = this.prepareApplyZoom(level, pointerX, continuous)
     if (!step) return
-    const nextInput = step.strategy.zoomInput(
-      step.input,
-      step.target - step.current,
-      zoomLevelToKWidth(step.target, this.deps.options.readonly.options.peek()),
-    )
-    const after = step.strategy.project(nextInput)
-    const nextScroll = this.resolveNextScroll(step.before, after, step.anchor, anchoredSlot)
-    batch(() => {
-      this.zoomState.actions.setSessionSlotWidth(nextInput.sessionSlotWidth)
-      this.zoomState.actions.setZoomProgress(step.target)
-      // 导航保留连续锚点变换；显示中心只在共享快照中量化一次。
-      // 提前取整导航会与中心取整形成两个阈值，导致尾部出现 1px 往返。
-      this.deps.viewport.actions.setNavigation(step.strategy.navigate(after, nextScroll))
-    })
-    this.deps.onChange?.()
+    const slot = anchoredSlot ?? this.slotAt(step.before, step.anchor)
+    this.commitView(step.target, step.anchor, slot)
+  }
+
+  /**
+   * 程序定位：把一个窗口装进屏幕。
+   *
+   * 与交互缩放共用同一个提交点；档位未变化时仍然提交，因为定位本身会改变滚动位置。
+   *
+   * @param target 目标档位、锚点槽位与锚点 X（缺省为左边缘）
+   */
+  frame(target: { level: number; anchorSlot: number; anchorX?: number }): void {
+    if (!Number.isFinite(target.level) || !Number.isFinite(target.anchorSlot)) return
+    const anchorX = target.anchorX ?? 0
+    if (!Number.isFinite(anchorX)) return
+    this.stopAnimation()
+    this.deps.onStart?.()
+    this.commitView(target.level, anchorX, target.anchorSlot)
   }
 }

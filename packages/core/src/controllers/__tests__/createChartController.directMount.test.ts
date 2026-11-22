@@ -9,6 +9,7 @@ import {
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
 import { createChartController } from '../chart/index'
 
@@ -121,7 +122,7 @@ describe('createChartController direct mount', () => {
     const host = new MarketDataContext()
     host.registerDataSource(createDataSourceFixture(data, false).source)
     const instrument = await host.resolveInstrument('test', 'A')
-    const symbols = [{ instrument, symbol: 'A', market: 'CN', source: 'test', period: 'daily' }]
+    const symbols = [{ instrument, period: 'daily' }]
     const first = document.createElement('div')
     document.body.appendChild(first)
     const ctrlA = await createChartController({ container: first, marketDataContext: host })
@@ -146,11 +147,16 @@ describe('createChartController direct mount', () => {
     const ctrlA = await createChartController({ container: first })
     ctrlA.dispose()
 
-    const spec = { market: 'CN', symbol: '600000', period: 'daily', source: 'custom' } as const
+    const spec = makeSymbolSpec({
+      market: 'CN',
+      symbol: '600000',
+      period: 'daily',
+      source: 'custom',
+    })
     const second = document.createElement('div')
     document.body.appendChild(second)
     const ctrlB = await createChartController({ container: second, symbols: [spec] })
-    expect(ctrlB.symbols.peek()[0]).toMatchObject({ symbol: '600000', market: 'CN' })
+    expect(ctrlB.symbols.peek()[0]?.instrument).toMatchObject({ symbol: '600000', sessionId: 'CN' })
     ctrlB.dispose()
   })
 })

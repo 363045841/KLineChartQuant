@@ -25,9 +25,7 @@ function setup(realtime = true, options: MockDataDependenciesOptions = {}) {
   /** 选择稳定品种，经解析后的标准身份进入既有取数链路。 */
   async function select(id: string) {
     const instrument = await host.resolveInstrument('test', id)
-    manager.setSymbols([
-      { symbol: instrument.symbol, instrument, market: 'CN', period: 'daily', source: 'test' },
-    ])
+    manager.setPrimaryMarket({ instrument, period: 'daily' })
     await vi.waitFor(() => {
       expect(manager.getData()).toHaveLength(3)
       expect(manager.dataBuffer.loading.peek()).toBe(false)

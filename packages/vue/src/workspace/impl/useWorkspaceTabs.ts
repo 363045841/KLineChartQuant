@@ -14,14 +14,9 @@ import { openWorkspaceTabsStore } from './workspace-tabs-store.js'
 /** 品种身份：只有这些字段变化才需要改写标签。 */
 function specKey(spec: SymbolSpec | null): string {
   if (!spec) return ''
-  return [
-    spec.source ?? '',
-    spec.id ?? '',
-    spec.symbol,
-    spec.market,
-    spec.period ?? '',
-    spec.adjust ?? '',
-  ].join('|')
+  return [spec.instrument.id, spec.instrument.source, spec.period ?? '', spec.adjust ?? ''].join(
+    '|',
+  )
 }
 
 /** 组装某个工作区的标签操作；所有操作均返回提交完成的 Promise。 */

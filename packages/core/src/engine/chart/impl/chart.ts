@@ -35,20 +35,21 @@ import {
   type ChartRendererAccess,
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
-import {
-  type SymbolInfo,
-  type SymbolSpec,
-  TIME_SHARE_PERIOD,
-} from '../../../controllers/types.js'
+import { isTimeSharePeriod, type SymbolInfo, type SymbolSpec } from '../../../controllers/types.js'
 import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
+import type { CoverageResult } from '../../../data/buffer/types.js'
 import {
   defaultMarketDataContext,
   type MarketDataContext,
 } from '../../../data/management/impl/context.js'
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
-import { AUTO_SOURCE } from '../../../data/provider/types.js'
+import {
+  AUTO_SOURCE,
+  DEFAULT_KLINE_ADJUSTMENT,
+  DEFAULT_KLINE_PERIOD,
+} from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
 import {
@@ -59,13 +60,14 @@ import {
 import type { AlertController, MarketSnapshot } from '../../../features/alerts/types.js'
 import {
   type ChartSettings,
+  resolveKLineGapRatio,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
 import { applyMarketSessions } from '../../../foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
-import { availablePriceRangeModes } from '../../../foundation/config/priceAxisRangeMode.js'
 import type { PriceAxisRangeMode } from '../../../foundation/config/priceAxisRangeMode.js'
+import { availablePriceRangeModes } from '../../../foundation/config/priceAxisRangeMode.js'
 import type { RenderContext } from '../../../foundation/plugin/index.js'
 import {
   createPluginHost,
@@ -81,6 +83,7 @@ import {
   type Signal,
   type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
+import { resolveDisplayTimeZone } from '../../../foundation/time/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
 import type { KLineData } from '../../../foundation/types/price.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../../../foundation/types/scaleType.js'
@@ -122,6 +125,7 @@ import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
+import type { LayoutViewportSnapshot } from '../../layout/index.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { createObjectTree } from '../../objects/impl/createObjectTree.js'
 import { createSystemObjects } from '../../objects/impl/systemObjects.js'
@@ -136,10 +140,20 @@ import {
 } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { CANDLE_RENDERER_NAME } from '../../renderers/rendererIds.js'
+import { LATEST_RIGHT_MARGIN_BARS } from '../../scale/impl/scale_X/scaleXStrategies.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
 import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
 import { ChartZoomController } from '../../viewport/chartZoomController.js'
+import {
+  indexAtOrAfter,
+  indexAtOrBefore,
+  matchActiveRangePreset,
+  type RangePreset,
+  type RangeWindow,
+  resolveRangeWindow,
+  resolveWindowFrame,
+} from '../../viewport/rangePreset.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
 import type {
   ChartDom,
@@ -239,6 +253,10 @@ export class Chart {
   private dataManager: ChartDataManager
   /** 创建时配置的初始缩放级别；`resetChart` 恢复到该档位。 */
   private readonly initialZoomLevel: number
+  /** 品种切换后等待首屏落地的视图意图；null 表示没有待处理意图。 */
+  private pendingView: { readonly snapshot: LayoutViewportSnapshot | null } | null = null
+  /** 可见窗口命中的预置；派生自真实视口，不另存点击状态。 */
+  private readonly _activeRangePreset: ReadonlySignal<RangePreset | null>
 
   /** StateKernel — single source of truth for all chart state */
   readonly kernel: ChartStateKernel
@@ -458,8 +476,6 @@ export class Chart {
         realtimeSubscriptionPool: resolveMarketDataContext(runtime).realtime,
         marketSessions: this.marketSessions,
         getOption: () => this.getRenderOptions(),
-        getZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
-        setZoomLevel: (level) => this.kernel.zoom.actions.setZoomLevel(level),
         getDom: () => this.dom,
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
@@ -467,7 +483,7 @@ export class Chart {
         updateTradeInput: (input) => this.kernel.data.actions.setTrades(input),
         invalidateRequests: () => this.indicatorManager.invalidateMarketData(),
         scheduleDraw: (level) => this.scheduleDraw(level),
-        onBarsReady: () => this.checkVisibleRangeGapWhenIdle(),
+        onBarsReady: () => this.handleBarsReady(),
         resetInteraction: () => {
           this.interaction.reset()
           this.zoomController.stopAnimation()
@@ -481,11 +497,12 @@ export class Chart {
             displayTimestamps,
           ),
         isPointerDown: () => this.interaction.isPointerDown(),
-        setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
+        publishSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
       this.kernel.data,
       this.kernel.dataManager,
     )
+    this._activeRangePreset = computed(() => this.computeActiveRangePreset())
     this.dataManager.marketDataCache.setMaxBytes(
       resolveMarketDataCacheMaxBytes(
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
@@ -535,10 +552,8 @@ export class Chart {
           failedSources: result.failedSources,
         }
       },
-      isHidden: (identity) =>
-        this.kernel.comparison.readonly.hidden.peek().get(identity) === true,
-      setHidden: (identity, hidden) =>
-        this.kernel.comparison.actions.setHidden(identity, hidden),
+      isHidden: (identity) => this.kernel.comparison.readonly.hidden.peek().get(identity) === true,
+      setHidden: (identity, hidden) => this.kernel.comparison.actions.setHidden(identity, hidden),
       getColor: (identity) => this.kernel.comparison.readonly.colors.peek().get(identity),
       scheduleDraw: () => this.scheduleDraw(),
     })
@@ -575,7 +590,8 @@ export class Chart {
       removeRenderer: (layerId) => this.removeRenderer(layerId),
       getRows: () => this.objects.groups.peek().flatMap((group) => group.rows),
       // 主序列对象显示当前品种代码；未选品种时用中性占位文案。
-      getLabel: () => this.kernel.dataManager.readonly.currentSpec.peek()?.symbol ?? '未选择品种',
+      getLabel: () =>
+        this.kernel.dataManager.readonly.currentSpec.peek()?.instrument.symbol ?? '未选择品种',
       addPane: (anchorPaneId, placement) => this.panes.addPane(anchorPaneId, placement),
       paneExists: (paneId) => this.panes.hasPane(paneId),
       removePane: (paneId) => {
@@ -594,8 +610,8 @@ export class Chart {
       clock: runtime?.clock,
       getMarketSession: () => {
         const spec = this.dataManager.symbols.peek()[0]
-        if (!spec?.market) return undefined
-        return this.marketSessions.get(spec.market)
+        if (!spec) return undefined
+        return this.marketSessions.get(spec.instrument.sessionId ?? spec.instrument.exchange)
       },
       getDom: () => this.dom,
       getOption: () => this.getRenderOptions(),
@@ -769,9 +785,9 @@ export class Chart {
           ),
         ),
       getAxisPaneId: (axisId) =>
-        this.paneRenderers.find((renderer) =>
-          renderer.getPane().axes.some((axis) => axis.axisId === axisId),
-        )?.getPane().id,
+        this.paneRenderers
+          .find((renderer) => renderer.getPane().axes.some((axis) => axis.axisId === axisId))
+          ?.getPane().id,
       getPane: (paneId) => this.paneRenderer(paneId)?.getPane(),
       getLayout: (paneId) => this.renderer.getAxisLayout(paneId),
       availableRangeModes: (axisId) =>
@@ -851,7 +867,10 @@ export class Chart {
       axes: resolvePaneAxes(
         panes.map((pane) => pane.id),
         objects,
-        this.readStandaloneDrawingAxes(panes.map((pane) => pane.id), objects),
+        this.readStandaloneDrawingAxes(
+          panes.map((pane) => pane.id),
+          objects,
+        ),
       ),
       indicators: this.indicatorManager.readRuntimeInputs(),
       ranges: this.kernel.axesState.readonly.paneRanges(),
@@ -1095,13 +1114,15 @@ export class Chart {
       const scoped = filterDrawingsInScope(drawings, { ...scope, paneId })
       if (scoped.length === 0) return []
       const axisId = axisGroupId(paneId, AXIS_GROUP_DRAWING)
-      return [{
-        paneId,
-        axisId,
-        decimals: 2,
-        visible: scoped.some((drawing) => drawing.visible),
-        scaleType: preferences.get(axisId) ?? ScaleType.Linear,
-      }]
+      return [
+        {
+          paneId,
+          axisId,
+          decimals: 2,
+          visible: scoped.some((drawing) => drawing.visible),
+          scaleType: preferences.get(axisId) ?? ScaleType.Linear,
+        },
+      ]
     })
   }
 
@@ -1307,13 +1328,111 @@ export class Chart {
   }
 
   /** 捕获当前 K 线视图的视口锚点，供布局文档持久化。 */
+  /** 捕获当前 K 线视图的横向锚点，供切换与布局持久化恢复。 */
   captureViewportSnapshot(): void {
-    this.dataManager.saveActiveKLineViewportSnapshot()
+    const spec = this.dataManager.symbols.peek()[0]
+    if (!spec || isTimeSharePeriod(spec.period)) return
+    const bars = this.dataManager.getData()
+    const range = this.kernel.viewport.readonly.visibleRange.peek()
+    const index = Math.max(0, range.start)
+    const anchor = bars[index]
+    if (!anchor) return
+    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
+    const center = view.worldAtIndex(index)
+    if (center === null || !(view.grid.step > 0)) return
+    this.kernel.dataManager.actions.saveViewportSnapshot(this.viewportSnapshotKey(spec), {
+      anchorTimestamp: anchor.timestamp,
+      anchorOffsetSlots: (center - view.scroll) / view.grid.step,
+      zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
+    })
   }
 
-  /** 请求当前图表缓存覆盖指定左边界。 */
-  ensureDataRange(startTs: number): void {
-    this.dataManager.ensureDataRange(startTs)
+  /** 整体替换主品种（含周期、复权与来源）；视图定位由本类负责。 */
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void {
+    this.selectPrimaryMarket(spec, options?.date)
+  }
+
+  /** 让数据池覆盖到 `fromTs`；唯一的补历史入口，返回时窗口已齐或确认取不到。 */
+  async ensureCoverageFrom(fromTs: number): Promise<CoverageResult> {
+    return this.dataManager.ensureCoverageFrom(fromTs)
+  }
+
+  /** 预置对应的时间窗：终点是最新一根，起点按跨度或年初回推。 */
+  getPresetWindow(preset: RangePreset): RangeWindow | null {
+    return resolveRangeWindow(preset, this.dataManager.getData(), this.displayTimeZone())
+  }
+
+  /** 当前可见窗口命中的预置；不匹配任何预置时为 null。 */
+  get activeRangePreset(): ReadonlySignal<RangePreset | null> {
+    return this._activeRangePreset
+  }
+
+  /**
+   * 把时间窗装进屏幕。
+   *
+   * 时间到索引的换算在这里完成，几何换算交给缩放控制器，两笔状态在同一次提交内落地。
+   *
+   * @param from 窗口最早时间
+   * @param to 窗口最晚时间
+   */
+  frameTimeRange(from: number, to: number): void {
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return
+    const bars = this.dataManager.getData()
+    const start = indexAtOrAfter(bars, from)
+    const end = indexAtOrBefore(bars, to)
+    if (start === null || end === null || end < start) return
+    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
+    const options = this.kernel.options.readonly.options.peek()
+    const frame = resolveWindowFrame({
+      startIndex: start,
+      barCount: end - start + 1,
+      plotWidth: view.viewportWidth,
+      gapRatio: resolveKLineGapRatio(this.kernel.settings.readonly.settings.peek().klineDensity),
+      minKWidth: options.minKWidth,
+      maxKWidth: options.maxKWidth,
+      zoomLevelCount: options.zoomLevelCount,
+    })
+    if (!frame) return
+    this.zoomController.frame(frame)
+    this.scheduleDraw()
+    this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /** 恢复一个已保存的视图：锚点 K 线按保存时的槽位偏移回到原处。 */
+  frameView(view: LayoutViewportSnapshot): void {
+    const bars = this.dataManager.getData()
+    const index = indexAtOrAfter(bars, view.anchorTimestamp)
+    if (index === null) return
+    const offset = Number.isFinite(view.anchorOffsetSlots) ? view.anchorOffsetSlots : -0.5
+    this.zoomController.frame({
+      level: view.zoomLevel,
+      anchorSlot: index + offset,
+    })
+    this.scheduleDraw()
+  }
+
+  /** 与品种、周期、复权和视图绑定的快照键。 */
+  private viewportSnapshotKey(spec: SymbolSpec): string {
+    return `${symbolSpecIdentityKey(spec)}:${spec.period ?? DEFAULT_KLINE_PERIOD}:${spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT}:${ChartDataViewId.KLine}`
+  }
+
+  /** 显示时区：年初、刻度与预置共用同一个来源。 */
+  private displayTimeZone(): string {
+    return resolveDisplayTimeZone(
+      this.kernel.settings.readonly.settings().displayTimeZone === 'local' ? 'local' : 'UTC',
+    )
+  }
+
+  /** 由真实可见窗口派生命中的预置。 */
+  private computeActiveRangePreset(): RangePreset | null {
+    if (this.kernel.mode.readonly.dataView() !== ChartDataViewId.KLine) return null
+    const range = this.kernel.viewport.readonly.visibleRange()
+    return matchActiveRangePreset({
+      bars: this.dataManager.data(),
+      visibleFrom: range.start,
+      visibleTo: range.end,
+      timeZone: this.displayTimeZone(),
+    })
   }
 
   /** K线原始数据（分时模式下为空） */
@@ -1401,7 +1520,8 @@ export class Chart {
 
   /** 滚动到最右侧（最新数据位置） */
   scrollToRight(): void {
-    this.dataManager.scrollToRight()
+    this.kernel.viewport.actions.scrollToLatest()
+    this.scheduleDraw()
     this.checkVisibleRangeGapWhenIdle()
   }
 
@@ -1424,15 +1544,19 @@ export class Chart {
   }
 
   /** 恢复首次进入品种时的 X 轴规则：初始缩放，并按当前数据定位到最新端。 */
-  resetTimeAxis(): void {
-    this.zoom.toLevel(this.initialZoomLevel)
-    this.dataManager.scrollToRight()
+  private frameDefaultTimeAxis(): void {
+    const count = this.dataManager.getData().length
+    this.zoomController.frame({
+      level: this.initialZoomLevel,
+      anchorSlot: count > 0 ? count - 1 + LATEST_RIGHT_MARGIN_BARS : 0,
+    })
+    this.scheduleDraw()
   }
 
   /** 一次提交默认时间视图与价格轴状态，避免消费方看到半重置的视口。 */
   resetChart(): void {
     batch(() => {
-      this.resetTimeAxis()
+      this.frameDefaultTimeAxis()
       this.axes.resetRange(PRICE_SERIES_AXIS_ID)
     })
     this.unlockAxisWidth()
@@ -1782,28 +1906,19 @@ export class Chart {
       this.checkVisibleRangeGap()
   }
 
-  /**
-   * 设置 kline 主品种/周期。对比集合独立于主品种，由 setComparisonSpecs 管理。
-   * 只接受一个主品种；对比品种必须通过独立入口设置。
-   */
-  setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    if (specs.length > 1)
-      throw new RangeError(
-        'setSymbols accepts one primary symbol; use setComparisonSpecs for comparisons',
-      )
-    this.selectPrimaryMarket(specs[0] ?? null)
-  }
-
-  /** 目标验证完成后，把视图、绘图范围和活动行情作为一次通知提交。 */
+  /** 提交主品种切换：先保存当前视图，再交给数据层，最后由本类恢复或定位视图。 */
   private selectPrimaryMarket(primary: SymbolSpec | null, date?: number): void {
     const commitData = this.dataManager.preparePrimarySelection(primary, date)
     const dataView = resolveChartDataView(primary?.period)
     const timeShare = isTimeShareDataView(dataView)
-    const session = timeShare && primary ? resolveSymbolMarketSession(primary, this.marketSessions) : null
+    const session =
+      timeShare && primary
+        ? resolveSymbolMarketSession(primary.instrument, this.marketSessions)
+        : null
     const nextDrawingSymbol = primary ? symbolSpecIdentityKey(primary) : undefined
     const previousPeriod = this.dataManager.symbols.peek()[0]?.period
+    this.captureViewportSnapshot()
     batch(() => {
-      if (timeShare) this.dataManager.saveActiveKLineViewportSnapshot()
       this.cancelDrawingSession()
       this.clearRangeSelection()
       if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
@@ -1817,10 +1932,46 @@ export class Chart {
       this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
       commitData()
       if (primary && !timeShare) {
-        this.dataManager.tryRestoreScrollFromSnapshot()
-        if (primary.period !== undefined) this.kernel.mode.actions.setLastBarPeriod(primary.period)
+        this.kernel.mode.actions.setLastBarPeriod(primary.period ?? DEFAULT_KLINE_PERIOD)
       }
+      this.applyMarketView(primary)
     })
+  }
+
+  /** 切换后立即恢复视图；首屏未到时登记意图，由首批数据落地时消费。 */
+  private applyMarketView(primary: SymbolSpec | null): void {
+    if (!primary || isTimeSharePeriod(primary.period)) {
+      this.pendingView = null
+      return
+    }
+    const snapshot = this.kernel.dataManager.actions.getViewportSnapshot(
+      this.viewportSnapshotKey(primary),
+    )
+    if (this.dataManager.getData().length === 0) {
+      this.pendingView = { snapshot }
+      return
+    }
+    this.pendingView = null
+    this.applyViewOrLatest(snapshot)
+  }
+
+  /** 数据落地后应用登记的视图意图，然后按需继续补齐左缘。 */
+  private handleBarsReady(): void {
+    const pending = this.pendingView
+    if (pending) {
+      this.pendingView = null
+      this.applyViewOrLatest(pending.snapshot)
+    }
+    this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /** 有快照按快照恢复，没有就回到最新端。 */
+  private applyViewOrLatest(snapshot: LayoutViewportSnapshot | null): void {
+    if (snapshot) {
+      this.frameView(snapshot)
+      return
+    }
+    this.scrollToRight()
   }
 
   /** 原子设置 K 线比较折线及生效刻度，不切换视图、工作区或主品种渲染器。 */
@@ -1852,25 +2003,6 @@ export class Chart {
   /** 切换比较折线可见性，保留图例名称和比较选择；写入口收归 comparisonCommands。 */
   setComparisonHidden(identity: string, hidden: boolean): void {
     this.comparisonCommands.setVisible(identity, !hidden)
-  }
-
-  setCurrentSymbol(symbol: string): void {
-    const current = this.dataManager.symbols.peek()[0]
-    if (!current || current.symbol === symbol) return
-    const { id: _id, instrument: _instrument, ...selection } = current
-    this.selectPrimaryMarket({ ...selection, symbol })
-  }
-
-  /** 设置目标周期，在数据切换之前完成视图转移。 */
-  setCurrentPeriod(period: string): void {
-    const current = this.dataManager.symbols.peek()[0]
-    if (current) this.selectPrimaryMarket({ ...current, period })
-  }
-
-  /** 设置历史查询日期，并通过周期入口进入单日分时。 */
-  switchToTimeShareForDate(dateYYYYMMDD: number): void {
-    const current = this.dataManager.symbols.peek()[0]
-    if (current) this.selectPrimaryMarket({ ...current, period: TIME_SHARE_PERIOD }, dateYYYYMMDD)
   }
 
   // ---------- Interaction (Zero-config unified entry) ----------

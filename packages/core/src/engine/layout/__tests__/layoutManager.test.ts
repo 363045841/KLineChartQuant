@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import { createDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
@@ -12,7 +13,6 @@ import { PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
-import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 
 /** 每个用例使用独立数据库，避免归档相互污染。 */
 beforeEach(async () => {
@@ -546,14 +546,8 @@ it('自动保存补写最后一次变更，重新打开恢复活动布局和列�
 
 it('当前品种的完整路由、周期和复权随布局落盘，重新打开交给恢复入口', async () => {
   const symbol: SymbolSpec = {
-    id: 'NASDAQ:AAPL',
-    symbol: 'AAPL',
-    market: 'US',
-    exchange: 'NASDAQ',
-    source: 'fixture',
     period: 'daily',
     adjust: 'splits',
-    params: { exchange: 'NASDAQ' },
     instrument: {
       id: 'NASDAQ:AAPL',
       source: 'fixture',
@@ -605,7 +599,7 @@ it('视口快照随布局文档持久化，切换到该布局时恢复', async (
   try {
     await manager.initialize()
     const key = 'US:AAPL:daily:none:Kline'
-    const snapshot = { anchorTimestamp: 1_700_000_000_000, anchorOffsetPx: 24, zoomLevel: 9 }
+    const snapshot = { anchorTimestamp: 1_700_000_000_000, anchorOffsetSlots: 24, zoomLevel: 9 }
     kernel.dataManager.actions.saveViewportSnapshot(key, snapshot)
     const id = await manager.saveLayout({ name: '带视口' })
     expect(manager.exportLayout().viewport).toEqual({ [key]: snapshot })

@@ -10,8 +10,6 @@ import type { WorkspaceTab } from '../types.js'
 /** 造一份带品种名称的图表品种描述。 */
 function spec(symbol: string, name: string): SymbolSpec {
   return {
-    symbol,
-    market: 'cn',
     instrument: {
       id: symbol,
       source: 'ths',
@@ -19,6 +17,7 @@ function spec(symbol: string, name: string): SymbolSpec {
       name,
       instrumentType: 'stock',
       exchange: 'SSE',
+      sessionId: 'cn',
       capabilities: {},
     },
   }

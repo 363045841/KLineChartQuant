@@ -20,6 +20,7 @@ import type {
   InteractionSnapshot,
   KLineData,
   PaneSpec,
+  RangePreset,
   SubPaneInfo,
   SymbolInfo,
   SymbolSpec,
@@ -101,6 +102,10 @@ export interface MockChartController extends ChartController {
   _setIndicators: (next: ReadonlyArray<IndicatorInstance>) => void
   /** test-only: 写入 settings 快照，驱动依赖设置的 UI 断言 */
   _setSettings: (settings: ChartSettings) => void
+  /** test-only: 写入主品种选择 */
+  _setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
+  /** test-only: 写入派生的命中预置 */
+  _setActiveRangePreset: (preset: RangePreset | null) => void
   _setObjectGroups: (groups: ReturnType<ChartController['objects']['groups']['peek']>) => void
   /** test-only: 切换图表模式，驱动轴布局显示。 */
   _setChartMode: (mode: ReturnType<ChartController['chartMode']['peek']>) => void
@@ -131,6 +136,8 @@ export function createMockChartController(
   const themePreference = opts.theme ?? 'light'
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const chartMode = createSignal<ReturnType<ChartController['chartMode']['peek']>>('kline')
+  const symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+  const activeRangePresetSignal = createSignal<RangePreset | null>(null)
   const settings = createSignal<ChartSettings>({ theme: themePreference })
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const paneScaleTypes = createSignal<ReadonlyMap<string, ScaleType>>(new Map())
@@ -203,7 +210,7 @@ export function createMockChartController(
     data,
     dataLoading: createSignal(false),
     dataError: createSignal<string | null>(null),
-    symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
+    symbols: symbolsSignal,
     theme,
     settings,
     rendererRuntime: createSignal({
@@ -322,16 +329,16 @@ export function createMockChartController(
       throw new Error('测试图表未配置临时计算行情')
     },
     getZoomLevelCount: () => 10,
-    setSymbols: () => {},
+    setPrimaryMarket: () => {},
     registerSymbols: () => {},
     setComparisonSpecs: () => {},
     addComparisonSymbol: () => {},
     setComparisonHidden: () => {},
     removeComparisonSymbol: () => {},
-    setCurrentSymbol: () => {},
-    setCurrentPeriod: () => {},
-    switchToTimeShareForDate: () => {},
-    ensureDataRange: () => {},
+    ensureCoverageFrom: () => Promise.resolve('covered' as const),
+    getPresetWindow: () => null,
+    frameTimeRange: () => {},
+    activeRangePreset: activeRangePresetSignal,
     setTheme: (next) => {
       setThemeCalls.push(next)
       settings.set({ ...settings.peek(), theme: next })
@@ -456,6 +463,8 @@ export function createMockChartController(
   return {
     ...(controller as ChartController),
     _setChartMode: (mode) => chartMode.set(mode),
+    _setSymbols: (next) => symbolsSignal.set(next),
+    _setActiveRangePreset: (preset) => activeRangePresetSignal.set(preset),
     _setObjectGroups: (groups) => objectGroups.set(groups),
     _setSettings: (next) => {
       settings.set(next)

@@ -199,10 +199,10 @@ function projectComparisonRow(
   return {
     identity,
     hidden: context.comparisonHidden?.get(identity) === true,
-    symbol: spec.symbol,
+    symbol: spec.instrument.symbol,
     price,
     bar: cmpItem ?? null,
-    ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
+    name: spec.instrument.name,
     percent,
     color: context.comparisonColors?.get(identity) ?? colors.palette.i2,
     percentColor: legendChangeColor(percent, colors),

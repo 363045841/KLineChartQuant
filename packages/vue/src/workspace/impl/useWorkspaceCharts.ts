@@ -53,7 +53,7 @@ export function useWorkspaceCharts(options: WorkspaceChartsOptions, events: Work
     syncAppearance()
     // Layout 已在控制器就绪前恢复。标签品种仅用于尚未保存布局的首次挂载，
     // 不能覆盖布局里已经恢复的品种、周期及对应工作区。
-    if (tab.spec && controller.symbols.peek().length === 0) controller.setSymbols([tab.spec])
+    if (tab.spec && controller.symbols.peek().length === 0) controller.setPrimaryMarket(tab.spec)
     controllers.set(tabId, controller)
     const syncSpec = () => events.spec(tabId, controller.symbols.peek()[0] ?? null)
     subscriptions.set(tabId, [

@@ -11,7 +11,12 @@ import { runInNewPane } from '@/engine/pane/index.js'
 import type { InstanceMoveTarget } from '@/engine/pane/types.js'
 import { INSTANCE_MOVE_KIND } from '@/engine/pane/types.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
-import { asReadonlySignal, batch, createSignal, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import {
+  asReadonlySignal,
+  batch,
+  createSignal,
+  type ReadonlySignal,
+} from '@/foundation/reactivity/index.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { isKLineDataArray } from '@/foundation/types/price.js'
 import type {
@@ -121,7 +126,7 @@ export class LegendManager implements LegendApi {
     if (!this.deps.comparisons.add(input.spec, input.primary)) return null
     const entry = this.deps.comparisons
       .list()
-      .find((item) => item.spec.symbol === input.spec.symbol)
+      .find((item) => item.spec.instrument.id === input.spec.instrument.id)
     return entry ? `comparison:${entry.identity}` : null
   }
 
@@ -163,8 +168,7 @@ export class LegendManager implements LegendApi {
         ...(patch.params ? { params: patch.params } : {}),
         ...(patch.hidden === undefined ? {} : { hidden: patch.hidden }),
       })
-    if (patch.hidden !== undefined)
-      this.deps.comparisons.setVisible(entry.identity, !patch.hidden)
+    if (patch.hidden !== undefined) this.deps.comparisons.setVisible(entry.identity, !patch.hidden)
     return true
   }
 

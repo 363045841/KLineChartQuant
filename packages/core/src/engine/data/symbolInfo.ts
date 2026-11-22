@@ -1,22 +1,27 @@
 // 本文件把业务 SymbolSpec 映射为可登记的 SymbolInfo 目录条目。
 import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 
-/** 将 SymbolSpec 转为 SymbolInfo；存在 instrument 时优先取其品种信息。 */
+/**
+ * 将业务品种转换为目录条目。
+ *
+ * @param spec 业务品种
+ * @returns 与 instrument 完全一致的目录条目
+ */
 export function symbolInfoFromSpec(spec: SymbolSpec): SymbolInfo {
-  const instrument = spec.instrument
+  const { instrument } = spec
   return {
-    id: spec.id,
-    instrumentType: instrument?.instrumentType,
-    sessionId: instrument?.sessionId ?? spec.market,
-    capabilities: instrument?.capabilities,
-    tickSize: instrument?.tickSize,
-    lotSize: instrument?.lotSize,
-    currency: instrument?.currency,
-    symbol: instrument?.symbol ?? spec.symbol,
-    market: spec.market,
-    description: instrument?.name ?? spec.symbol,
-    exchange: instrument?.exchange ?? spec.exchange,
-    source: spec.source,
-    params: spec.params,
+    id: instrument.id,
+    instrumentType: instrument.instrumentType,
+    sessionId: instrument.sessionId,
+    capabilities: instrument.capabilities,
+    tickSize: instrument.tickSize,
+    lotSize: instrument.lotSize,
+    currency: instrument.currency,
+    symbol: instrument.symbol,
+    market: instrument.sessionId ?? instrument.exchange,
+    description: instrument.name,
+    exchange: instrument.exchange,
+    source: instrument.source,
+    params: instrument.providerRef,
   }
 }

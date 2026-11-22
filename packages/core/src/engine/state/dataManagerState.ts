@@ -52,15 +52,6 @@ export function createDataManagerState() {
         return signals.viewportSnapshots.peek()[key] ?? null
       },
 
-      consumeViewportSnapshot(key: string): LayoutViewportSnapshot | null {
-        const snapshots = signals.viewportSnapshots.peek()
-        const snapshot = snapshots[key]
-        if (!snapshot) return null
-        const { [key]: _, ...remaining } = snapshots
-        signals.viewportSnapshots.set(Object.freeze(remaining))
-        return snapshot
-      },
-
       setRangeInitialized(v: boolean) {
         signals.rangeInitialized.set(v)
       },

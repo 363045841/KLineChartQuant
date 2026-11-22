@@ -14,8 +14,8 @@ import type {
   ChartAgentToolDeps,
   MarketDataTextFormatter,
 } from '../types.js'
-import { createMarketDataTextFormatter } from './marketDataTextFormatter.js'
 import { projectDrawingSnapshot } from './drawingSnapshot.js'
+import { createMarketDataTextFormatter } from './marketDataTextFormatter.js'
 
 /** 将当前选中 id 按选择顺序投影为 Agent 可读取的图元快照。 */
 function projectDrawingSelection(
@@ -43,9 +43,9 @@ function projectDrawingSelection(
 
 type AgentSymbolSpec = ReturnType<ChartAgentControllerDependencies['currentSpec']>
 
-/** spec 的标识字段分散在 instrument 与旧平面字段，逐项收敛避免调用方堆叠可选链。 */
+/** 图表主品种代码；没有主品种时为 null。 */
 function specSymbol(spec: AgentSymbolSpec): string | null {
-  return spec?.instrument?.symbol || spec?.symbol || null
+  return spec?.instrument.symbol ?? null
 }
 
 /** 图表的 Agent 上下文投影；工具能力由 tools/ 声明并注入。 */

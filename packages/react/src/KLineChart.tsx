@@ -180,7 +180,7 @@ export function useKLineChart(
   useEffect(() => {
     if (!controller || appliedRef.current.symbols === symbols) return
     appliedRef.current.symbols = symbols
-    if (symbols !== undefined) controller.setSymbols(symbols)
+    if (symbols !== undefined) controller.setPrimaryMarket(symbols[0] ?? null)
   }, [controller, symbols])
 
   useEffect(() => {

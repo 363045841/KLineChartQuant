@@ -119,7 +119,7 @@ describe('createChartController mount theme', () => {
 
     ctrl.dispose()
     ctrl.dispose()
-    ctrl.setSymbols([])
+    ctrl.setPrimaryMarket(null)
     expect(ctrl.getData()).toEqual([])
     expect(ctrl.removeDrawing('missing')).toBe(false)
     expect(ctrl.getPaneInfo('main')).toBeUndefined()
@@ -145,22 +145,12 @@ describe('createChartController mount theme', () => {
     const first = await createChartController({
       container: firstContainer,
       marketDataContext: host,
-      symbols: [
-        { instrument: firstInstrument, market: 'CN', symbol: 'A', source: 'test', period: 'daily' },
-      ],
+      symbols: [{ instrument: firstInstrument, period: 'daily' }],
     })
     const second = await createChartController({
       container: secondContainer,
       marketDataContext: host,
-      symbols: [
-        {
-          instrument: secondInstrument,
-          market: 'CN',
-          symbol: 'B',
-          source: 'test',
-          period: 'daily',
-        },
-      ],
+      symbols: [{ instrument: secondInstrument, period: 'daily' }],
     })
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     await vi.waitFor(() => expect(second.getData()).toHaveLength(30))
@@ -171,9 +161,7 @@ describe('createChartController mount theme', () => {
     expect(second.agent.getContext()).toMatchObject({ symbol: 'B' })
     first.setTheme('light')
 
-    first.setSymbols([
-      { instrument: secondInstrument, symbol: 'B', market: 'CN', source: 'test', period: 'daily' },
-    ])
+    first.setPrimaryMarket({ instrument: secondInstrument, period: 'daily' })
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     const afterData = first.agent.getContext()
     expect(afterData.symbol).toBe('B')

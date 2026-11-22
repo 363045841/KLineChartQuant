@@ -57,18 +57,18 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('resets the time view before adapting the price axis through the default positioning path', async () => {
+  it('resets the time view through the single frame commit before adapting the price axis', async () => {
     const chart = mountChart()
     try {
       const initialZoom = chart.kernel.zoom.readonly.zoomLevel.peek()
       chart.zoom.toLevel(initialZoom + 2)
-      const position = vi.spyOn(chart['dataManager'], 'scrollToRight')
+      const frame = vi.spyOn(chart['zoomController'], 'frame')
       const price = vi.spyOn(chart.axes, 'resetRange')
       chart.resetChart()
-      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBe(initialZoom)
-      expect(position).toHaveBeenCalledOnce()
+      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBeCloseTo(initialZoom, 5)
+      expect(frame).toHaveBeenCalledOnce()
       expect(price).toHaveBeenCalledWith(PRICE_SERIES_AXIS_ID)
-      expect(position.mock.invocationCallOrder[0]).toBeLessThan(price.mock.invocationCallOrder[0]!)
+      expect(frame.mock.invocationCallOrder[0]).toBeLessThan(price.mock.invocationCallOrder[0]!)
     } finally {
       await chart.destroy()
     }

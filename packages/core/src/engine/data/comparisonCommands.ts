@@ -1,5 +1,6 @@
 // 本文件实现对比品种的统一写原语：消歧、去重、显隐与重绘只有一个入口。
 import type { SymbolSpec } from '../../controllers/types.js'
+import { matchesInstrumentFilter } from '../../data/provider/impl/instrumentSearch.js'
 import type {
   InstrumentDescriptor,
   InstrumentRef,
@@ -7,7 +8,6 @@ import type {
   KnownInstrumentType,
 } from '../../data/provider/types.js'
 import { isFilterableInstrumentType } from '../../data/provider/types.js'
-import { matchesInstrumentFilter } from '../../data/provider/impl/instrumentSearch.js'
 import { COMPARISON_ERROR_CODES, ERROR_CODES, KLineChartError } from '../../errors.js'
 
 import { DEFAULT_COMPARISON_COLOR } from '../chartModel/impl/comparison/comparisonState.js'
@@ -145,7 +145,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     const specs = this.comparisonSpecs()
     const spec =
       specs.find((item) => symbolSpecIdentityKey(item) === target) ??
-      specs.find((item) => item.symbol === target)
+      specs.find((item) => item.instrument.symbol === target)
     if (!spec) throw comparisonNotFound(target)
     const snapshot = this.snapshot(spec)
     this.dependencies.setSpecs(specs.filter((item) => item !== spec))
@@ -161,9 +161,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
   private write(spec: SymbolSpec): SymbolSpec | null {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
-    const existing = specs.find(
-      (item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol,
-    )
+    const existing = specs.find((item) => symbolSpecIdentityKey(item) === identity)
     if (existing !== undefined) return existing
     this.dependencies.registerSpec(spec)
     this.dependencies.setSpecs([...specs, spec])
@@ -173,37 +171,24 @@ export class ComparisonCommands implements ComparisonCommandsApi {
 
   /** 用解析出的品种生成对比 spec；周期与复权由取数层按主图注入。 */
   private specFromInstrument(instrument: InstrumentDescriptor): SymbolSpec {
-    return {
-      id: instrument.id,
-      instrument,
-      symbol: instrument.symbol,
-      market: instrument.sessionId ?? '',
-      exchange: instrument.exchange,
-      source: instrument.source,
-    }
+    return { instrument }
   }
 
-  /** 用调用方显式传入的主品种补齐缺省字段；周期与复权只在取数层按主图注入。 */
+  /** 对比 spec 只保留品种与日期边界；周期与复权恒由主图在取数层注入。 */
   private resolveSpec(input: SymbolSpec, primary: SymbolSpec | null): SymbolSpec {
+    const startDate = input.startDate ?? primary?.startDate
+    const endDate = input.endDate ?? primary?.endDate
     return {
-      ...(input.id === undefined ? {} : { id: input.id }),
-      ...(input.instrument === undefined ? {} : { instrument: input.instrument }),
-      symbol: input.symbol,
-      market: input.market || primary?.market || '',
-      exchange: input.exchange ?? primary?.exchange,
-      source: input.source ?? primary?.source,
-      ...(input.params === undefined ? {} : { params: input.params }),
-      startDate: input.startDate ?? primary?.startDate,
-      endDate: input.endDate ?? primary?.endDate,
-      incremental: input.incremental,
+      instrument: input.instrument,
+      ...(startDate === undefined ? {} : { startDate }),
+      ...(endDate === undefined ? {} : { endDate }),
+      ...(input.incremental === undefined ? {} : { incremental: input.incremental }),
     }
   }
 
   /** 按 identity 取 spec；缺失时抛可纠正错误。 */
   private requireSpec(identity: string): SymbolSpec {
-    const spec = this.comparisonSpecs().find(
-      (item) => symbolSpecIdentityKey(item) === identity,
-    )
+    const spec = this.comparisonSpecs().find((item) => symbolSpecIdentityKey(item) === identity)
     if (!spec) throw comparisonNotFound(identity)
     return spec
   }
@@ -243,12 +228,16 @@ function instrumentNotFoundError(
   const searched = resolution.searchedSources.join(', ') || 'none'
   if (actualMatches.length > 0) {
     const options = actualMatches
-      .map((item) => `${item.instrumentType}@${item.exchange} "${item.name}" (source ${item.source})`)
+      .map(
+        (item) => `${item.instrumentType}@${item.exchange} "${item.name}" (source ${item.source})`,
+      )
       .join('; ')
     return new KLineChartError(
       COMPARISON_ERROR_CODES.INSTRUMENT_NOT_FOUND,
       `Symbol "${symbol}" exists but no instrument matches the given exchange/instrumentType filters. Searched: ${searched}. Actual matches: ${options}.`,
-      { details: { symbol, searchedSources: [...resolution.searchedSources], candidates: options } },
+      {
+        details: { symbol, searchedSources: [...resolution.searchedSources], candidates: options },
+      },
     )
   }
   if (resolution.foundElsewhereSources.length > 0) {
@@ -317,12 +306,12 @@ function toCandidate(instrument: InstrumentDescriptor): ComparisonCandidate {
 function duplicateComparisonError(spec: SymbolSpec, existing: SymbolSpec): KLineChartError {
   return new KLineChartError(
     COMPARISON_ERROR_CODES.DUPLICATE,
-    `Comparison "${spec.symbol}" is already on the chart.`,
+    `Comparison "${spec.instrument.symbol}" is already on the chart.`,
     {
       details: {
-        symbol: spec.symbol,
+        symbol: spec.instrument.symbol,
         identity: symbolSpecIdentityKey(existing),
-        ...(spec.source === undefined ? {} : { source: spec.source }),
+        source: spec.instrument.source,
       },
     },
   )

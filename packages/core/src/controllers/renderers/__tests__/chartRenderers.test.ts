@@ -10,8 +10,8 @@ import {
   installChartDomStubs,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
-import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
+import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import {
   type ChartController,
   type ChartRendererAccess,
@@ -139,7 +139,7 @@ describe('public chart renderer access', () => {
     const controller = await createChartController({
       ...dom,
       marketDataContext: host,
-      symbols: [{ instrument, symbol: 'A', market: 'CN', source: 'test', period: 'daily' }],
+      symbols: [{ instrument, period: 'daily' }],
       settings: { rendererBackend: 'canvas' },
     })
     controllers.push(controller)

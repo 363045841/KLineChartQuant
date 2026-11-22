@@ -91,8 +91,6 @@ export function switchChartSymbol(
   current: ChartSymbolSelection = readChartSymbolSelection(controller),
 ): void {
   const selection = { ...current, ...resolveSelection(item, current) }
-  // 先对齐周期，再写入主序列，保证缓冲区按新周期建立。
-  if (selection.period !== current.period) controller.setCurrentPeriod(selection.period)
   controller.registerSymbols([toLegacySymbolInfo(item)])
-  controller.setSymbols([toSymbolSpec(item, selection)])
+  controller.setPrimaryMarket(toSymbolSpec(item, selection))
 }

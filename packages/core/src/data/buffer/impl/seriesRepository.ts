@@ -2,8 +2,12 @@
 import type { SymbolSpec } from '@/controllers/types.js'
 import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import { immutableMap as mapSnapshot } from '@/foundation/utils/immutableMap.js'
-import type { BarAggregation, KLineAdjustment, KLinePeriod, TradingDate } from '../../provider/types.js'
-import { AUTO_SOURCE } from '../../provider/types.js'
+import type {
+  BarAggregation,
+  KLineAdjustment,
+  KLinePeriod,
+  TradingDate,
+} from '../../provider/types.js'
 import type { TradeBuffer } from '../../trades/types.js'
 import type { KLineBuffer, TimeShareBuffer } from '../types.js'
 
@@ -78,13 +82,6 @@ interface InstrumentSeriesNode {
 /** 图表实例内全部行情序列的只读拓扑。 */
 type SeriesRepositorySnapshot = ReadonlyMap<InstrumentKey, InstrumentSeriesNode>
 
-/** auto 来源解析后的叶子归属结果。 */
-export interface SourceMoveResult {
-  readonly selection: SeriesSelection
-  readonly buffer: KLineBuffer | TimeShareBuffer
-  readonly moved: boolean
-}
-
 /** 统一身份字段，去除首尾空白并避免分隔符碰撞。 */
 function identityPart(value: string | undefined): string {
   return (value ?? '').trim().toUpperCase()
@@ -92,15 +89,17 @@ function identityPart(value: string | undefined): string {
 
 /** 从业务品种生成跨来源共享的市场身份。 */
 export function instrumentKeyFromSpec(spec: SymbolSpec): InstrumentKey {
-  const symbol = spec.instrument?.symbol ?? spec.symbol
-  const exchange = spec.instrument?.exchange ?? spec.exchange
-  return JSON.stringify([identityPart(spec.market), identityPart(exchange), identityPart(symbol)])
+  const { instrument } = spec
+  return JSON.stringify([
+    identityPart(instrument.sessionId ?? instrument.exchange),
+    identityPart(instrument.exchange),
+    identityPart(instrument.symbol),
+  ])
 }
 
-/** 读取请求指定的来源；未指定时以 auto 表达尚未路由的来源策略。 */
+/** 读取请求指定的来源；品种模型始终携带来源。 */
 export function sourceFromSpec(spec: SymbolSpec): Source {
-  const source = spec.source ?? spec.instrument?.source
-  return source?.trim() || AUTO_SOURCE
+  return spec.instrument.source
 }
 
 /** 生成 K 线叶子键，周期、复权和聚合方式共同决定序列身份。 */
@@ -265,41 +264,6 @@ export class SeriesRepository {
     const buffer = create()
     this.register({ ...selection, buffer })
     return buffer
-  }
-
-  /** 将 auto 叶子迁移到首次成功的实际来源节点，不复制或销毁 Buffer。 */
-  moveToSource(selection: SeriesSelection, source: Source): SourceMoveResult {
-    const buffer = this.get(selection)
-    if (!buffer) throw new Error('[SeriesRepository] source selection does not exist')
-    const normalizedSource = source.trim()
-    if (!normalizedSource || normalizedSource === selection.source)
-      return { selection, buffer, moved: false }
-    const next = { ...selection, source: normalizedSource }
-    const collision = this.get(next)
-    if (collision && collision !== buffer) {
-      this.delete(selection)
-      return { selection: next, buffer: collision, moved: false }
-    }
-
-    const current = this._snapshot.peek()
-    const instrument = current.get(selection.instrumentKey)!
-    const sources = new Map(instrument.sources)
-    const dropped = withoutLeaf(instrument.sources.get(selection.source)!, selection)
-    if (isEmptySourceNode(dropped)) sources.delete(selection.source)
-    else sources.set(selection.source, dropped)
-    const registration: SeriesRegistration =
-      selection.kind === SERIES_SELECTION_KIND.bars
-        ? { ...selection, buffer: this.getBars(selection)! }
-        : { ...selection, buffer: this.getTimeShare(selection)! }
-    sources.set(
-      normalizedSource,
-      withLeaf(sources.get(normalizedSource) ?? EMPTY_SOURCE_NODE, registration),
-    )
-
-    const snapshot = new Map(current)
-    snapshot.set(selection.instrumentKey, Object.freeze({ sources: mapSnapshot(sources) }))
-    this._snapshot.set(mapSnapshot(snapshot))
-    return { selection: next, buffer, moved: true }
   }
 
   /** 删除指定叶子并销毁其 Buffer；空 source 和 instrument 节点同步移除。 */

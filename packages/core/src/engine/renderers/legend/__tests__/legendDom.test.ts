@@ -3,6 +3,7 @@
 import eye from '@iconify-icons/tabler/eye'
 import eyeOff from '@iconify-icons/tabler/eye-off'
 import { describe, expect, it, vi } from 'vitest'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { LEGEND_COLLAPSE_HEIGHT_PX } from '@/engine/legend/impl/legendGeometry.js'
 import { projectLegendActions } from '@/engine/legend/impl/projectLegendActions.js'
 import {
@@ -250,7 +251,7 @@ describe('DOM Legend renderer', () => {
           kind: 'comparison',
           paneId: 'main',
           identity: 'id:A',
-          spec: { symbol: 'A', market: 'CN' },
+          spec: makeSymbolSpec({ symbol: 'A', market: 'CN' }),
           hidden: false,
         },
         new Map([['main', []]]),

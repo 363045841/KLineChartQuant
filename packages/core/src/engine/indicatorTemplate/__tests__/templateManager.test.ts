@@ -1,6 +1,7 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证指标模板的保存、覆盖、应用与列表一致性。
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
@@ -123,26 +124,22 @@ it('应用模板只替换指标与副图，商品与周期保持不变', async (
   const own = createManager()
   try {
     registerTestIndicator('MACD')
-    own.kernel.dataManager.actions.setCurrentSpec({
-      symbol: 'BTCUSDT',
-      market: 'crypto',
-      period: '4h',
-    })
+    own.kernel.dataManager.actions.setCurrentSpec(
+      makeSymbolSpec({ symbol: 'BTCUSDT', market: 'crypto', period: '4h' }),
+    )
     addSubIndicator(own.kernel, 'MACD', { fast: 12, slow: 26 })
     await own.manager.initialize()
     const id = await own.manager.saveTemplate({ name: '加密' })
 
     // 换掉图上指标与品种，再应用模板：指标回来，品种不回来。
     own.kernel.indicator.actions.removeInstance('instance-MACD')
-    own.kernel.dataManager.actions.setCurrentSpec({
-      symbol: 'AAPL',
-      market: 'us',
-      period: '1d',
-    })
+    own.kernel.dataManager.actions.setCurrentSpec(
+      makeSymbolSpec({ symbol: 'AAPL', market: 'us', period: '1d' }),
+    )
     await own.manager.applyTemplate({ id })
 
     const spec = own.kernel.dataManager.readonly.currentSpec.peek()
-    expect(spec?.symbol).toBe('AAPL')
+    expect(spec?.instrument.symbol).toBe('AAPL')
     expect(spec?.period).toBe('1d')
     const subPanes = own.kernel.indicator.readonly.subPanes.peek()
     expect(subPanes.map(({ indicatorId }) => indicatorId)).toEqual(['MACD'])

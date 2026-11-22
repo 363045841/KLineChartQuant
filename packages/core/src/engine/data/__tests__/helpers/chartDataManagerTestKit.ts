@@ -31,6 +31,8 @@ import type { ViewportStateModule } from '@/engine/state/viewportState'
 import { createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
 
+import { makeSymbolSpec, type SymbolSpecInput } from './symbolSpecFixture'
+
 /** 不声明实时能力的用例禁止隐式创建网络订阅。 */
 export const inactiveRealtimePool: RealtimeSubscriptionPool = {
   subscribe() {
@@ -119,7 +121,7 @@ export interface MockDataDependenciesOptions {
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
 function createMockDataDependencies(
   dom: ChartDom,
-  setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
+  publishSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   options: MockDataDependenciesOptions = {},
 ): DataDependencies {
   const {
@@ -135,8 +137,6 @@ function createMockDataDependencies(
         ? inactiveRealtimePool
         : options.realtimeSubscriptionPool,
     getOption: () => ({ kWidth: 8, kGap: 2 }),
-    getZoomLevel: () => 1,
-    setZoomLevel: () => {},
     getDom: () => dom,
     viewport: createMockViewport(viewport).viewport,
     comparison: createComparisonState(),
@@ -147,7 +147,7 @@ function createMockDataDependencies(
     updateTradeInput: options.updateTradeInput ?? (() => {}),
     updateIndicatorData: () => {},
     isPointerDown: () => false,
-    setSymbols,
+    publishSymbols,
   }
 }
 
@@ -235,17 +235,17 @@ export function createTestChartDataManager(
 /** 构造接入测试 Provider 的日线品种描述；用例只声明差异。 */
 export function makeTestSymbolSpec(
   symbol: string,
-  overrides: Partial<SymbolSpec> = {},
+  overrides: Partial<SymbolSpecInput> = {},
 ): SymbolSpec {
-  return {
+  return makeSymbolSpec({
     symbol,
     market: 'CN',
+    source: 'test',
     period: 'daily',
     adjust: 'none',
-    source: 'test',
     instrument: instrumentFor(symbol),
     ...overrides,
-  }
+  })
 }
 
 /** 构造 Provider 日线响应；用例只声明数据与增量状态差异。 */

@@ -1,6 +1,7 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
+export { isSymbolSpec } from '../engine/data/symbolSpecGuard.js'
 export type {
   IndicatorTemplateApi,
   IndicatorTemplateApplyResult,
@@ -8,6 +9,7 @@ export type {
   IndicatorTemplateSummary,
 } from '../engine/indicatorTemplate/types.js'
 export { INSTANCE_MOVE_KIND, MAIN_PANE_ID, PANE_HEADER_INSET_PX } from '../engine/pane/types.js'
+export { coarsestPeriod, pickRangePeriod, RANGE_PRESETS } from '../engine/viewport/rangePreset.js'
 export type {
   ChartAgentContextSnapshot,
   ChartAgentController,
@@ -57,6 +59,7 @@ export type {
   ChartIndicatorConfig,
   ChartMountOptions,
   ChartViewport,
+  CoverageResult,
   CreateDrawingInput,
   DataSourceParams,
   DrawingChartAdapter,
@@ -82,6 +85,8 @@ export type {
   PaneGeometry,
   PaneLayoutInfo,
   PaneSpec,
+  RangePreset,
+  RangeWindow,
   SubPaneInfo,
   SymbolInfo,
   SymbolSpec,

@@ -44,8 +44,16 @@ import type {
 } from '../engine/pane/types.js'
 import { INDICATOR_ROLE } from '../engine/state/indicatorRole.js'
 import type { IndicatorInstancePatch } from '../engine/state/indicatorState.js'
+import type { RangePreset, RangeWindow } from '../engine/viewport/rangePreset.js'
+
+export type { RangePreset, RangeWindow } from '../engine/viewport/rangePreset.js'
+
+import type { CoverageResult } from '../data/buffer/types.js'
 import type { ChartAgentController, ChartAgentScripts } from '../features/agent/types.js'
 import type { AlertController } from '../features/alerts/types.js'
+
+export type { CoverageResult } from '../data/buffer/types.js'
+
 import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig } from '../foundation/plugin/types.js'
 import type { ReadonlySignal } from '../foundation/reactivity/index.js'
@@ -158,24 +166,18 @@ export interface SymbolInfo {
 // ---------------------------------------------------------------------------
 
 export interface SymbolSpec {
-  /** 统一行情模型提供的稳定品种 ID；旧调用可暂时缺失。 */
-  id?: string
-  /** 已选品种的统一领域模型；Provider 加载时必须原样使用。 */
-  instrument?: InstrumentDescriptor
-  symbol: string
-  market: string
-  exchange?: string
+  /** 统一行情模型提供的品种；身份、请求路由与展示都只从这里读取。 */
+  instrument: InstrumentDescriptor
+  /** K 线周期；缺省按日线。 */
   period?: string
+  /** 复权方式；缺省不复权。 */
   adjust?: string
-  source?: string
-  params?: DataSourceParams
+  /** 显式历史查询边界；仅历史窗口查询使用。 */
   startDate?: string
   endDate?: string
   /**
-   * Whether incremental loading is supported for this symbol.
-   * When false, the data buffer will not fetch additional data
-   * beyond what was initially provided (e.g. via setInlineData).
-   * Defaults to true when not set.
+   * 该序列是否支持向前分页；缺省支持。
+   * false 表示数据全部由调用方提供，不再向数据源请求更早历史。
    */
   incremental?: boolean
 }
@@ -567,8 +569,8 @@ export interface ChartController
   readonly alertController: AlertController
 
   // ---- Data ----
-  /** 设置 kline 主品种/周期；对比集合独立，由 setComparisonSpecs 管理。 */
-  setSymbols(next: ReadonlyArray<SymbolSpec>): void
+  /** 整体替换 K 线主品种（含周期、复权与来源）；对比集合由 setComparisonSpecs 管理。 */
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void
   /** Register symbols into the available symbol catalog for UI pickers */
   registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
   /** 设置 K 线主图的原生比较折线集合，不改变 chartMode 或主品种。 */
@@ -577,20 +579,24 @@ export interface ChartController
   removeComparisonSymbol(symbol: string): void
   /** 隐藏或显示比较折线，保留品种选择及图例。 */
   setComparisonHidden(identity: string, hidden: boolean): void
-  /** Update the main symbol code without triggering a fetch */
-  setCurrentSymbol(symbol: string): void
-  /** Update the K-line period without triggering a fetch */
-  setCurrentPeriod(period: string): void
-  /** Switch to time-share view for a specific date (YYYYMMDD), e.g. after double-clicking a daily bar */
-  switchToTimeShareForDate(dateYYYYMMDD: number): void
   /** 清除当前图表实例的行情缓存。 */
   clearMarketDataCache(): void
   getData(): ReadonlyArray<KLineData>
   /** 返回 K 线逻辑索引对应的时间戳，供双击切换分时等 UI 操作使用。 */
   getTimestampAtLogicalIndex(index: number): number | null
   getZoomLevelCount(): number
-  /** Request data for dates earlier than the currently loaded window */
-  ensureDataRange(startTs: number): void
+  /**
+   * 让数据池覆盖到 `fromTs` 之后的所有行情；唯一的补历史入口。
+   *
+   * `covered` 窗口已齐；`exhausted` 数据源无法再向前扩；`superseded` 序列已切换。
+   */
+  ensureCoverageFrom(fromTs: number): Promise<CoverageResult>
+  /** 预置对应的时间窗：终点是最新一根，起点按跨度或年初回推。 */
+  getPresetWindow(preset: RangePreset): RangeWindow | null
+  /** 把时间窗装进屏幕。 */
+  frameTimeRange(from: number, to: number): void
+  /** 当前可见窗口命中的预置；不匹配任何预置时为 null。 */
+  readonly activeRangePreset: ReadonlySignal<RangePreset | null>
 
   // ---- Theme ----
   /** 设置主题偏好 light|dark（写 settings） */

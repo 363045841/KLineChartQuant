@@ -179,7 +179,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         if (isDisposed()) throw new Error('图表已销毁')
         batch(() => {
           if (document.currentSymbol !== undefined) {
-            dataMethods.methods.setSymbols(document.currentSymbol ? [document.currentSymbol] : [])
+            dataMethods.methods.setPrimaryMarket(document.currentSymbol ?? null)
           }
           // 品种切换清理旧范围后，再恢复布局中的锁定范围。
           chart.kernel.applyLayout(document)
@@ -208,7 +208,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
   // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
   if (opts.symbols && opts.symbols.length > 0) {
-    chart.setSymbols([opts.symbols[0]!])
+    chart.setPrimaryMarket(opts.symbols[0] ?? null)
     if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
   }
   const layoutSubscriptions = [
@@ -400,6 +400,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     symbolCatalog,
     catalog: indicatorCatalog,
     alertController: chart.alertController,
+    activeRangePreset: chart.activeRangePreset,
     ...dataMethods.methods,
     ...chartMethods,
     ...drawingMethods,

@@ -3,6 +3,7 @@ import type { SymbolSpec } from '@/controllers/types'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createTimeSharePoint } from '@/engine/__tests__/helpers/timeShareTestKit'
 import { projectComparison } from '@/engine/chartModel'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity'
 import { LEGEND_GAP_PX, LEGEND_READOUT_GAP_PX } from '@/engine/legend/impl/legendGeometry'
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types'
@@ -222,7 +223,7 @@ describe('projectLegendContext comparison rows', () => {
   ]
 
   function comparisonDataFor(spec: SymbolSpec): KLineData[] {
-    const base = spec.symbol === 'COMP.A' ? 20 : 30
+    const base = spec.instrument.symbol === 'COMP.A' ? 20 : 30
     return [
       {
         timestamp: 1000,
@@ -250,9 +251,6 @@ describe('projectLegendContext comparison rows', () => {
   }> = [
     {
       spec: {
-        id: 'SH.600000',
-        symbol: '600000',
-        market: 'SH',
         period: 'daily',
         instrument: {
           id: 'SH.600000',
@@ -268,7 +266,7 @@ describe('projectLegendContext comparison rows', () => {
       expectedPercent: 100 / 15,
     },
     {
-      spec: { symbol: 'COMP.A', market: 'CN', period: 'daily' },
+      spec: makeSymbolSpec({ symbol: 'COMP.A', market: 'CN', period: 'daily' }),
       label: 'without id',
       expectedPercent: 10,
     },
@@ -299,12 +297,12 @@ describe('projectLegendContext comparison rows', () => {
 
       expect(result?.comparisons).toEqual([
         {
-          symbol: spec.symbol,
+          symbol: spec.instrument.symbol,
           identity,
           hidden: false,
           price: comparisonDataFor(spec)[1]!.close,
           bar: comparisonDataFor(spec)[1],
-          ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
+          name: spec.instrument.name,
           percent: expectedPercent,
           color: '#123456',
           percentColor: result?.colors?.up,
@@ -314,7 +312,12 @@ describe('projectLegendContext comparison rows', () => {
   )
 
   it('keeps the primary OHLC row when comparison data is not loaded', () => {
-    const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
+    const spec = makeSymbolSpec({
+      id: 'SH.600000',
+      symbol: '600000',
+      market: 'SH',
+      period: 'daily',
+    })
     const context = createMockRenderContext({
       data: mainData,
       period: 'daily',
@@ -329,7 +332,10 @@ describe('projectLegendContext comparison rows', () => {
     const result = projectLegendContext({ context, host: null })
 
     expect(result?.comparisons).toEqual([
-      expect.objectContaining({ symbol: spec.symbol, identity: symbolSpecIdentityKey(spec) }),
+      expect.objectContaining({
+        symbol: spec.instrument.symbol,
+        identity: symbolSpecIdentityKey(spec),
+      }),
     ])
     expect(result?.currentBar?.close).toBe(mainData[1]!.close)
   })

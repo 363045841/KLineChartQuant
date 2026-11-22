@@ -12,6 +12,7 @@ import type {
   TradingDate,
 } from '../../../data/provider/types.js'
 import {
+  isFilterableInstrumentType,
   isTradingDate,
   KLineAdjustment,
   KLinePeriod,
@@ -450,18 +451,16 @@ export function createChartAgentDrawingCommands(
 /** 把领域快照投影成工具视图：只保留模型消费的字段。 */
 function toComparisonView(snapshot: ComparisonSnapshot): ChartAgentComparisonView {
   const { spec } = snapshot
-  const instrument = spec.instrument
-  const name = instrument?.name
-  const exchange = instrument?.exchange ?? spec.exchange
-  const source = instrument?.source ?? spec.source
-  const instrumentType = instrument?.instrumentType
+  const { instrument } = spec
   return Object.freeze({
     identity: snapshot.identity,
-    symbol: spec.symbol,
-    ...(name === undefined ? {} : { name }),
-    ...(exchange === undefined ? {} : { exchange }),
-    ...(source === undefined ? {} : { source }),
-    ...(instrumentType === undefined ? {} : { instrumentType }),
+    symbol: instrument.symbol,
+    name: instrument.name,
+    exchange: instrument.exchange,
+    source: instrument.source,
+    ...(isFilterableInstrumentType(instrument.instrumentType)
+      ? { instrumentType: instrument.instrumentType }
+      : {}),
     color: snapshot.color,
     visible: snapshot.visible,
   })

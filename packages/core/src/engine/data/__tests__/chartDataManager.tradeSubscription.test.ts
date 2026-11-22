@@ -68,12 +68,12 @@ describe('ChartDataManager trade subscription', () => {
           }),
       )
       try {
-        manager.setSymbols([
+        manager.setPrimaryMarket(
           makeTestSymbolSpec('sh.600000', {
             source,
             instrument: { ...instrument, tickSize: 0.1 },
           }),
-        ])
+        )
         manager.reconcileTradeInput()
         expect(connect).not.toHaveBeenCalled()
         const page = makeBarsPage([makeKLine(100), makeKLine(200)])

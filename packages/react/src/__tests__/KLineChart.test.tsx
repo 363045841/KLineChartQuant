@@ -3,8 +3,8 @@
 import type {
   ChartController,
   ChartControllerFactory,
-  SymbolSpec,
   ReadonlySignal,
+  SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { act, render, waitFor } from '@testing-library/react'
 import { Component, createElement, createRef, type ReactNode, StrictMode } from 'react'
@@ -36,7 +36,7 @@ function createFakeController() {
   const theme = fakeSignal<'light' | 'dark'>('light')
   const controller = {
     theme,
-    setSymbols: vi.fn(),
+    setPrimaryMarket: vi.fn(),
     setTheme: vi.fn((next: 'light' | 'dark') => theme.set(next)),
     setSystemTheme: vi.fn(),
     updateSettingsFacade: vi.fn(),
@@ -67,7 +67,19 @@ function deferredFactory() {
   return { factory, fakes, resolveAll }
 }
 
-const selection = (symbol: string): SymbolSpec => ({ symbol, market: 'CN', source: 'test', period: 'daily' })
+const selection = (symbol: string): SymbolSpec => ({
+  instrument: {
+    id: 'test:CN:' + symbol,
+    source: 'test',
+    symbol,
+    name: symbol,
+    instrumentType: 'stock',
+    exchange: 'CN',
+    sessionId: 'CN',
+    capabilities: {},
+  },
+  period: 'daily',
+})
 
 describe('KLineChart', () => {
   afterEach(() => {
@@ -95,7 +107,7 @@ describe('KLineChart', () => {
     expect(ref.current?.getController()).toBe(fake?.asController)
     expect(onReady).toHaveBeenCalledWith(fake?.asController)
     // 挂载时已带入的 data 不重复同步。
-    expect(fake?.controller.setSymbols).not.toHaveBeenCalled()
+    expect(fake?.controller.setPrimaryMarket).not.toHaveBeenCalled()
 
     unmount()
     expect(fake?.controller.dispose).toHaveBeenCalledOnce()
@@ -132,11 +144,11 @@ describe('KLineChart', () => {
     const fake = fakes[0]
 
     rerender(createElement(KLineChart, { factory, symbols: first }))
-    expect(fake?.controller.setSymbols).not.toHaveBeenCalled()
+    expect(fake?.controller.setPrimaryMarket).not.toHaveBeenCalled()
 
     const second = [selection('B')]
     rerender(createElement(KLineChart, { factory, symbols: second }))
-    expect(fake?.controller.setSymbols).toHaveBeenCalledWith(second)
+    expect(fake?.controller.setPrimaryMarket).toHaveBeenCalledWith(second[0])
 
     rerender(createElement(KLineChart, { factory, symbols: second, settings: { theme: 'dark' } }))
     expect(fake?.controller.updateSettingsFacade).toHaveBeenCalledOnce()

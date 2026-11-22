@@ -74,11 +74,7 @@ describe('SourceRouter', () => {
       limit: 2,
     })
     expect(catalogCalls).toBe(1)
-    const info = symbolInfoFromSpec({
-      symbol: instrument.symbol,
-      market: 'CN',
-      instrument: result.instrument,
-    })
+    const info = symbolInfoFromSpec({ instrument: result.instrument })
     expect(info).toMatchObject({ tickSize: 0.01, lotSize: 0.00001, currency: 'USDT' })
   })
 
@@ -294,9 +290,7 @@ describe('SourceRouter', () => {
     const second = createMockMarketDataProvider({
       source: 'baostock',
       fetchBars: reject,
-      search: async () => [
-        { ...baseInstrument, source: 'baostock', id: 'baostock:stock:600519' },
-      ],
+      search: async () => [{ ...baseInstrument, source: 'baostock', id: 'baostock:stock:600519' }],
     })
     registry.register(first, { priority: 2 })
     registry.register(second, { priority: 1 })

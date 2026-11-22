@@ -620,7 +620,6 @@ describe('comparison commands', () => {
   /** 组装对比命令面替身；领域快照带完整 spec，工具视图只做投影。 */
   function fixture() {
     const spec: SymbolSpec = {
-      id: '600519',
       instrument: {
         id: '600519',
         source: 'tdx',
@@ -631,10 +630,6 @@ describe('comparison commands', () => {
         sessionId: 'CN',
         capabilities: {},
       },
-      symbol: '600519',
-      market: 'CN',
-      exchange: 'SSE',
-      source: 'tdx',
     }
     const snapshot: ComparisonSnapshot = {
       identity: 'instrument:tdx:600519',
