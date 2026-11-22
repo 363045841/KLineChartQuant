@@ -37,7 +37,7 @@ describe('ChartDataManager error handling', () => {
       }),
     )
     manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
-    manager.setSymbols([makeTestSymbolSpec('158017')])
+    manager.setPrimaryMarket(makeTestSymbolSpec('158017'))
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     // 只验证镜像链路；取数失败的重试策略由数据层自行覆盖。

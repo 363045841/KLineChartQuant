@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { BACKENDS } from '../../__tests__/backends.js'
 import { barsFromCloses } from '../../__tests__/marketData.js'
-import type { LogEvent } from '../../contracts/output.js'
+import type { LogEvent } from '../../contracts/log.js'
 
 describe('脚本 console', () => {
   it.each(BACKENDS)('$name 输出级别、参数、对象和 bar 索引一致', ({ prepare }) => {

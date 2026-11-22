@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { makeSymbolSpec } from '../../../../core/src/engine/data/__tests__/helpers/symbolSpecFixture.js'
 import { useWorkspaceTabs } from '../impl/useWorkspaceTabs.js'
 import { openWorkspaceTabsStore } from '../impl/workspace-tabs-store.js'
 
@@ -15,7 +16,7 @@ it('页面重新挂载后恢复标签品种、排序与活动项，并始终保�
   const tabs = useWorkspaceTabs('web')
   await tabs.restore(null)
   const first = tabs.activeTabId.value
-  await tabs.setSpec(first, { symbol: 'BTCUSDT', market: 'binance' })
+  await tabs.setSpec(first, makeSymbolSpec({ symbol: 'BTCUSDT', market: 'binance' }))
   await tabs.createTab()
   const second = tabs.activeTabId.value
   await tabs.moveTab(second, first, 'before')
@@ -24,7 +25,7 @@ it('页面重新挂载后恢复标签品种、排序与活动项，并始终保�
   await restored.restore(null)
   expect(restored.tabs.value.map((tab) => tab.id)).toEqual([second, first])
   expect(restored.activeTabId.value).toBe(second)
-  expect(restored.tabs.value[1]?.spec?.symbol).toBe('BTCUSDT')
+  expect(restored.tabs.value[1]?.spec?.instrument.symbol).toBe('BTCUSDT')
   await restored.removeTab(second)
   await restored.removeTab(first)
   expect(restored.tabs.value.map((tab) => tab.id)).toEqual([first])
@@ -42,17 +43,19 @@ async function setup() {
 
 it('初始化后即可接管，源端迟到的品种通知不复活标签，目标新建也不覆盖接管结果', async () => {
   const { source, target } = await setup()
-  const changed = source.setSpec('moved', { symbol: 'SOLUSDT', market: 'binance' })
+  const changed = source.setSpec('moved', makeSymbolSpec({ symbol: 'SOLUSDT', market: 'binance' }))
   const adopted = target.adopt('source', 'moved')
   const created = target.createTab()
   await changed
   expect(await adopted).toEqual({ adopted: true, sourceEmptied: true })
   await created
-  await source.setSpec('moved', { symbol: 'BTCUSDT', market: 'binance' })
+  await source.setSpec('moved', makeSymbolSpec({ symbol: 'BTCUSDT', market: 'binance' }))
   expect(source.tabs.value).toEqual([])
   await target.reload()
   expect(target.tabs.value).toHaveLength(3)
-  expect(target.tabs.value.find((tab) => tab.id === 'moved')?.spec?.symbol).toBe('SOLUSDT')
+  expect(target.tabs.value.find((tab) => tab.id === 'moved')?.spec?.instrument.symbol).toBe(
+    'SOLUSDT',
+  )
   expect(await openWorkspaceTabsStore('source').load()).toEqual({ tabs: [], activeTabId: '' })
   const reopened = useWorkspaceTabs('source')
   await reopened.restore(null)

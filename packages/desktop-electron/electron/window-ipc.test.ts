@@ -12,7 +12,17 @@ const trustedSender = { id: 1 }
 const mainFrame: WindowIpcEvent = { sender: trustedSender, senderFrame: { parent: null } }
 const transferredTab: WorkspaceTab = {
   id: 'tab-1',
-  spec: { symbol: 'SOLUSDT', market: 'binance' },
+  spec: {
+    instrument: {
+      id: 'binance:SOLUSDT',
+      source: 'binance',
+      symbol: 'SOLUSDT',
+      name: 'SOLUSDT',
+      instrumentType: 'crypto',
+      exchange: 'BINANCE',
+      capabilities: {},
+    },
+  },
 }
 
 /** 收集注册的 handler 与两侧替身。 */

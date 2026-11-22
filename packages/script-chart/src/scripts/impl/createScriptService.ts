@@ -25,7 +25,7 @@ import type {
   ScriptServiceOptions,
   ScriptWorkspace,
 } from '../types.js'
-import { createScriptOutput } from './createScriptOutput.js'
+import { createScriptLog } from './createScriptLog.js'
 import { restoreScriptWorkspace } from './restoreScriptWorkspace.js'
 import { saveScriptLibrary } from './saveScriptLibrary.js'
 import {
@@ -57,9 +57,9 @@ export async function createScriptService(
   options: ScriptServiceOptions = {},
 ): Promise<ScriptService> {
   const persistence = options.persistence ?? createScriptPersistence()
-  const output = createScriptOutput()
+  const log = createScriptLog()
   const store = createScriptDocumentStore(libraries)
-  const executor = createScriptExecutor(store, output)
+  const executor = createScriptExecutor(store, log)
   const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
   const folders = restored.folders
   const report = await runIndicatorPipeline([
@@ -143,7 +143,7 @@ export async function createScriptService(
   async function dropDocument(document: ScriptDocument): Promise<void> {
     if (document.kind === 'library') store.deleteLibrary(document.id)
     else unregisterIndicator(document.id)
-    output.remove(document.id)
+    log.remove(document.id)
     await executor.releaseDefinition(document.id)
   }
 
@@ -198,7 +198,7 @@ export async function createScriptService(
   }
 
   return Object.freeze({
-    output: output.source,
+    log: log.source,
     failures: indicatorFailures,
     run(options: ScriptRunOptions) {
       return executor.run(options)
@@ -327,7 +327,7 @@ export async function createScriptService(
       })
     },
     dispose() {
-      output.dispose()
+      log.dispose()
       executor.dispose()
     },
   })

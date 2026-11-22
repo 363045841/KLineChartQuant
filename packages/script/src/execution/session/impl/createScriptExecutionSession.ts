@@ -3,10 +3,10 @@ import {
   type Bar,
   type ComputeDependency,
   type DrawingObject,
-  type PlotCollection,
+  type IndicatorSeries,
   resolveComputeRange,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { LogEvent } from '../../../contracts/output.js'
+import type { LogEvent } from '../../../contracts/log.js'
 import type { ScriptParamValue } from '../../../quickjs/types.js'
 import { createRequestAligner, type RequestAligner } from '../../../request/impl/requestAligner.js'
 import { CURRENT_SYMBOL } from '../../../request/impl/symbols.js'
@@ -59,7 +59,7 @@ function sameParams(
 }
 
 /** 空集合也带绘图字段，宿主不必区分“无绘图”和“未计算”。 */
-function emptyCollection(): PlotCollection {
+function emptyCollection(): IndicatorSeries {
   return { plots: [], fills: [], drawings: [] }
 }
 
@@ -215,7 +215,7 @@ export function createScriptExecutionSession<Checkpoint>(
     mainParams = { ...params }
     runtimeFresh = false
     return {
-      collection: { ...result.collection, drawings: retainedDrawings },
+      series: { ...result.series, drawings: retainedDrawings },
       drawingDelta,
     }
   }
@@ -291,7 +291,7 @@ export function createScriptExecutionSession<Checkpoint>(
         if (bars.length === 0) {
           if (!runtimeFresh) resetMain(params, symbol)
           return {
-            collection: emptyCollection(),
+            series: emptyCollection(),
             drawingDelta: { reset: true, upsert: [], remove: [] },
           }
         }

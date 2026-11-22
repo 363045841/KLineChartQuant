@@ -10,19 +10,19 @@ export interface RunDraftRequest {
   /** 会话身份；调试输出按“会话:标签”归属，不占用定义 id。 */
   readonly sessionId: string
   readonly draft: EditorDraft
-  onOutputId(outputId: string): void
+  onOutputId(logId: string): void
 }
 
 /** 直接运行草稿：不保存、不注册定义，输出按标签身份订阅。 */
 export async function runDraft(request: RunDraftRequest): Promise<void> {
   const { chart, store, sessionId, draft, onOutputId } = request
   if (!chart) throw new Error('当前图表尚未就绪')
-  if (!store?.run || !store.output) throw new Error('此环境没有脚本运行服务')
+  if (!store?.run || !store.log) throw new Error('此环境没有脚本运行服务')
   const run = store.run.bind(store)
-  const outputId = `${sessionId}:${draft.id}`
-  onOutputId(outputId)
+  const logId = `${sessionId}:${draft.id}`
+  onOutputId(logId)
   await chart.withIndicatorData((bars, market) =>
-    run({ outputId, source: draft.source, trusted: draft.trusted, bars, market }),
+    run({ logId, source: draft.source, trusted: draft.trusted, bars, market }),
   )
 }
 

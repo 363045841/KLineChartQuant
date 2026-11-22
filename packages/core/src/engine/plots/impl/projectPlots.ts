@@ -3,10 +3,10 @@
 import {
   createFill,
   createPlot,
+  type IndicatorSeries,
   isOhlcPlot,
   isPricePlot,
   ohlcPlotStart,
-  type PlotCollection,
   PlotKind,
   type ShapeSize,
   validatePlotFills,
@@ -31,7 +31,7 @@ import type {
   ShapePlot,
 } from '../types.js'
 import { queryPlotBounds } from './plotBoundsIndex.js'
-import { isPlotCollection } from './readPlotState.js'
+import { isIndicatorSeries } from './readPlotState.js'
 
 /** 读取计算结果的具名字段，不猜测或转换数值。 */
 function readPlotField(value: unknown, key: string): unknown {
@@ -64,11 +64,11 @@ export function projectPlots(
   timestamp: number,
   colors: ColorTokens,
 ): PlotRenderState {
-  const collection = definition.source === 'collection'
-  const rawCollection = collection ? readCollection(raw) : undefined
+  const series = definition.source === 'series'
+  const rawCollection = series ? readIndicatorSeries(raw) : undefined
   const resolveColor = createScriptColorResolver(colors)
   const { plots, fills } = rawCollection
-    ? readCollectionPlots(rawCollection, resolveColor)
+    ? readIndicatorSeriesPlots(rawCollection, resolveColor)
     : buildSeriesPlots(definition, raw, params, colors)
   // 生产端与投影端各校验一次填充边界，绘制端不再重复。
   validatePlotFills(plots, fills)
@@ -81,43 +81,43 @@ export function projectPlots(
     drawings: rawCollection?.drawings,
     ...plotRange(definition, plots, fills, range),
     guides: rawCollection
-      ? readCollectionHlines(rawCollection, resolveColor)
+      ? readIndicatorSeriesHlines(rawCollection, resolveColor)
       : (definition.guides ?? []).map((guide) => ({
           value: guide.value,
           color: guide.color(colors),
           dash: guide.dash ?? [4, 4],
           width: guide.width ?? 1,
         })),
-    guideFills: rawCollection ? readCollectionGuideFills(rawCollection, resolveColor) : [],
+    guideFills: rawCollection ? readIndicatorSeriesGuideFills(rawCollection, resolveColor) : [],
   }
 }
 
 /** 集合里除 OHLC、箭头和标记之外的图形；颜色解析只关心公共色与逐点颜色。 */
 type ScalarColorPlot = Exclude<Plot, OhlcPlot | ShapePlot | CharPlot | ArrowPlot>
 
-/** 集合型指标必须返回合法 PlotCollection；非法结构在这里统一拒绝。 */
-function readCollection(raw: unknown): PlotCollection {
-  if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
+/** 集合型指标必须返回合法 IndicatorSeries；非法结构在这里统一拒绝。 */
+function readIndicatorSeries(raw: unknown): IndicatorSeries {
+  if (!isIndicatorSeries(raw)) throw new TypeError('Expected IndicatorSeries')
   return raw
 }
 
-/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口，颜色同时换成主题色值。 */
-function readCollectionPlots(
-  collection: PlotCollection,
+/** 读取脚本产出的完整 IndicatorSeries，外来的结构与填充引用在此收口，颜色同时换成主题色值。 */
+function readIndicatorSeriesPlots(
+  series: IndicatorSeries,
   resolveColor: ScriptColorResolver,
 ): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
   return {
-    plots: collection.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
-    fills: collection.fills.map((fill) => resolveFillColors(fill, resolveColor)),
+    plots: series.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
+    fills: series.fills.map((fill) => resolveFillColors(fill, resolveColor)),
   }
 }
 
 /** 脚本 hline 转为渲染层参考线：价格映射 value，颜色换成当前主题值。 */
-function readCollectionHlines(
-  collection: PlotCollection,
+function readIndicatorSeriesHlines(
+  series: IndicatorSeries,
   resolve: ScriptColorResolver,
 ): { value: number; color: string; dash: readonly number[]; width: number }[] {
-  return (collection.hlines ?? []).map((line) => ({
+  return (series.hlines ?? []).map((line) => ({
     value: line.price,
     color: resolve(line.color),
     dash: line.dash,
@@ -126,12 +126,12 @@ function readCollectionHlines(
 }
 
 /** 水平线填充转为价格区间；引用的 id 必须指向本轮声明的水平线。 */
-function readCollectionGuideFills(
-  collection: PlotCollection,
+function readIndicatorSeriesGuideFills(
+  series: IndicatorSeries,
   resolve: ScriptColorResolver,
 ): { from: number; to: number; color: string; visible: boolean }[] {
-  const prices = new Map((collection.hlines ?? []).map((line) => [line.id, line.price]))
-  return (collection.hlineFills ?? []).map((fill) => {
+  const prices = new Map((series.hlines ?? []).map((line) => [line.id, line.price]))
+  return (series.hlineFills ?? []).map((fill) => {
     const from = prices.get(fill.from)
     const to = prices.get(fill.to)
     if (from === undefined || to === undefined)

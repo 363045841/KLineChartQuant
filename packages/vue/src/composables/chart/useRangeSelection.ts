@@ -165,7 +165,7 @@ export function useRangeSelection(options: {
     const selection = rangeSelection.value
     controller.value?.setRangeSelection(targetTs, selection.endTimestamp ?? targetTs)
     if (targetTs < data[0]!.timestamp) {
-      controller.value?.ensureDataRange(targetTs)
+      void controller.value?.ensureCoverageFrom(targetTs).catch(() => {})
     }
   })
 
@@ -176,7 +176,7 @@ export function useRangeSelection(options: {
     const selection = rangeSelection.value
     controller.value?.setRangeSelection(selection.startTimestamp ?? targetTs, targetTs)
     if (targetTs < data[0]!.timestamp) {
-      controller.value?.ensureDataRange(targetTs)
+      void controller.value?.ensureCoverageFrom(targetTs).catch(() => {})
     }
   })
 
@@ -346,7 +346,7 @@ export function useRangeSelection(options: {
     if (timezone === null) return
     const startTs = data[bounds.start]!.timestamp
     const endTs = data[bounds.end]!.timestamp
-    const mainSymbol = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
+    const mainSymbol = controller.value?.symbols.peek()?.[0]?.instrument.symbol ?? 'unknown'
     const batchCodes = batchSymbols.value.filter((c) => c !== mainSymbol)
     const total = 1 + batchCodes.length
     const prefix =
@@ -376,11 +376,11 @@ export function useRangeSelection(options: {
         exportingProgress.value = { current: 1 + i, total, label: `正在获取 ${code}...` }
         try {
           const result = await router.bars({
-            preferredSource: spec?.source,
+            preferredSource: spec?.instrument.source,
             instrument: spec?.instrument,
             symbol: code,
-            exchange: spec?.exchange,
-            instrumentType: spec?.instrument?.instrumentType,
+            exchange: spec?.instrument.exchange,
+            instrumentType: spec?.instrument.instrumentType,
             period,
             adjustment,
             barAggregation: ORIGINAL_BAR_AGGREGATION,

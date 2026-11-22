@@ -155,7 +155,7 @@ flowchart TB
 - 组装 DOM（挂载 canvas、滚动容器、左右轴、时间轴层），支持外部注入已存在的 DOM。
 - 构造 `Chart` 实例，并把内核状态投影为一组 `ReadonlySignal`（viewport、data、
   indicators、theme、paneLayout、interactionState 等）。
-- 暴露命令方法（`setData`、`setSymbols`、`zoomToLevel`、`addIndicator`、
+- 暴露命令方法（`setData`、`setPrimaryMarket`、`zoomToLevel`、`addIndicator`、
   `setDrawingTool`、`handlePointerEvent` 等），全部委托给 `Chart` 门面。
 - Agent 工具以 `packages/core/src/features/agent/tools/` 的纯数据定义声明，由组合根注入领域命令，
   与 UI 命令方法同源。
@@ -242,7 +242,7 @@ flowchart TB
 
 ### 4.1 数据加载
 
-1. 绑定层调用 `controller.setSymbols(spec)`，行情统一由 Provider 链路加载。
+1. 绑定层调用 `controller.setPrimaryMarket(spec)`，行情统一由 Provider 链路加载。
 2. `Chart` 通过 `ChartDataManager` 在 `SeriesRepository` 中定位 / 创建对应 Buffer。
 3. 图表与 Agent 共用图表实例级 `MarketDataCache`；它根据 latest 或时间范围处理缓存覆盖、
    Provider cursor 分页、重试与请求去重。

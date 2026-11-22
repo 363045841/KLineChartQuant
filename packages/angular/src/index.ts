@@ -333,7 +333,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     this.controller?.setTheme(theme)
   }
 
-  setSymbols(next: ReadonlyArray<SymbolSpec>): void {
-    this.controller?.setSymbols(next)
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void {
+    this.controller?.setPrimaryMarket(spec, options)
   }
 }

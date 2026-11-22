@@ -21,9 +21,11 @@ import type { SystemObjectSnapshot } from '../state/systemObjectState.js'
 export const LAYOUT_DOCUMENT_VERSION = 4
 
 /** 单个数据视图可恢复的横向位置：锚点时间 + 相对偏移 + 缩放等级。 */
+/** 单个视图可恢复的横向位置：锚点时间 + 锚点槽位偏移（以槽位计）+ 缩放等级。 */
 export interface LayoutViewportSnapshot {
   readonly anchorTimestamp: number
-  readonly anchorOffsetPx: number
+  /** 锚点 K 线中心相对视口左边缘的偏移，单位是槽位（0 表示贴左边缘）。 */
+  readonly anchorOffsetSlots: number
   readonly zoomLevel: number
 }
 

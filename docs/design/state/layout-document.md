@@ -10,7 +10,7 @@
 | 字段 | 内容 |
 |------|------|
 | `version` | 文档版本号，恢复时据此迁移 |
-| `currentSymbol?` | 主品种完整 `SymbolSpec`（数据源、周期、复权、路由参数）；省略时保留当前选择 |
+| `currentSymbol?` | 主品种完整 `SymbolSpec`（`instrument` + 周期/复权/日期边界）；省略时保留当前选择 |
 | `workspaces` | K 线与分时两个视图的用户指标和 pane 布局 |
 | `panePriceAxisModes` | 各轴价格轴范围模式：`all` / `bars` / `ratio` / `manual` |
 | `panePriceAxisRanges?` | 手动模式的显示范围；自动口径不落盘 |
@@ -68,7 +68,7 @@ ChartStateKernel` 接入。菜单含保存布局、自动保存开关、创建�
 
 ## 当前品种
 
-`currentSymbol` 保存主品种的完整 `SymbolSpec`。恢复时 Controller 通过现有的 `setSymbols`
+`currentSymbol` 保存主品种的完整 `SymbolSpec`。恢复时 Controller 通过现有的 `setPrimaryMarket`
 数据协调入口写回，使行情加载、视图切换与实时订阅保持一致，配置与品种选择在一次 batch 中
 发布。品种变化参与自动保存；新建布局沿用当前品种，复制布局保留来源品种；旧文档缺少该字段
 时保留当前选择，显式 `null` 表示无品种。

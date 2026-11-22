@@ -1,15 +1,11 @@
-/** ChartDataManager 左侧增量加载测试：历史回补、游标推进、提示刷新与并发去重。 */
+/** 覆盖加载契约：一次声明下界，数据层负责翻页、守卫、耗尽与序列切换。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { createMarketDataProvider } from '@/data/provider/protocol/impl/provider'
-import type { MarketDataTransport } from '@/data/provider/protocol/types'
 
 import type { ChartDataManager } from '../chartDataManager'
 import {
   createTestChartDataManager,
   createTestDocument,
   createTestProvider,
-  instrumentFor,
   MS_PER_DAY,
   makeBarsPage,
   makeKLine,
@@ -19,7 +15,7 @@ import {
   unregisterTestProvider,
 } from './helpers/chartDataManagerTestKit'
 
-describe('ChartDataManager incremental load', () => {
+describe('ChartDataManager coverage', () => {
   let manager: ChartDataManager | null = null
   let document: Document
 
@@ -34,211 +30,135 @@ describe('ChartDataManager incremental load', () => {
     vi.unstubAllGlobals()
   })
 
-  // 源级单页能力约束旧品种快照；短页继续推进真实游标，直到源明确声明耗尽。
-  it('continues protocol-limited pages without treating the first short page as exhausted', async () => {
-    const instrument = instrumentFor('sh.600000')
-    const start = Date.now() - 6 * MS_PER_DAY
-    const dataset = Array.from({ length: 6 }, (_, index) => makeKLine(start + index * MS_PER_DAY))
-    const maxBarsPerRequest = 2
-    const fetchBars = vi.fn<MarketDataTransport['fetchBars']>(async (query) => {
-      if (query.limit > maxBarsPerRequest) {
-        throw new Error('transport request exceeds source capability')
-      }
+  /**
+   * 按游标切片、每页最多 `pageSize` 根的日线源。
+   *
+   * 短页是数据源的常态（连接器有单请求上限），覆盖循环必须继续请求，不能把第一页当成全部。
+   */
+  function dailySource(
+    dataset: readonly number[],
+    olderDataFor: (page: number) => 'available' | 'exhausted' = () => 'available',
+    pageSize = 2,
+  ) {
+    let page = 0
+    const fetch = vi.fn(async (query: { beforeTimestamp?: number; limit: number }) => {
       const items = dataset
         .filter(
-          (bar) => query.beforeTimestamp === undefined || bar.timestamp < query.beforeTimestamp,
+          (timestamp) => query.beforeTimestamp === undefined || timestamp < query.beforeTimestamp,
         )
-        .slice(-query.limit)
-      return {
-        instrumentId: instrument.id,
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
-        timezone: 'Asia/Shanghai',
-        items,
-        olderData: items[0] === dataset[0] ? 'exhausted' : 'available',
-      }
+        .slice(-Math.min(query.limit, pageSize))
+        .map(makeKLine)
+      const result = makeBarsPage(items, { olderData: olderDataFor(page) })
+      page += 1
+      return result
     })
-    const provider = createMarketDataProvider({
-      source: { id: 'test', displayName: 'Test' },
-      transport: {
-        probe: async () => ({
-          status: 'online',
-          checkedAt: 1,
-          capabilities: {
-            instrumentTypes: ['stock'],
-            bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
-          },
-        }),
-        searchInstruments: async () => ({
-          items: [{ ...instrument, sourceId: instrument.source }],
-        }),
-        fetchBars,
-        fetchTimeShare: async () => {
-          throw new Error('time share is not declared')
-        },
-      },
-    })
-    await provider.probe()
-    registerTestProvider(provider)
-    manager = createTestChartDataManager(document, {
-      viewport: { scrollLeft: 0 },
-      onBarsReady: () => manager?.checkVisibleRangeGap(),
-    }).manager
-    manager.setSymbols([makeTestSymbolSpec(instrument.symbol)])
+    registerTestProvider(createTestProvider({ fetchBars: { fetch } }))
+    return fetch
+  }
 
-    await vi.waitFor(() => expect(manager!.getData()).toHaveLength(dataset.length))
-    expect(fetchBars).toHaveBeenCalledTimes(3)
-    expect(fetchBars.mock.calls.map(([query]) => query.limit)).toEqual([2, 2, 2])
-    expect(fetchBars.mock.calls.map(([query]) => query.beforeTimestamp)).toEqual([
-      undefined,
-      dataset[4]!.timestamp,
-      dataset[2]!.timestamp,
-    ])
-    expect(manager.getData().map((bar) => bar.timestamp)).toEqual(
-      dataset.map((bar) => bar.timestamp),
-    )
-    expect(manager.dataBuffer.olderData).toBe('exhausted')
-    manager.checkVisibleRangeGap()
-    expect(fetchBars).toHaveBeenCalledTimes(3)
-  })
-
-  it('loads history when the left buffer is visible, regardless of the raw index range', async () => {
-    const start = Date.now() - 100 * MS_PER_DAY
-    const fetchBars = vi.fn(async (query: { beforeTimestamp?: number }) =>
-      makeBarsPage(
-        query.beforeTimestamp === undefined
-          ? Array.from({ length: 100 }, (_, index) => makeKLine(start + index * MS_PER_DAY))
-          : [makeKLine(start - MS_PER_DAY)],
-        { olderData: query.beforeTimestamp === undefined ? 'available' : 'exhausted' },
-      ),
-    )
-    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
-    const harness = createTestChartDataManager(document, {
-      viewport: { scrollLeft: 800, visibleRange: { start: 10, end: 30 } },
-    })
-    manager = harness.manager
-    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+  it.each([
+    ['a covered lower bound', (start: number) => start, 'covered'],
+    ['a negative infinite lower bound', () => Number.NEGATIVE_INFINITY, 'exhausted'],
+  ] as const)('loads pages serially until %s is resolved', async (_label, bound, expected) => {
+    const start = Date.now() - 6 * MS_PER_DAY
+    const dataset = Array.from({ length: 6 }, (_, index) => start + index * MS_PER_DAY)
+    const fetch = dailySource(dataset, (page) => (page < 3 ? 'available' : 'exhausted'))
+    manager = createTestChartDataManager(document).manager
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    harness.scrollTo(799)
-    manager.checkVisibleRangeGap()
-    manager.checkVisibleRangeGap()
-
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
-    expect(fetchBars).toHaveBeenCalledTimes(2)
-    expect(fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ beforeTimestamp: start }))
-    manager.checkVisibleRangeGap()
-    expect(fetchBars).toHaveBeenCalledTimes(2)
+    await expect(manager.ensureCoverageFrom(bound(start))).resolves.toBe(expected)
+    expect(manager.getData().map((bar) => bar.timestamp)).toEqual(dataset)
+    // 每次请求都以上一页最早时间为游标，严格向前推进。
+    const cursors = fetch.mock.calls.map(([query]) => query.beforeTimestamp)
+    expect(cursors[0]).toBeUndefined()
+    expect(cursors.slice(1).every((cursor) => cursor !== undefined)).toBe(true)
   })
 
-  it('continues from a progressed page until the provider reports exhaustion', async () => {
+  it('reports exhaustion without requesting past a source that is already at its end', async () => {
+    const start = Date.now() - MS_PER_DAY
+    const fetch = dailySource([start, start + MS_PER_DAY], () => 'exhausted', 500)
+    manager = createTestChartDataManager(document).manager
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    const initialCalls = fetch.mock.calls.length
+
+    await expect(manager.ensureCoverageFrom(start - 30 * MS_PER_DAY)).resolves.toBe('exhausted')
+
+    expect(fetch.mock.calls.length).toBe(initialCalls)
+  })
+
+  it('stops when a page brings no new history', async () => {
+    const start = Date.now() - MS_PER_DAY
+    const samePage = vi.fn(async () => makeBarsPage([makeKLine(start)], { olderData: 'available' }))
+    registerTestProvider(createTestProvider({ fetchBars: { fetch: samePage } }))
+    manager = createTestChartDataManager(document).manager
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    await expect(manager.ensureCoverageFrom(start - 10 * MS_PER_DAY)).resolves.toBe('exhausted')
+    expect(samePage.mock.calls.length).toBe(2)
+  })
+
+  it('shares one loop between concurrent requests of the same series', async () => {
+    const start = Date.now() - 4 * MS_PER_DAY
+    const dataset = Array.from({ length: 4 }, (_, index) => start + index * MS_PER_DAY)
+    dailySource(dataset)
+    manager = createTestChartDataManager(document).manager
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    const first = manager.ensureCoverageFrom(start)
+    const second = manager.ensureCoverageFrom(start)
+
+    expect(first).toBe(second)
+    await expect(first).resolves.toBe('covered')
+    expect(manager.getData()[0]?.timestamp).toBe(start)
+  })
+
+  it('abandons the loop when the active series changes', async () => {
+    const start = Date.now() - MS_PER_DAY
+    let release!: (value: TestBarSeries) => void
+    let page = 0
+    const fetch = vi.fn(async () => {
+      page += 1
+      if (page === 1) return makeBarsPage([makeKLine(start)], { olderData: 'available' })
+      return new Promise<TestBarSeries>((resolve) => {
+        release = resolve
+      })
+    })
+    registerTestProvider(createTestProvider({ fetchBars: { fetch } }))
+    manager = createTestChartDataManager(document).manager
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    const pending = manager.ensureCoverageFrom(start - 10 * MS_PER_DAY)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000', { period: 'weekly' }))
+    release(makeBarsPage([makeKLine(start - MS_PER_DAY)], { olderData: 'exhausted' }))
+
+    await expect(pending).resolves.toBe('superseded')
+  })
+
+  it('keeps the viewport prefetch as a single-page caller of the same loop', async () => {
     const start = Date.now() - 100 * MS_PER_DAY
-    const fetchBars = vi.fn(async (query: { beforeTimestamp?: number }) =>
-      makeBarsPage(
-        query.beforeTimestamp === undefined
-          ? [makeKLine(start), makeKLine(start + MS_PER_DAY)]
-          : [makeKLine(query.beforeTimestamp - MS_PER_DAY)],
-        {
-          olderData:
-            query.beforeTimestamp === start
-              ? 'available'
-              : query.beforeTimestamp === undefined
-                ? 'available'
-                : 'exhausted',
-        },
-      ),
+    const fetch = dailySource(
+      Array.from({ length: 100 }, (_, index) => start + index * MS_PER_DAY),
+      () => 'available',
+      500,
     )
-    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
     const harness = createTestChartDataManager(document, {
       viewport: { scrollLeft: 0, visibleRange: { start: 0, end: 2 } },
-      onBarsReady: () => manager?.checkVisibleRangeGap(),
     })
     manager = harness.manager
-    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000'))
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    const initialCalls = fetch.mock.calls.length
 
-    await vi.waitFor(() => expect(fetchBars).toHaveBeenCalledTimes(3))
-    expect(manager.dataBuffer.olderData).toBe('exhausted')
+    harness.scrollTo(100)
     manager.checkVisibleRangeGap()
-    expect(fetchBars).toHaveBeenCalledTimes(3)
-  })
-
-  it('flushes the first prepend hint when loading becomes idle', async () => {
-    const now = Date.now()
-    const initialStart = now - 365 * MS_PER_DAY
-    let fetchCount = 0
-    let olderPageCursor: number | undefined
-    registerTestProvider(
-      createTestProvider({
-        fetchBars: {
-          async fetch(query) {
-            fetchCount++
-            if (fetchCount === 2) olderPageCursor = query.beforeTimestamp
-            return makeBarsPage(
-              fetchCount === 1
-                ? [makeKLine(initialStart), makeKLine(now)]
-                : [makeKLine(initialStart - 90 * MS_PER_DAY)],
-              { olderData: fetchCount === 1 ? 'available' : 'exhausted' },
-            )
-          },
-        },
-      }),
-    )
-    const harness = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } })
-    manager = harness.manager
-    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
-
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
-    expect(harness.dataState.readonly.loading.peek()).toBe(false)
-
-    manager.ensureDataRange(initialStart - 30 * MS_PER_DAY)
-
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
-    await vi.waitFor(() => {
-      expect(harness.dataState.readonly.loading.peek()).toBe(false)
-      expect(harness.dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
-    })
-    expect(fetchCount).toBe(2)
-    expect(olderPageCursor).toBe(initialStart)
-    expect(manager.getData()[0]?.timestamp).toBe(initialStart - 90 * MS_PER_DAY)
-  })
-
-  it('does not queue duplicate history merges while one page is loading', async () => {
-    const now = Date.now()
-    const initialStart = now - 365 * MS_PER_DAY
-    let fetchCount = 0
-    let resolveOlder!: (value: TestBarSeries) => void
-    registerTestProvider(
-      createTestProvider({
-        fetchBars: {
-          async fetch() {
-            fetchCount++
-            if (fetchCount === 1) {
-              return makeBarsPage([makeKLine(initialStart), makeKLine(now)], {
-                olderData: 'available',
-              })
-            }
-            return new Promise((resolve) => {
-              resolveOlder = resolve
-            })
-          },
-        },
-      }),
-    )
-    manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
-    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    let dataEvents = 0
-    const unsubscribe = manager.dataBuffer.data.subscribe(() => dataEvents++)
-    manager.ensureDataRange(initialStart - MS_PER_DAY)
-    manager.ensureDataRange(initialStart - MS_PER_DAY)
-    await vi.waitFor(() => expect(fetchCount).toBe(2))
-    resolveOlder(makeBarsPage([makeKLine(initialStart - 90 * MS_PER_DAY)]))
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
-    unsubscribe()
-
-    expect(dataEvents).toBe(1)
-    expect(fetchCount).toBe(2)
+    expect(fetch.mock.calls.length).toBe(initialCalls + 1)
   })
 })

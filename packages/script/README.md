@@ -91,7 +91,7 @@ The built-in `ta` library (`sma`, `ema`, `wma`, `vwma`, `rsi`, `highest`, `lowes
 | Output | `PlotPoint`, `LogEvent` |
 | QuickJS | `QuickJSRunOptions`, `QuickJSScriptDefinition`, `QuickJSLibrary` |
 | Library | `LibraryModules`, `TechnicalAnalysisLibrary` |
-| Plot | `Plot`, `PlotFill`, `PlotCollection` |
+| Plot | `Plot`, `PlotFill`, `IndicatorSeries` |
 | Input schema | `InputSchema`, `ScriptParamValue` |
 
 The Plot data model is shared with the chart engine through

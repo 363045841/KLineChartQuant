@@ -1,6 +1,6 @@
 /** SeriesRepository 单元测试：验证序列身份隔离、拓扑通知和 Buffer 生命周期。 */
 import { describe, expect, it, vi } from 'vitest'
-
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { DataBuffer } from '../buffer/impl/dataBuffer'
 import {
   type BarsSelection,
@@ -38,27 +38,20 @@ function timeShareSelection(overrides: Partial<TimeShareSelection> = {}): TimeSh
 }
 
 describe('SeriesRepository', () => {
-  it('normalizes market identity without including source-private parameters', () => {
-    const left = instrumentKeyFromSpec({
-      market: ' cn ',
-      exchange: 'sh',
+  it('derives instrument identity from the instrument session, exchange and code', () => {
+    const left = makeSymbolSpec({ symbol: '600000', market: 'cn', exchange: 'sh', source: 'gotdx' })
+    const right = makeSymbolSpec({
       symbol: '600000',
-      source: 'gotdx',
-      params: { market: 1 },
-    })
-    const right = instrumentKeyFromSpec({
       market: 'CN',
       exchange: 'SH',
-      symbol: '600000',
       source: 'baostock',
-      params: { providerCode: 'sh.600000' },
     })
 
-    expect(left).toBe(right)
-    expect(instrumentKeyFromSpec({ market: 'HK', exchange: 'HKEX', symbol: '600000' })).not.toBe(
-      left,
-    )
-    expect(sourceFromSpec({ market: 'CN', symbol: '600000' })).toBe('auto')
+    expect(instrumentKeyFromSpec(left)).toBe(instrumentKeyFromSpec(right))
+    expect(
+      instrumentKeyFromSpec(makeSymbolSpec({ symbol: '600000', market: 'HK', exchange: 'HKEX' })),
+    ).not.toBe(instrumentKeyFromSpec(left))
+    expect(sourceFromSpec(right)).toBe('baostock')
   })
 
   it('returns one Buffer for the same identity and isolates source, period and adjustment', () => {
@@ -105,51 +98,6 @@ describe('SeriesRepository', () => {
 
     repository.delete(selection)
     expect(listener).toHaveBeenCalledTimes(2)
-  })
-
-  it('moves an auto leaf to its resolved source in one topology update', () => {
-    const repository = new SeriesRepository()
-    const selection = barsSelection({ source: 'auto' })
-    const buffer = repository.getOrCreateBars(selection, () => new DataBuffer())
-    const listener = vi.fn()
-    repository.snapshot.subscribe(listener)
-
-    const resolved = repository.moveToSource(selection, 'gotdx')
-
-    expect(listener).toHaveBeenCalledTimes(1)
-    expect(repository.getBars(selection)).toBeUndefined()
-    expect(repository.getBars(resolved.selection as BarsSelection)).toBe(buffer)
-    expect(() => (repository.snapshot.peek() as Map<string, unknown>).clear()).toThrow('immutable')
-  })
-
-  it('adopts an existing resolved-source leaf and disposes the duplicate auto Buffer', () => {
-    const repository = new SeriesRepository()
-    const resolvedSelection = barsSelection({ source: 'gotdx' })
-    const autoSelection = barsSelection({ source: 'auto' })
-    const existing = repository.getOrCreateBars(resolvedSelection, () => new DataBuffer())
-    const duplicate = repository.getOrCreateBars(autoSelection, () => new DataBuffer())
-    const dispose = vi.spyOn(duplicate, 'dispose')
-
-    const result = repository.moveToSource(autoSelection, 'gotdx')
-
-    expect(result).toEqual({ selection: resolvedSelection, buffer: existing, moved: false })
-    expect(dispose).toHaveBeenCalledOnce()
-    expect(repository.getBars(autoSelection)).toBeUndefined()
-  })
-
-  it('resolves the same collision policy for time-share leaves', () => {
-    const repository = new SeriesRepository()
-    const resolvedSelection = timeShareSelection({ source: 'gotdx' })
-    const autoSelection = timeShareSelection({ source: 'auto' })
-    const existing = repository.getOrCreateTimeShare(resolvedSelection, () => new TimeShareBuffer())
-    const duplicate = repository.getOrCreateTimeShare(autoSelection, () => new TimeShareBuffer())
-    const dispose = vi.spyOn(duplicate, 'dispose')
-
-    const result = repository.moveToSource(autoSelection, 'gotdx')
-
-    expect(result.buffer).toBe(existing)
-    expect(result.moved).toBe(false)
-    expect(dispose).toHaveBeenCalledOnce()
   })
 
   it('disposes each Buffer once and rejects registration after disposal', () => {

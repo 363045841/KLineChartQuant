@@ -9,6 +9,7 @@ import {
   instrumentFor,
   makeBarsPage,
   makeKLine,
+  makeTestSymbolSpec,
   registerTestProvider,
   unregisterTestProvider,
 } from './helpers/chartDataManagerTestKit'
@@ -44,29 +45,22 @@ describe('ChartDataManager data source isolation', () => {
       }),
     )
     manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
-    manager.setSymbols([
-      {
-        symbol: '000001',
+    manager.setPrimaryMarket(
+      makeTestSymbolSpec('000001', {
         market: 'CN',
-        period: 'daily',
-        source: 'test',
         instrument: { ...instrumentFor('000001'), id: 'test:CN:000001' },
-      },
-    ])
+      }),
+    )
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    manager.setSymbols([
-      {
-        symbol: '000001',
+    manager.setPrimaryMarket(
+      makeTestSymbolSpec('000001', {
         market: 'HK',
-        period: 'daily',
-        source: 'test',
         instrument: { ...instrumentFor('000001'), id: 'test:HK:000001', sessionId: 'HK' },
-      },
-    ])
+      }),
+    )
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     expect(fetchCount).toBe(2)
   })
-
 })

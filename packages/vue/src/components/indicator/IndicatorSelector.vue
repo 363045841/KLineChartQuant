@@ -144,7 +144,7 @@
                 <BaseIconButton
                   class="item-action-btn"
                   :label="`编辑参数：${indicator.name}`"
-                  :disabled="!indicator.params?.length"
+                  :disabled="!indicator.inputs?.length"
                   @click="showParams(indicator.id)"
                 >
                   <IconTablerSettings aria-hidden="true" />
@@ -181,7 +181,7 @@
       :indicator-id="currentIndicator.id"
       :indicator-name="currentIndicatorName"
       :indicator-description="currentIndicator.description"
-      :params="currentIndicator.params || []"
+      :params="currentIndicator.inputs || []"
       :values="getParamValues(currentIndicator.id)"
       @close="paramsVisible = false"
       @confirm="onParamsConfirm"
@@ -359,7 +359,7 @@
   function showParams(indicatorId: string) {
     const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
-    if (!indicator?.params?.length) return
+    if (!indicator?.inputs?.length) return
     currentIndicatorId.value = indicatorId
     currentIndicator.value = indicator
     paramsVisible.value = true
@@ -388,16 +388,16 @@
 
   function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
     const indicator = findIndicatorDefinition(indicatorId)
-    if (!indicator?.params) return {}
+    if (!indicator?.inputs) return {}
 
-    const defaultParams: Record<string, number | string | boolean> = {}
-    for (const p of indicator.params) {
+    const defaultInputs: Record<string, number | string | boolean> = {}
+    for (const p of indicator.inputs) {
       // 选项参数缺少默认值时回退到首个选项，避免非数值默认写入枚举参数。
-      defaultParams[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
+      defaultInputs[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
     const userParams = props.indicatorParams?.[indicatorId] || {}
-    const result: Record<string, number | string | boolean> = { ...defaultParams }
+    const result: Record<string, number | string | boolean> = { ...defaultInputs }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
     for (const [key, value] of Object.entries(userParams)) {

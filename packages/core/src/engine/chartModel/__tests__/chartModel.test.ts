@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { makeSymbolSpec } from '../../data/__tests__/helpers/symbolSpecFixture'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
 import { createChartModel } from '../index'
@@ -93,7 +94,9 @@ describe('chartModel', () => {
     const kernel = createTestChartStateKernel()
 
     const before = kernel.activeRenderers$.peek()
-    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
+    kernel.actions.setComparisonSpecs([
+      makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'daily' }),
+    ])
     expect(kernel.activeRenderers$.peek()).toEqual([
       ...before,
       { name: 'comparisonLine', layerId: 'plugin:comparisonLine' },

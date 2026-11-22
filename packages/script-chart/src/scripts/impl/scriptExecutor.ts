@@ -19,7 +19,7 @@ import {
 } from '@363045841yyt/klinechart-script'
 import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
-import type { createScriptOutput } from './createScriptOutput.js'
+import type { createScriptLog } from './createScriptLog.js'
 import { prepareScriptMarketData } from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 
@@ -47,7 +47,7 @@ interface CompiledEntry {
   readonly source: string
   readonly libraries: readonly QuickJSLibrary[]
   readonly trusted: boolean
-  outputId?: string
+  logId?: string
 }
 
 /**
@@ -58,7 +58,7 @@ interface CompiledEntry {
  */
 export function createScriptExecutor(
   documents: ScriptDocumentStore,
-  output: ReturnType<typeof createScriptOutput>,
+  log: ReturnType<typeof createScriptLog>,
 ) {
   /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
   const compiled = new Map<string, CompiledEntry>()
@@ -71,8 +71,8 @@ export function createScriptExecutor(
   const worker = createScriptWorkerPool({
     onOutput: (handle, events) => {
       // 计算会话与编译句柄共用一条路由，未登记频道的句柄不产生输出。
-      const channel = executionOwners.get(handle) ?? compiled.get(handle)?.outputId
-      if (channel !== undefined) output.append(channel, events)
+      const channel = executionOwners.get(handle) ?? compiled.get(handle)?.logId
+      if (channel !== undefined) log.append(channel, events)
     },
   })
 
@@ -191,18 +191,18 @@ export function createScriptExecutor(
     })
     const previous = definitions.get(identity.id)
     definitions.set(identity.id, script.handle)
-    entry.outputId = identity.id
+    entry.logId = identity.id
     if (previous) await releaseHandle(previous)
     return definition
   }
 
   /** 直接执行一份草稿，不注册也不持久化定义。 */
   async function run(options: ScriptRunOptions): Promise<void> {
-    output.source.clear(options.outputId)
+    log.source.clear(options.logId)
     const script = await compile(options.source, options.trusted)
     const entry = compiled.get(script.handle)
     if (!entry) throw new Error('脚本编译句柄已释放')
-    entry.outputId = options.outputId
+    entry.logId = options.logId
     try {
       await compute(script.handle, options.bars, {}, options.market)
     } finally {

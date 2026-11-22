@@ -15,11 +15,11 @@
 
 - 删除 `ComparisonCommandsDependencies.validateSpec` 及其在 `write` 中的调用，删除 Chart 侧接线。
 - `Chart.configureModeForSpec` 只在 `isTimeSharePeriod` 时解析会话。
-- 分时的合法消费点保持不变：`Chart.setSymbols`（分时主品种）、`configureCurrentTimeShareSession`、`configureModeForSpec` 的分时分支、`chartStateKernel.sessionSlots$`。
+- 分时的合法消费点保持不变：`Chart.setPrimaryMarket`（分时主品种）、`configureCurrentTimeShareSession`、`configureModeForSpec` 的分时分支、`chartStateKernel.sessionSlots$`。
 
 ## 概念区分
 
-- **market 身份**：`SymbolSpec.market`，进入 `symbolIdentityKey`，所有品种必须非空且稳定。
+- **market 身份**：`instrument.sessionId`（回退 `instrument.exchange`），进入 `symbolSpecIdentityKey`，所有品种必须非空且稳定。
 - **trading session**：时区 + 开收盘区间，只有分时消费。
 
 数据源是否声明会话取决于它是否支持分时，而不是它是否需要 market 身份。因此不能用"market 能否解析"判断一个品种是否合法。

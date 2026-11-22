@@ -11,7 +11,7 @@ import {
   resolveInputDefaults,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
-  type IndicatorInputDef,
+  type IndicatorInputDisplay,
   type IndicatorMetadata,
 } from '@/engine/indicators/indicatorMetadata.js'
 import { toPlotBar } from '@/engine/indicators/plotBars.js'
@@ -19,9 +19,9 @@ import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
 import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
 import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 
-/** 提取参数展示声明；默认值与类型仍由 defaultParams 提供，两处不重复存默认值。 */
-function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDef> {
-  const defs: Record<string, IndicatorInputDef> = {}
+/** 提取参数展示声明；默认值与类型仍由 defaultInputs 提供，两处不重复存默认值。 */
+function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDisplay> {
+  const defs: Record<string, IndicatorInputDisplay> = {}
   for (const [key, def] of Object.entries(inputs as Record<string, InputDef<unknown>>)) {
     defs[key] = {
       ...(def.min === undefined ? {} : { min: def.min }),
@@ -64,12 +64,12 @@ export function createPlotIndicatorDefinition<P>(
       format:
         format && format !== Format.price ? (value) => formatPlotValue(format, value) : undefined,
     },
-    plots: { source: 'collection', series: [] },
+    plots: { source: 'series', series: [] },
     getTitleInfo: createPlotTitleInfo(definition.name, format),
     runtime: {
       revision: definition.document?.revision,
       dependency: definition.dependency ?? Object.freeze({ kind: 'stateful' } as const),
-      defaultParams: resolveInputDefaults(definition.inputs),
+      defaultInputs: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
       createCompute: definition.createCompute
         ? () => {

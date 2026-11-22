@@ -1,11 +1,11 @@
 /** 指标参数校验：按定义声明的参数表校验 Agent 输入，返回可修正的问题列表。 */
-import type { IndicatorParamDef } from '@/controllers/types.js'
+import type { IndicatorInputDef } from '@/controllers/types.js'
 
 /** 单条参数问题的分类；模型据此决定改键、改类型还是改范围。 */
 type IndicatorParamIssueReason = 'unknown' | 'missing' | 'type' | 'range' | 'option'
 
 /** 一条参数问题；expected 直接来自定义声明，供错误文案原样展示。 */
-export interface IndicatorParamIssue {
+export interface IndicatorInputIssue {
   readonly key: string
   readonly reason: IndicatorParamIssueReason
   readonly expected: string
@@ -13,12 +13,12 @@ export interface IndicatorParamIssue {
 }
 
 /** 校验结果：成功时只保留已声明的键，失败时一次返回全部问题。 */
-export type IndicatorParamsResult =
-  | { readonly ok: true; readonly params: Readonly<Record<string, unknown>> }
-  | { readonly ok: false; readonly issues: ReadonlyArray<IndicatorParamIssue> }
+export type IndicatorInputsResult =
+  | { readonly ok: true; readonly inputs: Readonly<Record<string, unknown>> }
+  | { readonly ok: false; readonly issues: ReadonlyArray<IndicatorInputIssue> }
 
 /** 校验选项；update 需要完整参数集，add 只校验显式给出的键。 */
-export interface ParseIndicatorParamsOptions {
+export interface ParseIndicatorInputsOptions {
   readonly requireComplete?: boolean
 }
 
@@ -29,13 +29,13 @@ export interface ParseIndicatorParamsOptions {
  * 因为工具 schema 无法为开放字典逐键声明类型。返回的问题按输入顺序排列，
  * 缺少的键按定义顺序追加。
  */
-export function parseIndicatorParams(
-  defs: ReadonlyArray<IndicatorParamDef>,
+export function parseIndicatorInputs(
+  defs: ReadonlyArray<IndicatorInputDef>,
   input: Readonly<Record<string, unknown>>,
-  options: ParseIndicatorParamsOptions = {},
-): IndicatorParamsResult {
+  options: ParseIndicatorInputsOptions = {},
+): IndicatorInputsResult {
   const byKey = new Map(defs.map((def) => [def.key, def]))
-  const issues: IndicatorParamIssue[] = []
+  const issues: IndicatorInputIssue[] = []
   const params: Record<string, unknown> = {}
 
   for (const [key, raw] of Object.entries(input)) {
@@ -60,14 +60,14 @@ export function parseIndicatorParams(
     }
   }
 
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, params }
+  return issues.length > 0 ? { ok: false, issues } : { ok: true, inputs: params }
 }
 
 /** 校验单个值；返回规范化后的值或一条问题。 */
 function checkValue(
-  def: IndicatorParamDef,
+  def: IndicatorInputDef,
   raw: unknown,
-): { readonly value: unknown } | { readonly issue: IndicatorParamIssue } {
+): { readonly value: unknown } | { readonly issue: IndicatorInputIssue } {
   switch (def.type) {
     case 'number': {
       const value = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
@@ -93,20 +93,20 @@ function checkValue(
 
 /** 构造一条带声明约束的问题。 */
 function invalid(
-  def: IndicatorParamDef,
+  def: IndicatorInputDef,
   reason: 'type' | 'range' | 'option',
   received: unknown,
-): IndicatorParamIssue {
+): IndicatorInputIssue {
   return { key: def.key, reason, expected: describeConstraint(def), received }
 }
 
 /** 把参数声明压成一行可读约束，供错误文案列出合法参数。 */
-export function describeParam(def: IndicatorParamDef): string {
+export function describeParam(def: IndicatorInputDef): string {
   return `${def.key} (${describeConstraint(def)})`
 }
 
 /** 只描述约束本身，供“must be …”句式使用，不重复键名。 */
-function describeConstraint(def: IndicatorParamDef): string {
+function describeConstraint(def: IndicatorInputDef): string {
   const constraints: string[] = []
   if (def.type === 'number') {
     if (def.min !== undefined) constraints.push(`min ${def.min}`)

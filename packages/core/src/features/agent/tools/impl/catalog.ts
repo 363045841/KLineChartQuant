@@ -14,17 +14,19 @@ import {
   DRAWINGS_WRITE_METADATA,
 } from './drawings.js'
 import {
+  createIndicatorSeriesQueryTool,
+  INDICATOR_SERIES_QUERY_METADATA,
+} from './indicatorSeries.js'
+import {
   createIndicatorsListTool,
   createIndicatorsWriteTool,
   INDICATORS_LIST_METADATA,
   INDICATORS_WRITE_METADATA,
 } from './indicators.js'
 import {
-  createIndicatorValuesQueryTool,
   createInstrumentsQueryTool,
   createMarketBarsQueryTool,
   createMarketTimeShareQueryTool,
-  INDICATOR_VALUES_QUERY_METADATA,
   INSTRUMENTS_QUERY_METADATA,
   MARKET_BARS_QUERY_METADATA,
   MARKET_TIMESHARE_QUERY_METADATA,
@@ -42,6 +44,7 @@ import {
 export const CHART_TOOL_METADATA: readonly ChartToolMetadata[] = Object.freeze([
   INDICATORS_LIST_METADATA,
   INDICATORS_WRITE_METADATA,
+  INDICATOR_SERIES_QUERY_METADATA,
   DRAWINGS_LIST_METADATA,
   DRAWINGS_WRITE_METADATA,
   COMPARISONS_LIST_METADATA,
@@ -49,7 +52,6 @@ export const CHART_TOOL_METADATA: readonly ChartToolMetadata[] = Object.freeze([
   INSTRUMENTS_QUERY_METADATA,
   MARKET_BARS_QUERY_METADATA,
   MARKET_TIMESHARE_QUERY_METADATA,
-  INDICATOR_VALUES_QUERY_METADATA,
   SCRIPT_REFERENCE_QUERY_METADATA,
   SCRIPTS_READ_METADATA,
   SCRIPTS_WRITE_METADATA,
@@ -65,6 +67,7 @@ export function createChartToolCatalog(deps: ChartAgentToolDeps): readonly Chart
   return Object.freeze([
     createIndicatorsListTool(deps.indicators),
     createIndicatorsWriteTool(deps.indicators),
+    createIndicatorSeriesQueryTool(deps.indicators),
     createDrawingsListTool(deps.drawings),
     createDrawingsWriteTool(deps.drawings),
     createComparisonsListTool(deps.comparisons),
@@ -72,7 +75,6 @@ export function createChartToolCatalog(deps: ChartAgentToolDeps): readonly Chart
     createInstrumentsQueryTool(deps.market),
     createMarketBarsQueryTool(deps.market),
     createMarketTimeShareQueryTool(deps.market),
-    createIndicatorValuesQueryTool(deps.market),
     createScriptReferenceQueryTool(deps.scripts),
     createScriptsReadTool(deps.scripts),
     createScriptsWriteTool(deps.scripts),

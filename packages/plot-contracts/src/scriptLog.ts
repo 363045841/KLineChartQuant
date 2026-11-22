@@ -4,7 +4,7 @@ import type { IndicatorMarketContext } from './market.js'
 
 /** 当前草稿的一次调试执行，不注册或持久化指标。 */
 export interface ScriptRunOptions {
-  readonly outputId: string
+  readonly logId: string
   readonly source: string
   readonly trusted: boolean
   readonly bars: readonly Bar[]
@@ -24,10 +24,10 @@ export interface LogEvent {
 }
 
 /** 按脚本身份订阅有界输出快照；返回值释放订阅。 */
-export interface ScriptOutputSource {
+export interface ScriptLogSource {
   subscribe(id: string, listener: (events: readonly LogEvent[]) => void): () => void
   clear(id: string): void
 }
 
 /** 每个脚本与每次跨线程传输最多保留的日志条数。 */
-export const SCRIPT_OUTPUT_LIMIT = 1000
+export const SCRIPT_LOG_LIMIT = 1000

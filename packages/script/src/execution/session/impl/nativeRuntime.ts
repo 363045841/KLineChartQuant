@@ -1,14 +1,14 @@
 /** 可信脚本的原生运行时：工厂与作用域只创建一次，行情按 bar 增量执行。 */
 import {
+  type IndicatorSeries,
   isPlotKind,
-  type PlotCollection,
   PlotCollector,
   PlotKind,
   timeframeSeconds,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../../contracts/input.js'
-import type { LogEvent } from '../../../contracts/output.js'
+import type { LogEvent } from '../../../contracts/log.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../../errors.js'
 import {
   DRAWING_API_PRELUDE,
@@ -60,7 +60,7 @@ interface NativeRuntime {
   onBar(): void
   requests(): readonly SecurityRequest[]
   expression(id: string): RequestValue
-  drawings(): NonNullable<PlotCollection['drawings']>
+  drawings(): NonNullable<IndicatorSeries['drawings']>
   checkpoint(): NativeCheckpoint
   rollback(checkpoint: NativeCheckpoint): void
   drawingDelta(reset: boolean): DrawingDelta
@@ -279,7 +279,7 @@ export function createNativeScriptRuntime(
     // for 循环退出时游标已越过末根；检查点必须记录已完成 bar 的数量。
     state.index = input.endIndex - 1
     return {
-      collection: { ...state.collector.collect(), drawings: runtime.drawings() },
+      series: { ...state.collector.collect(), drawings: runtime.drawings() },
       values: state.values,
       ...(state.committedCheckpoint === undefined ? {} : { checkpoint: state.committedCheckpoint }),
     }

@@ -4,6 +4,7 @@ import {
   createMockCanvasContext,
   createMockRenderContext,
 } from '@/engine/__tests__/helpers/renderTestKit'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { MAIN_PANE_ID } from '@/engine/pane/types'
 import { createPriceSeriesLayer as createCandleLayer } from '../priceSeries'
 import { PRICE_SERIES_AXIS_ID } from '../rendererIds.js'
@@ -18,7 +19,9 @@ describe('K 线比较叠加', () => {
       data: [{ timestamp: 1, open: 100, high: 110, low: 90, close: 105 }],
       range: { start: 0, end: 1 },
       kLineCenters: [10],
-      comparisonSymbols: comparison ? [{ symbol: 'CMP', market: 'CN', period: 'daily' }] : [],
+      comparisonSymbols: comparison
+        ? [makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'daily' })]
+        : [],
     })
     createCandleLayer(MAIN_PANE_ID).paint({ ...context, paneId: 'main', clear: false })
     expect(ctx.fillRect).toHaveBeenCalled()

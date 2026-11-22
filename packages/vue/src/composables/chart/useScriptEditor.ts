@@ -157,26 +157,24 @@ export function useScriptEditor(
     },
   })
   const logs = shallowRef<readonly LogEvent[]>([])
-  let unsubscribeOutput: (() => void) | undefined
-  const outputId = computed(() =>
-    current.value
-      ? (current.value.outputId ?? current.value.definitionId ?? current.value.id)
-      : null,
+  let unsubscribeLog: (() => void) | undefined
+  const logId = computed(() =>
+    current.value ? (current.value.logId ?? current.value.definitionId ?? current.value.id) : null,
   )
   watch(
-    [outputId, () => unref(sourceStore)],
+    [logId, () => unref(sourceStore)],
     ([id]) => {
-      unsubscribeOutput?.()
-      unsubscribeOutput = undefined
+      unsubscribeLog?.()
+      unsubscribeLog = undefined
       logs.value = []
       if (id !== null)
-        unsubscribeOutput = store?.output?.subscribe(id, (events) => {
+        unsubscribeLog = store?.log?.subscribe(id, (events) => {
           logs.value = events
         })
     },
     { flush: 'sync' },
   )
-  onScopeDispose(() => unsubscribeOutput?.())
+  onScopeDispose(() => unsubscribeLog?.())
 
   /** 仓库只在有服务时可用；缺服务时给出可展示的原因。 */
   function requireStore(): ScriptSourceStore {
@@ -341,11 +339,11 @@ export function useScriptEditor(
           store,
           sessionId,
           draft,
-          onOutputId: (next) => update(draft.id, { outputId: next }),
+          onOutputId: (next) => update(draft.id, { logId: next }),
         })
       } else {
         await addDraftToChart(currentChart(), draft, persistDraft, (document) =>
-          update(draft.id, { outputId: document.id }),
+          update(draft.id, { logId: document.id }),
         )
       }
     } catch (failure) {
@@ -446,7 +444,7 @@ export function useScriptEditor(
     run: () => execute('run'),
     addToChart: () => execute('add-to-chart'),
     clearOutput() {
-      if (outputId.value !== null) store?.output?.clear(outputId.value)
+      if (logId.value !== null) store?.log?.clear(logId.value)
       logs.value = []
     },
     selectTab(id) {

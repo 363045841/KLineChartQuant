@@ -26,10 +26,10 @@ import type {
 import { CHART_TOOL_METADATA, createChartToolCatalog } from '../impl/catalog.js'
 import type { ChartToolDefinition } from '../types.js'
 
-/** 测试用指标定义：两个数值参数，覆盖部分传入与完整替换两种语义。 */
+/** 测试用指标定义：两个数值输入，覆盖部分传入与完整替换两种语义。 */
 const MA_DEFINITION: ChartAgentIndicatorDefinition = {
   indicator: 'MA',
-  params: [
+  inputs: [
     { key: 'period1', label: '周期 1', type: 'number', default: 5, min: 1 },
     { key: 'period2', label: '周期 2', type: 'number', default: 10, min: 1 },
   ],
@@ -38,17 +38,19 @@ const MA_DEFINITION: ChartAgentIndicatorDefinition = {
 /** 构造一个可断言的指标视图。 */
 function view(
   indicator: string,
-  params: Record<string, unknown> = {},
+  inputs: Record<string, unknown> = {},
   row = 0,
   order = 1,
+  name = indicator,
 ): {
   indicator: string
-  params: Record<string, unknown>
+  name: string
+  inputs: Record<string, unknown>
   placement: 'main' | 'sub'
   row: number
   order: number
 } {
-  return { indicator, params, placement: row === 0 ? 'main' : 'sub', row, order }
+  return { indicator, name, inputs, placement: row === 0 ? 'main' : 'sub', row, order }
 }
 
 /** 记录调用的指标命令面替身。 */
@@ -57,11 +59,13 @@ function createIndicators(): ChartAgentIndicatorCommands & {
   readonly updates: Array<[unknown, unknown]>
   readonly moves: Array<[unknown, unknown]>
   readonly removals: unknown[]
+  readonly seriesQueries: unknown[]
 } {
   const added: Array<[string, unknown, string | undefined]> = []
   const updates: Array<[unknown, unknown]> = []
   const moves: Array<[unknown, unknown]> = []
   const removals: unknown[] = []
+  const seriesQueries: unknown[] = []
   const maView = view('MA', { period1: 5, period2: 10 }, 0)
   const rsiView = view('RSI', { period: 14 }, 1)
   return {
@@ -69,15 +73,16 @@ function createIndicators(): ChartAgentIndicatorCommands & {
     updates,
     moves,
     removals,
+    seriesQueries,
     list: () => [maView, rsiView],
     read: (target) => (target.indicator === 'MA' ? maView : rsiView),
-    add: (indicator, params, placement) => {
-      added.push([indicator, params, placement])
-      return view(indicator, { ...(params ?? {}) }, placement === 'sub' ? 1 : 0)
+    add: (indicator, inputs, placement) => {
+      added.push([indicator, inputs, placement])
+      return view(indicator, { ...(inputs ?? {}) }, placement === 'sub' ? 1 : 0)
     },
-    update: (target, params) => {
-      updates.push([target, params])
-      return view(target.indicator, { ...params }, target.row ?? 0, target.order ?? 1)
+    update: (target, inputs) => {
+      updates.push([target, inputs])
+      return view(target.indicator, { ...inputs }, target.row ?? 0, target.order ?? 1)
     },
     move: (target, row) => {
       moves.push([target, row])
@@ -89,8 +94,19 @@ function createIndicators(): ChartAgentIndicatorCommands & {
     },
     resolveDefinition: async (indicator) => {
       if (indicator === 'MA' || indicator === 'ma') return MA_DEFINITION
-      if (indicator === 'MACD') return { indicator: 'MACD', params: [] }
+      if (indicator === 'MACD') return { indicator: 'MACD', inputs: [] }
       return null
+    },
+    series: async (query) => {
+      seriesQueries.push(query)
+      return {
+        series: {
+          columns: [{ id: 'ma', label: 'MA', kind: 'line' }],
+          rows: [[0, '2026-09-01', 1]],
+        },
+        objects: [],
+        hlines: [],
+      }
     },
   }
 }
@@ -166,7 +182,6 @@ function createMarket(): ChartAgentMarketQueries & {
       timeShareCalls.push(input)
       return { content: 'timeshare text', summary: 'Returned time share.' }
     },
-    indicatorValues: async () => 'values text',
   }
 }
 
@@ -291,37 +306,53 @@ describe('chart tool catalog', () => {
     expect(CHART_TOOL_METADATA.map((tool) => tool.name)).toEqual(catalog.map((tool) => tool.name))
   })
 
-  it('指标列表返回名称、位置与当前参数', async () => {
+  it('指标列表返回名称、位置与当前输入', async () => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'indicators_list')
     const result = await tool.execute({}, context())
     expect(JSON.parse(result.content)).toEqual({
       indicators: [
         {
           indicator: 'MA',
-          params: { period1: 5, period2: 10 },
+          name: 'MA',
+          inputs: { period1: 5, period2: 10 },
           placement: 'main',
           row: 0,
           order: 1,
         },
-        { indicator: 'RSI', params: { period: 14 }, placement: 'sub', row: 1, order: 1 },
+        {
+          indicator: 'RSI',
+          name: 'RSI',
+          inputs: { period: 14 },
+          placement: 'sub',
+          row: 1,
+          order: 1,
+        },
       ],
     })
   })
 
   it.each([
     {
-      name: '新增缺省参数交给定义默认值',
+      name: '新增缺省输入交给定义默认值',
       input: { action: 'add', indicator: 'MA' },
       expectedCall: ['MA', {}, undefined],
-      expectedView: { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
+      expectedView: {
+        indicator: 'MA',
+        name: 'MA',
+        inputs: {},
+        placement: 'main',
+        row: 0,
+        order: 1,
+      },
     },
     {
-      name: '新增把别名收敛到规范名称并透传参数与落点',
-      input: { action: 'add', indicator: 'ma', params: { period1: 8 }, placement: 'sub' },
+      name: '新增把别名收敛到规范名称并透传输入与落点',
+      input: { action: 'add', indicator: 'ma', inputs: { period1: 8 }, placement: 'sub' },
       expectedCall: ['MA', { period1: 8 }, 'sub'],
       expectedView: {
         indicator: 'MA',
-        params: { period1: 8 },
+        name: 'MA',
+        inputs: { period1: 8 },
         placement: 'sub',
         row: 1,
         order: 1,
@@ -345,41 +376,41 @@ describe('chart tool catalog', () => {
       name: '未知名称',
       input: { action: 'add', indicator: 'missing' },
       pattern:
-        /Unknown indicator 'missing'.*This chart currently has: MA at row 0 order 1; RSI at row 1 order 1/,
+        /Unknown indicator 'missing'.*This chart currently has: MA \('MA'\) at row 0 order 1; RSI \('RSI'\) at row 1 order 1/,
     },
     {
-      name: '未知参数列出合法键',
-      input: { action: 'add', indicator: 'MA', params: { period: 8 } },
-      pattern: /unknown param 'period'.*Allowed params: period1/,
+      name: '未知输入列出合法键',
+      input: { action: 'add', indicator: 'MA', inputs: { period: 8 } },
+      pattern: /unknown input 'period'.*Allowed inputs: period1/,
     },
     {
-      name: '参数类型错误',
-      input: { action: 'add', indicator: 'MA', params: { period1: 'abc' } },
+      name: '输入类型错误',
+      input: { action: 'add', indicator: 'MA', inputs: { period1: 'abc' } },
       pattern: /'period1' must be number/,
     },
     {
-      name: '参数超出范围',
-      input: { action: 'add', indicator: 'MA', params: { period1: 0 } },
+      name: '输入超出范围',
+      input: { action: 'add', indicator: 'MA', inputs: { period1: 0 } },
       pattern: /'period1' must be number, min 1/,
     },
     {
       name: '拒绝当前 action 不接受的字段',
       input: { action: 'add', indicator: 'MA', targetRow: 1 },
-      pattern: /action=add does not accept targetRow. Allowed fields: indicator, params, placement/,
+      pattern: /action=add does not accept targetRow. Allowed fields: indicator, inputs, placement/,
     },
   ])('新增拒绝：$name', async ({ input, pattern }) => {
     const tool = toolOf(createChartToolCatalog(createDeps()), 'indicators_write')
     await expect(tool.execute(input, context())).rejects.toThrow(pattern)
   })
 
-  it('更新按 target 定位并整体替换参数', async () => {
+  it('更新按 target 定位并整体替换输入', async () => {
     const deps = createDeps()
     const tool = toolOf(createChartToolCatalog(deps), 'indicators_write')
     const result = await tool.execute(
       {
         action: 'update',
         target: { indicator: 'MA', row: 0 },
-        params: { period1: 8, period2: 20 },
+        inputs: { period1: 8, period2: 20 },
       },
       context(),
     )
@@ -392,7 +423,8 @@ describe('chart tool catalog', () => {
     expect(JSON.parse(result.content)).toEqual({
       indicator: {
         indicator: 'MA',
-        params: { period1: 8, period2: 20 },
+        name: 'MA',
+        inputs: { period1: 8, period2: 20 },
         placement: 'main',
         row: 0,
         order: 1,
@@ -402,14 +434,14 @@ describe('chart tool catalog', () => {
 
   it.each([
     {
-      name: '缺少 target 与 params',
+      name: '缺少 target 与 inputs',
       input: { action: 'update' },
-      pattern: /action=update requires target, params/,
+      pattern: /action=update requires target, inputs/,
     },
     {
-      name: '参数不完整时带回当前参数',
-      input: { action: 'update', target: { indicator: 'MA' }, params: { period1: 8 } },
-      pattern: /missing param 'period2'.*Current params.*period1/,
+      name: '输入不完整时带回当前输入',
+      input: { action: 'update', target: { indicator: 'MA' }, inputs: { period1: 8 } },
+      pattern: /missing input 'period2'.*Current inputs.*period1/,
     },
     {
       name: '拒绝 definitionId',
@@ -428,7 +460,14 @@ describe('chart tool catalog', () => {
       context(),
     )
     expect(JSON.parse(result.content)).toEqual({
-      indicator: { indicator: 'RSI', params: {}, placement: 'main', row: 0, order: 1 },
+      indicator: {
+        indicator: 'RSI',
+        name: 'RSI',
+        inputs: {},
+        placement: 'main',
+        row: 0,
+        order: 1,
+      },
     })
   })
 
@@ -439,8 +478,36 @@ describe('chart tool catalog', () => {
       context(),
     )
     expect(JSON.parse(result.content)).toEqual({
-      indicator: { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
+      indicator: {
+        indicator: 'MA',
+        name: 'MA',
+        inputs: {},
+        placement: 'main',
+        row: 0,
+        order: 1,
+      },
     })
+  })
+
+  it('指标序列按输入与时间窗读取，返回列、行与截断信息', async () => {
+    const deps = createDeps()
+    const tool = toolOf(createChartToolCatalog(deps), 'indicator_series_query')
+    const result = await tool.execute(
+      { indicator: 'MA', inputs: { period1: 8 }, from: '2026-09-01', limit: 30 },
+      context(),
+    )
+    expect(deps.indicators.seriesQueries).toEqual([
+      { indicator: 'MA', inputs: { period1: 8 }, from: '2026-09-01', limit: 30 },
+    ])
+    expect(JSON.parse(result.content)).toEqual({
+      series: {
+        columns: [{ id: 'ma', label: 'MA', kind: 'line' }],
+        rows: [[0, '2026-09-01', 1]],
+      },
+      objects: [],
+      hlines: [],
+    })
+    expect(result.summary).toContain('Returned 1 row(s) for MA')
   })
 
   it('不再暴露 clear 动作', async () => {

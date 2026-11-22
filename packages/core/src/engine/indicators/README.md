@@ -18,9 +18,10 @@
 ```text
 StateKernel.data + StateKernel.indicator（配置 SSOT）
   -> ChartIndicatorManager（把 Kernel 实例单向投影为计算实例）
-  -> IndicatorCalculationPlan（按 calculationKey 去重）
-  -> IndicatorCalculationExecutor（调用注册定义的唯一计算端口）
-  -> 任务输出展开为 instanceId 结果池（IndicatorResultPool）
+  -> CalculationPlan（按 calculationKey 去重）
+  -> IndicatorCalculationScheduler（合并输入、执行、发布）
+  -> 任务输出按 calculationKey 写入 IndicatorResultStore
+  -> 按 instanceId 展开为 IndicatorSeriesPool
   -> composeInstanceRenderState（逐 instanceId 生成投影）
   -> createRenderStateReader().get(instanceId)
   -> engine/renderers/Indicator
@@ -79,28 +80,32 @@ indicators/
 
 每次计算按以下规则执行：
 
-1. 从当前实例快照构造 `IndicatorCalculationPlan`，相同 `calculationKey` 的实例合并为一个任务。
-2. `createInstanceCalculationScheduler` 记录 `requestId`，通过定义的计算端口执行任务；Script 定义由 Script 服务委派到 Worker。
-3. 执行器对每个去重任务调用定义的计算端口，产出 `IndicatorCalculationOutput`。
-4. `expandIndicatorCalculationOutputs` 把任务输出展开为按 `instanceId` 索引的 `IndicatorResultPool`。
-5. 仅当 `requestId` 仍是最新、且实例 `calculationRevision` 未变化时提交；过期响应被丢弃，失败明确报告，不切换执行链路。
+1. 从当前实例快照构造 `CalculationPlan`，相同 `calculationKey` 的实例合并为一个任务。
+2. `IndicatorCalculationScheduler.refresh` 把任务合并进 lane：运行中的任务不因行情更新被取消，只替换尚未开始的待执行项；行情更新期间保持“一项运行 + 一项最新待执行”。
+3. 执行器对每个去重任务调用定义的计算端口，产出 `IndicatorSeriesOutput`。
+4. 结果按 `calculationKey` 写入 `IndicatorResultStore`；图表侧由 `snapshot(plan, snapshot)` 展开为按 `instanceId` 索引的 `IndicatorSeriesPool`。
+5. 读取方以 `dataRevision + marketRevision` 判断结果是否有效；失败作为带 `error` 的结果提交，不切换执行链路。
 
 分时视图下结果池会先按 `displayTimestamps` 投影到展示时间轴，再生成渲染状态。
 
-指标定义把计算参数放在 `runtime.defaultParams`，把 `show*` 等展示开关放在
+Agent 的 `indicator_series_query` 通过同一个调度器的 `submit` 提交预览计算：同一身份复用已发布结果或正在运行的任务，结果进入同一仓库，但不进入图表结果池。
+
+指标定义把计算输入放在 `runtime.defaultInputs`，把 `show*` 等展示开关放在
 `presentation.defaultOptions`。展示变更只重建 `renderStates`，不触发计算。多序列指标始终计算
 完整结果，逐线显隐由 Plot 声明的 `show` 输入在投影阶段解析。
 
 ## 结果池与投影
 
-`IndicatorResultPool` 的关键字段：
+`IndicatorSeriesPool` 的关键字段：
 
 - `timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
-- `results`：`Map<instanceId, IndicatorSeriesResult>`，图表与 Agent 共享的业务结果事实源。
-- `dataRevision` / `instanceRevision`：结果对应的行情版本与实例计算版本。
+- `results`：`Map<instanceId, IndicatorResult>`，图表与 Agent 共享的业务结果事实源。
 
-`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, presentation, visibleRange, timestamp, colors)`
-逐实例把结果投影为公共 Plot 状态：展示配置合入 renderer 读取的 `params`，Plot 投影由
+`IndicatorResult` 只承载计算结果本身：`timestamps`、`dataRevision`、`marketRevision`、`series` 与可选的 `error`。
+实例身份由结果池的键承担，计算身份由仓库的键承担，不在结果里重复。
+
+`stateComposer.ts` 的 `composeInstanceRenderState(metadata, result, inputs, presentation, visibleRange, timestamp, colors)`
+逐实例把结果投影为公共 Plot 状态：实例输入与展示配置合入 renderer 读取的 `params`，Plot 投影由
 `plots/impl/projectPlots.ts` 完成；未声明 `plots` 的定义不产生渲染状态。
 提交完成后 `renderStates` 是按 `instanceId` 索引的只读投影；可见范围变化只重算投影，不触发 Worker，
 也不改变业务结果版本。
@@ -120,12 +125,6 @@ interface IndicatorRenderStateReader {
 `ChartRenderer` 在每帧开始时创建 reader 并通过 RenderContext 传入，使同一帧全部 renderer 看到同一份投影。
 
 指标定义变更不能作为参数 patch，`syncPipeline` 采用「删建」，保证 `definitionId` 与计算身份一致。
-
-`outputAlignment` 的语义：
-
-- `bar`：输出序列与 K 线下标对齐，可从 `firstReadyIndex` 识别 warm-up 区间。
-- `aggregate`：输出不按单根 K 线对齐，例如 Structure、Zones、Volume Profile；其
-  `firstReadyIndex` 为 `null`。
 
 ## 服务注册
 
@@ -151,7 +150,7 @@ interface IndicatorRenderStateReader {
 
 - `registerBuiltins.test.ts` / `indicatorDefinitionRegistry.test.ts`：system 定义装配、元数据与注册。
 - `chartIndicatorManager.test.ts`：Kernel 实例投影、调度接线与帧级结果读取。
-- `instanceCalculationScheduler.test.ts` / `instanceCalculationRuntime.test.ts`：去重计划、请求门控与结果池展开。
+- `indicatorCalculationScheduler.test.ts` / `indicatorCalculator.test.ts`：去重计划、请求门控与结果池展开。
 - `stateComposer.test.ts`：实例结果到 Plot 状态的投影。
 - `projection/`：计算时间轴到展示时间轴的投影。
 

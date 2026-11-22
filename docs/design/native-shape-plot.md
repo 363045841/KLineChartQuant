@@ -1,6 +1,6 @@
 # 原生 Shape Plot
 
-Shape 作为现有 Plot 的第四种 kind，沿用指标计算、PlotCollector、PlotCollection、范围投影和 Plot Layer。不存在 Marker 状态、独立 Layer 或脚本专用渲染链路。Char 和变长 Arrow 不在本次范围内。
+Shape 作为现有 Plot 的第四种 kind，沿用指标计算、PlotCollector、IndicatorSeries、范围投影和 Plot Layer。不存在 Marker 状态、独立 Layer 或脚本专用渲染链路。Char 和变长 Arrow 不在本次范围内。
 
 共享契约定义 12 种 style、5 种 location 和 6 种 size。宿主将同一组枚举注入 QuickJS，编辑器从契约生成声明；不再维护 VM 专属的 PlotKind 取值。
 

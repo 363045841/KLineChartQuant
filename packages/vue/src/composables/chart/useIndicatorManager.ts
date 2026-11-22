@@ -38,7 +38,7 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
 
   /** 创建入口读取目录默认值，已有实例参数不会被布局逻辑重新解释。 */
   function getDefaultParams(indicatorId: SubIndicatorType): Record<string, unknown> {
-    return { ...getIndicatorDescriptor(indicatorId)?.defaultParams }
+    return { ...getIndicatorDescriptor(indicatorId)?.defaultInputs }
   }
 
   /** 目录类别仅决定默认创建位置，不决定实例当前归属。 */

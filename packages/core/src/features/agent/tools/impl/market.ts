@@ -7,7 +7,6 @@ import type {
   ChartAgentMarketCapability,
   ChartAgentMarketQueries,
   ChartAgentMarketSource,
-  IndicatorQueryInput,
   InstrumentLookupInput,
   TimeShareQueryInput,
 } from '../../types.js'
@@ -19,7 +18,6 @@ import {
   InstrumentTypeParameter,
 } from './instrumentParameters.js'
 
-const INDICATOR_QUERY_MAX_LIMIT = 2000
 /** 单次返回的 K 线根数上限；区间由 from/to 表达，不再按根数翻页。 */
 const BARS_QUERY_MAX_LIMIT = 2000
 const BARS_QUERY_DEFAULT_LIMIT = 200
@@ -61,14 +59,6 @@ export const MARKET_TIMESHARE_QUERY_METADATA: ChartToolMetadata = {
   label: 'Query market time share',
   description:
     'Fetch intraday time share for any symbol. Omit tradingDate to use the latest trading day with data; days returns that many trading days ending at tradingDate, each with its own preClose. Multi-day requests need a source that supports timeShareRange.',
-  effect: 'read',
-}
-
-export const INDICATOR_VALUES_QUERY_METADATA: ChartToolMetadata = {
-  name: 'indicator_values_query',
-  label: 'Query indicator values',
-  description:
-    'Calculate a registered chart indicator over all active K-line data and return compact text. Use definitionId, optional numeric calculation params, and a bounded result limit.',
   effect: 'read',
 }
 
@@ -241,35 +231,6 @@ export function createMarketTimeShareQueryTool(
         context,
       )
       return textResult(result.content, result.summary)
-    },
-  }
-}
-
-/** 计算指标数值序列。 */
-export function createIndicatorValuesQueryTool(
-  market: ChartAgentMarketQueries,
-): ChartToolDefinition {
-  return {
-    ...INDICATOR_VALUES_QUERY_METADATA,
-    parameters: Type.Object(
-      {
-        definitionId: Type.String({ minLength: 1 }),
-        params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
-      },
-      { additionalProperties: false },
-    ),
-    summarizeInput: (input) => (input as IndicatorQueryInput).definitionId,
-    async execute(input) {
-      const args = input as IndicatorQueryInput
-      return textResult(
-        await market.indicatorValues({
-          definitionId: args.definitionId,
-          ...(args.params === undefined ? {} : { params: args.params }),
-          ...(args.limit === undefined ? {} : { limit: args.limit }),
-        }),
-        `Computed ${args.definitionId}.`,
-      )
     },
   }
 }

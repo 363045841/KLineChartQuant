@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'
 import { CHART_AGENT_ERROR_CODES } from '@/errors'
@@ -43,6 +44,7 @@ function stubTools(): ChartAgentToolDeps {
       move: unused,
       remove: unused,
       resolveDefinition: async () => null,
+      series: unused,
     },
     drawings: {
       list: () => ({ timezone: 'UTC', period: 'daily', drawings: [] }),
@@ -61,7 +63,6 @@ function stubTools(): ChartAgentToolDeps {
       lookup: async () => ({ content: '', summary: '' }),
       bars: async () => ({ content: '', summary: '' }),
       timeShare: async () => ({ content: '', summary: '' }),
-      indicatorValues: async () => '',
     },
     scripts: {
       listReferenceTopics: () => [],
@@ -84,14 +85,18 @@ function createFixture() {
   const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const controller = createChartAgentController({
     dataState,
-    currentSpec: createSignal<SymbolSpec | null>({
-      symbol: 'BTCUSDT',
-      market: 'crypto',
-      exchange: 'BINANCE',
-      period: 'daily',
-      adjust: 'none',
-      source: 'fixture',
-    }),
+    currentSpec: createSignal<SymbolSpec | null>(
+      makeSymbolSpec({
+        symbol: 'BTCUSDT',
+        market: 'crypto',
+        exchange: 'BINANCE',
+        name: 'BTCUSDT',
+        instrumentType: 'crypto',
+        period: 'daily',
+        adjust: 'none',
+        source: 'fixture',
+      }),
+    ),
     selectedRange,
     drawings,
     selectedDrawingIds,
@@ -137,7 +142,7 @@ describe('chart agent context', () => {
     const context = controller.getContext()
     expect(context).toEqual({
       symbol: 'BTCUSDT',
-      symbolName: null,
+      symbolName: 'BTCUSDT',
       timezone: 'UTC',
       visibleRange: null,
       selectedKLineBars: null,

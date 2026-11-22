@@ -1,5 +1,5 @@
 /**
- * PlotCollector：把逐 bar 的 onPlot / onFill 输出汇聚成按 K 线对齐的 PlotCollection。
+ * PlotCollector：把逐 bar 的 onPlot / onFill 输出汇聚成按 K 线对齐的 IndicatorSeries。
  *
  * 它把散落的 (name, barIndex, point) 收成每个 Plot 的列：
  * Plot 按首次出现的 name 建立条目，类型取调用处，缺省为折线；
@@ -27,12 +27,12 @@ import {
   type CharPlot,
   type ColumnsPlot,
   type HistogramPlot,
+  type IndicatorSeries,
   type LineBRPlot,
   type LinePlot,
   type OhlcPlot,
   type OhlcPlotPoint,
   type Plot,
-  type PlotCollection,
   type PlotFill,
   PlotKind,
   type PlotPoint,
@@ -60,7 +60,7 @@ export interface PlotCollectorOptions {
   readonly barCount: number
 }
 
-/** 按 name / barIndex 汇聚绘图点，最终产出 PlotCollection。 */
+/** 按 name / barIndex 汇聚绘图点，最终产出 IndicatorSeries。 */
 export class PlotCollector {
   private barCount: number
   private readonly fills = new Map<string, CollectedFill>()
@@ -186,8 +186,8 @@ export class PlotCollector {
     this.hlineFills.push({ id: title ?? `${from}-${to}`, from, to, color, visible })
   }
 
-  /** 产出 PlotCollection：Plot 按首次出现顺序输出，再补齐填充。 */
-  collect(): PlotCollection {
+  /** 产出 IndicatorSeries：Plot 按首次出现顺序输出，再补齐填充。 */
+  collect(): IndicatorSeries {
     const plots = [...this.entries.values()].map(
       (entry): Plot =>
         entry.source === 'ohlc'

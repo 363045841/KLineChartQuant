@@ -42,16 +42,27 @@ export class ChartIndicatorFacade {
    * 按定义创建实例。
    *
    * @param definitionId 已注册的指标定义。
-   * @param params 覆盖默认值的参数。
+   * @param inputs 覆盖默认值的输入。
    * @param placement 缺省时按定义类别决定主图叠加或新建副图。
    * @returns 新实例身份；定义未注册时为 null。
    */
   add(
     definitionId: string,
-    params?: Readonly<Record<string, unknown>>,
+    inputs?: Readonly<Record<string, unknown>>,
     placement?: IndicatorPlacement,
   ): string | null {
-    return this.deps.commands.add(definitionId, params, placement)
+    return this.deps.commands.add(definitionId, inputs, placement)
+  }
+
+  /** 读取指标数值序列；与图表实例共用计算身份与结果仓库。 */
+  readSeries(
+    request: {
+      readonly definitionId: string
+      readonly inputs?: Readonly<Record<string, unknown>>
+    },
+    signal: AbortSignal,
+  ): Promise<import('../../../indicators/instances/domain/indicatorModel.js').IndicatorResult> {
+    return this.deps.manager.readSeries(request, signal)
   }
 
   /** 更新参数、显隐、排序或定义；身份与归属不变。 */

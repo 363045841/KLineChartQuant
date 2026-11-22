@@ -6,9 +6,9 @@
 import {
   type ComputeRange,
   type DrawingObject,
+  type IndicatorSeries,
   isPlotKind,
   type PersistedDrawingAnchor,
-  type PlotCollection,
   PlotCollector,
   PlotKind,
   timeframeSeconds,
@@ -21,7 +21,7 @@ import {
   type QuickJSHandle,
 } from 'quickjs-emscripten'
 import type { Bar } from '../../contracts/input.js'
-import type { LogEvent } from '../../contracts/output.js'
+import type { LogEvent } from '../../contracts/log.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { createScriptConsole } from '../../execution/impl/createScriptConsole.js'
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
@@ -569,7 +569,7 @@ function createQuickJSScriptRuntime(
       // 与原生端一致，检查点游标停在最后一根已执行 bar，而不是循环的开区间终点。
       state.index = input.endIndex - 1
       return {
-        collection: state.collector.collect(),
+        series: state.collector.collect(),
         values: state.values,
         ...(state.committedCheckpoint === undefined
           ? {}
@@ -665,7 +665,7 @@ export function prepareQuickJSModule(
       context?: ScriptRequestContext,
       range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, range }).collection
+      return session.run({ bars, params, context, range }).series
     },
     runDetailed(
       bars: readonly Bar[],

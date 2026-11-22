@@ -1,12 +1,12 @@
 /** Script 计算 Worker 入口；只安装编译产物并执行，不加载 TypeScript 或语言服务。 */
 
-import { type LogEvent, SCRIPT_OUTPUT_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
+import { type LogEvent, SCRIPT_LOG_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { prepareNativeModule } from '../../execution/impl/prepareNativeModule.js'
 import { preloadQuickJS, prepareQuickJSModule } from '../../quickjs/impl/runQuickJSModule.js'
 import type { PreparedQuickJSScript } from '../../quickjs/types.js'
 import { WorkerInputReceiver } from '../transport/impl/input.js'
-import { packPlotCollection } from '../transport/impl/output.js'
+import { packIndicatorSeries } from '../transport/impl/series.js'
 import type { ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 const scripts = new Map<string, PreparedQuickJSScript>()
@@ -17,7 +17,7 @@ let output: LogEvent[] = []
 /** 日志按请求批量发送，逐 bar 输出不会产生逐条跨线程消息。 */
 function onLog(event: LogEvent): void {
   output.push(event)
-  if (output.length > SCRIPT_OUTPUT_LIMIT) output.shift()
+  if (output.length > SCRIPT_LOG_LIMIT) output.shift()
 }
 /** 消息串行处理，WASM 首次加载时 run 也必须等待 prepare 完成。 */
 globalThis.onmessage = (event: MessageEvent<ScriptWorkerRequest>): void => {
@@ -64,15 +64,15 @@ function runRequest(
         current.context,
         message.range,
       )
-      const { drawings: _drawings, ...collection } = result.collection
+      const { drawings: _drawings, ...series } = result.series
       return {
         requestId,
         type: 'run',
-        collection: packPlotCollection(collection),
+        series: packIndicatorSeries(series),
         drawingDelta: {
           reset: result.drawingDelta.reset,
           remove: result.drawingDelta.remove,
-          collection: packPlotCollection({
+          series: packIndicatorSeries({
             plots: [],
             fills: [],
             drawings: result.drawingDelta.upsert,
@@ -136,8 +136,6 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
   }
   globalThis.postMessage(response, {
     transfer:
-      response.type === 'run'
-        ? [response.collection.buffer, response.drawingDelta.collection.buffer]
-        : [],
+      response.type === 'run' ? [response.series.buffer, response.drawingDelta.series.buffer] : [],
   })
 }

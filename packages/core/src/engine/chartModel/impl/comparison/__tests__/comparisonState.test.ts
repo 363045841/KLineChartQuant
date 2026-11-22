@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
+import { makeSymbolSpec } from '../../../../data/__tests__/helpers/symbolSpecFixture'
 import { symbolSpecIdentityKey } from '../../../../data/symbolIdentity'
 import { createTestChartStateKernel } from '../../../../state/__tests__/helpers/createTestChartStateKernel'
 import { createComparisonState } from '../comparisonState'
@@ -26,7 +27,7 @@ describe('comparisonState', () => {
     const m = createComparisonState()
     expect(m.readonly.active()).toBe(false)
 
-    const specs: SymbolSpec[] = [{ symbol: 'CMP', market: 'CN', period: 'weekly' }]
+    const specs: SymbolSpec[] = [makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'weekly' })]
     m.actions.setSpecs(specs)
 
     const stored = m.readonly.specs.peek()
@@ -46,20 +47,22 @@ describe('ChartStateKernel comparison selection transaction', () => {
     const snapshots: Array<{ specs: string[]; colors: string[] }> = []
     const capture = () => {
       snapshots.push({
-        specs: kernel.comparison.readonly.specs.peek().map((spec) => spec.symbol),
+        specs: kernel.comparison.readonly.specs.peek().map((spec) => spec.instrument.symbol),
         colors: [...kernel.comparison.readonly.colors.peek().keys()],
       })
     }
     kernel.comparison.readonly.specs.subscribe(capture)
     kernel.comparison.readonly.colors.subscribe(capture)
 
-    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
+    kernel.actions.setComparisonSpecs([
+      makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'daily' }),
+    ])
 
     expect(snapshots.length).toBeGreaterThan(0)
     expect(snapshots).toEqual(
       snapshots.map(() => ({
         specs: ['CMP'],
-        colors: [symbolSpecIdentityKey({ symbol: 'CMP', market: 'CN' })],
+        colors: [symbolSpecIdentityKey(makeSymbolSpec({ symbol: 'CMP', market: 'CN' }))],
       })),
     )
   })
@@ -68,18 +71,23 @@ describe('ChartStateKernel comparison selection transaction', () => {
     const kernel = createTestChartStateKernel()
 
     kernel.actions.setSymbols([
-      { symbol: 'MAIN', market: 'CN', period: 'daily' },
-      { symbol: 'CMP', market: 'CN', period: 'daily' },
+      makeSymbolSpec({ symbol: 'MAIN', market: 'CN', period: 'daily' }),
+      makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'daily' }),
     ])
 
-    expect(kernel.data.readonly.symbols.peek().map((spec) => spec.symbol)).toEqual(['MAIN', 'CMP'])
+    expect(kernel.data.readonly.symbols.peek().map((spec) => spec.instrument.symbol)).toEqual([
+      'MAIN',
+      'CMP',
+    ])
     expect(kernel.comparison.readonly.specs.peek()).toEqual([])
   })
 
   it('keeps the primary viewport and renderer when comparisons are added', () => {
     const kernel = createTestChartStateKernel()
 
-    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
+    kernel.actions.setComparisonSpecs([
+      makeSymbolSpec({ symbol: 'CMP', market: 'CN', period: 'daily' }),
+    ])
 
     expect(kernel.dataLength$()).toBe(kernel.data.readonly.dataLength())
     expect(kernel.mode.readonly.dataView.peek()).toBe('kline')

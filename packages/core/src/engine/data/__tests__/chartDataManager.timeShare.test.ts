@@ -53,15 +53,7 @@ describe('ChartDataManager time share', () => {
       }),
     )
 
-    manager.setSymbols([
-      {
-        symbol: '000001',
-        market: 'CN',
-        period: 'timeshare',
-        source: 'test',
-        instrument: instrumentFor('000001'),
-      },
-    ])
+    manager.setPrimaryMarket(makeTestSymbolSpec('000001', { period: 'timeshare' }))
 
     // 激活空 Buffer 本身会触发一次重绘，这里只断言数据到达后又调度了新的重绘。
     const drawsBeforeData = scheduleDraw.mock.calls.length
@@ -93,14 +85,14 @@ describe('ChartDataManager time share', () => {
         fetchTimeShare,
       }),
     )
-    manager.setSymbols([makeTestSymbolSpec('000001')])
+    manager.setPrimaryMarket(makeTestSymbolSpec('000001'))
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     const selection = { ...makeTestSymbolSpec('000001'), period: 'timeshare' }
-    manager.setSymbols([selection], 20260805)
+    manager.setPrimaryMarket(selection, 20260805)
     await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(1))
 
-    manager.setSymbols([selection], 20260806)
+    manager.setPrimaryMarket(selection, 20260806)
     await vi.waitFor(() => expect(harness.dataState.readonly.data.peek()[0]?.timestamp).toBe(2))
 
     expect(fetchTimeShare).toHaveBeenCalledTimes(2)
@@ -138,7 +130,7 @@ describe('ChartDataManager time share', () => {
     )
     registerTestProvider(createTestProvider({ fetchTimeShareRange }))
 
-    manager.setSymbols([
+    manager.setPrimaryMarket(
       makeTestSymbolSpec('000001', {
         period: '5daytimeshare',
         instrument: {
@@ -146,7 +138,7 @@ describe('ChartDataManager time share', () => {
           capabilities: { timeShare: true, timeShareRange: { maxTradingDays: 5 } },
         },
       }),
-    ])
+    )
 
     await vi.waitFor(() =>
       expect(harness.dataState.readonly.timeShareRange.peek()?.days).toHaveLength(2),

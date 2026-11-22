@@ -1,5 +1,6 @@
 /** DataBuffer：分页合并、稳定序号、实时尾段与状态发布。 */
 import { describe, expect, it } from 'vitest'
+import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 
 import { DataBuffer } from '../buffer/impl/dataBuffer'
 import { OLDER_DATA_STATUS } from '../provider/types'
@@ -15,7 +16,9 @@ describe('DataBuffer', () => {
     buffer.mergePage([bar(0)], OLDER_DATA_STATUS.AVAILABLE, 'UTC')
     expect(buffer.data().origin).toBe(-1)
 
-    buffer.setSymbol({ symbol: 'BTCUSDT', market: 'crypto', period: 'daily', source: 'test' })
+    buffer.setSymbol(
+      makeSymbolSpec({ symbol: 'BTCUSDT', market: 'crypto', period: 'daily', source: 'test' }),
+    )
 
     expect(buffer.getRawData()).toEqual([])
     expect(buffer.data().origin).toBe(0)

@@ -47,7 +47,7 @@ export interface IndicatorInstanceDescriptor {
   readonly ordinal: number
   /** 指标是否被隐藏：隐藏时图例保留但置灰。 */
   readonly hidden: boolean
-  readonly params: Readonly<Record<string, unknown>>
+  readonly inputs: Readonly<Record<string, unknown>>
 }
 
 /** 当前启用实例清单服务。 */

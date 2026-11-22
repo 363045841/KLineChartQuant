@@ -10,7 +10,7 @@ import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { ChartDataView } from '../../chartModel/index.js'
 import type {
   IndicatorCategory,
-  IndicatorInputDef,
+  IndicatorInputDisplay,
   IndicatorMetadata,
   IndicatorPeriodVisibility,
 } from '../indicatorMetadata.js'
@@ -45,10 +45,10 @@ export interface IndicatorDescriptor {
   readonly dataViews?: readonly ChartDataView[]
   /** 指标可见的图表周期范围；缺省表示所有周期可见。 */
   readonly visiblePeriods?: readonly IndicatorPeriodVisibility[]
-  /** runtime.defaultParams 的静态值。 */
-  readonly defaultParams?: Readonly<Record<string, unknown>>
-  /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultParams。 */
-  readonly inputDefs?: Readonly<Record<string, IndicatorInputDef>>
+  /** runtime.defaultInputs 的静态值。 */
+  readonly defaultInputs?: Readonly<Record<string, unknown>>
+  /** runtime.inputDefs 的静态值；只含展示声明，默认值仍在 defaultInputs。 */
+  readonly inputDefs?: Readonly<Record<string, IndicatorInputDisplay>>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
   readonly documentIdentity?: IndicatorDocumentIdentity
   /** presentation.defaultOptions 的静态值。 */

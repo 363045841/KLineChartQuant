@@ -168,13 +168,12 @@ Comparison legends expose the real price, change relative to the comparison base
 ### Data and Modes
 
 ```typescript
-chart.setSymbols([
-  { symbol: '000001', market: 'CN', period: 'daily', source: 'baostock' },
-])
+const instrument = await marketData.resolveInstrument('baostock', 'sh.600000')
+chart.setPrimaryMarket({ instrument, period: 'daily' })
 
 chart.addComparisonSymbol({ symbol: '000002', market: 'CN', period: 'daily' })
 chart.removeComparisonSymbol('000002')
-chart.switchToTimeShareForDate(20240102)
+chart.setPrimaryMarket({ instrument, period: 'timeshare' }, { date: 20240102 })
 ```
 
 Register providers through the market-data API and use instrument selection to request their data. The public controller exposes selection and read-only data, without array injection methods.

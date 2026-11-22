@@ -15,7 +15,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'MA',
     name: 'Moving Average',
     role: 'main',
-    params: [
+    inputs: [
       { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 200, step: 1 },
     ],
   },
@@ -24,7 +24,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'BOLL',
     name: 'Bollinger Bands',
     role: 'main',
-    params: [
+    inputs: [
       { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 100, step: 1 },
       {
         key: 'multiplier',
@@ -42,7 +42,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'EXPMA',
     name: 'Exponential MA',
     role: 'main',
-    params: [
+    inputs: [
       { key: 'fastPeriod', label: 'Fast', type: 'number', default: 12, min: 2, max: 100, step: 1 },
       { key: 'slowPeriod', label: 'Slow', type: 'number', default: 50, min: 2, max: 200, step: 1 },
     ],
@@ -52,7 +52,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'KDJ',
     name: 'Stochastic KDJ',
     role: 'sub',
-    params: [
+    inputs: [
       { key: 'period', label: 'Period', type: 'number', default: 9, min: 2, max: 100, step: 1 },
     ],
   },
@@ -61,7 +61,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'MACD',
     name: 'MACD',
     role: 'sub',
-    params: [
+    inputs: [
       { key: 'fast', label: 'Fast', type: 'number', default: 12, min: 2, max: 100, step: 1 },
       { key: 'slow', label: 'Slow', type: 'number', default: 26, min: 2, max: 200, step: 1 },
       { key: 'signal', label: 'Signal', type: 'number', default: 9, min: 2, max: 50, step: 1 },
@@ -72,7 +72,7 @@ const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [
     label: 'RSI',
     name: 'Relative Strength Index',
     role: 'sub',
-    params: [
+    inputs: [
       { key: 'period', label: 'Period', type: 'number', default: 14, min: 2, max: 100, step: 1 },
     ],
   },

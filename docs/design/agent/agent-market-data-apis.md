@@ -6,7 +6,7 @@
 
 ## 决策
 
-行情查询收敛在 `ChartAgentMarketQueries`：`instruments_query`、`market_bars_query`、`market_timeshare_query`（`days` 吸收单日与多日）与 `indicator_values_query` 四只只读工具都调用它。图表侧仍直接使用 `ChartDataManager` 与共享的 `MarketDataCache`，不为 Agent 建立第二套取数服务。
+行情查询收敛在 `ChartAgentMarketQueries`：`instruments_query`、`market_bars_query`、`market_timeshare_query`（`days` 吸收单日与多日）三只只读工具都调用它。指标序列读取属于指标命令面（`indicator_series_query` → `ChartAgentIndicatorCommands.series`），不挂在行情查询上。图表侧仍直接使用 `ChartDataManager` 与共享的 `MarketDataCache`，不为 Agent 建立第二套取数服务。
 
 每个 API 都使用图表实例级 `MarketDataCache`。缓存通过同一 `MarketDataProviderRegistry` 创建 `SourceRouter`，负责内存命中、`limit` / `beforeTimestamp` 游标分页、重试、并发请求去重和 auto source 锁定。图表 `ChartDataManager` 与 Agent facade 持有同一个缓存实例，不存在第二条取数链路。
 

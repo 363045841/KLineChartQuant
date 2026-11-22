@@ -10,8 +10,19 @@ describe('原生比较入口', () => {
   it('一次选择只添加一个比较品种，且不改写主品种或视图', () => {
     const controller = createMockChartController()
     const add = vi.spyOn(controller, 'addComparisonSymbol')
-    const setPrimary = vi.spyOn(controller, 'setSymbols')
-    const primary: SymbolSpec = { symbol: 'MAIN', market: 'CN', period: 'daily' }
+    const setPrimary = vi.spyOn(controller, 'setPrimaryMarket')
+    const primary: SymbolSpec = {
+      instrument: {
+        id: 'mock:MAIN',
+        source: 'mock',
+        symbol: 'MAIN',
+        name: 'MAIN',
+        instrumentType: 'stock',
+        exchange: 'CN',
+        capabilities: {},
+      },
+      period: 'daily',
+    }
     const selected: SymbolItem = {
       id: 'CMP',
       symbol: 'CMP',
@@ -22,7 +33,19 @@ describe('原生比较入口', () => {
       instrumentType: 'stock',
       capabilities: {},
     }
-    const compared: SymbolSpec = { symbol: selected.symbol, market: 'CN', period: 'daily' }
+    const compared: SymbolSpec = {
+      instrument: {
+        id: 'mock:CMP',
+        source: 'mock',
+        symbol: selected.symbol,
+        name: selected.name,
+        instrumentType: 'stock',
+        exchange: 'SSE',
+        sessionId: 'CN',
+        capabilities: {},
+      },
+      period: 'daily',
+    }
     const entry = useComparisonSymbols({
       getController: () => controller,
       getPrimary: () => primary,

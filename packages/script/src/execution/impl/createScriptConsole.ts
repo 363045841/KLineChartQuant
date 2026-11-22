@@ -1,5 +1,5 @@
 /** 两种执行后端共用的 console 格式化与日志事件组装。 */
-import type { LogEvent, LogLevel } from '../../contracts/output.js'
+import type { LogEvent, LogLevel } from '../../contracts/log.js'
 
 /** 将单个参数转换为可跨线程传输的文本，循环对象不会中断脚本。 */
 function formatValue(value: unknown): string {

@@ -45,7 +45,6 @@ export function useWorkbenchMarket(props: KlineWorkbenchProps, onError: (error: 
         toSymbolSpec(instrument, {
           period,
           adjust: KLineAdjustment.None,
-          market: instrument.sessionId ?? instrument.exchange,
         }),
       ]
     } catch (cause) {

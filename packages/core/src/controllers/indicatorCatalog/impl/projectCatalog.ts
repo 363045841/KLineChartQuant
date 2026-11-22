@@ -5,7 +5,7 @@
  * 不维护第二份列表状态。
  */
 
-import type { IndicatorInputDef } from '@/engine/indicators/indicatorMetadata.js'
+import type { IndicatorInputDisplay } from '@/engine/indicators/indicatorMetadata.js'
 import {
   type IndicatorDescriptor,
   indicatorCatalogRevision,
@@ -14,7 +14,7 @@ import {
   resolveIndicatorDefinitionId,
 } from '@/engine/indicators/pipeline/index.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
-import { INDICATOR_ROLE, type IndicatorDefinition, type IndicatorParamDef } from '../../types.js'
+import { INDICATOR_ROLE, type IndicatorDefinition, type IndicatorInputDef } from '../../types.js'
 
 /** 参数值只接受标量；其它类型不进入参数面板。 */
 function isParamValue(value: unknown): value is number | string | boolean {
@@ -25,7 +25,7 @@ function isParamValue(value: unknown): value is number | string | boolean {
 function paramType(
   value: number | string | boolean,
   hasOptions: boolean,
-): IndicatorParamDef['type'] {
+): IndicatorInputDef['type'] {
   if (hasOptions) return 'select'
   if (typeof value === 'number') return 'number'
   if (typeof value === 'boolean') return 'boolean'
@@ -33,7 +33,9 @@ function paramType(
 }
 
 /** 把声明里的字符串候选补成统一的 value/label 结构。 */
-function toOptions(input: IndicatorInputDef | undefined): IndicatorParamDef['options'] | undefined {
+function toOptions(
+  input: IndicatorInputDisplay | undefined,
+): IndicatorInputDef['options'] | undefined {
   if (input?.options === undefined || input.options.length === 0) return undefined
   return input.options.map((option) =>
     typeof option === 'string' ? { value: option, label: option } : option,
@@ -51,8 +53,8 @@ function toOptions(input: IndicatorInputDef | undefined): IndicatorParamDef['opt
 function toParamDef(
   key: string,
   value: unknown,
-  input: IndicatorInputDef | undefined,
-): IndicatorParamDef | undefined {
+  input: IndicatorInputDisplay | undefined,
+): IndicatorInputDef | undefined {
   if (!isParamValue(value)) return undefined
   const options = toOptions(input)
   return {
@@ -69,10 +71,10 @@ function toParamDef(
 
 /** 把一个目录项映射成控制器层的指标定义。 */
 function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefinition {
-  const defaults = { ...descriptor.defaultParams, ...descriptor.defaultOptions }
-  const params = Object.entries(defaults).flatMap(([key, value]) => {
-    const param = toParamDef(key, value, descriptor.inputDefs?.[key])
-    return param === undefined ? [] : [param]
+  const defaults = { ...descriptor.defaultInputs, ...descriptor.defaultOptions }
+  const inputs = Object.entries(defaults).flatMap(([key, value]) => {
+    const input = toParamDef(key, value, descriptor.inputDefs?.[key])
+    return input === undefined ? [] : [input]
   })
   return {
     id: resolveCanonicalIndicatorId(descriptor),
@@ -82,7 +84,7 @@ function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefini
     description: descriptor.info,
     role: descriptor.category === 'main' ? 'main' : 'sub',
     documentIdentity: descriptor.documentIdentity,
-    params,
+    inputs,
   }
 }
 

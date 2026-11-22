@@ -4,7 +4,7 @@ import type {
   DrawingTimeframeVisibility,
   DrawingWorkspaceId,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { IndicatorInstance, IndicatorParamDef, SymbolSpec } from '../../controllers/types.js'
+import type { IndicatorInputDef, IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
 import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
 import type { InstrumentSearchResult } from '../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
@@ -105,8 +105,11 @@ export interface ChartAgentDrawingSelection {
 
 /** Agent 看到的单个指标实例；身份由位置表达，不暴露内部实例 ID。 */
 export interface ChartAgentIndicatorView {
+  /** 规范指标 ID（脚本为稳定 ID）。 */
   readonly indicator: string
-  readonly params: Readonly<Record<string, unknown>>
+  /** 选择器/图例显示名；可读，用来替代 UUID 作为对话中的称呼。 */
+  readonly name: string
+  readonly inputs: Readonly<Record<string, unknown>>
   /** 主图叠加或副图指标；由 pane 身份决定，不由行号推导。 */
   readonly placement: IndicatorPlacement
   /** 图表显示行：0 是最上面一行；主图可能在任何行。 */
@@ -115,24 +118,69 @@ export interface ChartAgentIndicatorView {
   readonly order: number
 }
 
-/** 指标定位：按名称定位，同名多实例时用 row / order 收敛。 */
+/** 指标定位：按名称或 ID 定位，同名多实例时用 row / order 收敛。 */
 export interface ChartAgentIndicatorTarget {
   readonly indicator: string
   readonly row?: number
   readonly order?: number
 }
 
-/** 可解析的指标定义：规范名称与参数声明一起返回，调用方不自行推断参数键。 */
+/** 可解析的指标定义：规范名称与输入声明一起返回，调用方不自行推断输入键。 */
 export interface ChartAgentIndicatorDefinition {
   readonly indicator: string
-  readonly params: ReadonlyArray<IndicatorParamDef>
+  readonly inputs: ReadonlyArray<IndicatorInputDef>
 }
 
-/** Bounded parameters accepted by the compact indicator query. */
-export interface IndicatorQueryInput {
-  readonly definitionId: string
-  readonly params?: Readonly<Record<string, number>>
+/** 指标数值序列查询：定位、可选输入覆盖、时间窗与条数上限。 */
+export interface ChartAgentIndicatorSeriesQuery extends ChartAgentIndicatorTarget {
+  /** 省略时读取实例当前输入；给出时按这组输入计算，不改变图表。 */
+  readonly inputs?: Readonly<Record<string, unknown>>
+  readonly from?: string
+  readonly to?: string
   readonly limit?: number
+}
+
+/** 序列查询默认条数与上限；工具与命令面共用同一份常量。 */
+export const INDICATOR_SERIES_DEFAULT_LIMIT = 60
+export const INDICATOR_SERIES_MAX_LIMIT = 2000
+
+/** 一个可读通道；行数据按 columns 顺序追加在 index / time 之后。 */
+export interface ChartAgentIndicatorSeriesColumn {
+  readonly id: string
+  readonly label: string
+  readonly kind: string
+  /** 标记类通道的位置语义；其余通道省略。 */
+  readonly location?: string
+  readonly text?: string
+  readonly char?: string
+}
+
+/** 指标产出的绘图对象：位置由 bar 下标与时间共同表达。 */
+export interface ChartAgentIndicatorSeriesObject {
+  readonly kind: string
+  readonly index: number | null
+  readonly time: string | null
+  readonly price: number | null
+  readonly text: string | null
+}
+
+/** 指标产出的图表级水平线。 */
+export interface ChartAgentIndicatorHLine {
+  readonly id: string
+  readonly price: number
+  readonly title: string | null
+}
+
+/** 一次指标读取的完整结果；预览计算与图表实例共用形状。 */
+export interface ChartAgentIndicatorSeriesResult {
+  readonly series: {
+    readonly columns: ReadonlyArray<ChartAgentIndicatorSeriesColumn>
+    readonly rows: ReadonlyArray<ReadonlyArray<string | number | null>>
+  }
+  readonly objects: ReadonlyArray<ChartAgentIndicatorSeriesObject>
+  readonly hlines: ReadonlyArray<ChartAgentIndicatorHLine>
+  /** 被 limit 截断时给出省略数量；未被截断时省略。 */
+  readonly truncated?: { readonly rows: number; readonly objects: number }
 }
 
 /** Agent 品种查询输入：代码或名称，精确命中优先，未命中再走关键字。 */
@@ -201,22 +249,27 @@ export interface ChartAgentIndicatorCommands {
   list(): ReadonlyArray<ChartAgentIndicatorView>
   add(
     indicator: string,
-    params?: Readonly<Record<string, unknown>>,
+    inputs?: Readonly<Record<string, unknown>>,
     placement?: IndicatorPlacement,
   ): ChartAgentIndicatorView
   /** 按名称与位置读取单个指标；零个或多个命中时报可纠正错误。 */
   read(target: ChartAgentIndicatorTarget): ChartAgentIndicatorView
   update(
     target: ChartAgentIndicatorTarget,
-    params: Readonly<Record<string, unknown>>,
+    inputs: Readonly<Record<string, unknown>>,
   ): ChartAgentIndicatorView
   move(target: ChartAgentIndicatorTarget, row: number): ChartAgentIndicatorView
   remove(target: ChartAgentIndicatorTarget): ChartAgentIndicatorView
   /**
    * 加载并解析可在图表中渲染的指标定义。
-   * @returns 规范名称与参数声明；未注册或没有渲染器时为 null。
+   * @returns 规范名称与输入声明；未注册或没有渲染器时为 null。
    */
   resolveDefinition(indicator: string): Promise<ChartAgentIndicatorDefinition | null>
+  /** 读取指标数值序列与绘图产出；与图表实例共用计算身份与结果仓库。 */
+  series(
+    query: ChartAgentIndicatorSeriesQuery,
+    context: ChartToolExecutionContext,
+  ): Promise<ChartAgentIndicatorSeriesResult>
 }
 
 /** 图元创建输入：落点用显示行，时间用 RFC 3339。 */
@@ -311,7 +364,6 @@ export interface ChartAgentMarketQueries {
     input: TimeShareQueryInput,
     context?: ChartToolExecutionContext,
   ): Promise<MarketQueryText>
-  indicatorValues(input: IndicatorQueryInput): Promise<string>
 }
 
 /** Agent 工具执行所需的全部领域能力；由图表组合根一次装配。 */
@@ -438,7 +490,7 @@ export interface ChartAgentIndicatorCommandsDependencies {
   readonly facade: {
     add(
       definitionId: string,
-      params?: Readonly<Record<string, unknown>>,
+      inputs?: Readonly<Record<string, unknown>>,
       placement?: IndicatorPlacement,
     ): string | null
     update(
@@ -459,6 +511,14 @@ export interface ChartAgentIndicatorCommandsDependencies {
     ): boolean
     remove(instanceId: string): boolean
     instances: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+    /** 读取数值序列；与图表实例共用计算身份与结果仓库。 */
+    readSeries(
+      request: {
+        readonly definitionId: string
+        readonly inputs?: Readonly<Record<string, unknown>>
+      },
+      signal: AbortSignal,
+    ): Promise<import('../../engine/indicators/instances/domain/indicatorModel.js').IndicatorResult>
   }
   readonly panes: {
     getLayoutSpecs(): ReadonlyArray<{ readonly id: string }>
@@ -466,8 +526,10 @@ export interface ChartAgentIndicatorCommandsDependencies {
   readonly loadIndicators: (indicatorIds: ReadonlyArray<string>) => Promise<void>
   readonly resolveCanonicalId: (indicatorId: string) => string | null
   readonly isRendererAvailable: (indicatorId: string) => boolean
-  /** 读取规范 ID 对应的参数声明；目录项缺失时返回 undefined。 */
-  readonly readParamDefs: (indicatorId: string) => ReadonlyArray<IndicatorParamDef> | undefined
+  /** 读取规范 ID 对应的输入声明；目录项缺失时返回 undefined。 */
+  readonly readInputDefs: (indicatorId: string) => ReadonlyArray<IndicatorInputDef> | undefined
+  /** 序列时间格式化的图表作用域；与图元时间契约一致。 */
+  readonly scope: () => { readonly period: string; readonly timezone: string }
 }
 
 /** 行情查询面的装配依赖。 */
@@ -496,7 +558,6 @@ export interface ChartAgentMarketQueriesDependencies {
   /** 当前时刻；缺省交易日的判定与测试都用它，不在实现里直接读时钟。 */
   readonly now: () => number
   readonly formatter: MarketDataTextFormatter
-  readonly indicatorQuery: IndicatorQuery
 }
 
 /** 市场查询文本转义服务。 */
@@ -522,45 +583,6 @@ export interface ChartBarsTextFormatInput {
 export interface InstrumentLookupTextFormatInput {
   readonly query: string
   readonly matches: ReadonlyArray<InstrumentMatch>
-}
-
-/** 指标计算的内部输入，可按时间范围筛选结果；不作为 Agent 工具契约暴露。 */
-export type IndicatorCalculationQueryInput = IndicatorQueryInput & {
-  readonly from?: number
-  readonly to?: number
-}
-
-/** 调用既有指标计算链路并返回紧凑文本的查询服务。 */
-export interface IndicatorQuery {
-  queryIndicator(input: IndicatorCalculationQueryInput): Promise<string>
-}
-
-/** 指标查询服务依赖，允许测试或宿主替换指标定义解析器和文本转义器。 */
-export interface IndicatorQueryDependencies {
-  readonly dataState: DataStateModule
-  readonly resolveDefinition?: (
-    definitionId: string,
-  ) => Pick<IndicatorMetadata, 'name' | 'runtime'> | undefined
-  readonly textFormatter?: IndicatorTextFormatter
-}
-
-/** 指标文本转义器的输入，不属于 Agent 公开返回契约。 */
-export interface IndicatorTextFormatContext {
-  readonly definitionId: string
-  readonly params: Readonly<Record<string, unknown>>
-  readonly timestamps: ReadonlyArray<number>
-  readonly series: unknown
-  readonly from: number
-  readonly to: number
-  readonly limit: number
-}
-
-/** 单个指标结果的文本转义函数。 */
-export type IndicatorResultFormatter = (context: IndicatorTextFormatContext) => string
-
-/** 指标文本转义服务。 */
-export interface IndicatorTextFormatter {
-  format(context: IndicatorTextFormatContext): string
 }
 
 /** 工具契约复用的品种路由字段；与 instruments_query 的输出列同构。 */

@@ -4,7 +4,7 @@
 import type { Bar } from './bar.js'
 import type { Format } from './format.js'
 import type { IndicatorMarketContext, Timeframe } from './market.js'
-import type { PlotCollection } from './plots.js'
+import type { IndicatorSeries } from './plots.js'
 
 /** 可序列化的脚本声明；不包含执行函数。 */
 export interface IndicatorSourceDefinition {
@@ -106,13 +106,13 @@ export interface IndicatorDefinition<P> {
   readonly dependency?: import('./compute.js').ComputeDependency
   /** 计算身份拥有独立会话；最后一个消费者退出时释放运行态，元数据仍可留在目录。 */
   readonly createCompute?: () => IndicatorDefinition<P>['compute'] & { dispose(): void }
-  /** 计算端口：给定 bars、参数与重算区间，产出完整 PlotCollection。 */
+  /** 计算端口：给定 bars、参数与重算区间，产出完整 IndicatorSeries。 */
   compute(
     bars: readonly Bar[],
     params: P,
     market?: IndicatorMarketContext,
     range?: import('./compute.js').ComputeRange,
-  ): PlotCollection | Promise<PlotCollection>
+  ): IndicatorSeries | Promise<IndicatorSeries>
 }
 
 /** 按输入声明取默认值，构成初始参数。 */

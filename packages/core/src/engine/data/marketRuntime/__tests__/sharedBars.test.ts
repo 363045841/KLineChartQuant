@@ -18,6 +18,7 @@ import {
   instrumentFor,
   makeBarsPage,
   makeKLine,
+  makeTestSymbolSpec,
   registerTestProvider,
   unregisterTestProvider,
 } from '../../__tests__/helpers/chartDataManagerTestKit.js'
@@ -35,11 +36,7 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
   if (capabilities === undefined) throw new Error('Missing test capabilities')
   const selectionFor = (symbol: string): BarsSelection => ({
     kind: SERIES_SELECTION_KIND.bars,
-    instrumentKey: instrumentKeyFromSpec({
-      market: 'CN',
-      symbol,
-      instrument: instrumentFor(symbol),
-    }),
+    instrumentKey: instrumentKeyFromSpec(makeTestSymbolSpec(symbol)),
     source: 'test',
     period: 'daily',
     adjustment: 'none',

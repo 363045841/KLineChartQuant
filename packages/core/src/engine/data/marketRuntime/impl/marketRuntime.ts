@@ -133,22 +133,16 @@ export class MarketRuntime implements IndicatorMarketData {
     adjustment: BarsSelection['adjustment'],
     aggregation: BarsSelection['barAggregation'],
   ): BarsSelection | undefined {
-    const source = spec.source === undefined ? spec.instrument?.source : spec.source
     for (const demand of this.barDemands.values()) {
       const { selection, instrument } = demand.session
       if (
-        selection.source !== source ||
+        selection.source !== spec.instrument.source ||
         selection.period !== period ||
         selection.adjustment !== adjustment ||
         selection.barAggregation !== aggregation
       )
         continue
-      const matches =
-        spec.instrument === undefined
-          ? spec.symbol === instrument.symbol &&
-            (spec.exchange === undefined || spec.exchange === instrument.exchange)
-          : spec.instrument.id === instrument.id
-      if (matches) return selection
+      if (spec.instrument.id === instrument.id) return selection
     }
     return undefined
   }
@@ -465,7 +459,8 @@ export class MarketRuntime implements IndicatorMarketData {
           signal: trade.abort.signal,
         })
         .catch((error: unknown) => {
-          if (!trade.abort.signal.aborted) console.error('[MarketRuntime] Trade history request failed', error)
+          if (!trade.abort.signal.aborted)
+            console.error('[MarketRuntime] Trade history request failed', error)
         })
     }, 200)
   }

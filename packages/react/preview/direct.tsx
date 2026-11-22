@@ -15,7 +15,7 @@ function App() {
     const fixture = createE2eDataSource()
     const unregister = host.registerDataSource(fixture.source)
     void host.resolveInstrument(fixture.instrument.source, fixture.instrument.id, abort.signal).then((instrument) => {
-      if (!abort.signal.aborted) setSymbols([{ instrument, symbol: instrument.symbol, market: 'CN', source: instrument.source, period: 'daily' }])
+      if (!abort.signal.aborted) setSymbols([{ instrument, period: 'daily' }])
     }).catch((error: unknown) => { if (!abort.signal.aborted) throw error })
     return () => { abort.abort(); unregister() }
   }, [host])

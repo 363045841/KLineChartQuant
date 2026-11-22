@@ -85,7 +85,7 @@ const scripts = await createScriptService([
 | 输出 | `PlotPoint`、`LogEvent` |
 | QuickJS | `QuickJSRunOptions`、`QuickJSScriptDefinition`、`QuickJSLibrary` |
 | 库 | `LibraryModules`、`TechnicalAnalysisLibrary` |
-| Plot | `Plot`、`PlotFill`、`PlotCollection` |
+| Plot | `Plot`、`PlotFill`、`IndicatorSeries` |
 
 Plot 数据模型由 `@363045841yyt/klinechart-plot-contracts` 提供，与图表引擎共用，此处重新导出。
 

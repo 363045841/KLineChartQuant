@@ -20,8 +20,9 @@ const DEFAULT_TAB_LABEL = '新图表'
 export function tabLabelForSpec(spec: SymbolSpec | null): string {
   if (!spec) return DEFAULT_TAB_LABEL
   // 部分数据源用代码充当名称，拼起来会得到 `BTCUSDT · BTCUSDT`，此时只显示代码。
-  const name = spec.instrument?.name
-  return name && name !== spec.symbol ? `${spec.symbol} · ${name}` : spec.symbol
+  const { symbol } = spec.instrument
+  const name = spec.instrument.name
+  return name && name !== symbol ? `${symbol} · ${name}` : symbol
 }
 
 /** 拖拽插入位置：相对目标标签的前或后。 */

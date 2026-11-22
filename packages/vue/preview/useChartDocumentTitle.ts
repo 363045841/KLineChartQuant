@@ -29,7 +29,7 @@ export function useChartDocumentTitle(): ChartDocumentTitleBinding {
     if (!primary) return baseTitle
     const data = controller.data.peek()
     const latest = data.at(-1)
-    if (!latest || !Number.isFinite(latest.close)) return primary.symbol
+    if (!latest || !Number.isFinite(latest.close)) return primary.instrument.symbol
 
     // 优先沿用数据源的涨跌口径，未提供时比较相邻 K 线收盘价。
     const previous = data.at(-2)
@@ -54,7 +54,7 @@ export function useChartDocumentTitle(): ChartDocumentTitleBinding {
       changePercent !== undefined && Number.isFinite(changePercent)
         ? ` ${changePercent > 0 ? '+' : ''}${changePercent.toFixed(2)}%`
         : ''
-    return `${primary.symbol} ${latest.close}${direction}${percentTitle}`
+    return `${primary.instrument.symbol} ${latest.close}${direction}${percentTitle}`
   }
 
   /** 同时订阅品种与行情，并在重新绑定时释放全部旧订阅。 */

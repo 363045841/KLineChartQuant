@@ -1,40 +1,55 @@
-/** 品种稳定 ID 与旧身份回退规则测试。 */
-
+/** 品种身份：只由 instrument 决定，与周期、复权和展示字段无关。 */
 import { describe, expect, it } from 'vitest'
-
-import { symbolSpecIdentityKey } from '../symbolIdentity'
+import { symbolInfoIdentityKey, symbolSpecIdentityKey } from '../symbolIdentity'
+import { makeInstrument, makeSymbolSpec } from './helpers/symbolSpecFixture'
 
 describe('symbolSpecIdentityKey', () => {
-  // 验证稳定 ID 存在时只依赖来源与 ID，不受旧 market 和 params 字段影响。
-  it('优先使用来源范围内的统一品种 ID', () => {
-    const first = {
+  it('uses source and instrument id only', () => {
+    const instrument = makeInstrument({
       id: 'gotdx:stock:1:600519',
       symbol: '600519',
-      market: 'CN',
       source: 'gotdx',
-      params: { market: 1 },
-    }
-    const second = {
-      ...first,
-      market: 'OTHER',
-      params: { category: 31 },
-    }
+      market: 'CN',
+    })
+    const daily = makeSymbolSpec({ instrument, period: 'daily', adjust: 'none' })
+    const weekly = makeSymbolSpec({ instrument, period: 'weekly', adjust: 'qfq' })
 
-    expect(symbolSpecIdentityKey(first)).toBe('instrument:gotdx:gotdx:stock:1:600519')
-    expect(symbolSpecIdentityKey(second)).toBe(symbolSpecIdentityKey(first))
+    expect(symbolSpecIdentityKey(daily)).toBe('instrument:gotdx:gotdx:stock:1:600519')
+    expect(symbolSpecIdentityKey(weekly)).toBe(symbolSpecIdentityKey(daily))
   })
 
-  // 验证旧调用仍能按来源、市场、交易所、代码和 params 区分品种。
-  it('为缺少 ID 的旧品种保留身份回退', () => {
-    const main = {
+  it('keeps the same code distinct across sources', () => {
+    const gotdx = makeSymbolSpec({ symbol: '600519', source: 'gotdx', id: 'gotdx:1', market: 'CN' })
+    const another = makeSymbolSpec({
       symbol: '600519',
+      source: 'other',
+      id: 'other:1',
       market: 'CN',
-      exchange: 'SH',
-      source: 'gotdx',
-      params: { market: 1 },
-    }
-    const extended = { ...main, params: { category: 31 } }
+    })
 
-    expect(symbolSpecIdentityKey(main)).not.toBe(symbolSpecIdentityKey(extended))
+    expect(symbolSpecIdentityKey(gotdx)).not.toBe(symbolSpecIdentityKey(another))
+  })
+})
+
+describe('symbolInfoIdentityKey', () => {
+  it('prefers the stable catalog id', () => {
+    expect(
+      symbolInfoIdentityKey({
+        id: 'gotdx:stock:1:600519',
+        symbol: '600519',
+        market: 'CN',
+        source: 'gotdx',
+        description: '浦发银行',
+      }),
+    ).toBe('instrument:gotdx:gotdx:stock:1:600519')
+  })
+
+  it('falls back to source, market, exchange, code and params when no id exists', () => {
+    const base = { symbol: '600519', market: 'CN', exchange: 'SH', source: 'gotdx' }
+    const first = symbolInfoIdentityKey({ ...base, params: { market: 1 } })
+    const second = symbolInfoIdentityKey({ ...base, params: { category: 31 } })
+
+    expect(first).not.toBe(second)
+    expect(first).toBe(symbolInfoIdentityKey({ ...base, params: { market: 1 } }))
   })
 })

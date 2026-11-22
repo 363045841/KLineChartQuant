@@ -22,6 +22,7 @@ export type {
   HLineFill,
   HLineOptions,
   HLineRef,
+  IndicatorSeries,
   InputSchema,
   LineBRPlot,
   LineBRPlotDeclaration,
@@ -31,7 +32,6 @@ export type {
   OhlcPlotOptions,
   OhlcPlotPoint,
   Plot,
-  PlotCollection,
   PlotDeclaration,
   PlotFill,
   PlotFillDeclaration,
@@ -61,7 +61,7 @@ export {
 } from '@363045841yyt/klinechart-plot-contracts'
 export * from './contracts/input.js'
 export * from './contracts/library.js'
-export * from './contracts/output.js'
+export * from './contracts/log.js'
 export { SCRIPT_API_REFERENCE, type ScriptReferenceEntry } from './editor/apiReference.js'
 export { ScriptExecutionError } from './errors.js'
 export type {

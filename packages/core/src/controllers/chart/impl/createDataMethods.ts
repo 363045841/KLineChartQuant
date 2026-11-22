@@ -1,25 +1,26 @@
 /**
- * createDataMethods — 数据与区间选择的委托方法集。
+ * createDataMethods — 数据、覆盖与视图定位的委托方法集。
  *
- * 从 createChartController 中抽离，统一把数据/区间选择 API 委托给 Chart facade，
- * 方法均以 isDisposed 作为销毁短路条件；网络生命周期由活动行情运行模块管理。
+ * 每个方法只把调用原样交给 Chart facade，不在这里做守卫或状态拼接；销毁后统一短路。
  */
 
+import type { CoverageResult } from '@/data/buffer/types.js'
 import type { Chart } from '@/engine/chart/index.js'
+import type { RangePreset, RangeWindow } from '@/engine/viewport/rangePreset.js'
 import type { KLineData, SymbolInfo, SymbolSpec } from '../types.js'
 
 /**
- * 创建数据与区间选择委托方法集。
+ * 创建数据与视图定位的委托方法集。
  *
- * @param chart 被委托的 Chart facade。
- * @param isDisposed 控制器是否已销毁的读取器，用于销毁后短路。
- * @returns methods 为公开委托方法。
+ * @param chart 被委托的 Chart facade
+ * @param isDisposed 控制器是否已销毁的读取器，用于销毁后短路
+ * @returns methods 为公开委托方法
  */
 export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
-  /** 公开门面只改变品种选择，历史与增量写入归行情运行时。 */
-  function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
+  /** 整体替换主品种；周期、复权与来源都在同一个 spec 里。 */
+  function setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void {
     if (isDisposed()) return
-    chart.setSymbols(next)
+    chart.setPrimaryMarket(spec, options)
   }
 
   function setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void {
@@ -43,21 +44,6 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.setComparisonHidden(identity, hidden)
   }
 
-  function setCurrentSymbol(symbol: string): void {
-    if (isDisposed()) return
-    chart.setCurrentSymbol(symbol)
-  }
-
-  function setCurrentPeriod(period: string): void {
-    if (isDisposed()) return
-    chart.setCurrentPeriod(period)
-  }
-
-  function switchToTimeShareForDate(dateYYYYMMDD: number): void {
-    if (isDisposed()) return
-    chart.switchToTimeShareForDate(dateYYYYMMDD)
-  }
-
   function registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
     if (isDisposed()) return
     chart.registerSymbols(infos)
@@ -68,9 +54,22 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
     chart.getMarketDataCache().clear()
   }
 
-  function ensureDataRange(startTs: number): void {
+  /** 让数据池覆盖到给定时间；返回值表明已覆盖、耗尽或序列已切换。 */
+  function ensureCoverageFrom(fromTs: number): Promise<CoverageResult> {
+    if (isDisposed()) return Promise.resolve<CoverageResult>('superseded')
+    return chart.ensureCoverageFrom(fromTs)
+  }
+
+  /** 预置对应的时间窗。 */
+  function getPresetWindow(preset: RangePreset): RangeWindow | null {
+    if (isDisposed()) return null
+    return chart.getPresetWindow(preset)
+  }
+
+  /** 把时间窗装进屏幕。 */
+  function frameTimeRange(from: number, to: number): void {
     if (isDisposed()) return
-    chart.ensureDataRange(startTs)
+    chart.frameTimeRange(from, to)
   }
 
   function startRangeSelection(timestamp: number): void {
@@ -105,17 +104,16 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
 
   return {
     methods: {
-      setSymbols,
+      setPrimaryMarket,
       registerSymbols,
       setComparisonSpecs,
       addComparisonSymbol,
       removeComparisonSymbol,
       setComparisonHidden,
-      setCurrentSymbol,
-      setCurrentPeriod,
-      switchToTimeShareForDate,
       clearMarketDataCache,
-      ensureDataRange,
+      ensureCoverageFrom,
+      getPresetWindow,
+      frameTimeRange,
       startRangeSelection,
       updateRangeSelection,
       finishRangeSelection,

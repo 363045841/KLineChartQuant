@@ -1,7 +1,7 @@
 /**
  * 统一品种模型与图表 SymbolSpec 的唯一转换入口。
  *
- * 品种切换、对比品种和嵌入工作台的初始化都从这里构造，避免三处各拼一遍字段。
+ * 品种切换、对比品种和嵌入工作台的初始化都从这里构造，避免各处重复拼装字段。
  */
 import type { SymbolInfo, SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
 import type {
@@ -15,8 +15,6 @@ export interface SymbolSpecSelection {
   readonly adjust: KLineAdjustment
   /** 当前品种的日期边界；缺省表示不限制范围。 */
   readonly bounds?: Pick<SymbolSpec, 'startDate' | 'endDate'>
-  /** 旧调用方缺 sessionId 时使用的市场标识；缺省回落到 sessionId 或空串。 */
-  readonly market?: string
 }
 
 /** 由统一品种模型构造图表品种；日期边界只在显式提供时写入。 */
@@ -25,18 +23,12 @@ export function toSymbolSpec(
   selection: SymbolSpecSelection,
 ): SymbolSpec {
   return {
-    id: item.id,
     instrument: item,
-    symbol: item.symbol,
-    market: selection.market ?? item.sessionId ?? '',
-    exchange: item.exchange,
     period: selection.period,
-    source: item.source,
-    params: item.providerRef,
+    adjust: selection.adjust,
     ...(selection.bounds === undefined
       ? {}
       : { startDate: selection.bounds.startDate, endDate: selection.bounds.endDate }),
-    adjust: selection.adjust,
   }
 }
 
@@ -73,31 +65,12 @@ export function fromSymbolInfo(info: SymbolInfo): InstrumentDescriptor {
   }
 }
 
-/** 按身份在目录中查找品种；缺失时用 spec 自身重建，保证标签始终可渲染。 */
-export function symbolItemForSpec(
-  spec: SymbolSpec,
-  catalog: readonly SymbolInfo[],
-): InstrumentDescriptor {
-  if (spec.instrument) return spec.instrument
-  const info = catalog.find((item) =>
-    spec.id && item.id
-      ? spec.id === item.id
-      : item.symbol === spec.symbol &&
-        item.source === spec.source &&
-        item.exchange === spec.exchange,
-  )
-  if (info) return fromSymbolInfo(info)
-  return {
-    id:
-      spec.id ??
-      legacyInstrumentId(spec.source ?? '', spec.symbol, spec.exchange ?? '', spec.params),
-    source: spec.source ?? '',
-    symbol: spec.symbol,
-    name: spec.symbol,
-    instrumentType: 'unknown',
-    exchange: spec.exchange ?? '',
-    sessionId: spec.market || undefined,
-    providerRef: spec.params,
-    capabilities: {},
-  }
+/**
+ * 业务品种自带的统一品种模型。
+ *
+ * @param spec 业务品种
+ * @returns 用于展示与能力判断的品种描述
+ */
+export function symbolItemForSpec(spec: SymbolSpec): InstrumentDescriptor {
+  return spec.instrument
 }

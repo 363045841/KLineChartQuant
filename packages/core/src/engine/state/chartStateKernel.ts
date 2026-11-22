@@ -29,6 +29,7 @@ import {
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
+import { isSymbolSpec } from '../data/symbolSpecGuard.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
 import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
@@ -277,7 +278,7 @@ export class ChartStateKernel extends StateKernel {
       if (!SCALE_X_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
       const spec = this.dataManager.readonly.currentSpec()
       if (!deps.marketSessions || !spec) return null
-      return resolveSymbolMarketSession(spec, deps.marketSessions)
+      return resolveSymbolMarketSession(spec.instrument, deps.marketSessions)
     })
     this.sessionSlots$ = computed(() => {
       const session = marketSession$()
@@ -497,8 +498,7 @@ export class ChartStateKernel extends StateKernel {
         this.interaction.actions.setSeparatorHover(paneId),
       setRightAxisHover: (paneId: string | null) =>
         this.interaction.actions.setRightAxisHover(paneId),
-      updateTooltip: (pos: { x: number; y: number }) =>
-        this.interaction.actions.updateTooltip(pos),
+      updateTooltip: (pos: { x: number; y: number }) => this.interaction.actions.updateTooltip(pos),
       resetInteraction: () => this.interaction.actions.reset(),
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),
@@ -614,10 +614,13 @@ export class ChartStateKernel extends StateKernel {
 
   /** 布局和用户指标在一次 batch 中恢复，再重建当前视图的系统实例。 */
   applyLayout(document: LayoutDocument): void {
+    const stored = document.currentSymbol
     const symbol =
-      document.currentSymbol === undefined
+      stored === undefined
         ? this.dataManager.readonly.currentSpec.peek()
-        : document.currentSymbol
+        : isSymbolSpec(stored)
+          ? stored
+          : null
     const drawingSymbol = symbol === null ? undefined : symbolSpecIdentityKey(symbol)
     batch(() => {
       this.indicator.actions.restoreWorkspaces(document.workspaces)

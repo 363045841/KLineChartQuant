@@ -1,47 +1,37 @@
-/** 定义与计算器仓库；不保存数据快照、运行任务、计算版本或取消控制器。 */
-import type { IndicatorCalculationTask } from '../domain/instanceCalculationPlan.js'
-import {
-  executeIndicatorCalculationTask,
-  type IndicatorCalculationDefinition,
-} from './instanceCalculationRuntime.js'
+/** 计算器仓库：保存已注册定义与其计算器实例；不保存行情快照、任务或取消状态。 */
+import type { CalculationTask } from '../domain/calculationPlan.js'
+import { executeIndicatorCalculationTask, type IndicatorCalculator } from './indicatorCalculator.js'
 import type { IndicatorMarketData } from './marketDataTypes.js'
-import type { IndicatorCalculationExecutor } from './types.js'
+import type { IndicatorCalculationExecutor, MarketSnapshot } from './types.js'
 
-export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationExecutor {
-  private readonly definitions = new Map<string, IndicatorCalculationDefinition>()
-  private readonly calculators = new Map<
-    string,
-    IndicatorCalculationDefinition & { dispose?: () => void }
-  >()
+export class IndicatorCalculatorRegistry implements IndicatorCalculationExecutor {
+  private readonly definitions = new Map<string, IndicatorCalculator>()
+  private readonly calculators = new Map<string, IndicatorCalculator & { dispose?: () => void }>()
 
   constructor(
-    definitions: Iterable<IndicatorCalculationDefinition> = [],
+    definitions: Iterable<IndicatorCalculator> = [],
     private readonly marketData?: () => IndicatorMarketData,
   ) {
     for (const definition of definitions) this.addDefinition(definition)
   }
 
-  get revision(): number {
-    return this.marketData?.().revision ?? 0
-  }
-
   /** 注册定义；同一对象重复注册幂等，其它同名对象必须显式更新。 */
-  addDefinition(definition: IndicatorCalculationDefinition): void {
+  addDefinition(definition: IndicatorCalculator): void {
     const existing = this.definitions.get(definition.definitionId)
     if (existing && existing !== definition)
-      throw new TypeError(`Duplicate indicator calculation definition: ${definition.definitionId}`)
+      throw new TypeError(`Duplicate indicator calculator: ${definition.definitionId}`)
     this.definitions.set(definition.definitionId, definition)
   }
 
   /** 新定义只影响后续执行；旧执行持有自己的快照，发布资格由调度器决定。 */
-  updateDefinition(definition: IndicatorCalculationDefinition): void {
+  updateDefinition(definition: IndicatorCalculator): void {
     if (!this.definitions.has(definition.definitionId))
-      throw new TypeError(`Unknown indicator calculation definition: ${definition.definitionId}`)
+      throw new TypeError(`Unknown indicator calculator: ${definition.definitionId}`)
     this.removeDefinition(definition.definitionId)
     this.definitions.set(definition.definitionId, definition)
   }
 
-  removeDefinition(id: string): void {
+  private removeDefinition(id: string): void {
     this.definitions.delete(id)
     for (const [key, calculator] of this.calculators) {
       if (calculator.definitionId !== id) continue
@@ -50,8 +40,13 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
     }
   }
 
-  /** 活动计划拥有计算器与行情租约；展示实例共用同一计算身份。 */
-  retain(tasks: readonly IndicatorCalculationTask[]): void {
+  /** 批量移除定义；供装配层在定义提交中一次释放。 */
+  removeDefinitions(ids: readonly string[]): void {
+    for (const id of ids) this.removeDefinition(id)
+  }
+
+  /** 活动计划拥有计算器与行情租约；不在集合内的资源立即释放。 */
+  retain(tasks: readonly CalculationTask[]): void {
     const keys = new Set(tasks.map((task) => task.calculationKey))
     for (const [key, calculator] of this.calculators) {
       if (keys.has(key)) continue
@@ -62,7 +57,7 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
   }
 
   /** 执行一个不可变输入；取消信号来自任务生命周期，不解释实时更新。 */
-  execute: IndicatorCalculationExecutor['execute'] = (task, input, signal) => {
+  execute: IndicatorCalculationExecutor['execute'] = (task, snapshot, signal) => {
     signal.throwIfAborted()
     let calculator = this.calculators.get(task.calculationKey)
     if (!calculator) {
@@ -77,10 +72,10 @@ export class IndicatorInstanceExecutionRuntime implements IndicatorCalculationEx
       }
       this.calculators.set(task.calculationKey, calculator)
     }
-    const context = this.marketData?.().context(task.calculationKey, input.data)
+    const context = this.marketData?.().context(task.calculationKey, snapshot.data)
     return executeIndicatorCalculationTask(
       task,
-      input,
+      snapshot,
       () => calculator,
       context ? { ...context, signal } : undefined,
     )

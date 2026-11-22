@@ -71,7 +71,7 @@ function assertAliasesAvailable(names: readonly string[], key: string): void {
 
 /** 从已装配元数据派生静态目录项，供选择器与搜索读取。 */
 function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescriptor {
-  const defaultParams = definition.runtime?.defaultParams
+  const defaultInputs = definition.runtime?.defaultInputs
   return {
     name: definition.name,
     source: definition.source,
@@ -83,10 +83,10 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     visiblePeriods: definition.visiblePeriods,
-    defaultParams:
-      typeof defaultParams === 'function'
-        ? (defaultParams as () => Record<string, unknown>)()
-        : (defaultParams as Readonly<Record<string, unknown>> | undefined),
+    defaultInputs:
+      typeof defaultInputs === 'function'
+        ? (defaultInputs as () => Record<string, unknown>)()
+        : (defaultInputs as Readonly<Record<string, unknown>> | undefined),
     defaultOptions: definition.presentation?.defaultOptions,
     inputDefs: definition.runtime?.inputDefs,
     documentIdentity: definition.document?.identity,

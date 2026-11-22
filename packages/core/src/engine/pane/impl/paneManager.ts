@@ -9,10 +9,9 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { batch } from '../../../foundation/reactivity/signal.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
-import { resolveDefinitionDefaultParams } from '../../indicators/defaultParams.js'
+import { resolveDefinitionDefaultInputs } from '../../indicators/defaultInputs.js'
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
 import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
-import { MAIN_PANE_ID } from '../types.js'
 import type {
   IndicatorInstanceCommands,
   IndicatorPlacement,
@@ -23,6 +22,7 @@ import type {
   PanePlacement,
   PaneSpec,
 } from '../types.js'
+import { MAIN_PANE_ID } from '../types.js'
 import { normalizeVisiblePaneRatios } from './layout/paneRatioMath.js'
 import { paneSpecsEqual } from './paneConfiguration.js'
 
@@ -98,7 +98,7 @@ export class PaneManager {
         paneId,
         ordinal,
         params: {
-          ...resolveDefinitionDefaultParams(definition),
+          ...resolveDefinitionDefaultInputs(definition),
           ...(params ?? {}),
         },
       })
@@ -251,7 +251,7 @@ export class PaneManager {
       return indicator.actions.updateInstance(instanceId, {
         ...patch,
         indicatorId: definition.name,
-        params: { ...resolveDefinitionDefaultParams(definition), ...(patch.params ?? {}) },
+        params: { ...resolveDefinitionDefaultInputs(definition), ...(patch.params ?? {}) },
       })
     }
     return indicator.actions.updateInstance(instanceId, patch)

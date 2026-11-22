@@ -77,7 +77,11 @@ function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
 }
 
 /** 写入活动数据时由 State 分配 revision，调用方不能伪造。 */
-type ActiveBufferSnapshotInput = Omit<ActiveBufferSnapshot, 'dataRevision'>
+type ActiveBufferSnapshotInput = ActiveBufferSnapshot extends infer Snapshot
+  ? Snapshot extends unknown
+    ? Omit<Snapshot, 'dataRevision'>
+    : never
+  : never
 
 /** 在保留判别联合类型的前提下，为外部快照分配 data revision。 */
 function snapshotWithRevision(

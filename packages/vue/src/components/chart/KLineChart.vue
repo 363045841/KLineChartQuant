@@ -82,249 +82,252 @@
           @set-all-drawings-visible="onSetAllDrawingsVisible"
           @open-command-palette="paletteOpen = true"
         />
-        <div
-          ref="chartMainRef"
-          class="chart-main"
-          :style="{ '--chart-plot-bottom': `${props.bottomAxisHeight}px` }"
-        >
-          <ChartNavigation
-            v-if="hasPrimarySymbol"
-            :controller="controller"
-            :style="{
-              bottom: 'var(--chart-plot-bottom)',
-              '--chart-nav-offset-x': `${navOffsetX}px`,
-            }"
-          />
-          <MenuSurface
-            v-bind="chartMenu.bindings.value"
-            label="图表菜单"
-            :groups="contextMenuGroups"
-            :restore-focus-to="containerRef"
-            @select="onContextMenuSelect"
-          />
-          <MenuSurface
-            label="移动指标"
-            :open="legendMoveMenuOpen"
-            :anchor="legendMoveMenuAnchor"
-            :offset="legendMoveMenuOffset"
-            :groups="legendMoveMenuGroups"
-            :restore-focus-to="containerRef"
-            @update:open="onLegendMoveMenuUpdateOpen"
-            @select="onLegendMoveMenuSelect"
-          />
-          <a
-            class="chart-brand"
-            :href="PROJECT_REPOSITORY_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            :style="{
-              bottom: 'calc(var(--chart-plot-bottom) + 8px)',
-              '--chart-brand-axis-width': `${
-                chartMode === 'timeshare'
-                  ? leftAxisHostWidth
-                  : priceAxisPosition === 'left' ? axisHostWidth : 0
-              }px`,
-            }"
-            aria-label="KlineChartQuant"
+        <div class="chart-right">
+          <div
+            ref="chartMainRef"
+            class="chart-main"
+            :style="{ '--chart-plot-bottom': `${props.bottomAxisHeight}px` }"
           >
-            <!-- 品牌折线取自应用图标 kcq-logo.svg，去掉圆底与磨砂后按当前文字色绘制。 -->
-            <svg
-              class="chart-brand-mark"
-              :viewBox="brandMarkViewBox"
-              aria-hidden="true"
-              focusable="false"
+            <ChartNavigation
+              v-if="hasPrimarySymbol"
+              :controller="controller"
+              :style="{
+                bottom: 'var(--chart-plot-bottom)',
+                '--chart-nav-offset-x': `${navOffsetX}px`,
+              }"
+            />
+            <MenuSurface
+              v-bind="chartMenu.bindings.value"
+              label="图表菜单"
+              :groups="contextMenuGroups"
+              :restore-focus-to="containerRef"
+              @select="onContextMenuSelect"
+            />
+            <MenuSurface
+              label="移动指标"
+              :open="legendMoveMenuOpen"
+              :anchor="legendMoveMenuAnchor"
+              :offset="legendMoveMenuOffset"
+              :groups="legendMoveMenuGroups"
+              :restore-focus-to="containerRef"
+              @update:open="onLegendMoveMenuUpdateOpen"
+              @select="onLegendMoveMenuSelect"
+            />
+            <a
+              class="chart-brand"
+              :href="PROJECT_REPOSITORY_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              :style="{
+                bottom: 'calc(var(--chart-plot-bottom) + 8px)',
+                '--chart-brand-axis-width': `${
+                  chartMode === 'timeshare'
+                    ? leftAxisHostWidth
+                    : priceAxisPosition === 'left' ? axisHostWidth : 0
+                }px`,
+              }"
+              aria-label="KlineChartQuant"
             >
-              <path
-                :d="BRAND_MARK_PATH"
-                fill="none"
-                stroke="currentColor"
-                :stroke-width="BRAND_MARK_STROKE_WIDTH"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>KlineChartQuant</span>
-          </a>
-          <div
-            ref="leftAxisLayerRef"
-            v-show="chartMode === 'timeshare'"
-            class="left-axis-host"
-            :style="{ width: leftAxisHostWidth + 'px' }"
-            aria-label="价格轴"
-          ></div>
-          <div class="pane-separator-layer" aria-hidden="true">
-            <div
-              v-for="line in paneSeparatorLines"
-              :key="line.id"
-              class="pane-separator-line"
-              :data-pane-id="line.id"
-              :style="{ top: `${line.top}px` }"
-            ></div>
-          </div>
-          <div ref="tooltipLayerRef" class="tooltip-layer"></div>
-          <div
-            ref="containerRef"
-            tabindex="0"
-            class="chart-container"
-            @dblclick="onDoubleClick"
-            @contextmenu="onChartContextMenu"
-          >
-            <div class="scroll-content">
-              <div ref="canvasLayerRef" class="canvas-layer">
-                <!-- 首帧就给出最终几何：默认 300×150 的 canvas 会在第一次绘制帧被改尺寸，造成底部时间轴的位移。 -->
-                <canvas
-                  ref="xAxisCanvasRef"
-                  class="x-axis-canvas"
-                  :style="{ width: '100%', height: `${props.bottomAxisHeight}px` }"
-                ></canvas>
-
-                <div
-                  v-if="hasLegendSlot && legendContext"
-                  class="main-legend-overlay"
-                  :style="legendOverlayStyle"
-                >
-                  <slot name="legend" v-bind="legendContext" />
-                </div>
-
-                <CanvasToolbarStack>
-                  <RangeSelectionExport
-                    v-if="rangeSelectionReady"
-                    v-model:start-date="customStartDate"
-                    v-model:end-date="customEndDate"
-                    :start-label="rangeSelectionStartLabel"
-                    :end-label="rangeSelectionEndLabel"
-                    :count="rangeSelectionCount"
-                    :return-rate="rangeSelectionReturnRate"
-                    @export="exportRangeToCsv"
-                    @clear="clearRangeSelection"
-                    @batch-setting="showBatchStockDialog = true"
-                  />
-                  <DrawingStyleToolbar
-                    v-if="selectedDrawings.length > 0 || isEditingLineLabel"
-                    :drawings="selectedDrawings"
-                    :editable-style-keys="selectedDrawingStyleKeys"
-                    :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
-                    :template-names="canvasTemplateNames"
-                    :template-error="canvasTemplateError"
-                    :template-saved="canvasTemplateSavedName"
-                    :can-use-templates="canUseCanvasTemplates"
-                    @open-templates="reloadCanvasTemplates"
-                    @save-template="openCanvasTemplateSave"
-                    @apply-template="applyCanvasTemplate"
-                    @delete-template="deleteCanvasTemplate"
-                    @save-existing-template="saveCanvasTemplateExisting"
-                    @update-style="onUpdateDrawingStyle"
-                    @delete="onDeleteDrawing"
-                    @toggle-lock="onToggleDrawingLock"
-                    @hide="onHideSelectedDrawings"
-                    @copy="onCopyDrawings"
-                    @clone="onCloneDrawings"
-                    @update-line-label-position="setLineLabelPosition"
-                    @open-settings="openDrawingSettings"
-                  />
-                </CanvasToolbarStack>
-                <div
-                  v-if="lineLabelTarget"
-                  class="drawing-line-label-editor"
-                  :class="{ 'is-placeholder': !isEditingLineLabel && !lineLabelTarget.text }"
-                  :style="lineLabelEditorStyle"
-                  @pointerdown.stop
-                  @pointermove.stop
-                  @pointerup.stop
-                  @click.stop="openLineLabelEditor"
-                >
-                  <button
-                    v-if="!isEditingLineLabel"
-                    type="button"
-                    class="drawing-line-label-editor__prompt"
-                  >
-                    {{ lineLabelTarget.text || '+ 添加文本' }}
-                  </button>
-                  <input
-                    v-else
-                    ref="lineLabelInput"
-                    v-model="lineLabelDraft"
-                    class="drawing-line-label-editor__input"
-                    type="text"
-                    maxlength="200"
-                    aria-label="线段文本"
-                    @blur="saveLineLabel"
-                    @keydown.enter.prevent="saveLineLabel"
-                    @keydown.escape.prevent="cancelLineLabelEditor"
-                  />
-                </div>
-              </div>
-              <div
-                v-if="rangeSelectionOverlayStyle"
-                class="range-selection-overlay"
-                :class="{ 'is-dragging': rangeSelection.isDragging }"
-                :style="rangeSelectionOverlayStyle"
-                aria-label="已选择的 K 线区间"
+              <!-- 品牌折线取自应用图标 kcq-logo.svg，去掉圆底与磨砂后按当前文字色绘制。 -->
+              <svg
+                class="chart-brand-mark"
+                :viewBox="brandMarkViewBox"
+                aria-hidden="true"
+                focusable="false"
               >
-                <div
-                  v-if="rangeSelectionReady"
-                  class="range-selection-handle range-selection-handle--left"
-                  @pointerdown.stop="onEdgePointerDown('left', $event)"
-                  @pointermove.stop="onEdgePointerMove($event)"
-                  @pointerup.stop="onEdgePointerUp($event)"
+                <path
+                  :d="BRAND_MARK_PATH"
+                  fill="none"
+                  stroke="currentColor"
+                  :stroke-width="BRAND_MARK_STROKE_WIDTH"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 />
+              </svg>
+              <span>KlineChartQuant</span>
+            </a>
+            <div
+              ref="leftAxisLayerRef"
+              v-show="chartMode === 'timeshare'"
+              class="left-axis-host"
+              :style="{ width: leftAxisHostWidth + 'px' }"
+              aria-label="价格轴"
+            ></div>
+            <div class="pane-separator-layer" aria-hidden="true">
+              <div
+                v-for="line in paneSeparatorLines"
+                :key="line.id"
+                class="pane-separator-line"
+                :data-pane-id="line.id"
+                :style="{ top: `${line.top}px` }"
+              ></div>
+            </div>
+            <div ref="tooltipLayerRef" class="tooltip-layer"></div>
+            <div
+              ref="containerRef"
+              tabindex="0"
+              class="chart-container"
+              @dblclick="onDoubleClick"
+              @contextmenu="onChartContextMenu"
+            >
+              <div class="scroll-content">
+                <div ref="canvasLayerRef" class="canvas-layer">
+                  <!-- 首帧就给出最终几何：默认 300×150 的 canvas 会在第一次绘制帧被改尺寸，造成底部时间轴的位移。 -->
+                  <canvas
+                    ref="xAxisCanvasRef"
+                    class="x-axis-canvas"
+                    :style="{ width: '100%', height: `${props.bottomAxisHeight}px` }"
+                  ></canvas>
+
+                  <div
+                    v-if="hasLegendSlot && legendContext"
+                    class="main-legend-overlay"
+                    :style="legendOverlayStyle"
+                  >
+                    <slot name="legend" v-bind="legendContext" />
+                  </div>
+
+                  <CanvasToolbarStack>
+                    <RangeSelectionExport
+                      v-if="rangeSelectionReady"
+                      v-model:start-date="customStartDate"
+                      v-model:end-date="customEndDate"
+                      :start-label="rangeSelectionStartLabel"
+                      :end-label="rangeSelectionEndLabel"
+                      :count="rangeSelectionCount"
+                      :return-rate="rangeSelectionReturnRate"
+                      @export="exportRangeToCsv"
+                      @clear="clearRangeSelection"
+                      @batch-setting="showBatchStockDialog = true"
+                    />
+                    <DrawingStyleToolbar
+                      v-if="selectedDrawings.length > 0 || isEditingLineLabel"
+                      :drawings="selectedDrawings"
+                      :editable-style-keys="selectedDrawingStyleKeys"
+                      :line-label-position="isEditingLineLabel ? lineLabelPosition : undefined"
+                      :template-names="canvasTemplateNames"
+                      :template-error="canvasTemplateError"
+                      :template-saved="canvasTemplateSavedName"
+                      :can-use-templates="canUseCanvasTemplates"
+                      @open-templates="reloadCanvasTemplates"
+                      @save-template="openCanvasTemplateSave"
+                      @apply-template="applyCanvasTemplate"
+                      @delete-template="deleteCanvasTemplate"
+                      @save-existing-template="saveCanvasTemplateExisting"
+                      @update-style="onUpdateDrawingStyle"
+                      @delete="onDeleteDrawing"
+                      @toggle-lock="onToggleDrawingLock"
+                      @hide="onHideSelectedDrawings"
+                      @copy="onCopyDrawings"
+                      @clone="onCloneDrawings"
+                      @update-line-label-position="setLineLabelPosition"
+                      @open-settings="openDrawingSettings"
+                    />
+                  </CanvasToolbarStack>
+                  <div
+                    v-if="lineLabelTarget"
+                    class="drawing-line-label-editor"
+                    :class="{ 'is-placeholder': !isEditingLineLabel && !lineLabelTarget.text }"
+                    :style="lineLabelEditorStyle"
+                    @pointerdown.stop
+                    @pointermove.stop
+                    @pointerup.stop
+                    @click.stop="openLineLabelEditor"
+                  >
+                    <button
+                      v-if="!isEditingLineLabel"
+                      type="button"
+                      class="drawing-line-label-editor__prompt"
+                    >
+                      {{ lineLabelTarget.text || '+ 添加文本' }}
+                    </button>
+                    <input
+                      v-else
+                      ref="lineLabelInput"
+                      v-model="lineLabelDraft"
+                      class="drawing-line-label-editor__input"
+                      type="text"
+                      maxlength="200"
+                      aria-label="线段文本"
+                      @blur="saveLineLabel"
+                      @keydown.enter.prevent="saveLineLabel"
+                      @keydown.escape.prevent="cancelLineLabelEditor"
+                    />
+                  </div>
+                </div>
                 <div
-                  v-if="rangeSelectionReady"
-                  class="range-selection-handle range-selection-handle--right"
-                  @pointerdown.stop="onEdgePointerDown('right', $event)"
-                  @pointermove.stop="onEdgePointerMove($event)"
-                  @pointerup.stop="onEdgePointerUp($event)"
-                />
+                  v-if="rangeSelectionOverlayStyle"
+                  class="range-selection-overlay"
+                  :class="{ 'is-dragging': rangeSelection.isDragging }"
+                  :style="rangeSelectionOverlayStyle"
+                  aria-label="已选择的 K 线区间"
+                >
+                  <div
+                    v-if="rangeSelectionReady"
+                    class="range-selection-handle range-selection-handle--left"
+                    @pointerdown.stop="onEdgePointerDown('left', $event)"
+                    @pointermove.stop="onEdgePointerMove($event)"
+                    @pointerup.stop="onEdgePointerUp($event)"
+                  />
+                  <div
+                    v-if="rangeSelectionReady"
+                    class="range-selection-handle range-selection-handle--right"
+                    @pointerdown.stop="onEdgePointerDown('right', $event)"
+                    @pointermove.stop="onEdgePointerMove($event)"
+                    @pointerup.stop="onEdgePointerUp($event)"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
-            <template v-if="hasKLineTooltipSlot">
+            <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
+              <template v-if="hasKLineTooltipSlot">
+                <div
+                  v-if="showExternalKLineTooltip"
+                  class="kline-tooltip-host"
+                  :class="{ 'is-draggable': isTooltipDraggable }"
+                  :style="externalKLineTooltipStyle"
+                  @pointerdown="onTooltipPointerDown"
+                  @dblclick="onTooltipDblClick"
+                >
+                  <slot
+                    name="kline-tooltip"
+                    :hover-data="externalHoveredKLine!"
+                    :hovered-index="externalInteractionState.hoveredIndex"
+                    :data="chartData"
+                    :up-color="tooltipColors.upColor"
+                    :down-color="tooltipColors.downColor"
+                  />
+                </div>
+              </template>
               <div
-                v-if="showExternalKLineTooltip"
-                class="kline-tooltip-host"
+                v-else
+                ref="tooltipContentRef"
+                class="kline-tooltip"
                 :class="{ 'is-draggable': isTooltipDraggable }"
-                :style="externalKLineTooltipStyle"
+                style="display: none"
                 @pointerdown="onTooltipPointerDown"
                 @dblclick="onTooltipDblClick"
-              >
-                <slot
-                  name="kline-tooltip"
-                  :hover-data="externalHoveredKLine!"
-                  :hovered-index="externalInteractionState.hoveredIndex"
-                  :data="chartData"
-                  :up-color="tooltipColors.upColor"
-                  :down-color="tooltipColors.downColor"
-                />
-              </div>
-            </template>
+              ></div>
+            </Teleport>
             <div
-              v-else
-              ref="tooltipContentRef"
-              class="kline-tooltip"
-              :class="{ 'is-draggable': isTooltipDraggable }"
-              style="display: none"
-              @pointerdown="onTooltipPointerDown"
-              @dblclick="onTooltipDblClick"
-            ></div>
-          </Teleport>
-          <div
-            ref="rightAxisLayerRef"
-            class="right-axis-host"
-            :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
-            :style="{ width: axisHostWidth + 'px' }"
-            @contextmenu.prevent
-          >
-            <PaneAxisControls
-              v-for="entry in paneAxisEntries"
-              :key="entry.pane.id"
-              :controller="controller"
-              :pane="entry.pane"
-              :columns="entry.columns"
-              :ends-at-chart-bottom="entry.endsAtChartBottom"
-              @settings-change="handleSettingsChange"
-            />
+              ref="rightAxisLayerRef"
+              class="right-axis-host"
+              :class="{ 'price-axis-host--left': chartMode !== 'timeshare' && priceAxisPosition === 'left' }"
+              :style="{ width: axisHostWidth + 'px' }"
+              @contextmenu.prevent
+            >
+              <PaneAxisControls
+                v-for="entry in paneAxisEntries"
+                :key="entry.pane.id"
+                :controller="controller"
+                :pane="entry.pane"
+                :columns="entry.columns"
+                :ends-at-chart-bottom="entry.endsAtChartBottom"
+                @settings-change="handleSettingsChange"
+              />
+            </div>
           </div>
+          <RangePresetBar :controller="controller" :supported-periods="supportedPeriods" />
         </div>
       </div>
     </div>
@@ -446,10 +449,12 @@
     type LegendTemplateContext,
     type RendererBackendRuntime,
     type SymbolSpec,
+    TIME_SHARE_PERIOD,
   } from '@363045841yyt/klinechart-core/controllers'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
   import {
     isKLineAdjustment,
+    KLINE_PERIODS,
     KLineAdjustment,
     KLinePeriod,
     type MarketDataContext,
@@ -484,6 +489,7 @@
     watch,
   } from 'vue'
   import ChartNavigation from './ChartNavigation.vue'
+  import RangePresetBar from './RangePresetBar.vue'
 
   if (!inject(TOAST_STORE_KEY, null)) provideToast()
   const toast = useToast()
@@ -715,10 +721,15 @@
     const adjust = controllerSymbols.value[0]?.adjust
     return adjust !== undefined && isKLineAdjustment(adjust) ? adjust : initialAdjust.value
   })
-  const currentSymbol = computed(() => controllerSymbols.value[0]?.symbol ?? '选择商品')
+  const currentSymbol = computed(() => controllerSymbols.value[0]?.instrument.symbol ?? '选择商品')
   const currentSymbolItem = computed(() => {
     const primary = controllerSymbols.value[0]
-    return primary ? symbolItemForSpec(primary, symbolCatalog.value) : null
+    return primary ? symbolItemForSpec(primary) : null
+  })
+  /** 范围预置挑周期时只能选该品种支持的粒度。 */
+  const supportedPeriods = computed<readonly KLinePeriod[]>(() => {
+    const periods = currentSymbolItem.value?.capabilities?.bars?.periods
+    return periods && periods.length > 0 ? periods : KLINE_PERIODS
   })
   // Local feedback describes rejected/pending UI commands, not a copy of Core loading state.
   const localSymbolStatus = ref<'loading' | 'error' | null>(null)
@@ -746,9 +757,9 @@
   const symbolRetrying = computed(
     () => symbolStatus.value === 'loading' && Boolean(symbolErrorMessage.value),
   )
-  const overlaySymbols = computed(() => comparisonSpecs.value.map(symbolIdentityKey))
+  const overlaySymbols = computed(() => comparisonSpecs.value.map((spec) => spec.instrument.id))
   const overlaySymbolItems = computed(() =>
-    comparisonSpecs.value.map((spec) => symbolItemForSpec(spec, symbolCatalog.value)),
+    comparisonSpecs.value.map((spec) => symbolItemForSpec(spec)),
   )
   const symbolPool = computed(() => symbolCatalog.value.map(fromSymbolInfo))
   const { watchlistKeys, restoreWatchlist, addWatchlistItem } = useWatchlist()
@@ -764,11 +775,19 @@
     return true
   }
 
+  /** 用当前 spec 换周期：spec 整体替换，视图与数据由 Core 负责。 */
+  function applyPeriod(level: string): void {
+    const ctrl = controller.value
+    const current = ctrl?.symbols.peek()[0]
+    if (!ctrl || !current) return
+    ctrl.setPrimaryMarket({ ...current, period: level })
+  }
+
   function onKLineLevelChange(level: string) {
     if (level === 'timeshare' && !ensureTimeShareSupported()) return
     emit('kLineLevelChange', level)
     try {
-      controller.value?.setCurrentPeriod(level)
+      applyPeriod(level)
     } catch (error) {
       localSymbolStatus.value = 'error'
       if (currentSymbolItem.value) {
@@ -850,7 +869,7 @@
     // 主品种与对比集合解耦：分别写入，周期/复权变化时对比集合用最新周期重建。
     const selection = currentSelection(adjust)
     const comparisons = overlaySymbolItems.value.map((item) => toSymbolSpec(item, selection))
-    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value, selection)])
+    ctrl.setPrimaryMarket(toSymbolSpec(currentSymbolItem.value, selection))
     ctrl.setComparisonSpecs(comparisons)
   }
 
@@ -1592,7 +1611,10 @@
     const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
 
     try {
-      controller.value.switchToTimeShareForDate(yyyymmdd)
+      const ctrl = controller.value
+      const current = ctrl?.symbols.peek()[0]
+      if (!ctrl || !current) return
+      ctrl.setPrimaryMarket({ ...current, period: TIME_SHARE_PERIOD }, { date: yyyymmdd })
     } catch (error) {
       localSymbolStatus.value = 'error'
       if (currentSymbolItem.value) {
@@ -1746,7 +1768,7 @@
 
     if (props.symbols !== undefined && (!initial || ctrl.symbols.peek().length === 0)) {
       // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
-      ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
+      ctrl.setPrimaryMarket(props.symbols[0] ?? null)
       ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
     }
   }
@@ -1915,15 +1937,25 @@
     background: var(--klc-color-ui-surround-background);
   }
 
+  .chart-right {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    /* 外框只由绘图区承担：工具栏与左栏无边框，顶部两角随外壳圆角，底部贴边。 */
+    min-height: 0;
+    /* 绘图区是独立卡片：四角都随外壳圆角，底部按钮行在卡片之外。 */
     border: 1px solid var(--chart-border);
-    border-radius: var(--chart-frame-radius) var(--chart-frame-radius) 0 0;
+    border-radius: var(--chart-frame-radius);
     /* 圆角处裁掉画布与轴的直角，避免外框出现白边。 */
     overflow: hidden;
-    /* 截图克隆按外框尺寸设置宽高，避免边框额外撑大后被裁掉。 */
+    /* 截图克隆按该容器尺寸设置宽高，避免边框额外撑大后被裁掉。 */
     box-sizing: border-box;
     display: flex;
     align-items: stretch;

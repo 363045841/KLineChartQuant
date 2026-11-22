@@ -1,6 +1,6 @@
 /** 脚本编辑器与宿主的源码仓库契约；不依赖 script 包，保持图表包的 Apache 边界。 */
 
-import type { ScriptOutputSource, ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
+import type { ScriptLogSource, ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import type { Diagnostic } from '@codemirror/lint'
 import type { InjectionKey, Ref } from 'vue'
 
@@ -107,7 +107,7 @@ export interface ScriptSourceStore {
     readonly folders: readonly ScriptEditorFolder[]
   }>
   /** 宿主支持脚本运行输出时提供；纯源码仓库可以省略。 */
-  readonly output?: ScriptOutputSource
+  readonly log?: ScriptLogSource
   /** 提供执行能力的宿主复用同一脚本服务；纯源码仓库可省略。 */
   run?(options: ScriptRunOptions): Promise<void>
   read(id: string): ScriptEditorDocument | undefined

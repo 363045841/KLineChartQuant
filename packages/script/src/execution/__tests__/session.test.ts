@@ -46,7 +46,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
       const range = resolveComputeRange(change, script.definition.dependency, data.length)
       const result = script.runDetailed(data, {}, undefined, range)
       const replay = fresh.run(data, {}, undefined, { start: 0, end: data.length, reset: true })
-      expect(result.collection).toEqual(replay)
+      expect(result.series).toEqual(replay)
       expect(result.drawingDelta.reset).toBe(reset)
     }
     script.dispose()
@@ -93,8 +93,8 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
     const second = script.runDetailed(bars, {}, undefined, { start: 1, end: 3 })
     expect(first.drawingDelta.reset).toBe(true)
     expect(second.drawingDelta.reset).toBe(false)
-    expect(second.collection.drawings?.[0]).toBe(first.collection.drawings?.[0])
-    expect(second.collection.drawings).toHaveLength(3)
+    expect(second.series.drawings?.[0]).toBe(first.series.drawings?.[0])
+    expect(second.series.drawings).toHaveLength(3)
     // 旧末根会随检查点回滚重算，新根追加；已完成的第一根保持原对象。
     expect(second.drawingDelta.upsert).toHaveLength(2)
     script.dispose()
@@ -105,7 +105,7 @@ describe.each(BACKENDS)('$name session', ({ prepare }) => {
     const bars = [bar(0, 10), bar(60_000, 20), bar(120_000, 30)]
     const first = script.runDetailed(bars, {}, undefined, { start: 0, end: 3 })
     const values = (output: typeof first) =>
-      output.collection.plots[0]?.data.map((point) =>
+      output.series.plots[0]?.data.map((point) =>
         point && 'value' in point ? point.value : undefined,
       )
     // 会话输出是运行态视图；下一次运行前先快照本次结果。

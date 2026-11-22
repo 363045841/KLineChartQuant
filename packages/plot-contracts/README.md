@@ -11,6 +11,6 @@
 | `LinePlot` / `HistogramPlot` / `PointsPlot` | 三种绘图形状 |
 | `Plot` | 三种形状的联合 |
 | `PlotFill` | 引用两个 Plot 的区域填充 |
-| `PlotCollection` | 一个指标实例产出的全部 Plot 与填充 |
+| `IndicatorSeries` | 一个指标实例产出的全部 Plot 与填充 |
 | `PlotDeclaration` / `PlotFillDeclaration` | Plot 与填充的声明字段 |
-| `PlotCollector` | 把逐 bar 输出组装成 `PlotCollection` |
+| `PlotCollector` | 把逐 bar 输出组装成 `IndicatorSeries` |

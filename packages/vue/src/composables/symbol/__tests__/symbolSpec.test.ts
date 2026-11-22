@@ -1,4 +1,4 @@
-/** 品种模型与 SymbolSpec 的唯一转换：字段映射、旧目录回退与身份兜底。 */
+/** 品种模型与 SymbolSpec 的唯一转换：字段映射与旧目录兜底。 */
 
 import type { SymbolInfo } from '@363045841yyt/klinechart-core/controllers'
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
@@ -34,33 +34,27 @@ const selection: { period: string; adjust: KLineAdjustment } = {
 describe('symbolSpec', () => {
   it('按品种与选择构造 SymbolSpec，未提供边界时不写日期字段', () => {
     const spec = toSymbolSpec(instrument, selection)
-    expect(spec).toMatchObject({
-      id: 'BTCUSDT',
+    expect(spec).toEqual({
       instrument,
-      symbol: 'BTCUSDT',
-      market: 'binance',
-      exchange: 'BINANCE',
       period: '1D',
-      source: 'binance',
-      params: { network: 'mainnet' },
       adjust: KLineAdjustment.None,
     })
     expect(spec).not.toHaveProperty('startDate')
     expect(spec).not.toHaveProperty('endDate')
   })
 
-  it('显式边界与市场覆盖优先于品种默认值', () => {
+  it('显式边界与复权覆盖品种默认值', () => {
     const spec = toSymbolSpec(instrument, {
-      ...selection,
+      period: '1D',
       adjust: KLineAdjustment.Qfq,
-      market: 'legacy',
       bounds: { startDate: '2024-01-01', endDate: '2024-12-31' },
     })
-    expect(spec).toMatchObject({
-      market: 'legacy',
+    expect(spec).toEqual({
+      instrument,
+      period: '1D',
+      adjust: KLineAdjustment.Qfq,
       startDate: '2024-01-01',
       endDate: '2024-12-31',
-      adjust: KLineAdjustment.Qfq,
     })
   })
 
@@ -80,19 +74,7 @@ describe('symbolSpec', () => {
     expect(item).toMatchObject({ name: 'Bitcoin', sessionId: 'binance' })
   })
 
-  it('目录命中与缺失两种路径都返回可渲染的品种', () => {
-    const primary = toSymbolSpec(instrument, selection)
-    expect(symbolItemForSpec(primary, [])).toBe(instrument)
-
-    const missing = symbolItemForSpec(
-      { symbol: 'ETHUSDT', market: 'binance', exchange: 'BINANCE', source: 'binance' },
-      [],
-    )
-    expect(missing).toMatchObject({
-      symbol: 'ETHUSDT',
-      name: 'ETHUSDT',
-      exchange: 'BINANCE',
-      sessionId: 'binance',
-    })
+  it('直接返回业务品种自带的统一品种模型', () => {
+    expect(symbolItemForSpec(toSymbolSpec(instrument, selection))).toBe(instrument)
   })
 })

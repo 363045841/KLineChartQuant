@@ -4,22 +4,14 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SymbolSpec } from '@/controllers/types'
 import type { InstrumentDescriptor } from '@/data/provider/types'
 import { COMPARISON_ERROR_CODES, ERROR_CODES, KLineChartError } from '@/errors'
+import { DEFAULT_COMPARISON_COLOR } from '../../chartModel/impl/comparison/comparisonState'
 import {
   ComparisonCommands,
   type ComparisonCommandsDependencies,
   type ComparisonInstrumentResolution,
 } from '../comparisonCommands'
-import { DEFAULT_COMPARISON_COLOR } from '../../chartModel/impl/comparison/comparisonState'
 import { symbolSpecIdentityKey } from '../symbolIdentity'
-
-const PRIMARY: SymbolSpec = {
-  symbol: 'MAIN',
-  market: 'CN',
-  exchange: 'SSE',
-  source: 'mock',
-  period: 'daily',
-  adjust: 'none',
-}
+import { makeSymbolSpec } from './helpers/symbolSpecFixture'
 
 /** 构造一个完整品种描述；用例只声明差异。 */
 function instrument(
@@ -39,6 +31,15 @@ function instrument(
   }
 }
 
+/** 主品种：只用于补齐日期边界。 */
+const PRIMARY: SymbolSpec = {
+  instrument: instrument('MAIN', { name: 'MAIN 名称' }),
+  period: 'daily',
+  adjust: 'none',
+  startDate: '2020-01-01',
+  endDate: '2024-01-01',
+}
+
 /** 空解析结果；用例按需覆盖字段。 */
 function resolution(
   overrides: Partial<ComparisonInstrumentResolution> = {},
@@ -54,13 +55,13 @@ function resolution(
 
 /** 组装命令面与可断言的依赖替身。 */
 function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
-  let specs = initialComparisons.map((spec) => ({ ...spec }))
+  let specs = initialComparisons.map((item) => ({ ...item }))
   const hidden = new Map<string, boolean>()
   const colors = new Map<string, string>()
   let nextResolution = resolution({ candidates: [instrument('CMP')] })
 
   const setSpecs = vi.fn((next: ReadonlyArray<SymbolSpec>) => {
-    specs = next.map((spec) => ({ ...spec }))
+    specs = next.map((item) => ({ ...item }))
   })
   const scheduleDraw = vi.fn()
   const registerSpec = vi.fn()
@@ -106,9 +107,7 @@ function colorFor(harness: ReturnType<typeof createHarness>, identity: string): 
 
 describe('ComparisonCommands.list', () => {
   it('返回身份、规格、颜色与可见性，隐藏状态直接反映在快照里', () => {
-    const harness = createHarness([
-      { ...PRIMARY, symbol: 'CMP', id: 'CMP-ID', instrument: instrument('CMP') },
-    ])
+    const harness = createHarness([{ instrument: instrument('CMP') }])
     const spec = harness.specs()[0]!
     colorFor(harness, symbolSpecIdentityKey(spec))
     harness.hidden.set(symbolSpecIdentityKey(spec), true)
@@ -147,14 +146,7 @@ describe('ComparisonCommands.create', () => {
       { symbol: '600519', source: 'mock', exchange: 'SSE', instrumentType: 'stock' },
       undefined,
     )
-    expect(spec).toEqual({
-      id: '600519-ID',
-      instrument: instrument('600519', { name: '贵州茅台' }),
-      symbol: '600519',
-      market: 'CN',
-      exchange: 'SSE',
-      source: 'mock',
-    })
+    expect(spec).toEqual({ instrument: instrument('600519', { name: '贵州茅台' }) })
     expect(harness.registerSpec).toHaveBeenCalledWith(spec)
     expect(harness.setSpecs).toHaveBeenCalledTimes(1)
     expect(harness.scheduleDraw).toHaveBeenCalledTimes(1)
@@ -280,14 +272,7 @@ describe('ComparisonCommands.create', () => {
   })
 
   it('重复品种抛错并带上既有身份，且不重复登记', async () => {
-    const existing: SymbolSpec = {
-      id: 'CMP-ID',
-      instrument: instrument('CMP'),
-      symbol: 'CMP',
-      market: 'CN',
-      exchange: 'SSE',
-      source: 'mock',
-    }
+    const existing = makeSymbolSpec({ instrument: instrument('CMP') })
     const harness = createHarness([existing])
     harness.resolveWith(resolution({ candidates: [instrument('CMP')] }))
 
@@ -304,52 +289,59 @@ describe('ComparisonCommands.create', () => {
 })
 
 describe('ComparisonCommands.add', () => {
-  it('保留完整 spec，只用主品种补齐缺失的路由字段', () => {
+  it('只保留 instrument 与日期边界，周期和复权不进入对比 spec', () => {
     const harness = createHarness()
-    const spec: SymbolSpec = {
-      id: 'CMP-ID',
+    const spec = makeSymbolSpec({
       instrument: instrument('CMP'),
-      symbol: 'CMP',
-      market: 'CN',
-      exchange: 'SSE',
-      source: 'mock',
       startDate: '2020-01-01',
-    }
+    })
 
     expect(harness.commands.add(spec, PRIMARY)).toBe(true)
     expect(harness.specs()[0]).toEqual({
-      ...spec,
+      instrument: instrument('CMP'),
       startDate: '2020-01-01',
-      endDate: PRIMARY.endDate,
+      endDate: '2024-01-01',
     })
   })
 
-  it('同代码已存在时返回 false 且不写入', () => {
-    const harness = createHarness([{ symbol: 'CMP', market: 'CN', source: 'mock' }])
-    expect(
-      harness.commands.add({ symbol: 'CMP', market: 'CN', source: 'other' }, null),
-    ).toBe(false)
+  it('同一品种已存在时返回 false 且不写入', () => {
+    const harness = createHarness([makeSymbolSpec({ instrument: instrument('CMP') })])
+    expect(harness.commands.add(makeSymbolSpec({ instrument: instrument('CMP') }), null)).toBe(
+      false,
+    )
     expect(harness.setSpecs).not.toHaveBeenCalled()
+  })
+
+  it('不同来源的同一代码是不同品种，可以同时存在', () => {
+    const harness = createHarness([
+      makeSymbolSpec({ instrument: instrument('CMP', { id: 'CMP-A', source: 'mock' }) }),
+    ])
+    expect(
+      harness.commands.add(
+        makeSymbolSpec({ instrument: instrument('CMP', { id: 'CMP-B', source: 'other' }) }),
+        null,
+      ),
+    ).toBe(true)
   })
 })
 
 describe('ComparisonCommands.remove', () => {
   it('按 identity 删除并返回被删快照，保留其他对比', () => {
     const harness = createHarness([
-      { symbol: 'A', market: 'CN', source: 'mock', id: 'A-ID' },
-      { symbol: 'B', market: 'CN', source: 'mock', id: 'B-ID' },
+      makeSymbolSpec({ instrument: instrument('A', { id: 'A-ID' }) }),
+      makeSymbolSpec({ instrument: instrument('B', { id: 'B-ID' }) }),
     ])
 
     const removed = harness.commands.remove('instrument:mock:A-ID')
 
     expect(removed.identity).toBe('instrument:mock:A-ID')
-    expect(harness.specs().map((spec) => spec.symbol)).toEqual(['B'])
+    expect(harness.specs().map((item) => item.instrument.symbol)).toEqual(['B'])
     expect(harness.scheduleDraw).toHaveBeenCalledTimes(1)
   })
 
   it('保留按品种代码删除的公开行为', () => {
-    const harness = createHarness([{ symbol: 'A', market: 'CN', source: 'mock' }])
-    expect(harness.commands.remove('A').identity).toBe('["mock","CN","","A",[]]')
+    const harness = createHarness([makeSymbolSpec({ instrument: instrument('A', { id: 'A-ID' }) })])
+    expect(harness.commands.remove('A').identity).toBe('instrument:mock:A-ID')
   })
 
   it('未知 identity 抛可纠正错误', () => {
@@ -362,7 +354,7 @@ describe('ComparisonCommands.remove', () => {
 
 describe('ComparisonCommands.setVisible', () => {
   it('写显隐并返回最新快照', () => {
-    const harness = createHarness([{ symbol: 'A', market: 'CN', source: 'mock' }])
+    const harness = createHarness([makeSymbolSpec({ instrument: instrument('A', { id: 'A-ID' }) })])
     const identity = symbolSpecIdentityKey(harness.specs()[0]!)
 
     expect(harness.commands.setVisible(identity, false)).toMatchObject({ visible: false })

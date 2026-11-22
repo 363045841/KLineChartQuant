@@ -63,7 +63,7 @@ describe('Script selector catalog', () => {
       onBar() { const period = input.float(5); const text = input.string('close'); const enabled = input.bool(false); plot.Line(close, 'close') } })`)
     const definition = controller.catalog.peek().find((item) => item.id === created.id)!
     expect(definition.source).toBe('script')
-    expect(definition.params).toEqual([
+    expect(definition.inputs).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 5 },
       { key: 'text', label: 'text', type: 'string', default: 'close' },
       { key: 'enabled', label: 'enabled', type: 'boolean', default: false },
@@ -84,7 +84,7 @@ describe('Script selector catalog', () => {
       text: 'close',
       enabled: false,
     })
-    const params = findIndicatorDefinition(definition.id)!.params
+    const params = findIndicatorDefinition(definition.id)!.inputs
     scope.run(() => {
       const draft = useIndicatorParams({ visible: true, values: {}, params })
       draft.onReset()
@@ -120,14 +120,14 @@ describe('Script selector catalog', () => {
     },
   ])('输入声明映射为参数：$label', async ({ source, params }) => {
     const created = await scripts.create(source)
-    expect(findIndicatorDefinition(created.id)!.params).toEqual(params)
+    expect(findIndicatorDefinition(created.id)!.inputs).toEqual(params)
   })
 
   it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', async () => {
     const created = await scripts.create(
       `defineIndicator({ version: 2, name: 'UpdatableScript', position: Position.sub, onBar() { const period = input.float(3) } })`,
     )
-    expect(findIndicatorDefinition('UpdatableScript')!.params).toEqual([
+    expect(findIndicatorDefinition('UpdatableScript')!.inputs).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 3 },
     ])
 
@@ -142,7 +142,7 @@ describe('Script selector catalog', () => {
       id: created.id,
       label: 'RenamedUpdatableScript',
     })
-    expect(findIndicatorDefinition(created.id)!.params).toEqual([
+    expect(findIndicatorDefinition(created.id)!.inputs).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 7 },
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])

@@ -1,6 +1,6 @@
 /** Script Worker 的异步执行接口与消息类型。 */
-import type { Bar, ComputeRange, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
-import type { LogEvent } from '../contracts/output.js'
+import type { Bar, ComputeRange, IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
+import type { LogEvent } from '../contracts/log.js'
 import type { CompiledScriptSources } from '../execution/types.js'
 import type {
   PreparedScriptDefinition,
@@ -8,7 +8,7 @@ import type {
   ScriptParamValue,
 } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
-import type { PackedPlotCollection, RunInputPatch } from './transport/types.js'
+import type { PackedIndicatorSeries, RunInputPatch } from './transport/types.js'
 
 /** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功后替换编译结果。 */
 export interface ScriptWorker {
@@ -26,7 +26,7 @@ export interface ScriptWorker {
     params?: Readonly<Record<string, ScriptParamValue>>,
     context?: ScriptRequestContext,
     range?: ComputeRange,
-  ): Promise<PlotCollection>
+  ): Promise<IndicatorSeries>
   requests(
     id: string,
     params: Readonly<Record<string, ScriptParamValue>>,
@@ -87,7 +87,7 @@ export type ScriptWorkerRequest = { readonly requestId: number; readonly id: str
 export interface PackedDrawingDelta {
   readonly reset: boolean
   readonly remove: readonly string[]
-  readonly collection: PackedPlotCollection
+  readonly series: PackedIndicatorSeries
 }
 
 /** 显式保留脚本错误的诊断字段，避免结构化克隆丢失自定义属性。 */
@@ -106,7 +106,7 @@ export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'prepare'; readonly definition: PreparedScriptDefinition }
   | {
       readonly type: 'run'
-      readonly collection: PackedPlotCollection
+      readonly series: PackedIndicatorSeries
       readonly drawingDelta: PackedDrawingDelta
     }
   | { readonly type: 'requests'; readonly requests: readonly SecurityRequest[] }

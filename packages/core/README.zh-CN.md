@@ -167,13 +167,12 @@ chart.legend.rows.peek() // 所有 Pane 的展示行，包含按钮能力 action
 ### 数据与模式
 
 ```typescript
-chart.setSymbols([
-  { symbol: '000001', market: 'CN', period: 'daily', source: 'baostock' },
-])
+const instrument = await marketData.resolveInstrument('baostock', 'sh.600000')
+chart.setPrimaryMarket({ instrument, period: 'daily' })
 
 chart.addComparisonSymbol({ symbol: '000002', market: 'CN', period: 'daily' })
 chart.removeComparisonSymbol('000002')
-chart.switchToTimeShareForDate(20240102)
+chart.setPrimaryMarket({ instrument, period: 'timeshare' }, { date: 20240102 })
 ```
 
 通过 market-data API 注册 Provider，选择品种后沿统一行情链路取数。公开控制器提供品种选择和只读数据，不提供数组注入方法。

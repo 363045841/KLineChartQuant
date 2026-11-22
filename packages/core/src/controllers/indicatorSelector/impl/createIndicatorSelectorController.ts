@@ -35,7 +35,7 @@ type ParamRecord = Readonly<Record<string, ParamValue>>
  */
 function buildDefaultParams(definition: IndicatorDefinition): ParamRecord {
   const out: Record<string, ParamValue> = {}
-  for (const p of definition.params) {
+  for (const p of definition.inputs) {
     if (p.default !== undefined) {
       out[p.key] = p.default
     } else if (typeof p.min === 'number') {
@@ -83,9 +83,7 @@ export function createIndicatorSelectorController(
   // -------------------------------------------------------------------
   // 目录由 Core 注册表投影直接提供，选择器不持有副本。
   const catalog = initial.catalog
-  const active = createSignal<
-    ReadonlyArray<ActiveIndicator>
-  >(initial.active ?? [])
+  const active = createSignal<ReadonlyArray<ActiveIndicator>>(initial.active ?? [])
   const menuOpen = createSignal(false)
   const searchQuery = createSignal('')
 
@@ -102,8 +100,12 @@ export function createIndicatorSelectorController(
     const query = searchQuery()
     return catalog().filter((definition) => matchesQuery(definition, query))
   })
-  const filteredMain = computed(() => Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.MAIN)))
-  const filteredSub = computed(() => Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.SUB)))
+  const filteredMain = computed(() =>
+    Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.MAIN)),
+  )
+  const filteredSub = computed(() =>
+    Object.freeze(matches().filter((d) => d.role === INDICATOR_ROLE.SUB)),
+  )
 
   // -------------------------------------------------------------------
   // Lookup helpers (use peek — we don't want mutations to track)
