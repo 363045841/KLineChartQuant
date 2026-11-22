@@ -26,6 +26,7 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { createIdleInteractionSnapshot, objectAxisId } from '@363045841yyt/klinechart-core'
 import {
+  availablePriceRangeModes,
   type ChartSettings,
   PRICE_AXIS_RANGE_MODE,
   ScaleType,
@@ -249,14 +250,20 @@ export function createMockChartController(
       configuration: (axisId) => ({
         baseValue: 100,
         scaleType: paneScaleTypes.peek().get(axisId) ?? ScaleType.Linear,
-        rangeMode: panePriceAxisRanges.peek()[axisId]?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+        rangeMode: panePriceAxisRanges.peek()[axisId]?.rangeMode ?? PRICE_AXIS_RANGE_MODE.All,
+        availableRangeModes: availablePriceRangeModes(
+          chartMode.peek() === 'kline' && axisId === objectAxisId('plugin:candle'),
+        ),
       }),
       setScaleType: (axisId, type) =>
         paneScaleTypes.set(new Map(paneScaleTypes.peek()).set(axisId, type)),
       setRangeMode: (axisId, rangeMode) =>
         panePriceAxisRanges.set({
           ...panePriceAxisRanges.peek(),
-          [axisId]: { rangeMode, handRange: null },
+          [axisId]: {
+            rangeMode,
+            range: rangeMode === PRICE_AXIS_RANGE_MODE.Manual ? { minPrice: 0, maxPrice: 1 } : null,
+          },
         }),
       resetRange: () => {
         resetPriceAxisCalls += 1
@@ -274,10 +281,11 @@ export function createMockChartController(
     setPanePriceAxisRangeMode: (paneId, rangeMode) => {
       panePriceAxisRanges.set({
         ...panePriceAxisRanges.peek(),
-        [paneId]: { rangeMode, handRange: null },
+        [paneId]: {
+          rangeMode,
+          range: rangeMode === PRICE_AXIS_RANGE_MODE.Manual ? { minPrice: 0, maxPrice: 1 } : null,
+        },
       })
-      if (hasPriceSeries(paneId))
-        settings.set({ ...settings.peek(), mainPriceAxisRangeMode: rangeMode })
     },
     resetPanePriceAxis: () => {
       resetPriceAxisCalls += 1
@@ -458,13 +466,6 @@ export function createMockChartController(
           type === ScaleType.Log || type === ScaleType.Percent ? type : ScaleType.Linear,
         ),
       )
-      panePriceAxisRanges.set({
-        ...panePriceAxisRanges.peek(),
-        [objectAxisId('plugin:candle')]: {
-          rangeMode: next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-          handRange: null,
-        },
-      })
     },
     resetAxisCalls: () => resetPriceAxisCalls,
     _setDrawingHistory: (undo, redo) => {

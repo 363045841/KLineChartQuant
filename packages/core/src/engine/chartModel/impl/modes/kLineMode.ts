@@ -13,29 +13,25 @@ export class KLineMode implements ChartModeHandler {
 
   readonly useIndicatorScheduler = true
 
+  readonly fitsPriceBars = true
+
   /**
-   * 取可见 K 线区间的 max(high)/min(low)，并并入主图指标极值。
-   * 无可见真实 bar（纯未来区视口或空数据）时可见区为空，返回 null，渲染端保留上一帧范围。
+   * 取可见 K 线区间的 max(high)/min(low) 作为价格轴主投影。
+   * 无可见真实 bar（纯未来区视口或空数据）时返回 null，渲染端保留上一帧范围。
+   *
+   * @param range 当前视口可见索引区间
+   * @param dm 行情数据管理器
+   * @param closeOnly 线形/面积图只取收盘价
+   * @returns 主投影范围与基准价；没有可见行情时返回 null
    */
   computePaneRange(
     range: VisibleRange,
     dm: ChartDataManager,
-    mergedIndicatorRange?: { min: number; max: number } | null,
     closeOnly = false,
   ): PaneAutoPriceRange | null {
     const data = dm.getInternalData()
     const priceRange = getVisiblePriceRange(data, range.start, range.end, closeOnly)
     if (!priceRange) return null
-
-    if (
-      mergedIndicatorRange &&
-      Number.isFinite(mergedIndicatorRange.min) &&
-      Number.isFinite(mergedIndicatorRange.max)
-    ) {
-      priceRange.minPrice = Math.min(priceRange.minPrice, mergedIndicatorRange.min)
-      priceRange.maxPrice = Math.max(priceRange.maxPrice, mergedIndicatorRange.max)
-    }
-
     return {
       range: priceRange,
       basePrice: data[Math.max(0, range.start)]?.close ?? null,

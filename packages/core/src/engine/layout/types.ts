@@ -18,7 +18,7 @@ import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
 import type { SystemObjectSnapshot } from '../state/systemObjectState.js'
 
 /** Alpha 布局只接受当前版本，不迁移旧文档。 */
-export const LAYOUT_DOCUMENT_VERSION = 3
+export const LAYOUT_DOCUMENT_VERSION = 4
 
 /** 单个数据视图可恢复的横向位置：锚点时间 + 相对偏移 + 缩放等级。 */
 export interface LayoutViewportSnapshot {
@@ -45,7 +45,7 @@ export interface LayoutWorkspace {
 /** K 线与分时工作区的完整可恢复快照。 */
 export type LayoutWorkspaces = Readonly<Record<ChartWorkspaceId, LayoutWorkspace>>
 
-/** paneId → 自动或锁定模式。 */
+/** paneId → 范围模式（全并 / 仅 K 线 / 固定占比 / 手动）。 */
 export type LayoutPanePriceAxisModes = Readonly<Record<string, PriceAxisRangeMode>>
 
 /**
@@ -61,9 +61,9 @@ export interface LayoutDocument {
   readonly currentSymbol?: SymbolSpec | null
   /** 各视图工作区的用户指标与 pane 布局。 */
   readonly workspaces: LayoutWorkspaces
-  /** 各 Pane 的价格轴自动/手动模式。 */
+  /** 各轴的自动口径 / 手动模式。 */
   readonly panePriceAxisModes: LayoutPanePriceAxisModes
-  /** 锁定模式的价格范围，与模式一起保存和恢复。 */
+  /** 手动模式的显示范围，与模式一起保存和恢复；自动口径不写入。 */
   readonly panePriceAxisRanges?: Readonly<Record<string, PriceRange>>
   /** 对象轴显式配置的百分比基准，按 axisId 存档。 */
   readonly axisBaseValues?: Readonly<Record<string, number>>

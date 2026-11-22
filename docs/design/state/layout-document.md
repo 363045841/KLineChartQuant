@@ -12,7 +12,8 @@
 | `version` | 文档版本号，恢复时据此迁移 |
 | `currentSymbol?` | 主品种完整 `SymbolSpec`（数据源、周期、复权、路由参数）；省略时保留当前选择 |
 | `workspaces` | K 线与分时两个视图的用户指标和 pane 布局 |
-| `panePriceAxisModes` | 各 pane 价格轴的自动 / 手动模式 |
+| `panePriceAxisModes` | 各轴价格轴范围模式：`all` / `bars` / `ratio` / `manual` |
+| `panePriceAxisRanges?` | 手动模式的显示范围；自动口径不落盘 |
 | `settings?` | 图表级设置白名单子集 |
 | `drawings?` | 已确认的用户绘图；导出始终携带，省略或空数组表示没有绘图 |
 | `viewport?` | 按 品种+周期+复权+视图 键的可恢复视口位置 |

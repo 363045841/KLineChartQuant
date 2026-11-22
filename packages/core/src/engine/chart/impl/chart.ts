@@ -64,10 +64,8 @@ import {
 import { applyMarketSessions } from '../../../foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
-import {
-  PRICE_AXIS_RANGE_MODE,
-  type PriceAxisRangeMode,
-} from '../../../foundation/config/priceAxisRangeMode.js'
+import { availablePriceRangeModes } from '../../../foundation/config/priceAxisRangeMode.js'
+import type { PriceAxisRangeMode } from '../../../foundation/config/priceAxisRangeMode.js'
 import type { RenderContext } from '../../../foundation/plugin/index.js'
 import {
   createPluginHost,
@@ -776,6 +774,8 @@ export class Chart {
         )?.getPane().id,
       getPane: (paneId) => this.paneRenderer(paneId)?.getPane(),
       getLayout: (paneId) => this.renderer.getAxisLayout(paneId),
+      availableRangeModes: (axisId) =>
+        availablePriceRangeModes(axisId === PRICE_SERIES_AXIS_ID && this.activeMode.fitsPriceBars),
       paneState: this.kernel.pane,
       ranges: this.kernel.axesState,
       project: () => {
@@ -1170,9 +1170,6 @@ export class Chart {
     const prev = this.kernel.settings.readonly.settings.peek()
     this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
-    if (prev.mainPriceAxisRangeMode !== next.mainPriceAxisRangeMode) {
-      this.setMainPriceAxisRangeMode(next.mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO)
-    }
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
       next.mainRightAxisTypeSetting !== AXIS_TYPE_NONE
@@ -1279,13 +1276,7 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  /** 切换主图价格轴范围来源模式。 */
-  setMainPriceAxisRangeMode(mode: PriceAxisRangeMode): void {
-    this.kernel.settings.actions.patch({ mainPriceAxisRangeMode: mode })
-    this.axes.setRangeMode(PRICE_SERIES_AXIS_ID, mode)
-  }
-
-  /** 设置目标 Pane 的范围模式，关闭自动时保存该轴当前范围。 */
+  /** 设置目标 Pane 的范围模式；切到手动时保存该轴当前显示范围。 */
   setPanePriceAxisRangeMode(paneId: string, mode: PriceAxisRangeMode): void {
     this.axes.setRangeMode(this.requirePaneAxisId(paneId), mode)
   }
