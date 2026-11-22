@@ -1,14 +1,22 @@
 /** Chromium 断言：安装后的包能挂载、渲染、运行脚本，且没有资源或运行时错误。 */
 import { expect, test } from '@playwright/test'
 
+/** 数据源接口属于外部后端：connector 是否在线不在发布包冒烟测试范围内。 */
+function isMarketDataRequest(url: string): boolean {
+  return url.includes('/api/v1/market-data/')
+}
+
 /** 收集单个页面会话里的运行时与资源故障，测试结束时统一断言。 */
 function observe(page: import('@playwright/test').Page): string[] {
   const failures: string[] = []
   page.on('pageerror', (error) => failures.push(error.message))
   page.on('response', (response) => {
-    if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`)
+    if (response.status() >= 400 && !isMarketDataRequest(response.url())) {
+      failures.push(`${response.status()} ${response.url()}`)
+    }
   })
   page.on('requestfailed', (request) => {
+    if (isMarketDataRequest(request.url())) return
     failures.push(`${request.url()}: ${request.failure()?.errorText}`)
   })
   return failures
