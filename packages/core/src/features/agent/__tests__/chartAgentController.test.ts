@@ -44,6 +44,7 @@ function stubTools(): ChartAgentToolDeps {
       move: unused,
       remove: unused,
       resolveDefinition: async () => null,
+      series: unused,
     },
     drawings: {
       list: () => ({ timezone: 'UTC', period: 'daily', drawings: [] }),
@@ -62,7 +63,6 @@ function stubTools(): ChartAgentToolDeps {
       lookup: async () => ({ content: '', summary: '' }),
       bars: async () => ({ content: '', summary: '' }),
       timeShare: async () => ({ content: '', summary: '' }),
-      indicatorValues: async () => '',
     },
     scripts: {
       listReferenceTopics: () => [],

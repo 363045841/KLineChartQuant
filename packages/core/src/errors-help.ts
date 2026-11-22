@@ -63,12 +63,14 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'targetRow must be an existing chart row: 0 is the main chart, 1..n are the sub-pane rows returned by indicators_list.',
   DATA_REVISION_CHANGED:
     'Market data changed throughout the bounded query attempts. Retry from a fresh context snapshot when the active series stabilizes.',
+  INDICATOR_OUTPUT_UNREADABLE:
+    'This indicator produced no readable plot series. Add plot.* channels to the script so its values become readable, then retry.',
+  INDICATOR_COMPUTE_FAILED:
+    'The indicator calculation itself failed. Read the error message, fix the script or its inputs, and retry; do not recompute the values by hand.',
 
   // Comparison commands
-  COMPARISON_DUPLICATE:
-    'Update the existing comparison by identity, or remove it first.',
-  COMPARISON_NOT_FOUND:
-    'Call comparisons_list and retry with one of its identities.',
+  COMPARISON_DUPLICATE: 'Update the existing comparison by identity, or remove it first.',
+  COMPARISON_NOT_FOUND: 'Call comparisons_list and retry with one of its identities.',
 
   // Scale (TimeScale + PriceScale)
   SCALE_RANGE_INVALID:

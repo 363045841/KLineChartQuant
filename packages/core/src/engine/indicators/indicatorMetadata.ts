@@ -94,9 +94,9 @@ export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contrac
 /**
  * 输入参数在面板中的展示声明。
  *
- * 只承载展示信息，默认值与类型仍由 runtime.defaultParams 提供，避免两处各存一份默认值。
+ * 只承载展示信息，默认值与类型仍由 runtime.defaultInputs 提供，避免两处各存一份默认值。
  */
-export interface IndicatorInputDef {
+export interface IndicatorInputDisplay {
   readonly min?: number
   readonly max?: number
   readonly step?: number
@@ -123,9 +123,9 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown) & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
-  defaultParams: C
+  defaultInputs: C
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
-  inputDefs?: Readonly<Record<string, IndicatorInputDef>>
+  inputDefs?: Readonly<Record<string, IndicatorInputDisplay>>
   /** 注册定义的唯一计算端口。 */
   compute: (
     data: readonly KLineData[],
@@ -133,8 +133,6 @@ export interface IndicatorRuntimeDescriptor<C = any> {
     market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
     range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
   ) => unknown
-  /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
-  outputAlignment?: 'bar' | 'aggregate'
 }
 
 /** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */

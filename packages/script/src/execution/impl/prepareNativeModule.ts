@@ -1,7 +1,7 @@
 /** 可信脚本的原生执行后端：编译产物交给常驻会话，不加载 TypeScript，不提供沙箱保护。 */
 import type { ComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
-import type { LogEvent } from '../../contracts/output.js'
+import type { LogEvent } from '../../contracts/log.js'
 import type { PreparedQuickJSScript, ScriptParamValue } from '../../quickjs/types.js'
 import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
 import type { ScriptRequestContext } from '../../request/types.js'
@@ -32,7 +32,7 @@ export function prepareNativeModule(
       context?: ScriptRequestContext,
       range?: ComputeRange,
     ) {
-      return session.run({ bars, params, context, range }).collection
+      return session.run({ bars, params, context, range }).series
     },
     runDetailed(
       bars: readonly Bar[],

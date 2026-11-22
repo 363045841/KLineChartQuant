@@ -4,27 +4,28 @@ import { Type } from 'typebox'
 import { ToolInputValidationError } from '../../../../foundation/agent/index.js'
 import {
   describeParam,
-  type IndicatorParamIssue,
-  parseIndicatorParams,
-} from '../../impl/indicator/parseIndicatorParams.js'
+  type IndicatorInputIssue,
+  parseIndicatorInputs,
+} from '../../impl/indicator/parseIndicatorInputs.js'
 import type {
   ChartAgentIndicatorCommands,
   ChartAgentIndicatorDefinition,
   ChartAgentIndicatorTarget,
+  ChartAgentIndicatorView,
 } from '../../types.js'
 import type { ChartToolDefinition, ChartToolMetadata } from '../types.js'
 import { jsonResult, rejectUnusedFields, requireFields } from './helpers.js'
 
-const IndicatorParams = Type.Record(Type.String(), Type.Unknown(), {
+const IndicatorInputs = Type.Record(Type.String(), Type.Unknown(), {
   description:
-    'Parameter object declared by the indicator. add accepts a subset; update replaces the complete set.',
+    'Input object declared by the indicator. add accepts a subset; update replaces the complete set.',
 })
 
 const IndicatorTarget = Type.Object(
   {
     indicator: Type.String({
       minLength: 1,
-      description: 'Indicator name from indicators_list, for example MACD.',
+      description: 'Indicator name or id from indicators_list, for example MACD.',
     }),
     row: Type.Optional(
       Type.Integer({
@@ -54,13 +55,14 @@ const IndicatorsWriteParameters = Type.Object(
     indicator: Type.Optional(
       Type.String({
         minLength: 1,
-        description: 'add only: exact indicator name, for example MACD.',
+        description: 'add only: exact indicator name or id, for example MACD.',
       }),
     ),
-    params: Type.Optional(IndicatorParams),
+    inputs: Type.Optional(IndicatorInputs),
     placement: Type.Optional(
       Type.Union([Type.Literal('main'), Type.Literal('sub')], {
-        description: 'add only: main overlays the price chart; sub gives the indicator its own pane.',
+        description:
+          'add only: main overlays the price chart; sub gives the indicator its own pane.',
       }),
     ),
     target: Type.Optional(IndicatorTarget),
@@ -78,7 +80,7 @@ const IndicatorsWriteParameters = Type.Object(
 interface IndicatorsWriteInput {
   readonly action: 'add' | 'update' | 'move' | 'remove'
   readonly indicator?: string
-  readonly params?: Readonly<Record<string, unknown>>
+  readonly inputs?: Readonly<Record<string, unknown>>
   readonly placement?: 'main' | 'sub'
   readonly target?: ChartAgentIndicatorTarget
   readonly targetRow?: number
@@ -86,8 +88,8 @@ interface IndicatorsWriteInput {
 
 /** 各 action 接受的字段；扁平 schema 无法表达，因此分发前显式拒绝多余字段。 */
 const ALLOWED_FIELDS: Readonly<Record<string, ReadonlyArray<string>>> = {
-  add: ['indicator', 'params', 'placement'],
-  update: ['target', 'params'],
+  add: ['indicator', 'inputs', 'placement'],
+  update: ['target', 'inputs'],
   move: ['target', 'targetRow'],
   remove: ['target'],
 }
@@ -96,7 +98,7 @@ export const INDICATORS_LIST_METADATA: ChartToolMetadata = {
   name: 'indicators_list',
   label: 'List chart indicators',
   description:
-    'List every indicator on the chart. Each item exposes indicator (name), params, placement (main or sub), row (0 is the top row; the main chart can be at any row) and order (1-based position within the row). Use that indicator/row/order combination as the target for indicators_write; never invent positions.',
+    'List every indicator on the chart. Each item exposes indicator (id), name (display name), inputs, placement (main or sub), row (0 is the top row; the main chart can be at any row) and order (1-based position within the row). Use that indicator/row/order combination as the target for indicators_write; never invent positions.',
   effect: 'read',
 }
 
@@ -105,10 +107,10 @@ export const INDICATORS_WRITE_METADATA: ChartToolMetadata = {
   label: 'Edit chart indicators',
   description:
     'Add, update, move or remove chart indicators. ' +
-    'add: indicator plus optional params and placement; omitted params take the defaults of that indicator. ' +
-    'update: target plus params. params is the COMPLETE parameter set and replaces the stored params; if you do not know the current values, call indicators_list first. ' +
+    'add: indicator plus optional inputs and placement; omitted inputs take the defaults of that indicator. ' +
+    'update: target plus inputs. inputs is the COMPLETE set and replaces the stored inputs; if you do not know the current values, call indicators_list first. ' +
     'move: target plus targetRow. remove: target. ' +
-    'target is { indicator, row?, order? }: indicator is the name from indicators_list; row is the display row (0 is the top row, the main chart can be at any row); add row and order only when several instances share the name. ' +
+    'target is { indicator, row?, order? }: indicator is the id or name from indicators_list; row is the display row (0 is the top row, the main chart can be at any row); add row and order only when several instances share the name. ' +
     'Indicators cannot change type in place; remove and add when the indicator itself must change.',
   effect: 'write',
 }
@@ -127,7 +129,7 @@ export function createIndicatorsListTool(
   }
 }
 
-/** 读写指标实例；参数先按定义声明校验，再交给领域命令。 */
+/** 读写指标实例；输入先按定义声明校验，再交给领域命令。 */
 export function createIndicatorsWriteTool(
   indicators: ChartAgentIndicatorCommands,
 ): ChartToolDefinition {
@@ -146,20 +148,20 @@ export function createIndicatorsWriteTool(
         case 'add': {
           requireFields(args, ['indicator'])
           const definition = await requireDefinition(indicators, args.indicator!)
-          const params = parseParams(definition, args.params ?? {}, false)
-          const view = indicators.add(definition.indicator, params, args.placement)
+          const inputs = parseInputs(definition, args.inputs ?? {}, false)
+          const view = indicators.add(definition.indicator, inputs, args.placement)
           return jsonResult({ indicator: view }, describeAction('Added', view))
         }
         case 'update': {
           requireFields(
             args,
-            ['target', 'params'],
-            'action=update requires the complete params object; call indicators_list first if you do not know the current values.',
+            ['target', 'inputs'],
+            'action=update requires the complete inputs object; call indicators_list first if you do not know the current values.',
           )
           const current = indicators.read(args.target!)
           const definition = await requireDefinition(indicators, current.indicator)
-          const params = parseParams(definition, args.params!, true, current.params)
-          const view = indicators.update(args.target!, params)
+          const inputs = parseInputs(definition, args.inputs!, true, current.inputs)
+          const view = indicators.update(args.target!, inputs)
           return jsonResult({ indicator: view }, describeAction('Updated', view))
         }
         case 'move': {
@@ -177,7 +179,7 @@ export function createIndicatorsWriteTool(
   }
 }
 
-/** 解析定义并带回参数声明；未知名称列出当前图表上的精确名称。 */
+/** 解析定义并带回输入声明；未知名称列出当前图表上的精确名称。 */
 async function requireDefinition(
   indicators: ChartAgentIndicatorCommands,
   indicator: string,
@@ -189,50 +191,52 @@ async function requireDefinition(
     current.length === 0
       ? 'No indicators are on this chart.'
       : `This chart currently has: ${current
-          .map((item) => `${item.indicator} at row ${item.row} order ${item.order}`)
+          .map(
+            (item) => `${item.indicator} ('${item.name}') at row ${item.row} order ${item.order}`,
+          )
           .join('; ')}.`
   throw new ToolInputValidationError(
-    `Unknown indicator '${indicator}'. ${chart} Use the exact registered name.`,
+    `Unknown indicator '${indicator}'. ${chart} Use the exact registered name or id.`,
   )
 }
 
 /**
- * 校验参数并转成工具错误。
+ * 校验输入并转成工具错误。
  *
- * update 要求完整参数集；错误里带当前实例参数，模型可在同一轮补齐后重试。
+ * update 要求完整输入集；错误里带当前实例输入，模型可在同一轮补齐后重试。
  */
-function parseParams(
+function parseInputs(
   definition: ChartAgentIndicatorDefinition,
   input: Readonly<Record<string, unknown>>,
   requireComplete: boolean,
   current?: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
-  const result = parseIndicatorParams(definition.params, input, { requireComplete })
-  if (result.ok) return result.params
+  const result = parseIndicatorInputs(definition.inputs, input, { requireComplete })
+  if (result.ok) return result.inputs
   const problems = result.issues.map(describeIssue).join('; ')
-  const allowed = definition.params.map(describeParam).join('; ')
+  const allowed = definition.inputs.map(describeParam).join('; ')
   const currentLine =
     current === undefined
       ? ''
-      : ` Current params for this instance: ${JSON.stringify(current)}. params replaces the complete set, so resend every key you want to keep; call indicators_list if unsure.`
+      : ` Current inputs for this instance: ${JSON.stringify(current)}. inputs replaces the complete set, so resend every key you want to keep; call indicators_list if unsure.`
   throw new ToolInputValidationError(
-    `Invalid params for indicator '${definition.indicator}': ${problems}. Allowed params: ${allowed}.${currentLine}`,
+    `Invalid inputs for indicator '${definition.indicator}': ${problems}. Allowed inputs: ${allowed}.${currentLine}`,
   )
 }
 
-/** 把单条参数问题压成一句可执行说明。 */
-function describeIssue(issue: IndicatorParamIssue): string {
+/** 把单条输入问题压成一句可执行说明。 */
+function describeIssue(issue: IndicatorInputIssue): string {
   switch (issue.reason) {
     case 'unknown':
-      return `unknown param '${issue.key}'`
+      return `unknown input '${issue.key}'`
     case 'missing':
-      return `missing param '${issue.key}'`
+      return `missing input '${issue.key}'`
     default:
       return `'${issue.key}' must be ${issue.expected} (received ${JSON.stringify(issue.received)})`
   }
 }
 
 /** 写操作摘要统一使用最新的位置。 */
-function describeAction(action: string, view: { indicator: string; row: number; order: number }): string {
-  return `${action} ${view.indicator} at row ${view.row} order ${view.order}.`
+function describeAction(action: string, view: ChartAgentIndicatorView): string {
+  return `${action} ${view.indicator} ('${view.name}') at row ${view.row} order ${view.order}.`
 }

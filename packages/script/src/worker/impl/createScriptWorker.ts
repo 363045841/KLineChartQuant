@@ -1,12 +1,12 @@
 /** Script Worker 端口：按物理线程同步行情增量，转移数值块并关联计算响应。 */
 
 import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
-import type { LogEvent } from '../../contracts/output.js'
+import type { LogEvent } from '../../contracts/log.js'
 import { applyDrawingDelta } from '../../execution/session/impl/drawingDelta.js'
 import { acquireCompilation } from '../compiler/impl/sharedCompiler.js'
 import type { CompilationLease } from '../compiler/types.js'
 import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
-import { unpackPlotCollection } from '../transport/impl/output.js'
+import { unpackIndicatorSeries } from '../transport/impl/series.js'
 import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
 /**
@@ -16,7 +16,7 @@ import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '..
  * const worker = createScriptWorker()
  * try {
  *   const definition = await worker.prepare('my-script', source)
- *   const collection = await worker.run('my-script', bars, params)
+ *   const series = await worker.run('my-script', bars, params)
  * } finally {
  *   worker.dispose()
  * }
@@ -190,15 +190,15 @@ export function createScriptWorker(
         inputTransferList(inputPatch),
       )
       if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
-      const collection = unpackPlotCollection(response.collection)
-      const deltaCollection = unpackPlotCollection(response.drawingDelta.collection)
+      const series = unpackIndicatorSeries(response.series)
+      const deltaCollection = unpackIndicatorSeries(response.drawingDelta.series)
       const next = applyDrawingDelta(drawings.get(id) ?? [], {
         reset: response.drawingDelta.reset,
         upsert: deltaCollection.drawings ?? [],
         remove: response.drawingDelta.remove,
       })
       drawings.set(id, next)
-      return { ...collection, drawings: next }
+      return { ...series, drawings: next }
     },
     async requests(id, params, symbol) {
       await ensureInstalled(id)

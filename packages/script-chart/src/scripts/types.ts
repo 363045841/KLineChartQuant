@@ -3,7 +3,7 @@ import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-
 import type {
   IndicatorSourceDefinition,
   IndicatorSourceDocument,
-  ScriptOutputSource,
+  ScriptLogSource,
   ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -40,7 +40,7 @@ export type ScriptDocument = ScriptDocumentFields &
 
 /** 工厂初始化 VM 并恢复文档；读取同步，写入等待持久化事务。 */
 export interface ScriptService {
-  readonly output: ScriptOutputSource
+  readonly log: ScriptLogSource
   /** 启动恢复与管线运行登记的失败；界面据此展示“哪条脚本在哪个阶段失败”。 */
   readonly failures: ReadonlySignal<readonly IndicatorFailure[]>
   /** 用当前图表行情直接执行草稿，不注册或保存定义。 */

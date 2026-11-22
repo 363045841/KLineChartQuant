@@ -38,6 +38,8 @@ export interface HLine {
   readonly color: string
   readonly dash: readonly number[]
   readonly width: number
+  /** 无障碍标题；缺省不显示。 */
+  readonly title?: string
 }
 
 /** hline 返回的句柄；fill 借它引用两条水平线之间的区域。 */

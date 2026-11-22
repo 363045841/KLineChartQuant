@@ -4,7 +4,7 @@
  * 依赖全部是窄接口替身，因此用例直接断言"调用了哪个领域命令"，不需要图表实例。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { IndicatorParamDef, SymbolSpec } from '@/controllers/types'
+import type { IndicatorInputDef, SymbolSpec } from '@/controllers/types'
 import type {
   BarsWindowCacheQuery,
   BarsWindowCacheResult,
@@ -74,11 +74,29 @@ function drawing(
 }
 
 describe('indicator commands', () => {
-  /** 测试用参数声明：两个数值键，用于验证 resolveDefinition 带回声明。 */
-  const MA_PARAMS: ReadonlyArray<IndicatorParamDef> = [
+  /** 测试用输入声明：两个数值键，用于验证 resolveDefinition 带回声明。 */
+  const MA_INPUTS: ReadonlyArray<IndicatorInputDef> = [
     { key: 'period1', label: '周期 1', type: 'number', default: 5, min: 1 },
     { key: 'period2', label: '周期 2', type: 'number', default: 10, min: 1 },
   ]
+
+  /** 一份可读的列数据，供 series 投影使用。 */
+  const SERIES = {
+    plots: [
+      {
+        kind: 'line' as const,
+        id: 'ma',
+        label: 'MA',
+        data: [{ value: 1 }, { value: 2 }],
+        color: '#fff',
+        visible: true,
+        offset: 0,
+        size: 'auto' as never,
+        dash: [],
+      },
+    ],
+    fills: [],
+  }
 
   /** 组装指标命令面替身；写操作同步更新实例信号，便于断言返回的最新位置。 */
   function fixture(
@@ -90,20 +108,21 @@ describe('indicator commands', () => {
     const moved: Array<[string, unknown]> = []
     const updated: Array<[string, unknown]> = []
     const removed: string[] = []
+    const reads: Array<{ definitionId: string; inputs?: Readonly<Record<string, unknown>> }> = []
     const panes = {
       getLayoutSpecs: () => paneIds.map((id) => ({ id })),
     }
     const commands = createChartAgentIndicatorCommands({
       facade: {
-        add: (definitionId, params, placement) => {
+        add: (definitionId, inputs, placement) => {
           if (definitionId === 'missing') return null
-          added.push([definitionId, params, placement])
+          added.push([definitionId, inputs, placement])
           const paneId = placement === 'sub' ? 'pane-a' : MAIN_PANE_ID
           state.set([
             ...state.peek(),
             {
               ...instance('instance-new', paneId, definitionId),
-              params: { ...(params ?? {}) },
+              params: { ...(inputs ?? {}) },
             },
           ])
           return 'instance-new'
@@ -134,16 +153,26 @@ describe('indicator commands', () => {
           return true
         },
         instances: state,
+        readSeries: async (request) => {
+          reads.push(request)
+          return {
+            timestamps: [1, 2],
+            dataRevision: 1,
+            marketRevision: 0,
+            series: SERIES,
+          }
+        },
       },
       panes,
       loadIndicators: vi.fn(async () => undefined),
       resolveCanonicalId: (indicator) =>
         indicator === 'missing' ? null : indicator === 'ma-alias' ? 'MA' : indicator,
       isRendererAvailable: (indicator) => indicator !== 'no-renderer',
-      readParamDefs: (indicator) =>
-        indicator === 'MA' ? MA_PARAMS : indicator === 'empty' ? [] : undefined,
+      readInputDefs: (indicator) =>
+        indicator === 'MA' ? MA_INPUTS : indicator === 'empty' ? [] : undefined,
+      scope: () => ({ period: 'daily', timezone: 'UTC' }),
     })
-    return { commands, added, moved, updated, removed }
+    return { commands, added, moved, updated, removed, reads }
   }
 
   it('按行与行内顺序列出指标，不暴露实例 ID', () => {
@@ -154,10 +183,10 @@ describe('indicator commands', () => {
       instance('sub-a1', 'pane-a', 'RSI', {}, 0),
     ])
     expect(commands.list()).toEqual([
-      { indicator: 'MA', params: {}, placement: 'main', row: 0, order: 1 },
-      { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 1 },
-      { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 2 },
-      { indicator: 'MACD', params: {}, placement: 'sub', row: 2, order: 1 },
+      { indicator: 'MA', name: 'MA', inputs: {}, placement: 'main', row: 0, order: 1 },
+      { indicator: 'RSI', name: 'RSI', inputs: {}, placement: 'sub', row: 1, order: 1 },
+      { indicator: 'RSI', name: 'RSI', inputs: {}, placement: 'sub', row: 1, order: 2 },
+      { indicator: 'MACD', name: 'MACD', inputs: {}, placement: 'sub', row: 2, order: 1 },
     ])
   })
 
@@ -165,7 +194,8 @@ describe('indicator commands', () => {
     const { commands, added } = fixture()
     expect(commands.add('MA')).toEqual({
       indicator: 'MA',
-      params: {},
+      name: 'MA',
+      inputs: {},
       placement: 'main',
       row: 0,
       order: 1,
@@ -183,9 +213,9 @@ describe('indicator commands', () => {
       ['pane-a', MAIN_PANE_ID, 'pane-b'],
     )
     expect(commands.list()).toEqual([
-      { indicator: 'MACD', params: {}, placement: 'sub', row: 0, order: 1 },
-      { indicator: 'MA', params: {}, placement: 'main', row: 1, order: 1 },
-      { indicator: 'RSI', params: {}, placement: 'sub', row: 2, order: 1 },
+      { indicator: 'MACD', name: 'MACD', inputs: {}, placement: 'sub', row: 0, order: 1 },
+      { indicator: 'MA', name: 'MA', inputs: {}, placement: 'main', row: 1, order: 1 },
+      { indicator: 'RSI', name: 'RSI', inputs: {}, placement: 'sub', row: 2, order: 1 },
     ])
   })
 
@@ -201,7 +231,8 @@ describe('indicator commands', () => {
     ])
     expect(commands.update({ indicator: 'MA' }, { period1: 8, period2: 20 })).toEqual({
       indicator: 'MA',
-      params: { period1: 8, period2: 20 },
+      name: 'MA',
+      inputs: { period1: 8, period2: 20 },
       placement: 'main',
       row: 0,
       order: 1,
@@ -214,19 +245,40 @@ describe('indicator commands', () => {
       name: '名称唯一',
       instances: [instance('main-1', MAIN_PANE_ID, 'MA'), instance('sub-1', 'pane-a')],
       target: { indicator: 'MACD' },
-      expected: { indicator: 'MACD', params: {}, placement: 'sub', row: 1, order: 1 },
+      expected: {
+        indicator: 'MACD',
+        name: 'MACD',
+        inputs: {},
+        placement: 'sub',
+        row: 1,
+        order: 1,
+      },
     },
     {
       name: '同名跨行按 row',
       instances: [instance('a', 'pane-a'), instance('b', 'pane-b')],
       target: { indicator: 'MACD', row: 2 },
-      expected: { indicator: 'MACD', params: {}, placement: 'sub', row: 2, order: 1 },
+      expected: {
+        indicator: 'MACD',
+        name: 'MACD',
+        inputs: {},
+        placement: 'sub',
+        row: 2,
+        order: 1,
+      },
     },
     {
       name: '同名同行按 order',
       instances: [instance('a', 'pane-a', 'RSI', {}, 0), instance('b', 'pane-a', 'RSI', {}, 1)],
       target: { indicator: 'RSI', row: 1, order: 2 },
-      expected: { indicator: 'RSI', params: {}, placement: 'sub', row: 1, order: 2 },
+      expected: {
+        indicator: 'RSI',
+        name: 'RSI',
+        inputs: {},
+        placement: 'sub',
+        row: 1,
+        order: 2,
+      },
     },
   ])('定位：$name', ({ instances, target, expected }) => {
     const { commands } = fixture(instances)
@@ -239,7 +291,7 @@ describe('indicator commands', () => {
       instances: [instance('main-1', MAIN_PANE_ID, 'MA')],
       target: { indicator: 'RSI' },
       code: CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
-      pattern: /Current indicators: MA at row 0 order 1/,
+      pattern: /Current indicators: MA \('MA'\) at row 0 order 1/,
     },
     {
       name: '跨行歧义提示补 row',
@@ -265,7 +317,8 @@ describe('indicator commands', () => {
     const { commands, moved } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
     expect(commands.move({ indicator: 'MA' }, 1)).toEqual({
       indicator: 'MA',
-      params: {},
+      name: 'MA',
+      inputs: {},
       placement: 'sub',
       row: 1,
       order: 1,
@@ -280,7 +333,8 @@ describe('indicator commands', () => {
     )
     expect(commands.move({ indicator: 'MACD' }, 1)).toEqual({
       indicator: 'MACD',
-      params: {},
+      name: 'MACD',
+      inputs: {},
       placement: 'main',
       row: 1,
       order: 1,
@@ -292,7 +346,8 @@ describe('indicator commands', () => {
     const { commands, moved } = fixture([instance('sub-1', 'pane-a')])
     expect(commands.move({ indicator: 'MACD' }, 1)).toEqual({
       indicator: 'MACD',
-      params: {},
+      name: 'MACD',
+      inputs: {},
       placement: 'sub',
       row: 1,
       order: 1,
@@ -311,7 +366,8 @@ describe('indicator commands', () => {
     const { commands, removed } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
     expect(commands.remove({ indicator: 'MA' })).toEqual({
       indicator: 'MA',
-      params: {},
+      name: 'MA',
+      inputs: {},
       placement: 'main',
       row: 0,
       order: 1,
@@ -319,25 +375,67 @@ describe('indicator commands', () => {
     expect(removed).toEqual(['main-1'])
   })
 
-  it('解析定义会先加载实现，并带回规范名称与参数声明', async () => {
+  it('解析定义会先加载实现，并带回规范名称与输入声明', async () => {
     const { commands } = fixture()
     await expect(commands.resolveDefinition('ma-alias')).resolves.toEqual({
       indicator: 'MA',
-      params: MA_PARAMS,
+      inputs: MA_INPUTS,
     })
     await expect(commands.resolveDefinition('empty')).resolves.toEqual({
       indicator: 'empty',
-      params: [],
+      inputs: [],
     })
   })
 
   it.each([
     { name: '未注册', indicator: 'missing' },
     { name: '没有渲染器', indicator: 'no-renderer' },
-    { name: '目录没有参数声明', indicator: 'not-described' },
+    { name: '目录没有输入声明', indicator: 'not-described' },
   ])('无法描述的定义返回 null：$name', async ({ indicator }) => {
     const { commands } = fixture()
     await expect(commands.resolveDefinition(indicator)).resolves.toBeNull()
+  })
+
+  it('不带 inputs 时按图上实例的输入读取序列', async () => {
+    const { commands, reads } = fixture([
+      instance('main-1', MAIN_PANE_ID, 'MA', { period1: 5, period2: 10 }),
+    ])
+    const result = await commands.series({ indicator: 'MA' }, context())
+    expect(reads).toEqual([{ definitionId: 'MA', inputs: { period1: 5, period2: 10 } }])
+    expect(result.series.columns.map((column) => column.id)).toEqual(['ma'])
+    expect(result.series.rows).toEqual([
+      [0, '1970-01-01', 1],
+      [1, '1970-01-01', 2],
+    ])
+  })
+
+  it('带 inputs 时按输入计算，不需要实例也不改变图表', async () => {
+    const { commands, reads, added, updated } = fixture()
+    await commands.series({ indicator: 'ma-alias', inputs: { period1: 8 } }, context())
+    expect(reads).toEqual([{ definitionId: 'MA', inputs: { period1: 8 } }])
+    expect(added).toEqual([])
+    expect(updated).toEqual([])
+  })
+
+  it('输入不合法时一次列全合法键与约束', async () => {
+    const { commands } = fixture([instance('main-1', MAIN_PANE_ID, 'MA')])
+    await expect(
+      commands.series({ indicator: 'MA', inputs: { period1: 0 } }, context()),
+    ).rejects.toThrow(/Invalid inputs.*period1.*Allowed inputs/)
+  })
+
+  it('不带 inputs 且指标不在图上时报可纠正错误', async () => {
+    const { commands } = fixture()
+    await expect(commands.series({ indicator: 'MA' }, context())).rejects.toThrow(
+      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND }),
+    )
+  })
+
+  it('未知指标直接报注册错误', async () => {
+    const { commands } = fixture()
+    await expect(commands.series({ indicator: 'missing' }, context())).rejects.toThrow(
+      expect.objectContaining({ code: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND }),
+    )
   })
 })
 
@@ -836,7 +934,6 @@ describe('market queries', () => {
         formatChartBars: () => 'chart bars',
         formatTimeShareDays: (result) => `timeshare:${result.days.length}:${result.resolvedDate}`,
       },
-      indicatorQuery: { queryIndicator: async () => 'values' },
     })
     return { queries, cache, search }
   }
@@ -967,3 +1064,8 @@ describe('market queries', () => {
     })
   })
 })
+
+/** 命令面执行上下文；只使用取消信号。 */
+function context() {
+  return { signal: new AbortController().signal, progress: () => undefined }
+}

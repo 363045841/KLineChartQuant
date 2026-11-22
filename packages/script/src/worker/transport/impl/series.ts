@@ -1,14 +1,14 @@
 /** 绘图结果的列式通信：数值、颜色索引和 PVP 锚点共用一个转移块，声明与样式按批去重。 */
 import {
   type DrawingObject,
+  type IndicatorSeries,
   isOhlcPlot,
   type OhlcPlotPoint,
   type PersistedDrawingAnchor,
   type Plot,
-  type PlotCollection,
   type PlotPoint,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { DrawingMetadata, PackedPlot, PackedPlotCollection } from '../types.js'
+import type { DrawingMetadata, PackedIndicatorSeries, PackedPlot } from '../types.js'
 
 const SCALAR_WIDTH = 4
 const OHLC_WIDTH = 8
@@ -123,16 +123,16 @@ function writeAnchor(
 }
 
 /** 打包全部大数组；hlines 等图表级小声明仍保持共享契约。 */
-export function packPlotCollection(collection: PlotCollection): PackedPlotCollection {
+export function packIndicatorSeries(series: IndicatorSeries): PackedIndicatorSeries {
   let length = 0
-  for (const plot of collection.plots)
+  for (const plot of series.plots)
     length += plot.data.length * (isOhlcPlot(plot) ? OHLC_WIDTH : SCALAR_WIDTH)
-  for (const fill of collection.fills) length += fill.colors.length
-  for (const drawing of collection.drawings ?? [])
+  for (const fill of series.fills) length += fill.colors.length
+  for (const drawing of series.drawings ?? [])
     length += DRAWING_WIDTH + drawing.anchors.length * ANCHOR_WIDTH
   const writer = new NumberWriter(length)
   const texts = new TextWriter()
-  const plots: PackedPlot[] = collection.plots.map((plot) => {
+  const plots: PackedPlot[] = series.plots.map((plot) => {
     const offset = writer.offset
     if (isOhlcPlot(plot)) {
       const { data, ...metadata } = plot
@@ -162,7 +162,7 @@ export function packPlotCollection(collection: PlotCollection): PackedPlotCollec
     }
     return { type: 'scalar', metadata, offset, length: data.length }
   })
-  const fills = collection.fills.map(({ colors, ...metadata }) => {
+  const fills = series.fills.map(({ colors, ...metadata }) => {
     const offset = writer.offset
     for (const color of colors) writer.put(texts.code(color))
     return { ...metadata, offset, length: colors.length }
@@ -170,7 +170,7 @@ export function packPlotCollection(collection: PlotCollection): PackedPlotCollec
   const drawingOffset = writer.offset
   const metadata: DrawingMetadata[] = []
   const indices = new Map<string, number>()
-  for (const drawing of collection.drawings ?? []) {
+  for (const drawing of series.drawings ?? []) {
     const { id, zIndex, anchors, ...descriptor } = drawing
     const key = metadataKey(descriptor)
     let index = key === undefined ? undefined : indices.get(key)
@@ -193,7 +193,7 @@ export function packPlotCollection(collection: PlotCollection): PackedPlotCollec
     writer.put(anchors.length)
     for (const anchor of anchors) writeAnchor(writer, texts, anchor)
   }
-  const { plots: _plots, fills: _fills, drawings, ...rest } = collection
+  const { plots: _plots, fills: _fills, drawings, ...rest } = series
   return {
     ...rest,
     plots,
@@ -274,7 +274,7 @@ function readAnchor(
 }
 
 /** 只在消费端重建领域对象；一个响应的 buffer 不被协议层长期持有。 */
-export function unpackPlotCollection(packed: PackedPlotCollection): PlotCollection {
+export function unpackIndicatorSeries(packed: PackedIndicatorSeries): IndicatorSeries {
   const values = new Float64Array(packed.buffer)
   const { strings } = packed
   const plots: Plot[] = packed.plots.map((plot) => {

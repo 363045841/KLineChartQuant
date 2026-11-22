@@ -18,7 +18,7 @@ export interface EditorDraft {
   error: string | null
   /** 最近一次调试或添加失败；与保存失败分开记录，编辑源码后清空。 */
   executionError: string | null
-  outputId: string | null
+  logId: string | null
   /** 新建草稿的落盘目录；已提交文档以仓库记录为准。 */
   folder: string
 }
@@ -40,7 +40,7 @@ export function createDraft(seed: DraftSeed): EditorDraft {
     saved: false,
     error: null,
     executionError: null,
-    outputId: null,
+    logId: null,
     folder: '',
     ...seed,
   }

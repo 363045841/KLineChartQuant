@@ -1,4 +1,6 @@
 // 统一管理主图与副图指标实例的状态模块。
+
+import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import {
@@ -6,7 +8,6 @@ import {
   resolveIndicatorDefinitionId,
 } from '../indicators/pipeline/index.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
-import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 
 /** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
 export interface IndicatorInstanceConfig {
@@ -92,14 +93,14 @@ function calculationInstancesEqual(
         previousKeys.every((name) => Object.is(previous.params[name], next.params[name]))
       )
     }
-    const defaultParams =
-      typeof runtime.defaultParams === 'function'
-        ? (runtime.defaultParams as () => Record<string, unknown>)()
-        : (runtime.defaultParams as Record<string, unknown>)
-    return Object.keys(defaultParams).every((name) =>
+    const defaultInputs =
+      typeof runtime.defaultInputs === 'function'
+        ? (runtime.defaultInputs as () => Record<string, unknown>)()
+        : (runtime.defaultInputs as Record<string, unknown>)
+    return Object.keys(defaultInputs).every((name) =>
       Object.is(
-        previous.params[name] ?? defaultParams[name],
-        next.params[name] ?? defaultParams[name],
+        previous.params[name] ?? defaultInputs[name],
+        next.params[name] ?? defaultInputs[name],
       ),
     )
   })

@@ -64,7 +64,7 @@
         :date-time="entry.dateTime"
         :time-text="entry.timeText"
       />
-      <p v-if="logs.length >= SCRIPT_OUTPUT_LIMIT" class="script-output__empty">仅保留最近 {{ SCRIPT_OUTPUT_LIMIT }} 条输出。</p>
+      <p v-if="logs.length >= SCRIPT_LOG_LIMIT" class="script-output__empty">仅保留最近 {{ SCRIPT_LOG_LIMIT }} 条输出。</p>
       </template>
       <template v-else>
         <BaseEmptyState v-if="!problems.length" size="compact">未发现问题</BaseEmptyState>
@@ -75,13 +75,13 @@
 </template>
 
 <script setup lang="ts">
-  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
-  import { type LogEvent, SCRIPT_OUTPUT_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import { type LogEvent, SCRIPT_LOG_LIMIT } from '@363045841yyt/klinechart-plot-contracts'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
-  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import OverlayScrollArea from '@vue-src/components/common/scroll/OverlayScrollArea.vue'
+  import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
+  import { useTabPanel } from '@vue-src/components/common/tabs/useTabPanel.js'
   import { useScriptEditorPanels } from '@vue-src/composables/chart/scriptEditor/impl/useScriptEditorPanels.js'
   import type { ScriptEditorProblem } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { computed, useId, useTemplateRef } from 'vue'

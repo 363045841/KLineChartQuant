@@ -66,6 +66,7 @@ import type {
   InstrumentLookupInput,
   InstrumentLookupResult,
 } from '../types.js'
+import { INDICATOR_SERIES_DEFAULT_LIMIT } from '../types.js'
 import { describeDrawingAnchorShape } from './drawingAnchorContract.js'
 import {
   type DrawingAnchorTimeInput,
@@ -73,6 +74,12 @@ import {
   parseDrawingAnchorTime,
 } from './drawingAnchorTime.js'
 import { projectDrawingSnapshot, toDrawingView } from './drawingSnapshot.js'
+import {
+  describeParam,
+  type IndicatorInputIssue,
+  parseIndicatorInputs,
+} from './indicator/parseIndicatorInputs.js'
+import { projectIndicatorSeries } from './indicator/projectIndicatorSeries.js'
 
 /** 构造指标实例命令面。 */
 export function createChartAgentIndicatorCommands(
@@ -109,7 +116,8 @@ export function createChartAgentIndicatorCommands(
         paneId: instance.paneId,
         view: {
           indicator: instance.definitionId,
-          params: Object.freeze({ ...instance.params }),
+          name: instance.name,
+          inputs: Object.freeze({ ...instance.params }),
           placement: instance.paneId === MAIN_PANE_ID ? 'main' : 'sub',
           row,
           order,
@@ -166,13 +174,13 @@ export function createChartAgentIndicatorCommands(
     )
   }
 
-  return {
+  const api: ChartAgentIndicatorCommands = {
     list(): ReadonlyArray<ChartAgentIndicatorView> {
       return [...project().values()].map((entry) => entry.view)
     },
 
-    add(indicator, params, placement) {
-      const instanceId = deps.facade.add(indicator, params, placement)
+    add(indicator, inputs, placement) {
+      const instanceId = deps.facade.add(indicator, inputs, placement)
       if (instanceId === null) {
         throw new KLineChartError(
           CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
@@ -186,9 +194,9 @@ export function createChartAgentIndicatorCommands(
       return resolveTarget(target).view
     },
 
-    update(target, params) {
+    update(target, inputs) {
       const { instanceId } = resolveTarget(target)
-      if (!deps.facade.update(instanceId, { params })) {
+      if (!deps.facade.update(instanceId, { params: inputs })) {
         throw new KLineChartError(
           CHART_AGENT_ERROR_CODES.INSTANCE_NOT_FOUND,
           `Indicator ${describeTarget(target)} disappeared before it could be updated. Call indicators_list and retry.`,
@@ -236,10 +244,63 @@ export function createChartAgentIndicatorCommands(
       await deps.loadIndicators([indicator])
       const resolved = deps.resolveCanonicalId(indicator)
       if (!resolved || !deps.isRendererAvailable(resolved)) return null
-      const params = deps.readParamDefs(resolved)
-      return params === undefined ? null : { indicator: resolved, params }
+      const inputs = deps.readInputDefs(resolved)
+      return inputs === undefined ? null : { indicator: resolved, inputs }
+    },
+
+    async series(query, context) {
+      const definition = await api.resolveDefinition(query.indicator)
+      if (definition === null) {
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
+          `Unknown indicator '${query.indicator}'. Current indicators: ${describeProjection(project())}.`,
+        )
+      }
+      const parsedInputs =
+        query.inputs === undefined
+          ? undefined
+          : parseIndicatorInputs(definition.inputs, query.inputs, { requireComplete: false })
+      if (parsedInputs !== undefined && !parsedInputs.ok) {
+        const problems = parsedInputs.issues.map(describeInputIssue).join('; ')
+        const allowed = definition.inputs.map(describeParam).join('; ')
+        throw new ToolInputValidationError(
+          `Invalid inputs for indicator '${query.indicator}': ${problems}. Allowed inputs: ${allowed}.`,
+        )
+      }
+      const target =
+        parsedInputs === undefined
+          ? resolveTarget({
+              indicator: definition.indicator,
+              ...(query.row === undefined ? {} : { row: query.row }),
+              ...(query.order === undefined ? {} : { order: query.order }),
+            }).view
+          : null
+      try {
+        const result = await deps.facade.readSeries(
+          {
+            definitionId: definition.indicator,
+            inputs: parsedInputs === undefined ? target!.inputs : parsedInputs.inputs,
+          },
+          context.signal,
+        )
+        return projectIndicatorSeries({
+          result,
+          ...(query.from === undefined ? {} : { from: query.from }),
+          ...(query.to === undefined ? {} : { to: query.to }),
+          limit: query.limit ?? INDICATOR_SERIES_DEFAULT_LIMIT,
+          ...deps.scope(),
+        })
+      } catch (error) {
+        if (error instanceof KLineChartError || error instanceof ToolInputValidationError)
+          throw error
+        throw new KLineChartError(
+          CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+          error instanceof Error ? error.message : 'Indicator series could not be read.',
+        )
+      }
     },
   }
+  return api
 }
 
 /**
@@ -727,14 +788,6 @@ export function createChartAgentMarketQueries(
         summary: `Returned time share for ${input.symbol} on ${single.series.tradingDate} from ${single.source}.`,
       }
     },
-
-    indicatorValues(input) {
-      return deps.indicatorQuery.queryIndicator({
-        definitionId: input.definitionId,
-        ...(input.params === undefined ? {} : { params: input.params }),
-        ...(input.limit === undefined ? {} : { limit: input.limit }),
-      })
-    },
   }
 }
 
@@ -768,6 +821,18 @@ export function createChartAgentToolDeps(input: {
   })
 }
 
+/** 单条输入问题压成一句可执行说明。 */
+function describeInputIssue(issue: IndicatorInputIssue): string {
+  switch (issue.reason) {
+    case 'unknown':
+      return `unknown input '${issue.key}'`
+    case 'missing':
+      return `missing input '${issue.key}'`
+    default:
+      return `'${issue.key}' must be ${issue.expected} (received ${JSON.stringify(issue.received)})`
+  }
+}
+
 /** 指标定位的可读描述，用于“找不到”提示。 */
 function describeTarget(target: ChartAgentIndicatorTarget): string {
   const parts = [`'${target.indicator}'`]
@@ -776,9 +841,9 @@ function describeTarget(target: ChartAgentIndicatorTarget): string {
   return parts.join(' ')
 }
 
-/** 单个候选的位置与参数，用于歧义提示。 */
+/** 单个候选的位置与输入，用于歧义提示。 */
 function describeView(view: ChartAgentIndicatorView): string {
-  return `row ${view.row} order ${view.order} (${JSON.stringify(view.params)})`
+  return `'${view.name}' at row ${view.row} order ${view.order} (${JSON.stringify(view.inputs)})`
 }
 
 /** 当前全部指标的紧凑列表，用于“找不到”提示。 */
@@ -788,5 +853,10 @@ function describeProjection(
   const items = [...projected.values()]
   return items.length === 0
     ? 'none'
-    : items.map((entry) => `${entry.view.indicator} at ${describeView(entry.view)}`).join('; ')
+    : items
+        .map(
+          (entry) =>
+            `${entry.view.indicator} ('${entry.view.name}') at row ${entry.view.row} order ${entry.view.order} (${JSON.stringify(entry.view.inputs)})`,
+        )
+        .join('; ')
 }

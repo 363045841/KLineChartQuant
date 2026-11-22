@@ -1,6 +1,6 @@
 /** Worker资源验收：连续执行复用编译，显式中断/故障才重建，不跨任务传播。 */
 
-import type { PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { prepareNative } from '../../__tests__/backends.js'
 import { createScriptWorkerPool } from '../impl/createScriptWorkerPool.js'
@@ -11,9 +11,9 @@ function setup(size: number) {
   const definition = prepareNative(
     'defineIndicator({ version: 2, name:"PoolTest", position:Position.main, onBar(){} })',
   ).definition
-  const calls: { id: string; finish(value: PlotCollection): void; fail(error: Error): void }[] = []
+  const calls: { id: string; finish(value: IndicatorSeries): void; fail(error: Error): void }[] = []
   const workers: ScriptWorker[] = []
-  const output: PlotCollection = { plots: [], fills: [] }
+  const output: IndicatorSeries = { plots: [], fills: [] }
   const pool = createScriptWorkerPool({
     size,
     createWorker: () => {
@@ -22,7 +22,7 @@ function setup(size: number) {
         prepare: vi.fn(async () => definition),
         run: vi.fn(
           (id) =>
-            new Promise<PlotCollection>((finish, fail) => {
+            new Promise<IndicatorSeries>((finish, fail) => {
               const call = { id, finish, fail }
               own.push(call)
               calls.push(call)

@@ -186,7 +186,7 @@ export interface SymbolSpec {
 // Indicator metadata
 // ---------------------------------------------------------------------------
 
-export interface IndicatorParamDef {
+export interface IndicatorInputDef {
   key: string
   label: string
   type: 'number' | 'string' | 'boolean' | 'color' | 'select'
@@ -205,7 +205,7 @@ export interface IndicatorDefinition {
   name?: string
   description?: string
   role: IndicatorPaneRole
-  params: ReadonlyArray<IndicatorParamDef>
+  inputs: ReadonlyArray<IndicatorInputDef>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
   documentIdentity?: import('../engine/indicators/pipeline/types.js').IndicatorDocumentIdentity
 }

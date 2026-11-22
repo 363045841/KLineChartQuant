@@ -2,8 +2,8 @@
 import type {
   ArrowPlot,
   CandlePlot,
+  IndicatorSeries,
   Plot,
-  PlotCollection,
   PlotPoint,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
@@ -16,14 +16,14 @@ import { isPlotRenderState } from '../impl/readPlotState.js'
 const colors = resolveThemeColors('light', false)
 const palette = colors.scriptPalette
 
-/** 集合型指标的最小声明：数据全部来自脚本产出的 PlotCollection。 */
-const definition = { source: 'collection', series: [] } as const
+/** 集合型指标的最小声明：数据全部来自脚本产出的 IndicatorSeries。 */
+const definition = { source: 'series', series: [] } as const
 
 /** 两根 bar 的价格区间，足够支撑填充边界校验。 */
 const RANGE = { start: 0, end: 2 } as const
 
-function project(collection: PlotCollection) {
-  const state = projectPlots(definition, collection, {}, RANGE, 0, colors)
+function project(series: IndicatorSeries) {
+  const state = projectPlots(definition, series, {}, RANGE, 0, colors)
   if (!isPlotRenderState(state)) throw new TypeError('Missing Plot output')
   return state
 }

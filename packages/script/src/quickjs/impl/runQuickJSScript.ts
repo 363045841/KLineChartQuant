@@ -1,6 +1,6 @@
 /** 同步与异步源码 API 的编译适配层；Worker 只导入不含编译器的运行模块。 */
-import type { PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
-import type { LogEvent } from '../../contracts/output.js'
+import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
+import type { LogEvent } from '../../contracts/log.js'
 import { compileSources } from '../../execution/impl/compileSources.js'
 import type {
   PreparedQuickJSScript,
@@ -13,13 +13,13 @@ import { preloadQuickJS, prepareQuickJSModule } from './runQuickJSModule.js'
 export { preloadQuickJS } from './runQuickJSModule.js'
 
 /** 初始化 WASM 后执行源码。 */
-export async function runQuickJSScript(options: QuickJSRunOptions): Promise<PlotCollection> {
+export async function runQuickJSScript(options: QuickJSRunOptions): Promise<IndicatorSeries> {
   await preloadQuickJS()
   return runQuickJSScriptSync(options)
 }
 
 /** 同步编译和执行；一次性调用创建会话并在结束后释放。 */
-export function runQuickJSScriptSync(options: QuickJSRunOptions): PlotCollection {
+export function runQuickJSScriptSync(options: QuickJSRunOptions): IndicatorSeries {
   const script = prepareQuickJSScript(
     options.source,
     options.libraries,

@@ -32,7 +32,7 @@
 | `instruments_query` | read | 代码或名称查询品种，返回固定列 |
 | `market_bars_query` | read | K 线，`from`/`to` 日期窗口 + `limit` |
 | `market_timeshare_query` | read | 分时，`days` 表达单日与多日，缺省最近交易日 |
-| `indicator_values_query` | read | 指标数值序列 |
+| `indicator_series_query` | read | 指标数值、绘图对象与水平线 |
 | `script_reference_query` | read | 按主题读取指标脚本参考 |
 | `scripts_read` | read | 列出用户指标脚本或按 id 读取源码 |
 | `scripts_write` | write | create / update / delete 用户指标脚本 |
@@ -56,16 +56,17 @@
 
 扁平 schema 无法表达「按 action 必填」，因此 `requireFields` 在分发前显式校验并点名缺失字段（例如 `action=add requires indicator`），让模型直接修正下一次调用；`rejectUnusedFields` 同时拒绝当前 action 不接受的字段，避免错放的参数被静默忽略。
 
-### 指标寻址与参数契约
+### 指标寻址与输入契约
 
-指标参数是「按定义声明」而不是工具自带的开放字典，因此：
+指标输入是「按定义声明」而不是工具自带的开放字典，因此：
 
-- **位置寻址，不暴露实例 ID**：`indicators_list` 返回 `indicator / row / order / placement`；写工具用 `target: { indicator, row?, order? }` 定位。`row` 是显示行（0 是最上面一行，主图可能在任何行）；`placement` 是主图/副图身份，直接由 `MAIN_PANE_ID` 决定，不从行号推导。`order` 是同一行内的第几个。同名多实例时先按 `indicator`，再按 `row` / `order` 收敛；命中多个就报候选，不猜。
-- 参数声明只来自 `indicatorCatalog` 的 `IndicatorParamDef`（键、类型、默认值、范围、选项），工具不维护第二份清单。
-- `add` 接受部分参数，未给出的键取定义默认值；`update` 的 `params` 是**完整参数集**，整体替换，避免隐式合并让模型猜不到结果。换指标类型走 `remove` + `add`。
-- 校验失败时必须带回可执行信息：未知键列出合法键与约束；`update` 缺键时直接附上当前实例参数，模型不需要额外调用 `indicators_list` 也能补齐重试。
+- **位置寻址，不暴露实例 ID**：`indicators_list` 返回 `indicator`（规范 ID）、`name`（显示名）、`inputs`、`row`、`order`、`placement`；写工具用 `target: { indicator, row?, order? }` 定位。`row` 是显示行（0 是最上面一行，主图可能在任何行）；`placement` 是主图/副图身份，直接由 `MAIN_PANE_ID` 决定，不从行号推导。`order` 是同一行内的第几个。同名多实例时先按 `indicator`，再按 `row` / `order` 收敛；命中多个就报全部候选，不猜。
+- 输入声明只来自 `indicatorCatalog` 的 `IndicatorInputDef`（键、类型、默认值、范围、选项），工具不维护第二份清单。
+- `add` 接受部分输入，未给出的键取定义默认值；`update` 的 `inputs` 是**完整集合**，整体替换，避免隐式合并让模型猜不到结果。换指标类型走 `remove` + `add`。
+- 校验失败时必须带回可执行信息：未知键列出合法键与约束；`update` 缺键时直接附上当前实例输入，模型不需要额外调用 `indicators_list` 也能补齐重试。
 - `move` 只移动指标实例（行号是显示行，0 是最上面一行；主图可能不在 0），不移动 Pane；越界直接报错而不是静默截断。
 - 不暴露 `clear`：清空牵连副图回收、主图语义与绘图历史，收益低且破坏面大，保留给产品按钮。
+- **读取与写入共用计算身份**：`indicator_series_query` 不带 `inputs` 时读图上实例，带 `inputs` 时提交一次预览计算；两者经过同一个执行器与结果仓库，结果形状一致（列、行、绘图对象、水平线），截断时报告省略数量。
 
 ### 图元寻址与时间契约
 

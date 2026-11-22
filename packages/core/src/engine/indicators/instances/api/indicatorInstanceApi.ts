@@ -13,7 +13,7 @@ import {
   type IndicatorPaneId,
   reduceIndicatorInstances,
   type UpdateIndicatorInstance,
-} from '../domain/instanceModel.js'
+} from '../domain/indicatorModel.js'
 
 /** 创建实例时的 ID 分配器；由宿主提供以适配持久化或协作系统。 */
 export type IndicatorInstanceIdFactory = () => IndicatorInstanceId

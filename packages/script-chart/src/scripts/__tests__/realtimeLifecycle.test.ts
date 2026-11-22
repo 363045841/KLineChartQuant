@@ -8,9 +8,10 @@ import {
   createTestInstance,
   FakeCalculationSource,
 } from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
-import { createInlineIndicatorCalculationExecutor } from '../../../../core/src/engine/indicators/instances/execution/instanceCalculationExecutors.js'
-import { createInstanceCalculationScheduler } from '../../../../core/src/engine/indicators/instances/execution/instanceCalculationScheduler.js'
-import type { InstanceCalculationCommit } from '../../../../core/src/engine/indicators/instances/execution/types.js'
+import { createIndicatorCalculationScheduler } from '../../../../core/src/engine/indicators/instances/execution/indicatorCalculationScheduler.js'
+import { createIndicatorExecutor } from '../../../../core/src/engine/indicators/instances/execution/indicatorExecutor.js'
+import { createIndicatorResultStore } from '../../../../core/src/engine/indicators/instances/execution/indicatorResultStore.js'
+import type { MarketSnapshot } from '../../../../core/src/engine/indicators/instances/execution/types.js'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 
@@ -49,7 +50,7 @@ describe('realtime script lifecycle', () => {
       finishHistory = resolve
     })
     const loadBars = vi.fn(() => history)
-    const executor = createInlineIndicatorCalculationExecutor(
+    const executor = createIndicatorExecutor(
       [
         {
           definitionId: 'slow',
@@ -78,12 +79,13 @@ describe('realtime script lifecycle', () => {
       createTestInstance({ instanceId: 'slow', definitionId: 'slow' }),
       createTestInstance({ instanceId: 'fast', definitionId: 'fast' }),
     ])
-    const commits: InstanceCalculationCommit[] = []
     const loading = new Set<string>()
-    const scheduler = createInstanceCalculationScheduler({
+    const store = createIndicatorResultStore()
+    const scheduler = createIndicatorCalculationScheduler({
       pipeline: source,
       executor,
-      onCommit: (commit) => commits.push(commit),
+      store,
+      onCommit: () => undefined,
       onPending(ids, pending) {
         for (const id of ids) {
           if (pending) loading.add(id)
@@ -92,31 +94,31 @@ describe('realtime script lifecycle', () => {
       },
     })
     const data = createTestData(5)
-    const update = (revision: number) =>
-      scheduler.compute({
-        dataRevision: revision,
-        data,
-        timestamps: data.map((bar) => bar.timestamp),
-        change: { start: 0, end: data.length },
-      })
+    const snapshot = (revision: number): MarketSnapshot => ({
+      dataRevision: revision,
+      marketRevision: 0,
+      data,
+      timestamps: data.map((bar) => bar.timestamp),
+      change: { start: 0, end: data.length },
+    })
+    const update = (revision: number) => scheduler.refresh(snapshot(revision))
     try {
-      const first = update(1)
+      update(1)
       await vi.waitFor(() => expect(loadBars).toHaveBeenCalledOnce())
-      await vi.waitFor(() => expect(commits.at(-1)!.pool.results.has('fast')).toBe(true))
+      await vi.waitFor(() => expect(store.get('fast:{}:{}')).toBeDefined())
       const workerCount = created
       expect(loading.has('slow')).toBe(true)
-      const updates = Array.from({ length: 20 }, (_, index) => update(index + 2))
+      for (let revision = 2; revision <= 21; revision++) update(revision)
       expect(loadBars).toHaveBeenCalledOnce()
       expect(terminated).toBe(0)
       finishHistory(
         data.map(({ timestamp, ...bar }) => ({ time: timestamp, ...bar, volume: bar.volume ?? 0 })),
       )
-      await Promise.all([first, ...updates])
       await vi.waitFor(() => expect(loading.size).toBe(0))
-      for (let revision = 22; revision < 27; revision++) await update(revision)
+      for (let revision = 22; revision < 27; revision++) update(revision)
+      await vi.waitFor(() => expect(store.get('slow:{}:{}')!.dataRevision).toBe(26))
       expect(terminated).toBe(0)
       expect(created).toBe(workerCount)
-      expect(commits.at(-1)!.pool.results.get('slow')!.dataRevision).toBe(26)
     } finally {
       scheduler.dispose()
       executor.dispose()

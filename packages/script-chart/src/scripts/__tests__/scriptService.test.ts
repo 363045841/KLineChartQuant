@@ -58,11 +58,11 @@ describe('ScriptService', () => {
       const market = { symbol: 'TEST', loadBars: vi.fn(async () => bars) }
       const debugSource = `const lib = importLibrary('debugLibrary'); defineIndicator({ version: 2, name: 'DebugOnly', position: Position.sub, onBar() { const other = request.security(syminfo.tickerId, Timeframe.day, () => close); console.log(lib.value(other)); plot.Line(other, 'other') } })`
       let events: readonly LogEvent[] = []
-      const unsubscribe = scripts.output.subscribe('debug-tab', (next) => {
+      const unsubscribe = scripts.log.subscribe('debug-tab', (next) => {
         events = next
       })
       try {
-        const options = { source: debugSource, trusted, outputId: 'debug-tab', bars, market }
+        const options = { source: debugSource, trusted, logId: 'debug-tab', bars, market }
         await scripts.run(options)
         expect(events.map((event) => event.message)).toEqual(['11'])
         expect(market.loadBars).toHaveBeenCalledWith(
@@ -436,7 +436,7 @@ describe('ScriptService', () => {
         const metadata = getRegisteredIndicatorDefinition(definition.name)
         const output = await metadata?.runtime?.compute(
           data,
-          metadata.runtime.defaultParams,
+          metadata.runtime.defaultInputs,
           market,
         )
         expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
@@ -535,7 +535,7 @@ describe('ScriptService', () => {
     await scripts.remove(occupied.id, occupied.revision)
     const next = await scripts.update(initial.id, source.replace('input.int(2)', 'input.int(4)'), 1)
     expect(next.revision).toBe(2)
-    expect(getIndicatorDescriptor(initial.id)?.defaultParams).toEqual({ n: 4 })
+    expect(getIndicatorDescriptor(initial.id)?.defaultInputs).toEqual({ n: 4 })
     expect(getRegisteredIndicatorDefinition(initial.id)?.document?.source).toBe(next.source)
     await expect(scripts.update(initial.id, source, 1)).rejects.toThrow('重新打开')
     await expect(scripts.update(initial.id, 'defineIndicator(', 2)).rejects.toThrow()

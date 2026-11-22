@@ -94,7 +94,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       { start: bars.length - 1, end: bars.length },
     )
     const completed = (output: typeof first) =>
-      (output.collection.drawings ?? []).filter(
+      (output.series.drawings ?? []).filter(
         (drawing) => drawing.kind === 'rectangle' && drawing.anchors[0]?.time === day,
       )
     expect(completed(first).length).toBeGreaterThan(0)

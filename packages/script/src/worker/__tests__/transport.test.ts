@@ -1,5 +1,5 @@
 /** 通信契约验收：真实转移、原地 tick、历史重排、跨周期释放和真实脚本绘图往返。 */
-import type { Bar, PlotCollection } from '@363045841yyt/klinechart-plot-contracts'
+import type { Bar, IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { prepareNative } from '../../__tests__/backends.js'
 import { createScriptWorker } from '../impl/createScriptWorker.js'
@@ -8,7 +8,7 @@ import {
   WorkerInputReceiver,
   WorkerInputSender,
 } from '../transport/impl/input.js'
-import { packPlotCollection, unpackPlotCollection } from '../transport/impl/output.js'
+import { packIndicatorSeries, unpackIndicatorSeries } from '../transport/impl/series.js'
 import { NodeScriptWorker } from './nodeWorker.js'
 
 /** 不替换计算或传输实现；只构造各边界情况所需的输入根。 */
@@ -86,15 +86,15 @@ describe('Worker drawing transport', () => {
     }})`)
     const original = script.run([bar(1), bar(2, 12)])
     const snapshot = structuredClone(original)
-    const packed = packPlotCollection(original)
+    const packed = packIndicatorSeries(original)
     const received = structuredClone(packed, { transfer: [packed.buffer] })
     expect(packed.buffer.byteLength).toBe(0)
-    expect(unpackPlotCollection(received)).toStrictEqual(snapshot)
+    expect(unpackIndicatorSeries(received)).toStrictEqual(snapshot)
     expect(original).toStrictEqual(snapshot)
   })
 
   it('preserves gaps, NaN, optional fields and independent drawing styles', () => {
-    const collection: PlotCollection = {
+    const series: IndicatorSeries = {
       plots: [
         {
           kind: 'line',
@@ -125,13 +125,13 @@ describe('Worker drawing transport', () => {
         ],
       })),
     }
-    const packed = packPlotCollection(collection)
+    const packed = packIndicatorSeries(series)
     expect(packed.drawings?.metadata).toHaveLength(1)
-    const result = unpackPlotCollection(packed)
-    expect(result).toStrictEqual(collection)
+    const result = unpackIndicatorSeries(packed)
+    expect(result).toStrictEqual(series)
     result.drawings![0]!.style.stroke = 'currentColor'
     expect(result.drawings![1]!.style.stroke).toBe('inherit')
-    expect(collection.drawings![0]!.style.stroke).toBe('inherit')
+    expect(series.drawings![0]!.style.stroke).toBe('inherit')
   })
 })
 

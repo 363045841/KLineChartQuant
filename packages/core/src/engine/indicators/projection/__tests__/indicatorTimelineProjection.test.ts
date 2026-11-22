@@ -2,14 +2,14 @@
 
 import {
   createDrawingObject,
-  type PlotCollection,
+  type IndicatorSeries,
   ShapeSize,
 } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_DRAWING_STROKE } from '@/foundation/tokens/index.js'
 import {
   createIndicatorTimelineProjection,
-  projectIndicatorCollection,
+  projectIndicatorSeries,
 } from '../impl/indicatorTimelineProjection.js'
 
 describe('indicator timeline projection', () => {
@@ -59,7 +59,7 @@ describe('indicator timeline projection', () => {
       wickColor: null,
       borderColor: null,
     }
-    const collection: PlotCollection = {
+    const series: IndicatorSeries = {
       plots: [
         {
           kind: 'line',
@@ -99,8 +99,8 @@ describe('indicator timeline projection', () => {
         }),
       ],
     }
-    const projected = projectIndicatorCollection(
-      collection,
+    const projected = projectIndicatorSeries(
+      series,
       createIndicatorTimelineProjection([10, 30], [5, 10, 20, 30], false),
     )
     expect(projected.plots[0]).toMatchObject({
@@ -116,12 +116,9 @@ describe('indicator timeline projection', () => {
       { id: 'b', time: 30, price: 3 },
     ])
     expect(projected.drawings?.[0]?.params).toEqual({ levels: [0, 1] })
-    expect(collection.drawings?.[0]?.anchors[0]?.logicalIndex).toBe(0)
+    expect(series.drawings?.[0]?.anchors[0]?.logicalIndex).toBe(0)
     expect(
-      projectIndicatorCollection(
-        collection,
-        createIndicatorTimelineProjection([10, 30], [10, 30], false),
-      ),
-    ).toBe(collection)
+      projectIndicatorSeries(series, createIndicatorTimelineProjection([10, 30], [10, 30], false)),
+    ).toBe(series)
   })
 })

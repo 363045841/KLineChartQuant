@@ -5,19 +5,19 @@
 
 import type { KLineData } from '@/types/price'
 import {
+  type CalculationPlan,
+  type CalculationPlanSource,
   createIndicatorCalculationPlan,
-  type IndicatorCalculationPlan,
-  type IndicatorCalculationSource,
-} from '../../instances/domain/instanceCalculationPlan'
+} from '../../instances/domain/calculationPlan'
 import {
   createIndicatorInstanceSnapshot,
+  type IndicatorInputValue,
   type IndicatorInstance,
   type IndicatorInstanceSnapshot,
-  type IndicatorParameterValue,
-} from '../../instances/domain/instanceModel'
+} from '../../instances/domain/indicatorModel'
 
-/** 计算参数值集合别名，便于用例声明。 */
-export type TestParams = Readonly<Record<string, IndicatorParameterValue>>
+/** 计算输入集合别名，便于用例声明。 */
+export type TestInputs = Readonly<Record<string, IndicatorInputValue>>
 
 /** 构造递增的测试行情，价格与成交量均可预测。 */
 export function createTestData(length: number): KLineData[] {
@@ -36,8 +36,8 @@ export function createTestInstance(input: {
   instanceId: string
   definitionId: string
   paneId?: string
-  params?: TestParams
-  context?: TestParams
+  inputs?: TestInputs
+  context?: TestInputs
 }): IndicatorInstance {
   return {
     instanceId: input.instanceId,
@@ -45,7 +45,7 @@ export function createTestInstance(input: {
     paneId: input.paneId ?? 'main',
     calculation: {
       definitionId: input.definitionId,
-      params: input.params ?? {},
+      inputs: input.inputs ?? {},
       context: input.context ?? {},
     },
     presentation: {},
@@ -61,18 +61,14 @@ export function createTestSnapshot(
 }
 
 /** 快照可替换的计算计划供给源，用于模拟执行期间的版本变化。 */
-export class FakeCalculationSource implements IndicatorCalculationSource {
+export class FakeCalculationSource implements CalculationPlanSource {
   private current: IndicatorInstanceSnapshot
 
   constructor(instances: IndicatorInstance[]) {
     this.current = createIndicatorInstanceSnapshot(instances)
   }
 
-  snapshot(): IndicatorInstanceSnapshot {
-    return this.current
-  }
-
-  calculationPlan(): IndicatorCalculationPlan {
+  calculationPlan(): CalculationPlan {
     return createIndicatorCalculationPlan(this.current)
   }
 

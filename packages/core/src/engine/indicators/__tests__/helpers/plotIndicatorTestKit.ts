@@ -4,21 +4,18 @@
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
 
-import type { Bar, InputDef, IndicatorDefinition } from '@363045841yyt/klinechart-plot-contracts'
-import type { PlotCollection } from '@/engine/plots/types.js'
-import type {
-  IndicatorParameters,
-  IndicatorParameterValue,
-} from '../../instances/domain/instanceModel.js'
+import type { Bar, IndicatorDefinition, InputDef } from '@363045841yyt/klinechart-plot-contracts'
+import type { IndicatorSeries } from '@/engine/plots/types.js'
+import type { IndicatorInputs, IndicatorInputValue } from '../../instances/domain/indicatorModel.js'
 import { createPlotIndicatorDefinition } from '../../pipeline/impl/createPlotDefinition.js'
 import { registerIndicators } from '../../pipeline/index.js'
 
-/** 注册夹具的声明；compute 决定输出，defaultParams 缺省提供 factor。 */
+/** 注册夹具的声明；compute 决定输出，defaultInputs 缺省提供 factor。 */
 export interface PlotIndicatorFixtureConfig {
   name: string
   category: 'main' | 'sub'
-  defaultParams?: IndicatorParameters
-  compute: (data: readonly Bar[], params: IndicatorParameters) => PlotCollection
+  defaultInputs?: IndicatorInputs
+  compute: (data: readonly Bar[], inputs: IndicatorInputs) => IndicatorSeries
 }
 
 /**
@@ -26,8 +23,8 @@ export interface PlotIndicatorFixtureConfig {
  * 外部来源只提供 Plot 数据，渲染交给引擎。
  */
 export function registerPlotIndicatorFixture(config: PlotIndicatorFixtureConfig): void {
-  const defaults = config.defaultParams ?? { factor: 1 }
-  const inputs: Record<string, InputDef<IndicatorParameterValue>> = {}
+  const defaults = config.defaultInputs ?? { factor: 1 }
+  const inputs: Record<string, InputDef<IndicatorInputValue>> = {}
   for (const [key, value] of Object.entries(defaults)) {
     inputs[key] = { default: value }
   }

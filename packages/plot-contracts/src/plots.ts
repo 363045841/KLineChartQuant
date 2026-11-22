@@ -236,7 +236,7 @@ export interface PlotFill {
 }
 
 /** 一个指标实例产出的全部 Plot 与填充关系。 */
-export interface PlotCollection {
+export interface IndicatorSeries {
   readonly plots: readonly Plot[]
   readonly fills: readonly PlotFill[]
   /** 脚本 hline 声明的图表级水平线；旧版生产端可能没有该字段。 */

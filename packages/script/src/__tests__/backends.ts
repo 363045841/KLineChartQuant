@@ -1,5 +1,5 @@
 /** 两个执行后端的统一测试矩阵：同一脚本在两个后端上必须给出一致契约。 */
-import type { LogEvent } from '../contracts/output.js'
+import type { LogEvent } from '../contracts/log.js'
 import { compileSources } from '../execution/impl/compileSources.js'
 import { prepareNativeModule } from '../execution/impl/prepareNativeModule.js'
 import { prepareQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'

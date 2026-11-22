@@ -1,12 +1,12 @@
 # Agent 查询模块
 
 `packages/core/src/features/agent/` 为 Agent 提供图表、指标、图元、对比与行情的访问边界。工具是纯数据，
-统一由 `createChartToolCatalog` 组装；行情与指标结果转成紧凑文本，图元与对比返回投影字段，不把领域对象
-原样交给模型。它不读取或写入图表的渲染结果池，也不绕过领域命令面。
+统一由 `createChartToolCatalog` 组装；行情结果转成紧凑文本，指标读取返回类型化投影，图元与对比返回投影字段，
+不把领域对象原样交给模型。
 
-指标计算与结果池的完整模型见
-[`docs/design/indicator/indicator-instance-render-binding.md`](../../../../../docs/design/indicator/indicator-instance-render-binding.md)，
-计算参数与展示配置的分层见
+指标计算与结果仓库的完整模型见
+[`docs/design/agent/indicator-series-read.md`](../../../../../docs/design/agent/indicator-series-read.md)，
+计算输入与展示配置的分层见
 [`docs/design/indicator/indicator-parameter-layers.md`](../../../../../docs/design/indicator/indicator-parameter-layers.md)，
 工具契约见 [`docs/design/agent/agent-tool-catalog.md`](../../../../../docs/design/agent/agent-tool-catalog.md)。
 
@@ -14,26 +14,27 @@
 
 ```text
 Agent tool
-  -> impl/indicator/indicatorQuery
-  -> 注册的 IndicatorMetadata.runtime.compute
-  -> impl/indicator/indicatorTextFormatter
-  -> 紧凑文本
+  -> ChartAgentIndicatorCommands.series
+  -> ChartIndicatorFacade.readSeries
+  -> ChartIndicatorManager（结果仓库 + 计算调度）
+  -> 已提交 IndicatorResult
+  -> projectIndicatorSeries
+  -> columns / rows / objects / hlines
   -> Agent
 ```
 
 本目录负责：
 
-- 保留并校验 Agent 既有的指标标识、数值计算参数、时间范围和返回数量。
-- 复用已注册指标的 `runtime.compute`，不维护第二套 calculator。
-- 在行情快照版本稳定时转义原始 `series: unknown`，不定义指标专用结果 DTO。
-- 按 `definitionId` 匹配专用转义器；未匹配时降级为 Markdown 表格。
-- 只向 Agent 返回紧凑文本。
+- 按 `indicator / row / order` 定位图上实例；`inputs` 按定义声明校验，未知键、类型与范围一次报全。
+- 读取图上实例已提交的结果；带 `inputs` 时提交一次预览计算，与图表实例共用执行器和结果仓库。
+- 把 `IndicatorSeries` 投影为列、行、绘图对象与水平线；一个 `limit` 约束全部输出，截断时报告省略数量。
+- 无法识别为可读序列时返回专用错误与下一步，不降级为对象计数。
 
 本目录不负责：
 
 - 渲染指标、维护 pane 或读取 `renderStates`。
-- 定义指标公式、默认计算参数或展示开关；这些属于 `engine/indicators/` 的指标定义。
-- 将内部计算结果或 JSON DTO 原样返回给 Agent。
+- 定义指标公式、默认输入或展示开关；这些属于 `engine/indicators/` 的指标定义。
+- 把内部计算结果或领域对象原样返回给 Agent。
 
 ## 文件结构
 
@@ -45,11 +46,12 @@ agent/
 │   ├── types.ts                           # ChartToolDefinition / ChartToolMetadata
 │   ├── index.ts                           # 静态清单与组装入口
 │   └── impl/
-│       ├── catalog.ts                     # 组装十只图表工具
+│       ├── catalog.ts                     # 组装十三只图表工具
 │       ├── indicators.ts                  # indicators_list / indicators_write
+│       ├── indicatorSeries.ts             # indicator_series_query
 │       ├── drawings.ts                    # drawings_list / drawings_write
 │       ├── comparisons.ts                 # comparisons_list / comparisons_write
-│       ├── market.ts                      # 四只只读查询工具
+│       ├── market.ts                      # 三只行情只读查询工具
 │       └── helpers.ts                     # 必填字段校验与结果收敛
 ├── impl/
 │   ├── chartAgentController.ts            # 图表上下文投影
@@ -57,10 +59,8 @@ agent/
 │   ├── marketDataTextFormatter.ts         # 行情查询结果的紧凑文本转义
 │   ├── markdownTable.ts                   # 共用 Markdown 表格渲染
 │   └── indicator/
-│       ├── parseIndicatorParams.ts        # 按定义声明校验 Agent 参数
-│       ├── indicatorQuery.ts              # 保留既有入参的查询编排与纯计算调用
-│       ├── indicatorTextFormatter.ts      # 专用转义器注册与 Markdown 降级选择
-│       └── indicatorMarkdownFormatter.ts  # 未注册结果的通用 Markdown 表格
+│       ├── parseIndicatorInputs.ts        # 按定义声明校验 Agent 输入
+│       └── projectIndicatorSeries.ts      # series → 列 / 行 / 对象 / 水平线
 ├── __tests__/                             # agent 模块测试
 └── README.md
 ```
@@ -76,32 +76,13 @@ agent/
 `executionMode` 由 `effect` 推导。完整决策见
 [`docs/design/agent/agent-tool-catalog.md`](../../../../../docs/design/agent/agent-tool-catalog.md)。
 
-## 查询规则
+## 读取规则
 
-调用方可覆盖已注册的数值计算参数；未知参数、非数值参数和展示选项都会被拒绝。计算始终使用完整活动
-行情，以保留 MA、RSI 等指标的历史窗口，`from`、`to` 与 `limit` 由转义器限制最终文本中的条目数。
-每次查询最多返回 2,000 项，默认返回最近 20 项。
-
-## 文本转义
-
-`series` 是 Runtime 返回的 `unknown` 原始结果。`impl/indicator/indicatorTextFormatter.ts` 根据 `definitionId` 选择转义器：
-
-- `structure`：趋势与近期 BOS/CHOCH 事件。
-- `zones`：价格区间、状态和发生时间。
-- `volumeProfile`：POC、价值区、总量和高量区。
-- 其余结果：转为 Markdown 表格；字段名只在表头出现一次，嵌套对象展开为点号字段，数组只显示长度。
-
-例如：
-
-```text
-Structure | 1h
-偏多；最新 BOS 向上 72,180
-需求区 70,900-71,240
-失效：收盘低于 70,900
-```
-
-没有专用转义器的新指标仍可被查询，不会因结果形状未知而拒绝。之后只需注册对应
-`definitionId` 的转义函数，即可在不变更计算管线和查询契约的前提下提升信息密度。
+- 不带 `inputs`：读图上实例，使用实例当前输入与行情修订；不在图上时报错并列出可选的下一步。
+- 带 `inputs`：按这组输入提交一次计算，缺省键取定义默认值；不添加实例、不改变图表。
+- 计算结果按计算身份去重；相同输入与修订直接复用已发布结果。
+- 时间窗与行情工具一致：日线及以上 `YYYY-MM-DD`，日内带偏移的 RFC 3339。
+- 一个 `limit` 同时约束行与对象，默认 60，上限 2,000；截断时返回省略数量。
 
 ## 测试
 

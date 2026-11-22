@@ -2,7 +2,7 @@
 import type {
   ArrowOptions,
   CharOptions,
-  PlotCollection,
+  IndicatorSeries,
   ScalarPlot,
   ShapeOptions,
   ShapeSize,
@@ -12,10 +12,10 @@ import type { ColorTokens } from '@/foundation/tokens/index.js'
 export type {
   ArrowPlot,
   CharPlot,
+  IndicatorSeries,
   OhlcPlot,
   OhlcPlotPoint,
   Plot,
-  PlotCollection,
   PlotFill,
   PlotPoint,
   ShapePlot,
@@ -78,7 +78,7 @@ export interface PlotGuide {
 
 export interface IndicatorPlotDefinition {
   /** collection 表示计算器已输出完整 Plot，无需提取数值字段。 */
-  readonly source?: 'collection'
+  readonly source?: 'series'
   readonly series: readonly PlotSpec[]
   readonly fills?: readonly PlotFillSpec[]
   readonly guides?: readonly PlotGuide[]
@@ -91,7 +91,7 @@ export interface IndicatorPlotDefinition {
 }
 
 /** 所有普通指标共用的帧数据模型。 */
-export interface PlotRenderState extends PlotCollection {
+export interface PlotRenderState extends IndicatorSeries {
   readonly kind: 'plots'
   readonly timestamp: number
   readonly params: Readonly<Record<string, unknown>>

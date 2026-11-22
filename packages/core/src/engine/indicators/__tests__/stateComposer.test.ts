@@ -3,10 +3,7 @@ import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { isPlotRenderState } from '@/engine/plots/impl/readPlotState.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import type {
-  IndicatorParameters,
-  IndicatorSeriesResult,
-} from '../instances/domain/instanceModel.js'
+import type { IndicatorInputs, IndicatorResult } from '../instances/domain/indicatorModel.js'
 import { getRegisteredIndicatorDefinition } from '../pipeline/index.js'
 import { composeInstanceRenderState } from '../stateComposer.js'
 import { createTestData } from './helpers/instanceTestKit.js'
@@ -19,9 +16,9 @@ beforeAll(() => {
   registerPlotIndicatorFixture({
     name: 'ProjectionPlotFixture',
     category: 'sub',
-    defaultParams: { factor: FACTOR },
-    compute: (data, params) => {
-      const factor = typeof params.factor === 'number' ? params.factor : 0
+    defaultInputs: { factor: FACTOR },
+    compute: (data, inputs) => {
+      const factor = typeof inputs.factor === 'number' ? inputs.factor : 0
       return {
         plots: [
           {
@@ -42,15 +39,13 @@ beforeAll(() => {
   })
 })
 
-/** 创建完整的实例结果，不改变计算器的数据形状。 */
-function result(series: unknown, params: IndicatorParameters): IndicatorSeriesResult {
+/** 创建一次计算结果，不改变计算器的数据形状。 */
+function result(series: unknown): IndicatorResult {
   return {
-    instanceId: 'test',
-    calculationKey: 'test',
+    timestamps: [],
     dataRevision: 1,
-    params,
+    marketRevision: 0,
     series,
-    firstReadyIndex: 0,
   }
 }
 
@@ -59,11 +54,12 @@ describe('Plot instance projection', () => {
     const definition = getRegisteredIndicatorDefinition('ProjectionPlotFixture')
     if (!definition?.runtime) throw new TypeError('ProjectionPlotFixture 未注册')
     const data = createTestData(300)
-    const params = definition.runtime.defaultParams
+    const params = definition.runtime.defaultInputs
     const raw = definition.runtime.compute(data, params)
     const state = composeInstanceRenderState(
       definition,
-      result(raw, params),
+      result(raw),
+      params,
       definition.presentation?.defaultOptions ?? {},
       { start: 0, end: 300 },
       1,

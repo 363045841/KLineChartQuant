@@ -17,7 +17,7 @@ plot-contracts   ← 只有 Plot 类型，谁都不依赖
 ```
 
 QuickJS 执行器初始化整份文件一次读取声明，再逐 bar 调用 VM 内的 `onBar`。
-`PlotCollector` 按 ID 和 bar 下标收集点，跳过的位置保留空值；成功后一次性返回 `PlotCollection`。
+`PlotCollector` 按 ID 和 bar 下标收集点，跳过的位置保留空值；成功后一次性返回 `IndicatorSeries`。
 失败时不提交部分结果。
 
 绘图类型、标签和样式都在 `plot.*` 调用里给出，Plot 按首次出现的 name 建立。

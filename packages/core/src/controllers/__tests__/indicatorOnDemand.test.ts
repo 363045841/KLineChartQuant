@@ -63,7 +63,7 @@ describe('static catalog fidelity', () => {
     expect(descriptors).toHaveLength(1)
     for (const descriptor of descriptors) {
       const definition = getRegisteredIndicatorDefinition(descriptor.name)!
-      const runtimeDefaults = definition.runtime?.defaultParams
+      const runtimeDefaults = definition.runtime?.defaultInputs
       const runtimeInputDefs = definition.runtime?.inputDefs
       expect(JSON.parse(JSON.stringify(descriptor)), descriptor.name).toEqual(
         JSON.parse(
@@ -76,7 +76,7 @@ describe('static catalog fidelity', () => {
             defaultPaneId: definition.defaultPaneId,
             dataViews: definition.dataViews,
             visiblePeriods: definition.visiblePeriods,
-            defaultParams:
+            defaultInputs:
               typeof runtimeDefaults === 'function' ? runtimeDefaults() : runtimeDefaults,
             inputDefs: runtimeInputDefs,
             defaultOptions: definition.presentation?.defaultOptions,

@@ -445,7 +445,7 @@ describe('Plot renderer', () => {
     collector.onPlot('line', 2, null, 'line', declaration)
     collector.onPlot('line', 3, { value: 4, color: 'red' }, 'line', declaration)
     collector.onPlot('line', 4, null, 'line', declaration)
-    const { ctx } = paint({ source: 'collection', series: [] }, collector.collect())
+    const { ctx } = paint({ source: 'series', series: [] }, collector.collect())
     expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([[15, 20]]))
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([[35, 40]]))
     expect(ctx.strokeStyle).toBe('red')
@@ -465,7 +465,7 @@ describe('Plot renderer', () => {
       })
     }
     const { state, ctx, context } = paint(
-      { source: 'collection', series: [] },
+      { source: 'series', series: [] },
       collector.collect(),
       {},
       {
@@ -491,7 +491,7 @@ describe('Plot renderer', () => {
       { label: 'candles C', value: 6, color: 'blue' },
     ])
     const outside = projectPlots(
-      { source: 'collection', series: [] },
+      { source: 'series', series: [] },
       collector.collect(),
       {},
       { start: 0, end: 3 },
@@ -515,7 +515,7 @@ describe('Plot renderer', () => {
       borderColor: 'green',
     })
     const { state, ctx } = paint(
-      { source: 'collection', series: [] },
+      { source: 'series', series: [] },
       collector.collect(),
       {},
       {
@@ -759,7 +759,7 @@ describe('Plot renderer', () => {
       styles.push(ctx.fillStyle)
     })
     const state = projectPlots(
-      { source: 'collection', series: [] },
+      { source: 'series', series: [] },
       collector.collect(),
       {},
       { start: 0, end: 3 },
@@ -1200,7 +1200,7 @@ describe('Plot renderer', () => {
 
   it('hline 带状填充按价格区间铺满整幅宽度', () => {
     const { ctx } = paint(
-      { source: 'collection', series: [] },
+      { source: 'series', series: [] },
       {
         plots: [
           {

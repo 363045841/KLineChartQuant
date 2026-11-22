@@ -91,7 +91,7 @@ export class LegendManager implements LegendApi {
         paneId: instance.paneId,
         definitionId: instance.definitionId,
         hidden: instance.hidden,
-        params: instance.params,
+        params: instance.inputs,
       })
     for (const comparison of this.deps.comparisons.list())
       entries.push({

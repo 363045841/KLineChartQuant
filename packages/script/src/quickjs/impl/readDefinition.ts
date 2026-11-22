@@ -346,6 +346,7 @@ export function readHLineCall(price: unknown, options: unknown): Omit<HLine, 'id
     color: typeof declaration.color === 'string' ? declaration.color : Color.blue,
     dash: hLineDash(style),
     width: typeof declaration.linewidth === 'number' ? declaration.linewidth : 1,
+    ...(typeof declaration.title === 'string' ? { title: declaration.title } : {}),
   }
 }
 

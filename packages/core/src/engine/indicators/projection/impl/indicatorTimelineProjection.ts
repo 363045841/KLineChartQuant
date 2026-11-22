@@ -1,9 +1,9 @@
 /** 按时间身份投影指标输出，不修改计算结果，也不猜测数组中的领域坐标。 */
 import {
   type DrawingObject,
+  type IndicatorSeries,
   isOhlcPlot,
   type Plot,
-  type PlotCollection,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorTimelineProjection } from '../types.js'
 
@@ -75,12 +75,12 @@ function projectDrawing(
 }
 
 /** Plot、逐 bar 填充与 drawing 共用时间轴映射，绘图偏移仍是独立的用户语义。 */
-export function projectIndicatorCollection(
-  collection: PlotCollection,
+export function projectIndicatorSeries(
+  series: IndicatorSeries,
   timeline: IndicatorTimelineProjection,
-): PlotCollection {
-  if (timeline.identity) return collection
-  const plots = collection.plots.map(
+): IndicatorSeries {
+  if (timeline.identity) return series
+  const plots = series.plots.map(
     (plot): Plot =>
       isOhlcPlot(plot)
         ? { ...plot, data: timeline.projectArray(plot.data) }
@@ -88,12 +88,12 @@ export function projectIndicatorCollection(
   )
   return {
     plots,
-    fills: collection.fills.map((fill) => ({
+    fills: series.fills.map((fill) => ({
       ...fill,
       colors: timeline
         .projectArray(fill.colors)
         .map((color) => (color === undefined ? null : color)),
     })),
-    drawings: collection.drawings?.map((drawing) => projectDrawing(drawing, timeline)),
+    drawings: series.drawings?.map((drawing) => projectDrawing(drawing, timeline)),
   }
 }

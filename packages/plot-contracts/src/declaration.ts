@@ -1,7 +1,7 @@
 /**
  * 声明式 Plot 契约：描述「画出什么形状、用什么样式」。
  *
- * 采集器据此把逐 bar 输出组装成 PlotCollection 中的 Plot；未声明的样式由采集器填入默认值。
+ * 采集器据此把逐 bar 输出组装成 IndicatorSeries 中的 Plot；未声明的样式由采集器填入默认值。
  */
 
 import type { Color } from './color.js'

@@ -4,14 +4,14 @@ import type { IndicatorMetadata } from './indicatorMetadata.js'
 /**
  * 读取定义的默认参数。
  *
- * runtime.defaultParams 可能是函数，展示默认选项只影响初始展示值；
+ * runtime.defaultInputs 可能是函数，展示默认选项只影响初始展示值；
  * 两者在这里合并，调用方不再各自复制一份默认值。
  */
-export function resolveDefinitionDefaultParams(
+export function resolveDefinitionDefaultInputs(
   definition: IndicatorMetadata,
 ): Record<string, unknown> {
   const runtime = definition.runtime
-  const declared = runtime?.defaultParams
+  const declared = runtime?.defaultInputs
   const defaults =
     typeof declared === 'function'
       ? (declared as () => Record<string, unknown>)()

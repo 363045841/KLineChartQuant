@@ -8,7 +8,7 @@ export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
 export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
 export {
-  type IndicatorInputDef,
+  type IndicatorInputDisplay,
   type IndicatorMetadata,
   type IndicatorRendererOptions,
   type IndicatorRuntimeDescriptor,
@@ -57,8 +57,8 @@ export type {
   ArrowPlot,
   CharPlot,
   IndicatorPlotDefinition,
+  IndicatorSeries,
   Plot,
-  PlotCollection,
   PlotFill,
   PlotPoint,
   PlotRenderState,

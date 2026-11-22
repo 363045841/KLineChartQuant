@@ -1,7 +1,7 @@
 <!-- 字符和数值箭头的共享 Plot 设计决策。 -->
 # Char 与 Arrow Plot
 
-Char、Arrow 与 Line、Histogram、Points、Shape 使用同一份共享契约、PlotCollector、PlotCollection 和 Plot Layer；不增加脚本专用渲染或标记 Layer。
+Char、Arrow 与 Line、Histogram、Points、Shape 使用同一份共享契约、PlotCollector、IndicatorSeries 和 Plot Layer；不增加脚本专用渲染或标记 Layer。
 
 脚本以 `plot.Line(null, name)` 等方法主动留空，Shape/Char 的 false 同样转为 null。null 跨 VM 边界时不做数值强转，采集器将它写为 undefined 空位，同时保留 name 注册和样式校验；同一 bar 再输出 null 会清除先前点。NaN 仅表示无效计算结果（如历史不足），采集时过滤，不作为公开绘图控制值；Infinity 沿用执行错误处理。未调用绘图方法的位置同样为空位。
 

@@ -8,5 +8,5 @@ export type {
   LogEvent,
   LogLevel,
   PlotPoint,
-  ScriptOutputSource,
+  ScriptLogSource,
 } from '@363045841yyt/klinechart-plot-contracts'

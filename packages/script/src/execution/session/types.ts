@@ -3,9 +3,9 @@ import type {
   Bar,
   ComputeRange,
   DrawingObject,
-  PlotCollection,
+  IndicatorSeries,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { LogEvent } from '../../contracts/output.js'
+import type { LogEvent } from '../../contracts/log.js'
 import type { QuickJSScriptDefinition, ScriptParamValue } from '../../quickjs/types.js'
 import type {
   RequestExecution,
@@ -35,7 +35,7 @@ export interface ScriptRuntimeExecuteOptions {
 
 /** 运行时执行结果；values 只对 request 表达式运行时有意义。 */
 export interface ScriptRuntimeExecuteResult<Checkpoint = never> {
-  readonly collection: PlotCollection
+  readonly series: IndicatorSeries
   readonly values: readonly RequestValue[]
   /** 库在本次运行中提交的新检查点；未提交时沿用调用方的检查点。 */
   readonly checkpoint?: Checkpoint
@@ -80,9 +80,9 @@ export interface ScriptSessionRunOptions {
   readonly range?: ComputeRange
 }
 
-/** 会话运行输出；collection 含完整绘图，drawingDelta 是本次增量。 */
+/** 会话运行输出；series 含完整绘图，drawingDelta 是本次增量。 */
 export interface ScriptSessionOutput {
-  readonly collection: PlotCollection
+  readonly series: IndicatorSeries
   readonly drawingDelta: DrawingDelta
 }
 

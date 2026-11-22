@@ -6,7 +6,7 @@ import type {
   InputSchema,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
-import type { LogEvent } from '../contracts/output.js'
+import type { LogEvent } from '../contracts/log.js'
 import type { ScriptSessionOutput } from '../execution/session/types.js'
 import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
@@ -104,7 +104,7 @@ export interface PreparedQuickJSScript {
     params?: Readonly<Record<string, ScriptParamValue>>,
     context?: ScriptRequestContext,
     range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ): import('@363045841yyt/klinechart-plot-contracts').PlotCollection
+  ): import('@363045841yyt/klinechart-plot-contracts').IndicatorSeries
   /** 完整会话输出：完整绘图 + 本次增量，供 Worker 只传输变化对象。 */
   runDetailed(
     bars: readonly Bar[],

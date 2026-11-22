@@ -19,7 +19,6 @@ import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
-import { createIndicatorQuery } from '@/features/agent/impl/indicator/indicatorQuery.js'
 import {
   type ChartAgentDrawingScope,
   type ChartAgentMarketCapability,
@@ -258,8 +257,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       },
       isRendererAvailable: (indicatorId) =>
         getRegisteredIndicatorDefinition(indicatorId) !== undefined,
-      readParamDefs: (indicatorId) =>
-        indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.params,
+      readInputDefs: (indicatorId) =>
+        indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.inputs,
+      scope: () => ({
+        period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+        timezone: chartTimezone(),
+      }),
     }),
     drawings: createChartAgentDrawingCommands({
       drawingDocument: chart.drawingDocument,
@@ -286,7 +289,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       cache: chart.getMarketDataCache(),
       now: Date.now,
       formatter: marketFormatter,
-      indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     }),
     // 参考正文随脚本包发布，由宿主注入；未注入时工具仍在清单里，调用会明确失败。
     scripts: opts.scripts ?? createUnwiredScripts(),

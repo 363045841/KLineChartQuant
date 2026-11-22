@@ -137,7 +137,7 @@ export function projectIndicator(
     ?.message
   const loading = !error && availability?.isLoading(instance.instanceId) === true
   const params: Record<string, number | boolean | string> = {}
-  for (const [key, value] of Object.entries(instance.params)) {
+  for (const [key, value] of Object.entries(instance.inputs)) {
     if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string')
       params[key] = value
   }

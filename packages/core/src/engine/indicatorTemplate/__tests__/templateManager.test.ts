@@ -32,7 +32,7 @@ function registerTestIndicator(displayName: string, title?: string): string {
         displayName,
         category: 'sub',
         defaultPaneId: `pane-${displayName}`,
-        defaultParams: {},
+        defaultInputs: {},
       },
     },
   ])

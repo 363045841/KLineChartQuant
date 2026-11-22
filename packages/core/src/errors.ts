@@ -47,6 +47,8 @@ export type KLineChartErrorCode =
   | 'INDICATOR_INSTANCE_NOT_FOUND'
   | 'TARGET_ROW_OUT_OF_RANGE'
   | 'DATA_REVISION_CHANGED'
+  | 'INDICATOR_OUTPUT_UNREADABLE'
+  | 'INDICATOR_COMPUTE_FAILED'
   // comparison commands (UI 与 Agent 共用的对比写原语)
   | 'COMPARISON_DUPLICATE'
   // scale (TimeScale / PriceScale construction + setters)
@@ -226,8 +228,6 @@ export const COMPARISON_ERROR_CODES = Object.freeze({
   INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
-
-
 /** Agent facade errors. Values are append-only public protocol identifiers. */
 export const CHART_AGENT_ERROR_CODES = Object.freeze({
   INVALID_QUERY: 'INVALID_ARGUMENTS',
@@ -237,6 +237,10 @@ export const CHART_AGENT_ERROR_CODES = Object.freeze({
   INSTANCE_NOT_FOUND: 'INDICATOR_INSTANCE_NOT_FOUND',
   TARGET_ROW_OUT_OF_RANGE: 'TARGET_ROW_OUT_OF_RANGE',
   DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
+  /** 指标输出不是可读序列；调用方应改用其他读取方式或修正脚本。 */
+  UNREADABLE_SERIES: 'INDICATOR_OUTPUT_UNREADABLE',
+  /** 指标计算本身失败；结果里带有脚本或计算器给出的原因。 */
+  COMPUTE_FAILED: 'INDICATOR_COMPUTE_FAILED',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 持久化错误码：公共层用同一组码区分“没有数据、读坏了、写失败、被阻塞、已释放”。
@@ -262,26 +266,13 @@ export const DRAWING_ERROR_CODES = Object.freeze({
   INVALID_ANCHOR: 'DRAWING_INVALID_ANCHOR',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
-// Agent 指标查询错误码具名常量，供查询层引用，避免散落字符串字面量。
-export const INDICATOR_QUERY_ERROR_CODES: Readonly<
-  Record<IndicatorQueryErrorCodeName, KLineChartErrorCode>
-> = {
-  INVALID_QUERY: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-  RANGE_EMPTY: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE,
+// Agent 指标序列读取错误码，供读取链路引用，避免散落字符串字面量。
+export const INDICATOR_SERIES_ERROR_CODES = Object.freeze({
+  NO_DATA: CHART_AGENT_ERROR_CODES.NO_DATA,
   INDICATOR_NOT_REGISTERED: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
-  UNSUPPORTED_OUTPUT: 'UNSUPPORTED_CAPABILITY',
-  MARKET_DATA_UNAVAILABLE: CHART_AGENT_ERROR_CODES.NO_DATA,
-  RESULT_COMMIT_FAILED: CHART_AGENT_ERROR_CODES.DATA_REVISION_CHANGED,
-}
-
-// Agent 指标查询错误码的业务名称集合。
-type IndicatorQueryErrorCodeName =
-  | 'INVALID_QUERY'
-  | 'RANGE_EMPTY'
-  | 'INDICATOR_NOT_REGISTERED'
-  | 'UNSUPPORTED_OUTPUT'
-  | 'MARKET_DATA_UNAVAILABLE'
-  | 'RESULT_COMMIT_FAILED'
+  COMPUTE_FAILED: CHART_AGENT_ERROR_CODES.COMPUTE_FAILED,
+  UNREADABLE_SERIES: CHART_AGENT_ERROR_CODES.UNREADABLE_SERIES,
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 /** 便捷构造器：按错误码抛出统一错误。 */
 export function createMarketDataError(
