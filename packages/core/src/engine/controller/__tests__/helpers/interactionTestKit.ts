@@ -196,7 +196,7 @@ export function createChartStub(args: {
       },
       get: () => paneRenderers[0]!.getPane().yAxis,
       list: () => paneDefs.map((pane) => ({ objectId: pane.id, paneId: pane.id, axisId: pane.id })),
-      configuration: () => ({ scaleType: 'linear', rangeMode: 'auto' }),
+      configuration: () => ({ scaleType: 'linear', rangeMode: 'all' }),
       hitTest: (paneId: string) => paneId,
       scale: (axisId: string, deltaY: number, anchorY?: number) =>
         chart.scalePrice(axisId, deltaY, anchorY),

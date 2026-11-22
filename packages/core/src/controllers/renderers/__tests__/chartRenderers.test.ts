@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 /** 通过正式包入口验证第三方 Layer、指标和插件的实例生命周期。 */
+import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarketDataContext } from '@/data/management/impl/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
@@ -8,6 +9,8 @@ import {
   installAnimationFrameQueue,
   installChartDomStubs,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
+import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
+import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
 import {
   type ChartController,
@@ -57,6 +60,35 @@ registerIndicators([
     definition: ExternalIndicator,
   },
 ])
+
+/** 远价位主图指标：用于验证自动口径与 K 线口径对轴范围的取舍。 */
+const FAR_PRICE = 300
+const FAR_PRICE_INDICATOR = 'farPriceRange'
+const CANDLE_OBJECT_ID = 'plugin:candle'
+/** 与 mount 的行情夹具一致：两根 K 线的 high/low 合并区间。 */
+const BAR_MIN = 9
+const BAR_MAX = 13
+
+registerPlotIndicatorFixture({
+  name: FAR_PRICE_INDICATOR,
+  category: 'main',
+  compute: (data) => ({
+    plots: [
+      {
+        kind: 'line',
+        id: 'far',
+        label: 'FAR',
+        data: data.map(() => ({ value: FAR_PRICE })),
+        color: 'red',
+        visible: true,
+        offset: 0,
+        size: ShapeSize.auto,
+        dash: [],
+      },
+    ],
+    fills: [],
+  }),
+})
 
 /** 读取指标工厂最近一次创建的 Layer。 */
 function lastIndicatorLayer(): Layer<RenderContext> {
@@ -140,6 +172,27 @@ describe('public chart renderer access', () => {
 
     expect(first.getRenderer(layer.id)).toBe(layer)
     expect(second.getRenderer(layer.id)).toBeUndefined()
+  })
+
+  it('价格轴范围由可见行情与当前口径决定', async () => {
+    const controller = await mount()
+    const priceAxisId = controller.axes.bindingFor(CANDLE_OBJECT_ID).axisId
+    controller.addIndicator(FAR_PRICE_INDICATOR, {}, 'main')
+
+    // 自动适应：远价位指标参与定轴。
+    await vi.waitFor(() => {
+      frames.flush()
+      expect(controller.axes.get(priceAxisId).getDisplayRange().maxPrice).toBeCloseTo(FAR_PRICE)
+    })
+
+    // 仅缩放价格图表：指标不再撑轴，范围回到可见行情。
+    controller.axes.setRangeMode(priceAxisId, PRICE_AXIS_RANGE_MODE.Bars)
+    await vi.waitFor(() => {
+      frames.flush()
+      const range = controller.axes.get(priceAxisId).getDisplayRange()
+      expect(range.minPrice).toBeCloseTo(BAR_MIN)
+      expect(range.maxPrice).toBeCloseTo(BAR_MAX)
+    })
   })
 
   it('同窗口主图指标并入行情对象轴，最新价签绘制到行情轴列', async () => {

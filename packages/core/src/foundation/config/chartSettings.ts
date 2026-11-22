@@ -13,10 +13,15 @@ import {
 } from '../../components/footprint/types.js'
 import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
 
-import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
-
 export { ScaleType } from '../types/scaleType.js'
-export { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
+export {
+  AUTO_PRICE_AXIS_RANGE_MODES,
+  availablePriceRangeModes,
+  PRICE_AXIS_RANGE_MODE,
+  PRICE_AXIS_RATIO_SHARE,
+  resolvePriceAxisRangeMode,
+} from './priceAxisRangeMode.js'
+export type { AutoPriceAxisRangeMode } from './priceAxisRangeMode.js'
 
 export interface SettingItem {
   key: string
@@ -261,24 +266,6 @@ export const DEFAULT_SETTINGS = [
       { value: 'price', label: '价格' },
       { value: 'percent', label: '百分比' },
     ],
-  },
-  {
-    key: 'mainPriceAxisRangeMode',
-    label: '纵轴刻度',
-    type: 'select',
-    default: PRICE_AXIS_RANGE_MODE.AUTO,
-    group: 'priceAxis',
-    options: [
-      { value: PRICE_AXIS_RANGE_MODE.AUTO, label: '自动适应' },
-      { value: PRICE_AXIS_RANGE_MODE.HAND, label: '锁定价格对 K 线比例' },
-    ],
-  },
-  {
-    key: 'mainPriceAxisPriceOnly',
-    label: '仅缩放价格图表',
-    type: 'boolean',
-    default: false,
-    group: 'priceAxis',
   },
   {
     key: 'klineDensity',

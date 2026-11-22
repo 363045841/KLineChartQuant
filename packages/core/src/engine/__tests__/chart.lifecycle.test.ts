@@ -92,6 +92,29 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
+  it('轴配置下发当前可用的范围口径', async () => {
+    registerEmptyPlot('range-axis-indicator')
+    const chart = mountChart()
+    try {
+      // 主价格轴承载行情：三档自动口径与手动都可用。
+      expect(chart.axes.configuration(PRICE_SERIES_AXIS_ID).availableRangeModes).toEqual([
+        PRICE_AXIS_RANGE_MODE.All,
+        PRICE_AXIS_RANGE_MODE.Bars,
+        PRICE_AXIS_RANGE_MODE.Ratio,
+        PRICE_AXIS_RANGE_MODE.Manual,
+      ])
+      // 指标轴没有行情可拟合：只有全并与手动。
+      const paneId = chart.panes.addPane(MAIN_PANE_ID, 'below')!
+      const instanceId = chart.indicators.add('range-axis-indicator')!
+      chart.indicators.move(instanceId, { kind: 'pane', paneId })
+      expect(
+        chart.axes.configuration(chart.axes.bindingFor(instanceId).axisId).availableRangeModes,
+      ).toEqual([PRICE_AXIS_RANGE_MODE.All, PRICE_AXIS_RANGE_MODE.Manual])
+    } finally {
+      await chart.destroy()
+    }
+  })
+
   it('resets the time view before adapting the price axis through the default positioning path', async () => {
     const chart = mountChart()
     try {
@@ -414,7 +437,7 @@ describe('Chart lifecycle without a market selection', () => {
         expect(
           chart.getRenderer(resolveIndicatorLayerId(id, paneId, 'renderer', instanceId))?.pane,
         ).toBe(paneId)
-        expect(chart.axes.configuration(binding.axisId).rangeMode).toBe(PRICE_AXIS_RANGE_MODE.AUTO)
+        expect(chart.axes.configuration(binding.axisId).rangeMode).toBe(PRICE_AXIS_RANGE_MODE.All)
       }
       expect(chart.panes.hasPane(first)).toBe(false)
       expect(chart.panes.hasPane(second)).toBe(false)
@@ -1212,7 +1235,7 @@ describe('Chart lifecycle without a market selection', () => {
       chart.axes.setScaleType(a.axisId, ScaleType.Percent, 100)
       expect(chart.axes.get(a.axisId).toPercent(110)).toBe(10)
       expect(chart.kernel.exportLayout().axisBaseValues?.[a.axisId]).toBe(100)
-      chart.axes.setRangeMode(b.axisId, PRICE_AXIS_RANGE_MODE.HAND)
+      chart.axes.setRangeMode(b.axisId, PRICE_AXIS_RANGE_MODE.Manual)
 
       // 迁移到新 Pane：轴属于 Pane 的量纲组，对象重绑目标轴，旧轴配置不随对象走。
       const destination = chart.panes.addPane(MAIN_PANE_ID, 'below')!
@@ -1222,7 +1245,7 @@ describe('Chart lifecycle without a market selection', () => {
       expect(moved.axisId).not.toBe(b.axisId)
       expect(chart.axes.configuration(moved.axisId)).toMatchObject({
         scaleType: ScaleType.Linear,
-        rangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+        rangeMode: PRICE_AXIS_RANGE_MODE.All,
       })
       // 源 Pane 仍保留同定义另一实例的轴。
       expect(chart.axes.bindingFor(third).axisId).toBe(b.axisId)
