@@ -2,7 +2,7 @@
 import { COLOR_PICKER_CSS_VARS } from '@363045841yyt/klinechart-core'
 import { useAnchoredPopover } from '@vue-src/composables/overlay/useAnchoredPopover.js'
 import { useFullscreenTeleportTarget } from '@vue-src/composables/ui/useFullscreenTeleportTarget.js'
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, type CSSProperties } from 'vue'
 import type { ColorPickerProps, PickerColor, ScreenEyeDropper } from '../types.js'
 import { parsePickerColor, pickerColorToHex } from './colorSpace.js'
 
@@ -62,7 +62,8 @@ export function useColorPicker(props: ColorPickerProps, emitColor: (color: strin
     onClose: () => abortController?.abort(),
   })
   const isOpen = popover.open
-  const panelStyle = computed(() => ({
+  /** 面板样式：Token 色值与浮层定位合并；显式标 CSSProperties，声明文件才能引用 vue 的公开类型。 */
+  const panelStyle = computed<CSSProperties>(() => ({
     ...COLOR_PICKER_CSS_VARS,
     ...popover.panelBindings.value.style,
   }))

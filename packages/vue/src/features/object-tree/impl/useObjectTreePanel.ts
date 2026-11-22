@@ -4,7 +4,11 @@
  * 这里不保存任何对象数据：行、显隐、锁定与顺序都来自 `ChartController.objects`。
  */
 
-import type { PaneObjectGroup, PaneObjectRow } from '@363045841yyt/klinechart-core'
+import type {
+  PaneObjectGroup,
+  PaneObjectRow,
+  RenderObjectCommands,
+} from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { useControllerSignal } from '@vue-src/composables/chart/useControllerSignal.js'
 import { computed, type Ref, ref } from 'vue'
@@ -51,7 +55,7 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
   })
 
   /** 按身份取对象的领域命令；对象已被移除时返回 null。 */
-  function commandsFor(objectId: string) {
+  function commandsFor(objectId: string): RenderObjectCommands | null {
     return controller.value?.objects.commandsFor(objectId) ?? null
   }
 
