@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { dataSourceRegistry } from '../../impl/sourceRegistry'
 import type { InstrumentDescriptor } from '../../types'
 import { InstrumentType } from '../../types'
+import { createHttpMarketDataTransport } from '../impl/httpTransport'
 import { createMarketDataProvider } from '../impl/provider'
 import type {
   MarketDataTransport,
@@ -163,6 +164,28 @@ describe('createMarketDataProvider', () => {
       status: 'offline',
       message: 'connection refused',
     })
+  })
+
+  // 能力声明来自网络：缺 instrumentTypes 的响应必须降级并清空能力，而不是让流转筛选抛 TypeError
+  it('degrades a probe whose capabilities omit instrumentTypes', async () => {
+    const transport = createHttpMarketDataTransport({
+      baseUrl: 'http://127.0.0.1:8090',
+      // 旧连接器只报 assetClasses，前端协议要求 instrumentTypes
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            data: { status: 'online', checkedAt: 1, capabilities: { assetClasses: ['stock'] } },
+            requestId: 'r',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    })
+    const provider = createProvider(transport)
+    await expect(provider.probe()).resolves.toMatchObject({
+      status: 'degraded',
+      message: '能力声明缺少 instrumentTypes，已按不可用处理',
+    })
+    expect(provider.source.capabilities).toBeUndefined()
   })
 
   // 验证品种目录映射到领域模型，并按要求过滤 instrumentTypes
