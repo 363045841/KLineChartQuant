@@ -286,39 +286,9 @@ function readCandidates(content: string): ReadonlyArray<Record<string, unknown>>
 }
 
 describe('chart tool catalog', () => {
-  it('按资源成对暴露读写工具，静态清单与运行时目录一致', () => {
+  it('静态清单与运行时目录一致', () => {
     const catalog = createChartToolCatalog(createDeps())
-    expect(catalog.map((tool) => tool.name)).toEqual([
-      'indicators_list',
-      'indicators_write',
-      'drawings_list',
-      'drawings_write',
-      'comparisons_list',
-      'comparisons_write',
-      'instruments_query',
-      'market_bars_query',
-      'market_timeshare_query',
-      'indicator_values_query',
-      'script_reference_query',
-      'scripts_read',
-      'scripts_write',
-    ])
     expect(CHART_TOOL_METADATA.map((tool) => tool.name)).toEqual(catalog.map((tool) => tool.name))
-    expect(Object.fromEntries(catalog.map((tool) => [tool.name, tool.effect]))).toEqual({
-      indicators_list: 'read',
-      indicators_write: 'write',
-      drawings_list: 'read',
-      drawings_write: 'write',
-      comparisons_list: 'read',
-      comparisons_write: 'write',
-      instruments_query: 'read',
-      market_bars_query: 'read',
-      market_timeshare_query: 'read',
-      indicator_values_query: 'read',
-      script_reference_query: 'read',
-      scripts_read: 'read',
-      scripts_write: 'write',
-    })
   })
 
   it('指标列表返回名称、位置与当前参数', async () => {

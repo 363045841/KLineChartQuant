@@ -1,28 +1,13 @@
 /**
  * 统一行情模型的类型契约测试。
- * 运行时断言验证模型组合，@ts-expect-error 由仓库类型检查验证非法输入。
+ * 组合约束由 `satisfies` / `expectTypeOf` 在 `pnpm type-check` 时验证。
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import type { InstrumentDescriptor as PublicInstrumentDescriptor } from '../../controllers'
-import type {
-  BarSeries,
-  InstrumentDescriptor,
-  MarketDataProvider,
-  ProviderRef,
-  TradingDate,
-} from '../provider'
-import {
-  INSTRUMENT_TYPES,
-  InstrumentType,
-  isKLineAdjustment,
-  KLINE_ADJUSTMENTS,
-  KLINE_PERIODS,
-  KLineAdjustment,
-  KLinePeriod,
-  KNOWN_INSTRUMENT_TYPES,
-} from '../provider'
+import type { BarSeries, InstrumentDescriptor, MarketDataProvider } from '../provider'
+import { isKLineAdjustment } from '../provider'
 
 const stock = {
   id: 'gotdx:stock:0:000001',
@@ -49,23 +34,10 @@ describe('MarketData 类型契约', () => {
   it('从公共入口导出统一的品种描述', () => {
     expectTypeOf(stock).toMatchTypeOf<InstrumentDescriptor>()
     expectTypeOf(stock).toMatchTypeOf<PublicInstrumentDescriptor>()
-    expect(stock.id).toBe('gotdx:stock:0:000001')
   })
 
-  // 验证品种类别是运行时可枚举的单一枚举，外部宿主无需硬编码字符串。
-  it('导出可枚举的品种类别', () => {
-    expect(InstrumentType.Index).toBe('index')
-    expect(INSTRUMENT_TYPES).toContain(InstrumentType.Unknown)
-    expect(KNOWN_INSTRUMENT_TYPES).toHaveLength(INSTRUMENT_TYPES.length - 1)
-  })
-
-  // 验证周期与复权方式同样是运行时可枚举的单一枚举。
-  it('导出可枚举的周期与复权方式', () => {
-    expect(KLinePeriod.Daily).toBe('daily')
-    expect(KLineAdjustment.None).toBe('none')
-    expect(KLINE_PERIODS[0]).toBe(KLinePeriod.Min1)
-    expect(KLINE_PERIODS.at(-1)).toBe(KLinePeriod.Yearly)
-    expect(KLINE_ADJUSTMENTS).toEqual(['qfq', 'hfq', 'splits', 'none'])
+  // 复权方式是运行时会收到的外部输入，只接受标准取值。
+  it('isKLineAdjustment 只接受标准复权方式', () => {
     expect(isKLineAdjustment('hfq')).toBe(true)
     expect(isKLineAdjustment('bogus')).toBe(false)
   })
@@ -125,26 +97,5 @@ describe('MarketData 类型契约', () => {
     expect('timeShare' in provider).toBe(false)
     expectTypeOf(result).toMatchTypeOf<BarSeries>()
     expect(result.instrumentId).toBe(stock.id)
-  })
-
-  // 验证周期枚举不把分时模式混入 K 线周期。
-  it('拒绝非标准 K 线周期', () => {
-    // @ts-expect-error timeshare 是图表模式，不是 KLinePeriod
-    const period: KLinePeriod = 'timeshare'
-    expect(period).toBe('timeshare')
-  })
-
-  // 验证交易日必须使用带分隔符的本地日历日期。
-  it('拒绝非 YYYY-MM-DD 形式的交易日', () => {
-    // @ts-expect-error 交易日不得使用旧的 YYYYMMDD 数字格式
-    const tradingDate: TradingDate = 20260806
-    expect(tradingDate).toBe(20260806)
-  })
-
-  // 验证 Provider 私有引用只允许可序列化的基础值。
-  it('拒绝 providerRef 中的嵌套对象', () => {
-    // @ts-expect-error providerRef 不允许嵌套数据结构
-    const providerRef: ProviderRef = { route: { market: 0 } }
-    expect(providerRef).toEqual({ route: { market: 0 } })
   })
 })

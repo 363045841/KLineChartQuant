@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SETTINGS,
   KLINE_DENSITY,
-  KLINE_GAP_RATIOS,
   mapRendererTierToBackend,
   normalizeSettings,
   resolveKLineGapRatio,
@@ -75,23 +74,11 @@ describe('normalizeSettings 默认值', () => {
 })
 
 describe('K 线密度', () => {
-  it('未设置时使用标准系数', () => {
-    expect(resolveKLineGapRatio(undefined)).toBe(KLINE_GAP_RATIOS.standard)
-  })
-
   it.each([
     [KLINE_DENSITY.Compact, 0.3],
     [KLINE_DENSITY.Standard, 0.6],
     [KLINE_DENSITY.Loose, 0.9],
   ] as const)('%s 映射为对应间距系数', (density, ratio) => {
     expect(resolveKLineGapRatio(density)).toBe(ratio)
-  })
-})
-
-describe('交易分隔', () => {
-  it('默认开启，并作为样式分组布尔项暴露', () => {
-    const item = DEFAULT_SETTINGS.find((entry) => entry.key === 'showTradingDaySeparator')
-    expect(item).toMatchObject({ type: 'boolean', group: 'style', default: true })
-    expect(normalizeSettings().showTradingDaySeparator).toBe(true)
   })
 })

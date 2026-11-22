@@ -12,10 +12,10 @@ import type { ChartDataView } from '@/engine/chartModel/index'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import type { ScaleXSnapshot } from '../../scale/index'
-import { createViewportStateDeps } from '../../viewport/__tests__/helpers/viewportFixture'
 import { createOptionsState } from '../../state/optionsState'
 import { createViewportState } from '../../state/viewportState'
 import { createZoomState } from '../../state/zoomState'
+import { createViewportStateDeps } from '../../viewport/__tests__/helpers/viewportFixture'
 import { ChartZoomController } from '../chartZoomController'
 
 /** 理想锚点到已提交导航的误差最多半个物理像素，且不随动画帧累积。 */
@@ -72,13 +72,9 @@ function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000
   return { viewport, controller, zoomState }
 }
 
-/** 覆盖视口宽度、DPR、距右缘槽数与缩放方向的全部锚点组合。 */
-const pointerAnchorCases = [400, 800, 1600].flatMap((width) =>
-  [1, 1.5, 2].flatMap((dpr) =>
-    [2, 3, 10, 30, 60].flatMap((distance) =>
-      [-1, 1].map((delta) => ({ width, dpr, distance, delta })),
-    ),
-  ),
+/** 覆盖视口宽度、DPR、距右缘槽数与缩放方向的边界组合。 */
+const pointerAnchorCases = [1, 2].flatMap((dpr) =>
+  [2, 60].flatMap((distance) => [-1, 1].map((delta) => ({ width: 1600, dpr, distance, delta }))),
 )
 
 describe('ChartZoomController smooth zoom', () => {

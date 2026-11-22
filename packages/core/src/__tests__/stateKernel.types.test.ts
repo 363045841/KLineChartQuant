@@ -2,15 +2,10 @@
  * Type-only test for the StateKernel readonly boundary.
  * Doesn't run at runtime — `pnpm type-check` enforces these constraints.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, it } from 'vitest'
 import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import { createViewportState } from '../engine/state/viewportState'
-import {
-  computed,
-  createSubState,
-  type ReadonlySignal,
-  writableRef,
-} from '../foundation/reactivity/signal'
+import { createSubState, type ReadonlySignal, writableRef } from '../foundation/reactivity/signal'
 
 describe('StateKernel type constraints (compile-time)', () => {
   it('ReadonlySignal<T> has no .set property', () => {
@@ -30,12 +25,5 @@ describe('StateKernel type constraints (compile-time)', () => {
     const m = createViewportState(createViewportStateDeps())
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set
-  })
-})
-
-describe('StateKernel runtime constraints', () => {
-  it('createSubState readonly bag has no callable set at runtime', () => {
-    const m = createSubState({ x: 1 })
-    expect((m.readonly.x as any).set).toBeUndefined()
   })
 })

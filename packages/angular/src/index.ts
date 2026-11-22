@@ -124,18 +124,22 @@ export function coreSignalToAngular<T>(
  * Imperative escape hatch. Mirrors React/Vue.
  */
 export async function createChart(
-  opts: ChartMountOptions & { factory?: ChartControllerFactory },
+  opts: Omit<ChartMountOptions, 'container'> & {
+    /** 强类型调用方必须传容器；保留 null/undefined 分支承接未类型化的 JS 调用。 */
+    container?: HTMLElement | null
+    factory?: ChartControllerFactory
+  },
 ): Promise<ChartController> {
-  if (opts.container === null || opts.container === undefined) {
+  const { factory, container, ...mountOpts } = opts
+  if (container === null || container === undefined) {
     throw new Error('createChart: container is required')
   }
-  if (typeof opts.factory !== 'function') {
+  if (typeof factory !== 'function') {
     throw new Error(
       'createChart: no ChartControllerFactory provided. Pass `factory` in opts or register one via provideKLineChart({ factory }).',
     )
   }
-  const { factory, ...mountOpts } = opts
-  return await factory(mountOpts)
+  return await factory({ ...mountOpts, container })
 }
 
 // ---------------------------------------------------------------------------

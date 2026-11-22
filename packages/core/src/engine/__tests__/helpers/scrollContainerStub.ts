@@ -6,6 +6,17 @@
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
 
+/** 构造内容层替身。 */
+export function createScrollContentStub(onWidth: (value: string) => void): HTMLElement {
+  return {
+    style: {
+      set width(value: string) {
+        onWidth(value)
+      },
+    },
+  } as unknown as HTMLElement
+}
+
 /** 构造横向滚动容器替身。 */
 export function createScrollContainerStub(
   options: {

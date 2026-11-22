@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createScrollContainerStub } from '../engine/__tests__/helpers/scrollContainerStub'
+import {
+  createScrollContainerStub,
+  createScrollContentStub,
+} from '../engine/__tests__/helpers/scrollContainerStub'
 import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import {
   batch,
@@ -202,13 +205,9 @@ describe('viewportState template', () => {
   it('leaves content width and scroll DOM writes to the render frame', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
     const writes: string[] = []
-    const scrollContent = {
-      style: {
-        set width(value: string) {
-          writes.push(`width:${value}`)
-        },
-      },
-    } as unknown as HTMLElement
+    const scrollContent = createScrollContentStub((value) => {
+      writes.push(`width:${value}`)
+    })
     const container = createScrollContainerStub({
       transformScrollLeft: (value) => {
         writes.push(`scroll:${value}`)

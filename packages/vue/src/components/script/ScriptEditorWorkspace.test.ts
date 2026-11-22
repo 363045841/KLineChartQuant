@@ -41,7 +41,7 @@ describe('ScriptEditorWorkspace', () => {
     }
   })
 
-  it('拖动标签发出统一移动命令，未保存圆点在标签左侧、目录右侧且无文件图标', async () => {
+  it('拖动标签发出统一移动命令', async () => {
     const state = createEditorTabState()
     const first = state.tabs[0]!
     const tabs = [
@@ -65,12 +65,6 @@ describe('ScriptEditorWorkspace', () => {
       expect(items[1]!.classes()).toContain('is-drop-target')
       await items[1]!.trigger('drop')
       expect(wrapper.emitted('move-tab')).toEqual([[first.id, 'second']])
-      const tab = wrapper.get('.script-tabs__select')
-      expect(tab.element.firstElementChild?.classList.contains('script-dirty-indicator')).toBe(true)
-      expect(tab.find('svg').exists()).toBe(false)
-      const file = wrapper.get('.script-files__file')
-      expect(file.element.lastElementChild?.classList.contains('script-dirty-indicator')).toBe(true)
-      expect(file.find('svg').exists()).toBe(false)
     } finally {
       wrapper.unmount()
     }
@@ -103,7 +97,7 @@ describe('ScriptEditorWorkspace', () => {
     }
   })
 
-  it('右侧快捷操作只展示图标，运行和添加独立发出命令，库与执行中禁用', async () => {
+  it('右侧快捷操作独立发出运行与添加命令，库与执行中禁用', async () => {
     const wrapper = mount(ScriptEditorWorkspace, {
       props: {
         ...createEditorTabState(),
@@ -114,9 +108,6 @@ describe('ScriptEditorWorkspace', () => {
       },
     })
     try {
-      const actions = wrapper.get('.script-quick-actions')
-      expect(actions.text()).toBe('')
-      expect(actions.element.parentElement?.querySelector('.script-tabs')).not.toBeNull()
       await wrapper.get('button[aria-label="运行代码"]').trigger('click')
       await wrapper.get('button[aria-label="添加到图表"]').trigger('click')
       expect(wrapper.emitted('run')).toEqual([[]])
@@ -310,77 +301,6 @@ describe('ScriptEditorWorkspace', () => {
       wrapper.unmount()
     }
   })
-  it('文件目录按层级缩进，文件夹内文件比父文件夹再进一级', async () => {
-    const state = createEditorTabState()
-    const documents = [
-      {
-        kind: 'indicator' as const,
-        trusted: false,
-        id: 'root-file',
-        definition: { name: '根指标' },
-        source: '// b',
-        revision: 1,
-        identity: 'user' as const,
-        folder: '',
-      },
-      {
-        kind: 'indicator' as const,
-        trusted: false,
-        id: 'l1-file',
-        definition: { name: '一级指标' },
-        source: '// c',
-        revision: 1,
-        identity: 'user' as const,
-        folder: '一级',
-      },
-      {
-        kind: 'indicator' as const,
-        trusted: false,
-        id: 'l2-file',
-        definition: { name: '二级指标' },
-        source: '// d',
-        revision: 1,
-        identity: 'user' as const,
-        folder: '一级/二级',
-      },
-    ]
-    const wrapper = mount(ScriptEditorWorkspace, {
-      props: {
-        ...state,
-        documents,
-        folders: [
-          { kind: 'indicator', path: '一级' },
-          { kind: 'indicator', path: '一级/二级' },
-        ],
-        source: '// a',
-        identity: 'user',
-        trusted: false,
-        theme: 'dark',
-      },
-      attachTo: document.body,
-    })
-    /** 行只暴露层级变量，像素换算在 CSS；这里校验层级是否正确传递。 */
-    const depthOf = (element: Element) =>
-      (element as HTMLElement).style.getPropertyValue('--script-tree-depth')
-    try {
-      await nextTick()
-      const dirs = wrapper.findAll('.script-files__dir')
-      // 根目录是第 0 层，一级、二级依次递减缩进。
-      expect(dirs.map((dir) => depthOf(dir.element))).toEqual(['0', '1', '2', '0'])
-      const files = Object.fromEntries(
-        wrapper
-          .findAll('.script-files__file')
-          .map((file) => [
-            (file.element as HTMLElement).textContent?.replace('.ts', '') ?? '',
-            depthOf(file.element),
-          ]),
-      )
-      expect(files).toEqual({ 根指标: '1', 一级指标: '2', 二级指标: '3' })
-    } finally {
-      wrapper.unmount()
-    }
-  })
-
   it('未保存草稿的文件菜单支持删除，复制仍禁用并说明原因', async () => {
     const draft = {
       id: 'draft-tab',

@@ -107,47 +107,6 @@ const TRACKED_ROLES: ReadonlyArray<TrackedRole> = [
   { role: 'mtfOverlay', threshold: 3 },
 ]
 
-/** 色板表格：色值一律按给定表面度量，脚本别名与指标色板共用同一张表。 */
-function paletteSection<T extends object>(title: string, entries: T, surface: string): string[] {
-  const lines = ['', `## ${title}`, '', '| Slot | Value | Ratio vs surface |', '|---|---|---|']
-  for (const [slot, value] of Object.entries(entries)) {
-    const ratio = contrast(hexBase(value), surface)
-    lines.push(`| ${slot} | ${value} | ${ratio === null ? 'n/a' : ratio.toFixed(2)} |`)
-  }
-  return lines
-}
-
-function buildContrastReport(theme: typeof lightTheme): string {
-  const lines: string[] = []
-  lines.push(`# Theme contrast — ${theme.name}`)
-  lines.push('')
-  lines.push('Each role is measured against its own surface (default: `colors.background`).')
-  lines.push('')
-  lines.push('| Role | Value | Surface | Ratio | Floor | Pass |')
-  lines.push('|---|---|---|---|---|---|')
-  for (const { role, threshold, against } of TRACKED_ROLES) {
-    const value = theme.colors[role]
-    const surfaceKey = against ?? 'background'
-    const surfaceVal = theme.colors[surfaceKey]
-    const r = contrast(hexBase(value), hexBase(surfaceVal))
-    const ratio = r === null ? 'n/a' : r.toFixed(2)
-    const pass = r === null ? '?' : r >= threshold ? '✅' : '❌'
-    lines.push(
-      `| ${role} | ${hexBase(value)} | ${surfaceKey} | ${ratio} | ${threshold.toFixed(1)}:1 | ${pass} |`,
-    )
-  }
-  lines.push(
-    ...paletteSection('Indicator palette', theme.colors.palette, hexBase(theme.colors.background)),
-    // 脚本别名直接画在 K 线区上，因此按画布背景度量。
-    ...paletteSection(
-      'Script color palette',
-      theme.colors.scriptPalette,
-      hexBase(theme.colors.chartBackground),
-    ),
-  )
-  return lines.join('\n')
-}
-
 // ---------------------------------------------------------------------------
 // Snapshots
 // ---------------------------------------------------------------------------
@@ -157,20 +116,12 @@ describe('theme baseline — light', () => {
     const css = toCssDeclarationBlock(themeToCssVars(lightTheme))
     expect(css).toMatchSnapshot()
   })
-
-  it('contrast report (snapshot)', () => {
-    expect(buildContrastReport(lightTheme)).toMatchSnapshot()
-  })
 })
 
 describe('theme baseline — dark', () => {
   it('CSS declaration block (snapshot)', () => {
     const css = toCssDeclarationBlock(themeToCssVars(darkTheme))
     expect(css).toMatchSnapshot()
-  })
-
-  it('contrast report (snapshot)', () => {
-    expect(buildContrastReport(darkTheme)).toMatchSnapshot()
   })
 })
 

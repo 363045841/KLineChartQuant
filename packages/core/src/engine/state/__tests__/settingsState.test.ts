@@ -57,7 +57,7 @@ describe('settingsState', () => {
 
   it('drops extension keys that are not declared in ChartSettingsExtensions', () => {
     // 外部存档可能带着旧键；归一化只复制声明过的扩展字段。
-    const external = { theme: 'dark', retiredFlag: true } as unknown as Partial<ChartSettings>
+    const external: { theme: 'dark'; retiredFlag: boolean } = { theme: 'dark', retiredFlag: true }
     const normalized = normalizeSettings(external)
     expect(normalized.theme).toBe('dark')
     expect('retiredFlag' in normalized).toBe(false)

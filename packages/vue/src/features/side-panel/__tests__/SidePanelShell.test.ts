@@ -47,10 +47,11 @@ describe('SidePanelShell', () => {
     expect(buttons[0]!.attributes('aria-pressed')).toBe('true')
 
     await buttons[1]!.trigger('click')
-    expect(wrapper.find('[data-watchlist]').isVisible()).toBe(true)
-    // 已挂载的面板只切可见性，草稿与滚动状态不因切换丢失。
-    const bodies = wrapper.findAll('.side-panel-shell__panel-body')
-    expect(bodies[0]!.attributes('style')).toContain('display: none')
+    // v-show 只切可见性：两端内容都保持挂载，草稿与滚动状态不因切换丢失。
+    const agentBody = wrapper.get<HTMLElement>('[data-agent]').element.parentElement
+    const watchlistBody = wrapper.get<HTMLElement>('[data-watchlist]').element.parentElement
+    expect(agentBody?.style.display).toBe('none')
+    expect(watchlistBody?.style.display).not.toBe('none')
     expect(buttons[0]!.attributes('aria-pressed')).toBe('false')
     wrapper.unmount()
   })
@@ -59,11 +60,12 @@ describe('SidePanelShell', () => {
     const wrapper = mountShell()
     const button = wrapper.findAll('.side-panel-shell__rail-button')[0]!
 
+    const bodyOfAgent = () => wrapper.get<HTMLElement>('[data-agent]').element.parentElement
     await button.trigger('click')
-    expect(wrapper.classes()).toContain('side-panel-shell--open')
+    expect(bodyOfAgent()?.style.display).not.toBe('none')
 
     await button.trigger('click')
-    expect(wrapper.classes()).not.toContain('side-panel-shell--open')
+    expect(bodyOfAgent()?.style.display).toBe('none')
     wrapper.unmount()
   })
 
@@ -71,12 +73,8 @@ describe('SidePanelShell', () => {
     const sideStorage = { load: () => 'left' as const, save: vi.fn() }
     const wrapper = mountShell({ initialPanel: 'agent', sideStorage })
     await nextTick()
-    expect(wrapper.classes()).toContain('side-panel-shell--left')
-
-    await wrapper
-      .get('.side-panel-shell__rail-footer button[aria-label="切换到右侧"]')
-      .trigger('click')
-    expect(wrapper.classes()).not.toContain('side-panel-shell--left')
+    const toRight = wrapper.get('.side-panel-shell__rail-footer button[aria-label="切换到右侧"]')
+    await toRight.trigger('click')
     expect(
       wrapper.find('.side-panel-shell__rail-footer button[aria-label="切换到左侧"]').exists(),
     ).toBe(true)

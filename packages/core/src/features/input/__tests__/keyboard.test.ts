@@ -132,7 +132,9 @@ describe('register / unregister / findByCombo', () => {
 
   it('unregistering an unknown id is a no-op', () => {
     const r = createShortcutRegistry({ platform: 'win' })
-    expect(() => r.unregister('nope')).not.toThrow()
+    r.register({ id: 'open', label: 'Open', combo: 'Mod+K', command: 'open' })
+    r.unregister('nope')
+    expect(r.findByCombo('Mod+K')?.id).toBe('open')
   })
 
   it('throws on empty id', () => {
@@ -241,9 +243,7 @@ describe('findByKeyboardEvent', () => {
       r.findByKeyboardEvent(evt({ key: '<', code: 'Comma', ctrlKey: true, shiftKey: true })),
     ).toBeNull()
     // 物理 code 不匹配时为 null。
-    expect(
-      r.findByKeyboardEvent(evt({ key: 'Process', code: 'Period', ctrlKey: true })),
-    ).toBeNull()
+    expect(r.findByKeyboardEvent(evt({ key: 'Process', code: 'Period', ctrlKey: true }))).toBeNull()
   })
 })
 
@@ -304,7 +304,7 @@ describe('dispose', () => {
     r.register({ id: 'a', label: 'A', combo: 'K', command: 'a' })
     r.dispose()
     expect(r.findByCombo('K')).toBeNull()
-    expect(() => r.register({ id: 'b', label: 'B', combo: 'J', command: 'b' })).not.toThrow()
+    r.register({ id: 'b', label: 'B', combo: 'J', command: 'b' })
     expect(r.findByCombo('J')).toBeNull()
   })
 })

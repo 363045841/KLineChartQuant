@@ -16,10 +16,7 @@ import {
  * 10 根数据、dpr=1 的测试场景。
  * 几何：kWidth=7 → kWidthPx=7、连续 gap=4.2，中心网格 origin=7.2、step=11.2。
  */
-function createFutureScene(args?: {
-  dataView?: ChartDataView
-  tooltipPosition?: 'adaptive'
-}) {
+function createFutureScene(args?: { dataView?: ChartDataView; tooltipPosition?: 'adaptive' }) {
   const isTimeShare = args?.dataView === ChartDataViewId.TimeShare
   const data = isTimeShare ? createInteractionTimeShare(10) : createInteractionBars(10)
   const chart = createChartStub({

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Contract test for @363045841yyt/klinechart-angular.
  *
@@ -40,19 +41,6 @@ describe('@363045841yyt/klinechart-angular —public API surface', () => {
     expect(AngularAdapter.KLineChartComponent).toBeDefined()
     expect(typeof AngularAdapter.provideKLineChart).toBe('function')
     expect(typeof AngularAdapter.createChart).toBe('function')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// SSR / import safety
-// ---------------------------------------------------------------------------
-
-describe('@363045841yyt/klinechart-angular —SSR safety', () => {
-  it('module import does not touch window or document', () => {
-    // The import at the top of this file occurred in Node (no jsdom).
-    // If the module touched `window`/`document` at top level, that import
-    // would already have crashed. This test documents the contract.
-    expect(true).toBe(true)
   })
 })
 
@@ -106,7 +94,7 @@ function buildInjector(
 
 function makeContainerRef(): ElementRef<HTMLElement> {
   // We don't need a real HTMLElement —the mock factory ignores it.
-  return { nativeElement: {} as HTMLElement }
+  return { nativeElement: document.createElement('div') }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +105,7 @@ describe('createChart()', () => {
   it('throws when container is null', async () => {
     await expect(
       createChart({
-        container: null as unknown as HTMLElement,
+        container: null,
       }),
     ).rejects.toThrow(/container is required/)
   })
@@ -125,7 +113,7 @@ describe('createChart()', () => {
   it('throws when no factory is registered', async () => {
     await expect(
       createChart({
-        container: {} as HTMLElement,
+        container: document.createElement('div'),
       }),
     ).rejects.toThrow(/no ChartControllerFactory/)
   })
@@ -134,7 +122,7 @@ describe('createChart()', () => {
     const { controller } = createMockChartController()
     const factory = vi.fn<ChartControllerFactory>(() => Promise.resolve(controller))
     const result = await createChart({
-      container: {} as HTMLElement,
+      container: document.createElement('div'),
       factory,
     })
     expect(factory).toHaveBeenCalledOnce()
@@ -249,8 +237,4 @@ describe('@363045841yyt/klinechart-angular —component lifecycle', () => {
     component.ngOnDestroy()
     expect(handle.getDisposeCount()).toBe(1)
   })
-
-  it.todo(
-    'provideKLineChart provides theme via DI through the full bootstrap pipeline —requires TestBed + zone.js; covered indirectly by the provideKLineChart() injector-level test above',
-  )
 })
