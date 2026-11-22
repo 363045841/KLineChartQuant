@@ -10,7 +10,8 @@ import { usePaneAxisItems } from '../usePaneAxisItems.js'
 
 const configuration = {
   scaleType: ScaleType.Linear,
-  rangeMode: PRICE_AXIS_RANGE_MODE.AUTO,
+  rangeMode: PRICE_AXIS_RANGE_MODE.All,
+  availableRangeModes: [PRICE_AXIS_RANGE_MODE.All, PRICE_AXIS_RANGE_MODE.Manual],
   baseValue: null,
 }
 

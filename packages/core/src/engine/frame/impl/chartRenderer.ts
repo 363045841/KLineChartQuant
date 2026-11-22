@@ -8,7 +8,10 @@ import { bindRenderAxis, objectAxisId } from '@/foundation/geometry/axisBinding.
 import type { SnapLine } from '@/foundation/plugin/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
-import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
+import {
+  PRICE_AXIS_RANGE_MODE,
+  resolvePriceAxisRangeMode,
+} from '../../../foundation/config/priceAxisRangeMode.js'
 import type {
   AxisLabelsFrame,
   DrawingPrimitive,
@@ -88,7 +91,8 @@ import {
 } from '../../viewport/visiblePriceExtrema.js'
 import type { ChartFrameGeometry, RendererDependencies } from '../types.js'
 import {
-  computePaneAutoRange,
+  collectRangeContributions,
+  computeAutoRange,
   type ResolvedPanePriceRange,
   resolvePanePriceRange,
 } from './panePriceRange.js'
@@ -228,18 +232,17 @@ function clearAxisSurface(
 /** 范围决策共用的输入快照；读取阶段不修改 frame 或业务状态。 */
 type PanePriceRangeInputs = Pick<FrameContext, 'comparisonActive' | 'comparisonProjection'> & {
   dataManager: ChartDataManager
+  indicatorManager: ReturnType<RendererDependencies['getIndicatorManager']>
   mode: ReturnType<RendererDependencies['getActiveMode']>
   axisStates: ReturnType<RendererDependencies['axesState']['readonly']['paneRanges']['peek']>
-  /** 每轴由实例输出派生的极值；主图价格轴也在其中。 */
-  axisRanges: ReadonlyMap<string, { min: number; max: number } | null>
-  /** 仅缩放价格图表：主轴自动范围只取可见 K 线价格，指标、比较、绘图与足迹都不参与。 */
-  priceOnly: boolean
+  /** 足迹范围；只在价格轴且没有比较投影时参与，缓存帧不计算。 */
+  footprintRange: PriceRange | null
 }
 
-/** 范围决策结果及待提交的锁定初始化意图。 */
+/** 范围决策结果及待提交的手动范围初始化意图。 */
 type PanePriceRangeResult = {
   panePriceRanges: Record<string, ResolvedPanePriceRange>
-  pendingHandRanges: Array<{ axisId: string; range: PriceRange }>
+  pendingManualRanges: Array<{ axisId: string; range: PriceRange }>
 }
 
 /** 帧事务输入：合并多次 scheduleDraw 的 level */
@@ -985,21 +988,19 @@ export class ChartRenderer {
   /**
    * 收集阶段：visibleRange 更新后，统一解析每个 Pane 本帧最终使用的价格范围。
    *
-   * 自动范围分派与锁定优先决策都在 panePriceRange 模块内完成，这里只准备输入。
-   * 决策阶段不写内核；尚未保存的锁定范围先收集，循环结束后一次快照提交。
+   * 口径取数与手动范围裁决都在 panePriceRange 模块内完成，这里只准备输入。
+   * 决策阶段不写内核；尚未保存的手动范围先收集，循环结束后一次快照提交。
    */
   private collectPanePriceRanges(frame: FrameContext): void {
     const inputs = this.preparePanePriceRangeInputs(frame)
     const result = this.resolveFramePanePriceRanges(frame, inputs)
     this.applyPanePriceRangeFrame(frame, inputs, result)
-    this.initializePendingHandRanges(result.pendingHandRanges)
+    this.initializePendingManualRanges(result.pendingManualRanges)
   }
 
-  /** 读取本帧范围输入，比较投影与轴状态各准备一次。 */
+  /** 读取本帧范围输入，比较投影、足迹与轴状态各准备一次。 */
   private preparePanePriceRangeInputs(frame: FrameContext): PanePriceRangeInputs {
-    const indicatorManager = this.deps.getIndicatorManager()
     const dataManager = this.deps.getDataManager()
-    const mode = this.deps.getActiveMode()
 
     const comparisonActive =
       this.deps.dataView$() === ChartDataViewId.KLine && dataManager.getComparisonSpecs().length > 0
@@ -1011,24 +1012,17 @@ export class ChartRenderer {
           frame.vp.plotWidth,
         )
       : null
-
-    const axisRanges = new Map<string, { min: number; max: number } | null>()
-    for (const renderer of this.deps.getPaneRenderers()) {
-      for (const axis of renderer.getPane().axes) {
-        axisRanges.set(
-          axis.axisId,
-          frame.useCachedFrame ? null : indicatorManager.getAxisIndicatorRange(axis.axisId),
-        )
-      }
-    }
     return {
       dataManager,
-      mode,
-      axisRanges,
+      indicatorManager: this.deps.getIndicatorManager(),
+      mode: this.deps.getActiveMode(),
       comparisonActive,
       comparisonProjection,
       axisStates: this.deps.axesState.readonly.paneRanges.peek(),
-      priceOnly: this.deps.settings$.peek().mainPriceAxisPriceOnly === true,
+      // 缓存帧保留上一帧轴范围，不再重算会在帧内被丢弃的来源。
+      footprintRange: frame.useCachedFrame
+        ? null
+        : computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range),
     }
   }
 
@@ -1038,11 +1032,11 @@ export class ChartRenderer {
     inputs: PanePriceRangeInputs,
   ): PanePriceRangeResult {
     const panePriceRanges: Record<string, ResolvedPanePriceRange> = {}
-    // 收集阶段只做决策，不写内核；待初始化的锁定范围先收集，循环后统一提交。
-    const pendingHandRanges: Array<{ axisId: string; range: PriceRange }> = []
+    // 收集阶段只做决策，不写内核；待初始化的手动范围先收集，循环后统一提交。
+    const pendingManualRanges: Array<{ axisId: string; range: PriceRange }> = []
+    const pricePaneId = this.deps.getPricePaneId()
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const axes = pane.axes
       // 每个 Pane 只构造一次帧上下文，绘图按其所属轴一次分组，避免轴数乘绘图数。
       const context = this.createPaneRenderContext(
         frame,
@@ -1052,148 +1046,132 @@ export class ChartRenderer {
         createAxisLabelsFrame(),
         [],
       )
-      const drawings = this.drawingStore.getVisibleByPane(
-        {
-          paneId: pane.id,
-          workspaceId: resolveChartWorkspaceId(this.deps.dataView$.peek()),
-          symbolKey: context.symbolKey,
-          period: context.period,
-        },
-        'committed',
-        'all',
-      )
-      const drawingRanges = new Map<string, { min: number; max: number }>()
-      // 绘图不扩张主轴的自动范围：带 owner 的脚本绘图并入其所属轴；用户手绘图只在
-      // 该 Pane 没有其它对象时参与，否则拖动图元会牵动价格窗口。
-      const objectAxes = new Set(
-        this.deps
-          .getIndicatorManager()
-          .getAxesInPane(pane.id)
-          .filter((axis) => axis.objectIds.length > 0)
-          .map((axis) => axis.axisId),
-      )
-      const drawingsByAxis = new Map<string, DrawingObject[]>()
-      for (const drawing of drawings) {
-        const axisId = resolveDrawingRenderAxis(pane, drawing)
-        if (drawing.ownerId === undefined && objectAxes.has(axisId)) continue
-        const group = drawingsByAxis.get(axisId)
-        if (group) group.push(drawing)
-        else drawingsByAxis.set(axisId, [drawing])
-      }
-      for (const [axisId, group] of drawingsByAxis) {
-        const range = computeDrawingPriceRange(group, this.drawingDefinitions, context)
-        if (range) drawingRanges.set(axisId, range)
-      }
-      for (const axis of axes) {
-        const auto = this.resolveAxisAutoRange(frame, inputs, pane, axis.axisId)
-        // 仅缩放价格图表时绘图不参与主轴自动范围，拖动图元不再牵动价格窗口。
-        const drawingRange =
-          inputs.priceOnly && axis.axisId === PRICE_SERIES_AXIS_ID
-            ? null
-            : (drawingRanges.get(axis.axisId) ?? null)
-        const combined = drawingRange
-          ? {
-              range: {
-                minPrice: auto ? Math.min(auto.range.minPrice, drawingRange.min) : drawingRange.min,
-                maxPrice: auto ? Math.max(auto.range.maxPrice, drawingRange.max) : drawingRange.max,
-              },
-              basePrice: auto?.basePrice ?? null,
-            }
-          : auto
-        const resolved = this.resolvePaneRange(inputs, axis.axisId, combined)
+      const drawingRanges = this.collectPaneDrawingRanges(pane, context)
+      for (const axis of pane.axes) {
+        const axisState = inputs.axisStates[axis.axisId]
+        const isPriceSeries = pane.id === pricePaneId && axis.axisId === PRICE_SERIES_AXIS_ID
+        // 状态保存用户选择；当前模式没有 K 线可拟合时按全并处理，条件恢复后自动生效。
+        const rangeMode = resolvePriceAxisRangeMode(
+          isPriceSeries && inputs.mode.fitsPriceBars,
+          axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.All,
+        )
+        const indicatorRange = frame.useCachedFrame
+          ? null
+          : inputs.indicatorManager.getAxisIndicatorRange(axis.axisId)
+        const basis = this.resolveBasisRange(
+          frame,
+          inputs,
+          pane,
+          axis.axisId,
+          isPriceSeries,
+          indicatorRange,
+        )
+        const autoRange = computeAutoRange({
+          rangeMode,
+          basis: basis?.range ?? null,
+          contributions: collectRangeContributions({
+            rangeMode,
+            isPriceSeries,
+            useIndicatorScheduler: inputs.mode.useIndicatorScheduler,
+            comparisonActive: inputs.comparisonActive,
+            indicatorRange,
+            footprintRange: inputs.footprintRange,
+            drawingRange: drawingRanges.get(axis.axisId) ?? null,
+          }),
+        })
+        const resolved = resolvePanePriceRange({
+          rangeMode,
+          currentRange: axisState?.range ?? null,
+          autoRange,
+          basePrice: basis?.basePrice ?? null,
+        })
         panePriceRanges[axis.axisId] = resolved
-        this.collectPendingHandRange(pendingHandRanges, frame, axis.axisId, resolved)
+        if (!frame.useCachedFrame && resolved.initializeRange && resolved.range)
+          pendingManualRanges.push({ axisId: axis.axisId, range: resolved.range })
       }
     }
-    return { panePriceRanges, pendingHandRanges }
+    return { panePriceRanges, pendingManualRanges }
   }
 
-  /** 单轴自动范围：承载主价格序列的 Pane 走行情范围，其余轴取实例输出极值。 */
-  private resolveAxisAutoRange(
+  /**
+   * 可见绘图的价格范围，按所属轴分组。
+   *
+   * 带 owner 的脚本绘图并入其所属轴；用户手绘图只在该 Pane 没有其它对象时参与，
+   * 否则拖动图元会牵动价格窗口。
+   */
+  private collectPaneDrawingRanges(
+    pane: PaneLayout,
+    context: RenderContext,
+  ): Map<string, PriceRange> {
+    const drawings = this.drawingStore.getVisibleByPane(
+      {
+        paneId: pane.id,
+        workspaceId: resolveChartWorkspaceId(this.deps.dataView$.peek()),
+        symbolKey: context.symbolKey,
+        period: context.period,
+      },
+      'committed',
+      'all',
+    )
+    const objectAxes = new Set(
+      this.deps
+        .getIndicatorManager()
+        .getAxesInPane(pane.id)
+        .filter((axis) => axis.objectIds.length > 0)
+        .map((axis) => axis.axisId),
+    )
+    const drawingsByAxis = new Map<string, DrawingObject[]>()
+    for (const drawing of drawings) {
+      const axisId = resolveDrawingRenderAxis(pane, drawing)
+      if (drawing.ownerId === undefined && objectAxes.has(axisId)) continue
+      const group = drawingsByAxis.get(axisId)
+      if (group) group.push(drawing)
+      else drawingsByAxis.set(axisId, [drawing])
+    }
+    const drawingRanges = new Map<string, PriceRange>()
+    for (const [axisId, group] of drawingsByAxis) {
+      const range = computeDrawingPriceRange(group, this.drawingDefinitions, context)
+      if (range) drawingRanges.set(axisId, { minPrice: range.min, maxPrice: range.max })
+    }
+    return drawingRanges
+  }
+
+  /**
+   * 单条轴的主投影：价格轴取可见行情，比较激活时换成比较投影；
+   * 指标轴没有行情可拟合，主投影就是自身输出极值。
+   */
+  private resolveBasisRange(
     frame: FrameContext,
     inputs: PanePriceRangeInputs,
     pane: PaneLayout,
     axisId: string,
-  ): ReturnType<typeof computePaneAutoRange> {
-    const pricePaneId = this.deps.getPricePaneId()
-    if (pane.id === pricePaneId && axisId === PRICE_SERIES_AXIS_ID) {
-      return this.resolvePaneAutoRange(frame, inputs, pane)
+    isPriceSeries: boolean,
+    indicatorRange: { min: number; max: number } | null,
+  ): { range: PriceRange | null; basePrice: number | null } | null {
+    if (!isPriceSeries) {
+      return {
+        range: indicatorRange
+          ? { minPrice: indicatorRange.min, maxPrice: indicatorRange.max }
+          : null,
+        basePrice: null,
+      }
     }
-    const range = inputs.axisRanges.get(axisId)
-    return range ? { range: { minPrice: range.min, maxPrice: range.max }, basePrice: null } : null
-  }
-
-  /**
-   * 计算承载主价格序列的 Pane 自动范围；足迹范围只在价格 Pane 叠加。
-   *
-   * 仅缩放价格图表时只取可见 K 线的价格：指标极值、比较投影和足迹都不并轴，
-   * 它们照常绘制，只是落在 K 线窗口之外的部分会画到 Pane 边缘以外。
-   */
-  private resolvePaneAutoRange(
-    frame: FrameContext,
-    inputs: PanePriceRangeInputs,
-    pane: PaneLayout,
-  ): ReturnType<typeof computePaneAutoRange> {
+    if (inputs.comparisonActive && inputs.comparisonProjection && this.hasComparisonSeries(pane.id)) {
+      const { min, max, basePrice } = inputs.comparisonProjection
+      return { range: { minPrice: min, maxPrice: max }, basePrice }
+    }
     const shape = this.deps.settings$.peek().klineShape
-    const auto = computePaneAutoRange({
-      hasPriceSeries: true,
-      range: frame.range,
-      dataManager: inputs.dataManager,
-      mode: inputs.mode,
-      indicatorRange: inputs.priceOnly
-        ? null
-        : (inputs.axisRanges.get(PRICE_SERIES_AXIS_ID) ?? null),
-      comparisonActive: inputs.priceOnly
-        ? false
-        : inputs.comparisonActive && this.hasComparisonSeries(pane.id),
-      comparisonProjection: inputs.priceOnly ? null : inputs.comparisonProjection,
-      closeOnly: shape === 'line' || shape === 'area',
-    })
-    if (inputs.priceOnly) return auto
-    if (pane.id !== this.deps.getPricePaneId() || inputs.comparisonActive) return auto
-    const footprintRange = computeFootprintPriceRange(this.deps.footprintState$.peek(), frame.range)
-    if (!footprintRange) return auto
-    return {
-      range: auto
-        ? {
-            minPrice: Math.min(auto.range.minPrice, footprintRange.minPrice),
-            maxPrice: Math.max(auto.range.maxPrice, footprintRange.maxPrice),
-          }
-        : footprintRange,
-      basePrice: auto?.basePrice ?? null,
-    }
+    return inputs.mode.computePaneRange(
+      frame.range,
+      inputs.dataManager,
+      shape === 'line' || shape === 'area',
+    )
   }
 
   /** 比较线是否绘制在该 Pane；比较层当前属于 main，不按 Pane 身份推断。 */
   private hasComparisonSeries(paneId: string): boolean {
     const layer = this.scene.layers.peek().find((item) => item.id === COMPARISON_LINE_LAYER_ID)
     return layer?.pane === paneId
-  }
-
-  /** 把自动范围与轴状态合成为最终范围。 */
-  private resolvePaneRange(
-    inputs: PanePriceRangeInputs,
-    axisId: string,
-    auto: ReturnType<typeof computePaneAutoRange>,
-  ): ResolvedPanePriceRange {
-    const axisState = inputs.axisStates[axisId]
-    return resolvePanePriceRange({
-      rangeMode: axisState?.rangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
-      handRange: axisState?.handRange ?? null,
-      autoRange: auto?.range ?? null,
-      basePrice: auto?.basePrice ?? null,
-    })
-  }
-
-  /** 新帧首次锁定手工范围时记录待提交意图；缓存帧不重复初始化。 */
-  private collectPendingHandRange(
-    pending: Array<{ axisId: string; range: PriceRange }>,
-    frame: FrameContext,
-    axisId: string,
-    resolved: ResolvedPanePriceRange,
-  ): void {
-    if (frame.useCachedFrame || !resolved.initializeHandRange || !resolved.range) return
-    pending.push({ axisId, range: resolved.range })
   }
 
   /** 将计算结果发布到帧对象，供后续轴投影和绘制共享。 */
@@ -1207,12 +1185,12 @@ export class ChartRenderer {
     frame.panePriceRanges = result.panePriceRanges
   }
 
-  /** 唯一业务状态写入边界：一次 Action 初始化所有待保存的锁定范围。 */
-  private initializePendingHandRanges(
-    pendingHandRanges: PanePriceRangeResult['pendingHandRanges'],
+  /** 唯一业务状态写入边界：一次 Action 初始化所有待保存的手动范围。 */
+  private initializePendingManualRanges(
+    pendingManualRanges: PanePriceRangeResult['pendingManualRanges'],
   ): void {
-    if (pendingHandRanges.length > 0) {
-      this.deps.axesState.actions.initializeHandRanges(pendingHandRanges)
+    if (pendingManualRanges.length > 0) {
+      this.deps.axesState.actions.initializeManualRanges(pendingManualRanges)
     }
   }
 

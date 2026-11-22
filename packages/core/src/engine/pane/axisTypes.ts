@@ -34,6 +34,8 @@ export interface ObjectAxesDependencies {
   getLayout(
     paneId: string,
   ): Readonly<Record<string, { readonly left: number; readonly width: number }>>
+  /** 该轴在当前视图下可用的范围模式；校验与配置读数共用这一份。 */
+  availableRangeModes(axisId: string): readonly PriceAxisRangeMode[]
   paneState: PaneStateModule
   ranges: AxisStateModule
   project(): void
@@ -47,6 +49,8 @@ export interface ObjectAxesApi {
   configuration(axisId: string): {
     readonly scaleType: ScaleType
     readonly rangeMode: PriceAxisRangeMode
+    /** 当前视图下该轴可选的范围模式；宿主按此渲染，不自行判断。 */
+    readonly availableRangeModes: readonly PriceAxisRangeMode[]
     readonly baseValue: number | null
   }
   /** 百分比变换需要非零基准值；轴尚无基准时调用方必须显式提供。 */

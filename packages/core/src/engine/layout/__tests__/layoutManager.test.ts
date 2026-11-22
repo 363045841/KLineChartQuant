@@ -8,9 +8,11 @@ import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
 import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
+import { PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
+import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 
 /** 每个用例使用独立数据库，避免归档相互污染。 */
 beforeEach(async () => {
@@ -615,6 +617,39 @@ it('视口快照随布局文档持久化，切换到该布局时恢复', async (
   } finally {
     await manager.dispose()
     kernel.dispose()
+  }
+})
+
+it('手动范围随布局归档往返，自动口径的范围值不落盘', async () => {
+  const { kernel, manager } = createManager()
+  try {
+    await manager.initialize()
+    // 自动口径不保存范围：轴范围由每帧重新拟合。
+    kernel.axesState.actions.useAutoMode(PRICE_SERIES_AXIS_ID, PRICE_AXIS_RANGE_MODE.Ratio)
+    expect(manager.exportLayout().panePriceAxisRanges?.[PRICE_SERIES_AXIS_ID]).toBeUndefined()
+
+    const manualRange = { minPrice: 1, maxPrice: 2 }
+    kernel.axesState.actions.useManualMode(manualRange, PRICE_SERIES_AXIS_ID)
+    await manager.saveLayout({ name: '手动范围' })
+    expect(manager.exportLayout().panePriceAxisModes[PRICE_SERIES_AXIS_ID]).toBe(
+      PRICE_AXIS_RANGE_MODE.Manual,
+    )
+    expect(manager.exportLayout().panePriceAxisRanges?.[PRICE_SERIES_AXIS_ID]).toEqual(manualRange)
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+
+  const restored = createManager()
+  try {
+    await restored.manager.initialize()
+    expect(restored.kernel.axesState.readonly.paneRanges.peek()[PRICE_SERIES_AXIS_ID]).toEqual({
+      rangeMode: PRICE_AXIS_RANGE_MODE.Manual,
+      range: { minPrice: 1, maxPrice: 2 },
+    })
+  } finally {
+    await restored.manager.dispose()
+    restored.kernel.dispose()
   }
 })
 

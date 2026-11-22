@@ -16,6 +16,8 @@ export class TimeShareMode implements ChartModeHandler {
 
   readonly useIndicatorScheduler = false
 
+  readonly fitsPriceBars = false
+
   /** 市场 session；默认 A 股，可 setMarketSession 切换 */
   private _marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION
 
@@ -30,12 +32,12 @@ export class TimeShareMode implements ChartModeHandler {
   /**
    * 可见 price/average 与昨收共同生成带留白范围，百分比轴与基准线共用同一个昨收。
    * 昨收缺失时仅按行情拟合，不补造基准价。
+   *
+   * @param range 当前视口可见索引区间
+   * @param dm 行情数据管理器
+   * @returns 主投影范围与百分比基准；没有分时数据时返回 null
    */
-  computePaneRange(
-    range: VisibleRange,
-    dm: ChartDataManager,
-    _mergedIndicatorRange?: { min: number; max: number } | null,
-  ): PaneAutoPriceRange | null {
+  computePaneRange(range: VisibleRange, dm: ChartDataManager): PaneAutoPriceRange | null {
     const tsData = dm.getTimeShareData()
     if (tsData.length === 0) return null
 

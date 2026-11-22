@@ -323,8 +323,7 @@ export class ChartStateKernel extends StateKernel {
       dataView$: this.mode.readonly.dataView,
     })
     this.axesState = createAxisState({
-      [PRICE_SERIES_AXIS_ID]:
-        this.settings.readonly.settings.peek().mainPriceAxisRangeMode ?? PRICE_AXIS_RANGE_MODE.AUTO,
+      [PRICE_SERIES_AXIS_ID]: PRICE_AXIS_RANGE_MODE.All,
     })
     this.renderer = createRendererState(
       deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },
@@ -445,7 +444,7 @@ export class ChartStateKernel extends StateKernel {
         const nextIdentity = next ? symbolSpecIdentityKey(next) : null
         batch(() => {
           // 手动价格范围属于本次品种展示，不缓存，也不随品种或数据源继承。
-          if (previousIdentity !== nextIdentity) this.axesState.actions.resetAllHandRanges()
+          if (previousIdentity !== nextIdentity) this.axesState.actions.resetAllRanges()
           this.data.actions.setSymbols(snapshot)
         })
       },
@@ -579,7 +578,7 @@ export class ChartStateKernel extends StateKernel {
       ),
       panePriceAxisRanges: Object.fromEntries(
         Object.entries(this.axesState.readonly.paneRanges.peek()).flatMap(([id, state]) =>
-          state.handRange ? [[id, state.handRange]] : [],
+          state.range ? [[id, state.range]] : [],
         ),
       ),
       settings: selectLayoutSettings(this.settings.readonly.settings.peek()),
@@ -606,7 +605,7 @@ export class ChartStateKernel extends StateKernel {
       version: LAYOUT_DOCUMENT_VERSION,
       currentSymbol: structuredClone(this.dataManager.readonly.currentSpec.peek()),
       workspaces: { kline: workspace(), timeshare: workspace() },
-      panePriceAxisModes: { [PRICE_SERIES_AXIS_ID]: PRICE_AXIS_RANGE_MODE.AUTO },
+      panePriceAxisModes: { [PRICE_SERIES_AXIS_ID]: PRICE_AXIS_RANGE_MODE.All },
       drawings: [],
       favoriteIndicatorIds: [],
       settings: selectLayoutSettings(normalizeSettings()),

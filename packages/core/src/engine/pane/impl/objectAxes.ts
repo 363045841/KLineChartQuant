@@ -1,6 +1,9 @@
 /** 对象轴的唯一命令入口：先校验身份与所属容器，再写状态并投影。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
+import {
+  isPriceAxisRangeMode,
+  PRICE_AXIS_RANGE_MODE,
+} from '@/foundation/config/priceAxisRangeMode.js'
 import { batch } from '@/foundation/reactivity/signal.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import type { ObjectAxesApi, ObjectAxesDependencies } from '../axisTypes.js'
@@ -40,6 +43,7 @@ export function createObjectAxesApi(deps: ObjectAxesDependencies): ObjectAxesApi
       return {
         scaleType: axis.getScaleType(),
         rangeMode: requireState(axisId).rangeMode,
+        availableRangeModes: deps.availableRangeModes(axisId),
         baseValue: axis.getBasePrice(),
       }
     },
@@ -60,17 +64,22 @@ export function createObjectAxesApi(deps: ObjectAxesDependencies): ObjectAxesApi
       deps.project()
     },
     setRangeMode(axisId, mode) {
-      if (mode !== PRICE_AXIS_RANGE_MODE.AUTO && mode !== PRICE_AXIS_RANGE_MODE.HAND)
+      if (!isPriceAxisRangeMode(mode))
         throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `非法轴范围模式：${mode}`)
+      if (!deps.availableRangeModes(axisId).includes(mode))
+        throw new KLineChartError(
+          GENERIC_ERROR_CODES.INVALID_PARAM,
+          `轴 ${axisId} 在当前视图下不支持范围模式：${mode}`,
+        )
       const axis = requireAxis(axisId)
-      if (mode === PRICE_AXIS_RANGE_MODE.HAND)
-        deps.ranges.actions.useHandRange(axis.getDisplayRange(), axisId)
-      else deps.ranges.actions.useAutoRange(axisId)
+      if (mode === PRICE_AXIS_RANGE_MODE.Manual)
+        deps.ranges.actions.useManualMode(axis.getDisplayRange(), axisId)
+      else deps.ranges.actions.useAutoMode(axisId, mode)
       deps.project()
     },
     resetRange(axisId) {
       requireAxis(axisId)
-      deps.ranges.actions.resetHandRange(axisId)
+      deps.ranges.actions.resetRange(axisId)
       deps.project()
     },
     translate(axisId, deltaY) {
@@ -78,12 +87,12 @@ export function createObjectAxesApi(deps: ObjectAxesDependencies): ObjectAxesApi
         throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '轴平移量必须为有限数值')
       const axis = requireAxis(axisId)
       const state = requireState(axisId)
-      if (state.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange === null)
+      if (state.rangeMode !== PRICE_AXIS_RANGE_MODE.Manual || state.range === null)
         throw new KLineChartError(
           GENERIC_ERROR_CODES.INVALID_STATE,
           `轴 ${axisId} 没有已初始化的手动范围`,
         )
-      deps.ranges.actions.setHandRange(axis.translateRange(state.handRange, deltaY), axisId)
+      deps.ranges.actions.setRange(axis.translateRange(state.range, deltaY), axisId)
       deps.project()
     },
     scale(axisId, deltaY, anchorY) {
@@ -91,12 +100,12 @@ export function createObjectAxesApi(deps: ObjectAxesDependencies): ObjectAxesApi
         throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, '轴缩放量和锚点必须为有限数值')
       const axis = requireAxis(axisId)
       const state = requireState(axisId)
-      if (state.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange === null)
+      if (state.rangeMode !== PRICE_AXIS_RANGE_MODE.Manual || state.range === null)
         throw new KLineChartError(
           GENERIC_ERROR_CODES.INVALID_STATE,
           `轴 ${axisId} 没有已初始化的手动范围`,
         )
-      deps.ranges.actions.setHandRange(axis.scaleRange(state.handRange, deltaY, anchorY), axisId)
+      deps.ranges.actions.setRange(axis.scaleRange(state.range, deltaY, anchorY), axisId)
       deps.project()
     },
     hitTest(paneId, x) {

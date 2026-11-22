@@ -26,17 +26,20 @@ export interface ChartModeHandler {
   /** 是否使用指标调度器（计算 MA/BOLL 等技术指标） */
   readonly useIndicatorScheduler: boolean
 
+  /** 价格轴基准是否为可见 K 线；`bars` / `ratio` 口径以它为前提。 */
+  readonly fitsPriceBars: boolean
+
   /**
-   * 收集阶段计算当前可见数据的自动价格范围，不修改任何 Pane。
+   * 收集阶段计算当前可见数据的价格范围，不修改任何 Pane。
+   * 结果只是本轴的主投影，指标、绘图、足迹等来源由渲染器按轴口径另行并入。
    * @param range 当前视口可见索引区间
    * @param dm 行情数据管理器
-   * @param mergedIndicatorRange 需要并入的主图指标极值
-   * @returns 自动范围；无有效价格数据时返回 null
+   * @param closeOnly 线形/面积图只取收盘价
+   * @returns 主投影范围；无有效价格数据时返回 null
    */
   computePaneRange(
     range: VisibleRange,
     dm: ChartDataManager,
-    mergedIndicatorRange?: { min: number; max: number } | null,
     closeOnly?: boolean,
   ): PaneAutoPriceRange | null
 

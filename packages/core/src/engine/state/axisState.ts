@@ -2,6 +2,7 @@
 
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import {
+  type AutoPriceAxisRangeMode,
   PRICE_AXIS_RANGE_MODE,
   type PriceAxisRangeMode,
 } from '../../foundation/config/priceAxisRangeMode.js'
@@ -11,34 +12,48 @@ import type { PriceRange } from '../scale/index.js'
 
 export interface PanePriceAxisRange {
   readonly rangeMode: PriceAxisRangeMode
-  readonly handRange: PriceRange | null
+  /** 手动模式保存的显示范围；自动口径下轴范围由帧结果直接投影，此处为 null。 */
+  readonly range: PriceRange | null
   /** 调用方显式设置的百分比基准；未设置时由对象数据提供。 */
   readonly baseValue?: number
 }
 
-/** 创建逐 Pane 范围状态；主图从 settings 偏好初始化，未设置的副图使用自动范围。 */
+/** 创建逐轴范围状态；未声明的轴在生命周期入口初始化为全并口径。 */
 export function createAxisState(initialModes: Readonly<Record<string, PriceAxisRangeMode>>) {
   const seeded: Record<string, PanePriceAxisRange> = Object.fromEntries(
     Object.entries(initialModes).map(([id, rangeMode]) => [
       id,
-      Object.freeze({ rangeMode, handRange: null }),
+      Object.freeze({ rangeMode, range: null }),
     ]),
   )
   const paneRanges: Readonly<Record<string, PanePriceAxisRange>> = Object.freeze(seeded)
   const { signals, readonly } = createSubState({ paneRanges })
-  /** 原子写入目标 Pane，不修改其他轴。 */
-  function write(paneId: string, rangeMode: PriceAxisRangeMode, range: PriceRange | null): void {
+
+  /** 原子写入目标轴，不修改其他轴。 */
+  function write(axisId: string, rangeMode: PriceAxisRangeMode, range: PriceRange | null): void {
     signals.paneRanges.set(
       Object.freeze({
         ...readonly.paneRanges.peek(),
-        [paneId]: Object.freeze({
-          ...readonly.paneRanges.peek()[paneId],
+        [axisId]: Object.freeze({
+          ...readonly.paneRanges.peek()[axisId],
           rangeMode,
-          handRange: range ? Object.freeze({ ...range }) : null,
+          range: range ? Object.freeze({ ...range }) : null,
         }),
       }),
     )
   }
+
+  /** 逐轴更新状态；返回 null 表示该轴没有实际变化。 */
+  function update(
+    axisId: string,
+    change: (state: PanePriceAxisRange) => PanePriceAxisRange | null,
+  ): void {
+    const current = readonly.paneRanges.peek()[axisId]
+    if (current === undefined) return
+    const next = change(current)
+    if (next) signals.paneRanges.set(Object.freeze({ ...readonly.paneRanges.peek(), [axisId]: next }))
+  }
+
   return {
     readonly,
     actions: {
@@ -59,7 +74,7 @@ export function createAxisState(initialModes: Readonly<Record<string, PriceAxisR
           }),
         )
       },
-      /** 同时恢复模式和锁定范围，不从运行时默认轴重新捕获范围。 */
+      /** 同时恢复模式和手动范围；布局文档里的自动范围值一律丢弃。 */
       restoreModes(
         modes: LayoutPanePriceAxisModes,
         ranges: Readonly<Record<string, PriceRange>> = {},
@@ -80,8 +95,8 @@ export function createAxisState(initialModes: Readonly<Record<string, PriceAxisR
                 Object.freeze({
                   rangeMode,
                   ...(bases[id] === undefined ? {} : { baseValue: bases[id] }),
-                  handRange:
-                    rangeMode === PRICE_AXIS_RANGE_MODE.HAND && ranges[id]
+                  range:
+                    rangeMode === PRICE_AXIS_RANGE_MODE.Manual && ranges[id]
                       ? Object.freeze({ ...ranges[id] })
                       : null,
                 }),
@@ -90,54 +105,55 @@ export function createAxisState(initialModes: Readonly<Record<string, PriceAxisR
           ),
         )
       },
-      /** 清除手动范围，下一帧从目标 Pane 数据重新初始化。 */
-      resetHandRange(paneId: string): void {
-        const current = readonly.paneRanges.peek()[paneId]
-        if (current) write(paneId, current.rangeMode, null)
+      /** 切换到自动口径：清除手动范围，下一帧按该口径拟合。 */
+      useAutoMode(axisId: string, mode: AutoPriceAxisRangeMode): void {
+        write(axisId, mode, null)
       },
-      /** 品种变化时清除所有轴的旧数据范围，保留各自模式。 */
-      resetAllHandRanges(): void {
+      /** 切到手动：把当前显示范围作为后续唯一来源。 */
+      useManualMode(range: PriceRange, axisId: string): void {
+        write(axisId, PRICE_AXIS_RANGE_MODE.Manual, range)
+      },
+      /** 交互平移/缩放只修改已初始化的手动范围。 */
+      setRange(range: PriceRange, axisId: string): void {
+        update(axisId, (state) =>
+          state.rangeMode === PRICE_AXIS_RANGE_MODE.Manual && state.range !== null
+            ? Object.freeze({ ...state, range: Object.freeze({ ...range }) })
+            : null,
+        )
+      },
+      /** 清除手动范围，下一帧从当前数据重新初始化；模式保持不变。 */
+      resetRange(axisId: string): void {
+        update(axisId, (state) => (state.range === null ? null : Object.freeze({ ...state, range: null })))
+      },
+      /** 品种变化时清除所有轴的数据范围，保留各自模式。 */
+      resetAllRanges(): void {
         signals.paneRanges.set(
           Object.freeze(
             Object.fromEntries(
               Object.entries(readonly.paneRanges.peek()).map(([id, state]) => [
                 id,
-                Object.freeze({ ...state, handRange: null }),
+                Object.freeze({ ...state, range: null }),
               ]),
             ),
           ),
         )
       },
-      /** 自动范围不保留纵轴变换。 */
-      useAutoRange(paneId: string): void {
-        write(paneId, PRICE_AXIS_RANGE_MODE.AUTO, null)
-      },
-      /** 关闭自动时锁定当前显示范围。 */
-      useHandRange(range: PriceRange, paneId: string): void {
-        write(paneId, PRICE_AXIS_RANGE_MODE.HAND, range)
-      },
-      /** 交互只修改已初始化的手动范围。 */
-      setHandRange(range: PriceRange, paneId: string): void {
-        const current = readonly.paneRanges.peek()[paneId]
-        if (current?.rangeMode === PRICE_AXIS_RANGE_MODE.HAND && current.handRange !== null)
-          write(paneId, current.rangeMode, range)
-      },
-      /** 首个有效帧批量初始化各轴的锁定范围，一次快照提交避免多次通知。 */
-      initializeHandRanges(entries: ReadonlyArray<{ axisId: string; range: PriceRange }>): void {
+      /** 首个有效帧批量初始化各轴的手动范围，一次快照提交避免多次通知。 */
+      initializeManualRanges(entries: ReadonlyArray<{ axisId: string; range: PriceRange }>): void {
         const current = readonly.paneRanges.peek()
         let next: Record<string, PanePriceAxisRange> | null = null
         for (const { axisId, range } of entries) {
           const state = current[axisId]
-          if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.HAND || state.handRange !== null) continue
+          if (state?.rangeMode !== PRICE_AXIS_RANGE_MODE.Manual || state.range !== null) continue
           next ??= { ...current }
           next[axisId] = Object.freeze({
             rangeMode: state.rangeMode,
-            handRange: Object.freeze({ ...range }),
+            range: Object.freeze({ ...range }),
           })
         }
         if (next) signals.paneRanges.set(Object.freeze(next))
       },
-      /** 对象轴生命周期入口：新轴初始化为自动，消失轴释放状态。 */
+      /** 对象轴生命周期入口：新轴初始化为全并口径，消失轴释放状态。 */
       retainAxes(paneIds: ReadonlySet<string>): void {
         const entries = Object.entries(readonly.paneRanges.peek())
         if (entries.length === paneIds.size && entries.every(([id]) => paneIds.has(id))) return
@@ -148,7 +164,7 @@ export function createAxisState(initialModes: Readonly<Record<string, PriceAxisR
               [...paneIds].map((axisId) => [
                 axisId,
                 existing[axisId] === undefined
-                  ? Object.freeze({ rangeMode: PRICE_AXIS_RANGE_MODE.AUTO, handRange: null })
+                  ? Object.freeze({ rangeMode: PRICE_AXIS_RANGE_MODE.All, range: null })
                   : existing[axisId],
               ]),
             ),

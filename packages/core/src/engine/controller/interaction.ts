@@ -496,10 +496,7 @@ export class InteractionController {
           for (const binding of this.chart.axes
             .list()
             .filter((axis) => axis.paneId === this.activePaneIdOnDrag)) {
-            if (
-              this.chart.axes.configuration(binding.axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND
-            )
-              continue
+            if (!this.canAdjustPriceRange(binding.axisId)) continue
             this.clearHover(true)
             this.chart.axes.translate(binding.axisId, deltaY)
           }
@@ -592,6 +589,11 @@ export class InteractionController {
     return view.indexAtWorld(screenX + view.scroll)
   }
 
+  /** 只有手动模式且已保存范围的轴接受纵向平移与缩放。 */
+  private canAdjustPriceRange(axisId: string): boolean {
+    return this.chart.axes.configuration(axisId).rangeMode === PRICE_AXIS_RANGE_MODE.Manual
+  }
+
   /** 将价格轴滚轮增量归一到像素，以鼠标所在 pane 价位为锚点缩放。 */
   onRightAxisWheel(e: WheelEvent): void {
     if (this.isPointerDown() || !Number.isFinite(e.deltaY) || e.deltaY === 0) return
@@ -599,8 +601,7 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     if (!pane?.capabilities.supportsPriceTranslate) return
     const axisId = this.chart.axes.hitTest(pane.id, mouseX)
-    if (axisId === null) return
-    if (this.chart.axes.configuration(axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND) return
+    if (axisId === null || !this.canAdjustPriceRange(axisId)) return
     const pixelsPerLine = 16
     const maxWheelPixels = 100
     const wheelSensitivity = 0.1
@@ -714,10 +715,7 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     if (!pane) return false
     const axisId = this.chart.axes.hitTest(pane.id, mouseX)
-    if (
-      axisId === null ||
-      this.chart.axes.configuration(axisId).rangeMode !== PRICE_AXIS_RANGE_MODE.HAND
-    ) {
+    if (axisId === null || !this.canAdjustPriceRange(axisId)) {
       return false
     }
     this._state.actions.startDrag('scale-price')

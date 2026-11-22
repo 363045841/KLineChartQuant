@@ -1,6 +1,8 @@
 /** 轴菜单绑定一条已提交的轴：目标由宿主控件所在的轴列决定，菜单不提供轴选择。 */
 import { PRICE_SERIES_AXIS_ID } from '@363045841yyt/klinechart-core'
 import {
+  AUTO_PRICE_AXIS_RANGE_MODES,
+  type AutoPriceAxisRangeMode,
   type ChartSettings,
   normalizeSettings,
   PRICE_AXIS_RANGE_MODE,
@@ -18,8 +20,15 @@ const GROUP = {
   POSITION: 'priceAxisPosition',
 } as const
 const RESET_AXIS = 'reset-price-axis'
-/** 仅缩放价格图表：整图一个设置，只对主价格轴生效。 */
-const PRICE_ONLY = 'mainPriceAxisPriceOnly'
+/** 自动开关：勾选回到自动拟合，取消进入手动；本身不是一种范围口径。 */
+const AUTO_TOGGLE = 'auto-range'
+
+/** 自动口径的界面文案；顺序由共用常量决定。 */
+const RANGE_LABELS: Readonly<Record<AutoPriceAxisRangeMode, string>> = {
+  [PRICE_AXIS_RANGE_MODE.All]: '全部数据',
+  [PRICE_AXIS_RANGE_MODE.Bars]: '仅缩放价格图表',
+  [PRICE_AXIS_RANGE_MODE.Ratio]: '固定 K 线占比',
+}
 
 /** 轴菜单的快捷按钮；勾选态与命令都由绑定轴决定。 */
 export interface PriceAxisShortcut {
@@ -34,7 +43,7 @@ export interface PriceAxisShortcut {
  * 生成单条轴的类型、范围、重置与位置命令。
  *
  * @param controller 图表控制器
- * @param applySettings 写回图表级设置（位置与仅缩放价格图表）
+ * @param applySettings 写回图表级设置（价格轴位置）
  * @param axisId 读取宿主当前目标；不保存初始化时的轴身份
  */
 export function usePriceAxisMenu(
@@ -55,39 +64,39 @@ export function usePriceAxisMenu(
   /** 仅主价格轴承载行情价格，指标轴没有可拟合的 K 线。 */
   const isPriceAxis = computed(() => axis.value?.axisId === PRICE_SERIES_AXIS_ID)
   const shortcuts: ReadonlyArray<PriceAxisShortcut> = [
-    {
-      group: GROUP.RANGE,
-      on: PRICE_AXIS_RANGE_MODE.AUTO,
-      off: PRICE_AXIS_RANGE_MODE.HAND,
-      label: '自动',
-      text: 'A',
-    },
+    { group: GROUP.RANGE, on: AUTO_TOGGLE, off: PRICE_AXIS_RANGE_MODE.Manual, label: '自动', text: 'A' },
     { group: GROUP.TYPE, on: ScaleType.Log, off: ScaleType.Linear, label: '对数', text: 'L' },
   ]
 
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
     const config = axis.value?.configuration
     const blocked = config === undefined
+    const manual = config?.rangeMode === PRICE_AXIS_RANGE_MODE.Manual
     const base = config?.baseValue ?? null
     const percentReady = base !== null && base !== 0
     const rangeItems: DropMenuItem[] = [
       {
-        id: PRICE_AXIS_RANGE_MODE.AUTO,
+        id: AUTO_TOGGLE,
         label: '自动',
         disabled: blocked,
-        checked: config?.rangeMode === PRICE_AXIS_RANGE_MODE.AUTO,
+        checked: !manual,
         selection: 'checkbox',
       },
     ]
-    if (isPriceAxis.value) {
-      // 自动范围下的口径：锁定范围时不影响，但随时可改。
-      rangeItems.push({
-        id: PRICE_ONLY,
-        label: '仅缩放价格图表',
-        checked: settings.value.mainPriceAxisPriceOnly === true,
-        selection: 'checkbox',
-        disabled: blocked,
-      })
+    // 口径由轴的配置下发：只有多个自动口径可选时才需要单选组，单一由「自动」开关表达。
+    if (config) {
+      const autoModes = config.availableRangeModes.filter(
+        (mode): mode is AutoPriceAxisRangeMode => mode !== PRICE_AXIS_RANGE_MODE.Manual,
+      )
+      if (autoModes.length > 1)
+        for (const mode of autoModes)
+          rangeItems.push({
+            id: mode,
+            label: RANGE_LABELS[mode],
+            disabled: manual,
+            checked: config.rangeMode === mode,
+            selection: 'radio',
+          })
     }
     const positionGroup: DropMenuGroup[] = isPriceAxis.value
       ? [
@@ -149,39 +158,45 @@ export function usePriceAxisMenu(
     ]
   })
 
-  /** 轴命令只作用于绑定轴；位置与仅缩放价格图表是整图设置。 */
+  /** 轴命令只作用于绑定轴；价格轴位置是整图设置。 */
   function select(groupId: string, itemId: string): void {
     const chart = controller.value
     const target = axis.value
     if (!chart || !target) return
-    const { axisId, configuration: config } = target
+    const { axisId: targetAxisId, configuration: config } = target
     if (groupId === GROUP.POSITION && (itemId === 'left' || itemId === 'right')) {
       applySettings({ ...settings.value, priceAxisPosition: itemId })
       return
     }
-    if (groupId === GROUP.RANGE && itemId === PRICE_ONLY) {
-      applySettings({
-        ...settings.value,
-        mainPriceAxisPriceOnly: !settings.value.mainPriceAxisPriceOnly,
-      })
+    if (groupId === GROUP.RANGE && itemId === AUTO_TOGGLE) {
+      // 自动是开关：取消勾选冻结当前范围，重新勾选回到全并口径。
+      chart.axes.setRangeMode(
+        targetAxisId,
+        config.rangeMode === PRICE_AXIS_RANGE_MODE.Manual
+          ? PRICE_AXIS_RANGE_MODE.All
+          : PRICE_AXIS_RANGE_MODE.Manual,
+      )
+      return
+    }
+    if (groupId === GROUP.RANGE && itemId === PRICE_AXIS_RANGE_MODE.Manual) {
+      chart.axes.setRangeMode(targetAxisId, PRICE_AXIS_RANGE_MODE.Manual)
+      return
+    }
+    if (groupId === GROUP.RANGE && isAutoRangeItem(itemId)) {
+      chart.axes.setRangeMode(targetAxisId, itemId)
       return
     }
     if (
       groupId === GROUP.TYPE &&
       (itemId === ScaleType.Log || itemId === ScaleType.Linear || itemId === ScaleType.Percent)
     )
-      chart.axes.setScaleType(axisId, itemId)
-    else if (groupId === GROUP.RANGE && itemId === PRICE_AXIS_RANGE_MODE.AUTO) {
-      // 自动本身是开关：勾选即每帧拟合，取消即冻结当前范围交给手动拖拽。
-      chart.axes.setRangeMode(
-        axisId,
-        config.rangeMode === PRICE_AXIS_RANGE_MODE.AUTO
-          ? PRICE_AXIS_RANGE_MODE.HAND
-          : PRICE_AXIS_RANGE_MODE.AUTO,
-      )
-    } else if (groupId === GROUP.RANGE && itemId === PRICE_AXIS_RANGE_MODE.HAND)
-      chart.axes.setRangeMode(axisId, PRICE_AXIS_RANGE_MODE.HAND)
-    else if (groupId === GROUP.RESET && itemId === RESET_AXIS) chart.axes.resetRange(axisId)
+      chart.axes.setScaleType(targetAxisId, itemId)
+    else if (groupId === GROUP.RESET && itemId === RESET_AXIS) chart.axes.resetRange(targetAxisId)
+  }
+
+  /** 菜单项 id 即口径取值，命令入口只接受已声明的自动口径。 */
+  function isAutoRangeItem(itemId: string): itemId is AutoPriceAxisRangeMode {
+    return (AUTO_PRICE_AXIS_RANGE_MODES as ReadonlyArray<string>).includes(itemId)
   }
 
   /** 快捷按钮的按下态与菜单同源：读菜单数据里的 checked，不另起一条状态读取路径。 */
