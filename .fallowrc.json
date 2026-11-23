@@ -17,6 +17,10 @@
     "packages/script/src/quickjs/runtime/ta.ts",
     "packages/script/src/quickjs/runtime/pivot.ts",
     "packages/script/src/quickjs/runtime/plotKind.ts",
+    "packages/script/src/quickjs/runtime/time.ts",
+    "bench/src/main.ts",
+    "bench/src/primitives.ts",
+    "scripts/check-macos-package.mjs",
     "examples/scripts/drawing-line.ts"
   ],
   "ignorePatterns": [
@@ -28,6 +32,9 @@
     "**/*.tsbuildinfo",
     "**/coverage/**",
     "**/preview/dist/**",
+    "e2e/product-consumer/**",
+    "examples/angular-universal/**",
+    "scripts/fixtures/vue-product/**",
     "packages/core/design-tokens/**",
     "packages/react/preview/**",
     "scripts/lint/stylelint-plugin-klc.mjs",
@@ -45,8 +52,10 @@
     "@iconify-json/tabler",
     "@vue/test-utils",
     "npm-run-all2",
-    "typedoc"
+    "typedoc",
+    "expo-system-ui"
   ],
+  "ignoreUnresolvedImports": ["./assets/editor.js", "./assets/editor.css"],
   "rules": {
     "unused-files": "warn",
     "unused-exports": "warn",
