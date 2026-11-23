@@ -91,7 +91,7 @@ export function useWatchlistQuotes(
       // 重连成功即视为恢复，旧错误不能一直挂着。
       if (phase === 'online' && errorDraft.delete(item.source)) errorsDirty = true
       if (event.kind !== 'opened') {
-        errorDraft.set(item.source, event.kind === 'failed' ? event.message : event.reason)
+        errorDraft.set(item.source, event.reason)
         errorsDirty = true
       }
       statusDraft.set(item.source, phase)

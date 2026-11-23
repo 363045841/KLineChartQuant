@@ -108,7 +108,8 @@ export function createOpenAiCompatibleRuntimeSupport(
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? sleepWithSignal
   const timeoutMs = options.requestTimeoutMs ?? 30_000
-  const maxRetries = options.maxRetries ?? 2
+  // 默认不重试：一次失败直接暴露给用户，由用户手动重试，避免浏览器里被静默重发多次。
+  const maxRetries = options.maxRetries ?? 0
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
@@ -159,7 +160,8 @@ export function createOpenAiCompatibleRuntimeSupport(
     const result = await requestProviderJson(
       `${baseUrl}/models`,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      httpOptions(input.headers, undefined, 'catalog'),
+      // 目录请求不合并附加请求头：浏览器预检只允许固定的几个头，未知头会让请求被直接拦掉。
+      httpOptions({}, undefined, 'catalog'),
     )
     let models: NormalizedProviderCatalogModel[]
     try {

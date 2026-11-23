@@ -1,13 +1,13 @@
 /**
  * 桌面端最小 preload。
  *
- * 只经 `contextBridge` 暴露凭据与窗口两组函数对象，**不暴露 `ipcRenderer` 本身**，
- * 渲染进程因此无法向任意 channel 发消息。这里刻意不复用也不扩展仓库里那套
- * 已废弃的 agent IPC。
+ * 只经 `contextBridge` 暴露窗口与 Agent 两组函数对象，**不暴露 `ipcRenderer` 本身**，
+ * 渲染进程因此无法向任意 channel 发消息。
  */
 import { contextBridge, ipcRenderer } from 'electron'
 
 // 只从共享契约导入：这些文件不含 node 内置模块，sandbox preload 才不会引入无法加载的 require。
+import { AGENT_BRIDGE_KEY, AGENT_CHANNELS, type AgentBridge } from './agent-bridge'
 import {
   TITLEBAR_HEIGHT,
   WINDOW_BRIDGE_KEY,
@@ -61,4 +61,19 @@ const windowBridge: WindowBridge = {
   },
 }
 
+const agentBridge: AgentBridge = {
+  send: (message) => {
+    ipcRenderer.send(AGENT_CHANNELS.client, message)
+  },
+  onMessage: (listener) => {
+    // 只订阅专用通道；事件对象不透传给渲染层。
+    const handler = (_event: unknown, message: unknown): void => listener(message)
+    ipcRenderer.on(AGENT_CHANNELS.host, handler)
+    return () => {
+      ipcRenderer.removeListener(AGENT_CHANNELS.host, handler)
+    }
+  },
+}
+
 contextBridge.exposeInMainWorld(WINDOW_BRIDGE_KEY, windowBridge)
+contextBridge.exposeInMainWorld(AGENT_BRIDGE_KEY, agentBridge)

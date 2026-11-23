@@ -550,7 +550,6 @@ export class AgentHost {
       )
     const result = await this.support.catalog.listModels({
       baseUrl: profile.connection.baseUrl,
-      headers: profile.connection.headers,
       ...(profile.apiKey ? { apiKey: profile.apiKey } : {}),
     })
     return {

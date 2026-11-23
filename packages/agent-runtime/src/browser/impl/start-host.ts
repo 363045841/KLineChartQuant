@@ -21,6 +21,15 @@ export interface BrowserAgentHostOptions {
 }
 
 /**
+ * 浏览器网络失败的补充说明。
+ *
+ * `fetch` 对「网络不可达」和「跨域被拦」抛的是同一个 `TypeError`，无法区分，
+ * 因此如实并列两种可能，并把桌面端作为不受该限制的替代路径指出来。
+ */
+const BROWSER_NETWORK_HINT =
+  'The browser could not complete this request: the network may be unreachable, or the gateway may not allow requests from this origin (CORS). Use the desktop app, which is not subject to this limit: https://github.com/363045841/KLineChartQuant/releases/latest'
+
+/**
  * 启动浏览器宿主。
  * @returns 正在运行的宿主实例。
  */
@@ -28,6 +37,7 @@ export function startBrowserAgentHost(options: BrowserAgentHostOptions = {}): Ag
   const settings = new AgentSettingsStore(
     createIndexedDbSettingsStorage(options.settingsDatabaseName),
   )
+  const implementation = options.fetch ?? globalThis.fetch.bind(globalThis)
   return startAgentHostInSharedWorker({
     settings,
     createSessions: () =>
@@ -36,6 +46,18 @@ export function startBrowserAgentHost(options: BrowserAgentHostOptions = {}): Ag
           ? {}
           : { databaseName: options.sessionDatabaseName },
       ),
-    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    // 网络失败补上浏览器侧诊断；提示必须写进原始错误本身——Pi 只保留最深一层
+    // cause 的 message，另包一层会被丢弃。中止信号原样抛出，不改变取消语义。
+    fetch: async (input, init) => {
+      try {
+        return await implementation(input, init)
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          error.message = `${error.message} ${BROWSER_NETWORK_HINT}`
+          throw error
+        }
+        throw error
+      }
+    },
   })
 }

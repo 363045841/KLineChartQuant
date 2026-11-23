@@ -1,13 +1,18 @@
 /**
- * 桌面应用主进程：单实例锁、本地行情后端托管、多窗口生命周期与 IPC 装配。
+ * 桌面应用主进程：单实例锁、本地行情后端托管、Agent 宿主、多窗口生命周期与 IPC 装配。
  *
- * 后端按进程托管一次并被所有窗口共享；窗口数量与工作区身份由 `windows.ts` 记录，
- * 标签内容由渲染进程按工作区身份自行持久化。
+ * 后端与 Agent 宿主都按进程托管一次并被所有窗口共享；窗口数量与工作区身份由
+ * `windows.ts` 记录，标签内容由渲染进程按工作区身份自行持久化。
  */
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import {
+  type NodeAgentHost,
+  startNodeAgentHost,
+} from '@363045841yyt/klinechart-agent-runtime/node-host'
+import { app, BrowserWindow, ipcMain, net } from 'electron'
+import { registerAgentIpc } from './agent-ipc'
 import { APPLICATION_ICON } from './app-icon'
 import { installApplicationMenu } from './app-menu'
 import { type ManagedBackendHost, startManagedBackends } from './backends'
@@ -18,7 +23,19 @@ import { createWorkspaceSessionStore } from './window-store'
 import { createWindowSet, type WindowSet } from './windows'
 
 let backends: ManagedBackendHost | undefined
+let agent: NodeAgentHost | undefined
 let quitting = false
+
+/**
+ * Provider 请求的主进程实现。
+ *
+ * 请求不从页面发出，因此没有 origin、不受 CORS 约束——这是不返回 CORS 头的
+ * 第三方网关能在桌面端使用的原因；`net.fetch` 同时保留系统代理与证书配置。
+ */
+function createProviderFetch(): typeof globalThis.fetch {
+  return (input, init) =>
+    net.fetch(typeof input === 'string' || input instanceof URL ? input.toString() : input, init)
+}
 
 /** 通知所有窗口重新读取标签页集合；主进程不持有标签数据。 */
 function notifyWorkspaceChanged(): void {
@@ -46,6 +63,14 @@ async function startApplication(
   })
   await backends.ready
 
+  // Agent 宿主随应用启动一次，所有窗口共用；Provider 请求在主进程发出。
+  agent = await startNodeAgentHost({ dataDir: userDataPath, fetch: createProviderFetch() })
+
+  registerAgentIpc({
+    ipcMain,
+    host: agent.host,
+    isTrustedSender: (event) => activeWindows.isTrustedSender(event.sender),
+  })
   registerWindowIpc({
     ipcMain,
     getWindow: (event) => activeWindows.windowOf(event.sender),
@@ -102,7 +127,7 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault()
     quitting = true
     activeWindows.preserveSession()
-    void Promise.all([session.flush(), backends?.dispose()])
+    void Promise.all([session.flush(), backends?.dispose(), agent?.close()])
       .catch((error: unknown) => console.error('Desktop shutdown failed', error))
       .finally(() => app.quit())
   })

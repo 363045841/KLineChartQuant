@@ -5,7 +5,8 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 import type { ProviderDiagnostic } from './types.js'
 
 const DEFAULT_TIMEOUT_MS = 30_000
-const DEFAULT_MAX_RETRIES = 2
+// 目录请求同样不自动重试：失败即返回，交给用户手动重试。
+const DEFAULT_MAX_RETRIES = 0
 const DEFAULT_MAX_RETRY_DELAY_MS = 60_000
 
 /** Provider JSON 请求的可注入运行参数。 */

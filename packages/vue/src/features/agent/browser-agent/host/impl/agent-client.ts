@@ -6,6 +6,7 @@
  */
 
 import {
+  type AgentHostTransport,
   AgentRuntimeError,
   createAgentHostClient,
 } from '@363045841yyt/klinechart-agent-runtime/browser'
@@ -28,6 +29,17 @@ const legacyCodec: PersistenceCodec<unknown> = {
 }
 
 let client: ChartAgentClient | undefined
+let createTransport: () => AgentHostTransport = connectSharedWorkerTransport
+
+/**
+ * 替换 Agent 传输工厂。
+ *
+ * 桌面端的宿主在主进程，页面改用 preload 桥；浏览器与测试默认用 SharedWorker。
+ * @param factory 传输工厂；`null` 恢复 SharedWorker 默认值
+ */
+export function __setAgentTransportFactory(factory: (() => AgentHostTransport) | null): void {
+  createTransport = factory ?? connectSharedWorkerTransport
+}
 
 /** 取当前文档的 Agent 客户端；首次访问时建立连接并触发一次迁移。 */
 export function getChartAgentClient(): ChartAgentClient {
@@ -39,7 +51,7 @@ export function getChartAgentClient(): ChartAgentClient {
 function createDefaultClient(): ChartAgentClient {
   const tools = new ChartToolHost()
   const host = createAgentHostClient({
-    transport: connectSharedWorkerTransport(),
+    transport: createTransport(),
     toolHost: tools,
   })
   const result = createChartAgentClient(host, tools)

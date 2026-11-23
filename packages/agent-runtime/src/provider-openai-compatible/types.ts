@@ -24,7 +24,7 @@ export interface OpenAiCompatibleProviderSettings {
   version: typeof PROVIDER_SETTINGS_VERSION
   /** 不含末尾斜杠的 Provider API 根地址。 */
   baseUrl: string
-  /** 每个 Provider 请求都会附带的非鉴权请求头。 */
+  /** 附加的请求头只用于对话请求；目录请求不带。 */
   headers: Record<string, string>
   /** 已验证的模型 ID。 */
   modelId: string
@@ -51,7 +51,6 @@ export interface ProviderSettingsStore {
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
-  headers?: Record<string, string>
 }
 
 /** 一次模型目录请求的结果。 */
