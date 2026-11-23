@@ -3,6 +3,7 @@
   <main
     ref="scroller"
     class="timeline"
+    :class="{ 'timeline--floating-context': floatingContext }"
     :aria-label="text.timeline"
     @scroll.passive="updateAutoScroll"
   >
@@ -134,6 +135,8 @@
     locale: AgentLocale
     editMessage?: EditMessageAction
     actionsDisabled: boolean
+    /** 底部悬浮着上下文胶囊时预留同高的尾部空间，滚到底的最后一条不被盖住。 */
+    floatingContext?: boolean
   }>()
   const emit = defineEmits<{
     prompt: [prompt: string]
@@ -232,7 +235,7 @@
   .timeline__body {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    padding: 14px 12px 18px;
+    padding: var(--klc-space-12, 12px) var(--agent-gutter, 12px) var(--klc-space-16, 16px);
   }
 
   .timeline__body > * {
@@ -244,6 +247,14 @@
     min-height: 100%;
   }
 
+  /* 悬浮的上下文胶囊压在视口底部：尾部预留 = 基础留白 + 胶囊条实际高度，
+     高度由共享变量推导，不再写死 60px。 */
+  .timeline--floating-context .timeline__body {
+    padding-bottom: calc(
+      var(--klc-space-16, 16px) + var(--agent-chip-height, 26px) + 2 * var(--agent-bar-pad, 8px)
+    );
+  }
+
   /* 间距只有这一个来源：条目之间与条目内部块之间同为 8px。 */
   .timeline__body > * + * {
     margin-top: var(--klc-space-8);
@@ -251,7 +262,7 @@
 
   /* 用户消息是唯一的角色分隔，额外加一段上间距。 */
   .timeline__body > .agent-entry--user {
-    margin-top: 12px;
+    margin-top: var(--klc-space-12, 12px);
   }
 
   .timeline__body > .agent-entry--user:first-child {
@@ -260,12 +271,12 @@
 
   .timeline__more {
     justify-self: center;
-    padding: 4px 10px;
+    padding: var(--klc-space-4, 4px) var(--klc-space-12, 12px);
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 999px;
+    border-radius: var(--klc-radius-full, 9999px);
     background: var(--klc-color-ui-card);
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     cursor: pointer;
   }
 </style>

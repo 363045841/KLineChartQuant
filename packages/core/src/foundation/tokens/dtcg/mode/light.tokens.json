@@ -263,10 +263,6 @@
       "secondaryButtonText": { "$type": "color", "$value": "{light.color.ui.secondaryButtonText}" }
     },
     "agent": {
-      "composerInputBackground": {
-        "$type": "color",
-        "$value": "{light.color.agent.composerInputBackground}"
-      },
       "composerControlBackground": {
         "$type": "color",
         "$value": "{light.color.agent.composerControlBackground}"
@@ -284,7 +280,8 @@
     "1": { "$type": "shadow", "$value": "{light.elevation.1}" },
     "2": { "$type": "shadow", "$value": "{light.elevation.2}" },
     "3": { "$type": "shadow", "$value": "{light.elevation.3}" },
-    "hairline": { "$type": "shadow", "$value": "{light.elevation.hairline}" }
+    "hairline": { "$type": "shadow", "$value": "{light.elevation.hairline}" },
+    "raised": { "$type": "shadow", "$value": "{light.elevation.raised}" }
   },
   "brand": {
     "accentText": { "$type": "color", "$value": "{light.brand.accentText}" }

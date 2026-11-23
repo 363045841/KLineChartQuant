@@ -34,6 +34,7 @@
         :locale="locale"
         :edit-message="editMessage"
         :actions-disabled="isRunning"
+        :floating-context="contextItems.length > 0"
         @prompt="draft = $event"
         @answer="answerQuestion"
         @cancel="cancelQuestion"
@@ -44,21 +45,28 @@
         @fill-gap="fillGap"
       />
 
-      <AgentContextBar :context-items="contextItems" :locale="locale" />
-      <AgentComposer
-        v-model:draft="draft"
-        :running="isRunning"
-        :mode="mode"
-        :snapshot="providerSettings.snapshot"
-        :models="providerSettings.models"
-        :models-loading="providerSettings.snapshot === null"
-        :locale="locale"
-        @send="send"
-        @stop="stop"
-        @mode-change="setMode"
-        @model="setModel"
-        @reasoning-effort="setReasoningEffort"
-      />
+      <div class="agent-workspace__composer">
+        <!-- 胶囊浮在输入区上沿：不占时间线高度，随输入框增高一起上移。 -->
+        <AgentContextBar
+          v-if="contextItems.length > 0"
+          class="agent-workspace__context"
+          :context-items="contextItems"
+          :locale="locale"
+        />
+        <AgentComposer
+          v-model:draft="draft"
+          :running="isRunning"
+          :mode="mode"
+          :snapshot="providerSettings.snapshot"
+          :models="providerSettings.models"
+          :locale="locale"
+          @send="send"
+          @stop="stop"
+          @mode-change="setMode"
+          @model="setModel"
+          @reasoning-effort="setReasoningEffort"
+        />
+      </div>
     </template>
 
     <p v-if="availability.status === 'initializing'" class="agent-workspace__initializing">
@@ -206,8 +214,22 @@
 
 <style scoped>
   .agent-workspace {
-    /* Agent 面板只保留自己的圆角档位；颜色一律直接消费全局 UI / Agent Token。 */
-    --agent-control-radius: 8px;
+    /* Agent 面板只保留自己的圆角档位与共享几何；颜色一律直接消费全局 UI / Agent Token。
+       共享几何集中在这里，避免同样的 12px / 26px 在多个组件里各写一遍。 */
+    --agent-control-radius: var(--klc-radius-md, 8px);
+    --agent-gutter: var(--klc-space-12, 12px);
+    --agent-chip-height: 26px;
+    --agent-bar-pad: var(--klc-space-8, 8px);
+    /* 面板内的局部层叠：上下文条浮在输入区上，会话抽屉盖住整个面板。 */
+    --agent-z-bar: 1;
+    --agent-z-drawer: 10;
+    /* 标题栏与会话抽屉的图标按钮档位：在这里声明一次，子组件继承，
+       不再用「.agent-header, .agent-session-drawer」这种跨组件选择器去挂变量。 */
+    --base-icon-button-size: var(--workbench-header-control-size, 30px);
+    --base-icon-button-radius: var(--klc-radius-xs, 4px);
+    --base-icon-button-color: var(--klc-color-ui-muted);
+    --base-icon-button-hover-color: var(--klc-color-ui-text);
+    --base-icon-button-hover-bg: var(--klc-color-ui-hover);
     --toggle-switch-track-background: var(--klc-color-ui-control-background);
     --toggle-switch-thumb-background: var(--klc-color-ui-on-accent);
     --toggle-switch-active-background: var(--klc-color-ui-accent);
@@ -217,19 +239,37 @@
     min-width: 0;
     position: relative;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surround-background);
     letter-spacing: 0;
   }
 
+  /* 输入区承载块：底部留白由它负责，输入框自身只留左右外边距。 */
+  .agent-workspace__composer {
+    position: relative;
+    min-width: 0;
+    padding-bottom: var(--agent-gutter);
+  }
+
+  /* 上下文胶囊悬浮在输入区上沿：宽度随内容收缩，右侧空白不属于这一层，
+     时间线的滚动与拖拽仍归时间线自己，因此不需要 pointer-events 补丁。 */
+  .agent-workspace__context {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 100%;
+    z-index: var(--agent-z-bar);
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .agent-workspace__initializing {
     place-self: center;
     margin: 0;
-    padding: 24px;
+    padding: var(--klc-space-24, 24px);
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .sr-only {

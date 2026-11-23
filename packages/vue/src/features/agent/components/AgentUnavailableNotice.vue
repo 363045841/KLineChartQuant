@@ -35,41 +35,41 @@
     display: grid;
     justify-items: center;
     align-content: center;
-    gap: 10px;
-    padding: 24px;
+    gap: var(--klc-space-8, 8px);
+    padding: var(--klc-space-24, 24px);
     text-align: center;
   }
   .agent-unavailable > svg {
-    width: 24px;
-    height: 24px;
+    width: var(--klc-space-24, 24px);
+    height: var(--klc-space-24, 24px);
     color: var(--klc-color-ui-danger-text);
   }
   strong {
-    font-size: 13px;
+    font-size: var(--klc-text-13-font-size, 13px);
   }
   p {
     max-width: 32ch;
     margin: 0;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.5;
     color: var(--klc-color-ui-text-soft);
   }
   .agent-unavailable__detail {
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
   button {
     min-height: 30px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 12px;
+    gap: var(--klc-space-4, 4px);
+    padding: 0 var(--klc-space-12, 12px);
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 6px;
+    border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
     color: var(--klc-color-ui-text);
-    background: var(--klc-color-agent-composer-input-background);
+    background: var(--klc-color-ui-card);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     cursor: pointer;
   }
   button:hover {

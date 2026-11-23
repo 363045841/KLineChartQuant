@@ -1,0 +1,32 @@
+/* Agent 面板的两种表面，颜色、圆角与边缘只在这里定义；使用方只写布局与排版。
+   - 抬升面：常驻在布局里的可交互表面（Composer、上下文胶囊、预览按钮）。
+   - 描边面：信息块（提问卡、设置卡片），靠 1px 边框与页面分层，不加投影。
+
+   使用约定（避免历史上反复出现的三类问题）：
+   1. 一个浮层只有一层表面：外层已经是这块表面时，内部内容不得再加同类底色或阴影，
+      否则会出现“同色叠两层、圆角处露出另一层”的假透明。
+   2. 交互态用 overlay 叠加，不改 background：
+      background-image: linear-gradient(var(--klc-color-ui-hover), var(--klc-color-ui-hover));
+      直接换成半透明的 hover 色会把这个不透明表面变成“洞”。
+   3. 会遮住其它区域的浮层内容交给浮层原语（BasePopover）承载，不塞进装饰性容器。 */
+.agent-raised-surface {
+  border: 0;
+  border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
+  background-color: var(--klc-color-ui-card);
+  box-shadow: var(--klc-elevation-raised);
+}
+
+/* 深色顶部 2% 薄光：同一材质在深色下统一加，不按控件大小挑。 */
+[data-theme="dark"] .agent-raised-surface {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--klc-color-ui-text) 2%, transparent),
+    transparent 50%
+  );
+}
+
+.agent-bordered-surface {
+  border: 1px solid var(--klc-color-ui-border);
+  border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
+  background-color: var(--klc-color-ui-card);
+}

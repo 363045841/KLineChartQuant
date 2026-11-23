@@ -30,7 +30,10 @@
       "ui": {
         "background": { "$type": "color", "$value": "{light.visual.background}" },
         "surface": { "$type": "color", "$value": "{light.visual.surface}" },
-        "tabActiveBackground": { "$type": "color", "$value": "{light.color.ui.surroundBackground}" },
+        "tabActiveBackground": {
+          "$type": "color",
+          "$value": "{light.color.ui.surroundBackground}"
+        },
         "card": { "$type": "color", "$value": "{light.visual.card}" },
         "input": { "$type": "color", "$value": "{light.visual.input}" },
         "hover": { "$type": "color", "$value": "{light.visual.hover}" },
@@ -53,7 +56,10 @@
       "background": { "$type": "color", "$value": "{dark.visual.background}" },
       "chartBackground": { "$type": "color", "$value": "{dark.visual.background}" },
       "floatingSurface": { "$type": "color", "$value": "{dark.visual.surface}" },
-      "chartNavigationBackground": { "$type": "color", "$value": "{dark.color.ui.controlBackground}" },
+      "chartNavigationBackground": {
+        "$type": "color",
+        "$value": "{dark.color.ui.controlBackground}"
+      },
       "axisText": { "$type": "color", "$value": "{dark.visual.muted}" },
       "axisLine": { "$type": "color", "$value": "{dark.visual.border}" },
       "axisTick": { "$type": "color", "$value": "{dark.visual.border}" },
@@ -97,7 +103,6 @@
       },
       "agent": {
         "userMessage": { "$type": "color", "$value": "{dark.visual.card}" },
-        "composerInputBackground": { "$type": "color", "$value": "{dark.color.ui.card}" },
         "composerControlBackground": {
           "$type": "color",
           "$value": "{dark.color.ui.controlBackground}"

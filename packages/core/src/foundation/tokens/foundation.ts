@@ -210,6 +210,8 @@ export const lightFoundation: FoundationTokens = {
     2: '0 1px 2px hsl(220 3% 15% / 0.08), 0 2px 4px hsl(220 3% 15% / 0.07), 0 4px 8px hsl(220 3% 15% / 0.06)',
     3: '0 1px 2px hsl(220 3% 15% / 0.07), 0 2px 4px hsl(220 3% 15% / 0.06), 0 4px 8px hsl(220 3% 15% / 0.05), 0 8px 16px hsl(220 3% 15% / 0.05), 0 16px 32px hsl(220 3% 15% / 0.04)',
     hairline: '0 0 0 1px hsl(220 3% 15% / 0.08)',
+    raised:
+      'inset 0 1px 0 hsl(0 0% 100% / 0.7), 0 0 0 0.5px hsl(220 3% 15% / 0.14), 0 1px 2px -0.5px hsl(220 3% 15% / 0.06), 0 4px 10px -2px hsl(220 3% 15% / 0.07)',
   },
   brand: {
     accent: '#4C77C6',
@@ -224,6 +226,8 @@ export const darkFoundation: FoundationTokens = {
     2: '0 1px 2px hsl(0 0% 0% / 0.4), 0 2px 4px hsl(0 0% 0% / 0.4), 0 4px 8px hsl(0 0% 0% / 0.4)',
     3: '0 1px 2px hsl(0 0% 0% / 0.3), 0 2px 4px hsl(0 0% 0% / 0.3), 0 4px 8px hsl(0 0% 0% / 0.3), 0 8px 16px hsl(0 0% 0% / 0.3), 0 16px 32px hsl(0 0% 0% / 0.3)',
     hairline: '0 0 0 1px hsl(0 0% 100% / 0.08)',
+    raised:
+      'inset 0 1px 0 hsl(0 0% 100% / 0.02), inset 0 0 0 1px hsl(0 0% 100% / 0.03), 0 0 0 1px hsl(0 0% 0% / 0.45), 0 1px 2px hsl(0 0% 0% / 0.5), 0 4px 10px hsl(0 0% 0% / 0.32)',
   },
   brand: {
     accent: '#4C77C6',

@@ -48,15 +48,15 @@
   }
 
   h2 {
-    margin: 4px 0 0;
-    font-size: 16px;
-    line-height: 1.25;
+    margin: var(--klc-space-4, 4px) 0 0;
+    font-size: var(--klc-text-16-font-size, 16px);
+    line-height: var(--klc-text-16-line-height, 24px);
   }
   .empty-state > p {
-    margin: 0 0 8px;
+    margin: 0 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: var(--klc-text-12-font-size, 12px);
+    line-height: var(--klc-text-12-line-height, 16px);
   }
 
   .empty-state__prompts {
@@ -64,7 +64,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: var(--klc-space-8, 8px);
   }
   .empty-state__prompts button {
     max-width: 100%;
@@ -72,14 +72,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 7px 14px;
+    gap: var(--klc-space-8, 8px);
+    padding: 7px var(--klc-space-12, 12px);
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 999px;
+    border-radius: var(--klc-radius-full, 9999px);
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-surface);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;
     cursor: pointer;
   }

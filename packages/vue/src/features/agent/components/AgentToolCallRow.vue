@@ -154,7 +154,7 @@
 
   .tool-row__caption {
     color: var(--klc-color-ui-muted);
-    font-size: 10px;
+    font-size: var(--klc-text-11-mono-font-size, 11px);
     text-transform: uppercase;
   }
 
@@ -183,6 +183,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    font-size: 10px;
+    font-size: var(--klc-text-11-mono-font-size, 11px);
   }
 </style>

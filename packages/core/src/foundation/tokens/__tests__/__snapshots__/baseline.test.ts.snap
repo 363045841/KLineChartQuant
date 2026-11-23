@@ -203,7 +203,6 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-neutral: #838A98;
   --klc-color-ui-on-accent: #FFFFFF;
   --klc-color-ui-secondary-button-text: #ACB2BE;
-  --klc-color-agent-composer-input-background: #1D1F24;
   --klc-color-agent-composer-control-background: #27292E;
   --klc-color-agent-composer-control-hover: #2D3036;
   --klc-color-agent-user-message: #27292E;
@@ -432,7 +431,6 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ui-neutral: #666666;
   --klc-color-ui-on-accent: #FFFFFF;
   --klc-color-ui-secondary-button-text: #666666;
-  --klc-color-agent-composer-input-background: #FFFFFF;
   --klc-color-agent-composer-control-background: #F4F4F4;
   --klc-color-agent-composer-control-hover: #0000000A;
   --klc-color-agent-user-message: #EAEAEE;

@@ -2,7 +2,7 @@
 
 .agent-markdown {
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--klc-text-copy-13-font-size, 13px);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -27,21 +27,21 @@
 }
 
 .agent-markdown h1 {
-  font-size: 17px;
+  font-size: var(--klc-text-20-font-size, 20px);
 }
 
 .agent-markdown h2 {
-  font-size: 16px;
+  font-size: var(--klc-text-16-font-size, 16px);
 }
 
 .agent-markdown h3 {
-  font-size: 15px;
+  font-size: var(--klc-text-14-font-size, 14px);
 }
 
 .agent-markdown h4,
 .agent-markdown h5,
 .agent-markdown h6 {
-  font-size: 13px;
+  font-size: var(--klc-text-copy-13-font-size, 13px);
 }
 
 /* 列表缩进由这里定义：marker 落在列表自身的 padding 内，不会画到正文盒之外。 */
@@ -76,10 +76,10 @@
 
 .agent-markdown code {
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--klc-radius-xs, 4px);
   background: var(--klc-color-ui-hover);
   font-family: var(--klc-font-family-mono);
-  font-size: 12px;
+  font-size: var(--klc-text-12-font-size, 12px);
   font-weight: var(--klc-font-weight-mono);
 }
 
@@ -87,7 +87,7 @@
   margin: 8px 0;
   padding: 8px;
   overflow-x: auto;
-  border-radius: 6px;
+  border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
   background: var(--klc-color-ui-hover);
 }
 
@@ -130,9 +130,9 @@
   margin-left: 2px;
   padding: 0 3px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--klc-radius-xs, 4px);
   color: var(--klc-color-ui-accent);
   background: var(--klc-color-ui-hover);
-  font-size: 10px;
+  font-size: var(--klc-text-11-mono-font-size, 11px);
   cursor: pointer;
 }

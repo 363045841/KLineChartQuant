@@ -47,8 +47,6 @@
 </template>
 
 <script setup lang="ts">
-  import './agent-icon-button.css'
-
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'

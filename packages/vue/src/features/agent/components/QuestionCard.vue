@@ -14,7 +14,7 @@
       </span>
     </div>
 
-    <section class="question" tabindex="-1" data-focus="question">
+    <section class="question agent-bordered-surface" tabindex="-1" data-focus="question">
       <p class="question__prompt">
         <IconHelp aria-hidden="true" />
         <strong>{{ question.prompt }}</strong>
@@ -75,6 +75,7 @@
 <script setup lang="ts">
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseInput from '@vue-src/components/common/form/BaseInput.vue'
+  import './agent-surface.css'
   import { computed, ref } from 'vue'
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconCheck from '~icons/tabler/check'
@@ -145,10 +146,8 @@
     display: grid;
     gap: var(--klc-space-8);
     padding: var(--klc-space-12, 12px);
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: var(--klc-radius-sm, 6px);
-    background: var(--klc-color-ui-card);
     color: var(--klc-color-ui-text);
+    /* 描边材质来自 .agent-bordered-surface：卡片底 + 1px 边框 + 表面圆角。 */
   }
 
   .question__prompt {

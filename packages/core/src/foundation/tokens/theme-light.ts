@@ -257,7 +257,6 @@ export const lightTheme: Theme = {
     wmsrGrid: 'rgba(0, 0, 0, 0.1)',
     ui: lightInterfaceColors,
     agent: {
-      composerInputBackground: lightInterfaceColors.input,
       composerControlBackground: lightInterfaceColors.controlBackground,
       composerControlHover: lightInterfaceColors.hover,
       userMessage: '#EAEAEE',

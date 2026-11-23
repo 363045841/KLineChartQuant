@@ -13,7 +13,11 @@
       },
       "surroundBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9686, 0.9686], "hex": "#F7F7F7" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9686, 0.9686, 0.9686],
+          "hex": "#F7F7F7"
+        },
         "$description": "图表周围的工作区背景：标题栏、工具栏、侧边栏与面板外壳。"
       },
       "tabActiveBackground": {
@@ -28,7 +32,11 @@
       },
       "inputBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9686, 0.9686, 0.9686], "hex": "#F7F7F7" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9686, 0.9686, 0.9686],
+          "hex": "#F7F7F7"
+        },
         "$description": "输入区域的常驻背景，包含组合式数值输入框。"
       },
       "card": {
@@ -49,7 +57,12 @@
       },
       "hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.0392, "hex": "#000000" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0, 0, 0],
+          "alpha": 0.0392,
+          "hex": "#000000"
+        },
         "$description": "黑色 3.9%：叠在任意表面色上都成立，不随背景换配方（参考 Vercel Light 的 interactive.hover #0000000a）。"
       },
       "selected": {
@@ -58,7 +71,11 @@
       },
       "brandSurface": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.1804, 0.4196, 0.2275], "hex": "#2E6B3A" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1804, 0.4196, 0.2275],
+          "hex": "#2E6B3A"
+        },
         "$description": "品牌标记的实心绿底；不透明度 100%，配白色折线。"
       },
       "brandOn": {
@@ -68,22 +85,42 @@
       },
       "highlight": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.102, "hex": "#000000" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0, 0, 0],
+          "alpha": 0.102,
+          "hex": "#000000"
+        },
         "$description": "轻强调底：说明框、标签胶囊、悬停强调。中性透明层，不跟随各预设的 accent。"
       },
       "selection": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.18, "hex": "#000000" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0, 0, 0],
+          "alpha": 0.18,
+          "hex": "#000000"
+        },
         "$description": "文本选区底（编辑器 selection），比 highlight 强一档，仍保持中性。"
       },
       "focusRing": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "alpha": 0.55, "hex": "#171717" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0902, 0.0902, 0.0902],
+          "alpha": 0.55,
+          "hex": "#171717"
+        },
         "$description": "box-shadow 聚焦环：55% 墨黑，对白底约 4:1，满足非文本 3:1；组件不得再用 accent 百分比现算。"
       },
       "border": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.0745, "hex": "#000000" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0, 0, 0],
+          "alpha": 0.0745,
+          "hex": "#000000"
+        },
         "$description": "黑色 7.5%：中性描边，压在白底上接近 Vercel Light 的 interactive.border #00000013。"
       },
       "borderStrong": {
@@ -104,7 +141,11 @@
       },
       "accent": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0902, 0.0902, 0.0902],
+          "hex": "#171717"
+        },
         "$description": "浅色唯一的交互强调色取墨黑：交易界面里蓝色与涨跌色、状态色争夺注意力，改用灰阶深端做“墨”，白字 18.9:1。中间灰在近白底上会读作脏色，不用。"
       },
       "accentStrong": {
@@ -114,7 +155,11 @@
       },
       "focus": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.0902, 0.0902], "hex": "#171717" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0902, 0.0902, 0.0902],
+          "hex": "#171717"
+        },
         "$description": "焦点环与 accent 同色，靠 outline-offset 与元素分离；焦点不靠半透明自造。"
       },
       "warningBackground": {
@@ -1343,7 +1388,6 @@
         }
       },
       "agent": {
-        "composerInputBackground": { "$type": "color", "$value": "{light.interface.input}" },
         "composerControlBackground": {
           "$type": "color",
           "$value": "{light.interface.controlBackground}"
@@ -1481,6 +1525,41 @@
           }
         ],
         "$description": "Every elevated surface also gets this 1px ring; border + shadow read crisper together (S1, S2)."
+      },
+      "raised": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 100], "alpha": 0.7 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" },
+            "inset": true
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [220, 3, 15], "alpha": 0.14 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 0, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 0.5, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [220, 3, 15], "alpha": 0.06 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 2, "unit": "px" },
+            "spread": { "value": -0.5, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [220, 3, 15], "alpha": 0.07 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 4, "unit": "px" },
+            "blur": { "value": 10, "unit": "px" },
+            "spread": { "value": -2, "unit": "px" }
+          }
+        ],
+        "$description": "Surfaces that sit in the layout and lift above the page: the composer, panels beside the chat. Lit top line + 0.5px ring + two cast shadows with negative spread, so the light never bleeds past the outline (a zero-spread blur reads as a grey halo shifted downward, not as a lift), one level below menus. The ring stays sub-pixel on purpose: a whole-pixel ring reads as a drawn border."
       }
     },
     "brand": {

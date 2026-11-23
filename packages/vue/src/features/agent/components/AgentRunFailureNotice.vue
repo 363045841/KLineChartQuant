@@ -72,7 +72,7 @@
 <style scoped>
   .run-failure {
     padding: var(--klc-space-8);
-    border-radius: var(--klc-radius-sm);
+    border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
     color: var(--klc-color-ui-text);
   }
   .run-failure--error {

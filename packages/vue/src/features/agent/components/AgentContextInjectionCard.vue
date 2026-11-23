@@ -1,140 +1,91 @@
+<!--
+  上下文注入内容预览：眼睛按钮开一个浮层，展示实际交给 Runtime 的 ContextItem 数组。
+  预览是浮层而不是上下文条里的一段：条只装胶囊、高度恒定，定位与 Esc / 点击外部收起由 BasePopover 负责，
+  因此不需要把展开态提升到外层，也不会遮挡或挤压时间线。
+-->
 <template>
-  <section v-if="contextItems.length" class="injection-card" :aria-label="text.injectedKLineBars">
-    <BaseTooltip
-      :content="`${text.injectedKLineBars} · ${contextItems.length} ${text.injectedKLineBarsCount}`"
-      placement="top"
-      trigger-display="contents"
-      :disabled="expanded"
-    >
-    <button
-      class="injection-card__summary"
-      type="button"
-      :aria-label="text.injectedKLineBars"
-      :aria-expanded="expanded"
-      :aria-controls="contentId"
-      @click="expanded = !expanded"
-    >
-      <span class="injection-card__action" aria-hidden="true">
-        <IconEye />
-      </span>
-    </button>
-    </BaseTooltip>
-    <Transition name="injection-card-expand">
-      <div v-if="expanded" :id="contentId" class="injection-card__content">
-        <div class="injection-card__content-inner">
-          <pre class="injection-card__data">{{ preview }}</pre>
-        </div>
-      </div>
-    </Transition>
-  </section>
+  <BasePopover
+    v-if="contextItems.length"
+    :label="text.injectedKLineBars"
+    placement="top"
+    role="dialog"
+    max-width="min(560px, calc(100vw - 24px))"
+  >
+    <template #trigger="{ props: triggerProps }">
+      <button
+        v-bind="triggerProps"
+        class="injection-card__trigger agent-raised-surface"
+        type="button"
+        :aria-label="text.injectedKLineBars"
+      >
+        <IconEye class="injection-card__icon" aria-hidden="true" />
+      </button>
+    </template>
+    <p class="injection-card__caption">
+      {{ text.injectedKLineBars }} · {{ contextItems.length }} {{ text.injectedKLineBarsCount }}
+    </p>
+    <pre class="injection-card__data">{{ preview }}</pre>
+  </BasePopover>
 </template>
 
 <script setup lang="ts">
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
-  import { computed, ref } from 'vue'
+  import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
+  import { computed } from 'vue'
   import IconEye from '~icons/tabler/eye'
   import type { AgentContextItem } from '../agent-contracts.js'
   import { type AgentLocale, getAgentCopy } from '../agent-copy/index.js'
+  import './agent-surface.css'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
   }>()
 
-  const contentId = 'agent-context-injection-preview'
-  const expanded = ref(false)
   const text = computed(() => getAgentCopy(props.locale))
   // 直接预览传给 Runtime 的完整 ContextItem 数组，避免 UI 投影与实际注入不一致。
   const preview = computed(() => JSON.stringify(props.contextItems, null, 2))
 </script>
 
 <style scoped>
-  .injection-card {
-    display: contents;
-  }
-
-  .injection-card__summary {
+  .injection-card__trigger {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    width: 26px;
-    box-sizing: border-box;
     justify-content: center;
-    min-height: 26px;
+    width: var(--agent-chip-height, 26px);
+    min-height: var(--agent-chip-height, 26px);
+    box-sizing: border-box;
     padding: 3px;
-    border: 0;
-    border-radius: var(--agent-control-radius, 8px);
     color: var(--klc-color-ui-muted);
-    background: var(--klc-color-agent-composer-input-background);
-    font: inherit;
-    font-size: 11px;
-    text-align: left;
     cursor: pointer;
   }
 
-  .injection-card__summary:hover,
-  .injection-card__summary[aria-expanded='true'] {
-    background: var(--klc-color-ui-hover);
+  /* 交互态在卡片底上叠一层，不直接换 background：条本身透明，换成半透明色会露出下面的时间线。 */
+  .injection-card__trigger:hover,
+  .injection-card__trigger[aria-expanded='true'] {
+    background-image: linear-gradient(var(--klc-color-ui-hover), var(--klc-color-ui-hover));
   }
 
-  .injection-card__action {
-    display: inline-flex;
-    align-items: center;
-    color: inherit;
+  .injection-card__icon {
+    width: var(--klc-space-16, 16px);
+    height: var(--klc-space-16, 16px);
   }
 
-  .injection-card__action svg {
-    width: 14px;
-    height: 14px;
+  .injection-card__caption {
+    margin: 0 0 var(--klc-space-8, 8px);
+    color: var(--klc-color-ui-muted);
+    font-size: var(--klc-text-12-font-size, 12px);
+    line-height: var(--klc-text-12-line-height, 16px);
   }
 
-  .injection-card__content {
-    min-width: 0;
-    display: grid;
-    grid-template-rows: 1fr;
-  }
-
-  .injection-card__content-inner {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  /* 用 0fr→1fr 动画展开/收起，适配内容高度不定的预览面板。 */
-  .injection-card-expand-enter-active,
-  .injection-card-expand-leave-active {
-    transition: grid-template-rows var(--klc-motion-dur-base) var(--klc-motion-ease-standard);
-  }
-
-  .injection-card-expand-enter-from,
-  .injection-card-expand-leave-to {
-    grid-template-rows: 0fr;
-  }
-
-  /* 上下文注入卡片的展开面板换行到整行：布局由卡片自己决定，容器不穿透改写。 */
-  .injection-card__summary {
-    flex: 0 0 26px;
-    order: 0;
-  }
-
-  .injection-card__content {
-    flex: 0 0 100%;
-    order: 1;
-  }
-
+  /* 表面与滚动都由浮层本体（popover-surface）负责，这里只是内容排版。 */
   .injection-card__data {
     min-width: 0;
-    max-height: 220px;
     margin: 0;
-    overflow-y: auto;
-    padding: 8px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: var(--agent-control-radius, 8px);
     color: var(--klc-color-ui-text-soft);
-    background: var(--klc-color-agent-composer-input-background);
     font-family: var(--klc-font-family-mono);
-    font-size: 10px;
+    font-size: var(--klc-text-11-mono-font-size, 11px);
     font-weight: var(--klc-font-weight-mono);
-    line-height: 1.45;
+    line-height: var(--klc-text-11-mono-line-height, 16px);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }

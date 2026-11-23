@@ -629,10 +629,11 @@
 <style scoped>
   /* 设置弹窗里的下拉触发器统一紧凑外观：变量向下继承，不再穿透组件内部。 */
   .agent-settings-selects {
+    /* 弹窗被 teleport 到 body，继承不到工作区的 --agent-chip-height；这里声明同一档控件高。 */
     --control-button-height: 26px;
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
-    --control-button-radius: var(--klc-radius-xs, 4px);
-    --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
+    --control-button-radius: var(--klc-radius-md, 8px);
+    --control-button-font-size: var(--klc-text-12-font-size, 12px);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-shadow: none;
   }
@@ -649,9 +650,9 @@
   }
   /* ───────── 基础 ───────── */
   .settings {
-    --_gap: 12px;
-    --_radius: 10px;
-    --_pad: 14px;
+    --_gap: var(--klc-space-12, 12px);
+    --_radius: var(--klc-radius-md, 8px);
+    --_pad: var(--klc-space-12, 12px);
     height: 100%;
     min-height: 0;
     display: flex;
@@ -677,9 +678,9 @@
 
   .empty {
     margin: 0;
-    padding: 24px 12px;
+    padding: var(--klc-space-24, 24px) var(--klc-space-12, 12px);
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;
   }
 
@@ -692,13 +693,13 @@
 
   .field__label {
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     letter-spacing: 0.01em;
   }
 
   .field__help {
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .field__row {
@@ -743,7 +744,7 @@
   .rail__title {
     padding: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     letter-spacing: 0.04em;
   }
 
@@ -796,7 +797,7 @@
   .rail__error {
     margin: 0 var(--klc-space-8, 8px);
     color: var(--klc-color-ui-danger-text);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.45;
     overflow-wrap: anywhere;
   }
@@ -825,7 +826,7 @@
 
   .protocol-control .selection-menu__value {
     flex: 1 1 auto;
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: left;
   }
 
@@ -882,8 +883,8 @@
     justify-content: space-between;
     gap: 10px;
     padding: 6px 8px;
-    border-radius: 7px;
-    font-size: 12px;
+    border-radius: var(--klc-radius-md, 8px);
+    font-size: var(--klc-text-12-font-size, 12px);
     transition: background-color var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -913,7 +914,7 @@
 
   .model__offline {
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   /* ───────── Tools ───────── */
@@ -943,18 +944,18 @@
   }
 
   .tool__text strong {
-    font-size: 13px;
+    font-size: var(--klc-text-copy-13-font-size, 13px);
   }
 
   .tool__text small {
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.45;
   }
 
   .tool__error {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.45;
     color: var(--klc-color-ui-danger-text);
   }
@@ -963,7 +964,7 @@
     display: grid;
     gap: 6px;
     color: var(--klc-color-ui-muted);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .tool__params summary {
@@ -983,7 +984,7 @@
   .tool__foot {
     display: flex;
     justify-content: flex-start;
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .tool__result {
@@ -995,7 +996,7 @@
     padding: 10px;
     overflow: auto;
     border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
+    border-radius: var(--klc-radius-md, 8px);
     color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-input);
     font-family: var(--klc-font-family-mono);
@@ -1018,7 +1019,7 @@
     justify-content: space-between;
     gap: 16px;
     padding: 10px var(--_pad);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
   }
 
   .row + .row {
@@ -1033,10 +1034,10 @@
     gap: 8px;
     padding: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--klc-color-ui-danger-text) 45%, transparent);
-    border-radius: 8px;
+    border-radius: var(--klc-radius-md, 8px);
     color: var(--klc-color-ui-danger-text);
     background: color-mix(in srgb, var(--klc-color-ui-danger-text) 8%, transparent);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     line-height: 1.45;
   }
 

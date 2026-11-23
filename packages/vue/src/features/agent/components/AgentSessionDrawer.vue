@@ -57,8 +57,6 @@
 </template>
 
 <script setup lang="ts">
-  import './agent-icon-button.css'
-
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import IconPlus from '~icons/tabler/plus'
@@ -92,7 +90,7 @@
   .agent-session-drawer {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: var(--agent-z-drawer, 10);
   }
 
   .agent-session-drawer__backdrop {
@@ -106,7 +104,7 @@
 
   .agent-session-drawer__panel {
     position: relative;
-    z-index: 1;
+    z-index: var(--agent-z-bar, 1);
     width: min(280px, 82%);
     height: 100%;
     min-width: 0;
@@ -123,7 +121,7 @@
     margin: 0;
     padding: 24px 16px;
     color: var(--klc-color-ui-muted);
-    font-size: 12px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-align: center;
   }
 

@@ -25,7 +25,7 @@
 .agent-disclosure {
   min-width: 0;
   color: var(--klc-color-ui-muted);
-  font-size: 12px;
+  font-size: var(--klc-text-12-font-size, 12px);
 }
 
 .agent-disclosure > summary {
@@ -58,7 +58,7 @@
 
 /* 竖线是装饰，独立于文字列：放在摘要图标的中线，不参与对齐。 */
 .agent-disclosure__body::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
@@ -73,10 +73,10 @@
 .agent-entry__bubble {
   max-width: 88%;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
   background: var(--klc-color-ui-hover);
   color: var(--klc-color-ui-text);
-  font-size: 13px;
+  font-size: var(--klc-text-copy-13-font-size, 13px);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -99,7 +99,7 @@
 .agent-entry__edit-error {
   margin: 0;
   color: var(--klc-color-ui-danger-text);
-  font-size: 11px;
+  font-size: var(--klc-text-12-font-size, 12px);
 }
 
 .agent-entry__editor-actions {
@@ -151,7 +151,7 @@
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--klc-radius-xs, 4px);
   background: transparent;
   color: var(--klc-color-ui-muted);
   cursor: pointer;

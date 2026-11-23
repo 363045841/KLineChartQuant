@@ -1,5 +1,5 @@
 <template>
-  <div class="composer__input">
+  <div class="composer__input agent-raised-surface">
       <BaseTextarea
         class="composer__textarea"
         :model-value="draft"
@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
   import './agent-primary-button.css'
+  import './agent-surface.css'
   import '@vue-src/components/common/truncate-text.css'
 
   import type { AgentRunMode } from '@363045841yyt/klinechart-agent-runtime'
@@ -115,7 +116,6 @@
     locale: AgentLocale
     snapshot: ProviderSnapshot | null
     models: readonly ProviderModelView[]
-    modelsLoading: boolean
   }>()
   const emit = defineEmits<{
     'update:draft': [value: string]
@@ -127,6 +127,8 @@
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  /** 快照就绪前模型列表还在拉取；派生自同一次 props，不再单独传一个 loading 标志。 */
+  const modelsLoading = computed(() => props.snapshot === null)
   /** 当前激活的配置名；没有配置时退回 Provider 名称。 */
   const providerLabel = computed(
     () => props.snapshot?.profiles.find((profile) => profile.active)?.name ?? 'OpenAI-compatible',
@@ -148,7 +150,7 @@
   ])
   const modelTriggerLabel = computed(() => {
     if (selectedModel.value) return selectedModel.value.name
-    return props.modelsLoading ? text.value.loadingModels : text.value.modelPlaceholder
+    return modelsLoading.value ? text.value.loadingModels : text.value.modelPlaceholder
   })
   const reasoningGroups = computed<DropMenuGroup[]>(() => [
     {
@@ -212,13 +214,13 @@
 
 <style scoped>
   .composer__input {
-    --composer-inset: 16px;
+    --composer-inset: var(--klc-space-16, 16px);
+
     display: flex;
     flex-direction: column;
     min-width: 0;
-    margin: 0 12px 12px;
-    border-radius: var(--agent-control-radius, 8px);
-    background: var(--klc-color-agent-composer-input-background);
+    margin: 0 var(--agent-gutter, 12px);
+    /* 底色、圆角、边缘与深色薄光来自 .agent-raised-surface。 */
   }
 
   /* BaseTextarea 负责自增高（field-sizing）与无拖拽手柄；这里只定制外观。
@@ -229,7 +231,7 @@
 
     padding: var(--composer-inset);
     border: 0;
-    border-radius: var(--agent-control-radius, 8px);
+    border-radius: var(--agent-control-radius, var(--klc-radius-md, 8px));
     color: var(--klc-color-ui-text);
     background: transparent;
     font-size: var(--klc-text-copy-13-font-size, 13px);
@@ -239,7 +241,7 @@
   .composer__footer {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--klc-space-8, 8px);
     padding: 0 var(--composer-inset) var(--composer-inset);
   }
 
@@ -248,15 +250,15 @@
     flex: 1 1 auto;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--klc-space-8, 8px);
   }
   .composer__model,
   .composer__reasoning,
   .composer__mode {
-    --control-button-height: 26px;
+    --control-button-height: var(--agent-chip-height, 26px);
     --control-button-inline-padding: calc(var(--klc-space-8, 8px) + var(--klc-space-2, 2px));
     --control-button-radius: var(--klc-radius-md, 8px);
-    --control-button-font-size: var(--klc-text-11-mono-font-size, 11px);
+    --control-button-font-size: var(--klc-text-12-font-size, 12px);
     --control-button-active-background: var(--klc-color-ui-hover);
     --control-button-focus-shadow: none;
     --control-button-max-width: 160px;
@@ -290,7 +292,7 @@
     min-width: 0;
     overflow: hidden;
     color: var(--klc-color-ui-text);
-    font-size: 11px;
+    font-size: var(--klc-text-12-font-size, 12px);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

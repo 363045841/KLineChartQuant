@@ -1,9 +1,0 @@
-/* Agent 头部与会话抽屉的图标按钮：把 agent 主题映射到 BaseIconButton 变量，不再自带实现。 */
-.agent-header,
-.agent-session-drawer {
-  --base-icon-button-size: var(--workbench-header-control-size, 30px);
-  --base-icon-button-radius: var(--klc-radius-xs, 4px);
-  --base-icon-button-color: var(--klc-color-ui-muted);
-  --base-icon-button-hover-color: var(--klc-color-ui-text);
-  --base-icon-button-hover-bg: var(--klc-color-ui-hover);
-}

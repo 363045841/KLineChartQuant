@@ -61,7 +61,7 @@ Style Dictionary 尚未支持 Resolver（style-dictionary#1590），由 `package
 | 数字 | `--klc-text-numeric` | `tabular-nums` | CP 19、ADR 0004 |
 | 间距 | `--klc-space-{2…160}` | Carbon 2–160 | §4.3（S28） |
 | 密度 | `--klc-density-{compact,default,comfortable,touch,hit-target,hit-target-touch}` | 24 / 32 / 40 / 48 / 24 / 44 | §4.3、CP 27 |
-| 阴影 | `--klc-elevation-{1,2,3,hairline}` | 浅色：阴影 + hairline；深色：表面提亮为主、软阴影 [derived 透明度] | §4.4 |
+| 阴影 | `--klc-elevation-{1,2,3,hairline,raised}` | 浅色：阴影 + hairline；深色：表面提亮为主、软阴影 [derived 透明度]；`raised` 为布局内抬升面（受光顶线 + 0.5px 环 + 两层软阴影），比菜单低一级 | §4.4 |
 | 动效 | `--klc-motion-ease-{out,in-out,drawer,expo}`、`--klc-motion-dur-{0,press,fast,base,slow,sheet,toast}`、`--klc-motion-{stagger,loader-delay,loader-min}` | §4.5；slow 260 [derived] | §4.5 |
 | 行情闪烁 | `--klc-motion-flash` / `--klc-motion-fade` | 500ms / 1000ms，减少动效时关闭 | design §3.3 |
 | 层级 | `--klc-z-index-{base,chart-overlay,sticky,dropdown,popover,modal,toast,tooltip}` | 0 / 10 / 100 / 1000 / 1010 / 1100 / 1150 / 1200 | 顺序来自 design §3.3；数值锚定现有用法 [derived] |

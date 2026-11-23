@@ -65,8 +65,6 @@ export function createVisualTheme(base: Theme, p: VisualPalette, id: ThemePreset
       agent: {
         ...base.colors.agent,
         userMessage: p.card,
-        composerInputBackground:
-          base.name === 'dark' ? p.card : base.colors.agent.composerInputBackground,
         composerControlBackground:
           base.name === 'dark' ? p.input : base.colors.agent.composerControlBackground,
         composerControlHover:

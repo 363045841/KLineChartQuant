@@ -343,10 +343,8 @@ export interface UiColors {
   readonly controlBackground: ColorValue
 }
 
-/** Agent 专属颜色仅定义输入、消息与遮罩；通用界面角色统一消费 UiColors。 */
+/** Agent 专属颜色仅定义控件、消息与遮罩；通用界面角色统一消费 UiColors。 */
 export interface AgentColors {
-  /** Composer 输入框背景，独立于通用表单输入框。 */
-  readonly composerInputBackground: ColorValue
   /** Composer 内模型和思考力度选择器共用的底色与交互底色。 */
   readonly composerControlBackground: ColorValue
   readonly composerControlHover: ColorValue
@@ -567,6 +565,8 @@ export interface ElevationTokens {
   readonly 2: string
   readonly 3: string
   readonly hairline: string
+  /** 布局内的抬升面（Composer、常驻卡片）：顶部受光线 + 0.5px 环 + 两层软阴影，比菜单低一级。 */
+  readonly raised: string
 }
 
 /** The product's only motion scale. Chart interactions and keyboard actions stay at `dur[0]`. */

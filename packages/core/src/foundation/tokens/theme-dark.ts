@@ -292,7 +292,6 @@ export const darkTheme: Theme = {
       secondaryButtonText: darkInterfaceColors.secondaryButtonText,
     },
     agent: {
-      composerInputBackground: darkInterfaceColors.card,
       composerControlBackground: darkInterfaceColors.controlBackground,
       composerControlHover: darkInterfaceColors.hover,
       userMessage: darkInterfaceColors.controlBackground,

@@ -27,6 +27,7 @@
       ref="panel"
       class="base-popover popover-surface popover-surface--scroll klc-overlay"
       v-bind="popover.panelBindings.value"
+      :style="{ maxWidth }"
       :role="role"
       :aria-label="label"
       @mouseenter="onPanelEnter"
@@ -53,12 +54,15 @@
       /** 触发方式：click 用于可交互面板，hover 用于纯说明气泡。 */
       trigger?: 'click' | 'hover'
       maxHeight?: string
+      /** 面板最大宽度；默认 min(360px, 视口−16px)，窄面板不适合宽内容（JSON、代码）时放宽。 */
+      maxWidth?: string
     }>(),
     {
       placement: 'auto',
       role: 'dialog',
       trigger: 'click',
       maxHeight: 'min(360px, calc(100vh - 24px))',
+      maxWidth: 'min(360px, calc(100vw - 2 * var(--klc-space-8, 8px)))',
     },
   )
 
@@ -141,7 +145,6 @@
   .base-popover {
     --popover-surface-background: var(--klc-color-ui-surface);
     box-sizing: border-box;
-    max-width: min(360px, calc(100vw - 2 * var(--klc-space-8, 8px)));
     padding: var(--klc-space-12, 12px);
     font-size: var(--klc-text-copy-13-font-size, 13px);
     line-height: var(--klc-text-copy-13-line-height, 18px);

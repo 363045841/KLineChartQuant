@@ -77,8 +77,7 @@ describe('foundation tokens: values (craft-principles §4, design §3.3)', () =>
       expect(f.text.label[s]).toEqual({ ...f.text[s], fontWeight: 500 })
     }
     for (const s of [14, 16, 20] as const) expect(f.text.label[s].fontWeight).toBeUndefined()
-    for (const s of [13, 14, 16, 20, 24] as const)
-      expect(f.text.copy[s].fontWeight).toBeUndefined()
+    for (const s of [13, 14, 16, 20, 24] as const) expect(f.text.copy[s].fontWeight).toBeUndefined()
   })
 
   it('space follows Carbon 2..160 (S28)', () => {
@@ -173,6 +172,20 @@ describe('foundation tokens: per mode', () => {
     }
   })
 
+  it('raised elevation: lit top line + 1px ring, one level below menus', () => {
+    // 浅色 4 层、深色 5 层（深色多一道外侧切割边，近黑底上单环会消失）。
+    expect(lightFoundation.elevation.raised.split('), ').length).toBe(4)
+    expect(darkFoundation.elevation.raised.split('), ').length).toBe(5)
+    // 浅色环画在盒外且保持 0.5px（整像素会读成画上去的边框），投影用负 spread 收进轮廓；深色环是 3% 白内边，投影承担层次。
+    expect(lightFoundation.elevation.raised).toContain('0 0 0 0.5px hsl(220 3% 15% / 0.14)')
+    expect(lightFoundation.elevation.raised).toContain('-2px hsl(220 3% 15% / 0.07)')
+    expect(darkFoundation.elevation.raised).toContain('inset 0 0 0 1px hsl(0 0% 100% / 0.03)')
+    for (const f of [lightFoundation, darkFoundation]) {
+      // 顶部受光线是内阴影，不占布局。
+      expect(f.elevation.raised.startsWith('inset 0 1px 0 ')).toBe(true)
+    }
+  })
+
   it('brand accent Instrument Cobalt meets AA on the Pro surfaces (ADR 0007)', () => {
     expect(lightFoundation.brand.accent).toBe('#4C77C6')
     expect(darkFoundation.brand.accent).toBe('#4C77C6')
@@ -214,6 +227,7 @@ describe('foundation tokens: Theme integration', () => {
     expect(vars['--klc-space-16']).toBe('16px')
     expect(vars['--klc-density-hit-target-touch']).toBe('44px')
     expect(vars['--klc-elevation-hairline']).toBe('0 0 0 1px hsl(0 0% 100% / 0.08)')
+    expect(vars['--klc-elevation-raised']).toContain('inset 0 1px 0 hsl(0 0% 100% / 0.02)')
     expect(vars['--klc-motion-ease-in-out']).toBe('cubic-bezier(0.77, 0, 0.175, 1)')
     expect(vars['--klc-motion-dur-0']).toBe('0ms')
     expect(vars['--klc-motion-flash']).toBe('500ms')

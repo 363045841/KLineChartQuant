@@ -58,7 +58,11 @@
       },
       "brandSurface": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.2078, 0.4706, 0.2902], "hex": "#35784A" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.2078, 0.4706, 0.2902],
+          "hex": "#35784A"
+        },
         "$description": "深色主题的实心绿底：比浅色略亮，保证圆在深色栏上仍可见（约 3.2:1）。"
       },
       "brandOn": {
@@ -68,17 +72,32 @@
       },
       "highlight": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.12, "hex": "#FFFFFF" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 1, 1],
+          "alpha": 0.12,
+          "hex": "#FFFFFF"
+        },
         "$description": "轻强调底：叠加在深色表面上，不随预设 accent 变化。"
       },
       "selection": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.18, "hex": "#FFFFFF" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 1, 1],
+          "alpha": 0.18,
+          "hex": "#FFFFFF"
+        },
         "$description": "文本选区底，比 highlight 强一档。"
       },
       "focusRing": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "alpha": 0.55, "hex": "#FFFFFF" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 1, 1],
+          "alpha": 0.55,
+          "hex": "#FFFFFF"
+        },
         "$description": "box-shadow 聚焦环：55% 白，对深色底满足非文本 3:1。"
       },
       "border": {
@@ -173,11 +192,19 @@
       "chartBackground": { "$type": "color", "$value": "{dark.interface.background}" },
       "legendBackground": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.0824, 0.0863, 0.098], "alpha": 0.8, "hex": "#151619" },
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0824, 0.0863, 0.098],
+          "alpha": 0.8,
+          "hex": "#151619"
+        },
         "$description": "= chartBackground at alpha 0xCC：图例文字背后的画布色遮罩。"
       },
       "floatingSurface": { "$type": "color", "$value": "{dark.interface.surface}" },
-      "chartNavigationBackground": { "$type": "color", "$value": "{dark.interface.controlBackground}" },
+      "chartNavigationBackground": {
+        "$type": "color",
+        "$value": "{dark.interface.controlBackground}"
+      },
       "candleUpBody": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.0314, 0.6, 0.5059], "hex": "#089981" }
@@ -1311,7 +1338,6 @@
         }
       },
       "agent": {
-        "composerInputBackground": { "$type": "color", "$value": "{dark.interface.card}" },
         "composerControlBackground": {
           "$type": "color",
           "$value": "{dark.interface.controlBackground}"
@@ -1442,6 +1468,49 @@
           }
         ],
         "$description": "1px white ring on floating surfaces. [derived] midpoint of CP §4.4's 0.06-0.10 range (semi-transparent border S1; Basement off-white at 10-30% S14)."
+      },
+      "raised": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 100], "alpha": 0.02 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" },
+            "inset": true
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 100], "alpha": 0.03 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 0, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 1, "unit": "px" },
+            "inset": true
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.45 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 0, "unit": "px" },
+            "blur": { "value": 0, "unit": "px" },
+            "spread": { "value": 1, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.5 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 1, "unit": "px" },
+            "blur": { "value": 2, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          },
+          {
+            "color": { "colorSpace": "hsl", "components": [0, 0, 0], "alpha": 0.32 },
+            "offsetX": { "value": 0, "unit": "px" },
+            "offsetY": { "value": 4, "unit": "px" },
+            "blur": { "value": 10, "unit": "px" },
+            "spread": { "value": 0, "unit": "px" }
+          }
+        ],
+        "$description": "Surfaces that sit in the layout and lift above the page: the composer, panels beside the chat. The hairline is a whisper (3% white inset ring + 2% lit top line) because a lit edge on a near-black page blooms; depth comes from the outer cut and the two cast shadows."
       }
     },
     "brand": {
