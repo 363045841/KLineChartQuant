@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { dataSourceRegistry } from '../../impl/sourceRegistry'
 import type { InstrumentDescriptor } from '../../types'
 import { InstrumentType } from '../../types'
+import { UNUSABLE_CAPABILITIES_MESSAGE } from '../impl/capabilityGuard'
 import { createHttpMarketDataTransport } from '../impl/httpTransport'
 import { createMarketDataProvider } from '../impl/provider'
 import type {
@@ -53,6 +54,14 @@ function fakeTransport(overrides: Partial<MarketDataTransport> = {}): MarketData
     }),
     ...overrides,
   }
+}
+
+// 回放网络形状：畸形数据只能经由 wire 进入，避免在测试里构造类型断言
+function respond(data: unknown): Response {
+  return new Response(JSON.stringify({ data, requestId: 'r' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 // 以 GOTDX 元信息构造装配器，便于断言错误消息前缀
@@ -166,26 +175,45 @@ describe('createMarketDataProvider', () => {
     })
   })
 
-  // 能力声明来自网络：缺 instrumentTypes 的响应必须降级并清空能力，而不是让流转筛选抛 TypeError
-  it('degrades a probe whose capabilities omit instrumentTypes', async () => {
+  // 能力声明来自网络：形状不合协议时必须降级并清空能力，而不是让流转筛选抛 TypeError
+  it.each([
+    {
+      shape: '旧方言 assetClasses',
+      capabilities: { assetClasses: ['stock'] },
+      status: 'degraded',
+    },
+    { shape: '缺 instrumentTypes', capabilities: {}, status: 'degraded' },
+    {
+      shape: 'instrumentTypes 不是数组',
+      capabilities: { instrumentTypes: 'stock' },
+      status: 'degraded',
+    },
+    {
+      shape: 'bars 缺 periods',
+      capabilities: { instrumentTypes: ['stock'], bars: { adjustments: ['none'] } },
+      status: 'degraded',
+    },
+    {
+      shape: '合法声明',
+      capabilities: {
+        instrumentTypes: ['stock'],
+        bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest: 798 },
+        timeShareRange: { maxTradingDays: 5 },
+        depth: true,
+      },
+      status: 'online',
+    },
+  ])('resolves a probe with $shape as $status', async ({ capabilities, status }) => {
     const transport = createHttpMarketDataTransport({
       baseUrl: 'http://127.0.0.1:8090',
-      // 旧连接器只报 assetClasses，前端协议要求 instrumentTypes
-      fetchImpl: async () =>
-        new Response(
-          JSON.stringify({
-            data: { status: 'online', checkedAt: 1, capabilities: { assetClasses: ['stock'] } },
-            requestId: 'r',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
+      fetchImpl: async () => respond({ status: 'online', checkedAt: 1, capabilities }),
     })
     const provider = createProvider(transport)
     await expect(provider.probe()).resolves.toMatchObject({
-      status: 'degraded',
-      message: '能力声明缺少 instrumentTypes，已按不可用处理',
+      status,
+      ...(status === 'degraded' ? { message: UNUSABLE_CAPABILITIES_MESSAGE } : {}),
     })
-    expect(provider.source.capabilities).toBeUndefined()
+    expect(provider.source.capabilities).toEqual(status === 'degraded' ? undefined : capabilities)
   })
 
   // 验证品种目录映射到领域模型，并按要求过滤 instrumentTypes
@@ -211,6 +239,25 @@ describe('createMarketDataProvider', () => {
     await expect(
       provider.catalog!.search({ keyword: '茅台', limit: 10, instrumentTypes: ['unknown'] }),
     ).resolves.toEqual([instrument])
+  })
+
+  // 目录里单个品种的能力声明不合协议时只丢弃该品种，其余品种仍可用于路由
+  it('drops catalog items whose capabilities are unusable', async () => {
+    const provider = createProvider(
+      createHttpMarketDataTransport({
+        baseUrl: 'http://127.0.0.1:8090',
+        fetchImpl: async () =>
+          respond({
+            items: [
+              { ...wireInstrument, capabilities: { bars: { adjustments: ['none'] } } },
+              wireInstrument,
+            ],
+          }),
+      }),
+    )
+    await expect(provider.catalog!.search({ keyword: '600519', limit: 10 })).resolves.toEqual([
+      instrument,
+    ])
   })
 
   // 验证 K 线请求完成字段映射，并兜底推断 CN 非指数品种的成交量单位
