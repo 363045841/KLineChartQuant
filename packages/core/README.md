@@ -261,5 +261,5 @@ The default synchronous host attempts WebGL and falls back to Canvas2D. WebGPU i
 
 ## 📄 License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](../../LICENSE)
 

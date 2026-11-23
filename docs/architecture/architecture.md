@@ -150,7 +150,7 @@ flowchart TB
 
 ### 3.1 ChartController（对外门面）
 
-`controllers/createChartController.ts` 提供 `createChartController(opts)` 工厂：
+`controllers/chart/impl/createChartController.ts` 提供 `createChartController(opts)` 工厂：
 
 - 组装 DOM（挂载 canvas、滚动容器、左右轴、时间轴层），支持外部注入已存在的 DOM。
 - 构造 `Chart` 实例，并把内核状态投影为一组 `ReadonlySignal`（viewport、data、
@@ -286,7 +286,7 @@ flowchart TB
 前端对接代码：`packages/core/src/data/provider/impl/sources/gotdx.ts`、
 `packages/core/src/data/provider/impl/sources/binance.ts`、`packages/core/src/data/provider/impl/sources/mt5.ts`、
 `packages/core/src/data/provider/impl/sources/ths.ts`、
-`packages/core/src/data/live/impl/barsLive.ts`、`packages/core/src/data/trades/impl/tradeSource.ts`。
+`packages/core/src/data/stream/impl/sseTransport.ts`、`packages/core/src/data/trades/impl/tradeSource.ts`。
 Vite 开发代理 `/api/public` → `:8080`、
 `/api/stock` → `:8000`；Binance 前端直连 `Binance-Connector` 的 `:8091`（不经 Vite 代理）。
 `pnpm setup:backends` 可幂等克隆上述后端，`pnpm dev -c all` 一键启动
@@ -303,7 +303,7 @@ Vite 开发代理 `/api/public` → `:8080`、
 
 **控制器与门面**
 
-- `packages/core/src/controllers/createChartController.ts`
+- `packages/core/src/controllers/chart/impl/createChartController.ts`
 - `packages/core/src/engine/chart/impl/chart.ts`
 
 **状态内核**
@@ -325,11 +325,11 @@ Vite 开发代理 `/api/public` → `:8080`、
 - `packages/core/src/rendering/render/rendererHost.ts`
 - `packages/core/src/rendering/scene/createScene.ts`
 - `packages/core/src/foundation/reactivity/frameTransaction.ts`
-- `packages/core/src/engine/frame/chartRenderer.ts`
+- `packages/core/src/engine/frame/impl/chartRenderer.ts`
 
 **插件与响应式**
 
-- `packages/core/src/foundation/plugin/PluginHost.ts`
+- `packages/core/src/foundation/plugin/impl/PluginHost.ts`
 - `packages/core/src/foundation/reactivity/signal.ts`
 
 ## 7. 维护要求

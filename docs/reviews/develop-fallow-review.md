@@ -1,6 +1,6 @@
 # develop 分支 Fallow 审查
 
-审查基准：`origin/main`（1da6969d），分支原始 HEAD：c020a859。范围为 63 个变更文件，以及全部 7 个变更测试文件（含已删除的 drawingRange.test.ts）。使用仓库 `.agents/skills/fallow-review/SKILL.md`，结合 Fallow review、audit、dead-code trace、CodeGraph 调用链和测试验证。
+审查基准：`origin/main`（1da6969d），分支原始 HEAD：c020a859。范围为 63 个变更文件，以及全部 7 个变更测试文件（含已删除的 drawingRange.test.ts）。使用仓库 `.agents/skills/fallow-review/SKILL.md`，结合 Fallow review、audit、dead-code trace、CodeGraph 调用链和测试验证。文中路径与行号为该时点快照，后续结构重构后可能已迁移。
 
 ## 原审查发现（以下 4 项已在后续修复中处理）
 

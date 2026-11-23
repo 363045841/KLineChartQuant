@@ -63,8 +63,6 @@ examples/next-app/
 �?  ├── chart.tsx         # 'use client' �?useChart with real ref
 �?  ├── layout.tsx        # Minimal HTML shell
 �?  └── page.tsx          # Server component �?adapter import at module top
-├── lib/
-�?  └── mockData.ts       # 100 deterministic candles
 ├── next.config.mjs       # transpilePackages for workspace symlinks
 ├── next-env.d.ts
 ├── package.json          # private, workspace:* dep

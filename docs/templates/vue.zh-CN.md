@@ -2,6 +2,8 @@
 
 {{include:_header.zh-CN.md}}
 
+{{include:_lang.zh-CN.md}}
+
 {{include:_badges.zh-CN.md}}
 
 {{include:_hero.zh-CN.md}}

@@ -74,7 +74,7 @@ pnpm workspace at `packages/*`。唯一对外发布包是 `packages/vue`(`@36304
 
 ## Architecture
 
-- **Entrypoints**: `packages/core/src/index.ts`(re-exports reactivity,controllers,tokens),`packages/vue/src/index.ts`(SFC 组件 + createChart + composables),`packages/vue/src/components/KLineChart.vue`(legacy SFC).
+- **Entrypoints**: `packages/core/src/index.ts`(re-exports reactivity,controllers,tokens),`packages/vue/src/index.ts`(SFC 组件 + createChart + composables),`packages/vue/src/components/chart/KLineChart.vue`(legacy SFC).
 - **Core engine**: `packages/core/src/engine/` —— chart,viewport,panes,renderers,interaction,markers,drawing.
 - **Plugin subsystem**: `packages/core/src/foundation/plugin/` —— PluginHost,HookSystem,EventBus,ConfigManager,StateStore,RendererPluginManager(只负责 register/config,paint 走 Scene).
 - **Rendering**: 管线 SSOT 是 `docs/rendering/rendering-pipeline.md`;分层更新由 `UpdateLevel` Main|Overlay|All 与正式 drawing 保留策略负责.已删除的 architecture/plugin 渲染文档不要复活.

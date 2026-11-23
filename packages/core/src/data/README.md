@@ -19,6 +19,7 @@ data/
 ├── buffer/           # 行情缓存：契约 types.ts + 实现 impl/
 ├── management/       # 宿主持有的行情实例：连接、策略和健康状态
 ├── depth/            # 深度数据：契约 types.ts + 实现 impl/（DepthSource 连接器；Binance 适配器待接入）
+├── stream/           # 实时流：契约 types.ts + 实现 impl/（协议、状态机、SSE 传输、连接注册表）
 └── provider/         # 统一行情 Provider 体系：契约 types.ts + 实现 impl/
     ├── types.ts          # 领域模型 + 注册表 / Router 契约：InstrumentDescriptor / BarSeries / MarketDataProvider / SourceCapabilityQuery 等
     ├── impl/             # 实现：registry / router / instrumentSearch / sourceRegistry
@@ -46,6 +47,21 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 - `types.ts`：深度领域类型（`DepthSource` / `DepthSnapshot` / `DepthDelta`）。
 - `impl/depthConnector.ts`：连接 `DepthSource` 与热力图渲染的控制器。
 - Binance 实时盘口适配器待接入 `Binance-Connector` 的深度接口；旧的 GoTDX `:8081` SSE 适配器已移除。
+
+### stream/ — 实时流
+
+实时行情的唯一连接实现：一条连接承载一次批量订阅，传输是一次性对象，连接状态机是唯一所有者。
+
+- `types.ts`：wire 协议与内部契约（`StreamFrame` / `StreamEvent` / `StreamHub` / `StreamTransport`）。
+- `impl/protocol.ts`：URL 组装与帧解析，未知帧、缺字段、未知状态一律拒绝。
+- `impl/machine.ts` / `impl/policy.ts`：纯状态迁移与退避策略（1s→30s、full jitter、稳定期 30s）。
+- `impl/connection.ts`：状态、定时器与传输的唯一持有者；看门狗用墙钟差判僵死。
+- `impl/sseTransport.ts`：内置 SSE 传输，只上报打开、帧与关闭，不重连、不判活。
+- `impl/hub.ts`：连接注册表，只做连接键映射与引用计数。
+
+`MarketDataContext` 持有注册表，并把 `visibilitychange` / `pageshow` / `online` 接成一次 `resume()`；
+系统睡眠不发事件，醒来由逾期的看门狗或退避定时器补跑。协议与恢复策略见
+[实时流协议与连接恢复](../../../../docs/design/realtime-stream-protocol.md)。
 
 ### provider/ — 统一行情 Provider 体系
 

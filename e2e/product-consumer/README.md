@@ -45,3 +45,4 @@ pnpm check
 - **不要**把本目录加进根 `pnpm-workspace.yaml`。根仓库里有同名包 `packages/vue`，一旦进入 workspace，pnpm 会 link 本地源码，验证就失去意义。
 - **不要**加任何指向 `packages/*/src` 的 alias。
 - 版本号必须显式写死；CI 用 `pnpm add <name>@<version>` 覆盖。
+- 本目录的 `main.ts` / `source.ts` 使用该 pin 版本的公开契约；升级到 breaking 版本时必须同步改写，否则回读会在转译阶段失败。
