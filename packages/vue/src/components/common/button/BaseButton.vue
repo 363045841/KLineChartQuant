@@ -1,4 +1,4 @@
-<!-- 共享按钮：默认是文字动作（悬停出下划线），variant 只切换颜色；统一消费 ui tokens，避免各 dialog 复制按钮样式。 -->
+<!-- 共享按钮：默认是文字动作（悬停出下划线），variant 切换文字动作的颜色；chip 是工具栏的紧凑切换胶囊。 -->
 <template>
   <button
     ref="button"
@@ -20,8 +20,8 @@
       type?: 'button' | 'submit' | 'reset'
       /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景，inline 用于句子内的文字动作。 */
       size?: 'md' | 'sm' | 'inline'
-      /** 操作层级：default 弱化文字、primary 始终正文色、link 链接蓝。形状统一是文字动作。 */
-      variant?: 'default' | 'primary' | 'link'
+      /** 操作层级：default 弱化文字、primary 始终正文色、link 链接蓝；chip 是工具栏切换胶囊，无下划线。 */
+      variant?: 'default' | 'primary' | 'link' | 'chip'
       /** 禁用态。 */
       disabled?: boolean
     }>(),
@@ -110,8 +110,32 @@
   }
 
   /*
-    文字动作下划线：默认生成；需要色块按钮（hover 出底色）的站点用
-    --base-button-underline: none 配合 --base-button-hover-background 改回。
+    工具栏切换胶囊：没有文字下划线，hover 出底色；选中态由 aria-pressed 表达。
+    变量必须写在组件自己的 scoped 样式里——外部单类选择器压不过 .base-button[data-v]。
+  */
+  .base-button--chip {
+    --base-button-underline: none;
+    --base-button-hover-background: var(--klc-color-ui-hover);
+    --base-button-inline-padding: var(--klc-space-8, 8px);
+
+    height: var(--base-button-height, 22px);
+    border: 0;
+    border-radius: var(--klc-radius-xs, 4px);
+    font-size: var(--klc-text-11-font-size, 11px);
+    font-weight: 600;
+  }
+
+  /* 选中档只靠底色与文字色区分；hover 底色指回选中色，避免悬停把选中态抹掉。 */
+  .base-button--chip[aria-pressed='true'] {
+    --base-button-hover-background: var(--klc-color-ui-selected);
+
+    background: var(--klc-color-ui-selected);
+    color: var(--klc-color-ui-text);
+  }
+
+  /*
+    文字动作下划线：默认生成；工具栏胶囊用 chip 变体关闭它（变体在组件内声明变量，
+    才不会被这里的默认值反压）。
     宽度用 width 展开而不是 scaleX：合成层回收时缩放会突然变细；
     宽度由控件自己的行内留白变量推导，换尺寸或响应式留白都不会和文字错位。
     与 control-button.css 的同名动画互为镜像，改一处必须同步另一处。

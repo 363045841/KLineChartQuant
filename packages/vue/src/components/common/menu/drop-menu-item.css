@@ -6,7 +6,7 @@
 
 /* 条目内容压在悬停高亮块之上。 */
 .drop-menu__item .drop-menu__item-main,
-.drop-menu__item .drop-menu__item-action {
+.drop-menu__item .drop-menu__item-trailing {
   position: relative;
   z-index: 1;
 }
@@ -80,10 +80,43 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 行内动作按钮默认隐藏，行悬停或聚焦时出现；状态标记由 .drop-menu__status 常驻。 */
-.drop-menu__item:hover .drop-menu__item-action button,
-.drop-menu__item:focus-within .drop-menu__item-action button {
-  visibility: visible;
+/*
+ * 行尾是「状态 + 动作」的一行：勾选/状态标记常驻，动作追加在它右边。
+ * 动作只追加不顶替，所以勾不会移动，也不需要隐藏状态。
+ */
+.drop-menu__item .drop-menu__item-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-self: stretch;
+  align-items: center;
+}
+
+.drop-menu__item .drop-menu__item-state {
+  display: flex;
+  align-items: center;
+}
+
+/* 动作平时不渲染；行悬停/聚焦，或动作本身已处于收藏态时出现。 */
+.drop-menu__item .drop-menu__item-trailing .drop-menu__item-action {
+  display: none;
+  align-items: center;
+}
+
+.drop-menu__item:hover .drop-menu__item-trailing .drop-menu__item-action:not(:empty),
+.drop-menu__item:focus-within .drop-menu__item-trailing .drop-menu__item-action:not(:empty),
+.drop-menu__item .drop-menu__item-trailing .drop-menu__item-action:has(button[aria-pressed='true']) {
+  display: flex;
+}
+
+/* 行尾座位里的勾与动作共用右边缘：勾保留与主按钮一致的内缩。 */
+.drop-menu__item .drop-menu__item-trailing .drop-menu__check {
+  margin-right: var(--klc-space-12, 12px);
+}
+
+/* 状态层图标与菜单项图标同尺寸。 */
+.drop-menu__item .drop-menu__item-state svg {
+  width: 14px;
+  height: 14px;
 }
 
 .drop-menu__item .drop-menu__item-action button {
@@ -97,10 +130,9 @@
   background: transparent;
   color: var(--klc-color-ui-muted);
   cursor: pointer;
-  visibility: hidden;
 }
 
-.drop-menu__item .drop-menu__item-action .drop-menu__status {
+.drop-menu__item .drop-menu__item-state .drop-menu__status {
   display: grid;
   place-items: center;
   /* 宽度贴合图标，避免居中留白叠加后勾选标记右侧间距大于文字左侧。 */

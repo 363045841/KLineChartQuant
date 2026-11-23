@@ -49,12 +49,19 @@
                   <DropMenuItemButton
                     :item="item"
                     :show-icon="hasMainIcons"
+                    :show-check="false"
                     :expanded="item.children?.length ? isSubmenuOpen(item) : undefined"
                     @activate="activateItem(group.id, item)"
                   />
                 </slot>
-                <span v-if="$slots['item-action']" class="drop-menu__item-action">
-                  <slot name="item-action" :group="group" :item="item" />
+                <span class="drop-menu__item-trailing">
+                  <span class="drop-menu__item-state">
+                    <DropMenuCheck :checked="item.checked" />
+                    <slot name="item-status" :group="group" :item="item" />
+                  </span>
+                  <span class="drop-menu__item-action">
+                    <slot name="item-action" :group="group" :item="item" />
+                  </span>
                 </span>
               </div>
               <div v-if="group.items.length === 0 && emptyText" class="drop-menu__empty">
@@ -116,6 +123,7 @@
     useTemplateRef,
     watch,
   } from 'vue'
+  import DropMenuCheck from './DropMenuCheck.vue'
   import DropMenuItemButton from './DropMenuItemButton.vue'
   import type { DropMenuGroup, DropMenuItem, MenuAnchor } from './dropMenuTypes.js'
 
@@ -508,10 +516,6 @@
   .drop-menu__footer {
     padding: var(--klc-space-8, 8px);
     border-top: 1px solid var(--klc-color-ui-border);
-  }
-
-  .drop-menu__item-action:empty {
-    display: none;
   }
 
   /* 分组标题居中对齐，两侧各一条延伸到面板边缘的线；这条线就是带标题分组的分隔。 */

@@ -4,8 +4,7 @@
     <BaseButton
       v-for="preset in RANGE_PRESETS"
       :key="preset"
-      class="range-presets__item"
-      size="sm"
+      variant="chip"
       :disabled="disabled"
       :aria-pressed="active === preset"
       @click="apply(preset)"
@@ -57,24 +56,5 @@
 
   .range-presets::-webkit-scrollbar {
     display: none;
-  }
-
-  /* 按钮沿用共享按钮控件，只覆盖成紧凑的胶囊外观。 */
-  .range-presets__item {
-    --base-button-underline: none;
-    --base-button-height: 22px;
-    --base-button-inline-padding: var(--klc-space-8, 8px);
-    border-radius: var(--klc-radius-xs, 4px);
-    font-size: var(--klc-text-11-font-size, 11px);
-    font-weight: 600;
-  }
-
-  .range-presets__item[aria-pressed='true'] {
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .range-presets__item[aria-pressed='true']:disabled {
-    opacity: 1;
   }
 </style>

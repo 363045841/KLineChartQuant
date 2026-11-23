@@ -41,7 +41,7 @@ describe('RangePresetBar', () => {
     const { controller, wrapper } = setup()
     const buttons = wrapper.findAll('.base-button')
     expect(buttons).toHaveLength(9)
-    expect(buttons.every((button) => button.classes().includes('range-presets__item'))).toBe(true)
+    expect(buttons.every((button) => button.classes().includes('base-button--chip'))).toBe(true)
 
     // 高亮来自 Core 派生的可见窗口，不是组件内部状态。
     controller._setActiveRangePreset('1M')

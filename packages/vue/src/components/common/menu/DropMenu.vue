@@ -43,6 +43,9 @@
       <template v-if="$slots.item" #item="scope">
         <slot name="item" v-bind="scope" />
       </template>
+      <template v-if="$slots['item-status']" #item-status="scope">
+        <slot name="item-status" v-bind="scope" />
+      </template>
       <template v-if="$slots['item-action']" #item-action="scope">
         <slot name="item-action" v-bind="scope" />
       </template>

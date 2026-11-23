@@ -29,26 +29,29 @@
     <span v-if="item.children?.length" class="drop-menu__submenu-arrow">
       <IconTablerChevronRight aria-hidden="true" />
     </span>
-    <span v-if="item.checked !== undefined" class="drop-menu__check" aria-hidden="true">
-      <IconTablerCheck v-if="item.checked" />
-    </span>
+    <DropMenuCheck v-if="showCheck" :checked="item.checked" />
   </button>
 </template>
 
 <script setup lang="ts">
   import './drop-menu-item.css'
-  import IconTablerCheck from '~icons/tabler/check'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import { computed } from 'vue'
+  import DropMenuCheck from './DropMenuCheck.vue'
   import type { DropMenuItem } from './dropMenuTypes.js'
 
-  const props = defineProps<{
-    item: DropMenuItem
-    /** 菜单里存在图标时保留图标槽位，避免行与行之间文案左右跳动。 */
-    showIcon: boolean
-    /** 含子菜单的行展开态；其它行不设置。 */
-    expanded?: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      item: DropMenuItem
+      /** 菜单里存在图标时保留图标槽位，避免行与行之间文案左右跳动。 */
+      showIcon: boolean
+      /** 顶层行由行尾座位统一渲染勾选；二级菜单没有座位，仍由这里渲染。 */
+      showCheck?: boolean
+      /** 含子菜单的行展开态；其它行不设置。 */
+      expanded?: boolean
+    }>(),
+    { showCheck: true },
+  )
   const emit = defineEmits<{ activate: [] }>()
 
   /** 角色由选中语义决定：单选、开关和命令在无障碍树里是三种不同控件。 */

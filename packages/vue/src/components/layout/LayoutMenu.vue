@@ -1,10 +1,8 @@
 <!-- 布局管理菜单：普通按钮作为锚点，保存、创建与布局列表在同一面板内，命名走弹窗。 -->
 <template>
-  <BaseTooltip :content="currentName" placement="bottom" trigger-display="contents">
-    <button v-bind="menu.buttonProps.value" type="button" class="control-button" :disabled="!controller">
-      <span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span>
-    </button>
-  </BaseTooltip>
+  <button v-bind="menu.buttonProps.value" type="button" class="control-button" :disabled="!controller">
+    <span class="symbol-chip__code">{{ currentName }}{{ dirty ? ' *' : '' }}</span>
+  </button>
 
   <MenuSurface
     v-bind="menu.menuProps.value"
@@ -18,25 +16,46 @@
     @select="onSelect"
   >
     <template #item="{ group, item, select }">
-      <button type="button" role="menuitem" class="drop-menu__item-main" :disabled="item.disabled" @click="select">
+      <button
+        type="button"
+        :role="group.id === LAYOUT_MENU.group.layouts ? 'menuitemradio' : 'menuitem'"
+        :aria-checked="group.id === LAYOUT_MENU.group.layouts ? item.checked : undefined"
+        class="drop-menu__item-main"
+        :disabled="item.disabled"
+        @click="select"
+      >
         <IconDeviceFloppy v-if="group.id === LAYOUT_MENU.group.actions" aria-hidden="true" />
         <IconPlus v-else-if="group.id === LAYOUT_MENU.group.create" aria-hidden="true" />
         <span>{{ item.label }}</span>
-        <span v-if="group.id === LAYOUT_MENU.group.layouts && item.checked" class="drop-menu__check" aria-label="当前布局"><IconCheck aria-hidden="true" /></span>
         <span v-if="item.id === LAYOUT_MENU.item.autosave" class="drop-menu__switch" role="switch" :aria-checked="autoSave" aria-label="自动保存"><span /></span>
       </button>
     </template>
-    <template #item-action="{ group, item }">
+    <template #item-status="{ group, item }">
       <span v-if="group.id === LAYOUT_MENU.group.actions && item.id === LAYOUT_MENU.item.save && saved" class="drop-menu__status" role="status" aria-label="布局保存成功"><IconCheck aria-hidden="true" /></span>
-      <BaseTooltip v-if="group.id === LAYOUT_MENU.group.layouts" content="复制" placement="top">
-        <button type="button" :disabled="busy" :aria-label="`复制 ${item.label}`" @click.stop="openNaming('duplicate', { id: item.id, name: item.label })"><IconCopy aria-hidden="true" /></button>
-      </BaseTooltip>
-      <BaseTooltip v-if="group.id === LAYOUT_MENU.group.layouts" content="重命名" placement="top">
-        <button type="button" :disabled="busy" :aria-label="`重命名 ${item.label}`" @click.stop="openNaming('rename', { id: item.id, name: item.label })"><IconPencil aria-hidden="true" /></button>
-      </BaseTooltip>
-      <BaseTooltip v-if="group.id === LAYOUT_MENU.group.layouts && item.deletable" content="删除" placement="top">
-        <button type="button" class="drop-menu__action--danger" :disabled="busy" :aria-label="`删除 ${item.label}`" @click.stop="remove(item.id)"><IconTrash aria-hidden="true" /></button>
-      </BaseTooltip>
+    </template>
+    <template #item-action="{ group, item }">
+      <button
+        v-if="group.id === LAYOUT_MENU.group.layouts"
+        type="button"
+        :disabled="busy"
+        :aria-label="`复制 ${item.label}`"
+        @click.stop="openNaming('duplicate', { id: item.id, name: item.label })"
+      ><IconCopy aria-hidden="true" /></button>
+      <button
+        v-if="group.id === LAYOUT_MENU.group.layouts"
+        type="button"
+        :disabled="busy"
+        :aria-label="`重命名 ${item.label}`"
+        @click.stop="openNaming('rename', { id: item.id, name: item.label })"
+      ><IconPencil aria-hidden="true" /></button>
+      <button
+        v-if="group.id === LAYOUT_MENU.group.layouts && item.deletable"
+        type="button"
+        class="drop-menu__action--danger"
+        :disabled="busy"
+        :aria-label="`删除 ${item.label}`"
+        @click.stop="remove(item.id)"
+      ><IconTrash aria-hidden="true" /></button>
     </template>
   </MenuSurface>
 
@@ -56,7 +75,6 @@
   import '@vue-src/components/common/menu/control-button.css'
 
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
   import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import { LAYOUT_MENU, useLayouts } from '@vue-src/composables/chart/useLayouts.js'
