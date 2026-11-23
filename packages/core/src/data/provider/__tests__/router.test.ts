@@ -6,6 +6,8 @@ import { KLineChartError } from '@/errors'
 import { symbolInfoFromSpec } from '../../../engine/data/symbolInfo'
 import { MarketDataProviderRegistry } from '../impl/registry'
 import { SourceRouter, SourceRoutingError } from '../impl/router'
+import { createHttpMarketDataTransport } from '../protocol/impl/httpTransport'
+import { createMarketDataProvider } from '../protocol/impl/provider'
 import type { InstrumentDescriptor, MarketDataProvider } from '../types'
 import { InstrumentType } from '../types'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
@@ -378,6 +380,56 @@ describe('SourceRouter', () => {
         limit: 10,
       }),
     ).rejects.toMatchObject({ code: 'FETCH_FAILED' })
+  })
+
+  // 连接器只报旧能力声明时降级自身，不得把整次请求带崩：健康源照常出数。
+  it('keeps routing to a healthy source when another reports legacy capabilities', async () => {
+    const legacy = createMarketDataProvider({
+      source: { id: 'mt5', displayName: 'MT5' },
+      transport: createHttpMarketDataTransport({
+        baseUrl: 'http://127.0.0.1:8090',
+        // 旧连接器只认 assetClasses，probe 仍报 online；修复前这里会让 getEnabledByCapability 抛 TypeError。
+        fetchImpl: async () =>
+          new Response(
+            JSON.stringify({
+              data: { status: 'online', checkedAt: 1, capabilities: { assetClasses: ['stock'] } },
+              requestId: 'r',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      }),
+    })
+    registry.register(legacy, { priority: 100 })
+    registry.register(
+      createMockMarketDataProvider({
+        source: 'baostock',
+        search: async () => [
+          { ...baseInstrument, source: 'baostock', id: 'baostock:stock:600519' },
+        ],
+        fetchBars: async ({ instrument }) => ({
+          instrumentId: instrument.id,
+          period: 'daily',
+          adjustment: 'none',
+          barAggregation: 'original',
+          timezone: 'Asia/Shanghai',
+          data: [],
+          olderData: 'unknown',
+        }),
+      }),
+      { priority: 1 },
+    )
+
+    const result = await new SourceRouter(registry).bars({
+      symbol: baseInstrument.symbol,
+      exchange: baseInstrument.exchange,
+      instrumentType: baseInstrument.instrumentType,
+      period: 'daily',
+      adjustment: 'none',
+      barAggregation: 'original',
+      limit: 500,
+    })
+
+    expect(result.provider.source.id).toBe('baostock')
   })
 
   // 验证 instrumentType 为 unknown 的品种不会被源级 instrumentTypes 声明误杀，仍会发出取数请求。

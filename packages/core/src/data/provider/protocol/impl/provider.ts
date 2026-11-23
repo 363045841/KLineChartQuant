@@ -25,6 +25,11 @@ import type {
   ProtocolKLineItem,
   ProtocolTimeShareItem,
 } from '../types.js'
+import {
+  readInstrumentCapabilities,
+  readSourceCapabilities,
+  UNUSABLE_CAPABILITIES_MESSAGE,
+} from './capabilityGuard.js'
 
 export interface MarketDataProviderOptions {
   trades?: import('../../../trades/types.js').TradeDataSource
@@ -47,8 +52,14 @@ function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit 
     : undefined
 }
 
-// 将品种响应转换为前端领域模型
-function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor {
+/**
+ * 将品种响应转换为前端领域模型。
+ * 能力声明不合法的品种不可用于路由，返回 undefined 交由调用方丢弃，
+ * 而不是让整份目录因一个坏条目失败。
+ */
+function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor | undefined {
+  const capabilities = readInstrumentCapabilities(item.capabilities)
+  if (capabilities === undefined) return undefined
   return {
     id: item.id,
     // wire 字段名由后端 Go 结构体绑定，领域层统一叫 source。
@@ -62,7 +73,7 @@ function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor
     tickSize: item.tickSize,
     lotSize: item.lotSize,
     providerRef: item.providerRef,
-    capabilities: item.capabilities,
+    capabilities,
   }
 }
 
@@ -139,12 +150,19 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
       const startedAt = Date.now()
       try {
         const result = await transport.probe(source.id, signal)
-        runtimeSource.capabilities = result.capabilities
+        const capabilities = readSourceCapabilities(result.capabilities)
+        runtimeSource.capabilities = capabilities
+        // 声明了能力却不合协议才降级：完全不上报能力的源保持原状态，只是不参与流转。
+        const degraded =
+          result.capabilities !== undefined &&
+          capabilities === undefined &&
+          result.status !== 'offline'
         return {
-          status: result.status,
+          status: degraded ? 'degraded' : result.status,
           checkedAt: result.checkedAt,
           latencyMs: Date.now() - startedAt,
-          capabilities: result.capabilities,
+          ...(degraded ? { message: UNUSABLE_CAPABILITIES_MESSAGE } : {}),
+          capabilities,
         }
       } catch (error) {
         return {
@@ -168,7 +186,10 @@ export function createMarketDataProvider(options: MarketDataProviderOptions): Ma
           },
           query.signal,
         )
-        const instruments = result.items.map(mapInstrument)
+        const instruments = result.items.flatMap((item) => {
+          const instrument = mapInstrument(item)
+          return instrument === undefined ? [] : [instrument]
+        })
         // unknown 不参与筛选：请求携带 unknown 时按无条件处理，避免误杀已归一化的同代码品种。
         const allowed = new Set<InstrumentType>(
           (query.instrumentTypes ?? []).filter(isFilterableInstrumentType),
