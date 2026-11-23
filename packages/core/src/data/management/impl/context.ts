@@ -1,9 +1,9 @@
 /** 宿主持有的行情管理实例：统一配置入口，Core 不选择持久化介质。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
-import { createRealtimeSubscriptionPool } from '../../live/impl/realtimePool.js'
-import { createSseConnection } from '../../live/impl/sseConnection.js'
-import type { RealtimeSubscriptionPool } from '../../live/types.js'
+import { createStreamHub } from '../../stream/impl/hub.js'
+import { createSseTransport } from '../../stream/impl/sseTransport.js'
+import type { StreamHub } from '../../stream/types.js'
 import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
 import {
   MarketDataProviderRegistry,
@@ -49,25 +49,23 @@ export class MarketDataContext {
   readonly health: MarketDataHealth
   readonly configuration: ReadonlySignal<MarketDataConfiguration>
 
-  /** 宿主共享的实时订阅池；图表与自选共用同一份连接。 */
-  readonly realtime: RealtimeSubscriptionPool
+  /** 宿主共享的实时连接注册表；图表与自选共用同一份连接。 */
+  readonly stream: StreamHub
 
   constructor(readonly registry = new MarketDataProviderRegistry()) {
     this.health = new MarketDataHealth(registry)
-    this.realtime = createRealtimeSubscriptionPool({
-      registry,
-      health: this.health.state,
-      createConnection: (request) => {
+    this.stream = createStreamHub({
+      createTransport: (request, handlers) => {
         const provider = registry.getRequired(request.source)
-        if (provider.realtime) return provider.realtime(request)
+        if (provider.stream) return provider.stream(request, handlers)
         const connection = registry.getConnection(request.source)
         const baseUrl = connection.baseUrl ?? connection.defaultBaseUrl
         if (baseUrl === undefined)
           throw new KLineChartError(
             GENERIC_ERROR_CODES.INVALID_STATE,
-            'Realtime endpoint is not configured',
+            'Stream endpoint is not configured',
           )
-        return createSseConnection(request, baseUrl)
+        return createSseTransport(request, baseUrl, handlers)
       },
     })
     this.unsubscribeSources = registry.state.subscribe(() => this.probeUnresolvedSources())
@@ -148,7 +146,7 @@ export class MarketDataContext {
     if (this.disposed) return
     this.disposed = true
     this.unsubscribeSources()
-    this.realtime.dispose()
+    this.stream.dispose()
     for (const unregister of this.registrations) unregister()
     this.health.dispose()
   }

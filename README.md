@@ -351,10 +351,10 @@ import {
   KLineAdjustment,
   KLinePeriod,
   createMarketDataHost,
-  type BarsObserver,
   type DataSourceInstrument,
   type HistoryRequest,
   type MarketDataSource,
+  type StreamTransport,
 } from '@363045841yyt/klinechart'
 
 // `api` and `toInstrument` are your backend adapter and payload mapping (HTTP, WebSocket, file reader, database, …).
@@ -402,17 +402,31 @@ const source: MarketDataSource = {
       })
       return { bars: page.bars, olderData: page.olderData }
     },
-    // Optional live stream. Return an unsubscribe function.
-    subscribe(request, observer: BarsObserver) {
-      observer.status('connecting')
-      const socket = api.subscribeBars(request.instrument.id, request.period, {
-        onBar: (bar) => observer.update(bar),
-        onCorrection: (bar) => observer.update(bar, { historical: true }),
-        onReset: () => observer.invalidate(),
-        onStatus: (status) => observer.status(status),
-        onError: (error) => observer.error(error),
+    // Optional live stream: a one-shot transport; the chart owns connect and reconnect.
+    stream(request, handlers): StreamTransport {
+      let seq = 0
+      const socket = api.subscribeBars(request.instrumentIds, request.period, {
+        onBar: (instrumentId, bar, state) =>
+          handlers.onFrame({
+            type: 'bar',
+            seq: seq++,
+            ts: Date.now(),
+            instrumentId,
+            state,
+            bar,
+          }),
+        onSnapshot: (instrumentId, bars) =>
+          handlers.onFrame({ type: 'snapshot', seq: seq++, ts: Date.now(), instrumentId, bars }),
+        onClose: (message) => handlers.onClose({ retryable: true, message }),
       })
-      return () => socket.close()
+      return {
+        open() {
+          handlers.onOpen()
+        },
+        close() {
+          socket.close()
+        },
+      }
     },
   },
 }
@@ -445,9 +459,9 @@ Data contract:
 
 - `bars.fetch` returns `{ bars, olderData }`. Bars are UTC-millisecond OHLCV entries in ascending order; `beforeTimestamp` is an exclusive bound and `limit` is the requested page size.
 - `olderData` is `available`, `exhausted`, or `unknown`. Declare it explicitly — an empty array is not a substitute for “no more history”.
-- `observer.update(bar)` takes a full single-bar snapshot. Same last timestamp replaces, newer appends, older reports a protocol error; `observer.update(bar, { historical: true })` corrects an existing bar; `observer.invalidate()` asks for a reload after deletions or adjustment changes.
-- `observer.status('connecting' | 'connected' | 'disconnected')` and `observer.error(error)` report transport state; reconnection stays the data source's responsibility.
-- A source-level `liveBars` flag derives from `subscribe`; an individual instrument may declare `liveBars: false`.
+- `stream(request, handlers)` is a one-shot transport: `open` / `close` plus `onOpen` / `onFrame` / `onClose`. The chart owns connect, reconnect and liveness; the source never implements retry.
+- Frames follow V1.1: `hello / snapshot / bar / quote / status / ping / error`, one envelope `{ type, seq, ts }`; delta frames carry `state: 'forming' | 'closed'` and never rely on paired arrival.
+- A source-level `liveBars` flag derives from `stream`; an individual instrument may declare `liveBars: false`.
 - `instrument` and `period` are controlled props: change them to switch the series.
 - The host belongs to your app. `unregister()` removes one source and `host.dispose()` releases everything; unmounting the workbench does not dispose the host.
 - For local development without a backend, register the built-in mock instead: `host.registerDataSource(createMockDataSource())` (MOCK). The default context already contains it, so do not register it twice.

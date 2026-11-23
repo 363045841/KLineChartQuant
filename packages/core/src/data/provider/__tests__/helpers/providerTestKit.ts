@@ -6,9 +6,9 @@
  */
 
 import type { KLineData } from '@/controllers/types.js'
+import type { StreamTransportHandlers } from '../../../stream/types.js'
 import type {
   BarDataSource,
-  BarsObserver,
   DataSourceInstrument,
   HistoryRequest,
   InstrumentCatalog,
@@ -17,10 +17,9 @@ import type {
   SourceCapabilities,
 } from '../../types'
 
-/** 公开数据源测试共用夹具，调用者提供行情事实，不复制注册或订阅替身。 */
+/** 公开数据源测试共用夹具，调用者提供行情事实，不复制注册或连接替身。 */
 export function createDataSourceFixture(bars: readonly KLineData[], realtime = true) {
-  const observers = new Map<string, BarsObserver>()
-  const stopped: string[] = []
+  const streams = new Set<StreamTransportHandlers>()
   const requests: HistoryRequest[] = []
   const instruments: DataSourceInstrument[] = ['A', 'B'].map((symbol) => ({
     id: symbol,
@@ -67,21 +66,24 @@ export function createDataSourceFixture(bars: readonly KLineData[], realtime = t
           olderData: available.length > request.limit ? 'available' : 'exhausted',
         }
       },
-      ...(realtime
-        ? {
-            subscribe(request: import('../../types.js').BarsRequest, observer: BarsObserver) {
-              observers.set(request.instrument.id, observer)
-              observer.status('connected')
-              return () => {
-                observers.delete(request.instrument.id)
-                stopped.push(request.instrument.id)
-              }
-            },
-          }
-        : {}),
     },
+    ...(realtime
+      ? {
+          stream(_request: import('../../../stream/types.js').StreamRequest, handlers: StreamTransportHandlers) {
+            return {
+              open() {
+                streams.add(handlers)
+                handlers.onOpen()
+              },
+              close() {
+                streams.delete(handlers)
+              },
+            }
+          },
+        }
+      : {}),
   }
-  return { source, instruments, observers, stopped, requests }
+  return { source, instruments, streams, requests }
 }
 
 /** 测试默认源级能力：stock / daily / none。 */

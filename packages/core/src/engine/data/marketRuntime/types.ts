@@ -3,7 +3,7 @@
 import type { MarketDataCache } from '@/data/buffer/impl/marketDataCache.js'
 import type { BarsSelection } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
-import type { RealtimeSubscriptionPool } from '@/data/live/types.js'
+import type { StreamHub } from '@/data/stream/types.js'
 import type { InstrumentDescriptor, SourceCapabilities } from '@/data/provider/types.js'
 import type { TradeSnapshot } from '@/data/trades/types.js'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
@@ -44,14 +44,14 @@ export interface MarketRuntimeDependencies {
   ): BarsSelection
   invalidateRequests?(): void
   readonly registry?: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
-  /** 宿主持有的唯一实时订阅池，运行模块不能自行创建。 */
-  readonly realtime: RealtimeSubscriptionPool
+  /** 宿主持有的唯一实时连接注册表，运行模块不能自行创建。 */
+  readonly stream: StreamHub
   readonly cache: MarketDataCache
   readonly session: ReadonlySignal<ReadyMarketSession | null>
   readonly visibleRange: ReadonlySignal<VisibleRange>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData | TimeShareData>>
   needsTrades(): boolean
   publishTrades(snapshot: TradeSnapshot): void
-  /** 失效重查交给正常加载流程，运行模块仅协调订阅期间的事件顺序。 */
-  reloadBars(session: ReadyMarketSession, buffer: KLineBuffer, signal: AbortSignal): Promise<void>
+  /** 重连补历史：由运行时决定窗口，连接层不接触数据。 */
+  resyncBars(session: ReadyMarketSession, buffer: KLineBuffer, signal: AbortSignal): Promise<void>
 }

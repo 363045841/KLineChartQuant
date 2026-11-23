@@ -1,5 +1,7 @@
 # 实时 K 线流的身份与能力契约
 
+> 已被 [实时流协议与连接恢复](./realtime-stream-protocol.md) 取代。本文件保留历史决策记录：`LiveBarsStream` / `BarsLiveSource` / `RealtimeBarsConnector` 已删除，前端只保留 `data/stream` 一套连接实现。
+
 前端只有一条实时 K 线链路：`provider.liveBars.createStream` → `BarsLiveSource`（EventSource）→ `RealtimeBarsConnector` → `KLineBuffer.applyRealtimeBars`。所有 HTTP 源共用 `createHttpSource` 的同一个工厂，不存在按 source 分支的平行实现；`mock` 的进程内假流只实现同一 `LiveBarsStream` 接口，用于测试。
 
 ## 请求身份

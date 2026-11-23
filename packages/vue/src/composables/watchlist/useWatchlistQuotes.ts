@@ -1,10 +1,11 @@
-/** 自选报价：按品种订阅报价通道，连接由共享实时订阅池按来源聚合；订阅错误按来源上报展示层。 */
+/** 自选报价：按品种订阅报价通道，连接由共享注册表按来源聚合；订阅事件驱动展示。 */
 
 import type {
-  LiveFrame,
-  RealtimeStatus,
-  RealtimeSubscription,
-  RealtimeSubscriptionPool,
+  StreamEvent,
+  StreamFrame,
+  StreamHub,
+  StreamPhase,
+  StreamSubscription,
 } from '@363045841yyt/klinechart-core/market-data'
 import { useMarketDataContext } from '@vue-src/composables/market/useMarketDataContext.js'
 import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
@@ -18,28 +19,35 @@ function subscriptionKey(item: SearchableSymbol): string {
   return `${item.source}\u0000${item.id}`
 }
 
+/** 连接事件映射为展示阶段；恢复后由 opened 事件清除错误。 */
+function phaseOf(event: StreamEvent): StreamPhase {
+  if (event.kind === 'opened') return 'online'
+  if (event.kind === 'lost') return 'backing-off'
+  return 'stopped'
+}
+
 /**
  * 订阅自选内全部品种的实时报价。
  *
- * 订阅集合跟随自选列表增量变化；任一来源断线时该来源状态变为 disconnected，
+ * 订阅集合跟随自选列表增量变化；来源进入退避或停止时该来源状态不再是 online，
  * 展示层据此切换为占位，而不是继续展示旧值。
  *
  * @param items - 自选条目
- * @param pool - 实时订阅池；默认使用宿主共享实例
+ * @param stream - 实时连接注册表；默认使用宿主共享实例
  */
 export function useWatchlistQuotes(
   items: MaybeRefOrGetter<ReadonlyArray<SearchableSymbol>>,
-  pool: RealtimeSubscriptionPool = useMarketDataContext().realtime,
+  stream: StreamHub = useMarketDataContext().stream,
 ) {
   const quotes = shallowRef<ReadonlyMap<string, WatchlistQuote>>(new Map())
-  const sourceStatus = shallowRef<ReadonlyMap<string, RealtimeStatus>>(new Map())
-  /** 来源最近一次订阅错误；重连成功后清除，展示层据此区分“失败”和“没有数据”。 */
+  const sourceStatus = shallowRef<ReadonlyMap<string, StreamPhase>>(new Map())
+  /** 来源最近一次连接错误；重连成功后清除，展示层据此区分“失败”和“没有数据”。 */
   const sourceErrors = shallowRef<ReadonlyMap<string, string>>(new Map())
-  const subscriptions = new Map<string, RealtimeSubscription>()
+  const subscriptions = new Map<string, StreamSubscription>()
 
   // 同一轮内的连续帧合并为一次响应式写入，避免多品种同时跳动时反复渲染。
   const quoteDraft = new Map<string, WatchlistQuote>()
-  const statusDraft = new Map<string, RealtimeStatus>(sourceStatus.value)
+  const statusDraft = new Map<string, StreamPhase>(sourceStatus.value)
   const errorDraft = new Map<string, string>()
   let quotesDirty = false
   let statusDirty = false
@@ -70,28 +78,28 @@ export function useWatchlistQuotes(
     queueMicrotask(flush)
   }
 
-  /** 为单个品种建立报价订阅；帧与状态分别落到两份草稿。 */
-  function subscribe(item: SearchableSymbol): RealtimeSubscription {
+  /** 为单个品种建立报价订阅；帧与连接事件分别落到两份草稿。 */
+  function subscribe(item: SearchableSymbol): StreamSubscription {
     const key = symbolIdentityKey(item)
-    const subscription = pool.subscribe({
+    const subscription = stream.subscribe({
       source: item.source,
       channel: 'quotes',
       instrumentId: item.id,
     })
-    subscription.onStatus((status) => {
+    subscription.onEvent((event) => {
+      const phase = phaseOf(event)
       // 重连成功即视为恢复，旧错误不能一直挂着。
-      if (status === 'connected' && errorDraft.delete(item.source)) errorsDirty = true
-      statusDraft.set(item.source, status)
+      if (phase === 'online' && errorDraft.delete(item.source)) errorsDirty = true
+      if (event.kind !== 'opened') {
+        errorDraft.set(item.source, event.kind === 'failed' ? event.message : event.reason)
+        errorsDirty = true
+      }
+      statusDraft.set(item.source, phase)
       statusDirty = true
       scheduleFlush()
     })
-    subscription.onError((error) => {
-      errorDraft.set(item.source, error.message)
-      errorsDirty = true
-      scheduleFlush()
-    })
-    subscription.onFrame((frame: LiveFrame) => {
-      if (frame.channel !== 'quotes') return
+    subscription.onFrame((frame: StreamFrame) => {
+      if (frame.type !== 'quote') return
       const previous = quoteDraft.get(key)
       quoteDraft.set(key, {
         last: frame.quote.last,

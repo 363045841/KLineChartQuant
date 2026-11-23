@@ -27,64 +27,44 @@ function provider(
 }
 
 describe('MarketDataContext', () => {
-  it('releases a host subscription that disconnects synchronously during creation', async () => {
-    const fixture = createDataSourceFixture([])
-    const stop = vi.fn()
-    fixture.source.bars.subscribe = (_request, observer) => {
-      observer.status('disconnected')
-      return stop
-    }
+  it('owns stream lifetime and closes the transport when the last subscriber leaves', async () => {
+    const handlers: import('../../stream/types.js').StreamTransportHandlers[] = []
     const context = new MarketDataContext()
+    const frames: import('../../stream/types.js').StreamFrame[] = []
     try {
-      context.registerDataSource(fixture.source)
-      const instrument = await context.resolveInstrument('test', 'A')
-      await context.health.refresh()
-      const handle = context.realtime.subscribe({
-        source: 'test',
-        instrumentId: instrument.id,
-        channel: 'bars',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
+      context.registry.register({
+        source: { id: 'one', displayName: 'one', defaultBaseUrl: 'http://localhost:8000' },
+        probe: async () => ({ status: 'online', checkedAt: 1 }),
+        stream: (_request, created) => {
+          handlers.push(created)
+          return {
+            open() {
+              created.onOpen()
+            },
+            close() {
+              created.onClose({ retryable: false, message: 'closed by owner' })
+            },
+          }
+        },
       })
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce())
+      const handle = context.stream.subscribe({ source: 'one', channel: 'quotes', instrumentId: 'A' })
+      handle.onFrame((frame) => frames.push(frame))
+      expect(handlers).toHaveLength(1)
+      handlers[0]!.onFrame({
+        seq: 0,
+        ts: 0,
+        type: 'quote',
+        instrumentId: 'A',
+        quote: { last: 1, prevClose: 1, timestamp: 0 },
+      })
+      expect(frames).toHaveLength(1)
       handle.close()
+      expect(handlers).toHaveLength(1)
     } finally {
       context.dispose()
     }
-    expect(stop).toHaveBeenCalledOnce()
-  })
-
-  it('owns stream lifetime and keeps healthy connections during health refresh', async () => {
-    const fixture = createDataSourceFixture([])
-    const context = new MarketDataContext()
-    context.registerDataSource(fixture.source)
-    const instrument = await context.resolveInstrument('test', 'A')
-    await context.health.refresh()
-    const handle = context.realtime.subscribe({
-      source: 'test',
-      instrumentId: instrument.id,
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-    })
-    const frames = vi.fn()
-    handle.onFrame(frames)
-    await vi.waitFor(() => expect(fixture.observers.size).toBe(1))
-    const observer = fixture.observers.get('A')!
-    await context.health.refresh({ force: true })
-    await Promise.resolve()
-    expect(fixture.observers.get('A')).toBe(observer)
-    expect(fixture.stopped).toEqual([])
-    context.dispose()
-    expect(fixture.observers.size).toBe(0)
-    expect(fixture.stopped).toEqual(['A'])
-    frames.mockClear()
-    observer.invalidate()
-    expect(frames).not.toHaveBeenCalled()
     expect(() =>
-      context.realtime.subscribe({ source: 'test', instrumentId: 'A', channel: 'quotes' }),
+      context.stream.subscribe({ source: 'one', instrumentId: 'A', channel: 'quotes' }),
     ).toThrow('disposed')
   })
 

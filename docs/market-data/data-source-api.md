@@ -25,22 +25,28 @@ const source: MarketDataSource = {
   },
   bars: {
     fetch: request => api.getHistory(request),
-    subscribe(request, observer) {
-      return api.subscribeBars(request, {
-        onBar: bar => observer.update(bar),
-        onCorrection: bar => observer.update(bar, { historical: true }),
-        onReset: () => observer.invalidate(),
-        onStatus: status => observer.status(status),
-        onError: error => observer.error(error),
-      })
-    },
+  },
+  // 可选实时流：一次性传输，连接与重连由图表统一管理。
+  stream(request, handlers) {
+    let seq = 0
+    const socket = api.subscribeBars(request.instrumentIds, request.period, {
+      onBar: (instrumentId, bar, state) =>
+        handlers.onFrame({ type: 'bar', seq: seq++, ts: Date.now(), instrumentId, state, bar }),
+      onSnapshot: (instrumentId, bars) =>
+        handlers.onFrame({ type: 'snapshot', seq: seq++, ts: Date.now(), instrumentId, bars }),
+      onClose: message => handlers.onClose({ retryable: true, message }),
+    })
+    return {
+      open: () => handlers.onOpen(),
+      close: () => socket.close(),
+    }
   },
 }
 
 const unregister = host.registerDataSource(source)
 ```
 
-示例中的 `api` 由应用实现。`subscribe` 返回取消订阅函数；历史数据源直接省略此方法。源级 `liveBars` 由订阅实现派生，如果显式声明就必须与实现一致。单个品种可以声明 `liveBars: false`。
+示例中的 `api` 由应用实现。`stream` 返回一次性传输；历史数据源直接省略此方法。源级 `liveBars` 由传输实现派生，如果显式声明就必须与实现一致。单个品种可以声明 `liveBars: false`。
 
 ```vue
 <KlineWorkbench
@@ -59,11 +65,9 @@ const unregister = host.registerDataSource(source)
 | `instruments.search(query)` | 返回品种目录；query 包含关键字、数量、类别筛选和取消信号 |
 | `instruments.resolve(id, signal)` | 按稳定 ID 返回身份、交易所、资产类别、时区和能力；分时品种还需交易会话身份 |
 | `bars.fetch(request)` | 返回 `{ bars, olderData }`；时间为 UTC 毫秒，升序且唯一；`beforeTimestamp` 为排他上界，不传表示最新页 |
-| `observer.update(bar)` | 完整单根 OHLCV 快照；同末根时间则替换，较新则追加，较旧则报告协议错误；成交量是累计值而非增量 |
-| `observer.update(bar, { historical: true })` | 修正已有历史时间点，允许完整重算；不插入缺失历史、不删除旧根 |
-| `observer.invalidate()` | 历史删除、整体复权变化或断线无法补齐；缓存重查原窗口并重放查询期间的增量 |
-| `observer.status(status)` | `connecting`、`connected`、`disconnected` |
-| `observer.error(error)` | 报告订阅错误，网络重连策略仍属于数据源 |
+| `stream(request, handlers)` | 可选实时流：一次性传输，提供 `open` / `close` 与 `onOpen` / `onFrame` / `onClose`；连接、重连与存活判断由图表统一管理 |
+| 帧协议 | V1.1：`hello / snapshot / bar / quote / status / ping / error`，统一信封 `{ type, seq, ts }`；增量帧自带 `state: 'forming' \| 'closed'` |
+| `error` 帧 | 带 `code`、`message` 与 `retryable`；永久错误由服务端用 4xx/204 表达，流内错误只表示可重试故障 |
 
 `olderData` 为 `available`、`exhausted` 或 `unknown`，不能用空数组替代覆盖声明。`signal` 用于取消 I/O；运行时另以订阅身份阻止迟到回调写入新会话。序列身份始终包含来源、品种 ID、周期、复权及聚合方式。
 
@@ -75,4 +79,4 @@ const unregister = host.registerDataSource(source)
 
 隔离消费验收也注册数据源，实际验证历史查询、末根更新、新根追加、脚本运行和卸载释放，不使用旁路数组注入。
 
-内置 mock 同样实现此接口，自建宿主用 `host.registerDataSource(createMockDataSource())` 注册。默认宿主 `defaultMarketDataContext` 在加载时已内置一个 mock 来源，不要对它重复注册：同名来源重复注册会抛 `INVALID_STATE`。每个实例只提供一个 `MOCK` 品种，历史按 UTC 日索引即时生成：请求哪一页就返回哪一页，`olderData` 恒为 `available`，因此翻到最早一根也不会出现空白。段内价格由锚点与布朗桥给出，相邻 K 线首尾相接，同一日索引在任何宿主、任何取页顺序下都得到同一根 K 线。实时订阅只调用 `observer.update(bar)`；注销来源或释放宿主会停止计时器。历史截止当前 UTC 日，不生成未来 K 线。
+内置 mock 同样实现此接口，自建宿主用 `host.registerDataSource(createMockDataSource())` 注册。默认宿主 `defaultMarketDataContext` 在加载时已内置一个 mock 来源，不要对它重复注册：同名来源重复注册会抛 `INVALID_STATE`。每个实例只提供一个 `MOCK` 品种，历史按 UTC 日索引即时生成：请求哪一页就返回哪一页，`olderData` 恒为 `available`，因此翻到最早一根也不会出现空白。段内价格由锚点与布朗桥给出，相邻 K 线首尾相接，同一日索引在任何宿主、任何取页顺序下都得到同一根 K 线。实时流只推送 `bar` 帧；注销来源或释放宿主会停止计时器。历史截止当前 UTC 日，不生成未来 K 线。

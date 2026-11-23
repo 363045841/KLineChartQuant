@@ -1,19 +1,5 @@
 /** 统一行情领域模型公共入口。 */
 
-export { createRealtimeSubscriptionPool } from '../live/impl/realtimePool.js'
-export type {
-  LiveBar,
-  LiveFrame,
-  LiveQuote,
-  RealtimeChannel,
-  RealtimeConnection,
-  RealtimeConnectionFactory,
-  RealtimeConnectionRequest,
-  RealtimeStatus,
-  RealtimeSubscription,
-  RealtimeSubscriptionPool,
-  RealtimeSubscriptionRequest,
-} from '../live/types.js'
 export { createMarketDataHost } from '../management/impl/context.js'
 export type {
   MarketConnection,
@@ -78,9 +64,7 @@ export type {
   BarDataSource,
   BarQuery,
   BarSeries,
-  BarsObserver,
   BarsRequest,
-  ConnectionStatus,
   DataSourceDescriptor,
   DataSourceInstrument,
   DepthDataSource,
@@ -122,6 +106,24 @@ export type {
   TradingDate,
   VolumeUnit,
 } from './types.js'
+export type {
+  StreamBar,
+  StreamChannel,
+  StreamClose,
+  StreamErrorCode,
+  StreamEvent,
+  StreamFrame,
+  StreamHub,
+  StreamPhase,
+  StreamQuote,
+  StreamRequest,
+  StreamStatus,
+  StreamSubscription,
+  StreamSubscriptionRequest,
+  StreamTransport,
+  StreamTransportFactory,
+  StreamTransportHandlers,
+} from '../stream/types.js'
 export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,

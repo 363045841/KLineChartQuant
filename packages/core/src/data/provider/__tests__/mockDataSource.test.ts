@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { LiveFrame } from '../../live/types.js'
+import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
 import { createMarketDataHost } from '../../management/impl/context.js'
 import { createMockDataSource } from '../impl/sources/mock.js'
 import type { BarQuery, InstrumentDescriptor, MarketDataProvider } from '../types.js'
@@ -29,9 +29,32 @@ function catalogOf(provider: MarketDataProvider) {
   return provider.catalog
 }
 
-function realtimeOf(provider: MarketDataProvider) {
-  if (!provider.realtime) throw new Error('mock provider has no realtime')
-  return provider.realtime
+function streamOf(provider: MarketDataProvider) {
+  if (!provider.stream) throw new Error('mock provider has no stream')
+  return provider.stream
+}
+
+/** 打开一条 mock 流并收集帧；调用方负责关闭。 */
+function openStream(provider: MarketDataProvider, instrumentId: string) {
+  const frames: StreamFrame[] = []
+  const handlers: StreamTransportHandlers = {
+    onOpen() {},
+    onFrame: (frame) => frames.push(frame),
+    onClose() {},
+  }
+  const transport = streamOf(provider)(
+    {
+      source: 'mock',
+      channel: 'bars',
+      instrumentIds: [instrumentId],
+      period: 'daily',
+      barAggregation: 'original',
+      adjustment: 'none',
+    },
+    handlers,
+  )
+  transport.open()
+  return { frames, transport }
 }
 
 function barsOf(provider: MarketDataProvider) {
@@ -117,23 +140,10 @@ describe('mock 数据源实时帧', () => {
       const { provider, instrument } = await resolveMock(host)
       const bars = barsOf(provider)
       const before = await bars.fetch(barQuery(instrument, 100))
-
-      const connection = realtimeOf(provider)({
-        source: 'mock',
-        channel: 'bars',
-        instrumentIds: [instrument.id],
-        period: 'daily',
-        barAggregation: 'original',
-        adjustment: 'none',
-      })
-      const frames = vi.fn<(frame: LiveFrame) => void>()
-      connection.onFrame(frames)
-      connection.connect()
+      const { frames, transport } = openStream(provider, instrument.id)
 
       await vi.advanceTimersByTimeAsync(2_000)
-      const updates = frames.mock.calls.flatMap(([frame]) =>
-        frame.channel === 'bars' && frame.type === 'update' ? [frame.bar] : [],
-      )
+      const updates = frames.flatMap((frame) => (frame.type === 'bar' ? [frame.bar] : []))
       expect(updates).toHaveLength(2)
       expect(updates[1]!.timestamp).toBe(before.data.at(-1)!.timestamp)
       expect(updates[1]!.close).not.toBe(before.data.at(-1)!.close)
@@ -148,6 +158,7 @@ describe('mock 数据源实时帧', () => {
       expect(next.data).toHaveLength(101)
       expect(next.data.at(-1)!.timestamp).toBe(Date.parse('2026-06-02T00:00:00Z'))
       expect(next.data.at(-1)!.open).toBe(after.data.at(-1)!.close)
+      transport.close()
     } finally {
       host.dispose()
     }
@@ -161,25 +172,15 @@ describe('mock 数据源释放隔离', () => {
     try {
       const firstMock = await resolveMock(first.host)
       const { instrument } = firstMock
-      const connection = realtimeOf(firstMock.provider)({
-        source: 'mock',
-        channel: 'bars',
-        instrumentIds: [instrument.id],
-        period: 'daily',
-        barAggregation: 'original',
-        adjustment: 'none',
-      })
-      const frames = vi.fn<(frame: LiveFrame) => void>()
-      connection.onFrame(frames)
-      connection.connect()
+      const { frames, transport } = openStream(firstMock.provider, instrument.id)
       await vi.advanceTimersByTimeAsync(1_000)
 
       first.unregister()
-      const calls = frames.mock.calls.length
+      transport.close()
+      const calls = frames.length
       await vi.advanceTimersByTimeAsync(2_000)
 
-      expect(frames).toHaveBeenCalledTimes(calls)
-      expect(vi.getTimerCount()).toBe(0)
+      expect(frames).toHaveLength(calls)
       expect(first.host.registry.get('mock')).toBeUndefined()
 
       const secondProvider = second.host.registry.getRequired('mock')

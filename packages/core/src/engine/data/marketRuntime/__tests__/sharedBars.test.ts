@@ -8,13 +8,13 @@ import {
   instrumentKeyFromSpec,
   SERIES_SELECTION_KIND,
 } from '@/data/buffer/impl/seriesRepository.js'
-import type { LiveFrame, RealtimeSubscriptionPool } from '@/data/live/types.js'
+import type { StreamEvent, StreamFrame, StreamHub } from '@/data/stream/types.js'
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import { createSignal } from '@/foundation/reactivity/signal.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
   createTestProvider,
-  inactiveRealtimePool,
+  inactiveStreamHub,
   instrumentFor,
   makeBarsPage,
   makeKLine,
@@ -28,7 +28,7 @@ import type { ReadyMarketSession } from '../types.js'
 afterEach(unregisterTestProvider)
 
 /** 注册测试 Provider 并构造真实缓存、MarketRuntime 与查询记录；图表品种固定为 MAIN。 */
-function createHarness(realtime?: RealtimeSubscriptionPool) {
+function createHarness(stream?: StreamHub) {
   const data = [makeKLine(100), makeKLine(200)]
   const provider = createTestProvider({ fetchBars: { fetch: async () => makeBarsPage(data) } })
   registerTestProvider(provider)
@@ -43,7 +43,7 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
     barAggregation: 'original',
   })
   const cache = new MarketDataCache(marketDataProviderRegistry)
-  if (realtime) {
+  if (stream) {
     cache.repository
       .getOrCreateBars(selectionFor('MAIN'), () => new DataBuffer())
       .mergePage(data, 'unknown', 'Asia/Shanghai')
@@ -55,19 +55,19 @@ function createHarness(realtime?: RealtimeSubscriptionPool) {
     return queryBars(query)
   })
   const runtime = new MarketRuntime({
-    realtime: realtime === undefined ? inactiveRealtimePool : realtime,
+    stream: stream === undefined ? inactiveStreamHub : stream,
     cache,
     session: createSignal<ReadyMarketSession | null>({
       selection: selectionFor('MAIN'),
       instrument: instrumentFor('MAIN'),
-      capabilities: realtime ? { ...capabilities, liveBars: true } : capabilities,
+      capabilities: stream ? { ...capabilities, liveBars: true } : capabilities,
     }),
     visibleRange: createSignal({ start: 0, end: 2 }),
     data: createSignal<readonly KLineData[]>(data),
     needsTrades: () => false,
     publishTrades: () => {},
-    reloadBars: async () => {
-      throw new Error('Unexpected reload')
+    resyncBars: async () => {
+      throw new Error('Unexpected resync')
     },
     resolveBarsSelection: (instrument, period, adjustment, barAggregation) => ({
       ...selectionFor(instrument.symbol),
@@ -207,21 +207,21 @@ describe('Request 来源约定', () => {
   })
 
   it('实时订阅在历史返回前建立；推送不被旧历史覆盖，后续计算不重查历史', async () => {
-    const receivers = new Map<string, (frame: LiveFrame) => void>()
-    const realtime: RealtimeSubscriptionPool = {
+    const receivers = new Map<string, (frame: StreamFrame) => void>()
+    const stream: StreamHub = {
       subscribe: vi.fn((request) => ({
         request,
-        onFrame(callback: (frame: LiveFrame) => void) {
+        onFrame(callback: (frame: StreamFrame) => void) {
           receivers.set(request.period!, callback)
           return () => receivers.delete(request.period!)
         },
-        onStatus: () => () => {},
-        onError: () => () => {},
+        onEvent: () => () => {},
         close() {},
       })),
+      resume() {},
       dispose() {},
     }
-    const { runtime, cache, data } = createHarness(realtime)
+    const { runtime, cache, data } = createHarness(stream)
     try {
       const market = runtime.context('script', data)
       const original = vi.mocked(cache.queryBars).getMockImplementation()!
@@ -245,8 +245,10 @@ describe('Request 来源约定', () => {
       expect(receivers.has('daily')).toBe(true)
       const emit = receivers.get('daily')!
       emit({
-        channel: 'bars',
-        type: 'forming',
+        seq: 1,
+        ts: 1,
+        type: 'bar',
+        state: 'forming',
         instrumentId: instrumentFor('MAIN').id,
         bar: { ...data[1]!, close: 999, volume: 10 },
       })
@@ -255,8 +257,10 @@ describe('Request 来源约定', () => {
       expect(result.at(-1)!.close).toBe(999)
       const count = vi.mocked(cache.queryBars).mock.calls.length
       emit({
-        channel: 'bars',
-        type: 'forming',
+        seq: 2,
+        ts: 2,
+        type: 'bar',
+        state: 'forming',
         instrumentId: instrumentFor('MAIN').id,
         bar: { ...data[1]!, close: 1000, volume: 11 },
       })

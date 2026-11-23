@@ -6,7 +6,7 @@
 import type { KLineData, TimeShareData } from '../../controllers/types.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { DepthSource } from '../depth/types.js'
-import type { RealtimeConnectionFactory } from '../live/types.js'
+import type { StreamTransportFactory } from '../stream/types.js'
 import type { TradeDataSource } from '../trades/types.js'
 
 /**
@@ -397,7 +397,7 @@ export interface MarketDataProvider {
   readonly bars?: BarDataSource
   readonly tradingCalendar?: TradingCalendarDataSource
   /** 宿主自带的实时连接；HTTP Provider 不提供，由实时订阅池的 SSE 实现兜底。 */
-  readonly realtime?: RealtimeConnectionFactory
+  readonly stream?: StreamTransportFactory
   readonly timeShare?: TimeShareDataSource
   readonly timeShareRange?: TimeShareRangeDataSource
   readonly depth?: DepthDataSource
@@ -430,15 +430,6 @@ export interface HistoryPage {
 }
 
 /** 增量流只提交完整单根快照；历史修正必须显式声明。 */
-export interface BarsObserver {
-  update(bar: KLineData, options?: { historical: true }): void
-  invalidate(): void
-  status(status: ConnectionStatus): void
-  error(error: Error): void
-}
-
-export type ConnectionStatus = import('../live/types.js').RealtimeStatus
-
 /** 用户实现的公开数据源；注册后与内置 Provider 共用路由、缓存和运行时。 */
 export interface MarketDataSource
   extends Pick<
@@ -452,9 +443,10 @@ export interface MarketDataSource
     search(query: InstrumentSearchQuery): Promise<ReadonlyArray<DataSourceInstrument>>
     resolve(id: string, signal: AbortSignal): Promise<DataSourceInstrument>
   }
+  /** 实时流由宿主提供同形状传输；缺失表示该来源没有实时能力。 */
+  readonly stream?: StreamTransportFactory
   bars: {
     fetch(request: HistoryRequest): Promise<HistoryPage>
-    subscribe?(request: BarsRequest, observer: BarsObserver): () => void
   }
 }
 
