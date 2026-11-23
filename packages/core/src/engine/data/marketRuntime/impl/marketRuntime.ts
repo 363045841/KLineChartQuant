@@ -12,8 +12,7 @@ import {
   type TradesSelection,
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
-import { RealtimeBarsConnector } from '@/data/live/impl/barsConnector.js'
-import type { RealtimeSubscription, RealtimeSubscriptionPool } from '@/data/live/types.js'
+import type { StreamHub, StreamSubscription } from '@/data/stream/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
@@ -91,10 +90,10 @@ type OwnerSource = 'plan' | 'temporary'
 export class MarketRuntime implements IndicatorMarketData {
   private readonly marketSessions: MarketSessionRegistry
   private readonly registry: MarketDataProviderRegistry
-  private readonly pool: RealtimeSubscriptionPool
+  private readonly stream: StreamHub
   private readonly live = new Map<
     string,
-    { subscription: RealtimeSubscription; connector: RealtimeBarsConnector; abort: AbortController }
+    { subscription: StreamSubscription; abort: AbortController }
   >()
   private readonly barDemands = new Map<
     string,
@@ -236,7 +235,7 @@ export class MarketRuntime implements IndicatorMarketData {
     }
   }
 
-  /** 主图和 Request 共用同一张连接表，完整序列身份相同就复用连接。 */
+  /** 主图和 Request 共用同一套连接，完整序列身份相同就复用一条流。 */
   private reconcileBarStreams(): void {
     if (this.disposed) return
     const targets = new Map([...this.barDemands].map(([key, target]) => [key, target.session]))
@@ -246,14 +245,13 @@ export class MarketRuntime implements IndicatorMarketData {
       if (targets.has(key)) continue
       this.live.delete(key)
       binding.abort.abort()
-      binding.connector.stop()
+      binding.subscription.close()
     }
     for (const [key, target] of targets) {
       // 源声明是前提，品种可显式关闭（Connector 只对部分市场提供实时流）。
       if (this.live.has(key) || target.capabilities.liveBars !== true) continue
       if (target.instrument.capabilities.liveBars === false) continue
-      // 连接由订阅池统一建立；同一序列在图表与脚本之间共享同一条连接。
-      const subscription = this.pool.subscribe({
+      const subscription = this.deps.stream.subscribe({
         source: target.instrument.source,
         channel: 'bars',
         instrumentId: target.instrument.id,
@@ -265,89 +263,74 @@ export class MarketRuntime implements IndicatorMarketData {
       const buffer = this.deps.cache.repository.getBars(target.selection)!
       const current = () =>
         !this.disposed && this.live.get(key)?.subscription === subscription && !abort.signal.aborted
-      let refreshing = false
-      let invalidated = false
-      const queued: { bar: KLineData; historical: boolean }[] = []
-      /** 快照及增量变更沿同一 Buffer 和 Request 失效通道提交。 */
-      const notify = () => {
+      let resyncing = false
+      /** 重连补数据期间到达的增量，重拉完成后按序提交。 */
+      const queued: KLineData[] = []
+      /** 增量写入走唯一通道：缓冲、缓存与指标失效同步提交。 */
+      const write = (bars: ReadonlyArray<KLineData>): void => {
+        if (!current() || bars.length === 0) return
+        if (resyncing) {
+          queued.push(...bars)
+          return
+        }
+        buffer.applyRealtimeBars(bars)
+        this.deps.cache.acceptBars(target.selection, target.instrument, bars)
         if ((this.barDemands.get(key)?.owners.size ?? 0) > 0) {
           this.requestRevision++
           this.deps.invalidateRequests?.()
         }
       }
-      /** 失效重查串行执行；期间收到的增量按到达顺序重放，旧查询不能覆盖它们。 */
-      const refresh = async () => {
-        if (refreshing) return
-        refreshing = true
+      /** 重连后补历史：重拉覆盖停机的窗口，成功后按序重放期间收到的增量。 */
+      const resync = async (): Promise<void> => {
+        if (resyncing) return
+        resyncing = true
+        let failure: string | null = null
         try {
-          do {
-            invalidated = false
-            try {
-              await this.deps.reloadBars(target, buffer, abort.signal)
-            } finally {
-              // 重查失败仍需提交已收到的实时事实；取消后整批丢弃，不能污染新会话。
-              if (current()) {
-                for (const event of queued.splice(0)) {
-                  if (event.historical) buffer.correctBar(event.bar)
-                  else buffer.applyRealtimeBars([event.bar])
-                  this.deps.cache.acceptBars(target.selection, target.instrument, [event.bar])
-                }
-                notify()
-              }
-            }
-          } while (invalidated && current())
+          await this.deps.resyncBars(target, buffer, abort.signal)
         } catch (error) {
-          if (current()) buffer.setError(error instanceof Error ? error.message : String(error))
-        } finally {
-          refreshing = false
+          failure = error instanceof Error ? error.message : String(error)
         }
+        resyncing = false
+        if (!current()) return
+        // 重拉失败时保留旧窗口并显式报错；不能把增量接到旧尾部，那会在序列中间留洞。
+        if (failure !== null) {
+          buffer.setError(failure)
+          return
+        }
+        write(queued.splice(0))
       }
-      const connector = new RealtimeBarsConnector(
-        {
-          updateBars: (bars, strictTail) => {
-            if (!current()) return
-            let latest = buffer.getRawData().at(-1)?.timestamp ?? -Infinity
-            for (const event of queued)
-              if (!event.historical) latest = Math.max(latest, event.bar.timestamp)
-            for (const bar of bars) {
-              if (strictTail && bar.timestamp < latest)
-                throw new RangeError('Older bars require update(bar, { historical: true })')
-              latest = Math.max(latest, bar.timestamp)
-            }
-            if (refreshing) {
-              queued.push(...bars.map((bar) => ({ bar, historical: false })))
-              return
-            }
-            buffer.applyRealtimeBars(bars)
-            this.deps.cache.acceptBars(target.selection, target.instrument, bars)
-            notify()
-          },
-          correctBar: (bar) => {
-            if (!current()) return
-            if (buffer.getOrdinalAtTimestamp(bar.timestamp) === null)
-              throw new RangeError('Historical correction must target an existing bar')
-            if (refreshing) {
-              queued.push({ bar, historical: true })
-              return
-            }
-            buffer.correctBar(bar)
-            this.deps.cache.acceptBars(target.selection, target.instrument, [bar])
-            notify()
-          },
-          invalidate: () => {
-            if (current()) {
-              invalidated = true
-              void refresh()
-            }
-          },
-          setError: (message) => {
-            if (current()) buffer.setError(message)
-          },
-        },
-        subscription,
-      )
-      this.live.set(key, { subscription, connector, abort })
-      connector.start()
+      subscription.onFrame((frame) => {
+        if (!current()) return
+        switch (frame.type) {
+          case 'snapshot':
+            write(frame.bars)
+            return
+          case 'bar':
+            write([frame.bar])
+            return
+          case 'status':
+            // 上游故障要显式呈现；市场状态属于展示层，不改变数据。
+            if (frame.status === 'upstream-error')
+              buffer.setError(frame.detail ?? 'Upstream stream error')
+            return
+          default:
+            return
+        }
+      })
+      subscription.onEvent((event) => {
+        if (!current()) return
+        if (event.kind === 'opened') {
+          buffer.setError(null)
+          if (event.reconnected) void resync()
+          return
+        }
+        if (event.kind === 'lost') {
+          buffer.setError(`实时连接中断：${event.reason}`)
+          return
+        }
+        if (event.kind === 'stopped') buffer.setError(`实时连接已停止：${event.reason}`)
+      })
+      this.live.set(key, { subscription, abort })
     }
   }
   private session: ReadyMarketSession | null = null
@@ -359,7 +342,7 @@ export class MarketRuntime implements IndicatorMarketData {
   constructor(private readonly deps: MarketRuntimeDependencies) {
     this.marketSessions = deps.marketSessions ?? new MarketSessionRegistry()
     this.registry = deps.registry ?? marketDataProviderRegistry
-    this.pool = deps.realtime
+    this.stream = deps.stream
     this.requests = new IndicatorBarsRepository({
       cache: deps.cache,
       registry: this.registry,
@@ -539,7 +522,7 @@ export class MarketRuntime implements IndicatorMarketData {
     this.barDemands.clear()
     for (const binding of this.live.values()) {
       binding.abort.abort()
-      binding.connector.stop()
+      binding.subscription.close()
     }
     this.live.clear()
     this.unmountTrade()

@@ -10,22 +10,7 @@ export type {
   DepthSource,
   DepthSourceStatus,
 } from './depth/types.js'
-export type { RealtimeBarsSink } from './live/impl/barsConnector.js'
-export { RealtimeBarsConnector } from './live/impl/barsConnector.js'
-export { createRealtimeSubscriptionPool } from './live/impl/realtimePool.js'
-export type {
-  LiveBar,
-  LiveFrame,
-  LiveQuote,
-  RealtimeChannel,
-  RealtimeConnection,
-  RealtimeConnectionFactory,
-  RealtimeConnectionRequest,
-  RealtimeStatus,
-  RealtimeSubscription,
-  RealtimeSubscriptionPool,
-  RealtimeSubscriptionRequest,
-} from './live/types.js'
+export * from './stream/index.js'
 export * from './provider/impl/sources/index.js'
 export * from './provider/index.js'
 export type {

@@ -33,7 +33,7 @@ import {
   type KLineBuffer,
   type TimeShareBuffer,
 } from '../../data/buffer/types.js'
-import type { RealtimeSubscriptionPool } from '../../data/live/types.js'
+import type { StreamHub } from '../../data/stream/types.js'
 import {
   type MarketDataProviderRegistry,
   marketDataProviderRegistry,
@@ -81,8 +81,8 @@ export interface DataDependencies {
   marketSessions?: MarketSessionRegistry
   invalidateRequests?(): void
   marketDataProviderRegistry?: MarketDataProviderRegistry
-  /** 宿主持有的唯一实时订阅池。 */
-  realtimeSubscriptionPool: RealtimeSubscriptionPool
+  /** 宿主持有的唯一实时连接注册表。 */
+  streamHub: StreamHub
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
   getOption: () => { kWidth: number; kGap: number }
@@ -195,7 +195,7 @@ export class ChartDataManager {
     this.marketRuntime = new MarketRuntime({
       marketSessions: deps.marketSessions,
       registry: this.providerRegistry,
-      realtime: deps.realtimeSubscriptionPool,
+      stream: deps.streamHub,
       cache: this.marketDataCache,
       session: dataState.readonly.readyMarket,
       visibleRange: deps.viewport.readonly.visibleRange,
@@ -212,7 +212,7 @@ export class ChartDataManager {
         return { ...this.barsSelectionForSpec(spec), barAggregation }
       },
       publishTrades: (snapshot) => deps.updateTradeInput(snapshot),
-      reloadBars: (session, buffer, signal) =>
+      resyncBars: (session, buffer, signal) =>
         this.loadBars(
           session.selection,
           buffer,

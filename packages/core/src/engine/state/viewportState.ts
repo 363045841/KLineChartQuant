@@ -10,7 +10,7 @@ import {
 } from '../../foundation/reactivity/signal.js'
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../foundation/types/price.js'
-import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
+import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { Viewport, ViewportState } from '../chart/index.js'
 import { SCALE_X_STRATEGIES, type ScaleXInput } from '../scale/index.js'
 import type { VisibleRange } from '../viewport/viewport.js'

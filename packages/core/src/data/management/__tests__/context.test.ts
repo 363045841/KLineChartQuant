@@ -1,12 +1,13 @@
+// @vitest-environment jsdom
 /** 行情管理实例隔离、共享连接与异步失效测试。 */
 import { describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
 import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
 import type { BarsSelection } from '../../buffer/impl/seriesRepository.js'
-import { createDataSourceFixture } from '../../provider/__tests__/helpers/providerTestKit.js'
 import { searchInstruments } from '../../provider/impl/instrumentSearch.js'
 import { createBuiltinMarketDataContext } from '../../provider/impl/sources/createBuiltinContext.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
+import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
 import { MarketDataContext } from '../impl/context.js'
 
 /** 最小协议 Provider，只模拟场景涉及的网络边界。 */
@@ -26,68 +27,115 @@ function provider(
   }
 }
 
-describe('MarketDataContext', () => {
-  it('releases a host subscription that disconnects synchronously during creation', async () => {
-    const fixture = createDataSourceFixture([])
-    const stop = vi.fn()
-    fixture.source.bars.subscribe = (_request, observer) => {
-      observer.status('disconnected')
-      return stop
-    }
+/** 注册一个可观察的流式数据源；传输替身记录建流与关闭次数。 */
+function registerStreamSource(context: MarketDataContext) {
+  const transports: Array<StreamTransportHandlers & { closed: number }> = []
+  context.registry.register({
+    source: { id: 'one', displayName: 'one', defaultBaseUrl: 'http://localhost:8000' },
+    probe: async () => ({ status: 'online', checkedAt: 1 }),
+    stream: (_request, created) => {
+      const transport = Object.assign(created, { closed: 0 })
+      transports.push(transport)
+      return {
+        open() {},
+        close() {
+          transport.closed += 1
+        },
+      }
+    },
+  })
+  return transports
+}
+
+describe('MarketDataContext stream lifecycle', () => {
+  it('routes transport frames to the subscription and closes on the last leave', () => {
     const context = new MarketDataContext()
     try {
-      context.registerDataSource(fixture.source)
-      const instrument = await context.resolveInstrument('test', 'A')
-      await context.health.refresh()
-      const handle = context.realtime.subscribe({
-        source: 'test',
-        instrumentId: instrument.id,
-        channel: 'bars',
-        period: 'daily',
-        adjustment: 'none',
-        barAggregation: 'original',
+      const transports = registerStreamSource(context)
+      const frames: StreamFrame[] = []
+      const handle = context.stream.subscribe({
+        source: 'one',
+        channel: 'quotes',
+        instrumentId: 'A',
       })
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce())
+      handle.onFrame((frame) => frames.push(frame))
+      expect(transports).toHaveLength(1)
+      transports[0]!.onFrame({
+        seq: 0,
+        ts: 0,
+        type: 'quote',
+        instrumentId: 'A',
+        quote: { last: 1, prevClose: 1, timestamp: 0 },
+      })
+      expect(frames).toHaveLength(1)
+      handle.close()
+      expect(transports[0]!.closed).toBe(1)
+    } finally {
+      context.dispose()
+    }
+    expect(() =>
+      context.stream.subscribe({ source: 'one', instrumentId: 'A', channel: 'quotes' }),
+    ).toThrow('disposed')
+  })
+
+  it.each([
+    ['visibilitychange', () => document.dispatchEvent(new Event('visibilitychange'))],
+    ['pageshow', () => window.dispatchEvent(new Event('pageshow'))],
+    ['online', () => window.dispatchEvent(new Event('online'))],
+  ])('resumes a backing-off stream on %s', (_name, fire) => {
+    const context = new MarketDataContext()
+    try {
+      const transports = registerStreamSource(context)
+      const handle = context.stream.subscribe({
+        source: 'one',
+        channel: 'quotes',
+        instrumentId: 'A',
+      })
+      transports[0]!.onOpen()
+      transports[0]!.onClose({ retryable: true, message: 'lost' })
+      fire()
+      expect(transports).toHaveLength(2)
       handle.close()
     } finally {
       context.dispose()
     }
-    expect(stop).toHaveBeenCalledOnce()
   })
 
-  it('owns stream lifetime and keeps healthy connections during health refresh', async () => {
-    const fixture = createDataSourceFixture([])
+  it('leaves a live stream untouched when the page becomes active again', () => {
     const context = new MarketDataContext()
-    context.registerDataSource(fixture.source)
-    const instrument = await context.resolveInstrument('test', 'A')
-    await context.health.refresh()
-    const handle = context.realtime.subscribe({
-      source: 'test',
-      instrumentId: instrument.id,
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-    })
-    const frames = vi.fn()
-    handle.onFrame(frames)
-    await vi.waitFor(() => expect(fixture.observers.size).toBe(1))
-    const observer = fixture.observers.get('A')!
-    await context.health.refresh({ force: true })
-    await Promise.resolve()
-    expect(fixture.observers.get('A')).toBe(observer)
-    expect(fixture.stopped).toEqual([])
-    context.dispose()
-    expect(fixture.observers.size).toBe(0)
-    expect(fixture.stopped).toEqual(['A'])
-    frames.mockClear()
-    observer.invalidate()
-    expect(frames).not.toHaveBeenCalled()
-    expect(() =>
-      context.realtime.subscribe({ source: 'test', instrumentId: 'A', channel: 'quotes' }),
-    ).toThrow('disposed')
+    try {
+      const transports = registerStreamSource(context)
+      const handle = context.stream.subscribe({
+        source: 'one',
+        channel: 'quotes',
+        instrumentId: 'A',
+      })
+      transports[0]!.onOpen()
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(transports).toHaveLength(1)
+      expect(transports[0]!.closed).toBe(0)
+      handle.close()
+    } finally {
+      context.dispose()
+    }
   })
 
+  it('detaches the page restore listeners on dispose', () => {
+    const documentRemove = vi.spyOn(document, 'removeEventListener')
+    const windowRemove = vi.spyOn(window, 'removeEventListener')
+    try {
+      new MarketDataContext().dispose()
+      expect(documentRemove).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
+      expect(windowRemove).toHaveBeenCalledWith('pageshow', expect.any(Function))
+      expect(windowRemove).toHaveBeenCalledWith('online', expect.any(Function))
+    } finally {
+      documentRemove.mockRestore()
+      windowRemove.mockRestore()
+    }
+  })
+})
+
+describe('MarketDataContext', () => {
   it('drops old connection snapshots while retaining unrelated data', () => {
     const context = new MarketDataContext()
     context.registry.register(provider('one'))

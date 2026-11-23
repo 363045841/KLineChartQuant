@@ -1,5 +1,5 @@
 /** 分时图表模式：固定整物理网格柱宽，自动价格范围覆盖可见行情与昨收。 */
-import type { MarketSessionConfig } from '@/foundation/utils/timeShareAxisLabels.js'
+import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
 import type { VisibleRange } from '../../../viewport/viewport.js'

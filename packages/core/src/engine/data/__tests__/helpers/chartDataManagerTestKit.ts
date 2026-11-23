@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '@/controllers/types'
-import type { RealtimeSubscriptionPool } from '@/data/live/types.js'
+import type { StreamHub } from '@/data/stream/types.js'
 import { marketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarAggregation,
@@ -33,11 +33,12 @@ import type { TimeShareData } from '@/foundation/types/price'
 
 import { makeSymbolSpec, type SymbolSpecInput } from './symbolSpecFixture'
 
-/** 不声明实时能力的用例禁止隐式创建网络订阅。 */
-export const inactiveRealtimePool: RealtimeSubscriptionPool = {
+/** 不声明实时能力的用例禁止隐式创建网络连接。 */
+export const inactiveStreamHub: StreamHub = {
   subscribe() {
-    throw new Error('Unexpected realtime subscription in a history-only test')
+    throw new Error('Unexpected stream subscription in a history-only test')
   },
+  resume() {},
   dispose() {},
 }
 
@@ -105,7 +106,8 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
 
 /** DataDependencies 工厂入参。 */
 export interface MockDataDependenciesOptions {
-  realtimeSubscriptionPool?: RealtimeSubscriptionPool
+  /** 实时连接注册表；缺省用拒绝订阅的替身。 */
+  streamHub?: StreamHub
   marketDataProviderRegistry?: DataDependencies['marketDataProviderRegistry']
   /** 透传给 createMockViewport 的差异项。 */
   viewport?: MockViewportOptions
@@ -132,10 +134,7 @@ function createMockDataDependencies(
   } = options
   return {
     marketDataProviderRegistry: options.marketDataProviderRegistry,
-    realtimeSubscriptionPool:
-      options.realtimeSubscriptionPool === undefined
-        ? inactiveRealtimePool
-        : options.realtimeSubscriptionPool,
+    streamHub: options.streamHub === undefined ? inactiveStreamHub : options.streamHub,
     getOption: () => ({ kWidth: 8, kGap: 2 }),
     getDom: () => dom,
     viewport: createMockViewport(viewport).viewport,

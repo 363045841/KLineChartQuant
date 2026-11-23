@@ -193,7 +193,7 @@
 
   /** 该行可用的报价：来源必须在线，断线时整行回到占位而不是展示旧值。 */
   function quoteOf(item: SearchableSymbol): WatchlistQuote | null {
-    if (sourceStatus.value.get(item.source) !== 'connected') return null
+    if (sourceStatus.value.get(item.source) !== 'online') return null
     return quotes.value.get(symbolIdentityKey(item)) ?? null
   }
 
@@ -227,7 +227,7 @@
       if (seen.has(item.source)) continue
       const error = sourceErrors.value.get(item.source)
       const status = sourceStatus.value.get(item.source)
-      if (error === undefined && status !== 'disconnected') continue
+      if (error === undefined && (status === undefined || status === 'online')) continue
       seen.add(item.source)
       issues.push({
         source: item.source,

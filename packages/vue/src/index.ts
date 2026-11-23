@@ -74,15 +74,18 @@ export type {
   LegendTimeshareRow,
 } from '@363045841yyt/klinechart-core/controllers'
 export type {
-  BarsObserver,
   BarsRequest,
-  ConnectionStatus,
   DataSourceInstrument,
   HistoryPage,
   HistoryRequest,
   InstrumentDescriptor,
   MarketDataSource,
   SourceCapabilities,
+  StreamEvent,
+  StreamFrame,
+  StreamHub,
+  StreamPhase,
+  StreamSubscription,
 } from '@363045841yyt/klinechart-core/market-data'
 export {
   createMarketDataHost,

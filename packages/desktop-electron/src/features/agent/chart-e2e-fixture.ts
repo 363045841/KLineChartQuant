@@ -1,7 +1,6 @@
 /** Deterministic chart data used only by the Electron E2E build mode. */
 import type { KLineData } from '@363045841yyt/klinechart-core/controllers'
 import type {
-  BarsObserver,
   DataSourceInstrument,
   MarketDataSource,
 } from '@363045841yyt/klinechart-core/market-data'
@@ -36,7 +35,8 @@ function createE2eChartData(): KLineData[] {
 /** 固定行情也通过注册数据源查询；测试控件与订阅复用同一份行情事实。 */
 export function createE2eDataSource(onSubscriptionChange?: (active: number) => void) {
   let bars = createE2eChartData()
-  const observers = new Set<BarsObserver>()
+  /** 当前打开的流；每个连接只推送自己订阅到的品种。 */
+  const streams = new Set<{ emitBar(bar: KLineData): void }>()
   const metrics = { historyRequests: 0, subscriptions: 0, unsubscriptions: 0 }
   const instrument: DataSourceInstrument = {
     id: 'BTCUSDT',
@@ -82,16 +82,47 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
           olderData: available.length > request.limit ? 'available' : 'exhausted',
         }
       },
-      subscribe(_request, observer) {
-        metrics.subscriptions++
-        observers.add(observer)
-        onSubscriptionChange?.(observers.size)
-        observer.status('connected')
-        return () => {
-          if (observers.delete(observer)) metrics.unsubscriptions++
-          onSubscriptionChange?.(observers.size)
-        }
-      },
+    },
+    stream(request, handlers) {
+      let seq = 0
+      const emitBar = (bar: KLineData): void => {
+        handlers.onFrame({
+          seq: seq++,
+          ts: Date.now(),
+          type: 'bar',
+          instrumentId: instrument.id,
+          state: 'forming',
+          bar,
+        })
+      }
+      const entry = { emitBar }
+      return {
+        open() {
+          streams.add(entry)
+          metrics.subscriptions++
+          onSubscriptionChange?.(streams.size)
+          handlers.onOpen()
+          handlers.onFrame({
+            seq: seq++,
+            ts: Date.now(),
+            type: 'hello',
+            instruments: request.instrumentIds,
+            snapshotSize: 2,
+          })
+          handlers.onFrame({
+            seq: seq++,
+            ts: Date.now(),
+            type: 'snapshot',
+            instrumentId: instrument.id,
+            bars: bars.slice(-2),
+          })
+        },
+        close() {
+          if (!streams.delete(entry)) return
+          metrics.unsubscriptions++
+          onSubscriptionChange?.(streams.size)
+        },
+      }
     },
   }
   return {
@@ -103,14 +134,14 @@ export function createE2eDataSource(onSubscriptionChange?: (active: number) => v
       const last = bars.at(-1)!
       const bar = { ...last, close: last.close + 1, high: Math.max(last.high, last.close + 1) }
       bars = [...bars.slice(0, -1), bar]
-      for (const observer of observers) observer.update(bar)
+      for (const stream of streams) stream.emitBar(bar)
     },
     /** 追加一个周期并通知订阅，覆盖追加而非整体替换。 */
     appendBar() {
       const last = bars.at(-1)!
       const bar = { ...last, timestamp: last.timestamp + 86_400_000 }
       bars = [...bars, bar]
-      for (const observer of observers) observer.update(bar)
+      for (const stream of streams) stream.emitBar(bar)
     },
   }
 }

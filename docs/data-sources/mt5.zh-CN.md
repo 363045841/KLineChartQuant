@@ -23,7 +23,7 @@ pnpm setup:backends   # 幂等：目录已存在则跳过
 - 支持周期：`1min` / `5min` / `15min` / `30min` / `60min` / `4h` / `daily` / `weekly` / `monthly`
 - 复权：`none`
 - 会话：`MT5`（7x24 UTC，仅用于时区解析，不裁剪 K 线）
-- 实时消费：`Mt5LiveSource` + `RealtimeBarsConnector`（`packages/core/src/data/live/impl/barsLive.ts`）驱动 `controller.updateBars`
+- 实时消费：数据源声明 `stream` 传输，由 `data/stream` 的连接注册表统一建立 SSE，帧写入图表缓冲。
 
 ## 启动方式
 

@@ -473,7 +473,7 @@ export class Chart {
     this.dataManager = new ChartDataManager(
       {
         marketDataProviderRegistry: this.marketDataProviderRegistry,
-        realtimeSubscriptionPool: resolveMarketDataContext(runtime).realtime,
+        streamHub: resolveMarketDataContext(runtime).stream,
         marketSessions: this.marketSessions,
         getOption: () => this.getRenderOptions(),
         getDom: () => this.dom,

@@ -1,11 +1,11 @@
-/** 自选报价订阅：增量订阅、按来源聚合状态与释放。 */
+/** 自选报价订阅：增量订阅、连接事件驱动状态与释放。 */
 
 import type {
-  LiveFrame,
-  RealtimeStatus,
-  RealtimeSubscription,
-  RealtimeSubscriptionPool,
-  RealtimeSubscriptionRequest,
+  StreamEvent,
+  StreamFrame,
+  StreamHub,
+  StreamSubscription,
+  StreamSubscriptionRequest,
 } from '@363045841yyt/klinechart-core/market-data'
 import { TEST_SYMBOLS } from '@vue-src/composables/__tests__/testSymbols.js'
 import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
@@ -13,45 +13,36 @@ import { describe, expect, it } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { useWatchlistQuotes } from '../useWatchlistQuotes.js'
 
-/** 可手动投递帧与状态的订阅替身。 */
-class FakeSubscription implements RealtimeSubscription {
-  private readonly frameCbs = new Set<(frame: LiveFrame) => void>()
-  private readonly statusCbs = new Set<(status: RealtimeStatus) => void>()
-  private readonly errorCbs = new Set<(error: Error) => void>()
+/** 可手动投递帧与连接事件的订阅替身。 */
+class FakeSubscription implements StreamSubscription {
+  private readonly frameCbs = new Set<(frame: StreamFrame) => void>()
+  private readonly eventCbs = new Set<(event: StreamEvent) => void>()
   closed = false
 
-  constructor(readonly request: RealtimeSubscriptionRequest) {}
+  constructor(readonly request: StreamSubscriptionRequest) {}
 
-  onFrame(callback: (frame: LiveFrame) => void): () => void {
+  onFrame(callback: (frame: StreamFrame) => void): () => void {
     this.frameCbs.add(callback)
     return () => this.frameCbs.delete(callback)
   }
 
-  onStatus(callback: (status: RealtimeStatus) => void): () => void {
-    this.statusCbs.add(callback)
-    return () => this.statusCbs.delete(callback)
-  }
-
-  onError(callback: (error: Error) => void): () => void {
-    this.errorCbs.add(callback)
-    return () => this.errorCbs.delete(callback)
+  onEvent(callback: (event: StreamEvent) => void): () => void {
+    this.eventCbs.add(callback)
+    return () => this.eventCbs.delete(callback)
   }
 
   close(): void {
     this.closed = true
   }
 
-  emitStatus(status: RealtimeStatus): void {
-    for (const callback of this.statusCbs) callback(status)
-  }
-
-  emitError(message: string): void {
-    for (const callback of this.errorCbs) callback(new Error(message))
+  emit(event: StreamEvent): void {
+    for (const callback of this.eventCbs) callback(event)
   }
 
   emitQuote(instrumentId: string, last: number, prevClose: number): void {
-    const frame: LiveFrame = {
-      channel: 'quotes',
+    const frame: StreamFrame = {
+      seq: 0,
+      ts: 1,
       type: 'quote',
       instrumentId,
       quote: { last, prevClose, timestamp: 1 },
@@ -60,40 +51,42 @@ class FakeSubscription implements RealtimeSubscription {
   }
 }
 
-/** 记录订阅请求的池替身。 */
-class FakePool implements RealtimeSubscriptionPool {
-  readonly requests: RealtimeSubscriptionRequest[] = []
+/** 记录订阅请求的注册表替身。 */
+class FakeHub implements StreamHub {
+  readonly requests: StreamSubscriptionRequest[] = []
   readonly subscriptions = new Map<string, FakeSubscription>()
 
-  subscribe(request: RealtimeSubscriptionRequest): RealtimeSubscription {
+  subscribe(request: StreamSubscriptionRequest): StreamSubscription {
     const subscription = new FakeSubscription(request)
     this.requests.push(request)
     this.subscriptions.set(`${request.source}:${request.instrumentId}`, subscription)
     return subscription
   }
 
+  resume(): void {}
+
   dispose(): void {}
 }
 
 describe('useWatchlistQuotes', () => {
   it('subscribes each symbol once and merges quote frames', async () => {
-    const pool = new FakePool()
+    const hub = new FakeHub()
     const scope = effectScope()
-    const state = scope.run(() => useWatchlistQuotes(ref([...TEST_SYMBOLS]), pool))!
+    const state = scope.run(() => useWatchlistQuotes(ref([...TEST_SYMBOLS]), hub))!
     await nextTick()
 
-    expect(pool.requests.map((request) => request.instrumentId)).toEqual(
+    expect(hub.requests.map((request) => request.instrumentId)).toEqual(
       TEST_SYMBOLS.map((item) => item.id),
     )
-    expect(pool.requests.every((request) => request.channel === 'quotes')).toBe(true)
+    expect(hub.requests.every((request) => request.channel === 'quotes')).toBe(true)
 
     const symbol = TEST_SYMBOLS[0]!
-    const subscription = pool.subscriptions.get(`gotdx:${symbol.id}`)!
-    subscription.emitStatus('connected')
+    const subscription = hub.subscriptions.get(`gotdx:${symbol.id}`)!
+    subscription.emit({ kind: 'opened', reconnected: false })
     subscription.emitQuote(symbol.id, 12.5, 11)
     await Promise.resolve()
 
-    expect(state.sourceStatus.value.get('gotdx')).toBe('connected')
+    expect(state.sourceStatus.value.get('gotdx')).toBe('online')
     expect(state.quotes.value.get(symbolIdentityKey(symbol))).toEqual({
       last: 12.5,
       prevClose: 11,
@@ -104,13 +97,13 @@ describe('useWatchlistQuotes', () => {
   })
 
   it('colors by the move against the previously displayed price', async () => {
-    const pool = new FakePool()
+    const hub = new FakeHub()
     const scope = effectScope()
-    const state = scope.run(() => useWatchlistQuotes(ref([TEST_SYMBOLS[0]!]), pool))!
+    const state = scope.run(() => useWatchlistQuotes(ref([TEST_SYMBOLS[0]!]), hub))!
     await nextTick()
 
     const symbol = TEST_SYMBOLS[0]!
-    const subscription = pool.subscriptions.get(`gotdx:${symbol.id}`)!
+    const subscription = hub.subscriptions.get(`gotdx:${symbol.id}`)!
     const direction = () => state.quotes.value.get(symbolIdentityKey(symbol))?.direction
 
     // 首帧没有上一次展示值，以昨收为基准。
@@ -134,41 +127,44 @@ describe('useWatchlistQuotes', () => {
     scope.stop()
   })
 
-  it('reports subscription errors per source and clears them after reconnect', async () => {
-    const pool = new FakePool()
+  it('reports connection failures per source and clears them after reconnect', async () => {
+    const hub = new FakeHub()
     const scope = effectScope()
-    const state = scope.run(() => useWatchlistQuotes(ref([...TEST_SYMBOLS]), pool))!
+    const state = scope.run(() => useWatchlistQuotes(ref([...TEST_SYMBOLS]), hub))!
     await nextTick()
 
     const first = TEST_SYMBOLS[0]!
     const second = TEST_SYMBOLS[1]!
-    const firstSubscription = pool.subscriptions.get(`gotdx:${first.id}`)!
+    const firstSubscription = hub.subscriptions.get(`gotdx:${first.id}`)!
 
-    firstSubscription.emitError('报价通道不可用')
+    firstSubscription.emit({ kind: 'lost', reason: '报价通道不可用' })
     await Promise.resolve()
     expect(state.sourceErrors.value.get('gotdx')).toBe('报价通道不可用')
+    expect(state.sourceStatus.value.get('gotdx')).toBe('backing-off')
     expect(state.sourceErrors.value.has('tradingview')).toBe(false)
 
-    firstSubscription.emitStatus('connected')
+    firstSubscription.emit({ kind: 'opened', reconnected: true })
     await Promise.resolve()
     expect(state.sourceErrors.value.has('gotdx')).toBe(false)
+    expect(state.sourceStatus.value.get('gotdx')).toBe('online')
 
-    expect(pool.subscriptions.get(`tradingview:${second.id}`)).toBeDefined()
+    expect(hub.subscriptions.get(`tradingview:${second.id}`)).toBeDefined()
     scope.stop()
   })
 
-  it('closes subscriptions for removed symbols and on scope dispose', async () => {    const pool = new FakePool()
+  it('closes subscriptions for removed symbols and on scope dispose', async () => {
+    const hub = new FakeHub()
     const items = ref([...TEST_SYMBOLS])
     const scope = effectScope()
-    scope.run(() => useWatchlistQuotes(items, pool))
+    scope.run(() => useWatchlistQuotes(items, hub))
     await nextTick()
 
     items.value = [TEST_SYMBOLS[1]!]
     await nextTick()
-    expect(pool.subscriptions.get(`gotdx:${TEST_SYMBOLS[0]!.id}`)?.closed).toBe(true)
-    expect(pool.subscriptions.get(`tradingview:${TEST_SYMBOLS[1]!.id}`)?.closed).toBe(false)
+    expect(hub.subscriptions.get(`gotdx:${TEST_SYMBOLS[0]!.id}`)?.closed).toBe(true)
+    expect(hub.subscriptions.get(`tradingview:${TEST_SYMBOLS[1]!.id}`)?.closed).toBe(false)
 
     scope.stop()
-    expect([...pool.subscriptions.values()].every((subscription) => subscription.closed)).toBe(true)
+    expect([...hub.subscriptions.values()].every((subscription) => subscription.closed)).toBe(true)
   })
 })

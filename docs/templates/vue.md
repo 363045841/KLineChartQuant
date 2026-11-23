@@ -2,6 +2,8 @@
 
 {{include:_header.md}}
 
+{{include:_lang.md}}
+
 {{include:_badges.md}}
 
 {{include:_hero.md}}

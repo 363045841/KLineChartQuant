@@ -48,10 +48,10 @@ import {
   KLineAdjustment,
   KLinePeriod,
   createMarketDataHost,
-  type BarsObserver,
   type DataSourceInstrument,
   type HistoryRequest,
   type MarketDataSource,
+  type StreamTransport,
 } from '@363045841yyt/klinechart'
 
 // `api` 与 `toInstrument` 代表你的后端适配层与数据映射（HTTP、WebSocket、文件或数据库皆可）。
@@ -99,17 +99,31 @@ const source: MarketDataSource = {
       })
       return { bars: page.bars, olderData: page.olderData }
     },
-    // 可选实时流；返回取消订阅函数。
-    subscribe(request, observer: BarsObserver) {
-      observer.status('connecting')
-      const socket = api.subscribeBars(request.instrument.id, request.period, {
-        onBar: (bar) => observer.update(bar),
-        onCorrection: (bar) => observer.update(bar, { historical: true }),
-        onReset: () => observer.invalidate(),
-        onStatus: (status) => observer.status(status),
-        onError: (error) => observer.error(error),
+    // 可选实时流：返回一次性传输，连接与重连由图表统一管理。
+    stream(request, handlers): StreamTransport {
+      let seq = 0
+      const socket = api.subscribeBars(request.instrumentIds, request.period, {
+        onBar: (instrumentId, bar, state) =>
+          handlers.onFrame({
+            type: 'bar',
+            seq: seq++,
+            ts: Date.now(),
+            instrumentId,
+            state,
+            bar,
+          }),
+        onSnapshot: (instrumentId, bars) =>
+          handlers.onFrame({ type: 'snapshot', seq: seq++, ts: Date.now(), instrumentId, bars }),
+        onClose: (message) => handlers.onClose({ retryable: true, message }),
       })
-      return () => socket.close()
+      return {
+        open() {
+          handlers.onOpen()
+        },
+        close() {
+          socket.close()
+        },
+      }
     },
   },
 }
@@ -142,9 +156,9 @@ const instrument = { source: 'binance', id: 'BTCUSDT' }
 
 - `bars.fetch` 返回 `{ bars, olderData }`。K 线为 UTC 毫秒 OHLCV，按时间升序；`beforeTimestamp` 为排他上界，`limit` 为请求页大小。
 - `olderData` 只能是 `available`、`exhausted` 或 `unknown`，必须显式声明；不能用空数组表示“没有更多历史”。
-- `observer.update(bar)` 提交完整单根快照：末根时间相同则替换，较新则追加，较旧按协议错误处理；`observer.update(bar, { historical: true })` 修正已有历史；`observer.invalidate()` 在删除历史或复权变化后请求重查。
-- `observer.status('connecting' | 'connected' | 'disconnected')` 与 `observer.error(error)` 上报连接状态；重连策略仍属于数据源。
-- 源级 `liveBars` 由 `subscribe` 实现派生；单个品种可以声明 `liveBars: false`。
+- `stream(request, handlers)` 提供一次性传输：`open` / `close` 与 `onOpen` / `onFrame` / `onClose`；连接、重连与存活判断由图表统一管理，数据源不实现重连。
+- 帧协议固定为 V1.1：`hello / snapshot / bar / quote / status / ping / error`，统一信封 `{ type, seq, ts }`；增量帧自带 `state: 'forming' | 'closed'`，不再依赖成对到达。
+- 源级 `liveBars` 由 `stream` 实现派生；单个品种可以声明 `liveBars: false`。
 - `instrument` 与 `period` 是受控属性，修改即切换序列。
 - 宿主生命周期归应用所有：`unregister()` 注销单个来源，`host.dispose()` 释放全部资源；卸载工作台不会销毁宿主。
 - 本地开发没有后端时，注册内置 mock：`host.registerDataSource(createMockDataSource())`（MOCK）。默认宿主已内置该来源，不要重复注册。

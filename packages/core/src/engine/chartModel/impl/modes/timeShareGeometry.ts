@@ -4,8 +4,8 @@ import type {
   TimeShareGeometry,
   TimeShareSegmentGeometry,
 } from '@/foundation/plugin/index.js'
+import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
 import {
-  type MarketSessionConfig,
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
 } from '@/foundation/utils/timeShareAxisLabels.js'

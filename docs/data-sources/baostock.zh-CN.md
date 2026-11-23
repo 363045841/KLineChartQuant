@@ -18,7 +18,7 @@ pnpm setup:backends   # 幂等：目录已存在则跳过
 
 ## 使用方法
 
-- fetcher 名：`baostock`（`packages/core/src/data/legacy/baostock.ts`）
+- fetcher 名：`baostock`（`packages/core/src/data/provider/impl/sources/baostock.ts`）
 - 默认地址：`http://localhost:8000`，请求 `/api/stock/kdata`
 - 支持周期：`daily` / `weekly` / `monthly`、`5min` / `15min` / `30min` / `60min`
 - 复权：`none`（3）/ `qfq`（2）/ `hfq`（1）

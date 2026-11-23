@@ -12,7 +12,7 @@ import { openDurableExecution } from '../../sessions/durable-execution.js'
 import { AgentSessionService } from '../../sessions/session-service.js'
 
 /** 已发布的会话数据保存在该库中；新版本通过回填会话文档继续使用同一数据库。 */
-export const BROWSER_SESSION_DATABASE = 'kq-agent-durable-v2'
+const BROWSER_SESSION_DATABASE = 'kq-agent-durable-v2'
 
 /** 浏览器会话存储的创建选项。 */
 export interface BrowserRuntimeSessionOptions {

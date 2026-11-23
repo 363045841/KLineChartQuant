@@ -10,7 +10,7 @@ const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
 
 /** 已校验的 Provider 模型能力，供连接测试和运行计划共享。 */
-export interface ProviderCatalogModel extends ProtocolCatalogModel {
+export interface NormalizedProviderCatalogModel extends ProtocolCatalogModel {
   reasoningEfforts: readonly ProviderReasoningEffort[]
 }
 
@@ -27,7 +27,7 @@ function positiveInteger(value: unknown): number | undefined {
 /** 解析模型声明的思考强度。 */
 function reasoningCapabilities(
   value: unknown,
-): Pick<ProviderCatalogModel, 'reasoningEfforts' | 'defaultReasoningEffort'> {
+): Pick<NormalizedProviderCatalogModel, 'reasoningEfforts' | 'defaultReasoningEffort'> {
   if (!isRecord(value) || !Array.isArray(value.supported_efforts)) {
     return { reasoningEfforts: [] }
   }
@@ -44,11 +44,11 @@ function reasoningCapabilities(
 }
 
 /** 校验 Provider `/models` 响应并保留模型运行能力。 */
-export function parseProviderModelCatalog(value: unknown): ProviderCatalogModel[] {
+export function parseProviderModelCatalog(value: unknown): NormalizedProviderCatalogModel[] {
   if (!isRecord(value) || !Array.isArray(value.data)) {
     throw new TypeError('The Provider returned an invalid model catalog.')
   }
-  const unique = new Map<string, ProviderCatalogModel>()
+  const unique = new Map<string, NormalizedProviderCatalogModel>()
   for (const item of value.data) {
     if (!isRecord(item) || typeof item.id !== 'string') continue
     const id = item.id.trim()
@@ -70,7 +70,7 @@ export function parseProviderModelCatalog(value: unknown): ProviderCatalogModel[
 }
 
 /** 将已校验的目录模型转换为稳定 UI 视图。 */
-export function providerModelView(model: ProviderCatalogModel): ProviderModelView {
+export function providerModelView(model: NormalizedProviderCatalogModel): ProviderModelView {
   return {
     id: model.id,
     name: model.name,

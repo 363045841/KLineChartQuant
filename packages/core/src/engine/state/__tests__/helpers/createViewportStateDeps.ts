@@ -10,10 +10,8 @@ import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
 import { computed, createSignal } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum } from '@/foundation/types/price'
-import {
-  ASHARE_MARKET_SESSION,
-  type MarketSessionConfig,
-} from '@/foundation/utils/timeShareAxisLabels'
+import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels'
+import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
 
 /** 测试用视口几何输入：缩放宽度与密度系数由调用方声明，间隙由策略派生。 */
 export interface TestViewportGeometry {

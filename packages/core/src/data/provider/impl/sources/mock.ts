@@ -87,41 +87,61 @@ export function createMockDataSource(): MarketDataSource {
           olderData: OLDER_DATA_STATUS.AVAILABLE,
         }
       },
-      subscribe(request, observer) {
-        request.signal.throwIfAborted()
+    },
+    /** 内置流：打开即回快照，之后每秒推一根当日 forming 帧。 */
+    stream(request, handlers) {
+      let timer: ReturnType<typeof setInterval> | null = null
+      let seq = 0
+      let phase = Math.PI / 12
+      const envelope = () => ({ seq: seq++, ts: Date.now() })
+      const emit = (frame: import('../../../stream/types.js').StreamFrame): void => {
+        handlers.onFrame(frame)
+      }
+      /** 跨零点时以昨日实时收盘作为今日开盘，保持首尾相连。 */
+      const pushBar = (): void => {
+        const day = mockDayIndex(Date.now())
         const seed = mockSeedFor(instrument.symbol)
-        let phase = Math.PI / 12
-        let stopped = false
-        /** 每次只提交一根完整快照；跨零点时以昨日实时收盘作为今日开盘，保持首尾相连。 */
-        const update = () => {
-          const day = mockDayIndex(Date.now())
-          const base = liveBars.get(day) ?? generateMockBars(seed, day, 1)[0]!
-          const open = liveBars.get(day)?.open ?? liveBars.get(day - 1)?.close ?? base.open
-          const close = Math.round(open * (1 + Math.sin(phase) * 0.004) * 100) / 100
-          phase += Math.PI / 12
-          const bar: KLineData = {
-            ...base,
-            open,
-            close,
-            high: Math.max(base.high, open, close),
-            low: Math.min(base.low, open, close),
+        const base = liveBars.get(day) ?? generateMockBars(seed, day, 1)[0]!
+        const open = liveBars.get(day)?.open ?? liveBars.get(day - 1)?.close ?? base.open
+        const close = Math.round(open * (1 + Math.sin(phase) * 0.004) * 100) / 100
+        phase += Math.PI / 12
+        const bar: KLineData = {
+          ...base,
+          open,
+          close,
+          high: Math.max(base.high, open, close),
+          low: Math.min(base.low, open, close),
+        }
+        liveBars.set(day, bar)
+        if (!request.instrumentIds.includes(instrument.id)) return
+        emit({
+          ...envelope(),
+          type: 'bar',
+          instrumentId: instrument.id,
+          state: 'forming',
+          bar,
+        })
+      }
+      return {
+        open() {
+          if (timer !== null) return
+          handlers.onOpen()
+          emit({ ...envelope(), type: 'hello', instruments: request.instrumentIds, snapshotSize: 2 })
+          if (request.instrumentIds.includes(instrument.id)) {
+            const day = mockDayIndex(Date.now())
+            const bars = generateMockBars(mockSeedFor(instrument.symbol), day, 2).map(
+              (bar) => liveBars.get(mockDayIndex(bar.timestamp)) ?? bar,
+            )
+            emit({ ...envelope(), type: 'snapshot', instrumentId: instrument.id, bars })
           }
-          liveBars.set(day, bar)
-          observer.update(bar)
-        }
-        const timer = setInterval(update, 1_000)
-        /** Abort 和显式退订共用同一释放动作，重复调用不会重复发布状态。 */
-        const stop = () => {
-          if (stopped) return
-          stopped = true
+          timer = setInterval(pushBar, 1_000)
+        },
+        close() {
+          if (timer === null) return
           clearInterval(timer)
-          request.signal.removeEventListener('abort', stop)
-          observer.status('disconnected')
-        }
-        request.signal.addEventListener('abort', stop, { once: true })
-        observer.status('connected')
-        return stop
-      },
+          timer = null
+        },
+      }
     },
   }
 }

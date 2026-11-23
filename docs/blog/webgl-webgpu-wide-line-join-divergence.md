@@ -125,4 +125,4 @@ export function buildWideLineGeometry(
 
 ---
 
-*相关代码：KLineChartQuant（Canvas / WebGL / WebGPU 混合渲染的金融图表库）。新增共享几何 `packages/core/src/rendering/render/wideLineGeometry.ts`，WebGL 与 WebGPU 后端统一调用；WebGL 侧删除了原有的 miter join 实现。*
+*相关代码：KLineChartQuant（Canvas / WebGL / WebGPU 混合渲染的金融图表库）。新增共享几何 `packages/core/src/rendering/render/wideLineGeometry.ts`，WebGL 与 WebGPU 后端统一调用；WebGL 侧删除了原有的 miter join 实现。（该文件已在后续重构中移除，文中路径仅作当时快照。）*

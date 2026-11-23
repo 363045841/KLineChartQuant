@@ -100,7 +100,7 @@ actions.setDataView(当前数据视图)
 - `decodeArchive` 只保留结构完整的模板，并丢弃指向已删除模板的最近记录。
 - IndexedDB 不可用时：读取失败不阻断图表（列表为空），写入失败通过界面报错。
 - 所有写操作串行执行，并发保存不会互相覆盖。
-- 串行队列、读取校验与销毁守卫由 `foundation/persistence/createArchivePersistence` 统一提供；
+- 串行队列、读取校验与销毁守卫由 `foundation/persistence/createDocumentStore` 统一提供；
   布局与模板各自只保留数据库名、文档 codec 与领域操作，不复制存储机制。
 
 ## 边界
@@ -116,7 +116,7 @@ actions.setDataView(当前数据视图)
 - `packages/core/src/engine/indicatorTemplate/impl/templateExtract.ts` — 从布局快照提取指标组合
 - `packages/core/src/engine/indicatorTemplate/impl/templateManager.ts` — 存储与领域操作
 - `packages/core/src/engine/indicatorTemplate/impl/templateSummary.ts` — 名称汇总与缺失判定
-- `packages/core/src/foundation/persistence/archivePersistence.ts` — 布局与模板共用的归档存储原语
+- `packages/core/src/foundation/persistence/impl/documentStore.ts` — 布局与模板共用的文档存储原语
 - `packages/core/src/engine/state/chartStateKernel.ts` — `applyIndicatorTemplate`
 - `packages/vue/src/components/indicator/template/impl/` — 弹层与名称对话框
 - `packages/vue/src/composables/indicator/useIndicatorTemplates.ts` — 界面状态

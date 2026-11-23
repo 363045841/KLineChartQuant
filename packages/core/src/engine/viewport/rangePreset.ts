@@ -55,7 +55,7 @@ const PERIOD_SPAN_MS: Readonly<Record<KLinePeriod, number>> = {
 }
 
 /** 一个窗口最多在屏幕上放多少根；超过就换更粗的周期，保证蜡烛还能读。 */
-export const RANGE_MAX_VISIBLE_BARS = 800
+const RANGE_MAX_VISIBLE_BARS = 800
 
 /** 需要定位的时间窗（闭区间，epoch 毫秒）。 */
 export interface RangeWindow {

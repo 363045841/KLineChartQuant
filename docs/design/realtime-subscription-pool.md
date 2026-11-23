@@ -1,5 +1,7 @@
 # 实时订阅池（Realtime Subscription Pool）
 
+> 已被 [实时流协议与连接恢复](./realtime-stream-protocol.md) 取代。本文件保留历史决策记录：订阅池已并入 `data/stream` 的连接注册表，连接状态、退避与存活判断全部归连接状态机。
+
 ## 决策
 
 在数据层建立唯一的实时订阅入口 `RealtimeSubscriptionPool`：

@@ -6,7 +6,7 @@ import type { SlotGrid } from '../../../../foundation/geometry/slotGrid.js'
 import type { TimeShareGeometry } from '../../../../foundation/plugin/index.js'
 import type { ChartDataView } from '../../../../foundation/types/chartView.js'
 import type { ChartSeriesDatum } from '../../../../foundation/types/price.js'
-import type { MarketSessionConfig } from '../../../../foundation/utils/timeShareAxisLabels.js'
+import type { MarketSessionConfig } from '../../../../foundation/utils/sessionTimeLabels.js'
 import type { ViewCapabilities } from '../../../chartModel/index.js'
 
 export interface ScaleXInput {

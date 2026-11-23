@@ -32,4 +32,4 @@ Connection 以明确的 `connectionId` 关联 Provider。BaoStock 与 TradingVie
 
 组件卸载只释放自身订阅；共享健康请求按 Provider 和连接版本复用，分别计时和超时。
 实例的 `dispose()` 只由宿主调用。未注入实例的旧宿主仍使用默认实例，但默认实例不
-隐式加载或保存浏览器偏好。示例宿主的集成见 `packages/vue/preview/marketDataHost.ts`。
+隐式加载或保存浏览器偏好。示例宿主的集成见 `packages/vue/preview/main.ts`。
