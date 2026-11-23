@@ -5,7 +5,7 @@ import { createHttpMarketDataTransport, createMarketDataProvider } from '../../p
 import type { MarketDataProviderRegistry } from '../registry.js'
 import type { DataSourceRegistration } from '../sourceRegistry.js'
 
-/** 内置源装配的唯一 HTTP 接入实现；实时连接统一由订阅池建立。 */
+/** 内置源装配的唯一 HTTP 接入实现；实时连接统一由 `data/stream` 的连接注册表建立。 */
 export function createHttpSource(
   source: DataSourceRegistration,
   registry: MarketDataProviderRegistry,

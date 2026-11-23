@@ -13,7 +13,7 @@ import {
   sleepWithSignal,
 } from './http.js'
 import {
-  type ProviderCatalogModel,
+  type NormalizedProviderCatalogModel,
   parseProviderModelCatalog,
   providerModelView,
 } from './model-catalog.js'
@@ -161,7 +161,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
       httpOptions(input.headers, undefined, 'catalog'),
     )
-    let models: ProviderCatalogModel[]
+    let models: NormalizedProviderCatalogModel[]
     try {
       models = parseProviderModelCatalog(result.value)
     } catch {
@@ -280,7 +280,9 @@ export function createOpenAiCompatibleRuntimeSupport(
 }
 
 /** 把已选模型设置投影成 Pi 适配器需要的模型描述。 */
-function toCatalogModel(settings: OpenAiCompatibleProviderSettings): ProviderCatalogModel {
+function toCatalogModel(
+  settings: OpenAiCompatibleProviderSettings,
+): NormalizedProviderCatalogModel {
   return {
     id: settings.modelId,
     name: settings.modelName,

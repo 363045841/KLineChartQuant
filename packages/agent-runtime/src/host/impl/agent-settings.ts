@@ -20,7 +20,7 @@ import type { OpenAiCompatibleProviderSettings } from '../../provider-openai-com
 import { PROVIDER_SETTINGS_VERSION } from '../../provider-openai-compatible/types.js'
 
 /** 当前设置文档版本；结构变化必须递增并给出迁移。 */
-export const AGENT_SETTINGS_VERSION = 3
+const AGENT_SETTINGS_VERSION = 3
 
 /** 一份已保存的 Provider 连接。 */
 export interface AgentProviderConnection {
@@ -349,7 +349,7 @@ function migrateLegacyDocument(
  *
  * 旧文档没有版本字段，凭据存在配置上；导入是唯一的兼容入口，导入后页面删除旧键。
  */
-export function parseLegacySettingsDocument(
+function parseLegacySettingsDocument(
   value: unknown,
   createId: () => string = defaultCreateId,
 ): AgentSettingsDocument {

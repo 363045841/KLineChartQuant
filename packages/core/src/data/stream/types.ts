@@ -5,7 +5,6 @@
  * 这里的类型同时是 wire 协议与前端内部契约的唯一事实来源。
  */
 
-import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { BarAggregation, KLineAdjustment, KLinePeriod } from '../provider/types.js'
 
 /** 流通道；报价与 K 线是两条独立订阅。 */
@@ -125,7 +124,6 @@ export interface StreamSubscriptionRequest {
 export type StreamEvent =
   | { kind: 'opened'; reconnected: boolean }
   | { kind: 'lost'; reason: string }
-  | { kind: 'failed'; attempt: number; message: string }
   | { kind: 'stopped'; reason: string }
 
 /** 传输只会因为一次失败而结束；是否重连由连接自己决定。 */
@@ -159,14 +157,6 @@ export interface StreamSubscription {
   onFrame(callback: (frame: StreamFrame) => void): () => void
   onEvent(callback: (event: StreamEvent) => void): () => void
   close(): void
-}
-
-/** 一条物理连接的对外表面。 */
-export interface StreamConnection {
-  readonly phase: ReadonlySignal<StreamPhase>
-  subscribe(request: StreamSubscriptionRequest): StreamSubscription
-  forceReconnect(): void
-  dispose(): void
 }
 
 /** 全仓唯一的连接入口；按连接键复用物理连接。 */

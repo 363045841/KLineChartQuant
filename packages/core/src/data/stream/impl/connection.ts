@@ -1,11 +1,8 @@
 /** 连接驱动：唯一持有状态、定时器与传输实例的地方；副作用按 effect 顺序执行。 */
 
-import { createSignal } from '@/foundation/reactivity/signal.js'
 import type {
-  StreamConnection,
   StreamEvent,
   StreamFrame,
-  StreamPhase,
   StreamRequest,
   StreamSubscription,
   StreamSubscriptionRequest,
@@ -14,18 +11,18 @@ import type {
   StreamTransportHandlers,
 } from '../types.js'
 import {
+  initialState,
   type MachineEffect,
   type MachineEvent,
   type MachineState,
-  initialState,
   transition,
 } from './machine.js'
 import {
-  DEFAULT_BACKOFF,
   type BackoffPolicy,
+  backoffDelay,
+  DEFAULT_BACKOFF,
   STREAM_STALE_MS,
   STREAM_WATCHDOG_MS,
-  backoffDelay,
 } from './policy.js'
 import { assertSubscription } from './protocol.js'
 
@@ -36,7 +33,7 @@ export interface StreamScheduler {
   schedule(delayMs: number, run: () => void): () => void
 }
 
-export const defaultScheduler: StreamScheduler = {
+const defaultScheduler: StreamScheduler = {
   now: () => Date.now(),
   random: () => Math.random(),
   schedule(delayMs, run) {
@@ -61,10 +58,12 @@ export interface ConnectionOptions {
   readonly onEmpty: () => void
 }
 
-/** 注册表持有的连接：在对外表面之外增加唤醒与空判定。 */
-export interface ManagedConnection extends StreamConnection {
+/** 注册表持有的连接：订阅、唤醒与销毁三件事，没有可观测状态。 */
+export interface ManagedConnection {
+  subscribe(request: StreamSubscriptionRequest): StreamSubscription
+  /** 立即重试退避中的连接；在线或连接中是 no-op。 */
   resume(): void
-  isEmpty(): boolean
+  dispose(): void
 }
 
 /** 一条逻辑订阅的句柄；关闭后不再收到任何事件。 */
@@ -120,7 +119,7 @@ class Subscription implements StreamSubscription {
  * 并把传输上报的事实送回状态机。存活判定用墙钟差，不受标签页定时器节流影响。
  *
  * @param options - 连接配置与依赖
- * @returns 受控连接；`resume` 供页面唤醒时立即重试
+ * @returns 受控连接；`resume` 供页面唤醒时跳过剩余退避
  */
 export function createConnection(options: ConnectionOptions): ManagedConnection {
   const scheduler = options.scheduler ?? defaultScheduler
@@ -136,7 +135,6 @@ export function createConnection(options: ConnectionOptions): ManagedConnection 
   let rebuildQueued = false
   let disposed = false
 
-  const phase = createSignal<StreamPhase>('stopped')
   const handles = new Map<string, Set<Subscription>>()
 
   /** 当前连接承载的品种集合；顺序固定，避免同一集合产生不同请求。 */
@@ -276,12 +274,11 @@ export function createConnection(options: ConnectionOptions): ManagedConnection 
     }
   }
 
-  /** 唯一的状态入口：先迁移、再更新对外信号、最后执行副作用。 */
+  /** 唯一的状态入口：先迁移、再执行副作用。 */
   const run = (event: MachineEvent): void => {
     if (disposed) return
     const [next, effects] = transition(state, event, policy)
     state = next
-    if (phase.peek() !== next.phase) phase.set(next.phase)
     for (const effect of effects) apply(effect)
   }
 
@@ -325,16 +322,9 @@ export function createConnection(options: ConnectionOptions): ManagedConnection 
   }
 
   return {
-    phase,
     subscribe,
-    forceReconnect() {
-      run({ kind: 'force' })
-    },
     resume() {
       run({ kind: 'resume' })
-    },
-    isEmpty() {
-      return handles.size === 0
     },
     dispose() {
       if (disposed) return

@@ -176,7 +176,6 @@ export {
   baostockMarketDataProvider,
   binanceMarketDataProvider,
   createMockDataSource,
-  createStreamHub,
   DataBuffer,
   DepthConnector,
   dataSourceRegistry,
@@ -186,6 +185,7 @@ export {
   marketDataProviderRegistry,
   mt5MarketDataProvider,
   ORIGINAL_BAR_AGGREGATION,
+  STREAM_ERROR_CODES,
   searchInstruments,
   tradingviewMarketDataProvider,
 } from '../data/index.js'

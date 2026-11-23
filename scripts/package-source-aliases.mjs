@@ -48,7 +48,7 @@ function getImportPath(value) {
  * @param {string} pkgSrc 包的 src 目录绝对路径
  * @returns {Array<{ find: RegExp, replacement: string }>}
  */
-export function createPackageSourceAliases(pkgSrc) {
+function createPackageSourceAliases(pkgSrc) {
   const pkg = readPackage(pkgSrc)
   const exportsMap = pkg.exports
   if (!exportsMap || typeof exportsMap !== 'object') return []

@@ -9,6 +9,25 @@ export type {
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
 export type {
+  StreamBar,
+  StreamChannel,
+  StreamClose,
+  StreamErrorCode,
+  StreamEvent,
+  StreamFrame,
+  StreamHub,
+  StreamPhase,
+  StreamQuote,
+  StreamRequest,
+  StreamStatus,
+  StreamSubscription,
+  StreamSubscriptionRequest,
+  StreamTransport,
+  StreamTransportFactory,
+  StreamTransportHandlers,
+} from '../stream/index.js'
+export { STREAM_ERROR_CODES } from '../stream/index.js'
+export type {
   InstrumentLookupRequest,
   InstrumentSearchRequest,
   InstrumentSearchResult,
@@ -106,24 +125,6 @@ export type {
   TradingDate,
   VolumeUnit,
 } from './types.js'
-export type {
-  StreamBar,
-  StreamChannel,
-  StreamClose,
-  StreamErrorCode,
-  StreamEvent,
-  StreamFrame,
-  StreamHub,
-  StreamPhase,
-  StreamQuote,
-  StreamRequest,
-  StreamStatus,
-  StreamSubscription,
-  StreamSubscriptionRequest,
-  StreamTransport,
-  StreamTransportFactory,
-  StreamTransportHandlers,
-} from '../stream/types.js'
 export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,

@@ -17,7 +17,7 @@ import type { AgentHostOptions } from '../../host/types.js'
  * @param createId 客户端标识生成器。
  * @returns 分配给该页面的 clientId。
  */
-export function attachAgentHostPort(
+function attachAgentHostPort(
   host: AgentHost,
   port: MessagePort,
   createId: () => string = () => crypto.randomUUID(),

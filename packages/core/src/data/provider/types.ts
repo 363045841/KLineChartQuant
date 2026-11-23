@@ -396,7 +396,7 @@ export interface MarketDataProvider {
   readonly catalog?: InstrumentCatalog
   readonly bars?: BarDataSource
   readonly tradingCalendar?: TradingCalendarDataSource
-  /** 宿主自带的实时连接；HTTP Provider 不提供，由实时订阅池的 SSE 实现兜底。 */
+  /** 宿主自带的实时连接；HTTP Provider 不提供，由 `data/stream` 的 SSE 传输兜底。 */
   readonly stream?: StreamTransportFactory
   readonly timeShare?: TimeShareDataSource
   readonly timeShareRange?: TimeShareRangeDataSource

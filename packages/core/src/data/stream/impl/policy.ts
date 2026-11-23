@@ -9,7 +9,7 @@ export interface BackoffPolicy {
 }
 
 /** 服务端心跳间隔；协议常量，所有 Connector 一致。 */
-export const STREAM_HEARTBEAT_MS = 15_000
+const STREAM_HEARTBEAT_MS = 15_000
 
 /** 连续三个心跳周期没有任何帧，判定链路僵死。 */
 export const STREAM_STALE_MS = STREAM_HEARTBEAT_MS * 3

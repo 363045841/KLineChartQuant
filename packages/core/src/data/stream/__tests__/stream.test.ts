@@ -1,19 +1,19 @@
-/** 流模块：协议解析、退避策略、连接状态机与注册表聚合。 */
+/** 流模块：帧解析、退避策略、连接行为与注册表生命周期。 */
 
 import { describe, expect, it } from 'vitest'
 import { createConnection, type StreamScheduler } from '../impl/connection.js'
 import { createStreamHub } from '../impl/hub.js'
 import { backoffDelay } from '../impl/policy.js'
-import { parseStreamFrame } from '../impl/protocol.js'
+import { assertSubscription, buildStreamUrl, parseStreamFrame } from '../impl/protocol.js'
 import type {
   StreamFrame,
-  StreamPhase,
   StreamRequest,
+  StreamSubscriptionRequest,
   StreamTransport,
   StreamTransportHandlers,
 } from '../types.js'
 
-/** 手动推进的时钟：定时器按到期时间排序执行，随机源固定。 */
+/** 手动推进的时钟：定时器按到期时间执行，随机源固定为 0.5。 */
 function createClock() {
   let now = 0
   let timers: Array<{ at: number; run: () => void }> = []
@@ -42,24 +42,24 @@ function createClock() {
   }
 }
 
-/** 传输替身：记录打开、关闭次数，并保留回调供用例驱动。 */
-function createTransportSpy() {
-  const opened: number[] = []
+/** 传输替身：记录每次建流与关闭，并暴露最近一条传输的回调。 */
+function createTransports() {
+  const requests: StreamRequest[] = []
+  const created: StreamTransportHandlers[] = []
   const closed: number[] = []
-  let handlers: StreamTransportHandlers | null = null
   return {
-    opened,
+    requests,
     closed,
-    get handlers() {
-      if (handlers === null) throw new Error('Transport is not created yet')
-      return handlers
+    get handlers(): StreamTransportHandlers {
+      const latest = created.at(-1)
+      if (latest === undefined) throw new Error('Transport is not created yet')
+      return latest
     },
-    factory: (request: StreamRequest, created: StreamTransportHandlers): StreamTransport => {
-      handlers = created
+    factory: (request: StreamRequest, handlers: StreamTransportHandlers): StreamTransport => {
+      requests.push(request)
+      created.push(handlers)
       return {
-        open() {
-          opened.push(request.instrumentIds.length)
-        },
+        open() {},
         close() {
           closed.push(1)
         },
@@ -68,15 +68,27 @@ function createTransportSpy() {
   }
 }
 
-/** 构造一条 bars 订阅请求。 */
-function barsRequest(instrumentId = 'A', source = 'src') {
+/** 一条 bars 订阅请求；报价通道只需要来源与品种。 */
+function barsRequest(instrumentId = 'A', source = 'src'): StreamSubscriptionRequest {
   return {
     source,
-    channel: 'bars' as const,
+    channel: 'bars',
     instrumentId,
-    period: 'daily' as const,
-    adjustment: 'none' as const,
-    barAggregation: 'original' as const,
+    period: 'daily',
+    adjustment: 'none',
+    barAggregation: 'original',
+  }
+}
+
+/** 构造一条与订阅无关的 K 线帧。 */
+function barFrame(instrumentId: string, seq: number): StreamFrame {
+  return {
+    seq,
+    ts: seq,
+    type: 'bar',
+    instrumentId,
+    state: 'forming',
+    bar: { timestamp: seq, open: 1, high: 2, low: 1, close: 2 },
   }
 }
 
@@ -104,8 +116,49 @@ describe('parseStreamFrame', () => {
     ['unknown type', { type: 'update', seq: 1, ts: 1 }],
     ['unknown status', { type: 'status', seq: 1, ts: 1, instrumentId: 'A', status: 'weird' }],
     ['bar without state', { type: 'bar', seq: 1, ts: 1, instrumentId: 'A', bar: {} }],
+    [
+      'unknown error code',
+      { type: 'error', seq: 1, ts: 1, code: 'nope', message: 'x', retryable: true },
+    ],
   ])('rejects a frame %s', (_name, frame) => {
     expect(() => parseStreamFrame(frame)).toThrow(TypeError)
+  })
+})
+
+describe('buildStreamUrl', () => {
+  it('carries the instrument set and serial parameters for the bars channel', () => {
+    expect(buildStreamUrl({ ...barsRequest('A'), instrumentIds: ['B', 'A'] }, 'http://x')).toBe(
+      'http://x/api/v1/market-data/sources/src/stream?instruments=B%2CA&period=daily&adjustment=none&barAggregation=original',
+    )
+  })
+
+  it('omits serial parameters for the quotes channel', () => {
+    const request: StreamRequest = {
+      source: 'src',
+      channel: 'quotes',
+      instrumentIds: ['A'],
+    }
+    expect(buildStreamUrl(request, 'http://x')).toBe(
+      'http://x/api/v1/market-data/sources/src/quotes?instruments=A',
+    )
+  })
+
+  it('rejects a bars request without serial parameters', () => {
+    const request: StreamRequest = { source: 'src', channel: 'bars', instrumentIds: ['A'] }
+    expect(() => buildStreamUrl(request, 'http://x')).toThrow('period and adjustment')
+  })
+})
+
+describe('assertSubscription', () => {
+  it.each([
+    ['bars without serial parameters', { source: 'src', channel: 'bars', instrumentId: 'A' }],
+    ['missing instrument', { source: 'src', channel: 'quotes', instrumentId: '' }],
+  ])('rejects %s', (_name, request) => {
+    expect(() => assertSubscription(request as StreamSubscriptionRequest)).toThrow()
+  })
+
+  it('accepts a complete bars subscription', () => {
+    expect(() => assertSubscription(barsRequest())).not.toThrow()
   })
 })
 
@@ -121,132 +174,137 @@ describe('backoffDelay', () => {
 })
 
 describe('createConnection', () => {
-  it('opens on demand, routes frames by instrument and reports the phase', () => {
+  /** 建一条连接与一份传输替身，供各用例复用。 */
+  function setup() {
     const clock = createClock()
-    const transport = createTransportSpy()
+    const transports = createTransports()
     const connection = createConnection({
       source: 'src',
       channel: 'bars',
       period: 'daily',
       adjustment: 'none',
       barAggregation: 'original',
-      createTransport: transport.factory,
+      createTransport: transports.factory,
       scheduler: clock.scheduler,
       onEmpty: () => {},
     })
+    return { clock, transports, connection }
+  }
+
+  it('opens one transport on the first subscription and routes frames by instrument', () => {
+    const { transports, connection } = setup()
     const frames: StreamFrame[] = []
     const handle = connection.subscribe(barsRequest('A'))
     handle.onFrame((frame) => frames.push(frame))
-    expect(transport.opened).toEqual([1])
-    expect(connection.phase.peek()).toBe('connecting')
+    expect(transports.requests).toHaveLength(1)
+    expect(transports.requests[0]?.instrumentIds).toEqual(['A'])
 
-    transport.handlers.onFrame({
-      seq: 1,
-      ts: 1,
-      type: 'bar',
-      instrumentId: 'B',
-      state: 'forming',
-      bar: { timestamp: 1, open: 1, high: 1, low: 1, close: 1 },
-    })
-    expect(frames).toHaveLength(0)
-    transport.handlers.onFrame({
-      seq: 2,
-      ts: 2,
-      type: 'bar',
-      instrumentId: 'A',
-      state: 'closed',
-      bar: { timestamp: 2, open: 1, high: 1, low: 1, close: 1 },
-    })
-    expect(frames).toHaveLength(1)
-    handle.close()
-    expect(transport.closed).toHaveLength(1)
-    expect(connection.isEmpty()).toBe(true)
+    transports.handlers.onFrame(barFrame('B', 1))
+    transports.handlers.onFrame(barFrame('A', 2))
+    expect(frames.map((frame) => frame.seq)).toEqual([2])
   })
 
-  it('backs off after a loss, reconnects and marks the open as reconnected', () => {
-    const clock = createClock()
-    const transport = createTransportSpy()
-    const events: string[] = []
-    const connection = createConnection({
-      source: 'src',
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-      createTransport: transport.factory,
-      scheduler: clock.scheduler,
-      onEmpty: () => {},
+  it('ignores connection-level frames without touching the transport', () => {
+    const { transports, connection } = setup()
+    const frames: StreamFrame[] = []
+    connection.subscribe(barsRequest()).onFrame((frame) => frames.push(frame))
+    transports.handlers.onOpen()
+    transports.handlers.onFrame({
+      seq: 1,
+      ts: 1,
+      type: 'hello',
+      instruments: ['A'],
+      snapshotSize: 0,
     })
+    transports.handlers.onFrame({ seq: 2, ts: 2, type: 'ping' })
+    expect(frames).toHaveLength(0)
+    expect(transports.closed).toHaveLength(0)
+  })
+
+  it('retries after the jittered backoff window and marks the reopen as reconnected', () => {
+    const { clock, transports, connection } = setup()
+    const events: string[] = []
     const handle = connection.subscribe(barsRequest())
     handle.onEvent((event) => events.push(event.kind))
-    transport.handlers.onOpen()
-    transport.handlers.onClose({ retryable: true, message: 'lost' })
-    expect(connection.phase.peek()).toBe('backing-off')
-    // full jitter：0.75s（base 1s，jitter 落在 [500, 1000]）。
-    clock.advance(1_000)
-    expect(transport.opened).toHaveLength(2)
-    transport.handlers.onOpen()
+    transports.handlers.onOpen()
+    transports.handlers.onClose({ retryable: true, message: 'lost' })
+
+    // full jitter：base 1s、random 0.5 → 750ms。
+    clock.advance(749)
+    expect(transports.requests).toHaveLength(1)
+    clock.advance(1)
+    expect(transports.requests).toHaveLength(2)
+    transports.handlers.onOpen()
     expect(events).toEqual(['opened', 'lost', 'opened'])
   })
 
-  it('closes a stalled connection and retries when the watchdog sees no activity', () => {
-    const clock = createClock()
-    const transport = createTransportSpy()
-    const connection = createConnection({
-      source: 'src',
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-      createTransport: transport.factory,
-      scheduler: clock.scheduler,
-      onEmpty: () => {},
-    })
-    connection.subscribe(barsRequest())
-    transport.handlers.onOpen()
-    // 心跳缺失：超过 45s 无帧即判定僵死。
-    clock.advance(50_000)
-    expect(connection.phase.peek()).toBe('backing-off')
-    expect(transport.closed).toHaveLength(1)
+  it('stops without retrying when the transport reports a permanent close', () => {
+    const { clock, transports, connection } = setup()
+    const events: string[] = []
+    connection.subscribe(barsRequest()).onEvent((event) => events.push(event.kind))
+    transports.handlers.onOpen()
+    transports.handlers.onClose({ retryable: false, message: 'unauthorized' })
+    clock.advance(60_000)
+    expect(transports.requests).toHaveLength(1)
+    expect(transports.closed).toHaveLength(1)
+    expect(events).toEqual(['opened', 'stopped'])
   })
 
-  it('resumes immediately instead of waiting for the backoff', () => {
-    const clock = createClock()
-    const transport = createTransportSpy()
-    const connection = createConnection({
-      source: 'src',
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-      createTransport: transport.factory,
-      scheduler: clock.scheduler,
-      onEmpty: () => {},
-    })
+  it('closes a stalled connection when the watchdog sees no activity within the stale window', () => {
+    const { clock, transports, connection } = setup()
     connection.subscribe(barsRequest())
-    transport.handlers.onOpen()
-    transport.handlers.onClose({ retryable: true, message: 'lost' })
+    transports.handlers.onOpen()
+    clock.advance(50_000)
+    expect(transports.closed).toHaveLength(1)
+    // 僵死判定走一条普通重试：退避到期后重开。
+    clock.advance(750)
+    expect(transports.requests).toHaveLength(2)
+  })
+
+  it('reconnects immediately on resume while backing off', () => {
+    const { transports, connection } = setup()
+    connection.subscribe(barsRequest())
+    transports.handlers.onOpen()
+    transports.handlers.onClose({ retryable: true, message: 'lost' })
     connection.resume()
-    expect(transport.opened).toHaveLength(2)
+    expect(transports.requests).toHaveLength(2)
+  })
+
+  it('leaves a live connection untouched on resume', () => {
+    const { transports, connection } = setup()
+    connection.subscribe(barsRequest())
+    transports.handlers.onOpen()
+    connection.resume()
+    expect(transports.requests).toHaveLength(1)
+    expect(transports.closed).toHaveLength(0)
   })
 
   it('rebuilds once when a second instrument joins in the same turn', async () => {
-    const clock = createClock()
-    const transport = createTransportSpy()
-    const connection = createConnection({
-      source: 'src',
-      channel: 'bars',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-      createTransport: transport.factory,
-      scheduler: clock.scheduler,
-      onEmpty: () => {},
-    })
+    const { transports, connection } = setup()
     connection.subscribe(barsRequest('A'))
     connection.subscribe(barsRequest('B'))
     await Promise.resolve()
-    expect(transport.opened).toHaveLength(2)
+    expect(transports.requests).toHaveLength(2)
+    expect(transports.requests[1]?.instrumentIds).toEqual(['A', 'B'])
+  })
+
+  it('closes the transport and notifies the owner when the last subscription leaves', () => {
+    const clock = createClock()
+    const transports = createTransports()
+    let emptied = 0
+    const connection = createConnection({
+      source: 'src',
+      channel: 'quotes',
+      createTransport: transports.factory,
+      scheduler: clock.scheduler,
+      onEmpty: () => {
+        emptied += 1
+      },
+    })
+    const handle = connection.subscribe({ source: 'src', channel: 'quotes', instrumentId: 'A' })
+    handle.close()
+    expect(transports.closed).toHaveLength(1)
+    expect(emptied).toBe(1)
   })
 })
 
@@ -271,28 +329,31 @@ describe('createStreamHub', () => {
     },
   ])('$name', ({ requests, opened, closesAfterFirst, closesAfterBoth }) => {
     const clock = createClock()
-    const transport = createTransportSpy()
+    const transports = createTransports()
     const hub = createStreamHub({
-      createTransport: transport.factory,
+      createTransport: transports.factory,
       scheduler: clock.scheduler,
     })
     const first = hub.subscribe(requests[0]!)
     const second = hub.subscribe(requests[1]!)
-    expect(transport.opened).toHaveLength(opened)
+    expect(transports.requests).toHaveLength(opened)
     second.close()
-    expect(transport.closed).toHaveLength(closesAfterFirst)
+    expect(transports.closed).toHaveLength(closesAfterFirst)
     first.close()
-    expect(transport.closed).toHaveLength(closesAfterBoth)
+    expect(transports.closed).toHaveLength(closesAfterBoth)
     hub.dispose()
   })
 
-  it('rejects subscriptions after dispose', () => {
+  it('rejects subscriptions after dispose and closes live transports', () => {
     const clock = createClock()
+    const transports = createTransports()
     const hub = createStreamHub({
-      createTransport: createTransportSpy().factory,
+      createTransport: transports.factory,
       scheduler: clock.scheduler,
     })
+    hub.subscribe(barsRequest())
     hub.dispose()
+    expect(transports.closed).toHaveLength(1)
     expect(() => hub.subscribe(barsRequest())).toThrow('disposed')
   })
 })
