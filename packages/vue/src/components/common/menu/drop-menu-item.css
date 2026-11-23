@@ -81,8 +81,8 @@
 }
 
 /*
- * 行尾是「状态 + 动作」的一行：勾选/状态标记常驻，动作追加在它右边。
- * 动作只追加不顶替，所以勾不会移动，也不需要隐藏状态。
+ * 行尾是「状态 + 动作」的一行：状态标记常驻，动作追加在它右边。
+ * 动作只追加不顶替；选中勾在动作出现时单独隐藏，位置不动。
  */
 .drop-menu__item .drop-menu__item-trailing {
   display: flex;
@@ -106,6 +106,16 @@
 .drop-menu__item:focus-within .drop-menu__item-trailing .drop-menu__item-action:not(:empty),
 .drop-menu__item .drop-menu__item-trailing .drop-menu__item-action:has(button[aria-pressed='true']) {
   display: flex;
+}
+
+/* 悬停/聚焦有动作的行时只隐藏选中勾；状态标记与动作位置都不动。 */
+.drop-menu__item:hover
+  .drop-menu__item-trailing:has(.drop-menu__item-action:not(:empty))
+  .drop-menu__check,
+.drop-menu__item:focus-within
+  .drop-menu__item-trailing:has(.drop-menu__item-action:not(:empty))
+  .drop-menu__check {
+  display: none;
 }
 
 /* 行尾座位里的勾与动作共用右边缘：勾保留与主按钮一致的内缩。 */

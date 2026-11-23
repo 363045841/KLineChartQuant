@@ -10,12 +10,12 @@ export type KLineLevel = KLinePeriod | 'timeshare' | '5daytimeshare'
 export const K_LINE_LEVEL_OPTIONS: ReadonlyArray<{ label: string; value: KLineLevel }> = [
   { label: '分时', value: 'timeshare' },
   { label: '5日分时', value: '5daytimeshare' },
-  { label: '1日', value: KLinePeriod.Daily },
   { label: '1分', value: KLinePeriod.Min1 },
   { label: '5分', value: KLinePeriod.Min5 },
   { label: '15分', value: KLinePeriod.Min15 },
   { label: '30分', value: KLinePeriod.Min30 },
   { label: '1小时', value: KLinePeriod.Min60 },
+  { label: '1日', value: KLinePeriod.Daily },
   { label: '4小时', value: KLinePeriod.Hour4 },
   { label: '1周', value: KLinePeriod.Weekly },
   { label: '1月', value: KLinePeriod.Monthly },

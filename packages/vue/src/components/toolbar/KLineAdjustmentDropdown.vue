@@ -1,32 +1,31 @@
-<!-- 复权方式选择入口：按品种能力过滤复权选项，用 DropMenu 呈现当前值。 -->
+<!-- 复权方式选择入口：复权选项与收藏配置在这里绑定，渲染复用工具栏选项下拉。 -->
 <template>
-  <DropMenu :label="TITLE" :groups="groups" tooltip-placement="bottom" @select="select">
-    <template #trigger>
-      <span class="selection-menu__value">{{ selectedLabel }}</span>
-      <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
-    </template>
-  </DropMenu>
+  <KLineOptionPicker
+    title="复权方式"
+    favorites-label="收藏复权方式"
+    :options="ADJUSTMENT_OPTIONS"
+    :supported="supportedAdjustments"
+    :model-value="modelValue"
+    :favorites="favorites"
+    @update:model-value="emit('update:modelValue', $event)"
+  />
 </template>
 
 <script setup lang="ts">
-  import '@vue-src/components/common/menu/selection-menu.css'
-
-  import { isKLineAdjustment, KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
-  import DropMenu, { type DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
-  import { computed } from 'vue'
-  import IconChevronDown from '~icons/tabler/chevron-down'
+  import { KLineAdjustment } from '@363045841yyt/klinechart-core/market-data'
+  import { useKLineAdjustmentFavorites } from '@vue-src/composables/chart/useKLineAdjustmentFavorites.js'
+  import KLineOptionPicker from './KLineOptionPicker.vue'
 
   export type { KLineAdjustment }
 
-  const TITLE = '复权方式'
-  const adjustmentOptions: Array<{ label: string; value: KLineAdjustment }> = [
+  const ADJUSTMENT_OPTIONS: ReadonlyArray<{ label: string; value: KLineAdjustment }> = [
     { label: '前复权', value: KLineAdjustment.Qfq },
     { label: '后复权', value: KLineAdjustment.Hfq },
     { label: '仅拆股', value: KLineAdjustment.Splits },
     { label: '不复权', value: KLineAdjustment.None },
   ]
 
-  const props = defineProps<{
+  defineProps<{
     modelValue?: string
     supportedAdjustments?: ReadonlyArray<KLineAdjustment>
   }>()
@@ -35,40 +34,5 @@
     (e: 'update:modelValue', adjust: KLineAdjustment): void
   }>()
 
-  /** 根据当前品种能力过滤复权选项；未提供能力时保持旧行为。 */
-  const visibleOptions = computed(() => {
-    if (!props.supportedAdjustments) return adjustmentOptions
-    const supported = new Set(props.supportedAdjustments)
-    return adjustmentOptions.filter((option) => supported.has(option.value))
-  })
-
-  /** 当前选中复权方式；非法或缺失值回退到首个可见选项。 */
-  const selectedValue = computed(() => {
-    const options = visibleOptions.value
-    return options.find((option) => option.value === props.modelValue)?.value ?? options[0]?.value
-  })
-
-  const groups = computed<DropMenuGroup[]>(() => [
-    {
-      id: 'adjustment',
-      label: TITLE,
-      items: visibleOptions.value.map((option) => ({
-        id: option.value,
-        label: option.label,
-        checked: option.value === selectedValue.value,
-        selection: 'radio',
-      })),
-    },
-  ])
-
-  const selectedLabel = computed(
-    () => visibleOptions.value.find((option) => option.value === selectedValue.value)?.label ?? '',
-  )
-
-  /** 菜单选中后上报复权方式，值域由 visibleOptions 保证。 */
-  function select(_groupId: string, itemId: string): void {
-    if (!isKLineAdjustment(itemId)) return
-    emit('update:modelValue', itemId)
-  }
+  const favorites = useKLineAdjustmentFavorites()
 </script>
-

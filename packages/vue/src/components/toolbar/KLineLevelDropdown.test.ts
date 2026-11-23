@@ -23,7 +23,7 @@ function createFavorites(initial: ReadonlyArray<KLineLevel>) {
     )
   })
   const state: KLineLevelFavoritesState = {
-    favoriteLevels: computed(() => levels.value),
+    favoriteOptions: computed(() => levels.value),
     isFavorite: (level) => levels.value.includes(level),
     toggleFavorite,
   }
