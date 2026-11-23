@@ -159,7 +159,8 @@ export function createOpenAiCompatibleRuntimeSupport(
     const result = await requestProviderJson(
       `${baseUrl}/models`,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      httpOptions(input.headers, undefined, 'catalog'),
+      // 目录请求不合并附加请求头：浏览器预检只允许固定的几个头，未知头会让请求被直接拦掉。
+      httpOptions({}, undefined, 'catalog'),
     )
     let models: NormalizedProviderCatalogModel[]
     try {

@@ -316,6 +316,26 @@ describe('OpenAI-compatible runtime support', () => {
     expect(catalog.models.map((model) => model.id)).toEqual(['frontier-fast'])
   })
 
+  it('keeps additional request headers out of the catalog request', async () => {
+    const { credentials, settings } = configuredStores()
+    const fetchSpy = vi.fn<FetchFunction>(async () =>
+      json({ object: 'list', data: [{ id: 'frontier-fast' }] }),
+    )
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: fetchSpy,
+    })
+    await credentials.write(secret)
+
+    await support.catalog.listModels({ baseUrl })
+
+    const headers = new Headers(fetchSpy.mock.calls[0]?.[1]?.headers)
+    // 浏览器预检只允许固定的几个头；目录请求多带一个头就会被整条拦掉。
+    expect([...headers.keys()].sort()).toEqual(['accept', 'authorization'])
+    expect(headers.get('authorization')).toBe(`Bearer ${secret}`)
+  })
+
   it('blocks subsequent runs after the credential is deleted', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
