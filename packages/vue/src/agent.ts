@@ -1,7 +1,10 @@
 /** 同一产品内的高级 Agent 接口；通用后台入口不动态加载。 */
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
 export * from './features/agent/agent-contracts.js'
-export { getChartAgentClient } from './features/agent/browser-agent/host/impl/agent-client.js'
+export {
+  __setAgentTransportFactory,
+  getChartAgentClient,
+} from './features/agent/browser-agent/host/impl/agent-client.js'
 export type { ChartAgentClient } from './features/agent/browser-agent/host/impl/chart-agent-client.js'
 export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { useAgentWorkspace } from './features/agent/workspace/impl/use-agent-workspace.js'
