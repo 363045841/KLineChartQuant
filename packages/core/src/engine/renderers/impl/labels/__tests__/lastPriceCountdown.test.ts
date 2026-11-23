@@ -1,9 +1,10 @@
-/** 验证倒计时只由开线时间与周期长度决定，覆盖固定时长及 UTC 日历周期。 */
+/** 验证日线交易时段及其他周期的倒计时边界。 */
 import { describe, expect, it } from 'vitest'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import { formatLastPriceCountdown, getLastPriceRemainingMs } from '../index.js'
 
 describe('last price countdown', () => {
-  // 所有标准周期均从实际开线时间推进，不对齐交易所或整点边界。
+  // 没有市场时段时，从原始时间戳推进一个周期。
   it.each([
     ['1min', '2026-06-01T10:02:03Z', '2026-06-01T10:03:03Z'],
     ['5min', '2026-06-01T10:02:03Z', '2026-06-01T10:07:03Z'],
@@ -27,6 +28,33 @@ describe('last price countdown', () => {
     expect(getLastPriceRemainingMs(period, opened, closesAt - 1)).toBe(1)
     expect(getLastPriceRemainingMs(period, opened, closesAt)).toBeNull()
     expect(getLastPriceRemainingMs(period, opened, closesAt + 1)).toBeNull()
+  })
+
+  it('counts a GoTDX daily bar down to the configured close', () => {
+    const market = new MarketSessionRegistry().getRequired('CN')
+    const bar = 1795417200000 // 2026-11-23 15:00 上海时间
+    const now = 1795413901637
+    expect(formatLastPriceCountdown(getLastPriceRemainingMs('daily', bar, now, market))).toBe('54:59')
+    expect(getLastPriceRemainingMs('daily', bar, bar - 1)).toBeNull()
+    expect(getLastPriceRemainingMs('daily', bar, bar, market)).toBeNull()
+    const beforeOpen = Date.parse('2026-11-23T09:29:59+08:00')
+    expect(getLastPriceRemainingMs('daily', bar, beforeOpen, market)).toBeNull()
+  })
+
+  it('uses the configured early close on a shortened trading day', () => {
+    const market = new MarketSessionRegistry().getRequired('HK')
+    const bar = Date.parse('2026-12-24T15:00:00+08:00')
+    const close = Date.parse('2026-12-24T12:00:00+08:00')
+    expect(getLastPriceRemainingMs('daily', bar, close - 1, market)).toBe(1)
+    expect(getLastPriceRemainingMs('daily', bar, close, market)).toBeNull()
+  })
+
+  it('keeps the Binance daily countdown at the UTC day boundary', () => {
+    const market = new MarketSessionRegistry().getRequired('BINANCE_SPOT')
+    const bar = Date.parse('2026-11-22T00:00:00Z')
+    const close = Date.parse('2026-11-23T00:00:00Z')
+    expect(getLastPriceRemainingMs('daily', bar, close - 1, market)).toBe(1)
+    expect(getLastPriceRemainingMs('daily', bar, close, market)).toBeNull()
   })
 
   // 失效或未来的 K 线不能生成倒计时，也不能用当前时间取模伪造新周期。

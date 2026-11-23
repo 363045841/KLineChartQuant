@@ -871,7 +871,8 @@ export class ChartRenderer {
       return { now, remainingMs: null, text: null }
     }
     const period = this.deps.getDataManager().currentPeriod
-    const remaining = getLastPriceRemainingMs(period, last.timestamp, now)
+    const market = period === 'daily' ? this.deps.getMarketSession() : undefined
+    const remaining = getLastPriceRemainingMs(period, last.timestamp, now, market)
     return {
       now,
       remainingMs: remaining,

@@ -1,5 +1,7 @@
-/** 最新 K 线的周期倒计时：只依据开线时间戳与周期，不依赖市场时段或交易日历。 */
+/** 日线按已配置的交易时段倒数，其余情况按周期长度计算。 */
 import { isKLinePeriod, type KLinePeriod } from '@/data/provider/types.js'
+import { formatDateInTimeZone } from '@/foundation/time/index.js'
+import { minuteOfDayToTimestamp, type MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
 
 type PeriodLength = { unit: 'minute' | 'month'; value: number }
 
@@ -30,21 +32,48 @@ function addUtcMonths(timestamp: number, months: number): number {
   return date.getTime()
 }
 
-/** 返回开线时间加一个周期后的剩余毫秒；无效、尚未开线或已经到期时返回 null。 */
+/** 日线时间戳用于定位交易日期，当天首段开盘至末段收盘之间显示倒计时。 */
+function getDailySessionRemainingMs(
+  barTimestamp: number,
+  now: number,
+  market: MarketSessionConfig,
+): number | null {
+  const date = formatDateInTimeZone(barTimestamp, market.timeZone)
+  const calendar = market.calendars?.find(({ year }) => year === Number(date.slice(0, 4)))
+  if (calendar?.closedDates.includes(date)) return null
+
+  const special = calendar?.specialSessions.find((entry) => entry.date === date)
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
+  if (!special && market.tradingDays && !market.tradingDays.includes(weekday)) return null
+
+  const sessions = special?.sessions ?? market.sessions
+  if (sessions.length === 0) return null
+  const open = Math.min(...sessions.map((session) => session.open))
+  const close = Math.max(...sessions.map((session) => session.close))
+  const opensAt = minuteOfDayToTimestamp(barTimestamp, open, market.timeZone)
+  const closesAt = minuteOfDayToTimestamp(barTimestamp, close, market.timeZone)
+  return now >= opensAt && now < closesAt ? closesAt - now : null
+}
+
+/** 返回未到期 K 线的剩余毫秒。 */
 export function getLastPriceRemainingMs(
   period: string,
   barTimestamp: number,
   now: number,
+  market?: MarketSessionConfig,
 ): number | null {
   if (
     !isKLinePeriod(period) ||
     !Number.isFinite(barTimestamp) ||
     !Number.isFinite(now) ||
-    !Number.isFinite(new Date(barTimestamp).getTime()) ||
-    now < barTimestamp
+    !Number.isFinite(new Date(barTimestamp).getTime())
   ) {
     return null
   }
+  if (period === 'daily' && market && !market.approximate) {
+    return getDailySessionRemainingMs(barTimestamp, now, market)
+  }
+  if (now < barTimestamp) return null
   const length = PERIOD_LENGTHS[period]
   const closesAt =
     length.unit === 'minute'
