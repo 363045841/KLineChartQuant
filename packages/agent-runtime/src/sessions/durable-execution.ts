@@ -8,7 +8,17 @@ import type { DurableExecution } from '../pi/impl/run.js'
 export async function openDurableExecution(storage: Storage): Promise<DurableExecution> {
   const models = createModels()
   const registry = createRegistry()
-  const harness = await Harness.open(storage, { models, registry }, BACKGROUND_CONTEXT)
+  const harness = await Harness.open(
+    storage,
+    {
+      models,
+      registry,
+      // 生成失败不自动重试：一次失败即结束运行并交给用户手动重试，
+      // 否则浏览器里的跨域失败会被两层重试放大成十几次请求。
+      settings: { retry: { enabled: false } },
+    },
+    BACKGROUND_CONTEXT,
+  )
   // 打开后显式启用调度，使提交后立即推进任务而不依赖某次等待调用。
   harness.resume()
   return { harness, models, registry }

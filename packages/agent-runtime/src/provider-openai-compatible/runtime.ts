@@ -108,7 +108,8 @@ export function createOpenAiCompatibleRuntimeSupport(
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? sleepWithSignal
   const timeoutMs = options.requestTimeoutMs ?? 30_000
-  const maxRetries = options.maxRetries ?? 2
+  // 默认不重试：一次失败直接暴露给用户，由用户手动重试，避免浏览器里被静默重发多次。
+  const maxRetries = options.maxRetries ?? 0
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
