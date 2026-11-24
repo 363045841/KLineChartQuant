@@ -71,6 +71,8 @@ function paintPlaced(
       color: background,
     })
   }
+  // 附注行（note，当前为最新价收盘倒计时）与主行同色，只降低不透明度，避免抢视线。
+  const noteLine = label.kind === 'value' && label.note !== undefined ? 1 : -1
   lines.forEach((line, index) => {
     pushText(
       commands,
@@ -80,6 +82,7 @@ function paintPlaced(
       font,
       color,
       dpr,
+      index === noteLine ? 0.7 : undefined,
     )
   })
 }
@@ -93,6 +96,7 @@ function pushText(
   font: string,
   color: string,
   dpr: number,
+  opacity?: number,
 ): void {
   commands.push({
     kind: 'text',
@@ -101,6 +105,7 @@ function pushText(
     y: alignToPhysicalPixelCenter(y, dpr),
     font,
     color,
+    opacity,
     align: 'center',
     baseline: 'middle',
   })
