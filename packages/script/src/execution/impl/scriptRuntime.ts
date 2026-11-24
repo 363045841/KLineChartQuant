@@ -1,6 +1,7 @@
 /** 两种执行后端共用的行情字段与绘图点转换；不依赖源码编译器。 */
 import {
   DEFAULT_PLOT_COLOR,
+  type MarkerPoint,
   type OhlcPlotDeclaration,
   type OhlcPlotPoint,
   type ScalarPlotDeclaration as PlotDeclaration,
@@ -18,17 +19,22 @@ export const FIELD_READERS: Readonly<Record<string, (bar: Bar) => number>> = {
   time: (bar) => bar.time,
 }
 
-/** 箭头按正负取方向颜色，其余图形沿用公共颜色。 */
-export function toPlotPoint(declaration: PlotDeclaration, value: number): PlotPoint {
+/**
+ * 把单根 bar 的绘图值转成最终点：颜色在这里物化，运行期模型不再有缺省色。
+ *
+ * @param declaration 当前 bar 的调用声明
+ * @param value 数值；箭头按正负取方向色
+ */
+export function toPlotPoint(declaration: PlotDeclaration, value: number): PlotPoint | MarkerPoint {
+  const fallback = declaration.color ?? DEFAULT_PLOT_COLOR
   const color =
     declaration.kind === 'arrow'
-      ? ((value > 0 ? declaration.colorUp : declaration.colorDown) ?? declaration.color)
-      : declaration.color
-  return {
-    value,
-    ...(color === undefined ? {} : { color }),
-    ...(declaration.textColor === undefined ? {} : { textColor: declaration.textColor }),
-  }
+      ? ((value > 0 ? declaration.colorUp : declaration.colorDown) ?? fallback)
+      : fallback
+  // 标记点的文字色逐 bar 记录，缺省与图形同色。
+  if (declaration.kind === 'shape' || declaration.kind === 'char')
+    return { value, color, textColor: declaration.textColor ?? color }
+  return { value, color }
 }
 
 /** 两种执行后端共享 OHLC 校验；任一缺值整根留空，极值按四个输入归一化。 */

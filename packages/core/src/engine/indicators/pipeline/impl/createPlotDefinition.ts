@@ -64,8 +64,8 @@ export function createPlotIndicatorDefinition<P>(
       format:
         format && format !== Format.price ? (value) => formatPlotValue(format, value) : undefined,
     },
-    plots: { source: 'series', series: [] },
-    getTitleInfo: createPlotTitleInfo(definition.name, format),
+    plots: { source: 'series', series: [], format: definition.format },
+    getTitleInfo: createPlotTitleInfo(definition.name),
     runtime: {
       revision: definition.document?.revision,
       dependency: definition.dependency ?? Object.freeze({ kind: 'stateful' } as const),

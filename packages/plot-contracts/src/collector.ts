@@ -28,6 +28,7 @@ import {
   type ColumnsPlot,
   type HistogramPlot,
   type IndicatorSeries,
+  keepPlotTail,
   type LineBRPlot,
   type LinePlot,
   type OhlcPlot,
@@ -285,7 +286,7 @@ interface CollectedOhlcPlot {
   readonly data: (OhlcPlotPoint | undefined)[]
 }
 
-/** 补齐 OHLC 整列元数据；颜色在逐 bar 点上独立解析。 */
+/** 补齐 OHLC 整列元数据；颜色在逐 bar 点上独立解析，showLast 在此物化。 */
 function createOhlcPlot(
   declaration: OhlcPlotDeclaration,
   data: readonly (OhlcPlotPoint | undefined)[],
@@ -296,10 +297,8 @@ function createOhlcPlot(
     kind: declaration.kind,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
-    showLast: declaration.showLast,
-    color: DEFAULT_PLOT_COLOR,
     format: declaration.format,
-    data,
+    data: keepPlotTail(data, declaration.showLast),
   }
 }
 
@@ -382,21 +381,18 @@ function withCallOptions(declaration: PlotDeclaration, options?: PlotDeclaration
 }
 
 /** Plot 的公共字段，各 kind 的组装函数共用同一份基础。 */
+type ScalarPointData = readonly (PlotPoint | undefined)[]
 type PlotBaseFields = Pick<
   LinePlot,
-  'id' | 'label' | 'data' | 'color' | 'format' | 'visible' | 'offset' | 'size'
+  'id' | 'label' | 'data' | 'format' | 'visible' | 'offset' | 'size'
 >
 
 /** 用声明或默认值补齐 Plot 公共字段；声明用 name，模型的身份字段仍是 id。 */
-function plotBase(
-  declaration: PlotDeclaration,
-  data: readonly (PlotPoint | undefined)[],
-): PlotBaseFields {
+function plotBase(declaration: PlotDeclaration, data: ScalarPointData): PlotBaseFields {
   return {
     id: declaration.name,
     label: declaration.label ?? declaration.name,
     data,
-    color: declaration.color ?? DEFAULT_PLOT_COLOR,
     format: declaration.format,
     visible: declaration.visible ?? true,
     offset: declaration.offset ?? 0,
@@ -449,7 +445,7 @@ function createPointsPlot(declaration: PointsPlotDeclaration, base: PlotBaseFiel
   return { ...base, kind: 'points' }
 }
 
-/** Shape 与 Char 共享的位置和文字默认值。 */
+/** Shape 与 Char 共享的位置和文字默认值；文字色逐点携带，不在这里补。 */
 function markerBase(
   declaration: ShapePlotDeclaration | CharPlotDeclaration,
   base: PlotBaseFields,
@@ -458,7 +454,6 @@ function markerBase(
     ...base,
     location: declaration.location ?? ShapeLocation.aboveBar,
     text: declaration.text ?? '',
-    textColor: declaration.textColor ?? base.color,
   }
 }
 
@@ -479,21 +474,13 @@ function createCharPlot(declaration: CharPlotDeclaration, base: PlotBaseFields):
   return { ...markerBase(declaration, base), kind: 'char', char }
 }
 
-/** 箭头：方向颜色缺省时回落到公共颜色；长度由公共 size 决定。 */
+/** 箭头：方向色已物化为逐点颜色，长度由公共 size 决定。 */
 function createArrowPlot(declaration: ArrowPlotDeclaration, base: PlotBaseFields): ArrowPlot {
-  return {
-    ...base,
-    kind: 'arrow',
-    colorUp: declaration.colorUp ?? base.color,
-    colorDown: declaration.colorDown ?? base.color,
-  }
+  return { ...base, kind: 'arrow' }
 }
 
 /** 把 Plot 声明与采集到的数据组装成具体 Plot，只负责按 kind 分派。 */
-export function createPlot(
-  declaration: PlotDeclaration,
-  data: readonly (PlotPoint | undefined)[],
-): ScalarPlot {
+export function createPlot(declaration: PlotDeclaration, data: ScalarPointData): ScalarPlot {
   const base = plotBase(declaration, data)
   switch (declaration.kind) {
     case 'line':

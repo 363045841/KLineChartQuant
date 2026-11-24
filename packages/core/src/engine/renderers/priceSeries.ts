@@ -8,7 +8,7 @@ import { createCandlePainter } from './candle.js'
 import { createComparisonLineLayer } from './comparisonLine.js'
 import { createExtremaMarkersLayer } from './extremaMarkers.js'
 import { createFootprintLayer } from './footprint.js'
-import { createLastPriceLabelLayer, createLastPriceLineLayer } from './lastPrice.js'
+import { createLastPriceLineLayer } from './lastPrice.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from './rendererIds.js'
 import { createTimeSharePainter } from './timeShareRendering/impl/createTimeSharePainter.js'
 
@@ -50,7 +50,6 @@ export function createPriceSeriesLayers(
     createFootprintLayer(readFootprint, paneId),
     createComparisonLineLayer(paneId),
     createLastPriceLineLayer(paneId),
-    createLastPriceLabelLayer(paneId),
     createExtremaMarkersLayer(paneId),
   ]
   return layers.map((layer) =>

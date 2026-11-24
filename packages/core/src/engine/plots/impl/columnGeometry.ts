@@ -1,5 +1,6 @@
 /** Columns 槽位填充：屏幕槽界左右各留一个物理像素，与蜡烛实体和影线无关。 */
 import type { ColumnsPlot } from '@363045841yyt/klinechart-plot-contracts'
+import { plotPointAt } from '@363045841yyt/klinechart-plot-contracts'
 import { barVerticalRect } from '@/engine/renderers/barGeometry/impl/projectBars.js'
 import { slotWorldX } from '@/foundation/geometry/slotGrid.js'
 import type { PrimitiveRenderContext } from '@/foundation/plugin/index.js'
@@ -30,7 +31,7 @@ export function projectColumnPrimitives(
     const width = slotWidth - inset * 2
     if (left + width < 0 || left > context.paneWidth * dpr) continue
     const vertical = barVerticalRect(point.y, baselineY, dpr)
-    const color = plot.data[index - plot.offset]?.color ?? plot.color
+    const color = plotPointAt(plot, index)!.color
     let values = batches.get(color)
     if (!values) {
       values = []

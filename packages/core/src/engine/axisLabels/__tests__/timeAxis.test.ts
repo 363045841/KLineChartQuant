@@ -1,31 +1,24 @@
-/** 时间轴完全消费帧坐标：过去、真实与未来槽位都显示同一套推导日期。 */
+/** 时间轴来源：刻度与十字线签完全消费帧坐标，并按周期与市场时段格式化。 */
 import { describe, expect, it } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
-import { AXIS_LABEL_KIND, type AxisTickLabel, type RenderContext } from '@/foundation/plugin/index'
+import { createDailyBars } from '@/engine/renderers/__tests__/helpers/dailyBarsTestKit'
 import { createTimeFormatter } from '@/foundation/time/index'
 import type { KLineData } from '@/foundation/types/price'
-import { createTimeAxisLayer } from '../timeAxis'
-import { createDailyBars } from './helpers/dailyBarsTestKit'
+import { HK_MARKET_SESSION } from '@/foundation/utils/sessionTimeLabels'
+import { collectAxisLabels, TIME_AXIS } from '../index.js'
+import type { AxisLabel } from '../types.js'
+import { createLabelScope, crosshairTimeText, timeTickTexts } from './helpers.js'
 
 const DATA_LENGTH = 100
 const FIRST_BAR_TS = Date.UTC(2025, 9, 23)
 const formatter = createTimeFormatter('UTC')
 
-/** 以时间轴身份调用时间轴 Layer.paint。 */
-function paint(context: RenderContext, crosshair?: { x: number; index: number }): void {
-  createTimeAxisLayer({ height: 24, getCrosshair: () => crosshair ?? null }).paint({
-    ...context,
-    paneId: 'xAxis',
-    clear: false,
-  })
-}
-
-/** 只取刻度文字，保持断言与颜色、位置解耦。 */
-function tickTexts(context: RenderContext): string[] {
-  return context.axisLabels
-    .forSurface('xTicks')
-    .labels.filter((label): label is AxisTickLabel => label.kind === AXIS_LABEL_KIND.TICK)
-    .map((label) => label.text)
+/** 收集时间轴标签，只取时间轴分桶。 */
+function collectTimeLabels(
+  context: ReturnType<typeof createMockRenderContext>,
+  crosshair: { y: number; index: number } | null = null,
+): readonly AxisLabel[] {
+  return collectAxisLabels([createLabelScope(context, { crosshair })]).forAxis(TIME_AXIS)
 }
 
 /** 每日一根、常规槽距一天；中心点与 4px 柱宽 + 2px 间隙的槽位网格一致。 */
@@ -51,8 +44,8 @@ function intradayContext(options: {
   period: string
   stepMs: number
   count: number
-  scrollLeft?: number
   paneWidth?: number
+  scrollLeft?: number
 }) {
   const data: KLineData[] = Array.from({ length: options.count }, (_, index) => ({
     timestamp: FIRST_BAR_TS + index * options.stepMs,
@@ -76,31 +69,25 @@ function intradayContext(options: {
 }
 
 describe('时间轴刻度消费帧坐标', () => {
-  it('未来月界显示推导日期，不再出现相对索引占位', () => {
-    const context = dailyContext({ start: 60, end: 160 })
-    paint(context)
-
-    const texts = tickTexts(context)
-    expect(texts).toEqual(['11月', '12月', '2026', '2月', '3月'])
-    expect(texts.some((text) => text.startsWith('T'))).toBe(false)
-  })
-
-  it('纯未来视口同样按推导日期产出刻度', () => {
-    const context = dailyContext({ start: 120, end: 160 }, 1000, 723)
-    paint(context)
-
-    const texts = tickTexts(context)
-    expect(texts[0]).toBe('3月')
-    expect(texts.some((text) => text.startsWith('T'))).toBe(false)
-  })
-
-  it('过去留白显示推导日期，不再出现负索引占位', () => {
-    const context = dailyContext({ start: 0, end: 0 }, 800, -1000)
-    paint(context)
-
-    const texts = tickTexts(context)
-    expect(texts).toEqual(['6月', '7月', '8月', '9月'])
-    expect(texts.some((text) => text.startsWith('T'))).toBe(false)
+  it.each([
+    {
+      label: '未来月界',
+      context: () => dailyContext({ start: 60, end: 160 }),
+      expected: ['11月', '12月', '2026', '2月', '3月'],
+    },
+    {
+      label: '纯未来视口',
+      context: () => dailyContext({ start: 120, end: 160 }, 1000, 723),
+      expected: ['3月'],
+    },
+    {
+      label: '过去留白',
+      context: () => dailyContext({ start: 0, end: 0 }, 800, -1000),
+      expected: ['6月', '7月', '8月', '9月'],
+    },
+  ])('$label 显示推导日期', ({ context, expected }) => {
+    const texts = timeTickTexts(collectTimeLabels(context()))
+    expect(texts.slice(0, expected.length)).toEqual(expected)
   })
 
   it.each([
@@ -108,16 +95,11 @@ describe('时间轴刻度消费帧坐标', () => {
     { label: '过去槽位', index: -10 },
   ])('$label 的十字线签使用推导日期', ({ index }) => {
     const context = dailyContext({ start: 90, end: 120 })
-    paint(context, { x: 42, index })
-
+    const labels = collectTimeLabels(context, { y: 12, index })
     const timestamp = context.coordinates.logicalToTime(index)!
-    expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe(
-      formatter.formatDateWithWeekday(timestamp),
-    )
+    expect(crosshairTimeText(labels)).toBe(formatter.formatDateWithWeekday(timestamp))
   })
-})
 
-describe('低周期时间显示', () => {
   it('小时级刻度按日界显示日期且不补时分', () => {
     const context = intradayContext({
       period: '4h',
@@ -126,20 +108,51 @@ describe('低周期时间显示', () => {
       scrollLeft: -8,
       paneWidth: 80,
     })
-    paint(context)
-
-    const texts = tickTexts(context)
+    const texts = timeTickTexts(collectTimeLabels(context))
     expect(texts).toEqual(['10-23', '10-24'])
     expect(texts.some((text) => text.includes(':'))).toBe(false)
   })
 
   it('日内十字线签在日期后补齐时分', () => {
     const context = intradayContext({ period: '5min', stepMs: 5 * 60 * 1000, count: 12 })
-    paint(context, { x: 42, index: 5 })
-
     const timestamp = context.coordinates.logicalToTime(5)!
-    expect(context.axisLabels.forSurface('xCrosshair').labels[0]?.text).toBe(
+    expect(crosshairTimeText(collectTimeLabels(context, { y: 12, index: 5 }))).toBe(
       formatter.formatDateTimeWithWeekday(timestamp),
     )
+  })
+})
+
+describe('时间轴市场时段', () => {
+  it('分时按活动市场时段出标签', () => {
+    const context = createMockRenderContext({
+      data: [
+        {
+          timestamp: new Date('2026-07-28T09:30:00+08:00').getTime(),
+          open: 0,
+          high: 0,
+          low: 0,
+          close: 0,
+        },
+        {
+          timestamp: new Date('2026-07-28T16:00:00+08:00').getTime(),
+          open: 0,
+          high: 0,
+          low: 0,
+          close: 0,
+        },
+      ],
+      range: { start: 0, end: 2 },
+      kWidth: 1,
+      kGap: 0,
+      paneWidth: 330,
+      kLineCenters: [17, 301],
+      period: 'timeshare',
+      marketSession: HK_MARKET_SESSION,
+    })
+
+    const texts = timeTickTexts(collectTimeLabels(context))
+    expect(texts).toContain('09:30')
+    expect(texts).toContain('16:00')
+    expect(texts).not.toContain('15:00')
   })
 })

@@ -1,27 +1,36 @@
-/** 最新价 label 注册与点虚线 Layer 工厂（overlay 层，绘制到主图）。 */
+/** 最新价点虚线 Layer（overlay 层，绘制到主图）；价签由轴标签模块统一产出。 */
 
 import { submitPrimitives } from '@/rendering/primitives/impl/paint.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { RenderContext } from '../../foundation/plugin/index.js'
-import { AXIS_LABEL_KIND, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
 import { resolveThemeColors } from '../../foundation/tokens/index.js'
 import { ChartDataViewId } from '../../foundation/types/chartView.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import { formatAxisPriceValue, usesPercentAxis } from './axisValueFormat.js'
-import { registerAxisLabel } from './impl/labels/index.js'
-import { PRICE_SERIES_AXIS_ID } from './rendererIds.js'
 
-function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
+/** 最新价在本帧的位置与涨跌方向；价签与虚线共用同一份取值规则。 */
+interface LastPriceInfo {
+  readonly price: number
+  readonly timestamp: number
+  readonly y: number
+  readonly isUp: boolean
+}
+
+/**
+ * 计算最新价信息：只保留落在当前可见价格范围内的最后一根 K 线。
+ *
+ * @param context 当前渲染上下文
+ * @returns 最新价信息；无数据或价格不在显示范围内时为 null
+ */
+function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>): LastPriceInfo | null {
   const { pane, data } = context
   const klineData = data as KLineData[]
   const last = klineData[klineData.length - 1]
   if (!last) return null
 
   const displayRange = pane.yAxis.getDisplayRange()
-  if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) {
-    return null
-  }
+  if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) return null
 
   // 涨跌以前收为基准；无前收（仅一根 K 线）时回退到当根开盘价。
   const previous = klineData[klineData.length - 2]
@@ -35,60 +44,13 @@ function getLastPriceInfo(context: Omit<RenderContext, 'ctx'>) {
   }
 }
 
-/**
- * 最新价 label 注册 Layer（overlay 层，确保悬停时 label 也注册到右轴 overlay 表面）。
- */
-export function createLastPriceLabelLayer(paneId: string): Layer<RenderContext> {
-  return {
-    kind: 'draw-list',
-    id: makePluginLayerId('lastPriceLabelRegistrar'),
-    role: 'overlay',
-    pane: paneId,
-    z: RENDERER_PRIORITY.LAST_PRICE_LABEL,
-    visible: true,
-    paint(context) {
-      if (context.dataView !== ChartDataViewId.KLine) return
-      const colors = resolveThemeColors(
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
-      const info = getLastPriceInfo(context)
-      if (!info) return
-
-      // 标签文本跟随轴展示语义：百分比轴显示涨跌幅，否则显示价格。
-      const isPercent = usesPercentAxis(context)
-      const displayValue = isPercent ? context.pane.yAxis.toPercent(info.price) : info.price
-
-      registerAxisLabel(
-        context,
-        'yRightOverlay',
-        {
-          kind: AXIS_LABEL_KIND.TAG,
-          type: 'lastPrice',
-          text: formatAxisPriceValue(displayValue, isPercent),
-          countdown: context.countdown,
-          pos: info.y + context.pane.top,
-          origin: context.pane.top,
-          variant: 'label',
-          // 价格标签色块跟随涨跌，文字取通用标签文字色保证对比度。
-          bgColor: info.isUp ? colors.candleUpBody : colors.candleDownBody,
-          borderColor: info.isUp ? colors.candleUpBorder : colors.candleDownBorder,
-          textColor: colors.label.text,
-          fontSize: 12,
-        },
-        PRICE_SERIES_AXIS_ID,
-      )
-    },
-    dispose() {},
-  }
-}
-
 /** 点虚线样式：1 个点 + 3 个间隔，圆头线帽让短划呈现为点。 */
 const LAST_PRICE_LINE_DASH = [1, 3]
 
 /**
  * 最新价点虚线 Layer（绘制点虚线）。
+ *
+ * @param paneId 所属 Pane
  */
 export function createLastPriceLineLayer(paneId: string): Layer<RenderContext> {
   return {
@@ -109,9 +71,7 @@ export function createLastPriceLineLayer(paneId: string): Layer<RenderContext> {
       const info = getLastPriceInfo(context)
       if (!info) return
 
-      const y = info.y
-
-      const yy = (Math.floor(y * dpr) + 0.5) / dpr
+      const yy = (Math.floor(info.y * dpr) + 0.5) / dpr
       submitPrimitives(
         context,
         [

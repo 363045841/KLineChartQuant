@@ -41,7 +41,6 @@ import './styles/motion.css'
 
 // 对象树与渲染对象是同一组的公开契约，从产品入口一并导出，避免消费方到处找。
 export type {
-  AxisLabelRegistrar,
   ChartController,
   ChartMountOptions,
   ChartViewport,
@@ -58,7 +57,7 @@ export type {
   RenderObjectKind,
   RenderObjectMoveTarget,
 } from '@363045841yyt/klinechart-core'
-export { INSTANCE_MOVE_KIND, objectAxisId, registerAxisLabel } from '@363045841yyt/klinechart-core'
+export { INSTANCE_MOVE_KIND, objectAxisId } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // SFC components (for consumers using Vite / SFC compiler)
@@ -124,10 +123,10 @@ export {
 // ---------------------------------------------------------------------------
 
 export { default as BaseModal } from '@vue-src/components/common/dialog/BaseModal.vue'
-export { default as BasePopover } from '@vue-src/components/common/overlay/BasePopover.vue'
-export { default as BaseTextarea } from '@vue-src/components/common/form/BaseTextarea.vue'
-export { default as BaseTooltip } from '@vue-src/components/common/overlay/BaseTooltip.vue'
 export { default as ToastViewport } from '@vue-src/components/common/feedback/ToastViewport.vue'
+export { default as BaseTextarea } from '@vue-src/components/common/form/BaseTextarea.vue'
+export { default as BasePopover } from '@vue-src/components/common/overlay/BasePopover.vue'
+export { default as BaseTooltip } from '@vue-src/components/common/overlay/BaseTooltip.vue'
 export {
   type AnchoredPlacement,
   type UseAnchoredPopoverOptions,

@@ -15,7 +15,7 @@ import type {
   StepLineBRPlot,
   StepLinePlot,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
+import { isMarkerPoint, plotIndexEnd, plotPointAt } from '@363045841yyt/klinechart-plot-contracts'
 import {
   createProjectionRevision,
   sameProjectionRevision,
@@ -181,7 +181,7 @@ function markerY(
 
 /** 该 bar 的有限数值；缺省与 NaN 都表示不绘制，0 是合法取值。 */
 function barValue(plot: ScalarPlot, index: number): number | undefined {
-  const value = plot.data[index - plot.offset]?.value
+  const value = plotPointAt(plot, index)?.value
   return value === undefined || !Number.isFinite(value) ? undefined : value
 }
 
@@ -260,7 +260,7 @@ function projectMarkerPoint(
 function* plotIndices(plot: Plot, context: PrimitiveRenderContext, margin = 0): Iterable<number> {
   for (
     let index = Math.max(0, context.range.start - margin);
-    index < Math.min(context.range.end + margin, plot.data.length + plot.offset);
+    index < Math.min(context.range.end + margin, plotIndexEnd(plot));
     index++
   )
     yield index
@@ -315,7 +315,7 @@ function appendLinePoint(
   plot: LineSeriesPlot,
   stepped: boolean,
 ): void {
-  const color = plot.data[index - plot.offset]?.color ?? plot.color
+  const color = plotPointAt(plot, index)!.color
   if (state.segment.length === 0 || color !== state.color) startLineSegment(state, plot, color)
   if (stepped && state.previous && state.previous.y !== point.y) {
     const middleX = (state.previous.x + point.x) / 2
@@ -341,7 +341,7 @@ function buildLineSegments(
 ): LineBatch[] {
   const state: LineSegmentState = {
     segment: [],
-    color: plot.color,
+    color: '',
     previous: undefined,
     previousIndex: context.range.start - margin - 1,
     lines: [],
@@ -373,7 +373,7 @@ function buildHistogramRects(
   for (let index = context.range.start; index < context.range.end; index++) {
     const point = points.get(index)
     if (!point) continue
-    const color = plot.data[index - plot.offset]?.color ?? plot.color
+    const color = plotPointAt(plot, index)!.color
     let batch = batches.get(color)
     if (!batch) {
       batch = {
@@ -533,33 +533,31 @@ function markerLocation(plot: MarkerProjection['plot'], value: number): ShapePlo
   return value > 0 ? 'belowbar' : 'abovebar'
 }
 
-/** 逐 bar 颜色优先于整列样式。 */
-function overrideColor(color: string | undefined, fallback: string): string {
-  return color ?? fallback
-}
-
 /** 统一构建标记；相对定位过滤 0，绝对坐标保留 0。 */
 function projectMarkers(
   plot: MarkerProjection['plot'],
   context: PrimitiveRenderContext,
 ): MarkerProjection {
   const points = new Map<number, MarkerPoint>()
-  const appearance = markerAppearance(plot, context)
+  const glyphFor = markerGlyphFactory(plot, context)
+  const arrow = plot.kind === 'arrow'
   for (const index of plotIndices(plot, context)) {
+    const data = plotPointAt(plot, index)
     const value = barValue(plot, index)
-    if (value === undefined) continue
+    if (!data || value === undefined) continue
     const location = markerLocation(plot, value)
     if (location !== 'absolute' && value === 0) continue
-    const style = appearance(value)
-    const point = projectMarkerPoint(location, value, index, context, style.glyph)
+    const glyph = glyphFor(value)
+    const point = projectMarkerPoint(location, value, index, context, glyph)
     if (!point) continue
-    const data = plot.data[index - plot.offset]
-    points.set(index, {
-      ...point,
-      ...style,
-      color: overrideColor(data?.color, style.color),
-      textColor: overrideColor(data?.textColor, style.textColor),
-    })
+    // 箭头文字色跟随方向色；标记点必须逐点携带文字色，缺失即生产端违约。
+    let textColor: string
+    if (arrow) textColor = data.color
+    else {
+      if (!isMarkerPoint(data)) throw new TypeError('Marker plot point requires textColor')
+      textColor = data.textColor
+    }
+    points.set(index, { ...point, glyph, color: data.color, textColor })
   }
   return { kind: plot.kind, plot, points }
 }
@@ -574,27 +572,16 @@ function arrowHeight(plot: ArrowPlot, value: number, maximum: number): number {
 }
 
 /** 固定字形只测量一次，箭头按全列幅度生成每个点的字形。 */
-function markerAppearance(
+function markerGlyphFactory(
   plot: MarkerProjection['plot'],
   context: PrimitiveRenderContext,
-): (value: number) => Pick<MarkerPoint, 'glyph' | 'color' | 'textColor'> {
+): (value: number) => MarkerGlyph {
   if (plot.kind === 'arrow') {
     const maximum = arrowMagnitude(plot)
-    return (value) => {
-      const color = value > 0 ? plot.colorUp : plot.colorDown
-      return {
-        glyph: buildArrowGlyph(arrowHeight(plot, value, maximum), value > 0, context),
-        color,
-        textColor: color,
-      }
-    }
+    return (value) => buildArrowGlyph(arrowHeight(plot, value, maximum), value > 0, context)
   }
-  const style = {
-    glyph: buildMarkerGlyph(plot, context),
-    color: plot.color,
-    textColor: plot.textColor,
-  }
-  return () => style
+  const glyph = buildMarkerGlyph(plot, context)
+  return () => glyph
 }
 
 /** 解析填充端点；id 引用已由 validatePlotFills 校验，缺失即契约违规。 */
@@ -868,7 +855,7 @@ function paintPointsProjection(
       x: point.x - context.scrollLeft,
       y: point.y,
       radius: pointRadius(projection.plot.size),
-      color: projection.plot.data[index - projection.plot.offset]?.color ?? projection.plot.color,
+      color: plotPointAt(projection.plot, index)!.color,
     })
   }
 }
@@ -1000,11 +987,8 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
     }
     for (const rect of rects) batch.values.push(...rect)
   }
-  const start = ohlcPlotStart(plot)
   for (const index of plotIndices(plot, context)) {
-    const sourceIndex = index - plot.offset
-    if (sourceIndex < start) continue
-    const point = plot.data[sourceIndex]
+    const point = plotPointAt(plot, index)
     const center = projectX(index, context)
     if (!point || center === null) continue
     const geometry = buildOhlcPointGeometry(plot, point, center, context, context.pane.yAxis)

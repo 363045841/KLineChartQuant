@@ -18,10 +18,7 @@ function segmentPolygons(a: Point, b: Point, c: Point, d: Point): Point[][] {
   const rightDifference = b.y - c.y
   if (leftDifference === 0 && rightDifference === 0) return []
   const cuts = [0, 1]
-  if (
-    (leftDifference < 0 && rightDifference > 0) ||
-    (leftDifference > 0 && rightDifference < 0)
-  ) {
+  if ((leftDifference < 0 && rightDifference > 0) || (leftDifference > 0 && rightDifference < 0)) {
     cuts.splice(1, 0, leftDifference / (leftDifference - rightDifference))
   }
   const polygons: Point[][] = []
@@ -71,10 +68,10 @@ function appendQuad(bands: Band[], quad: Point[]): void {
 /**
  * 构造两条边界之间的填充带。
  *
- * @param from 起点边界的点表，键是显示下标（bar 下标 + offset）
+ * @param from 起点边界的点表，键是显示下标
  * @param to 终点边界的点表，键与 from 同一坐标系
- * @param colors 逐 bar 颜色，下标与 Plot.data 对齐，不含 offset
- * @param colorOffset 边界的显示位移；显示下标减回位移后才能命中 colors
+ * @param colors 逐 bar 颜色，下标与 Plot.data 对齐
+ * @param colorOffset 起点输出的显示位移；显示下标减回位移后才能命中 colors
  * @param fromStep from 是否为阶梯线
  * @param toStep to 是否为阶梯线
  * @returns 按颜色分组的填充带，每条带是一段连续的上下链
@@ -93,7 +90,7 @@ export function buildFillBands(
     const d = to.get(index)
     const c = to.get(index + 1)
     if (!b || !c || !d) continue
-    // 延续右端 bar 取色；下标是显示下标，必须减回位移才能与 Plot.data 对齐。
+    // 延续右端 bar 取色；显示下标减回位移后与 Plot.data 对齐。
     const color = colors[index + 1 - colorOffset]
     if (color === null || color === undefined) continue
     let polygons: Point[][]

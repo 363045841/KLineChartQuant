@@ -14,7 +14,7 @@ const SCALAR_WIDTH = 4
 const OHLC_WIDTH = 8
 const DRAWING_WIDTH = 6
 const ANCHOR_WIDTH = 7
-const PointFlag = { Missing: -1, Color: 1, TextColor: 2 }
+const PointFlag = { Missing: -1, TextColor: 1 }
 const AnchorFlag = { Type: 1, Time: 2, Logical: 4, LogicalValue: 8 }
 const AnchorType = { Undefined: 0, Point: 1, Horizontal: 2, Vertical: 3 }
 const TimeType = { Undefined: 0, Number: 1, String: 2 }
@@ -153,8 +153,9 @@ export function packIndicatorSeries(series: IndicatorSeries): PackedIndicatorSer
       const flags =
         point === undefined
           ? PointFlag.Missing
-          : (Object.hasOwn(point, 'color') ? PointFlag.Color : 0) |
-            (Object.hasOwn(point, 'textColor') ? PointFlag.TextColor : 0)
+          : point.textColor === undefined
+            ? 0
+            : PointFlag.TextColor
       writer.put(flags)
       writer.put(point?.value ?? 0)
       writer.put(texts.code(point?.color))
@@ -211,11 +212,6 @@ function textAt(strings: readonly string[], code: number): string {
   const value = strings[code - 1]
   if (value === undefined) throw new RangeError('Worker 绘图文本索引无效')
   return value
-}
-
-/** 保留可选逐点颜色。 */
-function optionalText(strings: readonly string[], code: number): string | undefined {
-  return code === 0 ? undefined : textAt(strings, code)
 }
 
 /** 保留 OHLC 与填充明确的 null 空值。 */
@@ -301,10 +297,11 @@ export function unpackIndicatorSeries(packed: PackedIndicatorSeries): IndicatorS
       const offset = plot.offset + index * SCALAR_WIDTH
       const flags = values[offset]!
       if (flags === PointFlag.Missing) return undefined
-      const point: PlotPoint = { value: values[offset + 1]! }
-      if (flags & PointFlag.Color) point.color = optionalText(strings, values[offset + 2]!)
-      if (flags & PointFlag.TextColor) point.textColor = optionalText(strings, values[offset + 3]!)
-      return point
+      return {
+        value: values[offset + 1]!,
+        color: textAt(strings, values[offset + 2]!),
+        ...(flags & PointFlag.TextColor ? { textColor: textAt(strings, values[offset + 3]!) } : {}),
+      }
     })
     return { ...plot.metadata, data }
   })

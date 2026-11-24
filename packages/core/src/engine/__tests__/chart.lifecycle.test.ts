@@ -172,17 +172,15 @@ describe('Chart lifecycle without a market selection', () => {
       const scene = chart['renderer'].getScene()
       expect(chart.kernel.indicator.readonly.instances.peek()).toEqual([])
       expect(chart.legend.list()).toEqual([])
-      for (const name of ['lastPriceLine', 'lastPriceLabelRegistrar']) {
+      for (const name of ['lastPriceLine']) {
         expect(chart.getRenderer(makePluginLayerId(name))).toBeDefined()
         expect(scene.getLayer(`plugin:${name}`)).toBeDefined()
         expect(chart.getRenderer(makePluginLayerId(name))?.role).toBe('overlay')
       }
       chart.kernel.actions.setDataView('timeshare')
       expect(scene.getLayer('plugin:lastPriceLine')?.visible).toBe(false)
-      expect(scene.getLayer('plugin:lastPriceLabelRegistrar')?.visible).toBe(false)
       chart.kernel.actions.setDataView('kline')
       expect(scene.getLayer('plugin:lastPriceLine')?.visible).toBe(true)
-      expect(scene.getLayer('plugin:lastPriceLabelRegistrar')?.visible).toBe(true)
     } finally {
       await chart.destroy()
     }

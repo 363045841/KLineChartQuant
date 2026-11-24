@@ -2,7 +2,7 @@
 
 import type { PriceAxisRangeMode } from '@/foundation/config/priceAxisRangeMode.js'
 import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
-import type { PaneInfo, RenderContext } from '@/foundation/plugin/types.js'
+import type { PaneInfo } from '@/foundation/plugin/types.js'
 import type { ScaleType } from '@/foundation/types/scaleType.js'
 import type { PriceScale } from '../scale/index.js'
 import type { AxisStateModule } from '../state/axisState.js'
@@ -26,8 +26,7 @@ export interface PaneAxisSpec extends AxisSpec {
   readonly objectIds: readonly string[]
 }
 
-/** 统一轴 API 所需端口；实现不直接依赖 Chart 或指标管理器。 */
-export interface ObjectAxesDependencies {
+/** 统一轴 API 所需端口；实现不直接依赖 Chart 或指标管理器。 */ export interface ObjectAxesDependencies {
   listBindings(): ReadonlyArray<ObjectAxisBinding>
   getAxisPaneId(axisId: string): string | undefined
   getPane(paneId: string): { axis(axisId: string): PriceScale } | undefined
@@ -61,13 +60,4 @@ export interface ObjectAxesApi {
   scale(axisId: string, deltaY: number, anchorY?: number): void
   /** 按提交后的轴列位置命中目标；列外返回 null，不选择其他轴。 */
   hitTest(paneId: string, x: number): string | null
-}
-
-/** 轴帧入口只收集刻度和标签；统一绘制阶段消费结果，业务层不清轴。 */
-export interface AxisFrameApi {
-  collect(
-    context: RenderContext,
-    axes: ReadonlyArray<PaneAxisSpec>,
-    crosshair: { y: number; activePaneId: string | null } | null,
-  ): void
 }

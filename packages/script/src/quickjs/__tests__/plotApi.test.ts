@@ -56,9 +56,12 @@ describe('plot 调用契约', () => {
     expect(result.plots[1]).toMatchObject({
       kind: 'arrow',
       size: 'auto',
-      colorUp: 'green',
-      colorDown: 'red',
     })
+    // 方向色在采集时物化为逐点颜色。
+    expect(result.plots[1]?.data).toEqual([
+      { value: 1, color: 'green' },
+      { value: -2, color: 'red' },
+    ])
   })
 
   // 四种图形的逐 bar 颜色/文字色与布尔条件只差字面量，统一走同一条 PlotCollector 通道。
@@ -71,7 +74,11 @@ describe('plot 调用契约', () => {
       })`,
       bars: [1, 2, 3],
       shape: { kind: 'char', char: '🠅', location: 'belowbar', text: '买入' },
-      data: [undefined, { value: 1, color: 'blue' }, { value: 1, color: 'red' }],
+      data: [
+        undefined,
+        { value: 1, color: 'blue', textColor: 'blue' },
+        { value: 1, color: 'red', textColor: 'red' },
+      ],
     },
     {
       name: 'Arrow 保留有符号数值并采集逐 bar 方向颜色',

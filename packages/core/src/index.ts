@@ -65,8 +65,6 @@ export type {
   ShapePlot,
 } from './engine/plots/types.js'
 export { PlotKind, ShapeLocation, ShapeSize, ShapeStyle } from './engine/plots/types.js'
-export { registerAxisLabel } from './engine/renderers/impl/labels/impl/registerAxisLabel.js'
-export type { AxisLabelRegistrar } from './engine/renderers/impl/labels/types.js'
 // 主价格轴身份是 UI 与引擎共用的 SSOT：宿主据此区分价格轴与指标轴。
 export { PRICE_SERIES_AXIS_ID } from './engine/renderers/rendererIds.js'
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────

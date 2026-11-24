@@ -39,13 +39,12 @@ function expectCandle(plot: Plot): CandlePlot {
   return plot
 }
 
-/** 一条折线的最小声明，颜色与数据由用例覆盖。 */
-function linePlot(id: string, color: string, data: readonly (PlotPoint | undefined)[]) {
+/** 一条折线的最小声明；颜色逐点给出，采集端已物化缺省色。 */
+function linePlot(id: string, data: readonly (PlotPoint | undefined)[]) {
   return {
     kind: 'line' as const,
     id,
     label: id.toUpperCase(),
-    color,
     data,
     visible: true,
     offset: 0,
@@ -55,34 +54,42 @@ function linePlot(id: string, color: string, data: readonly (PlotPoint | undefin
 }
 
 describe('projectPlots — script colors', () => {
-  it('resolves aliases and leaves CSS literals untouched', () => {
+  it('resolves point colors and leaves CSS literals untouched', () => {
     const state = project({
       plots: [
-        linePlot('fast', '@red', [{ value: 1, color: '@teal80' }, { value: 2 }]),
-        linePlot('slow', '#123456', [{ value: 1 }]),
+        linePlot('fast', [
+          { value: 1, color: '@teal80' },
+          { value: 2, color: '@red' },
+        ]),
+        linePlot('slow', [{ value: 1, color: '#123456' }]),
       ],
       fills: [],
     })
     const [fast, slow] = state.plots
-    expect(fast!.color).toBe(palette.red)
     expect(fast!.data[0]!.color).toBe(`${palette.teal}80`)
-    expect(fast!.data[1]!.color).toBeUndefined()
-    expect(slow!.color).toBe('#123456')
+    expect(fast!.data[1]!.color).toBe(palette.red)
+    expect(slow!.data[0]!.color).toBe('#123456')
   })
 
-  it('resolves arrow direction colors and fill colors', () => {
+  it('resolves arrow direction colors per point and fill colors', () => {
     const state = project({
       plots: [
-        linePlot('fast', '@red', [{ value: 1 }, { value: 2 }]),
-        linePlot('slow', '@blue', [{ value: 1 }, { value: 3 }]),
+        linePlot('fast', [
+          { value: 1, color: '@red' },
+          { value: 2, color: '@red' },
+        ]),
+        linePlot('slow', [
+          { value: 1, color: '@blue' },
+          { value: 3, color: '@blue' },
+        ]),
         {
           kind: 'arrow',
           id: 'signal',
           label: 'SIGNAL',
-          color: '@gray',
-          colorUp: '@green',
-          colorDown: '@red',
-          data: [{ value: 1 }],
+          data: [
+            { value: 1, color: '@green' },
+            { value: -1, color: '@red' },
+          ],
           visible: true,
           offset: 0,
           size: ShapeSize.auto,
@@ -91,8 +98,8 @@ describe('projectPlots — script colors', () => {
       fills: [{ id: 'cloud', from: 'fast', to: 'slow', visible: true, colors: ['@amber', null] }],
     })
     const arrow = expectArrow(state.plots[2]!)
-    expect(arrow.colorUp).toBe(palette.green)
-    expect(arrow.colorDown).toBe(palette.red)
+    expect(arrow.data[0]!.color).toBe(palette.green)
+    expect(arrow.data[1]!.color).toBe(palette.red)
     expect(state.fills[0]!.colors).toEqual([palette.amber, null])
   })
 
@@ -103,7 +110,6 @@ describe('projectPlots — script colors', () => {
           kind: 'candle',
           id: 'candles',
           label: 'CANDLES',
-          color: '@blue',
           data: [
             {
               open: 1,
@@ -123,7 +129,6 @@ describe('projectPlots — script colors', () => {
       fills: [],
     })
     const candles = expectCandle(state.plots[0]!)
-    expect(candles.color).toBe(palette.blue)
     expect(candles.data[0]!.color).toBe(palette.green)
     expect(candles.data[0]!.wickColor).toBeNull()
     expect(candles.data[0]!.borderColor).toBe('#000000')

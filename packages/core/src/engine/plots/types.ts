@@ -2,6 +2,7 @@
 import type {
   ArrowOptions,
   CharOptions,
+  Format,
   IndicatorSeries,
   ScalarPlot,
   ShapeOptions,
@@ -50,6 +51,8 @@ export interface PlotSpec extends PlotSource, ShapeOptions, CharOptions, ArrowOp
   readonly offset?: (params: Readonly<Record<string, unknown>>) => number
   /** 图形尺寸档位；histogram 也可用数值指定固定像素柱宽，缺省 auto。 */
   readonly size?: ShapeSize | number
+  /** 数值格式；缺省继承指标级 format，图例与轴标签共用。 */
+  readonly format?: Format
   readonly dash?: readonly number[]
   readonly baseline?: number
 }
@@ -79,6 +82,8 @@ export interface PlotGuide {
 export interface IndicatorPlotDefinition {
   /** collection 表示计算器已输出完整 Plot，无需提取数值字段。 */
   readonly source?: 'series'
+  /** 指标级数值格式；逐输出可在 PlotSpec.format 覆盖。 */
+  readonly format?: Format
   readonly series: readonly PlotSpec[]
   readonly fills?: readonly PlotFillSpec[]
   readonly guides?: readonly PlotGuide[]

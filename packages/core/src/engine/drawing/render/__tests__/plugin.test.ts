@@ -37,6 +37,7 @@ describe('createDrawingOverlayLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        axisLabels: [],
         snapLines: [],
       }
       const context = createMockRenderContext({
@@ -81,6 +82,7 @@ describe('createDrawingOverlayLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        axisLabels: [],
         snapLines: [],
       },
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
@@ -134,6 +136,7 @@ describe('createIndicatorDrawingLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        axisLabels: [],
         snapLines: [],
       },
     })
@@ -186,6 +189,7 @@ describe('createIndicatorDrawingLayer', () => {
         ],
         yAxisRanges: [],
         xAxisRanges: [],
+        axisLabels: [],
         snapLines: [],
       }
       const context = createMockRenderContext({
@@ -231,6 +235,7 @@ describe('createIndicatorDrawingLayer', () => {
       primitives: [primitive],
       yAxisRanges: [],
       xAxisRanges: [],
+      axisLabels: [],
       snapLines: [],
     }
     const context = createMockRenderContext({

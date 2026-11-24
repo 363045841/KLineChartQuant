@@ -1,13 +1,12 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 
 import { isDrawingInteractive } from '@363045841yyt/klinechart-plot-contracts'
+import type { AxisLabel } from '@/engine/axisLabels/index.js'
 import { resolveChartWorkspaceId } from '@/engine/chartModel/index.js'
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
-import { registerAxisLabel } from '@/engine/renderers/impl/labels/index.js'
 import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
 import type { Point } from '@/foundation/geometry/index.js'
 import {
-  AXIS_LABEL_KIND,
   type DrawingFrameProjection,
   type DrawingPrimitive,
   type DrawingStyle,
@@ -49,6 +48,7 @@ type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
   yAxisRanges: YAxisRange[]
   xAxisRanges: XAxisRange[]
+  axisLabels: AxisLabel[]
   snapLines: SnapLine[]
 }
 
@@ -221,50 +221,30 @@ function resolveAnchorTimestamp(
   return parsed !== undefined && Number.isFinite(parsed) ? parsed : null
 }
 
-/** 价格轴标签只在锚点落在 Pane 高度内时注册。 */
-function registerPriceAxisTag(
+/** 价格轴标签：以轴值域里的价格进入帧级收集，文本与精度由列投影决定。 */
+function pushPriceAxisLabel(
   context: RenderContext,
   price: number,
-  point: Point,
   color: string,
-  textColor: string,
+  output: MutableDrawingFrameProjection,
 ): void {
-  if (point.y < 0 || point.y > context.pane.height) return
-  registerAxisLabel(
-    context,
-    'yRightOverlay',
-    {
-      kind: AXIS_LABEL_KIND.TAG,
-      text: price.toFixed(2),
-      pos: point.y + context.pane.top,
-      origin: context.pane.top,
-      variant: 'label',
-      bgColor: color,
-      borderColor: color,
-      textColor,
-      fontSize: 11,
-    },
-    context.axisId!,
-  )
+  output.axisLabels.push({
+    kind: 'value',
+    axisId: context.axisId!,
+    role: 'tag',
+    value: price,
+    background: color,
+  })
 }
 
-/** 时间轴标签只在锚点落在 Pane 宽度内时注册。 */
-function registerTimeAxisTag(
-  context: RenderContext,
+/** 时间轴标签：以逻辑槽位进入帧级收集，像素由时间轴列投影换算。 */
+function pushTimeAxisLabel(
   text: string,
-  point: Point,
+  index: number,
   color: string,
-  textColor: string,
+  output: MutableDrawingFrameProjection,
 ): void {
-  if (point.x < 0 || point.x > context.paneWidth) return
-  registerAxisLabel(context, 'xLabels', {
-    kind: AXIS_LABEL_KIND.TAG,
-    text,
-    pos: point.x,
-    bgColor: color,
-    textColor,
-    fontSize: 12,
-  })
+  output.axisLabels.push({ kind: 'time', role: 'tag', index, text, background: color })
 }
 
 /** 价格标签与时间标签共用同一锚点可见性判断。 */
@@ -283,28 +263,23 @@ function resolveTimeLabelText(
     : context.displayTimeFormatter.formatDate(timestamp)
 }
 
-/** 直接命中候选时保留领域值；没有命中时返回原锚点。 */
+/** 把一个锚点的价格与时间投影为轴标签；两轴各自独立判定。 */
 function projectAnchorAxisLabels(
   anchor: ResolvedDrawingAnchor,
   priceLabelOnly: boolean,
   timeLabelOnly: boolean,
   color: string,
-  labelTextColor: string,
   context: RenderContext,
-  toScreen: (anchor: ResolvedDrawingAnchor) => Point,
+  output: MutableDrawingFrameProjection,
 ): void {
   // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
   const indexVisible = isAnchorIndexVisible(anchor, context.range)
   // 垂直线没有价格轴：只按时间轴注册标签，不能因为缺价格而整条跳过。
   const price = anchor.type === 'vertical' || !Number.isFinite(anchor.price) ? null : anchor.price
-  const wantsPrice = !timeLabelOnly && price !== null && (priceLabelOnly || indexVisible)
+  if (!timeLabelOnly && price !== null && (priceLabelOnly || indexVisible))
+    pushPriceAxisLabel(context, price, color, output)
   const timeText = resolveTimeLabelText(anchor, priceLabelOnly, indexVisible, context)
-  if (!wantsPrice && timeText === null) return
-
-  const point = toScreen(anchor)
-  if (wantsPrice && price !== null)
-    registerPriceAxisTag(context, price, point, color, labelTextColor)
-  if (timeText !== null) registerTimeAxisTag(context, timeText, point, color, labelTextColor)
+  if (timeText !== null) pushTimeAxisLabel(timeText, anchor.index, color, output)
 }
 
 /** 收集可见锚点，投影价格范围带与时间范围带。 */
@@ -350,7 +325,6 @@ function projectAxisDecorations(
   kind: DrawingKind,
   anchors: ReadonlyArray<ResolvedDrawingAnchor>,
   style: DrawingStyle,
-  labelTextColor: string,
   context: RenderContext,
   toScreen: (anchor: ResolvedDrawingAnchor) => Point,
   output: MutableDrawingFrameProjection,
@@ -359,15 +333,7 @@ function projectAxisDecorations(
   const priceLabelOnly = axisLabels === 'price'
   const timeLabelOnly = axisLabels === 'time'
   for (const anchor of anchors) {
-    projectAnchorAxisLabels(
-      anchor,
-      priceLabelOnly,
-      timeLabelOnly,
-      style.stroke,
-      labelTextColor,
-      context,
-      toScreen,
-    )
+    projectAnchorAxisLabels(anchor, priceLabelOnly, timeLabelOnly, style.stroke, context, output)
   }
   projectAxisRangeBands(anchors, style.stroke, context, toScreen, output)
 }
@@ -530,7 +496,6 @@ function projectStoredDrawing(
     drawing.kind,
     [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
     drawing.style,
-    state.themeColors.label.text,
     context,
     state.toScreen,
     state.output,
@@ -553,6 +518,7 @@ export function projectDrawingsForFrame(
     primitives: [],
     yAxisRanges: [],
     xAxisRanges: [],
+    axisLabels: [],
     snapLines: [],
   }
   const seriesData = context.data as KLineData[]

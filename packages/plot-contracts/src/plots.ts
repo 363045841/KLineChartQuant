@@ -7,13 +7,23 @@
 
 import type { HLine, HLineFill } from './hline.js'
 
-/** 单个有效绘图点；脚本的 null 和无效数值在采集时转为列中的缺省位置。 */
+/** 单个有效绘图点；颜色在采集时已物化为该 bar 的最终值。 */
 export interface PlotPoint {
-  value: number
-  /** CSS 颜色字符串；缺省时使用所在 Plot 的颜色。 */
-  color?: string
-  /** Shape 附带文字的逐 bar 颜色。 */
-  textColor?: string
+  readonly value: number
+  /** 该 bar 的最终颜色；缺省色已由生产端填入，消费端不再回退。 */
+  readonly color: string
+  /** 标记文字色；标记点必须逐点提供，非标记点不携带。 */
+  readonly textColor?: string
+}
+
+/** 标记点：文字色必填，图元端据此严格校验。 */
+export interface MarkerPoint extends PlotPoint {
+  readonly textColor: string
+}
+
+/** 识别标记点：标记数据必须逐点带文字色，图元端据此严格校验。 */
+export function isMarkerPoint(point: PlotPoint): point is MarkerPoint {
+  return typeof point.textColor === 'string'
 }
 /** Plot 的公共信息。 */
 export interface PlotBase {
@@ -21,11 +31,10 @@ export interface PlotBase {
   readonly label: string
   /** 按 K 线下标对齐的绘图点，缺省表示该位置不绘制。 */
   readonly data: readonly (PlotPoint | undefined)[]
-  readonly color: string
   /** 数值格式档位；已按 plot 级覆盖指标级解析完成，消费端直接使用。 */
   readonly format?: import('./format.js').Format
   readonly visible: boolean
-  /** 沿 K 线下标的偏移，用于一目均衡表等前移或后移的序列。 */
+  /** 沿 K 线下标的显示位移；一目均衡表等前移或后移的序列使用它。 */
   readonly offset: number
   /** 图形尺寸档位；渲染器据此换算成该类型的像素尺寸。 */
   readonly size: import('./shape.js').ShapeSize
@@ -78,7 +87,6 @@ export interface PointsPlot extends PlotBase {
 export interface MarkerPlot extends PlotBase {
   readonly location: import('./shape.js').ShapeLocation
   readonly text: string
-  readonly textColor: string
 }
 
 /** 固定形状标记。 */
@@ -93,11 +101,9 @@ export interface CharPlot extends MarkerPlot {
   readonly char: string
 }
 
-/** 符号决定方向，绝对值决定屏幕高度的箭头；长度上限由 size 决定。 */
+/** 符号决定方向，绝对值决定屏幕高度的箭头；方向色已物化为逐点颜色。 */
 export interface ArrowPlot extends PlotBase {
   readonly kind: 'arrow'
-  readonly colorUp: string
-  readonly colorDown: string
 }
 
 export type ScalarPlot =
@@ -126,7 +132,6 @@ export interface OhlcPlotPoint {
 /** OHLC 图形不提供单值填充边界，宽度跟随 K 线间距。 */
 export interface OhlcPlotBase extends Omit<PlotBase, 'data' | 'size'> {
   readonly data: readonly (OhlcPlotPoint | undefined)[]
-  readonly showLast?: number
 }
 
 /** 蜡烛图，包含独立着色的实体、影线和边框。 */
@@ -220,9 +225,44 @@ export function isOhlcPlot(plot: Plot): plot is OhlcPlot {
   return plot.kind === PlotKind.Candle || plot.kind === PlotKind.Bar
 }
 
-/** showLast 按整列长度裁剪，渲染、图例和自动缩放共享起点。 */
-export function ohlcPlotStart(plot: OhlcPlot): number {
-  return plot.showLast === undefined ? 0 : Math.max(0, plot.data.length - plot.showLast)
+/**
+ * 把 `showLast` 物化为列：只保留末尾 N 个点，其余位置清空。
+ *
+ * @param data 源列
+ * @param showLast 只保留末尾根数；缺省保留全部
+ */
+export function keepPlotTail<T>(
+  data: readonly (T | undefined)[],
+  showLast: number | undefined,
+): readonly (T | undefined)[] {
+  if (showLast === undefined) return data
+  const start = Math.max(0, data.length - showLast)
+  return data.map((point, index) => (index < start ? undefined : point))
+}
+
+/**
+ * 取显示下标处的绘图点；位移在这里统一换算，消费端不再各自减 offset。
+ *
+ * @param plot 任一 Plot 或 PlotBase
+ * @param index 图表 bar 下标（显示下标）
+ */
+export function plotPointAt<T>(
+  plot: { readonly data: readonly (T | undefined)[]; readonly offset: number },
+  index: number,
+): T | undefined {
+  return plot.data[index - plot.offset]
+}
+
+/**
+ * 显示下标的上界（开区间）：正向位移把点推到未来，遍历时允许超出数据长度。
+ *
+ * @param plot 任一 Plot 或 PlotBase
+ */
+export function plotIndexEnd(plot: {
+  readonly data: readonly unknown[]
+  readonly offset: number
+}): number {
+  return plot.data.length + plot.offset
 }
 
 /** 引用两个 Plot，填充它们之间的区域，不复制序列数据。 */
@@ -231,7 +271,7 @@ export interface PlotFill {
   readonly from: string
   readonly to: string
   readonly visible: boolean
-  /** 按图表 bar 下标保存颜色，与 Plot.data 对齐且不含 offset；null 表示该 bar 不填充。 */
+  /** 按图表 bar 下标保存颜色，与 Plot.data 同下标；null 表示该 bar 不填充。 */
   readonly colors: readonly (string | null)[]
 }
 

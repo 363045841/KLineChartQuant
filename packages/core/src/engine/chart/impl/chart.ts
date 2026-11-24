@@ -99,7 +99,7 @@ import type {
   RenderObjectMoveTarget,
 } from '../../../rendering/scene/types.js'
 // ===== 普通 imports，按路径字母排序 =====
-import { resolveAxisWidth } from '../../axisWidth/impl/axisWidthEstimator.js'
+import { resolveAxisWidth } from '../../axisWidth/impl/axisWidths.js'
 import {
   type ChartDataView,
   ChartDataViewId,

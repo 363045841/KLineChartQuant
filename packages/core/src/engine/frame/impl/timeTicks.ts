@@ -4,6 +4,7 @@
  * 时间轴与网格线消费同一份刻度，落点由各自已有的坐标/中心点换算，不再各自扫描槽位。
  */
 
+import { TIME_AXIS_EDGE_PADDING } from '@/engine/axisLabels/impl/metrics.js'
 import type { SlotGrid } from '@/foundation/geometry/slotGrid.js'
 import {
   createSeriesTimeProjection,
@@ -13,9 +14,6 @@ import {
   type TimeTick,
 } from '@/foundation/time/index.js'
 import { isTimeSharePeriod } from '@/foundation/types/chartPeriod.js'
-
-/** 时间轴文字与绘图区边界的留白（逻辑像素）；刻度范围与标签过滤共用它。 */
-export const TIME_AXIS_PADDING = 8
 
 /** 刻度投影输入：全部来自同一帧快照。 */
 export interface FrameTimeTicksInput {
@@ -38,8 +36,10 @@ export function projectFrameTimeTicks(input: FrameTimeTicksInput): readonly Time
   if (isTimeSharePeriod(input.period) || !(grid.step > 0)) return []
   return frameTimeTicks({
     projection: createSeriesTimeProjection(input.data),
-    firstIndex: Math.floor((scrollLeft + TIME_AXIS_PADDING - grid.origin) / grid.step),
-    lastIndex: Math.ceil((scrollLeft + plotWidth - TIME_AXIS_PADDING - grid.origin) / grid.step),
+    firstIndex: Math.floor((scrollLeft + TIME_AXIS_EDGE_PADDING - grid.origin) / grid.step),
+    lastIndex: Math.ceil(
+      (scrollLeft + plotWidth - TIME_AXIS_EDGE_PADDING - grid.origin) / grid.step,
+    ),
     unit: resolveTimeTickUnit(input.period),
     target: resolveTimeTickTarget(plotWidth),
     timeZone: input.timeZone,

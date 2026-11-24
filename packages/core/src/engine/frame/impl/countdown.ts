@@ -1,8 +1,13 @@
 /** 日线按已配置的交易时段倒数，其余情况按周期长度计算。 */
+
 import { isKLinePeriod, type KLinePeriod } from '@/data/provider/types.js'
 import { formatDateInTimeZone } from '@/foundation/time/index.js'
-import { minuteOfDayToTimestamp, type MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
+import {
+  type MarketSessionConfig,
+  minuteOfDayToTimestamp,
+} from '@/foundation/utils/sessionTimeLabels.js'
 
+/** 周期长度：分钟周期按分钟累加，月以上周期按日历月增加。 */
 type PeriodLength = { unit: 'minute' | 'month'; value: number }
 
 /** 完整覆盖标准周期，新增周期时必须显式定义长度。 */
@@ -55,7 +60,15 @@ function getDailySessionRemainingMs(
   return now >= opensAt && now < closesAt ? closesAt - now : null
 }
 
-/** 返回未到期 K 线的剩余毫秒。 */
+/**
+ * 返回未到期 K 线的剩余毫秒。
+ *
+ * @param period 当前周期
+ * @param barTimestamp 最后一根 K 线的开盘时间
+ * @param now 本帧时间快照
+ * @param market 市场时段；仅日线且非近似时段时参与
+ * @returns 剩余毫秒；已收盘或无法计算时为 null
+ */
 export function getLastPriceRemainingMs(
   period: string,
   barTimestamp: number,
@@ -83,7 +96,12 @@ export function getLastPriceRemainingMs(
   return Number.isFinite(remaining) && remaining > 0 ? remaining : null
 }
 
-/** 将已派生的剩余毫秒格式化为 mm:ss 或 hh:mm:ss，不足一秒向上取整。 */
+/**
+ * 将已派生的剩余毫秒格式化为 mm:ss 或 hh:mm:ss。
+ *
+ * @param remainingMs 剩余毫秒
+ * @returns 倒计时文本；不足一秒按一秒向上取整
+ */
 export function formatLastPriceCountdown(remainingMs: number | null): string | null {
   if (remainingMs === null || !Number.isFinite(remainingMs) || remainingMs <= 0) return null
   const seconds = Math.ceil(remainingMs / 1_000)
