@@ -1,55 +1,58 @@
-/**
- * 新指标实例链路的接线入口。
- *
- * 连接实例 CRUD 快照与去重计算计划，不依赖也不回写旧 scheduler。
- * 执行层通过 domain 的 CalculationPlanSource 契约消费它。
- */
+/** 从图表投影一次接收完整实例集合，统一发布实例快照与计算计划。 */
 import {
-  type CreateIndicatorInstanceApiOptions,
-  createIndicatorInstanceApi,
-  type IndicatorInstanceApi,
-} from '../api/indicatorInstanceApi.js'
-import { type CalculationPlan, createIndicatorCalculationPlan } from '../domain/calculationPlan.js'
-import type { IndicatorInstanceSnapshot } from '../domain/indicatorModel.js'
+  type CalculationPlanSource,
+  createIndicatorCalculationPlan,
+} from '../domain/calculationPlan.js'
+import {
+  createIndicatorCalculationKey,
+  createIndicatorInstanceSnapshot,
+  type IndicatorInstance,
+  type IndicatorInstanceSnapshot,
+} from '../domain/indicatorModel.js'
 
-export interface CreateIndicatorInstancePipelineOptions
-  extends Omit<CreateIndicatorInstanceApiOptions, 'onChanged'> {
-  /** 实例集合变更后通知宿主；可用于触发下一次调度。 */
-  readonly onInstancesChanged?: (snapshot: IndicatorInstanceSnapshot) => void
-  /** 计算计划变更后通知执行器；仅计算版本变化时调用。 */
-  readonly onCalculationPlanChanged?: (plan: CalculationPlan) => void
-}
-
-export interface IndicatorInstancePipeline {
-  readonly instances: IndicatorInstanceApi
+export interface IndicatorInstancePipeline extends CalculationPlanSource {
   snapshot(): IndicatorInstanceSnapshot
-  calculationPlan(): CalculationPlan
+  /** 返回计算计划是否变化。 */
+  publish(instances: readonly IndicatorInstance[]): boolean
 }
 
-/** 创建实例 CRUD 与去重计算计划之间的最小接线层。 */
-export function createIndicatorInstancePipeline(
-  options: CreateIndicatorInstancePipelineOptions,
-): IndicatorInstancePipeline {
-  let plan: CalculationPlan | null = null
-  let calculationRevision = -1
-  const onChanged = (snapshot: IndicatorInstanceSnapshot): void => {
-    options.onInstancesChanged?.(snapshot)
-    if (snapshot.calculationRevision === calculationRevision) return
-    calculationRevision = snapshot.calculationRevision
-    plan = createIndicatorCalculationPlan(snapshot)
-    options.onCalculationPlanChanged?.(plan)
-  }
-  const instances = createIndicatorInstanceApi({
-    initial: options.initial,
-    createId: options.createId,
-    onChanged,
-  })
-  plan = createIndicatorCalculationPlan(instances.snapshot())
-  calculationRevision = instances.snapshot().calculationRevision
+/** 展示配置按字段比较，pane 或样式变动只更新实例快照。 */
+function samePresentation(previous: IndicatorInstance, next: IndicatorInstance): boolean {
+  const keys = Object.keys(previous.presentation)
+  return (
+    previous.paneId === next.paneId &&
+    keys.length === Object.keys(next.presentation).length &&
+    keys.every((key) => Object.is(previous.presentation[key], next.presentation[key]))
+  )
+}
 
-  return Object.freeze({
-    instances,
-    snapshot: () => instances.snapshot(),
-    calculationPlan: () => plan!,
-  })
+/** 整批实例共用一次计划发布，单独的展示变化只更新快照。 */
+export function createIndicatorInstancePipeline(): IndicatorInstancePipeline {
+  let snapshot = createIndicatorInstanceSnapshot()
+  let plan = createIndicatorCalculationPlan(snapshot)
+  return {
+    snapshot: () => snapshot,
+    calculationPlan: () => plan,
+    publish(instances) {
+      let calculationChanged = snapshot.instances.size !== instances.length
+      let presentationChanged = calculationChanged
+      for (const next of instances) {
+        const previous = snapshot.instances.get(next.instanceId)
+        calculationChanged ||=
+          !previous ||
+          createIndicatorCalculationKey(previous.calculation) !==
+            createIndicatorCalculationKey(next.calculation)
+        presentationChanged ||= !previous || !samePresentation(previous, next)
+      }
+      if (!calculationChanged && !presentationChanged) return false
+
+      const nextSnapshot = createIndicatorInstanceSnapshot(
+        instances,
+        snapshot.calculationRevision + Number(calculationChanged),
+      )
+      if (calculationChanged) plan = createIndicatorCalculationPlan(nextSnapshot)
+      snapshot = nextSnapshot
+      return calculationChanged
+    },
+  }
 }

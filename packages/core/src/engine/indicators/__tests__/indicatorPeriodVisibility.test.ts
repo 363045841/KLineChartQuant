@@ -5,10 +5,7 @@ import {
   clearIndicatorLayerNamingForTest,
   registerIndicatorLayerNaming,
 } from '@/engine/indicators/indicatorLayerNaming.js'
-import {
-  createIndicatorLayer,
-  isLayerVisibleOnPeriod,
-} from '@/engine/renderers/Indicator/factory.js'
+import { createIndicatorLayer } from '@/engine/renderers/Indicator/factory.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
@@ -18,27 +15,32 @@ beforeAll(() => registerIndicatorLayerNaming(['fake'], ({ paneId }) => `fake_${p
 afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
-  it('识别已知周期，未知周期返回 undefined', () => {
-    expect(parseIndicatorPeriod('15min')).toEqual({ unit: 'minute', value: 15 })
-    expect(parseIndicatorPeriod('4h')).toEqual({ unit: 'hour', value: 4 })
-    expect(parseIndicatorPeriod('daily')).toEqual({ unit: 'day', value: 1 })
-    expect(parseIndicatorPeriod('weekly')).toEqual({ unit: 'week', value: 1 })
-    expect(parseIndicatorPeriod('bogus')).toBeUndefined()
+  it.each([
+    { period: '15min', expected: { unit: 'minute', value: 15 } },
+    { period: '4h', expected: { unit: 'hour', value: 4 } },
+    { period: 'daily', expected: { unit: 'day', value: 1 } },
+    { period: 'weekly', expected: { unit: 'week', value: 1 } },
+    { period: 'bogus', expected: undefined },
+  ])('解析 $period', ({ period, expected }) => {
+    expect(parseIndicatorPeriod(period)).toEqual(expected)
   })
 })
 
 describe('isIndicatorVisibleOnPeriod', () => {
-  it('未声明范围时所有周期可见，声明后按单位与 min/max 判定', () => {
-    expect(isIndicatorVisibleOnPeriod('daily', undefined)).toBe(true)
-    expect(isIndicatorVisibleOnPeriod('daily', [])).toBe(true)
-    const ranges = [{ unit: 'minute' as const }, { unit: 'hour' as const }]
-    expect(isIndicatorVisibleOnPeriod('5min', ranges)).toBe(true)
-    expect(isIndicatorVisibleOnPeriod('4h', ranges)).toBe(true)
-    expect(isIndicatorVisibleOnPeriod('daily', ranges)).toBe(false)
-    const bounded = [{ unit: 'minute' as const, min: 5, max: 30 }]
-    expect(isIndicatorVisibleOnPeriod('1min', bounded)).toBe(false)
-    expect(isIndicatorVisibleOnPeriod('15min', bounded)).toBe(true)
-    expect(isIndicatorVisibleOnPeriod('60min', bounded)).toBe(false)
+  const units = [{ unit: 'minute' }, { unit: 'hour' }] satisfies IndicatorMetadata['visiblePeriods']
+  const bounded = [{ unit: 'minute', min: 5, max: 30 }] satisfies IndicatorMetadata['visiblePeriods']
+  it.each([
+    { scenario: '未配置', period: 'daily', ranges: undefined, visible: true },
+    { scenario: '空配置', period: 'daily', ranges: [], visible: true },
+    { scenario: '匹配分钟', period: '5min', ranges: units, visible: true },
+    { scenario: '匹配小时', period: '4h', ranges: units, visible: true },
+    { scenario: '单位不匹配', period: 'daily', ranges: units, visible: false },
+    { scenario: '低于下限', period: '1min', ranges: bounded, visible: false },
+    { scenario: '等于下限', period: '5min', ranges: bounded, visible: true },
+    { scenario: '等于上限', period: '30min', ranges: bounded, visible: true },
+    { scenario: '高于上限', period: '60min', ranges: bounded, visible: false },
+  ])('$scenario', ({ period, ranges, visible }) => {
+    expect(isIndicatorVisibleOnPeriod(period, ranges)).toBe(visible)
   })
 })
 
@@ -73,41 +75,24 @@ function fakeDefinition(
 }
 
 describe('renderer layer gating', () => {
-  it('未声明范围时不增加额外绘制包装，但图层身份带实例 id', () => {
-    const layer = fakeLayer()
-    expect(isLayerVisibleOnPeriod(fakeDefinition(layer), 'daily')).toBe(true)
-    const assembled = createIndicatorLayer({
-      definition: fakeDefinition(layer),
-      paneId: 'main',
-      indicatorId: 'fake',
-      instanceId: 'fake_main',
-      axisId: 'main',
-    })
-    expect(assembled.id).toContain('fake_main')
-    expect(assembled.pane).toBe(layer.pane)
-  })
-
-  it('声明范围时保留 Layer 身份，并实际拦截及恢复绘制', () => {
+  const minuteOnly = [{ unit: 'minute' }] satisfies IndicatorMetadata['visiblePeriods']
+  it.each([
+    { scenario: '未限制周期', ranges: undefined, calls: [1, 2] },
+    { scenario: '仅限分钟周期', ranges: minuteOnly, calls: [0, 1] },
+  ])('$scenario时实际执行或跳过绘制', ({ ranges, calls }) => {
     const layer = fakeLayer()
     const paint = vi.spyOn(layer, 'paint')
     const assembled = createIndicatorLayer({
-      definition: fakeDefinition(layer, [{ unit: 'minute' }]),
+      definition: fakeDefinition(layer, ranges),
       paneId: 'main',
       indicatorId: 'fake',
       instanceId: 'fake_main',
       axisId: 'main',
     })
-    expect(assembled).not.toBe(layer)
     expect(assembled.id).toContain('fake_main')
-    expect(assembled.pane).toBe(layer.pane)
-    assembled.paint({
-      ...createMockRenderContext({ period: 'daily' }),
-      paneId: 'main',
-      clear: false,
-    })
-    expect(paint).not.toHaveBeenCalled()
-    const context = { ...createMockRenderContext({ period: '5min' }), paneId: 'main', clear: false }
-    assembled.paint(context)
-    expect(paint).toHaveBeenCalledOnce()
+    for (const [index, period] of ['daily', '5min'].entries()) {
+      assembled.paint({ ...createMockRenderContext({ period }), paneId: 'main', clear: false })
+      expect(paint).toHaveBeenCalledTimes(calls[index]!)
+    }
   })
 })

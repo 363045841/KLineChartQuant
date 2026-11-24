@@ -1,15 +1,13 @@
 # Instances 指标实例链路
 
-`instances/` 是实例优先的指标链路，唯一事实来源是「按 `instanceId` 保存的实例结果」。
-它不依赖旧 `indicatorState`、旧 scheduler、`renderer stateKey` 或按类型索引的结果包；
-pane 只拥有可随时重建的渲染投影。
+`instances/` 从图表接收完整实例快照。`IndicatorResultStore` 按 `calculationKey` 保存计算结果，图表按 `instanceId` 读取当前计划的结果投影。窗格只持有可重建的渲染资源。
 
 ## 分层
 
 ```text
 instances/
 ├── domain/     # 纯模型与纯派生，只依赖 foundation
-├── api/        # 实例身份、CRUD 与渲染绑定契约
+├── api/        # 实例身份与渲染绑定契约
 ├── execution/  # 计算计划执行、版本门控与结果池提交
 └── assembly/   # 注册表装配与链路接线
 ```
@@ -23,7 +21,7 @@ assembly -> api/execution -> domain
 | 目录        | 职责                                             | 关键文件                                                                 |
 | ----------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
 | `domain/`   | 领域类型、`calculationKey`、任务计划             | `indicatorModel.ts`、`calculationPlan.ts`                         |
-| `api/`      | 实例身份、create/update/remove 与渲染绑定契约    | `indicatorInstanceApi.ts`、`instanceIdentity.ts`、`indicatorRenderBinding.ts` |
+| `api/`      | 实例身份与渲染绑定契约                           | `instanceIdentity.ts`、`indicatorRenderBinding.ts`                         |
 | `execution/`| 调用定义计算端口、计划执行与结果池提交           | `indicatorCalculator.ts`、`indicatorExecutor.ts`、`indicatorCalculationScheduler.ts` |
 | `assembly/` | metadata 到计算定义的装配、链路接线              | `indicatorCalculatorCatalog.ts`、`indicatorInstancePipeline.ts`           |
 
@@ -43,12 +41,12 @@ assembly -> api/execution -> domain
 ## 版本语义
 
 - `calculationRevision`：启用集合、指标定义、计算输入或上下文变化时递增，触发计算。
-- `presentationRevision`：pane 或展示配置变化时递增，只重建投影，不触发计算。
+- pane 或展示配置变化时更新实例快照，继续使用现有计算计划。
 
 ## 数据流
 
 ```text
-实例 CRUD 快照
+已装配的指标定义 + 完整实例快照
   -> CalculationPlan（按 calculationKey 去重）
   -> IndicatorCalculationScheduler 合并任务
   -> IndicatorExecutor 调用定义的计算端口

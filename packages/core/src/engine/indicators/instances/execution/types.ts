@@ -37,12 +37,13 @@ export interface IndicatorCalculationExecutor {
 
 /** 计算结果仓库：按计算身份保存已提交结果，是读取的唯一事实来源。 */
 export interface IndicatorResultStore {
+  remove(key: CalculationKey): void
   publish(output: IndicatorSeriesOutput, snapshot: MarketSnapshot): void
   get(key: CalculationKey): IndicatorResult | undefined
   /** 只保留给定身份的结果；图表计划与预览身份由调度器一并提交。 */
   retain(keys: ReadonlySet<CalculationKey>): void
   /** 按当前计划展开为按实例索引的结果池。 */
-  snapshot(plan: CalculationPlan, snapshot: MarketSnapshot): IndicatorSeriesPool
+  snapshot(plan: CalculationPlan): IndicatorSeriesPool
   clear(): void
 }
 

@@ -768,7 +768,7 @@ export class Chart {
         )
       },
       configureAxes: (snapshot) => this.configureRuntimeAxes(snapshot),
-      projectLayers: (snapshot) => this.indicatorManager.projectLayers(snapshot.indicators),
+      projectLayers: (snapshot) => this.indicatorManager.projectIndicators(snapshot.indicators),
       invalidateFrame: () => {
         this.unlockAxisWidth()
         this.renderer.invalidateFrame()

@@ -100,7 +100,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     )
   }
 
-  // 视图系统定义随图表创建；用户指标按需加载，布局恢复前再加载其引用的指标。
+  // 系统图层随图表创建；布局先恢复配置，再按需加载引用的指标实现。
   if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
   const mounted = mountChartDom(opts)
 

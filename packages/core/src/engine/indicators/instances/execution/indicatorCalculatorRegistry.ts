@@ -15,19 +15,11 @@ export class IndicatorCalculatorRegistry implements IndicatorCalculationExecutor
     for (const definition of definitions) this.addDefinition(definition)
   }
 
-  /** 注册定义；同一对象重复注册幂等，其它同名对象必须显式更新。 */
+  /** 同一对象重复注册幂等；替换定义时先移除旧定义及其计算器。 */
   addDefinition(definition: IndicatorCalculator): void {
     const existing = this.definitions.get(definition.definitionId)
     if (existing && existing !== definition)
       throw new TypeError(`Duplicate indicator calculator: ${definition.definitionId}`)
-    this.definitions.set(definition.definitionId, definition)
-  }
-
-  /** 新定义只影响后续执行；旧执行持有自己的快照，发布资格由调度器决定。 */
-  updateDefinition(definition: IndicatorCalculator): void {
-    if (!this.definitions.has(definition.definitionId))
-      throw new TypeError(`Unknown indicator calculator: ${definition.definitionId}`)
-    this.removeDefinition(definition.definitionId)
     this.definitions.set(definition.definitionId, definition)
   }
 

@@ -55,9 +55,9 @@ export function createTestInstance(input: {
 /** 构造测试实例快照；revision 可显式覆盖以模拟计算版本变化。 */
 export function createTestSnapshot(
   instances: IndicatorInstance[],
-  revisions?: { calculationRevision: number; presentationRevision: number },
+  calculationRevision?: number,
 ): IndicatorInstanceSnapshot {
-  return createIndicatorInstanceSnapshot(instances, revisions)
+  return createIndicatorInstanceSnapshot(instances, calculationRevision)
 }
 
 /** 快照可替换的计算计划供给源，用于模拟执行期间的版本变化。 */

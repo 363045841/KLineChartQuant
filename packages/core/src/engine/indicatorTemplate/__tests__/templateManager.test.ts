@@ -268,8 +268,9 @@ it('摘要显示指标 name 元数据而不是 title', async () => {
   }
 })
 
-it('保存时按 indicatorIds 过滤指标与无引用副图', async () => {
+it('按 indicatorIds 保存的模板重新打开后只恢复选中的指标', async () => {
   const own = createManager()
+  const reopened = createManager()
   try {
     registerTestIndicator('MA')
     registerTestIndicator('MACD')
@@ -278,15 +279,18 @@ it('保存时按 indicatorIds 过滤指标与无引用副图', async () => {
     addSubIndicator(own.kernel, 'MACD')
 
     const id = await own.manager.saveTemplate({ name: '仅 MA', indicatorIds: ['MA'] })
-    const summary = own.manager.templates.peek().find((template) => template.id === id)
+    await reopened.manager.initialize()
+    const summary = reopened.manager.templates.peek().find((template) => template.id === id)
     expect(summary?.labels).toEqual(['MA'])
     expect(summary?.instanceCount).toBe(1)
 
-    const applied = await own.manager.applyTemplate({ id })
+    const applied = await reopened.manager.applyTemplate({ id })
     expect(applied.applied).toBe(1)
-    const kline = own.appliedSnapshot()?.[ChartWorkspaceId.KLine]
+    const kline = reopened.appliedSnapshot()?.[ChartWorkspaceId.KLine]
     expect(kline?.instances.map((instance) => instance.indicatorId)).toEqual(['MA'])
   } finally {
+    await reopened.manager.dispose()
+    reopened.kernel.dispose()
     await own.manager.dispose()
     own.kernel.dispose()
   }

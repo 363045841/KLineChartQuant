@@ -61,13 +61,17 @@ describe('indicator calculator registry', () => {
       createTestInstance({ instanceId: 'b', definitionId: 'value', inputs: { period: 2 } }),
       createTestInstance({ instanceId: 'c', definitionId: 'other' }),
     ])
-    const factory = vi.fn(() => (_data: unknown, inputs: Readonly<Record<string, unknown>>) => [
-      inputs.period,
-    ])
-    const other = vi.fn(() => [9])
+    const disposeEdited = vi.fn()
+    const disposeOther = vi.fn()
+    const factory = vi.fn(() =>
+      Object.assign((_data: unknown, inputs: Readonly<Record<string, unknown>>) => [inputs.period], {
+        dispose: disposeEdited,
+      }),
+    )
+    const other = vi.fn(() => Object.assign(() => [9], { dispose: disposeOther }))
     const registry = new IndicatorCalculatorRegistry([
       { definitionId: 'value', dependency: STATEFUL, compute: () => [], createCompute: factory },
-      { definitionId: 'other', dependency: STATEFUL, compute: other },
+      { definitionId: 'other', dependency: STATEFUL, compute: () => [], createCompute: other },
     ])
     const tasks = source.calculationPlan().tasks
     const data = snapshot(createTestData(1))
@@ -77,7 +81,13 @@ describe('indicator calculator registry', () => {
     expect((await registry.execute(tasks[1]!, data, signal)).series).toEqual([2])
     await registry.execute(tasks[0]!, data, signal)
     expect(factory).toHaveBeenCalledTimes(2)
-    registry.updateDefinition({ definitionId: 'value', dependency: STATEFUL, compute: () => [3] })
+    expect((await registry.execute(tasks[2]!, data, signal)).series).toEqual([9])
+
+    registry.removeDefinitions(['value'])
+    registry.addDefinition({ definitionId: 'value', dependency: STATEFUL, compute: () => [3] })
+
+    expect(disposeEdited).toHaveBeenCalledTimes(2)
+    expect(disposeOther).not.toHaveBeenCalled()
     expect((await registry.execute(tasks[0]!, data, signal)).series).toEqual([3])
     expect((await registry.execute(tasks[2]!, data, signal)).series).toEqual([9])
     expect(other).toHaveBeenCalledOnce()

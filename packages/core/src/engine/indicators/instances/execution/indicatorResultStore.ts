@@ -31,6 +31,10 @@ export function createIndicatorResultStore(): IndicatorResultStore {
   const completed = new Map<CalculationKey, StoredResult>()
 
   return {
+    remove(key) {
+      completed.delete(key)
+    },
+
     publish(output, snapshot) {
       const previous = completed.get(output.calculationKey)
       if (previous && !isNewer(snapshot, previous.snapshot)) return
@@ -48,7 +52,7 @@ export function createIndicatorResultStore(): IndicatorResultStore {
       for (const key of completed.keys()) if (!keys.has(key)) completed.delete(key)
     },
 
-    snapshot(plan, snapshot) {
+    snapshot(plan) {
       const results = new Map<string, IndicatorResult>()
       for (const task of plan.tasks) {
         const stored = completed.get(task.calculationKey)
@@ -56,7 +60,7 @@ export function createIndicatorResultStore(): IndicatorResultStore {
         const result = toIndicatorResult(stored.output, stored.snapshot, stored.snapshot.timestamps)
         for (const instanceId of task.instanceIds) results.set(instanceId, result)
       }
-      return Object.freeze({ timestamps: snapshot.timestamps, results })
+      return Object.freeze({ results })
     },
 
     clear() {

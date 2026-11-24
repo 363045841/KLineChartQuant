@@ -293,34 +293,19 @@ describe('reorder', () => {
     expect(c.active().map((x) => x.id)).toEqual([cc, a, b])
   })
 
-  it('refuses to reorder when source is a main indicator', () => {
+  it.each([
+    { source: 'main', target: 'sub' },
+    { source: 'sub', target: 'main' },
+    { source: 'sub', target: 'sub' },
+    { source: 'unknown', target: 'sub' },
+    { source: 'sub', target: 'unknown' },
+  ] as const)('rejects reorder from $source to $target', ({ source, target }) => {
     const c = makeController()
-    const mainId = c.add('MA') as string
-    const subId = c.add('KDJ') as string
-    const ok = c.reorder(mainId, subId)
-    expect(ok).toBe(false)
-  })
-
-  it('refuses to reorder when target is a main indicator', () => {
-    const c = makeController()
-    const mainId = c.add('MA') as string
-    const subId = c.add('KDJ') as string
-    const ok = c.reorder(subId, mainId)
-    expect(ok).toBe(false)
-  })
-
-  it('returns false when source equals target', () => {
-    const c = makeController()
-    const id = c.add('KDJ') as string
-    const ok = c.reorder(id, id)
-    expect(ok).toBe(false)
-  })
-
-  it('returns false when an instance id is unknown', () => {
-    const c = makeController()
-    const id = c.add('KDJ') as string
-    expect(c.reorder(id, 'nope')).toBe(false)
-    expect(c.reorder('nope', id)).toBe(false)
+    const ids = { main: c.add('MA')!, sub: c.add('KDJ')!, unknown: 'missing' }
+    c.add('MACD')
+    const before = c.active()
+    expect(c.reorder(ids[source], ids[target])).toBe(false)
+    expect(c.active()).toBe(before)
   })
 
   it('mains stay pinned to the front after a sub reorder', () => {
@@ -351,17 +336,6 @@ describe('menu state', () => {
     c = makeController()
   })
 
-  it('openMenu sets menuOpen to true', () => {
-    c.openMenu()
-    expect(c.menuOpen()).toBe(true)
-  })
-
-  it('closeMenu sets menuOpen to false', () => {
-    c.openMenu()
-    c.closeMenu()
-    expect(c.menuOpen()).toBe(false)
-  })
-
   it('toggleMenu flips menuOpen', () => {
     expect(c.menuOpen()).toBe(false)
     c.toggleMenu()
@@ -370,12 +344,15 @@ describe('menu state', () => {
     expect(c.menuOpen()).toBe(false)
   })
 
-  it('notifies subscribers on each transition', () => {
+  it('opens and closes the menu with one notification per state change', () => {
     const listener = vi.fn()
     c.menuOpen.subscribe(listener)
     c.openMenu()
-    c.openMenu() // idempotent — no second notification
+    expect(c.menuOpen()).toBe(true)
+    c.openMenu()
+    expect(listener).toHaveBeenCalledOnce()
     c.closeMenu()
+    expect(c.menuOpen()).toBe(false)
     expect(listener).toHaveBeenCalledTimes(2)
   })
 })
@@ -391,32 +368,15 @@ describe('search / filtering', () => {
     expect(c.filteredSub().map((d) => d.id)).toEqual(['KDJ', 'MACD', 'RSI'])
   })
 
-  it('setSearchQuery does case-insensitive partial match on label', () => {
+  it.each([
+    { query: 'ma', main: ['MA', 'EXPMA'], sub: ['MACD'] },
+    { query: 'Bollinger', main: ['BOLL'], sub: [] },
+    { query: 'STOCHASTIC', main: [], sub: ['KDJ'] },
+  ])('finds matching names or labels for $query', ({ query, main, sub }) => {
     const c = makeController()
-    c.setSearchQuery('ma')
-    // matches MA (label), MACD (label), EXPMA (label suffix), Moving Average (name)
-    const ids = new Set(
-      c
-        .filteredMain()
-        .concat(c.filteredSub())
-        .map((d) => d.id),
-    )
-    expect(ids.has('MA')).toBe(true)
-    expect(ids.has('MACD')).toBe(true)
-    expect(ids.has('EXPMA')).toBe(true)
-  })
-
-  it('matches against name as well as label', () => {
-    const c = makeController()
-    c.setSearchQuery('Bollinger')
-    expect(c.filteredMain().map((d) => d.id)).toEqual(['BOLL'])
-    expect(c.filteredSub()).toEqual([])
-  })
-
-  it('upper / lower case does not matter', () => {
-    const c = makeController()
-    c.setSearchQuery('STOCHASTIC')
-    expect(c.filteredSub().map((d) => d.id)).toEqual(['KDJ'])
+    c.setSearchQuery(query)
+    expect(c.filteredMain().map((d) => d.id)).toEqual(main)
+    expect(c.filteredSub().map((d) => d.id)).toEqual(sub)
   })
 
   it('an empty query restores the full role-partitioned list', () => {

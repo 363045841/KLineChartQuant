@@ -16,12 +16,7 @@ import type {
   PluginHostImpl,
   RenderContext,
 } from '../../foundation/plugin/index.js'
-import {
-  type Computed,
-  computed,
-  effect,
-  type ReadonlySignal,
-} from '../../foundation/reactivity/signal.js'
+import { type Computed, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type {
@@ -49,7 +44,6 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
-import { createIndicatorInstanceId } from './instances/api/instanceIdentity.js'
 import { createIndicatorCalculators } from './instances/assembly/indicatorCalculatorCatalog.js'
 import {
   createIndicatorInstancePipeline,
@@ -72,14 +66,12 @@ import {
 import { createIndicatorResultStore } from './instances/execution/indicatorResultStore.js'
 import type {
   IndicatorCalculationScheduler,
-  IndicatorResultStore,
   MarketSnapshot,
 } from './instances/execution/types.js'
 import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
-  type IndicatorCatalogCommit,
-  indicatorCommits,
+  indicatorCatalogRevision,
   readRegisteredDefinitions,
   resolveCanonicalIndicatorId,
 } from './pipeline/index.js'
@@ -175,11 +167,9 @@ export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private readonly pipeline: IndicatorInstancePipeline
   private readonly executor: IndicatorExecutor
-  /** 取消订阅按需装配事件。 */
-  private readonly disposeDefinitionSubscription: () => void
-  /** 已消费的提交修订号；构造时以当前快照为基线，避免重复装配。 */
-  private appliedCommitRevision: number
-  private readonly resultStore: IndicatorResultStore
+  private installedDefinitions: ReadonlyMap<string, IndicatorMetadata> = new Map()
+  private appliedDefinitionRevision = -1
+  private calculationPlanNeedsRefresh = false
   private readonly calculationScheduler: IndicatorCalculationScheduler
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
@@ -247,61 +237,15 @@ export class ChartIndicatorManager {
   }
   private onResultsAppliedCallback: (() => void) | null = null
 
-  /** 消费一次注册提交：先移除，再新增，最后替换。 */
-  private applyDefinitionCommit(commit: IndicatorCatalogCommit): void {
-    this.removeCommittedDefinitions(commit.removed)
-    if (commit.added.length > 0) {
-      this.executor.addDefinitions(createIndicatorCalculators(commit.added))
-    }
-    if (commit.updated.length > 0) this.replaceCommittedDefinitions(commit.updated)
-  }
-
-  /** 移除已删除定义对应的实例与计算缓存。 */
-  private removeCommittedDefinitions(definitions: readonly IndicatorMetadata[]): void {
-    for (const definition of definitions) {
-      const canonical = resolveCanonicalIndicatorId(definition)
-      this.deps.removeInstancesByDefinition(canonical)
-      this.executor.removeDefinitions([definition.name])
-    }
-  }
-
-  /** 替换定义：丢弃旧计算缓存、重挂实例并重算。 */
-  private replaceCommittedDefinitions(definitions: readonly IndicatorMetadata[]): void {
-    this.calculationScheduler.invalidateDefinitions(definitions.map((item) => item.name))
-    this.executor.updateDefinitions(createIndicatorCalculators(definitions))
-    const revision = this.pipeline.snapshot().calculationRevision
-    this.syncPipeline(this.deps.indicator.readonly.instances.peek())
-    if (revision === this.pipeline.snapshot().calculationRevision) this.requestRefresh()
-  }
-
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
-    // 实例链路：Kernel 实例配置为输入，计算计划与结果池为输出。
-    this.pipeline = createIndicatorInstancePipeline({
-      createId: createIndicatorInstanceId,
-      initial: this.toPipelineInstances(deps.indicator.readonly.instances.peek()),
-      onCalculationPlanChanged: () => this.requestRefresh(),
-    })
-
+    this.pipeline = createIndicatorInstancePipeline()
     // 计算经注册定义委派；Script 服务管理自己的 Worker，不创建平行执行链路。
-    this.executor = createIndicatorExecutor(
-      createIndicatorCalculators(readRegisteredDefinitions()),
-      deps.getMarketData,
-    )
-    this.resultStore = createIndicatorResultStore()
-    // 注册表只发一次提交摘要：新增装配计算定义，替换丢弃旧缓存并重算，移除卸载实例。
-    this.appliedCommitRevision = indicatorCommits.peek()?.revision ?? 0
-    this.disposeDefinitionSubscription = effect(() => {
-      const commit = indicatorCommits()
-      if (commit === null || commit.revision <= this.appliedCommitRevision) return
-      this.appliedCommitRevision = commit.revision
-      this.applyDefinitionCommit(commit)
-    })
-
+    this.executor = createIndicatorExecutor([], deps.getMarketData)
     this.calculationScheduler = createIndicatorCalculationScheduler({
       pipeline: this.pipeline,
       executor: this.executor,
-      store: this.resultStore,
+      store: createIndicatorResultStore(),
       onCommit: (pool) => this.publishSeries(pool),
       onPending: (instanceIds, pending) => {
         for (const id of instanceIds)
@@ -354,7 +298,7 @@ export class ChartIndicatorManager {
     return {
       instances: this.deps.indicator.readonly.instances(),
       colors: this.deps.plotColors$(),
-      definitionRevision: indicatorCommits()?.revision ?? 0,
+      definitionRevision: indicatorCatalogRevision(),
     }
   }
 
@@ -368,25 +312,30 @@ export class ChartIndicatorManager {
     this.requestRefresh()
   }
 
-  /** 消费协调者快照和已安装绑定，只同步指标实例、输出与图层。 */
-  projectLayers(inputs: IndicatorRuntimeInputs): void {
+  /** 在协调者的提交内同步计算器、发布完整计划、挂载图层，再启动计算。 */
+  projectIndicators(inputs: IndicatorRuntimeInputs): void {
+    const definitionsInvalidated = this.synchronizeDefinitions(inputs.definitionRevision)
+    this.calculationPlanNeedsRefresh ||= definitionsInvalidated
     const instances = inputs.instances
-    const readyInstances = instances.filter((instance) =>
-      getRegisteredIndicatorDefinition(instance.indicatorId),
-    )
+    const readyInstances = instances.flatMap((instance) => {
+      const definition = this.getInstalledDefinition(instance.indicatorId)
+      return definition ? [{ instance, definition }] : []
+    })
+    const calculationInstances = readyInstances.flatMap(({ instance, definition }) => {
+      const calculation = this.toPipelineInstance(instance, definition)
+      return calculation === null ? [] : [calculation]
+    })
+    const planChanged = this.pipeline.publish(calculationInstances)
+    this.calculationPlanNeedsRefresh ||= planChanged
     const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
     for (const instanceId of [...this.availabilitySources.keys()]) {
       if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
     }
 
-    const axesByPane = this.paneAxes
-    const instanceAxes = resolveObjectAxisMap(axesByPane)
+    const instanceAxes = resolveObjectAxisMap(this.paneAxes)
     // 协调者已经判断资源输入变化，这里完整应用同一份输入。
     this.releaseLayerResources()
-    this.syncPipeline(readyInstances)
-    this.reprojectRenderStates(inputs.colors)
-    for (const instance of readyInstances) {
-      const definition = getRegisteredIndicatorDefinition(instance.indicatorId)!
+    for (const { instance, definition } of readyInstances) {
       const layer = createIndicatorLayer({
         definition,
         paneId: instance.paneId,
@@ -406,65 +355,57 @@ export class ChartIndicatorManager {
       layer.z += instance.ordinal
       this.mountLayerResource(layer)
     }
+    if (this.calculationPlanNeedsRefresh) {
+      this.requestRefresh()
+      this.calculationPlanNeedsRefresh = false
+    }
+    this.reprojectRenderStates(inputs.colors)
     this.deps.scheduleDraw()
   }
 
-  /** 把 Kernel 的实例配置单向投影为实例链路的计算实例。 */
-  private syncPipeline(desired: ReadonlyArray<IndicatorInstanceSpec>): void {
-    const desiredInstances = this.toPipelineInstances(desired)
-    const existing = this.pipeline.snapshot().instances
-    const desiredIds = new Set(desiredInstances.map((instance) => instance.instanceId))
-    for (const instanceId of [...existing.keys()]) {
-      if (!desiredIds.has(instanceId)) this.pipeline.instances.remove(instanceId)
+  /** 比对完整目录快照，合并通知时也能同步全部新增、替换和注销。 */
+  private synchronizeDefinitions(revision: number): boolean {
+    if (revision === this.appliedDefinitionRevision) return false
+    const next = new Map(
+      readRegisteredDefinitions().map((definition) => [definition.name, definition]),
+    )
+    const previous = this.installedDefinitions
+    const outdated = [...previous.values()].filter(
+      (definition) => next.get(definition.name) !== definition,
+    )
+    const install = [...next.values()].filter(
+      (definition) => previous.get(definition.name) !== definition,
+    )
+    if (outdated.length > 0) {
+      const changed = outdated.map(({ name }) => name)
+      this.calculationScheduler.invalidateDefinitions(changed)
+      this.executor.removeDefinitions(changed)
     }
-    for (const next of desiredInstances) {
-      const current = this.pipeline.instances.get(next.instanceId)
-      if (!current) {
-        this.pipeline.instances.create(next)
-        continue
-      }
-      if (current.definitionId !== next.definitionId) {
-        this.pipeline.instances.remove(next.instanceId)
-        this.pipeline.instances.create(next)
-        continue
-      }
-      if (
-        createIndicatorCalculationKey(current.calculation) !==
-        createIndicatorCalculationKey(next.calculation)
-      ) {
-        this.pipeline.instances.update(next.instanceId, {
-          kind: 'calculation',
-          inputs: next.calculation.inputs,
-          context: next.calculation.context,
-        })
-      }
-      if (
-        current.paneId !== next.paneId ||
-        !ChartIndicatorManager.samePresentation(current.presentation, next.presentation)
-      ) {
-        this.pipeline.instances.update(next.instanceId, {
-          kind: 'presentation',
-          paneId: next.paneId,
-          presentation: next.presentation,
-        })
+    this.executor.addDefinitions(createIndicatorCalculators(install))
+    this.installedDefinitions = next
+    this.appliedDefinitionRevision = revision
+    for (const definition of outdated) {
+      if (!next.has(definition.name)) {
+        this.deps.removeInstancesByDefinition(resolveCanonicalIndicatorId(definition))
       }
     }
+    return outdated.length > 0
   }
 
-  /** 展示配置是扁平原始值记录，逐键比较即可判定是否变化。 */
-  private static samePresentation(
-    left: Readonly<Record<string, unknown>>,
-    right: Readonly<Record<string, unknown>>,
-  ): boolean {
-    const leftKeys = Object.keys(left)
-    if (leftKeys.length !== Object.keys(right).length) return false
-    return leftKeys.every((key) => Object.is(left[key], right[key]))
+  /** 解析别名，并确认当前图表已装配这份实现。 */
+  private getInstalledDefinition(id: string): IndicatorMetadata | undefined {
+    const definition = getRegisteredIndicatorDefinition(id)
+    return definition && this.installedDefinitions.get(definition.name) === definition
+      ? definition
+      : undefined
   }
 
   /** 将 Kernel 实例规格转换为实例领域模型。 */
-  private toPipelineInstance(spec: IndicatorInstanceSpec): IndicatorPipelineInstance | null {
-    const metadata = getRegisteredIndicatorDefinition(spec.indicatorId)
-    if (!metadata?.runtime) return null
+  private toPipelineInstance(
+    spec: IndicatorInstanceSpec,
+    metadata: IndicatorMetadata,
+  ): IndicatorPipelineInstance | null {
+    if (!metadata.runtime) return null
     const definitionId = metadata.name
     const defaults = ChartIndicatorManager.resolveDefaultInputs(metadata.runtime.defaultInputs)
     const inputs: Record<string, IndicatorInputValue> = {}
@@ -484,18 +425,6 @@ export class ChartIndicatorManager {
       },
       presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
     }
-  }
-
-  /** 一次性批量转换 Kernel 实例集合，过滤掉不可计算的展示型指标。 */
-  private toPipelineInstances(
-    specs: ReadonlyArray<IndicatorInstanceSpec>,
-  ): ReadonlyArray<IndicatorPipelineInstance> {
-    const instances: IndicatorPipelineInstance[] = []
-    for (const spec of specs) {
-      const instance = this.toPipelineInstance(spec)
-      if (instance) instances.push(instance)
-    }
-    return instances
   }
 
   /** 解析 runtime.defaultInputs，支持函数与常量两种声明。 */
@@ -652,7 +581,7 @@ export class ChartIndicatorManager {
         INDICATOR_SERIES_ERROR_CODES.NO_DATA,
         'Reading indicator series requires active market data.',
       )
-    const metadata = getRegisteredIndicatorDefinition(request.definitionId)
+    const metadata = this.getInstalledDefinition(request.definitionId)
     if (!metadata?.runtime)
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.INDICATOR_NOT_REGISTERED,
@@ -744,7 +673,7 @@ export class ChartIndicatorManager {
     const timestamp = Date.now()
     const renderStates = new Map<string, unknown>()
     for (const instance of this.pipeline.snapshot().instances.values()) {
-      const metadata = getRegisteredIndicatorDefinition(instance.definitionId)
+      const metadata = this.installedDefinitions.get(instance.definitionId)
       const result = pool.results.get(instance.instanceId)
       if (!metadata || !result) continue
       const timeline = this.getTimelineProjection(result.timestamps)
@@ -897,7 +826,6 @@ export class ChartIndicatorManager {
     this.calculationScheduler.dispose()
     this.executor.dispose()
     this.destroyed = true
-    this.disposeDefinitionSubscription()
     this.releaseLayerResources()
     this.paneAxes = new Map()
     this.onResultsAppliedCallback = null

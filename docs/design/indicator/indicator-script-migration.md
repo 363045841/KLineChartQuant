@@ -5,32 +5,16 @@
 把 core 中「纯逐 bar 数值序列」类内置指标改为脚本指标（`packages/script/scripts/*.ts`），
 删除对应的原生定义、calculator、renderer 与 state 契约：一个指标只有一处实现。
 
-非目标：`kind: system` 的系统定义（分时、最新价、极值标记等渲染型定义）不参与迁移。
-结构类与成交分布定义已在 Box/Label 批次（#333）完成脚本化。
+分时主序列、最新价和极值标记由图表视图作为系统 Layer 注册。结构类与成交分布已在 Box/Label 批次（#333）完成脚本化。
 
 ## 目录契约
 
-脚本走中立定义 `IndicatorDefinition`，core 经 `registerPlotIndicator` 翻译成 `IndicatorMetadata`。
+Script Chart 将中立的 `IndicatorDefinition` 交给 Core 的 `createPlotIndicatorDefinition`，生成 `IndicatorMetadata` 并注册到指标目录。
 指标不声明业务分类，目录根据来源、收藏与搜索展示列表，UI 只保留主图或副图位置标签。
 
 ## 脚本身份：name 是身份，title/info 是展示
 
-脚本的 `name` 是稳定身份与选择器短名；可选 `title` 设置选择器 item-name（长名称），
-可选 `info` 设置选择器里的说明文本，缺省回落到 `name` / 不展示说明。core 的
-`IndicatorMetadata` / `IndicatorDescriptor` 增加 `title` 与 `info`，`registerPlotIndicator`
-只负责转发；`indicatorCatalog` 对脚本使用 `title ?? displayName` 与 `def.info`，
-不再从 `uiMeta` 读取脚本名称或说明。原生 `@Indicator` 仍使用 `displayName` 与 `uiMeta`
-（结构、区域、成交量分布等）。
-
-落地：
-
-- 契约新增字段：`IndicatorSourceDefinition`、`IndicatorDefinition`、`QuickJSScriptDefinition`
-  与 VM 元数据读取都支持可选 `title` 与 `info`。
-- `registerPlotIndicator` 落 `displayName: definition.name`、`title: definition.title`、
-  `info: definition.info`；脚本选择器的短名仍是 `name`，长名称读 `title`，说明读 `info`。
-- 内置脚本把原 `uiMeta.name` / `uiMeta.description` 搬到 `defineIndicator.title` / `info`
-  （`BOLL` + `布林带` + 布林带说明等）；`uiMeta` 只保留原生定义。
-- `name` 仍是稳定身份；`title` / `info` 可随脚本更新，不改变指标实例身份。
+选择器用脚本的 `name` 显示短名，`title` 显示长名称，`info` 显示说明。`createPlotIndicatorDefinition` 将这些字段写入目录元数据。内置脚本用稳定名称标识，用户脚本用稳定文档 ID 标识。编辑 `title` 或 `info` 不影响已创建的指标实例。
 
 ## 明确不引入的东西
 
@@ -48,18 +32,16 @@
 ## 分发与执行边界
 
 迁移指标由 Script 包的 `scripts/*.ts` 单独实现，生成器自动纳入 `builtinScriptSources`。
-应用通过 script-chart 的 `createScriptService([], { builtinSources })` 注册；core 不内置脚本引擎。
-仅使用 core 的消费者需要显式接入 Script 包才能使用迁移指标，不保留原生兼容实现。
-脚本沿用通用 inline 执行入口，不再出现在 core Worker calculator 映射中。
+应用通过 Script Chart 的 `createBuiltinScriptService` 注册这份目录。Core 使用统一的指标执行端口，Script Chart 管理脚本 Worker。
 
-本批仅支持 K 线视图，不声明分时视图能力。分时输入和投影不属于本批迁移范围。
+迁移批次以 K 线视图为验收范围。当前分时行为见[分时指标设计](../timeshare/timeshare-minute-indicators.md)。
 
-## 批次
+## 历史迁移批次
 
 | 批次 | 指标 | 说明 |
 | --- | --- | --- |
 | 第一批（已迁移） | `rsi` `mom` `roc` `wma` `boll` `donchian` `fastk` `wmsr` `stoch` | 仅 K 线；保留原默认参数、预热及计算规则；只有 RSI 是周期族多线，保留逐线开关 |
-| 状态机与振荡类（待迁移） | `sar` `obv` `pvt` `vwap` `mfi` `cmf` `trix` `uo` `hv` `parkinson` `chaikinVol` | SuperTrend、MACD 已迁移并补齐 `ta.atr` / `ta.supertrend` / `ta.macd`；本行其余指标按需迁移 |
+| 状态机与振荡类（已脚本化） | `sar` `obv` `pvt` `vwap` `mfi` `cmf` `trix` `uo` `hv` `parkinson` `chaikin-vol` | SuperTrend 与 MACD 同样由脚本实现，计算复用 `ta.atr`、`ta.supertrend` 和 `ta.macd` |
 | STC（已迁移） | `stc` | 用 `ta.macd` 取 DIF，两次 `ta.stoch`，`derive` 自递推做 factor 平滑 |
 | 组合类（已迁移） | `ao` `cci` `hma` `kst` `dma` | 除 `ta.hma` / `ta.cci` 外均由现有 `ta.sma` / `ta.roc` 与全局 `derive` 组合，不新增计算原语 |
 | 均线与通道批次（已迁移） | `atr` `ma` `expma` `dema` `tema` `t3` `trima` `gmma` `ene` `vma` `vwma` `keltner` `dpo` `pivot` `ichimoku` | TA 增加 DEMA、TEMA、T3、TRIMA；其他组合由脚本表达，删除原生定义及其相关测试 |
@@ -69,7 +51,7 @@
 | KAMA / VIDYA / LSMA（已迁移） | `kama` `vidya` `lsma` | KAMA 用 `derive` + `ta.sum`；VIDYA 用 `ta.cmo`；LSMA 用 `ta.linreg` |
 | Fisher 与 StochRSI（已迁移） | `fisher` `stochRSI` | Fisher 用 `derive` + `ta.highest/lowest` + 顶层递推；StochRSI 用 `ta.rsi` + `ta.highest/lowest` + `ta.sma` |
 | 已迁移（Box/Label 批次） | `structure` `zones` `volumeProfile` | 依赖 Box/Label 绘图 API 与解析式描边 |
-| 保留 | 5 个 system 定义 | 需要自定义 Layer 与分时数据源 |
+| 系统绘制 | 主行情、分时均价等 | 由图表视图注册为 Layer |
 
 ## 落地切片（每片独立可测）
 

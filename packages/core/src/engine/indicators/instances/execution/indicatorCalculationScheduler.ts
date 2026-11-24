@@ -26,7 +26,6 @@ interface Work {
 
 interface Lane {
   task: CalculationTask
-  readonly controller: AbortController
   running?: Work
   next?: Work
   settled: boolean
@@ -52,14 +51,13 @@ export function createIndicatorCalculationScheduler(
   const previewTasks = new Map<CalculationKey, CalculationTask>()
   let planKeys = new Set<CalculationKey>()
   let currentPlan: CalculationPlan | null = null
-  let currentSnapshot: MarketSnapshot | null = null
   let projectedRevision = -1
   let disposed = false
 
   /** 结果池只投影当前计划；预览结果不进图表。 */
   function publishPool(): void {
-    if (!currentPlan || !currentSnapshot) return
-    options.onCommit(options.store.snapshot(currentPlan, currentSnapshot))
+    if (!currentPlan) return
+    options.onCommit(options.store.snapshot(currentPlan))
   }
 
   /** 构造一个可等待的任务，并把取消信号交还给调用方。 */
@@ -127,7 +125,7 @@ export function createIndicatorCalculationScheduler(
     if (stored && isResultRevision(stored, snapshot)) return
     let lane = lanes.get(key)
     if (!lane) {
-      lane = { task, controller: new AbortController(), settled: false }
+      lane = { task, settled: false }
       lanes.set(key, lane)
     }
     lane.task = task
@@ -198,7 +196,6 @@ export function createIndicatorCalculationScheduler(
   function retainLanes(): void {
     for (const [key, lane] of lanes) {
       if (planKeys.has(key)) continue
-      lane.controller.abort(new Error('Indicator instance removed'))
       lane.running?.controller.abort(new Error('Indicator instance removed'))
       lane.next?.controller.abort(new Error('Indicator instance removed'))
       options.onPending?.(lane.task.instanceIds, false)
@@ -210,7 +207,6 @@ export function createIndicatorCalculationScheduler(
   return {
     refresh(snapshot) {
       if (disposed) return
-      currentSnapshot = snapshot
       const plan = options.pipeline.calculationPlan()
       currentPlan = plan
       planKeys = new Set(plan.tasks.map((task) => task.calculationKey))
@@ -234,7 +230,6 @@ export function createIndicatorCalculationScheduler(
 
     invalidate() {
       for (const lane of lanes.values()) {
-        lane.controller.abort(new Error('Indicator calculation invalidated'))
         lane.running?.controller.abort(new Error('Indicator calculation invalidated'))
         lane.next?.controller.abort(new Error('Indicator calculation invalidated'))
         options.onPending?.(lane.task.instanceIds, false)
@@ -247,27 +242,31 @@ export function createIndicatorCalculationScheduler(
       options.store.clear()
       planKeys = new Set()
       currentPlan = null
-      currentSnapshot = null
       projectedRevision = -1
       options.executor.retain([])
     },
 
     invalidateDefinitions(ids) {
+      const changed = new Set(ids)
+      for (const task of currentPlan?.tasks ?? []) {
+        if (!changed.has(task.definitionId)) continue
+        options.store.remove(task.calculationKey)
+        projectedRevision = -1
+      }
       for (const [key, lane] of lanes) {
-        if (!ids.includes(lane.task.definitionId)) continue
-        lane.controller.abort(new Error('Indicator definition replaced'))
+        if (!changed.has(lane.task.definitionId)) continue
         lane.running?.controller.abort(new Error('Indicator definition replaced'))
         lane.next?.controller.abort(new Error('Indicator definition replaced'))
         options.onPending?.(lane.task.instanceIds, false)
         lanes.delete(key)
       }
       for (const [key, task] of previewTasks) {
-        if (!ids.includes(task.definitionId)) continue
+        if (!changed.has(task.definitionId)) continue
+        options.store.remove(key)
         previews.get(key)?.controller.abort(new Error('Indicator definition replaced'))
         previews.delete(key)
         previewTasks.delete(key)
       }
-      options.store.retain(keepKeys())
     },
 
     dispose() {

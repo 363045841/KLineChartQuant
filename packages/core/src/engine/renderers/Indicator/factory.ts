@@ -22,13 +22,6 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   object?: RenderObjectDescriptor
 }
 
-/** 该定义在当前周期是否应绘制；未声明可见范围时恒为真。 */
-export function isLayerVisibleOnPeriod(definition: IndicatorMetadata, period: string): boolean {
-  const ranges = definition.visiblePeriods
-  if (ranges === undefined || ranges.length === 0) return true
-  return isIndicatorVisibleOnPeriod(period, ranges)
-}
-
 /**
  * 用可见范围包一层 paint；未声明范围时直接复用原 Layer，避免每帧多一次判断。
  * @param layer 原始渲染器 Layer
@@ -44,7 +37,7 @@ function withPeriodVisibility(
   return {
     ...layer,
     paint: (context) => {
-      if (!isLayerVisibleOnPeriod(definition, context.period)) return
+      if (!isIndicatorVisibleOnPeriod(context.period, ranges)) return
       layer.paint(context)
     },
   }
@@ -70,13 +63,6 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     role: role ?? layer.role,
   }
   // 所有用户工厂都由框架绑定目标窗格与坐标轴，第三方不需要另写迁移逻辑。
-  if (layer.kind === 'draw-list')
-    return {
-      ...layer,
-      ...identity,
-      object: options.object,
-      paint: (context) => layer.paint(bindIndicatorAxis(context, options.axisId)),
-    }
   return {
     ...layer,
     ...identity,

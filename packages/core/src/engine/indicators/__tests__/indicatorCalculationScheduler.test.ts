@@ -143,7 +143,7 @@ describe('indicator calculation scheduling', () => {
       h.source.replace(
         createTestSnapshot(
           [createTestInstance({ instanceId: 'slow', definitionId: 'slow', inputs: { rows: 20 } })],
-          { calculationRevision: 1, presentationRevision: 0 },
+          1,
         ),
       )
       h.update(2)

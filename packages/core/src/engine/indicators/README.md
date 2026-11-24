@@ -1,12 +1,9 @@
 # Indicators 指标模块
 
-`packages/core/src/engine/indicators/` 负责系统指标的注册、实例管理、异步计算、结果池提交和可见范围投影。
-它位于行情数据与指标 renderer 之间：消费 StateKernel 的实例配置快照，计算结果保存在按 `instanceId` 索引的
-实例结果池；renderer 只在帧内通过 `IndicatorRenderStateReader.get(instanceId)` 读取已提交的渲染投影，
-不直接依赖 Worker 或 PluginHost。
+`packages/core/src/engine/indicators/` 负责指标目录、计算计划、异步执行和渲染投影。
+计算结果由 `IndicatorResultStore` 按 `calculationKey` 保存。图表按 `instanceId` 展开结果，renderer 在帧内通过 `IndicatorRenderStateReader.get(instanceId)` 读取投影。
 
-纯逐 bar 数值指标全部位于 Script 包（`packages/script/scripts/*.ts`）；Core 只保留需要自定义 Layer、
-坐标轴或分时数据源的 `kind: system` 定义。
+内置逐 bar 指标位于 Script 包（`packages/script/scripts/*.ts`）。主行情、分时均价、最新价线等系统绘制由图表视图注册为 Layer。
 
 完整契约见
 [`docs/design/indicator/indicator-instance-state.md`](../../../../../docs/design/indicator/indicator-instance-state.md)
@@ -17,7 +14,8 @@
 
 ```text
 StateKernel.data + StateKernel.indicator（配置 SSOT）
-  -> ChartIndicatorManager（把 Kernel 实例单向投影为计算实例）
+  -> RuntimeProjectionCoordinator
+  -> ChartIndicatorManager.projectIndicators（同步计算器，发布实例快照）
   -> CalculationPlan（按 calculationKey 去重）
   -> IndicatorCalculationScheduler（合并输入、执行、发布）
   -> 任务输出按 calculationKey 写入 IndicatorResultStore
@@ -30,7 +28,7 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 本目录负责：
 
 - 注册指标元数据、运行时计算端口、renderer 和状态投影规则。
-- 以 `calculationKey` 为去重身份生成计算计划，以 `instanceId` 保存计算结果。
+- 以 `calculationKey` 生成去重计划和保存计算结果，按 `instanceId` 分发给图表。
 - 委派注册定义计算，并处理过期请求与错误；Script Worker 由 Script 服务管理。
 - 把结果池按 `instanceId` 投影为帧级渲染状态，并注册实例相关插件服务。
 - 管理主图/副图实例及其与 pane 布局的协作。
@@ -40,17 +38,17 @@ StateKernel.data + StateKernel.indicator（配置 SSOT）
 - 指标图形、坐标轴和图例的实际绘制；它们位于 `engine/renderers/Indicator/`。
 - 调整 Canvas、WebGL 或 WebGPU 的帧边界；由 `ChartRenderer` 与 `rendering/` 负责。
 - 将内部计算对象直接提供给 Controller 或 Agent；公开查询必须基于已提交结果构造受限 DTO。
-- 维护指标的业务事实源副本；业务结果唯一事实源是按 `instanceId` 索引的实例结果池。
+- 保存图表配置。窗格、指标实例和参数由 StateKernel 持有。
 
 ## 目录结构
 
 ```text
 indicators/
-├── chartIndicatorManager.ts     # 指标实例和副图 pane 的高层业务操作、执行器选择、服务注册与渲染投影
+├── chartIndicatorManager.ts     # 计算器同步、实例与图层投影、调度接线
 ├── indicatorMetadata.ts         # 指标定义契约与运行时描述符
 ├── registerBuiltins.ts          # 内置指标定义装配
 ├── stateComposer.ts             # 按 instanceId 的渲染状态投影（composeInstanceRenderState 等）
-├── instances/                   # 实例优先指标链路（CRUD、计算计划、执行、投影），分层见其 README
+├── instances/                   # 实例快照、计算计划、执行与投影，分层见其 README
 └── __tests__/                   # 注册、调度与投影测试；技术指标算法在 Script 包测试
 ```
 
@@ -74,16 +72,14 @@ indicators/
 
 ## 计算与提交
 
-`Kernel.indicator`（`indicatorState`）是 UI 与持久化的配置 SSOT。`ChartIndicatorManager` 在每个状态 effect
-中把 Kernel 实例单向投影为 `instances/` 的计算实例：`instanceId`、`paneId` 原样保留，`definitionId` 取静态
-定义注册表的 `metadata.name`；没有 `runtime` 的展示型指标不进入计算链路。
+`Kernel.indicator` 是 UI 与持久化的配置来源。`RuntimeProjectionCoordinator` 提交指标阶段时调用 `projectIndicators`，先同步图表执行器的计算器，再从已装配定义和实例配置构造完整计算计划，挂载图层后启动调度。`instanceId` 和 `paneId` 来自配置，计算用的 `definitionId` 取定义的 `metadata.name`。只有声明了 `runtime` 的定义进入计算计划。
 
 每次计算按以下规则执行：
 
 1. 从当前实例快照构造 `CalculationPlan`，相同 `calculationKey` 的实例合并为一个任务。
 2. `IndicatorCalculationScheduler.refresh` 把任务合并进 lane：运行中的任务不因行情更新被取消，只替换尚未开始的待执行项；行情更新期间保持“一项运行 + 一项最新待执行”。
 3. 执行器对每个去重任务调用定义的计算端口，产出 `IndicatorSeriesOutput`。
-4. 结果按 `calculationKey` 写入 `IndicatorResultStore`；图表侧由 `snapshot(plan, snapshot)` 展开为按 `instanceId` 索引的 `IndicatorSeriesPool`。
+4. 结果按 `calculationKey` 写入 `IndicatorResultStore`，由 `snapshot(plan)` 展开为按 `instanceId` 索引的 `IndicatorSeriesPool`。
 5. 读取方以 `dataRevision + marketRevision` 判断结果是否有效；失败作为带 `error` 的结果提交，不切换执行链路。
 
 分时视图下结果池会先按 `displayTimestamps` 投影到展示时间轴，再生成渲染状态。
@@ -96,10 +92,7 @@ Agent 的 `indicator_series_query` 通过同一个调度器的 `submit` 提交�
 
 ## 结果池与投影
 
-`IndicatorSeriesPool` 的关键字段：
-
-- `timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
-- `results`：`Map<instanceId, IndicatorResult>`，图表与 Agent 共享的业务结果事实源。
+`IndicatorSeriesPool.results` 是当前计算计划按 `instanceId` 展开的结果视图。每份结果带有自己的计算时间轴，因此重算期间不同结果可以来自不同的行情快照。
 
 `IndicatorResult` 只承载计算结果本身：`timestamps`、`dataRevision`、`marketRevision`、`series` 与可选的 `error`。
 实例身份由结果池的键承担，计算身份由仓库的键承担，不在结果里重复。
@@ -124,8 +117,6 @@ interface IndicatorRenderStateReader {
 不再通过 `resolveStateKey` 推导 key，也不向 PluginHost StateStore 写入或读取指标事实状态。
 `ChartRenderer` 在每帧开始时创建 reader 并通过 RenderContext 传入，使同一帧全部 renderer 看到同一份投影。
 
-指标定义变更不能作为参数 patch，`syncPipeline` 采用「删建」，保证 `definitionId` 与计算身份一致。
-
 ## 服务注册
 
 `ChartIndicatorManager` 向 PluginHost 注册两个实例相关服务，服务键定义在
@@ -148,8 +139,9 @@ interface IndicatorRenderStateReader {
 
 核心测试位于本目录 `__tests__/`：
 
-- `registerBuiltins.test.ts` / `indicatorDefinitionRegistry.test.ts`：system 定义装配、元数据与注册。
-- `chartIndicatorManager.test.ts`：Kernel 实例投影、调度接线与帧级结果读取。
+- `pipeline/__tests__/indicatorPipeline.test.ts`：目录注册、懒加载和提交契约。
+- `controllers/__tests__/indicatorOnDemand.test.ts`：恢复布局、目录同步与渲染结果读取。
+- `indicatorInstancePipeline.test.ts`：整批计划发布与展示更新。
 - `indicatorCalculationScheduler.test.ts` / `indicatorCalculator.test.ts`：去重计划、请求门控与结果池展开。
 - `stateComposer.test.ts`：实例结果到 Plot 状态的投影。
 - `projection/`：计算时间轴到展示时间轴的投影。

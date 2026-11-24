@@ -1,7 +1,7 @@
 /**
  * 指标实例与计算结果的领域模型。
  *
- * 唯一可持久化的计算事实是实例结果；pane 只拥有渲染投影，绝不拥有计算结果。
+ * 计算结果由执行层按计算身份保存，按实例身份投影到图表。
  * 名词与脚本 API 对齐：`inputs` 是 `input.*` 的取值，`series` 是一次计算的输出。
  */
 import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
@@ -45,39 +45,11 @@ export interface IndicatorInstance {
   readonly presentation: Readonly<Record<string, unknown>>
 }
 
-export type CreateIndicatorInstance = Omit<IndicatorInstance, 'instanceId'> & {
-  readonly instanceId?: IndicatorInstanceId
-}
-
-/** 计算更新与展示更新刻意使用不可混淆的命令类型。 */
-export type UpdateIndicatorInstance =
-  | {
-      readonly kind: 'calculation'
-      readonly inputs?: IndicatorInputs
-      readonly context?: IndicatorInputs
-    }
-  | {
-      readonly kind: 'presentation'
-      readonly paneId?: IndicatorPaneId
-      readonly presentation?: Readonly<Record<string, unknown>>
-    }
-
 export interface IndicatorInstanceSnapshot {
   /** 启用集合、指标定义、计算输入或计算上下文变化时递增。 */
   readonly calculationRevision: number
-  /** pane 或展示配置变化时递增；不得触发 Worker 计算。 */
-  readonly presentationRevision: number
   readonly instances: ReadonlyMap<IndicatorInstanceId, IndicatorInstance>
 }
-
-export type IndicatorInstanceCommand =
-  | { readonly type: 'create'; readonly instance: IndicatorInstance }
-  | {
-      readonly type: 'update'
-      readonly instanceId: IndicatorInstanceId
-      readonly change: UpdateIndicatorInstance
-    }
-  | { readonly type: 'remove'; readonly instanceId: IndicatorInstanceId }
 
 /** 可跨 Worker 传输的计算错误，不携带 Error 原型或堆栈。 */
 export interface IndicatorError {
@@ -99,7 +71,6 @@ export interface IndicatorResult {
 
 /** 图表侧的结果快照：按当前计划的实例关系展开。 */
 export interface IndicatorSeriesPool {
-  readonly timestamps: readonly number[]
   readonly results: ReadonlyMap<IndicatorInstanceId, IndicatorResult>
 }
 
@@ -146,10 +117,7 @@ export function createIndicatorCalculationKey(
 
 export function createIndicatorInstanceSnapshot(
   instances: Iterable<IndicatorInstance> = [],
-  revisions: Readonly<{ calculationRevision: number; presentationRevision: number }> = {
-    calculationRevision: 0,
-    presentationRevision: 0,
-  },
+  calculationRevision = 0,
 ): IndicatorInstanceSnapshot {
   const byId = new Map<IndicatorInstanceId, IndicatorInstance>()
   for (const instance of instances) {
@@ -173,57 +141,5 @@ export function createIndicatorInstanceSnapshot(
       }),
     )
   }
-  return Object.freeze({ ...revisions, instances: immutableMap(byId) })
-}
-
-/** 纯 CRUD reducer；接入层可将其包装为 signal、撤销重做、持久化或 RPC。 */
-export function reduceIndicatorInstances(
-  snapshot: IndicatorInstanceSnapshot,
-  command: IndicatorInstanceCommand,
-): IndicatorInstanceSnapshot {
-  const next = new Map(snapshot.instances)
-  let calculationChanged = false
-  let presentationChanged = false
-  switch (command.type) {
-    case 'create':
-      if (next.has(command.instance.instanceId)) {
-        throw new TypeError(`Indicator instance already exists: ${command.instance.instanceId}`)
-      }
-      next.set(command.instance.instanceId, command.instance)
-      calculationChanged = true
-      presentationChanged = true
-      break
-    case 'remove':
-      if (!next.delete(command.instanceId)) return snapshot
-      calculationChanged = true
-      presentationChanged = true
-      break
-    case 'update': {
-      const current = next.get(command.instanceId)
-      if (!current) throw new TypeError(`Unknown indicator instance: ${command.instanceId}`)
-      const instance =
-        command.change.kind === 'calculation'
-          ? {
-              ...current,
-              calculation: {
-                ...current.calculation,
-                inputs: command.change.inputs ?? current.calculation.inputs,
-                context: command.change.context ?? current.calculation.context,
-              },
-            }
-          : {
-              ...current,
-              paneId: command.change.paneId ?? current.paneId,
-              presentation: command.change.presentation ?? current.presentation,
-            }
-      calculationChanged = command.change.kind === 'calculation'
-      presentationChanged = command.change.kind === 'presentation'
-      next.set(command.instanceId, instance)
-      break
-    }
-  }
-  return createIndicatorInstanceSnapshot(next.values(), {
-    calculationRevision: snapshot.calculationRevision + Number(calculationChanged),
-    presentationRevision: snapshot.presentationRevision + Number(presentationChanged),
-  })
+  return Object.freeze({ calculationRevision, instances: immutableMap(byId) })
 }

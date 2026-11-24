@@ -13,9 +13,7 @@
 
 ### 单一提交
 
-`IndicatorSourceDocument`（`revision` + `source` + `definition`）挂在 core 定义快照上，
-通过 `registerPlotIndicator` / `updatePlotIndicator` 一次提交。不再有独立的源码注册表，
-也不存在“定义已更新、源码未写入”的窗口。
+`IndicatorSourceDocument`（`revision`、`source`、`definition`）随运行定义一起交给 Core 的 `registerIndicators`。目录一次提交源码快照和运行定义。
 
 ### 生命周期
 
@@ -27,12 +25,10 @@
 | --- | --- |
 | `create` | 校验并编译整份文件，写入定义目录；同名拒绝重复 |
 | `read` / `list` | 从已提交定义读取，不重新执行用户脚本 |
-| `update` | 要求打开时的 `revision`，过期草稿不覆盖；`name` 是固定身份 |
+| `update` | 要求打开时的 `revision`，过期草稿不覆盖；内部定义 ID 保持稳定 |
 | `remove` | 删除定义身份，并移除依赖它的实例与计算缓存 |
 
-定义变更事件显式区分 `create` / `update` / `remove`。执行器分别用新增、更新、删除接口，
-更新与删除清理对应计算器和结果缓存，其它定义缓存保留。Worker 使用同一套消息语义。
-单个消费者失败不会回滚已提交快照，也不会阻断其它消费者。
+目录修订后，图表对比完整定义快照，取消变更定义的旧任务并清除对应结果，再移除旧计算器、装配新计算器。计算器就绪后发布计算计划。其它定义的任务和结果继续复用。详见[指标计算计划的提交顺序](indicator-calculation-commit.md)。
 
 ### 计算身份
 

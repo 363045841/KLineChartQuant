@@ -6,7 +6,6 @@ import type { IndicatorCalculationExecutor } from './types.js'
 
 export type IndicatorExecutor = IndicatorCalculationExecutor & {
   addDefinitions(definitions: Iterable<IndicatorCalculator>): void
-  updateDefinitions(definitions: Iterable<IndicatorCalculator>): void
   removeDefinitions(ids: readonly string[]): void
   dispose(): void
 }
@@ -22,9 +21,6 @@ export function createIndicatorExecutor(
     execute: registry.execute,
     addDefinitions(next) {
       for (const definition of next) registry.addDefinition(definition)
-    },
-    updateDefinitions(next) {
-      for (const definition of next) registry.updateDefinition(definition)
     },
     removeDefinitions(ids) {
       registry.removeDefinitions(ids)

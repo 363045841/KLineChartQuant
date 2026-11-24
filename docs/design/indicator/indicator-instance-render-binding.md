@@ -2,7 +2,7 @@
 
 ## 背景
 
-指标结果已收敛为「按 `instanceId` 保存的实例结果池」（`packages/core/src/engine/indicators/instances/`）。旧渲染链路按 `resolveStateKey(meta.stateKey, paneId)` 寻址：同一指标在同一 pane 的多个实例会写到同一 key 互相覆盖，不同 pane 又必须重复计算。本决策把渲染寻址从「指标类型 + pane」改为「实例 ID」，让结果池成为渲染的唯一事实来源。
+计算结果以 `calculationKey` 保存在 `IndicatorResultStore`，图表根据当前计划按 `instanceId` 展开结果池。每个实例有自己的渲染投影，同一组计算输入可以跨窗格共享结果。
 
 ## 身份
 
@@ -54,7 +54,7 @@ interface IndicatorRenderStateReader {
 
 `IndicatorInstance.presentation` 保存定义声明的展示配置（`presentation.defaultOptions` 的键），由 `ChartIndicatorManager` 从 Kernel 实例参数单向提取，不进入 `calculationKey`。
 
-投影时 `composeInstanceRenderState` 把展示配置合入 renderer 读取的 `params`，Plot 投影由 `plots/impl/projectPlots.ts` 完成；价格范围与绘制读取同一份 Plot 结果。`presentationRevision` 变化只重建投影，不触发计算。
+`composeInstanceRenderState` 把展示配置合入 renderer 读取的 `params`，Plot 投影由 `plots/impl/projectPlots.ts` 完成。价格范围与绘制读取同一份 Plot 结果。独立的展示变更更新实例快照和投影，继续使用当前计算计划。
 
 ## 边界
 
