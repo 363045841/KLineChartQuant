@@ -36,9 +36,10 @@
         @update="setValue(param.key, $event)"
       />
     </div>
+    <slot name="after-params" />
 
     <template #footer>
-      <BaseButton @click="onReset">重置</BaseButton>
+      <BaseButton @click="reset">重置</BaseButton>
       <div class="footer-right">
         <BaseButton @click="emit('close')">取消</BaseButton>
         <BaseButton variant="primary" @click="onConfirm">确定</BaseButton>
@@ -62,6 +63,7 @@
 
   const emit = defineEmits<{
     close: []
+    reset: []
     confirm: [values: IndicatorParamValues]
   }>()
 
@@ -70,6 +72,11 @@
 
   const { localValues, visibleParams, showDescription, setValue, onReset } =
     useIndicatorParams(props)
+
+  function reset() {
+    onReset()
+    emit('reset')
+  }
 
   /** 提交参数草稿并关闭弹窗。 */
   function onConfirm() {

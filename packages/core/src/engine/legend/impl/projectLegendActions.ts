@@ -16,6 +16,7 @@ export function projectLegendActions(
   paneInstances: ReadonlyMap<string, ReadonlyArray<string>>,
   isScriptIndicator: (definitionId: string) => boolean,
   panes: ReadonlyArray<PaneSpec>,
+  showPeriodMenu = true,
 ): ReadonlyArray<LegendActionButton> {
   if (entry.kind === 'custom') return []
   const comparison = entry.kind === 'comparison'
@@ -58,6 +59,7 @@ export function projectLegendActions(
     { action: 'replace', label: '更换指标', enabled: true },
     visibility,
     close,
+    ...(showPeriodMenu ? [{ action: 'more' as const, label: '更多指标操作', enabled: true }] : []),
   ]
 }
 

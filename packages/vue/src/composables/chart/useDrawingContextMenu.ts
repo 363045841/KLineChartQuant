@@ -1,10 +1,6 @@
 /** 绘图图元右键菜单：判定右键来源、快照操作范围，并按快照调用 Core 绘图 API。 */
 import type { CommandRegistry, RenderObjectKind } from '@363045841yyt/klinechart-core'
-import type {
-  ChartController,
-  DrawingObject,
-  DrawingTimeframeVisibility,
-} from '@363045841yyt/klinechart-core/controllers'
+import type { ChartController, DrawingObject } from '@363045841yyt/klinechart-core/controllers'
 import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
 import {
   buildMenuGroups,
@@ -13,34 +9,27 @@ import {
 } from '@vue-src/components/common/menu/menuItems.js'
 import type { Component } from 'vue'
 import { computed, type Ref, shallowRef } from 'vue'
-import IconTablerClock from '~icons/tabler/clock'
 import IconTablerCopy from '~icons/tabler/copy'
 import IconTablerCopyPlus from '~icons/tabler/copy-plus'
 import IconTablerEyeOff from '~icons/tabler/eye-off'
 import IconTablerLock from '~icons/tabler/lock'
 import IconTablerLockOpen from '~icons/tabler/lock-open'
 import IconTablerTrash from '~icons/tabler/trash'
+import {
+  TIMEFRAME_VISIBILITY_ITEM,
+  TIMEFRAME_VISIBILITY_LABEL,
+  useTimeframeVisibilityMenu,
+} from './useTimeframeVisibilityMenu.js'
 
 /** 图元菜单项 id；与图表菜单共用 DropMenu，但动作范围来自图元快照。 */
 export const DRAWING_CONTEXT_MENU_ITEM = {
   COPY: 'copy',
   CLONE: 'clone',
-  PERIOD_VISIBILITY: 'period-visibility',
+  PERIOD_VISIBILITY: TIMEFRAME_VISIBILITY_ITEM,
   LOCK: 'lock',
   HIDE: 'hide',
   REMOVE: 'remove',
 } as const
-
-/** 周期可见性规则选项；参考周期取打开菜单时的当前周期。 */
-const TIMEFRAME_VISIBILITY_OPTIONS: ReadonlyArray<{
-  readonly id: DrawingTimeframeVisibility['mode']
-  readonly label: string
-}> = [
-  { id: 'above', label: '当前及以上时间周期' },
-  { id: 'below', label: '当前及以下时间周期' },
-  { id: 'current', label: '仅当前时间周期' },
-  { id: 'all', label: '所有时间周期' },
-]
 
 /** 右键命中的最小查询面；DrawingInteractionController 结构上满足该端口。 */
 export interface DrawingHitTestPort {
@@ -102,7 +91,7 @@ const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
   {
     id: DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY,
     group: 'visibility',
-    label: '时间周期可见性',
+    label: TIMEFRAME_VISIBILITY_LABEL,
   },
   { id: DRAWING_CONTEXT_MENU_ITEM.LOCK, group: 'visibility', label: '锁定' },
   { id: DRAWING_CONTEXT_MENU_ITEM.HIDE, group: 'visibility', label: '隐藏' },
@@ -113,7 +102,6 @@ const MENU_ITEMS: ReadonlyArray<MenuItemDeclaration> = [
 const ICONS: Readonly<Record<string, Component>> = {
   [DRAWING_CONTEXT_MENU_ITEM.COPY]: IconTablerCopy,
   [DRAWING_CONTEXT_MENU_ITEM.CLONE]: IconTablerCopyPlus,
-  [DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY]: IconTablerClock,
   [DRAWING_CONTEXT_MENU_ITEM.HIDE]: IconTablerEyeOff,
   [DRAWING_CONTEXT_MENU_ITEM.REMOVE]: IconTablerTrash,
 }
@@ -131,7 +119,7 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
   // 打开瞬间快照目标与各图元的可见性规则；菜单期间不重新读取选中集合。
   const targetIds = shallowRef<ReadonlyArray<string>>(Object.freeze([]))
   const allLocked = shallowRef(false)
-  const targetTimeframes = shallowRef<ReadonlyArray<DrawingTimeframeVisibility | undefined>>([])
+  const timeframeMenu = useTimeframeVisibilityMenu()
 
   /** 按目标 id 读取完整图元；周期隐藏的图元在视图投影里会被过滤，因此这里走文档全量。 */
   function collectTargets(): ReadonlyArray<DrawingObject> {
@@ -139,18 +127,6 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     if (!controller) return []
     const targetSet = new Set(targetIds.value)
     return controller.getFullDrawings().filter((drawing) => targetSet.has(drawing.id))
-  }
-
-  /** 规则是否与选项一致；受限规则还要求参考周期就是当前周期。 */
-  function matchesOption(
-    visibility: DrawingTimeframeVisibility | undefined,
-    mode: DrawingTimeframeVisibility['mode'],
-    period: string,
-  ): boolean {
-    const current = visibility ?? { mode: 'all' as const }
-    if (current.mode !== mode) return false
-    if (mode === 'all') return true
-    return current.mode !== 'all' && current.period === period
   }
 
   /**
@@ -170,8 +146,15 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     const targets = collectTargets()
     allLocked.value =
       targets.length === ids.length && targets.every((drawing) => drawing.locked === true)
-    targetTimeframes.value =
-      targets.length === ids.length ? targets.map((drawing) => drawing.timeframeVisibility) : []
+    timeframeMenu.capture(
+      options.currentPeriod?.value ?? null,
+      targets.length === ids.length ? targets.map((drawing) => drawing.timeframeVisibility) : [],
+      (timeframeVisibility) => {
+        if (!controller || controller !== options.controller.value) return
+        const updated = controller.updateBatch(ids, { timeframeVisibility })
+        if (updated.length > 0) return updated.map((drawing) => drawing.timeframeVisibility)
+      },
+    )
   }
 
   /** 锁定项文案随快照切换；其余项使用固定文案。 */
@@ -195,27 +178,9 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
   }
 
   const groups = computed<ReadonlyArray<DropMenuGroup>>(() => {
-    const period = options.currentPeriod?.value ?? null
     return buildMenuGroups(MENU_ITEMS, (item) => {
       if (item.id === DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY) {
-        // 分时等没有 K 线周期的视图不展示规则菜单。
-        if (period === null) return null
-        return {
-          id: item.id,
-          label: item.label,
-          icon: ICONS[item.id],
-          disabled: targetIds.value.length === 0,
-          children: TIMEFRAME_VISIBILITY_OPTIONS.map((option) => ({
-            id: option.id,
-            label: option.label,
-            checked:
-              targetTimeframes.value.length > 0 &&
-              targetTimeframes.value.every((visibility) =>
-                matchesOption(visibility, option.id, period),
-              ),
-            selection: 'checkbox',
-          })),
-        }
+        return timeframeMenu.submenu.value
       }
       return {
         id: item.id,
@@ -233,16 +198,7 @@ export function useDrawingContextMenu(options: DrawingContextMenuOptions) {
     const ids = targetIds.value
     if (!controller || ids.length === 0) return
     if (parentId === DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY) {
-      const period = options.currentPeriod?.value ?? null
-      if (period === null) return
-      const option = TIMEFRAME_VISIBILITY_OPTIONS.find((entry) => entry.id === itemId)
-      if (!option) return
-      const visibility: DrawingTimeframeVisibility =
-        option.id === 'all' ? { mode: 'all' } : { mode: option.id, period }
-      const updated = controller.updateBatch(ids, { timeframeVisibility: visibility })
-      if (updated.length > 0) {
-        targetTimeframes.value = updated.map((drawing) => drawing.timeframeVisibility)
-      }
+      timeframeMenu.select(itemId)
       return
     }
     if (itemId === DRAWING_CONTEXT_MENU_ITEM.COPY) {

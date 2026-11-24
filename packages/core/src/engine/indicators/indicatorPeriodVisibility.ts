@@ -1,4 +1,6 @@
 // 指标周期可见性判定：把图表周期解析成「单位 + 数值」，再与指标声明的可见范围比较。
+import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
+import { isVisibleInPeriod } from '../../data/provider/timeframeVisibility.js'
 import type { KLinePeriod } from '../../data/provider/types.js'
 import type { IndicatorPeriodUnit, IndicatorPeriodVisibility } from './indicatorMetadata.js'
 
@@ -44,7 +46,9 @@ export function parseIndicatorPeriod(
 export function isIndicatorVisibleOnPeriod(
   period: KLinePeriod | string,
   ranges: readonly IndicatorPeriodVisibility[] | undefined,
+  timeframeVisibility?: TimeframeVisibility,
 ): boolean {
+  if (!isVisibleInPeriod(timeframeVisibility, period)) return false
   if (ranges === undefined || ranges.length === 0) return true
   const parsed = parseIndicatorPeriod(period)
   if (parsed === undefined) return true

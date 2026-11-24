@@ -35,6 +35,7 @@ import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
+import { isIndicatorVisibleOnPeriod } from './indicatorPeriodVisibility.js'
 import {
   INDICATOR_AVAILABILITY_SERVICE,
   INDICATOR_AVAILABILITY_SOURCE,
@@ -64,10 +65,7 @@ import {
   type IndicatorExecutor,
 } from './instances/execution/indicatorExecutor.js'
 import { createIndicatorResultStore } from './instances/execution/indicatorResultStore.js'
-import type {
-  IndicatorCalculationScheduler,
-  MarketSnapshot,
-} from './instances/execution/types.js'
+import type { IndicatorCalculationScheduler, MarketSnapshot } from './instances/execution/types.js'
 import {
   getIndicatorDescriptor,
   getRegisteredIndicatorDefinition,
@@ -133,6 +131,7 @@ function createIndicatorObjectDescriptor(
 
 export interface IndicatorDependencies {
   getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
+  getPeriod: () => string
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
@@ -205,6 +204,7 @@ export class ChartIndicatorManager {
   private visibleRenderStatesCache: {
     states: ReadonlyMap<string, unknown>
     instances: readonly IndicatorInstanceSpec[]
+    period: string
     visible: ReadonlyMap<string, unknown>
   } | null = null
   /** 绘图点由结果和展示配置派生；可见区间变化只重算范围。 */
@@ -223,16 +223,30 @@ export class ChartIndicatorManager {
   /** 按指标实例身份提供整份可见输出；隐藏不删除计算结果。 */
   getRenderStatesSnapshot(): ReadonlyMap<string, unknown> {
     const instances = this.deps.indicator.readonly.instances.peek()
+    const period = this.deps.getPeriod()
     const cached = this.visibleRenderStatesCache
-    if (cached?.states === this.renderStates && cached.instances === instances) {
+    if (
+      cached?.states === this.renderStates &&
+      cached.instances === instances &&
+      cached.period === period
+    ) {
       return cached.visible
     }
     const visible = new Map<string, unknown>()
     for (const instance of instances) {
       if (instance.hidden === true || !this.renderStates.has(instance.instanceId)) continue
+      const definition = this.getInstalledDefinition(instance.indicatorId)
+      if (
+        !isIndicatorVisibleOnPeriod(
+          period,
+          definition?.visiblePeriods,
+          instance.timeframeVisibility,
+        )
+      )
+        continue
       visible.set(instance.instanceId, this.renderStates.get(instance.instanceId))
     }
-    this.visibleRenderStatesCache = { states: this.renderStates, instances, visible }
+    this.visibleRenderStatesCache = { states: this.renderStates, instances, period, visible }
     return visible
   }
   private onResultsAppliedCallback: (() => void) | null = null
@@ -343,6 +357,7 @@ export class ChartIndicatorManager {
         instanceId: instance.instanceId,
         axisId: instanceAxes.get(instance.instanceId)!,
         params: { ...instance.params },
+        timeframeVisibility: instance.timeframeVisibility,
         object: createIndicatorObjectDescriptor(
           instance.instanceId,
           definition,
@@ -509,6 +524,7 @@ export class ChartIndicatorManager {
           paneId: instance.paneId,
           ordinal: instance.ordinal,
           hidden: instance.hidden === true,
+          timeframeVisibility: instance.timeframeVisibility,
           inputs: instance.params,
         }))
     return Object.freeze({

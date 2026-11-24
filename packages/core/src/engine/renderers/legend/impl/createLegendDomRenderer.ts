@@ -6,6 +6,7 @@ import arrowsMove from '@iconify-icons/tabler/arrows-move'
 import chevronDown from '@iconify-icons/tabler/chevron-down'
 import chevronUp from '@iconify-icons/tabler/chevron-up'
 import code from '@iconify-icons/tabler/code'
+import dots from '@iconify-icons/tabler/dots'
 import eye from '@iconify-icons/tabler/eye'
 import eyeOff from '@iconify-icons/tabler/eye-off'
 import refresh from '@iconify-icons/tabler/refresh'
@@ -37,6 +38,7 @@ const ACTION_ICONS: Record<LegendAction, typeof arrowUp> = {
   'edit-code': code,
   'toggle-visibility': eye,
   settings,
+  more: dots,
   close: x,
 }
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
@@ -166,7 +168,9 @@ function addActions(
       if (!request) return
       // 移动目标列表由 Core 投影，菜单由宿主框架渲染；事件带上按钮矩形供其定位。
       const detail: LegendUiEventDetail =
-        request.action === 'move-to' ? { ...request, anchor: anchorOf(button) } : request
+        request.action === 'move-to' || request.action === 'more'
+          ? { ...request, anchor: anchorOf(button) }
+          : request
       row.element.dispatchEvent(new CustomEvent(LEGEND_UI_EVENT, { bubbles: true, detail }))
     })
     row.buttons.push(button)

@@ -98,7 +98,8 @@
             />
             <MenuSurface
               v-bind="chartMenu.bindings.value"
-              label="图表菜单"
+              :label="contextMenuSource.kind === 'indicator' ? '更多指标操作' : '图表菜单'"
+              :offset="contextMenuSource.kind === 'indicator' ? 4 : undefined"
               :groups="contextMenuGroups"
               :restore-focus-to="containerRef"
               @select="onContextMenuSelect"
@@ -549,6 +550,10 @@
   import { useRangeSelection } from '@vue-src/composables/chart/useRangeSelection.js'
   import { useScriptEditor } from '@vue-src/composables/chart/useScriptEditor.js'
   import { useScriptEditorWindow } from '@vue-src/composables/chart/useScriptEditorWindow.js'
+  import {
+    TIMEFRAME_VISIBILITY_ITEM,
+    useTimeframeVisibilityMenu,
+  } from '@vue-src/composables/chart/useTimeframeVisibilityMenu.js'
   import { createChartCommands } from '@vue-src/composables/commands/chartCommands.js'
   import {
     bindChartCommandScope,
@@ -1044,7 +1049,8 @@
   } = useChartContextMenu({ controller, commands })
   // 图元菜单只消费打开瞬间的目标快照，动作按快照 ids 提交。
   /** 周期可见性规则以当前 K 线周期为参考；分时视图不适用。 */
-  const drawingVisibilityPeriod = computed(() => (isTimeShareView.value ? null : kLineLevel.value))
+  const visibilityPeriod = computed(() => (isTimeShareView.value ? null : kLineLevel.value))
+  const indicatorVisibilityMenu = useTimeframeVisibilityMenu()
   const {
     groups: drawingContextMenuGroups,
     capture: captureDrawingContextMenu,
@@ -1052,15 +1058,22 @@
   } = useDrawingContextMenu({
     controller,
     commands,
-    currentPeriod: drawingVisibilityPeriod,
+    currentPeriod: visibilityPeriod,
   })
   // 右键来源在打开瞬间确定；一个面板按来源切换菜单项，不并存两个菜单实例。
-  const contextMenuSource = shallowRef<ContextMenuSource>({ kind: 'chart' })
-  const contextMenuGroups = computed(() =>
-    contextMenuSource.value.kind === 'drawing'
-      ? drawingContextMenuGroups.value
-      : chartContextMenuGroups.value,
-  )
+  const contextMenuSource = shallowRef<ContextMenuSource | { kind: 'indicator' }>({ kind: 'chart' })
+  const contextMenuGroups = computed(() => {
+    switch (contextMenuSource.value.kind) {
+      case 'drawing':
+        return drawingContextMenuGroups.value
+      case 'indicator': {
+        const item = indicatorVisibilityMenu.submenu.value
+        return item ? [{ id: 'visibility', label: '', items: [item] }] : []
+      }
+      case 'chart':
+        return chartContextMenuGroups.value
+    }
+  })
   // 图例「移动指标」菜单：Core 投影目标列表，菜单外观复用 DropMenu。
   const {
     groups: legendMoveMenuGroups,
@@ -1159,9 +1172,35 @@
     replaceLegend,
   } = useLegendUi(controller, canvasLayerRef, {
     openSelector: () => indicatorSelectorRef.value?.openMenu(),
-    openIndicatorSettings: (definitionId) => indicatorSelectorRef.value?.openParams(definitionId),
+    openIndicatorSettings: (instanceId) =>
+      indicatorSelectorRef.value?.openInstanceSettings(instanceId, visibilityPeriod.value),
     openScriptEditor: (definitionId) => openScriptEditor(definitionId),
     openMoveMenu: (request) => showLegendMoveMenu(request),
+    openMoreMenu: ({ id, anchor }) => {
+      const chart = controller.value
+      const period = visibilityPeriod.value
+      const entry = chart?.legend.get(id)
+      if (!chart || period === null || entry?.kind !== 'indicator') return
+      indicatorVisibilityMenu.capture(
+        period,
+        [entry.timeframeVisibility],
+        (timeframeVisibility) => {
+          if (controller.value !== chart || !chart.legend.update(id, { timeframeVisibility }))
+            return
+          const updated = chart.legend.get(id)
+          if (updated?.kind === 'indicator') return [updated.timeframeVisibility]
+        },
+      )
+      contextMenuSource.value = { kind: 'indicator' }
+      chartMenu.anchor.value = {
+        kind: 'point',
+        x: anchor.left,
+        y: anchor.top,
+        width: anchor.width,
+        height: anchor.height,
+      }
+      chartMenu.open.value = true
+    },
   })
 
   const {
@@ -1573,8 +1612,14 @@
 
   /** 菜单项动作按打开瞬间的来源分发；动作本身只读取各自快照。 */
   function onContextMenuSelect(_groupId: string, itemId: string, parentId?: string): void {
-    if (contextMenuSource.value.kind === 'drawing') selectDrawingContextMenuItem(itemId, parentId)
-    else selectChartContextMenuItem(itemId)
+    const { kind } = contextMenuSource.value
+    if (kind === 'indicator') {
+      if (parentId === TIMEFRAME_VISIBILITY_ITEM) indicatorVisibilityMenu.select(itemId)
+    } else if (kind === 'drawing') {
+      selectDrawingContextMenuItem(itemId, parentId)
+    } else {
+      selectChartContextMenuItem(itemId)
+    }
   }
 
   /** 图例移动菜单选中目标后交给图例命令面执行。 */

@@ -21,10 +21,11 @@ export function useLegendUi(
   canvasLayer: Ref<HTMLElement | null>,
   options: {
     openSelector: () => void
-    openIndicatorSettings: (definitionId: string) => void
+    openIndicatorSettings: (instanceId: string) => void
     openScriptEditor?: (definitionId: string) => void
     /** 移动目标列表由 Core 投影，宿主在按钮下方打开自己的菜单。 */
     openMoveMenu: (request: LegendUiEventDetail & { action: 'move-to' }) => void
+    openMoreMenu: (request: LegendUiEventDetail & { action: 'more' }) => void
   },
 ): LegendUiBindings {
   const replacementId = ref<string | null>(null)
@@ -39,7 +40,8 @@ export function useLegendUi(
         if (!(event instanceof CustomEvent) || !isLegendUiEventDetail(event.detail)) return
         const request = event.detail
         if (request.action === 'move-to') options.openMoveMenu(request)
-        else if (request.action === 'settings') options.openIndicatorSettings(request.definitionId)
+        else if (request.action === 'more') options.openMoreMenu(request)
+        else if (request.action === 'settings') options.openIndicatorSettings(request.id)
         else if (request.action === 'edit-code') options.openScriptEditor?.(request.definitionId)
         else {
           replacementLegendId = request.id
@@ -74,6 +76,7 @@ function isLegendUiEventDetail(value: unknown): value is LegendUiEventDetail {
   // 事件由本包 Core 发布，只需确认判别字段；字段契约由 LegendUiEventDetail 保证。
   return (
     value.action === 'move-to' ||
+    value.action === 'more' ||
     value.action === 'settings' ||
     value.action === 'replace' ||
     value.action === 'edit-code'

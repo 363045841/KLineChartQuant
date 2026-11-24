@@ -729,6 +729,7 @@ export class Chart {
 
     this.indicatorManager = new ChartIndicatorManager({
       getMarketData: () => this.dataManager.indicatorMarketData,
+      getPeriod: () => this.dataManager.currentPeriod,
       plotColors$: computed(() => {
         const settings = this.kernel.settings.readonly.settings()
         return resolveThemeColors(

@@ -165,6 +165,23 @@ describe('绘图图元右键菜单', () => {
     expect(timeframeItems(menu).map((item) => item.checked)).toEqual([true, false, false, false])
   })
 
+  it('跨周期打开菜单时按已保存的模式勾选，重新选择时才更新参考周期', () => {
+    const { controller, menu, currentPeriod, updateBatch } = createFixture()
+    controller._setDrawings([
+      drawing('a', { timeframeVisibility: { mode: 'current', period: 'daily' } }),
+    ])
+    currentPeriod.value = '4h'
+    menu.capture('a')
+
+    expect(timeframeItems(menu).find((item) => item.checked)?.id).toBe('current')
+    expect(updateBatch).not.toHaveBeenCalled()
+
+    menu.select('current', DRAWING_CONTEXT_MENU_ITEM.PERIOD_VISIBILITY)
+    expect(updateBatch).toHaveBeenCalledWith(['a'], {
+      timeframeVisibility: { mode: 'current', period: '4h' },
+    })
+  })
+
   it('分时视图不展示周期可见性项', () => {
     const { menu, currentPeriod } = createFixture()
     currentPeriod.value = null

@@ -5,6 +5,7 @@
  * 按显式 role 覆盖 role，以及按 `visiblePeriods` 拦截不在当前周期内的绘制。
  */
 
+import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer, RenderObjectDescriptor } from '@/rendering/scene/types.js'
 import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
@@ -16,6 +17,7 @@ import { bindIndicatorAxis } from './shared/indicatorRendererLayer.js'
 /** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
 export interface IndicatorLayerOptions extends IndicatorRendererOptions {
   definition: IndicatorMetadata
+  timeframeVisibility?: TimeframeVisibility | undefined
   /** 显式 Layer role；缺省沿用渲染器按 pane 推导的结果（main → primary）。 */
   role?: Layer['role']
   /** 业务对象身份与命令；轴层等装饰层不提供，因此不进入对象树。 */
@@ -31,13 +33,14 @@ export interface IndicatorLayerOptions extends IndicatorRendererOptions {
 function withPeriodVisibility(
   layer: Layer<RenderContext>,
   definition: IndicatorMetadata,
+  timeframeVisibility: TimeframeVisibility | undefined,
 ): Layer<RenderContext> {
   const ranges = definition.visiblePeriods
-  if (ranges === undefined || ranges.length === 0) return layer
+  if (!ranges?.length && (!timeframeVisibility || timeframeVisibility.mode === 'all')) return layer
   return {
     ...layer,
     paint: (context) => {
-      if (!isIndicatorVisibleOnPeriod(context.period, ranges)) return
+      if (!isIndicatorVisibleOnPeriod(context.period, ranges, timeframeVisibility)) return
       layer.paint(context)
     },
   }
@@ -56,7 +59,7 @@ export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<Rend
     axisId: options.axisId,
     params: options.params,
   })
-  const layer = withPeriodVisibility(created, definition)
+  const layer = withPeriodVisibility(created, definition, options.timeframeVisibility)
   const identity = {
     id: resolveIndicatorLayerId(definition.name, options.paneId, 'renderer', options.instanceId),
     pane: options.paneId,

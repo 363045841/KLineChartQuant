@@ -126,13 +126,15 @@ export type DrawingLabelTarget =
   | `level:${number}`
 export type DrawingLabels = Partial<Record<DrawingLabelTarget, DrawingLabel>>
 export type DrawingWorkspaceId = 'kline' | 'timeshare'
-/** 图元的周期可见性规则；参考周期在用户选择时确定。 */
-export type DrawingTimeframeVisibility =
+/** 周期可见性规则；参考周期在用户选择时确定。 */
+export type TimeframeVisibility =
   | { readonly mode: 'all' }
   | {
       readonly mode: 'above' | 'below' | 'current'
       readonly period: string
     }
+
+export type DrawingTimeframeVisibility = TimeframeVisibility
 
 /** 唯一图形模型；ownerId 存在时归指标管理，不参与用户交互及历史。 */
 export type DrawingObject<TParams = Record<string, unknown>> = {

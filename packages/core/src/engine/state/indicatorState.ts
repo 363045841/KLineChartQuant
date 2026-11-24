@@ -1,5 +1,6 @@
 // 统一管理主图与副图指标实例的状态模块。
 
+import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
@@ -16,6 +17,7 @@ export interface IndicatorInstanceConfig {
   readonly paneId: string
   readonly ordinal: number
   readonly hidden?: boolean
+  readonly timeframeVisibility?: TimeframeVisibility
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -29,6 +31,7 @@ export interface IndicatorInstanceSpec {
   readonly ordinal: number
   /** 隐藏只影响图表绘制，图例仍保留并置灰；不参与计算身份。 */
   readonly hidden?: boolean
+  readonly timeframeVisibility?: IndicatorInstanceConfig['timeframeVisibility']
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -41,6 +44,7 @@ export interface IndicatorInstancePatch {
   readonly indicatorId?: string
   readonly ordinal?: number
   readonly hidden?: boolean
+  readonly timeframeVisibility?: IndicatorInstanceConfig['timeframeVisibility']
   readonly params?: Readonly<Record<string, unknown>>
 }
 
@@ -64,6 +68,9 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceConfi
     ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
     ...(entry.hidden ? { hidden: true as const } : {}),
+    ...(entry.timeframeVisibility === undefined
+      ? {}
+      : { timeframeVisibility: Object.freeze({ ...entry.timeframeVisibility }) }),
   }
   return Object.freeze(snapshot)
 }

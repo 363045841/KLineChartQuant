@@ -182,10 +182,25 @@
       :indicator-name="currentIndicatorName"
       :indicator-description="currentIndicator.description"
       :params="currentIndicator.inputs || []"
-      :values="getParamValues(currentIndicator.id)"
+      :values="paramValues"
       @close="paramsVisible = false"
+      @reset="selectVisibility('all')"
       @confirm="onParamsConfirm"
-    />
+    >
+      <template v-if="instanceSettings?.period" #after-params>
+        <div class="indicator-timeframe-visibility">
+          <span>{{ TIMEFRAME_VISIBILITY_LABEL }}</span>
+          <DropMenu
+            :label="TIMEFRAME_VISIBILITY_LABEL"
+            :groups="visibilityGroups"
+            :tooltip="false"
+            @select="(_group, item) => selectVisibility(item)"
+          >
+            <template #trigger>{{ visibilityLabel }}</template>
+          </DropMenu>
+        </div>
+      </template>
+    </IndicatorParams>
   </div>
 </template>
 
@@ -199,7 +214,9 @@
     INDICATOR_ROLE,
     type IndicatorRole,
     indicatorCatalog,
+    type LegendEntry,
   } from '@363045841yyt/klinechart-core/controllers'
+  import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
   import BaseChip from '@vue-src/components/common/BaseChip.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
@@ -207,11 +224,18 @@
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
   import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import DropMenu from '@vue-src/components/common/menu/DropMenu.vue'
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
+  import { K_LINE_LEVEL_OPTIONS } from '@vue-src/components/toolbar/kLineLevel.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
+  import {
+    resolveTimeframeVisibility,
+    TIMEFRAME_VISIBILITY_LABEL,
+    timeframeVisibilityItems,
+  } from '@vue-src/composables/chart/useTimeframeVisibilityMenu.js'
   import {
     INDICATOR_SELECTOR_SECTIONS,
     useIndicatorFavorites,
@@ -219,7 +243,7 @@
   import { useScriptRemoval } from '@vue-src/composables/indicator/useScriptRemoval.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
-  import { computed, inject, ref, watch } from 'vue'
+  import { computed, inject, ref, shallowRef, watch } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
@@ -263,6 +287,32 @@
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
+  const instanceSettings = shallowRef<{
+    chart: ChartController
+    entry: Extract<LegendEntry, { kind: 'indicator' }>
+    period: string | null
+  } | null>(null)
+  const visibilityDraft = shallowRef<TimeframeVisibility>()
+  const visibility = computed(
+    () => visibilityDraft.value ?? instanceSettings.value?.entry.timeframeVisibility,
+  )
+  const visibilityLabel = computed(() => {
+    const rule = visibility.value
+    if (!rule || rule.mode === 'all') return '所有时间周期'
+    const period =
+      K_LINE_LEVEL_OPTIONS.find(({ value }) => value === rule.period)?.label ?? rule.period
+    switch (rule.mode) {
+      case 'above':
+        return `${period}及以上`
+      case 'below':
+        return `${period}及以下`
+      case 'current':
+        return `仅${period}`
+    }
+  })
+  const visibilityGroups = computed(() => [
+    { id: 'visibility', label: '', items: timeframeVisibilityItems([visibility.value]) },
+  ])
   /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
   const currentIndicator = ref<ReturnType<typeof findIndicatorDefinition>>()
   /** 参数弹窗标题优先用长名称，缺省回落到列表标签。 */
@@ -360,9 +410,29 @@
     const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
     if (!indicator?.inputs?.length) return
+    instanceSettings.value = null
     currentIndicatorId.value = indicatorId
     currentIndicator.value = indicator
     paramsVisible.value = true
+  }
+
+  function showInstanceSettings(instanceId: string, period: string | null) {
+    const chart = props.chartController
+    const entry = chart?.legend.get(instanceId)
+    if (!chart || entry?.kind !== 'indicator') return
+    const indicator = findIndicatorDefinition(entry.definitionId)
+    if (!indicator || (period === null && !indicator.inputs?.length)) return
+    instanceSettings.value = { chart, entry, period }
+    visibilityDraft.value = undefined
+    currentIndicator.value = indicator
+    paramsVisible.value = true
+  }
+
+  function selectVisibility(itemId: string) {
+    const period = instanceSettings.value?.period
+    if (!period) return
+    const rule = resolveTimeframeVisibility(itemId, period)
+    if (rule) visibilityDraft.value = rule
   }
 
   /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
@@ -386,8 +456,8 @@
     emit('close')
   }
 
-  function getParamValues(indicatorId: string): Record<string, number | string | boolean> {
-    const indicator = findIndicatorDefinition(indicatorId)
+  const paramValues = computed<Record<string, number | string | boolean>>(() => {
+    const indicator = currentIndicator.value
     if (!indicator?.inputs) return {}
 
     const defaultInputs: Record<string, number | string | boolean> = {}
@@ -396,7 +466,8 @@
       defaultInputs[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
-    const userParams = props.indicatorParams?.[indicatorId] || {}
+    const userParams =
+      instanceSettings.value?.entry.params ?? props.indicatorParams?.[indicator.id] ?? {}
     const result: Record<string, number | string | boolean> = { ...defaultInputs }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
@@ -407,10 +478,26 @@
     }
 
     return result
-  }
+  })
 
   function onParamsConfirm(values: Record<string, number | string | boolean>) {
-    if (currentIndicatorId.value) {
+    const settings = instanceSettings.value
+    if (settings && settings.chart === props.chartController) {
+      const entry = settings.chart.legend.get(settings.entry.id)
+      if (entry?.kind === 'indicator' && entry.definitionId === settings.entry.definitionId) {
+        const edits = Object.entries(values).filter(
+          ([key, value]) => paramValues.value[key] !== value,
+        )
+        if (edits.length > 0 || visibilityDraft.value) {
+          settings.chart.legend.update(entry.id, {
+            ...(edits.length > 0
+              ? { params: { ...entry.params, ...Object.fromEntries(edits) } }
+              : {}),
+            ...(visibilityDraft.value ? { timeframeVisibility: visibilityDraft.value } : {}),
+          })
+        }
+      }
+    } else if (!settings && currentIndicatorId.value) {
       emit('updateParams', currentIndicatorId.value, values)
     }
     paramsVisible.value = false
@@ -420,12 +507,21 @@
     openMenu: () => controller.openMenu(),
     closeMenu,
     toggleMenu: () => controller.toggleMenu(),
-    /** 直接打开指定指标的参数设置，供 Legend 悬浮工具条复用。 */
     openParams: showParams,
+    openInstanceSettings: showInstanceSettings,
   })
 </script>
 
 <style scoped>
+  .indicator-timeframe-visibility {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-inline: var(--base-modal-content-inset);
+    padding-block: 8px;
+  }
   .indicator-selector {
     display: none;
   }

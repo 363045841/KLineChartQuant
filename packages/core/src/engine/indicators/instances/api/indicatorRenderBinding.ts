@@ -4,6 +4,7 @@
  * renderer 与 scale renderer 在创建时绑定自己的 instanceId；帧内状态读取、
  * 图例枚举主图实例都通过这里定义的 service key，不依赖旧 scheduler。
  */
+import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader } from '@/foundation/plugin/index.js'
 
 /** 提供帧外实例状态读取的服务键；值类型为 `IndicatorRenderStateReader`。 */
@@ -47,6 +48,7 @@ export interface IndicatorInstanceDescriptor {
   readonly ordinal: number
   /** 指标是否被隐藏：隐藏时图例保留但置灰。 */
   readonly hidden: boolean
+  readonly timeframeVisibility?: TimeframeVisibility | undefined
   readonly inputs: Readonly<Record<string, unknown>>
 }
 

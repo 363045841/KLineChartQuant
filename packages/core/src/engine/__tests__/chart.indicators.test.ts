@@ -17,9 +17,40 @@ import {
   installChartTestHooks,
   mountChart,
 } from './helpers/chartLifecycleTestKit'
+import { createMockRenderContext } from './helpers/renderTestKit'
 
 describe('Chart indicator commands', () => {
   installChartTestHooks()
+
+  it('restores instance timeframe rules and keeps the legend editable outside the allowed period', async () => {
+    const chart = mountChart()
+    try {
+      const definitionId = 'instance-timeframe-visibility'
+      registerEmptyPlot(definitionId)
+      const restricted = chart.indicators.add(definitionId, {}, 'main')!
+      const unrestricted = chart.indicators.add(definitionId, {}, 'main')!
+      const timeframeVisibility = { mode: 'above', period: 'daily' } as const
+      expect(chart.legend.update(restricted, { timeframeVisibility })).toBe(true)
+
+      const layout = chart.kernel.exportLayout()
+      chart.indicators.clear()
+      chart.kernel.applyLayout(layout)
+      expect(chart.legend.get(restricted)).toMatchObject({ timeframeVisibility })
+      expect(chart.legend.get(unrestricted)).not.toHaveProperty('timeframeVisibility')
+
+      chart.legend.projectFrame([createMockRenderContext({ period: '4h' })])
+      const row = chart.legend.rows.peek().find((item) => item.key === restricted)
+      expect(row?.actions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action: 'settings', enabled: true }),
+          expect.objectContaining({ action: 'more', enabled: true }),
+        ]),
+      )
+      expect(chart.legend.execute(restricted, 'more')).toEqual({ action: 'more', id: restricted })
+    } finally {
+      await chart.destroy()
+    }
+  })
 
   it('adds a main-chart indicator to MAIN_PANE_ID after the main pane is moved', async () => {
     const chart = mountChart()

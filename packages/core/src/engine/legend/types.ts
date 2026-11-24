@@ -5,6 +5,7 @@
  * 本文件不得 import 同子模块 impl/。
  */
 
+import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import type { SymbolSpec } from '@/controllers/types.js'
 import type { ChartIndicatorFacade } from '@/engine/chart/impl/facade/chartIndicatorFacade.js'
 import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
@@ -154,6 +155,7 @@ export type LegendEntry = Readonly<
       paneId: string
       definitionId: string
       hidden: boolean
+      timeframeVisibility?: TimeframeVisibility | undefined
       params: Readonly<Record<string, unknown>>
     }
   | {
@@ -183,6 +185,7 @@ export type CreateLegendInput =
 
 export interface LegendPatch {
   hidden?: boolean
+  timeframeVisibility?: TimeframeVisibility
   params?: Record<string, unknown>
   texts?: ReadonlyArray<LegendText>
 }
@@ -197,6 +200,7 @@ export type LegendAction =
   | 'edit-code'
   | 'toggle-visibility'
   | 'settings'
+  | 'more'
   | 'close'
 
 export interface LegendActionButton {
@@ -240,14 +244,17 @@ export type LegendUiRequest =
       readonly id: string
       readonly options: ReadonlyArray<LegendMoveOption>
     }
+  | { readonly action: 'more'; readonly id: string }
 
 /** 移动目标请求；目标列表由 Core 投影，菜单由宿主框架渲染。 */
 export type LegendMoveRequest = Extract<LegendUiRequest, { action: 'move-to' }>
 
 /** 图例 UI 事件 detail：移动目标额外携带触发按钮矩形，供宿主定位菜单。 */
 export type LegendUiEventDetail =
-  | Exclude<LegendUiRequest, { action: 'move-to' }>
-  | (LegendMoveRequest & { readonly anchor: LegendAnchorRect })
+  | Exclude<LegendUiRequest, { action: 'move-to' | 'more' }>
+  | (Extract<LegendUiRequest, { action: 'move-to' | 'more' }> & {
+      readonly anchor: LegendAnchorRect
+    })
 
 /** 内置图例写入其所属领域，自定义图例由图例模块持有。 */
 export interface LegendApi {

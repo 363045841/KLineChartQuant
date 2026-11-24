@@ -1,6 +1,6 @@
 /** 图例唯一管理入口：实例行投影、菜单目标投影与宿主界面请求。 */
 
-import { isIndicatorVisibleOnPeriod } from '@/engine/indicators/indicatorPeriodVisibility.js'
+import { isKLinePeriod } from '@/data/provider/types.js'
 import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
@@ -91,6 +91,9 @@ export class LegendManager implements LegendApi {
         paneId: instance.paneId,
         definitionId: instance.definitionId,
         hidden: instance.hidden,
+        ...(instance.timeframeVisibility === undefined
+          ? {}
+          : { timeframeVisibility: instance.timeframeVisibility }),
         params: instance.inputs,
       })
     for (const comparison of this.deps.comparisons.list())
@@ -146,7 +149,10 @@ export class LegendManager implements LegendApi {
   update(id: string, patch: LegendPatch): boolean {
     const entry = this.get(id)
     if (!entry) return false
-    if ((patch.texts && entry.kind !== 'custom') || (patch.params && entry.kind !== 'indicator'))
+    if (
+      (patch.texts && entry.kind !== 'custom') ||
+      ((patch.params || patch.timeframeVisibility) && entry.kind !== 'indicator')
+    )
       return false
     if (entry.kind === 'custom') {
       this.customState.set(
@@ -167,6 +173,9 @@ export class LegendManager implements LegendApi {
       return this.deps.indicators.update(entry.id, {
         ...(patch.params ? { params: patch.params } : {}),
         ...(patch.hidden === undefined ? {} : { hidden: patch.hidden }),
+        ...(patch.timeframeVisibility === undefined
+          ? {}
+          : { timeframeVisibility: patch.timeframeVisibility }),
       })
     if (patch.hidden !== undefined) this.deps.comparisons.setVisible(entry.identity, !patch.hidden)
     return true
@@ -269,6 +278,8 @@ export class LegendManager implements LegendApi {
     } else if (action === 'move-to') {
       if (entry.kind !== 'indicator') return null
       return { action: 'move-to', id, options: this.moveOptions(entry) }
+    } else if (action === 'more') {
+      return entry.kind === 'indicator' ? { action, id } : null
     } else if (entry.kind === 'indicator')
       return {
         action,
@@ -382,13 +393,7 @@ export class LegendManager implements LegendApi {
     return rows
   }
 
-  /** 指标在当前周期是否进入图例；未声明可见范围时恒为真。 */
-  private isVisibleOnPeriod(definitionId: string, period: RenderContext['period']): boolean {
-    const descriptor = getIndicatorDescriptor(definitionId)
-    return isIndicatorVisibleOnPeriod(period, descriptor?.visiblePeriods)
-  }
-
-  /** 统一实例行：主图与副图从同一目录、同一投影生成。 */
+  /** 主副图从同一目录生成标题行，周期受限的实例也保留操作入口。 */
   private collectInstanceContents(context: RenderContext): LegendRowContent[] {
     const catalog = this.deps.host.getService<IndicatorInstanceCatalog>(
       INDICATOR_INSTANCE_CATALOG_SERVICE,
@@ -403,7 +408,6 @@ export class LegendManager implements LegendApi {
     const index = resolveLegendValueIndex(context.crosshairIndex, context.data.length)
     const rows: LegendRowContent[] = []
     for (const instance of catalog?.listPaneInstances(paneId) ?? []) {
-      if (!this.isVisibleOnPeriod(instance.definitionId, context.period)) continue
       const title = projectIndicator(
         instance,
         context.indicatorStateReader,
@@ -451,11 +455,14 @@ export class LegendManager implements LegendApi {
     }
     const isScriptIndicator = this.deps.isScriptIndicator ?? (() => false)
     const panes = this.deps.panes.getLayoutSpecs()
+    const showPeriodMenu = isKLinePeriod(contexts[0]?.period ?? '')
     return rows.map((row) => {
       const entry = entriesById.get(row.key)
       return {
         ...row,
-        actions: entry ? projectLegendActions(entry, paneInstances, isScriptIndicator, panes) : [],
+        actions: entry
+          ? projectLegendActions(entry, paneInstances, isScriptIndicator, panes, showPeriodMenu)
+          : [],
       }
     })
   }

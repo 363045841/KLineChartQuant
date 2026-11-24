@@ -28,7 +28,9 @@ describe('parseIndicatorPeriod', () => {
 
 describe('isIndicatorVisibleOnPeriod', () => {
   const units = [{ unit: 'minute' }, { unit: 'hour' }] satisfies IndicatorMetadata['visiblePeriods']
-  const bounded = [{ unit: 'minute', min: 5, max: 30 }] satisfies IndicatorMetadata['visiblePeriods']
+  const bounded = [
+    { unit: 'minute', min: 5, max: 30 },
+  ] satisfies IndicatorMetadata['visiblePeriods']
   it.each([
     { scenario: '未配置', period: 'daily', ranges: undefined, visible: true },
     { scenario: '空配置', period: 'daily', ranges: [], visible: true },
@@ -94,5 +96,22 @@ describe('renderer layer gating', () => {
       assembled.paint({ ...createMockRenderContext({ period }), paneId: 'main', clear: false })
       expect(paint).toHaveBeenCalledTimes(calls[index]!)
     }
+  })
+
+  it('paints only when both the indicator definition and instance allow the period', () => {
+    const layer = fakeLayer()
+    const paint = vi.spyOn(layer, 'paint')
+    const assembled = createIndicatorLayer({
+      definition: fakeDefinition(layer, minuteOnly),
+      paneId: 'main',
+      indicatorId: 'fake',
+      instanceId: 'fake_main',
+      axisId: 'main',
+      timeframeVisibility: { mode: 'above', period: '5min' },
+    })
+    for (const period of ['1min', 'daily', '5min']) {
+      assembled.paint({ ...createMockRenderContext({ period }), paneId: 'main', clear: false })
+    }
+    expect(paint).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ period: '5min' }))
   })
 })
