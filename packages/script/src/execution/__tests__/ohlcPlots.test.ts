@@ -35,7 +35,10 @@ describe.each(BACKENDS)('$name OHLC plots', ({ prepare }) => {
         borderColor: null,
       })),
     )
-    expect(result.plots[2]).toMatchObject({ kind: 'bar', showLast: 1, offset: 2 })
+    const bar = result.plots[2]
+    expect(bar).toMatchObject({ kind: 'bar', offset: 2 })
+    // showLast 在产出时物化：只有最后一根保留，其余位置清空。
+    expect(bar?.data.filter((point) => point !== undefined)).toHaveLength(1)
   })
 
   it('缺少任意一个价格则整根留空，0 有效，无穷值留空', () => {

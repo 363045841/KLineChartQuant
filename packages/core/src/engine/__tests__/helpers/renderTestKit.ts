@@ -9,7 +9,6 @@
 import { vi } from 'vitest'
 import { createFrameCoordinates } from '@/engine/coordinates/impl/frameCoordinates.js'
 import { projectFrameTimeTicks } from '@/engine/frame/impl/timeTicks.js'
-import { createAxisLabelsFrame } from '@/engine/renderers/impl/labels/index'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
 import { createKLineSlotGrid } from '@/engine/viewport/slotGrid'
 import { createTimeFormatter } from '@/foundation/time/index.js'
@@ -262,7 +261,6 @@ export function createMockRenderContext(overrides: MockRenderContextOverrides = 
     viewport: { scrollLeft, plotWidth: paneWidth, plotHeight: 200 },
     yAxisRanges: [],
     xAxisRanges: [],
-    axisLabels: createAxisLabelsFrame(),
     displayTimeFormatter: formatter,
     timeTicks: projectFrameTimeTicks({
       data,
@@ -342,7 +340,10 @@ function _createMockPluginHost(overrides: Partial<PluginHost> = {}): PluginHost 
 }
 
 /** 构造只按 instanceId 命中返回的帧状态读取 stub。 */
-function createMockStateReader(instanceId: string, state?: unknown): IndicatorRenderStateReader {
+export function createMockStateReader(
+  instanceId: string,
+  state?: unknown,
+): IndicatorRenderStateReader {
   // biome-ignore lint/suspicious/noExplicitAny: vitest 无法把泛型 spy 赋给泛型方法，any 返回可保持可间谍性
   const get = vi.fn((key: string): any => (key === instanceId ? state : undefined))
   return { get } satisfies IndicatorRenderStateReader

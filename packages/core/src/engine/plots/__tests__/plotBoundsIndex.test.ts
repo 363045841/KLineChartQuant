@@ -38,11 +38,11 @@ function scan(plot: Plot, start: number, end: number) {
 
 /** 600 根值列：每 17 根一个空位、每 23 根一个 NaN，覆盖跳过规则与块边界。 */
 const valuePlot = createPlot(
-  { name: 'line', kind: 'line', color: '#fff' },
-  Array.from({ length: 600 }, (_, index) => {
+  { name: 'line', kind: 'line' },
+  Array.from({ length: 600 }, (_, index): { value: number; color: string } | undefined => {
     if (index % 17 === 0) return undefined
-    if (index % 23 === 0) return { value: Number.NaN }
-    return { value: Math.sin(index / 7) * 100 }
+    if (index % 23 === 0) return { value: Number.NaN, color: '#fff' }
+    return { value: Math.sin(index / 7) * 100, color: '#fff' }
   }),
 )
 
@@ -65,7 +65,6 @@ const ohlcPlot: CandlePlot = {
   label: 'candle',
   kind: 'candle',
   data: ohlcData,
-  color: '#0f0',
   visible: true,
   offset: 0,
 }

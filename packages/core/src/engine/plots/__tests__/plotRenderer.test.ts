@@ -746,8 +746,8 @@ describe('Plot renderer', () => {
       [6, 12],
     ]
     values.forEach(([a, b], index) => {
-      collector.onPlot('fast', index, { value: a })
-      collector.onPlot('slow', index, { value: b })
+      collector.onPlot('fast', index, { value: a, color: '#000' })
+      collector.onPlot('slow', index, { value: b, color: '#fff' })
       collector.onFill(
         { name: 'cloud', from: 'fast', to: 'slow', color: index === 1 ? 'green' : 'red' },
         index,
@@ -1207,8 +1207,10 @@ describe('Plot renderer', () => {
             kind: 'line',
             id: 'value',
             label: 'VALUE',
-            color: '#ffffff',
-            data: [{ value: 10 }, { value: 20 }],
+            data: [
+              { value: 10, color: '#ffffff' },
+              { value: 20, color: '#ffffff' },
+            ],
             visible: true,
             offset: 0,
             size: ShapeSize.auto,

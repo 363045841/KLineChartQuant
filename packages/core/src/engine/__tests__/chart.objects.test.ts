@@ -97,7 +97,6 @@ describe('Chart drawing and system objects', () => {
       'plugin:footprint',
       'plugin:comparisonLine',
       'plugin:lastPriceLine',
-      'plugin:lastPriceLabelRegistrar',
       'plugin:extremaMarkers',
     ]
     try {

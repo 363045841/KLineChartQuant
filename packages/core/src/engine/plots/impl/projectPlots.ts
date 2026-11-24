@@ -6,7 +6,6 @@ import {
   type IndicatorSeries,
   isOhlcPlot,
   isPricePlot,
-  ohlcPlotStart,
   PlotKind,
   type ShapeSize,
   validatePlotFills,
@@ -140,13 +139,9 @@ function readIndicatorSeriesGuideFills(
   })
 }
 
-/** 绘图点只替换显式给出的颜色，缺省继续沿用所在 Plot 的颜色。 */
+/** 绘图点颜色在采集时已物化为最终值，这里只把脚本别名换成当前主题色值。 */
 function resolvePointColors(point: PlotPoint, resolve: ScriptColorResolver): PlotPoint {
-  return {
-    value: point.value,
-    ...(point.color === undefined ? {} : { color: resolve(point.color) }),
-    ...(point.textColor === undefined ? {} : { textColor: resolve(point.textColor) }),
-  }
+  return { value: point.value, color: resolve(point.color) }
 }
 
 /** OHLC 点用 null 表示该 bar 不绘制，null 不参与颜色解析。 */
@@ -171,46 +166,45 @@ function resolvePlotColors(plot: Plot, resolve: ScriptColorResolver): Plot {
 function resolveOhlcColors(plot: OhlcPlot, resolve: ScriptColorResolver): OhlcPlot {
   return {
     ...plot,
-    color: resolve(plot.color),
     data: plot.data.map((point) =>
       point === undefined ? undefined : resolveOhlcPointColors(point, resolve),
     ),
   }
 }
 
-/** 箭头的上下方向色决定图形颜色，公共色供图例使用。 */
+/** 箭头的方向色已在采集时物化为逐点颜色。 */
 function resolveArrowColors(plot: ArrowPlot, resolve: ScriptColorResolver): ArrowPlot {
   return {
     ...plot,
-    color: resolve(plot.color),
-    colorUp: resolve(plot.colorUp),
-    colorDown: resolve(plot.colorDown),
     data: plot.data.map((point) =>
       point === undefined ? undefined : resolvePointColors(point, resolve),
     ),
   }
 }
 
-/** 形状与字符标记额外带文字色。 */
+/** 标记点逐点带文字色，图形色与文字色各自解析。 */
 function resolveMarkerColors(
   plot: ShapePlot | CharPlot,
   resolve: ScriptColorResolver,
 ): ShapePlot | CharPlot {
   return {
     ...plot,
-    color: resolve(plot.color),
-    textColor: resolve(plot.textColor),
     data: plot.data.map((point) =>
-      point === undefined ? undefined : resolvePointColors(point, resolve),
+      point === undefined
+        ? undefined
+        : {
+            value: point.value,
+            color: resolve(point.color),
+            ...(point.textColor === undefined ? {} : { textColor: resolve(point.textColor) }),
+          },
     ),
   }
 }
 
-/** 折线、阶梯线、柱状与散点只有公共色与逐点颜色。 */
+/** 折线、阶梯线、柱状与散点只有逐点颜色。 */
 function resolveScalarColors(plot: ScalarColorPlot, resolve: ScriptColorResolver): ScalarColorPlot {
   return {
     ...plot,
-    color: resolve(plot.color),
     data: plot.data.map((point) =>
       point === undefined ? undefined : resolvePointColors(point, resolve),
     ),
@@ -232,34 +226,48 @@ function buildSeriesPlots(
   params: Readonly<Record<string, unknown>>,
   colors: ColorTokens,
 ): { plots: Plot[]; fills: PlotFill[] } {
+  const resolveColor = createScriptColorResolver(colors)
   const plots = definition.series.map((spec) => {
     const source = sourceArray(raw, spec, params)
+    const kind = spec.kind ?? PlotKind.Line
+    const baseColor = spec.color(colors)
+    // 方向色与文字色是声明级输入，物化成逐点/整列最终值后再进入输出模型。
+    const upColor = spec.colorUp === undefined ? baseColor : resolveColor(spec.colorUp)
+    const downColor = spec.colorDown === undefined ? baseColor : resolveColor(spec.colorDown)
+    const textColor = spec.textColor === undefined ? baseColor : resolveColor(spec.textColor)
     let previous: number | undefined
-    const data: (PlotPoint | undefined)[] = source.map((item) => {
+    const rows: (PlotPoint | undefined)[] = source.map((item) => {
       const value = spec.field ? readPlotField(item, spec.field) : item
       if (value === undefined || value === null) return undefined
       // 布尔条件只表达有无信号；false 与 NaN 同为 na，不再退化成 0。
       const numeric =
-        (spec.kind === 'shape' || spec.kind === 'char') && typeof value === 'boolean'
-          ? toNa(value)
-          : value
+        (kind === 'shape' || kind === 'char') && typeof value === 'boolean' ? toNa(value) : value
       if (typeof numeric !== 'number')
         throw new TypeError(`Plot ${spec.id} requires numeric values`)
-      const color = spec.pointColor?.(numeric, previous, colors, item)
+      const color =
+        kind === 'arrow'
+          ? numeric > 0
+            ? upColor
+            : downColor
+          : (spec.pointColor?.(numeric, previous, colors, item) ?? baseColor)
       previous = numeric
-      return { value: numeric, color }
+      // 标记点的文字色逐 bar 记录，缺省与图形同色。
+      return kind === 'shape' || kind === 'char'
+        ? { value: numeric, color, textColor }
+        : { value: numeric, color }
     })
-    const kind = spec.kind ?? PlotKind.Line
     // 数值像素柱宽只属于 histogram；columns 忽略 size，其余 kind 只接受枚举档位。
     const size = kind === 'histogram' || kind === 'columns' ? undefined : enumPlotSize(spec.size)
+    const data = rows
     const base = {
       // 共享绘画声明用 name，core 的 PlotSpec 身份字段是 id，这里做一次映射。
       name: spec.id,
       label: typeof spec.label === 'function' ? spec.label(params) : (spec.label ?? spec.id),
-      data,
-      color: spec.color(colors),
+      data: rows,
       visible: !spec.show || params[spec.show] !== false,
       offset: spec.offset?.(params) ?? 0,
+      // 逐输出格式覆盖指标级格式；轴标签、图例与轴文本共用这一份结果。
+      format: spec.format ?? definition.format,
     }
     switch (kind) {
       case 'line':
@@ -285,22 +293,13 @@ function buildSeriesPlots(
             char: spec.char,
             location: spec.location,
             text: spec.text,
-            textColor: spec.textColor,
+            textColor,
             size,
           },
           data,
         )
       case 'arrow':
-        return createPlot(
-          {
-            ...base,
-            kind: 'arrow',
-            colorUp: spec.colorUp,
-            colorDown: spec.colorDown,
-            size,
-          },
-          data,
-        )
+        return createPlot({ ...base, kind: 'arrow', size }, data)
       case 'shape':
         return createPlot(
           {
@@ -309,7 +308,7 @@ function buildSeriesPlots(
             style: spec.style,
             location: spec.location,
             text: spec.text,
-            textColor: spec.textColor,
+            textColor,
             size,
           },
           data,
@@ -320,7 +319,7 @@ function buildSeriesPlots(
     const from = plots.find((plot) => plot.id === fill.from)
     const to = plots.find((plot) => plot.id === fill.to)
     if (!from || !to) throw new TypeError(`Unknown fill source: ${fill.id}`)
-    // 颜色与 Plot.data 同下标保存；显示位移由渲染器在取样时扣除。
+    // 颜色与 Plot.data 同下标保存；显示位移由绘制端按起点输出的位移扣除。
     const count = Math.max(from.data.length, to.data.length)
     const fillColors = Array.from({ length: count }, (_, index) =>
       fill.color(colors, from.data[index]?.value, to.data[index]?.value, index),
@@ -396,11 +395,10 @@ function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
  * 取一根 Plot 在可见范围内的价格上下界；范围内没有有效数值时返回 undefined。
  * histogram / columns 从 baseline 起算，基线一并计入边界。
  *
- * 区间极值走块索引（`queryPlotBounds`），滚动时不逐根扫描；offset 与 OHLC 的
- * `showLast` 裁剪仍在这里换算成数据下标。
+ * 区间极值走块索引（`queryPlotBounds`），滚动时不逐根扫描；位移换算成数据下标。
  */
 function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
-  const start = Math.max(isOhlcPlot(plot) ? ohlcPlotStart(plot) : 0, range.start - plot.offset)
+  const start = Math.max(0, range.start - plot.offset)
   const end = Math.min(plot.data.length, range.end - plot.offset)
   const bounds = queryPlotBounds(plot, start, end)
   if (!bounds) return undefined

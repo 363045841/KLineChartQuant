@@ -396,19 +396,12 @@ describe('projectDrawingsForFrame', () => {
     )
 
     expect(projection.primitives).not.toEqual([])
-    expect(
-      context.axisLabels.forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID).labels,
-    ).toHaveLength(2)
+    const priceLabels = projection.axisLabels.filter((label) => label.kind === 'value')
+    const timeLabels = projection.axisLabels.filter((label) => label.kind === 'time')
+    expect(priceLabels.map((label) => label.value)).toEqual([10, 20])
+    expect(timeLabels.map((label) => label.index)).toEqual([0, 1])
     expect(projection.yAxisRanges).toHaveLength(1)
     expect(context.yAxisRanges).toHaveLength(0)
-    expect(
-      context.axisLabels
-        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
-        .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
-    ).toEqual(['10.00', '20.00'])
-    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
-      10, 30,
-    ])
   })
 
   it('keeps the line body stroke width unchanged when selected', () => {
@@ -631,16 +624,16 @@ describe('projectDrawingsForFrame', () => {
     const definitions = new DrawingDefinitionRegistry()
     registerDefaultDrawingDefinitions(definitions)
 
-    projectDrawingsForFrame(store, definitions, createDrawingFrame(context, [drawing]))
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
+    )
 
     expect(
-      context.axisLabels
-        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
-        .labels.map((label) => (label.kind === 'tag' ? label.text : '')),
-    ).toEqual(['10.00', '20.00'])
-    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([
-      10, 30,
-    ])
+      projection.axisLabels.filter((label) => label.kind === 'value').map((label) => label.value),
+    ).toEqual([10, 20])
+    expect(projection.axisLabels.filter((label) => label.kind === 'time')).toHaveLength(2)
   })
 
   it('keeps the line geometry when an endpoint is after the visible range without registering it', () => {
@@ -675,11 +668,11 @@ describe('projectDrawingsForFrame', () => {
       a: { x: 10 },
       b: { x: 50 },
     })
-    expect(context.axisLabels.forSurface('xLabels').labels.map((label) => label.pos)).toEqual([10])
     expect(
-      context.axisLabels
-        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
-        .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0)),
+      projection.axisLabels.filter((label) => label.kind === 'time').map((label) => label.index),
+    ).toEqual([0])
+    expect(
+      projection.axisLabels.filter((label) => label.kind === 'value').map((label) => label.value),
     ).toEqual([10])
   })
 
@@ -708,9 +701,9 @@ describe('projectDrawingsForFrame', () => {
     expect(linePrimitives(projection.primitives)).toHaveLength(1)
     // 用户锚点吸附槽位：两根 K 线的常规槽距为 1000ms，4000ms 落在第 3 槽位。
     expect(linePrimitives(projection.primitives)[0]).toMatchObject({ a: { x: 10 }, b: { x: 70 } })
-    expect(context.axisLabels.forSurface('xLabels').labels[1]?.text).toBe(
-      context.displayTimeFormatter.formatDate(4000),
-    )
+    expect(
+      projection.axisLabels.filter((label) => label.kind === 'time').map((label) => label.text)[1],
+    ).toBe(context.displayTimeFormatter.formatDate(4000))
     expect(drawing.anchors[1]?.time).toBe(4000)
   })
 
@@ -741,11 +734,15 @@ describe('projectDrawingsForFrame', () => {
       kLineCenters: [10, 30, 50, 70],
     })
 
-    projectDrawingsForFrame(store, definitions, createDrawingFrame(context, [drawing]))
-
-    expect(context.axisLabels.forSurface('xLabels').labels[0]?.text).toBe(
-      context.displayTimeFormatter.formatDateTime(start),
+    const projection = projectDrawingsForFrame(
+      store,
+      definitions,
+      createDrawingFrame(context, [drawing]),
     )
+
+    expect(
+      projection.axisLabels.filter((label) => label.kind === 'time').map((label) => label.text)[0],
+    ).toBe(context.displayTimeFormatter.formatDateTime(start))
   })
 
   /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
@@ -800,12 +797,11 @@ describe('projectDrawingsForFrame', () => {
   it.each(singleAnchorLabelCases)(
     'projects only the required axis label for a $label',
     ({ kind, anchors, yAxisPrices, xAxisLabelCount }) => {
-      const { context } = projectSingleAnchor(kind, anchors)
-      const yLabels = context.axisLabels
-        .forSurface('yRightOverlay', DRAWING_FRAME_AXIS_ID)
-        .labels.map((label) => (label.kind === 'tag' ? Number(label.text) : 0))
-      expect(yLabels).toEqual(yAxisPrices)
-      expect(context.axisLabels.forSurface('xLabels').labels).toHaveLength(xAxisLabelCount)
+      const { projection } = projectSingleAnchor(kind, anchors)
+      const priceLabels = projection.axisLabels.filter((label) => label.kind === 'value')
+      const timeLabels = projection.axisLabels.filter((label) => label.kind === 'time')
+      expect(priceLabels.map((label) => label.value)).toEqual(yAxisPrices)
+      expect(timeLabels).toHaveLength(xAxisLabelCount)
     },
   )
 

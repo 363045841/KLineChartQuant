@@ -65,18 +65,19 @@ describe('indicator timeline projection', () => {
           kind: 'line',
           id: 'a',
           label: 'A',
-          color: DEFAULT_DRAWING_STROKE,
           visible: true,
           size: ShapeSize.auto,
           offset: 1,
           dash: [4, 2],
-          data: [{ value: 2 }, { value: 3 }],
+          data: [
+            { value: 2, color: DEFAULT_DRAWING_STROKE },
+            { value: 3, color: DEFAULT_DRAWING_STROKE },
+          ],
         },
         {
           kind: 'candle',
           id: 'b',
           label: 'B',
-          color: DEFAULT_DRAWING_STROKE,
           visible: true,
           offset: 0,
           data: [ohlc, ohlc],
@@ -106,7 +107,12 @@ describe('indicator timeline projection', () => {
     expect(projected.plots[0]).toMatchObject({
       offset: 1,
       dash: [4, 2],
-      data: [undefined, { value: 2 }, undefined, { value: 3 }],
+      data: [
+        undefined,
+        { value: 2, color: DEFAULT_DRAWING_STROKE },
+        undefined,
+        { value: 3, color: DEFAULT_DRAWING_STROKE },
+      ],
     })
     expect(projected.plots[1]?.data).toEqual([undefined, ohlc, undefined, ohlc])
     expect(projected.fills[0]?.colors).toEqual([null, DEFAULT_DRAWING_STROKE, null, null])

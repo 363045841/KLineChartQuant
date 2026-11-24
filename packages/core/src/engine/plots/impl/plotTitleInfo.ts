@@ -1,15 +1,15 @@
 /** Plot 图例投影：从绘图数据直接读取当前点、标签和颜色。 */
 
-import { type Format, isOhlcPlot, ohlcPlotStart } from '@363045841yyt/klinechart-plot-contracts'
+import { isOhlcPlot, plotPointAt } from '@363045841yyt/klinechart-plot-contracts'
 import type { GetTitleInfoFn } from '@/engine/indicators/indicatorMetadata.js'
 import { formatPlotValue } from './plotValueFormat.js'
 import { isPlotRenderState } from './readPlotState.js'
 
 /**
  * 普通指标共用图例取值逻辑，不再读取各自的计算结果字段。
- * indicatorFormat 为指标级数值格式，plot 自带 format 时逐图覆盖它。
+ * 点色与数值格式已在产出时物化，图例只读 `plot.data[index]`。
  */
-export function createPlotTitleInfo(name: string, indicatorFormat?: Format): GetTitleInfoFn {
+export function createPlotTitleInfo(name: string): GetTitleInfoFn {
   return (_data, index, params, reader, instanceId) => {
     if (index === null) return null
     const state = reader.get(instanceId)
@@ -18,10 +18,11 @@ export function createPlotTitleInfo(name: string, indicatorFormat?: Format): Get
       .filter((plot) => plot.visible)
       .flatMap((plot) => {
         if (isOhlcPlot(plot)) {
-          const sourceIndex = index - plot.offset
-          const point = plot.data[sourceIndex]
-          if (!point || sourceIndex < ohlcPlotStart(plot)) return []
-          const color = point.color ?? point.borderColor ?? point.wickColor ?? plot.color
+          const point = plotPointAt(plot, index)
+          if (!point) return []
+          // OHLC 的实体、边框、影线是三个部件，取第一个可见部件作为图例色。
+          const color = point.color ?? point.borderColor ?? point.wickColor
+          if (color === null) return []
           return [
             { label: `${plot.label} O`, value: point.open, color },
             { label: `${plot.label} H`, value: point.high, color },
@@ -29,15 +30,16 @@ export function createPlotTitleInfo(name: string, indicatorFormat?: Format): Get
             { label: `${plot.label} C`, value: point.close, color },
           ]
         }
-        const point = plot.data[index - plot.offset]
+        const point = plotPointAt(plot, index)
         if (!point || !Number.isFinite(point.value)) return []
-        const format = plot.format ?? indicatorFormat
         return [
           {
             label: plot.label,
             value: point.value,
-            color: point.color ?? plot.color,
-            ...(format ? { formattedValue: formatPlotValue(format, point.value) } : {}),
+            color: point.color,
+            ...(plot.format === undefined
+              ? {}
+              : { formattedValue: formatPlotValue(plot.format, point.value) }),
           },
         ]
       })

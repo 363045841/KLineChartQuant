@@ -100,12 +100,15 @@ describe('Worker drawing transport', () => {
           kind: 'line',
           id: 'line',
           label: 'line',
-          color: 'inherit',
           visible: true,
           offset: -1,
           size: 'auto',
           dash: [],
-          data: [undefined, { value: NaN }, { value: -0, color: undefined, textColor: 'inherit' }],
+          data: [
+            undefined,
+            { value: NaN, color: 'inherit' },
+            { value: -0, color: 'inherit', textColor: 'inherit' },
+          ],
         },
       ],
       fills: [
@@ -162,17 +165,26 @@ it('keeps port-owned baselines correct across real thread calculations and failu
   }})`
   try {
     await worker.prepare('wire', source, [], true)
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1499 })
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+      value: 1499,
+      color: '@blue',
+    })
     const fullBytes = transfers.at(-1)![0]!
     expect(fullBytes).toBeGreaterThan(0)
     bars[1499]!.close = 1500
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1500 })
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+      value: 1500,
+      color: '@blue',
+    })
     // 后续 tick 只同步变化尾部，不再重发整段历史。
     expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
     bars[1499]!.close = -1
     await expect(worker.run('wire', bars)).rejects.toThrow('invalid-price')
     bars[1499]!.close = 1501
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({ value: 1501 })
+    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+      value: 1501,
+      color: '@blue',
+    })
     expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
     await worker.release('wire')
     await worker.prepare('wire', source, [], true)

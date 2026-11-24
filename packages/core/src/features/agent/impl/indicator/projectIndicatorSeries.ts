@@ -5,7 +5,7 @@
  */
 
 import type { IndicatorSeries, OhlcPlot, Plot } from '@363045841yyt/klinechart-plot-contracts'
-import { isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
+import { isOhlcPlot, plotPointAt } from '@363045841yyt/klinechart-plot-contracts'
 import { isTradingDate } from '@/data/provider/types.js'
 import type { IndicatorResult } from '@/engine/indicators/instances/domain/indicatorModel.js'
 import { isIndicatorSeries } from '@/engine/plots/impl/readPlotState.js'
@@ -53,7 +53,7 @@ function channelOf(plot: Plot): ReadonlyArray<Channel> {
     return columns.map(([field, read]) => ({
       column: { ...base, id: `${plot.id}.${field}` },
       read: (index) => {
-        const point = plot.data[index - plot.offset]
+        const point = plotPointAt(plot, index)
         return point === undefined ? null : read(point)
       },
     }))
@@ -74,7 +74,7 @@ function channelOf(plot: Plot): ReadonlyArray<Channel> {
     {
       column,
       read: (index) => {
-        const point = plot.data[index - plot.offset]
+        const point = plotPointAt(plot, index)
         return point?.value ?? null
       },
     },
